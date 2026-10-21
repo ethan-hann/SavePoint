@@ -10,6 +10,7 @@ public sealed class FileManagerTests : IDisposable
 
     private readonly string _root = Path.Combine(Path.GetTempPath(), "savepoint-filemanager-" + Guid.NewGuid().ToString("N"));
     private readonly FakeProcessRunner _runner = new();
+    private readonly FakeShellItemSelector _selector = new();
 
     public FileManagerTests()
     {
@@ -18,7 +19,7 @@ public sealed class FileManagerTests : IDisposable
 
     public void Dispose() => Directory.Delete(_root, recursive: true);
 
-    private FileManager For(OsKind os) => new(os, _runner, _explorer);
+    private FileManager For(OsKind os) => new(os, _runner, _explorer, _selector);
 
     private string NewFile(string name = "save.dat")
     {
@@ -35,18 +36,85 @@ public sealed class FileManagerTests : IDisposable
     }
 
     [Fact]
-    public void Windows_selects_a_file_in_Explorer()
+    public void Windows_selects_a_file_through_the_shell_without_a_command_line()
     {
         var file = NewFile();
 
         var started = For(OsKind.Windows).Reveal(file);
 
         Assert.True(started);
+        Assert.Equal([file], _selector.Selected);
+        Assert.Empty(_runner.Started);
+    }
+
+    [Fact]
+    public void A_comma_in_the_path_reaches_the_shell_untouched()
+    {
+        // Explorer's own /select, switch splits on commas, which is why the shell call is used.
+        var file = NewFile("save, copy (2), final.dat");
+
+        Assert.True(For(OsKind.Windows).Reveal(file));
+
+        Assert.Equal([file], _selector.Selected);
+        Assert.Empty(_runner.Started);
+    }
+
+    [Fact]
+    public void A_comma_in_a_folder_name_stays_inside_the_one_argument_Explorer_is_started_with()
+    {
+        var folder = NewFolder("Saves, backup");
+
+        Assert.True(For(OsKind.Windows).Reveal(folder));
+
+        Assert.Empty(_selector.Selected);
+        Assert.Equal([folder], Assert.Single(_runner.Started).Arguments);
+    }
+
+    [Fact]
+    public void When_the_shell_refuses_Windows_falls_back_to_starting_Explorer_with_an_argument_list()
+    {
+        _selector.Result = false;
+        var file = NewFile();
+
+        var started = For(OsKind.Windows).Reveal(file);
+
+        Assert.True(started);
+        Assert.Equal([file], _selector.Selected);
         var command = Assert.Single(_runner.Started);
         Assert.Equal(_explorer, command.FileName);
         Assert.Equal(["/select,", file], command.Arguments);
     }
 
+    [Fact]
+    public void When_the_shell_call_throws_Windows_falls_back_to_starting_Explorer()
+    {
+        _selector.Throws = new InvalidOperationException("boom");
+        var file = NewFile();
+
+        var error = Record.Exception(() => For(OsKind.Windows).Reveal(file));
+
+        Assert.Null(error);
+        Assert.Equal(["/select,", file], Assert.Single(_runner.Started).Arguments);
+    }
+
+    [Fact]
+    public void When_the_shell_refuses_and_Explorer_cannot_be_started_the_answer_is_false()
+    {
+        _selector.Result = false;
+        _runner.CanStart = false;
+
+        Assert.False(For(OsKind.Windows).Reveal(NewFile()));
+    }
+
+    [Theory]
+    [InlineData(OsKind.MacOS)]
+    [InlineData(OsKind.Linux)]
+    public void The_other_systems_never_ask_the_Windows_shell(OsKind os)
+    {
+        Assert.True(For(os).Reveal(NewFile()));
+
+        Assert.Empty(_selector.Selected);
+    }
     [Fact]
     public void Windows_opens_a_folder_in_Explorer()
     {
@@ -119,6 +187,13 @@ public sealed class FileManagerTests : IDisposable
 
         Assert.True(For(os).Reveal(file));
 
+        if (os == OsKind.Windows)
+        {
+            Assert.Equal([file], _selector.Selected);
+            Assert.Empty(_runner.Started);
+            return;
+        }
+
         var command = Assert.Single(_runner.Started);
         var expectedLast = os == OsKind.Linux ? _root : file;
         Assert.Equal(expectedLast, command.Arguments[^1]);
@@ -149,6 +224,7 @@ public sealed class FileManagerTests : IDisposable
 
         Assert.False(For(os).Reveal(missing));
         Assert.Empty(_runner.Started);
+        Assert.Empty(_selector.Selected);
     }
 
     [Theory]
@@ -173,6 +249,7 @@ public sealed class FileManagerTests : IDisposable
     public void A_file_manager_that_cannot_be_started_gives_false(OsKind os)
     {
         _runner.CanStart = false;
+        _selector.Result = false;
         var file = NewFile();
 
         Assert.False(For(os).Reveal(file));

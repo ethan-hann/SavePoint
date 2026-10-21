@@ -16,21 +16,23 @@ public interface IFileManager
 }
 
 /// <summary>
-/// Reveals paths with Explorer (<c>/select,</c>), Finder (<c>open -R</c>) or <c>xdg-open</c>. Every argument is passed as a
-/// list item, never joined into a shell string, and only an absolute path that exists is passed at all, so a path can
-/// never be mistaken for an option.
+/// Reveals paths with the Windows shell (<c>SHOpenFolderAndSelectItems</c>, falling back to Explorer's <c>/select,</c> switch),
+/// Finder (<c>open -R</c>) or <c>xdg-open</c>. Every argument is passed as a list item, never joined into a shell string, and only an
+/// absolute path that exists is passed at all, so a path can never be mistaken for an option.
 /// </summary>
 public sealed class FileManager : IFileManager
 {
     private readonly OsKind _os;
     private readonly IProcessRunner _runner;
     private readonly string _explorerPath;
+    private readonly IShellItemSelector _selector;
 
-    internal FileManager(OsKind os, IProcessRunner runner, string explorerPath)
+    internal FileManager(OsKind os, IProcessRunner runner, string explorerPath, IShellItemSelector selector)
     {
         _os = os;
         _runner = runner;
         _explorerPath = explorerPath;
+        _selector = selector;
     }
 
     /// <summary>The file manager of the OS the app runs on.</summary>
@@ -38,7 +40,8 @@ public sealed class FileManager : IFileManager
         new(
             PlatformFactory.CurrentOs,
             new SystemProcessRunner(),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe"));
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe"),
+            new NativeShellItemSelector());
 
     /// <inheritdoc />
     public bool Reveal(string path)
@@ -64,6 +67,12 @@ public sealed class FileManager : IFileManager
             return false;
         }
 
+        // Explorer's /select, switch splits on commas, so the shell is asked first, with the path as data; the switch is the fallback.
+        if (_os == OsKind.Windows && isFile && TrySelectWithShell(full))
+        {
+            return true;
+        }
+
         return _runner.TryStart(_os switch
         {
             OsKind.Windows => new ProcessCommand(_explorerPath, isFile ? ["/select,", full] : [full]),
@@ -71,5 +80,17 @@ public sealed class FileManager : IFileManager
             // xdg-open has no way to select a file, so a file shows up as its folder.
             _ => new ProcessCommand("xdg-open", [isFile ? Path.GetDirectoryName(full)! : full]),
         });
+    }
+
+    private bool TrySelectWithShell(string full)
+    {
+        try
+        {
+            return _selector.Select(full);
+        }
+        catch (Exception)
+        {
+            return false;
+        }
     }
 }
