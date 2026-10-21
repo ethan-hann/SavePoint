@@ -115,7 +115,7 @@ public sealed class CoreBackend
             new GamesApi(services, optimization),
             new ProfilesApi(services, optimization),
             launch?.Api ?? new UnavailableLaunchApi(),
-            new SettingsApi(services, optimization),
+            new SettingsApi(services, optimization, new StorageRelocator(services, options.AfterRelocationCopy), new DataClearer(services)),
             new HistoryApi(services),
             new AppStatusApi(services));
     }

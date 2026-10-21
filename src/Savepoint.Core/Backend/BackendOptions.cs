@@ -42,4 +42,7 @@ public sealed record BackendOptions
 
     /// <summary>Tuning for the git engine; its defaults when null. The clock is always replaced by <see cref="Time"/>.</summary>
     public GitEngineOptions? Engine { get; init; }
+
+    // Called with the source and the destination after each file of a storage move is copied and before it is verified; tests use it to inject faults.
+    internal Action<string, string>? AfterRelocationCopy { get; init; }
 }
