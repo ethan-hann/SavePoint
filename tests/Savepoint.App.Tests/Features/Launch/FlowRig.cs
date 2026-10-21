@@ -32,7 +32,7 @@ internal sealed class FlowRig : IDisposable
 
     public List<string> InlineChanges { get; } = [];
 
-    public List<EditGameRequest> EditRequests { get; } = [];
+    public List<string> EditRequests { get; } = [];
 
     public List<AppSettings> SavedSettings { get; } = [];
 

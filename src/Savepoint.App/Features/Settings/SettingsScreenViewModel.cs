@@ -4,6 +4,7 @@ using Savepoint.App.Features.Common;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Formatting;
+using Savepoint.App.Features.Common.Preferences;
 using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Shell;
 using Savepoint.Core.Api;
@@ -11,7 +12,8 @@ using Savepoint.Core.Api;
 namespace Savepoint.App.Features.Settings;
 
 /// <summary>What the Settings screen is built from.</summary>
-/// <param name="Settings">The settings Api.</param>
+/// <param name="Settings">The settings Api, for reading.</param>
+/// <param name="SettingsWriter">Saves every change; the same writer every other feature saves settings through.</param>
 /// <param name="Jobs">Follows storage moves, optimization and clearing.</param>
 /// <param name="Dialogs">Pickers and confirmations.</param>
 /// <param name="Text">Formats the copy.</param>
@@ -20,6 +22,7 @@ namespace Savepoint.App.Features.Settings;
 /// <param name="Environment">The machine: the notices file, the file manager and the version.</param>
 public sealed record SettingsDependencies(
     ISettingsApi Settings,
+    SettingsWriter SettingsWriter,
     IJobsApi Jobs,
     IDialogs Dialogs,
     UiFormatter Text,
@@ -51,7 +54,7 @@ public sealed partial class SettingsScreenViewModel : ObservableObject, IScreen
     public SettingsScreenViewModel(IShellContext shell, SettingsDependencies dependencies)
     {
         _deps = dependencies;
-        _store = new SettingsStore(dependencies.Settings, shell, dependencies.Toasts, dependencies.Text);
+        _store = new SettingsStore(dependencies.Settings, dependencies.SettingsWriter, shell, dependencies.Toasts, dependencies.Text);
         Storage = new StorageSectionViewModel(dependencies, _store);
         Appearance = new AppearanceSectionViewModel(_store, shell, dependencies.Text);
         Session = new SessionSectionViewModel(_store);

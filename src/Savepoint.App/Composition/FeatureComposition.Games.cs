@@ -18,6 +18,6 @@ public static partial class FeatureComposition
             context.Text,
             context.Toasts,
             context.Dispatcher,
-            TimeProvider.System,
+            context.Clock,
             editor));
 }

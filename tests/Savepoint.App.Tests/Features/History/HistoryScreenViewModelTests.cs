@@ -106,8 +106,8 @@ public class HistoryScreenViewModelTests
     {
         var rig = await HistoryRig.ShownAsync();
 
-        Assert.Equal($"Jul 5, 2026, 11:42 PM · {_modded}", rig.Screen.Saves[0].Detail);
-        Assert.Equal("May 30, 2026, 11:42 PM · Survival test - 5-14-26", rig.Screen.Saves[3].Detail);
+        Assert.Equal($"Jul 5, 11:42 PM · {_modded}", rig.Screen.Saves[0].Detail);
+        Assert.Equal("May 30, 11:42 PM · Survival test - 5-14-26", rig.Screen.Saves[3].Detail);
         Assert.Equal([true, false, false, false, false], rig.Screen.Saves.Select(row => row.IsLoaded));
         Assert.Equal([false, true, true, true, true], rig.Screen.Saves.Select(row => row.CanLoad));
     }
@@ -158,7 +158,7 @@ public class HistoryScreenViewModelTests
         Assert.Equal(Icons.Save, cards["Cleared Blackreach"].Icon);
         Assert.Equal(Icons.Extension, cards["14 mod files updated"].Icon);
         Assert.Equal(Icons.BookmarkAdd, cards["Fresh start with Nolvus"].Icon);
-        Assert.Equal("Jul 4, 2026, 8:15 PM", cards["Cleared Blackreach"].Date);
+        Assert.Equal("Sat Jul 4, 8:15 PM", cards["Cleared Blackreach"].Date);
     }
 
     [Fact]
@@ -184,6 +184,39 @@ public class HistoryScreenViewModelTests
         var begun = Assert.Single(rig.Flow!.Begun);
         Assert.Equal(MockupScenario.SkyrimId, begun.GameId);
         Assert.Equal(new LaunchTarget.Point(MockupScenario.ClearedBlackreach), begun.Target);
+    }
+
+    [Fact]
+    public async Task A_launch_that_gets_going_takes_the_player_to_Games_where_the_session_shows()
+    {
+        var rig = await HistoryRig.ShownAsync();
+        rig.Flow!.OnBegin = gameId => rig.Flow.SetActive(gameId, true);
+
+        rig.Screen.Saves.Single(r => r.Name == "Deep cave run").LoadCommand.Execute(null);
+
+        Assert.Equal(NavDestination.Games, rig.Shell.Destination);
+    }
+
+    [Fact]
+    public async Task A_launch_that_fails_before_starting_also_takes_the_player_to_Games_where_the_card_shows()
+    {
+        var rig = await HistoryRig.ShownAsync();
+        rig.Flow!.OnBegin = gameId => rig.Flow.Inline[gameId] = new object();
+
+        rig.Screen.Groups.SelectMany(group => group.Cards).Single(c => c.Name == "Cleared Blackreach").GoBackCommand.Execute(null);
+
+        Assert.Equal(NavDestination.Games, rig.Shell.Destination);
+    }
+
+    [Fact]
+    public async Task A_launch_the_player_backs_out_of_leaves_History_showing()
+    {
+        var rig = await HistoryRig.ShownAsync();
+
+        rig.Screen.Saves.Single(r => r.Name == "Deep cave run").LoadCommand.Execute(null);
+
+        Assert.Single(rig.Flow!.Begun);
+        Assert.Equal(NavDestination.History, rig.Shell.Destination);
     }
 
     [Fact]
@@ -323,6 +356,30 @@ public class HistoryScreenViewModelTests
 
         Assert.Equal(HistoryState.Loaded, rig.Screen.State);
         Assert.False(rig.Screen.IsFilteredEmpty);
+    }
+
+    [Fact]
+    public async Task The_filter_stays_offered_while_the_chosen_profile_has_no_points_so_another_can_be_picked()
+    {
+        var rig = await HistoryRig.ShownAsync(WithEmptyProfile());
+        Assert.True(rig.Screen.ShowFilter);
+
+        rig.Screen.SelectedFilter = rig.Screen.Filters.Single(filter => filter.ProfileId == "profile-empty");
+
+        Assert.True(rig.Screen.IsFilteredEmpty);
+        Assert.True(rig.Screen.ShowFilter);
+        Assert.Equal("Filter by profile: Fresh profile", rig.Screen.FilterAutomationName);
+    }
+
+    [Fact]
+    public async Task A_game_with_no_points_at_all_offers_no_filter()
+    {
+        var rig = await HistoryRig.StartAsync();
+        rig.Shell.SelectGame(MockupScenario.SatisfactoryId);
+
+        rig.Show();
+
+        Assert.False(rig.Screen.ShowFilter);
     }
 
     [Fact]

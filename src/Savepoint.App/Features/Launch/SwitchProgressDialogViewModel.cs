@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Savepoint.App.Features.Common.Accessibility;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.Core.Api;
@@ -14,13 +15,11 @@ namespace Savepoint.App.Features.Launch;
 /// </summary>
 public sealed partial class SwitchProgressDialogViewModel : DialogViewModel<bool>
 {
-    private static readonly int[] _quarters = [25, 50, 75];
-
     private readonly UiFormatter _text;
     private readonly TimeProvider _clock;
     private readonly Func<Task<bool>> _cancel;
     private DateTimeOffset? _firstReport;
-    private int _lastAnnounced;
+    private readonly ProgressMilestones _milestones = new();
 
     /// <summary>True while the bar has no total to fill against.</summary>
     [ObservableProperty]
@@ -139,11 +138,8 @@ public sealed partial class SwitchProgressDialogViewModel : DialogViewModel<bool
         var percent = (int)Math.Floor(PercentValue);
         PercentText = _text.Message("launch.progress.percent", ("percent", percent));
 
-        // Only the highest quarter crossed since the last report is spoken, so a jump does not queue several lines.
-        var crossed = _quarters.Where(quarter => quarter <= percent && quarter > _lastAnnounced).DefaultIfEmpty(0).Max();
-        if (crossed > 0)
+        if (_milestones.Crossed(percent) is { } crossed)
         {
-            _lastAnnounced = crossed;
             Announcement = _text.Message("launch.progress.announcePercent", ("percent", crossed));
         }
     }

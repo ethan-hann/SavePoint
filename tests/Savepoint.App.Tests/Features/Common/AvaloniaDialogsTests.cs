@@ -1,5 +1,9 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Savepoint.App.Features.Common.Dialogs;
@@ -11,6 +15,8 @@ namespace Savepoint.App.Tests.Features.Common;
 
 public class AvaloniaDialogsTests
 {
+    private static string OutputFolder => Path.Combine(ThemeTestSupport.RepoRoot(), "render-output", "common");
+
     private static readonly ConfirmRequest _delete = new("Delete Skyrim?", "This can't be undone.", "Delete game", Destructive: true);
 
     [AvaloniaFact]
@@ -90,6 +96,42 @@ public class AvaloniaDialogsTests
     }
 
     [AvaloniaFact]
+    public void A_focused_footer_button_at_the_edge_of_a_dialog_keeps_its_whole_focus_ring()
+    {
+        using var harness = new Harness();
+        _ = harness.Dialogs.ConfirmAsync(_delete);
+        harness.Settle();
+        var confirm = harness.Button("ConfirmButton");
+
+        confirm.Focus(NavigationMethod.Tab);
+        harness.Settle();
+        var frame = ThemeTestSupport.Render(harness.Window);
+        var origin = confirm.TranslatePoint(new Point(0, 0), harness.Window)!.Value;
+        var right = (int)Math.Round(origin.X + confirm.Bounds.Width);
+        var bottom = (int)Math.Round(origin.Y + confirm.Bounds.Height);
+        var middleX = (int)(origin.X + (confirm.Bounds.Width / 2));
+        var middleY = (int)(origin.Y + (confirm.Bounds.Height / 2));
+
+        Directory.CreateDirectory(OutputFolder);
+        frame.Save(Path.Combine(OutputFolder, "dialog-focused-footer-button-dark.png"), new PngBitmapEncoderOptions());
+
+        // The ring is two pixels thick, two pixels out from the button on every side; its curved edge is anti-aliased.
+        var primary = Color.Parse("#9DCBFB");
+        AssertNear(primary, ThemeTestSupport.PixelAt(frame, right + 2, middleY));
+        AssertNear(primary, ThemeTestSupport.PixelAt(frame, right + 3, middleY));
+        AssertNear(primary, ThemeTestSupport.PixelAt(frame, middleX, bottom + 2));
+        AssertNear(primary, ThemeTestSupport.PixelAt(frame, middleX, bottom + 3));
+    }
+
+    private static void AssertNear(Color expected, Color actual)
+    {
+        const int tolerance = 24;
+        Assert.True(
+            Math.Abs(expected.R - actual.R) <= tolerance && Math.Abs(expected.G - actual.G) <= tolerance && Math.Abs(expected.B - actual.B) <= tolerance,
+            $"Expected a pixel near {expected} but found {actual}.");
+    }
+
+    [AvaloniaFact]
     public void Without_a_typed_word_the_field_is_not_shown()
     {
         using var harness = new Harness();
@@ -143,6 +185,8 @@ public class AvaloniaDialogsTests
         public AvaloniaDialogs Dialogs { get; }
 
         public DialogHostView View { get; }
+
+        public Window Window => _host.Window;
 
         public Border Chrome => View.FindControl<Border>("Chrome")!;
 

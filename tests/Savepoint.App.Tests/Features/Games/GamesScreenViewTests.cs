@@ -156,6 +156,31 @@ public class GamesScreenViewTests
     }
 
     [AvaloniaFact]
+    public async Task Delete_game_stays_locked_until_the_games_name_is_typed()
+    {
+        using var harness = await GamesViewHarness.StartAsync();
+
+        var deleting = harness.Rig.Screen.DeleteGameCommand.ExecuteAsync(null);
+        harness.Settle();
+        var confirm = Assert.IsType<ConfirmDialogViewModel>(harness.Dialogs.Current);
+        var field = harness.Find<TextBox>("TypedField");
+        var button = harness.Find<Button>("ConfirmButton");
+
+        Assert.True(field.IsEffectivelyVisible);
+        Assert.Equal("Type Skyrim Special Edition to confirm.", AutomationProperties.GetName(field));
+        Assert.False(button.IsEffectivelyEnabled);
+
+        field.Text = "skyrim special edition";
+        harness.Settle();
+
+        Assert.True(confirm.CanConfirm);
+        Assert.True(button.IsEffectivelyEnabled);
+        button.Command!.Execute(null);
+        await deleting;
+        Assert.Single(harness.Rig.Backend.Calls.To<IGamesApi>(nameof(IGamesApi.DeleteAsync)));
+    }
+
+    [AvaloniaFact]
     public async Task The_header_overflow_offers_delete_game()
     {
         using var harness = await GamesViewHarness.StartAsync();
@@ -372,7 +397,7 @@ public class GamesScreenViewTests
     }
 
     [AvaloniaFact]
-    public async Task The_launch_flows_content_shows_above_the_table()
+    public async Task The_launch_flows_content_shows_below_the_table()
     {
         using var harness = await GamesViewHarness.StartAsync();
         var host = harness.Find<ContentControl>("InlineContentHost");
@@ -383,7 +408,8 @@ public class GamesScreenViewTests
 
         Assert.True(host.IsEffectivelyVisible);
         Assert.Contains("Everything was already in place", harness.VisibleTexts());
-        Assert.True(host.TranslatePoint(new Point(0, 0), harness.Find<Border>("Table"))!.Value.Y < 0);
+        var table = harness.Find<Border>("Table");
+        Assert.True(host.TranslatePoint(new Point(0, 0), table)!.Value.Y >= table.Bounds.Height);
     }
 
     [AvaloniaFact]
