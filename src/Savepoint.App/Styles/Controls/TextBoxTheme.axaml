@@ -8,13 +8,13 @@
   <ControlTheme x:Key="{x:Type TextBox}" TargetType="TextBox">
     <Setter Property="Foreground" Value="{DynamicResource Md3OnSurfaceBrush}" />
     <Setter Property="Background" Value="{DynamicResource Md3SurfaceContainerLowBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource Md3OutlineVariantBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Md3FieldBorderBrush}" />
     <Setter Property="BorderThickness" Value="{DynamicResource Md3BorderThin}" />
     <Setter Property="CornerRadius" Value="{DynamicResource Md3RadiusControl}" />
     <Setter Property="CaretBrush" Value="{DynamicResource Md3PrimaryBrush}" />
     <Setter Property="SelectionBrush" Value="{DynamicResource Md3PrimaryContainerBrush}" />
     <Setter Property="SelectionForegroundBrush" Value="{DynamicResource Md3OnPrimaryContainerBrush}" />
-    <Setter Property="PlaceholderForeground" Value="{DynamicResource Md3OutlineBrush}" />
+    <Setter Property="PlaceholderForeground" Value="{DynamicResource Md3SubtleTextBrush}" />
     <Setter Property="Padding" Value="12,9" />
     <Setter Property="MinHeight" Value="0" />
     <Setter Property="FocusAdorner" Value="{DynamicResource Md3FocusRingNone}" />

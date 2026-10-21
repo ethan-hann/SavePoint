@@ -93,7 +93,7 @@
   <Style Selector="ListBox.segmented-tray ListBoxItem">
     <Setter Property="Padding" Value="11,6" />
     <Setter Property="CornerRadius" Value="{DynamicResource Md3RadiusSmall}" />
-    <Setter Property="Foreground" Value="{DynamicResource Md3OutlineBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource Md3SubtleTextBrush}" />
     <Setter Property="FontSize" Value="12" />
   </Style>
   <Style Selector="ListBox.segmented-tray ListBoxItem:selected">

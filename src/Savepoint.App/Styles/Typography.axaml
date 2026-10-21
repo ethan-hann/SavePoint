@@ -38,14 +38,14 @@
     <Setter Property="FontSize" Value="12.5" />
     <Setter Property="FontWeight" Value="Medium" />
   </Style>
-  <!-- Secondary text: caption 12 in onSurfaceVariant, timestamp 11.5 in outline. -->
+  <!-- Secondary text: caption 12 in onSurfaceVariant, timestamp 11.5 in the subtle text color. -->
   <Style Selector="TextBlock.caption">
     <Setter Property="FontSize" Value="12" />
     <Setter Property="Foreground" Value="{DynamicResource Md3OnSurfaceVariantBrush}" />
   </Style>
   <Style Selector="TextBlock.timestamp">
     <Setter Property="FontSize" Value="11.5" />
-    <Setter Property="Foreground" Value="{DynamicResource Md3OutlineBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource Md3SubtleTextBrush}" />
   </Style>
 
   <!-- Uppercase labels: the catalog holds normal case, so pair these with {theme:Upper {loc:Loc ...}}. -->
@@ -53,13 +53,13 @@
     <Setter Property="FontSize" Value="11" />
     <Setter Property="FontWeight" Value="Medium" />
     <Setter Property="LetterSpacing" Value="0.5" />
-    <Setter Property="Foreground" Value="{DynamicResource Md3OutlineBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource Md3SubtleTextBrush}" />
   </Style>
   <Style Selector="TextBlock.overline-small">
     <Setter Property="FontSize" Value="10.5" />
     <Setter Property="FontWeight" Value="Medium" />
     <Setter Property="LetterSpacing" Value="0.5" />
-    <Setter Property="Foreground" Value="{DynamicResource Md3OutlineBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource Md3SubtleTextBrush}" />
   </Style>
 
   <!-- Paths, patterns and file names. -->
@@ -79,7 +79,7 @@
     <Setter Property="Foreground" Value="{DynamicResource Md3OnSurfaceVariantBrush}" />
   </Style>
   <Style Selector="TextBlock.subtle">
-    <Setter Property="Foreground" Value="{DynamicResource Md3OutlineBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource Md3SubtleTextBrush}" />
   </Style>
   <Style Selector="TextBlock.accent">
     <Setter Property="Foreground" Value="{DynamicResource Md3PrimaryBrush}" />

@@ -13,7 +13,7 @@
       <Setter Property="FontSize" Value="12.5" />
       <Setter Property="FontWeight" Value="Medium" />
       <Setter Property="LetterSpacing" Value="0.5" />
-      <Setter Property="Foreground" Value="{DynamicResource Md3OutlineBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource Md3SubtleTextBrush}" />
       <Setter Property="Margin" Value="0,0,0,8" />
     </Style>
 

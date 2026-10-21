@@ -31,6 +31,7 @@ public static class ThemeRoles
     /// <item>Error, Warning and Success CalloutBackground and CalloutBorder: a muted tint of the family hue.</item>
     /// <item>Translucent: ScrimOverlay (scrim at 45%), StateHover and StatePressed (on-surface at 8% and 12%), DisabledContainer (12%), DisabledContent (38%), ProgressTrack, ScrollThumb, ScrollThumbHover, ScrollThumbPressed.</item>
     /// <item>Opaque derived: SelectedRow (surface tinted toward primary), Card (the card surface) and Recessed (a well inside a card or dialog).</item>
+    /// <item>Contrast roles: SubtleText (quiet text, 4.5:1 on every surface) and FieldBorder (an input's border and the off switch, 3:1 on every surface).</item>
     /// <item>Seed colors: SeedBlue, SeedViolet, SeedGreen, SeedAmber and SeedCrimson, the raw preset values for swatches.</item>
     /// </list>
     /// </summary>
@@ -70,6 +71,12 @@ public static class ThemeRoles
         // A well inside a card or dialog: Surface is nearly the light card's own tone, so light mode steps to a container tone.
         roles["Recessed"] = dark ? palette.Surface : palette.SurfaceContainerLow;
 
+        // Quiet text (timestamps, overlines, placeholders) is outline's hue stepped to a tone that reaches 4.5:1 on every surface.
+        roles["SubtleText"] = AtTone(palette.Outline, dark ? 70 : 40);
+
+        // The border of an input and the off switch, drawn against the page, cards, dialogs and toasts at 3:1 or better.
+        roles["FieldBorder"] = palette.Outline;
+
         // The preset colors as drawn, for swatches: they never follow the applied accent or mode.
         foreach (var accent in Enum.GetValues<AccentColorId>())
         {
@@ -94,6 +101,12 @@ public static class ThemeRoles
     {
         roles[$"{name}CalloutBackground"] = TonalPalette.FromHueAndChroma(hue, _calloutFillChroma).Tone(dark ? 19 : 94);
         roles[$"{name}CalloutBorder"] = TonalPalette.FromHueAndChroma(hue, _calloutBorderChroma).Tone(dark ? 33 : 80);
+    }
+
+    private static uint AtTone(uint argb, double tone)
+    {
+        var hct = Hct.FromInt(argb);
+        return TonalPalette.FromHueAndChroma(hct.Hue, hct.Chroma).Tone(tone);
     }
 
     private static uint WithOpacity(uint argb, double opacity) =>
