@@ -1,0 +1,62 @@
+namespace Savepoint.App.Tests.Localization;
+
+// The UI always supplies `os` (windows, macos or linux) when it formats a message, so messages may use {os, select, ...}.
+// Catalog keys are never composed at run time ("error." + x, $"error.{x}"); the unused-key scan only sees literal keys.
+public class CatalogLintTests
+{
+    [Fact]
+    public void English_catalog_has_no_banned_vocabulary()
+    {
+        LintAssert.NoProblems(CatalogLint.BannedVocabulary(CatalogLint.English()));
+    }
+
+    [Fact]
+    public void Every_english_message_parses_and_formats()
+    {
+        LintAssert.NoProblems(CatalogLint.FormatProblems("en", CatalogLint.English()));
+    }
+
+    [Fact]
+    public void Every_key_used_in_source_exists_in_the_catalog()
+    {
+        LintAssert.NoProblems(SourceLint.MissingKeys(SourceLint.CatalogReferences(), CatalogLint.English().Keys.ToList()));
+    }
+
+    [Fact]
+    public void Every_catalog_key_is_used_in_source()
+    {
+        LintAssert.NoProblems(SourceLint.UnusedKeys(CatalogLint.English().Keys.ToList(), SourceLint.UsedKeys()));
+    }
+
+    [Fact]
+    public void Source_never_builds_catalog_keys_at_run_time()
+    {
+        var namespaces = CatalogLint.English().Keys
+            .Select(key => key[..key.IndexOf('.', StringComparison.Ordinal)])
+            .Concat(["error", "validation"])
+            .Distinct()
+            .ToList();
+
+        var problems = SourceLint.SourceFiles(".cs")
+            .SelectMany(path => SourceLint.DynamicKeyConstruction(SourceLint.RelativePath(path), File.ReadAllText(path), namespaces))
+            .ToList();
+
+        LintAssert.NoProblems(problems);
+    }
+
+    [Fact]
+    public void Source_xaml_has_no_hardcoded_text()
+    {
+        var problems = SourceLint.SourceFiles(".axaml")
+            .SelectMany(path => SourceLint.HardcodedXamlText(SourceLint.RelativePath(path), File.ReadAllText(path)))
+            .ToList();
+
+        LintAssert.NoProblems(problems);
+    }
+
+    [Fact]
+    public void Additional_locale_files_match_english()
+    {
+        LintAssert.NoProblems(CatalogLint.AdditionalLocaleProblems(SourceLint.LangDirectory()));
+    }
+}
