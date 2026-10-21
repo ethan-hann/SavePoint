@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Savepoint.Core/Savepoint.Core.csproj" />
+    <Project Path="src/Savepoint.App/Savepoint.App.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Savepoint.Core.Tests/Savepoint.Core.Tests.csproj" />
+    <Project Path="tests/Savepoint.App.Tests/Savepoint.App.Tests.csproj" />
+  </Folder>
+</Solution>
