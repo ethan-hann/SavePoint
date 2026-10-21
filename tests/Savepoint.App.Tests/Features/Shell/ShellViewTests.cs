@@ -351,8 +351,9 @@ public class ShellViewTests
         var requests = 0;
         harness.Shell.AddGameRequested += (_, _) => requests++;
 
-        harness.Find<Button>("AddFirstGameButton").Command!.Execute(null);
+        // The template button goes first: "Add your first game" opens the editor pane, which takes the first-run view out of the tree.
         harness.Find<Button>("StartFromTemplateButton").Command!.Execute(null);
+        harness.Find<Button>("AddFirstGameButton").Command!.Execute(null);
         harness.Settle();
 
         Assert.Equal(1, requests);
