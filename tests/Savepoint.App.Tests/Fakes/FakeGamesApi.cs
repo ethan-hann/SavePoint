@@ -62,8 +62,8 @@ public sealed class FakeGamesApi : IGamesApi
             return OperationResult.Success(definition);
         });
 
-    public Task<OperationResult<GameDefinition>> UpdateAsync(GameDefinition definition) =>
-        _backend.Call(_api, nameof(UpdateAsync), [definition], () =>
+    public Task<OperationResult<GameDefinition>> UpdateAsync(GameDefinition definition, bool confirmFolderChange = false) =>
+        _backend.Call(_api, nameof(UpdateAsync), [definition, confirmFolderChange], () =>
         {
             var index = State.Games.FindIndex(g => g.Id == definition.Id);
             if (index < 0)

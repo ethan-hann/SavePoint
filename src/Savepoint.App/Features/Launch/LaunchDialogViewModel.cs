@@ -239,7 +239,10 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
             text.Message("launch.dialog.unsavedBody", ("count", folder.DirtyFileCount), ("role", role)),
             folder.DirtyOwnerProfileId is not null,
             SaveFirstAsync,
-            DiscardAsync);
+            DiscardAsync,
+            folder.Path,
+            folder.DirtyNewFileCount,
+            folder.DirtyFileCount - folder.DirtyNewFileCount);
         block.PropertyChanged += OnBlockPropertyChanged;
         UnsavedBlocks.Add(block);
     }
@@ -300,12 +303,31 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
         }
     }
 
+    // Names the folder and says how many files go and how many come back, because the discard cannot be undone.
+    private string DiscardMessage(UnsavedChangesBlockViewModel block)
+    {
+        var text = _deps.Text;
+        List<string> sentences = [text.Message("launch.dialog.discardMessage", ("role", block.Role == RepoRole.Install ? "install" : "external"), ("path", block.Path))];
+        if (block.RemovedFileCount > 0)
+        {
+            sentences.Add(text.Message("launch.dialog.discardRemoves", ("count", block.RemovedFileCount)));
+        }
+
+        if (block.RestoredFileCount > 0)
+        {
+            sentences.Add(text.Message("launch.dialog.discardRestores", ("count", block.RestoredFileCount)));
+        }
+
+        sentences.Add(text.Message("launch.dialog.discardUndo"));
+        return string.Join(' ', sentences);
+    }
+
     private async Task DiscardAsync(UnsavedChangesBlockViewModel block)
     {
         var text = _deps.Text;
         var confirmed = await _deps.Dialogs.ConfirmAsync(new ConfirmRequest(
             text.Message("launch.dialog.discardTitle"),
-            text.Message("launch.dialog.discardMessage"),
+            DiscardMessage(block),
             text.Message("launch.dialog.discardConfirm"),
             Destructive: true));
         if (!confirmed)

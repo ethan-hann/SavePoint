@@ -190,7 +190,7 @@ public static class MockupScenario
             SurvivalId,
             new LaunchTarget.ProfileTip(SurvivalId),
             new FolderLaunchState(RepoRole.Install, SkyrimInstall, false, false, 0, null, new SwitchSummary(1_311, 189, 6_100_000_000, TimeSpan.FromMinutes(2))),
-            new FolderLaunchState(RepoRole.External, SkyrimSaves, false, true, 3, SurvivalId, new SwitchSummary(16, 0, 412_000_000, null)),
+            new FolderLaunchState(RepoRole.External, SkyrimSaves, false, true, 3, SurvivalId, new SwitchSummary(16, 0, 412_000_000, null), DirtyNewFileCount: 2),
             new InstallState("1.6.1170", 0),
             survival189,
             [

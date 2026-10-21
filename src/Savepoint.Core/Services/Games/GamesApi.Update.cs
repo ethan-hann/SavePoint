@@ -1,4 +1,5 @@
 using Savepoint.Core.Api;
+using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Git;
@@ -8,10 +9,10 @@ namespace Savepoint.Core.Services.Games;
 
 internal sealed partial class GamesApi
 {
-    public Task<OperationResult<GameDefinition>> UpdateAsync(GameDefinition definition) =>
-        ApiGuard.RunAsync(() => UpdateCoreAsync(definition));
+    public Task<OperationResult<GameDefinition>> UpdateAsync(GameDefinition definition, bool confirmFolderChange = false) =>
+        ApiGuard.RunAsync(() => UpdateCoreAsync(definition, confirmFolderChange));
 
-    private async Task<GameDefinition> UpdateCoreAsync(GameDefinition definition)
+    private async Task<GameDefinition> UpdateCoreAsync(GameDefinition definition, bool confirmFolderChange)
     {
         var edited = CatalogValidator.RequireValid(definition);
         return await _services.RunForGameAsync(
@@ -24,6 +25,11 @@ internal sealed partial class GamesApi
                 Vet(storage, edited, folders, others);
 
                 var before = GameFolders.ResolveLoosely(_services.PathTokens, existing);
+                if (!confirmFolderChange)
+                {
+                    await RequireMatchingFoldersAsync(storage, existing.Id, before, folders).ConfigureAwait(false);
+                }
+
                 var claimed = new List<GameFolder>();
                 var made = new List<RepoRef>();
                 try
@@ -70,6 +76,48 @@ internal sealed partial class GamesApi
                     throw;
                 }
             }).ConfigureAwait(false);
+    }
+
+    // A folder with history that is pointed somewhere else has to look like the folder it replaces: at least half of the files its
+    // newest point recorded must be there at the same relative paths, or the player has most likely picked the wrong folder.
+    private async Task RequireMatchingFoldersAsync(StorageSnapshot storage, string gameId, IReadOnlyList<GameFolder> before, IReadOnlyList<GameFolder> folders)
+    {
+        foreach (var folder in folders)
+        {
+            var old = before.FirstOrDefault(previous => previous.Role == folder.Role);
+            if (old?.Path is null || SamePath(old.Path, folder.Path!))
+            {
+                continue;
+            }
+
+            var recorded = await NewestPointFilesAsync(storage, GameFolders.Repo(storage, gameId, folder)).ConfigureAwait(false);
+            if (recorded.Count == 0)
+            {
+                continue;
+            }
+
+            var present = await Task.Run(() => recorded.Count(path => File.Exists(Path.Combine(folder.Path!, path.Replace('/', Path.DirectorySeparatorChar))))).ConfigureAwait(false);
+            if (present * 2 < recorded.Count)
+            {
+                throw new FolderMismatchException(folder.Role, folder.Path!, present, recorded.Count);
+            }
+        }
+    }
+
+    // The files of the newest point on any branch of the folder's history; none when it has no point yet.
+    private static async Task<IReadOnlyList<string>> NewestPointFilesAsync(StorageSnapshot storage, RepoRef repo)
+    {
+        CommitInfo? newest = null;
+        foreach (var branch in await storage.Engine.ListBranchesAsync(repo).ConfigureAwait(false))
+        {
+            var tip = (await storage.Engine.ListCommitsAsync(repo, branch, 1).ConfigureAwait(false)).FirstOrDefault();
+            if (tip is not null && (newest is null || tip.Date > newest.Date))
+            {
+                newest = tip;
+            }
+        }
+
+        return newest is null ? [] : await storage.Engine.ListTreeFilesAsync(repo, newest.Id).ConfigureAwait(false);
     }
 
     private bool SamePath(string left, string right) =>

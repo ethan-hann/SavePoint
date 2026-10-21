@@ -32,6 +32,7 @@ public class ErrorCopyTests
             new OperationCancelledByUserException(CancelledOperation.Launch, "game-1"),
             new OperationCancelledByUserException(CancelledOperation.StorageRelocation, null),
             new GameOverlapException("game-2", "Beta"),
+            new FolderMismatchException(RepoRole.External, "/games/alpha/saves", 3, 212),
             new ProfileActiveException("profile-1"),
             new ReconnectableGameException("game-2", roles, branches),
             new GameRunningException("game-1", "Alpha"),

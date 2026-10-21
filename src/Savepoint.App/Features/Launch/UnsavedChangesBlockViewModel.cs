@@ -29,14 +29,23 @@ public sealed partial class UnsavedChangesBlockViewModel : ObservableObject
     /// <param name="canSaveFirst">Whether the changes belong to a profile, which is what "Save them first" needs.</param>
     /// <param name="saveFirst">Saves the changes into their profile.</param>
     /// <param name="discard">Discards the changes after confirming.</param>
+    /// <param name="path">The folder's full path, named in the discard confirmation.</param>
+    /// <param name="removedFileCount">How many new files a discard deletes.</param>
+    /// <param name="restoredFileCount">How many changed or removed files a discard puts back.</param>
     public UnsavedChangesBlockViewModel(
         RepoRole role,
         string title,
         string body,
         bool canSaveFirst,
         Func<UnsavedChangesBlockViewModel, Task> saveFirst,
-        Func<UnsavedChangesBlockViewModel, Task> discard)
+        Func<UnsavedChangesBlockViewModel, Task> discard,
+        string path,
+        int removedFileCount,
+        int restoredFileCount)
     {
+        Path = path;
+        RemovedFileCount = removedFileCount;
+        RestoredFileCount = restoredFileCount;
         Role = role;
         Title = title;
         Body = body;
@@ -47,6 +56,15 @@ public sealed partial class UnsavedChangesBlockViewModel : ObservableObject
 
     /// <summary>The folder the changes are in.</summary>
     public RepoRole Role { get; }
+
+    /// <summary>The folder's full path.</summary>
+    public string Path { get; }
+
+    /// <summary>How many new files a discard deletes.</summary>
+    public int RemovedFileCount { get; }
+
+    /// <summary>How many changed or removed files a discard puts back.</summary>
+    public int RestoredFileCount { get; }
 
     /// <summary>The callout's headline.</summary>
     public string Title { get; }

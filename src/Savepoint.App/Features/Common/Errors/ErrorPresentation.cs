@@ -43,6 +43,7 @@ public static class ErrorPresentation
         ["error.diskSpace.low"] = new(Icons.Storage, ErrorTone.Warning, "errorCard.title.noRoom"),
         ["error.game.notFound"] = new(Icons.Info, ErrorTone.Neutral, "errorCard.title.notFound"),
         ["error.gameService.gameRunning"] = new(Icons.SportsEsports, ErrorTone.Warning, "errorCard.title.gameRunning"),
+        ["error.gameService.folderMismatch"] = new(Icons.Folder, ErrorTone.Warning, "errorCard.title.folderLooksWrong"),
         ["error.gameService.pathOverlap"] = new(Icons.Block, ErrorTone.Error, "errorCard.title.folderOverlaps"),
         ["error.gameService.profileActive"] = new(Icons.Info, ErrorTone.Neutral, "errorCard.title.profileActive"),
         ["error.gameService.reconnectable"] = new(Icons.History, ErrorTone.Neutral, "errorCard.title.historyFound"),

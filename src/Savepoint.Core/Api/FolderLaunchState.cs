@@ -13,6 +13,10 @@ namespace Savepoint.Core.Api;
 /// which is when "Keep as a new profile" applies.
 /// </param>
 /// <param name="Switch">What switching the folder would change; null when the folder already matches the target.</param>
+/// <param name="DirtyNewFileCount">
+/// How many of <paramref name="DirtyFileCount"/> are new files, which a discard deletes; the rest are changed or removed files,
+/// which a discard puts back. 0 when <paramref name="Dirty"/> is false.
+/// </param>
 public sealed record FolderLaunchState(
     RepoRole Role,
     string Path,
@@ -20,4 +24,5 @@ public sealed record FolderLaunchState(
     bool Dirty,
     int DirtyFileCount,
     string? DirtyOwnerProfileId,
-    SwitchSummary? Switch);
+    SwitchSummary? Switch,
+    int DirtyNewFileCount = 0);

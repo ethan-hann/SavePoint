@@ -65,5 +65,8 @@
   "gameEditor.save": "Save changes",
   "gameEditor.suggestions.found": "Found in the game folder:",
   "gameEditor.title.create": "Add a game",
-  "gameEditor.title.edit": "Edit {name}"
+  "gameEditor.title.edit": "Edit {name}",
+  "gameEditor.folderMismatch.title": "Is this the right folder?",
+  "gameEditor.folderMismatch.message": "The {role, select, install {game install folder} external {saves folder} other {folder}} you picked, {path}, holds only {presentCount} of the {recordedCount} files SavePoint last saved for it. If it is the wrong folder, switching profiles or discarding changes could remove files that belong to something else there. Use this folder anyway?",
+  "gameEditor.folderMismatch.confirm": "Use this folder anyway"
 }

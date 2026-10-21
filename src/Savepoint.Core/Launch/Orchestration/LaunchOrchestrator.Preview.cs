@@ -67,7 +67,8 @@ public sealed partial class LaunchOrchestrator
             reading.Dirty,
             reading.DirtyFileCount,
             reading.DirtyOwnerProfileId,
-            reading.Matches ? null : await SwitchSummaryAsync(storage, game, reading, cancellationToken).ConfigureAwait(false));
+            reading.Matches ? null : await SwitchSummaryAsync(storage, game, reading, cancellationToken).ConfigureAwait(false),
+            reading.DirtyNewFileCount);
 
     // What the switch would write or remove, read from the two points alone.
     private async Task<SwitchSummary> SwitchSummaryAsync(StorageSnapshot storage, GameDefinition game, FolderReading reading, CancellationToken cancellationToken)

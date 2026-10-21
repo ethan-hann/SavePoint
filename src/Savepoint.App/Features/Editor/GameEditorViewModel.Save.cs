@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.Input;
+using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 
@@ -44,7 +45,7 @@ public sealed partial class GameEditorViewModel
             return;
         }
 
-        var result = IsEditing ? await _games.UpdateAsync(definition) : await AddNewAsync(definition);
+        var result = IsEditing ? await UpdateEditedAsync(definition) : await AddNewAsync(definition);
         if (result is null)
         {
             return;
@@ -58,6 +59,24 @@ public sealed partial class GameEditorViewModel
         {
             ShowSaveError(result.Error, resolved);
         }
+    }
+
+    // Null when the user backed out of the question that a moved folder can raise: a folder with history that now points at a
+    // place holding few of its files may be the wrong one, and saving it is the user's call.
+    private async Task<OperationResult<GameDefinition>?> UpdateEditedAsync(GameDefinition definition)
+    {
+        var result = await _games.UpdateAsync(definition);
+        if (result.Ok || result.Error.MessageId != "error.gameService.folderMismatch")
+        {
+            return result;
+        }
+
+        var confirmed = await _dialogs.ConfirmAsync(new ConfirmRequest(
+            _text.Message("gameEditor.folderMismatch.title"),
+            _text.Message("gameEditor.folderMismatch.message", result.Error.Args),
+            _text.Message("gameEditor.folderMismatch.confirm"),
+            Destructive: true));
+        return confirmed ? await _games.UpdateAsync(definition, confirmFolderChange: true) : null;
     }
 
     // Null when the user backed out of the question that adding can raise.

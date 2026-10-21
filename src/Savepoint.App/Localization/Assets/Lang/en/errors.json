@@ -9,6 +9,7 @@
   "error.consentMarker.missing": "This folder has not been confirmed for SavePoint yet. Save again to confirm it.",
   "error.diskSpace.low": "There's not enough free disk space to save this profile right now.",
   "error.game.notFound": "That game isn't in your library anymore, so SavePoint couldn't do that. Go back to your games and try again.",
+  "error.gameService.folderMismatch": "That {role, select, install {install folder} external {saves folder} other {folder}} holds only {presentCount} of the {recordedCount} files SavePoint last saved for it, so it may be the wrong one. Check the location, or confirm it if you meant to use it.",
   "error.gameService.gameRunning": "{gameName} is running right now, so SavePoint can't do that yet. Close the game, then try again.",
   "error.gameService.pathOverlap": "That folder overlaps with {conflictingGameName}, which you already track. Pick a different location for one of them.",
   "error.gameService.profileActive": "This is the currently active profile. Switch to a different one before deleting it.",

@@ -37,11 +37,15 @@ public interface IGamesApi
 
     /// <summary>
     /// Saves changes to a game. Also how a moved folder is re-pointed; consent is confirmed again for a new path. Fails with the
-    /// ids <see cref="AddAsync"/> can.
+    /// ids <see cref="AddAsync"/> can. When a folder that has saved points is pointed somewhere else, the new folder is compared
+    /// with that folder's newest point (D31): if fewer than half of the recorded files are present at the same relative paths the
+    /// call fails with <c>error.gameService.folderMismatch</c> (args <c>role</c>, <c>path</c>, <c>presentCount</c>,
+    /// <c>recordedCount</c>) and saves nothing, so the caller can ask and then repeat the call with <paramref name="confirmFolderChange"/>.
     /// </summary>
     /// <param name="definition">The game with its changes; its id picks the game.</param>
+    /// <param name="confirmFolderChange">True when the user agreed to a folder that holds few of the recorded files.</param>
     /// <returns>The game as stored.</returns>
-    Task<OperationResult<GameDefinition>> UpdateAsync(GameDefinition definition);
+    Task<OperationResult<GameDefinition>> UpdateAsync(GameDefinition definition, bool confirmFolderChange = false);
 
     /// <summary>
     /// Removes SavePoint's data for the game. Fails with <c>error.gameService.gameRunning</c> while the game has an open session

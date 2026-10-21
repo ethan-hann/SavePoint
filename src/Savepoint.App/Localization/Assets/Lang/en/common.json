@@ -53,5 +53,6 @@
   "format.size.gb": "{value} GB",
   "format.size.kb": "{value} KB",
   "format.size.mb": "{value} MB",
-  "format.size.tb": "{value} TB"
+  "format.size.tb": "{value} TB",
+  "errorCard.title.folderLooksWrong": "This may be the wrong folder"
 }

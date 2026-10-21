@@ -16,6 +16,9 @@ internal sealed record FolderReading(FolderTarget Target, RepoStatus Status, IRe
 
     public bool Dirty => Blocked || (Note is null && !Status.IsClean);
 
+    // The files a discard would delete; the rest of the unsaved files are put back.
+    public int DirtyNewFileCount => Dirty ? Status.UntrackedPaths.Count : 0;
+
     // A blocked folder counts as one thing to resolve even when git lists no file.
     public int DirtyFileCount => Dirty ? Math.Max(1, Status.ChangedPaths.Count + Status.UntrackedPaths.Count) : 0;
 
