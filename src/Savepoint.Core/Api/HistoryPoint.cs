@@ -1,5 +1,20 @@
 namespace Savepoint.Core.Api;
 
+/// <summary>One capture event in a game's history: the unit the History screen lists and "Go back to this" restores.</summary>
+/// <param name="Id">Names this point; the same id goes into <see cref="LaunchTarget.Point"/> to go back to it.</param>
+/// <param name="Kind">Which folders this capture changed.</param>
+/// <param name="Name">The point's name, as the user typed it when saving.</param>
+/// <param name="CapturedAt">When the capture happened, as an absolute instant. History sorts by this, never by text (D13.7).</param>
+/// <param name="ProfileId">The profile the point belongs to.</param>
+/// <param name="ProfileName">That profile's name.</param>
+/// <param name="Install">The install state current at that point, also for a save-only point.</param>
+/// <param name="ModFilesChanged">
+/// How many mod files changed against the profile's previous install point; null for its first install point and for save-only
+/// points.
+/// </param>
+/// <param name="Bytes">The size of what the capture saved, in bytes, where SavePoint can tell; null otherwise.</param>
+/// <param name="InUse">True when the install folder holds this point now.</param>
+/// <param name="LoadedNow">True when the saves folder holds this point now.</param>
 public sealed record HistoryPoint(
     HistoryPointId Id,
     HistoryPointKind Kind,
@@ -7,16 +22,8 @@ public sealed record HistoryPoint(
     DateTimeOffset CapturedAt,
     string ProfileId,
     string ProfileName,
-
-    // The install state current at that point, also for a save-only point.
     InstallState Install,
-
-    // Against the profile's previous install point; null for its first one and for save-only points.
     int? ModFilesChanged,
     long? Bytes,
-
-    // The install folder holds this point now.
     bool InUse,
-
-    // The saves folder holds this point now.
     bool LoadedNow);

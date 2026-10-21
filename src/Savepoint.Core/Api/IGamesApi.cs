@@ -2,40 +2,110 @@ using Savepoint.Core.Catalog;
 
 namespace Savepoint.Core.Api;
 
+/// <summary>The game library: definitions, their folders, storage, and import and export of definition files.</summary>
+/// <remarks>See <see cref="OperationResult{T}"/> for the rules every member follows.</remarks>
 public interface IGamesApi
 {
-    // Each template's ToDraft() gives a definition with a fresh id; nothing is saved until AddAsync.
+    /// <summary>
+    /// The built-in game templates. Each template's <see cref="GameTemplate.ToDraft"/> gives a definition with a fresh id; nothing is
+    /// saved until <see cref="AddAsync"/>. Reads memory and cannot fail.
+    /// </summary>
     IReadOnlyList<GameTemplate> Templates { get; }
 
+    /// <summary>Lists every game in catalog order. Fails with <c>error.catalog.corrupt</c> when the games file is unreadable.</summary>
+    /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c> (D23).</param>
     Task<OperationResult<IReadOnlyList<GameDefinition>>> ListAsync(CancellationToken cancellationToken = default);
 
-    // Validates, checks path safety, consent, and overlap with other games, then saves.
+    /// <summary>
+    /// Validates a definition, checks path safety, consent, and overlap with other games, then saves it. Answers
+    /// <see cref="AddGameOutcome.Added"/>, or <see cref="AddGameOutcome.HistoryFound"/> when the folders hold history from a removed
+    /// game, in which case nothing is saved and <see cref="ResolveOrphanAsync"/> decides. Fails with
+    /// <c>error.validation.invalidPayload</c> (every field problem at once), <c>error.pathSafety.tier1Blocked</c> or
+    /// <c>error.pathSafety.tier2Blocked</c>, <c>error.consentMarker.conflict</c>, or <c>error.gameService.pathOverlap</c>.
+    /// </summary>
+    /// <param name="definition">The game to add, with an id the caller made (see <see cref="CatalogIds.NewGameId"/>).</param>
     Task<OperationResult<AddGameOutcome>> AddAsync(GameDefinition definition);
 
+    /// <summary>
+    /// Settles the question <see cref="AddGameOutcome.HistoryFound"/> raised: reconnects the old history or starts fresh, and adds
+    /// the game either way. Fails with the ids <see cref="AddAsync"/> can.
+    /// </summary>
+    /// <param name="definition">The game being added, as it was given to <see cref="AddAsync"/>.</param>
+    /// <param name="resolution">The user's answer.</param>
+    /// <returns>The game as stored, with the old id after a reconnect.</returns>
     Task<OperationResult<GameDefinition>> ResolveOrphanAsync(GameDefinition definition, OrphanResolution resolution);
 
-    // Also how a moved folder is re-pointed; consent is confirmed again for a new path.
+    /// <summary>
+    /// Saves changes to a game. Also how a moved folder is re-pointed; consent is confirmed again for a new path. Fails with the
+    /// ids <see cref="AddAsync"/> can.
+    /// </summary>
+    /// <param name="definition">The game with its changes; its id picks the game.</param>
+    /// <returns>The game as stored.</returns>
     Task<OperationResult<GameDefinition>> UpdateAsync(GameDefinition definition);
 
-    // Removes SavePoint's data for the game; refused while the game is running (D13.5).
+    /// <summary>
+    /// Removes SavePoint's data for the game. Fails with <c>error.gameService.gameRunning</c> while the game has an open session
+    /// (D13.5).
+    /// </summary>
+    /// <param name="gameId">The game to remove.</param>
     Task<OperationResult<Unit>> DeleteAsync(string gameId);
 
+    /// <summary>
+    /// Reports where each of the game's folders is and whether the user confirmed it: one entry per configured folder, install
+    /// first, then the saves folder when the game has one.
+    /// </summary>
+    /// <param name="gameId">The game.</param>
+    /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c> (D23).</param>
     Task<OperationResult<IReadOnlyList<FolderStatus>>> GetFolderStatusAsync(string gameId, CancellationToken cancellationToken = default);
 
+    /// <summary>Reads how much of SavePoint's storage the game takes and how full the storage volume is.</summary>
+    /// <param name="gameId">The game.</param>
+    /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c> (D23).</param>
     Task<OperationResult<GameStorageUsage>> GetStorageUsageAsync(string gameId, CancellationToken cancellationToken = default);
 
+    /// <summary>Lists what a capture would save now, per folder, without writing anything.</summary>
+    /// <param name="gameId">The game.</param>
+    /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c> (D23).</param>
     Task<OperationResult<CapturePreview>> GetCapturePreviewAsync(string gameId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Starts a <see cref="JobKind.Compact"/> job that optimizes the game's storage and reclaims space nothing reaches any more
+    /// (D28). Answers at once; the result is an <see cref="OptimizeResult"/>.
+    /// </summary>
+    /// <param name="gameId">The game.</param>
     Task<OperationResult<JobStarted>> OptimizeStorageAsync(string gameId);
 
-    // Expands path tokens for the editor's "Resolves to ..." hint.
+    /// <summary>
+    /// Expands a leading path token such as <c>{documents}</c> for the editor's "Resolves to ..." hint. Fails with
+    /// <c>error.validation.invalidPayload</c> whose issue is <c>validation.path.unknownToken</c>, <c>validation.path.notAbsolute</c>,
+    /// or <c>validation.path.invalidCharacter</c>.
+    /// </summary>
+    /// <param name="rawPath">The path as the user wrote it.</param>
+    /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c> (D23).</param>
+    /// <returns>The absolute path on this machine.</returns>
     Task<OperationResult<string>> ResolvePathAsync(string rawPath, CancellationToken cancellationToken = default);
 
-    // Paths relative to the install folder, for the editor's executable suggestions.
+    /// <summary>
+    /// Suggests files in an install folder that could launch the game, for the editor. The scan is bounded: at most 50 paths, most
+    /// likely game executable first. A folder that is missing gives an empty list, not an error.
+    /// </summary>
+    /// <param name="installPath">The install folder to scan.</param>
+    /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c> (D23).</param>
+    /// <returns>Paths relative to the install folder.</returns>
     Task<OperationResult<IReadOnlyList<string>>> ListExecutablesAsync(string installPath, CancellationToken cancellationToken = default);
 
-    // Reads and validates a definition file; never saves it.
+    /// <summary>
+    /// Reads and validates a definition file; never saves it. The definition keeps the file's id, which may belong to a game already
+    /// in the library, so the caller gives the new game an id of its own before adding it.
+    /// </summary>
+    /// <param name="filePath">The definition file to read.</param>
+    /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c> (D23).</param>
+    /// <returns>The definition in the file. Fails with <c>error.validation.invalidPayload</c> when the file is not a valid definition.</returns>
     Task<OperationResult<GameDefinition>> ImportDefinitionAsync(string filePath, CancellationToken cancellationToken = default);
 
+    /// <summary>Writes the game's saved definition to a file, replacing any file already there. Unsaved edits are not included.</summary>
+    /// <param name="gameId">The game to export.</param>
+    /// <param name="filePath">The file to write.</param>
+    /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c> (D23).</param>
     Task<OperationResult<Unit>> ExportDefinitionAsync(string gameId, string filePath, CancellationToken cancellationToken = default);
 }

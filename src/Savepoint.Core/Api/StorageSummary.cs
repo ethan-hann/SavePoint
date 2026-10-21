@@ -1,9 +1,14 @@
 namespace Savepoint.Core.Api;
 
+/// <summary>SavePoint's storage across every game, for the Settings screen.</summary>
+/// <param name="StorageRoot">The storage folder in use.</param>
+/// <param name="BytesUsed">Bytes of SavePoint's own storage across every game.</param>
+/// <param name="Games">Each game's share of <paramref name="BytesUsed"/>.</param>
+/// <param name="VolumeTotalBytes">Size, in bytes, of the drive that holds the storage folder.</param>
+/// <param name="VolumeFreeBytes">Free space, in bytes, on that drive.</param>
+/// <param name="LastOptimizedAt">When storage optimization last ran, or null if it never did.</param>
 public sealed record StorageSummary(
     string StorageRoot,
-
-    // SavePoint's own storage across every game.
     long BytesUsed,
     IReadOnlyList<GameBytesUsed> Games,
     long VolumeTotalBytes,

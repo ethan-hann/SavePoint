@@ -1,7 +1,8 @@
 namespace Savepoint.Core.Api;
 
-// A call that returns nothing still answers with OperationResult<Unit>, so every call has one result shape.
+/// <summary>The value of a call that returns nothing, so every call has one result shape: <c>OperationResult{Unit}</c>.</summary>
 public readonly record struct Unit
 {
+    /// <summary>The only value.</summary>
     public static Unit Value => default;
 }
