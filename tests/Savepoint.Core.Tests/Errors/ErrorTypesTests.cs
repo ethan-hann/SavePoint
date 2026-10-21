@@ -198,6 +198,8 @@ public class ErrorTypesTests
             ("path", "git.exe"));
         Add("SessionMoved", new SessionMovedException(RepoRole.External, "dev text"), "error.launch.sessionMoved",
             ("role", RepoRole.External));
+        Add("PointNotFound", new PointNotFoundException("point-1"), "error.history.pointNotFound",
+            ("pointId", "point-1"));
         Add("ProfileAlreadyExists", new ProfileAlreadyExistsException("profile-1"), "error.profile.alreadyExists",
             ("profileId", "profile-1"));
         Add("ProfileHasNoPoints", new ProfileHasNoPointsException("profile-1"), "error.profile.noPoints",

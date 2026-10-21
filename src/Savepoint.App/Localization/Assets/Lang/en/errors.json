@@ -16,6 +16,7 @@
   "error.git.unavailable": "SavePoint can't run the built-in tool it uses to save and restore your files. Reinstall SavePoint to repair it, then open the app again.",
   "error.gitOperation.amendNotAvailable": "This profile can't be updated that way right now. Try creating a new profile instead.",
   "error.gitOperation.checkoutFailed": "Something else on your computer is holding one of the game's files open. Close the game, its launcher and any mod manager, then try again — SavePoint picks up where it left off and won't redo the work it already finished.",
+  "error.history.pointNotFound": "That point isn't in this game's history anymore, so SavePoint couldn't go back to it. Open the history again and pick another one.",
   "error.launch.alreadyRunning": "This game is already running.",
   "error.launch.canceled": "Switching was canceled.",
   "error.launch.detachedCaptureNotSupported": "You're viewing an older save of this profile. Switch it back to the latest save before keeping new progress.",
