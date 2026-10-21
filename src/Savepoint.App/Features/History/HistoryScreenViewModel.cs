@@ -3,6 +3,7 @@ using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common;
+using Savepoint.App.Features.Common.Art;
 using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Shell;
@@ -85,6 +86,10 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
     /// <summary>The selected game's name; null when the library is empty.</summary>
     [ObservableProperty]
     private string? _gameName;
+
+    /// <summary>The selected game's artwork for the header tile; null when the library is empty.</summary>
+    [ObservableProperty]
+    private GameArt? _art;
 
     /// <summary>The line under the title: the game and how many points are kept ("Skyrim Special Edition · 8 points kept").</summary>
     [ObservableProperty]
@@ -231,6 +236,7 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
             _loadedGameId = null;
             Clear();
             GameName = null;
+            Art = null;
             Subtitle = string.Empty;
             State = HistoryState.NoGame;
             return;
@@ -355,6 +361,7 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
     {
         _loadedGameId = game.Id;
         GameName = game.Name;
+        Art = _shell.Artwork.For(game.Id);
         Subtitle = game.Name;
         ErrorCard = null;
         FooterText = null;

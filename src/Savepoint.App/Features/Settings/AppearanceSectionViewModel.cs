@@ -7,9 +7,10 @@ using Savepoint.Core.Catalog;
 namespace Savepoint.App.Features.Settings;
 
 /// <summary>
-/// The Appearance section (mockups 2k and 3c): theme, layout and accent. A theme or accent choice is saved and the
-/// shell follows at once; a layout choice goes through the shell, which saves it, and the selection follows the shell
-/// when the layout changes on the Games screen. A choice that fails to save goes back to what is stored.
+/// The Appearance section (mockups 2k and 3c): theme, layout, accent and whether game artwork may be looked up online. A theme
+/// or accent choice is saved and the shell follows at once; a layout choice goes through the shell, which saves it, and the
+/// selection follows the shell when the layout changes on the Games screen. The artwork switch is saved when it is flipped and
+/// has the tiles read their artwork again. A choice that fails to save goes back to what is stored.
 /// </summary>
 public sealed partial class AppearanceSectionViewModel : ObservableObject
 {
@@ -18,6 +19,7 @@ public sealed partial class AppearanceSectionViewModel : ObservableObject
     private ThemeOption _currentTheme;
     private LayoutChoice _currentLayout;
     private AccentOption _currentAccent;
+    private bool _currentLookUp = true;
     private bool _restoring;
 
     /// <summary>The theme segment that is selected; choosing another saves it.</summary>
@@ -31,6 +33,10 @@ public sealed partial class AppearanceSectionViewModel : ObservableObject
     /// <summary>The accent swatch that is selected; choosing another saves it.</summary>
     [ObservableProperty]
     private AccentOption? _selectedAccent;
+
+    /// <summary>Whether SavePoint may fetch game artwork from Steam's servers when it is not on this computer; flipping it saves it.</summary>
+    [ObservableProperty]
+    private bool _lookUpArtworkOnline = true;
 
     internal AppearanceSectionViewModel(SettingsStore store, IShellContext shell, UiFormatter text)
     {
@@ -76,6 +82,15 @@ public sealed partial class AppearanceSectionViewModel : ObservableObject
 
     /// <summary>The five accent presets, in the order the spec draws them.</summary>
     public IReadOnlyList<AccentOption> AccentOptions { get; }
+
+    partial void OnLookUpArtworkOnlineChanged(bool value)
+    {
+        if (!_restoring && value != _currentLookUp)
+        {
+            _currentLookUp = value;
+            _ = SaveLookUpAsync(value);
+        }
+    }
 
     partial void OnSelectedThemeChanged(ThemeOption? value)
     {
@@ -138,6 +153,19 @@ public sealed partial class AppearanceSectionViewModel : ObservableObject
         }
     }
 
+    // What artwork may be fetched decides what the tiles can show, so a saved change has them read again; a failed one flips back.
+    private async Task SaveLookUpAsync(bool value)
+    {
+        if (await _store.UpdateAsync(settings => settings with { LookUpArtworkOnline = value }))
+        {
+            _shell.Artwork.Refresh();
+        }
+        else if (_store.Current is { } stored)
+        {
+            Show(stored);
+        }
+    }
+
     private async Task SaveAsync(Func<AppSettings, AppSettings> change)
     {
         // A failed save leaves the stored values as they were, and the controls go back to them.
@@ -153,6 +181,8 @@ public sealed partial class AppearanceSectionViewModel : ObservableObject
             _currentTheme = ThemeFor(settings.Theme);
             _currentAccent = AccentFor(settings.AccentColorId);
             _currentLayout = LayoutFor(settings.Layout);
+            _currentLookUp = settings.LookUpArtworkOnline;
+            LookUpArtworkOnline = _currentLookUp;
             SelectedTheme = _currentTheme;
             SelectedAccent = _currentAccent;
             SelectedLayout = _currentLayout;

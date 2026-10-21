@@ -56,7 +56,8 @@ public static class AppComposition
                 toasts,
                 theme,
                 ScreenFactories(feature),
-                LaunchFlow: FeatureComposition.LaunchFlow(feature)));
+                LaunchFlow: FeatureComposition.LaunchFlow(feature),
+                Artwork: FeatureComposition.Artwork(feature)));
         }
 
         return new MainWindowViewModel(startup, CreateShell, dialogStack, toasts);

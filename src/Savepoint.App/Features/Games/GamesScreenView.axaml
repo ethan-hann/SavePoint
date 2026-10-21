@@ -32,7 +32,7 @@
 
     <!-- Header, sidebar layout: art tile, name and install path, then the buttons and the layout toggle. -->
     <Grid x:Name="SidebarHeader" Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" IsVisible="{Binding IsSidebarLayout}">
-      <art:ArtTile Size="40" GameName="{Binding GameName}" VerticalAlignment="Center" Margin="0,0,12,0" />
+      <art:ArtTile Size="40" GameName="{Binding GameName}" Art="{Binding Art}" VerticalAlignment="Center" Margin="0,0,12,0" />
       <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0">
         <TextBlock x:Name="GameNameText" Classes="dialog-title" TextTrimming="CharacterEllipsis" Text="{Binding GameName}" />
         <TextBlock x:Name="InstallPathText" Classes="mono small subtle" TextTrimming="CharacterEllipsis" Text="{Binding InstallPath}" />

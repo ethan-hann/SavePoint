@@ -21,9 +21,10 @@ public sealed partial class GameEditorViewModel : ObservableObject
     private readonly UiFormatter _text;
     private readonly ToastHostViewModel _toasts;
     private readonly IShellContext _shell;
+    private readonly IArtworkApi? _artwork;
 
     // The library's definition when editing; null when adding.
-    private readonly GameDefinition? _saved;
+    private GameDefinition? _saved;
 
     // What the form was opened from: carries the fields the form never shows (schema version, notes).
     private GameDefinition _source;
@@ -120,13 +121,15 @@ public sealed partial class GameEditorViewModel : ObservableObject
         ToastHostViewModel toasts,
         IShellContext shell,
         GameDefinition? saved,
-        GameDefinition? prefill)
+        GameDefinition? prefill,
+        IArtworkApi? artwork)
     {
         _games = games;
         _dialogs = dialogs;
         _text = text;
         _toasts = toasts;
         _shell = shell;
+        _artwork = artwork;
         _saved = saved;
         _source = saved ?? prefill ?? new GameDefinition();
         IgnoreRules = new ChipListViewModel(text, text.Message("gameEditor.ignorePaths.label"), text.Message("gameEditor.addRule"), text.Message("gameEditor.ignorePaths.placeholder"));
@@ -163,12 +166,12 @@ public sealed partial class GameEditorViewModel : ObservableObject
     public bool IsDirty => BuildDefinition(_baseline.Id) != _baseline;
 
     /// <summary>Opens the editor on an existing game.</summary>
-    public static GameEditorViewModel ForExisting(IGamesApi games, IDialogs dialogs, UiFormatter text, ToastHostViewModel toasts, IShellContext shell, GameDefinition game) =>
-        new(games, dialogs, text, toasts, shell, game, null);
+    public static GameEditorViewModel ForExisting(IGamesApi games, IDialogs dialogs, UiFormatter text, ToastHostViewModel toasts, IShellContext shell, GameDefinition game, IArtworkApi? artwork = null) =>
+        new(games, dialogs, text, toasts, shell, game, null, artwork);
 
     /// <summary>Opens the editor on a new game, optionally starting from a template or an imported definition.</summary>
-    public static GameEditorViewModel ForNew(IGamesApi games, IDialogs dialogs, UiFormatter text, ToastHostViewModel toasts, IShellContext shell, GameDefinition? prefill) =>
-        new(games, dialogs, text, toasts, shell, null, prefill);
+    public static GameEditorViewModel ForNew(IGamesApi games, IDialogs dialogs, UiFormatter text, ToastHostViewModel toasts, IShellContext shell, GameDefinition? prefill, IArtworkApi? artwork = null) =>
+        new(games, dialogs, text, toasts, shell, null, prefill, artwork);
 
     /// <summary>Reads what needs the Api (each folder's confirmation and whether it still exists). Safe to call more than once.</summary>
     public Task LoadAsync() => _load ??= LoadCoreAsync();

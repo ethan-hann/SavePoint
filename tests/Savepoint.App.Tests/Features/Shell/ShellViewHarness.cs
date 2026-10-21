@@ -49,7 +49,7 @@ internal sealed class ShellViewHarness : IDisposable
         var text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), backend.Clock, "windows", TimeZoneInfo.Utc);
         var app = (App)Application.Current!;
         var main = AppComposition.Create(
-            new AppServices(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus),
+            new AppServices(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus) { Artwork = backend.Artwork },
             text,
             new ThemeServiceApplier(app.Theme),
             () => null,

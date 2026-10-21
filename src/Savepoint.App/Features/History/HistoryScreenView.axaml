@@ -69,7 +69,7 @@
             BorderThickness="0,0,0,1"
             IsVisible="{Binding !HasNoGame}">
       <Grid ColumnDefinitions="Auto,*,Auto,Auto">
-        <art:ArtTile Size="34" GameName="{Binding GameName}" VerticalAlignment="Center" />
+        <art:ArtTile Size="34" GameName="{Binding GameName}" Art="{Binding Art}" VerticalAlignment="Center" />
         <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center" Spacing="1">
           <TextBlock x:Name="TitleText" Classes="section-title" Text="{loc:Loc history.title}" />
           <TextBlock x:Name="SubtitleText" Classes="timestamp" FontSize="12" Text="{Binding Subtitle}" />
