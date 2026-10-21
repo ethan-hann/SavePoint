@@ -1,4 +1,5 @@
 {
+  "common.cancel": "Cancel",
   "format.duration.hours": "{count, plural, one {# hour} other {# hours}}",
   "format.duration.hoursAndMinutes": "{hours, plural, one {# hour} other {# hours}} {minutes, plural, one {# minute} other {# minutes}}",
   "format.duration.minutes": "{count, plural, one {# minute} other {# minutes}}",
