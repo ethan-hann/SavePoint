@@ -151,6 +151,22 @@ internal sealed class AppStatusApi : IAppStatusApi
         }
     }
 
+    // From now on the root counts as saved: a missing folder is reported, not made again. The next start tries again if this write fails.
+    private async Task RememberRootAsync(string root, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _services.Catalog.UpdateSettingsAsync(
+                current => (current ?? AppSettings.Defaults(root)) with { StorageRoot = root },
+                cancellationToken).ConfigureAwait(false);
+            _services.Storage.MarkRootSaved();
+        }
+        catch (Exception e) when (e is SavepointException or IOException or UnauthorizedAccessException)
+        {
+            // Left unsaved; the root is the default one and is made again, empty, only while no settings name one.
+        }
+    }
+
     // Written next to the target and renamed into place, so a crash leaves no half-restored file.
     private static void RestoreCopy(string backup, string target)
     {
@@ -159,16 +175,25 @@ internal sealed class AppStatusApi : IAppStatusApi
         File.Move(temp, target, overwrite: false);
     }
 
+    // The storage folder is made only the first time, when no root has been saved. After that a folder that is not there is an
+    // unplugged drive or a renamed folder, and making an empty one in its place would hide the history behind it (D31).
     private async Task PrepareStorageAsync(CancellationToken cancellationToken)
     {
+        var settings = await _services.Catalog.GetSettingsAsync(cancellationToken).ConfigureAwait(false);
+        var firstRun = string.IsNullOrWhiteSpace(settings?.StorageRoot);
         var storage = await _services.Storage.GetAsync(cancellationToken).ConfigureAwait(false);
-        try
+        if (firstRun)
         {
-            Directory.CreateDirectory(storage.Root);
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException or NotSupportedException)
-        {
-            throw new StorageUnreachableException(storage.Root, e);
+            try
+            {
+                Directory.CreateDirectory(storage.Root);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or NotSupportedException)
+            {
+                throw new StorageUnreachableException(storage.Root, e);
+            }
+
+            await RememberRootAsync(storage.Root, cancellationToken).ConfigureAwait(false);
         }
 
         // A lock left by a run that was killed would refuse the first save; this is the one moment nothing of ours is running (D18).

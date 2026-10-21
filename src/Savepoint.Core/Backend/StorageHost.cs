@@ -26,6 +26,9 @@ public sealed class StorageHost
     private readonly SemaphoreSlim _build = new(1, 1);
     private volatile StorageSnapshot? _snapshot;
 
+    // True once the root came from the saved settings (or a move): from then on a root that is not there is missing, not new.
+    private volatile bool _rootSaved;
+
     internal StorageHost(
         CatalogStore catalog,
         IPlatform platform,
@@ -50,12 +53,12 @@ public sealed class StorageHost
     /// </summary>
     /// <param name="cancellationToken">Cancels the wait for the settings file.</param>
     /// <exception cref="CatalogCorruptException">The settings file cannot be read; nothing is built until it is recovered.</exception>
-    /// <exception cref="StorageUnreachableException">The saved root is not an absolute path SavePoint can use.</exception>
+    /// <exception cref="StorageUnreachableException">The saved root is not an absolute path SavePoint can use, or it is not there (an unplugged or renamed drive); a root that was never saved is first made by the startup check (D31).</exception>
     public async Task<StorageSnapshot> GetAsync(CancellationToken cancellationToken = default)
     {
         if (_snapshot is { } ready)
         {
-            return ready;
+            return RequireReachable(ready);
         }
 
         await _build.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -63,12 +66,15 @@ public sealed class StorageHost
         {
             if (_snapshot is { } built)
             {
-                return built;
+                return RequireReachable(built);
             }
 
             var settings = await _catalog.GetSettingsAsync(cancellationToken).ConfigureAwait(false);
-            var root = string.IsNullOrWhiteSpace(settings?.StorageRoot) ? _platform.Directories.DefaultStorageRoot : settings.StorageRoot;
-            return _snapshot = Build(root);
+            var saved = !string.IsNullOrWhiteSpace(settings?.StorageRoot);
+            var snapshot = Build(saved ? settings!.StorageRoot : _platform.Directories.DefaultStorageRoot);
+            _rootSaved = saved;
+            _snapshot = snapshot;
+            return RequireReachable(snapshot);
         }
         finally
         {
@@ -110,8 +116,19 @@ public sealed class StorageHost
         return new StorageSnapshot(full, safety, engine);
     }
 
-    // The caller holds the gate exclusive.
-    internal void Replace(StorageSnapshot snapshot) => _snapshot = snapshot;
+    // A saved root that is not there is a drive that went away, not an empty history; reading it as empty would let a move or a delete act on nothing.
+    private StorageSnapshot RequireReachable(StorageSnapshot snapshot) =>
+        !_rootSaved || Directory.Exists(snapshot.Root) ? snapshot : throw new StorageUnreachableException(snapshot.Root, null);
+
+    // The startup check saved the root the snapshot was built for; from now on it is expected to be there.
+    internal void MarkRootSaved() => _rootSaved = true;
+
+    // The caller holds the gate exclusive. A root a move switched to is a saved one.
+    internal void Replace(StorageSnapshot snapshot)
+    {
+        _rootSaved = true;
+        _snapshot = snapshot;
+    }
 
     // Forgets the snapshot so the next call reads the settings again; the caller holds the gate exclusive.
     internal void Reset() => _snapshot = null;

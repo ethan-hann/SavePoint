@@ -49,7 +49,8 @@ public interface IGamesApi
 
     /// <summary>
     /// Removes SavePoint's data for the game. Fails with <c>error.gameService.gameRunning</c> while the game has an open session
-    /// (D13.5).
+    /// (D13.5), and with <c>error.storage.unreachable</c> while the storage folder is not there, so the history behind it is
+    /// never forgotten by mistake (D31).
     /// </summary>
     /// <param name="gameId">The game to remove.</param>
     Task<OperationResult<Unit>> DeleteAsync(string gameId);

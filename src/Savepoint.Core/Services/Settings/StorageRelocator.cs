@@ -47,14 +47,14 @@ internal sealed class StorageRelocator
         return await _services.Storage.ReadAsync(
             async storage =>
             {
-                var listing = await Task.Run(() => StorageContent.Scan(storage.Root, cancellationToken), cancellationToken).ConfigureAwait(false);
+                var listing = await Task.Run(() => StorageContent.Scan(storage.Root, cancellationToken, strict: true), cancellationToken).ConfigureAwait(false);
                 var sizes = new List<GameBytesUsed>();
                 foreach (var game in games)
                 {
                     sizes.Add(new GameBytesUsed(game.Id, await DirectorySize.GetBytesAsync(storage.GameDirectory(game.Id), cancellationToken).ConfigureAwait(false)));
                 }
 
-                var blocker = BlockerOf(storage, games, destination, listing.Bytes);
+                var blocker = BlockerOf(storage, games, destination, listing);
                 return new StorageRelocationPreview(
                     storage.Root,
                     destination,
@@ -74,8 +74,8 @@ internal sealed class StorageRelocator
         var blocker = await _services.Storage.ReadAsync(
             async storage =>
             {
-                var listing = await Task.Run(() => StorageContent.Scan(storage.Root, CancellationToken.None)).ConfigureAwait(false);
-                return BlockerOf(storage, games, destination, listing.Bytes);
+                var listing = await Task.Run(() => StorageContent.Scan(storage.Root, CancellationToken.None, strict: true)).ConfigureAwait(false);
+                return BlockerOf(storage, games, destination, listing);
             }).ConfigureAwait(false);
         if (blocker is not null)
         {
@@ -86,8 +86,14 @@ internal sealed class StorageRelocator
     }
 
     // The first reason the move cannot go ahead, in the order the user would fix them; null when it can.
-    private SavepointException? BlockerOf(StorageSnapshot storage, IReadOnlyList<GameDefinition> games, string destination, long bytesNeeded)
+    private SavepointException? BlockerOf(StorageSnapshot storage, IReadOnlyList<GameDefinition> games, string destination, ContentListing listing)
     {
+        // Games in the catalog and none of their folders here: the drive is not the one that holds the history, and copying nothing would look like success.
+        if (games.Count > 0 && listing.Folders.Count == 0)
+        {
+            return new StorageUnreachableException(storage.Root, null);
+        }
+
         if (_services.Sessions.RunningGameIds().FirstOrDefault() is { } running)
         {
             var name = games.FirstOrDefault(game => game.Id == running)?.Name ?? running;
@@ -119,7 +125,7 @@ internal sealed class StorageRelocator
             return new StorageDestinationNotEmptyException(destination);
         }
 
-        var required = bytesNeeded + _spareBytes;
+        var required = listing.Bytes + _spareBytes;
         return _services.Disk.GetFreeBytes(destination) is { } free && free < required ? new DiskSpaceException(destination, required, free) : null;
     }
 
@@ -149,10 +155,10 @@ internal sealed class StorageRelocator
     private async Task<JobResult?> CopyAndSwitchAsync(JobContext context, IReadOnlyList<GameDefinition> games, string destination)
     {
         var storage = await _services.Storage.GetAsync(context.CancellationToken).ConfigureAwait(false);
-        var listing = await Task.Run(() => StorageContent.Scan(storage.Root, context.CancellationToken), context.CancellationToken).ConfigureAwait(false);
+        var listing = await Task.Run(() => StorageContent.Scan(storage.Root, context.CancellationToken, strict: true), context.CancellationToken).ConfigureAwait(false);
 
         // Re-judged now that the locks are held: a game may have started, or the destination may have filled, while the job waited.
-        if (BlockerOf(storage, games, destination, listing.Bytes) is { } blocker)
+        if (BlockerOf(storage, games, destination, listing) is { } blocker)
         {
             throw blocker;
         }
