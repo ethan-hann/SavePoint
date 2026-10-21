@@ -116,6 +116,7 @@ public sealed partial class GameEditorViewModel : ObservableObject
         LaunchArgs = new ChipListViewModel(text, text.Message("gameEditor.launchArgs.label"), text.Message("gameEditor.addOption"), text.Message("gameEditor.launchArgs.placeholder"));
         ModFolders = new ChipListViewModel(text, text.Message("gameEditor.modPathHints.label"), text.Message("gameEditor.addFolder"), text.Message("gameEditor.modPathHints.placeholder"));
         Title = saved is null ? text.Message("gameEditor.title.create") : text.Message("gameEditor.title.edit", ("name", saved.Name));
+        LocationChoices = BuildLocationChoices();
         LoadForm(_source);
         _baseline = BuildDefinition(_source.Id);
     }
@@ -157,39 +158,25 @@ public sealed partial class GameEditorViewModel : ObservableObject
 
     private async Task LoadCoreAsync()
     {
-        if (_saved is null)
+        if (_saved is not null)
         {
-            return;
+            var statuses = await _games.GetFolderStatusAsync(_saved.Id);
+            if (statuses.Ok)
+            {
+                _statuses = statuses.Value;
+                UpdateConfirmations();
+                ShowMissingFolders();
+            }
+            else
+            {
+                _toasts.Show(new ToastMessage(_text.Message(statuses.Error), ToastKind.Error));
+            }
         }
 
-        var statuses = await _games.GetFolderStatusAsync(_saved.Id);
-        if (statuses.Ok)
-        {
-            _statuses = statuses.Value;
-        }
-        else
-        {
-            _toasts.Show(new ToastMessage(_text.Message(statuses.Error), ToastKind.Error));
-        }
+        await RefreshSuggestionsAsync();
     }
 
     partial void OnNameChanged(string value) => NameError = null;
-
-    partial void OnInstallPathChanged(string value)
-    {
-        InstallError = null;
-        InstallCard = null;
-    }
-
-    partial void OnSavesPathChanged(string value)
-    {
-        SavesError = null;
-        SavesCard = null;
-    }
-
-    partial void OnLaunchChoiceChanged(int value) => LaunchError = null;
-
-    partial void OnExePathChanged(string value) => ExePathError = null;
 
     partial void OnUriChanged(string value) => UriError = null;
 
