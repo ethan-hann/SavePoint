@@ -221,7 +221,7 @@ public class JobRegistryTests
         var registry = new JobRegistry();
         var held = new HeldJob(registry);
         var context = await held.Context;
-        var events = new EventLog(registry);
+        var events = await EventLog.FromNowAsync(registry);
 
         var first = registry.Cancel(held.Id);
         var second = registry.Cancel(held.Id);
@@ -317,7 +317,7 @@ public class JobRegistryTests
     {
         var registry = new JobRegistry();
         var done = await StartAndFinishAsync(registry);
-        var events = new EventLog(registry);
+        var events = await EventLog.FromNowAsync(registry);
 
         var outcome = registry.Cancel(done.JobId);
         var result = await registry.CancelAsync(done.JobId);
@@ -335,7 +335,7 @@ public class JobRegistryTests
         var registry = new JobRegistry();
         var held = new HeldJob(registry, JobKind.ClearData, gameId: null, cancellable: false);
         var context = await held.Context;
-        var events = new EventLog(registry);
+        var events = await EventLog.FromNowAsync(registry);
 
         var outcome = registry.Cancel(held.Id);
         var result = await registry.CancelAsync(held.Id);
@@ -427,7 +427,7 @@ public class JobRegistryTests
         context.Progress.Report(new JobProgress(FilesDone: 5, CurrentPath: "last"));
         held.Finish();
         var done = await FinishedAsync(registry, held.Id);
-        var events = new EventLog(registry);
+        var events = await EventLog.FromNowAsync(registry);
 
         context.Progress.Report(new JobProgress(FilesDone: 99, CurrentPath: "late"));
         context.AddLine("late line");
