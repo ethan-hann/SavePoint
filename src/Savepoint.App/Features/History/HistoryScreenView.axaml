@@ -159,10 +159,15 @@
                            VerticalAlignment="Center"
                            Text="{theme:Upper {loc:Loc history.column.versions}}" />
               </StackPanel>
-              <ItemsControl x:Name="TimelineList" ItemsSource="{Binding Timeline}">
+              <ItemsControl x:Name="TimelineList"
+                            ItemsSource="{Binding Timeline}"
+                            AutomationProperties.ControlTypeOverride="List"
+                            AutomationProperties.Name="{loc:Loc history.column.versions}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="history:TimelineEntryViewModel">
-                    <Grid ColumnDefinitions="11,14,*">
+                    <Grid ColumnDefinitions="11,14,*"
+                          AutomationProperties.ControlTypeOverride="ListItem"
+                          AutomationProperties.Name="{Binding AutomationName}">
                       <Grid RowDefinitions="Auto,*">
                         <Border Classes="timeline-dot" Classes.filled="{Binding IsInUse}" Margin="0,5,0,0" />
                         <Border Grid.Row="1" Classes="timeline-rail" HorizontalAlignment="Center" IsVisible="{Binding HasRail}" />
@@ -193,7 +198,10 @@
                            VerticalAlignment="Center"
                            Text="{theme:Upper {loc:Loc history.column.saves}}" />
               </StackPanel>
-              <ItemsControl x:Name="SavesList" ItemsSource="{Binding Saves}">
+              <ItemsControl x:Name="SavesList"
+                            ItemsSource="{Binding Saves}"
+                            AutomationProperties.ControlTypeOverride="List"
+                            AutomationProperties.Name="{loc:Loc history.column.saves}">
                 <ItemsControl.ItemsPanel>
                   <ItemsPanelTemplate>
                     <StackPanel Spacing="12" />
@@ -201,7 +209,10 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="history:SaveRowViewModel">
-                    <Border Classes="save-row" Classes.loaded="{Binding IsLoaded}">
+                    <Border Classes="save-row"
+                            Classes.loaded="{Binding IsLoaded}"
+                            AutomationProperties.ControlTypeOverride="ListItem"
+                            AutomationProperties.Name="{Binding ItemAutomationName}">
                       <Grid ColumnDefinitions="*,Auto">
                         <StackPanel Spacing="2" VerticalAlignment="Center">
                           <TextBlock Classes="row-title" FontSize="14" TextTrimming="CharacterEllipsis" Text="{Binding Name}" />
@@ -238,7 +249,10 @@
               <DataTemplate x:DataType="history:PointGroupViewModel">
                 <StackPanel>
                   <TextBlock Classes="overline" FontSize="12.5" Margin="0,6,0,7" Text="{Binding Heading, Converter={x:Static theme:UppercaseConverter.Instance}}" />
-                  <ItemsControl Margin="-7,0" ItemsSource="{Binding Cards}">
+                  <ItemsControl Margin="-7,0"
+                                ItemsSource="{Binding Cards}"
+                                AutomationProperties.ControlTypeOverride="List"
+                                AutomationProperties.Name="{Binding Heading}">
                     <ItemsControl.ItemsPanel>
                       <ItemsPanelTemplate>
                         <UniformGrid Columns="3" />
@@ -246,7 +260,11 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                       <DataTemplate x:DataType="history:PointCardViewModel">
-                        <Border Classes="card" Classes.selected="{Binding IsLoaded}" Margin="7">
+                        <Border Classes="card"
+                                Classes.selected="{Binding IsLoaded}"
+                                Margin="7"
+                                AutomationProperties.ControlTypeOverride="ListItem"
+                                AutomationProperties.Name="{Binding ItemAutomationName}">
                           <StackPanel Spacing="9">
                             <Grid ColumnDefinitions="*,Auto" MinHeight="26">
                               <TextBlock Classes="icon s24 muted" Classes.accent="{Binding IsLoaded}" HorizontalAlignment="Left" Text="{Binding Icon}" />
@@ -281,7 +299,7 @@
       </Panel>
 
       <StackPanel x:Name="LoadingState" IsVisible="{Binding IsLoading}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="14">
-        <ProgressBar IsIndeterminate="True" Width="160" />
+        <ProgressBar IsIndeterminate="True" Width="160" AutomationProperties.Name="{loc:Loc history.loading}" />
         <TextBlock Classes="body muted" HorizontalAlignment="Center" Text="{loc:Loc history.loading}" />
       </StackPanel>
 

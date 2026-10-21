@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:a11y="using:Savepoint.App.Features.Common.Accessibility"
              xmlns:loc="using:Savepoint.App.Localization"
              xmlns:theme="using:Savepoint.App.Theme"
              xmlns:settings="using:Savepoint.App.Features.Settings"
@@ -73,6 +74,7 @@
               <Border x:Name="MovePanel" Classes="recessed" Margin="0,14,0,0" IsVisible="{Binding Storage.IsRelocating}">
                 <StackPanel Spacing="8">
                   <Grid ColumnDefinitions="*,Auto">
+                    <a11y:AnnouncementRegion x:Name="MoveAnnouncer" Grid.ColumnSpan="2" Message="{Binding Storage.Announcement}" />
                     <TextBlock Classes="row-title" VerticalAlignment="Center" Text="{loc:Loc settings.storage.moving}" />
                     <Button x:Name="CancelMoveButton"
                             Grid.Column="1"
@@ -85,14 +87,15 @@
                                Minimum="0"
                                Maximum="1"
                                Value="{Binding Storage.RelocationValue}"
-                               IsIndeterminate="{Binding Storage.IsRelocationIndeterminate}" />
+                               IsIndeterminate="{Binding Storage.IsRelocationIndeterminate}"
+                               AutomationProperties.Name="{loc:Loc settings.storage.moving}" />
                   <TextBlock Classes="caption" Text="{Binding Storage.RelocationDetail}" IsVisible="{Binding !Storage.IsRelocationIndeterminate}" />
                   <TextBlock Classes="mono small muted" TextTrimming="CharacterEllipsis" Text="{Binding Storage.RelocationPath}" />
                 </StackPanel>
               </Border>
 
               <StackPanel x:Name="UsagePanel" Margin="0,16,0,0" Spacing="8" IsVisible="{Binding Storage.HasSummary}">
-                <ProgressBar x:Name="UsageBar" Minimum="0" Maximum="1" Value="{Binding Storage.UsedFraction}" />
+                <ProgressBar x:Name="UsageBar" Minimum="0" Maximum="1" Value="{Binding Storage.UsedFraction}" AutomationProperties.Name="{Binding Storage.UsedText}" />
                 <Grid ColumnDefinitions="*,Auto">
                   <TextBlock x:Name="UsedText" Classes="caption" FontSize="12.5" Text="{Binding Storage.UsedText}" />
                   <TextBlock x:Name="FreeText" Grid.Column="1" Classes="caption" FontSize="12.5" Text="{Binding Storage.FreeText}" />
@@ -105,7 +108,7 @@
                 <StackPanel Spacing="3" VerticalAlignment="Center">
                   <TextBlock Classes="card-heading" Text="{loc:Loc settings.storage.optimizeTitle}" />
                   <TextBlock x:Name="OptimizeText" Classes="caption" FontSize="12.5" TextWrapping="Wrap" Text="{Binding Storage.OptimizeDescription}" />
-                  <ProgressBar x:Name="OptimizeBar" Margin="0,6,0,0" IsIndeterminate="True" IsVisible="{Binding Storage.IsOptimizing}" />
+                  <ProgressBar x:Name="OptimizeBar" Margin="0,6,0,0" IsIndeterminate="True" IsVisible="{Binding Storage.IsOptimizing}" AutomationProperties.Name="{loc:Loc settings.storage.optimizeTitle}" />
                 </StackPanel>
                 <Button x:Name="RunNowButton"
                         Grid.Column="1"
@@ -258,7 +261,7 @@
               <ToggleSwitch x:Name="AskSwitch" HorizontalAlignment="Stretch" IsChecked="{Binding Session.AskToSave, Mode=TwoWay}">
                 <TextBlock Classes="body" FontSize="14.5" Text="{loc:Loc settings.session.ask}" />
               </ToggleSwitch>
-              <ToggleSwitch x:Name="SkipSwitch" HorizontalAlignment="Stretch" IsChecked="{Binding Session.SkipWhenOnlySaveChanges, Mode=TwoWay}">
+              <ToggleSwitch x:Name="SkipSwitch" HorizontalAlignment="Stretch" IsChecked="{Binding Session.SkipWhenOnlySaveChanges, Mode=TwoWay}" AutomationProperties.Name="{loc:Loc settings.session.skip}" AutomationProperties.HelpText="{loc:Loc settings.session.skipHint}">
                 <StackPanel Spacing="3">
                   <TextBlock Classes="body" FontSize="14.5" Text="{loc:Loc settings.session.skip}" />
                   <TextBlock Classes="caption" FontSize="12.5" TextWrapping="Wrap" Text="{loc:Loc settings.session.skipHint}" />
@@ -285,7 +288,7 @@
                         Content="{loc:Loc settings.clearAll.button}" />
               </Grid>
               <StackPanel x:Name="ClearingPanel" Spacing="8" IsVisible="{Binding ClearAll.IsClearing}">
-                <ProgressBar IsIndeterminate="True" />
+                <ProgressBar IsIndeterminate="True" AutomationProperties.Name="{loc:Loc settings.clearAll.clearing}" />
                 <TextBlock Classes="caption" Text="{loc:Loc settings.clearAll.clearing}" />
               </StackPanel>
             </StackPanel>

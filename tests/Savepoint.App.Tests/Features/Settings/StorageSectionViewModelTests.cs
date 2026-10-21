@@ -287,6 +287,39 @@ public class StorageSectionViewModelTests
     }
 
     [Fact]
+    public async Task The_move_announces_its_start_and_each_quarter_once()
+    {
+        var rig = await SettingsRig.ShownAsync();
+        var spoken = new List<string>();
+        Storage(rig).PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(StorageSectionViewModel.Announcement))
+            {
+                spoken.Add(Storage(rig).Announcement);
+            }
+        };
+
+        var job = await StartedMoveAsync(rig);
+        rig.Backend.Jobs.ReportProgress(job.JobId, new JobProgress(BytesDone: 100, BytesTotal: 1_000));
+        rig.Backend.Jobs.ReportProgress(job.JobId, new JobProgress(BytesDone: 260, BytesTotal: 1_000));
+        rig.Backend.Jobs.ReportProgress(job.JobId, new JobProgress(BytesDone: 300, BytesTotal: 1_000));
+        rig.Backend.Jobs.ReportProgress(job.JobId, new JobProgress(BytesDone: 800, BytesTotal: 1_000));
+
+        Assert.Equal(["Moving your data\u2026", "25% moved.", "75% moved."], spoken);
+    }
+
+    [Fact]
+    public async Task A_move_with_no_totals_announces_only_that_it_started()
+    {
+        var rig = await SettingsRig.ShownAsync();
+        var job = await StartedMoveAsync(rig);
+
+        rig.Backend.Jobs.ReportProgress(job.JobId, new JobProgress(FilesDone: 40));
+
+        Assert.Equal("Moving your data\u2026", Storage(rig).Announcement);
+    }
+
+    [Fact]
     public async Task A_move_with_no_totals_yet_shows_an_indeterminate_bar()
     {
         var rig = await SettingsRig.ShownAsync();

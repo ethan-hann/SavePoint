@@ -39,6 +39,7 @@
   "settings.session.heading": "When you finish playing",
   "settings.session.skip": "Skip the confirmation when only the save changes",
   "settings.session.skipHint": "A change to the game version or mods always asks first.",
+  "settings.storage.announcePercent": "{percent}% moved.",
   "settings.storage.cancel": "Cancel",
   "settings.storage.change": "Change",
   "settings.storage.free": "{size} free",

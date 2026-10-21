@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Savepoint.App.Features.Common.Accessibility;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Toasts;
@@ -22,6 +23,7 @@ public sealed partial class StorageSectionViewModel : ObservableObject
     private readonly Dictionary<Guid, long> _revisions = [];
     private Guid? _optimizeJob;
     private Guid? _relocationJob;
+    private readonly ProgressMilestones _milestones = new();
 
     /// <summary>The folder SavePoint keeps its data in, shown in monospace.</summary>
     [ObservableProperty]
@@ -64,6 +66,10 @@ public sealed partial class StorageSectionViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(RelocationValue))]
     [NotifyPropertyChangedFor(nameof(IsRelocationIndeterminate))]
     private double? _relocationFraction;
+
+    /// <summary>What the hidden live region says: the start of a move and each quarter of it, once.</summary>
+    [ObservableProperty]
+    private string _announcement = string.Empty;
 
     /// <summary>"19.8 GB of 79.2 GB", or empty while the totals are not known.</summary>
     [ObservableProperty]
@@ -169,8 +175,16 @@ public sealed partial class StorageSectionViewModel : ObservableObject
     {
         if (job.Status == JobStatus.Running)
         {
+            var started = _relocationJob != job.JobId && !seeding;
             _relocationJob = job.JobId;
             IsRelocating = true;
+            if (started)
+            {
+                // Said once the panel with the live region is showing, or nobody hears it.
+                _milestones.Reset();
+                Announcement = _deps.Text.Message("settings.storage.moving");
+            }
+
             ShowProgress(job.Progress);
             return;
         }
@@ -212,6 +226,11 @@ public sealed partial class StorageSectionViewModel : ObservableObject
             ? _deps.Text.Message("settings.storage.movingDetail", ("done", _deps.Text.FileSize(done!.Value)), ("total", _deps.Text.FileSize(total!.Value)))
             : string.Empty;
         RelocationPath = progress.CurrentPath ?? string.Empty;
+
+        if (RelocationFraction is { } fraction && _milestones.Crossed((int)Math.Floor(fraction * 100)) is { } crossed)
+        {
+            Announcement = _deps.Text.Message("settings.storage.announcePercent", ("percent", crossed));
+        }
     }
 
     private async Task RefreshAfterJobAsync(bool tellShell)

@@ -76,6 +76,10 @@ internal sealed class HistoryText
     // "Sun Jul 5, 11:42 PM", the card's absolute date.
     public string Date(DateTimeOffset when) => _text.WeekdayDateTime(when);
 
+    // One line for a list item's accessible name: the parts in order, with the language's own separator.
+    public string ItemName(params string[] parts) =>
+        parts.Where(part => part.Length > 0).Aggregate((first, second) => _text.Message("history.automation.join", ("first", first), ("second", second)));
+
     public string Join(string first, string second) => _text.Message("history.join", ("first", first), ("second", second));
 
     public string Kind(HistoryPointKind kind) => kind switch
