@@ -46,17 +46,16 @@ public sealed class GitCancellationTests : IDisposable
     [Fact]
     public async Task Cancelling_kills_every_process_in_the_tree_not_just_the_one_that_was_started()
     {
-        // git ls-remote hands the connection to a helper (a grandchild; on Windows a great-grandchild behind the
-        // cmd\git.exe wrapper). The listener sees the connection close only if that helper is gone.
+        // The alias makes a second git run under a shell (on Windows cmd\git.exe, git.exe, sh.exe, git.exe). The
+        // listener sees the connection close only if that innermost git is gone, and git:// needs no remote helper.
         using var listener = new TcpListener(IPAddress.Loopback, 0);
         listener.Start();
         var port = ((IPEndPoint)listener.LocalEndpoint).Port;
         var accepted = listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken).AsTask();
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var invocation = new GitInvocation(["-c", "http.proxy=", "ls-remote", $"http://127.0.0.1:{port}/repo.git"])
+        var invocation = new GitInvocation(["-c", $"alias.probe=!git ls-remote git://127.0.0.1:{port}/repo.git", "probe"])
         {
             WorkingDirectory = _ws.WorkTree,
-            ExtraEnvironment = NoProxy(),
         };
         var call = _ws.Runner.RunAsync(invocation, cts.Token);
 
@@ -68,7 +67,7 @@ public sealed class GitCancellationTests : IDisposable
         await cts.CancelAsync();
         await Assert.ThrowsAsync<OperationCanceledException>(() => call.WaitAsync(_generous, TestContext.Current.CancellationToken));
 
-        Assert.True(await ConnectionClosesAsync(stream, TimeSpan.FromSeconds(15)), "the helper that held the connection is still alive");
+        Assert.True(await ConnectionClosesAsync(stream, TimeSpan.FromSeconds(15)), "the git that held the connection is still alive");
     }
 
     [Fact]
@@ -146,16 +145,6 @@ public sealed class GitCancellationTests : IDisposable
         Assert.Equal(0, Volatile.Read(ref running));
         await releaseLater;
     }
-    private static Dictionary<string, string?> NoProxy() => new()
-    {
-        ["http_proxy"] = null,
-        ["HTTP_PROXY"] = null,
-        ["https_proxy"] = null,
-        ["HTTPS_PROXY"] = null,
-        ["all_proxy"] = null,
-        ["ALL_PROXY"] = null,
-    };
-
     private static async Task<bool> ConnectionClosesAsync(NetworkStream stream, TimeSpan timeout)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
