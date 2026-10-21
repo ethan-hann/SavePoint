@@ -9,6 +9,7 @@ using Savepoint.App.Localization;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Tests.Features.Shell;
 using Savepoint.Core.Api;
+using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Tests.Features.History;
 
@@ -104,6 +105,18 @@ internal sealed class ScriptedLaunchFlow : ILaunchFlowHost
     }
 
     public event EventHandler<string>? InlineContentChanged;
+
+    public event EventHandler<AppSettings>? SettingsSaved
+    {
+        add { }
+        remove { }
+    }
+
+    public event EventHandler<string>? EditGameRequested
+    {
+        add { }
+        remove { }
+    }
 
     public List<(string GameId, LaunchTarget Target)> Begun { get; } = [];
 

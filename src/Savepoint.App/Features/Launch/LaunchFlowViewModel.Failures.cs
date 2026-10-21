@@ -27,7 +27,7 @@ public sealed partial class LaunchFlowViewModel
         ErrorCardAction TryAgain(bool reenter = false) =>
             new(text.Message("launch.failure.tryAgain"), new AsyncRelayCommand(() => reenter ? BeginAsync(flow.GameId, flow.Target!) : RestartAsync(flow)), IsPrimary: false);
         ErrorCardAction Edit(string label, bool primary) =>
-            new(text.Message(label), new RelayCommand(() => EditGameRequested?.Invoke(this, new EditGameRequest(flow.GameId))), primary);
+            new(text.Message(label), new RelayCommand(() => EditGameRequested?.Invoke(this, flow.GameId)), primary);
 
         switch (error.MessageId)
         {

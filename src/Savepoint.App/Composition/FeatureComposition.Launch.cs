@@ -14,13 +14,14 @@ public static partial class FeatureComposition
             api.Launch,
             api.Profiles,
             api.Settings,
+            context.SettingsWriter,
             api.Games,
             api.Jobs,
             context.Dialogs,
             context.Text,
             context.Toasts,
             context.Dispatcher,
-            TimeProvider.System,
+            context.Clock,
             new JobAwaiter(api.Jobs)));
     }
 }

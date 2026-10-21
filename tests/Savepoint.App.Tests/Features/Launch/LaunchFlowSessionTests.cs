@@ -122,7 +122,7 @@ public class LaunchFlowSessionTests : IDisposable
 
         FlowRig.Press(card, "Edit game");
 
-        Assert.Equal([new EditGameRequest(FlowRig.Skyrim)], _f.EditRequests);
+        Assert.Equal([FlowRig.Skyrim], _f.EditRequests);
     }
 
     [Fact]
@@ -136,7 +136,7 @@ public class LaunchFlowSessionTests : IDisposable
         Assert.Equal("This game's folder has moved or is gone", card.Title);
         Assert.Equal(["Choose the folder", "Dismiss"], card.Actions.Select(a => a.Label));
         FlowRig.Press(card, "Choose the folder");
-        Assert.Equal([new EditGameRequest(FlowRig.Skyrim)], _f.EditRequests);
+        Assert.Equal([FlowRig.Skyrim], _f.EditRequests);
     }
 
     [Fact]

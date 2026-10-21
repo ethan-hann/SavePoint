@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using Savepoint.Core.Api;
+using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Features.Shell;
 
@@ -27,4 +28,16 @@ public interface ILaunchFlowHost : INotifyPropertyChanged
 
     /// <summary>Raised with the game id whenever <see cref="InlineContentFor"/> would return something different for that game. May be raised on any thread.</summary>
     event EventHandler<string>? InlineContentChanged;
+
+    /// <summary>
+    /// Raised with the settings as stored after the flow saved a preference (the launch dialog's "don't ask again").
+    /// Whoever keeps a copy of the settings, the shell, takes it to stay current. May be raised on any thread.
+    /// </summary>
+    event EventHandler<AppSettings>? SettingsSaved;
+
+    /// <summary>
+    /// Raised with the game id when a failure is fixed by editing the game: the launch settings are wrong or a folder has
+    /// moved. The Games screen opens the game editor for it; the flow never opens the editor itself. May be raised on any thread.
+    /// </summary>
+    event EventHandler<string>? EditGameRequested;
 }

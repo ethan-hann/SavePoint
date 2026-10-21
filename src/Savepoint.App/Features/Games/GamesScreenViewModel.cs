@@ -78,6 +78,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         {
             flow.PropertyChanged += OnFlowChanged;
             flow.InlineContentChanged += OnInlineContentChanged;
+            flow.EditGameRequested += OnEditGameRequested;
         }
 
         ShowGame(_shell.SelectedGame);
@@ -230,6 +231,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         {
             flow.PropertyChanged -= OnFlowChanged;
             flow.InlineContentChanged -= OnInlineContentChanged;
+            flow.EditGameRequested -= OnEditGameRequested;
         }
     }
 
@@ -283,6 +285,20 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
             _shell.ShowPane(editor.CreateForExisting(_shell, game.Id));
         }
     }
+
+    // A failure the editor fixes can come from any screen (a launch started from History), so the editor opens here, on the game it is about.
+    private void OnEditGameRequested(object? sender, string gameId) =>
+        _deps.Dispatcher.Post(() =>
+        {
+            if (_disposed || _deps.Editor is not { } editor || _shell.Games.All(game => game.Id != gameId))
+            {
+                return;
+            }
+
+            _shell.SelectGame(gameId);
+            _shell.Navigate(NavDestination.Games);
+            _shell.ShowPane(editor.CreateForExisting(_shell, gameId));
+        });
 
     private void ShowGame(GameDefinition? game)
     {

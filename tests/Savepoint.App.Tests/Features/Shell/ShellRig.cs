@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using Savepoint.App.Features.Common;
 using Savepoint.App.Features.Common.Formatting;
+using Savepoint.App.Features.Common.Preferences;
 using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Localization;
@@ -25,6 +26,7 @@ internal sealed class ShellRig
             backend.Games,
             backend.Profiles,
             backend.Settings,
+            new SettingsWriter(backend.Settings),
             backend.Jobs,
             Text,
             dispatcher,
@@ -160,4 +162,16 @@ internal sealed class FakeLaunchFlow : ILaunchFlowHost
         add { }
         remove { }
     }
+
+    public event EventHandler<AppSettings>? SettingsSaved;
+
+    public event EventHandler<string>? EditGameRequested
+    {
+        add { }
+        remove { }
+    }
+
+    public int SettingsSavedSubscribers => SettingsSaved?.GetInvocationList().Length ?? 0;
+
+    public void RaiseSettingsSaved(AppSettings settings) => SettingsSaved?.Invoke(this, settings);
 }

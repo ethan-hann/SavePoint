@@ -559,6 +559,53 @@ public class GamesScreenViewModelTests
     }
 
     [Fact]
+    public async Task A_failure_the_flow_says_the_editor_fixes_opens_it_for_that_game()
+    {
+        var rig = await GamesRig.StartAsync();
+
+        rig.LaunchFlow!.RaiseEditGameRequested(MockupScenario.SatisfactoryId);
+
+        Assert.Equal(MockupScenario.SatisfactoryId, rig.Shell.SelectedGame?.Id);
+        var pane = Assert.Single(rig.Editor!.Created);
+        Assert.Equal(new EditorPane("existing", MockupScenario.SatisfactoryId, null), pane);
+        Assert.Same(pane, rig.Shell.Content);
+    }
+
+    [Fact]
+    public async Task The_editor_the_flow_asks_for_opens_on_Games_whichever_screen_is_showing()
+    {
+        var rig = await GamesRig.StartAsync();
+        rig.Shell.Navigate(NavDestination.History);
+
+        rig.LaunchFlow!.RaiseEditGameRequested(MockupScenario.SkyrimId);
+
+        Assert.Equal(NavDestination.Games, rig.Shell.Destination);
+        Assert.Same(Assert.Single(rig.Editor!.Created), rig.Shell.Content);
+    }
+
+    [Fact]
+    public async Task A_request_to_edit_a_game_that_is_not_in_the_library_is_ignored()
+    {
+        var rig = await GamesRig.StartAsync();
+
+        rig.LaunchFlow!.RaiseEditGameRequested("no-such-game");
+
+        Assert.Empty(rig.Editor!.Created);
+        Assert.Same(rig.Screen, rig.Shell.Content);
+    }
+
+    [Fact]
+    public async Task A_disposed_screen_ignores_requests_to_edit()
+    {
+        var rig = await GamesRig.StartAsync();
+        rig.Screen.Dispose();
+
+        rig.LaunchFlow!.RaiseEditGameRequested(MockupScenario.SkyrimId);
+
+        Assert.Empty(rig.Editor!.Created);
+    }
+
+    [Fact]
     public async Task A_disposed_screen_stops_following_the_shell()
     {
         var rig = await GamesRig.StartAsync();

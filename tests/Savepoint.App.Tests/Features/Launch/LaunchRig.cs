@@ -1,5 +1,6 @@
 using Savepoint.App.Features.Common;
 using Savepoint.App.Features.Common.Formatting;
+using Savepoint.App.Features.Common.Preferences;
 using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Launch;
 using Savepoint.App.Localization;
@@ -26,6 +27,7 @@ internal sealed class LaunchRig : IDisposable
             Backend.Launch,
             Backend.Profiles,
             Backend.Settings,
+            new SettingsWriter(Backend.Settings),
             Backend.Games,
             Backend.Jobs,
             Dialogs,

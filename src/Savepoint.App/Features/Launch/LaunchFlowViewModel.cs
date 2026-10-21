@@ -46,16 +46,10 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
     /// <inheritdoc />
     public event EventHandler<string>? InlineContentChanged;
 
-    /// <summary>
-    /// Raised when a failure is fixed by editing the game (the launch settings are wrong, or a folder has moved). The
-    /// Games screen handles it by opening the game editor; the flow never opens the editor itself.
-    /// </summary>
-    public event EventHandler<EditGameRequest>? EditGameRequested;
+    /// <inheritdoc />
+    public event EventHandler<string>? EditGameRequested;
 
-    /// <summary>
-    /// Raised after the launch dialog saved the "don't ask again" preference, with the settings as stored. The shell
-    /// keeps its own copy of the settings, so whoever owns it should take this to keep that copy current.
-    /// </summary>
+    /// <inheritdoc />
     public event EventHandler<AppSettings>? SettingsSaved;
 
     /// <summary>The ids of the games the flow currently owns a session for, in order. Changes raise <see cref="System.ComponentModel.INotifyPropertyChanged.PropertyChanged"/>.</summary>

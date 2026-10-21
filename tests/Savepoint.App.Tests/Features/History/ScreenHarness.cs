@@ -79,6 +79,7 @@ internal sealed class ScreenHarness : IDisposable
                 backend.Games,
                 backend.Profiles,
                 backend.Settings,
+                context.SettingsWriter,
                 backend.Jobs,
                 text,
                 dispatcher,
