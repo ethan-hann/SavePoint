@@ -193,7 +193,16 @@ Findings from the engine work that change behavior the plan relies on:
 - **Nested version-control folders are refused, not half-saved.** A folder inside the game that holds its own `.git` (a mod cloned from GitHub) would otherwise be stored as an empty pointer whose files never come back, or fail the capture outright. Capture and preview detect any nested `.git` directory or file and refuse with `error.capture.nestedRepository`, naming the folder, before staging anything. The user moves the mod's hidden history folder out and captures again.
 - **Two optimization modes** (refines D25). *Routine* (`repack -d --geometric=2`) runs automatically after captures and never rewrites the large packs. *Reclaim* expires reflogs, then `repack -a -d` and `prune --expire=now`, dropping everything no profile reaches: it runs when the user presses "Optimize storage" and automatically after a profile or game is deleted (preemptible like any optimization, D13.17). So D17's "freed by the next optimization" and D14's "recoverable until the next optimization" hold. Repos keep `core.logAllRefUpdates=false`; reflogs add nothing for SavePoint.
 - **Profile branch names are always lowercase** (`CatalogIds`), so case-only collisions on case-insensitive file systems cannot happen.
-- **Symbolic links inside game folders** are stored as links on Linux and macOS (git default) and as plain files on Windows (`core.symlinks=false`); a game that depends on symlinks on Windows is a documented limitation.
+- **Symbolic links inside game folders**: see D29 (the earlier wording here was wrong for Windows).
+
+## D29. Engine safety rules from the engine review
+
+The independent review (`.tools/reviews/git-engine.md`) reproduced three ways the engine could damage files. v2 adopts these rules, enforced in the engine itself (not only by callers):
+
+1. **No folder links inside a tracked folder on Windows.** Git for Windows follows directory junctions and directory symlinks, so a switch or discard could delete or overwrite files outside the game folder. Capture, preview, switch, discard, and clean scan the work tree for directory reparse points (junctions, directory symlinks, mount points) and refuse with `error.capture.linkedFolder` naming the first one; nothing is staged or written. On Linux and macOS git stores symlinks as links and never follows them, so they are captured and restored as links (native games ship `.so` symlinks).
+2. **A switch never runs over unsaved changes.** Non-forced checkout refuses a folder with unsaved changes (`DirtyWorkingTreeException`) instead of letting the verify/re-sync pass overwrite them; the launch flow already resolves unsaved changes first (D13.8), and this makes the guarantee hold for every caller.
+3. **Clean and discard refuse a folder with no saved point** (`error.profile.noPoints`): with nothing captured, "discard" would mean deleting the whole game folder.
+4. **Repo delete only deletes a SavePoint git directory**: the directory must sit inside the storage root (component-wise containment) and carry SavePoint's config stamp and git's own layout (`HEAD`, `objects/`), or the delete is refused without touching anything.
 
 ## D8. "Clear all data" is a v2 requirement
 
