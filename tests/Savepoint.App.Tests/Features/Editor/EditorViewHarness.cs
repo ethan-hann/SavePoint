@@ -60,12 +60,13 @@ internal sealed class EditorViewHarness : IDisposable
 
     public void Settle() => _shell.Settle();
 
-    public string Render(string fileName)
+    public string Render(string fileName, string? area = null)
     {
         Settle();
         var frame = Window.CaptureRenderedFrame() ?? throw new InvalidOperationException("No frame was rendered.");
-        Directory.CreateDirectory(OutputFolder);
-        var path = Path.Combine(OutputFolder, fileName + ".png");
+        var folder = area is null ? OutputFolder : Path.Combine(ThemeTestSupport.RepoRoot(), "render-output", area);
+        Directory.CreateDirectory(folder);
+        var path = Path.Combine(folder, fileName + ".png");
         frame.Save(path, new PngBitmapEncoderOptions());
         return path;
     }

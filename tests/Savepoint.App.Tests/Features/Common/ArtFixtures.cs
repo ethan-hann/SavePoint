@@ -29,6 +29,41 @@ internal sealed class ArtFixtures : IDisposable
         return TestImages.Write(Folder, name, data.ToArray());
     }
 
+    // A picture that reads as cover art in a render: a vertical gradient with a sun and a ridge, so cropping and scaling are visible.
+    public string Scene(string name, int width, int height, uint top, uint bottom)
+    {
+        using var bitmap = new SKBitmap(width, height);
+        using (var canvas = new SKCanvas(bitmap))
+        {
+            using var sky = new SKPaint
+            {
+                Shader = SKShader.CreateLinearGradient(
+                    new SKPoint(0, 0),
+                    new SKPoint(0, height),
+                    [new SKColor((byte)(top >> 16), (byte)(top >> 8), (byte)top), new SKColor((byte)(bottom >> 16), (byte)(bottom >> 8), (byte)bottom)],
+                    SKShaderTileMode.Clamp),
+            };
+            canvas.DrawRect(0, 0, width, height, sky);
+            using var sun = new SKPaint { Color = new SKColor(255, 255, 255, 200), IsAntialias = true };
+            canvas.DrawCircle(width * 0.68f, height * 0.32f, Math.Min(width, height) * 0.14f, sun);
+            using var ridge = new SKPaint { Color = new SKColor(0, 0, 0, 120), IsAntialias = true };
+            using var path = new SKPath();
+            path.MoveTo(0, height);
+            path.LineTo(0, height * 0.78f);
+            path.LineTo(width * 0.3f, height * 0.58f);
+            path.LineTo(width * 0.55f, height * 0.74f);
+            path.LineTo(width * 0.8f, height * 0.5f);
+            path.LineTo(width, height * 0.7f);
+            path.LineTo(width, height);
+            path.Close();
+            canvas.DrawPath(path, ridge);
+        }
+
+        using var image = SKImage.FromBitmap(bitmap);
+        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+        return TestImages.Write(Folder, name, data.ToArray());
+    }
+
     // A PNG whose middle half is one color and whose sides are another, so a test can tell what part of the image a crop kept.
     public string PngBands(string name, int width, int height, uint sides, uint middle)
     {
