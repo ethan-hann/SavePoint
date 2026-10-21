@@ -1,3 +1,4 @@
+using Savepoint.Core.Artwork;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Git;
 using Savepoint.Core.Paths;
@@ -52,6 +53,7 @@ public sealed class BackendServices
         PathTokens = new PathTokenResolver(platform);
         Executables = new ExecutableScanner(platform);
         Insights = new GameInsights(this);
+        Artwork = new ArtworkStore(catalog.DirectoryPath);
     }
 
     /// <summary>The operating system's folders, path tokens and safety table.</summary>
@@ -97,6 +99,9 @@ public sealed class BackendServices
     public ExecutableScanner Executables { get; }
 
     internal GameInsights Insights { get; }
+
+    // Where artwork is kept, in the configuration folder: a storage move never touches it, and deleting a game or all data removes it.
+    internal ArtworkStore Artwork { get; }
 
     /// <summary>Remembers detected exe versions by the content id of the executable (D13.15).</summary>
     public ExeVersionCache ExeVersions { get; } = new();

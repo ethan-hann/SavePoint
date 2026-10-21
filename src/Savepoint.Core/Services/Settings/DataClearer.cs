@@ -112,6 +112,9 @@ internal sealed class DataClearer
             await Attempt(left, file, () => Task.Run(() => DeleteFile(file))).ConfigureAwait(false);
         }
 
+        // Artwork sits beside the catalog files, in the configuration folder, so it goes with them.
+        await Attempt(left, _services.Artwork.Root, () => Task.Run(_services.Artwork.DeleteAll)).ConfigureAwait(false);
+
         _services.Storage.Reset();
         return new ClearAllDataResult(bytes, [.. left.Select(failure => new ClearFailure(failure.Key, failure.Value))]);
     }

@@ -1,4 +1,5 @@
 using Savepoint.Core.Api;
+using Savepoint.Core.Artwork;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Git;
 using Savepoint.Core.Platform;
@@ -32,7 +33,8 @@ public sealed class CoreBackend
         ILaunchApi launch,
         ISettingsApi settings,
         IHistoryApi history,
-        IAppStatusApi appStatus)
+        IAppStatusApi appStatus,
+        IArtworkApi artwork)
     {
         Services = services;
         Games = games;
@@ -41,6 +43,7 @@ public sealed class CoreBackend
         Settings = settings;
         History = history;
         AppStatus = appStatus;
+        Artwork = artwork;
     }
 
     /// <summary>The shared pieces the Apis are built from, for components such as the launch orchestrator.</summary>
@@ -66,6 +69,9 @@ public sealed class CoreBackend
 
     /// <summary>The startup checks and catalog recovery.</summary>
     public IAppStatusApi AppStatus { get; }
+
+    /// <summary>The artwork Api: the user's own image, Steam's images, or none for each game (D30).</summary>
+    public IArtworkApi Artwork { get; }
 
     /// <summary>Builds the backend.</summary>
     /// <param name="options">What to build it from; the real machine when null.</param>
@@ -117,6 +123,7 @@ public sealed class CoreBackend
             launch?.Api ?? new UnavailableLaunchApi(),
             new SettingsApi(services, optimization, new StorageRelocator(services, options.AfterRelocationCopy), new DataClearer(services)),
             new HistoryApi(services),
-            new AppStatusApi(services));
+            new AppStatusApi(services),
+            new ArtworkApi(services, options.SteamFolder ?? SteamFolderLocator.ForPlatform(platform), options.ArtworkHttp));
     }
 }
