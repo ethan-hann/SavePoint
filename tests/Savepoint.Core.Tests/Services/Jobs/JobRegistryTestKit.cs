@@ -56,6 +56,13 @@ internal sealed class EventLog
         };
     }
 
+    // Subscribes after everything already published has been delivered, so the log holds only what happens from here on.
+    public static async Task<EventLog> FromNowAsync(JobRegistry registry)
+    {
+        await registry.WhenDeliveredAsync();
+        return new EventLog(registry);
+    }
+
     public IReadOnlyList<JobSnapshot> All
     {
         get

@@ -1,0 +1,58 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:theme="using:Savepoint.App.Theme"
+             xmlns:editor="using:Savepoint.App.Features.Editor"
+             x:Class="Savepoint.App.Features.Editor.ChipListView"
+             x:DataType="editor:ChipListViewModel">
+  <!--
+    Removable monospace chips in one wrapping row, ending with the dashed add chip, which turns into a text field.
+    The list lays out its entries: each chip, then the list itself as the add chip.
+  -->
+  <ItemsControl x:Name="Chips" ItemsSource="{Binding Entries}" AutomationProperties.Name="{Binding GroupName}">
+    <ItemsControl.ItemsPanel>
+      <ItemsPanelTemplate>
+        <WrapPanel />
+      </ItemsPanelTemplate>
+    </ItemsControl.ItemsPanel>
+    <ItemsControl.DataTemplates>
+      <DataTemplate x:DataType="editor:ChipItem">
+        <Border Classes="input-chip" Margin="0,0,8,8">
+          <StackPanel Orientation="Horizontal" Spacing="2">
+            <TextBlock VerticalAlignment="Center" Text="{Binding Text}" />
+            <Button Classes="icon"
+                    MinWidth="22"
+                    MinHeight="22"
+                    FontSize="14"
+                    Content="{x:Static theme:Icons.Close}"
+                    Command="{Binding Remove}"
+                    AutomationProperties.Name="{Binding RemoveLabel}" />
+          </StackPanel>
+        </Border>
+      </DataTemplate>
+      <DataTemplate x:DataType="editor:ChipListViewModel">
+        <Panel Margin="0,0,8,8">
+          <Button x:Name="AddChip" Classes="dashed pill" Padding="10,5" IsVisible="{Binding !IsAdding}" Command="{Binding BeginAddCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Classes="icon s14" Text="{x:Static theme:Icons.Add}" />
+              <TextBlock Text="{Binding AddLabel}" />
+            </StackPanel>
+          </Button>
+          <editor:ChipEntryBox x:Name="AddField"
+                               Classes="mono"
+                               Width="200"
+                               Padding="12,6"
+                               IsVisible="{Binding IsAdding}"
+                               Text="{Binding NewText, Mode=TwoWay}"
+                               PlaceholderText="{Binding Placeholder}"
+                               CommitCommand="{Binding CommitAddCommand}"
+                               AutomationProperties.Name="{Binding AddLabel}">
+            <editor:ChipEntryBox.KeyBindings>
+              <KeyBinding Gesture="Enter" Command="{Binding CommitAddCommand}" />
+              <KeyBinding Gesture="Escape" Command="{Binding CancelAddCommand}" />
+            </editor:ChipEntryBox.KeyBindings>
+          </editor:ChipEntryBox>
+        </Panel>
+      </DataTemplate>
+    </ItemsControl.DataTemplates>
+  </ItemsControl>
+</UserControl>

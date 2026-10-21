@@ -11,10 +11,14 @@
     <PackageVersion Include="Avalonia.Skia" Version="12.1.4" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageVersion Include="MessageFormat" Version="8.0.0" />
+    <!-- Avalonia.FreeDesktop 12.1.4 depends on exactly this version; a lower pin is a downgrade error and a higher one a mismatch warning. -->
+    <PackageVersion Include="Tmds.DBus.Protocol" Version="0.94.1" />
     <PackageVersion Include="AsmResolver.PE.Win32Resources" Version="6.0.1" />
     <!-- Avalonia.Headless.XUnit 12.1.4 is built against xunit.v3 3.2.x; 4.0.x breaks test discovery (MissingMethodException). -->
     <PackageVersion Include="xunit.v3" Version="3.2.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
+    <!-- Same version as the Microsoft.Testing.Platform that xunit.v3 3.2.2 brings in; used by the Linux gate only (build/TestRetry.targets). -->
+    <PackageVersion Include="Microsoft.Testing.Extensions.Retry" Version="1.9.1" />
   </ItemGroup>
 </Project>

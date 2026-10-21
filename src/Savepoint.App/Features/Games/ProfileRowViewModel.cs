@@ -1,0 +1,168 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Savepoint.App.Features.Common.Formatting;
+using Savepoint.Core.Api;
+using Savepoint.Core.Catalog;
+
+namespace Savepoint.App.Features.Games;
+
+/// <summary>
+/// One profile in the profile table: its name, the line under it, the version, the mod-file count, when it was last
+/// played, and the commands behind Play and the row's menu. The screen keeps one instance per profile and updates it
+/// in place when the library reloads, so a row never loses keyboard focus to a refresh.
+/// </summary>
+public sealed partial class ProfileRowViewModel : ObservableObject
+{
+    private readonly UiFormatter _text;
+    private readonly IProfileRowActions _actions;
+
+    /// <summary>True when Play can start the game: a launch flow exists, the game has no session and no profile is running.</summary>
+    [ObservableProperty]
+    private bool _canPlay;
+
+    internal ProfileRowViewModel(Profile profile, ProfileRowStats stats, UiFormatter text, ProfileTableColumns columns, IProfileRowActions actions)
+    {
+        _text = text;
+        _actions = actions;
+        Columns = columns;
+        Id = profile.Id;
+        GameId = profile.GameId;
+        PlayCommand = new AsyncRelayCommand(() => _actions.PlayAsync(this), () => CanPlay);
+        EditCommand = new AsyncRelayCommand(() => _actions.EditAsync(this));
+        DuplicateCommand = new AsyncRelayCommand(() => _actions.DuplicateAsync(this));
+        DeleteCommand = new AsyncRelayCommand(() => _actions.DeleteAsync(this));
+        Fill(profile, stats);
+    }
+
+    /// <summary>The profile's id.</summary>
+    public string Id { get; }
+
+    /// <summary>The game the profile belongs to.</summary>
+    public string GameId { get; }
+
+    /// <summary>The profile's name.</summary>
+    public string Name { get; private set; } = string.Empty;
+
+    /// <summary>The notes the user wrote, or null.</summary>
+    public string? Notes { get; private set; }
+
+    /// <summary>True when both folders hold this profile's latest points with nothing unsaved; the row shows a dot and a filled Play button.</summary>
+    public bool IsActive { get; private set; }
+
+    /// <summary>True while this profile's game session is running.</summary>
+    public bool IsRunning { get; private set; }
+
+    /// <summary>True when at least one folder has changes that are not saved.</summary>
+    public bool HasUnsavedChanges { get; private set; }
+
+    /// <summary>The line under the name: "Active now · 6 saves", "Unsaved changes · 2 saves", "1 save", or empty.</summary>
+    public string SecondaryText { get; private set; } = string.Empty;
+
+    /// <summary>True when the secondary line is the "Active now" one (drawn in the accent color).</summary>
+    public bool IsActiveLine { get; private set; }
+
+    /// <summary>True when the secondary line is the "Unsaved changes" one (drawn in the error color).</summary>
+    public bool IsUnsavedLine { get; private set; }
+
+    /// <summary>True when the secondary line is the plain save count (drawn in the subtle color).</summary>
+    public bool IsPlainLine { get; private set; }
+
+    /// <summary>The version: the user's override, else the detected one, else an em dash.</summary>
+    public string VersionText { get; private set; } = string.Empty;
+
+    /// <summary>The version the engine detected, or null; the edit dialog offers it as the fallback.</summary>
+    public string? DetectedVersion { get; private set; }
+
+    /// <summary>The version the user typed, or null.</summary>
+    public string? VersionOverride { get; private set; }
+
+    /// <summary>The number of mod files, or an em dash when there are none or the game names no mod folders.</summary>
+    public string ModFilesText { get; private set; } = string.Empty;
+
+    /// <summary>When the profile was last played, as "3 days ago", or an em dash.</summary>
+    public string LastPlayedText { get; private set; } = string.Empty;
+
+    /// <summary>"Play", or "Running" for the profile whose game is running.</summary>
+    public string PlayLabel { get; private set; } = string.Empty;
+
+    /// <summary>The whole row read as one phrase for assistive technology.</summary>
+    public string AutomationName { get; private set; } = string.Empty;
+
+    /// <summary>The name of the Play button ("Play Modded playthrough - 7-2-26").</summary>
+    public string PlayAutomationName { get; private set; } = string.Empty;
+
+    /// <summary>The name of the row's menu button ("More actions for Modded playthrough - 7-2-26").</summary>
+    public string MoreActionsAutomationName { get; private set; } = string.Empty;
+
+    /// <summary>Which optional columns fit; shared with the header and every other row.</summary>
+    public ProfileTableColumns Columns { get; }
+
+    /// <summary>Starts the game on this profile's latest points.</summary>
+    public IAsyncRelayCommand PlayCommand { get; }
+
+    /// <summary>Opens the edit dialog (name, notes, version).</summary>
+    public IAsyncRelayCommand EditCommand { get; }
+
+    /// <summary>Opens the duplicate dialog.</summary>
+    public IAsyncRelayCommand DuplicateCommand { get; }
+
+    /// <summary>Starts deleting the profile, which asks first.</summary>
+    public IAsyncRelayCommand DeleteCommand { get; }
+
+    internal void Apply(Profile profile, ProfileRowStats stats)
+    {
+        Fill(profile, stats);
+        OnPropertyChanged(string.Empty);
+    }
+
+    internal void SetCanPlay(bool canPlay) => CanPlay = canPlay;
+
+    partial void OnCanPlayChanged(bool value) => PlayCommand.NotifyCanExecuteChanged();
+
+    private void Fill(Profile profile, ProfileRowStats stats)
+    {
+        var noValue = _text.Message("games.profileTable.noValue");
+
+        Name = profile.Name;
+        Notes = profile.Notes;
+        IsActive = stats.IsActive;
+        IsRunning = stats.IsRunning;
+        HasUnsavedChanges = stats.UnsavedChanges.Count > 0;
+        DetectedVersion = Blank(stats.DetectedVersion);
+        VersionOverride = Blank(stats.VersionOverride) ?? Blank(profile.VersionOverride);
+
+        IsUnsavedLine = HasUnsavedChanges;
+        IsActiveLine = !IsUnsavedLine && IsActive;
+        IsPlainLine = !IsUnsavedLine && !IsActiveLine && stats.SaveCount is not null;
+        SecondaryText = SecondaryLine(stats);
+
+        VersionText = VersionOverride ?? DetectedVersion ?? noValue;
+        ModFilesText = stats.ModFileCount is > 0 and var modFiles ? _text.Number(modFiles) : noValue;
+        LastPlayedText = (stats.LastPlayedAt ?? profile.LastLaunchedAt) is { } lastPlayed ? _text.RelativeTime(lastPlayed) : noValue;
+        PlayLabel = IsRunning ? _text.Message("games.profileTable.running") : _text.Message("games.profileTable.play");
+
+        PlayAutomationName = _text.Message("games.profileTable.playAutomationName", ("name", Name));
+        MoreActionsAutomationName = _text.Message("games.profileTable.moreActions", ("name", Name));
+        var none = _text.Message("games.profileTable.noneAutomation");
+        AutomationName = _text.Message(
+            "games.profileTable.rowAutomationName",
+            ("name", Name),
+            ("status", SecondaryText),
+            ("version", VersionText == noValue ? none : VersionText),
+            ("modFiles", ModFilesText == noValue ? none : ModFilesText),
+            ("lastPlayed", LastPlayedText == noValue ? none : LastPlayedText));
+    }
+
+    // The first rule that matches wins: unsaved changes, then the active profile, then the plain count.
+    private string SecondaryLine(ProfileRowStats stats) => (IsUnsavedLine, IsActiveLine, stats.SaveCount) switch
+    {
+        (true, _, { } count) => _text.Message("games.profileTable.unsavedChangesWithSaves", ("count", count)),
+        (true, _, null) => _text.Message("games.profileTable.unsavedChanges"),
+        (_, true, { } count) => _text.Message("games.profileTable.activeNowWithSaves", ("count", count)),
+        (_, true, null) => _text.Message("games.profileTable.activeNow"),
+        (_, _, { } count) => _text.Message("games.profileTable.saveCount", ("count", count)),
+        _ => string.Empty,
+    };
+
+    private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+}

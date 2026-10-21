@@ -27,6 +27,8 @@ public class ErrorCopyTests
             new AmendNotAvailableException(),
             new OperationCancelledByUserException(CancelledOperation.Capture, "game-1"),
             new OperationCancelledByUserException(CancelledOperation.Compaction, null),
+            new CompactionPreemptedException("game-1"),
+            new CompactionPreemptedException(null),
             new OperationCancelledByUserException(CancelledOperation.Launch, "game-1"),
             new OperationCancelledByUserException(CancelledOperation.StorageRelocation, null),
             new GameOverlapException("game-2", "Beta"),

@@ -1,0 +1,32 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:Savepoint.App.Localization"
+             xmlns:games="using:Savepoint.App.Features.Games"
+             x:Class="Savepoint.App.Features.Games.DuplicateProfileDialogView"
+             x:DataType="games:DuplicateProfileDialogViewModel">
+  <!-- Copy a profile under a new name. -->
+  <UserControl.Styles>
+    <!-- The label above a field takes the accent color while the field has focus, as in the mockup. -->
+    <Style Selector="StackPanel.field:focus-within > TextBlock.field-label">
+      <Setter Property="Foreground" Value="{DynamicResource Md3PrimaryBrush}" />
+    </Style>
+  </UserControl.Styles>
+  <StackPanel Spacing="16">
+    <TextBlock Classes="dialog-title" TextWrapping="Wrap" Text="{Binding Title}" />
+    <TextBlock x:Name="BodyText" Classes="body muted" TextWrapping="Wrap" Text="{Binding Body}" />
+    <StackPanel Classes="field" Spacing="6">
+      <TextBlock Classes="caption field-label" Text="{loc:Loc games.profileForm.nameLabel}" />
+      <TextBox x:Name="NameField" Text="{Binding Name}" AutomationProperties.Name="{loc:Loc games.profileForm.nameLabel}" />
+    </StackPanel>
+    <TextBlock x:Name="ErrorText"
+               Classes="body error"
+               TextWrapping="Wrap"
+               IsVisible="{Binding HasError}"
+               AutomationProperties.LiveSetting="Polite"
+               Text="{Binding Error}" />
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,4,0,0">
+      <Button Classes="text pill large" Command="{Binding CancelCommand}" Content="{loc:Loc common.cancel}" />
+      <Button x:Name="SaveButton" Classes="filled pill large" IsDefault="True" Command="{Binding SaveCommand}" Content="{loc:Loc games.duplicateProfile.save}" />
+    </StackPanel>
+  </StackPanel>
+</UserControl>

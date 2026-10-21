@@ -57,6 +57,23 @@ else
 fi
 rm -rf "$probe"
 
-echo "==> .NET SDK $(dotnet --version) from $dotnet_root, gating $gate_tree"
+# D27: on this 9p mount a file just renamed into place can be briefly invisible, so file-heavy tests fail at random.
+# Failed tests are retried up to this many times and every one that needed a retry is listed below; a test that
+# fails every time still fails the gate. Only this script asks for retries: it builds the retry extension in
+# (build/TestRetry.targets) and passes the option through build/gate.sh. The Windows gate never retries.
+retries=2
+export SAVEPOINT_TEST_RETRIES="$retries"
+export SAVEPOINT_TEST_ARGS="--retry-failed-tests $retries"
+
+echo "==> .NET SDK $(dotnet --version) from $dotnet_root, gating $gate_tree (failed tests are retried up to $retries times)"
 cd "$gate_tree"
-exec bash build/gate.sh
+mkdir -p "$tools"
+log="$tools/gate-linux-last.log"
+set +e
+bash build/gate.sh 2>&1 | tee "$log"
+status="${PIPESTATUS[0]}"
+set -e
+
+bash build/report-retried-tests.sh "$log" "$retries"
+
+exit "$status"

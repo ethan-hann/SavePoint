@@ -1,0 +1,42 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:Savepoint.App.Localization"
+             xmlns:a11y="using:Savepoint.App.Features.Common.Accessibility"
+             xmlns:launch="using:Savepoint.App.Features.Launch"
+             x:Class="Savepoint.App.Features.Launch.SwitchProgressDialogView"
+             x:DataType="launch:SwitchProgressDialogViewModel">
+  <!-- The switching dialog (mockup 2c). The hidden region speaks the start and each quarter. -->
+  <StackPanel>
+    <a11y:AnnouncementRegion x:Name="ProgressAnnouncer" Message="{Binding Announcement}" />
+    <TextBlock x:Name="TitleText" Classes="dialog-title" TextWrapping="Wrap" Text="{Binding Title}" />
+    <TextBlock x:Name="ExplanationText" Classes="body muted" FontSize="14" TextWrapping="Wrap" Margin="0,4,0,16" Text="{Binding Explanation}" />
+    <ProgressBar x:Name="Bar"
+                 Minimum="0"
+                 Maximum="100"
+                 Value="{Binding PercentValue}"
+                 IsIndeterminate="{Binding IsIndeterminate}"
+                 AutomationProperties.Name="{Binding Title}" />
+    <Grid ColumnDefinitions="*,Auto" Margin="0,8,0,0">
+      <TextBlock x:Name="ProgressText" Classes="caption" TextWrapping="Wrap" Text="{Binding ProgressText}" />
+      <TextBlock x:Name="PercentText" Grid.Column="1" Classes="caption" Margin="12,0,0,0" Text="{Binding PercentText}" />
+    </Grid>
+    <TextBlock x:Name="PathText"
+               Classes="mono small muted"
+               Margin="0,12,0,0"
+               TextTrimming="CharacterEllipsis"
+               IsVisible="{Binding CurrentPath, Converter={x:Static ObjectConverters.IsNotNull}}"
+               Text="{Binding CurrentPath}" />
+    <Grid ColumnDefinitions="*,Auto" Margin="0,16,0,0">
+      <TextBlock x:Name="CancelingText"
+                 Classes="caption"
+                 VerticalAlignment="Center"
+                 IsVisible="{Binding IsCancelling}"
+                 Text="{loc:Loc launch.progress.canceling}" />
+      <Button x:Name="CancelButton"
+              Grid.Column="1"
+              Classes="pill large"
+              Command="{Binding CancelCommand}"
+              Content="{loc:Loc common.cancel}" />
+    </Grid>
+  </StackPanel>
+</UserControl>

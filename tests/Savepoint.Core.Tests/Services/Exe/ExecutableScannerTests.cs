@@ -1,4 +1,6 @@
+using Savepoint.Core.Platform;
 using Savepoint.Core.Services.Exe;
+using Savepoint.Core.Tests.Platform;
 
 namespace Savepoint.Core.Tests.Services.Exe;
 
@@ -52,6 +54,17 @@ public class ExecutableScannerTests
     [InlineData("EasyAntiCheat.exe")]
     [InlineData("BEService.exe")]
     [InlineData("Setup.exe")]
+    [InlineData("setup_x64.exe")]
+    [InlineData("Setup-1.2.exe")]
+    [InlineData("setup64.exe")]
+    [InlineData("MyGame_setup.exe")]
+    [InlineData("MyGame-Setup.exe")]
+    [InlineData("My Game Setup.exe")]
+    [InlineData("Installer.exe")]
+    [InlineData("GameInstaller.exe")]
+    [InlineData("crashpad_handler.exe")]
+    [InlineData("BugSplatCrashHandler.exe")]
+    [InlineData("CrashReporter.exe")]
     public async Task Installers_redistributables_and_crash_handlers_are_not_suggested(string name)
     {
         using var temp = new TempFolder();
@@ -59,6 +72,21 @@ public class ExecutableScannerTests
         temp.WriteBytes("Game.exe", 10);
 
         Assert.Equal([P("Game.exe")], await ScanAsync(temp));
+    }
+
+    [Theory]
+    [InlineData("Crashlands.exe")]
+    [InlineData("Crash Bandicoot.exe")]
+    [InlineData("Crasher.exe")]
+    [InlineData("SetupWizardGame.exe")]
+    [InlineData("Setupia.exe")]
+    [InlineData("Reset.exe")]
+    public async Task A_noise_word_inside_a_game_name_does_not_hide_the_game(string name)
+    {
+        using var temp = new TempFolder();
+        temp.WriteBytes(name, 10);
+
+        Assert.Equal([P(name)], await ScanAsync(temp));
     }
 
     [Theory]
@@ -172,32 +200,80 @@ public class ExecutableScannerTests
         Assert.Equal(P("sub", "deep20.exe"), found[^1]);
     }
 
+
     [Fact]
-    public async Task A_scan_stops_after_five_thousand_entries()
+    public void The_documented_limits_are_the_defaults()
+    {
+        var scanner = new ExecutableScanner(ExecutableKinds.WindowsExe);
+
+        Assert.Equal(4, ExecutableScanner.MaxDepth);
+        Assert.Equal(5000, ExecutableScanner.MaxEntriesVisited);
+        Assert.Equal(50, ExecutableScanner.MaxResults);
+        Assert.Equal(5000, scanner.EntryLimit);
+    }
+
+    // The entry limit is lowered here so the tests do not have to create thousands of files.
+    private static ExecutableScanner WithEntryLimit(int limit) => new(ExecutableKinds.WindowsExe) { EntryLimit = limit };
+
+    [Fact]
+    public async Task A_scan_stops_at_the_entry_limit_and_not_one_entry_later()
     {
         using var temp = new TempFolder();
-        for (var i = 0; i < 5100; i++)
+
+        // 49 files and the folder make 50 entries; the executable inside the folder would be the 51st.
+        for (var i = 0; i < 49; i++)
         {
-            File.WriteAllBytes(temp.Combine($"f{i:D5}.dat"), []);
+            File.WriteAllBytes(temp.Combine($"f{i:D3}.dat"), []);
         }
 
         temp.WriteBytes("sub/Game.exe", 10);
 
-        Assert.Empty(await ScanAsync(temp));
+        Assert.Empty(await WithEntryLimit(50).ListAsync(temp.Path, Ct));
+    }
+
+    [Fact]
+    public async Task A_single_crowded_folder_is_cut_off_after_exactly_the_limit()
+    {
+        using var temp = new TempFolder();
+        for (var i = 0; i < 70; i++)
+        {
+            File.WriteAllBytes(temp.Combine($"f{i:D3}.dat"), []);
+        }
+
+        var visits = 0;
+        var scanner = new ExecutableScanner(ExecutableKinds.WindowsExe) { EntryLimit = 50, Visited = _ => visits++ };
+
+        await scanner.ListAsync(temp.Path, Ct);
+
+        Assert.Equal(50, visits);
     }
 
     [Fact]
     public async Task A_folder_just_under_the_entry_limit_is_scanned_completely()
     {
         using var temp = new TempFolder();
-        for (var i = 0; i < 4990; i++)
+        for (var i = 0; i < 46; i++)
         {
-            File.WriteAllBytes(temp.Combine($"f{i:D5}.dat"), []);
+            File.WriteAllBytes(temp.Combine($"f{i:D3}.dat"), []);
         }
 
         temp.WriteBytes("sub/Game.exe", 10);
 
-        Assert.Equal([P("sub", "Game.exe")], await ScanAsync(temp));
+        Assert.Equal([P("sub", "Game.exe")], await WithEntryLimit(50).ListAsync(temp.Path, Ct));
+    }
+
+    [Fact]
+    public async Task A_folder_with_exactly_as_many_entries_as_the_limit_is_scanned_completely()
+    {
+        using var temp = new TempFolder();
+        for (var i = 0; i < 48; i++)
+        {
+            File.WriteAllBytes(temp.Combine($"f{i:D3}.dat"), []);
+        }
+
+        temp.WriteBytes("sub/Game.exe", 10);
+
+        Assert.Equal([P("sub", "Game.exe")], await WithEntryLimit(50).ListAsync(temp.Path, Ct));
     }
 
     [Fact]
@@ -206,12 +282,12 @@ public class ExecutableScannerTests
         using var temp = new TempFolder();
         temp.WriteBytes("Game.exe", 10);
         Directory.CreateDirectory(temp.Combine("deep"));
-        for (var i = 0; i < 5000; i++)
+        for (var i = 0; i < 60; i++)
         {
-            File.WriteAllBytes(temp.Combine("deep", $"f{i:D5}.dat"), []);
+            File.WriteAllBytes(temp.Combine("deep", $"f{i:D3}.dat"), []);
         }
 
-        Assert.Equal([P("Game.exe")], await ScanAsync(temp));
+        Assert.Equal([P("Game.exe")], await WithEntryLimit(50).ListAsync(temp.Path, Ct));
     }
 
     [Fact]
@@ -354,6 +430,7 @@ public class ExecutableScannerTests
     public async Task The_real_execute_bit_decides_on_unix()
     {
         Assert.SkipWhen(OperatingSystem.IsWindows(), "Windows has no execute bit");
+        Assert.SkipUnless(TempFolder.HonorsFileModes(), "this file system ignores permission bits");
         var elf = new byte[] { 0x7F, (byte)'E', (byte)'L', (byte)'F', 2, 1, 1, 0 };
         using var temp = new TempFolder();
         Executable(temp.WriteBytesWith("with-the-bit", elf));
@@ -385,23 +462,29 @@ public class ExecutableScannerTests
         Assert.Equal([P("Tool.app", "Game.exe")], await ScanAsync(temp, ExecutableKinds.WindowsExe));
     }
 
-    [Fact]
-    public void The_default_kinds_follow_the_operating_system()
+    [Theory]
+    [InlineData(OsKind.Windows, ExecutableKinds.WindowsExe)]
+    [InlineData(OsKind.Linux, ExecutableKinds.LinuxNative | ExecutableKinds.WindowsExe)]
+    [InlineData(OsKind.MacOS, ExecutableKinds.MacApp)]
+    public void The_kinds_follow_the_operating_system(OsKind os, ExecutableKinds expected)
     {
-        var kinds = ExecutableScanner.KindsForCurrentOs;
+        Assert.Equal(expected, ExecutableScanner.KindsFor(os));
+    }
 
-        if (OperatingSystem.IsWindows())
-        {
-            Assert.Equal(ExecutableKinds.WindowsExe, kinds);
-        }
-        else if (OperatingSystem.IsMacOS())
-        {
-            Assert.Equal(ExecutableKinds.MacApp, kinds);
-        }
-        else
-        {
-            Assert.Equal(ExecutableKinds.LinuxNative | ExecutableKinds.WindowsExe, kinds);
-        }
+    [Theory]
+    [InlineData(OsKind.Windows, new[] { "Game.exe" })]
+    [InlineData(OsKind.Linux, new[] { "Game.exe", "run.sh" })]
+    [InlineData(OsKind.MacOS, new[] { "Game.app" })]
+    public async Task A_scanner_built_from_a_platform_suggests_what_suits_that_platform(OsKind os, string[] expected)
+    {
+        using var temp = new TempFolder();
+        temp.WriteBytes("Game.exe", 10);
+        temp.WriteBytes("run.sh", 10);
+        temp.WriteBytes("Game.app/Contents/MacOS/Game", 10);
+
+        var found = await new ExecutableScanner(FakePlatforms.For(os)).ListAsync(temp.Path, Ct);
+
+        Assert.Equal(expected.Select(name => P(name)), found);
     }
 
     private static void Executable(string path)

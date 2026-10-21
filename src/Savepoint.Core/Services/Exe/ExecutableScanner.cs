@@ -1,3 +1,5 @@
+using Savepoint.Core.Platform;
+
 namespace Savepoint.Core.Services.Exe;
 
 /// <summary>Finds the files in an install folder that could launch the game, for the game editor's suggestions.</summary>
@@ -23,8 +25,12 @@ public sealed class ExecutableScanner
     // Compared against the folder's path below the install folder, with forward slashes, in lower case.
     private const string _thirdPartyBinaries = "engine/binaries/thirdparty";
 
-    private static readonly string[] _noiseNamePrefixes = ["unins", "dotnetfx", "directx_", "oalinst", "easyanticheat", "beservice"];
-    private static readonly string[] _noiseNameParts = ["crash", "redist", "setup"];
+    // Specific helper names rather than the bare words "crash" and "setup", which are also in real game names.
+    private static readonly string[] _noiseNamePrefixes =
+        ["unins", "dxsetup", "dxwebsetup", "dotnetfx", "directx_", "oalinst", "easyanticheat", "beservice", "crashpad_handler"];
+
+    private static readonly string[] _noiseNameParts = ["installer", "redist", "crashhandler", "crashreport"];
+    private static readonly string[] _noiseNameSuffixes = ["_setup", "-setup", " setup"];
 
     // Libraries and Windows files that carry an execute bit on some file systems but are not programs a player starts.
     private static readonly string[] _notNativeExtensions = [".so", ".dll", ".exe", ".dylib", ".a", ".o", ".pdb"];
@@ -39,19 +45,32 @@ public sealed class ExecutableScanner
 
     private readonly ExecutableKinds _kinds;
 
-    /// <summary>Creates a scanner that suggests the given kinds of file.</summary>
-    /// <param name="kinds">What to suggest; <see cref="KindsForCurrentOs"/> is the usual choice.</param>
+    /// <summary>Creates a scanner that suggests the kinds of file that suit a platform.</summary>
+    /// <param name="platform">The platform whose <see cref="IPlatform.Os"/> picks the kinds, as <see cref="KindsFor"/> does.</param>
+    public ExecutableScanner(IPlatform platform)
+        : this(KindsFor(platform.Os))
+    {
+    }
+
+    /// <summary>Creates a scanner that suggests exactly the given kinds of file.</summary>
+    /// <param name="kinds">What to suggest; <see cref="KindsFor"/> gives the usual choice for an OS.</param>
     public ExecutableScanner(ExecutableKinds kinds)
     {
         _kinds = kinds;
     }
 
-    /// <summary>The kinds worth suggesting on the OS this process runs on.</summary>
+    /// <summary>The kinds worth suggesting on an OS.</summary>
+    /// <param name="os">The OS the game runs on.</param>
     /// <remarks>Linux also suggests <c>.exe</c> files, because Windows games run there through Proton.</remarks>
-    public static ExecutableKinds KindsForCurrentOs =>
-        OperatingSystem.IsWindows() ? ExecutableKinds.WindowsExe
-        : OperatingSystem.IsMacOS() ? ExecutableKinds.MacApp
-        : ExecutableKinds.LinuxNative | ExecutableKinds.WindowsExe;
+    public static ExecutableKinds KindsFor(OsKind os) => os switch
+    {
+        OsKind.Windows => ExecutableKinds.WindowsExe,
+        OsKind.MacOS => ExecutableKinds.MacApp,
+        _ => ExecutableKinds.LinuxNative | ExecutableKinds.WindowsExe,
+    };
+
+    // A seam so tests can reach the limit without creating thousands of files.
+    internal int EntryLimit { get; init; } = MaxEntriesVisited;
 
     internal Action<string>? Visited { get; init; }
 
@@ -83,7 +102,7 @@ public sealed class ExecutableScanner
         var pending = new Queue<(string Path, int Depth)>();
         pending.Enqueue((root, 0));
         var visited = 0;
-        while (pending.Count > 0 && visited < MaxEntriesVisited)
+        while (pending.Count > 0 && visited < EntryLimit)
         {
             var (folder, depth) = pending.Dequeue();
             try
@@ -91,7 +110,7 @@ public sealed class ExecutableScanner
                 foreach (var entry in new DirectoryInfo(folder).EnumerateFileSystemInfos("*", _everything))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    if (visited++ >= MaxEntriesVisited)
+                    if (visited++ >= EntryLimit)
                     {
                         break;
                     }
@@ -220,8 +239,15 @@ public sealed class ExecutableScanner
     private static bool IsNoise(string nameWithoutExtension)
     {
         return _noiseNamePrefixes.Any(prefix => nameWithoutExtension.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            || _noiseNameParts.Any(part => nameWithoutExtension.Contains(part, StringComparison.OrdinalIgnoreCase));
+            || _noiseNameParts.Any(part => nameWithoutExtension.Contains(part, StringComparison.OrdinalIgnoreCase))
+            || _noiseNameSuffixes.Any(suffix => nameWithoutExtension.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+            || IsSetupProgram(nameWithoutExtension);
     }
+
+    // "setup", "setup64" and "setup_en" are installers; "SetupWizardGame" is a game whose name starts the same way.
+    private static bool IsSetupProgram(string nameWithoutExtension) =>
+        nameWithoutExtension.StartsWith("setup", StringComparison.OrdinalIgnoreCase)
+        && (nameWithoutExtension.Length == "setup".Length || !char.IsLetter(nameWithoutExtension["setup".Length]));
 
     private static bool IsSkippedFolder(DirectoryInfo folder, string root)
     {

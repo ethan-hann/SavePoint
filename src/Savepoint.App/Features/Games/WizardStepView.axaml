@@ -1,0 +1,55 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:theme="using:Savepoint.App.Theme"
+             xmlns:games="using:Savepoint.App.Features.Games"
+             x:Class="Savepoint.App.Features.Games.WizardStepView"
+             x:DataType="games:WizardStepViewModel">
+  <!-- One dot of the wizard's step indicator: a 24px circle, filled for the current and earlier steps, and the step's name. -->
+  <UserControl.Styles>
+    <Style Selector="Border.step-dot">
+      <Setter Property="Width" Value="24" />
+      <Setter Property="Height" Value="24" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Md3OutlineBrush}" />
+      <Setter Property="BorderThickness" Value="1.5" />
+    </Style>
+    <Style Selector="Border.step-dot.filled">
+      <Setter Property="Background" Value="{DynamicResource Md3PrimaryBrush}" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="Border.step-dot TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource Md3OnSurfaceVariantBrush}" />
+    </Style>
+    <Style Selector="Border.step-dot.filled TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource Md3OnPrimaryBrush}" />
+    </Style>
+    <Style Selector="TextBlock.step-label.current">
+      <Setter Property="FontWeight" Value="Medium" />
+    </Style>
+  </UserControl.Styles>
+  <StackPanel Orientation="Horizontal" Spacing="12" AutomationProperties.Name="{Binding AutomationName}">
+    <Border x:Name="Dot" Classes="step-dot" Classes.filled="{Binding IsFilled}">
+      <Panel>
+        <TextBlock x:Name="NumberText"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   FontSize="12"
+                   FontWeight="Medium"
+                   IsVisible="{Binding !IsDone}"
+                   Text="{Binding Number}" />
+        <TextBlock x:Name="DoneIcon"
+                   Classes="icon s16"
+                   HorizontalAlignment="Center"
+                   IsVisible="{Binding IsDone}"
+                   Text="{x:Static theme:Icons.Check}" />
+      </Panel>
+    </Border>
+    <TextBlock x:Name="LabelText"
+               Classes="step-label"
+               Classes.current="{Binding IsCurrent}"
+               Classes.muted="{Binding !IsCurrent}"
+               VerticalAlignment="Center"
+               FontSize="14"
+               Text="{Binding Label}" />
+  </StackPanel>
+</UserControl>

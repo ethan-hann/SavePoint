@@ -71,7 +71,8 @@ public sealed class GitCancellationTests : IDisposable
     public async Task A_leftover_process_holding_the_output_pipe_cannot_hang_the_call()
     {
         // The alias leaves a background process that inherits git's stdout and outlives git itself.
-        var holder = OperatingSystem.IsWindows() ? "ping -n 9 127.0.0.1 &" : "sleep 8 &";
+        // The holder outlives the limit below by a wide margin, so a loaded machine cannot blur "returned early" with "waited".
+        var holder = OperatingSystem.IsWindows() ? "ping -n 31 127.0.0.1 &" : "sleep 30 &";
         using var impatient = new GitWorkspace(new GitRunnerOptions { DrainTimeout = TimeSpan.FromMilliseconds(500) });
         var invocation = new GitInvocation(["-c", $"alias.leave=!{holder}", "leave"]);
 
@@ -79,7 +80,7 @@ public sealed class GitCancellationTests : IDisposable
         var result = await impatient.RunPlainAsync(invocation);
 
         Assert.Equal(0, result.ExitCode);
-        Assert.True(clock.Elapsed < TimeSpan.FromSeconds(5), $"the call waited {clock.Elapsed} for the leftover process");
+        Assert.True(clock.Elapsed < TimeSpan.FromSeconds(15), $"the call waited {clock.Elapsed} for the leftover process");
     }
 
     [Fact]

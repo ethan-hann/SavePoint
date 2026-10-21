@@ -6,8 +6,12 @@ namespace Savepoint.Core.Services.Jobs;
 /// <summary>Turns what a job's work returned into the status and error its snapshot reports (D13.20).</summary>
 public static class JobOutcome
 {
+    // A job that stopped because the user asked or because it yielded to other work was not a failure.
     private static readonly HashSet<string> _cancelledMessageIds =
-        [.. Enum.GetValues<CancelledOperation>().Select(op => ErrorInfo.From(new OperationCancelledByUserException(op, null)).MessageId)];
+    [
+        .. Enum.GetValues<CancelledOperation>().Select(op => ErrorInfo.From(new OperationCancelledByUserException(op, null)).MessageId),
+        ErrorInfo.From(new CompactionPreemptedException(null)).MessageId,
+    ];
 
     /// <summary>Judges a finished job from its result.</summary>
     /// <param name="result">The result the work returned, or null for work with none, such as a launch.</param>
@@ -42,6 +46,15 @@ public static class JobOutcome
 
         return errors.All(e => _cancelledMessageIds.Contains(e.MessageId)) ? (JobStatus.Cancelled, errors[0]) : (JobStatus.Failed, errors[0]);
     }
+
+    /// <summary>The error for a job that was stopped so something else on the same game could go first (D13.17).</summary>
+    /// <param name="kind">The kind of job; only optimization is ever preempted.</param>
+    /// <param name="gameId">The game the job was for, or null for a job that spans every game.</param>
+    /// <exception cref="InvalidOperationException">The kind is never preempted.</exception>
+    public static ErrorInfo PreemptedError(JobKind kind, string? gameId) =>
+        kind == JobKind.Compact
+            ? ErrorInfo.From(new CompactionPreemptedException(gameId))
+            : throw new InvalidOperationException($"A {kind} job is never preempted.");
 
     /// <summary>The error for a job that ended because it was cancelled.</summary>
     /// <param name="kind">The kind of job; selects which cancelled message the user sees.</param>

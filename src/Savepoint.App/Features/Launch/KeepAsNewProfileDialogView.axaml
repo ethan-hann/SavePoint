@@ -1,0 +1,34 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:Savepoint.App.Localization"
+             xmlns:launch="using:Savepoint.App.Features.Launch"
+             x:Class="Savepoint.App.Features.Launch.KeepAsNewProfileDialogView"
+             x:DataType="launch:KeepAsNewProfileDialogViewModel">
+  <!-- The name prompt behind "Keep as a new profile…" in the launch dialog. -->
+  <StackPanel Spacing="16">
+    <TextBlock x:Name="TitleText" Classes="dialog-title" TextWrapping="Wrap" Text="{Binding Title}" />
+    <TextBlock x:Name="BodyText" Classes="body muted" TextWrapping="Wrap" Text="{Binding Body}" />
+    <StackPanel Spacing="6">
+      <TextBlock Classes="caption" Text="{loc:Loc launch.keep.nameLabel}" />
+      <TextBox x:Name="NameField"
+               Text="{Binding Name, Mode=TwoWay}"
+               IsEnabled="{Binding !IsWorking}"
+               AutomationProperties.Name="{loc:Loc launch.keep.nameLabel}" />
+    </StackPanel>
+    <TextBlock x:Name="ErrorText"
+               Classes="body error"
+               TextWrapping="Wrap"
+               IsVisible="{Binding HasError}"
+               AutomationProperties.LiveSetting="Assertive"
+               Text="{Binding Error}" />
+    <ProgressBar x:Name="WorkingBar" IsIndeterminate="True" IsVisible="{Binding IsWorking}" />
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,4,0,0">
+      <Button Classes="text pill large" Command="{Binding CancelCommand}" IsEnabled="{Binding !IsWorking}" Content="{loc:Loc common.cancel}" />
+      <Button x:Name="CreateButton"
+              Classes="filled pill large"
+              IsDefault="True"
+              Command="{Binding CreateCommand}"
+              Content="{loc:Loc launch.keep.create}" />
+    </StackPanel>
+  </StackPanel>
+</UserControl>
