@@ -84,6 +84,14 @@ internal sealed class GamesRig
     public IReadOnlyList<string> ToastTexts => [.. Toasts.Toasts.Select(toast => toast.Text)];
 }
 
+internal static class TaskExtensions
+{
+    // A dialog that never answers should fail a test, not hang the run.
+    public static Task Soon(this Task task) => task.WaitAsync(TimeSpan.FromSeconds(5));
+
+    public static Task<T> Soon<T>(this Task<T> task) => task.WaitAsync(TimeSpan.FromSeconds(5));
+}
+
 internal sealed class CapturingScreenFactory(IScreenFactory inner) : IScreenFactory
 {
     public NavDestination Destination => inner.Destination;

@@ -61,7 +61,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         ShowHistoryCommand = new RelayCommand(() => _shell.Navigate(NavDestination.History));
         EditGameCommand = new RelayCommand(OpenEditor, () => CanEditGame);
         NewProfileCommand = new AsyncRelayCommand(() => Task.CompletedTask);
-        DeleteGameCommand = new AsyncRelayCommand(() => Task.CompletedTask);
+        DeleteGameCommand = new AsyncRelayCommand(DeleteGameAsync);
 
         _shell.PropertyChanged += OnShellChanged;
         _shell.LibraryRefreshed += OnLibraryRefreshed;
@@ -218,14 +218,6 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
             flow.InlineContentChanged -= OnInlineContentChanged;
         }
     }
-
-    Task IProfileRowActions.PlayAsync(ProfileRowViewModel row) => Task.CompletedTask;
-
-    Task IProfileRowActions.EditAsync(ProfileRowViewModel row) => Task.CompletedTask;
-
-    Task IProfileRowActions.DuplicateAsync(ProfileRowViewModel row) => Task.CompletedTask;
-
-    Task IProfileRowActions.DeleteAsync(ProfileRowViewModel row) => Task.CompletedTask;
 
     private void OnShellChanged(object? sender, PropertyChangedEventArgs e)
     {
