@@ -349,6 +349,17 @@ public class CatalogLintRuleTests
     }
 
     [Fact]
+    public void Xaml_loc_keys_inside_comments_are_ignored()
+    {
+        var axaml = """
+            <!-- Pair these with {theme:Upper {loc:Loc ...}} or {loc:Loc x.y}. -->
+            <TextBlock Text="{loc:Loc app.name}" />
+            """;
+
+        Assert.Equal(["app.name"], SourceLint.XamlLocKeys(axaml));
+    }
+
+    [Fact]
     public void A_key_the_code_asks_for_that_the_catalog_lacks_is_reported_with_the_file()
     {
         var references = new Dictionary<string, IReadOnlyList<string>>
@@ -441,6 +452,8 @@ public class CatalogLintRuleTests
     [InlineData("""<TextBlock>   </TextBlock>""")]
     [InlineData("""<Style><Setter Property="Text" Value="{loc:Loc a.b}" /></Style>""")]
     [InlineData("""<Style><Setter Property="FontSize" Value="Large" /></Style>""")]
+    [InlineData("""<ContentPresenter Content="{TemplateBinding Content}" />""")]
+    [InlineData("""<TextBox Text="{TemplateBinding Text, Mode=TwoWay}" />""")]
     public void Bound_localized_or_letterless_xaml_text_is_not_reported(string body)
     {
         Assert.Empty(SourceLint.HardcodedXamlText("src/Sample.axaml", Xaml(body)));

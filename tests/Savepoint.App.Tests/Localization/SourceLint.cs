@@ -24,7 +24,7 @@ internal static class SourceLint
     private static readonly Regex _wholeKey = new(@"^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z0-9]+)+$", RegexOptions.CultureInvariant);
 
     private static readonly Regex _allowedMarkup = new(
-        @"^\{\s*(?:Binding|CompiledBinding|ReflectionBinding|x:Static|(?:[A-Za-z_]\w*:)?Loc(?:Extension)?)(?=[\s}])",
+        @"^\{\s*(?:Binding|CompiledBinding|ReflectionBinding|TemplateBinding|x:Static|(?:[A-Za-z_]\w*:)?Loc(?:Extension)?)(?=[\s}])",
         RegexOptions.CultureInvariant);
 
     private static readonly HashSet<string> _textProperties =
@@ -116,8 +116,9 @@ internal static class SourceLint
         return literals.OrderBy(literal => literal.Start).ToList();
     }
 
+    // Comments document markup usage; a key named there is not a reference.
     public static IReadOnlyList<string> XamlLocKeys(string axaml) =>
-        _locKey.Matches(axaml)
+        _locKey.Matches(Regex.Replace(axaml, "<!--.*?-->", string.Empty, RegexOptions.Singleline))
             .Select(match => match.Groups["quoted"].Success ? match.Groups["quoted"].Value : match.Groups["bare"].Value)
             .ToList();
 
