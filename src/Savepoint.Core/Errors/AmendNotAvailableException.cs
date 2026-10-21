@@ -1,8 +1,8 @@
 namespace Savepoint.Core.Errors;
 
 /// <summary>
-/// Replacing the latest save point in place (<c>SessionCompletion.UpdateExisting</c>, an amend) is not possible for this folder
-/// (<c>error.gitOperation.amendNotAvailable</c>). Carries no args.
+/// Replacing the latest save point in place (<c>SessionCompletion.UpdateExisting</c>, an amend) is not possible because the
+/// folder has no save point on the profile's branch to replace (<c>error.gitOperation.amendNotAvailable</c>). Carries no args.
 /// </summary>
 public sealed class AmendNotAvailableException : SavepointException
 {
