@@ -1,0 +1,67 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:Savepoint.App.Localization"
+             xmlns:launch="using:Savepoint.App.Features.Launch"
+             x:Class="Savepoint.App.Features.Launch.PostPlayDialogView"
+             x:DataType="launch:PostPlayDialogViewModel">
+  <!--
+    The post-play dialog (mockup 2d). The choices are radio cards: arrow keys move the selection, Tab leaves the group,
+    and the name field inside the selected card is reachable by Tab.
+  -->
+  <StackPanel Spacing="18">
+    <StackPanel Spacing="8">
+      <TextBlock x:Name="TitleText" Classes="dialog-title" TextWrapping="Wrap" Text="{Binding Title}" />
+      <TextBlock x:Name="BodyText" Classes="body muted" FontSize="14" TextWrapping="Wrap" Text="{Binding Body}" />
+      <TextBlock x:Name="InstallNoteText" Classes="caption" TextWrapping="Wrap" IsVisible="{Binding HasInstallNote}" Text="{Binding InstallNote}" />
+      <TextBlock x:Name="OlderNoteText" Classes="caption" TextWrapping="Wrap" IsVisible="{Binding HasOlderNote}" Text="{Binding OlderNote}" />
+    </StackPanel>
+    <ListBox x:Name="ChoiceList"
+             Classes="radio-cards"
+             ItemsSource="{Binding Choices}"
+             SelectedItem="{Binding SelectedChoice, Mode=TwoWay}"
+             AutomationProperties.Name="{loc:Loc launch.postPlay.choicesLabel}">
+      <ListBox.Styles>
+        <Style Selector="ListBoxItem" x:DataType="launch:PostPlayChoiceViewModel">
+          <Setter Property="AutomationProperties.Name" Value="{Binding Title}" />
+          <Setter Property="AutomationProperties.HelpText" Value="{Binding Subtitle}" />
+        </Style>
+      </ListBox.Styles>
+      <ListBox.ItemTemplate>
+        <DataTemplate x:DataType="launch:PostPlayChoiceViewModel">
+          <Grid ColumnDefinitions="Auto,*">
+            <TextBlock Classes="icon"
+                       Classes.accent="{Binding IsSelected}"
+                       Classes.muted="{Binding !IsSelected}"
+                       VerticalAlignment="Top"
+                       Margin="2,1,16,0"
+                       Text="{Binding Icon}" />
+            <StackPanel Grid.Column="1" Spacing="3">
+              <TextBlock Classes="card-heading" TextWrapping="Wrap" Text="{Binding Title}" />
+              <TextBlock Classes="body muted" TextWrapping="Wrap" Text="{Binding Subtitle}" />
+              <TextBox Margin="0,10,0,0"
+                       IsVisible="{Binding ShowNameField}"
+                       Text="{Binding Name, Mode=TwoWay}"
+                       AutomationProperties.Name="{Binding NameLabel}">
+                <TextBox.InnerLeftContent>
+                  <TextBlock Classes="body" Margin="14,0,0,0" VerticalAlignment="Center" Text="{Binding NameLabel}" />
+                </TextBox.InnerLeftContent>
+              </TextBox>
+            </StackPanel>
+          </Grid>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+      <Button x:Name="NotNowButton"
+              Classes="text pill large"
+              IsVisible="{Binding ShowNotNowButton}"
+              Command="{Binding NotNowCommand}"
+              Content="{loc:Loc launch.postPlay.notNow}" />
+      <Button x:Name="SaveButton"
+              Classes="filled pill large"
+              IsDefault="True"
+              Command="{Binding SaveCommand}"
+              Content="{Binding PrimaryLabel}" />
+    </StackPanel>
+  </StackPanel>
+</UserControl>

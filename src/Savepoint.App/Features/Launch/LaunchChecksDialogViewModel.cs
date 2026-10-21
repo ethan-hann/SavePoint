@@ -19,6 +19,9 @@ public sealed partial class LaunchChecksDialogViewModel : DialogViewModel<bool>
     public IReadOnlyList<LaunchCheckLine> Checks { get; }
 
     /// <inheritdoc />
+    public override double DialogWidth => 520;
+
+    /// <inheritdoc />
     protected override bool DismissResult => true;
 
     [RelayCommand]

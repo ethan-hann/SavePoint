@@ -1,0 +1,65 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:art="using:Savepoint.App.Features.Common.Art"
+             xmlns:theme="using:Savepoint.App.Theme"
+             xmlns:stub="using:Savepoint.App.Tests.Features.Launch.Stub"
+             x:Class="Savepoint.App.Tests.Features.Launch.Stub.StubGamesScreenView"
+             x:DataType="stub:StubGamesScreenViewModel">
+  <!-- Test-only: the parts of the Games screen the launch flow shows next to; sample text that is not catalog copy. -->
+  <DockPanel Margin="26,22">
+    <ContentControl DockPanel.Dock="Bottom" x:Name="InlineHost" Margin="0,14,0,0" Content="{Binding InlineContent}" />
+    <StackPanel Spacing="14">
+      <StackPanel Orientation="Horizontal" Spacing="14">
+        <art:ArtTile Size="40" GameName="{Binding GameName}" />
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock Classes="section-title" FontSize="20" Text="{Binding GameName}" />
+          <TextBlock Classes="mono small subtle" Text="{Binding InstallPath}" />
+        </StackPanel>
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <ToggleButton Classes="chip" IsChecked="True" Content="Profiles" />
+        <ToggleButton Classes="chip" Content="History" />
+      </StackPanel>
+      <Border Classes="table">
+        <StackPanel>
+          <Border Classes="table-header">
+            <Grid ColumnDefinitions="*,108,92,118,128">
+              <TextBlock Classes="overline-small" Text="PROFILE" />
+              <TextBlock Grid.Column="1" Classes="overline-small" Text="VERSION" />
+              <TextBlock Grid.Column="2" Classes="overline-small" Text="MOD FILES" />
+              <TextBlock Grid.Column="3" Classes="overline-small" Text="LAST PLAYED" />
+            </Grid>
+          </Border>
+          <ItemsControl x:Name="Table" ItemsSource="{Binding Rows}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="stub:StubProfileRow">
+                <Border Classes="table-row">
+                  <Grid ColumnDefinitions="*,108,92,118,128">
+                    <StackPanel>
+                      <TextBlock Classes="row-title" Text="{Binding Name}" />
+                      <TextBlock Classes="overline-small" FontWeight="Normal" LetterSpacing="0" Classes.accent="{Binding IsActive}" Classes.error="{Binding HasUnsaved}" Text="{Binding Secondary}" />
+                    </StackPanel>
+                    <TextBlock Grid.Column="1" Classes="caption" VerticalAlignment="Center" Text="{Binding Version}" />
+                    <TextBlock Grid.Column="2" Classes="caption" VerticalAlignment="Center" Text="{Binding Mods}" />
+                    <TextBlock Grid.Column="3" Classes="caption" VerticalAlignment="Center" Text="{Binding LastPlayed}" />
+                    <Button Grid.Column="4"
+                            Classes="row"
+                            Classes.filled="{Binding IsActive}"
+                            HorizontalAlignment="Right"
+                            Command="{Binding $parent[UserControl].((stub:StubGamesScreenViewModel)DataContext).PlayCommand}"
+                            CommandParameter="{Binding}">
+                      <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Classes="icon s16" Text="{x:Static theme:Icons.PlayArrow}" />
+                        <TextBlock Text="Play" />
+                      </StackPanel>
+                    </Button>
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </DockPanel>
+</UserControl>

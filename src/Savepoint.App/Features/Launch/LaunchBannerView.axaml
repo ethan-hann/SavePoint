@@ -1,0 +1,33 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:Savepoint.App.Localization"
+             xmlns:theme="using:Savepoint.App.Theme"
+             xmlns:launch="using:Savepoint.App.Features.Launch"
+             x:Class="Savepoint.App.Features.Launch.LaunchBannerView"
+             x:DataType="launch:LaunchBannerViewModel">
+  <!-- The "Everything was already in place" banner (mockup 2a), a polite live region above the profile table. -->
+  <Border x:Name="Banner"
+          Classes="callout info"
+          CornerRadius="16"
+          Padding="18,13"
+          AutomationProperties.Name="{Binding Title}"
+          AutomationProperties.HelpText="{Binding Detail}"
+          AutomationProperties.LiveSetting="Polite">
+    <Grid ColumnDefinitions="Auto,*,Auto">
+      <TextBlock Classes="icon" Margin="0,0,14,0" VerticalAlignment="Center" Text="{x:Static theme:Icons.CheckCircle}" />
+      <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+        <TextBlock x:Name="TitleText" Classes="card-heading" TextWrapping="Wrap" Text="{Binding Title}" />
+        <TextBlock x:Name="DetailText" Classes="body" FontSize="12.5" LineHeight="18" TextWrapping="Wrap" Opacity="0.85" Text="{Binding Detail}" />
+      </StackPanel>
+      <Button x:Name="DetailsButton"
+              Grid.Column="2"
+              Classes="pill"
+              Margin="16,0,0,0"
+              Padding="20,7"
+              Foreground="{DynamicResource Md3OnPrimaryContainerBrush}"
+              BorderBrush="{DynamicResource Md3OnPrimaryContainerBrush}"
+              Command="{Binding ShowDetailsCommand}"
+              Content="{loc:Loc launch.banner.details}" />
+    </Grid>
+  </Border>
+</UserControl>
