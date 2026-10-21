@@ -49,7 +49,7 @@ public static class AppComposition
             pickers,
             toasts,
             theme,
-            ScreenFactories(services, pickers, text, toasts),
+            ScreenFactories(new ScreenComposition(services, pickers, text, toasts, ui)),
             LaunchFlow: null));
 
         return new MainWindowViewModel(startup, CreateShell, dialogStack, toasts);
@@ -59,9 +59,13 @@ public static class AppComposition
     /// One factory per screen. Games, History, Settings and the launch flow register here as they are built; a
     /// destination without a factory shows the placeholder.
     /// </summary>
-    private static IReadOnlyList<IScreenFactory> ScreenFactories(AppServices services, IDialogs dialogs, UiFormatter text, ToastHostViewModel toasts)
-    {
-        _ = (services, dialogs, text, toasts);
-        return [];
-    }
+    private static IReadOnlyList<IScreenFactory> ScreenFactories(ScreenComposition composition) => [];
 }
+
+/// <summary>What a screen factory may need to build its screen: the Api, the dialogs, the formatter, the toasts and the dispatcher.</summary>
+/// <param name="Services">The Api.</param>
+/// <param name="Dialogs">Dialogs and pickers.</param>
+/// <param name="Text">Formats messages.</param>
+/// <param name="Toasts">Shows transient messages.</param>
+/// <param name="Dispatcher">Brings Api events to the UI thread.</param>
+public sealed record ScreenComposition(AppServices Services, IDialogs Dialogs, UiFormatter Text, ToastHostViewModel Toasts, IUiDispatcher Dispatcher);
