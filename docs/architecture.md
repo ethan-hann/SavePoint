@@ -22,7 +22,7 @@ Savepoint.Core                       v
 
 Rules:
 - Views bind only to view models. View models call only the Api interfaces and `IDialogs` (folder pickers, file pickers, confirmations). Nothing in `Savepoint.App` references `Git/`, `Paths/`, or `Services/` types directly, except the composition root.
-- `Savepoint.Core` has no Avalonia reference and no static mutable state. Everything is constructed in one composition root (`AppComposition` in the App) and injected, so tests build the same graph against temp directories.
+- `Savepoint.Core` has no Avalonia reference and no static mutable state. Everything is constructed in one composition root (`Hosting/AppBootstrap` in the App, which calls `CoreBackend.Create`) and injected, so tests build the same graph against temp directories.
 - Every file-system or process side effect in Core goes through an injected abstraction where tests need to fake it (`IPlatform`, `IClock`, `IProcessInspector`, `IGameLauncher`); plain temp-dir IO is used everywhere else.
 - Async all the way: every operation that touches disk or git is `async Task` and takes a `CancellationToken`.
 
@@ -192,7 +192,7 @@ Catalog models (`GameDefinition`, `Profile`, `AppSettings`, `GameTemplate`, `Rep
 
 ## App
 
-- `AppComposition` builds Core against the real platform and wires the Api implementations into view models.
+- `Hosting/AppBootstrap.Start` builds Core against the real platform (`CoreBackend.Create` with the launch orchestrator) and hands the Api implementations to the App; `Composition/FeatureComposition.<Feature>.cs` wires them into view models, one file per feature.
 - `ShellViewModel` owns navigation (Games, History, Settings), layout, and the selected game. `LaunchFlowViewModel` is owned by the shell, not a screen (D13.19).
 - `Localization/`: `LocalizationCatalog` (ICU formatting via MessageFormat), `{loc:Loc}` markup extension, `L.Format(key, args)` for view models. Message ids from `ErrorInfo` are catalog keys.
 - `Theme/`: Material color port (`Theme/Material/`), `ThemeService` (seed + mode -> resource dictionary of MD3 roles, live switching), styles and control themes keyed to role names, fonts under `Assets/Fonts`.
