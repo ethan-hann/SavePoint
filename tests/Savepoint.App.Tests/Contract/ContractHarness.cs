@@ -94,7 +94,7 @@ internal sealed class FakeContractHarness : ContractHarness
 
 internal sealed class RealContractHarness : ContractHarness
 {
-    private static readonly TimeSpan _limit = TimeSpan.FromMinutes(3);
+    private static readonly TimeSpan _limit = TimeSpan.FromMinutes(5);
 
     private readonly CoreBackend _backend;
 

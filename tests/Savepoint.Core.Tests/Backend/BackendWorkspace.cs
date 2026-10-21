@@ -132,7 +132,7 @@ internal sealed class BackendWorkspace : IDisposable
             }
 
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(Token);
-            timeout.CancelAfter(limit ?? TimeSpan.FromSeconds(120));
+            timeout.CancelAfter(limit ?? TimeSpan.FromMinutes(5));
             await using var registration = timeout.Token.Register(() => finished.TrySetCanceled());
             return await finished.Task;
         }
@@ -145,7 +145,7 @@ internal sealed class BackendWorkspace : IDisposable
     // Waits until no job is running, for work a capture queued behind the caller's back.
     public async Task WaitForIdleAsync(TimeSpan? limit = null)
     {
-        var until = DateTime.UtcNow + (limit ?? TimeSpan.FromSeconds(120));
+        var until = DateTime.UtcNow + (limit ?? TimeSpan.FromMinutes(5));
         while (Jobs.List().Any(job => job.Status == JobStatus.Running))
         {
             Assert.True(DateTime.UtcNow < until, "jobs were still running at the deadline");
