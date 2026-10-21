@@ -238,6 +238,66 @@ public class JobRegistryTests
     }
 
     [Fact]
+    public async Task Cancelling_returns_while_a_cancel_callback_the_work_registered_is_still_running()
+    {
+        var registry = new JobRegistry();
+        var held = new HeldJob(registry);
+        var context = await held.Context;
+        var entered = new Gate();
+        using var block = new ManualResetEventSlim();
+        using var registration = context.CancellationToken.Register(() =>
+        {
+            entered.Open();
+            block.Wait(Generous);
+        });
+
+        var cancel = Task.Run(() => registry.Cancel(held.Id), Ct);
+        var winner = await Task.WhenAny(cancel, Task.Delay(TimeSpan.FromSeconds(10), Ct));
+
+        Assert.Same(cancel, winner);
+        Assert.Equal(JobCancelOutcome.Requested, await cancel);
+        Assert.True(context.CancellationToken.IsCancellationRequested);
+        await entered.Task.WaitAsync(Generous, Ct);
+        block.Set();
+        held.Finish();
+        await FinishedAsync(registry, held.Id);
+    }
+
+    [Fact]
+    public async Task A_cancel_callback_that_throws_does_not_break_cancelling()
+    {
+        var registry = new JobRegistry();
+        var held = new HeldJob(registry);
+        var context = await held.Context;
+        using var registration = context.CancellationToken.Register(() => throw new InvalidOperationException("callback"));
+
+        var outcome = registry.Cancel(held.Id);
+        held.Finish();
+        var done = await FinishedAsync(registry, held.Id);
+
+        Assert.Equal(JobCancelOutcome.Requested, outcome);
+        Assert.True(done.CancelRequested);
+    }
+
+    [Fact]
+    public async Task The_latest_progress_still_arrives_on_the_real_clock_after_a_burst_of_reports()
+    {
+        var registry = new JobRegistry();
+        var events = new EventLog(registry);
+        var held = new HeldJob(registry);
+        var context = await held.Context;
+
+        context.Progress.Report(new JobProgress(FilesDone: 1));
+        context.Progress.Report(new JobProgress(FilesDone: 2));
+
+        Assert.True(
+            SpinWait.SpinUntil(() => events.All.Any(e => e.Status == JobStatus.Running && e.Progress.FilesDone == 2), TimeSpan.FromSeconds(10)),
+            "the trailing update never arrived while the job was still running");
+        held.Finish();
+        await FinishedAsync(registry, held.Id);
+    }
+
+    [Fact]
     public async Task Cancelling_an_unknown_job_reports_it_and_still_succeeds()
     {
         var registry = new JobRegistry();
@@ -350,7 +410,7 @@ public class JobRegistryTests
         var context = await held.Context;
 
         context.AddLine(string.Empty);
-        context.AddLine(null!);
+        context.AddLine(null);
         context.Progress.Report(new JobProgress(FilesDone: 1, CurrentPath: string.Empty));
 
         Assert.Empty(registry.Get(held.Id)!.RecentLines);

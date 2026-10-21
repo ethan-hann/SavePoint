@@ -130,9 +130,23 @@ public sealed class JobRegistry : IJobsApi
         }
 
         ScheduleDelivery();
+        _ = CancelQuietlyAsync(source);
+        return JobCancelOutcome.Requested;
+    }
+
+    /// <summary>The <see cref="IJobsApi"/> form of <see cref="Cancel"/>: always succeeds, whatever the job's state.</summary>
+    public Task<OperationResult<Unit>> CancelAsync(Guid jobId)
+    {
+        _ = Cancel(jobId);
+        return Task.FromResult(OperationResult.Success());
+    }
+
+    // The token flips before this returns, but the work's cancel callbacks (killing a process tree, say) run off the caller's thread.
+    private static async Task CancelQuietlyAsync(CancellationTokenSource source)
+    {
         try
         {
-            source.Cancel();
+            await source.CancelAsync().ConfigureAwait(false);
         }
         catch (ObjectDisposedException)
         {
@@ -142,15 +156,6 @@ public sealed class JobRegistry : IJobsApi
         {
             // A callback the work registered threw; the token is cancelled all the same.
         }
-
-        return JobCancelOutcome.Requested;
-    }
-
-    /// <summary>The <see cref="IJobsApi"/> form of <see cref="Cancel"/>: always succeeds, whatever the job's state.</summary>
-    public Task<OperationResult<Unit>> CancelAsync(Guid jobId)
-    {
-        _ = Cancel(jobId);
-        return Task.FromResult(OperationResult.Success());
     }
 
     // Completes once every event raised before the call has been delivered; tests use it to know nothing more is coming.
