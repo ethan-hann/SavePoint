@@ -1,6 +1,7 @@
 using Savepoint.Core.Api;
 using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Services.Storage;
 
 namespace Savepoint.Core.Services.Settings;
 
@@ -8,10 +9,12 @@ namespace Savepoint.Core.Services.Settings;
 internal sealed partial class SettingsApi : ISettingsApi
 {
     private readonly BackendServices _services;
+    private readonly OptimizationService _optimization;
 
-    public SettingsApi(BackendServices services)
+    public SettingsApi(BackendServices services, OptimizationService optimization)
     {
         _services = services;
+        _optimization = optimization;
     }
 
     public Task<OperationResult<AppSettings>> GetAsync(CancellationToken cancellationToken = default) =>

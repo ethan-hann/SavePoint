@@ -10,10 +10,12 @@ namespace Savepoint.Core.Services.Games;
 internal sealed partial class GamesApi : IGamesApi
 {
     private readonly BackendServices _services;
+    private readonly OptimizationService _optimization;
 
-    public GamesApi(BackendServices services)
+    public GamesApi(BackendServices services, OptimizationService optimization)
     {
         _services = services;
+        _optimization = optimization;
     }
 
     public IReadOnlyList<GameTemplate> Templates => GameTemplates.All;

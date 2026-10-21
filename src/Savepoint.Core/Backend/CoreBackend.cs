@@ -103,6 +103,7 @@ public sealed class CoreBackend
             installDirectory,
             options.LooseObjectThreshold);
 
+        var optimization = new OptimizationService(services);
         var launch = options.Launch?.Invoke(services);
         if (launch is not null)
         {
@@ -111,10 +112,10 @@ public sealed class CoreBackend
 
         return new CoreBackend(
             services,
-            new GamesApi(services),
-            new ProfilesApi(services),
+            new GamesApi(services, optimization),
+            new ProfilesApi(services, optimization),
             launch?.Api ?? new UnavailableLaunchApi(),
-            new SettingsApi(services),
+            new SettingsApi(services, optimization),
             new HistoryApi(services),
             new AppStatusApi(services));
     }
