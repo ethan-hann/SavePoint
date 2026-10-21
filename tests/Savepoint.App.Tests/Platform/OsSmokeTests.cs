@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Savepoint.App.Platform;
 using Savepoint.App.Platform.Motion;
 using Savepoint.App.Platform.Notifications;
 using Savepoint.App.Platform.Processes;
@@ -37,6 +38,7 @@ public class OsSmokeTests
             shell.Results);
         Assert.NotNull(WindowsAnimationSetting.Read());
         await ReducedMotionSource.CreateForCurrentOs().RefreshAsync(Ct);
+        Assert.True(RevealTemporaryFile());
     }
 
     [Fact]
@@ -49,6 +51,8 @@ public class OsSmokeTests
 
         Assert.Null(error);
         await ReducedMotionSource.CreateForCurrentOs().RefreshAsync(Ct);
+        // xdg-open may not be installed, so only a crash would be a failure here.
+        RevealTemporaryFile();
     }
 
     [Fact]
@@ -62,6 +66,15 @@ public class OsSmokeTests
 
         Assert.Equal(0, runner.ExitCodes.Single());
         await ReducedMotionSource.CreateForCurrentOs().RefreshAsync(Ct);
+        Assert.True(RevealTemporaryFile());
+    }
+
+    // Opens the file manager on a file, which leaves a window on the screen; the file is made in the temp folder and left there.
+    private static bool RevealTemporaryFile()
+    {
+        var file = Path.Combine(Path.GetTempPath(), "savepoint smoke test, with spaces.txt");
+        File.WriteAllText(file, "SavePoint smoke test");
+        return FileManager.CreateForCurrentOs().Reveal(file);
     }
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
