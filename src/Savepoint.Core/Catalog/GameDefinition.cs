@@ -21,6 +21,10 @@ namespace Savepoint.Core.Catalog;
 /// Folders or files, relative to the install folder, used to count a profile's mod files. Empty when the game names none.
 /// </param>
 /// <param name="Notes">Free text the user keeps about the game, or null. It survives editing (D13.22).</param>
+/// <param name="SteamAppId">
+/// The game's Steam app id, a positive number, or null when the user named none. A stored id always wins over one found by looking
+/// at the game's launch link or folders (D30); it only picks the artwork and has no other effect.
+/// </param>
 public sealed record GameDefinition(
     int SchemaVersion = GameDefinition.CurrentSchemaVersion,
     string Id = "",
@@ -30,7 +34,8 @@ public sealed record GameDefinition(
     LaunchConfig? Launch = null,
     IReadOnlyList<string>? IgnorePaths = null,
     IReadOnlyList<string>? ModPathHints = null,
-    string? Notes = null)
+    string? Notes = null,
+    int? SteamAppId = null)
 {
     /// <summary>The only schema version this build reads and writes.</summary>
     public const int CurrentSchemaVersion = 1;
@@ -59,6 +64,7 @@ public sealed record GameDefinition(
         && External == other.External
         && Launch == other.Launch
         && Notes == other.Notes
+        && SteamAppId == other.SteamAppId
         && IgnorePaths.SequenceEqual(other.IgnorePaths)
         && ModPathHints.SequenceEqual(other.ModPathHints);
 
@@ -73,6 +79,7 @@ public sealed record GameDefinition(
         hash.Add(External);
         hash.Add(Launch);
         hash.Add(Notes);
+        hash.Add(SteamAppId);
         foreach (var path in IgnorePaths)
         {
             hash.Add(path);
