@@ -81,7 +81,7 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
         }
 
         UnsavedBlocks.CollectionChanged += (_, _) => OnBlocksChanged();
-        ShowKeepCallout = UnsavedBlocks.Any(block => !block.CanSaveFirst);
+        ShowKeepCallout = KeepOffered();
         KeepText = text.Message("launch.dialog.keepExplain");
     }
 
@@ -233,16 +233,23 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
     {
         var text = _deps.Text;
         var role = folder.Role == RepoRole.Install ? "install" : "external";
+
+        // A folder an earlier switch left half done is finished or discarded, never saved: what it holds is a mixture of two saves.
+        var unfinished = folder.UnfinishedSwitch;
         var block = new UnsavedChangesBlockViewModel(
             folder.Role,
-            text.Message("launch.dialog.unsavedTitle"),
-            text.Message("launch.dialog.unsavedBody", ("count", folder.DirtyFileCount), ("role", role)),
-            folder.DirtyOwnerProfileId is not null,
+            text.Message(unfinished ? "launch.dialog.unfinishedTitle" : "launch.dialog.unsavedTitle"),
+            unfinished
+                ? text.Message("launch.dialog.unfinishedBody", ("role", role))
+                : text.Message("launch.dialog.unsavedBody", ("count", folder.DirtyFileCount), ("role", role)),
+            !unfinished && folder.DirtyOwnerProfileId is not null,
             SaveFirstAsync,
             DiscardAsync,
             folder.Path,
             folder.DirtyNewFileCount,
-            folder.DirtyFileCount - folder.DirtyNewFileCount);
+            folder.DirtyFileCount - folder.DirtyNewFileCount,
+            unfinished ? Close : null,
+            unfinished ? folder.UnfinishedSwitchTarget : null);
         block.PropertyChanged += OnBlockPropertyChanged;
         UnsavedBlocks.Add(block);
     }
@@ -255,9 +262,12 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
         }
     }
 
+    // Only changes that belong to no profile can be kept as a new one; a half-switched folder cannot be saved at all.
+    private bool KeepOffered() => UnsavedBlocks.Any(block => !block.CanSaveFirst && !block.IsUnfinishedSwitch);
+
     private void OnBlocksChanged()
     {
-        ShowKeepCallout = UnsavedBlocks.Any(block => !block.CanSaveFirst);
+        ShowKeepCallout = KeepOffered();
         OnPropertyChanged(nameof(HasUnsaved));
         OnPropertyChanged(nameof(CanSwitch));
         SwitchCommand.NotifyCanExecuteChanged();

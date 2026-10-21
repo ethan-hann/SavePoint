@@ -39,7 +39,7 @@ public sealed partial class LaunchOrchestrator
         var install = readings.Single(reading => reading.Target.Role == RepoRole.Install);
         var external = readings.FirstOrDefault(reading => reading.Target.Role == RepoRole.External);
 
-        var states = await Task.WhenAll(readings.Select(reading => FolderStateAsync(storage, game, reading, cancellationToken))).ConfigureAwait(false);
+        var states = await Task.WhenAll(readings.Select(reading => FolderStateAsync(storage, game, profiles, target, reading, cancellationToken))).ConfigureAwait(false);
         var currentOverride = install.Status.IsDetached ? null : profiles.FirstOrDefault(profile => profile.BranchName == install.Status.Branch)?.VersionOverride;
         var current = await InstallStateAsync(storage, game, install.Target.Repo, install.Status.HeadCommit, currentOverride, cancellationToken).ConfigureAwait(false);
         var after = await InstallStateAsync(storage, game, install.Target.Repo, install.Target.Commit, resolved.Profile.VersionOverride, cancellationToken).ConfigureAwait(false);
@@ -59,7 +59,13 @@ public sealed partial class LaunchOrchestrator
             TargetIsOlderPoint: resolved.IsOlderPoint);
     }
 
-    private async Task<FolderLaunchState> FolderStateAsync(StorageSnapshot storage, GameDefinition game, FolderReading reading, CancellationToken cancellationToken) =>
+    private async Task<FolderLaunchState> FolderStateAsync(
+        StorageSnapshot storage,
+        GameDefinition game,
+        IReadOnlyList<Profile> profiles,
+        LaunchTarget previewed,
+        FolderReading reading,
+        CancellationToken cancellationToken) =>
         new(
             reading.Target.Role,
             reading.Target.Repo.WorkTree,
@@ -68,7 +74,20 @@ public sealed partial class LaunchOrchestrator
             reading.DirtyFileCount,
             reading.DirtyOwnerProfileId,
             reading.Matches ? null : await SwitchSummaryAsync(storage, game, reading, cancellationToken).ConfigureAwait(false),
-            reading.DirtyNewFileCount);
+            reading.DirtyNewFileCount,
+            reading.UnfinishedSwitch,
+            reading.UnfinishedSwitch ? await UnfinishedTargetAsync(storage, profiles, previewed, reading, cancellationToken).ConfigureAwait(false) : null);
+
+    // Starting the previewed target finishes a switch that was heading there; one that was heading elsewhere is finished by that point's own target.
+    private static async Task<LaunchTarget?> UnfinishedTargetAsync(
+        StorageSnapshot storage,
+        IReadOnlyList<Profile> profiles,
+        LaunchTarget previewed,
+        FolderReading reading,
+        CancellationToken cancellationToken) =>
+        reading.Pending
+            ? previewed
+            : await TargetResolver.TargetOfCommitAsync(storage, reading.Target.Repo, profiles, reading.Note!.ToCommit, cancellationToken).ConfigureAwait(false);
 
     // What the switch would write or remove, read from the two points alone.
     private async Task<SwitchSummary> SwitchSummaryAsync(StorageSnapshot storage, GameDefinition game, FolderReading reading, CancellationToken cancellationToken)

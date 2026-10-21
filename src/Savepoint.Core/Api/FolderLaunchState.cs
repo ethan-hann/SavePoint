@@ -17,6 +17,15 @@ namespace Savepoint.Core.Api;
 /// How many of <paramref name="DirtyFileCount"/> are new files, which a discard deletes; the rest are changed or removed files,
 /// which a discard puts back. 0 when <paramref name="Dirty"/> is false.
 /// </param>
+/// <param name="UnfinishedSwitch">
+/// True when an earlier switch of this folder stopped part way, so it holds files from two saves. Such a folder counts as
+/// <paramref name="Dirty"/> unless the launch is the very switch that finishes it, is never offered "Keep as a new profile", and
+/// can always be discarded back to the save the switch started from (D31).
+/// </param>
+/// <param name="UnfinishedSwitchTarget">
+/// A target that completes the unfinished switch when it is started; null when the folder has no unfinished switch, or when the
+/// point it was heading for is not in any profile's history any more, which leaves discarding as the way out.
+/// </param>
 public sealed record FolderLaunchState(
     RepoRole Role,
     string Path,
@@ -25,4 +34,6 @@ public sealed record FolderLaunchState(
     int DirtyFileCount,
     string? DirtyOwnerProfileId,
     SwitchSummary? Switch,
-    int DirtyNewFileCount = 0);
+    int DirtyNewFileCount = 0,
+    bool UnfinishedSwitch = false,
+    LaunchTarget? UnfinishedSwitchTarget = null);

@@ -14,6 +14,9 @@ internal sealed record FolderReading(FolderTarget Target, RepoStatus Status, IRe
     // A half-finished switch to something else cannot be told apart from work the player did, so it blocks like unsaved changes.
     public bool Blocked => Note is not null && !Pending;
 
+    // The folder holds files from two points, whether this launch finishes the switch or not.
+    public bool UnfinishedSwitch => Note is not null;
+
     public bool Dirty => Blocked || (Note is null && !Status.IsClean);
 
     // The files a discard would delete; the rest of the unsaved files are put back.

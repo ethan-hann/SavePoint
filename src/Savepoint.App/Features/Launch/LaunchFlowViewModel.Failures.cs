@@ -48,8 +48,9 @@ public sealed partial class LaunchFlowViewModel
                 actions.Add(Edit("launch.failure.editGame", primary: true));
                 break;
             case "error.launch.switchInterrupted":
-                // The unfinished switch is finished by switching again to the same point; reviewing the changes is the way out when it was heading elsewhere.
-                actions.Add(new ErrorCardAction(text.Message("launch.failure.switchAgain"), new AsyncRelayCommand(() => RestartAsync(flow)), IsPrimary: true));
+                // The unfinished switch is finished by starting the target the folder was heading for, which the folder's state records;
+                // reviewing the changes is the way out when that is not known, since discarding is always offered there.
+                actions.Add(new ErrorCardAction(text.Message("launch.failure.switchAgain"), new AsyncRelayCommand(() => SwitchAgainAsync(flow)), IsPrimary: true));
                 actions.Add(new ErrorCardAction(text.Message("launch.failure.reviewChanges"), new AsyncRelayCommand(() => BeginAsync(flow.GameId, flow.Target!)), IsPrimary: false));
                 break;
             case "error.launch.dirtyWorkingTree":
@@ -68,6 +69,16 @@ public sealed partial class LaunchFlowViewModel
 
         actions.Add(DismissAction(flow));
         return actions;
+    }
+
+    // Starts the target the half-switched folder was heading for; without one, the review is the way forward.
+    private async Task SwitchAgainAsync(GameFlow flow)
+    {
+        var preview = await _deps.Launch.GetPreviewAsync(flow.GameId, flow.Target!);
+        var recorded = preview.Ok
+            ? new[] { preview.Value.Install, preview.Value.External }.OfType<FolderLaunchState>().Select(folder => folder.UnfinishedSwitchTarget).FirstOrDefault(target => target is not null)
+            : null;
+        await BeginAsync(flow.GameId, recorded ?? flow.Target!);
     }
 
     // What the capture after a session came to: nothing to show for a clean save, a card for a partial or failed one.

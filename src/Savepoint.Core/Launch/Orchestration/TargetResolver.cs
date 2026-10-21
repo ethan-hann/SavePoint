@@ -43,6 +43,41 @@ internal static class TargetResolver
         };
     }
 
+    // The target that puts a folder on this commit: a profile's tip, one of its saves (saves folder) or the point the commit belongs
+    // to (install folder). Null when no profile's history holds the commit any more.
+    public static async Task<LaunchTarget?> TargetOfCommitAsync(
+        StorageSnapshot storage,
+        RepoRef repo,
+        IReadOnlyList<Profile> profiles,
+        string commit,
+        CancellationToken cancellationToken)
+    {
+        foreach (var profile in profiles)
+        {
+            var lineage = await storage.Engine.ListCommitsAsync(repo, profile.BranchName, null, cancellationToken).ConfigureAwait(false);
+            if (lineage.FirstOrDefault(candidate => candidate.Id == commit) is not { } found)
+            {
+                continue;
+            }
+
+            if (lineage[0].Id == commit)
+            {
+                return new LaunchTarget.ProfileTip(profile.Id);
+            }
+
+            if (found.CaptureId is not { } captureId)
+            {
+                return null;
+            }
+
+            return repo.Role == RepoRole.External
+                ? new LaunchTarget.Save(profile.Id, new HistoryPointId(captureId))
+                : new LaunchTarget.Point(new HistoryPointId(captureId));
+        }
+
+        return null;
+    }
+
     private static Profile RequireProfile(IReadOnlyList<Profile> profiles, string gameId, string profileId) =>
         profiles.FirstOrDefault(profile => profile.Id == profileId) ?? throw new ProfileNotFoundException(gameId, profileId);
 
