@@ -1,0 +1,326 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:Savepoint.App.Localization"
+             xmlns:theme="using:Savepoint.App.Theme"
+             xmlns:settings="using:Savepoint.App.Features.Settings"
+             x:Class="Savepoint.App.Features.Settings.SettingsScreenView"
+             x:DataType="settings:SettingsScreenViewModel">
+  <!-- The Settings screen: mockups 2k (light) and 3c (the layout choice). -->
+  <UserControl.Styles>
+    <!-- The uppercase label over each section's card. -->
+    <Style Selector="TextBlock.section-label">
+      <Setter Property="FontSize" Value="12.5" />
+      <Setter Property="FontWeight" Value="Medium" />
+      <Setter Property="LetterSpacing" Value="0.5" />
+      <Setter Property="Foreground" Value="{DynamicResource Md3OutlineBrush}" />
+      <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
+
+    <!-- The two layout previews: a recessed frame with the layout drawn in blocks and lines. -->
+    <Style Selector="Border.layout-thumb">
+      <Setter Property="Background" Value="{DynamicResource Md3RecessedBrush}" />
+      <Setter Property="CornerRadius" Value="{DynamicResource Md3RadiusControl}" />
+      <Setter Property="Height" Value="64" />
+      <Setter Property="ClipToBounds" Value="True" />
+    </Style>
+    <Style Selector="Border.thumb-block">
+      <Setter Property="Background" Value="{DynamicResource Md3SurfaceContainerHighestBrush}" />
+      <Setter Property="CornerRadius" Value="3" />
+    </Style>
+    <Style Selector="Border.thumb-line">
+      <Setter Property="Background" Value="{DynamicResource Md3SurfaceContainerHighestBrush}" />
+      <Setter Property="CornerRadius" Value="2" />
+      <Setter Property="Height" Value="5" />
+    </Style>
+
+    <!-- A layout card sits in a two-column grid with a gap between the cards. -->
+    <Style Selector="ListBox.layout-cards ListBoxItem">
+      <Setter Property="Margin" Value="6,0" />
+      <Setter Property="Padding" Value="14,14,14,12" />
+    </Style>
+  </UserControl.Styles>
+
+  <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto">
+    <StackPanel MaxWidth="820" Margin="26,22,26,30" Spacing="6">
+      <TextBlock x:Name="TitleText" Classes="page-title" Margin="0,0,0,14" Text="{loc:Loc settings.title}" />
+
+      <ContentControl x:Name="LoadErrorHost" Content="{Binding LoadError}" IsVisible="{Binding HasLoadError}" />
+
+      <StackPanel x:Name="Sections" Spacing="22" IsVisible="{Binding IsLoaded}">
+
+        <!-- Where SavePoint keeps its data. -->
+        <StackPanel x:Name="StorageSection">
+          <TextBlock Classes="section-label" Text="{theme:Upper {loc:Loc settings.storage.heading}}" />
+          <Border Classes="panel">
+            <StackPanel>
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock x:Name="StoragePathText"
+                           Classes="mono large"
+                           FontSize="15"
+                           VerticalAlignment="Center"
+                           TextWrapping="Wrap"
+                           Text="{Binding Storage.StoragePath}" />
+                <Button x:Name="ChangeButton"
+                        Grid.Column="1"
+                        Classes="pill"
+                        Margin="16,0,0,0"
+                        Padding="18,8"
+                        VerticalAlignment="Center"
+                        Command="{Binding Storage.ChangeCommand}"
+                        Content="{loc:Loc settings.storage.change}" />
+              </Grid>
+
+              <Border x:Name="MovePanel" Classes="recessed" Margin="0,14,0,0" IsVisible="{Binding Storage.IsRelocating}">
+                <StackPanel Spacing="8">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Classes="row-title" VerticalAlignment="Center" Text="{loc:Loc settings.storage.moving}" />
+                    <Button x:Name="CancelMoveButton"
+                            Grid.Column="1"
+                            Classes="text pill"
+                            Padding="14,6"
+                            Command="{Binding Storage.CancelRelocationCommand}"
+                            Content="{loc:Loc settings.storage.cancel}" />
+                  </Grid>
+                  <ProgressBar x:Name="MoveBar"
+                               Minimum="0"
+                               Maximum="1"
+                               Value="{Binding Storage.RelocationValue}"
+                               IsIndeterminate="{Binding Storage.IsRelocationIndeterminate}" />
+                  <TextBlock Classes="caption" Text="{Binding Storage.RelocationDetail}" IsVisible="{Binding !Storage.IsRelocationIndeterminate}" />
+                  <TextBlock Classes="mono small muted" TextTrimming="CharacterEllipsis" Text="{Binding Storage.RelocationPath}" />
+                </StackPanel>
+              </Border>
+
+              <StackPanel x:Name="UsagePanel" Margin="0,16,0,0" Spacing="8" IsVisible="{Binding Storage.HasSummary}">
+                <ProgressBar x:Name="UsageBar" Minimum="0" Maximum="1" Value="{Binding Storage.UsedFraction}" />
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock x:Name="UsedText" Classes="caption" FontSize="12.5" Text="{Binding Storage.UsedText}" />
+                  <TextBlock x:Name="FreeText" Grid.Column="1" Classes="caption" FontSize="12.5" Text="{Binding Storage.FreeText}" />
+                </Grid>
+              </StackPanel>
+
+              <Border Classes="divider" Margin="0,16" />
+
+              <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="3" VerticalAlignment="Center">
+                  <TextBlock Classes="card-heading" Text="{loc:Loc settings.storage.optimizeTitle}" />
+                  <TextBlock x:Name="OptimizeText" Classes="caption" FontSize="12.5" TextWrapping="Wrap" Text="{Binding Storage.OptimizeDescription}" />
+                  <ProgressBar x:Name="OptimizeBar" Margin="0,6,0,0" IsIndeterminate="True" IsVisible="{Binding Storage.IsOptimizing}" />
+                </StackPanel>
+                <Button x:Name="RunNowButton"
+                        Grid.Column="1"
+                        Classes="pill"
+                        Margin="16,0,0,0"
+                        Padding="18,8"
+                        VerticalAlignment="Center"
+                        IsVisible="{Binding !Storage.IsOptimizing}"
+                        Command="{Binding Storage.RunNowCommand}"
+                        Content="{loc:Loc settings.storage.runNow}" />
+                <Button x:Name="CancelOptimizeButton"
+                        Grid.Column="1"
+                        Classes="pill"
+                        Margin="16,0,0,0"
+                        Padding="18,8"
+                        VerticalAlignment="Center"
+                        IsVisible="{Binding Storage.IsOptimizing}"
+                        Command="{Binding Storage.CancelOptimizeCommand}"
+                        Content="{loc:Loc settings.storage.cancel}" />
+              </Grid>
+            </StackPanel>
+          </Border>
+          <ContentControl x:Name="StorageProblemHost"
+                          Margin="0,12,0,0"
+                          Content="{Binding Storage.Problem}"
+                          IsVisible="{Binding Storage.Problem, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </StackPanel>
+
+        <!-- Appearance. -->
+        <StackPanel x:Name="AppearanceSection">
+          <TextBlock Classes="section-label" Text="{theme:Upper {loc:Loc settings.appearance.heading}}" />
+          <Border Classes="panel">
+            <StackPanel>
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Classes="body" FontSize="14.5" VerticalAlignment="Center" Text="{loc:Loc settings.theme.label}" />
+                <ListBox x:Name="ThemeSelector"
+                         Grid.Column="1"
+                         Classes="segmented"
+                         ItemsSource="{Binding Appearance.ThemeOptions}"
+                         SelectedItem="{Binding Appearance.SelectedTheme, Mode=TwoWay}"
+                         AutomationProperties.Name="{loc:Loc settings.theme.label}">
+                  <ListBox.Styles>
+                    <Style Selector="ListBoxItem" x:DataType="settings:ThemeOption">
+                      <Setter Property="AutomationProperties.Name" Value="{Binding Label}" />
+                    </Style>
+                  </ListBox.Styles>
+                  <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="settings:ThemeOption">
+                      <TextBlock Text="{Binding Label}" />
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+              </Grid>
+
+              <Border Classes="divider" Margin="0,14" />
+
+              <StackPanel Spacing="12">
+                <StackPanel Spacing="3">
+                  <TextBlock Classes="body" FontSize="14.5" Text="{loc:Loc settings.layout.label}" />
+                  <TextBlock Classes="caption" FontSize="12.5" TextWrapping="Wrap" Text="{loc:Loc settings.layout.hint}" />
+                </StackPanel>
+                <ListBox x:Name="LayoutCards"
+                         Classes="radio-cards layout-cards"
+                         Margin="-6,0"
+                         ItemsSource="{Binding Appearance.LayoutChoices}"
+                         SelectedItem="{Binding Appearance.SelectedLayout, Mode=TwoWay}"
+                         AutomationProperties.Name="{loc:Loc settings.layout.label}">
+                  <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <UniformGrid Columns="2" />
+                    </ItemsPanelTemplate>
+                  </ListBox.ItemsPanel>
+                  <ListBox.Styles>
+                    <Style Selector="ListBoxItem" x:DataType="settings:LayoutChoice">
+                      <Setter Property="AutomationProperties.Name" Value="{Binding Label}" />
+                    </Style>
+                  </ListBox.Styles>
+                  <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="settings:LayoutChoice">
+                      <StackPanel Spacing="10">
+                        <Border Classes="layout-thumb">
+                          <Panel>
+                            <!-- Sidebar: a rail on the left and three lines of content. -->
+                            <Grid ColumnDefinitions="30*,70*" IsVisible="{Binding IsSidebar}">
+                              <Border Classes="thumb-block" CornerRadius="0" />
+                              <StackPanel Grid.Column="1" Margin="14,16,14,0" Spacing="7">
+                                <Border Classes="thumb-line" />
+                                <Border Classes="thumb-line" />
+                                <Border Classes="thumb-line" />
+                              </StackPanel>
+                            </Grid>
+                            <!-- Library: a shelf of cards over two lines of content. -->
+                            <StackPanel Margin="12,12,12,0" Spacing="8" IsVisible="{Binding IsLibrary}">
+                              <Grid ColumnDefinitions="*,6,*,6,*">
+                                <Border Classes="thumb-block" Height="20" />
+                                <Border Grid.Column="2" Classes="thumb-block" Height="20" />
+                                <Border Grid.Column="4" Classes="thumb-block" Height="20" />
+                              </Grid>
+                              <Border Classes="thumb-line" />
+                              <Border Classes="thumb-line" />
+                            </StackPanel>
+                          </Panel>
+                        </Border>
+                        <StackPanel Spacing="1">
+                          <TextBlock Classes="row-title" Text="{Binding Label}" />
+                          <TextBlock Classes="caption" FontSize="12.5" TextWrapping="Wrap" Text="{Binding Description}" />
+                        </StackPanel>
+                      </StackPanel>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+              </StackPanel>
+
+              <Border Classes="divider" Margin="0,14" />
+
+              <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="3" VerticalAlignment="Center">
+                  <TextBlock Classes="body" FontSize="14.5" Text="{loc:Loc settings.accent.label}" />
+                  <TextBlock Classes="caption" FontSize="12.5" TextWrapping="Wrap" Text="{loc:Loc settings.accent.hint}" />
+                </StackPanel>
+                <ListBox x:Name="AccentSwatches"
+                         Grid.Column="1"
+                         Classes="swatches"
+                         VerticalAlignment="Center"
+                         ItemsSource="{Binding Appearance.AccentOptions}"
+                         SelectedItem="{Binding Appearance.SelectedAccent, Mode=TwoWay}"
+                         AutomationProperties.Name="{loc:Loc settings.accent.label}">
+                  <ListBox.Styles>
+                    <Style Selector="ListBoxItem" x:DataType="settings:AccentOption">
+                      <Setter Property="AutomationProperties.Name" Value="{Binding Label}" />
+                      <Setter Property="ToolTip.Tip" Value="{Binding Label}" />
+                    </Style>
+                  </ListBox.Styles>
+                  <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="settings:AccentOption">
+                      <Border Width="30" Height="30" CornerRadius="15" Background="{Binding Accent, Converter={x:Static settings:AccentBrushConverter.Instance}}" />
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+              </Grid>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <!-- When you finish playing. -->
+        <StackPanel x:Name="SessionSection">
+          <TextBlock Classes="section-label" Text="{theme:Upper {loc:Loc settings.session.heading}}" />
+          <Border Classes="panel">
+            <StackPanel Spacing="16">
+              <ToggleSwitch x:Name="AskSwitch" HorizontalAlignment="Stretch" IsChecked="{Binding Session.AskToSave, Mode=TwoWay}">
+                <TextBlock Classes="body" FontSize="14.5" Text="{loc:Loc settings.session.ask}" />
+              </ToggleSwitch>
+              <ToggleSwitch x:Name="SkipSwitch" HorizontalAlignment="Stretch" IsChecked="{Binding Session.SkipWhenOnlySaveChanges, Mode=TwoWay}">
+                <StackPanel Spacing="3">
+                  <TextBlock Classes="body" FontSize="14.5" Text="{loc:Loc settings.session.skip}" />
+                  <TextBlock Classes="caption" FontSize="12.5" TextWrapping="Wrap" Text="{loc:Loc settings.session.skipHint}" />
+                </StackPanel>
+              </ToggleSwitch>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <!-- Remove all SavePoint data. -->
+        <StackPanel x:Name="ClearAllSection">
+          <TextBlock Classes="section-label" Foreground="{DynamicResource Md3ErrorBrush}" Text="{theme:Upper {loc:Loc settings.clearAll.heading}}" />
+          <Border Classes="panel" BorderBrush="{DynamicResource Md3ErrorCalloutBorderBrush}">
+            <StackPanel Spacing="14">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Classes="caption" FontSize="12.5" TextWrapping="Wrap" VerticalAlignment="Center" Text="{loc:Loc settings.clearAll.body}" />
+                <Button x:Name="RemoveButton"
+                        Grid.Column="1"
+                        Classes="error-outlined pill"
+                        Margin="20,0,0,0"
+                        Padding="18,8"
+                        VerticalAlignment="Center"
+                        Command="{Binding ClearAll.RemoveCommand}"
+                        Content="{loc:Loc settings.clearAll.button}" />
+              </Grid>
+              <StackPanel x:Name="ClearingPanel" Spacing="8" IsVisible="{Binding ClearAll.IsClearing}">
+                <ProgressBar IsIndeterminate="True" />
+                <TextBlock Classes="caption" Text="{loc:Loc settings.clearAll.clearing}" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+          <ContentControl x:Name="ClearProblemHost"
+                          Margin="0,12,0,0"
+                          Content="{Binding ClearAll.Problem}"
+                          IsVisible="{Binding ClearAll.Problem, Converter={x:Static ObjectConverters.IsNotNull}}" />
+          <ContentControl x:Name="LeftBehindHost"
+                          Margin="0,12,0,0"
+                          Content="{Binding ClearAll.LeftBehind}"
+                          IsVisible="{Binding ClearAll.LeftBehind, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </StackPanel>
+
+        <!-- About. -->
+        <StackPanel x:Name="AboutSection">
+          <TextBlock Classes="section-label" Text="{theme:Upper {loc:Loc settings.about.heading}}" />
+          <Border Classes="panel">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Spacing="3" VerticalAlignment="Center">
+                <TextBlock Classes="card-heading" Text="{loc:Loc app.name}" />
+                <TextBlock x:Name="VersionText" Classes="caption" FontSize="12.5" Text="{Binding About.VersionText}" />
+              </StackPanel>
+              <Button x:Name="NoticesButton"
+                      Grid.Column="1"
+                      Classes="pill"
+                      Padding="18,8"
+                      VerticalAlignment="Center"
+                      IsVisible="{Binding About.HasNotices}"
+                      Command="{Binding About.ShowNoticesCommand}"
+                      Content="{loc:Loc settings.about.notices}" />
+            </Grid>
+          </Border>
+        </StackPanel>
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

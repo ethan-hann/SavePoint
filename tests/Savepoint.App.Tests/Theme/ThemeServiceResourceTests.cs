@@ -74,9 +74,9 @@ public class ThemeServiceResourceTests
     }
 
     [AvaloniaTheory]
-    [InlineData(false, "#835400", "#FFFFFF", "#FFDDB5", "#2A1800")]
-    [InlineData(true, "#FFB957", "#462B00", "#643F00", "#FFDDB5")]
-    public void Warning_roles_use_the_amber_hue_at_the_tones_error_uses(bool dark, string main, string on, string container, string onContainer)
+    [InlineData(false, "#775A00", "#FFFFFF", "#FFDF97", "#251A00")]
+    [InlineData(true, "#EFC148", "#3E2E00", "#5A4400", "#FFDF97")]
+    public void Warning_roles_use_the_gold_hue_at_the_tones_error_uses(bool dark, string main, string on, string container, string onContainer)
     {
         var harness = new ThemeHarness();
 

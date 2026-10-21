@@ -1,4 +1,5 @@
 using Savepoint.App.Theme.Material;
+using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Theme;
 
@@ -9,8 +10,8 @@ namespace Savepoint.App.Theme;
 /// </summary>
 public static class ThemeRoles
 {
-    // Seeds whose hue D22 uses for the roles M3 does not define.
-    private const uint _warningHueSeed = 0xFFF9A825;
+    // Seeds whose hue D22 uses for the roles M3 does not define; the warning hue is the mockup's gold, not the amber preset.
+    private const uint _warningHueSeed = 0xFFF5D488;
     private const uint _successHueSeed = 0xFF2E7D32;
 
     // Same hue M3 uses for its error palette.
@@ -29,7 +30,8 @@ public static class ThemeRoles
     /// <item>Warning and Success, each with On, Container and OnContainer, at the tones M3 uses for error.</item>
     /// <item>Error, Warning and Success CalloutBackground and CalloutBorder: a muted tint of the family hue.</item>
     /// <item>Translucent: ScrimOverlay (scrim at 45%), StateHover and StatePressed (on-surface at 8% and 12%), DisabledContainer (12%), DisabledContent (38%), ProgressTrack, ScrollThumb, ScrollThumbHover, ScrollThumbPressed.</item>
-    /// <item>Opaque derived: SelectedRow (surface tinted toward primary) and Card (the card surface).</item>
+    /// <item>Opaque derived: SelectedRow (surface tinted toward primary), Card (the card surface) and Recessed (a well inside a card or dialog).</item>
+    /// <item>Seed colors: SeedBlue, SeedViolet, SeedGreen, SeedAmber and SeedCrimson, the raw preset values for swatches.</item>
     /// </list>
     /// </summary>
     public static IReadOnlyDictionary<string, uint> Build(uint seedArgb, bool dark)
@@ -64,6 +66,15 @@ public static class ThemeRoles
 
         // The spec draws cards lighter than the page in light mode, where M3's container tones go darker.
         roles["Card"] = dark ? palette.SurfaceContainer : palette.SurfaceContainerLowest;
+
+        // A well inside a card or dialog: Surface is nearly the light card's own tone, so light mode steps to a container tone.
+        roles["Recessed"] = dark ? palette.Surface : palette.SurfaceContainerLow;
+
+        // The preset colors as drawn, for swatches: they never follow the applied accent or mode.
+        foreach (var accent in Enum.GetValues<AccentColorId>())
+        {
+            roles[$"Seed{accent}"] = AccentSeeds.For(accent);
+        }
 
         return roles;
     }
