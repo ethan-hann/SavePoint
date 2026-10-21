@@ -78,7 +78,8 @@ public sealed partial class JobStatusViewModel : ObservableObject
         Refresh();
     }
 
-    private void Refresh()
+    /// <summary>Recomputes the pill from the jobs already held; the shell calls it when the games reload, so a pill written before a game's name was known catches up.</summary>
+    public void Refresh()
     {
         var running = _jobs.Values
             .Where(job => job.Status == JobStatus.Running && job.Kind != JobKind.Launch)

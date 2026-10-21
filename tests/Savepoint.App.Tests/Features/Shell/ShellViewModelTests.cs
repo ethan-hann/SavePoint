@@ -823,6 +823,30 @@ public class ShellViewModelTests
     }
 
     [Fact]
+    public async Task A_game_job_already_running_when_the_shell_starts_names_its_game_in_the_pill()
+    {
+        var backend = FakeBackend.Mockup();
+        FakeAssert.Ok(await backend.Profiles.CaptureAsync(MockupScenario.SkyrimId, MockupScenario.ModdedId, "A point"));
+
+        var rig = await ShellRig.StartAsync(backend);
+
+        Assert.Equal("Saving Skyrim Special Edition…", rig.Shell.JobStatus.PillText);
+    }
+
+    [Fact]
+    public async Task The_pill_catches_up_when_a_reload_changes_a_games_name()
+    {
+        var rig = await ShellRig.StartAsync();
+        FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
+        Assert.Equal("Optimizing storage for Satisfactory…", rig.Shell.JobStatus.PillText);
+
+        FakeAssert.Ok(await rig.Backend.Games.UpdateAsync(MockupScenario.Satisfactory with { Name = "Satisfactory (modded)" }));
+        await rig.Shell.RefreshLibraryAsync();
+
+        Assert.Equal("Optimizing storage for Satisfactory (modded)…", rig.Shell.JobStatus.PillText);
+    }
+
+    [Fact]
     public async Task Job_events_are_handed_to_the_ui_dispatcher()
     {
         var dispatcher = new QueueingDispatcher();

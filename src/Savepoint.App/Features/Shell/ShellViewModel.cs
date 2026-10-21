@@ -187,7 +187,6 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
 
         // Subscribe before reading the snapshot, so a job that changes in between is not missed.
         _deps.Jobs.JobChanged += OnJobChanged;
-        JobStatus.Seed(_deps.Jobs.List());
 
         var settings = await _deps.Settings.GetAsync();
         if (settings.Ok)
@@ -200,6 +199,9 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
         }
 
         await RefreshLibraryAsync();
+
+        // Seeded after the games are known, so a running job's pill already names its game.
+        JobStatus.Seed(_deps.Jobs.List());
 
         foreach (var destination in Enum.GetValues<NavDestination>())
         {
@@ -453,6 +455,7 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
         var selected = rows.FirstOrDefault(row => row.Id == previous?.Id) ?? rows.FirstOrDefault();
         Select(selected, force: !Equals(previous?.Game, selected?.Game));
         RaiseShellState();
+        JobStatus.Refresh();
     }
 
     private void Select(GameRowViewModel? row, bool force = false)
