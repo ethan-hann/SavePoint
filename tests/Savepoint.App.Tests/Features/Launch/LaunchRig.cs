@@ -68,6 +68,15 @@ internal sealed class LaunchRig : IDisposable
         return new LaunchDialogViewModel(preview, "Skyrim Special Edition", ProfileName(preview.ProfileId), skipConfirm, Deps);
     }
 
+    // Plays a session through the fake to its exit, so the options are the ones the service would offer for that start.
+    public async Task<SessionState.Exited> ExitedAsync(LaunchTarget? target = null, string gameId = MockupScenario.SkyrimId, int newFiles = MockupScenario.NewSaveFiles, int installFiles = 0)
+    {
+        FakeAssert.Ok(await Backend.Launch.StartAsync(gameId, target ?? ModdedTip));
+        Backend.Launch.ReportRunning(gameId, MockupScenario.RunningSince);
+        Backend.Launch.ReportExited(gameId, MockupScenario.PlayDuration, newFiles, installFiles);
+        return Assert.IsType<SessionState.Exited>(FakeAssert.Session(Backend, gameId).State);
+    }
+
     public string ProfileName(string profileId) =>
         profileId switch
         {

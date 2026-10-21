@@ -1,0 +1,309 @@
+using Savepoint.App.Features.Launch;
+using Savepoint.App.Tests.Fakes;
+using Savepoint.App.Theme;
+using Savepoint.Core.Api;
+
+namespace Savepoint.App.Tests.Features.Launch;
+
+public class PostPlayDialogViewModelTests : IDisposable
+{
+    private const string ModdedName = "Modded playthrough - 7-2-26";
+
+    private readonly LaunchRig _rig = new();
+
+    public void Dispose() => _rig.Dispose();
+
+    private async Task<PostPlayDialogViewModel> NormalAsync(int newFiles = MockupScenario.NewSaveFiles, int installFiles = 0, LaunchTarget? target = null) =>
+        new(await _rig.ExitedAsync(target ?? LaunchRig.ModdedTip, newFiles: newFiles, installFiles: installFiles), ModdedName, _rig.Deps);
+
+    private async Task<PostPlayDialogViewModel> OlderAsync() =>
+        new(await _rig.ExitedAsync(LaunchRig.ClearedBlackreachPoint), ModdedName, _rig.Deps);
+
+    private PostPlayDialogViewModel Build(SessionState.Exited exited) => new(exited, ModdedName, _rig.Deps);
+
+    private static PostPlayChoiceViewModel Card(PostPlayDialogViewModel dialog, CompletionChoice kind) =>
+        dialog.Choices.Single(choice => choice.Kind == kind);
+
+    [Fact]
+    public async Task The_title_states_the_session_length_and_the_body_the_new_files()
+    {
+        var dialog = await NormalAsync();
+
+        Assert.Equal("You played for 2 hours 14 minutes", dialog.Title);
+        Assert.Equal("Your saves folder has 3 new files since you started. What should SavePoint do with them?", dialog.Body);
+        Assert.Equal(580, dialog.DialogWidth);
+    }
+
+    [Fact]
+    public async Task One_new_file_and_no_new_files_read_naturally()
+    {
+        var exited = await _rig.ExitedAsync(newFiles: 1);
+
+        Assert.Equal("Your saves folder has 1 new file since you started. What should SavePoint do with it?", Build(exited).Body);
+        Assert.Equal("Your saves folder has no new files since you started. What should SavePoint do with what's there?", Build(exited with { NewFileCount = 0 }).Body);
+    }
+
+    [Fact]
+    public async Task A_short_session_is_titled_in_minutes()
+    {
+        var exited = await _rig.ExitedAsync();
+        var shorter = exited with { PlayDuration = TimeSpan.FromMinutes(12) };
+
+        var dialog = new PostPlayDialogViewModel(shorter, ModdedName, _rig.Deps);
+
+        Assert.Equal("You played for 12 minutes", dialog.Title);
+    }
+
+    [Fact]
+    public async Task A_normal_session_offers_a_new_point_then_updating_the_latest_save_then_not_now_in_that_order()
+    {
+        var dialog = await NormalAsync();
+
+        Assert.Equal([CompletionChoice.CaptureNew, CompletionChoice.UpdateExisting, CompletionChoice.Skip], dialog.Choices.Select(c => c.Kind));
+        var (keep, update, skip) = (dialog.Choices[0], dialog.Choices[1], dialog.Choices[2]);
+        Assert.Equal("Keep this as a new point in your history", keep.Title);
+        Assert.Equal("Recommended. Your previous saves stay exactly as they are.", keep.Subtitle);
+        Assert.Equal(Icons.AddCircle, keep.Icon);
+        Assert.Equal("Update \"Before the final boss\" instead", update.Title);
+        Assert.Equal("Replaces that point with what's on disk now. You can't undo this one.", update.Subtitle);
+        Assert.Equal(Icons.Edit, update.Icon);
+        Assert.Equal("Not now", skip.Title);
+        Assert.Equal("Nothing is lost — your saves stay on disk and SavePoint will ask again before switching profiles.", skip.Subtitle);
+        Assert.Equal(Icons.Schedule, skip.Icon);
+    }
+
+    [Fact]
+    public async Task The_service_default_is_selected_and_only_a_selected_card_with_a_field_shows_it()
+    {
+        var dialog = await NormalAsync();
+
+        Assert.Same(Card(dialog, CompletionChoice.CaptureNew), dialog.SelectedChoice);
+        Assert.True(Card(dialog, CompletionChoice.CaptureNew).IsSelected);
+        Assert.True(Card(dialog, CompletionChoice.CaptureNew).ShowNameField);
+        Assert.False(Card(dialog, CompletionChoice.UpdateExisting).IsSelected);
+        Assert.False(Card(dialog, CompletionChoice.UpdateExisting).HasNameField);
+        Assert.False(Card(dialog, CompletionChoice.Skip).ShowNameField);
+
+        dialog.SelectedChoice = Card(dialog, CompletionChoice.Skip);
+
+        Assert.False(Card(dialog, CompletionChoice.CaptureNew).IsSelected);
+        Assert.False(Card(dialog, CompletionChoice.CaptureNew).ShowNameField);
+        Assert.True(Card(dialog, CompletionChoice.Skip).IsSelected);
+    }
+
+    [Fact]
+    public async Task The_new_point_starts_with_a_dated_name_in_a_labelled_field()
+    {
+        var keep = Card(await NormalAsync(), CompletionChoice.CaptureNew);
+
+        Assert.Equal("Name it:", keep.NameLabel);
+        Assert.Equal("Session - 7-8-26", keep.Name);
+    }
+
+    [Fact]
+    public async Task A_session_with_no_save_to_update_leaves_that_card_out()
+    {
+        var dialog = await NormalAsync(target: LaunchRig.VanillaTip);
+
+        Assert.Equal([CompletionChoice.CaptureNew, CompletionChoice.Skip], dialog.Choices.Select(c => c.Kind));
+    }
+
+    [Fact]
+    public async Task A_session_that_started_from_an_older_point_offers_a_new_profile_then_continuing_then_not_now()
+    {
+        var dialog = await OlderAsync();
+
+        Assert.Equal([CompletionChoice.ForkNewProfile, CompletionChoice.MoveForward, CompletionChoice.Skip], dialog.Choices.Select(c => c.Kind));
+        Assert.Same(Card(dialog, CompletionChoice.ForkNewProfile), dialog.SelectedChoice);
+        var (fork, move) = (dialog.Choices[0], dialog.Choices[1]);
+        Assert.Equal("Keep this as a new profile", fork.Title);
+        Assert.Equal("Recommended. \"Modded playthrough - 7-2-26\" stays exactly as it is, and this progress becomes a profile of its own.", fork.Subtitle);
+        Assert.Equal("Profile name:", fork.NameLabel);
+        Assert.Equal("Kept changes - 7-8-26", fork.Name);
+        Assert.Equal("Continue \"Modded playthrough - 7-2-26\" from here", move.Title);
+        Assert.Equal("Moves the profile forward from this older point. 1 newer point leaves it, and you can still recover it until the next storage optimization.", move.Subtitle);
+        Assert.True(dialog.HasOlderNote);
+        Assert.Equal("You started from an older point in \"Modded playthrough - 7-2-26\", so this progress can't just be added to the end of it.", dialog.OlderNote);
+    }
+
+    [Fact]
+    public async Task A_normal_session_has_no_older_note_and_an_unchanged_install_has_no_install_note()
+    {
+        var dialog = await NormalAsync();
+
+        Assert.False(dialog.HasOlderNote);
+        Assert.False(dialog.HasInstallNote);
+    }
+
+    [Fact]
+    public async Task Changes_to_the_games_own_files_while_playing_are_mentioned()
+    {
+        var dialog = await NormalAsync(installFiles: 14);
+
+        Assert.True(dialog.HasInstallNote);
+        Assert.Equal("14 files in the game's own folder also changed while you played, as an update would.", dialog.InstallNote);
+    }
+
+    [Fact]
+    public async Task The_main_button_names_the_selected_choice_and_not_now_hides_when_it_would_repeat_it()
+    {
+        var dialog = await NormalAsync();
+        Assert.Equal("Save it", dialog.PrimaryLabel);
+        Assert.True(dialog.ShowNotNowButton);
+
+        dialog.SelectedChoice = Card(dialog, CompletionChoice.UpdateExisting);
+        Assert.Equal("Update it", dialog.PrimaryLabel);
+
+        dialog.SelectedChoice = Card(dialog, CompletionChoice.Skip);
+        Assert.Equal("Not now", dialog.PrimaryLabel);
+        Assert.False(dialog.ShowNotNowButton);
+    }
+
+    [Fact]
+    public async Task The_older_variants_name_their_main_button_too()
+    {
+        var dialog = await OlderAsync();
+        Assert.Equal("Save it", dialog.PrimaryLabel);
+
+        dialog.SelectedChoice = Card(dialog, CompletionChoice.MoveForward);
+        Assert.Equal("Continue from here", dialog.PrimaryLabel);
+    }
+
+    [Fact]
+    public async Task Save_it_with_the_default_choice_answers_with_a_new_point_carrying_the_typed_name()
+    {
+        var dialog = await NormalAsync();
+        Card(dialog, CompletionChoice.CaptureNew).Name = "  After the Blackreach run  ";
+
+        await dialog.SaveCommand.ExecuteAsync(null);
+
+        Assert.True(dialog.IsClosed);
+        Assert.Equal(new SessionCompletion.CaptureNew("After the Blackreach run"), await dialog.Result);
+    }
+
+    [Fact]
+    public async Task A_blank_name_falls_back_to_the_suggested_one()
+    {
+        var dialog = await NormalAsync();
+        Card(dialog, CompletionChoice.CaptureNew).Name = "   ";
+
+        await dialog.SaveCommand.ExecuteAsync(null);
+
+        Assert.True(dialog.IsClosed);
+        Assert.Equal(new SessionCompletion.CaptureNew("Session - 7-8-26"), await dialog.Result);
+    }
+
+    [Fact]
+    public async Task Updating_the_latest_save_asks_for_a_second_confirmation_first()
+    {
+        var dialog = await NormalAsync();
+        dialog.SelectedChoice = Card(dialog, CompletionChoice.UpdateExisting);
+        _rig.Dialogs.AnswerConfirm(false);
+
+        await dialog.SaveCommand.ExecuteAsync(null);
+
+        var request = Assert.Single(_rig.Dialogs.Confirmations);
+        Assert.Equal("Replace this point?", request.Title);
+        Assert.Equal("This replaces \"Before the final boss\" with what's on disk now. This can't be undone.", request.Message);
+        Assert.Equal("Replace it, permanently", request.ConfirmLabel);
+        Assert.True(request.Destructive);
+        Assert.False(dialog.IsClosed);
+    }
+
+    [Fact]
+    public async Task Confirming_the_update_answers_with_an_update_that_keeps_the_points_name()
+    {
+        var dialog = await NormalAsync();
+        dialog.SelectedChoice = Card(dialog, CompletionChoice.UpdateExisting);
+        _rig.Dialogs.AnswerConfirm(true);
+
+        await dialog.SaveCommand.ExecuteAsync(null);
+
+        Assert.True(dialog.IsClosed);
+        Assert.Equal(new SessionCompletion.UpdateExisting("Before the final boss"), await dialog.Result);
+    }
+
+    [Fact]
+    public async Task A_new_profile_answers_with_the_name_for_both_the_profile_and_its_first_point()
+    {
+        var dialog = await OlderAsync();
+        Card(dialog, CompletionChoice.ForkNewProfile).Name = "Blackreach detour";
+
+        await dialog.SaveCommand.ExecuteAsync(null);
+
+        Assert.True(dialog.IsClosed);
+        Assert.Equal(new SessionCompletion.ForkNewProfile("Blackreach detour", "Blackreach detour"), await dialog.Result);
+    }
+
+    [Fact]
+    public async Task Continuing_the_profile_names_how_many_newer_points_leave_it_before_going_ahead()
+    {
+        var dialog = await OlderAsync();
+        dialog.SelectedChoice = Card(dialog, CompletionChoice.MoveForward);
+        _rig.Dialogs.AnswerConfirm(false, true);
+
+        await dialog.SaveCommand.ExecuteAsync(null);
+        Assert.False(dialog.IsClosed);
+
+        await dialog.SaveCommand.ExecuteAsync(null);
+
+        var request = _rig.Dialogs.Confirmations[0];
+        Assert.Equal("Continue \"Modded playthrough - 7-2-26\" from here?", request.Title);
+        Assert.Equal("1 newer point stops being part of \"Modded playthrough - 7-2-26\". You can still recover it until the next storage optimization.", request.Message);
+        Assert.Equal("Continue from here", request.ConfirmLabel);
+        Assert.True(request.Destructive);
+        Assert.True(dialog.IsClosed);
+        Assert.Equal(new SessionCompletion.MoveForward("Session - 7-8-26"), await dialog.Result);
+    }
+
+    [Fact]
+    public async Task Several_newer_points_are_counted_in_the_confirmation()
+    {
+        var exited = await _rig.ExitedAsync(LaunchRig.ClearedBlackreachPoint);
+        var options = exited.Options with { NewerPointCount = 3 };
+        var dialog = new PostPlayDialogViewModel(exited with { Options = options }, ModdedName, _rig.Deps);
+        dialog.SelectedChoice = Card(dialog, CompletionChoice.MoveForward);
+
+        await dialog.SaveCommand.ExecuteAsync(null);
+
+        Assert.StartsWith("3 newer points stop being part of", _rig.Dialogs.Confirmations[0].Message);
+        Assert.EndsWith("You can still recover them until the next storage optimization.", _rig.Dialogs.Confirmations[0].Message);
+    }
+
+    [Fact]
+    public async Task Continuing_with_nothing_newer_to_lose_needs_no_confirmation()
+    {
+        var exited = await _rig.ExitedAsync(LaunchRig.ClearedBlackreachPoint);
+        var options = exited.Options with { NewerPointCount = 0 };
+        var dialog = new PostPlayDialogViewModel(exited with { Options = options }, ModdedName, _rig.Deps);
+        dialog.SelectedChoice = Card(dialog, CompletionChoice.MoveForward);
+
+        await dialog.SaveCommand.ExecuteAsync(null);
+
+        Assert.Empty(_rig.Dialogs.Confirmations);
+        Assert.True(dialog.IsClosed);
+        Assert.Equal("Moves the profile forward from this older point. Nothing is removed from it.", dialog.Choices[1].Subtitle);
+    }
+
+    [Fact]
+    public async Task Not_now_answers_with_a_skip_whichever_way_it_is_chosen()
+    {
+        var exited = await _rig.ExitedAsync();
+        var viaButton = Build(exited);
+        viaButton.NotNowCommand.Execute(null);
+        Assert.True(viaButton.IsClosed);
+        Assert.Equal(new SessionCompletion.Skip(), await viaButton.Result);
+
+        var viaCard = Build(exited);
+        viaCard.SelectedChoice = Card(viaCard, CompletionChoice.Skip);
+        await viaCard.SaveCommand.ExecuteAsync(null);
+        Assert.True(viaCard.IsClosed);
+        Assert.Equal(new SessionCompletion.Skip(), await viaCard.Result);
+
+        var viaEscape = Build(exited);
+        Assert.True(viaEscape.CanDismiss);
+        viaEscape.RequestDismiss();
+        Assert.True(viaEscape.IsClosed);
+        Assert.Equal(new SessionCompletion.Skip(), await viaEscape.Result);
+    }
+}
