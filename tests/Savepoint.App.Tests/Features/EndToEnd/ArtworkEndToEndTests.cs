@@ -1,8 +1,8 @@
 using Avalonia.Headless.XUnit;
 using Savepoint.App.Features.Common.Art;
 using Savepoint.App.Features.Shell;
-using Savepoint.App.Tests.Features.Common;
 using Savepoint.App.Tests.Fakes;
+using Savepoint.App.Tests.Features.Common;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 
