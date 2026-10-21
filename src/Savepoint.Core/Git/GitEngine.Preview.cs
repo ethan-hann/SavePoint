@@ -54,6 +54,10 @@ public sealed partial class GitEngine
     /// <param name="candidates">From <see cref="ListCaptureCandidatesAsync"/>.</param>
     /// <param name="ignorePatterns">The same ignore patterns the candidates were listed with.</param>
     /// <param name="ct">Cancels the call.</param>
+    /// <exception cref="Savepoint.Core.Errors.PathSafetyException">The work tree is a protected location.</exception>
+    /// <exception cref="Savepoint.Core.Errors.PathMissingException">The work tree does not exist.</exception>
+    /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
+    /// <exception cref="Savepoint.Core.Errors.GitOperationException">The repository does not exist, or git failed.</exception>
     public async Task<long> EstimateNewBytesAsync(RepoRef repo, IReadOnlyList<CaptureCandidate> candidates, IReadOnlyList<string> ignorePatterns, CancellationToken ct = default)
     {
         repo = PreparePreview(repo, ignorePatterns, ct);

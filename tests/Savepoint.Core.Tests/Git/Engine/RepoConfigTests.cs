@@ -1,3 +1,5 @@
+using Savepoint.Core.Errors;
+
 namespace Savepoint.Core.Tests.Git.Engine;
 
 [Collection(EngineCollections.B)]
@@ -159,6 +161,25 @@ public sealed class RepoConfigTests : IDisposable
 
         Assert.Equal("kept", await _ws.ConfigAsync(repo, "user.note"));
         Assert.Equal("0", await _ws.ConfigAsync(repo, "core.repositoryformatversion"));
+    }
+
+    [Fact]
+    public async Task A_config_that_cannot_be_read_is_an_error_and_is_not_rebuilt_from_nothing()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows lets a file be replaced while it cannot be read");
+        var repo = await _ws.InitializedRepoAsync();
+        await _ws.GitAsync(repo, "config", "--local", "savepoint.repoConfigVersion", "1");
+        var path = Path.Combine(repo.GitDir, "config");
+        var before = await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken);
+
+        Exception? error;
+        using (new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.Delete))
+        {
+            error = await Record.ExceptionAsync(() => _ws.Engine.InitAsync(repo, ct: TestContext.Current.CancellationToken));
+        }
+
+        Assert.IsType<GitOperationException>(error);
+        Assert.Equal(before, await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
     }
 
     [Fact]

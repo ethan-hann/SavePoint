@@ -7,8 +7,47 @@ internal static class StaleLocks
 
     public static string IndexLock(string gitDir) => Path.Combine(gitDir, "index.lock");
 
-    // Removes every lock file it can; the caller has established that no git process is using the directory.
-    public static int RemoveAll(string gitDir)
+    // Removes every lock file and every temporary object file it can; the caller has established that no git process is
+    // using the directory. A git killed while it writes a big file leaves a temporary pack or object that can be hundreds of
+    // megabytes and that nothing finishes or removes.
+    public static int RemoveAll(string gitDir) => RemoveLocks(gitDir) + RemoveTemporaryFiles(gitDir);
+
+    private static int RemoveTemporaryFiles(string gitDir)
+    {
+        var objects = Path.Combine(gitDir, "objects");
+        if (!Directory.Exists(objects))
+        {
+            return 0;
+        }
+
+        var removed = 0;
+        var pack = Path.Combine(objects, "pack");
+        if (Directory.Exists(pack))
+        {
+            foreach (var file in Directory.EnumerateFiles(pack, "tmp_*").ToList())
+            {
+                removed += TryDelete(file) ? 1 : 0;
+            }
+        }
+
+        foreach (var folder in Directory.EnumerateDirectories(objects).ToList())
+        {
+            var name = Path.GetFileName(folder);
+            if (name.Length != 2 || !name.All(char.IsAsciiHexDigit))
+            {
+                continue;
+            }
+
+            foreach (var file in Directory.EnumerateFiles(folder, "tmp_obj_*").ToList())
+            {
+                removed += TryDelete(file) ? 1 : 0;
+            }
+        }
+
+        return removed;
+    }
+
+    private static int RemoveLocks(string gitDir)
     {
         var removed = 0;
         foreach (var name in _topLevel)

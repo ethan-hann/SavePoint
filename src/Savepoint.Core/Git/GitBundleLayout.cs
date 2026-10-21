@@ -1,10 +1,11 @@
 namespace Savepoint.Core.Git;
 
+/// <summary>The shape of the git bundle shipped with SavePoint, which decides where the executable is and what it needs.</summary>
 public enum GitBundleLayout
 {
-    // Git for Windows' MinGit: the entry point is cmd/git.exe and it finds its own helpers.
+    /// <summary>Git for Windows' MinGit: the entry point is <c>cmd/git.exe</c> and it finds its own helpers.</summary>
     MinGit,
 
-    // GitHub Desktop's portable git: bin/git needs GIT_EXEC_PATH and friends to find its helpers.
+    /// <summary>GitHub Desktop's portable git: <c>bin/git</c> needs <c>GIT_EXEC_PATH</c> and friends to find its helpers.</summary>
     Dugite,
 }

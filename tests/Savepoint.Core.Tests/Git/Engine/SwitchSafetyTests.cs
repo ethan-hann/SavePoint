@@ -203,6 +203,39 @@ public sealed class SwitchSafetyTests : IDisposable
         Assert.False(File.Exists(_ws.FileOf(repo, "b-only.txt")));
     }
 
+    [Fact]
+    public async Task A_switch_stopped_after_head_moved_with_a_file_left_behind_is_finished_by_repeating_it()
+    {
+        var (repo, tips) = await TwoProfilesAsync();
+        SwitchJournal.Write(repo.GitDir, tips.B, tips.A);
+        await _ws.GitWriteAsync(repo, "checkout", "--quiet", "profile-a");
+        var a = TreeSnapshot.Take(repo.WorkTree);
+        _ws.Write(repo, "b-only.txt", "b");
+
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+
+        Assert.Equal(a, TreeSnapshot.Take(repo.WorkTree));
+        Assert.Null(SwitchJournal.Read(repo.GitDir));
+        Assert.True((await _ws.Engine.GetStatusAsync(repo, Ct)).IsClean);
+    }
+
+    [Fact]
+    public async Task Discarding_a_half_switched_folder_returns_it_to_the_point_head_is_on_and_clears_the_note()
+    {
+        var (repo, tips) = await TwoProfilesAsync();
+        SwitchJournal.Write(repo.GitDir, tips.B, tips.A);
+        await _ws.GitWriteAsync(repo, "checkout", "--quiet", "profile-a");
+        var a = TreeSnapshot.Take(repo.WorkTree);
+        _ws.Write(repo, "b-only.txt", "left behind by the stopped switch");
+        _ws.Write(repo, "Saves/slot1.sav", "half written");
+
+        await _ws.Engine.DiscardChangesAsync(repo, Ct);
+
+        Assert.Equal(a, TreeSnapshot.Take(repo.WorkTree));
+        Assert.Null(SwitchJournal.Read(repo.GitDir));
+        Assert.Equal("refs/heads/profile-a", await _ws.HeadRefAsync(repo));
+    }
+
     [Theory]
     [InlineData(CaptureMode.Normal)]
     [InlineData(CaptureMode.Amend)]

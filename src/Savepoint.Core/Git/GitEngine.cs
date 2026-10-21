@@ -11,7 +11,12 @@ namespace Savepoint.Core.Git;
 /// <remarks>
 /// The engine does not serialize callers: the caller holds the game's lock around every operation on one game.
 /// Methods that take a <see cref="CancellationToken"/> stop git (and every process it started) when it is
-/// cancelled and leave the repository in a state the next call can finish from.
+/// cancelled and leave the repository in a state the next call can finish from. Capture and optimization report a
+/// cancellation as <see cref="Savepoint.Core.Errors.OperationCancelledByUserException"/>; every other method lets the
+/// <see cref="OperationCanceledException"/> through. Operations are asynchronous but do some file work on the calling
+/// thread before their first await, and a repository delete runs entirely there, so call them from a background thread.
+/// A game folder is never written through a folder link on Windows, and a file the game's patterns name is never
+/// recorded, overwritten or removed by a switch.
 /// </remarks>
 public sealed partial class GitEngine
 {

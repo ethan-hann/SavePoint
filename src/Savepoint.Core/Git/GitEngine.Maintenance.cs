@@ -15,7 +15,7 @@ public sealed partial class GitEngine
         return HasRepository(repo) ? (int)await ObjectStoreFigureAsync(repo, "count", ct).ConfigureAwait(false) : 0;
     }
 
-    /// <summary>The bytes the object store takes on disk, loose objects and packs together; 0 when the repository does not exist.</summary>
+    /// <summary>The bytes the object store takes on disk: loose objects, packs and the leftovers git counts as garbage (a temporary pack a killed git left behind); 0 when the repository does not exist.</summary>
     /// <param name="repo">The folder.</param>
     /// <param name="ct">Cancels the call.</param>
     public async Task<long> GetRepoSizeAsync(RepoRef repo, CancellationToken ct = default)
@@ -27,7 +27,7 @@ public sealed partial class GitEngine
         }
 
         var output = await CountObjectsAsync(repo, ct).ConfigureAwait(false);
-        return (Figure(output, "size") + Figure(output, "size-pack")) * 1024;
+        return (Figure(output, "size") + Figure(output, "size-pack") + Figure(output, "size-garbage")) * 1024;
     }
 
     /// <summary>

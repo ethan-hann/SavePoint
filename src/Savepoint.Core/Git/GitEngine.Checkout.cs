@@ -10,10 +10,11 @@ public sealed partial class GitEngine
     private static readonly int[] _anyExitCode = [.. Enumerable.Range(0, 256)];
 
     /// <summary>
-    /// Switches the folder to a branch: git rewrites the files that differ, then the engine verifies that the tree
-    /// matches the point and re-syncs any path that stayed behind (a file another program held open). Local changes to
-    /// files that differ between the two points make git refuse; other local changes are carried over, so the caller
-    /// checks <see cref="GetStatusAsync"/> first.
+    /// Switches the folder to a branch: git rewrites the files that differ, then the engine verifies that the files the
+    /// switch changed match the point and re-syncs any that stayed behind (a file another program held open). The switch
+    /// refuses to start when anything is in the way: unsaved changes in the folder (edited, deleted or new files the game's
+    /// patterns do not name), a file the game's patterns name that the switch would overwrite or delete, a folder link on
+    /// Windows, or a folder a stopped switch left half done (only that same switch may finish it). Nothing is written then.
     /// </summary>
     /// <param name="repo">The folder to switch.</param>
     /// <param name="branch">The profile's branch; it must have at least one point.</param>
@@ -21,8 +22,10 @@ public sealed partial class GitEngine
     /// <param name="ct">Cancels the switch. git and its children are stopped and the switch is reported as unfinished until repeated or discarded.</param>
     /// <exception cref="Savepoint.Core.Errors.PathSafetyException">The work tree is a protected location.</exception>
     /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
-    /// <exception cref="Savepoint.Core.Errors.DiskSpaceException">The work tree's volume cannot take the files the switch adds; nothing was written.</exception>
-    /// <exception cref="Savepoint.Core.Errors.DirtyWorkingTreeException">Local changes to files the switch would replace; nothing was changed.</exception>
+    /// <exception cref="Savepoint.Core.Errors.PathMissingException">The work tree does not exist.</exception>
+    /// <exception cref="Savepoint.Core.Errors.DiskSpaceException">The work tree's volume cannot take the files the switch adds (nothing was written), or the disk filled during the switch (it is then left unfinished; see <see cref="RepoStatus.InterruptedSwitch"/>).</exception>
+    /// <exception cref="Savepoint.Core.Errors.DirtyWorkingTreeException">Anything is in the way (see the summary); nothing was changed.</exception>
+    /// <exception cref="Savepoint.Core.Errors.LinkedFolderException">On Windows, a folder link lies in the way; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.ProfileHasNoPointsException">The branch has no point to switch to.</exception>
     /// <exception cref="Savepoint.Core.Errors.GitOperationException">A file stayed in use through every attempt (the path is in its arguments), or git failed.</exception>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
@@ -55,8 +58,9 @@ public sealed partial class GitEngine
     }
 
     /// <summary>
-    /// Switches the folder to a branch and makes it match, discarding local changes to tracked files and overwriting new
-    /// files that are in the way. Everything else behaves like <see cref="CheckoutBranchAsync"/>.
+    /// Switches the folder to a branch and makes it match, discarding unsaved changes to recorded files and overwriting new
+    /// files that are in the way. It still refuses a half-switched folder it is not finishing, a folder link on Windows, and a
+    /// file the game's patterns name that it would overwrite or delete. Everything else behaves like <see cref="CheckoutBranchAsync"/>.
     /// </summary>
     /// <param name="repo">The folder to switch.</param>
     /// <param name="branch">The profile's branch; it must have at least one point.</param>
@@ -88,7 +92,14 @@ public sealed partial class GitEngine
     /// </summary>
     /// <param name="repo">The folder.</param>
     /// <param name="ct">Cancels the call.</param>
-    /// <exception cref="Savepoint.Core.Errors.GitOperationException">The repository has no point to return to, or a file stayed in use through every attempt.</exception>
+    /// <exception cref="Savepoint.Core.Errors.PathSafetyException">The work tree is a protected location.</exception>
+    /// <exception cref="Savepoint.Core.Errors.PathMissingException">The work tree does not exist.</exception>
+    /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
+    /// <exception cref="Savepoint.Core.Errors.ProfileHasNoPointsException">The folder has no saved point to return to; without one a discard would delete the whole folder, so nothing is touched.</exception>
+    /// <exception cref="Savepoint.Core.Errors.LinkedFolderException">On Windows, a folder link lies in the way; nothing was changed.</exception>
+    /// <exception cref="Savepoint.Core.Errors.DiskSpaceException">The disk filled while files were restored.</exception>
+    /// <exception cref="Savepoint.Core.Errors.GitOperationException">A file stayed in use through every attempt, or git failed.</exception>
+    /// <remarks>Empty folders are not recorded in a point, so a discard removes the ones the point does not hold along with the new files.</remarks>
     public async Task DiscardChangesAsync(RepoRef repo, CancellationToken ct = default)
     {
         repo = Normalize(repo);
@@ -107,9 +118,17 @@ public sealed partial class GitEngine
 
         // A file another program holds fails the reset for that file only; the verify pass below finds it and tries again.
         var reset = await RunRawAsync(Invocation(repo, readOnly: false, "reset", "--hard", "--quiet") with { AllowedExitCodes = _anyExitCode }, ct).ConfigureAwait(false);
-        if (reset.ExitCode != 0 && !reset.StandardError.Contains("unable to", StringComparison.Ordinal))
+        if (reset.ExitCode != 0)
         {
-            throw GitFailure.ToException(new GitCommandException(["reset", "--hard"], reset.ExitCode, reset.StandardError));
+            if (GitFailure.IsDiskFull(reset.StandardError))
+            {
+                throw new DiskSpaceException(repo.WorkTree, _options.MinFreeBytesForCheckout, _freeSpace(repo.WorkTree));
+            }
+
+            if (!GitFailure.FileCouldNotBeReplaced(reset.StandardError))
+            {
+                throw GitFailure.ToException(new GitCommandException(["reset", "--hard"], reset.ExitCode, reset.StandardError));
+            }
         }
 
         await VerifyAsync(repo, point, [], null, ct).ConfigureAwait(false);
@@ -124,6 +143,12 @@ public sealed partial class GitEngine
     /// </summary>
     /// <param name="repo">The folder.</param>
     /// <param name="ct">Cancels the call.</param>
+    /// <exception cref="Savepoint.Core.Errors.PathSafetyException">The work tree is a protected location.</exception>
+    /// <exception cref="Savepoint.Core.Errors.PathMissingException">The work tree does not exist.</exception>
+    /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
+    /// <exception cref="Savepoint.Core.Errors.ProfileHasNoPointsException">The folder has no saved point, so every file in it would count as new and be removed; nothing is touched.</exception>
+    /// <exception cref="Savepoint.Core.Errors.LinkedFolderException">On Windows, a folder link lies in the way; nothing was changed.</exception>
+    /// <exception cref="Savepoint.Core.Errors.GitOperationException">A file stayed in use through every attempt, or git failed.</exception>
     public async Task CleanAsync(RepoRef repo, CancellationToken ct = default)
     {
         repo = Normalize(repo);

@@ -15,7 +15,10 @@ public sealed partial class GitEngine
     /// <param name="ct">Cancels the capture. git and its children are stopped; the next capture clears what the interrupted one left.</param>
     /// <returns>Whether a point was recorded, and the branch tip afterwards.</returns>
     /// <exception cref="Savepoint.Core.Errors.PathSafetyException">The work tree is a protected location.</exception>
+    /// <exception cref="Savepoint.Core.Errors.PathMissingException">The work tree does not exist.</exception>
     /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
+    /// <exception cref="Savepoint.Core.Errors.DirtyWorkingTreeException">A stopped switch left the folder half done; finish it or discard first, so the mixture is never recorded.</exception>
+    /// <exception cref="Savepoint.Core.Errors.LinkedFolderException">On Windows, a folder link holds files the capture would read; nothing was staged.</exception>
     /// <exception cref="Savepoint.Core.Errors.DiskSpaceException">The storage volume is below the free-space floor; nothing was written.</exception>
     /// <exception cref="Savepoint.Core.Errors.DetachedCaptureNotSupportedException">The folder is on an older point and the mode does not allow capturing there.</exception>
     /// <exception cref="Savepoint.Core.Errors.AmendNotAvailableException">An amend was asked for where the branch is not checked out or has no point.</exception>
@@ -41,12 +44,13 @@ public sealed partial class GitEngine
     }
 
     /// <summary>
-    /// Removes the lock files a killed git process leaves behind (<c>index.lock</c>, <c>HEAD.lock</c>, ref and config
-    /// locks). Call it only when no SavePoint git process is running for the repository; the engine does this itself
-    /// before every write when it has no operation of its own in flight on the repository.
+    /// Removes what a killed git process leaves behind: its lock files (<c>index.lock</c>, <c>HEAD.lock</c>, ref and config
+    /// locks) and the temporary pack and object files of a write it never finished (which can be hundreds of megabytes).
+    /// Call it only when no SavePoint git process is running for the repository; the engine does this itself before every
+    /// write when it has no operation of its own in flight on the repository.
     /// </summary>
     /// <param name="gitDir">The git directory.</param>
-    /// <returns>How many lock files were removed; 0 when the folder is not a git directory or this engine is working on it.</returns>
+    /// <returns>How many files were removed; 0 when the folder is not a git directory or this engine is working on it.</returns>
     public int RemoveStaleLocks(string gitDir)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(gitDir);

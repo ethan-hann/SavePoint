@@ -57,6 +57,31 @@ public sealed class LeftoverTests : IDisposable
     }
 
     [Fact]
+    public async Task A_file_behind_a_folder_that_became_a_link_is_not_removed_through_it()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Windows refuses folder links before a switch, and writes a link as a text file");
+        var repo = await _ws.InitializedRepoAsync();
+        var outside = Path.Combine(_ws.Root, "outside", "foo-target");
+        Directory.CreateDirectory(outside);
+        await File.WriteAllTextAsync(Path.Combine(outside, "x.txt"), "secret", Ct);
+        _ws.Write(repo, "foo/x.txt", "secret");
+        var first = (await _ws.CaptureAsync(repo, "profile-1", "A real folder")).TipCommitId!;
+
+        // A later point holds foo as a link to the outside folder, which has a file with the very bytes the first point stored under foo.
+        async Task<string> RunAsync(string? stdin, params string[] arguments) =>
+            (await _ws.Runner.RunAsync(new GitInvocation(arguments) { GitDir = repo.GitDir, WorkTree = repo.WorkTree, Stdin = stdin }, Ct)).StandardOutput.Trim();
+        var blob = await RunAsync(outside, "hash-object", "-w", "--stdin");
+        var tree = await RunAsync($"120000 blob {blob}\tfoo\n", "mktree");
+        var commit = await RunAsync("A link\n", "commit-tree", tree, "-p", first, "-F", "-");
+        await RunAsync(null, "update-ref", "refs/heads/profile-link", commit);
+
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-link", ct: Ct);
+
+        Assert.Equal("secret", await File.ReadAllTextAsync(Path.Combine(outside, "x.txt"), Ct));
+        Assert.Equal("refs/heads/profile-link", await _ws.HeadRefAsync(repo));
+    }
+
+    [Fact]
     public async Task Points_that_hold_one_file_under_names_that_differ_only_in_case_can_be_switched_between()
     {
         Assert.SkipUnless(OperatingSystem.IsWindows() || OperatingSystem.IsMacOS(), "this file system tells names apart by case");

@@ -69,8 +69,9 @@ public sealed partial class GitEngine
     }
 
     /// <summary>
-    /// Deletes a branch; the points only it held become unreachable. Does nothing when the branch (or the whole
-    /// repository) is already gone. Refuses the branch that is checked out.
+    /// Deletes a branch; the points only it held become unreachable (a reclaim optimization frees their space). Does
+    /// nothing when the branch is already gone, or when the repository is gone or half removed (its marker may be gone
+    /// with it). Refuses the branch that is checked out, and a folder another game holds.
     /// </summary>
     /// <param name="repo">The folder.</param>
     /// <param name="branch">The branch to delete.</param>
@@ -84,12 +85,14 @@ public sealed partial class GitEngine
         BranchNames.Require(branch);
         ct.ThrowIfCancellationRequested();
         CheckWorkTree(repo);
-        RepoMarker.Verify(repo);
-        if (!HasRepository(repo))
+
+        // Nothing to delete from when the repository is gone or half removed; its marker may be gone with it.
+        if (!IsInitialized(repo.GitDir))
         {
             return;
         }
 
+        RepoMarker.Verify(repo);
         using var scope = BeginWrite(repo);
         if (await ResolveBranchAsync(repo, branch, ct).ConfigureAwait(false) is null)
         {
@@ -146,13 +149,32 @@ public sealed partial class GitEngine
 // The text of a commit: the point's name, then the capture id as a trailer in its own paragraph.
 internal static class CommitMessage
 {
-    public static string Compose(string message, string? captureId)
+    private const string _captureTrailerKey = "Savepoint-Capture:";
+
+    // What a name may hold. History reads split git's output on the unit separator and take the capture id from a trailer, so
+    // a name that holds either could shift the fields of its own point or pass itself off as another capture's id.
+    public static void RequireValidMessage(string message, string paramName)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        ArgumentException.ThrowIfNullOrWhiteSpace(message, paramName);
         if (message.Contains('\0', StringComparison.Ordinal))
         {
-            throw new ArgumentException("A message cannot contain a NUL character.", nameof(message));
+            throw new ArgumentException("A message cannot contain a NUL character.", paramName);
         }
+
+        if (message.Contains('\u001f', StringComparison.Ordinal))
+        {
+            throw new ArgumentException("A message cannot contain the unit separator character.", paramName);
+        }
+
+        if (message.Split('\n').Any(line => line.TrimEnd('\r').StartsWith(_captureTrailerKey, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new ArgumentException("A message cannot hold a line that starts like the capture id trailer.", paramName);
+        }
+    }
+
+    public static string Compose(string message, string? captureId)
+    {
+        RequireValidMessage(message, nameof(message));
 
         var text = new StringBuilder(message.Trim());
         if (captureId is not null)

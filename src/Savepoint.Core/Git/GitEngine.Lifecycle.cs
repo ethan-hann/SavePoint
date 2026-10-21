@@ -41,13 +41,16 @@ public sealed partial class GitEngine
 
     /// <summary>
     /// Deletes the git directory, then the consent marker, so an interrupted delete can be repeated. A missing
-    /// marker is fine; a marker that belongs to another game or role refuses the delete and removes nothing.
+    /// marker is fine; a marker that belongs to another game or role refuses the delete and removes nothing. Only a git
+    /// directory SavePoint made is deleted: it must lie inside the storage folder (as given and where links lead) and hold
+    /// SavePoint's config stamp and git's own layout, or what an interrupted delete left of one. Anything else is refused
+    /// and nothing is touched. Deleting a large store takes a while and runs on the caller's thread.
     /// </summary>
     /// <param name="repo">The folder whose history is deleted. The work tree's files are never touched.</param>
     /// <param name="ct">Cancels the call between steps.</param>
     /// <exception cref="Savepoint.Core.Errors.PathSafetyException">The work tree is a protected location.</exception>
     /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">Another game or role holds the folder.</exception>
-    /// <exception cref="Savepoint.Core.Errors.GitOperationException">The git directory could not be removed, or is not a git directory.</exception>
+    /// <exception cref="Savepoint.Core.Errors.GitOperationException">The git directory could not be removed, or is not a SavePoint git directory inside the storage folder.</exception>
     public async Task DeleteRepoAsync(RepoRef repo, CancellationToken ct = default)
     {
         repo = Normalize(repo);

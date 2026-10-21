@@ -3,7 +3,8 @@ using System.Text.Json;
 
 namespace Savepoint.Core.Git;
 
-// A note in the git directory that a checkout has started and not finished. It changes no behavior; it lets the app say so.
+// A note in the git directory that a checkout has started and not finished. The app shows it, and the engine acts on it: a
+// capture refuses a folder that has one, and only the switch it names may finish a half-switched folder.
 internal static class SwitchJournal
 {
     public const string FileName = "savepoint-switch.json";
@@ -46,15 +47,20 @@ internal static class SwitchJournal
         }
     }
 
+    // A scanner can hold the file for a moment, so a few tries are made; a note that stays makes captures refuse until a switch or a discard clears it.
     public static void Clear(string gitDir)
     {
-        try
+        for (var attempt = 1; attempt <= 4; attempt++)
         {
-            File.Delete(PathIn(gitDir));
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-            // A note left behind only makes the status report an unfinished switch that the next checkout clears.
+            try
+            {
+                File.Delete(PathIn(gitDir));
+                return;
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                Thread.Sleep(30 * attempt);
+            }
         }
     }
 }

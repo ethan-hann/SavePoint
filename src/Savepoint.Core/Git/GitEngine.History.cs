@@ -183,14 +183,16 @@ public sealed partial class GitEngine
         var commits = new List<CommitInfo>();
         foreach (var record in result.SplitStandardOutputOnNul())
         {
+            // The id, date and trailer cannot hold the separator, but a subject written by something else can; reading the
+            // last two fields from the right keeps such a subject from shifting them.
             var fields = record.Trim('\n', '\r').Split('\x1f');
-            if (fields.Length < 3)
+            if (fields.Length < 4 || !DateTimeOffset.TryParse(fields[^2], CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
             {
                 continue;
             }
 
-            var captureId = fields.Length > 3 && fields[3].Trim() is { Length: > 0 } trailer ? trailer : null;
-            commits.Add(new CommitInfo(fields[0], fields[1], DateTimeOffset.Parse(fields[2], CultureInfo.InvariantCulture), captureId));
+            var captureId = fields[^1].Trim() is { Length: > 0 } trailer ? trailer : null;
+            commits.Add(new CommitInfo(fields[0], string.Join('\x1f', fields[1..^2]), date, captureId));
         }
 
         return commits;

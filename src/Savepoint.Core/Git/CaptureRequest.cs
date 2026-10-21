@@ -23,15 +23,11 @@ public sealed record CaptureRequest
     /// <param name="branch">The profile's branch. For <see cref="CaptureMode.Fork"/> it is the new branch and must not exist yet.</param>
     /// <param name="message">The point's name, stored as the commit subject.</param>
     /// <param name="captureId">Written into the commit as a <c>Savepoint-Capture</c> trailer so the commits of one capture event can be grouped exactly.</param>
-    /// <exception cref="ArgumentException">The branch name is not one git accepts, the message is blank or contains NUL, or the capture id is empty or contains whitespace.</exception>
+    /// <exception cref="ArgumentException">The branch name is not one git accepts, the message is blank, contains NUL or the unit separator character, or has a line that starts like the capture id trailer, or the capture id is empty or contains whitespace.</exception>
     public CaptureRequest(string branch, string message, string captureId)
     {
         BranchNames.Require(branch);
-        ArgumentException.ThrowIfNullOrWhiteSpace(message);
-        if (message.Contains('\0', StringComparison.Ordinal))
-        {
-            throw new ArgumentException("A message cannot contain a NUL character.", nameof(message));
-        }
+        CommitMessage.RequireValidMessage(message, nameof(message));
 
         ArgumentException.ThrowIfNullOrEmpty(captureId);
         if (captureId.Any(c => char.IsWhiteSpace(c) || char.IsControl(c)))

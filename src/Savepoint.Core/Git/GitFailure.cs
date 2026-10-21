@@ -42,6 +42,10 @@ internal static class GitFailure
     public static bool RefusedToOverwrite(string standardError) =>
         standardError.Split('\n').Any(IsRefusalHeading);
 
+    // git could not remove or replace a file (another program has it open); the rest of the command was carried out.
+    public static bool FileCouldNotBeReplaced(string standardError) =>
+        standardError.Contains("unable to unlink old", StringComparison.Ordinal);
+
     // The lines under which git lists what is in the way: local changes or untracked files that would be overwritten, removed, or lost with a folder.
     private static bool IsRefusalHeading(string line) =>
         line.Contains("would be overwritten by checkout", StringComparison.Ordinal)

@@ -31,6 +31,17 @@ public sealed class GitOutputParsingTests
         Assert.Equal([path], GitFailure.OverwrittenPaths(stderr));
     }
 
+    [Theory]
+    [InlineData("error: unable to unlink old 'Data/a.txt': Permission denied\n", true)]
+    [InlineData("error: unable to unlink old 'Data/a.txt' (Invalid argument)\nfatal: Could not reset index file to revision 'HEAD'.\n", true)]
+    [InlineData("error: unable to write new index file\nfatal: Could not reset index file to revision 'HEAD'.\n", false)]
+    [InlineData("error: unable to create file Data/a.txt: No space left on device\n", false)]
+    [InlineData("fatal: Unable to create 'x/index.lock': File exists.\n", false)]
+    public void Only_a_file_that_could_not_be_replaced_is_a_failure_a_discard_carries_on_from(string stderr, bool inUse)
+    {
+        Assert.Equal(inUse, GitFailure.FileCouldNotBeReplaced(stderr));
+    }
+
     [Fact]
     public void Untracked_files_in_the_way_are_listed_the_same_way()
     {

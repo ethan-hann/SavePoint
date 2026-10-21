@@ -108,7 +108,7 @@ public sealed class MaintenanceTests : IDisposable
     }
 
     [Fact]
-    public async Task A_cancelled_optimization_throws_the_compaction_error_and_leaves_the_store_usable()
+    public async Task A_cancellation_before_git_starts_throws_the_compaction_error_and_runs_nothing()
     {
         var (repo, _) = await _ws.ThreePointsRepoAsync();
         using var cancel = CancellationTokenSource.CreateLinkedTokenSource(Ct);
@@ -127,6 +127,50 @@ public sealed class MaintenanceTests : IDisposable
         await _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct);
         Assert.Equal(0, await _ws.Engine.CountLooseObjectsAsync(repo, Ct));
         Assert.Equal(3, await _ws.CountAsync(repo, "profile-1"));
+    }
+
+    [Fact]
+    public async Task A_repack_killed_while_it_writes_its_pack_leaves_a_sound_store()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        var random = new byte[60_000_000];
+        new Random(21).NextBytes(random);
+        _ws.Write(repo, "big.bin", random);
+        await _ws.CaptureAsync(repo, "profile-1");
+        var packs = Path.Combine(repo.GitDir, "objects", "pack");
+        Directory.CreateDirectory(packs);
+        using var cancel = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+        _ws.OnInvoke = invocation =>
+        {
+            if (invocation.Arguments[0] == "repack")
+            {
+                // Cancels once git has begun writing, which is the moment the earlier test never reached.
+                _ = Task.Run(async () =>
+                {
+                    for (var i = 0; i < 5000 && !cancel.IsCancellationRequested; i++)
+                    {
+                        if (Directory.EnumerateFiles(packs, "tmp_pack_*").Any())
+                        {
+                            await cancel.CancelAsync();
+                            return;
+                        }
+
+                        await Task.Delay(2, CancellationToken.None);
+                    }
+                }, CancellationToken.None);
+            }
+        };
+
+        var error = await Record.ExceptionAsync(() => _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, cancel.Token));
+        _ws.OnInvoke = null;
+        Assert.SkipWhen(error is null, "the repack finished before the cancellation landed");
+
+        Assert.IsType<OperationCancelledByUserException>(error);
+        var check = await _ws.Runner.RunAsync(new GitInvocation(["fsck", "--no-dangling"]) { GitDir = repo.GitDir, WorkTree = repo.WorkTree, ReadOnly = true }, Ct);
+        Assert.Equal(0, check.ExitCode);
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct);
+        Assert.Equal(1, await _ws.CountAsync(repo, "profile-1"));
+        Assert.Equal(0, await _ws.Engine.CountLooseObjectsAsync(repo, Ct));
     }
 
     [Fact]
