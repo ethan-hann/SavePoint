@@ -1,0 +1,210 @@
+using Savepoint.Core.Api;
+using Savepoint.Core.Catalog;
+using Savepoint.Core.Errors;
+
+namespace Savepoint.App.Tests.Fakes;
+
+// Everything the fake knows, guarded by FakeBackend's lock; only the fake's Api classes touch it.
+internal sealed class FakeState
+{
+    private const string _defaultGitPath = @"C:\Program Files\SavePoint\git\cmd\git.exe";
+
+    private static readonly IReadOnlyDictionary<string, string> _tokens = new Dictionary<string, string>
+    {
+        ["{documents}"] = @"C:\Users\you\Documents",
+        ["{appData}"] = @"C:\Users\you\AppData\Roaming",
+        ["{localAppData}"] = @"C:\Users\you\AppData\Local",
+        ["{userHome}"] = @"C:\Users\you",
+        ["{savedGames}"] = @"C:\Users\you\Saved Games",
+    };
+
+    private long _pointSequence;
+
+    public FakeState(ScenarioBuilder scenario)
+    {
+        DefaultStorageRoot = scenario.DefaultStorageRoot;
+        Settings = scenario.Settings ?? AppSettings.Defaults(scenario.DefaultStorageRoot);
+        VolumeTotalBytes = scenario.VolumeTotalBytes;
+        VolumeFreeBytes = scenario.VolumeFreeBytes;
+        CatalogDirectory = scenario.CatalogDirectory;
+        Startup = scenario.Startup ?? new StartupStatus(
+            new GitStatus(true, _defaultGitPath, "2.56.0.windows.2", null),
+            new CatalogStatus(scenario.CatalogDirectory, []));
+        foreach (var (game, bytes) in scenario.Games)
+        {
+            Games.Add(game);
+            GameBytes[game.Id] = bytes;
+        }
+
+        foreach (var (profile, stats) in scenario.Profiles)
+        {
+            Profiles.Add(profile);
+            if (stats is not null)
+            {
+                RowStats[profile.Id] = stats;
+            }
+        }
+
+        foreach (var (gameId, point) in scenario.History)
+        {
+            History.Add((gameId, point));
+        }
+
+        Copy(scenario.FolderStatuses, FolderStatuses);
+        Copy(scenario.CapturePreviews, CapturePreviews);
+        Copy(scenario.LaunchPreviews, LaunchPreviews);
+        Copy(scenario.DeletePreviews, DeletePreviews);
+        Copy(scenario.Orphans, Orphans);
+        Copy(scenario.Executables, Executables);
+        Copy(scenario.Imports, Imports);
+        RelocationPreview = scenario.RelocationPreview;
+        ClearAllDataPreview = scenario.ClearAllDataPreview;
+    }
+
+    public string DefaultStorageRoot { get; }
+
+    public AppSettings Settings { get; set; }
+
+    public long VolumeTotalBytes { get; }
+
+    public long VolumeFreeBytes { get; }
+
+    public string CatalogDirectory { get; }
+
+    public StartupStatus Startup { get; set; }
+
+    public List<GameDefinition> Games { get; } = [];
+
+    public Dictionary<string, long> GameBytes { get; } = [];
+
+    public Dictionary<string, IReadOnlyList<FolderStatus>> FolderStatuses { get; } = [];
+
+    public Dictionary<string, CapturePreview> CapturePreviews { get; } = [];
+
+    public List<Profile> Profiles { get; } = [];
+
+    public Dictionary<string, ProfileRowStats> RowStats { get; } = [];
+
+    public List<(string GameId, HistoryPoint Point)> History { get; } = [];
+
+    public Dictionary<(string GameId, LaunchTarget Target), LaunchPreview> LaunchPreviews { get; } = [];
+
+    public Dictionary<string, ProfileDeletePreview> DeletePreviews { get; } = [];
+
+    public Dictionary<string, OrphanedHistory> Orphans { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public Dictionary<string, IReadOnlyList<string>> Executables { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public Dictionary<string, GameDefinition> Imports { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public StorageRelocationPreview? RelocationPreview { get; }
+
+    public ClearAllDataPreview? ClearAllDataPreview { get; }
+
+    public Dictionary<string, LaunchSessionInfo> Sessions { get; } = [];
+
+    // Seeded so generated profile ids are the same on every run.
+    public Random Random { get; } = new(20260708);
+
+    public GameDefinition Game(string gameId) =>
+        Games.Find(g => g.Id == gameId) ?? throw new KeyNotFoundException($"The fake has no game '{gameId}'.");
+
+    public Profile Profile(string gameId, string profileId) =>
+        Profiles.Find(p => p.Id == profileId && p.GameId == gameId)
+        ?? throw new KeyNotFoundException($"The fake has no profile '{profileId}' for game '{gameId}'.");
+
+    public HistoryPoint Point(string gameId, HistoryPointId pointId) =>
+        History.Find(h => h.GameId == gameId && h.Point.Id == pointId).Point
+        ?? throw new KeyNotFoundException($"The fake has no point '{pointId}' for game '{gameId}'.");
+
+    public IEnumerable<HistoryPoint> PointsOf(string gameId) => History.Where(h => h.GameId == gameId).Select(h => h.Point);
+
+    public ProfileRowStats StatsFor(Profile profile)
+    {
+        if (RowStats.TryGetValue(profile.Id, out var stats))
+        {
+            return stats;
+        }
+
+        var hasSaves = Games.Find(g => g.Id == profile.GameId)?.External is not null;
+        return new ProfileRowStats(profile.Id, false, [], hasSaves ? 0 : null, null, null, profile.VersionOverride, profile.LastLaunchedAt, false);
+    }
+
+    public static IReadOnlyList<RepoRole> FoldersOf(GameDefinition game) =>
+        game.External is null ? [RepoRole.Install] : [RepoRole.Install, RepoRole.External];
+
+    public HistoryPointId NewPointId() => new($"point-{++_pointSequence}");
+
+    public string Resolve(string rawPath)
+    {
+        foreach (var (token, value) in _tokens)
+        {
+            rawPath = rawPath.Replace(token, value, StringComparison.OrdinalIgnoreCase);
+        }
+
+        return rawPath;
+    }
+
+    // A session counts as open from Preparing until it completes or fails.
+    public bool IsOpen(string gameId) =>
+        Sessions.TryGetValue(gameId, out var session) && session.State is not (SessionState.Completed or SessionState.Failed);
+
+    public ErrorInfo? RunningGameError()
+    {
+        var open = Games.Find(g => IsOpen(g.Id));
+        return open is null ? null : ErrorInfo.From(new GameRunningException(open.Id, open.Name));
+    }
+
+    public long TotalBytes => GameBytes.Values.Sum();
+
+    public void RemoveGame(string gameId)
+    {
+        foreach (var profile in Profiles.Where(p => p.GameId == gameId).ToList())
+        {
+            RemoveProfile(profile);
+        }
+
+        Games.RemoveAll(g => g.Id == gameId);
+        GameBytes.Remove(gameId);
+        FolderStatuses.Remove(gameId);
+        CapturePreviews.Remove(gameId);
+        History.RemoveAll(h => h.GameId == gameId);
+        Sessions.Remove(gameId);
+        foreach (var key in LaunchPreviews.Keys.Where(k => k.GameId == gameId).ToList())
+        {
+            LaunchPreviews.Remove(key);
+        }
+    }
+
+    // The profile's points go with it: in the real app they are gone from history once no profile holds them.
+    public void RemoveProfile(Profile profile)
+    {
+        Profiles.Remove(profile);
+        RowStats.Remove(profile.Id);
+        DeletePreviews.Remove(profile.Id);
+        History.RemoveAll(h => h.GameId == profile.GameId && h.Point.ProfileId == profile.Id);
+        foreach (var key in LaunchPreviews.Where(p => p.Value.GameId == profile.GameId && p.Value.ProfileId == profile.Id).Select(p => p.Key).ToList())
+        {
+            LaunchPreviews.Remove(key);
+        }
+    }
+
+    public void ClearLibrary()
+    {
+        foreach (var game in Games.ToList())
+        {
+            RemoveGame(game.Id);
+        }
+
+        Settings = AppSettings.Defaults(DefaultStorageRoot);
+    }
+
+    private static void Copy<TKey, TValue>(Dictionary<TKey, TValue> from, Dictionary<TKey, TValue> to)
+        where TKey : notnull
+    {
+        foreach (var (key, value) in from)
+        {
+            to[key] = value;
+        }
+    }
+}
