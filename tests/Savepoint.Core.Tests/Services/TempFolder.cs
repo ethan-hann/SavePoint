@@ -22,6 +22,14 @@ internal sealed class TempFolder : IDisposable
         return path;
     }
 
+    public string WriteBytesWith(string relativePath, byte[] content)
+    {
+        var path = Combine(relativePath.Split('/'));
+        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
+        File.WriteAllBytes(path, content);
+        return path;
+    }
+
     public string WriteText(string relativePath, string content)
     {
         var path = Combine(relativePath.Split('/'));
