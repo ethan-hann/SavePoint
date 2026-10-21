@@ -1,0 +1,424 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:theme="using:Savepoint.App.Theme"
+             xmlns:loc="using:Savepoint.App.Localization"
+             xmlns:gallery="using:Savepoint.App.Tests.Theme.Gallery"
+             x:Class="Savepoint.App.Tests.Theme.Gallery.StyleGallery"
+             Width="1040"
+             Height="1200">
+  <!-- Test-only: every style class and control theme in one place, with sample text that is not catalog copy. -->
+  <Grid Background="{DynamicResource Md3SurfaceBrush}" ColumnDefinitions="*,*,*">
+
+    <!-- Column 1: type, buttons, chips -->
+    <StackPanel Grid.Column="0" Margin="22,18,8,18" Spacing="14">
+
+      <StackPanel Spacing="3">
+        <TextBlock Classes="overline" Text="{theme:Upper {loc:Loc app.name}}" />
+        <TextBlock Classes="page-title" Text="Page title 24" />
+        <TextBlock Classes="dialog-title" Text="Dialog title 20" />
+        <TextBlock Classes="section-title" Text="Section title 18" />
+        <TextBlock Classes="card-title" Text="Card title 16" />
+        <TextBlock Classes="card-heading" Text="Card heading 14.5" />
+        <TextBlock Classes="row-title" Text="Row title 13.5" />
+        <TextBlock Classes="body" Text="Body 13: Here's exactly what SavePoint will change before the game starts." TextWrapping="Wrap" />
+        <TextBlock Classes="caption" Text="Caption 12 in onSurfaceVariant" />
+        <TextBlock Classes="timestamp" Text="Timestamp 11.5 in outline" />
+        <TextBlock Classes="overline" Text="OVERLINE 11 WITH 0.5 TRACKING" />
+        <TextBlock Classes="mono" Text="C:\Games\SkyrimSE  mono 12" />
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <TextBlock Classes="body accent" Text="accent" />
+          <TextBlock Classes="body error" Text="error" />
+          <TextBlock Classes="body warning" Text="warning" />
+          <TextBlock Classes="body success" Text="success" />
+          <TextBlock Classes="icon" Text="{x:Static theme:Icons.CheckCircle}" />
+          <TextBlock Classes="icon filled accent" Text="{x:Static theme:Icons.Bookmark}" />
+        </StackPanel>
+      </StackPanel>
+
+      <StackPanel Spacing="8">
+        <TextBlock Classes="overline" Text="BUTTONS" />
+        <WrapPanel>
+          <Button Classes="filled" Content="Save changes" Margin="0,0,8,8" />
+          <Button x:Name="OutlinedWithIcon" Margin="0,0,8,8">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Classes="icon s16" Text="{x:Static theme:Icons.Edit}" />
+              <TextBlock Text="Edit game" />
+            </StackPanel>
+          </Button>
+          <Button Classes="text" Content="Browse" Margin="0,0,8,8" />
+          <Button Classes="tonal" Content="Tonal" Margin="0,0,8,8" />
+        </WrapPanel>
+        <WrapPanel>
+          <Button Classes="filled pill large" Content="Switch and play" Margin="0,0,8,8" />
+          <Button Classes="text pill large" Content="Cancel" Margin="0,0,8,8" />
+          <Button Classes="error pill" Content="Save them first" Margin="0,0,8,8" />
+          <Button Classes="error-outlined pill" Content="Discard them" Margin="0,0,8,8" />
+          <Button Classes="filled pill" Content="Try again" Margin="0,0,8,8" />
+          <Button Classes="pill" Content="Show details" Margin="0,0,8,8" />
+        </WrapPanel>
+        <WrapPanel>
+          <Button Classes="filled row" Margin="0,0,8,8">
+            <StackPanel Orientation="Horizontal" Spacing="5">
+              <TextBlock Classes="icon s16" Text="{x:Static theme:Icons.PlayArrow}" />
+              <TextBlock Text="Play" />
+            </StackPanel>
+          </Button>
+          <Button Classes="row" Margin="0,0,8,8">
+            <StackPanel Orientation="Horizontal" Spacing="5">
+              <TextBlock Classes="icon s16" Text="{x:Static theme:Icons.PlayArrow}" />
+              <TextBlock Text="Play" />
+            </StackPanel>
+          </Button>
+          <Button x:Name="OverflowButton" Classes="icon" Content="{x:Static theme:Icons.MoreVert}" AutomationProperties.Name="More actions" Margin="0,0,4,8" />
+          <Button x:Name="CloseButton" Classes="icon" Content="{x:Static theme:Icons.Close}" AutomationProperties.Name="Close" Margin="0,0,4,8" />
+          <Button x:Name="BackButton" Classes="icon" Content="{x:Static theme:Icons.ArrowBack}" AutomationProperties.Name="Back" Margin="0,0,4,8" />
+        </WrapPanel>
+        <WrapPanel>
+          <Button Classes="filled" IsEnabled="False" Content="Filled" Margin="0,0,8,8" />
+          <Button IsEnabled="False" Content="Outlined" Margin="0,0,8,8" />
+          <Button Classes="text" IsEnabled="False" Content="Text" Margin="0,0,8,8" />
+          <Button Classes="tonal" IsEnabled="False" Content="Tonal" Margin="0,0,8,8" />
+          <Button Classes="error" IsEnabled="False" Content="Error" Margin="0,0,8,8" />
+        </WrapPanel>
+      </StackPanel>
+
+      <StackPanel Spacing="8">
+        <TextBlock Classes="overline" Text="CHIPS AND TOGGLES" />
+        <WrapPanel>
+          <ToggleButton Classes="chip" IsChecked="True" Content="Profiles" Margin="0,0,8,8" />
+          <ToggleButton Classes="chip" Content="History" Margin="0,0,8,8" />
+          <ToggleButton Classes="chip" IsEnabled="False" Content="Disabled" Margin="0,0,8,8" />
+        </WrapPanel>
+        <WrapPanel>
+          <Border Classes="input-chip" Margin="0,0,8,8">
+            <StackPanel Orientation="Horizontal" Spacing="2">
+              <TextBlock VerticalAlignment="Center" Text="**/*.log" />
+              <Button x:Name="ChipClose" Classes="icon" MinWidth="22" MinHeight="22" FontSize="14" Content="{x:Static theme:Icons.Close}" AutomationProperties.Name="Remove rule" />
+            </StackPanel>
+          </Border>
+          <Border Classes="input-chip" Margin="0,0,8,8">
+            <StackPanel Orientation="Horizontal" Spacing="2">
+              <TextBlock VerticalAlignment="Center" Text="SKSE/Plugins/*.log" />
+              <Button Classes="icon" MinWidth="22" MinHeight="22" FontSize="14" Content="{x:Static theme:Icons.Close}" AutomationProperties.Name="Remove rule" />
+            </StackPanel>
+          </Border>
+          <Border Classes="chip" Margin="0,0,8,8">
+            <TextBlock Text="plugins.txt" />
+          </Border>
+          <Button x:Name="AddChip" Classes="dashed pill" Padding="10,5" Margin="0,0,8,8">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Classes="icon s14" Text="{x:Static theme:Icons.Add}" />
+              <TextBlock Text="Add a rule" />
+            </StackPanel>
+          </Button>
+        </WrapPanel>
+        <ListBox x:Name="ThemeSelector" Classes="segmented" SelectedIndex="1">
+          <ListBoxItem Content="Match Windows" />
+          <ListBoxItem Content="Light" />
+          <ListBoxItem Content="Dark" />
+        </ListBox>
+        <ListBox x:Name="LayoutToggle" Classes="segmented-tray" SelectedIndex="0">
+          <ListBoxItem>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Classes="icon s16" Text="{x:Static theme:Icons.LeftPanelOpen}" />
+              <TextBlock Text="Sidebar" />
+            </StackPanel>
+          </ListBoxItem>
+          <ListBoxItem>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Classes="icon s16" Text="{x:Static theme:Icons.GridView}" />
+              <TextBlock Text="Library" />
+            </StackPanel>
+          </ListBoxItem>
+        </ListBox>
+        <Button x:Name="AddTile" Classes="dashed tile" Height="70" Width="200" HorizontalAlignment="Left">
+          <StackPanel Spacing="4" HorizontalAlignment="Center">
+            <TextBlock Classes="icon s24" HorizontalAlignment="Center" Text="{x:Static theme:Icons.Add}" />
+            <TextBlock Text="Add a game" FontWeight="Normal" />
+          </StackPanel>
+        </Button>
+      </StackPanel>
+
+      <StackPanel Spacing="8">
+        <TextBlock Classes="overline" Text="MENU, TOOLTIP, SCROLLBAR" />
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <MenuFlyoutPresenter x:Name="SampleMenu" Width="120" VerticalAlignment="Top">
+            <MenuItem Header="Edit" />
+            <MenuItem Header="Duplicate" />
+            <Separator />
+            <MenuItem Header="Delete" />
+          </MenuFlyoutPresenter>
+          <ToolTip x:Name="SampleTip" Opacity="1" Content="More actions" VerticalAlignment="Top" />
+          <ScrollViewer x:Name="SampleScroll" Width="96" Height="90" VerticalAlignment="Top" AllowAutoHide="False" VerticalScrollBarVisibility="Visible">
+            <StackPanel Spacing="4">
+              <TextBlock Text="Scrolling 1" />
+              <TextBlock Text="Scrolling 2" />
+              <TextBlock Text="Scrolling 3" />
+              <TextBlock Text="Scrolling 4" />
+              <TextBlock Text="Scrolling 5" />
+              <TextBlock Text="Scrolling 6" />
+              <TextBlock Text="Scrolling 7" />
+            </StackPanel>
+          </ScrollViewer>
+        </StackPanel>
+      </StackPanel>
+    </StackPanel>
+
+    <!-- Column 2: inputs, progress, radio cards, navigation -->
+    <StackPanel Grid.Column="1" Margin="8,18,8,18" Spacing="14">
+
+      <StackPanel Spacing="8">
+        <TextBlock Classes="overline" Text="INPUTS" />
+        <TextBox x:Name="PlainField" Text="The Elder Scrolls V: Skyrim Special Edition" />
+        <TextBox x:Name="EmptyField" PlaceholderText="Nolvus v6, before the survival patch..." />
+        <TextBox x:Name="MonoField" Classes="mono" Text="C:\Games\SkyrimSE" />
+        <TextBox x:Name="ErrorField" Classes="error" Text="C:\Program Files (x86)" />
+        <TextBox x:Name="DisabledField" IsEnabled="False" Text="Disabled field" />
+        <ComboBox x:Name="SavePicker" SelectedIndex="0">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="gallery:SaveChoice">
+              <StackPanel Spacing="1">
+                <TextBlock Text="{Binding Title}" />
+                <TextBlock Classes="caption" Text="{Binding Subtitle}" />
+              </StackPanel>
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <CheckBox x:Name="CheckedBox" IsChecked="True" Content="Don't ask again when only the save changes" />
+        <WrapPanel>
+          <CheckBox Content="Unchecked" Margin="0,0,16,0" />
+          <CheckBox IsChecked="True" IsEnabled="False" Content="Disabled on" Margin="0,0,16,0" />
+          <CheckBox Content="Disabled" IsEnabled="False" />
+        </WrapPanel>
+        <ToggleSwitch x:Name="SwitchOn" IsChecked="True" Content="Ask whether to save the session" HorizontalAlignment="Stretch" />
+        <ToggleSwitch x:Name="SwitchOff" Content="Skip the confirmation" HorizontalAlignment="Stretch" />
+      </StackPanel>
+
+      <StackPanel Spacing="8">
+        <TextBlock Classes="overline" Text="PROGRESS" />
+        <ProgressBar x:Name="DeterminateBar" Minimum="0" Maximum="100" Value="62" />
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Classes="caption" Text="3.8 GB of 6.1 GB - about 50 seconds left" />
+          <TextBlock Grid.Column="1" Classes="caption" Text="62%" />
+        </Grid>
+        <ProgressBar x:Name="IndeterminateBar" IsIndeterminate="True" />
+      </StackPanel>
+
+      <StackPanel Spacing="8">
+        <TextBlock Classes="overline" Text="RADIO CARDS" />
+        <ListBox x:Name="RadioCards" Classes="radio-cards" SelectedIndex="0">
+          <ListBoxItem>
+            <StackPanel Orientation="Horizontal" Spacing="14">
+              <TextBlock Classes="icon accent" VerticalAlignment="Top" Text="{x:Static theme:Icons.AddCircle}" />
+              <StackPanel Spacing="2">
+                <TextBlock Classes="card-heading" TextWrapping="Wrap" MaxWidth="230" Text="Keep this as a new point in your history" />
+                <TextBlock Classes="body muted" FontSize="12.5" TextWrapping="Wrap" MaxWidth="230" Text="Recommended. Your previous saves stay exactly as they are." />
+              </StackPanel>
+            </StackPanel>
+          </ListBoxItem>
+          <ListBoxItem>
+            <StackPanel Orientation="Horizontal" Spacing="14">
+              <TextBlock Classes="icon muted" VerticalAlignment="Top" Text="{x:Static theme:Icons.Edit}" />
+              <StackPanel Spacing="2">
+                <TextBlock Classes="card-heading" TextWrapping="Wrap" MaxWidth="230" Text="Update &quot;Before the final boss&quot; instead" />
+                <TextBlock Classes="body muted" FontSize="12.5" TextWrapping="Wrap" MaxWidth="230" Text="Replaces that point with what's on disk now." />
+              </StackPanel>
+            </StackPanel>
+          </ListBoxItem>
+          <ListBoxItem>
+            <StackPanel Orientation="Horizontal" Spacing="14">
+              <TextBlock Classes="icon muted" VerticalAlignment="Top" Text="{x:Static theme:Icons.Schedule}" />
+              <StackPanel Spacing="2">
+                <TextBlock Classes="card-heading" Text="Not now" />
+                <TextBlock Classes="body muted" FontSize="12.5" Text="Nothing is lost." />
+              </StackPanel>
+            </StackPanel>
+          </ListBoxItem>
+        </ListBox>
+      </StackPanel>
+
+      <StackPanel Spacing="8">
+        <TextBlock Classes="overline" Text="NAVIGATION" />
+        <Border Classes="rail" BorderThickness="0" CornerRadius="10" Padding="10,8">
+          <StackPanel Spacing="8">
+            <ListBox x:Name="NavList" Classes="nav" SelectedIndex="0">
+              <ListBoxItem>
+                <StackPanel Orientation="Horizontal" Spacing="11">
+                  <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.StadiaController}" />
+                  <TextBlock VerticalAlignment="Center" Text="Games" />
+                </StackPanel>
+              </ListBoxItem>
+              <ListBoxItem>
+                <StackPanel Orientation="Horizontal" Spacing="11">
+                  <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.History}" />
+                  <TextBlock VerticalAlignment="Center" Text="History" />
+                </StackPanel>
+              </ListBoxItem>
+              <ListBoxItem>
+                <StackPanel Orientation="Horizontal" Spacing="11">
+                  <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.Settings}" />
+                  <TextBlock VerticalAlignment="Center" Text="Settings" />
+                </StackPanel>
+              </ListBoxItem>
+            </ListBox>
+            <ListBox Classes="rows" SelectedIndex="0">
+              <ListBoxItem>
+                <StackPanel Orientation="Horizontal" Spacing="9">
+                  <Border Classes="art-tile" Width="24" Height="24" CornerRadius="5" Background="{DynamicResource Md3SecondaryContainerBrush}" />
+                  <StackPanel>
+                    <TextBlock Classes="body" FontWeight="Medium" FontSize="12.5" Text="Skyrim Special Edition" />
+                    <TextBlock Classes="overline-small" FontWeight="Normal" Text="3 profiles" />
+                  </StackPanel>
+                </StackPanel>
+              </ListBoxItem>
+              <ListBoxItem>
+                <StackPanel Orientation="Horizontal" Spacing="9">
+                  <Border Classes="art-tile" Width="24" Height="24" CornerRadius="5" Background="{DynamicResource Md3TertiaryContainerBrush}" />
+                  <StackPanel>
+                    <TextBlock Classes="body" FontSize="12.5" Text="Satisfactory" />
+                    <TextBlock Classes="overline-small" FontWeight="Normal" Text="2 profiles" />
+                  </StackPanel>
+                </StackPanel>
+              </ListBoxItem>
+            </ListBox>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </StackPanel>
+
+    <!-- Column 3: panels, table, callouts, dialog -->
+    <StackPanel Grid.Column="2" Margin="8,18,22,18" Spacing="14">
+
+      <StackPanel Spacing="8">
+        <TextBlock Classes="overline" Text="PANELS AND TABLE" />
+        <Border Classes="panel">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel>
+              <TextBlock Classes="body" Text="Layout" />
+              <TextBlock Classes="caption" Text="Also switchable from Games." />
+            </StackPanel>
+            <Button Grid.Column="1" Content="Change" VerticalAlignment="Center" />
+          </Grid>
+        </Border>
+        <Border Classes="card selected">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="card-heading" Text="Save only" />
+            <TextBlock Classes="caption" Text="1.6.640 with 212 mod files" />
+            <TextBlock Classes="timestamp" Text="Jul 2, 2026" />
+          </StackPanel>
+        </Border>
+        <Border Classes="table">
+          <StackPanel>
+            <Border Classes="table-header">
+              <Grid ColumnDefinitions="*,64,80">
+                <TextBlock Classes="overline-small" Text="PROFILE" />
+                <TextBlock Grid.Column="1" Classes="overline-small" Text="VERSION" />
+                <TextBlock Grid.Column="2" Classes="overline-small" Text="LAST PLAYED" />
+              </Grid>
+            </Border>
+            <Border Classes="table-row selected">
+              <Grid ColumnDefinitions="*,64,80">
+                <StackPanel>
+                  <TextBlock Classes="row-title" Text="Modded playthrough" />
+                  <TextBlock Classes="overline-small accent" FontWeight="Normal" Text="Active now - 6 saves" />
+                </StackPanel>
+                <TextBlock Grid.Column="1" Classes="caption" Text="1.6.640" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Classes="caption" Text="3 days ago" VerticalAlignment="Center" />
+              </Grid>
+            </Border>
+            <Border Classes="table-row last">
+              <Grid ColumnDefinitions="*,64,80">
+                <StackPanel>
+                  <TextBlock Classes="row-title" Text="Survival test" />
+                  <TextBlock Classes="overline-small error" FontWeight="Normal" Text="Unsaved changes - 2 saves" />
+                </StackPanel>
+                <TextBlock Grid.Column="1" Classes="caption" Text="1.6.640" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Classes="caption" Text="12 weeks ago" VerticalAlignment="Center" />
+              </Grid>
+            </Border>
+          </StackPanel>
+        </Border>
+        <Border Classes="strip">
+          <StackPanel Orientation="Horizontal" Spacing="12">
+            <TextBlock Classes="icon muted" Text="{x:Static theme:Icons.Database}" />
+            <TextBlock Classes="caption" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="220" Text="This game is using 41.2 GB of your 210 GB storage folder" />
+          </StackPanel>
+        </Border>
+        <Border Classes="recessed">
+          <TextBlock Classes="mono small" Text="C:\Games\SkyrimSE\Data\Skyrim.esm" />
+        </Border>
+        <Border Classes="divider" />
+      </StackPanel>
+
+      <StackPanel Spacing="8">
+        <TextBlock Classes="overline" Text="CALLOUTS" />
+        <Border Classes="callout error">
+          <StackPanel Orientation="Horizontal" Spacing="12">
+            <TextBlock Classes="icon error" VerticalAlignment="Top" Text="{x:Static theme:Icons.Error}" />
+            <StackPanel Spacing="4">
+              <TextBlock Classes="row-title" TextWrapping="Wrap" MaxWidth="220" Text="You have unsaved changes from your last session" />
+              <TextBlock Classes="caption" Foreground="{DynamicResource Md3OnErrorContainerBrush}" TextWrapping="Wrap" MaxWidth="220" Text="3 files in your saves folder changed since the last time this profile was saved." />
+              <WrapPanel Margin="0,6,0,0">
+                <Button Classes="error pill" Content="Save them first" Margin="0,0,8,0" />
+                <Button Classes="error-outlined pill" Content="Discard them" />
+              </WrapPanel>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+        <Border Classes="callout warning">
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <TextBlock Classes="icon s18 warning" VerticalAlignment="Top" Text="{x:Static theme:Icons.Warning}" />
+            <TextBlock Classes="caption" Foreground="{DynamicResource Md3OnWarningContainerBrush}" TextWrapping="Wrap" MaxWidth="240" Text="Starting through Steam can let Steam update the game again right after SavePoint puts your version back." />
+          </StackPanel>
+        </Border>
+        <Border Classes="callout success">
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <TextBlock Classes="icon s18 success" Text="{x:Static theme:Icons.CheckCircle}" />
+            <TextBlock Classes="caption" Foreground="{DynamicResource Md3OnSuccessContainerBrush}" VerticalAlignment="Center" Text="Game version and mods saved" />
+          </StackPanel>
+        </Border>
+        <Border Classes="callout info">
+          <StackPanel Orientation="Horizontal" Spacing="12">
+            <TextBlock Classes="icon" VerticalAlignment="Top" Text="{x:Static theme:Icons.CheckCircle}" />
+            <TextBlock Classes="row-title" TextWrapping="Wrap" MaxWidth="220" Text="Everything was already in place - starting Skyrim now" />
+          </StackPanel>
+        </Border>
+      </StackPanel>
+
+      <StackPanel Spacing="8">
+        <TextBlock Classes="overline" Text="CHOICE AND SWATCHES" />
+        <ListBox x:Name="ChoiceToggle" Classes="choice" SelectedIndex="0">
+          <ListBoxItem Content="Run the .exe" />
+          <ListBoxItem Content="Through Steam" />
+        </ListBox>
+        <ListBox x:Name="AccentSwatches" Classes="swatches" SelectedIndex="0">
+          <ListBoxItem AutomationProperties.Name="Blue"><Border Width="26" Height="26" CornerRadius="13" Background="{DynamicResource Md3PrimaryBrush}" /></ListBoxItem>
+          <ListBoxItem AutomationProperties.Name="Violet"><Border Width="26" Height="26" CornerRadius="13" Background="{DynamicResource Md3TertiaryBrush}" /></ListBoxItem>
+          <ListBoxItem AutomationProperties.Name="Green"><Border Width="26" Height="26" CornerRadius="13" Background="{DynamicResource Md3SuccessBrush}" /></ListBoxItem>
+          <ListBoxItem AutomationProperties.Name="Amber"><Border Width="26" Height="26" CornerRadius="13" Background="{DynamicResource Md3WarningBrush}" /></ListBoxItem>
+          <ListBoxItem AutomationProperties.Name="Crimson"><Border Width="26" Height="26" CornerRadius="13" Background="{DynamicResource Md3ErrorBrush}" /></ListBoxItem>
+        </ListBox>
+      </StackPanel>
+
+      <StackPanel Spacing="8">
+        <TextBlock Classes="overline" Text="DIALOG" />
+        <Panel Height="205">
+          <Border Background="{DynamicResource Md3SurfaceBrush}" />
+          <Border Classes="scrim" />
+          <Border x:Name="SampleDialog" Classes="dialog" Width="300" Padding="20">
+            <StackPanel Spacing="8">
+              <TextBlock Classes="dialog-title" TextWrapping="Wrap" Text="You played for 2 hours 14 minutes" />
+              <TextBlock Classes="body" Text="Your saves folder has 3 new files." />
+              <TextBox Classes="mono" Text="After the Blackreach run" />
+              <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                <Button Classes="text pill large" Content="Not now" />
+                <Button x:Name="FocusTarget" Classes="filled pill large" Content="Save it" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </Panel>
+      </StackPanel>
+    </StackPanel>
+
+  </Grid>
+</UserControl>

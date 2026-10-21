@@ -1,0 +1,111 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- Check and indeterminate glyphs the check box draws. -->
+  <StreamGeometry x:Key="Md3CheckMarkData">M5.5 10.586 1.707 6.793A1 1 0 0 0 .293 8.207l4.5 4.5a1 1 0 0 0 1.414 0l11-11A1 1 0 0 0 15.793.293L5.5 10.586Z</StreamGeometry>
+  <StreamGeometry x:Key="Md3DashMarkData">M0 0H10V2H0Z</StreamGeometry>
+
+  <!--
+    CheckBox: an 18px box, primary when checked, with the label to its right (Content). Hover and press draw a
+    round state layer behind the box; keyboard focus draws the 2px primary ring around box and label.
+  -->
+  <ControlTheme x:Key="{x:Type CheckBox}" TargetType="CheckBox">
+    <Setter Property="Foreground" Value="{DynamicResource Md3OnSurfaceVariantBrush}" />
+    <Setter Property="Padding" Value="9,0,0,0" />
+    <Setter Property="MinHeight" Value="24" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="FocusAdorner" Value="{DynamicResource Md3FocusRingNone}" />
+    <!-- Templated controls clip to their bounds by default, which would cut off the focus ring. -->
+    <Setter Property="ClipToBounds" Value="False" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Grid x:Name="RootGrid" ColumnDefinitions="Auto,*" Background="Transparent">
+          <Panel Grid.Column="0" VerticalAlignment="Center">
+            <Border x:Name="PART_StateLayer"
+                    Width="36"
+                    Height="36"
+                    Margin="-9"
+                    CornerRadius="18"
+                    Background="{DynamicResource Md3OnSurfaceBrush}"
+                    Opacity="0"
+                    IsHitTestVisible="False"
+                    Transitions="{DynamicResource Md3TransitionsOpacityShort}" />
+            <Border x:Name="NormalRectangle"
+                    Width="18"
+                    Height="18"
+                    CornerRadius="3"
+                    BorderThickness="2"
+                    BorderBrush="{DynamicResource Md3OnSurfaceVariantBrush}"
+                    Background="Transparent" />
+            <Path x:Name="CheckGlyph"
+                  Width="11"
+                  Height="9"
+                  Stretch="Uniform"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  Fill="{DynamicResource Md3OnPrimaryBrush}"
+                  Opacity="0" />
+          </Panel>
+          <ContentPresenter x:Name="PART_ContentPresenter"
+                            Grid.Column="1"
+                            Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            Margin="{TemplateBinding Padding}"
+                            HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                            RecognizesAccessKey="True" />
+          <Border x:Name="PART_FocusRing"
+                  Grid.ColumnSpan="2"
+                  Margin="-4"
+                  BorderBrush="{DynamicResource Md3PrimaryBrush}"
+                  BorderThickness="2"
+                  CornerRadius="9"
+                  IsVisible="False"
+                  IsHitTestVisible="False" />
+        </Grid>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:pointerover /template/ Border#PART_StateLayer">
+      <Setter Property="Opacity" Value="{DynamicResource Md3OpacityHover}" />
+    </Style>
+    <Style Selector="^:pressed /template/ Border#PART_StateLayer">
+      <Setter Property="Opacity" Value="{DynamicResource Md3OpacityPressed}" />
+    </Style>
+    <Style Selector="^:focus-visible /template/ Border#PART_FocusRing">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+
+    <Style Selector="^:checked /template/ Border#NormalRectangle, ^:indeterminate /template/ Border#NormalRectangle">
+      <Setter Property="Background" Value="{DynamicResource Md3PrimaryBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Md3PrimaryBrush}" />
+    </Style>
+    <Style Selector="^:checked /template/ Path#CheckGlyph">
+      <Setter Property="Data" Value="{DynamicResource Md3CheckMarkData}" />
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="^:indeterminate /template/ Path#CheckGlyph">
+      <Setter Property="Data" Value="{DynamicResource Md3DashMarkData}" />
+      <Setter Property="Width" Value="9" />
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+
+    <Style Selector="^:disabled">
+      <Setter Property="Foreground" Value="{DynamicResource Md3DisabledContentBrush}" />
+    </Style>
+    <Style Selector="^:disabled /template/ Border#NormalRectangle">
+      <Setter Property="BorderBrush" Value="{DynamicResource Md3DisabledContentBrush}" />
+    </Style>
+    <Style Selector="^:disabled:checked /template/ Border#NormalRectangle, ^:disabled:indeterminate /template/ Border#NormalRectangle">
+      <Setter Property="Background" Value="{DynamicResource Md3DisabledContentBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Md3DisabledContentBrush}" />
+    </Style>
+    <Style Selector="^:disabled /template/ Border#PART_StateLayer">
+      <Setter Property="Opacity" Value="0" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>

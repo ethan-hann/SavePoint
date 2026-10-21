@@ -1,0 +1,174 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- Sidebar and top-bar destinations: a pill per item, the selected one on primaryContainer. -->
+  <Style Selector="ListBox.nav">
+    <Setter Property="ItemsPanel">
+      <ItemsPanelTemplate>
+        <StackPanel Spacing="1" />
+      </ItemsPanelTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="ListBox.nav ListBoxItem">
+    <Setter Property="Padding" Value="14,8" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Md3RadiusPill}" />
+    <Setter Property="Foreground" Value="{DynamicResource Md3OnSurfaceVariantBrush}" />
+    <Setter Property="FontSize" Value="13" />
+  </Style>
+  <Style Selector="ListBox.nav ListBoxItem:selected">
+    <Setter Property="Foreground" Value="{DynamicResource Md3OnPrimaryContainerBrush}" />
+    <Setter Property="FontWeight" Value="Medium" />
+  </Style>
+  <Style Selector="ListBox.nav ListBoxItem /template/ Border#PART_Selected">
+    <Setter Property="Background" Value="{DynamicResource Md3PrimaryContainerBrush}" />
+  </Style>
+  <!-- A horizontal run of nav pills, as in the library top bar. -->
+  <Style Selector="ListBox.nav.horizontal">
+    <Setter Property="ItemsPanel">
+      <ItemsPanelTemplate>
+        <StackPanel Orientation="Horizontal" Spacing="2" />
+      </ItemsPanelTemplate>
+    </Setter>
+  </Style>
+
+  <!-- Rows in a list of games: the selected row sits on surfaceContainerHigh. -->
+  <Style Selector="ListBox.rows">
+    <Setter Property="ItemsPanel">
+      <ItemsPanelTemplate>
+        <StackPanel Spacing="1" />
+      </ItemsPanelTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="ListBox.rows ListBoxItem">
+    <Setter Property="Padding" Value="10,7" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Md3RadiusControl}" />
+    <Setter Property="Foreground" Value="{DynamicResource Md3OnSurfaceVariantBrush}" />
+  </Style>
+  <Style Selector="ListBox.rows ListBoxItem:selected">
+    <Setter Property="Foreground" Value="{DynamicResource Md3OnSurfaceBrush}" />
+  </Style>
+  <Style Selector="ListBox.rows ListBoxItem /template/ Border#PART_Selected">
+    <Setter Property="Background" Value="{DynamicResource Md3SurfaceContainerHighBrush}" />
+  </Style>
+
+  <!-- Segmented toggle, outlined pill (theme selector). -->
+  <Style Selector="ListBox.segmented">
+    <Setter Property="BorderBrush" Value="{DynamicResource Md3OutlineVariantBrush}" />
+    <Setter Property="BorderThickness" Value="{DynamicResource Md3BorderThin}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Md3RadiusPill}" />
+    <Setter Property="ClipToBounds" Value="True" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="ItemsPanel">
+      <ItemsPanelTemplate>
+        <StackPanel Orientation="Horizontal" Spacing="2" />
+      </ItemsPanelTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="ListBox.segmented ListBoxItem">
+    <Setter Property="Padding" Value="18,7" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="Foreground" Value="{DynamicResource Md3OnSurfaceVariantBrush}" />
+    <Setter Property="FontSize" Value="12.5" />
+  </Style>
+  <Style Selector="ListBox.segmented ListBoxItem:selected">
+    <Setter Property="Foreground" Value="{DynamicResource Md3OnPrimaryContainerBrush}" />
+    <Setter Property="FontWeight" Value="Medium" />
+  </Style>
+  <Style Selector="ListBox.segmented ListBoxItem /template/ Border#PART_Selected">
+    <Setter Property="Background" Value="{DynamicResource Md3PrimaryContainerBrush}" />
+  </Style>
+
+  <!-- Segmented toggle, inset tray (layout toggle). -->
+  <Style Selector="ListBox.segmented-tray">
+    <Setter Property="Background" Value="{DynamicResource Md3SurfaceContainerLowBrush}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Md3RadiusControl}" />
+    <Setter Property="Padding" Value="3" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="ItemsPanel">
+      <ItemsPanelTemplate>
+        <StackPanel Orientation="Horizontal" Spacing="3" />
+      </ItemsPanelTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="ListBox.segmented-tray ListBoxItem">
+    <Setter Property="Padding" Value="11,6" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Md3RadiusSmall}" />
+    <Setter Property="Foreground" Value="{DynamicResource Md3OutlineBrush}" />
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+  <Style Selector="ListBox.segmented-tray ListBoxItem:selected">
+    <Setter Property="Foreground" Value="{DynamicResource Md3OnSurfaceBrush}" />
+  </Style>
+  <Style Selector="ListBox.segmented-tray ListBoxItem /template/ Border#PART_Selected">
+    <Setter Property="Background" Value="{DynamicResource Md3SurfaceContainerHighBrush}" />
+  </Style>
+
+  <!-- Radio cards: a selectable card per choice; the selected one gets a 1.5px primary outline. -->
+  <Style Selector="ListBox.radio-cards">
+    <Setter Property="ItemsPanel">
+      <ItemsPanelTemplate>
+        <StackPanel Spacing="10" />
+      </ItemsPanelTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="ListBox.radio-cards ListBoxItem">
+    <Setter Property="Padding" Value="16,14" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Md3RadiusPanel}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Md3OutlineVariantBrush}" />
+    <Setter Property="BorderThickness" Value="{DynamicResource Md3BorderThin}" />
+    <Setter Property="VerticalContentAlignment" Value="Top" />
+  </Style>
+  <Style Selector="ListBox.radio-cards ListBoxItem:selected /template/ Border#PART_SelectedRing">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+
+  <!-- Two-way or few-way choice as equal-width outlined buttons, the selected one on primaryContainer (how to start the game). -->
+  <Style Selector="ListBox.choice">
+    <Setter Property="Margin" Value="-4,0" />
+    <Setter Property="ItemsPanel">
+      <ItemsPanelTemplate>
+        <UniformGrid Rows="1" />
+      </ItemsPanelTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="ListBox.choice ListBoxItem">
+    <Setter Property="Margin" Value="4,0" />
+    <Setter Property="Padding" Value="8" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Md3RadiusControl}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Md3OutlineVariantBrush}" />
+    <Setter Property="BorderThickness" Value="{DynamicResource Md3BorderThin}" />
+    <Setter Property="Foreground" Value="{DynamicResource Md3OnSurfaceVariantBrush}" />
+    <Setter Property="FontSize" Value="12.5" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="ListBox.choice ListBoxItem:selected">
+    <Setter Property="Foreground" Value="{DynamicResource Md3OnPrimaryContainerBrush}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="FontWeight" Value="Medium" />
+  </Style>
+  <Style Selector="ListBox.choice ListBoxItem /template/ Border#PART_Selected">
+    <Setter Property="Background" Value="{DynamicResource Md3PrimaryContainerBrush}" />
+  </Style>
+
+  <!-- Accent swatches: round items whose content is the swatch (30px); the selected one gets an on-surface ring with a gap. -->
+  <Style Selector="ListBox.swatches">
+    <Setter Property="ItemsPanel">
+      <ItemsPanelTemplate>
+        <StackPanel Orientation="Horizontal" Spacing="6" />
+      </ItemsPanelTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="ListBox.swatches ListBoxItem">
+    <Setter Property="Padding" Value="4" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Md3RadiusPill}" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="ListBox.swatches ListBoxItem:selected /template/ Border#PART_SelectedRing">
+    <Setter Property="Opacity" Value="1" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Md3OnSurfaceBrush}" />
+  </Style>
+  <Style Selector="ListBox.swatches ListBoxItem /template/ Border#PART_Selected">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+</Styles>

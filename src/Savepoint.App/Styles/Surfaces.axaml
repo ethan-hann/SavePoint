@@ -1,0 +1,171 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    Surface classes on Border. Surfaces separate by tone and a 1px border, never by shadow;
+    the one shadow in the app belongs to the dialog.
+  -->
+
+  <!-- Containers: panel (settings sections, radius 12) and card (history cards, radius 14); add selected for the 1.5px primary outline. -->
+  <Style Selector="Border.panel">
+    <Setter Property="Background" Value="{DynamicResource Md3CardBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Md3OutlineVariantBrush}" />
+    <Setter Property="BorderThickness" Value="{DynamicResource Md3BorderThin}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Md3RadiusPanel}" />
+    <Setter Property="Padding" Value="16,14" />
+  </Style>
+  <Style Selector="Border.card">
+    <Setter Property="Background" Value="{DynamicResource Md3CardBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Md3OutlineVariantBrush}" />
+    <Setter Property="BorderThickness" Value="{DynamicResource Md3BorderThin}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Md3RadiusCard}" />
+    <Setter Property="Padding" Value="16,14" />
+  </Style>
+  <!-- The currently loaded card or game: a 1.5px primary outline. -->
+  <Style Selector="Border.card.selected">
+    <Setter Property="BorderBrush" Value="{DynamicResource Md3PrimaryBrush}" />
+    <Setter Property="BorderThickness" Value="{DynamicResource Md3BorderFocus}" />
+    <Setter Property="Padding" Value="15.5,13.5" />
+  </Style>
+
+  <!-- Bordered table: put a table-header Border and table-row Borders inside. -->
+  <Style Selector="Border.table">
+    <Setter Property="BorderBrush" Value="{DynamicResource Md3OutlineVariantBrush}" />
+    <Setter Property="BorderThickness" Value="{DynamicResource Md3BorderThin}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Md3RadiusRow}" />
+    <Setter Property="ClipToBounds" Value="True" />
+  </Style>
+  <Style Selector="Border.table-header">
+    <Setter Property="Background" Value="{DynamicResource Md3SurfaceContainerLowBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Md3OutlineVariantBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+    <Setter Property="Padding" Value="14,9" />
+  </Style>
+  <Style Selector="Border.table-row">
+    <Setter Property="BorderBrush" Value="{DynamicResource Md3OutlineVariantBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+    <Setter Property="Padding" Value="14,11" />
+  </Style>
+  <Style Selector="Border.table-row:pointerover">
+    <Setter Property="Background" Value="{DynamicResource Md3StateHoverBrush}" />
+  </Style>
+  <Style Selector="Border.table-row.selected">
+    <Setter Property="Background" Value="{DynamicResource Md3SelectedRowBrush}" />
+  </Style>
+  <Style Selector="Border.table-row.last">
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+
+  <!-- Footer strips such as the storage line. -->
+  <Style Selector="Border.strip">
+    <Setter Property="Background" Value="{DynamicResource Md3SurfaceContainerLowBrush}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Md3RadiusRow}" />
+    <Setter Property="Padding" Value="14,10" />
+  </Style>
+
+  <!-- A recessed well for paths and code inside a card or dialog. -->
+  <Style Selector="Border.recessed">
+    <Setter Property="Background" Value="{DynamicResource Md3SurfaceBrush}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Md3RadiusControl}" />
+    <Setter Property="Padding" Value="12,10" />
+  </Style>
+
+  <Style Selector="Border.divider">
+    <Setter Property="Background" Value="{DynamicResource Md3OutlineVariantBrush}" />
+    <Setter Property="Height" Value="1" />
+  </Style>
+
+  <!-- Navigation rail and top bar. -->
+  <Style Selector="Border.rail">
+    <Setter Property="Background" Value="{DynamicResource Md3SurfaceContainerLowBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Md3OutlineVariantBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,1,0" />
+  </Style>
+  <Style Selector="Border.topbar">
+    <Setter Property="Background" Value="{DynamicResource Md3SurfaceContainerLowBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Md3OutlineVariantBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+  </Style>
+
+  <!-- Dialog chrome: lay a scrim Border over the window, then a dialog Border with the width the screen needs. -->
+  <Style Selector="Border.scrim">
+    <Setter Property="Background" Value="{DynamicResource Md3ScrimOverlayBrush}" />
+  </Style>
+  <Style Selector="Border.dialog">
+    <Setter Property="Background" Value="{DynamicResource Md3SurfaceContainerHighBrush}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Md3RadiusDialog}" />
+    <Setter Property="BoxShadow" Value="{DynamicResource Md3DialogShadow}" />
+    <Setter Property="Padding" Value="{DynamicResource Md3DialogPadding}" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <!-- Fields sit one step darker than the dialog. -->
+  <Style Selector="Border.dialog TextBox, Border.dialog ComboBox">
+    <Setter Property="Background" Value="{DynamicResource Md3SurfaceBrush}" />
+  </Style>
+
+  <!--
+    Callouts: error, warning, success carry a muted tinted fill and border; info is the primaryContainer banner.
+    Text inside inherits the callout's text color; give an icon the matching role color class (error, warning, success).
+  -->
+  <Style Selector="Border.callout">
+    <Setter Property="CornerRadius" Value="{DynamicResource Md3RadiusPanel}" />
+    <Setter Property="BorderThickness" Value="{DynamicResource Md3BorderThin}" />
+    <Setter Property="Padding" Value="14" />
+  </Style>
+  <Style Selector="Border.callout.error">
+    <Setter Property="Background" Value="{DynamicResource Md3ErrorCalloutBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Md3ErrorCalloutBorderBrush}" />
+    <Setter Property="TextElement.Foreground" Value="{DynamicResource Md3OnErrorContainerBrush}" />
+  </Style>
+  <Style Selector="Border.callout.warning">
+    <Setter Property="Background" Value="{DynamicResource Md3WarningCalloutBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Md3WarningCalloutBorderBrush}" />
+    <Setter Property="TextElement.Foreground" Value="{DynamicResource Md3OnWarningContainerBrush}" />
+  </Style>
+  <Style Selector="Border.callout.success">
+    <Setter Property="Background" Value="{DynamicResource Md3SuccessCalloutBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Md3SuccessCalloutBorderBrush}" />
+    <Setter Property="TextElement.Foreground" Value="{DynamicResource Md3OnSuccessContainerBrush}" />
+  </Style>
+  <Style Selector="Border.callout.info">
+    <Setter Property="Background" Value="{DynamicResource Md3PrimaryContainerBrush}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="TextElement.Foreground" Value="{DynamicResource Md3OnPrimaryContainerBrush}" />
+  </Style>
+  <!-- Icons in a callout take the callout's own text color unless they carry a role color class. -->
+  <Style Selector="Border.callout.info TextBlock.icon">
+    <Setter Property="Foreground" Value="{DynamicResource Md3OnPrimaryContainerBrush}" />
+  </Style>
+
+  <!-- Removable monospace input chip: a mono TextBlock then a Button.icon with a close glyph. -->
+  <Style Selector="Border.input-chip">
+    <Setter Property="Background" Value="{DynamicResource Md3SurfaceContainerHighBrush}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Md3RadiusPill}" />
+    <Setter Property="Padding" Value="12,4,6,4" />
+    <Setter Property="TextElement.FontFamily" Value="{DynamicResource RobotoMonoFont}" />
+    <Setter Property="TextElement.FontSize" Value="12" />
+  </Style>
+  <!-- Static (non-removable) monospace chip. -->
+  <Style Selector="Border.chip">
+    <Setter Property="Background" Value="{DynamicResource Md3SurfaceContainerHighBrush}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Md3RadiusPill}" />
+    <Setter Property="Padding" Value="12,6" />
+    <Setter Property="TextElement.FontFamily" Value="{DynamicResource RobotoMonoFont}" />
+    <Setter Property="TextElement.FontSize" Value="12" />
+  </Style>
+
+  <!-- Game art placeholder tile; the view supplies the size and the tinted fill. -->
+  <Style Selector="Border.art-tile">
+    <Setter Property="CornerRadius" Value="{DynamicResource Md3RadiusControl}" />
+    <Setter Property="ClipToBounds" Value="True" />
+  </Style>
+
+  <!-- Round icon badge, as on the running dialog. -->
+  <Style Selector="Border.icon-badge">
+    <Setter Property="Background" Value="{DynamicResource Md3PrimaryContainerBrush}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Md3RadiusPill}" />
+    <Setter Property="TextElement.Foreground" Value="{DynamicResource Md3OnPrimaryContainerBrush}" />
+  </Style>
+
+</Styles>
