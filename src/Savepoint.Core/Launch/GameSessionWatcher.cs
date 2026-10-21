@@ -45,16 +45,7 @@ public sealed class GameSessionWatcher : IDisposable
         GameSessionOptions options,
         TimeProvider clock)
     {
-        if (options.PollInterval <= TimeSpan.Zero)
-        {
-            throw new ArgumentOutOfRangeException(nameof(options), options.PollInterval, "The polling interval must be positive.");
-        }
-
-        if (options.Grace < TimeSpan.Zero)
-        {
-            throw new ArgumentOutOfRangeException(nameof(options), options.Grace, "The grace period cannot be negative.");
-        }
-
+        options.EnsureValid();
         _child = child;
         _processName = string.IsNullOrWhiteSpace(processName) ? null : processName.Trim();
         _check = new RunningGameCheck(processes, os);

@@ -17,4 +17,19 @@ public sealed record GameSessionOptions
     /// that has handed over), or from the link being opened when there is no program; it never runs while that program is alive.
     /// </summary>
     public TimeSpan Grace { get; init; } = DefaultGrace;
+
+    /// <summary>Throws when the timings would spin or never wait.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">The polling interval is not positive or the grace is negative.</exception>
+    internal void EnsureValid()
+    {
+        if (PollInterval <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(PollInterval), PollInterval, "The polling interval must be positive.");
+        }
+
+        if (Grace < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(Grace), Grace, "The grace period cannot be negative.");
+        }
+    }
 }
