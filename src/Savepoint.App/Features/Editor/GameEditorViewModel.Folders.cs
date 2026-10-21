@@ -12,12 +12,15 @@ public sealed partial class GameEditorViewModel
     // Bumped on every change to the saves field, so a slow answer for an earlier value never replaces a later one.
     private int _resolveVersion;
 
+    /// <summary>The line saying when the saved install folder was confirmed; null when there is nothing to say.</summary>
     [ObservableProperty]
     private string? _installConfirmation;
 
+    /// <summary>The line saying when the saved saves folder was confirmed; null when there is nothing to say.</summary>
     [ObservableProperty]
     private string? _savesConfirmation;
 
+    /// <summary>The line saying which folder a shortcut in the saves field points to; null when the field has no shortcut.</summary>
     [ObservableProperty]
     private string? _savesResolves;
 

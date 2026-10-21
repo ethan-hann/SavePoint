@@ -21,9 +21,11 @@ public sealed partial class ChipListViewModel : ObservableObject
 {
     private readonly UiFormatter _text;
 
+    /// <summary>True while the add chip is a text field.</summary>
     [ObservableProperty]
     private bool _isAdding;
 
+    /// <summary>What has been typed into the add field.</summary>
     [ObservableProperty]
     private string _newText = string.Empty;
 

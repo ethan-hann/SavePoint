@@ -39,58 +39,75 @@ public sealed partial class GameEditorViewModel : ObservableObject
     // Each folder's confirmation and whether it still exists, as the Api last reported it.
     private IReadOnlyList<FolderStatus> _statuses = [];
 
+    /// <summary>The game's name, as typed.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSave))]
     [NotifyCanExecuteChangedFor(nameof(SaveCommand))]
     private string _name = string.Empty;
 
+    /// <summary>Where the game is installed, as typed.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSave))]
     [NotifyCanExecuteChangedFor(nameof(SaveCommand))]
     private string _installPath = string.Empty;
 
+    /// <summary>Where the saves live, as typed; it may start with a shortcut such as {documents}. Empty means the game has no saves folder.</summary>
     [ObservableProperty]
     private string _savesPath = string.Empty;
 
+    /// <summary>Which way the game starts: 0 runs a file, 1 opens a launch link (Steam).</summary>
     [ObservableProperty]
     private int _launchChoice;
 
+    /// <summary>The file that starts the game, relative to the install folder.</summary>
     [ObservableProperty]
     private string _exePath = string.Empty;
 
+    /// <summary>The launch link that starts the game, such as steam://run/123456.</summary>
     [ObservableProperty]
     private string _uri = string.Empty;
 
+    /// <summary>The program name SavePoint waits for to know the game has stopped; empty uses the start file.</summary>
     [ObservableProperty]
     private string _processName = string.Empty;
 
+    /// <summary>What is wrong with the name, or null.</summary>
     [ObservableProperty]
     private string? _nameError;
 
+    /// <summary>What is wrong with the install folder, or null.</summary>
     [ObservableProperty]
     private string? _installError;
 
+    /// <summary>What is wrong with the saves folder, or null.</summary>
     [ObservableProperty]
     private string? _savesError;
 
+    /// <summary>What is wrong with the way the game starts, or null.</summary>
     [ObservableProperty]
     private string? _launchError;
 
+    /// <summary>What is wrong with the start file, or null.</summary>
     [ObservableProperty]
     private string? _exePathError;
 
+    /// <summary>What is wrong with the launch link, or null.</summary>
     [ObservableProperty]
     private string? _uriError;
 
+    /// <summary>An error card about the install folder, drawn under its field, or null.</summary>
     [ObservableProperty]
     private ErrorCardViewModel? _installCard;
 
+    /// <summary>An error card about the saves folder, drawn under its field, or null.</summary>
     [ObservableProperty]
     private ErrorCardViewModel? _savesCard;
 
+    /// <summary>An error card about the form as a whole, drawn above the columns, or null.</summary>
     [ObservableProperty]
     private ErrorCardViewModel? _formError;
 
+    /// <summary>True while a save is running; Save is unavailable until it ends.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSave))]
     [NotifyCanExecuteChangedFor(nameof(SaveCommand))]
