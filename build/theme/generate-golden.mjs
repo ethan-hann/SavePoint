@@ -151,7 +151,7 @@ for (const [name, seedHex] of SEEDS.filter(([n]) => ['blue', 'amber'].includes(n
   }
 }
 
-// HCT: argb -> hue/chroma/tone.
+// HCT: argb -> hue/chroma/tone, then solved back to an argb (backArgb).
 const hctColors = [
   '#000000', '#ffffff', '#777777', '#808080', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#00ffff', '#ff00ff',
   '#123456', '#abcdef', '#fedcba', '#010101', '#fefefe', '#7f7f7f', '#ff8000', '#80ff00', '#0080ff', '#8000ff',
@@ -160,7 +160,10 @@ const hctColors = [
 const hctFromArgb = hctColors.map((colorHex) => {
   const argb = argbFromHex(colorHex);
   const hct = Hct.fromInt(argb);
-  return { argb: hex(argb), hue: hct.hue, chroma: hct.chroma, tone: hct.tone };
+  return {
+    argb: hex(argb), hue: hct.hue, chroma: hct.chroma, tone: hct.tone,
+    backArgb: hex(Hct.from(hct.hue, hct.chroma, hct.tone).toInt()),
+  };
 });
 
 // HCT: (hue, chroma, tone) -> argb, then the argb read back. Chroma 200 forces the gamut-limit bisection.

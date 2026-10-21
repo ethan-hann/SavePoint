@@ -32,7 +32,7 @@ internal sealed record GoldenScheme(
     Dictionary<string, GoldenPalette> Palettes,
     Dictionary<string, string> Colors);
 
-internal sealed record GoldenHctFromArgb(string Argb, double Hue, double Chroma, double Tone);
+internal sealed record GoldenHctFromArgb(string Argb, double Hue, double Chroma, double Tone, string BackArgb);
 
 internal sealed record GoldenHctSolved(
     double Hue, double Chroma, double Tone, string Argb, double OutHue, double OutChroma, double OutTone);

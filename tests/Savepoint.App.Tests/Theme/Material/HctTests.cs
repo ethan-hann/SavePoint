@@ -4,12 +4,12 @@ namespace Savepoint.App.Tests.Theme.Material;
 
 public class HctTests
 {
-    public static TheoryData<string, double, double, double> ArgbSamples()
+    public static TheoryData<string, double, double, double, string> ArgbSamples()
     {
-        var data = new TheoryData<string, double, double, double>();
+        var data = new TheoryData<string, double, double, double, string>();
         foreach (var sample in GoldenData.Current.HctFromArgb)
         {
-            data.Add(sample.Argb, sample.Hue, sample.Chroma, sample.Tone);
+            data.Add(sample.Argb, sample.Hue, sample.Chroma, sample.Tone, sample.BackArgb);
         }
 
         return data;
@@ -28,7 +28,8 @@ public class HctTests
 
     [Theory]
     [MemberData(nameof(ArgbSamples))]
-    public void FromInt_reads_hue_chroma_and_tone_like_the_reference(string argb, double hue, double chroma, double tone)
+    public void FromInt_reads_hue_chroma_and_tone_like_the_reference(
+        string argb, double hue, double chroma, double tone, string backArgb)
     {
         var hct = Hct.FromInt(GoldenData.ParseArgb(argb));
 
@@ -36,6 +37,7 @@ public class HctTests
         Numbers.AssertClose(hue, hct.Hue, "hue");
         Numbers.AssertClose(chroma, hct.Chroma, "chroma");
         Numbers.AssertClose(tone, hct.Tone, "tone");
+        Assert.Equal(backArgb, GoldenData.Hex(Hct.From(hct.Hue, hct.Chroma, hct.Tone).ToInt()));
     }
 
     [Theory]
