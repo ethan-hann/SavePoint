@@ -1,4 +1,6 @@
 {
+  "error.artwork.notAnImage": "SavePoint can use PNG, JPEG, and WebP pictures, and that file isn't a whole one of those. Choose a different picture.",
+  "error.artwork.tooLarge": "That picture is bigger than {maxMegabytes} MB. Choose a smaller one.",
   "error.capture.cancelled": "Saving was canceled. Everything you saved earlier is untouched, so you can save again whenever you're ready.",
   "error.capture.linkedFolder": "A folder inside the game is a shortcut to another place on this computer, and SavePoint can't safely save or switch files through it. Replace the shortcut shown below with a real folder, or move it out of the game folder, then try again.",
   "error.capture.nestedRepository": "{count, plural, one {One of the game's folders keeps its own change history, which SavePoint can't save inside another.} other {# of the game's folders keep their own change history, which SavePoint can't save inside another.}} Move the hidden folder shown below out of the game folder, then try again.",

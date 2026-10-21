@@ -22,6 +22,7 @@ public sealed class FakeBackend
         Settings = new FakeSettingsApi(this);
         History = new FakeHistoryApi(this);
         AppStatus = new FakeAppStatusApi(this);
+        Artwork = new FakeArtworkApi(this);
     }
 
     public FixedTimeProvider Clock { get; }
@@ -41,6 +42,8 @@ public sealed class FakeBackend
     public FakeJobsApi Jobs { get; }
 
     public FakeAppStatusApi AppStatus { get; }
+
+    public FakeArtworkApi Artwork { get; }
 
     internal FakeState State { get; }
 

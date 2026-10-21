@@ -32,6 +32,8 @@ public static class ErrorPresentation
 
     private static readonly IReadOnlyDictionary<string, ErrorKind> _table = new Dictionary<string, ErrorKind>(StringComparer.Ordinal)
     {
+        ["error.artwork.notAnImage"] = new(Icons.Warning, ErrorTone.Warning, "errorCard.title.notAnImage"),
+        ["error.artwork.tooLarge"] = new(Icons.Warning, ErrorTone.Warning, "errorCard.title.imageTooLarge"),
         ["error.capture.cancelled"] = new(Icons.Cancel, ErrorTone.Neutral, "errorCard.title.canceled"),
         ["error.capture.linkedFolder"] = new(Icons.Folder, ErrorTone.Warning, "errorCard.title.folderIsShortcut"),
         ["error.capture.nestedRepository"] = new(Icons.Folder, ErrorTone.Warning, "errorCard.title.folderKeepsHistory"),
