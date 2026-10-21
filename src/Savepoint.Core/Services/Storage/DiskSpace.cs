@@ -8,6 +8,12 @@ public interface IDiskSpace
     /// <returns>The free bytes, or null when the volume cannot be determined (no such drive, a network share, an unreadable path).</returns>
     /// <exception cref="ArgumentException"><paramref name="path"/> is null, empty or blank.</exception>
     long? GetFreeBytes(string path);
+
+    /// <summary>Gets the size of the volume that holds <paramref name="path"/>, which the storage summary shows beside the free space.</summary>
+    /// <param name="path">A file or folder, existing or not; the nearest existing ancestor decides the volume.</param>
+    /// <returns>The total bytes, or null when the volume cannot be determined.</returns>
+    /// <exception cref="ArgumentException"><paramref name="path"/> is null, empty or blank.</exception>
+    long? GetTotalBytes(string path);
 }
 
 /// <summary>The real <see cref="IDiskSpace"/>, backed by <see cref="DriveInfo"/>.</summary>
@@ -19,7 +25,12 @@ public interface IDiskSpace
 public sealed class DiskSpace : IDiskSpace
 {
     /// <inheritdoc/>
-    public long? GetFreeBytes(string path)
+    public long? GetFreeBytes(string path) => Measure(path, static drive => drive.AvailableFreeSpace);
+
+    /// <inheritdoc/>
+    public long? GetTotalBytes(string path) => Measure(path, static drive => drive.TotalSize);
+
+    private static long? Measure(string path, Func<DriveInfo, long> read)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
@@ -42,8 +53,7 @@ public sealed class DiskSpace : IDiskSpace
         try
         {
             // Unix asks the file system about the path itself; Windows reads the drive from the path root.
-            var drive = new DriveInfo(OperatingSystem.IsWindows() ? Path.GetPathRoot(folder)! : folder);
-            return drive.AvailableFreeSpace;
+            return read(new DriveInfo(OperatingSystem.IsWindows() ? Path.GetPathRoot(folder)! : folder));
         }
         catch (Exception e) when (e is ArgumentException or IOException or UnauthorizedAccessException)
         {
