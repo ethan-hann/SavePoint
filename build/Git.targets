@@ -1,0 +1,92 @@
+<Project>
+
+  <!--
+    Puts the pinned git bundle (resources/git/<rid>) next to every build and publish output as git/.
+    Imported by the app and by the test projects. Fetching is delegated to build/fetch-git.{ps1,sh},
+    which verify the SHA-256 from build/git-manifest.json before anything is extracted.
+
+    GitRuntimeId picks the bundle: it defaults to RuntimeIdentifier when set, otherwise to the SDK host's
+    runtime id, and can be passed on the command line (-p:GitRuntimeId=linux-arm64).
+  -->
+
+  <PropertyGroup>
+    <GitRepoRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..'))</GitRepoRoot>
+    <GitStampFileName>.savepoint-git-stamp</GitStampFileName>
+  </PropertyGroup>
+
+  <Target Name="_SavepointResolveGitRuntime">
+    <PropertyGroup>
+      <GitRuntimeId Condition="'$(GitRuntimeId)' == ''">$(RuntimeIdentifier)</GitRuntimeId>
+      <GitRuntimeId Condition="'$(GitRuntimeId)' == ''">$(NETCoreSdkPortableRuntimeIdentifier)</GitRuntimeId>
+      <GitBundleDir>$(GitRepoRoot)resources/git/$(GitRuntimeId)/</GitBundleDir>
+      <GitStampPath>$(GitBundleDir)$(GitStampFileName)</GitStampPath>
+    </PropertyGroup>
+  </Target>
+
+  <!-- The scripts do nothing when the stamp already matches the manifest; the stamp's age lets MSBuild skip them. -->
+  <Target Name="SavepointFetchGit"
+          BeforeTargets="BeforeBuild"
+          DependsOnTargets="_SavepointResolveGitRuntime"
+          Inputs="$(GitRepoRoot)build/git-manifest.json;$(GitRepoRoot)build/fetch-git.ps1;$(GitRepoRoot)build/fetch-git.sh"
+          Outputs="$(GitStampPath)">
+    <Exec Condition="$([MSBuild]::IsOSPlatform('Windows'))"
+          Command="pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;$(GitRepoRoot)build/fetch-git.ps1&quot; -RuntimeId $(GitRuntimeId)"
+          IgnoreStandardErrorWarningFormat="true" />
+    <Exec Condition="!$([MSBuild]::IsOSPlatform('Windows'))"
+          Command="bash &quot;$(GitRepoRoot)build/fetch-git.sh&quot; $(GitRuntimeId)"
+          IgnoreStandardErrorWarningFormat="true" />
+  </Target>
+
+  <!--
+    Copies the bundle to GitSyncDestDir, replacing whatever an older bundle left there.
+    A target runs once per project instance, so each destination gets its own instance through the MSBuild task.
+    Windows uses Copy. Elsewhere cp -a keeps the symlinks (Copy would turn the 145 links in git-core into full
+    copies) and the executable bits, and the new folder is renamed into place only when complete.
+  -->
+  <Target Name="_SavepointSyncGit" DependsOnTargets="_SavepointResolveGitRuntime">
+    <ItemGroup>
+      <_GitBundleFile Include="$(GitBundleDir)**" Exclude="$(GitStampPath)" />
+    </ItemGroup>
+
+    <RemoveDir Condition="$([MSBuild]::IsOSPlatform('Windows')) AND Exists('$(GitSyncDestDir)')" Directories="$(GitSyncDestDir)" />
+    <Copy Condition="$([MSBuild]::IsOSPlatform('Windows'))"
+          SourceFiles="@(_GitBundleFile)"
+          DestinationFiles="@(_GitBundleFile->'$(GitSyncDestDir)%(RecursiveDir)%(Filename)%(Extension)')" />
+    <!-- Written last so a copy that stopped half way is repeated by the next build. -->
+    <Copy Condition="$([MSBuild]::IsOSPlatform('Windows'))"
+          SourceFiles="$(GitStampPath)"
+          DestinationFiles="$(GitSyncDestDir)$(GitStampFileName)" />
+
+    <PropertyGroup>
+      <_GitSyncDest>$(GitSyncDestDir.TrimEnd('/'))</_GitSyncDest>
+    </PropertyGroup>
+    <Exec Condition="!$([MSBuild]::IsOSPlatform('Windows'))"
+          IgnoreStandardErrorWarningFormat="true"
+          Command="set -e; dest=&quot;$(_GitSyncDest)&quot;; rm -rf &quot;$dest&quot; &quot;$dest.staging&quot;; mkdir -p &quot;$dest.staging&quot;; cp -a &quot;$(GitBundleDir).&quot; &quot;$dest.staging/&quot;; entry=%24(sed -n 's/^entry=//p' &quot;$(GitStampPath)&quot;); test -x &quot;$dest.staging/$entry&quot; || { echo &quot;$entry lost its executable bit while copying&quot; >&amp;2; exit 1; }; mv &quot;$dest.staging&quot; &quot;$dest&quot;" />
+  </Target>
+
+  <Target Name="SavepointCopyGitToOutput" AfterTargets="CopyFilesToOutputDirectory" DependsOnTargets="SavepointFetchGit">
+    <PropertyGroup>
+      <_GitOutDir>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(OutDir)', 'git'))</_GitOutDir>
+      <_GitSourceStamp>$([System.IO.File]::ReadAllText('$(GitStampPath)'))</_GitSourceStamp>
+      <_GitDestStamp Condition="Exists('$(_GitOutDir)$(GitStampFileName)')">$([System.IO.File]::ReadAllText('$(_GitOutDir)$(GitStampFileName)'))</_GitDestStamp>
+    </PropertyGroup>
+    <MSBuild Condition="'$(_GitSourceStamp)' != '$(_GitDestStamp)'"
+             Projects="$(MSBuildProjectFullPath)"
+             Targets="_SavepointSyncGit"
+             Properties="GitSyncDestDir=$(_GitOutDir)" />
+  </Target>
+
+  <Target Name="SavepointCopyGitToPublish" AfterTargets="Publish" DependsOnTargets="SavepointFetchGit">
+    <PropertyGroup>
+      <_GitPublishDir>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(PublishDir)', 'git'))</_GitPublishDir>
+      <_GitSourceStamp>$([System.IO.File]::ReadAllText('$(GitStampPath)'))</_GitSourceStamp>
+      <_GitPublishStamp Condition="Exists('$(_GitPublishDir)$(GitStampFileName)')">$([System.IO.File]::ReadAllText('$(_GitPublishDir)$(GitStampFileName)'))</_GitPublishStamp>
+    </PropertyGroup>
+    <MSBuild Condition="'$(_GitSourceStamp)' != '$(_GitPublishStamp)'"
+             Projects="$(MSBuildProjectFullPath)"
+             Targets="_SavepointSyncGit"
+             Properties="GitSyncDestDir=$(_GitPublishDir)" />
+  </Target>
+
+</Project>

@@ -25,4 +25,6 @@
     <EmbeddedResource Include="Localization\Assets\Lang\*.json" />
   </ItemGroup>
 
+  <Import Project="..\..\build\Git.targets" />
+
 </Project>
