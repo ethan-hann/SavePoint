@@ -1,4 +1,5 @@
 using Savepoint.Core.Api;
+using Savepoint.Core.Git;
 using Savepoint.Core.Services.Storage;
 
 namespace Savepoint.Core.Tests.Backend;
@@ -120,7 +121,7 @@ public class OptimizeTests
 
             return null;
         };
-        var optimizing = new OptimizationService(workspace.Backend.Services).Start(game.Id, OptimizeMode.Routine, preemptible: true);
+        var optimizing = new OptimizationService(workspace.Backend.Services).Start(game.Id, OptimizationMode.Routine, preemptible: true);
         Assert.True(reached.Wait(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
 
         var capture = await workspace.Profiles.CaptureAsync(game.Id, profile.Id, "Cut in line");

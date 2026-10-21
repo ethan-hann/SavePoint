@@ -5,8 +5,8 @@ namespace Savepoint.Core.Git;
 public sealed partial class GitEngine
 {
     /// <summary>
-    /// The files a capture would record right now, with their sizes: everything git tracks plus every new file that is
-    /// not ignored. Rewrites <c>info/exclude</c> from <paramref name="ignorePatterns"/> (in the storage folder; the work
+    /// The files a capture would record right now, with their sizes: everything already recorded plus every new file the
+    /// game's ignore patterns do not name (an ignore file inside the game folder counts for nothing). Rewrites <c>info/exclude</c> from <paramref name="ignorePatterns"/> (in the storage folder; the work
     /// tree is never written). A file that disappears while its size is read is left out.
     /// </summary>
     /// <param name="repo">The folder.</param>
@@ -14,14 +14,18 @@ public sealed partial class GitEngine
     /// <param name="ct">Cancels the call.</param>
     /// <exception cref="Savepoint.Core.Errors.PathSafetyException">The work tree is a protected location.</exception>
     /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
+    /// <exception cref="Savepoint.Core.Errors.NestedRepositoryException">A folder in the game keeps its own history, so a capture would refuse.</exception>
     public async Task<IReadOnlyList<CaptureCandidate>> ListCaptureCandidatesAsync(RepoRef repo, IReadOnlyList<string> ignorePatterns, CancellationToken ct = default)
     {
         repo = PreparePreview(repo, ignorePatterns, ct);
 
         var listing = await RunAsync(
-            Invocation(repo, readOnly: true, "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--deduplicate"),
+            Invocation(repo, readOnly: true, "ls-files", "-z", "--cached", "--others", ExcludeFromArgument(repo), "--deduplicate"),
             ct).ConfigureAwait(false);
-        var paths = listing.SplitStandardOutputOnNul();
+        var entries = WorkTreeListing.From(listing.SplitStandardOutputOnNul());
+        LinkedFolders.RefuseAny(repo.WorkTree, entries.Files, ct);
+        NestedRepositories.RefuseAny(repo.WorkTree, entries, ct);
+        var paths = entries.Files;
 
         // Each size is a file-system call; a tree of tens of thousands of files is measured in parallel.
         var sizes = new long[paths.Count];
@@ -50,6 +54,10 @@ public sealed partial class GitEngine
     /// <param name="candidates">From <see cref="ListCaptureCandidatesAsync"/>.</param>
     /// <param name="ignorePatterns">The same ignore patterns the candidates were listed with.</param>
     /// <param name="ct">Cancels the call.</param>
+    /// <exception cref="Savepoint.Core.Errors.PathSafetyException">The work tree is a protected location.</exception>
+    /// <exception cref="Savepoint.Core.Errors.PathMissingException">The work tree does not exist.</exception>
+    /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
+    /// <exception cref="Savepoint.Core.Errors.GitOperationException">The repository does not exist, or git failed.</exception>
     public async Task<long> EstimateNewBytesAsync(RepoRef repo, IReadOnlyList<CaptureCandidate> candidates, IReadOnlyList<string> ignorePatterns, CancellationToken ct = default)
     {
         repo = PreparePreview(repo, ignorePatterns, ct);
@@ -209,11 +217,11 @@ public sealed partial class GitEngine
     private async Task<HashSet<string>> FilesGitCannotVouchForAsync(RepoRef repo, CancellationToken ct)
     {
         var changed = RunAsync(Invocation(repo, readOnly: true, "diff", "--name-only", "-z", "--no-renames", "HEAD", "--"), ct);
-        var untracked = RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z", "--others", "--exclude-standard"), ct);
+        var untracked = ListNewAsync(repo, ct);
 
         var names = new HashSet<string>(StringComparer.Ordinal);
         names.UnionWith((await changed.ConfigureAwait(false)).SplitStandardOutputOnNul());
-        names.UnionWith((await untracked.ConfigureAwait(false)).SplitStandardOutputOnNul());
+        names.UnionWith((await untracked.ConfigureAwait(false)).Files);
         return names;
     }
 

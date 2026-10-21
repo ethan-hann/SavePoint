@@ -11,13 +11,19 @@ namespace Savepoint.Core.Git;
 /// <remarks>
 /// The engine does not serialize callers: the caller holds the game's lock around every operation on one game.
 /// Methods that take a <see cref="CancellationToken"/> stop git (and every process it started) when it is
-/// cancelled and leave the repository in a state the next call can finish from.
+/// cancelled and leave the repository in a state the next call can finish from. Capture and optimization report a
+/// cancellation as <see cref="Savepoint.Core.Errors.OperationCancelledByUserException"/>; every other method lets the
+/// <see cref="OperationCanceledException"/> through. Operations are asynchronous but do some file work on the calling
+/// thread before their first await, and a repository delete runs entirely there, so call them from a background thread.
+/// A game folder is never written through a folder link on Windows, and a file the game's patterns name is never
+/// recorded, overwritten or removed by a switch.
 /// </remarks>
 public sealed partial class GitEngine
 {
     private readonly GitRunner _runner;
     private readonly PathSafety _pathSafety;
     private readonly FreeSpaceProbe _freeSpace;
+    private readonly string _storageRoot;
     private readonly GitEngineOptions _options;
     private readonly InFlightTable _inFlight = new();
 
@@ -25,15 +31,23 @@ public sealed partial class GitEngine
     /// <param name="runner">Runs the bundled git.</param>
     /// <param name="pathSafety">Judges every work tree before anything writes to it.</param>
     /// <param name="freeSpace">Reports free bytes per volume; the composition root supplies the real one.</param>
+    /// <param name="storageRoot">SavePoint's storage folder; a git directory is only ever deleted from inside it.</param>
     /// <param name="options">Tuning; null uses the defaults.</param>
-    public GitEngine(GitRunner runner, PathSafety pathSafety, FreeSpaceProbe freeSpace, GitEngineOptions? options = null)
+    public GitEngine(GitRunner runner, PathSafety pathSafety, FreeSpaceProbe freeSpace, string storageRoot, GitEngineOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(runner);
         ArgumentNullException.ThrowIfNull(pathSafety);
         ArgumentNullException.ThrowIfNull(freeSpace);
+        ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
+        if (!Path.IsPathFullyQualified(storageRoot))
+        {
+            throw new ArgumentException("The storage root must be an absolute path.", nameof(storageRoot));
+        }
+
         _runner = runner;
         _pathSafety = pathSafety;
         _freeSpace = freeSpace;
+        _storageRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(storageRoot));
         _options = options ?? new GitEngineOptions();
     }
 
@@ -71,8 +85,9 @@ public sealed partial class GitEngine
         }
     }
 
-    // Throws when the storage volume cannot take another capture or repack; checked before anything is written.
-    private void EnsureStorageSpace(RepoRef repo)
+    // Throws when the storage volume cannot take another capture or repack (the floor, plus any bytes the operation is known
+    // to need on top); checked before anything is written.
+    private void EnsureStorageSpace(RepoRef repo, long extraBytes = 0)
     {
         var directory = repo.GitDir;
         while (!Directory.Exists(directory) && Path.GetDirectoryName(directory) is { } parent)
@@ -80,10 +95,11 @@ public sealed partial class GitEngine
             directory = parent;
         }
 
+        var required = _options.MinFreeBytesForStorageWrites + extraBytes;
         var free = _freeSpace(directory);
-        if (free < _options.MinFreeBytesForStorageWrites)
+        if (free < required)
         {
-            throw new DiskSpaceException(directory, _options.MinFreeBytesForStorageWrites, free);
+            throw new DiskSpaceException(directory, required, free);
         }
     }
 

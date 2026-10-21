@@ -3,26 +3,48 @@ using Savepoint.Core.Errors;
 
 namespace Savepoint.Core.Git;
 
-// Deletes a git directory, and refuses anything that does not look like one: the path comes from a caller, and a recursive delete of the wrong folder cannot be undone.
+// Deletes a git directory, and refuses anything that is not one of SavePoint's: the path comes from a caller, and a recursive delete of the wrong folder cannot be undone.
 internal static partial class GitDirRemoval
 {
-    // What a git directory (even a half-deleted one) is made of; one of these must be left for the folder to count as ours.
-    private static readonly HashSet<string> _knownEntries = new(StringComparer.OrdinalIgnoreCase)
+    // What a git directory (even a half-deleted one) is made of, and whether each entry is a folder.
+    private static readonly Dictionary<string, bool> _knownEntries = new(StringComparer.OrdinalIgnoreCase)
     {
-        "HEAD", "config", "description", "hooks", "info", "objects", "refs", "logs", "index", "packed-refs",
-        "COMMIT_EDITMSG", "ORIG_HEAD", "FETCH_HEAD", "gc.log", "shallow", "savepoint-switch.json",
+        ["HEAD"] = false,
+        ["config"] = false,
+        ["description"] = false,
+        ["hooks"] = true,
+        ["info"] = true,
+        ["objects"] = true,
+        ["refs"] = true,
+        ["logs"] = true,
+        ["index"] = false,
+        ["packed-refs"] = false,
+        ["COMMIT_EDITMSG"] = false,
+        ["ORIG_HEAD"] = false,
+        ["FETCH_HEAD"] = false,
+        ["gc.log"] = false,
+        ["shallow"] = false,
+        [SwitchJournal.FileName] = false,
     };
 
-    public static async Task RemoveAsync(string gitDir, IReadOnlyList<TimeSpan> retryDelays, CancellationToken ct)
+    // Removes the folder when it lies inside the storage root and is a git directory SavePoint made (or what an interrupted
+    // delete left of one); anything else is refused and nothing is touched.
+    public static async Task RemoveAsync(string gitDir, string storageRoot, Func<string, string> realPath, IReadOnlyList<TimeSpan> retryDelays, CancellationToken ct)
     {
         if (!Directory.Exists(gitDir))
         {
             return;
         }
 
-        if (!LooksLikeGitDir(gitDir))
+        // Both the path as given and where it really leads must be below the storage root, so a link cannot lead a delete out of it.
+        if (!IsBelow(storageRoot, gitDir) || !IsBelow(realPath(storageRoot), realPath(gitDir)))
         {
-            throw new GitOperationException(gitDir, $"'{gitDir}' is not a git directory, so it was not deleted.");
+            throw new GitOperationException(gitDir, $"'{gitDir}' is not inside the storage folder, so it was not deleted.");
+        }
+
+        if (!IsOursOrWhatIsLeftOfIt(gitDir))
+        {
+            throw new GitOperationException(gitDir, $"'{gitDir}' is not a git directory made by SavePoint, so it was not deleted.");
         }
 
         for (var attempt = 0; ; attempt++)
@@ -47,21 +69,43 @@ internal static partial class GitDirRemoval
         }
     }
 
-    internal static bool LooksLikeGitDir(string path)
+    // Strictly below: the root itself, and a folder that only starts with the root's name, do not count.
+    internal static bool IsBelow(string root, string path)
     {
-        var any = false;
-        foreach (var entry in Directory.EnumerateFileSystemEntries(path))
+        var relative = Path.GetRelativePath(Path.TrimEndingDirectorySeparator(root), Path.TrimEndingDirectorySeparator(path));
+        return relative != "."
+            && !Path.IsPathRooted(relative)
+            && relative != ".."
+            && !relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+            && !relative.StartsWith(".." + Path.AltDirectorySeparatorChar, StringComparison.Ordinal);
+    }
+
+    // Every entry is one a git directory has, in its usual kind, and a config file that is there carries SavePoint's stamp.
+    // A folder missing HEAD, objects or the config is what an interrupted delete leaves, and is finished off.
+    internal static bool IsOursOrWhatIsLeftOfIt(string path)
+    {
+        var entries = Directory.EnumerateFileSystemEntries(path).ToArray();
+        foreach (var entry in entries)
         {
-            any = true;
             var name = Path.GetFileName(entry);
-            if (_knownEntries.Contains(name) || name.EndsWith(".lock", StringComparison.OrdinalIgnoreCase))
+            if (name.EndsWith(".lock", StringComparison.OrdinalIgnoreCase) || name.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase))
             {
-                return true;
+                if (Directory.Exists(entry))
+                {
+                    return false;
+                }
+
+                continue;
+            }
+
+            if (!_knownEntries.TryGetValue(name, out var isFolder) || isFolder != Directory.Exists(entry))
+            {
+                return false;
             }
         }
 
-        // Nothing left is nothing to protect.
-        return !any;
+        var config = Path.Combine(path, "config");
+        return !File.Exists(config) || (AtomicText.ReadOrNull(config) is { } text && RepoConfigFile.ReadStamp(text) is not null);
     }
 
     // Pack files are read-only, and Windows will not delete a read-only file.

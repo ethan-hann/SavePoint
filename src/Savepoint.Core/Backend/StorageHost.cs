@@ -106,7 +106,7 @@ public sealed class StorageHost
             throw new StorageUnreachableException(root, e);
         }
 
-        var engine = new GitEngine(_runner, safety, directory => _disk.GetFreeBytes(directory) ?? _unknownFreeBytes, _engineOptions);
+        var engine = new GitEngine(_runner, safety, directory => _disk.GetFreeBytes(directory) ?? _unknownFreeBytes, full, _engineOptions);
         return new StorageSnapshot(full, safety, engine);
     }
 

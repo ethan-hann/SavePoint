@@ -1,6 +1,7 @@
 using Savepoint.Core.Api;
 using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Git;
 using Savepoint.Core.Services.Storage;
 
 namespace Savepoint.Core.Services.Settings;
@@ -61,7 +62,7 @@ internal sealed partial class SettingsApi : ISettingsApi
             cancellationToken);
 
     public Task<OperationResult<JobStarted>> OptimizeAllStorageAsync() =>
-        ApiGuard.RunAsync(() => Task.FromResult(new JobStarted(_optimization.Start(null, OptimizeMode.Reclaim, preemptible: false))));
+        ApiGuard.RunAsync(() => Task.FromResult(new JobStarted(_optimization.Start(null, OptimizationMode.Reclaim, preemptible: false))));
 
     public Task<OperationResult<StorageRelocationPreview>> GetRelocationPreviewAsync(string newRoot, CancellationToken cancellationToken = default) =>
         ApiGuard.RunAsync(() => _relocator.PreviewAsync(newRoot, cancellationToken), cancellationToken);

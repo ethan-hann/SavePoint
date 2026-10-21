@@ -43,7 +43,7 @@ public sealed class GuardMatrixTests : IClassFixture<GuardMatrixFixture>
 
     public static TheoryData<string> Operations =>
     [
-        "capture", "capture-fork", "capture-amend", "checkout-branch", "checkout-commit", "force-checkout-branch", "force-checkout-commit",
+        "capture", "capture-fork", "capture-amend", "capture-move-forward", "checkout-branch", "checkout-commit", "force-checkout-branch", "force-checkout-commit",
         "discard", "clean", "create-branch", "create-empty-branch", "delete-branch", "status", "candidates", "estimate",
     ];
 
@@ -123,6 +123,7 @@ public sealed class GuardMatrixTests : IClassFixture<GuardMatrixFixture>
         "capture" => Engine.CaptureAsync(repo, new CaptureRequest("profile-1", "x", "id"), ct: Ct),
         "capture-fork" => Engine.CaptureAsync(repo, new CaptureRequest("profile-fork", "x", "id") { Mode = CaptureMode.Fork, ExpectedStartCommit = _fx.Points[0] }, ct: Ct),
         "capture-amend" => Engine.CaptureAsync(repo, new CaptureRequest("profile-1", "x", "id") { Mode = CaptureMode.Amend }, ct: Ct),
+        "capture-move-forward" => Engine.CaptureAsync(repo, new CaptureRequest("profile-1", "x", "id") { Mode = CaptureMode.MoveForward, ExpectedStartCommit = _fx.Points[0] }, ct: Ct),
         "checkout-branch" => Engine.CheckoutBranchAsync(repo, "profile-1", ct: Ct),
         "checkout-commit" => Engine.CheckoutCommitAsync(repo, _fx.Points[1], ct: Ct),
         "force-checkout-branch" => Engine.ForceCheckoutBranchAsync(repo, "profile-1", Ct),

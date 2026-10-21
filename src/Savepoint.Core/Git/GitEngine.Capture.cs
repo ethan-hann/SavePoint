@@ -6,8 +6,9 @@ public sealed partial class GitEngine
 {
     /// <summary>
     /// Records the folder's current contents as a point on a branch, as described by <paramref name="request"/>.
-    /// Nothing in the work tree is written or switched. Files named by the request's ignore patterns, and the
-    /// consent marker, are never recorded.
+    /// Nothing in the work tree is written or switched. A new file named by the request's ignore patterns, or the
+    /// consent marker, is not added; a file an earlier point already holds stays in the history and is recorded again
+    /// when it changes, whatever the patterns say now.
     /// </summary>
     /// <param name="repo">The folder to capture; its repository must exist.</param>
     /// <param name="request">The branch, message, capture id, mode and ignore patterns.</param>
@@ -15,11 +16,18 @@ public sealed partial class GitEngine
     /// <param name="ct">Cancels the capture. git and its children are stopped; the next capture clears what the interrupted one left.</param>
     /// <returns>Whether a point was recorded, and the branch tip afterwards.</returns>
     /// <exception cref="Savepoint.Core.Errors.PathSafetyException">The work tree is a protected location.</exception>
+    /// <exception cref="Savepoint.Core.Errors.PathMissingException">The work tree does not exist.</exception>
     /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
+    /// <exception cref="Savepoint.Core.Errors.DirtyWorkingTreeException">A stopped switch left the folder half done; finish it or discard first, so the mixture is never recorded.</exception>
+    /// <exception cref="Savepoint.Core.Errors.LinkedFolderException">On Windows, a folder link holds files the capture would read; nothing was staged.</exception>
     /// <exception cref="Savepoint.Core.Errors.DiskSpaceException">The storage volume is below the free-space floor; nothing was written.</exception>
     /// <exception cref="Savepoint.Core.Errors.DetachedCaptureNotSupportedException">The folder is on an older point and the mode does not allow capturing there.</exception>
     /// <exception cref="Savepoint.Core.Errors.AmendNotAvailableException">An amend was asked for where the branch is not checked out or has no point.</exception>
     /// <exception cref="Savepoint.Core.Errors.OperationCancelledByUserException">The token was cancelled.</exception>
+    /// <exception cref="Savepoint.Core.Errors.NestedRepositoryException">A folder in the game keeps its own history; nothing was staged.</exception>
+    /// <exception cref="Savepoint.Core.Errors.SessionMovedException">A fork or move forward was asked for, but the folder is not on the session's start point or after it.</exception>
+    /// <exception cref="Savepoint.Core.Errors.ProfileAlreadyExistsException">A fork was asked for onto a branch that exists at a different point.</exception>
+    /// <exception cref="Savepoint.Core.Errors.ProfileHasNoPointsException">A move forward was asked for on a branch that has no point.</exception>
     /// <exception cref="Savepoint.Core.Errors.GitOperationException">git failed, or the request does not fit the repository's state.</exception>
     public async Task<CaptureOutcome> CaptureAsync(RepoRef repo, CaptureRequest request, IProgress<FileProgress>? progress = null, CancellationToken ct = default)
     {
@@ -37,12 +45,13 @@ public sealed partial class GitEngine
     }
 
     /// <summary>
-    /// Removes the lock files a killed git process leaves behind (<c>index.lock</c>, <c>HEAD.lock</c>, ref and config
-    /// locks). Call it only when no SavePoint git process is running for the repository; the engine does this itself
-    /// before every write when it has no operation of its own in flight on the repository.
+    /// Removes what a killed git process leaves behind: its lock files (<c>index.lock</c>, <c>HEAD.lock</c>, ref and config
+    /// locks) and the temporary pack and object files of a write it never finished (which can be hundreds of megabytes).
+    /// Call it only when no SavePoint git process is running for the repository; the engine does this itself before every
+    /// write when it has no operation of its own in flight on the repository.
     /// </summary>
     /// <param name="gitDir">The git directory.</param>
-    /// <returns>How many lock files were removed; 0 when the folder is not a git directory or this engine is working on it.</returns>
+    /// <returns>How many files were removed; 0 when the folder is not a git directory or this engine is working on it.</returns>
     public int RemoveStaleLocks(string gitDir)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(gitDir);
@@ -59,6 +68,13 @@ public sealed partial class GitEngine
     {
         CheckWorkTree(repo);
         RepoMarker.Verify(repo);
+
+        // A folder a stopped switch left half done holds files of two points; recording it would save a mixture that never existed.
+        if (SwitchJournal.Read(repo.GitDir) is not null)
+        {
+            throw new DirtyWorkingTreeException(repo.Role);
+        }
+
         EnsureStorageSpace(repo);
 
         using var scope = BeginWrite(repo, request.IgnorePatterns);
@@ -90,7 +106,7 @@ public sealed partial class GitEngine
             throw new AmendNotAvailableException();
         }
 
-        await StageAsync(repo, hasCommits: true, progress, ct).ConfigureAwait(false);
+        await StageAsync(repo, progress, ct).ConfigureAwait(false);
         await CommitAsync(repo, request, amend: true, ct).ConfigureAwait(false);
         return new CaptureOutcome(true, await ResolveBranchAsync(repo, request.Branch, ct).ConfigureAwait(false));
     }
@@ -115,10 +131,10 @@ public sealed partial class GitEngine
         var existing = await ResolveBranchAsync(repo, request.Branch, ct).ConfigureAwait(false);
         if (existing is not null && !string.Equals(existing, tip, StringComparison.Ordinal))
         {
-            throw new GitOperationException(null, $"The branch '{request.Branch}' already exists.");
+            throw new ProfileAlreadyExistsException(request.Branch);
         }
 
-        await StageAsync(repo, hasCommits: true, progress, ct).ConfigureAwait(false);
+        await StageAsync(repo, progress, ct).ConfigureAwait(false);
         var changed = await IndexDiffersAsync(repo, "HEAD", ct).ConfigureAwait(false);
 
         if (existing is null)
@@ -143,10 +159,10 @@ public sealed partial class GitEngine
         }
 
         var branchTip = await ResolveBranchAsync(repo, request.Branch, ct).ConfigureAwait(false)
-            ?? throw new GitOperationException(null, $"The branch '{request.Branch}' has no points to move.");
+            ?? throw new ProfileHasNoPointsException(request.Branch);
         if (tip is null)
         {
-            throw new GitOperationException(null, "The folder is not on any point, so a branch cannot be moved to it.");
+            throw new SessionMovedException(repo.Role, "The folder is not on any point, so a branch cannot be moved to it.");
         }
 
         await RequireSessionStartAsync(repo, request.ExpectedStartCommit, tip, ct).ConfigureAwait(false);
@@ -155,10 +171,10 @@ public sealed partial class GitEngine
         var moves = !string.Equals(tip, branchTip, StringComparison.Ordinal);
         if (moves && !await IsAncestorAsync(repo, tip, branchTip, ct).ConfigureAwait(false))
         {
-            throw new GitOperationException(null, $"The point the folder is on is not part of the history of '{request.Branch}'.");
+            throw new SessionMovedException(repo.Role, $"The point the folder is on is not part of the history of '{request.Branch}'.");
         }
 
-        await StageAsync(repo, hasCommits: true, progress, ct).ConfigureAwait(false);
+        await StageAsync(repo, progress, ct).ConfigureAwait(false);
         var changed = await IndexDiffersAsync(repo, "HEAD", ct).ConfigureAwait(false);
 
         if (moves)
@@ -203,7 +219,7 @@ public sealed partial class GitEngine
 
         if (!await IsAncestorAsync(repo, expectedStart, current, ct).ConfigureAwait(false))
         {
-            throw new GitOperationException(null, $"The folder is not on the point the session started from ({expectedStart}) or after it.");
+            throw new SessionMovedException(repo.Role, $"The folder is not on the point the session started from ({expectedStart}) or after it.");
         }
     }
 
@@ -233,7 +249,7 @@ public sealed partial class GitEngine
             throw new GitOperationException(null, $"Cannot capture onto '{request.Branch}' while '{head.Branch}' is checked out; switch to it first.");
         }
 
-        await StageAsync(repo, hasCommits: tip is not null, progress, ct).ConfigureAwait(false);
+        await StageAsync(repo, progress, ct).ConfigureAwait(false);
         if (!await IndexDiffersAsync(repo, tip is null ? GitDirFiles.EmptyTree : "HEAD", ct).ConfigureAwait(false))
         {
             return new CaptureOutcome(false, tip);
@@ -248,21 +264,29 @@ public sealed partial class GitEngine
         return new CaptureOutcome(true, await ResolveBranchAsync(repo, request.Branch, ct).ConfigureAwait(false));
     }
 
-    // Puts the folder's current state in the index. git prints one line per file it adds or removes, which feeds the progress reports.
-    private async Task StageAsync(RepoRef repo, bool hasCommits, IProgress<FileProgress>? progress, CancellationToken ct)
+    // Puts the folder's current state in the index. The files are listed here and handed to git by name, so only SavePoint's
+    // exclude list decides what is left out. git prints one line per file it adds or removes, which feeds the progress reports.
+    private async Task StageAsync(RepoRef repo, IProgress<FileProgress>? progress, CancellationToken ct)
     {
-        if (progress is null)
+        var listing = await ListForStagingAsync(repo, ct).ConfigureAwait(false);
+        LinkedFolders.RefuseAny(repo.WorkTree, listing.Files, ct);
+        NestedRepositories.RefuseAny(repo.WorkTree, listing, ct);
+
+        // An empty list would not mean "nothing": add -A with no paths takes the whole folder, excluded files included.
+        if (listing.Files.Count == 0)
         {
-            await RunWriteAsync(() => Invocation(repo, readOnly: false, "add", "-A"), ct).ConfigureAwait(false);
             return;
         }
 
-        var reporter = new ProgressReporter(progress);
-        reporter.SetTotal(await CountCandidatesAsync(repo, hasCommits, ct).ConfigureAwait(false));
+        var reporter = progress is null ? null : new ProgressReporter(progress);
+        reporter?.SetTotal(listing.Files.Count);
+
+        // The names go on stdin and are literal (a file called [a].txt is not a pattern); -f is safe because the list was made with the exclude list applied.
+        var staging = Invocation(repo, readOnly: false, reporter is null ? ["add", "-A", "-f"] : ["add", "-A", "-f", "--verbose"]).WithPathspecs(listing.Files);
         await RunWriteAsync(
-            () => Invocation(repo, readOnly: false, "add", "-A", "--verbose") with { OnStdoutLine = line => ObserveAddLine(reporter, line) },
+            () => staging with { OnStdoutLine = reporter is null ? null : line => ObserveAddLine(reporter, line) },
             ct).ConfigureAwait(false);
-        reporter.Complete();
+        reporter?.Complete();
     }
 
     private static void ObserveAddLine(ProgressReporter reporter, string line)
@@ -288,32 +312,6 @@ public sealed partial class GitEngine
 
         path = string.Empty;
         return false;
-    }
-
-    // The files a capture is about to record: what differs from the last point, plus what is new and not ignored.
-    private async Task<int?> CountCandidatesAsync(RepoRef repo, bool hasCommits, CancellationToken ct)
-    {
-        try
-        {
-            var untracked = RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z", "--others", "--exclude-standard"), ct);
-            var changed = hasCommits
-                ? RunAsync(Invocation(repo, readOnly: true, "diff", "--name-only", "-z", "--no-renames", "HEAD", "--"), ct)
-                : null;
-
-            var names = new HashSet<string>(StringComparer.Ordinal);
-            names.UnionWith((await untracked.ConfigureAwait(false)).SplitStandardOutputOnNul());
-            if (changed is not null)
-            {
-                names.UnionWith((await changed.ConfigureAwait(false)).SplitStandardOutputOnNul());
-            }
-
-            return names.Count;
-        }
-        catch (GitOperationException)
-        {
-            // The count only decorates the progress bar.
-            return null;
-        }
     }
 
     // True when the index differs from the tree; used to tell "nothing changed" before a commit is attempted.

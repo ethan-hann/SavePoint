@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.RegularExpressions;
+using Savepoint.Core.Errors;
 
 namespace Savepoint.Core.Git;
 
@@ -8,7 +9,7 @@ namespace Savepoint.Core.Git;
 internal static partial class RepoConfigFile
 {
     // Bumped whenever a setting below changes, so existing repositories take the new value the next time they are touched.
-    public const string Version = "2";
+    public const string Version = "3";
 
     internal const string BlockStart = "# >>> savepoint managed (do not edit) >>>";
     internal const string BlockEnd = "# <<< savepoint managed <<<";
@@ -23,8 +24,12 @@ internal static partial class RepoConfigFile
 
     public static void Apply(string gitDir, bool isWindows)
     {
-        var text = AtomicText.ReadOrNull(ConfigPath(gitDir)) ?? string.Empty;
-        AtomicText.Write(ConfigPath(gitDir), Rewrite(text, isWindows));
+        // Only a missing file starts from nothing: one that cannot be read has settings git wrote (core.ignorecase among them) that a rebuild would lose.
+        var path = ConfigPath(gitDir);
+        var text = File.Exists(path)
+            ? AtomicText.ReadOrNull(path) ?? throw new GitOperationException(null, $"The repository's config file '{path}' could not be read, so it was left as it is.")
+            : string.Empty;
+        AtomicText.Write(path, Rewrite(text, isWindows));
     }
 
     internal static string? ReadStamp(string configText)
@@ -84,6 +89,7 @@ internal static partial class RepoConfigFile
             ("core", "quotePath", "false"),
             ("core", "autocrlf", "false"),
             ("core", "bigFileThreshold", "128m"),
+            ("core", "logAllRefUpdates", "false"),
         ];
 
         if (isWindows)

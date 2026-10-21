@@ -55,6 +55,12 @@ public class ErrorCopyTests
             new StorageRelocationFailedException("/new/storage/a.pack", "dev text", null),
             new GameNotFoundException("game-1"),
             new ProfileNotFoundException("game-1", "profile-1"),
+            new NestedRepositoryException("/games/alpha/mod/.git", 1),
+            new NestedRepositoryException("/games/alpha/mod/.git", 3),
+            new LinkedFolderException("/games/alpha/Mods"),
+            new SessionMovedException(RepoRole.Install, "dev text"),
+            new ProfileAlreadyExistsException("profile-1"),
+            new ProfileHasNoPointsException("profile-1"),
         ];
 
         return errors.Select(ErrorInfo.From).Append(ErrorInfo.From(new InvalidOperationException("boom")));

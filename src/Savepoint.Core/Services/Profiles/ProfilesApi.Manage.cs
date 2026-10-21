@@ -3,7 +3,6 @@ using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Git;
-using Savepoint.Core.Services.Storage;
 
 namespace Savepoint.Core.Services.Profiles;
 
@@ -119,7 +118,7 @@ internal sealed partial class ProfilesApi
                 }).ConfigureAwait(false);
 
             // The points only that profile held are still in the store until this runs (D17, D28).
-            _optimization.Start(gameId, OptimizeMode.Reclaim, preemptible: true);
+            _optimization.Start(gameId, OptimizationMode.Reclaim, preemptible: true);
             return Unit.Value;
         });
 

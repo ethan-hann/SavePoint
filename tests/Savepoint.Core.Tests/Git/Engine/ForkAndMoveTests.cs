@@ -1,3 +1,4 @@
+using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Git;
 
@@ -41,9 +42,11 @@ public sealed class ForkAndMoveTests : IDisposable
         var (repo, points) = await PlayingFromTheFirstPointAsync();
         var played = TreeSnapshot.Take(repo.WorkTree);
 
-        var error = await Assert.ThrowsAsync<GitOperationException>(
+        var error = await Assert.ThrowsAsync<SessionMovedException>(
             () => _ws.Engine.CaptureAsync(repo, Fork("profile-fork", points[2], "x", "id"), ct: Ct));
 
+        Assert.Equal("error.launch.sessionMoved", error.MessageId);
+        Assert.Equal(RepoRole.Install, error.Args["role"]);
         Assert.Contains("started from", error.Message, StringComparison.Ordinal);
         Assert.Null(await _ws.TipAsync(repo, "profile-fork"));
         Assert.Null(await _ws.HeadRefAsync(repo));
@@ -68,10 +71,11 @@ public sealed class ForkAndMoveTests : IDisposable
     {
         var (repo, points) = await PlayingFromTheFirstPointAsync();
 
-        var error = await Assert.ThrowsAsync<GitOperationException>(
+        var error = await Assert.ThrowsAsync<ProfileAlreadyExistsException>(
             () => _ws.Engine.CaptureAsync(repo, Fork("profile-1", points[0], "x", "id"), ct: Ct));
 
-        Assert.Contains("profile-1", error.Message, StringComparison.Ordinal);
+        Assert.Equal("error.profile.alreadyExists", error.MessageId);
+        Assert.Equal("profile-1", error.Args["profileId"]);
         Assert.Equal(points[2], await _ws.TipAsync(repo, "profile-1"));
         Assert.Null(await _ws.HeadRefAsync(repo));
     }
@@ -161,7 +165,7 @@ public sealed class ForkAndMoveTests : IDisposable
     }
 
     [Fact]
-    public async Task The_points_a_move_forward_drops_are_still_in_the_store_until_the_next_optimization()
+    public async Task The_points_a_move_forward_drops_are_still_in_the_store_until_a_reclaim()
     {
         var (repo, points) = await PlayingFromTheFirstPointAsync();
 
@@ -176,7 +180,7 @@ public sealed class ForkAndMoveTests : IDisposable
     {
         var (repo, points) = await PlayingFromTheFirstPointAsync();
 
-        await Assert.ThrowsAsync<GitOperationException>(() => _ws.Engine.CaptureAsync(repo, Move("profile-1", points[2], "x", "id"), ct: Ct));
+        await Assert.ThrowsAsync<SessionMovedException>(() => _ws.Engine.CaptureAsync(repo, Move("profile-1", points[2], "x", "id"), ct: Ct));
 
         Assert.Equal(points[2], await _ws.TipAsync(repo, "profile-1"));
         Assert.Null(await _ws.HeadRefAsync(repo));
@@ -196,7 +200,22 @@ public sealed class ForkAndMoveTests : IDisposable
     {
         var (repo, points) = await PlayingFromTheFirstPointAsync();
 
-        await Assert.ThrowsAsync<GitOperationException>(() => _ws.Engine.CaptureAsync(repo, Move("ghost", points[0], "x", "id"), ct: Ct));
+        var error = await Assert.ThrowsAsync<ProfileHasNoPointsException>(() => _ws.Engine.CaptureAsync(repo, Move("ghost", points[0], "x", "id"), ct: Ct));
+
+        Assert.Equal("error.profile.noPoints", error.MessageId);
+        Assert.Equal("ghost", error.Args["profileId"]);
+    }
+
+    [Fact]
+    public async Task Move_forward_from_a_folder_that_is_on_no_point_is_refused_as_a_moved_session()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        await _ws.Engine.CreateEmptyBranchAsync(repo, "profile-1", ct: Ct);
+        var start = (await _ws.TipAsync(repo, "profile-1"))!;
+
+        var error = await Assert.ThrowsAsync<SessionMovedException>(() => _ws.Engine.CaptureAsync(repo, Move("profile-1", start, "x", "id"), ct: Ct));
+
+        Assert.Equal(RepoRole.Install, error.Args["role"]);
     }
 
     [Fact]
@@ -208,7 +227,7 @@ public sealed class ForkAndMoveTests : IDisposable
         await _ws.GitWriteAsync(repo, "checkout", "--quiet", "--detach", unrelated);
         _ws.Write(repo, "x.txt", "x");
 
-        await Assert.ThrowsAsync<GitOperationException>(() => _ws.Engine.CaptureAsync(repo, Move("profile-1", unrelated, "x", "id"), ct: Ct));
+        await Assert.ThrowsAsync<SessionMovedException>(() => _ws.Engine.CaptureAsync(repo, Move("profile-1", unrelated, "x", "id"), ct: Ct));
 
         Assert.Equal(points[2], await _ws.TipAsync(repo, "profile-1"));
     }

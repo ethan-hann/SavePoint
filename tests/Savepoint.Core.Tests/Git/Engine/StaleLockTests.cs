@@ -64,7 +64,7 @@ public sealed class StaleLockTests : IDisposable
         var removedDuringCapture = -1;
         _ws.OnInvoke = invocation =>
         {
-            if (invocation.Arguments[0] == "add")
+            if (invocation.Arguments.Contains("add"))
             {
                 File.WriteAllText(lockFile, string.Empty);
                 removedDuringCapture = _ws.Engine.RemoveStaleLocks(repo.GitDir);
@@ -75,6 +75,78 @@ public sealed class StaleLockTests : IDisposable
 
         Assert.Equal(0, removedDuringCapture);
         Assert.True(File.Exists(lockFile), "another operation's lock must not be removed while it may be live");
+    }
+
+    // What a git killed while it wrote a pack leaves behind: a temporary pack that can be hundreds of megabytes, and loose-object temp files.
+    private static (string Pack, string Object) LeaveTemporaryFiles(RepoRef repo, int packBytes = 300_000)
+    {
+        var pack = Path.Combine(repo.GitDir, "objects", "pack", "tmp_pack_Ab12Cd");
+        var loose = Path.Combine(repo.GitDir, "objects", "ab", "tmp_obj_Xy34Zq");
+        Directory.CreateDirectory(Path.GetDirectoryName(pack)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(loose)!);
+        File.WriteAllBytes(pack, new byte[packBytes]);
+        File.WriteAllBytes(loose, new byte[50]);
+        return (pack, loose);
+    }
+
+    [Fact]
+    public async Task The_temporary_files_a_killed_git_leaves_are_removed_before_the_next_write()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        var (pack, loose) = LeaveTemporaryFiles(repo);
+        _ws.Write(repo, "a.txt", "a");
+
+        await _ws.CaptureAsync(repo, "profile-1");
+
+        Assert.False(File.Exists(pack), "a temporary pack nothing will ever finish");
+        Assert.False(File.Exists(loose));
+    }
+
+    [Fact]
+    public async Task The_temporary_files_are_counted_with_the_locks_when_they_are_removed_by_hand()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        var (pack, loose) = LeaveTemporaryFiles(repo);
+        await File.WriteAllTextAsync(Path.Combine(repo.GitDir, "index.lock"), string.Empty, Ct);
+
+        Assert.Equal(3, _ws.Engine.RemoveStaleLocks(repo.GitDir));
+
+        Assert.False(File.Exists(pack));
+        Assert.False(File.Exists(loose));
+    }
+
+    [Fact]
+    public async Task A_temporary_pack_is_not_touched_while_this_engine_is_running_git_on_the_repository()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "a.txt", "a");
+        var pack = Path.Combine(repo.GitDir, "objects", "pack", "tmp_pack_Live01");
+        Directory.CreateDirectory(Path.GetDirectoryName(pack)!);
+        var removed = -1;
+        _ws.OnInvoke = invocation =>
+        {
+            if (invocation.Arguments.Contains("add"))
+            {
+                File.WriteAllBytes(pack, new byte[1000]);
+                removed = _ws.Engine.RemoveStaleLocks(repo.GitDir);
+            }
+        };
+
+        await _ws.CaptureAsync(repo, "profile-1");
+
+        Assert.Equal(0, removed);
+        Assert.True(File.Exists(pack), "a pack another operation is writing must not be removed while it may be live");
+    }
+
+    [Fact]
+    public async Task The_size_of_a_repository_counts_what_git_calls_garbage_so_a_leftover_temporary_pack_shows()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        var before = await _ws.Engine.GetRepoSizeAsync(repo, Ct);
+
+        LeaveTemporaryFiles(repo, packBytes: 409_600);
+
+        Assert.True(await _ws.Engine.GetRepoSizeAsync(repo, Ct) - before >= 400_000);
     }
 
     [Fact]

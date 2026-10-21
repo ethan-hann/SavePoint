@@ -141,6 +141,119 @@ public sealed class DeleteRepoTests : IDisposable
         Assert.True(File.Exists(EngineWorkspace.MarkerPath(repo)));
     }
 
+    // A game folder somebody else could point a delete at: it holds one entry a git directory also has, next to the player's file.
+    [Theory]
+    [InlineData("logs", true)]
+    [InlineData("config", true)]
+    [InlineData("hooks", true)]
+    [InlineData("x.lock", false)]
+    public async Task Delete_refuses_a_folder_in_the_storage_root_that_holds_a_player_s_file_next_to_a_git_looking_entry(string entry, bool folder)
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        var other = Path.Combine(_ws.StorageRoot, "other-game");
+        if (folder)
+        {
+            Directory.CreateDirectory(Path.Combine(other, entry));
+        }
+        else
+        {
+            Directory.CreateDirectory(other);
+            await File.WriteAllTextAsync(Path.Combine(other, entry), string.Empty, Ct);
+        }
+
+        await File.WriteAllTextAsync(Path.Combine(other, "save1.sav"), "progress", Ct);
+
+        await Assert.ThrowsAsync<GitOperationException>(() => _ws.Engine.DeleteRepoAsync(repo with { GitDir = other }, Ct));
+
+        Assert.Equal("progress", await File.ReadAllTextAsync(Path.Combine(other, "save1.sav"), Ct));
+        Assert.True(File.Exists(EngineWorkspace.MarkerPath(repo)), "a refused delete leaves the marker too");
+    }
+
+    [Fact]
+    public async Task Delete_refuses_a_real_git_directory_outside_the_storage_root_and_removes_nothing()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        var outside = Path.Combine(_ws.GamesRoot, "elsewhere.git");
+        CopyDirectory(repo.GitDir, outside);
+
+        await Assert.ThrowsAsync<GitOperationException>(() => _ws.Engine.DeleteRepoAsync(repo with { GitDir = outside }, Ct));
+
+        Assert.True(File.Exists(Path.Combine(outside, "HEAD")));
+        Assert.True(File.Exists(Path.Combine(repo.GitDir, "HEAD")));
+        Assert.True(File.Exists(EngineWorkspace.MarkerPath(repo)));
+    }
+
+    [Fact]
+    public async Task Delete_refuses_the_storage_root_itself_and_a_folder_beside_it_with_a_similar_name()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        var lookalike = _ws.StorageRoot + "-old";
+        CopyDirectory(repo.GitDir, lookalike);
+
+        await Assert.ThrowsAsync<GitOperationException>(() => _ws.Engine.DeleteRepoAsync(repo with { GitDir = _ws.StorageRoot }, Ct));
+        await Assert.ThrowsAsync<GitOperationException>(() => _ws.Engine.DeleteRepoAsync(repo with { GitDir = lookalike }, Ct));
+
+        Assert.True(Directory.Exists(_ws.StorageRoot));
+        Assert.True(File.Exists(Path.Combine(lookalike, "HEAD")));
+        Assert.True(File.Exists(Path.Combine(repo.GitDir, "HEAD")));
+    }
+
+    [Fact]
+    public async Task Delete_refuses_a_git_directory_inside_the_storage_root_that_SavePoint_did_not_make()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        var foreign = Path.Combine(_ws.StorageRoot, "someone-elses.git");
+        CopyDirectory(repo.GitDir, foreign);
+        var config = Path.Combine(foreign, "config");
+        await File.WriteAllLinesAsync(config, (await File.ReadAllLinesAsync(config, Ct)).Where(line => !line.Contains("repoConfigVersion", StringComparison.Ordinal)), Ct);
+
+        await Assert.ThrowsAsync<GitOperationException>(() => _ws.Engine.DeleteRepoAsync(repo with { GitDir = foreign }, Ct));
+
+        Assert.True(File.Exists(Path.Combine(foreign, "HEAD")));
+    }
+
+    [Fact]
+    public async Task Delete_finishes_a_git_directory_an_interrupted_delete_left_half_removed()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        File.Delete(Path.Combine(repo.GitDir, "config"));
+        File.Delete(Path.Combine(repo.GitDir, "HEAD"));
+
+        await _ws.Engine.DeleteRepoAsync(repo, Ct);
+
+        Assert.False(Directory.Exists(repo.GitDir));
+        Assert.False(File.Exists(EngineWorkspace.MarkerPath(repo)));
+    }
+
+    [Fact]
+    public async Task Delete_refuses_a_git_directory_that_is_a_link_to_somewhere_outside_the_storage_root()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        var outside = Path.Combine(_ws.GamesRoot, "linked-target.git");
+        CopyDirectory(repo.GitDir, outside);
+        var link = Path.Combine(_ws.StorageRoot, "game-1", "linked.git");
+        Assert.SkipUnless(TestLinks.TryCreateFolderLink(link, outside), "this system cannot make folder links");
+
+        await Assert.ThrowsAsync<GitOperationException>(() => _ws.Engine.DeleteRepoAsync(repo with { GitDir = link }, Ct));
+
+        Assert.True(File.Exists(Path.Combine(outside, "HEAD")));
+        TestLinks.RemoveFolderLink(link);
+    }
+
+    private static void CopyDirectory(string source, string target)
+    {
+        Directory.CreateDirectory(target);
+        foreach (var directory in Directory.EnumerateDirectories(source, "*", SearchOption.AllDirectories))
+        {
+            Directory.CreateDirectory(Path.Combine(target, Path.GetRelativePath(source, directory)));
+        }
+
+        foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
+        {
+            File.Copy(file, Path.Combine(target, Path.GetRelativePath(source, file)));
+        }
+    }
+
     [Fact]
     public async Task Delete_refuses_a_protected_work_tree()
     {

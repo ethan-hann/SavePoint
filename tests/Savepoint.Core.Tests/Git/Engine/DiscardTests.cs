@@ -73,9 +73,25 @@ public sealed class DiscardTests : IDisposable
         var repo = await _ws.InitializedRepoAsync();
         _ws.Write(repo, "precious.txt", "my own files");
 
-        await Assert.ThrowsAsync<GitOperationException>(() => _ws.Engine.DiscardChangesAsync(repo, Ct));
+        var error = await Assert.ThrowsAsync<ProfileHasNoPointsException>(() => _ws.Engine.DiscardChangesAsync(repo, Ct));
 
+        Assert.Equal("error.profile.noPoints", error.MessageId);
         Assert.Equal("my own files", await File.ReadAllTextAsync(_ws.FileOf(repo, "precious.txt"), Ct));
+        Assert.True(File.Exists(EngineWorkspace.MarkerPath(repo)));
+    }
+
+    [Fact]
+    public async Task Clean_has_nothing_to_keep_files_against_in_a_repository_with_no_point_and_removes_nothing()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "Saves/slot1.sav", "my own saves");
+        _ws.Write(repo, "settings.ini", "my own settings");
+        var before = TreeSnapshot.Take(repo.WorkTree);
+
+        var error = await Assert.ThrowsAsync<ProfileHasNoPointsException>(() => _ws.Engine.CleanAsync(repo, Ct));
+
+        Assert.Equal("error.profile.noPoints", error.MessageId);
+        Assert.Equal(before, TreeSnapshot.Take(repo.WorkTree));
     }
 
     [Fact]
@@ -196,7 +212,7 @@ public sealed class DiscardTests : IDisposable
         await Assert.ThrowsAsync<ConsentMarkerException>(() => _ws.Engine.ForceCheckoutBranchAsync(EngineWorkspace.Claim(repo, "other", RepoRole.External), "profile-1", Ct));
         await Assert.ThrowsAsync<PathSafetyException>(() => _ws.Engine.ForceCheckoutBranchAsync(protectedRepo, "profile-1", Ct));
         await Assert.ThrowsAsync<ArgumentException>(() => _ws.Engine.ForceCheckoutCommitAsync(repo, "short", Ct));
-        await Assert.ThrowsAsync<GitOperationException>(() => _ws.Engine.ForceCheckoutBranchAsync(repo, "ghost", Ct));
+        await Assert.ThrowsAsync<ProfileHasNoPointsException>(() => _ws.Engine.ForceCheckoutBranchAsync(repo, "ghost", Ct));
 
         Assert.True(File.Exists(_ws.FileOf(repo, "messy.txt")));
     }

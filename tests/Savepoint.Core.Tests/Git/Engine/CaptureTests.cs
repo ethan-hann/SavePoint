@@ -271,7 +271,7 @@ public sealed partial class CaptureTests : IDisposable
 
         Assert.Equal("false", await _ws.ConfigAsync(repo, "maintenance.auto"));
         Assert.Equal("true", await _ws.ConfigAsync(repo, "core.untrackedCache"));
-        Assert.Equal("2", await _ws.ConfigAsync(repo, "savepoint.repoConfigVersion"));
+        Assert.Equal("3", await _ws.ConfigAsync(repo, "savepoint.repoConfigVersion"));
     }
 
     [Fact]

@@ -33,6 +33,8 @@ public static class ErrorPresentation
     private static readonly IReadOnlyDictionary<string, ErrorKind> _table = new Dictionary<string, ErrorKind>(StringComparer.Ordinal)
     {
         ["error.capture.cancelled"] = new(Icons.Cancel, ErrorTone.Neutral, "errorCard.title.canceled"),
+        ["error.capture.linkedFolder"] = new(Icons.Folder, ErrorTone.Warning, "errorCard.title.folderIsShortcut"),
+        ["error.capture.nestedRepository"] = new(Icons.Folder, ErrorTone.Warning, "errorCard.title.folderKeepsHistory"),
         ["error.catalog.corrupt"] = new(Icons.Report, ErrorTone.Error, "errorCard.title.dataUnreadable"),
         ["error.compaction.cancelled"] = new(Icons.Cancel, ErrorTone.Neutral, "errorCard.title.canceled"),
         ["error.compaction.preempted"] = new(Icons.Schedule, ErrorTone.Neutral, "errorCard.title.optimizingPaused"),
@@ -52,6 +54,7 @@ public static class ErrorPresentation
         ["error.launch.detachedCaptureNotSupported"] = new(Icons.History, ErrorTone.Warning, "errorCard.title.olderSave"),
         ["error.launch.dirtyWorkingTree"] = new(Icons.Warning, ErrorTone.Warning, "errorCard.title.unsavedChanges"),
         ["error.launch.noActiveSession"] = new(Icons.Info, ErrorTone.Neutral, "errorCard.title.generic"),
+        ["error.launch.sessionMoved"] = new(Icons.History, ErrorTone.Warning, "errorCard.title.progressNotKept"),
         ["error.launch.sessionStillRunning"] = new(Icons.SportsEsports, ErrorTone.Neutral, "errorCard.title.gameRunning"),
         ["error.launch.spawnFailed"] = new(Icons.Error, ErrorTone.Error, "errorCard.title.gameDidNotStart"),
         ["error.launch.unavailable"] = new(Icons.Info, ErrorTone.Neutral, "errorCard.title.generic"),
@@ -60,6 +63,8 @@ public static class ErrorPresentation
         ["error.path.missing"] = new(Icons.FolderOff, ErrorTone.Neutral, "errorCard.title.folderGone"),
         ["error.pathSafety.tier1Blocked"] = new(Icons.Block, ErrorTone.Error, "errorCard.title.folderTooBroad"),
         ["error.pathSafety.tier2Blocked"] = new(Icons.Block, ErrorTone.Error, "errorCard.title.folderTooBroad"),
+        ["error.profile.alreadyExists"] = new(Icons.Info, ErrorTone.Neutral, "errorCard.title.profileExists"),
+        ["error.profile.noPoints"] = new(Icons.Info, ErrorTone.Neutral, "errorCard.title.nothingSavedYet"),
         ["error.profile.notFound"] = new(Icons.Info, ErrorTone.Neutral, "errorCard.title.notFound"),
         ["error.storage.unreachable"] = new(Icons.Storage, ErrorTone.Error, "errorCard.title.storageUnreachable"),
         ["error.storageRelocation.cancelled"] = new(Icons.Cancel, ErrorTone.Neutral, "errorCard.title.canceled"),

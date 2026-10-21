@@ -9,6 +9,8 @@ public sealed partial class GitEngine
 
     /// <summary>
     /// Reads the folder's state. Needs the work tree, so it refuses a protected or missing folder and one without this game's marker.
+    /// What counts as unsaved is exactly what a capture would record: ignore files inside the game folder are not read, and
+    /// files the game's ignore patterns name (as of the last capture or preview) are not changes.
     /// </summary>
     /// <param name="repo">The folder.</param>
     /// <param name="ct">Cancels the call.</param>
@@ -23,10 +25,22 @@ public sealed partial class GitEngine
         CheckWorkTree(repo);
         RepoMarker.Verify(repo);
 
-        var result = await RunAsync(
-            Invocation(repo, readOnly: true, "status", "--porcelain=v2", "-z", "--branch", "--untracked-files=all", "--no-renames"),
-            ct).ConfigureAwait(false);
-        return PorcelainStatus.Parse(result.SplitStandardOutputOnNul()) with { InterruptedSwitch = SwitchJournal.Read(repo.GitDir) };
+        // HEAD is read from its file, and the changes come from the same listing a capture uses, so what shows as unsaved is exactly what a capture would record.
+        var head = GitDirFiles.ReadHead(repo.GitDir);
+        var commit = head.IsDetached ? head.DetachedCommit : await ResolveBranchAsync(repo, head.Branch!, ct).ConfigureAwait(false);
+        var untracked = ListNewAsync(repo, ct);
+        var changed = ListChangedAsync(repo, hasCommits: commit is not null, ct);
+
+        IReadOnlyList<string> changedPaths = await changed.ConfigureAwait(false);
+        IReadOnlyList<string> untrackedPaths = (await untracked.ConfigureAwait(false)).Files;
+        return new RepoStatus(
+            changedPaths.Count == 0 && untrackedPaths.Count == 0,
+            head.Branch,
+            head.IsDetached,
+            commit,
+            changedPaths,
+            untrackedPaths,
+            SwitchJournal.Read(repo.GitDir));
     }
 
     /// <summary>
@@ -169,14 +183,16 @@ public sealed partial class GitEngine
         var commits = new List<CommitInfo>();
         foreach (var record in result.SplitStandardOutputOnNul())
         {
+            // The id, date and trailer cannot hold the separator, but a subject written by something else can; reading the
+            // last two fields from the right keeps such a subject from shifting them.
             var fields = record.Trim('\n', '\r').Split('\x1f');
-            if (fields.Length < 3)
+            if (fields.Length < 4 || !DateTimeOffset.TryParse(fields[^2], CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
             {
                 continue;
             }
 
-            var captureId = fields.Length > 3 && fields[3].Trim() is { Length: > 0 } trailer ? trailer : null;
-            commits.Add(new CommitInfo(fields[0], fields[1], DateTimeOffset.Parse(fields[2], CultureInfo.InvariantCulture), captureId));
+            var captureId = fields[^1].Trim() is { Length: > 0 } trailer ? trailer : null;
+            commits.Add(new CommitInfo(fields[0], string.Join('\x1f', fields[1..^2]), date, captureId));
         }
 
         return commits;

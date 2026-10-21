@@ -38,6 +38,26 @@ function ConvertTo-WslPath([string]$Path) {
     return "/mnt/$($Matches[1].ToLowerInvariant())/$($Matches[2].Replace('\', '/'))"
 }
 
+# Shares the machine-wide gate lock with build/gate.ps1, so a Linux gate never overlaps any other gate.
+$commonGitDir = (Invoke-Git rev-parse --path-format=absolute --git-common-dir | Select-Object -First 1).Trim()
+$lockDir = Join-Path (Split-Path -Parent $commonGitDir) '.tools/locks'
+New-Item -ItemType Directory -Force -Path $lockDir | Out-Null
+$lockPath = Join-Path $lockDir 'gate.lock'
+$lock = $null
+$waited = $false
+while ($null -eq $lock) {
+    try {
+        $lock = [System.IO.File]::Open($lockPath, 'OpenOrCreate', 'ReadWrite', 'None')
+    }
+    catch [System.IO.IOException] {
+        if (-not $waited) {
+            Write-Host "==> waiting for another gate to finish ($lockPath)"
+            $waited = $true
+        }
+        Start-Sleep -Seconds 5
+    }
+}
+
 try {
     $sha = (Invoke-Git rev-parse --verify "$Commit^{commit}" | Select-Object -First 1).Trim()
 
@@ -60,8 +80,10 @@ try {
 }
 catch {
     Write-Host "linux gate failed: $($_.Exception.Message)" -ForegroundColor Red
+    $lock.Dispose()
     exit 1
 }
+$lock.Dispose()
 
 if ($code -ne 0) {
     Write-Host "linux gate failed with exit code $code" -ForegroundColor Red

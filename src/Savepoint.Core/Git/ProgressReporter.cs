@@ -79,6 +79,15 @@ internal sealed class ProgressReporter
 
         _reportedDone = _done;
         _reportedAt = Stopwatch.GetTimestamp();
-        _sink.Report(new FileProgress(_done, _total is { } total ? Math.Max(total, _done) : null, _current));
+
+        // Progress only decorates the work: a sink that fails must not stop git half way through a capture or a switch.
+        try
+        {
+            _sink.Report(new FileProgress(_done, _total is { } total ? Math.Max(total, _done) : null, _current));
+        }
+        catch (Exception)
+        {
+            // Dropped on purpose; the next report is tried as usual.
+        }
     }
 }

@@ -45,9 +45,10 @@ public sealed class BranchTests : IDisposable
         var older = await _ws.GitOutAsync(repo, "rev-parse", "profile-1~1");
         var before = _ws.Invocations.Count(invocation => invocation.Arguments[0] == "update-ref");
 
-        var error = await Assert.ThrowsAsync<GitOperationException>(() => _ws.Engine.CreateBranchAsync(repo, "profile-1", older, Ct));
+        var error = await Assert.ThrowsAsync<ProfileAlreadyExistsException>(() => _ws.Engine.CreateBranchAsync(repo, "profile-1", older, Ct));
 
-        Assert.Contains("already exists", error.Message, StringComparison.Ordinal);
+        Assert.Equal("error.profile.alreadyExists", error.MessageId);
+        Assert.Equal("profile-1", error.Args["profileId"]);
         Assert.Equal(tip, await _ws.TipAsync(repo, "profile-1"));
         Assert.Equal(before + 1, _ws.Invocations.Count(invocation => invocation.Arguments[0] == "update-ref"));
     }
@@ -182,10 +183,32 @@ public sealed class BranchTests : IDisposable
     }
 
     [Fact]
+    public async Task Deleting_a_branch_after_the_repository_delete_took_the_marker_too_does_nothing()
+    {
+        var repo = await TwoPointRepoAsync();
+        await _ws.Engine.DeleteRepoAsync(repo, Ct);
+
+        await _ws.Engine.DeleteBranchAsync(repo, "profile-1", Ct);
+
+        Assert.False(Directory.Exists(repo.GitDir));
+    }
+
+    [Fact]
+    public async Task Deleting_a_branch_from_a_half_removed_git_directory_does_nothing()
+    {
+        var repo = await TwoPointRepoAsync();
+        File.Delete(Path.Combine(repo.GitDir, "config"));
+
+        await _ws.Engine.DeleteBranchAsync(repo, "profile-1", Ct);
+
+        Assert.True(File.Exists(Path.Combine(repo.GitDir, "HEAD")));
+    }
+
+    [Fact]
     public async Task Deleting_a_branch_still_refuses_another_games_folder()
     {
         var repo = await TwoPointRepoAsync();
-        var intruder = EngineWorkspace.Claim(repo, "other", RepoRole.External);
+        var intruder = repo with { GameId = "other", Role = RepoRole.External };
         await _ws.GitWriteAsync(repo, "branch", "spare", "profile-1");
 
         await Assert.ThrowsAsync<ConsentMarkerException>(() => _ws.Engine.DeleteBranchAsync(intruder, "spare", Ct));

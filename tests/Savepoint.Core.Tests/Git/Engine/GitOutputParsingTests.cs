@@ -22,6 +22,26 @@ public sealed class GitOutputParsingTests
         Assert.True(GitFailure.RefusedToOverwrite(stderr));
     }
 
+    [Theory]
+    [InlineData("error: Updating the following directories would lose untracked files in them:\n\tx\n\nAborting\n", "x")]
+    [InlineData("error: The following untracked working tree files would be removed by checkout:\n\tx/new.sav\nPlease move or remove them before you switch branches.\nAborting\n", "x/new.sav")]
+    public void The_other_ways_git_refuses_a_switch_over_untracked_files_are_refusals_too(string stderr, string path)
+    {
+        Assert.True(GitFailure.RefusedToOverwrite(stderr));
+        Assert.Equal([path], GitFailure.OverwrittenPaths(stderr));
+    }
+
+    [Theory]
+    [InlineData("error: unable to unlink old 'Data/a.txt': Permission denied\n", true)]
+    [InlineData("error: unable to unlink old 'Data/a.txt' (Invalid argument)\nfatal: Could not reset index file to revision 'HEAD'.\n", true)]
+    [InlineData("error: unable to write new index file\nfatal: Could not reset index file to revision 'HEAD'.\n", false)]
+    [InlineData("error: unable to create file Data/a.txt: No space left on device\n", false)]
+    [InlineData("fatal: Unable to create 'x/index.lock': File exists.\n", false)]
+    public void Only_a_file_that_could_not_be_replaced_is_a_failure_a_discard_carries_on_from(string stderr, bool inUse)
+    {
+        Assert.Equal(inUse, GitFailure.FileCouldNotBeReplaced(stderr));
+    }
+
     [Fact]
     public void Untracked_files_in_the_way_are_listed_the_same_way()
     {
@@ -102,39 +122,11 @@ public sealed class GitOutputParsingTests
     }
 
     [Fact]
-    public void Status_records_are_split_into_changed_and_new_files_keeping_spaces_in_names()
+    public void A_listing_names_each_file_once_and_sets_folders_that_are_repositories_apart()
     {
-        var records = new[]
-        {
-            "# branch.oid 0123456789abcdef0123456789abcdef01234567",
-            "# branch.head profile-1",
-            "1 .M N... 100644 100644 100644 aaaa bbbb Data/has spaces/file.txt",
-            "1 D. N... 100644 000000 000000 aaaa 0000 deleted.txt",
-            "u UU N... 100644 100644 100644 100644 a b c conflicted file.txt",
-            "? new folder/new.txt",
-        };
+        var listing = WorkTreeListing.From(["a.txt", "Data/has spaces.txt", "a.txt", "mod/", "z.txt"]);
 
-        var status = PorcelainStatus.Parse(records);
-
-        Assert.Equal("profile-1", status.Branch);
-        Assert.False(status.IsDetached);
-        Assert.Equal("0123456789abcdef0123456789abcdef01234567", status.HeadCommit);
-        Assert.Equal(["Data/has spaces/file.txt", "deleted.txt", "conflicted file.txt"], status.ChangedPaths);
-        Assert.Equal(["new folder/new.txt"], status.UntrackedPaths);
-        Assert.False(status.IsClean);
-    }
-
-    [Fact]
-    public void A_detached_head_and_an_unborn_branch_are_told_apart()
-    {
-        var detached = PorcelainStatus.Parse(["# branch.oid 0123456789abcdef0123456789abcdef01234567", "# branch.head (detached)"]);
-        var unborn = PorcelainStatus.Parse(["# branch.oid (initial)", "# branch.head savepoint-unborn"]);
-
-        Assert.True(detached.IsDetached);
-        Assert.Null(detached.Branch);
-        Assert.False(unborn.IsDetached);
-        Assert.Equal("savepoint-unborn", unborn.Branch);
-        Assert.Null(unborn.HeadCommit);
-        Assert.True(unborn.IsClean);
+        Assert.Equal(["a.txt", "Data/has spaces.txt", "z.txt"], listing.Files);
+        Assert.Equal(["mod/"], listing.NestedRepositories);
     }
 }

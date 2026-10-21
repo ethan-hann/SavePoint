@@ -38,7 +38,13 @@ internal static class AtomicText
         var temp = $"{path}.{Guid.NewGuid():N}.tmp";
         try
         {
-            File.WriteAllText(temp, content, _utf8);
+            // Flushed to disk before the rename, so a power loss cannot leave an empty file under the real name.
+            using (var stream = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                stream.Write(_utf8.GetBytes(content));
+                stream.Flush(flushToDisk: true);
+            }
+
             Move(temp, path);
         }
         catch

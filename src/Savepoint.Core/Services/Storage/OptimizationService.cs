@@ -7,22 +7,9 @@ using Savepoint.Core.Services.Jobs;
 
 namespace Savepoint.Core.Services.Storage;
 
-/// <summary>How hard an optimization works (D28).</summary>
-internal enum OptimizeMode
-{
-    /// <summary>Packs new objects and merges only small packs; runs by itself after captures and never rewrites a large pack.</summary>
-    Routine,
-
-    /// <summary>Drops everything no profile reaches and rewrites the packs; runs when the user asks and after a profile is deleted.</summary>
-    Reclaim,
-}
-
 /// <summary>Starts and runs optimization jobs for one game or for every game.</summary>
 internal sealed class OptimizationService
 {
-    // The same floor the engine keeps before it repacks.
-    private const long _minFreeBytes = 100L * 1024 * 1024;
-
     private readonly BackendServices _services;
 
     public OptimizationService(BackendServices services)
@@ -36,7 +23,7 @@ internal sealed class OptimizationService
     /// <param name="gameId">The game to optimize, or null for every game, one after the other.</param>
     /// <param name="mode">How hard to work.</param>
     /// <param name="preemptible">True when a launch, capture or delete on the same game may stop it to go first (D13.17).</param>
-    public Guid Start(string? gameId, OptimizeMode mode, bool preemptible) =>
+    public Guid Start(string? gameId, OptimizationMode mode, bool preemptible) =>
         _services.Jobs.Start(JobKind.Compact, gameId, cancellable: true, context => RunAsync(context, gameId, mode, preemptible));
 
     /// <summary>Starts a routine optimization for the game when either repository holds more loose objects than the threshold (D13.17).</summary>
@@ -57,7 +44,7 @@ internal sealed class OptimizationService
                 }).ConfigureAwait(false);
             if (crowded)
             {
-                Start(gameId, OptimizeMode.Routine, preemptible: true);
+                Start(gameId, OptimizationMode.Routine, preemptible: true);
             }
         }
         catch (Exception e) when (e is SavepointException or IOException)
@@ -87,7 +74,7 @@ internal sealed class OptimizationService
         }
     }
 
-    private async Task<JobResult?> RunAsync(JobContext context, string? gameId, OptimizeMode mode, bool preemptible)
+    private async Task<JobResult?> RunAsync(JobContext context, string? gameId, OptimizationMode mode, bool preemptible)
     {
         var games = gameId is null
             ? await _services.Catalog.ListGamesAsync(context.CancellationToken).ConfigureAwait(false)
@@ -123,7 +110,7 @@ internal sealed class OptimizationService
         return new OptimizeResult(outcomes);
     }
 
-    private Task<GameOptimizeOutcome> OptimizeGameAsync(JobContext context, GameDefinition game, OptimizeMode mode, bool preemptible, Action onPreempted) =>
+    private Task<GameOptimizeOutcome> OptimizeGameAsync(JobContext context, GameDefinition game, OptimizationMode mode, bool preemptible, Action onPreempted) =>
         _services.RunForGameAsync(
             game.Id,
             async (storage, handle) =>
@@ -158,29 +145,9 @@ internal sealed class OptimizationService
             },
             context.CancellationToken);
 
-    // The second pass is the one that frees space; it only runs after the first has left nothing but packs.
-    private async Task OptimizeRepoAsync(StorageSnapshot storage, RepoRef repo, OptimizeMode mode, CancellationToken cancellationToken)
-    {
-        if (mode == OptimizeMode.Routine)
-        {
-            await storage.Engine.RepackAsync(repo, cancellationToken).ConfigureAwait(false);
-            return;
-        }
-
-        var free = _services.Disk.GetFreeBytes(repo.GitDir);
-        if (free is { } known && known < _minFreeBytes)
-        {
-            throw new DiskSpaceException(repo.GitDir, _minFreeBytes, known);
-        }
-
-        // Reflogs would keep every dropped point reachable; SavePoint never reads them.
-        await RunGitAsync(repo, cancellationToken, "reflog", "expire", "--expire=now", "--all").ConfigureAwait(false);
-        await RunGitAsync(repo, cancellationToken, "repack", "-a", "-d", "-q").ConfigureAwait(false);
-        await RunGitAsync(repo, cancellationToken, "prune", "--expire=now").ConfigureAwait(false);
-    }
-
-    private Task RunGitAsync(RepoRef repo, CancellationToken cancellationToken, params string[] arguments) =>
-        RepoGit.RunAsync(_services.Runner, repo.GitDir, false, cancellationToken, null, false, arguments);
+    // The engine keeps the free-space floor itself and refuses a reclaim that needs room the volume lacks.
+    private static Task OptimizeRepoAsync(StorageSnapshot storage, RepoRef repo, OptimizationMode mode, CancellationToken cancellationToken) =>
+        storage.Engine.RepackAsync(repo, mode, cancellationToken);
 
     private static async Task<long> SizeOfAsync(IEnumerable<RepoRef> repos, CancellationToken cancellationToken)
     {

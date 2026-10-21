@@ -213,6 +213,33 @@ public class ConsentMarkerTests
     }
 
     [Fact]
+    public void A_symbolic_link_planted_at_the_temp_name_is_replaced_not_followed()
+    {
+        using var tree = new TempTree();
+        var work = tree.Dir("work");
+        var victim = tree.File("victim.txt", "keep me");
+        tree.Symlink(Path.Combine("work", ConsentMarker.TempFileName), victim, isDirectory: false);
+
+        ConsentMarker.Write(work, "game", RepoRole.Install, _confirmedAt);
+
+        Assert.Equal("keep me", File.ReadAllText(victim));
+        Assert.IsType<ConsentMarkerState.Valid>(ConsentMarker.Read(work));
+    }
+
+    [Fact]
+    public async Task A_marker_that_is_an_endless_device_reads_as_corrupt_without_being_loaded()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "devices like /dev/zero exist on Linux and macOS");
+        using var tree = new TempTree();
+        var work = tree.Dir("work");
+        tree.Symlink(Path.Combine("work", ConsentMarker.FileName), "/dev/zero", isDirectory: false);
+
+        var state = await Task.Run(() => ConsentMarker.Read(work), TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+
+        Assert.IsType<ConsentMarkerState.Corrupt>(state);
+    }
+
+    [Fact]
     public void A_failed_write_does_not_leave_its_temp_file_behind()
     {
         using var tree = new TempTree();
