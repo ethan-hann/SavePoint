@@ -16,6 +16,7 @@
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="MessageFormat" />
     <PackageReference Include="Tmds.DBus.Protocol" />
+    <PackageReference Include="Velopack" />
   </ItemGroup>
 
   <ItemGroup>
