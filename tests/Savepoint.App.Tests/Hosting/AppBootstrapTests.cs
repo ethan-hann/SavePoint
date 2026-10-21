@@ -1,4 +1,5 @@
 using Savepoint.App.Hosting;
+using Savepoint.Core.Api;
 using Savepoint.Core.Git;
 using Savepoint.Core.Platform;
 using Savepoint.Core.Platform.Linux;
@@ -27,9 +28,21 @@ public class AppBootstrapTests : IDisposable
     }
 
     [Fact]
-    public async Task Without_a_launch_component_the_launch_api_says_launching_is_unavailable()
+    public async Task The_started_backend_runs_the_real_launch_orchestrator()
     {
         var started = AppBootstrap.Start(options => options with { Platform = HostPlatform(), Git = GitBinary.Locate(Path.Combine(_root, "gitconfig")) });
+
+        var finished = await started.Services.Launch.MarkFinishedAsync("any");
+        var preview = await started.Services.Launch.GetPreviewAsync("any", new LaunchTarget.ProfileTip("any"), TestContext.Current.CancellationToken);
+
+        Assert.Equal("error.launch.noActiveSession", finished.Error?.MessageId);
+        Assert.Equal("error.game.notFound", preview.Error?.MessageId);
+    }
+
+    [Fact]
+    public async Task Without_a_launch_component_the_launch_api_says_launching_is_unavailable()
+    {
+        var started = AppBootstrap.Start(options => options with { Platform = HostPlatform(), Git = GitBinary.Locate(Path.Combine(_root, "gitconfig")), Launch = null });
 
         var launched = await started.Services.Launch.MarkFinishedAsync("any");
 

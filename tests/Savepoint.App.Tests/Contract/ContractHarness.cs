@@ -3,6 +3,7 @@ using Savepoint.Core.Api;
 using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Git;
+using Savepoint.Core.Launch.Orchestration;
 using Savepoint.Core.Platform;
 using Savepoint.Core.Platform.Linux;
 using Savepoint.Core.Platform.MacOS;
@@ -30,6 +31,19 @@ internal abstract class ContractHarness : IAsyncDisposable
     public abstract ISettingsApi Settings { get; }
 
     public abstract IJobsApi Jobs { get; }
+
+    public abstract ILaunchApi Launch { get; }
+
+    // Tells the backend which profile is about to be launched, so a fake can be scripted with what the real one works out for itself.
+    public virtual void ExpectLaunch(GameDefinition game, string profileId)
+    {
+    }
+
+    // Lets the game that StartAsync began run, and returns once the session says it does.
+    public abstract Task GameRunningAsync(string gameId, CancellationToken cancellationToken);
+
+    // Closes the running game, and returns once the session says it has exited.
+    public abstract Task GameExitedAsync(string gameId, CancellationToken cancellationToken);
 
     // Ends the job the way the backend does: the fake is told to finish it, the real one is waited for.
     public abstract Task<JobSnapshot> FinishAsync(Guid jobId, CancellationToken cancellationToken);
@@ -85,6 +99,40 @@ internal sealed class FakeContractHarness : ContractHarness
 
     public override IJobsApi Jobs => _backend.Jobs;
 
+    public override ILaunchApi Launch => _backend.Launch;
+
+    public override void ExpectLaunch(GameDefinition game, string profileId)
+    {
+        var target = new LaunchTarget.ProfileTip(profileId);
+        var state = new InstallState(null, null);
+        var save = new SaveEntry(new HistoryPointId("point-1"), "Fresh install", DateTimeOffset.UnixEpoch, IsMostRecent: true);
+        _backend.State.LaunchPreviews[(game.Id, target)] = new LaunchPreview(
+            game.Id,
+            profileId,
+            target,
+            new FolderLaunchState(RepoRole.Install, game.Install.Path, true, false, 0, null, null),
+            new FolderLaunchState(RepoRole.External, game.External!.Path, true, false, 0, null, null),
+            state,
+            state,
+            [save],
+            save.Id,
+            ShowBanner: true,
+            OnlySaveDiffers: false,
+            TargetIsOlderPoint: false);
+    }
+
+    public override Task GameRunningAsync(string gameId, CancellationToken cancellationToken)
+    {
+        _backend.Launch.ReportRunning(gameId);
+        return Task.CompletedTask;
+    }
+
+    public override Task GameExitedAsync(string gameId, CancellationToken cancellationToken)
+    {
+        _backend.Launch.ReportExited(gameId, TimeSpan.FromMinutes(5), newFileCount: 0);
+        return Task.CompletedTask;
+    }
+
     public override Task<JobSnapshot> FinishAsync(Guid jobId, CancellationToken cancellationToken)
     {
         _backend.Jobs.Complete(jobId);
@@ -97,6 +145,7 @@ internal sealed class RealContractHarness : ContractHarness
     private static readonly TimeSpan _limit = TimeSpan.FromMinutes(5);
 
     private readonly CoreBackend _backend;
+    private readonly ScriptedGame _game = new();
 
     public RealContractHarness()
     {
@@ -109,6 +158,7 @@ internal sealed class RealContractHarness : ContractHarness
             InstallDirectory = install,
             Git = GitBinary.Locate(Path.Combine(Root, "gitconfig")),
             LooseObjectThreshold = int.MaxValue,
+            Launch = LaunchOrchestrator.Factory(new LaunchOrchestratorOptions { Starter = _game.Starter(TimeProvider.System) }),
         });
     }
 
@@ -121,6 +171,32 @@ internal sealed class RealContractHarness : ContractHarness
     public override ISettingsApi Settings => _backend.Settings;
 
     public override IJobsApi Jobs => _backend.Jobs;
+
+    public override ILaunchApi Launch => _backend.Launch;
+
+    public override Task GameRunningAsync(string gameId, CancellationToken cancellationToken) =>
+        WaitForSessionAsync(gameId, state => state is SessionState.Running, cancellationToken);
+
+    public override Task GameExitedAsync(string gameId, CancellationToken cancellationToken)
+    {
+        _game.ExitAll();
+        return WaitForSessionAsync(gameId, state => state is SessionState.Exited, cancellationToken);
+    }
+
+    // The real session moves on its own threads, so the story waits for the phase it needs.
+    private async Task WaitForSessionAsync(string gameId, Func<SessionState, bool> reached, CancellationToken cancellationToken)
+    {
+        var until = DateTime.UtcNow + _limit;
+        while (_backend.Launch.GetSession(gameId) is not { } session || !reached(session.State))
+        {
+            if (DateTime.UtcNow > until)
+            {
+                throw new TimeoutException($"The session never reached the phase the story waits for; it is {_backend.Launch.GetSession(gameId)?.State.GetType().Name ?? "missing"}.");
+            }
+
+            await Task.Delay(20, cancellationToken).ConfigureAwait(false);
+        }
+    }
 
     public override async Task<JobSnapshot> FinishAsync(Guid jobId, CancellationToken cancellationToken)
     {

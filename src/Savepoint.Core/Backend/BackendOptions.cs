@@ -32,8 +32,9 @@ public sealed record BackendOptions
     public IGameSessions? Sessions { get; init; }
 
     /// <summary>
-    /// Builds the launch component from the shared services. The backend attaches the sessions it returns, and answers
-    /// <see cref="CoreBackend.Launch"/> with its Api; without it every launch call fails with <c>error.launch.unavailable</c>.
+    /// Builds the launch component from the shared services; <see cref="Launch.Orchestration.LaunchOrchestrator.Factory"/> makes the
+    /// real one. The backend attaches the sessions it returns, and answers <see cref="CoreBackend.Launch"/> with its Api; without it
+    /// every launch call fails with <c>error.launch.unavailable</c>.
     /// </summary>
     public Func<BackendServices, LaunchComponents>? Launch { get; init; }
 

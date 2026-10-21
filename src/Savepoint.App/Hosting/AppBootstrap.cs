@@ -2,6 +2,7 @@ using Savepoint.App.Platform;
 using Savepoint.Core.Api;
 using Savepoint.Core.Backend;
 using Savepoint.Core.Errors;
+using Savepoint.Core.Launch.Orchestration;
 
 namespace Savepoint.App.Hosting;
 
@@ -14,13 +15,13 @@ public sealed record BootstrapResult(AppServices Services, CoreBackend? Backend,
 /// <summary>Builds the real backend for the running machine (D18): a failure becomes a startup screen, never a crash.</summary>
 public static class AppBootstrap
 {
-    /// <summary>Starts the backend over the machine's own folders and the bundled git.</summary>
+    /// <summary>Starts the backend over the machine's own folders and the bundled git, with the real launch orchestrator.</summary>
     /// <param name="configure">Replaces parts of the backend, for tests; the defaults when null.</param>
     public static BootstrapResult Start(Func<BackendOptions, BackendOptions>? configure = null)
     {
         try
         {
-            var options = new BackendOptions();
+            var options = new BackendOptions { Launch = LaunchOrchestrator.Factory() };
             var backend = CoreBackend.Create(configure is null ? options : configure(options));
             return new BootstrapResult(ServicesOf(backend), backend, null);
         }

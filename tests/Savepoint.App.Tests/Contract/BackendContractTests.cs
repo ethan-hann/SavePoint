@@ -17,6 +17,20 @@ public class BackendContractTests(ContractRuns runs) : IClassFixture<ContractRun
         Assert.True(differences.Count == 0 && expected.Count == actual.Count, string.Join(Environment.NewLine + Environment.NewLine, differences));
     }
 
+    // A story whose launch failed to start in both backends would still match, so the steps that prove it ran are named here.
+    [Fact]
+    public void The_shared_story_plays_a_whole_launch()
+    {
+        foreach (var story in new[] { runs.Fake.Shared, runs.Real.Shared })
+        {
+            Assert.Contains("start launch: job started", story);
+            Assert.Contains(story, line => line.StartsWith("session while the game runs: Running ", StringComparison.Ordinal));
+            Assert.Contains(story, line => line.StartsWith("session after the game exits: Exited ", StringComparison.Ordinal));
+            Assert.Contains("session after skip: Completed profile=profile#1 older=False completion=Skip result=True", story);
+            Assert.Contains("second start while it runs: error error.launch.alreadyRunning", story);
+        }
+    }
+
     // Where the fake is simpler than the real backend. Each side is pinned, so closing a gap in the fake fails here and the step
     // moves into the shared story.
     [Fact]
@@ -24,6 +38,7 @@ public class BackendContractTests(ContractRuns runs) : IClassFixture<ContractRun
     {
         Assert.Equal(
             [
+                "choices after play with one save: CaptureNew,Skip",
                 "history after the first save: 0 points",
                 "row stats after the first save: active=False saves=0",
                 "storage used: False",
@@ -34,6 +49,7 @@ public class BackendContractTests(ContractRuns runs) : IClassFixture<ContractRun
             runs.Fake.Gaps);
         Assert.Equal(
             [
+                "choices after play with one save: CaptureNew,UpdateExisting,Skip",
                 "history after the first save: 1 points",
                 "row stats after the first save: active=True saves=1",
                 "storage used: True",
