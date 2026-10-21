@@ -125,6 +125,10 @@ public static partial class CatalogValidator
     [GeneratedRegex(@"^[A-Za-z0-9][A-Za-z0-9_-]*\z", RegexOptions.CultureInvariant)]
     private static partial Regex GameIdPattern();
 
+    /// <summary>True when the text is a game id the catalog accepts: letters, digits, dashes and underscores, starting with a letter or digit.</summary>
+    /// <param name="id">The text to judge.</param>
+    internal static bool IsValidGameId(string id) => GameIdPattern().IsMatch(id);
+
     // \z, not $: in .NET $ also matches before a trailing newline.
     [GeneratedRegex(@"^[A-Za-z0-9/_-]+\z", RegexOptions.CultureInvariant)]
     private static partial Regex BranchNamePattern();

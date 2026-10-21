@@ -28,12 +28,17 @@ public sealed class StorageSnapshot
     public GitEngine Engine { get; }
 
     /// <summary>The folder that holds both git directories of a game: <c>&lt;root&gt;/&lt;gameId&gt;</c>.</summary>
-    /// <param name="gameId">The game's id, which the catalog guarantees is a safe folder name.</param>
-    public string GameDirectory(string gameId) => Path.Combine(Root, gameId);
+    /// <param name="gameId">The game's id.</param>
+    /// <exception cref="ArgumentException">The id is not one the catalog accepts, so it could name a place outside the root: a rooted path, a separator, a dot segment.</exception>
+    public string GameDirectory(string gameId) =>
+        CatalogValidator.IsValidGameId(gameId)
+            ? Path.Combine(Root, gameId)
+            : throw new ArgumentException("A game id is a name in the storage root and cannot be a path.", nameof(gameId));
 
     /// <summary>The git directory of one folder of a game: <c>&lt;root&gt;/&lt;gameId&gt;/install.git</c> or <c>external.git</c>.</summary>
     /// <param name="gameId">The game's id.</param>
     /// <param name="role">Which of the game's folders.</param>
+    /// <exception cref="ArgumentException">The id is not one the catalog accepts.</exception>
     public string GitDirectory(string gameId, RepoRole role) =>
         Path.Combine(GameDirectory(gameId), role == RepoRole.Install ? "install.git" : "external.git");
 }
