@@ -34,6 +34,11 @@ public sealed partial class GameEditorViewModel : ObservableObject
     // One new game keeps one id across failed attempts.
     private string? _pendingId;
 
+    private Task? _load;
+
+    // Each folder's confirmation and whether it still exists, as the Api last reported it.
+    private IReadOnlyList<FolderStatus> _statuses = [];
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSave))]
     [NotifyCanExecuteChangedFor(nameof(SaveCommand))]
@@ -148,7 +153,25 @@ public sealed partial class GameEditorViewModel : ObservableObject
         new(games, dialogs, text, toasts, shell, null, prefill);
 
     /// <summary>Reads what needs the Api (each folder's confirmation and whether it still exists). Safe to call more than once.</summary>
-    public Task LoadAsync() => Task.CompletedTask;
+    public Task LoadAsync() => _load ??= LoadCoreAsync();
+
+    private async Task LoadCoreAsync()
+    {
+        if (_saved is null)
+        {
+            return;
+        }
+
+        var statuses = await _games.GetFolderStatusAsync(_saved.Id);
+        if (statuses.Ok)
+        {
+            _statuses = statuses.Value;
+        }
+        else
+        {
+            _toasts.Show(new ToastMessage(_text.Message(statuses.Error), ToastKind.Error));
+        }
+    }
 
     partial void OnNameChanged(string value) => NameError = null;
 

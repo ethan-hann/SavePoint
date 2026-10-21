@@ -125,6 +125,24 @@ internal sealed class EditorRig
     public GameEditorViewModel New(GameDefinition? prefill = null) =>
         Assert.IsType<GameEditorViewModel>(Factory.CreateForNew(Shell, prefill));
 
+    // A dialog's answer resumes the save on another thread, so the next thing the save shows is waited for, not assumed.
+    public static async Task<T> Eventually<T>(Func<T?> find)
+        where T : class
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (DateTime.UtcNow < deadline)
+        {
+            if (find() is { } found)
+            {
+                return found;
+            }
+
+            await Task.Delay(5);
+        }
+
+        throw new Xunit.Sdk.XunitException("The editor never got that far.");
+    }
+
     public IReadOnlyList<ApiCall> Calls(string member) => Backend.Calls.To<IGamesApi>(member);
 
     // The definition AddAsync or UpdateAsync was asked to save: the only call, or the one at the given position.

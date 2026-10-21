@@ -132,7 +132,13 @@ public sealed partial class GameEditorViewModel
         else if (_folderErrorIds.Contains(error.MessageId))
         {
             var card = new ErrorCardViewModel(error, _text);
-            if (FolderRoleOf(error, resolved) == RepoRole.Install)
+            var role = FolderRoleOf(error, resolved);
+            if (error.MessageId == "error.consentMarker.missing")
+            {
+                _unconfirmed.Add(role);
+            }
+
+            if (role == RepoRole.Install)
             {
                 InstallCard = card;
             }
