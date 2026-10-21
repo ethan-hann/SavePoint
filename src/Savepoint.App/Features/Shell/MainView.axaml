@@ -1,0 +1,30 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:dialogs="using:Savepoint.App.Features.Common.Dialogs"
+             xmlns:toasts="using:Savepoint.App.Features.Common.Toasts"
+             xmlns:shell="using:Savepoint.App.Features.Shell"
+             x:Class="Savepoint.App.Features.Shell.MainView"
+             x:DataType="shell:MainWindowViewModel">
+  <!--
+    The window's content: the page (startup screens, then the shell), the job pill and the toasts in the bottom right
+    in every layout, and the modal overlay above all of it. While a dialog is open the page is hidden from assistive technology.
+  -->
+  <UserControl.Styles>
+    <Style Selector="Panel.dialog-open > ContentControl#Page">
+      <Setter Property="AutomationProperties.AccessibilityView" Value="Raw" />
+    </Style>
+  </UserControl.Styles>
+
+  <Panel x:Name="Root" Classes.dialog-open="{Binding Dialogs.IsOpen}">
+    <ContentControl x:Name="Page" Content="{Binding Content}" />
+    <StackPanel x:Name="Overlays"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                Margin="16"
+                Spacing="8">
+      <toasts:ToastHostView DataContext="{Binding Toasts}" />
+      <shell:JobStatusView x:Name="JobPill" HorizontalAlignment="Right" DataContext="{Binding Shell.JobStatus}" />
+    </StackPanel>
+    <dialogs:DialogHostView DataContext="{Binding Dialogs}" />
+  </Panel>
+</UserControl>

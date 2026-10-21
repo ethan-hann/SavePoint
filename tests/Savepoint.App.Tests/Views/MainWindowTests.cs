@@ -1,6 +1,12 @@
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Savepoint.App.Features.Common;
+using Savepoint.App.Features.Common.Formatting;
+using Savepoint.App.Features.Shell;
+using Savepoint.App.Localization;
+using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Views;
 
 namespace Savepoint.App.Tests.Views;
@@ -8,14 +14,11 @@ namespace Savepoint.App.Tests.Views;
 public class MainWindowTests
 {
     [AvaloniaFact]
-    public void Heading_shows_the_catalog_text()
+    public void The_window_hosts_the_main_view()
     {
         var window = new MainWindow();
-        window.Show();
 
-        var heading = window.GetVisualDescendants().OfType<TextBlock>().FirstOrDefault(t => t.Name == "HeadingText");
-
-        Assert.Equal("Keep the setup that works", heading?.Text);
+        Assert.IsType<MainView>(window.Content);
     }
 
     [AvaloniaFact]
@@ -35,5 +38,28 @@ public class MainWindowTests
         Assert.Equal(660, window.Height);
         Assert.Equal(760, window.MinWidth);
         Assert.Equal(520, window.MinHeight);
+    }
+
+    [AvaloniaFact]
+    public async Task With_no_services_connected_the_window_says_it_is_not_ready()
+    {
+        var text = new UiFormatter(LocalizationCatalog.Current);
+        var main = AppComposition.Create(
+            null,
+            text,
+            new ThemeServiceApplier(((App)App.Current!).Theme),
+            () => null,
+            new ImmediateUiDispatcher(),
+            new ManualTimeProvider(),
+            new FakeDialogs());
+        var window = new MainWindow { DataContext = main };
+        window.Show();
+
+        await main.InitializeAsync();
+        Dispatcher.UIThread.RunJobs();
+
+        var titles = window.GetVisualDescendants().OfType<TextBlock>().Where(block => block.IsEffectivelyVisible).Select(block => block.Text).ToList();
+        Assert.Contains("SavePoint isn't ready yet", titles);
+        Assert.Null(main.Shell);
     }
 }

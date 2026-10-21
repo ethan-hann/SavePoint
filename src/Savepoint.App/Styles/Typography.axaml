@@ -101,6 +101,8 @@
     <Setter Property="LineHeight" Value="20" />
     <Setter Property="FontWeight" Value="Normal" />
     <Setter Property="VerticalAlignment" Value="Center" />
+    <!-- A glyph is decoration: assistive technology would read a private-use character. -->
+    <Setter Property="AutomationProperties.AccessibilityView" Value="Raw" />
   </Style>
   <Style Selector="TextBlock.icon.filled">
     <Setter Property="FontFamily" Value="{DynamicResource SymbolsFilledFont}" />
