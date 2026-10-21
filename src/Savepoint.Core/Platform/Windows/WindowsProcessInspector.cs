@@ -3,10 +3,12 @@ using System.Runtime.InteropServices;
 
 namespace Savepoint.Core.Platform.Windows;
 
+/// <summary>Lists processes through the .NET process API and reads each image path with the limited-information right.</summary>
 public sealed class WindowsProcessInspector : IProcessInspector
 {
     private const uint _processQueryLimitedInformation = 0x1000;
 
+    /// <inheritdoc />
     public IReadOnlyList<RunningProcess> List()
     {
         var result = new List<RunningProcess>();

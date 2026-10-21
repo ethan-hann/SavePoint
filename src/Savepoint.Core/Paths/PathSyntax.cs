@@ -14,14 +14,19 @@ public sealed class PathSyntax
         Os = os;
     }
 
+    /// <summary>The OS whose rules this object applies.</summary>
     public OsKind Os { get; }
 
+    /// <summary>The folder separator the OS writes.</summary>
     public char Separator => IsWindows ? '\\' : '/';
 
+    /// <summary>How names compare: case-insensitive on Windows and macOS, case-sensitive on Linux.</summary>
     public StringComparison Comparison => Os == OsKind.Linux ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
 
     private bool IsWindows => Os == OsKind.Windows;
 
+    /// <summary>The shared rules object for <paramref name="os"/>.</summary>
+    /// <param name="os">The OS to follow.</param>
     public static PathSyntax For(OsKind os) => os switch
     {
         OsKind.Windows => _windows,
@@ -54,12 +59,22 @@ public sealed class PathSyntax
         return true;
     }
 
+    /// <summary>
+    /// The path in its one normal form: this OS's separator, no repeated separators or "." or ".." components (".." never climbs
+    /// above the root), no trailing separator, and on Windows an upper-case drive letter and the real Win32 rule for trailing dots and spaces.
+    /// </summary>
+    /// <param name="path">An absolute path in this OS's style.</param>
+    /// <exception cref="ArgumentException">The path is not absolute (see <see cref="IsAbsolute"/>).</exception>
     public string Normalize(string path)
     {
         var parsed = Split(path, collapseDots: true);
         return Join(parsed.Root, parsed.Parts);
     }
 
+    /// <summary>The normal form of <paramref name="relative"/> appended to <paramref name="basePath"/>; either may use both separators.</summary>
+    /// <param name="basePath">An absolute path in this OS's style.</param>
+    /// <param name="relative">The part to append; it may contain ".." and climbs only as far as the root.</param>
+    /// <exception cref="ArgumentException">The base path is not absolute.</exception>
     public string Combine(string basePath, string relative)
     {
         var parsed = Split(basePath, collapseDots: true);
