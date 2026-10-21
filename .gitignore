@@ -1,0 +1,20 @@
+# Build output
+bin/
+obj/
+artifacts/
+publish/
+Releases/
+*.user
+*.suo
+.vs/
+.idea/
+TestResults/
+
+# Downloaded at build time (pinned + hash-verified by build scripts)
+resources/git/
+
+# Workspace-local toolchains (e.g. the Linux .NET SDK used under WSL)
+.tools/
+
+# Headless render output for review
+render-output/
