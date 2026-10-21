@@ -5,6 +5,7 @@
     <AssemblyName>SavePoint</AssemblyName>
     <RootNamespace>Savepoint.App</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\Icon\savepoint.ico</ApplicationIcon>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
   </PropertyGroup>
@@ -16,6 +17,7 @@
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="MessageFormat" />
     <PackageReference Include="Tmds.DBus.Protocol" />
+    <PackageReference Include="Velopack" />
   </ItemGroup>
 
   <ItemGroup>
@@ -29,6 +31,13 @@
 
   <ItemGroup>
     <AvaloniaResource Include="Assets\Fonts\**" />
+    <AvaloniaResource Include="Assets\Icon\savepoint-256.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The notices and the license texts ship beside the executable, where Settings > About looks for them. -->
+    <Content Include="..\..\THIRD-PARTY-NOTICES.md" Link="THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\licenses\**" Link="licenses\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <Import Project="..\..\build\Git.targets" />

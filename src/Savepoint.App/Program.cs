@@ -2,6 +2,7 @@ using Avalonia;
 using Savepoint.App.Hosting;
 using Savepoint.App.Platform;
 using Savepoint.App.Theme.Fonts;
+using Velopack;
 
 namespace Savepoint.App;
 
@@ -9,6 +10,13 @@ internal static class Program
 {
     [STAThread]
     public static int Main(string[] args)
+    {
+        // The installer and updater start the executable with hook arguments; they must be handled, and may end the process, before the single-instance guard or any window exists.
+        VelopackApp.Build().Run();
+        return Run(args);
+    }
+
+    private static int Run(string[] args)
     {
         // One copy per user (D26): two copies working on the same history would be worse than one that cannot be brought forward.
         using var single = new SingleInstance();

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>IconGen</AssemblyName>
+    <RootNamespace>Savepoint.Tools.IconGen</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SkiaSharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The glyph's code point comes from the generated icon map, so the tool and the app cannot disagree. -->
+    <Compile Include="..\..\src\Savepoint.App\Theme\Icons.cs" Link="Icons.cs" />
+  </ItemGroup>
+
+</Project>

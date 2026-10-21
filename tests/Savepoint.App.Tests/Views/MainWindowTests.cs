@@ -30,6 +30,14 @@ public class MainWindowTests
     }
 
     [AvaloniaFact]
+    public void The_window_carries_the_app_icon()
+    {
+        var window = new MainWindow();
+
+        Assert.NotNull(window.Icon);
+    }
+
+    [AvaloniaFact]
     public void Window_has_the_default_and_minimum_sizes()
     {
         var window = new MainWindow();

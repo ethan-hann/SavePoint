@@ -15,6 +15,7 @@ SavePoint bundles the components below. Each keeps its own license. The longer l
 | MicroCom.Runtime | 0.11.6 | MIT | Copyright 2021 Nikita Tsukanov |
 | CommunityToolkit.Mvvm | 8.4.2 | MIT | Copyright .NET Foundation and Contributors |
 | MessageFormat (messageformat.net) | 8.0.0 | MIT | Copyright 2014 Jeff Hansen |
+| Velopack | 1.2.161 | MIT | Copyright Velopack Ltd. |
 | Tmds.DBus.Protocol | 0.94.1 | MIT | Copyright Tom Deseyn |
 | AsmResolver, AsmResolver.PE, AsmResolver.PE.File, AsmResolver.PE.Win32Resources | 6.0.1 | MIT | Copyright 2016-2026 Washi |
 | .NET runtime and libraries, in self-contained builds | 10.0 | MIT | Copyright .NET Foundation and Contributors |
