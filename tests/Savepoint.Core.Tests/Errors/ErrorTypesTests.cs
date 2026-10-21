@@ -144,6 +144,10 @@ public class ErrorTypesTests
             "error.capture.cancelled", ("op", CancelledOperation.Capture), ("gameId", "game-1"));
         Add("Cancelled compaction", new OperationCancelledByUserException(CancelledOperation.Compaction, null),
             "error.compaction.cancelled", ("op", CancelledOperation.Compaction), ("gameId", null));
+        Add("Compaction preempted", new CompactionPreemptedException("game-1"), "error.compaction.preempted",
+            ("gameId", "game-1"));
+        Add("Compaction preempted for every game", new CompactionPreemptedException(null), "error.compaction.preempted",
+            ("gameId", null));
         Add("Cancelled launch", new OperationCancelledByUserException(CancelledOperation.Launch, "game-1"),
             "error.launch.canceled", ("op", CancelledOperation.Launch), ("gameId", "game-1"));
         Add("Cancelled storage relocation", new OperationCancelledByUserException(CancelledOperation.StorageRelocation, null),
