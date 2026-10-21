@@ -114,21 +114,40 @@ internal static class ThemeTestSupport
             : Color.FromArgb(pixels[offset + 3], pixels[offset], pixels[offset + 1], pixels[offset + 2]);
     }
 
-    // Shows a control in a window under the real application styles, with the theme set explicitly.
-    public static Window HostInWindow(Control content, ThemePreference preference = ThemePreference.Dark, AccentColorId accent = AccentColorId.Blue, double width = 260, double height = 160)
+    // The application's theme as App.Initialize leaves it, so one test never leaks its mode, accent or motion setting into the next.
+    public static void ResetApplicationTheme()
     {
         var app = (App)Application.Current!;
         app.Theme.ReduceMotion = false;
-        app.Theme.Apply(preference, accent);
-        var window = new Window { Width = width, Height = height, Content = content };
-        window.Show();
-        Dispatcher.UIThread.RunJobs();
-        return window;
+        app.Theme.Apply(ThemePreference.System, AccentColorId.Blue);
     }
 
     public static WriteableBitmap Render(Window window)
     {
         window.Show();
         return window.CaptureRenderedFrame() ?? throw new InvalidOperationException("The window produced no frame.");
+    }
+}
+
+// Shows a control in a window under the real application styles with the theme set explicitly; disposing closes the
+// window and puts the application's theme back, even when the test fails first.
+internal sealed class ThemeHost : IDisposable
+{
+    public ThemeHost(Control content, ThemePreference preference = ThemePreference.Dark, AccentColorId accent = AccentColorId.Blue, double width = 260, double height = 160)
+    {
+        var app = (App)Application.Current!;
+        app.Theme.ReduceMotion = false;
+        app.Theme.Apply(preference, accent);
+        Window = new Window { Width = width, Height = height, Content = content };
+        Window.Show();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    public Window Window { get; }
+
+    public void Dispose()
+    {
+        Window.Close();
+        ThemeTestSupport.ResetApplicationTheme();
     }
 }

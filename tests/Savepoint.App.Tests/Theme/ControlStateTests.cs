@@ -10,11 +10,11 @@ namespace Savepoint.App.Tests.Theme;
 // State layers, selection and the switch knob, with reduce motion on so changes land immediately.
 public class ControlStateTests
 {
-    private static Window Host(Control content, double width = 260, double height = 160)
+    private static ThemeHost Host(Control content, double width = 260, double height = 160)
     {
-        var window = ThemeTestSupport.HostInWindow(content, width: width, height: height);
+        var host = new ThemeHost(content, width: width, height: height);
         ((App)Application.Current!).Theme.ReduceMotion = true;
-        return window;
+        return host;
     }
 
     private static void SetPseudo(StyledElement element, string name, bool on)
@@ -42,7 +42,8 @@ public class ControlStateTests
             button.Classes.Add(name);
         }
 
-        var window = Host(button);
+        using var host = Host(button);
+        var window = host.Window;
         var layer = Part(button, "PART_StateLayer");
         Assert.Equal(0, layer.Opacity);
 
@@ -51,19 +52,18 @@ public class ControlStateTests
         Assert.Equal(opacity, layer.Opacity);
         SetPseudo(button, pseudo, false);
         Assert.Equal(0, layer.Opacity);
-        window.Close();
     }
 
     [AvaloniaFact]
     public void Disabled_button_shows_no_state_layer_even_when_hovered()
     {
         var button = new Button { Content = "Save", Margin = new Thickness(40), IsEnabled = false };
-        var window = Host(button);
+        using var host = Host(button);
+        var window = host.Window;
 
         SetPseudo(button, ":pointerover", true);
 
         Assert.Equal(0, Part(button, "PART_StateLayer").Opacity);
-        window.Close();
     }
 
     [AvaloniaFact]
@@ -71,13 +71,13 @@ public class ControlStateTests
     {
         var button = new Button { Content = "Save", Margin = new Thickness(40) };
         button.Classes.Add("filled");
-        var window = Host(button);
+        using var host = Host(button);
+        var window = host.Window;
 
         var layer = Part(button, "PART_StateLayer");
 
         Assert.True(Application.Current!.TryGetResource("Md3OnPrimaryBrush", null, out var onPrimary));
         Assert.Same(onPrimary, layer.Background);
-        window.Close();
     }
 
     [AvaloniaFact]
@@ -85,7 +85,8 @@ public class ControlStateTests
     {
         var list = new ListBox { ItemsSource = new[] { "One", "Two" }, SelectedIndex = 0, Margin = new Thickness(20) };
         list.Classes.Add("nav");
-        var window = Host(list, 320, 200);
+        using var host = Host(list, 320, 200);
+        var window = host.Window;
         var items = list.GetVisualDescendants().OfType<ListBoxItem>().ToList();
 
         Assert.Equal(1, Part(items[0], "PART_Selected").Opacity);
@@ -96,7 +97,6 @@ public class ControlStateTests
 
         Assert.Equal(0, Part(items[0], "PART_Selected").Opacity);
         Assert.Equal(1, Part(items[1], "PART_Selected").Opacity);
-        window.Close();
     }
 
     [AvaloniaFact]
@@ -104,19 +104,20 @@ public class ControlStateTests
     {
         var list = new ListBox { ItemsSource = new[] { "One", "Two" }, SelectedIndex = 1, Margin = new Thickness(20) };
         list.Classes.Add("radio-cards");
-        var window = Host(list, 320, 200);
+        using var host = Host(list, 320, 200);
+        var window = host.Window;
         var items = list.GetVisualDescendants().OfType<ListBoxItem>().ToList();
 
         Assert.Equal(0, Part(items[0], "PART_SelectedRing").Opacity);
         Assert.Equal(1, Part(items[1], "PART_SelectedRing").Opacity);
-        window.Close();
     }
 
     [AvaloniaFact]
     public void Toggle_switch_knob_slides_to_the_far_end_when_checked()
     {
         var toggle = new ToggleSwitch { Margin = new Thickness(40) };
-        var window = Host(toggle);
+        using var host = Host(toggle);
+        var window = host.Window;
         var knob = toggle.GetVisualDescendants().OfType<Panel>().Single(p => p.Name == "PART_MovingKnobs");
         var off = Canvas.GetLeft(knob);
 
@@ -126,14 +127,14 @@ public class ControlStateTests
 
         Assert.Equal(0, off);
         Assert.Equal(20, on);
-        window.Close();
     }
 
     [AvaloniaFact]
     public void Combo_box_dropdown_lists_the_items_with_the_selected_one_marked()
     {
         var combo = new ComboBox { ItemsSource = new[] { "One", "Two", "Three" }, SelectedIndex = 1, Width = 200, Margin = new Thickness(20) };
-        var window = Host(combo);
+        using var host = Host(combo);
+        var window = host.Window;
 
         combo.IsDropDownOpen = true;
         Dispatcher.UIThread.RunJobs();
@@ -144,6 +145,5 @@ public class ControlStateTests
         Assert.Equal(3, items.Count);
         Assert.Equal(0, Part(items[0], "PART_Selected").Opacity);
         Assert.Equal(1, Part(items[1], "PART_Selected").Opacity);
-        window.Close();
     }
 }

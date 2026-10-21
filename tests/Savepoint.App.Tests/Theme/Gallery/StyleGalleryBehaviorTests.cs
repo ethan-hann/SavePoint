@@ -14,21 +14,21 @@ namespace Savepoint.App.Tests.Theme.Gallery;
 // Behavior of the styled controls, checked on the gallery.
 public class StyleGalleryBehaviorTests
 {
-    private static (Window Window, StyleGallery Gallery) Show(ThemePreference preference = ThemePreference.Dark, AccentColorId accent = AccentColorId.Blue)
+    private static (ThemeHost Host, StyleGallery Gallery) Show(ThemePreference preference = ThemePreference.Dark, AccentColorId accent = AccentColorId.Blue)
     {
         var gallery = new StyleGallery();
-        var window = ThemeTestSupport.HostInWindow(gallery, preference, accent, 1040, 1200);
-        return (window, gallery);
+        return (new ThemeHost(gallery, preference, accent, 1040, 1200), gallery);
     }
 
     [AvaloniaFact]
     public void Icon_buttons_in_the_gallery_all_have_automation_names()
     {
-        var (window, gallery) = Show();
+        var (host, gallery) = Show();
+        using var guard = host;
+        var window = host.Window;
 
         Assert.Empty(AutomationAudit.IconButtonsWithoutNames(gallery));
         Assert.Contains(gallery.GetVisualDescendants().OfType<Button>(), b => b.Classes.Contains("icon"));
-        window.Close();
     }
 
     [AvaloniaFact]
@@ -39,29 +39,32 @@ public class StyleGalleryBehaviorTests
         var named = new Button { Content = "x" };
         named.Classes.Add("icon");
         AutomationProperties.SetName(named, "Close");
-        var window = ThemeTestSupport.HostInWindow(new StackPanel { Children = { unnamed, named } });
+        using var host = new ThemeHost(new StackPanel { Children = { unnamed, named } });
+        var window = host.Window;
 
         var flagged = AutomationAudit.IconButtonsWithoutNames((Visual)window.Content!);
 
         Assert.Same(unnamed, Assert.Single(flagged));
-        window.Close();
     }
 
     [AvaloniaFact]
     public void Upper_markup_extension_renders_the_catalog_string_uppercase()
     {
-        var (window, gallery) = Show();
+        var (host, gallery) = Show();
+        using var guard = host;
+        var window = host.Window;
 
         var overline = gallery.GetVisualDescendants().OfType<TextBlock>().First(t => t.Classes.Contains("overline"));
 
         Assert.Equal("SAVEPOINT", overline.Text);
-        window.Close();
     }
 
     [AvaloniaFact]
     public void Each_kept_control_uses_the_apps_own_template()
     {
-        var (window, gallery) = Show();
+        var (host, gallery) = Show();
+        using var guard = host;
+        var window = host.Window;
 
         Assert.NotNull(gallery.OverflowButton.GetVisualDescendants().OfType<Border>().FirstOrDefault(b => b.Name == "PART_StateLayer"));
         Assert.NotNull(gallery.PlainField.GetVisualDescendants().OfType<Border>().FirstOrDefault(b => b.Name == "PART_FocusBorder"));
@@ -70,19 +73,19 @@ public class StyleGalleryBehaviorTests
         Assert.NotNull(gallery.SwitchOn.GetVisualDescendants().OfType<Border>().FirstOrDefault(b => b.Name == "SwitchKnobBounds"));
         Assert.NotNull(gallery.DeterminateBar.GetVisualDescendants().OfType<Border>().FirstOrDefault(b => b.Name == "PART_Indicator"));
         Assert.NotNull(gallery.NavList.GetVisualDescendants().OfType<Border>().FirstOrDefault(b => b.Name == "PART_Selected"));
-        window.Close();
     }
 
     [AvaloniaFact]
     public void Two_line_save_picker_shows_both_lines_in_the_selection_box()
     {
-        var (window, gallery) = Show();
+        var (host, gallery) = Show();
+        using var guard = host;
+        var window = host.Window;
 
         var texts = gallery.SavePicker.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
 
         Assert.Contains("Deep cave run - 5-30-26, 11:42 PM", texts);
         Assert.Contains("Most recent - 2 saves in this profile", texts);
-        window.Close();
     }
 
     [AvaloniaFact]
@@ -90,7 +93,8 @@ public class StyleGalleryBehaviorTests
     {
         var button = new Button { Content = "Save", Margin = new Thickness(40), HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left, Padding = new Thickness(40, 20) };
         button.Classes.Add("filled");
-        var window = ThemeTestSupport.HostInWindow(button);
+        using var host = new ThemeHost(button);
+        var window = host.Window;
         var origin = button.TranslatePoint(new Point(0, 0), window)!.Value;
         var (x, y) = ((int)origin.X + 4, (int)origin.Y + 4);
         var app = (App)Application.Current!;
@@ -101,13 +105,14 @@ public class StyleGalleryBehaviorTests
 
         Assert.Equal(Avalonia.Media.Color.Parse("#9DCBFB"), blue);
         Assert.Equal(ThemeTestSupport.ToColor(ThemeTestSupport.PaletteRoles(AccentColorId.Crimson, dark: true)["Primary"]), crimson);
-        window.Close();
     }
 
     [AvaloniaFact]
     public void Radio_cards_move_the_selection_with_the_arrow_keys()
     {
-        var (window, gallery) = Show();
+        var (host, gallery) = Show();
+        using var guard = host;
+        var window = host.Window;
         var items = gallery.RadioCards.GetVisualDescendants().OfType<ListBoxItem>().ToList();
         items[0].Focus(NavigationMethod.Tab);
         Dispatcher.UIThread.RunJobs();
@@ -120,24 +125,26 @@ public class StyleGalleryBehaviorTests
         window.KeyPressQwerty(PhysicalKey.ArrowUp, RawInputModifiers.None);
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(0, gallery.RadioCards.SelectedIndex);
-        window.Close();
     }
 
     [AvaloniaFact]
     public void Radio_cards_are_reachable_with_the_tab_key()
     {
-        var (window, gallery) = Show();
+        var (host, gallery) = Show();
+        using var guard = host;
+        var window = host.Window;
         var first = gallery.RadioCards.GetVisualDescendants().OfType<ListBoxItem>().First();
 
         Assert.True(first.Focusable);
         Assert.True(first.IsTabStop);
-        window.Close();
     }
 
     [AvaloniaFact]
     public void Segmented_toggle_moves_the_selection_with_the_side_arrows()
     {
-        var (window, gallery) = Show();
+        var (host, gallery) = Show();
+        using var guard = host;
+        var window = host.Window;
         var items = gallery.ThemeSelector.GetVisualDescendants().OfType<ListBoxItem>().ToList();
         items[1].Focus(NavigationMethod.Tab);
         Dispatcher.UIThread.RunJobs();
@@ -146,13 +153,14 @@ public class StyleGalleryBehaviorTests
         Dispatcher.UIThread.RunJobs();
 
         Assert.Equal(2, gallery.ThemeSelector.SelectedIndex);
-        window.Close();
     }
 
     [AvaloniaFact]
     public void Reduce_motion_zeroes_every_transition_on_the_gallery()
     {
-        var (window, gallery) = Show();
+        var (host, gallery) = Show();
+        using var guard = host;
+        var window = host.Window;
         var app = (App)Application.Current!;
 
         // Durations are copied out: the transition objects are shared and change in place.
@@ -170,14 +178,14 @@ public class StyleGalleryBehaviorTests
         Assert.Contains(normal, pair => pair.Duration > TimeSpan.Zero);
         var running = reduced.Where(pair => pair.Duration > TimeSpan.Zero).Select(pair => pair.Owner).Distinct().ToList();
         Assert.True(running.Count == 0, "Still animating with reduce motion on: " + string.Join(", ", running));
-        app.Theme.ReduceMotion = false;
-        window.Close();
     }
 
     [AvaloniaFact]
     public void Dialog_chrome_uses_the_dialog_tokens_and_roles()
     {
-        var (window, gallery) = Show();
+        var (host, gallery) = Show();
+        using var guard = host;
+        var window = host.Window;
         var dialog = gallery.SampleDialog;
         var app = Application.Current!;
 
@@ -186,6 +194,5 @@ public class StyleGalleryBehaviorTests
         Assert.Equal(shadow, dialog.BoxShadow);
         Assert.True(app.TryGetResource("Md3SurfaceContainerHighBrush", null, out var fill));
         Assert.Same(fill, dialog.Background);
-        window.Close();
     }
 }

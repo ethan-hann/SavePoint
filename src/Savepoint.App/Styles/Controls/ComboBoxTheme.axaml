@@ -1,5 +1,6 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:theme="using:Savepoint.App.Theme">
 
   <!--
     Outlined select. The selected value and every list row come from the view's templates
@@ -136,6 +137,7 @@
     </Style>
   </ControlTheme>
 
+  <!-- Dropdown row: hover and press state layers, a selected layer on secondaryContainer, and an inset focus ring. -->
   <ControlTheme x:Key="{x:Type ComboBoxItem}" TargetType="ComboBoxItem">
     <Setter Property="Foreground" Value="{DynamicResource Md3OnSurfaceBrush}" />
     <Setter Property="Background" Value="Transparent" />
@@ -145,32 +147,45 @@
     <Setter Property="FocusAdorner" Value="{DynamicResource Md3FocusRingNone}" />
     <Setter Property="Template">
       <ControlTemplate>
-        <Border x:Name="PART_Container"
-                Background="{TemplateBinding Background}"
-                CornerRadius="{TemplateBinding CornerRadius}">
-          <Panel>
-            <Border x:Name="PART_Selected"
-                    Background="{DynamicResource Md3SecondaryContainerBrush}"
-                    CornerRadius="{TemplateBinding CornerRadius}"
-                    Opacity="0"
-                    IsHitTestVisible="False"
-                    Transitions="{DynamicResource Md3TransitionsOpacityShort}" />
-            <Border x:Name="PART_StateLayer"
-                    Background="{TemplateBinding Foreground}"
-                    CornerRadius="{TemplateBinding CornerRadius}"
-                    Opacity="0"
-                    IsHitTestVisible="False"
-                    Transitions="{DynamicResource Md3TransitionsOpacityShort}" />
-            <ContentPresenter x:Name="PART_ContentPresenter"
-                              Content="{TemplateBinding Content}"
-                              ContentTemplate="{TemplateBinding ContentTemplate}"
-                              Padding="{TemplateBinding Padding}"
-                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
-          </Panel>
-        </Border>
+        <Panel>
+          <Border x:Name="PART_Container"
+                  Background="{TemplateBinding Background}"
+                  CornerRadius="{TemplateBinding CornerRadius}">
+            <Panel>
+              <Border x:Name="PART_Selected"
+                      Background="{DynamicResource Md3SecondaryContainerBrush}"
+                      CornerRadius="{TemplateBinding CornerRadius}"
+                      Opacity="0"
+                      IsHitTestVisible="False"
+                      Transitions="{DynamicResource Md3TransitionsOpacityShort}" />
+              <Border x:Name="PART_StateLayer"
+                      Background="{TemplateBinding Foreground}"
+                      CornerRadius="{TemplateBinding CornerRadius}"
+                      Opacity="0"
+                      IsHitTestVisible="False"
+                      Transitions="{DynamicResource Md3TransitionsOpacityShort}" />
+              <ContentPresenter x:Name="PART_ContentPresenter"
+                                Content="{TemplateBinding Content}"
+                                ContentTemplate="{TemplateBinding ContentTemplate}"
+                                Padding="{TemplateBinding Padding}"
+                                HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+            </Panel>
+          </Border>
+          <Border x:Name="PART_FocusRing"
+                  Margin="2"
+                  BorderBrush="{DynamicResource Md3PrimaryBrush}"
+                  BorderThickness="2"
+                  CornerRadius="{TemplateBinding CornerRadius, Converter={x:Static theme:ShapeConverters.InflateCornerRadius}, ConverterParameter=-2}"
+                  IsVisible="False"
+                  IsHitTestVisible="False" />
+        </Panel>
       </ControlTemplate>
     </Setter>
+
+    <Style Selector="^:focus-visible /template/ Border#PART_FocusRing">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
 
     <Style Selector="^:pointerover /template/ Border#PART_StateLayer">
       <Setter Property="Opacity" Value="{DynamicResource Md3OpacityHover}" />

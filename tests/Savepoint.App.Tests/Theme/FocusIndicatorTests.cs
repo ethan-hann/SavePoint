@@ -15,8 +15,8 @@ public class FocusIndicatorTests
     private static Border Ring(Visual control) =>
         control.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_FocusRing");
 
-    private static Window Host(Control content, double width = 260, double height = 160) =>
-        ThemeTestSupport.HostInWindow(content, width: width, height: height);
+    private static ThemeHost Host(Control content, double width = 260, double height = 160) =>
+        new(content, width: width, height: height);
 
     private static void Focus(InputElement control, NavigationMethod method)
     {
@@ -41,7 +41,8 @@ public class FocusIndicatorTests
             button.Classes.Add(name);
         }
 
-        var window = Host(button);
+        using var host = Host(button);
+        var window = host.Window;
         Focus(button, NavigationMethod.Tab);
 
         var frame = ThemeTestSupport.Render(window);
@@ -54,19 +55,18 @@ public class FocusIndicatorTests
         // The gap between the ring and the control shows the background.
         Assert.Equal(Color.Parse("#101418"), ThemeTestSupport.PixelAt(frame, x, y - 2));
         Assert.Equal(Color.Parse("#101418"), ThemeTestSupport.PixelAt(frame, x, y - 6));
-        window.Close();
     }
 
     [AvaloniaFact]
     public void Button_shows_no_ring_for_pointer_focus()
     {
         var button = new Button { Content = "Save", Margin = new Thickness(40) };
-        var window = Host(button);
+        using var host = Host(button);
+        var window = host.Window;
 
         Focus(button, NavigationMethod.Pointer);
 
         Assert.False(Ring(button).IsVisible);
-        window.Close();
     }
 
     [AvaloniaFact]
@@ -74,36 +74,36 @@ public class FocusIndicatorTests
     {
         var chip = new ToggleButton { Content = "Profiles", Margin = new Thickness(40) };
         chip.Classes.Add("chip");
-        var window = Host(chip);
+        using var host = Host(chip);
+        var window = host.Window;
 
         Focus(chip, NavigationMethod.Tab);
 
         Assert.True(Ring(chip).IsVisible);
-        window.Close();
     }
 
     [AvaloniaFact]
     public void Check_box_shows_the_ring_on_keyboard_focus()
     {
         var box = new CheckBox { Content = "Remember", Margin = new Thickness(40) };
-        var window = Host(box);
+        using var host = Host(box);
+        var window = host.Window;
 
         Focus(box, NavigationMethod.Tab);
 
         Assert.True(Ring(box).IsVisible);
-        window.Close();
     }
 
     [AvaloniaFact]
     public void Toggle_switch_shows_the_ring_on_keyboard_focus()
     {
         var toggle = new ToggleSwitch { Margin = new Thickness(40) };
-        var window = Host(toggle);
+        using var host = Host(toggle);
+        var window = host.Window;
 
         Focus(toggle, NavigationMethod.Tab);
 
         Assert.True(Ring(toggle).IsVisible);
-        window.Close();
     }
 
     [AvaloniaTheory]
@@ -116,13 +116,13 @@ public class FocusIndicatorTests
     {
         var list = new ListBox { Margin = new Thickness(20), ItemsSource = new[] { "One", "Two" }, SelectedIndex = 0 };
         list.Classes.Add(variant);
-        var window = Host(list, 320, 240);
+        using var host = Host(list, 320, 240);
+        var window = host.Window;
         var item = list.GetVisualDescendants().OfType<ListBoxItem>().First();
 
         Focus(item, NavigationMethod.Tab);
 
         Assert.True(Ring(item).IsVisible);
-        window.Close();
     }
 
     [AvaloniaTheory]
@@ -136,26 +136,46 @@ public class FocusIndicatorTests
             box.Classes.Add(name);
         }
 
-        var window = Host(box);
+        using var host = Host(box);
+        var window = host.Window;
 
         Focus(box, NavigationMethod.Tab);
 
         var outline = box.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_FocusBorder");
         Assert.True(outline.IsVisible);
-        window.Close();
     }
 
     [AvaloniaFact]
     public void Combo_box_shows_a_primary_outline_while_focused()
     {
         var combo = new ComboBox { ItemsSource = new[] { "One", "Two" }, SelectedIndex = 0, Margin = new Thickness(40), Width = 160 };
-        var window = Host(combo);
+        using var host = Host(combo);
+        var window = host.Window;
 
         Focus(combo, NavigationMethod.Tab);
 
         var outline = combo.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_FocusBorder");
         Assert.True(outline.IsVisible);
-        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void Dropdown_rows_show_the_ring_when_keyboard_focus_reaches_them()
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "One", "Two" }, SelectedIndex = 0, Margin = new Thickness(40), Width = 160 };
+        using var host = Host(combo);
+        combo.IsDropDownOpen = true;
+        Dispatcher.UIThread.RunJobs();
+        var popup = combo.GetVisualDescendants().OfType<Popup>().Single();
+        // The selected row already holds focus when the list opens; moving to another row is what the arrow keys do.
+        var item = Assert.IsAssignableFrom<Visual>(popup.Child).GetVisualDescendants().OfType<ComboBoxItem>().Last();
+
+        var focused = item.Focus(NavigationMethod.Tab);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.True(focused, "The dropdown row refused keyboard focus.");
+        Assert.True(item.IsFocused);
+        Assert.Contains(":focus-visible", string.Join(",", item.Classes));
+        Assert.True(Ring(item).IsVisible);
     }
 
     // Controls the app does not theme itself fall back to the default adorner, which has to be installed.
@@ -163,12 +183,12 @@ public class FocusIndicatorTests
     public void Adorner_layer_default_is_the_fallback_focus_template()
     {
         var button = new Button();
-        var window = Host(button);
+        using var host = Host(button);
+        var window = host.Window;
 
         var layer = AdornerLayer.GetAdornerLayer(button);
 
         Assert.NotNull(layer);
         Assert.NotNull(layer.DefaultFocusAdorner);
-        window.Close();
     }
 }

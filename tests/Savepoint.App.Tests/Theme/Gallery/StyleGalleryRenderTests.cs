@@ -48,13 +48,8 @@ public class StyleGalleryRenderTests
 
     internal static string RenderGallery(ThemePreference preference, AccentColorId accent, string fileName, bool focusRing, Action<StyleGallery>? configure = null)
     {
-        var app = (App)Application.Current!;
-        app.Theme.ReduceMotion = false;
-        app.Theme.Apply(preference, accent);
         var gallery = new StyleGallery();
-        var window = new Window { Width = 1040, Height = 1200, Content = gallery };
-        window.Show();
-        Dispatcher.UIThread.RunJobs();
+        using var host = new ThemeHost(gallery, preference, accent, 1040, 1200);
         configure?.Invoke(gallery);
         if (focusRing)
         {
@@ -62,12 +57,10 @@ public class StyleGalleryRenderTests
         }
 
         Dispatcher.UIThread.RunJobs();
-        var frame = window.CaptureRenderedFrame() ?? throw new InvalidOperationException("No frame was rendered.");
+        var frame = host.Window.CaptureRenderedFrame() ?? throw new InvalidOperationException("No frame was rendered.");
         Directory.CreateDirectory(OutputFolder);
         var path = Path.Combine(OutputFolder, fileName + ".png");
         frame.Save(path, new PngBitmapEncoderOptions());
-        window.Close();
-        app.Theme.ReduceMotion = false;
         return path;
     }
 
