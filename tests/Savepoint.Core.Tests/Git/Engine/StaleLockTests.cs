@@ -64,7 +64,7 @@ public sealed class StaleLockTests : IDisposable
         var removedDuringCapture = -1;
         _ws.OnInvoke = invocation =>
         {
-            if (invocation.Arguments[0] == "add")
+            if (invocation.Arguments.Contains("add"))
             {
                 File.WriteAllText(lockFile, string.Empty);
                 removedDuringCapture = _ws.Engine.RemoveStaleLocks(repo.GitDir);

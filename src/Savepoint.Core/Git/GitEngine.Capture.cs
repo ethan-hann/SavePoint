@@ -90,7 +90,7 @@ public sealed partial class GitEngine
             throw new AmendNotAvailableException();
         }
 
-        await StageAsync(repo, hasCommits: true, progress, ct).ConfigureAwait(false);
+        await StageAsync(repo, progress, ct).ConfigureAwait(false);
         await CommitAsync(repo, request, amend: true, ct).ConfigureAwait(false);
         return new CaptureOutcome(true, await ResolveBranchAsync(repo, request.Branch, ct).ConfigureAwait(false));
     }
@@ -118,7 +118,7 @@ public sealed partial class GitEngine
             throw new GitOperationException(null, $"The branch '{request.Branch}' already exists.");
         }
 
-        await StageAsync(repo, hasCommits: true, progress, ct).ConfigureAwait(false);
+        await StageAsync(repo, progress, ct).ConfigureAwait(false);
         var changed = await IndexDiffersAsync(repo, "HEAD", ct).ConfigureAwait(false);
 
         if (existing is null)
@@ -158,7 +158,7 @@ public sealed partial class GitEngine
             throw new GitOperationException(null, $"The point the folder is on is not part of the history of '{request.Branch}'.");
         }
 
-        await StageAsync(repo, hasCommits: true, progress, ct).ConfigureAwait(false);
+        await StageAsync(repo, progress, ct).ConfigureAwait(false);
         var changed = await IndexDiffersAsync(repo, "HEAD", ct).ConfigureAwait(false);
 
         if (moves)
@@ -233,7 +233,7 @@ public sealed partial class GitEngine
             throw new GitOperationException(null, $"Cannot capture onto '{request.Branch}' while '{head.Branch}' is checked out; switch to it first.");
         }
 
-        await StageAsync(repo, hasCommits: tip is not null, progress, ct).ConfigureAwait(false);
+        await StageAsync(repo, progress, ct).ConfigureAwait(false);
         if (!await IndexDiffersAsync(repo, tip is null ? GitDirFiles.EmptyTree : "HEAD", ct).ConfigureAwait(false))
         {
             return new CaptureOutcome(false, tip);
@@ -248,22 +248,33 @@ public sealed partial class GitEngine
         return new CaptureOutcome(true, await ResolveBranchAsync(repo, request.Branch, ct).ConfigureAwait(false));
     }
 
-    // Puts the folder's current state in the index. git prints one line per file it adds or removes, which feeds the progress reports.
-    private async Task StageAsync(RepoRef repo, bool hasCommits, IProgress<FileProgress>? progress, CancellationToken ct)
+    // Puts the folder's current state in the index. The files are listed here and handed to git by name, so only SavePoint's
+    // exclude list decides what is left out. git prints one line per file it adds or removes, which feeds the progress reports.
+    private async Task StageAsync(RepoRef repo, IProgress<FileProgress>? progress, CancellationToken ct)
     {
-        if (progress is null)
+        var listing = await ListForStagingAsync(repo, ct).ConfigureAwait(false);
+
+        // An empty list would not mean "nothing": add -A with no paths takes the whole folder, excluded files included.
+        if (listing.Files.Count == 0)
         {
-            await RunWriteAsync(() => Invocation(repo, readOnly: false, "add", "-A"), ct).ConfigureAwait(false);
             return;
         }
 
-        var reporter = new ProgressReporter(progress);
-        reporter.SetTotal(await CountCandidatesAsync(repo, hasCommits, ct).ConfigureAwait(false));
+        var reporter = progress is null ? null : new ProgressReporter(progress);
+        reporter?.SetTotal(listing.Files.Count);
+        var names = string.Concat(listing.Files.Select(file => file + '\0'));
         await RunWriteAsync(
-            () => Invocation(repo, readOnly: false, "add", "-A", "--verbose") with { OnStdoutLine = line => ObserveAddLine(reporter, line) },
+            () => Invocation(repo, readOnly: false, StageArguments(verbose: reporter is not null))
+                with { Stdin = names, OnStdoutLine = reporter is null ? null : line => ObserveAddLine(reporter, line) },
             ct).ConfigureAwait(false);
-        reporter.Complete();
+        reporter?.Complete();
     }
+
+    // Names are literal (a file called [a].txt is not a pattern) and -f is safe because the list was made with the exclude list applied.
+    private static string[] StageArguments(bool verbose) =>
+        verbose
+            ? ["--literal-pathspecs", "add", "-A", "-f", "--verbose", "--pathspec-from-file=-", "--pathspec-file-nul"]
+            : ["--literal-pathspecs", "add", "-A", "-f", "--pathspec-from-file=-", "--pathspec-file-nul"];
 
     private static void ObserveAddLine(ProgressReporter reporter, string line)
     {
@@ -288,32 +299,6 @@ public sealed partial class GitEngine
 
         path = string.Empty;
         return false;
-    }
-
-    // The files a capture is about to record: what differs from the last point, plus what is new and not ignored.
-    private async Task<int?> CountCandidatesAsync(RepoRef repo, bool hasCommits, CancellationToken ct)
-    {
-        try
-        {
-            var untracked = RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z", "--others", "--exclude-standard"), ct);
-            var changed = hasCommits
-                ? RunAsync(Invocation(repo, readOnly: true, "diff", "--name-only", "-z", "--no-renames", "HEAD", "--"), ct)
-                : null;
-
-            var names = new HashSet<string>(StringComparer.Ordinal);
-            names.UnionWith((await untracked.ConfigureAwait(false)).SplitStandardOutputOnNul());
-            if (changed is not null)
-            {
-                names.UnionWith((await changed.ConfigureAwait(false)).SplitStandardOutputOnNul());
-            }
-
-            return names.Count;
-        }
-        catch (GitOperationException)
-        {
-            // The count only decorates the progress bar.
-            return null;
-        }
     }
 
     // True when the index differs from the tree; used to tell "nothing changed" before a commit is attempted.

@@ -133,15 +133,24 @@ public sealed partial class GitEngine
         await RemoveNewFilesAsync(repo, ct).ConfigureAwait(false);
     }
 
-    // Removes new files that are not ignored; a file still in use is retried and then named.
+    // Removes new files that SavePoint's exclude list does not name; a file still in use is retried and then named. The list
+    // is passed as -e patterns with -x, so an ignore file inside the game folder protects nothing.
     private async Task RemoveNewFilesAsync(RepoRef repo, CancellationToken ct)
     {
-        await RunRawAsync(Invocation(repo, readOnly: false, "clean", "-f", "-d", "--quiet") with { AllowedExitCodes = _anyExitCode }, ct).ConfigureAwait(false);
+        List<string> clean = ["clean", "-f", "-d", "-x", "--quiet"];
+        foreach (var pattern in ExcludePatterns(repo))
+        {
+            clean.Add("-e");
+            clean.Add(pattern);
+        }
+
+        await RunRawAsync(Invocation(repo, readOnly: false, [.. clean]) with { AllowedExitCodes = _anyExitCode }, ct).ConfigureAwait(false);
         for (var pass = 0; ; pass++)
         {
             ct.ThrowIfCancellationRequested();
-            var left = (await RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z", "--others", "--exclude-standard"), ct).ConfigureAwait(false))
-                .SplitStandardOutputOnNul();
+
+            // A folder that is a repository of its own stays; clean never removes one.
+            var left = (await ListNewAsync(repo, ct).ConfigureAwait(false)).Files;
             if (left.Count == 0)
             {
                 return;

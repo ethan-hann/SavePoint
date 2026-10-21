@@ -19,9 +19,9 @@ public sealed partial class GitEngine
         repo = PreparePreview(repo, ignorePatterns, ct);
 
         var listing = await RunAsync(
-            Invocation(repo, readOnly: true, "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--deduplicate"),
+            Invocation(repo, readOnly: true, "ls-files", "-z", "--cached", "--others", ExcludeFromArgument(repo), "--deduplicate"),
             ct).ConfigureAwait(false);
-        var paths = listing.SplitStandardOutputOnNul();
+        var paths = WorkTreeListing.From(listing.SplitStandardOutputOnNul()).Files;
 
         // Each size is a file-system call; a tree of tens of thousands of files is measured in parallel.
         var sizes = new long[paths.Count];
@@ -209,11 +209,11 @@ public sealed partial class GitEngine
     private async Task<HashSet<string>> FilesGitCannotVouchForAsync(RepoRef repo, CancellationToken ct)
     {
         var changed = RunAsync(Invocation(repo, readOnly: true, "diff", "--name-only", "-z", "--no-renames", "HEAD", "--"), ct);
-        var untracked = RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z", "--others", "--exclude-standard"), ct);
+        var untracked = ListNewAsync(repo, ct);
 
         var names = new HashSet<string>(StringComparer.Ordinal);
         names.UnionWith((await changed.ConfigureAwait(false)).SplitStandardOutputOnNul());
-        names.UnionWith((await untracked.ConfigureAwait(false)).SplitStandardOutputOnNul());
+        names.UnionWith((await untracked.ConfigureAwait(false)).Files);
         return names;
     }
 

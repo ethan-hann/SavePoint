@@ -23,10 +23,22 @@ public sealed partial class GitEngine
         CheckWorkTree(repo);
         RepoMarker.Verify(repo);
 
-        var result = await RunAsync(
-            Invocation(repo, readOnly: true, "status", "--porcelain=v2", "-z", "--branch", "--untracked-files=all", "--no-renames"),
-            ct).ConfigureAwait(false);
-        return PorcelainStatus.Parse(result.SplitStandardOutputOnNul()) with { InterruptedSwitch = SwitchJournal.Read(repo.GitDir) };
+        // HEAD is read from its file, and the changes come from the same listing a capture uses, so what shows as unsaved is exactly what a capture would record.
+        var head = GitDirFiles.ReadHead(repo.GitDir);
+        var commit = head.IsDetached ? head.DetachedCommit : await ResolveBranchAsync(repo, head.Branch!, ct).ConfigureAwait(false);
+        var untracked = ListNewAsync(repo, ct);
+        var changed = ListChangedAsync(repo, hasCommits: commit is not null, ct);
+
+        IReadOnlyList<string> changedPaths = await changed.ConfigureAwait(false);
+        IReadOnlyList<string> untrackedPaths = (await untracked.ConfigureAwait(false)).Files;
+        return new RepoStatus(
+            changedPaths.Count == 0 && untrackedPaths.Count == 0,
+            head.Branch,
+            head.IsDetached,
+            commit,
+            changedPaths,
+            untrackedPaths,
+            SwitchJournal.Read(repo.GitDir));
     }
 
     /// <summary>
