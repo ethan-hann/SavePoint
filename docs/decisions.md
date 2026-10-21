@@ -238,6 +238,10 @@ The independent review (`.tools/reviews/backend-launch.md`, findings BL-001 to B
 
 The remaining findings (BL-009, BL-010, BL-011, BL-014 to BL-023, BL-025, BL-027, BL-028, BL-030 to BL-032) are fixed as the review recommends. D18's stale-lock rule is restated to match the code: the startup sweep removes every lock once, before any git work, since each one it finds predates the process (BL-029). `UnavailableLaunchApi` and its shipped copy move to the test project, since every shipped build has the orchestrator (YAGNI-001).
 
+## D32. Builds send no telemetry
+
+Avalonia's packages bring in `Avalonia.BuildServices`, whose `AvaloniaStats` task sends anonymous build telemetry (machine id, hashed project and machine names, OS, tooling) from every compile, unless `AVALONIA_TELEMETRY_OPTOUT=1` is set. SavePoint is a local-first app, and its builds run on the owner's machine, often by the hundred during development. `Directory.Build.targets` therefore defines an empty `AvaloniaStats` target, which replaces the package's, so no build of SavePoint sends anything whatever the environment holds. The shipped app was never affected; the package says its telemetry is build-time only. The .NET CLI's own telemetry is turned off by `DOTNET_CLI_TELEMETRY_OPTOUT=1`, which the gate scripts and the test runner script set.
+
 ## D8. "Clear all data" is a v2 requirement
 
 The v1 README lists "add a clear all data button" as an open TODO. v2 ships it in Settings behind a typed confirmation. It removes SavePoint's own storage, catalog, and consent markers, and never deletes or rolls back files in a game's install or save folders: whatever is on disk at that moment stays as it is.

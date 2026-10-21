@@ -36,6 +36,10 @@ The bundle is pinned by URL and SHA-256 in `build/git-manifest.json` and checked
 
 To use a bundle from another place, set `SAVEPOINT_GIT_ROOT` to its folder. Pick another runtime's bundle with `-p:GitRuntimeId=linux-arm64`.
 
+### No build telemetry
+
+`Directory.Build.targets` replaces the `AvaloniaStats` target of `Avalonia.BuildServices` with an empty one, so builds send nothing (D32). The gate scripts also set `DOTNET_CLI_TELEMETRY_OPTOUT=1` for the .NET CLI. Set it in your own shell too if you build by hand.
+
 ## Repository layout
 
 | Path | What lives there |
