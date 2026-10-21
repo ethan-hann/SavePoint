@@ -1,0 +1,13 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:Savepoint.App.Localization"
+             x:Class="Savepoint.App.Tests.Localization.LocHostView">
+  <StackPanel>
+    <TextBlock x:Name="NameText" Text="{loc:Loc app.name}" />
+    <TextBlock x:Name="NamedKeyText" Text="{loc:Loc Key=app.placeholder.heading}" />
+    <Button x:Name="NameButton"
+            Content="{loc:Loc app.name}"
+            ToolTip.Tip="{loc:Loc app.name}"
+            AutomationProperties.Name="{loc:Loc app.name}" />
+  </StackPanel>
+</UserControl>
