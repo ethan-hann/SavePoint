@@ -23,8 +23,9 @@ internal static class SourceLint
 
     private static readonly Regex _wholeKey = new(@"^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z0-9]+)+$", RegexOptions.CultureInvariant);
 
+    // An Upper wrapper only counts when it wraps another markup extension, so {theme:Upper Hello} is still hardcoded text.
     private static readonly Regex _allowedMarkup = new(
-        @"^\{\s*(?:Binding|CompiledBinding|ReflectionBinding|TemplateBinding|x:Static|(?:[A-Za-z_]\w*:)?Loc(?:Extension)?)(?=[\s}])",
+        @"^\{\s*(?:Binding|CompiledBinding|ReflectionBinding|TemplateBinding|x:Static|(?:[A-Za-z_]\w*:)?Loc(?:Extension)?)(?=[\s}])|^\{\s*(?:[A-Za-z_]\w*:)?Upper(?:Extension)?\s+\{",
         RegexOptions.CultureInvariant);
 
     private static readonly HashSet<string> _textProperties =

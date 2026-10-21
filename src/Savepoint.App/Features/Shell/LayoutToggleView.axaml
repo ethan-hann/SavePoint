@@ -1,0 +1,27 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:shell="using:Savepoint.App.Features.Shell"
+             x:Class="Savepoint.App.Features.Shell.LayoutToggleView"
+             x:DataType="shell:LayoutToggleViewModel">
+  <!-- The Sidebar / Library toggle: DataContext is a LayoutToggleViewModel (IShellContext.LayoutToggle). -->
+  <ListBox x:Name="Toggle"
+           Classes="segmented-tray"
+           ItemsSource="{Binding Options}"
+           SelectedItem="{Binding Selected, Mode=TwoWay}"
+           AutomationProperties.Name="{Binding AutomationName}">
+    <ListBox.Styles>
+      <Style Selector="ListBoxItem" x:DataType="shell:LayoutOption">
+        <Setter Property="AutomationProperties.Name" Value="{Binding Label}" />
+        <Setter Property="Padding" Value="12,7" />
+      </Style>
+    </ListBox.Styles>
+    <ListBox.ItemTemplate>
+      <DataTemplate x:DataType="shell:LayoutOption">
+        <StackPanel Orientation="Horizontal" Spacing="7">
+          <TextBlock Classes="icon s16" Text="{Binding Icon}" />
+          <TextBlock VerticalAlignment="Center" Text="{Binding Label}" />
+        </StackPanel>
+      </DataTemplate>
+    </ListBox.ItemTemplate>
+  </ListBox>
+</UserControl>

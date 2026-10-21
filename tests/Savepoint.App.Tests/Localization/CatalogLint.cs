@@ -56,7 +56,38 @@ internal static class CatalogLint
     }
 
     public static IReadOnlyDictionary<string, string> English() =>
-        ParseCatalog(File.ReadAllText(Path.Combine(SourceLint.LangDirectory(), "en.json")));
+        ReadLocale(Path.Combine(SourceLint.LangDirectory(), "en"));
+
+    // Every file of one locale folder merged into one catalog; a key in two files or a file that is not a JSON object of strings is an error.
+    public static IReadOnlyDictionary<string, string> ReadLocale(string localeDirectory)
+    {
+        var problems = new List<string>();
+        var messages = ReadLocale(localeDirectory, problems);
+        if (problems.Count > 0)
+        {
+            throw new InvalidDataException(string.Join(Environment.NewLine, problems));
+        }
+
+        return messages;
+    }
+
+    // Problems with the layout of the Lang folder itself: stray files, unreadable files and keys defined twice, in every locale folder.
+    public static IReadOnlyList<string> LayoutProblems(string langDirectory)
+    {
+        var problems = new List<string>();
+
+        foreach (var stray in Directory.EnumerateFiles(langDirectory, "*", SearchOption.TopDirectoryOnly).Order(StringComparer.Ordinal))
+        {
+            problems.Add($"{Path.GetFileName(stray)} sits outside a locale folder; messages live in Lang/<locale>/<area>.json");
+        }
+
+        foreach (var directory in LocaleDirectories(langDirectory))
+        {
+            ReadLocale(directory, problems);
+        }
+
+        return problems;
+    }
 
     public static IReadOnlyList<string> BannedVocabulary(IReadOnlyDictionary<string, string> catalog) =>
         catalog.OrderBy(entry => entry.Key, StringComparer.Ordinal)
@@ -99,25 +130,22 @@ internal static class CatalogLint
 
     public static IReadOnlyList<string> AdditionalLocaleProblems(string langDirectory)
     {
-        var english = ParseCatalog(File.ReadAllText(Path.Combine(langDirectory, "en.json")));
+        var english = ReadLocale(Path.Combine(langDirectory, "en"));
         var problems = new List<string>();
 
-        foreach (var file in Directory.EnumerateFiles(langDirectory, "*.json").Order(StringComparer.Ordinal))
+        foreach (var directory in LocaleDirectories(langDirectory))
         {
-            var locale = Path.GetFileNameWithoutExtension(file);
+            var locale = Path.GetFileName(directory);
             if (locale.Equals("en", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
 
-            IReadOnlyDictionary<string, string> other;
-            try
+            var fileProblems = new List<string>();
+            var other = ReadLocale(directory, fileProblems);
+            if (fileProblems.Count > 0)
             {
-                other = ParseCatalog(File.ReadAllText(file));
-            }
-            catch (JsonException error)
-            {
-                problems.Add($"{locale}: {Path.GetFileName(file)} is not a JSON object of strings: {error.Message}");
+                problems.AddRange(fileProblems.Select(problem => $"{locale}: {problem}"));
                 continue;
             }
 
@@ -126,6 +154,45 @@ internal static class CatalogLint
         }
 
         return problems;
+    }
+
+    private static IEnumerable<string> LocaleDirectories(string langDirectory) =>
+        Directory.EnumerateDirectories(langDirectory).Order(StringComparer.Ordinal);
+
+    private static Dictionary<string, string> ReadLocale(string localeDirectory, List<string> problems)
+    {
+        var messages = new Dictionary<string, string>(StringComparer.Ordinal);
+        var owners = new Dictionary<string, string>(StringComparer.Ordinal);
+        var locale = Path.GetFileName(localeDirectory);
+
+        foreach (var file in Directory.EnumerateFiles(localeDirectory, "*.json", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
+        {
+            var name = $"{locale}/{Path.GetRelativePath(localeDirectory, file).Replace('\\', '/')}";
+            IReadOnlyDictionary<string, string> parsed;
+            try
+            {
+                parsed = ParseCatalog(File.ReadAllText(file));
+            }
+            catch (JsonException error)
+            {
+                problems.Add($"{name} is not a JSON object of strings: {error.Message}");
+                continue;
+            }
+
+            foreach (var (key, message) in parsed)
+            {
+                if (owners.TryGetValue(key, out var first))
+                {
+                    problems.Add($"'{key}' is defined in both {first} and {name}");
+                    continue;
+                }
+
+                owners[key] = name;
+                messages[key] = message;
+            }
+        }
+
+        return messages;
     }
 
     private static List<string> LocaleParity(

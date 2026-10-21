@@ -1,0 +1,28 @@
+using System.ComponentModel;
+
+namespace Savepoint.App.Features.Common.Dialogs;
+
+/// <summary>
+/// What the dialog host needs from any dialog it shows. Implement it by deriving from <see cref="DialogViewModel{TResult}"/>;
+/// the view is found by the naming convention in <see cref="ViewLocator"/> (<c>FooDialogViewModel</c> to <c>FooDialogView</c>).
+/// </summary>
+public interface IDialogViewModel : INotifyPropertyChanged
+{
+    /// <summary>The dialog's accessible name, already localized.</summary>
+    string Title { get; }
+
+    /// <summary>Whether Escape and a click on the scrim close the dialog. False while it is busy, or when the user must choose.</summary>
+    bool CanDismiss { get; }
+
+    /// <summary>Width of the dialog chrome in device-independent pixels.</summary>
+    double DialogWidth { get; }
+
+    /// <summary>True once <see cref="Closed"/> has been raised.</summary>
+    bool IsClosed { get; }
+
+    /// <summary>Closes the dialog with its dismiss result when <see cref="CanDismiss"/> allows it; the host calls this for Escape and the scrim.</summary>
+    void RequestDismiss();
+
+    /// <summary>Raised once, when the dialog is closed by any route; the host removes it from the stack then.</summary>
+    event EventHandler? Closed;
+}

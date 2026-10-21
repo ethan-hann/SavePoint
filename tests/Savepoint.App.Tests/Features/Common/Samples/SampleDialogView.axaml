@@ -1,0 +1,13 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:samples="using:Savepoint.App.Tests.Features.Common.Samples"
+             x:Class="Savepoint.App.Tests.Features.Common.Samples.SampleDialogView"
+             x:DataType="samples:SampleDialogViewModel">
+  <!-- Test-only dialog content: a field and two buttons, so focus movement has somewhere to go. -->
+  <StackPanel Spacing="8">
+    <TextBlock Classes="dialog-title" Text="{Binding Title}" />
+    <TextBox x:Name="Field" Text="sample" />
+    <Button x:Name="First" Content="First" Command="{Binding AnswerFirstCommand}" />
+    <Button x:Name="Second" Content="Second" Command="{Binding AnswerSecondCommand}" />
+  </StackPanel>
+</UserControl>

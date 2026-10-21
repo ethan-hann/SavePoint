@@ -13,7 +13,74 @@ public class LocalizationCatalogTests
         var catalog = LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true);
 
         Assert.Equal("SavePoint", catalog.Format("app.name"));
-        Assert.Equal("Keep the setup that works", catalog.Format("app.placeholder.heading"));
+        Assert.Equal("Keep the setup that works", catalog.Format("firstRun.title"));
+    }
+
+    [Fact]
+    public void Embedded_catalog_merges_every_file_of_the_locale()
+    {
+        var catalog = LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true);
+
+        Assert.Equal("SavePoint", catalog.Format("app.name"));
+        Assert.Equal("Something went wrong. Try again.", catalog.Format("error.unknown"));
+        Assert.Equal("Give the game a name.", catalog.Format("validation.game.nameRequired"));
+        Assert.Equal("Keep the setup that works", catalog.Format("firstRun.title"));
+    }
+
+    [Fact]
+    public void Embedded_locales_list_the_locale_folders()
+    {
+        Assert.Contains("en", LocalizationCatalog.EmbeddedLocales());
+    }
+
+    [Fact]
+    public void Embedded_english_holds_exactly_the_keys_of_the_files_on_disk()
+    {
+        var onDisk = CatalogLint.English().Keys.Order(StringComparer.Ordinal).ToList();
+        var embedded = LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true).Keys.Order(StringComparer.Ordinal).ToList();
+
+        Assert.Equal(onDisk, embedded);
+    }
+
+    [Fact]
+    public void Files_of_one_locale_are_merged()
+    {
+        var catalog = LocalizationCatalog.FromFiles(
+            [("a.json", """{ "a.one": "One" }"""), ("b.json", """{ "b.two": "Two" }""")],
+            "en",
+            throwOnMissingKey: true);
+
+        Assert.Equal("One", catalog.Format("a.one"));
+        Assert.Equal("Two", catalog.Format("b.two"));
+    }
+
+    [Fact]
+    public void A_key_in_two_files_is_an_error_naming_the_key_and_both_files()
+    {
+        var error = Assert.Throws<InvalidDataException>(() => LocalizationCatalog.FromFiles(
+            [("a.json", """{ "x.same": "One" }"""), ("b.json", """{ "x.same": "Two" }""")],
+            "en"));
+
+        Assert.Contains("x.same", error.Message);
+        Assert.Contains("a.json", error.Message);
+        Assert.Contains("b.json", error.Message);
+    }
+
+    [Fact]
+    public void A_file_that_is_not_a_json_object_of_strings_is_an_error_naming_the_file()
+    {
+        var error = Assert.ThrowsAny<Exception>(() => LocalizationCatalog.FromFiles([("broken.json", "[1, 2]")], "en"));
+
+        Assert.Contains("broken.json", error.Message);
+    }
+
+    [Fact]
+    public void Locales_can_carry_a_region()
+    {
+        var catalog = LocalizationCatalog.FromFiles([("a.json", """{ "a.one": "One" }""")], "en-GB", throwOnMissingKey: true);
+
+        Assert.Equal("en-GB", catalog.Locale);
+        Assert.Equal("One", catalog.Format("a.one"));
     }
 
     [Theory]

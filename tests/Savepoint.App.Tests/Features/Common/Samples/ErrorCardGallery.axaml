@@ -1,0 +1,17 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:errors="using:Savepoint.App.Features.Common.Errors"
+             xmlns:samples="using:Savepoint.App.Tests.Features.Common.Samples"
+             x:Class="Savepoint.App.Tests.Features.Common.Samples.ErrorCardGallery"
+             x:DataType="samples:ErrorCardGalleryViewModel"
+             Width="1040"
+             Height="660">
+  <!-- Test-only: the four error states of mockup 2l in a 2x2 grid, with sample copy that is not catalog text. -->
+  <Grid Background="{DynamicResource Md3SurfaceBrush}" RowDefinitions="Auto,*,*" ColumnDefinitions="*,*" Margin="0,0,0,27">
+    <TextBlock Grid.ColumnSpan="2" Classes="overline" Margin="27,22,0,12" Text="ERROR STATES" />
+    <ContentControl Grid.Row="1" Grid.Column="0" Margin="27,0,6,6" Content="{Binding FileInUse}" />
+    <ContentControl Grid.Row="1" Grid.Column="1" Margin="6,0,27,6" Content="{Binding TooBroad}" />
+    <ContentControl Grid.Row="2" Grid.Column="0" Margin="27,6,6,0" Content="{Binding HalfSaved}" />
+    <ContentControl Grid.Row="2" Grid.Column="1" Margin="6,6,27,0" Content="{Binding FolderGone}" />
+  </Grid>
+</UserControl>

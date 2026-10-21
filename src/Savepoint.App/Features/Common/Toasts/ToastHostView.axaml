@@ -1,0 +1,54 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:Savepoint.App.Localization"
+             xmlns:theme="using:Savepoint.App.Theme"
+             xmlns:toasts="using:Savepoint.App.Features.Common.Toasts"
+             xmlns:a11y="using:Savepoint.App.Features.Common.Accessibility"
+             x:Class="Savepoint.App.Features.Common.Toasts.ToastHostView"
+             x:DataType="toasts:ToastHostViewModel">
+  <!-- Transient messages. The hidden region below is what assistive technology hears when a toast arrives. -->
+  <StackPanel>
+    <a11y:AnnouncementRegion x:Name="Announcer" Message="{Binding Announcement}" />
+    <ItemsControl x:Name="ToastList" ItemsSource="{Binding Toasts}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <StackPanel Spacing="8" />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="toasts:ToastViewModel">
+          <Border Classes="panel"
+                  Background="{DynamicResource Md3SurfaceContainerHighestBrush}"
+                  Padding="14,10,8,10"
+                  MinWidth="280"
+                  MaxWidth="440">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+              <TextBlock Classes="icon s18"
+                         Classes.success="{Binding IsSuccess}"
+                         Classes.warning="{Binding IsWarning}"
+                         Classes.error="{Binding IsError}"
+                         VerticalAlignment="Top"
+                         Margin="0,1,12,0"
+                         Text="{Binding Icon}" />
+              <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                <TextBlock Classes="body" FontWeight="Medium" TextWrapping="Wrap" Text="{Binding Text}" />
+                <TextBlock Classes="caption" TextWrapping="Wrap" IsVisible="{Binding HasDetails}" Text="{Binding Details}" />
+              </StackPanel>
+              <Button Grid.Column="2"
+                      Classes="icon"
+                      Margin="8,0,0,0"
+                      VerticalAlignment="Top"
+                      MinWidth="28"
+                      MinHeight="28"
+                      FontSize="16"
+                      Content="{x:Static theme:Icons.Close}"
+                      Command="{Binding DismissCommand}"
+                      AutomationProperties.Name="{loc:Loc common.dismiss}"
+                      ToolTip.Tip="{loc:Loc common.dismiss}" />
+            </Grid>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+  </StackPanel>
+</UserControl>

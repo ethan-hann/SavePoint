@@ -171,8 +171,8 @@ public class CatalogLintRuleTests
     public void A_locale_file_with_the_same_keys_and_arguments_has_no_problems()
     {
         using var directory = new LangDirectory(
-            ("en.json", """{ "a.hello": "Hello {name}", "a.files": "{n, plural, one {# file} other {# files}}" }"""),
-            ("de.json", """{ "a.hello": "Hallo {name}", "a.files": "{n, plural, one {# Datei} other {# Dateien}}" }"""));
+            ("en/app.json", """{ "a.hello": "Hello {name}", "a.files": "{n, plural, one {# file} other {# files}}" }"""),
+            ("de/app.json", """{ "a.hello": "Hallo {name}", "a.files": "{n, plural, one {# Datei} other {# Dateien}}" }"""));
 
         Assert.Empty(CatalogLint.AdditionalLocaleProblems(directory.Path));
     }
@@ -181,8 +181,8 @@ public class CatalogLintRuleTests
     public void A_locale_file_that_is_missing_a_key_is_reported_with_the_locale_and_the_key()
     {
         using var directory = new LangDirectory(
-            ("en.json", """{ "a.hello": "Hello", "a.bye": "Bye" }"""),
-            ("de.json", """{ "a.hello": "Hallo" }"""));
+            ("en/app.json", """{ "a.hello": "Hello", "a.bye": "Bye" }"""),
+            ("de/app.json", """{ "a.hello": "Hallo" }"""));
 
         var problem = Assert.Single(CatalogLint.AdditionalLocaleProblems(directory.Path));
 
@@ -194,8 +194,8 @@ public class CatalogLintRuleTests
     public void A_locale_file_with_an_extra_key_is_reported_with_the_locale_and_the_key()
     {
         using var directory = new LangDirectory(
-            ("en.json", """{ "a.hello": "Hello" }"""),
-            ("de.json", """{ "a.hello": "Hallo", "a.extra": "Extra" }"""));
+            ("en/app.json", """{ "a.hello": "Hello" }"""),
+            ("de/app.json", """{ "a.hello": "Hallo", "a.extra": "Extra" }"""));
 
         var problem = Assert.Single(CatalogLint.AdditionalLocaleProblems(directory.Path));
 
@@ -207,8 +207,8 @@ public class CatalogLintRuleTests
     public void A_locale_file_with_different_argument_names_is_reported_with_both_sets()
     {
         using var directory = new LangDirectory(
-            ("en.json", """{ "a.hello": "Hello {name}" }"""),
-            ("de.json", """{ "a.hello": "Hallo {nome}" }"""));
+            ("en/app.json", """{ "a.hello": "Hello {name}" }"""),
+            ("de/app.json", """{ "a.hello": "Hallo {nome}" }"""));
 
         var problem = Assert.Single(CatalogLint.AdditionalLocaleProblems(directory.Path));
 
@@ -221,8 +221,8 @@ public class CatalogLintRuleTests
     public void A_locale_file_with_a_message_that_does_not_parse_is_reported()
     {
         using var directory = new LangDirectory(
-            ("en.json", """{ "a.hello": "Hello {name}" }"""),
-            ("de.json", """{ "a.hello": "Hallo {name" }"""));
+            ("en/app.json", """{ "a.hello": "Hello {name}" }"""),
+            ("de/app.json", """{ "a.hello": "Hallo {name" }"""));
 
         var problem = Assert.Single(CatalogLint.AdditionalLocaleProblems(directory.Path));
 
@@ -231,9 +231,83 @@ public class CatalogLintRuleTests
     }
 
     [Fact]
+    public void A_locale_is_the_merge_of_every_file_in_its_folder()
+    {
+        using var directory = new LangDirectory(
+            ("en/app.json", """{ "a.hello": "Hello" }"""),
+            ("en/shell.json", """{ "b.bye": "Bye" }"""),
+            ("de/app.json", """{ "a.hello": "Hallo" }"""),
+            ("de/shell.json", """{ "b.bye": "Tschuess" }"""));
+
+        Assert.Empty(CatalogLint.AdditionalLocaleProblems(directory.Path));
+        Assert.Equal(["a.hello", "b.bye"], CatalogLint.ReadLocale(System.IO.Path.Combine(directory.Path, "en")).Keys.Order());
+    }
+
+    [Fact]
+    public void A_locale_may_split_its_files_differently_from_english()
+    {
+        using var directory = new LangDirectory(
+            ("en/app.json", """{ "a.hello": "Hello" }"""),
+            ("en/shell.json", """{ "b.bye": "Bye" }"""),
+            ("de/all.json", """{ "a.hello": "Hallo", "b.bye": "Tschuess" }"""));
+
+        Assert.Empty(CatalogLint.AdditionalLocaleProblems(directory.Path));
+    }
+
+    [Fact]
+    public void A_key_defined_in_two_files_of_one_locale_is_reported_with_both_files()
+    {
+        using var directory = new LangDirectory(
+            ("en/app.json", """{ "a.hello": "Hello" }"""),
+            ("en/shell.json", """{ "a.hello": "Hi" }"""));
+
+        var problem = Assert.Single(CatalogLint.LayoutProblems(directory.Path));
+
+        Assert.Contains("a.hello", problem);
+        Assert.Contains("en/app.json", problem);
+        Assert.Contains("en/shell.json", problem);
+    }
+
+    [Fact]
+    public void A_duplicate_in_an_additional_locale_is_reported_with_the_locale()
+    {
+        using var directory = new LangDirectory(
+            ("en/app.json", """{ "a.hello": "Hello" }"""),
+            ("de/app.json", """{ "a.hello": "Hallo" }"""),
+            ("de/shell.json", """{ "a.hello": "Hallo" }"""));
+
+        var problem = Assert.Single(CatalogLint.AdditionalLocaleProblems(directory.Path));
+
+        Assert.StartsWith("de: ", problem);
+        Assert.Contains("a.hello", problem);
+    }
+
+    [Fact]
+    public void A_json_file_outside_a_locale_folder_is_reported()
+    {
+        using var directory = new LangDirectory(
+            ("en/app.json", """{ "a.hello": "Hello" }"""),
+            ("en.json", """{ "a.hello": "Hello" }"""));
+
+        var problem = Assert.Single(CatalogLint.LayoutProblems(directory.Path));
+
+        Assert.Contains("en.json", problem);
+    }
+
+    [Fact]
+    public void A_clean_lang_folder_has_no_layout_problems()
+    {
+        using var directory = new LangDirectory(
+            ("en/app.json", """{ "a.hello": "Hello" }"""),
+            ("de/app.json", """{ "a.hello": "Hallo" }"""));
+
+        Assert.Empty(CatalogLint.LayoutProblems(directory.Path));
+    }
+
+    [Fact]
     public void English_alone_has_no_locale_problems()
     {
-        using var directory = new LangDirectory(("en.json", """{ "a.hello": "Hello" }"""));
+        using var directory = new LangDirectory(("en/app.json", """{ "a.hello": "Hello" }"""));
 
         Assert.Empty(CatalogLint.AdditionalLocaleProblems(directory.Path));
     }
@@ -335,7 +409,7 @@ public class CatalogLintRuleTests
     {
         var axaml = """"
             <TextBlock Text="{loc:Loc app.name}"
-                       Tag="{loc:Loc Key=app.placeholder.heading}"
+                       Tag="{loc:Loc Key=app.heading}"
                        ToolTip.Tip="{loc:Loc a.b}"
                        AutomationProperties.Name="{Loc c.d}"
                        Watermark="{ loc:Loc  e.f }"
@@ -345,7 +419,7 @@ public class CatalogLintRuleTests
 
         var keys = SourceLint.XamlLocKeys(axaml);
 
-        Assert.Equal(["app.name", "app.placeholder.heading", "a.b", "c.d", "e.f", "g.h"], keys);
+        Assert.Equal(["app.name", "app.heading", "a.b", "c.d", "e.f", "g.h"], keys);
     }
 
     [Fact]
@@ -424,6 +498,7 @@ public class CatalogLintRuleTests
     [InlineData("""<TextBlock Text="{StaticResource Greeting}" />""", "Text")]
     [InlineData("""<Button><Button.Content>Save</Button.Content></Button>""", "Button.Content")]
     [InlineData("""<TextBlock>Hello there</TextBlock>""", "TextBlock")]
+    [InlineData("""<TextBlock Text="{theme:Upper Hello}" />""", "Text")]
     [InlineData("""<Button>Save</Button>""", "Button")]
     [InlineData("""<Style><Setter Property="Text" Value="Hello" /></Style>""", "Setter")]
     public void Hardcoded_text_in_xaml_is_reported_with_the_file_and_the_property(string body, string property)
@@ -440,6 +515,8 @@ public class CatalogLintRuleTests
     [InlineData("""<TextBlock Text="{Binding Name}" />""")]
     [InlineData("""<TextBlock Text="{CompiledBinding Name}" />""")]
     [InlineData("""<TextBlock Text="{ReflectionBinding Name}" />""")]
+    [InlineData("""<TextBlock Text="{theme:Upper {loc:Loc a.b}}" />""")]
+    [InlineData("""<TextBlock Text="{Upper {Binding Name}}" />""")]
     [InlineData("""<Button Content="{x:Static local:Labels.Save}" />""")]
     [InlineData("""<TextBlock Text="&#xE145;" />""")]
     [InlineData("""<TextBlock Text="…" />""")]
@@ -476,7 +553,9 @@ public class CatalogLintRuleTests
             Path = Directory.CreateTempSubdirectory("savepoint-lang-").FullName;
             foreach (var (name, json) in files)
             {
-                File.WriteAllText(System.IO.Path.Combine(Path, name), json);
+                var file = System.IO.Path.Combine(Path, name);
+                Directory.CreateDirectory(System.IO.Path.GetDirectoryName(file)!);
+                File.WriteAllText(file, json);
             }
         }
 
