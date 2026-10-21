@@ -33,11 +33,12 @@ Subclasses and ids (keep the v1 ids from `docs/reference/v1-ui.md` section 1.2, 
 | Exception | MessageId | Args |
 |---|---|---|
 | PathSafetyException | `error.pathSafety.tier1Blocked` / `tier2Blocked` | `path`, `tier` |
-| ConsentMarkerException | `error.consentMarker.missing` / `conflict` | `path`, `role`, `existingGameId?`, `existingRole?` |
+| ConsentMarkerException | `error.consentMarker.missing` / `conflict` | `reason`, `path`, `role`, `existingGameId?`, `existingRole?` |
 | DiskSpaceException | `error.diskSpace.low` | `path`, `requiredBytes`, `freeBytes` |
 | GitOperationException | `error.gitOperation.checkoutFailed` | `path?` (the file that stayed locked) |
 | AmendNotAvailableException | `error.gitOperation.amendNotAvailable` | |
-| OperationCancelledByUserException | `error.capture.cancelled` / `error.compaction.cancelled` / `error.launch.canceled` / `error.storageRelocation.cancelled` *new* | `gameId?` |
+| OperationCancelledByUserException | `error.capture.cancelled` / `error.compaction.cancelled` / `error.launch.canceled` / `error.storageRelocation.cancelled` *new* | `op`, `gameId?` |
+| CompactionPreemptedException *new* | `error.compaction.preempted` | `gameId?` |
 | GameOverlapException | `error.gameService.pathOverlap` | `conflictingGameId`, `conflictingGameName` |
 | ProfileActiveException | `error.gameService.profileActive` | `profileId` |
 | ReconnectableGameException | `error.gameService.reconnectable` | `existingGameId`, `roles`, `branchNames` |
@@ -47,14 +48,15 @@ Subclasses and ids (keep the v1 ids from `docs/reference/v1-ui.md` section 1.2, 
 | SessionStillRunningException | `error.launch.sessionStillRunning` | `gameId` |
 | DirtyWorkingTreeException | `error.launch.dirtyWorkingTree` | `role` |
 | DetachedCaptureNotSupportedException | `error.launch.detachedCaptureNotSupported` | `role` |
-| LaunchSpawnException | `error.launch.spawnFailed` | `method` |
+| LaunchSpawnException | `error.launch.spawnFailed` | `method` (`LaunchMethod`) |
+| LaunchWindowsProgramException *new* | `error.launch.windowsProgram` | `path` |
 | PathMissingException | `error.path.missing` | `path`, `role` |
 | StorageDestinationNotEmptyException | `error.storageRelocation.destinationNotEmpty` | `path` |
 | ValidationException | `error.validation.invalidPayload` | `issues` (list of `{ path, messageId }`) |
 | CatalogCorruptException *new* | `error.catalog.corrupt` | `path` |
 | GitUnavailableException *new* | `error.git.unavailable` | `path` |
 
-`ErrorInfo(string MessageId, IReadOnlyDictionary<string, object?> Args, string Detail)` is the only error shape that leaves Core. `ErrorInfo.From(Exception)` maps a `SavepointException` to its id and args, `OperationCanceledException` from a user cancel to the matching cancelled id, and anything else to `error.unknown` with the exception text as `Detail`.
+`ErrorInfo(string MessageId, IReadOnlyDictionary<string, object?> Args, string Detail)` is the only error shape that leaves Core. `ErrorInfo.From(Exception)` maps a `SavepointException` to its id and args (enum args become camelCase strings) and anything else to `error.unknown` with the exception text as `Detail`. A user cancel surfaces as `OperationCanceledException`; the job registry and the Api facade map it to the matching cancelled id themselves (cancelled reads return `error.operation.cancelled`, D23). Further ids added by later decisions (D28, D29, and the services) are listed in the XML docs of `src/Savepoint.Core/Errors/`, which are the authoritative list.
 
 ## Platform
 

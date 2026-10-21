@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Savepoint.App.Features.Common.Accessibility;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.Core.Api;
 
@@ -14,6 +15,7 @@ public sealed partial class LaunchSavingViewModel : ObservableObject
 {
     private readonly UiFormatter _text;
     private readonly Func<Task<bool>> _cancel;
+    private readonly ProgressMilestones _milestones = new();
 
     /// <summary>True while the bar has no file total to fill against.</summary>
     [ObservableProperty]
@@ -31,6 +33,10 @@ public sealed partial class LaunchSavingViewModel : ObservableObject
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(CancelCommand))]
     private bool _isCancelling;
+
+    /// <summary>What the hidden live region says: each quarter of the save, once.</summary>
+    [ObservableProperty]
+    private string _announcement = string.Empty;
 
     /// <param name="text">Formats the card's lines.</param>
     /// <param name="cancel">Asks the service to cancel the capture job; answers false when it could not.</param>
@@ -52,6 +58,11 @@ public sealed partial class LaunchSavingViewModel : ObservableObject
         {
             IsIndeterminate = false;
             PercentValue = Math.Clamp((double)done / progress.FilesTotal.Value, 0, 1) * 100;
+            if (_milestones.Crossed((int)Math.Floor(PercentValue)) is { } crossed)
+            {
+                Announcement = _text.Message("launch.saving.announcePercent", ("percent", crossed));
+            }
+
             ProgressText = _text.Message("launch.progress.files", ("done", _text.Number(done)), ("total", _text.Number(progress.FilesTotal.Value)));
         }
         else if (progress.FilesDone is { } count)

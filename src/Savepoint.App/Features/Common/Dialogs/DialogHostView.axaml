@@ -7,6 +7,13 @@
     The modal overlay: a scrim over the whole window and the newest dialog centered on it. Only the dialog's own
     controls take focus (Tab cycles inside it); the window hides the page behind from assistive technology while this is open.
   -->
+  <UserControl.Styles>
+    <!-- A dialog's own view is a user control, which clips to its bounds and would cut the focus ring off a button at its edge. -->
+    <Style Selector="ContentControl#DialogContent > :is(UserControl)">
+      <Setter Property="ClipToBounds" Value="False" />
+    </Style>
+  </UserControl.Styles>
+
   <Panel x:Name="Overlay" IsVisible="{Binding IsOpen}">
     <Border x:Name="Scrim" Classes="scrim" />
     <Border x:Name="Chrome"
@@ -15,8 +22,9 @@
             AutomationProperties.Name="{Binding Current.Title}"
             AutomationProperties.ControlTypeOverride="Window"
             KeyboardNavigation.TabNavigation="Cycle">
-      <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <ContentControl Content="{Binding Current}" />
+      <!-- The scroll viewer clips to its viewport, which would cut the 4px focus ring off buttons at the dialog's right and bottom edge; the content's margin gives the ring room inside the viewport and the viewer's negative margin puts the content back where it was. -->
+      <ScrollViewer Margin="-6" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <ContentControl x:Name="DialogContent" Margin="6" ClipToBounds="False" Content="{Binding Current}" />
       </ScrollViewer>
     </Border>
   </Panel>

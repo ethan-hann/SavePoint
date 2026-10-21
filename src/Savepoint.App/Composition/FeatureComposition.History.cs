@@ -12,6 +12,6 @@ public static partial class FeatureComposition
     public static IScreenFactory? HistoryScreen(FeatureContext context, IGameEditorFactory? editor)
     {
         _ = editor;
-        return new HistoryScreenFactory(context, TimeProvider.System);
+        return new HistoryScreenFactory(context, context.Clock);
     }
 }

@@ -6,7 +6,6 @@ using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Toasts;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
-using Savepoint.Core.Errors;
 
 namespace Savepoint.App.Features.Launch;
 
@@ -335,28 +334,18 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
 
     private async Task SavePreferenceAsync(bool value)
     {
-        ErrorInfo? failure;
-        var current = await _deps.Settings.GetAsync();
-        if (current.Ok)
+        var saved = await _deps.SettingsWriter.UpdateAsync(
+            settings => settings with { SkipConfirmWhenOnlySaveChanges = value },
+            stored => SettingsSaved?.Invoke(this, stored));
+        if (saved.Ok)
         {
-            var saved = await _deps.Settings.SaveAsync(current.Value with { SkipConfirmWhenOnlySaveChanges = value });
-            if (saved.Ok)
-            {
-                SettingsSaved?.Invoke(this, saved.Value);
-                return;
-            }
-
-            failure = saved.Error;
-        }
-        else
-        {
-            failure = current.Error;
+            return;
         }
 
         // The box goes back so it never claims something that was not saved.
         _restoringPreference = true;
         DontAskAgain = !value;
         _restoringPreference = false;
-        _deps.Toasts.Show(new ToastMessage(LaunchText.Reason(_deps.Text, failure), ToastKind.Error));
+        _deps.Toasts.Show(new ToastMessage(LaunchText.Reason(_deps.Text, saved.Error), ToastKind.Error));
     }
 }

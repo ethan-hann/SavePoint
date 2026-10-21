@@ -20,10 +20,9 @@ public sealed class SingleInstance : IDisposable
     private const string _request = "activate";
     private const string _reply = "ok";
 
-    private static readonly TimeSpan _readTimeout = TimeSpan.FromSeconds(2);
-
     private readonly object _gate = new();
     private readonly TimeSpan _connectTimeout;
+    private readonly TimeSpan _readTimeout;
     private readonly Func<string, InstanceMutex> _acquireMutex;
     private InstanceMutex? _owner;
     private NamedPipeServerStream? _firstListener;
@@ -49,6 +48,8 @@ public sealed class SingleInstance : IDisposable
     internal SingleInstance(string appId, string userKey, string? pipeDirectory, TimeSpan connectTimeout, Func<string, InstanceMutex>? acquireMutex = null)
     {
         _connectTimeout = connectTimeout;
+        // The first copy waits for a request at least as long as a second copy waits to connect.
+        _readTimeout = connectTimeout > TimeSpan.FromSeconds(2) ? connectTimeout : TimeSpan.FromSeconds(2);
         _acquireMutex = acquireMutex ?? InstanceMutex.Acquire;
         var hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(appId + "\0" + userKey)));
         MutexName = "Global\\sp-" + hash[..16];

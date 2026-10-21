@@ -1,3 +1,4 @@
+using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Games;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.Core.Api;
@@ -295,30 +296,39 @@ public class GamesScreenActionsTests
     // ---- Delete a game
 
     [Fact]
-    public async Task Deleting_a_game_asks_twice_then_removes_it_and_shows_the_next_one()
+    public async Task Deleting_a_game_asks_once_for_its_name_then_removes_it_and_shows_the_next_one()
     {
         var rig = await GamesRig.StartAsync();
 
         await rig.Screen.DeleteGameCommand.ExecuteAsync(null);
 
-        Assert.Equal(2, rig.Dialogs.Confirmations.Count);
-        var first = rig.Dialogs.Confirmations[0];
-        Assert.Equal("Delete Skyrim Special Edition?", first.Title);
-        Assert.Equal("This removes Skyrim Special Edition from SavePoint, including every profile and all captured history. This can't be undone.", first.Message);
-        Assert.Equal("Delete game", first.ConfirmLabel);
-        Assert.True(first.Destructive);
-        var second = rig.Dialogs.Confirmations[1];
-        Assert.Equal("Delete Skyrim Special Edition for good?", second.Title);
-        Assert.Equal("Its 3 profiles and everything SavePoint saved for them will be gone for good. The files in your game folder and your saves folder are not touched.", second.Message);
-        Assert.Equal("Delete permanently", second.ConfirmLabel);
-        Assert.True(second.Destructive);
+        var asked = Assert.Single(rig.Dialogs.Confirmations);
+        Assert.Equal("Delete Skyrim Special Edition?", asked.Title);
+        Assert.Equal(
+            "This removes Skyrim Special Edition from SavePoint, along with its 3 profiles and all captured history. This can't be undone. The files in your game folder and your saves folder are not touched.",
+            asked.Message);
+        Assert.Equal("Delete game", asked.ConfirmLabel);
+        Assert.True(asked.Destructive);
+        Assert.Equal(new TypedConfirmation("Skyrim Special Edition", "Type Skyrim Special Edition to confirm."), asked.Typed);
         Assert.Single(rig.Backend.Calls.To<IGamesApi>(nameof(IGamesApi.DeleteAsync)));
         Assert.Equal(["Satisfactory", "The Last Caretaker"], rig.Shell.Games.Select(row => row.Name));
         Assert.Equal("Satisfactory", rig.Screen.GameName);
     }
 
     [Fact]
-    public async Task Declining_the_first_question_deletes_nothing_and_does_not_ask_again()
+    public async Task A_game_with_no_profiles_says_so_in_the_question()
+    {
+        var rig = await GamesRig.StartAsync(new FakeBackend(ScenarioBuilder.Empty().WithSettings(MockupScenario.Settings).WithGame(MockupScenario.Caretaker)));
+
+        await rig.Screen.DeleteGameCommand.ExecuteAsync(null);
+
+        Assert.Equal(
+            "The Last Caretaker has no profiles yet, but everything SavePoint saved for it will be gone for good. This can't be undone. The files in your game folder and your saves folder are not touched.",
+            Assert.Single(rig.Dialogs.Confirmations).Message);
+    }
+
+    [Fact]
+    public async Task Declining_the_name_question_deletes_no_game()
     {
         var rig = await GamesRig.StartAsync();
         rig.Dialogs.AnswerConfirm(false);
@@ -329,20 +339,6 @@ public class GamesScreenActionsTests
         Assert.Empty(rig.Backend.Calls.To<IGamesApi>(nameof(IGamesApi.DeleteAsync)));
         Assert.Equal(3, rig.Shell.Games.Count);
     }
-
-    [Fact]
-    public async Task Declining_the_second_question_deletes_nothing()
-    {
-        var rig = await GamesRig.StartAsync();
-        rig.Dialogs.AnswerConfirm(true, false);
-
-        await rig.Screen.DeleteGameCommand.ExecuteAsync(null);
-
-        Assert.Equal(2, rig.Dialogs.Confirmations.Count);
-        Assert.Empty(rig.Backend.Calls.To<IGamesApi>(nameof(IGamesApi.DeleteAsync)));
-        Assert.Equal(3, rig.Shell.Games.Count);
-    }
-
     [Fact]
     public async Task A_game_with_an_active_session_cannot_be_deleted_and_nothing_is_asked()
     {
@@ -364,7 +360,7 @@ public class GamesScreenActionsTests
 
         await rig.Screen.DeleteGameCommand.ExecuteAsync(null);
 
-        Assert.Equal(2, rig.Dialogs.Confirmations.Count);
+        Assert.Single(rig.Dialogs.Confirmations);
         Assert.Equal(["Skyrim Special Edition is running right now, so SavePoint can't do that yet. Close the game, then try again."], rig.ToastTexts);
         Assert.Equal(3, rig.Shell.Games.Count);
     }

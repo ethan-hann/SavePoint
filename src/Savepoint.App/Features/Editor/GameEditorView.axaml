@@ -31,13 +31,13 @@
           <TextBlock x:Name="TitleText" Classes="page-title" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Title}" />
         </StackPanel>
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-          <Button x:Name="ExportButton" Padding="16,8" FontSize="13.5" IsVisible="{Binding CanExport}" Command="{Binding ExportCommand}">
+          <Button x:Name="ExportButton" Padding="16,8" FontSize="13.5" IsVisible="{Binding CanExport}" Command="{Binding ExportCommand}" AutomationProperties.Name="{loc:Loc gameEditor.export}">
             <StackPanel Orientation="Horizontal" Spacing="8">
               <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.Download}" />
               <TextBlock Text="{loc:Loc gameEditor.export}" />
             </StackPanel>
           </Button>
-          <Button x:Name="ImportButton" Padding="16,8" FontSize="13.5" IsVisible="{Binding CanImport}" Command="{Binding ImportCommand}">
+          <Button x:Name="ImportButton" Padding="16,8" FontSize="13.5" IsVisible="{Binding CanImport}" Command="{Binding ImportCommand}" AutomationProperties.Name="{loc:Loc gameEditor.import}">
             <StackPanel Orientation="Horizontal" Spacing="8">
               <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.Upload}" />
               <TextBlock Text="{loc:Loc gameEditor.import}" />

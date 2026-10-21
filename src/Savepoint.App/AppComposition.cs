@@ -43,11 +43,12 @@ public static class AppComposition
         ShellViewModel CreateShell()
         {
             var api = services!;
-            var feature = new FeatureContext(api, pickers, text, toasts, ui);
+            var feature = new FeatureContext(api, pickers, text, toasts, ui, clock);
             return new(new ShellDependencies(
                 api.Games,
                 api.Profiles,
                 api.Settings,
+                feature.SettingsWriter,
                 api.Jobs,
                 text,
                 ui,

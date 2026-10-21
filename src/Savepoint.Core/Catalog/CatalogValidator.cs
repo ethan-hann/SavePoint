@@ -3,9 +3,22 @@ using Savepoint.Core.Errors;
 
 namespace Savepoint.Core.Catalog;
 
-// Validate reports every problem at once; RequireValid is the throwing form and returns the normalized value to store.
+/// <summary>
+/// Checks game, profile, and settings values and normalizes them for storage. <c>Validate</c> reports every problem at once;
+/// <c>RequireValid</c> is the throwing form and returns the normalized value to store.
+/// </summary>
+/// <remarks>
+/// Only the shape of each field is checked. Path tokens, whether a path is absolute, and path safety belong to the <c>Paths</c>
+/// namespace, and whether a folder exists is the service's check.
+/// </remarks>
 public static partial class CatalogValidator
 {
+    /// <summary>
+    /// Returns the game as it will be stored: names and paths trimmed, blank optional text turned into null, and the ignore
+    /// patterns and mod hints trimmed with blanks and repeats dropped (first occurrence kept, order kept). Checks nothing.
+    /// </summary>
+    /// <param name="game">The game to normalize.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="game"/> is null.</exception>
     public static GameDefinition Normalize(GameDefinition game)
     {
         ArgumentNullException.ThrowIfNull(game);
@@ -27,6 +40,9 @@ public static partial class CatalogValidator
         };
     }
 
+    /// <summary>Returns the profile as it will be stored: the name trimmed, and a blank version override turned into null. Checks nothing.</summary>
+    /// <param name="profile">The profile to normalize.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="profile"/> is null.</exception>
     public static Profile Normalize(Profile profile)
     {
         ArgumentNullException.ThrowIfNull(profile);
@@ -34,6 +50,9 @@ public static partial class CatalogValidator
         return profile with { Name = Trim(profile.Name), VersionOverride = TrimToNull(profile.VersionOverride) };
     }
 
+    /// <summary>Returns the settings as they will be stored: the storage folder trimmed. Checks nothing.</summary>
+    /// <param name="settings">The settings to normalize.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="settings"/> is null.</exception>
     public static AppSettings Normalize(AppSettings settings)
     {
         ArgumentNullException.ThrowIfNull(settings);
@@ -41,12 +60,36 @@ public static partial class CatalogValidator
         return settings with { StorageRoot = Trim(settings.StorageRoot) };
     }
 
+    /// <summary>
+    /// Normalizes the game, then lists every problem found; empty means valid. Checks the schema version, the id's shape, the
+    /// name, the install and external paths (present, not nested), the external role, and the launch method with its program
+    /// path (relative, no <c>..</c>) or link (has a scheme).
+    /// </summary>
+    /// <param name="game">The game to check.</param>
+    /// <returns>The problems, each with the field's JSON path; empty when the game is valid.</returns>
     public static IReadOnlyList<ValidationIssue> Validate(GameDefinition game) => Check(Normalize(game));
 
+    /// <summary>
+    /// Normalizes the profile, then lists every problem found: a missing id, game id, name, or branch name, or a branch name
+    /// with a bad shape.
+    /// </summary>
+    /// <param name="profile">The profile to check.</param>
+    /// <returns>The problems, each with the field's JSON path; empty when the profile is valid.</returns>
     public static IReadOnlyList<ValidationIssue> Validate(Profile profile) => Check(Normalize(profile));
 
+    /// <summary>
+    /// Normalizes the settings, then lists every problem found: a missing storage folder, a theme, accent, or layout that is not
+    /// a defined value, or a locale that is not shaped like a language tag.
+    /// </summary>
+    /// <param name="settings">The settings to check.</param>
+    /// <returns>The problems, each with the field's JSON path; empty when the settings are valid.</returns>
     public static IReadOnlyList<ValidationIssue> Validate(AppSettings settings) => Check(Normalize(settings));
 
+    /// <summary>Normalizes the game and returns it, or throws when it has any problem.</summary>
+    /// <param name="game">The game to check.</param>
+    /// <returns>The normalized game, ready to store.</returns>
+    /// <exception cref="ValidationException">The game has problems; the exception lists every one.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="game"/> is null.</exception>
     public static GameDefinition RequireValid(GameDefinition game)
     {
         var normalized = Normalize(game);
@@ -54,6 +97,11 @@ public static partial class CatalogValidator
         return issues.Count == 0 ? normalized : throw new ValidationException(issues);
     }
 
+    /// <summary>Normalizes the profile and returns it, or throws when it has any problem.</summary>
+    /// <param name="profile">The profile to check.</param>
+    /// <returns>The normalized profile, ready to store.</returns>
+    /// <exception cref="ValidationException">The profile has problems; the exception lists every one.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="profile"/> is null.</exception>
     public static Profile RequireValid(Profile profile)
     {
         var normalized = Normalize(profile);
@@ -61,6 +109,11 @@ public static partial class CatalogValidator
         return issues.Count == 0 ? normalized : throw new ValidationException(issues);
     }
 
+    /// <summary>Normalizes the settings and returns them, or throws when they have any problem.</summary>
+    /// <param name="settings">The settings to check.</param>
+    /// <returns>The normalized settings, ready to store.</returns>
+    /// <exception cref="ValidationException">The settings have problems; the exception lists every one.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="settings"/> is null.</exception>
     public static AppSettings RequireValid(AppSettings settings)
     {
         var normalized = Normalize(settings);

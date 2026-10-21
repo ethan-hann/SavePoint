@@ -115,6 +115,98 @@ public class UiFormatterTests
         Assert.Equal("Jul 2, 2026", English(timeZone: _centralDaylight).Date(captured));
     }
 
+    // 2026-07-05 23:42 in the mockup's zone, the saves list's top row.
+    private static readonly DateTimeOffset _lateSunday = new(2026, 7, 5, 23, 42, 0, TimeSpan.FromHours(-5));
+
+    [Fact]
+    public void A_short_date_and_time_leaves_out_the_year_it_is_in()
+    {
+        var formatter = English(timeZone: _centralDaylight);
+
+        Assert.Equal("Jul 5, 11:42 PM", formatter.ShortDateTime(_lateSunday));
+        Assert.Equal("Jan 2, 9:05 AM", formatter.ShortDateTime(new DateTimeOffset(2026, 1, 2, 9, 5, 0, TimeSpan.FromHours(-5))));
+    }
+
+    [Fact]
+    public void A_short_date_and_time_from_another_year_says_which_year()
+    {
+        var formatter = English(timeZone: _centralDaylight);
+
+        Assert.Equal("Jul 5, 2025, 11:42 PM", formatter.ShortDateTime(_lateSunday.AddYears(-1)));
+        Assert.Equal("Jul 5, 2027, 11:42 PM", formatter.ShortDateTime(_lateSunday.AddYears(1)));
+    }
+
+    [Fact]
+    public void The_year_it_is_now_is_judged_in_the_formatters_time_zone()
+    {
+        // 00:30 UTC on Jan 1 is still Dec 31 in a zone five hours behind.
+        var clock = new FixedClock(new DateTimeOffset(2027, 1, 1, 0, 30, 0, TimeSpan.Zero));
+        var formatter = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), clock, "windows", _centralDaylight);
+        var utc = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), clock, "windows", TimeZoneInfo.Utc);
+        var newYearsEve = new DateTimeOffset(2026, 12, 31, 18, 0, 0, TimeSpan.Zero);
+
+        Assert.Equal("Dec 31, 1:00 PM", formatter.ShortDateTime(newYearsEve));
+        Assert.Equal("Dec 31, 2026, 6:00 PM", utc.ShortDateTime(newYearsEve));
+    }
+
+    [Fact]
+    public void A_weekday_date_and_time_names_the_day_and_leaves_out_the_current_year()
+    {
+        var formatter = English(timeZone: _centralDaylight);
+
+        Assert.Equal("Sun Jul 5, 11:42 PM", formatter.WeekdayDateTime(_lateSunday));
+        Assert.Equal("Sat Jul 5, 2025, 11:42 PM", formatter.WeekdayDateTime(_lateSunday.AddYears(-1)));
+    }
+
+    [Fact]
+    public void A_timeline_date_and_time_always_has_the_year_and_the_separator_from_the_catalog()
+    {
+        var formatter = English(timeZone: _centralDaylight);
+        var json = """{ "format.pattern.date": "MMM d, yyyy", "format.pattern.time": "h:mm tt", "format.pattern.timeline": "{date} / {time}" }""";
+        var custom = new UiFormatter(LocalizationCatalog.FromJson(json, "en", throwOnMissingKey: true), new FixedClock(_now), "windows", _centralDaylight);
+
+        Assert.Equal("Jul 5, 2026 · 11:42 PM", formatter.TimelineDateTime(_lateSunday));
+        Assert.Equal("Jul 5, 2025 · 11:42 PM", formatter.TimelineDateTime(_lateSunday.AddYears(-1)));
+        Assert.Equal("Jul 5, 2026 / 11:42 PM", custom.TimelineDateTime(_lateSunday));
+    }
+
+    [Fact]
+    public void A_short_date_is_the_month_and_day_in_the_current_year_and_has_the_year_otherwise()
+    {
+        var formatter = English(timeZone: _centralDaylight);
+        var firstOfJuly = new DateTimeOffset(2026, 7, 1, 9, 0, 0, TimeSpan.FromHours(-5));
+
+        Assert.Equal("Jul 1", formatter.ShortDate(firstOfJuly));
+        Assert.Equal("Jul 1, 2025", formatter.ShortDate(firstOfJuly.AddYears(-1)));
+    }
+
+    [Fact]
+    public void The_date_forms_take_month_and_day_names_and_the_pattern_order_from_the_language()
+    {
+        const string json = """
+            {
+              "format.pattern.date": "d MMM yyyy",
+              "format.pattern.dateNoYear": "d MMM",
+              "format.pattern.weekdayDate": "ddd d MMM yyyy",
+              "format.pattern.weekdayDateNoYear": "ddd d MMM",
+              "format.pattern.time": "HH:mm",
+              "format.pattern.dateAndTime": "{date} {time}",
+              "format.pattern.timeline": "{date} - {time}"
+            }
+            """;
+        var french = new UiFormatter(LocalizationCatalog.FromJson(json, "fr", throwOnMissingKey: true), new FixedClock(_now), "windows", _centralDaylight);
+        var culture = System.Globalization.CultureInfo.GetCultureInfo("fr");
+        var month = culture.DateTimeFormat.GetAbbreviatedMonthName(7);
+        var day = culture.DateTimeFormat.GetAbbreviatedDayName(DayOfWeek.Sunday);
+
+        Assert.Equal($"5 {month} 23:42", french.ShortDateTime(_lateSunday));
+        Assert.Equal($"5 {month} 2025 23:42", french.ShortDateTime(_lateSunday.AddYears(-1)));
+        Assert.Equal($"{day} 5 {month} 23:42", french.WeekdayDateTime(_lateSunday));
+        Assert.Equal($"5 {month} 2026 - 23:42", french.TimelineDateTime(_lateSunday));
+        Assert.Equal($"5 {month}", french.ShortDate(_lateSunday));
+        Assert.NotEqual("Jul", month);
+    }
+
     [Fact]
     public void Default_names_carry_the_date_as_month_day_and_two_digit_year_without_padding()
     {

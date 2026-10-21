@@ -1,4 +1,5 @@
 {
+  "history.automation.join": "{first}, {second}",
   "history.card.goBack": "Go back to this",
   "history.card.goBackAutomation": "Go back to {name}",
   "history.card.loadedNow": "Loaded now",
@@ -30,7 +31,6 @@
   "history.save.load": "Load",
   "history.save.loadAutomation": "Load {name}",
   "history.save.loaded": "Loaded",
-  "history.stamp": "{date} · {time}",
   "history.subtitle": "{game} · {count, plural, one {# point kept} other {# points kept}}",
   "history.timeline.captured": "Captured {install}",
   "history.timeline.capturedPlain": "Captured",

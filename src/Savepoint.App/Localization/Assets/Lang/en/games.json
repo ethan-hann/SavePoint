@@ -1,10 +1,8 @@
 {
   "games.deleteConfirm.confirm": "Delete game",
-  "games.deleteConfirm.message": "This removes {name} from SavePoint, including every profile and all captured history. This can't be undone.",
+  "games.deleteConfirm.message": "{count, plural, =0 {{name} has no profiles yet, but everything SavePoint saved for it will be gone for good.} one {This removes {name} from SavePoint, along with its one profile and all captured history.} other {This removes {name} from SavePoint, along with its # profiles and all captured history.}} This can't be undone. The files in your game folder and your saves folder are not touched.",
+  "games.deleteConfirm.prompt": "Type {name} to confirm.",
   "games.deleteConfirm.title": "Delete {name}?",
-  "games.deleteFinal.confirm": "Delete permanently",
-  "games.deleteFinal.message": "{count, plural, =0 {It has no profiles yet, but everything SavePoint saved for it will be gone for good.} one {Its one profile and everything SavePoint saved for it will be gone for good.} other {Its # profiles and everything SavePoint saved for them will be gone for good.}} The files in your game folder and your saves folder are not touched.",
-  "games.deleteFinal.title": "Delete {name} for good?",
   "games.duplicateProfile.body": "The copy starts with the same game version and mods. Its save history starts fresh, and {name} is left as it is.",
   "games.duplicateProfile.defaultName": "{name} copy",
   "games.duplicateProfile.save": "Duplicate",

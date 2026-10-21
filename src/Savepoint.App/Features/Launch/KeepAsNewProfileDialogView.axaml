@@ -21,7 +21,7 @@
                IsVisible="{Binding HasError}"
                AutomationProperties.LiveSetting="Assertive"
                Text="{Binding Error}" />
-    <ProgressBar x:Name="WorkingBar" IsIndeterminate="True" IsVisible="{Binding IsWorking}" />
+    <ProgressBar x:Name="WorkingBar" IsIndeterminate="True" IsVisible="{Binding IsWorking}" AutomationProperties.Name="{Binding Title}" />
     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,4,0,0">
       <Button Classes="text pill large" Command="{Binding CancelCommand}" IsEnabled="{Binding !IsWorking}" Content="{loc:Loc common.cancel}" />
       <Button x:Name="CreateButton"

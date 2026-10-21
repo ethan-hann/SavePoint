@@ -1,4 +1,5 @@
 using Savepoint.App.Features.Common.Formatting;
+using Savepoint.App.Features.Common.Preferences;
 using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Shell;
 using Savepoint.Core.Api;
@@ -7,18 +8,19 @@ using Savepoint.Core.Errors;
 
 namespace Savepoint.App.Features.Settings;
 
-// The one way the screen changes settings: read what is stored now, apply one change, save, tell the shell, so nothing saved elsewhere is overwritten.
+// The one way the screen changes settings: the shared writer reads what is stored now, applies one change and saves it; the shell is told, so nothing saved elsewhere is overwritten.
 internal sealed class SettingsStore
 {
     private readonly ISettingsApi _api;
+    private readonly SettingsWriter _writer;
     private readonly IShellContext _shell;
     private readonly ToastHostViewModel _toasts;
     private readonly UiFormatter _text;
-    private readonly SemaphoreSlim _gate = new(1, 1);
 
-    public SettingsStore(ISettingsApi api, IShellContext shell, ToastHostViewModel toasts, UiFormatter text)
+    public SettingsStore(ISettingsApi api, SettingsWriter writer, IShellContext shell, ToastHostViewModel toasts, UiFormatter text)
     {
         _api = api;
+        _writer = writer;
         _shell = shell;
         _toasts = toasts;
         _text = text;
@@ -45,37 +47,25 @@ internal sealed class SettingsStore
     // Applies one change to the stored settings. False, with a toast saying why, when nothing was saved.
     public async Task<bool> UpdateAsync(Func<AppSettings, AppSettings> change)
     {
-        await _gate.WaitAsync();
-        try
+        var saved = false;
+        var result = await _writer.UpdateAsync(change, settings =>
         {
-            var read = await _api.GetAsync();
-            if (!read.Ok)
-            {
-                Fail(read.Error);
-                return false;
-            }
+            saved = true;
+            Publish(settings, tellShell: true);
+        });
 
-            var changed = change(read.Value);
-            if (changed == read.Value)
-            {
-                Publish(read.Value, tellShell: false);
-                return true;
-            }
-
-            var saved = await _api.SaveAsync(changed);
-            if (!saved.Ok)
-            {
-                Fail(saved.Error);
-                return false;
-            }
-
-            Publish(saved.Value, tellShell: true);
-            return true;
-        }
-        finally
+        if (!result.Ok)
         {
-            _gate.Release();
+            Fail(result.Error);
+            return false;
         }
+
+        if (!saved)
+        {
+            Publish(result.Value, tellShell: false);
+        }
+
+        return true;
     }
 
     public void Show(ErrorInfo error) => Fail(error);

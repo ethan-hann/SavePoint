@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:loc="using:Savepoint.App.Localization"
+             xmlns:a11y="using:Savepoint.App.Features.Common.Accessibility"
              xmlns:launch="using:Savepoint.App.Features.Launch"
              x:Class="Savepoint.App.Features.Launch.LaunchSavingView"
              x:DataType="launch:LaunchSavingViewModel">
@@ -12,6 +13,7 @@
           AutomationProperties.Name="{Binding Title}"
           AutomationProperties.LiveSetting="Polite">
     <Grid ColumnDefinitions="*,Auto">
+      <a11y:AnnouncementRegion x:Name="Announcer" Grid.ColumnSpan="2" Message="{Binding Announcement}" />
       <StackPanel Spacing="10" VerticalAlignment="Center">
         <TextBlock x:Name="TitleText" Classes="card-title" Text="{Binding Title}" />
         <ProgressBar x:Name="Bar"

@@ -2,6 +2,17 @@ using Savepoint.Core.Errors;
 
 namespace Savepoint.Core.Api;
 
+/// <summary>What moving the storage folder would copy, so the confirmation is exact. The previous folder is left in place.</summary>
+/// <param name="CurrentRoot">The storage folder now in use.</param>
+/// <param name="NewRoot">The folder the data would move to.</param>
+/// <param name="Games">Bytes of storage each game would bring along.</param>
+/// <param name="BytesToCopy">Bytes the move would copy in all.</param>
+/// <param name="FileCount">Files the move would copy in all.</param>
+/// <param name="DestinationFreeBytes">Free space, in bytes, on the volume that holds the new folder.</param>
+/// <param name="BlockedBy">
+/// The error the move would fail with (a folder that is not empty or not safe, too little space, a running game), or null when it
+/// can go ahead.
+/// </param>
 public sealed record StorageRelocationPreview(
     string CurrentRoot,
     string NewRoot,
@@ -9,6 +20,4 @@ public sealed record StorageRelocationPreview(
     long BytesToCopy,
     int FileCount,
     long DestinationFreeBytes,
-
-    // The error the move would fail with (not empty, unsafe, too small, a game running); null when it can go ahead.
     ErrorInfo? BlockedBy);

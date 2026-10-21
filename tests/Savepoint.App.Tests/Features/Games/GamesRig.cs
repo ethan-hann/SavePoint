@@ -3,6 +3,7 @@ using Savepoint.App.Features.Common;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Common.Navigation;
+using Savepoint.App.Features.Common.Preferences;
 using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Games;
 using Savepoint.App.Features.Shell;
@@ -42,6 +43,7 @@ internal sealed class GamesRig
             backend.Games,
             backend.Profiles,
             backend.Settings,
+            new SettingsWriter(backend.Settings),
             backend.Jobs,
             Text,
             ui,
@@ -121,6 +123,10 @@ internal sealed class ConfigurableLaunchFlow : ILaunchFlowHost
 
     public event EventHandler<string>? InlineContentChanged;
 
+    public event EventHandler<AppSettings>? SettingsSaved;
+
+    public event EventHandler<string>? EditGameRequested;
+
     public List<(string GameId, LaunchTarget Target)> Begun { get; } = [];
 
     public Task BeginAsync(string gameId, LaunchTarget target)
@@ -132,6 +138,10 @@ internal sealed class ConfigurableLaunchFlow : ILaunchFlowHost
     public bool IsActive(string gameId) => _active.Contains(gameId);
 
     public object? InlineContentFor(string gameId) => _inline.GetValueOrDefault(gameId);
+
+    public void RaiseEditGameRequested(string gameId) => EditGameRequested?.Invoke(this, gameId);
+
+    public void RaiseSettingsSaved(AppSettings settings) => SettingsSaved?.Invoke(this, settings);
 
     public void SetActive(string gameId, bool active)
     {

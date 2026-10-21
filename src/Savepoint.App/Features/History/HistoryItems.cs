@@ -30,7 +30,8 @@ public sealed record ViewModeOption(HistoryViewMode Mode, string Label);
 /// <param name="Stamp">When it was captured, with "in use now" appended for the point the install folder holds.</param>
 /// <param name="IsInUse">True for the point the install folder holds now; its dot is filled.</param>
 /// <param name="IsLast">True for the oldest entry; the rail ends at its dot.</param>
-public sealed record TimelineEntryViewModel(string Headline, string Detail, string Stamp, bool IsInUse, bool IsLast)
+/// <param name="AutomationName">What assistive technology calls the entry: the headline, the detail and the stamp as one line.</param>
+public sealed record TimelineEntryViewModel(string Headline, string Detail, string Stamp, bool IsInUse, bool IsLast, string AutomationName)
 {
     /// <summary>True while the rail continues below this entry.</summary>
     public bool HasRail => !IsLast;
@@ -42,12 +43,14 @@ public sealed class SaveRowViewModel
     /// <param name="point">The point it stands for.</param>
     /// <param name="detail">The date and the owning profile.</param>
     /// <param name="automationName">What assistive technology calls the Load button.</param>
+    /// <param name="itemAutomationName">What assistive technology calls the row in its list: name, date and profile, and whether it is loaded.</param>
     /// <param name="load">Loads the save; never null.</param>
-    public SaveRowViewModel(HistoryPoint point, string detail, string automationName, ICommand load)
+    public SaveRowViewModel(HistoryPoint point, string detail, string automationName, string itemAutomationName, ICommand load)
     {
         Point = point;
         Detail = detail;
         LoadAutomationName = automationName;
+        ItemAutomationName = itemAutomationName;
         LoadCommand = load;
     }
 
@@ -57,7 +60,7 @@ public sealed class SaveRowViewModel
     /// <summary>The save's name.</summary>
     public string Name => Point.Name;
 
-    /// <summary>The date and the owning profile ("Jul 5, 2026, 11:42 PM · Modded playthrough").</summary>
+    /// <summary>The date and the owning profile ("Jul 5, 11:42 PM · Modded playthrough").</summary>
     public string Detail { get; }
 
     /// <summary>True when the saves folder holds this save now; the row shows a "Loaded" chip instead of the button.</summary>
@@ -69,6 +72,9 @@ public sealed class SaveRowViewModel
     /// <summary>The Load button's accessible name ("Load Before the final boss").</summary>
     public string LoadAutomationName { get; }
 
+    /// <summary>The row's accessible name in the list ("Before the final boss, Jul 5, 11:42 PM · Modded playthrough, Loaded").</summary>
+    public string ItemAutomationName { get; }
+
     /// <summary>Starts the launch flow with this save loaded into the profile's latest install.</summary>
     public ICommand LoadCommand { get; }
 }
@@ -79,16 +85,18 @@ public sealed class PointCardViewModel
     /// <param name="point">The point it stands for.</param>
     /// <param name="icon">The glyph for the kind of point.</param>
     /// <param name="contains">What the point holds ("Save only · 1.6.640 with 212 mod files").</param>
-    /// <param name="date">The absolute date and time.</param>
+    /// <param name="date">The absolute date and time, with the weekday ("Sun Jul 5, 11:42 PM").</param>
     /// <param name="automationName">What assistive technology calls the button.</param>
+    /// <param name="itemAutomationName">What assistive technology calls the card in its list: name, what it holds, date, and whether it is loaded.</param>
     /// <param name="goBack">Goes back to the point; never null.</param>
-    public PointCardViewModel(HistoryPoint point, string icon, string contains, string date, string automationName, ICommand goBack)
+    public PointCardViewModel(HistoryPoint point, string icon, string contains, string date, string automationName, string itemAutomationName, ICommand goBack)
     {
         Point = point;
         Icon = icon;
         Contains = contains;
         Date = date;
         GoBackAutomationName = automationName;
+        ItemAutomationName = itemAutomationName;
         GoBackCommand = goBack;
     }
 
@@ -115,6 +123,9 @@ public sealed class PointCardViewModel
 
     /// <summary>The button's accessible name ("Go back to Cleared Blackreach").</summary>
     public string GoBackAutomationName { get; }
+
+    /// <summary>The card's accessible name in its list ("Cleared Blackreach, Save only · same version and mods, Sat Jul 4, 8:15 PM").</summary>
+    public string ItemAutomationName { get; }
 
     /// <summary>Starts the launch flow with both folders restored to this point.</summary>
     public ICommand GoBackCommand { get; }
