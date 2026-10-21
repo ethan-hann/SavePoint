@@ -104,12 +104,10 @@ SYMBOLS_FACES = [
     ("MaterialSymbolsRoundedFilled.ttf", 1, "Material Symbols Rounded Filled"),
 ]
 
-# Icons whose filled glyph must differ from the outline one.
 FILLED_MUST_DIFFER = [
     "bookmark", "folder", "lock", "info", "check_circle", "error", "warning", "cancel", "save", "description",
 ]
 
-# Characters compared against HarfBuzz for the text faces.
 TEXT_SAMPLE = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,:;!?-_/\\()[]{}'\"@#%&*+=<>|~€é…"
 
 
@@ -227,11 +225,13 @@ def set_weight(font: TTFont, weight: int) -> None:
     font["head"].macStyle = 0b1 if weight >= 700 else 0
 
 
-def set_names(font: TTFont, *, family: str, style: str, ps_name: str) -> None:
+def set_names(font: TTFont, *, family: str, style: str, ps_name: str, description: str | None = None) -> None:
     """RIBBI names in IDs 1/2 plus typographic names in 16/17, so every weight shares one family."""
     name_table = font["name"]
     version = (name_table.getDebugName(5) or "").split(";")[0].strip()
     replaced = {1, 2, 3, 4, 6, 16, 17, 21, 22, 25}
+    if description is not None:
+        replaced.add(10)
     name_table.names = [n for n in name_table.names if n.nameID < 256 and n.nameID not in replaced]
 
     ribbi_style = style if style in ("Regular", "Bold") else "Regular"
@@ -246,6 +246,8 @@ def set_names(font: TTFont, *, family: str, style: str, ps_name: str) -> None:
     if ribbi_family != family:
         records[16] = family
         records[17] = style
+    if description is not None:
+        records[10] = description
     for name_id, value in records.items():
         name_table.setName(value, name_id, 3, 1, 0x409)
 
@@ -263,13 +265,7 @@ def build_text_face(source: Path, location: dict[str, float], *, family: str, ps
 
 
 def effective_substitutions(variable: TTFont, normalized: dict[int, float]) -> dict[str, str]:
-    """Single-glyph swaps GSUB applies at a location, resolving FeatureVariations.
-
-    Material Symbols reaches its filled shapes partly by swapping glyphs (name -> name.fill)
-    through a FeatureVariations record that fires near FILL=1. Pinning FILL in the instancer
-    interpolates outlines but does not apply that swap to the cmap, so it has to be resolved here
-    before the layout tables are dropped.
-    """
+    """Glyph swaps GSUB applies at a location; pinning FILL in the instancer does not carry them into the cmap."""
     gsub = variable["GSUB"].table
     lookups = gsub.LookupList.Lookup
     feature_lookups = {i: list(f.Feature.LookupListIndex) for i, f in enumerate(gsub.FeatureList.FeatureRecord)}
@@ -327,7 +323,10 @@ def build_symbols_face(source: Path, fill: float, *, family: str, codepoints: se
     set_weight(font, 400)
     run_subsetter(font, codepoints, keep_layout=False)
     add_smart_dropout_prep(font)
-    set_names(font, family=family, style="Regular", ps_name=f"{family.replace(' ', '')}-Regular")
+    # Apache-2.0 section 4(b): a modified file has to say so.
+    set_names(
+        font, family=family, style="Regular", ps_name=f"{family.replace(' ', '')}-Regular",
+        description="Modified from the upstream Material Symbols Rounded variable font: static instance, reduced to the icons SavePoint uses.")
     return font
 
 
@@ -428,11 +427,7 @@ def matches(expected: tuple, actual: tuple) -> bool:
 
 
 def check_against_harfbuzz(label: str, source: Path, location: dict[str, float], output: Path, items: list[tuple[str, int]]) -> None:
-    """Shape each text with HarfBuzz on the upstream variable font and compare the glyph it draws with ours.
-
-    HarfBuzz applies the font's own GSUB (ligatures and the FILL glyph swaps), so this is
-    independent of how the build resolved them.
-    """
+    """HarfBuzz applies the upstream GSUB itself, so this check does not depend on how the build resolved ligatures or swaps."""
     reference = harfbuzz_font(source, location)
     font = TTFont(output)
     wrong = [
