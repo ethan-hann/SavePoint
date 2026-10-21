@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using Savepoint.App.Features.Common;
+using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Common.Navigation;
 using Savepoint.App.Features.Common.Toasts;
@@ -16,11 +17,12 @@ namespace Savepoint.App.Tests.Features.Games;
 // A shell wired to the fake backend with the real Games screen in its place, plus the launch flow and the editor as recordings.
 internal sealed class GamesRig
 {
-    private GamesRig(FakeBackend backend, bool withLaunchFlow, bool withEditor, IProfilesApi? profiles, IUiDispatcher? dispatcher)
+    private GamesRig(FakeBackend backend, bool withLaunchFlow, bool withEditor, IProfilesApi? profiles, IUiDispatcher? dispatcher, Func<UiFormatter, IDialogs>? dialogs)
     {
         Backend = backend;
         Text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), backend.Clock, "windows", TimeZoneInfo.Utc);
         Dialogs = new FakeDialogs();
+        UiDialogs = dialogs?.Invoke(Text) ?? Dialogs;
         Toasts = new ToastHostViewModel(new ManualTimeProvider(), new ImmediateUiDispatcher());
         LaunchFlow = withLaunchFlow ? new ConfigurableLaunchFlow() : null;
         Editor = withEditor ? new RecordingEditorFactory() : null;
@@ -29,7 +31,7 @@ internal sealed class GamesRig
             backend.Games,
             profiles ?? backend.Profiles,
             backend.Jobs,
-            Dialogs,
+            UiDialogs,
             Text,
             Toasts,
             ui,
@@ -43,7 +45,7 @@ internal sealed class GamesRig
             backend.Jobs,
             Text,
             ui,
-            Dialogs,
+            UiDialogs,
             Toasts,
             new RecordingThemeApplier(),
             [factory],
@@ -54,7 +56,10 @@ internal sealed class GamesRig
 
     public UiFormatter Text { get; }
 
+    // What tests script and inspect; it is also what the screen uses unless a real dialog host was plugged in.
     public FakeDialogs Dialogs { get; }
+
+    public IDialogs UiDialogs { get; }
 
     public ToastHostViewModel Toasts { get; }
 
@@ -73,9 +78,10 @@ internal sealed class GamesRig
         bool withLaunchFlow = true,
         bool withEditor = true,
         IProfilesApi? profiles = null,
-        IUiDispatcher? dispatcher = null)
+        IUiDispatcher? dispatcher = null,
+        Func<UiFormatter, IDialogs>? dialogs = null)
     {
-        var rig = new GamesRig(backend ?? FakeBackend.Mockup(), withLaunchFlow, withEditor, profiles, dispatcher);
+        var rig = new GamesRig(backend ?? FakeBackend.Mockup(), withLaunchFlow, withEditor, profiles, dispatcher, dialogs);
         await rig.Shell.InitializeAsync();
         await rig.Screen.ReloadAsync();
         return rig;

@@ -1,0 +1,209 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:Savepoint.App.Localization"
+             xmlns:theme="using:Savepoint.App.Theme"
+             xmlns:art="using:Savepoint.App.Features.Common.Art"
+             xmlns:shell="using:Savepoint.App.Features.Shell"
+             xmlns:games="using:Savepoint.App.Features.Games"
+             x:Class="Savepoint.App.Features.Games.GamesScreenView"
+             x:DataType="games:GamesScreenViewModel">
+  <!--
+    The Games screen (3a, 3b): the game's header, the Profiles / History chips, the launch flow's banner or running card,
+    the profile table and the storage footer. The library layout has no art tile, path, chips or toggle (the shell's shelf
+    and top bar carry them), so its header is a title with the same buttons.
+  -->
+  <UserControl.Styles>
+    <Style Selector="Border.profile-dot">
+      <Setter Property="Width" Value="6" />
+      <Setter Property="Height" Value="6" />
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Border.profile-dot.active">
+      <Setter Property="Background" Value="{DynamicResource Md3PrimaryBrush}" />
+    </Style>
+    <Style Selector="Border.table-row">
+      <Setter Property="Focusable" Value="True" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid x:Name="Root" RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="22,20,22,20">
+
+    <!-- Header, sidebar layout: art tile, name and install path, then the buttons and the layout toggle. -->
+    <Grid x:Name="SidebarHeader" Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" IsVisible="{Binding IsSidebarLayout}">
+      <art:ArtTile Size="40" GameName="{Binding GameName}" VerticalAlignment="Center" Margin="0,0,12,0" />
+      <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0">
+        <TextBlock x:Name="GameNameText" Classes="dialog-title" TextTrimming="CharacterEllipsis" Text="{Binding GameName}" />
+        <TextBlock x:Name="InstallPathText" Classes="mono small subtle" TextTrimming="CharacterEllipsis" Text="{Binding InstallPath}" />
+      </StackPanel>
+      <Button x:Name="EditGameButton" Grid.Column="2" Margin="0,0,12,0" Padding="14,8" FontSize="13" IsVisible="{Binding CanEditGame}" Command="{Binding EditGameCommand}">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.Edit}" />
+          <TextBlock Text="{loc:Loc games.header.editGame}" />
+        </StackPanel>
+      </Button>
+      <Button x:Name="NewProfileButton" Grid.Column="3" Margin="0,0,12,0" Padding="14,8" FontSize="13" Command="{Binding NewProfileCommand}">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.Add}" />
+          <TextBlock Text="{loc:Loc games.header.newProfile}" />
+        </StackPanel>
+      </Button>
+      <Button x:Name="GameMenuButton" Grid.Column="4" Classes="icon" Margin="0,0,12,0" AutomationProperties.Name="{Binding GameMoreActionsName}" ToolTip.Tip="{Binding GameMoreActionsName}">
+        <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.MoreVert}" />
+        <Button.Flyout>
+          <MenuFlyout Placement="BottomEdgeAlignedRight">
+            <MenuItem Header="{loc:Loc games.header.deleteGame}" Command="{Binding DeleteGameCommand}" />
+          </MenuFlyout>
+        </Button.Flyout>
+      </Button>
+      <shell:LayoutToggleView Grid.Column="5" VerticalAlignment="Center" DataContext="{Binding LayoutToggle}" />
+    </Grid>
+
+    <!-- Header, library layout: a title and the same buttons. -->
+    <Grid x:Name="LibraryHeader" Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto" IsVisible="{Binding IsLibraryLayout}">
+      <TextBlock x:Name="LibraryTitleText" Classes="card-title" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,12,0" Text="{Binding LibraryTitle}" />
+      <Button x:Name="LibraryEditGameButton" Grid.Column="1" Margin="0,0,12,0" Padding="14,8" FontSize="13" IsVisible="{Binding CanEditGame}" Command="{Binding EditGameCommand}">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.Edit}" />
+          <TextBlock Text="{loc:Loc games.header.editGame}" />
+        </StackPanel>
+      </Button>
+      <Button x:Name="LibraryNewProfileButton" Grid.Column="2" Margin="0,0,12,0" Padding="14,8" FontSize="13" Command="{Binding NewProfileCommand}">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.Add}" />
+          <TextBlock Text="{loc:Loc games.header.newProfile}" />
+        </StackPanel>
+      </Button>
+      <Button x:Name="LibraryGameMenuButton" Grid.Column="3" Classes="icon" AutomationProperties.Name="{Binding GameMoreActionsName}" ToolTip.Tip="{Binding GameMoreActionsName}">
+        <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.MoreVert}" />
+        <Button.Flyout>
+          <MenuFlyout Placement="BottomEdgeAlignedRight">
+            <MenuItem Header="{loc:Loc games.header.deleteGame}" Command="{Binding DeleteGameCommand}" />
+          </MenuFlyout>
+        </Button.Flyout>
+      </Button>
+    </Grid>
+
+    <!-- Profiles / History chips. Profiles is this screen, so it stays selected; History goes to its destination. -->
+    <StackPanel x:Name="Tabs"
+                Grid.Row="1"
+                Orientation="Horizontal"
+                Spacing="8"
+                Margin="0,12,0,0"
+                IsVisible="{Binding IsSidebarLayout}"
+                AutomationProperties.Name="{loc:Loc games.header.tabs.ariaLabel}">
+      <games:TabChip x:Name="ProfilesChip" Classes="chip" IsChecked="True" Content="{loc:Loc games.header.tabs.profiles}" />
+      <games:TabChip x:Name="HistoryChip" Classes="chip" IsChecked="False" Command="{Binding ShowHistoryCommand}" Content="{loc:Loc games.header.tabs.history}" />
+    </StackPanel>
+
+    <!-- The launch flow's banner (2a) or running card (2c) for this game. -->
+    <ContentControl x:Name="InlineContentHost" Grid.Row="2" Margin="0,12,0,0" IsVisible="{Binding HasInlineContent}" Content="{Binding InlineContent}" />
+
+    <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" Margin="0,12,0,0">
+      <StackPanel VerticalAlignment="Top" Spacing="12">
+        <ContentControl x:Name="LoadErrorHost" Content="{Binding LoadError}" IsVisible="{Binding LoadError, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+        <!-- The profile table: grid columns 1fr 108 92 118 128 with a 14px gap; the optional columns drop out as the window narrows. -->
+        <Border x:Name="Table" Classes="table" IsVisible="{Binding ShowTable}" AutomationProperties.ControlTypeOverride="Table" AutomationProperties.Name="{loc:Loc games.profileTable.automationName}">
+          <StackPanel>
+            <Border x:Name="TableHeader" Classes="table-header" AutomationProperties.ControlTypeOverride="Header">
+              <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
+                <TextBlock Classes="overline-small" Text="{theme:Upper {loc:Loc games.profileTable.column.profile}}" />
+                <TextBlock x:Name="VersionHeader" Grid.Column="1" Classes="overline-small" Width="108" Margin="14,0,0,0" IsVisible="{Binding Columns.ShowVersion}" Text="{theme:Upper {loc:Loc games.profileTable.column.version}}" />
+                <TextBlock x:Name="ModFilesHeader" Grid.Column="2" Classes="overline-small" Width="92" Margin="14,0,0,0" IsVisible="{Binding Columns.ShowModFiles}" Text="{theme:Upper {loc:Loc games.profileTable.column.modFiles}}" />
+                <TextBlock x:Name="LastPlayedHeader" Grid.Column="3" Classes="overline-small" Width="118" Margin="14,0,0,0" Text="{theme:Upper {loc:Loc games.profileTable.column.lastPlayed}}" />
+                <Border Grid.Column="4" Width="128" Margin="14,0,0,0" />
+              </Grid>
+            </Border>
+            <!-- Every row ends in a line; the last one is pushed out of the clipped table. -->
+            <ItemsControl x:Name="Rows" ItemsSource="{Binding Profiles}" Margin="0,0,0,-1">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="games:ProfileRowViewModel">
+                  <Border Classes="table-row"
+                          Classes.selected="{Binding IsActive}"
+                          AutomationProperties.ControlTypeOverride="DataItem"
+                          AutomationProperties.Name="{Binding AutomationName}">
+                    <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
+                      <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Border Classes="profile-dot" Classes.active="{Binding IsActive}" />
+                        <StackPanel VerticalAlignment="Center">
+                          <TextBlock Classes="row-title" TextTrimming="CharacterEllipsis" Text="{Binding Name}" />
+                          <TextBlock FontSize="10.5"
+                                     Classes.accent="{Binding IsActiveLine}"
+                                     Classes.error="{Binding IsUnsavedLine}"
+                                     Classes.subtle="{Binding IsPlainLine}"
+                                     IsVisible="{Binding SecondaryText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                     Text="{Binding SecondaryText}" />
+                        </StackPanel>
+                      </StackPanel>
+                      <TextBlock Grid.Column="1" Width="108" Margin="14,0,0,0" VerticalAlignment="Center" IsVisible="{Binding Columns.ShowVersion}" Text="{Binding VersionText}" />
+                      <TextBlock Grid.Column="2" Width="92" Margin="14,0,0,0" VerticalAlignment="Center" IsVisible="{Binding Columns.ShowModFiles}" Text="{Binding ModFilesText}" />
+                      <TextBlock Grid.Column="3" Width="118" Margin="14,0,0,0" VerticalAlignment="Center" Text="{Binding LastPlayedText}" />
+                      <Grid Grid.Column="4" Width="128" Margin="14,0,0,0" ColumnDefinitions="*,Auto,Auto">
+                        <Button x:Name="PlayButton"
+                                Grid.Column="1"
+                                Classes="row"
+                                Classes.filled="{Binding IsActive}"
+                                Padding="14,6"
+                                Command="{Binding PlayCommand}"
+                                AutomationProperties.Name="{Binding PlayAutomationName}">
+                          <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Classes="icon s16" Text="{x:Static theme:Icons.PlayArrow}" />
+                            <TextBlock Text="{Binding PlayLabel}" />
+                          </StackPanel>
+                        </Button>
+                        <Button x:Name="MoreButton"
+                                Grid.Column="2"
+                                Classes="icon"
+                                Margin="6,0,0,0"
+                                MinWidth="28"
+                                MinHeight="28"
+                                AutomationProperties.Name="{Binding MoreActionsAutomationName}"
+                                ToolTip.Tip="{Binding MoreActionsAutomationName}">
+                          <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.MoreVert}" />
+                          <Button.Flyout>
+                            <MenuFlyout Placement="BottomEdgeAlignedRight">
+                              <MenuItem Header="{loc:Loc games.profileTable.edit}" Command="{Binding EditCommand}" />
+                              <MenuItem Header="{loc:Loc games.profileTable.duplicate}" Command="{Binding DuplicateCommand}" />
+                              <MenuItem Header="{loc:Loc games.profileTable.delete}" Command="{Binding DeleteCommand}" />
+                            </MenuFlyout>
+                          </Button.Flyout>
+                        </Button>
+                      </Grid>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+
+        <!-- A game with no profiles yet. -->
+        <Border x:Name="EmptyState" Classes="panel" Padding="32,36" IsVisible="{Binding ShowEmptyState}">
+          <StackPanel Spacing="14" HorizontalAlignment="Center" MaxWidth="420">
+            <Border Width="56" Height="56" HorizontalAlignment="Center" CornerRadius="16" Background="{DynamicResource Md3SurfaceContainerBrush}">
+              <TextBlock Classes="icon s28 accent" HorizontalAlignment="Center" Text="{x:Static theme:Icons.BookmarkAdd}" />
+            </Border>
+            <TextBlock Classes="section-title" TextAlignment="Center" Text="{loc:Loc games.profileTable.emptyTitle}" />
+            <TextBlock Classes="body muted" TextAlignment="Center" TextWrapping="Wrap" Text="{loc:Loc games.profileTable.empty}" />
+            <Button x:Name="EmptyNewProfileButton" Classes="filled pill large" HorizontalAlignment="Center" Command="{Binding NewProfileCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.Add}" />
+                <TextBlock Text="{loc:Loc games.header.newProfile}" />
+              </StackPanel>
+            </Button>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </ScrollViewer>
+
+    <!-- The storage footer; the library layout's shelf already shows each game's size. -->
+    <Border x:Name="StorageFooter" Grid.Row="4" Classes="strip" Margin="0,14,0,0" IsVisible="{Binding ShowStorageFooter}">
+      <StackPanel Orientation="Horizontal" Spacing="12">
+        <TextBlock Classes="icon muted" Text="{x:Static theme:Icons.Database}" />
+        <TextBlock x:Name="StorageFooterText" Classes="muted" VerticalAlignment="Center" Text="{Binding StorageFooterText}" />
+      </StackPanel>
+    </Border>
+  </Grid>
+</UserControl>

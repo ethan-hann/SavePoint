@@ -476,6 +476,32 @@ public class GamesScreenViewModelTests
     }
 
     [Fact]
+    public async Task The_footer_is_drawn_in_the_sidebar_layout_only()
+    {
+        var rig = await GamesRig.StartAsync();
+        Assert.True(rig.Screen.ShowStorageFooter);
+        var changed = new List<string?>();
+        rig.Screen.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        await rig.Shell.SetLayoutAsync(ShellLayout.Library);
+
+        Assert.False(rig.Screen.ShowStorageFooter);
+        Assert.True(rig.Screen.HasStorageFooter);
+        Assert.Contains(nameof(GamesScreenViewModel.ShowStorageFooter), changed);
+    }
+
+    [Fact]
+    public async Task The_headers_overflow_button_is_named_after_the_game()
+    {
+        var rig = await GamesRig.StartAsync();
+        Assert.Equal("More actions for Skyrim Special Edition", rig.Screen.GameMoreActionsName);
+
+        rig.Shell.SelectGame(MockupScenario.SatisfactoryId);
+
+        Assert.Equal("More actions for Satisfactory", rig.Screen.GameMoreActionsName);
+    }
+
+    [Fact]
     public async Task The_history_chip_goes_to_the_history_destination()
     {
         var rig = await GamesRig.StartAsync();

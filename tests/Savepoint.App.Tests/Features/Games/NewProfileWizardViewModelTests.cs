@@ -517,6 +517,7 @@ public class NewProfileWizardViewModelTests
             card.Body);
         Assert.Equal(Icons.Warning, card.Icon);
         Assert.True(card.IsWarning);
+        Assert.False(card.HasPath);
         var retry = Assert.Single(card.Actions);
         Assert.Equal("Retry the saves", retry.Label);
         Assert.True(retry.IsPrimary);
@@ -548,6 +549,7 @@ public class NewProfileWizardViewModelTests
             [("Game version and mods \u00b7 not saved", false), ("Saves \u00b7 saved", true)],
             ((SaveOutcomeListViewModel)card.Supplement!).Rows.Select(row => (row.Text, row.Succeeded)));
         Assert.True(card.HasDetail);
+        Assert.Equal(@"C:\Games\SkyrimSE\Data\Skyrim.esm", card.Path);
     }
 
     [Fact]

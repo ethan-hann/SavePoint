@@ -218,7 +218,7 @@ public class ShellViewTests
     {
         using var harness = await ShellViewHarness.LibraryLayoutAsync();
 
-        var toggle = harness.All<LayoutToggleView>().Single();
+        var toggle = harness.All<LayoutToggleView>().Single(view => view.IsEffectivelyVisible);
         var list = (ListBox)toggle.FindControl<ListBox>("Toggle")!;
 
         Assert.Equal(1, list.SelectedIndex);
@@ -233,7 +233,7 @@ public class ShellViewTests
     {
         using var harness = await ShellViewHarness.LibraryLayoutAsync();
         var before = harness.Find<ContentControl>("ContentRegion").Content;
-        var toggle = harness.All<LayoutToggleView>().Single().FindControl<ListBox>("Toggle")!;
+        var toggle = harness.All<LayoutToggleView>().Single(view => view.IsEffectivelyVisible).FindControl<ListBox>("Toggle")!;
 
         toggle.SelectedIndex = 0;
         harness.Settle();
@@ -256,7 +256,10 @@ public class ShellViewTests
 
         Assert.True(harness.Shell.IsCompact);
         Assert.Equal(64, harness.Find<Border>("Rail").Bounds.Width);
-        var texts = VisibleTexts(harness).ToList();
+
+        // The rail only: the Games screen beside it names the selected game in its own header.
+        var texts = harness.Find<Border>("Rail").GetVisualDescendants().OfType<TextBlock>()
+            .Where(block => block.IsEffectivelyVisible && block.Opacity > 0).Select(block => block.Text).ToList();
         Assert.DoesNotContain("Games", texts);
         Assert.DoesNotContain("Skyrim Special Edition", texts);
         Assert.DoesNotContain("Add a game", texts);

@@ -45,6 +45,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasStorageFooter))]
+    [NotifyPropertyChangedFor(nameof(ShowStorageFooter))]
     private string _storageFooterText = string.Empty;
 
     [ObservableProperty]
@@ -107,6 +108,12 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
 
     /// <summary>True when the storage footer has something to say.</summary>
     public bool HasStorageFooter => StorageFooterText.Length > 0;
+
+    /// <summary>True when the storage footer is drawn: it has something to say and the layout has room for it (the library shelf shows each game's size itself).</summary>
+    public bool ShowStorageFooter => HasStorageFooter && IsSidebarLayout;
+
+    /// <summary>The accessible name of the header's overflow button ("More actions for Skyrim Special Edition").</summary>
+    public string GameMoreActionsName => _game is { } game ? _deps.Text.Message("games.profileTable.moreActions", ("name", game.Name)) : string.Empty;
 
     /// <summary>True while the launch flow has a banner or running card to show above the table.</summary>
     public bool HasInlineContent => InlineContent is not null;
@@ -229,6 +236,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
             case nameof(IShellContext.Layout):
                 OnPropertyChanged(nameof(IsSidebarLayout));
                 OnPropertyChanged(nameof(IsLibraryLayout));
+                OnPropertyChanged(nameof(ShowStorageFooter));
                 break;
         }
     }
@@ -278,6 +286,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         LibraryTitle = game is null ? string.Empty : _deps.Text.Message("games.header.libraryTitle", ("name", game.Name));
         RefreshInlineContent();
         OnPropertyChanged(nameof(HasGame));
+        OnPropertyChanged(nameof(GameMoreActionsName));
         RaiseTableState();
     }
 
