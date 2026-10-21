@@ -26,7 +26,12 @@ How to build a screen in `Savepoint.App`. The visual spec is `../Savepoint/docs/
 - Settings writes: always through `SettingsWriter` on `FeatureContext` (read-modify-write of one field, so writers never clobber each other); `FeatureContext.Clock` for anything time-based.
 - Destructive confirmations: `ConfirmRequest.Typed` makes the user type a word (the game name for delete game; a shown word for clear all data).
 - `ProgressMilestones` announces long progress at each quarter through a live region.
-- `ArtTile` (`GameName`, `Size`), `AnnouncementRegion` (`Announce`), `IUiDispatcher` (`AvaloniaUiDispatcher`, tests `ImmediateUiDispatcher`).
+- `ArtTile` (`GameName`, `Size`, `Art`): draws the game's artwork over its name tint.
+  - Bind `Art` to a `GameArt`, which comes from `IShellContext.Artwork` (`IArtworkProvider`) by game id. The provider decodes off the UI thread into a bounded bitmap cache and refreshes on the api's change event.
+  - A tile at least 1.5 times as wide as it is tall uses the wide image; otherwise it uses the square one. When only one image exists, every tile uses it.
+  - The tile shows the tint until an image is ready, and it stays decoration for assistive technology.
+- `AnnouncementRegion` (`Announce`), `IUiDispatcher` (`AvaloniaUiDispatcher`, tests `ImmediateUiDispatcher`; `PostWhenIdle` for work that must wait until the library has rendered, such as artwork lookups).
+- Test images for decoders and tiles: `tests/Shared/TestImages.cs`.
 
 ## Theme vocabulary (`src/Savepoint.App/Styles`, `Theme/`)
 

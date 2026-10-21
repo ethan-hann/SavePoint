@@ -6,13 +6,14 @@ How the code is organized and what each layer promises the one above it. Behavio
 
 ```
 Savepoint.App (Avalonia)
-  Views (.axaml) -> ViewModels -> Api (IGamesApi, IProfilesApi, ILaunchApi, ISettingsApi, IHistoryApi, IJobsApi, IAppStatusApi) + IDialogs
+  Views (.axaml) -> ViewModels -> Api (IGamesApi, IProfilesApi, ILaunchApi, ISettingsApi, IHistoryApi, IJobsApi, IAppStatusApi, IArtworkApi) + IDialogs
                                      |
 Savepoint.Core                       v
   Api/        facade: validates input, calls services, converts every exception to ErrorInfo (OperationResult<T>)
   Backend/    CoreBackend.Create(BackendOptions): builds every service and the Api implementations
   Services/   Games, Profiles, History, Settings, Storage, AppStatus, Jobs (JobRegistry), Locking (GameLock), Exe (version reader, scanner)
   Launch/     per-OS game launchers, process starter, session watcher (exit detection); Orchestration/ LaunchOrchestrator (ILaunchApi) and the session book (IGameSessions)
+  Artwork/    IArtworkApi (D30): SteamAppIdDetector, SteamFolderLocator, SteamLocalCache, SteamCdn, ImageProbe, ArtworkStore
   Catalog/    models, validation, CatalogStore (atomic JSON), templates
   Git/        GitBinary, GitRunner (process), GitEngine (operations on a RepoRef)
   Paths/      PathTokenResolver, PathSafety, ConsentMarker
@@ -189,6 +190,14 @@ Catalog models (`GameDefinition`, `Profile`, `AppSettings`, `GameTemplate`, `Rep
 **Storage and settings.** `GameStorageUsage` and `StorageSummary` give SavePoint's bytes per game and in total and the storage volume's size and free space; the summary adds the last optimization date. `StorageRelocationPreview` and `ClearAllDataPreview` list what will move or go, with sizes and a `BlockedBy` error, so the confirmation is exact. After a move is verified and SavePoint has switched to the new root, the old copies are deleted; a copy that cannot be removed is named in the job's lines and left in place.
 
 **Startup (D18).** `StartupStatus` holds `GitStatus(Available, Path, Version, Error)` and `CatalogStatus(Directory, CorruptFiles)`, each `CorruptCatalogFile` naming its path, its last good backup if any, and the error. `RecoverCatalogFileAsync` restores the backup or starts that file empty; either way the corrupt file is moved aside, never deleted, and the call answers with where it went.
+
+**Artwork (D30).** `IArtworkApi` answers with what is on disk at once and never waits for a lookup. A missing image starts a background lookup, and the `ArtworkChanged` event (keyed by game id) delivers the result.
+- **Images** live in `<catalog dir>/artwork/<gameId>/`: `custom.<ext>` (the user's own, copied in), `steam-wide.jpg`, `steam-square.jpg`, and `lookup.json`, which records the app id used and a miss for 7 days. A missing app id counts as a miss.
+- **Sources:** the local Steam cache first, then Steam's CDN, but only when `BackendOptions.ArtworkHttp` is set. Without it, online lookup is off, which keeps every test offline; only `AppBootstrap` supplies the real handler, which follows no redirects (any 3xx is a failure) and sends no cookies. `BackendOptions.SteamFolder` lets tests point at a fake Steam folder.
+- **Retries:** a lookup runs at most once per run for each combination of game, app id, and online setting. "Look again", a changed app id, or turning the setting back on retries sooner.
+- **The image check** (`ImageProbe`) accepts PNG, JPEG, and WebP up to 25 MB, 32,767 px per side, and 100 megapixels.
+- **Errors:** `error.artwork.notAnImage` (`path`) and `error.artwork.tooLarge` (`path`, `maxMegabytes`); an invalid app id is `validation.game.steamAppIdInvalid`.
+- **Cleanup:** deleting a game removes its artwork folder, and clear-all removes them all; a storage move leaves them alone.
 
 ## App
 

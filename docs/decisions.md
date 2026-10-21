@@ -217,6 +217,13 @@ Owner request (2026-10-21): show a game's real artwork when it can be found, fal
 - **Storage:** images live under SavePoint's configuration folder (`<config>/artwork/<gameId>/`), not the storage root, so a storage move does not touch them. Deleting a game removes its folder, and "Clear all data" removes them all. The user's own image is copied in on save, never referenced in place. It is accepted only if it decodes as PNG, JPEG, or WebP and is at most 25 MB; otherwise the editor shows `error.artwork.notAnImage` or `error.artwork.tooLarge`.
 - **UI:** the tile shows the tint until the image is decoded (off the UI thread, at display size), so lists never wait or flicker. The tile stays decoration for assistive technology, since the game name is always beside it. The editor's Artwork section shows a preview, where the art came from ("From Steam", "Your image", or "No artwork found"), "Choose image...", "Remove your image" when one is set, "Look again", and the optional Steam app ID field with the detected id as its hint. Settings > Appearance adds "Look up game artwork online", with a note that artwork already on this computer is used either way.
 - **API:** a separate `IArtworkApi` (get, set the user's image, clear it, look again, and a change event keyed by game id). `IGamesApi` and the game summaries stay unchanged, so the fake backend, the contract tests, and the launch work do not move. Tests use a fake Steam folder and a fake HTTP handler. No test, on either gate, ever reaches the network: the backend's default is online lookup off unless a handler is supplied, and only the app's bootstrap supplies the real one.
+- **Settled while building it:**
+  - A read never waits: it returns what is on disk and starts any lookup in the background.
+  - Steam images, including ones from the local cache, are copied into SavePoint's folder, so a Steam library change cannot take them away.
+  - Any 3xx answer counts as a failure, so no redirect is ever followed.
+  - The tile switches to the wide image at a width of 1.5 times its height.
+  - "Look again" is disabled while the app id field is being edited.
+  - When saving the artwork fails after the game itself saved, the editor stays open on the saved game and shows the error there.
 
 ## D31. Fixes from the backend and launch review
 

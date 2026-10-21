@@ -34,6 +34,14 @@ Before you start:
 
 If a folder you add still holds history from a game you removed earlier, SavePoint offers **Reconnect** to bring that history back, or **Start fresh**.
 
+### Artwork
+
+Steam games show their cover art in the library and the sidebar.
+- **Where SavePoint finds the art:** first in the Steam client's own cache on your computer, then, if **Look up game artwork online** is on in Settings > Appearance, from Steam's image servers.
+- **Which game it is:** SavePoint reads the Steam app id from a `steam://run/<id>` launch link, from a `steam_appid.txt` file in the game folder, or from Steam's library files. You can also type it in **Steam app ID** in the editor's Artwork section; it's the number after `/app/` in the game's Steam store address.
+- **Your own image:** **Choose image...** picks one (PNG, JPEG, or WebP, up to 25 MB). SavePoint keeps a copy, so moving the original file doesn't matter, and your image always wins. **Remove your image** goes back to the Steam art.
+- **When nothing is found:** the game shows a color tint based on its name. **Look again** retries; otherwise SavePoint retries on its own after a week.
+
 **Edit game** changes any of these later. **Export** writes the game's definition to a file you can share, and **Import** loads one. **Delete game** removes the game, its profiles, and all its saved history from SavePoint, after you type the game's name to confirm. The files in your game folder and saves folder are not touched.
 
 ## Profiles
@@ -131,4 +139,5 @@ Every failure says what happened and what you can do; **Show details** gives the
 
 - **The game's install folder and saves folder.** SavePoint reads them when it saves, and replaces their contents when it switches or discards. It adds one marker file to each.
 - **Its own settings folder and storage folder** (table above).
-- **Nothing else.** SavePoint uses its own copy of git and never your system's. It makes no network requests.
+- **Nothing else.** SavePoint uses its own copy of git and never your system's.
+- **The network, only for artwork.** The one network request SavePoint makes is the artwork download from Steam: the game's Steam app id in the address, and nothing else. **Settings > Appearance > Look up game artwork online** turns it off.

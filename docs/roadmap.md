@@ -44,7 +44,7 @@ Done when: headless render tests produce PNGs of the shell in both layouts and b
 First run (with the anti-cheat note, D19), Games (header, profile table, storage footer, overflow menu), Game editor (with cloud-save guidance, D19), New profile wizard, Launch flow (banner, dialog, progress, running, post-play incl. D14 choices), History (list and cards, go back to any point, D15), Settings (storage + move + optimize + clear all data, appearance, when you finish playing), error states, startup error screens (git unavailable, corrupt catalog - D18).
 Done when: every mockup screen (`2a`-`2l`, `3a`-`3c`) has a view-model test suite and a headless render reviewed against its screenshot.
 
-### M5a - Game artwork (todo, D30)
+### M5a - Game artwork (done, D30; merged `4a2e306`)
 Owner request: Steam artwork (local Steam cache first, then Steam's CDN when "Look up game artwork online" is on), the name tint as fallback, and the user's own image always wins. Optional `SteamAppId` on the game (stored wins, otherwise detected from the launch link, `steam_appid.txt`, or the Steam library manifest), `IArtworkApi`, images under `<config>/artwork/<gameId>/`, the editor's Artwork section, the Settings toggle, and `ArtTile` drawing the image with the tint while loading.
 Done when: a Steam game's cards and tiles show its art from the local cache with online lookup off; a game with no id keeps the tint; the user's image beats both and survives restart; delete game and clear all data remove the files; no test reaches the network; headless renders of the library and sidebar layouts with art are reviewed. Follow-up, not v1: GOG artwork from `goggame-<id>.info`.
 
@@ -55,3 +55,12 @@ Done when: an accessibility review and an adversarial resilience review report n
 ### M7 - Packaging and end-to-end (todo)
 Installer + portable build per OS with the pruned, licensed git bundle (D21), end-to-end dogfood run against FakeGame through the real UI services, final code review and gap analysis against `plan.md` and `docs/ui/README.md`, project documentation (README, user guide, developer guide) and a generated API reference (D24).
 Done when: the gap analysis reports no unmet requirement and the packaged app runs the full capture, switch, play, capture cycle.
+
+## Follow-ups
+
+There is no remote and no issue tracker, so open follow-ups live here.
+
+- Test teardown race: `GitWorkspace.DeleteDirectory` lists files and then calls `SetAttributes`, and a temp pack file git removes in between throws `FileNotFoundException` (seen once in `ProfilesManageTests.Deleting_a_profile_that_is_not_checked_out_removes_its_branches_and_row`). The teardown should tolerate a file that is already gone.
+- Fixture rework, deferred (`.tools/briefs/test-fixtures.md`): the slowest classes are `CheckoutTests`, `LaunchContinueTests`, `OrphanTests`, and `HistoryInputTests`.
+- GOG artwork from `goggame-<id>.info` (D30 follow-up).
+- Backend review notes not covered by D31: none yet; the reviewer re-checks the fixes after they merge.

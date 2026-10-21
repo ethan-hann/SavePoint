@@ -18,6 +18,7 @@ You keep your game where it is. SavePoint records each folder's contents in its 
   - It never switches over unsaved changes: you keep them, discard them, or save them first.
   - Destructive actions need a second confirmation.
   - Every failure explains what happened and what to do.
+- **Game artwork:** Steam games get their cover art, from the Steam client's local cache or from Steam's servers. Other games show a tint based on their name. Your own image always wins.
 - **Comfortable to use:**
   - Light and dark themes with five accent colors.
   - Sidebar and library layouts.
@@ -25,7 +26,7 @@ You keep your game where it is. SavePoint records each folder's contents in its 
   - Notifications when a long job finishes while SavePoint is in the background.
 - **Cross-platform.** One build for Windows, Linux, and macOS. macOS has not yet been tested on real hardware.
 
-SavePoint bundles its own pinned copy of git and never uses one installed on your machine. Everything stays on your computer.
+SavePoint bundles its own pinned copy of git and never uses one installed on your machine. Everything stays on your computer. The only network request it ever makes is the optional artwork download from Steam, which you can turn off in Settings.
 
 Not supported: games with kernel-level anti-cheat. Turn off a storefront's cloud saves (Steam Cloud, GOG Galaxy) for a game SavePoint manages, or the two will overwrite each other.
 
