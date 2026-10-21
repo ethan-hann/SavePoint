@@ -9,7 +9,7 @@ using Savepoint.Core.Errors;
 
 namespace Savepoint.App.Tests.Features.Settings;
 
-// Settings > Appearance: "Look up game artwork online" (D30). It is saved like every other setting, and what the screens show follows it.
+// Settings > Appearance: "Look up game artwork online". It is saved like every other setting, and what the screens show follows it.
 public class AppearanceArtworkTests
 {
     private sealed class RecordingProvider : IArtworkProvider

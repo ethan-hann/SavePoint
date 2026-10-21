@@ -6,7 +6,7 @@ using Savepoint.Testing;
 
 namespace Savepoint.Core.Tests.Artwork;
 
-// Steam's servers as the second source (D30): the setting, the missing-handler default, remembered misses, and the network limits
+// Steam's servers as the second source: the setting, the missing-handler default, remembered misses, and the network limits
 // at the level of the whole backend.
 public class ArtworkOnlineTests
 {

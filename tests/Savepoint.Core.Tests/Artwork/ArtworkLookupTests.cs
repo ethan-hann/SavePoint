@@ -5,7 +5,7 @@ using Savepoint.Testing;
 
 namespace Savepoint.Core.Tests.Artwork;
 
-// Steam artwork from the Steam client's own cache and the app id it is found by (D30), with online lookup off or no handler at all.
+// Steam artwork from the Steam client's own cache and the app id it is found by, with online lookup off or no handler at all.
 public class ArtworkLookupTests
 {
     private const int _app = 489830;

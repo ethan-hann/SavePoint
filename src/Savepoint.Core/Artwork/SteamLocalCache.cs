@@ -2,7 +2,7 @@ using System.Globalization;
 
 namespace Savepoint.Core.Artwork;
 
-// Finds artwork the Steam client already downloaded, so no network is needed for it (D30).
+// Finds artwork the Steam client already downloaded, so no network is needed for it.
 internal static class SteamLocalCache
 {
     // Steam keeps a few dozen files per app at most; the walk stops well before anything strange.

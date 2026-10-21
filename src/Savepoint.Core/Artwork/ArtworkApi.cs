@@ -7,7 +7,7 @@ using Savepoint.Core.Services;
 
 namespace Savepoint.Core.Artwork;
 
-// The real IArtworkApi (D30). Reads are quick file reads; the Steam lookup runs in the background and tells the app through
+// The real IArtworkApi. Reads are quick file reads; the Steam lookup runs in the background and tells the app through
 // ArtworkChanged. Nothing here holds a lock across the network, and nothing here writes the catalog.
 internal sealed class ArtworkApi : IArtworkApi
 {

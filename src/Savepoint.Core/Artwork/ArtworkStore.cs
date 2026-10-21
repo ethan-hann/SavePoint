@@ -14,7 +14,7 @@ internal sealed partial class ArtworkJsonContext : JsonSerializerContext
 {
 }
 
-// Where a game's artwork lives on disk: <config>/artwork/<gameId>/ (D30), in SavePoint's configuration folder and never in the storage
+// Where a game's artwork lives on disk: <config>/artwork/<gameId>/, in SavePoint's configuration folder and never in the storage
 // root. A folder holds the user's own image (custom.<ext>), the two Steam images, and the lookup memory. The methods are plain file
 // work; callers hold the game's lease (EnterAsync) around anything that must not overlap a delete or another writer.
 internal sealed class ArtworkStore

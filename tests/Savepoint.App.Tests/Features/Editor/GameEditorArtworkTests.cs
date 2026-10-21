@@ -7,7 +7,7 @@ using Savepoint.Core.Errors;
 
 namespace Savepoint.App.Tests.Features.Editor;
 
-// The editor's Artwork section (D30): a preview, where the art came from, the user's own image, look again and the Steam app id.
+// The editor's Artwork section: a preview, where the art came from, the user's own image, look again and the Steam app id.
 // Everything is applied on Save like every other field.
 public class GameEditorArtworkTests
 {

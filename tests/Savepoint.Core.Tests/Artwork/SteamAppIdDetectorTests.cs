@@ -73,7 +73,7 @@ public class SteamAppIdDetectorTests
     [InlineData("489830\n", 489830)]
     [InlineData("489830\r\n", 489830)]
     [InlineData("  489830  ", 489830)]
-    [InlineData("﻿489830", 489830)]
+    [InlineData("\uFEFF489830", 489830)]
     public void A_steam_appid_file_holding_only_digits_names_the_app(string content, int expected)
     {
         using var folder = new TempFolder();

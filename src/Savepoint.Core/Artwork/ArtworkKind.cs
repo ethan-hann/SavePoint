@@ -1,6 +1,6 @@
 namespace Savepoint.Core.Artwork;
 
-// The two images a game can have: the wide one for the card, and the tall one for the square tiles (D30).
+// The two images a game can have: the wide one for the card, and the tall one for the square tiles.
 internal enum ArtworkKind
 {
     Wide,

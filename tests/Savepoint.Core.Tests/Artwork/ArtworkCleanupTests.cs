@@ -5,7 +5,7 @@ using Savepoint.Testing;
 
 namespace Savepoint.Core.Tests.Artwork;
 
-// Where artwork lives and when it goes: with its game, with all data, and never with a storage move (D30).
+// Where artwork lives and when it goes: with its game, with all data, and never with a storage move.
 public class ArtworkCleanupTests
 {
     private static string ArtworkRoot(BackendWorkspace workspace) => Path.Combine(workspace.CatalogDirectory, "artwork");

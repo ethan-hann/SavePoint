@@ -19,7 +19,7 @@ internal enum CdnOutcome
 // An outcome, and the bytes when it is Found.
 internal sealed record CdnResult(CdnOutcome Outcome, byte[]? Bytes = null);
 
-// Fetches a game's artwork from Steam's servers under the network rules of D30: HTTPS and GET only, two named hosts, no redirect
+// Fetches a game's artwork from Steam's servers under these network rules: HTTPS and GET only, two named hosts, no redirect
 // followed, ten seconds per request, five megabytes at most, a JPEG content type, bytes that really are an image, and no more than
 // two requests in flight. The handler it is given must not follow redirects or keep cookies; the app's handler is set up that way.
 internal sealed class SteamCdn

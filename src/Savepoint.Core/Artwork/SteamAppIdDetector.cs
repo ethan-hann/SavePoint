@@ -4,7 +4,7 @@ using Savepoint.Core.Catalog;
 
 namespace Savepoint.Core.Artwork;
 
-// Works out a game's Steam app id from what is on disk (D30). It only reads files and never changes the game.
+// Works out a game's Steam app id from what is on disk. It only reads files and never changes the game.
 internal static partial class SteamAppIdDetector
 {
     // A text file holding one number is a few bytes; anything bigger is something else.
