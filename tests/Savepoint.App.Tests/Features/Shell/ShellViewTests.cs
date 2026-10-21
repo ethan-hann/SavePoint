@@ -84,6 +84,24 @@ public class ShellViewTests
     }
 
     [AvaloniaFact]
+    public async Task The_selected_game_stays_selected_in_the_rail_and_on_the_shelf_when_the_library_reloads()
+    {
+        using var rail = await ShellViewHarness.StartAsync();
+        using var shelf = await ShellViewHarness.LibraryLayoutAsync();
+        rail.Shell.SelectGame(MockupScenario.SatisfactoryId);
+        shelf.Shell.SelectGame(MockupScenario.CaretakerId);
+
+        await rail.Shell.RefreshLibraryAsync();
+        await shelf.Shell.RefreshLibraryAsync();
+        rail.Settle();
+        shelf.Settle();
+
+        Assert.Equal(1, rail.Find<ListBox>("RailGames").SelectedIndex);
+        Assert.Equal(2, shelf.Find<ListBox>("ShelfGames").SelectedIndex);
+        Assert.Equal(MockupScenario.SatisfactoryId, rail.Shell.SelectedGame?.Id);
+    }
+
+    [AvaloniaFact]
     public async Task The_add_button_is_outlined_while_there_are_games_and_asks_for_the_editor()
     {
         using var harness = await ShellViewHarness.StartAsync();
@@ -314,6 +332,9 @@ public class ShellViewTests
         Assert.Contains("filled", harness.Find<Button>("RailAddButton").Classes);
         var items = harness.Find<ListBox>("NavList").GetVisualDescendants().OfType<ListBoxItem>().ToList();
         Assert.Equal([true, false, true], items.Select(item => item.IsEnabled));
+        var dimmed = (Avalonia.Media.ISolidColorBrush)Application.Current!.FindResource("Md3DisabledContentBrush")!;
+        Assert.Equal(dimmed.Color, ((Avalonia.Media.ISolidColorBrush)items[1].Foreground!).Color);
+        Assert.NotEqual(dimmed.Color, ((Avalonia.Media.ISolidColorBrush)items[2].Foreground!).Color);
     }
 
     [AvaloniaFact]

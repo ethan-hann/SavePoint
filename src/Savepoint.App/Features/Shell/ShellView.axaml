@@ -33,6 +33,10 @@
     <Style Selector="ListBox.shelf ListBoxItem:selected /template/ Border#PART_SelectedRing">
       <Setter Property="Opacity" Value="1" />
     </Style>
+    <!-- The nav item style sets its own text color, which would otherwise win over the disabled one. -->
+    <Style Selector="ListBox.nav ListBoxItem:disabled">
+      <Setter Property="Foreground" Value="{DynamicResource Md3DisabledContentBrush}" />
+    </Style>
     <Style Selector="Border.brand-mark">
       <Setter Property="Width" Value="24" />
       <Setter Property="Height" Value="24" />
