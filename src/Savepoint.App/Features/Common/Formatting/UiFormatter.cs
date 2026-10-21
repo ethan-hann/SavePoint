@@ -56,8 +56,13 @@ public sealed class UiFormatter
     public string Message(string key, params (string Name, object? Value)[] args) =>
         Message(key, args.ToDictionary(arg => arg.Name, arg => arg.Value));
 
-    /// <summary>The user-facing text for an error: its message id is the catalog key and its arguments fill the placeholders. The developer detail is never part of it.</summary>
-    public string Message(ErrorInfo error) => Message(error.MessageId, error.Args);
+    /// <summary>
+    /// The user-facing text for an error: its message id is the catalog key and its arguments fill the placeholders.
+    /// An id the catalog does not know (a newer Core than this app) reads as the generic unknown-error message, never
+    /// as a raw key. The developer detail is never part of it.
+    /// </summary>
+    public string Message(ErrorInfo error) =>
+        Message(_catalog.Contains(error.MessageId) ? error.MessageId : "error.unknown", error.Args);
 
     /// <summary>A size in decimal units with at most one fraction digit and no trailing zero ("6.1 GB", "210 GB", "512 bytes").</summary>
     public string FileSize(long bytes)

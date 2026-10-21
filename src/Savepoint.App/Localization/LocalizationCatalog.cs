@@ -53,6 +53,9 @@ public sealed class LocalizationCatalog
     /// <summary>Every key the catalog holds.</summary>
     public IReadOnlyCollection<string> Keys => _messages.Keys.ToList();
 
+    /// <summary>Whether the catalog has a message for the key.</summary>
+    public bool Contains(string key) => _messages.ContainsKey(key);
+
     /// <summary>Builds a catalog from one JSON object of strings.</summary>
     public static LocalizationCatalog FromJson(string json, string locale, bool? throwOnMissingKey = null) =>
         new(ParseMessages(json), locale, throwOnMissingKey);

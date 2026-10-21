@@ -1,0 +1,64 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:errors="using:Savepoint.App.Features.Common.Errors"
+             x:Class="Savepoint.App.Features.Common.Errors.ErrorCardView"
+             x:DataType="errors:ErrorCardViewModel">
+  <!--
+    The shared error card (mockup 2l): icon and headline, what happened, the path on a recessed monospace surface,
+    optional extra content, the actions, and a toggle for the developer detail.
+  -->
+  <Border x:Name="Card"
+          Classes="card"
+          Background="{DynamicResource Md3SurfaceContainerHighBrush}"
+          Padding="22,18"
+          AutomationProperties.Name="{Binding Title}"
+          AutomationProperties.LiveSetting="Polite">
+    <Grid ColumnDefinitions="Auto,*">
+      <TextBlock x:Name="IconGlyph"
+                 Classes="icon s24"
+                 Classes.error="{Binding IsError}"
+                 Classes.warning="{Binding IsWarning}"
+                 Classes.muted="{Binding IsNeutral}"
+                 Margin="0,0,16,0"
+                 VerticalAlignment="Top"
+                 Text="{Binding Icon}" />
+      <StackPanel Grid.Column="1" Spacing="14">
+        <StackPanel Spacing="6">
+          <TextBlock x:Name="TitleText" Classes="card-title" TextWrapping="Wrap" Text="{Binding Title}" />
+          <TextBlock x:Name="BodyText" Classes="body muted" TextWrapping="Wrap" Text="{Binding Body}" />
+        </StackPanel>
+        <Border x:Name="PathSurface" Classes="recessed" IsVisible="{Binding HasPath}">
+          <SelectableTextBlock Classes="mono small" TextWrapping="Wrap" Text="{Binding Path}" />
+        </Border>
+        <ContentControl x:Name="SupplementHost" Content="{Binding Supplement}" IsVisible="{Binding Supplement, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <ItemsControl ItemsSource="{Binding Actions}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Orientation="Horizontal" Spacing="8" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="errors:ErrorCardAction">
+                <Button Classes="pill"
+                        Classes.filled="{Binding IsPrimary}"
+                        Content="{Binding Label}"
+                        Command="{Binding Command}" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <ToggleButton x:Name="DetailsToggle"
+                        Classes="pill"
+                        IsVisible="{Binding HasDetail}"
+                        IsChecked="{Binding ShowDetails, Mode=TwoWay}"
+                        Content="{Binding DetailsToggleLabel}" />
+        </StackPanel>
+        <Border x:Name="DetailsSurface" Classes="recessed" IsVisible="{Binding ShowDetails}">
+          <ScrollViewer MaxHeight="180" HorizontalScrollBarVisibility="Auto">
+            <SelectableTextBlock x:Name="DetailsText" Classes="mono small" Text="{Binding Detail}" />
+          </ScrollViewer>
+        </Border>
+      </StackPanel>
+    </Grid>
+  </Border>
+</UserControl>
