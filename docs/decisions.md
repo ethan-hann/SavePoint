@@ -101,6 +101,48 @@ The inventories (`docs/reference/v1-services.md` section 10, `v1-ui.md` section 
 23. **Default storage root is a local, never-synced folder**: `%LOCALAPPDATA%\SavePoint\Storage` on Windows, `$XDG_DATA_HOME/savepoint/storage` on Linux, `~/Library/Application Support/SavePoint/Storage` on macOS. v1 used `Documents\SavePoint`, which OneDrive commonly syncs, a bad home for tens of GB of game data. First run shows the location and Settings can move it.
 24. **Git never reads the user's global or system config.** Every git process runs with `GIT_CONFIG_NOSYSTEM=1`, `GIT_CONFIG_GLOBAL` pointed at an empty file, and a fixed identity, so a user's `commit.gpgsign`, hooks path, or aliases can never change what SavePoint does.
 
+## D14. Playing from an older point, then saving
+
+`plan.md` ("Save history within one Profile") requires two choices when the player continued from an older point and then captures: move the profile forward from that point (the newer points stop being part of the profile, recoverable until the next storage optimization) or fork a new profile from that point, with fork as the safer default. v1 never built this (it threw `detachedCaptureNotSupported`, later patched with keep-as-new in the launch dialog). v2 builds it:
+
+- The post-play dialog, when the session started from an older point, offers: **Keep this as a new profile** (default, name field prefilled), **Continue "<profile>" from here** (moves the profile forward; second confirmation that names how many newer points leave the profile), and **Not now**.
+- `SessionCompletion` variants: `CaptureNew(message)`, `UpdateExisting(message)` (amend), `ForkNewProfile(name, message)`, `MoveForward(message)`, `Skip`.
+- Engine: fork = create a branch at the current (detached) commit, switch to it without touching files, commit; move forward = point the branch at the current commit (`reset --soft` semantics on the branch ref, never touching files), then commit. Both refuse unless the folder is on the commit the session started from or a descendant of it.
+
+## D15. History points and "Go back to this"
+
+A history point is one capture event. Each capture writes a `Savepoint-Capture: <guid>` trailer into the message of every commit it creates (one per folder), so points are grouped exactly, never by matching timestamps. The trailer is never shown.
+
+- Point kinds (2j): **Version, mods and save** (both folders changed), **Version and mods** (install only), **Save only** (external only). The card's line ("Save only · 1.6.640 with 212 mod files") reads the install state current at that point.
+- **Go back to this** opens the launch flow targeted at that point: each folder is restored to its commit for that point, or, for a folder the capture did not touch, to that profile's latest commit at or before it. A point that is not the profile's tip restores detached, and the next capture after playing follows D14 (fork by default).
+- The launch dialog's save picker is the same mechanism restricted to save points of the target profile (plan step 2 and 2b).
+
+## D16. Large incompressible files skip delta compression
+
+Per the plan's Maintenance section, every repo gets `<gitDir>/info/attributes` (not a file in the game folder, consistent with D13.1) marking already-compressed formats `-delta`: archives (`zip 7z rar gz xz zst cab`), media (`mp4 webm mkv bik bk2 usm ogg mp3 flac`), and common game containers (`pak ucas utoc bsa ba2 archive vpk pck`). Text and small binary files keep delta compression.
+
+## D17. Deleting a profile warns about history only it holds
+
+The plan's profile list says Delete "warns if it's the only place holding some history". v2 computes, per folder, the points reachable from that profile and from no other profile (`rev-list <branch> --not <every other profile branch>`). The delete confirmation names how many points will be lost and that their space is freed by the next storage optimization; zero means a plain confirmation.
+
+## D18. Startup checks and recovery
+
+On launch, before any screen: verify the bundled git (`git --version`); failure shows a dedicated error screen naming the path and what to reinstall, never a silent failure. Stale `index.lock` files under the storage root are removed when they predate the current process (SavePoint is single-instance and owns every git process on its own repos); during a run, a lock is removed only under the game's lock with no SavePoint git process in flight for that repo. A corrupt catalog file shows the recovery screen from D13.2.
+
+## D19. Onboarding and editor guidance from the plan's risk table
+
+- First run and the game editor say plainly that games with kernel anti-cheat are not supported (the plan's explicit non-goal), without attempting detection.
+- The game editor recommends turning off the storefront's cloud saves for a managed game (Steam Cloud, GOG Galaxy), next to the launch-method choice.
+- Long paths: `core.longpaths=true` everywhere, and the engine's tests include a tree deeper than 260 characters on Windows.
+
+## D20. Translator workflow
+
+The v1 FormatJS extraction step becomes two tests plus a short guide: every key referenced from XAML or C# exists in `en.json`, `en.json` has no unreferenced keys, and every additional catalog (`<locale>.json`) has exactly the same keys with ICU arguments that match English. Adding a language is dropping a file next to `en.json`; the locale list in Settings is driven by the files present.
+
+## D21. Licensing of the bundled git
+
+Distributing git means shipping the GPLv2 text and a written source offer pointing at the exact upstream source tags (git-for-windows `v2.56.0.windows.2`, git `v2.53.0`, dugite-native `v2.53.0-4`). The bundle is pruned of components SavePoint never uses (Git Credential Manager and its UI assemblies, Git LFS, network helpers), which also shrinks the installer; whatever stays is listed in `THIRD-PARTY-NOTICES.md` with its license.
+
 ## D8. "Clear all data" is a v2 requirement
 
 The v1 README lists "add a clear all data button" as an open TODO. v2 ships it in Settings behind a typed confirmation. It removes SavePoint's own storage, catalog, and consent markers, and never deletes or rolls back files in a game's install or save folders: whatever is on disk at that moment stays as it is.
