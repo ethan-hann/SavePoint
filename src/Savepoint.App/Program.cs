@@ -1,4 +1,5 @@
 using Avalonia;
+using Savepoint.App.Theme.Fonts;
 
 namespace Savepoint.App;
 
@@ -12,5 +13,6 @@ internal static class Program
     public static AppBuilder BuildAvaloniaApp() =>
         AppBuilder.Configure<App>()
             .UsePlatformDetect()
+            .UseSavepointFonts()
             .LogToTrace();
 }
