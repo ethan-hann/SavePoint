@@ -6,8 +6,9 @@ public sealed partial class GitEngine
 {
     /// <summary>
     /// Records the folder's current contents as a point on a branch, as described by <paramref name="request"/>.
-    /// Nothing in the work tree is written or switched. Files named by the request's ignore patterns, and the
-    /// consent marker, are never recorded.
+    /// Nothing in the work tree is written or switched. A new file named by the request's ignore patterns, or the
+    /// consent marker, is not added; a file an earlier point already holds stays in the history and is recorded again
+    /// when it changes, whatever the patterns say now.
     /// </summary>
     /// <param name="repo">The folder to capture; its repository must exist.</param>
     /// <param name="request">The branch, message, capture id, mode and ignore patterns.</param>
