@@ -196,6 +196,16 @@ public class ErrorTypesTests
             ("path", "catalog.json"));
         Add("GitUnavailable", new GitUnavailableException("git.exe", "not runnable", null), "error.git.unavailable",
             ("path", "git.exe"));
+        Add("SessionMoved", new SessionMovedException(RepoRole.External, "dev text"), "error.launch.sessionMoved",
+            ("role", RepoRole.External));
+        Add("ProfileAlreadyExists", new ProfileAlreadyExistsException("profile-1"), "error.profile.alreadyExists",
+            ("profileId", "profile-1"));
+        Add("ProfileHasNoPoints", new ProfileHasNoPointsException("profile-1"), "error.profile.noPoints",
+            ("profileId", "profile-1"));
+        Add("NestedRepository", new NestedRepositoryException("/games/alpha/mod/.git", 2), "error.capture.nestedRepository",
+            ("path", "/games/alpha/mod/.git"), ("count", 2));
+        Add("LinkedFolder", new LinkedFolderException(@"C:\Games\Alpha\Mods"), "error.capture.linkedFolder",
+            ("path", @"C:\Games\Alpha\Mods"));
 
         return cases;
     }

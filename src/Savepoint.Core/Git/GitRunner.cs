@@ -6,6 +6,11 @@ using Savepoint.Core.Errors;
 
 namespace Savepoint.Core.Git;
 
+/// <summary>
+/// Starts the bundled git for one <see cref="GitInvocation"/> and returns what it printed. It never goes through a shell,
+/// reads output in one UTF-8 stream per pipe (so a name is never split across reads), and on cancellation kills git and
+/// every process it started. It is safe to call from many threads at once.
+/// </summary>
 public sealed class GitRunner
 {
     // The end of stderr is what explains a failure; a long progress meter before it is not worth keeping.
@@ -16,6 +21,10 @@ public sealed class GitRunner
     private readonly GitBinary _binary;
     private readonly GitRunnerOptions _options;
 
+    /// <summary>Builds a runner for a located git bundle.</summary>
+    /// <param name="binary">The bundle to run, with the environment every call starts from.</param>
+    /// <param name="options">Tuning; null uses the defaults.</param>
+    /// <exception cref="ArgumentOutOfRangeException">The read buffer size is not positive.</exception>
     public GitRunner(GitBinary binary, GitRunnerOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(binary);
@@ -24,10 +33,29 @@ public sealed class GitRunner
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(_options.ReadBufferSize);
     }
 
+    /// <summary>The bundle this runner starts.</summary>
     public GitBinary Binary => _binary;
 
+    /// <summary>The tuning this runner was built with.</summary>
     public GitRunnerOptions Options => _options;
 
+    /// <summary>
+    /// Runs one git command and waits for it. The process gets the bundle's base environment (no inherited <c>GIT_*</c>
+    /// variable, no user or system git configuration) plus what the invocation adds. Output arrives as text, as bytes or
+    /// line by line, as the invocation asks.
+    /// </summary>
+    /// <param name="invocation">The command and how to run it.</param>
+    /// <param name="ct">Cancels the call: git and its child processes are killed and the call throws <see cref="OperationCanceledException"/>.</param>
+    /// <returns>The output and the exit code, which is one of the invocation's allowed codes.</returns>
+    /// <exception cref="ArgumentException">The invocation is not consistent: a work tree without a git directory, two stdin sources, or binary output with a line callback.</exception>
+    /// <exception cref="DirectoryNotFoundException">The working directory does not exist.</exception>
+    /// <exception cref="Savepoint.Core.Errors.GitUnavailableException">git could not be started.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    /// <remarks>
+    /// An exit code that the invocation does not allow fails the call with an internal exception carrying git's
+    /// standard error; <see cref="GitEngine"/> turns it into a typed error. An exception thrown by a line callback stops
+    /// git and is rethrown by the call.
+    /// </remarks>
     public async Task<GitResult> RunAsync(GitInvocation invocation, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(invocation);

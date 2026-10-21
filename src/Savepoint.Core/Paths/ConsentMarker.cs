@@ -143,7 +143,10 @@ public static class ConsentMarker
 
         try
         {
-            using (var stream = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None))
+            // A leftover from a crash, or a link somebody planted at this name, is removed (a link goes, never what it points at),
+            // and the file is then created only if nothing is there, so the write cannot be led into another file.
+            TryDelete(temp);
+            using (var stream = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
             {
                 stream.Write(_utf8NoBom.GetBytes(Serialize(gameId, role, confirmedAt)));
                 stream.Flush(flushToDisk: true);
@@ -227,14 +230,12 @@ public static class ConsentMarker
         {
             RetryTransient(() =>
             {
-                var info = new FileInfo(file);
-                if (!info.Exists)
+                if (!new FileInfo(file).Exists)
                 {
                     return;
                 }
 
-                // Too large to be a marker: do not load it.
-                read = info.Length > _maxBytes ? new string(' ', (int)_maxBytes + 1) : File.ReadAllText(file, _utf8NoBom);
+                read = ReadAtMost(file, _maxBytes);
             });
         }
         catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
@@ -244,6 +245,28 @@ public static class ConsentMarker
 
         text = read ?? string.Empty;
         return read is not null;
+    }
+
+    // At most one byte more than a marker may hold is read, so a file that never ends (a device linked in under the marker's
+    // name) is told from a marker without being loaded; a file past the limit comes back as spaces, which is not a marker.
+    private static string ReadAtMost(string file, long limit)
+    {
+        using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        var buffer = new byte[limit + 1];
+        var total = 0;
+        int read;
+        while (total < buffer.Length && (read = stream.Read(buffer, total, buffer.Length - total)) > 0)
+        {
+            total += read;
+        }
+
+        if (total > limit)
+        {
+            return new string(' ', (int)limit + 1);
+        }
+
+        var start = total >= 3 && buffer[0] == 0xEF && buffer[1] == 0xBB && buffer[2] == 0xBF ? 3 : 0;
+        return _utf8NoBom.GetString(buffer, start, total - start);
     }
 
     // A virus scanner or backup tool can hold a file for a moment; that must not look like a conflict or fail a write.

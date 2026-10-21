@@ -6,9 +6,14 @@ using Savepoint.Core.Errors;
 
 namespace Savepoint.Core.Git;
 
-// Never consults a git installed on the machine or the user's own git configuration (D13.24).
+/// <summary>
+/// The git bundle shipped with SavePoint and the environment every git process starts from. It never consults a git installed
+/// on the machine or the user's own git configuration (D13.24): the global configuration is a file SavePoint writes in its
+/// own configuration folder, no inherited <c>GIT_*</c> variable survives, and output is pinned to English.
+/// </summary>
 public sealed class GitBinary
 {
+    /// <summary>The environment variable that points at a bundle in another place than next to the app (tests and development use it).</summary>
     public const string RootEnvironmentVariable = "SAVEPOINT_GIT_ROOT";
 
     private const string _emptyExcludesFileName = "excludes";
@@ -32,20 +37,36 @@ public sealed class GitBinary
         BaseEnvironment = new ReadOnlyDictionary<string, string>(BuildBaseEnvironment(parentEnvironment ?? ProcessEnvironment(host), host));
     }
 
+    /// <summary>The folder the bundle lives in, absolute and without a trailing separator.</summary>
     public string Root { get; }
 
+    /// <summary>The folder where SavePoint keeps the git configuration it writes for the bundle, absolute.</summary>
     public string ConfigDirectory { get; }
 
+    /// <summary>Which shape of bundle <see cref="Root"/> holds; before a bundle is installed, the one this operating system uses.</summary>
     public GitBundleLayout Layout { get; }
 
+    /// <summary>The git executable inside the bundle; it may not exist (see <see cref="VerifyAsync"/>).</summary>
     public string ExecutablePath { get; }
 
+    /// <summary>The global configuration file git is pointed at; it replaces the user's and the system's.</summary>
     public string GlobalConfigPath { get; }
 
+    /// <summary>
+    /// The environment every git process starts from: the parent's, minus every <c>GIT_*</c> variable, plus the settings that
+    /// isolate git (no system configuration, the SavePoint global configuration, a fixed author, no prompts, English output).
+    /// </summary>
     public IReadOnlyDictionary<string, string> BaseEnvironment { get; }
 
     internal StringComparer EnvironmentComparer { get; }
 
+    /// <summary>
+    /// Finds the bundle that ships with the app (the <c>git</c> folder next to it, or the folder named by
+    /// <see cref="RootEnvironmentVariable"/>) and writes the configuration files git will be pointed at. Nothing is run and
+    /// nothing is checked: a missing bundle shows up in <see cref="VerifyAsync"/>.
+    /// </summary>
+    /// <param name="configDirectory">Where to write the git configuration; created when missing.</param>
+    /// <returns>The located bundle.</returns>
     public static GitBinary Locate(string configDirectory) =>
         new(
             ResolveRoot(Environment.GetEnvironmentVariable(RootEnvironmentVariable), AppContext.BaseDirectory),
@@ -53,11 +74,20 @@ public sealed class GitBinary
             null,
             GitHost.Current);
 
+    /// <summary>Uses the bundle in a given folder, otherwise like <see cref="Locate"/>.</summary>
+    /// <param name="root">The bundle's folder.</param>
+    /// <param name="configDirectory">Where to write the git configuration; created when missing.</param>
+    /// <returns>The bundle.</returns>
     public static GitBinary At(string root, string configDirectory) => new(root, configDirectory, null, GitHost.Current);
 
     internal static string ResolveRoot(string? overrideRoot, string baseDirectory) =>
         string.IsNullOrEmpty(overrideRoot) ? Path.Combine(baseDirectory, "git") : overrideRoot;
 
+    /// <summary>Checks that the bundle is there and runs: the executable exists (and is executable on Linux and macOS) and <c>git --version</c> answers.</summary>
+    /// <param name="ct">Cancels the check.</param>
+    /// <returns>The version line git printed, such as <c>git version 2.53.0</c>.</returns>
+    /// <exception cref="Savepoint.Core.Errors.GitUnavailableException">The executable is missing, cannot be run, or does not answer like git.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     public async Task<string> VerifyAsync(CancellationToken ct = default)
     {
         if (!File.Exists(ExecutablePath))
