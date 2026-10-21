@@ -6,7 +6,7 @@ How the code is organized and what each layer promises the one above it. Behavio
 
 ```
 Savepoint.App (Avalonia)
-  Views (.axaml) -> ViewModels -> Api (IGamesApi, IProfilesApi, ILaunchApi, ISettingsApi, IJobsApi, IHistoryApi, IDialogs)
+  Views (.axaml) -> ViewModels -> Api (IGamesApi, IProfilesApi, ILaunchApi, ISettingsApi, IHistoryApi, IJobsApi, IAppStatusApi) + IDialogs
                                      |
 Savepoint.Core                       v
   Api/        facade: validates input, calls services, converts every exception to ErrorInfo (OperationResult<T>)

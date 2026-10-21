@@ -147,6 +147,13 @@ Distributing git means shipping the GPLv2 text and a written source offer pointi
 
 The UI README's token table was evidently drawn with the legacy `Scheme` API (its light primary `#00639D` and light onPrimaryContainer `#001D34` match that API exactly), while v1 shipped `SchemeTonalSpot` at contrast 0, as the README itself instructs ("derive them from the theme instead", "hardcoding these hexes would break the accent-preset feature"). v2 follows v1: every role comes from `SchemeTonalSpot`. Dark mode lands within a few units of the table; light primaries are slightly less saturated. Fidelity and Content variants were checked and rejected: they match the light primary better but turn primary containers into the saturated seed color, which departs further from the mockup. Roles M3 does not define (warning, success) come from fixed-hue tonal palettes at the same tones M3 uses for error (40/100/90/10 light, 80/20/30/90 dark): warning hue from amber `#f9a825`, success hue from green `#2e7d32`.
 
+## D23. Api contract details settled after the contract landed
+
+- **History count**: the History header counts capture events (D15 points), not column rows. The mockup's "9 points kept" double-counts one point that appears in both columns; the seeded data says 8.
+- **Cancelled reads**: a read whose token is cancelled returns a failure with `error.operation.cancelled`; view models discard results of requests they cancelled and never show that message.
+- **New profile rows**: the catalog row is written when the profile's first capture finishes with at least one folder saved. A capture that saves nothing leaves no row and no branch (fixes v1 defect 9). A partial result keeps the row and shows the "Half of that save worked" card with a retry for the missing folder.
+- **Settings save**: `ISettingsApi.SaveAsync` never changes `StorageRoot` or `LastOptimizedAt`; storage moves only through `RelocateStorageAsync` and the optimized date only through optimization jobs.
+
 ## D8. "Clear all data" is a v2 requirement
 
 The v1 README lists "add a clear all data button" as an open TODO. v2 ships it in Settings behind a typed confirmation. It removes SavePoint's own storage, catalog, and consent markers, and never deletes or rolls back files in a game's install or save folders: whatever is on disk at that moment stays as it is.
