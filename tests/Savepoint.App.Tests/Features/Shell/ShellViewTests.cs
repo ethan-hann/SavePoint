@@ -128,12 +128,16 @@ public class ShellViewTests
     }
 
     [AvaloniaFact]
-    public async Task The_content_region_shows_the_placeholder_until_a_screen_is_registered()
+    public void A_destination_without_a_screen_shows_the_placeholder()
     {
-        using var harness = await ShellViewHarness.StartAsync();
+        // Built apart from the composition, which has a real screen for every destination that exists.
+        using var host = new ThemeHost(new ContentControl { Content = new PlaceholderScreenViewModel(NavDestination.History) }, width: 400, height: 200);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
 
-        Assert.Single(harness.All<PlaceholderScreenView>());
-        Assert.Contains("This screen is under construction.", VisibleTexts(harness));
+        var texts = host.Window.GetVisualDescendants().OfType<TextBlock>().Select(block => block.Text);
+
+        Assert.Single(host.Window.GetVisualDescendants().OfType<PlaceholderScreenView>());
+        Assert.Contains("This screen is under construction.", texts);
     }
 
     [AvaloniaFact]
@@ -228,7 +232,7 @@ public class ShellViewTests
     public async Task Switching_layout_with_the_toggle_swaps_the_chrome_but_keeps_the_same_screen_instance()
     {
         using var harness = await ShellViewHarness.LibraryLayoutAsync();
-        var before = Assert.Single(harness.All<PlaceholderScreenView>());
+        var before = harness.Find<ContentControl>("ContentRegion").Content;
         var toggle = harness.All<LayoutToggleView>().Single().FindControl<ListBox>("Toggle")!;
 
         toggle.SelectedIndex = 0;
@@ -237,7 +241,7 @@ public class ShellViewTests
         Assert.Equal(ShellLayout.Sidebar, harness.Shell.Layout);
         Assert.True(harness.Find<Border>("Rail").IsEffectivelyVisible);
         Assert.False(harness.Find<Border>("TopBar").IsEffectivelyVisible);
-        Assert.Same(before, Assert.Single(harness.All<PlaceholderScreenView>()));
+        Assert.Same(before, harness.Find<ContentControl>("ContentRegion").Content);
     }
 
     // ---- Responsive (below 900px)

@@ -1,0 +1,17 @@
+{
+  "games.header.libraryTitle": "{name} — profiles",
+  "games.loadError.tryAgain": "Try again",
+  "games.profileTable.activeNow": "Active now",
+  "games.profileTable.activeNowWithSaves": "Active now · {count, plural, one {# save} other {# saves}}",
+  "games.profileTable.moreActions": "More actions for {name}",
+  "games.profileTable.noValue": "—",
+  "games.profileTable.noneAutomation": "none",
+  "games.profileTable.play": "Play",
+  "games.profileTable.playAutomationName": "Play {name}",
+  "games.profileTable.rowAutomationName": "{name}. {status} Version: {version}. Mod files: {modFiles}. Last played: {lastPlayed}.",
+  "games.profileTable.running": "Running",
+  "games.profileTable.saveCount": "{count, plural, one {# save} other {# saves}}",
+  "games.profileTable.unsavedChanges": "Unsaved changes",
+  "games.profileTable.unsavedChangesWithSaves": "Unsaved changes · {count, plural, one {# save} other {# saves}}",
+  "games.storageFooter.usage": "This game is using {used} of your {total} storage folder"
+}
