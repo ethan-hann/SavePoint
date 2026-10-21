@@ -157,6 +157,30 @@ public class HistoryScreenViewTests
     }
 
     [AvaloniaFact]
+    public async Task A_profile_without_points_keeps_the_filter_button_so_another_profile_can_be_picked()
+    {
+        var backend = new FakeBackend(ScenarioBuilder.Mockup()
+            .WithProfile(new Profile("profile-empty", MockupScenario.SkyrimId, "Fresh profile", "profile/profile-empty")));
+        using var harness = await StartAsync(backend);
+
+        Screen(harness).SelectedFilter = Screen(harness).Filters.Single(filter => filter.ProfileId == "profile-empty");
+        harness.Settle();
+
+        Assert.True(harness.Find<StackPanel>("EmptyState").IsEffectivelyVisible);
+        Assert.Contains("No points for this profile yet", harness.VisibleTexts());
+        var filter = harness.Find<Button>("FilterButton");
+        Assert.True(filter.IsEffectivelyVisible);
+        Assert.Contains("Fresh profile", harness.VisibleTexts());
+        Assert.False(harness.Find<ListBox>("ViewToggle").IsEffectivelyVisible);
+
+        Assert.Equal(["All profiles", "Modded playthrough - 7-2-26", "Vanilla - latest update", "Survival test - 5-14-26", "Fresh profile"], Screen(harness).Filters.Select(entry => entry.Label));
+        Screen(harness).SelectedFilter = Screen(harness).Filters[0];
+        harness.Settle();
+
+        Assert.True(harness.Find<Panel>("PointsRegion").IsEffectivelyVisible);
+    }
+
+    [AvaloniaFact]
     public async Task A_failed_read_shows_the_error_card_with_try_again()
     {
         var backend = FakeBackend.Mockup();

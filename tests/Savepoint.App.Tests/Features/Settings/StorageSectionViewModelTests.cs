@@ -60,7 +60,7 @@ public class StorageSectionViewModelTests
     {
         var rig = await SettingsRig.ShownAsync();
 
-        Assert.Equal("Squeezes down space from profiles you've deleted. Last run Jul 1, 2026.", Storage(rig).OptimizeDescription);
+        Assert.Equal("Squeezes down space from profiles you've deleted. Last run Jul 1.", Storage(rig).OptimizeDescription);
     }
 
     [Fact]
@@ -97,7 +97,7 @@ public class StorageSectionViewModelTests
 
         Assert.False(Storage(rig).IsOptimizing);
         Assert.True(Storage(rig).RunNowCommand.CanExecute(null));
-        Assert.Equal("Squeezes down space from profiles you've deleted. Last run Jul 8, 2026.", Storage(rig).OptimizeDescription);
+        Assert.Equal("Squeezes down space from profiles you've deleted. Last run Jul 8.", Storage(rig).OptimizeDescription);
         Assert.True(rig.Calls<ISettingsApi>(nameof(ISettingsApi.GetStorageSummaryAsync)) > summaries);
     }
 

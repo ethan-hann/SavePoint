@@ -57,7 +57,7 @@ public sealed class SaveRowViewModel
     /// <summary>The save's name.</summary>
     public string Name => Point.Name;
 
-    /// <summary>The date and the owning profile ("Jul 5, 2026, 11:42 PM · Modded playthrough").</summary>
+    /// <summary>The date and the owning profile ("Jul 5, 11:42 PM · Modded playthrough").</summary>
     public string Detail { get; }
 
     /// <summary>True when the saves folder holds this save now; the row shows a "Loaded" chip instead of the button.</summary>
@@ -79,7 +79,7 @@ public sealed class PointCardViewModel
     /// <param name="point">The point it stands for.</param>
     /// <param name="icon">The glyph for the kind of point.</param>
     /// <param name="contains">What the point holds ("Save only · 1.6.640 with 212 mod files").</param>
-    /// <param name="date">The absolute date and time.</param>
+    /// <param name="date">The absolute date and time, with the weekday ("Sun Jul 5, 11:42 PM").</param>
     /// <param name="automationName">What assistive technology calls the button.</param>
     /// <param name="goBack">Goes back to the point; never null.</param>
     public PointCardViewModel(HistoryPoint point, string icon, string contains, string date, string automationName, ICommand goBack)

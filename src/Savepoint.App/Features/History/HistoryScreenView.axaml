@@ -81,7 +81,7 @@
                 Padding="14,8"
                 VerticalAlignment="Center"
                 Foreground="{DynamicResource Md3OnSurfaceBrush}"
-                IsVisible="{Binding HasPoints}"
+                IsVisible="{Binding ShowFilter}"
                 AutomationProperties.Name="{Binding FilterAutomationName}">
           <Button.Flyout>
             <Flyout Placement="BottomEdgeAlignedRight">

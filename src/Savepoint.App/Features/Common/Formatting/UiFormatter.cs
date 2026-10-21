@@ -141,6 +141,25 @@ public sealed class UiFormatter
     public string DateAndTime(DateTimeOffset when) =>
         Message("format.pattern.dateAndTime", ("date", Date(when)), ("time", Time(when)));
 
+    /// <summary>
+    /// Date and time for a list of recent things ("Jul 5, 11:42 PM"): the year is left out while the instant is in the
+    /// current year, as the formatter's time zone sees it, and shown otherwise ("Jul 5, 2025, 11:42 PM").
+    /// </summary>
+    public string ShortDateTime(DateTimeOffset when) =>
+        DateAndTime(_catalog.Format(InCurrentYear(when) ? "format.pattern.dateNoYear" : "format.pattern.date"), when);
+
+    /// <summary>Like <see cref="ShortDateTime"/> with the day of the week first ("Sun Jul 5, 11:42 PM"), for cards that stand alone.</summary>
+    public string WeekdayDateTime(DateTimeOffset when) =>
+        DateAndTime(_catalog.Format(InCurrentYear(when) ? "format.pattern.weekdayDateNoYear" : "format.pattern.weekdayDate"), when);
+
+    /// <summary>Date and time for a timeline, where entries span years ("Jul 2, 2026 · 6:03 PM"): the year is always shown and the separator comes from the catalog.</summary>
+    public string TimelineDateTime(DateTimeOffset when) =>
+        Message("format.pattern.timeline", ("date", Date(when)), ("time", Time(when)));
+
+    /// <summary>The month and day when the instant is in the current year ("Jul 1"), with the year otherwise ("Jul 1, 2025").</summary>
+    public string ShortDate(DateTimeOffset when) =>
+        Local(when).ToString(_catalog.Format(InCurrentYear(when) ? "format.pattern.dateNoYear" : "format.pattern.date"), _culture);
+
     /// <summary>The date as month, day and two-digit year with no padding ("7-2-26"), for the default names of profiles and points.</summary>
     public string NameDate(DateTimeOffset when)
     {
@@ -174,4 +193,9 @@ public sealed class UiFormatter
         OperatingSystem.IsWindows() ? "windows" : OperatingSystem.IsMacOS() ? "macos" : "linux";
 
     private DateTimeOffset Local(DateTimeOffset when) => TimeZoneInfo.ConvertTime(when, _timeZone);
+
+    private bool InCurrentYear(DateTimeOffset when) => Local(when).Year == Local(_clock.GetUtcNow()).Year;
+
+    private string DateAndTime(string datePattern, DateTimeOffset when) =>
+        Message("format.pattern.dateAndTime", ("date", Local(when).ToString(datePattern, _culture)), ("time", Time(when)));
 }

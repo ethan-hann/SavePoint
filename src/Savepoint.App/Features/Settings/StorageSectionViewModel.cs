@@ -241,7 +241,7 @@ public sealed partial class StorageSectionViewModel : ObservableObject
     {
         StoragePath = settings.StorageRoot;
         OptimizeDescription = settings.LastOptimizedAt is { } last
-            ? _deps.Text.Message("settings.storage.optimizeLastRun", ("date", _deps.Text.Date(last)))
+            ? _deps.Text.Message("settings.storage.optimizeLastRun", ("date", _deps.Text.ShortDate(last)))
             : _deps.Text.Message("settings.storage.optimizeNeverRun");
     }
 

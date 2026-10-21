@@ -77,6 +77,7 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
     [NotifyPropertyChangedFor(nameof(HasError))]
     [NotifyPropertyChangedFor(nameof(IsEmpty))]
     [NotifyPropertyChangedFor(nameof(IsFilteredEmpty))]
+    [NotifyPropertyChangedFor(nameof(ShowFilter))]
     [NotifyPropertyChangedFor(nameof(HasPoints))]
     [NotifyPropertyChangedFor(nameof(HasNoGame))]
     private HistoryState _state = HistoryState.Loading;
@@ -114,6 +115,7 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
     [NotifyPropertyChangedFor(nameof(FilterLabel))]
     [NotifyPropertyChangedFor(nameof(FilterAutomationName))]
     [NotifyPropertyChangedFor(nameof(IsFilteredEmpty))]
+    [NotifyPropertyChangedFor(nameof(ShowFilter))]
     private ProfileFilter? _selectedFilter;
 
     /// <summary>The Cards / List segment chosen; the choice lasts for the session.</summary>
@@ -190,6 +192,9 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
 
     /// <summary>True when the empty state is down to the profile filter: the chosen profile has no points though others may.</summary>
     public bool IsFilteredEmpty => State == HistoryState.Empty && SelectedFilter?.ProfileId is not null;
+
+    /// <summary>True when the profile filter shows: there are points to narrow down, or the chosen profile has none and another has to be picked.</summary>
+    public bool ShowFilter => HasPoints || IsFilteredEmpty;
 
     /// <summary>True when there are points to show.</summary>
     public bool HasPoints => State == HistoryState.Loaded;
