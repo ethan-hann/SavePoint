@@ -32,7 +32,7 @@ internal sealed class FlowRig : IDisposable
 
     public List<string> InlineChanges { get; } = [];
 
-    public List<EditGameRequest> EditRequests { get; } = [];
+    public List<string> EditRequests { get; } = [];
 
     public List<AppSettings> SavedSettings { get; } = [];
 
@@ -97,7 +97,7 @@ internal sealed class FlowRig : IDisposable
         Rig.Dispose();
     }
 
-    public static ErrorInfo Spawn() => ErrorInfo.From(new LaunchSpawnException("exe", "could not start", null));
+    public static ErrorInfo Spawn() => ErrorInfo.From(new LaunchSpawnException(LaunchMethod.Exe, "could not start", null));
 
     public static ErrorInfo Cancelled() => ErrorInfo.From(new OperationCancelledByUserException(CancelledOperation.Launch, Skyrim));
 

@@ -57,23 +57,7 @@
             Padding="10,14,10,12"
             IsVisible="{Binding IsSidebarLayout}"
             AutomationProperties.LandmarkType="Navigation">
-      <DockPanel>
-        <Button x:Name="RailAddButton"
-                DockPanel.Dock="Bottom"
-                Classes="pill"
-                Classes.filled="{Binding ShowFirstRun}"
-                HorizontalAlignment="Stretch"
-                Margin="0,10,0,0"
-                Padding="12,8"
-                FontSize="13.5"
-                Command="{Binding AddGameCommand}"
-                AutomationProperties.Name="{loc:Loc shell.addGame}"
-                ToolTip.Tip="{loc:Loc shell.addGame}">
-          <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
-            <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.Add}" />
-            <TextBlock Text="{loc:Loc shell.addGame}" IsVisible="{Binding !IsCompact}" />
-          </StackPanel>
-        </Button>
+      <Grid RowDefinitions="*,Auto">
         <StackPanel Spacing="4">
           <StackPanel x:Name="RailBrand" Orientation="Horizontal" Spacing="9" Margin="8,2,8,8">
             <Border Classes="brand-mark">
@@ -107,6 +91,7 @@
           <TextBlock x:Name="NoGamesLabel" Classes="body subtle" Margin="8,2" IsVisible="{Binding ShowFirstRun}" Text="{loc:Loc shell.noGamesYet}" />
           <ListBox x:Name="RailGames"
                    Classes="rows"
+                   AutomationProperties.Name="{loc:Loc shell.yourGames}"
                    ItemsSource="{Binding Games}"
                    SelectedItem="{Binding SelectedGameRow, Mode=TwoWay}">
             <ListBox.Styles>
@@ -128,7 +113,24 @@
             </ListBox.ItemTemplate>
           </ListBox>
         </StackPanel>
-      </DockPanel>
+        <!-- Declared after the lists so Tab reaches it after them, where it is drawn. -->
+        <Button x:Name="RailAddButton"
+                Grid.Row="1"
+                Classes="pill"
+                Classes.filled="{Binding ShowFirstRun}"
+                HorizontalAlignment="Stretch"
+                Margin="0,10,0,0"
+                Padding="12,8"
+                FontSize="13.5"
+                Command="{Binding AddGameCommand}"
+                AutomationProperties.Name="{loc:Loc shell.addGame}"
+                ToolTip.Tip="{loc:Loc shell.addGame}">
+          <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+            <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.Add}" />
+            <TextBlock Text="{loc:Loc shell.addGame}" IsVisible="{Binding !IsCompact}" />
+          </StackPanel>
+        </Button>
+      </Grid>
     </Border>
 
     <DockPanel Grid.Column="1">
@@ -176,6 +178,7 @@
           <Grid ColumnDefinitions="Auto,Auto,*">
             <ListBox x:Name="ShelfGames"
                      Classes="shelf"
+                     AutomationProperties.Name="{loc:Loc shell.yourGames}"
                      ItemsSource="{Binding Games}"
                      SelectedItem="{Binding SelectedGameRow, Mode=TwoWay}">
               <ListBox.Styles>

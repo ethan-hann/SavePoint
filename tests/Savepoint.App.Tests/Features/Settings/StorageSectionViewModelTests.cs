@@ -60,7 +60,7 @@ public class StorageSectionViewModelTests
     {
         var rig = await SettingsRig.ShownAsync();
 
-        Assert.Equal("Squeezes down space from profiles you've deleted. Last run Jul 1, 2026.", Storage(rig).OptimizeDescription);
+        Assert.Equal("Squeezes down space from profiles you've deleted. Last run Jul 1.", Storage(rig).OptimizeDescription);
     }
 
     [Fact]
@@ -97,7 +97,7 @@ public class StorageSectionViewModelTests
 
         Assert.False(Storage(rig).IsOptimizing);
         Assert.True(Storage(rig).RunNowCommand.CanExecute(null));
-        Assert.Equal("Squeezes down space from profiles you've deleted. Last run Jul 8, 2026.", Storage(rig).OptimizeDescription);
+        Assert.Equal("Squeezes down space from profiles you've deleted. Last run Jul 8.", Storage(rig).OptimizeDescription);
         Assert.True(rig.Calls<ISettingsApi>(nameof(ISettingsApi.GetStorageSummaryAsync)) > summaries);
     }
 
@@ -284,6 +284,39 @@ public class StorageSectionViewModelTests
         Assert.False(Storage(rig).IsRelocationIndeterminate);
         Assert.Equal("19.8 GB of 79.2 GB", Storage(rig).RelocationDetail);
         Assert.Equal(@"Skyrim\Data\textures\wrbuilding05.dds", Storage(rig).RelocationPath);
+    }
+
+    [Fact]
+    public async Task The_move_announces_its_start_and_each_quarter_once()
+    {
+        var rig = await SettingsRig.ShownAsync();
+        var spoken = new List<string>();
+        Storage(rig).PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(StorageSectionViewModel.Announcement))
+            {
+                spoken.Add(Storage(rig).Announcement);
+            }
+        };
+
+        var job = await StartedMoveAsync(rig);
+        rig.Backend.Jobs.ReportProgress(job.JobId, new JobProgress(BytesDone: 100, BytesTotal: 1_000));
+        rig.Backend.Jobs.ReportProgress(job.JobId, new JobProgress(BytesDone: 260, BytesTotal: 1_000));
+        rig.Backend.Jobs.ReportProgress(job.JobId, new JobProgress(BytesDone: 300, BytesTotal: 1_000));
+        rig.Backend.Jobs.ReportProgress(job.JobId, new JobProgress(BytesDone: 800, BytesTotal: 1_000));
+
+        Assert.Equal(["Moving your data\u2026", "25% moved.", "75% moved."], spoken);
+    }
+
+    [Fact]
+    public async Task A_move_with_no_totals_announces_only_that_it_started()
+    {
+        var rig = await SettingsRig.ShownAsync();
+        var job = await StartedMoveAsync(rig);
+
+        rig.Backend.Jobs.ReportProgress(job.JobId, new JobProgress(FilesDone: 40));
+
+        Assert.Equal("Moving your data\u2026", Storage(rig).Announcement);
     }
 
     [Fact]

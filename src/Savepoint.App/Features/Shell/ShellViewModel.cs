@@ -29,7 +29,6 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
 
     private readonly ShellDependencies _deps;
     private readonly Dictionary<NavDestination, IScreen> _screens = [];
-    private readonly SemaphoreSlim _saveGate = new(1, 1);
 
     private AppSettings? _settings;
     private NavDestination _destination = NavDestination.Games;
@@ -65,6 +64,11 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
         FirstRun = new FirstRunViewModel(text, AddGameCommand, new AsyncRelayCommand(StartFromTemplateAsync));
         LayoutToggle = new LayoutToggleViewModel(text, SetLayoutAsync, _layout);
         JobStatus = new JobStatusViewModel(text, dependencies.Toasts, id => Games.FirstOrDefault(row => row.Id == id)?.Name);
+
+        if (dependencies.LaunchFlow is { } flow)
+        {
+            flow.SettingsSaved += OnFlowSettingsSaved;
+        }
     }
 
     /// <inheritdoc />
@@ -289,26 +293,16 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
         LayoutToggle.Sync(layout);
         OnLayoutChanged();
 
-        await _saveGate.WaitAsync();
-        try
+        var saved = await _deps.SettingsWriter.UpdateAsync(settings => settings with { Layout = layout }, OnLayoutSaved);
+        if (saved.Ok)
         {
-            var baseline = _settings ?? AppSettings.Defaults(string.Empty);
-            var saved = await _deps.Settings.SaveAsync(baseline with { Layout = layout });
-            if (saved.Ok)
-            {
-                _settings = saved.Value;
-                return;
-            }
+            return;
+        }
 
-            _layout = _settings?.Layout ?? ShellLayout.Sidebar;
-            LayoutToggle.Sync(_layout);
-            OnLayoutChanged();
-            ShowError(saved.Error);
-        }
-        finally
-        {
-            _saveGate.Release();
-        }
+        _layout = _settings?.Layout ?? ShellLayout.Sidebar;
+        LayoutToggle.Sync(_layout);
+        OnLayoutChanged();
+        ShowError(saved.Error);
     }
 
     /// <inheritdoc />
@@ -341,8 +335,32 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
     {
         _disposed = true;
         _deps.Jobs.JobChanged -= OnJobChanged;
-        _saveGate.Dispose();
+        if (_deps.LaunchFlow is { } flow)
+        {
+            flow.SettingsSaved -= OnFlowSettingsSaved;
+        }
     }
+
+    // Runs as each save lands, in the order they were stored, so a layout another change briefly undid is put back.
+    private void OnLayoutSaved(AppSettings settings)
+    {
+        _settings = settings;
+        if (settings.Layout != _layout)
+        {
+            _layout = settings.Layout;
+            LayoutToggle.Sync(_layout);
+            OnLayoutChanged();
+        }
+    }
+
+    private void OnFlowSettingsSaved(object? sender, AppSettings settings) =>
+        _deps.Dispatcher.Post(() =>
+        {
+            if (!_disposed)
+            {
+                ApplySettings(settings);
+            }
+        });
 
     private void OnJobChanged(object? sender, JobSnapshot job) =>
         _deps.Dispatcher.Post(() =>

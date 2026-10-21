@@ -67,6 +67,7 @@ internal sealed class LaunchViewHarness : IDisposable
                 scenario.Games,
                 scenario.Profiles,
                 scenario.Settings,
+                rig.Deps.SettingsWriter,
                 scenario.Jobs,
                 rig.Text,
                 immediate,

@@ -102,6 +102,7 @@
   "launch.running.startedAgo": "{profileName} · started {duration} ago",
   "launch.running.startedJustNow": "{profileName} · started just now",
   "launch.running.title": "{gameName} is running",
+  "launch.saving.announcePercent": "{percent}% saved.",
   "launch.saving.hint": "SavePoint is adding what's on disk now to your history.",
   "launch.saving.title": "Saving your session…",
   "launch.state.mods": "{version} with {count, plural, one {# mod file} other {# mod files}}",

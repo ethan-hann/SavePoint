@@ -1,4 +1,5 @@
 using Savepoint.Core.Api;
+using Savepoint.Core.Errors;
 
 namespace Savepoint.Core.Services;
 
@@ -18,6 +19,11 @@ internal static class ApiGuard
         {
             cancellationToken.ThrowIfCancellationRequested();
             return OperationResult.Success(await body().ConfigureAwait(false));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // ErrorInfo.From knows only SavePoint's own errors, so the caller's cancellation is named here (D23).
+            return OperationResult.Failure<T>(new RequestCancelledException());
         }
         catch (Exception exception)
         {

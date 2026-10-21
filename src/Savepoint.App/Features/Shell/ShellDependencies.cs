@@ -1,6 +1,7 @@
 using Savepoint.App.Features.Common;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Formatting;
+using Savepoint.App.Features.Common.Preferences;
 using Savepoint.App.Features.Common.Toasts;
 using Savepoint.Core.Api;
 
@@ -9,7 +10,8 @@ namespace Savepoint.App.Features.Shell;
 /// <summary>Everything the shell view model is built from; <c>AppComposition</c> assembles it and tests build it against the fake backend.</summary>
 /// <param name="Games">The games Api.</param>
 /// <param name="Profiles">The profiles Api, for the per-game profile counts.</param>
-/// <param name="Settings">The settings Api: layout, theme and the storage summary the shelf's sizes come from.</param>
+/// <param name="Settings">The settings Api: reading the layout and theme, and the storage summary the shelf's sizes come from.</param>
+/// <param name="SettingsWriter">Saves layout changes; the same writer every other feature saves settings through.</param>
 /// <param name="Jobs">The jobs Api, for the status pill and for reloading after a job finishes.</param>
 /// <param name="Text">Formats every message the shell shows.</param>
 /// <param name="Dispatcher">Brings Api events back to the UI thread.</param>
@@ -22,6 +24,7 @@ public sealed record ShellDependencies(
     IGamesApi Games,
     IProfilesApi Profiles,
     ISettingsApi Settings,
+    SettingsWriter SettingsWriter,
     IJobsApi Jobs,
     UiFormatter Text,
     IUiDispatcher Dispatcher,

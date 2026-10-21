@@ -17,7 +17,7 @@
       </ItemsControl.ItemsPanel>
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="shell:TemplateItem">
-          <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="14,10" Command="{Binding Choose}">
+          <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="14,10" Command="{Binding Choose}" AutomationProperties.Name="{Binding Name}">
             <StackPanel Orientation="Horizontal" Spacing="12">
               <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.StadiaController}" />
               <TextBlock Classes="body" VerticalAlignment="Center" Text="{Binding Name}" />

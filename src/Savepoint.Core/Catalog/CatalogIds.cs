@@ -2,15 +2,28 @@ using System.Text;
 
 namespace Savepoint.Core.Catalog;
 
+/// <summary>
+/// Makes ids for games and profiles: a short lowercase ASCII slug of the name plus four random letters or digits, such as
+/// <c>skyrim-se-4k2x</c>. They are safe as a folder or branch name on every OS. Uniqueness is not checked here.
+/// </summary>
 public static class CatalogIds
 {
     private const string _alphabet = "abcdefghijklmnopqrstuvwxyz0123456789";
     private const int _suffixLength = 4;
     private const int _maxSlugLength = 40;
 
+    /// <summary>Makes an id for a new game from its name; <c>game</c> stands in when the name has no letters or digits.</summary>
+    /// <param name="name">The game's name. Letters and digits are kept, anything else becomes a dash, and the slug stops at 40 characters.</param>
+    /// <param name="random">The source of the random suffix; defaults to a shared instance, and tests pass a seeded one.</param>
     public static string NewGameId(string name, Random? random = null) => NewId(name, "game", random);
 
-    // The branch is named after the id so a profile and its branch can be matched by eye.
+    /// <summary>
+    /// Makes a profile with a fresh id, the trimmed name, and the branch <c>profile/</c> plus the id, so a profile and its branch
+    /// can be matched by eye. Every other field has its default, and nothing is saved.
+    /// </summary>
+    /// <param name="gameId">The game the profile belongs to.</param>
+    /// <param name="name">The profile's name; <c>profile</c> stands in for the id when it has no letters or digits.</param>
+    /// <param name="random">The source of the random suffix; defaults to a shared instance, and tests pass a seeded one.</param>
     public static Profile NewProfile(string gameId, string name, Random? random = null)
     {
         var id = NewId(name, "profile", random);

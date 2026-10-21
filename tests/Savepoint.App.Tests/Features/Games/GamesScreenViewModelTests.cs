@@ -375,7 +375,27 @@ public class GamesScreenViewModelTests
         Assert.All(Rows(rig), row => Assert.False(row.CanPlay));
     }
 
-    // ---- What the launch flow shows above the table
+    [Fact]
+    public async Task Play_comes_back_when_the_session_ends_without_anything_else_reloading_the_table()
+    {
+        var rig = await GamesRig.StartAsync();
+        var game = MockupScenario.SkyrimId;
+        FakeAssert.Ok(await rig.Backend.Launch.StartAsync(game, new LaunchTarget.ProfileTip(MockupScenario.ModdedId)));
+        rig.LaunchFlow!.SetActive(game, true);
+        await rig.Screen.ReloadAsync();
+        Assert.All(Rows(rig), row => Assert.False(row.CanPlay));
+
+        // "Not now": the session is finished and nobody saves anything, so no job runs and no library refresh follows.
+        rig.Backend.Launch.ReportRunning(game, MockupScenario.RunningSince);
+        rig.Backend.Launch.ReportExited(game, MockupScenario.PlayDuration, 0);
+        FakeAssert.Ok(await rig.Backend.Launch.CompleteSessionAsync(game, new SessionCompletion.Skip()));
+        rig.LaunchFlow.SetActive(game, false);
+
+        Assert.All(Rows(rig), row => Assert.False(row.IsRunning));
+        Assert.All(Rows(rig), row => Assert.True(row.CanPlay));
+    }
+
+    // ---- What the launch flow shows below the table
 
     [Fact]
     public async Task The_launch_flows_inline_content_for_the_selected_game_shows_above_the_table()
@@ -556,6 +576,53 @@ public class GamesScreenViewModelTests
         rig.Shell.RequestAddGame();
 
         Assert.Same(rig.Screen, rig.Shell.Content);
+    }
+
+    [Fact]
+    public async Task A_failure_the_flow_says_the_editor_fixes_opens_it_for_that_game()
+    {
+        var rig = await GamesRig.StartAsync();
+
+        rig.LaunchFlow!.RaiseEditGameRequested(MockupScenario.SatisfactoryId);
+
+        Assert.Equal(MockupScenario.SatisfactoryId, rig.Shell.SelectedGame?.Id);
+        var pane = Assert.Single(rig.Editor!.Created);
+        Assert.Equal(new EditorPane("existing", MockupScenario.SatisfactoryId, null), pane);
+        Assert.Same(pane, rig.Shell.Content);
+    }
+
+    [Fact]
+    public async Task The_editor_the_flow_asks_for_opens_on_Games_whichever_screen_is_showing()
+    {
+        var rig = await GamesRig.StartAsync();
+        rig.Shell.Navigate(NavDestination.History);
+
+        rig.LaunchFlow!.RaiseEditGameRequested(MockupScenario.SkyrimId);
+
+        Assert.Equal(NavDestination.Games, rig.Shell.Destination);
+        Assert.Same(Assert.Single(rig.Editor!.Created), rig.Shell.Content);
+    }
+
+    [Fact]
+    public async Task A_request_to_edit_a_game_that_is_not_in_the_library_is_ignored()
+    {
+        var rig = await GamesRig.StartAsync();
+
+        rig.LaunchFlow!.RaiseEditGameRequested("no-such-game");
+
+        Assert.Empty(rig.Editor!.Created);
+        Assert.Same(rig.Screen, rig.Shell.Content);
+    }
+
+    [Fact]
+    public async Task A_disposed_screen_ignores_requests_to_edit()
+    {
+        var rig = await GamesRig.StartAsync();
+        rig.Screen.Dispose();
+
+        rig.LaunchFlow!.RaiseEditGameRequested(MockupScenario.SkyrimId);
+
+        Assert.Empty(rig.Editor!.Created);
     }
 
     [Fact]

@@ -1,6 +1,7 @@
 using Savepoint.App.Features.Common;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Formatting;
+using Savepoint.App.Features.Common.Preferences;
 using Savepoint.App.Features.Common.Toasts;
 
 namespace Savepoint.App.Composition;
@@ -11,4 +12,12 @@ namespace Savepoint.App.Composition;
 /// <param name="Text">Formats messages.</param>
 /// <param name="Toasts">Shows transient messages.</param>
 /// <param name="Dispatcher">Brings Api events to the UI thread.</param>
-public sealed record FeatureContext(AppServices Services, IDialogs Dialogs, UiFormatter Text, ToastHostViewModel Toasts, IUiDispatcher Dispatcher);
+/// <param name="Time">What "now" means to the features; the system clock when null.</param>
+public sealed record FeatureContext(AppServices Services, IDialogs Dialogs, UiFormatter Text, ToastHostViewModel Toasts, IUiDispatcher Dispatcher, TimeProvider? Time = null)
+{
+    /// <summary>What "now" means to the features, and what their timers run on.</summary>
+    public TimeProvider Clock => Time ?? TimeProvider.System;
+
+    /// <summary>The one writer of settings, shared by every feature that changes them (see <see cref="SettingsWriter"/>).</summary>
+    public SettingsWriter SettingsWriter { get; } = new(Services.Settings);
+}

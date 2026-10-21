@@ -1,6 +1,7 @@
 using Savepoint.App.Features.Common;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Formatting;
+using Savepoint.App.Features.Common.Preferences;
 using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Localization;
@@ -28,6 +29,7 @@ public class MainWindowViewModelTests
                     backend.Games,
                     backend.Profiles,
                     backend.Settings,
+                    new SettingsWriter(backend.Settings),
                     backend.Jobs,
                     _text,
                     new ImmediateUiDispatcher(),

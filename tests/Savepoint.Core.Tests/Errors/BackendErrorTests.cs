@@ -1,31 +1,61 @@
 using Savepoint.Core.Errors;
+using Savepoint.Core.Services;
 
 namespace Savepoint.Core.Tests.Errors;
 
 public class BackendErrorTests
 {
     [Fact]
-    public void A_cancelled_token_maps_to_the_cancelled_read_message()
+    public async Task A_call_whose_token_was_cancelled_answers_the_cancelled_message()
     {
-        var info = ErrorInfo.From(new OperationCanceledException());
+        using var cancelled = new CancellationTokenSource();
+        await cancelled.CancelAsync();
 
-        Assert.Equal("error.operation.cancelled", info.MessageId);
+        var result = await ApiGuard.RunAsync(() => Task.FromResult(1), cancelled.Token);
+
+        Assert.Equal("error.operation.cancelled", result.Error?.MessageId);
     }
 
     [Fact]
-    public void A_task_cancellation_maps_like_any_other_cancellation()
+    public async Task A_cancellation_raised_while_the_work_ran_answers_the_cancelled_message_too()
     {
-        var info = ErrorInfo.From(new TaskCanceledException());
+        using var source = new CancellationTokenSource();
 
-        Assert.Equal("error.operation.cancelled", info.MessageId);
+        var result = await ApiGuard.RunAsync<int>(
+            async () =>
+            {
+                await source.CancelAsync();
+                source.Token.ThrowIfCancellationRequested();
+                return 1;
+            },
+            source.Token);
+
+        Assert.Equal("error.operation.cancelled", result.Error?.MessageId);
     }
 
     [Fact]
-    public void A_cancellation_the_user_asked_for_keeps_its_own_message()
+    public async Task A_cancellation_nobody_asked_for_is_an_unknown_failure_not_a_cancelled_one()
     {
-        var info = ErrorInfo.From(new OperationCancelledByUserException(CancelledOperation.Capture, "game-1"));
+        var result = await ApiGuard.RunAsync<int>(() => throw new OperationCanceledException("a timeout inside"), CancellationToken.None);
 
-        Assert.Equal("error.capture.cancelled", info.MessageId);
+        Assert.Equal("error.unknown", result.Error?.MessageId);
+    }
+
+    [Fact]
+    public async Task A_cancellation_the_user_asked_for_keeps_its_own_message()
+    {
+        var result = await ApiGuard.RunAsync<int>(() => throw new OperationCancelledByUserException(CancelledOperation.Capture, "game-1"), CancellationToken.None);
+
+        Assert.Equal("error.capture.cancelled", result.Error?.MessageId);
+    }
+
+    [Fact]
+    public async Task An_exception_never_crosses_the_boundary()
+    {
+        var result = await ApiGuard.RunAsync<int>(() => throw new IOException("the disk went away"), CancellationToken.None);
+
+        Assert.Equal("error.unknown", result.Error?.MessageId);
+        Assert.Contains("the disk went away", result.Error!.Detail, StringComparison.Ordinal);
     }
 
     [Fact]

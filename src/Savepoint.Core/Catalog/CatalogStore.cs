@@ -7,10 +7,27 @@ using Savepoint.Core.Errors;
 
 namespace Savepoint.Core.Catalog;
 
+/// <summary>
+/// Reads and writes the three catalog files (<c>games.json</c>, <c>profiles.json</c>, <c>settings.json</c>) in one folder. One
+/// async lock serializes every operation on the store, so a read-modify-write is never interleaved with another (D13.3).
+/// </summary>
+/// <remarks>
+/// A missing games or profiles file reads as an empty list and a missing settings file as null. A file that cannot be read or
+/// parsed throws <see cref="CatalogCorruptException"/> and is never overwritten (D13.2). Every write goes to a temp file in the
+/// same folder, is flushed to disk, and is renamed over the target, after copying the previous file to <c>.bak</c>, so a crash
+/// leaves the old file or the new one. A file another program holds for a moment is retried for about 1.3 seconds. This is a
+/// service-level type: it throws exceptions, which the Api facade turns into <see cref="ErrorInfo"/>. Thread-safe within one
+/// instance; two instances over the same folder do not coordinate.
+/// </remarks>
 public sealed class CatalogStore
 {
+    /// <summary>The file in <see cref="DirectoryPath"/> that holds every game definition, as a JSON array.</summary>
     public const string GamesFileName = "games.json";
+
+    /// <summary>The file in <see cref="DirectoryPath"/> that holds every profile of every game, as a JSON array.</summary>
     public const string ProfilesFileName = "profiles.json";
+
+    /// <summary>The file in <see cref="DirectoryPath"/> that holds the app settings, as one JSON object.</summary>
     public const string SettingsFileName = "settings.json";
 
     // Doubling from 20 ms, so about 1.3 s in all before a locked file is given up on.
@@ -30,6 +47,10 @@ public sealed class CatalogStore
     private readonly TimeProvider _time;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
+    /// <summary>Creates a store over a folder. The folder need not exist yet; the first write creates it.</summary>
+    /// <param name="directory">The catalog folder.</param>
+    /// <param name="timeProvider">The clock for the stamp on a corrupt file that is moved aside; defaults to the system clock.</param>
+    /// <exception cref="ArgumentException"><paramref name="directory"/> is null, empty, or blank.</exception>
     public CatalogStore(string directory, TimeProvider? timeProvider = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(directory);
@@ -37,14 +58,33 @@ public sealed class CatalogStore
         _time = timeProvider ?? TimeProvider.System;
     }
 
+    /// <summary>The folder that holds the three catalog files.</summary>
     public string DirectoryPath { get; }
 
+    /// <summary>Lists every game in file order.</summary>
+    /// <param name="cancellationToken">Abandons the wait for the lock or the read.</param>
+    /// <returns>The games, or an empty list when <c>games.json</c> does not exist.</returns>
+    /// <exception cref="CatalogCorruptException">The file cannot be read or is not a valid list of games.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     public Task<IReadOnlyList<GameDefinition>> ListGamesAsync(CancellationToken cancellationToken = default) =>
         RunAsync<IReadOnlyList<GameDefinition>>(async () => await ReadGamesAsync(cancellationToken), cancellationToken);
 
+    /// <summary>Finds one game by id.</summary>
+    /// <param name="id">The game id; compared exactly, case included.</param>
+    /// <param name="cancellationToken">Abandons the wait for the lock or the read.</param>
+    /// <returns>The game, or null when none has that id.</returns>
+    /// <exception cref="CatalogCorruptException">The file cannot be read or is not a valid list of games.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     public Task<GameDefinition?> GetGameAsync(string id, CancellationToken cancellationToken = default) =>
         RunAsync(async () => (await ReadGamesAsync(cancellationToken)).Find(g => g.Id == id), cancellationToken);
 
+    /// <summary>Validates a game and adds it, or replaces the game with the same id.</summary>
+    /// <param name="game">The game to store.</param>
+    /// <param name="cancellationToken">Abandons the wait or the write; a write cancelled before the final rename changes nothing.</param>
+    /// <returns>The normalized game that was stored (trimmed text, repeats removed from the ignore patterns and mod hints).</returns>
+    /// <exception cref="ValidationException">The game is invalid; nothing is read or written.</exception>
+    /// <exception cref="CatalogCorruptException">The existing file cannot be read, so nothing is written.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     public async Task<GameDefinition> SaveGameAsync(GameDefinition game, CancellationToken cancellationToken = default)
     {
         var valid = CatalogValidator.RequireValid(game);
@@ -59,6 +99,12 @@ public sealed class CatalogStore
             cancellationToken);
     }
 
+    /// <summary>Removes a game's record. The game's profiles and stored history are the caller's to clean up.</summary>
+    /// <param name="id">The game id.</param>
+    /// <param name="cancellationToken">Abandons the wait for the lock or the write.</param>
+    /// <returns>True when the game was removed; false when none had that id, in which case nothing is written.</returns>
+    /// <exception cref="CatalogCorruptException">The file cannot be read or is not a valid list of games.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     public Task<bool> DeleteGameAsync(string id, CancellationToken cancellationToken = default) =>
         RunAsync(
             async () =>
@@ -74,6 +120,12 @@ public sealed class CatalogStore
             },
             cancellationToken);
 
+    /// <summary>Lists profiles in file order.</summary>
+    /// <param name="gameId">Only this game's profiles; null for every game's.</param>
+    /// <param name="cancellationToken">Abandons the wait for the lock or the read.</param>
+    /// <returns>The profiles, or an empty list when <c>profiles.json</c> does not exist or none match.</returns>
+    /// <exception cref="CatalogCorruptException">The file cannot be read or is not a valid list of profiles.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     public Task<IReadOnlyList<Profile>> ListProfilesAsync(string? gameId = null, CancellationToken cancellationToken = default) =>
         RunAsync<IReadOnlyList<Profile>>(
             async () =>
@@ -83,9 +135,22 @@ public sealed class CatalogStore
             },
             cancellationToken);
 
+    /// <summary>Finds one profile by id.</summary>
+    /// <param name="id">The profile id; compared exactly, case included.</param>
+    /// <param name="cancellationToken">Abandons the wait for the lock or the read.</param>
+    /// <returns>The profile, or null when none has that id.</returns>
+    /// <exception cref="CatalogCorruptException">The file cannot be read or is not a valid list of profiles.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     public Task<Profile?> GetProfileAsync(string id, CancellationToken cancellationToken = default) =>
         RunAsync(async () => (await ReadProfilesAsync(cancellationToken)).Find(p => p.Id == id), cancellationToken);
 
+    /// <summary>Validates a profile and adds it, or replaces the profile with the same id.</summary>
+    /// <param name="profile">The profile to store.</param>
+    /// <param name="cancellationToken">Abandons the wait or the write; a write cancelled before the final rename changes nothing.</param>
+    /// <returns>The normalized profile that was stored.</returns>
+    /// <exception cref="ValidationException">The profile is invalid; nothing is read or written.</exception>
+    /// <exception cref="CatalogCorruptException">The existing file cannot be read, so nothing is written.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     public async Task<Profile> SaveProfileAsync(Profile profile, CancellationToken cancellationToken = default)
     {
         var valid = CatalogValidator.RequireValid(profile);
@@ -100,7 +165,20 @@ public sealed class CatalogStore
             cancellationToken);
     }
 
-    // Read-modify-write under the lock, so a launch timestamp and a rename can never overwrite each other.
+    /// <summary>
+    /// Changes one profile as a read-modify-write under the lock, so a launch timestamp and a rename can never overwrite each other.
+    /// </summary>
+    /// <param name="id">The profile to change.</param>
+    /// <param name="update">
+    /// Returns the changed profile from the current one. It runs while the lock is held, so it must be quick and must not call
+    /// this store, which would wait for itself forever.
+    /// </param>
+    /// <param name="cancellationToken">Abandons the wait or the write; a write cancelled before the final rename changes nothing.</param>
+    /// <returns>The normalized profile that was stored, or null when no profile has that id (nothing is written).</returns>
+    /// <exception cref="ValidationException">The changed profile is invalid; nothing is written.</exception>
+    /// <exception cref="InvalidOperationException"><paramref name="update"/> changed the profile's id.</exception>
+    /// <exception cref="CatalogCorruptException">The file cannot be read or is not a valid list of profiles.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     public Task<Profile?> UpdateProfileAsync(string id, Func<Profile, Profile> update, CancellationToken cancellationToken = default) =>
         RunAsync(
             async () =>
@@ -124,6 +202,12 @@ public sealed class CatalogStore
             },
             cancellationToken);
 
+    /// <summary>Removes a profile's record. The profile's branch and history are the caller's to clean up.</summary>
+    /// <param name="id">The profile id.</param>
+    /// <param name="cancellationToken">Abandons the wait for the lock or the write.</param>
+    /// <returns>True when the profile was removed; false when none had that id, in which case nothing is written.</returns>
+    /// <exception cref="CatalogCorruptException">The file cannot be read or is not a valid list of profiles.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     public Task<bool> DeleteProfileAsync(string id, CancellationToken cancellationToken = default) =>
         RunAsync(
             async () =>
@@ -139,13 +223,40 @@ public sealed class CatalogStore
             },
             cancellationToken);
 
+    /// <summary>Reads the settings.</summary>
+    /// <param name="cancellationToken">Abandons the wait for the lock or the read.</param>
+    /// <returns>
+    /// The settings, or null when <c>settings.json</c> does not exist yet (first run); callers then start from
+    /// <see cref="AppSettings.Defaults"/>.
+    /// </returns>
+    /// <exception cref="CatalogCorruptException">The file cannot be read or does not hold a settings object.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     public Task<AppSettings?> GetSettingsAsync(CancellationToken cancellationToken = default) =>
         RunAsync(() => ReadSettingsAsync(cancellationToken), cancellationToken);
 
+    /// <summary>Validates the settings and stores them, replacing the file's content.</summary>
+    /// <param name="settings">The settings to store.</param>
+    /// <param name="cancellationToken">Abandons the wait or the write; a write cancelled before the final rename changes nothing.</param>
+    /// <returns>The normalized settings that were stored.</returns>
+    /// <exception cref="ValidationException">The settings are invalid; nothing is written.</exception>
+    /// <exception cref="CatalogCorruptException">The existing file cannot be read, so nothing is written.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     public Task<AppSettings> SaveSettingsAsync(AppSettings settings, CancellationToken cancellationToken = default) =>
         UpdateSettingsAsync(_ => settings, cancellationToken);
 
-    // The current file is read even when the new value ignores it, so a corrupt file is never overwritten.
+    /// <summary>
+    /// Changes the settings as a read-modify-write under the lock. The current file is read even when the new value ignores it,
+    /// so a corrupt file is never overwritten.
+    /// </summary>
+    /// <param name="update">
+    /// Returns the new settings from the current ones, or from null when the file does not exist yet. It runs while the lock is
+    /// held, so it must be quick and must not call this store, which would wait for itself forever.
+    /// </param>
+    /// <param name="cancellationToken">Abandons the wait or the write; a write cancelled before the final rename changes nothing.</param>
+    /// <returns>The normalized settings that were stored.</returns>
+    /// <exception cref="ValidationException">The new settings are invalid; nothing is written.</exception>
+    /// <exception cref="CatalogCorruptException">The existing file cannot be read, so nothing is written.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     public Task<AppSettings> UpdateSettingsAsync(Func<AppSettings?, AppSettings> update, CancellationToken cancellationToken = default) =>
         RunAsync(
             async () =>
@@ -157,7 +268,16 @@ public sealed class CatalogStore
             },
             cancellationToken);
 
-    // Moves a corrupt catalog file aside so the app can start empty; a readable or missing file is left alone.
+    /// <summary>
+    /// Moves a corrupt catalog file aside so the app can start empty. The file is renamed to its name plus <c>.corrupt-</c> and a
+    /// UTC stamp (<c>yyyyMMddTHHmmssfffZ</c>), with a numeric suffix if that name is taken; it is never deleted, and a readable or
+    /// missing file is left alone.
+    /// </summary>
+    /// <param name="path">One of the three catalog files: the full path inside <see cref="DirectoryPath"/>, or just the file name.</param>
+    /// <param name="cancellationToken">Abandons the wait for the lock or the check.</param>
+    /// <returns>The path the file was moved to, or null when it was missing or readable so nothing moved.</returns>
+    /// <exception cref="ArgumentException"><paramref name="path"/> is not a catalog file, or is in another folder.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     public async Task<string?> ReplaceCorruptFileAsync(string path, CancellationToken cancellationToken = default)
     {
         var fileName = ResolveCatalogFileName(path);

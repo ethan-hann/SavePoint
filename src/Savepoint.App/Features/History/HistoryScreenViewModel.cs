@@ -77,6 +77,7 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
     [NotifyPropertyChangedFor(nameof(HasError))]
     [NotifyPropertyChangedFor(nameof(IsEmpty))]
     [NotifyPropertyChangedFor(nameof(IsFilteredEmpty))]
+    [NotifyPropertyChangedFor(nameof(ShowFilter))]
     [NotifyPropertyChangedFor(nameof(HasPoints))]
     [NotifyPropertyChangedFor(nameof(HasNoGame))]
     private HistoryState _state = HistoryState.Loading;
@@ -114,6 +115,7 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
     [NotifyPropertyChangedFor(nameof(FilterLabel))]
     [NotifyPropertyChangedFor(nameof(FilterAutomationName))]
     [NotifyPropertyChangedFor(nameof(IsFilteredEmpty))]
+    [NotifyPropertyChangedFor(nameof(ShowFilter))]
     private ProfileFilter? _selectedFilter;
 
     /// <summary>The Cards / List segment chosen; the choice lasts for the session.</summary>
@@ -190,6 +192,9 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
 
     /// <summary>True when the empty state is down to the profile filter: the chosen profile has no points though others may.</summary>
     public bool IsFilteredEmpty => State == HistoryState.Empty && SelectedFilter?.ProfileId is not null;
+
+    /// <summary>True when the profile filter shows: there are points to narrow down, or the chosen profile has none and another has to be picked.</summary>
+    public bool ShowFilter => HasPoints || IsFilteredEmpty;
 
     /// <summary>True when there are points to show.</summary>
     public bool HasPoints => State == HistoryState.Loaded;
@@ -416,12 +421,9 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
             .. onTimeline.Select((point, index) =>
             {
                 var (headline, namesVersion) = _words.Headline(point);
-                return new TimelineEntryViewModel(
-                    headline,
-                    _words.TimelineDetail(point, namesVersion),
-                    _words.Stamp(point.CapturedAt, point.InUse),
-                    point.InUse,
-                    index == onTimeline.Count - 1);
+                var detail = _words.TimelineDetail(point, namesVersion);
+                var stamp = _words.Stamp(point.CapturedAt, point.InUse);
+                return new TimelineEntryViewModel(headline, detail, stamp, point.InUse, index == onTimeline.Count - 1, _words.ItemName(headline, detail, stamp));
             }),
         ];
     }
@@ -434,6 +436,7 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
                     point,
                     _words.SaveDetail(point),
                     _deps.Text.Message("history.save.loadAutomation", ("name", point.Name)),
+                    _words.ItemName(point.Name, _words.SaveDetail(point), point.LoadedNow ? _deps.Text.Message("history.save.loaded") : string.Empty),
                     BeginCommand(game.Id, new LaunchTarget.Save(point.ProfileId, point.Id)))),
         ];
 
@@ -446,6 +449,7 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
             _words.Contains(point),
             _words.Date(point.CapturedAt),
             _deps.Text.Message("history.card.goBackAutomation", ("name", point.Name)),
+            _words.ItemName(point.Name, _words.Contains(point), _words.Date(point.CapturedAt), point.LoadedNow ? _deps.Text.Message("history.card.loadedNow") : string.Empty),
             BeginCommand(game.Id, new LaunchTarget.Point(point.Id))))).ToList();
 
         var thisWeek = cards.Where(item => now - item.Point.CapturedAt < _thisWeek).Select(item => item.Card).ToList();
@@ -473,8 +477,20 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
 
     private bool CanBegin(string gameId) => _shell.LaunchFlow is { } flow && !flow.IsActive(gameId);
 
-    private Task BeginAsync(string gameId, LaunchTarget target) =>
-        _shell.LaunchFlow is { } flow ? flow.BeginAsync(gameId, target) : Task.CompletedTask;
+    // The banner, the running card and a failure's card are shown on the Games screen, so a launch that got going (or failed to) takes the player there.
+    private async Task BeginAsync(string gameId, LaunchTarget target)
+    {
+        if (_shell.LaunchFlow is not { } flow)
+        {
+            return;
+        }
+
+        await flow.BeginAsync(gameId, target);
+        if (_shell.Destination == NavDestination.History && (flow.IsActive(gameId) || flow.InlineContentFor(gameId) is not null))
+        {
+            _shell.Navigate(NavDestination.Games);
+        }
+    }
 
     private void RefreshFlowCommands()
     {

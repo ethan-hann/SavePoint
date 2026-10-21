@@ -335,6 +335,43 @@ public class ShellViewModelTests
     }
 
     [Fact]
+    public async Task Settings_the_launch_flow_saved_are_followed_like_any_others()
+    {
+        var flow = new FakeLaunchFlow();
+        var rig = await ShellRig.StartAsync(launchFlow: flow);
+
+        flow.RaiseSettingsSaved(MockupScenario.Settings with { Layout = ShellLayout.Library, Theme = ThemePreference.Light });
+
+        Assert.Equal(ShellLayout.Library, rig.Shell.Layout);
+        Assert.Equal((ThemePreference.Light, AccentColorId.Blue), rig.Theme.Applied[^1]);
+    }
+
+    [Fact]
+    public async Task A_disposed_shell_stops_following_the_launch_flows_settings()
+    {
+        var flow = new FakeLaunchFlow();
+        var rig = await ShellRig.StartAsync(launchFlow: flow);
+
+        rig.Shell.Dispose();
+
+        Assert.Equal(0, flow.SettingsSavedSubscribers);
+    }
+
+    [Fact]
+    public async Task Choosing_a_layout_keeps_what_another_writer_saved_since_the_shell_last_looked()
+    {
+        var rig = await ShellRig.StartAsync();
+        FakeAssert.Ok(await rig.Backend.Settings.SaveAsync(MockupScenario.Settings with { ConfirmSessionCapture = false, SkipConfirmWhenOnlySaveChanges = true }));
+
+        await rig.Shell.SetLayoutAsync(ShellLayout.Library);
+
+        var stored = FakeAssert.Ok(await rig.Backend.Settings.GetAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(ShellLayout.Library, stored.Layout);
+        Assert.False(stored.ConfirmSessionCapture);
+        Assert.True(stored.SkipConfirmWhenOnlySaveChanges);
+    }
+
+    [Fact]
     public async Task The_shelf_shows_only_in_the_library_layout_on_games_with_games_and_no_pane()
     {
         var rig = await ShellRig.LibraryLayoutAsync();

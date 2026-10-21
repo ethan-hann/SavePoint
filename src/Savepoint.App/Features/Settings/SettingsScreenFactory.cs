@@ -26,6 +26,6 @@ public sealed class SettingsScreenFactory : IScreenFactory
         var services = _context.Services;
         return new SettingsScreenViewModel(
             shell,
-            new SettingsDependencies(services.Settings, services.Jobs, _context.Dialogs, _context.Text, _context.Toasts, _context.Dispatcher, _environment));
+            new SettingsDependencies(services.Settings, _context.SettingsWriter, services.Jobs, _context.Dialogs, _context.Text, _context.Toasts, _context.Dispatcher, _environment));
     }
 }

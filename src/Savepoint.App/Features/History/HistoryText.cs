@@ -58,11 +58,12 @@ internal sealed class HistoryText
     // "Jul 2, 2026 · 6:03 PM", with "in use now" after it for the point the install folder holds.
     public string Stamp(DateTimeOffset when, bool inUse)
     {
-        var stamp = _text.Message("history.stamp", ("date", _text.Date(when)), ("time", _text.Time(when)));
+        var stamp = _text.TimelineDateTime(when);
         return inUse ? _text.Message("history.timeline.inUse", ("stamp", stamp)) : stamp;
     }
 
-    public string SaveDetail(HistoryPoint point) => Join(_text.DateAndTime(point.CapturedAt), point.ProfileName);
+    // "Jul 5, 11:42 PM · Modded playthrough"; the year only shows for a save from an earlier year.
+    public string SaveDetail(HistoryPoint point) => Join(_text.ShortDateTime(point.CapturedAt), point.ProfileName);
 
     // "Save only · 1.6.640 with 212 mod files": the kind, then the install state at that point.
     public string Contains(HistoryPoint point)
@@ -72,7 +73,12 @@ internal sealed class HistoryText
         return install.Length == 0 ? kind : Join(kind, install);
     }
 
-    public string Date(DateTimeOffset when) => _text.DateAndTime(when);
+    // "Sun Jul 5, 11:42 PM", the card's absolute date.
+    public string Date(DateTimeOffset when) => _text.WeekdayDateTime(when);
+
+    // One line for a list item's accessible name: the parts in order, with the language's own separator.
+    public string ItemName(params string[] parts) =>
+        parts.Where(part => part.Length > 0).Aggregate((first, second) => _text.Message("history.automation.join", ("first", first), ("second", second)));
 
     public string Join(string first, string second) => _text.Message("history.join", ("first", first), ("second", second));
 
