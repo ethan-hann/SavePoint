@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using Savepoint.App.Features.Common;
+using Savepoint.App.Features.Common.Art;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Common.Preferences;
 using Savepoint.App.Features.Common.Toasts;
@@ -14,7 +15,7 @@ namespace Savepoint.App.Tests.Features.Shell;
 // A shell wired to the fake backend with every collaborator recorded; events run inline unless a test passes a queueing dispatcher.
 internal sealed class ShellRig
 {
-    private ShellRig(FakeBackend backend, IUiDispatcher dispatcher, IReadOnlyList<IScreenFactory> screens, ILaunchFlowHost? launchFlow)
+    private ShellRig(FakeBackend backend, IUiDispatcher dispatcher, IReadOnlyList<IScreenFactory> screens, ILaunchFlowHost? launchFlow, IArtworkProvider? artwork)
     {
         Backend = backend;
         Text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), backend.Clock, "windows", TimeZoneInfo.Utc);
@@ -34,7 +35,8 @@ internal sealed class ShellRig
             Toasts,
             Theme,
             screens,
-            launchFlow));
+            launchFlow,
+            artwork));
     }
 
     public FakeBackend Backend { get; }
@@ -55,16 +57,18 @@ internal sealed class ShellRig
         FakeBackend? backend = null,
         IUiDispatcher? dispatcher = null,
         IReadOnlyList<IScreenFactory>? screens = null,
-        ILaunchFlowHost? launchFlow = null) =>
-        new(backend ?? FakeBackend.Mockup(), dispatcher ?? new ImmediateUiDispatcher(), screens ?? [], launchFlow);
+        ILaunchFlowHost? launchFlow = null,
+        IArtworkProvider? artwork = null) =>
+        new(backend ?? FakeBackend.Mockup(), dispatcher ?? new ImmediateUiDispatcher(), screens ?? [], launchFlow, artwork);
 
     public static async Task<ShellRig> StartAsync(
         FakeBackend? backend = null,
         IUiDispatcher? dispatcher = null,
         IReadOnlyList<IScreenFactory>? screens = null,
-        ILaunchFlowHost? launchFlow = null)
+        ILaunchFlowHost? launchFlow = null,
+        IArtworkProvider? artwork = null)
     {
-        var rig = Create(backend, dispatcher, screens, launchFlow);
+        var rig = Create(backend, dispatcher, screens, launchFlow, artwork);
         await rig.Shell.InitializeAsync();
         return rig;
     }

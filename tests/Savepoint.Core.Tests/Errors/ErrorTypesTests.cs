@@ -131,6 +131,9 @@ public class ErrorTypesTests
         void Add(string name, SavepointException exception, string messageId, params (string Key, object? Value)[] args) =>
             cases.Add(name, new ErrorCase(exception, messageId, args));
 
+        Add("Artwork not an image", new ArtworkNotAnImageException("/pictures/a.png"), "error.artwork.notAnImage", ("path", "/pictures/a.png"));
+        Add("Artwork too large", new ArtworkTooLargeException("/pictures/a.png", 25), "error.artwork.tooLarge",
+            ("path", "/pictures/a.png"), ("maxMegabytes", 25));
         Add("PathSafety tier 1", new PathSafetyException("/system", 1), "error.pathSafety.tier1Blocked",
             ("path", "/system"), ("tier", 1));
         Add("PathSafety tier 2", new PathSafetyException("/home/me", 2), "error.pathSafety.tier2Blocked",

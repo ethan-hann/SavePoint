@@ -186,6 +186,8 @@ internal sealed class BackendWorkspace : IDisposable
             Sessions = Sessions,
             LooseObjectThreshold = int.MaxValue,
             Git = Savepoint.Core.Git.GitBinary.Locate(Path.Combine(Root, "gitconfig")),
+            // No test reads the real machine's Steam folder.
+            SteamFolder = new Savepoint.Core.Tests.Artwork.FixedSteamFolder(null),
         };
         return CoreBackend.Create(_configure is null ? options : _configure(options));
     }

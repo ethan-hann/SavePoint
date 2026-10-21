@@ -62,8 +62,8 @@ public static partial class CatalogValidator
 
     /// <summary>
     /// Normalizes the game, then lists every problem found; empty means valid. Checks the schema version, the id's shape, the
-    /// name, the install and external paths (present, not nested), the external role, and the launch method with its program
-    /// path (relative, no <c>..</c>) or link (has a scheme).
+    /// name, the install and external paths (present, not nested), the external role, the Steam app id (positive when given), and
+    /// the launch method with its program path (relative, no <c>..</c>) or link (has a scheme).
     /// </summary>
     /// <param name="game">The game to check.</param>
     /// <returns>The problems, each with the field's JSON path; empty when the game is valid.</returns>
@@ -163,6 +163,11 @@ public static partial class CatalogValidator
         if (game.Install.Path.Length == 0)
         {
             issues.Add(new ValidationIssue("install.path", ValidationMessageIds.GameInstallPathRequired));
+        }
+
+        if (game.SteamAppId is <= 0)
+        {
+            issues.Add(new ValidationIssue("steamAppId", ValidationMessageIds.GameSteamAppIdInvalid));
         }
 
         if (game.External is { } external)

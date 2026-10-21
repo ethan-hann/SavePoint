@@ -38,6 +38,26 @@ public class SettingsTests
     }
 
     [Fact]
+    public async Task The_artwork_lookup_setting_is_on_until_it_is_turned_off_and_stays_off_after_a_restart()
+    {
+        using var workspace = new BackendWorkspace();
+        var optimized = new DateTimeOffset(2026, 7, 1, 8, 0, 0, TimeSpan.Zero);
+        await workspace.Backend.Services.Catalog.SaveSettingsAsync(
+            AppSettings.Defaults(workspace.DefaultStorageRoot) with { LastOptimizedAt = optimized },
+            workspace.Token);
+        var first = (await workspace.Settings.GetAsync(workspace.Token)).Value!;
+
+        var saved = await workspace.Settings.SaveAsync(first with { LookUpArtworkOnline = false, StorageRoot = Path.Combine(workspace.Root, "elsewhere"), LastOptimizedAt = null });
+        var restarted = (await workspace.Restart().Settings.GetAsync(workspace.Token)).Value!;
+
+        Assert.True(first.LookUpArtworkOnline);
+        Assert.False(saved.Value!.LookUpArtworkOnline);
+        Assert.False(restarted.LookUpArtworkOnline);
+        Assert.Equal(workspace.DefaultStorageRoot, restarted.StorageRoot);
+        Assert.Equal(optimized, restarted.LastOptimizedAt);
+    }
+
+    [Fact]
     public async Task Saving_never_moves_the_storage_root_or_the_optimized_date()
     {
         using var workspace = new BackendWorkspace();

@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using Savepoint.App.Features.Common.Art;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.Core.Catalog;
 
@@ -21,9 +22,11 @@ public sealed partial class GameRowViewModel : ObservableObject
     /// <param name="profileCount">Its number of profiles; null when not known.</param>
     /// <param name="bytes">The space SavePoint keeps for it; null when not known.</param>
     /// <param name="text">Formats the count and size.</param>
-    public GameRowViewModel(GameDefinition game, int? profileCount, long? bytes, UiFormatter text)
+    /// <param name="art">The game's artwork for its tiles; null leaves the tile its name tint.</param>
+    public GameRowViewModel(GameDefinition game, int? profileCount, long? bytes, UiFormatter text, GameArt? art = null)
     {
         Game = game;
+        Art = art;
         ProfileCount = profileCount;
         Bytes = bytes;
         ProfileCountText = profileCount is { } count ? text.Message("shell.profileCount", ("count", count)) : string.Empty;
@@ -36,6 +39,9 @@ public sealed partial class GameRowViewModel : ObservableObject
 
     /// <summary>The game's definition.</summary>
     public GameDefinition Game { get; }
+
+    /// <summary>The game's artwork for its tiles, shared by every tile of the game; null when the row was made without any.</summary>
+    public GameArt? Art { get; }
 
     /// <summary>The game's id.</summary>
     public string Id => Game.Id;

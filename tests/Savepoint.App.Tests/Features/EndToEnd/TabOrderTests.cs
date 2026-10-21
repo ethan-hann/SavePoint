@@ -129,7 +129,7 @@ public class TabOrderTests
             [
                 "Settings", "Skyrim Special Edition, 3 profiles", "Add a game",
                 "Change", "Run now",
-                "Dark", "Sidebar", "Blue",
+                "Dark", "Sidebar", "Blue", "Look up game artwork online",
                 "Ask whether to save the session", "Skip the confirmation when only the save changes",
                 "Remove all data…",
             ],

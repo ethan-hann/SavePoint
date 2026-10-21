@@ -11,6 +11,8 @@
   "settings.accent.label": "Accent color",
   "settings.accent.violet": "Violet",
   "settings.appearance.heading": "Appearance",
+  "settings.artwork.online": "Look up game artwork online",
+  "settings.artwork.onlineHint": "SavePoint asks Steam's servers for a game's cover when it isn't on this computer yet. Artwork that's already on this computer is used either way.",
   "settings.clearAll.body": "Removes SavePoint's saved history and settings, and the app goes back to how it was the first time you opened it. Your game folders are left exactly as they are.",
   "settings.clearAll.button": "Remove all data…",
   "settings.clearAll.clearing": "Removing SavePoint's data…",

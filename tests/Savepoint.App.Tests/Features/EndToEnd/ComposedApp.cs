@@ -183,7 +183,10 @@ internal sealed class ComposedApp : IDisposable
             settings is null ? backend.Settings : settings(backend.Settings),
             backend.History,
             backend.Jobs,
-            backend.AppStatus);
+            backend.AppStatus)
+        {
+            Artwork = backend.Artwork,
+        };
         return (services, clock, text);
     }
 

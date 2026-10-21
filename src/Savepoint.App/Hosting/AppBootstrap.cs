@@ -21,7 +21,7 @@ public static class AppBootstrap
     {
         try
         {
-            var options = new BackendOptions { Launch = LaunchOrchestrator.Factory() };
+            var options = new BackendOptions { Launch = LaunchOrchestrator.Factory(), ArtworkHttp = ArtworkHttpHandler.CreateForApp() };
             var backend = CoreBackend.Create(configure is null ? options : configure(options));
             return new BootstrapResult(ServicesOf(backend), backend, null);
         }
@@ -38,6 +38,7 @@ public static class AppBootstrap
         new(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus)
         {
             FileRevealer = new FileManagerRevealer(FileManager.CreateForCurrentOs()),
+            Artwork = backend.Artwork,
         };
 
     /// <summary>An Api whose every call fails with <paramref name="error"/>; only the startup screen reads it.</summary>
@@ -50,5 +51,8 @@ public static class AppBootstrap
             UnavailableApi.Create<ISettingsApi>(error),
             UnavailableApi.Create<IHistoryApi>(error),
             UnavailableApi.Create<IJobsApi>(error),
-            UnavailableApi.Create<IAppStatusApi>(error));
+            UnavailableApi.Create<IAppStatusApi>(error))
+        {
+            Artwork = UnavailableApi.Create<IArtworkApi>(error),
+        };
 }

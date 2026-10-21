@@ -1,5 +1,6 @@
 using Savepoint.App.Tests.Fakes;
 using Savepoint.Core.Api;
+using Savepoint.Core.Artwork;
 using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Git;
@@ -8,6 +9,7 @@ using Savepoint.Core.Platform;
 using Savepoint.Core.Platform.Linux;
 using Savepoint.Core.Platform.MacOS;
 using Savepoint.Core.Platform.Windows;
+using Savepoint.Testing;
 
 namespace Savepoint.App.Tests.Contract;
 
@@ -33,6 +35,12 @@ internal abstract class ContractHarness : IAsyncDisposable
     public abstract IJobsApi Jobs { get; }
 
     public abstract ILaunchApi Launch { get; }
+
+    public abstract IArtworkApi Artwork { get; }
+
+    // Puts Steam's artwork for an app where the lookup finds it: a file in the fake Steam folder for the real backend, and a scripted
+    // find for the fake. Nothing reads it until look again.
+    public abstract void SteamHasArt(GameDefinition game, int appId);
 
     // Tells the backend which profile is about to be launched, so a fake can be scripted with what the real one works out for itself.
     public virtual void ExpectLaunch(GameDefinition game, string profileId)
@@ -101,6 +109,16 @@ internal sealed class FakeContractHarness : ContractHarness
 
     public override ILaunchApi Launch => _backend.Launch;
 
+    public override IArtworkApi Artwork => _backend.Artwork;
+
+    public override void SteamHasArt(GameDefinition game, int appId)
+    {
+        _ = appId;
+        var wide = TestImages.Write(Path.Combine(Root, "fake-steam"), "header.jpg", TestImages.Jpeg(460, 215));
+        var square = TestImages.Write(Path.Combine(Root, "fake-steam"), "library_600x900.jpg", TestImages.Jpeg(600, 900));
+        _backend.Artwork.ScriptSteamFinds(game.Id, wide, square);
+    }
+
     public override void ExpectLaunch(GameDefinition game, string profileId)
     {
         var target = new LaunchTarget.ProfileTip(profileId);
@@ -146,9 +164,11 @@ internal sealed class RealContractHarness : ContractHarness
 
     private readonly CoreBackend _backend;
     private readonly ScriptedGame _game = new();
+    private readonly string _steamFolder;
 
     public RealContractHarness()
     {
+        _steamFolder = Path.Combine(Root, "steam");
         var home = Path.Combine(Root, "home");
         var install = Path.Combine(Root, "app");
         Directory.CreateDirectory(install);
@@ -158,6 +178,7 @@ internal sealed class RealContractHarness : ContractHarness
             InstallDirectory = install,
             Git = GitBinary.Locate(Path.Combine(Root, "gitconfig")),
             LooseObjectThreshold = int.MaxValue,
+            SteamFolder = new FolderLocator(_steamFolder),
             Launch = LaunchOrchestrator.Factory(new LaunchOrchestratorOptions { Starter = _game.Starter(TimeProvider.System) }),
         });
     }
@@ -173,6 +194,16 @@ internal sealed class RealContractHarness : ContractHarness
     public override IJobsApi Jobs => _backend.Jobs;
 
     public override ILaunchApi Launch => _backend.Launch;
+
+    public override IArtworkApi Artwork => _backend.Artwork;
+
+    public override void SteamHasArt(GameDefinition game, int appId)
+    {
+        _ = game;
+        var cache = Path.Combine(_steamFolder, "appcache", "librarycache", appId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        TestImages.Write(cache, "header.jpg", TestImages.Jpeg(460, 215));
+        TestImages.Write(cache, "library_600x900.jpg", TestImages.Jpeg(600, 900));
+    }
 
     public override Task GameRunningAsync(string gameId, CancellationToken cancellationToken) =>
         WaitForSessionAsync(gameId, state => state is SessionState.Running, cancellationToken);
@@ -251,4 +282,10 @@ internal sealed class RealContractHarness : ContractHarness
             _ => new MacOSPlatform(environment),
         };
     }
+}
+
+// A Steam folder that is just a folder the harness fills; the real machine's Steam is never read.
+internal sealed class FolderLocator(string folder) : ISteamFolderLocator
+{
+    public string? FindSteamFolder() => Directory.Exists(folder) ? folder : null;
 }

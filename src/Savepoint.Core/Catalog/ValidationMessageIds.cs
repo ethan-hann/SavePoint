@@ -30,6 +30,9 @@ public static class ValidationMessageIds
     /// <summary>Reported at <c>external.path</c>: the external folder is the install folder, is inside it, or contains it.</summary>
     public const string GamePathsNested = "validation.game.pathsNested";
 
+    /// <summary>Reported at <c>steamAppId</c>: the Steam app id is zero or negative.</summary>
+    public const string GameSteamAppIdInvalid = "validation.game.steamAppIdInvalid";
+
     /// <summary>Reported at <c>launch.method</c>: the value is not a defined <see cref="LaunchMethod"/>.</summary>
     public const string LaunchMethodInvalid = "validation.launch.methodInvalid";
 

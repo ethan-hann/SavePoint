@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Savepoint.App.Features.Common.Art;
 using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Shell;
@@ -32,6 +33,10 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     /// <summary>The selected game's name; empty without a game.</summary>
     [ObservableProperty]
     private string _gameName = string.Empty;
+
+    /// <summary>The selected game's artwork for the header tile; null without a game.</summary>
+    [ObservableProperty]
+    private GameArt? _art;
 
     /// <summary>The selected game's install folder, shown in monospace under its name.</summary>
     [ObservableProperty]
@@ -321,6 +326,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         _flowActive = FlowOwns(game);
         _shownGameId = game?.Id;
         GameName = game?.Name ?? string.Empty;
+        Art = game is null ? null : _shell.Artwork.For(game.Id);
         InstallPath = game?.Install.Path ?? string.Empty;
         LibraryTitle = game is null ? string.Empty : _deps.Text.Message("games.header.libraryTitle", ("name", game.Name));
         RefreshInlineContent();

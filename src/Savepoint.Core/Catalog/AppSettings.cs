@@ -21,6 +21,11 @@ namespace Savepoint.Core.Catalog;
 /// <param name="LastOptimizedAt">
 /// When storage optimization last ran, or null if it never did. Written by optimization, never by saving settings (D23).
 /// </param>
+/// <param name="LookUpArtworkOnline">
+/// True to let SavePoint fetch a game's artwork from Steam's servers when it is not already on this computer (D30). False makes no
+/// network request at all; artwork already on this computer is used either way. A settings file from before this setting existed
+/// reads as true.
+/// </param>
 public sealed record AppSettings(
     string StorageRoot = "",
     ThemePreference Theme = ThemePreference.System,
@@ -29,7 +34,8 @@ public sealed record AppSettings(
     ShellLayout Layout = ShellLayout.Sidebar,
     bool ConfirmSessionCapture = true,
     bool SkipConfirmWhenOnlySaveChanges = false,
-    DateTimeOffset? LastOptimizedAt = null)
+    DateTimeOffset? LastOptimizedAt = null,
+    bool LookUpArtworkOnline = true)
 {
     /// <summary>
     /// The settings for a first run. They are written only once the user changes something, so every setting but the storage

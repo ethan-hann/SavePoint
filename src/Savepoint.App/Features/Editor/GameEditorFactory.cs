@@ -15,17 +15,20 @@ public sealed class GameEditorFactory : IGameEditorFactory
     private readonly IDialogs _dialogs;
     private readonly UiFormatter _text;
     private readonly ToastHostViewModel _toasts;
+    private readonly IArtworkApi? _artwork;
 
     /// <param name="games">The games Api the editor saves through.</param>
     /// <param name="dialogs">Pickers and confirmations.</param>
     /// <param name="text">Formats the editor's copy.</param>
     /// <param name="toasts">Reports the outcome of import and export.</param>
-    public GameEditorFactory(IGamesApi games, IDialogs dialogs, UiFormatter text, ToastHostViewModel toasts)
+    /// <param name="artwork">The artwork Api the editor's Artwork section works through; null hides the section.</param>
+    public GameEditorFactory(IGamesApi games, IDialogs dialogs, UiFormatter text, ToastHostViewModel toasts, IArtworkApi? artwork = null)
     {
         _games = games;
         _dialogs = dialogs;
         _text = text;
         _toasts = toasts;
+        _artwork = artwork;
     }
 
     /// <summary>Creates the editor for a game in the shell's library, and starts reading its folders' status.</summary>
@@ -36,7 +39,7 @@ public sealed class GameEditorFactory : IGameEditorFactory
     {
         var game = shell.Games.FirstOrDefault(candidate => candidate.Id == gameId)
             ?? throw new ArgumentException($"The library has no game '{gameId}'.", nameof(gameId));
-        var editor = GameEditorViewModel.ForExisting(_games, _dialogs, _text, _toasts, shell, game);
+        var editor = GameEditorViewModel.ForExisting(_games, _dialogs, _text, _toasts, shell, game, _artwork);
         _ = editor.LoadAsync();
         return editor;
     }
@@ -44,7 +47,7 @@ public sealed class GameEditorFactory : IGameEditorFactory
     /// <inheritdoc />
     public object CreateForNew(IShellContext shell, GameDefinition? prefill)
     {
-        var editor = GameEditorViewModel.ForNew(_games, _dialogs, _text, _toasts, shell, prefill);
+        var editor = GameEditorViewModel.ForNew(_games, _dialogs, _text, _toasts, shell, prefill, _artwork);
         _ = editor.LoadAsync();
         return editor;
     }

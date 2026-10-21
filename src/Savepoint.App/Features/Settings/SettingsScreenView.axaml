@@ -249,6 +249,15 @@
                   </ListBox.ItemTemplate>
                 </ListBox>
               </Grid>
+
+              <Border Classes="divider" Margin="0,14" />
+
+              <ToggleSwitch x:Name="ArtworkSwitch" HorizontalAlignment="Stretch" IsChecked="{Binding Appearance.LookUpArtworkOnline, Mode=TwoWay}" AutomationProperties.Name="{loc:Loc settings.artwork.online}" AutomationProperties.HelpText="{loc:Loc settings.artwork.onlineHint}">
+                <StackPanel Spacing="3">
+                  <TextBlock Classes="body" FontSize="14.5" Text="{loc:Loc settings.artwork.online}" />
+                  <TextBlock Classes="caption" FontSize="12.5" TextWrapping="Wrap" Text="{loc:Loc settings.artwork.onlineHint}" />
+                </StackPanel>
+              </ToggleSwitch>
             </StackPanel>
           </Border>
         </StackPanel>

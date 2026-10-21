@@ -3,6 +3,7 @@
              xmlns:loc="using:Savepoint.App.Localization"
              xmlns:theme="using:Savepoint.App.Theme"
              xmlns:editor="using:Savepoint.App.Features.Editor"
+             xmlns:art="using:Savepoint.App.Features.Common.Art"
              x:Class="Savepoint.App.Features.Editor.GameEditorView"
              x:DataType="editor:GameEditorViewModel">
   <!--
@@ -263,6 +264,45 @@
 
           </StackPanel>
         </Grid>
+
+        <!-- Artwork: how the game looks in the library, where that comes from, and the Steam app id the lookup uses. -->
+        <StackPanel x:Name="ArtworkSection" Spacing="9" IsVisible="{Binding HasArtworkSection}">
+          <TextBlock Classes="overline" Text="{theme:Upper {loc:Loc gameEditor.artwork.label}}" />
+          <Border Classes="panel">
+            <Grid ColumnDefinitions="Auto,24,*">
+              <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Top">
+                <art:ArtTile x:Name="ArtworkCardPreview" Width="184" Height="86" CornerRadius="13" GameName="{Binding Name}" Art="{Binding ArtworkPreview}" />
+                <art:ArtTile x:Name="ArtworkSquarePreview" Width="86" Height="86" CornerRadius="8" GameName="{Binding Name}" Art="{Binding ArtworkPreview}" />
+              </StackPanel>
+              <StackPanel Grid.Column="2" Spacing="14">
+                <StackPanel Spacing="10">
+                  <TextBlock x:Name="ArtworkSourceText" Classes="row-title" Text="{Binding ArtworkSourceText}" AutomationProperties.LiveSetting="Polite" />
+                  <WrapPanel Orientation="Horizontal">
+                    <Button x:Name="ChooseImageButton" Margin="0,0,10,8" Padding="16,8" FontSize="13.5" Command="{Binding ChooseImageCommand}" Content="{loc:Loc gameEditor.artwork.choose}" />
+                    <Button x:Name="RemoveImageButton" Margin="0,0,10,8" Padding="16,8" FontSize="13.5" IsVisible="{Binding CanRemoveImage}" Command="{Binding RemoveImageCommand}" Content="{loc:Loc gameEditor.artwork.remove}" />
+                    <Button x:Name="LookAgainButton" Margin="0,0,10,8" Padding="16,8" FontSize="13.5" Command="{Binding LookAgainCommand}" Content="{loc:Loc gameEditor.artwork.lookAgain}" />
+                  </WrapPanel>
+                  <TextBlock x:Name="LookingText" Classes="caption" IsVisible="{Binding IsLookingAgain}" Text="{loc:Loc gameEditor.artwork.looking}" AutomationProperties.LiveSetting="Polite" />
+                  <TextBlock x:Name="LookAgainWaitsText" Classes="caption" IsVisible="{Binding LookAgainWaitsForSave}" Text="{loc:Loc gameEditor.artwork.appId.saveFirst}" />
+                  <ContentControl x:Name="ArtworkErrorHost" Content="{Binding ArtworkError}" IsVisible="{Binding ArtworkError, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                </StackPanel>
+                <StackPanel Spacing="9">
+                  <TextBlock Classes="overline" Text="{theme:Upper {loc:Loc gameEditor.artwork.appId.label}}" />
+                  <TextBox x:Name="SteamAppIdField"
+                           Classes="field mono"
+                           MaxWidth="260"
+                           HorizontalAlignment="Left"
+                           Classes.error="{Binding SteamAppIdError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                           Text="{Binding SteamAppIdText, Mode=TwoWay}"
+                           PlaceholderText="{Binding SteamAppIdHint}"
+                           AutomationProperties.Name="{loc:Loc gameEditor.artwork.appId.label}" />
+                  <TextBlock x:Name="SteamAppIdErrorText" Classes="body error" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" IsVisible="{Binding SteamAppIdError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding SteamAppIdError}" />
+                  <TextBlock Classes="body muted" TextWrapping="Wrap" Text="{loc:Loc gameEditor.artwork.appId.helper}" />
+                </StackPanel>
+              </StackPanel>
+            </Grid>
+          </Border>
+        </StackPanel>
       </StackPanel>
     </ScrollViewer>
   </DockPanel>

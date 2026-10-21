@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Savepoint.App.Features.Common.Art;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Theme;
@@ -174,6 +175,9 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
     /// <inheritdoc />
     public ILaunchFlowHost? LaunchFlow => _deps.LaunchFlow;
 
+    /// <inheritdoc />
+    public IArtworkProvider Artwork => _deps.Artwork ?? NoArtworkProvider.Instance;
+
     /// <summary>Opens the game editor in create mode.</summary>
     public IRelayCommand AddGameCommand { get; }
 
@@ -335,6 +339,7 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
     {
         _disposed = true;
         _deps.Jobs.JobChanged -= OnJobChanged;
+        (_deps.Artwork as IDisposable)?.Dispose();
         if (_deps.LaunchFlow is { } flow)
         {
             flow.SettingsSaved -= OnFlowSettingsSaved;
@@ -456,7 +461,8 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
             game,
             _profileCounts is null ? null : _profileCounts.GetValueOrDefault(game.Id),
             _bytes is not null && _bytes.TryGetValue(game.Id, out var bytes) ? bytes : null,
-            _deps.Text)
+            _deps.Text,
+            Artwork.For(game.Id))
         {
             ShowLabels = !_isCompact,
         }).ToList();

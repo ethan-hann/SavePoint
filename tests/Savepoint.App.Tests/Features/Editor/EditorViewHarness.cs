@@ -37,13 +37,13 @@ internal sealed class EditorViewHarness : IDisposable
 
     public DialogHostViewModel Dialogs => _shell.Main.Dialogs;
 
-    public static async Task<EditorViewHarness> StartAsync(FakeBackend? backend = null, ThemePreference theme = ThemePreference.Dark, string os = "windows", double height = 660)
+    public static async Task<EditorViewHarness> StartAsync(FakeBackend? backend = null, ThemePreference theme = ThemePreference.Dark, string os = "windows", double height = 660, bool artwork = false)
     {
         backend ??= new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { Theme = theme }));
         var shell = await ShellViewHarness.StartAsync(backend, theme, height: height, realDialogs: true);
         var text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), backend.Clock, os, TimeZoneInfo.Utc);
         var dialogs = new AvaloniaDialogs(shell.Main.Dialogs, text, () => null);
-        return new EditorViewHarness(shell, new GameEditorFactory(backend.Games, dialogs, text, shell.Main.Toasts));
+        return new EditorViewHarness(shell, new GameEditorFactory(backend.Games, dialogs, text, shell.Main.Toasts, artwork ? backend.Artwork : null));
     }
 
     public GameEditorViewModel Edit(string gameId = MockupScenario.SkyrimId) => Show((GameEditorViewModel)_factory.CreateForExisting(Shell, gameId));
@@ -60,12 +60,13 @@ internal sealed class EditorViewHarness : IDisposable
 
     public void Settle() => _shell.Settle();
 
-    public string Render(string fileName)
+    public string Render(string fileName, string? area = null)
     {
         Settle();
         var frame = Window.CaptureRenderedFrame() ?? throw new InvalidOperationException("No frame was rendered.");
-        Directory.CreateDirectory(OutputFolder);
-        var path = Path.Combine(OutputFolder, fileName + ".png");
+        var folder = area is null ? OutputFolder : Path.Combine(ThemeTestSupport.RepoRoot(), "render-output", area);
+        Directory.CreateDirectory(folder);
+        var path = Path.Combine(folder, fileName + ".png");
         frame.Save(path, new PngBitmapEncoderOptions());
         return path;
     }

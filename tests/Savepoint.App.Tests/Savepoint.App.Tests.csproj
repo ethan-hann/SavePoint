@@ -25,6 +25,7 @@
 
   <ItemGroup>
     <Compile Include="..\Shared\TestEnvironment.cs" Link="Shared\TestEnvironment.cs" />
+    <Compile Include="..\Shared\TestImages.cs" Link="Shared\TestImages.cs" />
   </ItemGroup>
 
   <ItemGroup>

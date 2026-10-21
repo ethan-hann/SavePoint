@@ -17,6 +17,8 @@ public class ErrorCopyTests
 
         SavepointException[] errors =
         [
+            new ArtworkNotAnImageException("/pictures/a.png"),
+            new ArtworkTooLargeException("/pictures/a.png", 25),
             new PathSafetyException("/system", 1),
             new PathSafetyException("/home/me", 2),
             new ConsentMarkerException(ConsentFailure.Missing, "/games/alpha", RepoRole.Install, null, null),

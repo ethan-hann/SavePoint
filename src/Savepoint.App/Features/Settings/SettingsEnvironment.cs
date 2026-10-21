@@ -82,7 +82,7 @@ public sealed record SettingsEnvironment(IFileRevealer Revealer, Func<string?> F
     }
 
     // The informational version carries build metadata after a plus sign, which a person has no use for.
-    private static string ThisAppVersion()
+    internal static string ThisAppVersion()
     {
         var assembly = typeof(SettingsEnvironment).Assembly;
         var informational = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;

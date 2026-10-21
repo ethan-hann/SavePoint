@@ -45,6 +45,9 @@ internal sealed partial class GamesApi
                 }
 
                 await _services.Catalog.DeleteGameAsync(game.Id).ConfigureAwait(false);
+
+                // After the catalog forgets the game, so a lookup still running for it finds nothing to write to.
+                _services.Artwork.DeleteGame(game.Id);
                 return Unit.Value;
             }));
     }

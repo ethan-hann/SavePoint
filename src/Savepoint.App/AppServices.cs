@@ -28,4 +28,10 @@ public sealed record AppServices(
     /// the screens that need it bring their own.
     /// </summary>
     public IFileRevealer? FileRevealer { get; init; }
+
+    /// <summary>
+    /// The artwork Api (D30). Optional so a host that has none, or a test that is not about artwork, builds <see cref="AppServices"/>
+    /// as before; the screens then show every game's name tint.
+    /// </summary>
+    public IArtworkApi? Artwork { get; init; }
 }

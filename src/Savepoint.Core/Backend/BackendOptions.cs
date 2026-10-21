@@ -1,3 +1,4 @@
+using Savepoint.Core.Artwork;
 using Savepoint.Core.Git;
 using Savepoint.Core.Platform;
 using Savepoint.Core.Services.Storage;
@@ -37,6 +38,16 @@ public sealed record BackendOptions
     /// every launch call fails with <c>error.launch.unavailable</c>.
     /// </summary>
     public Func<BackendServices, LaunchComponents>? Launch { get; init; }
+
+    /// <summary>Finds the Steam client's folder, where artwork Steam already downloaded is read from; the real one for the platform when null (D30).</summary>
+    public ISteamFolderLocator? SteamFolder { get; init; }
+
+    /// <summary>
+    /// The handler game artwork is fetched through from Steam's servers (D30). Null, the default, turns online lookup off whatever the
+    /// setting says, so nothing built from default options ever reaches the network; only the app's startup supplies a real one. The
+    /// handler must not follow redirects or keep cookies.
+    /// </summary>
+    public HttpMessageHandler? ArtworkHttp { get; init; }
 
     /// <summary>How many loose objects in a repository make a capture queue an optimization (D13.17); 5000 by default.</summary>
     public int LooseObjectThreshold { get; init; } = 5000;
