@@ -18,7 +18,7 @@ public sealed partial class GitEngine
     /// <exception cref="Savepoint.Core.Errors.PathSafetyException">The work tree is a protected location.</exception>
     /// <exception cref="Savepoint.Core.Errors.PathMissingException">The work tree does not exist.</exception>
     /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
-    /// <exception cref="Savepoint.Core.Errors.DirtyWorkingTreeException">A stopped switch left the folder half done; finish it or discard first, so the mixture is never recorded.</exception>
+    /// <exception cref="Savepoint.Core.Errors.InterruptedSwitchException">A stopped switch left the folder half done; finish it or discard first, so the mixture is never recorded.</exception>
     /// <exception cref="Savepoint.Core.Errors.LinkedFolderException">On Windows, a folder link holds files the capture would read; nothing was staged.</exception>
     /// <exception cref="Savepoint.Core.Errors.DiskSpaceException">The storage volume is below the free-space floor; nothing was written.</exception>
     /// <exception cref="Savepoint.Core.Errors.DetachedCaptureNotSupportedException">The folder is on an older point and the mode does not allow capturing there.</exception>
@@ -70,9 +70,9 @@ public sealed partial class GitEngine
         RepoMarker.Verify(repo);
 
         // A folder a stopped switch left half done holds files of two points; recording it would save a mixture that never existed.
-        if (SwitchJournal.Read(repo.GitDir) is not null)
+        if (SwitchJournal.Read(repo.GitDir) is { } unfinished)
         {
-            throw new DirtyWorkingTreeException(repo.Role);
+            throw new InterruptedSwitchException(repo.Role, unfinished.ToCommit);
         }
 
         EnsureStorageSpace(repo);

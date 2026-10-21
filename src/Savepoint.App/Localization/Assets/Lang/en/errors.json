@@ -23,6 +23,7 @@
   "error.launch.sessionMoved": "The game's files changed outside this play session, so SavePoint can't safely keep your new progress here. Start the game again from SavePoint and play from the save you want to keep.",
   "error.launch.sessionStillRunning": "The game is still running. Close it, then try again.",
   "error.launch.spawnFailed": "SavePoint couldn't start the game. Check the launch settings in Edit game.",
+  "error.launch.switchInterrupted": "The last switch didn't finish, so the {role, select, install {install folder} external {saves folder} other {folder}} holds files from two saves. Switch again to finish it, or discard the changes to bring the folder back to a saved point.",
   "error.launch.windowsProgram": "This game starts through a Windows program, which SavePoint can't run directly on {os, select, macos {macOS} other {Linux}}. In Edit game, set how to start the game to Through Steam, or choose a program built for {os, select, macos {macOS} other {Linux}}.",
   "error.path.missing": "SavePoint still has everything it saved for this game, but it can't find the {role, select, install {install folder} external {saves folder} other {folder}} anymore. Point it at the new location to carry on.",
   "error.pathSafety.tier1Blocked": "Pick the game's own folder rather than the whole drive or {os, select, windows {a Windows folder} macos {a macOS system folder} other {a system folder}} — SavePoint replaces everything inside whatever you point it at, so it won't work on a location this large.",

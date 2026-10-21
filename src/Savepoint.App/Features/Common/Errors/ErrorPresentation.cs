@@ -56,6 +56,7 @@ public static class ErrorPresentation
         ["error.launch.sessionMoved"] = new(Icons.History, ErrorTone.Warning, "errorCard.title.progressNotKept"),
         ["error.launch.sessionStillRunning"] = new(Icons.SportsEsports, ErrorTone.Neutral, "errorCard.title.gameRunning"),
         ["error.launch.spawnFailed"] = new(Icons.Error, ErrorTone.Error, "errorCard.title.gameDidNotStart"),
+        ["error.launch.switchInterrupted"] = new(Icons.SwapHoriz, ErrorTone.Warning, "errorCard.title.switchUnfinished"),
         ["error.launch.windowsProgram"] = new(Icons.Error, ErrorTone.Error, "errorCard.title.gameDidNotStart"),
         ["error.path.missing"] = new(Icons.FolderOff, ErrorTone.Neutral, "errorCard.title.folderGone"),
         ["error.pathSafety.tier1Blocked"] = new(Icons.Block, ErrorTone.Error, "errorCard.title.folderTooBroad"),
