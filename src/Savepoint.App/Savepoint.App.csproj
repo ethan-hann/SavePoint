@@ -25,4 +25,8 @@
     <EmbeddedResource Include="Localization\Assets\Lang\*.json" />
   </ItemGroup>
 
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\Fonts\**" />
+  </ItemGroup>
+
 </Project>
