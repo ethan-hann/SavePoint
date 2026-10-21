@@ -265,9 +265,15 @@ public sealed class ForkAndMoveTests : IDisposable
         var (repo, points) = await PlayingFromTheFirstPointAsync();
 
         await _ws.Engine.CaptureAsync(repo, Move("profile-1", points[0], "Continued", "cap-move"), ct: Ct);
+        var afterTheMove = (await _ws.GitOutAsync(repo, "cat-file", "-t", points[2]), (await _ws.Engine.ListCommitsAsync(repo, "profile-1", ct: Ct)).Select(commit => commit.Id).ToArray());
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct);
+        var afterRoutine = await _ws.ObjectsExistAsync(repo, points[2]);
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Reclaim, Ct);
 
-        Assert.Equal("commit", await _ws.GitOutAsync(repo, "cat-file", "-t", points[2]));
-        Assert.DoesNotContain(points[2], (await _ws.Engine.ListCommitsAsync(repo, "profile-1", ct: Ct)).Select(commit => commit.Id));
+        Assert.Equal("commit", afterTheMove.Item1);
+        Assert.DoesNotContain(points[2], afterTheMove.Item2);
+        Assert.Equal(new[] { true }, afterRoutine);
+        Assert.Equal(new[] { false }, await _ws.ObjectsExistAsync(repo, points[2]));
     }
 
     [Fact]

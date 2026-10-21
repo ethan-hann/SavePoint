@@ -3,6 +3,8 @@ using Savepoint.Core.Git;
 
 namespace Savepoint.Core.Tests.Git.Engine;
 
+// Every git process costs most of a second on a machine with a virus scanner, so a test starts from a repository state built
+// once per run and asserts the facets of one optimization together.
 [Collection(EngineCollections.B)]
 public sealed class MaintenanceTests : IDisposable
 {
@@ -13,52 +15,18 @@ public sealed class MaintenanceTests : IDisposable
     public void Dispose() => _ws.Dispose();
 
     [Fact]
-    public async Task Loose_objects_are_counted_and_packing_moves_them_into_a_pack()
+    public async Task Packing_moves_the_loose_objects_into_a_pack_in_the_geometric_form_without_the_game_folder_and_past_a_stale_lock()
     {
         var (repo, _) = await _ws.ThreePointsRepoAsync();
         Assert.True(await _ws.Engine.CountLooseObjectsAsync(repo, Ct) > 0);
+        Directory.Move(repo.WorkTree, repo.WorkTree + "-moved");
+        await File.WriteAllTextAsync(Path.Combine(repo.GitDir, "index.lock"), string.Empty, Ct);
 
         await _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct);
 
         Assert.Equal(0, await _ws.Engine.CountLooseObjectsAsync(repo, Ct));
         Assert.NotEmpty(Directory.GetFiles(Path.Combine(repo.GitDir, "objects", "pack"), "*.pack"));
-    }
-
-    [Fact]
-    public async Task A_repository_that_does_not_exist_has_no_objects_and_no_size()
-    {
-        var repo = _ws.NewRepo();
-
-        Assert.Equal(0, await _ws.Engine.CountLooseObjectsAsync(repo, Ct));
-        Assert.Equal(0, await _ws.Engine.GetRepoSizeAsync(repo, Ct));
-    }
-
-    [Fact]
-    public async Task The_size_covers_loose_objects_and_packs_and_grows_with_the_content()
-    {
-        var repo = await _ws.InitializedRepoAsync();
-        _ws.Write(repo, "small.txt", "x");
-        await _ws.CaptureAsync(repo, "profile-1");
-        var small = await _ws.Engine.GetRepoSizeAsync(repo, Ct);
-        var random = new byte[1_000_000];
-        new Random(5).NextBytes(random);
-        _ws.Write(repo, "big.bin", random);
-        await _ws.CaptureAsync(repo, "profile-1");
-        var withBig = await _ws.Engine.GetRepoSizeAsync(repo, Ct);
-        await _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct);
-        var packed = await _ws.Engine.GetRepoSizeAsync(repo, Ct);
-
-        Assert.True(withBig - small >= 900_000, $"{withBig} - {small} should include the 1 MB file");
-        Assert.InRange(packed, 900_000, withBig + 50_000);
-    }
-
-    [Fact]
-    public async Task Repacking_uses_the_geometric_form_and_never_auto_detach_or_gc()
-    {
-        var (repo, _) = await _ws.ThreePointsRepoAsync();
-
-        await _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct);
-
+        Assert.False(File.Exists(Path.Combine(repo.GitDir, "index.lock")));
         var repack = Assert.Single(_ws.Invocations, invocation => invocation.Arguments[0] == "repack");
         Assert.Contains("-d", repack.Arguments);
         Assert.Contains("--geometric=2", repack.Arguments);
@@ -71,15 +39,27 @@ public sealed class MaintenanceTests : IDisposable
     }
 
     [Fact]
-    public async Task A_second_optimization_leaves_the_large_pack_from_the_first_one_alone()
+    public async Task A_repository_that_does_not_exist_has_no_objects_and_no_size()
+    {
+        var repo = _ws.NewRepo();
+
+        Assert.Equal(0, await _ws.Engine.CountLooseObjectsAsync(repo, Ct));
+        Assert.Equal(0, await _ws.Engine.GetRepoSizeAsync(repo, Ct));
+    }
+
+    [Fact]
+    public async Task The_size_covers_loose_objects_and_packs_and_a_second_optimization_leaves_the_large_pack_from_the_first_one_alone()
     {
         var repo = await _ws.InitializedRepoAsync();
+        var small = await _ws.Engine.GetRepoSizeAsync(repo, Ct);
         var random = new byte[2_000_000];
         new Random(11).NextBytes(random);
         _ws.Write(repo, "game.pak", random);
         _ws.WriteMany(repo, "Data", 40);
         await _ws.CaptureAsync(repo, "profile-1");
+        var withBig = await _ws.Engine.GetRepoSizeAsync(repo, Ct);
         await _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct);
+        var packed = await _ws.Engine.GetRepoSizeAsync(repo, Ct);
         var largest = LargestPack(repo);
 
         _ws.Write(repo, "Data/f1.txt", "a small change");
@@ -89,6 +69,8 @@ public sealed class MaintenanceTests : IDisposable
         await _ws.CaptureAsync(repo, "profile-1");
         await _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct);
 
+        Assert.True(withBig - small >= 1_800_000, $"{withBig} - {small} should include the 2 MB file");
+        Assert.InRange(packed, 1_800_000, withBig + 50_000);
         Assert.Equal(largest, LargestPack(repo));
         Assert.True(Directory.GetFiles(Path.Combine(repo.GitDir, "objects", "pack"), "*.pack").Length >= 2, "the small captures should have gone into packs of their own");
         Assert.Equal(0, await _ws.Engine.CountLooseObjectsAsync(repo, Ct));
@@ -171,28 +153,6 @@ public sealed class MaintenanceTests : IDisposable
         await _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct);
         Assert.Equal(1, await _ws.CountAsync(repo, "profile-1"));
         Assert.Equal(0, await _ws.Engine.CountLooseObjectsAsync(repo, Ct));
-    }
-
-    [Fact]
-    public async Task Optimizing_does_not_need_the_game_folder()
-    {
-        var (repo, _) = await _ws.ThreePointsRepoAsync();
-        Directory.Move(repo.WorkTree, repo.WorkTree + "-moved");
-
-        await _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct);
-
-        Assert.Equal(0, await _ws.Engine.CountLooseObjectsAsync(repo, Ct));
-    }
-
-    [Fact]
-    public async Task A_stale_lock_does_not_stop_an_optimization()
-    {
-        var (repo, _) = await _ws.ThreePointsRepoAsync();
-        await File.WriteAllTextAsync(Path.Combine(repo.GitDir, "index.lock"), string.Empty, Ct);
-
-        await _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct);
-
-        Assert.False(File.Exists(Path.Combine(repo.GitDir, "index.lock")));
     }
 
     [Fact]

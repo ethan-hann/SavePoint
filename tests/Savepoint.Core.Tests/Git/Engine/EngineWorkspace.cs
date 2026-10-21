@@ -109,12 +109,11 @@ internal sealed class EngineWorkspace : IDisposable
             return (repo, await ws.ThreePointsAsync(repo));
         });
 
-    // The same, with the folder switched to the first point (HEAD detached there).
+    // The same, with the folder switched to the first point (HEAD detached there); made from a copy of the three-point one, which saves rebuilding its history.
     public Task<(RepoRef Repo, string[] Points)> OlderPointRepoAsync() =>
         RepoTemplates.CopyAsync("three-on-the-first", this, async ws =>
         {
-            var repo = await ws.InitializedFreshAsync();
-            var points = await ws.ThreePointsAsync(repo);
+            var (repo, points) = await ws.ThreePointsRepoAsync();
             await ws.Engine.CheckoutCommitAsync(repo, points[0], ct: TestContext.Current.CancellationToken);
             return (repo, points);
         });
@@ -242,10 +241,11 @@ internal sealed class EngineWorkspace : IDisposable
     {
         RequireGitDir(repo);
 
-        // A branch that git wrote as a loose ref is a file holding its commit; anything else is asked of git.
-        if (revision.StartsWith("refs/heads/", StringComparison.Ordinal))
+        // A branch that git wrote as a loose ref is a file holding its commit, named in full or by its short name; anything else is asked of git.
+        var branchFile = revision.StartsWith("refs/heads/", StringComparison.Ordinal) ? revision : IsPlainBranchName(revision) ? "refs/heads/" + revision : null;
+        if (branchFile is not null)
         {
-            var file = Path.Combine(repo.GitDir, revision.Replace('/', Path.DirectorySeparatorChar));
+            var file = Path.Combine(repo.GitDir, branchFile.Replace('/', Path.DirectorySeparatorChar));
             if (File.Exists(file) && File.ReadAllText(file).Trim() is { Length: 40 } id)
             {
                 return id;
@@ -257,6 +257,10 @@ internal sealed class EngineWorkspace : IDisposable
             TestContext.Current.CancellationToken);
         return result.ExitCode == 0 ? result.StandardOutput.Trim() : null;
     }
+
+    // Letters, digits and . _ - / only, so the name cannot be a revision expression (a ~ or ^ suffix, a path, a range).
+    private static bool IsPlainBranchName(string revision) =>
+        revision.Length > 0 && !revision.Contains("..", StringComparison.Ordinal) && revision.All(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '_' or '-' or '/');
 
     public Task<string?> TipAsync(RepoRef repo, string branch) => ResolveAsync(repo, "refs/heads/" + branch);
 
@@ -306,6 +310,17 @@ internal sealed class EngineWorkspace : IDisposable
             new GitInvocation(["cat-file", "-e", id]) { GitDir = repo.GitDir, WorkTree = repo.WorkTree, ReadOnly = true, AllowedExitCodes = [0, 1, 128] },
             TestContext.Current.CancellationToken);
         return result.ExitCode == 0;
+    }
+
+    // Which of the objects are in the store, in the order given, from one git call.
+    public async Task<bool[]> ObjectsExistAsync(RepoRef repo, params string[] ids)
+    {
+        RequireGitDir(repo);
+        var result = await Runner.RunAsync(
+            new GitInvocation(["cat-file", "--batch-check"]) { GitDir = repo.GitDir, WorkTree = repo.WorkTree, ReadOnly = true, Stdin = string.Join('\n', ids) + "\n" },
+            TestContext.Current.CancellationToken);
+        var answers = result.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return [.. ids.Select((id, i) => answers[i].StartsWith(id, StringComparison.Ordinal) && !answers[i].EndsWith(" missing", StringComparison.Ordinal))];
     }
 
     // Null when the key is not set.
