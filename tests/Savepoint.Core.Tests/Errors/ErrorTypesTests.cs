@@ -182,7 +182,7 @@ public class ErrorTypesTests
             ("role", RepoRole.Install), ("targetPoint", "0123456789abcdef0123456789abcdef01234567"));
         Add("InterruptedSwitch without a target", new InterruptedSwitchException(RepoRole.External), "error.launch.switchInterrupted",
             ("role", RepoRole.External), ("targetPoint", null));
-        Add("DetachedCaptureNotSupported",new DetachedCaptureNotSupportedException(RepoRole.External), "error.launch.detachedCaptureNotSupported",
+        Add("DetachedCaptureNotSupported", new DetachedCaptureNotSupportedException(RepoRole.External), "error.launch.detachedCaptureNotSupported",
             ("role", RepoRole.External));
         Add("LaunchSpawn", new LaunchSpawnException(LaunchMethod.Exe, "could not start", null), "error.launch.spawnFailed",
             ("method", LaunchMethod.Exe));
