@@ -5,6 +5,11 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <RootNamespace>Savepoint.Core.Tests</RootNamespace>
+    <!-- The exe version reader tests read this assembly's own version resource, so the values are fixed and carry no commit suffix. -->
+    <Version>7.8.9</Version>
+    <FileVersion>7.8.9.10</FileVersion>
+    <InformationalVersion>7.8.9-fixture</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>
