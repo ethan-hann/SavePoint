@@ -131,9 +131,19 @@ public class TabOrderTests
                 "Change", "Run now",
                 "Dark", "Sidebar", "Blue", "Look up game artwork online",
                 "Ask whether to save the session", "Skip the confirmation when only the save changes",
-                "Remove all data…",
+                "Remove all data…", "Third-party notices",
             ],
             TabStops(app));
+    }
+
+    [AvaloniaFact]
+    public async Task Settings_has_no_notices_stop_when_the_notices_file_was_not_shipped()
+    {
+        using var app = await ComposedApp.StartWithViewAsync(noticesShipped: false);
+        app.Shell.Navigate(NavDestination.Settings);
+        app.Settle();
+
+        Assert.DoesNotContain("Third-party notices", TabStops(app));
     }
 
     [AvaloniaFact]
