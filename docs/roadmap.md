@@ -8,7 +8,7 @@ Status keys: `todo`, `doing`, `done`. A milestone is done when its done-criteria
 
 - Tests first for every service-layer behavior. A red must be an assertion failure for the expected reason, not a compile or harness error. A test that passes on first run gets a mutation check before it counts.
 - No user-visible string outside the catalog (`en.json`). The catalog never contains "commit", "branch", "checkout", "repo", or "HEAD" (test-enforced).
-- Code comments are short and say why, never which milestone or slice produced the code.
+- Inline code comments are short and say why, never which milestone or slice produced the code. Public APIs carry XML doc comments stating their contract (D24); CS1591 is an error in Core.
 - Tests never touch real user folders: every test uses a fresh temp directory and injected app-data/storage paths.
 - Implementers run in isolated worktrees; the orchestrator merges into `main`.
 
@@ -47,5 +47,5 @@ Keyboard flow and automation names on every control, live-region announcements, 
 Done when: an accessibility review and an adversarial resilience review report no open blocking findings.
 
 ### M7 - Packaging and end-to-end (todo)
-Installer + portable build per OS with the pruned, licensed git bundle (D21), end-to-end dogfood run against FakeGame through the real UI services, final code review and gap analysis against `plan.md` and `docs/ui/README.md`.
+Installer + portable build per OS with the pruned, licensed git bundle (D21), end-to-end dogfood run against FakeGame through the real UI services, final code review and gap analysis against `plan.md` and `docs/ui/README.md`, project documentation (README, user guide, developer guide) and a generated API reference (D24).
 Done when: the gap analysis reports no unmet requirement and the packaged app runs the full capture, switch, play, capture cycle.

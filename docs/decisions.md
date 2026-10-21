@@ -154,6 +154,13 @@ The UI README's token table was evidently drawn with the legacy `Scheme` API (it
 - **New profile rows**: the catalog row is written when the profile's first capture finishes with at least one folder saved. A capture that saves nothing leaves no row and no branch (fixes v1 defect 9). A partial result keeps the row and shows the "Half of that save worked" card with a retry for the missing folder.
 - **Settings save**: `ISettingsApi.SaveAsync` never changes `StorageRoot` or `LastOptimizedAt`; storage moves only through `RelocateStorageAsync` and the optimized date only through optimization jobs.
 
+## D24. Public APIs carry XML documentation; project docs ship with v2
+
+- Every public type and member in `Savepoint.Core` has an XML doc comment (`///`): a `<summary>` stating the contract (what it promises, failure ids it can return, threading of events), plus `<param>`, `<returns>`, `<remarks>` only where they add information beyond the name. CS1591 is an error for `Savepoint.Core`. `Savepoint.App` documents its public view-model and service surface the same way; generated and view code-behind are exempt.
+- The one-line rule for comments applies to inline implementation comments only; API docs are the contract and are written to be read without opening the code.
+- Already-merged Core code gets a documentation pass once the in-flight branches land, then the warning is switched on.
+- Project documentation (README, user guide, developer guide covering architecture, building, testing, and adding a language) is a v2 deliverable in M7, written by the orchestrator, not delegated. An API reference is generated from the XML docs.
+
 ## D8. "Clear all data" is a v2 requirement
 
 The v1 README lists "add a clear all data button" as an open TODO. v2 ships it in Settings behind a typed confirmation. It removes SavePoint's own storage, catalog, and consent markers, and never deletes or rolls back files in a game's install or save folders: whatever is on disk at that moment stays as it is.
