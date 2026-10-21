@@ -3,16 +3,21 @@ using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Git;
+using Savepoint.Core.Services;
 
 namespace Savepoint.Core.Launch.Orchestration;
 
-// Where one folder is to be put: a commit, and the branch to attach to when that commit is the branch's tip.
-internal sealed record FolderTarget(RepoRef Repo, string Commit, string? Branch)
+// Where one folder is to be put: a commit, and the branch to attach to when that commit is the branch's tip. A folder that has no
+// commit for the point is left as it is.
+internal sealed record FolderTarget(RepoRef Repo, string Commit, string? Branch, bool Leave = false)
 {
     public RepoRole Role => Repo.Role;
 
     // A folder left on a commit that is not its branch's tip is on an older point (D14); it is checked out detached.
-    public bool IsOlder => Branch is null;
+    public bool IsOlder => !Leave && Branch is null;
+
+    // A folder to leave alone, whatever it holds now.
+    public static FolderTarget Left(RepoRef repo) => new(repo, string.Empty, null, Leave: true);
 }
 
 // What a launch target comes to: the profile it belongs to, each folder's commit (install first), and the saves on offer.
@@ -177,7 +182,7 @@ internal static class TargetResolver
         var externalHolder = repos.Any(repo => repo.Role == RepoRole.External) ? Holder(RepoRole.External) : null;
         var first = installHolder ?? externalHolder ?? throw new PointNotFoundException(pointId.Value);
         var owner = first.Profile;
-        var happenedAt = first.Commit.Date;
+        var happenedAt = first.Commit.PointTime;
 
         var folders = new List<FolderTarget>();
         CommitInfo? savesCommit = null;
@@ -185,11 +190,15 @@ internal static class TargetResolver
         {
             var lineage = lineages[(repo.Role, owner.Id)];
             var held = repo.Role == RepoRole.Install ? installHolder : externalHolder;
-            var commit = lineage.FirstOrDefault(candidate => candidate.CaptureId == pointId.Value)
-                ?? held?.Commit
-                ?? lineage.Where(candidate => candidate.Date <= happenedAt).OrderByDescending(candidate => candidate.Date).FirstOrDefault()
-                ?? lineage.LastOrDefault()
-                ?? throw new ProfileHasNoPointsException(owner.Id);
+
+            // The same choice History makes for the point; a folder with no commit at or before it is left as it is (D31).
+            var commit = PointCommits.For(lineage, pointId.Value, happenedAt) ?? held?.Commit;
+            if (commit is null)
+            {
+                folders.Add(FolderTarget.Left(repo));
+                continue;
+            }
+
             if (repo.Role == RepoRole.External)
             {
                 savesCommit = commit;

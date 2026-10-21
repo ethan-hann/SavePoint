@@ -126,7 +126,7 @@ public sealed partial class LaunchOrchestrator
             await SwitchAsync(storage, context, gameId, pending).ConfigureAwait(false);
         }
 
-        _book.TryUpdate(gameId, context.JobId, record => record.StartCommits = resolved.Folders.ToDictionary(folder => folder.Role, folder => folder.Commit));
+        _book.TryUpdate(gameId, context.JobId, record => record.StartCommits = resolved.Folders.Where(folder => !folder.Leave).ToDictionary(folder => folder.Role, folder => folder.Commit));
         return new Prepared(game, repos.Single(repo => repo.Role == RepoRole.Install).WorkTree, resolved);
     }
 

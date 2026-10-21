@@ -41,15 +41,16 @@ public sealed partial class GitEngine
     /// <param name="branch">The new branch.</param>
     /// <param name="message">The point's name.</param>
     /// <param name="captureId">Written as the point's <c>Savepoint-Capture</c> trailer; null writes none.</param>
+    /// <param name="capturedAt">Written as the point's <c>Savepoint-Captured-At</c> trailer when a capture id is given; the engine's clock when null.</param>
     /// <param name="ct">Cancels the call.</param>
     /// <exception cref="ArgumentException">A branch name git would refuse, or a blank message.</exception>
     /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
     /// <exception cref="Savepoint.Core.Errors.GitOperationException">git failed.</exception>
-    public async Task CreateEmptyBranchAsync(RepoRef repo, string branch, string message = "Profile started", string? captureId = null, CancellationToken ct = default)
+    public async Task CreateEmptyBranchAsync(RepoRef repo, string branch, string message = "Profile started", string? captureId = null, DateTimeOffset? capturedAt = null, CancellationToken ct = default)
     {
         repo = Normalize(repo);
         BranchNames.Require(branch);
-        var text = CommitMessage.Compose(message, captureId);
+        var text = CommitMessage.Compose(message, captureId, capturedAt ?? _options.Clock.GetUtcNow());
         ct.ThrowIfCancellationRequested();
         CheckWorkTree(repo);
         RepoMarker.Verify(repo);
@@ -154,6 +155,7 @@ public sealed partial class GitEngine
 internal static class CommitMessage
 {
     private const string _captureTrailerKey = "Savepoint-Capture:";
+    private const string _capturedAtTrailerKey = "Savepoint-Captured-At:";
 
     // What a name may hold. History reads split git's output on the unit separator and take the capture id from a trailer, so
     // a name that holds either could shift the fields of its own point or pass itself off as another capture's id.
@@ -170,13 +172,17 @@ internal static class CommitMessage
             throw new ArgumentException("A message cannot contain the unit separator character.", paramName);
         }
 
-        if (message.Split('\n').Any(line => line.TrimEnd('\r').StartsWith(_captureTrailerKey, StringComparison.OrdinalIgnoreCase)))
+        if (message.Split('\n').Any(line => StartsLikeTrailer(line.TrimEnd('\r'))))
         {
-            throw new ArgumentException("A message cannot hold a line that starts like the capture id trailer.", paramName);
+            throw new ArgumentException("A message cannot hold a line that starts like the capture id or capture time trailer.", paramName);
         }
     }
 
-    public static string Compose(string message, string? captureId)
+    private static bool StartsLikeTrailer(string line) =>
+        line.StartsWith(_captureTrailerKey, StringComparison.OrdinalIgnoreCase) || line.StartsWith(_capturedAtTrailerKey, StringComparison.OrdinalIgnoreCase);
+
+    // The capture time is written with the capture id, as whole milliseconds since 1970, so every commit of one event agrees on it.
+    public static string Compose(string message, string? captureId, DateTimeOffset capturedAt)
     {
         RequireValidMessage(message, nameof(message));
 
@@ -190,6 +196,7 @@ internal static class CommitMessage
             }
 
             text.Append("\n\nSavepoint-Capture: ").Append(captureId);
+            text.Append("\nSavepoint-Captured-At: ").Append(capturedAt.ToUnixTimeMilliseconds().ToString(System.Globalization.CultureInfo.InvariantCulture));
         }
 
         return text.Append('\n').ToString();

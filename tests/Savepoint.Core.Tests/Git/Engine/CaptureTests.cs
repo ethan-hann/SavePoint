@@ -114,7 +114,7 @@ public sealed partial class CaptureTests : IDisposable
         Assert.Equal(
             "5d2c7a0e-3f4b-4b0e-9d84-0a1b2c3d4e5f",
             await _ws.LogAsync(repo, "profile-1", "%(trailers:key=Savepoint-Capture,valueonly)"));
-        Assert.EndsWith("\n\nSavepoint-Capture: 5d2c7a0e-3f4b-4b0e-9d84-0a1b2c3d4e5f", await _ws.LogAsync(repo, "profile-1", "%B"));
+        Assert.Matches(@"\n\nSavepoint-Capture: 5d2c7a0e-3f4b-4b0e-9d84-0a1b2c3d4e5f\nSavepoint-Captured-At: \d{13}$", await _ws.LogAsync(repo, "profile-1", "%B"));
     }
 
     [Theory]

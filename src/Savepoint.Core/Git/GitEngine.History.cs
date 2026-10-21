@@ -5,7 +5,7 @@ namespace Savepoint.Core.Git;
 public sealed partial class GitEngine
 {
     // Fields are separated by the ASCII unit separator and commits end with NUL (-z), so no subject can break the parse.
-    private const string _commitFormat = "--format=%H%x1f%s%x1f%aI%x1f%(trailers:key=Savepoint-Capture,valueonly,separator=%x2c)";
+    private const string _commitFormat = "--format=%H%x1f%s%x1f%aI%x1f%(trailers:key=Savepoint-Capture,valueonly,separator=%x2c)%x1f%(trailers:key=Savepoint-Captured-At,valueonly,separator=%x2c)";
 
     /// <summary>
     /// Reads the folder's state. Needs the work tree, so it refuses a protected or missing folder and one without this game's marker.
@@ -196,16 +196,17 @@ public sealed partial class GitEngine
         var commits = new List<CommitInfo>();
         foreach (var record in result.SplitStandardOutputOnNul())
         {
-            // The id, date and trailer cannot hold the separator, but a subject written by something else can; reading the
-            // last two fields from the right keeps such a subject from shifting them.
+            // The id, date and trailers cannot hold the separator, but a subject written by something else can; reading the
+            // last three fields from the right keeps such a subject from shifting them.
             var fields = record.Trim('\n', '\r').Split('\x1f');
-            if (fields.Length < 4 || !DateTimeOffset.TryParse(fields[^2], CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
+            if (fields.Length < 5 || !DateTimeOffset.TryParse(fields[^3], CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
             {
                 continue;
             }
 
-            var captureId = fields[^1].Trim() is { Length: > 0 } trailer ? trailer : null;
-            commits.Add(new CommitInfo(fields[0], string.Join('\x1f', fields[1..^2]), date, captureId));
+            var captureId = fields[^2].Trim() is { Length: > 0 } trailer ? trailer : null;
+            DateTimeOffset? capturedAt = long.TryParse(fields[^1].Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var milliseconds) ? DateTimeOffset.FromUnixTimeMilliseconds(milliseconds) : null;
+            commits.Add(new CommitInfo(fields[0], string.Join('\x1f', fields[1..^3]), date, captureId, capturedAt));
         }
 
         return commits;

@@ -42,7 +42,9 @@ public sealed partial class LaunchOrchestrator
         var states = await Task.WhenAll(readings.Select(reading => FolderStateAsync(storage, game, profiles, target, reading, cancellationToken))).ConfigureAwait(false);
         var currentOverride = install.Status.IsDetached ? null : profiles.FirstOrDefault(profile => profile.BranchName == install.Status.Branch)?.VersionOverride;
         var current = await InstallStateAsync(storage, game, install.Target.Repo, install.Status.HeadCommit, currentOverride, cancellationToken).ConfigureAwait(false);
-        var after = await InstallStateAsync(storage, game, install.Target.Repo, install.Target.Commit, resolved.Profile.VersionOverride, cancellationToken).ConfigureAwait(false);
+        var after = install.Target.Leave
+            ? current
+            : await InstallStateAsync(storage, game, install.Target.Repo, install.Target.Commit, resolved.Profile.VersionOverride, cancellationToken).ConfigureAwait(false);
 
         return new LaunchPreview(
             game.Id,
@@ -73,7 +75,7 @@ public sealed partial class LaunchOrchestrator
             reading.Dirty,
             reading.DirtyFileCount,
             reading.DirtyOwnerProfileId,
-            reading.Matches ? null : await SwitchSummaryAsync(storage, game, reading, cancellationToken).ConfigureAwait(false),
+            reading.Matches || reading.Target.Leave ? null : await SwitchSummaryAsync(storage, game, reading, cancellationToken).ConfigureAwait(false),
             reading.DirtyNewFileCount,
             reading.UnfinishedSwitch,
             reading.UnfinishedSwitch ? await UnfinishedTargetAsync(storage, profiles, previewed, reading, cancellationToken).ConfigureAwait(false) : null);

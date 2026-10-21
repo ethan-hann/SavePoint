@@ -30,10 +30,10 @@ internal sealed partial class ProfilesApi : IProfilesApi
         {
             var game = await RequireGameAsync(gameId).ConfigureAwait(false);
             var profile = CatalogValidator.RequireValid((await NewProfileAsync(gameId, name).ConfigureAwait(false)) with { Notes = notes });
-            var captureId = CaptureRunner.NewCaptureId();
+            var capture = _capture.NewEvent();
             var point = string.IsNullOrWhiteSpace(pointName) ? profile.Name : pointName;
             var roles = GameFolders.RolesOf(game);
-            var jobId = _capture.Start(game, profile, point, roles, captureId, creating: true);
+            var jobId = _capture.Start(game, profile, point, roles, capture, creating: true);
             return new JobStarted(jobId);
         });
 
@@ -45,8 +45,8 @@ internal sealed partial class ProfilesApi : IProfilesApi
             var configured = GameFolders.RolesOf(game);
             IReadOnlyList<RepoRole> roles = folders is { Count: > 0 } ? [.. configured.Where(folders.Contains)] : configured;
             var point = string.IsNullOrWhiteSpace(pointName) ? profile.Name : pointName;
-            var captureId = _capture.TakeCaptureId(gameId, profileId, roles);
-            return new JobStarted(_capture.Start(game, profile, point, roles, captureId, creating: false));
+            var capture = _capture.TakeEvent(gameId, profileId, roles);
+            return new JobStarted(_capture.Start(game, profile, point, roles, capture, creating: false));
         });
 
     public Task<OperationResult<IReadOnlyList<ProfileRowStats>>> GetRowStatsAsync(string gameId, CancellationToken cancellationToken = default) =>

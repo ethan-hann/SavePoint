@@ -30,9 +30,9 @@ internal sealed record FolderReading(FolderTarget Target, RepoStatus Status, IRe
         Dirty && !Blocked && !Status.IsDetached ? Profiles.FirstOrDefault(profile => profile.BranchName == Status.Branch)?.Id : null;
 
     // The folder is on the commit the launch wants, attached the way it wants (to the branch for a tip, detached for an older point).
-    public bool InPlace => Target.Branch is { } branch
+    public bool InPlace => Target.Leave || (Target.Branch is { } branch
         ? !Status.IsDetached && Status.Branch == branch && Status.HeadCommit == Target.Commit
-        : Status.IsDetached && Status.HeadCommit == Target.Commit;
+        : Status.IsDetached && Status.HeadCommit == Target.Commit);
 
     // Holds exactly what the target asks for, with nothing unsaved and no switch left unfinished.
     public bool Matches => InPlace && Status.IsClean && Note is null;

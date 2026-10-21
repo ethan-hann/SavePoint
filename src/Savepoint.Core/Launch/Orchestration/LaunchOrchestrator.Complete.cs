@@ -45,7 +45,7 @@ public sealed partial class LaunchOrchestrator
                     target,
                     string.IsNullOrWhiteSpace(name) ? target.Name : name,
                     roles,
-                    CaptureRunner.NewCaptureId(),
+                    _services.Capture.NewEvent(),
                     Creating: forked is not null,
                     PlansFor(completion, roles, current.StartCommits, (current.Info.State as SessionState.Exited)?.Options.UpdateTarget?.Id.Value));
                 var jobId = StartRun(game, run, roles, creating: run.Creating);
@@ -78,7 +78,7 @@ public sealed partial class LaunchOrchestrator
 
     // Every try of one after-play choice saves under the capture id the choice began with, so the session stays one point.
     private Guid StartRun(GameDefinition game, CompletionRun run, IReadOnlyList<RepoRole> roles, bool creating) =>
-        _services.Capture.Start(game, run.Target, run.PointName, roles, run.CaptureId, creating, run.Plans);
+        _services.Capture.Start(game, run.Target, run.PointName, roles, run.Capture, creating, run.Plans);
 
     // How each folder is saved. A new point needs no plan; the other choices change history, so each folder is told what the session
     // began from, and an update rewrites only the point it names and leaves a folder with nothing unsaved alone.

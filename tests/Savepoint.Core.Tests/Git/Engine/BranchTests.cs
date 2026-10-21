@@ -94,7 +94,7 @@ public sealed class BranchTests : IDisposable
     {
         var repo = await TwoPointRepoAsync();
 
-        await _ws.Engine.CreateEmptyBranchAsync(repo, "fresh", "Brand new saves", "cap-77", Ct);
+        await _ws.Engine.CreateEmptyBranchAsync(repo, "fresh", "Brand new saves", "cap-77", ct: Ct);
 
         Assert.Equal("Brand new saves", await _ws.LogAsync(repo, "fresh", "%s"));
         Assert.Equal("cap-77", await _ws.LogAsync(repo, "fresh", "%(trailers:key=Savepoint-Capture,valueonly)"));
@@ -107,7 +107,7 @@ public sealed class BranchTests : IDisposable
         await _ws.Engine.CreateEmptyBranchAsync(repo, "fresh", ct: Ct);
         var tip = await _ws.TipAsync(repo, "fresh");
 
-        await _ws.Engine.CreateEmptyBranchAsync(repo, "fresh", "Other message", "cap-1", Ct);
+        await _ws.Engine.CreateEmptyBranchAsync(repo, "fresh", "Other message", "cap-1", ct: Ct);
 
         Assert.Equal(tip, await _ws.TipAsync(repo, "fresh"));
     }

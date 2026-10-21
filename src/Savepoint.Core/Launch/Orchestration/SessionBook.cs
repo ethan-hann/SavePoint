@@ -32,7 +32,7 @@ internal sealed record CompletionRun(
     Profile Target,
     string PointName,
     IReadOnlyList<RepoRole> Roles,
-    string CaptureId,
+    CaptureEvent Capture,
     bool Creating,
     IReadOnlyDictionary<RepoRole, FolderCapturePlan>? Plans);
 
