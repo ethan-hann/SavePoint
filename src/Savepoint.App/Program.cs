@@ -9,9 +9,12 @@ namespace Savepoint.App;
 internal static class Program
 {
     [STAThread]
-    public static int Main(string[] args) =>
+    public static int Main(string[] args)
+    {
         // The installer and updater start the executable with hook arguments; they must be handled, and may end the process, before the single-instance guard or any window exists.
-        Startup.Run(args, () => VelopackApp.Build().Run(), Run);
+        VelopackApp.Build().Run();
+        return Run(args);
+    }
 
     private static int Run(string[] args)
     {
