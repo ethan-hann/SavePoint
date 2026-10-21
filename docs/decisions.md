@@ -127,7 +127,7 @@ The plan's profile list says Delete "warns if it's the only place holding some h
 
 ## D18. Startup checks and recovery
 
-On launch, before any screen: verify the bundled git (`git --version`); failure shows a dedicated error screen naming the path and what to reinstall, never a silent failure. Stale `index.lock` files under the storage root are removed when they predate the current process (SavePoint is single-instance and owns every git process on its own repos); during a run, a lock is removed only under the game's lock with no SavePoint git process in flight for that repo. A corrupt catalog file shows the recovery screen from D13.2.
+On launch, before any screen: verify the bundled git (`git --version`); failure shows a dedicated error screen naming the path and what to reinstall, never a silent failure. Stale `index.lock` files under the storage root are removed once, by the first startup check and before any git work, so every lock found then predates the current process (SavePoint is single-instance and owns every git process on its own repos; see D31); during a run, a lock is removed only under the game's lock with no SavePoint git process in flight for that repo. A corrupt catalog file shows the recovery screen from D13.2.
 
 ## D19. Onboarding and editor guidance from the plan's risk table
 
@@ -217,6 +217,58 @@ Owner request (2026-10-21): show a game's real artwork when it can be found, fal
 - **Storage:** images live under SavePoint's configuration folder (`<config>/artwork/<gameId>/`), not the storage root, so a storage move does not touch them. Deleting a game removes its folder, and "Clear all data" removes them all. The user's own image is copied in on save, never referenced in place. It is accepted only if it decodes as PNG, JPEG, or WebP and is at most 25 MB; otherwise the editor shows `error.artwork.notAnImage` or `error.artwork.tooLarge`.
 - **UI:** the tile shows the tint until the image is decoded (off the UI thread, at display size), so lists never wait or flicker. The tile stays decoration for assistive technology, since the game name is always beside it. The editor's Artwork section shows a preview, where the art came from ("From Steam", "Your image", or "No artwork found"), "Choose image...", "Remove your image" when one is set, "Look again", and the optional Steam app ID field with the detected id as its hint. Settings > Appearance adds "Look up game artwork online", with a note that artwork already on this computer is used either way.
 - **API:** a separate `IArtworkApi` (get, set the user's image, clear it, look again, and a change event keyed by game id). `IGamesApi` and the game summaries stay unchanged, so the fake backend, the contract tests, and the launch work do not move. Tests use a fake Steam folder and a fake HTTP handler. No test, on either gate, ever reaches the network: the backend's default is online lookup off unless a handler is supplied, and only the app's bootstrap supplies the real one.
+
+## D31. Fixes from the backend and launch review
+
+The independent review (`.tools/reviews/backend-launch.md`, findings BL-001 to BL-033) found two ways the merged backend could lose history or files, and several ways it could mislead the player. v2 adopts these rules:
+
+1. **"Update existing" rewrites only the point the player named (BL-001).** A folder whose newest commit carries the named point's capture id is amended. A folder that changed but whose newest commit belongs to another point gets a new commit carrying the same capture id, so the update stays one point and no other point is ever rewritten.
+2. **Ignore patterns never depend on an earlier call (BL-002).** Status, discard, clean, capture, and preview take the game's current ignore patterns from its definition on every call. Saving a game also rewrites each folder's `info/exclude` under the game lock.
+3. **A missing storage folder is unreachable, not empty (BL-004).** SavePoint creates the storage folder only on first run, when no root is saved. Otherwise a missing root raises `error.storage.unreachable` everywhere the snapshot is read. A move refuses a source with no game folders while the catalog lists games, and game delete refuses while the storage is unreachable. A move scan that cannot read an entry fails the move and names the entry (BL-003).
+4. **Re-pointing a folder with history is checked (BL-005).** When an edit changes the path of a folder that has saved points, SavePoint compares the new folder with that folder's newest point: how many recorded files are present at the same relative paths. When fewer than half are, the editor warns with both counts and needs an explicit confirmation. The discard confirmation names the folder and counts the files it removes and the files it restores. Discard is not refused, since bringing back deleted files is a legitimate use.
+5. **Discard never runs under an open game (BL-006).** It is refused while any session for the game is open (including Exited and Completing) or the game's process is running, checked again inside the game lock.
+6. **An unfinished switch is its own folder state (BL-007).** `FolderLaunchState` reports it together with a `LaunchTarget` the App can start. "Switch again" starts that recorded target, which completes the switch. A half-switched folder is never offered "Keep as a new profile"; Discard is always offered.
+7. **A partial after-play save is retried as the same choice (BL-008).** The orchestrator and the profiles service share one `CaptureRunner`. Retrying a partial completion reruns that completion's plan for the failed folders under the original capture id, so the session still yields one point.
+8. **A folder a profile never saved is left alone (BL-012).** Launching a profile that has no points in one folder (a saves folder added after the profile existed) leaves that folder as it is; the after-play capture adds it. No empty branches are seeded.
+9. **One function picks the commit that stands for a point in a folder (BL-024),** shared by History and the launch resolver. A folder with no commit at or before the point is left as it is. Points are ordered by a millisecond capture time recorded in the trailer, falling back to commit order, so two captures within one second cannot be confused.
+10. **A storage move deletes the old copies, and reports what it could not remove.** After the copy is verified and SavePoint has switched to the new root, the old git directories are deleted (an owner call; v1 left them). `StorageRelocationResult` lists the old copies left behind; the job ends Partial when the list is not empty and the App shows it. Removal ignores cancellation once the switch is done. A move writes an in-progress marker in its destination first; a later move to a folder carrying that marker is refused with copy saying an earlier move did not finish (BL-019).
+11. **Closing during clear-all or a storage move asks first (BL-019).** On exit SavePoint cancels cancellable jobs and waits briefly for them.
+12. **Consent-marker game ids are validated (BL-013).** A marker whose `gameId` fails the catalog's id rule counts as corrupt, and the storage paths refuse rooted ids, separators, and dot segments, so no path from a marker can leave the storage root (on Windows, a UNC id would otherwise send the user's network login hash to a remote server).
+13. **Errors keep their meaning (BL-026).** A git operation failure that is not a file in use gets its own message id and copy; a duplicate game and "no saved history to reconnect" get typed errors.
+
+The remaining findings (BL-009, BL-010, BL-011, BL-014 to BL-023, BL-025, BL-027, BL-028, BL-030 to BL-032) are fixed as the review recommends. D18's stale-lock rule is restated to match the code: the startup sweep removes every lock once, before any git work, since each one it finds predates the process (BL-029). `UnavailableLaunchApi` and its shipped copy move to the test project, since every shipped build has the orchestrator (YAGNI-001).
+
+## D32. Builds send no telemetry
+
+Avalonia's packages bring in `Avalonia.BuildServices`, whose `AvaloniaStats` task sends anonymous build telemetry (machine id, hashed project and machine names, OS, tooling) from every compile, unless `AVALONIA_TELEMETRY_OPTOUT=1` is set. SavePoint is a local-first app, and its builds run on the owner's machine, often by the hundred during development. `Directory.Build.targets` therefore defines an empty `AvaloniaStats` target, which replaces the package's, so no build of SavePoint sends anything whatever the environment holds. The shipped app was never affected; the package says its telemetry is build-time only. The .NET CLI's own telemetry is turned off by `DOTNET_CLI_TELEMETRY_OPTOUT=1`, which the gate scripts and the test runner script set.
+
+## D33. Packaging with Velopack, no automatic update checks
+
+The roadmap asks for an installer and a portable build per OS. v2 packages with Velopack 1.2.161, the newest stable release on 2026-10-21. The `Velopack` package goes in the App, and `VelopackApp.Build().Run()` is the first call in `Main`. The `vpk` CLI is pinned as a local tool in `.config/dotnet-tools.json`, never installed globally.
+
+- **Windows (`win-x64`):** a self-contained `dotnet publish`, then `vpk pack`, which gives `SavePoint-Setup.exe` (per-user install, Start menu shortcut, uninstall entry) and `SavePoint-Portable.zip`.
+- **Linux (`linux-x64`):** the same steps on Linux (under WSL here), giving an `.AppImage`.
+- **macOS:** `vpk pack` must run on macOS, and the result must be signed and notarized before anyone else can run it. Neither can be done here, so macOS packages are documented but not produced (D9).
+- **Every package holds** the app, the pruned git bundle in `git/` (copied by `build/Git.targets` on publish), `THIRD-PARTY-NOTICES.md`, and `licenses/`. Each release also publishes the source archives of the git bundles it ships (D21).
+- **No automatic update checks.** The app makes no network request the user did not ask for (D30's artwork lookup is the only one, behind its setting), and no release feed exists yet. Velopack contacts a feed only when the app calls `UpdateManager`, and v2 never does. A newer release installs over an older one by running its setup. An opt-in "check for updates" belongs to a later decision once a feed exists.
+- **Versions:** one `Version` property in `Directory.Build.props` (semver, pre-release until the owner calls it 1.0) feeds the assembly versions, the About section, and `vpk pack --packVersion`.
+
+## D34. A local diagnostic log and a crash handler
+
+v1's plan keeps each error's English message as dev-facing detail "for logs and a Show details toggle", and nothing in v2 writes a log yet. A failure the user reports, or a crash, would leave no trace.
+
+- **Core logs through its own small interface,** `IDiagnosticLog` (information, warning, error, each with an optional exception). The backend takes it in `BackendOptions`, and the default writes nothing, so tests stay quiet. Core gains no logging dependency and no static state.
+- **What is logged:**
+  - start-up: app version, OS, the git bundle's path and version, and the result of each startup check;
+  - every Api failure, at the facade: the message id, the English message, and the exception type and stack;
+  - every job: start, end, status, and duration;
+  - launch session changes;
+  - each step of a storage move or a clear-all;
+  - failed git commands: the arguments, the exit code, and the end of stderr.
+  Paths appear as they are; the log never leaves the machine.
+- **The App writes the files with Serilog 4.4.0 and Serilog.Sinks.File 7.0.0** (proven libraries; the rolling, size limits, and safe writes are their job). The logger is created and passed in, never the static `Log`. Files are `savepoint-<date>.log` in the platform's logs folder (`AppDirectories.LogsDir`), rolled daily and at 10 MB, with the newest 14 kept. Errors are flushed at once.
+- **Unhandled exceptions** from the UI thread, the thread pool, or unobserved tasks are logged. An unobserved task exception is logged and observed. A UI-thread or domain-level crash shows a last window ("SavePoint ran into a problem and has to close") with Show details and the log folder, then exits: continuing in an unknown state could touch game folders wrongly.
+- **Settings > About gets "Open the log folder".** "Clear all data" also empties the log folder, except the file in use.
 
 ## D8. "Clear all data" is a v2 requirement
 

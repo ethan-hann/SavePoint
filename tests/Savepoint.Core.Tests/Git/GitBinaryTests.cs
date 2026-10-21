@@ -27,7 +27,7 @@ public sealed class GitBinaryTests : IDisposable
     }
 
     [Fact]
-    public void A_bundle_with_cmd_git_exe_is_MinGit()
+    public void A_MinGit_bundle_without_its_real_git_falls_back_to_the_launcher()
     {
         var root = MakeBundle("cmd/git.exe");
 
@@ -35,6 +35,39 @@ public sealed class GitBinaryTests : IDisposable
 
         Assert.Equal(GitBundleLayout.MinGit, binary.Layout);
         Assert.Equal(Path.Combine(Path.GetFullPath(root), "cmd", "git.exe"), binary.ExecutablePath);
+    }
+
+    // cmd/git.exe only starts the real git, so calling it doubles every git process.
+    [Theory]
+    [InlineData("ucrt64")]
+    [InlineData("mingw64")]
+    [InlineData("clangarm64")]
+    public void A_MinGit_bundle_runs_its_real_git_directly(string toolchain)
+    {
+        var root = MakeBundle("cmd/git.exe", $"{toolchain}/bin/git.exe");
+
+        var binary = Create(root, _windows);
+
+        Assert.Equal(GitBundleLayout.MinGit, binary.Layout);
+        Assert.Equal(Path.Combine(Path.GetFullPath(root), toolchain, "bin", "git.exe"), binary.ExecutablePath);
+    }
+
+    [Fact]
+    public void A_MinGit_bundle_run_directly_puts_its_own_folders_first_on_the_path_and_names_its_helpers()
+    {
+        var parent = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["Path"] = @"C:\Windows\system32;C:\Program Files\Git\cmd" };
+        var root = MakeBundle("cmd/git.exe", "ucrt64/bin/git.exe");
+
+        var binary = Create(root, _windows, parent);
+
+        var full = Path.GetFullPath(root);
+        var path = binary.BaseEnvironment.GetValueOrDefault("PATH");
+        Assert.Equal(
+            $@"{Path.Combine(full, "ucrt64", "bin")};{Path.Combine(full, "usr", "bin")};C:\Windows\system32;C:\Program Files\Git\cmd",
+            path);
+        Assert.Equal(Path.Combine(full, "ucrt64", "libexec", "git-core"), binary.BaseEnvironment.GetValueOrDefault("GIT_EXEC_PATH"));
+        Assert.False(binary.BaseEnvironment.ContainsKey("GIT_TEMPLATE_DIR"));
+        Assert.False(binary.BaseEnvironment.ContainsKey("PREFIX"));
     }
 
     [Fact]
@@ -181,10 +214,13 @@ public sealed class GitBinaryTests : IDisposable
     }
 
     [Fact]
-    public void A_MinGit_bundle_adds_nothing_for_helper_lookup()
+    public void A_MinGit_bundle_run_through_its_launcher_leaves_helper_lookup_to_the_launcher()
     {
-        var binary = Create(MakeBundle("cmd/git.exe"), _windows);
+        var parent = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["Path"] = @"C:\Windows\system32" };
 
+        var binary = Create(MakeBundle("cmd/git.exe"), _windows, parent);
+
+        Assert.Equal(@"C:\Windows\system32", binary.BaseEnvironment.GetValueOrDefault("PATH"));
         Assert.False(binary.BaseEnvironment.ContainsKey("GIT_EXEC_PATH"));
         Assert.False(binary.BaseEnvironment.ContainsKey("GIT_TEMPLATE_DIR"));
         Assert.False(binary.BaseEnvironment.ContainsKey("PREFIX"));

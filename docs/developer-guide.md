@@ -1,0 +1,108 @@
+# SavePoint v2 - developer guide
+
+How to build, run, test, and change SavePoint. What the code promises layer by layer is in `architecture.md`. Why it behaves as it does is in `decisions.md` (D1 onward). How to build a screen is in `ui-guide.md`. The behavior spec is v1's `plan.md` together with `docs/reference/`.
+
+## What you need
+
+- **The .NET 10 SDK.** `global.json` asks for 10.0.100 and rolls forward to the newest feature band; the repository is built with 10.0.401.
+- **On Windows, PowerShell 7 (`pwsh`).** The build calls `build/fetch-git.ps1` through it.
+- **On Linux and macOS, `bash`, `tar`, and `curl` or `wget`.**
+- **Network access on the first build.** The build downloads SavePoint's own git (below). Later builds reuse it.
+
+Nothing else is needed: SavePoint never uses a git installed on the machine.
+
+## Build and run
+
+```bash
+dotnet build Savepoint.slnx -c Release
+```
+
+```bash
+dotnet run --project src/Savepoint.App -c Release
+```
+
+The app's assembly is `SavePoint`. On first start it shows the first-run screen.
+
+To try it without a real game, copy `tools/FakeGame`'s build output into a folder and add that folder as a game's install folder. Set an empty folder as its saves folder. Then make it start through the program `FakeGame` with the arguments `--saves <that saves folder> --save-every 2000 --exit-after 60000`: it adds a save every two seconds and quits after a minute. Without `--exit-after` it runs until it reads `quit` on its input or is closed.
+
+### The bundled git
+
+`build/Git.targets` runs before every build of the app and test projects. It fetches the git bundle for the build's runtime id into `resources/git/<rid>/` (git-ignored). The bundles are:
+
+- MinGit 2.56.0.2 for `win-x64` and `win-arm64`.
+- dugite-native v2.53.0-4 for macOS and Linux.
+
+The bundle is pinned by URL and SHA-256 in `build/git-manifest.json` and checked before extraction. It is pruned of the credential manager, LFS, and the HTTP helpers (D21, D25): SavePoint only works on local repositories. The bundle is then copied next to the build output as `git/`, so the app and the tests both run that copy. A stamp file makes every later build skip the fetch.
+
+To use a bundle from another place, set `SAVEPOINT_GIT_ROOT` to its folder. Pick another runtime's bundle with `-p:GitRuntimeId=linux-arm64`.
+
+### No build telemetry
+
+`Directory.Build.targets` replaces the `AvaloniaStats` target of `Avalonia.BuildServices` with an empty one, so builds send nothing (D32). The gate scripts also set `DOTNET_CLI_TELEMETRY_OPTOUT=1` for the .NET CLI. Set it in your own shell too if you build by hand.
+
+## Repository layout
+
+| Path | What lives there |
+| --- | --- |
+| `src/Savepoint.Core` | Everything but the UI: `Api/` (the facade the App calls, returning `OperationResult<T>`), `Backend/` (`CoreBackend.Create`), `Services/`, `Launch/` (starting games, exit detection, the launch orchestrator), `Git/` (bundle, runner, engine), `Catalog/` (models, validation, JSON store, templates), `Paths/` (token resolution, path safety, consent markers), `Platform/`, `Errors/`. No Avalonia reference. |
+| `src/Savepoint.App` | The Avalonia app: `Features/<Area>/` (view models, views, dialogs), `Composition/FeatureComposition.<Feature>.cs` (one wiring file per feature), `Hosting/AppBootstrap` (the composition root), `Localization/Assets/Lang/en/*.json` (all copy), `Theme/` and `Styles/` (MD3 palette, tokens, control styles), `Platform/` (notifications, single instance, reduced motion). |
+| `tests/Savepoint.Core.Tests` | Core tests, most of them against real git in temp folders. |
+| `tests/Savepoint.App.Tests` | View-model tests against the scriptable fake backend (`Fakes/`), headless render tests, catalog lint tests, and contract tests that run one story against the fake and the real backend (`Contract/`). |
+| `tests/Shared` | Code linked into both test projects, for example `TestEnvironment`, which confines temp files to the workspace. |
+| `tools/FakeGame` | A stand-in game. It writes save files on a timer (`--saves <dir> --save-every <ms>`), can hold a file open (`--lock`), starts a child the way a launcher does (`--spawn`), and exits on cue (`--exit-after <ms> --exit-code <n>`). The launch tests and manual runs use it. |
+| `build/` | Gate scripts, the git fetch scripts and manifest, and the test-retry targets used by the Linux gate. |
+| `docs/` | This guide, `architecture.md`, `decisions.md`, `ui-guide.md`, `roadmap.md`, `progress-log.md`, and `reference/` (inventories of the v1 code). |
+
+## Tests
+
+The test projects use xunit v3 on the Microsoft Testing Platform (`global.json`), so `dotnet test` takes the platform's options directly:
+
+```bash
+dotnet test --project tests/Savepoint.Core.Tests -c Release --filter-class Savepoint.Core.Tests.Git.Engine.CheckoutTests --max-threads 2
+```
+
+Other filters are `--filter-namespace` and `--filter-method`. Add `--report-xunit` or `--report-xunit-trx` for a report with per-test times in `bin/<config>/net10.0/TestResults/`.
+
+- Tests never touch real user folders. Every test builds its own temp tree. A module initializer (`tests/Shared/TestEnvironment.cs`) points `TMP`, `TEMP`, and `TMPDIR` at `<repo>/.tools/tmp/<os>`, and every child process inherits them.
+- Opt-in smoke tests make the real OS calls: a notification, opening a link. Run them by hand with `SAVEPOINT_OS_SMOKE=1` (and `SAVEPOINT_SMOKE_URI` for the link opener).
+- Headless renders (Skia, 1040x660) land in `render-output/<area>/`. Compare them with the mockup screenshots in v1's `docs/ui/screenshots/`.
+- Lint tests guard the catalog:
+  - every key the code uses exists, and no key is unused;
+  - keys are literal strings;
+  - no XAML text is hard-coded;
+  - extra locales match English;
+  - the copy never says "commit", "branch", "checkout", "repo", or "HEAD".
+
+### Process starts are expensive
+
+Most Core tests run real git, and every git call starts a process: on Windows it is two, because `cmd/git.exe` starts `ucrt64/bin/git.exe`. A full run of both test projects starts tens of thousands of processes. On some Windows machines, security or monitoring software slows every process start to a second or more and keeps memory for each exited process until reboot. When you write a test, build expensive repository states once and copy them (`tests/Savepoint.Core.Tests/Git/Engine/RepoTemplates.cs`) instead of rebuilding them with git in every test. While you work, run one test class at a time.
+
+## Gates
+
+A change is done when the gate passes.
+
+- **`build/gate.ps1`** (Windows) **and `build/gate.sh`** (Linux and macOS) run three steps:
+  - build with `-warnaserror`;
+  - run every test;
+  - check formatting with `dotnet format --verify-no-changes`.
+  
+  They run at below-normal priority. They cap MSBuild at 4 nodes with no node reuse and tests at one module at a time on 4 threads. Override the caps with `SAVEPOINT_GATE_BUILD_NODES` and `SAVEPOINT_GATE_TEST_THREADS`. Pass extra test arguments, such as a report, in `SAVEPOINT_TEST_ARGS`.
+- **`build/gate-linux.ps1`** runs the Linux gate from Windows under WSL (the `Ubuntu` distribution by default). It works from its own worktree, `.linux-gate`, so Linux and Windows build outputs never mix, and it keeps a Linux .NET SDK and NuGet caches under `.tools/`. The worktree lives on the Windows drive, which WSL mounts over 9p, and that mount can briefly hide a file that was just renamed into place. So the Linux gate retries a failed test up to twice and lists every retry (D27). The Windows gate never retries.
+- **One gate at a time.** Every gate takes a machine-wide lock (`<main checkout>/.tools/locks/gate.lock`), so gates started from different worktrees run one after another.
+- **macOS is built and unit-tested only through the shared code paths.** It has not been verified on hardware (D9).
+
+## Rules for changes
+
+- **Test first.** For every behavior, write the test and watch it fail on an assertion for the expected reason; a compile or harness error does not count. Then write the code. A test that passes on its first run gets a mutation check before it counts. Record the observed failure in the commit body.
+- **Copy lives in the catalog only.** Every user-visible string goes through `Localization/Assets/Lang/en/<area>.json`. A key enters the catalog together with the code that uses it. Error copy is keyed by the error's message id, and every `error.*` id has an `ErrorPresentation` entry (icon, tone, title).
+- **Docs and comments.** Public Core APIs carry XML doc comments that state their contract; a missing one fails the Core build (CS1591, D24). Inline comments are short, say why, and never name a milestone, task, or review.
+- **Core stays testable.** It holds no static mutable state and has no UI dependency. Side effects tests need to fake go through injected abstractions. Async methods take a `CancellationToken` all the way down.
+- **Departures are decisions.** A change that departs from the spec, or fills a gap in it, gets a decision in `decisions.md`.
+- **Cross-platform.** Windows, Linux, and macOS run from one target framework. OS-specific code is guarded with `OperatingSystem.Is*()` (D26).
+
+## Where to start reading
+
+1. `docs/architecture.md`: the layers and the error model.
+2. `src/Savepoint.Core/Backend/CoreBackend.cs`: how the backend is assembled.
+3. `src/Savepoint.Core/Git/GitEngine*.cs`: what a capture, a switch, and a discard do to the folders, and the safety rules D28 and D29.
+4. `src/Savepoint.App/Hosting/AppBootstrap.cs` and `src/Savepoint.App/Features/Shell/`: how the app starts and navigates.

@@ -1,16 +1,33 @@
 # Third-party notices
 
-SavePoint bundles the components below. Each keeps its own license.
+SavePoint bundles the components below. Each keeps its own license. The longer license texts are in the `licenses/` folder next to this file; the Apache License, the MIT License, and the BSD 3-Clause License are reproduced in this file.
+
+## Libraries
+
+| Component | Version | License | Copyright |
+| --- | --- | --- | --- |
+| Avalonia (Avalonia, Desktop, Win32, X11, FreeDesktop, FreeDesktop.AtSpi, Native, Skia, HarfBuzz, Themes.Fluent, Remote.Protocol) | 12.1.4 | MIT | Copyright 2013-2026 The AvaloniaUI Project |
+| Avalonia.Angle.Windows.Natives (ANGLE) | 2.1.27548.20260419 | BSD 3-Clause | Copyright 2018 The ANGLE Project Authors |
+| SkiaSharp and its native assets | 3.119.4 | MIT | Copyright Microsoft Corporation |
+| Skia, inside SkiaSharp's native assets | | BSD 3-Clause | Copyright Google Inc. |
+| HarfBuzzSharp and its native assets | 8.3.1.3 | MIT | Copyright Microsoft Corporation |
+| HarfBuzz, inside HarfBuzzSharp's native assets | | MIT ("Old MIT") | Copyright the HarfBuzz authors |
+| MicroCom.Runtime | 0.11.6 | MIT | Copyright 2021 Nikita Tsukanov |
+| CommunityToolkit.Mvvm | 8.4.2 | MIT | Copyright .NET Foundation and Contributors |
+| MessageFormat (messageformat.net) | 8.0.0 | MIT | Copyright 2014 Jeff Hansen |
+| Tmds.DBus.Protocol | 0.94.1 | MIT | Copyright Tom Deseyn |
+| AsmResolver, AsmResolver.PE, AsmResolver.PE.File, AsmResolver.PE.Win32Resources | 6.0.1 | MIT | Copyright 2016-2026 Washi |
+| .NET runtime and libraries, in self-contained builds | 10.0 | MIT | Copyright .NET Foundation and Contributors |
 
 ## Fonts
 
-The files in `src/Savepoint.App/Assets/Fonts/` are static instances cut from upstream variable fonts by `build/fonts/make-fonts.py`, because Avalonia does not render variable fonts. The script pins the upstream commits and verifies the SHA-256 of every input. The full license text for each font sits beside the font files.
+The files in `src/Savepoint.App/Assets/Fonts/` are static instances cut from upstream variable fonts by `build/fonts/make-fonts.py`, because Avalonia does not render variable fonts. The script pins the upstream commits and verifies the SHA-256 of every input. The full license text for each font sits beside the font files in the source, and in the `licenses/` folder of a release.
 
 ### Roboto
 
 - Files: `Roboto-Regular.ttf`, `Roboto-Medium.ttf`, `Roboto-Bold.ttf`
 - Copyright 2011 The Roboto Project Authors (https://github.com/googlefonts/roboto-classic)
-- License: SIL Open Font License 1.1, in `Roboto-OFL.txt`
+- License: SIL Open Font License 1.1, in `Roboto-OFL.txt` (`licenses/OFL-1.1-Roboto.txt` in a release)
 - Source: `google/fonts` at commit `47d54ca1ebb14fd864695f1d39dc734f39017c33`, `ofl/roboto/Roboto[wdth,wght].ttf`
 - Changes: instanced at width 100 and weights 400, 500 and 700; TrueType hinting instructions removed; name records rewritten so the three weights share the family "Roboto".
 
@@ -18,7 +35,7 @@ The files in `src/Savepoint.App/Assets/Fonts/` are static instances cut from ups
 
 - Files: `RobotoMono-Regular.ttf`, `RobotoMono-Medium.ttf`
 - Copyright 2015 The Roboto Mono Project Authors (https://github.com/googlefonts/robotomono)
-- License: SIL Open Font License 1.1, in `RobotoMono-OFL.txt`
+- License: SIL Open Font License 1.1, in `RobotoMono-OFL.txt` (`licenses/OFL-1.1-RobotoMono.txt` in a release)
 - Source: `google/fonts` at commit `47d54ca1ebb14fd864695f1d39dc734f39017c33`, `ofl/robotomono/RobotoMono[wght].ttf`
 - Changes: instanced at weights 400 and 500; TrueType hinting instructions removed; name records rewritten so the two weights share the family "Roboto Mono".
 
@@ -26,7 +43,7 @@ The files in `src/Savepoint.App/Assets/Fonts/` are static instances cut from ups
 
 - Files: `MaterialSymbolsRounded.ttf`, `MaterialSymbolsRoundedFilled.ttf`
 - Copyright 2026 Google LLC
-- License: Apache License 2.0, in `MaterialSymbols-LICENSE.txt`
+- License: Apache License 2.0, in `MaterialSymbols-LICENSE.txt` (`licenses/Apache-2.0.txt` in a release; also below)
 - Source: `google/material-design-icons` at commit `49d4db35df873165d6bd6ba09b063c7dafbac2f4`, `variablefont/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].ttf`
 - Changes: instanced at weight 400, grade 0 and optical size 24, once with FILL 0 and once with FILL 1 (renamed "Material Symbols Rounded Filled"); reduced to the glyphs listed in `build/fonts/icons.txt`; ligature and other layout tables removed, so icons are addressed by code point (`src/Savepoint.App/Theme/Icons.cs`).
 
@@ -239,4 +256,76 @@ Every translated file keeps its upstream copyright header and ends the header wi
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
+```
+
+## Git
+
+SavePoint runs its own copy of git, in the `git/` folder next to the app. Git is licensed under the GNU General Public License, version 2 only. The text is in `licenses/GPL-2.0-git.txt`, and in `git/LICENSE.txt` in the Windows bundle.
+
+- **Windows:** MinGit 2.56.0.2 from Git for Windows (`v2.56.0.windows.2`). Besides git, MinGit contains the MSYS2 runtime, a small set of command-line tools, and their libraries. Each comes with its own license text, which ships unchanged inside the bundle in `git/ucrt64/share/licenses/` and `git/usr/share/licenses/`. That covers the GCC runtime libraries, gettext, libiconv, PCRE2, zlib, OpenSSL, OpenSSH, SQLite, ncurses, and the rest.
+- **macOS and Linux:** git 2.53.0 as packaged by dugite-native `v2.53.0-4`, licensed GPL-2.0.
+
+SavePoint changes no file in either bundle. It only removes parts it never uses: the Git Credential Manager and its libraries, Git LFS, the HTTP and network helpers with their libraries, and the certificate store. The exact list is in `build/git-manifest.json` in SavePoint's source.
+
+**Source code.** The corresponding source is published by:
+
+- git: https://github.com/git/git, tag `v2.53.0`;
+- Git for Windows: https://github.com/git-for-windows/git, tag `v2.56.0.windows.2`, together with the MSYS2 and MINGW package sources the Git for Windows project publishes;
+- dugite-native: https://github.com/desktop/dugite-native, tag `v2.53.0-4`.
+
+Each SavePoint release also publishes the source archives of the exact bundles it ships, next to the release downloads.
+
+## MIT License
+
+Applies to every component marked MIT above, each under its own copyright line.
+
+```text
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## BSD 3-Clause License
+
+Applies to ANGLE (Copyright 2018 The ANGLE Project Authors) and Skia (Copyright Google Inc.).
+
+```text
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors
+   may be used to endorse or promote products derived from this software
+   without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```

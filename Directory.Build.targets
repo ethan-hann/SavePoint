@@ -1,0 +1,10 @@
+<Project>
+
+  <!--
+    Avalonia.BuildServices (pulled in by Avalonia) sends build telemetry from a task named AvaloniaStats that runs
+    before every compile. Builds of SavePoint opt out (D32): this empty target is imported after the package's and
+    replaces it, so no build sends anything and nothing depends on AVALONIA_TELEMETRY_OPTOUT being set.
+  -->
+  <Target Name="AvaloniaStats" />
+
+</Project>

@@ -8,12 +8,15 @@ Set-Location (Split-Path -Parent $PSScriptRoot)
 
 # Builds, test hosts and git all inherit this, so a gate never starves the desktop it runs on.
 [System.Diagnostics.Process]::GetCurrentProcess().PriorityClass = 'BelowNormal'
+# No telemetry from the .NET CLI (D32); Avalonia's build telemetry is disabled in Directory.Build.targets.
+$env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
+$env:DOTNET_NOLOGO = '1'
 
 # Caps that keep one gate from saturating the machine; override per run when needed.
 $buildNodes = if ($env:SAVEPOINT_GATE_BUILD_NODES) { $env:SAVEPOINT_GATE_BUILD_NODES } else { '4' }
 $testThreads = if ($env:SAVEPOINT_GATE_TEST_THREADS) { $env:SAVEPOINT_GATE_TEST_THREADS } else { '4' }
 # Extra test-platform arguments (a report, a filter), space-separated, as gate.sh takes them.
-$testArgs = if ($env:SAVEPOINT_TEST_ARGS) { $env:SAVEPOINT_TEST_ARGS -split '\s+' | Where-Object { $_ } } else { @() }
+[string[]]$testArgs = if ($env:SAVEPOINT_TEST_ARGS) { @($env:SAVEPOINT_TEST_ARGS -split '\s+' | Where-Object { $_ }) } else { @() }
 
 # One gate at a time across every worktree of this repository: they share one lock file in the main checkout.
 $commonGitDir = git rev-parse --path-format=absolute --git-common-dir
