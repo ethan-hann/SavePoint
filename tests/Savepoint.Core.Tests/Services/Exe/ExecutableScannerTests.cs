@@ -52,6 +52,17 @@ public class ExecutableScannerTests
     [InlineData("EasyAntiCheat.exe")]
     [InlineData("BEService.exe")]
     [InlineData("Setup.exe")]
+    [InlineData("setup_x64.exe")]
+    [InlineData("Setup-1.2.exe")]
+    [InlineData("setup64.exe")]
+    [InlineData("MyGame_setup.exe")]
+    [InlineData("MyGame-Setup.exe")]
+    [InlineData("My Game Setup.exe")]
+    [InlineData("Installer.exe")]
+    [InlineData("GameInstaller.exe")]
+    [InlineData("crashpad_handler.exe")]
+    [InlineData("BugSplatCrashHandler.exe")]
+    [InlineData("CrashReporter.exe")]
     public async Task Installers_redistributables_and_crash_handlers_are_not_suggested(string name)
     {
         using var temp = new TempFolder();
@@ -59,6 +70,21 @@ public class ExecutableScannerTests
         temp.WriteBytes("Game.exe", 10);
 
         Assert.Equal([P("Game.exe")], await ScanAsync(temp));
+    }
+
+    [Theory]
+    [InlineData("Crashlands.exe")]
+    [InlineData("Crash Bandicoot.exe")]
+    [InlineData("Crasher.exe")]
+    [InlineData("SetupWizardGame.exe")]
+    [InlineData("Setupia.exe")]
+    [InlineData("Reset.exe")]
+    public async Task A_noise_word_inside_a_game_name_does_not_hide_the_game(string name)
+    {
+        using var temp = new TempFolder();
+        temp.WriteBytes(name, 10);
+
+        Assert.Equal([P(name)], await ScanAsync(temp));
     }
 
     [Theory]

@@ -23,8 +23,12 @@ public sealed class ExecutableScanner
     // Compared against the folder's path below the install folder, with forward slashes, in lower case.
     private const string _thirdPartyBinaries = "engine/binaries/thirdparty";
 
-    private static readonly string[] _noiseNamePrefixes = ["unins", "dotnetfx", "directx_", "oalinst", "easyanticheat", "beservice"];
-    private static readonly string[] _noiseNameParts = ["crash", "redist", "setup"];
+    // Specific helper names rather than the bare words "crash" and "setup", which are also in real game names.
+    private static readonly string[] _noiseNamePrefixes =
+        ["unins", "dxsetup", "dxwebsetup", "dotnetfx", "directx_", "oalinst", "easyanticheat", "beservice", "crashpad_handler"];
+
+    private static readonly string[] _noiseNameParts = ["installer", "redist", "crashhandler", "crashreport"];
+    private static readonly string[] _noiseNameSuffixes = ["_setup", "-setup", " setup"];
 
     // Libraries and Windows files that carry an execute bit on some file systems but are not programs a player starts.
     private static readonly string[] _notNativeExtensions = [".so", ".dll", ".exe", ".dylib", ".a", ".o", ".pdb"];
@@ -220,8 +224,15 @@ public sealed class ExecutableScanner
     private static bool IsNoise(string nameWithoutExtension)
     {
         return _noiseNamePrefixes.Any(prefix => nameWithoutExtension.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            || _noiseNameParts.Any(part => nameWithoutExtension.Contains(part, StringComparison.OrdinalIgnoreCase));
+            || _noiseNameParts.Any(part => nameWithoutExtension.Contains(part, StringComparison.OrdinalIgnoreCase))
+            || _noiseNameSuffixes.Any(suffix => nameWithoutExtension.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+            || IsSetupProgram(nameWithoutExtension);
     }
+
+    // "setup", "setup64" and "setup_en" are installers; "SetupWizardGame" is a game whose name starts the same way.
+    private static bool IsSetupProgram(string nameWithoutExtension) =>
+        nameWithoutExtension.StartsWith("setup", StringComparison.OrdinalIgnoreCase)
+        && (nameWithoutExtension.Length == "setup".Length || !char.IsLetter(nameWithoutExtension["setup".Length]));
 
     private static bool IsSkippedFolder(DirectoryInfo folder, string root)
     {
