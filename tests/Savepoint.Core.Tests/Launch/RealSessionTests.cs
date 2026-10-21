@@ -1,0 +1,157 @@
+using Savepoint.Core.Catalog;
+using Savepoint.Core.Launch;
+using Savepoint.Core.Platform;
+using Savepoint.Core.Tests.Services.Exe;
+
+namespace Savepoint.Core.Tests.Launch;
+
+// Start the stand-in game through the real launcher and the real process list, and watch what happens.
+public class RealSessionTests
+{
+    private static readonly TimeSpan _patience = TimeSpan.FromSeconds(30);
+
+    private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    private static GameStarter Starter(TimeSpan? grace = null, IGameLauncher? launcher = null) => new(
+        launcher ?? GameLaunchers.ForCurrentOs(),
+        FakeGameInstall.Inspector(),
+        PlatformFactory.CurrentOs,
+        new GameSessionOptions { PollInterval = TimeSpan.FromMilliseconds(100), Grace = grace ?? TimeSpan.FromSeconds(3) },
+        TimeProvider.System);
+
+    private static LaunchConfig Program(FakeGameInstall game, string? processName, params string[] args) =>
+        new(LaunchMethod.Exe, Path.GetFileName(game.ExecutablePath), null, args, processName);
+
+    private static async Task<SessionOutcome> OutcomeAsync(GameSessionWatcher watcher) => await watcher.Outcome.WaitAsync(_patience, Ct);
+
+    [Fact]
+    public async Task A_game_that_exits_by_itself_ends_the_session_with_its_exit_code_and_a_real_duration()
+    {
+        using var game = new FakeGameInstall();
+
+        using var watcher = await Starter().StartAsync(Program(game, null, "--exit-after", "400", "--exit-code", "5"), game.Folder, Ct);
+        var outcome = await OutcomeAsync(watcher);
+
+        Assert.Equal(SessionEndKind.ChildExited, outcome.Kind);
+        Assert.Equal(5, outcome.ChildExitCode);
+        Assert.True(outcome.PlayDuration >= TimeSpan.FromMilliseconds(200), $"the session lasted only {outcome.PlayDuration}");
+    }
+
+    [Fact]
+    public async Task A_launcher_stub_that_hands_over_to_the_real_game_is_followed_until_that_game_leaves()
+    {
+        using var stub = new FakeGameInstall();
+        using var game = new FakeGameInstall();
+        var gameReady = game.Combine("ready.txt");
+        var config = Program(stub, game.Name, "--spawn", game.ExecutablePath, "--ready-file", gameReady, "--exit-after", "2500");
+
+        using var watcher = await Starter().StartAsync(config, stub.Folder, Ct);
+        var outcome = await OutcomeAsync(watcher);
+        var gamePid = await FakeGameProcess.WaitForReadyFileAsync(gameReady);
+
+        Assert.Equal(SessionEndKind.NamedProcessEnded, outcome.Kind);
+        Assert.Equal(0, outcome.ChildExitCode);
+        Assert.True(outcome.PlayDuration >= TimeSpan.FromSeconds(1), $"the session ended after only {outcome.PlayDuration}, before the real game left");
+        Assert.False(FakeGameProcess.IsRunning(gamePid), "the session ended while the real game was still running");
+    }
+
+    [Fact]
+    public async Task A_name_that_never_shows_up_settles_the_session_after_the_grace_counted_from_the_stubs_exit()
+    {
+        using var stub = new FakeGameInstall();
+        var config = Program(stub, "fgnever" + Guid.NewGuid().ToString("N")[..6], "--exit-after", "200");
+
+        using var watcher = await Starter(grace: TimeSpan.FromSeconds(1)).StartAsync(config, stub.Folder, Ct);
+        var outcome = await OutcomeAsync(watcher);
+
+        Assert.Equal(SessionEndKind.NamedProcessNeverAppeared, outcome.Kind);
+        Assert.Equal(0, outcome.ChildExitCode);
+        Assert.True(outcome.PlayDuration >= TimeSpan.FromSeconds(1), $"the session settled after {outcome.PlayDuration}");
+    }
+
+    [Fact]
+    public async Task Marking_a_running_game_finished_ends_the_session_and_leaves_the_game_running()
+    {
+        using var game = new FakeGameInstall();
+        var ready = game.Combine("ready.txt");
+
+        using var watcher = await Starter().StartAsync(Program(game, null, "--ready-file", ready), game.Folder, Ct);
+        var pid = await FakeGameProcess.WaitForReadyFileAsync(ready);
+
+        Assert.True(watcher.MarkFinished());
+        var outcome = await OutcomeAsync(watcher);
+
+        Assert.Equal(SessionEndKind.ManuallyFinished, outcome.Kind);
+        Assert.Null(outcome.ChildExitCode);
+        Assert.True(FakeGameProcess.IsRunning(pid), "marking the session finished must not stop the game");
+        Assert.True(watcher.IsRunning(), "the player may still have the game open");
+    }
+
+    [Fact]
+    public async Task A_game_is_recognized_as_running_by_its_process_name_before_a_launch_and_not_after_it_leaves()
+    {
+        using var game = new FakeGameInstall();
+        var ready = game.Combine("ready.txt");
+        var starter = Starter();
+        var config = Program(game, game.Name, "--ready-file", ready);
+        Assert.False(starter.IsRunning(config));
+
+        using var watcher = await starter.StartAsync(config, game.Folder, Ct);
+        var pid = await FakeGameProcess.WaitForReadyFileAsync(ready);
+
+        Assert.True(starter.IsRunning(config));
+        Assert.True(watcher.IsRunning());
+
+        FakeGameProcess.Kill(pid);
+        await WatcherRig.UntilAsync(() => !starter.IsRunning(config));
+        var outcome = await OutcomeAsync(watcher);
+
+        // The game was found by name while it ran; whether the poll caught it before the kill is a matter of timing.
+        Assert.True(outcome.Kind is SessionEndKind.NamedProcessEnded or SessionEndKind.NamedProcessNeverAppeared, $"{outcome.Kind}");
+        Assert.False(watcher.IsRunning());
+    }
+
+    [Fact]
+    public async Task A_link_session_follows_a_real_process_by_name_and_has_no_exit_code()
+    {
+        using var game = new FakeGameInstall();
+        var launcher = new RecordingLauncher();
+        var ready = game.Combine("ready.txt");
+        using var running = GameLaunchers.ForCurrentOs().StartExecutable(game.ExecutablePath, ["--ready-file", ready, "--exit-after", "2000"], game.Folder);
+        await FakeGameProcess.WaitForReadyFileAsync(ready);
+
+        using var watcher = await Starter(launcher: launcher).StartAsync(new LaunchConfig(LaunchMethod.Uri, null, "steam://run/1", null, game.Name), game.Folder, Ct);
+        var outcome = await OutcomeAsync(watcher);
+
+        Assert.Equal(["steam://run/1"], launcher.Links);
+        Assert.Equal(SessionEndKind.NamedProcessEnded, outcome.Kind);
+        Assert.Null(outcome.ChildExitCode);
+        Assert.True(running.HasExited, "the session ended while the game was still running");
+    }
+
+    [Fact]
+    public async Task A_link_whose_game_never_appears_settles_after_the_grace_as_best_effort()
+    {
+        var launcher = new RecordingLauncher();
+        using var watcher = await Starter(grace: TimeSpan.FromSeconds(1), launcher: launcher)
+            .StartAsync(new LaunchConfig(LaunchMethod.Uri, null, "steam://run/1", null, "fgnever" + Guid.NewGuid().ToString("N")[..6]), Path.GetTempPath(), Ct);
+
+        var outcome = await OutcomeAsync(watcher);
+
+        Assert.Equal(SessionEndKind.NamedProcessNeverAppeared, outcome.Kind);
+        Assert.True(outcome.PlayDuration >= TimeSpan.FromSeconds(1));
+    }
+
+    [Fact]
+    public async Task A_link_with_no_process_name_is_only_ever_ended_by_the_player()
+    {
+        var launcher = new RecordingLauncher();
+        using var watcher = await Starter(launcher: launcher).StartAsync(new LaunchConfig(LaunchMethod.Uri, null, "steam://run/1"), Path.GetTempPath(), Ct);
+
+        await Task.Delay(500, Ct);
+        Assert.False(watcher.IsSettled);
+
+        Assert.True(watcher.MarkFinished());
+        Assert.Equal(SessionEndKind.ManuallyFinished, (await OutcomeAsync(watcher)).Kind);
+    }
+}

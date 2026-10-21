@@ -64,7 +64,7 @@ public class ErrorTypesTests
     {
         var inner = new IOException("disk gone");
 
-        Assert.Same(inner, new LaunchSpawnException("exe", "could not start", inner).InnerException);
+        Assert.Same(inner, new LaunchSpawnException(LaunchMethod.Exe, "could not start", inner).InnerException);
         Assert.Same(inner, new CatalogCorruptException("catalog.json", inner).InnerException);
         Assert.Same(inner, new GitUnavailableException("git.exe", "not runnable", inner).InnerException);
     }
@@ -72,7 +72,7 @@ public class ErrorTypesTests
     [Fact]
     public void Subclasses_with_a_developer_message_use_it_as_the_message()
     {
-        Assert.Equal("could not start", new LaunchSpawnException("exe", "could not start", null).Message);
+        Assert.Equal("could not start", new LaunchSpawnException(LaunchMethod.Exe, "could not start", null).Message);
         Assert.Equal("index.lock held", new GitOperationException("/games/alpha", "index.lock held").Message);
         Assert.Equal("not runnable", new GitUnavailableException("git.exe", "not runnable", null).Message);
     }
@@ -88,6 +88,16 @@ public class ErrorTypesTests
         Assert.Equal("game-1", info.Args["gameId"]);
         Assert.Equal("Alpha", info.Args["gameName"]);
         Assert.Equal(error.ToString(), info.Detail);
+    }
+
+    [Theory]
+    [InlineData(LaunchMethod.Exe, "exe")]
+    [InlineData(LaunchMethod.Uri, "uri")]
+    public void ErrorInfo_gives_the_launch_method_to_the_copy_as_its_json_name(LaunchMethod method, string name)
+    {
+        var info = ErrorInfo.From(new LaunchSpawnException(method, "could not start", null));
+
+        Assert.Equal(name, info.Args["method"]);
     }
 
     [Fact]
@@ -170,8 +180,10 @@ public class ErrorTypesTests
             ("role", RepoRole.Install));
         Add("DetachedCaptureNotSupported", new DetachedCaptureNotSupportedException(RepoRole.External), "error.launch.detachedCaptureNotSupported",
             ("role", RepoRole.External));
-        Add("LaunchSpawn", new LaunchSpawnException("exe", "could not start", null), "error.launch.spawnFailed",
-            ("method", "exe"));
+        Add("LaunchSpawn", new LaunchSpawnException(LaunchMethod.Exe, "could not start", null), "error.launch.spawnFailed",
+            ("method", LaunchMethod.Exe));
+        Add("LaunchWindowsProgram", new LaunchWindowsProgramException("/games/alpha/Game.exe"), "error.launch.windowsProgram",
+            ("path", "/games/alpha/Game.exe"));
         Add("PathMissing", new PathMissingException("/games/alpha", RepoRole.Install), "error.path.missing",
             ("path", "/games/alpha"), ("role", RepoRole.Install));
         Add("PathMissing external", new PathMissingException("/saves/alpha", RepoRole.External), "error.path.missing",
