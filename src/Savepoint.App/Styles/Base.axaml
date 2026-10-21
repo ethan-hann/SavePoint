@@ -1,0 +1,54 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- Window and popup text defaults: Roboto 13 in on-surface, so unclassed text is body text. -->
+  <Style Selector="Window">
+    <Setter Property="Background" Value="{DynamicResource Md3SurfaceBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource Md3OnSurfaceBrush}" />
+    <Setter Property="FontFamily" Value="{DynamicResource RobotoFont}" />
+    <Setter Property="FontSize" Value="13" />
+  </Style>
+
+  <!-- Popups are their own top-level windows and do not inherit the window's text defaults. -->
+  <Style Selector="PopupRoot">
+    <Setter Property="Foreground" Value="{DynamicResource Md3OnSurfaceBrush}" />
+    <Setter Property="FontFamily" Value="{DynamicResource RobotoFont}" />
+    <Setter Property="FontSize" Value="13" />
+  </Style>
+
+  <!-- Tooltip: inverse-surface chip, 12px text, faded by the shared opacity bundle (Fluent colors come from FluentBridge). -->
+  <Style Selector="ToolTip">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Padding" Value="10,6" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Md3RadiusControl}" />
+    <Setter Property="Transitions" Value="{DynamicResource Md3TransitionsOpacityShort}" />
+  </Style>
+
+  <!--
+    Fluent scroll bar fades follow the same reduce-motion switch as the app's own transitions.
+    A state condition gives a setter trigger priority, which template values would otherwise beat;
+    listing both states makes the condition hold whatever the enabled state is.
+  -->
+  <Style Selector="ScrollViewer /template/ Panel#PART_ScrollBarsSeparator:not(:disabled), ScrollViewer /template/ Panel#PART_ScrollBarsSeparator:disabled">
+    <Setter Property="Transitions" Value="{DynamicResource Md3TransitionsOpacityShort}" />
+  </Style>
+  <Style Selector="ScrollBar /template/ Rectangle#TrackRect:not(:disabled), ScrollBar /template/ Rectangle#TrackRect:disabled, ScrollBar /template/ RepeatButton:not(:disabled), ScrollBar /template/ RepeatButton:disabled, ScrollBar /template/ Thumb:not(:disabled), ScrollBar /template/ Thumb:disabled">
+    <Setter Property="Transitions" Value="{DynamicResource Md3TransitionsOpacityShort}" />
+  </Style>
+
+  <!-- Menus and separators keep Fluent's templates; colors come from FluentBridge and the radius from OverlayCornerRadius. -->
+  <Style Selector="Separator">
+    <Setter Property="Background" Value="{DynamicResource Md3OutlineVariantBrush}" />
+  </Style>
+
+  <!-- Icon-and-label content centers on one line without every screen setting it. -->
+  <Style Selector="Button TextBlock, ToggleButton TextBlock">
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="MenuItem">
+    <Setter Property="FontSize" Value="13" />
+  </Style>
+
+</Styles>

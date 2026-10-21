@@ -1,0 +1,12 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    Fallback keyboard focus indicator for focusable controls the app does not theme itself (Md3FocusRingDefault in
+    Tokens.axaml). The themed controls draw their own ring and switch this one off. Pointer focus never shows it.
+  -->
+  <ControlTheme x:Key="{x:Type AdornerLayer}" TargetType="AdornerLayer">
+    <Setter Property="DefaultFocusAdorner" Value="{DynamicResource Md3FocusRingDefault}" />
+  </ControlTheme>
+
+</ResourceDictionary>

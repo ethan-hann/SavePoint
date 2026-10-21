@@ -7,6 +7,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using Savepoint.App.Theme;
 using Savepoint.App.Theme.Material;
 using Savepoint.Core.Catalog;
@@ -111,6 +112,18 @@ internal static class ThemeTestSupport
         return frame.Format == PixelFormat.Bgra8888
             ? Color.FromArgb(pixels[offset + 3], pixels[offset + 2], pixels[offset + 1], pixels[offset])
             : Color.FromArgb(pixels[offset + 3], pixels[offset], pixels[offset + 1], pixels[offset + 2]);
+    }
+
+    // Shows a control in a window under the real application styles, with the theme set explicitly.
+    public static Window HostInWindow(Control content, ThemePreference preference = ThemePreference.Dark, AccentColorId accent = AccentColorId.Blue, double width = 260, double height = 160)
+    {
+        var app = (App)Application.Current!;
+        app.Theme.ReduceMotion = false;
+        app.Theme.Apply(preference, accent);
+        var window = new Window { Width = width, Height = height, Content = content };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        return window;
     }
 
     public static WriteableBitmap Render(Window window)

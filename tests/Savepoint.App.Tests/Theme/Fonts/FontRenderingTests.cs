@@ -74,7 +74,6 @@ public class FontRenderingTests
             },
         };
         window.Show();
-        var expected = FontTestSupport.HashOfEmbeddedFile("Roboto-Regular.ttf");
 
         var blocks = window.GetVisualDescendants().OfType<TextBlock>().ToList();
 
@@ -82,8 +81,10 @@ public class FontRenderingTests
         foreach (var block in blocks)
         {
             var run = Assert.Single(ShapedRuns(block));
-            Assert.Equal("Roboto", run.GlyphRun.GlyphTypeface.FamilyName);
-            Assert.Equal(expected, FontTestSupport.HashOfResolvedFile(run.GlyphRun.GlyphTypeface));
+            // Buttons are medium weight in the app theme; everything else here is regular.
+            var face = block.FontWeight == FontWeight.Medium ? "Roboto-Medium.ttf" : "Roboto-Regular.ttf";
+            Assert.StartsWith("Roboto", run.GlyphRun.GlyphTypeface.FamilyName);
+            Assert.Equal(FontTestSupport.HashOfEmbeddedFile(face), FontTestSupport.HashOfResolvedFile(run.GlyphRun.GlyphTypeface));
         }
     }
 

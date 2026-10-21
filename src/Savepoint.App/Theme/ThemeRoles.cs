@@ -2,7 +2,11 @@ using Savepoint.App.Theme.Material;
 
 namespace Savepoint.App.Theme;
 
-// Every color role the UI can ask for, keyed by the name used in resource keys (see ThemeKeys).
+/// <summary>
+/// Every color role the UI can ask for. Besides the Material 3 roles from the tonal-spot scheme it holds roles the
+/// spec needs that M3 does not define: warning and success (D22), muted callout fills and borders, and a few
+/// translucent or derived surfaces. Names here are role names; <see cref="ThemeKeys"/> turns them into resource keys.
+/// </summary>
 public static class ThemeRoles
 {
     // Seeds whose hue D22 uses for the roles M3 does not define.
@@ -18,6 +22,16 @@ public static class ThemeRoles
     private const double _calloutFillChroma = 10.0;
     private const double _calloutBorderChroma = 20.0;
 
+    /// <summary>
+    /// Every role for a seed and mode, as role name to ARGB.
+    /// <list type="bullet">
+    /// <item>M3 roles: Primary, OnPrimaryContainer, Surface, SurfaceContainerHigh, Outline, Error and the rest of the port's palette.</item>
+    /// <item>Warning and Success, each with On, Container and OnContainer, at the tones M3 uses for error.</item>
+    /// <item>Error, Warning and Success CalloutBackground and CalloutBorder: a muted tint of the family hue.</item>
+    /// <item>Translucent: ScrimOverlay (scrim at 45%), StateHover and StatePressed (on-surface at 8% and 12%), DisabledContainer (12%), DisabledContent (38%), ProgressTrack, ScrollThumb, ScrollThumbHover, ScrollThumbPressed.</item>
+    /// <item>Opaque derived: SelectedRow (surface tinted toward primary) and Card (the card surface).</item>
+    /// </list>
+    /// </summary>
     public static IReadOnlyDictionary<string, uint> Build(uint seedArgb, bool dark)
     {
         var palette = Md3Palette.Build(seedArgb, dark);
@@ -40,10 +54,13 @@ public static class ThemeRoles
         roles["StatePressed"] = WithOpacity(palette.OnSurface, 0.12);
         roles["DisabledContainer"] = WithOpacity(palette.OnSurface, 0.12);
         roles["DisabledContent"] = WithOpacity(palette.OnSurface, 0.38);
-        roles["SelectedRow"] = WithOpacity(palette.Primary, 0.08);
+        roles["ProgressTrack"] = WithOpacity(palette.Primary, 0.16);
         roles["ScrollThumb"] = WithOpacity(palette.OnSurfaceVariant, 0.4);
         roles["ScrollThumbHover"] = WithOpacity(palette.OnSurfaceVariant, 0.6);
         roles["ScrollThumbPressed"] = WithOpacity(palette.OnSurfaceVariant, 0.8);
+
+        // Opaque, so a selected row reads the same on the page, in a dialog and inside a card.
+        roles["SelectedRow"] = Mix(palette.Surface, palette.Primary, dark ? 0.075 : 0.06);
 
         // The spec draws cards lighter than the page in light mode, where M3's container tones go darker.
         roles["Card"] = dark ? palette.SurfaceContainer : palette.SurfaceContainerLowest;
@@ -70,4 +87,16 @@ public static class ThemeRoles
 
     private static uint WithOpacity(uint argb, double opacity) =>
         ((uint)Math.Round(opacity * 255) << 24) | (argb & 0x00FFFFFF);
+
+    private static uint Mix(uint from, uint toward, double amount)
+    {
+        static uint Channel(uint from, uint toward, int shift, double amount)
+        {
+            double start = (from >> shift) & 0xFF;
+            double end = (toward >> shift) & 0xFF;
+            return (uint)Math.Round(start + ((end - start) * amount)) << shift;
+        }
+
+        return 0xFF000000u | Channel(from, toward, 16, amount) | Channel(from, toward, 8, amount) | Channel(from, toward, 0, amount);
+    }
 }

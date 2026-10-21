@@ -136,7 +136,7 @@ public class ThemeServiceResourceTests
     [InlineData("StatePressed", "OnSurface", 0.12)]
     [InlineData("DisabledContainer", "OnSurface", 0.12)]
     [InlineData("DisabledContent", "OnSurface", 0.38)]
-    [InlineData("SelectedRow", "Primary", 0.08)]
+    [InlineData("ProgressTrack", "Primary", 0.16)]
     public void Translucent_roles_are_a_palette_color_at_a_fixed_opacity(string role, string source, double opacity)
     {
         var harness = new ThemeHarness();
@@ -149,6 +149,24 @@ public class ThemeServiceResourceTests
         Assert.Equal(basis.G, derived.G);
         Assert.Equal(basis.B, derived.B);
         Assert.Equal((byte)Math.Round(opacity * 255), derived.A);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true, 0.075)]
+    [InlineData(false, 0.06)]
+    public void Selected_row_is_the_surface_tinted_toward_primary(bool dark, double amount)
+    {
+        var harness = new ThemeHarness();
+
+        harness.Service.Apply(dark ? ThemePreference.Dark : ThemePreference.Light, AccentColorId.Blue);
+
+        var surface = harness.ColorOf("Surface");
+        var primary = harness.ColorOf("Primary");
+        var tint = harness.ColorOf("SelectedRow");
+        Assert.Equal(0xFF, tint.A);
+        Assert.Equal((byte)Math.Round(surface.R + ((primary.R - surface.R) * amount)), tint.R);
+        Assert.Equal((byte)Math.Round(surface.G + ((primary.G - surface.G) * amount)), tint.G);
+        Assert.Equal((byte)Math.Round(surface.B + ((primary.B - surface.B) * amount)), tint.B);
     }
 
     [AvaloniaTheory]

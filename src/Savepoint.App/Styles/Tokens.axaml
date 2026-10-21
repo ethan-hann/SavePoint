@@ -1,0 +1,64 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    Design tokens that do not depend on the accent or mode. Colors are published by ThemeService as
+    Md3<Role>Brush and Md3<Role>Color; motion is published by ThemeService too: Md3MotionDurationShort (150ms) and
+    Md3MotionDurationMedium (200ms) as TimeSpan, Md3EasingStandard as the MD3 curve, and the shared transition
+    bundles Md3TransitionsOpacityShort, Md3TransitionsOpacityMedium and Md3TransitionsKnob, which reduce-motion zeroes.
+  -->
+
+  <!-- Radii: Md3Radius<Name> as CornerRadius. -->
+  <CornerRadius x:Key="Md3RadiusPill">100</CornerRadius>
+  <CornerRadius x:Key="Md3RadiusCard">14</CornerRadius>
+  <CornerRadius x:Key="Md3RadiusPanel">12</CornerRadius>
+  <CornerRadius x:Key="Md3RadiusDialog">16</CornerRadius>
+  <!-- Tables and list rows. -->
+  <CornerRadius x:Key="Md3RadiusRow">10</CornerRadius>
+  <!-- Inputs, secondary buttons, art tiles. -->
+  <CornerRadius x:Key="Md3RadiusControl">8</CornerRadius>
+  <!-- Table-row buttons and toggle segments. -->
+  <CornerRadius x:Key="Md3RadiusSmall">6</CornerRadius>
+
+  <!-- Fluent's own radius keys, so the Fluent controls the app keeps (menus, tooltips) match. -->
+  <CornerRadius x:Key="ControlCornerRadius">8</CornerRadius>
+  <CornerRadius x:Key="OverlayCornerRadius">10</CornerRadius>
+
+  <!-- Spacing: Md3Space<Pixels> as Double, then the paddings screens and dialogs share. -->
+  <x:Double x:Key="Md3Space6">6</x:Double>
+  <x:Double x:Key="Md3Space9">9</x:Double>
+  <x:Double x:Key="Md3Space12">12</x:Double>
+  <x:Double x:Key="Md3Space14">14</x:Double>
+  <x:Double x:Key="Md3Space20">20</x:Double>
+  <x:Double x:Key="Md3Space26">26</x:Double>
+  <Thickness x:Key="Md3ScreenPadding">22</Thickness>
+  <Thickness x:Key="Md3DialogPadding">26</Thickness>
+  <Thickness x:Key="Md3RowPadding">14,11</Thickness>
+
+  <!-- Elevation: dialogs only; every other surface separates by tone and a 1px border. -->
+  <BoxShadows x:Key="Md3DialogShadow">0 12 40 0 #80000000</BoxShadows>
+
+  <!-- Stroke widths. -->
+  <Thickness x:Key="Md3BorderThin">1</Thickness>
+  <Thickness x:Key="Md3BorderFocus">1.5</Thickness>
+
+  <!-- State-layer opacities, from MD3. -->
+  <x:Double x:Key="Md3OpacityHover">0.08</x:Double>
+  <x:Double x:Key="Md3OpacityPressed">0.12</x:Double>
+  <x:Double x:Key="Md3OpacityFocus">0.12</x:Double>
+
+  <!--
+    Keyboard focus. The app's own controls draw a 2px primary ring 2px outside themselves (PART_FocusRing in each
+    template). Controls without one fall back to the adorner below, inset and in two tones, because adorners are
+    clipped to the control's bounds. None switches the fallback off for controls that draw their own.
+  -->
+  <FocusAdornerTemplate x:Key="Md3FocusRingNone">
+    <Border IsHitTestVisible="False" />
+  </FocusAdornerTemplate>
+  <FocusAdornerTemplate x:Key="Md3FocusRingDefault">
+    <Border BorderThickness="2" BorderBrush="{DynamicResource Md3PrimaryBrush}" CornerRadius="8" IsHitTestVisible="False">
+      <Border BorderThickness="1" BorderBrush="{DynamicResource Md3SurfaceBrush}" CornerRadius="6" />
+    </Border>
+  </FocusAdornerTemplate>
+
+</ResourceDictionary>

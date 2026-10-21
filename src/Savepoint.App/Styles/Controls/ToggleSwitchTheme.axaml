@@ -1,0 +1,118 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    44x24 track with an 18px knob and 3px padding. The part names are the ones ToggleSwitch drives for the
+    knob slide and drag. Content is the label, to the left of the track; leave it empty for a bare switch
+    and give the switch an AutomationProperties.Name instead.
+  -->
+  <ControlTheme x:Key="{x:Type ToggleSwitch}" TargetType="ToggleSwitch">
+    <Setter Property="Foreground" Value="{DynamicResource Md3OnSurfaceBrush}" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="OnContent" Value="{x:Null}" />
+    <Setter Property="OffContent" Value="{x:Null}" />
+    <Setter Property="FocusAdorner" Value="{DynamicResource Md3FocusRingNone}" />
+    <!-- Templated controls clip to their bounds by default, which would cut off the focus ring. -->
+    <Setter Property="ClipToBounds" Value="False" />
+    <Setter Property="KnobTransitions" Value="{DynamicResource Md3TransitionsKnob}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Grid Background="Transparent" ColumnDefinitions="*,Auto">
+          <ContentPresenter x:Name="PART_ContentPresenter"
+                            Grid.Column="0"
+                            Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            VerticalAlignment="Center"
+                            Margin="0,0,14,0"
+                            RecognizesAccessKey="True" />
+          <ContentPresenter x:Name="PART_OffContentPresenter"
+                            Grid.Column="1"
+                            IsVisible="False"
+                            Content="{TemplateBinding OffContent}"
+                            ContentTemplate="{TemplateBinding OffContentTemplate}" />
+          <ContentPresenter x:Name="PART_OnContentPresenter"
+                            Grid.Column="1"
+                            IsVisible="False"
+                            Content="{TemplateBinding OnContent}"
+                            ContentTemplate="{TemplateBinding OnContentTemplate}" />
+          <Panel Grid.Column="1" Width="44" Height="24" VerticalAlignment="Center">
+            <Border x:Name="OuterBorder"
+                    Background="{DynamicResource Md3OutlineVariantBrush}"
+                    CornerRadius="12" />
+            <Border x:Name="SwitchKnobBounds"
+                    Background="{DynamicResource Md3PrimaryBrush}"
+                    CornerRadius="12"
+                    Opacity="0"
+                    Transitions="{DynamicResource Md3TransitionsOpacityShort}" />
+            <Border x:Name="PART_StateLayer"
+                    Background="{DynamicResource Md3OnSurfaceBrush}"
+                    CornerRadius="12"
+                    Opacity="0"
+                    IsHitTestVisible="False"
+                    Transitions="{DynamicResource Md3TransitionsOpacityShort}" />
+            <!-- The knob travels this canvas' width: the 44px track minus the 24px knob panel. -->
+            <Canvas x:Name="PART_SwitchKnob" Width="20" Height="24" HorizontalAlignment="Left">
+              <Grid x:Name="PART_MovingKnobs" Width="24" Height="24">
+                <Ellipse x:Name="SwitchKnobOff"
+                         Width="18"
+                         Height="18"
+                         Fill="{DynamicResource Md3SurfaceContainerLowestBrush}" />
+                <Ellipse x:Name="SwitchKnobOn"
+                         Width="18"
+                         Height="18"
+                         Fill="{DynamicResource Md3OnPrimaryBrush}"
+                         Opacity="0" />
+              </Grid>
+            </Canvas>
+            <Border x:Name="PART_FocusRing"
+                    Margin="-4"
+                    BorderBrush="{DynamicResource Md3PrimaryBrush}"
+                    BorderThickness="2"
+                    CornerRadius="16"
+                    IsVisible="False"
+                    IsHitTestVisible="False" />
+          </Panel>
+        </Grid>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:pointerover /template/ Border#PART_StateLayer">
+      <Setter Property="Opacity" Value="{DynamicResource Md3OpacityHover}" />
+    </Style>
+    <Style Selector="^:pressed /template/ Border#PART_StateLayer">
+      <Setter Property="Opacity" Value="{DynamicResource Md3OpacityPressed}" />
+    </Style>
+    <Style Selector="^:focus-visible /template/ Border#PART_FocusRing">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="^:checked /template/ Border#SwitchKnobBounds">
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="^:checked /template/ Ellipse#SwitchKnobOn">
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="^:checked /template/ Ellipse#SwitchKnobOff">
+      <Setter Property="Opacity" Value="0" />
+    </Style>
+
+    <Style Selector="^:disabled">
+      <Setter Property="Foreground" Value="{DynamicResource Md3DisabledContentBrush}" />
+    </Style>
+    <Style Selector="^:disabled /template/ Border#OuterBorder">
+      <Setter Property="Background" Value="{DynamicResource Md3DisabledContainerBrush}" />
+    </Style>
+    <Style Selector="^:disabled /template/ Border#SwitchKnobBounds">
+      <Setter Property="Background" Value="{DynamicResource Md3DisabledContentBrush}" />
+    </Style>
+    <Style Selector="^:disabled /template/ Ellipse#SwitchKnobOff, ^:disabled /template/ Ellipse#SwitchKnobOn">
+      <Setter Property="Fill" Value="{DynamicResource Md3SurfaceBrush}" />
+    </Style>
+    <Style Selector="^:disabled /template/ Border#PART_StateLayer">
+      <Setter Property="Opacity" Value="0" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>
