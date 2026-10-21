@@ -98,7 +98,27 @@ public sealed class JobRegistry : IJobsApi
     /// What happened. Only <see cref="JobCancelOutcome.Requested"/> changes anything; an unknown, finished, already
     /// cancelled or non-cancellable job is left alone. Never throws; the job still ends through its own work.
     /// </returns>
-    public JobCancelOutcome Cancel(Guid jobId)
+    public JobCancelOutcome Cancel(Guid jobId) => RequestStop(jobId, preempt: false);
+
+    /// <summary>
+    /// Stops an optimization job so something else on the same game can go first (D13.17): the same as <see cref="Cancel"/>,
+    /// except that the job ends cancelled with <c>error.compaction.preempted</c> instead of the user-cancel message.
+    /// </summary>
+    /// <param name="jobId">The optimization job; wire it as the cancel callback of <c>GameLockHandle.MarkPreemptible</c>.</param>
+    /// <returns>
+    /// What happened, as for <see cref="Cancel"/>. A job of any other kind is never preempted and answers
+    /// <see cref="JobCancelOutcome.NotCancellable"/>. Whichever of a cancel and a preemption arrives first decides the message.
+    /// </returns>
+    public JobCancelOutcome Preempt(Guid jobId) => RequestStop(jobId, preempt: true);
+
+    /// <summary>The <see cref="IJobsApi"/> form of <see cref="Cancel"/>: always succeeds, whatever the job's state.</summary>
+    public Task<OperationResult<Unit>> CancelAsync(Guid jobId)
+    {
+        _ = Cancel(jobId);
+        return Task.FromResult(OperationResult.Success());
+    }
+
+    private JobCancelOutcome RequestStop(Guid jobId, bool preempt)
     {
         CancellationTokenSource source;
         lock (_gate)
@@ -113,7 +133,7 @@ public sealed class JobRegistry : IJobsApi
                 return JobCancelOutcome.Finished;
             }
 
-            if (!job.Cancellable)
+            if (!job.Cancellable || (preempt && job.Kind != JobKind.Compact))
             {
                 return JobCancelOutcome.NotCancellable;
             }
@@ -124,6 +144,7 @@ public sealed class JobRegistry : IJobsApi
             }
 
             job.CancelRequested = true;
+            job.Preempted = preempt;
             job.Revision++;
             Publish(job);
             source = job.Cancellation;
@@ -132,13 +153,6 @@ public sealed class JobRegistry : IJobsApi
         ScheduleDelivery();
         _ = CancelQuietlyAsync(source);
         return JobCancelOutcome.Requested;
-    }
-
-    /// <summary>The <see cref="IJobsApi"/> form of <see cref="Cancel"/>: always succeeds, whatever the job's state.</summary>
-    public Task<OperationResult<Unit>> CancelAsync(Guid jobId)
-    {
-        _ = Cancel(jobId);
-        return Task.FromResult(OperationResult.Success());
     }
 
     // The token flips before this returns, but the work's cancel callbacks (killing a process tree, say) run off the caller's thread.
@@ -178,15 +192,15 @@ public sealed class JobRegistry : IJobsApi
             result = await work(context).ConfigureAwait(false);
             (status, error) = JobOutcome.Judge(result);
         }
-        catch (OperationCancelledByUserException cancelled)
+        catch (Exception exception) when (exception is OperationCancelledByUserException or CompactionPreemptedException)
         {
             result = null;
-            (status, error) = (JobStatus.Cancelled, ErrorInfo.From(cancelled));
+            (status, error) = (JobStatus.Cancelled, ErrorInfo.From(exception));
         }
         catch (OperationCanceledException) when (IsCancelRequested(job))
         {
             result = null;
-            (status, error) = (JobStatus.Cancelled, JobOutcome.CancelledError(job.Kind, job.GameId));
+            (status, error) = (JobStatus.Cancelled, WasPreempted(job) ? JobOutcome.PreemptedError(job.Kind, job.GameId) : JobOutcome.CancelledError(job.Kind, job.GameId));
         }
         catch (Exception exception)
         {
@@ -202,6 +216,14 @@ public sealed class JobRegistry : IJobsApi
         lock (_gate)
         {
             return job.CancelRequested;
+        }
+    }
+
+    private bool WasPreempted(Job job)
+    {
+        lock (_gate)
+        {
+            return job.Preempted;
         }
     }
 
@@ -439,6 +461,9 @@ public sealed class JobRegistry : IJobsApi
         public JobStatus Status { get; set; } = JobStatus.Running;
 
         public bool CancelRequested { get; set; }
+
+        // Set with CancelRequested when the stop was a preemption, which changes only the message.
+        public bool Preempted { get; set; }
 
         public JobProgress Progress { get; set; } = JobProgress.None;
 

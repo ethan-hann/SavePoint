@@ -35,6 +35,7 @@ public static class ErrorPresentation
         ["error.capture.cancelled"] = new(Icons.Cancel, ErrorTone.Neutral, "errorCard.title.canceled"),
         ["error.catalog.corrupt"] = new(Icons.Report, ErrorTone.Error, "errorCard.title.dataUnreadable"),
         ["error.compaction.cancelled"] = new(Icons.Cancel, ErrorTone.Neutral, "errorCard.title.canceled"),
+        ["error.compaction.preempted"] = new(Icons.Schedule, ErrorTone.Neutral, "errorCard.title.optimizingPaused"),
         ["error.consentMarker.conflict"] = new(Icons.Block, ErrorTone.Error, "errorCard.title.folderBelongsElsewhere"),
         ["error.consentMarker.missing"] = new(Icons.VerifiedUser, ErrorTone.Warning, "errorCard.title.folderUnconfirmed"),
         ["error.diskSpace.low"] = new(Icons.Storage, ErrorTone.Warning, "errorCard.title.noRoom"),

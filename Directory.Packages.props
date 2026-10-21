@@ -18,5 +18,7 @@
     <PackageVersion Include="xunit.v3" Version="3.2.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
+    <!-- Same version as the Microsoft.Testing.Platform that xunit.v3 3.2.2 brings in; used by the Linux gate only (build/TestRetry.targets). -->
+    <PackageVersion Include="Microsoft.Testing.Extensions.Retry" Version="1.9.1" />
   </ItemGroup>
 </Project>

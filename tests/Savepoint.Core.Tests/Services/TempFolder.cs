@@ -12,6 +12,32 @@ internal sealed class TempFolder : IDisposable
 
     public string Path { get; }
 
+    // False where chmod changes nothing (a Windows drive seen from WSL reports every file as executable) or there are no modes at all.
+    public static bool HonorsFileModes()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return false;
+        }
+
+        const UnixFileMode anyExecute = UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute;
+        var folder = Directory.CreateTempSubdirectory("savepoint-modes-");
+        try
+        {
+            var probe = System.IO.Path.Combine(folder.FullName, "probe");
+            File.WriteAllBytes(probe, [0]);
+            File.SetUnixFileMode(probe, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            var plain = File.GetUnixFileMode(probe);
+            File.SetUnixFileMode(probe, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            var marked = File.GetUnixFileMode(probe);
+            return (plain & anyExecute) == 0 && (marked & UnixFileMode.UserExecute) != 0;
+        }
+        finally
+        {
+            folder.Delete(recursive: true);
+        }
+    }
+
     public string Combine(params string[] parts) => System.IO.Path.Combine([Path, .. parts]);
 
     public string WriteBytes(string relativePath, int length)

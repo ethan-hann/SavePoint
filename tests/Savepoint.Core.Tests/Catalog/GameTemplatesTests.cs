@@ -126,8 +126,9 @@ public class GameTemplatesTests
         var definition = JsonSerializer.Deserialize(File.ReadAllText(path), CatalogJsonContext.Default.GameDefinition)!;
 
         Assert.Equal("fake-game", definition.Id);
-        Assert.Equal(["--title=Fake Game (SavePoint test)"], definition.Launch.Args);
-        Assert.Equal("FakeGame.exe", definition.Launch.ProcessNameForExitDetection);
+        Assert.Equal(["--saves", "../FakeGameSaves", "--save-every", "1000"], definition.Launch.Args);
+        Assert.Equal("FakeGame", definition.Launch.ProcessNameForExitDetection);
+        Assert.Equal("{userHome}/SavePointTest/FakeGameSaves", definition.External!.Path);
         Assert.Empty(CatalogValidator.Validate(definition));
     }
 

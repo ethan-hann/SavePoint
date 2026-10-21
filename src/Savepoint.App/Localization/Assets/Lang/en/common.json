@@ -19,6 +19,7 @@
   "errorCard.title.historyFound": "Saved history was found here",
   "errorCard.title.noRoom": "There isn't enough room",
   "errorCard.title.olderSave": "You're on an older save",
+  "errorCard.title.optimizingPaused": "Optimizing paused",
   "errorCard.title.profileActive": "This is the active profile",
   "errorCard.title.toolMissing": "SavePoint's built-in tool is missing",
   "errorCard.title.unsavedChanges": "Unsaved changes are in the way",

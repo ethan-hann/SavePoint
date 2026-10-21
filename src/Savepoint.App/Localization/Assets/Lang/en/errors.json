@@ -2,6 +2,7 @@
   "error.capture.cancelled": "Saving was canceled. Everything you saved earlier is untouched, so you can save again whenever you're ready.",
   "error.catalog.corrupt": "SavePoint couldn't read the file where it keeps your games and profiles, so it left the file exactly as it is. Restore the backup copy next to it (the same name ending in .bak) if there is one, or move the file away to start again with no games listed.",
   "error.compaction.cancelled": "Optimizing storage was canceled. Nothing was lost, and you can run it again any time.",
+  "error.compaction.preempted": "Optimizing storage stopped so something else on this game could go first. Nothing was lost, and it runs again by itself after your next save.",
   "error.consentMarker.conflict": "That folder is already tracked by a different game in SavePoint.",
   "error.consentMarker.missing": "This folder has not been confirmed for SavePoint yet. Save again to confirm it.",
   "error.diskSpace.low": "There's not enough free disk space to save this profile right now.",
