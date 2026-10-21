@@ -7,13 +7,14 @@ using Savepoint.Core.Services.Exe;
 namespace Savepoint.Core.Services;
 
 /// <summary>
-/// What can be read about a game's install at one point of its history: how many mod files it holds and which version its
-/// executable declares. Points never change, so every answer is remembered for the life of the process (D13.15).
+/// What can be read about a game's install at one point of its history: how many mod files it holds, how large it is and
+/// which version its executable declares. Points never change, so every answer is remembered for the life of the process (D13.15).
 /// </summary>
 internal sealed class GameInsights
 {
     private readonly BackendServices _services;
     private readonly ConcurrentDictionary<string, int> _modCounts = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, long> _treeBytes = new(StringComparer.Ordinal);
 
     public GameInsights(BackendServices services)
     {
@@ -55,6 +56,29 @@ internal sealed class GameInsights
         var count = listing.SplitStandardOutputOnNul().Count(path => MatchesHint(path, usable));
         _modCounts[key] = count;
         return count;
+    }
+
+    /// <summary>The total size, in bytes, of every file a commit holds. One git process lists the whole tree with its sizes.</summary>
+    public async Task<long> TreeBytesAsync(RepoRef repo, string commit, CancellationToken cancellationToken)
+    {
+        var key = $"{repo.GitDir}|{commit}";
+        if (_treeBytes.TryGetValue(key, out var known))
+        {
+            return known;
+        }
+
+        var listing = await RepoGit.RunAsync(_services.Runner, repo.GitDir, true, cancellationToken, null, false, "ls-tree", "-r", "-l", "-z", commit).ConfigureAwait(false);
+        var total = listing.SplitStandardOutputOnNul().Sum(SizeOfEntry);
+        _treeBytes[key] = total;
+        return total;
+    }
+
+    // An entry reads "<mode> <type> <object> <size, padded>\t<path>"; a submodule's size is "-" and counts for nothing.
+    private static long SizeOfEntry(string entry)
+    {
+        var tab = entry.IndexOf('\t', StringComparison.Ordinal);
+        var fields = (tab < 0 ? entry : entry[..tab]).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return fields.Length == 4 && long.TryParse(fields[3], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var size) ? size : 0;
     }
 
     /// <summary>The version the game's executable declares at a commit; null for a URI launch, a missing exe or one with no version.</summary>

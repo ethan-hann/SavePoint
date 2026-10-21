@@ -12,7 +12,10 @@ namespace Savepoint.Core.Api;
 /// How many mod files changed against the profile's previous install point; null for its first install point and for save-only
 /// points.
 /// </param>
-/// <param name="Bytes">The size of what the capture saved, in bytes, where SavePoint can tell; null otherwise.</param>
+/// <param name="Bytes">
+/// The total size, in bytes, of the files the point recorded for the install folder: the whole install as it was then, not only
+/// what changed. Null for a save-only point, which recorded no install of its own, and where SavePoint cannot tell.
+/// </param>
 /// <param name="InUse">True when the install folder holds this point now.</param>
 /// <param name="LoadedNow">True when the saves folder holds this point now.</param>
 public sealed record HistoryPoint(

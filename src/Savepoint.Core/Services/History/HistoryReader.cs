@@ -17,7 +17,7 @@ internal sealed class HistoryReader
     private const int _parallelism = 6;
 
     private readonly BackendServices _services;
-    private readonly ConcurrentDictionary<string, Change> _changes = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, int> _modsChanged = new(StringComparer.Ordinal);
 
     public HistoryReader(BackendServices services)
     {
@@ -26,8 +26,6 @@ internal sealed class HistoryReader
 
     // One commit of a capture event, in the lineage of the profile that owns it.
     private sealed record Entry(RepoRole Role, Profile Profile, CommitInfo Commit, string? Previous);
-
-    private sealed record Change(int ModFilesChanged, long Bytes);
 
     private sealed class RawPoint(string captureId)
     {
@@ -53,7 +51,6 @@ internal sealed class HistoryReader
     {
         var repos = GameFolders.ReposForGitDirOnly(_services, storage, game);
         var install = repos.Single(repo => repo.Role == RepoRole.Install);
-        var external = repos.FirstOrDefault(repo => repo.Role == RepoRole.External);
 
         var lineages = await ReadLineagesAsync(storage, repos, profiles, cancellationToken).ConfigureAwait(false);
         var raw = Group(repos, profiles, lineages);
@@ -68,7 +65,7 @@ internal sealed class HistoryReader
             await slots.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
-                points[index] = await DescribeAsync(storage, game, install, external, point, installAt[point.CaptureId], heads, cancellationToken).ConfigureAwait(false);
+                points[index] = await DescribeAsync(storage, game, install, point, installAt[point.CaptureId], heads, cancellationToken).ConfigureAwait(false);
             }
             finally
             {
@@ -185,7 +182,6 @@ internal sealed class HistoryReader
         StorageSnapshot storage,
         GameDefinition game,
         RepoRef install,
-        RepoRef? external,
         RawPoint point,
         string? installCommit,
         Dictionary<RepoRole, string?> heads,
@@ -199,16 +195,14 @@ internal sealed class HistoryReader
         };
 
         var state = await InstallStateAsync(storage, game, install, point.Owner, installCommit, cancellationToken).ConfigureAwait(false);
-        var installChange = point.Install is { Previous: { } before } own
-            ? await ChangeAsync(storage, install, before, own.Commit.Id, game.ModPathHints, cancellationToken).ConfigureAwait(false)
-            : null;
-        var savesChange = point.External is { Previous: { } previousSave } saves && external is not null
-            ? await ChangeAsync(storage, external, previousSave, saves.Commit.Id, [], cancellationToken).ConfigureAwait(false)
-            : null;
 
         // The mod-file count is only meaningful where the game names mod folders; a first point has nothing to compare with.
-        int? modsChanged = installChange is not null && game.ModPathHints.Count > 0 ? installChange.ModFilesChanged : null;
-        long? bytes = installChange is null && savesChange is null ? null : (installChange?.Bytes ?? 0) + (savesChange?.Bytes ?? 0);
+        int? modsChanged = point.Install is { Previous: { } before } own && game.ModPathHints.Count > 0
+            ? await ModFilesChangedAsync(storage, install, before, own.Commit.Id, game.ModPathHints, cancellationToken).ConfigureAwait(false)
+            : null;
+
+        // A save-only point recorded no install of its own, so it has no size to show beside a version.
+        var bytes = point.Install is { } recorded ? await InstallBytesAsync(install, recorded.Commit.Id, cancellationToken).ConfigureAwait(false) : null;
 
         return new HistoryPoint(
             new HistoryPointId(point.CaptureId),
@@ -250,8 +244,8 @@ internal sealed class HistoryReader
         }
     }
 
-    // What changed between two points of one folder: the mod files among them and the bytes that are new.
-    private async Task<Change?> ChangeAsync(
+    // How many of the files that changed between two install points are mod files; null when the comparison cannot be made.
+    private async Task<int?> ModFilesChangedAsync(
         StorageSnapshot storage,
         RepoRef repo,
         string from,
@@ -259,8 +253,8 @@ internal sealed class HistoryReader
         IReadOnlyList<string> hints,
         CancellationToken cancellationToken)
     {
-        var key = $"{repo.GitDir}|{from}|{to}|{string.Join('\u001f', hints)}";
-        if (_changes.TryGetValue(key, out var known))
+        var key = $"{repo.GitDir}|{from}|{to}|{string.Join('', hints)}";
+        if (_modsChanged.TryGetValue(key, out var known))
         {
             return known;
         }
@@ -268,11 +262,24 @@ internal sealed class HistoryReader
         try
         {
             var diff = await storage.Engine.DiffStatAsync(repo, from, to, cancellationToken).ConfigureAwait(false);
-            var change = new Change(diff.ChangedPaths.Count(path => GameInsights.MatchesHint(path, hints)), diff.BytesAtTarget);
-            _changes[key] = change;
-            return change;
+            var count = diff.ChangedPaths.Count(path => GameInsights.MatchesHint(path, hints));
+            _modsChanged[key] = count;
+            return count;
         }
         catch (GitOperationException)
+        {
+            return null;
+        }
+    }
+
+    // The whole install as the point recorded it; null when its files cannot be read, which leaves the point without a size.
+    private async Task<long?> InstallBytesAsync(RepoRef install, string commit, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _services.Insights.TreeBytesAsync(install, commit, cancellationToken).ConfigureAwait(false);
+        }
+        catch (SavepointException)
         {
             return null;
         }

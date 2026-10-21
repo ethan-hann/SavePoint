@@ -6,6 +6,9 @@ namespace Savepoint.Core.Tests.Backend;
 
 public class HistoryTests
 {
+    // game.exe and data/base.pak, the files every test game starts with.
+    private static readonly long _baseInstallBytes = "MZ not a real program".Length + "base content".Length;
+
     [Fact]
     public async Task A_game_with_no_profiles_has_no_history()
     {
@@ -55,6 +58,8 @@ public class HistoryTests
         Assert.Equal(["Second save", "Patched", "Vanilla"], points.Select(p => p.Name));
         Assert.Equal([HistoryPointKind.SaveOnly, HistoryPointKind.VersionAndMods, HistoryPointKind.VersionModsAndSave], points.Select(p => p.Kind));
         Assert.True(points[0].CapturedAt > points[1].CapturedAt && points[1].CapturedAt > points[2].CapturedAt);
+        Assert.Null(points[0].Bytes);
+        Assert.Equal(_baseInstallBytes + "patched".Length, points[1].Bytes);
     }
 
     [Fact]
@@ -97,10 +102,11 @@ public class HistoryTests
         var saveOnly = points.Single(p => p.Kind == HistoryPointKind.SaveOnly);
         Assert.Equal(new InstallState("1.6.640", 2), saveOnly.Install);
         Assert.Null(saveOnly.ModFilesChanged);
+        Assert.Null(saveOnly.Bytes);
     }
 
     [Fact]
-    public async Task A_point_reports_the_mod_files_and_bytes_that_changed_since_the_profiles_previous_install_point()
+    public async Task A_point_reports_the_mod_files_that_changed_and_the_total_size_of_the_install_it_recorded()
     {
         using var workspace = new BackendWorkspace();
         var game = await workspace.AddGameAsync(workspace.NewGame(withSaves: false, modHints: ["mods"]));
@@ -117,10 +123,10 @@ public class HistoryTests
         var latest = points[0];
         Assert.Equal("More mods", latest.Name);
         Assert.Equal(2, latest.ModFilesChanged);
-        Assert.Equal(8 + 2 + "not a mod".Length, latest.Bytes);
+        Assert.Equal(_baseInstallBytes + 1 + 8 + 2 + "not a mod".Length, latest.Bytes);
         Assert.Equal(3, latest.Install.ModFileCount);
         Assert.Null(points[1].ModFilesChanged);
-        Assert.Null(points[1].Bytes);
+        Assert.Equal(_baseInstallBytes + 1, points[1].Bytes);
         Assert.Equal(1, points[1].Install.ModFileCount);
     }
 
