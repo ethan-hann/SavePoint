@@ -183,8 +183,11 @@ public sealed class SwitchSafetyTests : IDisposable
         var (repo, tips) = await TwoProfilesAsync();
         SwitchJournal.Write(repo.GitDir, tips.B, tips.A);
 
-        await Assert.ThrowsAsync<DirtyWorkingTreeException>(() => _ws.Engine.CheckoutBranchAsync(repo, "profile-b", ct: Ct));
+        var error = await Assert.ThrowsAsync<InterruptedSwitchException>(() => _ws.Engine.CheckoutBranchAsync(repo, "profile-b", ct: Ct));
 
+        Assert.Equal("error.launch.switchInterrupted", error.MessageId);
+        Assert.Equal(RepoRole.Install, error.Args["role"]);
+        Assert.Equal(tips.A, error.Args["targetPoint"]);
         Assert.Equal(new InterruptedSwitch(tips.B, tips.A), SwitchJournal.Read(repo.GitDir));
         Assert.Equal("refs/heads/profile-b", await _ws.HeadRefAsync(repo));
     }
@@ -252,10 +255,12 @@ public sealed class SwitchSafetyTests : IDisposable
             ExpectedStartCommit = tips.B,
         };
 
-        var error = await Assert.ThrowsAsync<DirtyWorkingTreeException>(() => _ws.Engine.CaptureAsync(repo, request, null, Ct));
+        var error = await Assert.ThrowsAsync<InterruptedSwitchException>(() => _ws.Engine.CaptureAsync(repo, request, null, Ct));
 
+        Assert.Equal("error.launch.switchInterrupted", error.MessageId);
         Assert.Equal(RepoRole.Install, error.Args["role"]);
-        Assert.DoesNotContain(_ws.Invocations, invocation => invocation.Arguments.Contains("add") || invocation.Arguments.Contains("commit"));
+        Assert.Equal(tips.A, error.Args["targetPoint"]);
+        Assert.DoesNotContain(_ws.Invocations, invocation => invocation.Arguments.Contains("add") || invocation.Arguments.Contains("commit") || invocation.Arguments.Contains("commit-tree"));
         Assert.Equal(tips.B, await _ws.TipAsync(repo, "profile-b"));
         Assert.Null(await _ws.TipAsync(repo, "profile-c"));
     }

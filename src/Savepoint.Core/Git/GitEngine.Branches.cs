@@ -126,6 +126,10 @@ public sealed partial class GitEngine
         return commit ?? throw new GitOperationException(null, $"The start point '{startPoint}' is not a commit or a branch with points.");
     }
 
+    // One ref write: git refuses when the branch is no longer at <expectedOld>, so a branch that moved since it was read is not overwritten.
+    private Task MoveBranchRefAsync(RepoRef repo, string branch, string commit, string expectedOld, string reason, CancellationToken ct) =>
+        RunWriteAsync(() => Invocation(repo, readOnly: false, "update-ref", "-m", reason, GitDirFiles.BranchPrefix + branch, commit, expectedOld), ct);
+
     // The all-zero old value makes git refuse atomically when the branch exists, which is how a second creator is told.
     private async Task CreateBranchRefAsync(RepoRef repo, string branch, string commit, string reason, CancellationToken ct)
     {

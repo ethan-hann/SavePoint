@@ -60,7 +60,7 @@ public sealed class LinkedFolderTests : IDisposable
 
         Assert.Equal("error.capture.linkedFolder", error.MessageId);
         Assert.Equal(_ws.FileOf(repo, "Mods"), error.Args["path"]);
-        Assert.DoesNotContain(_ws.Invocations, invocation => invocation.Arguments.Contains("add") || invocation.Arguments.Contains("commit"));
+        Assert.DoesNotContain(_ws.Invocations, invocation => invocation.Arguments.Contains("add") || invocation.Arguments.Contains("commit") || invocation.Arguments.Contains("commit-tree"));
         Assert.Null(await _ws.TipAsync(repo, "profile-1"));
     }
 

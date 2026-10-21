@@ -39,6 +39,8 @@ public class ErrorCopyTests
             new NoActiveSessionException("game-1"),
             new SessionStillRunningException("game-1"),
             new DirtyWorkingTreeException(RepoRole.Install),
+            new InterruptedSwitchException(RepoRole.Install, "0123456789abcdef0123456789abcdef01234567"),
+            new InterruptedSwitchException(RepoRole.External),
             new DetachedCaptureNotSupportedException(RepoRole.External),
             new LaunchSpawnException(LaunchMethod.Exe, "dev text", null),
             new LaunchSpawnException(LaunchMethod.Uri, "dev text", null),
