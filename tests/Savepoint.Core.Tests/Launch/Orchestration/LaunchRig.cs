@@ -15,7 +15,9 @@ namespace Savepoint.Core.Tests.Launch.Orchestration;
 // process name no other test shares) and whose saves folder is separate. Disposing kills whatever is still running under that name.
 internal sealed class LaunchRig : IDisposable
 {
-    private static readonly TimeSpan _patience = TimeSpan.FromSeconds(60);
+    // Every wait in these tests is bounded: a launch that hangs must fail its test, not hold the machine.
+    private static readonly TimeSpan _patience = TimeSpan.FromSeconds(45);
+    private static readonly TimeSpan _jobPatience = TimeSpan.FromSeconds(90);
 
     private readonly object _gate = new();
     private readonly List<LaunchSessionInfo> _events = [];
@@ -69,7 +71,7 @@ internal sealed class LaunchRig : IDisposable
         IReadOnlyList<string>? gameArguments = null,
         IReadOnlyList<string>? modHints = null,
         string? exePath = null,
-        string? processName = null,
+        bool followProcessName = false,
         bool withSaves = true,
         GameSessionOptions? session = null)
     {
@@ -93,7 +95,7 @@ internal sealed class LaunchRig : IDisposable
 
             arguments.AddRange(["--ready-file", Path.Combine(workspace.Root, "ready.txt")]);
             arguments.AddRange(gameArguments ?? []);
-            var game = definition with { Launch = new LaunchConfig(LaunchMethod.Exe, exePath ?? exeFile, null, arguments, processName) };
+            var game = definition with { Launch = new LaunchConfig(LaunchMethod.Exe, exePath ?? exeFile, null, arguments, followProcessName ? exeName : null) };
             return new LaunchRig(workspace, await workspace.AddGameAsync(game), exeName);
         }
         catch
@@ -113,6 +115,35 @@ internal sealed class LaunchRig : IDisposable
         }
 
         File.Move(Path.Combine(install, Path.GetFileName(FakeGameProcess.ExecutablePath)), Path.Combine(install, exeFile), overwrite: true);
+    }
+
+    // Vanilla is the game as installed; Modded adds two mod files, patches a game file and has a second save. The folders end on Modded.
+    public static async Task<(LaunchRig Rig, Profile Vanilla, Profile Modded)> WithTwoProfilesAsync(
+        Func<BackendOptions, BackendOptions>? configure = null,
+        IReadOnlyList<string>? gameArguments = null,
+        bool followProcessName = false)
+    {
+        var rig = await CreateAsync(configure, gameArguments, followProcessName: followProcessName);
+        try
+        {
+            var (vanilla, modded) = await rig.BuildTwoProfilesAsync();
+            return (rig, vanilla, modded);
+        }
+        catch
+        {
+            rig.Dispose();
+            throw;
+        }
+    }
+
+    public async Task<(Profile Vanilla, Profile Modded)> BuildTwoProfilesAsync()
+    {
+        var vanilla = await ProfileAsync("Vanilla");
+        WriteInstall("mods/a.txt", "mod a");
+        WriteInstall("mods/b.txt", "mod b");
+        WriteInstall("data/base.pak", "a longer, patched base content");
+        WriteSave("slot2.sav", "second save");
+        return (vanilla, await ProfileAsync("Modded"));
     }
 
     // Saves a profile from what the folders hold now.
@@ -135,7 +166,22 @@ internal sealed class LaunchRig : IDisposable
     {
         var started = await Profiles.CaptureAsync(Game.Id, profile.Id, pointName, folders.Length == 0 ? null : folders);
         Assert.True(started.Ok, started.Error?.Detail);
-        return await Workspace.WaitForJobAsync(started.Value.JobId);
+        return await WaitForJobAsync(started.Value.JobId);
+    }
+
+    // The job's last snapshot; a job that does not end in time fails the test and says where it stood.
+    public async Task<JobSnapshot> WaitForJobAsync(Guid jobId)
+    {
+        try
+        {
+            return await Workspace.WaitForJobAsync(jobId, _jobPatience);
+        }
+        catch (OperationCanceledException) when (!Token.IsCancellationRequested)
+        {
+            var job = Jobs.Get(jobId);
+            var lines = string.Join(" | ", job?.RecentLines.TakeLast(5) ?? []);
+            throw new TimeoutException($"The job never ended: {job?.Status}, progress {job?.Progress}, last lines [{lines}]. The session went through: {string.Join(", ", Phases())}.");
+        }
     }
 
     public async Task<LaunchPreview> PreviewAsync(LaunchTarget target)
@@ -150,7 +196,7 @@ internal sealed class LaunchRig : IDisposable
     {
         var started = await Launch.StartAsync(Game.Id, target);
         Assert.True(started.Ok, started.Error?.Detail);
-        return await Workspace.WaitForJobAsync(started.Value.JobId);
+        return await WaitForJobAsync(started.Value.JobId);
     }
 
     public async Task<LaunchSessionInfo> WaitForAsync(Func<LaunchSessionInfo, bool> condition, string described)
@@ -173,9 +219,39 @@ internal sealed class LaunchRig : IDisposable
         }
     }
 
+    // Waits until the event stream itself has delivered an event, which can trail the session the Api already shows.
+    public async Task WaitForEventAsync(Func<LaunchSessionInfo, bool> condition, string described)
+    {
+        var until = DateTime.UtcNow + _patience;
+        while (!Events.Any(condition))
+        {
+            if (DateTime.UtcNow > until)
+            {
+                throw new TimeoutException($"The event stream never delivered: {described}.");
+            }
+
+            await Task.Delay(20, Token);
+        }
+    }
+
     public Task<LaunchSessionInfo> WaitForAsync<TState>()
         where TState : SessionState =>
         WaitForAsync(session => session.State is TState, typeof(TState).Name);
+
+    // The phases the session has been through, oldest first, with a phase that was reported several times named once.
+    public IReadOnlyList<string> Phases()
+    {
+        var phases = new List<string>();
+        foreach (var name in Events.Select(e => e.State.GetType().Name))
+        {
+            if (phases.Count == 0 || phases[^1] != name)
+            {
+                phases.Add(name);
+            }
+        }
+
+        return phases;
+    }
 
     // The stand-in game process ids, found by the name only this rig's copy has.
     public IReadOnlyList<int> GameProcessIds() => [.. Process.GetProcessesByName(ExeName).Select(process => process.Id)];

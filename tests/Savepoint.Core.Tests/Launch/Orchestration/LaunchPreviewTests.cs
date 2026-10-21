@@ -12,20 +12,7 @@ public class LaunchPreviewTests(TwoProfiles shared) : IClassFixture<TwoProfiles>
     private LaunchRig Shared => shared.Rig;
 
     // Vanilla is the game as installed; Modded adds two mod files, patches a game file and has a second save. The folders end on Modded.
-    private static async Task<(LaunchRig Rig, Profile Vanilla, Profile Modded)> TwoProfilesAsync()
-    {
-        var rig = await LaunchRig.CreateAsync();
-        try
-        {
-            var (vanilla, modded) = await TwoProfiles.BuildAsync(rig);
-            return (rig, vanilla, modded);
-        }
-        catch
-        {
-            rig.Dispose();
-            throw;
-        }
-    }
+    private static Task<(LaunchRig Rig, Profile Vanilla, Profile Modded)> TwoProfilesAsync() => LaunchRig.WithTwoProfilesAsync();
 
     [Fact]
     public async Task A_profile_that_is_already_in_place_shows_the_banner_and_has_nothing_to_switch()
@@ -378,20 +365,10 @@ public sealed class TwoProfiles : IAsyncLifetime
 
     internal Profile Modded { get; private set; } = null!;
 
-    internal static async Task<(Profile Vanilla, Profile Modded)> BuildAsync(LaunchRig rig)
-    {
-        var vanilla = await rig.ProfileAsync("Vanilla");
-        rig.WriteInstall("mods/a.txt", "mod a");
-        rig.WriteInstall("mods/b.txt", "mod b");
-        rig.WriteInstall("data/base.pak", "a longer, patched base content");
-        rig.WriteSave("slot2.sav", "second save");
-        return (vanilla, await rig.ProfileAsync("Modded"));
-    }
-
     public async ValueTask InitializeAsync()
     {
         Rig = await LaunchRig.CreateAsync();
-        (Vanilla, Modded) = await BuildAsync(Rig);
+        (Vanilla, Modded) = await Rig.BuildTwoProfilesAsync();
     }
 
     public ValueTask DisposeAsync()

@@ -1,6 +1,7 @@
 using Savepoint.Core.Api;
 using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Errors;
 
 namespace Savepoint.Core.Launch.Orchestration;
 
@@ -37,6 +38,16 @@ internal sealed class SessionBook : IGameSessions
         lock (_gate)
         {
             return _starting.Contains(gameId) || (_records.TryGetValue(gameId, out var record) && record.IsOpen);
+        }
+    }
+
+    // True while the game is being launched or played, as opposed to waiting for the player's choice after the game has stopped.
+    public bool IsInUse(string gameId)
+    {
+        lock (_gate)
+        {
+            return _starting.Contains(gameId)
+                || (_records.TryGetValue(gameId, out var record) && record.Info.State is SessionState.Preparing or SessionState.Switching or SessionState.Running);
         }
     }
 
@@ -156,6 +167,32 @@ internal sealed class SessionBook : IGameSessions
 
             update(record);
             return true;
+        }
+    }
+
+    // Why a session cannot be completed now, or null when it can. A session that is over, or was never started, has nothing to
+    // complete; one that is still being prepared or played is not finished yet.
+    public static Exception? CannotComplete(string gameId, SessionRecord? record) => record?.Info.State switch
+    {
+        null or SessionState.Completing or SessionState.Completed or SessionState.Failed => new NoActiveSessionException(gameId),
+        SessionState.Exited => null,
+        _ => new SessionStillRunningException(gameId),
+    };
+
+    // Moves an exited session on while holding the lock, so two completions made at the same moment cannot both go ahead. The
+    // start function runs under the lock and answers the new state; it may start the capture job, which only schedules work.
+    public void Complete(string gameId, Func<SessionRecord, SessionState> start)
+    {
+        lock (_gate)
+        {
+            var record = _records.GetValueOrDefault(gameId);
+            if (CannotComplete(gameId, record) is { } refusal)
+            {
+                throw refusal;
+            }
+
+            record!.Info = record.Info with { State = start(record), Revision = ++_revision };
+            Announce(record.Info);
         }
     }
 
