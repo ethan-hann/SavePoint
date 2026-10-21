@@ -87,17 +87,14 @@ public sealed partial class LaunchOrchestrator
         ApiGuard.RunAsync(async () =>
         {
             var game = await RequireGameAsync(gameId).ConfigureAwait(false);
-
-            // The files of a game that is starting or running are in use; throwing changes away under it would corrupt the session.
-            if (_book.IsInUse(gameId))
-            {
-                throw new GameRunningException(gameId, game.Name);
-            }
+            await RefuseWhileOpenAsync(game).ConfigureAwait(false);
 
             return await _services.RunForGameAsync(
                 gameId,
                 async (storage, _) =>
                 {
+                    // The lock may have been queued behind a launch: the game can be open by now.
+                    await RefuseWhileOpenAsync(game).ConfigureAwait(false);
                     if (GameFolders.Repos(_services, storage, game).FirstOrDefault(repo => repo.Role == folder) is { } repo)
                     {
                         await storage.Engine.DiscardChangesAsync(repo).ConfigureAwait(false);
@@ -106,4 +103,14 @@ public sealed partial class LaunchOrchestrator
                     return Unit.Value;
                 }).ConfigureAwait(false);
         });
+
+    // The files of a game that is starting, running, or waiting for the player's choice are in use; throwing changes away under
+    // it would corrupt the session, and so would doing it under a game left open after its session was ended.
+    private async Task RefuseWhileOpenAsync(GameDefinition game)
+    {
+        if (_book.IsGameRunning(game.Id) || await IsGameOpenAsync(game).ConfigureAwait(false))
+        {
+            throw new GameRunningException(game.Id, game.Name);
+        }
+    }
 }
