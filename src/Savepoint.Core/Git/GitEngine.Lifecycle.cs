@@ -35,7 +35,7 @@ public sealed partial class GitEngine
         EnsureRepoFiles(repo);
         if (marker is MarkerState.Missing or MarkerState.Corrupt)
         {
-            RepoMarker.Write(repo, _options.Clock.GetUtcNow());
+            RepoMarker.Write(repo, _options.Clock.GetUtcNow(), replaceCorruptMarker);
         }
     }
 

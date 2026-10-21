@@ -65,7 +65,7 @@ internal sealed class EngineWorkspace : IDisposable
     }
 
     // The one place that builds the path judge, so a change to its constructor touches a single line.
-    public static PathSafety CreatePathSafety(IPlatform platform, string storageRoot) => new(platform, [storageRoot]);
+    public static PathSafety CreatePathSafety(IPlatform platform, string storageRoot) => new(platform, storageRoot);
 
     // A repo reference whose work tree exists and is empty; the git directory is not created.
     public RepoRef NewRepo(string gameId = "game-1", RepoRole role = RepoRole.Install)
@@ -113,7 +113,7 @@ internal sealed class EngineWorkspace : IDisposable
     // The valid marker in a folder, or null for a missing or unreadable one.
     public static (string GameId, RepoRole Role, DateTimeOffset ConfirmedAt)? ReadMarker(RepoRef repo) =>
         ConsentMarker.Read(repo.WorkTree) is ConsentMarkerState.Valid valid
-            ? (valid.Marker.GameId, valid.Marker.Role == ConsentRole.Install ? RepoRole.Install : RepoRole.External, valid.Marker.ConfirmedAt)
+            ? (valid.Marker.GameId, valid.Marker.Role, valid.Marker.ConfirmedAt)
             : null;
 
     // Fails the test (rather than throwing from inside a helper) when the folder holds no valid marker.
@@ -140,7 +140,7 @@ internal sealed class EngineWorkspace : IDisposable
         GitDirText(repo, relativePath).Split('\n', StringSplitOptions.TrimEntries);
 
     public static void WriteMarker(RepoRef repo, string gameId, RepoRole role, DateTimeOffset confirmedAt) =>
-        ConsentMarker.Write(repo.WorkTree, gameId, role == RepoRole.Install ? ConsentRole.Install : ConsentRole.External, confirmedAt);
+        ConsentMarker.Write(repo.WorkTree, gameId, role, confirmedAt);
 
     public static void CorruptMarker(RepoRef repo) => File.WriteAllText(MarkerPath(repo), "{ not a marker");
 

@@ -39,6 +39,20 @@ public sealed class CaptureGuardTests : IDisposable
     }
 
     [Fact]
+    public async Task A_capture_reports_a_marker_it_cannot_read_as_a_failed_operation_on_the_marker()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows can hold a file closed to every reader");
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "a.txt", "a");
+        using var held = new FileStream(EngineWorkspace.MarkerPath(repo), FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+
+        var error = await Assert.ThrowsAsync<GitOperationException>(() => _ws.CaptureAsync(repo));
+
+        Assert.Equal(EngineWorkspace.MarkerPath(repo), error.Args["path"]);
+        Assert.Null(await _ws.ResolveAsync(repo, "HEAD"));
+    }
+
+    [Fact]
     public async Task A_capture_refuses_a_protected_work_tree()
     {
         var repo = await _ws.InitializedRepoAsync();
