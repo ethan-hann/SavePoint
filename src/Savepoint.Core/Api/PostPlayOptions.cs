@@ -1,12 +1,20 @@
 namespace Savepoint.Core.Api;
 
+/// <summary>The choices a finished play session allows (D14).</summary>
+/// <param name="Choices">
+/// What this session allows. A session that started from an older point offers <see cref="CompletionChoice.ForkNewProfile"/>,
+/// <see cref="CompletionChoice.MoveForward"/>, and <see cref="CompletionChoice.Skip"/>.
+/// </param>
+/// <param name="Default">The choice to preselect; always one of <paramref name="Choices"/>.</param>
+/// <param name="UpdateTarget">
+/// The save point <see cref="CompletionChoice.UpdateExisting"/> would replace; null when that choice is not offered.
+/// </param>
+/// <param name="NewerPointCount">
+/// How many points stop being part of the profile on <see cref="CompletionChoice.MoveForward"/>, for its second confirmation;
+/// 0 when the session did not start from an older point.
+/// </param>
 public sealed record PostPlayOptions(
-    // What this session allows: an older start offers ForkNewProfile, MoveForward and Skip (D14).
     IReadOnlyList<CompletionChoice> Choices,
     CompletionChoice Default,
-
-    // The point UpdateExisting replaces; null when that choice is not offered.
     SaveEntry? UpdateTarget,
-
-    // Points that stop being part of the profile on MoveForward, for its second confirmation.
     int NewerPointCount);
