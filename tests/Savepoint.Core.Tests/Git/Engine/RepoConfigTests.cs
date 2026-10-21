@@ -17,7 +17,8 @@ public sealed class RepoConfigTests : IDisposable
         { "core.quotepath", "false" },
         { "core.autocrlf", "false" },
         { "core.bigfilethreshold", "128m" },
-        { "savepoint.repoconfigversion", "2" },
+        { "core.logallrefupdates", "false" },
+        { "savepoint.repoconfigversion", "3" },
     };
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -79,6 +80,16 @@ public sealed class RepoConfigTests : IDisposable
     }
 
     [Fact]
+    public async Task Captures_and_switches_leave_no_reflog_behind()
+    {
+        var (repo, points) = await _ws.ThreePointsRepoAsync();
+        await _ws.Engine.CheckoutCommitAsync(repo, points[0], ct: TestContext.Current.CancellationToken);
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-1", ct: TestContext.Current.CancellationToken);
+
+        Assert.False(Directory.Exists(Path.Combine(repo.GitDir, "logs")), "no reflog is kept: nothing in SavePoint reads one");
+    }
+
+    [Fact]
     public async Task Init_leaves_no_worktree_path_in_the_config()
     {
         var repo = await _ws.InitializedRepoAsync();
@@ -106,7 +117,7 @@ public sealed class RepoConfigTests : IDisposable
 
         await _ws.Engine.InitAsync(repo, ct: Ct);
 
-        Assert.Equal("2", await _ws.ConfigAsync(repo, "savepoint.repoConfigVersion"));
+        Assert.Equal("3", await _ws.ConfigAsync(repo, "savepoint.repoConfigVersion"));
         Assert.Equal("true", await _ws.ConfigAsync(repo, "core.untrackedCache"));
         Assert.Equal("false", await _ws.ConfigAsync(repo, "maintenance.auto"));
     }
@@ -160,6 +171,6 @@ public sealed class RepoConfigTests : IDisposable
         await _ws.Engine.InitAsync(repo, ct: Ct);
 
         Assert.Equal("128m", await _ws.ConfigAsync(repo, "core.bigFileThreshold"));
-        Assert.Equal("2", await _ws.ConfigAsync(repo, "savepoint.repoConfigVersion"));
+        Assert.Equal("3", await _ws.ConfigAsync(repo, "savepoint.repoConfigVersion"));
     }
 }

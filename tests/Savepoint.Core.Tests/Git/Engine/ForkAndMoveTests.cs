@@ -165,7 +165,7 @@ public sealed class ForkAndMoveTests : IDisposable
     }
 
     [Fact]
-    public async Task The_points_a_move_forward_drops_are_still_in_the_store_until_the_next_optimization()
+    public async Task The_points_a_move_forward_drops_are_still_in_the_store_until_a_reclaim()
     {
         var (repo, points) = await PlayingFromTheFirstPointAsync();
 

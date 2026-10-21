@@ -8,7 +8,7 @@ namespace Savepoint.Core.Git;
 internal static partial class RepoConfigFile
 {
     // Bumped whenever a setting below changes, so existing repositories take the new value the next time they are touched.
-    public const string Version = "2";
+    public const string Version = "3";
 
     internal const string BlockStart = "# >>> savepoint managed (do not edit) >>>";
     internal const string BlockEnd = "# <<< savepoint managed <<<";
@@ -84,6 +84,7 @@ internal static partial class RepoConfigFile
             ("core", "quotePath", "false"),
             ("core", "autocrlf", "false"),
             ("core", "bigFileThreshold", "128m"),
+            ("core", "logAllRefUpdates", "false"),
         ];
 
         if (isWindows)

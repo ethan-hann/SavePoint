@@ -291,6 +291,16 @@ internal sealed class EngineWorkspace : IDisposable
         Parallel.For(0, count, i => File.WriteAllText(FileOf(repo, $"{folder}/{prefix}{i}.txt"), $"{content} {i}"));
     }
 
+    // True when the object is in the store, loose or packed; a missing one is an answer here, not an error.
+    public async Task<bool> ObjectExistsAsync(RepoRef repo, string id)
+    {
+        RequireGitDir(repo);
+        var result = await Runner.RunAsync(
+            new GitInvocation(["cat-file", "-e", id]) { GitDir = repo.GitDir, WorkTree = repo.WorkTree, ReadOnly = true, AllowedExitCodes = [0, 1, 128] },
+            TestContext.Current.CancellationToken);
+        return result.ExitCode == 0;
+    }
+
     // Null when the key is not set.
     public async Task<string?> ConfigAsync(RepoRef repo, string key)
     {

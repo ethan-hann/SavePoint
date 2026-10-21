@@ -71,8 +71,9 @@ public sealed partial class GitEngine
         }
     }
 
-    // Throws when the storage volume cannot take another capture or repack; checked before anything is written.
-    private void EnsureStorageSpace(RepoRef repo)
+    // Throws when the storage volume cannot take another capture or repack (the floor, plus any bytes the operation is known
+    // to need on top); checked before anything is written.
+    private void EnsureStorageSpace(RepoRef repo, long extraBytes = 0)
     {
         var directory = repo.GitDir;
         while (!Directory.Exists(directory) && Path.GetDirectoryName(directory) is { } parent)
@@ -80,10 +81,11 @@ public sealed partial class GitEngine
             directory = parent;
         }
 
+        var required = _options.MinFreeBytesForStorageWrites + extraBytes;
         var free = _freeSpace(directory);
-        if (free < _options.MinFreeBytesForStorageWrites)
+        if (free < required)
         {
-            throw new DiskSpaceException(directory, _options.MinFreeBytesForStorageWrites, free);
+            throw new DiskSpaceException(directory, required, free);
         }
     }
 

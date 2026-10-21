@@ -1,4 +1,5 @@
 using Savepoint.Core.Errors;
+using Savepoint.Core.Git;
 
 namespace Savepoint.Core.Tests.Git.Engine;
 
@@ -17,7 +18,7 @@ public sealed class MaintenanceTests : IDisposable
         var (repo, _) = await _ws.ThreePointsRepoAsync();
         Assert.True(await _ws.Engine.CountLooseObjectsAsync(repo, Ct) > 0);
 
-        await _ws.Engine.RepackAsync(repo, Ct);
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct);
 
         Assert.Equal(0, await _ws.Engine.CountLooseObjectsAsync(repo, Ct));
         Assert.NotEmpty(Directory.GetFiles(Path.Combine(repo.GitDir, "objects", "pack"), "*.pack"));
@@ -44,7 +45,7 @@ public sealed class MaintenanceTests : IDisposable
         _ws.Write(repo, "big.bin", random);
         await _ws.CaptureAsync(repo, "profile-1");
         var withBig = await _ws.Engine.GetRepoSizeAsync(repo, Ct);
-        await _ws.Engine.RepackAsync(repo, Ct);
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct);
         var packed = await _ws.Engine.GetRepoSizeAsync(repo, Ct);
 
         Assert.True(withBig - small >= 900_000, $"{withBig} - {small} should include the 1 MB file");
@@ -56,7 +57,7 @@ public sealed class MaintenanceTests : IDisposable
     {
         var (repo, _) = await _ws.ThreePointsRepoAsync();
 
-        await _ws.Engine.RepackAsync(repo, Ct);
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct);
 
         var repack = Assert.Single(_ws.Invocations, invocation => invocation.Arguments[0] == "repack");
         Assert.Contains("-d", repack.Arguments);
@@ -78,15 +79,15 @@ public sealed class MaintenanceTests : IDisposable
         _ws.Write(repo, "game.pak", random);
         _ws.WriteMany(repo, "Data", 40);
         await _ws.CaptureAsync(repo, "profile-1");
-        await _ws.Engine.RepackAsync(repo, Ct);
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct);
         var largest = LargestPack(repo);
 
         _ws.Write(repo, "Data/f1.txt", "a small change");
         await _ws.CaptureAsync(repo, "profile-1");
-        await _ws.Engine.RepackAsync(repo, Ct);
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct);
         _ws.Write(repo, "Data/f2.txt", "another small change");
         await _ws.CaptureAsync(repo, "profile-1");
-        await _ws.Engine.RepackAsync(repo, Ct);
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct);
 
         Assert.Equal(largest, LargestPack(repo));
         Assert.True(Directory.GetFiles(Path.Combine(repo.GitDir, "objects", "pack"), "*.pack").Length >= 2, "the small captures should have gone into packs of their own");
@@ -99,7 +100,7 @@ public sealed class MaintenanceTests : IDisposable
         var (repo, _) = await _ws.ThreePointsRepoAsync();
         _ws.Space.Free = 10;
 
-        var error = await Assert.ThrowsAsync<DiskSpaceException>(() => _ws.Engine.RepackAsync(repo, Ct));
+        var error = await Assert.ThrowsAsync<DiskSpaceException>(() => _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct));
 
         Assert.Equal("error.diskSpace.low", error.MessageId);
         Assert.DoesNotContain(_ws.Invocations, invocation => invocation.Arguments[0] == "repack");
@@ -119,11 +120,11 @@ public sealed class MaintenanceTests : IDisposable
             }
         };
 
-        var error = await Assert.ThrowsAsync<OperationCancelledByUserException>(() => _ws.Engine.RepackAsync(repo, cancel.Token));
+        var error = await Assert.ThrowsAsync<OperationCancelledByUserException>(() => _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, cancel.Token));
 
         Assert.Equal("error.compaction.cancelled", error.MessageId);
         _ws.OnInvoke = null;
-        await _ws.Engine.RepackAsync(repo, Ct);
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct);
         Assert.Equal(0, await _ws.Engine.CountLooseObjectsAsync(repo, Ct));
         Assert.Equal(3, await _ws.CountAsync(repo, "profile-1"));
     }
@@ -134,7 +135,7 @@ public sealed class MaintenanceTests : IDisposable
         var (repo, _) = await _ws.ThreePointsRepoAsync();
         Directory.Move(repo.WorkTree, repo.WorkTree + "-moved");
 
-        await _ws.Engine.RepackAsync(repo, Ct);
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct);
 
         Assert.Equal(0, await _ws.Engine.CountLooseObjectsAsync(repo, Ct));
     }
@@ -145,7 +146,7 @@ public sealed class MaintenanceTests : IDisposable
         var (repo, _) = await _ws.ThreePointsRepoAsync();
         await File.WriteAllTextAsync(Path.Combine(repo.GitDir, "index.lock"), string.Empty, Ct);
 
-        await _ws.Engine.RepackAsync(repo, Ct);
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct);
 
         Assert.False(File.Exists(Path.Combine(repo.GitDir, "index.lock")));
     }
@@ -153,11 +154,11 @@ public sealed class MaintenanceTests : IDisposable
     [Fact]
     public async Task A_repository_that_does_not_exist_cannot_be_optimized()
     {
-        await Assert.ThrowsAsync<GitOperationException>(() => _ws.Engine.RepackAsync(_ws.NewRepo(), Ct));
+        await Assert.ThrowsAsync<GitOperationException>(() => _ws.Engine.RepackAsync(_ws.NewRepo(), OptimizationMode.Routine, Ct));
     }
 
     // Name and size of the biggest pack file.
-    private static (string Name, long Length) LargestPack(Savepoint.Core.Git.RepoRef repo) =>
+    private static (string Name, long Length) LargestPack(RepoRef repo) =>
         Directory.GetFiles(Path.Combine(repo.GitDir, "objects", "pack"), "*.pack")
             .Select(path => (Name: Path.GetFileName(path), new FileInfo(path).Length))
             .OrderByDescending(pack => pack.Length)
