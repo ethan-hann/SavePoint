@@ -6,10 +6,14 @@ namespace Savepoint.Core.Paths;
 /// <summary>Resolves a path through links, then compares it component by component with the table (never by string prefix).</summary>
 public sealed class PathSafety
 {
+    private static readonly string[] _macDataVolume = ["System", "Volumes", "Data"];
+
     private readonly PathSyntax _syntax;
     private readonly IPathProbe _probe;
     private readonly List<TierOneRoot> _subtreeRoots = [];
     private readonly List<ParsedPath> _exactRoots = [];
+    private readonly List<ParsedPath> _driveParents = [];
+    private readonly IReadOnlyList<DenylistNameRule> _nameRules;
 
     /// <summary>The probe defaults to the real file system for the running OS and to no links for any other OS, whose paths are not on this machine.</summary>
     public PathSafety(IPlatform platform, string storageRoot, IEnumerable<string>? extraBlockedRoots = null, IPathProbe? probe = null)
@@ -20,7 +24,9 @@ public sealed class PathSafety
         // Resolved once here: every check would otherwise repeat the same dozens of link lookups.
         var directories = platform.Directories;
         string[] ownRoots = [directories.CatalogDir, directories.LogsDir, directories.RuntimeDir, storageRoot];
-        foreach (var entry in platform.Denylist([.. ownRoots, .. extraBlockedRoots ?? []]).Entries)
+        var table = platform.Denylist([.. ownRoots, .. extraBlockedRoots ?? []]);
+        _nameRules = table.NameRules;
+        foreach (var entry in table.Entries)
         {
             if (entry.Tier == DenylistTier.Subtree)
             {
@@ -31,7 +37,7 @@ public sealed class PathSafety
             }
             else
             {
-                _exactRoots.Add(ParseTableRoot(entry.Path));
+                (entry.ChildrenOnly ? _driveParents : _exactRoots).Add(ParseTableRoot(entry.Path));
             }
         }
     }
@@ -56,7 +62,10 @@ public sealed class PathSafety
         }
 
         // A bare root of any volume (a drive nobody listed, a UNC share) is too broad whatever the table says.
-        if (real.Parts.Count == 0 || _exactRoots.Any(root => _syntax.IsSame(real, root)))
+        if (real.Parts.Count == 0
+            || _exactRoots.Any(root => _syntax.IsSame(real, root))
+            || _driveParents.Any(parent => real.Parts.Count == parent.Parts.Count + 1 && _syntax.IsSameOrDescendant(real, parent))
+            || _nameRules.Any(rule => EndsWith(real, rule.Names)))
         {
             throw new PathSafetyException(path, 2);
         }
@@ -82,8 +91,25 @@ public sealed class PathSafety
     private bool Blocks(TierOneRoot root, ParsedPath real) =>
         _syntax.IsSameOrDescendant(real, root.Resolved) && !root.Allowed.Any(allowed => _syntax.IsSameOrDescendant(real, allowed));
 
-    private ParsedPath ParseResolved(string path) =>
-        _syntax.Split(RealPath.Resolve(path, _syntax, _probe), collapseDots: true);
+    private bool EndsWith(ParsedPath path, IReadOnlyList<string> names)
+    {
+        var skip = path.Parts.Count - names.Count;
+        return skip >= 0 && names.Select((name, i) => string.Equals(path.Parts[skip + i], name, _syntax.Comparison)).All(same => same);
+    }
+
+    private ParsedPath ParseResolved(string path)
+    {
+        var parsed = _syntax.Split(RealPath.Resolve(path, _syntax, _probe), collapseDots: true);
+
+        // On macOS the data volume is also reachable as /System/Volumes/Data/X, the same folder as /X.
+        return _syntax.Os == OsKind.MacOS && StartsWithFirmlink(parsed.Parts)
+            ? new ParsedPath(parsed.Root, [.. parsed.Parts.Skip(_macDataVolume.Length)])
+            : parsed;
+    }
+
+    private bool StartsWithFirmlink(IReadOnlyList<string> parts) =>
+        parts.Count >= _macDataVolume.Length
+        && _macDataVolume.Select((name, i) => string.Equals(parts[i], name, _syntax.Comparison)).All(same => same);
 
     private ParsedPath ParseLexical(string path) => _syntax.Split(path, collapseDots: true);
 

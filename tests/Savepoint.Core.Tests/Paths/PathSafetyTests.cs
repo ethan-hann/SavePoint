@@ -28,9 +28,15 @@ public class PathSafetyTests
         { OsKind.Linux, "/mnt/games/Skyrim" },
         { OsKind.Linux, "/opt/games/Game" },
         { OsKind.Linux, "/run/media/test/USB/Games/X" },
-        { OsKind.Linux, "/run/media/test/USB" },
         { OsKind.Linux, "/run/media/someone-else/USB/Games/X" },
         { OsKind.Linux, "/media/test/USB/Games/X" },
+        { OsKind.Linux, "/mnt/games/SteamLibrary/steamapps/common/Game" },
+        { OsKind.Windows, @"F:\SteamLibrary\steamapps\common\Skyrim" },
+        { OsKind.Windows, @"F:\Games\SteamLibrary\steamapps\common\Skyrim\Data" },
+        { OsKind.MacOS, "/Volumes/Games/SteamLibrary/steamapps/common/Game" },
+        { OsKind.MacOS, "/System/Volumes/Data/Users/test/Documents/Game/Saves" },
+        { OsKind.MacOS, "/System/Volumes/Data/Applications/Game.app" },
+        { OsKind.MacOS, "/Users/test/Library/Mobile Documents/com~apple~CloudDocs/Games/X" },
         { OsKind.MacOS, "/Applications/Game.app" },
         { OsKind.MacOS, "/Users/test/Applications/Game.app" },
         { OsKind.MacOS, "/Users/test/Library/Application Support/Game/Saves" },
@@ -74,6 +80,29 @@ public class PathSafetyTests
         { OsKind.Linux, "/run/media/test", 2 },
         { OsKind.Linux, "/media/test", 2 },
         { OsKind.Linux, "/data", 1 },
+        { OsKind.Linux, "/efi/EFI", 1 },
+        { OsKind.Linux, "/mnt/games", 2 },
+        { OsKind.Linux, "/mnt/c", 2 },
+        { OsKind.Linux, "/media/USB", 2 },
+        { OsKind.Linux, "/media/test/USB", 2 },
+        { OsKind.Linux, "/run/media/test/USB", 2 },
+        { OsKind.Linux, "/mnt/games/SteamLibrary/steamapps", 2 },
+        { OsKind.Linux, "/mnt/games/SteamLibrary/steamapps/common", 2 },
+        { OsKind.Linux, "/mnt/games/SteamLibrary/steamapps/compatdata", 2 },
+        { OsKind.Linux, "/home/test/.var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/common", 2 },
+        { OsKind.Windows, @"F:\SteamLibrary\steamapps", 2 },
+        { OsKind.Windows, @"F:\SteamLibrary\steamapps\common", 2 },
+        { OsKind.Windows, @"f:\steamlibrary\STEAMAPPS\Common", 2 },
+        { OsKind.Windows, @"F:\SteamLibrary\steamapps\compatdata", 2 },
+        { OsKind.MacOS, "/Volumes/External", 2 },
+        { OsKind.MacOS, "/Volumes/Games/SteamLibrary/steamapps/common", 2 },
+        { OsKind.MacOS, "/Users/test/Library/Mobile Documents", 2 },
+        { OsKind.MacOS, "/Users/test/Library/Mobile Documents/com~apple~CloudDocs", 2 },
+        { OsKind.MacOS, "/System/Volumes/Data", 2 },
+        { OsKind.MacOS, "/System/Volumes/Data/Users/test", 2 },
+        { OsKind.MacOS, "/System/Volumes/Data/Applications", 2 },
+        { OsKind.MacOS, "/System/Volumes/Data/Users/test/Library/Application Support/SavePoint/Storage", 1 },
+        { OsKind.MacOS, "/System/Volumes/Preboot/x", 1 },
         { OsKind.MacOS, "/SYSTEM/Library", 1 },
         { OsKind.MacOS, "/etc/hosts", 1 },
         { OsKind.MacOS, "/applications", 2 },
@@ -116,14 +145,30 @@ public class PathSafetyTests
     public void Every_tier_two_root_is_rejected_exactly_and_a_folder_beneath_it_is_accepted(OsKind os)
     {
         var (safety, list, syntax) = Build(os);
-        var roots = list.Entries.Where(e => e.Tier == DenylistTier.ExactOnly).ToList();
+        var roots = list.Entries.Where(e => e is { Tier: DenylistTier.ExactOnly, ChildrenOnly: false }).ToList();
 
         Assert.NotEmpty(roots);
         foreach (var root in roots)
         {
             PathSafetyAssert.Blocked(safety, root.Path, 2);
-            var child = syntax.Combine(root.Path, "SomeGame");
-            Assert.True(Record.Exception(() => safety.Check(child)) is null, $"'{child}' should be accepted");
+
+            // Two levels down: a direct child of /media or /Volumes is a whole drive, which the next test covers.
+            PathSafetyAssert.Accepted(safety, syntax.Combine(root.Path, "SomeGame/Inner"));
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(AllOs))]
+    public void A_whole_mounted_drive_is_tier_two_and_a_folder_inside_it_is_accepted(OsKind os)
+    {
+        var (safety, list, syntax) = Build(os);
+        var parents = list.Entries.Where(e => e.ChildrenOnly).ToList();
+
+        Assert.Equal(os != OsKind.Windows, parents.Count > 0);
+        foreach (var parent in parents)
+        {
+            PathSafetyAssert.Blocked(safety, syntax.Combine(parent.Path, "SomeDrive"), 2);
+            PathSafetyAssert.Accepted(safety, syntax.Combine(parent.Path, "SomeDrive/Games/Game"));
         }
     }
 
