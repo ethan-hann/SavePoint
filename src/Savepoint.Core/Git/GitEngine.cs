@@ -19,6 +19,7 @@ public sealed partial class GitEngine
     private readonly PathSafety _pathSafety;
     private readonly FreeSpaceProbe _freeSpace;
     private readonly GitEngineOptions _options;
+    private readonly InFlightTable _inFlight = new();
 
     /// <summary>Builds an engine over a runner.</summary>
     /// <param name="runner">Runs the bundled git.</param>
@@ -70,19 +71,77 @@ public sealed partial class GitEngine
         }
     }
 
+    // Throws when the storage volume cannot take another capture or repack; checked before anything is written.
+    private void EnsureStorageSpace(RepoRef repo)
+    {
+        var directory = repo.GitDir;
+        while (!Directory.Exists(directory) && Path.GetDirectoryName(directory) is { } parent)
+        {
+            directory = parent;
+        }
+
+        var free = _freeSpace(directory);
+        if (free < _options.MinFreeBytesForStorageWrites)
+        {
+            throw new DiskSpaceException(directory, _options.MinFreeBytesForStorageWrites, free);
+        }
+    }
+
+    // Everything a write needs before git is started: leftover locks from a killed process, current config and rule files.
+    private void PrepareForWrite(RepoRef repo, InFlightTable.Scope scope, IReadOnlyCollection<string>? ignorePatterns = null)
+    {
+        if (scope.IsAlone)
+        {
+            StaleLocks.RemoveAll(repo.GitDir);
+        }
+
+        EnsureRepoFiles(repo);
+        if (ignorePatterns is not null)
+        {
+            RepoIgnoreFiles.WriteExclude(repo.GitDir, ignorePatterns);
+        }
+    }
+
     private GitInvocation Invocation(RepoRef repo, bool readOnly, params string[] arguments) =>
         new(arguments) { GitDir = repo.GitDir, WorkTree = repo.WorkTree, ReadOnly = readOnly };
 
+    // Runs git and translates a failure into a typed exception.
     private async Task<GitResult> RunAsync(GitInvocation invocation, CancellationToken ct)
     {
-        _options.InvocationObserver?.Invoke(invocation);
         try
         {
-            return await _runner.RunAsync(invocation, ct).ConfigureAwait(false);
+            return await RunRawAsync(invocation, ct).ConfigureAwait(false);
         }
         catch (GitCommandException e)
         {
             throw GitFailure.ToException(e);
+        }
+    }
+
+    // Runs git; a non-zero exit that the invocation does not allow surfaces as the internal GitCommandException so the caller can read stderr.
+    private Task<GitResult> RunRawAsync(GitInvocation invocation, CancellationToken ct)
+    {
+        _options.InvocationObserver?.Invoke(invocation);
+        return _runner.RunAsync(invocation, ct);
+    }
+
+    // For commands that write: another process holding a lock for a moment is retried with a short backoff.
+    private async Task<GitResult> RunWriteAsync(Func<GitInvocation> invocation, CancellationToken ct)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                return await RunRawAsync(invocation(), ct).ConfigureAwait(false);
+            }
+            catch (GitCommandException e) when (GitFailure.IsLockContention(e.StandardError) && attempt < _options.LockRetryDelays.Count)
+            {
+                await Task.Delay(_options.LockRetryDelays[attempt], ct).ConfigureAwait(false);
+            }
+            catch (GitCommandException e)
+            {
+                throw GitFailure.ToException(e);
+            }
         }
     }
 }

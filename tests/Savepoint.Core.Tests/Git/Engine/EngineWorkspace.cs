@@ -151,8 +151,80 @@ internal sealed class EngineWorkspace : IDisposable
         return Runner.RunAsync(new GitInvocation(arguments) { GitDir = repo.GitDir, WorkTree = repo.WorkTree, ReadOnly = true }, TestContext.Current.CancellationToken);
     }
 
+    // For commands that change the repository, such as putting it in a state a test needs.
+    public Task<GitResult> GitWriteAsync(RepoRef repo, params string[] arguments)
+    {
+        RequireGitDir(repo);
+        return Runner.RunAsync(new GitInvocation(arguments) { GitDir = repo.GitDir, WorkTree = repo.WorkTree }, TestContext.Current.CancellationToken);
+    }
+
     public async Task<string> GitOutAsync(RepoRef repo, params string[] arguments) =>
         (await GitAsync(repo, arguments)).StandardOutput.TrimEnd('\n', '\r');
+
+    public Task<CaptureOutcome> CaptureAsync(
+        RepoRef repo,
+        string branch = "profile-1",
+        string message = "A point",
+        IReadOnlyList<string>? ignore = null,
+        IProgress<FileProgress>? progress = null) =>
+        Engine.CaptureAsync(
+            repo,
+            new CaptureRequest(branch, message, Guid.NewGuid().ToString()) { IgnorePatterns = ignore ?? [] },
+            progress,
+            TestContext.Current.CancellationToken);
+
+    // The full ref HEAD points at, or null when HEAD is detached.
+    public async Task<string?> HeadRefAsync(RepoRef repo)
+    {
+        RequireGitDir(repo);
+        var result = await Runner.RunAsync(
+            new GitInvocation(["symbolic-ref", "-q", "HEAD"]) { GitDir = repo.GitDir, WorkTree = repo.WorkTree, ReadOnly = true, AllowedExitCodes = [0, 1] },
+            TestContext.Current.CancellationToken);
+        return result.ExitCode == 0 ? result.StandardOutput.Trim() : null;
+    }
+
+    // The commit a revision resolves to, or null when it does not resolve.
+    public async Task<string?> ResolveAsync(RepoRef repo, string revision)
+    {
+        RequireGitDir(repo);
+        var result = await Runner.RunAsync(
+            new GitInvocation(["rev-parse", "--verify", "-q", revision + "^{commit}"]) { GitDir = repo.GitDir, WorkTree = repo.WorkTree, ReadOnly = true, AllowedExitCodes = [0, 1] },
+            TestContext.Current.CancellationToken);
+        return result.ExitCode == 0 ? result.StandardOutput.Trim() : null;
+    }
+
+    public Task<string?> TipAsync(RepoRef repo, string branch) => ResolveAsync(repo, "refs/heads/" + branch);
+
+    // Fails the test by assertion, rather than with a git error, when a revision a test depends on does not exist.
+    public async Task RequireRevisionAsync(RepoRef repo, string revision) =>
+        Assert.True(await ResolveAsync(repo, revision) is not null, $"expected the revision '{revision}' to exist");
+
+    // Paths recorded in a revision's tree.
+    public async Task<string[]> TreeAsync(RepoRef repo, string revision)
+    {
+        await RequireRevisionAsync(repo, revision);
+        return [.. (await GitAsync(repo, "ls-tree", "-r", "-z", "--name-only", revision)).SplitStandardOutputOnNul()];
+    }
+
+    public async Task<int> CountAsync(RepoRef repo, string revision)
+    {
+        await RequireRevisionAsync(repo, revision);
+        return int.Parse(await GitOutAsync(repo, "rev-list", "--count", revision), System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    // One field of a revision's commit, as git's --format prints it.
+    public async Task<string> LogAsync(RepoRef repo, string revision, string format)
+    {
+        await RequireRevisionAsync(repo, revision);
+        return await GitOutAsync(repo, "log", "-1", "--format=" + format, revision, "--");
+    }
+
+    // Many small files, written in parallel, named {folder}/{prefix}{n}.txt.
+    public void WriteMany(RepoRef repo, string folder, int count, string prefix = "f", string content = "content")
+    {
+        Directory.CreateDirectory(FileOf(repo, folder));
+        Parallel.For(0, count, i => File.WriteAllText(FileOf(repo, $"{folder}/{prefix}{i}.txt"), $"{content} {i}"));
+    }
 
     // Null when the key is not set.
     public async Task<string?> ConfigAsync(RepoRef repo, string key)
