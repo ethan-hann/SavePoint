@@ -21,6 +21,7 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
     private readonly PostPlayOptions _options;
     private readonly string _defaultPointName;
 
+    /// <summary>The card the player has selected; the main button acts on it.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PrimaryLabel), nameof(ShowNotNowButton))]
     private PostPlayChoiceViewModel _selectedChoice;

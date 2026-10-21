@@ -29,17 +29,21 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
     private readonly SaveOptionViewModel? _defaultSave;
     private bool _restoringPreference;
 
+    /// <summary>The save the picker shows as chosen; null when the profile has no saves.</summary>
     [ObservableProperty]
     private SaveOptionViewModel? _selectedSave;
 
+    /// <summary>The "don't ask again when only the save changes" box; changing it saves the preference.</summary>
     [ObservableProperty]
     private bool _dontAskAgain;
 
+    /// <summary>True while a block is saving or discarding its changes, which keeps the dialog from closing.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSwitch), nameof(CanDismiss))]
     [NotifyCanExecuteChangedFor(nameof(SwitchCommand))]
     private bool _isBusy;
 
+    /// <summary>True while some unsaved changes belong to no profile, which is when keeping them as a new profile is offered.</summary>
     [ObservableProperty]
     private bool _showKeepCallout;
 

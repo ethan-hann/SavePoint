@@ -165,7 +165,7 @@ public class SwitchProgressDialogViewModelTests
     }
 
     [Fact]
-    public void Milestones_are_announced_once_each_and_only_the_highest_one_crossed()
+    public void Quarters_are_announced_once_each_and_only_the_highest_one_crossed()
     {
         var dialog = Create();
         Assert.Equal("Getting Skyrim Special Edition ready.", dialog.Announcement);

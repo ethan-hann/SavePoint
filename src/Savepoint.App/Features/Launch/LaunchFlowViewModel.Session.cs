@@ -73,7 +73,7 @@ public sealed partial class LaunchFlowViewModel
         if (held is null || held.LaunchJobId != session.LaunchJobId)
         {
             // A session that is already over, and that this flow never started, has nothing left to show.
-            if (IsEnded(session.State) && flow.Phase != FlowPhase.Starting)
+            if (IsEnded(session.State) && flow.Stage != FlowStage.Starting)
             {
                 return;
             }
@@ -86,7 +86,7 @@ public sealed partial class LaunchFlowViewModel
         }
 
         flow.Session = session;
-        flow.Phase = IsEnded(session.State) ? FlowPhase.Idle : FlowPhase.Session;
+        flow.Stage = IsEnded(session.State) ? FlowStage.Idle : FlowStage.Session;
         await EnsureNamesAsync(flow.GameId, session.ProfileId);
 
         switch (session.State)

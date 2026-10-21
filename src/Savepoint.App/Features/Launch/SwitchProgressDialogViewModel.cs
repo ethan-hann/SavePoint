@@ -9,38 +9,45 @@ namespace Savepoint.App.Features.Launch;
 /// <summary>
 /// The progress dialog shown while a profile is switched in (mockup 2c): what is being put back, a bar that is
 /// determinate once the job reports totals, the bytes or files done with a time left, the path being written, and
-/// Cancel. It cannot be dismissed; the launch flow closes it when the switch ends. Milestones are announced through
+/// Cancel. It cannot be dismissed; the launch flow closes it when the switch ends. Progress is announced at each quarter through
 /// <see cref="Announcement"/>.
 /// </summary>
 public sealed partial class SwitchProgressDialogViewModel : DialogViewModel<bool>
 {
-    private static readonly int[] _milestones = [25, 50, 75];
+    private static readonly int[] _quarters = [25, 50, 75];
 
     private readonly UiFormatter _text;
     private readonly TimeProvider _clock;
     private readonly Func<Task<bool>> _cancel;
     private DateTimeOffset? _firstReport;
-    private int _announcedMilestone;
+    private int _lastAnnounced;
 
+    /// <summary>True while the bar has no total to fill against.</summary>
     [ObservableProperty]
     private bool _isIndeterminate = true;
 
+    /// <summary>How full the bar is, from 0 to 100.</summary>
     [ObservableProperty]
     private double _percentValue;
 
+    /// <summary>The percentage as text ("62%"); empty while the bar is indeterminate.</summary>
     [ObservableProperty]
     private string _percentText = string.Empty;
 
+    /// <summary>The line under the bar: bytes or files done and the time left, or a hint before anything is known.</summary>
     [ObservableProperty]
     private string _progressText;
 
+    /// <summary>The path being written now; null before the first report.</summary>
     [ObservableProperty]
     private string? _currentPath;
 
+    /// <summary>True once Cancel has been asked for and the job has not ended yet.</summary>
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(CancelCommand))]
     private bool _isCancelling;
 
+    /// <summary>What the hidden live region says: the start, each quarter, and the cancel request.</summary>
     [ObservableProperty]
     private string _announcement;
 
@@ -132,11 +139,11 @@ public sealed partial class SwitchProgressDialogViewModel : DialogViewModel<bool
         var percent = (int)Math.Floor(PercentValue);
         PercentText = _text.Message("launch.progress.percent", ("percent", percent));
 
-        // Only the highest milestone crossed since the last report is spoken, so a jump does not queue several lines.
-        var crossed = _milestones.Where(milestone => milestone <= percent && milestone > _announcedMilestone).DefaultIfEmpty(0).Max();
+        // Only the highest quarter crossed since the last report is spoken, so a jump does not queue several lines.
+        var crossed = _quarters.Where(quarter => quarter <= percent && quarter > _lastAnnounced).DefaultIfEmpty(0).Max();
         if (crossed > 0)
         {
-            _announcedMilestone = crossed;
+            _lastAnnounced = crossed;
             Announcement = _text.Message("launch.progress.announcePercent", ("percent", crossed));
         }
     }

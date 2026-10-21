@@ -6,10 +6,12 @@ namespace Savepoint.App.Features.Launch;
 /// <summary>One radio card of the post-play dialog: an icon, a title, what choosing it does, and for the choices that name something, a name field.</summary>
 public sealed partial class PostPlayChoiceViewModel : ObservableObject
 {
+    /// <summary>True while this card is the selected one.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowNameField))]
     private bool _isSelected;
 
+    /// <summary>What the name field holds.</summary>
     [ObservableProperty]
     private string _name;
 

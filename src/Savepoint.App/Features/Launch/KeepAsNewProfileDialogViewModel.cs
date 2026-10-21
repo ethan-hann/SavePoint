@@ -15,15 +15,18 @@ public sealed partial class KeepAsNewProfileDialogViewModel : DialogViewModel<bo
     private readonly string _gameId;
     private readonly LaunchDependencies _deps;
 
+    /// <summary>The name for the new profile.</summary>
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(CreateCommand))]
     private string _name;
 
+    /// <summary>True while the profile is being created.</summary>
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(CreateCommand))]
     [NotifyPropertyChangedFor(nameof(CanDismiss))]
     private bool _isWorking;
 
+    /// <summary>Why the last attempt failed, or null.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasError))]
     private string? _error;

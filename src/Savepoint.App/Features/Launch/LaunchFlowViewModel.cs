@@ -81,7 +81,7 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
             return;
         }
 
-        flow.Phase = FlowPhase.Previewing;
+        flow.Stage = FlowStage.Previewing;
         flow.Target = target;
         SetInline(flow, null);
         RaiseActivity();
@@ -90,7 +90,7 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
         var preview = await _deps.Launch.GetPreviewAsync(gameId, target);
         if (!preview.Ok)
         {
-            flow.Phase = FlowPhase.Idle;
+            flow.Stage = FlowStage.Idle;
             ShowLaunchFailure(flow, preview.Error);
             RaiseActivity();
             return;
@@ -127,7 +127,7 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
     private static bool IsEnded(SessionState state) => state is SessionState.Completed or SessionState.Failed;
 
     private static bool IsOwned(GameFlow flow) =>
-        flow.Phase is FlowPhase.Previewing or FlowPhase.Dialog or FlowPhase.Starting
+        flow.Stage is FlowStage.Previewing or FlowStage.Dialog or FlowStage.Starting
         || flow.RetryBusy
         || (flow.Session is { } session && !IsEnded(session.State));
 
@@ -145,7 +145,7 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
 
     private async Task AskThenStartAsync(GameFlow flow, LaunchTarget target, LaunchPreview plan, AppSettings settings)
     {
-        flow.Phase = FlowPhase.Dialog;
+        flow.Stage = FlowStage.Dialog;
         RaiseActivity();
 
         var dialog = new LaunchDialogViewModel(plan, GameName(flow.GameId), ProfileName(flow.GameId, plan.ProfileId), settings.SkipConfirmWhenOnlySaveChanges, _deps);
@@ -153,7 +153,7 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
         var chosen = await _deps.Dialogs.ShowAsync(dialog);
         if (chosen is null)
         {
-            flow.Phase = FlowPhase.Idle;
+            flow.Stage = FlowStage.Idle;
             RaiseActivity();
             return;
         }
@@ -164,7 +164,7 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
     private async Task StartAsync(GameFlow flow, LaunchTarget target, LaunchPreview plan, bool viaBanner)
     {
         // The session's own events may arrive before the call returns, so the flow is marked as starting first.
-        flow.Phase = FlowPhase.Starting;
+        flow.Stage = FlowStage.Starting;
         flow.StartTarget = target;
         flow.Preview = plan;
         flow.ViaBanner = viaBanner;
@@ -175,7 +175,7 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
         if (!started.Ok)
         {
             CloseProgress(flow);
-            flow.Phase = FlowPhase.Idle;
+            flow.Stage = FlowStage.Idle;
             ShowLaunchFailure(flow, started.Error);
             RaiseActivity();
         }
@@ -262,7 +262,7 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
     private void ShowError(ErrorInfo error) =>
         _deps.Toasts.Show(new ToastMessage(LaunchText.Reason(_deps.Text, error), ToastKind.Error));
 
-    private enum FlowPhase
+    private enum FlowStage
     {
         Idle,
         Previewing,
@@ -276,7 +276,7 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
     {
         public string GameId { get; } = gameId;
 
-        public FlowPhase Phase { get; set; }
+        public FlowStage Stage { get; set; }
 
         // What Play asked for, and what was actually started (the dialog's picker can change it).
         public LaunchTarget? Target { get; set; }

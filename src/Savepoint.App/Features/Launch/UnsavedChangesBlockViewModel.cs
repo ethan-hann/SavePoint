@@ -13,10 +13,12 @@ public sealed partial class UnsavedChangesBlockViewModel : ObservableObject
     private readonly Func<UnsavedChangesBlockViewModel, Task> _saveFirst;
     private readonly Func<UnsavedChangesBlockViewModel, Task> _discard;
 
+    /// <summary>True while the block saves or discards its changes.</summary>
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SaveFirstCommand), nameof(DiscardCommand))]
     private bool _isBusy;
 
+    /// <summary>Why the last attempt failed, or null.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasError))]
     private string? _error;

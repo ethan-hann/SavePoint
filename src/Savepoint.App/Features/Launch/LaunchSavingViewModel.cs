@@ -15,15 +15,19 @@ public sealed partial class LaunchSavingViewModel : ObservableObject
     private readonly UiFormatter _text;
     private readonly Func<Task<bool>> _cancel;
 
+    /// <summary>True while the bar has no file total to fill against.</summary>
     [ObservableProperty]
     private bool _isIndeterminate = true;
 
+    /// <summary>How full the bar is, from 0 to 100.</summary>
     [ObservableProperty]
     private double _percentValue;
 
+    /// <summary>The line under the bar: files done, or a hint before anything is known.</summary>
     [ObservableProperty]
     private string _progressText;
 
+    /// <summary>True once Cancel has been asked for and the job has not ended yet.</summary>
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(CancelCommand))]
     private bool _isCancelling;

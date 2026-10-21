@@ -185,7 +185,7 @@ public class LaunchViewTests
     }
 
     [AvaloniaFact]
-    public async Task The_progress_dialog_speaks_its_milestones_and_ignores_escape()
+    public async Task The_progress_dialog_speaks_its_progress_and_ignores_escape()
     {
         using var harness = await LaunchViewHarness.StartAsync();
         FakeAssert.Ok(await harness.Backend.Settings.SaveAsync(MockupScenario.Settings with { SkipConfirmWhenOnlySaveChanges = true }));
@@ -249,6 +249,23 @@ public class LaunchViewTests
         Assert.Equal(2, rows.ItemCount);
         Assert.Contains(harness.All<TextBlock>(), block => block.Text == "Saves · not saved");
         Assert.Contains(harness.All<Button>(), button => Equals(button.Content, "Retry the saves"));
+    }
+
+    [AvaloniaFact]
+    public async Task A_clean_capture_after_play_ends_with_the_shells_saved_toast_and_no_card()
+    {
+        using var harness = await LaunchViewHarness.StartAsync();
+        await PlayToExitedAsync(harness);
+        await PostPlay(harness).SaveCommand.ExecuteAsync(null);
+        Assert.IsType<LaunchSavingViewModel>(harness.Flow.InlineContentFor(MockupScenario.SkyrimId));
+
+        harness.Backend.Jobs.Complete(harness.Backend.Jobs.LastStarted(JobKind.Capture).JobId);
+        harness.Settle();
+
+        Assert.Null(harness.Flow.InlineContentFor(MockupScenario.SkyrimId));
+        var toast = Assert.Single(harness.Rig.Toasts.Toasts);
+        Assert.Equal("Saved Skyrim Special Edition.", toast.Text);
+        Assert.True(toast.IsSuccess);
     }
 
     [AvaloniaFact]

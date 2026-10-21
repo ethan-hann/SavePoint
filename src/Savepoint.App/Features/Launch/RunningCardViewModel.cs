@@ -22,9 +22,11 @@ public sealed partial class RunningCardViewModel : ObservableObject, IDisposable
     private readonly Func<Task<bool>> _donePlaying;
     private readonly ITimer _timer;
 
+    /// <summary>The profile and how long ago the game started, refreshed every minute.</summary>
     [ObservableProperty]
     private string _subtitle = string.Empty;
 
+    /// <summary>True once "I'm done playing" has been pressed and the service has not answered yet.</summary>
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(DonePlayingCommand))]
     private bool _isFinishing;
