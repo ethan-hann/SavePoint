@@ -1,5 +1,6 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:common="using:Savepoint.App.Features.Common"
              x:Class="Savepoint.App.App"
              RequestedThemeVariant="Default">
   <Application.Resources>
@@ -21,6 +22,9 @@
       <FontFamily x:Key="SymbolsFilledFont">avares://SavePoint/Assets/Fonts#Material Symbols Rounded Filled</FontFamily>
     </ResourceDictionary>
   </Application.Resources>
+  <Application.DataTemplates>
+    <common:ViewLocator />
+  </Application.DataTemplates>
   <Application.Styles>
     <FluentTheme />
     <StyleInclude Source="avares://SavePoint/Styles/Base.axaml" />

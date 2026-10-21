@@ -23,7 +23,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Localization\Assets\Lang\*.json" />
+    <!-- LogicalName keeps names path-shaped (Lang/en/app.json) so a folder such as en-GB is not mangled into an identifier. -->
+    <EmbeddedResource Include="Localization\Assets\Lang\**\*.json" LogicalName="Lang/%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>

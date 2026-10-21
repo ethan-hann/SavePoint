@@ -443,5 +443,7 @@ public class PathSafetyTests
         public string? ExpandShortName(string path) => inner.ExpandShortName(path);
 
         public FileIdentity? ReadIdentity(string path) => inner.ReadIdentity(path);
+
+        public IReadOnlyList<string> ReadFinalPaths(string path) => inner.ReadFinalPaths(path);
     }
 }

@@ -1,0 +1,7 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:samples="using:Savepoint.App.Tests.Features.Common.Samples"
+             x:Class="Savepoint.App.Tests.Features.Common.Samples.SuggestionNoteView"
+             x:DataType="samples:SuggestionNoteViewModel">
+  <TextBlock Classes="body accent" TextWrapping="Wrap" Text="{Binding Text}" />
+</UserControl>

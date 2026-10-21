@@ -1,0 +1,21 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:a11y="using:Savepoint.App.Features.Common.Accessibility"
+             xmlns:shell="using:Savepoint.App.Features.Shell"
+             x:Class="Savepoint.App.Features.Shell.JobStatusView"
+             x:DataType="shell:JobStatusViewModel">
+  <!-- The job pill, shown in both layouts by the window. The hidden region speaks the pill's text when it changes. -->
+  <Grid x:Name="PillRoot" IsVisible="{Binding IsVisible, FallbackValue=False}">
+    <a11y:AnnouncementRegion x:Name="Announcer" Message="{Binding Announcement}" />
+    <Border x:Name="Pill"
+            Classes="panel"
+            Background="{DynamicResource Md3SurfaceContainerHighestBrush}"
+            CornerRadius="100"
+            Padding="16,9">
+      <StackPanel Orientation="Horizontal" Spacing="12">
+        <ProgressBar IsIndeterminate="True" Width="34" Height="4" MinHeight="4" VerticalAlignment="Center" />
+        <TextBlock x:Name="PillText" Classes="body" VerticalAlignment="Center" Text="{Binding PillText}" />
+      </StackPanel>
+    </Border>
+  </Grid>
+</UserControl>

@@ -1,0 +1,26 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:dialogs="using:Savepoint.App.Features.Common.Dialogs"
+             x:Class="Savepoint.App.Features.Common.Dialogs.ConfirmDialogView"
+             x:DataType="dialogs:ConfirmDialogViewModel">
+  <StackPanel Spacing="16">
+    <TextBlock Classes="dialog-title" Text="{Binding Title}" TextWrapping="Wrap" />
+    <TextBlock Classes="body muted" Text="{Binding Message}" TextWrapping="Wrap" />
+    <StackPanel Spacing="8" IsVisible="{Binding RequiresTypedWord}">
+      <TextBlock Classes="caption" Text="{Binding Typed.Prompt}" TextWrapping="Wrap" />
+      <TextBox x:Name="TypedField"
+               Text="{Binding TypedText}"
+               AutomationProperties.Name="{Binding Typed.Prompt}" />
+    </StackPanel>
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,4,0,0">
+      <Button Classes="text pill large" Content="{Binding CancelLabel}" Command="{Binding CancelCommand}" />
+      <Button x:Name="ConfirmButton"
+              Classes="pill large"
+              Classes.filled="{Binding !IsDestructive}"
+              Classes.error="{Binding IsDestructive}"
+              IsDefault="{Binding ConfirmIsDefault}"
+              Content="{Binding ConfirmLabel}"
+              Command="{Binding ConfirmCommand}" />
+    </StackPanel>
+  </StackPanel>
+</UserControl>

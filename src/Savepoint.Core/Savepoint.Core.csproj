@@ -5,6 +5,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="AsmResolver.PE.Win32Resources" />
+  </ItemGroup>
+
+  <ItemGroup>
     <EmbeddedResource Include="Catalog\Templates\*.json" LogicalName="Savepoint.Core.Catalog.Templates.%(Filename)%(Extension)" />
     <InternalsVisibleTo Include="Savepoint.Core.Tests" />
   </ItemGroup>

@@ -16,29 +16,29 @@ Status keys: `todo`, `doing`, `done`. A milestone is done when its done-criteria
 
 Cross-cutting: the Linux gate (`build/gate-linux.sh` under WSL, from its own worktree inside the workspace) runs after every merge once the bundled git lands; macOS stays unverified on hardware (D9).
 
-### M0 - Scaffold (done, except bundled git -> W1)
+### M0 - Scaffold (done)
 Solution, projects, central package versions, `.editorconfig`, `build/fetch-mingit.ps1` (pinned version + SHA-256), bundled-git resolution and startup verification, Avalonia window showing one catalog-sourced string in the MD3 theme, test projects wired, `build/gate.ps1`.
 Done when: `dotnet build` and `dotnet test` pass, the app launches a themed window, and a test proves the bundled git runs and reports a version with no system git on PATH.
 
-### M1 - Engine (doing)
+### M1 - Engine (doing: GitEngine; path safety, runner, bundle done)
 Path resolver (`{documents}`, `{appData}`, `{localAppData}`, `{userHome}`), path safety (two-tier denylist, real-path resolution, consent markers), git process runner (argument lists, streaming, stdin, binary stdout, cancellation with tree kill), git engine (repo-pair init with split git-dir/work-tree, capture with progress, checkout with lock retry/backoff, dirty detection, diff stat, discard, history, detached restore of an older save, branch fork/delete, reset, repack, object counts, blob read at ref), free-space preflight, stale `index.lock` recovery, git config tuning.
 Also: `info/exclude` for ignore rules and the marker (D13.1), `info/attributes` `-delta` list (D16), capture-id trailers (D15), fork and move-forward from a detached point (D14), points-only-in-this-branch query (D17), every gotcha G-1..G-37 in `docs/reference/v1-engine.md` fixed by design.
 Done when: the plan's Phase 1 verification passes (round trip byte-identical, locked file and low disk fail safely, denylisted paths rejected, nested path accepted, missing/foreign marker refuses every destructive op), a tree deeper than 260 characters round-trips on Windows (D19), and an independent Opus review (han-coding:code-review) of path safety and the engine reports no open blocking finding.
 
-### M2 - Catalog and game services (doing: catalog store)
+### M2 - Catalog and game services (catalog done; services next)
 Models, game-definition validation, atomic JSON catalog, templates, game CRUD with consent confirmation and cross-game overlap checks, orphaned-marker reconnect, profile CRUD, duplicate profile, delete game/profile cleanup, storage usage, relocate storage, compaction (manual + automatic threshold), clear all data.
 Also: delete-profile warning for history only it holds (D17), running-game guards (D13.5), startup stale-lock recovery (D18).
 Done when: the plan's Phase 2 criteria pass (define a game, capture a profile, survive restart, denylisted/claimed paths refused with specific reasons).
 
-### M3 - Launch orchestration and jobs (todo)
+### M3 - Launch orchestration and jobs (jobs, lock, exe tools, FakeGame done; orchestrator next)
 Job registry with history and cancellation, per-game lock, launch preview, checkout, exe and URI launch (Windows exe, Linux binary/script, macOS .app, URIs per OS), exit detection (child exit, process-name poll, manual finish), post-play capture (new point, update existing, fork new profile, move forward, not now - D14), keep-as-new-profile rescue, go back to any history point (D15), exe version reader, executable scanner, notification interface.
 Done when: a scripted run with FakeGame creates a game, captures a profile, launches it, detects exit, and offers capture, with specific errors on injected failures (locked file, missing exe).
 
-### M4 - UI foundation (doing: color port, fonts)
+### M4 - UI foundation (done)
 MD3 palette from seed (five presets, light/dark, match-OS), theme tokens and control styles, Roboto/Roboto Mono/Material Symbols fonts, catalog loader + ICU formatting + XAML markup extension, catalog lint tests, app shell (sidebar and library layouts, toggle), job status indicator, toast host, shared error card, dialogs host.
 Done when: headless render tests produce PNGs of the shell in both layouts and both themes that match the mockup, and the catalog lint tests pass (banned git words, every referenced key exists, no unreferenced keys, extra locales match English - D20).
 
-### M5 - Screens (todo)
+### M5 - Screens (doing: Games, Launch, Editor, History+Settings in parallel)
 First run (with the anti-cheat note, D19), Games (header, profile table, storage footer, overflow menu), Game editor (with cloud-save guidance, D19), New profile wizard, Launch flow (banner, dialog, progress, running, post-play incl. D14 choices), History (list and cards, go back to any point, D15), Settings (storage + move + optimize + clear all data, appearance, when you finish playing), error states, startup error screens (git unavailable, corrupt catalog - D18).
 Done when: every mockup screen (`2a`-`2l`, `3a`-`3c`) has a view-model test suite and a headless render reviewed against its screenshot.
 

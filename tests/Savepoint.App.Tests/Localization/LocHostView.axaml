@@ -4,7 +4,7 @@
              x:Class="Savepoint.App.Tests.Localization.LocHostView">
   <StackPanel>
     <TextBlock x:Name="NameText" Text="{loc:Loc app.name}" />
-    <TextBlock x:Name="NamedKeyText" Text="{loc:Loc Key=app.placeholder.heading}" />
+    <TextBlock x:Name="NamedKeyText" Text="{loc:Loc Key=firstRun.title}" />
     <Button x:Name="NameButton"
             Content="{loc:Loc app.name}"
             ToolTip.Tip="{loc:Loc app.name}"
