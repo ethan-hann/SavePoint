@@ -137,7 +137,9 @@ public sealed partial class GameEditorViewModel : ObservableObject
         ModFolders = new ChipListViewModel(text, text.Message("gameEditor.modPathHints.label"), text.Message("gameEditor.addFolder"), text.Message("gameEditor.modPathHints.placeholder"));
         Title = saved is null ? text.Message("gameEditor.title.create") : text.Message("gameEditor.title.edit", ("name", saved.Name));
         LocationChoices = BuildLocationChoices();
+        ArtworkPreview = shell.Artwork.Preview(saved?.Id ?? string.Empty);
         LoadForm(_source);
+        InitializeArtwork(shell, saved);
         _baseline = BuildDefinition(_source.Id);
     }
 
@@ -163,7 +165,7 @@ public sealed partial class GameEditorViewModel : ObservableObject
     public bool CanSave => !IsSaving && Name.Trim().Length > 0 && InstallPath.Trim().Length > 0;
 
     /// <summary>True when the form differs from what it was opened with.</summary>
-    public bool IsDirty => BuildDefinition(_baseline.Id) != _baseline;
+    public bool IsDirty => BuildDefinition(_baseline.Id) != _baseline || HasPendingArtwork;
 
     /// <summary>Opens the editor on an existing game.</summary>
     public static GameEditorViewModel ForExisting(IGamesApi games, IDialogs dialogs, UiFormatter text, ToastHostViewModel toasts, IShellContext shell, GameDefinition game, IArtworkApi? artwork = null) =>
@@ -193,6 +195,7 @@ public sealed partial class GameEditorViewModel : ObservableObject
             }
         }
 
+        await LoadArtworkAsync();
         await RefreshSuggestionsAsync();
     }
 
@@ -215,6 +218,7 @@ public sealed partial class GameEditorViewModel : ObservableObject
         ExePath = game.Launch.ExePath ?? string.Empty;
         Uri = game.Launch.Uri ?? string.Empty;
         ProcessName = game.Launch.ProcessNameForExitDetection ?? string.Empty;
+        SteamAppIdText = game.SteamAppId?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
         LaunchArgs.SetValues(game.Launch.Args);
         IgnoreRules.SetValues(game.IgnorePaths);
         ModFolders.SetValues(game.ModPathHints);
@@ -238,6 +242,7 @@ public sealed partial class GameEditorViewModel : ObservableObject
                 NullIfBlank(ProcessName)),
             IgnorePaths = IgnoreRules.Values,
             ModPathHints = ModFolders.Values,
+            SteamAppId = ParseSteamAppId(),
         };
     }
 }

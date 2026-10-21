@@ -16,6 +16,7 @@ public sealed partial class GameEditorViewModel
         Launch,
         ExePath,
         Uri,
+        SteamAppId,
     }
 
     // Errors about one folder are drawn under that folder's field with the 2l copy; every other id is a card above the form.
@@ -40,6 +41,7 @@ public sealed partial class GameEditorViewModel
         LaunchError = null;
         ExePathError = null;
         UriError = null;
+        SteamAppIdError = null;
         InstallCard = null;
         SavesCard = null;
         FormError = null;
@@ -82,6 +84,7 @@ public sealed partial class GameEditorViewModel
         "launch.method" => Field.Launch,
         "launch.exePath" => Field.ExePath,
         "launch.uri" => Field.Uri,
+        "steamAppId" => Field.SteamAppId,
         _ => null,
     };
 
@@ -104,6 +107,9 @@ public sealed partial class GameEditorViewModel
                 break;
             case Field.ExePath:
                 ExePathError ??= message;
+                break;
+            case Field.SteamAppId:
+                SteamAppIdError ??= message;
                 break;
             default:
                 UriError ??= message;

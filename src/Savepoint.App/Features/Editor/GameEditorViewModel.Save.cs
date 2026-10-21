@@ -52,7 +52,10 @@ public sealed partial class GameEditorViewModel
 
         if (result.Ok)
         {
-            await FinishAsync(result.Value);
+            if (await ApplyArtworkAsync(result.Value))
+            {
+                await FinishAsync(result.Value);
+            }
         }
         else
         {
