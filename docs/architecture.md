@@ -10,7 +10,9 @@ Savepoint.App (Avalonia)
                                      |
 Savepoint.Core                       v
   Api/        facade: validates input, calls services, converts every exception to ErrorInfo (OperationResult<T>)
-  Services/   GameService, LaunchOrchestrator, SessionRegistry, JobRegistry, GameLock, StorageService, ...
+  Backend/    CoreBackend.Create(BackendOptions): builds every service and the Api implementations
+  Services/   Games, Profiles, History, Settings, Storage, AppStatus, Jobs (JobRegistry), Locking (GameLock), Exe (version reader, scanner)
+  Launch/     per-OS game launchers, process starter, session watcher (exit detection); Orchestration/ LaunchOrchestrator (ILaunchApi) and the session book (IGameSessions)
   Catalog/    models, validation, CatalogStore (atomic JSON), templates
   Git/        GitBinary, GitRunner (process), GitEngine (operations on a RepoRef)
   Paths/      PathTokenResolver, PathSafety, ConsentMarker
@@ -184,7 +186,7 @@ Catalog models (`GameDefinition`, `Profile`, `AppSettings`, `GameTemplate`, `Rep
 
 **History.** `GameHistory` lists `HistoryPoint`s newest first, optionally for one profile: id, kind (`VersionModsAndSave`, `VersionAndMods`, `SaveOnly`, D15), name, date, profile id and name, the install state at that point, mod files changed since the profile's previous install point, bytes where known, and the `InUse` and `LoadedNow` markers. A `VersionModsAndSave` point belongs in both columns of the list view.
 
-**Storage and settings.** `GameStorageUsage` and `StorageSummary` give SavePoint's bytes per game and in total and the storage volume's size and free space; the summary adds the last optimization date. `StorageRelocationPreview` and `ClearAllDataPreview` list what will move or go, with sizes and a `BlockedBy` error, so the confirmation is exact; the previous storage folder is left in place after a move.
+**Storage and settings.** `GameStorageUsage` and `StorageSummary` give SavePoint's bytes per game and in total and the storage volume's size and free space; the summary adds the last optimization date. `StorageRelocationPreview` and `ClearAllDataPreview` list what will move or go, with sizes and a `BlockedBy` error, so the confirmation is exact. After a move is verified and SavePoint has switched to the new root, the old copies are deleted; a copy that cannot be removed is named in the job's lines and left in place.
 
 **Startup (D18).** `StartupStatus` holds `GitStatus(Available, Path, Version, Error)` and `CatalogStatus(Directory, CorruptFiles)`, each `CorruptCatalogFile` naming its path, its last good backup if any, and the error. `RecoverCatalogFileAsync` restores the backup or starts that file empty; either way the corrupt file is moved aside, never deleted, and the call answers with where it went.
 
