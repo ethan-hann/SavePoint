@@ -161,6 +161,15 @@ The UI README's token table was evidently drawn with the legacy `Scheme` API (it
 - Already-merged Core code gets a documentation pass once the in-flight branches land, then the warning is switched on.
 - Project documentation (README, user guide, developer guide covering architecture, building, testing, and adding a language) is a v2 deliverable in M7, written by the orchestrator, not delegated. An API reference is generated from the XML docs.
 
+## D25. No Git LFS; large files handled by git's own store and geometric repacking
+
+Git LFS is pruned from the bundle on purpose. LFS solves network transfer: it keeps large files out of clones by storing them on an LFS server. SavePoint has no remote; everything is local. Locally, LFS would add a second object store with its own cleanup (`git lfs prune`), run a clean/smudge filter on every tracked file, and introduce a failure mode where a broken or missing filter leaves pointer files in the game folder instead of the game's real files. Git's own store already keeps each distinct file content once across every profile.
+
+What LFS would have avoided is real, though: a full `git repack -a -d` rewrites every object, so on a 60 GB install each optimization would copy 60 GB. v2 therefore:
+- optimizes with geometric repacking (`git repack -d --geometric=2`, both automatic and manual), which packs new objects and merges only small packs, so the large packs from the first capture are written once and left alone;
+- sets `core.bigFileThreshold=128m`, so files above it are streamed into the store without delta search (game binaries and archives rarely delta well) and without loading them whole into memory;
+- keeps the D16 `-delta` list for compressed formats below that size.
+
 ## D8. "Clear all data" is a v2 requirement
 
 The v1 README lists "add a clear all data button" as an open TODO. v2 ships it in Settings behind a typed confirmation. It removes SavePoint's own storage, catalog, and consent markers, and never deletes or rolls back files in a game's install or save folders: whatever is on disk at that moment stays as it is.
