@@ -19,6 +19,11 @@ public sealed class GitBinary
     private const string _emptyExcludesFileName = "excludes";
     private const string _emptyAttributesFileName = "attributes";
 
+    // MinGit keeps the real git in one of these, by architecture; cmd/git.exe only sets PATH and starts it.
+    private static readonly string[] _minGitToolchains = ["ucrt64", "mingw64", "clangarm64"];
+
+    private readonly string? _minGitToolchain;
+
     internal GitBinary(string root, string configDirectory, IReadOnlyDictionary<string, string>? parentEnvironment, GitHost host)
     {
         ArgumentException.ThrowIfNullOrEmpty(root);
@@ -27,9 +32,13 @@ public sealed class GitBinary
         Root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
         ConfigDirectory = Path.TrimEndingDirectorySeparator(Path.GetFullPath(configDirectory));
         Layout = DetectLayout(Root, host);
-        ExecutablePath = Layout == GitBundleLayout.MinGit
-            ? Path.Combine(Root, "cmd", "git.exe")
-            : Path.Combine(Root, "bin", "git");
+        _minGitToolchain = Layout == GitBundleLayout.MinGit ? FindMinGitToolchain(Root) : null;
+        ExecutablePath = Layout switch
+        {
+            GitBundleLayout.MinGit when _minGitToolchain is not null => Path.Combine(Root, _minGitToolchain, "bin", "git.exe"),
+            GitBundleLayout.MinGit => Path.Combine(Root, "cmd", "git.exe"),
+            _ => Path.Combine(Root, "bin", "git"),
+        };
         GlobalConfigPath = Path.Combine(ConfigDirectory, "gitconfig");
         EnvironmentComparer = host.IsWindows ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
 
@@ -130,6 +139,9 @@ public sealed class GitBinary
         return host.IsWindows ? GitBundleLayout.MinGit : GitBundleLayout.Dugite;
     }
 
+    private static string? FindMinGitToolchain(string root) =>
+        _minGitToolchains.FirstOrDefault(toolchain => File.Exists(Path.Combine(root, toolchain, "bin", "git.exe")));
+
     [UnsupportedOSPlatform("windows")]
     private static bool HasExecuteBit(string path) =>
         (File.GetUnixFileMode(path) & (UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute)) != 0;
@@ -176,6 +188,17 @@ public sealed class GitBinary
         environment["LANG"] = "C";
         environment["LC_ALL"] = "C";
         environment["LANGUAGE"] = "C";
+
+        if (_minGitToolchain is not null)
+        {
+            // What cmd/git.exe would do: git starts its own subcommands (repack's pack-objects) by finding git.exe on PATH.
+            var bin = Path.Combine(Root, _minGitToolchain, "bin");
+            var usrBin = Path.Combine(Root, "usr", "bin");
+            environment["PATH"] = environment.TryGetValue("PATH", out var inherited) && inherited.Length > 0
+                ? $"{bin};{usrBin};{inherited}"
+                : $"{bin};{usrBin}";
+            environment["GIT_EXEC_PATH"] = Path.Combine(Root, _minGitToolchain, "libexec", "git-core");
+        }
 
         if (Layout == GitBundleLayout.Dugite)
         {
