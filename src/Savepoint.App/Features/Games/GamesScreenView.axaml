@@ -28,7 +28,7 @@
     </Style>
   </UserControl.Styles>
 
-  <Grid x:Name="Root" RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="22,20,22,20">
+  <Grid x:Name="Root" RowDefinitions="Auto,Auto,*,Auto,Auto" Margin="22,20,22,20">
 
     <!-- Header, sidebar layout: art tile, name and install path, then the buttons and the layout toggle. -->
     <Grid x:Name="SidebarHeader" Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" IsVisible="{Binding IsSidebarLayout}">
@@ -97,10 +97,7 @@
       <games:TabChip x:Name="HistoryChip" Classes="chip" IsChecked="False" Command="{Binding ShowHistoryCommand}" Content="{loc:Loc games.header.tabs.history}" />
     </StackPanel>
 
-    <!-- The launch flow's banner (2a) or running card (2c) for this game. -->
-    <ContentControl x:Name="InlineContentHost" Grid.Row="2" Margin="0,12,0,0" IsVisible="{Binding HasInlineContent}" Content="{Binding InlineContent}" />
-
-    <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" Margin="0,12,0,0">
+    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Margin="0,12,0,0">
       <StackPanel VerticalAlignment="Top" Spacing="12">
         <ContentControl x:Name="LoadErrorHost" Content="{Binding LoadError}" IsVisible="{Binding LoadError, Converter={x:Static ObjectConverters.IsNotNull}}" />
 
@@ -197,6 +194,9 @@
         </Border>
       </StackPanel>
     </ScrollViewer>
+
+    <!-- The launch flow's banner (2a) or running card (2c) for this game, below the table as the mockups draw it. -->
+    <ContentControl x:Name="InlineContentHost" Grid.Row="3" Margin="0,12,0,0" IsVisible="{Binding HasInlineContent}" Content="{Binding InlineContent}" />
 
     <!-- The storage footer; the library layout's shelf already shows each game's size. -->
     <Border x:Name="StorageFooter" Grid.Row="4" Classes="strip" Margin="0,14,0,0" IsVisible="{Binding ShowStorageFooter}">

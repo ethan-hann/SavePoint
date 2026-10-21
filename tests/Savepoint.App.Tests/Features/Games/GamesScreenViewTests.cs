@@ -397,7 +397,7 @@ public class GamesScreenViewTests
     }
 
     [AvaloniaFact]
-    public async Task The_launch_flows_content_shows_above_the_table()
+    public async Task The_launch_flows_content_shows_below_the_table()
     {
         using var harness = await GamesViewHarness.StartAsync();
         var host = harness.Find<ContentControl>("InlineContentHost");
@@ -408,7 +408,8 @@ public class GamesScreenViewTests
 
         Assert.True(host.IsEffectivelyVisible);
         Assert.Contains("Everything was already in place", harness.VisibleTexts());
-        Assert.True(host.TranslatePoint(new Point(0, 0), harness.Find<Border>("Table"))!.Value.Y < 0);
+        var table = harness.Find<Border>("Table");
+        Assert.True(host.TranslatePoint(new Point(0, 0), table)!.Value.Y >= table.Bounds.Height);
     }
 
     [AvaloniaFact]

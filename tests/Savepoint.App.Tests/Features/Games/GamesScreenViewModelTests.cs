@@ -395,7 +395,7 @@ public class GamesScreenViewModelTests
         Assert.All(Rows(rig), row => Assert.True(row.CanPlay));
     }
 
-    // ---- What the launch flow shows above the table
+    // ---- What the launch flow shows below the table
 
     [Fact]
     public async Task The_launch_flows_inline_content_for_the_selected_game_shows_above_the_table()
