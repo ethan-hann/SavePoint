@@ -28,6 +28,7 @@
   "errorCard.title.profileExists": "That profile already exists",
   "errorCard.title.progressNotKept": "Your progress can't be kept here",
   "errorCard.title.storageUnreachable": "SavePoint's storage isn't reachable",
+  "errorCard.title.switchUnfinished": "The last switch didn't finish",
   "errorCard.title.toolMissing": "SavePoint's built-in tool is missing",
   "errorCard.title.unsavedChanges": "Unsaved changes are in the way",
   "format.duration.hours": "{count, plural, one {# hour} other {# hours}}",

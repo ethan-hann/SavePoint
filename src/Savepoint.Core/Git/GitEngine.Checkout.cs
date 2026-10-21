@@ -24,7 +24,8 @@ public sealed partial class GitEngine
     /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
     /// <exception cref="Savepoint.Core.Errors.PathMissingException">The work tree does not exist.</exception>
     /// <exception cref="Savepoint.Core.Errors.DiskSpaceException">The work tree's volume cannot take the files the switch adds (nothing was written), or the disk filled during the switch (it is then left unfinished; see <see cref="RepoStatus.InterruptedSwitch"/>).</exception>
-    /// <exception cref="Savepoint.Core.Errors.DirtyWorkingTreeException">Anything is in the way (see the summary); nothing was changed.</exception>
+    /// <exception cref="Savepoint.Core.Errors.DirtyWorkingTreeException">Unsaved changes, or a file the game's patterns name, are in the way; nothing was changed.</exception>
+    /// <exception cref="Savepoint.Core.Errors.InterruptedSwitchException">A stopped switch left the folder half done and this one is not the switch to finish it; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.LinkedFolderException">On Windows, a folder link lies in the way; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.ProfileHasNoPointsException">The branch has no point to switch to.</exception>
     /// <exception cref="Savepoint.Core.Errors.GitOperationException">A file stayed in use through every attempt (the path is in its arguments), or git failed.</exception>

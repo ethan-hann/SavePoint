@@ -23,7 +23,7 @@ public sealed class NestedRepositoryTests : IDisposable
         File.WriteAllText(Path.Combine(dot, "HEAD"), "ref: refs/heads/main\n");
     }
 
-    private bool Staged() => _ws.Invocations.Any(invocation => invocation.Arguments.Contains("add") || invocation.Arguments.Contains("commit"));
+    private bool Staged() => _ws.Invocations.Any(invocation => invocation.Arguments.Contains("add") || invocation.Arguments.Contains("commit") || invocation.Arguments.Contains("commit-tree"));
 
     [Fact]
     public async Task A_capture_refuses_a_folder_that_is_a_repository_and_names_its_hidden_folder()

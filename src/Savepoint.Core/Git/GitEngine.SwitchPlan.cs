@@ -46,7 +46,7 @@ public sealed partial class GitEngine
                 // Only the switch that was started may finish a half-switched folder; what else is in it cannot be told apart.
                 if (!string.Equals(note.ToCommit, to, StringComparison.Ordinal))
                 {
-                    throw new DirtyWorkingTreeException(repo.Role);
+                    throw new InterruptedSwitchException(repo.Role, note.ToCommit);
                 }
             }
             else

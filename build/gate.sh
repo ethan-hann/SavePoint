@@ -10,7 +10,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 # Keep the machine responsive: lower priority, and caps one gate cannot exceed (override per run).
 renice -n 10 $$ >/dev/null 2>&1 || true
 build_nodes="${SAVEPOINT_GATE_BUILD_NODES:-4}"
-test_threads="${SAVEPOINT_GATE_TEST_THREADS:-8}"
+test_threads="${SAVEPOINT_GATE_TEST_THREADS:-4}"
 
 echo "==> build"
 dotnet build Savepoint.slnx -c Release -warnaserror "-m:${build_nodes}" -nodeReuse:false

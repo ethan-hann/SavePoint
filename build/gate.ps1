@@ -11,7 +11,7 @@ Set-Location (Split-Path -Parent $PSScriptRoot)
 
 # Caps that keep one gate from saturating the machine; override per run when needed.
 $buildNodes = if ($env:SAVEPOINT_GATE_BUILD_NODES) { $env:SAVEPOINT_GATE_BUILD_NODES } else { '4' }
-$testThreads = if ($env:SAVEPOINT_GATE_TEST_THREADS) { $env:SAVEPOINT_GATE_TEST_THREADS } else { '8' }
+$testThreads = if ($env:SAVEPOINT_GATE_TEST_THREADS) { $env:SAVEPOINT_GATE_TEST_THREADS } else { '4' }
 
 # One gate at a time across every worktree of this repository: they share one lock file in the main checkout.
 $commonGitDir = git rev-parse --path-format=absolute --git-common-dir
