@@ -65,7 +65,7 @@
 
   <!-- A recessed well for paths and code inside a card or dialog. -->
   <Style Selector="Border.recessed">
-    <Setter Property="Background" Value="{DynamicResource Md3SurfaceBrush}" />
+    <Setter Property="Background" Value="{DynamicResource Md3RecessedBrush}" />
     <Setter Property="CornerRadius" Value="{DynamicResource Md3RadiusControl}" />
     <Setter Property="Padding" Value="12,10" />
   </Style>
