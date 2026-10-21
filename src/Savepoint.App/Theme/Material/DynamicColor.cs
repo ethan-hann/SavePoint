@@ -12,13 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Modified: translated to C# from dynamiccolor/dynamic_color.js in @material/material-color-utilities 0.3.0.
-// The per-scheme HCT cache is dropped: the roles are shared statics and TonalPalette already caches tones.
+// Modified: translated to C# from dynamiccolor/dynamic_color.js in @material/material-color-utilities 0.3.0, without its HCT cache.
 
 namespace Savepoint.App.Theme.Material;
 
-// A color that adjusts itself to the UI state a DynamicScheme describes. Colors without a background keep
-// their tone as contrast changes; colors with one move toward it as contrast drops and away as it rises.
 public sealed class DynamicColor
 {
     private DynamicColor(
@@ -83,7 +80,6 @@ public sealed class DynamicColor
         Func<DynamicScheme, ToneDeltaPair>? toneDeltaPair = null) =>
         new(name, palette, tone, isBackground, background, secondBackground, contrastCurve, toneDeltaPair);
 
-    // Finds a foreground tone that reaches the ratio against the background tone, or the closest it can get.
     public static double ForegroundTone(double bgTone, double ratio)
     {
         var lighterTone = Contrast.LighterUnsafe(bgTone, ratio);
@@ -94,8 +90,7 @@ public sealed class DynamicColor
 
         if (preferLighter)
         {
-            // When the starting ratio is already high (say 13) and both options fall short of it, the two
-            // are often nearly equal; keeping the lighter one stops on-primary-container flipping to black.
+            // If both options fall short and nearly tie, keep the lighter so on-primary-container does not flip to black.
             var negligibleDifference = Math.Abs(lighterRatio - darkerRatio) < 0.1 && lighterRatio < ratio && darkerRatio < ratio;
             return lighterRatio >= ratio || lighterRatio >= darkerRatio || negligibleDifference ? lighterTone : darkerTone;
         }
@@ -103,8 +98,7 @@ public sealed class DynamicColor
         return darkerRatio >= ratio || darkerRatio >= lighterRatio ? darkerTone : lighterTone;
     }
 
-    // People prefer white foregrounds on roughly T60-70; T60 itself is excluded so tertiary container in
-    // the dark monochrome scheme is left alone.
+    // T60 is excluded so tertiary container in the dark monochrome scheme is left alone.
     public static bool TonePrefersLightForeground(double tone) => MathUtils.JsRound(tone) < 60.0;
 
     public static bool ToneAllowsLightForeground(double tone) => MathUtils.JsRound(tone) <= 49.0;
@@ -116,7 +110,6 @@ public sealed class DynamicColor
 
     public Hct GetHct(DynamicScheme scheme) => Palette(scheme).GetHct(GetTone(scheme));
 
-    // The tone this color takes under the scheme's mode and contrast level.
     public double GetTone(DynamicScheme scheme)
     {
         var decreasingContrast = scheme.ContrastLevel < 0;
@@ -155,7 +148,6 @@ public sealed class DynamicColor
             return answer;
         }
 
-        // Two backgrounds: the answer has to contrast with both.
         var secondBgTone = SecondBackground(scheme).GetTone(scheme);
         var upper = Math.Max(bgTone, secondBgTone);
         var lower = Math.Min(bgTone, secondBgTone);
@@ -165,7 +157,6 @@ public sealed class DynamicColor
             return answer;
         }
 
-        // The darkest light tone that reaches the ratio, and the lightest dark tone that does; -1 if none.
         var lightOption = Contrast.Lighter(upper, desiredRatio);
         var darkOption = Contrast.Darker(lower, desiredRatio);
 
@@ -202,7 +193,6 @@ public sealed class DynamicColor
         var amNearer = Name == nearer.Name;
         var expansionDir = scheme.IsDark ? 1 : -1;
 
-        // First round: solve each to its minimum contrast; a color that is already good enough is kept.
         var nContrast = nearer.ContrastCurve!.Get(scheme.ContrastLevel);
         var fContrast = farther.ContrastCurve!.Get(scheme.ContrastLevel);
 
@@ -218,18 +208,16 @@ public sealed class DynamicColor
 
         if (decreasingContrast)
         {
-            // Lowering contrast settles on the bare minimum that satisfies it.
+            // Lowering contrast settles on the bare minimum that satisfies the ratio.
             nTone = ForegroundTone(bgTone, nContrast);
             fTone = ForegroundTone(bgTone, fContrast);
         }
 
         if ((fTone - nTone) * expansionDir < delta)
         {
-            // Second round: expand farther to match the delta.
             fTone = MathUtils.ClampDouble(0, 100, nTone + delta * expansionDir);
             if ((fTone - nTone) * expansionDir < delta)
             {
-                // Third round: contract nearer to match the delta.
                 nTone = MathUtils.ClampDouble(0, 100, fTone - delta * expansionDir);
             }
         }
@@ -237,7 +225,6 @@ public sealed class DynamicColor
         // Stay out of the 50-59 awkward zone.
         if (nTone >= 50 && nTone < 60)
         {
-            // Nearer is in the zone: move it out, and farther with it.
             if (expansionDir > 0)
             {
                 nTone = 60;
@@ -253,7 +240,7 @@ public sealed class DynamicColor
         {
             if (stayTogether)
             {
-                // Fix both, so the two colors never end up on opposite sides of the zone.
+                // Fix both, so the pair never ends up on opposite sides of the zone.
                 if (expansionDir > 0)
                 {
                     nTone = 60;

@@ -16,10 +16,8 @@
 
 namespace Savepoint.App.Theme.Material;
 
-// Contrast ratios between tones. Tone is HCT tone, which equals L* in L*a*b*.
 public static class Contrast
 {
-    // A ratio from 1 to 21; tones outside 0..100 are clamped.
     public static double RatioOfTones(double toneA, double toneB)
     {
         toneA = MathUtils.ClampDouble(0.0, 100.0, toneA);
@@ -34,7 +32,6 @@ public static class Contrast
         return (lighter + 5.0) / (darker + 5.0);
     }
 
-    // A tone at least as light as the given one that reaches the ratio, or -1 if none does.
     public static double Lighter(double tone, double ratio)
     {
         if (tone < 0.0 || tone > 100.0)
@@ -61,7 +58,6 @@ public static class Contrast
         return returnValue;
     }
 
-    // A tone at least as dark as the given one that reaches the ratio, or -1 if none does.
     public static double Darker(double tone, double ratio)
     {
         if (tone < 0.0 || tone > 100.0)
@@ -87,14 +83,12 @@ public static class Contrast
         return returnValue;
     }
 
-    // Like Lighter, but returns tone 100 when the ratio cannot be reached.
     public static double LighterUnsafe(double tone, double ratio)
     {
         var lighterSafe = Lighter(tone, ratio);
         return lighterSafe < 0.0 ? 100.0 : lighterSafe;
     }
 
-    // Like Darker, but returns tone 0 when the ratio cannot be reached.
     public static double DarkerUnsafe(double tone, double ratio)
     {
         var darkerSafe = Darker(tone, ratio);

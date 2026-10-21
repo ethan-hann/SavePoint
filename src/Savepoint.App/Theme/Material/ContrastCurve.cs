@@ -16,7 +16,7 @@
 
 namespace Savepoint.App.Theme.Material;
 
-// A value that changes with the contrast level: the four anchors are the values at levels -1.0, 0.0, 0.5 and 1.0.
+// The anchors are the values at contrast levels -1, 0, 0.5 and 1; levels in between interpolate.
 public sealed class ContrastCurve(double low, double normal, double medium, double high)
 {
     public double Low { get; } = low;

@@ -2,15 +2,11 @@ using Savepoint.App.Theme.Material;
 
 namespace Savepoint.App.Tests.Theme.Material;
 
-// The design tokens table in the original project's docs/ui/README.md (blue seed #2986cc) was drawn from
-// a different palette derivation than the one v1's palette.ts ships (it matches the older CorePalette
-// API: a vivid primary, neutral chroma 4). SchemeTonalSpot gives different hexes for most cells, so these
-// rows pin the library's value and record which README cells agree, instead of forcing the table.
+// The README token table was drawn from another derivation, so rows pin the library value and record which cells agree.
 public class MockupTableTests
 {
     internal const uint BlueSeed = 0xFF2986CC;
 
-    // mode, role, library value (no alpha), README value(s) separated by '|'
     private static readonly (string Mode, string Role, string Library, string Readme)[] _rows =
     [
         ("dark", "background", "101418", "111416"),

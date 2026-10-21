@@ -10,9 +10,11 @@ SavePoint includes the following third-party work.
 - License: Apache License, Version 2.0 (full text below)
 - Where: `src/Savepoint.App/Theme/Material/`
 
-The code in that folder is a C# translation of the part of the library that derives a Material Design 3 palette from a seed color: the math and color utilities, `ViewingConditions`, CAM16, the HCT solver and `Hct`, `TonalPalette`, `Contrast`, `ContrastCurve`, `ToneDeltaPair`, `DislikeAnalyzer`, `DynamicColor`, `DynamicScheme`, `Variant`, `SchemeTonalSpot` and `MaterialDynamicColors`.
+Every file in that folder except `Md3Palette.cs` (SavePoint's own code) is a C# translation of part of the library: the math and color utilities, `ViewingConditions`, CAM16, the HCT solver and `Hct`, `TonalPalette`, `Contrast`, `ContrastCurve`, `ToneDeltaPair`, `DislikeAnalyzer`, `DynamicColor`, `DynamicScheme`, `Variant`, `SchemeTonalSpot` and `MaterialDynamicColors`.
 
-Changes from the original: it was translated from the compiled JavaScript the npm package ships (the package has no TypeScript sources), `Math.round` became a half-up helper to keep JavaScript's rounding, `Hct` is immutable, the per-scheme color cache was dropped, and only the tonal spot scheme is ported. Every ported file keeps its upstream copyright header and ends the header with a `Modified:` line naming the upstream file it was translated from.
+Changes from the original: it was translated from the compiled JavaScript the npm package ships (the package has no TypeScript sources), `Math.round` became a half-up helper to keep JavaScript's rounding, `Hct` is immutable, the per-scheme color cache was dropped, and the polarity strings became an enum. Not translated: `Blend`, the CAM16 inverse and UCS functions, the `Hct` setters and `inViewingConditions`, `getRotatedHue`, the per-role getters on `DynamicScheme`, and every scheme except tonal spot.
+
+Every translated file keeps its upstream copyright header and ends the header with a `Modified:` line naming the upstream file it was translated from.
 
 `tests/Savepoint.App.Tests/Theme/Material/golden-mcu-0.3.0.json` holds numeric output of the unmodified npm package, produced by `build/theme/generate-golden.mjs`. The tests compare the C# port against it.
 

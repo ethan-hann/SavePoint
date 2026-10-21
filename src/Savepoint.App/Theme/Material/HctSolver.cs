@@ -16,7 +16,6 @@
 
 namespace Savepoint.App.Theme.Material;
 
-// Solves for the sRGB color with a given CAM16 hue, chroma and L*.
 internal static class HctSolver
 {
     private static readonly double[][] _scaledDiscountFromLinrgb =
@@ -124,8 +123,7 @@ internal static class HctSolver
         97.78421388448044, 98.6670533535366, 99.55452497210776,
     ];
 
-    // Finds an sRGB color with the given hue, chroma and L*, if possible. When the chroma is out of gamut,
-    // hue and L* stay close to the request and chroma is maximized.
+    // When the chroma is out of gamut, hue and L* stay close to the request and chroma is maximized.
     public static uint SolveToInt(double hueDegrees, double chroma, double lstar)
     {
         if (chroma < 0.0001 || lstar < 0.0001 || lstar > 99.9999)
@@ -170,7 +168,6 @@ internal static class HctSolver
         return MathUtils.Signum(component) * 400.0 * af / (af + 27.13);
     }
 
-    // The hue of a linear RGB color in CAM16, in radians.
     private static double HueOf(double[] linrgb)
     {
         var scaledDiscount = MathUtils.MatrixMultiply(linrgb, _scaledDiscountFromLinrgb);
@@ -189,7 +186,6 @@ internal static class HctSolver
         return deltaAB < deltaAC;
     }
 
-    // Solves lerp(source, target, t) = mid for t.
     private static double Intercept(double source, double mid, double target) => (mid - source) / (target - source);
 
     private static double[] LerpPoint(double[] source, double t, double[] target) =>
@@ -207,8 +203,7 @@ internal static class HctSolver
 
     private static bool IsBounded(double x) => 0.0 <= x && x <= 100.0;
 
-    // The nth possible vertex of the polygon where the Y plane cuts the RGB cube, or (-1, -1, -1) if it
-    // falls outside the cube.
+    // (-1, -1, -1) marks a vertex that falls outside the cube.
     private static double[] NthVertex(double y, int n)
     {
         var kR = _yFromLinrgb[0];
@@ -238,7 +233,6 @@ internal static class HctSolver
         return IsBounded(bb) ? [rr, gg, bb] : [-1.0, -1.0, -1.0];
     }
 
-    // The two cube-surface points that bracket the target hue at the given Y.
     private static (double[] Left, double[] Right) BisectToSegment(double y, double targetHue)
     {
         double[] left = [-1.0, -1.0, -1.0];
@@ -296,7 +290,6 @@ internal static class HctSolver
 
     private static double CriticalPlaneAbove(double x) => Math.Ceiling(x - 0.5);
 
-    // A color with the given Y and hue on the boundary of the RGB cube, in linear RGB.
     private static double[] BisectToLimit(double y, double targetHue)
     {
         var (left, right) = BisectToSegment(y, targetHue);
@@ -356,12 +349,12 @@ internal static class HctSolver
         return MathUtils.Signum(adapted) * Math.Pow(b, 1.0 / 0.42);
     }
 
-    // Finds a color with the given hue, chroma and Y, or returns 0 when none exists inside the gamut.
+    // Returns 0 when no color with this hue, chroma and Y exists inside the gamut.
     private static uint FindResultByJ(double hueRadians, double chroma, double y)
     {
         var j = Math.Sqrt(y) * 11.0;
 
-        // Parts of the CAM16 inverse that do not change between iterations.
+        // Hoisted out of the loop: these parts of the CAM16 inverse do not change between iterations.
         var viewingConditions = ViewingConditions.Default;
         var tInnerCoeff = 1 / Math.Pow(1.64 - Math.Pow(0.29, viewingConditions.N), 0.73);
         var eHue = 0.25 * (Math.Cos(hueRadians + 2.0) + 3.8);

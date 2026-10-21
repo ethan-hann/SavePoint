@@ -2,8 +2,7 @@ using Savepoint.App.Theme.Material;
 
 namespace Savepoint.App.Tests.Theme.Material;
 
-// Hand-built colors, so the tone logic is checked on inputs the Material role table never produces
-// (tones inside the awkward zone, two backgrounds, every polarity, clamped deltas).
+// Hand-built colors reach tone branches the Material role table never does.
 public class DynamicColorToneGoldenTests
 {
     public static TheoryData<int> PairCases() => Indices("pair");

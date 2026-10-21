@@ -13,11 +13,10 @@
 // limitations under the License.
 //
 // Modified: translated to C# from dislike/dislike_analyzer.js in @material/material-color-utilities 0.3.0.
-// IsDisliked also takes plain hue, chroma and tone so the rounding edges can be tested directly.
 
 namespace Savepoint.App.Theme.Material;
 
-// Color studies show a broad dislike of dark yellow-greens; this finds them and lightens them.
+// Dark yellow-greens are widely disliked, so colors that land there get lightened.
 public static class DislikeAnalyzer
 {
     public static bool IsDisliked(Hct hct) => IsDisliked(hct.Hue, hct.Chroma, hct.Tone);

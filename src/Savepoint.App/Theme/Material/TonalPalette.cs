@@ -13,15 +13,14 @@
 // limitations under the License.
 //
 // Modified: translated to C# from palettes/tonal_palette.js in @material/material-color-utilities 0.3.0.
-// Tone lookups are cached in a concurrent dictionary instead of a Map.
 
 using System.Collections.Concurrent;
 
 namespace Savepoint.App.Theme.Material;
 
-// Colors that share a hue and chroma and differ only in tone.
 public sealed class TonalPalette
 {
+    // Concurrent because one palette can serve role lookups from several threads.
     private readonly ConcurrentDictionary<double, uint> _cache = new();
 
     private TonalPalette(double hue, double chroma, Hct keyColor)
@@ -44,13 +43,11 @@ public sealed class TonalPalette
     public static TonalPalette FromHueAndChroma(double hue, double chroma) =>
         new(hue, chroma, new KeyColorSearch(hue, chroma).Create());
 
-    // ARGB of this palette at an HCT tone from 0 to 100.
     public uint Tone(double tone) =>
         _cache.GetOrAdd(tone, static (key, palette) => Hct.From(palette.Hue, palette.Chroma, key).ToInt(), this);
 
     public Hct GetHct(double tone) => Hct.FromInt(Tone(tone));
 
-    // The key color is the first tone, searching out from T50, that can show the requested chroma.
     private sealed class KeyColorSearch(double hue, double requestedChroma)
     {
         private readonly Dictionary<int, double> _chromaCache = [];

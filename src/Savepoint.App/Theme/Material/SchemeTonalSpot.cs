@@ -16,8 +16,6 @@
 
 namespace Savepoint.App.Theme.Material;
 
-// Low to medium colorfulness with a tertiary hue related to the source color: the default Material You
-// theme on Android 12 and 13.
 public sealed class SchemeTonalSpot(Hct sourceColorHct, bool isDark, double contrastLevel)
     : DynamicScheme(new DynamicSchemeArgs(
         sourceColorHct.ToInt(),

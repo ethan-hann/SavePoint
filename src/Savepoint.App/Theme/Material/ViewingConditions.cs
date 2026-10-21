@@ -16,7 +16,6 @@
 
 namespace Savepoint.App.Theme.Material;
 
-// Caches the CAM16 intermediates that depend only on the viewing environment.
 public sealed class ViewingConditions
 {
     private ViewingConditions(

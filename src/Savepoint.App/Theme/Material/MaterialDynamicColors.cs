@@ -13,14 +13,13 @@
 // limitations under the License.
 //
 // Modified: translated to C# from dynamiccolor/material_dynamic_colors.js in @material/material-color-utilities 0.3.0.
-// The color names stay in upstream snake_case: ToneDeltaPair resolves which role is nearer by name.
 
 // The tone delta lambdas name roles declared further down; they only run once the class is initialized.
 #pragma warning disable CS8604
 
 namespace Savepoint.App.Theme.Material;
 
-// The DynamicColors of the Material Design system.
+// Names stay in upstream snake_case because DynamicColor tells the nearer role of a pair by name.
 public static class MaterialDynamicColors
 {
     public static readonly DynamicColor PrimaryPaletteKeyColor = DynamicColor.FromPalette(

@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Modified: translated to C# from dynamiccolor/dynamic_scheme.js in @material/material-color-utilities 0.3.0.
-// The per-role getters and getRotatedHue are not ported; roles are read through MaterialDynamicColors.
+// Modified: translated to C# from dynamiccolor/dynamic_scheme.js in @material/material-color-utilities 0.3.0, without its role getters.
 
 namespace Savepoint.App.Theme.Material;
 
@@ -28,7 +27,6 @@ public sealed record DynamicSchemeArgs(
     TonalPalette NeutralPalette,
     TonalPalette NeutralVariantPalette);
 
-// The UI state (light or dark, theme variant, contrast) and the tonal palettes that DynamicColor resolves against.
 public class DynamicScheme
 {
     public DynamicScheme(DynamicSchemeArgs args)

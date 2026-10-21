@@ -16,8 +16,7 @@
 
 namespace Savepoint.App.Theme.Material;
 
-// The Dynamic Color themes. Only the tonal spot scheme is ported; the others are listed so the role
-// table keeps its upstream branches.
+// Only the tonal spot scheme is ported; the other variants stay so the role table keeps its branches.
 public enum Variant
 {
     Monochrome,

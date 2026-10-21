@@ -114,8 +114,7 @@ public class Md3PaletteGoldenTests
         Assert.Equal(palette.KeyColor, GoldenData.Hex(actual.KeyColor.ToInt()));
     }
 
-    // Rebuilds the scheme from the recorded variant and palette parameters, so the non-tonal-spot
-    // schemes are assembled exactly as the generator assembled them.
+    // Rebuilt from the recorded parameters, so non-tonal-spot schemes are assembled as the generator did.
     private static DynamicScheme BuildScheme(GoldenScheme scheme)
     {
         TonalPalette Palette(string key) =>

@@ -16,7 +16,6 @@
 
 namespace Savepoint.App.Theme.Material;
 
-// CAM16 color appearance, read from an ARGB color. Only the forward conversion that HCT needs is ported.
 internal sealed class Cam16
 {
     private Cam16(double hue, double chroma, double j, double q, double m, double s, double jstar, double astar, double bstar)

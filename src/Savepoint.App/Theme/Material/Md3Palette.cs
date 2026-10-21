@@ -2,8 +2,7 @@ using System.Globalization;
 
 namespace Savepoint.App.Theme.Material;
 
-// Every MaterialDynamicColors role for one seed and mode, as ARGB. v1 reads a subset of these; the rest
-// are kept so later screens never need a second derivation.
+// Every role is kept, not just the subset v1 read, so later screens never need a second derivation.
 public sealed record Md3Palette
 {
     public required uint SeedArgb { get; init; }
@@ -65,7 +64,7 @@ public sealed record Md3Palette
     public required uint OnTertiaryFixed { get; init; }
     public required uint OnTertiaryFixedVariant { get; init; }
 
-    // The palette SavePoint v1 derived: tonal spot at standard contrast.
+    // Tonal spot at standard contrast, which is what v1's palette.ts builds.
     public static Md3Palette Build(uint seedArgb, bool dark) =>
         FromScheme(new SchemeTonalSpot(Hct.FromInt(seedArgb), dark, 0.0));
 
@@ -135,7 +134,6 @@ public sealed record Md3Palette
     // "#AARRGGBB", the form Avalonia parses.
     public static string ToArgbHex(uint argb) => "#" + argb.ToString("X8", CultureInfo.InvariantCulture);
 
-    // Reads "#RRGGBB" (opaque) or "#AARRGGBB", with or without the leading '#'.
     public static bool TryParseHex(string? text, out uint argb)
     {
         argb = 0;

@@ -12,13 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Modified: translated to C# from dynamiccolor/tone_delta_pair.js in @material/material-color-utilities 0.3.0.
-// The polarity strings become an enum.
+// Modified: translated to C# from dynamiccolor/tone_delta_pair.js in @material/material-color-utilities 0.3.0, with an enum for polarity.
 
 namespace Savepoint.App.Theme.Material;
 
-// How roleA's tone relates to roleB's. Nearer and Farther describe closeness to the surface roles: Nearer
-// means lighter in light mode and darker in dark mode.
+// Nearer and Farther are relative to the surface roles: nearer means lighter in light mode, darker in dark mode.
 public enum TonePolarity
 {
     Darker,
@@ -27,19 +25,16 @@ public enum TonePolarity
     Farther,
 }
 
-// A constraint that two colors keep at least a tone distance, for pairs that have no background and
-// foreground relationship.
 public sealed class ToneDeltaPair(DynamicColor roleA, DynamicColor roleB, double delta, TonePolarity polarity, bool stayTogether)
 {
     public DynamicColor RoleA { get; } = roleA;
 
     public DynamicColor RoleB { get; } = roleB;
 
-    // Required difference between the tones, as an absolute value.
     public double Delta { get; } = delta;
 
     public TonePolarity Polarity { get; } = polarity;
 
-    // Whether both roles must stay on the same side of the awkward zone (T50-59).
+    // Whether both roles stay on the same side of the T50-59 awkward zone.
     public bool StayTogether { get; } = stayTogether;
 }
