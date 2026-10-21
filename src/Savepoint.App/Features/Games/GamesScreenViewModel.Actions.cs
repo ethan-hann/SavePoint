@@ -1,0 +1,150 @@
+using Savepoint.Core.Api;
+using Savepoint.Core.Errors;
+
+namespace Savepoint.App.Features.Games;
+
+public sealed partial class GamesScreenViewModel
+{
+    async Task IProfileRowActions.PlayAsync(ProfileRowViewModel row)
+    {
+        // A command's Execute runs even when CanExecute is false, so the gate is checked again here.
+        if (!row.CanPlay || _shell.LaunchFlow is not { } flow)
+        {
+            return;
+        }
+
+        await flow.BeginAsync(row.GameId, new LaunchTarget.ProfileTip(row.Id));
+    }
+
+    async Task IProfileRowActions.EditAsync(ProfileRowViewModel row)
+    {
+        var dialog = new EditProfileDialogViewModel(
+            row.Name,
+            row.Notes,
+            row.VersionOverride,
+            row.DetectedVersion,
+            changes => _deps.Profiles.UpdateAsync(row.GameId, row.Id, changes),
+            _deps.Text);
+
+        if (await _deps.Dialogs.ShowAsync(dialog))
+        {
+            await RefreshAfterChangeAsync();
+        }
+    }
+
+    async Task IProfileRowActions.DuplicateAsync(ProfileRowViewModel row)
+    {
+        var dialog = new DuplicateProfileDialogViewModel(row.Name, name => _deps.Profiles.DuplicateAsync(row.GameId, row.Id, name), _deps.Text);
+
+        if (await _deps.Dialogs.ShowAsync(dialog))
+        {
+            await RefreshAfterChangeAsync();
+        }
+    }
+
+    // The preview decides what is asked: a refusal is shown as it is, a plain confirmation when nothing is lost with the profile, a warning when some history is (D17).
+    async Task IProfileRowActions.DeleteAsync(ProfileRowViewModel row)
+    {
+        var preview = await _deps.Profiles.GetDeletePreviewAsync(row.GameId, row.Id);
+        if (!preview.Ok)
+        {
+            ShowError(preview.Error);
+            return;
+        }
+
+        if (preview.Value.BlockedBy is { } blocked)
+        {
+            ShowError(blocked);
+            return;
+        }
+
+        var points = preview.Value.PointsOnlyHere;
+        var message = points > 0
+            ? _deps.Text.Message("games.profileTable.deleteConfirm.messageWithPoints", ("count", points))
+            : _deps.Text.Message("games.profileTable.deleteConfirm.message", ("name", row.Name));
+        var confirmed = await _deps.Dialogs.ConfirmAsync(new(
+            _deps.Text.Message("games.profileTable.deleteConfirm.title", ("name", row.Name)),
+            message,
+            _deps.Text.Message("games.profileTable.deleteConfirm.confirm"),
+            Destructive: true));
+        if (!confirmed)
+        {
+            return;
+        }
+
+        var deleted = await _deps.Profiles.DeleteAsync(row.GameId, row.Id);
+        if (!deleted.Ok)
+        {
+            ShowError(deleted.Error);
+            return;
+        }
+
+        await RefreshAfterChangeAsync();
+    }
+
+    // The wizard follows its own save, so closing it mid-save is fine; the table is refreshed whenever it closes.
+    private async Task NewProfileAsync()
+    {
+        if (_game is not { } game)
+        {
+            return;
+        }
+
+        var wizard = new NewProfileWizardViewModel(game, _deps.Games, _deps.Profiles, _deps.Jobs, _deps.Text, _deps.Dispatcher, _deps.Clock);
+        var shown = _deps.Dialogs.ShowAsync(wizard);
+        _ = wizard.LoadPreviewAsync();
+        await shown;
+        await RefreshAfterChangeAsync();
+    }
+
+    // Deleting a game takes two confirmations and is refused up front while its session is active (D13.5).
+    private async Task DeleteGameAsync()
+    {
+        if (_game is not { } game)
+        {
+            return;
+        }
+
+        if (_shell.LaunchFlow?.IsActive(game.Id) == true)
+        {
+            ShowError(ErrorInfo.From(new GameRunningException(game.Id, game.Name)));
+            return;
+        }
+
+        var first = await _deps.Dialogs.ConfirmAsync(new(
+            _deps.Text.Message("games.deleteConfirm.title", ("name", game.Name)),
+            _deps.Text.Message("games.deleteConfirm.message", ("name", game.Name)),
+            _deps.Text.Message("games.deleteConfirm.confirm"),
+            Destructive: true));
+        if (!first)
+        {
+            return;
+        }
+
+        var second = await _deps.Dialogs.ConfirmAsync(new(
+            _deps.Text.Message("games.deleteFinal.title", ("name", game.Name)),
+            _deps.Text.Message("games.deleteFinal.message", ("count", Profiles.Count)),
+            _deps.Text.Message("games.deleteFinal.confirm"),
+            Destructive: true));
+        if (!second)
+        {
+            return;
+        }
+
+        var deleted = await _deps.Games.DeleteAsync(game.Id);
+        if (!deleted.Ok)
+        {
+            ShowError(deleted.Error);
+            return;
+        }
+
+        await RefreshAfterChangeAsync();
+    }
+
+    // The shell reloads the library and tells this screen; reloading here as well means the table is current when the action ends.
+    private async Task RefreshAfterChangeAsync()
+    {
+        await _shell.RefreshLibraryAsync();
+        await ReloadAsync();
+    }
+}

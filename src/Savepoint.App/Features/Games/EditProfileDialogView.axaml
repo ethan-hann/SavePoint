@@ -1,0 +1,51 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:Savepoint.App.Localization"
+             xmlns:games="using:Savepoint.App.Features.Games"
+             x:Class="Savepoint.App.Features.Games.EditProfileDialogView"
+             x:DataType="games:EditProfileDialogViewModel">
+  <!-- Edit a profile: name, notes and the version override. -->
+  <UserControl.Styles>
+    <!-- The label above a field takes the accent color while the field has focus, as in the mockup. -->
+    <Style Selector="StackPanel.field:focus-within > TextBlock.field-label">
+      <Setter Property="Foreground" Value="{DynamicResource Md3PrimaryBrush}" />
+    </Style>
+  </UserControl.Styles>
+  <StackPanel Spacing="16">
+    <TextBlock Classes="dialog-title" TextWrapping="Wrap" Text="{Binding Title}" />
+    <StackPanel Classes="field" Spacing="6">
+      <TextBlock Classes="caption field-label" Text="{loc:Loc games.profileForm.nameLabel}" />
+      <TextBox x:Name="NameField" Text="{Binding Name}" AutomationProperties.Name="{loc:Loc games.profileForm.nameLabel}" />
+    </StackPanel>
+    <StackPanel Classes="field" Spacing="6">
+      <TextBlock Classes="caption field-label" Text="{loc:Loc games.editProfile.notesLabel}" />
+      <TextBox x:Name="NotesField"
+               Text="{Binding Notes}"
+               AcceptsReturn="True"
+               TextWrapping="Wrap"
+               MinHeight="72"
+               MaxHeight="140"
+               AutomationProperties.Name="{loc:Loc games.editProfile.notesLabel}" />
+    </StackPanel>
+    <StackPanel Classes="field" Spacing="6">
+      <TextBlock Classes="caption field-label" Text="{loc:Loc games.editProfile.versionLabel}" />
+      <TextBox x:Name="VersionField"
+               Classes="mono"
+               Text="{Binding VersionOverride}"
+               PlaceholderText="{Binding VersionPlaceholder}"
+               AutomationProperties.Name="{loc:Loc games.editProfile.versionLabel}"
+               AutomationProperties.HelpText="{Binding VersionHelper}" />
+      <TextBlock x:Name="VersionHelperText" Classes="caption subtle" TextWrapping="Wrap" Text="{Binding VersionHelper}" />
+    </StackPanel>
+    <TextBlock x:Name="ErrorText"
+               Classes="body error"
+               TextWrapping="Wrap"
+               IsVisible="{Binding HasError}"
+               AutomationProperties.LiveSetting="Polite"
+               Text="{Binding Error}" />
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,4,0,0">
+      <Button Classes="text pill large" Command="{Binding CancelCommand}" Content="{loc:Loc common.cancel}" />
+      <Button x:Name="SaveButton" Classes="filled pill large" IsDefault="True" Command="{Binding SaveCommand}" Content="{loc:Loc games.editProfile.save}" />
+    </StackPanel>
+  </StackPanel>
+</UserControl>

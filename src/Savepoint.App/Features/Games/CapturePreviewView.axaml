@@ -1,0 +1,37 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:Savepoint.App.Localization"
+             xmlns:theme="using:Savepoint.App.Theme"
+             xmlns:games="using:Savepoint.App.Features.Games"
+             x:Class="Savepoint.App.Features.Games.CapturePreviewView"
+             x:DataType="games:CapturePreviewViewModel">
+  <!-- "What will be captured" (2f): the tracked folders with their sizes, and what saving will really add to storage. -->
+  <StackPanel Spacing="12">
+    <TextBlock Classes="overline" Text="{theme:Upper {loc:Loc profiles.wizard.preview.sectionLabel}}" />
+    <TextBlock x:Name="LoadingText" Classes="body subtle" IsVisible="{Binding IsLoading}" Text="{loc:Loc profiles.wizard.preview.loading}" />
+    <TextBlock x:Name="ErrorText" Classes="body subtle" TextWrapping="Wrap" IsVisible="{Binding HasError}" Text="{Binding Error}" />
+    <Border x:Name="RowsTable" Classes="table" IsVisible="{Binding HasRows}" Background="{DynamicResource Md3SurfaceContainerBrush}" CornerRadius="12">
+      <!-- Every row draws a line above it; the first one is pushed out of the clipped table. -->
+      <ItemsControl ItemsSource="{Binding Rows}" Margin="0,-1,0,0">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="games:CaptureRowViewModel">
+            <Border BorderBrush="{DynamicResource Md3OutlineVariantBrush}" BorderThickness="0,1,0,0" Padding="16,12">
+              <Grid ColumnDefinitions="Auto,*,Auto">
+                <TextBlock Classes="icon s24 accent" Margin="0,0,14,0" Text="{Binding Icon}" />
+                <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                  <TextBlock FontSize="14" Text="{Binding Title}" />
+                  <TextBlock Classes="mono small muted" TextWrapping="Wrap" Text="{Binding Subtitle}" />
+                </StackPanel>
+                <TextBlock Grid.Column="2" Classes="icon s24 accent" Margin="14,0,0,0" Text="{x:Static theme:Icons.Check}" />
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </Border>
+    <StackPanel x:Name="NoteRow" Orientation="Horizontal" Spacing="12" IsVisible="{Binding HasNote}">
+      <TextBlock Classes="icon s18 muted" VerticalAlignment="Top" Text="{x:Static theme:Icons.Database}" />
+      <TextBlock Classes="caption" FontSize="13" TextWrapping="Wrap" VerticalAlignment="Center" Text="{Binding Note}" />
+    </StackPanel>
+  </StackPanel>
+</UserControl>
