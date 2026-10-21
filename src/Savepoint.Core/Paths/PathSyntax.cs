@@ -79,7 +79,15 @@ public sealed class PathSyntax
     internal IEnumerable<string> SplitRelative(string relative)
     {
         var text = IsWindows ? relative.Replace('/', '\\') : relative;
-        return text.Split(Separator, StringSplitOptions.RemoveEmptyEntries).Where(p => p != ".");
+        foreach (var raw in text.Split(Separator, StringSplitOptions.RemoveEmptyEntries))
+        {
+            // Win32 drops trailing dots and spaces from every component, so "Windows." names the Windows folder.
+            var part = IsWindows && raw is not ("." or "..") ? raw.TrimEnd('.', ' ') : raw;
+            if (part.Length > 0 && part != ".")
+            {
+                yield return part;
+            }
+        }
     }
 
     internal string Join(string root, IReadOnlyList<string> parts) => root + string.Join(Separator, parts);
@@ -129,7 +137,8 @@ public sealed class PathSyntax
         }
 
         var text = path.Replace('/', '\\');
-        if (text.StartsWith(@"\\?\", StringComparison.Ordinal))
+        // Extended-length (\\?\) and device (\\.\) prefixes name the same drive or share without the prefix.
+        if (text.StartsWith(@"\\?\", StringComparison.Ordinal) || text.StartsWith(@"\\.\", StringComparison.Ordinal))
         {
             text = text[4..];
             if (text.StartsWith(@"UNC\", StringComparison.OrdinalIgnoreCase))
