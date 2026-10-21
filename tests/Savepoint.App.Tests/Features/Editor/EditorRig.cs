@@ -132,9 +132,16 @@ internal sealed class EditorRig
         var deadline = DateTime.UtcNow.AddSeconds(5);
         while (DateTime.UtcNow < deadline)
         {
-            if (find() is { } found)
+            try
             {
-                return found;
+                if (find() is { } found)
+                {
+                    return found;
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                // The list was being appended to by the save as it was read; the next look sees it whole.
             }
 
             await Task.Delay(5);
