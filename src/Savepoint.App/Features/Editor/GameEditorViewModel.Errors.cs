@@ -131,13 +131,14 @@ public sealed partial class GameEditorViewModel
         }
         else if (_folderErrorIds.Contains(error.MessageId))
         {
-            var card = new ErrorCardViewModel(error, _text);
             var role = FolderRoleOf(error, resolved);
             if (error.MessageId == "error.consentMarker.missing")
             {
                 _unconfirmed.Add(role);
             }
 
+            // A folder that is gone can be replaced right from the card.
+            var card = new ErrorCardViewModel(error, _text, error.MessageId == "error.path.missing" ? [ChooseFolderAction(role)] : null);
             if (role == RepoRole.Install)
             {
                 InstallCard = card;

@@ -107,6 +107,8 @@ public class GameEditorFolderTests
         Assert.Equal("Choose the folder", choose.Label);
         Assert.True(choose.IsPrimary);
         Assert.Null(editor.SavesCard);
+        Assert.Null(editor.InstallConfirmation);
+        Assert.NotNull(editor.SavesConfirmation);
     }
 
     [Fact]

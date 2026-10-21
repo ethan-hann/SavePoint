@@ -88,7 +88,8 @@ public sealed partial class GameEditorViewModel
             return null;
         }
 
-        if (_statuses.FirstOrDefault(status => status.Role == role) is not { Consent: { Confirmed: true } consent })
+        // A folder that is gone gets its own card, so it is not also called confirmed.
+        if (_statuses.FirstOrDefault(status => status.Role == role) is not { Exists: true, Consent: { Confirmed: true } consent })
         {
             return null;
         }
@@ -111,8 +112,7 @@ public sealed partial class GameEditorViewModel
                 "error.path.missing",
                 new Dictionary<string, object?> { ["path"] = status.ResolvedPath ?? status.Path, ["role"] = role == RepoRole.Install ? "install" : "external" },
                 string.Empty);
-            var choose = new ErrorCardAction(_text.Message("gameEditor.chooseFolder"), new AsyncRelayCommand(() => BrowseFolderAsync(role)), IsPrimary: true);
-            var card = new ErrorCardViewModel(error, _text, [choose]);
+            var card = new ErrorCardViewModel(error, _text, [ChooseFolderAction(role)]);
             if (role == RepoRole.Install)
             {
                 InstallCard = card;
@@ -123,6 +123,9 @@ public sealed partial class GameEditorViewModel
             }
         }
     }
+
+    private ErrorCardAction ChooseFolderAction(RepoRole role) =>
+        new(_text.Message("gameEditor.chooseFolder"), new AsyncRelayCommand(() => BrowseFolderAsync(role)), IsPrimary: true);
 
     [RelayCommand]
     private Task BrowseInstallAsync() => BrowseFolderAsync(RepoRole.Install);

@@ -12,11 +12,20 @@ public sealed partial class GameEditorViewModel
     private IReadOnlyList<string> _executables = [];
     private CancellationTokenSource? _scan;
 
+    // The folder the suggestions were last read for, so leaving the field unchanged does not scan a large install again.
+    private string? _scannedFolder;
+
     /// <summary>The executables found in the install folder that match what is typed in the start file field.</summary>
     public ObservableCollection<SuggestionItem> ExeSuggestions { get; } = [];
 
     /// <summary>The file names found in the install folder that match what is typed in the process name field.</summary>
     public ObservableCollection<SuggestionItem> ProcessSuggestions { get; } = [];
+
+    /// <summary>True when there are start files to suggest.</summary>
+    public bool HasExeSuggestions => ExeSuggestions.Count > 0;
+
+    /// <summary>True when there are process names to suggest.</summary>
+    public bool HasProcessSuggestions => ProcessSuggestions.Count > 0;
 
     /// <summary>The "Run the .exe" segment's text, named for the operating system's kind of program.</summary>
     public string RunExeLabel => _text.Message("gameEditor.launch.exe");
@@ -36,14 +45,20 @@ public sealed partial class GameEditorViewModel
     /// </summary>
     public async Task RefreshSuggestionsAsync()
     {
+        var install = InstallPath.Trim();
+        if (install == _scannedFolder)
+        {
+            return;
+        }
+
         _scan?.Cancel();
         _scan?.Dispose();
         var scan = _scan = new CancellationTokenSource();
 
-        var install = InstallPath.Trim();
         if (install.Length == 0)
         {
             _executables = [];
+            _scannedFolder = install;
             UpdateSuggestions();
             return;
         }
@@ -55,6 +70,7 @@ public sealed partial class GameEditorViewModel
         }
 
         _executables = found.Ok ? found.Value : [];
+        _scannedFolder = found.Ok ? install : null;
         UpdateSuggestions();
     }
 
@@ -78,6 +94,8 @@ public sealed partial class GameEditorViewModel
         Replace(ExeSuggestions, Matching(_executables, ExePath, _maxExeSuggestions), text => ExePath = text);
         var names = _executables.Select(FileNameOf).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         Replace(ProcessSuggestions, Matching(names, ProcessName, _maxProcessSuggestions), text => ProcessName = text);
+        OnPropertyChanged(nameof(HasExeSuggestions));
+        OnPropertyChanged(nameof(HasProcessSuggestions));
     }
 
     // What is already in the field is not offered back. A field that is empty or holds one of the candidates has nothing

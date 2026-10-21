@@ -37,6 +37,8 @@ public sealed partial class ChipListViewModel : ObservableObject
         GroupName = groupName;
         AddLabel = addLabel;
         Placeholder = placeholder;
+        Items.CollectionChanged += (_, _) => RebuildEntries();
+        RebuildEntries();
     }
 
     /// <summary>Raised after the values changed through the chips (not through <see cref="SetValues"/>).</summary>
@@ -56,6 +58,9 @@ public sealed partial class ChipListViewModel : ObservableObject
 
     /// <summary>The values, in order.</summary>
     public IReadOnlyList<string> Values => [.. Items.Select(chip => chip.Text)];
+
+    /// <summary>What the view lays out in one wrapping row: every <see cref="ChipItem"/>, then this list itself as the add chip.</summary>
+    public ObservableCollection<object> Entries { get; } = [];
 
     /// <summary>Replaces the whole list, dropping blank and repeated values; raises nothing.</summary>
     public void SetValues(IEnumerable<string> values)
@@ -97,6 +102,17 @@ public sealed partial class ChipListViewModel : ObservableObject
     {
         IsAdding = false;
         NewText = string.Empty;
+    }
+
+    private void RebuildEntries()
+    {
+        Entries.Clear();
+        foreach (var chip in Items)
+        {
+            Entries.Add(chip);
+        }
+
+        Entries.Add(this);
     }
 
     private bool TryAdd(string value)

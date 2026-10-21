@@ -127,6 +127,25 @@ public class GameEditorLaunchTests
     }
 
     [Fact]
+    public async Task A_folder_that_was_already_looked_at_is_not_scanned_again_until_it_changes()
+    {
+        var rig = RigWithExecutables("SkyrimSE.exe");
+        var editor = rig.Edit();
+        await editor.LoadAsync();
+
+        await editor.RefreshSuggestionsAsync();
+        await editor.RefreshSuggestionsAsync();
+
+        Assert.Single(rig.Backend.Calls.To<IGamesApi>("ListExecutablesAsync"));
+
+        editor.InstallPath = @"D:\Games\Other";
+        await editor.RefreshSuggestionsAsync();
+        await editor.RefreshSuggestionsAsync();
+
+        Assert.Equal(2, rig.Backend.Calls.To<IGamesApi>("ListExecutablesAsync").Count);
+    }
+
+    [Fact]
     public async Task A_scan_that_fails_suggests_nothing_and_shows_no_error()
     {
         var rig = RigWithExecutables("SkyrimSE.exe");

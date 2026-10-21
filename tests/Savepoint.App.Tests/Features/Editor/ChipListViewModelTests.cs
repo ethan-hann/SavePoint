@@ -119,6 +119,24 @@ public class ChipListViewModelTests
     }
 
     [Fact]
+    public void The_entries_are_the_chips_in_order_then_the_add_chip_last_however_the_list_changes()
+    {
+        var list = List("a", "b");
+        Assert.Equal([list.Items[0], list.Items[1], list], list.Entries);
+
+        list.BeginAddCommand.Execute(null);
+        list.NewText = "c";
+        list.CommitAddCommand.Execute(null);
+        Assert.Equal([list.Items[0], list.Items[1], list.Items[2], list], list.Entries);
+
+        list.Items[0].Remove.Execute(null);
+        Assert.Equal([list.Items[0], list.Items[1], list], list.Entries);
+
+        list.SetValues(["x"]);
+        Assert.Equal([list.Items[0], list], list.Entries);
+    }
+
+    [Fact]
     public void Setting_values_replaces_the_list_without_raising_changed()
     {
         var list = List("a");

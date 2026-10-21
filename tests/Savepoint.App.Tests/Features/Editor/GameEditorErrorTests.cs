@@ -211,6 +211,28 @@ public class GameEditorErrorTests
     }
 
     [Fact]
+    public async Task A_save_that_fails_because_a_folder_is_gone_offers_to_choose_another()
+    {
+        var rig = EditorRig.Create();
+        var editor = rig.Edit();
+        await editor.LoadAsync();
+        editor.Name = "Skyrim SE";
+        rig.Backend.FailNext<IGamesApi>("UpdateAsync", ErrorInfo.From(new PathMissingException(MockupScenario.SkyrimInstall, RepoRole.Install)));
+        await Save(rig, editor);
+
+        Assert.NotNull(editor.InstallCard);
+        Assert.Equal("This game's folder has moved or is gone", editor.InstallCard.Title);
+        var choose = Assert.Single(editor.InstallCard.Actions);
+        Assert.Equal("Choose the folder", choose.Label);
+
+        rig.Dialogs.AnswerFolder(@"D:\Games\SkyrimSE");
+        choose.Command.Execute(null);
+
+        Assert.Equal(@"D:\Games\SkyrimSE", editor.InstallPath);
+        Assert.Null(editor.InstallCard);
+    }
+
+    [Fact]
     public async Task An_overlap_with_another_game_is_shown_under_the_install_folder_of_a_new_game()
     {
         var rig = EditorRig.Create();

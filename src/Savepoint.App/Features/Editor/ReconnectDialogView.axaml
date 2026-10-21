@@ -1,0 +1,32 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:theme="using:Savepoint.App.Theme"
+             xmlns:editor="using:Savepoint.App.Features.Editor"
+             x:Class="Savepoint.App.Features.Editor.ReconnectDialogView"
+             x:DataType="editor:ReconnectDialogViewModel">
+  <!-- Saved history was found at the folders being added: reconnect it, start fresh, or back out. -->
+  <StackPanel Spacing="16">
+    <TextBlock Classes="dialog-title" TextWrapping="Wrap" Text="{Binding Title}" />
+    <TextBlock Classes="body muted" TextWrapping="Wrap" Text="{Binding Message}" />
+    <ItemsControl x:Name="ProfileList" ItemsSource="{Binding Lines}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <StackPanel Spacing="8" />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="x:String">
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <TextBlock Classes="icon s18 accent" Text="{x:Static theme:Icons.History}" />
+            <TextBlock Classes="body" VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding}" />
+          </StackPanel>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,4,0,0">
+      <Button x:Name="CancelButton" Classes="text pill large" Content="{Binding CancelLabel}" Command="{Binding CancelCommand}" />
+      <Button x:Name="StartFreshButton" Classes="pill large" Content="{Binding StartFreshLabel}" Command="{Binding StartFreshCommand}" />
+      <Button x:Name="ReconnectButton" Classes="filled pill large" IsDefault="True" Content="{Binding ReconnectLabel}" Command="{Binding ReconnectCommand}" />
+    </StackPanel>
+  </StackPanel>
+</UserControl>
