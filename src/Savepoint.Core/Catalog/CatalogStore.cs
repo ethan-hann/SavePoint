@@ -13,7 +13,8 @@ public sealed class CatalogStore
     public const string ProfilesFileName = "profiles.json";
     public const string SettingsFileName = "settings.json";
 
-    private const int _ioRetries = 4;
+    // Doubling from 20 ms, so about 1.3 s in all before a locked file is given up on.
+    private const int _ioRetries = 6;
     private const int _firstRetryDelayMs = 20;
 
     private static readonly byte[] _utf8Bom = [0xEF, 0xBB, 0xBF];
