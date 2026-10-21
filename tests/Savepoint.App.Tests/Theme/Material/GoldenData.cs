@@ -13,7 +13,8 @@ internal sealed record GoldenFile(
     GoldenTonalPalette[] TonalPalettes,
     GoldenTonalFromInt[] TonalFromInt,
     GoldenDislike[] Dislike,
-    GoldenContrast Contrast);
+    GoldenContrast Contrast,
+    GoldenToneCase[] ToneCases);
 
 internal sealed record GoldenViewingConditions(
     double N, double Aw, double Nbb, double Ncb, double C, double Nc, double[] RgbD, double Fl, double FLRoot, double Z);
@@ -55,6 +56,24 @@ internal sealed record GoldenRatio(double A, double B, double Ratio);
 internal sealed record GoldenContrastResult(double Tone, double Ratio, double Result);
 
 internal sealed record GoldenContrast(GoldenRatio[] Ratios, GoldenContrastResult[] Lighter, GoldenContrastResult[] Darker);
+
+// A hand-built background/foreground color, or a pair joined by a tone delta, and the tone the reference resolves.
+internal sealed record GoldenToneCase(
+    string Kind,
+    bool Dark,
+    double Contrast,
+    double BgTone,
+    double? Bg2Tone,
+    double ToneA,
+    double? ToneB,
+    double[] CurveA,
+    double[]? CurveB,
+    double? Delta,
+    string? Polarity,
+    bool? StayTogether,
+    bool IsBackground,
+    double ExpectedA,
+    double? ExpectedB);
 
 internal static class GoldenData
 {
