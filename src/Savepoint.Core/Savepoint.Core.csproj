@@ -2,6 +2,8 @@
 
   <PropertyGroup>
     <RootNamespace>Savepoint.Core</RootNamespace>
+    <!-- Every public Core API states its contract (D24): a missing XML doc comment fails the build here. -->
+    <NoWarn>$(NoWarn.Replace('CS1591', ''))</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
