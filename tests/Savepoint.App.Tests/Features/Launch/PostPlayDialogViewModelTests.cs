@@ -7,19 +7,19 @@ namespace Savepoint.App.Tests.Features.Launch;
 
 public class PostPlayDialogViewModelTests : IDisposable
 {
-    private const string ModdedName = "Modded playthrough - 7-2-26";
+    private const string _moddedName = "Modded playthrough - 7-2-26";
 
     private readonly LaunchRig _rig = new();
 
     public void Dispose() => _rig.Dispose();
 
     private async Task<PostPlayDialogViewModel> NormalAsync(int newFiles = MockupScenario.NewSaveFiles, int installFiles = 0, LaunchTarget? target = null) =>
-        new(await _rig.ExitedAsync(target ?? LaunchRig.ModdedTip, newFiles: newFiles, installFiles: installFiles), ModdedName, _rig.Deps);
+        new(await _rig.ExitedAsync(target ?? LaunchRig.ModdedTip, newFiles: newFiles, installFiles: installFiles), _moddedName, _rig.Deps);
 
     private async Task<PostPlayDialogViewModel> OlderAsync() =>
-        new(await _rig.ExitedAsync(LaunchRig.ClearedBlackreachPoint), ModdedName, _rig.Deps);
+        new(await _rig.ExitedAsync(LaunchRig.ClearedBlackreachPoint), _moddedName, _rig.Deps);
 
-    private PostPlayDialogViewModel Build(SessionState.Exited exited) => new(exited, ModdedName, _rig.Deps);
+    private PostPlayDialogViewModel Build(SessionState.Exited exited) => new(exited, _moddedName, _rig.Deps);
 
     private static PostPlayChoiceViewModel Card(PostPlayDialogViewModel dialog, CompletionChoice kind) =>
         dialog.Choices.Single(choice => choice.Kind == kind);
@@ -49,7 +49,7 @@ public class PostPlayDialogViewModelTests : IDisposable
         var exited = await _rig.ExitedAsync();
         var shorter = exited with { PlayDuration = TimeSpan.FromMinutes(12) };
 
-        var dialog = new PostPlayDialogViewModel(shorter, ModdedName, _rig.Deps);
+        var dialog = new PostPlayDialogViewModel(shorter, _moddedName, _rig.Deps);
 
         Assert.Equal("You played for 12 minutes", dialog.Title);
     }
@@ -261,7 +261,7 @@ public class PostPlayDialogViewModelTests : IDisposable
     {
         var exited = await _rig.ExitedAsync(LaunchRig.ClearedBlackreachPoint);
         var options = exited.Options with { NewerPointCount = 3 };
-        var dialog = new PostPlayDialogViewModel(exited with { Options = options }, ModdedName, _rig.Deps);
+        var dialog = new PostPlayDialogViewModel(exited with { Options = options }, _moddedName, _rig.Deps);
         dialog.SelectedChoice = Card(dialog, CompletionChoice.MoveForward);
 
         await dialog.SaveCommand.ExecuteAsync(null);
@@ -275,7 +275,7 @@ public class PostPlayDialogViewModelTests : IDisposable
     {
         var exited = await _rig.ExitedAsync(LaunchRig.ClearedBlackreachPoint);
         var options = exited.Options with { NewerPointCount = 0 };
-        var dialog = new PostPlayDialogViewModel(exited with { Options = options }, ModdedName, _rig.Deps);
+        var dialog = new PostPlayDialogViewModel(exited with { Options = options }, _moddedName, _rig.Deps);
         dialog.SelectedChoice = Card(dialog, CompletionChoice.MoveForward);
 
         await dialog.SaveCommand.ExecuteAsync(null);

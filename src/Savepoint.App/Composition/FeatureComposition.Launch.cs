@@ -1,14 +1,26 @@
+using Savepoint.App.Features.Launch;
 using Savepoint.App.Features.Shell;
 
 namespace Savepoint.App.Composition;
 
-/// <summary>
-/// Where each feature wires its view models. Each feature owns exactly one <c>FeatureComposition.&lt;Feature&gt;.cs</c>
-/// file, so features are added without touching each other's code or <see cref="AppComposition"/>.
-/// </summary>
 public static partial class FeatureComposition
 {
-    /// <summary>The shell-owned launch flow (D13.19), or null while it is not built yet.</summary>
+    /// <summary>The shell-owned launch flow (D13.19), built once for the shell and kept above every screen.</summary>
     /// <param name="context">Shared App services.</param>
-    public static ILaunchFlowHost? LaunchFlow(FeatureContext context) => null;
+    public static ILaunchFlowHost? LaunchFlow(FeatureContext context)
+    {
+        var api = context.Services;
+        return new LaunchFlowViewModel(new LaunchDependencies(
+            api.Launch,
+            api.Profiles,
+            api.Settings,
+            api.Games,
+            api.Jobs,
+            context.Dialogs,
+            context.Text,
+            context.Toasts,
+            context.Dispatcher,
+            TimeProvider.System,
+            new JobAwaiter(api.Jobs)));
+    }
 }

@@ -9,7 +9,7 @@ namespace Savepoint.App.Tests.Features.Launch;
 
 public class LaunchDialogViewModelTests : IDisposable
 {
-    private const string SurvivalName = "Survival test - 5-14-26";
+    private const string _survivalName = "Survival test - 5-14-26";
 
     private readonly LaunchRig _rig = new();
 
@@ -37,7 +37,7 @@ public class LaunchDialogViewModelTests : IDisposable
     {
         var dialog = await _rig.DialogAsync();
 
-        Assert.Equal($"Switch to \"{SurvivalName}\"?", dialog.Title);
+        Assert.Equal($"Switch to \"{_survivalName}\"?", dialog.Title);
         Assert.Equal("Here's exactly what SavePoint will change before the game starts.", dialog.Subtitle);
         Assert.Equal(600, dialog.DialogWidth);
     }
@@ -216,7 +216,7 @@ public class LaunchDialogViewModelTests : IDisposable
         var call = Assert.Single(_rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CaptureAsync)));
         Assert.Equal(MockupScenario.SkyrimId, call.Args[0]);
         Assert.Equal(MockupScenario.SurvivalId, call.Args[1]);
-        Assert.Equal($"Before switching to {SurvivalName}", call.Args[2]);
+        Assert.Equal($"Before switching to {_survivalName}", call.Args[2]);
         Assert.Equal([RepoRole.External], Assert.IsAssignableFrom<IEnumerable<RepoRole>>(call.Args[3]));
         Assert.True(block.IsBusy);
         Assert.False(dialog.CanSwitch);
