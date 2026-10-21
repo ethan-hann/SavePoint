@@ -69,6 +69,9 @@ public sealed class ExecutableScanner
         _ => ExecutableKinds.LinuxNative | ExecutableKinds.WindowsExe,
     };
 
+    // A seam so tests can reach the limit without creating thousands of files.
+    internal int EntryLimit { get; init; } = MaxEntriesVisited;
+
     internal Action<string>? Visited { get; init; }
 
     // A seam for tests on systems without a Unix file mode.
@@ -99,7 +102,7 @@ public sealed class ExecutableScanner
         var pending = new Queue<(string Path, int Depth)>();
         pending.Enqueue((root, 0));
         var visited = 0;
-        while (pending.Count > 0 && visited < MaxEntriesVisited)
+        while (pending.Count > 0 && visited < EntryLimit)
         {
             var (folder, depth) = pending.Dequeue();
             try
@@ -107,7 +110,7 @@ public sealed class ExecutableScanner
                 foreach (var entry in new DirectoryInfo(folder).EnumerateFileSystemInfos("*", _everything))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    if (visited++ >= MaxEntriesVisited)
+                    if (visited++ >= EntryLimit)
                     {
                         break;
                     }

@@ -200,32 +200,80 @@ public class ExecutableScannerTests
         Assert.Equal(P("sub", "deep20.exe"), found[^1]);
     }
 
+
     [Fact]
-    public async Task A_scan_stops_after_five_thousand_entries()
+    public void The_documented_limits_are_the_defaults()
+    {
+        var scanner = new ExecutableScanner(ExecutableKinds.WindowsExe);
+
+        Assert.Equal(4, ExecutableScanner.MaxDepth);
+        Assert.Equal(5000, ExecutableScanner.MaxEntriesVisited);
+        Assert.Equal(50, ExecutableScanner.MaxResults);
+        Assert.Equal(5000, scanner.EntryLimit);
+    }
+
+    // The entry limit is lowered here so the tests do not have to create thousands of files.
+    private static ExecutableScanner WithEntryLimit(int limit) => new(ExecutableKinds.WindowsExe) { EntryLimit = limit };
+
+    [Fact]
+    public async Task A_scan_stops_at_the_entry_limit_and_not_one_entry_later()
     {
         using var temp = new TempFolder();
-        for (var i = 0; i < 5100; i++)
+
+        // 49 files and the folder make 50 entries; the executable inside the folder would be the 51st.
+        for (var i = 0; i < 49; i++)
         {
-            File.WriteAllBytes(temp.Combine($"f{i:D5}.dat"), []);
+            File.WriteAllBytes(temp.Combine($"f{i:D3}.dat"), []);
         }
 
         temp.WriteBytes("sub/Game.exe", 10);
 
-        Assert.Empty(await ScanAsync(temp));
+        Assert.Empty(await WithEntryLimit(50).ListAsync(temp.Path, Ct));
+    }
+
+    [Fact]
+    public async Task A_single_crowded_folder_is_cut_off_after_exactly_the_limit()
+    {
+        using var temp = new TempFolder();
+        for (var i = 0; i < 70; i++)
+        {
+            File.WriteAllBytes(temp.Combine($"f{i:D3}.dat"), []);
+        }
+
+        var visits = 0;
+        var scanner = new ExecutableScanner(ExecutableKinds.WindowsExe) { EntryLimit = 50, Visited = _ => visits++ };
+
+        await scanner.ListAsync(temp.Path, Ct);
+
+        Assert.Equal(50, visits);
     }
 
     [Fact]
     public async Task A_folder_just_under_the_entry_limit_is_scanned_completely()
     {
         using var temp = new TempFolder();
-        for (var i = 0; i < 4990; i++)
+        for (var i = 0; i < 46; i++)
         {
-            File.WriteAllBytes(temp.Combine($"f{i:D5}.dat"), []);
+            File.WriteAllBytes(temp.Combine($"f{i:D3}.dat"), []);
         }
 
         temp.WriteBytes("sub/Game.exe", 10);
 
-        Assert.Equal([P("sub", "Game.exe")], await ScanAsync(temp));
+        Assert.Equal([P("sub", "Game.exe")], await WithEntryLimit(50).ListAsync(temp.Path, Ct));
+    }
+
+    [Fact]
+    public async Task A_folder_with_exactly_as_many_entries_as_the_limit_is_scanned_completely()
+    {
+        using var temp = new TempFolder();
+        for (var i = 0; i < 48; i++)
+        {
+            File.WriteAllBytes(temp.Combine($"f{i:D3}.dat"), []);
+        }
+
+        temp.WriteBytes("sub/Game.exe", 10);
+
+        Assert.Equal([P("sub", "Game.exe")], await WithEntryLimit(50).ListAsync(temp.Path, Ct));
     }
 
     [Fact]
@@ -234,12 +282,12 @@ public class ExecutableScannerTests
         using var temp = new TempFolder();
         temp.WriteBytes("Game.exe", 10);
         Directory.CreateDirectory(temp.Combine("deep"));
-        for (var i = 0; i < 5000; i++)
+        for (var i = 0; i < 60; i++)
         {
-            File.WriteAllBytes(temp.Combine("deep", $"f{i:D5}.dat"), []);
+            File.WriteAllBytes(temp.Combine("deep", $"f{i:D3}.dat"), []);
         }
 
-        Assert.Equal([P("Game.exe")], await ScanAsync(temp));
+        Assert.Equal([P("Game.exe")], await WithEntryLimit(50).ListAsync(temp.Path, Ct));
     }
 
     [Fact]
@@ -382,6 +430,7 @@ public class ExecutableScannerTests
     public async Task The_real_execute_bit_decides_on_unix()
     {
         Assert.SkipWhen(OperatingSystem.IsWindows(), "Windows has no execute bit");
+        Assert.SkipUnless(TempFolder.HonorsFileModes(), "this file system ignores permission bits");
         var elf = new byte[] { 0x7F, (byte)'E', (byte)'L', (byte)'F', 2, 1, 1, 0 };
         using var temp = new TempFolder();
         Executable(temp.WriteBytesWith("with-the-bit", elf));
