@@ -132,7 +132,7 @@ public class RelocationTests
         var (profile, _) = await workspace.CreateProfileAsync(game);
         await workspace.WaitForIdleAsync();
         var oldGameFolder = Path.Combine(workspace.DefaultStorageRoot, game.Id);
-        Directory.CreateDirectory(Path.Combine(oldGameFolder, "install.git", "an-empty-folder"));
+        Directory.CreateDirectory(Path.Combine(oldGameFolder, "install.git", "objects", "an-empty-folder"));
         var before = BackendWorkspace.Snapshot(oldGameFolder);
         var destination = Path.Combine(workspace.Root, "new-storage");
 
@@ -147,30 +147,111 @@ public class RelocationTests
         Assert.Equal(destination, result.NewRoot);
         Assert.True(result.BytesCopied > 0);
         Assert.Equal(before, BackendWorkspace.Snapshot(Path.Combine(destination, game.Id)));
-        Assert.True(Directory.Exists(Path.Combine(destination, game.Id, "install.git", "an-empty-folder")));
+        Assert.True(Directory.Exists(Path.Combine(destination, game.Id, "install.git", "objects", "an-empty-folder")));
         Assert.Equal(destination, (await workspace.Settings.GetAsync(workspace.Token)).Value!.StorageRoot);
         Assert.Equal(destination, (await workspace.Backend.Services.Storage.GetAsync(workspace.Token)).Root);
 
-        // The game carries on from the new place: history is intact and a new capture lands there, not in the old folder.
+        // The game carries on from the new place: history is intact and a new capture lands there, and nothing comes back to the old folder.
         Assert.Single((await workspace.History.GetAsync(game.Id, null, workspace.Token)).Value!.Points);
         BackendWorkspace.WriteFile(Path.Combine(game.Install.Path, "data", "patch.pak"), "patched");
         var capture = await workspace.Profiles.CaptureAsync(game.Id, profile.Id, "After the move");
         Assert.Equal(JobStatus.Succeeded, (await workspace.WaitForJobAsync(capture.Value!.JobId)).Status);
-        Assert.Equal(before, BackendWorkspace.Snapshot(oldGameFolder));
+        Assert.False(Directory.Exists(oldGameFolder));
         Assert.Equal(2, (await workspace.History.GetAsync(game.Id, null, workspace.Token)).Value!.Points.Count);
     }
 
     [Fact]
-    public async Task The_old_copies_stay_where_they_were()
+    public async Task The_old_copies_are_removed_once_the_move_has_switched_over_but_the_old_root_stays()
     {
         using var workspace = new BackendWorkspace();
         var game = await workspace.AddGameAsync();
+        await workspace.CreateProfileAsync(game);
+        await workspace.WaitForIdleAsync();
         var destination = Path.Combine(workspace.Root, "new-storage");
 
         var started = await workspace.Settings.RelocateStorageAsync(destination);
-        await workspace.WaitForJobAsync(started.Value!.JobId);
+        var job = await workspace.WaitForJobAsync(started.Value!.JobId);
 
-        Assert.True(Directory.Exists(Path.Combine(workspace.DefaultStorageRoot, game.Id, "install.git")));
+        Assert.Equal(JobStatus.Succeeded, job.Status);
+        Assert.False(Directory.Exists(Path.Combine(workspace.DefaultStorageRoot, game.Id, "install.git")));
+        Assert.False(Directory.Exists(Path.Combine(workspace.DefaultStorageRoot, game.Id, "external.git")));
+        Assert.False(Directory.Exists(Path.Combine(workspace.DefaultStorageRoot, game.Id)));
+        Assert.True(Directory.Exists(workspace.DefaultStorageRoot));
+        Assert.True(Directory.Exists(Path.Combine(destination, game.Id, "install.git")));
+    }
+
+    [Fact]
+    public async Task Things_in_the_old_root_that_are_not_SavePoints_git_directories_are_left_alone()
+    {
+        using var workspace = new BackendWorkspace();
+        var game = await workspace.AddGameAsync();
+        var notes = Path.Combine(workspace.DefaultStorageRoot, "my-documents", "notes.txt");
+        BackendWorkspace.WriteFile(notes, "not savepoint's");
+
+        // A folder shaped like a game's storage whose "git directory" holds something that git never writes.
+        var foreign = Path.Combine(workspace.DefaultStorageRoot, "foreign", "install.git", "family-photos.zip");
+        BackendWorkspace.WriteFile(foreign, "somebody's files");
+        var destination = Path.Combine(workspace.Root, "new-storage");
+
+        var started = await workspace.Settings.RelocateStorageAsync(destination);
+        var job = await workspace.WaitForJobAsync(started.Value!.JobId);
+
+        Assert.Equal(JobStatus.Succeeded, job.Status);
+        Assert.False(Directory.Exists(Path.Combine(workspace.DefaultStorageRoot, game.Id)));
+        Assert.Equal("not savepoint's", await File.ReadAllTextAsync(notes, workspace.Token));
+        Assert.Equal("somebody's files", await File.ReadAllTextAsync(foreign, workspace.Token));
+    }
+
+    [Fact]
+    public async Task An_old_copy_that_cannot_be_removed_does_not_undo_a_move_that_has_switched_over()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows refuses to delete a file another program holds open");
+        using var workspace = new BackendWorkspace();
+        var game = await workspace.AddGameAsync();
+        await workspace.CreateProfileAsync(game);
+        await workspace.WaitForIdleAsync();
+        var held = Path.Combine(workspace.DefaultStorageRoot, game.Id, "install.git", "HEAD");
+        var destination = Path.Combine(workspace.Root, "new-storage");
+
+        // Readable by the copy, but not deletable by anyone until it is let go.
+        using (new FileStream(held, FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            var started = await workspace.Settings.RelocateStorageAsync(destination);
+            var job = await workspace.WaitForJobAsync(started.Value!.JobId);
+
+            Assert.Equal(JobStatus.Succeeded, job.Status);
+        }
+
+        Assert.Equal(destination, (await workspace.Settings.GetAsync(workspace.Token)).Value!.StorageRoot);
+        Assert.Equal(destination, (await workspace.Backend.Services.Storage.GetAsync(workspace.Token)).Root);
+        Assert.Single((await workspace.History.GetAsync(game.Id, null, workspace.Token)).Value!.Points);
+    }
+
+    [Fact]
+    public async Task An_old_git_directory_that_leads_outside_the_old_root_is_never_followed()
+    {
+        using var workspace = new BackendWorkspace();
+        var game = await workspace.AddGameAsync();
+        var outside = Path.Combine(workspace.Root, "outside-the-storage");
+        BackendWorkspace.WriteFile(Path.Combine(outside, "keep.txt"), "keep me");
+        var linked = Path.Combine(workspace.DefaultStorageRoot, "linked-game");
+        Directory.CreateDirectory(linked);
+        try
+        {
+            Directory.CreateSymbolicLink(Path.Combine(linked, "install.git"), outside);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+        {
+            Assert.Skip("this account cannot create symbolic links");
+        }
+
+        var destination = Path.Combine(workspace.Root, "new-storage");
+        var started = await workspace.Settings.RelocateStorageAsync(destination);
+        var job = await workspace.WaitForJobAsync(started.Value!.JobId);
+
+        Assert.Equal(JobStatus.Succeeded, job.Status);
+        Assert.Equal("keep me", await File.ReadAllTextAsync(Path.Combine(outside, "keep.txt"), workspace.Token));
+        Assert.False(Directory.Exists(Path.Combine(workspace.DefaultStorageRoot, game.Id)));
     }
 
     [Fact]

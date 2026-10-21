@@ -3,6 +3,7 @@ using Savepoint.Core.Api;
 using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
+using Savepoint.Core.Git;
 using Savepoint.Core.Services.Jobs;
 using Savepoint.Core.Services.Storage;
 
@@ -10,8 +11,8 @@ namespace Savepoint.Core.Services.Settings;
 
 /// <summary>
 /// Moves SavePoint's storage to a new folder (D13.4): everything is copied and checked byte for byte first, only then do the
-/// settings and the engine switch to the new root, and the old copies are left where they were. A move that fails or is
-/// cancelled takes back what it copied and changes nothing else.
+/// settings and the engine switch to the new root, and then the old copies are removed. A move that fails or is cancelled
+/// takes back what it copied and changes nothing else, so the old copies stay.
 /// </summary>
 internal sealed class StorageRelocator
 {
@@ -20,6 +21,15 @@ internal sealed class StorageRelocator
 
     // Room the destination must keep free beyond the data itself, the same floor the engine keeps for its own writes.
     private const long _spareBytes = 100L * 1024 * 1024;
+
+    // A process that was just stopped can hold a file of an old git directory for a moment.
+    private static readonly IReadOnlyList<TimeSpan> _removeDelays =
+    [
+        TimeSpan.FromMilliseconds(100),
+        TimeSpan.FromMilliseconds(250),
+        TimeSpan.FromMilliseconds(500),
+        TimeSpan.FromMilliseconds(1000),
+    ];
 
     private readonly BackendServices _services;
     private readonly Action<string, string>? _afterCopy;
@@ -149,6 +159,7 @@ internal sealed class StorageRelocator
 
         var createdRoot = !Directory.Exists(destination);
         var progress = new Tally(context, listing);
+        StorageRelocationResult result;
         try
         {
             Directory.CreateDirectory(destination);
@@ -165,7 +176,7 @@ internal sealed class StorageRelocator
                 current => (current ?? AppSettings.Defaults(_services.Platform.Directories.DefaultStorageRoot)) with { StorageRoot = moved.Root },
                 CancellationToken.None).ConfigureAwait(false);
             _services.Storage.Replace(moved);
-            return new StorageRelocationResult(storage.Root, moved.Root, progress.BytesDone);
+            result = new StorageRelocationResult(storage.Root, moved.Root, progress.BytesDone);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
@@ -176,6 +187,72 @@ internal sealed class StorageRelocator
         {
             TakeBack(destination, listing, createdRoot);
             throw;
+        }
+
+        // The move has switched over; nothing past this point may undo it.
+        await RemoveOldCopiesAsync(context, storage, listing, result.NewRoot).ConfigureAwait(false);
+        return result;
+    }
+
+    // Nothing refers to the old root any more, so its copies are only duplicates. Only SavePoint's own git directories go, each
+    // one checked again by GitDirRemoval, and the old root and anything else in it stay. A copy that cannot be removed is left
+    // and named in the job's lines; it never fails the move.
+    private static async Task RemoveOldCopiesAsync(JobContext context, StorageSnapshot old, ContentListing listing, string newRoot)
+    {
+        if (Overlaps(old, newRoot))
+        {
+            return;
+        }
+
+        foreach (var folder in listing.Folders)
+        {
+            var gameId = Path.GetFileName(folder);
+            foreach (var role in new[] { RepoRole.Install, RepoRole.External })
+            {
+                var gitDir = old.GitDirectory(gameId, role);
+                try
+                {
+                    await GitDirRemoval.RemoveAsync(gitDir, old.Root, old.PathSafety.ResolveRealPath, _removeDelays, context.CancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+                catch (Exception e) when (e is SavepointException or IOException or UnauthorizedAccessException)
+                {
+                    context.AddLine(gitDir);
+                }
+            }
+
+            RemoveIfEmpty(folder);
+        }
+    }
+
+    // A root that cannot be judged is treated as overlapping: deleting nothing is always safe.
+    private static bool Overlaps(StorageSnapshot old, string newRoot)
+    {
+        try
+        {
+            return old.PathSafety.PathsOverlap(old.Root, newRoot);
+        }
+        catch (Exception e) when (e is IOException or ArgumentException)
+        {
+            return true;
+        }
+    }
+
+    private static void RemoveIfEmpty(string folder)
+    {
+        try
+        {
+            if (Directory.Exists(folder) && !Directory.EnumerateFileSystemEntries(folder).Any())
+            {
+                Directory.Delete(folder);
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // An empty folder left behind is harmless.
         }
     }
 

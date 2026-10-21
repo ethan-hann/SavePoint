@@ -2,7 +2,10 @@ using Savepoint.Core.Errors;
 
 namespace Savepoint.Core.Api;
 
-/// <summary>What moving the storage folder would copy, so the confirmation is exact. The previous folder is left in place.</summary>
+/// <summary>
+/// What moving the storage folder would copy, so the confirmation is exact. Once everything is copied and checked, SavePoint
+/// removes its own copies from the previous folder.
+/// </summary>
 /// <param name="CurrentRoot">The storage folder now in use.</param>
 /// <param name="NewRoot">The folder the data would move to.</param>
 /// <param name="Games">Bytes of storage each game would bring along.</param>

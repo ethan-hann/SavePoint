@@ -45,7 +45,7 @@
   "settings.storage.free": "{size} free",
   "settings.storage.heading": "Where SavePoint keeps its data",
   "settings.storage.moveConfirm": "Move data",
-  "settings.storage.moveMessage": "SavePoint will copy {size} ({count, plural, one {{files} file} other {{files} files}}) to {destination}. The old folder stays where it is, so you can delete it once you've checked that everything works.",
+  "settings.storage.moveMessage": "SavePoint will copy {size} ({count, plural, one {{files} file} other {{files} files}}) to {destination} and check every file. Once that is done, SavePoint removes its old copy from the current folder.",
   "settings.storage.moveTitle": "Move SavePoint's data?",
   "settings.storage.moving": "Moving your data…",
   "settings.storage.movingDetail": "{done} of {total}",
