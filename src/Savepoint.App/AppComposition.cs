@@ -1,4 +1,5 @@
 using Avalonia.Platform.Storage;
+using Savepoint.App.Composition;
 using Savepoint.App.Features.Common;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Formatting;
@@ -39,33 +40,39 @@ public static class AppComposition
         var pickers = dialogs ?? new AvaloniaDialogs(dialogStack, text, storage);
         var startup = new StartupViewModel(services?.AppStatus, text);
 
-        ShellViewModel CreateShell() => new(new ShellDependencies(
-            services!.Games,
-            services.Profiles,
-            services.Settings,
-            services.Jobs,
-            text,
-            ui,
-            pickers,
-            toasts,
-            theme,
-            ScreenFactories(new ScreenComposition(services, pickers, text, toasts, ui)),
-            LaunchFlow: null));
+        ShellViewModel CreateShell()
+        {
+            var api = services!;
+            var feature = new FeatureContext(api, pickers, text, toasts, ui);
+            return new(new ShellDependencies(
+                api.Games,
+                api.Profiles,
+                api.Settings,
+                api.Jobs,
+                text,
+                ui,
+                pickers,
+                toasts,
+                theme,
+                ScreenFactories(feature),
+                LaunchFlow: FeatureComposition.LaunchFlow(feature)));
+        }
 
         return new MainWindowViewModel(startup, CreateShell, dialogStack, toasts);
     }
 
     /// <summary>
-    /// One factory per screen. Games, History, Settings and the launch flow register here as they are built; a
-    /// destination without a factory shows the placeholder.
+    /// One factory per screen, each supplied by its feature's <see cref="FeatureComposition"/> file; a destination without
+    /// a factory shows the placeholder.
     /// </summary>
-    private static IReadOnlyList<IScreenFactory> ScreenFactories(ScreenComposition composition) => [];
+    private static IReadOnlyList<IScreenFactory> ScreenFactories(FeatureContext feature)
+    {
+        var editor = FeatureComposition.GameEditor(feature);
+        return new[]
+        {
+            FeatureComposition.GamesScreen(feature, editor),
+            FeatureComposition.HistoryScreen(feature, editor),
+            FeatureComposition.SettingsScreen(feature, editor),
+        }.OfType<IScreenFactory>().ToList();
+    }
 }
-
-/// <summary>What a screen factory may need to build its screen: the Api, the dialogs, the formatter, the toasts and the dispatcher.</summary>
-/// <param name="Services">The Api.</param>
-/// <param name="Dialogs">Dialogs and pickers.</param>
-/// <param name="Text">Formats messages.</param>
-/// <param name="Toasts">Shows transient messages.</param>
-/// <param name="Dispatcher">Brings Api events to the UI thread.</param>
-public sealed record ScreenComposition(AppServices Services, IDialogs Dialogs, UiFormatter Text, ToastHostViewModel Toasts, IUiDispatcher Dispatcher);

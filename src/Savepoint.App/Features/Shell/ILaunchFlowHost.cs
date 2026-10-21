@@ -18,4 +18,13 @@ public interface ILaunchFlowHost : INotifyPropertyChanged
 
     /// <summary>True while the flow owns a session for the game (preparing, switching, running or waiting on the post-play choice); Play stays unavailable then.</summary>
     bool IsActive(string gameId);
+
+    /// <summary>
+    /// The view model the Games screen shows above the profile table for a game: the "everything was already in place"
+    /// banner (2a) or the running card (2c), or null when there is nothing to show. Its view is found by name.
+    /// </summary>
+    object? InlineContentFor(string gameId);
+
+    /// <summary>Raised with the game id whenever <see cref="InlineContentFor"/> would return something different for that game. May be raised on any thread.</summary>
+    event EventHandler<string>? InlineContentChanged;
 }

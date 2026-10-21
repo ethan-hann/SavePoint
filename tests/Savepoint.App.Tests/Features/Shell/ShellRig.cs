@@ -152,4 +152,12 @@ internal sealed class FakeLaunchFlow : ILaunchFlowHost
     }
 
     public bool IsActive(string gameId) => false;
+
+    public object? InlineContentFor(string gameId) => null;
+
+    public event EventHandler<string>? InlineContentChanged
+    {
+        add { }
+        remove { }
+    }
 }
