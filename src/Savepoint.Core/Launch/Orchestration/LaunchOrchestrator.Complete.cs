@@ -41,18 +41,18 @@ public sealed partial class LaunchOrchestrator
                 var target = forked ?? profile;
                 var name = PointNameOf(completion);
                 var point = string.IsNullOrWhiteSpace(name) ? target.Name : name;
-                var jobId = _capture.Start(game, target, point, roles, Guid.NewGuid().ToString("D"), creating: forked is not null, plans: PlansFor(completion, roles, current.StartCommits));
+                var jobId = _capture.Start(game, target, point, roles, Guid.NewGuid().ToString("D"), creating: forked is not null, plans: PlansFor(completion, roles, current.StartCommits, (current.Info.State as SessionState.Exited)?.Options.UpdateTarget?.Id.Value));
                 return new SessionState.Completing(completion, jobId);
             });
             return Unit.Value;
         });
 
     // How each folder is saved. A new point needs no plan; the other choices change history, so each folder is told what the session
-    // began from, and an update leaves a folder with nothing unsaved alone.
-    private static Dictionary<RepoRole, FolderCapturePlan>? PlansFor(SessionCompletion completion, IReadOnlyList<RepoRole> roles, IReadOnlyDictionary<RepoRole, string> starts) =>
+    // began from, and an update rewrites only the point it names and leaves a folder with nothing unsaved alone.
+    private static Dictionary<RepoRole, FolderCapturePlan>? PlansFor(SessionCompletion completion, IReadOnlyList<RepoRole> roles, IReadOnlyDictionary<RepoRole, string> starts, string? updated) =>
         completion switch
         {
-            SessionCompletion.UpdateExisting => roles.ToDictionary(role => role, _ => new FolderCapturePlan(CaptureMode.Amend, SkipWhenClean: true)),
+            SessionCompletion.UpdateExisting => roles.ToDictionary(role => role, _ => new FolderCapturePlan(CaptureMode.Amend, SkipWhenClean: true, AmendPointId: updated)),
             SessionCompletion.ForkNewProfile => roles.ToDictionary(role => role, role => new FolderCapturePlan(CaptureMode.Fork, starts.GetValueOrDefault(role))),
             SessionCompletion.MoveForward => roles.ToDictionary(role => role, role => new FolderCapturePlan(CaptureMode.MoveForward, starts.GetValueOrDefault(role))),
             _ => null,

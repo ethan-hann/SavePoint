@@ -12,7 +12,11 @@ namespace Savepoint.Core.Services.Profiles;
 /// <param name="Mode">How the capture relates to the folder's history.</param>
 /// <param name="ExpectedStartCommit">The commit the play session started from, which a fork or a move forward needs; null for none.</param>
 /// <param name="SkipWhenClean">True to leave a folder with nothing unsaved untouched, so rewriting its latest point never turns it into an empty one.</param>
-internal sealed record FolderCapturePlan(CaptureMode Mode, string? ExpectedStartCommit = null, bool SkipWhenClean = false);
+/// <param name="AmendPointId">
+/// For <see cref="CaptureMode.Amend"/>: the capture id of the one point being replaced. Only a folder whose newest commit carries it is
+/// rewritten; a folder whose newest commit belongs to another point gets a new commit under the same capture id, so no other point is lost.
+/// </param>
+internal sealed record FolderCapturePlan(CaptureMode Mode, string? ExpectedStartCommit = null, bool SkipWhenClean = false, string? AmendPointId = null);
 
 /// <summary>Saves a profile's folders as one capture event: every folder it touches gets a point carrying the same capture id (D15).</summary>
 internal sealed class CaptureRunner
@@ -147,7 +151,7 @@ internal sealed class CaptureRunner
         // A branch that does not exist yet is started at what the folder holds now, whatever branch it is on.
         var request = new CaptureRequest(branch, pointName, captureId)
         {
-            Mode = plan?.Mode ?? (branchExists ? CaptureMode.Normal : CaptureMode.Fork),
+            Mode = await ModeOfAsync(storage, repo, branch, branchExists, plan, cancellationToken).ConfigureAwait(false),
             IgnorePatterns = game.IgnorePaths,
             ExpectedStartCommit = plan?.ExpectedStartCommit,
         };
@@ -160,6 +164,18 @@ internal sealed class CaptureRunner
         // An empty folder in an empty repository has nothing to record; the profile still needs a branch here.
         await storage.Engine.CreateEmptyBranchAsync(repo, branch, pointName, captureId, cancellationToken).ConfigureAwait(false);
         return true;
+    }
+
+    // An amend rewrites the newest commit, so it only runs where that commit is the point being replaced.
+    private static async Task<CaptureMode> ModeOfAsync(StorageSnapshot storage, RepoRef repo, string branch, bool branchExists, FolderCapturePlan? plan, CancellationToken cancellationToken)
+    {
+        if (plan is not { Mode: CaptureMode.Amend, AmendPointId: { } replaced })
+        {
+            return plan?.Mode ?? (branchExists ? CaptureMode.Normal : CaptureMode.Fork);
+        }
+
+        var newest = (await storage.Engine.ListCommitsAsync(repo, branch, 1, cancellationToken).ConfigureAwait(false)).FirstOrDefault();
+        return string.Equals(newest?.CaptureId, replaced, StringComparison.Ordinal) ? CaptureMode.Amend : CaptureMode.Normal;
     }
 
     // The profile exists once any folder was saved; when none was, the branches this attempt started are taken back (D23).
