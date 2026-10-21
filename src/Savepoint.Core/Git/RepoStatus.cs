@@ -7,10 +7,12 @@ namespace Savepoint.Core.Git;
 /// <param name="HeadCommit">The full id of the checked-out point; null when the repository has none yet.</param>
 /// <param name="ChangedPaths">Tracked files that were modified, deleted or staged, relative to the work tree with forward slashes.</param>
 /// <param name="UntrackedPaths">New files that are not ignored, in the same form.</param>
+/// <param name="InterruptedSwitch">Set while a checkout has started and not finished; the changes listed may be half of a switch, not the player's work.</param>
 public sealed record RepoStatus(
     bool IsClean,
     string? Branch,
     bool IsDetached,
     string? HeadCommit,
     IReadOnlyList<string> ChangedPaths,
-    IReadOnlyList<string> UntrackedPaths);
+    IReadOnlyList<string> UntrackedPaths,
+    InterruptedSwitch? InterruptedSwitch = null);

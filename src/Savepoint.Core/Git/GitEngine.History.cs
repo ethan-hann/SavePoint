@@ -26,7 +26,7 @@ public sealed partial class GitEngine
         var result = await RunAsync(
             Invocation(repo, readOnly: true, "status", "--porcelain=v2", "-z", "--branch", "--untracked-files=all", "--no-renames"),
             ct).ConfigureAwait(false);
-        return PorcelainStatus.Parse(result.SplitStandardOutputOnNul());
+        return PorcelainStatus.Parse(result.SplitStandardOutputOnNul()) with { InterruptedSwitch = SwitchJournal.Read(repo.GitDir) };
     }
 
     /// <summary>
