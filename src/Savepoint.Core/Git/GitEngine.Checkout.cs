@@ -28,7 +28,7 @@ public sealed partial class GitEngine
     public Task CheckoutBranchAsync(RepoRef repo, string branch, IProgress<FileProgress>? progress = null, CancellationToken ct = default)
     {
         BranchNames.Require(branch);
-        return CheckoutAsync(repo, branch, isBranch: true, progress, ct);
+        return CheckoutAsync(repo, branch, isBranch: true, force: false, progress, ct);
     }
 
     /// <summary>
@@ -41,15 +41,127 @@ public sealed partial class GitEngine
     /// <exception cref="ArgumentException"><paramref name="commitId"/> is not a full commit id.</exception>
     public Task CheckoutCommitAsync(RepoRef repo, string commitId, IProgress<FileProgress>? progress = null, CancellationToken ct = default)
     {
+        RequireCommitId(commitId);
+        return CheckoutAsync(repo, commitId, isBranch: false, force: false, progress, ct);
+    }
+
+    private static void RequireCommitId(string? commitId)
+    {
         if (commitId is null || !GitDirFiles.IsObjectId(commitId))
         {
             throw new ArgumentException("A full commit id is needed.", nameof(commitId));
         }
-
-        return CheckoutAsync(repo, commitId, isBranch: false, progress, ct);
     }
 
-    private async Task CheckoutAsync(RepoRef repo, string target, bool isBranch, IProgress<FileProgress>? progress, CancellationToken ct)
+    /// <summary>
+    /// Switches the folder to a branch and makes it match, discarding local changes to tracked files and overwriting new
+    /// files that are in the way. Everything else behaves like <see cref="CheckoutBranchAsync"/>.
+    /// </summary>
+    /// <param name="repo">The folder to switch.</param>
+    /// <param name="branch">The profile's branch; it must have at least one point.</param>
+    /// <param name="ct">Cancels the switch.</param>
+    public Task ForceCheckoutBranchAsync(RepoRef repo, string branch, CancellationToken ct = default)
+    {
+        BranchNames.Require(branch);
+        return CheckoutAsync(repo, branch, isBranch: true, force: true, progress: null, ct);
+    }
+
+    /// <summary>
+    /// Switches the folder to an older point and makes it match, discarding local changes like <see cref="ForceCheckoutBranchAsync"/>.
+    /// </summary>
+    /// <param name="repo">The folder to switch.</param>
+    /// <param name="commitId">The full id of a point in the repository.</param>
+    /// <param name="ct">Cancels the switch.</param>
+    public Task ForceCheckoutCommitAsync(RepoRef repo, string commitId, CancellationToken ct = default)
+    {
+        RequireCommitId(commitId);
+        return CheckoutAsync(repo, commitId, isBranch: false, force: true, progress: null, ct);
+    }
+
+    /// <summary>
+    /// Throws away every change since the checked-out point: modified and deleted files come back, new files that are
+    /// not ignored are removed. Ignored files and the consent marker stay. Works on a detached HEAD, and also finishes
+    /// the job of an unfinished switch by returning the folder to the point HEAD is on (which is the point the switch
+    /// started from unless HEAD had already moved; <see cref="RepoStatus.InterruptedSwitch"/> says which).
+    /// </summary>
+    /// <param name="repo">The folder.</param>
+    /// <param name="ct">Cancels the call.</param>
+    /// <exception cref="Savepoint.Core.Errors.GitOperationException">The repository has no point to return to, or a file stayed in use through every attempt.</exception>
+    public async Task DiscardChangesAsync(RepoRef repo, CancellationToken ct = default)
+    {
+        repo = Normalize(repo);
+        ct.ThrowIfCancellationRequested();
+        CheckWorkTree(repo);
+        RepoMarker.Verify(repo);
+        if (!IsInitialized(repo.GitDir))
+        {
+            throw new GitOperationException(null, $"The repository at '{repo.GitDir}' does not exist.");
+        }
+
+        var head = GitDirFiles.ReadHead(repo.GitDir);
+        var point = head.IsDetached ? head.DetachedCommit : await ResolveBranchAsync(repo, head.Branch!, ct).ConfigureAwait(false);
+        if (point is null)
+        {
+            throw new GitOperationException(null, "The folder has no saved point to return to, so there is nothing to discard back to.");
+        }
+
+        using var scope = BeginWrite(repo);
+
+        // A file another program holds fails the reset for that file only; the verify pass below finds it and tries again.
+        var reset = await RunRawAsync(Invocation(repo, readOnly: false, "reset", "--hard", "--quiet") with { AllowedExitCodes = _anyExitCode }, ct).ConfigureAwait(false);
+        if (reset.ExitCode != 0 && !reset.StandardError.Contains("unable to", StringComparison.Ordinal))
+        {
+            throw GitFailure.ToException(new GitCommandException(["reset", "--hard"], reset.ExitCode, reset.StandardError));
+        }
+
+        await VerifyAsync(repo, point, [], ct).ConfigureAwait(false);
+        await RemoveNewFilesAsync(repo, ct).ConfigureAwait(false);
+        SwitchJournal.Clear(repo.GitDir);
+    }
+
+    /// <summary>Removes new files and folders that are not ignored; changes to tracked files stay. Ignored files and the consent marker stay.</summary>
+    /// <param name="repo">The folder.</param>
+    /// <param name="ct">Cancels the call.</param>
+    public async Task CleanAsync(RepoRef repo, CancellationToken ct = default)
+    {
+        repo = Normalize(repo);
+        ct.ThrowIfCancellationRequested();
+        CheckWorkTree(repo);
+        RepoMarker.Verify(repo);
+
+        using var scope = BeginWrite(repo);
+        await RemoveNewFilesAsync(repo, ct).ConfigureAwait(false);
+    }
+
+    // Removes new files that are not ignored; a file still in use is retried and then named.
+    private async Task RemoveNewFilesAsync(RepoRef repo, CancellationToken ct)
+    {
+        await RunRawAsync(Invocation(repo, readOnly: false, "clean", "-f", "-d", "--quiet") with { AllowedExitCodes = _anyExitCode }, ct).ConfigureAwait(false);
+        for (var pass = 0; ; pass++)
+        {
+            ct.ThrowIfCancellationRequested();
+            var left = (await RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z", "--others", "--exclude-standard"), ct).ConfigureAwait(false))
+                .SplitStandardOutputOnNul();
+            if (left.Count == 0)
+            {
+                return;
+            }
+
+            if (pass >= _options.ResyncDelays.Count)
+            {
+                throw new GitOperationException(FullPath(repo, left[0]), NotUpdatedMessage(left));
+            }
+
+            foreach (var path in left)
+            {
+                TryDelete(FullPath(repo, path));
+            }
+
+            await Task.Delay(_options.ResyncDelays[pass], ct).ConfigureAwait(false);
+        }
+    }
+
+    private async Task CheckoutAsync(RepoRef repo, string target, bool isBranch, bool force, IProgress<FileProgress>? progress, CancellationToken ct)
     {
         repo = Normalize(repo);
         ct.ThrowIfCancellationRequested();
@@ -77,7 +189,7 @@ public sealed partial class GitEngine
         SwitchJournal.Write(repo.GitDir, SwitchJournal.Read(repo.GitDir)?.FromCommit ?? from, to);
         var reporter = progress is null ? null : new ProgressReporter(progress);
 
-        await RunCheckoutAsync(repo, target, to, isBranch, reporter, ct).ConfigureAwait(false);
+        await RunCheckoutAsync(repo, target, to, isBranch, force, reporter, ct).ConfigureAwait(false);
         reporter?.Complete();
         await VerifyAsync(repo, to, expectedGone, ct).ConfigureAwait(false);
         SwitchJournal.Clear(repo.GitDir);
@@ -111,11 +223,11 @@ public sealed partial class GitEngine
     }
 
     // Runs the switch itself. git refusing (local changes, a lock) leaves nothing changed; any other failure leaves the note that the switch is unfinished.
-    private async Task RunCheckoutAsync(RepoRef repo, string target, string to, bool isBranch, ProgressReporter? reporter, CancellationToken ct)
+    private async Task RunCheckoutAsync(RepoRef repo, string target, string to, bool isBranch, bool force, ProgressReporter? reporter, CancellationToken ct)
     {
         for (var attempt = 0; ; attempt++)
         {
-            var result = await RunRawAsync(CheckoutInvocation(repo, target, isBranch, reporter), ct).ConfigureAwait(false);
+            var result = await RunRawAsync(CheckoutInvocation(repo, target, isBranch, force, reporter), ct).ConfigureAwait(false);
             if (result.ExitCode == 0)
             {
                 return;
@@ -155,9 +267,14 @@ public sealed partial class GitEngine
         }
     }
 
-    private GitInvocation CheckoutInvocation(RepoRef repo, string target, bool isBranch, ProgressReporter? reporter)
+    private GitInvocation CheckoutInvocation(RepoRef repo, string target, bool isBranch, bool force, ProgressReporter? reporter)
     {
         List<string> arguments = ["checkout"];
+        if (force)
+        {
+            arguments.Add("--force");
+        }
+
         if (reporter is not null)
         {
             arguments.Add("--progress");

@@ -173,6 +173,18 @@ internal sealed class EngineWorkspace : IDisposable
             progress,
             TestContext.Current.CancellationToken);
 
+    // Three points on a branch: a.txt "one", then b.txt added, then a.txt changed. Returns their commit ids, oldest first.
+    public async Task<string[]> ThreePointsAsync(RepoRef repo, string branch = "profile-1")
+    {
+        Write(repo, "a.txt", "one");
+        var first = (await CaptureAsync(repo, branch, "First point")).TipCommitId!;
+        Write(repo, "b.txt", "two");
+        var second = (await CaptureAsync(repo, branch, "Second point")).TipCommitId!;
+        Write(repo, "a.txt", "three");
+        var third = (await CaptureAsync(repo, branch, "Third point")).TipCommitId!;
+        return [first, second, third];
+    }
+
     // The full ref HEAD points at, or null when HEAD is detached.
     public async Task<string?> HeadRefAsync(RepoRef repo)
     {

@@ -11,7 +11,7 @@ public sealed class BranchNameTests : IDisposable
 
     public static TheoryData<string> Names =>
     [
-        "profile-1", "profiles/a1b2c3", "Café", "a.b", "a_b", "UPPER", "1234",
+        "profile-1", "profiles/a1b2c3", "Caf\u00e9", "a.b", "a_b", "UPPER", "1234",
         "", "a..b", "-leading-dash", "has space", "ends.lock", "trailing/", "/leading", "a//b", "tilde~1", "colon:name",
         "HEAD", "@", "new\nline", "at@{brace", "what?", "star*", "open[bracket", "back\\slash", "caret^",
         "ends-with-dot.", ".starts-with-dot", "folder/.hidden", "folder/part.lock/more", "tab\there",

@@ -70,8 +70,148 @@ public sealed partial class GitEngine
         return request.Mode switch
         {
             CaptureMode.Normal => await CaptureNormalAsync(repo, request, head, tip, progress, ct).ConfigureAwait(false),
-            _ => throw new NotSupportedException($"Capture mode {request.Mode} is not available yet."),
+            CaptureMode.Amend => await CaptureAmendAsync(repo, request, head, tip, progress, ct).ConfigureAwait(false),
+            CaptureMode.Fork => await CaptureForkAsync(repo, request, head, tip, progress, ct).ConfigureAwait(false),
+            CaptureMode.MoveForward => await CaptureMoveForwardAsync(repo, request, head, tip, progress, ct).ConfigureAwait(false),
+            _ => throw new ArgumentOutOfRangeException(nameof(request), request.Mode, "Unknown capture mode."),
         };
+    }
+
+    private async Task<CaptureOutcome> CaptureAmendAsync(
+        RepoRef repo,
+        CaptureRequest request,
+        HeadState head,
+        string? tip,
+        IProgress<FileProgress>? progress,
+        CancellationToken ct)
+    {
+        if (head.IsDetached || tip is null || !string.Equals(head.Branch, request.Branch, StringComparison.Ordinal))
+        {
+            throw new AmendNotAvailableException();
+        }
+
+        await StageAsync(repo, hasCommits: true, progress, ct).ConfigureAwait(false);
+        await CommitAsync(repo, request, amend: true, ct).ConfigureAwait(false);
+        return new CaptureOutcome(true, await ResolveBranchAsync(repo, request.Branch, ct).ConfigureAwait(false));
+    }
+
+    private async Task<CaptureOutcome> CaptureForkAsync(
+        RepoRef repo,
+        CaptureRequest request,
+        HeadState head,
+        string? tip,
+        IProgress<FileProgress>? progress,
+        CancellationToken ct)
+    {
+        // Nothing to branch from yet: the new profile simply starts the repository.
+        if (tip is null)
+        {
+            return await CaptureNormalAsync(repo, request, head, tip, progress, ct).ConfigureAwait(false);
+        }
+
+        await RequireSessionStartAsync(repo, request.ExpectedStartCommit, tip, ct).ConfigureAwait(false);
+
+        // A branch left at this very point by an earlier attempt that was stopped is picked up, not refused.
+        var existing = await ResolveBranchAsync(repo, request.Branch, ct).ConfigureAwait(false);
+        if (existing is not null && !string.Equals(existing, tip, StringComparison.Ordinal))
+        {
+            throw new GitOperationException(null, $"The branch '{request.Branch}' already exists.");
+        }
+
+        await StageAsync(repo, hasCommits: true, progress, ct).ConfigureAwait(false);
+        var changed = await IndexDiffersAsync(repo, "HEAD", ct).ConfigureAwait(false);
+
+        if (existing is null)
+        {
+            await CreateBranchRefAsync(repo, request.Branch, tip, "savepoint: fork branch", ct).ConfigureAwait(false);
+        }
+
+        return await CommitOnBranchAsync(repo, request, head, changed, ct).ConfigureAwait(false);
+    }
+
+    private async Task<CaptureOutcome> CaptureMoveForwardAsync(
+        RepoRef repo,
+        CaptureRequest request,
+        HeadState head,
+        string? tip,
+        IProgress<FileProgress>? progress,
+        CancellationToken ct)
+    {
+        if (request.ExpectedStartCommit is null)
+        {
+            throw new ArgumentException("Moving a branch forward needs the commit the session started from.", nameof(request));
+        }
+
+        var branchTip = await ResolveBranchAsync(repo, request.Branch, ct).ConfigureAwait(false)
+            ?? throw new GitOperationException(null, $"The branch '{request.Branch}' has no points to move.");
+        if (tip is null)
+        {
+            throw new GitOperationException(null, "The folder is not on any point, so a branch cannot be moved to it.");
+        }
+
+        await RequireSessionStartAsync(repo, request.ExpectedStartCommit, tip, ct).ConfigureAwait(false);
+
+        // Moving "forward" only ever drops the points after where the folder is: that point has to be part of the branch's history.
+        var moves = !string.Equals(tip, branchTip, StringComparison.Ordinal);
+        if (moves && !await IsAncestorAsync(repo, tip, branchTip, ct).ConfigureAwait(false))
+        {
+            throw new GitOperationException(null, $"The point the folder is on is not part of the history of '{request.Branch}'.");
+        }
+
+        await StageAsync(repo, hasCommits: true, progress, ct).ConfigureAwait(false);
+        var changed = await IndexDiffersAsync(repo, "HEAD", ct).ConfigureAwait(false);
+
+        if (moves)
+        {
+            // The old value is checked, so a branch that moved since it was read is not overwritten.
+            await RunWriteAsync(
+                () => Invocation(repo, readOnly: false, "update-ref", "-m", "savepoint: move branch", GitDirFiles.BranchPrefix + request.Branch, tip, branchTip),
+                ct).ConfigureAwait(false);
+        }
+
+        return await CommitOnBranchAsync(repo, request, head, changed, ct).ConfigureAwait(false);
+    }
+
+    // Attaches HEAD to the branch (the branch already points at the folder's point, so no file changes) and commits when something changed.
+    private async Task<CaptureOutcome> CommitOnBranchAsync(RepoRef repo, CaptureRequest request, HeadState head, bool changed, CancellationToken ct)
+    {
+        if (!string.Equals(head.Branch, request.Branch, StringComparison.Ordinal))
+        {
+            await SetHeadAsync(repo, request.Branch, ct).ConfigureAwait(false);
+        }
+
+        if (changed)
+        {
+            await CommitAsync(repo, request, amend: false, ct).ConfigureAwait(false);
+        }
+
+        return new CaptureOutcome(changed, await ResolveBranchAsync(repo, request.Branch, ct).ConfigureAwait(false));
+    }
+
+    // The folder has to be on the point the session started from, or on a later one; anything else means it was changed behind the session's back.
+    private async Task RequireSessionStartAsync(RepoRef repo, string? expectedStart, string current, CancellationToken ct)
+    {
+        if (expectedStart is null)
+        {
+            return;
+        }
+
+        if (!GitDirFiles.IsObjectId(expectedStart))
+        {
+            throw new ArgumentException("The session start must be a full commit id.", nameof(expectedStart));
+        }
+
+        if (!await IsAncestorAsync(repo, expectedStart, current, ct).ConfigureAwait(false))
+        {
+            throw new GitOperationException(null, $"The folder is not on the point the session started from ({expectedStart}) or after it.");
+        }
+    }
+
+    // True when <ancestor> is <descendant> or lies behind it. A point git does not know is an error, not "no".
+    private async Task<bool> IsAncestorAsync(RepoRef repo, string ancestor, string descendant, CancellationToken ct)
+    {
+        var result = await RunAsync(GitDirOnly(repo, "merge-base", "--is-ancestor", ancestor, descendant) with { AllowedExitCodes = [0, 1] }, ct).ConfigureAwait(false);
+        return result.ExitCode == 0;
     }
 
     private async Task<CaptureOutcome> CaptureNormalAsync(
