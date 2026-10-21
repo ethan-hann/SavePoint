@@ -4,6 +4,7 @@ using Savepoint.Core.Errors;
 
 namespace Savepoint.Core.Tests.Git.Engine;
 
+[Collection(EngineCollections.A)]
 public sealed class DeleteRepoTests : IDisposable
 {
     private readonly EngineWorkspace _ws = new(options => options with { DeleteRetryDelays = [TimeSpan.FromMilliseconds(20), TimeSpan.FromMilliseconds(20)] });

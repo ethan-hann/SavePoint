@@ -31,6 +31,7 @@ public sealed class GuardMatrixFixture : IAsyncLifetime
 }
 
 // Every operation that writes to a game folder, or reads from it, checks the folder first: the same three refusals for all of them.
+[Collection(EngineCollections.F)]
 public sealed class GuardMatrixTests : IClassFixture<GuardMatrixFixture>
 {
     private readonly GuardMatrixFixture _fx;

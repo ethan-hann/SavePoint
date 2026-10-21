@@ -4,6 +4,7 @@ using Savepoint.Core.Git;
 namespace Savepoint.Core.Tests.Git.Engine;
 
 // Playing from an older point and then saving: keep it as a new profile (fork) or continue the profile from there (move forward).
+[Collection(EngineCollections.D)]
 public sealed class ForkAndMoveTests : IDisposable
 {
     private readonly EngineWorkspace _ws = new();
@@ -52,8 +53,7 @@ public sealed class ForkAndMoveTests : IDisposable
     [Fact]
     public async Task Fork_accepts_a_folder_that_is_on_a_descendant_of_the_session_start()
     {
-        var repo = await _ws.InitializedRepoAsync();
-        var points = await _ws.ThreePointsAsync(repo);
+        var (repo, points) = await _ws.ThreePointsRepoAsync();
         await _ws.Engine.CheckoutCommitAsync(repo, points[2], ct: Ct);
         _ws.Write(repo, "played.txt", "x");
 
@@ -79,9 +79,7 @@ public sealed class ForkAndMoveTests : IDisposable
     [Fact]
     public async Task Fork_without_changes_still_makes_the_branch_but_records_no_point()
     {
-        var repo = await _ws.InitializedRepoAsync();
-        var points = await _ws.ThreePointsAsync(repo);
-        await _ws.Engine.CheckoutCommitAsync(repo, points[0], ct: Ct);
+        var (repo, points) = await _ws.OlderPointRepoAsync();
 
         var outcome = await _ws.Engine.CaptureAsync(repo, Fork("profile-fork", points[0], "Kept", "id"), ct: Ct);
 
@@ -94,8 +92,7 @@ public sealed class ForkAndMoveTests : IDisposable
     [Fact]
     public async Task Fork_from_the_branch_the_folder_is_on_starts_a_new_profile_from_the_current_state()
     {
-        var repo = await _ws.InitializedRepoAsync();
-        var points = await _ws.ThreePointsAsync(repo);
+        var (repo, points) = await _ws.ThreePointsRepoAsync();
         _ws.Write(repo, "extra.txt", "new profile content");
 
         var outcome = await _ws.Engine.CaptureAsync(repo, new CaptureRequest("profile-new", "Fresh", "cap-new") { Mode = CaptureMode.Fork }, ct: Ct);
@@ -219,9 +216,7 @@ public sealed class ForkAndMoveTests : IDisposable
     [Fact]
     public async Task Move_forward_without_changes_still_moves_the_branch()
     {
-        var repo = await _ws.InitializedRepoAsync();
-        var points = await _ws.ThreePointsAsync(repo);
-        await _ws.Engine.CheckoutCommitAsync(repo, points[0], ct: Ct);
+        var (repo, points) = await _ws.OlderPointRepoAsync();
 
         var outcome = await _ws.Engine.CaptureAsync(repo, Move("profile-1", points[0], "Continued", "id"), ct: Ct);
 
@@ -259,8 +254,7 @@ public sealed class ForkAndMoveTests : IDisposable
     [Fact]
     public async Task Move_forward_on_the_branch_already_checked_out_is_an_ordinary_capture()
     {
-        var repo = await _ws.InitializedRepoAsync();
-        var points = await _ws.ThreePointsAsync(repo);
+        var (repo, points) = await _ws.ThreePointsRepoAsync();
         _ws.Write(repo, "c.txt", "c");
 
         var outcome = await _ws.Engine.CaptureAsync(repo, Move("profile-1", points[2], "Next", "id"), ct: Ct);
@@ -279,9 +273,7 @@ public sealed class ForkAndMoveTests : IDisposable
     // profile-1 has three points; the folder was switched to the first and a new file was added while playing.
     private async Task<(RepoRef Repo, string[] Points)> PlayingFromTheFirstPointAsync()
     {
-        var repo = await _ws.InitializedRepoAsync();
-        var points = await _ws.ThreePointsAsync(repo);
-        await _ws.Engine.CheckoutCommitAsync(repo, points[0], ct: Ct);
+        var (repo, points) = await _ws.OlderPointRepoAsync();
         _ws.Write(repo, "played.txt", "progress made while playing");
         return (repo, points);
     }

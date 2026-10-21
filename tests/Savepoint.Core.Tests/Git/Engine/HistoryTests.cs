@@ -51,6 +51,7 @@ public sealed class HistoryFixture : IAsyncLifetime
     }
 }
 
+[Collection(EngineCollections.F)]
 public sealed class HistoryTests : IClassFixture<HistoryFixture>
 {
     private readonly HistoryFixture _fx;

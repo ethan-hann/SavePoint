@@ -1,6 +1,7 @@
 
 namespace Savepoint.Core.Tests.Git.Engine;
 
+[Collection(EngineCollections.F)]
 public sealed class IgnoreFilesTests : IDisposable
 {
     private static readonly string[] _compressedExtensions =

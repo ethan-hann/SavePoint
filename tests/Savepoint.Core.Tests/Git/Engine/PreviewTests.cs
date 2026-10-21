@@ -5,6 +5,7 @@ using Savepoint.Core.Git;
 
 namespace Savepoint.Core.Tests.Git.Engine;
 
+[Collection(EngineCollections.C)]
 public sealed class PreviewTests : IDisposable
 {
     private readonly EngineWorkspace _ws = new();

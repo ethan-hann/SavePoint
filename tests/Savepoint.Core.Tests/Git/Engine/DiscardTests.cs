@@ -4,6 +4,7 @@ using Savepoint.Core.Git;
 
 namespace Savepoint.Core.Tests.Git.Engine;
 
+[Collection(EngineCollections.E)]
 public sealed class DiscardTests : IDisposable
 {
     private readonly EngineWorkspace _ws = new(options => options with { ResyncDelays = [TimeSpan.FromMilliseconds(20), TimeSpan.FromMilliseconds(20)] });
@@ -42,9 +43,7 @@ public sealed class DiscardTests : IDisposable
     [Fact]
     public async Task Discard_works_from_an_older_point_where_there_is_no_branch_to_name()
     {
-        var repo = await _ws.InitializedRepoAsync();
-        var points = await _ws.ThreePointsAsync(repo);
-        await _ws.Engine.CheckoutCommitAsync(repo, points[0], ct: Ct);
+        var (repo, points) = await _ws.OlderPointRepoAsync();
         var older = TreeSnapshot.Take(repo.WorkTree);
         _ws.Write(repo, "a.txt", "played");
         _ws.Write(repo, "played.txt", "played");
@@ -177,8 +176,7 @@ public sealed class DiscardTests : IDisposable
     [Fact]
     public async Task Force_checkout_of_a_point_detaches_and_matches_it()
     {
-        var repo = await _ws.InitializedRepoAsync();
-        var points = await _ws.ThreePointsAsync(repo);
+        var (repo, points) = await _ws.ThreePointsRepoAsync();
         _ws.Write(repo, "a.txt", "unsaved");
 
         await _ws.Engine.ForceCheckoutCommitAsync(repo, points[0], Ct);
@@ -206,8 +204,7 @@ public sealed class DiscardTests : IDisposable
     // Three points on profile-1, then an edit, a deletion and a new file on top; returns the folder as the last point had it.
     private async Task<(RepoRef Repo, SortedDictionary<string, string> Committed)> ThreePointsAndMessAsync()
     {
-        var repo = await _ws.InitializedRepoAsync();
-        await _ws.ThreePointsAsync(repo);
+        var (repo, _) = await _ws.ThreePointsRepoAsync();
         var committed = TreeSnapshot.Take(repo.WorkTree);
         _ws.Write(repo, "a.txt", "edited by the player");
         _ws.Delete(repo, "b.txt");

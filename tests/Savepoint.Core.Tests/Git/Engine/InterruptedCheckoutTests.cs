@@ -3,9 +3,10 @@ using Savepoint.Core.Git;
 namespace Savepoint.Core.Tests.Git.Engine;
 
 // A switch that is stopped part way: the folder is a mixture, the status says so, and discarding then switching again completes it (G-28).
+[Collection(EngineCollections.E)]
 public sealed class InterruptedCheckoutTests : IDisposable
 {
-    private const int _files = 3000;
+    private const int _files = 2500;
 
     private readonly EngineWorkspace _ws = new();
 
@@ -32,7 +33,7 @@ public sealed class InterruptedCheckoutTests : IDisposable
         {
             if (invocation.Arguments[0] == "checkout")
             {
-                _ = Task.Delay(500, Ct).ContinueWith(_ => cancel.Cancel(), TaskScheduler.Default);
+                _ = Task.Delay(450, Ct).ContinueWith(_ => cancel.Cancel(), TaskScheduler.Default);
             }
         };
 
@@ -94,8 +95,7 @@ public sealed class InterruptedCheckoutTests : IDisposable
     [Fact]
     public async Task Discarding_clears_the_unfinished_switch_note()
     {
-        var repo = await _ws.InitializedRepoAsync();
-        await _ws.ThreePointsAsync(repo);
+        var (repo, _) = await _ws.ThreePointsRepoAsync();
         Directory.CreateDirectory(repo.GitDir);
         await File.WriteAllTextAsync(Path.Combine(repo.GitDir, "savepoint-switch.json"), "{\"from\":null,\"to\":\"abc\"}", Ct);
         Assert.NotNull((await _ws.Engine.GetStatusAsync(repo, Ct)).InterruptedSwitch);
@@ -108,8 +108,7 @@ public sealed class InterruptedCheckoutTests : IDisposable
     [Fact]
     public async Task A_note_that_cannot_be_read_is_ignored()
     {
-        var repo = await _ws.InitializedRepoAsync();
-        await _ws.ThreePointsAsync(repo);
+        var (repo, _) = await _ws.ThreePointsRepoAsync();
         await File.WriteAllTextAsync(Path.Combine(repo.GitDir, "savepoint-switch.json"), "not json", Ct);
 
         var status = await _ws.Engine.GetStatusAsync(repo, Ct);

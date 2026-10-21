@@ -2,6 +2,7 @@ using Savepoint.Core.Git;
 
 namespace Savepoint.Core.Tests.Git.Engine;
 
+[Collection(EngineCollections.D)]
 public sealed class StaleLockTests : IDisposable
 {
     private readonly EngineWorkspace _ws = new();
@@ -13,8 +14,7 @@ public sealed class StaleLockTests : IDisposable
     [Fact]
     public async Task The_lock_files_a_killed_git_leaves_are_removed_when_nothing_is_running()
     {
-        var repo = await _ws.InitializedRepoAsync();
-        await _ws.ThreePointsAsync(repo);
+        var (repo, _) = await _ws.ThreePointsRepoAsync();
         var locks = new[]
         {
             Path.Combine(repo.GitDir, "index.lock"),

@@ -4,6 +4,7 @@ using Savepoint.Core.Git;
 
 namespace Savepoint.Core.Tests.Git.Engine;
 
+[Collection(EngineCollections.A)]
 public sealed class InitTests : IDisposable
 {
     private static readonly DateTimeOffset _first = new(2026, 10, 20, 9, 0, 0, TimeSpan.Zero);

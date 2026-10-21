@@ -4,6 +4,7 @@ using Savepoint.Core.Git;
 
 namespace Savepoint.Core.Tests.Git.Engine;
 
+[Collection(EngineCollections.E)]
 public sealed class BranchTests : IDisposable
 {
     private readonly EngineWorkspace _ws = new(options => options with { LockRetryDelays = [TimeSpan.FromMilliseconds(400)] });
@@ -228,13 +229,5 @@ public sealed class BranchTests : IDisposable
         Assert.Equal(["profile-1"], await _ws.Engine.ListBranchesAsync(repo, Ct));
     }
 
-    private async Task<RepoRef> TwoPointRepoAsync()
-    {
-        var repo = await _ws.InitializedRepoAsync();
-        _ws.Write(repo, "a.txt", "one");
-        await _ws.CaptureAsync(repo, "profile-1", "first");
-        _ws.Write(repo, "b.txt", "two");
-        await _ws.CaptureAsync(repo, "profile-1", "second");
-        return repo;
-    }
+    private async Task<RepoRef> TwoPointRepoAsync() => (await _ws.TwoPointsRepoAsync()).Repo;
 }

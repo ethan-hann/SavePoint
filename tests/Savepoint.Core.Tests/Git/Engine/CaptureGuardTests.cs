@@ -4,6 +4,7 @@ using Savepoint.Core.Git;
 
 namespace Savepoint.Core.Tests.Git.Engine;
 
+[Collection(EngineCollections.F)]
 public sealed class CaptureGuardTests : IDisposable
 {
     private readonly EngineWorkspace _ws = new();

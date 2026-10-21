@@ -1,5 +1,6 @@
 namespace Savepoint.Core.Tests.Git.Engine;
 
+[Collection(EngineCollections.B)]
 public sealed class RepoConfigTests : IDisposable
 {
     private readonly EngineWorkspace _ws = new();
@@ -32,11 +33,38 @@ public sealed class RepoConfigTests : IDisposable
         Assert.Equal(expected, await _ws.ConfigAsync(repo, key));
     }
 
+    [Theory]
+    [MemberData(nameof(ExpectedSettings))]
+    public async Task Each_setting_is_defined_once_so_git_config_can_still_change_it(string key, string expected)
+    {
+        var repo = await _ws.InitializedRepoAsync();
+
+        var all = await _ws.GitAsync(repo, "config", "--local", "--get-all", key);
+
+        Assert.Equal([expected], all.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+    }
+
     [Fact]
     public async Task Init_turns_symlinks_off_on_windows()
     {
         Assert.SkipUnless(OperatingSystem.IsWindows(), "symlinks are only switched off on Windows");
         var repo = await _ws.InitializedRepoAsync();
+
+        var all = await _ws.GitAsync(repo, "config", "--local", "--get-all", "core.symlinks");
+
+        Assert.Equal("false", await _ws.ConfigAsync(repo, "core.symlinks"));
+        Assert.Equal(["false"], all.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+    }
+
+    [Fact]
+    public async Task Reapplying_turns_symlinks_off_even_when_git_found_them_working()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "symlinks are only switched off on Windows");
+        var repo = await _ws.InitializedRepoAsync();
+        await _ws.GitAsync(repo, "config", "--local", "core.symlinks", "true");
+        await _ws.GitAsync(repo, "config", "--local", "savepoint.repoConfigVersion", "1");
+
+        await _ws.Engine.InitAsync(repo, ct: Ct);
 
         Assert.Equal("false", await _ws.ConfigAsync(repo, "core.symlinks"));
     }

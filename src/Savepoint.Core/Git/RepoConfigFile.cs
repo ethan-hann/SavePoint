@@ -48,7 +48,7 @@ internal static partial class RepoConfigFile
         return stamp;
     }
 
-    // Drops the previous block and git init's work tree path (the work tree always comes from the environment), then appends a fresh block.
+    // Drops the previous block and every other definition of a setting the block holds (git init writes some, and the work tree path, which always comes from the environment), then appends a fresh block.
     internal static string Rewrite(string configText, bool isWindows)
     {
         var lines = configText.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n').ToList();
@@ -58,7 +58,7 @@ internal static partial class RepoConfigFile
         }
 
         RemoveBlock(lines);
-        RemoveWorkTreeSetting(lines);
+        RemoveSettingsOfOurs(lines, isWindows);
 
         var result = new StringBuilder();
         foreach (var line in lines)
@@ -131,8 +131,11 @@ internal static partial class RepoConfigFile
         }
     }
 
-    private static void RemoveWorkTreeSetting(List<string> lines)
+    // A setting defined twice cannot be changed with git config (it refuses to overwrite two values), so the block is the only place ours live.
+    private static void RemoveSettingsOfOurs(List<string> lines, bool isWindows)
     {
+        var ours = Settings(isWindows).Select(setting => (setting.Section, setting.Key)).ToList();
+        ours.Add(("core", "worktree"));
         var section = string.Empty;
         var keep = new List<string>(lines.Count);
         foreach (var line in lines)
@@ -141,9 +144,9 @@ internal static partial class RepoConfigFile
             {
                 section = header.Groups["name"].Value;
             }
-            else if (section.Equals("core", StringComparison.OrdinalIgnoreCase)
-                && KeyLine().Match(line) is { Success: true } entry
-                && entry.Groups["key"].Value.Equals("worktree", StringComparison.OrdinalIgnoreCase))
+            else if (KeyLine().Match(line) is { Success: true } entry
+                && ours.Any(setting => setting.Section.Equals(section, StringComparison.OrdinalIgnoreCase)
+                    && setting.Key.Equals(entry.Groups["key"].Value, StringComparison.OrdinalIgnoreCase)))
             {
                 continue;
             }

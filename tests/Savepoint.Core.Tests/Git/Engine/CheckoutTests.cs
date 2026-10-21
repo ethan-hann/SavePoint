@@ -4,6 +4,7 @@ using Savepoint.Core.Git;
 
 namespace Savepoint.Core.Tests.Git.Engine;
 
+[Collection(EngineCollections.A)]
 public sealed class CheckoutTests : IDisposable
 {
     private const string _accent = "caf\u00e9/cr\u00e8me br\u00fbl\u00e9e.esp";
@@ -336,8 +337,18 @@ public sealed class CheckoutTests : IDisposable
 
     private Task<(RepoRef Repo, SortedDictionary<string, string> A, SortedDictionary<string, string> B)> TwoProfilesAsync() => TwoProfilesAsync(_ws);
 
-    // profile-a and profile-b with several differences; the folder is left on profile-b.
+    // profile-a and profile-b with several differences; the folder is left on profile-b. Built once per test run and copied.
     private static async Task<(RepoRef Repo, SortedDictionary<string, string> A, SortedDictionary<string, string> B)> TwoProfilesAsync(EngineWorkspace ws)
+    {
+        var (repo, pair) = await RepoTemplates.CopyAsync("checkout-profiles", ws, async template =>
+        {
+            var built = await BuildProfilesAsync(template);
+            return (built.Repo, (built.A, built.B));
+        });
+        return (repo, pair.A, pair.B);
+    }
+
+    private static async Task<(RepoRef Repo, SortedDictionary<string, string> A, SortedDictionary<string, string> B)> BuildProfilesAsync(EngineWorkspace ws)
     {
         var repo = await ws.InitializedRepoAsync();
         var random = new Random(42);

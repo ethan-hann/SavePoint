@@ -3,6 +3,7 @@ using Savepoint.Core.Git;
 
 namespace Savepoint.Core.Tests.Git.Engine;
 
+[Collection(EngineCollections.F)]
 public sealed class AmendTests : IDisposable
 {
     private readonly EngineWorkspace _ws = new();
@@ -14,8 +15,7 @@ public sealed class AmendTests : IDisposable
     [Fact]
     public async Task Amend_rewrites_the_tip_in_place_with_the_new_content_message_and_capture_id()
     {
-        var repo = await _ws.InitializedRepoAsync();
-        var points = await _ws.ThreePointsAsync(repo);
+        var (repo, points) = await _ws.ThreePointsRepoAsync();
         _ws.Write(repo, "c.txt", "added later");
 
         var outcome = await _ws.Engine.CaptureAsync(repo, Amend("profile-1", "Third point, updated", "cap-new"), ct: Ct);
@@ -33,8 +33,7 @@ public sealed class AmendTests : IDisposable
     [Fact]
     public async Task Amend_stamps_the_point_with_the_time_of_the_amend()
     {
-        var repo = await _ws.InitializedRepoAsync();
-        await _ws.ThreePointsAsync(repo);
+        var (repo, _) = await _ws.ThreePointsRepoAsync();
         var before = DateTimeOffset.UtcNow.AddSeconds(-1);
         await Task.Delay(1100, Ct);
 
@@ -47,8 +46,7 @@ public sealed class AmendTests : IDisposable
     [Fact]
     public async Task Amend_of_an_unchanged_folder_still_rewrites_the_message()
     {
-        var repo = await _ws.InitializedRepoAsync();
-        var points = await _ws.ThreePointsAsync(repo);
+        var (repo, points) = await _ws.ThreePointsRepoAsync();
 
         var outcome = await _ws.Engine.CaptureAsync(repo, Amend("profile-1", "Renamed", "cap-new"), ct: Ct);
 
@@ -72,8 +70,7 @@ public sealed class AmendTests : IDisposable
     [Fact]
     public async Task Amend_is_not_available_when_another_branch_is_checked_out()
     {
-        var repo = await _ws.InitializedRepoAsync();
-        var points = await _ws.ThreePointsAsync(repo);
+        var (repo, points) = await _ws.ThreePointsRepoAsync();
         await _ws.Engine.CreateBranchAsync(repo, "profile-2", points[1], Ct);
 
         await Assert.ThrowsAsync<AmendNotAvailableException>(() => _ws.Engine.CaptureAsync(repo, Amend("profile-2", "x", "id"), ct: Ct));
@@ -85,9 +82,7 @@ public sealed class AmendTests : IDisposable
     [Fact]
     public async Task Amend_is_not_available_while_the_folder_is_on_an_older_point()
     {
-        var repo = await _ws.InitializedRepoAsync();
-        var points = await _ws.ThreePointsAsync(repo);
-        await _ws.Engine.CheckoutCommitAsync(repo, points[0], ct: Ct);
+        var (repo, points) = await _ws.OlderPointRepoAsync();
 
         await Assert.ThrowsAsync<AmendNotAvailableException>(() => _ws.Engine.CaptureAsync(repo, Amend("profile-1", "x", "id"), ct: Ct));
 

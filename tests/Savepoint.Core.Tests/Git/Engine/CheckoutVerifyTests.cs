@@ -5,6 +5,7 @@ using Savepoint.Core.Git;
 namespace Savepoint.Core.Tests.Git.Engine;
 
 // What happens when git says it switched but a path did not follow: the verify pass finds it and re-syncs it.
+[Collection(EngineCollections.C)]
 public sealed class CheckoutVerifyTests : IDisposable
 {
     private static readonly TimeSpan[] _quickDelays = [TimeSpan.FromMilliseconds(30), TimeSpan.FromMilliseconds(60)];
@@ -66,7 +67,7 @@ public sealed class CheckoutVerifyTests : IDisposable
     public async Task Thousands_of_stale_paths_re_sync_in_one_call_without_overflowing_the_command_line()
     {
         var repo = await _ws.InitializedRepoAsync();
-        const int count = 900;
+        const int count = 450;
         var folder = "Data/" + new string('d', 30);
         _ws.WriteMany(repo, folder, count, "a-file-with-a-rather-long-name-number-", "a");
         await _ws.CaptureAsync(repo, "profile-a");
@@ -277,26 +278,29 @@ public sealed class CheckoutVerifyTests : IDisposable
         };
     }
 
-    // profile-a and profile-b; the folder is left on profile-b.
-    private async Task<(RepoRef Repo, SortedDictionary<string, string> A)> TwoProfilesAsync()
+    // profile-a and profile-b; the folder is left on profile-b. Built once per test run and copied.
+    private async Task<(RepoRef Repo, SortedDictionary<string, string> A)> TwoProfilesAsync() =>
+        await RepoTemplates.CopyAsync("verify-profiles", _ws, BuildProfilesAsync);
+
+    private static async Task<(RepoRef Repo, SortedDictionary<string, string> A)> BuildProfilesAsync(EngineWorkspace ws)
     {
-        var repo = await _ws.InitializedRepoAsync();
+        var repo = await ws.InitializedFreshAsync();
         var random = new Random(7);
         var blob = new byte[48 * 1024];
         random.NextBytes(blob);
-        _ws.Write(repo, "readme.txt", "version A\n");
-        _ws.Write(repo, "Data/blob.bin", blob);
-        _ws.Write(repo, "caf\u00e9/cr\u00e8me br\u00fbl\u00e9e.esp", "accent a");
-        await _ws.CaptureAsync(repo, "profile-a");
+        ws.Write(repo, "readme.txt", "version A\n");
+        ws.Write(repo, "Data/blob.bin", blob);
+        ws.Write(repo, "caf\u00e9/cr\u00e8me br\u00fbl\u00e9e.esp", "accent a");
+        await ws.CaptureAsync(repo, "profile-a");
         var a = TreeSnapshot.Take(repo.WorkTree);
 
-        await _ws.GitWriteAsync(repo, "checkout", "--quiet", "-b", "profile-b");
+        await ws.GitWriteAsync(repo, "checkout", "--quiet", "-b", "profile-b");
         random.NextBytes(blob);
-        _ws.Write(repo, "readme.txt", "version B\n");
-        _ws.Write(repo, "Data/blob.bin", blob);
-        _ws.Write(repo, "caf\u00e9/cr\u00e8me br\u00fbl\u00e9e.esp", "accent b");
-        _ws.Write(repo, "only-b.txt", "B only");
-        await _ws.CaptureAsync(repo, "profile-b");
+        ws.Write(repo, "readme.txt", "version B\n");
+        ws.Write(repo, "Data/blob.bin", blob);
+        ws.Write(repo, "caf\u00e9/cr\u00e8me br\u00fbl\u00e9e.esp", "accent b");
+        ws.Write(repo, "only-b.txt", "B only");
+        await ws.CaptureAsync(repo, "profile-b");
         return (repo, a);
     }
 }

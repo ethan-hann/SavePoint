@@ -3,6 +3,7 @@ using Savepoint.Core.Errors;
 
 namespace Savepoint.Core.Tests.Git.Engine;
 
+[Collection(EngineCollections.A)]
 public sealed class StatusTests : IDisposable
 {
     private readonly EngineWorkspace _ws = new();

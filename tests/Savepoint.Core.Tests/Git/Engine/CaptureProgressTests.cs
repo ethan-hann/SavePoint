@@ -2,6 +2,7 @@ using Savepoint.Core.Git;
 
 namespace Savepoint.Core.Tests.Git.Engine;
 
+[Collection(EngineCollections.D)]
 public sealed class CaptureProgressTests : IDisposable
 {
     private readonly EngineWorkspace _ws = new();

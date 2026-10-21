@@ -80,13 +80,56 @@ internal sealed class EngineWorkspace : IDisposable
     public static RepoRef Claim(RepoRef repo, string gameId, RepoRole role) =>
         new(repo.GitDir + "-" + gameId, repo.WorkTree, gameId, role);
 
+    // An initialized repository. For the default game and role it is a copy of one built earlier in the run, which saves a git process per test.
     public async Task<RepoRef> InitializedRepoAsync(string gameId = "game-1", RepoRole role = RepoRole.Install)
+    {
+        if (gameId == "game-1" && role == RepoRole.Install)
+        {
+            var (copy, _) = await RepoTemplates.CopyAsync<string?>("init", this, async ws => (await ws.InitializedFreshAsync(), null));
+            RequireGitDir(copy);
+            return copy;
+        }
+
+        return await InitializedFreshAsync(gameId, role);
+    }
+
+    public async Task<RepoRef> InitializedFreshAsync(string gameId = "game-1", RepoRole role = RepoRole.Install)
     {
         var repo = NewRepo(gameId, role);
         await Engine.InitAsync(repo, ct: TestContext.Current.CancellationToken);
         RequireGitDir(repo);
         return repo;
     }
+
+    // profile-1 with three points (see ThreePointsAsync), copied from one built earlier in the run.
+    public Task<(RepoRef Repo, string[] Points)> ThreePointsRepoAsync() =>
+        RepoTemplates.CopyAsync("three", this, async ws =>
+        {
+            var repo = await ws.InitializedFreshAsync();
+            return (repo, await ws.ThreePointsAsync(repo));
+        });
+
+    // The same, with the folder switched to the first point (HEAD detached there).
+    public Task<(RepoRef Repo, string[] Points)> OlderPointRepoAsync() =>
+        RepoTemplates.CopyAsync("three-on-the-first", this, async ws =>
+        {
+            var repo = await ws.InitializedFreshAsync();
+            var points = await ws.ThreePointsAsync(repo);
+            await ws.Engine.CheckoutCommitAsync(repo, points[0], ct: TestContext.Current.CancellationToken);
+            return (repo, points);
+        });
+
+    // profile-1 with its first two points only.
+    public Task<(RepoRef Repo, string[] Points)> TwoPointsRepoAsync() =>
+        RepoTemplates.CopyAsync("two", this, async ws =>
+        {
+            var repo = await ws.InitializedFreshAsync();
+            ws.Write(repo, "a.txt", "one");
+            var first = (await ws.CaptureAsync(repo, "profile-1", "first")).TipCommitId!;
+            ws.Write(repo, "b.txt", "two");
+            var second = (await ws.CaptureAsync(repo, "profile-1", "second")).TipCommitId!;
+            return (repo, new[] { first, second });
+        });
 
     public string FileOf(RepoRef repo, string relativePath) => Path.Combine(repo.WorkTree, relativePath.Replace('/', Path.DirectorySeparatorChar));
 
@@ -186,19 +229,29 @@ internal sealed class EngineWorkspace : IDisposable
     }
 
     // The full ref HEAD points at, or null when HEAD is detached.
-    public async Task<string?> HeadRefAsync(RepoRef repo)
+    // HEAD is a one-line file; reading it directly saves a git process per call.
+    public Task<string?> HeadRefAsync(RepoRef repo)
     {
         RequireGitDir(repo);
-        var result = await Runner.RunAsync(
-            new GitInvocation(["symbolic-ref", "-q", "HEAD"]) { GitDir = repo.GitDir, WorkTree = repo.WorkTree, ReadOnly = true, AllowedExitCodes = [0, 1] },
-            TestContext.Current.CancellationToken);
-        return result.ExitCode == 0 ? result.StandardOutput.Trim() : null;
+        var text = File.ReadAllText(Path.Combine(repo.GitDir, "HEAD")).Trim();
+        return Task.FromResult(text.StartsWith("ref: ", StringComparison.Ordinal) ? text["ref: ".Length..] : null);
     }
 
     // The commit a revision resolves to, or null when it does not resolve.
     public async Task<string?> ResolveAsync(RepoRef repo, string revision)
     {
         RequireGitDir(repo);
+
+        // A branch that git wrote as a loose ref is a file holding its commit; anything else is asked of git.
+        if (revision.StartsWith("refs/heads/", StringComparison.Ordinal))
+        {
+            var file = Path.Combine(repo.GitDir, revision.Replace('/', Path.DirectorySeparatorChar));
+            if (File.Exists(file) && File.ReadAllText(file).Trim() is { Length: 40 } id)
+            {
+                return id;
+            }
+        }
+
         var result = await Runner.RunAsync(
             new GitInvocation(["rev-parse", "--verify", "-q", revision + "^{commit}"]) { GitDir = repo.GitDir, WorkTree = repo.WorkTree, ReadOnly = true, AllowedExitCodes = [0, 1] },
             TestContext.Current.CancellationToken);

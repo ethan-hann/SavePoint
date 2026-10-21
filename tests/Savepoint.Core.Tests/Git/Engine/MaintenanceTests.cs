@@ -2,6 +2,7 @@ using Savepoint.Core.Errors;
 
 namespace Savepoint.Core.Tests.Git.Engine;
 
+[Collection(EngineCollections.B)]
 public sealed class MaintenanceTests : IDisposable
 {
     private readonly EngineWorkspace _ws = new();
@@ -13,8 +14,7 @@ public sealed class MaintenanceTests : IDisposable
     [Fact]
     public async Task Loose_objects_are_counted_and_packing_moves_them_into_a_pack()
     {
-        var repo = await _ws.InitializedRepoAsync();
-        await _ws.ThreePointsAsync(repo);
+        var (repo, _) = await _ws.ThreePointsRepoAsync();
         Assert.True(await _ws.Engine.CountLooseObjectsAsync(repo, Ct) > 0);
 
         await _ws.Engine.RepackAsync(repo, Ct);
@@ -54,8 +54,7 @@ public sealed class MaintenanceTests : IDisposable
     [Fact]
     public async Task Repacking_uses_the_geometric_form_and_never_auto_detach_or_gc()
     {
-        var repo = await _ws.InitializedRepoAsync();
-        await _ws.ThreePointsAsync(repo);
+        var (repo, _) = await _ws.ThreePointsRepoAsync();
 
         await _ws.Engine.RepackAsync(repo, Ct);
 
@@ -97,8 +96,7 @@ public sealed class MaintenanceTests : IDisposable
     [Fact]
     public async Task A_low_storage_volume_refuses_before_git_is_started()
     {
-        var repo = await _ws.InitializedRepoAsync();
-        await _ws.ThreePointsAsync(repo);
+        var (repo, _) = await _ws.ThreePointsRepoAsync();
         _ws.Space.Free = 10;
 
         var error = await Assert.ThrowsAsync<DiskSpaceException>(() => _ws.Engine.RepackAsync(repo, Ct));
@@ -111,8 +109,7 @@ public sealed class MaintenanceTests : IDisposable
     [Fact]
     public async Task A_cancelled_optimization_throws_the_compaction_error_and_leaves_the_store_usable()
     {
-        var repo = await _ws.InitializedRepoAsync();
-        await _ws.ThreePointsAsync(repo);
+        var (repo, _) = await _ws.ThreePointsRepoAsync();
         using var cancel = CancellationTokenSource.CreateLinkedTokenSource(Ct);
         _ws.OnInvoke = invocation =>
         {
@@ -134,8 +131,7 @@ public sealed class MaintenanceTests : IDisposable
     [Fact]
     public async Task Optimizing_does_not_need_the_game_folder()
     {
-        var repo = await _ws.InitializedRepoAsync();
-        await _ws.ThreePointsAsync(repo);
+        var (repo, _) = await _ws.ThreePointsRepoAsync();
         Directory.Move(repo.WorkTree, repo.WorkTree + "-moved");
 
         await _ws.Engine.RepackAsync(repo, Ct);
@@ -146,8 +142,7 @@ public sealed class MaintenanceTests : IDisposable
     [Fact]
     public async Task A_stale_lock_does_not_stop_an_optimization()
     {
-        var repo = await _ws.InitializedRepoAsync();
-        await _ws.ThreePointsAsync(repo);
+        var (repo, _) = await _ws.ThreePointsRepoAsync();
         await File.WriteAllTextAsync(Path.Combine(repo.GitDir, "index.lock"), string.Empty, Ct);
 
         await _ws.Engine.RepackAsync(repo, Ct);

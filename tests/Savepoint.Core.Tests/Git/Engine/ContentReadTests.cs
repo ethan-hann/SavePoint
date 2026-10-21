@@ -40,6 +40,7 @@ public sealed class ContentFixture : IAsyncLifetime
     }
 }
 
+[Collection(EngineCollections.F)]
 public sealed class ContentReadTests : IClassFixture<ContentFixture>
 {
     private readonly ContentFixture _fx;
