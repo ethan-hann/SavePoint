@@ -89,11 +89,11 @@ public static class MockupScenario
     public static ErrorInfo FileInUseError { get; } =
         ErrorInfo.From(new GitOperationException(@"C:\Games\SkyrimSE\Data\Skyrim.esm", "unable to unlink Data/Skyrim.esm"));
 
-    public static ErrorInfo FolderTooBroadError { get; } = ErrorInfo.From(new PathSafetyException(@"C:\Program Files (x86)", 1));
+    public static ErrorInfo FolderTooBroadError { get; } = ErrorInfo.From(new PathSafetyException(@"C:\Program Files (x86)", 2));
 
     public static ErrorInfo SavesOutOfRoomError { get; } = ErrorInfo.From(new DiskSpaceException(StorageRoot, 1_200_000_000, 0));
 
-    public static ErrorInfo FolderGoneError { get; } = ErrorInfo.From(new PathMissingException(@"C:\Games\The Last Caretaker", "install"));
+    public static ErrorInfo FolderGoneError { get; } = ErrorInfo.From(new PathMissingException(@"C:\Games\The Last Caretaker", RepoRole.Install));
 
     // 2l "Half of that save worked": version and mods saved, saves not.
     public static CaptureResult HalfSaved { get; } = new(
