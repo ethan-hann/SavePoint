@@ -61,6 +61,8 @@ public sealed partial class StorageSectionViewModel : ObservableObject
 
     /// <summary>How far the move is, from 0 to 1; null while it cannot be told, which the bar shows as indeterminate.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RelocationValue))]
+    [NotifyPropertyChangedFor(nameof(IsRelocationIndeterminate))]
     private double? _relocationFraction;
 
     /// <summary>"19.8 GB of 79.2 GB", or empty while the totals are not known.</summary>
@@ -85,6 +87,12 @@ public sealed partial class StorageSectionViewModel : ObservableObject
         CancelRelocationCommand = new AsyncRelayCommand(() => CancelAsync(_relocationJob), () => IsRelocating);
         store.Changed += (_, settings) => Show(settings);
     }
+
+    /// <summary>The bar's value: <see cref="RelocationFraction"/>, or 0 while that is not known.</summary>
+    public double RelocationValue => RelocationFraction ?? 0;
+
+    /// <summary>True while the move's size is not known yet, so the bar sweeps instead of filling.</summary>
+    public bool IsRelocationIndeterminate => RelocationFraction is null;
 
     /// <summary>Picks a new folder, shows what the move would do, asks, and starts it.</summary>
     public IAsyncRelayCommand ChangeCommand { get; }

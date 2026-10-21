@@ -5,9 +5,9 @@ using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Settings;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Localization;
+using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Tests.Features.History;
 using Savepoint.App.Tests.Features.Shell;
-using Savepoint.App.Tests.Fakes;
 using Savepoint.Core.Api;
 
 namespace Savepoint.App.Tests.Features.Settings;

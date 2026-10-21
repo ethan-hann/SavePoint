@@ -7,8 +7,7 @@ using Savepoint.Core.Errors;
 
 namespace Savepoint.App.Features.Settings;
 
-// The one way the screen changes settings: read what is stored now, apply one change, save, tell the shell.
-// Reading first keeps a layout changed on the Games screen, or a date the service stamped, from being overwritten.
+// The one way the screen changes settings: read what is stored now, apply one change, save, tell the shell, so nothing saved elsewhere is overwritten.
 internal sealed class SettingsStore
 {
     private readonly ISettingsApi _api;

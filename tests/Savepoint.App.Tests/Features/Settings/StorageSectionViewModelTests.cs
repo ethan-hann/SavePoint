@@ -280,6 +280,8 @@ public class StorageSectionViewModelTests
         rig.Backend.Jobs.ReportProgress(job.JobId, new JobProgress(FilesDone: 812, FilesTotal: 3_430, BytesDone: 19_800_000_000, BytesTotal: 79_200_000_000, CurrentPath: @"Skyrim\Data\textures\wrbuilding05.dds"));
 
         Assert.Equal(0.25, Storage(rig).RelocationFraction);
+        Assert.Equal(0.25, Storage(rig).RelocationValue);
+        Assert.False(Storage(rig).IsRelocationIndeterminate);
         Assert.Equal("19.8 GB of 79.2 GB", Storage(rig).RelocationDetail);
         Assert.Equal(@"Skyrim\Data\textures\wrbuilding05.dds", Storage(rig).RelocationPath);
     }
@@ -291,6 +293,8 @@ public class StorageSectionViewModelTests
         await StartedMoveAsync(rig);
 
         Assert.Null(Storage(rig).RelocationFraction);
+        Assert.True(Storage(rig).IsRelocationIndeterminate);
+        Assert.Equal(0, Storage(rig).RelocationValue);
         Assert.Equal(string.Empty, Storage(rig).RelocationDetail);
     }
 
