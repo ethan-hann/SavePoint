@@ -5,10 +5,7 @@ namespace Savepoint.Core.Platform.Linux;
 /// <summary>Reads the XDG_*_DIR lines of ~/.config/user-dirs.dirs (a shell-style KEY="value" file).</summary>
 internal static class XdgUserDirs
 {
-    /// <summary>
-    /// Valid, absolute entries by key. A folder set to the home directory itself is how xdg-user-dirs
-    /// marks one as turned off, so it is left out.
-    /// </summary>
+    /// <summary>A folder set to the home directory itself is how xdg-user-dirs marks it turned off, so it is left out.</summary>
     public static IReadOnlyDictionary<string, string> Parse(string? content, string home, PathSyntax syntax)
     {
         var result = new Dictionary<string, string>(StringComparer.Ordinal);

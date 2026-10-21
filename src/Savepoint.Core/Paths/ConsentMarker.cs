@@ -6,7 +6,6 @@ using Savepoint.Core.Errors;
 
 namespace Savepoint.Core.Paths;
 
-/// <summary>Which of a game's two folders a marker claims.</summary>
 public enum ConsentRole
 {
     Install,
@@ -29,10 +28,7 @@ public abstract record ConsentMarkerState
     public sealed record Corrupt : ConsentMarkerState;
 }
 
-/// <summary>
-/// The small file at a work tree's root recording which game and role the user confirmed for that folder.
-/// Callers keep <see cref="ExcludePattern"/> out of git so a checkout can never rewrite or delete it.
-/// </summary>
+/// <summary>Callers keep <see cref="ExcludePattern"/> out of git so a checkout can never rewrite or delete a marker.</summary>
 public static class ConsentMarker
 {
     public const string FileName = ".savepoint-managed.json";
@@ -110,8 +106,7 @@ public static class ConsentMarker
         }
     }
 
-    /// <summary>Deletes the marker only when it is this game's and role's. A missing marker is nothing to do.</summary>
-    /// <exception cref="ConsentMarkerException">The marker belongs to someone else or is unreadable; nothing is deleted.</exception>
+    /// <summary>Deletes only a matching marker: a missing one is a no-op, and a mismatch or unreadable one throws and stays.</summary>
     public static void Remove(string workTree, string gameId, ConsentRole role)
     {
         switch (Read(workTree))

@@ -4,10 +4,7 @@ using Savepoint.Core.Platform;
 
 namespace Savepoint.Core.Paths;
 
-/// <summary>
-/// Turns a game definition's path into an absolute one for this OS. A path may start with {token}
-/// (letters only); definitions are written with Windows separators, so both separators are accepted everywhere.
-/// </summary>
+/// <summary>Expands a leading {token}; both separators are accepted because definitions are written with Windows ones.</summary>
 public sealed partial class PathTokenResolver
 {
     private readonly IPlatform _platform;
@@ -19,9 +16,7 @@ public sealed partial class PathTokenResolver
         _syntax = PathSyntax.For(platform.Os);
     }
 
-    /// <exception cref="ValidationException">The token is unknown on this OS, or the path is not absolute.</exception>
-    /// <param name="rawPath">The path as written in the definition.</param>
-    /// <param name="fieldPath">The field the path came from, reported in the validation issue.</param>
+    /// <summary>Throws ValidationException (unknownToken, notAbsolute) with fieldPath as the issue's path.</summary>
     public string Resolve(string rawPath, string fieldPath = "path")
     {
         var token = TokenPattern().Match(rawPath);

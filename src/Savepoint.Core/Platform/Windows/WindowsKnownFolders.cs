@@ -2,10 +2,7 @@ using System.Runtime.InteropServices;
 
 namespace Savepoint.Core.Platform.Windows;
 
-/// <summary>
-/// Asks the shell where a folder really is, so a Documents folder that OneDrive moved is still found.
-/// The shell is the only source for Downloads, Saved Games, and LocalLow.
-/// </summary>
+/// <summary>The shell finds folders OneDrive moved and is the only source for Downloads, Saved Games, and LocalLow.</summary>
 public static class WindowsKnownFolders
 {
     // Return the path without checking that it exists: a missing Saved Games folder is still one to protect.

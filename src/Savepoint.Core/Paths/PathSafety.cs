@@ -3,10 +3,7 @@ using Savepoint.Core.Platform;
 
 namespace Savepoint.Core.Paths;
 
-/// <summary>
-/// Refuses folders that must never be tracked. A path is resolved through symlinks and junctions first,
-/// then compared component by component with the platform's two-tier table (never by string prefix).
-/// </summary>
+/// <summary>Resolves a path through links, then compares it component by component with the table (never by string prefix).</summary>
 public sealed class PathSafety
 {
     private readonly PathSyntax _syntax;
@@ -14,12 +11,7 @@ public sealed class PathSafety
     private readonly List<ParsedPath> _subtreeRoots = [];
     private readonly List<ParsedPath> _exactRoots = [];
 
-    /// <param name="platform">Supplies the table and the OS's path rules.</param>
-    /// <param name="extraBlockedRoots">Tier-1 roots on top of the table: SavePoint's own catalog and storage folders.</param>
-    /// <param name="probe">
-    /// How links are read. By default the real file system when <paramref name="platform"/> is the running OS,
-    /// and no links at all for any other OS (its paths do not exist on this machine).
-    /// </param>
+    /// <summary>The probe defaults to the real file system for the running OS and to no links for any other OS, whose paths are not on this machine.</summary>
     public PathSafety(IPlatform platform, IEnumerable<string>? extraBlockedRoots = null, IPathProbe? probe = null)
     {
         _syntax = PathSyntax.For(platform.Os);
@@ -36,8 +28,7 @@ public sealed class PathSafety
     /// <summary>The absolute path with every symlink and junction followed; the same resolution <see cref="Check"/> uses.</summary>
     public string ResolveRealPath(string path) => RealPath.Resolve(path, _syntax, _probe);
 
-    /// <exception cref="PathSafetyException">The path is, or sits inside, a blocked location.</exception>
-    /// <exception cref="ArgumentException">The path is not absolute; resolve tokens and check absoluteness first.</exception>
+    /// <summary>Throws PathSafetyException for a blocked location; the path must already be absolute (ArgumentException otherwise).</summary>
     public void Check(string path)
     {
         var real = ParseResolved(path);

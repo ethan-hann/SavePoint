@@ -7,10 +7,7 @@ public static class RealPath
     // Matches the Linux symlink limit; a longer chain is a cycle for any practical purpose.
     private const int _maxLinkHops = 40;
 
-    /// <summary>
-    /// Resolves <paramref name="path"/> against the machine the process runs on, following every symlink
-    /// and junction. A relative path is taken from the current directory.
-    /// </summary>
+    /// <summary>Resolves against the running machine; a relative path is taken from the current directory.</summary>
     public static string Resolve(string path)
     {
         var syntax = PathSyntax.For(PlatformFactory.CurrentOs);
@@ -18,11 +15,7 @@ public static class RealPath
         return Resolve(absolute, syntax, PathProbes.Host);
     }
 
-    /// <summary>
-    /// Absolute, normalized, with the symlink or junction of every existing component followed. A link whose
-    /// target is missing is replaced by the target's text and resolution carries on (the check then sees
-    /// where a later write would land). Components that do not exist are appended unchanged.
-    /// </summary>
+    /// <summary>A dangling link is replaced by its target's text so the check sees where a write would land; missing components are kept.</summary>
     public static string Resolve(string path, PathSyntax syntax, IPathProbe probe)
     {
         var isWindows = syntax.Os == OsKind.Windows;
@@ -67,8 +60,7 @@ public static class RealPath
                 }
                 else
                 {
-                    // Relative to the folder that holds the link, which is exactly what is resolved so far.
-                    // A rooted target without a drive ("\Users") restarts at the current drive.
+                    // A relative target starts at the folder holding the link (what is resolved so far); a drive-less "\Users" restarts at the drive.
                     if (isWindows && target.Length > 0 && target[0] is '\\' or '/')
                     {
                         resolved.Clear();

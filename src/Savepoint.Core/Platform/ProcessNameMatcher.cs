@@ -26,8 +26,7 @@ public static class ProcessNameMatcher
             return false;
         }
 
-        // Proton and Wine games run under a wrapper: the real name is in the executable path or argv0
-        // (a Windows-style path there), and comm only carries the first 15 characters of it.
+        // Proton games run under a wrapper: the exe name is in the executable path or argv0 (a Windows path), and comm keeps 15 characters of it.
         return FileNameMatches(wanted, process.ExecutablePath)
             || FileNameMatches(wanted, process.CommandName)
             || IsTruncatedComm(process.Name, configured, wanted);
@@ -45,8 +44,7 @@ public static class ProcessNameMatcher
 
     private static bool IsTruncatedComm(string comm, string configured, string wanted)
     {
-        // The kernel cut the full name as the game wrote it, so test it with and without the .exe the user may have left off.
-        // Comparing against a 15-character slice means only a full-length comm can match.
+        // The kernel cut the name as the game wrote it, so also try it with the .exe the user may have left off; a 15-character slice only equals a full-length comm.
         foreach (var form in new[] { configured, wanted, wanted + ".exe" })
         {
             if (form.Length >= _linuxCommLength && string.Equals(form[.._linuxCommLength], comm, StringComparison.Ordinal))

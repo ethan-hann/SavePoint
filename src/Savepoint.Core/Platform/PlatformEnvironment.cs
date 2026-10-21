@@ -2,9 +2,7 @@ using Savepoint.Core.Platform.Windows;
 
 namespace Savepoint.Core.Platform;
 
-/// <summary>
-/// Everything a platform reads from the machine, so each OS's tables can be built from a fake on any host.
-/// </summary>
+/// <summary>Everything a platform reads from the machine, so each OS's tables can be built from a fake on any host.</summary>
 public sealed record PlatformEnvironment
 {
     public required string HomeDirectory { get; init; }

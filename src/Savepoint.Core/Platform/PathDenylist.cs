@@ -9,9 +9,7 @@ public enum DenylistTier
     ExactOnly = 2,
 }
 
-/// <param name="Path">Absolute path in the platform's own separator style.</param>
-/// <param name="Tier">Which blocking rule applies.</param>
-/// <param name="Reason">One line for developers and logs; user-facing text comes from the error's message id.</param>
+/// <summary>Reason is for developers and logs; user-facing text comes from the error's message id.</summary>
 public sealed record DenylistEntry(string Path, DenylistTier Tier, string Reason);
 
 /// <summary>The paths SavePoint refuses to track, as data. PathSafety does the matching.</summary>

@@ -2,10 +2,7 @@ using Savepoint.Core.Platform;
 
 namespace Savepoint.Core.Paths;
 
-/// <summary>
-/// Path rules for one OS, usable on any host: System.IO.Path follows the host, so a Linux table
-/// checked from a Windows machine would otherwise be judged by the wrong rules.
-/// </summary>
+/// <summary>One OS's path rules on any host; System.IO.Path follows the host, which would misjudge another OS's table.</summary>
 public sealed class PathSyntax
 {
     private static readonly PathSyntax _windows = new(OsKind.Windows);

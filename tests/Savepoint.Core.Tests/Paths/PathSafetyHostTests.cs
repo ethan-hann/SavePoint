@@ -3,8 +3,7 @@ using Savepoint.Core.Tests.Platform;
 
 namespace Savepoint.Core.Tests.Paths;
 
-// Real links on the machine running the tests. Every link stays inside the temp tree and points at
-// folders made there: "blocked" is an extra tier-1 root and "home" the tier-2 profile folder of a fake platform.
+// Real links, all inside the temp tree: "blocked" is an extra tier-1 root and "home" the fake platform's tier-2 profile folder.
 public class PathSafetyHostTests
 {
     [Fact]
