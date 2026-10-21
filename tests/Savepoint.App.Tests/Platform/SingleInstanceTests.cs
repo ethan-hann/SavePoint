@@ -24,8 +24,7 @@ public sealed class SingleInstanceTests : IDisposable
         }
     }
 
-    // A Unix socket needs a folder on a file system that can hold one (a Windows drive mounted into WSL cannot) and a
-    // path under about 100 bytes. SAVEPOINT_TEST_SOCKET_DIR names another folder for a run that has neither in the temp folder.
+    // A Unix socket needs a short path on a file system that holds sockets (a Windows drive in WSL does not); SAVEPOINT_TEST_SOCKET_DIR names another folder.
     private static string PipeDirectory()
     {
         var directory = Environment.GetEnvironmentVariable("SAVEPOINT_TEST_SOCKET_DIR") ?? Path.GetTempPath();

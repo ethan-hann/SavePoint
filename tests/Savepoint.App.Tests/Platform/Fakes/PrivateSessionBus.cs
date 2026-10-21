@@ -3,8 +3,7 @@ using Tmds.DBus.Protocol;
 
 namespace Savepoint.App.Tests.Platform.Fakes;
 
-// A throwaway D-Bus daemon on an abstract socket (no file, no path length limit), so a test can talk to a real bus
-// without touching the login's own. Disposing it kills the daemon.
+// A throwaway D-Bus daemon on an abstract socket (no file, no path limit) so a test can use a real bus; disposing it kills the daemon.
 internal sealed class PrivateSessionBus : IDisposable
 {
     private readonly Process _daemon;

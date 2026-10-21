@@ -2,8 +2,7 @@ namespace Savepoint.App.Tests.Platform.Fakes;
 
 internal static class MutexCrash
 {
-    // Takes the named mutex on a thread that then exits without releasing it, which is what a crashed copy leaves behind.
-    // Keep the returned mutex reachable until the test is done, or collecting it destroys the abandoned state.
+    // A crashed copy leaves its mutex abandoned: take it on a thread that exits unreleased, and keep the result reachable until the test ends.
     public static Mutex LeaveHeld(string name)
     {
         Mutex? held = null;

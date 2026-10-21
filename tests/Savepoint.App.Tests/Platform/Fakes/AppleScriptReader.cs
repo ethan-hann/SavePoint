@@ -2,8 +2,7 @@ using System.Text;
 
 namespace Savepoint.App.Tests.Platform.Fakes;
 
-// Reads back the one script shape the notification layer writes, the way AppleScript would, so a test can tell what
-// text the script would show and whether anything other than two string literals sits in it.
+// Reads back the script the notification layer writes the way AppleScript would, to see what it shows and that nothing else is in it.
 internal static class AppleScriptReader
 {
     private const string _prefix = "display notification ";
