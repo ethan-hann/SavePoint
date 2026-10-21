@@ -204,7 +204,29 @@ public sealed class DeleteRepoTests : IDisposable
     private static IDisposable MakeReadOnlyOnUnix(string folder)
     {
         File.SetUnixFileMode(folder, UnixFileMode.UserRead | UnixFileMode.UserExecute);
-        return new DelegateDisposable(() => File.SetUnixFileMode(folder, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute));
+        var restore = new DelegateDisposable(() =>
+        {
+            // The folder is gone when the test got as far as a delete that worked.
+            if (Directory.Exists(folder))
+            {
+                File.SetUnixFileMode(folder, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            }
+        });
+
+        // A mount that keeps no permissions (Windows drives under WSL) lets the write through.
+        var probe = Path.Combine(folder, "permission-probe");
+        try
+        {
+            File.WriteAllText(probe, string.Empty);
+            File.Delete(probe);
+            restore.Dispose();
+            Assert.Skip("this file system ignores folder permissions");
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+
+        return restore;
     }
 
     private static async Task CopyDirectoryAsync(string source, string target)
