@@ -5,6 +5,11 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <RootNamespace>Savepoint.Core.Tests</RootNamespace>
+    <!-- The exe version reader tests read this assembly's own version resource, so the values are fixed and carry no commit suffix. -->
+    <Version>7.8.9</Version>
+    <FileVersion>7.8.9.10</FileVersion>
+    <InformationalVersion>7.8.9-fixture</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,6 +23,17 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Savepoint.Core\Savepoint.Core.csproj" />
+
+    <!-- The stand-in game is only started as a child process; referencing it builds it first without linking it. -->
+    <ProjectReference Include="..\..\tools\FakeGame\FakeGame.csproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>FakeGameDirectory</_Parameter1>
+      <!-- Forward slashes: this text goes into the assembly verbatim and must resolve on Linux too. -->
+      <_Parameter2>$(MSBuildThisFileDirectory)../../tools/FakeGame/bin/$(Configuration)/$(TargetFramework)/</_Parameter2>
+    </AssemblyAttribute>
   </ItemGroup>
 
   <ItemGroup>
