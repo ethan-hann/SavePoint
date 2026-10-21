@@ -52,12 +52,6 @@ internal sealed partial class ProfilesApi : IProfilesApi
             return new JobStarted(_capture.Start(game, profile, point, roles, captureId, creating: false));
         });
 
-    public Task<OperationResult<Profile>> UpdateAsync(string gameId, string profileId, ProfileChanges changes) =>
-        ApiGuard.NotBuilt<Profile>();
-
-    public Task<OperationResult<Profile>> DuplicateAsync(string gameId, string sourceProfileId, string name) =>
-        ApiGuard.NotBuilt<Profile>();
-
     public Task<OperationResult<IReadOnlyList<ProfileRowStats>>> GetRowStatsAsync(string gameId, CancellationToken cancellationToken = default) =>
         ApiGuard.RunAsync(
             async () =>
@@ -70,10 +64,6 @@ internal sealed partial class ProfilesApi : IProfilesApi
             },
             cancellationToken);
 
-    public Task<OperationResult<ProfileDeletePreview>> GetDeletePreviewAsync(string gameId, string profileId, CancellationToken cancellationToken = default) =>
-        ApiGuard.NotBuilt<ProfileDeletePreview>();
-
-    public Task<OperationResult<Unit>> DeleteAsync(string gameId, string profileId) => ApiGuard.NotBuilt<Unit>();
 
     private static string NewCaptureId() => Guid.NewGuid().ToString("D");
 
