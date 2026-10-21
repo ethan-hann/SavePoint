@@ -94,9 +94,9 @@ public class TabOrderTests
             [
                 "History", "Skyrim Special Edition, 3 profiles", "Add a game",
                 "Filter by profile: All profiles", "Cards",
-                "Go back to Cleared Blackreach", "Go back to 14 mod files updated",
-                "Go back to Fresh start with Nolvus", "Go back to Vanilla 1.6.1170", "Go back to Deep cave run",
-                "Go back to First night", "Go back to Survival test - 5-14-26",
+                "Go back to this: Cleared Blackreach", "Go back to this: 14 mod files updated",
+                "Go back to this: Fresh start with Nolvus", "Go back to this: Vanilla 1.6.1170", "Go back to this: Deep cave run",
+                "Go back to this: First night", "Go back to this: Survival test - 5-14-26",
             ],
             TabStops(app));
     }

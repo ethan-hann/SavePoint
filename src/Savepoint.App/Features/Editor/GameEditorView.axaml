@@ -84,7 +84,7 @@
                         Padding="18,0"
                         Command="{Binding BrowseInstallCommand}"
                         Content="{loc:Loc gameEditor.browse}"
-                        AutomationProperties.Name="{loc:Loc gameEditor.install.pickTitle}" />
+                        AutomationProperties.Name="{loc:Loc gameEditor.install.browseAutomation}" />
               </Grid>
               <StackPanel x:Name="InstallConfirmedLine" Orientation="Horizontal" Spacing="8" IsVisible="{Binding InstallConfirmation, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                 <TextBlock Classes="icon s18 accent" Text="{x:Static theme:Icons.VerifiedUser}" />
@@ -108,7 +108,7 @@
                         Padding="18,0"
                         Command="{Binding BrowseSavesCommand}"
                         Content="{loc:Loc gameEditor.browse}"
-                        AutomationProperties.Name="{loc:Loc gameEditor.external.pickTitle}" />
+                        AutomationProperties.Name="{loc:Loc gameEditor.external.browseAutomation}" />
               </Grid>
               <StackPanel x:Name="SavesConfirmedLine" Orientation="Horizontal" Spacing="8" IsVisible="{Binding SavesConfirmation, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                 <TextBlock Classes="icon s18 accent" Text="{x:Static theme:Icons.VerifiedUser}" />
@@ -175,7 +175,7 @@
                           Padding="18,0"
                           Command="{Binding BrowseExeCommand}"
                           Content="{loc:Loc gameEditor.browse}"
-                          AutomationProperties.Name="{loc:Loc gameEditor.launch.exePickTitle}" />
+                          AutomationProperties.Name="{loc:Loc gameEditor.launch.exeBrowseAutomation}" />
                 </Grid>
                 <TextBlock x:Name="ExeErrorText" Classes="body error" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" IsVisible="{Binding ExePathError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding ExePathError}" />
                 <StackPanel x:Name="ExeSuggestionRow" Spacing="6" IsVisible="{Binding HasExeSuggestions}">

@@ -239,7 +239,7 @@ public class HistoryScreenViewModelTests
 
         Assert.Equal("Load Cleared Blackreach", rig.Screen.Saves.Single(r => r.Name == "Cleared Blackreach").LoadAutomationName);
         Assert.Equal(
-            "Go back to Cleared Blackreach",
+            "Go back to this: Cleared Blackreach",
             rig.Screen.Groups.SelectMany(group => group.Cards).Single(c => c.Name == "Cleared Blackreach").GoBackAutomationName);
     }
 

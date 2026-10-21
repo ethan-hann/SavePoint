@@ -1,7 +1,7 @@
 {
   "history.automation.join": "{first}, {second}",
   "history.card.goBack": "Go back to this",
-  "history.card.goBackAutomation": "Go back to {name}",
+  "history.card.goBackAutomation": "Go back to this: {name}",
   "history.card.loadedNow": "Loaded now",
   "history.column.saves": "Saves",
   "history.column.versions": "Versions & mods",

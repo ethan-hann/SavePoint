@@ -141,7 +141,7 @@ public sealed partial class ProfileRowViewModel : ObservableObject
         LastPlayedText = (stats.LastPlayedAt ?? profile.LastLaunchedAt) is { } lastPlayed ? _text.RelativeTime(lastPlayed) : noValue;
         PlayLabel = IsRunning ? _text.Message("games.profileTable.running") : _text.Message("games.profileTable.play");
 
-        PlayAutomationName = _text.Message("games.profileTable.playAutomationName", ("name", Name));
+        PlayAutomationName = _text.Message(IsRunning ? "games.profileTable.runningAutomationName" : "games.profileTable.playAutomationName", ("name", Name));
         MoreActionsAutomationName = _text.Message("games.profileTable.moreActions", ("name", Name));
         var none = _text.Message("games.profileTable.noneAutomation");
         AutomationName = _text.Message(

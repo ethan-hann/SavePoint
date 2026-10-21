@@ -45,6 +45,7 @@
   "games.profileTable.playAutomationName": "Play {name}",
   "games.profileTable.rowAutomationName": "{name}. {status} Version: {version}. Mod files: {modFiles}. Last played: {lastPlayed}.",
   "games.profileTable.running": "Running",
+  "games.profileTable.runningAutomationName": "Running: {name}",
   "games.profileTable.saveCount": "{count, plural, one {# save} other {# saves}}",
   "games.profileTable.unsavedChanges": "Unsaved changes",
   "games.profileTable.unsavedChangesWithSaves": "Unsaved changes · {count, plural, one {# save} other {# saves}}",

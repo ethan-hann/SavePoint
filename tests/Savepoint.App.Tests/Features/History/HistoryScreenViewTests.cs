@@ -93,7 +93,7 @@ public class HistoryScreenViewTests
     {
         using var harness = await StartAsync();
 
-        ButtonNamed(harness, "Go back to Cleared Blackreach").Command!.Execute(null);
+        ButtonNamed(harness, "Go back to this: Cleared Blackreach").Command!.Execute(null);
 
         var begun = Assert.Single(harness.Flow.Begun);
         Assert.Equal(new LaunchTarget.Point(MockupScenario.ClearedBlackreach), begun.Target);
@@ -120,7 +120,7 @@ public class HistoryScreenViewTests
         harness.Flow.SetActive(MockupScenario.SkyrimId, true);
         harness.Settle();
 
-        Assert.False(ButtonNamed(harness, "Go back to Cleared Blackreach").IsEffectivelyEnabled);
+        Assert.False(ButtonNamed(harness, "Go back to this: Cleared Blackreach").IsEffectivelyEnabled);
     }
 
     [AvaloniaFact]
