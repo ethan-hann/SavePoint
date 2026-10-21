@@ -97,15 +97,19 @@ public class AppearanceArtworkTests
     }
 
     [Fact]
-    public async Task Showing_the_stored_value_is_not_a_choice_and_saves_nothing()
+    public async Task Showing_a_stored_off_is_not_a_choice_and_saves_nothing()
     {
-        var rig = await SettingsRig.StartAsync();
+        var backend = FakeBackend.Mockup();
+        await backend.Settings.SaveAsync((await backend.Settings.GetAsync(TestContext.Current.CancellationToken)).Value! with { LookUpArtworkOnline = false });
+        var provider = new RecordingProvider();
+        var rig = await SettingsRig.StartAsync(backend, artwork: provider);
         var saves = rig.Calls<ISettingsApi>(nameof(ISettingsApi.SaveAsync));
 
         rig.Show();
 
+        Assert.False(rig.Screen.Appearance.LookUpArtworkOnline);
         Assert.Equal(saves, rig.Calls<ISettingsApi>(nameof(ISettingsApi.SaveAsync)));
-        Assert.True(rig.Screen.Appearance.LookUpArtworkOnline);
+        Assert.Equal(0, provider.Refreshes);
     }
 
     [AvaloniaFact]
