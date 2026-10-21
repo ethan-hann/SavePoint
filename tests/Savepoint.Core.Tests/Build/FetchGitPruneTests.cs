@@ -154,6 +154,7 @@ public sealed class FetchGitPruneTests : IDisposable
         Assert.NotEqual(0, run.ExitCode);
         Assert.Contains("cmd/git.exe", run.Output);
         Assert.True(File.Exists(Path.Combine(bundle, "cmd/git.exe")));
+        Assert.True(File.Exists(Path.Combine(bundle, "ucrt64/bin/git.exe")), "nothing is deleted before every pattern has been checked");
     }
 
     [Theory]
@@ -166,7 +167,7 @@ public sealed class FetchGitPruneTests : IDisposable
     [InlineData("*")]
     public async Task A_pattern_that_could_reach_outside_the_bundle_or_empty_it_is_refused(string pattern)
     {
-        var bundle = MakeBundle([], ["cmd/git.exe", "ucrt64/bin/git.exe"]);
+        var bundle = MakeBundle([], ["aaa/keep.txt", "cmd/git.exe", "ucrt64/bin/git.exe"]);
         var victim = Path.Combine(Path.GetDirectoryName(bundle)!, "victim");
         await File.WriteAllTextAsync(victim, "keep me", TestContext.Current.CancellationToken);
         var manifest = WriteManifest("cmd/git.exe", "mingit", [pattern]);
@@ -176,6 +177,7 @@ public sealed class FetchGitPruneTests : IDisposable
         Assert.NotEqual(0, run.ExitCode);
         Assert.Contains("pattern", run.Output, StringComparison.OrdinalIgnoreCase);
         Assert.True(File.Exists(victim));
+        Assert.True(File.Exists(Path.Combine(bundle, "aaa/keep.txt")));
         Assert.True(File.Exists(Path.Combine(bundle, "ucrt64/bin/git.exe")));
     }
 

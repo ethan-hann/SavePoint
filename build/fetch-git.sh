@@ -142,8 +142,9 @@ check_prune_pattern() {
   esac
 }
 
-prune_bundle() {
-  local dir="${1%/}" removed=0 pattern match relative parent
+# Prints every bundle-relative path the patterns match, and stops if any of them holds the entry point.
+list_prune_matches() {
+  local dir="$1" pattern match relative
   while IFS= read -r pattern; do
     # The pattern is left unquoted on purpose: the shell expands it against the bundle.
     for match in "$dir"/$pattern; do
@@ -152,15 +153,29 @@ prune_bundle() {
       case "$entry/" in
         "$relative/"*) fail "prune pattern '$pattern' would remove the entry point $entry" ;;
       esac
-      rm -rf -- "$match"
-      removed=$((removed + 1))
-      parent="$(dirname "$match")"
-      while [ "$parent" != "$dir" ] && rmdir "$parent" 2>/dev/null; do
-        parent="$(dirname "$parent")"
-      done
+      printf '%s\n' "$relative"
     done
   done <<EOF
 $prune_patterns
+EOF
+}
+
+prune_bundle() {
+  local dir="${1%/}" removed=0 relative parent matches
+  # Nothing is deleted until every match has been checked.
+  matches="$(list_prune_matches "$dir")"
+  while IFS= read -r relative; do
+    [ -n "$relative" ] || continue
+    # An earlier match may have taken this one with it.
+    [ -e "$dir/$relative" ] || [ -L "$dir/$relative" ] || continue
+    rm -rf -- "${dir:?}/$relative"
+    removed=$((removed + 1))
+    parent="$(dirname "$dir/$relative")"
+    while [ "$parent" != "$dir" ] && rmdir "$parent" 2>/dev/null; do
+      parent="$(dirname "$parent")"
+    done
+  done <<EOF
+$matches
 EOF
   echo "Pruned $removed entries"
 }

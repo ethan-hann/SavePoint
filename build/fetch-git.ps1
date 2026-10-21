@@ -93,7 +93,7 @@ function Get-PruneHash([string[]]$Patterns) {
 
 function Invoke-Prune([string]$Directory, [string[]]$Patterns, [string]$EntryPath) {
     $root = (Resolve-Path -LiteralPath $Directory).ProviderPath
-    $removed = 0
+    $targets = [System.Collections.Generic.List[string]]::new()
     # Patterns are resolved from inside the bundle so odd characters in its own path cannot act as wildcards.
     Push-Location -LiteralPath $root
     try {
@@ -104,19 +104,27 @@ function Invoke-Prune([string]$Directory, [string[]]$Patterns, [string]$EntryPat
                 if ($EntryPath -ieq $relative -or $EntryPath.StartsWith("$relative/", [System.StringComparison]::OrdinalIgnoreCase)) {
                     throw "Prune pattern '$pattern' would remove the entry point $EntryPath."
                 }
-                Remove-Item -LiteralPath $item.FullName -Recurse -Force
-                $removed++
-
-                $parent = [System.IO.Path]::GetDirectoryName($item.FullName)
-                while ($parent.Length -gt $root.Length -and -not (Get-ChildItem -LiteralPath $parent -Force | Select-Object -First 1)) {
-                    Remove-Item -LiteralPath $parent -Force
-                    $parent = [System.IO.Path]::GetDirectoryName($parent)
-                }
+                $targets.Add($item.FullName)
             }
         }
     }
     finally {
         Pop-Location
+    }
+
+    # Nothing is deleted until every match has been checked.
+    $removed = 0
+    foreach ($target in $targets) {
+        # An earlier match may have taken this one with it.
+        if (-not (Get-Item -LiteralPath $target -Force -ErrorAction SilentlyContinue)) { continue }
+        Remove-Item -LiteralPath $target -Recurse -Force
+        $removed++
+
+        $parent = [System.IO.Path]::GetDirectoryName($target)
+        while ($parent.Length -gt $root.Length -and -not (Get-ChildItem -LiteralPath $parent -Force | Select-Object -First 1)) {
+            Remove-Item -LiteralPath $parent -Force
+            $parent = [System.IO.Path]::GetDirectoryName($parent)
+        }
     }
     return $removed
 }
