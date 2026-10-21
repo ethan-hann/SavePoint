@@ -2,15 +2,15 @@
   "schemaVersion": 1,
   "id": "fake-game",
   "name": "Fake Game (SavePoint test)",
-  "install": { "path": "{userHome}\\SavePointTest\\FakeGame" },
-  "external": { "path": "{appData}\\SavePointFakeGame\\saves", "role": "saves" },
+  "install": { "path": "{userHome}/SavePointTest/FakeGame" },
+  "external": { "path": "{userHome}/SavePointTest/FakeGameSaves", "role": "saves" },
   "launch": {
     "method": "exe",
     "exePath": "FakeGame.exe",
-    "args": ["--title=Fake Game (SavePoint test)"],
-    "processNameForExitDetection": "FakeGame.exe"
+    "args": ["--saves", "../FakeGameSaves", "--save-every", "1000"],
+    "processNameForExitDetection": "FakeGame"
   },
   "ignorePaths": [],
   "modPathHints": ["mods"],
-  "notes": "Disposable test fixture - run `npm run fakegame:setup` to create the install and save directories this expects. No --save-dir arg on purpose: launch args are passed to the exe verbatim without {token} expansion, so the exe's own default save location is what keeps it aligned with external.path. To test the launcher-stub exit-detection path instead, change exePath to FakeGameLauncher.exe and leave processNameForExitDetection alone."
+  "notes": "Disposable test fixture for tools/FakeGame: copy the built FakeGame executable into the install folder. Launch args are passed to the executable verbatim without {token} expansion, so --saves is a path relative to the install folder (where the game is started) that lands on external.path. On Linux and macOS the executable is FakeGame with no extension; the process name matches either way. To test the launcher-stub exit-detection path instead, put --spawn <path to the real game> and the game's own arguments after it in args."
 }
