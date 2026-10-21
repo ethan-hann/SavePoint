@@ -2,6 +2,7 @@ using Savepoint.Core.Catalog;
 using Savepoint.Core.Git;
 using Savepoint.Core.Paths;
 using Savepoint.Core.Platform;
+using Savepoint.Core.Services;
 using Savepoint.Core.Services.Exe;
 using Savepoint.Core.Services.Jobs;
 using Savepoint.Core.Services.Locking;
@@ -50,6 +51,7 @@ public sealed class BackendServices
         LooseObjectThreshold = looseObjectThreshold;
         PathTokens = new PathTokenResolver(platform);
         Executables = new ExecutableScanner(platform);
+        Insights = new GameInsights(this);
     }
 
     /// <summary>The operating system's folders, path tokens and safety table.</summary>
@@ -93,6 +95,8 @@ public sealed class BackendServices
 
     /// <summary>Finds the files in an install folder that could launch the game.</summary>
     public ExecutableScanner Executables { get; }
+
+    internal GameInsights Insights { get; }
 
     /// <summary>Remembers detected exe versions by the content id of the executable (D13.15).</summary>
     public ExeVersionCache ExeVersions { get; } = new();

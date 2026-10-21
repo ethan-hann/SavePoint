@@ -53,15 +53,7 @@ internal sealed class OptimizationService
                         return false;
                     }
 
-                    foreach (var repo in GameFolders.ReposForGitDirOnly(_services, storage, game))
-                    {
-                        if (await storage.Engine.CountLooseObjectsAsync(repo).ConfigureAwait(false) > _services.LooseObjectThreshold)
-                        {
-                            return true;
-                        }
-                    }
-
-                    return false;
+                    return GameFolders.ReposForGitDirOnly(_services, storage, game).Any(repo => CountLooseObjects(repo.GitDir) > _services.LooseObjectThreshold);
                 }).ConfigureAwait(false);
             if (crowded)
             {
@@ -71,6 +63,27 @@ internal sealed class OptimizationService
         catch (Exception e) when (e is SavepointException or IOException)
         {
             // The check only decides whether to tidy up; a failure of it must not fail the save it follows.
+        }
+    }
+
+    // Loose objects sit in two-character fan-out folders under objects/; counting the files there costs no git process.
+    internal static int CountLooseObjects(string gitDir)
+    {
+        var objects = Path.Combine(gitDir, "objects");
+        if (!Directory.Exists(objects))
+        {
+            return 0;
+        }
+
+        try
+        {
+            return Directory.EnumerateDirectories(objects)
+                .Where(folder => Path.GetFileName(folder).Length == 2)
+                .Sum(folder => Directory.EnumerateFiles(folder).Count());
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return 0;
         }
     }
 

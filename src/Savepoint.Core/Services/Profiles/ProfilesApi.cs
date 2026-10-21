@@ -59,7 +59,16 @@ internal sealed partial class ProfilesApi : IProfilesApi
         ApiGuard.NotBuilt<Profile>();
 
     public Task<OperationResult<IReadOnlyList<ProfileRowStats>>> GetRowStatsAsync(string gameId, CancellationToken cancellationToken = default) =>
-        ApiGuard.NotBuilt<IReadOnlyList<ProfileRowStats>>();
+        ApiGuard.RunAsync(
+            async () =>
+            {
+                var game = await RequireGameAsync(gameId, cancellationToken).ConfigureAwait(false);
+                var profiles = await _services.Catalog.ListProfilesAsync(gameId, cancellationToken).ConfigureAwait(false);
+                return await _services.Storage.ReadAsync(
+                    storage => ProfileStats.ReadAsync(_services, storage, game, profiles, cancellationToken),
+                    cancellationToken).ConfigureAwait(false);
+            },
+            cancellationToken);
 
     public Task<OperationResult<ProfileDeletePreview>> GetDeletePreviewAsync(string gameId, string profileId, CancellationToken cancellationToken = default) =>
         ApiGuard.NotBuilt<ProfileDeletePreview>();

@@ -28,8 +28,8 @@ internal sealed class CaptureRunner
     /// <param name="pointName">What the new point shows in history.</param>
     /// <param name="roles">The folders to save.</param>
     /// <param name="captureId">The id every folder's point carries.</param>
-    /// <param name="creating">True when the profile does not exist yet: its row is saved with the first folder that works, and removed branches left by a total failure.</param>
-    /// <param name="onFinished">Told how the job ended, with the roles that failed.</param>
+    /// <param name="creating">True when the profile does not exist yet: its row is saved with the first folder that works, and branches left by a total failure are taken back.</param>
+    /// <param name="onFinished">Told how the job ended, with the outcome of each folder.</param>
     public Guid Start(GameDefinition game, Profile profile, string pointName, IReadOnlyList<RepoRole> roles, string captureId, bool creating, Action<CaptureResult>? onFinished = null) =>
         _services.Jobs.Start(
             JobKind.Capture,
@@ -63,44 +63,50 @@ internal sealed class CaptureRunner
         bool creating)
     {
         var repos = GameFolders.Repos(_services, storage, game).Where(repo => roles.Contains(repo.Role)).ToList();
-        var outcomes = new List<FolderOutcome>();
-        var started = new List<RepoRef>();
-        var recorded = false;
-        var progress = new Reporter(context);
+        var progress = new CombinedProgress(context);
 
-        foreach (var repo in repos)
-        {
-            if (context.CancellationToken.IsCancellationRequested)
-            {
-                outcomes.Add(new FolderOutcome(repo.Role, ErrorInfo.From(new OperationCancelledByUserException(CancelledOperation.Capture, game.Id))));
-                continue;
-            }
+        // The two folders are separate repositories, so they are saved side by side; one failing never stops the other.
+        var saved = await Task.WhenAll(repos.Select(repo => SaveFolderAsync(context, storage, game, repo, profile.BranchName, pointName, captureId, progress.For(repo.Role)))).ConfigureAwait(false);
 
-            try
-            {
-                var existed = await storage.Engine.BranchExistsAsync(repo, profile.BranchName, context.CancellationToken).ConfigureAwait(false);
-                if (!existed)
-                {
-                    started.Add(repo);
-                }
-
-                recorded |= await CaptureFolderAsync(storage, game, repo, profile.BranchName, existed, pointName, captureId, progress, context.CancellationToken).ConfigureAwait(false);
-                outcomes.Add(new FolderOutcome(repo.Role));
-            }
-            catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException))
-            {
-                // A stop the user asked for reads as a cancelled save, not as an unknown failure.
-                var error = e is OperationCanceledException ? new OperationCancelledByUserException(CancelledOperation.Capture, game.Id) : e;
-                outcomes.Add(new FolderOutcome(repo.Role, ErrorInfo.From(error)));
-            }
-        }
-
+        var outcomes = saved.Select(folder => folder.Outcome).ToList();
         if (creating)
         {
-            await FinishCreationAsync(storage, profile, started, outcomes).ConfigureAwait(false);
+            await FinishCreationAsync(storage, profile, saved.Where(folder => folder.StartedBranch).Select(folder => folder.Repo), outcomes).ConfigureAwait(false);
         }
 
+        var recorded = saved.Any(folder => folder.Recorded);
         return new CaptureResult(profile.Id, recorded ? new HistoryPointId(captureId) : null, outcomes);
+    }
+
+    private async Task<SavedFolder> SaveFolderAsync(
+        JobContext context,
+        StorageSnapshot storage,
+        GameDefinition game,
+        RepoRef repo,
+        string branch,
+        string pointName,
+        string captureId,
+        IProgress<FileProgress> progress)
+    {
+        if (context.CancellationToken.IsCancellationRequested)
+        {
+            return new SavedFolder(repo, new FolderOutcome(repo.Role, ErrorInfo.From(new OperationCancelledByUserException(CancelledOperation.Capture, game.Id))), false, false);
+        }
+
+        var startedBranch = false;
+        try
+        {
+            var existed = await storage.Engine.BranchExistsAsync(repo, branch, context.CancellationToken).ConfigureAwait(false);
+            startedBranch = !existed;
+            var recorded = await CaptureFolderAsync(storage, game, repo, branch, existed, pointName, captureId, progress, context.CancellationToken).ConfigureAwait(false);
+            return new SavedFolder(repo, new FolderOutcome(repo.Role), recorded, startedBranch);
+        }
+        catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException))
+        {
+            // A stop the user asked for reads as a cancelled save, not as an unknown failure.
+            var error = e is OperationCanceledException ? new OperationCancelledByUserException(CancelledOperation.Capture, game.Id) : e;
+            return new SavedFolder(repo, new FolderOutcome(repo.Role, ErrorInfo.From(error)), false, startedBranch);
+        }
     }
 
     // True when a new point was recorded in this folder.
@@ -133,7 +139,7 @@ internal sealed class CaptureRunner
     }
 
     // The profile exists once any folder was saved; when none was, the branches this attempt started are taken back (D23).
-    private async Task FinishCreationAsync(StorageSnapshot storage, Profile profile, List<RepoRef> started, List<FolderOutcome> outcomes)
+    private async Task FinishCreationAsync(StorageSnapshot storage, Profile profile, IEnumerable<RepoRef> started, List<FolderOutcome> outcomes)
     {
         if (outcomes.Any(outcome => outcome.Ok))
         {
@@ -154,10 +160,39 @@ internal sealed class CaptureRunner
         }
     }
 
-    // Progress reaches the job as it happens, so the bar never lags behind the files.
-    private sealed class Reporter(JobContext context) : IProgress<FileProgress>
+    private sealed record SavedFolder(RepoRef Repo, FolderOutcome Outcome, bool Recorded, bool StartedBranch);
+
+    // Both folders report into one bar: the files done and expected add up, and the total stays unknown until every folder has counted.
+    private sealed class CombinedProgress(JobContext context)
     {
-        public void Report(FileProgress value) =>
-            context.Progress.Report(new JobProgress(value.FilesDone, value.FilesTotal, null, null, value.CurrentPath));
+        private readonly Lock _gate = new();
+        private readonly Dictionary<RepoRole, (int Done, int? Total)> _parts = [];
+        private int _expected;
+
+        public IProgress<FileProgress> For(RepoRole role)
+        {
+            lock (_gate)
+            {
+                _expected++;
+            }
+
+            return new Part(this, role);
+        }
+
+        private void Update(RepoRole role, FileProgress value)
+        {
+            lock (_gate)
+            {
+                _parts[role] = (value.FilesDone, value.FilesTotal);
+                var done = _parts.Values.Sum(part => part.Done);
+                var counted = _parts.Count == _expected && _parts.Values.All(part => part.Total is not null);
+                context.Progress.Report(new JobProgress(done, counted ? _parts.Values.Sum(part => part.Total!.Value) : null, null, null, value.CurrentPath));
+            }
+        }
+
+        private sealed class Part(CombinedProgress owner, RepoRole role) : IProgress<FileProgress>
+        {
+            public void Report(FileProgress value) => owner.Update(role, value);
+        }
     }
 }
