@@ -30,6 +30,14 @@ SavePoint bundles its own pinned copy of git and never uses one installed on you
 
 Not supported: games with kernel-level anti-cheat. Turn off a storefront's cloud saves (Steam Cloud, GOG Galaxy) for a game SavePoint manages, or the two will overwrite each other.
 
+## Installing
+
+- **Windows:** run `SavePoint-win-Setup.exe`. It installs for your user only and adds a Start menu shortcut. Or unzip `SavePoint-win-Portable.zip` anywhere and run `SavePoint.exe`. The packages are not code-signed yet, so Windows SmartScreen asks before the first run.
+- **Linux:** make `SavePoint.AppImage` executable and run it.
+- **macOS:** not packaged yet.
+
+SavePoint never checks for updates on its own. To update, run a newer setup over the old install.
+
 ## Building from source
 
 You need the .NET 10 SDK; on Windows, also PowerShell 7.

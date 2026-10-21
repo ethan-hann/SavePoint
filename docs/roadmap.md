@@ -52,7 +52,7 @@ Done when: a Steam game's cards and tiles show its art from the local cache with
 Keyboard flow and automation names on every control, live-region announcements, responsive rules (rail collapses below ~900px, table drops mod-files column first), reduced motion, OS notifications when unfocused, single instance, logging with "Show details", crash/stale-state recovery on startup.
 Done when: an accessibility review and an adversarial resilience review report no open blocking findings.
 
-### M7 - Packaging and end-to-end (todo)
+### M7 - Packaging and end-to-end (doing: packages done, `0c55208`; end-to-end run, final review, gap analysis next)
 Installer + portable build per OS with the pruned, licensed git bundle (D21), end-to-end dogfood run against FakeGame through the real UI services, final code review and gap analysis against `plan.md` and `docs/ui/README.md`, project documentation (README, user guide, developer guide) and a generated API reference (D24).
 Done when: the gap analysis reports no unmet requirement and the packaged app runs the full capture, switch, play, capture cycle.
 
@@ -63,4 +63,12 @@ There is no remote and no issue tracker, so open follow-ups live here.
 - Test teardown race: `GitWorkspace.DeleteDirectory` lists files and then calls `SetAttributes`, and a temp pack file git removes in between throws `FileNotFoundException` (seen once in `ProfilesManageTests.Deleting_a_profile_that_is_not_checked_out_removes_its_branches_and_row`). The teardown should tolerate a file that is already gone.
 - Fixture rework, deferred (`.tools/briefs/test-fixtures.md`): the slowest classes are `CheckoutTests`, `LaunchContinueTests`, `OrphanTests`, and `HistoryInputTests`.
 - GOG artwork from `goggame-<id>.info` (D30 follow-up).
+- Packaging follow-ups:
+  - code signing, so SmartScreen does not warn;
+  - publish the MSYS2 and MINGW package sources D21 promises;
+  - give the "already running" window the app icon;
+  - use the `.ico` for the Windows title bar instead of the downscaled 256 PNG;
+  - consider the filled bookmark glyph for icon sizes up to 32 px, where the outline is soft;
+  - the in-app mark centers the glyph by its em box, so it sits about 2 px low against the icon.
+- Release packages are build outputs: rebuild them with `build/package.ps1` and `build/package.sh` from `main` for a release.
 - Backend review notes not covered by D31: none yet; the reviewer re-checks the fixes after they merge.
