@@ -76,8 +76,9 @@ public sealed partial class LaunchOrchestrator
                 return new SessionState.Exited(startedAt, duration, counts.GetValueOrDefault(RepoRole.External), counts.GetValueOrDefault(RepoRole.Install), options);
             }).ConfigureAwait(false);
         }
-        catch (Exception e) when (e is SavepointException or IOException)
+        catch (Exception e) when (e is not (OperationCanceledException or OutOfMemoryException or StackOverflowException))
         {
+            // Whatever went wrong reading the folders, the game has ended and the session must say so.
             return new SessionState.Exited(startedAt, duration, 0, 0, FallbackOptions(older));
         }
     }
