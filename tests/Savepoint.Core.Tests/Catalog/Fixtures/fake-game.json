@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "fake-game",
+  "name": "Fake Game (SavePoint test)",
+  "install": { "path": "{userHome}\\SavePointTest\\FakeGame" },
+  "external": { "path": "{appData}\\SavePointFakeGame\\saves", "role": "saves" },
+  "launch": {
+    "method": "exe",
+    "exePath": "FakeGame.exe",
+    "args": ["--title=Fake Game (SavePoint test)"],
+    "processNameForExitDetection": "FakeGame.exe"
+  },
+  "ignorePaths": [],
+  "modPathHints": ["mods"],
+  "notes": "Disposable test fixture - run `npm run fakegame:setup` to create the install and save directories this expects. No --save-dir arg on purpose: launch args are passed to the exe verbatim without {token} expansion, so the exe's own default save location is what keeps it aligned with external.path. To test the launcher-stub exit-detection path instead, change exePath to FakeGameLauncher.exe and leave processNameForExitDetection alone."
+}

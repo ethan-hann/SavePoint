@@ -2,6 +2,12 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="Savepoint.App.App"
              RequestedThemeVariant="Default">
+  <Application.Resources>
+    <FontFamily x:Key="RobotoFont">avares://SavePoint/Assets/Fonts#Roboto</FontFamily>
+    <FontFamily x:Key="RobotoMonoFont">avares://SavePoint/Assets/Fonts#Roboto Mono</FontFamily>
+    <FontFamily x:Key="SymbolsFont">avares://SavePoint/Assets/Fonts#Material Symbols Rounded</FontFamily>
+    <FontFamily x:Key="SymbolsFilledFont">avares://SavePoint/Assets/Fonts#Material Symbols Rounded Filled</FontFamily>
+  </Application.Resources>
   <Application.Styles>
     <FluentTheme />
   </Application.Styles>

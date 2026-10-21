@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Headless;
 using Savepoint.App.Localization;
 using Savepoint.App.Tests;
+using Savepoint.App.Theme.Fonts;
 
 [assembly: AvaloniaTestApplication(typeof(TestAppBuilder))]
 
@@ -15,6 +16,7 @@ public static class TestAppBuilder
         LocalizationCatalog.ThrowOnMissingKeyByDefault = true;
 
         return AppBuilder.Configure<App>()
+            .UseSavepointFonts()
             .UseSkia()
             .UseHarfBuzz()
             .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });

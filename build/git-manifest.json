@@ -1,0 +1,115 @@
+{
+  "layouts": {
+    "mingit": {
+      "prune": [
+        "*/bin/git-credential-manager*",
+        "*/bin/git-credential-helper-selector*",
+        "*/bin/gcmcore.dll",
+        "*/bin/GitHub.dll",
+        "*/bin/GitLab.dll",
+        "*/bin/Atlassian.Bitbucket.dll",
+        "*/bin/Microsoft.*.dll",
+        "*/bin/System.*.dll",
+        "*/bin/Avalonia*.dll",
+        "*/bin/MicroCom.Runtime.dll",
+        "*/bin/*SkiaSharp.dll",
+        "*/bin/*HarfBuzzSharp.dll",
+        "*/bin/av_libglesv2.dll",
+        "*/bin/msalruntime*.dll",
+        "*/doc/git-credential-manager",
+        "*/bin/git-remote-http*",
+        "*/bin/git-http-*",
+        "*/bin/libcurl*.dll",
+        "*/bin/libssh2*.dll",
+        "*/bin/libnghttp2*.dll",
+        "*/bin/libpsl*.dll",
+        "*/bin/libidn2*.dll",
+        "*/bin/libunistring*.dll",
+        "*/bin/libzstd*.dll",
+        "*/bin/libbrotli*.dll",
+        "*/bin/libexpat*.dll",
+        "*/bin/libcrypto-3*.dll",
+        "*/bin/libssl-3*.dll",
+        "*/bin/psl.exe",
+        "*/bin/psl-make-dafsa",
+        "*/bin/brotli.exe",
+        "*/bin/wcurl",
+        "*/bin/c_rehash",
+        "*/etc/ssl",
+        "*/lib/ossl-modules",
+        "*/lib/engines-3"
+      ]
+    },
+    "dugite": {
+      "prune": [
+        "libexec/git-core/git-credential-manager*",
+        "libexec/git-core/git-lfs*",
+        "libexec/git-core/*.dll",
+        "libexec/git-core/*.dylib",
+        "libexec/git-core/*.so",
+        "libexec/git-core/*/*.resources.dll",
+        "libexec/git-core/createdump",
+        "libexec/git-core/uninstall.sh",
+        "libexec/git-core/NOTICE",
+        "libexec/git-core/git-remote-http*",
+        "libexec/git-core/git-remote-ftp*",
+        "libexec/git-core/git-http-*",
+        "ssl"
+      ]
+    }
+  },
+  "win-x64": {
+    "version": "2.56.0.2",
+    "url": "https://github.com/git-for-windows/git/releases/download/v2.56.0.windows.2/MinGit-2.56.0.2-64-bit.zip",
+    "sha256": "da35e72aa21c005a5a0d298cfbae110bc1609a815730ea0dde84b01a1b3cd3be",
+    "archive": "zip",
+    "layout": "mingit",
+    "entry": "cmd/git.exe",
+    "hashSource": "release notes table and asset digest of v2.56.0.windows.2"
+  },
+  "win-arm64": {
+    "version": "2.56.0.2",
+    "url": "https://github.com/git-for-windows/git/releases/download/v2.56.0.windows.2/MinGit-2.56.0.2-arm64.zip",
+    "sha256": "38b33dc6024026e3315cf88ab2cfea65205bbd7bb3a8e824bd21c8ad4fe609a7",
+    "archive": "zip",
+    "layout": "mingit",
+    "entry": "cmd/git.exe",
+    "hashSource": "release notes table and asset digest of v2.56.0.windows.2"
+  },
+  "osx-x64": {
+    "version": "2.53.0-4",
+    "url": "https://github.com/desktop/dugite-native/releases/download/v2.53.0-4/dugite-native-v2.53.0-4098283-macOS-x64.tar.gz",
+    "sha256": "ae6686718aa34f4140424db16b92a47dcffd6d1f312eb8b5f3b267f7404e2680",
+    "archive": "tar.gz",
+    "layout": "dugite",
+    "entry": "bin/git",
+    "hashSource": "sibling .sha256 asset, release notes and asset digest of v2.53.0-4"
+  },
+  "osx-arm64": {
+    "version": "2.53.0-4",
+    "url": "https://github.com/desktop/dugite-native/releases/download/v2.53.0-4/dugite-native-v2.53.0-4098283-macOS-arm64.tar.gz",
+    "sha256": "f9dc64635a5b62fbd7ad95db73268bbb8912255ac516d65d37bf7af22fcb8ffe",
+    "archive": "tar.gz",
+    "layout": "dugite",
+    "entry": "bin/git",
+    "hashSource": "sibling .sha256 asset, release notes and asset digest of v2.53.0-4"
+  },
+  "linux-x64": {
+    "version": "2.53.0-4",
+    "url": "https://github.com/desktop/dugite-native/releases/download/v2.53.0-4/dugite-native-v2.53.0-4098283-ubuntu-x64.tar.gz",
+    "sha256": "cca76aa31ad9e835e771ee7f55b73934777fbd8d16757a10d307ba06de860901",
+    "archive": "tar.gz",
+    "layout": "dugite",
+    "entry": "bin/git",
+    "hashSource": "sibling .sha256 asset, release notes and asset digest of v2.53.0-4"
+  },
+  "linux-arm64": {
+    "version": "2.53.0-4",
+    "url": "https://github.com/desktop/dugite-native/releases/download/v2.53.0-4/dugite-native-v2.53.0-4098283-ubuntu-arm64.tar.gz",
+    "sha256": "a161f45af4626bb7e0c688854bd4a9aee47cc514bca404cff0a5e3536ef1c0af",
+    "archive": "tar.gz",
+    "layout": "dugite",
+    "entry": "bin/git",
+    "hashSource": "sibling .sha256 asset, release notes and asset digest of v2.53.0-4"
+  }
+}

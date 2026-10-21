@@ -21,7 +21,17 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="Catalog\Fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Shared\TestEnvironment.cs" Link="Shared\TestEnvironment.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
+
+  <Import Project="..\..\build\Git.targets" />
 
 </Project>

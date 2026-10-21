@@ -1,3 +1,4 @@
+using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 
 namespace Savepoint.Core.Tests.Errors;
@@ -124,14 +125,14 @@ public class ErrorTypesTests
             ("path", "/system"), ("tier", 1));
         Add("PathSafety tier 2", new PathSafetyException("/home/me", 2), "error.pathSafety.tier2Blocked",
             ("path", "/home/me"), ("tier", 2));
-        Add("ConsentMarker missing", new ConsentMarkerException(ConsentFailure.Missing, "/games/alpha", "install", null, null),
+        Add("ConsentMarker missing", new ConsentMarkerException(ConsentFailure.Missing, "/games/alpha", RepoRole.Install, null, null),
             "error.consentMarker.missing",
-            ("reason", ConsentFailure.Missing), ("path", "/games/alpha"), ("role", "install"),
+            ("reason", ConsentFailure.Missing), ("path", "/games/alpha"), ("role", RepoRole.Install),
             ("existingGameId", null), ("existingRole", null));
-        Add("ConsentMarker conflict", new ConsentMarkerException(ConsentFailure.Conflict, "/games/alpha", "install", "game-2", "saves"),
+        Add("ConsentMarker conflict", new ConsentMarkerException(ConsentFailure.Conflict, "/games/alpha", RepoRole.Install, "game-2", RepoRole.External),
             "error.consentMarker.conflict",
-            ("reason", ConsentFailure.Conflict), ("path", "/games/alpha"), ("role", "install"),
-            ("existingGameId", "game-2"), ("existingRole", "saves"));
+            ("reason", ConsentFailure.Conflict), ("path", "/games/alpha"), ("role", RepoRole.Install),
+            ("existingGameId", "game-2"), ("existingRole", RepoRole.External));
         Add("DiskSpace", new DiskSpaceException("/games", 5_000L, 1_000L), "error.diskSpace.low",
             ("path", "/games"), ("requiredBytes", 5_000L), ("freeBytes", 1_000L));
         Add("GitOperation", new GitOperationException("/games/alpha", "checkout failed"), "error.gitOperation.checkoutFailed",
@@ -161,14 +162,16 @@ public class ErrorTypesTests
             ("gameId", "game-1"));
         Add("SessionStillRunning", new SessionStillRunningException("game-1"), "error.launch.sessionStillRunning",
             ("gameId", "game-1"));
-        Add("DirtyWorkingTree", new DirtyWorkingTreeException("install"), "error.launch.dirtyWorkingTree",
-            ("role", "install"));
-        Add("DetachedCaptureNotSupported", new DetachedCaptureNotSupportedException("saves"), "error.launch.detachedCaptureNotSupported",
-            ("role", "saves"));
+        Add("DirtyWorkingTree", new DirtyWorkingTreeException(RepoRole.Install), "error.launch.dirtyWorkingTree",
+            ("role", RepoRole.Install));
+        Add("DetachedCaptureNotSupported", new DetachedCaptureNotSupportedException(RepoRole.External), "error.launch.detachedCaptureNotSupported",
+            ("role", RepoRole.External));
         Add("LaunchSpawn", new LaunchSpawnException("exe", "could not start", null), "error.launch.spawnFailed",
             ("method", "exe"));
-        Add("PathMissing", new PathMissingException("/games/alpha", "install"), "error.path.missing",
-            ("path", "/games/alpha"), ("role", "install"));
+        Add("PathMissing", new PathMissingException("/games/alpha", RepoRole.Install), "error.path.missing",
+            ("path", "/games/alpha"), ("role", RepoRole.Install));
+        Add("PathMissing external", new PathMissingException("/saves/alpha", RepoRole.External), "error.path.missing",
+            ("path", "/saves/alpha"), ("role", RepoRole.External));
         Add("StorageDestinationNotEmpty", new StorageDestinationNotEmptyException("/storage"), "error.storageRelocation.destinationNotEmpty",
             ("path", "/storage"));
         Add("Validation", new ValidationException(_issues), "error.validation.invalidPayload",

@@ -21,3 +21,4 @@ render-output/
 
 # Agent worktrees
 .claude/worktrees/
+.linux-gate/

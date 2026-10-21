@@ -25,4 +25,10 @@
     <EmbeddedResource Include="Localization\Assets\Lang\*.json" />
   </ItemGroup>
 
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\Fonts\**" />
+  </ItemGroup>
+
+  <Import Project="..\..\build\Git.targets" />
+
 </Project>

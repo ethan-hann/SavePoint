@@ -6,7 +6,7 @@ How the code is organized and what each layer promises the one above it. Behavio
 
 ```
 Savepoint.App (Avalonia)
-  Views (.axaml) -> ViewModels -> Api (IGamesApi, IProfilesApi, ILaunchApi, ISettingsApi, IJobsApi, IHistoryApi, IDialogs)
+  Views (.axaml) -> ViewModels -> Api (IGamesApi, IProfilesApi, ILaunchApi, ISettingsApi, IHistoryApi, IJobsApi, IAppStatusApi) + IDialogs
                                      |
 Savepoint.Core                       v
   Api/        facade: validates input, calls services, converts every exception to ErrorInfo (OperationResult<T>)
@@ -87,77 +87,104 @@ Models are immutable records with `System.Text.Json` source-generated serializat
 
 ## Services and the Api facade
 
-Services hold the behavior; the facade is thin. The facade interfaces are what the UI and its tests depend on, so they are the contract between the Core and App tracks:
+Services hold the behavior; the facade is thin. The interfaces in `src/Savepoint.Core/Api/` are the contract between the Core and App tracks: view models depend only on them, and `tests/Savepoint.App.Tests/Fakes/FakeBackend` implements all of them in memory (scripted jobs and sessions, a call log, one-shot failures, a scenario builder whose default is the mockup data) so screens can be built and tested before the services exist.
+
+Rules that hold for every member:
+- Every async call answers `OperationResult<T>`: `Ok` with a non-null `Value`, or `Error` (`ErrorInfo`). No exception crosses the boundary. A call with nothing to return answers `OperationResult<Unit>`. `OperationResult.Failure<T>(Exception)` maps through `ErrorInfo.From`, so the facade and the fake report an exception the same way.
+- Reads take a `CancellationToken`. Long work starts a job and returns `JobStarted` at once; it is cancelled with `IJobsApi.CancelAsync`, so job starters take no token. Other mutations take no token either, because stopping one halfway is worse than finishing it.
+- `IJobsApi.JobChanged` and `ILaunchApi.SessionChanged` are raised on a background thread with the whole snapshot after each change; the App marshals them to the UI thread. Each snapshot has a `Revision` that grows with every change. A view model subscribes first, then reads the snapshot getters, and drops an event whose revision is not newer than the one it holds, so a late subscriber never loses a result.
+- Snapshot getters (`List`, `Get`, `GetSession`, `ListSessions`, `Templates`) are synchronous, read memory, and cannot fail, so they return plain values.
 
 ```csharp
-public sealed record OperationResult<T>(T? Value, ErrorInfo? Error) { public bool Ok => Error is null; }
-public sealed record JobStarted(Guid JobId);
-
 public interface IGamesApi
 {
-    Task<OperationResult<IReadOnlyList<GameDefinition>>> ListAsync();
-    Task<OperationResult<GameDefinition>> SaveAsync(GameDefinition definition, bool isNew);  // validates, consent, overlap, orphan detection
-    Task<OperationResult<GameDefinition>> ResolveOrphanAsync(GameDefinition definition, OrphanAction action);
-    Task<OperationResult<bool>> DeleteAsync(string gameId);
-    Task<OperationResult<ConsentStatus>> GetConsentStatusAsync(string gameId, RepoRole role);
-    Task<OperationResult<StorageUsage>> GetStorageUsageAsync(string gameId);
-    Task<OperationResult<CapturePreview>> GetCapturePreviewAsync(string gameId, CancellationToken ct);
-    Task<OperationResult<IReadOnlyList<ProfileRowStats>>> GetProfileRowStatsAsync(string gameId, CancellationToken ct);
-    Task<OperationResult<JobStarted>> OptimizeStorageAsync(string gameId);
-    Task<OperationResult<string>> ResolvePathAsync(string rawPath);                 // token expansion for the editor hint
-    Task<OperationResult<IReadOnlyList<string>>> ListExecutablesAsync(string installPath, CancellationToken ct);
-    Task<OperationResult<GameDefinition>> ImportDefinitionAsync(string filePath);   // read + validate, never saves
-    Task<OperationResult<bool>> ExportDefinitionAsync(string gameId, string filePath);
     IReadOnlyList<GameTemplate> Templates { get; }
+    Task<OperationResult<IReadOnlyList<GameDefinition>>> ListAsync(CancellationToken cancellationToken = default);
+    Task<OperationResult<AddGameOutcome>> AddAsync(GameDefinition definition);              // Added(game) | HistoryFound(orphan)
+    Task<OperationResult<GameDefinition>> ResolveOrphanAsync(GameDefinition definition, OrphanResolution resolution);
+    Task<OperationResult<GameDefinition>> UpdateAsync(GameDefinition definition);           // also re-points a moved folder
+    Task<OperationResult<Unit>> DeleteAsync(string gameId);
+    Task<OperationResult<IReadOnlyList<FolderStatus>>> GetFolderStatusAsync(string gameId, CancellationToken cancellationToken = default);
+    Task<OperationResult<GameStorageUsage>> GetStorageUsageAsync(string gameId, CancellationToken cancellationToken = default);
+    Task<OperationResult<CapturePreview>> GetCapturePreviewAsync(string gameId, CancellationToken cancellationToken = default);
+    Task<OperationResult<JobStarted>> OptimizeStorageAsync(string gameId);
+    Task<OperationResult<string>> ResolvePathAsync(string rawPath, CancellationToken cancellationToken = default);
+    Task<OperationResult<IReadOnlyList<string>>> ListExecutablesAsync(string installPath, CancellationToken cancellationToken = default);
+    Task<OperationResult<GameDefinition>> ImportDefinitionAsync(string filePath, CancellationToken cancellationToken = default);  // never saves
+    Task<OperationResult<Unit>> ExportDefinitionAsync(string gameId, string filePath, CancellationToken cancellationToken = default);
 }
 
 public interface IProfilesApi
 {
-    Task<OperationResult<IReadOnlyList<Profile>>> ListAsync(string? gameId = null);
-    Task<OperationResult<Profile>> CreateAsync(string gameId, string name, string? notes);         // generates id + branch name
-    Task<OperationResult<Profile>> UpdateAsync(Profile profile);                                    // rename, notes, version override
-    Task<OperationResult<bool>> DeleteAsync(string gameId, string profileId);
+    Task<OperationResult<IReadOnlyList<Profile>>> ListAsync(string? gameId = null, CancellationToken cancellationToken = default);
+    Task<OperationResult<IReadOnlyList<ProfileRowStats>>> GetRowStatsAsync(string gameId, CancellationToken cancellationToken = default);
+    Task<OperationResult<JobStarted>> CreateAsync(string gameId, string name, string? notes, string pointName);  // wizard and keep-as-new
+    Task<OperationResult<Profile>> UpdateAsync(string gameId, string profileId, ProfileChanges changes);
     Task<OperationResult<Profile>> DuplicateAsync(string gameId, string sourceProfileId, string name);
-    Task<OperationResult<JobStarted>> CaptureAsync(string gameId, string profileId, string message, CaptureMode mode, RepoRoles roles);
-    Task<OperationResult<JobStarted>> KeepAsNewProfileAsync(string gameId, string name);            // create + capture both folders
+    Task<OperationResult<ProfileDeletePreview>> GetDeletePreviewAsync(string gameId, string profileId, CancellationToken cancellationToken = default);
+    Task<OperationResult<Unit>> DeleteAsync(string gameId, string profileId);
+    Task<OperationResult<JobStarted>> CaptureAsync(string gameId, string profileId, string pointName, IReadOnlyCollection<RepoRole>? folders = null);
 }
 
 public interface ILaunchApi
 {
-    Task<OperationResult<LaunchPreview>> GetPreviewAsync(string gameId, string profileId, string? saveId, CancellationToken ct);
-    Task<OperationResult<JobStarted>> StartAsync(string gameId, string profileId, string? saveId);
-    Task<OperationResult<bool>> CancelAsync(string gameId);
-    Task<OperationResult<bool>> MarkFinishedAsync(string gameId);
-    Task<OperationResult<JobStarted>> CompleteSessionAsync(string gameId, SessionCompletion completion);
-    Task<OperationResult<bool>> DiscardChangesAsync(string gameId, RepoRole role);
+    event EventHandler<LaunchSessionInfo>? SessionChanged;
     LaunchSessionInfo? GetSession(string gameId);
-    event EventHandler<LaunchSessionChanged>? SessionChanged;    // started, running, exited (with play duration), completed
+    IReadOnlyList<LaunchSessionInfo> ListSessions();
+    Task<OperationResult<LaunchPreview>> GetPreviewAsync(string gameId, LaunchTarget target, CancellationToken cancellationToken = default);
+    Task<OperationResult<JobStarted>> StartAsync(string gameId, LaunchTarget target);
+    Task<OperationResult<Unit>> DiscardChangesAsync(string gameId, RepoRole folder);
+    Task<OperationResult<Unit>> MarkFinishedAsync(string gameId);                            // "I'm done playing"
+    Task<OperationResult<Unit>> CompleteSessionAsync(string gameId, SessionCompletion completion);
 }
 
 public interface ISettingsApi
 {
-    Task<OperationResult<AppSettings>> GetAsync();
-    Task<OperationResult<AppSettings>> SaveAsync(AppSettings settings);
+    Task<OperationResult<AppSettings>> GetAsync(CancellationToken cancellationToken = default);
+    Task<OperationResult<AppSettings>> SaveAsync(AppSettings settings);                      // keeps StorageRoot and LastOptimizedAt
+    Task<OperationResult<StorageSummary>> GetStorageSummaryAsync(CancellationToken cancellationToken = default);
+    Task<OperationResult<JobStarted>> OptimizeAllStorageAsync();
+    Task<OperationResult<StorageRelocationPreview>> GetRelocationPreviewAsync(string newRoot, CancellationToken cancellationToken = default);
     Task<OperationResult<JobStarted>> RelocateStorageAsync(string newRoot);
-    Task<OperationResult<StorageSummary>> GetStorageSummaryAsync();   // total used by all games, free space, last optimized
-    Task<OperationResult<bool>> ClearAllDataAsync();                   // D8
+    Task<OperationResult<ClearAllDataPreview>> GetClearAllDataPreviewAsync(CancellationToken cancellationToken = default);
+    Task<OperationResult<JobStarted>> ClearAllDataAsync();                                   // D8
 }
 
 public interface IHistoryApi
 {
-    Task<OperationResult<GameHistory>> GetAsync(string gameId, CancellationToken ct);   // versions & mods points + saves, with profile names and "in use" markers
-    Task<OperationResult<JobStarted>> GoBackToAsync(string gameId, HistoryPointId point); // launches/restores through the launch flow
+    Task<OperationResult<GameHistory>> GetAsync(string gameId, string? profileId = null, CancellationToken cancellationToken = default);
 }
 
 public interface IJobsApi
 {
+    event EventHandler<JobSnapshot>? JobChanged;
     IReadOnlyList<JobSnapshot> List();
-    Task<OperationResult<bool>> CancelAsync(Guid jobId);
-    event EventHandler<JobEvent>? JobChanged;    // raised on a background thread; the App marshals to the UI thread
+    JobSnapshot? Get(Guid jobId);
+    Task<OperationResult<Unit>> CancelAsync(Guid jobId);
+}
+
+public interface IAppStatusApi
+{
+    Task<OperationResult<StartupStatus>> CheckAsync(CancellationToken cancellationToken = default);
+    Task<OperationResult<string>> RecoverCatalogFileAsync(string path, CatalogRecovery recovery, CancellationToken cancellationToken = default);
 }
 ```
 
-DTO shapes follow `docs/reference/v1-ui.md` section 1.4 (`CapturePreview`, `ProfileRowStats`, `LaunchPreview`, `StorageUsage`) and section 1.5 (job kinds `launch`, `capture`, `compact`, `relocateStorage`; progress `{ filesDone?, filesTotal?, bytesDone?, bytesTotal?, currentPath? }`; 5 completed jobs kept; 200 recent lines). Capture and optimization results are per folder (`FolderOutcome` with `Ok` + `ErrorInfo?`), never a single success flag (D13.20).
+Catalog models (`GameDefinition`, `Profile`, `AppSettings`, `GameTemplate`, `RepoRole`) are reused as they are; the Api adds only what the catalog does not hold.
+
+**Jobs.** `JobKind`: `Launch` (prepare, switch, start the game), `Capture`, `Compact`, `RelocateStorage`, `ClearData`. `JobStatus`: `Running`, `Succeeded`, `Partial`, `Failed`, `Cancelled`. `JobSnapshot` carries the kind, the game (null for jobs across every game), status, `Cancellable` (every kind but `ClearData`, D13.18), `CancelRequested`, `JobProgress { FilesDone, FilesTotal, BytesDone, BytesTotal, CurrentPath }` (each report replaces the last), the newest 200 `RecentLines`, start and finish times, the `JobResult`, and the `ErrorInfo` of a failed or cancelled job. `List()` keeps running jobs plus the five most recently finished. Results by kind: `CaptureResult(ProfileId, PointId?, Folders)`, `OptimizeResult(Games)` with a `GameOptimizeOutcome(GameId, Folders, BytesFreed?)` per game, `StorageRelocationResult(PreviousRoot, NewRoot, BytesCopied)`, `ClearAllDataResult(BytesFreed, NotRemoved)`; a launch job has none. Folder work reports one `FolderOutcome(Role, Error?)` per folder it touched: all fine is `Succeeded`, all failed is `Failed` (or `Cancelled` when every failure is a cancellation), anything between is `Partial`, never success (D13.20).
+
+**Launch.** `LaunchTarget` is closed: `ProfileTip(ProfileId)`, `Save(ProfileId, SaveId)` for the dialog's save picker, and `Point(PointId)` for "Go back to this" (D15), which therefore gets the same preview and dirty checks as Play. `LaunchPreview` holds the resolved profile, a `FolderLaunchState` per folder (matches target, dirty and how many files, the owning profile or null when nothing can claim the changes, and a `SwitchSummary` of files, mod files, bytes, and an estimated duration), the current and target `InstallState` (version and mod-file count, for "going from 1.6.1170 with no mods back to 1.6.640 with 189"), the target profile's saves newest first with a most-recent marker and the selected one, and the `ShowBanner`, `OnlySaveDiffers`, and `TargetIsOlderPoint` flags. `StartAsync` returns the launch job, which ends once the game runs; the session then lives in `LaunchSessionInfo` (game, profile, target, `StartedFromOlderPoint`, launch job id, `Revision`) whose closed `SessionState` is `Preparing`, `Switching(progress)`, `Running(startedAt)`, `Exited(startedAt, playDuration, newFileCount, changedInstallFileCount, options)`, `Completing(completion, jobId)`, `Completed(completion, result?, error?)`, or `Failed(error)`. Cancelling the switch is `IJobsApi.CancelAsync` on the launch job. `PostPlayOptions` lists the choices the session allows, the default, the point `UpdateExisting` would replace, and how many newer points leave the profile on `MoveForward` (D14's second confirmation). `SessionCompletion` is `CaptureNew(pointName)`, `UpdateExisting(pointName)`, `ForkNewProfile(profileName, pointName)`, `MoveForward(pointName)`, `Skip`; the point name is D14's message. Skip completes at once; every other choice runs a capture job. A finished or failed session stays visible until the next launch of that game.
+
+**Profiles.** `ProfileRowStats`: active marker, folders with unsaved changes, save count (null without a saves folder), mod-file count, detected version and override, last played, running. `ProfileChanges` carries only the fields a user edits. `ProfileDeletePreview` counts the points only that profile holds, in total and per folder (D17), and carries `BlockedBy`, the error the delete would fail with (active profile, running game).
+
+**Games.** `AddGameOutcome` is `Added(game)` or `HistoryFound(OrphanedHistory)`: finding old history is a question for the user, not an error. `OrphanedHistory` names the old game id, the folders, and each old profile with a suggested name or null (the UI supplies fallback copy); `OrphanResolution` is `StartFresh` or `Reconnect(existingGameId, profiles)` with the names the user will see. `FolderStatus` gives each folder's stored and resolved path, whether it exists (the "moved or is gone" card), and its `ConsentStatus(Confirmed, ConfirmedAt)`. `CapturePreview` lists each folder's path, file count, mod-file count, and bytes, plus the bytes a capture would add after reuse.
+
+**History.** `GameHistory` lists `HistoryPoint`s newest first, optionally for one profile: id, kind (`VersionModsAndSave`, `VersionAndMods`, `SaveOnly`, D15), name, date, profile id and name, the install state at that point, mod files changed since the profile's previous install point, bytes where known, and the `InUse` and `LoadedNow` markers. A `VersionModsAndSave` point belongs in both columns of the list view.
+
+**Storage and settings.** `GameStorageUsage` and `StorageSummary` give SavePoint's bytes per game and in total and the storage volume's size and free space; the summary adds the last optimization date. `StorageRelocationPreview` and `ClearAllDataPreview` list what will move or go, with sizes and a `BlockedBy` error, so the confirmation is exact; the previous storage folder is left in place after a move.
+
+**Startup (D18).** `StartupStatus` holds `GitStatus(Available, Path, Version, Error)` and `CatalogStatus(Directory, CorruptFiles)`, each `CorruptCatalogFile` naming its path, its last good backup if any, and the error. `RecoverCatalogFileAsync` restores the backup or starts that file empty; either way the corrupt file is moved aside, never deleted, and the call answers with where it went.
 
 ## App
 
