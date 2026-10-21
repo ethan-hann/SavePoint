@@ -47,7 +47,7 @@ public sealed partial class GitEngine
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(gitDir);
         gitDir = Path.TrimEndingDirectorySeparator(Path.GetFullPath(gitDir));
-        if (!Directory.Exists(gitDir) || _inFlight.IsBusy(gitDir) || !GitDirRemoval.LooksLikeGitDir(gitDir))
+        if (!IsInitialized(gitDir) || _inFlight.IsBusy(gitDir))
         {
             return 0;
         }
