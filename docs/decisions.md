@@ -242,6 +242,17 @@ The remaining findings (BL-009, BL-010, BL-011, BL-014 to BL-023, BL-025, BL-027
 
 Avalonia's packages bring in `Avalonia.BuildServices`, whose `AvaloniaStats` task sends anonymous build telemetry (machine id, hashed project and machine names, OS, tooling) from every compile, unless `AVALONIA_TELEMETRY_OPTOUT=1` is set. SavePoint is a local-first app, and its builds run on the owner's machine, often by the hundred during development. `Directory.Build.targets` therefore defines an empty `AvaloniaStats` target, which replaces the package's, so no build of SavePoint sends anything whatever the environment holds. The shipped app was never affected; the package says its telemetry is build-time only. The .NET CLI's own telemetry is turned off by `DOTNET_CLI_TELEMETRY_OPTOUT=1`, which the gate scripts and the test runner script set.
 
+## D33. Packaging with Velopack, no automatic update checks
+
+The roadmap asks for an installer and a portable build per OS. v2 packages with Velopack 1.2.161, the newest stable release on 2026-10-21. The `Velopack` package goes in the App, and `VelopackApp.Build().Run()` is the first call in `Main`. The `vpk` CLI is pinned as a local tool in `.config/dotnet-tools.json`, never installed globally.
+
+- **Windows (`win-x64`):** a self-contained `dotnet publish`, then `vpk pack`, which gives `SavePoint-Setup.exe` (per-user install, Start menu shortcut, uninstall entry) and `SavePoint-Portable.zip`.
+- **Linux (`linux-x64`):** the same steps on Linux (under WSL here), giving an `.AppImage`.
+- **macOS:** `vpk pack` must run on macOS, and the result must be signed and notarized before anyone else can run it. Neither can be done here, so macOS packages are documented but not produced (D9).
+- **Every package holds** the app, the pruned git bundle in `git/` (copied by `build/Git.targets` on publish), `THIRD-PARTY-NOTICES.md`, and `licenses/`. Each release also publishes the source archives of the git bundles it ships (D21).
+- **No automatic update checks.** The app makes no network request the user did not ask for (D30's artwork lookup is the only one, behind its setting), and no release feed exists yet. Velopack contacts a feed only when the app calls `UpdateManager`, and v2 never does. A newer release installs over an older one by running its setup. An opt-in "check for updates" belongs to a later decision once a feed exists.
+- **Versions:** one `Version` property in `Directory.Build.props` (semver, pre-release until the owner calls it 1.0) feeds the assembly versions, the About section, and `vpk pack --packVersion`.
+
 ## D8. "Clear all data" is a v2 requirement
 
 The v1 README lists "add a clear all data button" as an open TODO. v2 ships it in Settings behind a typed confirmation. It removes SavePoint's own storage, catalog, and consent markers, and never deletes or rolls back files in a game's install or save folders: whatever is on disk at that moment stays as it is.
