@@ -8,8 +8,7 @@ internal static class GitFailure
     // Another git process (or a virus scanner) holds a lock file for a moment; trying again shortly usually works.
     public static bool IsLockContention(string standardError) =>
         standardError.Contains(".lock': File exists", StringComparison.Ordinal)
-        || standardError.Contains("Another git process seems to be running", StringComparison.Ordinal)
-        || standardError.Contains("cannot lock ref", StringComparison.Ordinal);
+        || standardError.Contains("Another git process seems to be running", StringComparison.Ordinal);
 
     // A failure nothing more specific explains; the developer message carries git's own words.
     public static GitOperationException ToException(GitCommandException e) => new(null, e.Message);

@@ -87,9 +87,30 @@ public sealed partial class GitEngine
         }
     }
 
-    // Everything a write needs before git is started: leftover locks from a killed process, current config and rule files.
-    private void PrepareForWrite(RepoRef repo, InFlightTable.Scope scope, IReadOnlyCollection<string>? ignorePatterns = null)
+    // Marks the repository as being written and gets it ready: leftover locks cleared, config and rule files current.
+    private InFlightTable.Scope BeginWrite(RepoRef repo, IReadOnlyCollection<string>? ignorePatterns = null)
     {
+        var scope = _inFlight.Enter(repo.GitDir);
+        try
+        {
+            PrepareForWrite(repo, scope, ignorePatterns);
+            return scope;
+        }
+        catch
+        {
+            scope.Dispose();
+            throw;
+        }
+    }
+
+    private void PrepareForWrite(RepoRef repo, InFlightTable.Scope scope, IReadOnlyCollection<string>? ignorePatterns)
+    {
+        // Writing config files into a folder that is not a repository would leave a half-made one behind.
+        if (!IsInitialized(repo.GitDir))
+        {
+            throw new GitOperationException(null, $"The repository at '{repo.GitDir}' does not exist.");
+        }
+
         if (scope.IsAlone)
         {
             StaleLocks.RemoveAll(repo.GitDir);

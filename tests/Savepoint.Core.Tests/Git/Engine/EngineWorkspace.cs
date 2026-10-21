@@ -73,7 +73,7 @@ internal sealed class EngineWorkspace : IDisposable
         var folder = Interlocked.Increment(ref _folders);
         var workTree = Path.Combine(GamesRoot, $"{gameId}-{role.ToString().ToLowerInvariant()}-{folder}");
         Directory.CreateDirectory(workTree);
-        return new RepoRef(Path.Combine(StorageRoot, gameId, role.ToString().ToLowerInvariant() + ".git"), workTree, gameId, role);
+        return new RepoRef(Path.Combine(StorageRoot, gameId, $"{role.ToString().ToLowerInvariant()}-{folder}.git"), workTree, gameId, role);
     }
 
     // A second repo reference for the same work tree, as another game or role would have.

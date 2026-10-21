@@ -1,4 +1,3 @@
-using System.Text;
 using Savepoint.Core.Errors;
 
 namespace Savepoint.Core.Git;
@@ -62,8 +61,7 @@ public sealed partial class GitEngine
         RepoMarker.Verify(repo);
         EnsureStorageSpace(repo);
 
-        using var scope = _inFlight.Enter(repo.GitDir);
-        PrepareForWrite(repo, scope, request.IgnorePatterns);
+        using var scope = BeginWrite(repo, request.IgnorePatterns);
         ct.ThrowIfCancellationRequested();
 
         var head = GitDirFiles.ReadHead(repo.GitDir);
@@ -192,7 +190,7 @@ public sealed partial class GitEngine
 
     private Task CommitAsync(RepoRef repo, CaptureRequest request, bool amend, CancellationToken ct)
     {
-        var message = new StringBuilder(request.Message).Append("\n\nSavepoint-Capture: ").Append(request.CaptureId).Append('\n').ToString();
+        var message = CommitMessage.Compose(request.Message, request.CaptureId);
         string[] arguments = amend
             ? ["commit", "--quiet", "--amend", "--reset-author", "--allow-empty", "--no-verify", "--cleanup=verbatim", "-F", "-"]
             : ["commit", "--quiet", "--no-verify", "--cleanup=verbatim", "-F", "-"];
@@ -208,7 +206,7 @@ public sealed partial class GitEngine
         }
 
         var result = await RunAsync(
-            Invocation(repo, readOnly: true, "rev-parse", "--verify", "-q", GitDirFiles.BranchPrefix + branch + "^{commit}") with { AllowedExitCodes = [0, 1] },
+            GitDirOnly(repo, "rev-parse", "--verify", "-q", GitDirFiles.BranchPrefix + branch + "^{commit}") with { AllowedExitCodes = [0, 1] },
             ct).ConfigureAwait(false);
         return result.ExitCode == 0 ? result.StandardOutput.Trim() : null;
     }
