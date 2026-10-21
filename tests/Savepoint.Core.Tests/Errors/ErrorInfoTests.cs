@@ -8,11 +8,41 @@ public class ErrorInfoTests
     [Fact]
     public void Consent_failure_enum_becomes_its_camel_case_name()
     {
-        var missing = ErrorInfo.From(new ConsentMarkerException(ConsentFailure.Missing, "/games/alpha", "install", null, null));
-        var conflict = ErrorInfo.From(new ConsentMarkerException(ConsentFailure.Conflict, "/games/alpha", "install", "game-2", "saves"));
+        var missing = ErrorInfo.From(new ConsentMarkerException(ConsentFailure.Missing, "/games/alpha", RepoRole.Install, null, null));
+        var conflict = ErrorInfo.From(new ConsentMarkerException(ConsentFailure.Conflict, "/games/alpha", RepoRole.Install, "game-2", RepoRole.External));
 
         Assert.Equal("missing", missing.Args["reason"]);
         Assert.Equal("conflict", conflict.Args["reason"]);
+    }
+
+    [Fact]
+    public void Folder_roles_reach_the_ui_as_install_or_external()
+    {
+        Assert.Equal("external", ErrorInfo.From(new PathMissingException("/saves/alpha", RepoRole.External)).Args["role"]);
+        Assert.Equal("install", ErrorInfo.From(new DirtyWorkingTreeException(RepoRole.Install)).Args["role"]);
+        Assert.Equal("external", ErrorInfo.From(new DetachedCaptureNotSupportedException(RepoRole.External)).Args["role"]);
+    }
+
+    [Fact]
+    public void Consent_marker_roles_reach_the_ui_as_install_or_external()
+    {
+        var conflict = ErrorInfo.From(new ConsentMarkerException(ConsentFailure.Conflict, "/games/alpha", RepoRole.Install, "game-2", RepoRole.External));
+        var missing = ErrorInfo.From(new ConsentMarkerException(ConsentFailure.Missing, "/games/alpha", RepoRole.External, null, null));
+
+        Assert.Equal("install", conflict.Args["role"]);
+        Assert.Equal("external", conflict.Args["existingRole"]);
+        Assert.Equal("external", missing.Args["role"]);
+        Assert.Null(missing.Args["existingRole"]);
+    }
+
+    [Fact]
+    public void Developer_messages_name_the_folder_role_in_lower_case()
+    {
+        Assert.Contains("install path", new PathMissingException("/games/alpha", RepoRole.Install).Message, StringComparison.Ordinal);
+        Assert.Contains("external folder", new DirtyWorkingTreeException(RepoRole.External).Message, StringComparison.Ordinal);
+        Assert.Contains("install folder", new DetachedCaptureNotSupportedException(RepoRole.Install).Message, StringComparison.Ordinal);
+        Assert.Contains("external folder", new ConsentMarkerException(ConsentFailure.Missing, "/games/alpha", RepoRole.External, null, null).Message, StringComparison.Ordinal);
+        Assert.Contains("as its external folder", new ConsentMarkerException(ConsentFailure.Conflict, "/games/alpha", RepoRole.Install, "game-2", RepoRole.External).Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -94,7 +124,7 @@ public class ErrorInfoTests
     [Fact]
     public void The_exceptions_own_args_keep_their_enum_values()
     {
-        var error = new ConsentMarkerException(ConsentFailure.Missing, "/games/alpha", "install", null, null);
+        var error = new ConsentMarkerException(ConsentFailure.Missing, "/games/alpha", RepoRole.Install, null, null);
 
         _ = ErrorInfo.From(error);
 

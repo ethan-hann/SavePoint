@@ -19,8 +19,8 @@ public class ErrorCopyTests
         [
             new PathSafetyException("/system", 1),
             new PathSafetyException("/home/me", 2),
-            new ConsentMarkerException(ConsentFailure.Missing, "/games/alpha", "install", null, null),
-            new ConsentMarkerException(ConsentFailure.Conflict, "/games/alpha", "install", "game-2", "external"),
+            new ConsentMarkerException(ConsentFailure.Missing, "/games/alpha", RepoRole.Install, null, null),
+            new ConsentMarkerException(ConsentFailure.Conflict, "/games/alpha", RepoRole.Install, "game-2", RepoRole.External),
             new DiskSpaceException("/games", 5_000L, 1_000L),
             new GitOperationException("/games/alpha/data.pak", "dev text"),
             new GitOperationException(null, "dev text"),
@@ -36,12 +36,11 @@ public class ErrorCopyTests
             new LaunchAlreadyRunningException("game-1"),
             new NoActiveSessionException("game-1"),
             new SessionStillRunningException("game-1"),
-            new DirtyWorkingTreeException("install"),
-            new DetachedCaptureNotSupportedException("external"),
+            new DirtyWorkingTreeException(RepoRole.Install),
+            new DetachedCaptureNotSupportedException(RepoRole.External),
             new LaunchSpawnException("exe", "dev text", null),
-            new PathMissingException("/games/alpha", "install"),
-            new PathMissingException("/games/alpha/saves", "external"),
-            new PathMissingException("/games/alpha/saves", "saves"),
+            new PathMissingException("/games/alpha", RepoRole.Install),
+            new PathMissingException("/games/alpha/saves", RepoRole.External),
             new StorageDestinationNotEmptyException("/storage"),
             new ValidationException(issues),
             new CatalogCorruptException("/catalog/games.json", null),
@@ -95,5 +94,17 @@ public class ErrorCopyTests
             .ToList();
 
         LintAssert.NoProblems(unsampled.Select(key => $"'{key}' has no sample error in ErrorCopyTests.Samples").ToList());
+    }
+
+    [Fact]
+    public void Error_messages_leave_paths_to_the_error_card()
+    {
+        var inlined = CatalogLint.English()
+            .Where(entry => entry.Key.StartsWith("error.", StringComparison.Ordinal))
+            .Where(entry => CatalogLint.Arguments(entry.Value).Any(argument => argument.Name == "path"))
+            .Select(entry => $"'{entry.Key}' puts {{path}} in its text; the card shows Args[\"path\"] on its own surface")
+            .ToList();
+
+        LintAssert.NoProblems(inlined);
     }
 }

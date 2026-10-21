@@ -18,7 +18,7 @@ internal static class ErrorArgs
 
     private static object? NormalizeValue(object? value) => value switch
     {
-        Enum enumValue => CamelCase(enumValue.ToString()),
+        Enum enumValue => NameOf(enumValue),
         string => value,
         IEnumerable items when items.Cast<object?>().Any(item => item is Enum) => NormalizeItems(items),
         _ => value,
@@ -27,5 +27,10 @@ internal static class ErrorArgs
     private static IReadOnlyList<object?> NormalizeItems(IEnumerable items) =>
         items.Cast<object?>().Select(NormalizeValue).ToArray();
 
-    private static string CamelCase(string name) => char.ToLowerInvariant(name[0]) + name[1..];
+    // The camelCase name is the value an ICU select matches on, and the word the developer messages use.
+    public static string NameOf(Enum value)
+    {
+        var name = value.ToString();
+        return char.ToLowerInvariant(name[0]) + name[1..];
+    }
 }
