@@ -53,6 +53,7 @@ public static class ErrorPresentation
         ["error.launch.noActiveSession"] = new(Icons.Info, ErrorTone.Neutral, "errorCard.title.generic"),
         ["error.launch.sessionStillRunning"] = new(Icons.SportsEsports, ErrorTone.Neutral, "errorCard.title.gameRunning"),
         ["error.launch.spawnFailed"] = new(Icons.Error, ErrorTone.Error, "errorCard.title.gameDidNotStart"),
+        ["error.launch.windowsProgram"] = new(Icons.Error, ErrorTone.Error, "errorCard.title.gameDidNotStart"),
         ["error.path.missing"] = new(Icons.FolderOff, ErrorTone.Neutral, "errorCard.title.folderGone"),
         ["error.pathSafety.tier1Blocked"] = new(Icons.Block, ErrorTone.Error, "errorCard.title.folderTooBroad"),
         ["error.pathSafety.tier2Blocked"] = new(Icons.Block, ErrorTone.Error, "errorCard.title.folderTooBroad"),
