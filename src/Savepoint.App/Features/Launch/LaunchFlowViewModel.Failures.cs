@@ -47,6 +47,11 @@ public sealed partial class LaunchFlowViewModel
             case "error.pathSafety.tier2Blocked":
                 actions.Add(Edit("launch.failure.editGame", primary: true));
                 break;
+            case "error.launch.switchInterrupted":
+                // The unfinished switch is finished by switching again to the same point; reviewing the changes is the way out when it was heading elsewhere.
+                actions.Add(new ErrorCardAction(text.Message("launch.failure.switchAgain"), new AsyncRelayCommand(() => RestartAsync(flow)), IsPrimary: true));
+                actions.Add(new ErrorCardAction(text.Message("launch.failure.reviewChanges"), new AsyncRelayCommand(() => BeginAsync(flow.GameId, flow.Target!)), IsPrimary: false));
+                break;
             case "error.launch.dirtyWorkingTree":
                 actions.Add(new ErrorCardAction(text.Message("launch.failure.reviewChanges"), new AsyncRelayCommand(() => BeginAsync(flow.GameId, flow.Target!)), IsPrimary: true));
                 break;

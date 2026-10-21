@@ -50,11 +50,11 @@ public class LaunchRefusalTests
         Assert.Equal(installBefore, rig.SnapshotOf(RepoRole.Install));
         Assert.Equal(savesBefore, rig.SnapshotOf(RepoRole.External));
 
-        // A half-finished switch to another target cannot be told apart from work, so it refuses too.
+        // A half-finished switch to another target cannot be told apart from work, so it refuses too, with its own error.
         var other = (await rig.CommitsAsync(RepoRole.Install, modded))[0].Id;
         var gitDir = await rig.WithEngineAsync((_, repo) => Task.FromResult(repo.GitDir), RepoRole.Install);
         SwitchJournal.Write(gitDir, (await rig.StatusAsync(RepoRole.Install)).HeadCommit, other);
-        await AssertRefusedAsync(rig, Tip(vanilla), "error.launch.dirtyWorkingTree", "install");
+        await AssertRefusedAsync(rig, Tip(vanilla), "error.launch.switchInterrupted", "install");
         SwitchJournal.Clear(gitDir);
 
         // A folder that has moved is named, and nothing is switched either.

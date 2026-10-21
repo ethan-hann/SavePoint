@@ -112,10 +112,12 @@ public sealed partial class LaunchOrchestrator
         var resolved = await TargetResolver.ResolveAsync(storage, repos, profiles, target, token).ConfigureAwait(false);
         var readings = await Task.WhenAll(resolved.Folders.Select(folder => FolderReading.ReadAsync(storage.Engine, folder, profiles, token))).ConfigureAwait(false);
 
-        // A half-switched folder is refused like unsaved work, unless it is the very switch this launch would finish.
+        // A half-switched folder is refused with its own error unless it is the very switch this launch would finish.
         if (readings.FirstOrDefault(reading => reading.Dirty) is { } blocked)
         {
-            throw new DirtyWorkingTreeException(blocked.Target.Role);
+            throw blocked.Blocked
+                ? new InterruptedSwitchException(blocked.Target.Role, blocked.Note!.ToCommit)
+                : new DirtyWorkingTreeException(blocked.Target.Role);
         }
 
         var pending = readings.Where(reading => reading.NeedsSwitch).ToList();

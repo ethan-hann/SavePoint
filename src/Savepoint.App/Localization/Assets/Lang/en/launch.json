@@ -40,6 +40,7 @@
   "launch.failure.chooseFolder": "Choose the folder",
   "launch.failure.editGame": "Edit game",
   "launch.failure.reviewChanges": "Review the changes",
+  "launch.failure.switchAgain": "Switch again",
   "launch.failure.tryAgain": "Try again",
   "launch.keep.body": "Everything on disk right now is saved as a brand-new profile, so nothing is lost. You can switch back to it any time.",
   "launch.keep.create": "Create profile",
