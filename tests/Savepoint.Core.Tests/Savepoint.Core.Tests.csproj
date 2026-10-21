@@ -49,5 +49,6 @@
   </ItemGroup>
 
   <Import Project="..\..\build\Git.targets" />
+  <Import Project="..\..\build\TestRetry.targets" />
 
 </Project>
