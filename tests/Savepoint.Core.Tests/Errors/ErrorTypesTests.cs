@@ -202,8 +202,10 @@ public class ErrorTypesTests
             ("profileId", "profile-1"));
         Add("ProfileHasNoPoints", new ProfileHasNoPointsException("profile-1"), "error.profile.noPoints",
             ("profileId", "profile-1"));
-        Add("NestedRepository",new NestedRepositoryException("/games/alpha/mod/.git", 2), "error.capture.nestedRepository",
+        Add("NestedRepository", new NestedRepositoryException("/games/alpha/mod/.git", 2), "error.capture.nestedRepository",
             ("path", "/games/alpha/mod/.git"), ("count", 2));
+        Add("LinkedFolder", new LinkedFolderException(@"C:\Games\Alpha\Mods"), "error.capture.linkedFolder",
+            ("path", @"C:\Games\Alpha\Mods"));
 
         return cases;
     }

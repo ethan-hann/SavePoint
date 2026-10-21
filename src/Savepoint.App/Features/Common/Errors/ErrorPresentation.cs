@@ -33,6 +33,7 @@ public static class ErrorPresentation
     private static readonly IReadOnlyDictionary<string, ErrorKind> _table = new Dictionary<string, ErrorKind>(StringComparer.Ordinal)
     {
         ["error.capture.cancelled"] = new(Icons.Cancel, ErrorTone.Neutral, "errorCard.title.canceled"),
+        ["error.capture.linkedFolder"] = new(Icons.Folder, ErrorTone.Warning, "errorCard.title.folderIsShortcut"),
         ["error.capture.nestedRepository"] = new(Icons.Folder, ErrorTone.Warning, "errorCard.title.folderKeepsHistory"),
         ["error.catalog.corrupt"] = new(Icons.Report, ErrorTone.Error, "errorCard.title.dataUnreadable"),
         ["error.compaction.cancelled"] = new(Icons.Cancel, ErrorTone.Neutral, "errorCard.title.canceled"),

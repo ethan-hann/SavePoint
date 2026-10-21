@@ -9,6 +9,7 @@
   "errorCard.title.fileInUse": "A file is in use, so the switch stopped partway",
   "errorCard.title.folderBelongsElsewhere": "That folder belongs to another game",
   "errorCard.title.folderGone": "This game's folder has moved or is gone",
+  "errorCard.title.folderIsShortcut": "A folder in the game is a shortcut",
   "errorCard.title.folderKeepsHistory": "A folder in the game keeps its own history",
   "errorCard.title.folderNotEmpty": "That folder isn't empty",
   "errorCard.title.folderOverlaps": "That folder overlaps another game",

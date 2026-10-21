@@ -22,7 +22,7 @@ internal static class GitFailure
         var listing = false;
         foreach (var line in standardError.Split('\n'))
         {
-            if (line.Contains("would be overwritten by checkout", StringComparison.Ordinal))
+            if (IsRefusalHeading(line))
             {
                 listing = true;
             }
@@ -40,7 +40,13 @@ internal static class GitFailure
     }
 
     public static bool RefusedToOverwrite(string standardError) =>
-        standardError.Contains("would be overwritten by checkout", StringComparison.Ordinal);
+        standardError.Split('\n').Any(IsRefusalHeading);
+
+    // The lines under which git lists what is in the way: local changes or untracked files that would be overwritten, removed, or lost with a folder.
+    private static bool IsRefusalHeading(string line) =>
+        line.Contains("would be overwritten by checkout", StringComparison.Ordinal)
+        || line.Contains("would be removed by checkout", StringComparison.Ordinal)
+        || line.Contains("would lose untracked files in them", StringComparison.Ordinal);
 
     // The lock file git names when it cannot take a lock, if it names one.
     public static string? LockFilePath(string standardError)

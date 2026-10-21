@@ -63,6 +63,13 @@ public sealed partial class GitEngine
     {
         CheckWorkTree(repo);
         RepoMarker.Verify(repo);
+
+        // A folder a stopped switch left half done holds files of two points; recording it would save a mixture that never existed.
+        if (SwitchJournal.Read(repo.GitDir) is not null)
+        {
+            throw new DirtyWorkingTreeException(repo.Role);
+        }
+
         EnsureStorageSpace(repo);
 
         using var scope = BeginWrite(repo, request.IgnorePatterns);
@@ -257,6 +264,7 @@ public sealed partial class GitEngine
     private async Task StageAsync(RepoRef repo, IProgress<FileProgress>? progress, CancellationToken ct)
     {
         var listing = await ListForStagingAsync(repo, ct).ConfigureAwait(false);
+        LinkedFolders.RefuseAny(repo.WorkTree, listing.Files, ct);
         NestedRepositories.RefuseAny(repo.WorkTree, listing, ct);
 
         // An empty list would not mean "nothing": add -A with no paths takes the whole folder, excluded files included.
@@ -267,19 +275,14 @@ public sealed partial class GitEngine
 
         var reporter = progress is null ? null : new ProgressReporter(progress);
         reporter?.SetTotal(listing.Files.Count);
-        var names = string.Concat(listing.Files.Select(file => file + '\0'));
+
+        // The names go on stdin and are literal (a file called [a].txt is not a pattern); -f is safe because the list was made with the exclude list applied.
+        var staging = Invocation(repo, readOnly: false, reporter is null ? ["add", "-A", "-f"] : ["add", "-A", "-f", "--verbose"]).WithPathspecs(listing.Files);
         await RunWriteAsync(
-            () => Invocation(repo, readOnly: false, StageArguments(verbose: reporter is not null))
-                with { Stdin = names, OnStdoutLine = reporter is null ? null : line => ObserveAddLine(reporter, line) },
+            () => staging with { OnStdoutLine = reporter is null ? null : line => ObserveAddLine(reporter, line) },
             ct).ConfigureAwait(false);
         reporter?.Complete();
     }
-
-    // Names are literal (a file called [a].txt is not a pattern) and -f is safe because the list was made with the exclude list applied.
-    private static string[] StageArguments(bool verbose) =>
-        verbose
-            ? ["--literal-pathspecs", "add", "-A", "-f", "--verbose", "--pathspec-from-file=-", "--pathspec-file-nul"]
-            : ["--literal-pathspecs", "add", "-A", "-f", "--pathspec-from-file=-", "--pathspec-file-nul"];
 
     private static void ObserveAddLine(ProgressReporter reporter, string line)
     {

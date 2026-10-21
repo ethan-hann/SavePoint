@@ -51,6 +51,7 @@ public class ErrorCopyTests
             new GitUnavailableException("/app/git/git", "dev text", null),
             new NestedRepositoryException("/games/alpha/mod/.git", 1),
             new NestedRepositoryException("/games/alpha/mod/.git", 3),
+            new LinkedFolderException("/games/alpha/Mods"),
             new SessionMovedException(RepoRole.Install, "dev text"),
             new ProfileAlreadyExistsException("profile-1"),
             new ProfileHasNoPointsException("profile-1"),

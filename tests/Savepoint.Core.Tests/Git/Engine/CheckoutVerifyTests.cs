@@ -43,7 +43,7 @@ public sealed class CheckoutVerifyTests : IDisposable
 
         await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
 
-        var resync = Assert.Single(_ws.Invocations, invocation => invocation.Arguments.Contains("--pathspec-from-file=-"));
+        var resync = Assert.Single(_ws.Invocations, invocation => invocation.Arguments[0] == "checkout" && invocation.Arguments.Contains("--pathspec-from-file=-"));
         Assert.Contains("--pathspec-file-nul", resync.Arguments);
         Assert.Equal("Data/blob.bin\0", resync.Stdin);
         Assert.DoesNotContain("Data/blob.bin", resync.Arguments);
@@ -59,7 +59,7 @@ public sealed class CheckoutVerifyTests : IDisposable
         await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
 
         Assert.Equal(a, TreeSnapshot.Take(repo.WorkTree));
-        var resync = Assert.Single(_ws.Invocations, invocation => invocation.Arguments.Contains("--pathspec-from-file=-"));
+        var resync = Assert.Single(_ws.Invocations, invocation => invocation.Arguments[0] == "checkout" && invocation.Arguments.Contains("--pathspec-from-file=-"));
         Assert.Equal("caf\u00e9/cr\u00e8me br\u00fbl\u00e9e.esp\0", resync.Stdin);
     }
 
@@ -78,7 +78,7 @@ public sealed class CheckoutVerifyTests : IDisposable
         var corrupted = false;
         _ws.OnInvoke = invocation =>
         {
-            if (invocation.Arguments[0] == "diff" && !corrupted)
+            if (EngineWorkspace.IsVerifyDiff(invocation) && !corrupted)
             {
                 corrupted = true;
                 Parallel.For(0, count, i => File.WriteAllText(_ws.FileOf(repo, $"{folder}/a-file-with-a-rather-long-name-number-{i}.txt"), "garbage"));
@@ -88,7 +88,7 @@ public sealed class CheckoutVerifyTests : IDisposable
         await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
 
         Assert.Equal(a, TreeSnapshot.Take(repo.WorkTree));
-        var resync = Assert.Single(_ws.Invocations, invocation => invocation.Arguments.Contains("--pathspec-from-file=-"));
+        var resync = Assert.Single(_ws.Invocations, invocation => invocation.Arguments[0] == "checkout" && invocation.Arguments.Contains("--pathspec-from-file=-"));
         Assert.True(resync.Stdin!.Length > 32_768, "the list must be longer than a Windows command line allows");
         Assert.True(resync.Arguments.Sum(argument => argument.Length) < 500);
     }
@@ -100,7 +100,7 @@ public sealed class CheckoutVerifyTests : IDisposable
         var stale = _ws.FileOf(repo, "Data/blob.bin");
         _ws.OnInvoke = invocation =>
         {
-            if (invocation.Arguments[0] == "diff")
+            if (EngineWorkspace.IsVerifyDiff(invocation))
             {
                 File.WriteAllText(stale, "garbage again");
             }
@@ -112,7 +112,7 @@ public sealed class CheckoutVerifyTests : IDisposable
         Assert.Equal(stale, error.Args["path"]);
         Assert.Contains("Data/blob.bin", error.Message, StringComparison.Ordinal);
         Assert.Equal(3, VerifyPasses());
-        Assert.Equal(2, _ws.Invocations.Count(invocation => invocation.Arguments.Contains("--pathspec-from-file=-")));
+        Assert.Equal(2, _ws.Invocations.Count(invocation => invocation.Arguments[0] == "checkout" && invocation.Arguments.Contains("--pathspec-from-file=-")));
         Assert.True(clock.Elapsed >= TimeSpan.FromMilliseconds(80), "the waits (30 ms and 60 ms) must happen between the passes");
     }
 
@@ -121,7 +121,7 @@ public sealed class CheckoutVerifyTests : IDisposable
     {
         var (repo, a) = await TwoProfilesAsync();
         var gone = _ws.FileOf(repo, "only-b.txt");
-        CreateOnFirstVerify(gone, "left behind");
+        CreateOnFirstVerify(gone, "B only");
 
         await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
 
@@ -136,9 +136,9 @@ public sealed class CheckoutVerifyTests : IDisposable
         var gone = _ws.FileOf(repo, "only-b.txt");
         _ws.OnInvoke = invocation =>
         {
-            if (invocation.Arguments[0] == "diff" && !File.Exists(gone))
+            if (EngineWorkspace.IsVerifyDiff(invocation) && !File.Exists(gone))
             {
-                File.WriteAllText(gone, "back again");
+                File.WriteAllText(gone, "B only");
             }
         };
 
@@ -176,7 +176,7 @@ public sealed class CheckoutVerifyTests : IDisposable
         var stale = _ws.FileOf(repo, "Data/blob.bin");
         _ws.OnInvoke = invocation =>
         {
-            if (invocation.Arguments[0] == "diff")
+            if (EngineWorkspace.IsVerifyDiff(invocation))
             {
                 File.WriteAllText(stale, "garbage again");
             }
@@ -261,7 +261,7 @@ public sealed class CheckoutVerifyTests : IDisposable
         Assert.Equal(a, TreeSnapshot.Take(repo.WorkTree));
     }
 
-    private int VerifyPasses() => _ws.Invocations.Count(invocation => invocation.Arguments[0] == "diff");
+    private int VerifyPasses() => _ws.Invocations.Count(EngineWorkspace.IsVerifyDiff);
 
     private void CorruptOnFirstVerify(string path) => CreateOnFirstVerify(path, "garbage from a failed write");
 
@@ -270,7 +270,7 @@ public sealed class CheckoutVerifyTests : IDisposable
         var done = false;
         _ws.OnInvoke = invocation =>
         {
-            if (invocation.Arguments[0] == "diff" && !done)
+            if (EngineWorkspace.IsVerifyDiff(invocation) && !done)
             {
                 done = true;
                 File.WriteAllText(path, content);
@@ -279,8 +279,14 @@ public sealed class CheckoutVerifyTests : IDisposable
     }
 
     // profile-a and profile-b; the folder is left on profile-b. Built once per test run and copied.
-    private async Task<(RepoRef Repo, SortedDictionary<string, string> A)> TwoProfilesAsync() =>
-        await RepoTemplates.CopyAsync("verify-profiles", _ws, BuildProfilesAsync);
+    private async Task<(RepoRef Repo, SortedDictionary<string, string> A)> TwoProfilesAsync()
+    {
+        var (repo, a) = await RepoTemplates.CopyAsync("verify-profiles", _ws, BuildProfilesAsync);
+
+        // The copy has new file stamps; a folder the game just switched has current ones, and a locked file is then never read.
+        await _ws.RefreshIndexAsync(repo);
+        return (repo, a);
+    }
 
     private static async Task<(RepoRef Repo, SortedDictionary<string, string> A)> BuildProfilesAsync(EngineWorkspace ws)
     {

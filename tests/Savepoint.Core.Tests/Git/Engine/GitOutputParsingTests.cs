@@ -22,6 +22,15 @@ public sealed class GitOutputParsingTests
         Assert.True(GitFailure.RefusedToOverwrite(stderr));
     }
 
+    [Theory]
+    [InlineData("error: Updating the following directories would lose untracked files in them:\n\tx\n\nAborting\n", "x")]
+    [InlineData("error: The following untracked working tree files would be removed by checkout:\n\tx/new.sav\nPlease move or remove them before you switch branches.\nAborting\n", "x/new.sav")]
+    public void The_other_ways_git_refuses_a_switch_over_untracked_files_are_refusals_too(string stderr, string path)
+    {
+        Assert.True(GitFailure.RefusedToOverwrite(stderr));
+        Assert.Equal([path], GitFailure.OverwrittenPaths(stderr));
+    }
+
     [Fact]
     public void Untracked_files_in_the_way_are_listed_the_same_way()
     {

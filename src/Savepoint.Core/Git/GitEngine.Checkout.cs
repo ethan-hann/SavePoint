@@ -101,6 +101,7 @@ public sealed partial class GitEngine
         }
 
         var point = await RequireSavedPointAsync(repo, ct).ConfigureAwait(false);
+        await RefuseLinkedFoldersInChangesAsync(repo, includeChanged: true, ct).ConfigureAwait(false);
 
         using var scope = BeginWrite(repo);
 
@@ -111,7 +112,7 @@ public sealed partial class GitEngine
             throw GitFailure.ToException(new GitCommandException(["reset", "--hard"], reset.ExitCode, reset.StandardError));
         }
 
-        await VerifyAsync(repo, point, [], ct).ConfigureAwait(false);
+        await VerifyAsync(repo, point, [], null, ct).ConfigureAwait(false);
         await RemoveNewFilesAsync(repo, ct).ConfigureAwait(false);
         SwitchJournal.Clear(repo.GitDir);
     }
@@ -136,9 +137,23 @@ public sealed partial class GitEngine
 
         // Before the first point every file in the folder is "new"; cleaning would delete the player's whole folder.
         await RequireSavedPointAsync(repo, ct).ConfigureAwait(false);
+        await RefuseLinkedFoldersInChangesAsync(repo, includeChanged: false, ct).ConfigureAwait(false);
 
         using var scope = BeginWrite(repo);
         await RemoveNewFilesAsync(repo, ct).ConfigureAwait(false);
+    }
+
+    // A discard rewrites the changed files and a clean removes the new ones: neither may go through a folder link (Windows).
+    private async Task RefuseLinkedFoldersInChangesAsync(RepoRef repo, bool includeChanged, CancellationToken ct)
+    {
+        if (!LinkedFolders.Enabled)
+        {
+            return;
+        }
+
+        var untracked = ListNewAsync(repo, ct);
+        var changed = includeChanged ? await ListChangedAsync(repo, hasCommits: true, ct).ConfigureAwait(false) : [];
+        LinkedFolders.RefuseAny(repo.WorkTree, changed.Concat((await untracked.ConfigureAwait(false)).Files), ct);
     }
 
     // The point the folder is on; a folder with none has nothing a discard or a clean could be measured against.
@@ -207,33 +222,24 @@ public sealed partial class GitEngine
                 : new GitOperationException(null, $"The point '{target}' is not in the repository.");
         }
 
-        // Which files the switch will remove is known before it starts, so one that cannot be removed is found afterwards.
-        var changes = await DiffTreesAsync(repo, from ?? GitDirFiles.EmptyTree, to, ct).ConfigureAwait(false);
-        await EnsureCheckoutSpaceAsync(repo, changes, ct).ConfigureAwait(false);
-        var expectedGone = await FilesToBeRemovedAsync(repo, from, to, changes, ct).ConfigureAwait(false);
+        // Which files the switch will write and remove is known before it starts: nothing unsaved may be in the way, and a
+        // file that cannot be removed is found afterwards.
+        var note = SwitchJournal.Read(repo.GitDir);
+        var plan = await PlanSwitchAsync(repo, from, to, note, ct).ConfigureAwait(false);
+        LinkedFolders.RefuseAny(repo.WorkTree, plan.Touched, ct);
+        await RequireNothingInTheWayAsync(repo, from, to, force, note, plan, ct).ConfigureAwait(false);
+        await EnsureCheckoutSpaceAsync(repo, plan.Changes, ct).ConfigureAwait(false);
 
         using var scope = BeginWrite(repo);
-        SwitchJournal.Write(repo.GitDir, SwitchJournal.Read(repo.GitDir)?.FromCommit ?? from, to);
+        SwitchJournal.Write(repo.GitDir, note?.FromCommit ?? from, to);
         var reporter = progress is null ? null : new ProgressReporter(progress);
 
-        await RunCheckoutAsync(repo, target, to, isBranch, force, reporter, ct).ConfigureAwait(false);
+        await RunCheckoutAsync(repo, target, to, isBranch, force, ownsNote: note is null, reporter, ct).ConfigureAwait(false);
         reporter?.Complete();
-        await VerifyAsync(repo, to, expectedGone, ct).ConfigureAwait(false);
+
+        // A switch only re-syncs what it was meant to change; any other difference is the player's work and stays for status to report.
+        await VerifyAsync(repo, to, plan.Gone, force ? null : plan.Touched, ct).ConfigureAwait(false);
         SwitchJournal.Clear(repo.GitDir);
-    }
-
-    // What the point being left has and the target does not. After an unfinished switch HEAD may already be at the target,
-    // so the point the unfinished switch started from counts too.
-    private async Task<string[]> FilesToBeRemovedAsync(RepoRef repo, string? from, string to, IReadOnlyList<TreeChange> changes, CancellationToken ct)
-    {
-        var gone = new HashSet<string>(changes.Where(change => change.Status == 'D').Select(change => change.Path), StringComparer.Ordinal);
-        if (SwitchJournal.Read(repo.GitDir)?.FromCommit is { } earlier && !string.Equals(earlier, from, StringComparison.Ordinal))
-        {
-            var before = await DiffTreesAsync(repo, earlier, to, ct).ConfigureAwait(false);
-            gone.UnionWith(before.Where(change => change.Status == 'D').Select(change => change.Path));
-        }
-
-        return [.. gone];
     }
 
     private async Task EnsureCheckoutSpaceAsync(RepoRef repo, IReadOnlyList<TreeChange> changes, CancellationToken ct)
@@ -250,7 +256,7 @@ public sealed partial class GitEngine
     }
 
     // Runs the switch itself. git refusing (local changes, a lock) leaves nothing changed; any other failure leaves the note that the switch is unfinished.
-    private async Task RunCheckoutAsync(RepoRef repo, string target, string to, bool isBranch, bool force, ProgressReporter? reporter, CancellationToken ct)
+    private async Task RunCheckoutAsync(RepoRef repo, string target, string to, bool isBranch, bool force, bool ownsNote, ProgressReporter? reporter, CancellationToken ct)
     {
         for (var attempt = 0; ; attempt++)
         {
@@ -269,13 +275,13 @@ public sealed partial class GitEngine
                     continue;
                 }
 
-                SwitchJournal.Clear(repo.GitDir);
+                ClearNoteIf(ownsNote, repo);
                 throw new GitOperationException(GitFailure.LockFilePath(stderr), $"git could not take its lock: {stderr.Trim()}");
             }
 
             if (GitFailure.RefusedToOverwrite(stderr))
             {
-                SwitchJournal.Clear(repo.GitDir);
+                ClearNoteIf(ownsNote, repo);
                 throw RefusalFor(repo, stderr);
             }
 
@@ -349,29 +355,69 @@ public sealed partial class GitEngine
         return isBranch ? string.Equals(head.Branch, target, StringComparison.Ordinal) : string.Equals(head.DetachedCommit, to, StringComparison.Ordinal);
     }
 
-    // Up to three passes: find what does not match the point, give it to git again, wait a moment, look again.
-    private async Task VerifyAsync(RepoRef repo, string to, IReadOnlyList<string> expectedGone, CancellationToken ct)
+    // A note describes a switch; one this call did not start describes work that is still unfinished, and a refusal changes nothing in it.
+    private static void ClearNoteIf(bool ownsNote, RepoRef repo)
+    {
+        if (ownsNote)
+        {
+            SwitchJournal.Clear(repo.GitDir);
+        }
+    }
+
+    // Up to three passes: find what does not match the point, give it to git again, wait a moment, look again. With a
+    // list of paths in <paramref name="only"/> nothing else is touched, whatever differs.
+    private async Task VerifyAsync(RepoRef repo, string to, IReadOnlyList<GoneFile> expectedGone, IReadOnlySet<string>? only, CancellationToken ct)
     {
         for (var pass = 0; ; pass++)
         {
             ct.ThrowIfCancellationRequested();
             var differing = (await RunAsync(Invocation(repo, readOnly: true, "diff", "--name-only", "-z", "--no-renames", to, "--"), ct).ConfigureAwait(false))
-                .SplitStandardOutputOnNul();
-            var leftovers = expectedGone.Where(path => File.Exists(FullPath(repo, path))).ToArray();
-            if (differing.Count == 0 && leftovers.Length == 0)
+                .SplitStandardOutputOnNul()
+                .Where(path => only is null || only.Contains(path))
+                .ToArray();
+            var leftovers = expectedGone.Where(gone => IsLeftover(repo, gone)).Select(gone => gone.Path).ToArray();
+            if (differing.Length == 0 && leftovers.Length == 0)
             {
                 return;
             }
 
             if (pass >= _options.ResyncDelays.Count)
             {
-                var first = FullPath(repo, differing.Count > 0 ? differing[0] : leftovers[0]);
+                var first = FullPath(repo, differing.Length > 0 ? differing[0] : leftovers[0]);
                 throw new GitOperationException(first, NotUpdatedMessage([.. differing, .. leftovers]));
             }
 
             await ResyncAsync(repo, to, differing, leftovers, ct).ConfigureAwait(false);
             await Task.Delay(_options.ResyncDelays[pass], ct).ConfigureAwait(false);
         }
+    }
+
+    // A file the point being left held and the target does not is still there. It is ours to remove only when it is
+    // exactly the file the point held: under that very name (not one that differs in case), not behind a folder link,
+    // with the bytes the point stored. Anything else is the player's own file, which a point never recorded or has since
+    // been replaced, and stays.
+    private static bool IsLeftover(RepoRef repo, GoneFile gone)
+    {
+        var full = FullPath(repo, gone.Path);
+        if (!File.Exists(full) || LinkedFolders.IsInsideLink(repo.WorkTree, gone.Path) || !HasExactName(full))
+        {
+            return false;
+        }
+
+        // A file that cannot be read cannot be compared; it is reported as in use rather than quietly kept.
+        return BlobHasher.TryHash(full, out var id) switch
+        {
+            HashOutcome.Hashed => string.Equals(id, gone.OldId, StringComparison.Ordinal),
+            HashOutcome.Vanished => false,
+            _ => true,
+        };
+    }
+
+    // File.Exists ignores case on Windows and macOS; the folder's own listing says how the name is really spelled.
+    private static bool HasExactName(string full)
+    {
+        var name = Path.GetFileName(full);
+        return Directory.EnumerateFileSystemEntries(Path.GetDirectoryName(full)!).Any(entry => string.Equals(Path.GetFileName(entry), name, StringComparison.Ordinal));
     }
 
     // The paths go to git on stdin: a long list does not fit on a Windows command line. A failure here shows up as the next pass finding the path again.

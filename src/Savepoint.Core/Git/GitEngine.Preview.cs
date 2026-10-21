@@ -23,6 +23,7 @@ public sealed partial class GitEngine
             Invocation(repo, readOnly: true, "ls-files", "-z", "--cached", "--others", ExcludeFromArgument(repo), "--deduplicate"),
             ct).ConfigureAwait(false);
         var entries = WorkTreeListing.From(listing.SplitStandardOutputOnNul());
+        LinkedFolders.RefuseAny(repo.WorkTree, entries.Files, ct);
         NestedRepositories.RefuseAny(repo.WorkTree, entries, ct);
         var paths = entries.Files;
 

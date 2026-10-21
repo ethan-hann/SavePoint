@@ -77,7 +77,7 @@ public sealed class InterruptedCheckoutTests : IDisposable
         using var cancel = CancellationTokenSource.CreateLinkedTokenSource(Ct);
         _ws.OnInvoke = invocation =>
         {
-            if (invocation.Arguments[0] == "diff")
+            if (EngineWorkspace.IsVerifyDiff(invocation))
             {
                 cancel.Cancel();
             }

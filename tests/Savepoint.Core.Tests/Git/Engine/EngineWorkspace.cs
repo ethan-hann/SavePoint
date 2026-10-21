@@ -291,6 +291,13 @@ internal sealed class EngineWorkspace : IDisposable
         Parallel.For(0, count, i => File.WriteAllText(FileOf(repo, $"{folder}/{prefix}{i}.txt"), $"{content} {i}"));
     }
 
+    // The verify pass of a switch lists differences from the target commit; the checks before it compare with HEAD.
+    public static bool IsVerifyDiff(GitInvocation invocation) =>
+        invocation.Arguments[0] == "diff" && !invocation.Arguments.Contains("HEAD");
+
+    // Brings the index's file stamps up to date, as the game's last switch or capture would have left them; a copied folder has new stamps.
+    public Task RefreshIndexAsync(RepoRef repo) => GitWriteAsync(repo, "update-index", "-q", "--refresh");
+
     // True when the object is in the store, loose or packed; a missing one is an answer here, not an error.
     public async Task<bool> ObjectExistsAsync(RepoRef repo, string id)
     {
