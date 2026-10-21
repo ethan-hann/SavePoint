@@ -143,6 +143,10 @@ The v1 FormatJS extraction step becomes two tests plus a short guide: every key 
 
 Distributing git means shipping the GPLv2 text and a written source offer pointing at the exact upstream source tags (git-for-windows `v2.56.0.windows.2`, git `v2.53.0`, dugite-native `v2.53.0-4`). The bundle is pruned of components SavePoint never uses (Git Credential Manager and its UI assemblies, Git LFS, network helpers), which also shrinks the installer; whatever stays is listed in `THIRD-PARTY-NOTICES.md` with its license.
 
+## D22. Colors come from SchemeTonalSpot; the mockup hexes are approximate
+
+The UI README's token table was evidently drawn with the legacy `Scheme` API (its light primary `#00639D` and light onPrimaryContainer `#001D34` match that API exactly), while v1 shipped `SchemeTonalSpot` at contrast 0, as the README itself instructs ("derive them from the theme instead", "hardcoding these hexes would break the accent-preset feature"). v2 follows v1: every role comes from `SchemeTonalSpot`. Dark mode lands within a few units of the table; light primaries are slightly less saturated. Fidelity and Content variants were checked and rejected: they match the light primary better but turn primary containers into the saturated seed color, which departs further from the mockup. Roles M3 does not define (warning, success) come from fixed-hue tonal palettes at the same tones M3 uses for error (40/100/90/10 light, 80/20/30/90 dark): warning hue from amber `#f9a825`, success hue from green `#2e7d32`.
+
 ## D8. "Clear all data" is a v2 requirement
 
 The v1 README lists "add a clear all data button" as an open TODO. v2 ships it in Settings behind a typed confirmation. It removes SavePoint's own storage, catalog, and consent markers, and never deletes or rolls back files in a game's install or save folders: whatever is on disk at that moment stays as it is.
