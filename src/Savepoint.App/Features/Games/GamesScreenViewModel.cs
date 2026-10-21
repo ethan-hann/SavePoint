@@ -135,7 +135,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     /// <summary>Opens the New profile wizard.</summary>
     public IAsyncRelayCommand NewProfileCommand { get; }
 
-    /// <summary>Deletes the selected game after two confirmations.</summary>
+    /// <summary>Deletes the selected game once its name has been typed to confirm.</summary>
     public IAsyncRelayCommand DeleteGameCommand { get; }
 
     /// <inheritdoc />

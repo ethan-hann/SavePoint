@@ -1,3 +1,4 @@
+using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.Core.Api;
 using Savepoint.Core.Errors;
 
@@ -97,7 +98,7 @@ public sealed partial class GamesScreenViewModel
         await RefreshAfterChangeAsync();
     }
 
-    // Deleting a game takes two confirmations and is refused up front while its session is active (D13.5).
+    // Deleting a game asks for its name to be typed and is refused up front while its session is active (D13.5).
     private async Task DeleteGameAsync()
     {
         if (_game is not { } game)
@@ -111,22 +112,13 @@ public sealed partial class GamesScreenViewModel
             return;
         }
 
-        var first = await _deps.Dialogs.ConfirmAsync(new(
+        var confirmed = await _deps.Dialogs.ConfirmAsync(new(
             _deps.Text.Message("games.deleteConfirm.title", ("name", game.Name)),
-            _deps.Text.Message("games.deleteConfirm.message", ("name", game.Name)),
+            _deps.Text.Message("games.deleteConfirm.message", ("name", game.Name), ("count", Profiles.Count)),
             _deps.Text.Message("games.deleteConfirm.confirm"),
-            Destructive: true));
-        if (!first)
-        {
-            return;
-        }
-
-        var second = await _deps.Dialogs.ConfirmAsync(new(
-            _deps.Text.Message("games.deleteFinal.title", ("name", game.Name)),
-            _deps.Text.Message("games.deleteFinal.message", ("count", Profiles.Count)),
-            _deps.Text.Message("games.deleteFinal.confirm"),
-            Destructive: true));
-        if (!second)
+            Destructive: true,
+            Typed: new TypedConfirmation(game.Name, _deps.Text.Message("games.deleteConfirm.prompt", ("name", game.Name)))));
+        if (!confirmed)
         {
             return;
         }
