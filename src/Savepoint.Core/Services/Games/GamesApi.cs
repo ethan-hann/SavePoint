@@ -102,17 +102,10 @@ internal sealed partial class GamesApi : IGamesApi
             },
             cancellationToken);
 
-    public Task<OperationResult<GameDefinition>> ResolveOrphanAsync(GameDefinition definition, OrphanResolution resolution) =>
-        ApiGuard.NotBuilt<GameDefinition>();
 
-    public Task<OperationResult<GameDefinition>> UpdateAsync(GameDefinition definition) => ApiGuard.NotBuilt<GameDefinition>();
 
-    public Task<OperationResult<Unit>> DeleteAsync(string gameId) => ApiGuard.NotBuilt<Unit>();
 
-    public Task<OperationResult<CapturePreview>> GetCapturePreviewAsync(string gameId, CancellationToken cancellationToken = default) =>
-        ApiGuard.NotBuilt<CapturePreview>();
 
-    public Task<OperationResult<JobStarted>> OptimizeStorageAsync(string gameId) => ApiGuard.NotBuilt<JobStarted>();
 
     // An id the catalog does not know is a caller mistake, reported as an unknown error with the id in its detail.
     private async Task<GameDefinition> RequireGameAsync(string gameId, CancellationToken cancellationToken) =>
