@@ -7,7 +7,9 @@ namespace Savepoint.Core.Paths;
 /// <summary>
 /// Refuses folders that must never be tracked. A path is resolved through links, then compared component by component with the
 /// platform's table (never by string prefix), and where the OS reports file identities the folder is compared by identity too,
-/// which catches a folder reached under another name (SUBST and mapped drives, bind mounts).
+/// which catches a folder reached under another name (SUBST and mapped drives, bind mounts). Where the OS also reports a final
+/// path, that name is judged as well, which catches an alias into the middle of a protected tree: a SUBST or mapped drive, a
+/// mounted-folder volume, or a link anywhere in the chain.
 /// </summary>
 /// <remarks>
 /// The table is read once, when this object is built: a new instance is needed after SavePoint's storage root moves, and after
@@ -81,7 +83,9 @@ public sealed class PathSafety
     /// <summary>
     /// Returns when the folder may be tracked. Throws <see cref="PathSafetyException"/> with tier 1 for a protected folder, a folder
     /// inside one, a folder that contains one, a Windows stream spelling, or a network path to this computer or an administrative
-    /// share; and with tier 2 for a protected folder itself, a whole mounted drive, or a Steam library folder.
+    /// share; and with tier 2 for a protected folder itself, a whole mounted drive, or a Steam library folder. Each rule applies to
+    /// every name the folder has (the path as resolved, and the OS's final path for it), and when the names disagree the heaviest
+    /// verdict is reported: inside a tier-1 root, then tier 2, then holds a tier-1 root.
     /// </summary>
     /// <param name="path">An absolute path; resolve tokens and check absoluteness before calling.</param>
     /// <exception cref="ArgumentException">The path is not absolute.</exception>
@@ -96,7 +100,7 @@ public sealed class PathSafety
 
         // \\localhost\C$\... and \\<this computer>\ADMIN$\... are this computer's own folders under another name, and
         // an administrative share ($) is never a place for a game, so neither is resolved at all.
-        if (_syntax.TryReadShare(path, out var host, out var share) && (share.EndsWith('$') || IsThisComputer(host)))
+        if (IsMachineShare(path))
         {
             throw new PathSafetyException(path, 1);
         }
@@ -105,39 +109,32 @@ public sealed class PathSafety
         var chain = IdentityChain(real);
         var own = chain.Count == real.Parts.Count + 1 ? chain[^1] : (FileIdentity?)null;
 
-        if (_subtreeRoots.Any(root => Blocks(root, real, chain)))
+        // The final names are judged by name alone; the worst verdict over all the names a folder has is the one reported.
+        var verdict = Judge(real, chain, own);
+        foreach (var name in FinalNames(real))
         {
-            throw new PathSafetyException(path, 1);
+            verdict = (Verdict)Math.Max((int)verdict, (int)Judge(name, [], null));
         }
 
-        // A bare root of any volume (a drive nobody listed, a UNC share) is too broad whatever the table says.
-        if (real.Parts.Count == 0
-            || _exactRoots.Any(root => _syntax.IsSame(real, root))
-            || (own is { } exact && _exactIds.Contains(exact))
-            || _driveParents.Any(parent => real.Parts.Count == parent.Parts.Count + 1 && _syntax.IsSameOrDescendant(real, parent))
-            || _nameRules.Any(rule => EndsWith(real, rule.Names)))
+        if (verdict != Verdict.Allowed)
         {
-            throw new PathSafetyException(path, 2);
-        }
-
-        // Checked last so a folder that is also a tier-2 root keeps that report. Tracking a folder that holds a
-        // protected one (SavePoint's own storage) would let a discard or clean delete it. A root that is itself a
-        // link counts under both of its names: the folder that holds the link also holds the data it points at.
-        if (_subtreeRoots.Any(root => _syntax.IsSameOrDescendant(root.Resolved, real) || _syntax.IsSameOrDescendant(root.Lexical, real))
-            || (own is { } holder && _tierOneAncestorIds.Contains(holder)))
-        {
-            throw new PathSafetyException(path, 1);
+            throw new PathSafetyException(path, verdict == Verdict.TierTwo ? 2 : 1);
         }
     }
 
-    /// <summary>True when the two paths are the same folder or one is inside the other, after following links and comparing identities.</summary>
+    /// <summary>
+    /// True when the two paths are the same folder or one is inside the other, after following links and comparing identities
+    /// and the final names the OS reports.
+    /// </summary>
     /// <exception cref="ArgumentException">A path is not absolute.</exception>
     /// <exception cref="IOException">A path runs into a link loop.</exception>
     public bool PathsOverlap(string a, string b)
     {
         var first = ParseResolved(a);
         var second = ParseResolved(b);
-        if (_syntax.IsSameOrDescendant(first, second) || _syntax.IsSameOrDescendant(second, first))
+        List<ParsedPath> firstNames = [first, .. FinalNames(first)];
+        List<ParsedPath> secondNames = [second, .. FinalNames(second)];
+        if (firstNames.Any(x => secondNames.Any(y => _syntax.IsSameOrDescendant(x, y) || _syntax.IsSameOrDescendant(y, x))))
         {
             return true;
         }
@@ -147,6 +144,65 @@ public sealed class PathSafety
         return (firstChain.Count == first.Parts.Count + 1 && secondChain.Contains(firstChain[^1]))
             || (secondChain.Count == second.Parts.Count + 1 && firstChain.Contains(secondChain[^1]));
     }
+
+    // Weighs one name of a folder by name, and by identity where the caller has them; a folder that is also a tier-2 root keeps that report.
+    private Verdict Judge(ParsedPath form, IReadOnlyList<FileIdentity> chain, FileIdentity? own)
+    {
+        if (IsMachineShare(_syntax.Join(form.Root, form.Parts)) || _subtreeRoots.Any(root => Blocks(root, form, chain)))
+        {
+            return Verdict.InsideTierOne;
+        }
+
+        // A bare root of any volume (a drive nobody listed, a UNC share) is too broad whatever the table says.
+        if (form.Parts.Count == 0
+            || _exactRoots.Any(root => _syntax.IsSame(form, root))
+            || (own is { } exact && _exactIds.Contains(exact))
+            || _driveParents.Any(parent => form.Parts.Count == parent.Parts.Count + 1 && _syntax.IsSameOrDescendant(form, parent))
+            || _nameRules.Any(rule => EndsWith(form, rule.Names)))
+        {
+            return Verdict.TierTwo;
+        }
+
+        // Tracking a folder that holds a protected one (SavePoint's own storage) would let a discard or clean delete it. A
+        // root that is itself a link counts under both of its names: the folder that holds the link also holds the data it points at.
+        return _subtreeRoots.Any(root => _syntax.IsSameOrDescendant(root.Resolved, form) || _syntax.IsSameOrDescendant(root.Lexical, form))
+            || (own is { } holder && _tierOneAncestorIds.Contains(holder))
+                ? Verdict.HoldsTierOne
+                : Verdict.Allowed;
+    }
+
+    // The OS's own name for the deepest folder that exists, with the part not made yet put back on the end. It sees what neither
+    // the link walk nor an identity can: a SUBST or mapped drive, or a link, that leads into the middle of a protected tree.
+    private List<ParsedPath> FinalNames(ParsedPath real)
+    {
+        for (var existing = real.Parts.Count; existing >= 0; existing--)
+        {
+            var found = _probe.ReadFinalPaths(_syntax.Join(real.Root, real.Parts.Take(existing).ToList()));
+            if (found.Count == 0)
+            {
+                continue;
+            }
+
+            var rest = real.Parts.Skip(existing).ToList();
+            var names = new List<ParsedPath>();
+            foreach (var name in found.Where(_syntax.IsAbsolute))
+            {
+                var parsed = _syntax.Split(name, collapseDots: true);
+                var withRest = new ParsedPath(parsed.Root, [.. parsed.Parts, .. rest]);
+                if (!_syntax.IsSame(withRest, real))
+                {
+                    names.Add(withRest);
+                }
+            }
+
+            return names;
+        }
+
+        return [];
+    }
+
+    private bool IsMachineShare(string path) =>
+        _syntax.TryReadShare(path, out var host, out var share) && (share.EndsWith('$') || IsThisComputer(host));
 
     private void AddTierOne(DenylistEntry entry, ParsedPath resolved)
     {
@@ -253,6 +309,15 @@ public sealed class PathSafety
         {
             return ParseLexical(path);
         }
+    }
+
+    // In order of weight; the heaviest verdict over all of a folder's names is the one reported.
+    private enum Verdict
+    {
+        Allowed,
+        HoldsTierOne,
+        TierTwo,
+        InsideTierOne,
     }
 
     private sealed record TierOneRoot(

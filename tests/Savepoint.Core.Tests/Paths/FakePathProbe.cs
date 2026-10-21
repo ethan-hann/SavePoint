@@ -8,10 +8,12 @@ internal sealed class FakePathProbe : IPathProbe
     private readonly Dictionary<string, string> _links;
     private readonly Dictionary<string, string> _shortNames;
     private readonly Dictionary<string, FileIdentity> _identities;
+    private readonly Dictionary<string, string[]> _finalPaths;
 
     public FakePathProbe(PathSyntax syntax)
     {
         var comparer = syntax.Comparison == StringComparison.Ordinal ? StringComparer.Ordinal : StringComparer.OrdinalIgnoreCase;
+        _finalPaths = new Dictionary<string, string[]>(comparer);
         _links = new Dictionary<string, string>(comparer);
         _shortNames = new Dictionary<string, string>(comparer);
         _identities = new Dictionary<string, FileIdentity>(comparer);
@@ -35,6 +37,15 @@ internal sealed class FakePathProbe : IPathProbe
         _identities[path] = new FileIdentity(volume, id);
         return this;
     }
+
+    /// <summary>The existing folder at <paramref name="path"/> is really at these names (what the OS reports as its final path).</summary>
+    public FakePathProbe FinalPath(string path, params string[] names)
+    {
+        _finalPaths[path] = names;
+        return this;
+    }
+
+    public IReadOnlyList<string> ReadFinalPaths(string path) => _finalPaths.GetValueOrDefault(path) ?? [];
 
     public string? ReadLinkTarget(string path) => _links.GetValueOrDefault(path);
 

@@ -14,4 +14,12 @@ public interface IPathProbe
     /// cannot be opened, or the OS offers no identity (only Windows reports one).
     /// </summary>
     FileIdentity? ReadIdentity(string path);
+
+    /// <summary>
+    /// Every absolute name the OS gives the existing file or folder at <paramref name="path"/> once links, SUBST and mapped drives,
+    /// and mounted-folder volumes are followed (on Windows, the final path of an open handle). Empty when it does not exist,
+    /// cannot be opened, has no such name, or the OS offers none (only Windows reports one). More than one name only when a
+    /// volume without a drive letter is mounted in several folders.
+    /// </summary>
+    IReadOnlyList<string> ReadFinalPaths(string path);
 }

@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Savepoint.Core.Paths;
 using Savepoint.Core.Tests.Platform;
@@ -84,7 +83,7 @@ public class WindowsIdentityTests
         var blocked = tree.Dir("blocked");
         var parent = tree.Dir("parent");
         tree.Dir("games");
-        var drive = TrySubst(tree.Root);
+        var drive = WindowsTools.TrySubst(tree.Root);
         Assert.SkipWhen(drive is null, "No free drive letter could be mapped with SUBST.");
 
         try
@@ -100,7 +99,7 @@ public class WindowsIdentityTests
         }
         finally
         {
-            Run("subst", drive!, "/d");
+            WindowsTools.RemoveSubst(drive!);
         }
     }
 
@@ -125,35 +124,6 @@ public class WindowsIdentityTests
         PathSafetyAssert.Blocked(safety, @"\\127.0.0.1\ADMIN$\System32", 1);
     }
 
-    private static string? TrySubst(string path)
-    {
-        for (var letter = 'Z'; letter >= 'D'; letter--)
-        {
-            var drive = $"{letter}:";
-            if (!Directory.Exists(drive + @"\") && Run("subst", drive, path) == 0)
-            {
-                return drive;
-            }
-        }
-
-        return null;
-    }
-
-    private static int Run(string command, params string[] arguments)
-    {
-        var info = new ProcessStartInfo(command) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
-        foreach (var argument in arguments)
-        {
-            info.ArgumentList.Add(argument);
-        }
-
-        using var process = Process.Start(info)!;
-        process.StandardOutput.ReadToEnd();
-        process.StandardError.ReadToEnd();
-        process.WaitForExit();
-        return process.ExitCode;
-    }
-
     private static string ShortPathOf(string path)
     {
         var buffer = new char[1024];
@@ -163,14 +133,4 @@ public class WindowsIdentityTests
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern uint GetShortPathName(string longPath, char[] shortPath, uint bufferLength);
-
-    // Hides links from name resolution but keeps the real file-system identities.
-    private sealed class LinkBlindProbe(IPathProbe inner) : IPathProbe
-    {
-        public string? ReadLinkTarget(string path) => null;
-
-        public string? ExpandShortName(string path) => inner.ExpandShortName(path);
-
-        public FileIdentity? ReadIdentity(string path) => inner.ReadIdentity(path);
-    }
 }
