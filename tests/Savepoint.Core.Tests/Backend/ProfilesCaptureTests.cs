@@ -186,6 +186,42 @@ public class ProfilesCaptureTests
         Assert.DoesNotContain(workspace.Jobs.List(), job => job.Kind == JobKind.Compact);
     }
 
+    // A folder inside the game that keeps its own history cannot be saved inside another one.
+    private static GameDefinition WithNestedRepository(BackendWorkspace workspace)
+    {
+        var game = workspace.NewGame();
+        BackendWorkspace.WriteFile(Path.Combine(game.Install.Path, "mods", "a.esp"), "a");
+        BackendWorkspace.WriteFile(Path.Combine(game.Install.Path, "mods", ".git"), "gitdir: ../elsewhere");
+        return game;
+    }
+
+    [Fact]
+    public async Task A_game_folder_that_keeps_its_own_history_is_refused_by_the_preview_and_names_how_many()
+    {
+        using var workspace = new BackendWorkspace();
+        var game = await workspace.AddGameAsync(WithNestedRepository(workspace));
+
+        var preview = await workspace.Games.GetCapturePreviewAsync(game.Id, workspace.Token);
+
+        Assert.Equal("error.capture.nestedRepository", preview.Error?.MessageId);
+        Assert.Equal(1, preview.Error!.Args["count"]);
+    }
+
+    [Fact]
+    public async Task A_game_folder_that_keeps_its_own_history_fails_that_folders_save_and_leaves_the_other_one_saved()
+    {
+        using var workspace = new BackendWorkspace();
+        var game = await workspace.AddGameAsync(WithNestedRepository(workspace));
+
+        var started = await workspace.Profiles.CreateAsync(game.Id, "Vanilla", null, "Start");
+        var job = await workspace.WaitForJobAsync(started.Value!.JobId);
+
+        var result = Assert.IsType<CaptureResult>(job.Result);
+        Assert.Equal("error.capture.nestedRepository", result.Folders.Single(folder => folder.Role == RepoRole.Install).Error?.MessageId);
+        Assert.True(result.Folders.Single(folder => folder.Role == RepoRole.External).Ok);
+        Assert.NotEqual(JobStatus.Succeeded, job.Status);
+    }
+
     private static async Task<IReadOnlyList<CommitInfo>> CommitsAsync(BackendWorkspace workspace, GameDefinition game, RepoRole role, Profile profile)
     {
         var storage = await workspace.Backend.Services.Storage.GetAsync(workspace.Token);
