@@ -86,7 +86,8 @@ public sealed partial class LaunchOrchestrator
         context.CancellationToken.ThrowIfCancellationRequested();
 
         var watcher = await _starter.StartAsync(prepared.Game.Launch, prepared.InstallPath, context.CancellationToken).ConfigureAwait(false);
-        await RecordLaunchAsync(prepared.Resolved.Profile.Id, watcher.StartedAt).ConfigureAwait(false);
+
+        // The game is running, so it is tracked before anything else is attempted: nothing after this may lose it.
         var running = _book.TryChange(gameId, context.JobId, record =>
         {
             record.Watcher = watcher;
@@ -99,6 +100,7 @@ public sealed partial class LaunchOrchestrator
         }
 
         _ = FollowGameAsync(gameId, context.JobId, watcher);
+        await RecordLaunchAsync(prepared.Resolved.Profile.Id, watcher.StartedAt).ConfigureAwait(false);
         return null;
     }
 
@@ -190,9 +192,9 @@ public sealed partial class LaunchOrchestrator
         {
             await _services.Catalog.UpdateProfileAsync(profileId, profile => profile with { LastLaunchedAt = startedAt }).ConfigureAwait(false);
         }
-        catch (Exception e) when (e is SavepointException or IOException)
+        catch (Exception e) when (e is not (OperationCanceledException or OutOfMemoryException or StackOverflowException))
         {
-            // Left as it was.
+            // Left as it was: a file that is locked or read-only is not worth a launch that worked.
         }
     }
 }
