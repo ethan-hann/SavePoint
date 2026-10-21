@@ -13,7 +13,7 @@
   "error.gameService.reconnectable": "That folder has saved history from a game that's no longer in your library. Try adding it as a new game, or point it somewhere else.",
   "error.git.unavailable": "SavePoint can't run the built-in tool it uses to save and restore your files ({path}). Reinstall SavePoint to repair it, then open the app again.",
   "error.gitOperation.amendNotAvailable": "This profile can't be updated that way right now. Try creating a new profile instead.",
-  "error.gitOperation.checkoutFailed": "A file is in use, so the switch stopped partway. Something else on your PC is holding one of the game's files open. Close the game, its launcher and any mod manager, then try again — SavePoint picks up where it left off and won't redo the work it already finished.",
+  "error.gitOperation.checkoutFailed": "A file is in use, so the switch stopped partway. Something else on your computer is holding one of the game's files open. Close the game, its launcher and any mod manager, then try again — SavePoint picks up where it left off and won't redo the work it already finished.",
   "error.launch.alreadyRunning": "This game is already running.",
   "error.launch.canceled": "Switching was canceled.",
   "error.launch.detachedCaptureNotSupported": "You're viewing an older save of this profile. Switch it back to the latest save before keeping new progress.",
