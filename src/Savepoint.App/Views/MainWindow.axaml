@@ -9,7 +9,7 @@
         MinHeight="520"
         WindowStartupLocation="CenterScreen">
   <TextBlock x:Name="HeadingText"
-             Text="{loc:Loc app.placeholder.heading}"
+             Text="{loc:Loc firstRun.title}"
              FontSize="28"
              HorizontalAlignment="Center"
              VerticalAlignment="Center" />

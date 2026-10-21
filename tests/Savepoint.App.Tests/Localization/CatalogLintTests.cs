@@ -55,6 +55,12 @@ public class CatalogLintTests
     }
 
     [Fact]
+    public void Lang_folder_holds_only_locale_folders_with_no_key_defined_twice()
+    {
+        LintAssert.NoProblems(CatalogLint.LayoutProblems(SourceLint.LangDirectory()));
+    }
+
+    [Fact]
     public void Additional_locale_files_match_english()
     {
         LintAssert.NoProblems(CatalogLint.AdditionalLocaleProblems(SourceLint.LangDirectory()));
