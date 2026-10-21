@@ -1,8 +1,13 @@
 namespace Savepoint.App.Theme;
 
-// Fluent controls the app keeps (scrollbars, menus, tooltips) read their colors from these Fluent keys; pointing them at the palette makes them follow the accent and mode.
+/// <summary>
+/// The Fluent resource keys read by the Fluent controls the app keeps (scroll bars, menus, tooltips), mapped to the
+/// palette role each should follow. The theme service points them at the role brushes and colors, so those controls
+/// pick up the accent and mode without being re-themed.
+/// </summary>
 public static class FluentBridge
 {
+    /// <summary>Fluent brush key to role name; each key resolves to that role's brush instance.</summary>
     public static IReadOnlyDictionary<string, string> Brushes { get; } = new Dictionary<string, string>
     {
         ["ToolTipBackground"] = "InverseSurface",
@@ -32,6 +37,7 @@ public static class FluentBridge
         ["ScrollBarTrackFillPointerOver"] = "StateHover",
     };
 
+    /// <summary>Fluent color key to role name, for the Fluent keys that hold a <c>Color</c> rather than a brush.</summary>
     public static IReadOnlyDictionary<string, string> Colors { get; } = new Dictionary<string, string>
     {
         ["ScrollBarThumbBackgroundColor"] = "ScrollThumb",

@@ -2,9 +2,11 @@ using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Theme;
 
-// The five accent presets from the visual spec; every other color is derived from the chosen seed.
+/// <summary>The five accent presets from the visual spec; every other color is derived from the chosen seed.</summary>
 public static class AccentSeeds
 {
+    /// <summary>The preset's seed as an opaque ARGB value.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not a defined accent.</exception>
     public static uint For(AccentColorId accent) => accent switch
     {
         AccentColorId.Blue => 0xFF2986CC,

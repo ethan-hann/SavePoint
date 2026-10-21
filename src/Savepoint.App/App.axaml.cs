@@ -10,6 +10,10 @@ namespace Savepoint.App;
 
 public partial class App : Application
 {
+    /// <summary>
+    /// Owns the application's color resources. Call <see cref="ThemeService.Apply"/> from the UI thread when the saved
+    /// theme or accent changes, and set <see cref="ThemeService.ReduceMotion"/> from the system accessibility setting.
+    /// </summary>
     public ThemeService Theme { get; private set; } = null!;
 
     public override void Initialize()
