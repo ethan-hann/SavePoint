@@ -47,6 +47,10 @@ public class ErrorCopyTests
             new ValidationException(issues),
             new CatalogCorruptException("/catalog/games.json", null),
             new GitUnavailableException("/app/git/git", "dev text", null),
+            new RequestCancelledException(),
+            new LaunchUnavailableException(),
+            new StorageUnreachableException("/storage", null),
+            new StorageRelocationFailedException("/new/storage/a.pack", "dev text", null),
         ];
 
         return errors.Select(ErrorInfo.From).Append(ErrorInfo.From(new InvalidOperationException("boom")));
