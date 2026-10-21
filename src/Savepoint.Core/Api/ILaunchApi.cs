@@ -74,4 +74,13 @@ public interface ILaunchApi
     /// <param name="gameId">The game.</param>
     /// <param name="completion">What to do with the session.</param>
     Task<OperationResult<Unit>> CompleteSessionAsync(string gameId, SessionCompletion completion);
+
+    /// <summary>
+    /// Tries the after-play save again for the folders that did not save, as the same choice and under the same capture id, so the
+    /// session still ends as one point (D31). The session goes back to Completing with a new capture job and ends Completed again,
+    /// its result joining the folders that had already saved. Fails with <c>error.launch.noActiveSession</c> when the game's
+    /// session did not end Completed with a failed or partial save.
+    /// </summary>
+    /// <param name="gameId">The game.</param>
+    Task<OperationResult<Unit>> RetryCompletionAsync(string gameId);
 }

@@ -147,5 +147,7 @@ public class CoreBackendTests
         public Task<OperationResult<Unit>> MarkFinishedAsync(string gameId) => throw new NotSupportedException();
 
         public Task<OperationResult<Unit>> CompleteSessionAsync(string gameId, SessionCompletion completion) => throw new NotSupportedException();
+
+        public Task<OperationResult<Unit>> RetryCompletionAsync(string gameId) => throw new NotSupportedException();
     }
 }

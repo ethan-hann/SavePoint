@@ -122,7 +122,6 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
 
     private static bool IsOwned(GameFlow flow) =>
         flow.Stage is FlowStage.Previewing or FlowStage.Dialog or FlowStage.Starting
-        || flow.RetryBusy
         || (flow.Session is { } session && !IsEnded(session.State));
 
     private static bool HasUnsaved(LaunchPreview preview) => preview.Install.Dirty || preview.External is { Dirty: true };
@@ -292,8 +291,6 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
         public Guid? SavingJobId { get; set; }
 
         public long SavingRevision { get; set; }
-
-        public bool RetryBusy { get; set; }
 
         public Queue<Func<Task>> Work { get; } = new();
 

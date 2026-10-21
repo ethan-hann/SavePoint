@@ -33,6 +33,8 @@ internal sealed class UnavailableLaunchApi : ILaunchApi
 
     public Task<OperationResult<Unit>> CompleteSessionAsync(string gameId, SessionCompletion completion) => Unavailable<Unit>();
 
+    public Task<OperationResult<Unit>> RetryCompletionAsync(string gameId) => Unavailable<Unit>();
+
     private static Task<OperationResult<T>> Unavailable<T>() =>
         Task.FromResult(OperationResult.Failure<T>(new LaunchUnavailableException()));
 }

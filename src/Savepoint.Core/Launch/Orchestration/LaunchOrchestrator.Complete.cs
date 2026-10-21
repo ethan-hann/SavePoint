@@ -40,12 +40,45 @@ public sealed partial class LaunchOrchestrator
             {
                 var target = forked ?? profile;
                 var name = PointNameOf(completion);
-                var point = string.IsNullOrWhiteSpace(name) ? target.Name : name;
-                var jobId = _capture.Start(game, target, point, roles, Guid.NewGuid().ToString("D"), creating: forked is not null, plans: PlansFor(completion, roles, current.StartCommits, (current.Info.State as SessionState.Exited)?.Options.UpdateTarget?.Id.Value));
+                var run = new CompletionRun(
+                    completion,
+                    target,
+                    string.IsNullOrWhiteSpace(name) ? target.Name : name,
+                    roles,
+                    CaptureRunner.NewCaptureId(),
+                    Creating: forked is not null,
+                    PlansFor(completion, roles, current.StartCommits, (current.Info.State as SessionState.Exited)?.Options.UpdateTarget?.Id.Value));
+                var jobId = StartRun(game, run, roles, creating: run.Creating);
+                current.Run = run;
+                current.SavedSoFar = null;
                 return new SessionState.Completing(completion, jobId);
             });
             return Unit.Value;
         });
+
+    /// <inheritdoc />
+    public Task<OperationResult<Unit>> RetryCompletionAsync(string gameId) =>
+        ApiGuard.RunAsync(async () =>
+        {
+            var game = await RequireGameAsync(gameId).ConfigureAwait(false);
+            if (_book.Record(gameId) is not { Run: { } run, Info.State: SessionState.Completed completed } || !DidNotAllSave(completed))
+            {
+                throw new NoActiveSessionException(gameId);
+            }
+
+            // Only the folders that did not save are tried again; a new profile's row exists once any folder of it saved.
+            var missing = completed.Result is { } result ? result.Folders.Where(folder => !folder.Ok).Select(folder => folder.Role).ToList() : [.. run.Roles];
+            var creating = run.Creating && await _services.Catalog.GetProfileAsync(run.Target.Id).ConfigureAwait(false) is null;
+            _book.Retry(gameId, _ => new SessionState.Completing(run.Completion, StartRun(game, run, missing, creating)));
+            return Unit.Value;
+        });
+
+    private static bool DidNotAllSave(SessionState.Completed completed) =>
+        completed.Error is not null || completed.Result is { } result && result.Folders.Any(folder => !folder.Ok);
+
+    // Every try of one after-play choice saves under the capture id the choice began with, so the session stays one point.
+    private Guid StartRun(GameDefinition game, CompletionRun run, IReadOnlyList<RepoRole> roles, bool creating) =>
+        _services.Capture.Start(game, run.Target, run.PointName, roles, run.CaptureId, creating, run.Plans);
 
     // How each folder is saved. A new point needs no plan; the other choices change history, so each folder is told what the session
     // began from, and an update rewrites only the point it names and leaves a folder with nothing unsaved alone.

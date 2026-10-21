@@ -1,7 +1,5 @@
 using Savepoint.Core.Api;
 using Savepoint.Core.Backend;
-using Savepoint.Core.Services.Profiles;
-using Savepoint.Core.Services.Storage;
 
 namespace Savepoint.Core.Launch.Orchestration;
 
@@ -15,13 +13,11 @@ public sealed partial class LaunchOrchestrator : ILaunchApi
     private readonly BackendServices _services;
     private readonly GameStarter _starter;
     private readonly SessionBook _book = new();
-    private readonly CaptureRunner _capture;
 
     private LaunchOrchestrator(BackendServices services, LaunchOrchestratorOptions options)
     {
         _services = services;
         _starter = options.Starter ?? GameStarter.For(services.Platform, options.Session, services.Time);
-        _capture = new CaptureRunner(services, new OptimizationService(services));
 
         // The orchestrator lives as long as the process, so it follows the registry's jobs for as long.
         services.Jobs.JobChanged += OnJobChanged;

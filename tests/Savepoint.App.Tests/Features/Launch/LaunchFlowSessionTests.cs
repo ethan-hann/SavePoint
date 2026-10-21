@@ -357,7 +357,7 @@ public class LaunchFlowSessionTests : IDisposable
     }
 
     [Fact]
-    public async Task Retrying_the_saves_captures_only_the_folder_that_failed_into_the_same_profile()
+    public async Task Retrying_the_saves_asks_for_the_same_choice_again_and_never_starts_a_plain_capture()
     {
         await _f.PlayToExitedAsync();
         await _f.PostPlay.SaveCommand.ExecuteAsync(null);
@@ -365,11 +365,8 @@ public class LaunchFlowSessionTests : IDisposable
 
         FlowRig.Press(_f.Inline<ErrorCardViewModel>(), "Retry the saves");
 
-        var retry = _f.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CaptureAsync)).Single();
-        Assert.Equal(MockupScenario.SkyrimId, retry.Args[0]);
-        Assert.Equal(MockupScenario.ModdedId, retry.Args[1]);
-        Assert.Equal("Session - 7-8-26", retry.Args[2]);
-        Assert.Equal([RepoRole.External], Assert.IsAssignableFrom<IEnumerable<RepoRole>>(retry.Args[3]));
+        Assert.Equal([FlowRig.Skyrim], Assert.Single(_f.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.RetryCompletionAsync))).Args);
+        Assert.Empty(_f.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CaptureAsync)));
         Assert.IsType<LaunchSavingViewModel>(_f.Flow.InlineContentFor(FlowRig.Skyrim));
         Assert.True(_f.Flow.IsActive(FlowRig.Skyrim));
 
@@ -400,7 +397,7 @@ public class LaunchFlowSessionTests : IDisposable
         await _f.PostPlay.SaveCommand.ExecuteAsync(null);
         _f.Backend.Jobs.Complete(CaptureJob(), MockupScenario.HalfSaved);
         var card = _f.Inline<ErrorCardViewModel>();
-        _f.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.CaptureAsync), MockupScenario.SavesOutOfRoomError);
+        _f.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.RetryCompletionAsync), MockupScenario.SavesOutOfRoomError);
 
         FlowRig.Press(card, "Retry the saves");
 
@@ -423,8 +420,7 @@ public class LaunchFlowSessionTests : IDisposable
 
         FlowRig.Press(card, "Try again");
 
-        var retry = _f.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CaptureAsync)).Single();
-        Assert.Equal([MockupScenario.SkyrimId, MockupScenario.ModdedId, "Session - 7-8-26", null], retry.Args);
+        Assert.Equal([FlowRig.Skyrim], Assert.Single(_f.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.RetryCompletionAsync))).Args);
         Assert.IsType<LaunchSavingViewModel>(_f.Flow.InlineContentFor(FlowRig.Skyrim));
     }
 
@@ -481,6 +477,25 @@ public class LaunchFlowSessionTests : IDisposable
         await dialog.SaveCommand.ExecuteAsync(null);
 
         Assert.Equal([FlowRig.Skyrim, new SessionCompletion.UpdateExisting("Before the final boss")], Assert.Single(_f.Completes()).Args);
+    }
+
+    [Fact]
+    public async Task Any_kind_of_save_that_failed_as_a_whole_can_be_tried_again_except_when_the_folder_moved_on()
+    {
+        await _f.PlayToExitedAsync();
+        var dialog = _f.PostPlay;
+        dialog.SelectedChoice = dialog.Choices.Single(c => c.Kind == CompletionChoice.UpdateExisting);
+        _f.Dialogs.AnswerConfirm(true);
+        await dialog.SaveCommand.ExecuteAsync(null);
+
+        _f.Backend.Jobs.Fail(CaptureJob(), MockupScenario.SavesOutOfRoomError);
+
+        Assert.Equal(["Try again", "Dismiss"], _f.Inline<ErrorCardViewModel>().Actions.Select(a => a.Label));
+
+        FlowRig.Press(_f.Inline<ErrorCardViewModel>(), "Try again");
+        _f.Backend.Jobs.Fail(CaptureJob(), ErrorInfo.From(new SessionMovedException(RepoRole.External, "the folder is on another save")));
+
+        Assert.Equal(["Dismiss"], _f.Inline<ErrorCardViewModel>().Actions.Select(a => a.Label));
     }
 
     [Fact]

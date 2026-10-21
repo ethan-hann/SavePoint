@@ -6,6 +6,7 @@ using Savepoint.Core.Services;
 using Savepoint.Core.Services.Exe;
 using Savepoint.Core.Services.Jobs;
 using Savepoint.Core.Services.Locking;
+using Savepoint.Core.Services.Profiles;
 using Savepoint.Core.Services.Storage;
 
 namespace Savepoint.Core.Backend;
@@ -52,6 +53,7 @@ public sealed class BackendServices
         PathTokens = new PathTokenResolver(platform);
         Executables = new ExecutableScanner(platform);
         Insights = new GameInsights(this);
+        Capture = new CaptureRunner(this, new OptimizationService(this));
     }
 
     /// <summary>The operating system's folders, path tokens and safety table.</summary>
@@ -97,6 +99,9 @@ public sealed class BackendServices
     public ExecutableScanner Executables { get; }
 
     internal GameInsights Insights { get; }
+
+    // The one place a profile's folders are saved as a capture event, so its memory of half-finished saves has one owner.
+    internal CaptureRunner Capture { get; }
 
     /// <summary>Remembers detected exe versions by the content id of the executable (D13.15).</summary>
     public ExeVersionCache ExeVersions { get; } = new();

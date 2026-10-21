@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Savepoint.Core.Api;
 using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
@@ -24,6 +25,9 @@ internal sealed class CaptureRunner
     private readonly BackendServices _services;
     private readonly OptimizationService _optimization;
 
+    // When a save reached only some of its folders, a later save of just the missing ones joins the same capture event.
+    private readonly ConcurrentDictionary<(string GameId, string ProfileId), PartialSave> _partial = new();
+
     public CaptureRunner(BackendServices services, OptimizationService optimization)
     {
         _services = services;
@@ -39,7 +43,6 @@ internal sealed class CaptureRunner
     /// <param name="roles">The folders to save.</param>
     /// <param name="captureId">The id every folder's point carries.</param>
     /// <param name="creating">True when the profile does not exist yet: its row is saved with the first folder that works, and branches left by a total failure are taken back.</param>
-    /// <param name="onFinished">Told how the job ended, with the outcome of each folder.</param>
     /// <param name="plans">How a folder is saved when it is not a plain capture, as the play session after an older point asks for; a folder it names no plan for is saved plainly.</param>
     public Guid Start(
         GameDefinition game,
@@ -48,7 +51,6 @@ internal sealed class CaptureRunner
         IReadOnlyList<RepoRole> roles,
         string captureId,
         bool creating,
-        Action<CaptureResult>? onFinished = null,
         IReadOnlyDictionary<RepoRole, FolderCapturePlan>? plans = null) =>
         _services.Jobs.Start(
             JobKind.Capture,
@@ -60,7 +62,7 @@ internal sealed class CaptureRunner
                     game.Id,
                     (storage, _) => RunAsync(context, storage, game, profile, pointName, roles, captureId, creating, plans),
                     context.CancellationToken).ConfigureAwait(false);
-                onFinished?.Invoke(result);
+                Remember(game.Id, profile.Id, captureId, result);
 
                 // The tidy-up is queued after the lock is gone, and only for a save nobody stopped (D13.17).
                 if (!context.CancellationToken.IsCancellationRequested && result.Folders.Any(folder => folder.Ok))
@@ -70,6 +72,35 @@ internal sealed class CaptureRunner
 
                 return result;
             });
+
+    /// <summary>A fresh capture id for a new capture event.</summary>
+    public static string NewCaptureId() => Guid.NewGuid().ToString("D");
+
+    /// <summary>
+    /// The capture id a save of these folders should use: the id of the earlier save that reached only some folders when the roles
+    /// are exactly ones it missed (the retry joins that capture event), a new one otherwise.
+    /// </summary>
+    /// <param name="gameId">The game.</param>
+    /// <param name="profileId">The profile being saved.</param>
+    /// <param name="roles">The folders about to be saved.</param>
+    public string TakeCaptureId(string gameId, string profileId, IReadOnlyList<RepoRole> roles) =>
+        _partial.TryRemove((gameId, profileId), out var partial) && roles.All(partial.Missing.Contains) ? partial.CaptureId : NewCaptureId();
+
+    // A partial save is remembered; any other ending, including the retry that finished it, clears the memory.
+    private void Remember(string gameId, string profileId, string captureId, CaptureResult result)
+    {
+        var failed = result.Folders.Where(folder => !folder.Ok).Select(folder => folder.Role).ToList();
+        if (failed.Count > 0 && failed.Count < result.Folders.Count)
+        {
+            _partial[(gameId, profileId)] = new PartialSave(captureId, failed);
+        }
+        else
+        {
+            _partial.TryRemove((gameId, profileId), out _);
+        }
+    }
+
+    private sealed record PartialSave(string CaptureId, IReadOnlyList<RepoRole> Missing);
 
     private async Task<CaptureResult> RunAsync(
         JobContext context,

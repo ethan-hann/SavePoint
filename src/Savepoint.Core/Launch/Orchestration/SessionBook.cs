@@ -2,6 +2,7 @@ using Savepoint.Core.Api;
 using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
+using Savepoint.Core.Services.Profiles;
 
 namespace Savepoint.Core.Launch.Orchestration;
 
@@ -16,8 +17,24 @@ internal sealed class SessionRecord(LaunchSessionInfo info)
     // The commit each folder was left on for the game to start from, which a fork or a move forward must still find the folder on.
     public IReadOnlyDictionary<RepoRole, string> StartCommits { get; set; } = new Dictionary<RepoRole, string>();
 
+    // What the player's after-play choice came to, kept so a save that only half worked can be tried again as the same choice.
+    public CompletionRun? Run { get; set; }
+
+    // What the saves so far have recorded, joined across tries.
+    public CaptureResult? SavedSoFar { get; set; }
+
     public bool IsOpen => Info.State is not (SessionState.Completed or SessionState.Failed);
 }
+
+// The after-play save as it was started: the same capture event is used again for the folders that did not save.
+internal sealed record CompletionRun(
+    SessionCompletion Completion,
+    Profile Target,
+    string PointName,
+    IReadOnlyList<RepoRole> Roles,
+    string CaptureId,
+    bool Creating,
+    IReadOnlyDictionary<RepoRole, FolderCapturePlan>? Plans);
 
 // Every game's latest session, for the life of the process (D13.4). All changes go through here, under one lock, so the revision
 // of a game's events only grows and no event is ever raised while the lock is held.
@@ -192,6 +209,23 @@ internal sealed class SessionBook : IGameSessions
             }
 
             record!.Info = record.Info with { State = start(record), Revision = ++_revision };
+            Announce(record.Info);
+        }
+    }
+
+    // Starts the after-play save again for a session that ended Completed with a failed or partial save; like Complete, the start
+    // function runs under the lock and answers the new state.
+    public void Retry(string gameId, Func<SessionRecord, SessionState> start)
+    {
+        lock (_gate)
+        {
+            var record = _records.GetValueOrDefault(gameId);
+            if (record is not { Info.State: SessionState.Completed })
+            {
+                throw new NoActiveSessionException(gameId);
+            }
+
+            record.Info = record.Info with { State = start(record), Revision = ++_revision };
             Announce(record.Info);
         }
     }
