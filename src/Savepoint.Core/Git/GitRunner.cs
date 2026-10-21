@@ -52,11 +52,11 @@ public sealed class GitRunner
         var failure = new CallbackFailure();
         var stdoutSink = new GitOutputSink(!invocation.BinaryStdout && invocation.OnStdoutLine is null, int.MaxValue, invocation.OnStdoutLine, failure, () => Abort(abort));
         var stderrSink = new GitOutputSink(true, _standardErrorLimit, invocation.OnStderrLine, failure, () => Abort(abort));
-        using var binaryStdout = invocation.BinaryStdout ? new MemoryStream() : null;
+        var stdoutBytes = invocation.BinaryStdout ? new GitByteSink() : null;
 
         // Readers first: a big stdin and a chatty git would otherwise wait on each other.
-        var stdout = invocation.BinaryStdout
-            ? StreamPump.ReadBytesAsync(process.StandardOutput.BaseStream, _options.ReadBufferSize, binaryStdout!, pumpStop.Token)
+        var stdout = stdoutBytes is not null
+            ? StreamPump.ReadBytesAsync(process.StandardOutput.BaseStream, _options.ReadBufferSize, stdoutBytes.Append, pumpStop.Token)
             : PumpTextAsync(process.StandardOutput.BaseStream, stdoutSink, pumpStop.Token);
         var stderr = PumpTextAsync(process.StandardError.BaseStream, stderrSink, pumpStop.Token);
         var readers = Task.WhenAll(stdout, stderr);
@@ -84,7 +84,8 @@ public sealed class GitRunner
 
             failure.ThrowIfFailed();
             await ObserveStdinAsync(stdin, abort).ConfigureAwait(false);
-            return BuildResult(invocation, process.ExitCode, stdoutSink, stderrSink, binaryStdout);
+            DetachAll(stdoutSink, stderrSink, stdoutBytes);
+            return BuildResult(invocation, process.ExitCode, stdoutSink, stderrSink, stdoutBytes);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested || failure.HasFailed)
         {
@@ -94,6 +95,9 @@ public sealed class GitRunner
         }
         finally
         {
+            // Nothing is delivered or collected once the call is over, even from a reader that was given up on.
+            DetachAll(stdoutSink, stderrSink, stdoutBytes);
+
             // Tasks that were given up on end (or fail) by themselves; nobody is left to look at their result.
             _ = readers.ContinueWith(static t => _ = t.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
             _ = stdin.ContinueWith(static t => _ = t.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
@@ -337,14 +341,21 @@ public sealed class GitRunner
         return false;
     }
 
-    private static GitResult BuildResult(GitInvocation invocation, int exitCode, GitOutputSink stdout, GitOutputSink stderr, MemoryStream? binaryStdout)
+    private static void DetachAll(GitOutputSink stdout, GitOutputSink stderr, GitByteSink? stdoutBytes)
+    {
+        stdout.Detach();
+        stderr.Detach();
+        stdoutBytes?.Detach();
+    }
+
+    private static GitResult BuildResult(GitInvocation invocation, int exitCode, GitOutputSink stdout, GitOutputSink stderr, GitByteSink? stdoutBytes)
     {
         if (!invocation.AllowedExitCodes.Contains(exitCode))
         {
             throw new GitCommandException(invocation.Arguments, exitCode, stderr.Text);
         }
 
-        return new GitResult(exitCode, stdout.Text, stderr.Text, binaryStdout?.ToArray() ?? []);
+        return new GitResult(exitCode, stdout.Text, stderr.Text, stdoutBytes?.ToArray() ?? []);
     }
 
     private static void Abort(CancellationTokenSource abort)

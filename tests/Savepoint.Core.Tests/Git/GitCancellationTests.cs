@@ -104,6 +104,48 @@ public sealed class GitCancellationTests : IDisposable
 
         Assert.Equal("from the callback", thrown.Message);
     }
+    [Fact]
+    public async Task Output_from_a_leftover_process_is_not_delivered_after_the_call_has_returned()
+    {
+        // The leftover keeps printing for a few seconds after git itself exited.
+        var holder = OperatingSystem.IsWindows() ? "ping -n 6 127.0.0.1 &" : "for i in 1 2 3 4 5 6; do echo tick; sleep 1; done &";
+        using var impatient = new GitWorkspace(new GitRunnerOptions { DrainTimeout = TimeSpan.FromMilliseconds(500) });
+        var delivered = 0;
+        var invocation = new GitInvocation(["-c", $"alias.leave=!{holder}", "leave"])
+        {
+            WorkingDirectory = Path.GetTempPath(),
+            OnStdoutLine = _ => Interlocked.Increment(ref delivered),
+        };
+
+        await impatient.Runner.RunAsync(invocation, TestContext.Current.CancellationToken);
+        var atReturn = Volatile.Read(ref delivered);
+        await Task.Delay(TimeSpan.FromSeconds(2.5), TestContext.Current.CancellationToken);
+
+        Assert.Equal(atReturn, Volatile.Read(ref delivered));
+    }
+    [Fact]
+    public async Task No_callback_is_still_running_when_the_call_returns()
+    {
+        using var release = new ManualResetEventSlim();
+        var running = 0;
+        using var impatient = new GitWorkspace(new GitRunnerOptions { DrainTimeout = TimeSpan.FromMilliseconds(200) });
+        var invocation = new GitInvocation(["--version"])
+        {
+            WorkingDirectory = Path.GetTempPath(),
+            OnStdoutLine = _ =>
+            {
+                Interlocked.Increment(ref running);
+                release.Wait(TestContext.Current.CancellationToken);
+                Interlocked.Decrement(ref running);
+            },
+        };
+        var releaseLater = Task.Delay(700, TestContext.Current.CancellationToken).ContinueWith(_ => release.Set(), TaskScheduler.Default);
+
+        await impatient.Runner.RunAsync(invocation, TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, Volatile.Read(ref running));
+        await releaseLater;
+    }
     private static Dictionary<string, string?> NoProxy() => new()
     {
         ["http_proxy"] = null,

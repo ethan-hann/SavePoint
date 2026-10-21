@@ -170,7 +170,7 @@ public sealed class StreamPumpTests
         new Random(3).NextBytes(data);
         using var destination = new MemoryStream();
 
-        await StreamPump.ReadBytesAsync(new OneByteStream(data), 4096, destination, TestContext.Current.CancellationToken);
+        await StreamPump.ReadBytesAsync(new OneByteStream(data), 4096, chunk => destination.Write(chunk), TestContext.Current.CancellationToken);
 
         Assert.Equal(data, destination.ToArray());
     }

@@ -31,7 +31,7 @@ public sealed record GitInvocation
     // Copied to stdin until it ends; the caller keeps ownership of the stream.
     public Stream? StdinStream { get; init; }
 
-    // Lines split on \n, \r or \r\n, delivered on a thread-pool thread; a stdout callback replaces GitResult.StandardOutput.
+    // Lines end at \n, \r or \r\n and arrive on a thread-pool thread; a call waits for a running callback, and GitResult.StandardOutput stays empty.
     public Action<string>? OnStdoutLine { get; init; }
 
     public Action<string>? OnStderrLine { get; init; }

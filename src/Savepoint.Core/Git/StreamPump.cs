@@ -39,7 +39,7 @@ internal static class StreamPump
         }
     }
 
-    public static async Task ReadBytesAsync(Stream stream, int bufferSize, Stream destination, CancellationToken ct)
+    public static async Task ReadBytesAsync(Stream stream, int bufferSize, Action<ReadOnlySpan<byte>> onBytes, CancellationToken ct)
     {
         var buffer = ArrayPool<byte>.Shared.Rent(bufferSize);
         try
@@ -47,7 +47,7 @@ internal static class StreamPump
             int read;
             while ((read = await stream.ReadAsync(buffer.AsMemory(0, bufferSize), ct).ConfigureAwait(false)) > 0)
             {
-                await destination.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
+                onBytes(buffer.AsSpan(0, read));
             }
         }
         finally

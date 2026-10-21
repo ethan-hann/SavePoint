@@ -17,9 +17,12 @@ internal sealed class CallbackFailure
 
 internal sealed class GitOutputSink
 {
+    // A pipe reader that was given up on can still be inside Append when the result is read, so all state sits behind the lock.
+    private readonly Lock _gate = new();
     private readonly StringBuilder? _collected;
     private readonly int _collectedLimit;
     private readonly LineSplitter? _lines;
+    private bool _detached;
 
     public GitOutputSink(bool collect, int collectedLimit, Action<string>? onLine, CallbackFailure failure, Action onFailure)
     {
@@ -47,31 +50,65 @@ internal sealed class GitOutputSink
         }
     }
 
-    public string Text => _collected?.ToString() ?? string.Empty;
+    public string Text
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _collected?.ToString() ?? string.Empty;
+            }
+        }
+    }
 
     public void Append(ReadOnlySpan<char> text)
     {
-        if (_collected is not null)
+        lock (_gate)
         {
-            _collected.Append(text);
-
-            // Only the end matters for an error message, and a progress meter can run to megabytes.
-            if (_collected.Length > (long)_collectedLimit * 2)
+            if (_detached)
             {
-                _collected.Remove(0, _collected.Length - _collectedLimit);
+                return;
             }
-        }
 
-        _lines?.Append(text);
+            if (_collected is not null)
+            {
+                _collected.Append(text);
+
+                // Only the end matters for an error message, and a progress meter can run to megabytes.
+                if (_collected.Length > (long)_collectedLimit * 2)
+                {
+                    _collected.Remove(0, _collected.Length - _collectedLimit);
+                }
+            }
+
+            _lines?.Append(text);
+        }
     }
 
     public void Complete()
     {
-        if (_collected is not null && _collected.Length > _collectedLimit)
+        lock (_gate)
         {
-            _collected.Remove(0, _collected.Length - _collectedLimit);
-        }
+            if (_detached)
+            {
+                return;
+            }
 
-        _lines?.Flush();
+            if (_collected is not null && _collected.Length > _collectedLimit)
+            {
+                _collected.Remove(0, _collected.Length - _collectedLimit);
+            }
+
+            _lines?.Flush();
+        }
+    }
+
+    // Waits for a callback that is running, then ignores everything that arrives later.
+    public void Detach()
+    {
+        lock (_gate)
+        {
+            _detached = true;
+        }
     }
 }
