@@ -170,6 +170,17 @@ What LFS would have avoided is real, though: a full `git repack -a -d` rewrites 
 - sets `core.bigFileThreshold=128m`, so files above it are streamed into the store without delta search (game binaries and archives rarely delta well) and without loading them whole into memory;
 - keeps the D16 `-delta` list for compressed formats below that size.
 
+## D26. OS integration without a Windows-specific target framework
+
+WinRT toasts (`ToastNotificationManager`, chosen in D10) need the `net10.0-windows10.0.x` target framework, which would split every project's build by OS. v2 keeps one `net10.0` target and uses:
+- **Windows notifications**: `Shell_NotifyIconW` info notifications through P/Invoke on the main window's handle. Windows 10 and 11 deliver these as toasts in the notification center under the app's name and icon. Supersedes the WinRT row in D10.
+- **Linux notifications**: `org.freedesktop.Notifications.Notify` over D-Bus with `Tmds.DBus.Protocol`, which Avalonia's Linux backend already depends on; silently skipped when no notification service runs.
+- **macOS notifications**: `osascript -e 'display notification ...'` (no app signing or entitlement needed).
+- Notifications fire only while the window is unfocused or minimized, and only for capture, optimize, storage move, and clear-data jobs (the v1 proposal's rule), never for launches.
+- **Single instance**: a named mutex per user plus a named pipe; a second launch asks the first to show and focus its window, then exits.
+- **Reduced motion**: read from the OS (Windows `SPI_GETCLIENTAREAANIMATION`, macOS accessibility "reduce motion", GNOME `enable-animations`), feeding `ThemeService.ReduceMotion`.
+- **Reveal in file manager**: Explorer `/select`, `open -R`, `xdg-open` on the folder.
+
 ## D8. "Clear all data" is a v2 requirement
 
 The v1 README lists "add a clear all data button" as an open TODO. v2 ships it in Settings behind a typed confirmation. It removes SavePoint's own storage, catalog, and consent markers, and never deletes or rolls back files in a game's install or save folders: whatever is on disk at that moment stays as it is.
