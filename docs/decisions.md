@@ -253,6 +253,23 @@ The roadmap asks for an installer and a portable build per OS. v2 packages with 
 - **No automatic update checks.** The app makes no network request the user did not ask for (D30's artwork lookup is the only one, behind its setting), and no release feed exists yet. Velopack contacts a feed only when the app calls `UpdateManager`, and v2 never does. A newer release installs over an older one by running its setup. An opt-in "check for updates" belongs to a later decision once a feed exists.
 - **Versions:** one `Version` property in `Directory.Build.props` (semver, pre-release until the owner calls it 1.0) feeds the assembly versions, the About section, and `vpk pack --packVersion`.
 
+## D34. A local diagnostic log and a crash handler
+
+v1's plan keeps each error's English message as dev-facing detail "for logs and a Show details toggle", and nothing in v2 writes a log yet. A failure the user reports, or a crash, would leave no trace.
+
+- **Core logs through its own small interface,** `IDiagnosticLog` (information, warning, error, each with an optional exception). The backend takes it in `BackendOptions`, and the default writes nothing, so tests stay quiet. Core gains no logging dependency and no static state.
+- **What is logged:**
+  - start-up: app version, OS, the git bundle's path and version, and the result of each startup check;
+  - every Api failure, at the facade: the message id, the English message, and the exception type and stack;
+  - every job: start, end, status, and duration;
+  - launch session changes;
+  - each step of a storage move or a clear-all;
+  - failed git commands: the arguments, the exit code, and the end of stderr.
+  Paths appear as they are; the log never leaves the machine.
+- **The App writes the files with Serilog 4.4.0 and Serilog.Sinks.File 7.0.0** (proven libraries; the rolling, size limits, and safe writes are their job). The logger is created and passed in, never the static `Log`. Files are `savepoint-<date>.log` in the platform's logs folder (`AppDirectories.LogsDir`), rolled daily and at 10 MB, with the newest 14 kept. Errors are flushed at once.
+- **Unhandled exceptions** from the UI thread, the thread pool, or unobserved tasks are logged. An unobserved task exception is logged and observed. A UI-thread or domain-level crash shows a last window ("SavePoint ran into a problem and has to close") with Show details and the log folder, then exits: continuing in an unknown state could touch game folders wrongly.
+- **Settings > About gets "Open the log folder".** "Clear all data" also empties the log folder, except the file in use.
+
 ## D8. "Clear all data" is a v2 requirement
 
 The v1 README lists "add a clear all data button" as an open TODO. v2 ships it in Settings behind a typed confirmation. It removes SavePoint's own storage, catalog, and consent markers, and never deletes or rolls back files in a game's install or save folders: whatever is on disk at that moment stays as it is.
