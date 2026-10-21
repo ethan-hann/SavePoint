@@ -2,29 +2,32 @@ using System.Globalization;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 
 namespace Savepoint.Core.Paths;
 
-public enum ConsentRole
-{
-    Install,
-    External,
-}
+/// <summary>What a consent marker file claims: the game and folder role the user confirmed, and when.</summary>
+/// <param name="GameId">The game that owns the folder.</param>
+/// <param name="Role">Which of the game's two folders this is.</param>
+/// <param name="ConfirmedAt">When the user confirmed it.</param>
+public sealed record ConsentMarkerData(string GameId, RepoRole Role, DateTimeOffset ConfirmedAt);
 
-public sealed record ConsentMarkerData(string GameId, ConsentRole Role, DateTimeOffset ConfirmedAt);
-
+/// <summary>The result of reading a folder's consent marker.</summary>
 public abstract record ConsentMarkerState
 {
     private ConsentMarkerState()
     {
     }
 
+    /// <summary>There is no marker file.</summary>
     public sealed record Missing : ConsentMarkerState;
 
+    /// <summary>A marker SavePoint wrote.</summary>
+    /// <param name="Marker">What the marker claims.</param>
     public sealed record Valid(ConsentMarkerData Marker) : ConsentMarkerState;
 
-    /// <summary>The file exists but is not a marker SavePoint wrote: bad JSON, or fields missing or invalid.</summary>
+    /// <summary>The file exists but is not a marker SavePoint wrote: bad JSON, fields missing or invalid, too large, or unreadable.</summary>
     public sealed record Corrupt : ConsentMarkerState;
 }
 
@@ -65,7 +68,7 @@ public static class ConsentMarker
     }
 
     /// <summary>Writes through a temp file in the same folder so a crash never leaves a half-written marker.</summary>
-    public static void Write(string workTree, string gameId, ConsentRole role, DateTimeOffset confirmedAt)
+    public static void Write(string workTree, string gameId, RepoRole role, DateTimeOffset confirmedAt)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(gameId);
 
@@ -90,24 +93,27 @@ public static class ConsentMarker
         }
     }
 
-    /// <exception cref="ConsentMarkerException">Missing: no marker. Conflict: another game or role holds it, or it is unreadable.</exception>
-    public static void Verify(string workTree, string gameId, ConsentRole role)
+    /// <summary>
+    /// Returns when the folder's marker names this game and role. Throws <see cref="ConsentMarkerException"/>:
+    /// Missing when there is no marker, Conflict when another game or role holds it or it is unreadable.
+    /// </summary>
+    public static void Verify(string workTree, string gameId, RepoRole role)
     {
         switch (Read(workTree))
         {
             case ConsentMarkerState.Valid valid when Matches(valid.Marker, gameId, role):
                 return;
             case ConsentMarkerState.Valid other:
-                throw Conflict(workTree, role, other.Marker.GameId, RoleText(other.Marker.Role));
+                throw Conflict(workTree, role, other.Marker.GameId, other.Marker.Role);
             case ConsentMarkerState.Corrupt:
                 throw Conflict(workTree, role, null, null);
             default:
-                throw new ConsentMarkerException(ConsentFailure.Missing, workTree, RoleText(role), null, null);
+                throw new ConsentMarkerException(ConsentFailure.Missing, workTree, role, null, null);
         }
     }
 
     /// <summary>Deletes only a matching marker: a missing one is a no-op, and a mismatch or unreadable one throws and stays.</summary>
-    public static void Remove(string workTree, string gameId, ConsentRole role)
+    public static void Remove(string workTree, string gameId, RepoRole role)
     {
         switch (Read(workTree))
         {
@@ -117,21 +123,21 @@ public static class ConsentMarker
                 File.Delete(Path.Combine(workTree, FileName));
                 return;
             case ConsentMarkerState.Valid other:
-                throw Conflict(workTree, role, other.Marker.GameId, RoleText(other.Marker.Role));
+                throw Conflict(workTree, role, other.Marker.GameId, other.Marker.Role);
             default:
                 throw Conflict(workTree, role, null, null);
         }
     }
 
-    private static bool Matches(ConsentMarkerData marker, string gameId, ConsentRole role) =>
+    private static bool Matches(ConsentMarkerData marker, string gameId, RepoRole role) =>
         string.Equals(marker.GameId, gameId, StringComparison.Ordinal) && marker.Role == role;
 
-    private static ConsentMarkerException Conflict(string workTree, ConsentRole role, string? existingGameId, string? existingRole) =>
-        new(ConsentFailure.Conflict, workTree, RoleText(role), existingGameId, existingRole);
+    private static ConsentMarkerException Conflict(string workTree, RepoRole role, string? existingGameId, RepoRole? existingRole) =>
+        new(ConsentFailure.Conflict, workTree, role, existingGameId, existingRole);
 
-    private static string RoleText(ConsentRole role) => role == ConsentRole.Install ? "install" : "external";
+    private static string RoleText(RepoRole role) => role == RepoRole.Install ? "install" : "external";
 
-    private static string Serialize(string gameId, ConsentRole role, DateTimeOffset confirmedAt)
+    private static string Serialize(string gameId, RepoRole role, DateTimeOffset confirmedAt)
     {
         using var buffer = new MemoryStream();
         using (var writer = new Utf8JsonWriter(buffer, new JsonWriterOptions
@@ -164,8 +170,8 @@ public static class ConsentMarker
 
         return roleText switch
         {
-            "install" => new ConsentMarkerData(gameId, ConsentRole.Install, confirmedAt),
-            "external" => new ConsentMarkerData(gameId, ConsentRole.External, confirmedAt),
+            "install" => new ConsentMarkerData(gameId, RepoRole.Install, confirmedAt),
+            "external" => new ConsentMarkerData(gameId, RepoRole.External, confirmedAt),
             _ => null,
         };
     }
