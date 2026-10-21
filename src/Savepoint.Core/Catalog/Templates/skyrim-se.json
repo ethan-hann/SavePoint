@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "skyrim-se",
+  "name": "The Elder Scrolls V: Skyrim Special Edition",
+  "install": { "path": "C:\\Games\\SkyrimSE" },
+  "external": { "path": "{documents}\\My Games\\Skyrim Special Edition\\Saves", "role": "saves" },
+  "launch": {
+    "method": "exe",
+    "exePath": "SkyrimSELauncher.exe",
+    "args": [],
+    "processNameForExitDetection": "SkyrimSE.exe"
+  },
+  "ignorePaths": ["**/*.log", "SKSE/Plugins/*.log", "**/Crash Logs/**"],
+  "modPathHints": ["Data", "plugins.txt"],
+  "notes": "Direct-exe launch preferred; steam://run/489830 works but risks Steam re-updating the install at launch."
+}

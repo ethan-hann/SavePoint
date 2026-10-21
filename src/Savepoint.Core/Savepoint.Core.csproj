@@ -4,4 +4,8 @@
     <RootNamespace>Savepoint.Core</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Catalog\Templates\*.json" LogicalName="Savepoint.Core.Catalog.Templates.%(Filename)%(Extension)" />
+  </ItemGroup>
+
 </Project>
