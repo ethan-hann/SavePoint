@@ -1,0 +1,31 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:Savepoint.App.Localization"
+             xmlns:theme="using:Savepoint.App.Theme"
+             xmlns:launch="using:Savepoint.App.Features.Launch"
+             x:Class="Savepoint.App.Features.Launch.RunningCardView"
+             x:DataType="launch:RunningCardViewModel">
+  <!-- The running card (mockup 2c): not a dialog, so the rest of the app stays usable while the game runs. -->
+  <Border x:Name="Card"
+          Background="{DynamicResource Md3SurfaceContainerHighBrush}"
+          CornerRadius="16"
+          Padding="24,20"
+          AutomationProperties.Name="{Binding Title}"
+          AutomationProperties.HelpText="{Binding Subtitle}">
+    <Grid ColumnDefinitions="Auto,*,Auto">
+      <Border Classes="icon-badge" Width="44" Height="44">
+        <TextBlock Classes="icon s24" HorizontalAlignment="Center" Text="{x:Static theme:Icons.SportsEsports}" />
+      </Border>
+      <StackPanel Grid.Column="1" Margin="16,0" VerticalAlignment="Center" Spacing="3">
+        <TextBlock x:Name="TitleText" Classes="card-title" TextWrapping="Wrap" Text="{Binding Title}" />
+        <TextBlock x:Name="SubtitleText" Classes="body muted" TextWrapping="Wrap" Text="{Binding Subtitle}" />
+      </StackPanel>
+      <Button x:Name="DonePlayingButton"
+              Grid.Column="2"
+              Classes="pill"
+              Padding="20,9"
+              Command="{Binding DonePlayingCommand}"
+              Content="{loc:Loc launch.running.donePlaying}" />
+    </Grid>
+  </Border>
+</UserControl>

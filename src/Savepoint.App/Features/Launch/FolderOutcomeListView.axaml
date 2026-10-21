@@ -1,0 +1,22 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:launch="using:Savepoint.App.Features.Launch"
+             x:Class="Savepoint.App.Features.Launch.FolderOutcomeListView"
+             x:DataType="launch:FolderOutcomeListViewModel">
+  <!-- The two-line status list in the "Half of that save worked" card (mockup 2l). -->
+  <ItemsControl x:Name="Rows" ItemsSource="{Binding Rows}">
+    <ItemsControl.ItemsPanel>
+      <ItemsPanelTemplate>
+        <StackPanel Spacing="9" />
+      </ItemsPanelTemplate>
+    </ItemsControl.ItemsPanel>
+    <ItemsControl.ItemTemplate>
+      <DataTemplate x:DataType="launch:FolderOutcomeRow">
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <TextBlock Classes="icon s18" Classes.accent="{Binding IsOk}" Classes.error="{Binding !IsOk}" Text="{Binding Icon}" />
+          <TextBlock Classes="body" VerticalAlignment="Center" Text="{Binding Text}" />
+        </StackPanel>
+      </DataTemplate>
+    </ItemsControl.ItemTemplate>
+  </ItemsControl>
+</UserControl>

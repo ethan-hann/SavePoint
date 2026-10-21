@@ -1,0 +1,35 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:Savepoint.App.Localization"
+             xmlns:launch="using:Savepoint.App.Features.Launch"
+             x:Class="Savepoint.App.Features.Launch.LaunchChecksDialogView"
+             x:DataType="launch:LaunchChecksDialogViewModel">
+  <!-- What SavePoint checked before it started a game without asking. -->
+  <StackPanel Spacing="16">
+    <TextBlock x:Name="TitleText" Classes="dialog-title" TextWrapping="Wrap" Text="{Binding Title}" />
+    <ItemsControl x:Name="Lines" ItemsSource="{Binding Checks}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <StackPanel Spacing="12" />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="launch:LaunchCheckLine">
+          <Grid ColumnDefinitions="Auto,*">
+            <TextBlock Classes="icon s18 success" VerticalAlignment="Top" Margin="0,1,12,0" Text="{Binding Icon}" />
+            <StackPanel Grid.Column="1" Spacing="3">
+              <TextBlock Classes="body" TextWrapping="Wrap" Text="{Binding Text}" />
+              <TextBlock Classes="mono small muted" TextTrimming="CharacterEllipsis" IsVisible="{Binding Path, Converter={x:Static ObjectConverters.IsNotNull}}" Text="{Binding Path}" />
+            </StackPanel>
+          </Grid>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <Button x:Name="CloseButton"
+            Classes="filled pill large"
+            HorizontalAlignment="Right"
+            IsDefault="True"
+            Command="{Binding CloseDialogCommand}"
+            Content="{loc:Loc launch.checks.close}" />
+  </StackPanel>
+</UserControl>

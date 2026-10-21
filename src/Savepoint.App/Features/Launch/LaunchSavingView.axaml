@@ -1,0 +1,34 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:Savepoint.App.Localization"
+             xmlns:launch="using:Savepoint.App.Features.Launch"
+             x:Class="Savepoint.App.Features.Launch.LaunchSavingView"
+             x:DataType="launch:LaunchSavingViewModel">
+  <!-- The inline card while a session's capture runs. -->
+  <Border x:Name="Card"
+          Background="{DynamicResource Md3SurfaceContainerHighBrush}"
+          CornerRadius="16"
+          Padding="24,20"
+          AutomationProperties.Name="{Binding Title}"
+          AutomationProperties.LiveSetting="Polite">
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="10" VerticalAlignment="Center">
+        <TextBlock x:Name="TitleText" Classes="card-title" Text="{Binding Title}" />
+        <ProgressBar x:Name="Bar"
+                     Minimum="0"
+                     Maximum="100"
+                     Value="{Binding PercentValue}"
+                     IsIndeterminate="{Binding IsIndeterminate}"
+                     AutomationProperties.Name="{Binding Title}" />
+        <TextBlock x:Name="ProgressText" Classes="caption" TextWrapping="Wrap" Text="{Binding ProgressText}" />
+      </StackPanel>
+      <Button x:Name="CancelButton"
+              Grid.Column="1"
+              Classes="pill"
+              Margin="20,0,0,0"
+              Padding="20,9"
+              Command="{Binding CancelCommand}"
+              Content="{loc:Loc common.cancel}" />
+    </Grid>
+  </Border>
+</UserControl>
