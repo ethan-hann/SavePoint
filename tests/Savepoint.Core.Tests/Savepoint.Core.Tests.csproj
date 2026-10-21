@@ -23,6 +23,16 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Savepoint.Core\Savepoint.Core.csproj" />
+
+    <!-- The stand-in game is only started as a child process; referencing it builds it first without linking it. -->
+    <ProjectReference Include="..\..\tools\FakeGame\FakeGame.csproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>FakeGameDirectory</_Parameter1>
+      <_Parameter2>$(MSBuildThisFileDirectory)..\..\tools\FakeGame\bin\$(Configuration)\$(TargetFramework)\</_Parameter2>
+    </AssemblyAttribute>
   </ItemGroup>
 
   <ItemGroup>

@@ -7,4 +7,7 @@
     <Project Path="tests/Savepoint.Core.Tests/Savepoint.Core.Tests.csproj" />
     <Project Path="tests/Savepoint.App.Tests/Savepoint.App.Tests.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/FakeGame/FakeGame.csproj" />
+  </Folder>
 </Solution>
