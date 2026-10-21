@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 
 namespace Savepoint.Core.Paths;
@@ -102,7 +103,7 @@ public static class ConsentMarker
             case ConsentMarkerState.Corrupt:
                 throw Conflict(workTree, role, null, null);
             default:
-                throw new ConsentMarkerException(ConsentFailure.Missing, workTree, RoleText(role), null, null);
+                throw new ConsentMarkerException(ConsentFailure.Missing, workTree, ToRepoRole(role), null, null);
         }
     }
 
@@ -127,7 +128,9 @@ public static class ConsentMarker
         string.Equals(marker.GameId, gameId, StringComparison.Ordinal) && marker.Role == role;
 
     private static ConsentMarkerException Conflict(string workTree, ConsentRole role, string? existingGameId, string? existingRole) =>
-        new(ConsentFailure.Conflict, workTree, RoleText(role), existingGameId, existingRole);
+        new(ConsentFailure.Conflict, workTree, ToRepoRole(role), existingGameId, existingRole is null ? null : ToRepoRole(existingRole == "install" ? ConsentRole.Install : ConsentRole.External));
+
+    private static RepoRole ToRepoRole(ConsentRole role) => role == ConsentRole.Install ? RepoRole.Install : RepoRole.External;
 
     private static string RoleText(ConsentRole role) => role == ConsentRole.Install ? "install" : "external";
 

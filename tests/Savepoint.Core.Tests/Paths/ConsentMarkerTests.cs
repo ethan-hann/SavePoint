@@ -1,4 +1,5 @@
 using System.Text;
+using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Paths;
 
@@ -173,7 +174,7 @@ public class ConsentMarkerTests
 
         Assert.Equal("error.consentMarker.missing", error.MessageId);
         Assert.Equal(work, error.Args["path"]);
-        Assert.Equal("external", error.Args["role"]);
+        Assert.Equal(RepoRole.External, error.Args["role"]);
     }
 
     [Theory]
@@ -189,8 +190,8 @@ public class ConsentMarkerTests
 
         Assert.Equal("error.consentMarker.conflict", error.MessageId);
         Assert.Equal(expectedGame, error.Args["existingGameId"]);
-        Assert.Equal(expectedRole, error.Args["existingRole"]);
-        Assert.Equal("install", error.Args["role"]);
+        Assert.Equal(expectedRole == "install" ? RepoRole.Install : RepoRole.External, error.Args["existingRole"]);
+        Assert.Equal(RepoRole.Install, error.Args["role"]);
     }
 
     [Fact]
