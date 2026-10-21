@@ -53,10 +53,7 @@ public sealed class GitCancellationTests : IDisposable
         var port = ((IPEndPoint)listener.LocalEndpoint).Port;
         var accepted = listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken).AsTask();
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var invocation = new GitInvocation(["-c", $"alias.probe=!git ls-remote git://127.0.0.1:{port}/repo.git", "probe"])
-        {
-            WorkingDirectory = _ws.WorkTree,
-        };
+        var invocation = _ws.OutsideAnyRepository(new GitInvocation(["-c", $"alias.probe=!git ls-remote git://127.0.0.1:{port}/repo.git", "probe"]));
         var call = _ws.Runner.RunAsync(invocation, cts.Token);
 
         await Task.WhenAny(accepted, Task.Delay(_generous, TestContext.Current.CancellationToken));
@@ -76,10 +73,10 @@ public sealed class GitCancellationTests : IDisposable
         // The alias leaves a background process that inherits git's stdout and outlives git itself.
         var holder = OperatingSystem.IsWindows() ? "ping -n 9 127.0.0.1 &" : "sleep 8 &";
         using var impatient = new GitWorkspace(new GitRunnerOptions { DrainTimeout = TimeSpan.FromMilliseconds(500) });
-        var invocation = new GitInvocation(["-c", $"alias.leave=!{holder}", "leave"]) { WorkingDirectory = Path.GetTempPath() };
+        var invocation = new GitInvocation(["-c", $"alias.leave=!{holder}", "leave"]);
 
         var clock = Stopwatch.StartNew();
-        var result = await impatient.Runner.RunAsync(invocation, TestContext.Current.CancellationToken);
+        var result = await impatient.RunPlainAsync(invocation);
 
         Assert.Equal(0, result.ExitCode);
         Assert.True(clock.Elapsed < TimeSpan.FromSeconds(5), $"the call waited {clock.Elapsed} for the leftover process");
@@ -112,11 +109,10 @@ public sealed class GitCancellationTests : IDisposable
         var delivered = 0;
         var invocation = new GitInvocation(["-c", $"alias.leave=!{holder}", "leave"])
         {
-            WorkingDirectory = Path.GetTempPath(),
             OnStdoutLine = _ => Interlocked.Increment(ref delivered),
         };
 
-        await impatient.Runner.RunAsync(invocation, TestContext.Current.CancellationToken);
+        await impatient.RunPlainAsync(invocation);
         var atReturn = Volatile.Read(ref delivered);
         await Task.Delay(TimeSpan.FromSeconds(2.5), TestContext.Current.CancellationToken);
 
@@ -130,7 +126,6 @@ public sealed class GitCancellationTests : IDisposable
         using var impatient = new GitWorkspace(new GitRunnerOptions { DrainTimeout = TimeSpan.FromMilliseconds(200) });
         var invocation = new GitInvocation(["--version"])
         {
-            WorkingDirectory = Path.GetTempPath(),
             OnStdoutLine = _ =>
             {
                 Interlocked.Increment(ref running);
@@ -140,7 +135,7 @@ public sealed class GitCancellationTests : IDisposable
         };
         var releaseLater = Task.Delay(700, TestContext.Current.CancellationToken).ContinueWith(_ => release.Set(), TaskScheduler.Default);
 
-        await impatient.Runner.RunAsync(invocation, TestContext.Current.CancellationToken);
+        await impatient.RunPlainAsync(invocation);
 
         Assert.Equal(0, Volatile.Read(ref running));
         await releaseLater;

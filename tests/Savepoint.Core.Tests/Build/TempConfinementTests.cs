@@ -1,3 +1,4 @@
+using Savepoint.Core.Git;
 using Savepoint.Core.Tests.Git;
 
 namespace Savepoint.Core.Tests.Build;
@@ -41,6 +42,17 @@ public sealed class TempConfinementTests
 
         Assert.NotNull(actual);
         Assert.Equal(ExpectedTempFolder(), Path.TrimEndingDirectorySeparator(actual), _paths);
+    }
+
+    [Fact]
+    public async Task A_git_command_that_needs_no_repository_cannot_discover_the_checkout_above_the_temp_folder()
+    {
+        using var workspace = new GitWorkspace();
+
+        var result = await workspace.RunPlainAsync(new GitInvocation(["rev-parse", "--git-dir"]) { AllowedExitCodes = [0, 128] });
+
+        Assert.Equal(128, result.ExitCode);
+        Assert.Contains("not a git repository", result.StandardError);
     }
 
     private static string ExpectedTempFolder() => Path.Combine(RepoRootAboveTheTestBinaries(), ".tools", "tmp", OsFolderName());
