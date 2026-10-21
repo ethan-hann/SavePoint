@@ -39,6 +39,21 @@ public sealed class PathSyntax
     /// <summary>True for a Windows path that would be absolute but has a colon after the drive letter, like <c>C:\Windows::$INDEX_ALLOCATION</c>.</summary>
     public bool UsesStreamSyntax(string path) => ReadRoot(path, out _, out _, out var stream) && stream;
 
+    /// <summary>The host and share of a Windows network path (\\host\share\...), including the \\?\UNC\ form; false for any other path.</summary>
+    internal bool TryReadShare(string path, out string host, out string share)
+    {
+        host = share = string.Empty;
+        if (!IsWindows || !TryReadRoot(path, out var root, out _) || !root.StartsWith(@"\\", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var names = root[2..].TrimEnd('\\').Split('\\');
+        host = names[0];
+        share = names[1];
+        return true;
+    }
+
     public string Normalize(string path)
     {
         var parsed = Split(path, collapseDots: true);

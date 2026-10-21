@@ -1,3 +1,4 @@
+using System.Net;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Platform;
 
@@ -14,6 +15,7 @@ public sealed class PathSafety
     private readonly List<ParsedPath> _exactRoots = [];
     private readonly List<ParsedPath> _driveParents = [];
     private readonly IReadOnlyList<DenylistNameRule> _nameRules;
+    private readonly IReadOnlyList<string> _localHostNames;
 
     /// <summary>The probe defaults to the real file system for the running OS and to no links for any other OS, whose paths are not on this machine.</summary>
     public PathSafety(IPlatform platform, string storageRoot, IEnumerable<string>? extraBlockedRoots = null, IPathProbe? probe = null)
@@ -26,6 +28,7 @@ public sealed class PathSafety
         string[] ownRoots = [directories.CatalogDir, directories.LogsDir, directories.RuntimeDir, storageRoot];
         var table = platform.Denylist([.. ownRoots, .. extraBlockedRoots ?? []]);
         _nameRules = table.NameRules;
+        _localHostNames = table.LocalHostNames;
         foreach (var entry in table.Entries)
         {
             if (entry.Tier == DenylistTier.Subtree)
@@ -50,6 +53,13 @@ public sealed class PathSafety
     {
         // A stream spelling reaches a folder under a name no table entry matches, so it is refused before anything else.
         if (_syntax.UsesStreamSyntax(path))
+        {
+            throw new PathSafetyException(path, 1);
+        }
+
+        // \\localhost\C$\... and \\<this computer>\ADMIN$\... are this computer's own folders under another name, and
+        // an administrative share ($) is never a place for a game, so neither is resolved at all.
+        if (_syntax.TryReadShare(path, out var host, out var share) && (share.EndsWith('$') || IsThisComputer(host)))
         {
             throw new PathSafetyException(path, 1);
         }
@@ -90,6 +100,22 @@ public sealed class PathSafety
     // An allowed sub-root and everything beneath it escapes the block; the tier-2 table still judges the sub-root itself.
     private bool Blocks(TierOneRoot root, ParsedPath real) =>
         _syntax.IsSameOrDescendant(real, root.Resolved) && !root.Allowed.Any(allowed => _syntax.IsSameOrDescendant(real, allowed));
+
+    private bool IsThisComputer(string host)
+    {
+        var name = host.TrimEnd('.');
+        if (name.Equals("localhost", StringComparison.OrdinalIgnoreCase) || _localHostNames.Contains(name, StringComparer.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // Windows writes an IPv6 address in a network path with '-' for ':' and 's' for '%'.
+        const string ipv6Suffix = ".ipv6-literal.net";
+        var address = name.EndsWith(ipv6Suffix, StringComparison.OrdinalIgnoreCase)
+            ? name[..^ipv6Suffix.Length].Replace('-', ':').Replace('s', '%')
+            : name;
+        return IPAddress.TryParse(address, out var ip) && IPAddress.IsLoopback(ip);
+    }
 
     private bool EndsWith(ParsedPath path, IReadOnlyList<string> names)
     {

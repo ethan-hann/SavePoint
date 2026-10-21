@@ -9,6 +9,7 @@ internal sealed class DenylistBuilder
     private readonly Dictionary<string, DenylistEntry> _entries;
     private readonly Dictionary<string, DenylistEntry> _children;
     private readonly List<DenylistNameRule> _nameRules = [];
+    private readonly List<string> _localHostNames = [];
 
     public DenylistBuilder(PathSyntax syntax)
     {
@@ -40,7 +41,12 @@ internal sealed class DenylistBuilder
 
     public void NameRule(string reason, params string[] names) => _nameRules.Add(new DenylistNameRule(names, reason));
 
-    public PathDenylist Build() => new([.. _entries.Values, .. _children.Values], _nameRules);
+    public void LocalHostNames(IEnumerable<string> names) => _localHostNames.AddRange(names.Where(name => !string.IsNullOrWhiteSpace(name)));
+
+    public PathDenylist Build() => new(
+        [.. _entries.Values, .. _children.Values],
+        _nameRules,
+        [.. _localHostNames.Distinct(StringComparer.OrdinalIgnoreCase)]);
 
     private void Add(string path, DenylistTier tier, string reason, IReadOnlyList<string>? allowedSubRoots)
     {

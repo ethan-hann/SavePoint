@@ -37,6 +37,8 @@ internal sealed class PlatformPaths
 
     public string? ReadFile(string path) => _environment.ReadTextFile(path);
 
+    public IReadOnlyList<string> LocalHostNames() => _environment.LocalHostNames();
+
     public IEnumerable<string> DriveRoots() =>
         _environment.ListDriveRoots().Select(AbsoluteOrNull).OfType<string>().Where(IsRoot);
 

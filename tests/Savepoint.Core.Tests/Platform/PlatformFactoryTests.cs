@@ -80,6 +80,28 @@ public class PlatformFactoryTests
     }
 
     [Fact]
+    public void The_machine_environment_names_this_computer()
+    {
+        var names = PlatformEnvironment.FromCurrentMachine().LocalHostNames();
+
+        Assert.Contains(Environment.MachineName, names, StringComparer.OrdinalIgnoreCase);
+        Assert.All(names, name => Assert.False(string.IsNullOrWhiteSpace(name)));
+    }
+
+    [Fact]
+    public void Network_paths_that_reach_this_computers_own_folders_are_refused_on_the_real_platform()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Network paths with a host are a Windows form.");
+        var platform = PlatformFactory.ForCurrentOs();
+        var safety = new PathSafety(platform, platform.Directories.DefaultStorageRoot);
+
+        PathSafetyAssert.Blocked(safety, @"\\localhost\C$\Windows\System32", 1);
+        PathSafetyAssert.Blocked(safety, $@"\\{Environment.MachineName}\C$\Users", 1);
+        PathSafetyAssert.Blocked(safety, $@"\\{Environment.MachineName.ToLowerInvariant()}\Users\Public", 1);
+        PathSafetyAssert.Blocked(safety, @"\\127.0.0.1\ADMIN$\System32", 1);
+    }
+
+    [Fact]
     public void Windows_known_folders_resolve_through_the_shell()
     {
         Assert.SkipUnless(OperatingSystem.IsWindows(), "Known folders are a Windows shell feature.");

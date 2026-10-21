@@ -1,3 +1,6 @@
+using System.Net;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using Savepoint.Core.Platform.Windows;
 
 namespace Savepoint.Core.Platform;
@@ -5,17 +8,25 @@ namespace Savepoint.Core.Platform;
 /// <summary>Everything a platform reads from the machine, so each OS's tables can be built from a fake on any host.</summary>
 public sealed record PlatformEnvironment
 {
+    /// <summary>The user's home folder; must be an absolute path in the platform's own style.</summary>
     public required string HomeDirectory { get; init; }
 
+    /// <summary>Looks up an environment variable; null when it is unset.</summary>
     public Func<string, string?> GetVariable { get; init; } = static _ => null;
 
+    /// <summary>Looks up a Windows shell folder; null when the OS has none or the shell cannot say.</summary>
     public Func<KnownFolder, string?> GetKnownFolder { get; init; } = static _ => null;
 
+    /// <summary>Lists the root of every drive (Windows).</summary>
     public Func<IReadOnlyList<string>> ListDriveRoots { get; init; } = static () => [];
 
     /// <summary>Reads a small text file (the Linux user-dirs.dirs); null when it is missing or unreadable.</summary>
     public Func<string, string?> ReadTextFile { get; init; } = static _ => null;
 
+    /// <summary>The names this machine answers to on a network (computer name, DNS name); "localhost" is implied.</summary>
+    public Func<IReadOnlyList<string>> LocalHostNames { get; init; } = static () => [];
+
+    /// <summary>Reads the machine the process runs on. Throws <see cref="InvalidOperationException"/> when the account has no home folder.</summary>
     public static PlatformEnvironment FromCurrentMachine()
     {
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
@@ -32,7 +43,29 @@ public sealed record PlatformEnvironment
             GetKnownFolder = WindowsKnownFolders.Get,
             ListDriveRoots = ListDrives,
             ReadTextFile = TryReadTextFile,
+            LocalHostNames = ReadLocalHostNames,
         };
+    }
+
+    // gethostname and the DNS domain are local lookups; no network traffic is needed to learn what this computer is called.
+    private static IReadOnlyList<string> ReadLocalHostNames()
+    {
+        var names = new List<string> { Environment.MachineName };
+        try
+        {
+            names.Add(Dns.GetHostName());
+            var properties = IPGlobalProperties.GetIPGlobalProperties();
+            if (!string.IsNullOrEmpty(properties.DomainName))
+            {
+                names.Add($"{properties.HostName}.{properties.DomainName}");
+            }
+        }
+        catch (Exception ex) when (ex is SocketException or NetworkInformationException)
+        {
+            // The computer name above is still enough to catch the common spelling.
+        }
+
+        return [.. names.Where(name => !string.IsNullOrWhiteSpace(name)).Distinct(StringComparer.OrdinalIgnoreCase)];
     }
 
     private static IReadOnlyList<string> ListDrives()

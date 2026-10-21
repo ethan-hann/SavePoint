@@ -21,6 +21,8 @@ internal sealed class FakeEnvironment
 
     public Dictionary<string, string> Files { get; } = [];
 
+    public List<string> LocalHostNames { get; } = [];
+
     /// <summary>A Windows user with OneDrive folder backup: Documents and Desktop live under OneDrive.</summary>
     public static FakeEnvironment Windows()
     {
@@ -41,6 +43,7 @@ internal sealed class FakeEnvironment
         env.KnownFolders[KnownFolder.SavedGames] = @"C:\Users\Test\Saved Games";
         env.KnownFolders[KnownFolder.LocalLow] = @"C:\Users\Test\AppData\LocalLow";
         env.DriveRoots.AddRange([@"C:\", @"D:\"]);
+        env.LocalHostNames.AddRange(["TESTPC", "testpc.corp.example"]);
         return env;
     }
 
@@ -55,5 +58,6 @@ internal sealed class FakeEnvironment
         GetKnownFolder = folder => KnownFolders.GetValueOrDefault(folder),
         ListDriveRoots = () => [.. DriveRoots],
         ReadTextFile = path => Files.GetValueOrDefault(path),
+        LocalHostNames = () => [.. LocalHostNames],
     };
 }

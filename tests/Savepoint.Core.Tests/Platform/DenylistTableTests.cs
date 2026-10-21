@@ -216,6 +216,16 @@ public class DenylistTableTests
     }
 
     [Fact]
+    public void Windows_names_this_computer_for_network_paths_and_the_other_oses_do_not()
+    {
+        var windows = new WindowsPlatform(FakeEnvironment.Windows().Build()).Denylist([]);
+
+        Assert.Equal(["TESTPC", "testpc.corp.example"], windows.LocalHostNames.Order());
+        Assert.Empty(new LinuxPlatform(FakeEnvironment.Linux().Build()).Denylist([]).LocalHostNames);
+        Assert.Empty(new MacOSPlatform(FakeEnvironment.MacOS().Build()).Denylist([]).LocalHostNames);
+    }
+
+    [Fact]
     public void A_drive_the_lister_reports_gets_its_root_blocked()
     {
         var env = FakeEnvironment.Windows();

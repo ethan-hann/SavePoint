@@ -83,6 +83,8 @@ public sealed class WindowsPlatform : IPlatform
             builder.Subtree(extra, "SavePoint's own data");
         }
 
+        builder.LocalHostNames(_paths.LocalHostNames());
+
         foreach (var drive in _paths.DriveRoots())
         {
             builder.Exact(drive, "A whole drive is too broad to track");

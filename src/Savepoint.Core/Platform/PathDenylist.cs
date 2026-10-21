@@ -37,13 +37,18 @@ public sealed record DenylistNameRule(IReadOnlyList<string> Names, string Reason
 /// <summary>The paths SavePoint refuses to track, as data. <see cref="Paths.PathSafety"/> does the matching.</summary>
 public sealed class PathDenylist
 {
-    /// <summary>Builds a table from its entries and name rules.</summary>
+    /// <summary>Builds a table from its entries, name rules, and the names this machine answers to.</summary>
     /// <param name="entries">The path entries.</param>
     /// <param name="nameRules">Folders protected by name; none when omitted.</param>
-    public PathDenylist(IReadOnlyList<DenylistEntry> entries, IReadOnlyList<DenylistNameRule>? nameRules = null)
+    /// <param name="localHostNames">Host names that mean this machine in a network path (Windows); none when omitted.</param>
+    public PathDenylist(
+        IReadOnlyList<DenylistEntry> entries,
+        IReadOnlyList<DenylistNameRule>? nameRules = null,
+        IReadOnlyList<string>? localHostNames = null)
     {
         Entries = entries;
         NameRules = nameRules ?? [];
+        LocalHostNames = localHostNames ?? [];
     }
 
     /// <summary>The path entries, tier 1 and tier 2.</summary>
@@ -51,4 +56,11 @@ public sealed class PathDenylist
 
     /// <summary>Folders blocked as tier 2 by name wherever they are.</summary>
     public IReadOnlyList<DenylistNameRule> NameRules { get; }
+
+    /// <summary>
+    /// Host names that reach this machine through the network stack, such as its computer name and DNS name. A network path
+    /// on one of them (\\name\C$\...) is another spelling of a local folder, so it is refused. "localhost" and loopback
+    /// addresses are always local and need not be listed.
+    /// </summary>
+    public IReadOnlyList<string> LocalHostNames { get; }
 }
