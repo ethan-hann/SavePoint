@@ -46,18 +46,14 @@ public sealed class GitCancellationTests : IDisposable
     [Fact]
     public async Task Cancelling_kills_every_process_in_the_tree_not_just_the_one_that_was_started()
     {
-        // git ls-remote hands the connection to a helper (a grandchild; on Windows a great-grandchild behind the
-        // cmd\git.exe wrapper). The listener sees the connection close only if that helper is gone.
+        // The alias makes a second git run under a shell (on Windows cmd\git.exe, git.exe, sh.exe, git.exe). The
+        // listener sees the connection close only if that innermost git is gone, and git:// needs no remote helper.
         using var listener = new TcpListener(IPAddress.Loopback, 0);
         listener.Start();
         var port = ((IPEndPoint)listener.LocalEndpoint).Port;
         var accepted = listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken).AsTask();
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var invocation = new GitInvocation(["-c", "http.proxy=", "ls-remote", $"http://127.0.0.1:{port}/repo.git"])
-        {
-            WorkingDirectory = _ws.WorkTree,
-            ExtraEnvironment = NoProxy(),
-        };
+        var invocation = _ws.OutsideAnyRepository(new GitInvocation(["-c", $"alias.probe=!git ls-remote git://127.0.0.1:{port}/repo.git", "probe"]));
         var call = _ws.Runner.RunAsync(invocation, cts.Token);
 
         await Task.WhenAny(accepted, Task.Delay(_generous, TestContext.Current.CancellationToken));
@@ -68,7 +64,7 @@ public sealed class GitCancellationTests : IDisposable
         await cts.CancelAsync();
         await Assert.ThrowsAsync<OperationCanceledException>(() => call.WaitAsync(_generous, TestContext.Current.CancellationToken));
 
-        Assert.True(await ConnectionClosesAsync(stream, TimeSpan.FromSeconds(15)), "the helper that held the connection is still alive");
+        Assert.True(await ConnectionClosesAsync(stream, TimeSpan.FromSeconds(15)), "the git that held the connection is still alive");
     }
 
     [Fact]
@@ -77,10 +73,10 @@ public sealed class GitCancellationTests : IDisposable
         // The alias leaves a background process that inherits git's stdout and outlives git itself.
         var holder = OperatingSystem.IsWindows() ? "ping -n 9 127.0.0.1 &" : "sleep 8 &";
         using var impatient = new GitWorkspace(new GitRunnerOptions { DrainTimeout = TimeSpan.FromMilliseconds(500) });
-        var invocation = new GitInvocation(["-c", $"alias.leave=!{holder}", "leave"]) { WorkingDirectory = Path.GetTempPath() };
+        var invocation = new GitInvocation(["-c", $"alias.leave=!{holder}", "leave"]);
 
         var clock = Stopwatch.StartNew();
-        var result = await impatient.Runner.RunAsync(invocation, TestContext.Current.CancellationToken);
+        var result = await impatient.RunPlainAsync(invocation);
 
         Assert.Equal(0, result.ExitCode);
         Assert.True(clock.Elapsed < TimeSpan.FromSeconds(5), $"the call waited {clock.Elapsed} for the leftover process");
@@ -113,11 +109,10 @@ public sealed class GitCancellationTests : IDisposable
         var delivered = 0;
         var invocation = new GitInvocation(["-c", $"alias.leave=!{holder}", "leave"])
         {
-            WorkingDirectory = Path.GetTempPath(),
             OnStdoutLine = _ => Interlocked.Increment(ref delivered),
         };
 
-        await impatient.Runner.RunAsync(invocation, TestContext.Current.CancellationToken);
+        await impatient.RunPlainAsync(invocation);
         var atReturn = Volatile.Read(ref delivered);
         await Task.Delay(TimeSpan.FromSeconds(2.5), TestContext.Current.CancellationToken);
 
@@ -131,7 +126,6 @@ public sealed class GitCancellationTests : IDisposable
         using var impatient = new GitWorkspace(new GitRunnerOptions { DrainTimeout = TimeSpan.FromMilliseconds(200) });
         var invocation = new GitInvocation(["--version"])
         {
-            WorkingDirectory = Path.GetTempPath(),
             OnStdoutLine = _ =>
             {
                 Interlocked.Increment(ref running);
@@ -141,21 +135,11 @@ public sealed class GitCancellationTests : IDisposable
         };
         var releaseLater = Task.Delay(700, TestContext.Current.CancellationToken).ContinueWith(_ => release.Set(), TaskScheduler.Default);
 
-        await impatient.Runner.RunAsync(invocation, TestContext.Current.CancellationToken);
+        await impatient.RunPlainAsync(invocation);
 
         Assert.Equal(0, Volatile.Read(ref running));
         await releaseLater;
     }
-    private static Dictionary<string, string?> NoProxy() => new()
-    {
-        ["http_proxy"] = null,
-        ["HTTP_PROXY"] = null,
-        ["https_proxy"] = null,
-        ["HTTPS_PROXY"] = null,
-        ["all_proxy"] = null,
-        ["ALL_PROXY"] = null,
-    };
-
     private static async Task<bool> ConnectionClosesAsync(NetworkStream stream, TimeSpan timeout)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);

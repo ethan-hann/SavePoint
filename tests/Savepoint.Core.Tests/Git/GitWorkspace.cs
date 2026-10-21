@@ -42,11 +42,21 @@ internal sealed class GitWorkspace : IDisposable
     public Task<GitResult> RunAsync(GitInvocation invocation) =>
         Runner.RunAsync(invocation with { GitDir = GitDir, WorkTree = WorkTree }, TestContext.Current.CancellationToken);
 
-    // For commands that need no repository; the temp folder keeps git from finding an enclosing one.
+    // For commands that need no repository.
     public Task<GitResult> RunPlainAsync(params string[] arguments) => RunPlainAsync(new GitInvocation(arguments));
 
     public Task<GitResult> RunPlainAsync(GitInvocation invocation) =>
-        Runner.RunAsync(invocation with { WorkingDirectory = invocation.WorkingDirectory ?? WorkTree }, TestContext.Current.CancellationToken);
+        Runner.RunAsync(OutsideAnyRepository(invocation), TestContext.Current.CancellationToken);
+
+    // The temp folder sits inside the checkout, whose .git can be a worktree file git cannot follow; the ceiling stops discovery at the temp folder.
+    public GitInvocation OutsideAnyRepository(GitInvocation invocation)
+    {
+        var environment = new Dictionary<string, string?>(invocation.ExtraEnvironment ?? new Dictionary<string, string?>())
+        {
+            ["GIT_CEILING_DIRECTORIES"] = Path.TrimEndingDirectorySeparator(Path.GetFullPath(Path.GetTempPath())),
+        };
+        return invocation with { WorkingDirectory = invocation.WorkingDirectory ?? WorkTree, ExtraEnvironment = environment };
+    }
 
     public string Write(string relativePath, string content)
     {
