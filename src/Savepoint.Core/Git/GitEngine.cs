@@ -18,6 +18,7 @@ public sealed partial class GitEngine
     private readonly GitRunner _runner;
     private readonly PathSafety _pathSafety;
     private readonly FreeSpaceProbe _freeSpace;
+    private readonly string _storageRoot;
     private readonly GitEngineOptions _options;
     private readonly InFlightTable _inFlight = new();
 
@@ -25,15 +26,23 @@ public sealed partial class GitEngine
     /// <param name="runner">Runs the bundled git.</param>
     /// <param name="pathSafety">Judges every work tree before anything writes to it.</param>
     /// <param name="freeSpace">Reports free bytes per volume; the composition root supplies the real one.</param>
+    /// <param name="storageRoot">SavePoint's storage folder; a git directory is only ever deleted from inside it.</param>
     /// <param name="options">Tuning; null uses the defaults.</param>
-    public GitEngine(GitRunner runner, PathSafety pathSafety, FreeSpaceProbe freeSpace, GitEngineOptions? options = null)
+    public GitEngine(GitRunner runner, PathSafety pathSafety, FreeSpaceProbe freeSpace, string storageRoot, GitEngineOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(runner);
         ArgumentNullException.ThrowIfNull(pathSafety);
         ArgumentNullException.ThrowIfNull(freeSpace);
+        ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
+        if (!Path.IsPathFullyQualified(storageRoot))
+        {
+            throw new ArgumentException("The storage root must be an absolute path.", nameof(storageRoot));
+        }
+
         _runner = runner;
         _pathSafety = pathSafety;
         _freeSpace = freeSpace;
+        _storageRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(storageRoot));
         _options = options ?? new GitEngineOptions();
     }
 

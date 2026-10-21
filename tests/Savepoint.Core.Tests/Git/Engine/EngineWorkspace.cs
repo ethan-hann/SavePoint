@@ -29,7 +29,7 @@ internal sealed class EngineWorkspace : IDisposable
         Space = new FakeFreeSpace();
 
         var options = new GitEngineOptions { InvocationObserver = Observe };
-        Engine = new GitEngine(Runner, PathSafety, Space.Probe, configure is null ? options : configure(options));
+        Engine = new GitEngine(Runner, PathSafety, Space.Probe, StorageRoot, configure is null ? options : configure(options));
     }
 
     public string Root { get; }

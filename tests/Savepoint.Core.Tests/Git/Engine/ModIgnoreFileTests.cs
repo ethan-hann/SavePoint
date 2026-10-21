@@ -150,6 +150,24 @@ public sealed class ModIgnoreFileTests : IDisposable
     }
 
     [Fact]
+    public async Task The_marker_survives_clean_and_discard_and_is_not_recorded_whatever_re_includes_it()
+    {
+        var repo = await RepoWithModAsync();
+        _ws.Write(repo, ".gitignore", "!/.savepoint-managed.json\n!.savepoint-managed.json*\n");
+        string[] ignore = ["!/.savepoint-managed.json", "!.savepoint-managed.json*"];
+        await _ws.CaptureAsync(repo, "profile-1", ignore: ignore);
+        _ws.Write(repo, "extra.txt", "new");
+
+        await _ws.Engine.CleanAsync(repo, Ct);
+        _ws.Write(repo, "extra.txt", "new");
+        await _ws.Engine.DiscardChangesAsync(repo, Ct);
+
+        Assert.True(File.Exists(EngineWorkspace.MarkerPath(repo)));
+        Assert.False(File.Exists(_ws.FileOf(repo, "extra.txt")));
+        Assert.DoesNotContain(await _ws.TreeAsync(repo, "profile-1"), path => path.Contains("savepoint-managed", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task A_file_named_like_a_glob_is_recorded_as_itself_and_pulls_in_nothing_else()
     {
         var repo = await _ws.InitializedRepoAsync();

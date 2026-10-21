@@ -100,12 +100,7 @@ public sealed partial class GitEngine
             throw new GitOperationException(null, $"The repository at '{repo.GitDir}' does not exist.");
         }
 
-        var head = GitDirFiles.ReadHead(repo.GitDir);
-        var point = head.IsDetached ? head.DetachedCommit : await ResolveBranchAsync(repo, head.Branch!, ct).ConfigureAwait(false);
-        if (point is null)
-        {
-            throw new GitOperationException(null, "The folder has no saved point to return to, so there is nothing to discard back to.");
-        }
+        var point = await RequireSavedPointAsync(repo, ct).ConfigureAwait(false);
 
         using var scope = BeginWrite(repo);
 
@@ -134,9 +129,24 @@ public sealed partial class GitEngine
         ct.ThrowIfCancellationRequested();
         CheckWorkTree(repo);
         RepoMarker.Verify(repo);
+        if (!IsInitialized(repo.GitDir))
+        {
+            throw new GitOperationException(null, $"The repository at '{repo.GitDir}' does not exist.");
+        }
+
+        // Before the first point every file in the folder is "new"; cleaning would delete the player's whole folder.
+        await RequireSavedPointAsync(repo, ct).ConfigureAwait(false);
 
         using var scope = BeginWrite(repo);
         await RemoveNewFilesAsync(repo, ct).ConfigureAwait(false);
+    }
+
+    // The point the folder is on; a folder with none has nothing a discard or a clean could be measured against.
+    private async Task<string> RequireSavedPointAsync(RepoRef repo, CancellationToken ct)
+    {
+        var head = GitDirFiles.ReadHead(repo.GitDir);
+        var point = head.IsDetached ? head.DetachedCommit : await ResolveBranchAsync(repo, head.Branch!, ct).ConfigureAwait(false);
+        return point ?? throw new ProfileHasNoPointsException(head.Branch ?? string.Empty);
     }
 
     // Removes new files that SavePoint's exclude list does not name; a file still in use is retried and then named. The list
