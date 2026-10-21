@@ -68,7 +68,7 @@ public sealed class FakeGamesApi : IGamesApi
             var index = State.Games.FindIndex(g => g.Id == definition.Id);
             if (index < 0)
             {
-                throw new KeyNotFoundException($"The fake has no game '{definition.Id}'.");
+                throw new GameNotFoundException(definition.Id);
             }
 
             var previous = State.Games[index];

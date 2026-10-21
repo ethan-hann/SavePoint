@@ -107,11 +107,11 @@ internal sealed class FakeState
     public Random Random { get; } = new(20260708);
 
     public GameDefinition Game(string gameId) =>
-        Games.Find(g => g.Id == gameId) ?? throw new KeyNotFoundException($"The fake has no game '{gameId}'.");
+        Games.Find(g => g.Id == gameId) ?? throw new GameNotFoundException(gameId);
 
     public Profile Profile(string gameId, string profileId) =>
         Profiles.Find(p => p.Id == profileId && p.GameId == gameId)
-        ?? throw new KeyNotFoundException($"The fake has no profile '{profileId}' for game '{gameId}'.");
+        ?? throw new ProfileNotFoundException(gameId, profileId);
 
     public HistoryPoint Point(string gameId, HistoryPointId pointId) =>
         History.Find(h => h.GameId == gameId && h.Point.Id == pointId).Point

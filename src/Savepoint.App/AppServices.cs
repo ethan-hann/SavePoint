@@ -1,3 +1,4 @@
+using Savepoint.App.Features.Settings;
 using Savepoint.Core.Api;
 
 namespace Savepoint.App;
@@ -20,4 +21,11 @@ public sealed record AppServices(
     ISettingsApi Settings,
     IHistoryApi History,
     IJobsApi Jobs,
-    IAppStatusApi AppStatus);
+    IAppStatusApi AppStatus)
+{
+    /// <summary>
+    /// Shows a file in the operating system's file manager; the running app supplies the platform one. Null in tests, where
+    /// the screens that need it bring their own.
+    /// </summary>
+    public IFileRevealer? FileRevealer { get; init; }
+}

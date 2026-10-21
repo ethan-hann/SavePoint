@@ -1,0 +1,87 @@
+using Savepoint.App.Features.Common.Formatting;
+using Savepoint.App.Hosting;
+using Savepoint.App.Localization;
+using Savepoint.Core.Api;
+using Savepoint.Core.Catalog;
+using Savepoint.Core.Errors;
+
+namespace Savepoint.App.Tests.Hosting;
+
+public class NotificationTextTests
+{
+    private static readonly UiFormatter _text = new(LocalizationCatalog.LoadEmbedded("en"), os: "windows");
+    private static readonly DateTimeOffset _at = new(2026, 7, 8, 12, 0, 0, TimeSpan.Zero);
+
+    [Fact]
+    public void The_title_is_the_app_name()
+    {
+        var (title, _) = NotificationText.For(Job(JobKind.Capture, JobStatus.Succeeded), "Skyrim", _text);
+
+        Assert.Equal("SavePoint", title);
+    }
+
+    [Fact]
+    public void A_finished_save_names_the_game()
+    {
+        var (_, body) = NotificationText.For(Job(JobKind.Capture, JobStatus.Succeeded), "Skyrim", _text);
+
+        Assert.Equal("Saved Skyrim.", body);
+    }
+
+    [Fact]
+    public void A_game_that_is_not_in_the_library_any_more_reads_as_this_game()
+    {
+        var (_, body) = NotificationText.For(Job(JobKind.Capture, JobStatus.Succeeded), null, _text);
+
+        Assert.Equal("Saved this game.", body);
+    }
+
+    [Theory]
+    [InlineData(JobKind.Compact, JobStatus.Succeeded, "Optimized storage for Skyrim.")]
+    [InlineData(JobKind.Compact, JobStatus.Cancelled, "Cancelled optimizing storage for Skyrim.")]
+    [InlineData(JobKind.RelocateStorage, JobStatus.Succeeded, "Storage moved.")]
+    [InlineData(JobKind.RelocateStorage, JobStatus.Cancelled, "Cancelled moving your storage.")]
+    [InlineData(JobKind.ClearData, JobStatus.Succeeded, "SavePoint's data was cleared.")]
+    public void Each_kind_and_ending_has_its_sentence(JobKind kind, JobStatus status, string expected)
+    {
+        var gameId = kind == JobKind.Compact ? "skyrim" : null;
+
+        var (_, body) = NotificationText.For(Job(kind, status, gameId), "Skyrim", _text);
+
+        Assert.Equal(expected, body);
+    }
+
+    [Fact]
+    public void Optimizing_every_game_does_not_name_one()
+    {
+        var (_, body) = NotificationText.For(Job(JobKind.Compact, JobStatus.Succeeded), "Skyrim", _text);
+
+        Assert.Equal("Optimized storage for all your games.", body);
+    }
+
+    [Fact]
+    public void A_partial_save_says_why_with_the_first_reason_a_folder_gave()
+    {
+        var failed = new FolderOutcome(RepoRole.External, new ErrorInfo("error.diskSpace.low", new Dictionary<string, object?>(), string.Empty));
+        var result = new CaptureResult("p", null, [new FolderOutcome(RepoRole.Install), failed]);
+
+        var (_, body) = NotificationText.For(Job(JobKind.Capture, JobStatus.Partial, "skyrim", result), "Skyrim", _text);
+
+        Assert.StartsWith("Only part of Skyrim was saved.", body, StringComparison.Ordinal);
+        Assert.Contains("not enough free disk space", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_failed_job_says_why_with_its_own_error()
+    {
+        var error = new ErrorInfo("error.storageRelocation.copyFailed", new Dictionary<string, object?>(), string.Empty);
+
+        var (_, body) = NotificationText.For(Job(JobKind.RelocateStorage, JobStatus.Failed, error: error), null, _text);
+
+        Assert.StartsWith("Something went wrong moving your storage.", body, StringComparison.Ordinal);
+        Assert.Contains("couldn't copy everything", body, StringComparison.Ordinal);
+    }
+
+    private static JobSnapshot Job(JobKind kind, JobStatus status, string? gameId = null, JobResult? result = null, ErrorInfo? error = null) =>
+        new(Guid.NewGuid(), kind, gameId, status, true, false, JobProgress.None, [], _at, _at, result, error, 3);
+}
