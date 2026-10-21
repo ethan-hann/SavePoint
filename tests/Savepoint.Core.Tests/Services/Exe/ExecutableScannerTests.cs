@@ -1,4 +1,6 @@
+using Savepoint.Core.Platform;
 using Savepoint.Core.Services.Exe;
+using Savepoint.Core.Tests.Platform;
 
 namespace Savepoint.Core.Tests.Services.Exe;
 
@@ -411,23 +413,29 @@ public class ExecutableScannerTests
         Assert.Equal([P("Tool.app", "Game.exe")], await ScanAsync(temp, ExecutableKinds.WindowsExe));
     }
 
-    [Fact]
-    public void The_default_kinds_follow_the_operating_system()
+    [Theory]
+    [InlineData(OsKind.Windows, ExecutableKinds.WindowsExe)]
+    [InlineData(OsKind.Linux, ExecutableKinds.LinuxNative | ExecutableKinds.WindowsExe)]
+    [InlineData(OsKind.MacOS, ExecutableKinds.MacApp)]
+    public void The_kinds_follow_the_operating_system(OsKind os, ExecutableKinds expected)
     {
-        var kinds = ExecutableScanner.KindsForCurrentOs;
+        Assert.Equal(expected, ExecutableScanner.KindsFor(os));
+    }
 
-        if (OperatingSystem.IsWindows())
-        {
-            Assert.Equal(ExecutableKinds.WindowsExe, kinds);
-        }
-        else if (OperatingSystem.IsMacOS())
-        {
-            Assert.Equal(ExecutableKinds.MacApp, kinds);
-        }
-        else
-        {
-            Assert.Equal(ExecutableKinds.LinuxNative | ExecutableKinds.WindowsExe, kinds);
-        }
+    [Theory]
+    [InlineData(OsKind.Windows, new[] { "Game.exe" })]
+    [InlineData(OsKind.Linux, new[] { "Game.exe", "run.sh" })]
+    [InlineData(OsKind.MacOS, new[] { "Game.app" })]
+    public async Task A_scanner_built_from_a_platform_suggests_what_suits_that_platform(OsKind os, string[] expected)
+    {
+        using var temp = new TempFolder();
+        temp.WriteBytes("Game.exe", 10);
+        temp.WriteBytes("run.sh", 10);
+        temp.WriteBytes("Game.app/Contents/MacOS/Game", 10);
+
+        var found = await new ExecutableScanner(FakePlatforms.For(os)).ListAsync(temp.Path, Ct);
+
+        Assert.Equal(expected.Select(name => P(name)), found);
     }
 
     private static void Executable(string path)
