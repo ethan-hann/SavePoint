@@ -48,8 +48,8 @@ Steam games show their cover art in the library and the sidebar.
 
 On the Games screen, **New profile** walks you through three steps:
 
-1. **Check:** what will be captured from each folder, and how much new space it takes. SavePoint reuses files it already has, so later profiles usually add little.
-2. **Name it:** a name and optional notes.
+1. **Name it:** a name and optional notes.
+2. **Check:** what will be captured from each folder, and how much new space it takes. SavePoint reuses files it already has, so later profiles usually add little.
 3. **Save:** SavePoint saves the profile. A large install takes a while the first time.
 
 The profile table shows, for each profile:
@@ -92,7 +92,9 @@ If you started from an older point, the progress can't simply go on the end of t
 
 If files in the game's own folder changed while you played, as an update would change them, SavePoint tells you.
 
-To skip the question when only the saves changed, use **Settings > When you finish playing**. A change to the game version or mods always asks.
+To skip this question altogether, turn off **Ask whether to save the session** in Settings. SavePoint then saves nothing after you play; your progress stays on disk, and SavePoint asks about it before the next switch.
+
+The check before playing can be skipped too. When only the save would change, tick **Don't ask again when only the save changes** in that check, or use the matching switch in Settings. A change to the game version or mods always shows the check.
 
 ## History
 
@@ -113,7 +115,7 @@ Switch between the **List** and **Cards** views, and filter by profile. A point 
   - theme: light, dark, or match the system;
   - accent color: blue, violet, green, amber, or crimson;
   - layout: **Sidebar** keeps every game one click away, **Library** puts cover art up front. You can also switch layout from the Games screen.
-- **When you finish playing:** whether to ask about saving the session, and whether to skip the question when only the saves changed.
+- **When you finish playing:** whether to ask about saving the session. The same section currently holds **Skip the confirmation when only the save changes**, which skips the check *before* playing (see Playing).
 - **Remove all SavePoint data:** removes SavePoint's saved history, settings, and game list, and takes its marker file out of each game folder. Your game folders and everything in them stay exactly as they are. You confirm by typing a word.
 - **About:** the version, and the third-party notices.
 

@@ -277,6 +277,24 @@ v1's plan keeps each error's English message as dev-facing detail "for logs and 
 - **Unhandled exceptions** from the UI thread, the thread pool, or unobserved tasks are logged. An unobserved task exception is logged and observed. A UI-thread or domain-level crash shows a last window ("SavePoint ran into a problem and has to close") with Show details and the log folder, then exits: continuing in an unknown state could touch game folders wrongly.
 - **Settings > About gets "Open the log folder".** "Clear all data" also empties the log folder, except the file in use.
 
+## D35. The "only the save changes" switch belongs to the check before playing
+
+v1's visual spec gives one setting two homes. The launch dialog's "Don't ask again when only the save changes" box (2b) writes it, which matches the code: the setting skips the pre-launch check when only the save would change. Settings (2k), however, lists it under "When you finish playing" as "Skip the confirmation when only the save changes", which reads as the after-play question (review finding UX-012).
+
+Behavior stays as the launch dialog defines it. Settings moves the switch into its own "Before you play" group, labeled "Skip the check before playing when only the save changes", with the caption "A change to the game version or mods always shows the check." "When you finish playing" keeps only "Ask whether to save the session".
+
+## D36. Calls on the UX and accessibility review's open questions
+
+The review (`.tools/reviews/ux-a11y.md`) left eight questions open. They are settled as follows:
+
+- **OS scaling (OQ1).** SavePoint works at 150% on 1366x768 and at 200% on 1920x1080, which leaves about 960x490 logical pixels once the taskbar is counted. The window's minimum size shrinks to fit that, and every screen scrolls vertically instead of clipping. Headless renders at those sizes prove it.
+- **Slow scans (OQ2).** Play shows "Checking your files..." at once, before the preview returns, however long the scan takes. "Save them first" shows progress too. The diagnostic log (D34) times the scans for later tuning.
+- **Screen readers (OQ3).** Live regions raise the UI Automation live-region event when their text changes, and banners and error cards are announced when they appear; tests assert the events. A manual pass with Narrator and NVDA is listed for the owner's dogfood run, since it cannot be automated here.
+- **Focus after a refresh (OQ4) and the History filter's arrow keys (OQ8):** a headless test settles each one, and any failure is fixed.
+- **Artwork disclosure (OQ5).** The lookup stays on by default (D30). The first-run screen says in one line that SavePoint downloads cover art for Steam games from Steam and can be turned off in Settings, so the one network request is disclosed before it happens.
+- **Re-pointing a folder (OQ6).** It belongs to D31 item 4 and is built with the review fixes.
+- **The "only the save changes" switch (OQ7):** see D35.
+
 ## D8. "Clear all data" is a v2 requirement
 
 The v1 README lists "add a clear all data button" as an open TODO. v2 ships it in Settings behind a typed confirmation. It removes SavePoint's own storage, catalog, and consent markers, and never deletes or rolls back files in a game's install or save folders: whatever is on disk at that moment stays as it is.
