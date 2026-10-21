@@ -115,6 +115,50 @@ public class RealPathTests
         Assert.Equal(@"C:\Mnt\D\x", RealPath.Resolve(@"C:\Mnt\D\x", _windows, probe));
     }
 
+    [Theory]
+    [InlineData(@"\Users\Test", @"D:\Users\Test\x")]
+    [InlineData("/Users/Test", @"D:\Users\Test\x")]
+    public void A_windows_link_target_without_a_drive_restarts_at_the_drive_of_the_link(string target, string expected)
+    {
+        var probe = new FakePathProbe(_windows).Link(@"D:\Games\Link", target);
+
+        Assert.Equal(expected, RealPath.Resolve(@"D:\Games\Link\x", _windows, probe));
+    }
+
+    [Theory]
+    [InlineData(@"Volume{1b2c3d}\")]
+    [InlineData(@"\??\Volume{1b2c3d}\")]
+    [InlineData("Volume{1b2c3d}")]
+    public void A_junction_to_a_whole_volume_is_left_where_it_is(string target)
+    {
+        var probe = new FakePathProbe(_windows).Link(@"C:\Mnt\D", target);
+
+        Assert.Equal(@"C:\Mnt\D\x", RealPath.Resolve(@"C:\Mnt\D\x", _windows, probe));
+    }
+
+    [Theory]
+    [InlineData(@"Volume{1b2c3d}\Users\Test")]
+    [InlineData(@"\??\Volume{1b2c3d}\Users\Test")]
+    [InlineData(@"\\?\Volume{1b2c3d}\Users\Test")]
+    [InlineData(@"GLOBALROOT\Device\HarddiskVolume3\Windows")]
+    [InlineData(@"\??\GLOBALROOT\Device\HarddiskVolume3")]
+    [InlineData(@"Device\HarddiskVolume3\Windows")]
+    [InlineData("stream:name")]
+    public void A_link_target_that_cannot_be_traced_to_a_folder_is_an_error_and_not_a_guess(string target)
+    {
+        var probe = new FakePathProbe(_windows).Link(@"C:\Mnt\Odd", target);
+
+        Assert.Throws<IOException>(() => RealPath.Resolve(@"C:\Mnt\Odd\x", _windows, probe));
+    }
+
+    [Fact]
+    public void A_posix_link_target_with_a_colon_is_an_ordinary_name()
+    {
+        var probe = new FakePathProbe(_linux).Link("/a/link", "odd:name");
+
+        Assert.Equal("/a/odd:name/x", RealPath.Resolve("/a/link/x", _linux, probe));
+    }
+
     [Fact]
     public void A_windows_short_name_is_expanded_to_the_long_name()
     {
