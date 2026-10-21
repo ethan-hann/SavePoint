@@ -2,6 +2,7 @@ using System.Text.Json;
 using Savepoint.Core.Api;
 using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Errors;
 using Savepoint.Core.Services.Storage;
 
 namespace Savepoint.Core.Services.Games;
@@ -107,10 +108,10 @@ internal sealed partial class GamesApi : IGamesApi
 
 
 
-    // An id the catalog does not know is a caller mistake, reported as an unknown error with the id in its detail.
+    // An id the catalog does not know is answered as not found, so a game removed in the meantime reads as that.
     private async Task<GameDefinition> RequireGameAsync(string gameId, CancellationToken cancellationToken) =>
         await _services.Catalog.GetGameAsync(gameId, cancellationToken).ConfigureAwait(false)
-        ?? throw new InvalidOperationException($"There is no game '{gameId}'.");
+        ?? throw new GameNotFoundException(gameId);
 
     private FolderStatus StatusOf(StorageSnapshot storage, GameDefinition game, GameFolder folder)
     {

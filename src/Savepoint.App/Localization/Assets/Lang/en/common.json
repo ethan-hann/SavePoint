@@ -17,6 +17,7 @@
   "errorCard.title.gameRunning": "The game is running",
   "errorCard.title.generic": "Something went wrong",
   "errorCard.title.historyFound": "Saved history was found here",
+  "errorCard.title.notFound": "That no longer exists",
   "errorCard.title.noRoom": "There isn't enough room",
   "errorCard.title.olderSave": "You're on an older save",
   "errorCard.title.optimizingPaused": "Optimizing paused",

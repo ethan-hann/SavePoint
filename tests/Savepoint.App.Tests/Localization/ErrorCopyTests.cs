@@ -53,6 +53,8 @@ public class ErrorCopyTests
             new LaunchUnavailableException(),
             new StorageUnreachableException("/storage", null),
             new StorageRelocationFailedException("/new/storage/a.pack", "dev text", null),
+            new GameNotFoundException("game-1"),
+            new ProfileNotFoundException("game-1", "profile-1"),
         ];
 
         return errors.Select(ErrorInfo.From).Append(ErrorInfo.From(new InvalidOperationException("boom")));

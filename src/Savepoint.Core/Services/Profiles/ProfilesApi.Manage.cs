@@ -15,13 +15,14 @@ internal sealed partial class ProfilesApi
     public Task<OperationResult<Profile>> UpdateAsync(string gameId, string profileId, ProfileChanges changes) =>
         ApiGuard.RunAsync(async () =>
         {
+            await RequireGameAsync(gameId).ConfigureAwait(false);
             await RequireProfileAsync(gameId, profileId).ConfigureAwait(false);
 
             // Only the edited fields are replaced, under the catalog's own lock, so a launch time written meanwhile survives.
             return await _services.Catalog.UpdateProfileAsync(
                 profileId,
                 profile => profile with { Name = changes.Name, Notes = changes.Notes, VersionOverride = changes.VersionOverride }).ConfigureAwait(false)
-                ?? throw new InvalidOperationException($"There is no profile '{profileId}'.");
+                ?? throw new ProfileNotFoundException(gameId, profileId);
         });
 
     public Task<OperationResult<Profile>> DuplicateAsync(string gameId, string sourceProfileId, string name) =>

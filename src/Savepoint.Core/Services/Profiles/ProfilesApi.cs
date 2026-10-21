@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using Savepoint.Core.Api;
 using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Errors;
 using Savepoint.Core.Services.Storage;
 
 namespace Savepoint.Core.Services.Profiles;
@@ -69,12 +70,12 @@ internal sealed partial class ProfilesApi : IProfilesApi
 
     private async Task<GameDefinition> RequireGameAsync(string gameId, CancellationToken cancellationToken = default) =>
         await _services.Catalog.GetGameAsync(gameId, cancellationToken).ConfigureAwait(false)
-        ?? throw new InvalidOperationException($"There is no game '{gameId}'.");
+        ?? throw new GameNotFoundException(gameId);
 
     private async Task<Profile> RequireProfileAsync(string gameId, string profileId, CancellationToken cancellationToken = default) =>
         await _services.Catalog.GetProfileAsync(profileId, cancellationToken).ConfigureAwait(false) is { } profile && profile.GameId == gameId
             ? profile
-            : throw new InvalidOperationException($"Game '{gameId}' has no profile '{profileId}'.");
+            : throw new ProfileNotFoundException(gameId, profileId);
 
     // A fresh id that no profile of any game has; the branch is named after it.
     private async Task<Profile> NewProfileAsync(string gameId, string name)

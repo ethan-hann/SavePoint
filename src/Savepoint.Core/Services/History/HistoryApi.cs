@@ -1,5 +1,6 @@
 using Savepoint.Core.Api;
 using Savepoint.Core.Backend;
+using Savepoint.Core.Errors;
 
 namespace Savepoint.Core.Services.History;
 
@@ -20,7 +21,7 @@ internal sealed class HistoryApi : IHistoryApi
             async () =>
             {
                 var game = await _services.Catalog.GetGameAsync(gameId, cancellationToken).ConfigureAwait(false)
-                    ?? throw new InvalidOperationException($"There is no game '{gameId}'.");
+                    ?? throw new GameNotFoundException(gameId);
                 var profiles = await _services.Catalog.ListProfilesAsync(gameId, cancellationToken).ConfigureAwait(false);
                 return await _services.Storage.ReadAsync(
                     storage => _reader.ReadAsync(storage, game, profiles, profileId, cancellationToken),
