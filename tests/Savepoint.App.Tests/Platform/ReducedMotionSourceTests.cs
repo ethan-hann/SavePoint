@@ -129,7 +129,8 @@ public class ReducedMotionSourceTests
             Ct);
 
         Assert.True(announcedInContext);
-        Assert.NotEqual(Environment.CurrentManagedThreadId, reader.ReadThreadId);
+        // Thread ids are reused by the pool; the caller's context reaching the read is what an inline read would show.
+        Assert.NotSame(context, reader.ReadContext);
     }
 
     [Fact]
@@ -244,11 +245,11 @@ public class ReducedMotionSourceTests
 
         public int Reads => Volatile.Read(ref _reads);
 
-        public int ReadThreadId { get; private set; }
+        public SynchronizationContext? ReadContext { get; private set; }
 
         public ValueTask<bool?> ReadAsync(CancellationToken cancellationToken)
         {
-            ReadThreadId = Environment.CurrentManagedThreadId;
+            ReadContext = SynchronizationContext.Current;
             var index = Interlocked.Increment(ref _reads) - 1;
             return ValueTask.FromResult(_answers[Math.Min(index, _answers.Length - 1)]);
         }
