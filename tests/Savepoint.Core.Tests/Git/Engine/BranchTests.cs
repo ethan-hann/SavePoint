@@ -45,9 +45,10 @@ public sealed class BranchTests : IDisposable
         var older = await _ws.GitOutAsync(repo, "rev-parse", "profile-1~1");
         var before = _ws.Invocations.Count(invocation => invocation.Arguments[0] == "update-ref");
 
-        var error = await Assert.ThrowsAsync<GitOperationException>(() => _ws.Engine.CreateBranchAsync(repo, "profile-1", older, Ct));
+        var error = await Assert.ThrowsAsync<ProfileAlreadyExistsException>(() => _ws.Engine.CreateBranchAsync(repo, "profile-1", older, Ct));
 
-        Assert.Contains("already exists", error.Message, StringComparison.Ordinal);
+        Assert.Equal("error.profile.alreadyExists", error.MessageId);
+        Assert.Equal("profile-1", error.Args["profileId"]);
         Assert.Equal(tip, await _ws.TipAsync(repo, "profile-1"));
         Assert.Equal(before + 1, _ws.Invocations.Count(invocation => invocation.Arguments[0] == "update-ref"));
     }

@@ -20,6 +20,10 @@ public sealed partial class GitEngine
     /// <exception cref="Savepoint.Core.Errors.DetachedCaptureNotSupportedException">The folder is on an older point and the mode does not allow capturing there.</exception>
     /// <exception cref="Savepoint.Core.Errors.AmendNotAvailableException">An amend was asked for where the branch is not checked out or has no point.</exception>
     /// <exception cref="Savepoint.Core.Errors.OperationCancelledByUserException">The token was cancelled.</exception>
+    /// <exception cref="Savepoint.Core.Errors.NestedRepositoryException">A folder in the game keeps its own history; nothing was staged.</exception>
+    /// <exception cref="Savepoint.Core.Errors.SessionMovedException">A fork or move forward was asked for, but the folder is not on the session's start point or after it.</exception>
+    /// <exception cref="Savepoint.Core.Errors.ProfileAlreadyExistsException">A fork was asked for onto a branch that exists at a different point.</exception>
+    /// <exception cref="Savepoint.Core.Errors.ProfileHasNoPointsException">A move forward was asked for on a branch that has no point.</exception>
     /// <exception cref="Savepoint.Core.Errors.GitOperationException">git failed, or the request does not fit the repository's state.</exception>
     public async Task<CaptureOutcome> CaptureAsync(RepoRef repo, CaptureRequest request, IProgress<FileProgress>? progress = null, CancellationToken ct = default)
     {
@@ -115,7 +119,7 @@ public sealed partial class GitEngine
         var existing = await ResolveBranchAsync(repo, request.Branch, ct).ConfigureAwait(false);
         if (existing is not null && !string.Equals(existing, tip, StringComparison.Ordinal))
         {
-            throw new GitOperationException(null, $"The branch '{request.Branch}' already exists.");
+            throw new ProfileAlreadyExistsException(request.Branch);
         }
 
         await StageAsync(repo, progress, ct).ConfigureAwait(false);
@@ -143,10 +147,10 @@ public sealed partial class GitEngine
         }
 
         var branchTip = await ResolveBranchAsync(repo, request.Branch, ct).ConfigureAwait(false)
-            ?? throw new GitOperationException(null, $"The branch '{request.Branch}' has no points to move.");
+            ?? throw new ProfileHasNoPointsException(request.Branch);
         if (tip is null)
         {
-            throw new GitOperationException(null, "The folder is not on any point, so a branch cannot be moved to it.");
+            throw new SessionMovedException(repo.Role, "The folder is not on any point, so a branch cannot be moved to it.");
         }
 
         await RequireSessionStartAsync(repo, request.ExpectedStartCommit, tip, ct).ConfigureAwait(false);
@@ -155,7 +159,7 @@ public sealed partial class GitEngine
         var moves = !string.Equals(tip, branchTip, StringComparison.Ordinal);
         if (moves && !await IsAncestorAsync(repo, tip, branchTip, ct).ConfigureAwait(false))
         {
-            throw new GitOperationException(null, $"The point the folder is on is not part of the history of '{request.Branch}'.");
+            throw new SessionMovedException(repo.Role, $"The point the folder is on is not part of the history of '{request.Branch}'.");
         }
 
         await StageAsync(repo, progress, ct).ConfigureAwait(false);
@@ -203,7 +207,7 @@ public sealed partial class GitEngine
 
         if (!await IsAncestorAsync(repo, expectedStart, current, ct).ConfigureAwait(false))
         {
-            throw new GitOperationException(null, $"The folder is not on the point the session started from ({expectedStart}) or after it.");
+            throw new SessionMovedException(repo.Role, $"The folder is not on the point the session started from ({expectedStart}) or after it.");
         }
     }
 
@@ -253,6 +257,7 @@ public sealed partial class GitEngine
     private async Task StageAsync(RepoRef repo, IProgress<FileProgress>? progress, CancellationToken ct)
     {
         var listing = await ListForStagingAsync(repo, ct).ConfigureAwait(false);
+        NestedRepositories.RefuseAny(repo.WorkTree, listing, ct);
 
         // An empty list would not mean "nothing": add -A with no paths takes the whole folder, excluded files included.
         if (listing.Files.Count == 0)

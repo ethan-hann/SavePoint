@@ -23,6 +23,7 @@ public sealed partial class GitEngine
     /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
     /// <exception cref="Savepoint.Core.Errors.DiskSpaceException">The work tree's volume cannot take the files the switch adds; nothing was written.</exception>
     /// <exception cref="Savepoint.Core.Errors.DirtyWorkingTreeException">Local changes to files the switch would replace; nothing was changed.</exception>
+    /// <exception cref="Savepoint.Core.Errors.ProfileHasNoPointsException">The branch has no point to switch to.</exception>
     /// <exception cref="Savepoint.Core.Errors.GitOperationException">A file stayed in use through every attempt (the path is in its arguments), or git failed.</exception>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     public Task CheckoutBranchAsync(RepoRef repo, string branch, IProgress<FileProgress>? progress = null, CancellationToken ct = default)
@@ -80,7 +81,8 @@ public sealed partial class GitEngine
 
     /// <summary>
     /// Throws away every change since the checked-out point: modified and deleted files come back, new files that are
-    /// not ignored are removed. Ignored files and the consent marker stay. Works on a detached HEAD, and also finishes
+    /// that the game's ignore patterns do not name are removed (an ignore file inside the game folder protects nothing).
+    /// Files those patterns name and the consent marker stay. Works on a detached HEAD, and also finishes
     /// the job of an unfinished switch by returning the folder to the point HEAD is on (which is the point the switch
     /// started from unless HEAD had already moved; <see cref="RepoStatus.InterruptedSwitch"/> says which).
     /// </summary>
@@ -119,7 +121,11 @@ public sealed partial class GitEngine
         SwitchJournal.Clear(repo.GitDir);
     }
 
-    /// <summary>Removes new files and folders that are not ignored; changes to tracked files stay. Ignored files and the consent marker stay.</summary>
+    /// <summary>
+    /// Removes new files and folders; changes to recorded files stay. Files the game's ignore patterns name (as of the last
+    /// capture or preview), the consent marker and folders that keep their own history stay. An ignore file inside the
+    /// game folder protects nothing.
+    /// </summary>
     /// <param name="repo">The folder.</param>
     /// <param name="ct">Cancels the call.</param>
     public async Task CleanAsync(RepoRef repo, CancellationToken ct = default)
@@ -186,7 +192,9 @@ public sealed partial class GitEngine
         var to = isBranch ? await ResolveBranchAsync(repo, target, ct).ConfigureAwait(false) : await ResolveCommitAsync(repo, target, ct).ConfigureAwait(false);
         if (to is null)
         {
-            throw new GitOperationException(null, isBranch ? $"The branch '{target}' has no points to switch to." : $"The point '{target}' is not in the repository.");
+            throw isBranch
+                ? new ProfileHasNoPointsException(target)
+                : new GitOperationException(null, $"The point '{target}' is not in the repository.");
         }
 
         // Which files the switch will remove is known before it starts, so one that cannot be removed is found afterwards.

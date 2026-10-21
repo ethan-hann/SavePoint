@@ -17,7 +17,8 @@ public sealed partial class GitEngine
     /// <param name="ct">Cancels the call.</param>
     /// <exception cref="ArgumentException">A branch name git would refuse.</exception>
     /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
-    /// <exception cref="Savepoint.Core.Errors.GitOperationException">The branch exists, the start point does not, or git failed.</exception>
+    /// <exception cref="Savepoint.Core.Errors.ProfileAlreadyExistsException">The branch exists; nothing was changed.</exception>
+    /// <exception cref="Savepoint.Core.Errors.GitOperationException">The start point does not exist, or git failed.</exception>
     public async Task CreateBranchAsync(RepoRef repo, string newBranch, string startPoint, CancellationToken ct = default)
     {
         repo = Normalize(repo);
@@ -122,8 +123,24 @@ public sealed partial class GitEngine
         return commit ?? throw new GitOperationException(null, $"The start point '{startPoint}' is not a commit or a branch with points.");
     }
 
-    private Task CreateBranchRefAsync(RepoRef repo, string branch, string commit, string reason, CancellationToken ct) =>
-        RunWriteAsync(() => Invocation(repo, readOnly: false, "update-ref", "-m", reason, GitDirFiles.BranchPrefix + branch, commit, _noObject), ct);
+    // The all-zero old value makes git refuse atomically when the branch exists, which is how a second creator is told.
+    private async Task CreateBranchRefAsync(RepoRef repo, string branch, string commit, string reason, CancellationToken ct)
+    {
+        try
+        {
+            await RunWriteAsync(() => Invocation(repo, readOnly: false, "update-ref", "-m", reason, GitDirFiles.BranchPrefix + branch, commit, _noObject), ct)
+                .ConfigureAwait(false);
+        }
+        catch (GitOperationException)
+        {
+            if (await ResolveBranchAsync(repo, branch, ct).ConfigureAwait(false) is not null)
+            {
+                throw new ProfileAlreadyExistsException(branch);
+            }
+
+            throw;
+        }
+    }
 }
 
 // The text of a commit: the point's name, then the capture id as a trailer in its own paragraph.
