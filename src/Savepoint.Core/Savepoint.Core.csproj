@@ -4,4 +4,8 @@
     <RootNamespace>Savepoint.Core</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Savepoint.Core.Tests" />
+  </ItemGroup>
+
 </Project>
