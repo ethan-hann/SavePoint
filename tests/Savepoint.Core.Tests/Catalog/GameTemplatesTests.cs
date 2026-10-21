@@ -97,6 +97,16 @@ public class GameTemplatesTests
     }
 
     [Fact]
+    public void Template_lists_are_read_only_so_a_draft_cannot_change_the_shared_template()
+    {
+        var definition = GameTemplates.All.Single(t => t.Id == "skyrim-se").ToDraft();
+
+        Assert.True(((ICollection<string>)definition.IgnorePaths).IsReadOnly);
+        Assert.True(((ICollection<string>)definition.ModPathHints).IsReadOnly);
+        Assert.True(((ICollection<string>)definition.Launch.Args).IsReadOnly);
+    }
+
+    [Fact]
     public void Drafting_leaves_the_template_itself_unchanged()
     {
         var template = GameTemplates.All[0];

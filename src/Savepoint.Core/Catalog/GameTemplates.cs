@@ -21,9 +21,18 @@ public static class GameTemplates
                 ?? throw new InvalidOperationException($"Embedded template '{file}' is missing from the assembly.");
             var definition = JsonSerializer.Deserialize(stream, CatalogJsonContext.Default.GameDefinition)
                 ?? throw new InvalidOperationException($"Embedded template '{file}' is empty.");
-            templates.Add(new GameTemplate(definition.Id, definition.Name, definition));
+            var shared = ReadOnlyLists(definition);
+            templates.Add(new GameTemplate(shared.Id, shared.Name, shared));
         }
 
         return templates;
     }
+
+    // Drafts copy the definition but share its lists, so the lists must not be changeable through a draft.
+    private static GameDefinition ReadOnlyLists(GameDefinition definition) => definition with
+    {
+        IgnorePaths = [.. definition.IgnorePaths],
+        ModPathHints = [.. definition.ModPathHints],
+        Launch = definition.Launch with { Args = [.. definition.Launch.Args] },
+    };
 }
