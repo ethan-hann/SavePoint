@@ -44,6 +44,19 @@ public sealed partial class GitEngine
     }
 
     /// <summary>
+    /// Tells a file another program holds open from unsaved work. git reads a file again when its timestamp is too new to
+    /// trust, and a file it cannot open then reads as changed, so a status can list a change nobody made.
+    /// </summary>
+    /// <param name="repo">The folder the status was read from.</param>
+    /// <param name="status">The folder's state, from <see cref="GetStatusAsync"/>.</param>
+    /// <returns>The full path of a changed file that is held open, when every change in <paramref name="status"/> is such a file; null when there is a new file or a change that can be read, or nothing is held open.</returns>
+    public string? FindFileInUse(RepoRef repo, RepoStatus status)
+    {
+        ArgumentNullException.ThrowIfNull(status);
+        return OnlyLockedChanges(Normalize(repo), status.ChangedPaths, status.UntrackedPaths.Count);
+    }
+
+    /// <summary>
     /// The points on a branch, newest first. Reads only the git directory, so it works while the game folder is
     /// missing. A branch that does not exist, or a repository that does not exist, has no points.
     /// </summary>

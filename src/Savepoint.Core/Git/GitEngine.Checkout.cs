@@ -28,7 +28,7 @@ public sealed partial class GitEngine
     /// <exception cref="Savepoint.Core.Errors.InterruptedSwitchException">A stopped switch left the folder half done and this one is not the switch to finish it; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.LinkedFolderException">On Windows, a folder link lies in the way; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.ProfileHasNoPointsException">The branch has no point to switch to.</exception>
-    /// <exception cref="Savepoint.Core.Errors.GitOperationException">A file stayed in use through every attempt (the path is in its arguments), or git failed.</exception>
+    /// <exception cref="Savepoint.Core.Errors.GitOperationException">A file stayed in use through every attempt (the path is in its arguments), the only files reported as changed are held open by another program so they could not be read, or git failed.</exception>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     public Task CheckoutBranchAsync(RepoRef repo, string branch, IProgress<FileProgress>? progress = null, CancellationToken ct = default)
     {
@@ -349,7 +349,11 @@ public sealed partial class GitEngine
 
         // Every exit code is allowed through so that stderr can tell a refusal from a half-done switch.
         var invocation = Invocation(repo, readOnly: false, [.. arguments]) with { AllowedExitCodes = _anyExitCode };
-        return reporter is null ? invocation : invocation with { OnStderrLine = line => ObserveCheckoutLine(reporter, line) };
+
+        // git holds its file meter back for two seconds; without this a switch that finishes sooner would never report anything.
+        return reporter is null
+            ? invocation
+            : invocation with { OnStderrLine = line => ObserveCheckoutLine(reporter, line), ExtraEnvironment = new Dictionary<string, string?> { ["GIT_PROGRESS_DELAY"] = "0" } };
     }
 
     private static void ObserveCheckoutLine(ProgressReporter reporter, string line)
@@ -368,7 +372,7 @@ public sealed partial class GitEngine
             var full = Path.Combine(repo.WorkTree, path.Replace('/', Path.DirectorySeparatorChar));
             if (FileLockProbe.IsLocked(full))
             {
-                return new GitOperationException(full, $"'{full}' is in use by another program, so the folder could not be switched.");
+                return InUse(full);
             }
         }
 

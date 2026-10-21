@@ -117,7 +117,7 @@ public sealed partial class LaunchOrchestrator
         {
             throw blocked.Blocked
                 ? new InterruptedSwitchException(blocked.Target.Role, blocked.Note!.ToCommit)
-                : new DirtyWorkingTreeException(blocked.Target.Role);
+                : UnsavedOrInUse(storage.Engine, readings);
         }
 
         var pending = readings.Where(reading => reading.NeedsSwitch).ToList();
@@ -128,6 +128,26 @@ public sealed partial class LaunchOrchestrator
 
         _book.TryUpdate(gameId, context.JobId, record => record.StartCommits = resolved.Folders.ToDictionary(folder => folder.Role, folder => folder.Commit));
         return new Prepared(game, repos.Single(repo => repo.Role == RepoRole.Install).WorkTree, resolved);
+    }
+
+    // A folder whose only "changes" are files another program holds open has no unsaved work to resolve: the player is told which
+    // file to let go of. Unsaved work in any folder wins, since that is what has to be resolved first.
+    private static SavepointException UnsavedOrInUse(GitEngine engine, IReadOnlyList<FolderReading> readings)
+    {
+        var dirty = readings.Where(reading => reading.Dirty && !reading.Blocked).ToList();
+        string? inUse = null;
+        foreach (var reading in dirty)
+        {
+            var held = engine.FindFileInUse(reading.Target.Repo, reading.Status);
+            if (held is null)
+            {
+                return new DirtyWorkingTreeException(reading.Target.Role);
+            }
+
+            inUse ??= held;
+        }
+
+        return new GitOperationException(inUse, $"'{inUse}' is in use by another program, so the folder could not be switched.");
     }
 
     private async Task SwitchAsync(StorageSnapshot storage, JobContext context, string gameId, IReadOnlyList<FolderReading> folders)

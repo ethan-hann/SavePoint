@@ -41,8 +41,9 @@ public interface ILaunchApi
     /// Starts the launch: prepare, switch the folders if needed, start the game. Answers with the launch job at once. The job ends
     /// once the game is running (or fails or is cancelled); everything after that arrives through <see cref="SessionChanged"/>.
     /// Fails at once, with no job, with <c>error.launch.alreadyRunning</c> when the game already has an open session. The job
-    /// itself can fail with, for example, <c>error.launch.dirtyWorkingTree</c>, <c>error.diskSpace.low</c>, or
-    /// <c>error.launch.spawnFailed</c>.
+    /// itself can fail with, for example, <c>error.launch.dirtyWorkingTree</c>, <c>error.gitOperation.checkoutFailed</c> (a file
+    /// another program holds open, named in its <c>path</c>, including one that only reads as an unsaved change because it cannot
+    /// be read), <c>error.diskSpace.low</c>, or <c>error.launch.spawnFailed</c>.
     /// </summary>
     /// <param name="gameId">The game.</param>
     /// <param name="target">What to load.</param>
