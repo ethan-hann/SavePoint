@@ -15,15 +15,18 @@ public abstract partial class ProfileFormDialogViewModel : DialogViewModel<bool>
 {
     private readonly UiFormatter _text;
 
+    /// <summary>The name field.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSave))]
     [NotifyCanExecuteChangedFor(nameof(SaveCommand))]
     private string _name;
 
+    /// <summary>Why the Api refused the change, shown under the fields; null when nothing is wrong.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasError))]
     private string? _error;
 
+    /// <summary>True while the Api call runs, which locks the dialog.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSave))]
     [NotifyPropertyChangedFor(nameof(CanDismiss))]

@@ -14,9 +14,11 @@ public sealed partial class EditProfileDialogViewModel : ProfileFormDialogViewMo
 {
     private readonly Func<ProfileChanges, Task<OperationResult<Profile>>> _save;
 
+    /// <summary>The notes field.</summary>
     [ObservableProperty]
     private string _notes;
 
+    /// <summary>The version field; blank means the detected version is used.</summary>
     [ObservableProperty]
     private string _versionOverride;
 

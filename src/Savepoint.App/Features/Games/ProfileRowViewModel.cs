@@ -16,6 +16,7 @@ public sealed partial class ProfileRowViewModel : ObservableObject
     private readonly UiFormatter _text;
     private readonly IProfileRowActions _actions;
 
+    /// <summary>True when Play can start the game: a launch flow exists, the game has no session and no profile is running.</summary>
     [ObservableProperty]
     private bool _canPlay;
 

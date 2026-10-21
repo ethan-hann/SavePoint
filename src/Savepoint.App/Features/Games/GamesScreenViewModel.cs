@@ -28,26 +28,33 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     private long _generation;
     private CancellationTokenSource? _loadCts;
 
+    /// <summary>The selected game's name; empty without a game.</summary>
     [ObservableProperty]
     private string _gameName = string.Empty;
 
+    /// <summary>The selected game's install folder, shown in monospace under its name.</summary>
     [ObservableProperty]
     private string _installPath = string.Empty;
 
+    /// <summary>"Skyrim Special Edition — profiles", the library layout's header.</summary>
     [ObservableProperty]
     private string _libraryTitle = string.Empty;
 
+    /// <summary>True while the profile list is being read.</summary>
     [ObservableProperty]
     private bool _isLoading;
 
+    /// <summary>The card shown instead of the table when the profile list could not be read; null otherwise.</summary>
     [ObservableProperty]
     private ErrorCardViewModel? _loadError;
 
+    /// <summary>"This game is using 41.2 GB of your 210 GB storage folder"; empty when the use could not be read.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasStorageFooter))]
     [NotifyPropertyChangedFor(nameof(ShowStorageFooter))]
     private string _storageFooterText = string.Empty;
 
+    /// <summary>The launch flow's banner or running card for the selected game, shown above the table; null when there is none.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasInlineContent))]
     private object? _inlineContent;

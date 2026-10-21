@@ -20,17 +20,21 @@ public sealed partial class CapturePreviewViewModel : ObservableObject
 {
     private readonly UiFormatter _text;
 
+    /// <summary>True until the preview has been read or has failed.</summary>
     [ObservableProperty]
     private bool _isLoading = true;
 
+    /// <summary>The folders that will be captured.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasRows))]
     private IReadOnlyList<CaptureRowViewModel> _rows = [];
 
+    /// <summary>What saving will really add to storage after reuse; empty when that is nothing.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasNote))]
     private string _note = string.Empty;
 
+    /// <summary>Why the preview could not be read; empty when it could.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasError))]
     private string _error = string.Empty;

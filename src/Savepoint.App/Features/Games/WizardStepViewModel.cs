@@ -18,12 +18,15 @@ public enum WizardStep
 /// <summary>One dot of the wizard's step indicator: a 24px circle and its label.</summary>
 public sealed partial class WizardStepViewModel : ObservableObject
 {
+    /// <summary>True for the step being shown.</summary>
     [ObservableProperty]
     private bool _isCurrent;
 
+    /// <summary>True for a step already behind.</summary>
     [ObservableProperty]
     private bool _isDone;
 
+    /// <summary>"Step 2 of 3: Check, current step".</summary>
     [ObservableProperty]
     private string _automationName = string.Empty;
 

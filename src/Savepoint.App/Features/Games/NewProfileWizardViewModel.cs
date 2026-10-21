@@ -55,42 +55,53 @@ public sealed partial class NewProfileWizardViewModel : DialogViewModel<bool>
     private readonly IUiDispatcher _dispatcher;
     private readonly CancellationTokenSource _previewCts = new();
 
+    /// <summary>The step showing.</summary>
     [ObservableProperty]
     private WizardStep _step = WizardStep.NameIt;
 
+    /// <summary>The profile name field.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanContinue))]
     [NotifyPropertyChangedFor(nameof(TrimmedName))]
     private string _name;
 
+    /// <summary>The notes field.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TrimmedNotes))]
     [NotifyPropertyChangedFor(nameof(HasNotes))]
     private string _notes = string.Empty;
 
+    /// <summary>Why creating the profile or retrying a folder was refused; empty when nothing is wrong.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSubmitError))]
     private string _submitError = string.Empty;
 
+    /// <summary>Where the save has got to, meaningful on the Save step.</summary>
     [ObservableProperty]
     private SaveState _state = SaveState.Saving;
 
+    /// <summary>"1,200 of 3,430 files saved", a count, or the hint while nothing is known.</summary>
     [ObservableProperty]
     private string _progressText = string.Empty;
 
+    /// <summary>"Currently saving ..." with the file the capture reports; empty when it reports none.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasCurrentFile))]
     private string _currentFileText = string.Empty;
 
+    /// <summary>True while the progress bar has no total to fill towards.</summary>
     [ObservableProperty]
     private bool _isIndeterminate = true;
 
+    /// <summary>How much of the file total is saved, from 0 to 100.</summary>
     [ObservableProperty]
     private double _progressPercent;
 
+    /// <summary>What the hidden live region says: the save starting, each quarter, and how it ended.</summary>
     [ObservableProperty]
     private string _announcement = string.Empty;
 
+    /// <summary>The card the save ended in (half saved, failed or cancelled); null otherwise.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasResultCard))]
     private ErrorCardViewModel? _resultCard;
