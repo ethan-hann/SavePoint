@@ -28,7 +28,11 @@ public class ProcessNameMatcherTests
         { OsKind.Linux, "SkyrimSE.exe", "SkyrimSE.exe", null, null, true },
         { OsKind.Linux, "SkyrimSE", "SkyrimSE.exe", null, null, true },
         { OsKind.Linux, "SkyrimSE.exe", "SkyrimSE", null, null, true },
-        { OsKind.Linux, "skyrimse.exe", "SkyrimSE.exe", null, null, false },
+        { OsKind.Linux, "skyrimse.exe", "SkyrimSE.exe", null, null, true },
+        { OsKind.Linux, "SKYRIMSE.EXE", "SkyrimSE.exe", null, null, true },
+        { OsKind.Linux, "Skyrimse", "SkyrimSE.exe", null, null, false },
+        { OsKind.Linux, "Factorio", "factorio", null, null, false },
+        { OsKind.Linux, "factorio", "Factorio", null, null, false },
         { OsKind.Linux, "factorio", "factorio2", null, null, false },
         { OsKind.Linux, "SkyrimSE.exe", "wine64-preloader", _protonExePath, null, false },
         { OsKind.Linux, "SkyrimSE.exe", "wine64-preloader", "/games/Skyrim/SkyrimSE.exe", null, true },
@@ -38,7 +42,9 @@ public class ProcessNameMatcherTests
         { OsKind.Linux, "SkyrimSE.exe", "wine64-preloader", _protonExePath, "Z:/home/u/Skyrim/SkyrimSE.exe", true },
         { OsKind.Linux, "SkyrimSE.exe", "wine64-preloader", _protonExePath, @"C:\windows\system32\services.exe", false },
         { OsKind.Linux, "SkyrimSE.exe", "wine64-preloader", null, "SkyrimSE.exe", true },
-        { OsKind.Linux, "skyrimse.exe", "wine64-preloader", _protonExePath, _protonArgv0, false },
+        { OsKind.Linux, "skyrimse.exe", "wine64-preloader", _protonExePath, _protonArgv0, true },
+        { OsKind.Linux, "skyrimse", "wine64-preloader", _protonExePath, _protonArgv0, false },
+        { OsKind.Linux, "game", "wrapper", "/opt/games/Game/bin/Game", null, false },
 
         // Linux: the kernel cuts comm to 15 characters, so a 15-character name matches by prefix.
         { OsKind.Linux, "VeryLongGameName.exe", "VeryLongGameNam", null, null, true },
@@ -47,7 +53,19 @@ public class ProcessNameMatcherTests
         { OsKind.Linux, "WitcherGame_x", "WitcherGame_x.e", null, null, true },
         { OsKind.Linux, "VeryLongGameName.exe", "VeryLongGameNax", null, null, false },
         { OsKind.Linux, "VeryLongGameName.exe", "VeryLongGameNa", null, null, false },
-        { OsKind.Linux, "veryLongGameName.exe", "VeryLongGameNam", null, null, false },
+        { OsKind.Linux, "veryLongGameName.exe", "VeryLongGameNam", null, null, true },
+        { OsKind.Linux, "veryLongGameName", "VeryLongGameNam", null, null, false },
+
+        // The 15-character rule is a last resort: when the executable path or argv0 names a file, that file decides.
+        { OsKind.Linux, "MyVeryLongGameName.exe", "MyVeryLongGameN", null, @"C:\x\MyVeryLongGameNameLauncher.exe", false },
+        { OsKind.Linux, "VeryLongGameName.exe", "VeryLongGameNam", "/usr/bin/wrapper", null, false },
+        { OsKind.Linux, "MyVeryLongGameName.exe", "MyVeryLongGameN", "/usr/bin/wrapper", @"C:\x\MyVeryLongGameName.exe", true },
+
+        // macOS reports the executable's full path, so a long name that the kernel shortened still matches by file name.
+        { OsKind.MacOS, "Pillars of Eternity II", "Pillars of Eter", "/Applications/PoE2.app/Contents/MacOS/Pillars of Eternity II", null, true },
+        { OsKind.MacOS, "pillars of eternity ii", "Pillars of Eter", "/Applications/PoE2.app/Contents/MacOS/Pillars of Eternity II", null, true },
+        { OsKind.MacOS, "Pillars of Eternity II", "Pillars of Eter", "/Applications/PoE2.app/Contents/MacOS/Other", null, false },
+        { OsKind.Windows, "Pillars of Eternity II", "Pillars of Eter", @"C:\Games\PoE2\Pillars of Eternity II.exe", null, false },
         { OsKind.Linux, "SkyrimSE.exe", "VeryLongGameNam", null, null, false },
         { OsKind.Linux, "", "", null, null, false },
     };
