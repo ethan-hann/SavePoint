@@ -59,8 +59,15 @@ internal static class TargetResolver
         foreach (var repo in repos)
         {
             var lineage = await storage.Engine.ListCommitsAsync(repo, profile.BranchName, null, cancellationToken).ConfigureAwait(false);
+
+            // A saves folder the profile never saved (one added after the profile was made) is left as it is; the next save adds it (D31).
             if (lineage.Count == 0)
             {
+                if (repo.Role == RepoRole.External)
+                {
+                    continue;
+                }
+
                 throw new ProfileHasNoPointsException(profile.Id);
             }
 
