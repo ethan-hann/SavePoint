@@ -187,6 +187,20 @@ public sealed class HistoryTests : IClassFixture<HistoryFixture>
     }
 
     [Fact]
+    public async Task A_cancelled_read_throws_instead_of_looking_like_no_data()
+    {
+        using var cancelled = new CancellationTokenSource();
+        await cancelled.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Engine.ListCommitsAsync(_fx.Repo, "profile-1", ct: cancelled.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Engine.ListBranchesAsync(_fx.Repo, cancelled.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Engine.CountCommitsAsync(_fx.Repo, "profile-1", cancelled.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Engine.ListTreeFilesAsync(_fx.Repo, "profile-1", cancelled.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Engine.ReadBlobAsync(_fx.Repo, "profile-1", "a.txt", cancelled.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Engine.ListCommitsOnlyOnAsync(_fx.Repo, "profile-1", ["profile-2"], cancelled.Token));
+    }
+
+    [Fact]
     public async Task Reads_run_with_optional_locks_off_and_never_start_a_write()
     {
         _ = await Engine.ListCommitsAsync(_fx.Repo, "profile-1", ct: Ct);
