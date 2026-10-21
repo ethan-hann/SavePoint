@@ -121,29 +121,124 @@ public sealed class ForkAndMoveTests : IDisposable
     }
 
     [Fact]
-    public async Task A_fork_stopped_between_making_the_branch_and_switching_to_it_can_be_repeated()
+    public async Task A_fork_stopped_after_the_branch_was_made_and_before_head_followed_is_finished_by_repeating_it()
     {
         var (repo, points) = await PlayingFromTheFirstPointAsync();
-        using var cancel = CancellationTokenSource.CreateLinkedTokenSource(Ct);
-        _ws.OnInvoke = invocation =>
-        {
-            if (invocation.Arguments[0] == "symbolic-ref")
-            {
-                cancel.Cancel();
-            }
-        };
+        _ws.OnInvoke = invocation => FailAt(invocation, "symbolic-ref");
 
-        await Assert.ThrowsAsync<OperationCancelledByUserException>(
-            () => _ws.Engine.CaptureAsync(repo, Fork("profile-fork", points[0], "Kept", "id"), ct: cancel.Token));
-        Assert.Equal(points[0], await _ws.TipAsync(repo, "profile-fork"));
+        await Assert.ThrowsAsync<IOException>(() => _ws.Engine.CaptureAsync(repo, Fork("profile-fork", points[0], "Kept", "id"), ct: Ct));
+        var recorded = await _ws.TipAsync(repo, "profile-fork");
+        Assert.Equal(points[0], await _ws.ResolveAsync(repo, "profile-fork~1"));
         Assert.Null(await _ws.HeadRefAsync(repo));
+        Assert.Equal(points[0], await _ws.ResolveAsync(repo, "HEAD"));
 
         _ws.OnInvoke = null;
         var outcome = await _ws.Engine.CaptureAsync(repo, Fork("profile-fork", points[0], "Kept", "id"), ct: Ct);
 
         Assert.True(outcome.Changed);
+        Assert.Equal(recorded, outcome.TipCommitId);
+        Assert.Equal(recorded, await _ws.TipAsync(repo, "profile-fork"));
+        Assert.Equal(2, await _ws.CountAsync(repo, "profile-fork"));
         Assert.Equal("refs/heads/profile-fork", await _ws.HeadRefAsync(repo));
-        Assert.Equal(points[0], await _ws.ResolveAsync(repo, "profile-fork~1"));
+        Assert.True((await _ws.Engine.GetStatusAsync(repo, Ct)).IsClean);
+    }
+
+    [Fact]
+    public async Task A_fork_repeated_under_another_capture_id_does_not_take_over_the_branch_an_earlier_one_made()
+    {
+        var (repo, points) = await PlayingFromTheFirstPointAsync();
+        _ws.OnInvoke = invocation => FailAt(invocation, "symbolic-ref");
+        await Assert.ThrowsAsync<IOException>(() => _ws.Engine.CaptureAsync(repo, Fork("profile-fork", points[0], "Kept", "first-try"), ct: Ct));
+        _ws.OnInvoke = null;
+
+        await Assert.ThrowsAsync<ProfileAlreadyExistsException>(() => _ws.Engine.CaptureAsync(repo, Fork("profile-fork", points[0], "Kept", "another-capture"), ct: Ct));
+
+        Assert.Null(await _ws.HeadRefAsync(repo));
+    }
+
+    [Theory]
+    [InlineData(CaptureMode.Fork, true)]
+    [InlineData(CaptureMode.Fork, false)]
+    [InlineData(CaptureMode.MoveForward, true)]
+    [InlineData(CaptureMode.MoveForward, false)]
+    public async Task A_capture_stopped_while_it_records_the_new_point_leaves_every_ref_and_head_where_they_were(CaptureMode mode, bool byCancel)
+    {
+        var (repo, points) = await PlayingFromTheFirstPointAsync();
+        var played = TreeSnapshot.Take(repo.WorkTree);
+        using var cancel = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+        _ws.OnInvoke = invocation =>
+        {
+            if (invocation.Arguments[0] is "commit" or "commit-tree")
+            {
+                StopNow(cancel, byCancel);
+            }
+        };
+        var request = mode == CaptureMode.Fork ? Fork("profile-fork", points[0], "Kept", "id") : Move("profile-1", points[0], "Continued", "id");
+
+        var stopped = _ws.Engine.CaptureAsync(repo, request, ct: cancel.Token);
+        if (byCancel)
+        {
+            await Assert.ThrowsAsync<OperationCancelledByUserException>(() => stopped);
+        }
+        else
+        {
+            await Assert.ThrowsAsync<IOException>(() => stopped);
+        }
+
+        await AssertNothingMovedAsync(repo, points, played);
+    }
+
+    [Theory]
+    [InlineData(CaptureMode.Fork, true)]
+    [InlineData(CaptureMode.MoveForward, false)]
+    public async Task A_capture_stopped_just_before_the_ref_is_written_has_built_the_point_but_moved_nothing(CaptureMode mode, bool byCancel)
+    {
+        var (repo, points) = await PlayingFromTheFirstPointAsync();
+        var played = TreeSnapshot.Take(repo.WorkTree);
+        using var cancel = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+        _ws.OnInvoke = invocation =>
+        {
+            if (invocation.Arguments[0] == "update-ref")
+            {
+                StopNow(cancel, byCancel);
+            }
+        };
+        var request = mode == CaptureMode.Fork ? Fork("profile-fork", points[0], "Kept", "id") : Move("profile-1", points[0], "Continued", "id");
+
+        var stopped = _ws.Engine.CaptureAsync(repo, request, ct: cancel.Token);
+        if (byCancel)
+        {
+            await Assert.ThrowsAsync<OperationCancelledByUserException>(() => stopped);
+        }
+        else
+        {
+            await Assert.ThrowsAsync<IOException>(() => stopped);
+        }
+
+        Assert.Contains(_ws.Invocations, invocation => invocation.Arguments[0] == "commit-tree");
+        await AssertNothingMovedAsync(repo, points, played);
+    }
+
+    [Fact]
+    public async Task A_later_reclaim_drops_no_point_after_a_move_forward_stopped_while_it_recorded_the_new_one()
+    {
+        var (repo, points) = await PlayingFromTheFirstPointAsync();
+        using var cancel = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+        _ws.OnInvoke = invocation =>
+        {
+            if (invocation.Arguments[0] is "commit" or "commit-tree")
+            {
+                cancel.Cancel();
+            }
+        };
+        await Assert.ThrowsAsync<OperationCancelledByUserException>(() => _ws.Engine.CaptureAsync(repo, Move("profile-1", points[0], "Continued", "id"), ct: cancel.Token));
+        _ws.OnInvoke = null;
+
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Reclaim, Ct);
+
+        Assert.Equal(points[2], await _ws.TipAsync(repo, "profile-1"));
+        Assert.Equal(3, (await _ws.Engine.ListCommitsAsync(repo, "profile-1", ct: Ct)).Count);
+        Assert.True(await _ws.ObjectExistsAsync(repo, points[1]));
     }
 
     [Fact]
@@ -246,7 +341,29 @@ public sealed class ForkAndMoveTests : IDisposable
     }
 
     [Fact]
-    public async Task A_move_forward_stopped_after_moving_the_branch_can_be_repeated()
+    public async Task A_move_forward_stopped_after_the_branch_moved_and_before_head_followed_is_finished_by_repeating_it()
+    {
+        var (repo, points) = await PlayingFromTheFirstPointAsync();
+        _ws.OnInvoke = invocation => FailAt(invocation, "symbolic-ref");
+
+        await Assert.ThrowsAsync<IOException>(() => _ws.Engine.CaptureAsync(repo, Move("profile-1", points[0], "Continued", "id"), ct: Ct));
+        Assert.Equal(points[0], await _ws.ResolveAsync(repo, "profile-1~1"));
+        Assert.Null(await _ws.HeadRefAsync(repo));
+        Assert.Equal(points[0], await _ws.ResolveAsync(repo, "HEAD"));
+
+        _ws.OnInvoke = null;
+        var outcome = await _ws.Engine.CaptureAsync(repo, Move("profile-1", points[0], "Continued", "id"), ct: Ct);
+
+        Assert.True(outcome.Changed);
+        Assert.Equal(outcome.TipCommitId, await _ws.TipAsync(repo, "profile-1"));
+        Assert.Equal(points[0], await _ws.ResolveAsync(repo, "profile-1~1"));
+        Assert.Equal(2, await _ws.CountAsync(repo, "profile-1"));
+        Assert.Equal("refs/heads/profile-1", await _ws.HeadRefAsync(repo));
+        Assert.True((await _ws.Engine.GetStatusAsync(repo, Ct)).IsClean);
+    }
+
+    [Fact]
+    public async Task A_cancel_that_arrives_once_the_branch_has_moved_still_lets_head_follow()
     {
         var (repo, points) = await PlayingFromTheFirstPointAsync();
         using var cancel = CancellationTokenSource.CreateLinkedTokenSource(Ct);
@@ -258,15 +375,10 @@ public sealed class ForkAndMoveTests : IDisposable
             }
         };
 
-        await Assert.ThrowsAsync<OperationCancelledByUserException>(
-            () => _ws.Engine.CaptureAsync(repo, Move("profile-1", points[0], "Continued", "id"), ct: cancel.Token));
-        Assert.Equal(points[0], await _ws.TipAsync(repo, "profile-1"));
-
-        _ws.OnInvoke = null;
-        var outcome = await _ws.Engine.CaptureAsync(repo, Move("profile-1", points[0], "Continued", "id"), ct: Ct);
+        var outcome = await _ws.Engine.CaptureAsync(repo, Move("profile-1", points[0], "Continued", "id"), ct: cancel.Token);
 
         Assert.True(outcome.Changed);
-        Assert.Equal(points[0], await _ws.ResolveAsync(repo, "profile-1~1"));
+        Assert.Equal(outcome.TipCommitId, await _ws.TipAsync(repo, "profile-1"));
         Assert.Equal("refs/heads/profile-1", await _ws.HeadRefAsync(repo));
     }
 
@@ -288,6 +400,38 @@ public sealed class ForkAndMoveTests : IDisposable
 
     private static CaptureRequest Move(string branch, string start, string message, string captureId) =>
         new(branch, message, captureId) { Mode = CaptureMode.MoveForward, ExpectedStartCommit = start };
+
+    // Fails the git call named, as a full disk or a crash would, instead of running it.
+    private static void FailAt(GitInvocation invocation, string command)
+    {
+        if (invocation.Arguments[0] == command)
+        {
+            throw new IOException("There is not enough space on the disk.");
+        }
+    }
+
+    private static void StopNow(CancellationTokenSource cancel, bool byCancel)
+    {
+        if (byCancel)
+        {
+            cancel.Cancel();
+        }
+        else
+        {
+            throw new IOException("There is not enough space on the disk.");
+        }
+    }
+
+    // After a capture that stopped before it wrote any ref: the profiles and HEAD are where the playing session found them, and no point is gone.
+    private async Task AssertNothingMovedAsync(RepoRef repo, string[] points, SortedDictionary<string, string> played)
+    {
+        Assert.Equal(points[2], await _ws.TipAsync(repo, "profile-1"));
+        Assert.Null(await _ws.TipAsync(repo, "profile-fork"));
+        Assert.Null(await _ws.HeadRefAsync(repo));
+        Assert.Equal(points[0], await _ws.ResolveAsync(repo, "HEAD"));
+        Assert.Equal(3, await _ws.CountAsync(repo, "profile-1"));
+        Assert.Equal(played, TreeSnapshot.Take(repo.WorkTree));
+    }
 
     // profile-1 has three points; the folder was switched to the first and a new file was added while playing.
     private async Task<(RepoRef Repo, string[] Points)> PlayingFromTheFirstPointAsync()

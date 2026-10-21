@@ -260,7 +260,7 @@ public sealed class SwitchSafetyTests : IDisposable
         Assert.Equal("error.launch.switchInterrupted", error.MessageId);
         Assert.Equal(RepoRole.Install, error.Args["role"]);
         Assert.Equal(tips.A, error.Args["targetPoint"]);
-        Assert.DoesNotContain(_ws.Invocations, invocation => invocation.Arguments.Contains("add") || invocation.Arguments.Contains("commit"));
+        Assert.DoesNotContain(_ws.Invocations, invocation => invocation.Arguments.Contains("add") || invocation.Arguments.Contains("commit") || invocation.Arguments.Contains("commit-tree"));
         Assert.Equal(tips.B, await _ws.TipAsync(repo, "profile-b"));
         Assert.Null(await _ws.TipAsync(repo, "profile-c"));
     }

@@ -8,12 +8,13 @@ public sealed partial class GitEngine
     /// Records the folder's current contents as a point on a branch, as described by <paramref name="request"/>.
     /// Nothing in the work tree is written or switched. A new file named by the request's ignore patterns, or the
     /// consent marker, is not added; a file an earlier point already holds stays in the history and is recorded again
-    /// when it changes, whatever the patterns say now.
+    /// when it changes, whatever the patterns say now. A fork or a move forward writes its new point first and then creates or
+    /// moves the branch with one ref update, so a stop or a failure before that update leaves every branch and HEAD where they were.
     /// </summary>
     /// <param name="repo">The folder to capture; its repository must exist.</param>
     /// <param name="request">The branch, message, capture id, mode and ignore patterns.</param>
     /// <param name="progress">Receives files done and expected while git works; may be null.</param>
-    /// <param name="ct">Cancels the capture. git and its children are stopped; the next capture clears what the interrupted one left.</param>
+    /// <param name="ct">Cancels the capture. git and its children are stopped; the next capture clears what the interrupted one left. Once a fork or a move forward has written its branch, HEAD is attached to it whatever the token says.</param>
     /// <returns>Whether a point was recorded, and the branch tip afterwards.</returns>
     /// <exception cref="Savepoint.Core.Errors.PathSafetyException">The work tree is a protected location.</exception>
     /// <exception cref="Savepoint.Core.Errors.PathMissingException">The work tree does not exist.</exception>
@@ -127,22 +128,35 @@ public sealed partial class GitEngine
 
         await RequireSessionStartAsync(repo, request.ExpectedStartCommit, tip, ct).ConfigureAwait(false);
 
-        // A branch left at this very point by an earlier attempt that was stopped is picked up, not refused.
+        // A branch left by an earlier attempt that was stopped is picked up, not refused: still at this point, or holding the point this capture recorded.
         var existing = await ResolveBranchAsync(repo, request.Branch, ct).ConfigureAwait(false);
         if (existing is not null && !string.Equals(existing, tip, StringComparison.Ordinal))
         {
-            throw new ProfileAlreadyExistsException(request.Branch);
+            if (!await IsPointOfCaptureAsync(repo, existing, tip, request.CaptureId, ct).ConfigureAwait(false))
+            {
+                throw new ProfileAlreadyExistsException(request.Branch);
+            }
+
+            await AttachHeadAsync(repo, request.Branch, head).ConfigureAwait(false);
+            return new CaptureOutcome(true, existing);
         }
 
         await StageAsync(repo, progress, ct).ConfigureAwait(false);
         var changed = await IndexDiffersAsync(repo, "HEAD", ct).ConfigureAwait(false);
 
+        // The point exists before any ref changes, so a stop up to the one ref write leaves every ref where it was.
+        var commit = changed ? await WriteCommitAsync(repo, request, tip, ct).ConfigureAwait(false) : tip;
         if (existing is null)
         {
-            await CreateBranchRefAsync(repo, request.Branch, tip, "savepoint: fork branch", ct).ConfigureAwait(false);
+            await CreateBranchRefAsync(repo, request.Branch, commit, "savepoint: fork branch", ct).ConfigureAwait(false);
+        }
+        else if (changed)
+        {
+            await MoveBranchRefAsync(repo, request.Branch, commit, existing, "savepoint: fork branch", ct).ConfigureAwait(false);
         }
 
-        return await CommitOnBranchAsync(repo, request, head, changed, ct).ConfigureAwait(false);
+        await AttachHeadAsync(repo, request.Branch, head).ConfigureAwait(false);
+        return new CaptureOutcome(changed, commit);
     }
 
     private async Task<CaptureOutcome> CaptureMoveForwardAsync(
@@ -177,31 +191,39 @@ public sealed partial class GitEngine
         await StageAsync(repo, progress, ct).ConfigureAwait(false);
         var changed = await IndexDiffersAsync(repo, "HEAD", ct).ConfigureAwait(false);
 
-        if (moves)
+        // The point exists before the branch moves, so the points a move drops stay on it until the one ref write.
+        var commit = changed ? await WriteCommitAsync(repo, request, tip, ct).ConfigureAwait(false) : tip;
+        if (!string.Equals(commit, branchTip, StringComparison.Ordinal))
         {
-            // The old value is checked, so a branch that moved since it was read is not overwritten.
-            await RunWriteAsync(
-                () => Invocation(repo, readOnly: false, "update-ref", "-m", "savepoint: move branch", GitDirFiles.BranchPrefix + request.Branch, tip, branchTip),
-                ct).ConfigureAwait(false);
+            await MoveBranchRefAsync(repo, request.Branch, commit, branchTip, "savepoint: move branch", ct).ConfigureAwait(false);
         }
 
-        return await CommitOnBranchAsync(repo, request, head, changed, ct).ConfigureAwait(false);
+        await AttachHeadAsync(repo, request.Branch, head).ConfigureAwait(false);
+        return new CaptureOutcome(changed, commit);
     }
 
-    // Attaches HEAD to the branch (the branch already points at the folder's point, so no file changes) and commits when something changed.
-    private async Task<CaptureOutcome> CommitOnBranchAsync(RepoRef repo, CaptureRequest request, HeadState head, bool changed, CancellationToken ct)
+    // Writes the staged tree as a point on top of <parent> and moves no ref; the id is all there is to it until a ref names it.
+    private async Task<string> WriteCommitAsync(RepoRef repo, CaptureRequest request, string parent, CancellationToken ct)
     {
-        if (!string.Equals(head.Branch, request.Branch, StringComparison.Ordinal))
-        {
-            await SetHeadAsync(repo, request.Branch, ct).ConfigureAwait(false);
-        }
+        var tree = (await RunWriteAsync(() => Invocation(repo, readOnly: false, "write-tree"), ct).ConfigureAwait(false)).StandardOutput.Trim();
+        var message = CommitMessage.Compose(request.Message, request.CaptureId);
+        var result = await RunWriteAsync(() => Invocation(repo, readOnly: false, "commit-tree", tree, "-p", parent, "-F", "-") with { Stdin = message }, ct).ConfigureAwait(false);
+        return result.StandardOutput.Trim();
+    }
 
-        if (changed)
-        {
-            await CommitAsync(repo, request, amend: false, ct).ConfigureAwait(false);
-        }
+    // The branch the point went on takes HEAD with it (no file changes: the folder already holds that point's files).
+    // Not cancellable: the branch has moved by now, and a cancel here would leave HEAD somewhere the branch is not.
+    private Task AttachHeadAsync(RepoRef repo, string branch, HeadState head) =>
+        string.Equals(head.Branch, branch, StringComparison.Ordinal) ? Task.CompletedTask : SetHeadAsync(repo, branch, CancellationToken.None);
 
-        return new CaptureOutcome(changed, await ResolveBranchAsync(repo, request.Branch, ct).ConfigureAwait(false));
+    // True when <commit> is the point a capture with this id recorded straight on top of <parent>: what a stopped attempt of the same capture left.
+    private async Task<bool> IsPointOfCaptureAsync(RepoRef repo, string commit, string parent, string captureId, CancellationToken ct)
+    {
+        var result = await RunAsync(
+            GitDirOnly(repo, "log", "-1", "--format=%P%x1f%(trailers:key=Savepoint-Capture,valueonly,separator=%x2c)", commit, "--"),
+            ct).ConfigureAwait(false);
+        var fields = result.StandardOutput.Trim().Split('\x1f');
+        return fields.Length == 2 && string.Equals(fields[0].Trim(), parent, StringComparison.Ordinal) && string.Equals(fields[1].Trim(), captureId, StringComparison.Ordinal);
     }
 
     // The folder has to be on the point the session started from, or on a later one; anything else means it was changed behind the session's back.
