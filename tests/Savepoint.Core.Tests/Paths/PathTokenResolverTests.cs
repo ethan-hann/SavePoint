@@ -34,7 +34,9 @@ public class PathTokenResolverTests
         { OsKind.Linux, @"{appData}\Game\saves", "/home/test/.config/Game/saves" },
         { OsKind.Linux, "{localAppData}/Game", "/home/test/.local/share/Game" },
         { OsKind.Linux, "{userHome}", "/home/test" },
-        { OsKind.Linux, @"/opt/games\sky/", "/opt/games/sky" },
+        { OsKind.Linux, @"/opt/games\sky/", @"/opt/games\sky" },
+        { OsKind.MacOS, @"/Applications/Game\Name.app", @"/Applications/Game\Name.app" },
+        { OsKind.Linux, @"{userHome}/a\b/c", "/home/test/a/b/c" },
         { OsKind.Linux, "/a/./b/../c", "/a/c" },
         { OsKind.MacOS, "{appData}/Game", "/Users/test/Library/Application Support/Game" },
         { OsKind.MacOS, @"{localAppData}\Game", "/Users/test/Library/Application Support/Game" },
@@ -88,6 +90,26 @@ public class PathTokenResolverTests
         var error = Assert.Throws<ValidationException>(() => For(os).Resolve(raw));
 
         Assert.Equal([new ValidationIssue("path", "validation.path.notAbsolute")], Issues(error));
+    }
+
+    [Theory]
+    [InlineData(@"C:\Windows::$INDEX_ALLOCATION\System32")]
+    [InlineData(@"D:\Games\Sky:stream")]
+    [InlineData(@"{documents}\Game::$DATA")]
+    [InlineData(@"{userHome}\a:b\c")]
+    [InlineData(@"\\server\share\x:y")]
+    public void A_stream_spelling_on_windows_is_a_validation_error_of_its_own(string raw)
+    {
+        var error = Assert.Throws<ValidationException>(() => _windows.Resolve(raw));
+
+        Assert.Equal([new ValidationIssue("path", PathValidationIds.InvalidCharacter)], Issues(error));
+    }
+
+    [Fact]
+    public void A_colon_is_fine_in_a_posix_folder_name()
+    {
+        Assert.Equal("/games/a:b", _linux.Resolve("/games/a:b"));
+        Assert.Equal("/home/test/Documents/a:b", _linux.Resolve("{documents}/a:b"));
     }
 
     [Fact]

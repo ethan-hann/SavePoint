@@ -38,6 +38,12 @@ public sealed class PathSafety
     /// <summary>Throws PathSafetyException for a blocked location; the path must already be absolute (ArgumentException otherwise).</summary>
     public void Check(string path)
     {
+        // A stream spelling reaches a folder under a name no table entry matches, so it is refused before anything else.
+        if (_syntax.UsesStreamSyntax(path))
+        {
+            throw new PathSafetyException(path, 1);
+        }
+
         var real = ParseResolved(path);
 
         if (_subtreeRoots.Any(root => Blocks(root, real)))

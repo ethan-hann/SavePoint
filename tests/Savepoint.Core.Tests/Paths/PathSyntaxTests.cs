@@ -62,6 +62,52 @@ public class PathSyntaxTests
         { OsKind.MacOS, "/Users/test", "Library", "/Users/test/Library" },
     };
 
+    public static TheoryData<string> StreamSpellings => new()
+    {
+        @"C:\Windows::$INDEX_ALLOCATION\System32",
+        @"C:\Windows::$INDEX_ALLOCATION",
+        @"C:\Users\Test::$INDEX_ALLOCATION",
+        @"C:\Windows:$I30:$INDEX_ALLOCATION",
+        @"C:\Windows\System32:stream",
+        @"c:/Windows::$INDEX_ALLOCATION/System32",
+        @"\\?\C:\Windows::$INDEX_ALLOCATION",
+        @"\\server\share\a:b",
+        @"\\server\share:x\a",
+    };
+
+    [Theory]
+    [MemberData(nameof(StreamSpellings))]
+    public void A_colon_after_the_drive_names_a_stream_and_is_not_an_absolute_path_on_windows(string path)
+    {
+        var windows = PathSyntax.For(OsKind.Windows);
+
+        Assert.True(windows.UsesStreamSyntax(path));
+        Assert.False(windows.IsAbsolute(path));
+        Assert.Throws<ArgumentException>(() => windows.Normalize(path));
+    }
+
+    [Theory]
+    [InlineData(OsKind.Windows, @"C:\Games\Sky")]
+    [InlineData(OsKind.Windows, @"\\?\C:\Games")]
+    [InlineData(OsKind.Windows, @"\\server\share\Games")]
+    [InlineData(OsKind.Windows, "C:Games")]
+    [InlineData(OsKind.Windows, @"Games:x")]
+    [InlineData(OsKind.Linux, "/games/a:b")]
+    [InlineData(OsKind.MacOS, "/Games/a:b")]
+    public void Other_paths_do_not_use_stream_syntax(OsKind os, string path)
+    {
+        Assert.False(PathSyntax.For(os).UsesStreamSyntax(path));
+    }
+
+    [Theory]
+    [InlineData(OsKind.Linux, "/games/a:b/c")]
+    [InlineData(OsKind.MacOS, "/Games/a:b")]
+    public void A_colon_is_an_ordinary_character_in_a_posix_folder_name(OsKind os, string path)
+    {
+        Assert.True(PathSyntax.For(os).IsAbsolute(path));
+        Assert.Equal(path, PathSyntax.For(os).Normalize(path));
+    }
+
     [Theory]
     [MemberData(nameof(AbsoluteCases))]
     public void IsAbsolute_follows_the_rules_of_the_given_os_on_any_host(OsKind os, string path, bool expected)

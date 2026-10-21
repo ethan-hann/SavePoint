@@ -30,7 +30,14 @@ public sealed class PathSyntax
         _ => throw new ArgumentOutOfRangeException(nameof(os), os, "Unknown OS."),
     };
 
+    /// <summary>
+    /// True when <paramref name="path"/> names a drive or share. A Windows path with a colon after the drive letter
+    /// (NTFS stream syntax) is never absolute: it can reach a folder under another spelling.
+    /// </summary>
     public bool IsAbsolute(string path) => TryReadRoot(path, out _, out _);
+
+    /// <summary>True for a Windows path that would be absolute but has a colon after the drive letter, like <c>C:\Windows::$INDEX_ALLOCATION</c>.</summary>
+    public bool UsesStreamSyntax(string path) => ReadRoot(path, out _, out _, out var stream) && stream;
 
     public string Normalize(string path)
     {
@@ -112,10 +119,14 @@ public sealed class PathSyntax
 
     private static bool IsDriveLetter(char c) => c is >= 'A' and <= 'Z' or >= 'a' and <= 'z';
 
+    private bool TryReadRoot(string path, out string root, out string rest) =>
+        ReadRoot(path, out root, out rest, out var stream) && !stream;
+
     // The root keeps its trailing separator ("C:\", "/", "\\server\share\") so a root-only path joins cleanly.
-    private bool TryReadRoot(string path, out string root, out string rest)
+    private bool ReadRoot(string path, out string root, out string rest, out bool streamSyntax)
     {
         root = rest = string.Empty;
+        streamSyntax = false;
         if (string.IsNullOrEmpty(path))
         {
             return false;
@@ -148,6 +159,9 @@ public sealed class PathSyntax
         {
             root = char.ToUpperInvariant(text[0]) + @":\";
             rest = text[3..];
+
+            // A colon past the drive letter is NTFS stream syntax ("Windows::$INDEX_ALLOCATION" opens the folder), never part of a name.
+            streamSyntax = rest.Contains(':');
             return true;
         }
 
@@ -158,6 +172,7 @@ public sealed class PathSyntax
             {
                 root = $@"\\{segments[0]}\{segments[1]}\";
                 rest = segments.Length == 3 ? segments[2] : string.Empty;
+                streamSyntax = text[2..].Contains(':');
                 return true;
             }
         }
