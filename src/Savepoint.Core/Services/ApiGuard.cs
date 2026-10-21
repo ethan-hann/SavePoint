@@ -24,9 +24,4 @@ internal static class ApiGuard
             return OperationResult.Failure<T>(exception);
         }
     }
-
-    // Placeholder for members that are not built yet; removed once every member is.
-    public static Task<OperationResult<T>> NotBuilt<T>()
-        where T : notnull =>
-        RunAsync<T>(() => throw new NotImplementedException("This member is not built yet."));
 }
