@@ -49,6 +49,7 @@ public static class ErrorPresentation
         ["error.git.unavailable"] = new(Icons.Error, ErrorTone.Error, "errorCard.title.toolMissing"),
         ["error.gitOperation.amendNotAvailable"] = new(Icons.Info, ErrorTone.Neutral, "errorCard.title.generic"),
         ["error.gitOperation.checkoutFailed"] = new(Icons.Lock, ErrorTone.Error, "errorCard.title.fileInUse"),
+        ["error.history.pointNotFound"] = new(Icons.History, ErrorTone.Neutral, "errorCard.title.notFound"),
         ["error.launch.alreadyRunning"] = new(Icons.SportsEsports, ErrorTone.Neutral, "errorCard.title.gameRunning"),
         ["error.launch.canceled"] = new(Icons.Cancel, ErrorTone.Neutral, "errorCard.title.canceled"),
         ["error.launch.detachedCaptureNotSupported"] = new(Icons.History, ErrorTone.Warning, "errorCard.title.olderSave"),

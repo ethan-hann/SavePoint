@@ -38,6 +38,8 @@ internal static class ContractScenario
         story.Add("profiles listed", Show(await backend.Profiles.ListAsync(game.Id, cancellationToken), profiles =>
             string.Join("; ", profiles.Select(p => $"{p.Name} notes={p.Notes} branch={story.Mask(p.BranchName)}"))));
 
+        await PlayAsync(backend, game, vanilla ?? "missing", story, cancellationToken);
+
         var copy = await backend.Profiles.DuplicateAsync(game.Id, vanilla ?? "missing", "Vanilla copy");
         story.Add("duplicate profile", Show(copy, profile => $"{profile.Name} notes={profile.Notes}"));
         if (copy.Ok)
@@ -75,6 +77,41 @@ internal static class ContractScenario
         story.Add("library ends empty", Show(await backend.Games.ListAsync(cancellationToken), games => $"{games.Count} games"));
     }
 
+    // The profile is launched, played and left as it is: what the launch flow reads at each step.
+    private static async Task PlayAsync(ContractHarness backend, GameDefinition game, string profileId, Story story, CancellationToken cancellationToken)
+    {
+        backend.ExpectLaunch(game, profileId);
+        var tip = new LaunchTarget.ProfileTip(profileId);
+        story.Add("launch preview", Show(await backend.Launch.GetPreviewAsync(game.Id, tip, cancellationToken), preview =>
+            $"banner={preview.ShowBanner} older={preview.TargetIsOlderPoint} install matches={preview.Install.MatchesTarget} dirty={preview.Install.Dirty} saves matches={preview.External?.MatchesTarget} saves={preview.AvailableSaves.Count}"));
+
+        var started = await backend.Launch.StartAsync(game.Id, tip);
+        story.Add("start launch", Show(started, _ => "job started"));
+        if (!started.Ok)
+        {
+            return;
+        }
+
+        await backend.GameRunningAsync(game.Id, cancellationToken);
+        story.Add("session while the game runs", Describe(backend.Launch.GetSession(game.Id), story));
+        story.Add("second start while it runs", Show(await backend.Launch.StartAsync(game.Id, tip), _ => "unexpected success"));
+        story.Add("complete while it runs", Show(await backend.Launch.CompleteSessionAsync(game.Id, new SessionCompletion.Skip()), _ => "unexpected success"));
+
+        await backend.GameExitedAsync(game.Id, cancellationToken);
+        story.Add("session after the game exits", Describe(backend.Launch.GetSession(game.Id), story));
+
+        story.Add("complete with skip", Show(await backend.Launch.CompleteSessionAsync(game.Id, new SessionCompletion.Skip()), _ => "ended"));
+        story.Add("session after skip", Describe(backend.Launch.GetSession(game.Id), story));
+        story.Add("complete again", Show(await backend.Launch.CompleteSessionAsync(game.Id, new SessionCompletion.Skip()), _ => "unexpected success"));
+        story.Add("finish with no game running", Show(await backend.Launch.MarkFinishedAsync(game.Id), _ => "unexpected success"));
+        story.Add("sessions listed", $"{backend.Launch.ListSessions().Count} sessions");
+        story.Add("unknown game", Show(await backend.Launch.StartAsync("no-such-game", tip), _ => "unexpected success"));
+    }
+
+    private static string Describe(LaunchSessionInfo? session, Story story) => session is null
+        ? "no session"
+        : $"{session.State.GetType().Name} profile={story.Name(session.ProfileId, "profile")} older={session.StartedFromOlderPoint} completion={(session.State as SessionState.Completed)?.Completion.GetType().Name ?? "none"} result={(session.State as SessionState.Completed)?.Result is null}";
+
     // The second game is saved once and then asked what the first save did, which is where the fake only plays its part.
     private static async Task RunGapsAsync(ContractHarness backend, Story story, CancellationToken cancellationToken)
     {
@@ -82,6 +119,16 @@ internal static class ContractScenario
         await backend.Games.AddAsync(game);
         var created = await backend.Profiles.CreateAsync(game.Id, "Vanilla", null, "Fresh install");
         var profileId = await FinishCaptureAsync(backend, new Story(), created, cancellationToken) ?? "missing";
+
+        // What the game offers after play depends on the saves the profile holds, which the fake does not track.
+        backend.ExpectLaunch(game, profileId);
+        await backend.Launch.StartAsync(game.Id, new LaunchTarget.ProfileTip(profileId));
+        await backend.GameRunningAsync(game.Id, cancellationToken);
+        await backend.GameExitedAsync(game.Id, cancellationToken);
+        story.Add("choices after play with one save", backend.Launch.GetSession(game.Id)?.State is SessionState.Exited exited
+            ? string.Join(",", exited.Options.Choices)
+            : "no exit");
+        await backend.Launch.CompleteSessionAsync(game.Id, new SessionCompletion.Skip());
 
         story.Add("history after the first save", Show(await backend.History.GetAsync(game.Id, null, cancellationToken), history => $"{history.Points.Count} points"));
         story.Add("row stats after the first save", Show(await backend.Profiles.GetRowStatsAsync(game.Id, cancellationToken), stats =>

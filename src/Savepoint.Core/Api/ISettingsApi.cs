@@ -41,9 +41,10 @@ public interface ISettingsApi
 
     /// <summary>
     /// Starts a <see cref="JobKind.RelocateStorage"/> job that copies the storage to a new folder. The settings point at the new
-    /// folder only once the job has succeeded; a failed or cancelled move leaves them alone, and the previous folder is left in
-    /// place either way. Answers at once, or fails with <c>error.gameService.gameRunning</c> when a game has an open session
-    /// (D13.5). The result is a <see cref="StorageRelocationResult"/>.
+    /// folder only once the job has succeeded; a failed or cancelled move leaves them alone and keeps the old copies. After the
+    /// switch the job removes SavePoint's own copies from the previous folder (only git directories it recognizes as its own, and
+    /// never the folder itself), and a copy it cannot remove does not fail the move. Answers at once, or fails with
+    /// <c>error.gameService.gameRunning</c> when a game has an open session (D13.5). The result is a <see cref="StorageRelocationResult"/>.
     /// </summary>
     /// <param name="newRoot">The folder to move the storage to.</param>
     Task<OperationResult<JobStarted>> RelocateStorageAsync(string newRoot);
