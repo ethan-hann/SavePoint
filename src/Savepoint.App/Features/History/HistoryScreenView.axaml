@@ -1,0 +1,318 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:Savepoint.App.Localization"
+             xmlns:theme="using:Savepoint.App.Theme"
+             xmlns:art="using:Savepoint.App.Features.Common.Art"
+             xmlns:history="using:Savepoint.App.Features.History"
+             x:Class="Savepoint.App.Features.History.HistoryScreenView"
+             x:DataType="history:HistoryScreenViewModel">
+  <!-- The History screen: mockup 2h (list) and 2j (cards). -->
+  <UserControl.Styles>
+    <!-- Timeline: an 11px dot per entry on a 2px rail; the point in use has a filled dot. -->
+    <Style Selector="Border.timeline-dot">
+      <Setter Property="Width" Value="11" />
+      <Setter Property="Height" Value="11" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Md3OutlineVariantBrush}" />
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Border.timeline-dot.filled">
+      <Setter Property="BorderBrush" Value="{DynamicResource Md3PrimaryBrush}" />
+      <Setter Property="Background" Value="{DynamicResource Md3PrimaryBrush}" />
+    </Style>
+    <Style Selector="Border.timeline-rail">
+      <Setter Property="Width" Value="2" />
+      <Setter Property="Background" Value="{DynamicResource Md3OutlineVariantBrush}" />
+    </Style>
+
+    <!-- A save in the list: a bordered row; the loaded one is tinted and outlined in primary. -->
+    <Style Selector="Border.save-row">
+      <Setter Property="Background" Value="{DynamicResource Md3SurfaceContainerLowBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Md3OutlineVariantBrush}" />
+      <Setter Property="BorderThickness" Value="{DynamicResource Md3BorderThin}" />
+      <Setter Property="CornerRadius" Value="{DynamicResource Md3RadiusRow}" />
+      <Setter Property="Padding" Value="16,12" />
+    </Style>
+    <Style Selector="Border.save-row.loaded">
+      <Setter Property="BorderBrush" Value="{DynamicResource Md3PrimaryBrush}" />
+      <Setter Property="Background" Value="{DynamicResource Md3SelectedRowBrush}" />
+    </Style>
+
+    <!-- The loaded card is tinted like the loaded row, besides its primary outline. -->
+    <Style Selector="Border.card.selected">
+      <Setter Property="Background" Value="{DynamicResource Md3SelectedRowBrush}" />
+    </Style>
+
+    <!-- The LOADED and LOADED NOW chips. -->
+    <Style Selector="Border.status-chip">
+      <Setter Property="Background" Value="{DynamicResource Md3PrimaryContainerBrush}" />
+      <Setter Property="CornerRadius" Value="{DynamicResource Md3RadiusPill}" />
+      <Setter Property="Padding" Value="12,5" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.status-chip TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource Md3OnPrimaryContainerBrush}" />
+      <Setter Property="FontSize" Value="11.5" />
+      <Setter Property="FontWeight" Value="Medium" />
+      <Setter Property="LetterSpacing" Value="0.3" />
+    </Style>
+  </UserControl.Styles>
+
+  <DockPanel>
+
+    <!-- Header: the game, the profile filter and the Cards / List toggle. -->
+    <Border x:Name="Header"
+            DockPanel.Dock="Top"
+            Padding="22,15"
+            BorderBrush="{DynamicResource Md3OutlineVariantBrush}"
+            BorderThickness="0,0,0,1"
+            IsVisible="{Binding !HasNoGame}">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+        <art:ArtTile Size="34" GameName="{Binding GameName}" VerticalAlignment="Center" />
+        <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center" Spacing="1">
+          <TextBlock x:Name="TitleText" Classes="section-title" Text="{loc:Loc history.title}" />
+          <TextBlock x:Name="SubtitleText" Classes="timestamp" FontSize="12" Text="{Binding Subtitle}" />
+        </StackPanel>
+        <Button x:Name="FilterButton"
+                Grid.Column="2"
+                Classes="pill"
+                Margin="0,0,12,0"
+                Padding="14,8"
+                VerticalAlignment="Center"
+                Foreground="{DynamicResource Md3OnSurfaceBrush}"
+                IsVisible="{Binding HasPoints}"
+                AutomationProperties.Name="{Binding FilterAutomationName}">
+          <Button.Flyout>
+            <Flyout Placement="BottomEdgeAlignedRight">
+              <ListBox x:Name="FilterList"
+                       Classes="rows"
+                       MinWidth="220"
+                       ItemsSource="{Binding Filters}"
+                       SelectedItem="{Binding SelectedFilter, Mode=TwoWay}"
+                       SelectionChanged="OnFilterChosen">
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="history:ProfileFilter">
+                    <TextBlock Classes="body" Text="{Binding Label}" />
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </Flyout>
+          </Button.Flyout>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.FilterList}" />
+            <TextBlock Text="{Binding FilterLabel}" />
+          </StackPanel>
+        </Button>
+        <ListBox x:Name="ViewToggle"
+                 Grid.Column="3"
+                 Classes="segmented-tray"
+                 VerticalAlignment="Center"
+                 IsVisible="{Binding HasPoints}"
+                 ItemsSource="{Binding ViewOptions}"
+                 SelectedItem="{Binding SelectedViewOption, Mode=TwoWay}"
+                 AutomationProperties.Name="{Binding ViewLabel}">
+          <ListBox.Styles>
+            <Style Selector="ListBoxItem" x:DataType="history:ViewModeOption">
+              <Setter Property="AutomationProperties.Name" Value="{Binding Label}" />
+              <Setter Property="Padding" Value="14,7" />
+            </Style>
+          </ListBox.Styles>
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="history:ViewModeOption">
+              <TextBlock Text="{Binding Label}" />
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Grid>
+    </Border>
+
+    <!-- Footer: how much space SavePoint keeps for the game. -->
+    <Border x:Name="Footer"
+            DockPanel.Dock="Bottom"
+            Padding="22,14"
+            BorderBrush="{DynamicResource Md3OutlineVariantBrush}"
+            BorderThickness="0,1,0,0"
+            IsVisible="{Binding HasFooter}">
+      <StackPanel Orientation="Horizontal" Spacing="14">
+        <TextBlock Classes="icon s18 muted" Text="{x:Static theme:Icons.Database}" />
+        <TextBlock x:Name="FooterText" Classes="caption" FontSize="13" VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding FooterText}" />
+      </StackPanel>
+    </Border>
+
+    <Panel>
+
+      <!-- The points: the two-column list or the cards. -->
+      <Panel x:Name="PointsRegion" IsVisible="{Binding HasPoints}">
+
+        <!-- The saves column is wider: its lines carry a date and a profile name, which the timeline's do not. -->
+        <Grid x:Name="ListRegion" ColumnDefinitions="4*,Auto,5*" IsVisible="{Binding IsListView}">
+          <ScrollViewer x:Name="VersionsScroll" Grid.Column="0" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="22,20,22,22" Spacing="14">
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <TextBlock Classes="icon s20 accent" Text="{x:Static theme:Icons.Folder}" />
+                <TextBlock x:Name="VersionsHeading"
+                           Classes="muted"
+                           FontSize="12.5"
+                           FontWeight="Medium"
+                           LetterSpacing="0.5"
+                           VerticalAlignment="Center"
+                           Text="{theme:Upper {loc:Loc history.column.versions}}" />
+              </StackPanel>
+              <ItemsControl x:Name="TimelineList" ItemsSource="{Binding Timeline}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="history:TimelineEntryViewModel">
+                    <Grid ColumnDefinitions="11,14,*">
+                      <Grid RowDefinitions="Auto,*">
+                        <Border Classes="timeline-dot" Classes.filled="{Binding IsInUse}" Margin="0,5,0,0" />
+                        <Border Grid.Row="1" Classes="timeline-rail" HorizontalAlignment="Center" IsVisible="{Binding HasRail}" />
+                      </Grid>
+                      <StackPanel Grid.Column="2" Margin="0,0,0,20" Spacing="2">
+                        <TextBlock Classes="row-title" FontSize="14" TextWrapping="Wrap" Text="{Binding Headline}" />
+                        <TextBlock Classes="caption" FontSize="12.5" TextWrapping="Wrap" Text="{Binding Detail}" />
+                        <TextBlock Classes="timestamp" Text="{Binding Stamp}" />
+                      </StackPanel>
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </ScrollViewer>
+
+          <Border Grid.Column="1" Width="1" Background="{DynamicResource Md3OutlineVariantBrush}" />
+
+          <ScrollViewer x:Name="SavesScroll" Grid.Column="2" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="22,20,22,22" Spacing="14">
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <TextBlock Classes="icon s20 accent" Text="{x:Static theme:Icons.Save}" />
+                <TextBlock x:Name="SavesHeading"
+                           Classes="muted"
+                           FontSize="12.5"
+                           FontWeight="Medium"
+                           LetterSpacing="0.5"
+                           VerticalAlignment="Center"
+                           Text="{theme:Upper {loc:Loc history.column.saves}}" />
+              </StackPanel>
+              <ItemsControl x:Name="SavesList" ItemsSource="{Binding Saves}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <StackPanel Spacing="12" />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="history:SaveRowViewModel">
+                    <Border Classes="save-row" Classes.loaded="{Binding IsLoaded}">
+                      <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Spacing="2" VerticalAlignment="Center">
+                          <TextBlock Classes="row-title" FontSize="14" TextTrimming="CharacterEllipsis" Text="{Binding Name}" />
+                          <TextBlock Classes="caption" FontSize="12.5" TextWrapping="Wrap" Text="{Binding Detail}" />
+                        </StackPanel>
+                        <Border Grid.Column="1" Classes="status-chip" IsVisible="{Binding IsLoaded}">
+                          <TextBlock Text="{theme:Upper {loc:Loc history.save.loaded}}" />
+                        </Border>
+                        <Button Grid.Column="1"
+                                Classes="pill"
+                                Padding="16,7"
+                                VerticalAlignment="Center"
+                                IsVisible="{Binding CanLoad}"
+                                Command="{Binding LoadCommand}"
+                                Content="{loc:Loc history.save.load}"
+                                AutomationProperties.Name="{Binding LoadAutomationName}" />
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </ScrollViewer>
+        </Grid>
+
+        <ScrollViewer x:Name="CardsRegion" IsVisible="{Binding IsCardsView}" VerticalScrollBarVisibility="Auto">
+          <ItemsControl x:Name="GroupList" Margin="22,14,22,22" ItemsSource="{Binding Groups}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Spacing="6" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="history:PointGroupViewModel">
+                <StackPanel>
+                  <TextBlock Classes="overline" FontSize="12.5" Margin="0,6,0,7" Text="{Binding Heading, Converter={x:Static theme:UppercaseConverter.Instance}}" />
+                  <ItemsControl Margin="-7,0" ItemsSource="{Binding Cards}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <UniformGrid Columns="3" />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="history:PointCardViewModel">
+                        <Border Classes="card" Classes.selected="{Binding IsLoaded}" Margin="7">
+                          <StackPanel Spacing="9">
+                            <Grid ColumnDefinitions="*,Auto" MinHeight="26">
+                              <TextBlock Classes="icon s24 muted" Classes.accent="{Binding IsLoaded}" HorizontalAlignment="Left" Text="{Binding Icon}" />
+                              <Border Grid.Column="1" Classes="status-chip" IsVisible="{Binding IsLoaded}">
+                                <TextBlock Text="{theme:Upper {loc:Loc history.card.loadedNow}}" />
+                              </Border>
+                            </Grid>
+                            <StackPanel Spacing="3">
+                              <TextBlock Classes="card-heading" FontSize="15" TextWrapping="Wrap" Text="{Binding Name}" />
+                              <TextBlock Classes="caption" FontSize="12.5" TextWrapping="Wrap" Text="{Binding Contains}" />
+                              <TextBlock Classes="timestamp" Margin="0,3,0,0" Text="{Binding Date}" />
+                            </StackPanel>
+                            <Button Classes="pill"
+                                    Margin="0,5,0,0"
+                                    Padding="16,9"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    IsVisible="{Binding CanGoBack}"
+                                    Command="{Binding GoBackCommand}"
+                                    Content="{loc:Loc history.card.goBack}"
+                                    AutomationProperties.Name="{Binding GoBackAutomationName}" />
+                          </StackPanel>
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </Panel>
+
+      <StackPanel x:Name="LoadingState" IsVisible="{Binding IsLoading}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="14">
+        <ProgressBar IsIndeterminate="True" Width="160" />
+        <TextBlock Classes="body muted" HorizontalAlignment="Center" Text="{loc:Loc history.loading}" />
+      </StackPanel>
+
+      <ContentControl x:Name="ErrorHost"
+                      Content="{Binding ErrorCard}"
+                      IsVisible="{Binding HasError}"
+                      MaxWidth="560"
+                      Margin="26"
+                      VerticalAlignment="Center" />
+
+      <StackPanel x:Name="EmptyState" IsVisible="{Binding IsEmpty}" MaxWidth="440" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="14" Margin="26">
+        <Border Width="56" Height="56" HorizontalAlignment="Center" CornerRadius="16" Background="{DynamicResource Md3SurfaceContainerBrush}">
+          <TextBlock Classes="icon s28 accent" HorizontalAlignment="Center" Text="{x:Static theme:Icons.History}" />
+        </Border>
+        <TextBlock x:Name="EmptyTitle" Classes="card-title" TextAlignment="Center" TextWrapping="Wrap" IsVisible="{Binding !IsFilteredEmpty}" Text="{loc:Loc history.empty.title}" />
+        <TextBlock x:Name="EmptyBody" Classes="body muted" TextAlignment="Center" TextWrapping="Wrap" IsVisible="{Binding !IsFilteredEmpty}" Text="{loc:Loc history.empty.body}" />
+        <TextBlock x:Name="FilteredEmptyTitle" Classes="card-title" TextAlignment="Center" TextWrapping="Wrap" IsVisible="{Binding IsFilteredEmpty}" Text="{loc:Loc history.empty.filteredTitle}" />
+        <TextBlock x:Name="FilteredEmptyBody" Classes="body muted" TextAlignment="Center" TextWrapping="Wrap" IsVisible="{Binding IsFilteredEmpty}" Text="{loc:Loc history.empty.filteredBody}" />
+        <Button x:Name="ShowAllButton"
+                Classes="pill"
+                Padding="18,8"
+                HorizontalAlignment="Center"
+                IsVisible="{Binding IsFilteredEmpty}"
+                Command="{Binding ShowAllProfilesCommand}"
+                Content="{loc:Loc history.empty.showAll}" />
+      </StackPanel>
+
+      <StackPanel x:Name="NoGameState" IsVisible="{Binding HasNoGame}" MaxWidth="440" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" Margin="26">
+        <TextBlock Classes="card-title" TextAlignment="Center" TextWrapping="Wrap" Text="{loc:Loc history.noGame.title}" />
+        <TextBlock Classes="body muted" TextAlignment="Center" TextWrapping="Wrap" Text="{loc:Loc history.noGame.body}" />
+      </StackPanel>
+    </Panel>
+  </DockPanel>
+</UserControl>

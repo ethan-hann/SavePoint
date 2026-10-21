@@ -145,7 +145,7 @@ Distributing git means shipping the GPLv2 text and a written source offer pointi
 
 ## D22. Colors come from SchemeTonalSpot; the mockup hexes are approximate
 
-The UI README's token table was evidently drawn with the legacy `Scheme` API (its light primary `#00639D` and light onPrimaryContainer `#001D34` match that API exactly), while v1 shipped `SchemeTonalSpot` at contrast 0, as the README itself instructs ("derive them from the theme instead", "hardcoding these hexes would break the accent-preset feature"). v2 follows v1: every role comes from `SchemeTonalSpot`. Dark mode lands within a few units of the table; light primaries are slightly less saturated. Fidelity and Content variants were checked and rejected: they match the light primary better but turn primary containers into the saturated seed color, which departs further from the mockup. Roles M3 does not define (warning, success) come from fixed-hue tonal palettes at the same tones M3 uses for error (40/100/90/10 light, 80/20/30/90 dark): warning hue from amber `#f9a825`, success hue from green `#2e7d32`.
+The UI README's token table was evidently drawn with the legacy `Scheme` API (its light primary `#00639D` and light onPrimaryContainer `#001D34` match that API exactly), while v1 shipped `SchemeTonalSpot` at contrast 0, as the README itself instructs ("derive them from the theme instead", "hardcoding these hexes would break the accent-preset feature"). v2 follows v1: every role comes from `SchemeTonalSpot`. Dark mode lands within a few units of the table; light primaries are slightly less saturated. Fidelity and Content variants were checked and rejected: they match the light primary better but turn primary containers into the saturated seed color, which departs further from the mockup. Roles M3 does not define (warning, success) come from fixed-hue tonal palettes at the same tones M3 uses for error (40/100/90/10 light, 80/20/30/90 dark): warning hue from the mockup's gold `#F5D488` (the first pass used amber `#f9a825`, which read orange), success hue from green `#2e7d32`.
 
 ## D23. Api contract details settled after the contract landed
 
@@ -180,6 +180,10 @@ WinRT toasts (`ToastNotificationManager`, chosen in D10) need the `net10.0-windo
 - **Single instance**: a named mutex per user plus a named pipe; a second launch asks the first to show and focus its window, then exits.
 - **Reduced motion**: read from the OS (Windows `SPI_GETCLIENTAREAANIMATION`, macOS accessibility "reduce motion", GNOME `enable-animations`), feeding `ThemeService.ReduceMotion`.
 - **Reveal in file manager**: Explorer `/select`, `open -R`, `xdg-open` on the folder.
+
+## D27. The Linux gate retries failed tests once, and says which
+
+The Linux gate runs under WSL on the workspace's `/mnt/f` drvfs (9p) mount, because the workspace rule keeps every file inside `Savepoint-v2`. That mount shows rename/visibility races ordinary Linux file systems do not (a file just renamed into place is briefly "not found"), so file-heavy tests fail at random there, a different one each run. The Linux gate therefore re-runs failed tests up to twice and prints every test that needed a retry; a test failing all three times fails the gate. The Windows gate never retries, so real races in SavePoint's own logic are still caught there. Product code does not treat "file not found" as transient, since on a real file system that would hide genuine losses.
 
 ## D8. "Clear all data" is a v2 requirement
 
