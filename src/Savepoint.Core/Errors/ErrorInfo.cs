@@ -36,4 +36,19 @@ public sealed record ErrorInfo(string MessageId, IReadOnlyDictionary<string, obj
         SavepointException known => new ErrorInfo(known.MessageId, known.Args, ex.ToString()),
         _ => new ErrorInfo("error.unknown", ErrorArgs.None, ex.ToString()),
     };
+
+    /// <summary>
+    /// Equal when the id, the detail and the argument values are equal. Arguments compare by content, in any order, and a list
+    /// compares item by item, so records that embed an error (a session state, an operation result) compare equal when their
+    /// errors say the same thing.
+    /// </summary>
+    /// <param name="other">The error to compare with.</param>
+    public bool Equals(ErrorInfo? other) =>
+        other is not null
+        && MessageId == other.MessageId
+        && Detail == other.Detail
+        && ErrorArgs.AreEqual(Args, other.Args);
+
+    /// <summary>A hash that agrees with <see cref="Equals(ErrorInfo?)"/>.</summary>
+    public override int GetHashCode() => HashCode.Combine(MessageId, Detail, ErrorArgs.HashOf(Args));
 }
