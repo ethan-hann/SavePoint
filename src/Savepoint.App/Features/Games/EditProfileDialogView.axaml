@@ -5,14 +5,20 @@
              x:Class="Savepoint.App.Features.Games.EditProfileDialogView"
              x:DataType="games:EditProfileDialogViewModel">
   <!-- Edit a profile: name, notes and the version override. -->
+  <UserControl.Styles>
+    <!-- The label above a field takes the accent color while the field has focus, as in the mockup. -->
+    <Style Selector="StackPanel.field:focus-within > TextBlock.field-label">
+      <Setter Property="Foreground" Value="{DynamicResource Md3PrimaryBrush}" />
+    </Style>
+  </UserControl.Styles>
   <StackPanel Spacing="16">
     <TextBlock Classes="dialog-title" TextWrapping="Wrap" Text="{Binding Title}" />
-    <StackPanel Spacing="6">
-      <TextBlock Classes="caption" Text="{loc:Loc games.profileForm.nameLabel}" />
+    <StackPanel Classes="field" Spacing="6">
+      <TextBlock Classes="caption field-label" Text="{loc:Loc games.profileForm.nameLabel}" />
       <TextBox x:Name="NameField" Text="{Binding Name}" AutomationProperties.Name="{loc:Loc games.profileForm.nameLabel}" />
     </StackPanel>
-    <StackPanel Spacing="6">
-      <TextBlock Classes="caption" Text="{loc:Loc games.editProfile.notesLabel}" />
+    <StackPanel Classes="field" Spacing="6">
+      <TextBlock Classes="caption field-label" Text="{loc:Loc games.editProfile.notesLabel}" />
       <TextBox x:Name="NotesField"
                Text="{Binding Notes}"
                AcceptsReturn="True"
@@ -21,8 +27,8 @@
                MaxHeight="140"
                AutomationProperties.Name="{loc:Loc games.editProfile.notesLabel}" />
     </StackPanel>
-    <StackPanel Spacing="6">
-      <TextBlock Classes="caption" Text="{loc:Loc games.editProfile.versionLabel}" />
+    <StackPanel Classes="field" Spacing="6">
+      <TextBlock Classes="caption field-label" Text="{loc:Loc games.editProfile.versionLabel}" />
       <TextBox x:Name="VersionField"
                Classes="mono"
                Text="{Binding VersionOverride}"

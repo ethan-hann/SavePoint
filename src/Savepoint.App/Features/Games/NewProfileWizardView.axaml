@@ -7,6 +7,12 @@
              x:Class="Savepoint.App.Features.Games.NewProfileWizardView"
              x:DataType="games:NewProfileWizardViewModel">
   <!-- The New profile wizard (2f): Name it, Check, Save, in a 620px dialog. -->
+  <UserControl.Styles>
+    <!-- The label above a field takes the accent color while the field has focus, as in the mockup. -->
+    <Style Selector="StackPanel.field:focus-within > TextBlock.field-label">
+      <Setter Property="Foreground" Value="{DynamicResource Md3PrimaryBrush}" />
+    </Style>
+  </UserControl.Styles>
   <StackPanel Spacing="22">
     <a11y:AnnouncementRegion x:Name="Announcer" Message="{Binding Announcement}" />
     <TextBlock x:Name="TitleText" Classes="dialog-title" TextWrapping="Wrap" Text="{Binding Title}" />
@@ -21,13 +27,13 @@
 
     <!-- Step one: name it. -->
     <StackPanel x:Name="NameStep" Spacing="18" IsVisible="{Binding IsNameStep}">
-      <StackPanel Spacing="6">
-        <TextBlock Classes="caption" Text="{loc:Loc profiles.wizard.name.label}" />
+      <StackPanel Classes="field" Spacing="6">
+        <TextBlock Classes="caption field-label" Text="{loc:Loc profiles.wizard.name.label}" />
         <TextBox x:Name="NameField" Text="{Binding Name}" AutomationProperties.Name="{loc:Loc profiles.wizard.name.label}" />
         <TextBlock x:Name="NameHelperText" Classes="caption subtle" Text="{Binding NameHelper}" />
       </StackPanel>
-      <StackPanel Spacing="6">
-        <TextBlock Classes="caption" Text="{loc:Loc profiles.wizard.notes.label}" />
+      <StackPanel Classes="field" Spacing="6">
+        <TextBlock Classes="caption field-label" Text="{loc:Loc profiles.wizard.notes.label}" />
         <TextBox x:Name="NotesField"
                  Text="{Binding Notes}"
                  AcceptsReturn="True"
