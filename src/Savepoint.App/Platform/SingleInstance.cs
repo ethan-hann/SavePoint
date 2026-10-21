@@ -7,8 +7,10 @@ namespace Savepoint.App.Platform;
 
 /// <summary>
 /// Lets one copy of the app run per user. The first copy holds a named mutex and listens on a named pipe; a second copy
-/// finds the mutex taken, asks the first to bring its window forward through the pipe, and exits. When the machine cannot
-/// provide the mutex or the pipe, <see cref="TryAcquire"/> still answers true: a second window is better than none.
+/// finds the mutex taken, asks the first to bring its window forward through the pipe, and exits. Only the mutex decides who runs:
+/// two copies working on the same repositories is worse than a copy that cannot be brought forward. So <see cref="TryAcquire"/> is
+/// true for the mutex's holder alone, a copy that cannot be told to show itself (no pipe) still holds the mutex, and a second copy
+/// whose <see cref="SignalFirstInstance"/> fails must still exit; it can show a brief "already running" notice first.
 /// </summary>
 public sealed class SingleInstance : IDisposable
 {
@@ -22,6 +24,7 @@ public sealed class SingleInstance : IDisposable
 
     private readonly object _gate = new();
     private readonly TimeSpan _connectTimeout;
+    private readonly Func<string, InstanceMutex> _acquireMutex;
     private InstanceMutex? _owner;
     private NamedPipeServerStream? _firstListener;
     private CancellationTokenSource? _stop;
@@ -43,9 +46,10 @@ public sealed class SingleInstance : IDisposable
     {
     }
 
-    internal SingleInstance(string appId, string userKey, string? pipeDirectory, TimeSpan connectTimeout)
+    internal SingleInstance(string appId, string userKey, string? pipeDirectory, TimeSpan connectTimeout, Func<string, InstanceMutex>? acquireMutex = null)
     {
         _connectTimeout = connectTimeout;
+        _acquireMutex = acquireMutex ?? InstanceMutex.Acquire;
         var hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(appId + "\0" + userKey)));
         MutexName = "Global\\sp-" + hash[..16];
         // Short on purpose: a Unix socket path holds about 100 bytes, and this lands inside a folder that may be long.
@@ -111,7 +115,7 @@ public sealed class SingleInstance : IDisposable
     }
 
     /// <summary>Takes the right to be the running copy.</summary>
-    /// <returns>True when this is the first copy and should start normally; false when another copy is running.</returns>
+    /// <returns>True only when this copy holds the mutex and should start normally; false when another copy is running, or the machine would not create the mutex.</returns>
     /// <exception cref="ObjectDisposedException">This object was disposed.</exception>
     public bool TryAcquire()
     {
@@ -123,42 +127,35 @@ public sealed class SingleInstance : IDisposable
                 return true;
             }
 
-            var owner = InstanceMutex.Acquire(MutexName);
+            var owner = _acquireMutex(MutexName);
             switch (owner.Outcome)
             {
+                // A mutex the machine would not create proves nothing about other copies, and the safe answer is not to run.
                 case MutexOutcome.Taken:
-                    owner.Dispose();
-                    return false;
                 case MutexOutcome.Unavailable:
                     owner.Dispose();
-                    _acquired = true;
-                    return true;
+                    return false;
             }
 
             _owner = owner;
             _acquired = true;
-            if (!TryStartServer())
-            {
-                // Without a pipe nobody could be told to show the window, so holding the mutex would only hide the app.
-                _owner.Dispose();
-                _owner = null;
-            }
-
+            // Without a pipe the running copy cannot be told to show itself, but it still keeps every other copy out.
+            StartServer();
             return true;
         }
     }
 
     /// <summary>Asks the running copy to show itself.</summary>
-    /// <returns>True when the running copy acknowledged the request.</returns>
+    /// <returns>True when the running copy acknowledged the request; false when nobody answered, so the caller may tell the user the app is already running before it exits.</returns>
     public bool SignalFirstInstance()
     {
         try
         {
             using var client = new NamedPipeClientStream(".", PipeName, PipeDirection.InOut, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
             client.Connect((int)_connectTimeout.TotalMilliseconds);
-            client.Write(Encoding.UTF8.GetBytes(_request + "\n"));
-            client.Flush();
+            // A pipe held by something that never reads or answers would block a plain Write forever, so every step has a deadline.
             using var limit = new CancellationTokenSource(_connectTimeout);
+            client.WriteAsync(Encoding.UTF8.GetBytes(_request + "\n"), limit.Token).AsTask().GetAwaiter().GetResult();
             var buffer = new byte[16];
             var read = client.ReadAsync(buffer, limit.Token).AsTask().GetAwaiter().GetResult();
             return Encoding.UTF8.GetString(buffer, 0, read).StartsWith(_reply, StringComparison.Ordinal);
@@ -211,7 +208,7 @@ public sealed class SingleInstance : IDisposable
             PipeTransmissionMode.Byte,
             PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
 
-    private bool TryStartServer()
+    private void StartServer()
     {
         try
         {
@@ -220,16 +217,15 @@ public sealed class SingleInstance : IDisposable
         }
         catch (Exception)
         {
-            return false;
+            // No pipe: nobody can be asked to show the window, which is only a convenience; the mutex still holds.
+            return;
         }
 
         _stop = new CancellationTokenSource();
         var listener = _firstListener;
         var token = _stop.Token;
         _server = Task.Run(() => ServeAsync(listener, token), CancellationToken.None);
-        return true;
     }
-
     private async Task ServeAsync(NamedPipeServerStream listener, CancellationToken stop)
     {
         try

@@ -54,9 +54,9 @@ public sealed class SingleInstanceTests : IDisposable
             File.Delete(path);
         }
     }
-    private SingleInstance Create(string? appId = null, string? user = null, string? pipeDirectory = null)
+    private SingleInstance Create(string? appId = null, string? user = null, string? pipeDirectory = null, TimeSpan? connectTimeout = null)
     {
-        var instance = new SingleInstance(appId ?? _appId, user ?? _user, pipeDirectory ?? PipeDirectory(), TimeSpan.FromSeconds(10));
+        var instance = new SingleInstance(appId ?? _appId, user ?? _user, pipeDirectory ?? PipeDirectory(), connectTimeout ?? TimeSpan.FromSeconds(10));
         _disposables.Add(instance);
         return instance;
     }
@@ -284,16 +284,50 @@ public sealed class SingleInstanceTests : IDisposable
     }
 
     [Fact]
-    public void A_pipe_that_cannot_be_created_leaves_the_app_free_to_start()
+    public void A_pipe_that_cannot_be_created_still_leaves_exactly_one_copy_running()
     {
         Assert.SkipWhen(OperatingSystem.IsWindows(), "Windows pipe names are not paths, so they cannot point at a missing folder.");
-        var first = Create(pipeDirectory: "/savepoint-no-such-folder-" + Guid.NewGuid().ToString("N"));
-        var second = Create(pipeDirectory: "/savepoint-no-such-folder-" + Guid.NewGuid().ToString("N"));
+        var folder = "/savepoint-no-such-folder-" + Guid.NewGuid().ToString("N");
+        var first = Create(pipeDirectory: folder);
+        var second = Create(pipeDirectory: folder, connectTimeout: TimeSpan.FromMilliseconds(300));
 
         Assert.True(first.TryAcquire());
-        Assert.True(second.TryAcquire());
+        Assert.False(second.TryAcquire());
+        Assert.False(second.SignalFirstInstance());
     }
 
+    [Fact]
+    public void A_pipe_name_someone_else_holds_does_not_cost_the_first_copy_its_mutex()
+    {
+        var first = Create();
+        using var squatter = new NamedPipeServerStream(first.PipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
+        var second = Create(connectTimeout: TimeSpan.FromMilliseconds(300));
+
+        Assert.True(first.TryAcquire());
+        Assert.False(second.TryAcquire());
+    }
+
+    [Fact]
+    public async Task A_request_that_nobody_answers_is_reported_as_not_delivered_instead_of_hanging()
+    {
+        var first = Create();
+        using var squatter = new NamedPipeServerStream(first.PipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
+        Assert.True(first.TryAcquire());
+        var second = Create(connectTimeout: TimeSpan.FromMilliseconds(300));
+
+        var delivered = await Task.Run(second.SignalFirstInstance, Ct).WaitAsync(TimeSpan.FromSeconds(10), Ct);
+
+        Assert.False(delivered);
+    }
+
+    [Fact]
+    public void A_mutex_the_machine_will_not_create_does_not_make_this_the_first_copy()
+    {
+        var instance = new SingleInstance(_appId, _user, PipeDirectory(), TimeSpan.FromSeconds(1), _ => InstanceMutex.Acquire("Global\\sp-no-such-folder\\mutex/name"));
+        _disposables.Add(instance);
+
+        Assert.False(instance.TryAcquire());
+    }
     [Fact]
     public void The_mutex_name_is_global_and_holds_no_other_backslash()
     {
