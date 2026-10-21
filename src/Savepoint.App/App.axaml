@@ -3,12 +3,29 @@
              x:Class="Savepoint.App.App"
              RequestedThemeVariant="Default">
   <Application.Resources>
-    <FontFamily x:Key="RobotoFont">avares://SavePoint/Assets/Fonts#Roboto</FontFamily>
-    <FontFamily x:Key="RobotoMonoFont">avares://SavePoint/Assets/Fonts#Roboto Mono</FontFamily>
-    <FontFamily x:Key="SymbolsFont">avares://SavePoint/Assets/Fonts#Material Symbols Rounded</FontFamily>
-    <FontFamily x:Key="SymbolsFilledFont">avares://SavePoint/Assets/Fonts#Material Symbols Rounded Filled</FontFamily>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://SavePoint/Styles/Tokens.axaml" />
+        <ResourceInclude Source="avares://SavePoint/Styles/Controls/FocusTheme.axaml" />
+        <ResourceInclude Source="avares://SavePoint/Styles/Controls/ButtonTheme.axaml" />
+        <ResourceInclude Source="avares://SavePoint/Styles/Controls/TextBoxTheme.axaml" />
+        <ResourceInclude Source="avares://SavePoint/Styles/Controls/ComboBoxTheme.axaml" />
+        <ResourceInclude Source="avares://SavePoint/Styles/Controls/CheckBoxTheme.axaml" />
+        <ResourceInclude Source="avares://SavePoint/Styles/Controls/ToggleSwitchTheme.axaml" />
+        <ResourceInclude Source="avares://SavePoint/Styles/Controls/ProgressBarTheme.axaml" />
+        <ResourceInclude Source="avares://SavePoint/Styles/Controls/ListBoxTheme.axaml" />
+      </ResourceDictionary.MergedDictionaries>
+      <FontFamily x:Key="RobotoFont">avares://SavePoint/Assets/Fonts#Roboto</FontFamily>
+      <FontFamily x:Key="RobotoMonoFont">avares://SavePoint/Assets/Fonts#Roboto Mono</FontFamily>
+      <FontFamily x:Key="SymbolsFont">avares://SavePoint/Assets/Fonts#Material Symbols Rounded</FontFamily>
+      <FontFamily x:Key="SymbolsFilledFont">avares://SavePoint/Assets/Fonts#Material Symbols Rounded Filled</FontFamily>
+    </ResourceDictionary>
   </Application.Resources>
   <Application.Styles>
     <FluentTheme />
+    <StyleInclude Source="avares://SavePoint/Styles/Base.axaml" />
+    <StyleInclude Source="avares://SavePoint/Styles/Typography.axaml" />
+    <StyleInclude Source="avares://SavePoint/Styles/Surfaces.axaml" />
+    <StyleInclude Source="avares://SavePoint/Styles/ListBoxVariants.axaml" />
   </Application.Styles>
 </Application>

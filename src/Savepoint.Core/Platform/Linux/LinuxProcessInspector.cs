@@ -16,6 +16,7 @@ public sealed class LinuxProcessInspector : IProcessInspector
         _procRoot = procRoot;
     }
 
+    /// <inheritdoc />
     public IReadOnlyList<RunningProcess> List()
     {
         var result = new List<RunningProcess>();

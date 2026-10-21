@@ -2,8 +2,10 @@ using System.Diagnostics;
 
 namespace Savepoint.Core.Platform.MacOS;
 
+/// <summary>Lists processes through the .NET process API; the name is the kernel's, which can be shortened, so the executable path is read too.</summary>
 public sealed class MacOSProcessInspector : IProcessInspector
 {
+    /// <inheritdoc />
     public IReadOnlyList<RunningProcess> List()
     {
         var result = new List<RunningProcess>();

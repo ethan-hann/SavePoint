@@ -57,8 +57,8 @@ public class PlatformFactoryTests
     public void PathSafety_on_the_real_platform_refuses_the_real_home_and_accepts_a_temp_game_folder()
     {
         var platform = PlatformFactory.ForCurrentOs();
-        var safety = new PathSafety(platform);
         using var tree = new TempTree();
+        var safety = new PathSafety(platform, platform.Directories.DefaultStorageRoot);
 
         PathSafetyAssert.Blocked(safety, _realHome, 2);
         PathSafetyAssert.Accepted(safety, tree.Dir("Games", "Skyrim"));
@@ -77,6 +77,28 @@ public class PlatformFactoryTests
         Assert.Equal("XDG_DOCUMENTS_DIR=\"$HOME/Docs\"", environment.ReadTextFile(file));
         Assert.Null(environment.ReadTextFile(Path.Combine(tree.Root, "missing.txt")));
         Assert.Equal(OperatingSystem.IsWindows(), environment.ListDriveRoots().Count > 0);
+    }
+
+    [Fact]
+    public void The_machine_environment_names_this_computer()
+    {
+        var names = PlatformEnvironment.FromCurrentMachine().LocalHostNames();
+
+        Assert.Contains(Environment.MachineName, names, StringComparer.OrdinalIgnoreCase);
+        Assert.All(names, name => Assert.False(string.IsNullOrWhiteSpace(name)));
+    }
+
+    [Fact]
+    public void Network_paths_that_reach_this_computers_own_folders_are_refused_on_the_real_platform()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Network paths with a host are a Windows form.");
+        var platform = PlatformFactory.ForCurrentOs();
+        var safety = new PathSafety(platform, platform.Directories.DefaultStorageRoot);
+
+        PathSafetyAssert.Blocked(safety, @"\\localhost\C$\Windows\System32", 1);
+        PathSafetyAssert.Blocked(safety, $@"\\{Environment.MachineName}\C$\Users", 1);
+        PathSafetyAssert.Blocked(safety, $@"\\{Environment.MachineName.ToLowerInvariant()}\Users\Public", 1);
+        PathSafetyAssert.Blocked(safety, @"\\127.0.0.1\ADMIN$\System32", 1);
     }
 
     [Fact]

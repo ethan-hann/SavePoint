@@ -1,3 +1,4 @@
+using Savepoint.Core.Platform;
 using Savepoint.Core.Platform.Linux;
 using Savepoint.Core.Platform.MacOS;
 using Savepoint.Core.Platform.Windows;
@@ -22,6 +23,18 @@ public class PathTokenTableTests
                 ["savedGames"] = @"C:\Users\Test\Saved Games",
             }.OrderBy(p => p.Key),
             tokens.OrderBy(p => p.Key));
+    }
+
+    [Fact]
+    public void Windows_local_low_follows_a_redirected_known_folder_and_defaults_to_the_profile()
+    {
+        var redirected = FakeEnvironment.Windows();
+        redirected.KnownFolders[KnownFolder.LocalLow] = @"D:\Redirected\LocalLow";
+        var plain = FakeEnvironment.Windows();
+        plain.KnownFolders.Remove(KnownFolder.LocalLow);
+
+        Assert.Equal(@"D:\Redirected\LocalLow", new WindowsPlatform(redirected.Build()).PathTokens.GetValueOrDefault("localLow"));
+        Assert.Equal(@"C:\Users\Test\AppData\LocalLow", new WindowsPlatform(plain.Build()).PathTokens.GetValueOrDefault("localLow"));
     }
 
     [Fact]

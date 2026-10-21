@@ -1,0 +1,129 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    Type scale, as style classes on TextBlock. Titles and body inherit the window's text color;
+    secondary classes (caption, timestamp, overline) carry their own role color.
+  -->
+  <!-- Titles and body: page-title 24, dialog-title 20, section-title 18, card-title 16, card-heading 14.5, row-title 13.5, body 13, button-text 12.5. -->
+  <Style Selector="TextBlock.page-title">
+    <Setter Property="FontSize" Value="24" />
+    <Setter Property="FontWeight" Value="Normal" />
+  </Style>
+  <Style Selector="TextBlock.dialog-title">
+    <Setter Property="FontSize" Value="20" />
+    <Setter Property="FontWeight" Value="Normal" />
+  </Style>
+  <Style Selector="TextBlock.section-title">
+    <Setter Property="FontSize" Value="18" />
+    <Setter Property="FontWeight" Value="Normal" />
+  </Style>
+  <Style Selector="TextBlock.card-title">
+    <Setter Property="FontSize" Value="16" />
+    <Setter Property="FontWeight" Value="Medium" />
+  </Style>
+  <Style Selector="TextBlock.card-heading">
+    <Setter Property="FontSize" Value="14.5" />
+    <Setter Property="FontWeight" Value="Medium" />
+  </Style>
+  <Style Selector="TextBlock.row-title">
+    <Setter Property="FontSize" Value="13.5" />
+    <Setter Property="FontWeight" Value="Medium" />
+  </Style>
+  <Style Selector="TextBlock.body">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="LineHeight" Value="20" />
+  </Style>
+  <Style Selector="TextBlock.button-text">
+    <Setter Property="FontSize" Value="12.5" />
+    <Setter Property="FontWeight" Value="Medium" />
+  </Style>
+  <!-- Secondary text: caption 12 in onSurfaceVariant, timestamp 11.5 in outline. -->
+  <Style Selector="TextBlock.caption">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource Md3OnSurfaceVariantBrush}" />
+  </Style>
+  <Style Selector="TextBlock.timestamp">
+    <Setter Property="FontSize" Value="11.5" />
+    <Setter Property="Foreground" Value="{DynamicResource Md3OutlineBrush}" />
+  </Style>
+
+  <!-- Uppercase labels: the catalog holds normal case, so pair these with {theme:Upper {loc:Loc ...}}. -->
+  <Style Selector="TextBlock.overline">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="LetterSpacing" Value="0.5" />
+    <Setter Property="Foreground" Value="{DynamicResource Md3OutlineBrush}" />
+  </Style>
+  <Style Selector="TextBlock.overline-small">
+    <Setter Property="FontSize" Value="10.5" />
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="LetterSpacing" Value="0.5" />
+    <Setter Property="Foreground" Value="{DynamicResource Md3OutlineBrush}" />
+  </Style>
+
+  <!-- Paths, patterns and file names. -->
+  <Style Selector="TextBlock.mono">
+    <Setter Property="FontFamily" Value="{DynamicResource RobotoMonoFont}" />
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+  <Style Selector="TextBlock.mono.small">
+    <Setter Property="FontSize" Value="11.5" />
+  </Style>
+  <Style Selector="TextBlock.mono.large">
+    <Setter Property="FontSize" Value="12.5" />
+  </Style>
+
+  <!-- Role colors for text and icons. -->
+  <Style Selector="TextBlock.muted">
+    <Setter Property="Foreground" Value="{DynamicResource Md3OnSurfaceVariantBrush}" />
+  </Style>
+  <Style Selector="TextBlock.subtle">
+    <Setter Property="Foreground" Value="{DynamicResource Md3OutlineBrush}" />
+  </Style>
+  <Style Selector="TextBlock.accent">
+    <Setter Property="Foreground" Value="{DynamicResource Md3PrimaryBrush}" />
+  </Style>
+  <Style Selector="TextBlock.error">
+    <Setter Property="Foreground" Value="{DynamicResource Md3ErrorBrush}" />
+  </Style>
+  <Style Selector="TextBlock.warning">
+    <Setter Property="Foreground" Value="{DynamicResource Md3WarningBrush}" />
+  </Style>
+  <Style Selector="TextBlock.success">
+    <Setter Property="Foreground" Value="{DynamicResource Md3SuccessBrush}" />
+  </Style>
+
+  <!-- Material Symbols glyphs: set Text to an Icons constant. Size defaults to 20; filled swaps in the filled face. -->
+  <Style Selector="TextBlock.icon">
+    <Setter Property="FontFamily" Value="{DynamicResource SymbolsFont}" />
+    <Setter Property="FontSize" Value="20" />
+    <Setter Property="LineHeight" Value="20" />
+    <Setter Property="FontWeight" Value="Normal" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="TextBlock.icon.filled">
+    <Setter Property="FontFamily" Value="{DynamicResource SymbolsFilledFont}" />
+  </Style>
+  <Style Selector="TextBlock.icon.s14">
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="LineHeight" Value="14" />
+  </Style>
+  <Style Selector="TextBlock.icon.s16">
+    <Setter Property="FontSize" Value="16" />
+    <Setter Property="LineHeight" Value="16" />
+  </Style>
+  <Style Selector="TextBlock.icon.s18">
+    <Setter Property="FontSize" Value="18" />
+    <Setter Property="LineHeight" Value="18" />
+  </Style>
+  <Style Selector="TextBlock.icon.s24">
+    <Setter Property="FontSize" Value="24" />
+    <Setter Property="LineHeight" Value="24" />
+  </Style>
+  <Style Selector="TextBlock.icon.s28">
+    <Setter Property="FontSize" Value="28" />
+    <Setter Property="LineHeight" Value="28" />
+  </Style>
+
+</Styles>

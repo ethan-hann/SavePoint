@@ -2,6 +2,7 @@ using Savepoint.Core.Paths;
 
 namespace Savepoint.Core.Platform.MacOS;
 
+/// <summary>The macOS tables: app folders, path tokens, and the denylist.</summary>
 public sealed class MacOSPlatform : IPlatform
 {
     private static readonly PathSyntax _syntax = PathSyntax.For(OsKind.MacOS);
@@ -22,6 +23,9 @@ public sealed class MacOSPlatform : IPlatform
     private readonly string _appSupport;
     private readonly string _documents;
 
+    /// <summary>Builds the tables from <paramref name="environment"/>; throws <see cref="ArgumentException"/> if its home folder is not an absolute path.</summary>
+    /// <param name="environment">What to read: the home folder.</param>
+    /// <param name="processes">Replaces the real process inspector, for tests.</param>
     public MacOSPlatform(PlatformEnvironment environment, IProcessInspector? processes = null)
     {
         _paths = new PlatformPaths(_syntax, environment);
@@ -48,16 +52,22 @@ public sealed class MacOSPlatform : IPlatform
         Processes = processes ?? new MacOSProcessInspector();
     }
 
+    /// <inheritdoc />
     public OsKind Os => OsKind.MacOS;
 
+    /// <inheritdoc />
     public StringComparison PathComparison => _syntax.Comparison;
 
+    /// <inheritdoc />
     public AppDirectories Directories { get; }
 
+    /// <inheritdoc />
     public IReadOnlyDictionary<string, string> PathTokens { get; }
 
+    /// <inheritdoc />
     public IProcessInspector Processes { get; }
 
+    /// <inheritdoc />
     public PathDenylist Denylist(IEnumerable<string> extraBlockedRoots)
     {
         var home = _paths.Home;
@@ -78,6 +88,9 @@ public sealed class MacOSPlatform : IPlatform
             builder.Exact(root, "Too broad to track");
         }
 
+        // Every external drive mounts directly under /Volumes; a whole drive is too broad, a folder inside it is fine.
+        builder.ExactChildren("/Volumes", "A whole mounted drive is too broad to track");
+
         builder.Exact(home, "The home folder holds everything the user owns");
         builder.Exact(_paths.Under(home, "Applications"), "Holds every app the user installed");
         builder.Exact(_paths.Under(home, "Library"), "Holds every app's data");
@@ -85,6 +98,8 @@ public sealed class MacOSPlatform : IPlatform
         builder.Exact(_paths.Under(home, "Library/Containers"), "Holds every sandboxed app's data");
         builder.Exact(_paths.Under(home, "Library/Preferences"), "Holds every app's settings");
         builder.Exact(_paths.Under(home, "Library/Caches"), "Holds every app's cache");
+        builder.Exact(_paths.Under(home, "Library/Mobile Documents"), "iCloud Drive syncs everything beneath it");
+        builder.Exact(_paths.Under(home, "Library/Mobile Documents/com~apple~CloudDocs"), "The iCloud Drive root syncs everything beneath it");
 
         foreach (var (name, known) in new[]
         {
@@ -100,10 +115,12 @@ public sealed class MacOSPlatform : IPlatform
             builder.Exact(_paths.Under(home, name), $"The {name} folder is too broad to track");
         }
 
-        var steam = _paths.Under(_appSupport, "Steam");
-        builder.Exact(steam, "The Steam folder holds every Steam game");
-        builder.Exact(_paths.Under(steam, "steamapps"), "steamapps holds every Steam game");
-        builder.Exact(_paths.Under(steam, "steamapps/common"), "steamapps/common holds every Steam game");
+        builder.Exact(_paths.Under(_appSupport, "Steam"), "The Steam folder holds every Steam game");
+
+        // A Steam library can be on any drive, so the library's own folders are matched by name.
+        builder.NameRule("steamapps holds every game in a Steam library", "steamapps");
+        builder.NameRule("steamapps/common holds every game in a Steam library", "steamapps", "common");
+        builder.NameRule("steamapps/compatdata holds every Proton prefix in a Steam library", "steamapps", "compatdata");
 
         return builder.Build();
     }

@@ -54,11 +54,11 @@ public class ConsentMarkerTests
         using var tree = new TempTree();
         var work = tree.Dir("work");
 
-        ConsentMarker.Write(work, "skyrim-se", ConsentRole.External, _confirmedAt);
+        ConsentMarker.Write(work, "skyrim-se", RepoRole.External, _confirmedAt);
 
         var state = Assert.IsType<ConsentMarkerState.Valid>(ConsentMarker.Read(work));
         Assert.Equal("skyrim-se", state.Marker.GameId);
-        Assert.Equal(ConsentRole.External, state.Marker.Role);
+        Assert.Equal(RepoRole.External, state.Marker.Role);
         Assert.Equal(_confirmedAt.ToUniversalTime(), state.Marker.ConfirmedAt.ToUniversalTime());
     }
 
@@ -68,7 +68,7 @@ public class ConsentMarkerTests
         using var tree = new TempTree();
         var work = tree.Dir("work");
 
-        ConsentMarker.Write(work, "skyrim-se", ConsentRole.Install, _confirmedAt);
+        ConsentMarker.Write(work, "skyrim-se", RepoRole.Install, _confirmedAt);
 
         var file = Path.Combine(work, ConsentMarker.FileName);
         Assert.True(File.Exists(file), "Write should create the marker file");
@@ -80,17 +80,112 @@ public class ConsentMarkerTests
     }
 
     [Fact]
-    public void Write_replaces_an_existing_marker_and_leaves_no_temp_file()
+    public void Write_reconfirms_the_same_game_and_role_with_a_new_time_and_leaves_no_temp_file()
     {
         using var tree = new TempTree();
         var work = tree.Dir("work");
-        ConsentMarker.Write(work, "first", ConsentRole.Install, _confirmedAt);
+        ConsentMarker.Write(work, "game", RepoRole.Install, _confirmedAt);
+        var later = _confirmedAt.AddHours(2);
 
-        ConsentMarker.Write(work, "second", ConsentRole.Install, _confirmedAt);
+        ConsentMarker.Write(work, "game", RepoRole.Install, later);
 
         var state = Assert.IsType<ConsentMarkerState.Valid>(ConsentMarker.Read(work));
-        Assert.Equal("second", state.Marker.GameId);
+        Assert.Equal(later.ToUniversalTime(), state.Marker.ConfirmedAt.ToUniversalTime());
         Assert.False(File.Exists(Path.Combine(work, ConsentMarker.TempFileName)));
+    }
+
+    [Theory]
+    [InlineData("other-game", RepoRole.Install, false)]
+    [InlineData("game", RepoRole.External, false)]
+    [InlineData("other-game", RepoRole.Install, true)]
+    public void Write_never_replaces_another_games_or_roles_marker_not_even_when_told_to_replace_corrupt_ones(string existingGame, RepoRole existingRole, bool replaceCorrupt)
+    {
+        using var tree = new TempTree();
+        var work = tree.Dir("work");
+        ConsentMarker.Write(work, existingGame, existingRole, _confirmedAt);
+
+        var error = Assert.Throws<ConsentMarkerException>(() => ConsentMarker.Write(work, "game", RepoRole.Install, _confirmedAt, replaceCorrupt));
+
+        Assert.Equal("error.consentMarker.conflict", error.MessageId);
+        Assert.Equal(existingGame, error.Args["existingGameId"]);
+        Assert.Equal(existingRole, error.Args["existingRole"]);
+        var state = Assert.IsType<ConsentMarkerState.Valid>(ConsentMarker.Read(work));
+        Assert.Equal((existingGame, existingRole), (state.Marker.GameId, state.Marker.Role));
+    }
+
+    [Fact]
+    public void Write_replaces_a_corrupt_marker_only_when_asked_to()
+    {
+        using var tree = new TempTree();
+        var work = tree.Dir("work");
+        var file = Path.Combine(work, ConsentMarker.FileName);
+        File.WriteAllText(file, "{ broken");
+
+        var refused = Assert.Throws<ConsentMarkerException>(() => ConsentMarker.Write(work, "game", RepoRole.Install, _confirmedAt));
+        Assert.Equal("{ broken", File.ReadAllText(file));
+        Assert.Null(refused.Args["existingGameId"]);
+
+        ConsentMarker.Write(work, "game", RepoRole.Install, _confirmedAt, replaceCorrupt: true);
+
+        Assert.IsType<ConsentMarkerState.Valid>(ConsentMarker.Read(work));
+    }
+
+    [Fact]
+    public void A_file_too_large_to_be_a_marker_reads_as_corrupt_without_being_loaded()
+    {
+        using var tree = new TempTree();
+        var work = tree.Dir("work");
+        var padding = new string(' ', 5000);
+        File.WriteAllText(
+            Path.Combine(work, ConsentMarker.FileName),
+            $"{{\"gameId\":\"a\",\"role\":\"install\",\"confirmedAt\":\"2026-10-20T14:03:11.402Z\",\"note\":\"{padding}\"}}");
+
+        Assert.IsType<ConsentMarkerState.Corrupt>(ConsentMarker.Read(work));
+    }
+
+    [Fact]
+    public void A_marker_another_program_holds_for_a_moment_is_still_read()
+    {
+        using var tree = new TempTree();
+        var work = tree.Dir("work");
+        ConsentMarker.Write(work, "game", RepoRole.Install, _confirmedAt);
+
+        var state = ReadWhileLocked(work, TimeSpan.FromMilliseconds(150));
+
+        var valid = Assert.IsType<ConsentMarkerState.Valid>(state);
+        Assert.Equal("game", valid.Marker.GameId);
+    }
+
+    [Fact]
+    public void A_marker_that_stays_locked_is_unreadable_and_not_a_conflict_with_nobody()
+    {
+        using var tree = new TempTree();
+        var work = tree.Dir("work");
+        ConsentMarker.Write(work, "game", RepoRole.Install, _confirmedAt);
+        var file = Path.Combine(work, ConsentMarker.FileName);
+
+        using var held = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.None);
+
+        Assert.IsType<ConsentMarkerState.Unreadable>(ConsentMarker.Read(work));
+        Assert.IsAssignableFrom<IOException>(Record.Exception(() => ConsentMarker.Verify(work, "game", RepoRole.Install)));
+        Assert.IsAssignableFrom<IOException>(Record.Exception(() => ConsentMarker.Write(work, "game", RepoRole.Install, _confirmedAt)));
+        Assert.IsAssignableFrom<IOException>(Record.Exception(() => ConsentMarker.Remove(work, "game", RepoRole.Install)));
+    }
+
+    [Fact]
+    public void A_failed_write_leaves_an_earlier_marker_as_it_was()
+    {
+        using var tree = new TempTree();
+        var work = tree.Dir("work");
+        ConsentMarker.Write(work, "game", RepoRole.Install, _confirmedAt);
+        var file = Path.Combine(work, ConsentMarker.FileName);
+        var before = File.ReadAllText(file);
+        Directory.CreateDirectory(Path.Combine(work, ConsentMarker.TempFileName));
+
+        var error = Record.Exception(() => ConsentMarker.Write(work, "game", RepoRole.Install, _confirmedAt.AddHours(1)));
+
+        Assert.True(error is IOException or UnauthorizedAccessException, $"expected the write to fail, got {error?.GetType().Name ?? "no exception"}");
+        Assert.Equal(before, File.ReadAllText(file));
     }
 
     [Fact]
@@ -99,7 +194,7 @@ public class ConsentMarkerTests
         using var tree = new TempTree();
         var work = Path.Combine(tree.Root, "new", "folder");
 
-        ConsentMarker.Write(work, "game", ConsentRole.Install, _confirmedAt);
+        ConsentMarker.Write(work, "game", RepoRole.Install, _confirmedAt);
 
         Assert.IsType<ConsentMarkerState.Valid>(ConsentMarker.Read(work));
     }
@@ -111,7 +206,7 @@ public class ConsentMarkerTests
         var work = tree.Dir("work");
         File.WriteAllText(Path.Combine(work, ConsentMarker.TempFileName), "half written");
 
-        ConsentMarker.Write(work, "game", ConsentRole.Install, _confirmedAt);
+        ConsentMarker.Write(work, "game", RepoRole.Install, _confirmedAt);
 
         Assert.IsType<ConsentMarkerState.Valid>(ConsentMarker.Read(work));
         Assert.False(File.Exists(Path.Combine(work, ConsentMarker.TempFileName)));
@@ -125,7 +220,7 @@ public class ConsentMarkerTests
         Directory.CreateDirectory(Path.Combine(work, ConsentMarker.FileName));
 
         // Moving a file over a folder fails as an IO error on Unix and as access denied on Windows.
-        var error = Record.Exception(() => ConsentMarker.Write(work, "game", ConsentRole.Install, _confirmedAt));
+        var error = Record.Exception(() => ConsentMarker.Write(work, "game", RepoRole.Install, _confirmedAt));
 
         Assert.True(error is IOException or UnauthorizedAccessException, $"expected the write to fail, got {error?.GetType().Name ?? "no exception"}");
         Assert.False(File.Exists(Path.Combine(work, ConsentMarker.TempFileName)));
@@ -151,7 +246,7 @@ public class ConsentMarkerTests
         File.WriteAllBytes(Path.Combine(work, ConsentMarker.FileName), [.. Encoding.UTF8.GetPreamble(), .. Encoding.UTF8.GetBytes(json)]);
 
         var state = Assert.IsType<ConsentMarkerState.Valid>(ConsentMarker.Read(work));
-        Assert.Equal(("a", ConsentRole.External), (state.Marker.GameId, state.Marker.Role));
+        Assert.Equal(("a", RepoRole.External), (state.Marker.GameId, state.Marker.Role));
     }
 
     [Fact]
@@ -159,9 +254,9 @@ public class ConsentMarkerTests
     {
         using var tree = new TempTree();
         var work = tree.Dir("work");
-        ConsentMarker.Write(work, "game", ConsentRole.Install, _confirmedAt);
+        ConsentMarker.Write(work, "game", RepoRole.Install, _confirmedAt);
 
-        ConsentMarker.Verify(work, "game", ConsentRole.Install);
+        ConsentMarker.Verify(work, "game", RepoRole.Install);
     }
 
     [Fact]
@@ -170,7 +265,7 @@ public class ConsentMarkerTests
         using var tree = new TempTree();
         var work = tree.Dir("work");
 
-        var error = Assert.Throws<ConsentMarkerException>(() => ConsentMarker.Verify(work, "game", ConsentRole.External));
+        var error = Assert.Throws<ConsentMarkerException>(() => ConsentMarker.Verify(work, "game", RepoRole.External));
 
         Assert.Equal("error.consentMarker.missing", error.MessageId);
         Assert.Equal(work, error.Args["path"]);
@@ -178,19 +273,19 @@ public class ConsentMarkerTests
     }
 
     [Theory]
-    [InlineData("other-game", ConsentRole.Install, "other-game", "install")]
-    [InlineData("game", ConsentRole.External, "game", "external")]
-    public void Verify_reports_a_conflict_with_the_existing_owner(string existingGame, ConsentRole existingRole, string expectedGame, string expectedRole)
+    [InlineData("other-game", RepoRole.Install, "other-game", RepoRole.Install)]
+    [InlineData("game", RepoRole.External, "game", RepoRole.External)]
+    public void Verify_reports_a_conflict_with_the_existing_owner(string existingGame, RepoRole existingRole, string expectedGame, RepoRole expectedRole)
     {
         using var tree = new TempTree();
         var work = tree.Dir("work");
         ConsentMarker.Write(work, existingGame, existingRole, _confirmedAt);
 
-        var error = Assert.Throws<ConsentMarkerException>(() => ConsentMarker.Verify(work, "game", ConsentRole.Install));
+        var error = Assert.Throws<ConsentMarkerException>(() => ConsentMarker.Verify(work, "game", RepoRole.Install));
 
         Assert.Equal("error.consentMarker.conflict", error.MessageId);
         Assert.Equal(expectedGame, error.Args["existingGameId"]);
-        Assert.Equal(expectedRole == "install" ? RepoRole.Install : RepoRole.External, error.Args["existingRole"]);
+        Assert.Equal(expectedRole, error.Args["existingRole"]);
         Assert.Equal(RepoRole.Install, error.Args["role"]);
     }
 
@@ -201,11 +296,32 @@ public class ConsentMarkerTests
         var work = tree.Dir("work");
         File.WriteAllText(Path.Combine(work, ConsentMarker.FileName), "{ broken");
 
-        var error = Assert.Throws<ConsentMarkerException>(() => ConsentMarker.Verify(work, "game", ConsentRole.Install));
+        var error = Assert.Throws<ConsentMarkerException>(() => ConsentMarker.Verify(work, "game", RepoRole.Install));
 
         Assert.Equal("error.consentMarker.conflict", error.MessageId);
         Assert.Null(error.Args["existingGameId"]);
         Assert.Null(error.Args["existingRole"]);
+    }
+
+    // Another program (a scanner, a backup tool) opens the file with no sharing for a short while.
+    private static ConsentMarkerState ReadWhileLocked(string work, TimeSpan holdFor)
+    {
+        var opened = new ManualResetEventSlim();
+        var holder = Task.Run(() =>
+        {
+            using var stream = new FileStream(Path.Combine(work, ConsentMarker.FileName), FileMode.Open, FileAccess.Read, FileShare.None);
+            opened.Set();
+            Thread.Sleep(holdFor);
+        });
+        opened.Wait();
+        try
+        {
+            return ConsentMarker.Read(work);
+        }
+        finally
+        {
+            holder.Wait();
+        }
     }
 
     [Fact]
@@ -213,9 +329,9 @@ public class ConsentMarkerTests
     {
         using var tree = new TempTree();
         var work = tree.Dir("work");
-        ConsentMarker.Write(work, "game", ConsentRole.Install, _confirmedAt);
+        ConsentMarker.Write(work, "game", RepoRole.Install, _confirmedAt);
 
-        ConsentMarker.Remove(work, "game", ConsentRole.Install);
+        ConsentMarker.Remove(work, "game", RepoRole.Install);
 
         Assert.False(File.Exists(Path.Combine(work, ConsentMarker.FileName)));
     }
@@ -226,22 +342,22 @@ public class ConsentMarkerTests
         using var tree = new TempTree();
         var work = tree.Dir("work");
 
-        ConsentMarker.Remove(work, "game", ConsentRole.Install);
-        ConsentMarker.Remove(Path.Combine(tree.Root, "nowhere"), "game", ConsentRole.Install);
+        ConsentMarker.Remove(work, "game", RepoRole.Install);
+        ConsentMarker.Remove(Path.Combine(tree.Root, "nowhere"), "game", RepoRole.Install);
 
         Assert.Empty(Directory.GetFileSystemEntries(work));
     }
 
     [Theory]
-    [InlineData("other-game", ConsentRole.Install)]
-    [InlineData("game", ConsentRole.External)]
-    public void Remove_refuses_a_marker_that_belongs_to_someone_else_and_keeps_it(string existingGame, ConsentRole existingRole)
+    [InlineData("other-game", RepoRole.Install)]
+    [InlineData("game", RepoRole.External)]
+    public void Remove_refuses_a_marker_that_belongs_to_someone_else_and_keeps_it(string existingGame, RepoRole existingRole)
     {
         using var tree = new TempTree();
         var work = tree.Dir("work");
         ConsentMarker.Write(work, existingGame, existingRole, _confirmedAt);
 
-        var error = Assert.Throws<ConsentMarkerException>(() => ConsentMarker.Remove(work, "game", ConsentRole.Install));
+        var error = Assert.Throws<ConsentMarkerException>(() => ConsentMarker.Remove(work, "game", RepoRole.Install));
 
         Assert.Equal("error.consentMarker.conflict", error.MessageId);
         Assert.IsType<ConsentMarkerState.Valid>(ConsentMarker.Read(work));
@@ -255,7 +371,7 @@ public class ConsentMarkerTests
         var file = Path.Combine(work, ConsentMarker.FileName);
         File.WriteAllText(file, "{ broken");
 
-        Assert.Throws<ConsentMarkerException>(() => ConsentMarker.Remove(work, "game", ConsentRole.Install));
+        Assert.Throws<ConsentMarkerException>(() => ConsentMarker.Remove(work, "game", RepoRole.Install));
 
         Assert.True(File.Exists(file));
     }

@@ -14,14 +14,19 @@ public sealed class PathSyntax
         Os = os;
     }
 
+    /// <summary>The OS whose rules this object applies.</summary>
     public OsKind Os { get; }
 
+    /// <summary>The folder separator the OS writes.</summary>
     public char Separator => IsWindows ? '\\' : '/';
 
+    /// <summary>How names compare: case-insensitive on Windows and macOS, case-sensitive on Linux.</summary>
     public StringComparison Comparison => Os == OsKind.Linux ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
 
     private bool IsWindows => Os == OsKind.Windows;
 
+    /// <summary>The shared rules object for <paramref name="os"/>.</summary>
+    /// <param name="os">The OS to follow.</param>
     public static PathSyntax For(OsKind os) => os switch
     {
         OsKind.Windows => _windows,
@@ -30,14 +35,46 @@ public sealed class PathSyntax
         _ => throw new ArgumentOutOfRangeException(nameof(os), os, "Unknown OS."),
     };
 
+    /// <summary>
+    /// True when <paramref name="path"/> names a drive or share. A Windows path with a colon after the drive letter
+    /// (NTFS stream syntax) is never absolute: it can reach a folder under another spelling.
+    /// </summary>
     public bool IsAbsolute(string path) => TryReadRoot(path, out _, out _);
 
+    /// <summary>True for a Windows path that would be absolute but has a colon after the drive letter, like <c>C:\Windows::$INDEX_ALLOCATION</c>.</summary>
+    public bool UsesStreamSyntax(string path) => ReadRoot(path, out _, out _, out var stream) && stream;
+
+    /// <summary>The host and share of a Windows network path (\\host\share\...), including the \\?\UNC\ form; false for any other path.</summary>
+    internal bool TryReadShare(string path, out string host, out string share)
+    {
+        host = share = string.Empty;
+        if (!IsWindows || !TryReadRoot(path, out var root, out _) || !root.StartsWith(@"\\", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var names = root[2..].TrimEnd('\\').Split('\\');
+        host = names[0];
+        share = names[1];
+        return true;
+    }
+
+    /// <summary>
+    /// The path in its one normal form: this OS's separator, no repeated separators or "." or ".." components (".." never climbs
+    /// above the root), no trailing separator, and on Windows an upper-case drive letter and the real Win32 rule for trailing dots and spaces.
+    /// </summary>
+    /// <param name="path">An absolute path in this OS's style.</param>
+    /// <exception cref="ArgumentException">The path is not absolute (see <see cref="IsAbsolute"/>).</exception>
     public string Normalize(string path)
     {
         var parsed = Split(path, collapseDots: true);
         return Join(parsed.Root, parsed.Parts);
     }
 
+    /// <summary>The normal form of <paramref name="relative"/> appended to <paramref name="basePath"/>; either may use both separators.</summary>
+    /// <param name="basePath">An absolute path in this OS's style.</param>
+    /// <param name="relative">The part to append; it may contain ".." and climbs only as far as the root.</param>
+    /// <exception cref="ArgumentException">The base path is not absolute.</exception>
     public string Combine(string basePath, string relative)
     {
         var parsed = Split(basePath, collapseDots: true);
@@ -76,15 +113,35 @@ public sealed class PathSyntax
     internal IEnumerable<string> SplitRelative(string relative)
     {
         var text = IsWindows ? relative.Replace('/', '\\') : relative;
-        foreach (var raw in text.Split(Separator, StringSplitOptions.RemoveEmptyEntries))
+        var segments = text.Split(Separator, StringSplitOptions.RemoveEmptyEntries);
+        var endsWithSeparator = text.Length > 0 && text[^1] == Separator;
+        for (var i = 0; i < segments.Length; i++)
         {
-            // Win32 drops trailing dots and spaces from every component, so "Windows." names the Windows folder.
-            var part = IsWindows && raw is not ("." or "..") ? raw.TrimEnd('.', ' ') : raw;
-            if (part.Length > 0 && part != ".")
+            var raw = segments[i];
+            if (raw == ".")
+            {
+                continue;
+            }
+
+            var isFinal = i == segments.Length - 1 && !endsWithSeparator;
+            var part = IsWindows && raw != ".." ? WindowsName(raw, isFinal) : raw;
+            if (part.Length > 0)
             {
                 yield return part;
             }
         }
+    }
+
+    // Win32 (GetFullPathName) drops one trailing dot from a component, and every trailing dot and space from the last one,
+    // so "Windows." names the Windows folder while "Windows " and "Windows.." do not; tests compare this with the real call.
+    private static string WindowsName(string name, bool isFinal)
+    {
+        if (isFinal)
+        {
+            return name.TrimEnd('.', ' ');
+        }
+
+        return name.EndsWith('.') && !name.EndsWith("..", StringComparison.Ordinal) ? name[..^1] : name;
     }
 
     internal string Join(string root, IReadOnlyList<string> parts) => root + string.Join(Separator, parts);
@@ -112,10 +169,14 @@ public sealed class PathSyntax
 
     private static bool IsDriveLetter(char c) => c is >= 'A' and <= 'Z' or >= 'a' and <= 'z';
 
+    private bool TryReadRoot(string path, out string root, out string rest) =>
+        ReadRoot(path, out root, out rest, out var stream) && !stream;
+
     // The root keeps its trailing separator ("C:\", "/", "\\server\share\") so a root-only path joins cleanly.
-    private bool TryReadRoot(string path, out string root, out string rest)
+    private bool ReadRoot(string path, out string root, out string rest, out bool streamSyntax)
     {
         root = rest = string.Empty;
+        streamSyntax = false;
         if (string.IsNullOrEmpty(path))
         {
             return false;
@@ -148,6 +209,9 @@ public sealed class PathSyntax
         {
             root = char.ToUpperInvariant(text[0]) + @":\";
             rest = text[3..];
+
+            // A colon past the drive letter is NTFS stream syntax ("Windows::$INDEX_ALLOCATION" opens the folder), never part of a name.
+            streamSyntax = rest.Contains(':');
             return true;
         }
 
@@ -158,6 +222,7 @@ public sealed class PathSyntax
             {
                 root = $@"\\{segments[0]}\{segments[1]}\";
                 rest = segments.Length == 3 ? segments[2] : string.Empty;
+                streamSyntax = text[2..].Contains(':');
                 return true;
             }
         }

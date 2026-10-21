@@ -28,9 +28,15 @@ public class PathSafetyTests
         { OsKind.Linux, "/mnt/games/Skyrim" },
         { OsKind.Linux, "/opt/games/Game" },
         { OsKind.Linux, "/run/media/test/USB/Games/X" },
-        { OsKind.Linux, "/run/media/test/USB" },
         { OsKind.Linux, "/run/media/someone-else/USB/Games/X" },
         { OsKind.Linux, "/media/test/USB/Games/X" },
+        { OsKind.Linux, "/mnt/games/SteamLibrary/steamapps/common/Game" },
+        { OsKind.Windows, @"F:\SteamLibrary\steamapps\common\Skyrim" },
+        { OsKind.Windows, @"F:\Games\SteamLibrary\steamapps\common\Skyrim\Data" },
+        { OsKind.MacOS, "/Volumes/Games/SteamLibrary/steamapps/common/Game" },
+        { OsKind.MacOS, "/System/Volumes/Data/Users/test/Documents/Game/Saves" },
+        { OsKind.MacOS, "/System/Volumes/Data/Applications/Game.app" },
+        { OsKind.MacOS, "/Users/test/Library/Mobile Documents/com~apple~CloudDocs/Games/X" },
         { OsKind.MacOS, "/Applications/Game.app" },
         { OsKind.MacOS, "/Users/test/Applications/Game.app" },
         { OsKind.MacOS, "/Users/test/Library/Application Support/Game/Saves" },
@@ -53,8 +59,28 @@ public class PathSafetyTests
         { OsKind.Windows, @"\\?\C:\Windows\System32", 1 },
         { OsKind.Windows, @"\\.\C:\Windows", 1 },
         { OsKind.Windows, @"C:\Windows.\System32", 1 },
-        { OsKind.Windows, @"C:\WINDOWS \x", 1 },
+        { OsKind.Windows, @"C:\Windows\ \..\System32", 1 },
+        { OsKind.Windows, @"C:\Windows\...\..\System32", 1 },
         { OsKind.Windows, @"C:\Users\Test. ", 2 },
+        { OsKind.Windows, @"C:\Windows::$INDEX_ALLOCATION\System32", 1 },
+        { OsKind.Windows, @"C:\Windows::$INDEX_ALLOCATION", 1 },
+        { OsKind.Windows, @"C:\Users\Test::$INDEX_ALLOCATION", 1 },
+        { OsKind.Windows, @"C:\Windows:$I30:$INDEX_ALLOCATION", 1 },
+        { OsKind.Windows, @"C:\Windows\System32:stream", 1 },
+        { OsKind.Windows, @"D:\Games\Sky:stream", 1 },
+        { OsKind.Windows, @"\\?\C:\Windows::$INDEX_ALLOCATION", 1 },
+        { OsKind.Windows, @"\\localhost\C$\Windows\System32", 1 },
+        { OsKind.Windows, @"\\LOCALHOST\ADMIN$\System32", 1 },
+        { OsKind.Windows, @"\\127.0.0.1\C$\Users\Test", 1 },
+        { OsKind.Windows, @"\\127.1\share\x", 1 },
+        { OsKind.Windows, @"\\?\UNC\localhost\C$\Users\Test", 1 },
+        { OsKind.Windows, @"\\testpc\share\Games", 1 },
+        { OsKind.Windows, @"\\TESTPC.corp.example\Games\Sky", 1 },
+        { OsKind.Windows, @"\\localhost.\share\x", 1 },
+        { OsKind.Windows, @"\\0--1.ipv6-literal.net\share\x", 1 },
+        { OsKind.Windows, "//localhost/C$/Windows", 1 },
+        { OsKind.Windows, @"\\server\C$\Users", 1 },
+        { OsKind.Windows, @"\\server\IPC$\x", 1 },
         { OsKind.Linux, "/home/test/../../etc/passwd", 1 },
         { OsKind.Linux, "/etc/./ssh", 1 },
         { OsKind.Linux, "/home/test/Documents/..", 2 },
@@ -66,7 +92,29 @@ public class PathSafetyTests
         { OsKind.Linux, "/run/media/test", 2 },
         { OsKind.Linux, "/media/test", 2 },
         { OsKind.Linux, "/data", 1 },
-        { OsKind.MacOS, "/Volumes/Big", 1 },
+        { OsKind.Linux, "/efi/EFI", 1 },
+        { OsKind.Linux, "/mnt/games", 2 },
+        { OsKind.Linux, "/mnt/c", 2 },
+        { OsKind.Linux, "/media/USB", 2 },
+        { OsKind.Linux, "/media/test/USB", 2 },
+        { OsKind.Linux, "/run/media/test/USB", 2 },
+        { OsKind.Linux, "/mnt/games/SteamLibrary/steamapps", 2 },
+        { OsKind.Linux, "/mnt/games/SteamLibrary/steamapps/common", 2 },
+        { OsKind.Linux, "/mnt/games/SteamLibrary/steamapps/compatdata", 2 },
+        { OsKind.Linux, "/home/test/.var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/common", 2 },
+        { OsKind.Windows, @"F:\SteamLibrary\steamapps", 2 },
+        { OsKind.Windows, @"F:\SteamLibrary\steamapps\common", 2 },
+        { OsKind.Windows, @"f:\steamlibrary\STEAMAPPS\Common", 2 },
+        { OsKind.Windows, @"F:\SteamLibrary\steamapps\compatdata", 2 },
+        { OsKind.MacOS, "/Volumes/External", 2 },
+        { OsKind.MacOS, "/Volumes/Games/SteamLibrary/steamapps/common", 2 },
+        { OsKind.MacOS, "/Users/test/Library/Mobile Documents", 2 },
+        { OsKind.MacOS, "/Users/test/Library/Mobile Documents/com~apple~CloudDocs", 2 },
+        { OsKind.MacOS, "/System/Volumes/Data", 2 },
+        { OsKind.MacOS, "/System/Volumes/Data/Users/test", 2 },
+        { OsKind.MacOS, "/System/Volumes/Data/Applications", 2 },
+        { OsKind.MacOS, "/System/Volumes/Data/Users/test/Library/Application Support/SavePoint/Storage", 1 },
+        { OsKind.MacOS, "/System/Volumes/Preboot/x", 1 },
         { OsKind.MacOS, "/SYSTEM/Library", 1 },
         { OsKind.MacOS, "/etc/hosts", 1 },
         { OsKind.MacOS, "/applications", 2 },
@@ -78,6 +126,13 @@ public class PathSafetyTests
         { OsKind.Windows, @"C:\Windows2\x" },
         { OsKind.Windows, @"C:\WindowsApps\x" },
         { OsKind.Windows, @"C:\Users\Test2" },
+        { OsKind.Windows, @"C:\WINDOWS \x" },
+        { OsKind.Windows, @"C:\Windows..\System32" },
+        { OsKind.Windows, @"\\localhost2\share\x" },
+        { OsKind.Windows, @"\\testpc2\share\x" },
+        { OsKind.Windows, @"\\mytestpc\share\x" },
+        { OsKind.Windows, @"\\server\share$x\y" },
+        { OsKind.Windows, @"\\otherpc\Games\Sky" },
         { OsKind.Windows, @"D:\SavePointStorage2\x" },
         { OsKind.Linux, "/ETC/passwd" },
         { OsKind.Linux, "/etcetera/x" },
@@ -85,13 +140,6 @@ public class PathSafetyTests
         { OsKind.Linux, "/data/savepoint-storage-old/x" },
         { OsKind.MacOS, "/Systems/x" },
         { OsKind.MacOS, "/Library2/x" },
-    };
-
-    private static string[] ExtraRootsFor(OsKind os) => os switch
-    {
-        OsKind.Windows => [@"C:\Users\Test\AppData\Roaming\SavePoint", @"D:\SavePointStorage"],
-        OsKind.Linux => ["/home/test/.config/savepoint", "/data/savepoint-storage"],
-        _ => ["/Users/test/Library/Application Support/SavePoint", "/Volumes/Big/SavePointStorage"],
     };
 
     [Theory]
@@ -114,14 +162,30 @@ public class PathSafetyTests
     public void Every_tier_two_root_is_rejected_exactly_and_a_folder_beneath_it_is_accepted(OsKind os)
     {
         var (safety, list, syntax) = Build(os);
-        var roots = list.Entries.Where(e => e.Tier == DenylistTier.ExactOnly).ToList();
+        var roots = list.Entries.Where(e => e is { Tier: DenylistTier.ExactOnly, ChildrenOnly: false }).ToList();
 
         Assert.NotEmpty(roots);
         foreach (var root in roots)
         {
             PathSafetyAssert.Blocked(safety, root.Path, 2);
-            var child = syntax.Combine(root.Path, "SomeGame");
-            Assert.True(Record.Exception(() => safety.Check(child)) is null, $"'{child}' should be accepted");
+
+            // Two levels down: a direct child of /media or /Volumes is a whole drive, which the next test covers.
+            PathSafetyAssert.Accepted(safety, syntax.Combine(root.Path, "SomeGame/Inner"));
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(AllOs))]
+    public void A_whole_mounted_drive_is_tier_two_and_a_folder_inside_it_is_accepted(OsKind os)
+    {
+        var (safety, list, syntax) = Build(os);
+        var parents = list.Entries.Where(e => e.ChildrenOnly).ToList();
+
+        Assert.Equal(os != OsKind.Windows, parents.Count > 0);
+        foreach (var parent in parents)
+        {
+            PathSafetyAssert.Blocked(safety, syntax.Combine(parent.Path, "SomeDrive"), 2);
+            PathSafetyAssert.Accepted(safety, syntax.Combine(parent.Path, "SomeDrive/Games/Game"));
         }
     }
 
@@ -154,15 +218,46 @@ public class PathSafetyTests
 
     [Theory]
     [MemberData(nameof(AllOs))]
-    public void Extra_roots_block_their_descendants(OsKind os)
+    public void SavePoints_own_folders_the_storage_root_and_extra_roots_block_their_descendants(OsKind os)
     {
         var (safety, _, syntax) = Build(os);
 
-        foreach (var extra in ExtraRootsFor(os))
+        foreach (var root in SafetyFixtures.ProtectedRootsFor(os))
         {
-            PathSafetyAssert.Blocked(safety, extra, 1);
-            PathSafetyAssert.Blocked(safety, syntax.Combine(extra, "game-id/install.git/objects"), 1);
+            PathSafetyAssert.Blocked(safety, root, 1);
+            PathSafetyAssert.Blocked(safety, syntax.Combine(root, "game-id/install.git/objects"), 1);
         }
+    }
+
+    [Theory]
+    [MemberData(nameof(AllOs))]
+    public void The_catalog_logs_runtime_and_storage_folders_are_protected_even_when_the_caller_adds_nothing(OsKind os)
+    {
+        var platform = FakePlatforms.For(os);
+        var syntax = PathSyntax.For(os);
+        var directories = platform.Directories;
+        var storage = SafetyFixtures.StorageRootFor(os);
+
+        var safety = new PathSafety(platform, storage, probe: PathProbes.None);
+
+        foreach (var root in new[] { directories.CatalogDir, directories.LogsDir, directories.RuntimeDir, storage })
+        {
+            PathSafetyAssert.Blocked(safety, root, 1);
+            PathSafetyAssert.Blocked(safety, syntax.Combine(root, "inside/file"), 1);
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(AllOs))]
+    public void The_storage_root_passed_in_is_protected_and_the_default_one_is_not_assumed(OsKind os)
+    {
+        var platform = FakePlatforms.For(os);
+        var moved = SafetyFixtures.StorageRootFor(os);
+
+        var safety = new PathSafety(platform, moved, probe: PathProbes.None);
+
+        PathSafetyAssert.Blocked(safety, moved, 1);
+        PathSafetyAssert.Accepted(safety, PathSyntax.For(os).Combine(moved + "-other", "Game"));
     }
 
     [Theory]
@@ -189,11 +284,11 @@ public class PathSafetyTests
     [InlineData(OsKind.Windows, @"D:\Data\SavePoint\Storage", @"D:\Data")]
     [InlineData(OsKind.Linux, "/home/test/.local/share/savepoint/storage", "/home/test/.local/share/savepoint")]
     [InlineData(OsKind.Linux, "/data/savepoint/storage", "/data")]
-    [InlineData(OsKind.MacOS, "/Users/test/Library/Application Support/SavePoint/Storage", "/Users/test/Library/Application Support/SavePoint")]
-    [InlineData(OsKind.MacOS, "/Volumes/Big/SavePoint/Storage", "/Volumes/Big")]
+    [InlineData(OsKind.MacOS, "/Users/test/Library/Application Support/Elsewhere/Storage", "/Users/test/Library/Application Support/Elsewhere")]
+    [InlineData(OsKind.MacOS, "/Volumes/Big/SavePoint/Storage", "/Volumes/Big/SavePoint")]
     public void A_folder_that_contains_an_extra_root_is_rejected_as_tier_one(OsKind os, string extraRoot, string ancestor)
     {
-        var safety = new PathSafety(FakePlatforms.For(os), [extraRoot], PathProbes.None);
+        var safety = new PathSafety(FakePlatforms.For(os), SafetyFixtures.StorageRootFor(os), [extraRoot], PathProbes.None);
 
         PathSafetyAssert.Blocked(safety, extraRoot, 1);
         PathSafetyAssert.Blocked(safety, ancestor, 1);
@@ -207,8 +302,8 @@ public class PathSafetyTests
     {
         var safety = new PathSafety(
             FakePlatforms.For(OsKind.Windows),
-            [@"C:\Users\Test\AppData\Local\SavePoint\Storage"],
-            PathProbes.None);
+            @"C:\Users\Test\AppData\Local\SavePoint\Storage",
+            probe: PathProbes.None);
 
         PathSafetyAssert.Blocked(safety, @"C:\Users\Test\AppData\Local", 2);
         PathSafetyAssert.Blocked(safety, @"C:\Users\Test", 2);
@@ -222,7 +317,7 @@ public class PathSafetyTests
             new DenylistEntry("/srv/system", DenylistTier.Subtree, "test rule", ["/srv/system/ok"]),
             new DenylistEntry("/srv/system/ok/locked", DenylistTier.ExactOnly, "test exact"),
         ]);
-        var safety = new PathSafety(new TableOnlyPlatform(table), probe: PathProbes.None);
+        var safety = new PathSafety(new TableOnlyPlatform(table), "/s", probe: PathProbes.None);
 
         PathSafetyAssert.Accepted(safety, "/srv/system/ok/a/b");
         PathSafetyAssert.Accepted(safety, "/srv/system/ok");
@@ -235,15 +330,14 @@ public class PathSafetyTests
 
     [Theory]
     [MemberData(nameof(AllOs))]
-    public void Without_extra_roots_the_same_paths_are_accepted(OsKind os)
+    public void A_root_the_caller_did_not_add_is_not_blocked(OsKind os)
     {
         var platform = FakePlatforms.For(os);
-        var safety = new PathSafety(platform, probe: PathProbes.None);
-        var syntax = PathSyntax.For(os);
+        var safety = new PathSafety(platform, SafetyFixtures.StorageRootFor(os), probe: PathProbes.None);
 
-        foreach (var extra in ExtraRootsFor(os))
+        foreach (var extra in SafetyFixtures.ExtraRootsFor(os))
         {
-            safety.Check(syntax.Combine(extra, "game-id/install.git"));
+            PathSafetyAssert.Accepted(safety, PathSyntax.For(os).Combine(extra, "game-id/install.git"));
         }
     }
 
@@ -275,16 +369,18 @@ public class PathSafetyTests
     {
         var syntax = PathSyntax.For(OsKind.Linux);
         var probe = new CountingProbe(new FakePathProbe(syntax));
-        var safety = new PathSafety(FakePlatforms.For(OsKind.Linux), ExtraRootsFor(OsKind.Linux), probe);
+        var safety = new PathSafety(FakePlatforms.For(OsKind.Linux), SafetyFixtures.StorageRootFor(OsKind.Linux), SafetyFixtures.ExtraRootsFor(OsKind.Linux), probe);
         var callsAfterBuild = probe.Calls;
 
         safety.Check("/games/skyrim/data/textures");
-        var callsForOneCheck = probe.Calls - callsAfterBuild;
+        var callsForFirstCheck = probe.Calls - callsAfterBuild;
         safety.Check("/games/skyrim/data/textures");
+        var callsForSecondCheck = probe.Calls - callsAfterBuild - callsForFirstCheck;
 
-        Assert.True(callsAfterBuild > 20, $"building resolved only {callsAfterBuild} paths");
-        Assert.Equal(4, callsForOneCheck);
-        Assert.Equal(callsAfterBuild + (2 * callsForOneCheck), probe.Calls);
+        // Building reads every table root; a check reads only its own path, and the cost does not grow with use.
+        Assert.True(callsForFirstCheck > 0, "a check should look at its own path");
+        Assert.Equal(callsForFirstCheck, callsForSecondCheck);
+        Assert.True(callsAfterBuild > 5 * callsForFirstCheck, $"building read {callsAfterBuild} paths, a check read {callsForFirstCheck}");
     }
 
     [Theory]
@@ -308,12 +404,7 @@ public class PathSafetyTests
         Assert.Equal(expected, safety.PathsOverlap(b, a));
     }
 
-    private static (PathSafety Safety, PathDenylist List, PathSyntax Syntax) Build(OsKind os)
-    {
-        var platform = FakePlatforms.For(os);
-        var extras = ExtraRootsFor(os);
-        return (new PathSafety(platform, extras, PathProbes.None), platform.Denylist(extras), PathSyntax.For(os));
-    }
+    private static (PathSafety Safety, PathDenylist List, PathSyntax Syntax) Build(OsKind os) => SafetyFixtures.Build(os);
 
     // A root is the one path whose parent is itself.
     private static bool IsVolumeRoot(PathSyntax syntax, string path) =>
@@ -350,5 +441,7 @@ public class PathSafetyTests
         }
 
         public string? ExpandShortName(string path) => inner.ExpandShortName(path);
+
+        public FileIdentity? ReadIdentity(string path) => inner.ReadIdentity(path);
     }
 }

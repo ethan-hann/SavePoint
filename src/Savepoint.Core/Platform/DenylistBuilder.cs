@@ -7,11 +7,15 @@ internal sealed class DenylistBuilder
 {
     private readonly PathSyntax _syntax;
     private readonly Dictionary<string, DenylistEntry> _entries;
+    private readonly Dictionary<string, DenylistEntry> _children;
+    private readonly List<DenylistNameRule> _nameRules = [];
+    private readonly List<string> _localHostNames = [];
 
     public DenylistBuilder(PathSyntax syntax)
     {
         _syntax = syntax;
         _entries = new Dictionary<string, DenylistEntry>(StringComparer.FromComparison(syntax.Comparison));
+        _children = new Dictionary<string, DenylistEntry>(StringComparer.FromComparison(syntax.Comparison));
     }
 
     public void Subtree(string path, string reason, IReadOnlyList<string>? allowedSubRoots = null) =>
@@ -28,7 +32,21 @@ internal sealed class DenylistBuilder
         }
     }
 
-    public PathDenylist Build() => new([.. _entries.Values]);
+    /// <summary>Each direct child folder of <paramref name="parent"/> is blocked as tier 2, and <paramref name="parent"/> itself is not.</summary>
+    public void ExactChildren(string parent, string reason)
+    {
+        var normalized = Normalized(parent);
+        _children.TryAdd(normalized, new DenylistEntry(normalized, DenylistTier.ExactOnly, reason, ChildrenOnly: true));
+    }
+
+    public void NameRule(string reason, params string[] names) => _nameRules.Add(new DenylistNameRule(names, reason));
+
+    public void LocalHostNames(IEnumerable<string> names) => _localHostNames.AddRange(names.Where(name => !string.IsNullOrWhiteSpace(name)));
+
+    public PathDenylist Build() => new(
+        [.. _entries.Values, .. _children.Values],
+        _nameRules,
+        [.. _localHostNames.Distinct(StringComparer.OrdinalIgnoreCase)]);
 
     private void Add(string path, DenylistTier tier, string reason, IReadOnlyList<string>? allowedSubRoots)
     {

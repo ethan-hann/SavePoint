@@ -36,13 +36,11 @@ public class DenylistTableTests
         @"C:\Users\Test\Music",
         @"C:\Users\Test\Videos",
         @"C:\Program Files (x86)\Steam",
-        @"C:\Program Files (x86)\Steam\steamapps",
-        @"C:\Program Files (x86)\Steam\steamapps\common",
     ];
 
     private static readonly string[] _linuxTier1 =
     [
-        "/etc", "/boot", "/proc", "/sys", "/dev", "/run", "/usr", "/bin", "/sbin", "/lib", "/lib32", "/lib64", "/libx32",
+        "/etc", "/boot", "/efi", "/proc", "/sys", "/dev", "/run", "/usr", "/bin", "/sbin", "/lib", "/lib32", "/lib64", "/libx32",
     ];
 
     private static readonly string[] _linuxTier2 =
@@ -64,8 +62,6 @@ public class DenylistTableTests
         "/tmp",
         "/home/test/.steam",
         "/home/test/.local/share/Steam",
-        "/home/test/.local/share/Steam/steamapps",
-        "/home/test/.local/share/Steam/steamapps/common",
         "/root",
         "/home/test/.cache",
         "/home/test/.local/state",
@@ -74,7 +70,6 @@ public class DenylistTableTests
         "/home/test/Pictures",
         "/home/test/Music",
         "/home/test/Videos",
-        "/home/test/.local/share/Steam/steamapps/compatdata",
         "/run/media",
         "/run/media/test",
         "/media/test",
@@ -112,9 +107,11 @@ public class DenylistTableTests
         "/Users/test/Library/Preferences",
         "/Users/test/Library/Caches",
         "/Users/test/Library/Application Support/Steam",
-        "/Users/test/Library/Application Support/Steam/steamapps",
-        "/Users/test/Library/Application Support/Steam/steamapps/common",
+        "/Users/test/Library/Mobile Documents",
+        "/Users/test/Library/Mobile Documents/com~apple~CloudDocs",
     ];
+
+    private static readonly string[][] _steamNameRules = [["steamapps"], ["steamapps", "common"], ["steamapps", "compatdata"]];
 
     [Fact]
     public void Windows_table_matches_the_documented_entries()
@@ -152,20 +149,32 @@ public class DenylistTableTests
 
         var list = new LinuxPlatform(env.Build()).Denylist([]);
 
-        string[] added =
-        [
-            "/custom/config",
-            "/custom/data",
-            "/custom/state",
-            "/data/docs",
-            "/home/test/Desk",
-            "/data/dl",
-            "/custom/data/Steam",
-            "/custom/data/Steam/steamapps",
-            "/custom/data/Steam/steamapps/common",
-            "/custom/data/Steam/steamapps/compatdata",
-        ];
+        string[] added = ["/custom/config", "/custom/data", "/custom/state", "/data/docs", "/home/test/Desk", "/data/dl", "/custom/data/Steam"];
         AssertTable(list, _linuxTier1, [.. _linuxTier2, .. added]);
+    }
+
+    [Fact]
+    public void Direct_children_of_the_folders_that_hold_mounted_drives_are_tier_two_on_posix()
+    {
+        Assert.Equal(
+            new[] { "/media", "/media/test", "/mnt", "/run/media/test" },
+            ChildFolders(new LinuxPlatform(FakeEnvironment.Linux().Build()).Denylist([])));
+        Assert.Equal(["/Volumes"], ChildFolders(new MacOSPlatform(FakeEnvironment.MacOS().Build()).Denylist([])));
+        Assert.Empty(ChildFolders(new WindowsPlatform(FakeEnvironment.Windows().Build()).Denylist([])));
+    }
+
+    [Theory]
+    [InlineData(OsKind.Windows)]
+    [InlineData(OsKind.Linux)]
+    [InlineData(OsKind.MacOS)]
+    public void A_steam_library_is_protected_by_its_folder_names_on_every_os(OsKind os)
+    {
+        var list = FakePlatforms.For(os).Denylist([]);
+
+        Assert.Equal(
+            _steamNameRules.Order(new NameChainComparer()),
+            list.NameRules.Select(rule => rule.Names.ToArray()).Order(new NameChainComparer()));
+        Assert.All(list.NameRules, rule => Assert.False(string.IsNullOrWhiteSpace(rule.Reason)));
     }
 
     [Fact]
@@ -192,14 +201,28 @@ public class DenylistTableTests
         env.Variables["USER"] = "ethan";
         env.Variables["LOGNAME"] = "ethan-hann";
 
-        var tier2 = new LinuxPlatform(env.Build()).Denylist([]).Entries.Where(e => e.Tier == DenylistTier.ExactOnly).Select(e => e.Path).ToList();
+        var list = new LinuxPlatform(env.Build()).Denylist([]);
 
+        var tier2 = list.Entries.Where(e => e.Tier == DenylistTier.ExactOnly && !e.ChildrenOnly).Select(e => e.Path).ToList();
         string[] expected =
         [
             "/run/media/ethan", "/run/media/ethan-hann", "/run/media/test",
             "/media/ethan", "/media/ethan-hann", "/media/test",
         ];
         Assert.All(expected, path => Assert.Contains(path, tier2));
+        Assert.Equal(
+            new[] { "/media", "/media/ethan", "/media/ethan-hann", "/media/test", "/mnt", "/run/media/ethan", "/run/media/ethan-hann", "/run/media/test" },
+            ChildFolders(list));
+    }
+
+    [Fact]
+    public void Windows_names_this_computer_for_network_paths_and_the_other_oses_do_not()
+    {
+        var windows = new WindowsPlatform(FakeEnvironment.Windows().Build()).Denylist([]);
+
+        Assert.Equal(["TESTPC", "testpc.corp.example"], windows.LocalHostNames.Order());
+        Assert.Empty(new LinuxPlatform(FakeEnvironment.Linux().Build()).Denylist([]).LocalHostNames);
+        Assert.Empty(new MacOSPlatform(FakeEnvironment.MacOS().Build()).Denylist([]).LocalHostNames);
     }
 
     [Fact]
@@ -227,6 +250,67 @@ public class DenylistTableTests
     }
 
     [Fact]
+    public void Every_source_for_the_windows_folder_is_its_own_entry()
+    {
+        var env = FakeEnvironment.Windows();
+        env.Variables["SystemRoot"] = @"D:\WinNT";
+        env.Variables["windir"] = @"E:\Win";
+        env.KnownFolders[KnownFolder.Windows] = @"F:\Windows";
+
+        var tier1 = new WindowsPlatform(env.Build()).Denylist([]).Entries.Where(e => e.Tier == DenylistTier.Subtree).Select(e => e.Path);
+
+        Assert.Equal([@"D:\WinNT", @"E:\Win", @"F:\Windows"], tier1.Order());
+    }
+
+    [Fact]
+    public void The_windows_folder_falls_back_to_windir_and_then_to_the_system_drive()
+    {
+        var windirOnly = FakeEnvironment.Windows();
+        windirOnly.Variables.Remove("SystemRoot");
+        windirOnly.Variables["windir"] = @"E:\Win";
+        var nothing = FakeEnvironment.Windows();
+        nothing.Variables.Remove("SystemRoot");
+        nothing.Variables["SystemDrive"] = "D:";
+
+        string[] fromWindir = [.. new WindowsPlatform(windirOnly.Build()).Denylist([]).Entries.Where(e => e.Tier == DenylistTier.Subtree).Select(e => e.Path)];
+        string[] fromDrive = [.. new WindowsPlatform(nothing.Build()).Denylist([]).Entries.Where(e => e.Tier == DenylistTier.Subtree).Select(e => e.Path)];
+
+        Assert.Equal([@"E:\Win"], fromWindir);
+        Assert.Equal([@"D:\Windows"], fromDrive);
+    }
+
+    [Fact]
+    public void Every_source_for_program_files_is_its_own_entry_and_the_system_drive_is_the_fallback()
+    {
+        var env = FakeEnvironment.Windows();
+        env.Variables["ProgramFiles"] = @"D:\Apps";
+        env.Variables["ProgramW6432"] = @"E:\Apps64";
+        env.KnownFolders[KnownFolder.ProgramFiles] = @"F:\Apps";
+        env.Variables.Remove("ProgramData");
+        env.Variables["SystemDrive"] = "G:";
+
+        var tier2 = new WindowsPlatform(env.Build()).Denylist([]).Entries.Where(e => e.Tier == DenylistTier.ExactOnly).Select(e => e.Path).ToList();
+
+        Assert.Contains(@"D:\Apps", tier2);
+        Assert.Contains(@"E:\Apps64", tier2);
+        Assert.Contains(@"F:\Apps", tier2);
+        Assert.Contains(@"G:\ProgramData", tier2);
+    }
+
+    [Fact]
+    public void The_onedrive_roots_for_personal_and_work_accounts_are_protected()
+    {
+        var env = FakeEnvironment.Windows();
+        env.Variables["OneDriveConsumer"] = @"C:\Users\Test\OneDrive - Personal";
+        env.Variables["OneDriveCommercial"] = @"C:\Users\Test\OneDrive - Work";
+
+        var tier2 = new WindowsPlatform(env.Build()).Denylist([]).Entries.Where(e => e.Tier == DenylistTier.ExactOnly).Select(e => e.Path).ToList();
+
+        Assert.Contains(@"C:\Users\Test\OneDrive - Personal", tier2);
+        Assert.Contains(@"C:\Users\Test\OneDrive - Work", tier2);
+    }
+
+    [Fact]
     public void An_extra_root_is_normalized_and_beats_a_tier_two_entry_for_the_same_path()
     {
         var list = new WindowsPlatform(FakeEnvironment.Windows().Build()).Denylist(["c:/program files/", "d:/Store//Data"]);
@@ -250,12 +334,7 @@ public class DenylistTableTests
     [InlineData(OsKind.MacOS)]
     public void Every_entry_is_absolute_normalized_unique_and_explained(OsKind os)
     {
-        var list = os switch
-        {
-            OsKind.Windows => new WindowsPlatform(FakeEnvironment.Windows().Build()).Denylist([]),
-            OsKind.Linux => new LinuxPlatform(FakeEnvironment.Linux().Build()).Denylist([]),
-            _ => new MacOSPlatform(FakeEnvironment.MacOS().Build()).Denylist([]),
-        };
+        var list = FakePlatforms.For(os).Denylist([]);
         var syntax = PathSyntax.For(os);
 
         Assert.NotEmpty(list.Entries);
@@ -265,15 +344,36 @@ public class DenylistTableTests
             Assert.Equal(syntax.Normalize(e.Path), e.Path);
             Assert.False(string.IsNullOrWhiteSpace(e.Reason), e.Path);
         });
-        Assert.Equal(list.Entries.Count, list.Entries.Select(e => e.Path).Distinct(StringComparer.FromComparison(syntax.Comparison)).Count());
+        Assert.Equal(
+            list.Entries.Count,
+            list.Entries.Select(e => (e.Path, e.ChildrenOnly)).Distinct(new EntryKeyComparer(syntax.Comparison)).Count());
     }
+
+    private static string[] ChildFolders(PathDenylist list) =>
+        [.. list.Entries.Where(e => e.ChildrenOnly).Select(e => e.Path).Order(StringComparer.Ordinal)];
 
     private static void AssertTable(PathDenylist list, IEnumerable<string> tier1, IEnumerable<string> tier2)
     {
         var actualTier1 = list.Entries.Where(e => e.Tier == DenylistTier.Subtree).Select(e => e.Path);
-        var actualTier2 = list.Entries.Where(e => e.Tier == DenylistTier.ExactOnly).Select(e => e.Path);
+        var actualTier2 = list.Entries.Where(e => e.Tier == DenylistTier.ExactOnly && !e.ChildrenOnly).Select(e => e.Path);
 
         Assert.Equal(tier1.Order(StringComparer.Ordinal), actualTier1.Order(StringComparer.Ordinal));
         Assert.Equal(tier2.Order(StringComparer.Ordinal), actualTier2.Order(StringComparer.Ordinal));
+    }
+
+    private sealed class NameChainComparer : IComparer<string[]>
+    {
+        public int Compare(string[]? x, string[]? y) =>
+            string.CompareOrdinal(string.Join('/', x ?? []), string.Join('/', y ?? []));
+    }
+
+    private sealed class EntryKeyComparer(StringComparison comparison) : IEqualityComparer<(string Path, bool ChildrenOnly)>
+    {
+        private readonly StringComparer _paths = StringComparer.FromComparison(comparison);
+
+        public bool Equals((string Path, bool ChildrenOnly) x, (string Path, bool ChildrenOnly) y) =>
+            x.ChildrenOnly == y.ChildrenOnly && _paths.Equals(x.Path, y.Path);
+
+        public int GetHashCode((string Path, bool ChildrenOnly) obj) => HashCode.Combine(_paths.GetHashCode(obj.Path), obj.ChildrenOnly);
     }
 }

@@ -10,7 +10,7 @@ Status keys: `todo`, `doing`, `done`. A milestone is done when its done-criteria
 - No user-visible string outside the catalog (`en.json`). The catalog never contains "commit", "branch", "checkout", "repo", or "HEAD" (test-enforced).
 - Inline code comments are short and say why, never which milestone or slice produced the code. Public APIs carry XML doc comments stating their contract (D24); CS1591 is an error in Core.
 - Tests never touch real user folders: every test uses a fresh temp directory and injected app-data/storage paths.
-- Implementers run in isolated worktrees; the orchestrator merges into `main`.
+- Implementers run in isolated worktrees; the orchestrator merges into `main`, runs both gates, then removes the worktree and its branch right away (`git worktree remove --force`, falling back to `rm -rf` + `git worktree prune` when Windows file locks refuse).
 
 ## Milestones
 

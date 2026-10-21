@@ -2,13 +2,14 @@ using Savepoint.Core.Paths;
 
 namespace Savepoint.Core.Platform.Linux;
 
+/// <summary>The Linux tables: app folders (XDG), path tokens, and the denylist.</summary>
 public sealed class LinuxPlatform : IPlatform
 {
     private static readonly PathSyntax _syntax = PathSyntax.For(OsKind.Linux);
 
     private static readonly string[] _systemRoots =
     [
-        "/etc", "/boot", "/proc", "/sys", "/dev", "/usr", "/bin", "/sbin", "/lib", "/lib32", "/lib64", "/libx32",
+        "/etc", "/boot", "/efi", "/proc", "/sys", "/dev", "/usr", "/bin", "/sbin", "/lib", "/lib32", "/lib64", "/libx32",
     ];
 
     // udisks mounts removable drives under /run/media/<user>, the one part of /run a game may live in.
@@ -24,6 +25,9 @@ public sealed class LinuxPlatform : IPlatform
     private readonly string _desktop;
     private readonly string _downloads;
 
+    /// <summary>Builds the tables from <paramref name="environment"/>; throws <see cref="ArgumentException"/> if its home folder is not an absolute path.</summary>
+    /// <param name="environment">What to read: home, variables, and the user-dirs file.</param>
+    /// <param name="processes">Replaces the real process inspector, for tests.</param>
     public LinuxPlatform(PlatformEnvironment environment, IProcessInspector? processes = null)
     {
         _paths = new PlatformPaths(_syntax, environment);
@@ -56,16 +60,22 @@ public sealed class LinuxPlatform : IPlatform
         Processes = processes ?? new LinuxProcessInspector();
     }
 
+    /// <inheritdoc />
     public OsKind Os => OsKind.Linux;
 
+    /// <inheritdoc />
     public StringComparison PathComparison => _syntax.Comparison;
 
+    /// <inheritdoc />
     public AppDirectories Directories { get; }
 
+    /// <inheritdoc />
     public IReadOnlyDictionary<string, string> PathTokens { get; }
 
+    /// <inheritdoc />
     public IProcessInspector Processes { get; }
 
+    /// <inheritdoc />
     public PathDenylist Denylist(IEnumerable<string> extraBlockedRoots)
     {
         var home = _paths.Home;
@@ -88,16 +98,22 @@ public sealed class LinuxPlatform : IPlatform
             builder.Exact(root, "Too broad to track");
         }
 
-        // The folders that hold every mounted drive are too broad, but a drive's contents are fine.
+        // The folders that hold mounted drives are too broad, and so is a whole drive; a folder inside a drive is fine.
         foreach (var mediaRoot in _removableMedia)
         {
             builder.Exact(mediaRoot, "Holds every user's removable drives");
         }
 
+        builder.ExactChildren("/mnt", "A whole mounted drive is too broad to track");
+        builder.ExactChildren("/media", "A whole mounted drive is too broad to track");
         foreach (var user in UserNames())
         {
-            builder.Exact(_paths.Under("/run/media", user), "Holds the user's removable drives");
-            builder.Exact(_paths.Under("/media", user), "Holds the user's removable drives");
+            foreach (var mediaParent in new[] { "/run/media", "/media" })
+            {
+                var userMedia = _paths.Under(mediaParent, user);
+                builder.Exact(userMedia, "Holds the user's removable drives");
+                builder.ExactChildren(userMedia, "A whole mounted drive is too broad to track");
+            }
         }
 
         builder.Exact(home, "The home folder holds everything the user owns");
@@ -133,12 +149,13 @@ public sealed class LinuxPlatform : IPlatform
 
         foreach (var dataHome in new[] { _paths.Under(home, ".local/share"), _xdgData })
         {
-            var steam = _paths.Under(dataHome, "Steam");
-            builder.Exact(steam, "The Steam folder holds every Steam game");
-            builder.Exact(_paths.Under(steam, "steamapps"), "steamapps holds every Steam game");
-            builder.Exact(_paths.Under(steam, "steamapps/common"), "steamapps/common holds every Steam game");
-            builder.Exact(_paths.Under(steam, "steamapps/compatdata"), "compatdata holds every Proton prefix");
+            builder.Exact(_paths.Under(dataHome, "Steam"), "The Steam folder holds every Steam game");
         }
+
+        // A Steam library can be on any drive or in a Flatpak, so the library's own folders are matched by name.
+        builder.NameRule("steamapps holds every game in a Steam library", "steamapps");
+        builder.NameRule("steamapps/common holds every game in a Steam library", "steamapps", "common");
+        builder.NameRule("steamapps/compatdata holds every Proton prefix in a Steam library", "steamapps", "compatdata");
 
         return builder.Build();
     }

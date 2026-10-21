@@ -10,8 +10,7 @@ public class PathSafetyHostTests
     public void A_link_that_points_into_a_blocked_tree_is_rejected()
     {
         using var tree = new TempTree();
-        var blocked = tree.Dir("blocked");
-        var safety = new PathSafety(FakePlatforms.ForHost(tree.Dir("home")), [blocked]);
+        var safety = Safety(tree, tree.Dir("home"), tree.Dir("blocked"));
         var link = tree.DirectoryLink(Path.Combine("work", "into-blocked"), tree.Dir("blocked", "inner"));
 
         PathSafetyAssert.Blocked(safety, link, 1);
@@ -23,7 +22,7 @@ public class PathSafetyHostTests
     {
         using var tree = new TempTree();
         var home = tree.Dir("home");
-        var safety = new PathSafety(FakePlatforms.ForHost(home), [tree.Dir("blocked")]);
+        var safety = Safety(tree, home, tree.Dir("blocked"));
         var link = tree.DirectoryLink(Path.Combine("work", "into-home"), home);
 
         PathSafetyAssert.Blocked(safety, link, 2);
@@ -34,7 +33,7 @@ public class PathSafetyHostTests
     public void A_link_to_an_ordinary_folder_is_accepted()
     {
         using var tree = new TempTree();
-        var safety = new PathSafety(FakePlatforms.ForHost(tree.Dir("home")), [tree.Dir("blocked")]);
+        var safety = Safety(tree, tree.Dir("home"), tree.Dir("blocked"));
         var link = tree.DirectoryLink(Path.Combine("work", "to-games"), tree.Dir("games"));
 
         PathSafetyAssert.Accepted(safety, Path.Combine(link, "Skyrim"));
@@ -44,7 +43,7 @@ public class PathSafetyHostTests
     public void A_dangling_link_is_judged_by_where_it_would_lead()
     {
         using var tree = new TempTree();
-        var safety = new PathSafety(FakePlatforms.ForHost(tree.Dir("home")), [tree.Dir("blocked")]);
+        var safety = Safety(tree, tree.Dir("home"), tree.Dir("blocked"));
         var gone = tree.Dir("blocked", "gone");
         var link = tree.DirectoryLink(Path.Combine("work", "dangling"), gone);
         Directory.Delete(gone);
@@ -57,7 +56,7 @@ public class PathSafetyHostTests
     {
         using var tree = new TempTree();
         var parent = tree.Dir("parent");
-        var safety = new PathSafety(FakePlatforms.ForHost(tree.Dir("home")), [Path.Combine(parent, "storage")]);
+        var safety = Safety(tree, tree.Dir("home"), Path.Combine(parent, "storage"));
         var link = tree.DirectoryLink(Path.Combine("work", "to-parent"), parent);
 
         PathSafetyAssert.Blocked(safety, link, 1);
@@ -70,7 +69,7 @@ public class PathSafetyHostTests
         using var tree = new TempTree();
         var real = tree.Dir("storage-real");
         var rootLink = tree.DirectoryLink("storage-link", real);
-        var safety = new PathSafety(FakePlatforms.ForHost(tree.Dir("home")), [rootLink]);
+        var safety = Safety(tree, tree.Dir("home"), rootLink);
 
         PathSafetyAssert.Blocked(safety, Path.Combine(real, "game-id", "install.git"), 1);
         PathSafetyAssert.Blocked(safety, Path.Combine(rootLink, "game-id"), 1);
@@ -80,7 +79,7 @@ public class PathSafetyHostTests
     public void Overlap_sees_through_links()
     {
         using var tree = new TempTree();
-        var safety = new PathSafety(FakePlatforms.ForHost(tree.Dir("home")));
+        var safety = Safety(tree, tree.Dir("home"));
         var real = tree.Dir("real");
         var link = tree.DirectoryLink("link", real);
 
@@ -93,10 +92,14 @@ public class PathSafetyHostTests
     public void The_real_path_is_what_the_check_judges()
     {
         using var tree = new TempTree();
-        var safety = new PathSafety(FakePlatforms.ForHost(tree.Dir("home")));
+        var safety = Safety(tree, tree.Dir("home"));
         var real = tree.Dir("real", "sub");
         var link = tree.DirectoryLink("link", Path.Combine(tree.Root, "real"));
 
         Assert.Equal(real, safety.ResolveRealPath(Path.Combine(link, "sub")));
     }
+
+    // The storage root is a folder of its own beside "home", so no test depends on the platform's default one.
+    private static PathSafety Safety(TempTree tree, string home, params string[] extraRoots) =>
+        new(FakePlatforms.ForHost(home), Path.Combine(tree.Root, "own-storage"), extraRoots);
 }
