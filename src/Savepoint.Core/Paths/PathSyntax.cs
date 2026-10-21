@@ -83,15 +83,35 @@ public sealed class PathSyntax
     internal IEnumerable<string> SplitRelative(string relative)
     {
         var text = IsWindows ? relative.Replace('/', '\\') : relative;
-        foreach (var raw in text.Split(Separator, StringSplitOptions.RemoveEmptyEntries))
+        var segments = text.Split(Separator, StringSplitOptions.RemoveEmptyEntries);
+        var endsWithSeparator = text.Length > 0 && text[^1] == Separator;
+        for (var i = 0; i < segments.Length; i++)
         {
-            // Win32 drops trailing dots and spaces from every component, so "Windows." names the Windows folder.
-            var part = IsWindows && raw is not ("." or "..") ? raw.TrimEnd('.', ' ') : raw;
-            if (part.Length > 0 && part != ".")
+            var raw = segments[i];
+            if (raw == ".")
+            {
+                continue;
+            }
+
+            var isFinal = i == segments.Length - 1 && !endsWithSeparator;
+            var part = IsWindows && raw != ".." ? WindowsName(raw, isFinal) : raw;
+            if (part.Length > 0)
             {
                 yield return part;
             }
         }
+    }
+
+    // Win32 (GetFullPathName) drops one trailing dot from a component, and every trailing dot and space from the last one,
+    // so "Windows." names the Windows folder while "Windows " and "Windows.." do not; tests compare this with the real call.
+    private static string WindowsName(string name, bool isFinal)
+    {
+        if (isFinal)
+        {
+            return name.TrimEnd('.', ' ');
+        }
+
+        return name.EndsWith('.') && !name.EndsWith("..", StringComparison.Ordinal) ? name[..^1] : name;
     }
 
     internal string Join(string root, IReadOnlyList<string> parts) => root + string.Join(Separator, parts);
