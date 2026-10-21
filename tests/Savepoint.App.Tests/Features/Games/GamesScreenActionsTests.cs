@@ -48,6 +48,67 @@ public class GamesScreenActionsTests
         Assert.Empty(rig.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.StartAsync)));
     }
 
+    // ---- New profile
+
+    [Fact]
+    public async Task New_profile_opens_the_wizard_for_the_selected_game_with_its_preview_loading()
+    {
+        var rig = await GamesRig.StartAsync();
+
+        var shown = rig.Screen.NewProfileCommand.ExecuteAsync(null);
+
+        var wizard = Assert.IsType<NewProfileWizardViewModel>(Assert.Single(rig.Dialogs.Shown));
+        Assert.Equal("New profile for Skyrim Special Edition", wizard.Title);
+        Assert.False(wizard.Preview.IsLoading);
+        Assert.True(wizard.Preview.HasRows);
+        wizard.CancelCommand.Execute(null);
+        await shown.Soon();
+        Assert.Equal(3, rig.Screen.Profiles.Count);
+    }
+
+    [Fact]
+    public async Task A_profile_saved_through_the_wizard_joins_the_table()
+    {
+        var rig = await GamesRig.StartAsync();
+
+        var shown = rig.Screen.NewProfileCommand.ExecuteAsync(null);
+        var wizard = Assert.IsType<NewProfileWizardViewModel>(Assert.Single(rig.Dialogs.Shown));
+        wizard.Name = "Fresh profile";
+        await wizard.ContinueCommand.ExecuteAsync(null);
+        await wizard.ContinueCommand.ExecuteAsync(null);
+        rig.Backend.Jobs.Complete(rig.Backend.Jobs.LastStarted(JobKind.Capture).JobId);
+        wizard.CloseCommand.Execute(null);
+        await shown.Soon();
+
+        Assert.Equal(["Modded playthrough - 7-2-26", "Vanilla - latest update", "Survival test - 5-14-26", "Fresh profile"], rig.Screen.Profiles.Select(row => row.Name));
+    }
+
+    [Fact]
+    public async Task Closing_the_wizard_during_the_save_still_refreshes_the_table()
+    {
+        var rig = await GamesRig.StartAsync();
+
+        var shown = rig.Screen.NewProfileCommand.ExecuteAsync(null);
+        var wizard = Assert.IsType<NewProfileWizardViewModel>(Assert.Single(rig.Dialogs.Shown));
+        wizard.Name = "Still saving";
+        await wizard.ContinueCommand.ExecuteAsync(null);
+        await wizard.ContinueCommand.ExecuteAsync(null);
+        wizard.RequestDismiss();
+        await shown.Soon();
+
+        Assert.Contains("Still saving", rig.Screen.Profiles.Select(row => row.Name));
+    }
+
+    [Fact]
+    public async Task New_profile_does_nothing_without_a_game()
+    {
+        var rig = await GamesRig.StartAsync(FakeBackend.Empty());
+
+        await rig.Screen.NewProfileCommand.ExecuteAsync(null);
+
+        Assert.Empty(rig.Dialogs.Shown);
+    }
+
     // ---- Edit a profile
 
     [Fact]

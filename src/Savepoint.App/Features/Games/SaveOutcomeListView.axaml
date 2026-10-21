@@ -1,0 +1,22 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:games="using:Savepoint.App.Features.Games"
+             x:Class="Savepoint.App.Features.Games.SaveOutcomeListView"
+             x:DataType="games:SaveOutcomeListViewModel">
+  <!-- Which folders a capture saved and which it did not, inside the "Half of that save worked" card (2l). -->
+  <ItemsControl ItemsSource="{Binding Rows}">
+    <ItemsControl.ItemsPanel>
+      <ItemsPanelTemplate>
+        <StackPanel Spacing="8" />
+      </ItemsPanelTemplate>
+    </ItemsControl.ItemsPanel>
+    <ItemsControl.ItemTemplate>
+      <DataTemplate x:DataType="games:SaveOutcomeRow">
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <TextBlock Classes="icon s18" Classes.accent="{Binding Succeeded}" Classes.error="{Binding !Succeeded}" Text="{Binding Icon}" />
+          <TextBlock Classes="body" VerticalAlignment="Center" Text="{Binding Text}" />
+        </StackPanel>
+      </DataTemplate>
+    </ItemsControl.ItemTemplate>
+  </ItemsControl>
+</UserControl>

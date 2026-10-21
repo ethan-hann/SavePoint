@@ -82,6 +82,21 @@ public sealed partial class GamesScreenViewModel
         await RefreshAfterChangeAsync();
     }
 
+    // The wizard follows its own save, so closing it mid-save is fine; the table is refreshed whenever it closes.
+    private async Task NewProfileAsync()
+    {
+        if (_game is not { } game)
+        {
+            return;
+        }
+
+        var wizard = new NewProfileWizardViewModel(game, _deps.Games, _deps.Profiles, _deps.Jobs, _deps.Text, _deps.Dispatcher, _deps.Clock);
+        var shown = _deps.Dialogs.ShowAsync(wizard);
+        _ = wizard.LoadPreviewAsync();
+        await shown;
+        await RefreshAfterChangeAsync();
+    }
+
     // Deleting a game takes two confirmations and is refused up front while its session is active (D13.5).
     private async Task DeleteGameAsync()
     {

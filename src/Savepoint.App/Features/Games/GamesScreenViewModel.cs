@@ -60,7 +60,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         LayoutToggle = shell.LayoutToggle;
         ShowHistoryCommand = new RelayCommand(() => _shell.Navigate(NavDestination.History));
         EditGameCommand = new RelayCommand(OpenEditor, () => CanEditGame);
-        NewProfileCommand = new AsyncRelayCommand(() => Task.CompletedTask);
+        NewProfileCommand = new AsyncRelayCommand(NewProfileAsync);
         DeleteGameCommand = new AsyncRelayCommand(DeleteGameAsync);
 
         _shell.PropertyChanged += OnShellChanged;
