@@ -12,13 +12,15 @@ public sealed class PathSafety
     private readonly List<ParsedPath> _exactRoots = [];
 
     /// <summary>The probe defaults to the real file system for the running OS and to no links for any other OS, whose paths are not on this machine.</summary>
-    public PathSafety(IPlatform platform, IEnumerable<string>? extraBlockedRoots = null, IPathProbe? probe = null)
+    public PathSafety(IPlatform platform, string storageRoot, IEnumerable<string>? extraBlockedRoots = null, IPathProbe? probe = null)
     {
         _syntax = PathSyntax.For(platform.Os);
         _probe = probe ?? (platform.Os == PlatformFactory.CurrentOs ? PathProbes.Host : PathProbes.None);
 
         // Resolved once here: every check would otherwise repeat the same dozens of link lookups.
-        foreach (var entry in platform.Denylist(extraBlockedRoots ?? []).Entries)
+        var directories = platform.Directories;
+        string[] ownRoots = [directories.CatalogDir, directories.LogsDir, directories.RuntimeDir, storageRoot];
+        foreach (var entry in platform.Denylist([.. ownRoots, .. extraBlockedRoots ?? []]).Entries)
         {
             var root = ParseResolved(entry.Path);
             if (entry.Tier == DenylistTier.Subtree)

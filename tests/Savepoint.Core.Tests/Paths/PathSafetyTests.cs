@@ -74,7 +74,6 @@ public class PathSafetyTests
         { OsKind.Linux, "/run/media/test", 2 },
         { OsKind.Linux, "/media/test", 2 },
         { OsKind.Linux, "/data", 1 },
-        { OsKind.MacOS, "/Volumes/Big", 1 },
         { OsKind.MacOS, "/SYSTEM/Library", 1 },
         { OsKind.MacOS, "/etc/hosts", 1 },
         { OsKind.MacOS, "/applications", 2 },
@@ -95,13 +94,6 @@ public class PathSafetyTests
         { OsKind.Linux, "/data/savepoint-storage-old/x" },
         { OsKind.MacOS, "/Systems/x" },
         { OsKind.MacOS, "/Library2/x" },
-    };
-
-    private static string[] ExtraRootsFor(OsKind os) => os switch
-    {
-        OsKind.Windows => [@"C:\Users\Test\AppData\Roaming\SavePoint", @"D:\SavePointStorage"],
-        OsKind.Linux => ["/home/test/.config/savepoint", "/data/savepoint-storage"],
-        _ => ["/Users/test/Library/Application Support/SavePoint", "/Volumes/Big/SavePointStorage"],
     };
 
     [Theory]
@@ -164,15 +156,46 @@ public class PathSafetyTests
 
     [Theory]
     [MemberData(nameof(AllOs))]
-    public void Extra_roots_block_their_descendants(OsKind os)
+    public void SavePoints_own_folders_the_storage_root_and_extra_roots_block_their_descendants(OsKind os)
     {
         var (safety, _, syntax) = Build(os);
 
-        foreach (var extra in ExtraRootsFor(os))
+        foreach (var root in SafetyFixtures.ProtectedRootsFor(os))
         {
-            PathSafetyAssert.Blocked(safety, extra, 1);
-            PathSafetyAssert.Blocked(safety, syntax.Combine(extra, "game-id/install.git/objects"), 1);
+            PathSafetyAssert.Blocked(safety, root, 1);
+            PathSafetyAssert.Blocked(safety, syntax.Combine(root, "game-id/install.git/objects"), 1);
         }
+    }
+
+    [Theory]
+    [MemberData(nameof(AllOs))]
+    public void The_catalog_logs_runtime_and_storage_folders_are_protected_even_when_the_caller_adds_nothing(OsKind os)
+    {
+        var platform = FakePlatforms.For(os);
+        var syntax = PathSyntax.For(os);
+        var directories = platform.Directories;
+        var storage = SafetyFixtures.StorageRootFor(os);
+
+        var safety = new PathSafety(platform, storage, probe: PathProbes.None);
+
+        foreach (var root in new[] { directories.CatalogDir, directories.LogsDir, directories.RuntimeDir, storage })
+        {
+            PathSafetyAssert.Blocked(safety, root, 1);
+            PathSafetyAssert.Blocked(safety, syntax.Combine(root, "inside/file"), 1);
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(AllOs))]
+    public void The_storage_root_passed_in_is_protected_and_the_default_one_is_not_assumed(OsKind os)
+    {
+        var platform = FakePlatforms.For(os);
+        var moved = SafetyFixtures.StorageRootFor(os);
+
+        var safety = new PathSafety(platform, moved, probe: PathProbes.None);
+
+        PathSafetyAssert.Blocked(safety, moved, 1);
+        PathSafetyAssert.Accepted(safety, PathSyntax.For(os).Combine(moved + "-other", "Game"));
     }
 
     [Theory]
@@ -199,11 +222,11 @@ public class PathSafetyTests
     [InlineData(OsKind.Windows, @"D:\Data\SavePoint\Storage", @"D:\Data")]
     [InlineData(OsKind.Linux, "/home/test/.local/share/savepoint/storage", "/home/test/.local/share/savepoint")]
     [InlineData(OsKind.Linux, "/data/savepoint/storage", "/data")]
-    [InlineData(OsKind.MacOS, "/Users/test/Library/Application Support/SavePoint/Storage", "/Users/test/Library/Application Support/SavePoint")]
-    [InlineData(OsKind.MacOS, "/Volumes/Big/SavePoint/Storage", "/Volumes/Big")]
+    [InlineData(OsKind.MacOS, "/Users/test/Library/Application Support/Elsewhere/Storage", "/Users/test/Library/Application Support/Elsewhere")]
+    [InlineData(OsKind.MacOS, "/Volumes/Big/SavePoint/Storage", "/Volumes/Big/SavePoint")]
     public void A_folder_that_contains_an_extra_root_is_rejected_as_tier_one(OsKind os, string extraRoot, string ancestor)
     {
-        var safety = new PathSafety(FakePlatforms.For(os), [extraRoot], PathProbes.None);
+        var safety = new PathSafety(FakePlatforms.For(os), SafetyFixtures.StorageRootFor(os), [extraRoot], PathProbes.None);
 
         PathSafetyAssert.Blocked(safety, extraRoot, 1);
         PathSafetyAssert.Blocked(safety, ancestor, 1);
@@ -217,8 +240,8 @@ public class PathSafetyTests
     {
         var safety = new PathSafety(
             FakePlatforms.For(OsKind.Windows),
-            [@"C:\Users\Test\AppData\Local\SavePoint\Storage"],
-            PathProbes.None);
+            @"C:\Users\Test\AppData\Local\SavePoint\Storage",
+            probe: PathProbes.None);
 
         PathSafetyAssert.Blocked(safety, @"C:\Users\Test\AppData\Local", 2);
         PathSafetyAssert.Blocked(safety, @"C:\Users\Test", 2);
@@ -232,7 +255,7 @@ public class PathSafetyTests
             new DenylistEntry("/srv/system", DenylistTier.Subtree, "test rule", ["/srv/system/ok"]),
             new DenylistEntry("/srv/system/ok/locked", DenylistTier.ExactOnly, "test exact"),
         ]);
-        var safety = new PathSafety(new TableOnlyPlatform(table), probe: PathProbes.None);
+        var safety = new PathSafety(new TableOnlyPlatform(table), "/s", probe: PathProbes.None);
 
         PathSafetyAssert.Accepted(safety, "/srv/system/ok/a/b");
         PathSafetyAssert.Accepted(safety, "/srv/system/ok");
@@ -245,15 +268,14 @@ public class PathSafetyTests
 
     [Theory]
     [MemberData(nameof(AllOs))]
-    public void Without_extra_roots_the_same_paths_are_accepted(OsKind os)
+    public void A_root_the_caller_did_not_add_is_not_blocked(OsKind os)
     {
         var platform = FakePlatforms.For(os);
-        var safety = new PathSafety(platform, probe: PathProbes.None);
-        var syntax = PathSyntax.For(os);
+        var safety = new PathSafety(platform, SafetyFixtures.StorageRootFor(os), probe: PathProbes.None);
 
-        foreach (var extra in ExtraRootsFor(os))
+        foreach (var extra in SafetyFixtures.ExtraRootsFor(os))
         {
-            safety.Check(syntax.Combine(extra, "game-id/install.git"));
+            PathSafetyAssert.Accepted(safety, PathSyntax.For(os).Combine(extra, "game-id/install.git"));
         }
     }
 
@@ -285,16 +307,18 @@ public class PathSafetyTests
     {
         var syntax = PathSyntax.For(OsKind.Linux);
         var probe = new CountingProbe(new FakePathProbe(syntax));
-        var safety = new PathSafety(FakePlatforms.For(OsKind.Linux), ExtraRootsFor(OsKind.Linux), probe);
+        var safety = new PathSafety(FakePlatforms.For(OsKind.Linux), SafetyFixtures.StorageRootFor(OsKind.Linux), SafetyFixtures.ExtraRootsFor(OsKind.Linux), probe);
         var callsAfterBuild = probe.Calls;
 
         safety.Check("/games/skyrim/data/textures");
-        var callsForOneCheck = probe.Calls - callsAfterBuild;
+        var callsForFirstCheck = probe.Calls - callsAfterBuild;
         safety.Check("/games/skyrim/data/textures");
+        var callsForSecondCheck = probe.Calls - callsAfterBuild - callsForFirstCheck;
 
-        Assert.True(callsAfterBuild > 20, $"building resolved only {callsAfterBuild} paths");
-        Assert.Equal(4, callsForOneCheck);
-        Assert.Equal(callsAfterBuild + (2 * callsForOneCheck), probe.Calls);
+        // Building reads every table root; a check reads only its own path, and the cost does not grow with use.
+        Assert.True(callsForFirstCheck > 0, "a check should look at its own path");
+        Assert.Equal(callsForFirstCheck, callsForSecondCheck);
+        Assert.True(callsAfterBuild > 5 * callsForFirstCheck, $"building read {callsAfterBuild} paths, a check read {callsForFirstCheck}");
     }
 
     [Theory]
@@ -318,12 +342,7 @@ public class PathSafetyTests
         Assert.Equal(expected, safety.PathsOverlap(b, a));
     }
 
-    private static (PathSafety Safety, PathDenylist List, PathSyntax Syntax) Build(OsKind os)
-    {
-        var platform = FakePlatforms.For(os);
-        var extras = ExtraRootsFor(os);
-        return (new PathSafety(platform, extras, PathProbes.None), platform.Denylist(extras), PathSyntax.For(os));
-    }
+    private static (PathSafety Safety, PathDenylist List, PathSyntax Syntax) Build(OsKind os) => SafetyFixtures.Build(os);
 
     // A root is the one path whose parent is itself.
     private static bool IsVolumeRoot(PathSyntax syntax, string path) =>

@@ -57,8 +57,8 @@ public class PlatformFactoryTests
     public void PathSafety_on_the_real_platform_refuses_the_real_home_and_accepts_a_temp_game_folder()
     {
         var platform = PlatformFactory.ForCurrentOs();
-        var safety = new PathSafety(platform);
         using var tree = new TempTree();
+        var safety = new PathSafety(platform, platform.Directories.DefaultStorageRoot);
 
         PathSafetyAssert.Blocked(safety, _realHome, 2);
         PathSafetyAssert.Accepted(safety, tree.Dir("Games", "Skyrim"));
