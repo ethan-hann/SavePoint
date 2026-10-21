@@ -22,3 +22,9 @@ render-output/
 # Agent worktrees
 .claude/worktrees/
 .linux-gate/
+
+# Nested build output
+./src/Savepoint.App/bin/
+./src/Savepoint.Core/bin/
+./src/Savepoint.App/obj/
+./src/Savepoint.Core/obj/
