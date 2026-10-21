@@ -1,0 +1,21 @@
+{
+  "format.duration.hours": "{count, plural, one {# hour} other {# hours}}",
+  "format.duration.hoursAndMinutes": "{hours, plural, one {# hour} other {# hours}} {minutes, plural, one {# minute} other {# minutes}}",
+  "format.duration.minutes": "{count, plural, one {# minute} other {# minutes}}",
+  "format.duration.seconds": "{count, plural, one {# second} other {# seconds}}",
+  "format.pattern.date": "MMM d, yyyy",
+  "format.pattern.dateAndTime": "{date}, {time}",
+  "format.pattern.time": "h:mm tt",
+  "format.relative.days": "{count, plural, one {# day ago} other {# days ago}}",
+  "format.relative.hours": "{count, plural, one {# hour ago} other {# hours ago}}",
+  "format.relative.justNow": "just now",
+  "format.relative.minutes": "{count, plural, one {# minute ago} other {# minutes ago}}",
+  "format.relative.months": "{count, plural, one {# month ago} other {# months ago}}",
+  "format.relative.weeks": "{count, plural, one {# week ago} other {# weeks ago}}",
+  "format.relative.years": "{count, plural, one {# year ago} other {# years ago}}",
+  "format.size.bytes": "{count, plural, one {# byte} other {# bytes}}",
+  "format.size.gb": "{value} GB",
+  "format.size.kb": "{value} KB",
+  "format.size.mb": "{value} MB",
+  "format.size.tb": "{value} TB"
+}
