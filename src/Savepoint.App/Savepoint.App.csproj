@@ -5,6 +5,7 @@
     <AssemblyName>SavePoint</AssemblyName>
     <RootNamespace>Savepoint.App</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\Icon\savepoint.ico</ApplicationIcon>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
   </PropertyGroup>
@@ -30,6 +31,7 @@
 
   <ItemGroup>
     <AvaloniaResource Include="Assets\Fonts\**" />
+    <AvaloniaResource Include="Assets\Icon\savepoint-256.png" />
   </ItemGroup>
 
   <ItemGroup>
