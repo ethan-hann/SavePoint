@@ -1,0 +1,33 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:theme="using:Savepoint.App.Theme"
+             xmlns:editor="using:Savepoint.App.Features.Editor"
+             x:Class="Savepoint.App.Features.Editor.ConsentDialogView"
+             x:DataType="editor:ConsentDialogViewModel">
+  <!-- The confirmation before SavePoint first manages a folder: each fully resolved path on its own recessed surface. -->
+  <StackPanel Spacing="16">
+    <TextBlock Classes="dialog-title" TextWrapping="Wrap" Text="{Binding Title}" />
+    <TextBlock x:Name="MessageText" Classes="body muted" TextWrapping="Wrap" Text="{Binding Message}" />
+    <ItemsControl x:Name="FolderList" ItemsSource="{Binding Folders}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <StackPanel Spacing="12" />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="editor:ConsentFolder">
+          <StackPanel Spacing="6">
+            <TextBlock Classes="overline" Text="{Binding Label, Converter={x:Static theme:UppercaseConverter.Instance}}" />
+            <Border Classes="recessed">
+              <TextBlock Classes="mono large" TextWrapping="Wrap" Text="{Binding Path}" />
+            </Border>
+          </StackPanel>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,4,0,0">
+      <Button x:Name="CancelButton" Classes="text pill large" Content="{Binding CancelLabel}" Command="{Binding CancelCommand}" />
+      <Button x:Name="ConfirmButton" Classes="filled pill large" Content="{Binding ConfirmLabel}" Command="{Binding ConfirmCommand}" />
+    </StackPanel>
+  </StackPanel>
+</UserControl>
