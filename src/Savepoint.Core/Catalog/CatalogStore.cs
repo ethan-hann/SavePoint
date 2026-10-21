@@ -67,7 +67,7 @@ public sealed class CatalogStore
     /// <exception cref="CatalogCorruptException">The file cannot be read or is not a valid list of games.</exception>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     public Task<IReadOnlyList<GameDefinition>> ListGamesAsync(CancellationToken cancellationToken = default) =>
-        RunAsync<IReadOnlyList<GameDefinition>>(async () => await ReadGamesAsync(cancellationToken), cancellationToken);
+        RunAsync<IReadOnlyList<GameDefinition>>(async () => await ReadGamesAsync(cancellationToken).ConfigureAwait(false), cancellationToken);
 
     /// <summary>Finds one game by id.</summary>
     /// <param name="id">The game id; compared exactly, case included.</param>
@@ -76,7 +76,7 @@ public sealed class CatalogStore
     /// <exception cref="CatalogCorruptException">The file cannot be read or is not a valid list of games.</exception>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     public Task<GameDefinition?> GetGameAsync(string id, CancellationToken cancellationToken = default) =>
-        RunAsync(async () => (await ReadGamesAsync(cancellationToken)).Find(g => g.Id == id), cancellationToken);
+        RunAsync(async () => (await ReadGamesAsync(cancellationToken).ConfigureAwait(false)).Find(g => g.Id == id), cancellationToken);
 
     /// <summary>Validates a game and adds it, or replaces the game with the same id.</summary>
     /// <param name="game">The game to store.</param>
@@ -96,7 +96,7 @@ public sealed class CatalogStore
                 await WriteAsync(GamesFileName, games, CatalogJsonContext.Default.ListGameDefinition, cancellationToken);
                 return valid;
             },
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Removes a game's record. The game's profiles and stored history are the caller's to clean up.</summary>
@@ -109,13 +109,13 @@ public sealed class CatalogStore
         RunAsync(
             async () =>
             {
-                var games = await ReadGamesAsync(cancellationToken);
+                var games = await ReadGamesAsync(cancellationToken).ConfigureAwait(false);
                 if (games.RemoveAll(g => g.Id == id) == 0)
                 {
                     return false;
                 }
 
-                await WriteAsync(GamesFileName, games, CatalogJsonContext.Default.ListGameDefinition, cancellationToken);
+                await WriteAsync(GamesFileName, games, CatalogJsonContext.Default.ListGameDefinition, cancellationToken).ConfigureAwait(false);
                 return true;
             },
             cancellationToken);
@@ -130,7 +130,7 @@ public sealed class CatalogStore
         RunAsync<IReadOnlyList<Profile>>(
             async () =>
             {
-                var profiles = await ReadProfilesAsync(cancellationToken);
+                var profiles = await ReadProfilesAsync(cancellationToken).ConfigureAwait(false);
                 return gameId is null ? profiles : profiles.FindAll(p => p.GameId == gameId);
             },
             cancellationToken);
@@ -142,7 +142,7 @@ public sealed class CatalogStore
     /// <exception cref="CatalogCorruptException">The file cannot be read or is not a valid list of profiles.</exception>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     public Task<Profile?> GetProfileAsync(string id, CancellationToken cancellationToken = default) =>
-        RunAsync(async () => (await ReadProfilesAsync(cancellationToken)).Find(p => p.Id == id), cancellationToken);
+        RunAsync(async () => (await ReadProfilesAsync(cancellationToken).ConfigureAwait(false)).Find(p => p.Id == id), cancellationToken);
 
     /// <summary>Validates a profile and adds it, or replaces the profile with the same id.</summary>
     /// <param name="profile">The profile to store.</param>
@@ -162,7 +162,7 @@ public sealed class CatalogStore
                 await WriteAsync(ProfilesFileName, profiles, CatalogJsonContext.Default.ListProfile, cancellationToken);
                 return valid;
             },
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -183,7 +183,7 @@ public sealed class CatalogStore
         RunAsync(
             async () =>
             {
-                var profiles = await ReadProfilesAsync(cancellationToken);
+                var profiles = await ReadProfilesAsync(cancellationToken).ConfigureAwait(false);
                 var index = profiles.FindIndex(p => p.Id == id);
                 if (index < 0)
                 {
@@ -197,7 +197,7 @@ public sealed class CatalogStore
                 }
 
                 profiles[index] = updated;
-                await WriteAsync(ProfilesFileName, profiles, CatalogJsonContext.Default.ListProfile, cancellationToken);
+                await WriteAsync(ProfilesFileName, profiles, CatalogJsonContext.Default.ListProfile, cancellationToken).ConfigureAwait(false);
                 return updated;
             },
             cancellationToken);
@@ -212,13 +212,13 @@ public sealed class CatalogStore
         RunAsync(
             async () =>
             {
-                var profiles = await ReadProfilesAsync(cancellationToken);
+                var profiles = await ReadProfilesAsync(cancellationToken).ConfigureAwait(false);
                 if (profiles.RemoveAll(p => p.Id == id) == 0)
                 {
                     return false;
                 }
 
-                await WriteAsync(ProfilesFileName, profiles, CatalogJsonContext.Default.ListProfile, cancellationToken);
+                await WriteAsync(ProfilesFileName, profiles, CatalogJsonContext.Default.ListProfile, cancellationToken).ConfigureAwait(false);
                 return true;
             },
             cancellationToken);
@@ -261,9 +261,9 @@ public sealed class CatalogStore
         RunAsync(
             async () =>
             {
-                var current = await ReadSettingsAsync(cancellationToken);
+                var current = await ReadSettingsAsync(cancellationToken).ConfigureAwait(false);
                 var next = CatalogValidator.RequireValid(update(current));
-                await WriteAsync(SettingsFileName, next, CatalogJsonContext.Default.AppSettings, cancellationToken);
+                await WriteAsync(SettingsFileName, next, CatalogJsonContext.Default.AppSettings, cancellationToken).ConfigureAwait(false);
                 return next;
             },
             cancellationToken);
@@ -295,7 +295,7 @@ public sealed class CatalogStore
                 await RetryTransientAsync(() => File.Move(source, target), cancellationToken);
                 return target;
             },
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
     }
 
     private static void Upsert<T>(List<T> items, T item, Func<T, string> idOf)
@@ -329,11 +329,11 @@ public sealed class CatalogStore
         {
             try
             {
-                return await action();
+                return await action().ConfigureAwait(false);
             }
             catch (Exception ex) when (attempt < _ioRetries && IsTransient(ex))
             {
-                await Task.Delay(TimeSpan.FromMilliseconds(_firstRetryDelayMs << attempt), cancellationToken);
+                await Task.Delay(TimeSpan.FromMilliseconds(_firstRetryDelayMs << attempt), cancellationToken).ConfigureAwait(false);
             }
         }
     }
@@ -400,13 +400,13 @@ public sealed class CatalogStore
             switch (fileName)
             {
                 case GamesFileName:
-                    await ReadGamesAsync(cancellationToken);
+                    await ReadGamesAsync(cancellationToken).ConfigureAwait(false);
                     break;
                 case ProfilesFileName:
-                    await ReadProfilesAsync(cancellationToken);
+                    await ReadProfilesAsync(cancellationToken).ConfigureAwait(false);
                     break;
                 default:
-                    await ReadSettingsAsync(cancellationToken);
+                    await ReadSettingsAsync(cancellationToken).ConfigureAwait(false);
                     break;
             }
 
@@ -429,7 +429,7 @@ public sealed class CatalogStore
         where T : class
     {
         var path = PathOf(fileName);
-        var bytes = await ReadBytesAsync(path, cancellationToken);
+        var bytes = await ReadBytesAsync(path, cancellationToken).ConfigureAwait(false);
         if (bytes is null)
         {
             return [];
@@ -447,7 +447,7 @@ public sealed class CatalogStore
     private async Task<AppSettings?> ReadSettingsAsync(CancellationToken cancellationToken)
     {
         var path = PathOf(SettingsFileName);
-        var bytes = await ReadBytesAsync(path, cancellationToken);
+        var bytes = await ReadBytesAsync(path, cancellationToken).ConfigureAwait(false);
         if (bytes is null)
         {
             return null;
@@ -462,7 +462,7 @@ public sealed class CatalogStore
     {
         try
         {
-            return await RetryTransientAsync(() => File.ReadAllBytesAsync(path, cancellationToken), cancellationToken);
+            return await RetryTransientAsync(() => File.ReadAllBytesAsync(path, cancellationToken), cancellationToken).ConfigureAwait(false);
         }
         catch (FileNotFoundException)
         {
@@ -517,16 +517,16 @@ public sealed class CatalogStore
         {
             await using (var stream = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, FileOptions.Asynchronous))
             {
-                await stream.WriteAsync(bytes, cancellationToken);
+                await stream.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
                 stream.Flush(flushToDisk: true);
             }
 
             if (File.Exists(target))
             {
-                await RetryTransientAsync(() => File.Copy(target, $"{target}.bak", overwrite: true), cancellationToken);
+                await RetryTransientAsync(() => File.Copy(target, $"{target}.bak", overwrite: true), cancellationToken).ConfigureAwait(false);
             }
 
-            await RetryTransientAsync(() => File.Move(temp, target, overwrite: true), cancellationToken);
+            await RetryTransientAsync(() => File.Move(temp, target, overwrite: true), cancellationToken).ConfigureAwait(false);
         }
         catch
         {
@@ -544,10 +544,10 @@ public sealed class CatalogStore
     // One lock for every catalog operation, so a read-modify-write is never interleaved with another.
     private async Task<T> RunAsync<T>(Func<Task<T>> body, CancellationToken cancellationToken)
     {
-        await _gate.WaitAsync(cancellationToken);
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            return await body();
+            return await body().ConfigureAwait(false);
         }
         finally
         {
