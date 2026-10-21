@@ -179,17 +179,8 @@ internal sealed class OptimizationService
         await RunGitAsync(repo, cancellationToken, "prune", "--expire=now").ConfigureAwait(false);
     }
 
-    private async Task RunGitAsync(RepoRef repo, CancellationToken cancellationToken, params string[] arguments)
-    {
-        try
-        {
-            await _services.Runner.RunAsync(new GitInvocation(arguments) { GitDir = repo.GitDir, WorkingDirectory = repo.GitDir }, cancellationToken).ConfigureAwait(false);
-        }
-        catch (GitCommandException e)
-        {
-            throw new GitOperationException(null, e.Message);
-        }
-    }
+    private Task RunGitAsync(RepoRef repo, CancellationToken cancellationToken, params string[] arguments) =>
+        RepoGit.RunAsync(_services.Runner, repo.GitDir, false, cancellationToken, null, false, arguments);
 
     private static async Task<long> SizeOfAsync(IEnumerable<RepoRef> repos, CancellationToken cancellationToken)
     {

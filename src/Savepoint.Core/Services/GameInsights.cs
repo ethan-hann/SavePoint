@@ -51,9 +51,7 @@ internal sealed class GameInsights
         }
 
         // Only the hinted paths are listed, so a huge install is never walked whole.
-        var listing = await _services.Runner.RunAsync(
-            new GitInvocation(["ls-tree", "-r", "-z", "--name-only", commit, "--", .. usable]) { GitDir = repo.GitDir, WorkingDirectory = repo.GitDir, ReadOnly = true },
-            cancellationToken).ConfigureAwait(false);
+        var listing = await RepoGit.RunAsync(_services.Runner, repo.GitDir, true, cancellationToken, null, false, ["ls-tree", "-r", "-z", "--name-only", commit, "--", .. usable]).ConfigureAwait(false);
         var count = listing.SplitStandardOutputOnNul().Count(path => MatchesHint(path, usable));
         _modCounts[key] = count;
         return count;
@@ -72,7 +70,7 @@ internal sealed class GameInsights
         var path = isBundle ? exe + "/Contents/Info.plist" : exe;
 
         // The commit is a full id from a branch tip, so one process names the file's content and a second reads it only when it is new.
-        var named = await ReadOnlyAsync(repo, cancellationToken, stdin: $"{commit}:{path}\n", "cat-file", "--batch-check").ConfigureAwait(false);
+        var named = await RepoGit.RunAsync(_services.Runner, repo.GitDir, true, cancellationToken, $"{commit}:{path}\n", false, "cat-file", "--batch-check").ConfigureAwait(false);
         var fields = named.StandardOutput.Trim().Split(' ');
         if (fields.Length != 3 || fields[1] != "blob")
         {
@@ -84,18 +82,11 @@ internal sealed class GameInsights
             (isBundle ? "plist:" : "pe:") + blobId,
             async token =>
             {
-                var content = await _services.Runner.RunAsync(
-                    new GitInvocation(["cat-file", "blob", blobId]) { GitDir = repo.GitDir, WorkingDirectory = repo.GitDir, ReadOnly = true, BinaryStdout = true },
-                    token).ConfigureAwait(false);
+                var content = await RepoGit.RunAsync(_services.Runner, repo.GitDir, true, token, null, true, "cat-file", "blob", blobId).ConfigureAwait(false);
                 return isBundle ? ExeVersionReader.FromInfoPlist(content.StandardOutputBytes) : ExeVersionReader.FromPe(content.StandardOutputBytes);
             },
             cancellationToken).ConfigureAwait(false);
     }
-
-    private Task<GitResult> ReadOnlyAsync(RepoRef repo, CancellationToken cancellationToken, string? stdin, params string[] arguments) =>
-        _services.Runner.RunAsync(
-            new GitInvocation(arguments) { GitDir = repo.GitDir, WorkingDirectory = repo.GitDir, ReadOnly = true, Stdin = stdin },
-            cancellationToken);
 
     private static string NormalizeHint(string hint) => hint.Replace('\\', '/').Trim('/', ' ');
 }
