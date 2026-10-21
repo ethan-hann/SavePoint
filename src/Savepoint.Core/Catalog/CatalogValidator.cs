@@ -6,8 +6,6 @@ namespace Savepoint.Core.Catalog;
 // Validate reports every problem at once; RequireValid is the throwing form and returns the normalized value to store.
 public static partial class CatalogValidator
 {
-    private const string _supportedLocale = "en";
-
     public static GameDefinition Normalize(GameDefinition game)
     {
         ArgumentNullException.ThrowIfNull(game);
@@ -77,6 +75,10 @@ public static partial class CatalogValidator
     // \z, not $: in .NET $ also matches before a trailing newline.
     [GeneratedRegex(@"^[A-Za-z0-9/_-]+\z", RegexOptions.CultureInvariant)]
     private static partial Regex BranchNamePattern();
+
+    // Only the shape is checked: which locales exist follows the catalog files shipped next to en.json, which Core cannot see.
+    [GeneratedRegex(@"^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*\z", RegexOptions.CultureInvariant)]
+    private static partial Regex LanguageTagPattern();
 
     // At least two scheme characters, so a drive letter such as C: is never taken for a scheme.
     [GeneratedRegex(@"^[A-Za-z][A-Za-z0-9+.\-]+:\S", RegexOptions.CultureInvariant)]
@@ -213,9 +215,9 @@ public static partial class CatalogValidator
             issues.Add(new ValidationIssue("accentColorId", ValidationMessageIds.SettingsAccentColorInvalid));
         }
 
-        if (settings.Locale != _supportedLocale)
+        if (!LanguageTagPattern().IsMatch(settings.Locale))
         {
-            issues.Add(new ValidationIssue("locale", ValidationMessageIds.SettingsLocaleUnsupported));
+            issues.Add(new ValidationIssue("locale", ValidationMessageIds.SettingsLocaleInvalid));
         }
 
         if (!Enum.IsDefined(settings.Layout))

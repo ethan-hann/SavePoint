@@ -29,5 +29,5 @@ public static class ValidationMessageIds
     public const string SettingsThemeInvalid = "validation.settings.themeInvalid";
     public const string SettingsAccentColorInvalid = "validation.settings.accentColorInvalid";
     public const string SettingsLayoutInvalid = "validation.settings.layoutInvalid";
-    public const string SettingsLocaleUnsupported = "validation.settings.localeUnsupported";
+    public const string SettingsLocaleInvalid = "validation.settings.localeInvalid";
 }

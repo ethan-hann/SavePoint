@@ -67,14 +67,33 @@ public class SettingsValidationTests
     }
 
     [Theory]
-    [InlineData("fr")]
+    [InlineData("en")]
     [InlineData("EN")]
+    [InlineData("fr")]
+    [InlineData("en-US")]
+    [InlineData("pt-BR")]
+    [InlineData("zh-Hant-TW")]
+    public void Any_well_formed_language_tag_is_accepted_because_the_locale_list_follows_the_catalog_files(string locale)
+    {
+        Assert.Empty(CatalogValidator.Validate(Settings() with { Locale = locale }));
+    }
+
+    [Theory]
     [InlineData("")]
-    public void Locale_other_than_en_is_reported(string locale)
+    [InlineData("  ")]
+    [InlineData("e")]
+    [InlineData("123")]
+    [InlineData("english language")]
+    [InlineData("en_US")]
+    [InlineData("en-")]
+    [InlineData("-en")]
+    [InlineData("../en")]
+    [InlineData("en\n")]
+    public void Locale_that_is_not_a_language_tag_is_reported(string locale)
     {
         var issues = CatalogValidator.Validate(Settings() with { Locale = locale });
 
-        Assert.Equal([Issue("locale", ValidationMessageIds.SettingsLocaleUnsupported)], issues);
+        Assert.Equal([Issue("locale", ValidationMessageIds.SettingsLocaleInvalid)], issues);
     }
 
     [Fact]
@@ -84,7 +103,7 @@ public class SettingsValidationTests
             StorageRoot: " ",
             Theme: (ThemePreference)9,
             AccentColorId: (AccentColorId)9,
-            Locale: "de",
+            Locale: "not a locale",
             Layout: (ShellLayout)9);
 
         Assert.Equal(
@@ -92,7 +111,7 @@ public class SettingsValidationTests
                 Issue("storageRoot", ValidationMessageIds.SettingsStorageRootRequired),
                 Issue("theme", ValidationMessageIds.SettingsThemeInvalid),
                 Issue("accentColorId", ValidationMessageIds.SettingsAccentColorInvalid),
-                Issue("locale", ValidationMessageIds.SettingsLocaleUnsupported),
+                Issue("locale", ValidationMessageIds.SettingsLocaleInvalid),
                 Issue("layout", ValidationMessageIds.SettingsLayoutInvalid),
             ],
             CatalogValidator.Validate(settings));
