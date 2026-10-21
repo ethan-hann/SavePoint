@@ -24,7 +24,7 @@ public sealed class JobAwaiter : IDisposable
     /// <param name="jobId">The job to wait for.</param>
     public Task<JobSnapshot> WaitAsync(Guid jobId)
     {
-        // No RunContinuationsAsynchronously: a waiter on the UI thread resumes there, and a test's scripted event resumes it inline.
+        // No RunContinuationsAsynchronously: a waiter on the UI thread resumes there, and an event raised on its own thread resumes it inline.
         var waiter = new TaskCompletionSource<JobSnapshot>();
         lock (_gate)
         {

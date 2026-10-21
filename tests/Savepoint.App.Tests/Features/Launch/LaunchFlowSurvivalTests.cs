@@ -1,4 +1,5 @@
 using Avalonia.Headless.XUnit;
+using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Launch;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Tests.Fakes;
@@ -115,6 +116,24 @@ public class LaunchFlowSurvivalTests
         Assert.Null(flow.InlineContentFor(MockupScenario.SatisfactoryId));
         Assert.Empty(flow.ActiveGameIds);
         Assert.Empty(rig.Dialogs.Shown);
+    }
+
+    [Fact]
+    public async Task A_session_found_when_the_flow_is_built_can_be_tried_again_after_it_is_canceled()
+    {
+        using var rig = new LaunchRig();
+        var started = FakeAssert.Ok(await rig.Backend.Launch.StartAsync(MockupScenario.SkyrimId, LaunchRig.ModdedTip));
+        rig.Backend.Launch.ReportSwitching(MockupScenario.SkyrimId, MockupScenario.SwitchProgress);
+        using var flow = new LaunchFlowViewModel(rig.Deps);
+        Assert.Single(rig.Dialogs.Shown.OfType<SwitchProgressDialogViewModel>());
+        var previews = rig.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync)).Count;
+
+        rig.Backend.Jobs.CompleteCancelled(started.JobId);
+        var card = Assert.IsType<ErrorCardViewModel>(flow.InlineContentFor(MockupScenario.SkyrimId));
+        FlowRig.Press(card, "Try again");
+
+        Assert.Equal(previews + 1, rig.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync)).Count);
+        Assert.Equal(2, rig.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.StartAsync)).Count);
     }
 
     [AvaloniaFact]

@@ -86,6 +86,9 @@ public sealed partial class LaunchFlowViewModel
         }
 
         flow.Session = session;
+
+        // A session adopted from before the flow existed still knows what it was started for, which "Try again" needs.
+        flow.Target ??= session.Target;
         flow.Stage = IsEnded(session.State) ? FlowStage.Idle : FlowStage.Session;
         await EnsureNamesAsync(flow.GameId, session.ProfileId);
 

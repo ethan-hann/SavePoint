@@ -140,6 +140,25 @@ public class LaunchFlowSessionTests : IDisposable
     }
 
     [Fact]
+    public async Task A_folder_the_game_definition_gets_wrong_offers_to_edit_the_game()
+    {
+        var unconfirmed = ErrorInfo.From(new ConsentMarkerException(ConsentFailure.Missing, MockupScenario.SkyrimInstall, RepoRole.Install, null, null));
+        var foreign = ErrorInfo.From(new ConsentMarkerException(ConsentFailure.Conflict, MockupScenario.SkyrimInstall, RepoRole.Install, MockupScenario.SatisfactoryId, RepoRole.Install));
+        foreach (var error in new[] { unconfirmed, foreign, MockupScenario.FolderTooBroadError })
+        {
+            await _f.PlayModdedAsync();
+            _f.Backend.Launch.FailLaunch(FlowRig.Skyrim, error);
+            var card = _f.Inline<ErrorCardViewModel>();
+
+            Assert.Equal(["Edit game", "Dismiss"], card.Actions.Select(a => a.Label));
+            FlowRig.Press(card, "Edit game");
+            FlowRig.Press(card, "Dismiss");
+        }
+
+        Assert.Equal(3, _f.EditRequests.Count);
+    }
+
+    [Fact]
     public async Task Unsaved_changes_found_at_the_last_moment_offer_to_review_them()
     {
         await _f.PlayModdedAsync();

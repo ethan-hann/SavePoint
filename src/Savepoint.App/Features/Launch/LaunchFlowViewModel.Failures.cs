@@ -41,6 +41,12 @@ public sealed partial class LaunchFlowViewModel
             case "error.path.missing":
                 actions.Add(Edit("launch.failure.chooseFolder", primary: true));
                 break;
+            case "error.consentMarker.missing":
+            case "error.consentMarker.conflict":
+            case "error.pathSafety.tier1Blocked":
+            case "error.pathSafety.tier2Blocked":
+                actions.Add(Edit("launch.failure.editGame", primary: true));
+                break;
             case "error.launch.dirtyWorkingTree":
                 actions.Add(new ErrorCardAction(text.Message("launch.failure.reviewChanges"), new AsyncRelayCommand(() => BeginAsync(flow.GameId, flow.Target!)), IsPrimary: true));
                 break;
