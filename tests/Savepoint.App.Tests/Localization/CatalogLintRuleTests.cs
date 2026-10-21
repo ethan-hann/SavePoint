@@ -498,6 +498,7 @@ public class CatalogLintRuleTests
     [InlineData("""<TextBlock Text="{StaticResource Greeting}" />""", "Text")]
     [InlineData("""<Button><Button.Content>Save</Button.Content></Button>""", "Button.Content")]
     [InlineData("""<TextBlock>Hello there</TextBlock>""", "TextBlock")]
+    [InlineData("""<TextBlock Text="{theme:Upper Hello}" />""", "Text")]
     [InlineData("""<Button>Save</Button>""", "Button")]
     [InlineData("""<Style><Setter Property="Text" Value="Hello" /></Style>""", "Setter")]
     public void Hardcoded_text_in_xaml_is_reported_with_the_file_and_the_property(string body, string property)
@@ -514,6 +515,8 @@ public class CatalogLintRuleTests
     [InlineData("""<TextBlock Text="{Binding Name}" />""")]
     [InlineData("""<TextBlock Text="{CompiledBinding Name}" />""")]
     [InlineData("""<TextBlock Text="{ReflectionBinding Name}" />""")]
+    [InlineData("""<TextBlock Text="{theme:Upper {loc:Loc a.b}}" />""")]
+    [InlineData("""<TextBlock Text="{Upper {Binding Name}}" />""")]
     [InlineData("""<Button Content="{x:Static local:Labels.Save}" />""")]
     [InlineData("""<TextBlock Text="&#xE145;" />""")]
     [InlineData("""<TextBlock Text="…" />""")]

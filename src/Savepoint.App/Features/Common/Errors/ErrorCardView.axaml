@@ -10,7 +10,7 @@
   <Border x:Name="Card"
           Classes="card"
           Background="{DynamicResource Md3SurfaceContainerHighBrush}"
-          Padding="22,18"
+          Padding="18,16,22,18"
           AutomationProperties.Name="{Binding Title}"
           AutomationProperties.LiveSetting="Polite">
     <Grid ColumnDefinitions="Auto,*">
@@ -19,7 +19,7 @@
                  Classes.error="{Binding IsError}"
                  Classes.warning="{Binding IsWarning}"
                  Classes.muted="{Binding IsNeutral}"
-                 Margin="0,0,16,0"
+                 Margin="0,0,12,0"
                  VerticalAlignment="Top"
                  Text="{Binding Icon}" />
       <StackPanel Grid.Column="1" Spacing="14">
@@ -28,7 +28,7 @@
           <TextBlock x:Name="BodyText" Classes="body muted" TextWrapping="Wrap" Text="{Binding Body}" />
         </StackPanel>
         <Border x:Name="PathSurface" Classes="recessed" IsVisible="{Binding HasPath}">
-          <SelectableTextBlock Classes="mono small" TextWrapping="Wrap" Text="{Binding Path}" />
+          <SelectableTextBlock FontFamily="{DynamicResource RobotoMonoFont}" FontSize="12" Foreground="{DynamicResource Md3OnSurfaceVariantBrush}" TextWrapping="Wrap" Text="{Binding Path}" />
         </Border>
         <ContentControl x:Name="SupplementHost" Content="{Binding Supplement}" IsVisible="{Binding Supplement, Converter={x:Static ObjectConverters.IsNotNull}}" />
         <StackPanel Orientation="Horizontal" Spacing="8">
@@ -41,6 +41,8 @@
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="errors:ErrorCardAction">
                 <Button Classes="pill"
+                        Padding="18,8"
+                        FontSize="13"
                         Classes.filled="{Binding IsPrimary}"
                         Content="{Binding Label}"
                         Command="{Binding Command}" />
@@ -49,13 +51,15 @@
           </ItemsControl>
           <ToggleButton x:Name="DetailsToggle"
                         Classes="pill"
+                        Padding="18,8"
+                        FontSize="13"
                         IsVisible="{Binding HasDetail}"
                         IsChecked="{Binding ShowDetails, Mode=TwoWay}"
                         Content="{Binding DetailsToggleLabel}" />
         </StackPanel>
         <Border x:Name="DetailsSurface" Classes="recessed" IsVisible="{Binding ShowDetails}">
           <ScrollViewer MaxHeight="180" HorizontalScrollBarVisibility="Auto">
-            <SelectableTextBlock x:Name="DetailsText" Classes="mono small" Text="{Binding Detail}" />
+            <SelectableTextBlock x:Name="DetailsText" FontFamily="{DynamicResource RobotoMonoFont}" FontSize="11.5" Foreground="{DynamicResource Md3OnSurfaceVariantBrush}" Text="{Binding Detail}" />
           </ScrollViewer>
         </Border>
       </StackPanel>

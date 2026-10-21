@@ -1,6 +1,8 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Savepoint.App.Features.Common.Formatting;
+using Savepoint.App.Features.Shell;
 using Savepoint.App.Localization;
 using Savepoint.App.Theme;
 using Savepoint.App.Views;
@@ -15,6 +17,12 @@ public partial class App : Application
     /// theme or accent changes, and set <see cref="ThemeService.ReduceMotion"/> from the system accessibility setting.
     /// </summary>
     public ThemeService Theme { get; private set; } = null!;
+
+    /// <summary>
+    /// The Api the app runs on. Null until the real Core services are wired in, which makes the startup screen say
+    /// services are not available; set it before the main window opens to run against anything else.
+    /// </summary>
+    public static AppServices? Services { get; set; }
 
     public override void Initialize()
     {
@@ -31,7 +39,15 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = new MainWindow();
+            var window = new MainWindow();
+            var main = AppComposition.Create(
+                Services,
+                new UiFormatter(LocalizationCatalog.Current),
+                new ThemeServiceApplier(Theme),
+                () => window.StorageProvider);
+            window.DataContext = main;
+            window.Opened += (_, _) => _ = main.InitializeAsync();
+            desktop.MainWindow = window;
         }
 
         base.OnFrameworkInitializationCompleted();
