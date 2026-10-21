@@ -83,20 +83,28 @@ internal sealed class TempFolder : IDisposable
     {
         try
         {
-            // A junction must be removed as a link first, or deleting the tree would walk into its target.
-            foreach (var directory in Directory.EnumerateDirectories(Path, "*", SearchOption.AllDirectories))
-            {
-                if (new DirectoryInfo(directory).Attributes.HasFlag(FileAttributes.ReparsePoint))
-                {
-                    Directory.Delete(directory);
-                }
-            }
-
+            RemoveDirectoryLinks(Path);
             Directory.Delete(Path, recursive: true);
         }
         catch (DirectoryNotFoundException)
         {
             // Already gone.
+        }
+    }
+
+    // A link is removed as a link first, so deleting the tree can never walk into its target.
+    private static void RemoveDirectoryLinks(string folder)
+    {
+        foreach (var directory in Directory.EnumerateDirectories(folder))
+        {
+            if (new DirectoryInfo(directory).Attributes.HasFlag(FileAttributes.ReparsePoint))
+            {
+                Directory.Delete(directory);
+            }
+            else
+            {
+                RemoveDirectoryLinks(directory);
+            }
         }
     }
 }
