@@ -11,6 +11,7 @@ Status keys: `todo`, `doing`, `done`. A milestone is done when its done-criteria
 - Inline code comments are short and say why, never which milestone or slice produced the code. Public APIs carry XML doc comments stating their contract (D24); CS1591 is an error in Core.
 - Tests never touch real user folders: every test uses a fresh temp directory and injected app-data/storage paths.
 - Machine load (owner's request, 2026-10-21): at most two implementer agents at a time, and builds/tests never overlap - every gate takes one machine-wide lock (`<main checkout>/.tools/locks/gate.lock`) and runs at below-normal priority with capped parallelism (4 MSBuild nodes, no lingering nodes, one test module at a time, 8 test threads). Agents run only the test classes they change while working and the full Windows gate once at the end; no repeated full-suite loops. Only the orchestrator runs the Linux gate, on `main`, after a batch of merges. Read-only reviewers may run alongside one implementer.
+- Agents stop every background shell or process they started before they report (a finished agent's leftover task once ran for 10 hours and held a worktree folder open); the orchestrator checks for leftovers when removing a worktree.
 - Implementers run in isolated worktrees; the orchestrator merges into `main`, runs both gates, then removes the worktree and its branch right away (`git worktree remove --force`, falling back to `rm -rf` + `git worktree prune` when Windows file locks refuse).
 
 ## Milestones
