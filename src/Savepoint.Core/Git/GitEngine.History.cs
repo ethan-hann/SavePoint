@@ -10,7 +10,7 @@ public sealed partial class GitEngine
     /// <summary>
     /// Reads the folder's state. Needs the work tree, so it refuses a protected or missing folder and one without this game's marker.
     /// What counts as unsaved is exactly what a capture would record: ignore files inside the game folder are not read, and
-    /// files the game's ignore patterns name (as of the last capture or preview) are not changes.
+    /// files the game's ignore patterns name (those <see cref="RepoRef.IgnorePatterns"/> carries, or the ones the last capture or preview stored) are not changes.
     /// </summary>
     /// <param name="repo">The folder.</param>
     /// <param name="ct">Cancels the call.</param>

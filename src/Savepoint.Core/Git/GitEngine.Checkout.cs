@@ -138,8 +138,8 @@ public sealed partial class GitEngine
     }
 
     /// <summary>
-    /// Removes new files and folders; changes to recorded files stay. Files the game's ignore patterns name (as of the last
-    /// capture or preview), the consent marker and folders that keep their own history stay. An ignore file inside the
+    /// Removes new files and folders; changes to recorded files stay. Files the game's ignore patterns name (those
+    /// <see cref="RepoRef.IgnorePatterns"/> carries, or the ones the last capture or preview stored), the consent marker and folders that keep their own history stay. An ignore file inside the
     /// game folder protects nothing.
     /// </summary>
     /// <param name="repo">The folder.</param>

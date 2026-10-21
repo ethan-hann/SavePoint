@@ -49,6 +49,12 @@ internal sealed partial class GamesApi
                         }
                     }
 
+                    // The ignore list is part of the edit: each folder's exclude file says what the saved game says before anything else reads it.
+                    foreach (var folder in folders)
+                    {
+                        await storage.Engine.WriteExcludeAsync(GameFolders.Repo(storage, edited.Id, folder), edited.IgnorePaths, CancellationToken.None).ConfigureAwait(false);
+                    }
+
                     var saved = await _services.Catalog.SaveGameAsync(edited).ConfigureAwait(false);
                     ReleaseOldFolders(existing.Id, before, folders);
                     return saved;
