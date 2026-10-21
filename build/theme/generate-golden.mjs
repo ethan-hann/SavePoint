@@ -11,7 +11,8 @@
 // Schemes are built the way v1's src/renderer/theme/palette.ts builds them:
 //   new SchemeTonalSpot(Hct.fromInt(argbFromHex(seed)), isDark, 0) and role.getArgb(scheme).
 // Extra schemes (other contrast levels, monochrome, fidelity-style palettes) exercise the ported
-// branches that the contrast-0 tonal-spot palette never reaches.
+// branches that the contrast-0 tonal-spot palette never reaches. Seeded random tone cases (hand-built
+// background/foreground colors and tone-delta pairs) cover the remaining DynamicColor.getTone branches.
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -20,6 +21,8 @@ import { fileURLToPath } from 'node:url';
 const packageRoot = new URL('../../.tools/mcu/node_modules/@material/material-color-utilities/', import.meta.url);
 const mcu = await import(new URL('index.js', packageRoot).href);
 const { Variant } = await import(new URL('dynamiccolor/variant.js', packageRoot).href);
+const { ContrastCurve } = await import(new URL('dynamiccolor/contrast_curve.js', packageRoot).href);
+const { ToneDeltaPair } = await import(new URL('dynamiccolor/tone_delta_pair.js', packageRoot).href);
 const {
   argbFromHex, Hct, MaterialDynamicColors, DynamicColor, DynamicScheme, SchemeTonalSpot, SchemeMonochrome,
   TonalPalette, ViewingConditions, DislikeAnalyzer, Contrast,
@@ -130,6 +133,24 @@ for (const [name, seedHex] of SEEDS.filter(([n]) => n in fidelityTertiary)) {
   }
 }
 
+// Group "content": the same assembly under the CONTENT variant, which shares the fidelity branches.
+for (const [name, seedHex] of SEEDS.filter(([n]) => ['blue', 'amber'].includes(n))) {
+  for (const dark of [true, false]) {
+    for (const contrast of [0, 1]) {
+      const hct = Hct.fromInt(argbFromHex(seedHex));
+      const palettes = {
+        primary: [hct.hue, hct.chroma],
+        secondary: [hct.hue, hct.chroma / 3.0],
+        tertiary: [hct.hue + 60.0, hct.chroma / 2.0],
+        neutral: [hct.hue, Math.min(hct.chroma / 12.0, 4.0)],
+        neutralVariant: [hct.hue, Math.min(hct.chroma / 6.0, 8.0)],
+      };
+      schemes.push(describeScheme(`content-${label(name, dark, contrast)}`, 'content', 'content', name,
+        customScheme(Variant.CONTENT, hct, dark, contrast, palettes)));
+    }
+  }
+}
+
 // HCT: argb -> hue/chroma/tone.
 const hctColors = [
   '#000000', '#ffffff', '#777777', '#808080', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#00ffff', '#ff00ff',
@@ -200,6 +221,87 @@ const contrast = {
   darker: contrastTones.flatMap((tone) => contrastRatios.map((ratio) => ({ tone, ratio, result: Contrast.darker(tone, ratio) }))),
 };
 
+// DynamicColor.getTone on hand-built colors. The parameters come from a fixed seed so the file is
+// reproducible; the C# test rebuilds the same colors from the recorded parameters.
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const random = mulberry32(20261020);
+const pick = (list) => list[Math.floor(random() * list.length)];
+const randomTone = () => Math.round(random() * 1000) / 10;
+// A quarter of the background tones sit on the awkward zone edges and where lighter and darker foregrounds tie.
+const backgroundTone = () => (random() < 0.25 ? pick([49.3, 49.4, 49.5, 49.6, 49.7, 49.8, 59.4, 59.5, 60]) : randomTone());
+const CURVES = [[1, 1, 3, 4.5], [3, 4.5, 7, 7], [4.5, 7, 11, 21], [3, 3, 4.5, 7], [1.5, 3, 4.5, 7], [3, 4.5, 7, 11], [1, 1, 1, 1], [7, 7, 7, 7]];
+const CONTRASTS = [-1, -0.6, -0.2, 0, 0.3, 0.5, 0.8, 1];
+const tonePalette = TonalPalette.fromHueAndChroma(250, 36);
+const toneScheme = (dark, contrast) => new DynamicScheme({
+  sourceColorArgb: 0xff2986cc, variant: Variant.TONAL_SPOT, contrastLevel: contrast, isDark: dark,
+  primaryPalette: tonePalette, secondaryPalette: tonePalette, tertiaryPalette: tonePalette,
+  neutralPalette: tonePalette, neutralVariantPalette: tonePalette,
+});
+
+const toneCases = [];
+for (let i = 0; i < 400; i++) {
+  const spec = {
+    kind: 'pair', dark: random() < 0.5, contrast: pick(CONTRASTS), bgTone: backgroundTone(), bg2Tone: null,
+    toneA: randomTone(), toneB: randomTone(), curveA: pick(CURVES), curveB: pick(CURVES), delta: pick([5, 10, 15, 25]),
+    polarity: pick(['darker', 'lighter', 'nearer', 'farther']), stayTogether: random() < 0.5, isBackground: true,
+  };
+  const background = DynamicColor.fromPalette({ name: 'bg', palette: () => tonePalette, tone: () => spec.bgTone, isBackground: true });
+  let pair;
+  const colorA = DynamicColor.fromPalette({
+    name: 'a', palette: () => tonePalette, tone: () => spec.toneA, isBackground: true, background: () => background,
+    contrastCurve: new ContrastCurve(...spec.curveA), toneDeltaPair: () => pair,
+  });
+  const colorB = DynamicColor.fromPalette({
+    name: 'b', palette: () => tonePalette, tone: () => spec.toneB, isBackground: true, background: () => background,
+    contrastCurve: new ContrastCurve(...spec.curveB), toneDeltaPair: () => pair,
+  });
+  pair = new ToneDeltaPair(colorA, colorB, spec.delta, spec.polarity, spec.stayTogether);
+  const scheme = toneScheme(spec.dark, spec.contrast);
+  toneCases.push({ ...spec, expectedA: colorA.getTone(scheme), expectedB: colorB.getTone(scheme) });
+}
+for (let i = 0; i < 300; i++) {
+  const spec = {
+    kind: 'single', dark: random() < 0.5, contrast: pick(CONTRASTS), bgTone: backgroundTone(),
+    bg2Tone: random() < 0.5 ? randomTone() : null, toneA: randomTone(), toneB: null, curveA: pick(CURVES), curveB: null,
+    delta: null, polarity: null, stayTogether: null, isBackground: random() < 0.5,
+  };
+  const background = DynamicColor.fromPalette({ name: 'bg', palette: () => tonePalette, tone: () => spec.bgTone, isBackground: true });
+  const second = DynamicColor.fromPalette({ name: 'bg2', palette: () => tonePalette, tone: () => spec.bg2Tone, isBackground: true });
+  const foreground = DynamicColor.fromPalette({
+    name: 'fg', palette: () => tonePalette, tone: () => spec.toneA, isBackground: spec.isBackground,
+    background: () => background, secondBackground: spec.bg2Tone === null ? undefined : () => second,
+    contrastCurve: new ContrastCurve(...spec.curveA),
+  });
+  toneCases.push({ ...spec, expectedA: foreground.getTone(toneScheme(spec.dark, spec.contrast)), expectedB: null });
+}
+// Two light backgrounds with a low target ratio: both a lighter and a darker option exist, which the
+// uniform draw above almost never produces.
+const LOW_CURVES = [[1.5, 3, 4.5, 7], [1.2, 1.5, 2, 3], [1.5, 2, 2.5, 3]];
+for (let i = 0; i < 150; i++) {
+  const spec = {
+    kind: 'single', dark: random() < 0.5, contrast: pick([-1, -0.6, -0.2, 0, 0.3]),
+    bgTone: 60 + Math.round(random() * 400) / 10, bg2Tone: 60 + Math.round(random() * 400) / 10,
+    toneA: 40 + Math.round(random() * 600) / 10, toneB: null, curveA: pick(LOW_CURVES), curveB: null,
+    delta: null, polarity: null, stayTogether: null, isBackground: false,
+  };
+  const background = DynamicColor.fromPalette({ name: 'bg', palette: () => tonePalette, tone: () => spec.bgTone, isBackground: true });
+  const second = DynamicColor.fromPalette({ name: 'bg2', palette: () => tonePalette, tone: () => spec.bg2Tone, isBackground: true });
+  const foreground = DynamicColor.fromPalette({
+    name: 'fg', palette: () => tonePalette, tone: () => spec.toneA, isBackground: false,
+    background: () => background, secondBackground: () => second, contrastCurve: new ContrastCurve(...spec.curveA),
+  });
+  toneCases.push({ ...spec, expectedA: foreground.getTone(toneScheme(spec.dark, spec.contrast)), expectedB: null });
+}
+
 const vc = ViewingConditions.DEFAULT;
 const viewingConditions = {
   n: vc.n, aw: vc.aw, nbb: vc.nbb, ncb: vc.ncb, c: vc.c, nc: vc.nc, rgbD: vc.rgbD, fl: vc.fl, fLRoot: vc.fLRoot, z: vc.z,
@@ -222,6 +324,7 @@ const golden = {
   tonalFromInt,
   dislike,
   contrast,
+  toneCases,
 };
 
 // Section records stay one per line; each scheme is expanded so its colors and tones sit on one line each.
