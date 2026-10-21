@@ -72,6 +72,35 @@ The MD3 palette needs HCT, `SchemeTonalSpot`, and the surface-container roles. T
 
 Avalonia does not render variable fonts. Roboto, Roboto Mono (OFL 1.1), and Material Symbols Rounded (Apache-2.0) ship only as variable fonts upstream. v2 instantiates static weights with fontTools and subsets Material Symbols to the icons the UI uses, at its default axes (FILL 0, wght 400, GRAD 0, opsz 24). The generator script lives in `build/fonts/`; the generated fonts and their licenses are committed. Icons are referenced by code point, not ligature.
 
+## D13. Resolutions for v1 defects found during the inventory
+
+The inventories (`docs/reference/v1-services.md` section 10, `v1-ui.md` section 5.4, `v1-engine.md` gotchas) list behavior v1 got wrong or left undecided. v2 resolves each on purpose:
+
+1. **Consent marker and ignore rules stay out of the game folders' history.** v2 never writes a `.gitignore` into a game's folder. `ignorePaths` and the marker file name are written to `<gitDir>/info/exclude`, which lives in SavePoint's storage. The marker is therefore never committed, so checking out an older point can never rewrite it. Previews read the same exclude file and never write into the work tree.
+2. **A corrupt catalog file is never overwritten.** Missing means empty; unreadable or invalid JSON raises `CatalogCorruptException`, the app shows a recovery screen naming the file, and no write happens until it is resolved. Every overwrite first copies the previous good file to `<name>.bak`.
+3. **Catalog writes are serialized** through one async lock per catalog store.
+4. **Sessions live for the process lifetime.** Settings changes and storage moves swap dependencies; they never rebuild the launch orchestrator or drop a running session.
+5. **A running game blocks destructive operations on that game**: delete game, delete profile, storage move, and clear all data refuse with a specific message until the session ends.
+6. **`versionOverride` is part of the Profile schema.**
+7. **History sorts by `DateTimeOffset`**, never by string.
+8. **Launch checks both folders for unsaved changes before switching either.**
+9. **Profile delete validates both folders before deleting from either**, so a refused delete changes nothing.
+10. **The 30-second grace for a launcher stub stays**, but the running card offers "I'm done playing" from the first second, so the wait never blocks the user.
+11. **`exePath` must be relative to the install folder** and must not escape it (`..`). The editor's Browse converts a picked file to a relative path or refuses one outside the install folder.
+12. **Process-name matching** is case-insensitive on Windows and macOS, ignores a trailing `.exe` difference, and on Linux also matches the executable's file name (the kernel truncates process names to 15 characters, which would otherwise break games run through Proton).
+13. **Read-only git calls run with `GIT_OPTIONAL_LOCKS=0`**, so previews and row stats never take `index.lock` while a capture or switch runs.
+14. **Duplicate and discard take the per-game lock.**
+15. **Exe version reads are cached** by the blob id of the exe at that profile's tip.
+16. **Free-space checks target the volume that is written**: the storage volume for captures and optimization, the game folder's volume for switches.
+17. **Automatic optimization is preemptible.** It starts after a capture when a repo passes 5000 loose objects. A launch, capture, or delete on the same game cancels it (repacking is safe to interrupt) and proceeds; the next capture re-triggers it.
+18. **Cancel reaches every cancellable job.** Captures (including post-play), switches, optimization, and storage moves all take the job's cancellation token. A session wait is not cancellable; "I'm done playing" ends it.
+19. **Launch flow state lives above the views**, so changing screens, layouts, or the selected game never loses a running session or its post-play prompt.
+20. **Partial results are judged per folder.** A job that succeeded for one folder and failed for the other is reported as partial everywhere (the "Half of that save worked" card), never as success.
+21. **Every failure has visible copy.** The five message ids v1 could emit without a catalog entry get entries, and no action fails silently.
+22. **Game notes survive editing.**
+23. **Default storage root is a local, never-synced folder**: `%LOCALAPPDATA%\SavePoint\Storage` on Windows, `$XDG_DATA_HOME/savepoint/storage` on Linux, `~/Library/Application Support/SavePoint/Storage` on macOS. v1 used `Documents\SavePoint`, which OneDrive commonly syncs, a bad home for tens of GB of game data. First run shows the location and Settings can move it.
+24. **Git never reads the user's global or system config.** Every git process runs with `GIT_CONFIG_NOSYSTEM=1`, `GIT_CONFIG_GLOBAL` pointed at an empty file, and a fixed identity, so a user's `commit.gpgsign`, hooks path, or aliases can never change what SavePoint does.
+
 ## D8. "Clear all data" is a v2 requirement
 
 The v1 README lists "add a clear all data button" as an open TODO. v2 ships it in Settings behind a typed confirmation. It removes SavePoint's own storage, catalog, and consent markers, and never deletes or rolls back files in a game's install or save folders: whatever is on disk at that moment stays as it is.
