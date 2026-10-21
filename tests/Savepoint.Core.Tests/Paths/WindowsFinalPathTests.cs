@@ -1,5 +1,8 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
 using Savepoint.Core.Paths;
+using Savepoint.Core.Platform;
 using Savepoint.Core.Tests.Platform;
 
 namespace Savepoint.Core.Tests.Paths;
@@ -190,6 +193,20 @@ public class WindowsFinalPathTests
         Assert.Empty(WindowsFiles.NamesOf(kind => kind == WindowsFiles.VolumeNameKind.Dos ? null : @"\\?\Volume{00000000-0000-0000-0000-000000000000}\x"));
     }
 
+    // Mounting a volume in a folder needs an elevated account, so this runs only where someone already did it.
+    [Fact]
+    public void A_volume_mounted_in_a_folder_has_a_final_path_that_names_the_volume()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Mounted-folder volumes are a Windows feature.");
+        var folder = FolderMountPoints().FirstOrDefault(Directory.Exists);
+        Assert.SkipWhen(folder is null, "No volume is mounted in a folder on this machine, and mounting one needs elevation.");
+
+        var names = PathProbes.Host.ReadFinalPaths(folder!);
+
+        Assert.NotEmpty(names);
+        Assert.All(names, name => Assert.True(PathSyntax.For(OsKind.Windows).IsAbsolute(name), name));
+    }
+
     [Fact]
     public void The_legacy_identity_of_a_folder_agrees_with_its_full_identity()
     {
@@ -204,6 +221,21 @@ public class WindowsFinalPathTests
         Assert.NotNull(legacy);
         Assert.Equal(full!.Value.FileId, legacy!.Value.FileId);
         Assert.Equal(full.Value.VolumeSerial & 0xFFFFFFFF, legacy.Value.VolumeSerial);
+    }
+
+    // mountvol lists every volume with its mount points without elevation; a mount point longer than a drive root is a folder.
+    private static IEnumerable<string> FolderMountPoints()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return [];
+        }
+
+        var info = new ProcessStartInfo("mountvol") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true };
+        using var process = Process.Start(info)!;
+        var listing = process.StandardOutput.ReadToEnd();
+        process.WaitForExit();
+        return [.. listing.Split('\n').Select(line => line.Trim()).Where(line => Regex.IsMatch(line, @"^[A-Za-z]:\\.+"))];
     }
 
     private static string? VolumeNameOf(string driveRoot)
