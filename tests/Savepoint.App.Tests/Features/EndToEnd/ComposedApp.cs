@@ -3,6 +3,8 @@ using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Games;
+using Savepoint.App.Features.History;
+using Savepoint.App.Features.Settings;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Localization;
 using Savepoint.App.Tests.Fakes;
@@ -42,8 +44,12 @@ internal sealed class ComposedApp : IDisposable
 
     public ToastHostViewModel Toasts => Main.Toasts;
 
-    // The Games screen is where the app starts; the others are built by the shell too, and first read when shown.
-    public GamesScreenViewModel Games => Show<GamesScreenViewModel>(NavDestination.Games);
+    // The screens the shell built, each shown once at the start so a test holds on to the one it needs.
+    public GamesScreenViewModel Games { get; private set; } = null!;
+
+    public HistoryScreenViewModel History { get; private set; } = null!;
+
+    public SettingsScreenViewModel Settings { get; private set; } = null!;
 
     public IReadOnlyList<string> ToastTexts => [.. Toasts.Toasts.Select(toast => toast.Text)];
 
@@ -66,6 +72,10 @@ internal sealed class ComposedApp : IDisposable
         await main.InitializeAsync();
         var app = new ComposedApp(backend, dialogs, clock, text, theme, main);
         Assert.NotNull(main.Shell);
+        app.Games = app.Show<GamesScreenViewModel>(NavDestination.Games);
+        app.History = app.Show<HistoryScreenViewModel>(NavDestination.History);
+        app.Settings = app.Show<SettingsScreenViewModel>(NavDestination.Settings);
+        app.Shell.Navigate(NavDestination.Games);
         return app;
     }
 

@@ -375,6 +375,26 @@ public class GamesScreenViewModelTests
         Assert.All(Rows(rig), row => Assert.False(row.CanPlay));
     }
 
+    [Fact]
+    public async Task Play_comes_back_when_the_session_ends_without_anything_else_reloading_the_table()
+    {
+        var rig = await GamesRig.StartAsync();
+        var game = MockupScenario.SkyrimId;
+        FakeAssert.Ok(await rig.Backend.Launch.StartAsync(game, new LaunchTarget.ProfileTip(MockupScenario.ModdedId)));
+        rig.LaunchFlow!.SetActive(game, true);
+        await rig.Screen.ReloadAsync();
+        Assert.All(Rows(rig), row => Assert.False(row.CanPlay));
+
+        // "Not now": the session is finished and nobody saves anything, so no job runs and no library refresh follows.
+        rig.Backend.Launch.ReportRunning(game, MockupScenario.RunningSince);
+        rig.Backend.Launch.ReportExited(game, MockupScenario.PlayDuration, 0);
+        FakeAssert.Ok(await rig.Backend.Launch.CompleteSessionAsync(game, new SessionCompletion.Skip()));
+        rig.LaunchFlow.SetActive(game, false);
+
+        Assert.All(Rows(rig), row => Assert.False(row.IsRunning));
+        Assert.All(Rows(rig), row => Assert.True(row.CanPlay));
+    }
+
     // ---- What the launch flow shows above the table
 
     [Fact]

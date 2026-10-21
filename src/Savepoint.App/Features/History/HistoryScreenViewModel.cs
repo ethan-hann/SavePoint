@@ -478,8 +478,20 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
 
     private bool CanBegin(string gameId) => _shell.LaunchFlow is { } flow && !flow.IsActive(gameId);
 
-    private Task BeginAsync(string gameId, LaunchTarget target) =>
-        _shell.LaunchFlow is { } flow ? flow.BeginAsync(gameId, target) : Task.CompletedTask;
+    // The banner, the running card and a failure's card are shown on the Games screen, so a launch that got going (or failed to) takes the player there.
+    private async Task BeginAsync(string gameId, LaunchTarget target)
+    {
+        if (_shell.LaunchFlow is not { } flow)
+        {
+            return;
+        }
+
+        await flow.BeginAsync(gameId, target);
+        if (_shell.Destination == NavDestination.History && (flow.IsActive(gameId) || flow.InlineContentFor(gameId) is not null))
+        {
+            _shell.Navigate(NavDestination.Games);
+        }
+    }
 
     private void RefreshFlowCommands()
     {

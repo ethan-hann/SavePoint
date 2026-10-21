@@ -1,7 +1,6 @@
 using Savepoint.App.Features.Launch;
-using Savepoint.App.Features.Settings;
-using Savepoint.App.Features.Shell;
 using Savepoint.App.Tests.Fakes;
+using Savepoint.App.Tests.Features.Games;
 using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Tests.Features.EndToEnd;
@@ -22,7 +21,7 @@ public class SettingsWritersTests
     {
         var cancel = TestContext.Current.CancellationToken;
         using var app = await ComposedApp.StartAsync();
-        var settings = app.Show<SettingsScreenViewModel>(NavDestination.Settings);
+        var settings = app.Settings;
 
         await app.Shell.SetLayoutAsync(ShellLayout.Library);
         await ChangeBehindTheirBacksAsync(app, stored => stored with { AccentColorId = AccentColorId.Crimson }, cancel);
@@ -49,7 +48,7 @@ public class SettingsWritersTests
         await ChangeBehindTheirBacksAsync(app, stored => stored with { Theme = ThemePreference.Light }, cancel);
         dialog.DontAskAgain = true;
         dialog.CancelCommand.Execute(null);
-        await play;
+        await play.Soon();
 
         var stored = await StoredAsync(app, cancel);
         Assert.True(stored.SkipConfirmWhenOnlySaveChanges);
@@ -67,9 +66,33 @@ public class SettingsWritersTests
         FakeAssert.Ok(await app.Backend.Settings.SaveAsync((await StoredAsync(app, TestContext.Current.CancellationToken)) with { Theme = ThemePreference.Light }));
         dialog.DontAskAgain = true;
         dialog.CancelCommand.Execute(null);
-        await play;
+        await play.Soon();
 
         Assert.Equal(ThemePreference.Light, app.Theme.Applied[^1].Preference);
+    }
+
+    [Fact]
+    public async Task A_dialog_preference_still_waiting_to_land_does_not_wipe_out_a_layout_chosen_meanwhile()
+    {
+        var cancel = TestContext.Current.CancellationToken;
+        GatedSettingsApi? gated = null;
+        using var app = await ComposedApp.StartAsync(settings: inner => gated = new GatedSettingsApi(inner));
+
+        var play = app.Games.Profiles.Single(row => row.Id == MockupScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
+        var dialog = app.Dialog<LaunchDialogViewModel>();
+        gated!.HoldNextSave();
+        dialog.DontAskAgain = true;
+        var layout = app.Shell.SetLayoutAsync(ShellLayout.Library);
+        gated.ReleaseSaves();
+        await layout.WaitAsync(TimeSpan.FromSeconds(5), cancel);
+        await gated.HeldSaveDone.WaitAsync(TimeSpan.FromSeconds(5), cancel);
+        dialog.CancelCommand.Execute(null);
+        await play.Soon();
+
+        var stored = await StoredAsync(app, cancel);
+        Assert.Equal(ShellLayout.Library, stored.Layout);
+        Assert.True(stored.SkipConfirmWhenOnlySaveChanges);
+        Assert.Equal(ShellLayout.Library, app.Shell.Layout);
     }
 
     [Fact]
@@ -78,7 +101,7 @@ public class SettingsWritersTests
         var cancel = TestContext.Current.CancellationToken;
         GatedSettingsApi? gated = null;
         using var app = await ComposedApp.StartAsync(settings: inner => gated = new GatedSettingsApi(inner));
-        var settings = app.Show<SettingsScreenViewModel>(NavDestination.Settings);
+        var settings = app.Settings;
 
         gated!.HoldNextSave();
         settings.Session.AskToSave = false;

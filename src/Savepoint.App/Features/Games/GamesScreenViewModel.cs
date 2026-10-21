@@ -25,6 +25,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     private string? _shownGameId;
     private bool _loaded;
     private bool _disposed;
+    private bool _flowActive;
     private long _generation;
     private CancellationTokenSource? _loadCts;
 
@@ -261,7 +262,19 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     }
 
     // The flow raises its events from any thread, so each one is handed to the dispatcher.
-    private void OnFlowChanged(object? sender, PropertyChangedEventArgs e) => _deps.Dispatcher.Post(RefreshPlayAvailability);
+    private void OnFlowChanged(object? sender, PropertyChangedEventArgs e) =>
+        _deps.Dispatcher.Post(() =>
+        {
+            RefreshPlayAvailability();
+
+            // A session that starts or ends with no job and no new inline content (a skipped save) still changes which profile is running.
+            var active = FlowOwns(_game);
+            if (!_disposed && active != _flowActive)
+            {
+                _flowActive = active;
+                _ = ReloadAsync();
+            }
+        });
 
     private void OnInlineContentChanged(object? sender, string gameId) =>
         _deps.Dispatcher.Post(() =>
@@ -300,9 +313,12 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
             _shell.ShowPane(editor.CreateForExisting(_shell, gameId));
         });
 
+    private bool FlowOwns(GameDefinition? game) => game is not null && _shell.LaunchFlow?.IsActive(game.Id) == true;
+
     private void ShowGame(GameDefinition? game)
     {
         _game = game;
+        _flowActive = FlowOwns(game);
         _shownGameId = game?.Id;
         GameName = game?.Name ?? string.Empty;
         InstallPath = game?.Install.Path ?? string.Empty;

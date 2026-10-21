@@ -187,6 +187,39 @@ public class HistoryScreenViewModelTests
     }
 
     [Fact]
+    public async Task A_launch_that_gets_going_takes_the_player_to_Games_where_the_session_shows()
+    {
+        var rig = await HistoryRig.ShownAsync();
+        rig.Flow!.OnBegin = gameId => rig.Flow.SetActive(gameId, true);
+
+        rig.Screen.Saves.Single(r => r.Name == "Deep cave run").LoadCommand.Execute(null);
+
+        Assert.Equal(NavDestination.Games, rig.Shell.Destination);
+    }
+
+    [Fact]
+    public async Task A_launch_that_fails_before_starting_also_takes_the_player_to_Games_where_the_card_shows()
+    {
+        var rig = await HistoryRig.ShownAsync();
+        rig.Flow!.OnBegin = gameId => rig.Flow.Inline[gameId] = new object();
+
+        rig.Screen.Groups.SelectMany(group => group.Cards).Single(c => c.Name == "Cleared Blackreach").GoBackCommand.Execute(null);
+
+        Assert.Equal(NavDestination.Games, rig.Shell.Destination);
+    }
+
+    [Fact]
+    public async Task A_launch_the_player_backs_out_of_leaves_History_showing()
+    {
+        var rig = await HistoryRig.ShownAsync();
+
+        rig.Screen.Saves.Single(r => r.Name == "Deep cave run").LoadCommand.Execute(null);
+
+        Assert.Single(rig.Flow!.Begun);
+        Assert.Equal(NavDestination.History, rig.Shell.Destination);
+    }
+
+    [Fact]
     public async Task Load_begins_the_launch_flow_with_that_save_in_the_points_own_profile()
     {
         var rig = await HistoryRig.ShownAsync();

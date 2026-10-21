@@ -120,15 +120,21 @@ internal sealed class ScriptedLaunchFlow : ILaunchFlowHost
 
     public List<(string GameId, LaunchTarget Target)> Begun { get; } = [];
 
+    // What starting the flow does to the game, for a test that needs it to take hold or fail.
+    public Action<string>? OnBegin { get; set; }
+
     public Task BeginAsync(string gameId, LaunchTarget target)
     {
         Begun.Add((gameId, target));
+        OnBegin?.Invoke(gameId);
         return Task.CompletedTask;
     }
 
     public bool IsActive(string gameId) => _active.Contains(gameId);
 
-    public object? InlineContentFor(string gameId) => null;
+    public Dictionary<string, object?> Inline { get; } = [];
+
+    public object? InlineContentFor(string gameId) => Inline.GetValueOrDefault(gameId);
 
     public void SetActive(string gameId, bool active)
     {
