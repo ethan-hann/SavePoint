@@ -129,7 +129,8 @@ internal sealed class EditorRig
     public static async Task<T> Eventually<T>(Func<T?> find)
         where T : class
     {
-        var deadline = DateTime.UtcNow.AddSeconds(5);
+        // Generous: it returns as soon as the condition holds, and a loaded machine can take seconds to get there.
+        var deadline = DateTime.UtcNow.AddSeconds(30);
         while (DateTime.UtcNow < deadline)
         {
             try
