@@ -31,4 +31,6 @@
     <EmbeddedResource Include="Theme\Material\golden-mcu-0.3.0.json" LogicalName="golden-mcu-0.3.0.json" />
   </ItemGroup>
 
+  <Import Project="..\..\build\Git.targets" />
+
 </Project>

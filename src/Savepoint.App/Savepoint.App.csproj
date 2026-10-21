@@ -29,4 +29,6 @@
     <AvaloniaResource Include="Assets\Fonts\**" />
   </ItemGroup>
 
+  <Import Project="..\..\build\Git.targets" />
+
 </Project>

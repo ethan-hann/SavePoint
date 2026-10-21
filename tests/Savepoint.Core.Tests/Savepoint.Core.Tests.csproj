@@ -28,4 +28,6 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <Import Project="..\..\build\Git.targets" />
+
 </Project>
