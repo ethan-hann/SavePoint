@@ -8,8 +8,11 @@ public sealed class LinuxPlatform : IPlatform
 
     private static readonly string[] _systemRoots =
     [
-        "/etc", "/boot", "/proc", "/sys", "/dev", "/run", "/usr", "/bin", "/sbin", "/lib", "/lib32", "/lib64", "/libx32",
+        "/etc", "/boot", "/proc", "/sys", "/dev", "/usr", "/bin", "/sbin", "/lib", "/lib32", "/lib64", "/libx32",
     ];
+
+    // udisks mounts removable drives under /run/media/<user>, the one part of /run a game may live in.
+    private static readonly string[] _removableMedia = ["/run/media"];
 
     private static readonly string[] _broadRoots = ["/", "/home", "/mnt", "/media", "/opt", "/srv", "/var", "/tmp", "/root"];
 
@@ -73,6 +76,8 @@ public sealed class LinuxPlatform : IPlatform
             builder.Subtree(root, "System files");
         }
 
+        builder.Subtree("/run", "System runtime state", _removableMedia);
+
         foreach (var extra in extraBlockedRoots)
         {
             builder.Subtree(extra, "SavePoint's own data");
@@ -81,6 +86,18 @@ public sealed class LinuxPlatform : IPlatform
         foreach (var root in _broadRoots)
         {
             builder.Exact(root, "Too broad to track");
+        }
+
+        // The folders that hold every mounted drive are too broad, but a drive's contents are fine.
+        foreach (var mediaRoot in _removableMedia)
+        {
+            builder.Exact(mediaRoot, "Holds every user's removable drives");
+        }
+
+        foreach (var user in UserNames())
+        {
+            builder.Exact(_paths.Under("/run/media", user), "Holds the user's removable drives");
+            builder.Exact(_paths.Under("/media", user), "Holds the user's removable drives");
         }
 
         builder.Exact(home, "The home folder holds everything the user owns");
@@ -125,4 +142,11 @@ public sealed class LinuxPlatform : IPlatform
 
         return builder.Build();
     }
+
+    // Every name the mount folders might use for this user: the login name can differ from the home folder's name.
+    private IEnumerable<string> UserNames() =>
+        new[] { _paths.RawVariable("USER"), _paths.RawVariable("LOGNAME"), _paths.Name(_paths.Home) }
+            .OfType<string>()
+            .Where(name => name is not ("." or "..") && !name.Contains('/'))
+            .Distinct(StringComparer.Ordinal);
 }

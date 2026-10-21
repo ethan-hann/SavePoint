@@ -75,6 +75,9 @@ public class DenylistTableTests
         "/home/test/Music",
         "/home/test/Videos",
         "/home/test/.local/share/Steam/steamapps/compatdata",
+        "/run/media",
+        "/run/media/test",
+        "/media/test",
     ];
 
     private static readonly string[] _macTier1 =
@@ -163,6 +166,40 @@ public class DenylistTableTests
             "/custom/data/Steam/steamapps/compatdata",
         ];
         AssertTable(list, _linuxTier1, [.. _linuxTier2, .. added]);
+    }
+
+    [Fact]
+    public void Linux_run_is_blocked_except_for_removable_media_and_nothing_else_carries_an_exception()
+    {
+        var run = Assert.Single(
+            new LinuxPlatform(FakeEnvironment.Linux().Build()).Denylist([]).Entries,
+            e => e is { Path: "/run", Tier: DenylistTier.Subtree });
+        var others = new[]
+        {
+            new LinuxPlatform(FakeEnvironment.Linux().Build()).Denylist([]),
+            new WindowsPlatform(FakeEnvironment.Windows().Build()).Denylist([]),
+            new MacOSPlatform(FakeEnvironment.MacOS().Build()).Denylist([]),
+        }.SelectMany(list => list.Entries).Where(e => e.Path != "/run");
+
+        Assert.Equal(["/run/media"], run.AllowedSubRoots);
+        Assert.All(others, e => Assert.Null(e.AllowedSubRoots));
+    }
+
+    [Fact]
+    public void Removable_media_folders_are_listed_for_every_name_the_user_goes_by()
+    {
+        var env = FakeEnvironment.Linux();
+        env.Variables["USER"] = "ethan";
+        env.Variables["LOGNAME"] = "ethan-hann";
+
+        var tier2 = new LinuxPlatform(env.Build()).Denylist([]).Entries.Where(e => e.Tier == DenylistTier.ExactOnly).Select(e => e.Path).ToList();
+
+        string[] expected =
+        [
+            "/run/media/ethan", "/run/media/ethan-hann", "/run/media/test",
+            "/media/ethan", "/media/ethan-hann", "/media/test",
+        ];
+        Assert.All(expected, path => Assert.Contains(path, tier2));
     }
 
     [Fact]

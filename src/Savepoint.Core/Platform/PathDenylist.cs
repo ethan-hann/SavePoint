@@ -9,8 +9,8 @@ public enum DenylistTier
     ExactOnly = 2,
 }
 
-/// <summary>Reason is for developers and logs; user-facing text comes from the error's message id.</summary>
-public sealed record DenylistEntry(string Path, DenylistTier Tier, string Reason);
+/// <summary>Reason is for developers and logs; a tier-1 entry's AllowedSubRoots (and everything beneath them) escape its block.</summary>
+public sealed record DenylistEntry(string Path, DenylistTier Tier, string Reason, IReadOnlyList<string>? AllowedSubRoots = null);
 
 /// <summary>The paths SavePoint refuses to track, as data. PathSafety does the matching.</summary>
 public sealed class PathDenylist

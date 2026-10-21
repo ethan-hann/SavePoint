@@ -27,6 +27,10 @@ public class PathSafetyTests
         { OsKind.Linux, "/home/test/.local/share/Steam/steamapps/compatdata/489830/pfx/drive_c/users/steamuser/Documents/My Games" },
         { OsKind.Linux, "/mnt/games/Skyrim" },
         { OsKind.Linux, "/opt/games/Game" },
+        { OsKind.Linux, "/run/media/test/USB/Games/X" },
+        { OsKind.Linux, "/run/media/test/USB" },
+        { OsKind.Linux, "/run/media/someone-else/USB/Games/X" },
+        { OsKind.Linux, "/media/test/USB/Games/X" },
         { OsKind.MacOS, "/Applications/Game.app" },
         { OsKind.MacOS, "/Users/test/Applications/Game.app" },
         { OsKind.MacOS, "/Users/test/Library/Application Support/Game/Saves" },
@@ -55,6 +59,14 @@ public class PathSafetyTests
         { OsKind.Linux, "/etc/./ssh", 1 },
         { OsKind.Linux, "/home/test/Documents/..", 2 },
         { OsKind.Linux, "/var", 2 },
+        { OsKind.Linux, "/run", 1 },
+        { OsKind.Linux, "/run/user/1000/app", 1 },
+        { OsKind.Linux, "/run/media2/x", 1 },
+        { OsKind.Linux, "/run/media", 2 },
+        { OsKind.Linux, "/run/media/test", 2 },
+        { OsKind.Linux, "/media/test", 2 },
+        { OsKind.Linux, "/data", 1 },
+        { OsKind.MacOS, "/Volumes/Big", 1 },
         { OsKind.MacOS, "/SYSTEM/Library", 1 },
         { OsKind.MacOS, "/etc/hosts", 1 },
         { OsKind.MacOS, "/applications", 2 },
@@ -119,7 +131,7 @@ public class PathSafetyTests
     {
         var (safety, _, _) = Build(os);
 
-        safety.Check(path);
+        PathSafetyAssert.Accepted(safety, path);
     }
 
     [Theory]
@@ -137,7 +149,7 @@ public class PathSafetyTests
     {
         var (safety, _, _) = Build(os);
 
-        safety.Check(path);
+        PathSafetyAssert.Accepted(safety, path);
     }
 
     [Theory]
@@ -151,6 +163,74 @@ public class PathSafetyTests
             PathSafetyAssert.Blocked(safety, extra, 1);
             PathSafetyAssert.Blocked(safety, syntax.Combine(extra, "game-id/install.git/objects"), 1);
         }
+    }
+
+    [Theory]
+    [MemberData(nameof(AllOs))]
+    public void Every_ancestor_of_a_tier_one_root_is_rejected(OsKind os)
+    {
+        var (safety, list, syntax) = Build(os);
+
+        foreach (var root in list.Entries.Where(e => e.Tier == DenylistTier.Subtree))
+        {
+            var ancestor = syntax.Normalize(syntax.Combine(root.Path, ".."));
+            while (!IsVolumeRoot(syntax, ancestor))
+            {
+                var error = Record.Exception(() => safety.Check(ancestor));
+                Assert.True(error is PathSafetyException, $"'{ancestor}' contains the blocked root '{root.Path}' but was accepted");
+                ancestor = syntax.Normalize(syntax.Combine(ancestor, ".."));
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(OsKind.Windows, @"C:\Users\Test\AppData\Local\SavePoint\Storage", @"C:\Users\Test\AppData\Local\SavePoint")]
+    [InlineData(OsKind.Windows, @"D:\Data\SavePoint\Storage", @"D:\Data\SavePoint")]
+    [InlineData(OsKind.Windows, @"D:\Data\SavePoint\Storage", @"D:\Data")]
+    [InlineData(OsKind.Linux, "/home/test/.local/share/savepoint/storage", "/home/test/.local/share/savepoint")]
+    [InlineData(OsKind.Linux, "/data/savepoint/storage", "/data")]
+    [InlineData(OsKind.MacOS, "/Users/test/Library/Application Support/SavePoint/Storage", "/Users/test/Library/Application Support/SavePoint")]
+    [InlineData(OsKind.MacOS, "/Volumes/Big/SavePoint/Storage", "/Volumes/Big")]
+    public void A_folder_that_contains_an_extra_root_is_rejected_as_tier_one(OsKind os, string extraRoot, string ancestor)
+    {
+        var safety = new PathSafety(FakePlatforms.For(os), [extraRoot], PathProbes.None);
+
+        PathSafetyAssert.Blocked(safety, extraRoot, 1);
+        PathSafetyAssert.Blocked(safety, ancestor, 1);
+        PathSafetyAssert.Blocked(safety, ancestor + PathSyntax.For(os).Separator, 1);
+        PathSafetyAssert.Accepted(safety, ancestor + "-old");
+        PathSafetyAssert.Accepted(safety, PathSyntax.For(os).Combine(ancestor, "other"));
+    }
+
+    [Fact]
+    public void An_ancestor_that_is_also_a_tier_two_root_keeps_its_tier_two_report()
+    {
+        var safety = new PathSafety(
+            FakePlatforms.For(OsKind.Windows),
+            [@"C:\Users\Test\AppData\Local\SavePoint\Storage"],
+            PathProbes.None);
+
+        PathSafetyAssert.Blocked(safety, @"C:\Users\Test\AppData\Local", 2);
+        PathSafetyAssert.Blocked(safety, @"C:\Users\Test", 2);
+    }
+
+    [Fact]
+    public void A_tier_one_rule_can_carry_allowed_sub_roots_without_special_casing_any_path()
+    {
+        var table = new PathDenylist(
+        [
+            new DenylistEntry("/srv/system", DenylistTier.Subtree, "test rule", ["/srv/system/ok"]),
+            new DenylistEntry("/srv/system/ok/locked", DenylistTier.ExactOnly, "test exact"),
+        ]);
+        var safety = new PathSafety(new TableOnlyPlatform(table), probe: PathProbes.None);
+
+        PathSafetyAssert.Accepted(safety, "/srv/system/ok/a/b");
+        PathSafetyAssert.Accepted(safety, "/srv/system/ok");
+        PathSafetyAssert.Accepted(safety, "/srv/system/ok/locked/inside");
+        PathSafetyAssert.Blocked(safety, "/srv/system/ok/locked", 2);
+        PathSafetyAssert.Blocked(safety, "/srv/system", 1);
+        PathSafetyAssert.Blocked(safety, "/srv/system/other", 1);
+        PathSafetyAssert.Blocked(safety, "/srv/system/okay/x", 1);
     }
 
     [Theory]
@@ -233,6 +313,30 @@ public class PathSafetyTests
         var platform = FakePlatforms.For(os);
         var extras = ExtraRootsFor(os);
         return (new PathSafety(platform, extras, PathProbes.None), platform.Denylist(extras), PathSyntax.For(os));
+    }
+
+    // A root is the one path whose parent is itself.
+    private static bool IsVolumeRoot(PathSyntax syntax, string path) =>
+        string.Equals(syntax.Normalize(syntax.Combine(path, "..")), syntax.Normalize(path), syntax.Comparison);
+
+    private sealed class TableOnlyPlatform(PathDenylist table) : IPlatform
+    {
+        public OsKind Os => OsKind.Linux;
+
+        public StringComparison PathComparison => StringComparison.Ordinal;
+
+        public AppDirectories Directories { get; } = new("/c", "/s", "/l", "/r", "/h");
+
+        public IReadOnlyDictionary<string, string> PathTokens { get; } = new Dictionary<string, string>();
+
+        public IProcessInspector Processes { get; } = new NoProcesses();
+
+        public PathDenylist Denylist(IEnumerable<string> extraBlockedRoots) => table;
+    }
+
+    private sealed class NoProcesses : IProcessInspector
+    {
+        public IReadOnlyList<RunningProcess> List() => [];
     }
 
     private sealed class CountingProbe(IPathProbe inner) : IPathProbe

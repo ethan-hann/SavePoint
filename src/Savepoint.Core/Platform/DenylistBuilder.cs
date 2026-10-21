@@ -14,34 +14,34 @@ internal sealed class DenylistBuilder
         _entries = new Dictionary<string, DenylistEntry>(StringComparer.FromComparison(syntax.Comparison));
     }
 
-    public void Subtree(string path, string reason) => Add(path, DenylistTier.Subtree, reason);
+    public void Subtree(string path, string reason, IReadOnlyList<string>? allowedSubRoots = null) =>
+        Add(path, DenylistTier.Subtree, reason, allowedSubRoots);
 
-    public void Exact(string path, string reason) => Add(path, DenylistTier.ExactOnly, reason);
+    public void Exact(string path, string reason) => Add(path, DenylistTier.ExactOnly, reason, null);
 
     /// <summary>For optional locations (an environment variable that may be unset).</summary>
     public void ExactIfPresent(string? path, string reason)
     {
         if (path is not null)
         {
-            Add(path, DenylistTier.ExactOnly, reason);
+            Add(path, DenylistTier.ExactOnly, reason, null);
         }
     }
 
     public PathDenylist Build() => new([.. _entries.Values]);
 
-    private void Add(string path, DenylistTier tier, string reason)
+    private void Add(string path, DenylistTier tier, string reason, IReadOnlyList<string>? allowedSubRoots)
     {
-        if (!_syntax.IsAbsolute(path))
-        {
-            throw new ArgumentException($"'{path}' is not an absolute {_syntax.Os} path.", nameof(path));
-        }
-
-        var normalized = _syntax.Normalize(path);
+        var normalized = Normalized(path);
         if (_entries.TryGetValue(normalized, out var existing) && existing.Tier <= tier)
         {
             return;
         }
 
-        _entries[normalized] = new DenylistEntry(normalized, tier, reason);
+        _entries[normalized] = new DenylistEntry(normalized, tier, reason, allowedSubRoots?.Select(Normalized).ToList());
     }
+
+    private string Normalized(string path) => _syntax.IsAbsolute(path)
+        ? _syntax.Normalize(path)
+        : throw new ArgumentException($"'{path}' is not an absolute {_syntax.Os} path.", nameof(path));
 }

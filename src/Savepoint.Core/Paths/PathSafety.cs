@@ -8,7 +8,7 @@ public sealed class PathSafety
 {
     private readonly PathSyntax _syntax;
     private readonly IPathProbe _probe;
-    private readonly List<ParsedPath> _subtreeRoots = [];
+    private readonly List<SubtreeRoot> _subtreeRoots = [];
     private readonly List<ParsedPath> _exactRoots = [];
 
     /// <summary>The probe defaults to the real file system for the running OS and to no links for any other OS, whose paths are not on this machine.</summary>
@@ -21,7 +21,14 @@ public sealed class PathSafety
         foreach (var entry in platform.Denylist(extraBlockedRoots ?? []).Entries)
         {
             var root = ParseResolved(entry.Path);
-            (entry.Tier == DenylistTier.Subtree ? _subtreeRoots : _exactRoots).Add(root);
+            if (entry.Tier == DenylistTier.Subtree)
+            {
+                _subtreeRoots.Add(new SubtreeRoot(root, [.. (entry.AllowedSubRoots ?? []).Select(ParseResolved)]));
+            }
+            else
+            {
+                _exactRoots.Add(root);
+            }
         }
     }
 
@@ -33,7 +40,7 @@ public sealed class PathSafety
     {
         var real = ParseResolved(path);
 
-        if (_subtreeRoots.Any(root => _syntax.IsSameOrDescendant(real, root)))
+        if (_subtreeRoots.Any(root => Blocks(root, real)))
         {
             throw new PathSafetyException(path, 1);
         }
@@ -42,6 +49,13 @@ public sealed class PathSafety
         if (real.Parts.Count == 0 || _exactRoots.Any(root => _syntax.IsSame(real, root)))
         {
             throw new PathSafetyException(path, 2);
+        }
+
+        // Checked last so a folder that is also a tier-2 root keeps that report. Tracking a folder that holds a
+        // protected one (SavePoint's own storage) would let a discard or clean delete it.
+        if (_subtreeRoots.Any(root => _syntax.IsSameOrDescendant(root.Root, real)))
+        {
+            throw new PathSafetyException(path, 1);
         }
     }
 
@@ -53,6 +67,12 @@ public sealed class PathSafety
         return _syntax.IsSameOrDescendant(first, second) || _syntax.IsSameOrDescendant(second, first);
     }
 
+    // An allowed sub-root and everything beneath it escapes the block; the tier-2 table still judges the sub-root itself.
+    private bool Blocks(SubtreeRoot root, ParsedPath real) =>
+        _syntax.IsSameOrDescendant(real, root.Root) && !root.Allowed.Any(allowed => _syntax.IsSameOrDescendant(real, allowed));
+
     private ParsedPath ParseResolved(string path) =>
         _syntax.Split(RealPath.Resolve(path, _syntax, _probe), collapseDots: true);
+
+    private sealed record SubtreeRoot(ParsedPath Root, IReadOnlyList<ParsedPath> Allowed);
 }

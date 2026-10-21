@@ -44,6 +44,9 @@ internal sealed class PlatformPaths
 
     public bool IsRoot(string absolutePath) => Syntax.Split(absolutePath, collapseDots: true).Parts.Count == 0;
 
+    /// <summary>The last component, or null at a root.</summary>
+    public string? Name(string absolutePath) => Syntax.Split(absolutePath, collapseDots: true).Parts.LastOrDefault();
+
     /// <summary>The containing folder, or null at a root.</summary>
     public string? Parent(string absolutePath)
     {

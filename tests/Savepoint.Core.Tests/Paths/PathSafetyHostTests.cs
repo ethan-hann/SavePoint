@@ -53,6 +53,18 @@ public class PathSafetyHostTests
     }
 
     [Fact]
+    public void A_link_to_a_folder_that_contains_the_storage_root_is_rejected()
+    {
+        using var tree = new TempTree();
+        var parent = tree.Dir("parent");
+        var safety = new PathSafety(FakePlatforms.ForHost(tree.Dir("home")), [Path.Combine(parent, "storage")]);
+        var link = tree.DirectoryLink(Path.Combine("work", "to-parent"), parent);
+
+        PathSafetyAssert.Blocked(safety, link, 1);
+        PathSafetyAssert.Accepted(safety, Path.Combine(link, "elsewhere"));
+    }
+
+    [Fact]
     public void A_blocked_root_that_is_itself_a_link_blocks_its_real_location_too()
     {
         using var tree = new TempTree();
