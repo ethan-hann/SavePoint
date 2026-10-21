@@ -63,16 +63,24 @@ internal sealed class CaptureRunner
             cancellable: true,
             async context =>
             {
+                var crowded = false;
                 var result = await _services.RunForGameAsync(
                     game.Id,
-                    (storage, _) => RunAsync(context, storage, game, profile, pointName, roles, capture, creating, plans),
+                    async (storage, _) =>
+                    {
+                        var saved = await RunAsync(context, storage, game, profile, pointName, roles, capture, creating, plans).ConfigureAwait(false);
+
+                        // Counted while the lock is held, only for a save nobody stopped (D13.17), so the job ends without waiting for the lock again.
+                        crowded = !context.CancellationToken.IsCancellationRequested && saved.Folders.Any(folder => folder.Ok) && _optimization.IsCrowded(storage, game);
+                        return saved;
+                    },
                     context.CancellationToken).ConfigureAwait(false);
                 Remember(game.Id, profile.Id, capture, result);
 
-                // The tidy-up is queued after the lock is gone, and only for a save nobody stopped (D13.17).
-                if (!context.CancellationToken.IsCancellationRequested && result.Folders.Any(folder => folder.Ok))
+                // Starting the tidy-up only schedules it; the save is already over.
+                if (crowded)
                 {
-                    await _optimization.QueueRoutineIfNeededAsync(game.Id).ConfigureAwait(false);
+                    _optimization.Start(game.Id, OptimizationMode.Routine, preemptible: true);
                 }
 
                 return result;
