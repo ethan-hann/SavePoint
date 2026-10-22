@@ -109,15 +109,32 @@ internal sealed class ArtworkRig : IDisposable
         }
     }
 
+    // A lookup holds its game's lookup gate from the moment the read that starts it returns until it ends, so taking the gate waits for it.
+    public async Task WhenLookupDoneAsync(string gameId)
+    {
+        var gate = Real.LookupGateOf(gameId);
+        await gate.WaitAsync(Token);
+        gate.Release();
+    }
+
+    // Waits for the lookups of every game in the catalog.
+    public async Task WhenIdleAsync()
+    {
+        foreach (var game in await Workspace.Backend.Services.Catalog.ListGamesAsync(Token))
+        {
+            await WhenLookupDoneAsync(game.Id);
+        }
+    }
+
     // Lets the lookup that Get starts finish, then reads again.
     public async Task<GameArtwork> LookedUpAsync(string gameId)
     {
         var first = await Artwork.GetAsync(gameId, Token);
         Assert.True(first.Ok, first.Error?.Detail);
-        await Real.WhenIdleAsync();
+        await WhenIdleAsync();
         var second = await Artwork.GetAsync(gameId, Token);
         Assert.True(second.Ok, second.Error?.Detail);
-        await Real.WhenIdleAsync();
+        await WhenIdleAsync();
         return second.Value;
     }
 

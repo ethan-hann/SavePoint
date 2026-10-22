@@ -1,3 +1,4 @@
+using Savepoint.Core.Services.Storage;
 using Savepoint.Testing;
 
 namespace Savepoint.Core.Tests.Backend;
@@ -38,16 +39,18 @@ public class DestructiveActionLogTests
         await workspace.CreateProfileAsync(game, "Vanilla");
         await workspace.CreateProfileAsync(game, "Modded");
         await workspace.WaitForIdleAsync(TimeSpan.FromSeconds(60));
+        var stored = await DirectorySize.GetBytesAsync(Path.Combine(workspace.DefaultStorageRoot, game.Id), workspace.Token);
 
         var deleted = await workspace.Games.DeleteAsync(game.Id);
 
         Assert.True(deleted.Ok, deleted.Error?.Detail);
+        Assert.True(stored > 0);
         var line = Assert.Single(_log.Containing("Game deleted", game.Id));
         Assert.Equal(LogLevel.Information, line.Level);
         Assert.Contains(game.Name, line.Message, StringComparison.Ordinal);
         Assert.Contains("2 profiles", line.Message, StringComparison.Ordinal);
         Assert.Contains("install", line.Message, StringComparison.Ordinal);
         Assert.Contains("saves", line.Message, StringComparison.Ordinal);
-        Assert.Contains("bytes", line.Message, StringComparison.Ordinal);
+        Assert.Contains($"({stored} bytes of storage)", line.Message, StringComparison.Ordinal);
     }
 }

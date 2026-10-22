@@ -94,6 +94,83 @@ public class LaunchHeldFileTests
         }
     }
 
+    // A file nobody changed is listed by git when its stamp cannot be trusted, and a save cannot tell it from a changed one: the update
+    // fails and names the file until the other program lets go, and the point is not touched.
+    [Theory(Timeout = 150_000)]
+    [MemberData(nameof(Kinds))]
+    public async Task After_play_an_unchanged_file_that_git_lists_and_nobody_can_read_fails_an_update_until_it_is_let_go(HeldFileKind kind)
+    {
+        var (rig, _, modded) = await LaunchRig.WithTwoProfilesAsync();
+        using var _ = rig;
+        await rig.StartAsync(Tip(modded));
+        await rig.WaitForGameAsync();
+        await MakeRacyAsync(rig);
+        var before = (await rig.CommitsAsync(RepoRole.Install, modded)).Select(commit => commit.Id).ToArray();
+
+        SessionState.Completed done;
+        using (HeldFiles.Hold(HeldFile(rig), kind))
+        {
+            Assert.True((await rig.Launch.MarkFinishedAsync(rig.Game.Id)).Ok);
+            await rig.WaitForAsync<SessionState.Exited>();
+            Assert.True((await rig.Launch.CompleteSessionAsync(rig.Game.Id, new SessionCompletion.UpdateExisting("Updated"))).Ok);
+            done = Assert.IsType<SessionState.Completed>((await rig.WaitForAsync<SessionState.Completed>()).State);
+        }
+
+        var install = Assert.IsType<CaptureResult>(done.Result).Folders.Single(folder => folder.Role == RepoRole.Install);
+        Assert.Equal(HeldFiles.ErrorIdOf(kind), install.Error?.MessageId);
+        Assert.Equal(HeldFile(rig), install.Error!.Args["path"]);
+        Assert.Equal(before, (await rig.CommitsAsync(RepoRole.Install, modded)).Select(commit => commit.Id));
+
+        // Let go, the retry that already exists saves it, and a folder with nothing to record keeps its point.
+        Assert.True((await rig.Launch.RetryCompletionAsync(rig.Game.Id)).Ok);
+        var retried = Assert.IsType<SessionState.Completed>((await rig.WaitForAsync(session => session.State is SessionState.Completed completed && completed != done, "the retried save")).State);
+        Assert.All(Assert.IsType<CaptureResult>(retried.Result).Folders, folder => Assert.True(folder.Ok, folder.Error?.Detail));
+        Assert.Equal(before, (await rig.CommitsAsync(RepoRole.Install, modded)).Select(commit => commit.Id));
+    }
+    // "Update existing" runs on a folder it cannot tell is unchanged, and the other program can let go before the files are added.
+    [Theory(Timeout = 150_000)]
+    [MemberData(nameof(Kinds))]
+    public async Task An_update_whose_held_file_is_let_go_before_the_files_are_added_leaves_the_point_as_it_was(HeldFileKind kind)
+    {
+        IDisposable? hold = null;
+        using var rig = await LaunchRig.CreateAsync(
+            options => options with
+            {
+                Engine = new GitEngineOptions
+                {
+                    InvocationObserver = invocation =>
+                    {
+                        if (invocation.Arguments[0] == "add" && invocation.GitDir!.EndsWith("install.git", StringComparison.Ordinal))
+                        {
+                            Interlocked.Exchange(ref hold, null)?.Dispose();
+                        }
+                    },
+                },
+            },
+            gameArguments: ["--exit-after", "800"]);
+        var vanilla = await rig.ProfileAsync("Vanilla");
+        var before = Assert.Single(await rig.CommitsAsync(RepoRole.Install, vanilla));
+        await rig.StartAsync(Tip(vanilla));
+        await rig.WaitForAsync<SessionState.Exited>();
+        await MakeRacyAsync(rig);
+        Volatile.Write(ref hold, HeldFiles.Hold(HeldFile(rig), kind));
+
+        SessionState.Completed done;
+        try
+        {
+            Assert.True((await rig.Launch.CompleteSessionAsync(rig.Game.Id, new SessionCompletion.UpdateExisting("Updated"))).Ok);
+            done = Assert.IsType<SessionState.Completed>((await rig.WaitForAsync<SessionState.Completed>()).State);
+        }
+        finally
+        {
+            Interlocked.Exchange(ref hold, null)?.Dispose();
+        }
+
+        var install = Assert.IsType<CaptureResult>(done.Result).Folders.Single(folder => folder.Role == RepoRole.Install);
+        Assert.True(install.Ok, install.Error?.Detail);
+        Assert.Equal(before.Id, Assert.Single(await rig.CommitsAsync(RepoRole.Install, vanilla)).Id);
+    }
+
     [Theory(Timeout = 150_000)]
     [MemberData(nameof(Kinds))]
     public async Task After_play_a_changed_file_nobody_can_read_is_counted_and_an_update_names_it_instead_of_reporting_success(HeldFileKind kind)

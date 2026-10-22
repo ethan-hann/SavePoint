@@ -28,6 +28,15 @@ public sealed class GameLock
         }
     }
 
+    // How many callers are queued for the key behind its holder; tests use it to know a request has reached the queue.
+    internal int WaiterCount(string key)
+    {
+        lock (_gate)
+        {
+            return _entries.TryGetValue(key, out var entry) ? entry.Waiters.Count : 0;
+        }
+    }
+
     /// <summary>Runs <paramref name="func"/> while holding the lock for <paramref name="key"/>.</summary>
     /// <param name="key">The lock to take, usually a game id.</param>
     /// <param name="func">The work to run; it starts only once every earlier caller on the same key has finished.</param>

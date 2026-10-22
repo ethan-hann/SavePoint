@@ -27,6 +27,7 @@ public sealed partial class GitEngine
         ct.ThrowIfCancellationRequested();
         CheckWorkTree(repo);
         RepoMarker.Verify(repo);
+        await EnsureRepositoryAsync(repo, ct).ConfigureAwait(false);
 
         using var scope = BeginWrite(repo);
         var commit = await ResolveStartPointAsync(repo, startPoint, ct).ConfigureAwait(false);
@@ -55,6 +56,7 @@ public sealed partial class GitEngine
         ct.ThrowIfCancellationRequested();
         CheckWorkTree(repo);
         RepoMarker.Verify(repo);
+        await EnsureRepositoryAsync(repo, ct).ConfigureAwait(false);
 
         using var scope = BeginWrite(repo);
         if (await ResolveBranchAsync(repo, branch, ct).ConfigureAwait(false) is not null)

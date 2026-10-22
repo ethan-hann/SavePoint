@@ -133,7 +133,7 @@ public sealed partial class LaunchOrchestrator
         // certainly, and before either folder is switched.
         if (readings.FirstOrDefault(reading => reading.Held) is { } held)
         {
-            throw held.Status.HeldFile!.ToException();
+            throw held.Status.HeldFile!.ToException(HeldFileOperation.Switch);
         }
 
         var pending = readings.Where(reading => reading.NeedsSwitch).ToList();

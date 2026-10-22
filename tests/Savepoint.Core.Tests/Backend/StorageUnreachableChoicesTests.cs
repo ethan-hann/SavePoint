@@ -1,6 +1,10 @@
 using Savepoint.Core.Api;
+using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Errors;
+using Savepoint.Core.Git;
 using Savepoint.Core.Services.Settings;
+using Savepoint.Testing;
 
 namespace Savepoint.Core.Tests.Backend;
 
@@ -19,7 +23,7 @@ public class StorageUnreachableChoicesTests
             await workspace.CreateProfileAsync(game);
             await workspace.WaitForIdleAsync(TimeSpan.FromSeconds(60));
             var away = workspace.DefaultStorageRoot + "-away";
-            Directory.Move(workspace.DefaultStorageRoot, away);
+            BackendWorkspace.MoveFolder(workspace.DefaultStorageRoot, away);
             workspace.Restart();
             return (workspace, game, away);
         }
@@ -62,7 +66,7 @@ public class StorageUnreachableChoicesTests
             var job = await workspace.WaitForJobAsync(started.Value!.JobId, TimeSpan.FromSeconds(120));
             Assert.Equal(JobStatus.Succeeded, job.Status);
             var away = custom + "-away";
-            Directory.Move(custom, away);
+            BackendWorkspace.MoveFolder(custom, away);
             workspace.Restart();
             return (workspace, game, custom, away);
         }
@@ -228,7 +232,7 @@ public class StorageUnreachableChoicesTests
         var secondProfile = (await workspace.CreateProfileAsync(second)).Profile;
         await workspace.WaitForIdleAsync(TimeSpan.FromSeconds(60));
         var away = workspace.DefaultStorageRoot + "-away";
-        Directory.Move(workspace.DefaultStorageRoot, away);
+        BackendWorkspace.MoveFolder(workspace.DefaultStorageRoot, away);
         workspace.Restart();
         var partial = Path.Combine(workspace.Root, "partial");
         CopyFolder(Path.Combine(away, first.Id), Path.Combine(partial, first.Id));
@@ -248,15 +252,78 @@ public class StorageUnreachableChoicesTests
     [Fact(Timeout = 120_000)]
     public async Task Starting_with_an_empty_folder_refuses_a_default_folder_that_already_holds_history_and_says_where_to_go_instead()
     {
-        var (workspace, _, custom, _) = await WithCustomStorageGoneAsync();
+        var (workspace, game, custom, away) = await WithCustomStorageGoneAsync();
         using var _ = workspace;
-        BackendWorkspace.WriteFile(Path.Combine(workspace.DefaultStorageRoot, "some-game", "install.git", "HEAD"), "ref: refs/heads/main");
+        CopyFolder(Path.Combine(away, game.Id), Path.Combine(workspace.DefaultStorageRoot, game.Id));
 
         var started = await workspace.AppStatus.StartWithEmptyStorageAsync(workspace.Token);
 
         Assert.Equal("error.storage.defaultFolderHasHistory", started.Error?.MessageId);
         Assert.Equal(workspace.DefaultStorageRoot, started.Error!.Args["path"]);
         Assert.Equal(custom, (await workspace.Settings.GetAsync(workspace.Token)).Value!.StorageRoot);
+    }
+
+    // What an earlier start left when it died after git made a repository and before SavePoint stamped it: no stamp, and nothing recorded.
+    [Fact(Timeout = 120_000)]
+    public async Task Starting_with_an_empty_folder_works_after_an_earlier_start_left_a_repository_that_was_never_stamped()
+    {
+        var (workspace, game, _, _) = await WithCustomStorageGoneAsync();
+        using var _ = workspace;
+        var gitDir = Path.Combine(workspace.DefaultStorageRoot, game.Id, "install.git");
+        BackendWorkspace.WriteFile(Path.Combine(gitDir, "HEAD"), "ref: refs/heads/savepoint-unborn\n");
+        BackendWorkspace.WriteFile(Path.Combine(gitDir, "config"), "[core]\n\trepositoryformatversion = 0\n\tbare = false\n");
+        Directory.CreateDirectory(Path.Combine(gitDir, "objects"));
+        Directory.CreateDirectory(Path.Combine(gitDir, "refs", "heads"));
+
+        var started = await workspace.AppStatus.StartWithEmptyStorageAsync(workspace.Token);
+
+        Assert.True(started.Ok, started.Error?.Detail);
+        Assert.True(RepoConfigFile.IsCurrent(gitDir), "the half-made repository was left as it was");
+        Assert.True(RepoConfigFile.IsCurrent(Path.Combine(workspace.DefaultStorageRoot, game.Id, "external.git")));
+    }
+
+    // A fault while a repository is made fails the choice with an error that names the folder, and the choice can be made again.
+    [Fact(Timeout = 120_000)]
+    public async Task A_start_that_cannot_write_a_repository_names_the_folder_and_works_when_made_again()
+    {
+        var fault = false;
+        using var workspace = new BackendWorkspace(options => options with
+        {
+            Engine = new GitEngineOptions
+            {
+                InvocationObserver = invocation =>
+                {
+                    // A folder where git's info/attributes file is to be written makes the write that follows git init fail.
+                    if (fault && invocation.Arguments[0] == "init")
+                    {
+                        Directory.CreateDirectory(Path.Combine(invocation.GitDir!, "info", "attributes"));
+                    }
+                },
+            },
+        });
+        await workspace.AppStatus.CheckAsync(workspace.Token);
+        var game = await workspace.AddGameAsync();
+        await workspace.CreateProfileAsync(game);
+        await workspace.WaitForIdleAsync(TimeSpan.FromSeconds(60));
+        var custom = Path.Combine(workspace.Root, "custom-storage");
+        var moved = await workspace.WaitForJobAsync((await workspace.Settings.RelocateStorageAsync(custom)).Value!.JobId, TimeSpan.FromSeconds(120));
+        Assert.Equal(JobStatus.Succeeded, moved.Status);
+        BackendWorkspace.MoveFolder(custom, custom + "-away");
+        workspace.Restart();
+
+        fault = true;
+        var failed = await workspace.AppStatus.StartWithEmptyStorageAsync(workspace.Token);
+        fault = false;
+        var gameFolder = Path.Combine(workspace.DefaultStorageRoot, game.Id);
+        Directory.Delete(Path.Combine(gameFolder, "install.git", "info", "attributes"));
+        var again = await workspace.AppStatus.StartWithEmptyStorageAsync(workspace.Token);
+
+        Assert.Equal("error.storage.writeFailed", failed.Error?.MessageId);
+        Assert.Equal(gameFolder, failed.Error!.Args["path"]);
+        Assert.True(again.Ok, again.Error?.Detail);
+        Assert.Equal(workspace.DefaultStorageRoot, (await workspace.Settings.GetAsync(workspace.Token)).Value!.StorageRoot);
+        Assert.True(RepoConfigFile.IsCurrent(Path.Combine(gameFolder, "install.git")));
+        Assert.True(RepoConfigFile.IsCurrent(Path.Combine(gameFolder, "external.git")));
     }
 
     [Fact(Timeout = 120_000)]
@@ -398,7 +465,7 @@ public class StorageUnreachableChoicesTests
         await workspace.CreateProfileAsync(game);
         await workspace.WaitForIdleAsync(TimeSpan.FromSeconds(60));
         var away = workspace.DefaultStorageRoot + "-away";
-        Directory.Move(workspace.DefaultStorageRoot, away);
+        BackendWorkspace.MoveFolder(workspace.DefaultStorageRoot, away);
         workspace.Restart();
 
         var found = await workspace.AppStatus.UseStorageFolderAsync(away, workspace.Token);
@@ -408,5 +475,161 @@ public class StorageUnreachableChoicesTests
         Assert.Equal(away, (await workspace.Settings.GetAsync(workspace.Token)).Value!.StorageRoot);
         Assert.True(check.Value!.Storage!.Reachable);
         Assert.Equal(away, check.Value.Storage.Root);
+    }
+
+    // A choice waits for the locks and the gate, and the folder it was about to replace can come back in the meantime.
+    [Theory(Timeout = 120_000)]
+    [InlineData("find")]
+    [InlineData("empty")]
+    public async Task A_choice_that_waited_for_the_gate_is_refused_when_the_saved_folder_came_back_while_it_waited(string choice)
+    {
+        var (workspace, game, away) = await WithStorageGoneAsync();
+        using var _ = workspace;
+        var copy = Path.Combine(workspace.Root, "copy-of-storage");
+        CopyFolder(away, copy);
+        var gate = workspace.Backend.Services.Storage.Gate;
+        var reader = await gate.EnterSharedAsync(workspace.Token);
+        Task<OperationResult<string>> started;
+        try
+        {
+            started = choice == "find"
+                ? workspace.AppStatus.UseStorageFolderAsync(copy, workspace.Token)
+                : workspace.AppStatus.StartWithEmptyStorageAsync(workspace.Token);
+            await WaitUntilAnExclusiveRequestIsWaitingAsync(gate, workspace.Token);
+            BackendWorkspace.MoveFolder(away, workspace.DefaultStorageRoot);
+        }
+        finally
+        {
+            reader.Dispose();
+        }
+
+        var result = await started;
+
+        Assert.Equal("error.storage.stillReachable", result.Error?.MessageId);
+        Assert.Equal(workspace.DefaultStorageRoot, (await workspace.Settings.GetAsync(workspace.Token)).Value!.StorageRoot);
+        Assert.Single((await workspace.History.GetAsync(game.Id, null, workspace.Token)).Value!.Points);
+    }
+
+    // An exclusive request that is waiting holds the turnstile, so a reader that arrives now cannot get past it.
+    private static async Task WaitUntilAnExclusiveRequestIsWaitingAsync(StorageGate gate, CancellationToken cancellationToken)
+    {
+        var until = DateTime.UtcNow + TimeSpan.FromSeconds(60);
+        while (DateTime.UtcNow < until)
+        {
+            using var probe = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            probe.CancelAfter(TimeSpan.FromMilliseconds(100));
+            try
+            {
+                using var lease = await gate.EnterSharedAsync(probe.Token);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+
+            await Task.Delay(10, cancellationToken);
+        }
+
+        Assert.Fail("the choice never started waiting for the gate");
+    }
+
+    // A folder whose consent marker cannot be confirmed at the root change (an unplugged drive) gets no repository then. The skip is
+    // logged with its reason, and the first save after the folder is back makes the repository instead of failing.
+    [Fact(Timeout = 120_000)]
+    public async Task A_folder_that_could_not_be_confirmed_at_the_start_is_logged_and_gets_its_repository_with_its_first_save()
+    {
+        var log = new RecordingDiagnosticLog();
+        using var workspace = new BackendWorkspace(options => options with { Log = log });
+        await workspace.AppStatus.CheckAsync(workspace.Token);
+        var first = await workspace.AddGameAsync(workspace.NewGame("First"));
+        var second = await workspace.AddGameAsync(workspace.NewGame("Second"));
+        await workspace.CreateProfileAsync(first);
+        var secondProfile = (await workspace.CreateProfileAsync(second)).Profile;
+        await workspace.WaitForIdleAsync(TimeSpan.FromSeconds(60));
+        BackendWorkspace.MoveFolder(workspace.DefaultStorageRoot, workspace.DefaultStorageRoot + "-away");
+        workspace.Restart();
+        var unplugged = second.Install.Path + "-unplugged";
+        BackendWorkspace.MoveFolder(second.Install.Path, unplugged);
+
+        var started = await workspace.AppStatus.StartWithEmptyStorageAsync(workspace.Token);
+        var gitDir = Path.Combine(workspace.DefaultStorageRoot, second.Id, "install.git");
+        var existedThen = Directory.Exists(gitDir);
+        BackendWorkspace.MoveFolder(unplugged, second.Install.Path);
+        File.WriteAllText(Path.Combine(second.Install.Path, "data", "base.pak"), "what the game wrote once the drive was back");
+        var saved = await workspace.Profiles.CaptureAsync(second.Id, secondProfile.Id, "After the drive came back");
+        var job = await workspace.WaitForJobAsync(saved.Value!.JobId, TimeSpan.FromSeconds(120));
+
+        Assert.True(started.Ok, started.Error?.Detail);
+        Assert.False(existedThen, "a folder that could not be confirmed must not get a repository at the start");
+        Assert.Equal(JobStatus.Succeeded, job.Status);
+        Assert.True(Directory.Exists(gitDir));
+        Assert.Single((await workspace.History.GetAsync(second.Id, null, workspace.Token)).Value!.Points);
+        var skipped = Assert.Single(log.Containing("Storage:", second.Id, "could not be confirmed"));
+        Assert.Equal(LogLevel.Warning, skipped.Level);
+    }
+
+    [Fact(Timeout = 120_000)]
+    public async Task A_save_still_refuses_a_folder_whose_marker_does_not_name_the_game_and_makes_no_repository()
+    {
+        using var workspace = new BackendWorkspace();
+        await workspace.AppStatus.CheckAsync(workspace.Token);
+        var game = await workspace.AddGameAsync();
+        var profile = (await workspace.CreateProfileAsync(game)).Profile;
+        await workspace.WaitForIdleAsync(TimeSpan.FromSeconds(60));
+        BackendWorkspace.MoveFolder(workspace.DefaultStorageRoot, workspace.DefaultStorageRoot + "-away");
+        workspace.Restart();
+        var started = await workspace.AppStatus.StartWithEmptyStorageAsync(workspace.Token);
+        var gitDir = Path.Combine(workspace.DefaultStorageRoot, game.Id, "install.git");
+        Directory.Delete(gitDir, recursive: true);
+        File.Delete(Path.Combine(game.Install.Path, ".savepoint-managed.json"));
+        File.WriteAllText(Path.Combine(game.Install.Path, "data", "base.pak"), "changed");
+
+        var saved = await workspace.Profiles.CaptureAsync(game.Id, profile.Id, "Without a marker");
+        var job = saved.Ok ? await workspace.WaitForJobAsync(saved.Value!.JobId, TimeSpan.FromSeconds(120)) : null;
+
+        Assert.True(started.Ok, started.Error?.Detail);
+        Assert.True(!saved.Ok || job!.Status != JobStatus.Succeeded, "a save went ahead for a folder SavePoint has no consent for");
+        Assert.False(Directory.Exists(gitDir), "a repository was made for a folder that is not confirmed");
+    }
+
+    // A folder that cannot take a repository is logged and left, and does not stop the others from being usable.
+    [Fact(Timeout = 120_000)]
+    public async Task A_game_whose_repository_cannot_be_made_is_logged_and_left_while_the_others_get_theirs()
+    {
+        var log = new RecordingDiagnosticLog();
+        var failFor = string.Empty;
+        using var workspace = new BackendWorkspace(options => options with
+        {
+            Log = log,
+            Engine = new GitEngineOptions
+            {
+                InvocationObserver = invocation =>
+                {
+                    if (failFor.Length > 0 && invocation.Arguments[0] == "init" && invocation.GitDir!.Contains(failFor, StringComparison.Ordinal))
+                    {
+                        throw new GitOperationException("git could not start the repository");
+                    }
+                },
+            },
+        });
+        await workspace.AppStatus.CheckAsync(workspace.Token);
+        var first = await workspace.AddGameAsync(workspace.NewGame("First"));
+        var second = await workspace.AddGameAsync(workspace.NewGame("Second"));
+        await workspace.CreateProfileAsync(first);
+        await workspace.CreateProfileAsync(second);
+        await workspace.WaitForIdleAsync(TimeSpan.FromSeconds(60));
+        BackendWorkspace.MoveFolder(workspace.DefaultStorageRoot, workspace.DefaultStorageRoot + "-away");
+        workspace.Restart();
+        failFor = second.Id;
+
+        var started = await workspace.AppStatus.StartWithEmptyStorageAsync(workspace.Token);
+
+        Assert.True(started.Ok, started.Error?.Detail);
+        Assert.True(Directory.Exists(Path.Combine(workspace.DefaultStorageRoot, first.Id, "install.git")));
+        Assert.True(Directory.Exists(Path.Combine(workspace.DefaultStorageRoot, first.Id, "external.git")));
+        Assert.False(Directory.Exists(Path.Combine(workspace.DefaultStorageRoot, second.Id, "install.git")));
+        var skipped = log.Containing("Storage:", second.Id, "error.gitOperation.failed");
+        Assert.Equal(2, skipped.Count);
+        Assert.All(skipped, line => Assert.Equal(LogLevel.Warning, line.Level));
     }
 }

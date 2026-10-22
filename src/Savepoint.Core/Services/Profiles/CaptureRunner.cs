@@ -251,6 +251,7 @@ internal sealed class CaptureRunner
             Mode = finishing ? CaptureMode.Root : await ModeOfAsync(storage, repo, branch, branchExists, forksNewBranch, plan, cancellationToken).ConfigureAwait(false),
             IgnorePatterns = game.IgnorePaths,
             ExpectedStartCommit = plan?.ExpectedStartCommit,
+            SkipAmendWhenUnchanged = plan?.SkipWhenClean ?? false,
         };
         var outcome = await storage.Engine.CaptureAsync(repo, request, progress, cancellationToken).ConfigureAwait(false);
         if (outcome.Changed || outcome.TipCommitId is not null)

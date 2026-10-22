@@ -126,11 +126,38 @@ public sealed partial class GitEngine
         return new DiffSummary(changes.Count, changes.Sum(change => sizes.GetValueOrDefault(change.NewId)), [.. changes.Select(change => change.Path)]);
     }
 
+    /// <summary>
+    /// What a switch from <paramref name="fromRevision"/> to <paramref name="toRevision"/> would write or remove: the same as
+    /// <see cref="DiffStatAsync"/>, less the files the game's ignore patterns (<see cref="RepoRef.IgnorePatterns"/>) name, which a switch
+    /// leaves exactly as they are on disk. A point's history still shows every file it holds. Reads only the git directory.
+    /// </summary>
+    /// <param name="repo">The folder.</param>
+    /// <param name="fromRevision">A full commit id or a branch name; null for a folder with no point yet, where the whole target would be written.</param>
+    /// <param name="toRevision">A full commit id or a branch name.</param>
+    /// <param name="ct">Cancels the call.</param>
+    /// <exception cref="Savepoint.Core.Errors.GitOperationException">A revision does not exist.</exception>
+    public async Task<DiffSummary> SwitchStatAsync(RepoRef repo, string? fromRevision, string toRevision, CancellationToken ct = default)
+    {
+        repo = Normalize(repo);
+        var from = fromRevision is null
+            ? GitDirFiles.EmptyTree
+            : await TryResolveRevisionAsync(repo, fromRevision, ct).ConfigureAwait(false) ?? throw new GitOperationException($"'{fromRevision}' is not a point in the repository.");
+        var to = await TryResolveRevisionAsync(repo, toRevision, ct).ConfigureAwait(false)
+            ?? throw new GitOperationException($"'{toRevision}' is not a point in the repository.");
+
+        var changes = await DiffTreesAsync(repo, from, to, ct).ConfigureAwait(false);
+        var named = await NamedAmongAsync(repo, [.. changes.Select(change => change.Path).Distinct(StringComparer.Ordinal)], ct).ConfigureAwait(false);
+        var kept = changes.Where(change => !named.Contains(change.Path)).ToList();
+        var sizes = await ObjectSizesAsync(repo, kept.Select(change => change.NewId), ct).ConfigureAwait(false);
+        return new DiffSummary(kept.Count, kept.Sum(change => sizes.GetValueOrDefault(change.NewId)), [.. kept.Select(change => change.Path)]);
+    }
+
     /// <summary>The files in a point's tree, relative paths with forward slashes; empty when the revision does not exist.</summary>
     /// <param name="repo">The folder.</param>
     /// <param name="revision">A full commit id or a branch name.</param>
     /// <param name="ct">Cancels the call.</param>
-    public async Task<IReadOnlyList<string>> ListTreeFilesAsync(RepoRef repo, string revision, CancellationToken ct = default)
+    /// <param name="leaveOutIgnored">True to leave out the files the game's ignore patterns (<see cref="RepoRef.IgnorePatterns"/>) name, which a switch does not restore.</param>
+    public async Task<IReadOnlyList<string>> ListTreeFilesAsync(RepoRef repo, string revision, CancellationToken ct = default, bool leaveOutIgnored = false)
     {
         repo = Normalize(repo);
         if (await TryResolveRevisionAsync(repo, revision, ct).ConfigureAwait(false) is not { } commit)
@@ -139,7 +166,14 @@ public sealed partial class GitEngine
         }
 
         var result = await RunAsync(GitDirOnly(repo, "ls-tree", "-r", "-z", "--name-only", commit), ct).ConfigureAwait(false);
-        return result.SplitStandardOutputOnNul();
+        var files = result.SplitStandardOutputOnNul();
+        if (!leaveOutIgnored)
+        {
+            return files;
+        }
+
+        var named = await NamedAmongAsync(repo, [.. files], ct).ConfigureAwait(false);
+        return [.. files.Where(file => !named.Contains(file))];
     }
 
     /// <summary>The exact bytes a point holds for a file, or null when the point has no such file. Binary safe.</summary>

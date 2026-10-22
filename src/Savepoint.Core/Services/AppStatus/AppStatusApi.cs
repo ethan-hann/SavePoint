@@ -103,9 +103,16 @@ internal sealed class AppStatusApi : IAppStatusApi
                 }
 
                 // The folder is judged as a move's destination is: not inside the installer's folder, not over a game's folders, not what an unfinished move left.
-                if (StorageDestination.Refusal(_services, _services.Storage.Build(root).PathSafety, games, root) is { } refusal)
+                var pathSafety = _services.Storage.Build(root).PathSafety;
+                if (StorageDestination.Refusal(_services, pathSafety, games, root) is { } refusal)
                 {
                     throw refusal;
+                }
+
+                // A link would lead the cleanup below, and every later write, to files that are not SavePoint's; nothing is written until none is found.
+                if (StorageFolderLinks.Refusal(root, games, pathSafety.ResolveRealPath) is { } linked)
+                {
+                    throw linked;
                 }
 
                 // A folder someone else prepared can carry a config or a hook that names a program; nothing reads it before this.
@@ -126,8 +133,9 @@ internal sealed class AppStatusApi : IAppStatusApi
                 await RequireStorageLostAsync(cancellationToken).ConfigureAwait(false);
                 var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(_services.Platform.Directories.DefaultStorageRoot));
 
-                // History already in the default folder is not an empty start; "Find the folder" is how to use it.
-                if (Directory.Exists(root) && StorageContent.Folders(root).Count > 0)
+                // History already in the default folder is not an empty start; "Find the folder" is how to use it. Empty repositories, and
+                // what an earlier start left half made, are not history, so a start that failed can be made again.
+                if (Directory.Exists(root) && StorageContent.Folders(root).Any(StorageContent.HoldsHistory))
                 {
                     throw new StorageDefaultFolderHasHistoryException(root);
                 }
@@ -167,6 +175,9 @@ internal sealed class AppStatusApi : IAppStatusApi
                     async () =>
                     {
                         using var exclusive = await _services.Storage.Gate.EnterExclusiveAsync(cancellationToken).ConfigureAwait(false);
+
+                        // The check made before the queue is stale by now: another choice, or the drive coming back, may have changed the root.
+                        await RequireStorageLostAsync(cancellationToken).ConfigureAwait(false);
                         var snapshot = _services.Storage.Build(root);
                         if (create)
                         {
@@ -191,8 +202,9 @@ internal sealed class AppStatusApi : IAppStatusApi
             cancellationToken);
 
     // An empty repository for each folder of each listed game that has none in the new root and whose folder confirms it belongs to that
-    // game. A folder that cannot take one (gone, refused by the path rules, claimed by another game) is left for the editor, which makes
-    // the repository when its folder is set again; it must not stop the others from being usable.
+    // game. A folder that cannot take one (gone, refused by the path rules, claimed by another game) is logged and left: the first save
+    // makes the repository once the folder confirms the game, and the editor makes it when the folder is set again. It must not stop
+    // the others from being usable.
     private async Task GiveRepositoriesAsync(StorageSnapshot snapshot, IReadOnlyList<GameDefinition> games, CancellationToken cancellationToken)
     {
         foreach (var game in games)
@@ -211,8 +223,14 @@ internal sealed class AppStatusApi : IAppStatusApi
             foreach (var folder in folders)
             {
                 var repo = GameFolders.Repo(snapshot, game.Id, folder);
-                if (File.Exists(Path.Combine(repo.GitDir, "HEAD")) || !snapshot.Engine.GetConsentStatus(repo).Confirmed)
+                if (!NeedsRepository(repo.GitDir))
                 {
+                    continue;
+                }
+
+                if (!snapshot.Engine.GetConsentStatus(repo).Confirmed)
+                {
+                    _services.Log.Warning($"Storage: {game.Id} got no repository for its {folder.Role} folder in {snapshot.Root}: the folder at {folder.Path} could not be confirmed as that game's (it may be on a drive that is not connected), so its first save there makes it.");
                     continue;
                 }
 
@@ -224,9 +242,21 @@ internal sealed class AppStatusApi : IAppStatusApi
                 {
                     _services.Log.Warning($"Storage: {game.Id} got no repository for its {folder.Role} folder in {snapshot.Root}: {ErrorInfo.From(e).MessageId}.", e);
                 }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+                {
+                    // The drive is full or read-only: no other folder fares better, and the choice is not made, so it can be made again.
+                    var gameFolder = Path.GetDirectoryName(repo.GitDir)!;
+                    _services.Log.Warning($"Storage: {game.Id} could not be given a repository for its {folder.Role} folder in {snapshot.Root}.", e);
+                    throw new StorageWriteFailedException(gameFolder, $"'{gameFolder}' could not be written to: {e.Message}", e);
+                }
             }
         }
     }
+
+    // A repository with a branch is history and is never touched. One without is made, or finished when an earlier start stopped
+    // after git made it and before SavePoint wrote its settings.
+    private static bool NeedsRepository(string gitDir) =>
+        !File.Exists(Path.Combine(gitDir, "HEAD")) || (!StorageContent.HasBranch(gitDir) && !RepoConfigFile.IsCurrent(gitDir));
 
     private async Task<GitStatus> CheckGitAsync(CancellationToken cancellationToken)
     {

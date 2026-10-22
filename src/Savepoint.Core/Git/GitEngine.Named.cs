@@ -8,9 +8,10 @@ namespace Savepoint.Core.Git;
 // before a switch, which git reads as "nothing to do here".
 public sealed partial class GitEngine
 {
-    // The index that answers which paths a pattern names. The caller holds the game's lock, so one folder never has two of these at once;
-    // a stop can leave one behind, and the stale-lock sweep removes it.
-    private const string _classifyIndexName = "savepoint-classify.index";
+    // The index that answers which paths a pattern names. Each question gets an index of its own: a switch asks under the game's lock, but
+    // the launch dialog asks without it, so two questions about one folder can run at once and must not share a file. A stop can leave one
+    // behind, and the stale-lock sweep removes every file with this prefix.
+    internal const string ClassifyIndexPrefix = "savepoint-classify-";
 
     // A blob id nothing has to hold: the index entries built for the question only need a path.
     private const string _anyBlob = "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391";
@@ -32,7 +33,9 @@ public sealed partial class GitEngine
     }
 
     // Which of these paths the patterns name, whether or not the path exists on disk or in the index: git lists a throwaway index of
-    // just these paths against the same exclude list every other listing uses.
+    // just these paths against the same exclude list every other listing uses. An index cannot hold a file and a folder of one name,
+    // and git drops one of them without a word, so the paths go into as many indexes as it takes to keep such a pair apart. Without a
+    // pair (nearly always) that is one.
     private async Task<HashSet<string>> NamedAmongAsync(RepoRef repo, IReadOnlyCollection<string> paths, CancellationToken ct)
     {
         if (paths.Count == 0 || !HasPatterns(repo))
@@ -40,8 +43,40 @@ public sealed partial class GitEngine
             return [];
         }
 
-        var index = Path.Combine(repo.GitDir, _classifyIndexName);
-        TryDelete(index);
+        var named = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var group in WithoutFileAndFolderPairs(paths))
+        {
+            named.UnionWith(await NamedInOneIndexAsync(repo, group, ct).ConfigureAwait(false));
+        }
+
+        return named;
+    }
+
+    // Case is ignored when pairing, since an index on a case-insensitive file system treats "Mods/foo" and "Mods/Foo/x.txt" as a pair.
+    internal static List<List<string>> WithoutFileAndFolderPairs(IEnumerable<string> paths)
+    {
+        var groups = new List<(List<string> Paths, HashSet<string> Members, HashSet<string> Folders)>();
+        foreach (var path in paths.Order(StringComparer.Ordinal))
+        {
+            var folders = LinkedFolders.FoldersOf([path]);
+            var home = groups.FindIndex(group => !group.Folders.Contains(path) && !folders.Any(group.Members.Contains));
+            if (home < 0)
+            {
+                groups.Add(([], new HashSet<string>(StringComparer.OrdinalIgnoreCase), new HashSet<string>(StringComparer.OrdinalIgnoreCase)));
+                home = groups.Count - 1;
+            }
+
+            groups[home].Paths.Add(path);
+            groups[home].Members.Add(path);
+            groups[home].Folders.UnionWith(folders);
+        }
+
+        return [.. groups.Select(group => group.Paths)];
+    }
+
+    private async Task<HashSet<string>> NamedInOneIndexAsync(RepoRef repo, IEnumerable<string> paths, CancellationToken ct)
+    {
+        var index = Path.Combine(repo.GitDir, $"{ClassifyIndexPrefix}{Guid.NewGuid():N}.index");
         try
         {
             var environment = new Dictionary<string, string?> { ["GIT_INDEX_FILE"] = index };

@@ -30,8 +30,6 @@ internal sealed class ArtworkApi : IArtworkApi
     // The last failure written to the log for each game, so a failure that repeats on every read is not written every time.
     private readonly ConcurrentDictionary<string, string> _loggedFailures = new(StringComparer.Ordinal);
 
-    private readonly ConcurrentDictionary<Guid, Task> _running = new();
-
     public ArtworkApi(BackendServices services, ISteamFolderLocator steam, HttpMessageHandler? http)
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -113,15 +111,6 @@ internal sealed class ArtworkApi : IArtworkApi
 
             return await CurrentAsync(game).ConfigureAwait(false);
         });
-
-    // Completes when no background lookup is running; tests wait on it.
-    public async Task WhenIdleAsync()
-    {
-        while (_running.Values.ToArray() is { Length: > 0 } tasks)
-        {
-            await Task.WhenAll(tasks).ConfigureAwait(false);
-        }
-    }
 
     private async Task<GameDefinition> RequireGameAsync(string gameId, CancellationToken cancellationToken) =>
         await _services.Catalog.GetGameAsync(gameId, cancellationToken).ConfigureAwait(false) ?? throw new GameNotFoundException(gameId);
@@ -213,7 +202,8 @@ internal sealed class ArtworkApi : IArtworkApi
         }
     }
 
-    private SemaphoreSlim LookupGateOf(string gameId) => _lookupGates.GetOrAdd(gameId, _ => new SemaphoreSlim(1, 1));
+    // Held by a game's lookup from the read that starts it until it ends; tests take it to wait for the lookup.
+    internal SemaphoreSlim LookupGateOf(string gameId) => _lookupGates.GetOrAdd(gameId, _ => new SemaphoreSlim(1, 1));
 
     private void StartBackgroundLookup(string gameId)
     {
@@ -223,8 +213,7 @@ internal sealed class ArtworkApi : IArtworkApi
             return;
         }
 
-        var key = Guid.NewGuid();
-        _running[key] = Task.Run(async () =>
+        _ = Task.Run(async () =>
         {
             try
             {
@@ -238,7 +227,6 @@ internal sealed class ArtworkApi : IArtworkApi
             finally
             {
                 gate.Release();
-                _running.TryRemove(key, out _);
             }
         });
     }
@@ -359,6 +347,13 @@ internal sealed class ArtworkApi : IArtworkApi
             var complete = id is not null
                 && _store.SteamPath(game.Id, ArtworkKind.Wide) is not null
                 && _store.SteamPath(game.Id, ArtworkKind.Square) is not null;
+            // A lookup that found no app id learned nothing about the one the stored state is for (an install drive that is unplugged
+            // names none), so that state stays: a miss recorded under it would hold back the id when it returns.
+            if (id is null && state.AppId is not null)
+            {
+                return changed;
+            }
+
             DateTimeOffset? missAt = id is null || sawNotFound ? now : complete || state.AppId != id ? null : state.MissAt;
             var next = new LookupState(id ?? state.AppId, missAt);
             if (next != _store.ReadState(game.Id))

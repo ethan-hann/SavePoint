@@ -36,7 +36,7 @@ internal sealed partial class GamesApi
 
                 if (!confirmFolderChange)
                 {
-                    await RequireMatchingFoldersAsync(storage, existing.Id, before, folders).ConfigureAwait(false);
+                    await RequireMatchingFoldersAsync(storage, existing.Id, before, folders, edited.IgnorePaths).ConfigureAwait(false);
                 }
 
                 var claimed = new List<GameFolder>();
@@ -93,7 +93,8 @@ internal sealed partial class GamesApi
 
     // A folder with history that is pointed somewhere else has to look like the folder it replaces: at least half of the files its
     // newest point recorded must be there at the same relative paths, or the player has most likely picked the wrong folder.
-    private async Task RequireMatchingFoldersAsync(StorageSnapshot storage, string gameId, IReadOnlyList<GameFolder> before, IReadOnlyList<GameFolder> folders)
+    // A file the ignore list names is not restored by a switch, so it is not one the new folder has to hold.
+    private async Task RequireMatchingFoldersAsync(StorageSnapshot storage, string gameId, IReadOnlyList<GameFolder> before, IReadOnlyList<GameFolder> folders, IReadOnlyList<string>? ignorePatterns)
     {
         foreach (var folder in folders)
         {
@@ -103,7 +104,7 @@ internal sealed partial class GamesApi
                 continue;
             }
 
-            var recorded = await NewestPointFilesAsync(storage, GameFolders.Repo(storage, gameId, folder)).ConfigureAwait(false);
+            var recorded = await NewestPointFilesAsync(storage, GameFolders.Repo(storage, gameId, folder) with { IgnorePatterns = ignorePatterns }).ConfigureAwait(false);
             if (recorded.Count == 0)
             {
                 continue;
@@ -130,7 +131,7 @@ internal sealed partial class GamesApi
             }
         }
 
-        return newest is null ? [] : await storage.Engine.ListTreeFilesAsync(repo, newest.Id).ConfigureAwait(false);
+        return newest is null ? [] : await storage.Engine.ListTreeFilesAsync(repo, newest.Id, leaveOutIgnored: true).ConfigureAwait(false);
     }
 
     private bool SamePath(string left, string right) =>

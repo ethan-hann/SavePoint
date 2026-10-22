@@ -73,6 +73,29 @@ public class GamesFolderMoveTests
     }
 
     [Fact]
+    public async Task Files_the_ignore_list_names_do_not_count_against_a_folder_pointed_somewhere_else()
+    {
+        using var workspace = new BackendWorkspace();
+        var game = workspace.NewGame();
+        foreach (var name in new[] { "a.log", "b.log", "c.log", "d.log" })
+        {
+            BackendWorkspace.WriteFile(Path.Combine(game.External!.Path, "logs", name), "a log");
+        }
+
+        game = await workspace.AddGameAsync(game);
+        await workspace.CreateProfileAsync(game);
+
+        // The new folder holds the one file the point records that the ignore list does not name; the four logs stayed behind.
+        var moved = Path.Combine(workspace.GamesRoot, "moved-saves");
+        BackendWorkspace.WriteFile(Path.Combine(moved, "slot1.sav"), "save one");
+
+        var saved = await workspace.Games.UpdateAsync(game with { External = new ExternalLocation(moved), IgnorePaths = ["logs/"] });
+
+        Assert.True(saved.Ok, saved.Error?.Detail);
+        Assert.Equal(moved, (await workspace.Games.ListAsync(workspace.Token)).Value!.Single().External!.Path);
+    }
+
+    [Fact]
     public async Task A_folder_with_no_saved_points_can_be_pointed_anywhere()
     {
         using var workspace = new BackendWorkspace();

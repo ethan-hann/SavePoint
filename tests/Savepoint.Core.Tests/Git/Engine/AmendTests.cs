@@ -56,6 +56,34 @@ public sealed class AmendTests : IDisposable
     }
 
     [Fact]
+    public async Task Amend_of_an_unchanged_folder_leaves_the_point_alone_when_asked_to_skip_it()
+    {
+        var (repo, points) = await _ws.ThreePointsRepoAsync();
+        var request = Amend("profile-1", "Updated", "cap-new") with { SkipAmendWhenUnchanged = true };
+
+        var outcome = await _ws.Engine.CaptureAsync(repo, request, ct: Ct);
+
+        Assert.False(outcome.Changed);
+        Assert.Equal(points[2], outcome.TipCommitId);
+        Assert.Equal(points[2], await _ws.TipAsync(repo, "profile-1"));
+        Assert.Equal("Third point", await _ws.LogAsync(repo, "profile-1", "%s"));
+    }
+
+    [Fact]
+    public async Task Amend_of_a_changed_folder_rewrites_the_point_even_when_asked_to_skip_an_unchanged_one()
+    {
+        var (repo, points) = await _ws.ThreePointsRepoAsync();
+        _ws.Write(repo, "c.txt", "added later");
+        var request = Amend("profile-1", "Updated", "cap-new") with { SkipAmendWhenUnchanged = true };
+
+        var outcome = await _ws.Engine.CaptureAsync(repo, request, ct: Ct);
+
+        Assert.True(outcome.Changed);
+        Assert.NotEqual(points[2], outcome.TipCommitId);
+        Assert.Equal(["a.txt", "b.txt", "c.txt"], (await _ws.TreeAsync(repo, "profile-1")).Order());
+    }
+
+    [Fact]
     public async Task Amend_is_not_available_when_the_branch_has_no_points()
     {
         var repo = await _ws.InitializedRepoAsync();

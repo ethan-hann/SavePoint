@@ -38,4 +38,32 @@ public class LaunchIgnoredFileTests
         Assert.True(after.Install.MatchesTarget);
         Assert.False(after.Install.Dirty);
     }
+
+    [Fact(Timeout = 150_000)]
+    public async Task The_preview_counts_only_the_files_the_switch_will_change_not_the_ones_the_ignore_list_names()
+    {
+        using var rig = await LaunchRig.CreateAsync();
+        for (var i = 0; i < 10; i++)
+        {
+            rig.WriteInstall($"logs/run{i}.log", "a log recorded under A");
+        }
+
+        var a = await rig.ProfileAsync("A");
+        for (var i = 0; i < 10; i++)
+        {
+            File.Delete(Path.Combine(rig.InstallPath, "logs", $"run{i}.log"));
+        }
+
+        rig.WriteInstall("data/b-only.txt", "only B has this");
+        await rig.ProfileAsync("B");
+        Assert.True((await rig.Workspace.Games.UpdateAsync(rig.Game with { IgnorePaths = ["logs/"] })).Ok);
+
+        var preview = await rig.PreviewAsync(Tip(a));
+
+        // Switching to A removes data/b-only.txt and leaves logs/ alone, so it changes one file and writes nothing.
+        var summary = preview.Install.Switch;
+        Assert.NotNull(summary);
+        Assert.Equal(1, summary.FilesChanged);
+        Assert.Equal(0, summary.BytesChanged);
+    }
 }

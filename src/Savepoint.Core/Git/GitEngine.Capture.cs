@@ -69,6 +69,7 @@ public sealed partial class GitEngine
     {
         CheckWorkTree(repo);
         RepoMarker.Verify(repo);
+        await EnsureRepositoryAsync(repo, ct).ConfigureAwait(false);
 
         // A folder a stopped switch left half done holds files of two points; recording it would save a mixture that never existed.
         if (SwitchJournal.Read(repo.GitDir) is { } unfinished)
@@ -110,6 +111,11 @@ public sealed partial class GitEngine
 
         await StageAsync(repo, progress, ct).ConfigureAwait(false);
         await DropNamedFromIndexAsync(repo, ct).ConfigureAwait(false);
+        if (request.SkipAmendWhenUnchanged && !await IndexDiffersAsync(repo, "HEAD", ct).ConfigureAwait(false))
+        {
+            return new CaptureOutcome(false, tip);
+        }
+
         await CommitAsync(repo, request, amend: true, ct).ConfigureAwait(false);
         return new CaptureOutcome(true, await ResolveBranchAsync(repo, request.Branch, ct).ConfigureAwait(false));
     }
@@ -379,18 +385,19 @@ public sealed partial class GitEngine
                 () => staging with { OnStdoutLine = reporter is null ? null : line => ObserveAddLine(reporter, line) },
                 ct).ConfigureAwait(false);
         }
-        catch (GitOperationException) when (FirstHeldFile(repo, listing.Files) is { } held)
+        catch (GitOperationException e) when (FirstHeldFileNamedBy(repo, e.Message) is { } held)
         {
-            // git only says that adding failed; the file it could not read is the answer the player needs.
-            throw held.ToException();
+            // The file git says it could not index is the answer the player needs, when it is one nobody can read now.
+            throw held.ToException(HeldFileOperation.Save);
         }
 
         reporter?.Complete();
     }
 
-    private static HeldFile? FirstHeldFile(RepoRef repo, IEnumerable<string> paths)
+    // Only the files git itself names are looked at: any other failure of adding the files is not a held file, whatever else is held.
+    private static HeldFile? FirstHeldFileNamedBy(RepoRef repo, string gitMessage)
     {
-        foreach (var path in paths)
+        foreach (var path in GitFailure.UnindexedPaths(gitMessage))
         {
             var full = FullPath(repo, path);
             if (FileLockProbe.Probe(full) is { } kind)

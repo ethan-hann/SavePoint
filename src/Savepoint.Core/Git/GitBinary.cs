@@ -186,13 +186,18 @@ public sealed class GitBinary
         environment["GIT_COMMITTER_NAME"] = "SavePoint";
         environment["GIT_COMMITTER_EMAIL"] = "savepoint@localhost";
 
-        // A repository's own config and hooks folder can name programs git would run (core.fsmonitor, a post-commit hook, ...). Settings
-        // given this way outrank every config file, so no repository, SavePoint's or one found elsewhere, can undo them.
-        environment["GIT_CONFIG_COUNT"] = "2";
+        // A repository's own config and hooks folder can name programs git would run (core.fsmonitor, a post-commit hook, a program to
+        // sign with, ...). Settings given this way outrank every config file, so no repository, SavePoint's or one found elsewhere, can
+        // undo them.
+        environment["GIT_CONFIG_COUNT"] = "4";
         environment["GIT_CONFIG_KEY_0"] = "core.hooksPath";
         environment["GIT_CONFIG_VALUE_0"] = NoHooksPath;
         environment["GIT_CONFIG_KEY_1"] = "core.fsmonitor";
         environment["GIT_CONFIG_VALUE_1"] = "false";
+        environment["GIT_CONFIG_KEY_2"] = "commit.gpgSign";
+        environment["GIT_CONFIG_VALUE_2"] = "false";
+        environment["GIT_CONFIG_KEY_3"] = "tag.gpgSign";
+        environment["GIT_CONFIG_VALUE_3"] = "false";
 
         environment["GIT_TERMINAL_PROMPT"] = "0";
         environment["GIT_ASKPASS"] = string.Empty;

@@ -51,7 +51,8 @@ public interface ILaunchApi
 
     /// <summary>
     /// Throws away one folder's unsaved changes, returning it to the last saved point of the profile it is on. It cannot be undone.
-    /// Fails with <c>error.profile.noPoints</c> when the folder has no saved point to return to (D29), and with
+    /// A file the game's ignore list names is not an unsaved change: discarding leaves it exactly as it is on disk, whether or not a point
+    /// recorded it. Fails with <c>error.profile.noPoints</c> when the folder has no saved point to return to (D29), and with
     /// <c>error.gameService.gameRunning</c> while the game has an open session (including one that waits for the player's choice
     /// after play) or its process is still running; both are checked again once the game's lock is held (D13.14).
     /// </summary>

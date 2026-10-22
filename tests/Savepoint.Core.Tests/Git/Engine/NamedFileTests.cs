@@ -62,6 +62,42 @@ public sealed class NamedFileTests : IDisposable
         Assert.True((await _ws.Engine.GetStatusAsync(repo, Ct)).IsClean);
     }
 
+    // Whatever way a save is made, the point it writes stops holding the files the patterns name. An earlier point keeps them, except
+    // the one an update replaces: the update is a save like any other.
+    [Theory]
+    [InlineData(CaptureMode.Amend)]
+    [InlineData(CaptureMode.Fork)]
+    [InlineData(CaptureMode.Root)]
+    [InlineData(CaptureMode.MoveForward)]
+    public async Task Every_way_of_saving_stops_recording_a_file_the_patterns_name_and_leaves_it_on_disk(CaptureMode mode)
+    {
+        var repo = await RecordedBeforeThePatternAsync();
+        var first = (await _ws.TipAsync(repo, "profile-1"))!;
+        _ws.Write(repo, "logs/run.log", "what the game wrote since");
+        _ws.Write(repo, "notes.txt", "a new file the save has to record");
+        var branch = mode is CaptureMode.Amend or CaptureMode.MoveForward ? "profile-1" : "profile-2";
+        var request = new CaptureRequest(branch, "Second", "cap-2")
+        {
+            Mode = mode,
+            IgnorePatterns = ["logs/"],
+            ExpectedStartCommit = mode == CaptureMode.MoveForward ? first : null,
+        };
+
+        var outcome = await _ws.Engine.CaptureAsync(repo, request, ct: Ct);
+
+        Assert.True(outcome.Changed);
+        var tree = await _ws.TreeAsync(repo, outcome.TipCommitId!);
+        Assert.Contains("notes.txt", tree);
+        Assert.Contains("game.cfg", tree);
+        Assert.DoesNotContain("logs/run.log", tree);
+        Assert.DoesNotContain("logs/old.log", tree);
+        Assert.Equal("what the game wrote since", await File.ReadAllTextAsync(_ws.FileOf(repo, "logs/run.log"), Ct));
+        Assert.True((await _ws.Engine.GetStatusAsync(repo, Ct)).IsClean);
+        if (mode != CaptureMode.Amend)
+        {
+            Assert.Contains("logs/run.log", await _ws.TreeAsync(repo, first));
+        }
+    }
     [Fact]
     public async Task A_save_with_nothing_else_to_record_writes_no_point_only_to_drop_files_the_patterns_name()
     {

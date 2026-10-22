@@ -74,6 +74,13 @@ public sealed record CaptureRequest
     public IReadOnlyList<string> IgnorePatterns { get; init; } = [];
 
     /// <summary>
+    /// For <see cref="CaptureMode.Amend"/>: true to leave the tip as it is, and report no change, when nothing in the folder differs from
+    /// it once the files are added. An amend rewrites the point even then (a new commit id and time), which an update that was asked
+    /// to change what the point holds should not do. False by default.
+    /// </summary>
+    public bool SkipAmendWhenUnchanged { get; init; }
+
+    /// <summary>
     /// The commit the playing session started from. <see cref="CaptureMode.MoveForward"/> requires it, and both it
     /// and <see cref="CaptureMode.Fork"/> (when it is given) refuse unless the folder is on this commit or a descendant of it. The other
     /// modes do not look at it.

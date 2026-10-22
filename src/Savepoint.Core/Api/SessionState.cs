@@ -26,9 +26,13 @@ public abstract record SessionState
     /// <summary>The game has stopped, or the user said they are done playing. The post-play choice is pending.</summary>
     /// <param name="StartedAt">When the game started, as an absolute instant.</param>
     /// <param name="PlayDuration">How long the session lasted.</param>
-    /// <param name="NewFileCount">Files in the saves folder that are new or changed since the session began.</param>
+    /// <param name="NewFileCount">
+    /// Files in the saves folder that are new or changed since the session began, a file another program holds open or that cannot be read
+    /// included, since the save cannot tell it from a changed one. 0 when the save will leave the folder alone because it is on another
+    /// profile's history.
+    /// </param>
     /// <param name="ChangedInstallFileCount">
-    /// Files in the install folder that changed while playing, which catches an update made mid-session.
+    /// Files in the install folder that changed while playing, which catches an update made mid-session; counted as <paramref name="NewFileCount"/> is.
     /// </param>
     /// <param name="Options">What the user may do with the session.</param>
     public sealed record Exited(

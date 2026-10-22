@@ -150,9 +150,15 @@ public class ArtworkStoreEdgeTests : IDisposable
         store.SaveCustom("alpha-1", TestImages.Write(_root, "mine.png", TestImages.Png(64, 64)));
         var lease = await store.EnterAsync("alpha-1");
 
-        var removing = Task.Run(store.DeleteAll, TestContext.Current.CancellationToken);
-        await Task.Delay(300, TestContext.Current.CancellationToken);
-        var finishedEarly = removing.IsCompleted;
+        // The removal is known to be running before it is given time to finish, so a slow start cannot make the wait look like it held.
+        using var started = new ManualResetEventSlim();
+        var removing = Task.Run(() =>
+        {
+            started.Set();
+            store.DeleteAll();
+        }, TestContext.Current.CancellationToken);
+        Assert.True(started.Wait(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
+        var finishedEarly = await Task.WhenAny(removing, Task.Delay(500, TestContext.Current.CancellationToken)) == removing;
         lease.Dispose();
         await removing.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 

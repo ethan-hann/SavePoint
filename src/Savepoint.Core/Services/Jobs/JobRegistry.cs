@@ -29,6 +29,10 @@ public sealed class JobRegistry : IJobsApi
     private readonly Dictionary<Guid, Job> _byId = [];
     private readonly List<Job> _running = [];
     private readonly Queue<Job> _finished = new();
+
+    // How many times each subscriber has thrown for each job that is still running; the entry goes when the job ends.
+    private readonly Dictionary<(Guid JobId, Delegate Handler), int> _subscriberFailures = [];
+
     private readonly ConcurrentQueue<Delivery> _outbox = new();
     private int _delivering;
 
@@ -473,22 +477,58 @@ public sealed class JobRegistry : IJobsApi
 
     private void Raise(JobSnapshot snapshot)
     {
-        if (JobChanged is not { } handlers)
+        if (JobChanged is { } handlers)
         {
-            return;
+            foreach (var handler in handlers.GetInvocationList().Cast<EventHandler<JobSnapshot>>())
+            {
+                try
+                {
+                    handler(this, snapshot);
+                }
+                catch (Exception e)
+                {
+                    // A subscriber's failure must reach neither the work nor the other subscribers; the log is where it shows. A subscriber
+                    // that fails at every progress report would write a line every 50 ms, so only its first failure for a job is written
+                    // with its exception, and the rest are counted when the job ends.
+                    if (CountSubscriberFailure(snapshot.JobId, handler) == 1)
+                    {
+                        _log.Warning($"A subscriber to a change of job {snapshot.JobId} threw; the job and the other subscribers carried on.", e);
+                    }
+                }
+            }
         }
 
-        foreach (var handler in handlers.GetInvocationList().Cast<EventHandler<JobSnapshot>>())
+        if (snapshot.Status != JobStatus.Running)
         {
-            try
+            ReportRepeatedSubscriberFailures(snapshot.JobId);
+        }
+    }
+
+    private int CountSubscriberFailure(Guid jobId, EventHandler<JobSnapshot> handler)
+    {
+        lock (_subscriberFailures)
+        {
+            var key = (jobId, (Delegate)handler);
+            return _subscriberFailures[key] = _subscriberFailures.GetValueOrDefault(key) + 1;
+        }
+    }
+
+    private void ReportRepeatedSubscriberFailures(Guid jobId)
+    {
+        List<int> counts;
+        lock (_subscriberFailures)
+        {
+            var keys = _subscriberFailures.Keys.Where(key => key.JobId == jobId).ToList();
+            counts = [.. keys.Select(key => _subscriberFailures[key])];
+            foreach (var key in keys)
             {
-                handler(this, snapshot);
+                _subscriberFailures.Remove(key);
             }
-            catch (Exception e)
-            {
-                // A subscriber's failure must reach neither the work nor the other subscribers; the log is where it shows.
-                _log.Warning($"A subscriber to a change of job {snapshot.JobId} threw; the job and the other subscribers carried on.", e);
-            }
+        }
+
+        foreach (var count in counts.Where(count => count > 1))
+        {
+            _log.Warning($"A subscriber to the changes of job {jobId} threw {count} times; only the first is written with its exception.");
         }
     }
 

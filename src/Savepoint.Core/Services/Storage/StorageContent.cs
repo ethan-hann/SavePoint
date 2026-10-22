@@ -76,17 +76,50 @@ internal static class StorageContent
     /// </summary>
     /// <param name="gameFolder">A game's folder under the storage root.</param>
     public static bool HoldsStampedGitDirectory(string gameFolder) =>
-        new[] { "install.git", "external.git" }.Select(name => Path.Combine(gameFolder, name, "config")).Any(config =>
+        new[] { "install.git", "external.git" }.Any(name => IsStamped(Path.Combine(gameFolder, name)));
+
+    /// <summary>
+    /// True when the game folder holds saved history: a git directory that carries SavePoint's stamp and has at least one branch. The
+    /// empty repositories a fresh start makes, and what a start that stopped part way left, are not history. A git directory whose
+    /// branches cannot be read counts as history, since the answer decides whether anything is covered over.
+    /// </summary>
+    /// <param name="gameFolder">A game's folder under the storage root.</param>
+    public static bool HoldsHistory(string gameFolder) =>
+        new[] { "install.git", "external.git" }.Select(name => Path.Combine(gameFolder, name)).Any(gitDir => IsStamped(gitDir) && HasBranch(gitDir));
+
+    /// <summary>True when the git directory has a branch, loose or packed; true as well when that cannot be read.</summary>
+    /// <param name="gitDir">A git directory.</param>
+    public static bool HasBranch(string gitDir)
+    {
+        try
         {
-            try
+            var heads = Path.Combine(gitDir, "refs", "heads");
+            if (Directory.Exists(heads) && Directory.EnumerateFiles(heads, "*", SearchOption.AllDirectories).Any())
             {
-                return File.Exists(config) && AtomicText.ReadOrNull(config) is { } text && RepoConfigFile.ReadStamp(text) is not null;
+                return true;
             }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-            {
-                return false;
-            }
-        });
+
+            var packed = Path.Combine(gitDir, "packed-refs");
+            return File.Exists(packed) && File.ReadLines(packed).Any(line => line.Contains(" refs/heads/", StringComparison.Ordinal));
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return true;
+        }
+    }
+
+    private static bool IsStamped(string gitDir)
+    {
+        try
+        {
+            var config = Path.Combine(gitDir, "config");
+            return File.Exists(config) && AtomicText.ReadOrNull(config) is { } text && RepoConfigFile.ReadStamp(text) is not null;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
 
     private static bool LeadsToGitDirectories(DirectoryInfo link) =>
         Directory.Exists(Path.Combine(link.FullName, "install.git")) || Directory.Exists(Path.Combine(link.FullName, "external.git"));
