@@ -2,6 +2,7 @@ using System.Buffers;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Text;
+using Savepoint.Core.Diagnostics;
 using Savepoint.Core.Errors;
 
 namespace Savepoint.Core.Git;
@@ -16,10 +17,15 @@ public sealed class GitRunner
     // The end of stderr is what explains a failure; a long progress meter before it is not worth keeping.
     private const int _standardErrorLimit = 1024 * 1024;
 
+    // A line in the log is for a person to read: the arguments and the end of stderr are enough to tell what went wrong.
+    private const int _loggedArgumentsLimit = 500;
+    private const int _loggedStandardErrorLimit = 1000;
+
     private static readonly UTF8Encoding _utf8 = new(encoderShouldEmitUTF8Identifier: false);
 
     private readonly GitBinary _binary;
     private readonly GitRunnerOptions _options;
+    private readonly IDiagnosticLog _log;
 
     /// <summary>Builds a runner for a located git bundle.</summary>
     /// <param name="binary">The bundle to run, with the environment every call starts from.</param>
@@ -30,6 +36,7 @@ public sealed class GitRunner
         ArgumentNullException.ThrowIfNull(binary);
         _binary = binary;
         _options = options ?? new GitRunnerOptions();
+        _log = _options.Log ?? DiagnosticLog.None;
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(_options.ReadBufferSize);
     }
 
@@ -70,6 +77,7 @@ public sealed class GitRunner
         }
         catch (Win32Exception e)
         {
+            _log.Error($"git could not be started at {_binary.ExecutablePath}: {e.Message}", e);
             throw new GitUnavailableException(_binary.ExecutablePath, $"git could not be started: {e.Message}", e);
         }
 
@@ -376,14 +384,33 @@ public sealed class GitRunner
         stdoutBytes?.Detach();
     }
 
-    private static GitResult BuildResult(GitInvocation invocation, int exitCode, GitOutputSink stdout, GitOutputSink stderr, GitByteSink? stdoutBytes)
+    private GitResult BuildResult(GitInvocation invocation, int exitCode, GitOutputSink stdout, GitOutputSink stderr, GitByteSink? stdoutBytes)
     {
         if (!invocation.AllowedExitCodes.Contains(exitCode))
         {
+            LogFailure(invocation, exitCode, stderr.Text);
             throw new GitCommandException(invocation.Arguments, exitCode, stderr.Text);
         }
 
         return new GitResult(exitCode, stdout.Text, stderr.Text, stdoutBytes?.ToArray() ?? []);
+    }
+
+    private void LogFailure(GitInvocation invocation, int exitCode, string standardError)
+    {
+        var arguments = string.Join(' ', invocation.Arguments);
+        if (arguments.Length > _loggedArgumentsLimit)
+        {
+            arguments = arguments[.._loggedArgumentsLimit] + "...";
+        }
+
+        var errorText = standardError.Trim();
+        if (errorText.Length > _loggedStandardErrorLimit)
+        {
+            errorText = "..." + errorText[^_loggedStandardErrorLimit..];
+        }
+
+        var repository = invocation.GitDir is { } gitDir ? $" Repository: {gitDir}." : string.Empty;
+        _log.Warning($"git {arguments} failed with exit code {exitCode}.{repository} End of standard error: {errorText}");
     }
 
     private static void Abort(CancellationTokenSource abort)

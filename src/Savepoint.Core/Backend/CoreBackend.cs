@@ -86,7 +86,7 @@ public sealed class CoreBackend
         var log = new GuardedDiagnosticLog(options.Log ?? DiagnosticLog.None);
         var catalog = new CatalogStore(options.CatalogDirectory ?? platform.Directories.CatalogDir, time);
         var git = options.Git ?? GitBinary.Locate(Path.Combine(platform.Directories.RuntimeDir, "git"));
-        var runner = new GitRunner(git);
+        var runner = new GitRunner(git, new GitRunnerOptions { Log = log });
         var disk = options.DiskSpace ?? new DiskSpace();
         var installDirectory = Path.TrimEndingDirectorySeparator(Path.GetFullPath(options.InstallDirectory ?? AppContext.BaseDirectory));
         var engineOptions = (options.Engine ?? new GitEngineOptions()) with { Clock = time };
