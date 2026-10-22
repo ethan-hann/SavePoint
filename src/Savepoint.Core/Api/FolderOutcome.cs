@@ -19,4 +19,7 @@ public sealed record FolderOutcome(RepoRole Role, ErrorInfo? Error = null, bool 
 {
     /// <summary>True when the job succeeded on this folder, that is, <see cref="Error"/> is null. A folder that was left alone is still Ok.</summary>
     public bool Ok => Error is null;
+
+    /// <summary>True when the job wrote this folder: it succeeded on it (<see cref="Ok"/>) and did not leave it alone.</summary>
+    public bool Saved => Ok && !LeftAlone;
 }

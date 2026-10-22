@@ -13,7 +13,7 @@
     <ItemsControl.ItemTemplate>
       <DataTemplate x:DataType="launch:FolderOutcomeRow">
         <StackPanel Orientation="Horizontal" Spacing="12">
-          <TextBlock Classes="icon s18" Classes.accent="{Binding IsOk}" Classes.error="{Binding !IsOk}" Text="{Binding Icon}" />
+          <TextBlock Classes="icon s18" Classes.accent="{Binding IsOk}" Classes.error="{Binding IsFailed}" Text="{Binding Icon}" />
           <TextBlock Classes="body" VerticalAlignment="Center" Text="{Binding Text}" />
         </StackPanel>
       </DataTemplate>
