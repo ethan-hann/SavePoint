@@ -1,4 +1,6 @@
 using System.Runtime.Versioning;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 
@@ -117,7 +119,7 @@ public sealed class DeleteRepoTests : IDisposable
         var repo = await _ws.InitializedRepoAsync();
         using var block = BlockDeletionIn(repo.GitDir);
 
-        await Assert.ThrowsAsync<GitOperationException>(() => _ws.Engine.DeleteRepoAsync(repo, Ct));
+        await Assert.ThrowsAnyAsync<SavepointException>(() => _ws.Engine.DeleteRepoAsync(repo, Ct));
 
         Assert.True(File.Exists(EngineWorkspace.MarkerPath(repo)), "the marker must outlive a failed delete so the delete can be repeated");
 
@@ -299,6 +301,61 @@ public sealed class DeleteRepoTests : IDisposable
 
         Assert.False(_ws.Engine.GetConsentStatus(repo).Confirmed);
         Assert.False(_ws.Engine.GetConsentStatus(repo with { WorkTree = Path.Combine(_ws.Root, "nowhere") }).Confirmed);
+    }
+
+    [Fact]
+    public async Task A_delete_stopped_by_a_program_holding_a_file_names_the_file_as_in_use()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows refuses to delete a file another program holds open");
+        var repo = await _ws.InitializedRepoAsync();
+        using var block = BlockDeletionIn(repo.GitDir);
+
+        var error = await Assert.ThrowsAsync<GitOperationException>(() => _ws.Engine.DeleteRepoAsync(repo, Ct));
+
+        Assert.Equal("error.gitOperation.checkoutFailed", error.MessageId);
+        Assert.StartsWith(repo.GitDir, (string)error.Args["path"]!, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_delete_stopped_by_denied_access_is_not_reported_as_a_file_in_use()
+    {
+        Assert.SkipWhen(!OperatingSystem.IsWindows() && Environment.IsPrivilegedProcess, "a privileged user ignores folder permissions");
+        var repo = await _ws.InitializedRepoAsync();
+        using var denied = DenyDeletionIn(repo.GitDir);
+
+        var error = await Assert.ThrowsAsync<StorageRemoveFailedException>(() => _ws.Engine.DeleteRepoAsync(repo, Ct));
+
+        Assert.Equal("error.storage.removeFailed", error.MessageId);
+        Assert.StartsWith(repo.GitDir, (string)error.Args["path"]!, StringComparison.Ordinal);
+    }
+
+    // Makes removing something inside the folder fail with "access denied" until the returned object is disposed.
+    private static IDisposable DenyDeletionIn(string gitDir) =>
+        OperatingSystem.IsWindows() ? DenyDeletingOnWindows(gitDir) : MakeReadOnlyOnUnix(Path.Combine(gitDir, "refs"));
+
+    [SupportedOSPlatform("windows")]
+    private static DelegateDisposable DenyDeletingOnWindows(string gitDir)
+    {
+        var user = WindowsIdentity.GetCurrent().User!;
+        var head = new FileInfo(Path.Combine(gitDir, "HEAD"));
+        var folder = new DirectoryInfo(gitDir);
+        var fileRule = new FileSystemAccessRule(user, FileSystemRights.Delete, AccessControlType.Deny);
+        var folderRule = new FileSystemAccessRule(user, FileSystemRights.DeleteSubdirectoriesAndFiles, AccessControlType.Deny);
+        var fileSecurity = head.GetAccessControl();
+        fileSecurity.AddAccessRule(fileRule);
+        head.SetAccessControl(fileSecurity);
+        var folderSecurity = folder.GetAccessControl();
+        folderSecurity.AddAccessRule(folderRule);
+        folder.SetAccessControl(folderSecurity);
+        return new DelegateDisposable(() =>
+        {
+            var restoredFolder = folder.GetAccessControl();
+            restoredFolder.RemoveAccessRule(folderRule);
+            folder.SetAccessControl(restoredFolder);
+            var restoredFile = head.GetAccessControl();
+            restoredFile.RemoveAccessRule(fileRule);
+            head.SetAccessControl(restoredFile);
+        });
     }
 
     // Makes removing something inside the folder fail until the returned object is disposed.

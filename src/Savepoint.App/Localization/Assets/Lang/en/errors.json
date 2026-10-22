@@ -43,6 +43,7 @@
   "error.profile.noPoints": "That profile has nothing saved yet, so there is nothing to switch to. Save something in it first.",
   "error.profile.notFound": "That profile doesn't exist anymore, so SavePoint couldn't do that. Go back to the game's profiles and try again.",
   "error.storage.noHistoryHere": "That folder doesn't hold the saved history for your games. Choose the folder SavePoint was using before, the one with a folder for each of your games inside it.",
+  "error.storage.removeFailed": "SavePoint couldn't remove the item shown below. It may be read-only, or your account may not be allowed to delete it. Fix that or remove it yourself, then try again.",
   "error.storage.unreachable": "SavePoint can't reach the folder where it keeps your saved history. If it's on a drive or network share that isn't connected, connect it, then try again.",
   "error.storageRelocation.cancelled": "Moving your storage was canceled. You can try again from Settings.",
   "error.storageRelocation.copyFailed": "SavePoint couldn't copy everything to the new folder, so it kept using the old one and nothing was lost. Check that the new location has room and isn't read-only, then try again.",

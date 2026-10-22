@@ -59,6 +59,7 @@ public class ErrorCopyTests
             new StorageDestinationNotEmptyException("/storage"),
             new StorageHistoryNotFoundException("/elsewhere"),
             new FileUnreadableException("/games/alpha/data.pak"),
+            new StorageRemoveFailedException("/storage/alpha", "dev text"),
             new StorageMoveUnfinishedException("/storage"),
             new StorageInsideInstallFolderException("/install/data", "/install"),
             new StorageSourceUnreadableException("/storage/alpha", "dev text", null),

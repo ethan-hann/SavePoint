@@ -208,6 +208,8 @@ public class ErrorTypesTests
             ("path", "/elsewhere"));
         Add("FileUnreadable", new FileUnreadableException("/games/alpha/data.pak"), "error.gitOperation.unreadableFile",
             ("path", "/games/alpha/data.pak"));
+        Add("StorageRemoveFailed", new StorageRemoveFailedException("/storage/alpha", "dev text"), "error.storage.removeFailed",
+            ("path", "/storage/alpha"));
         Add("StorageMoveUnfinished", new StorageMoveUnfinishedException("/storage"), "error.storageRelocation.moveUnfinished",
             ("path", "/storage"));
         Add("Validation", new ValidationException(_issues), "error.validation.invalidPayload",

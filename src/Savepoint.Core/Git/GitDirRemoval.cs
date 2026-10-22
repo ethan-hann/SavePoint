@@ -60,7 +60,7 @@ internal static partial class GitDirRemoval
             {
                 if (attempt >= retryDelays.Count)
                 {
-                    throw new GitOperationException(LockedPath(e) ?? gitDir, $"The git directory '{gitDir}' could not be deleted: {e.Message}");
+                    throw DeleteFailure(gitDir, e);
                 }
 
                 // A process that was just stopped can hold a file for a moment longer.
@@ -106,6 +106,17 @@ internal static partial class GitDirRemoval
 
         var config = Path.Combine(path, "config");
         return !File.Exists(config) || (AtomicText.ReadOrNull(config) is { } text && RepoConfigFile.ReadStamp(text) is not null);
+    }
+
+    // A file another program holds open is the one failure that closing programs fixes: it is a sharing or lock violation. Access
+    // denied, a read-only volume and the like name a path too, but waiting or closing the game does not help.
+    internal static SavepointException DeleteFailure(string path, Exception e)
+    {
+        // The system sometimes names only the file, which says little on a card; then the folder being deleted is the better path.
+        var named = LockedPath(e) is { } quoted && Path.IsPathRooted(quoted) ? quoted : path;
+        return e is IOException held && FileLockProbe.IsSharingViolation(held)
+            ? new GitOperationException(named, $"'{named}' is held by another program and could not be deleted: {e.Message}")
+            : new StorageRemoveFailedException(named, $"'{named}' could not be deleted: {e.Message}", e);
     }
 
     // Pack files are read-only, and Windows will not delete a read-only file.

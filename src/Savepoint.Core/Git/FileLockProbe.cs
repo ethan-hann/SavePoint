@@ -27,7 +27,10 @@ internal static class FileLockProbe
         }
         catch (IOException e)
         {
-            return (e.HResult & 0xFFFF) is _sharingViolation or _lockViolation ? HeldFileKind.InUse : HeldFileKind.Unreadable;
+            return IsSharingViolation(e) ? HeldFileKind.InUse : HeldFileKind.Unreadable;
         }
     }
+
+    // True for the two failures Windows gives when another program has the file: a sharing violation and a lock violation.
+    public static bool IsSharingViolation(IOException e) => (e.HResult & 0xFFFF) is _sharingViolation or _lockViolation;
 }
