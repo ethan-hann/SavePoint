@@ -8,7 +8,7 @@ Build the app from `main` (`dotnet run --project src/Savepoint.App -c Release`),
 
 - [ ] Add a game you actually play, with its real install and saves folders. The folder confirmation names both folders; Steam games pick up their cover art, and others show a name tint.
 - [ ] Create a first profile. The size estimate is plausible, and the save finishes without freezing the window.
-- [ ] Play through SavePoint, quit the game, keep the session as a new point. History shows it.
+- [ ] Play through SavePoint, quit the game, keep the session as a new point. History shows it. During the switch, the dialog shows how much has been written and roughly how long is left.
 - [ ] Change something (install a mod, or let the game update), save a second profile, and switch back and forth. The game starts in the right state each time.
 - [ ] Go back to an older point from History, play, then keep the progress as a new profile. The original profile is unchanged.
 - [ ] Turn off the store's cloud saves for that game first (Steam Cloud, GOG Galaxy), as the editor recommends.
@@ -16,15 +16,16 @@ Build the app from `main` (`dotnet run --project src/Savepoint.App -c Release`),
 ## Accessibility
 
 - [ ] Narrator (and NVDA if you have it): walk the Games screen, the launch dialog, the after-play dialog, and Settings. Buttons, rows, and dialog messages are read; progress and banners are announced.
-- [ ] Keyboard only: add a game, create a profile, play, finish. Tab order follows what is drawn, focus is always visible, and Escape closes dialogs.
-- [ ] Windows display scaling at 150% and 200%: every screen fits or scrolls, nothing is cut off, and dialogs keep their buttons visible.
+- [ ] Keyboard only: add a game, create a profile, play, finish. Tab order follows what is drawn, focus is always visible, and Escape closes dialogs. Enter on a selected profile row starts Play. While the banner or the running card shows at the bottom of the Games screen, Tab still reaches it after the profile rows.
+- [ ] Windows display scaling at 150% and 200%: every screen fits or scrolls, nothing is cut off, and dialogs keep their buttons visible. Check the Games screen while a profile is saving, and in the Library layout while the banner shows.
 - [ ] Turn off **Animation effects** (Windows Settings > Accessibility > Visual effects): progress shows a still bar instead of a sweep.
 
 ## Failure handling
 
 - [ ] Hold a save file open in another program during a switch: the error names the file; after closing it, "Try again" finishes.
-- [ ] Unplug or rename the drive holding SavePoint's storage, then start SavePoint: it says the storage is unreachable and offers Try again, Find the folder, and Start with an empty folder (after the recheck fixes land).
+- [ ] Unplug or rename the drive holding SavePoint's storage, then start SavePoint: it says the storage is unreachable and offers Try again, Find the folder, and Start with an empty folder.
 - [ ] Settings > About > Open the log folder: today's log exists and records what you did.
+- [ ] Start SavePoint twice: the second start brings the first window forward instead of opening another copy.
 - [ ] A crash: there is no crash button on purpose; if SavePoint ever closes with "SavePoint ran into a problem", note what you were doing and keep the log.
 
 ## Packages
@@ -32,5 +33,5 @@ Build the app from `main` (`dotnet run --project src/Savepoint.App -c Release`),
 - [ ] Run `SavePoint-win-Setup.exe` (SmartScreen will warn, since it is unsigned). The Start menu shortcut works; the app shows version 0.9.0 in Settings > About and opens the third-party notices.
 - [ ] The portable zip runs from any folder.
 - [ ] Uninstall from Windows Settings > Apps. The app goes (it lived in `%LOCALAPPDATA%\SavePointApp`), but SavePoint's data stays in `%APPDATA%\SavePoint` and `%LOCALAPPDATA%\SavePoint`. Reinstalling picks your games and history up again (D38).
-- [ ] Linux (if you have a desktop Linux machine, not WSL): the AppImage starts, notifications appear, and a game started through a launcher is followed.
+- [ ] Linux (if you have a desktop Linux machine, not WSL): the AppImage starts, notifications appear, a game started through a launcher is followed, and starting it twice brings the first window forward (the tests for that skip under WSL).
 - [ ] macOS: not packaged and never run on a Mac (D9, D33). Nothing to check until a Mac is available.
