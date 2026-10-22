@@ -14,7 +14,7 @@ namespace Savepoint.App;
 /// <param name="History">The history Api.</param>
 /// <param name="Jobs">The jobs Api.</param>
 /// <param name="AppStatus">The startup status Api.</param>
-/// <param name="Artwork">The artwork Api (D30).</param>
+/// <param name="Artwork">The artwork Api.</param>
 public sealed record AppServices(
     IGamesApi Games,
     IProfilesApi Profiles,

@@ -31,7 +31,7 @@ public interface IShellContext : INotifyPropertyChanged
     /// <summary>The launch flow that owns starting a game.</summary>
     ILaunchFlowHost LaunchFlow { get; }
 
-    /// <summary>Each game's artwork by game id (D30); a game with none shows its name tint.</summary>
+    /// <summary>Each game's artwork by game id; a game with none shows its name tint.</summary>
     Common.Art.IArtworkProvider Artwork { get; }
 
     /// <summary>Raised after the game list, profile counts and sizes have been reloaded.</summary>
