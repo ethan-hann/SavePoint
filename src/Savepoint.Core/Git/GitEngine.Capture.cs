@@ -6,9 +6,9 @@ public sealed partial class GitEngine
 {
     /// <summary>
     /// Records the folder's current contents as a point on a branch, as described by <paramref name="request"/>.
-    /// Nothing in the work tree is written or switched. A new file named by the request's ignore patterns, or the
-    /// consent marker, is not added; a file an earlier point already holds stays in the history and is recorded again
-    /// when it changes, whatever the patterns say now. A fork, a root or a move forward writes its new point first and then creates or
+    /// Nothing in the work tree is written or switched. A file named by the request's ignore patterns, or the consent marker, is
+    /// not recorded: a new one is not added, and one an earlier point holds is left out of this point and every later one (the earlier
+    /// points keep it, and the file on disk stays as it is). A save with nothing else to record still writes no point. A fork, a root or a move forward writes its new point first and then creates or
     /// moves the branch with one ref update, so a stop or a failure before that update leaves every branch and HEAD where they were.
     /// </summary>
     /// <param name="repo">The folder to capture; its repository must exist.</param>
@@ -109,6 +109,7 @@ public sealed partial class GitEngine
         }
 
         await StageAsync(repo, progress, ct).ConfigureAwait(false);
+        await DropNamedFromIndexAsync(repo, ct).ConfigureAwait(false);
         await CommitAsync(repo, request, amend: true, ct).ConfigureAwait(false);
         return new CaptureOutcome(true, await ResolveBranchAsync(repo, request.Branch, ct).ConfigureAwait(false));
     }
@@ -146,6 +147,11 @@ public sealed partial class GitEngine
         var changed = await IndexDiffersAsync(repo, "HEAD", ct).ConfigureAwait(false);
 
         // The point exists before any ref changes, so a stop up to the one ref write leaves every ref where it was.
+        if (changed)
+        {
+            await DropNamedFromIndexAsync(repo, ct).ConfigureAwait(false);
+        }
+
         var commit = changed ? await WriteCommitAsync(repo, request, tip, ct).ConfigureAwait(false) : tip;
         if (existing is null)
         {
@@ -189,6 +195,7 @@ public sealed partial class GitEngine
 
         // Written before any ref changes, like a fork, so a stop up to the one ref write leaves every ref and HEAD where they were.
         await StageAsync(repo, progress, ct).ConfigureAwait(false);
+        await DropNamedFromIndexAsync(repo, ct).ConfigureAwait(false);
         var commit = await WriteCommitAsync(repo, request, null, ct).ConfigureAwait(false);
         await RefWriteAsync(repo, request.Branch, commit, () => CreateBranchRefAsync(repo, request.Branch, commit, "savepoint: start branch", ct)).ConfigureAwait(false);
         await AttachHeadAsync(repo, request.Branch, head).ConfigureAwait(false);
@@ -228,6 +235,11 @@ public sealed partial class GitEngine
         var changed = await IndexDiffersAsync(repo, "HEAD", ct).ConfigureAwait(false);
 
         // The point exists before the branch moves, so the points a move drops stay on it until the one ref write.
+        if (changed)
+        {
+            await DropNamedFromIndexAsync(repo, ct).ConfigureAwait(false);
+        }
+
         var commit = changed ? await WriteCommitAsync(repo, request, tip, ct).ConfigureAwait(false) : tip;
         if (!string.Equals(commit, branchTip, StringComparison.Ordinal))
         {
@@ -337,6 +349,7 @@ public sealed partial class GitEngine
             await SetHeadAsync(repo, request.Branch, ct).ConfigureAwait(false);
         }
 
+        await DropNamedFromIndexAsync(repo, ct).ConfigureAwait(false);
         await CommitAsync(repo, request, amend: false, ct).ConfigureAwait(false);
         return new CaptureOutcome(true, await ResolveBranchAsync(repo, request.Branch, ct).ConfigureAwait(false));
     }

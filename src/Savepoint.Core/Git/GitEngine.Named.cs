@@ -1,0 +1,105 @@
+using System.Text;
+
+namespace Savepoint.Core.Git;
+
+// A file the game's patterns name is outside what SavePoint records or restores, whether or not an earlier point holds it. A switch
+// or a discard leaves it exactly as it is on disk, a save stops recording it, and it is never unsaved work. git itself knows nothing
+// of this for a file it tracks, so the engine keeps git away from those paths: the index is made to agree with the target for them
+// before a switch, which git reads as "nothing to do here".
+public sealed partial class GitEngine
+{
+    // The index that answers which paths a pattern names. The caller holds the game's lock, so one folder never has two of these at once;
+    // a stop can leave one behind, and the stale-lock sweep removes it.
+    private const string _classifyIndexName = "savepoint-classify.index";
+
+    // A blob id nothing has to hold: the index entries built for the question only need a path.
+    private const string _anyBlob = "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391";
+
+    // The consent marker is the exclude list's own last line; with no line besides it no file can be named, and the calls below are skipped.
+    private static bool HasPatterns(RepoRef repo) => ExcludePatterns(repo).Count > 1;
+
+    // The recorded files the patterns name. At rest the index holds exactly the checked-out point, so this one listing answers for the
+    // status, a save and a discard.
+    private async Task<HashSet<string>> RecordedNamedAsync(RepoRef repo, CancellationToken ct)
+    {
+        if (!HasPatterns(repo))
+        {
+            return [];
+        }
+
+        var listed = await RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z", "-c", "-i", ExcludeFromArgument(repo)), ct).ConfigureAwait(false);
+        return [.. listed.SplitStandardOutputOnNul()];
+    }
+
+    // Which of these paths the patterns name, whether or not the path exists on disk or in the index: git lists a throwaway index of
+    // just these paths against the same exclude list every other listing uses.
+    private async Task<HashSet<string>> NamedAmongAsync(RepoRef repo, IReadOnlyCollection<string> paths, CancellationToken ct)
+    {
+        if (paths.Count == 0 || !HasPatterns(repo))
+        {
+            return [];
+        }
+
+        var index = Path.Combine(repo.GitDir, _classifyIndexName);
+        TryDelete(index);
+        try
+        {
+            var environment = new Dictionary<string, string?> { ["GIT_INDEX_FILE"] = index };
+            var entries = new StringBuilder();
+            foreach (var path in paths)
+            {
+                entries.Append("100644 ").Append(_anyBlob).Append('\t').Append(path).Append('\0');
+            }
+
+            await RunAsync(Invocation(repo, readOnly: false, "update-index", "-z", "--add", "--index-info") with { Stdin = entries.ToString(), ExtraEnvironment = environment }, ct).ConfigureAwait(false);
+            var listed = await RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z", "-c", "-i", ExcludeFromArgument(repo)) with { ExtraEnvironment = environment }, ct).ConfigureAwait(false);
+            return [.. listed.SplitStandardOutputOnNul()];
+        }
+        finally
+        {
+            TryDelete(index);
+            TryDelete(index + ".lock");
+        }
+    }
+
+    // Makes the index hold the tree's version of each path (or none, where the tree has none) without touching a file.
+    private async Task AlignIndexAsync(RepoRef repo, string tree, IReadOnlyCollection<string> paths, CancellationToken ct)
+    {
+        if (paths.Count > 0)
+        {
+            await RunWriteAsync(() => Invocation(repo, readOnly: false, "reset", "--quiet", tree).WithPathspecs(paths), ct).ConfigureAwait(false);
+        }
+    }
+
+    // A forced checkout writes every file whose stamp does not match its index entry, aligned or not; this bit tells it to leave them.
+    private async Task SetSkipWorktreeAsync(RepoRef repo, bool on, IReadOnlyCollection<string> paths, CancellationToken ct)
+    {
+        if (paths.Count > 0)
+        {
+            await RunWriteAsync(
+                () => Invocation(repo, readOnly: false, "update-index", on ? "--skip-worktree" : "--no-skip-worktree", "-z", "--stdin") with { Stdin = NulList(paths) },
+                ct).ConfigureAwait(false);
+        }
+    }
+
+    // A recorded file the patterns name stays out of the next point: it leaves the index, and the file on disk stays where it is.
+    private async Task DropNamedFromIndexAsync(RepoRef repo, CancellationToken ct)
+    {
+        var named = await RecordedNamedAsync(repo, ct).ConfigureAwait(false);
+        if (named.Count > 0)
+        {
+            await RunWriteAsync(() => Invocation(repo, readOnly: false, "update-index", "--force-remove", "-z", "--stdin") with { Stdin = NulList(named) }, ct).ConfigureAwait(false);
+        }
+    }
+
+    private static string NulList(IEnumerable<string> paths)
+    {
+        var list = new StringBuilder();
+        foreach (var path in paths)
+        {
+            list.Append(path).Append('\0');
+        }
+
+        return list.ToString();
+    }
+}

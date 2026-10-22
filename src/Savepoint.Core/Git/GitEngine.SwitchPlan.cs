@@ -7,8 +7,14 @@ public sealed partial class GitEngine
     // A file the point being left holds and the target does not, with the content the point held.
     internal readonly record struct GoneFile(string Path, string OldId);
 
-    // Everything a switch is expected to change, known before git starts.
-    private sealed record SwitchPlan(IReadOnlyList<TreeChange> Changes, IReadOnlySet<string> Touched, IReadOnlyList<GoneFile> Gone);
+    // Everything a switch is expected to change, known before git starts. Files the game's patterns name are not in it: the switch
+    // leaves them alone, so they are listed apart. NamedInTarget is the part of Named that the target holds.
+    private sealed record SwitchPlan(
+        IReadOnlyList<TreeChange> Changes,
+        IReadOnlySet<string> Touched,
+        IReadOnlyList<GoneFile> Gone,
+        IReadOnlySet<string> Named,
+        IReadOnlySet<string> NamedInTarget);
 
     private static StringComparer PathComparer => OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
 
@@ -25,50 +31,48 @@ public sealed partial class GitEngine
 
         // A name that differs from a removed one only in case is the same file on this system, and the target holds it.
         var target = all.Where(change => change.Status != 'D').Select(change => change.Path).ToHashSet(PathComparer);
+        var paths = all.Select(change => change.Path).ToHashSet(StringComparer.Ordinal);
+        var named = await NamedAmongAsync(repo, paths, ct).ConfigureAwait(false);
         var gone = all
-            .Where(change => change.Status == 'D' && !target.Contains(change.Path))
+            .Where(change => change.Status == 'D' && !target.Contains(change.Path) && !named.Contains(change.Path))
             .DistinctBy(change => change.Path, StringComparer.Ordinal)
             .Select(change => new GoneFile(change.Path, change.OldId))
             .ToArray();
-        return new SwitchPlan(changes, all.Select(change => change.Path).ToHashSet(StringComparer.Ordinal), gone);
+        return new SwitchPlan(
+            [.. changes.Where(change => !named.Contains(change.Path))],
+            paths.Where(path => !named.Contains(path)).ToHashSet(StringComparer.Ordinal),
+            gone,
+            named,
+            all.Where(change => change.Status != 'D' && named.Contains(change.Path)).Select(change => change.Path).ToHashSet(StringComparer.Ordinal));
     }
 
-    // Refuses, before anything is written, a switch that would run over work that is not saved: unsaved changes in the
-    // folder, a half-switched folder that is not being finished, or a file the game's patterns name that the switch would
-    // overwrite or delete.
-    private async Task RequireNothingInTheWayAsync(RepoRef repo, string? from, string to, bool force, InterruptedSwitch? note, SwitchPlan plan, CancellationToken ct)
+    // Refuses, before anything is written, a switch that would run over work that is not saved: unsaved changes in the folder, or
+    // a half-switched folder that is not being finished. Files the game's patterns name are never in the way: the switch leaves them.
+    private async Task RequireNothingInTheWayAsync(RepoRef repo, string? from, string to, bool force, InterruptedSwitch? note, CancellationToken ct)
     {
-        var excluded = ListExcludedAsync(repo, ct);
-        if (!force)
+        if (force)
         {
-            if (note is not null)
-            {
-                // Only the switch that was started may finish a half-switched folder; what else is in it cannot be told apart.
-                if (!string.Equals(note.ToCommit, to, StringComparison.Ordinal))
-                {
-                    throw new InterruptedSwitchException(repo.Role, note.ToCommit);
-                }
-            }
-            else
-            {
-                var changed = ListChangedAsync(repo, hasCommits: from is not null, ct);
-                var untracked = ListNewAsync(repo, ct);
-                var changedPaths = await changed.ConfigureAwait(false);
-                var newFiles = (await untracked.ConfigureAwait(false)).Files;
-                if (changedPaths.Count > 0 || newFiles.Count > 0)
-                {
-                    throw OnlyHeldChanges(repo, changedPaths, newFiles.Count)?.ToException() ?? new DirtyWorkingTreeException(repo.Role);
-                }
-            }
+            return;
         }
 
-        var (files, folders) = await excluded.ConfigureAwait(false);
-        foreach (var path in plan.Touched)
+        if (note is not null)
         {
-            if ((files.Contains(path) || folders.Any(folder => path.StartsWith(folder, StringComparison.Ordinal))) && File.Exists(FullPath(repo, path)))
+            // Only the switch that was started may finish a half-switched folder; what else is in it cannot be told apart.
+            if (!string.Equals(note.ToCommit, to, StringComparison.Ordinal))
             {
-                throw new DirtyWorkingTreeException(repo.Role);
+                throw new InterruptedSwitchException(repo.Role, note.ToCommit);
             }
+
+            return;
+        }
+
+        var changed = ListChangedAsync(repo, hasCommits: from is not null, ct);
+        var untracked = ListNewAsync(repo, ct);
+        var changedPaths = await changed.ConfigureAwait(false);
+        var newFiles = (await untracked.ConfigureAwait(false)).Files;
+        if (changedPaths.Count > 0 || newFiles.Count > 0)
+        {
+            throw OnlyHeldChanges(repo, changedPaths, newFiles.Count)?.ToException() ?? new DirtyWorkingTreeException(repo.Role);
         }
     }
 
@@ -96,27 +100,5 @@ public sealed partial class GitEngine
         }
 
         return held;
-    }
-
-    // Files the game's patterns name: recorded ones (a switch would overwrite or delete them) and unrecorded ones (a switch
-    // would overwrite them). A folder that is wholly excluded comes back as one entry with a trailing slash.
-    private async Task<(HashSet<string> Files, List<string> Folders)> ListExcludedAsync(RepoRef repo, CancellationToken ct)
-    {
-        var result = await RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z", "-c", "-o", "-i", "--directory", ExcludeFromArgument(repo)), ct).ConfigureAwait(false);
-        var files = new HashSet<string>(StringComparer.Ordinal);
-        var folders = new List<string>();
-        foreach (var entry in result.SplitStandardOutputOnNul())
-        {
-            if (entry.EndsWith('/'))
-            {
-                folders.Add(entry);
-            }
-            else
-            {
-                files.Add(entry);
-            }
-        }
-
-        return (files, folders);
     }
 }

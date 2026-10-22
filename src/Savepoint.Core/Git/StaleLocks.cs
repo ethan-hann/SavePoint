@@ -3,7 +3,7 @@ namespace Savepoint.Core.Git;
 // The lock files git leaves in its directory when its process is killed between taking a lock and releasing it.
 internal static class StaleLocks
 {
-    private static readonly string[] _topLevel = ["index.lock", "HEAD.lock", "packed-refs.lock", "config.lock", "shallow.lock"];
+    private static readonly string[] _topLevel = ["index.lock", "HEAD.lock", "packed-refs.lock", "config.lock", "shallow.lock", "savepoint-classify.index", "savepoint-classify.index.lock"];
 
     public static string IndexLock(string gitDir) => Path.Combine(gitDir, "index.lock");
 
