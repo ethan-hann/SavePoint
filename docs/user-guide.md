@@ -138,7 +138,7 @@ Default locations, until you move them:
 
 Every failure says what happened and what you can do; **Show details** gives the technical text. Common cases:
 
-- **A file is in use.** A switch or a save stopped because another program held a file. Close that program, usually the game or its launcher, and try again. A retry picks up where it stopped.
+- **A file is in use.** A switch or a save stopped because another program held a file, or a switch didn't start because SavePoint found the file in use first. Close that program, usually the game or its launcher, and try again. A retry picks up where it stopped.
 - **SavePoint can't read a file.** A file in a game folder can't be opened, usually because it belongs to another account or is marked private, so SavePoint can't tell whether it changed. Closing programs doesn't help: make the file readable for your account, or remove it, then try again.
 - **Half of that save worked.** One folder saved and the other didn't. Fix the reason shown and retry just that part. Nothing already saved is affected.
 - **The last switch didn't finish.** The folder holds files from two points. Switch again to finish it, or discard the changes to bring the folder back to a saved point.

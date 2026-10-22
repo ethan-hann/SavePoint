@@ -291,6 +291,7 @@ v1's plan keeps each error's English message as dev-facing detail "for logs and 
   - The Serilog sink is unbuffered, so every line reaches the disk at once.
   - On a crash, a second crash while the last window is up is only logged, and a crash with no responsive UI thread gives up on the window after 5 seconds. The exit code is 1.
   - The startup screen for a backend that failed to start names the log folder and opens it.
+  - From the final review (D41): the start-up line names the commit the package was built from; a failed artwork lookup is a warning; successful discards and deletes are logged; on a crash, running jobs are asked to stop before the last window shows.
 
 ## D35. The "only the save changes" switch belongs to the check before playing
 

@@ -46,12 +46,13 @@ To use a bundle from another place, set `SAVEPOINT_GIT_ROOT` to its folder. Pick
 The version lives in one place: `<Version>` in `Directory.Build.props`. Packages are built with Velopack (D33), whose `vpk` CLI is a local tool, so run `dotnet tool restore` once.
 
 ```bash
-pwsh -NoProfile -File build/package.ps1 -Sources
+pwsh -NoProfile -File build/package.ps1
 ```
 
-- **Windows:** `build/package.ps1` publishes a self-contained `win-x64` build to `artifacts/publish/win-x64`. It checks that `git/`, `THIRD-PARTY-NOTICES.md`, and `licenses/` are there, then packs `SavePoint-win-Setup.exe` and `SavePoint-win-Portable.zip` into `artifacts/release/win-x64`.
+- **Windows:** `build/package.ps1` publishes a self-contained `win-x64` build to `artifacts/publish/win-x64`. It checks that `git/`, `THIRD-PARTY-NOTICES.md`, and `licenses/` are there, then packs `SavePoint-win-Setup.exe` and `SavePoint-win-Portable.zip` into `artifacts/release/win-x64`. It opens each package afterwards, checks that the app, the git bundle, and the notices are inside, and writes the listing to `artifacts/release/contents-win-x64/`.
 - **Linux:** `build/package.sh` does the same for `linux-x64` and gives `SavePoint.AppImage`. Run it on Linux, or under WSL, from a tree that only Linux builds use, because the build outputs are not shared between the two platforms. Without a matching `dotnet` on `PATH`, it installs a .NET SDK into `<tree>/.tools/dotnet-linux`.
-- **Source archives:** `-Sources` (or `--sources`) also downloads the source archives of the bundled git's tags into `artifacts/release/source/` and prints their SHA-256.
+- **Which build this is:** every package of one version has the same number, so the scripts put the commit into the informational version, and the startup log names it. A tree with uncommitted changes is refused; `-AllowDirty` (`--allow-dirty`) packs it anyway, marked `-dirty`, for a trial package.
+- **Source archives:** `-Sources` (or `--sources`) also downloads the source archives of the tags `build/git-manifest.json` pins into `artifacts/release/source/`, prints their SHA-256, and compares each with the hash the manifest pins. The three hashes are empty until the first such run; until they are pinned, a `-Sources` run fails after printing them.
 - **macOS:** no package is built, since that needs a Mac and signing.
 - **No update checks:** the packages do not check for updates. A newer release installs over an older one when you run its setup.
 
@@ -111,8 +112,8 @@ A change is done when the gate passes.
   - run every test;
   - check formatting with `dotnet format --verify-no-changes`.
   
-  They run at below-normal priority. They cap MSBuild at 4 nodes with no node reuse and tests at one module at a time on 4 threads. Override the caps with `SAVEPOINT_GATE_BUILD_NODES` and `SAVEPOINT_GATE_TEST_THREADS`. Pass extra test arguments, such as a report, in `SAVEPOINT_TEST_ARGS`.
-- **`build/gate-linux.ps1`** runs the Linux gate from Windows under WSL (the `Ubuntu` distribution by default). It works from its own worktree, `.linux-gate`, so Linux and Windows build outputs never mix, and it keeps a Linux .NET SDK and NuGet caches under `.tools/`. The worktree lives on the Windows drive, which WSL mounts over 9p, and that mount can briefly hide a file that was just renamed into place. So the Linux gate retries a failed test up to twice and lists every retry (D27). The Windows gate never retries. The App tests load the Linux Skia build that needs no fontconfig, so the gate needs nothing installed in the distribution. Tests of what the 9p mount cannot do (Unix sockets, permission changes, case-sensitive names) probe for it and skip, so about 100 tests skip on Linux against 25 on Windows.
+  They run at below-normal priority. They cap MSBuild at 4 nodes with no node reuse and tests at one module at a time on 4 threads. Override the caps with `SAVEPOINT_GATE_BUILD_NODES` and `SAVEPOINT_GATE_TEST_THREADS`. Pass extra test arguments, such as a report, in `SAVEPOINT_TEST_ARGS`; the gate prints them. A filter there would run only some tests, so the gate refuses one unless `-AllowNarrowedTests` (`--allow-narrowed-tests`) says it is on purpose, and then reports the pass as narrowed.
+- **`build/gate-linux.ps1`** runs the Linux gate from Windows under WSL (the `Ubuntu` distribution by default). It works from its own worktree, `.linux-gate`, so Linux and Windows build outputs never mix, and it keeps a Linux .NET SDK and NuGet caches under `.tools/`. The worktree lives on the Windows drive, which WSL mounts over 9p, and that mount can briefly hide a file that was just renamed into place. So the Linux gate retries a failed test up to twice and lists every retry (D27). The Windows gate never retries. The App tests load the Linux Skia build that needs no fontconfig, so the gate needs nothing installed in the distribution. Tests of what the 9p mount cannot do (Unix sockets, permission changes, case-sensitive names) probe for it and skip, and the gate warns at the start when permissions do not hold, so about 100 tests skip on Linux against 25 on Windows.
 - **One gate at a time.** Every gate takes a machine-wide lock (`<main checkout>/.tools/locks/gate.lock`), so gates started from different worktrees run one after another.
 - **macOS is built and unit-tested only through the shared code paths.** It has not been verified on hardware (D9).
 
