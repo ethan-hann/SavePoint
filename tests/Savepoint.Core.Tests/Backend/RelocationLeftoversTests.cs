@@ -40,6 +40,43 @@ public class RelocationLeftoversTests
     }
 
     [Fact(Timeout = 120_000)]
+    public async Task Cancelling_while_the_move_waits_for_the_exclusive_gate_after_the_last_copy_leaves_everything_as_it_was()
+    {
+        using var workspace = new BackendWorkspace();
+        var game = await workspace.AddGameAsync();
+        await workspace.CreateProfileAsync(game);
+        await workspace.WaitForIdleAsync(TimeSpan.FromSeconds(60));
+        var destination = Path.Combine(workspace.Root, "new-storage");
+
+        // A reader holds the storage, so the switch cannot start once every file is copied and checked.
+        var lease = await workspace.Backend.Services.Storage.Gate.EnterSharedAsync(workspace.Token);
+        JobSnapshot job;
+        try
+        {
+            var started = await workspace.Settings.RelocateStorageAsync(destination);
+            await WaitForEveryFileAsync(workspace, started.Value!.JobId);
+            await Task.Delay(300, workspace.Token);
+            await workspace.Jobs.CancelAsync(started.Value.JobId);
+
+            // The cancel has to end the wait by itself; the reader is let go only when it has not.
+            var finished = workspace.WaitForJobAsync(started.Value.JobId);
+            await Task.WhenAny(finished, Task.Delay(TimeSpan.FromSeconds(5), workspace.Token));
+            lease.Dispose();
+            job = await finished;
+        }
+        finally
+        {
+            lease.Dispose();
+        }
+
+        Assert.Equal(JobStatus.Cancelled, job.Status);
+        Assert.False(Directory.Exists(destination), "what was copied must be taken back");
+        Assert.Equal(workspace.DefaultStorageRoot, (await workspace.Settings.GetAsync(workspace.Token)).Value!.StorageRoot);
+        Assert.Equal(workspace.DefaultStorageRoot, (await workspace.Backend.Services.Storage.GetAsync(workspace.Token)).Root);
+        Assert.True(Directory.Exists(Path.Combine(workspace.DefaultStorageRoot, game.Id, "install.git")));
+    }
+
+    [Fact(Timeout = 120_000)]
     public async Task A_destination_an_unfinished_move_wrote_into_is_refused_with_its_own_message()
     {
         using var workspace = new BackendWorkspace();
@@ -132,6 +169,16 @@ public class RelocationLeftoversTests
         Assert.False(Directory.Exists(destination));
         Assert.Equal(workspace.DefaultStorageRoot, (await workspace.Backend.Services.Storage.GetAsync(workspace.Token)).Root);
         Assert.True(Directory.Exists(Path.Combine(workspace.DefaultStorageRoot, game.Id, "install.git")));
+    }
+
+    private static async Task WaitForEveryFileAsync(BackendWorkspace workspace, Guid jobId)
+    {
+        var until = DateTime.UtcNow + TimeSpan.FromSeconds(60);
+        while (workspace.Jobs.Get(jobId)?.Progress is not { FilesTotal: > 0 } progress || progress.FilesDone < progress.FilesTotal)
+        {
+            Assert.True(DateTime.UtcNow < until, "the move never copied every file");
+            await Task.Delay(5, workspace.Token);
+        }
     }
 
     private static async Task WaitForSwitchAsync(BackendWorkspace workspace, string destination)

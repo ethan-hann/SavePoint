@@ -352,6 +352,34 @@ public class RelocationTests
     }
 
     [Fact]
+    public async Task A_copy_that_differs_by_one_byte_and_not_in_length_is_caught_by_the_hash()
+    {
+        using var workspace = new BackendWorkspace(options => options with
+        {
+            AfterRelocationCopy = (_, destination) =>
+            {
+                if (Path.GetFileName(destination) == "HEAD")
+                {
+                    var bytes = File.ReadAllBytes(destination);
+                    bytes[5] ^= 0x01;
+                    File.WriteAllBytes(destination, bytes);
+                }
+            },
+        });
+        var game = await workspace.AddGameAsync();
+        var destination = Path.Combine(workspace.Root, "new-storage");
+
+        var started = await workspace.Settings.RelocateStorageAsync(destination);
+        var job = await workspace.WaitForJobAsync(started.Value!.JobId);
+
+        Assert.Equal(JobStatus.Failed, job.Status);
+        Assert.Equal("error.storageRelocation.copyFailed", job.Error?.MessageId);
+        Assert.False(Directory.Exists(destination));
+        Assert.Equal(workspace.DefaultStorageRoot, (await workspace.Backend.Services.Storage.GetAsync(workspace.Token)).Root);
+        Assert.True(Directory.Exists(Path.Combine(workspace.DefaultStorageRoot, game.Id, "install.git")));
+    }
+
+    [Fact]
     public async Task Cancelling_a_move_leaves_the_old_storage_in_use_and_the_destination_clean()
     {
         var reached = new ManualResetEventSlim();
