@@ -25,6 +25,7 @@ internal static class AppStates
         "games-banner-details",
         "games-running",
         "games-checking",
+        "games-loading",
         "games-failure-card",
         "games-delete-game",
         "games-delete-profile",
@@ -122,6 +123,11 @@ internal static class AppStates
                 // The scan never returns, so the card that says it is checking stays on screen.
                 app.Backend.Launch.PreviewGate = token => new TaskCompletionSource().Task.WaitAsync(token);
                 _ = Row(app, MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null);
+                break;
+            case "games-loading":
+                // The first read of another game never returns, so the loading panel stays on screen.
+                app.Backend.Profiles.ListGate = token => new TaskCompletionSource().Task.WaitAsync(token);
+                app.Shell.SelectGame(MockupScenario.SatisfactoryId);
                 break;
             case "games-failure-card":
                 app.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync), MockupScenario.FileInUseError);

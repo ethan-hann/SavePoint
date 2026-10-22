@@ -101,6 +101,19 @@
       <StackPanel VerticalAlignment="Top" Spacing="12">
         <ContentControl x:Name="LoadErrorHost" Content="{Binding LoadError}" IsVisible="{Binding LoadError, Converter={x:Static ObjectConverters.IsNotNull}}" />
 
+        <!-- The first read of a game's profiles: said out loud, so an empty page is never mistaken for lost profiles. -->
+        <Border x:Name="LoadingState"
+                Classes="panel"
+                Padding="24,22"
+                IsVisible="{Binding ShowLoading}"
+                AutomationProperties.Name="{loc:Loc games.profileTable.loading}"
+                AutomationProperties.LiveSetting="Polite">
+          <StackPanel Spacing="12">
+            <TextBlock Classes="card-title" Text="{loc:Loc games.profileTable.loading}" />
+            <ProgressBar IsIndeterminate="True" AutomationProperties.Name="{loc:Loc games.profileTable.loading}" />
+          </StackPanel>
+        </Border>
+
         <!-- The profile table: grid columns 1fr 108 92 118 128 with a 14px gap; the optional columns drop out as the window narrows. -->
         <Border x:Name="Table" Classes="table" IsVisible="{Binding ShowTable}" AutomationProperties.ControlTypeOverride="Table" AutomationProperties.Name="{loc:Loc games.profileTable.automationName}">
           <StackPanel>

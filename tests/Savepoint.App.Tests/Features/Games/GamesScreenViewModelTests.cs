@@ -46,6 +46,67 @@ public class GamesScreenViewModelTests
         Assert.False(rig.Screen.ShowEmptyState);
     }
 
+    // Holds a read of the selected game's profiles until the test lets it go, as a status scan of a large install does.
+    private static TaskCompletionSource Hold(Action<Func<CancellationToken, Task>> set)
+    {
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        set(token => release.Task.WaitAsync(token));
+        return release;
+    }
+
+    private static async Task UntilAsync(Func<bool> condition)
+    {
+        var until = DateTime.UtcNow.AddSeconds(5);
+        while (!condition())
+        {
+            Assert.True(DateTime.UtcNow < until, "The screen never settled.");
+            await Task.Delay(5, TestContext.Current.CancellationToken);
+        }
+    }
+
+    [Fact]
+    public async Task Switching_to_a_game_says_it_is_loading_until_the_first_read_returns()
+    {
+        var rig = await GamesRig.StartAsync();
+        var release = Hold(gate => rig.Backend.Profiles.ListGate = gate);
+
+        rig.Shell.SelectGame(MockupScenario.SatisfactoryId);
+
+        Assert.True(rig.Screen.IsLoading);
+        Assert.True(rig.Screen.ShowLoading);
+        Assert.False(rig.Screen.ShowTable);
+        Assert.False(rig.Screen.ShowEmptyState);
+        Assert.Empty(rig.Screen.Profiles);
+
+        release.SetResult();
+        await UntilAsync(() => !rig.Screen.IsLoading);
+
+        Assert.False(rig.Screen.ShowLoading);
+        Assert.True(rig.Screen.ShowTable);
+    }
+
+    [Fact]
+    public async Task The_rows_show_as_soon_as_the_profile_list_arrives_and_fill_in_when_the_stats_land()
+    {
+        var rig = await GamesRig.StartAsync();
+        var release = Hold(gate => rig.Backend.Profiles.StatsGate = gate);
+
+        rig.Shell.SelectGame(MockupScenario.SatisfactoryId);
+        await UntilAsync(() => rig.Screen.Profiles.Count == 2);
+
+        Assert.True(rig.Screen.IsLoading);
+        Assert.False(rig.Screen.ShowLoading);
+        Assert.True(rig.Screen.ShowTable);
+        Assert.Equal(["Main factory - 6-1-26", "Update 1.1 test - 6-20-26"], rig.Screen.Profiles.Select(row => row.Name));
+        Assert.Equal([_dash, _dash], rig.Screen.Profiles.Select(row => row.VersionText));
+
+        release.SetResult();
+        await UntilAsync(() => !rig.Screen.IsLoading);
+
+        Assert.Equal(["1.1.0.4", "1.1.0.4"], rig.Screen.Profiles.Select(row => row.VersionText));
+        Assert.Equal([true, false], rig.Screen.Profiles.Select(row => row.IsActive));
+    }
+
     [Fact]
     public async Task Each_row_says_what_state_the_profile_is_in()
     {

@@ -46,8 +46,9 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     [ObservableProperty]
     private string _libraryTitle = string.Empty;
 
-    /// <summary>True while the profile list is being read.</summary>
+    /// <summary>True while the profile list or the row stats are being read.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowLoading))]
     private bool _isLoading;
 
     /// <summary>The card shown instead of the table when the profile list could not be read; null otherwise.</summary>
@@ -116,6 +117,9 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
 
     /// <summary>True when the profile table has rows to show.</summary>
     public bool ShowTable => HasGame && LoadError is null && Profiles.Count > 0;
+
+    /// <summary>True while the first read of a game's profiles has nothing to show yet, which is when the screen says it is loading.</summary>
+    public bool ShowLoading => HasGame && IsLoading && Profiles.Count == 0 && LoadError is null;
 
     /// <summary>True when the game has no profiles yet and the screen prompts for the first one.</summary>
     public bool ShowEmptyState => HasGame && _loaded && LoadError is null && Profiles.Count == 0;
@@ -187,6 +191,21 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         var statsTask = _deps.Profiles.GetRowStatsAsync(game.Id, cts.Token);
         var usageTask = _deps.Games.GetStorageUsageAsync(game.Id, cts.Token);
         var list = await listTask;
+        if (generation != _generation || _disposed)
+        {
+            return;
+        }
+
+        // The catalog answers at once and the status scan of both folders can take seconds, so a game's first rows show from the
+        // list alone and fill in their status, version and mod files when the stats land. A reload keeps the rows it has meanwhile.
+        if (list.Ok && Profiles.Count == 0 && list.Value.Count > 0)
+        {
+            _loaded = true;
+            LoadError = null;
+            ApplyRows(list.Value, []);
+            RaiseTableState();
+        }
+
         var stats = await statsTask;
         var usage = await usageTask;
 
@@ -342,6 +361,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     {
         OnPropertyChanged(nameof(ShowTable));
         OnPropertyChanged(nameof(ShowEmptyState));
+        OnPropertyChanged(nameof(ShowLoading));
     }
 
     private void ClearRows()

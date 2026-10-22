@@ -38,6 +38,7 @@
   "games.profileTable.edit": "Edit",
   "games.profileTable.empty": "A profile remembers this game's version, mods and saves. Capture your current setup to make the first one.",
   "games.profileTable.emptyTitle": "No profiles yet",
+  "games.profileTable.loading": "Loading your profiles…",
   "games.profileTable.moreActions": "More actions for {name}",
   "games.profileTable.noValue": "—",
   "games.profileTable.noneAutomation": "none",

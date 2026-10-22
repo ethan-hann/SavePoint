@@ -17,13 +17,31 @@ public sealed class FakeProfilesApi : IProfilesApi
 
     private FakeState State => _backend.State;
 
-    public Task<OperationResult<IReadOnlyList<Profile>>> ListAsync(string? gameId = null, CancellationToken cancellationToken = default) =>
-        _backend.Call(_api, nameof(ListAsync), [gameId], () =>
+    // A test sets these to make the reads take as long as it likes, the way a status scan of a large install does.
+    public Func<CancellationToken, Task>? ListGate { get; set; }
+
+    public Func<CancellationToken, Task>? StatsGate { get; set; }
+
+    public async Task<OperationResult<IReadOnlyList<Profile>>> ListAsync(string? gameId = null, CancellationToken cancellationToken = default)
+    {
+        if (ListGate is { } gate)
+        {
+            await gate(cancellationToken);
+        }
+
+        return await _backend.Call(_api, nameof(ListAsync), [gameId], () =>
             OperationResult.Success<IReadOnlyList<Profile>>([.. State.Profiles.Where(p => gameId is null || p.GameId == gameId)]));
+    }
 
     // Running, last played, and the override are read live, so launches and edits show without re-seeding stats.
-    public Task<OperationResult<IReadOnlyList<ProfileRowStats>>> GetRowStatsAsync(string gameId, CancellationToken cancellationToken = default) =>
-        _backend.Call(_api, nameof(GetRowStatsAsync), [gameId], () =>
+    public async Task<OperationResult<IReadOnlyList<ProfileRowStats>>> GetRowStatsAsync(string gameId, CancellationToken cancellationToken = default)
+    {
+        if (StatsGate is { } gate)
+        {
+            await gate(cancellationToken);
+        }
+
+        return await _backend.Call(_api, nameof(GetRowStatsAsync), [gameId], () =>
         {
             State.Game(gameId);
             var running = State.IsOpen(gameId) ? State.Sessions[gameId].ProfileId : null;
@@ -37,6 +55,7 @@ public sealed class FakeProfilesApi : IProfilesApi
                     }),
                 ]);
         });
+    }
 
     // The profile is listed at once and its capture job is left for the test to end.
     public Task<OperationResult<JobStarted>> CreateAsync(string gameId, string name, string? notes, string pointName) =>
