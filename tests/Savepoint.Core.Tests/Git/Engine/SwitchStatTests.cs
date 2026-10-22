@@ -62,6 +62,31 @@ public sealed class SwitchStatTests : IDisposable
         Assert.Equal(3, switching.BytesAtTarget);
     }
 
+    // A preview holds no lock on the game, so it can run while a switch classifies its own paths; the two must not share an index.
+    [Fact]
+    public async Task Two_summaries_of_one_folder_at_the_same_moment_do_not_share_their_classification_index()
+    {
+        var (repo, first, second) = await TwoPointsAsync();
+        var nestedRan = false;
+        DiffSummary? nested = null;
+        _ws.OnInvoke = invocation =>
+        {
+            // The outer summary has put its paths in its index and is about to list them when another summary of the folder runs.
+            if (!nestedRan && invocation.Arguments[0] == "ls-files" && invocation.ExtraEnvironment?.ContainsKey("GIT_INDEX_FILE") == true)
+            {
+                nestedRan = true;
+                nested = _ws.Engine.SwitchStatAsync(repo, first, second, Ct).GetAwaiter().GetResult();
+            }
+        };
+
+        var outer = await _ws.Engine.SwitchStatAsync(repo, first, second, Ct);
+        _ws.OnInvoke = null;
+
+        Assert.True(nestedRan, "the second summary never ran");
+        Assert.Equal(["a.txt", "b.txt"], outer.ChangedPaths.Order(StringComparer.Ordinal));
+        Assert.Equal(["a.txt", "b.txt"], nested!.ChangedPaths.Order(StringComparer.Ordinal));
+        Assert.Empty(Directory.EnumerateFiles(repo.GitDir, "savepoint-classify*"));
+    }
     [Fact]
     public async Task A_revision_that_does_not_exist_is_an_error_for_a_switch_summary()
     {

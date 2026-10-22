@@ -35,6 +35,23 @@ public sealed class StaleLockTests : IDisposable
     }
 
     [Fact]
+    public async Task A_classification_index_a_stopped_question_left_behind_is_removed_whatever_its_name()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        var leftovers = new[] { "savepoint-classify-0123456789abcdef.index", "savepoint-classify-0123456789abcdef.index.lock", "savepoint-classify-fedcba9876543210.index" }
+            .Select(name => Path.Combine(repo.GitDir, name))
+            .ToArray();
+        foreach (var path in leftovers)
+        {
+            await File.WriteAllTextAsync(path, string.Empty, Ct);
+        }
+
+        var removed = _ws.Engine.RemoveStaleLocks(repo.GitDir);
+
+        Assert.Equal(3, removed);
+        Assert.All(leftovers, path => Assert.False(File.Exists(path), path));
+    }
+    [Fact]
     public async Task With_no_lock_nothing_is_removed()
     {
         var repo = await _ws.InitializedRepoAsync();

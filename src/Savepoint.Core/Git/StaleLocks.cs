@@ -3,7 +3,7 @@ namespace Savepoint.Core.Git;
 // The lock files git leaves in its directory when its process is killed between taking a lock and releasing it.
 internal static class StaleLocks
 {
-    private static readonly string[] _topLevel = ["index.lock", "HEAD.lock", "packed-refs.lock", "config.lock", "shallow.lock", "savepoint-classify.index", "savepoint-classify.index.lock"];
+    private static readonly string[] _topLevel = ["index.lock", "HEAD.lock", "packed-refs.lock", "config.lock", "shallow.lock"];
 
     public static string IndexLock(string gitDir) => Path.Combine(gitDir, "index.lock");
 
@@ -53,6 +53,11 @@ internal static class StaleLocks
         foreach (var name in _topLevel)
         {
             removed += TryDelete(Path.Combine(gitDir, name)) ? 1 : 0;
+        }
+
+        foreach (var file in Directory.EnumerateFiles(gitDir, GitEngine.ClassifyIndexPrefix + "*").ToList())
+        {
+            removed += TryDelete(file) ? 1 : 0;
         }
 
         var refs = Path.Combine(gitDir, "refs");
