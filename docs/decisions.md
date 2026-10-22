@@ -266,7 +266,7 @@ The roadmap asks for an installer and a portable build per OS. v2 packages with 
   - **Outputs:**
     - Windows: `SavePoint-win-Setup.exe`, `SavePoint-win-Portable.zip`, `SavePointApp-<version>-full.nupkg` (vpk names it after the pack id, D38), and vpk's release index files.
     - Linux: `SavePoint.AppImage` and `SavePointApp-<version>-linux-full.nupkg`.
-  - **From the final review (D41):** the commit goes into the informational version (`0.9.0+<commit>`), a tree with uncommitted changes is refused unless a trial package is asked for, the source archives' hashes are pinned in `build/git-manifest.json` (empty until the first `-Sources` run), and each package's contents are listed in `artifacts/release/contents-<rid>/` and checked for the git bundle, the notices, and the license texts.
+  - **From the final review (D41):** the commit goes into the informational version (`0.9.0+<commit>`), a tree with uncommitted changes is refused unless a trial package is asked for, the source archives' hashes are pinned in `build/git-manifest.json` (empty until the first `-Sources` run; the check runs before anything is published, and a download is kept only when it matches its pin, D42), and each package's contents are listed in `artifacts/release/contents-<rid>/` and checked for the git bundle, the notices, and the license texts.
   - **Not yet covered:** the packages are unsigned, so SmartScreen warns on the setup. Releases still need to publish the MSYS2 and MINGW package sources that D21 also promises.
 
 ## D34. A local diagnostic log and a crash handler
