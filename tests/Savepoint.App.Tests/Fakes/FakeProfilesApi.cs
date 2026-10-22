@@ -89,6 +89,7 @@ public sealed class FakeProfilesApi : IProfilesApi
                 UnsavedChanges = [],
                 LastPlayedAt = null,
                 IsRunning = false,
+                SnapshotNow = SnapshotNowAvailability.NotLoaded,
             };
             return OperationResult.Success(copy);
         });

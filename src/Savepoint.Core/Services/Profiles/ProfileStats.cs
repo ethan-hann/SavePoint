@@ -40,7 +40,7 @@ internal static class ProfileStats
         var rows = new Task<ProfileRowStats>[profiles.Count];
         for (var i = 0; i < profiles.Count; i++)
         {
-            rows[i] = RowAsync(services, storage, game, profiles[i], install, installState, externalState, snapshots.GetValueOrDefault(profiles[i].Id), running, cancellationToken);
+            rows[i] = RowAsync(services, storage, game, profiles[i], install, external, installState, externalState, snapshots.GetValueOrDefault(profiles[i].Id), running, cancellationToken);
         }
 
         return await Task.WhenAll(rows).ConfigureAwait(false);
@@ -52,6 +52,7 @@ internal static class ProfileStats
         GameDefinition game,
         Profile profile,
         RepoRef install,
+        RepoRef? external,
         FolderState installState,
         FolderState? externalState,
         int snapshotCount,
@@ -78,6 +79,7 @@ internal static class ProfileStats
         var active = ownsInstall && installState.Clean && ownsExternal && (externalState?.Clean ?? true);
 
         var tip = await storage.Engine.GetBranchTipAsync(install, branch, cancellationToken).ConfigureAwait(false);
+        var snapshotNow = await SnapshotNowOfAsync(storage, branch, tip is not null, installState, external, externalState, cancellationToken).ConfigureAwait(false);
         int? modFiles = null;
         string? version = null;
         if (tip is not null)
@@ -95,7 +97,24 @@ internal static class ProfileStats
             version,
             profile.VersionOverride,
             profile.LastLaunchedAt,
-            string.Equals(running, profile.Id, StringComparison.Ordinal));
+            string.Equals(running, profile.Id, StringComparison.Ordinal),
+            snapshotNow);
+    }
+
+    // A snapshot copies what the folders hold, so it fits the loaded profile and a profile that has no snapshot yet (whose first one is that), and nothing else.
+    private static async Task<SnapshotNowAvailability> SnapshotNowOfAsync(
+        StorageSnapshot storage,
+        string branch,
+        bool installHasBranch,
+        FolderState installState,
+        RepoRef? external,
+        FolderState? externalState,
+        CancellationToken cancellationToken)
+    {
+        var externalHasBranch = external is not null && await storage.Engine.GetBranchTipAsync(external, branch, cancellationToken).ConfigureAwait(false) is not null;
+        var fits = SnapshotNowRule.Fits(installHasBranch, installState.Detached, installState.Branch, branch)
+            && (externalState is null || SnapshotNowRule.Fits(externalHasBranch, externalState.Detached, externalState.Branch, branch));
+        return !fits ? SnapshotNowAvailability.NotLoaded : installHasBranch || externalHasBranch ? SnapshotNowAvailability.Available : SnapshotNowAvailability.FirstSnapshot;
     }
 
     private static async Task<FolderState> StateOfAsync(StorageSnapshot storage, RepoRef repo, CancellationToken cancellationToken)

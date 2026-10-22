@@ -135,7 +135,7 @@ internal sealed class FakeState
         }
 
         var snapshots = History.Count(h => h.GameId == profile.GameId && h.Point.ProfileId == profile.Id);
-        return new ProfileRowStats(profile.Id, false, [], snapshots, null, null, profile.VersionOverride, profile.LastLaunchedAt, false);
+        return new ProfileRowStats(profile.Id, false, [], snapshots, null, null, profile.VersionOverride, profile.LastLaunchedAt, false, snapshots == 0 ? SnapshotNowAvailability.FirstSnapshot : SnapshotNowAvailability.NotLoaded);
     }
 
     public static IReadOnlyList<RepoRole> FoldersOf(GameDefinition game) =>

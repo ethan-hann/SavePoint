@@ -213,6 +213,13 @@ internal static class ContractScenario
         using var cancelled = new CancellationTokenSource();
         await cancelled.CancelAsync();
         story.Add("read with a cancelled token", Show(await backend.Games.ListAsync(cancelled.Token), _ => "success"));
+
+        // A snapshot copies what the folders hold, which is the profile made last; the real backend refuses one for the other profile, the fake starts it.
+        var delta = backend.NewGame("Delta");
+        await backend.Games.AddAsync(delta);
+        var first = await FinishCaptureAsync(backend, new Story(), await backend.Profiles.CreateAsync(delta.Id, "Vanilla", null, "Fresh install"), cancellationToken) ?? "missing";
+        await FinishCaptureAsync(backend, new Story(), await backend.Profiles.CreateAsync(delta.Id, "Modded", null, "With a mod"), cancellationToken);
+        story.Add("snapshot of a profile the folders do not hold", Show(await backend.Profiles.CaptureAsync(delta.Id, first, "Not mine"), _ => "started"));
     }
 
     // Ends the job a CreateAsync started and describes what it reports; the new profile's id for later steps.

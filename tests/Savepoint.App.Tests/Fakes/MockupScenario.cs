@@ -282,7 +282,7 @@ public static class MockupScenario
         string version,
         DateTimeOffset lastPlayed,
         IReadOnlyList<RepoRole>? unsaved = null) =>
-        new(id, active, unsaved ?? [], snapshots, mods, version, null, lastPlayed, false);
+        new(id, active, unsaved ?? [], snapshots, mods, version, null, lastPlayed, false, active ? SnapshotNowAvailability.Available : snapshots == 0 ? SnapshotNowAvailability.FirstSnapshot : SnapshotNowAvailability.NotLoaded);
 
     private static HistoryPoint Point(
         HistoryPointId id,

@@ -38,6 +38,7 @@
   "errorCard.title.optimizingPaused": "Freeing up space paused",
   "errorCard.title.profileActive": "This profile is loaded now",
   "errorCard.title.profileExists": "That profile already exists",
+  "errorCard.title.profileNotLoaded": "This profile isn't loaded",
   "errorCard.title.progressNotKept": "Your progress can't be kept here",
   "errorCard.title.removeFailed": "SavePoint couldn't remove something",
   "errorCard.title.storageReachable": "Your snapshot folder is there",

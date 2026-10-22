@@ -83,6 +83,12 @@ internal sealed class CaptureRunner
                             : await _services.Catalog.GetProfileAsync(profile.Id, CancellationToken.None).ConfigureAwait(false) is { } found && found.GameId == game.Id
                                 ? found
                                 : throw new ProfileNotFoundException(game.Id, profile.Id);
+                        // Checked again now that the lock is held: whatever waited for it may have switched a folder to another profile.
+                        if (!creating && plans is null)
+                        {
+                            await RequireLoadedAsync(storage, current, target, roles, capture.Id, context.CancellationToken).ConfigureAwait(false);
+                        }
+
                         var saved = await RunAsync(context, storage, current, target, pointName, roles, capture, creating, forksNewBranches || creating, plans).ConfigureAwait(false);
 
                         // Counted while the lock is held, only for a save nobody stopped (D13.17), so the job ends without waiting for the lock again.
@@ -100,6 +106,45 @@ internal sealed class CaptureRunner
 
                 return result;
             });
+
+    /// <summary>
+    /// Refuses a plain save onto a branch that a folder is not on, before either folder is written: a snapshot copies what the folders hold, which
+    /// is the loaded profile's files, so a profile the folders do not hold would be handed another profile's files. A folder the profile never saved is
+    /// fine (its first snapshot there is what the folder holds), and so is a first save that stopped before the folder moved onto its branch, which the retry finishes.
+    /// </summary>
+    /// <param name="storage">The storage snapshot the caller holds, with the game's lock when the save is about to start.</param>
+    /// <param name="game">The game.</param>
+    /// <param name="profile">The profile the snapshot is for.</param>
+    /// <param name="roles">The folders to be saved.</param>
+    /// <param name="captureId">The id of the capture event the save belongs to, which tells a retry of a stopped first save from a new one.</param>
+    /// <param name="cancellationToken">Cancels the check.</param>
+    /// <exception cref="ProfileNotLoadedException">A folder is on another profile's branch.</exception>
+    /// <exception cref="DetachedCaptureNotSupportedException">A folder is on an older snapshot.</exception>
+    public async Task RequireLoadedAsync(StorageSnapshot storage, GameDefinition game, Profile profile, IReadOnlyList<RepoRole> roles, string? captureId, CancellationToken cancellationToken)
+    {
+        foreach (var repo in GameFolders.Repos(_services, storage, game).Where(repo => roles.Contains(repo.Role)))
+        {
+            if (!await storage.Engine.BranchExistsAsync(repo, profile.BranchName, cancellationToken).ConfigureAwait(false))
+            {
+                continue;
+            }
+
+            var head = GitDirFiles.ReadHead(repo.GitDir);
+            if (SnapshotNowRule.Fits(true, head.IsDetached, head.Branch, profile.BranchName)
+                || (captureId is not null && await HoldsOnlyAsync(storage, repo, profile.BranchName, captureId, cancellationToken).ConfigureAwait(false)))
+            {
+                continue;
+            }
+
+            throw head.IsDetached ? new DetachedCaptureNotSupportedException(repo.Role) : new ProfileNotLoadedException(profile.Id, repo.Role);
+        }
+    }
+
+    /// <summary>The capture id of an earlier save of this profile that reached only some folders and could still be joined by a retry; null when there is none. Reads, takes nothing.</summary>
+    /// <param name="gameId">The game.</param>
+    /// <param name="profileId">The profile.</param>
+    public string? PendingCaptureId(string gameId, string profileId) =>
+        _partial.TryGetValue((gameId, profileId), out var partial) ? partial.Capture.Id : null;
 
     /// <summary>A new capture event: a fresh id, and now as the moment it began.</summary>
     public CaptureEvent NewEvent() => new(Guid.NewGuid().ToString("D"), _services.Time.GetUtcNow());

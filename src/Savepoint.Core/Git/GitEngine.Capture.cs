@@ -25,6 +25,7 @@ public sealed partial class GitEngine
     /// <exception cref="Savepoint.Core.Errors.LinkedFolderException">On Windows, a folder link holds files the capture would read; nothing was staged.</exception>
     /// <exception cref="Savepoint.Core.Errors.DiskSpaceException">The storage volume is below the free-space floor; nothing was written.</exception>
     /// <exception cref="Savepoint.Core.Errors.DetachedCaptureNotSupportedException">The folder is on an older point and the mode does not allow capturing there.</exception>
+    /// <exception cref="Savepoint.Core.Errors.ProfileNotLoadedException">A plain capture was asked for onto a branch while the folder is on another one; nothing was staged.</exception>
     /// <exception cref="Savepoint.Core.Errors.AmendNotAvailableException">An amend was asked for where the branch is not checked out or has no point.</exception>
     /// <exception cref="Savepoint.Core.Errors.OperationCancelledByUserException">The token was cancelled.</exception>
     /// <exception cref="Savepoint.Core.Errors.NestedRepositoryException">A folder in the game keeps its own history; nothing was staged.</exception>
@@ -352,7 +353,7 @@ public sealed partial class GitEngine
         // A repository with no commit yet starts whichever branch is asked for; otherwise the checked-out branch is the only one that can be captured.
         if (tip is not null && !string.Equals(head.Branch, request.Branch, StringComparison.Ordinal))
         {
-            throw new GitOperationException($"Cannot capture onto '{request.Branch}' while '{head.Branch}' is checked out; switch to it first.");
+            throw new ProfileNotLoadedException(request.Branch, repo.Role);
         }
 
         await StageAsync(repo, progress, ct).ConfigureAwait(false);

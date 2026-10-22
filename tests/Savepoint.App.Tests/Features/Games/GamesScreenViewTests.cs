@@ -124,7 +124,27 @@ public class GamesScreenViewTests
     }
 
     [AvaloniaFact]
-    public async Task The_row_menu_offers_a_snapshot_edit_duplicate_and_delete_for_that_row()
+    public async Task The_row_menu_of_the_loaded_profile_offers_a_snapshot_edit_duplicate_and_delete_for_that_row()
+    {
+        using var harness = await GamesViewHarness.StartAsync();
+        var more = MoreButtons(harness)[0];
+        var row = harness.Rig.Screen.Profiles[0];
+
+        more.Flyout!.ShowAt(more);
+        harness.Settle();
+
+        var items = ((MenuFlyout)more.Flyout).Items.OfType<MenuItem>().ToList();
+        Assert.Equal(["Take a snapshot now", "Take a snapshot now (load this profile first)", "Edit", "Duplicate", "Delete"], items.Select(item => item.Header));
+        Assert.Same(row.TakeSnapshotCommand, items[0].Command);
+        Assert.True(items[0].IsVisible);
+        Assert.False(items[1].IsVisible);
+        Assert.Same(row.EditCommand, items[2].Command);
+        Assert.Same(row.DuplicateCommand, items[3].Command);
+        Assert.Same(row.DeleteCommand, items[4].Command);
+    }
+
+    [AvaloniaFact]
+    public async Task The_row_menu_of_a_profile_that_is_not_loaded_shows_a_disabled_snapshot_entry_that_says_why()
     {
         using var harness = await GamesViewHarness.StartAsync();
         var more = MoreButtons(harness)[1];
@@ -134,11 +154,14 @@ public class GamesScreenViewTests
         harness.Settle();
 
         var items = ((MenuFlyout)more.Flyout).Items.OfType<MenuItem>().ToList();
-        Assert.Equal(["Take a snapshot now", "Edit", "Duplicate", "Delete"], items.Select(item => item.Header));
-        Assert.Same(row.TakeSnapshotCommand, items[0].Command);
-        Assert.Same(row.EditCommand, items[1].Command);
-        Assert.Same(row.DuplicateCommand, items[2].Command);
-        Assert.Same(row.DeleteCommand, items[3].Command);
+        Assert.False(items[0].IsVisible);
+        var blocked = items[1];
+        Assert.True(blocked.IsVisible);
+        Assert.False(blocked.IsEnabled);
+        Assert.Equal("Take a snapshot now (load this profile first)", blocked.Header);
+        Assert.Equal(row.SnapshotBlockedTip, Avalonia.Controls.ToolTip.GetTip(blocked));
+        Assert.Same(row.EditCommand, items[2].Command);
+        Assert.Same(row.DeleteCommand, items[4].Command);
     }
 
     [AvaloniaFact]
