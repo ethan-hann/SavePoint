@@ -531,6 +531,157 @@ public class JobRegistryTests
     }
 
     [Fact]
+    public async Task A_busy_games_finished_jobs_do_not_push_another_games_out_of_the_list()
+    {
+        var registry = new JobRegistry();
+        var quiet = new List<Guid>();
+        for (var i = 0; i < 2; i++)
+        {
+            quiet.Add(await FinishedJobAsync(registry, "quiet"));
+        }
+
+        var busy = new List<Guid>();
+        for (var i = 0; i < 8; i++)
+        {
+            busy.Add(await FinishedJobAsync(registry, "busy"));
+        }
+
+        var listed = registry.List().Select(j => j.JobId).ToList();
+
+        Assert.Equal(7, listed.Count);
+        Assert.Equal(quiet, listed.Where(quiet.Contains));
+        Assert.Equal(busy.Skip(3), listed.Where(busy.Contains));
+        Assert.Null(registry.Get(busy[0]));
+        Assert.NotNull(registry.Get(quiet[0]));
+    }
+
+    [Fact]
+    public async Task Each_game_keeps_its_own_five_and_they_are_listed_in_the_order_they_finished()
+    {
+        var registry = new JobRegistry();
+        var finished = new List<Guid>();
+        for (var i = 0; i < 12; i++)
+        {
+            finished.Add(await FinishedJobAsync(registry, i % 2 == 0 ? "even" : "odd"));
+        }
+
+        // The six of each game are cut to the newest five, and what is left stays in finish order.
+        Assert.Equal(finished.Skip(2), registry.List().Select(j => j.JobId));
+    }
+
+    [Fact]
+    public async Task Finished_jobs_that_span_every_game_are_kept_apart_from_each_games()
+    {
+        var registry = new JobRegistry();
+        var spanning = new List<Guid>();
+        for (var i = 0; i < 7; i++)
+        {
+            spanning.Add(await FinishedJobAsync(registry, null));
+        }
+
+        var game = await FinishedJobAsync(registry, "g");
+
+        Assert.Equal([.. spanning.Skip(2), game], registry.List().Select(j => j.JobId));
+        Assert.Null(registry.Get(spanning[1]));
+    }
+
+    private static Task<Guid> FinishedJobAsync(JobRegistry registry, string? gameId)
+    {
+        var id = registry.Start(JobKind.Capture, gameId, cancellable: true, _ => Task.FromResult<JobResult?>(null));
+        return FinishedAsync(registry, id).ContinueWith(done => done.Result.JobId, TaskScheduler.Default);
+    }
+
+    [Fact]
+    public async Task A_job_started_for_a_profile_names_it_in_every_snapshot()
+    {
+        var registry = new JobRegistry();
+        var events = new EventLog(registry);
+        var profile = new JobProfile("profile-1", "Vanilla");
+
+        var id = registry.Start(JobKind.Capture, "g", cancellable: true, _ => Task.FromResult<JobResult?>(null), profile);
+        var done = await FinishedAsync(registry, id);
+
+        Assert.Equal(profile, done.Profile);
+        Assert.All(events.For(id), snapshot => Assert.Equal(profile, snapshot.Profile));
+    }
+
+    [Fact]
+    public async Task A_job_that_works_on_no_profile_names_none()
+    {
+        var registry = new JobRegistry();
+
+        var done = await StartAndFinishAsync(registry);
+
+        Assert.Null(done.Profile);
+    }
+
+    [Fact]
+    public async Task Lines_that_fall_off_the_front_are_counted_so_a_reader_can_tell_which_lines_are_new()
+    {
+        var registry = new JobRegistry();
+        var held = new HeldJob(registry);
+        var context = await held.Context;
+        for (var i = 1; i <= 200; i++)
+        {
+            context.AddPath($"path{i}");
+        }
+
+        Assert.Equal(0, registry.Get(held.Id)!.LinesDropped);
+
+        for (var i = 201; i <= 250; i++)
+        {
+            context.AddPath($"path{i}");
+        }
+
+        var job = registry.Get(held.Id)!;
+        Assert.Equal(50, job.LinesDropped);
+        Assert.Equal(JobLine.ForPath("path51"), job.RecentLines[0]);
+        held.Finish();
+        await FinishedAsync(registry, held.Id);
+    }
+
+    [Fact]
+    public async Task A_job_that_can_no_longer_be_stopped_says_so_announces_it_and_a_cancel_is_left_alone()
+    {
+        var registry = new JobRegistry();
+        var held = new HeldJob(registry);
+        var context = await held.Context;
+        var events = await EventLog.FromNowAsync(registry);
+
+        context.NoLongerCancellable();
+        await registry.WhenDeliveredAsync();
+
+        var job = registry.Get(held.Id)!;
+        Assert.False(job.Cancellable);
+        Assert.Equal(2, job.Revision);
+        AssertSame(job, Assert.Single(events.All));
+        Assert.Equal(JobCancelOutcome.NotCancellable, registry.Cancel(held.Id));
+        Assert.False(registry.Get(held.Id)!.CancelRequested);
+        Assert.False(context.CancellationToken.IsCancellationRequested);
+        held.Finish();
+        await FinishedAsync(registry, held.Id);
+    }
+
+    [Fact]
+    public async Task Saying_a_job_can_no_longer_be_stopped_twice_or_after_it_ended_changes_nothing()
+    {
+        var registry = new JobRegistry();
+        var held = new HeldJob(registry);
+        var context = await held.Context;
+        context.NoLongerCancellable();
+        var once = registry.Get(held.Id)!.Revision;
+
+        context.NoLongerCancellable();
+        held.Finish();
+        var done = await FinishedAsync(registry, held.Id);
+        context.NoLongerCancellable();
+
+        Assert.Equal(2, once);
+        Assert.Equal(once + 1, done.Revision);
+        Assert.False(done.Cancellable);
+    }
+
+    [Fact]
     public async Task A_pruned_job_cannot_be_cancelled_and_is_reported_unknown()
     {
         var registry = new JobRegistry();

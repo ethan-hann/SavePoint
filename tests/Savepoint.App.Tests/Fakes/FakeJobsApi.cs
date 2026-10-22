@@ -60,6 +60,17 @@ public sealed class FakeJobsApi : IJobsApi
     public void ReportStep(Guid jobId, string messageId, params (string Name, object? Value)[] args) =>
         _backend.Script(() => ApplyLine(jobId, JobLine.ForStep(messageId, args)));
 
+    // The job has passed the point where stopping it would do harm, as a relocation has once its new folder is in use.
+    public void ReportNoLongerCancellable(Guid jobId) =>
+        _backend.Script(() =>
+        {
+            var job = Find(jobId);
+            if (job.Snapshot.Status == JobStatus.Running && job.Snapshot.Cancellable)
+            {
+                Update(job, s => s with { Cancellable = false });
+            }
+        });
+
     // Without a result, the job ends with what the call that started it would produce when everything works.
     public void Complete(Guid jobId, JobResult? result = null) => _backend.Script(() => Finish(jobId, result));
 
@@ -74,18 +85,20 @@ public sealed class FakeJobsApi : IJobsApi
         });
 
     // The opening lines are what the real work writes as soon as it begins, so a job's details are never empty.
-    internal Guid Start(JobKind kind, string? gameId, JobResult? defaultResult, Action<JobSnapshot>? onFinished = null, IReadOnlyList<JobLine>? opening = null)
+    internal Guid Start(JobKind kind, string? gameId, JobResult? defaultResult, Action<JobSnapshot>? onFinished = null, IReadOnlyList<JobLine>? opening = null, JobProfile? profile = null)
     {
         var id = new Guid($"00000000-0000-0000-0000-{++_sequence:D12}");
         var snapshot = new JobSnapshot(
             id,
             kind,
             gameId,
+            profile,
             JobStatus.Running,
             Cancellable: kind != JobKind.ClearData,
             CancelRequested: false,
             JobProgress.None,
             opening ?? [],
+            0,
             _backend.Clock.Now,
             FinishedAt: null,
             Result: null,
@@ -105,13 +118,7 @@ public sealed class FakeJobsApi : IJobsApi
             return;
         }
 
-        var lines = job.Snapshot.RecentLines;
-        if (progress.CurrentPath is { } path)
-        {
-            lines = Appended(lines, JobLine.ForPath(path));
-        }
-
-        Update(job, s => s with { Progress = progress, RecentLines = lines });
+        Update(job, s => (progress.CurrentPath is { } path ? WithLine(s, JobLine.ForPath(path)) : s) with { Progress = progress });
     }
 
     internal void ApplyLine(Guid jobId, JobLine line)
@@ -122,11 +129,15 @@ public sealed class FakeJobsApi : IJobsApi
             return;
         }
 
-        Update(job, s => s with { RecentLines = Appended(s.RecentLines, line) });
+        Update(job, s => WithLine(s, line));
     }
 
-    private static IReadOnlyList<JobLine> Appended(IReadOnlyList<JobLine> lines, JobLine line) =>
-        [.. lines.Skip(Math.Max(0, lines.Count + 1 - _recentLinesKept)), line];
+    // The newest 200 lines are kept, and the ones that fall off the front are counted, as the real registry does.
+    private static JobSnapshot WithLine(JobSnapshot snapshot, JobLine line)
+    {
+        var dropped = Math.Max(0, snapshot.RecentLines.Count + 1 - _recentLinesKept);
+        return snapshot with { RecentLines = [.. snapshot.RecentLines.Skip(dropped), line], LinesDropped = snapshot.LinesDropped + dropped };
+    }
 
     internal void Finish(Guid jobId, JobResult? result)
     {
@@ -207,7 +218,12 @@ public sealed class FakeJobsApi : IJobsApi
     private JobRecord Find(Guid jobId) =>
         _jobs.Find(j => j.Snapshot.JobId == jobId) ?? throw new InvalidOperationException($"The fake never started job {jobId}.");
 
-    private IEnumerable<Guid> Kept() => _finishOrder.TakeLast(_finishedKept);
+    // Each game keeps its own five most recent finished jobs, and the jobs that span every game keep five between them, as the real registry does.
+    private IEnumerable<Guid> Kept()
+    {
+        var finished = _finishOrder.Select(id => Find(id).Snapshot).ToList();
+        return finished.Where((job, index) => finished.Skip(index + 1).Count(later => later.GameId == job.GameId) < _finishedKept).Select(job => job.JobId);
+    }
 
     private sealed class JobRecord(JobSnapshot snapshot, JobResult? defaultResult, Action<JobSnapshot>? onFinished)
     {

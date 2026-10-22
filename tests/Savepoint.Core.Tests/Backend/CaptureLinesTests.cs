@@ -62,6 +62,19 @@ public class CaptureLinesTests
     }
 
     [Fact]
+    public async Task A_snapshot_names_its_profile_in_the_job_while_it_runs_and_after()
+    {
+        using var workspace = new BackendWorkspace();
+        var game = await workspace.AddGameAsync();
+        var (profile, _) = await workspace.CreateProfileAsync(game);
+
+        var started = await workspace.Profiles.CaptureAsync(game.Id, profile.Id, "Nothing changed");
+        var job = await workspace.WaitForJobAsync(started.Value!.JobId);
+
+        Assert.Equal(new JobProfile(profile.Id, "Vanilla"), job.Profile);
+    }
+
+    [Fact]
     public async Task Creating_a_profile_writes_the_same_steps_with_the_new_profiles_name()
     {
         using var workspace = new BackendWorkspace();
@@ -70,6 +83,7 @@ public class CaptureLinesTests
         var (_, job) = await workspace.CreateProfileAsync(game, "Modded 1.6");
 
         Assert.Equal(JobLine.ForStep(JobSteps.CaptureStart, ("profile", "Modded 1.6"), ("snapshot", "Modded 1.6")), Steps(job).FirstOrDefault());
+        Assert.Equal("Modded 1.6", job.Profile?.Name);
         Assert.Contains(Steps(job), step => step.MessageId == JobSteps.CaptureFolder && Equals(step.Args["folder"], "install"));
     }
 }

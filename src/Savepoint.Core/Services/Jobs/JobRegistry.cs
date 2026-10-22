@@ -12,7 +12,8 @@ namespace Savepoint.Core.Services.Jobs;
 /// announces every change through <see cref="JobChanged"/>.
 /// </summary>
 /// <remarks>
-/// Keeps the running jobs and the five most recently finished ones in memory; nothing is persisted. The registry takes
+/// Keeps the running jobs and, for each game, its five most recently finished ones in memory (the jobs that span every game are one more
+/// group); nothing is persisted. The registry takes
 /// no per-game lock, so jobs for one game run side by side and order their git work with <c>GameLock</c>. Thread-safe.
 /// </remarks>
 public sealed class JobRegistry : IJobsApi
@@ -28,7 +29,7 @@ public sealed class JobRegistry : IJobsApi
     private readonly IDiagnosticLog _log;
     private readonly Dictionary<Guid, Job> _byId = [];
     private readonly List<Job> _running = [];
-    private readonly Queue<Job> _finished = new();
+    private readonly List<Job> _finished = [];
 
     // How many times each subscriber has thrown for each job that is still running; the entry goes when the job ends.
     private readonly Dictionary<(Guid JobId, Delegate Handler), int> _subscriberFailures = [];
@@ -61,9 +62,10 @@ public sealed class JobRegistry : IJobsApi
     /// The work. It receives the job's context and returns the result, or null for work with none. An exception it throws
     /// ends the job as failed; one caused by the job's own cancellation ends it as cancelled.
     /// </param>
+    /// <param name="profile">The profile the job works on, named in every snapshot, or null for a job that works on no one profile.</param>
     /// <returns>The id of the new job.</returns>
     /// <exception cref="ArgumentException">A clear-data job was started as cancellable.</exception>
-    public Guid Start(JobKind kind, string? gameId, bool cancellable, Func<JobContext, Task<JobResult?>> work)
+    public Guid Start(JobKind kind, string? gameId, bool cancellable, Func<JobContext, Task<JobResult?>> work, JobProfile? profile = null)
     {
         ArgumentNullException.ThrowIfNull(work);
         if (cancellable && kind == JobKind.ClearData)
@@ -71,7 +73,7 @@ public sealed class JobRegistry : IJobsApi
             throw new ArgumentException("A clear-data job cannot be cancellable.", nameof(cancellable));
         }
 
-        var job = new Job(Guid.NewGuid(), kind, gameId, cancellable, _time.GetUtcNow());
+        var job = new Job(Guid.NewGuid(), kind, gameId, profile, cancellable, _time.GetUtcNow());
         _log.Information($"Job {job.Id} started: {kind} for {Describe(gameId)}.");
         lock (_gate)
         {
@@ -85,7 +87,7 @@ public sealed class JobRegistry : IJobsApi
         return job.Id;
     }
 
-    /// <summary>Lists the running jobs in start order, then the five most recently finished in finish order.</summary>
+    /// <summary>Lists the running jobs in start order, then the finished ones in finish order: five per game, and five that span every game.</summary>
     public IReadOnlyList<JobSnapshot> List()
     {
         lock (_gate)
@@ -94,7 +96,7 @@ public sealed class JobRegistry : IJobsApi
         }
     }
 
-    /// <summary>Looks up a running job or one of the five most recently finished.</summary>
+    /// <summary>Looks up a running job or a finished one the registry still keeps.</summary>
     /// <returns>The job's current snapshot, or null when it is unknown or has been pruned.</returns>
     public JobSnapshot? Get(Guid jobId)
     {
@@ -200,7 +202,7 @@ public sealed class JobRegistry : IJobsApi
         Exception? failure = null;
         try
         {
-            var context = new JobContext(job.Id, job.Cancellation.Token, progress => Report(job, progress, null), line => Report(job, null, line));
+            var context = new JobContext(job.Id, job.Cancellation.Token, progress => Report(job, progress, null), line => Report(job, null, line), () => MarkNotCancellable(job));
             result = await work(context).ConfigureAwait(false);
             (status, error) = JobOutcome.Judge(result);
         }
@@ -300,14 +302,41 @@ public sealed class JobRegistry : IJobsApi
             job.Revision++;
             Publish(job);
             _running.Remove(job);
-            _finished.Enqueue(job);
-            while (_finished.Count > _finishedKept)
-            {
-                _byId.Remove(_finished.Dequeue().Id);
-            }
+            _finished.Add(job);
+            PruneFinished(job.GameId);
         }
 
         job.Cancellation.Dispose();
+        ScheduleDelivery();
+    }
+
+    // The caller holds the gate. Each game keeps its own most recent finished jobs, so a busy game never pushes another's out; the jobs
+    // that span every game are kept as one more group.
+    private void PruneFinished(string? gameId)
+    {
+        var sameGame = _finished.Where(finished => finished.GameId == gameId).ToList();
+        foreach (var old in sameGame.Take(sameGame.Count - _finishedKept))
+        {
+            _finished.Remove(old);
+            _byId.Remove(old.Id);
+        }
+    }
+
+    // A job that reaches the point where stopping it would do harm says so; its snapshot then stops offering a cancel.
+    private void MarkNotCancellable(Job job)
+    {
+        lock (_gate)
+        {
+            if (job.Status != JobStatus.Running || !job.Cancellable)
+            {
+                return;
+            }
+
+            job.Cancellable = false;
+            job.Revision++;
+            Publish(job);
+        }
+
         ScheduleDelivery();
     }
 
@@ -360,6 +389,7 @@ public sealed class JobRegistry : IJobsApi
         while (job.Lines.Count > _recentLinesKept)
         {
             job.Lines.Dequeue();
+            job.LinesDropped++;
         }
     }
 
@@ -428,11 +458,13 @@ public sealed class JobRegistry : IJobsApi
             job.Id,
             job.Kind,
             job.GameId,
+            job.Profile,
             job.Status,
             job.Cancellable,
             job.CancelRequested,
             job.Progress,
             [.. job.Lines],
+            job.LinesDropped,
             job.StartedAt,
             job.FinishedAt,
             job.Result,
@@ -543,7 +575,7 @@ public sealed class JobRegistry : IJobsApi
         public ITimer? Timer { get; set; }
     }
 
-    private sealed class Job(Guid id, JobKind kind, string? gameId, bool cancellable, DateTimeOffset startedAt)
+    private sealed class Job(Guid id, JobKind kind, string? gameId, JobProfile? profile, bool cancellable, DateTimeOffset startedAt)
     {
         public Guid Id { get; } = id;
 
@@ -551,7 +583,12 @@ public sealed class JobRegistry : IJobsApi
 
         public string? GameId { get; } = gameId;
 
-        public bool Cancellable { get; } = cancellable;
+        public JobProfile? Profile { get; } = profile;
+
+        public bool Cancellable { get; set; } = cancellable;
+
+        // Lines that have fallen off the front of Lines since the job began.
+        public long LinesDropped { get; set; }
 
         public DateTimeOffset StartedAt { get; } = startedAt;
 

@@ -34,11 +34,12 @@ public sealed partial class LaunchOrchestrator
                     throw new LaunchAlreadyRunningException(gameId);
                 }
 
-                var (profileId, older) = await ResolveForSessionAsync(game, target).ConfigureAwait(false);
+                var (profile, older) = await ResolveForSessionAsync(game, target).ConfigureAwait(false);
+                var profileId = profile.Id;
 
                 // The work waits until the session exists, so its first change always finds it.
                 var sessionOpen = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-                var jobId = _services.Jobs.Start(JobKind.Launch, gameId, cancellable: true, context => RunLaunchAsync(context, gameId, target, sessionOpen.Task));
+                var jobId = _services.Jobs.Start(JobKind.Launch, gameId, cancellable: true, context => RunLaunchAsync(context, gameId, target, sessionOpen.Task), new JobProfile(profile.Id, profile.Name));
                 _book.Open(gameId, profileId, target, older, jobId);
                 opened = true;
                 sessionOpen.SetResult();
@@ -66,14 +67,14 @@ public sealed partial class LaunchOrchestrator
     }
 
     // The session names its profile and whether it starts from an older point before the job has switched anything, so both are read now.
-    private async Task<(string ProfileId, bool Older)> ResolveForSessionAsync(GameDefinition game, LaunchTarget target)
+    private async Task<(Profile Profile, bool Older)> ResolveForSessionAsync(GameDefinition game, LaunchTarget target)
     {
         var profiles = await _services.Catalog.ListProfilesAsync(game.Id).ConfigureAwait(false);
         return await _services.Storage.ReadAsync(async storage =>
         {
             var repos = GameFolders.Repos(_services, storage, game);
             var resolved = await TargetResolver.ResolveAsync(storage, repos, profiles, target, CancellationToken.None).ConfigureAwait(false);
-            return (resolved.Profile.Id, resolved.IsOlderPoint);
+            return (resolved.Profile, resolved.IsOlderPoint);
         }).ConfigureAwait(false);
     }
 

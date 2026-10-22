@@ -39,6 +39,17 @@ public class LaunchLinesTests
     }
 
     [Fact(Timeout = 180_000)]
+    public async Task A_launch_job_names_the_profile_it_starts()
+    {
+        var (rig, vanilla, _) = await LaunchRig.WithTwoProfilesAsync();
+        using var _ = rig;
+
+        var job = await rig.StartAsync(new LaunchTarget.ProfileTip(vanilla.Id));
+
+        Assert.Equal(new JobProfile(vanilla.Id, "Vanilla"), job.Profile);
+    }
+
+    [Fact(Timeout = 180_000)]
     public async Task A_folder_that_already_holds_the_profile_says_so_and_is_not_switched()
     {
         var (rig, _, modded) = await LaunchRig.WithTwoProfilesAsync();

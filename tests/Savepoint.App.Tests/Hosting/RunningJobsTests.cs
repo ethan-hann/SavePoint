@@ -91,7 +91,7 @@ public class RunningJobsTests
         {
             var cancelledAt = Interlocked.Read(ref _cancelledAt);
             var left = cancelledAt != 0 && System.Diagnostics.Stopwatch.GetElapsedTime(cancelledAt) >= unwind;
-            return new JobSnapshot(_id, JobKind.Capture, "game", left ? JobStatus.Cancelled : JobStatus.Running, true, false, JobProgress.None, [], DateTimeOffset.UnixEpoch, null, null, null, 1);
+            return new JobSnapshot(_id, JobKind.Capture, "game", null, left ? JobStatus.Cancelled : JobStatus.Running, true, false, JobProgress.None, [], 0, DateTimeOffset.UnixEpoch, null, null, null, 1);
         }
 
         public Task<OperationResult<Unit>> CancelAsync(Guid jobId)
@@ -105,7 +105,7 @@ public class RunningJobsTests
     // One running job whose cancel request never completes.
     private sealed class HangingJobs : IJobsApi
     {
-        private readonly JobSnapshot _job = new(Guid.NewGuid(), JobKind.Capture, "game", JobStatus.Running, true, false, JobProgress.None, [], DateTimeOffset.UnixEpoch, null, null, null, 1);
+        private readonly JobSnapshot _job = new(Guid.NewGuid(), JobKind.Capture, "game", null, JobStatus.Running, true, false, JobProgress.None, [], 0, DateTimeOffset.UnixEpoch, null, null, null, 1);
 
         public event EventHandler<JobSnapshot>? JobChanged
         {

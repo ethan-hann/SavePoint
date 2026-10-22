@@ -139,7 +139,7 @@ public sealed class FakeProfilesApi : IProfilesApi
     private JobStarted StartCapture(GameDefinition game, Profile profile, string pointName, IEnumerable<RepoRole> folders)
     {
         var saved = new CaptureResult(profile.Id, State.NewPointId(), [.. folders.Select(r => new FolderOutcome(r))]);
-        return new JobStarted(_backend.Jobs.Start(JobKind.Capture, game.Id, saved, opening: [JobLine.ForStep(JobSteps.CaptureStart, ("profile", profile.Name), ("snapshot", pointName))]));
+        return new JobStarted(_backend.Jobs.Start(JobKind.Capture, game.Id, saved, opening: [JobLine.ForStep(JobSteps.CaptureStart, ("profile", profile.Name), ("snapshot", pointName))], profile: new JobProfile(profile.Id, profile.Name)));
     }
 
     // A running game blocks every destructive step (D13.5); the active profile cannot go either.

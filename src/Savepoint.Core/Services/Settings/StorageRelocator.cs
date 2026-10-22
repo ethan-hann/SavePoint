@@ -198,6 +198,9 @@ internal sealed class StorageRelocator
             _services.Storage.Replace(moved);
             _services.Log.Information($"Storage move: now using {moved.Root}.");
             context.AddStep(JobSteps.RelocateSwitched, ("path", moved.Root));
+
+            // The new folder is in use, so a stop from here on could only leave two folders half in use.
+            context.NoLongerCancellable();
             result = new StorageRelocationResult(storage.Root, moved.Root, progress.BytesDone, []);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)

@@ -1,4 +1,5 @@
 using Savepoint.Core.Api;
+using Savepoint.Core.Tests.Git.Engine;
 
 namespace Savepoint.Core.Tests.Backend;
 
@@ -47,6 +48,39 @@ public class RelocationLinesTests
         Assert.Equal(JobStatus.Partial, job.Status);
         Assert.Contains(JobLine.ForStep(JobSteps.RelocateNotRemoved, ("path", foreign)), Steps(job));
         Assert.DoesNotContain(JobLine.ForPath(foreign), job.RecentLines);
+    }
+
+    [Fact(Timeout = 120_000)]
+    public async Task A_move_that_has_switched_over_stops_offering_a_cancel_and_ignores_one()
+    {
+        using var workspace = new BackendWorkspace();
+        HeldFiles.SkipUnlessPermissionsHold(workspace.Root);
+        var game = await workspace.AddGameAsync();
+        await workspace.CreateProfileAsync(game);
+        await workspace.WaitForIdleAsync(TimeSpan.FromSeconds(60));
+        var held = Path.Combine(workspace.DefaultStorageRoot, game.Id, "install.git", "HEAD");
+        var destination = Path.Combine(workspace.Root, "new-storage");
+
+        // The removal of the old copy waits on a file nobody can delete, which leaves time to look at the job.
+        JobSnapshot job;
+        using (HeldFiles.PreventDeleting(held))
+        {
+            var started = await workspace.Settings.RelocateStorageAsync(destination);
+            Assert.True(workspace.Jobs.Get(started.Value!.JobId)!.Cancellable);
+            var until = DateTime.UtcNow + TimeSpan.FromSeconds(60);
+            while (workspace.Jobs.Get(started.Value.JobId)!.Cancellable)
+            {
+                Assert.True(DateTime.UtcNow < until, "the job never stopped offering a cancel");
+                await Task.Delay(5, workspace.Token);
+            }
+
+            await workspace.Jobs.CancelAsync(started.Value.JobId);
+            Assert.False(workspace.Jobs.Get(started.Value.JobId)!.CancelRequested);
+            job = await workspace.WaitForJobAsync(started.Value.JobId);
+        }
+
+        Assert.Equal(JobStatus.Partial, job.Status);
+        Assert.False(job.CancelRequested);
     }
 
     [Fact]

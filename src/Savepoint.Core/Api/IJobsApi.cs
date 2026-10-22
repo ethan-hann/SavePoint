@@ -16,12 +16,13 @@ public interface IJobsApi
     event EventHandler<JobSnapshot>? JobChanged;
 
     /// <summary>
-    /// The running jobs in start order, then the five most recently finished in finish order. Reads memory and cannot fail.
-    /// Subscribe to <see cref="JobChanged"/> first, then call this.
+    /// The running jobs in start order, then the finished jobs in finish order: for each game its five most recently finished, and
+    /// the five most recently finished that span every game, so a busy game never pushes another game's jobs out. Reads memory and
+    /// cannot fail. Subscribe to <see cref="JobChanged"/> first, then call this.
     /// </summary>
     IReadOnlyList<JobSnapshot> List();
 
-    /// <summary>Looks up a running job or one of the five most recently finished. Reads memory and cannot fail.</summary>
+    /// <summary>Looks up a running job or a finished one that <see cref="List"/> still holds. Reads memory and cannot fail.</summary>
     /// <param name="jobId">The id <see cref="JobStarted"/> returned.</param>
     /// <returns>The job's latest snapshot, or null when the id is unknown or the job has been pruned from the finished list.</returns>
     JobSnapshot? Get(Guid jobId);

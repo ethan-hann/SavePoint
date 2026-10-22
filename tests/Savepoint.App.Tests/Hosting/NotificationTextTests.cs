@@ -94,5 +94,5 @@ public class NotificationTextTests
     }
 
     private static JobSnapshot Job(JobKind kind, JobStatus status, string? gameId = null, JobResult? result = null, ErrorInfo? error = null) =>
-        new(Guid.NewGuid(), kind, gameId, status, true, false, JobProgress.None, [], _at, _at, result, error, 3);
+        new(Guid.NewGuid(), kind, gameId, null, status, true, false, JobProgress.None, [], 0, _at, _at, result, error, 3);
 }

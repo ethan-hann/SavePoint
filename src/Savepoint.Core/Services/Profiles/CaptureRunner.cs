@@ -99,7 +99,8 @@ internal sealed class CaptureRunner
                 }
 
                 return result;
-            });
+            },
+            new JobProfile(profile.Id, profile.Name));
 
     /// <summary>A new capture event: a fresh id, and now as the moment it began.</summary>
     public CaptureEvent NewEvent() => new(Guid.NewGuid().ToString("D"), _services.Time.GetUtcNow());

@@ -342,6 +342,103 @@ public class FakeJobsApiTests
     }
 
     [Fact]
+    public async Task Each_game_keeps_its_own_five_finished_jobs_as_the_real_registry_does()
+    {
+        var backend = FakeBackend.Mockup();
+        var quiet = new List<Guid>();
+        for (var i = 0; i < 2; i++)
+        {
+            quiet.Add(Ok(await backend.Games.OptimizeStorageAsync(CaretakerId)).JobId);
+            backend.Jobs.Complete(quiet[^1]);
+        }
+
+        var busy = new List<Guid>();
+        for (var i = 0; i < 8; i++)
+        {
+            busy.Add(Ok(await backend.Games.OptimizeStorageAsync(SkyrimId)).JobId);
+            backend.Jobs.Complete(busy[^1]);
+        }
+
+        var listed = backend.Jobs.List().Select(j => j.JobId).ToList();
+
+        Assert.Equal<Guid>([.. quiet, .. busy.Skip(3)], listed);
+        Assert.Null(backend.Jobs.Get(busy[0]));
+        Assert.NotNull(backend.Jobs.Get(quiet[0]));
+    }
+
+    [Fact]
+    public async Task Finished_jobs_that_span_every_game_are_kept_apart_from_each_games()
+    {
+        var backend = FakeBackend.Mockup();
+        var spanning = new List<Guid>();
+        for (var i = 0; i < 7; i++)
+        {
+            spanning.Add(Ok(await backend.Settings.OptimizeAllStorageAsync()).JobId);
+            backend.Jobs.Complete(spanning[^1]);
+        }
+
+        var game = Ok(await backend.Games.OptimizeStorageAsync(SkyrimId)).JobId;
+        backend.Jobs.Complete(game);
+
+        Assert.Equal<Guid>([.. spanning.Skip(2), game], backend.Jobs.List().Select(j => j.JobId));
+    }
+
+    [Fact]
+    public async Task Lines_that_fall_off_the_front_are_counted_like_the_real_registry_counts_them()
+    {
+        var backend = FakeBackend.Mockup();
+        var id = await StartCapture(backend);
+
+        // The capture's opening step plus 249 paths is 250 lines; the 50 oldest are gone.
+        for (var i = 1; i <= 249; i++)
+        {
+            backend.Jobs.ReportProgress(id, new JobProgress(FilesDone: i, CurrentPath: $"Data/file{i}.esp"));
+        }
+
+        var job = Job(backend, id);
+        Assert.Equal(200, job.RecentLines.Count);
+        Assert.Equal(50, job.LinesDropped);
+        Assert.Equal(JobLine.ForPath("Data/file50.esp"), job.RecentLines[0]);
+    }
+
+    [Fact]
+    public async Task A_snapshot_a_launch_and_the_snapshot_after_play_name_their_profile()
+    {
+        var backend = FakeBackend.Mockup();
+        var modded = Ok(await backend.Profiles.ListAsync(SkyrimId, Ct)).Single(p => p.Id == ModdedId);
+        var expected = new JobProfile(modded.Id, modded.Name);
+
+        var capture = await StartCapture(backend);
+        Ok(await backend.Launch.StartAsync(SkyrimId, new LaunchTarget.ProfileTip(ModdedId)));
+        var launch = backend.Jobs.LastStarted(JobKind.Launch);
+        backend.Launch.ReportRunning(SkyrimId);
+        backend.Launch.ReportExited(SkyrimId, TimeSpan.FromMinutes(5), newFileCount: 1);
+        Ok(await backend.Launch.CompleteSessionAsync(SkyrimId, new SessionCompletion.CaptureNew("After play")));
+        var completion = backend.Jobs.LastStarted(JobKind.Capture);
+
+        Assert.Equal(expected, Job(backend, capture).Profile);
+        Assert.Equal(expected, Job(backend, launch.JobId).Profile);
+        Assert.Equal(expected, Job(backend, completion.JobId).Profile);
+        Assert.Null(Job(backend, Ok(await backend.Games.OptimizeStorageAsync(SkyrimId)).JobId).Profile);
+    }
+
+    [Fact]
+    public async Task A_job_scripted_as_no_longer_cancellable_ignores_a_cancel_and_says_so_in_its_snapshot()
+    {
+        var backend = FakeBackend.Mockup();
+        var id = Ok(await backend.Settings.RelocateStorageAsync(@"D:\SavePoint")).JobId;
+        var events = Collect(backend);
+
+        backend.Jobs.ReportNoLongerCancellable(id);
+        var cancel = await backend.Jobs.CancelAsync(id);
+
+        Assert.True(cancel.Ok);
+        Assert.False(Job(backend, id).Cancellable);
+        Assert.False(Job(backend, id).CancelRequested);
+        Assert.Single(events);
+    }
+
+    [Fact]
     public async Task LastStarted_finds_the_newest_job_of_a_kind()
     {
         var backend = FakeBackend.Mockup();
