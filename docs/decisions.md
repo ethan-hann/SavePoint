@@ -259,6 +259,14 @@ The roadmap asks for an installer and a portable build per OS. v2 packages with 
 - **Every package holds** the app, the pruned git bundle in `git/` (copied by `build/Git.targets` on publish), `THIRD-PARTY-NOTICES.md`, and `licenses/`. Each release also publishes the source archives of the git bundles it ships (D21).
 - **No automatic update checks.** The app makes no network request the user did not ask for (D30's artwork lookup is the only one, behind its setting), and no release feed exists yet. Velopack contacts a feed only when the app calls `UpdateManager`, and v2 never does. A newer release installs over an older one by running its setup. An opt-in "check for updates" belongs to a later decision once a feed exists.
 - **Versions:** one `Version` property in `Directory.Build.props` (semver, pre-release until the owner calls it 1.0) feeds the assembly versions, the About section, and `vpk pack --packVersion`.
+- **Settled while building it:**
+  - **Version:** `0.9.0`.
+  - **Startup order:** `VelopackApp.Build().Run()` is literally the first statement of `Main`, because vpk checks for it there and warns about a wrapper. A test reads `Main`'s IL to pin the order.
+  - **vpk flags:** `--shortcuts StartMenuRoot` (no desktop shortcut), `--skip-updates`, and an `--exclude` that drops `.pdb` files and the two XML doc files.
+  - **Outputs:**
+    - Windows: `SavePoint-win-Setup.exe`, `SavePoint-win-Portable.zip`, `SavePoint-<version>-full.nupkg`, and vpk's release index files.
+    - Linux: `SavePoint.AppImage` and `SavePoint-<version>-linux-full.nupkg`.
+  - **Not yet covered:** the packages are unsigned, so SmartScreen warns on the setup. Releases still need to publish the MSYS2 and MINGW package sources that D21 also promises.
 
 ## D34. A local diagnostic log and a crash handler
 
