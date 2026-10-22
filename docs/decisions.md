@@ -137,7 +137,7 @@ On launch, before any screen: verify the bundled git (`git --version`); failure 
 
 ## D20. Translator workflow
 
-The v1 FormatJS extraction step becomes two tests plus a short guide: every key referenced from XAML or C# exists in `en.json`, `en.json` has no unreferenced keys, and every additional catalog (`<locale>.json`) has exactly the same keys with ICU arguments that match English. Adding a language is dropping a file next to `en.json`; the locale list in Settings is driven by the files present.
+The v1 FormatJS extraction step becomes two tests plus a short guide: every key referenced from XAML or C# exists in `en.json`, `en.json` has no unreferenced keys, and every additional catalog (`<locale>.json`) has exactly the same keys with ICU arguments that match English. Adding a language is dropping a file next to `en.json`; the locale list in Settings is driven by the files present. (Refined by D39: catalogs are embedded at build time, so a language is added to the source tree and ships in a new build, and Settings shows no list until a second catalog exists.)
 
 ## D21. Licensing of the bundled git
 
@@ -354,6 +354,16 @@ The final gap analysis (`.tools/reviews/gap-final.md`, GAP-001 to GAP-027) is se
   - re-rendering 2a-2l and 3a-3c, reviewed against the mockups (GAP-007).
 - **Left to the owner (GAP-004, GAP-006, GAP-008):** the manual dogfood run, code signing, the MSYS2 and MINGW source archives, and SavePoint's own license.
 - **The final code review (GAP-005)** runs after the polish pass, over everything since the backend review.
+
+## D40. Mockup differences left after the final renders
+
+The final renders (2a-2l, 3a-3c) were compared with the v1 screenshots after the polish pass. Differences already covered by a decision (D19, D23, D30, D36, the accessibility review) stand. These had none, and are settled as follows:
+
+- **History groups say "Last 7 days", not "This week" (2j).** "This week" leaves open whether the week starts on Sunday, Monday, or seven days ago, and the grouping is the last seven days.
+- **Quiet text uses the `SubtleText` role at tone 40 (light) and 70 (dark), not `outline` (the token table).** `outline` fails WCAG AA contrast for body-size text on the surface colors; the role keeps the mockup's lighter look at a contrast that passes.
+- **The saves folder preview shows the full resolved path (2f).** A shortened path can hide which of two similar folders was chosen, and the editor is where that mistake would be caught.
+- **The "Try something like..." suggestion on a refused folder sits in the error's paragraph (2l),** not on a colored line of its own under the path, so it reads as part of the error it belongs to.
+- **The launch banner (2a) moves to the bottom of the pane, as the mockup draws it,** pinned above the storage footer rather than scrolling under the table.
 
 ## D8. "Clear all data" is a v2 requirement
 

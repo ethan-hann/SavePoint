@@ -68,7 +68,6 @@ There is no remote and no issue tracker, so open follow-ups live here.
 - Packaging follow-ups:
   - code signing, so SmartScreen does not warn;
   - publish the MSYS2 and MINGW package sources D21 promises;
-  - give the "already running" window the app icon;
   - use the `.ico` for the Windows title bar instead of the downscaled 256 PNG;
   - consider the filled bookmark glyph for icon sizes up to 32 px, where the outline is soft;
   - the in-app mark centers the glyph by its em box, so it sits about 2 px low against the icon.

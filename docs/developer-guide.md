@@ -91,7 +91,10 @@ Other filters are `--filter-namespace` and `--filter-method`. Add `--report-xuni
   - keys are literal strings;
   - no XAML text is hard-coded;
   - extra locales match English;
-  - the copy never says "commit", "branch", "checkout", "repo", or "HEAD".
+  - the copy never says "commit", "branch", "checkout", "repo", or "HEAD";
+  - an aside takes an em dash, never a spaced hyphen;
+  - a helper line ends with a period;
+  - spelling is American (the `*.defaultName` keys are exempt, because they become the names people give their profiles).
 
 ### Process starts are expensive
 

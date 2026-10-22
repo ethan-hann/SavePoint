@@ -64,6 +64,8 @@ Each row has **Play**, plus **Edit** (name, notes, version), **Duplicate**, and 
 - **Duplicate** starts a new profile with the same game version and mods and a fresh save history.
 - **Delete** warns you when the profile holds points no other profile has. Those points are lost for good. Their space is freed soon after, when SavePoint optimizes storage.
 
+With a row selected from the keyboard, Enter starts Play.
+
 ## Playing
 
 Press **Play** on a profile, or **Go back to this** on a point in History. SavePoint first shows exactly what it will change:
@@ -75,7 +77,7 @@ Press **Play** on a profile, or **Go back to this** on a point in History. SaveP
   - **Keep as a new profile**, when they don't belong to any profile, so nothing is lost.
   - **Discard them**, permanently, after a second confirmation that names the folder and counts the files it removes and puts back.
 
-**Switch and play** puts the files in place, shows the progress, and starts the game. While the game runs, SavePoint shows a running card. If SavePoint cannot tell when you stop (some launchers hide the game), press **I'm done playing**.
+**Switch and play** puts the files in place, shows how much it has written and roughly how long is left, and starts the game. While the game runs, SavePoint shows a running card. If SavePoint cannot tell when you stop (some launchers hide the game), press **I'm done playing**.
 
 ### When you finish
 
