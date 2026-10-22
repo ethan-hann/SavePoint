@@ -26,27 +26,53 @@
     <Style Selector="Border.table-row">
       <Setter Property="Focusable" Value="True" />
     </Style>
+
+    <!-- A header too narrow for the game's name and the buttons' words keeps the icons: the names stay on the buttons and appear as tooltips. -->
+    <Style Selector="Button.header-action">
+      <Setter Property="Margin" Value="0,0,12,0" />
+      <Setter Property="Padding" Value="14,8" />
+      <Setter Property="FontSize" Value="13" />
+    </Style>
+    <Style Selector="Grid.compact Button.header-action">
+      <Setter Property="Margin" Value="0,0,8,0" />
+      <Setter Property="Padding" Value="10,8" />
+    </Style>
+    <Style Selector="Grid.compact Button.header-action TextBlock.header-words">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="Grid.compact TextBlock.toggle-words">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="Grid.compact Button#EditGameButton, Grid.compact Button#LibraryEditGameButton">
+      <Setter Property="ToolTip.Tip" Value="{loc:Loc games.header.editGame}" />
+    </Style>
+    <Style Selector="Grid.compact Button#NewProfileButton, Grid.compact Button#LibraryNewProfileButton">
+      <Setter Property="ToolTip.Tip" Value="{loc:Loc games.header.newProfile}" />
+    </Style>
+    <Style Selector="Grid.compact ListBox#Toggle ListBoxItem" x:DataType="shell:LayoutOption">
+      <Setter Property="ToolTip.Tip" Value="{Binding Label}" />
+    </Style>
   </UserControl.Styles>
 
   <Grid x:Name="Root" RowDefinitions="Auto,Auto,*" Margin="22,20,22,20">
 
     <!-- Header, sidebar layout: art tile, name and install path, then the buttons and the layout toggle. -->
-    <Grid x:Name="SidebarHeader" Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" IsVisible="{Binding IsSidebarLayout}">
+    <Grid x:Name="SidebarHeader" Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" IsVisible="{Binding IsSidebarLayout}" Classes.compact="{Binding Header.IsCompact}">
       <art:ArtTile Size="40" GameName="{Binding GameName}" Art="{Binding Art}" VerticalAlignment="Center" Margin="0,0,12,0" />
       <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0">
         <TextBlock x:Name="GameNameText" Classes="dialog-title" TextTrimming="CharacterEllipsis" Text="{Binding GameName}" />
         <TextBlock x:Name="InstallPathText" Classes="mono small subtle" TextTrimming="CharacterEllipsis" Text="{Binding InstallPath}" />
       </StackPanel>
-      <Button x:Name="EditGameButton" Grid.Column="2" Margin="0,0,12,0" Padding="14,8" FontSize="13" IsVisible="{Binding CanEditGame}" Command="{Binding EditGameCommand}" AutomationProperties.Name="{loc:Loc games.header.editGame}">
+      <Button x:Name="EditGameButton" Grid.Column="2" Classes="header-action" IsVisible="{Binding CanEditGame}" Command="{Binding EditGameCommand}" AutomationProperties.Name="{loc:Loc games.header.editGame}">
         <StackPanel Orientation="Horizontal" Spacing="8">
           <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.Edit}" />
-          <TextBlock Text="{loc:Loc games.header.editGame}" />
+          <TextBlock Classes="header-words" Text="{loc:Loc games.header.editGame}" />
         </StackPanel>
       </Button>
-      <Button x:Name="NewProfileButton" Grid.Column="3" Margin="0,0,12,0" Padding="14,8" FontSize="13" Command="{Binding NewProfileCommand}" AutomationProperties.Name="{loc:Loc games.header.newProfile}">
+      <Button x:Name="NewProfileButton" Grid.Column="3" Classes="header-action" Command="{Binding NewProfileCommand}" AutomationProperties.Name="{loc:Loc games.header.newProfile}">
         <StackPanel Orientation="Horizontal" Spacing="8">
           <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.Add}" />
-          <TextBlock Text="{loc:Loc games.header.newProfile}" />
+          <TextBlock Classes="header-words" Text="{loc:Loc games.header.newProfile}" />
         </StackPanel>
       </Button>
       <Button x:Name="GameMenuButton" Grid.Column="4" Classes="icon" Margin="0,0,12,0" AutomationProperties.Name="{Binding GameMoreActionsName}" ToolTip.Tip="{Binding GameMoreActionsName}">
@@ -61,18 +87,18 @@
     </Grid>
 
     <!-- Header, library layout: a title and the same buttons. -->
-    <Grid x:Name="LibraryHeader" Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto" IsVisible="{Binding IsLibraryLayout}">
+    <Grid x:Name="LibraryHeader" Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto" IsVisible="{Binding IsLibraryLayout}" Classes.compact="{Binding Header.IsCompact}">
       <TextBlock x:Name="LibraryTitleText" Classes="card-title" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,12,0" Text="{Binding LibraryTitle}" />
-      <Button x:Name="LibraryEditGameButton" Grid.Column="1" Margin="0,0,12,0" Padding="14,8" FontSize="13" IsVisible="{Binding CanEditGame}" Command="{Binding EditGameCommand}" AutomationProperties.Name="{loc:Loc games.header.editGame}">
+      <Button x:Name="LibraryEditGameButton" Grid.Column="1" Classes="header-action" IsVisible="{Binding CanEditGame}" Command="{Binding EditGameCommand}" AutomationProperties.Name="{loc:Loc games.header.editGame}">
         <StackPanel Orientation="Horizontal" Spacing="8">
           <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.Edit}" />
-          <TextBlock Text="{loc:Loc games.header.editGame}" />
+          <TextBlock Classes="header-words" Text="{loc:Loc games.header.editGame}" />
         </StackPanel>
       </Button>
-      <Button x:Name="LibraryNewProfileButton" Grid.Column="2" Margin="0,0,12,0" Padding="14,8" FontSize="13" Command="{Binding NewProfileCommand}" AutomationProperties.Name="{loc:Loc games.header.newProfile}">
+      <Button x:Name="LibraryNewProfileButton" Grid.Column="2" Classes="header-action" Command="{Binding NewProfileCommand}" AutomationProperties.Name="{loc:Loc games.header.newProfile}">
         <StackPanel Orientation="Horizontal" Spacing="8">
           <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.Add}" />
-          <TextBlock Text="{loc:Loc games.header.newProfile}" />
+          <TextBlock Classes="header-words" Text="{loc:Loc games.header.newProfile}" />
         </StackPanel>
       </Button>
       <Button x:Name="LibraryGameMenuButton" Grid.Column="3" Classes="icon" AutomationProperties.Name="{Binding GameMoreActionsName}" ToolTip.Tip="{Binding GameMoreActionsName}">
@@ -200,7 +226,7 @@
             <Button x:Name="EmptyNewProfileButton" Classes="filled pill large" HorizontalAlignment="Center" Command="{Binding NewProfileCommand}" AutomationProperties.Name="{loc:Loc games.header.newProfile}">
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.Add}" />
-                <TextBlock Text="{loc:Loc games.header.newProfile}" />
+                <TextBlock Classes="header-words" Text="{loc:Loc games.header.newProfile}" />
               </StackPanel>
             </Button>
           </StackPanel>

@@ -537,6 +537,45 @@ public class GamesScreenViewModelTests
         Assert.True(rig.Screen.Columns.ShowModFiles);
     }
 
+    [Theory]
+    [InlineData(GameHeaderLayout.SidebarWordsMinWidth, false)]
+    [InlineData(GameHeaderLayout.SidebarWordsMinWidth - 1, true)]
+    [InlineData(1400, false)]
+    [InlineData(532, true)]
+    public async Task A_narrow_sidebar_header_shows_icons_so_the_name_keeps_its_room(double width, bool compact)
+    {
+        var rig = await GamesRig.StartAsync();
+
+        rig.Screen.SetHeaderWidth(width);
+
+        Assert.Equal(compact, rig.Screen.Header.IsCompact);
+    }
+
+    [Fact]
+    public async Task The_library_header_needs_less_room_than_the_sidebar_header()
+    {
+        var rig = await GamesRig.StartAsync();
+        await rig.Shell.SetLayoutAsync(ShellLayout.Library);
+
+        rig.Screen.SetHeaderWidth(GameHeaderLayout.LibraryWordsMinWidth);
+        Assert.False(rig.Screen.Header.IsCompact);
+
+        rig.Screen.SetHeaderWidth(GameHeaderLayout.LibraryWordsMinWidth - 1);
+        Assert.True(rig.Screen.Header.IsCompact);
+    }
+
+    [Fact]
+    public async Task Switching_layout_judges_the_same_width_again()
+    {
+        var rig = await GamesRig.StartAsync();
+        rig.Screen.SetHeaderWidth(700);
+        Assert.True(rig.Screen.Header.IsCompact);
+
+        await rig.Shell.SetLayoutAsync(ShellLayout.Library);
+
+        Assert.False(rig.Screen.Header.IsCompact);
+    }
+
     // ---- Header
 
     [Fact]

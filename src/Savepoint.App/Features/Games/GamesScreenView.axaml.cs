@@ -14,6 +14,7 @@ public partial class GamesScreenView : UserControl
     {
         InitializeComponent();
         Table.SizeChanged += OnTableSizeChanged;
+        Root.SizeChanged += OnRootSizeChanged;
     }
 
     /// <inheritdoc />
@@ -32,9 +33,20 @@ public partial class GamesScreenView : UserControl
         }
 
         Feed(Table.Bounds.Width);
+        FeedHeader(Root.Bounds.Width);
     }
 
     private void OnTableSizeChanged(object? sender, SizeChangedEventArgs e) => Feed(e.NewSize.Width);
+
+    private void OnRootSizeChanged(object? sender, SizeChangedEventArgs e) => FeedHeader(e.NewSize.Width);
+
+    private void FeedHeader(double width)
+    {
+        if (DataContext is GamesScreenViewModel screen && width > 0)
+        {
+            screen.SetHeaderWidth(width);
+        }
+    }
 
     // The banner or card sits below the table inside the scrolling body, so one that arrives in a short window is brought into view.
     private void OnScreenChanged(object? sender, PropertyChangedEventArgs e)

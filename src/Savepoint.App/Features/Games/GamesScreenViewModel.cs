@@ -26,6 +26,9 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     private string? _shownGameId;
     private bool _loaded;
     private bool _disposed;
+
+    // Until the view reports a width there is nothing to squeeze, so the header keeps its words.
+    private double _headerWidth = double.PositiveInfinity;
     private bool _flowActive;
     private long _generation;
     private CancellationTokenSource? _loadCts;
@@ -99,6 +102,9 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
 
     /// <summary>Which optional table columns fit.</summary>
     public ProfileTableColumns Columns { get; } = new();
+
+    /// <summary>Whether the header shows its buttons' words or only their icons.</summary>
+    public GameHeaderLayout Header { get; } = new();
 
     /// <summary>The Sidebar / Library toggle shown in the sidebar layout's header.</summary>
     public LayoutToggleViewModel LayoutToggle { get; }
@@ -244,6 +250,14 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     /// <param name="width">The table's width in device-independent pixels.</param>
     public void SetTableWidth(double width) => Columns.Update(width);
 
+    /// <summary>Tells the screen how wide its header is, so the game's name keeps its room.</summary>
+    /// <param name="width">The header's width in device-independent pixels.</param>
+    public void SetHeaderWidth(double width)
+    {
+        _headerWidth = width;
+        Header.Update(width, IsSidebarLayout);
+    }
+
     /// <summary>Stops following the shell and the launch flow.</summary>
     public void Dispose()
     {
@@ -268,6 +282,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
                 _ = ReloadAsync();
                 break;
             case nameof(IShellContext.Layout):
+                Header.Update(_headerWidth, IsSidebarLayout);
                 OnPropertyChanged(nameof(IsSidebarLayout));
                 OnPropertyChanged(nameof(IsLibraryLayout));
                 OnPropertyChanged(nameof(ShowStorageFooter));
