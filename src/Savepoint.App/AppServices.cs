@@ -40,4 +40,10 @@ public sealed record AppServices(
     /// instead of offering a retry that cannot work.
     /// </summary>
     public bool BackendStarted { get; init; } = true;
+
+    /// <summary>
+    /// The folder the diagnostic log is written to (D34), for the screens that offer to open it; null when no log could be opened, or in a
+    /// test that has none.
+    /// </summary>
+    public string? LogFolder { get; init; }
 }
