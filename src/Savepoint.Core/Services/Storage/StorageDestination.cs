@@ -1,7 +1,7 @@
+using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Paths;
-using Savepoint.Core.Services.Settings;
 
 namespace Savepoint.Core.Services.Storage;
 
@@ -11,6 +11,9 @@ namespace Savepoint.Core.Services.Storage;
 /// </summary>
 internal static class StorageDestination
 {
+    /// <summary>The file a move writes in its destination before the first copy and removes when it ends; one that is found there means an earlier move did not finish.</summary>
+    internal const string MoveMarkerFileName = "savepoint-move-in-progress.txt";
+
     // Velopack's updater, which sits beside the folder the app runs from.
     private const string _updaterFileName = "Update.exe";
 
@@ -19,7 +22,7 @@ internal static class StorageDestination
     /// <param name="pathSafety">Judges paths; any snapshot's judge will do, since these rules do not depend on the storage root.</param>
     /// <param name="games">The catalog's games.</param>
     /// <param name="destination">The folder, absolute.</param>
-    public static SavepointException? Refusal(Backend.BackendServices services, PathSafety pathSafety, IReadOnlyList<GameDefinition> games, string destination)
+    public static SavepointException? Refusal(BackendServices services, PathSafety pathSafety, IReadOnlyList<GameDefinition> games, string destination)
     {
         if (InstallFolderOf(services.InstallDirectory, destination, pathSafety) is { } installFolder)
         {
@@ -38,7 +41,7 @@ internal static class StorageDestination
         }
 
         // Checked before "not empty": the files in such a folder are SavePoint's own half-finished copy, which the user can delete.
-        return File.Exists(Path.Combine(destination, StorageRelocator.MarkerFileName)) ? new StorageMoveUnfinishedException(destination) : null;
+        return File.Exists(Path.Combine(destination, MoveMarkerFileName)) ? new StorageMoveUnfinishedException(destination) : null;
     }
 
     // The installed app runs from "current" inside an install folder that also holds Update.exe, and an update or an uninstall deletes

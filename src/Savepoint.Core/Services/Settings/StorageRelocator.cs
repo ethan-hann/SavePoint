@@ -17,7 +17,7 @@ namespace Savepoint.Core.Services.Settings;
 internal sealed class StorageRelocator
 {
     /// <summary>The file a move writes in its destination before the first copy and removes when it ends; one that is found there means an earlier move did not finish.</summary>
-    internal const string MarkerFileName = "savepoint-move-in-progress.txt";
+    internal const string MarkerFileName = StorageDestination.MoveMarkerFileName;
 
     private const int _bufferSize = 1024 * 1024;
     private const long _progressInterval = 16L * 1024 * 1024;

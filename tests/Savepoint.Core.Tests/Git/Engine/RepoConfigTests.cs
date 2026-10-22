@@ -20,7 +20,7 @@ public sealed class RepoConfigTests : IDisposable
         { "core.autocrlf", "false" },
         { "core.bigfilethreshold", "128m" },
         { "core.logallrefupdates", "false" },
-        { "savepoint.repoconfigversion", "3" },
+        { "savepoint.repoconfigversion", "4" },
     };
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -119,7 +119,7 @@ public sealed class RepoConfigTests : IDisposable
 
         await _ws.Engine.InitAsync(repo, ct: Ct);
 
-        Assert.Equal("3", await _ws.ConfigAsync(repo, "savepoint.repoConfigVersion"));
+        Assert.Equal("4", await _ws.ConfigAsync(repo, "savepoint.repoConfigVersion"));
         Assert.Equal("true", await _ws.ConfigAsync(repo, "core.untrackedCache"));
         Assert.Equal("false", await _ws.ConfigAsync(repo, "maintenance.auto"));
     }
@@ -224,6 +224,6 @@ public sealed class RepoConfigTests : IDisposable
         await _ws.Engine.InitAsync(repo, ct: Ct);
 
         Assert.Equal("128m", await _ws.ConfigAsync(repo, "core.bigFileThreshold"));
-        Assert.Equal("3", await _ws.ConfigAsync(repo, "savepoint.repoConfigVersion"));
+        Assert.Equal("4", await _ws.ConfigAsync(repo, "savepoint.repoConfigVersion"));
     }
 }
