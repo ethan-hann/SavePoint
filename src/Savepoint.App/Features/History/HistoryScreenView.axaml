@@ -147,8 +147,10 @@
       </Grid>
     </Border>
 
-    <!-- The answer to "What's a snapshot?" opens here, under the header, over a full line. -->
-    <help:HelpAnswerView DockPanel.Dock="Top" Margin="22,12,22,0" DataContext="{Binding SnapshotHelp}" />
+    <!-- The answer to "What's a snapshot?" opens here, under the header, over a full line. The margin sits on a wrapper that hides with the answer, so a closed answer takes no room. -->
+    <Panel DockPanel.Dock="Top" Margin="22,12,22,0" IsVisible="{Binding SnapshotHelp.IsOpen}">
+      <help:HelpAnswerView DataContext="{Binding SnapshotHelp}" />
+    </Panel>
 
     <!-- Footer: how much space SavePoint keeps for the game. -->
     <Border x:Name="Footer"
@@ -231,7 +233,7 @@
       </StackPanel>
     </Border>
 
-    <Panel>
+    <Panel x:Name="BodyRegion">
 
       <!-- The points: the two-column list or the cards. -->
       <Panel x:Name="PointsRegion" IsVisible="{Binding HasPoints}">

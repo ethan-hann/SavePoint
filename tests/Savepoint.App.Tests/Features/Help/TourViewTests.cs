@@ -3,8 +3,10 @@ using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Savepoint.App.Features.Common.Accessibility;
 using Savepoint.App.Features.Help;
@@ -39,6 +41,15 @@ public class TourViewTests
     private static bool CardShown(ComposedApp app) => app.All<Border>().Any(border => border.Name == "TourCard" && border.IsEffectivelyVisible);
 
     private static Rect Bounds(ComposedApp app, Visual visual) => LayoutAudit.BoundsIn(app.Window, visual);
+
+    // What a click at this point would land on. A hit test reads the last rendered frame, which a running window keeps current and a headless one
+    // only renders on a tick, so a frame is rendered first; without it the answer is whatever was laid out before the last navigation.
+    private static Visual? ClickLandsOn(ComposedApp app, Point point)
+    {
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        Dispatcher.UIThread.RunJobs();
+        return app.Window.InputHitTest(point) as Visual;
+    }
 
     private static Border FirstRow(ComposedApp app)
     {
@@ -118,9 +129,10 @@ public class TourViewTests
 
             Assert.False(card.Intersects(control), $"{step}: the card {card} covers the control {control}.");
             // A click on the control reaches the page under the tour, never the outline or the layer.
-            var hit = app.Window.InputHitTest(control.Center) as Visual;
+            var hit = ClickLandsOn(app, control.Center);
             Assert.NotNull(hit);
             Assert.False(hit.GetSelfAndVisualAncestors().OfType<TourOverlay>().Any(), $"{step}: a click on the control would land on the tour's layer ({hit.GetType().Name}).");
+            Assert.True(app.View!.IsVisualAncestorOf(hit), $"{step}: a click on the control reaches {hit.GetType().Name}, which is outside the page.");
 
             // A button, chip or nav item is itself what the click lands on; the profile's name cell is plain layout, so only the layer is ruled out there.
             if (target is Button or ToggleButton or ListBoxItem)
