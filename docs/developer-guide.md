@@ -95,7 +95,8 @@ Other filters are `--filter-namespace` and `--filter-method`. Add `--report-xuni
   - the copy never says "commit", "branch", "checkout", "repo", or "HEAD";
   - an aside takes an em dash, never a spaced hyphen;
   - a helper line ends with a period;
-  - spelling is American.
+  - spelling is American;
+  - the terms D44 retired from the player's vocabulary ("point" as SavePoint's noun, "unsaved changes", "optimize", "capture", "marker file", and the rest) never come back; the allow-list for the few legitimate uses only shrinks, and a test fails when an allowance is no longer needed.
 
   The `*.defaultName` keys are exempt from the dash rule, because they become the names people give their profiles.
 
