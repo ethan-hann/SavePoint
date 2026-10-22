@@ -30,6 +30,13 @@ public interface ILaunchFlowHost : INotifyPropertyChanged
     event EventHandler<string>? InlineContentChanged;
 
     /// <summary>
+    /// True for a save job whose outcome the flow reports itself, in a card on the Games screen. The job indicator then leaves a
+    /// failure or half a save to that card instead of saying it a second time in a toast.
+    /// </summary>
+    /// <param name="jobId">The job whose end is being reported.</param>
+    bool ShowsOutcomeOf(Guid jobId) => false;
+
+    /// <summary>
     /// Raised with the settings as stored after the flow saved a preference (the launch dialog's "don't ask again").
     /// Whoever keeps a copy of the settings, the shell, takes it to stay current. May be raised on any thread.
     /// </summary>

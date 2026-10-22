@@ -42,6 +42,21 @@ public class LaunchEndToEndTests
     }
 
     [Fact]
+    public async Task Half_a_save_after_play_is_reported_by_its_card_alone_with_no_toast_on_top_of_it()
+    {
+        using var app = await ComposedApp.StartAsync();
+        await Row(app, MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null).Soon();
+        app.Backend.Launch.ReportRunning(_skyrim, MockupScenario.RunningSince);
+        app.Backend.Launch.ReportExited(_skyrim, MockupScenario.PlayDuration, MockupScenario.NewSaveFiles);
+        await app.Dialog<PostPlayDialogViewModel>().SaveCommand.ExecuteAsync(null).Soon();
+
+        app.Backend.Jobs.Complete(app.Backend.Jobs.LastStarted(JobKind.Capture).JobId, MockupScenario.HalfSaved);
+
+        Assert.IsType<ErrorCardViewModel>(app.Games.InlineContent);
+        Assert.Empty(app.ToastTexts);
+    }
+
+    [Fact]
     public async Task A_profile_that_needs_a_switch_goes_from_the_dialog_through_the_session_to_a_saved_point_and_a_toast()
     {
         using var app = await ComposedApp.StartAsync();

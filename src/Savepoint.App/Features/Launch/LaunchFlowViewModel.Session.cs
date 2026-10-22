@@ -207,6 +207,7 @@ public sealed partial class LaunchFlowViewModel
         flow.Saving = saving;
         flow.SavingJobId = jobId;
         flow.SavingRevision = 0;
+        _followedSaves.Add(jobId);
         SetInline(flow, saving);
 
         if (_deps.Jobs.Get(jobId) is { } job)

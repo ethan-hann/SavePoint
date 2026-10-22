@@ -23,6 +23,9 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
 {
     private readonly LaunchDependencies _deps;
     private readonly Dictionary<string, GameFlow> _flows = [];
+
+    // The save jobs the flow follows to a card; read by the job indicator on the same thread the flow's events are handled on.
+    private readonly HashSet<Guid> _followedSaves = [];
     private readonly Dictionary<string, string> _gameNames = [];
     private readonly Dictionary<(string GameId, string ProfileId), string> _profileNames = [];
     private IReadOnlyCollection<string> _activeGameIds = [];
@@ -54,6 +57,9 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
 
     /// <summary>The ids of the games the flow currently owns a session for, in order. Changes raise <see cref="System.ComponentModel.INotifyPropertyChanged.PropertyChanged"/>.</summary>
     public IReadOnlyCollection<string> ActiveGameIds => _activeGameIds;
+
+    /// <inheritdoc />
+    public bool ShowsOutcomeOf(Guid jobId) => _followedSaves.Contains(jobId);
 
     /// <inheritdoc />
     public bool IsActive(string gameId) => _flows.TryGetValue(gameId, out var flow) && IsOwned(flow);

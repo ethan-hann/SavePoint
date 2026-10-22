@@ -122,6 +122,35 @@ public class JobStatusViewModelTests
     }
 
     [Fact]
+    public async Task A_failed_or_partial_save_that_a_card_already_reports_gets_no_toast_on_top_of_it()
+    {
+        var rig = new Rig();
+        var failed = await rig.StartCapture();
+        var partial = await rig.StartCapture();
+        rig.ShownElsewhere.Add(failed.JobId);
+        rig.ShownElsewhere.Add(partial.JobId);
+
+        rig.Backend.Jobs.Fail(failed.JobId, MockupScenario.SavesOutOfRoomError);
+        rig.Backend.Jobs.Complete(partial.JobId, MockupScenario.HalfSaved);
+
+        Assert.Empty(rig.Toasts.Toasts);
+    }
+
+    [Fact]
+    public async Task A_success_is_still_toasted_when_a_card_follows_the_job_and_other_jobs_keep_their_toasts()
+    {
+        var rig = new Rig();
+        var followed = await rig.StartCapture();
+        var other = await rig.StartCapture();
+        rig.ShownElsewhere.Add(followed.JobId);
+
+        rig.Backend.Jobs.Complete(followed.JobId);
+        rig.Backend.Jobs.Fail(other.JobId, MockupScenario.SavesOutOfRoomError);
+
+        Assert.Equal(["Saved Skyrim Special Edition.", "Something went wrong saving Skyrim Special Edition."], rig.Toasts.Toasts.Select(toast => toast.Text));
+    }
+
+    [Fact]
     public async Task A_cancelled_capture_is_a_plain_info_toast()
     {
         var rig = new Rig();
@@ -354,7 +383,7 @@ public class JobStatusViewModelTests
                 [MockupScenario.SatisfactoryId] = "Satisfactory",
                 [MockupScenario.CaretakerId] = "The Last Caretaker",
             };
-            Status = new JobStatusViewModel(Text, Toasts, id => KnownGames.GetValueOrDefault(id));
+            Status = new JobStatusViewModel(Text, Toasts, id => KnownGames.GetValueOrDefault(id), ShownElsewhere.Contains);
             if (wireEvents)
             {
                 Backend.Jobs.JobChanged += (_, job) => Status.Handle(job);
@@ -368,6 +397,9 @@ public class JobStatusViewModelTests
         public ToastHostViewModel Toasts { get; }
 
         public Dictionary<string, string> KnownGames { get; }
+
+        // Jobs whose outcome something else already shows.
+        public HashSet<Guid> ShownElsewhere { get; } = [];
 
         public JobStatusViewModel Status { get; }
 
