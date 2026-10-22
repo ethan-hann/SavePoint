@@ -22,6 +22,9 @@ public sealed partial class LaunchChecksDialogViewModel : DialogViewModel<bool>
     public override double DialogWidth => 520;
 
     /// <inheritdoc />
+    public override bool DismissesOnScrimClick => true;
+
+    /// <inheritdoc />
     protected override bool DismissResult => true;
 
     [RelayCommand]

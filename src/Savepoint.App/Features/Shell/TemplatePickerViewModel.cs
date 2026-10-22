@@ -46,6 +46,9 @@ public sealed partial class TemplatePickerViewModel : DialogViewModel<TemplateCh
     public override double DialogWidth => 480;
 
     /// <inheritdoc />
+    public override bool DismissesOnScrimClick => true;
+
+    /// <inheritdoc />
     protected override TemplateChoice? DismissResult => null;
 
     [RelayCommand]

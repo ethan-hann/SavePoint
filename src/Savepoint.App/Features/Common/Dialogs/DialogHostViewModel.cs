@@ -35,6 +35,15 @@ public sealed partial class DialogHostViewModel : ObservableObject
     /// <summary>Asks the dialog on top to close the way Escape would; nothing happens when none is open or it cannot be dismissed.</summary>
     public void RequestDismissCurrent() => Current?.RequestDismiss();
 
+    /// <summary>Asks the dialog on top to close because the scrim was clicked; nothing happens unless the dialog says a stray click may end it.</summary>
+    public void RequestScrimDismiss()
+    {
+        if (Current is { DismissesOnScrimClick: true } dialog)
+        {
+            dialog.RequestDismiss();
+        }
+    }
+
     private void OnDialogClosed(object? sender, EventArgs e)
     {
         var dialog = (IDialogViewModel)sender!;
