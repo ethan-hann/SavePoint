@@ -7,13 +7,13 @@ namespace Savepoint.Core.Api;
 /// <param name="Role">Which folder.</param>
 /// <param name="Path">The folder's resolved path on this machine.</param>
 /// <param name="MatchesTarget">True when the folder already holds exactly what the target asks for.</param>
-/// <param name="Dirty">True when the folder has changes that are not saved.</param>
+/// <param name="Dirty">True when the folder has changes that are not saved. A file the game's ignore list names is never a change, even one an earlier point recorded.</param>
 /// <param name="DirtyFileCount">How many files have unsaved changes; 0 when <paramref name="Dirty"/> is false, and for a half-switched folder (<paramref name="UnfinishedSwitch"/>) in which git lists no file.</param>
 /// <param name="DirtyOwnerProfileId">
 /// The profile the unsaved changes belong to. Null when the folder is not dirty and for a dirty folder no profile can claim,
 /// which is when "Keep as a new profile" applies.
 /// </param>
-/// <param name="Switch">What switching the folder would change; null when the folder already matches the target.</param>
+/// <param name="Switch">What switching the folder would change; null when the folder already matches the target, and when the launch leaves the folder as it is because the target has no point for it.</param>
 /// <param name="DirtyNewFileCount">
 /// How many of <paramref name="DirtyFileCount"/> are new files, which a discard deletes; the rest are changed or removed files,
 /// which a discard puts back. 0 when <paramref name="Dirty"/> is false.
@@ -30,8 +30,8 @@ namespace Savepoint.Core.Api;
 /// <param name="HeldBy">
 /// Set when switching the folder would stop on a file that cannot be read, which is the only thing wrong with it: the error the launch
 /// would fail with (<c>error.gitOperation.checkoutFailed</c> for a file another program holds open, <c>error.gitOperation.unreadableFile</c>
-/// for one that cannot be read), with the file in its <c>path</c> argument. A file that cannot be read is not unsaved work, so it does not
-/// make the folder <paramref name="Dirty"/>; but the folder can be both: a half-switched folder (<paramref name="UnfinishedSwitch"/>) is
+/// for one that cannot be read), with the file in its <c>path</c> argument. For a switch, a file that cannot be read is not unsaved work, so
+/// it does not make the folder <paramref name="Dirty"/> (a save cannot tell such a file from a changed one, and runs on it anyway); but the folder can be both: a half-switched folder (<paramref name="UnfinishedSwitch"/>) is
 /// dirty and can hold such a file too, and another folder of the same launch can be dirty while this one is held. When nothing is dirty
 /// or half switched, the launch asks to try again instead of offering to keep or discard anything; otherwise unsaved and
 /// half-switched folders come first, since they must be resolved whatever happens to the file. Null when no file stands in the way.

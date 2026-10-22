@@ -6,9 +6,11 @@ using Avalonia.VisualTree;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Localization;
+using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Tests.Features.EndToEnd;
 using Savepoint.App.Tests.Theme;
 using Savepoint.Core.Api;
+using Savepoint.Core.Errors;
 
 namespace Savepoint.App.Tests.Features.Shell;
 
@@ -77,5 +79,31 @@ public class StartupViewTests
         var error = app.Find<TextBlock>("StorageActionError");
 
         Assert.Equal(AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(error));
+    }
+
+    [AvaloniaFact]
+    public async Task A_refused_start_shows_the_folder_it_names_where_it_can_be_selected_and_has_it_announced()
+    {
+        const string defaultRoot = @"C:\Users\you\AppData\Local\SavePoint\Storage";
+        const string gone = @"F:\SavePoint";
+        var text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), os: "windows", timeZone: TimeZoneInfo.Utc);
+        var status = new StartupStatus(
+            new GitStatus(true, @"C:\Program Files\SavePoint\git\cmd\git.exe", "2.56.0.windows.2", null),
+            new CatalogStatus(@"C:\Users\you\AppData\Roaming\SavePoint", []),
+            new StorageStatus(false, gone, ErrorInfo.From(new StorageUnreachableException(gone, null))));
+        var backend = new FakeBackend(ScenarioBuilder.Mockup().WithDefaultStorageRoot(defaultRoot).WithStartupStatus(status).WithStorageHistoryIn(defaultRoot));
+        var startup = new StartupViewModel(backend.AppStatus, text, dialogs: new FakeDialogs().AnswerConfirm(true));
+        var view = new StartupView { DataContext = startup };
+        using var host = new ThemeHost(view, width: 700, height: 900);
+        await startup.CheckAsync();
+
+        await startup.Card!.Actions[2].Command.ExecuteAsync();
+        Dispatcher.UIThread.RunJobs();
+
+        var selectable = view.GetVisualDescendants().OfType<SelectableTextBlock>().Where(block => block.IsEffectivelyVisible).ToList();
+        Assert.Contains(defaultRoot, selectable.Select(block => block.Text));
+        var announced = selectable.First(block => block.Text == defaultRoot).GetVisualAncestors().OfType<Control>()
+            .FirstOrDefault(ancestor => AutomationProperties.GetLiveSetting(ancestor) == AutomationLiveSetting.Polite);
+        Assert.NotNull(announced);
     }
 }

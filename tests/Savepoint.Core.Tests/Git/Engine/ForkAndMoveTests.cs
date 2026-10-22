@@ -453,12 +453,13 @@ public sealed class ForkAndMoveTests : IDisposable
     }
 
     // Makes the first ref update that git commits wait inside git, after the ref is written, until git is killed; returns the file it creates then.
-    private static string HoldGitOnceTheRefIsWritten(RepoRef repo)
+    // Git looks for hooks only in the folder it is told to use, and the workspace owns that folder, so no other test sees the hook.
+    private string HoldGitOnceTheRefIsWritten(RepoRef repo)
     {
         var signal = Path.Combine(repo.GitDir, "ref-written");
-        var hook = Path.Combine(repo.GitDir, "hooks", "reference-transaction");
-        Directory.CreateDirectory(Path.GetDirectoryName(hook)!);
+        var hook = Path.Combine(_ws.Binary.NoHooksPath, "reference-transaction");
 
+        // The signal file sits in the repository's own git directory, so the hook holds at most once per repository.
         // The count bounds the wait, so a git that is never killed still lets go of the CPU after a while.
         File.WriteAllText(
             hook,

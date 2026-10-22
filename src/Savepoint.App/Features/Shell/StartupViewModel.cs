@@ -73,6 +73,10 @@ public sealed partial class StartupViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(HasStorageActionError))]
     private string? _storageActionError;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasStorageActionErrorPath))]
+    private string? _storageActionErrorPath;
+
     /// <param name="status">The startup Api the checks run against.</param>
     /// <param name="text">Formats the screens' copy.</param>
     /// <param name="canTryAgain">False when a failed check cannot succeed on a second try, as when the backend never started.</param>
@@ -122,6 +126,9 @@ public sealed partial class StartupViewModel : ObservableObject
     /// <summary>True when <see cref="StorageActionError"/> has something to say.</summary>
     public bool HasStorageActionError => StorageActionError is not null;
 
+    /// <summary>True when <see cref="StorageActionErrorPath"/> has a folder to show under the error.</summary>
+    public bool HasStorageActionErrorPath => StorageActionErrorPath is not null;
+
     /// <summary>Opens the log folder; says so in <see cref="LogFolderError"/> when the file manager cannot be started.</summary>
     public IRelayCommand OpenLogFolderCommand => field ??= new RelayCommand(OpenLogFolder);
 
@@ -134,7 +141,7 @@ public sealed partial class StartupViewModel : ObservableObject
         CorruptFiles.Clear();
         Card = null;
         LogFolderError = null;
-        StorageActionError = null;
+        ClearStorageActionError();
 
         Phase = StartupPhase.Checking;
         var checkedStatus = await _status.CheckAsync();
@@ -255,6 +262,19 @@ public sealed partial class StartupViewModel : ObservableObject
         return new ErrorCardViewModel(error, _text, actions, supplement: _text.Message("startup.storage.choices"));
     }
 
+    // The folder an error names goes under its message, as on the error card, because the copy leaves paths out and points to it ("shown below").
+    private void ShowStorageActionError(ErrorInfo error)
+    {
+        StorageActionErrorPath = ErrorCardViewModel.PathFor(error, _text);
+        StorageActionError = _text.Message(error);
+    }
+
+    private void ClearStorageActionError()
+    {
+        StorageActionError = null;
+        StorageActionErrorPath = null;
+    }
+
     private void OpenLogFolder() =>
         LogFolderError = _logFolder is { } folder && (_revealer?.Reveal(folder) ?? false) ? null : _text.Message("startup.logFolderFailed");
 
@@ -294,7 +314,7 @@ public sealed partial class StartupViewModel : ObservableObject
     // Pointing at where the history is now changes only a setting, so it needs no confirmation; the Api checks the folder holds it.
     private async Task FindStorageFolderAsync(StorageStatus storage)
     {
-        StorageActionError = null;
+        ClearStorageActionError();
         if (await _dialogs!.PickFolderAsync(new FolderPickRequest(_text.Message("startup.storage.pickTitle"), storage.Root)) is not { } folder)
         {
             return;
@@ -303,7 +323,7 @@ public sealed partial class StartupViewModel : ObservableObject
         var used = await _status!.UseStorageFolderAsync(folder);
         if (!used.Ok)
         {
-            StorageActionError = _text.Message(used.Error);
+            ShowStorageActionError(used.Error);
             return;
         }
 
@@ -313,7 +333,7 @@ public sealed partial class StartupViewModel : ObservableObject
     // Beginning again leaves the old history behind, so it asks first and names the folder that is given up.
     private async Task StartWithEmptyStorageAsync(StorageStatus storage)
     {
-        StorageActionError = null;
+        ClearStorageActionError();
         var confirmed = await _dialogs!.ConfirmAsync(new ConfirmRequest(
             _text.Message("startup.storage.confirm.title"),
             _text.Message("startup.storage.confirm.message", ("path", storage.Root)),
@@ -327,7 +347,7 @@ public sealed partial class StartupViewModel : ObservableObject
         var started = await _status!.StartWithEmptyStorageAsync();
         if (!started.Ok)
         {
-            StorageActionError = _text.Message(started.Error);
+            ShowStorageActionError(started.Error);
             return;
         }
 

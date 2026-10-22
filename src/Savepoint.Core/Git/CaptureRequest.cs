@@ -66,12 +66,17 @@ public sealed record CaptureRequest
     /// </summary>
     public DateTimeOffset? CapturedAt { get; init; }
 
-    /// <summary>The game's ignore patterns, in gitignore syntax, one per entry. They replace the previous list on every capture.</summary>
+    /// <summary>
+    /// The game's ignore patterns, in gitignore syntax, one per entry. They replace the previous list on every capture. A file they name is
+    /// not recorded: a new one is not added, and one an earlier point holds is left out of this point and every later one, while the earlier
+    /// points keep it and the file on disk is not touched. Leaving such a file out is not itself a change that earns a point.
+    /// </summary>
     public IReadOnlyList<string> IgnorePatterns { get; init; } = [];
 
     /// <summary>
     /// The commit the playing session started from. <see cref="CaptureMode.MoveForward"/> requires it, and both it
-    /// and <see cref="CaptureMode.Fork"/> refuse unless the folder is on this commit or a descendant of it.
+    /// and <see cref="CaptureMode.Fork"/> (when it is given) refuse unless the folder is on this commit or a descendant of it. The other
+    /// modes do not look at it.
     /// </summary>
     public string? ExpectedStartCommit { get; init; }
 }

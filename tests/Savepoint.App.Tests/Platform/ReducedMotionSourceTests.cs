@@ -116,9 +116,11 @@ public class ReducedMotionSourceTests
     {
         var reader = new ScriptedReader(true);
         var source = new ReducedMotionSource(reader);
-        var context = new TrackingContext();
+        var context = new InlineContext();
         bool? announcedInContext = null;
-        source.Changed += (_, _) => announcedInContext = context.Active;
+
+        // A read that is done before the caller awaits it resumes the caller inline, without a post; the caller's context is current either way.
+        source.Changed += (_, _) => announcedInContext = SynchronizationContext.Current == context;
 
         await Task.Run(
             async () =>
@@ -278,26 +280,13 @@ public class ReducedMotionSourceTests
         }
     }
 
-    // Runs what is posted to it at once and says so, which is all a test needs to see where a continuation resumed.
-    private sealed class TrackingContext : SynchronizationContext
+    // Runs what is posted to it at once, with itself current, so a test can see which context an announcement ran under.
+    private sealed class InlineContext : SynchronizationContext
     {
-        [ThreadStatic]
-        private static bool _active;
-
-        public bool Active => _active;
-
         public override void Post(SendOrPostCallback d, object? state)
         {
-            _active = true;
-            try
-            {
-                SetSynchronizationContext(this);
-                d(state);
-            }
-            finally
-            {
-                _active = false;
-            }
+            SetSynchronizationContext(this);
+            d(state);
         }
     }
 }
