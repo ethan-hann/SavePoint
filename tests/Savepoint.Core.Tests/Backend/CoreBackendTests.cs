@@ -40,23 +40,6 @@ public class CoreBackendTests
     }
 
     [Fact]
-    public async Task Without_a_launch_component_every_launch_call_says_launching_is_unavailable()
-    {
-        using var workspace = new BackendWorkspace();
-        var launch = workspace.Backend.Launch;
-
-        var started = await launch.StartAsync("alpha", new LaunchTarget.ProfileTip("p"));
-        var preview = await launch.GetPreviewAsync("alpha", new LaunchTarget.ProfileTip("p"), workspace.Token);
-        var finished = await launch.MarkFinishedAsync("alpha");
-
-        Assert.Equal("error.launch.unavailable", started.Error?.MessageId);
-        Assert.Equal("error.launch.unavailable", preview.Error?.MessageId);
-        Assert.Equal("error.launch.unavailable", finished.Error?.MessageId);
-        Assert.Null(launch.GetSession("alpha"));
-        Assert.Empty(launch.ListSessions());
-    }
-
-    [Fact]
     public void Nothing_is_running_until_sessions_are_supplied()
     {
         using var workspace = new BackendWorkspace(options => options with { Sessions = null });

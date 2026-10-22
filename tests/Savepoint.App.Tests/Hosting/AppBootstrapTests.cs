@@ -40,16 +40,6 @@ public class AppBootstrapTests : IDisposable
         Assert.Equal("error.game.notFound", preview.Error?.MessageId);
     }
 
-    [Fact]
-    public async Task Without_a_launch_component_the_launch_api_says_launching_is_unavailable()
-    {
-        var started = AppBootstrap.Start(options => options with { Platform = HostPlatform(), Git = GitBinary.Locate(Path.Combine(_root, "gitconfig")), Launch = null });
-
-        var launched = await started.Services.Launch.MarkFinishedAsync("any");
-
-        Assert.Equal("error.launch.unavailable", launched.Error?.MessageId);
-    }
-
     public static TheoryData<Exception> StartFailures => new()
     {
         new InvalidOperationException("This account has no home directory."),

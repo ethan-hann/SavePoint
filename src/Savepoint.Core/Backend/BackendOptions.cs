@@ -5,8 +5,8 @@ using Savepoint.Core.Services.Storage;
 namespace Savepoint.Core.Backend;
 
 /// <summary>
-/// What <see cref="CoreBackend.Create"/> builds the backend from. Every member is optional: the defaults are the real machine,
-/// and tests replace the parts they need with temp folders and fakes.
+/// What <see cref="CoreBackend.Create"/> builds the backend from. Only <see cref="Launch"/> is required: every other member
+/// defaults to the real machine, and tests replace the parts they need with temp folders and fakes.
 /// </summary>
 public sealed record BackendOptions
 {
@@ -33,10 +33,10 @@ public sealed record BackendOptions
 
     /// <summary>
     /// Builds the launch component from the shared services; <see cref="Launch.Orchestration.LaunchOrchestrator.Factory"/> makes the
-    /// real one. The backend attaches the sessions it returns, and answers <see cref="CoreBackend.Launch"/> with its Api; without it
-    /// every launch call fails with <c>error.launch.unavailable</c>.
+    /// real one. The backend attaches the sessions it returns and answers <see cref="CoreBackend.Launch"/> with its Api. Every
+    /// shipped build has the orchestrator, so there is no backend without one.
     /// </summary>
-    public Func<BackendServices, LaunchComponents>? Launch { get; init; }
+    public required Func<BackendServices, LaunchComponents> Launch { get; init; }
 
     /// <summary>How many loose objects in a repository make a capture queue an optimization (D13.17); 5000 by default.</summary>
     public int LooseObjectThreshold { get; init; } = 5000;

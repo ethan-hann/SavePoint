@@ -59,15 +59,6 @@ public class BackendErrorTests
     }
 
     [Fact]
-    public void Launch_unavailable_has_its_own_message_and_no_args()
-    {
-        var info = ErrorInfo.From(new LaunchUnavailableException());
-
-        Assert.Equal("error.launch.unavailable", info.MessageId);
-        Assert.Empty(info.Args);
-    }
-
-    [Fact]
     public void An_unreachable_storage_folder_names_its_path()
     {
         var info = ErrorInfo.From(new StorageUnreachableException("/storage", new IOException("gone")));

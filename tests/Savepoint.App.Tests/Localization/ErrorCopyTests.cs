@@ -59,7 +59,6 @@ public class ErrorCopyTests
             new CatalogCorruptException("/catalog/games.json", null),
             new GitUnavailableException("/app/git/git", "dev text", null),
             new RequestCancelledException(),
-            new LaunchUnavailableException(),
             new StorageUnreachableException("/storage", null),
             new StorageRelocationFailedException("/new/storage/a.pack", "dev text", null),
             new GameNotFoundException("game-1"),

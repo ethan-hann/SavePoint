@@ -184,6 +184,7 @@ internal sealed class BackendWorkspace : IDisposable
             InstallDirectory = InstallDirectory,
             DiskSpace = Disk,
             Sessions = Sessions,
+            Launch = _ => new LaunchComponents(new UnavailableLaunchApi(), Sessions),
             LooseObjectThreshold = int.MaxValue,
             Git = Savepoint.Core.Git.GitBinary.Locate(Path.Combine(Root, "gitconfig")),
         };
