@@ -12,7 +12,7 @@ SavePoint keeps its copies in its own storage folder. When you play a profile, i
 
 ## Getting started
 
-On first start, SavePoint offers **Add your first game** or **Start from a template**. A template fills in the details of a known game; you can also open a game definition file someone exported.
+On first start, SavePoint offers **Add your first game** or **Start from a template**. A template fills in the details of a known game; you can also open a game definition file someone exported. The first-run screen also says that SavePoint downloads cover art for Steam games from Steam; you can turn that off in Settings.
 
 ### Adding a game
 
@@ -50,7 +50,7 @@ On the Games screen, **New profile** walks you through three steps:
 
 1. **Name it:** a name and optional notes.
 2. **Check:** what will be captured from each folder, and how much new space it takes. SavePoint reuses files it already has, so later profiles usually add little.
-3. **Save:** SavePoint saves the profile. A large install takes a while the first time.
+3. **Save:** **Save profile** saves it. A large install takes a while the first time.
 
 The profile table shows, for each profile:
 
@@ -62,7 +62,7 @@ The profile table shows, for each profile:
 Each row has **Play**, plus **Edit** (name, notes, version), **Duplicate**, and **Delete**:
 
 - **Duplicate** starts a new profile with the same game version and mods and a fresh save history.
-- **Delete** warns you when the profile holds points no other profile has. Those points are lost for good. Their space is freed the next time storage is optimized.
+- **Delete** warns you when the profile holds points no other profile has. Those points are lost for good. Their space is freed soon after, when SavePoint optimizes storage.
 
 ## Playing
 
@@ -94,11 +94,11 @@ If files in the game's own folder changed while you played, as an update would c
 
 To skip this question altogether, turn off **Ask whether to save the session** in Settings. SavePoint then saves nothing after you play; your progress stays on disk, and SavePoint asks about it before the next switch.
 
-The check before playing can be skipped too. When only the save would change, tick **Don't ask again when only the save changes** in that check, or use the matching switch in Settings. A change to the game version or mods always shows the check.
+The check before playing can be skipped too. When only the save would change, tick **Don't ask again when only the save changes** in that check, or turn on **Settings > Before you play > Skip the check before playing when only the save changes**. A change to the game version or mods always shows the check.
 
 ## History
 
-**History** lists every point you can go back to, newest first, grouped into this week and earlier. Each point is one of three kinds:
+**History** lists every point you can go back to, newest first, grouped into the last 7 days and earlier. Each point is one of three kinds:
 
 - **Version, mods and save**
 - **Version and mods**
@@ -115,8 +115,9 @@ Switch between the **List** and **Cards** views, and filter by profile. A point 
   - theme: light, dark, or match the system;
   - accent color: blue, violet, green, amber, or crimson;
   - layout: **Sidebar** keeps every game one click away, **Library** puts cover art up front. You can also switch layout from the Games screen.
-- **When you finish playing:** whether to ask about saving the session. The same section currently holds **Skip the confirmation when only the save changes**, which skips the check *before* playing (see Playing).
-- **Remove all SavePoint data:** removes SavePoint's saved history, settings, and game list, and takes its marker file out of each game folder. Your game folders and everything in them stay exactly as they are. You confirm by typing a word.
+- **Before you play:** whether to skip the check before playing when only the save would change. A change to the game version or mods always shows the check.
+- **When you finish playing:** whether to ask about saving the session.
+- **Remove all SavePoint data:** removes SavePoint's saved history, settings, game list, artwork, and logs (except today's open log file), and takes its marker file out of each game folder. Your game folders and everything in them stay exactly as they are. You confirm by typing a word.
 - **About:** the version, and the third-party notices.
 
 Default locations, until you move them:
@@ -141,6 +142,18 @@ Every failure says what happened and what you can do; **Show details** gives the
 
 Closing SavePoint while it removes all data or moves its storage asks first. Stopping those halfway would leave a mess.
 - **An unreadable settings file at startup.** SavePoint leaves the file as it found it. For each one, it offers to restore the last good copy or start that file empty. The unreadable file is moved aside, never deleted.
+
+### Reporting a problem
+
+SavePoint keeps a log of what it did and of every error, one file per day, with the newest 14 kept. **Settings > About > Open the log folder** shows it. When reporting a problem, send the log from the day it happened. It contains folder paths and game names from your computer, and nothing is ever sent anywhere by SavePoint itself.
+
+| | Log folder |
+| --- | --- |
+| Windows | `%LOCALAPPDATA%\SavePoint\Logs` |
+| macOS | `~/Library/Logs/SavePoint` |
+| Linux | `~/.local/state/savepoint/logs` |
+
+If SavePoint ever runs into a problem it can't recover from, it shows a last window with the details and the log folder, then closes. It doesn't carry on in an unknown state that could touch your game folders.
 
 ## What SavePoint touches
 

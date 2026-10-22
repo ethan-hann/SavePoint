@@ -1,0 +1,43 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- The indeterminate sweep loops forever, so it only runs while motion is on; under reduced motion a still, segmented bar stands in. -->
+  <Style Selector="Window:not(.reduced-motion) ProgressBar:horizontal:indeterminate /template/ Border#IndeterminateProgressBarIndicator">
+    <Style.Animations>
+      <Animation IterationCount="Infinite" Duration="0:0:2">
+        <KeyFrame KeySpline="0.4,0,0.6,1" KeyTime="0:0:0">
+          <Setter Property="TranslateTransform.X" Value="{Binding $parent[ProgressBar].TemplateSettings.ContainerAnimationStartPosition}" />
+        </KeyFrame>
+        <KeyFrame KeySpline="0.4,0,0.6,1" KeyTime="0:0:1.5">
+          <Setter Property="TranslateTransform.X" Value="{Binding $parent[ProgressBar].TemplateSettings.ContainerAnimationEndPosition}" />
+        </KeyFrame>
+        <KeyFrame KeySpline="0.4,0,0.6,1" KeyTime="0:0:2">
+          <Setter Property="TranslateTransform.X" Value="{Binding $parent[ProgressBar].TemplateSettings.ContainerAnimationEndPosition}" />
+        </KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+  <Style Selector="Window:not(.reduced-motion) ProgressBar:horizontal:indeterminate /template/ Border#IndeterminateProgressBarIndicator2">
+    <Style.Animations>
+      <Animation IterationCount="Infinite" Duration="0:0:2">
+        <KeyFrame KeySpline="0.4,0,0.6,1" KeyTime="0:0:0">
+          <Setter Property="TranslateTransform.X" Value="{Binding $parent[ProgressBar].TemplateSettings.Container2AnimationStartPosition}" />
+        </KeyFrame>
+        <KeyFrame KeySpline="0.4,0,0.6,1" KeyTime="0:0:0.75">
+          <Setter Property="TranslateTransform.X" Value="{Binding $parent[ProgressBar].TemplateSettings.Container2AnimationStartPosition}" />
+        </KeyFrame>
+        <KeyFrame KeySpline="0.4,0,0.6,1" KeyTime="0:0:2">
+          <Setter Property="TranslateTransform.X" Value="{Binding $parent[ProgressBar].TemplateSettings.Container2AnimationEndPosition}" />
+        </KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+
+  <Style Selector="Window.reduced-motion ProgressBar:indeterminate /template/ Border#IndeterminateProgressBarIndicator, Window.reduced-motion ProgressBar:indeterminate /template/ Border#IndeterminateProgressBarIndicator2">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+  <Style Selector="Window.reduced-motion ProgressBar:indeterminate /template/ Grid#ReducedMotionIndicator">
+    <Setter Property="IsVisible" Value="True" />
+  </Style>
+
+</Styles>

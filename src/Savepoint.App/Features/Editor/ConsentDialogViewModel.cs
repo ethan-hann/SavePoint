@@ -42,6 +42,12 @@ public sealed partial class ConsentDialogViewModel : DialogViewModel<bool>
     public override double DialogWidth => 520;
 
     /// <inheritdoc />
+    public override string Description => Message;
+
+    /// <inheritdoc />
+    public override bool DismissesOnScrimClick => true;
+
+    /// <inheritdoc />
     protected override bool DismissResult => false;
 
     [RelayCommand]

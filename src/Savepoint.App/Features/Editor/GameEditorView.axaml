@@ -66,7 +66,8 @@
                        FontSize="14"
                        Classes.error="{Binding NameError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                        Text="{Binding Name, Mode=TwoWay}"
-                       AutomationProperties.Name="{loc:Loc gameEditor.name.label}" />
+                       AutomationProperties.Name="{loc:Loc gameEditor.name.label}"
+                       AutomationProperties.HelpText="{Binding NameError}" />
               <TextBlock x:Name="NameErrorText" Classes="body error" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" IsVisible="{Binding NameError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding NameError}" />
             </StackPanel>
 
@@ -77,14 +78,15 @@
                          Classes="field mono"
                          Classes.error="{Binding InstallError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                          Text="{Binding InstallPath, Mode=TwoWay}"
-                         AutomationProperties.Name="{loc:Loc gameEditor.install.label}" />
+                         AutomationProperties.Name="{loc:Loc gameEditor.install.label}"
+                         AutomationProperties.HelpText="{Binding InstallError}" />
                 <Button x:Name="BrowseInstallButton"
                         Grid.Column="1"
                         VerticalAlignment="Stretch"
                         Padding="18,0"
                         Command="{Binding BrowseInstallCommand}"
                         Content="{loc:Loc gameEditor.browse}"
-                        AutomationProperties.Name="{loc:Loc gameEditor.install.pickTitle}" />
+                        AutomationProperties.Name="{loc:Loc gameEditor.install.browseAutomation}" />
               </Grid>
               <StackPanel x:Name="InstallConfirmedLine" Orientation="Horizontal" Spacing="8" IsVisible="{Binding InstallConfirmation, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                 <TextBlock Classes="icon s18 accent" Text="{x:Static theme:Icons.VerifiedUser}" />
@@ -101,14 +103,15 @@
                          Classes="field mono"
                          Classes.error="{Binding SavesError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                          Text="{Binding SavesPath, Mode=TwoWay}"
-                         AutomationProperties.Name="{loc:Loc gameEditor.external.label}" />
+                         AutomationProperties.Name="{loc:Loc gameEditor.external.label}"
+                         AutomationProperties.HelpText="{Binding SavesError}" />
                 <Button x:Name="BrowseSavesButton"
                         Grid.Column="1"
                         VerticalAlignment="Stretch"
                         Padding="18,0"
                         Command="{Binding BrowseSavesCommand}"
                         Content="{loc:Loc gameEditor.browse}"
-                        AutomationProperties.Name="{loc:Loc gameEditor.external.pickTitle}" />
+                        AutomationProperties.Name="{loc:Loc gameEditor.external.browseAutomation}" />
               </Grid>
               <StackPanel x:Name="SavesConfirmedLine" Orientation="Horizontal" Spacing="8" IsVisible="{Binding SavesConfirmation, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                 <TextBlock Classes="icon s18 accent" Text="{x:Static theme:Icons.VerifiedUser}" />
@@ -130,7 +133,7 @@
                   </ItemsControl.ItemsPanel>
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="editor:SuggestionItem">
-                      <Button Classes="pill" Margin="0,0,6,6" Padding="10,3" FontFamily="{DynamicResource RobotoMonoFont}" FontSize="11.5" FontWeight="Normal" Content="{Binding Text}" Command="{Binding Use}" />
+                      <Button Classes="pill" Margin="0,0,6,6" Padding="10,3" FontFamily="{DynamicResource RobotoMonoFont}" FontSize="11.5" FontWeight="Normal" Content="{Binding Display}" ToolTip.Tip="{Binding Text}" Command="{Binding Use}" />
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
@@ -168,14 +171,15 @@
                            Classes="field mono"
                            Classes.error="{Binding ExePathError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                            Text="{Binding ExePath, Mode=TwoWay}"
-                           AutomationProperties.Name="{loc:Loc gameEditor.launch.exePath.ariaLabel}" />
+                           AutomationProperties.Name="{loc:Loc gameEditor.launch.exePath.ariaLabel}"
+                           AutomationProperties.HelpText="{Binding ExePathError}" />
                   <Button x:Name="BrowseExeButton"
                           Grid.Column="1"
                           VerticalAlignment="Stretch"
                           Padding="18,0"
                           Command="{Binding BrowseExeCommand}"
                           Content="{loc:Loc gameEditor.browse}"
-                          AutomationProperties.Name="{loc:Loc gameEditor.launch.exePickTitle}" />
+                          AutomationProperties.Name="{loc:Loc gameEditor.launch.exeBrowseAutomation}" />
                 </Grid>
                 <TextBlock x:Name="ExeErrorText" Classes="body error" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" IsVisible="{Binding ExePathError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding ExePathError}" />
                 <StackPanel x:Name="ExeSuggestionRow" Spacing="6" IsVisible="{Binding HasExeSuggestions}">
@@ -201,7 +205,8 @@
                          Classes.error="{Binding UriError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                          Text="{Binding Uri, Mode=TwoWay}"
                          PlaceholderText="{loc:Loc gameEditor.launch.uriPlaceholder}"
-                         AutomationProperties.Name="{loc:Loc gameEditor.launch.uri.ariaLabel}" />
+                         AutomationProperties.Name="{loc:Loc gameEditor.launch.uri.ariaLabel}"
+                         AutomationProperties.HelpText="{Binding UriError}" />
                 <TextBlock x:Name="UriErrorText" Classes="body error" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" IsVisible="{Binding UriError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding UriError}" />
                 <TextBlock Classes="caption" TextWrapping="Wrap" Text="{loc:Loc gameEditor.launch.steamHelper}" />
               </StackPanel>
@@ -290,12 +295,13 @@
                   <TextBlock Classes="overline" Text="{theme:Upper {loc:Loc gameEditor.artwork.appId.label}}" />
                   <TextBox x:Name="SteamAppIdField"
                            Classes="field mono"
-                           MaxWidth="260"
+                           Width="200"
                            HorizontalAlignment="Left"
                            Classes.error="{Binding SteamAppIdError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                            Text="{Binding SteamAppIdText, Mode=TwoWay}"
                            PlaceholderText="{Binding SteamAppIdHint}"
-                           AutomationProperties.Name="{loc:Loc gameEditor.artwork.appId.label}" />
+                           AutomationProperties.Name="{loc:Loc gameEditor.artwork.appId.label}"
+                           AutomationProperties.HelpText="{Binding SteamAppIdError}" />
                   <TextBlock x:Name="SteamAppIdErrorText" Classes="body error" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" IsVisible="{Binding SteamAppIdError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding SteamAppIdError}" />
                   <TextBlock Classes="body muted" TextWrapping="Wrap" Text="{loc:Loc gameEditor.artwork.appId.helper}" />
                 </StackPanel>

@@ -80,7 +80,9 @@ public sealed partial class GameEditorViewModel
 
     private ArtworkSource EffectiveSource => _pendingImage is not null ? ArtworkSource.Custom : _removeImage ? ArtworkSource.None : _knownArtwork.Source;
 
-    partial void OnSteamAppIdTextChanged(string value) => SteamAppIdError = null;
+    // Said while the id is typed, with the words Save uses, so a letter does not wait for Save to be refused.
+    partial void OnSteamAppIdTextChanged(string value) =>
+        SteamAppIdError = ParseSteamAppId() == 0 ? _text.Message("validation.game.steamAppIdInvalid") : null;
 
     // Blank is none; anything that is not a positive whole number is 0, which the catalog check refuses with one message.
     private int? ParseSteamAppId()

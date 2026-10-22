@@ -33,8 +33,18 @@ public sealed partial class GameEditorViewModel
         string[] tokens = _text.Os == "windows"
             ? ["{documents}", "{savedGames}", "{appData}", "{localAppData}"]
             : ["{documents}", "{userHome}", "{appData}", "{localAppData}"];
-        return [.. tokens.Select(token => new SuggestionItem(token, new RelayCommand(() => ApplyLocation(token))))];
+        return [.. tokens.Select(token => new SuggestionItem(token, new RelayCommand(() => ApplyLocation(token)), LocationName(token)))];
     }
+
+    // What a person calls the place; the field itself keeps the shortcut, which the button's tooltip shows.
+    private string LocationName(string token) => token switch
+    {
+        "{documents}" => _text.Message("gameEditor.external.location.documents"),
+        "{savedGames}" => _text.Message("gameEditor.external.location.savedGames"),
+        "{userHome}" => _text.Message("gameEditor.external.location.home"),
+        "{appData}" => _text.Message("gameEditor.external.location.appData"),
+        _ => _text.Message("gameEditor.external.location.localAppData"),
+    };
 
     // The shortcut replaces any shortcut the field starts with and keeps the rest of the path.
     private void ApplyLocation(string token)

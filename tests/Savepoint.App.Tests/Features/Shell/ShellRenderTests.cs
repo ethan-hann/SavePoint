@@ -70,6 +70,15 @@ public class ShellRenderTests
     }
 
     [AvaloniaFact]
+    public async Task Collapsed_rail_light_renders_to_a_png()
+    {
+        var backend = new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { Theme = ThemePreference.Light }));
+        using var harness = await ShellViewHarness.StartAsync(backend, ThemePreference.Light, width: 760, height: 660);
+
+        AssertRendered(harness.Render("3a-shell-sidebar-collapsed-light"));
+    }
+
+    [AvaloniaFact]
     public async Task Collapsed_rail_dark_renders_to_a_png()
     {
         using var harness = await ShellViewHarness.StartAsync(width: 760, height: 660);

@@ -16,6 +16,7 @@ using Savepoint.App.Features.Shell;
 using Savepoint.App.Localization;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Tests.Features.History;
+using Savepoint.App.Tests.Features.Settings;
 using Savepoint.App.Tests.Features.Shell;
 using Savepoint.App.Tests.Theme;
 using Savepoint.Core.Api;
@@ -82,7 +83,7 @@ internal sealed class ComposedApp : IDisposable
         var (services, clock, text) = Parts(backend, settings);
         var dialogs = new FakeDialogs();
         var theme = new RecordingThemeApplier();
-        var main = AppComposition.Create(services, text, theme, () => null, new ImmediateUiDispatcher(), clock, dialogs);
+        var main = AppComposition.Create(services, text, theme, () => null, new ImmediateUiDispatcher(), clock, dialogs, SettingsHost(noticesShipped: true));
         await main.InitializeAsync();
         return Visited(new ComposedApp(backend, dialogs, clock, text, theme, main, null, null));
     }
@@ -94,12 +95,13 @@ internal sealed class ComposedApp : IDisposable
         ShellLayout layout = ShellLayout.Sidebar,
         double width = 1040,
         double height = 660,
-        bool visitScreens = true)
+        bool visitScreens = true,
+        bool noticesShipped = true)
     {
         backend ??= new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { Theme = theme, Layout = layout }));
         var (services, clock, text) = Parts(backend, null);
         var application = (App)Application.Current!;
-        var main = AppComposition.Create(services, text, new ThemeServiceApplier(application.Theme), () => null, new ImmediateUiDispatcher(), clock);
+        var main = AppComposition.Create(services, text, new ThemeServiceApplier(application.Theme), () => null, new ImmediateUiDispatcher(), clock, settingsEnvironment: SettingsHost(noticesShipped));
         var view = new MainView { DataContext = main };
         var host = new ThemeHost(view, theme, width: width, height: height);
         await main.InitializeAsync();
@@ -171,6 +173,10 @@ internal sealed class ComposedApp : IDisposable
         Main.Shell?.Dispose();
         _themeHost?.Dispose();
     }
+
+    // Settings reads the notices file from beside the executable; a test says whether one shipped, so it never depends on the build output.
+    private static SettingsEnvironment SettingsHost(bool noticesShipped) =>
+        new(new RecordingFileRevealer(), () => noticesShipped ? @"C:\SavePoint\THIRD-PARTY-NOTICES.md" : null, "1.0.0");
 
     private static (AppServices Services, ManualTimeProvider Clock, UiFormatter Text) Parts(FakeBackend backend, Func<ISettingsApi, ISettingsApi>? settings)
     {

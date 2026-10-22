@@ -32,6 +32,9 @@ public class GameEditorViewTests
         harness.Settle();
     }
 
+    private static string? FocusedName(EditorViewHarness harness) =>
+        harness.Window.FocusManager!.GetFocusedElement() is Control focused ? AutomationProperties.GetName(focused) : null;
+
     private static T InHost<T>(EditorViewHarness harness, string host, string name)
         where T : Control => ShellViewHarness.FindIn<T>(harness.Find<ContentControl>(host), name);
 
@@ -248,7 +251,8 @@ public class GameEditorViewTests
         var row = harness.Find<Grid>("LocationRow");
 
         var buttons = row.GetVisualDescendants().OfType<Button>().ToList();
-        Assert.Equal(["{documents}", "{savedGames}", "{appData}", "{localAppData}"], buttons.Select(button => button.Content));
+        Assert.Equal(["Documents", "Saved Games", "AppData", "Local AppData"], buttons.Select(button => button.Content));
+        Assert.Equal(["{documents}", "{savedGames}", "{appData}", "{localAppData}"], buttons.Select(button => ToolTip.GetTip(button)));
 
         buttons[2].Command!.Execute(null);
         harness.Settle();
@@ -406,5 +410,87 @@ public class GameEditorViewTests
 
         Assert.Equal(ReconnectChoice.StartFresh, await question.Result);
         Assert.Single(harness.Backend.Calls.To<IGamesApi>("ResolveOrphanAsync"));
+    }
+
+    [AvaloniaFact]
+    public async Task A_field_in_error_carries_the_error_as_its_help_text_so_tabbing_back_to_it_repeats_the_problem()
+    {
+        using var harness = await EditorViewHarness.StartAsync(artwork: true, height: 1000);
+        var editor = harness.Edit(MockupScenario.SkyrimId);
+
+        editor.NameError = "Enter a name.";
+        editor.InstallError = "Choose the install folder.";
+        editor.SavesError = "Choose the saves folder.";
+        editor.ExePathError = "Choose the file that starts the game.";
+        editor.UriError = "Enter a Steam link.";
+        editor.SteamAppIdError = "Enter a number.";
+        harness.Settle();
+
+        Assert.Equal("Enter a name.", AutomationProperties.GetHelpText(harness.Find<TextBox>("NameField")));
+        Assert.Equal("Choose the install folder.", AutomationProperties.GetHelpText(harness.Find<TextBox>("InstallField")));
+        Assert.Equal("Choose the saves folder.", AutomationProperties.GetHelpText(harness.Find<TextBox>("SavesField")));
+        Assert.Equal("Choose the file that starts the game.", AutomationProperties.GetHelpText(harness.Find<TextBox>("ExeField")));
+        Assert.Equal("Enter a Steam link.", AutomationProperties.GetHelpText(harness.Find<TextBox>("UriField")));
+        Assert.Equal("Enter a number.", AutomationProperties.GetHelpText(harness.Find<TextBox>("SteamAppIdField")));
+
+        editor.NameError = null;
+        harness.Settle();
+
+        Assert.True(string.IsNullOrEmpty(AutomationProperties.GetHelpText(harness.Find<TextBox>("NameField"))));
+    }
+
+    [AvaloniaFact]
+    public async Task Removing_a_chip_from_the_keyboard_moves_focus_to_the_next_chip_and_after_the_last_to_the_add_chip()
+    {
+        using var harness = await EditorViewHarness.StartAsync(height: 1000);
+        harness.Edit(MockupScenario.SkyrimId);
+        var list = harness.All<ChipListView>().First(candidate => candidate.GetVisualDescendants().OfType<Button>().Count(button => button.Classes.Contains("icon")) >= 2);
+        List<Button> Removers() => [.. list.GetVisualDescendants().OfType<Button>().Where(button => button.Classes.Contains("icon"))];
+        var names = Removers().Select(button => AutomationProperties.GetName(button)).ToList();
+
+        FocusAndSettle(harness, Removers()[0]);
+        Press(harness, Key.Space, PhysicalKey.Space);
+        await Task.Yield();
+        harness.Settle();
+
+        Assert.Equal(names[1], FocusedName(harness));
+
+        while (Removers().Count > 1)
+        {
+            FocusAndSettle(harness, Removers()[^1]);
+            Press(harness, Key.Space, PhysicalKey.Space);
+            harness.Settle();
+        }
+
+        FocusAndSettle(harness, Removers()[0]);
+        Press(harness, Key.Space, PhysicalKey.Space);
+        harness.Settle();
+
+        Assert.Equal("AddChip", (harness.Window.FocusManager!.GetFocusedElement() as Control)?.Name);
+    }
+
+    [AvaloniaFact]
+    public async Task The_start_file_and_steam_link_fields_are_spoken_by_what_they_are_not_by_their_type()
+    {
+        using var harness = await EditorViewHarness.StartAsync();
+        harness.Edit(MockupScenario.SkyrimId);
+
+        Assert.Equal("File that starts the game", AutomationProperties.GetName(harness.Find<TextBox>("ExeField")));
+        Assert.Equal("Steam launch link", AutomationProperties.GetName(harness.Find<TextBox>("UriField")));
+    }
+
+    [AvaloniaFact]
+    public async Task The_steam_app_id_field_is_a_fixed_size_target_whatever_is_typed_in_it()
+    {
+        using var harness = await EditorViewHarness.StartAsync(artwork: true, height: 1000);
+        harness.Edit(MockupScenario.SatisfactoryId);
+
+        var field = harness.Find<TextBox>("SteamAppIdField");
+        Assert.True(field.Bounds.Width >= 160, $"The empty field is {field.Bounds.Width:0}px wide.");
+
+        field.Text = "abc";
+        harness.Settle();
+
+        Assert.True(field.Bounds.Width >= 160, $"The field holding abc is {field.Bounds.Width:0}px wide.");
     }
 }

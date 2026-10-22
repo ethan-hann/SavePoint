@@ -26,6 +26,9 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     private string? _shownGameId;
     private bool _loaded;
     private bool _disposed;
+
+    // Until the view reports a width there is nothing to squeeze, so the header keeps its words.
+    private double _headerWidth = double.PositiveInfinity;
     private bool _flowActive;
     private long _generation;
     private CancellationTokenSource? _loadCts;
@@ -46,8 +49,9 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     [ObservableProperty]
     private string _libraryTitle = string.Empty;
 
-    /// <summary>True while the profile list is being read.</summary>
+    /// <summary>True while the profile list or the row stats are being read.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowLoading))]
     private bool _isLoading;
 
     /// <summary>The card shown instead of the table when the profile list could not be read; null otherwise.</summary>
@@ -99,6 +103,9 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     /// <summary>Which optional table columns fit.</summary>
     public ProfileTableColumns Columns { get; } = new();
 
+    /// <summary>Whether the header shows its buttons' words or only their icons.</summary>
+    public GameHeaderLayout Header { get; } = new();
+
     /// <summary>The Sidebar / Library toggle shown in the sidebar layout's header.</summary>
     public LayoutToggleViewModel LayoutToggle { get; }
 
@@ -116,6 +123,9 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
 
     /// <summary>True when the profile table has rows to show.</summary>
     public bool ShowTable => HasGame && LoadError is null && Profiles.Count > 0;
+
+    /// <summary>True while the first read of a game's profiles has nothing to show yet, which is when the screen says it is loading.</summary>
+    public bool ShowLoading => HasGame && IsLoading && Profiles.Count == 0 && LoadError is null;
 
     /// <summary>True when the game has no profiles yet and the screen prompts for the first one.</summary>
     public bool ShowEmptyState => HasGame && _loaded && LoadError is null && Profiles.Count == 0;
@@ -187,6 +197,21 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         var statsTask = _deps.Profiles.GetRowStatsAsync(game.Id, cts.Token);
         var usageTask = _deps.Games.GetStorageUsageAsync(game.Id, cts.Token);
         var list = await listTask;
+        if (generation != _generation || _disposed)
+        {
+            return;
+        }
+
+        // The catalog answers at once and the status scan of both folders can take seconds, so a game's first rows show from the
+        // list alone and fill in their status, version and mod files when the stats land. A reload keeps the rows it has meanwhile.
+        if (list.Ok && Profiles.Count == 0 && list.Value.Count > 0)
+        {
+            _loaded = true;
+            LoadError = null;
+            ApplyRows(list.Value, []);
+            RaiseTableState();
+        }
+
         var stats = await statsTask;
         var usage = await usageTask;
 
@@ -225,6 +250,14 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     /// <param name="width">The table's width in device-independent pixels.</param>
     public void SetTableWidth(double width) => Columns.Update(width);
 
+    /// <summary>Tells the screen how wide its header is, so the game's name keeps its room.</summary>
+    /// <param name="width">The header's width in device-independent pixels.</param>
+    public void SetHeaderWidth(double width)
+    {
+        _headerWidth = width;
+        Header.Update(width, IsSidebarLayout);
+    }
+
     /// <summary>Stops following the shell and the launch flow.</summary>
     public void Dispose()
     {
@@ -249,6 +282,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
                 _ = ReloadAsync();
                 break;
             case nameof(IShellContext.Layout):
+                Header.Update(_headerWidth, IsSidebarLayout);
                 OnPropertyChanged(nameof(IsSidebarLayout));
                 OnPropertyChanged(nameof(IsLibraryLayout));
                 OnPropertyChanged(nameof(ShowStorageFooter));
@@ -342,6 +376,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     {
         OnPropertyChanged(nameof(ShowTable));
         OnPropertyChanged(nameof(ShowEmptyState));
+        OnPropertyChanged(nameof(ShowLoading));
     }
 
     private void ClearRows()

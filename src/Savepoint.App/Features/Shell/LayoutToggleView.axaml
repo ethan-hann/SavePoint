@@ -19,7 +19,7 @@
       <DataTemplate x:DataType="shell:LayoutOption">
         <StackPanel Orientation="Horizontal" Spacing="7">
           <TextBlock Classes="icon s16" Text="{Binding Icon}" />
-          <TextBlock VerticalAlignment="Center" Text="{Binding Label}" />
+          <TextBlock Classes="toggle-words" VerticalAlignment="Center" Text="{Binding Label}" />
         </StackPanel>
       </DataTemplate>
     </ListBox.ItemTemplate>

@@ -60,7 +60,7 @@ public class StorageSectionViewModelTests
     {
         var rig = await SettingsRig.ShownAsync();
 
-        Assert.Equal("Squeezes down space from profiles you've deleted. Last run Jul 1.", Storage(rig).OptimizeDescription);
+        Assert.Equal("Frees space left by deleted profiles. It also runs by itself after a delete. Last run Jul 1.", Storage(rig).OptimizeDescription);
     }
 
     [Fact]
@@ -69,7 +69,7 @@ public class StorageSectionViewModelTests
         var never = MockupScenario.Settings with { LastOptimizedAt = null };
         var rig = await SettingsRig.ShownAsync(new FakeBackend(ScenarioBuilder.Mockup().WithSettings(never)));
 
-        Assert.Equal("Squeezes down space from profiles you've deleted. It hasn't run yet.", Storage(rig).OptimizeDescription);
+        Assert.Equal("Frees space left by deleted profiles. It also runs by itself after a delete. It hasn't run yet.", Storage(rig).OptimizeDescription);
     }
 
     // ---- Optimize storage
@@ -97,7 +97,7 @@ public class StorageSectionViewModelTests
 
         Assert.False(Storage(rig).IsOptimizing);
         Assert.True(Storage(rig).RunNowCommand.CanExecute(null));
-        Assert.Equal("Squeezes down space from profiles you've deleted. Last run Jul 8.", Storage(rig).OptimizeDescription);
+        Assert.Equal("Frees space left by deleted profiles. It also runs by itself after a delete. Last run Jul 8.", Storage(rig).OptimizeDescription);
         Assert.True(rig.Calls<ISettingsApi>(nameof(ISettingsApi.GetStorageSummaryAsync)) > summaries);
     }
 
@@ -415,6 +415,25 @@ public class StorageSectionViewModelTests
         Assert.NotNull(problem);
         Assert.Equal("There isn't enough room", problem.Title);
         Assert.Equal(MockupScenario.StorageRoot, Storage(rig).StoragePath);
+    }
+
+    [Fact]
+    public async Task A_move_problem_offers_to_choose_another_folder_which_asks_again()
+    {
+        var rig = await SettingsRig.ShownAsync();
+        var job = await StartedMoveAsync(rig);
+        rig.Backend.Jobs.Fail(job.JobId, MockupScenario.SavesOutOfRoomError);
+        var picksBefore = rig.Dialogs.FolderPicks.Count;
+        var problem = Storage(rig).Problem;
+        Assert.NotNull(problem);
+
+        var action = Assert.Single(problem.Actions);
+        Assert.Equal("Choose another folder", action.Label);
+        rig.Dialogs.AnswerFolder(null);
+        action.Command.Execute(null);
+        await Task.Yield();
+
+        Assert.Equal(picksBefore + 1, rig.Dialogs.FolderPicks.Count);
     }
 
     [Fact]

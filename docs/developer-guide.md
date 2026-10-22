@@ -82,6 +82,7 @@ dotnet test --project tests/Savepoint.Core.Tests -c Release --filter-class Savep
 Other filters are `--filter-namespace` and `--filter-method`. Add `--report-xunit` or `--report-xunit-trx` for a report with per-test times in `bin/<config>/net10.0/TestResults/`.
 
 - Tests never touch real user folders. Every test builds its own temp tree. A module initializer (`tests/Shared/TestEnvironment.cs`) points `TMP`, `TEMP`, and `TMPDIR` at `<repo>/.tools/tmp/<os>`, and every child process inherits them.
+- Tests that care about logging pass a `RecordingDiagnosticLog` (`tests/Shared`); no test opens a real log file, and tests that touch a log folder check first that it lies inside their own temp home.
 - Opt-in smoke tests make the real OS calls: a notification, opening a link. Run them by hand with `SAVEPOINT_OS_SMOKE=1` (and `SAVEPOINT_SMOKE_URI` for the link opener).
 - Headless renders (Skia, 1040x660) land in `render-output/<area>/`. Compare them with the mockup screenshots in v1's `docs/ui/screenshots/`.
 - Lint tests guard the catalog:

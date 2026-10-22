@@ -1,0 +1,10 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:shell="using:Savepoint.App.Features.Shell"
+             x:Class="Savepoint.App.Features.Shell.LibraryErrorView"
+             x:DataType="shell:LibraryErrorViewModel">
+  <!-- Shown in the content region when the library could not be read: the error card and its Try again, where the Games screen would be. -->
+  <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <ContentControl x:Name="ErrorHost" Margin="22,20" MaxWidth="760" HorizontalAlignment="Left" VerticalAlignment="Top" Content="{Binding Card}" />
+  </ScrollViewer>
+</UserControl>

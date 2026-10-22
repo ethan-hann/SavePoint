@@ -130,6 +130,7 @@ public sealed partial class NewProfileWizardViewModel : DialogViewModel<bool>
         _text = text;
         _dispatcher = dispatcher;
         _name = text.Message("profiles.wizard.defaultName", ("date", text.NameDate(clock.GetUtcNow())));
+        Description = text.Message("profiles.wizard.description");
         NameHelper = text.Message("profiles.wizard.name.helper");
         Preview = new CapturePreviewViewModel(text);
         Steps =
@@ -210,6 +211,9 @@ public sealed partial class NewProfileWizardViewModel : DialogViewModel<bool>
     /// <summary>The Continue button of steps one and two.</summary>
     public bool ShowContinue => IsNameStep || IsCheckStep;
 
+    /// <summary>The primary button's label: "Continue" on the first step, and on the check step, whose button starts the save, what it does.</summary>
+    public string ContinueLabel => _text.Message(IsCheckStep ? "profiles.wizard.saveProfile" : "profiles.wizard.continue");
+
     /// <summary>The Cancel button that stops a running save.</summary>
     public bool ShowStopSave => IsSaving;
 
@@ -235,7 +239,13 @@ public sealed partial class NewProfileWizardViewModel : DialogViewModel<bool>
     public IRelayCommand CloseCommand { get; }
 
     /// <inheritdoc />
+    public override string Description { get; }
+
+    /// <inheritdoc />
     public override double DialogWidth => 620;
+
+    /// <inheritdoc />
+    public override bool PinsFooter => true;
 
     /// <inheritdoc />
     protected override bool DismissResult => Created;
@@ -319,6 +329,7 @@ public sealed partial class NewProfileWizardViewModel : DialogViewModel<bool>
         OnPropertyChanged(nameof(ShowCancel));
         OnPropertyChanged(nameof(ShowBack));
         OnPropertyChanged(nameof(ShowContinue));
+        OnPropertyChanged(nameof(ContinueLabel));
         OnPropertyChanged(nameof(ShowStopSave));
         OnPropertyChanged(nameof(ShowDone));
         OnPropertyChanged(nameof(ShowClose));

@@ -117,7 +117,7 @@ public class HistoryScreenViewModelTests
     {
         var rig = await HistoryRig.ShownAsync();
 
-        Assert.Equal(["This week", "Earlier"], rig.Screen.Groups.Select(group => group.Heading));
+        Assert.Equal(["Last 7 days", "Earlier"], rig.Screen.Groups.Select(group => group.Heading));
         Assert.Equal(
             ["Before the final boss", "Cleared Blackreach", "14 mod files updated", "Fresh start with Nolvus"],
             rig.Screen.Groups[0].Cards.Select(card => card.Name));
@@ -187,6 +187,23 @@ public class HistoryScreenViewModelTests
     }
 
     [Fact]
+    public async Task A_timeline_entry_goes_back_to_one_of_the_points_and_is_not_offered_for_the_point_in_use()
+    {
+        var rig = await HistoryRig.ShownAsync();
+        var entry = rig.Screen.Timeline.First(e => !e.IsInUse);
+        var points = rig.Screen.Groups.SelectMany(group => group.Cards).Select(card => new LaunchTarget.Point(card.Point.Id)).ToList();
+
+        entry.GoBackCommand.Execute(null);
+
+        var begun = Assert.Single(rig.Flow!.Begun);
+        Assert.Equal(MockupScenario.SkyrimId, begun.GameId);
+        Assert.Contains(begun.Target, points);
+        Assert.True(entry.CanGoBack);
+        Assert.StartsWith("Go back to this: ", entry.GoBackAutomationName, StringComparison.Ordinal);
+        Assert.All(rig.Screen.Timeline.Where(e => e.IsInUse), e => Assert.False(e.CanGoBack));
+    }
+
+    [Fact]
     public async Task A_launch_that_gets_going_takes_the_player_to_Games_where_the_session_shows()
     {
         var rig = await HistoryRig.ShownAsync();
@@ -239,7 +256,7 @@ public class HistoryScreenViewModelTests
 
         Assert.Equal("Load Cleared Blackreach", rig.Screen.Saves.Single(r => r.Name == "Cleared Blackreach").LoadAutomationName);
         Assert.Equal(
-            "Go back to Cleared Blackreach",
+            "Go back to this: Cleared Blackreach",
             rig.Screen.Groups.SelectMany(group => group.Cards).Single(c => c.Name == "Cleared Blackreach").GoBackAutomationName);
     }
 
@@ -294,6 +311,24 @@ public class HistoryScreenViewModelTests
             ["All profiles", _modded, "Vanilla - latest update", "Survival test - 5-14-26"],
             rig.Screen.Filters.Select(filter => filter.Label));
         Assert.Null(rig.Screen.SelectedFilter!.ProfileId);
+    }
+
+    [Fact]
+    public async Task Reading_again_with_the_same_profiles_keeps_the_filter_list_and_its_items_so_an_open_list_keeps_its_focus()
+    {
+        var rig = await HistoryRig.ShownAsync();
+        var list = rig.Screen.Filters;
+        var items = rig.Screen.Filters.ToList();
+        var raised = new List<string?>();
+        rig.Screen.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        rig.Screen.SelectedFilter = rig.Screen.Filters[2];
+        await rig.Screen.ReloadAsync();
+
+        Assert.Same(list, rig.Screen.Filters);
+        Assert.True(items.SequenceEqual(rig.Screen.Filters, ReferenceEqualityComparer.Instance as IEqualityComparer<ProfileFilter>));
+        Assert.Same(items[2], rig.Screen.SelectedFilter);
+        Assert.DoesNotContain(nameof(HistoryScreenViewModel.Filters), raised);
     }
 
     [Fact]
@@ -617,7 +652,7 @@ public class HistoryScreenViewModelTests
         var rig = await HistoryRig.ShownAsync();
 
         Assert.Equal(
-            "41.2 GB kept for this game. Deleting a profile frees its space the next time storage is optimized.",
+            "41.2 GB kept for this game. Deleting a profile frees its space soon after.",
             rig.Screen.FooterText);
         Assert.True(rig.Screen.HasFooter);
     }

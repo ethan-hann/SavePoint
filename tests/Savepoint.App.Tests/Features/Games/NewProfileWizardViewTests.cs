@@ -49,6 +49,28 @@ public class NewProfileWizardViewTests
     }
 
     [AvaloniaFact]
+    public async Task The_name_field_carries_its_helper_line_as_help_text()
+    {
+        var (harness, _) = await OpenAsync();
+        using var _ = harness;
+
+        Assert.Equal("Anything that helps you recognize it later.", AutomationProperties.GetHelpText(harness.Find<TextBox>("NameField")));
+    }
+
+    [AvaloniaFact]
+    public async Task The_check_steps_button_says_it_starts_the_save()
+    {
+        var (harness, wizard) = await OpenAsync();
+        using var _ = harness;
+        Assert.Equal("Continue", harness.Find<Button>("ContinueButton").Content);
+
+        await wizard.ContinueCommand.ExecuteAsync(null);
+        harness.Settle();
+
+        Assert.Equal("Save profile", harness.Find<Button>("ContinueButton").Content);
+    }
+
+    [AvaloniaFact]
     public async Task Each_step_shows_its_own_content_and_buttons()
     {
         var (harness, wizard) = await OpenAsync();
@@ -252,7 +274,7 @@ public class NewProfileWizardViewTests
         harness.Settle();
 
         Assert.True(harness.Find<Border>("SubmitErrorBox").IsEffectivelyVisible);
-        Assert.Contains("There's not enough free disk space to save this profile right now.", harness.VisibleTexts());
+        Assert.Contains("There's not enough free disk space to save this profile right now. Free up about 1.2 GB on drive D: and try again.", harness.VisibleTexts());
         Assert.True(harness.Find<StackPanel>("CheckStep").IsEffectivelyVisible);
     }
 

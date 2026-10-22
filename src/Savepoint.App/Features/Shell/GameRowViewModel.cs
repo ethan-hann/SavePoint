@@ -25,20 +25,13 @@ public sealed partial class GameRowViewModel : ObservableObject
     /// <param name="art">The game's artwork for its tiles; null leaves the tile its name tint.</param>
     public GameRowViewModel(GameDefinition game, int? profileCount, long? bytes, UiFormatter text, GameArt? art = null)
     {
-        Game = game;
         Art = art;
-        ProfileCount = profileCount;
-        Bytes = bytes;
-        ProfileCountText = profileCount is { } count ? text.Message("shell.profileCount", ("count", count)) : string.Empty;
-        var size = bytes is { } used ? text.FileSize(used) : null;
-        LibrarySubtitle = profileCount is null ? string.Empty
-            : size is null ? ProfileCountText
-            : text.Message("shell.librarySubtitle", ("profiles", ProfileCountText), ("size", size));
-        AutomationName = profileCount is null ? game.Name : text.Message("shell.gameAutomationName", ("name", game.Name), ("profiles", ProfileCountText));
+        Game = game;
+        Fill(game, profileCount, bytes, text);
     }
 
     /// <summary>The game's definition.</summary>
-    public GameDefinition Game { get; }
+    public GameDefinition Game { get; private set; } = null!;
 
     /// <summary>The game's artwork for its tiles, shared by every tile of the game; null when the row was made without any.</summary>
     public GameArt? Art { get; }
@@ -50,20 +43,43 @@ public sealed partial class GameRowViewModel : ObservableObject
     public string Name => Game.Name;
 
     /// <summary>The number of profiles; null when not known.</summary>
-    public int? ProfileCount { get; }
+    public int? ProfileCount { get; private set; }
 
     /// <summary>The space SavePoint keeps for the game; null when not known.</summary>
-    public long? Bytes { get; }
+    public long? Bytes { get; private set; }
 
     /// <summary>"3 profiles", or empty when the count is not known.</summary>
-    public string ProfileCountText { get; }
+    public string ProfileCountText { get; private set; } = string.Empty;
 
     /// <summary>"3 profiles · 41.2 GB" for the shelf card; the count alone when the size is not known.</summary>
-    public string LibrarySubtitle { get; }
+    public string LibrarySubtitle { get; private set; } = string.Empty;
 
     /// <summary>The name and count read as one phrase for assistive technology.</summary>
-    public string AutomationName { get; }
+    public string AutomationName { get; private set; } = string.Empty;
 
     /// <summary>The tooltip shown when the rail is collapsed to icons and the name is hidden; null while the name is visible.</summary>
     public string? ToolTipText => ShowLabels ? null : AutomationName;
+
+    /// <summary>
+    /// Takes a newer reading of the same game, so the row the lists already show is kept and its focus, selection and tile survive
+    /// a refresh.
+    /// </summary>
+    internal void Apply(GameDefinition game, int? profileCount, long? bytes, UiFormatter text)
+    {
+        Game = game;
+        Fill(game, profileCount, bytes, text);
+        OnPropertyChanged(string.Empty);
+    }
+
+    private void Fill(GameDefinition game, int? profileCount, long? bytes, UiFormatter text)
+    {
+        ProfileCount = profileCount;
+        Bytes = bytes;
+        ProfileCountText = profileCount is { } count ? text.Message("shell.profileCount", ("count", count)) : string.Empty;
+        var size = bytes is { } used ? text.FileSize(used) : null;
+        LibrarySubtitle = profileCount is null ? string.Empty
+            : size is null ? ProfileCountText
+            : text.Message("shell.librarySubtitle", ("profiles", ProfileCountText), ("size", size));
+        AutomationName = profileCount is null ? game.Name : text.Message("shell.gameAutomationName", ("name", game.Name), ("profiles", ProfileCountText));
+    }
 }

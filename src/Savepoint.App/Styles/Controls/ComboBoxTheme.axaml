@@ -9,10 +9,10 @@
   <ControlTheme x:Key="{x:Type ComboBox}" TargetType="ComboBox">
     <Setter Property="Foreground" Value="{DynamicResource Md3OnSurfaceBrush}" />
     <Setter Property="Background" Value="{DynamicResource Md3SurfaceContainerLowBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource Md3OutlineVariantBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Md3FieldBorderBrush}" />
     <Setter Property="BorderThickness" Value="{DynamicResource Md3BorderThin}" />
     <Setter Property="CornerRadius" Value="{DynamicResource Md3RadiusControl}" />
-    <Setter Property="PlaceholderForeground" Value="{DynamicResource Md3OutlineBrush}" />
+    <Setter Property="PlaceholderForeground" Value="{DynamicResource Md3SubtleTextBrush}" />
     <Setter Property="Padding" Value="12,8,4,8" />
     <Setter Property="MinHeight" Value="0" />
     <Setter Property="MaxDropDownHeight" Value="504" />

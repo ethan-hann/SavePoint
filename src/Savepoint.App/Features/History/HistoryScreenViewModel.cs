@@ -389,10 +389,22 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
     {
         var all = new ProfileFilter(null, _deps.Text.Message("history.filter.all"));
         List<ProfileFilter> filters = [all, .. profiles.Select(profile => new ProfileFilter(profile.Id, profile.Name))];
+
+        // The same profiles as before keep the same list and items, so a list that is open keeps its focus while a choice reloads the points.
+        var unchanged = Filters.Count == filters.Count && Filters.Zip(filters).All(pair => pair.First == pair.Second);
+        if (unchanged)
+        {
+            filters = [.. Filters];
+        }
+
         var chosen = filters.FirstOrDefault(filter => filter.ProfileId == _currentFilter?.ProfileId);
         Restore(() =>
         {
-            Filters = filters;
+            if (!unchanged)
+            {
+                Filters = filters;
+            }
+
             _currentFilter = chosen ?? all;
             SelectedFilter = _currentFilter;
         });
@@ -414,13 +426,13 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
         ErrorCard = null;
         Subtitle = _deps.Text.Message("history.subtitle", ("game", game.Name), ("count", points.Count));
         _flowCommands.Clear();
-        Timeline = BuildTimeline(points);
+        Timeline = BuildTimeline(game, points);
         Saves = BuildSaves(game, points);
         Groups = BuildGroups(game, points);
         State = points.Count == 0 ? HistoryState.Empty : HistoryState.Loaded;
     }
 
-    private List<TimelineEntryViewModel> BuildTimeline(List<HistoryPoint> points)
+    private List<TimelineEntryViewModel> BuildTimeline(GameDefinition game, List<HistoryPoint> points)
     {
         var onTimeline = points.Where(point => point.Kind != HistoryPointKind.SaveOnly).ToList();
         return
@@ -430,7 +442,15 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
                 var (headline, namesVersion) = _words.Headline(point);
                 var detail = _words.TimelineDetail(point, namesVersion);
                 var stamp = _words.Stamp(point.CapturedAt, point.InUse);
-                return new TimelineEntryViewModel(headline, detail, stamp, point.InUse, index == onTimeline.Count - 1, _words.ItemName(headline, detail, stamp));
+                return new TimelineEntryViewModel(
+                    headline,
+                    detail,
+                    stamp,
+                    point.InUse,
+                    index == onTimeline.Count - 1,
+                    _words.ItemName(headline, detail, stamp),
+                    _deps.Text.Message("history.card.goBackAutomation", ("name", point.Name)),
+                    BeginCommand(game.Id, new LaunchTarget.Point(point.Id)));
             }),
         ];
     }

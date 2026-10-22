@@ -18,6 +18,101 @@ public class LaunchFlowBeginTests : IDisposable
         return new FakeBackend(ScenarioBuilder.Mockup().WithLaunchPreview(change(source)));
     }
 
+    // Holds the scan until the test lets it go, the way a large modded install holds it for seconds.
+    private TaskCompletionSource HoldPreview()
+    {
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _f.Backend.Launch.PreviewGate = token => release.Task.WaitAsync(token);
+        return release;
+    }
+
+    // The scan's continuation runs on another thread once it is released, so the dialog appears a moment later.
+    private async Task DialogShownAsync()
+    {
+        var until = DateTime.UtcNow.AddSeconds(5);
+        while (!_f.Dialogs.Shown.OfType<LaunchDialogViewModel>().Any())
+        {
+            Assert.True(DateTime.UtcNow < until, "The launch dialog never appeared.");
+            await Task.Delay(5, TestContext.Current.CancellationToken);
+        }
+    }
+
+    [Fact]
+    public async Task Play_says_it_is_checking_at_once_however_long_the_scan_takes()
+    {
+        var release = HoldPreview();
+
+        var begin = _f.Play(LaunchRig.SurvivalTip);
+
+        Assert.False(begin.IsCompleted);
+        var card = _f.Inline<LaunchCheckingViewModel>();
+        Assert.Equal("Checking your files…", card.Title);
+        Assert.Equal("This can take a moment on a large game.", card.Hint);
+        Assert.True(_f.Flow.IsActive(FlowRig.Skyrim));
+
+        release.SetResult();
+        await DialogShownAsync();
+        _f.LaunchDialog.CancelCommand.Execute(null);
+        await begin;
+    }
+
+    [Fact]
+    public async Task The_checking_card_gives_way_to_the_dialog_when_the_scan_is_done()
+    {
+        var release = HoldPreview();
+        var begin = _f.Play(LaunchRig.SurvivalTip);
+        Assert.IsType<LaunchCheckingViewModel>(_f.Flow.InlineContentFor(FlowRig.Skyrim));
+
+        release.SetResult();
+        await DialogShownAsync();
+
+        Assert.Null(_f.Flow.InlineContentFor(FlowRig.Skyrim));
+        _f.LaunchDialog.CancelCommand.Execute(null);
+        await begin;
+    }
+
+    [Fact]
+    public async Task The_checking_card_gives_way_to_the_banner_when_nothing_changes()
+    {
+        var release = HoldPreview();
+        var begin = _f.Play(LaunchRig.ModdedTip);
+
+        release.SetResult();
+        await begin;
+
+        _ = _f.Inline<LaunchBannerViewModel>();
+    }
+
+    [Fact]
+    public async Task Cancel_on_the_checking_card_stops_the_scan_frees_the_game_and_shows_no_error()
+    {
+        _ = HoldPreview();
+        var begin = _f.Play(LaunchRig.SurvivalTip);
+
+        _f.Inline<LaunchCheckingViewModel>().CancelCommand.Execute(null);
+        await begin;
+
+        Assert.Null(_f.Flow.InlineContentFor(FlowRig.Skyrim));
+        Assert.False(_f.Flow.IsActive(FlowRig.Skyrim));
+        Assert.Empty(_f.Dialogs.Shown);
+        Assert.Empty(_f.Rig.Toasts.Toasts);
+        Assert.Empty(_f.Starts());
+    }
+
+    [Fact]
+    public async Task A_scan_that_fails_replaces_the_checking_card_with_the_failure_card()
+    {
+        var release = HoldPreview();
+        _f.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync), MockupScenario.FileInUseError);
+        var begin = _f.Play(LaunchRig.SurvivalTip);
+
+        release.SetResult();
+        await begin;
+
+        _ = _f.Inline<ErrorCardViewModel>();
+        Assert.False(_f.Flow.IsActive(FlowRig.Skyrim));
+    }
+
     [Fact]
     public async Task When_nothing_changes_the_game_starts_at_once_and_the_banner_says_so()
     {

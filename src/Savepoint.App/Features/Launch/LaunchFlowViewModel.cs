@@ -23,6 +23,9 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
 {
     private readonly LaunchDependencies _deps;
     private readonly Dictionary<string, GameFlow> _flows = [];
+
+    // The save jobs the flow follows to a card; read by the job indicator on the same thread the flow's events are handled on.
+    private readonly HashSet<Guid> _followedSaves = [];
     private readonly Dictionary<string, string> _gameNames = [];
     private readonly Dictionary<(string GameId, string ProfileId), string> _profileNames = [];
     private IReadOnlyCollection<string> _activeGameIds = [];
@@ -56,6 +59,9 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
     public IReadOnlyCollection<string> ActiveGameIds => _activeGameIds;
 
     /// <inheritdoc />
+    public bool ShowsOutcomeOf(Guid jobId) => _followedSaves.Contains(jobId);
+
+    /// <inheritdoc />
     public bool IsActive(string gameId) => _flows.TryGetValue(gameId, out var flow) && IsOwned(flow);
 
     /// <inheritdoc />
@@ -75,17 +81,29 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
             return;
         }
 
+        // The scan of both folders can take seconds on a large install, so the card that says so shows before it starts.
+        using var checking = new CancellationTokenSource();
         flow.Stage = FlowStage.Previewing;
         flow.Target = target;
-        SetInline(flow, null);
+        SetInline(flow, new LaunchCheckingViewModel(_deps.Text, checking.Cancel));
         RaiseActivity();
 
         await RefreshNamesAsync(gameId);
-        var preview = await _deps.Launch.GetPreviewAsync(gameId, target);
+        var preview = await _deps.Launch.GetPreviewAsync(gameId, target, checking.Token);
         if (!preview.Ok)
         {
             flow.Stage = FlowStage.Idle;
-            ShowLaunchFailure(flow, preview.Error);
+
+            // A person who pressed Cancel asked for this: no error card, just the table as it was.
+            if (checking.IsCancellationRequested)
+            {
+                SetInline(flow, null);
+            }
+            else
+            {
+                ShowLaunchFailure(flow, preview.Error);
+            }
+
             RaiseActivity();
             return;
         }
@@ -139,6 +157,7 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
     private async Task AskThenStartAsync(GameFlow flow, LaunchTarget target, LaunchPreview plan, AppSettings settings)
     {
         flow.Stage = FlowStage.Dialog;
+        SetInline(flow, null);
         RaiseActivity();
 
         var dialog = new LaunchDialogViewModel(plan, GameName(flow.GameId), ProfileName(flow.GameId, plan.ProfileId), settings.SkipConfirmWhenOnlySaveChanges, _deps);

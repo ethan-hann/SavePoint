@@ -39,7 +39,7 @@ public sealed partial class ErrorCardViewModel : ObservableObject
         Tone = kind.Tone;
         Title = text.Message(kind.TitleKey);
         Body = text.Message(error);
-        Path = error.Args.TryGetValue("path", out var path) && path is string { Length: > 0 } shown ? shown : null;
+        Path = PathFor(error, text);
         Detail = string.IsNullOrWhiteSpace(error.Detail) ? null : error.Detail;
         Actions = actions ?? [];
         Supplement = supplement;
@@ -56,6 +56,22 @@ public sealed partial class ErrorCardViewModel : ObservableObject
         Detail = string.IsNullOrWhiteSpace(detail) ? null : detail;
         Actions = actions ?? [];
         Supplement = supplement;
+    }
+
+    /// <summary>
+    /// What the card's recessed surface shows for an error: the folder or file it names, or for a full disk on Windows the drive to
+    /// clear space on, which is what a person can act on; null when the error names no path.
+    /// </summary>
+    /// <param name="error">The error.</param>
+    /// <param name="text">Tells which operating system the copy is for.</param>
+    public static string? PathFor(ErrorInfo error, UiFormatter text)
+    {
+        if (!error.Args.TryGetValue("path", out var value) || value is not string { Length: > 0 } path)
+        {
+            return null;
+        }
+
+        return error.MessageId == "error.diskSpace.low" && text.Os == "windows" ? UiFormatter.Drive(path) ?? path : path;
     }
 
     /// <summary>The Material Symbols glyph.</summary>

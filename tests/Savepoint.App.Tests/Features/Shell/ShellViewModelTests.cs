@@ -129,7 +129,7 @@ public class ShellViewModelTests
     }
 
     [Fact]
-    public async Task A_game_list_that_cannot_be_read_tells_the_user_and_leaves_the_library_empty()
+    public async Task A_game_list_that_cannot_be_read_fills_the_page_with_the_error_and_Try_again_instead_of_a_blank_screen()
     {
         var backend = FakeBackend.Mockup();
         backend.FailNext<IGamesApi>(nameof(IGamesApi.ListAsync), ErrorInfo.From(new InvalidOperationException("boom")));
@@ -137,8 +137,50 @@ public class ShellViewModelTests
         var rig = await ShellRig.StartAsync(backend);
 
         Assert.Empty(rig.Shell.Games);
-        Assert.Equal(ToastKind.Error, Assert.Single(rig.Toasts.Toasts).Message.Kind);
         Assert.False(rig.Shell.ShowFirstRun);
+        var error = Assert.IsType<LibraryErrorViewModel>(rig.Shell.Content);
+        Assert.Same(error, rig.Shell.LibraryError);
+        Assert.Equal(["Try again"], error.Card.Actions.Select(action => action.Label));
+        Assert.True(error.Card.Actions[0].IsPrimary);
+        Assert.Empty(rig.Toasts.Toasts);
+    }
+
+    [Fact]
+    public async Task Try_again_reads_the_library_and_gives_the_page_back()
+    {
+        var backend = FakeBackend.Mockup();
+        backend.FailNext<IGamesApi>(nameof(IGamesApi.ListAsync), ErrorInfo.From(new InvalidOperationException("boom")));
+        var rig = await ShellRig.StartAsync(backend);
+        var error = Assert.IsType<LibraryErrorViewModel>(rig.Shell.Content);
+
+        error.Card.Actions[0].Command.Execute(null);
+        await rig.Shell.RefreshLibraryAsync();
+
+        Assert.Null(rig.Shell.LibraryError);
+        Assert.Equal(3, rig.Shell.Games.Count);
+        Assert.Same(rig.Shell.CurrentScreen, rig.Shell.Content);
+    }
+
+    [Fact]
+    public async Task A_second_failure_shows_the_error_again_and_a_library_already_read_keeps_its_page()
+    {
+        var backend = FakeBackend.Mockup();
+        backend.FailNext<IGamesApi>(nameof(IGamesApi.ListAsync), ErrorInfo.From(new InvalidOperationException("boom")));
+        var rig = await ShellRig.StartAsync(backend);
+        rig.Backend.FailNext<IGamesApi>(nameof(IGamesApi.ListAsync), ErrorInfo.From(new InvalidOperationException("boom")));
+
+        await rig.Shell.RefreshLibraryAsync();
+
+        Assert.IsType<LibraryErrorViewModel>(rig.Shell.Content);
+
+        await rig.Shell.RefreshLibraryAsync();
+        Assert.Null(rig.Shell.LibraryError);
+
+        rig.Backend.FailNext<IGamesApi>(nameof(IGamesApi.ListAsync), ErrorInfo.From(new InvalidOperationException("boom")));
+        await rig.Shell.RefreshLibraryAsync();
+
+        Assert.Null(rig.Shell.LibraryError);
+        Assert.Equal(3, rig.Shell.Games.Count);
     }
 
     // ---- Navigation
@@ -489,6 +531,64 @@ public class ShellViewModelTests
     }
 
     [Fact]
+    public async Task A_refresh_keeps_the_row_of_every_game_that_is_still_there_and_changes_nothing_in_the_list()
+    {
+        var rig = await ShellRig.StartAsync();
+        var before = rig.Shell.Games.ToList();
+        var collectionChanges = new List<System.Collections.Specialized.NotifyCollectionChangedAction>();
+        rig.Shell.Games.CollectionChanged += (_, e) => collectionChanges.Add(e.Action);
+
+        await rig.Shell.RefreshLibraryAsync();
+
+        Assert.True(before.SequenceEqual(rig.Shell.Games, ReferenceEqualityComparer.Instance as IEqualityComparer<GameRowViewModel>), "A refresh replaced a row that was still wanted.");
+        Assert.Empty(collectionChanges);
+    }
+
+    [Fact]
+    public async Task A_refresh_updates_a_rows_counts_in_place_and_adds_or_removes_only_what_changed()
+    {
+        var rig = await ShellRig.StartAsync();
+        var skyrim = rig.Shell.Games[0];
+        var satisfactory = rig.Shell.Games[1];
+        var caretaker = rig.Shell.Games[2];
+        var collectionChanges = new List<System.Collections.Specialized.NotifyCollectionChangedAction>();
+        rig.Shell.Games.CollectionChanged += (_, e) => collectionChanges.Add(e.Action);
+        FakeAssert.Ok(await rig.Backend.Profiles.CreateAsync(MockupScenario.SkyrimId, "A new profile", null, "First point"));
+        FakeAssert.Ok(await rig.Backend.Games.DeleteAsync(MockupScenario.SatisfactoryId));
+
+        await rig.Shell.RefreshLibraryAsync();
+
+        Assert.Same(skyrim, rig.Shell.Games[0]);
+        Assert.Same(caretaker, rig.Shell.Games[1]);
+        Assert.Equal(2, rig.Shell.Games.Count);
+        Assert.Equal("4 profiles", skyrim.ProfileCountText);
+        Assert.Equal([System.Collections.Specialized.NotifyCollectionChangedAction.Remove], collectionChanges);
+        Assert.DoesNotContain(satisfactory, rig.Shell.Games);
+    }
+
+    [Fact]
+    public async Task A_game_added_or_renamed_since_the_last_read_changes_only_its_own_row()
+    {
+        var rig = await ShellRig.StartAsync();
+        var before = rig.Shell.Games.ToList();
+        FakeAssert.Ok(await rig.Backend.Games.AddAsync(new GameDefinition(Id: "new-game", Name: "New Game", Install: new InstallLocation(@"D:\Games\New"))));
+        FakeAssert.Ok(await rig.Backend.Games.UpdateAsync(MockupScenario.Satisfactory with { Name = "Satisfactory 1.1" }));
+        var collectionChanges = new List<System.Collections.Specialized.NotifyCollectionChangedAction>();
+        rig.Shell.Games.CollectionChanged += (_, e) => collectionChanges.Add(e.Action);
+
+        await rig.Shell.RefreshLibraryAsync();
+
+        Assert.Equal(4, rig.Shell.Games.Count);
+        Assert.Same(before[0], rig.Shell.Games[0]);
+        Assert.Same(before[1], rig.Shell.Games[1]);
+        Assert.Same(before[2], rig.Shell.Games[2]);
+        Assert.Equal("Satisfactory 1.1", before[1].Name);
+        Assert.Equal("Satisfactory 1.1, 2 profiles", before[1].AutomationName);
+        Assert.Equal("New Game", rig.Shell.Games[3].Name);
+        Assert.Equal([System.Collections.Specialized.NotifyCollectionChangedAction.Add], collectionChanges);
+    }
+
+    [Fact]
     public async Task A_finished_optimization_updates_the_sizes()
     {
         var rig = await ShellRig.StartAsync();
@@ -628,6 +728,20 @@ public class ShellViewModelTests
 
         Assert.Equal(compact, rig.Shell.IsCompact);
         Assert.Equal(railWidth, rig.Shell.RailWidth);
+    }
+
+    [Theory]
+    [InlineData(660, false)]
+    [InlineData(560, false)]
+    [InlineData(559.5, true)]
+    [InlineData(432, true)]
+    public async Task A_short_window_compacts_the_shelf_below_560_pixels(double height, bool isShort)
+    {
+        var rig = await ShellRig.StartAsync();
+
+        rig.Shell.SetWindowHeight(height);
+
+        Assert.Equal(isShort, rig.Shell.IsShort);
     }
 
     [Fact]

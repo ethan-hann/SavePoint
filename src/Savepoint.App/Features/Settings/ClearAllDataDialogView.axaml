@@ -2,52 +2,56 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:theme="using:Savepoint.App.Theme"
              xmlns:settings="using:Savepoint.App.Features.Settings"
+             xmlns:dialogs="using:Savepoint.App.Features.Common.Dialogs"
              x:Class="Savepoint.App.Features.Settings.ClearAllDataDialogView"
              x:DataType="settings:ClearAllDataDialogViewModel">
   <!-- The confirmation for removing all of SavePoint's data: what goes, what stays, and a word to type. -->
-  <StackPanel Spacing="16">
-    <TextBlock x:Name="TitleText" Classes="dialog-title" TextWrapping="Wrap" Text="{Binding Title}" />
-    <TextBlock x:Name="IntroText" Classes="body muted" TextWrapping="Wrap" Text="{Binding Intro}" />
-
-    <Border Classes="recessed" Padding="14,12">
-      <StackPanel Spacing="10">
-        <ItemsControl x:Name="GoesList" ItemsSource="{Binding Items}">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <StackPanel Spacing="8" />
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="x:String">
-              <Grid ColumnDefinitions="Auto,*">
-                <TextBlock Classes="icon s16 error" VerticalAlignment="Top" Margin="0,2,10,0" Text="{x:Static theme:Icons.Delete}" />
-                <TextBlock Grid.Column="1" Classes="body" TextWrapping="Wrap" Text="{Binding}" />
-              </Grid>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-        <Border Classes="divider" />
-        <Grid ColumnDefinitions="Auto,*">
-          <TextBlock Classes="icon s16 success" VerticalAlignment="Top" Margin="0,2,10,0" Text="{x:Static theme:Icons.CheckCircle}" />
-          <TextBlock x:Name="StaysText" Grid.Column="1" Classes="body" TextWrapping="Wrap" Text="{Binding Stays}" />
-        </Grid>
+  <dialogs:DialogFrame>
+    <dialogs:DialogFrame.Footer>
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+        <Button x:Name="CancelButton" Classes="text pill large" Content="{Binding CancelLabel}" Command="{Binding CancelCommand}" />
+        <Button x:Name="ConfirmButton"
+                Classes="error pill large"
+                IsDefault="True"
+                Content="{Binding ConfirmLabel}"
+                Command="{Binding ConfirmCommand}" />
       </StackPanel>
-    </Border>
+    </dialogs:DialogFrame.Footer>
+    <StackPanel Spacing="16">
+      <TextBlock x:Name="TitleText" Classes="dialog-title" TextWrapping="Wrap" Text="{Binding Title}" />
+      <TextBlock x:Name="IntroText" Classes="body muted" TextWrapping="Wrap" Text="{Binding Intro}" />
 
-    <TextBlock x:Name="FreedText" Classes="row-title" Text="{Binding Freed}" />
+      <Border Classes="recessed" Padding="14,12">
+        <StackPanel Spacing="10">
+          <ItemsControl x:Name="GoesList" ItemsSource="{Binding Items}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Spacing="8" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="x:String">
+                <Grid ColumnDefinitions="Auto,*">
+                  <TextBlock Classes="icon s16 error" VerticalAlignment="Top" Margin="0,2,10,0" Text="{x:Static theme:Icons.Delete}" />
+                  <TextBlock Grid.Column="1" Classes="body" TextWrapping="Wrap" Text="{Binding}" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <Border Classes="divider" />
+          <Grid ColumnDefinitions="Auto,*">
+            <TextBlock Classes="icon s16 success" VerticalAlignment="Top" Margin="0,2,10,0" Text="{x:Static theme:Icons.CheckCircle}" />
+            <TextBlock x:Name="StaysText" Grid.Column="1" Classes="body" TextWrapping="Wrap" Text="{Binding Stays}" />
+          </Grid>
+        </StackPanel>
+      </Border>
 
-    <StackPanel Spacing="8">
-      <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding Prompt}" />
-      <TextBox x:Name="TypedField" Text="{Binding TypedText}" AutomationProperties.Name="{Binding Prompt}" />
+      <TextBlock x:Name="FreedText" Classes="row-title" Text="{Binding Freed}" />
+
+      <StackPanel Spacing="8">
+        <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding Prompt}" />
+        <TextBox x:Name="TypedField" Text="{Binding TypedText}" AutomationProperties.Name="{Binding Prompt}" />
+      </StackPanel>
     </StackPanel>
-
-    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,4,0,0">
-      <Button x:Name="CancelButton" Classes="text pill large" Content="{Binding CancelLabel}" Command="{Binding CancelCommand}" />
-      <Button x:Name="ConfirmButton"
-              Classes="error pill large"
-              IsDefault="True"
-              Content="{Binding ConfirmLabel}"
-              Command="{Binding ConfirmCommand}" />
-    </StackPanel>
-  </StackPanel>
+  </dialogs:DialogFrame>
 </UserControl>

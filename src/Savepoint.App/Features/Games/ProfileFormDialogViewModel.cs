@@ -53,6 +53,9 @@ public abstract partial class ProfileFormDialogViewModel : DialogViewModel<bool>
     public override bool CanDismiss => !IsSaving;
 
     /// <inheritdoc />
+    public abstract override string Description { get; }
+
+    /// <inheritdoc />
     public override double DialogWidth => 480;
 
     /// <inheritdoc />

@@ -52,7 +52,7 @@ public class HistoryScreenViewTests
 
         Assert.True(harness.Find<ScrollViewer>("CardsRegion").IsEffectivelyVisible);
         Assert.False(harness.Find<Grid>("ListRegion").IsEffectivelyVisible);
-        Assert.Contains("THIS WEEK", texts);
+        Assert.Contains("LAST 7 DAYS", texts);
         Assert.Contains("EARLIER", texts);
         Assert.Contains("LOADED NOW", texts);
         Assert.Contains("Save only · 1.6.640 with 212 mod files", texts);
@@ -78,6 +78,22 @@ public class HistoryScreenViewTests
     }
 
     [AvaloniaFact]
+    public async Task The_list_offers_go_back_on_every_version_and_mods_entry_that_is_not_in_use_named_after_it()
+    {
+        using var harness = await StartAsync();
+        Screen(harness).SelectedViewOption = Screen(harness).ViewOptions[1];
+        harness.Settle();
+
+        var buttons = harness.Find<Grid>("ListRegion").GetVisualDescendants().OfType<Button>()
+            .Where(button => button.IsEffectivelyVisible && (button.Content as string) == "Go back to this").ToList();
+
+        var entries = Screen(harness).Timeline.Where(entry => !entry.IsInUse).ToList();
+        Assert.NotEmpty(entries);
+        Assert.Equal(entries.Count, buttons.Count);
+        Assert.All(buttons, button => Assert.StartsWith("Go back to this: ", AutomationProperties.GetName(button), StringComparison.Ordinal));
+    }
+
+    [AvaloniaFact]
     public async Task The_toggle_in_the_header_drives_the_view_model()
     {
         using var harness = await StartAsync();
@@ -93,7 +109,7 @@ public class HistoryScreenViewTests
     {
         using var harness = await StartAsync();
 
-        ButtonNamed(harness, "Go back to Cleared Blackreach").Command!.Execute(null);
+        ButtonNamed(harness, "Go back to this: Cleared Blackreach").Command!.Execute(null);
 
         var begun = Assert.Single(harness.Flow.Begun);
         Assert.Equal(new LaunchTarget.Point(MockupScenario.ClearedBlackreach), begun.Target);
@@ -120,7 +136,7 @@ public class HistoryScreenViewTests
         harness.Flow.SetActive(MockupScenario.SkyrimId, true);
         harness.Settle();
 
-        Assert.False(ButtonNamed(harness, "Go back to Cleared Blackreach").IsEffectivelyEnabled);
+        Assert.False(ButtonNamed(harness, "Go back to this: Cleared Blackreach").IsEffectivelyEnabled);
     }
 
     [AvaloniaFact]

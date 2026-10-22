@@ -61,8 +61,47 @@ public sealed class UiFormatter
     /// An id the catalog does not know (a newer Core than this app) reads as the generic unknown-error message, never
     /// as a raw key. The developer detail is never part of it.
     /// </summary>
-    public string Message(ErrorInfo error) =>
-        Message(_catalog.Contains(error.MessageId) ? error.MessageId : "error.unknown", error.Args);
+    public string Message(ErrorInfo error)
+    {
+        var id = _catalog.Contains(error.MessageId) ? error.MessageId : "error.unknown";
+        return Message(id, id == "error.diskSpace.low" ? WithDiskSpaceArguments(error.Args) : error.Args);
+    }
+
+    /// <summary>The drive a path is on: "D:" for a Windows drive letter, the "\\server\share" of a network path, the path itself otherwise; null for an empty path.</summary>
+    public static string? Drive(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return null;
+        }
+
+        if (path.Length >= 2 && char.IsAsciiLetter(path[0]) && path[1] == ':')
+        {
+            return $"{char.ToUpperInvariant(path[0])}:";
+        }
+
+        if (path.StartsWith(@"\\", StringComparison.Ordinal))
+        {
+            var parts = path.Split('\\', StringSplitOptions.RemoveEmptyEntries);
+            return parts.Length >= 2 ? $@"\\{parts[0]}\{parts[1]}" : path;
+        }
+
+        return path;
+    }
+
+    // The message for a full disk names the drive and how much to free, which the error carries only as a path and two byte counts.
+    private IReadOnlyDictionary<string, object?> WithDiskSpaceArguments(IReadOnlyDictionary<string, object?> args)
+    {
+        var shortfall = args.TryGetValue("requiredBytes", out var required) && args.TryGetValue("freeBytes", out var free) && required is long needed && free is long available
+            ? needed - available
+            : 0;
+        return new Dictionary<string, object?>(args)
+        {
+            ["hasShortfall"] = shortfall > 0 ? "yes" : "no",
+            ["shortfall"] = FileSize(Math.Max(shortfall, 0)),
+            ["drive"] = args.TryGetValue("path", out var path) && path is string folder ? Drive(folder) ?? folder : string.Empty,
+        };
+    }
 
     /// <summary>A size in decimal units with at most one fraction digit and no trailing zero ("6.1 GB", "210 GB", "512 bytes").</summary>
     public string FileSize(long bytes)

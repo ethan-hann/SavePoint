@@ -7,7 +7,11 @@ public sealed partial class SampleDialogViewModel(string title = "Sample dialog"
 {
     public bool Dismissible { get; set; } = true;
 
+    public bool ScrimDismisses { get; set; } = true;
+
     public override bool CanDismiss => Dismissible;
+
+    public override bool DismissesOnScrimClick => ScrimDismisses;
 
     protected override string DismissResult => "dismissed";
 

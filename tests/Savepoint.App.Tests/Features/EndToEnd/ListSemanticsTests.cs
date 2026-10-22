@@ -90,7 +90,7 @@ public class ListSemanticsTests
         app.Settle();
         var groups = app.All<ItemsControl>().Where(list => list.DataContext is Savepoint.App.Features.History.PointGroupViewModel).ToList();
 
-        Assert.Equal(["This week", "Earlier"], groups.Select(group => PeerOf(group).GetName()));
+        Assert.Equal(["Last 7 days", "Earlier"], groups.Select(group => PeerOf(group).GetName()));
         Assert.All(groups, group => Assert.Equal(AutomationControlType.List, PeerOf(group).GetAutomationControlType()));
         var thisWeek = Items(groups[0], AutomationControlType.ListItem);
         Assert.Equal(app.History.Groups[0].Cards.Count, thisWeek.Count);

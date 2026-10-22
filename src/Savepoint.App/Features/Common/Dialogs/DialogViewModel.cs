@@ -27,6 +27,15 @@ public abstract class DialogViewModel<TResult> : ObservableObject, IDialogViewMo
     public virtual bool CanDismiss => true;
 
     /// <inheritdoc />
+    public virtual string Description => string.Empty;
+
+    /// <inheritdoc />
+    public virtual bool DismissesOnScrimClick => false;
+
+    /// <inheritdoc />
+    public virtual bool PinsFooter => false;
+
+    /// <inheritdoc />
     public virtual double DialogWidth => 440;
 
     /// <inheritdoc />

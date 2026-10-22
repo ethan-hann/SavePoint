@@ -18,6 +18,7 @@ public sealed partial class ProfileRowViewModel : ObservableObject
 
     /// <summary>True when Play can start the game: a launch flow exists, the game has no session and no profile is running.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PlayDisabledReason))]
     private bool _canPlay;
 
     internal ProfileRowViewModel(Profile profile, ProfileRowStats stats, UiFormatter text, ProfileTableColumns columns, IProfileRowActions actions)
@@ -97,6 +98,9 @@ public sealed partial class ProfileRowViewModel : ObservableObject
     /// <summary>Which optional columns fit; shared with the header and every other row.</summary>
     public ProfileTableColumns Columns { get; }
 
+    /// <summary>Why Play is off, shown as a tip on the disabled button; null while Play works.</summary>
+    public string? PlayDisabledReason => CanPlay ? null : _text.Message("games.profileTable.playBlocked");
+
     /// <summary>Starts the game on this profile's latest points.</summary>
     public IAsyncRelayCommand PlayCommand { get; }
 
@@ -141,7 +145,7 @@ public sealed partial class ProfileRowViewModel : ObservableObject
         LastPlayedText = (stats.LastPlayedAt ?? profile.LastLaunchedAt) is { } lastPlayed ? _text.RelativeTime(lastPlayed) : noValue;
         PlayLabel = IsRunning ? _text.Message("games.profileTable.running") : _text.Message("games.profileTable.play");
 
-        PlayAutomationName = _text.Message("games.profileTable.playAutomationName", ("name", Name));
+        PlayAutomationName = _text.Message(IsRunning ? "games.profileTable.runningAutomationName" : "games.profileTable.playAutomationName", ("name", Name));
         MoreActionsAutomationName = _text.Message("games.profileTable.moreActions", ("name", Name));
         var none = _text.Message("games.profileTable.noneAutomation");
         AutomationName = _text.Message(

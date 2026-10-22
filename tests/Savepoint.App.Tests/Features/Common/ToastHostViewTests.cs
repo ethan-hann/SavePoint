@@ -1,6 +1,9 @@
+using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Layout;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Savepoint.App.Features.Common;
@@ -43,7 +46,7 @@ public class ToastHostViewTests
         using var harness = new Harness();
         harness.Show(new ToastMessage("Saved Skyrim.", ToastKind.Success));
 
-        var dismiss = harness.View.GetVisualDescendants().OfType<Button>().Single();
+        var dismiss = harness.View.GetVisualDescendants().OfType<Button>().Single(button => button.IsEffectivelyVisible);
         Assert.Equal("Dismiss", AutomationProperties.GetName(dismiss));
         Assert.Empty(AutomationAudit.IconButtonsWithoutNames(harness.View));
 
@@ -51,7 +54,7 @@ public class ToastHostViewTests
         Dispatcher.UIThread.RunJobs();
 
         Assert.Empty(harness.Host.Toasts);
-        Assert.Empty(harness.View.GetVisualDescendants().OfType<Button>());
+        Assert.DoesNotContain(harness.View.GetVisualDescendants().OfType<Button>(), button => button.IsEffectivelyVisible);
     }
 
     [AvaloniaFact]
@@ -79,6 +82,59 @@ public class ToastHostViewTests
         Assert.Equal(["One", "Two"], harness.Host.Toasts.Select(toast => toast.Text));
     }
 
+    [AvaloniaFact]
+    public void The_pointer_over_a_toast_pauses_the_timers_until_it_leaves()
+    {
+        using var harness = new Harness();
+        harness.Show(new ToastMessage("Saved Skyrim.", ToastKind.Success));
+        var toast = harness.View.GetVisualDescendants().OfType<Border>().First(border => border.Classes.Contains("panel"));
+
+        harness.Window.MouseMove(toast.TranslatePoint(new Point(20, 10), harness.Window)!.Value);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(harness.Host.IsPaused);
+
+        harness.Window.MouseMove(new Point(510, 290));
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(harness.Host.IsPaused);
+    }
+
+    [AvaloniaFact]
+    public void Keyboard_focus_on_a_toast_pauses_the_timers_until_it_leaves()
+    {
+        using var harness = new Harness();
+        harness.Show(new ToastMessage("Saved Skyrim.", ToastKind.Success));
+        var dismiss = harness.View.GetVisualDescendants().OfType<Button>().Single(button => button.IsEffectivelyVisible);
+
+        dismiss.Focus();
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(harness.Host.IsPaused);
+
+        harness.Window.FocusManager!.Focus(null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(harness.Host.IsPaused);
+    }
+
+    [AvaloniaFact]
+    public void Dismiss_all_shows_with_several_toasts_and_clears_them_all()
+    {
+        using var harness = new Harness();
+        harness.Show(new ToastMessage("One", ToastKind.Error));
+        Assert.Null(FindDismissAll(harness));
+
+        harness.Show(new ToastMessage("Two", ToastKind.Error));
+        var dismissAll = FindDismissAll(harness);
+
+        Assert.NotNull(dismissAll);
+        Assert.Equal("Dismiss all", AutomationAudit.NameOf(dismissAll));
+        dismissAll.Command!.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Empty(harness.Host.Toasts);
+        Assert.Null(FindDismissAll(harness));
+    }
+
+    private static Button? FindDismissAll(Harness harness) =>
+        harness.View.GetVisualDescendants().OfType<Button>().FirstOrDefault(button => button.IsEffectivelyVisible && button.Name == "DismissAllButton");
+
     private sealed class Harness : IDisposable
     {
         private readonly ThemeHost _host;
@@ -86,7 +142,7 @@ public class ToastHostViewTests
         public Harness()
         {
             Host = new ToastHostViewModel(new ManualTimeProvider(), new ImmediateUiDispatcher());
-            View = new ToastHostView { DataContext = Host };
+            View = new ToastHostView { DataContext = Host, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top };
             _host = new ThemeHost(View, width: 520, height: 300);
             Dispatcher.UIThread.RunJobs();
         }
@@ -94,6 +150,8 @@ public class ToastHostViewTests
         public ToastHostViewModel Host { get; }
 
         public ToastHostView View { get; }
+
+        public Window Window => _host.Window;
 
         public void Show(ToastMessage message)
         {

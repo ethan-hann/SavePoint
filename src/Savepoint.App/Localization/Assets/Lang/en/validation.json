@@ -9,7 +9,7 @@
   "validation.game.schemaVersionUnsupported": "This game's file was made for a different version of SavePoint, so it can't be used here.",
   "validation.game.steamAppIdInvalid": "Enter the Steam app ID as a number above zero, such as 489830, or leave it empty.",
   "validation.launch.exePathAbsolute": "Enter the start file's location relative to the game folder, not a full path.",
-  "validation.launch.exePathEscapes": "The start file has to be inside the game folder, so its path can't use .. to climb out of it.",
+  "validation.launch.exePathEscapes": "The start file has to be inside the game folder, so its path can't point outside it.",
   "validation.launch.exePathRequired": "Choose the file that starts the game.",
   "validation.launch.methodInvalid": "Choose how SavePoint should start the game.",
   "validation.launch.uriInvalid": "That doesn't look like a launch link. It should begin with a name and a colon, such as steam://.",

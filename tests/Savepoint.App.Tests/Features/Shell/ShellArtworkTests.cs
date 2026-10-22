@@ -39,7 +39,7 @@ public class ShellArtworkTests
     }
 
     [Fact]
-    public async Task Rebuilding_the_rows_on_a_refresh_leaves_every_game_its_artwork_so_no_tile_goes_back_to_the_tint()
+    public async Task Refreshing_the_rows_leaves_every_game_its_artwork_so_no_tile_goes_back_to_the_tint()
     {
         var backend = FakeBackend.Mockup();
         using var provider = ProviderFor(backend);
@@ -50,7 +50,7 @@ public class ShellArtworkTests
 
         Assert.All(rig.Shell.Games, row =>
         {
-            Assert.NotSame(before[row.Id].Row, row);
+            Assert.Same(before[row.Id].Row, row);
             Assert.Same(before[row.Id].Art, row.Art);
         });
     }

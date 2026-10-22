@@ -14,6 +14,7 @@ Savepoint.Core                       v
   Services/   Games, Profiles, History, Settings, Storage, AppStatus, Jobs (JobRegistry), Locking (GameLock), Exe (version reader, scanner)
   Launch/     per-OS game launchers, process starter, session watcher (exit detection); Orchestration/ LaunchOrchestrator (ILaunchApi) and the session book (IGameSessions)
   Artwork/    IArtworkApi (D30): SteamAppIdDetector, SteamFolderLocator, SteamLocalCache, SteamCdn, ImageProbe, ArtworkStore
+  Diagnostics/ IDiagnosticLog (D34): what Core logs; BackendOptions.Log, no-op by default
   Catalog/    models, validation, CatalogStore (atomic JSON), templates
   Git/        GitBinary, GitRunner (process), GitEngine (operations on a RepoRef)
   Paths/      PathTokenResolver, PathSafety, ConsentMarker
@@ -198,6 +199,13 @@ Catalog models (`GameDefinition`, `Profile`, `AppSettings`, `GameTemplate`, `Rep
 - **Storage move:** `StorageRelocationResult.NotRemoved` lists the old copies left behind, and the job ends Partial when it is not empty. While the copy runs, the destination holds `savepoint-move-in-progress.txt`, and a later move refuses a destination that still has it (`error.storageRelocation.moveUnfinished`).
 - **New error ids:** `error.gameService.folderMismatch`, `error.gameService.alreadyExists`, `error.gameService.noHistoryToReconnect`, `error.launch.completionNotOffered`, `error.storageRelocation.moveUnfinished`, `error.gitOperation.failed`. `error.launch.unavailable` is gone, and `BackendOptions.Launch` is required.
 - **App:** `AppServices.BackendStarted` is false when the backend failed to start; the startup screen then says to restart SavePoint. `ExitGuard` asks before quitting during a clear-all or a storage move, cancels the jobs that can be canceled, and waits up to three seconds.
+
+**Diagnostic log (D34).** Core writes through `IDiagnosticLog`, which `BackendOptions.Log` supplies; the default writes nothing, and the backend wraps it so that a failing log can never throw through the Api. The App's log is `Hosting/SerilogDiagnosticLog`. It writes `savepoint-<date>.log` into `AppDirectories.LogsDir`:
+- Windows: `%LOCALAPPDATA%\SavePoint\Logs`;
+- macOS: `~/Library/Logs/SavePoint`;
+- Linux: `~/.local/state/savepoint/logs`.
+
+`AppServices.LogFolder` carries the folder to Settings > About and to the startup screen. The crash handler in `Hosting/` catches unhandled exceptions from the UI thread, the domain, and unobserved tasks, logs them, shows the last window, and exits with code 1.
 
 **Artwork (D30).** `IArtworkApi` answers with what is on disk at once and never waits for a lookup. A missing image starts a background lookup, and the `ArtworkChanged` event (keyed by game id) delivers the result.
 - **Images** live in `<catalog dir>/artwork/<gameId>/`: `custom.<ext>` (the user's own, copied in), `steam-wide.jpg`, `steam-square.jpg`, and `lookup.json`, which records the app id used and a miss for 7 days. A missing app id counts as a miss.

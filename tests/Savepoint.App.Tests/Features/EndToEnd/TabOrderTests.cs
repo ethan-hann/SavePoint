@@ -94,15 +94,15 @@ public class TabOrderTests
             [
                 "History", "Skyrim Special Edition, 3 profiles", "Add a game",
                 "Filter by profile: All profiles", "Cards",
-                "Go back to Cleared Blackreach", "Go back to 14 mod files updated",
-                "Go back to Fresh start with Nolvus", "Go back to Vanilla 1.6.1170", "Go back to Deep cave run",
-                "Go back to First night", "Go back to Survival test - 5-14-26",
+                "Go back to this: Cleared Blackreach", "Go back to this: 14 mod files updated",
+                "Go back to this: Fresh start with Nolvus", "Go back to this: Vanilla 1.6.1170", "Go back to this: Deep cave run",
+                "Go back to this: First night", "Go back to this: Survival test - 5-14-26",
             ],
             TabStops(app));
     }
 
     [AvaloniaFact]
-    public async Task The_history_list_goes_through_the_saves_after_the_filter_and_the_view_toggle()
+    public async Task The_history_list_goes_through_the_versions_then_the_saves_after_the_filter_and_the_view_toggle()
     {
         using var app = await ComposedApp.StartWithViewAsync();
         app.Shell.Navigate(NavDestination.History);
@@ -113,6 +113,7 @@ public class TabOrderTests
             [
                 "History", "Skyrim Special Edition, 3 profiles", "Add a game",
                 "Filter by profile: All profiles", "List",
+                .. app.History.Timeline.Where(entry => entry.CanGoBack).Select(entry => entry.GoBackAutomationName),
                 "Load Cleared Blackreach", "Load Fresh start with Nolvus", "Load Deep cave run", "Load First night",
             ],
             TabStops(app));
@@ -130,10 +131,20 @@ public class TabOrderTests
                 "Settings", "Skyrim Special Edition, 3 profiles", "Add a game",
                 "Change", "Run now",
                 "Dark", "Sidebar", "Blue", "Look up game artwork online",
-                "Ask whether to save the session", "Skip the confirmation when only the save changes",
-                "Remove all data…",
+                "Skip the check before playing when only the save changes", "Ask whether to save the session",
+                "Remove all data…", "Third-party notices",
             ],
             TabStops(app));
+    }
+
+    [AvaloniaFact]
+    public async Task Settings_has_no_notices_stop_when_the_notices_file_was_not_shipped()
+    {
+        using var app = await ComposedApp.StartWithViewAsync(noticesShipped: false);
+        app.Shell.Navigate(NavDestination.Settings);
+        app.Settle();
+
+        Assert.DoesNotContain("Third-party notices", TabStops(app));
     }
 
     [AvaloniaFact]

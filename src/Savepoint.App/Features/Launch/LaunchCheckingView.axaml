@@ -1,0 +1,30 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:Savepoint.App.Localization"
+             xmlns:launch="using:Savepoint.App.Features.Launch"
+             x:Class="Savepoint.App.Features.Launch.LaunchCheckingView"
+             x:DataType="launch:LaunchCheckingViewModel">
+  <!-- The inline card while Play checks what starting would change: a polite live region, so a screen reader hears it appear. -->
+  <Border x:Name="Card"
+          Background="{DynamicResource Md3SurfaceContainerHighBrush}"
+          CornerRadius="16"
+          Padding="24,20"
+          AutomationProperties.Name="{Binding Title}"
+          AutomationProperties.HelpText="{Binding Hint}"
+          AutomationProperties.LiveSetting="Polite">
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="10" VerticalAlignment="Center">
+        <TextBlock x:Name="TitleText" Classes="card-title" Text="{Binding Title}" />
+        <ProgressBar x:Name="Bar" IsIndeterminate="True" AutomationProperties.Name="{Binding Title}" />
+        <TextBlock x:Name="HintText" Classes="caption" TextWrapping="Wrap" Text="{Binding Hint}" />
+      </StackPanel>
+      <Button x:Name="CancelButton"
+              Grid.Column="1"
+              Classes="pill"
+              Margin="20,0,0,0"
+              Padding="20,9"
+              Command="{Binding CancelCommand}"
+              Content="{loc:Loc common.cancel}" />
+    </Grid>
+  </Border>
+</UserControl>
