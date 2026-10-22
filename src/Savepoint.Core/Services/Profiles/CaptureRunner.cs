@@ -68,10 +68,18 @@ internal sealed class CaptureRunner
                     game.Id,
                     async (storage, _) =>
                     {
-                        var saved = await RunAsync(context, storage, game, profile, pointName, roles, capture, creating, plans).ConfigureAwait(false);
+                        // Whatever waited for the lock may have changed the game or removed the profile since the save was asked for.
+                        var current = await _services.Catalog.GetGameAsync(game.Id, CancellationToken.None).ConfigureAwait(false)
+                            ?? throw new GameNotFoundException(game.Id);
+                        var target = creating
+                            ? profile
+                            : await _services.Catalog.GetProfileAsync(profile.Id, CancellationToken.None).ConfigureAwait(false) is { } found && found.GameId == game.Id
+                                ? found
+                                : throw new ProfileNotFoundException(game.Id, profile.Id);
+                        var saved = await RunAsync(context, storage, current, target, pointName, roles, capture, creating, plans).ConfigureAwait(false);
 
                         // Counted while the lock is held, only for a save nobody stopped (D13.17), so the job ends without waiting for the lock again.
-                        crowded = !context.CancellationToken.IsCancellationRequested && saved.Folders.Any(folder => folder.Ok) && _optimization.IsCrowded(storage, game);
+                        crowded = !context.CancellationToken.IsCancellationRequested && saved.Folders.Any(folder => folder.Ok) && _optimization.IsCrowded(storage, current);
                         return saved;
                     },
                     context.CancellationToken).ConfigureAwait(false);
