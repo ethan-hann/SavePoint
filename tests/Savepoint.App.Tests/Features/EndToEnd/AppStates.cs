@@ -33,6 +33,7 @@ internal static class AppStates
         "games-new-profile-wizard",
         "launch-dialog",
         "launch-dialog-unsaved",
+        "launch-dialog-saving",
         "launch-dialog-keep-as-new",
         "launch-progress",
         "launch-post-play",
@@ -146,6 +147,11 @@ internal static class AppStates
                 break;
             case "launch-dialog-unsaved":
                 _ = Row(app, MockupScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
+                break;
+            case "launch-dialog-saving":
+                _ = Row(app, MockupScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
+                _ = app.Dialog<LaunchDialogViewModel>().UnsavedBlocks[0].SaveFirstCommand.ExecuteAsync(null);
+                app.Backend.Jobs.ReportProgress(app.Backend.Jobs.LastStarted(JobKind.Capture).JobId, new JobProgress(FilesDone: 410, FilesTotal: 1000));
                 break;
             case "launch-dialog-keep-as-new":
                 _ = Row(app, MockupScenario.SurvivalId).PlayCommand.ExecuteAsync(null);

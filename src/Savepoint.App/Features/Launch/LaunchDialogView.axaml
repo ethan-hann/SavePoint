@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:loc="using:Savepoint.App.Localization"
              xmlns:theme="using:Savepoint.App.Theme"
+             xmlns:a11y="using:Savepoint.App.Features.Common.Accessibility"
              xmlns:launch="using:Savepoint.App.Features.Launch"
              x:Class="Savepoint.App.Features.Launch.LaunchDialogView"
              x:DataType="launch:LaunchDialogViewModel">
@@ -87,9 +88,20 @@
                            IsVisible="{Binding HasError}"
                            AutomationProperties.LiveSetting="Assertive"
                            Text="{Binding Error}" />
-                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0" IsVisible="{Binding ShowActions}">
                   <Button Classes="error pill" FontSize="13.5" Padding="16,8" IsVisible="{Binding CanSaveFirst}" Command="{Binding SaveFirstCommand}" Content="{loc:Loc launch.dialog.saveThemFirst}" />
                   <Button Classes="error-outlined pill" FontSize="13.5" Padding="16,8" Command="{Binding DiscardCommand}" Content="{loc:Loc launch.dialog.discardThem}" />
+                </StackPanel>
+                <!-- While "Save them first" runs the bar takes the buttons' place; saving can take minutes. -->
+                <StackPanel x:Name="SavingProgress" Spacing="6" Margin="0,8,0,0" IsVisible="{Binding IsSaving}">
+                  <a11y:AnnouncementRegion Message="{Binding Announcement}" />
+                  <TextBlock Classes="body" FontWeight="Medium" Text="{loc:Loc launch.dialog.savingFirst}" />
+                  <ProgressBar Minimum="0"
+                               Maximum="100"
+                               Value="{Binding ProgressPercent}"
+                               IsIndeterminate="{Binding IsProgressIndeterminate}"
+                               AutomationProperties.Name="{loc:Loc launch.dialog.savingFirst}" />
+                  <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding ProgressText}" />
                 </StackPanel>
               </StackPanel>
             </Grid>

@@ -36,4 +36,19 @@ public class CheckingCardViewTests
         Assert.Empty(app.All<LaunchCheckingView>());
         Assert.Empty(app.Toasts.Toasts);
     }
+
+    [AvaloniaFact]
+    public async Task Save_them_first_shows_a_bar_with_the_files_done_where_its_buttons_were()
+    {
+        using var app = await AppStates.OpenAsync("launch-dialog-saving");
+
+        var bar = app.All<StackPanel>().Single(panel => panel.Name == "SavingProgress" && panel.IsEffectivelyVisible).GetVisualDescendants().OfType<ProgressBar>().Single();
+        Assert.Equal(41, bar.Value, 0.5);
+        Assert.False(bar.IsIndeterminate);
+        Assert.Equal("Saving these changes…", AutomationAudit.NameOf(bar));
+        var texts = app.All<TextBlock>().Where(block => block.IsEffectivelyVisible).Select(block => block.Text).ToList();
+        Assert.Contains("410 of 1,000 files", texts);
+        Assert.DoesNotContain(app.All<Button>(), button => button.IsEffectivelyVisible && button.Content as string is "Save them first" or "Discard them");
+        app.Render("launch", "2b-launch-dialog-saving-first");
+    }
 }

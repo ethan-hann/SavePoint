@@ -285,7 +285,34 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
                 return;
             }
 
-            var job = await _deps.Awaiter.WaitAsync(started.Value.JobId);
+            // The save can take minutes, so the block shows its progress where the buttons were; events come from any thread.
+            var jobId = started.Value.JobId;
+            void Follow(object? sender, JobSnapshot snapshot)
+            {
+                if (snapshot.JobId == jobId && snapshot.Status == JobStatus.Running)
+                {
+                    _deps.Dispatcher.Post(() => block.UpdateSaving(snapshot.Progress, text));
+                }
+            }
+
+            block.BeginSaving(text.Message("launch.dialog.savingFirst"));
+            _deps.Jobs.JobChanged += Follow;
+            JobSnapshot job;
+            try
+            {
+                if (_deps.Jobs.Get(jobId) is { Status: JobStatus.Running } running)
+                {
+                    block.UpdateSaving(running.Progress, text);
+                }
+
+                job = await _deps.Awaiter.WaitAsync(jobId);
+            }
+            finally
+            {
+                _deps.Jobs.JobChanged -= Follow;
+                block.EndSaving();
+            }
+
             if (job.Status == JobStatus.Succeeded)
             {
                 Resolved(block);

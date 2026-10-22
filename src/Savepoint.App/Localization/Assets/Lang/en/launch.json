@@ -22,6 +22,8 @@
   "launch.dialog.keepExplain": "Some of these changes aren't linked to a profile — they came from an older save or a profile that was removed. Keep them as a new profile so nothing is lost.",
   "launch.dialog.olderPoint": "This is an older point in \"{profileName}\". After you play, SavePoint will offer to keep your progress as a new profile, or to continue this profile from here.",
   "launch.dialog.saveCaption": "This replaces what's in your saves folder right now.",
+  "launch.dialog.savingFiles": "{done} files saved so far",
+  "launch.dialog.savingFirst": "Saving these changes…",
   "launch.dialog.saveFirstFailed": "SavePoint couldn't save these changes. {reason}",
   "launch.dialog.saveFirstPoint": "Before switching to {profileName}",
   "launch.dialog.saveOption": "{name} — {date}, {time}",
