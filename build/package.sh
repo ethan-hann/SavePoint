@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds the Linux (linux-x64) package: a self-contained publish, then vpk pack, which makes the AppImage.
 #
-#   build/package.sh [--sources] [--allow-dirty]
+#   build/package.sh [--sources] [--allow-dirty] [--revision <commit>[-dirty]] [--tools-dir <folder>]
 #
 # Publishes src/Savepoint.App into artifacts/publish/linux-x64, checks that the git bundle, the notices and the license
 # texts came along, and packs it with the pinned vpk (a local tool, never a global one) into artifacts/release/linux-x64,
@@ -14,10 +14,17 @@
 #                has been printed.
 # --allow-dirty  packs a tree with uncommitted changes anyway, for a trial package, marked "-dirty". Without it the run is
 #                refused, because a package from such a tree cannot be tied to a commit.
+# --revision     the commit to put into the informational version, as 12 or more hex digits with "-dirty" after them when the
+#                tree has changes. Given, the script asks git nothing: a Windows-made worktree cannot be read by Linux git, so
+#                build/package-linux.ps1 asks Windows git and passes the answer in. Not combined with --allow-dirty, which is
+#                the answer for a script that asks git itself.
+# --tools-dir    where the .NET SDK and the NuGet caches live, <tree>/.tools when not given. build/package-linux.ps1 points it at
+#                the main checkout's .tools, which the Linux gate uses too, so one SDK serves both.
 #
 # Run it from a checkout that only Linux builds: Windows and Linux builds of one tree share obj/, and each restore
 # overwrites the other's. Under WSL, keep the tree on the Linux file system (not /mnt/c) for speed. Without a .NET SDK on the
-# PATH it installs one into .tools/dotnet-linux, as build/gate-linux.sh does.
+# PATH it installs one into <tools-dir>/dotnet-linux, as build/gate-linux.sh does. From Windows, build/package-linux.ps1 does
+# all of this in the Linux-only worktree, .linux-gate.
 #
 # Windows has its own script, build/package.ps1. macOS is not produced here: vpk has to run on a Mac, and the result has to
 # be signed and notarized before anyone else can open it.
@@ -25,13 +32,30 @@ set -euo pipefail
 
 sources=0
 allow_dirty=0
-for argument in "$@"; do
-  case "$argument" in
+given_revision=""
+tools_dir=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
     --sources) sources=1 ;;
     --allow-dirty) allow_dirty=1 ;;
-    *) echo "package: unknown argument $argument" >&2; exit 2 ;;
+    --revision)
+      [ "$#" -ge 2 ] || { echo "package: --revision needs a commit" >&2; exit 2; }
+      given_revision="$2"
+      shift
+      ;;
+    --tools-dir)
+      [ "$#" -ge 2 ] || { echo "package: --tools-dir needs a folder" >&2; exit 2; }
+      tools_dir="$2"
+      shift
+      ;;
+    *) echo "package: unknown argument $1" >&2; exit 2 ;;
   esac
+  shift
 done
+if [ -n "$given_revision" ]; then
+  [[ "$given_revision" =~ ^[0-9a-f]{12,40}(-dirty)?$ ]] || { echo "package: --revision is $given_revision, which is not a commit of 12 or more hex digits, optionally followed by -dirty" >&2; exit 2; }
+  [ "$allow_dirty" -eq 0 ] || { echo "package: --allow-dirty and --revision do not go together; end the revision with -dirty for a trial package" >&2; exit 2; }
+fi
 
 fail() {
   echo "package: $*" >&2
@@ -44,7 +68,7 @@ cd "$repo"
 # Builds, vpk and the downloads all inherit this, so packaging never starves the machine it runs on.
 renice -n 10 $$ >/dev/null 2>&1 || true
 
-tools="$repo/.tools"
+tools="${tools_dir:-$repo/.tools}"
 export DOTNET_CLI_TELEMETRY_OPTOUT=1
 export DOTNET_NOLOGO=1
 export DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1
@@ -94,14 +118,18 @@ icon="$repo/src/Savepoint.App/Assets/Icon/savepoint-512.png"
 
 # Every build is the same version, so the commit is what tells two builds apart: it goes into the informational version, which
 # the startup log reads. A package from a tree with changes the commit does not hold cannot be tied to one.
-commit="$(git rev-parse --short=12 HEAD)" || fail "git could not say which commit this is"
-changes="$(git status --porcelain | grep -c . || true)"
-if [ "$changes" -gt 0 ] && [ "$allow_dirty" -eq 0 ]; then
-  fail "the working tree has $changes uncommitted change(s), so the package could not be tied to a commit. Commit them, or pass --allow-dirty for a trial package."
-fi
-revision="$commit"
-if [ "$changes" -gt 0 ]; then
-  revision="$commit-dirty"
+if [ -n "$given_revision" ]; then
+  revision="$given_revision"
+else
+  commit="$(git rev-parse --short=12 HEAD)" || fail "git could not say which commit this is"
+  changes="$(git status --porcelain | grep -c . || true)"
+  if [ "$changes" -gt 0 ] && [ "$allow_dirty" -eq 0 ]; then
+    fail "the working tree has $changes uncommitted change(s), so the package could not be tied to a commit. Commit them, or pass --allow-dirty for a trial package."
+  fi
+  revision="$commit"
+  if [ "$changes" -gt 0 ]; then
+    revision="$commit-dirty"
+  fi
 fi
 echo "==> SavePoint $version ($revision) for $rid, with .NET SDK $(dotnet --version)"
 
