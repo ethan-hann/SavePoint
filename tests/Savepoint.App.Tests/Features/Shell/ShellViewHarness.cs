@@ -1,7 +1,5 @@
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Headless;
-using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Savepoint.App.Features.Common;
 using Savepoint.App.Features.Common.Formatting;
@@ -89,11 +87,7 @@ internal sealed class ShellViewHarness : IDisposable
     public string Render(string fileName)
     {
         Settle();
-        var frame = Window.CaptureRenderedFrame() ?? throw new InvalidOperationException("No frame was rendered.");
-        Directory.CreateDirectory(OutputFolder);
-        var path = Path.Combine(OutputFolder, fileName + ".png");
-        frame.Save(path, new PngBitmapEncoderOptions());
-        return path;
+        return ThemeTestSupport.SaveFrame(Window, Path.Combine(OutputFolder, fileName + ".png"));
     }
 
     public void Dispose()

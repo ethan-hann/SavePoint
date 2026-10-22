@@ -184,10 +184,6 @@ public class FinalRenderTests
         }
 
         using var gallery = new ThemeHost(grid, ThemePreference.Dark, width: 1040, height: 660);
-        var frame = ThemeTestSupport.Render(gallery.Window);
-        Directory.CreateDirectory(ComposedApp.RenderFolder(_area));
-        var path = Path.Combine(ComposedApp.RenderFolder(_area), "2l-error-states.png");
-        frame.Save(path, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
-        AssertRendered(path);
+        AssertRendered(ThemeTestSupport.SaveFrame(gallery.Window, Path.Combine(ComposedApp.RenderFolder(_area), "2l-error-states.png")));
     }
 }

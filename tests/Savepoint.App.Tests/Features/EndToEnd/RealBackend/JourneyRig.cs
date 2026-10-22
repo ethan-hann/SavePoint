@@ -1,6 +1,4 @@
 using Avalonia;
-using Avalonia.Headless;
-using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common;
@@ -335,12 +333,7 @@ internal sealed class JourneyRig : IAsyncDisposable
     public string Render(string name)
     {
         Dispatcher.UIThread.RunJobs();
-        var frame = _host.Window.CaptureRenderedFrame() ?? throw new InvalidOperationException("No frame was rendered.");
-        var folder = Path.Combine(ThemeTestSupport.RepoRoot(), "render-output", "end-to-end");
-        Directory.CreateDirectory(folder);
-        var path = Path.Combine(folder, name + ".png");
-        frame.Save(path, new PngBitmapEncoderOptions());
-        return path;
+        return ThemeTestSupport.SaveFrame(_host.Window, Path.Combine(ThemeTestSupport.RepoRoot(), "render-output", "end-to-end", name + ".png"));
     }
 
     public async ValueTask DisposeAsync()

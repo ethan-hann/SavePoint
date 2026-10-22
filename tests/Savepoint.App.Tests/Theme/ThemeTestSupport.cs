@@ -127,6 +127,23 @@ internal static class ThemeTestSupport
         window.Show();
         return window.CaptureRenderedFrame() ?? throw new InvalidOperationException("The window produced no frame.");
     }
+
+    // Saves what the window draws now as a PNG at the path, and returns the path.
+    public static string SaveFrame(TopLevel window, string path)
+    {
+        using var frame = window.CaptureRenderedFrame() ?? throw new InvalidOperationException("No frame was rendered.");
+        return SaveFrame(frame, path);
+    }
+
+    // Every frame a test writes goes through here. The encoder reads the frame's pixels in place, and a collected frame frees them, so the
+    // frame is held until the file is written; without that, a collection on another thread mid-write crashes the test host.
+    public static string SaveFrame(WriteableBitmap frame, string path)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        frame.Save(path, new PngBitmapEncoderOptions());
+        GC.KeepAlive(frame);
+        return path;
+    }
 }
 
 // Shows a control in a window under the real application styles with the theme set explicitly; disposing closes the
