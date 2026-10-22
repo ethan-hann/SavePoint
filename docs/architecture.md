@@ -23,8 +23,8 @@ Savepoint.Core                       v
 ```
 
 Rules:
-- Views bind only to view models. View models call only the Api interfaces and `IDialogs` (folder pickers, file pickers, confirmations). Nothing in `Savepoint.App` references `Git/`, `Paths/`, or `Services/` types directly, except the composition root.
-- `Savepoint.Core` has no Avalonia reference and no static mutable state. Everything is constructed in one composition root (`Hosting/AppBootstrap` in the App, which calls `CoreBackend.Create`) and injected, so tests build the same graph against temp directories.
+- Views bind only to view models. View models call only the Api interfaces and `IDialogs` (folder pickers, file pickers, confirmations). Nothing in `Savepoint.App` references `Git/`, `Paths/`, or `Services/` types directly; `Hosting/AppBootstrap` reaches them only through `CoreBackend.Create` and the launch orchestrator.
+- `Savepoint.Core` has no Avalonia reference and no static mutable state. Everything is constructed at startup and injected, so tests build the same graph against temp directories. The composition root is `Hosting/AppBootstrap`, which builds Core through `CoreBackend.Create`; `AppComposition` then wires the view models to the Api it returns.
 - Every file-system or process side effect in Core goes through an injected abstraction where tests need to fake it (`IPlatform`, `IClock`, `IProcessInspector`, `IGameLauncher`); plain temp-dir IO is used everywhere else.
 - Async all the way: every operation that touches disk or git is `async Task` and takes a `CancellationToken`.
 
@@ -59,6 +59,12 @@ Subclasses and ids (keep the v1 ids from `docs/reference/v1-ui.md` section 1.2, 
 | ValidationException | `error.validation.invalidPayload` | `issues` (list of `{ path, messageId }`) |
 | CatalogCorruptException *new* | `error.catalog.corrupt` | `path` |
 | GitUnavailableException *new* | `error.git.unavailable` | `path` |
+| StorageUnreachableException *new* | `error.storage.unreachable` | `path` |
+| StorageHistoryNotFoundException *new* | `error.storage.noHistoryHere` | `path` |
+| StorageRemoveFailedException *new* | `error.storage.removeFailed` | `path` |
+| StorageSourceUnreadableException *new* | `error.storageRelocation.sourceUnreadable` | `path` (the entry that cannot be read) |
+| StorageInsideInstallFolderException *new* | `error.storageRelocation.insideInstallFolder` | `path` |
+| FileUnreadableException *new* | `error.gitOperation.unreadableFile` | `path` |
 
 `ErrorInfo(string MessageId, IReadOnlyDictionary<string, object?> Args, string Detail)` is the only error shape that leaves Core. `ErrorInfo.From(Exception)` maps a `SavepointException` to its id and args (enum args become camelCase strings) and anything else to `error.unknown` with the exception text as `Detail`. A user cancel surfaces as `OperationCanceledException`; the job registry and the Api facade map it to the matching cancelled id themselves (cancelled reads return `error.operation.cancelled`, D23). Further ids added by later decisions (D28, D29, and the services) are listed in the XML docs of `src/Savepoint.Core/Errors/`, which are the authoritative list.
 
@@ -81,7 +87,7 @@ One implementation per OS under `Platform/Windows`, `Platform/Linux`, `Platform/
 
 ## Git
 
-- `GitBinary`: locates the bundled git under `<AppContext.BaseDirectory>/git/` (override: `SAVEPOINT_GIT_ROOT` for tests and dev) and builds the base environment for the platform's bundle layout (MinGit on Windows: `cmd/git.exe`; dugite-native elsewhere: `bin/git` with `GIT_EXEC_PATH`, `GIT_TEMPLATE_DIR`, `GIT_CONFIG_SYSTEM`/`PREFIX`). `VerifyAsync()` runs `git --version` and throws `GitUnavailableException` when it cannot.
+- `GitBinary`: locates the bundled git under `<AppContext.BaseDirectory>/git/` (override: `SAVEPOINT_GIT_ROOT` for tests and dev) and builds the base environment for the platform's bundle layout (MinGit on Windows: the real `git.exe` under `ucrt64/bin`, `mingw64/bin`, or `clangarm64/bin`, started directly with the `PATH` and `GIT_EXEC_PATH` that `cmd/git.exe` would set, which saves one process per git call; `cmd/git.exe` only when no toolchain folder is found; dugite-native elsewhere: `bin/git` with `GIT_EXEC_PATH`, `GIT_TEMPLATE_DIR`, `GIT_CONFIG_SYSTEM`/`PREFIX`). `VerifyAsync()` runs `git --version` and throws `GitUnavailableException` when it cannot.
 - `GitRunner`: runs one git process with an argument list (never a shell string), `GIT_DIR`/`GIT_WORK_TREE`, the pinned identity and config isolation (D13.24), `GIT_OPTIONAL_LOCKS=0` for read-only calls, optional stdin, line-streamed stdout/stderr callbacks, or binary stdout. Cancellation kills the whole process tree (`Process.Kill(entireProcessTree: true)`). Non-zero exit throws `GitCommandException` (internal; the engine maps it to a typed error).
 - `GitEngine`: the operations in `docs/reference/v1-engine.md` on a `RepoRef(string GitDir, string WorkTree, string GameId, RepoRole Role)`. Every operation that writes checks path safety and the consent marker first.
 
@@ -191,7 +197,10 @@ Catalog models (`GameDefinition`, `Profile`, `AppSettings`, `GameTemplate`, `Rep
 
 **Storage and settings.** `GameStorageUsage` and `StorageSummary` give SavePoint's bytes per game and in total and the storage volume's size and free space; the summary adds the last optimization date. `StorageRelocationPreview` and `ClearAllDataPreview` list what will move or go, with sizes and a `BlockedBy` error, so the confirmation is exact. After a move is verified and SavePoint has switched to the new root, the old copies are deleted; a copy that cannot be removed is named in the job's lines and left in place.
 
-**Startup (D18).** `StartupStatus` holds `GitStatus(Available, Path, Version, Error)` and `CatalogStatus(Directory, CorruptFiles)`, each `CorruptCatalogFile` naming its path, its last good backup if any, and the error. `RecoverCatalogFileAsync` restores the backup or starts that file empty; either way the corrupt file is moved aside, never deleted, and the call answers with where it went.
+**Startup (D18, D37).** `StartupStatus` holds `GitStatus(Available, Path, Version, Error)`, `CatalogStatus(Directory, CorruptFiles)`, and `StorageStatus(Reachable, Root, Error)`. Each `CorruptCatalogFile` names its path, its last good backup if any, and the error. `RecoverCatalogFileAsync` restores the backup or starts that file empty; either way the corrupt file is moved aside, never deleted, and the call answers with where it went. When the storage folder cannot be reached, the startup screen offers three ways on:
+- check again, after the drive is back;
+- `UseStorageFolderAsync(folder)`, "Find the folder": a settings change that copies nothing, refused with `error.storage.noHistoryHere` unless the folder holds SavePoint's history for at least one listed game;
+- `StartWithEmptyStorageAsync`, "Start with an empty folder": starts over in the platform's default storage folder, keeps games and profiles listed with no history, and leaves the old folder untouched; refused with `error.storageRelocation.destinationNotEmpty` when the default folder already holds history.
 
 **From the backend review (D31).**
 - **Launch preview:** each `FolderLaunchState` also reports `DirtyNewFileCount` (so the discard confirmation can count what it removes) and `UnfinishedSwitch` with its `UnfinishedSwitchTarget`, a `LaunchTarget` that "Switch again" starts to finish the switch.
@@ -199,6 +208,12 @@ Catalog models (`GameDefinition`, `Profile`, `AppSettings`, `GameTemplate`, `Rep
 - **Storage move:** `StorageRelocationResult.NotRemoved` lists the old copies left behind, and the job ends Partial when it is not empty. While the copy runs, the destination holds `savepoint-move-in-progress.txt`, and a later move refuses a destination that still has it (`error.storageRelocation.moveUnfinished`).
 - **New error ids:** `error.gameService.folderMismatch`, `error.gameService.alreadyExists`, `error.gameService.noHistoryToReconnect`, `error.launch.completionNotOffered`, `error.storageRelocation.moveUnfinished`, `error.gitOperation.failed`. `error.launch.unavailable` is gone, and `BackendOptions.Launch` is required.
 - **App:** `AppServices.BackendStarted` is false when the backend failed to start; the startup screen then says to restart SavePoint. `ExitGuard` asks before quitting during a clear-all or a storage move, cancels the jobs that can be canceled, and waits up to three seconds.
+
+**From the recheck (D37).**
+- **Held files:** a file git cannot read (another program holds it, or access is denied) no longer counts as a change. When every change git lists is such a file, `RepoStatus.IsClean` is true and `RepoStatus.HeldFile` names the file, and the launch preview reports it in `FolderLaunchState.HeldBy`, so the dialog names the file that stands in the way of a switch and asks to try again instead of offering to keep or discard anything. `error.gitOperation.checkoutFailed` covers a file in use and `error.gitOperation.unreadableFile` a file that cannot be read at all.
+- **Finishing a switch:** `InterruptedSwitch.ToBranch` records the branch a switch was for, because profiles can share a point (a duplicate starts at its source's), so "Switch again" finishes the switch for the right profile. A half-switched folder counts the files git lists.
+- **First save of a folder:** `CaptureMode.Root` starts a new branch whose first point has nothing behind it, holding what the folder holds now, from whatever branch the folder is on, and writes a point even when nothing changed. A profile that saves a folder for the first time uses it, so its history there starts on its own instead of continuing another profile's.
+- **Storage moves:** a move refuses a destination inside the installer's own folder (`error.storageRelocation.insideInstallFolder`, D38), and refuses to start when anything in the current storage cannot be read (`error.storageRelocation.sourceUnreadable`, named in `path`). A folder that cannot be opened and is not named like a game folder does not stop the move and is left in place. An old copy that cannot be deleted for a reason closing a program will not fix is `error.storage.removeFailed`.
 
 **Diagnostic log (D34).** Core writes through `IDiagnosticLog`, which `BackendOptions.Log` supplies; the default writes nothing, and the backend wraps it so that a failing log can never throw through the Api. The App's log is `Hosting/SerilogDiagnosticLog`. It writes `savepoint-<date>.log` into `AppDirectories.LogsDir`:
 - Windows: `%LOCALAPPDATA%\SavePoint\Logs`;

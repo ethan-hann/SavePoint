@@ -104,7 +104,11 @@ The check before playing can be skipped too. When only the save would change, ti
 - **Version and mods**
 - **Save only**
 
-Switch between the **List** and **Cards** views, and filter by profile. A point in use is marked **in use now**. In the cards view, **Go back to this** starts the game from that whole point. In the list view, **Load** next to a save starts the game with that save, in the profile it belongs to. Both go through the same check of what will change as Play.
+Switch between the **List** and **Cards** views, and filter by profile. The point your game folders hold now is marked **Loaded now** on its card, and **in use now** in the list.
+- **Go back to this** on a card, or on a version in the list, starts the game from that whole point.
+- **Load** next to a save in the list starts the game with that save, in the profile it belongs to.
+
+Both go through the same check of what will change as Play.
 
 ## Settings
 
@@ -118,7 +122,7 @@ Switch between the **List** and **Cards** views, and filter by profile. A point 
 - **Before you play:** whether to skip the check before playing when only the save would change. A change to the game version or mods always shows the check.
 - **When you finish playing:** whether to ask about saving the session.
 - **Remove all SavePoint data:** removes SavePoint's saved history, settings, game list, artwork, and logs (except today's open log file), and takes its marker file out of each game folder. Your game folders and everything in them stay exactly as they are. You confirm by typing a word.
-- **About:** the version, and the third-party notices.
+- **About:** the version, the third-party notices, and **Open the log folder**.
 
 Default locations, until you move them:
 
@@ -137,11 +141,14 @@ Every failure says what happened and what you can do; **Show details** gives the
 - **The last switch didn't finish.** The folder holds files from two points. Switch again to finish it, or discard the changes to bring the folder back to a saved point.
 - **A folder moved or is gone.** SavePoint still has everything it saved. Point it at the new location to carry on.
 - **That folder doesn't look like the one SavePoint saved.** When you point a game with history at a new folder, SavePoint compares the folder with what it saved. If fewer than half of the saved files are there, it shows both counts and asks you to confirm, so a slip like choosing the parent folder can't lead to a discard that wipes it.
-- **SavePoint's storage isn't reachable.** If the drive holding SavePoint's storage is unplugged or asleep, SavePoint says so instead of showing empty history. Reconnect the drive. A storage move or a game delete waits until the storage is back.
+- **SavePoint's storage isn't reachable.** If the folder holding SavePoint's storage can't be reached at startup, SavePoint says so instead of showing empty history, and offers three ways on:
+  - **Try again**, after you connect the drive or network share.
+  - **Find the folder**, when the folder moved or the drive has a new letter. SavePoint checks that the folder you choose holds its storage before it uses it.
+  - **Start with an empty folder**, when the old storage is gone for good. Your games stay listed, but their saved history stays behind in the old folder, and SavePoint no longer uses it.
 - **Some old copies couldn't be removed.** After a storage move, SavePoint lists any old files it couldn't delete, for example because another program had them open, so you can delete them by hand.
-
-Closing SavePoint while it removes all data or moves its storage asks first. Stopping those halfway would leave a mess.
 - **An unreadable settings file at startup.** SavePoint leaves the file as it found it. For each one, it offers to restore the last good copy or start that file empty. The unreadable file is moved aside, never deleted.
+
+Closing SavePoint while it removes all data or moves its storage asks first, whether you close the window or quit with Cmd+Q on macOS. Stopping those halfway would leave a mess.
 
 ### Reporting a problem
 
@@ -158,6 +165,6 @@ If SavePoint ever runs into a problem it can't recover from, it shows a last win
 ## What SavePoint touches
 
 - **The game's install folder and saves folder.** SavePoint reads them when it saves, and replaces their contents when it switches or discards. It adds one marker file to each.
-- **Its own settings folder and storage folder** (table above).
+- **Its own settings folder, storage folder, and log folder** (tables above).
 - **Nothing else.** SavePoint uses its own copy of git and never your system's.
-- **The network, only for artwork.** The one network request SavePoint makes is the artwork download from Steam: the game's Steam app id in the address, and nothing else. **Settings > Appearance > Look up game artwork online** turns it off.
+- **The network, only for artwork.** The one network request SavePoint makes is the artwork download from Steam. It carries the game's Steam app id in the address and SavePoint's name and version as the program making the request, and nothing that identifies you. **Settings > Appearance > Look up game artwork online** turns it off.

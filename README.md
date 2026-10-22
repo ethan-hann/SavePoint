@@ -54,6 +54,8 @@ The first build downloads the pinned git bundle and checks its SHA-256. Running 
 
 ## Documentation
 
+- [User guide](docs/user-guide.md): how to use SavePoint, for players.
+- [Dogfood checklist](docs/dogfood-checklist.md): what to try by hand before a release.
 - [Developer guide](docs/developer-guide.md): building, testing, gates, and the rules for changes.
 - [Architecture](docs/architecture.md): the layers and what each one promises.
 - [Decisions](docs/decisions.md): every departure from, and gap-fill of, the v1 spec, with reasons.
@@ -62,4 +64,4 @@ The first build downloads the pinned git bundle and checks its SHA-256. Running 
 
 ## License
 
-SavePoint's own license has not been chosen yet. The bundled git is licensed under GPLv2. A release will ship its license texts and source offer next to the app (D21).
+SavePoint's own license has not been chosen yet. The bundled git is licensed under GPLv2. The packages ship its license texts, the other third-party notices, and the source offer next to the app ([THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md), `licenses/`, D21).
