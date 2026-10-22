@@ -7,9 +7,9 @@ using Savepoint.Core.Services.Profiles;
 
 namespace Savepoint.Core.Launch.Orchestration;
 
-// Where one folder stood when the game started: the commit it was on, or none when nothing is saved there yet, and whether the
-// launch left the folder as it was instead of switching it.
-internal sealed record FolderStart(string? Commit, bool Left);
+// Where one folder stood when the game started: the commit it was on, or none when nothing is saved there yet, the branch it was on
+// (none on an older point or before any point), and whether the launch left the folder as it was instead of switching it.
+internal sealed record FolderStart(string? Commit, bool Left, string? Branch = null);
 
 // What one game's latest session holds besides the snapshot the Api shows.
 internal sealed class SessionRecord(LaunchSessionInfo info)

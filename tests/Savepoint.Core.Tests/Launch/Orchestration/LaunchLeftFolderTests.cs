@@ -1,4 +1,5 @@
 using Savepoint.Core.Api;
+using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Git;
 
@@ -14,9 +15,9 @@ public class LaunchLeftFolderTests
 
     // A profile whose first point holds only the install, then a mod update, then (when asked) two saves of a folder added later.
     // The first point is older than the profile's tip and than every save, so going back to it leaves the saves folder as it is.
-    private static async Task<(LaunchRig Rig, Profile Profile, HistoryPointId InstallOnlyPoint)> WithInstallOnlyPointAsync(bool savesSaved)
+    private static async Task<(LaunchRig Rig, Profile Profile, HistoryPointId InstallOnlyPoint)> WithInstallOnlyPointAsync(bool savesSaved, Func<BackendOptions, BackendOptions>? configure = null)
     {
-        var rig = await LaunchRig.CreateAsync(withSaves: false, gameArguments: ["--exit-after", "800"]);
+        var rig = await LaunchRig.CreateAsync(configure, withSaves: false, gameArguments: ["--exit-after", "800"]);
         try
         {
             var profile = await rig.ProfileAsync("Vanilla");
@@ -84,7 +85,28 @@ public class LaunchLeftFolderTests
     }
 
     [Fact(Timeout = 150_000)]
-    public async Task Keeping_the_session_as_a_new_profile_refuses_a_left_folder_that_moved_after_the_game_started()
+    public async Task Keeping_the_session_as_a_new_profile_starts_a_left_folders_history_of_its_own_and_leaves_the_other_profiles_alone()
+    {
+        var (rig, vanilla, first) = await WithInstallOnlyPointAsync(savesSaved: true);
+        using var _ = rig;
+        var savesBefore = Subjects(await rig.CommitsAsync(RepoRole.External, vanilla));
+
+        await PlayAsync(rig, new LaunchTarget.Point(first));
+        rig.WriteSave("played.sav", "progress");
+        var done = await CompleteAsync(rig, new SessionCompletion.ForkNewProfile("Kept", "Kept point"));
+
+        Assert.Null(done.Error);
+        Assert.All(Assert.IsType<CaptureResult>(done.Result).Folders, folder => Assert.True(folder.Ok, folder.Error?.Detail));
+        var kept = (await rig.Profiles.ListAsync(rig.Game.Id, rig.Token)).Value!.Single(profile => profile.Name == "Kept");
+
+        // The new profile's saves start with this point and nothing behind it; Vanilla's two points are not part of them.
+        Assert.Equal(["Kept point"], Subjects(await rig.CommitsAsync(RepoRole.External, kept)));
+        Assert.Equal(savesBefore, Subjects(await rig.CommitsAsync(RepoRole.External, vanilla)));
+        Assert.Equal(kept.BranchName, (await rig.StatusAsync(RepoRole.External)).Branch);
+    }
+
+    [Fact(Timeout = 150_000)]
+    public async Task A_left_folder_that_moved_after_the_game_started_is_still_saved_as_the_new_profiles_own_first_point()
     {
         var (rig, vanilla, first) = await WithInstallOnlyPointAsync(savesSaved: true);
         using var _ = rig;
@@ -104,9 +126,78 @@ public class LaunchLeftFolderTests
         var done = await CompleteAsync(rig, new SessionCompletion.ForkNewProfile("Kept", "Kept point"));
 
         var result = Assert.IsType<CaptureResult>(done.Result);
-        Assert.True(result.Folders.Single(folder => folder.Role == RepoRole.Install).Ok);
-        Assert.Equal("error.launch.sessionMoved", result.Folders.Single(folder => folder.Role == RepoRole.External).Error?.MessageId);
+        Assert.All(result.Folders, folder => Assert.True(folder.Ok, folder.Error?.Detail));
+        var kept = (await rig.Profiles.ListAsync(rig.Game.Id, rig.Token)).Value!.Single(profile => profile.Name == "Kept");
+        Assert.Equal(["Kept point"], Subjects(await rig.CommitsAsync(RepoRole.External, kept)));
         Assert.Equal(savesBefore, Subjects(await rig.CommitsAsync(RepoRole.External, vanilla)));
+    }
+
+    // FR-010: the folders cannot be read when the game ends, so the choices come from where each folder stood at launch.
+    [Fact(Timeout = 150_000)]
+    public async Task When_the_folders_cannot_be_read_Continuing_is_not_offered_for_a_left_folder_that_never_began_on_the_profiles_branch()
+    {
+        var unreadable = 0;
+        var (rig, _, first) = await WithInstallOnlyPointAsync(savesSaved: false, options => options with { Engine = FailingDiff(() => Volatile.Read(ref unreadable) == 1) });
+        using var _ = rig;
+
+        await rig.StartAsync(new LaunchTarget.Point(first));
+        Volatile.Write(ref unreadable, 1);
+        var exited = Assert.IsType<SessionState.Exited>((await rig.WaitForAsync<SessionState.Exited>()).State);
+
+        Assert.Equal(0, exited.NewFileCount);
+        Assert.Equal([CompletionChoice.ForkNewProfile, CompletionChoice.Skip], exited.Options.Choices);
+        Assert.Equal(CompletionChoice.ForkNewProfile, exited.Options.Default);
+    }
+
+    [Fact(Timeout = 150_000)]
+    public async Task When_the_folders_cannot_be_read_Continuing_is_still_offered_when_every_left_folder_began_on_the_profiles_branch()
+    {
+        var unreadable = 0;
+        var (rig, _, first) = await WithInstallOnlyPointAsync(savesSaved: true, options => options with { Engine = FailingDiff(() => Volatile.Read(ref unreadable) == 1) });
+        using var _ = rig;
+
+        await rig.StartAsync(new LaunchTarget.Point(first));
+        Volatile.Write(ref unreadable, 1);
+        var exited = Assert.IsType<SessionState.Exited>((await rig.WaitForAsync<SessionState.Exited>()).State);
+
+        Assert.Equal([CompletionChoice.ForkNewProfile, CompletionChoice.MoveForward, CompletionChoice.Skip], exited.Options.Choices);
+    }
+
+    // git cannot be asked what changed once the switch is armed, as when the folder's drive goes away right after the game.
+    private static GitEngineOptions FailingDiff(Func<bool> armed) =>
+        new()
+        {
+            InvocationObserver = invocation =>
+            {
+                if (armed() && invocation.Arguments[0] == "diff")
+                {
+                    throw new IOException("the drive went away");
+                }
+            },
+        };
+
+    [Fact(Timeout = 150_000)]
+    public async Task The_files_of_a_left_folder_the_save_will_skip_are_not_counted_when_the_game_ends()
+    {
+        using var rig = await LaunchRig.CreateAsync(withSaves: false);
+        var vanilla = await rig.ProfileAsync("Vanilla");
+        rig.WriteInstall("mods/update.txt", "a mod update");
+        await rig.CaptureAsync(vanilla, "Mod update", RepoRole.Install);
+        await rig.AddSavesFolderAsync();
+        await rig.CaptureAsync(vanilla, "First saves", RepoRole.External);
+        await rig.ProfileAsync("Other");
+        var modUpdate = (await rig.History.GetAsync(rig.Game.Id, null, rig.Token)).Value!.Points.Single(point => point.Name == "Mod update");
+
+        await rig.StartAsync(new LaunchTarget.Point(modUpdate.Id));
+        await rig.WaitForGameAsync();
+        rig.WriteInstall("settings.ini", "played");
+        rig.WriteSave("played.sav", "progress");
+        Assert.True((await rig.Launch.MarkFinishedAsync(rig.Game.Id)).Ok);
+        var exited = Assert.IsType<SessionState.Exited>((await rig.WaitForAsync<SessionState.Exited>()).State);
+
+        // The saves folder sits on Other's branch, which the save cannot write to, so its new file is not part of what the dialog offers.
+        Assert.Equal(0, exited.NewFileCount);
+        Assert.Equal(1, exited.ChangedInstallFileCount);
     }
 
     // The first profile sees the point; the second was made from the same state, so the saves folder sits on the second one's branch.
@@ -133,6 +224,10 @@ public class LaunchLeftFolderTests
         Assert.Null(done.Error);
         var result = Assert.IsType<CaptureResult>(done.Result);
         Assert.All(result.Folders, folder => Assert.True(folder.Ok, folder.Error?.Detail));
+        var saves = result.Folders.Single(folder => folder.Role == RepoRole.External);
+        Assert.True(saves.LeftAlone);
+        Assert.Equal(other.BranchName, saves.LeftOnBranch);
+        Assert.False(result.Folders.Single(folder => folder.Role == RepoRole.Install).LeftAlone);
         Assert.NotNull(result.PointId);
         Assert.Equal(3, (await rig.CommitsAsync(RepoRole.Install, vanilla)).Count);
         Assert.Equal(["First saves"], Subjects(await rig.CommitsAsync(RepoRole.External, vanilla)));

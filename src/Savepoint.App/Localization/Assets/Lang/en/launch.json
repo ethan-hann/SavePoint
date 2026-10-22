@@ -59,6 +59,8 @@
   "launch.keep.nameLabel": "Profile name",
   "launch.keep.partial": "Only part of that was kept. {reason} Your unsaved changes are still on disk — try again, or discard them.",
   "launch.keep.title": "Keep as a new profile",
+  "launch.leftAlone.body": "{folder, select, install {Your game version and mods were} external {Your save files were} other {Your game folders were}} left as they are because they belong to another profile's saved history, so nothing from this session was added there. What changed in them is still on your computer, and SavePoint will ask about it the next time you play.",
+  "launch.leftAlone.title": "Part of that session wasn't saved",
   "launch.partial.body": "{saved, select, install {Your game version and mods were saved. Your save files weren't.} external {Your save files were saved. Your game version and mods weren't.} other {Part of your session was saved, and part wasn't.}} {reason} Fix that and retry just that part; nothing you already saved is affected.",
   "launch.partial.folder.external": "Saves",
   "launch.partial.folder.install": "Game version and mods",

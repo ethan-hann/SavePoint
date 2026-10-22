@@ -149,7 +149,7 @@ public sealed partial class LaunchOrchestrator
             record.Info = record.Info with { ProfileId = resolved.Profile.Id, StartedFromOlderPoint = resolved.IsOlderPoint };
             record.Starts = readings.ToDictionary(
                 reading => reading.Target.Role,
-                reading => reading.Target.Leave ? new FolderStart(reading.Status.HeadCommit, Left: true) : new FolderStart(reading.Target.Commit, Left: false));
+                reading => reading.Target.Leave ? new FolderStart(reading.Status.HeadCommit, Left: true, reading.Status.Branch) : new FolderStart(reading.Target.Commit, Left: false));
         });
         return new Prepared(game, repos.Single(repo => repo.Role == RepoRole.Install).WorkTree, resolved);
     }

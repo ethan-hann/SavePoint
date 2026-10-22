@@ -304,6 +304,25 @@ public class LaunchFlowSessionTests : IDisposable
     }
 
     [Fact]
+    public async Task A_save_that_left_a_folder_alone_says_so_instead_of_vanishing_as_a_plain_success()
+    {
+        await _f.PlayToExitedAsync();
+        await _f.PostPlay.SaveCommand.ExecuteAsync(null);
+
+        _f.Backend.Jobs.Complete(
+            CaptureJob(),
+            new CaptureResult(MockupScenario.ModdedId, MockupScenario.BeforeFinalBoss, [new FolderOutcome(RepoRole.Install), new FolderOutcome(RepoRole.External, null, LeftAlone: true, LeftOnBranch: "profile/other")]));
+
+        var card = _f.Inline<ErrorCardViewModel>();
+        Assert.Equal("Part of that session wasn't saved", card.Title);
+        Assert.Equal(
+            "Your save files were left as they are because they belong to another profile's saved history, so nothing from this session was added there. What changed in them is still on your computer, and SavePoint will ask about it the next time you play.",
+            card.Body);
+        Assert.Equal(ErrorTone.Neutral, card.Tone);
+        Assert.Equal(["Dismiss"], card.Actions.Select(a => a.Label));
+    }
+
+    [Fact]
     public async Task A_capture_that_saved_only_one_folder_shows_the_half_of_that_save_card_never_a_success()
     {
         await _f.PlayToExitedAsync();

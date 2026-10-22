@@ -94,10 +94,28 @@ public sealed partial class LaunchFlowViewModel
         {
             ShowPartial(flow, result);
         }
+        else if (result is not null && result.Folders.Any(folder => folder.LeftAlone))
+        {
+            ShowLeftAlone(flow, result);
+        }
         else
         {
             SetInline(flow, null);
         }
+    }
+
+    // Not a failure and nothing is lost, but a save that skipped a folder must not look like one that saved everything.
+    private void ShowLeftAlone(GameFlow flow, CaptureResult result)
+    {
+        var left = result.Folders.Where(folder => folder.LeftAlone).ToList();
+        var which = left.Count == 1 ? RoleName(left[0].Role) : "other";
+        SetInline(flow, ErrorCardViewModel.Custom(
+            _deps.Text,
+            Icons.Info,
+            ErrorTone.Neutral,
+            _deps.Text.Message("launch.leftAlone.title"),
+            _deps.Text.Message("launch.leftAlone.body", ("folder", which)),
+            actions: [DismissAction(flow)]));
     }
 
     // Every folder failed, which the service may report as a result alone.

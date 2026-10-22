@@ -63,15 +63,17 @@ public sealed partial class LaunchOrchestrator
         var info = _book.Get(gameId);
         var starts = _book.Record(gameId)?.Starts ?? new Dictionary<RepoRole, FolderStart>();
         var older = info is { StartedFromOlderPoint: true };
+        Profile? profile = null;
         try
         {
             return await _services.Storage.ReadAsync(async storage =>
             {
                 var game = await RequireGameAsync(gameId).ConfigureAwait(false);
                 var profiles = await _services.Catalog.ListProfilesAsync(gameId).ConfigureAwait(false);
+                profile = profiles.FirstOrDefault(listed => listed.Id == info?.ProfileId);
                 var repos = GameFolders.Repos(_services, storage, game);
-                var changed = await Task.WhenAll(repos.Select(repo => ChangedFilesAsync(storage, repo))).ConfigureAwait(false);
-                var options = await OptionsAsync(storage, repos, profiles.FirstOrDefault(profile => profile.Id == info?.ProfileId), older, starts).ConfigureAwait(false);
+                var changed = await Task.WhenAll(repos.Select(repo => ChangedFilesAsync(storage, repo, profile, older ? null : starts.GetValueOrDefault(repo.Role)))).ConfigureAwait(false);
+                var options = await OptionsAsync(storage, repos, profile, older, starts).ConfigureAwait(false);
                 var counts = repos.Zip(changed, (repo, count) => (repo.Role, count)).ToDictionary(pair => pair.Role, pair => pair.count);
                 return new SessionState.Exited(startedAt, duration, counts.GetValueOrDefault(RepoRole.External), counts.GetValueOrDefault(RepoRole.Install), options);
             }).ConfigureAwait(false);
@@ -79,15 +81,24 @@ public sealed partial class LaunchOrchestrator
         catch (Exception e) when (e is not (OperationCanceledException or OutOfMemoryException or StackOverflowException))
         {
             // Whatever went wrong reading the folders, the game has ended and the session must say so.
-            return new SessionState.Exited(startedAt, duration, 0, 0, FallbackOptions(older));
+            return new SessionState.Exited(startedAt, duration, 0, 0, FallbackOptions(older, profile, starts));
         }
     }
 
     // Files that are new or changed in a folder since the session began; the folders were clean when it started. A file nobody can read
-    // counts too: it may have changed, and the save will say so.
-    private static async Task<int> ChangedFilesAsync(StorageSnapshot storage, RepoRef repo)
+    // counts too: it may have changed, and the save will say so. A folder the launch left alone, which the profile has saved before and
+    // which sits on another profile's history, is skipped by a new point and by an update; "skipped" is its start when those are the
+    // choices, and its files are not on offer.
+    private static async Task<int> ChangedFilesAsync(StorageSnapshot storage, RepoRef repo, Profile? profile, FolderStart? skipped)
     {
         var status = await storage.Engine.GetStatusAsync(repo).ConfigureAwait(false);
+        if (skipped is { Left: true } && profile is not null
+            && (status.IsDetached || !string.Equals(status.Branch, profile.BranchName, StringComparison.Ordinal))
+            && await storage.Engine.BranchExistsAsync(repo, profile.BranchName).ConfigureAwait(false))
+        {
+            return 0;
+        }
+
         return status.ChangedPaths.Count + status.UntrackedPaths.Count + status.HeldFileCount;
     }
 
@@ -101,7 +112,7 @@ public sealed partial class LaunchOrchestrator
     {
         if (profile is null)
         {
-            return FallbackOptions(older);
+            return FallbackOptions(older, null, starts);
         }
 
         if (older)
@@ -128,7 +139,7 @@ public sealed partial class LaunchOrchestrator
         var folder = repos.FirstOrDefault(repo => repo.Role == RepoRole.External) ?? repos[0];
         var latest = (await storage.Engine.ListCommitsAsync(folder, profile.BranchName).ConfigureAwait(false)).FirstOrDefault(commit => commit.CaptureId is not null);
         return latest is null
-            ? FallbackOptions(older: false)
+            ? FallbackOptions(older: false, profile, starts)
             : new PostPlayOptions(
                 [CompletionChoice.CaptureNew, CompletionChoice.UpdateExisting, CompletionChoice.Skip],
                 CompletionChoice.CaptureNew,
@@ -136,10 +147,21 @@ public sealed partial class LaunchOrchestrator
                 0);
     }
 
-    private static PostPlayOptions FallbackOptions(bool older) =>
-        older
-            ? new PostPlayOptions([CompletionChoice.ForkNewProfile, CompletionChoice.MoveForward, CompletionChoice.Skip], CompletionChoice.ForkNewProfile, null, 0)
-            : new PostPlayOptions([CompletionChoice.CaptureNew, CompletionChoice.Skip], CompletionChoice.CaptureNew, null, 0);
+    // The choices when the folders cannot be read. "Continue" needs every folder the launch left alone to have begun on the profile's own
+    // branch (D37.3), which the starts recorded at launch say without a read; a profile that is gone cannot be continued at all.
+    private static PostPlayOptions FallbackOptions(bool older, Profile? profile, IReadOnlyDictionary<RepoRole, FolderStart> starts)
+    {
+        if (!older)
+        {
+            return new PostPlayOptions([CompletionChoice.CaptureNew, CompletionChoice.Skip], CompletionChoice.CaptureNew, null, 0);
+        }
+
+        var canContinue = profile is not null && starts.Values.All(start => !start.Left || string.Equals(start.Branch, profile.BranchName, StringComparison.Ordinal));
+        CompletionChoice[] choices = canContinue
+            ? [CompletionChoice.ForkNewProfile, CompletionChoice.MoveForward, CompletionChoice.Skip]
+            : [CompletionChoice.ForkNewProfile, CompletionChoice.Skip];
+        return new PostPlayOptions(choices, CompletionChoice.ForkNewProfile, null, 0);
+    }
 
     // A retry's result joins what the folders that already saved reported, so the card always speaks for the whole save.
     private static CaptureResult? Joined(CaptureResult? before, CaptureResult? now)
