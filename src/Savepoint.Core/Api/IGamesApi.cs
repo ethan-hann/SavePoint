@@ -91,7 +91,7 @@ public interface IGamesApi
     /// only the git directories.
     /// </summary>
     /// <param name="gameId">The game.</param>
-    /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c> (D23).</param>
+    /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c>.</param>
     Task<OperationResult<FreeUpSpacePreview>> GetFreeUpSpacePreviewAsync(string gameId, CancellationToken cancellationToken = default);
 
     /// <summary>

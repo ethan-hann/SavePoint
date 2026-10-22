@@ -21,6 +21,6 @@ public interface IHistoryApi
     /// directories, so it works while a game folder has moved.
     /// </summary>
     /// <param name="gameId">The game.</param>
-    /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c> (D23).</param>
+    /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c>.</param>
     Task<OperationResult<RecentlyRemoved>> GetRecentlyRemovedAsync(string gameId, CancellationToken cancellationToken = default);
 }

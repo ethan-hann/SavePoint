@@ -34,7 +34,7 @@ public interface ISettingsApi
     /// Counts what <see cref="OptimizeAllStorageAsync"/> would delete for good that no profile holds, across every game, so a
     /// confirmation can say so. Reads only the git directories.
     /// </summary>
-    /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c> (D23).</param>
+    /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c>.</param>
     Task<OperationResult<FreeUpSpacePreview>> GetFreeUpSpacePreviewAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
