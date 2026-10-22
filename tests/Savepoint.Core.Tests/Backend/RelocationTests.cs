@@ -1,4 +1,5 @@
 using Savepoint.Core.Api;
+using Savepoint.Core.Tests.Git.Engine;
 
 namespace Savepoint.Core.Tests.Backend;
 
@@ -206,8 +207,8 @@ public class RelocationTests
     [Fact]
     public async Task An_old_copy_that_cannot_be_removed_does_not_undo_a_move_that_has_switched_over()
     {
-        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows refuses to delete a file another program holds open");
         using var workspace = new BackendWorkspace();
+        HeldFiles.SkipUnlessPermissionsHold(workspace.Root);
         var game = await workspace.AddGameAsync();
         await workspace.CreateProfileAsync(game);
         await workspace.WaitForIdleAsync();
@@ -215,7 +216,7 @@ public class RelocationTests
         var destination = Path.Combine(workspace.Root, "new-storage");
 
         // Readable by the copy, but not deletable by anyone until it is let go.
-        using (new FileStream(held, FileMode.Open, FileAccess.Read, FileShare.Read))
+        using (HeldFiles.PreventDeleting(held))
         {
             var started = await workspace.Settings.RelocateStorageAsync(destination);
             var job = await workspace.WaitForJobAsync(started.Value!.JobId);

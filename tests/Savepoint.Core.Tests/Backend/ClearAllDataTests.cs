@@ -1,6 +1,7 @@
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Paths;
+using Savepoint.Core.Tests.Git.Engine;
 
 namespace Savepoint.Core.Tests.Backend;
 
@@ -163,11 +164,11 @@ public class ClearAllDataTests
     [Fact]
     public async Task What_could_not_be_removed_is_listed_and_the_result_is_partial()
     {
-        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows refuses to delete an open file");
         using var workspace = new BackendWorkspace();
+        HeldFiles.SkipUnlessPermissionsHold(workspace.Root);
         var game = await workspace.AddGameAsync();
         var held = Path.Combine(workspace.DefaultStorageRoot, game.Id, "install.git", "HEAD");
-        await using var open = new FileStream(held, FileMode.Open, FileAccess.Read, FileShare.Read);
+        using var open = HeldFiles.PreventDeleting(held);
 
         var started = await workspace.Settings.ClearAllDataAsync();
         var job = await workspace.WaitForJobAsync(started.Value!.JobId, TimeSpan.FromSeconds(180));

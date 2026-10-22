@@ -1,6 +1,6 @@
-using System.Runtime.Versioning;
 using Savepoint.Core.Api;
 using Savepoint.Core.Services.Settings;
+using Savepoint.Core.Tests.Git.Engine;
 
 namespace Savepoint.Core.Tests.Backend;
 
@@ -11,8 +11,8 @@ public class RelocationLeftoversTests
     [Fact(Timeout = 120_000)]
     public async Task Cancelling_once_the_move_has_switched_does_not_stop_the_removal_of_the_other_old_copies()
     {
-        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows refuses to delete a file another program holds open");
         using var workspace = new BackendWorkspace();
+        HeldFiles.SkipUnlessPermissionsHold(workspace.Root);
         var first = await workspace.AddGameAsync(workspace.NewGame("Alpha"));
         var second = await workspace.AddGameAsync(workspace.NewGame("Beta"));
         await workspace.CreateProfileAsync(first);
@@ -23,7 +23,7 @@ public class RelocationLeftoversTests
 
         // Readable by the copy, but not deletable by anyone until it is let go; the removal waits on it before giving up.
         JobSnapshot job;
-        using (new FileStream(held, FileMode.Open, FileAccess.Read, FileShare.Read))
+        using (HeldFiles.PreventDeleting(held))
         {
             var started = await workspace.Settings.RelocateStorageAsync(destination);
             await WaitForSwitchAsync(workspace, destination);
@@ -175,12 +175,13 @@ public class RelocationLeftoversTests
     [Fact(Timeout = 120_000)]
     public async Task A_take_back_that_cannot_remove_the_whole_copy_leaves_the_marker_so_the_next_move_there_says_the_earlier_one_did_not_finish()
     {
+        HeldFiles.SkipUnlessPermissionsHold(Path.GetTempPath());
         BackendWorkspace? self = null;
         IDisposable? hold = null;
         using var workspace = new BackendWorkspace(options => options with
         {
             // The first git file copied cannot be deleted afterwards: held open on Windows, in a folder nobody may write to elsewhere.
-            AfterRelocationCopy = (_, target) => hold ??= Path.GetFileName(target) == "HEAD" ? PreventDeleting(target) : null,
+            AfterRelocationCopy = (_, target) => hold ??= Path.GetFileName(target) == "HEAD" ? HeldFiles.PreventDeleting(target) : null,
             AfterRelocationSettings = _ =>
             {
                 var old = self!.DefaultStorageRoot;
@@ -206,30 +207,6 @@ public class RelocationLeftoversTests
         {
             hold?.Dispose();
         }
-    }
-
-    // Makes the file's folder impossible to empty until the returned handle is let go.
-    private static IDisposable PreventDeleting(string file)
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            return new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read);
-        }
-
-        return RemoveWriteAccess(Path.GetDirectoryName(file)!);
-    }
-
-    [UnsupportedOSPlatform("windows")]
-    private static Restore RemoveWriteAccess(string folder)
-    {
-        var original = File.GetUnixFileMode(folder);
-        File.SetUnixFileMode(folder, UnixFileMode.UserRead | UnixFileMode.UserExecute);
-        return new Restore(() => File.SetUnixFileMode(folder, original));
-    }
-
-    private sealed class Restore(Action action) : IDisposable
-    {
-        public void Dispose() => action();
     }
 
     private static async Task WaitForEveryFileAsync(BackendWorkspace workspace, Guid jobId)

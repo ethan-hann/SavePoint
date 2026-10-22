@@ -2,6 +2,7 @@ using Savepoint.Core.Api;
 
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Git;
+using Savepoint.Core.Tests.Git.Engine;
 
 namespace Savepoint.Core.Tests.Backend;
 
@@ -106,8 +107,8 @@ public class AppStatusTests
     [Fact]
     public async Task A_restore_never_leaves_the_catalog_file_missing_when_the_backup_cannot_be_read_again_once_the_corrupt_file_moves()
     {
-        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows refuses to read a file another handle holds shut");
-        FileStream? held = null;
+        HeldFiles.SkipUnlessPermissionsHold(Path.GetTempPath());
+        IDisposable? held = null;
         string? backup = null;
         using var workspace = new BackendWorkspace(options => options with
         {
@@ -116,7 +117,7 @@ public class AppStatusTests
                 // The corrupt file is named for the moment it is moved aside; from here on the backup cannot be read.
                 if (Volatile.Read(ref backup) is { } path && held is null)
                 {
-                    held = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None);
+                    held = OperatingSystem.IsWindows() ? new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None) : HeldFiles.MakeUnreadable(path);
                 }
             }),
         });

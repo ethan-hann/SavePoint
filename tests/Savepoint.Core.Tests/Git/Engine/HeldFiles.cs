@@ -31,7 +31,7 @@ internal static class HeldFiles
         }
 
         Assert.SkipWhen(!OperatingSystem.IsWindows() && Environment.IsPrivilegedProcess, "a privileged user reads any file");
-        var hold = OperatingSystem.IsWindows() ? DenyReading(file) : RemoveAccess(file);
+        var hold = MakeUnreadable(file);
         try
         {
             using var _ = File.OpenRead(file);
@@ -44,6 +44,52 @@ internal static class HeldFiles
         hold.Dispose();
         Assert.Skip("this file system ignores permission changes (a Windows drive mounted under WSL does)");
         return hold;
+    }
+
+    // Makes the file unreadable for this account until the returned handle is disposed; no checks, so it is safe inside a hook.
+    public static IDisposable MakeUnreadable(string file) => OperatingSystem.IsWindows() ? DenyReading(file) : RemoveAccess(file);
+
+    // Skips the test where file permissions do not hold for this account: a privileged user, or a file system that keeps none (a
+    // Windows drive mounted under WSL). Call it before the backend runs, not from a hook inside it.
+    public static void SkipUnlessPermissionsHold(string folder)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        Assert.SkipWhen(Environment.IsPrivilegedProcess, "a privileged user ignores file permissions");
+        var probe = Path.Combine(folder, "permission-probe-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(probe);
+        var restore = RemoveWriteAccess(probe);
+        try
+        {
+            File.WriteAllText(Path.Combine(probe, "x"), string.Empty);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return;
+        }
+        finally
+        {
+            restore.Dispose();
+            Directory.Delete(probe, recursive: true);
+        }
+
+        Assert.Skip("this file system ignores permission changes");
+    }
+
+    // Makes deleting the file fail until the returned handle is disposed: held open without delete sharing on Windows, and in a
+    // folder nobody may write to elsewhere. Check SkipUnlessPermissionsHold first.
+    public static IDisposable PreventDeleting(string file) =>
+        OperatingSystem.IsWindows() ? new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read) : RemoveWriteAccess(Path.GetDirectoryName(file)!);
+
+    [UnsupportedOSPlatform("windows")]
+    private static Restore RemoveWriteAccess(string folder)
+    {
+        var original = File.GetUnixFileMode(folder);
+        File.SetUnixFileMode(folder, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        return new Restore(() => File.SetUnixFileMode(folder, original));
     }
 
     [UnsupportedOSPlatform("windows")]
