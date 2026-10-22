@@ -82,7 +82,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         LayoutToggle = shell.LayoutToggle;
         ShowHistoryCommand = new RelayCommand(() => _shell.Navigate(NavDestination.History));
         ShowActivityCommand = new RelayCommand(() => _shell.ShowActivity(_shell.SelectedGame?.Id));
-        FreeUp = new FreeUpSpaceViewModel(dependencies.Games, dependencies.Jobs, dependencies.Text, dependencies.Dispatcher, ShowError, RefreshStorageUsageAsync);
+        FreeUp = new FreeUpSpaceViewModel(dependencies.Games, dependencies.Jobs, dependencies.Dialogs, dependencies.Text, dependencies.Dispatcher, ShowError, RefreshStorageUsageAsync);
         EditGameCommand = new RelayCommand(OpenEditor);
         NewProfileCommand = new AsyncRelayCommand(NewProfileAsync);
         DeleteGameCommand = new AsyncRelayCommand(DeleteGameAsync);
