@@ -32,6 +32,9 @@ public class GameEditorViewTests
         harness.Settle();
     }
 
+    private static string? FocusedName(EditorViewHarness harness) =>
+        harness.Window.FocusManager!.GetFocusedElement() is Control focused ? AutomationProperties.GetName(focused) : null;
+
     private static T InHost<T>(EditorViewHarness harness, string host, string name)
         where T : Control => ShellViewHarness.FindIn<T>(harness.Find<ContentControl>(host), name);
 
@@ -434,6 +437,36 @@ public class GameEditorViewTests
         harness.Settle();
 
         Assert.True(string.IsNullOrEmpty(AutomationProperties.GetHelpText(harness.Find<TextBox>("NameField"))));
+    }
+
+    [AvaloniaFact]
+    public async Task Removing_a_chip_from_the_keyboard_moves_focus_to_the_next_chip_and_after_the_last_to_the_add_chip()
+    {
+        using var harness = await EditorViewHarness.StartAsync(height: 1000);
+        harness.Edit(MockupScenario.SkyrimId);
+        var list = harness.All<ChipListView>().First(candidate => candidate.GetVisualDescendants().OfType<Button>().Count(button => button.Classes.Contains("icon")) >= 2);
+        List<Button> Removers() => [.. list.GetVisualDescendants().OfType<Button>().Where(button => button.Classes.Contains("icon"))];
+        var names = Removers().Select(button => AutomationProperties.GetName(button)).ToList();
+
+        FocusAndSettle(harness, Removers()[0]);
+        Press(harness, Key.Space, PhysicalKey.Space);
+        await Task.Yield();
+        harness.Settle();
+
+        Assert.Equal(names[1], FocusedName(harness));
+
+        while (Removers().Count > 1)
+        {
+            FocusAndSettle(harness, Removers()[^1]);
+            Press(harness, Key.Space, PhysicalKey.Space);
+            harness.Settle();
+        }
+
+        FocusAndSettle(harness, Removers()[0]);
+        Press(harness, Key.Space, PhysicalKey.Space);
+        harness.Settle();
+
+        Assert.Equal("AddChip", (harness.Window.FocusManager!.GetFocusedElement() as Control)?.Name);
     }
 
     [AvaloniaFact]

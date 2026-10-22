@@ -195,8 +195,8 @@
                                 Grid.Column="2"
                                 Classes="icon"
                                 Margin="6,0,0,0"
-                                MinWidth="28"
-                                MinHeight="28"
+                                MinWidth="32"
+                                MinHeight="32"
                                 AutomationProperties.Name="{Binding MoreActionsAutomationName}"
                                 ToolTip.Tip="{Binding MoreActionsAutomationName}">
                           <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.MoreVert}" />
