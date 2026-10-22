@@ -35,10 +35,10 @@ public sealed partial class GitEngine
     /// new objects go into a new pack and only small packs are merged, so the large packs written earlier are left alone;
     /// objects no branch reaches any more (a deleted profile, points a move-forward dropped) are packed along, not removed.
     /// <see cref="OptimizationMode.Reclaim"/> expires reflogs, packs every reachable object into one pack and prunes the
-    /// rest, so those objects are gone afterwards; it rewrites the whole store. <see cref="OptimizationMode.ReclaimClearingRemoved"/> first
-    /// deletes the records of removed snapshots (see <see cref="ListRemovedAsync"/>), after the checks that can refuse the run, so a refused
-    /// run clears nothing; it is the only call that deletes them, and the other two modes keep what a record reaches. No mode detaches or
-    /// starts garbage collection, and none needs the game folder. Nothing a branch, HEAD, the index or a record reaches is ever dropped.
+    /// rest, so those objects are gone afterwards; it rewrites the whole store. Neither mode deletes a record of a removed snapshot
+    /// (see <see cref="ListRemovedAsync(RepoRef, IReadOnlyCollection{string}, CancellationToken)"/>); only <see cref="ClearRemovedAsync"/> does, so what a record reaches survives both. No mode
+    /// detaches or starts garbage collection, and none needs the game folder. Nothing a branch, HEAD, the index or a record reaches is
+    /// ever dropped.
     /// </summary>
     /// <param name="repo">The folder whose history is optimized.</param>
     /// <param name="mode">How far to go.</param>
@@ -63,10 +63,7 @@ public sealed partial class GitEngine
 
                     break;
                 case OptimizationMode.Reclaim:
-                    await ReclaimAsync(repo, clearRemoved: false, ct).ConfigureAwait(false);
-                    break;
-                case OptimizationMode.ReclaimClearingRemoved:
-                    await ReclaimAsync(repo, clearRemoved: true, ct).ConfigureAwait(false);
+                    await ReclaimAsync(repo, ct).ConfigureAwait(false);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown optimization mode.");
@@ -78,26 +75,50 @@ public sealed partial class GitEngine
         }
     }
 
+    /// <summary>
+    /// Runs every check that can make a <see cref="OptimizationMode.Reclaim"/> refuse, and changes nothing: the storage volume has room for
+    /// a copy of the store, and no other operation of this engine is writing to the repository. A caller that is about to delete records
+    /// before reclaiming asks first, so a refusal leaves them alone.
+    /// </summary>
+    /// <param name="repo">The folder whose history would be reclaimed.</param>
+    /// <param name="ct">Cancels the call.</param>
+    /// <exception cref="Savepoint.Core.Errors.DiskSpaceException">The storage volume is below the free-space floor plus the store's size.</exception>
+    /// <exception cref="Savepoint.Core.Errors.OperationCancelledByUserException">The token was cancelled.</exception>
+    /// <exception cref="Savepoint.Core.Errors.GitOperationException">Another operation of this engine is writing to the repository.</exception>
+    public async Task CheckReclaimAsync(RepoRef repo, CancellationToken ct = default)
+    {
+        repo = Normalize(repo);
+        try
+        {
+            ct.ThrowIfCancellationRequested();
+            EnsureStorageSpace(repo, await GetRepoSizeAsync(repo, ct).ConfigureAwait(false));
+            using var scope = BeginWrite(repo);
+            RequireAlone(scope);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw new OperationCancelledByUserException(CancelledOperation.Compaction, repo.GameId);
+        }
+    }
+
+    // An object another operation of this engine has just written but not yet referenced would be pruned.
+    private static void RequireAlone(InFlightTable.Scope scope)
+    {
+        if (!scope.IsAlone)
+        {
+            throw new GitOperationException("Another operation is writing to this repository, so it cannot be reclaimed right now.");
+        }
+    }
+
     // Everything no branch, HEAD, the index or a removed-snapshot record reaches goes: reflogs first (they pin old points), then
-    // one pack of what is reachable, then the loose objects nothing reaches. Clearing the records comes after the checks that can
-    // refuse the run, so a refused run deletes nothing.
-    private async Task ReclaimAsync(RepoRef repo, bool clearRemoved, CancellationToken ct)
+    // one pack of what is reachable, then the loose objects nothing reaches.
+    private async Task ReclaimAsync(RepoRef repo, CancellationToken ct)
     {
         // The new pack is written before the old ones are removed, so the store briefly takes twice its size.
         EnsureStorageSpace(repo, await GetRepoSizeAsync(repo, ct).ConfigureAwait(false));
 
         using var scope = BeginWrite(repo);
-
-        // An object another operation of this engine has just written but not yet referenced would be pruned.
-        if (!scope.IsAlone)
-        {
-            throw new GitOperationException("Another operation is writing to this repository, so it cannot be reclaimed right now.");
-        }
-
-        if (clearRemoved)
-        {
-            await ClearRecordsAsync(repo, ct).ConfigureAwait(false);
-        }
+        RequireAlone(scope);
 
         await RunWriteAsync(() => GitDirOnly(repo, "reflog", "expire", "--expire=now", "--all") with { ReadOnly = false }, ct).ConfigureAwait(false);
         await RunWriteAsync(() => GitDirOnly(repo, "repack", "-q", "-a", "-d") with { ReadOnly = false }, ct).ConfigureAwait(false);

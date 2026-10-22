@@ -122,12 +122,12 @@ public sealed class FakeGamesApi : IGamesApi
             return OperationResult.Success(State.CapturePreviews.GetValueOrDefault(gameId) ?? empty);
         });
 
-    public Task<OperationResult<JobStarted>> OptimizeStorageAsync(string gameId) =>
-        _backend.Call(_api, nameof(OptimizeStorageAsync), [gameId], () =>
+    public Task<OperationResult<JobStarted>> OptimizeStorageAsync(string gameId, FreeUpSpaceToken? confirmed = null) =>
+        _backend.Call(_api, nameof(OptimizeStorageAsync), [gameId, confirmed], () =>
         {
             var game = State.Game(gameId);
             var done = new OptimizeResult([FakeSettingsApi.Optimized(game)]);
-            // Once the job has run, the game's recently removed snapshots are gone for good, as in the real backend.
+            // Once the job has run, the game's recently removed snapshots the player agreed to lose are gone for good and no others, as in the real backend.
             return OperationResult.Success(new JobStarted(_backend.Jobs.Start(
                 JobKind.Compact,
                 gameId,
@@ -136,7 +136,7 @@ public sealed class FakeGamesApi : IGamesApi
                 {
                     if (job.Status is JobStatus.Succeeded or JobStatus.Partial)
                     {
-                        State.Removed.RemoveAll(removed => removed.GameId == gameId);
+                        State.DeleteRemoved(confirmed, gameId);
                     }
 
                     _backend.Settings.MarkOptimized(job);
@@ -148,7 +148,7 @@ public sealed class FakeGamesApi : IGamesApi
         _backend.Call(_api, nameof(GetFreeUpSpacePreviewAsync), [gameId], () =>
         {
             State.Game(gameId);
-            return OperationResult.Success(new FreeUpSpacePreview(State.Removed.Count(removed => removed.GameId == gameId)));
+            return OperationResult.Success(State.FreeUpPreview(gameId));
         });
 
     public Task<OperationResult<string>> ResolvePathAsync(string rawPath, CancellationToken cancellationToken = default) =>

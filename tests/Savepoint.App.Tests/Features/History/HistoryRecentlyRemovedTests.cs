@@ -192,7 +192,8 @@ public class HistoryRecentlyRemovedTests
     public async Task Freeing_up_space_empties_the_section_once_the_job_has_run()
     {
         var rig = await ShownAsync();
-        var started = FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(MockupScenario.SkyrimId));
+        var preview = FakeAssert.Ok(await rig.Backend.Games.GetFreeUpSpacePreviewAsync(MockupScenario.SkyrimId, TestContext.Current.CancellationToken));
+        var started = FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(MockupScenario.SkyrimId, preview.Token));
 
         rig.Backend.Jobs.Complete(started.JobId);
         await UntilAsync(() => rig.Screen.Removed.Count == 0);

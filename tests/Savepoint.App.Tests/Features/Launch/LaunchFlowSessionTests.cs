@@ -322,6 +322,25 @@ public class LaunchFlowSessionTests : IDisposable
         Assert.Equal(["Dismiss"], card.Actions.Select(a => a.Label));
     }
 
+    [Theory]
+    [InlineData(RepoRole.Install, "Your game version and mods had a newer snapshot than the one you chose to replace, so SavePoint kept this session there as a new snapshot instead. Nothing was replaced or removed.")]
+    [InlineData(RepoRole.External, "Your saves had a newer snapshot than the one you chose to replace, so SavePoint kept this session there as a new snapshot instead. Nothing was replaced or removed.")]
+    public async Task A_replacement_that_became_a_new_snapshot_in_a_folder_says_so_instead_of_vanishing_as_a_plain_success(RepoRole kept, string body)
+    {
+        await _f.PlayToExitedAsync();
+        await _f.PostPlay.SaveCommand.ExecuteAsync(null);
+
+        _f.Backend.Jobs.Complete(
+            CaptureJob(),
+            new CaptureResult(MockupScenario.ModdedId, MockupScenario.BeforeFinalBoss, [new FolderOutcome(RepoRole.Install, KeptAsNew: kept == RepoRole.Install), new FolderOutcome(RepoRole.External, KeptAsNew: kept == RepoRole.External)]));
+
+        var card = _f.Inline<ErrorCardViewModel>();
+        Assert.Equal("Kept as a new snapshot", card.Title);
+        Assert.Equal(body, card.Body);
+        Assert.Equal(ErrorTone.Neutral, card.Tone);
+        Assert.Equal(["Dismiss"], card.Actions.Select(a => a.Label));
+    }
+
     [Fact]
     public async Task A_failure_beside_a_folder_the_save_left_alone_never_calls_that_folder_saved()
     {

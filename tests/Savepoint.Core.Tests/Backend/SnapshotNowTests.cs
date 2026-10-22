@@ -202,6 +202,23 @@ public class SnapshotNowTests
     }
 
     [Fact(Timeout = 120_000)]
+    public async Task The_row_of_a_profile_whose_saves_folder_has_no_snapshot_of_it_yet_says_that_folder_takes_a_first_snapshot_too()
+    {
+        var (workspace, game, vanilla, modded) = await TwoProfilesAsync();
+        using var _ = workspace;
+        var storage = await workspace.Backend.Services.Storage.GetAsync(workspace.Token);
+        var saves = Repo(storage, game, RepoRole.External);
+
+        // The saves folder sits on another profile's branch and the loaded profile has none there: its first snapshot would take that folder over.
+        await storage.Engine.CheckoutBranchAsync(saves, vanilla.BranchName, ct: workspace.Token);
+        await storage.Engine.DeleteBranchAsync(saves, modded.BranchName, workspace.Token);
+
+        var rows = (await workspace.Profiles.GetRowStatsAsync(game.Id, workspace.Token)).Value!;
+
+        Assert.Equal(SnapshotNowAvailability.FirstSnapshot, rows.Single(row => row.ProfileId == modded.Id).SnapshotNow);
+    }
+
+    [Fact(Timeout = 120_000)]
     public async Task A_folder_on_an_older_snapshot_makes_the_profile_not_loaded()
     {
         var (workspace, game, _, modded) = await TwoProfilesAsync();

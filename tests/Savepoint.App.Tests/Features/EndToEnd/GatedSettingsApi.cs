@@ -41,7 +41,7 @@ internal sealed class GatedSettingsApi(ISettingsApi inner) : ISettingsApi
 
     public Task<OperationResult<StorageSummary>> GetStorageSummaryAsync(CancellationToken cancellationToken = default) => inner.GetStorageSummaryAsync(cancellationToken);
 
-    public Task<OperationResult<JobStarted>> OptimizeAllStorageAsync() => inner.OptimizeAllStorageAsync();
+    public Task<OperationResult<JobStarted>> OptimizeAllStorageAsync(FreeUpSpaceToken? confirmed = null) => inner.OptimizeAllStorageAsync(confirmed);
 
     public Task<OperationResult<FreeUpSpacePreview>> GetFreeUpSpacePreviewAsync(CancellationToken cancellationToken = default) =>
         inner.GetFreeUpSpacePreviewAsync(cancellationToken);

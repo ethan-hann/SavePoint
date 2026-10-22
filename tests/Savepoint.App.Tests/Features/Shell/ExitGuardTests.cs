@@ -110,6 +110,36 @@ public class ExitGuardTests
     }
 
     [Fact]
+    public async Task A_free_up_that_has_deleted_snapshots_asks_first_and_staying_leaves_it_alone()
+    {
+        var (guard, backend, dialogs) = Build();
+        dialogs.AnswerConfirm(false);
+        var run = FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(MockupScenario.SkyrimId));
+        backend.Jobs.ReportNoLongerCancellable(run.JobId);
+
+        var allowed = await guard.PrepareToCloseAsync();
+
+        Assert.False(allowed);
+        var asked = Assert.Single(dialogs.Confirmations);
+        Assert.Equal("SavePoint is still working", asked.Title);
+        Assert.Contains("freeing up space", asked.Message, StringComparison.Ordinal);
+        Assert.Empty(backend.Calls.To<IJobsApi>(nameof(IJobsApi.CancelAsync)));
+    }
+
+    [Fact]
+    public async Task A_free_up_that_can_still_be_stopped_is_cancelled_on_the_way_out_without_a_question()
+    {
+        var (guard, backend, dialogs) = Build();
+        var run = FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(MockupScenario.SkyrimId));
+
+        var allowed = await guard.PrepareToCloseAsync();
+
+        Assert.True(allowed);
+        Assert.Empty(dialogs.Confirmations);
+        Assert.Equal([run.JobId], Assert.Single(backend.Calls.To<IJobsApi>(nameof(IJobsApi.CancelAsync))).Args);
+    }
+
+    [Fact]
     public async Task A_save_is_cancelled_on_the_way_out_without_a_question()
     {
         var (guard, backend, dialogs) = Build();

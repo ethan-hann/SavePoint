@@ -185,6 +185,19 @@ internal sealed class FakeState
         }
     }
 
+    // What a free-up would delete, for one game or every game, with a token that names each snapshot as the preview counted it.
+    public FreeUpSpacePreview FreeUpPreview(string? gameId)
+    {
+        var counted = Removed.Where(removed => gameId is null || removed.GameId == gameId).ToList();
+        return new FreeUpSpacePreview(counted.Count, new FreeUpSpaceToken([.. counted.Select(removed => new FreeUpSpaceRecord(removed.GameId, RepoRole.Install, removed.Snapshot.Id.Value))]));
+    }
+
+    // A run deletes the snapshots its token names and no others, so one removed after the preview survives it.
+    public void DeleteRemoved(FreeUpSpaceToken? confirmed, string? gameId = null) =>
+        Removed.RemoveAll(removed => (gameId is null || removed.GameId == gameId)
+            && confirmed is not null
+            && confirmed.Records.Any(record => record.GameId == removed.GameId && record.RefName == removed.Snapshot.Id.Value));
+
     // The profile's points go with it: in the real app they are gone from history once no profile holds them.
     public void RemoveProfile(Profile profile)
     {

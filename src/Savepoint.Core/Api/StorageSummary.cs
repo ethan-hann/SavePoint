@@ -6,7 +6,7 @@ namespace Savepoint.Core.Api;
 /// <param name="Games">Each game's share of <paramref name="BytesUsed"/>.</param>
 /// <param name="VolumeTotalBytes">Size, in bytes, of the drive that holds the storage folder.</param>
 /// <param name="VolumeFreeBytes">Free space, in bytes, on that drive.</param>
-/// <param name="LastOptimizedAt">When storage optimization last ran, or null if it never did.</param>
+/// <param name="LastOptimizedAt">When the player last freed up space, or null if they never did; the cleanups SavePoint starts by itself do not count.</param>
 public sealed record StorageSummary(
     string StorageRoot,
     long BytesUsed,

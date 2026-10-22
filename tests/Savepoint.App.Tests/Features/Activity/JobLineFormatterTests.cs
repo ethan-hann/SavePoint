@@ -21,6 +21,7 @@ public class JobLineFormatterTests
         JobLine.ForStep(JobSteps.CaptureFolderDone, ("folder", RepoRole.External), ("files", 3)),
         JobLine.ForStep(JobSteps.CaptureFolderNotIncluded, ("folder", RepoRole.External)),
         JobLine.ForStep(JobSteps.CaptureFolderFailed, ("folder", RepoRole.Install)),
+        JobLine.ForStep(JobSteps.CaptureFolderKeptAsNew, ("folder", RepoRole.Install)),
         JobLine.ForStep(JobSteps.LaunchSwitchFolder, ("folder", RepoRole.Install), ("profile", "Modded"), ("older", "no"), ("counted", "yes"), ("written", 4), ("removed", 1)),
         JobLine.ForStep(JobSteps.LaunchFolderInPlace, ("folder", RepoRole.External), ("profile", "Modded")),
         JobLine.ForStep(JobSteps.LaunchFolderNotIncluded, ("folder", RepoRole.External)),
@@ -28,6 +29,7 @@ public class JobLineFormatterTests
         JobLine.ForStep(JobSteps.CompactGame, ("game", "Skyrim")),
         JobLine.ForStep(JobSteps.CompactFreed, ("game", "Skyrim"), ("bytes", 1_500_000L)),
         JobLine.ForStep(JobSteps.CompactNothingFreed, ("game", "Skyrim")),
+        JobLine.ForStep(JobSteps.CompactRemovedDeleted, ("game", "Skyrim")),
         JobLine.ForStep(JobSteps.CompactFolderFailed, ("game", "Skyrim"), ("folder", RepoRole.External)),
         JobLine.ForStep(JobSteps.RelocateStart, ("from", @"C:\Old"), ("to", @"D:\New"), ("files", 52), ("bytes", 57_950L)),
         JobLine.ForStep(JobSteps.RelocateCopied),
@@ -57,7 +59,9 @@ public class JobLineFormatterTests
     [Fact]
     public void A_step_is_said_in_the_catalogs_words_with_its_arguments()
     {
-        Assert.Equal("Added 3 new or changed files from the saves folder.", Format(_samples[JobSteps.CaptureFolderDone]));
+        Assert.Equal("3 files were new, changed or removed in the saves folder.", Format(_samples[JobSteps.CaptureFolderDone]));
+        Assert.Equal("1 file was new, changed or removed in the game folder.", Format(JobLine.ForStep(JobSteps.CaptureFolderDone, ("folder", RepoRole.Install), ("files", 1))));
+        Assert.Equal("Nothing changed in the game folder.", Format(JobLine.ForStep(JobSteps.CaptureFolderDone, ("folder", RepoRole.Install), ("files", 0))));
         Assert.Equal("Starting Skyrim.", Format(_samples[JobSteps.LaunchStarting]));
     }
 

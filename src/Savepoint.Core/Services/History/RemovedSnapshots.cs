@@ -7,7 +7,7 @@ using Savepoint.Core.Git;
 namespace Savepoint.Core.Services.History;
 
 /// <summary>
-/// Reads a game's recently removed snapshots back from the records the engine keeps (see <see cref="GitEngine.ListRemovedAsync"/>). The
+/// Reads a game's recently removed snapshots back from the records the engine keeps (see <see cref="GitEngine.ListRemovedAsync(RepoRef, IReadOnlyCollection{string}, CancellationToken)"/>). The
 /// commits the two folders removed in one capture event are one snapshot, as in History, and a snapshot belongs to no profile.
 /// </summary>
 internal sealed class RemovedSnapshots
@@ -22,10 +22,10 @@ internal sealed class RemovedSnapshots
         _history = history;
     }
 
-    /// <summary>One snapshot that left a profile: its commit in each folder that recorded it.</summary>
+    /// <summary>One snapshot that left a profile: its commit in each folder that recorded it, whether or not a profile holds that commit again.</summary>
     /// <param name="CaptureId">The capture event, which is the snapshot's id.</param>
-    /// <param name="Install">What the install folder removed for it, or null.</param>
-    /// <param name="External">What the saves folder removed for it, or null.</param>
+    /// <param name="Install">What the install folder recorded for it, or null.</param>
+    /// <param name="External">What the saves folder recorded for it, or null.</param>
     internal sealed record Group(string CaptureId, RemovedCommit? Install, RemovedCommit? External)
     {
         /// <summary>The commit the snapshot is described by, as History describes a point by its install commit when it has one.</summary>
@@ -40,17 +40,53 @@ internal sealed class RemovedSnapshots
         public RemovedCommit? In(RepoRole role) => role == RepoRole.Install ? Install : External;
     }
 
-    /// <summary>The snapshots found, newest removal first, and every removed commit of each folder, which a snapshot's missing folder is resolved against.</summary>
+    /// <summary>The snapshots listed, newest removal first, and every recorded commit of each folder (held by a profile again or not), which a snapshot's missing folder is resolved against.</summary>
     internal sealed record State(IReadOnlyList<Group> Groups, IReadOnlyDictionary<RepoRole, IReadOnlyList<RemovedCommit>> ByFolder);
 
-    /// <summary>How many snapshots a game's folders keep as removed: what Free up space would delete for good.</summary>
-    public static async Task<int> CountAsync(StorageSnapshot storage, IReadOnlyList<RepoRef> repos, CancellationToken cancellationToken) =>
-        (await ReadStateAsync(storage, repos, cancellationToken).ConfigureAwait(false)).Groups.Count;
-
-    /// <summary>Reads every folder's removed commits and groups them into snapshots. Needs only the git directories.</summary>
-    public static async Task<State> ReadStateAsync(StorageSnapshot storage, IReadOnlyList<RepoRef> repos, CancellationToken cancellationToken)
+    /// <summary>
+    /// What Free up space would delete for a game: how many snapshots its folders keep as removed, and every record of those snapshots
+    /// in either folder, so the run can delete those and no others. A branch no profile names goes with them only when every snapshot
+    /// it holds on its own is one of those, because such a branch would keep their space from being freed; one that holds any other
+    /// snapshot is never named.
+    /// </summary>
+    public static async Task<FreeUpSpacePreview> PreviewAsync(StorageSnapshot storage, string gameId, IReadOnlyList<RepoRef> repos, IReadOnlyList<Profile> profiles, CancellationToken cancellationToken)
     {
-        var reads = await Task.WhenAll(repos.Select(async repo => (repo.Role, Removed: await storage.Engine.ListRemovedAsync(repo, cancellationToken).ConfigureAwait(false)))).ConfigureAwait(false);
+        var state = await ReadStateAsync(storage, repos, profiles, cancellationToken).ConfigureAwait(false);
+        var listed = state.Groups.Select(group => group.CaptureId).ToHashSet(StringComparer.Ordinal);
+        var records = state.ByFolder
+            .SelectMany(folder => folder.Value
+                .Where(removed => listed.Contains(removed.Commit.CaptureId!))
+                .Select(removed => new FreeUpSpaceRecord(gameId, folder.Key, removed.RefName)))
+            .ToList();
+
+        if (listed.Count > 0)
+        {
+            var counted = profiles.Select(profile => profile.BranchName).ToList();
+            foreach (var repo in repos)
+            {
+                foreach (var stray in await storage.Engine.ListStrayBranchesAsync(repo, counted, cancellationToken).ConfigureAwait(false))
+                {
+                    var snapshots = stray.OnlyHere.Where(commit => commit.CaptureId is not null).ToList();
+                    if (snapshots.Count > 0 && snapshots.All(commit => listed.Contains(commit.CaptureId!)))
+                    {
+                        records.Add(new FreeUpSpaceRecord(gameId, repo.Role, GitDirFiles.BranchPrefix + stray.Name));
+                    }
+                }
+            }
+        }
+
+        return new FreeUpSpacePreview(state.Groups.Count, new FreeUpSpaceToken(records));
+    }
+
+    /// <summary>
+    /// Reads every folder's records and groups them into snapshots by capture event. A snapshot is listed while any of its recorded
+    /// commits is on no profile's branch (a branch no profile names does not count); each folder's commit comes from that folder's own
+    /// record. Needs only the git directories.
+    /// </summary>
+    public static async Task<State> ReadStateAsync(StorageSnapshot storage, IReadOnlyList<RepoRef> repos, IReadOnlyList<Profile> profiles, CancellationToken cancellationToken)
+    {
+        var counted = profiles.Select(profile => profile.BranchName).ToList();
+        var reads = await Task.WhenAll(repos.Select(async repo => (repo.Role, Removed: await storage.Engine.ListRemovedAsync(repo, counted, cancellationToken).ConfigureAwait(false)))).ConfigureAwait(false);
         var byFolder = reads.ToDictionary(read => read.Role, read => read.Removed);
 
         // One entry per folder and capture event; a folder that somehow removed two commits of one event keeps the later removal.
@@ -59,9 +95,9 @@ internal sealed class RemovedSnapshots
 
         var groups = byFolder.Values
             .SelectMany(removed => removed)
-            .Select(removed => removed.Commit.CaptureId!)
-            .Distinct(StringComparer.Ordinal)
-            .Select(captureId => new Group(captureId, Pick(RepoRole.Install, captureId), Pick(RepoRole.External, captureId)))
+            .GroupBy(removed => removed.Commit.CaptureId!, StringComparer.Ordinal)
+            .Where(records => records.Any(removed => !removed.OnBranch))
+            .Select(records => new Group(records.Key, Pick(RepoRole.Install, records.Key), Pick(RepoRole.External, records.Key)))
             .OrderByDescending(group => group.RemovedAt)
             .ThenByDescending(group => group.At)
             .ToList();
@@ -75,7 +111,7 @@ internal sealed class RemovedSnapshots
         IReadOnlyList<Profile> profiles,
         CancellationToken cancellationToken)
     {
-        var state = await ReadStateAsync(storage, repos, cancellationToken).ConfigureAwait(false);
+        var state = await ReadStateAsync(storage, repos, profiles, cancellationToken).ConfigureAwait(false);
         if (state.Groups.Count == 0)
         {
             return [];
@@ -118,9 +154,10 @@ internal sealed class RemovedSnapshots
     }
 
     /// <summary>
-    /// The commit that stands for a snapshot in a folder: the one the snapshot recorded there, or, for a folder it did not record, the
-    /// latest commit with a capture id made at or before it in the history of the profile it came from, counting both what that profile
-    /// still holds and what was taken off it. Null when there is none, which leaves nothing for that folder to start from.
+    /// The commit that stands for a snapshot in a folder: the one the snapshot recorded there, whether or not a profile holds it again,
+    /// or, for a folder it did not record, the latest commit with a capture id made at or before it in the history of the profile it
+    /// came from, counting both what that profile still holds and every commit that was recorded as taken off it. Null when there is
+    /// none, which leaves nothing for that folder to start from.
     /// </summary>
     public static async Task<CommitInfo?> CommitInAsync(
         StorageSnapshot storage,
@@ -141,7 +178,8 @@ internal sealed class RemovedSnapshots
         return PointCommits.For(history, group.CaptureId, group.At);
     }
 
-    // What the profile's branch holds in this folder together with the commits taken off that branch.
+    // What the profile's branch holds in this folder together with every commit recorded as taken off that branch, including the ones a
+    // profile holds again: the history the snapshot was taken in.
     private static async Task<IReadOnlyList<CommitInfo>> ReadCandidatesAsync(StorageSnapshot storage, RepoRef repo, State state, string branch, CancellationToken cancellationToken)
     {
         var tips = new List<string>();

@@ -26,7 +26,7 @@ public class ActivityScreenViewTests
         var clock = backend.Clock;
         return ScreenHarness.StartAsync(
             "activity",
-            context => [new ActivityScreenFactory(new ActivityDependencies(context.Services.Jobs, context.Text, context.Dispatcher, clock))],
+            context => [new ActivityScreenFactory(new ActivityDependencies(context.Services.Jobs, context.Dialogs, context.Text, context.Dispatcher, clock))],
             NavDestination.Activity,
             backend,
             theme,
@@ -167,7 +167,7 @@ public class ActivityScreenViewTests
         harness.Settle();
 
         Assert.Contains("Stopping…", harness.VisibleTexts());
-        Assert.Contains("Stopping. SavePoint is finishing the step it is on, then it stops.", harness.VisibleTexts());
+        Assert.Contains("Stopping now.", harness.VisibleTexts());
         Assert.False(harness.Find<Button>("CancelButton").IsEffectivelyVisible);
     }
 

@@ -4,6 +4,7 @@ using Savepoint.App.Localization;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Theme;
 using Savepoint.Core.Api;
+using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 
 namespace Savepoint.App.Tests.Features.Activity;
@@ -199,9 +200,12 @@ public class JobRowViewModelTests
 
     [Theory]
     [InlineData(JobKind.Capture, false, true, false, "")]
-    [InlineData(JobKind.Capture, true, true, true, "Stopping. SavePoint is finishing the step it is on, then it stops.")]
+    [InlineData(JobKind.Capture, true, true, true, "Stopping now.")]
+    [InlineData(JobKind.Compact, true, true, true, "Stopping now.")]
+    [InlineData(JobKind.Launch, true, true, true, "Stopping now.")]
     [InlineData(JobKind.ClearData, false, false, false, "Clearing SavePoint's data can't be stopped once it has started.")]
     [InlineData(JobKind.RelocateStorage, false, false, false, "The move can't be stopped any more, because SavePoint already uses the new folder.")]
+    [InlineData(JobKind.Compact, false, false, false, "Freeing up space can't be stopped any more, because the recently removed snapshots it was asked to delete are already gone.")]
     [InlineData(JobKind.Capture, false, false, false, "This job can't be stopped right now.")]
     public void A_running_job_that_is_stopping_or_cannot_stop_says_so_instead_of_looking_stuck(JobKind kind, bool requested, bool cancellable, bool _, string expected)
     {
@@ -209,6 +213,21 @@ public class JobRowViewModelTests
 
         Assert.Equal(expected, row.StopNote);
         Assert.Equal(expected.Length > 0, row.HasStopNote);
+    }
+
+    [Fact]
+    public void A_launch_that_is_switching_and_is_stopping_says_the_folder_is_left_with_a_mix_of_two_snapshots()
+    {
+        var switching = Job(JobKind.Launch, cancelRequested: true) with
+        {
+            RecentLines = [JobLine.ForStep(JobSteps.LaunchSwitchFolder, ("folder", RepoRole.Install), ("profile", "Modded"), ("older", "no"), ("counted", "no"), ("written", 0), ("removed", 0))],
+        };
+        var starting = switching with { RecentLines = [.. switching.RecentLines, JobLine.ForStep(JobSteps.LaunchStarting, ("game", "Skyrim"))] };
+        var longSwitch = Job(JobKind.Launch, cancelRequested: true) with { LinesDropped = 40 };
+
+        Assert.Equal("Stopping leaves the game's folder with a mix of two snapshots. Press Play again and SavePoint finishes the job.", Row(switching).StopNote);
+        Assert.Equal("Stopping leaves the game's folder with a mix of two snapshots. Press Play again and SavePoint finishes the job.", Row(longSwitch).StopNote);
+        Assert.Equal("Stopping now.", Row(starting).StopNote);
     }
 
     [Fact]

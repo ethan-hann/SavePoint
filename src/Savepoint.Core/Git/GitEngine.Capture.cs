@@ -10,7 +10,7 @@ public sealed partial class GitEngine
     /// not recorded: a new one is not added, and one an earlier point holds is left out of this point and every later one (the earlier
     /// points keep it, and the file on disk stays as it is). A save with nothing else to record still writes no point. A fork, a root or a move forward writes its new point first and then creates or
     /// moves the branch with one ref update, so a stop or a failure before that update leaves every branch and HEAD where they were.
-    /// A move forward and an amend take commits off the branch: each one is first kept by a record outside every branch (see <see cref="ListRemovedAsync"/>),
+    /// A move forward and an amend take commits off the branch: each one is first kept by a record outside every branch (see <see cref="ListRemovedAsync(RepoRef, IReadOnlyCollection{string}, CancellationToken)"/>),
     /// written in one ref transaction before the branch is touched, so a stop at any moment leaves a commit either still on the branch or recorded, never neither.
     /// </summary>
     /// <param name="repo">The folder to capture; its repository must exist.</param>
@@ -240,6 +240,14 @@ public sealed partial class GitEngine
         if (moves && !await IsAncestorAsync(repo, tip, branchTip, ct).ConfigureAwait(false))
         {
             throw new SessionMovedException(repo.Role, $"The point the folder is on is not part of the history of '{request.Branch}'.");
+        }
+
+        // An earlier attempt that moved the branch and was stopped before HEAD followed is picked up, not written again: the branch already holds
+        // the point this capture recorded on top of the folder's commit, and a second one would list the first as a removed snapshot.
+        if (moves && await IsPointOfCaptureAsync(repo, branchTip, tip, request.CaptureId, ct).ConfigureAwait(false))
+        {
+            await AttachHeadAsync(repo, request.Branch, head).ConfigureAwait(false);
+            return new CaptureOutcome(true, branchTip);
         }
 
         await StageAsync(repo, progress, ct).ConfigureAwait(false);

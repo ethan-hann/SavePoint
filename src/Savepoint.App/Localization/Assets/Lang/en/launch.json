@@ -62,6 +62,8 @@
   "launch.keep.nameLabel": "Profile name",
   "launch.keep.partial": "Only part of that was kept. {reason} Your new changes are still in your game folders. Try again, or discard them.",
   "launch.keep.title": "Keep as a new profile",
+  "launch.keptAsNew.body": "{folder, select, install {Your game version and mods had} external {Your saves had} other {Your game folders had}} a newer snapshot than the one you chose to replace, so SavePoint kept this session there as a new snapshot instead. Nothing was replaced or removed.",
+  "launch.keptAsNew.title": "Kept as a new snapshot",
   "launch.leftAlone.body": "{folder, select, install {Your game version and mods weren't} external {Your saves weren't} other {Your game folders weren't}} included, because you played them from another profile's snapshot. Anything that changed in them is still in your game folders, and SavePoint asks about it the next time you play.",
   "launch.leftAlone.title": "Part of that session isn't in the snapshot",
   "launch.partial.body": "{saved, select, install {Your game version and mods are in the snapshot. Your saves aren't yet.} external {Your saves are in the snapshot. Your game version and mods aren't yet.} other {Part of your session is in the snapshot, and part isn't yet.}} {reason} Nothing in your game folders changed. Fix that and retry just that part.",

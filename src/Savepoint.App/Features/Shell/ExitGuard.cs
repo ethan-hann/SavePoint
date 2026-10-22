@@ -6,7 +6,8 @@ namespace Savepoint.App.Features.Shell;
 
 /// <summary>
 /// Decides whether the main window may close while jobs run (D31). A clear-all or a storage move that is cut short leaves a
-/// half-done job behind, so closing asks first; whatever can be cancelled is cancelled, and the close waits briefly for it.
+/// half-done job behind, and so does a free-up that has already deleted the snapshots the player chose to lose, so closing asks
+/// first; whatever can be cancelled is cancelled, and the close waits briefly for it.
 /// </summary>
 public sealed class ExitGuard
 {
@@ -37,11 +38,16 @@ public sealed class ExitGuard
             return true;
         }
 
-        // Only these two leave something half done that the user has to know about; a save or an optimization is simply stopped.
-        if (running.FirstOrDefault(job => job.Kind is JobKind.ClearData or JobKind.RelocateStorage) is { } unsafeToStop
+        // Only these leave something half done that the user has to know about; a save, or an optimization that has not deleted anything yet, is simply stopped.
+        if (running.FirstOrDefault(job => job.Kind is JobKind.ClearData or JobKind.RelocateStorage || job is { Kind: JobKind.Compact, Cancellable: false }) is { } unsafeToStop
             && !await _dialogs.ConfirmAsync(new ConfirmRequest(
                 _text.Message("shell.exit.title"),
-                _text.Message(unsafeToStop.Kind == JobKind.ClearData ? "shell.exit.clearMessage" : "shell.exit.moveMessage"),
+                _text.Message(unsafeToStop.Kind switch
+                {
+                    JobKind.ClearData => "shell.exit.clearMessage",
+                    JobKind.Compact => "shell.exit.freeUpMessage",
+                    _ => "shell.exit.moveMessage",
+                }),
                 _text.Message("shell.exit.confirm"),
                 Destructive: true,
                 CancelLabel: _text.Message("shell.exit.stay"))).ConfigureAwait(true))

@@ -3,7 +3,7 @@ using Savepoint.Core.Git;
 
 namespace Savepoint.Core.Tests.Git.Engine;
 
-// Free up space is the only thing that lets go of removed snapshots: it deletes the records first, then reclaims as it always did.
+// Free up space is the only thing that lets go of removed snapshots: it deletes the records it was given, then reclaims as it always did.
 [Collection(EngineCollections.E)]
 public sealed class RemovedSnapshotClearTests : IDisposable
 {
@@ -16,16 +16,99 @@ public sealed class RemovedSnapshotClearTests : IDisposable
     public void Dispose() => _ws.Dispose();
 
     [Fact]
-    public async Task Reclaiming_with_the_records_cleared_deletes_them_and_then_drops_what_no_branch_reaches()
+    public async Task Clearing_the_records_and_reclaiming_drops_what_no_branch_reaches()
     {
         var (repo, points) = await AfterAMoveForwardAsync();
 
-        await _ws.Engine.RepackAsync(repo, OptimizationMode.ReclaimClearingRemoved, Ct);
+        var cleared = await _ws.Engine.ClearRemovedAsync(repo, await RawRecordsAsync(repo), Ct);
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Reclaim, Ct);
 
+        Assert.Equal(2, cleared.Count);
         Assert.Empty(await RawRecordsAsync(repo));
         Assert.Empty(await _ws.Engine.ListRemovedAsync(repo, Ct));
         Assert.Equal(new[] { true, false, false }, await _ws.ObjectsExistAsync(repo, points[0], points[1], points[2]));
         Assert.Equal(2, (await _ws.Engine.ListCommitsAsync(repo, "profile-1", ct: Ct)).Count);
+    }
+
+    [Fact]
+    public async Task Clearing_deletes_only_the_records_it_is_given_and_the_reclaim_keeps_what_the_others_reach()
+    {
+        var (repo, points) = await AfterAMoveForwardAsync();
+        var listed = await _ws.Engine.ListRemovedAsync(repo, Ct);
+        var newest = listed.Single(entry => entry.Commit.Id == points[2]);
+
+        var cleared = await _ws.Engine.ClearRemovedAsync(repo, [newest.RefName], Ct);
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Reclaim, Ct);
+
+        // The second point is still recorded, so it survives; the third had only its own record, so it goes.
+        Assert.Equal([newest.RefName], cleared.Select(item => item.RefName));
+        Assert.Equal([points[2]], cleared.Select(item => item.Value));
+        Assert.Equal([points[1]], (await _ws.Engine.ListRemovedAsync(repo, Ct)).Select(entry => entry.Commit.Id));
+        Assert.Equal(new[] { true, false }, await _ws.ObjectsExistAsync(repo, points[1], points[2]));
+    }
+
+    [Fact]
+    public async Task Clearing_skips_a_name_that_is_no_record_and_a_record_that_is_already_gone()
+    {
+        var (repo, points) = await AfterAMoveForwardAsync();
+        var raw = await RawRecordsAsync(repo);
+
+        var first = await _ws.Engine.ClearRemovedAsync(repo, [.. raw, "refs/heads/profile-1", "refs/savepoint/removed/not-a-record"], Ct);
+        var again = await _ws.Engine.ClearRemovedAsync(repo, raw, Ct);
+
+        Assert.Equal(2, first.Count);
+        Assert.Empty(again);
+        Assert.Equal(points[0], (await _ws.Engine.ListCommitsAsync(repo, "profile-1", ct: Ct)).Last().Id);
+        Assert.Equal(["profile-1"], await _ws.Engine.ListBranchesAsync(repo, Ct));
+    }
+
+    [Fact]
+    public async Task Cleared_records_can_be_put_back_before_a_reclaim_and_then_keep_their_snapshots_alive()
+    {
+        var (repo, points) = await AfterAMoveForwardAsync();
+        var before = await _ws.Engine.ListRemovedAsync(repo, Ct);
+        var cleared = await _ws.Engine.ClearRemovedAsync(repo, await RawRecordsAsync(repo), Ct);
+
+        await _ws.Engine.RestoreRemovedAsync(repo, [.. cleared, new ClearedRef("refs/heads/profile-1", points[0]), new ClearedRef("refs/savepoint/removed/not-a-record", points[0])], Ct);
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Reclaim, Ct);
+
+        Assert.Equal(before.Select(entry => (entry.RefName, entry.Commit.Id)), (await _ws.Engine.ListRemovedAsync(repo, Ct)).Select(entry => (entry.RefName, entry.Commit.Id)));
+        Assert.Equal(new[] { true, true }, await _ws.ObjectsExistAsync(repo, points[1], points[2]));
+        Assert.Equal(["profile-1"], await _ws.Engine.ListBranchesAsync(repo, Ct));
+    }
+
+    [Fact]
+    public async Task A_branch_nobody_counts_is_listed_with_the_commits_only_it_holds_and_the_branch_head_names_never_is()
+    {
+        var (repo, points) = await AfterAMoveForwardAsync();
+        await _ws.Engine.CreateBranchAsync(repo, "left-behind", points[1], Ct);
+
+        var counted = await _ws.Engine.ListStrayBranchesAsync(repo, ["profile-1"], Ct);
+        var nobody = await _ws.Engine.ListStrayBranchesAsync(repo, [], Ct);
+
+        var stray = Assert.Single(counted);
+        Assert.Equal("left-behind", stray.Name);
+        Assert.Equal(points[1], stray.Tip);
+        Assert.Equal([points[1]], stray.OnlyHere.Select(commit => commit.Id));
+        Assert.Equal(["left-behind"], nobody.Select(item => item.Name));
+        Assert.Equal([points[1], points[0]], Assert.Single(nobody).OnlyHere.Select(commit => commit.Id));
+    }
+
+    [Fact]
+    public async Task Clearing_deletes_a_named_stray_branch_but_never_the_branch_head_names_and_a_restore_brings_it_back()
+    {
+        var (repo, points) = await AfterAMoveForwardAsync();
+        await _ws.Engine.CreateBranchAsync(repo, "left-behind", points[1], Ct);
+
+        var cleared = await _ws.Engine.ClearRemovedAsync(repo, ["refs/heads/left-behind", "refs/heads/profile-1"], Ct);
+
+        Assert.Equal([new ClearedRef("refs/heads/left-behind", points[1])], cleared);
+        Assert.Equal(["profile-1"], await _ws.Engine.ListBranchesAsync(repo, Ct));
+
+        await _ws.Engine.RestoreRemovedAsync(repo, cleared, Ct);
+
+        Assert.Equal(["left-behind", "profile-1"], await _ws.Engine.ListBranchesAsync(repo, Ct));
+        Assert.Equal(points[1], await _ws.TipAsync(repo, "left-behind"));
     }
 
     [Fact]
@@ -41,12 +124,12 @@ public sealed class RemovedSnapshotClearTests : IDisposable
     }
 
     [Fact]
-    public async Task A_free_up_the_volume_cannot_take_keeps_the_records()
+    public async Task A_check_the_volume_cannot_pass_refuses_the_reclaim_and_leaves_the_records_alone()
     {
         var (repo, points) = await AfterAMoveForwardAsync();
         _ws.Space.Free = _floor / 2;
 
-        var error = await Assert.ThrowsAsync<DiskSpaceException>(() => _ws.Engine.RepackAsync(repo, OptimizationMode.ReclaimClearingRemoved, Ct));
+        var error = await Assert.ThrowsAsync<DiskSpaceException>(() => _ws.Engine.CheckReclaimAsync(repo, Ct));
 
         Assert.Equal("error.diskSpace.low", error.MessageId);
         Assert.Equal(2, (await RawRecordsAsync(repo)).Count);
@@ -54,7 +137,7 @@ public sealed class RemovedSnapshotClearTests : IDisposable
     }
 
     [Fact]
-    public async Task A_free_up_stopped_after_the_records_were_cleared_is_finished_by_repeating_it()
+    public async Task A_reclaim_stopped_after_the_records_were_cleared_is_finished_by_repeating_it()
     {
         var (repo, points) = await AfterAMoveForwardAsync();
         _ws.OnInvoke = invocation =>
@@ -65,11 +148,12 @@ public sealed class RemovedSnapshotClearTests : IDisposable
             }
         };
 
-        await Assert.ThrowsAsync<IOException>(() => _ws.Engine.RepackAsync(repo, OptimizationMode.ReclaimClearingRemoved, Ct));
+        await _ws.Engine.ClearRemovedAsync(repo, await RawRecordsAsync(repo), Ct);
+        await Assert.ThrowsAsync<IOException>(() => _ws.Engine.RepackAsync(repo, OptimizationMode.Reclaim, Ct));
         Assert.Empty(await RawRecordsAsync(repo));
 
         _ws.OnInvoke = null;
-        await _ws.Engine.RepackAsync(repo, OptimizationMode.ReclaimClearingRemoved, Ct);
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Reclaim, Ct);
 
         Assert.Equal(new[] { true, false, false }, await _ws.ObjectsExistAsync(repo, points[0], points[1], points[2]));
         Assert.Equal(2, (await _ws.Engine.ListCommitsAsync(repo, "profile-1", ct: Ct)).Count);

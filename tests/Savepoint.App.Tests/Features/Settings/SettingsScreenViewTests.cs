@@ -62,7 +62,7 @@ public class SettingsScreenViewTests
             "79.3 GB used by 3 games",
             "131 GB free",
             "Free up space",
-            "Clears out snapshots no profile uses anymore, such as a deleted profile's. It also runs by itself after you delete a profile or game. Last run Jul 1.",
+            "Clears out snapshots no profile uses anymore, such as a deleted profile's, and deletes recently removed snapshots for good. SavePoint also tidies up by itself after you delete a profile and when snapshots pile up, and that never deletes recently removed snapshots. You last freed up space on Jul 1.",
             "APPEARANCE",
             "Theme",
             "Match Windows",

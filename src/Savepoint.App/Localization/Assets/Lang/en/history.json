@@ -12,7 +12,7 @@
   "history.empty.title": "Nothing to go back to yet",
   "history.filter.all": "All profiles",
   "history.filter.automationName": "Filter by profile: {profile}",
-  "history.footer": "This game's snapshots use {size}. Deleting a profile frees its space soon after.",
+  "history.footer": "This game's snapshots use {size}. Deleting a profile frees the space of the snapshots only it holds soon after. Snapshots in Recently removed stay until you free up space.",
   "history.group.earlier": "Earlier",
   "history.group.thisWeek": "Last 7 days",
   "history.install.mods": "{count, plural, one {# mod file} other {# mod files}}",

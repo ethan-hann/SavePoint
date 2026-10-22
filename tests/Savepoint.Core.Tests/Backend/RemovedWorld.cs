@@ -80,12 +80,17 @@ internal sealed class RemovedWorld : IDisposable
 
     // Plays on from the first snapshot and continues the profile from there: each folder goes back to its commit for that snapshot, and
     // the profile's branch moves to it, which takes the other two snapshots off the profile.
-    public async Task ContinueFromFirstAsync()
+    public Task ContinueFromFirstAsync() => ContinueAsync([RepoRole.Install, RepoRole.External]);
+
+    // The same, for the saves folder alone: the install folder is left on the profile as it was.
+    public Task ContinueSavesFromFirstAsync() => ContinueAsync([RepoRole.External]);
+
+    private async Task ContinueAsync(IReadOnlyList<RepoRole> folders)
     {
         var storage = await Workspace.Backend.Services.Storage.GetAsync(Token);
         var at = DateTimeOffset.UtcNow;
         var captureId = Guid.NewGuid().ToString("D");
-        foreach (var role in new[] { RepoRole.Install, RepoRole.External })
+        foreach (var role in folders)
         {
             var repo = RepoOf(storage, role);
             var lineage = await storage.Engine.ListCommitsAsync(repo, Profile.BranchName, ct: Token);
@@ -128,10 +133,11 @@ internal sealed class RemovedWorld : IDisposable
         return await storage.Engine.ListCommitsAsync(RepoOf(storage, role), branch, ct: Token);
     }
 
+    // The commits a record keeps that no branch reaches: what the folder lists as removed.
     public async Task<IReadOnlyList<string>> RecordedCommitsAsync(RepoRole role)
     {
         var storage = await Workspace.Backend.Services.Storage.GetAsync(Token);
-        return [.. (await storage.Engine.ListRemovedAsync(RepoOf(storage, role), Token)).Select(removed => removed.Commit.Id)];
+        return [.. (await storage.Engine.ListRemovedAsync(RepoOf(storage, role), Token)).Where(removed => !removed.OnBranch).Select(removed => removed.Commit.Id)];
     }
 
     // True when the store still holds the commit, loose or packed.

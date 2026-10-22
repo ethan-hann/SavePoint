@@ -14,13 +14,17 @@ namespace Savepoint.App.Tests.Features.Activity;
 // The real shell with the Activity screen the production factory builds, over the fake backend; times read in the mockup's zone (UTC-5).
 internal sealed class ActivityRig
 {
-    private ActivityRig(ShellRig shell, ActivityScreenViewModel screen, FakeBackend backend, UiFormatter text)
+    private ActivityRig(ShellRig shell, ActivityScreenViewModel screen, FakeBackend backend, UiFormatter text, FakeDialogs dialogs)
     {
         ShellRig = shell;
         Screen = screen;
         Backend = backend;
         Text = text;
+        Dialogs = dialogs;
     }
+
+    // What the screen asks with; the shell has its own.
+    public FakeDialogs Dialogs { get; }
 
     public ShellRig ShellRig { get; }
 
@@ -41,9 +45,10 @@ internal sealed class ActivityRig
         backend ??= FakeBackend.Mockup();
         dispatcher ??= new ImmediateUiDispatcher();
         var text = HistoryRig.FormatterFor(backend);
-        var factory = new CapturingFactory(new ActivityScreenFactory(new ActivityDependencies(jobs is null ? backend.Jobs : jobs(backend.Jobs), text, dispatcher, backend.Clock)));
+        var dialogs = new FakeDialogs();
+        var factory = new CapturingFactory(new ActivityScreenFactory(new ActivityDependencies(jobs is null ? backend.Jobs : jobs(backend.Jobs), dialogs, text, dispatcher, backend.Clock)));
         var shell = await ShellRig.StartAsync(backend, dispatcher, screens: [factory]);
-        return new ActivityRig(shell, (ActivityScreenViewModel)factory.Created!, backend, text);
+        return new ActivityRig(shell, (ActivityScreenViewModel)factory.Created!, backend, text, dialogs);
     }
 
     // Shows the screen the way the nav item does.
@@ -59,6 +64,9 @@ internal sealed class ActivityRig
         var started = await Backend.Profiles.CaptureAsync(gameId, profileId, snapshot);
         return FakeAssert.Ok(started).JobId;
     }
+
+    public async Task<Guid> StartLaunchAsync(string gameId = SkyrimId, string profileId = ModdedId) =>
+        FakeAssert.Ok(await Backend.Launch.StartAsync(gameId, new LaunchTarget.ProfileTip(profileId))).JobId;
 
     public async Task<Guid> StartFreeUpAsync(string gameId = SkyrimId) => FakeAssert.Ok(await Backend.Games.OptimizeStorageAsync(gameId)).JobId;
 

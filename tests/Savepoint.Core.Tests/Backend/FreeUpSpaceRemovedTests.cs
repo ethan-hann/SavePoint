@@ -18,8 +18,9 @@ public class FreeUpSpaceRemovedTests
         var alphaInstall = (await alpha.RecordedCommitsAsync(RepoRole.Install)).Single();
         var alphaSaves = (await alpha.RecordedCommitsAsync(RepoRole.External)).Single();
         var betaInstall = (await beta.RecordedCommitsAsync(RepoRole.Install)).Single();
+        var preview = await alpha.Workspace.Games.GetFreeUpSpacePreviewAsync(alpha.Game.Id, alpha.Workspace.Token);
 
-        var started = await alpha.Workspace.Games.OptimizeStorageAsync(alpha.Game.Id);
+        var started = await alpha.Workspace.Games.OptimizeStorageAsync(alpha.Game.Id, preview.Value!.Token);
         var job = await alpha.Workspace.WaitForJobAsync(started.Value!.JobId);
 
         Assert.Equal(JobStatus.Succeeded, job.Status);
@@ -42,14 +43,102 @@ public class FreeUpSpaceRemovedTests
         await alpha.ContinueFromFirstAsync();
         await beta.ContinueFromFirstAsync();
         var betaSaves = (await beta.RecordedCommitsAsync(RepoRole.External)).Single();
+        var preview = await alpha.Workspace.Settings.GetFreeUpSpacePreviewAsync(alpha.Workspace.Token);
 
-        var started = await alpha.Workspace.Settings.OptimizeAllStorageAsync();
+        var started = await alpha.Workspace.Settings.OptimizeAllStorageAsync(preview.Value!.Token);
         var job = await alpha.Workspace.WaitForJobAsync(started.Value!.JobId);
 
         Assert.Equal(JobStatus.Succeeded, job.Status);
         Assert.Empty(await alpha.ListAsync());
         Assert.Empty(await beta.ListAsync());
         Assert.False(await beta.ObjectExistsAsync(RepoRole.External, betaSaves));
+    }
+
+    [Fact(Timeout = 240_000)]
+    public async Task A_removal_that_lands_while_the_free_up_waits_for_the_game_survives_it_and_the_reclaim()
+    {
+        using var world = await RemovedWorld.CreateAsync();
+        var preview = await world.Workspace.Games.GetFreeUpSpacePreviewAsync(world.Game.Id, world.Workspace.Token);
+        Assert.Equal(0, preview.Value!.RecentlyRemovedSnapshots);
+
+        // A capture holds the game's lock while it records what it removes; the free-up the player starts then queues behind it.
+        var inside = new TaskCompletionSource();
+        var release = new TaskCompletionSource();
+        var capture = world.Workspace.Backend.Services.RunForGameAsync(
+            world.Game.Id,
+            async (_, _) =>
+            {
+                inside.SetResult();
+                await release.Task;
+                return 0;
+            },
+            world.Workspace.Token);
+        await inside.Task;
+        var started = await world.Workspace.Games.OptimizeStorageAsync(world.Game.Id, preview.Value.Token);
+        await world.ContinueFromFirstAsync();
+        var installRecord = (await world.RecordedCommitsAsync(RepoRole.Install)).Single();
+        var savesRecord = (await world.RecordedCommitsAsync(RepoRole.External)).Single();
+        release.SetResult();
+        await capture;
+        var job = await world.Workspace.WaitForJobAsync(started.Value!.JobId);
+
+        Assert.Equal(JobStatus.Succeeded, job.Status);
+        Assert.Equal([world.SavesOnly, world.InstallOnly], (await world.ListAsync()).Select(snapshot => snapshot.Id));
+        Assert.True(await world.ObjectExistsAsync(RepoRole.Install, installRecord));
+        Assert.True(await world.ObjectExistsAsync(RepoRole.External, savesRecord));
+    }
+
+    [Fact(Timeout = 240_000)]
+    public async Task A_free_up_deletes_the_snapshots_the_preview_counted_and_keeps_one_removed_after_it()
+    {
+        using var world = await RemovedWorld.CreateAsync();
+        await world.ContinueFromFirstAsync();
+        var preview = await world.Workspace.Games.GetFreeUpSpacePreviewAsync(world.Game.Id, world.Workspace.Token);
+        Assert.Equal(2, preview.Value!.RecentlyRemovedSnapshots);
+
+        // Replacing the snapshot the profile continued from takes that one off the profile too, after the player was told about the other two.
+        await world.ReplaceLatestAsync("Replaced");
+        var started = await world.Workspace.Games.OptimizeStorageAsync(world.Game.Id, preview.Value.Token);
+        var job = await world.Workspace.WaitForJobAsync(started.Value!.JobId);
+
+        Assert.Equal(JobStatus.Succeeded, job.Status);
+        var left = Assert.Single(await world.ListAsync());
+        Assert.Equal(world.First, left.Id);
+        Assert.Equal(HistoryPointKind.VersionModsAndSave, left.Kind);
+    }
+
+    [Fact(Timeout = 240_000)]
+    public async Task A_free_up_for_every_game_keeps_the_removals_a_game_gained_after_the_preview()
+    {
+        using var alpha = await RemovedWorld.CreateAsync();
+        using var beta = await RemovedWorld.CreateAsync(shared: alpha.Workspace, name: "Beta");
+        await alpha.ContinueFromFirstAsync();
+        var preview = await alpha.Workspace.Settings.GetFreeUpSpacePreviewAsync(alpha.Workspace.Token);
+        Assert.Equal(2, preview.Value!.RecentlyRemovedSnapshots);
+
+        // The second game is played on while the first is being tidied, and its profile is continued from an older snapshot.
+        await beta.ContinueFromFirstAsync();
+        var started = await alpha.Workspace.Settings.OptimizeAllStorageAsync(preview.Value.Token);
+        var job = await alpha.Workspace.WaitForJobAsync(started.Value!.JobId);
+
+        Assert.Equal(JobStatus.Succeeded, job.Status);
+        Assert.Empty(await alpha.ListAsync());
+        Assert.Equal(2, (await beta.ListAsync()).Count);
+    }
+
+    [Fact(Timeout = 240_000)]
+    public async Task A_free_up_started_without_a_preview_deletes_no_removed_snapshot_and_still_succeeds()
+    {
+        using var world = await RemovedWorld.CreateAsync();
+        await world.ContinueFromFirstAsync();
+        var installRecord = (await world.RecordedCommitsAsync(RepoRole.Install)).Single();
+
+        var started = await world.Workspace.Games.OptimizeStorageAsync(world.Game.Id);
+        var job = await world.Workspace.WaitForJobAsync(started.Value!.JobId);
+
+        Assert.Equal(JobStatus.Succeeded, job.Status);
+        Assert.Equal(2, (await world.ListAsync()).Count);
+        Assert.True(await world.ObjectExistsAsync(RepoRole.Install, installRecord));
     }
 
     [Fact(Timeout = 240_000)]

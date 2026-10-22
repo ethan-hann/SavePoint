@@ -12,13 +12,13 @@ internal sealed partial class GamesApi
     public Task<OperationResult<Unit>> DeleteAsync(string gameId) =>
         ApiGuard.RunAsync(_services.Log, () => DeleteCoreAsync(gameId));
 
-    public Task<OperationResult<JobStarted>> OptimizeStorageAsync(string gameId) =>
+    public Task<OperationResult<JobStarted>> OptimizeStorageAsync(string gameId, FreeUpSpaceToken? confirmed = null) =>
         ApiGuard.RunAsync(_services.Log, async () =>
         {
             var game = await RequireGameAsync(gameId, CancellationToken.None).ConfigureAwait(false);
 
             // The user asked for this one, so a launch or capture waits for it instead of stopping it.
-            return new JobStarted(_optimization.Start(game.Id, OptimizationMode.ReclaimClearingRemoved, preemptible: false));
+            return new JobStarted(_optimization.Start(game.Id, OptimizationMode.Reclaim, preemptible: false, confirmed, byRequest: true));
         });
 
     public Task<OperationResult<FreeUpSpacePreview>> GetFreeUpSpacePreviewAsync(string gameId, CancellationToken cancellationToken = default) =>
@@ -27,8 +27,9 @@ internal sealed partial class GamesApi
             async () =>
             {
                 var game = await RequireGameAsync(gameId, cancellationToken).ConfigureAwait(false);
+                var profiles = await _services.Catalog.ListProfilesAsync(game.Id, cancellationToken).ConfigureAwait(false);
                 return await _services.Storage.ReadAsync(
-                    async storage => new FreeUpSpacePreview(await RemovedSnapshots.CountAsync(storage, GameFolders.ReposForGitDirOnly(_services, storage, game), cancellationToken).ConfigureAwait(false)),
+                    storage => RemovedSnapshots.PreviewAsync(storage, game.Id, GameFolders.ReposForGitDirOnly(_services, storage, game), profiles, cancellationToken),
                     cancellationToken).ConfigureAwait(false);
             },
             cancellationToken);

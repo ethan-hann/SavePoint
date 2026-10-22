@@ -1,5 +1,6 @@
 using Savepoint.App.Features.Activity;
 using Savepoint.App.Features.Common.Errors;
+using Savepoint.App.Features.Shell;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Tests.Features.Shell;
 using Savepoint.Core.Api;
@@ -141,6 +142,38 @@ public class ActivityScreenViewModelTests
     }
 
     // ---- Following the jobs
+
+    [Fact]
+    public async Task The_screen_lists_only_the_finished_jobs_the_registry_still_keeps_five_per_game()
+    {
+        var rig = await ActivityRig.ShownAsync();
+        var started = new List<Guid>();
+        for (var i = 0; i < 8; i++)
+        {
+            started.Add(await rig.StartFreeUpAsync());
+            rig.Backend.Jobs.Complete(started[^1]);
+            rig.Pass(TimeSpan.FromMinutes(1));
+        }
+
+        Assert.Equal(5, rig.Screen.Rows.Count);
+        Assert.Equal(started.Skip(3).Reverse(), rig.Screen.Rows.Select(row => row.JobId));
+        Assert.Equal(5, rig.Screen.Rows.Count(row => !row.IsRunning));
+    }
+
+    [Fact]
+    public async Task A_job_that_changes_while_another_screen_shows_is_listed_when_the_screen_comes_back_and_not_before()
+    {
+        var rig = await ActivityRig.StartAsync();
+        Assert.Empty(rig.Screen.Rows);
+
+        var id = await rig.StartCaptureAsync();
+
+        Assert.Empty(rig.Screen.Rows);
+
+        rig.Shell.Navigate(NavDestination.Activity);
+
+        Assert.Equal([id], rig.Screen.Rows.Select(row => row.JobId));
+    }
 
     [Fact]
     public async Task A_job_that_starts_appears_at_once_and_its_progress_moves_the_bar_in_place()
@@ -296,7 +329,7 @@ public class ActivityScreenViewModelTests
         rig.Backend.Jobs.ReportStep(id, JobSteps.CaptureFolderDone, ("folder", RepoRole.Install), ("files", 2));
 
         Assert.Same(held, Line(Details(rig), 0));
-        Assert.Equal(["a.esp", "b.esp", "Added 2 new or changed files from the game folder."], Details(rig).Lines.Skip(1).Select(line => line.Text));
+        Assert.Equal(["a.esp", "b.esp", "2 files were new, changed or removed in the game folder."], Details(rig).Lines.Skip(1).Select(line => line.Text));
         Assert.Equal([0L, 1, 2, 3], Details(rig).Lines.Select(line => line.Number));
     }
 
@@ -369,12 +402,83 @@ public class ActivityScreenViewModelTests
         Assert.Equal("Stopping…", FirstRow(rig).StatusText);
         Assert.False(Details(rig).CanCancel);
         Assert.True(Details(rig).HasStopNote);
-        Assert.Equal("Stopping. SavePoint is finishing the step it is on, then it stops.", Details(rig).StopNote);
+        Assert.Equal("Stopping now.", Details(rig).StopNote);
+        Assert.Empty(rig.Dialogs.Confirmations);
 
         rig.Backend.Jobs.CompleteCancelled(id);
 
         Assert.Equal("Canceled", FirstRow(rig).StatusText);
         Assert.False(Details(rig).HasStopNote);
+    }
+
+    // ---- Cancelling a launch that is switching
+
+    private static Task ReportSwitchAsync(ActivityRig rig, Guid launch)
+    {
+        rig.Backend.Jobs.ReportStep(launch, JobSteps.LaunchSwitchFolder, ("folder", RepoRole.Install), ("profile", "Modded playthrough"), ("older", "no"), ("counted", "yes"), ("written", 12), ("removed", 2));
+        return Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task Cancelling_a_launch_that_is_switching_asks_first_and_says_the_folder_is_left_with_a_mix_of_two_snapshots()
+    {
+        var rig = await ActivityRig.ShownAsync();
+        var launch = await rig.StartLaunchAsync();
+        await ReportSwitchAsync(rig, launch);
+        rig.Screen.SelectedRow = RowWhere(rig, row => row.JobId == launch);
+        rig.Dialogs.AnswerConfirm(false);
+
+        await Details(rig).CancelCommand.ExecuteAsync(null);
+
+        var asked = Assert.Single(rig.Dialogs.Confirmations);
+        Assert.Equal("Stop switching?", asked.Title);
+        Assert.Equal("Stopping leaves the game's folder with a mix of two snapshots. Press Play again and SavePoint finishes the job.", asked.Message);
+        Assert.Equal("Stop switching", asked.ConfirmLabel);
+        Assert.Equal("Keep switching", asked.CancelLabel);
+        Assert.True(asked.Destructive);
+        Assert.False(rig.Backend.Jobs.Get(launch)!.CancelRequested);
+        Assert.Empty(rig.Backend.Calls.To<IJobsApi>(nameof(IJobsApi.CancelAsync)));
+    }
+
+    [Fact]
+    public async Task Confirming_stops_the_switch_and_the_row_keeps_telling_the_truth_about_the_mix()
+    {
+        var rig = await ActivityRig.ShownAsync();
+        var launch = await rig.StartLaunchAsync();
+        await ReportSwitchAsync(rig, launch);
+        rig.Screen.SelectedRow = RowWhere(rig, row => row.JobId == launch);
+        rig.Dialogs.AnswerConfirm(true);
+
+        await Details(rig).CancelCommand.ExecuteAsync(null);
+
+        Assert.Equal([launch], Assert.Single(rig.Backend.Calls.To<IJobsApi>(nameof(IJobsApi.CancelAsync))).Args);
+        Assert.True(rig.Backend.Jobs.Get(launch)!.CancelRequested);
+        Assert.Equal("Stopping leaves the game's folder with a mix of two snapshots. Press Play again and SavePoint finishes the job.", Details(rig).StopNote);
+    }
+
+    [Fact]
+    public async Task Cancelling_a_launch_that_has_not_begun_to_switch_or_has_finished_switching_asks_nothing()
+    {
+        var rig = await ActivityRig.ShownAsync();
+        var preparing = await rig.StartLaunchAsync();
+        rig.Screen.SelectedRow = RowWhere(rig, row => row.JobId == preparing);
+
+        await Details(rig).CancelCommand.ExecuteAsync(null);
+
+        Assert.Empty(rig.Dialogs.Confirmations);
+        Assert.True(rig.Backend.Jobs.Get(preparing)!.CancelRequested);
+        Assert.Equal("Stopping now.", Details(rig).StopNote);
+        rig.Backend.Jobs.CompleteCancelled(preparing);
+
+        var starting = await rig.StartLaunchAsync();
+        await ReportSwitchAsync(rig, starting);
+        rig.Backend.Jobs.ReportStep(starting, JobSteps.LaunchStarting, ("game", _skyrim));
+        rig.Screen.SelectedRow = RowWhere(rig, row => row.JobId == starting);
+
+        await Details(rig).CancelCommand.ExecuteAsync(null);
+
+        Assert.Empty(rig.Dialogs.Confirmations);
+        Assert.True(rig.Backend.Jobs.Get(starting)!.CancelRequested);
     }
 
     [Fact]

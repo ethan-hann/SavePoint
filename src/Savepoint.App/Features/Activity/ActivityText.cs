@@ -129,6 +129,19 @@ public sealed class ActivityText
     public string Finished(JobSnapshot job) =>
         job.FinishedAt is { } finished ? _text.Message("activity.row.finished", ("when", _text.ShortDateTime(finished))) : string.Empty;
 
+    /// <summary>
+    /// True while a launch is switching the game's folders: it has written its switch step and has not yet started the game, so a stop
+    /// leaves the folder with a mix of two snapshots. A launch whose early lines have fallen off the list is taken to be switching.
+    /// </summary>
+    /// <param name="job">The job.</param>
+    public static bool IsSwitching(JobSnapshot job) =>
+        job is { Kind: JobKind.Launch, Status: JobStatus.Running }
+        && !HasStep(job, JobSteps.LaunchStarting)
+        && (job.LinesDropped > 0 || HasStep(job, JobSteps.LaunchSwitchFolder));
+
+    private static bool HasStep(JobSnapshot job, string messageId) =>
+        job.RecentLines.Any(line => line is JobLine.Step step && step.MessageId == messageId);
+
     /// <summary>What to say about stopping the job: that it is stopping, or why it cannot be stopped; empty when there is nothing to say.</summary>
     /// <param name="job">The job.</param>
     public string StopNote(JobSnapshot job)
@@ -140,7 +153,8 @@ public sealed class ActivityText
 
         if (job.CancelRequested)
         {
-            return _text.Message("activity.stop.stopping");
+            // A stopped switch is the one stop that leaves something behind, and the launch's own warning already says what.
+            return IsSwitching(job) ? _text.Message("launch.progress.stopNote") : _text.Message("activity.stop.stopping");
         }
 
         if (job.Cancellable)
@@ -152,6 +166,7 @@ public sealed class ActivityText
         {
             JobKind.ClearData => _text.Message("activity.stop.clear"),
             JobKind.RelocateStorage => _text.Message("activity.stop.relocate"),
+            JobKind.Compact => _text.Message("activity.stop.compact"),
             _ => _text.Message("activity.stop.generic"),
         };
     }

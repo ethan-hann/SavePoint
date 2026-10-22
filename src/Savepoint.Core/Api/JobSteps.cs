@@ -13,7 +13,7 @@ public static class JobSteps
     /// <summary>A snapshot starts copying one folder. Arguments: <c>folder</c>, <c>path</c>.</summary>
     public const string CaptureFolder = "activity.step.capture.folder";
 
-    /// <summary>A folder is copied. Arguments: <c>folder</c>, <c>files</c>, the new or changed files it added, which may be none.</summary>
+    /// <summary>A folder is copied. Arguments: <c>folder</c>, <c>files</c>, the files found new, changed or removed since the last snapshot, which may be none.</summary>
     public const string CaptureFolderDone = "activity.step.capture.folderDone";
 
     /// <summary>A folder is not part of the snapshot because it was played from another profile's snapshot. Arguments: <c>folder</c>.</summary>
@@ -21,6 +21,9 @@ public static class JobSteps
 
     /// <summary>A folder could not be copied. Arguments: <c>folder</c>.</summary>
     public const string CaptureFolderFailed = "activity.step.capture.folderFailed";
+
+    /// <summary>A save asked to replace a snapshot added the session to a folder as a new snapshot instead, because the snapshot was not the newest there. Arguments: <c>folder</c>.</summary>
+    public const string CaptureFolderKeptAsNew = "activity.step.capture.folderKeptAsNew";
 
     /// <summary>
     /// A folder is switched to a profile or snapshot. Arguments: <c>folder</c>, <c>profile</c>, <c>older</c> (<c>yes</c> when the target is
@@ -46,6 +49,9 @@ public static class JobSteps
 
     /// <summary>There was nothing to free up for a game. Arguments: <c>game</c>.</summary>
     public const string CompactNothingFreed = "activity.step.compact.nothingFreed";
+
+    /// <summary>A game's recently removed snapshots the player agreed to lose were deleted, which cannot be undone. Arguments: <c>game</c>.</summary>
+    public const string CompactRemovedDeleted = "activity.step.compact.removedDeleted";
 
     /// <summary>Space could not be freed in one folder of a game. Arguments: <c>game</c>, <c>folder</c>.</summary>
     public const string CompactFolderFailed = "activity.step.compact.folderFailed";

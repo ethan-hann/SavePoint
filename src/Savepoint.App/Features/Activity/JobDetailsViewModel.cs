@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.Core.Api;
@@ -17,6 +18,7 @@ public sealed partial class JobDetailsViewModel : ObservableObject
     private readonly JobRowViewModel _row;
     private readonly ActivityText _words;
     private readonly IJobsApi _jobs;
+    private readonly IDialogs _dialogs;
     private readonly UiFormatter _text;
     private readonly Action<string> _announce;
 
@@ -29,14 +31,16 @@ public sealed partial class JobDetailsViewModel : ObservableObject
     /// <param name="row">The job's row, which holds its latest snapshot.</param>
     /// <param name="words">Words for the job and its lines.</param>
     /// <param name="jobs">The jobs Api, for Cancel.</param>
+    /// <param name="dialogs">Asks before a Cancel that would leave something half done.</param>
     /// <param name="text">Formats the details' own labels and the error card.</param>
     /// <param name="announce">Says something to a screen reader without moving focus.</param>
-    public JobDetailsViewModel(JobRowViewModel row, ActivityText words, IJobsApi jobs, UiFormatter text, Action<string> announce)
+    public JobDetailsViewModel(JobRowViewModel row, ActivityText words, IJobsApi jobs, IDialogs dialogs, UiFormatter text, Action<string> announce)
     {
         _row = row;
         _job = row.Job;
         _words = words;
         _jobs = jobs;
+        _dialogs = dialogs;
         _text = text;
         _announce = announce;
         CancelCommand = new AsyncRelayCommand(CancelAsync, () => CanCancel);
@@ -174,6 +178,19 @@ public sealed partial class JobDetailsViewModel : ObservableObject
     private async Task CancelAsync()
     {
         var id = _row.JobId;
+
+        // Stopping a switch leaves the game's folder with a mix of two snapshots, so it is asked as the launch dialog's own stop is.
+        if (ActivityText.IsSwitching(_job)
+            && !await _dialogs.ConfirmAsync(new ConfirmRequest(
+                _text.Message("activity.cancel.switchTitle"),
+                _text.Message("launch.progress.stopNote"),
+                _text.Message("launch.progress.stop"),
+                Destructive: true,
+                CancelLabel: _text.Message("activity.cancel.switchStay"))))
+        {
+            return;
+        }
+
         await _jobs.CancelAsync(id);
 
         // A job that reached a point it cannot stop at between the press and the call leaves the request unheard; the reader is told.

@@ -643,7 +643,7 @@ public class HistoryScreenViewModelTests
         var rig = await HistoryRig.ShownAsync();
 
         Assert.Equal(
-            "This game's snapshots use 41.2 GB. Deleting a profile frees its space soon after.",
+            "This game's snapshots use 41.2 GB. Deleting a profile frees the space of the snapshots only it holds soon after. Snapshots in Recently removed stay until you free up space.",
             rig.Screen.FooterText);
         Assert.True(rig.Screen.HasFooter);
     }

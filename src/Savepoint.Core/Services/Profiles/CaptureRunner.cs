@@ -238,9 +238,13 @@ internal sealed class CaptureRunner
             else
             {
                 context.AddStep(JobSteps.CaptureFolderDone, ("folder", repo.Role), ("files", progress.FilesDone));
+                if (saved.KeptAsNew)
+                {
+                    context.AddStep(JobSteps.CaptureFolderKeptAsNew, ("folder", repo.Role));
+                }
             }
 
-            return new SavedFolder(repo, new FolderOutcome(repo.Role, null, saved.LeftAlone, saved.LeftOnBranch), saved.Recorded, startedBranch);
+            return new SavedFolder(repo, new FolderOutcome(repo.Role, null, saved.LeftAlone, saved.LeftOnBranch, saved.KeptAsNew), saved.Recorded, startedBranch);
         }
         catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException))
         {
@@ -268,8 +272,9 @@ internal sealed class CaptureRunner
         }
     }
 
-    // What a save did to one folder: whether it recorded a new point, or left the folder alone (and on which branch it sits).
-    private readonly record struct FolderSave(bool Recorded, bool LeftAlone = false, string? LeftOnBranch = null, bool SkippedAsClean = false);
+    // What a save did to one folder: whether it recorded a new point, or left the folder alone (and on which branch it sits), and whether a
+    // replacement it was asked for became a new point instead.
+    private readonly record struct FolderSave(bool Recorded, bool LeftAlone = false, string? LeftOnBranch = null, bool SkippedAsClean = false, bool KeptAsNew = false);
 
     private static async Task<FolderSave> CaptureFolderAsync(
         StorageSnapshot storage,
@@ -307,10 +312,11 @@ internal sealed class CaptureRunner
             }
         }
 
+        var mode = finishing ? CaptureMode.Root : await ModeOfAsync(storage, repo, branch, branchExists, forksNewBranch, plan, cancellationToken).ConfigureAwait(false);
         var request = new CaptureRequest(branch, pointName, capture.Id)
         {
             CapturedAt = capture.At,
-            Mode = finishing ? CaptureMode.Root : await ModeOfAsync(storage, repo, branch, branchExists, forksNewBranch, plan, cancellationToken).ConfigureAwait(false),
+            Mode = mode,
             IgnorePatterns = game.IgnorePaths,
             ExpectedStartCommit = plan?.ExpectedStartCommit,
             SkipAmendWhenUnchanged = plan?.SkipWhenClean ?? false,
@@ -318,7 +324,8 @@ internal sealed class CaptureRunner
         var outcome = await storage.Engine.CaptureAsync(repo, request, progress, cancellationToken).ConfigureAwait(false);
         if (outcome.Changed || outcome.TipCommitId is not null)
         {
-            return new FolderSave(outcome.Changed);
+            // A replacement that found the snapshot was not the newest here was written as a new point, which the save reports.
+            return new FolderSave(outcome.Changed, KeptAsNew: outcome.Changed && plan is { Mode: CaptureMode.Amend } && mode == CaptureMode.Normal);
         }
 
         // An empty folder in an empty repository has nothing to record; the profile still needs a branch here, and the folder is on it, as after any first save.

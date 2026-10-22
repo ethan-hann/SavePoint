@@ -56,6 +56,15 @@ public sealed partial class StorageSectionViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(CancelOptimizeCommand))]
     private bool _isOptimizing;
 
+    /// <summary>Why Cancel is not offered while the optimization runs: it has deleted snapshots and cannot be stopped. Empty otherwise.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasStopNote))]
+    [NotifyCanExecuteChangedFor(nameof(CancelOptimizeCommand))]
+    private string _stopNote = string.Empty;
+
+    /// <summary>True when <see cref="StopNote"/> has something to say.</summary>
+    public bool HasStopNote => StopNote.Length > 0;
+
     /// <summary>True while the storage move runs.</summary>
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ChangeCommand))]
@@ -94,7 +103,7 @@ public sealed partial class StorageSectionViewModel : ObservableObject
         _store = store;
         ChangeCommand = new AsyncRelayCommand(ChangeAsync, () => !IsRelocating);
         RunNowCommand = new AsyncRelayCommand(RunNowAsync, () => !IsOptimizing);
-        CancelOptimizeCommand = new AsyncRelayCommand(() => CancelAsync(_optimizeJob), () => IsOptimizing);
+        CancelOptimizeCommand = new AsyncRelayCommand(() => CancelAsync(_optimizeJob), () => IsOptimizing && !HasStopNote);
         CancelRelocationCommand = new AsyncRelayCommand(() => CancelAsync(_relocationJob), () => IsRelocating);
         store.Changed += (_, settings) => Show(settings);
     }
@@ -161,6 +170,9 @@ public sealed partial class StorageSectionViewModel : ObservableObject
         {
             _optimizeJob = job.JobId;
             IsOptimizing = true;
+
+            // A run that has deleted the snapshots the player chose to lose is past stopping, and says so where Cancel was.
+            StopNote = job.Cancellable ? string.Empty : _deps.Text.Message("activity.stop.compact");
             return;
         }
 
@@ -169,6 +181,7 @@ public sealed partial class StorageSectionViewModel : ObservableObject
         {
             _optimizeJob = null;
             IsOptimizing = false;
+            StopNote = string.Empty;
             if (!seeding)
             {
                 _ = RefreshAfterJobAsync(tellShell: false);
@@ -359,7 +372,8 @@ public sealed partial class StorageSectionViewModel : ObservableObject
             return;
         }
 
-        var started = await _deps.Settings.OptimizeAllStorageAsync();
+        // The run deletes the records the player was told about and none written since.
+        var started = await _deps.Settings.OptimizeAllStorageAsync(preview.Value.Token);
         if (!started.Ok)
         {
             _deps.Toasts.Show(new ToastMessage(_deps.Text.Message(started.Error), ToastKind.Error));

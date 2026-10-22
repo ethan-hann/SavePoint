@@ -23,8 +23,10 @@ internal sealed class OptimizationService
     /// <param name="gameId">The game to optimize, or null for every game, one after the other.</param>
     /// <param name="mode">How hard to work.</param>
     /// <param name="preemptible">True when a launch, capture or delete on the same game may stop it to go first (D13.17).</param>
-    public Guid Start(string? gameId, OptimizationMode mode, bool preemptible) =>
-        _services.Jobs.Start(JobKind.Compact, gameId, cancellable: true, context => RunAsync(context, gameId, mode, preemptible));
+    /// <param name="confirmed">The recently removed snapshots' records the run may delete, from a preview the player agreed to; null deletes none.</param>
+    /// <param name="byRequest">True for the Free up space the player asked for, the only run that moves the date Settings shows; the cleanups SavePoint starts by itself leave it alone.</param>
+    public Guid Start(string? gameId, OptimizationMode mode, bool preemptible, FreeUpSpaceToken? confirmed = null, bool byRequest = false) =>
+        _services.Jobs.Start(JobKind.Compact, gameId, cancellable: true, context => RunAsync(context, gameId, mode, preemptible, confirmed ?? FreeUpSpaceToken.Nothing, byRequest));
 
     /// <summary>True when either repository of the game holds more loose objects than the threshold, which is when a save queues a routine optimization (D13.17).</summary>
     /// <param name="storage">The storage snapshot the caller holds the game's lock for.</param>
@@ -63,7 +65,7 @@ internal sealed class OptimizationService
         }
     }
 
-    private async Task<JobResult?> RunAsync(JobContext context, string? gameId, OptimizationMode mode, bool preemptible)
+    private async Task<JobResult?> RunAsync(JobContext context, string? gameId, OptimizationMode mode, bool preemptible, FreeUpSpaceToken confirmed, bool byRequest)
     {
         var games = gameId is null
             ? await _services.Catalog.ListGamesAsync(context.CancellationToken).ConfigureAwait(false)
@@ -76,7 +78,7 @@ internal sealed class OptimizationService
             foreach (var game in games)
             {
                 context.CancellationToken.ThrowIfCancellationRequested();
-                outcomes.Add(await OptimizeGameAsync(context, game, mode, preemptible, () => preempted = true).ConfigureAwait(false));
+                outcomes.Add(await OptimizeGameAsync(context, game, mode, preemptible, confirmed, () => preempted = true).ConfigureAwait(false));
             }
         }
         catch (Exception e) when (e is OperationCanceledException or OperationCancelledByUserException)
@@ -95,11 +97,15 @@ internal sealed class OptimizationService
             throw new OperationCancelledByUserException(CancelledOperation.Compaction, gameId);
         }
 
-        await MarkOptimizedAsync(outcomes).ConfigureAwait(false);
+        if (byRequest)
+        {
+            await MarkOptimizedAsync(outcomes).ConfigureAwait(false);
+        }
+
         return new OptimizeResult(outcomes);
     }
 
-    private Task<GameOptimizeOutcome> OptimizeGameAsync(JobContext context, GameDefinition game, OptimizationMode mode, bool preemptible, Action onPreempted) =>
+    private Task<GameOptimizeOutcome> OptimizeGameAsync(JobContext context, GameDefinition game, OptimizationMode mode, bool preemptible, FreeUpSpaceToken confirmed, Action onPreempted) =>
         _services.RunForGameAsync(
             game.Id,
             async (storage, handle) =>
@@ -115,23 +121,22 @@ internal sealed class OptimizationService
                 context.AddStep(JobSteps.CompactGame, ("game", game.Name));
                 var repos = GameFolders.ReposForGitDirOnly(_services, storage, game);
                 var before = await SizeOfAsync(repos, context.CancellationToken).ConfigureAwait(false);
-                var folders = new List<FolderOutcome>();
-                foreach (var repo in repos)
-                {
-                    context.CancellationToken.ThrowIfCancellationRequested();
-                    try
-                    {
-                        await OptimizeRepoAsync(storage, repo, mode, context.CancellationToken).ConfigureAwait(false);
-                        folders.Add(new FolderOutcome(repo.Role));
-                    }
-                    catch (Exception e) when (e is SavepointException and not OperationCancelledByUserException)
-                    {
-                        context.AddStep(JobSteps.CompactFolderFailed, ("game", game.Name), ("folder", repo.Role));
-                        folders.Add(new FolderOutcome(repo.Role, ErrorInfo.From(e)));
-                    }
-                }
 
-                var after = await SizeOfAsync(repos, context.CancellationToken).ConfigureAwait(false);
+                // Only the records the player was told about go; one written since stays and keeps its snapshot alive through the reclaim.
+                // A branch a profile names is never among them, whatever the token says.
+                var profileBranches = (await _services.Catalog.ListProfilesAsync(game.Id).ConfigureAwait(false)).Select(profile => GitDirFiles.BranchPrefix + profile.BranchName).ToHashSet(StringComparer.Ordinal);
+                var records = repos.ToDictionary(
+                    repo => repo.Role,
+                    repo => confirmed.Records
+                        .Where(record => record.GameId == game.Id && record.Folder == repo.Role && !profileBranches.Contains(record.RefName))
+                        .Select(record => record.RefName)
+                        .ToList());
+                var (folders, pastTheClear) = records.Values.Any(names => names.Count > 0)
+                    ? await FreeUpGameAsync(context, game, storage, repos, records, mode).ConfigureAwait(false)
+                    : (await ReclaimFoldersAsync(context, game, storage, repos, mode, context.CancellationToken).ConfigureAwait(false), false);
+
+                // A run that deleted records is past stopping, so measuring what it freed ignores the job's token.
+                var after = await SizeOfAsync(repos, pastTheClear ? CancellationToken.None : context.CancellationToken).ConfigureAwait(false);
                 var freed = folders.Any(folder => folder.Ok) ? Math.Max(0, before - after) : (long?)null;
                 if (freed is { } bytes)
                 {
@@ -141,6 +146,103 @@ internal sealed class OptimizationService
                 return new GameOptimizeOutcome(game.Id, folders, freed);
             },
             context.CancellationToken);
+
+    // Each folder on its own: one that refuses or fails is named, and the others still go.
+    private static async Task<List<FolderOutcome>> ReclaimFoldersAsync(JobContext context, GameDefinition game, StorageSnapshot storage, IReadOnlyList<RepoRef> repos, OptimizationMode mode, CancellationToken cancellationToken)
+    {
+        var folders = new List<FolderOutcome>();
+        foreach (var repo in repos)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                await OptimizeRepoAsync(storage, repo, mode, cancellationToken).ConfigureAwait(false);
+                folders.Add(new FolderOutcome(repo.Role));
+            }
+            catch (Exception e) when (e is SavepointException and not OperationCancelledByUserException)
+            {
+                context.AddStep(JobSteps.CompactFolderFailed, ("game", game.Name), ("folder", repo.Role));
+                folders.Add(new FolderOutcome(repo.Role, ErrorInfo.From(e)));
+            }
+        }
+
+        return folders;
+    }
+
+    // A game's recently removed snapshots are one unit across its folders. Every folder is judged before any record goes, so a folder that
+    // refuses leaves all of them as they were; the records of every folder then go together, or are put back; and from there the run
+    // finishes whatever is asked of it, because the snapshots it deleted cannot be brought back and a stop would only leave the space
+    // unfreed under a message saying nothing was lost.
+    private static async Task<(List<FolderOutcome> Folders, bool PastTheClear)> FreeUpGameAsync(
+        JobContext context,
+        GameDefinition game,
+        StorageSnapshot storage,
+        IReadOnlyList<RepoRef> repos,
+        IReadOnlyDictionary<RepoRole, List<string>> records,
+        OptimizationMode mode)
+    {
+        var refusals = new Dictionary<RepoRole, ErrorInfo>();
+        foreach (var repo in repos)
+        {
+            try
+            {
+                await storage.Engine.CheckReclaimAsync(repo, context.CancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception e) when (e is SavepointException and not OperationCancelledByUserException)
+            {
+                context.AddStep(JobSteps.CompactFolderFailed, ("game", game.Name), ("folder", repo.Role));
+                refusals[repo.Role] = ErrorInfo.From(e);
+            }
+        }
+
+        if (refusals.Count > 0)
+        {
+            var first = refusals.Values.First();
+            return ([.. repos.Select(repo => new FolderOutcome(repo.Role, refusals.GetValueOrDefault(repo.Role) ?? first))], false);
+        }
+
+        // Marked first, so a stop request either arrived before this point, when the line below ends the run with nothing deleted, or is refused.
+        context.NoLongerCancellable();
+        context.CancellationToken.ThrowIfCancellationRequested();
+        var cleared = new List<(RepoRef Repo, IReadOnlyList<ClearedRef> Refs)>();
+        try
+        {
+            foreach (var repo in repos.Where(repo => records[repo.Role].Count > 0))
+            {
+                cleared.Add((repo, await storage.Engine.ClearRemovedAsync(repo, records[repo.Role], CancellationToken.None).ConfigureAwait(false)));
+            }
+        }
+        catch
+        {
+            // A folder that could not clear its records gives back the other's, so no snapshot is left with only some of its folders.
+            foreach (var (repo, refs) in cleared)
+            {
+                await RestoreQuietlyAsync(storage, repo, refs).ConfigureAwait(false);
+            }
+
+            throw;
+        }
+
+        if (cleared.Sum(folder => folder.Refs.Count) > 0)
+        {
+            context.AddStep(JobSteps.CompactRemovedDeleted, ("game", game.Name));
+        }
+
+        return (await ReclaimFoldersAsync(context, game, storage, repos, mode, CancellationToken.None).ConfigureAwait(false), true);
+    }
+
+    // Best effort: the failure being reported is the one worth showing, and a record that stays missing costs one snapshot's listing.
+    private static async Task RestoreQuietlyAsync(StorageSnapshot storage, RepoRef repo, IReadOnlyList<ClearedRef> refs)
+    {
+        try
+        {
+            await storage.Engine.RestoreRemovedAsync(repo, refs, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is SavepointException or IOException)
+        {
+            // The records stay deleted; the job's own error says the run failed.
+        }
+    }
 
     // The engine keeps the free-space floor itself and refuses a reclaim that needs room the volume lacks.
     private static Task OptimizeRepoAsync(StorageSnapshot storage, RepoRef repo, OptimizationMode mode, CancellationToken cancellationToken) =>

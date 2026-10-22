@@ -76,15 +76,35 @@ public sealed class RemovedSnapshotRecordTests : IDisposable
     }
 
     [Fact]
-    public async Task A_removed_snapshot_a_branch_reaches_again_is_no_longer_listed_and_its_record_stays()
+    public async Task A_removed_snapshot_a_branch_reaches_again_is_marked_as_on_a_branch_and_its_record_stays()
     {
         var (repo, points) = await PlayingFromTheFirstPointAsync();
         await _ws.Engine.CaptureAsync(repo, Move("profile-1", points[0], "Continued", "cap-move"), ct: Ct);
 
         await _ws.Engine.CreateBranchAsync(repo, "brought-back", points[1], Ct);
 
-        Assert.Equal([points[2]], (await _ws.Engine.ListRemovedAsync(repo, Ct)).Select(entry => entry.Commit.Id));
+        var removed = await _ws.Engine.ListRemovedAsync(repo, Ct);
+        Assert.Equal([points[2]], removed.Where(entry => !entry.OnBranch).Select(entry => entry.Commit.Id));
+        Assert.Equal([points[1]], removed.Where(entry => entry.OnBranch).Select(entry => entry.Commit.Id));
         Assert.Equal(2, (await RawRecordsAsync(repo)).Count);
+    }
+
+    [Fact]
+    public async Task Only_the_branches_the_caller_counts_decide_whether_a_recorded_commit_is_on_a_branch()
+    {
+        var (repo, points) = await PlayingFromTheFirstPointAsync();
+        await _ws.Engine.CaptureAsync(repo, Move("profile-1", points[0], "Continued", "cap-move"), ct: Ct);
+        await _ws.Engine.CreateBranchAsync(repo, "left-behind", points[1], Ct);
+
+        var everyBranch = await _ws.Engine.ListRemovedAsync(repo, Ct);
+        var profilesOnly = await _ws.Engine.ListRemovedAsync(repo, ["profile-1"], Ct);
+        var nobody = await _ws.Engine.ListRemovedAsync(repo, [], Ct);
+        var unknownName = await _ws.Engine.ListRemovedAsync(repo, ["profile-1", "no-such-branch"], Ct);
+
+        Assert.Equal([points[2]], everyBranch.Where(entry => !entry.OnBranch).Select(entry => entry.Commit.Id));
+        Assert.Equal([points[2], points[1]], profilesOnly.Where(entry => !entry.OnBranch).Select(entry => entry.Commit.Id));
+        Assert.Equal([points[2], points[1]], nobody.Where(entry => !entry.OnBranch).Select(entry => entry.Commit.Id));
+        Assert.Equal([points[2], points[1]], unknownName.Where(entry => !entry.OnBranch).Select(entry => entry.Commit.Id));
     }
 
     [Fact]
@@ -129,7 +149,9 @@ public sealed class RemovedSnapshotRecordTests : IDisposable
         // Every snapshot is still on the branch, and each also has its record, so a later reclaim cannot drop one.
         Assert.Equal(points[2], await _ws.TipAsync(repo, "profile-1"));
         Assert.Equal(2, (await RawRecordsAsync(repo)).Count);
-        Assert.Empty(await _ws.Engine.ListRemovedAsync(repo, Ct));
+        var recorded = await _ws.Engine.ListRemovedAsync(repo, Ct);
+        Assert.Equal(2, recorded.Count);
+        Assert.All(recorded, entry => Assert.True(entry.OnBranch));
         await _ws.Engine.RepackAsync(repo, OptimizationMode.Reclaim, Ct);
         Assert.Equal(new[] { true, true }, await _ws.ObjectsExistAsync(repo, points[1], points[2]));
 
@@ -149,6 +171,29 @@ public sealed class RemovedSnapshotRecordTests : IDisposable
         await Assert.ThrowsAsync<IOException>(() => _ws.Engine.CaptureAsync(repo, Move("profile-1", points[0], "Continued", "cap-move"), ct: Ct));
 
         Assert.Equal([points[2], points[1]], (await _ws.Engine.ListRemovedAsync(repo, Ct)).Select(entry => entry.Commit.Id));
+    }
+
+    [Fact]
+    public async Task A_repeat_of_a_move_forward_that_moved_the_branch_but_not_head_picks_up_its_own_snapshot_instead_of_listing_it_as_removed()
+    {
+        var (repo, points) = await PlayingFromTheFirstPointAsync();
+        var request = Move("profile-1", points[0], "Continued", "cap-move");
+        _ws.OnInvoke = invocation => FailAt(invocation, candidate => candidate.Arguments[0] == "symbolic-ref");
+        await Assert.ThrowsAsync<IOException>(() => _ws.Engine.CaptureAsync(repo, request, ct: Ct));
+        var movedTo = await _ws.TipAsync(repo, "profile-1");
+        var listedBefore = (await _ws.Engine.ListRemovedAsync(repo, Ct)).Select(entry => entry.Commit.Id).ToList();
+
+        // A second later a repeat would write a different commit for the same tree, so the pickup is what keeps it from doing so.
+        await Task.Delay(1100, Ct);
+        _ws.OnInvoke = null;
+        var outcome = await _ws.Engine.CaptureAsync(repo, request, ct: Ct);
+
+        Assert.Equal(movedTo, outcome.TipCommitId);
+        Assert.Equal(movedTo, await _ws.TipAsync(repo, "profile-1"));
+        Assert.Equal(2, (await _ws.Engine.ListCommitsAsync(repo, "profile-1", ct: Ct)).Count);
+        Assert.Equal(listedBefore, (await _ws.Engine.ListRemovedAsync(repo, Ct)).Select(entry => entry.Commit.Id));
+        Assert.DoesNotContain(movedTo, (await _ws.Engine.ListRemovedAsync(repo, Ct)).Select(entry => entry.Commit.Id));
+        Assert.Equal("refs/heads/profile-1", await _ws.HeadRefAsync(repo));
     }
 
     [Fact]
@@ -202,7 +247,7 @@ public sealed class RemovedSnapshotRecordTests : IDisposable
 
         Assert.Equal(points[2], await _ws.TipAsync(repo, "profile-1"));
         Assert.Single(await RawRecordsAsync(repo));
-        Assert.Empty(await _ws.Engine.ListRemovedAsync(repo, Ct));
+        Assert.True(Assert.Single(await _ws.Engine.ListRemovedAsync(repo, Ct)).OnBranch);
 
         _ws.OnInvoke = null;
         await _ws.Engine.CaptureAsync(repo, request, ct: Ct);
