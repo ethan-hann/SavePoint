@@ -2,7 +2,6 @@ using Savepoint.Core.Api;
 using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
-using Savepoint.Core.Services.History;
 using Savepoint.Core.Services.Storage;
 
 namespace Savepoint.Core.Services.Profiles;
@@ -15,14 +14,12 @@ internal sealed partial class ProfilesApi : IProfilesApi
     private readonly BackendServices _services;
     private readonly CaptureRunner _capture;
     private readonly OptimizationService _optimization;
-    private readonly RemovedSnapshots _removed;
 
     public ProfilesApi(BackendServices services, OptimizationService optimization)
     {
         _services = services;
         _optimization = optimization;
         _capture = services.Capture;
-        _removed = new RemovedSnapshots(new HistoryReader(services));
     }
 
     public Task<OperationResult<IReadOnlyList<Profile>>> ListAsync(string? gameId = null, CancellationToken cancellationToken = default) =>

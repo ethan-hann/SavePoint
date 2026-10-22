@@ -39,8 +39,21 @@ public sealed class FakeSettingsApi : ISettingsApi
         _backend.Call(_api, nameof(OptimizeAllStorageAsync), [], () =>
         {
             var done = new OptimizeResult([.. State.Games.Select(Optimized)]);
-            return OperationResult.Success(new JobStarted(_backend.Jobs.Start(JobKind.Compact, null, done, MarkOptimized)));
+
+            // Once the job has run, every game's recently removed snapshots are gone for good, as in the real backend.
+            return OperationResult.Success(new JobStarted(_backend.Jobs.Start(JobKind.Compact, null, done, job =>
+            {
+                if (job.Status is JobStatus.Succeeded or JobStatus.Partial)
+                {
+                    State.Removed.Clear();
+                }
+
+                MarkOptimized(job);
+            })));
         });
+
+    public Task<OperationResult<FreeUpSpacePreview>> GetFreeUpSpacePreviewAsync(CancellationToken cancellationToken = default) =>
+        _backend.Call(_api, nameof(GetFreeUpSpacePreviewAsync), [], () => OperationResult.Success(new FreeUpSpacePreview(State.Removed.Count)));
 
     public Task<OperationResult<StorageRelocationPreview>> GetRelocationPreviewAsync(string newRoot, CancellationToken cancellationToken = default) =>
         _backend.Call(_api, nameof(GetRelocationPreviewAsync), [newRoot], () => OperationResult.Success(State.RelocationPreview ?? new StorageRelocationPreview(

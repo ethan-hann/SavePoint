@@ -78,11 +78,21 @@ public interface IGamesApi
     Task<OperationResult<CapturePreview>> GetCapturePreviewAsync(string gameId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Starts a <see cref="JobKind.Compact"/> job that optimizes the game's storage and reclaims space nothing reaches any more
-    /// (D28). Answers at once; the result is an <see cref="OptimizeResult"/>.
+    /// Starts a <see cref="JobKind.Compact"/> job that frees up the game's space: it first deletes the game's recently removed
+    /// snapshots for good (see <see cref="IHistoryApi.GetRecentlyRemovedAsync"/>), then optimizes the storage and reclaims space
+    /// nothing reaches any more (D28). Nothing else deletes a recently removed snapshot. Answers at once; the result is an
+    /// <see cref="OptimizeResult"/>.
     /// </summary>
     /// <param name="gameId">The game.</param>
     Task<OperationResult<JobStarted>> OptimizeStorageAsync(string gameId);
+
+    /// <summary>
+    /// Counts what <see cref="OptimizeStorageAsync"/> would delete for good that no profile holds, so a confirmation can say so. Reads
+    /// only the git directories.
+    /// </summary>
+    /// <param name="gameId">The game.</param>
+    /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c> (D23).</param>
+    Task<OperationResult<FreeUpSpacePreview>> GetFreeUpSpacePreviewAsync(string gameId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Expands a leading path token such as <c>{documents}</c> for the editor's "Resolves to ..." hint. Fails with

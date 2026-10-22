@@ -43,6 +43,9 @@ internal sealed class GatedSettingsApi(ISettingsApi inner) : ISettingsApi
 
     public Task<OperationResult<JobStarted>> OptimizeAllStorageAsync() => inner.OptimizeAllStorageAsync();
 
+    public Task<OperationResult<FreeUpSpacePreview>> GetFreeUpSpacePreviewAsync(CancellationToken cancellationToken = default) =>
+        inner.GetFreeUpSpacePreviewAsync(cancellationToken);
+
     public Task<OperationResult<StorageRelocationPreview>> GetRelocationPreviewAsync(string newRoot, CancellationToken cancellationToken = default) =>
         inner.GetRelocationPreviewAsync(newRoot, cancellationToken);
 

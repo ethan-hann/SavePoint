@@ -81,6 +81,46 @@ public class FakeRecentlyRemovedTests
     }
 
     [Fact]
+    public async Task The_free_up_space_preview_counts_the_removed_snapshots_of_a_game_and_of_every_game()
+    {
+        var backend = Seeded();
+
+        var skyrim = FakeAssert.Ok(await backend.Games.GetFreeUpSpacePreviewAsync(MockupScenario.SkyrimId, Ct));
+        var caretaker = FakeAssert.Ok(await backend.Games.GetFreeUpSpacePreviewAsync(MockupScenario.CaretakerId, Ct));
+        var all = FakeAssert.Ok(await backend.Settings.GetFreeUpSpacePreviewAsync(Ct));
+        var unknown = await backend.Games.GetFreeUpSpacePreviewAsync("no-such-game", Ct);
+
+        Assert.Equal(2, skyrim.RecentlyRemovedSnapshots);
+        Assert.Equal(0, caretaker.RecentlyRemovedSnapshots);
+        Assert.Equal(3, all.RecentlyRemovedSnapshots);
+        Assert.Equal(new GameNotFoundException("no-such-game").MessageId, unknown.Error?.MessageId);
+    }
+
+    [Fact]
+    public async Task Freeing_up_space_for_a_game_deletes_its_removed_snapshots_when_the_job_has_run_and_only_that_games()
+    {
+        var backend = Seeded();
+
+        var started = FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(MockupScenario.SkyrimId));
+        Assert.Equal(2, FakeAssert.Ok(await backend.History.GetRecentlyRemovedAsync(MockupScenario.SkyrimId, Ct)).Snapshots.Count);
+        backend.Jobs.Complete(started.JobId);
+
+        Assert.Empty(FakeAssert.Ok(await backend.History.GetRecentlyRemovedAsync(MockupScenario.SkyrimId, Ct)).Snapshots);
+        Assert.Single(FakeAssert.Ok(await backend.History.GetRecentlyRemovedAsync(MockupScenario.SatisfactoryId, Ct)).Snapshots);
+    }
+
+    [Fact]
+    public async Task Freeing_up_space_for_every_game_deletes_every_games_removed_snapshots_when_the_job_has_run()
+    {
+        var backend = Seeded();
+
+        var started = FakeAssert.Ok(await backend.Settings.OptimizeAllStorageAsync());
+        backend.Jobs.Complete(started.JobId);
+
+        Assert.Equal(0, FakeAssert.Ok(await backend.Settings.GetFreeUpSpacePreviewAsync(Ct)).RecentlyRemovedSnapshots);
+    }
+
+    [Fact]
     public async Task Deleting_the_profile_a_snapshot_left_keeps_the_snapshot_listed_without_naming_a_profile()
     {
         var backend = Seeded();

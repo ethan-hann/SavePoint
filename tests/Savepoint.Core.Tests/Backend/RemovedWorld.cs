@@ -9,9 +9,12 @@ namespace Savepoint.Core.Tests.Backend;
 // the engine the way a play session's after-play choices do them. Nothing here starts a game.
 internal sealed class RemovedWorld : IDisposable
 {
-    private RemovedWorld(BackendWorkspace workspace, GameDefinition game, Profile profile, HistoryPointId first, HistoryPointId installOnly, HistoryPointId savesOnly)
+    private readonly bool _ownsWorkspace;
+
+    private RemovedWorld(BackendWorkspace workspace, bool ownsWorkspace, GameDefinition game, Profile profile, HistoryPointId first, HistoryPointId installOnly, HistoryPointId savesOnly)
     {
         Workspace = workspace;
+        _ownsWorkspace = ownsWorkspace;
         Game = game;
         Profile = profile;
         First = first;
@@ -37,12 +40,13 @@ internal sealed class RemovedWorld : IDisposable
     private CancellationToken Token => Workspace.Token;
 
     // "Vanilla" holds three snapshots, oldest first: both folders, then the install folder with a mod file, then the saves folder with a second save.
-    public static async Task<RemovedWorld> CreateAsync(Func<BackendOptions, BackendOptions>? configure = null)
+    // Another game of the same shape can be built in a workspace that another world already owns.
+    public static async Task<RemovedWorld> CreateAsync(Func<BackendOptions, BackendOptions>? configure = null, BackendWorkspace? shared = null, string name = "Alpha")
     {
-        var workspace = new BackendWorkspace(configure);
+        var workspace = shared ?? new BackendWorkspace(configure);
         try
         {
-            var game = await workspace.AddGameAsync(workspace.NewGame(modHints: ["mods"]));
+            var game = await workspace.AddGameAsync(workspace.NewGame(name, modHints: ["mods"]));
             var (profile, created) = await workspace.CreateProfileAsync(game, "Vanilla");
             var first = Assert.IsType<CaptureResult>(created.Result).PointId!.Value;
 
@@ -50,11 +54,15 @@ internal sealed class RemovedWorld : IDisposable
             var installOnly = await CaptureAsync(workspace, game, profile, "Added a mod", RepoRole.Install);
             BackendWorkspace.WriteFile(Path.Combine(game.External!.Path, "slot2.sav"), "second save");
             var savesOnly = await CaptureAsync(workspace, game, profile, "Second save", RepoRole.External);
-            return new RemovedWorld(workspace, game, profile, first, installOnly, savesOnly);
+            return new RemovedWorld(workspace, shared is null, game, profile, first, installOnly, savesOnly);
         }
         catch
         {
-            workspace.Dispose();
+            if (shared is null)
+            {
+                workspace.Dispose();
+            }
+
             throw;
         }
     }
@@ -126,5 +134,22 @@ internal sealed class RemovedWorld : IDisposable
         return [.. (await storage.Engine.ListRemovedAsync(RepoOf(storage, role), Token)).Select(removed => removed.Commit.Id)];
     }
 
-    public void Dispose() => Workspace.Dispose();
+    // True when the store still holds the commit, loose or packed.
+    public async Task<bool> ObjectExistsAsync(RepoRole role, string commitId)
+    {
+        var storage = await Workspace.Backend.Services.Storage.GetAsync(Token);
+        var repo = RepoOf(storage, role);
+        var result = await Workspace.Backend.Services.Runner.RunAsync(
+            new GitInvocation(["cat-file", "-e", commitId]) { GitDir = repo.GitDir, WorkTree = repo.WorkTree, ReadOnly = true, AllowedExitCodes = [0, 1, 128] },
+            Token);
+        return result.ExitCode == 0;
+    }
+
+    public void Dispose()
+    {
+        if (_ownsWorkspace)
+        {
+            Workspace.Dispose();
+        }
+    }
 }

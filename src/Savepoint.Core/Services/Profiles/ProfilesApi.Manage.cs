@@ -3,6 +3,7 @@ using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Git;
+using Savepoint.Core.Services.History;
 
 namespace Savepoint.Core.Services.Profiles;
 
@@ -80,7 +81,7 @@ internal sealed partial class ProfilesApi
                     var fresh = CatalogValidator.RequireValid(await NewProfileAsync(gameId, name).ConfigureAwait(false));
                     var profiles = await _services.Catalog.ListProfilesAsync(gameId).ConfigureAwait(false);
                     var repos = GameFolders.Repos(_services, storage, game);
-                    var state = await _removed.ReadStateAsync(storage, repos, CancellationToken.None).ConfigureAwait(false);
+                    var state = await RemovedSnapshots.ReadStateAsync(storage, repos, CancellationToken.None).ConfigureAwait(false);
                     var group = state.Groups.FirstOrDefault(candidate => candidate.CaptureId == snapshotId.Value)
                         ?? throw new RemovedSnapshotNotFoundException(snapshotId.Value);
                     var origin = profiles.FirstOrDefault(profile => profile.BranchName == group.Lead.Branch);
@@ -90,7 +91,7 @@ internal sealed partial class ProfilesApi
                     var starts = new List<(RepoRef Repo, string Commit)>();
                     foreach (var repo in repos)
                     {
-                        if (await _removed.CommitInAsync(storage, repo, state, group, null, CancellationToken.None).ConfigureAwait(false) is { } commit)
+                        if (await RemovedSnapshots.CommitInAsync(storage, repo, state, group, null, CancellationToken.None).ConfigureAwait(false) is { } commit)
                         {
                             starts.Add((repo, commit.Id));
                         }

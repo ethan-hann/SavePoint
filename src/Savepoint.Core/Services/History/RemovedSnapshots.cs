@@ -43,7 +43,12 @@ internal sealed class RemovedSnapshots
     /// <summary>The snapshots found, newest removal first, and every removed commit of each folder, which a snapshot's missing folder is resolved against.</summary>
     internal sealed record State(IReadOnlyList<Group> Groups, IReadOnlyDictionary<RepoRole, IReadOnlyList<RemovedCommit>> ByFolder);
 
-    public async Task<State> ReadStateAsync(StorageSnapshot storage, IReadOnlyList<RepoRef> repos, CancellationToken cancellationToken)
+    /// <summary>How many snapshots a game's folders keep as removed: what Free up space would delete for good.</summary>
+    public static async Task<int> CountAsync(StorageSnapshot storage, IReadOnlyList<RepoRef> repos, CancellationToken cancellationToken) =>
+        (await ReadStateAsync(storage, repos, cancellationToken).ConfigureAwait(false)).Groups.Count;
+
+    /// <summary>Reads every folder's removed commits and groups them into snapshots. Needs only the git directories.</summary>
+    public static async Task<State> ReadStateAsync(StorageSnapshot storage, IReadOnlyList<RepoRef> repos, CancellationToken cancellationToken)
     {
         var reads = await Task.WhenAll(repos.Select(async repo => (repo.Role, Removed: await storage.Engine.ListRemovedAsync(repo, cancellationToken).ConfigureAwait(false)))).ConfigureAwait(false);
         var byFolder = reads.ToDictionary(read => read.Role, read => read.Removed);
@@ -117,7 +122,7 @@ internal sealed class RemovedSnapshots
     /// latest commit with a capture id made at or before it in the history of the profile it came from, counting both what that profile
     /// still holds and what was taken off it. Null when there is none, which leaves nothing for that folder to start from.
     /// </summary>
-    public async Task<CommitInfo?> CommitInAsync(
+    public static async Task<CommitInfo?> CommitInAsync(
         StorageSnapshot storage,
         RepoRef repo,
         State state,

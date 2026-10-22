@@ -2,6 +2,7 @@ using Savepoint.Core.Api;
 using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Git;
+using Savepoint.Core.Services.History;
 using Savepoint.Core.Services.Storage;
 
 namespace Savepoint.Core.Services.Settings;
@@ -63,7 +64,28 @@ internal sealed partial class SettingsApi : ISettingsApi
             cancellationToken);
 
     public Task<OperationResult<JobStarted>> OptimizeAllStorageAsync() =>
-        ApiGuard.RunAsync(_services.Log, () => Task.FromResult(new JobStarted(_optimization.Start(null, OptimizationMode.Reclaim, preemptible: false))));
+        ApiGuard.RunAsync(_services.Log, () => Task.FromResult(new JobStarted(_optimization.Start(null, OptimizationMode.ReclaimClearingRemoved, preemptible: false))));
+
+    public Task<OperationResult<FreeUpSpacePreview>> GetFreeUpSpacePreviewAsync(CancellationToken cancellationToken = default) =>
+        ApiGuard.RunAsync(
+            _services.Log,
+            async () =>
+            {
+                var games = await _services.Catalog.ListGamesAsync(cancellationToken).ConfigureAwait(false);
+                return await _services.Storage.ReadAsync(
+                    async storage =>
+                    {
+                        var total = 0;
+                        foreach (var game in games)
+                        {
+                            total += await RemovedSnapshots.CountAsync(storage, GameFolders.ReposForGitDirOnly(_services, storage, game), cancellationToken).ConfigureAwait(false);
+                        }
+
+                        return new FreeUpSpacePreview(total);
+                    },
+                    cancellationToken).ConfigureAwait(false);
+            },
+            cancellationToken);
 
     public Task<OperationResult<StorageRelocationPreview>> GetRelocationPreviewAsync(string newRoot, CancellationToken cancellationToken = default) =>
         ApiGuard.RunAsync(_services.Log, () => _relocator.PreviewAsync(newRoot, cancellationToken), cancellationToken);

@@ -69,6 +69,9 @@ internal static class ContractScenario
         story.Add("recently removed when nothing was removed", Show(await backend.History.GetRecentlyRemovedAsync(game.Id, cancellationToken), removed => $"{removed.Snapshots.Count} snapshots"));
         story.Add("bring back a snapshot that is not there", Show(await backend.Profiles.BringBackAsync(game.Id, new HistoryPointId("no-such-snapshot"), "Brought back"), _ => "unexpected success"));
         story.Add("bring back under a blank name", Show(await backend.Profiles.BringBackAsync(game.Id, new HistoryPointId("no-such-snapshot"), " "), _ => "unexpected success"));
+        story.Add("free up space preview of a game with nothing removed", Show(await backend.Games.GetFreeUpSpacePreviewAsync(game.Id, cancellationToken), preview => $"{preview.RecentlyRemovedSnapshots} snapshots"));
+        story.Add("free up space preview of an unknown game", Show(await backend.Games.GetFreeUpSpacePreviewAsync("no-such-game", cancellationToken), _ => "unexpected success"));
+        story.Add("free up space preview of every game with nothing removed", Show(await backend.Settings.GetFreeUpSpacePreviewAsync(cancellationToken), preview => $"{preview.RecentlyRemovedSnapshots} snapshots"));
 
         var settings = await backend.Settings.GetAsync(cancellationToken);
         story.Add("settings read", Show(settings, current => $"{current.Theme} {current.Layout} {current.Locale}"));
