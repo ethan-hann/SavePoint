@@ -39,6 +39,7 @@ public sealed partial class GitEngine
     private GitInvocation Classify(RepoRef repo, params string[] arguments)
     {
         var empty = _runner.Binary.NoHooksPath;
+        Directory.CreateDirectory(empty);
         return Invocation(repo, readOnly: true, arguments) with { WorkTree = empty, WorkingDirectory = empty };
     }
 

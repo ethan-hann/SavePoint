@@ -128,6 +128,18 @@ public sealed class SwitchStatTests : IDisposable
         Assert.Empty(Directory.EnumerateFiles(repo.GitDir, "savepoint-classify*"));
     }
 
+    // The work tree a classification is asked against is an empty folder of SavePoint's own; it is made again if something removed it.
+    [Fact]
+    public async Task A_classification_makes_the_empty_folder_it_asks_against_when_it_is_gone()
+    {
+        var (repo, first, second) = await TwoPointsAsync();
+        Directory.Delete(_ws.Binary.NoHooksPath);
+
+        var switching = await _ws.Engine.SwitchStatAsync(repo, first, second, Ct);
+
+        Assert.Equal(["a.txt", "b.txt"], switching.ChangedPaths.Order(StringComparer.Ordinal));
+    }
+
     // A summary takes no lock on the game, so a write can start its sweep of stale files while the summary is asking: the file the summary
     // is asking about is not stale.
     [Fact]

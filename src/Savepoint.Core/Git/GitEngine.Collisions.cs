@@ -98,7 +98,7 @@ public sealed partial class GitEngine
         Parallel.For(0, paths.Count, new ParallelOptions { CancellationToken = ct, MaxDegreeOfParallelism = Environment.ProcessorCount }, i => kinds[i] = Probe(FullPath(repo, paths[i])));
         for (var i = 0; i < kinds.Length; i++)
         {
-            // On Windows git goes through a link, so a switch or a discard never does (D29).
+            // On Windows git goes through a link, so a switch or a discard never does.
             if (kinds[i] == DiskEntry.FolderLink && LinkedFolders.Enabled)
             {
                 throw new LinkedFolderException(FullPath(repo, paths[i]));
