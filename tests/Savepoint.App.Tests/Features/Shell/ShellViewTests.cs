@@ -3,6 +3,7 @@ using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.VisualTree;
 using Savepoint.App.Features.Common.Art;
 using Savepoint.App.Features.Common.Toasts;
@@ -290,6 +291,40 @@ public class ShellViewTests
         Assert.Equal("Add a game", AutomationProperties.GetName(add));
         Assert.Equal("Add a game", ToolTip.GetTip(add));
         Assert.Empty(AutomationAudit.IconButtonsWithoutNames(harness.View));
+    }
+
+    [AvaloniaFact]
+    public async Task A_collapsed_rail_tells_games_apart_by_their_initials_and_not_by_tint_alone()
+    {
+        using var harness = await ShellViewHarness.StartAsync();
+
+        harness.Window.Width = 760;
+        harness.Settle();
+
+        var tiles = harness.Find<ListBox>("RailGames").GetVisualDescendants().OfType<ArtTile>().ToList();
+        Assert.Equal(["SS", "Sa", "LC"], tiles.Select(tile => tile.Initials));
+
+        harness.Window.Width = 1040;
+        harness.Settle();
+
+        Assert.All(harness.Find<ListBox>("RailGames").GetVisualDescendants().OfType<ArtTile>(), tile => Assert.Equal(string.Empty, tile.Initials));
+    }
+
+    [AvaloniaFact]
+    public async Task Keyboard_focus_on_a_game_in_a_collapsed_rail_shows_its_name_as_the_tooltip_does_for_the_pointer()
+    {
+        using var harness = await ShellViewHarness.StartAsync();
+        harness.Window.Width = 760;
+        harness.Settle();
+        var game = harness.Find<ListBox>("RailGames").GetVisualDescendants().OfType<ListBoxItem>().First();
+
+        game.Focus(NavigationMethod.Tab);
+        harness.Settle();
+        Assert.True(ToolTip.GetIsOpen(game));
+
+        harness.Find<Button>("RailAddButton").Focus(NavigationMethod.Tab);
+        harness.Settle();
+        Assert.False(ToolTip.GetIsOpen(game));
     }
 
     [AvaloniaFact]

@@ -118,7 +118,7 @@ public partial class RoleContrastTests
                 {
                     foreach (var background in backgrounds)
                     {
-                        var ratio = Ratio(roles[foreground], roles[background]);
+                        var ratio = Wcag.Ratio(roles[foreground], roles[background]);
                         var key = $"{(dark ? "Dark" : "Light")}: {foreground} on {background}";
                         if (!worst.TryGetValue(key, out var seen) || ratio < seen.Ratio)
                         {
@@ -132,20 +132,4 @@ public partial class RoleContrastTests
         return [.. worst.Where(pair => pair.Value.Ratio < minimum).Select(pair => $"  {pair.Key} = {pair.Value.Ratio:0.00} ({pair.Value.Accent}), needs {minimum}")];
     }
 
-    // WCAG 2.x contrast ratio of two opaque colors.
-    private static double Ratio(uint first, uint second)
-    {
-        var a = Luminance(first);
-        var b = Luminance(second);
-        return (Math.Max(a, b) + 0.05) / (Math.Min(a, b) + 0.05);
-    }
-
-    private static double Luminance(uint argb) =>
-        (0.2126 * Linear((argb >> 16) & 0xFF)) + (0.7152 * Linear((argb >> 8) & 0xFF)) + (0.0722 * Linear(argb & 0xFF));
-
-    private static double Linear(uint channel)
-    {
-        var value = channel / 255.0;
-        return value <= 0.04045 ? value / 12.92 : Math.Pow((value + 0.055) / 1.055, 2.4);
-    }
 }

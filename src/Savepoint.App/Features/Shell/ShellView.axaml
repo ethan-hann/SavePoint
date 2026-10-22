@@ -103,7 +103,7 @@
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="shell:GameRowViewModel">
                 <StackPanel Orientation="Horizontal" Spacing="9">
-                  <art:ArtTile Size="24" GameName="{Binding Name}" Art="{Binding Art}" />
+                  <art:ArtTile Size="24" GameName="{Binding Name}" Art="{Binding Art}" ShowInitials="{Binding !ShowLabels}" />
                   <StackPanel VerticalAlignment="Center" IsVisible="{Binding ShowLabels}">
                     <TextBlock Classes="body" FontWeight="Medium" FontSize="12.5" LineHeight="16" TextTrimming="CharacterEllipsis" Text="{Binding Name}" />
                     <TextBlock Classes="overline-small" FontWeight="Normal" LetterSpacing="0" Text="{Binding ProfileCountText}" />

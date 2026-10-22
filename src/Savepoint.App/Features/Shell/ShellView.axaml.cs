@@ -1,5 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 
 namespace Savepoint.App.Features.Shell;
 
@@ -10,6 +12,11 @@ public partial class ShellView : UserControl
     public ShellView()
     {
         InitializeComponent();
+
+        // A tooltip opens on the pointer alone, so keyboard focus on a game in the collapsed rail opens it too: that is the only place the full name shows.
+        var games = this.FindControl<ListBox>("RailGames")!;
+        games.AddHandler(GotFocusEvent, OnGameFocused, RoutingStrategies.Bubble);
+        games.AddHandler(LostFocusEvent, OnGameBlurred, RoutingStrategies.Bubble);
     }
 
     /// <inheritdoc />
@@ -32,6 +39,22 @@ public partial class ShellView : UserControl
         if (DataContext is ShellViewModel shell && Bounds.Width > 0)
         {
             shell.SetWindowWidth(Bounds.Width);
+        }
+    }
+
+    private static void OnGameFocused(object? sender, FocusChangedEventArgs e)
+    {
+        if (e.Source is ListBoxItem item && e.NavigationMethod is NavigationMethod.Tab or NavigationMethod.Directional && ToolTip.GetTip(item) is not null)
+        {
+            ToolTip.SetIsOpen(item, true);
+        }
+    }
+
+    private static void OnGameBlurred(object? sender, RoutedEventArgs e)
+    {
+        if (e.Source is ListBoxItem item)
+        {
+            ToolTip.SetIsOpen(item, false);
         }
     }
 }
