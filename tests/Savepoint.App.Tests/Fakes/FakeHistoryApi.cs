@@ -22,4 +22,12 @@ public sealed class FakeHistoryApi : IHistoryApi
                 .OrderByDescending(p => p.CapturedAt);
             return OperationResult.Success(new GameHistory(gameId, profileId, [.. points]));
         });
+
+    public Task<OperationResult<RecentlyRemoved>> GetRecentlyRemovedAsync(string gameId, CancellationToken cancellationToken = default) =>
+        _backend.Call(_api, nameof(GetRecentlyRemovedAsync), [gameId], () =>
+        {
+            _backend.State.Game(gameId);
+            var removed = _backend.State.Removed.Where(r => r.GameId == gameId).Select(r => r.Snapshot).OrderByDescending(snapshot => snapshot.RemovedAt);
+            return OperationResult.Success(new RecentlyRemoved(gameId, [.. removed]));
+        });
 }

@@ -179,6 +179,9 @@ internal sealed class GatedHistoryApi : IHistoryApi
         return result;
     }
 
+    public Task<OperationResult<RecentlyRemoved>> GetRecentlyRemovedAsync(string gameId, CancellationToken cancellationToken = default) =>
+        _inner.GetRecentlyRemovedAsync(gameId, cancellationToken);
+
     public sealed record PendingRead(string GameId, string? ProfileId, TaskCompletionSource Gate)
     {
         public void Release() => Gate.TrySetResult();

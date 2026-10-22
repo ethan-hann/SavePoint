@@ -65,6 +65,11 @@ internal static class ContractScenario
         story.Add("unknown profile", Show(await backend.Profiles.UpdateAsync(game.Id, "no-such-profile", new ProfileChanges("x", null, null)), _ => "unexpected success"));
         story.Add("unknown profile on delete", Show(await backend.Profiles.DeleteAsync(game.Id, "no-such-profile"), _ => "unexpected success"));
 
+        story.Add("recently removed of an unknown game", Show(await backend.History.GetRecentlyRemovedAsync("no-such-game", cancellationToken), _ => "unexpected success"));
+        story.Add("recently removed when nothing was removed", Show(await backend.History.GetRecentlyRemovedAsync(game.Id, cancellationToken), removed => $"{removed.Snapshots.Count} snapshots"));
+        story.Add("bring back a snapshot that is not there", Show(await backend.Profiles.BringBackAsync(game.Id, new HistoryPointId("no-such-snapshot"), "Brought back"), _ => "unexpected success"));
+        story.Add("bring back under a blank name", Show(await backend.Profiles.BringBackAsync(game.Id, new HistoryPointId("no-such-snapshot"), " "), _ => "unexpected success"));
+
         var settings = await backend.Settings.GetAsync(cancellationToken);
         story.Add("settings read", Show(settings, current => $"{current.Theme} {current.Layout} {current.Locale}"));
         if (settings.Ok)

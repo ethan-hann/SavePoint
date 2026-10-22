@@ -201,7 +201,7 @@ internal sealed class HistoryReader
             _ => HistoryPointKind.SaveOnly,
         };
 
-        var state = await InstallStateAsync(storage, game, install, point.Owner, installCommit, cancellationToken).ConfigureAwait(false);
+        var state = await InstallStateAsync(game, install, point.Owner.VersionOverride, installCommit, cancellationToken).ConfigureAwait(false);
 
         // The mod-file count is only meaningful where the game names mod folders; a first point has nothing to compare with.
         int? modsChanged = point.Install is { Previous: { } before } own && game.ModPathHints.Count > 0
@@ -225,29 +225,29 @@ internal sealed class HistoryReader
             LoadedNow: point.External is { } loaded && heads.GetValueOrDefault(RepoRole.External) == loaded.Commit.Id);
     }
 
-    private async Task<InstallState> InstallStateAsync(
-        StorageSnapshot storage,
+    // What the install folder held at a commit: the owner's version override, else the version read from the game's program, and the mod-file count.
+    internal async Task<InstallState> InstallStateAsync(
         GameDefinition game,
         RepoRef install,
-        Profile owner,
+        string? versionOverride,
         string? commit,
         CancellationToken cancellationToken)
     {
         if (commit is null)
         {
-            return new InstallState(owner.VersionOverride, null);
+            return new InstallState(versionOverride, null);
         }
 
         try
         {
             var mods = await _services.Insights.ModFileCountAsync(install, commit, game.ModPathHints, cancellationToken).ConfigureAwait(false);
-            var version = owner.VersionOverride ?? await _services.Insights.DetectedVersionAsync(install, commit, game.Launch, cancellationToken).ConfigureAwait(false);
+            var version = versionOverride ?? await _services.Insights.DetectedVersionAsync(install, commit, game.Launch, cancellationToken).ConfigureAwait(false);
             return new InstallState(version, mods);
         }
         catch (SavepointException)
         {
             // A point whose files cannot be read is still a point; what it held is left unsaid.
-            return new InstallState(owner.VersionOverride, null);
+            return new InstallState(versionOverride, null);
         }
     }
 

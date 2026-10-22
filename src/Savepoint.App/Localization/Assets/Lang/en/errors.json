@@ -43,6 +43,8 @@
   "error.profile.alreadyExists": "You already have a profile with that name. Pick a different name.",
   "error.profile.noPoints": "That profile has no snapshot of this folder yet, so there's nothing to go back to. Open the profile's menu and choose Take a snapshot now.",
   "error.profile.notFound": "That profile doesn't exist anymore, so SavePoint couldn't do that. Go back to the game's profiles and try again.",
+  "error.removed.notFound": "That snapshot isn't in Recently removed anymore, so SavePoint couldn't bring it back. It may have been deleted when you freed up space, or you may have brought it back already.",
+  "error.removed.notRestorable": "SavePoint can't bring this snapshot back as a profile. It holds only saves, and the game version and mods it was played with were in a profile that's gone, so a profile made from it couldn't start.",
   "error.storage.defaultFolderHasHistory": "SavePoint can't start over in its default folder, shown below, because that folder already holds snapshots. To use them, choose \"Find the folder\" and pick this folder. To start over instead, move that folder somewhere else first; the snapshots go with it.",
   "error.storage.folderHasLink": "That folder has a shortcut in it, shown below, and SavePoint won't go through it. Remove the shortcut from that folder, or choose a different folder.",
   "error.storage.noHistoryHere": "That folder doesn't hold your games' snapshots. Choose the folder SavePoint was using before — the one with a folder for each of your games inside it.",

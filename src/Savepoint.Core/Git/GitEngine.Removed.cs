@@ -45,6 +45,34 @@ public sealed partial class GitEngine
         ];
     }
 
+    /// <summary>
+    /// The commits reachable from the given commits, newest first, each with its name, date and capture id: the history a set of tips
+    /// holds together, such as a profile's branch and the commits that were taken off it. A commit named twice is listed once. Reads only
+    /// the git directory.
+    /// </summary>
+    /// <param name="repo">The folder whose repository is read.</param>
+    /// <param name="commits">Full commit ids; an empty list, or a repository that does not exist, gives an empty answer.</param>
+    /// <param name="ct">Cancels the call.</param>
+    /// <exception cref="ArgumentException">An id is not a full commit id.</exception>
+    /// <exception cref="Savepoint.Core.Errors.GitOperationException">git failed, or an id names no commit in the repository.</exception>
+    public async Task<IReadOnlyList<CommitInfo>> ListCommitsFromAsync(RepoRef repo, IReadOnlyCollection<string> commits, CancellationToken ct = default)
+    {
+        repo = Normalize(repo);
+        ArgumentNullException.ThrowIfNull(commits);
+        if (commits.Any(id => !GitDirFiles.IsObjectId(id)))
+        {
+            throw new ArgumentException("Every commit must be given as a full commit id.", nameof(commits));
+        }
+
+        if (commits.Count == 0 || !HasRepository(repo))
+        {
+            return [];
+        }
+
+        var result = await RunAsync(GitDirOnly(repo, "log", "-z", _commitFormat, "--stdin") with { Stdin = string.Concat(commits.Distinct(StringComparer.Ordinal).Select(id => id + "\n")) }, ct).ConfigureAwait(false);
+        return ParseCommits(result);
+    }
+
     // Writes the records for commits about to leave <branch>, before the branch moves: a stop between the two leaves a record for a
     // commit still on the branch, which is harmless, and never a commit that is off the branch and unrecorded. One ref transaction, so
     // either every record exists or none does.

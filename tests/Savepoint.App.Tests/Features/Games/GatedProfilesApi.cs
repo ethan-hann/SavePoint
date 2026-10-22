@@ -38,6 +38,9 @@ internal sealed class GatedProfilesApi(IProfilesApi inner) : IProfilesApi
     public Task<OperationResult<Profile>> DuplicateAsync(string gameId, string sourceProfileId, string name) =>
         inner.DuplicateAsync(gameId, sourceProfileId, name);
 
+    public Task<OperationResult<Profile>> BringBackAsync(string gameId, HistoryPointId snapshotId, string name) =>
+        inner.BringBackAsync(gameId, snapshotId, name);
+
     public Task<OperationResult<ProfileDeletePreview>> GetDeletePreviewAsync(string gameId, string profileId, CancellationToken cancellationToken = default) =>
         inner.GetDeletePreviewAsync(gameId, profileId, cancellationToken);
 

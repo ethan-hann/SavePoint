@@ -52,6 +52,25 @@ public interface IProfilesApi
     Task<OperationResult<Profile>> DuplicateAsync(string gameId, string sourceProfileId, string name);
 
     /// <summary>
+    /// Brings a recently removed snapshot back as a new profile. The snapshot's folders become the new profile's history: in each folder
+    /// its branch starts at the commit the snapshot recorded there, or, for a folder the snapshot did not record, at the latest commit the
+    /// profile it came from had at or before it (the rule History and "Go back to this" use). The profile it came from is not touched,
+    /// and no file in a game folder is. Takes the game's lock and finishes in every folder or changes nothing, like
+    /// <see cref="DuplicateAsync"/>. The snapshot is part of the new profile from then on, so it leaves the recently removed list; its
+    /// record stays until the player frees up space.
+    /// </summary>
+    /// <remarks>
+    /// Fails with <c>error.removed.notFound</c> when the snapshot is not in the list any more (the player freed up space, or it was
+    /// brought back), and with <c>error.removed.notRestorable</c> when it recorded only saves and no install can be found for it, so a
+    /// profile made from it could not start. The new profile carries the version override of the profile it came from, when that still exists.
+    /// </remarks>
+    /// <param name="gameId">The game.</param>
+    /// <param name="snapshotId">The snapshot, from <see cref="IHistoryApi.GetRecentlyRemovedAsync"/>.</param>
+    /// <param name="name">The new profile's name. Required.</param>
+    /// <returns>The new profile.</returns>
+    Task<OperationResult<Profile>> BringBackAsync(string gameId, HistoryPointId snapshotId, string name);
+
+    /// <summary>
     /// Counts the history points only this profile holds, in total and per folder, and says whether the delete would be refused
     /// (D17).
     /// </summary>

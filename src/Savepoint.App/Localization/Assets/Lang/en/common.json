@@ -6,6 +6,7 @@
   "errorCard.showDetails": "Show details",
   "errorCard.title.alreadyInLibrary": "That game is already in your library",
   "errorCard.title.canceled": "Canceled",
+  "errorCard.title.cantBringBack": "SavePoint can't bring that snapshot back",
   "errorCard.title.checkFields": "Some fields need another look",
   "errorCard.title.dataUnreadable": "SavePoint couldn't read its data",
   "errorCard.title.fileAndFolderShareAName": "A file and a folder share a name",
