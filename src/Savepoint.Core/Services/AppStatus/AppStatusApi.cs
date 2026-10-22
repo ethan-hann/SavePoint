@@ -103,9 +103,16 @@ internal sealed class AppStatusApi : IAppStatusApi
                 }
 
                 // The folder is judged as a move's destination is: not inside the installer's folder, not over a game's folders, not what an unfinished move left.
-                if (StorageDestination.Refusal(_services, _services.Storage.Build(root).PathSafety, games, root) is { } refusal)
+                var pathSafety = _services.Storage.Build(root).PathSafety;
+                if (StorageDestination.Refusal(_services, pathSafety, games, root) is { } refusal)
                 {
                     throw refusal;
+                }
+
+                // A link would lead the cleanup below, and every later write, to files that are not SavePoint's; nothing is written until none is found.
+                if (StorageFolderLinks.Refusal(root, games, pathSafety.ResolveRealPath) is { } linked)
+                {
+                    throw linked;
                 }
 
                 // A folder someone else prepared can carry a config or a hook that names a program; nothing reads it before this.

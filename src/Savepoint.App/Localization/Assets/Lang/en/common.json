@@ -12,6 +12,7 @@
   "errorCard.title.fileUnreadable": "SavePoint can't read a file",
   "errorCard.title.folderBelongsElsewhere": "That folder belongs to another game",
   "errorCard.title.folderGone": "This game's folder has moved or is gone",
+  "errorCard.title.folderHoldsShortcut": "That folder has a shortcut in it",
   "errorCard.title.folderInsideApp": "That folder is inside SavePoint's own folder",
   "errorCard.title.folderIsShortcut": "A folder in the game is a shortcut",
   "errorCard.title.folderKeepsHistory": "A folder in the game keeps its own history",

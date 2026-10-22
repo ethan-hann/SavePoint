@@ -76,6 +76,7 @@ public static class ErrorPresentation
         ["error.profile.noPoints"] = new(Icons.Info, ErrorTone.Neutral, "errorCard.title.nothingSavedYet"),
         ["error.profile.notFound"] = new(Icons.Info, ErrorTone.Neutral, "errorCard.title.notFound"),
         ["error.storage.defaultFolderHasHistory"] = new(Icons.Folder, ErrorTone.Warning, "errorCard.title.folderNotEmpty"),
+        ["error.storage.folderHasLink"] = new(Icons.Block, ErrorTone.Error, "errorCard.title.folderHoldsShortcut"),
         ["error.storage.noHistoryHere"] = new(Icons.FolderOff, ErrorTone.Warning, "errorCard.title.historyNotHere"),
         ["error.storage.removeFailed"] = new(Icons.Lock, ErrorTone.Error, "errorCard.title.removeFailed"),
         ["error.storage.stillReachable"] = new(Icons.Storage, ErrorTone.Neutral, "errorCard.title.storageReachable"),

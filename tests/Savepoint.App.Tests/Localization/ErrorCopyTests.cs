@@ -64,6 +64,7 @@ public class ErrorCopyTests
             new StorageRemoveFailedException("/storage/alpha", "dev text"),
             new StorageMoveUnfinishedException("/storage"),
             new StorageInsideInstallFolderException("/install/data"),
+            new StorageFolderHasLinkException("/storage/other/install.git/hooks"),
             new StorageSourceUnreadableException("/storage/alpha", "dev text", null),
             new ValidationException(issues),
             new CatalogCorruptException("/catalog/games.json", null),
