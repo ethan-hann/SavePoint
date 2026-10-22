@@ -3,7 +3,6 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
-using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Savepoint.App.Tests.Features.EndToEnd;
@@ -156,9 +155,8 @@ public class ReducedMotionTests
             Theme.ReduceMotion = true;
             Theme.Apply(mode, AccentColorId.Blue);
             window = new Window { Width = 260, Height = 80, Content = bar };
-            var frame = ThemeTestSupport.Render(window);
-            Directory.CreateDirectory(ComposedApp.RenderFolder("motion"));
-            frame.Save(Path.Combine(ComposedApp.RenderFolder("motion"), $"indeterminate-reduced-motion-{mode.ToString().ToLowerInvariant()}.png"), new PngBitmapEncoderOptions());
+            using var frame = ThemeTestSupport.Render(window);
+            ThemeTestSupport.SaveFrame(frame, Path.Combine(ComposedApp.RenderFolder("motion"), $"indeterminate-reduced-motion-{mode.ToString().ToLowerInvariant()}.png"));
 
             // The bar is centered: 30px in from the left, five segments of about 37px with 4px gaps.
             var y = (int)(window.Bounds.Height / 2);

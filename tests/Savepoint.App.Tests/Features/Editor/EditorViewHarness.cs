@@ -1,7 +1,5 @@
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Headless;
-using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Formatting;
@@ -63,12 +61,8 @@ internal sealed class EditorViewHarness : IDisposable
     public string Render(string fileName, string? area = null)
     {
         Settle();
-        var frame = Window.CaptureRenderedFrame() ?? throw new InvalidOperationException("No frame was rendered.");
         var folder = area is null ? OutputFolder : Path.Combine(ThemeTestSupport.RepoRoot(), "render-output", area);
-        Directory.CreateDirectory(folder);
-        var path = Path.Combine(folder, fileName + ".png");
-        frame.Save(path, new PngBitmapEncoderOptions());
-        return path;
+        return ThemeTestSupport.SaveFrame(Window, Path.Combine(folder, fileName + ".png"));
     }
 
     public void Dispose() => _shell.Dispose();

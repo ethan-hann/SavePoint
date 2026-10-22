@@ -2,7 +2,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Input;
-using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Savepoint.App.Features.Common;
@@ -161,11 +160,7 @@ internal sealed class ComposedApp : IDisposable
     public string Render(string area, string name)
     {
         Settle();
-        var frame = Window.CaptureRenderedFrame() ?? throw new InvalidOperationException("No frame was rendered.");
-        Directory.CreateDirectory(RenderFolder(area));
-        var path = Path.Combine(RenderFolder(area), name + ".png");
-        frame.Save(path, new PngBitmapEncoderOptions());
-        return path;
+        return ThemeTestSupport.SaveFrame(Window, Path.Combine(RenderFolder(area), name + ".png"));
     }
 
     public void Dispose()

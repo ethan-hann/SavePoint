@@ -1,9 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
-using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Savepoint.Core.Catalog;
 
@@ -57,11 +55,7 @@ public class StyleGalleryRenderTests
         }
 
         Dispatcher.UIThread.RunJobs();
-        var frame = host.Window.CaptureRenderedFrame() ?? throw new InvalidOperationException("No frame was rendered.");
-        Directory.CreateDirectory(OutputFolder);
-        var path = Path.Combine(OutputFolder, fileName + ".png");
-        frame.Save(path, new PngBitmapEncoderOptions());
-        return path;
+        return ThemeTestSupport.SaveFrame(host.Window, Path.Combine(OutputFolder, fileName + ".png"));
     }
 
     private static void SetPseudo(StyledElement element, string name)

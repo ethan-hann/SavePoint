@@ -3,7 +3,6 @@ using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Media;
-using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Savepoint.App.Features.Common.Dialogs;
@@ -105,15 +104,14 @@ public class AvaloniaDialogsTests
 
         confirm.Focus(NavigationMethod.Tab);
         harness.Settle();
-        var frame = ThemeTestSupport.Render(harness.Window);
+        using var frame = ThemeTestSupport.Render(harness.Window);
         var origin = confirm.TranslatePoint(new Point(0, 0), harness.Window)!.Value;
         var right = (int)Math.Round(origin.X + confirm.Bounds.Width);
         var bottom = (int)Math.Round(origin.Y + confirm.Bounds.Height);
         var middleX = (int)(origin.X + (confirm.Bounds.Width / 2));
         var middleY = (int)(origin.Y + (confirm.Bounds.Height / 2));
 
-        Directory.CreateDirectory(OutputFolder);
-        frame.Save(Path.Combine(OutputFolder, "dialog-focused-footer-button-dark.png"), new PngBitmapEncoderOptions());
+        ThemeTestSupport.SaveFrame(frame, Path.Combine(OutputFolder, "dialog-focused-footer-button-dark.png"));
 
         // The ring is two pixels thick, two pixels out from the button on every side; its curved edge is anti-aliased.
         var primary = Color.Parse("#9DCBFB");

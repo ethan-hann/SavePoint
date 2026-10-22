@@ -1,16 +1,10 @@
 using System.Reflection;
-using System.Reflection.Emit;
 using Savepoint.Testing;
 
 namespace Savepoint.App.Tests.Hosting;
 
 public class ProgramStartupTests
 {
-    private static readonly Dictionary<short, OpCode> _opCodes = typeof(OpCodes)
-        .GetFields(BindingFlags.Public | BindingFlags.Static)
-        .Select(field => (OpCode)field.GetValue(null)!)
-        .ToDictionary(opCode => opCode.Value);
-
     [Fact]
     public void Main_runs_the_installer_hooks_before_anything_else()
     {
@@ -18,7 +12,7 @@ public class ProgramStartupTests
         // before the single-instance guard or a window exists, and Velopack's packager looks for the call in Main itself.
         var main = typeof(Program).GetMethod("Main", BindingFlags.Public | BindingFlags.Static)!;
 
-        var firstCalls = CallsIn(main).Take(2).Select(target => $"{target.DeclaringType!.FullName}.{target.Name}").ToArray();
+        var firstCalls = MethodCalls.In(main).Take(2).Select(target => $"{target.DeclaringType!.FullName}.{target.Name}").ToArray();
 
         Assert.Equal(["Velopack.VelopackApp.Build", "Velopack.VelopackApp.Run"], firstCalls);
     }
@@ -35,30 +29,5 @@ public class ProgramStartupTests
             .ToArray();
 
         Assert.Empty(offenders);
-    }
-
-    // The methods and constructors a method body calls or creates, in the order its IL does.
-    private static IEnumerable<MethodBase> CallsIn(MethodInfo method)
-    {
-        var il = method.GetMethodBody()!.GetILAsByteArray()!;
-        for (var i = 0; i < il.Length;)
-        {
-            var opCode = il[i] == 0xFE ? _opCodes[(short)(0xFE00 | il[i + 1])] : _opCodes[il[i]];
-            i += opCode.Size;
-            if (opCode == OpCodes.Call || opCode == OpCodes.Callvirt || opCode == OpCodes.Newobj)
-            {
-                yield return method.Module.ResolveMethod(BitConverter.ToInt32(il, i))!;
-            }
-
-            i += opCode.OperandType switch
-            {
-                OperandType.InlineNone => 0,
-                OperandType.ShortInlineBrTarget or OperandType.ShortInlineI or OperandType.ShortInlineVar => 1,
-                OperandType.InlineVar => 2,
-                OperandType.InlineI8 or OperandType.InlineR => 8,
-                OperandType.InlineSwitch => 4 + (4 * BitConverter.ToInt32(il, i)),
-                _ => 4,
-            };
-        }
     }
 }

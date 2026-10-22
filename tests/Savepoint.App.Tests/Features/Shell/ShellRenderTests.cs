@@ -1,6 +1,4 @@
-using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
-using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Savepoint.App.Features.Common;
 using Savepoint.App.Features.Common.Dialogs;
@@ -158,10 +156,7 @@ public class ShellRenderTests
         var gallery = new ErrorCardGallery { DataContext = new ErrorCardGalleryViewModel(text) };
         using var host = new ThemeHost(gallery, ThemePreference.Dark, width: 1040, height: 660);
         Dispatcher.UIThread.RunJobs();
-        var frame = host.Window.CaptureRenderedFrame() ?? throw new InvalidOperationException("No frame was rendered.");
-        Directory.CreateDirectory(ShellViewHarness.OutputFolder);
-        var path = Path.Combine(ShellViewHarness.OutputFolder, "2l-error-states-dark.png");
-        frame.Save(path, new PngBitmapEncoderOptions());
+        var path = ThemeTestSupport.SaveFrame(host.Window, Path.Combine(ShellViewHarness.OutputFolder, "2l-error-states-dark.png"));
 
         AssertRendered(path);
     }
@@ -196,11 +191,7 @@ public class ShellRenderTests
         public string Render(string fileName)
         {
             Dispatcher.UIThread.RunJobs();
-            var frame = _host.Window.CaptureRenderedFrame() ?? throw new InvalidOperationException("No frame was rendered.");
-            Directory.CreateDirectory(ShellViewHarness.OutputFolder);
-            var path = Path.Combine(ShellViewHarness.OutputFolder, fileName + ".png");
-            frame.Save(path, new PngBitmapEncoderOptions());
-            return path;
+            return ThemeTestSupport.SaveFrame(_host.Window, Path.Combine(ShellViewHarness.OutputFolder, fileName + ".png"));
         }
 
         public void Dispose() => _host.Dispose();
