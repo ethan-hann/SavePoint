@@ -31,6 +31,12 @@ public partial class HelpQuestionView : UserControl
         {
             _help.PropertyChanged += OnHelpChanged;
             _help.FocusQuestionRequested += OnFocusRequested;
+
+            // An answer that is already open when it appears (the first older-snapshot choice) is spoken too, as nothing will open it.
+            if (_help.IsOpen)
+            {
+                Announcements.Appeared(this, _help.Answer);
+            }
         }
     }
 

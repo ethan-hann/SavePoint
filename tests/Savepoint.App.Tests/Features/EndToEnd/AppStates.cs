@@ -39,6 +39,7 @@ internal static class AppStates
         "launch-dialog-unsaved",
         "launch-dialog-saving",
         "launch-dialog-keep-as-new",
+        "launch-discard-first-time",
         "launch-progress",
         "launch-post-play",
         "launch-post-play-older-point",
@@ -91,6 +92,7 @@ internal static class AppStates
         "launch-dialog",
         "launch-dialog-unsaved",
         "launch-dialog-keep-as-new",
+        "launch-discard-first-time",
         "launch-post-play",
         "launch-post-play-older-point",
         "post-play-from-older-snapshot-again",
@@ -125,6 +127,17 @@ internal static class AppStates
     private static FakeBackend StartupBackend(StartupStatus status) => new(ScenarioBuilder.Mockup().WithStartupStatus(status));
 
     private static ProfileRowViewModel Row(ComposedApp app, string id) => app.Games.Profiles.Single(row => row.Id == id);
+
+    // Plays from the older snapshot "Cleared Blackreach" to the end of the session, so the dialog after playing offers a new profile or
+    // continuing the old one.
+    public static async Task PlayFromOlderSnapshotAsync(this ComposedApp app)
+    {
+        var goBack = Assert.IsAssignableFrom<IAsyncRelayCommand>(app.History.Groups.SelectMany(group => group.Cards).Single(card => card.Name == "Cleared Blackreach").GoBackCommand).ExecuteAsync(null);
+        app.Dialog<LaunchDialogViewModel>().SwitchCommand.Execute(null);
+        await goBack.WaitAsync(TimeSpan.FromSeconds(5));
+        app.Backend.Launch.ReportRunning(_skyrim, MockupScenario.RunningSince);
+        app.Backend.Launch.ReportExited(_skyrim, MockupScenario.PlayDuration, MockupScenario.NewSaveFiles);
+    }
 
     // Opens a state the way a person gets there.
     public static async Task<ComposedApp> OpenAsync(string state)
@@ -207,6 +220,11 @@ internal static class AppStates
             case "launch-dialog-unsaved":
                 _ = Row(app, MockupScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
                 break;
+            case "launch-discard-first-time":
+                // The first discard confirmation a player is asked: it carries one more line of advice.
+                _ = Row(app, MockupScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
+                _ = app.Dialog<LaunchDialogViewModel>().UnsavedBlocks[0].DiscardCommand.ExecuteAsync(null);
+                break;
             case "launch-dialog-saving":
                 _ = Row(app, MockupScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
                 _ = app.Dialog<LaunchDialogViewModel>().UnsavedBlocks[0].SaveFirstCommand.ExecuteAsync(null);
@@ -231,12 +249,7 @@ internal static class AppStates
                 app.History.Groups.SelectMany(group => group.Cards).Single(card => card.Name == "Cleared Blackreach").GoBackCommand.Execute(null);
                 break;
             case "post-play-from-older-snapshot" or "post-play-from-older-snapshot-again":
-                // Played from an older snapshot to the end, so the dialog after playing offers a new profile or continuing the old one.
-                var goBack = Assert.IsAssignableFrom<IAsyncRelayCommand>(app.History.Groups.SelectMany(group => group.Cards).Single(card => card.Name == "Cleared Blackreach").GoBackCommand).ExecuteAsync(null);
-                app.Dialog<LaunchDialogViewModel>().SwitchCommand.Execute(null);
-                await goBack.WaitAsync(TimeSpan.FromSeconds(5));
-                app.Backend.Launch.ReportRunning(_skyrim, MockupScenario.RunningSince);
-                app.Backend.Launch.ReportExited(_skyrim, MockupScenario.PlayDuration, MockupScenario.NewSaveFiles);
+                await app.PlayFromOlderSnapshotAsync();
                 break;
             case "history-cards":
                 app.Show<HistoryScreenViewModel>(NavDestination.History);

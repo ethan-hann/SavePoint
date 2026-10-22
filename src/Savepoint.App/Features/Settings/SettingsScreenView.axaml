@@ -178,6 +178,7 @@
                 <ListBox x:Name="ThemeSelector"
                          Grid.Column="1"
                          Classes="segmented"
+                         AutoScrollToSelectedItem="False"
                          ItemsSource="{Binding Appearance.ThemeOptions}"
                          SelectedItem="{Binding Appearance.SelectedTheme, Mode=TwoWay}"
                          AutomationProperties.Name="{loc:Loc settings.theme.label}">
@@ -204,6 +205,7 @@
                 <ListBox x:Name="LayoutCards"
                          Classes="radio-cards layout-cards"
                          Margin="-6,0"
+                         AutoScrollToSelectedItem="False"
                          ItemsSource="{Binding Appearance.LayoutChoices}"
                          SelectedItem="{Binding Appearance.SelectedLayout, Mode=TwoWay}"
                          AutomationProperties.Name="{loc:Loc settings.layout.label}">
@@ -264,6 +266,7 @@
                          Grid.Column="1"
                          Classes="swatches"
                          VerticalAlignment="Center"
+                         AutoScrollToSelectedItem="False"
                          ItemsSource="{Binding Appearance.AccentOptions}"
                          SelectedItem="{Binding Appearance.SelectedAccent, Mode=TwoWay}"
                          AutomationProperties.Name="{loc:Loc settings.accent.label}">

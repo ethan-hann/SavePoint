@@ -48,7 +48,8 @@ public class HelpRenderTests
     [InlineData("launch-dialog-help-open")]
     [InlineData("post-play-replace-help-open")]
     [InlineData("post-play-from-older-snapshot")]
-    public async Task An_open_explanation_renders_to_a_png(string state)
+    [InlineData("launch-discard-first-time")]
+    public async Task An_open_explanation_or_decision_note_renders_to_a_png(string state)
     {
         using var app = await AppStates.OpenAsync(state);
 
