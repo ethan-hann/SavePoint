@@ -284,7 +284,7 @@ public sealed partial class GitEngine
         // A repository with no commit yet starts whichever branch is asked for; otherwise the checked-out branch is the only one that can be captured.
         if (tip is not null && !string.Equals(head.Branch, request.Branch, StringComparison.Ordinal))
         {
-            throw new GitOperationException(null, $"Cannot capture onto '{request.Branch}' while '{head.Branch}' is checked out; switch to it first.");
+            throw new GitOperationException($"Cannot capture onto '{request.Branch}' while '{head.Branch}' is checked out; switch to it first.");
         }
 
         await StageAsync(repo, progress, ct).ConfigureAwait(false);

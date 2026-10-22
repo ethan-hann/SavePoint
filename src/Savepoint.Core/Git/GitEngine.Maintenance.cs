@@ -85,7 +85,7 @@ public sealed partial class GitEngine
         // An object another operation of this engine has just written but not yet referenced would be pruned.
         if (!scope.IsAlone)
         {
-            throw new GitOperationException(null, "Another operation is writing to this repository, so it cannot be reclaimed right now.");
+            throw new GitOperationException("Another operation is writing to this repository, so it cannot be reclaimed right now.");
         }
 
         await RunWriteAsync(() => GitDirOnly(repo, "reflog", "expire", "--expire=now", "--all") with { ReadOnly = false }, ct).ConfigureAwait(false);

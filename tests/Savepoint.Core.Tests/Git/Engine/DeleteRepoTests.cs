@@ -207,8 +207,9 @@ public sealed class DeleteRepoTests : IDisposable
         var config = Path.Combine(foreign, "config");
         await File.WriteAllLinesAsync(config, (await File.ReadAllLinesAsync(config, Ct)).Where(line => !line.Contains("repoConfigVersion", StringComparison.Ordinal)), Ct);
 
-        await Assert.ThrowsAsync<GitOperationException>(() => _ws.Engine.DeleteRepoAsync(repo with { GitDir = foreign }, Ct));
+        var refused = await Assert.ThrowsAsync<GitOperationException>(() => _ws.Engine.DeleteRepoAsync(repo with { GitDir = foreign }, Ct));
 
+        Assert.Equal("error.gitOperation.failed", refused.MessageId);
         Assert.True(File.Exists(Path.Combine(foreign, "HEAD")));
     }
 

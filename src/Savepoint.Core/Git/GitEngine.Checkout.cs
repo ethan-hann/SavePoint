@@ -109,7 +109,7 @@ public sealed partial class GitEngine
         RepoMarker.Verify(repo);
         if (!IsInitialized(repo.GitDir))
         {
-            throw new GitOperationException(null, $"The repository at '{repo.GitDir}' does not exist.");
+            throw new GitOperationException($"The repository at '{repo.GitDir}' does not exist.");
         }
 
         var point = await RequireSavedPointAsync(repo, ct).ConfigureAwait(false);
@@ -158,7 +158,7 @@ public sealed partial class GitEngine
         RepoMarker.Verify(repo);
         if (!IsInitialized(repo.GitDir))
         {
-            throw new GitOperationException(null, $"The repository at '{repo.GitDir}' does not exist.");
+            throw new GitOperationException($"The repository at '{repo.GitDir}' does not exist.");
         }
 
         // Before the first point every file in the folder is "new"; cleaning would delete the player's whole folder.
@@ -235,7 +235,7 @@ public sealed partial class GitEngine
         RepoMarker.Verify(repo);
         if (!IsInitialized(repo.GitDir))
         {
-            throw new GitOperationException(null, $"The repository at '{repo.GitDir}' does not exist.");
+            throw new GitOperationException($"The repository at '{repo.GitDir}' does not exist.");
         }
 
         var head = GitDirFiles.ReadHead(repo.GitDir);
@@ -245,7 +245,7 @@ public sealed partial class GitEngine
         {
             throw isBranch
                 ? new ProfileHasNoPointsException(target)
-                : new GitOperationException(null, $"The point '{target}' is not in the repository.");
+                : new GitOperationException($"The point '{target}' is not in the repository.");
         }
 
         // Which files the switch will write and remove is known before it starts: nothing unsaved may be in the way, and a

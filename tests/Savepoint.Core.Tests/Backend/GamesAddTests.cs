@@ -8,6 +8,20 @@ namespace Savepoint.Core.Tests.Backend;
 public class GamesAddTests
 {
     [Fact]
+    public async Task Adding_a_game_whose_id_is_taken_is_refused_with_its_own_message()
+    {
+        using var workspace = new BackendWorkspace();
+        var game = await workspace.AddGameAsync();
+
+        var again = await workspace.Games.AddAsync(game);
+        var resolved = await workspace.Games.ResolveOrphanAsync(game, new OrphanResolution.StartFresh());
+
+        Assert.Equal("error.gameService.alreadyExists", again.Error?.MessageId);
+        Assert.Equal(game.Id, again.Error!.Args["gameId"]);
+        Assert.Equal("error.gameService.alreadyExists", resolved.Error?.MessageId);
+    }
+
+    [Fact]
     public async Task A_new_game_is_listed_with_both_folders_confirmed_and_tracked()
     {
         using var workspace = new BackendWorkspace();

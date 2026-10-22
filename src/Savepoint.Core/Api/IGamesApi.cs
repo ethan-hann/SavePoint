@@ -21,14 +21,16 @@ public interface IGamesApi
     /// <see cref="AddGameOutcome.Added"/>, or <see cref="AddGameOutcome.HistoryFound"/> when the folders hold history from a removed
     /// game, in which case nothing is saved and <see cref="ResolveOrphanAsync"/> decides. Fails with
     /// <c>error.validation.invalidPayload</c> (every field problem at once), <c>error.pathSafety.tier1Blocked</c> or
-    /// <c>error.pathSafety.tier2Blocked</c>, <c>error.consentMarker.conflict</c>, or <c>error.gameService.pathOverlap</c>.
+    /// <c>error.pathSafety.tier2Blocked</c>, <c>error.consentMarker.conflict</c>, <c>error.gameService.pathOverlap</c>, or
+    /// <c>error.gameService.alreadyExists</c> when the id is taken.
     /// </summary>
     /// <param name="definition">The game to add, with an id the caller made (see <see cref="CatalogIds.NewGameId"/>).</param>
     Task<OperationResult<AddGameOutcome>> AddAsync(GameDefinition definition);
 
     /// <summary>
     /// Settles the question <see cref="AddGameOutcome.HistoryFound"/> raised: reconnects the old history or starts fresh, and adds
-    /// the game either way. Fails with the ids <see cref="AddAsync"/> can.
+    /// the game either way. Fails with the ids <see cref="AddAsync"/> can, and with <c>error.gameService.noHistoryToReconnect</c> when
+    /// a reconnect finds no saved history under the old id at the game's folders.
     /// </summary>
     /// <param name="definition">The game being added, as it was given to <see cref="AddAsync"/>.</param>
     /// <param name="resolution">The user's answer.</param>

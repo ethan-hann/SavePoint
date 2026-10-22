@@ -124,7 +124,7 @@ public sealed partial class GitEngine
             commit = await ResolveBranchAsync(repo, startPoint, ct).ConfigureAwait(false);
         }
 
-        return commit ?? throw new GitOperationException(null, $"The start point '{startPoint}' is not a commit or a branch with points.");
+        return commit ?? throw new GitOperationException($"The start point '{startPoint}' is not a commit or a branch with points.");
     }
 
     // One ref write: git refuses when the branch is no longer at <expectedOld>, so a branch that moved since it was read is not overwritten.

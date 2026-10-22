@@ -101,7 +101,8 @@ public class OrphanTests
             game with { Id = "alpha-again" },
             new OrphanResolution.Reconnect("someone-else", [new RecoveredProfile(profile.BranchName, "Vanilla")]));
 
-        Assert.False(resolved.Ok);
+        Assert.Equal("error.gameService.noHistoryToReconnect", resolved.Error?.MessageId);
+        Assert.Equal("someone-else", resolved.Error!.Args["gameId"]);
         Assert.Empty((await workspace.Games.ListAsync(workspace.Token)).Value!);
     }
 

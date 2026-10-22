@@ -116,9 +116,9 @@ public sealed partial class GitEngine
     {
         repo = Normalize(repo);
         var from = await TryResolveRevisionAsync(repo, fromRevision, ct).ConfigureAwait(false)
-            ?? throw new GitOperationException(null, $"'{fromRevision}' is not a point in the repository.");
+            ?? throw new GitOperationException($"'{fromRevision}' is not a point in the repository.");
         var to = await TryResolveRevisionAsync(repo, toRevision, ct).ConfigureAwait(false)
-            ?? throw new GitOperationException(null, $"'{toRevision}' is not a point in the repository.");
+            ?? throw new GitOperationException($"'{toRevision}' is not a point in the repository.");
 
         var changes = await DiffTreesAsync(repo, from, to, ct).ConfigureAwait(false);
         var sizes = await ObjectSizesAsync(repo, changes.Select(change => change.NewId), ct).ConfigureAwait(false);
@@ -192,7 +192,7 @@ public sealed partial class GitEngine
         RepoMarker.Verify(repo);
         if (!IsInitialized(repo.GitDir))
         {
-            throw new GitOperationException(null, $"The repository at '{repo.GitDir}' does not exist.");
+            throw new GitOperationException($"The repository at '{repo.GitDir}' does not exist.");
         }
 
         RepoIgnoreFiles.WriteExclude(repo.GitDir, ignorePatterns);

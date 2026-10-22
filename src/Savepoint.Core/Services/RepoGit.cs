@@ -34,7 +34,7 @@ internal static class RepoGit
         }
         catch (GitCommandException e)
         {
-            throw new GitOperationException(null, e.Message);
+            throw new GitOperationException(e.Message);
         }
     }
 }

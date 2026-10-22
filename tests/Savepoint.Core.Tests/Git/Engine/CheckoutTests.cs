@@ -96,7 +96,8 @@ public sealed class CheckoutTests : IDisposable
 
         var empty = await Assert.ThrowsAsync<ProfileHasNoPointsException>(() => _ws.Engine.CheckoutBranchAsync(repo, "ghost", ct: Ct));
         Assert.Equal("ghost", empty.Args["profileId"]);
-        await Assert.ThrowsAsync<GitOperationException>(() => _ws.Engine.CheckoutCommitAsync(repo, new string('1', 40), ct: Ct));
+        var missing = await Assert.ThrowsAsync<GitOperationException>(() => _ws.Engine.CheckoutCommitAsync(repo, new string('1', 40), ct: Ct));
+        Assert.Equal("error.gitOperation.failed", missing.MessageId);
 
         Assert.Equal(b, TreeSnapshot.Take(repo.WorkTree));
         Assert.Equal("refs/heads/profile-b", await _ws.HeadRefAsync(repo));

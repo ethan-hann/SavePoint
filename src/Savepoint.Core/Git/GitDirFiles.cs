@@ -18,19 +18,19 @@ internal static class GitDirFiles
     public static HeadState ReadHead(string gitDir)
     {
         var text = AtomicText.ReadOrNull(Path.Combine(gitDir, "HEAD"))?.Trim()
-            ?? throw new GitOperationException(null, $"'{gitDir}' has no HEAD; the repository does not exist or was not created by SavePoint.");
+            ?? throw new GitOperationException($"'{gitDir}' has no HEAD; the repository does not exist or was not created by SavePoint.");
 
         if (text.StartsWith(_symbolicPrefix, StringComparison.Ordinal))
         {
             var target = text[_symbolicPrefix.Length..].Trim();
             return target.StartsWith(BranchPrefix, StringComparison.Ordinal)
                 ? new HeadState(target[BranchPrefix.Length..], null)
-                : throw new GitOperationException(null, $"HEAD points at '{target}', which is not a branch.");
+                : throw new GitOperationException($"HEAD points at '{target}', which is not a branch.");
         }
 
         return IsObjectId(text)
             ? new HeadState(null, text)
-            : throw new GitOperationException(null, $"HEAD holds '{text}', which is neither a branch nor a commit.");
+            : throw new GitOperationException($"HEAD holds '{text}', which is neither a branch nor a commit.");
     }
 
     // The commit a loose ref file holds; null when the ref is packed, missing or unreadable (the caller then asks git).
