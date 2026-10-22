@@ -31,7 +31,7 @@ public sealed class ExitGuard
     /// <returns>True when the window may close; false when the user chose to stay.</returns>
     public async Task<bool> PrepareToCloseAsync()
     {
-        var running = _jobs.List().Where(job => job.Status == JobStatus.Running).ToList();
+        var running = Running();
         if (running.Count == 0)
         {
             return true;
@@ -49,8 +49,9 @@ public sealed class ExitGuard
             return false;
         }
 
+        // The question can stay open a while, and a save that completed in the meantime queues an optimization, so read the jobs again.
         var cancelled = new List<Guid>();
-        foreach (var job in running.Where(job => job.Cancellable))
+        foreach (var job in Running().Where(job => job.Cancellable))
         {
             await _jobs.CancelAsync(job.JobId).ConfigureAwait(true);
             cancelled.Add(job.JobId);
@@ -59,6 +60,8 @@ public sealed class ExitGuard
         await WaitForAsync(cancelled).ConfigureAwait(true);
         return true;
     }
+
+    private List<JobSnapshot> Running() => _jobs.List().Where(job => job.Status == JobStatus.Running).ToList();
 
     // Bounded: a job that does not end in time is left to the process ending.
     private async Task WaitForAsync(IReadOnlyList<Guid> jobIds)

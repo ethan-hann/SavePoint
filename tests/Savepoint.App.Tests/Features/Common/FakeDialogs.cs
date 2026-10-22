@@ -23,6 +23,9 @@ public sealed class FakeDialogs : IDialogs
 
     public bool DefaultConfirmAnswer { get; set; } = true;
 
+    // Runs while a confirmation is open, before it is answered, for a test that needs something to happen during the question.
+    public Func<ConfirmRequest, Task>? WhileConfirming { get; set; }
+
     public FakeDialogs AnswerConfirm(params bool[] answers)
     {
         foreach (var answer in answers)
@@ -57,10 +60,15 @@ public sealed class FakeDialogs : IDialogs
         return dialog.Result;
     }
 
-    public Task<bool> ConfirmAsync(ConfirmRequest request)
+    public async Task<bool> ConfirmAsync(ConfirmRequest request)
     {
         Confirmations.Add(request);
-        return Task.FromResult(_confirmAnswers.TryDequeue(out var answer) ? answer : DefaultConfirmAnswer);
+        if (WhileConfirming is { } during)
+        {
+            await during(request);
+        }
+
+        return _confirmAnswers.TryDequeue(out var answer) ? answer : DefaultConfirmAnswer;
     }
 
     public Task<string?> PickFolderAsync(FolderPickRequest request)
