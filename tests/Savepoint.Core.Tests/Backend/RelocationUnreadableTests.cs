@@ -89,6 +89,33 @@ public class RelocationUnreadableTests
         Assert.False(Directory.Exists(destination));
     }
 
+    [Fact]
+    public async Task A_storage_folder_that_cannot_be_listed_is_named_in_the_preview_and_refuses_the_move()
+    {
+        Assert.SkipWhen(!OperatingSystem.IsWindows() && Environment.IsPrivilegedProcess, "a privileged user reads any folder");
+        using var workspace = new BackendWorkspace();
+        await workspace.AppStatus.CheckAsync(workspace.Token);
+        var game = await workspace.AddGameAsync();
+        await workspace.CreateProfileAsync(game);
+        await workspace.WaitForIdleAsync(TimeSpan.FromSeconds(60));
+        var root = workspace.DefaultStorageRoot;
+        var destination = Path.Combine(workspace.Root, "new-storage");
+
+        using (MakeUnreadable(root))
+        {
+            Assert.SkipWhen(CanList(root), "this file system ignores permission changes (a Windows drive mounted under WSL does)");
+            var preview = await workspace.Settings.GetRelocationPreviewAsync(destination, workspace.Token);
+            var started = await workspace.Settings.RelocateStorageAsync(destination);
+
+            Assert.True(preview.Ok, preview.Error?.Detail);
+            Assert.Equal("error.storageRelocation.sourceUnreadable", preview.Value.BlockedBy?.MessageId);
+            Assert.Equal(root, preview.Value.BlockedBy!.Args["path"]);
+            Assert.Equal("error.storageRelocation.sourceUnreadable", started.Error?.MessageId);
+        }
+
+        Assert.False(Directory.Exists(destination));
+    }
+
     private static bool CanList(string folder)
     {
         try
