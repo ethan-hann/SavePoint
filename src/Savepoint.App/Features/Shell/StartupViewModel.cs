@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Settings;
@@ -49,6 +50,7 @@ public sealed partial class StartupViewModel : ObservableObject
     private readonly bool _canTryAgain;
     private readonly string? _logFolder;
     private readonly IFileRevealer? _revealer;
+    private readonly IDialogs? _dialogs;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowCorruptFiles))]
@@ -72,10 +74,18 @@ public sealed partial class StartupViewModel : ObservableObject
     /// <param name="canTryAgain">False when a failed check cannot succeed on a second try, as when the backend never started.</param>
     /// <param name="logFolder">The folder the diagnostic log is written to; the screen for a backend that never started shows it and offers to open it. Null when there is none.</param>
     /// <param name="revealer">Opens the log folder in the file manager.</param>
-    public StartupViewModel(IAppStatusApi? status, UiFormatter text, bool canTryAgain = true, string? logFolder = null, IFileRevealer? revealer = null)
+    /// <param name="dialogs">Asks before a recovery that begins again with nothing; without it that recovery goes ahead at once.</param>
+    public StartupViewModel(
+        IAppStatusApi? status,
+        UiFormatter text,
+        bool canTryAgain = true,
+        string? logFolder = null,
+        IFileRevealer? revealer = null,
+        IDialogs? dialogs = null)
     {
         _logFolder = logFolder;
         _revealer = revealer;
+        _dialogs = dialogs;
         _status = status;
         _text = text;
         _canTryAgain = canTryAgain;
@@ -192,20 +202,35 @@ public sealed partial class StartupViewModel : ObservableObject
             : error with { Args = new Dictionary<string, object?>(error.Args) { ["path"] = git.Path } };
     }
 
+    // Which of SavePoint's files this is, as the word the copy selects on.
+    private static string KindOf(CorruptCatalogFile file) => System.IO.Path.GetFileName(file.Path.Replace('\\', '/')).ToLowerInvariant() switch
+    {
+        "games.json" => "games",
+        "profiles.json" => "profiles",
+        "settings.json" => "settings",
+        _ => "other",
+    };
+
     private ErrorCardViewModel CardFor(CorruptCatalogFile file)
     {
-        var withPath = file.Error.Args.ContainsKey("path")
-            ? file.Error
-            : file.Error with { Args = new Dictionary<string, object?>(file.Error.Args) { ["path"] = file.Path } };
+        var kind = KindOf(file);
         var restore = new AsyncRelayCommand(() => RecoverAsync(file, CatalogRecovery.RestoreBackup), () => file.BackupPath is not null);
-        var startEmpty = new AsyncRelayCommand(() => RecoverAsync(file, CatalogRecovery.StartEmpty));
+        var startEmpty = new AsyncRelayCommand(() => StartEmptyAsync(file, kind));
         var backupNote = file.BackupPath is { } backup
             ? _text.Message("startup.corrupt.backupAt", ("path", backup))
             : _text.Message("startup.corrupt.noBackup");
+        var presentation = ErrorPresentation.For(file.Error.MessageId);
 
-        return new ErrorCardViewModel(
-            withPath,
+        // Each file says which it is and what its two buttons do, so nobody has to rename files by hand to follow the card.
+        return ErrorCardViewModel.Custom(
             _text,
+            presentation.Icon,
+            presentation.Tone,
+            _text.Message("startup.corrupt.title", ("kind", kind)),
+            _text.Message("startup.corrupt.body", ("kind", kind)),
+            path: file.Path,
+            detail: file.Error.Detail,
+            actions:
             [
                 new ErrorCardAction(_text.Message("startup.corrupt.restoreBackup"), restore, IsPrimary: true),
                 new ErrorCardAction(_text.Message("startup.corrupt.startEmpty"), startEmpty),
@@ -215,6 +240,25 @@ public sealed partial class StartupViewModel : ObservableObject
 
     private void OpenLogFolder() =>
         LogFolderError = _logFolder is { } folder && (_revealer?.Reveal(folder) ?? false) ? null : _text.Message("startup.logFolderFailed");
+
+    // Beginning again with nothing empties a list the player may have spent years on, so it asks, and says the old file is kept.
+    private async Task StartEmptyAsync(CorruptCatalogFile file, string kind)
+    {
+        if (_dialogs is not null)
+        {
+            var confirmed = await _dialogs.ConfirmAsync(new ConfirmRequest(
+                _text.Message("startup.corrupt.confirm.title"),
+                _text.Message("startup.corrupt.confirm.message", ("kind", kind)),
+                _text.Message("startup.corrupt.startEmpty"),
+                Destructive: true));
+            if (!confirmed)
+            {
+                return;
+            }
+        }
+
+        await RecoverAsync(file, CatalogRecovery.StartEmpty);
+    }
 
     private async Task RecoverAsync(CorruptCatalogFile file, CatalogRecovery recovery)
     {

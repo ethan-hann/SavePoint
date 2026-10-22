@@ -4,6 +4,7 @@ using Savepoint.App.Features.Common;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Common.Toasts;
+using Savepoint.App.Features.Settings;
 using Savepoint.App.Features.Shell;
 
 namespace Savepoint.App;
@@ -25,6 +26,7 @@ public static class AppComposition
     /// <param name="dispatcher">Brings Api events to the UI thread; the real one when null.</param>
     /// <param name="clock">Times toasts; the system clock when null.</param>
     /// <param name="dialogs">Replaces the dialogs and pickers, for tests; the real ones over the window's dialog overlay when null.</param>
+    /// <param name="settingsEnvironment">Replaces what Settings reads from the machine, for tests; the running app's when null.</param>
     public static MainWindowViewModel Create(
         AppServices? services,
         UiFormatter text,
@@ -32,13 +34,14 @@ public static class AppComposition
         Func<IStorageProvider?> storage,
         IUiDispatcher? dispatcher = null,
         TimeProvider? clock = null,
-        IDialogs? dialogs = null)
+        IDialogs? dialogs = null,
+        SettingsEnvironment? settingsEnvironment = null)
     {
         var ui = dispatcher ?? new AvaloniaUiDispatcher();
         var toasts = new ToastHostViewModel(clock ?? TimeProvider.System, ui);
         var dialogStack = new DialogHostViewModel();
         var pickers = dialogs ?? new AvaloniaDialogs(dialogStack, text, storage);
-        var startup = new StartupViewModel(services?.AppStatus, text, services?.BackendStarted ?? true, services?.LogFolder, services?.FileRevealer);
+        var startup = new StartupViewModel(services?.AppStatus, text, services?.BackendStarted ?? true, services?.LogFolder, services?.FileRevealer, pickers);
 
         ShellViewModel CreateShell()
         {
@@ -55,7 +58,7 @@ public static class AppComposition
                 pickers,
                 toasts,
                 theme,
-                ScreenFactories(feature),
+                ScreenFactories(feature, settingsEnvironment),
                 LaunchFlow: FeatureComposition.LaunchFlow(feature),
                 Artwork: FeatureComposition.Artwork(feature)));
         }
@@ -67,14 +70,14 @@ public static class AppComposition
     /// One factory per screen, each supplied by its feature's <see cref="FeatureComposition"/> file; a destination without
     /// a factory shows the placeholder.
     /// </summary>
-    private static IReadOnlyList<IScreenFactory> ScreenFactories(FeatureContext feature)
+    private static IReadOnlyList<IScreenFactory> ScreenFactories(FeatureContext feature, SettingsEnvironment? settingsEnvironment)
     {
         var editor = FeatureComposition.GameEditor(feature);
         return new[]
         {
             FeatureComposition.GamesScreen(feature, editor),
             FeatureComposition.HistoryScreen(feature, editor),
-            FeatureComposition.SettingsScreen(feature, editor),
+            FeatureComposition.SettingsScreen(feature, editor, settingsEnvironment),
         }.OfType<IScreenFactory>().ToList();
     }
 }

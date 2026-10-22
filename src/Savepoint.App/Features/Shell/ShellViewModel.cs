@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Art;
 using Savepoint.App.Features.Common.Dialogs;
+using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Theme;
 using Savepoint.Core.Api;
@@ -22,6 +23,9 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
     /// <summary>Below this window width the sidebar collapses to an icon rail.</summary>
     public const double CompactBelowWidth = 900;
 
+    /// <summary>A window shorter than this, in device-independent pixels, compacts the library shelf.</summary>
+    public const double ShortBelowHeight = 560;
+
     /// <summary>Width of the expanded rail.</summary>
     public const double ExpandedRailWidth = 236;
 
@@ -40,7 +44,9 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
     private NavDestination _paneDestination;
     private bool _isLoaded;
     private bool _libraryKnown;
+    private LibraryErrorViewModel? _libraryError;
     private bool _isCompact;
+    private bool _isShort;
     private bool _initialized;
     private bool _disposed;
     private bool _refreshRequested;
@@ -64,7 +70,7 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
         AddGameCommand = new RelayCommand(() => RequestAddGame());
         FirstRun = new FirstRunViewModel(text, AddGameCommand, new AsyncRelayCommand(StartFromTemplateAsync));
         LayoutToggle = new LayoutToggleViewModel(text, SetLayoutAsync, _layout);
-        JobStatus = new JobStatusViewModel(text, dependencies.Toasts, id => Games.FirstOrDefault(row => row.Id == id)?.Name);
+        JobStatus = new JobStatusViewModel(text, dependencies.Toasts, id => Games.FirstOrDefault(row => row.Id == id)?.Name, jobId => dependencies.LaunchFlow?.ShowsOutcomeOf(jobId) == true);
 
         if (dependencies.LaunchFlow is { } flow)
         {
@@ -139,8 +145,11 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
     /// <summary>True while the first-run empty state replaces the Games screen: the library was read and has no games.</summary>
     public bool ShowFirstRun => _libraryKnown && Games.Count == 0 && Destination == NavDestination.Games && !PaneVisible;
 
-    /// <summary>What fills the content region: a full pane, the first-run state or the current screen.</summary>
-    public object? Content => PaneVisible ? _pane : ShowFirstRun ? FirstRun : CurrentScreen;
+    /// <summary>The error that fills the content region while the library has never been read; null otherwise.</summary>
+    public LibraryErrorViewModel? LibraryError => _libraryError;
+
+    /// <summary>What fills the content region: a full pane, the library error, the first-run state or the current screen.</summary>
+    public object? Content => PaneVisible ? _pane : _libraryError is not null ? _libraryError : ShowFirstRun ? FirstRun : CurrentScreen;
 
     /// <summary>The screen of the current destination; null until the shell has started.</summary>
     public IScreen? CurrentScreen => _screens.GetValueOrDefault(Destination);
@@ -156,6 +165,9 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
 
     /// <summary>True while the window is narrower than <see cref="CompactBelowWidth"/>.</summary>
     public bool IsCompact => _isCompact;
+
+    /// <summary>True while the window is shorter than <see cref="ShortBelowHeight"/>; the library shelf drops its art to leave room for the page.</summary>
+    public bool IsShort => _isShort;
 
     /// <summary>The rail's width for the current state.</summary>
     public double RailWidth => IsCompact ? CompactRailWidth : ExpandedRailWidth;
@@ -244,6 +256,19 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
 
         OnPropertyChanged(nameof(IsCompact));
         OnPropertyChanged(nameof(RailWidth));
+    }
+
+    /// <summary>Tells the shell how tall the window is; the library shelf compacts below <see cref="ShortBelowHeight"/>.</summary>
+    public void SetWindowHeight(double height)
+    {
+        var isShort = height < ShortBelowHeight;
+        if (isShort == _isShort)
+        {
+            return;
+        }
+
+        _isShort = isShort;
+        OnPropertyChanged(nameof(IsShort));
     }
 
     /// <inheritdoc />
@@ -389,6 +414,7 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
         LayoutToggle.Sync(_layout);
         OnLayoutChanged();
         FirstRun.SetStorageRoot(settings.StorageRoot);
+        FirstRun.SetArtworkLookUp(settings.LookUpArtworkOnline);
         _deps.Theme.Apply(settings.Theme, settings.AccentColorId);
     }
 
@@ -405,6 +431,7 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
         OnPropertyChanged(nameof(CurrentScreen));
         OnPropertyChanged(nameof(ShowFirstRun));
         OnPropertyChanged(nameof(ShowShelf));
+        OnPropertyChanged(nameof(LibraryError));
         OnPropertyChanged(nameof(Content));
     }
 
@@ -428,7 +455,18 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
         var games = await gamesTask;
         if (!games.Ok)
         {
-            ShowError(games.Error);
+            // A library that was never read leaves nothing to show, so the page says why and offers a retry; one already on screen stays.
+            if (_libraryKnown)
+            {
+                ShowError(games.Error);
+            }
+            else
+            {
+                var tryAgain = new ErrorCardAction(_deps.Text.Message("shell.libraryError.tryAgain"), new AsyncRelayCommand(RefreshLibraryAsync), IsPrimary: true);
+                _libraryError = new LibraryErrorViewModel(new ErrorCardViewModel(games.Error, _deps.Text, [tryAgain]));
+                RaiseShellState();
+            }
+
             return;
         }
 
@@ -450,6 +488,8 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
         }
 
         _libraryKnown = true;
+        _libraryError = null;
+        RaiseShellState();
         Rebuild(games.Value);
         LibraryRefreshed?.Invoke(this, EventArgs.Empty);
     }
@@ -457,27 +497,58 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
     private void Rebuild(IReadOnlyList<GameDefinition> games)
     {
         var previous = _selectedRow;
-        var rows = games.Select(game => new GameRowViewModel(
-            game,
-            _profileCounts is null ? null : _profileCounts.GetValueOrDefault(game.Id),
-            _bytes is not null && _bytes.TryGetValue(game.Id, out var bytes) ? bytes : null,
-            _deps.Text,
-            Artwork.For(game.Id))
-        {
-            ShowLabels = !_isCompact,
-        }).ToList();
+        var previousGame = previous?.Game;
 
-        Games.Clear();
-        foreach (var row in rows)
+        // Rows are matched by game id and updated in place, so a refresh never replaces the row a person has focused in the rail or shelf.
+        var existing = Games.ToDictionary(row => row.Id);
+        var rows = new List<GameRowViewModel>(games.Count);
+        foreach (var game in games)
         {
-            Games.Add(row);
+            var profileCount = _profileCounts?.GetValueOrDefault(game.Id);
+            long? size = _bytes is not null && _bytes.TryGetValue(game.Id, out var bytes) ? bytes : null;
+            if (existing.TryGetValue(game.Id, out var row))
+            {
+                row.Apply(game, profileCount, size, _deps.Text);
+            }
+            else
+            {
+                row = new GameRowViewModel(game, profileCount, size, _deps.Text, Artwork.For(game.Id)) { ShowLabels = !_isCompact };
+            }
+
+            rows.Add(row);
+        }
+
+        for (var index = Games.Count - 1; index >= 0; index--)
+        {
+            if (!rows.Contains(Games[index]))
+            {
+                Games.RemoveAt(index);
+            }
+        }
+
+        for (var index = 0; index < rows.Count; index++)
+        {
+            if (index < Games.Count && ReferenceEquals(Games[index], rows[index]))
+            {
+                continue;
+            }
+
+            var at = Games.IndexOf(rows[index]);
+            if (at >= 0)
+            {
+                Games.Move(at, index);
+            }
+            else
+            {
+                Games.Insert(index, rows[index]);
+            }
         }
 
         // History is about one game's points, so it has nothing to show in an empty library.
         Nav.First(item => item.Destination == NavDestination.History).IsEnabled = rows.Count > 0;
 
         var selected = rows.FirstOrDefault(row => row.Id == previous?.Id) ?? rows.FirstOrDefault();
-        Select(selected, force: !Equals(previous?.Game, selected?.Game));
+        Select(selected, force: !Equals(previousGame, selected?.Game));
         RaiseShellState();
         JobStatus.Refresh();
     }

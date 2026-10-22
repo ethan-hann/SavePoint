@@ -13,13 +13,20 @@ public sealed partial class LaunchChecksDialogViewModel : DialogViewModel<bool>
         : base(text.Message("launch.checks.title"))
     {
         Checks = checks;
+        Description = string.Join(" ", checks.Select(line => line.Text));
     }
+
+    /// <inheritdoc />
+    public override string Description { get; }
 
     /// <summary>The checks, in order.</summary>
     public IReadOnlyList<LaunchCheckLine> Checks { get; }
 
     /// <inheritdoc />
     public override double DialogWidth => 520;
+
+    /// <inheritdoc />
+    public override bool DismissesOnScrimClick => true;
 
     /// <inheritdoc />
     protected override bool DismissResult => true;

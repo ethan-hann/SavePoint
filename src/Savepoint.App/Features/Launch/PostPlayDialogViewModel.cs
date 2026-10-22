@@ -80,7 +80,13 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
     public bool ShowNotNowButton => SelectedChoice.Kind != CompletionChoice.Skip;
 
     /// <inheritdoc />
+    public override string Description => Body;
+
+    /// <inheritdoc />
     public override double DialogWidth => 580;
+
+    /// <inheritdoc />
+    public override bool PinsFooter => true;
 
     /// <inheritdoc />
     protected override SessionCompletion DismissResult => new SessionCompletion.Skip();
@@ -181,7 +187,7 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
                 _text.Message("launch.postPlay.fork.title"),
                 _text.Message("launch.postPlay.fork.sub", ("profileName", _profileName)),
                 _text.Message("launch.postPlay.fork.nameLabel"),
-                _text.Message("launch.keep.defaultName", ("date", today))));
+                _text.Message("launch.postPlay.fork.defaultName", ("date", today))));
         }
 
         if (offered.Contains(CompletionChoice.MoveForward))

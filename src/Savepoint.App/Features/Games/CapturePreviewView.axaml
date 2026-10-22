@@ -29,9 +29,9 @@
         </ItemsControl.ItemTemplate>
       </ItemsControl>
     </Border>
-    <StackPanel x:Name="NoteRow" Orientation="Horizontal" Spacing="12" IsVisible="{Binding HasNote}">
+    <Grid x:Name="NoteRow" ColumnDefinitions="Auto,*" ColumnSpacing="12" IsVisible="{Binding HasNote}">
       <TextBlock Classes="icon s18 muted" VerticalAlignment="Top" Text="{x:Static theme:Icons.Database}" />
-      <TextBlock Classes="caption" FontSize="13" TextWrapping="Wrap" VerticalAlignment="Center" Text="{Binding Note}" />
-    </StackPanel>
+      <TextBlock Grid.Column="1" Classes="caption" FontSize="13" TextWrapping="Wrap" VerticalAlignment="Center" Text="{Binding Note}" />
+    </Grid>
   </StackPanel>
 </UserControl>

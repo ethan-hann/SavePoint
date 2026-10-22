@@ -36,6 +36,7 @@ public sealed partial class TemplatePickerViewModel : DialogViewModel<TemplateCh
     public TemplatePickerViewModel(IReadOnlyList<GameTemplate> templates, UiFormatter text)
         : base(text.Message("templatePicker.title"))
     {
+        Description = text.Message("templatePicker.body");
         Templates = [.. templates.Select(template => new TemplateItem(template.DisplayName, new RelayCommand(() => Close(new TemplateChoice.Template(template)))))];
     }
 
@@ -43,7 +44,13 @@ public sealed partial class TemplatePickerViewModel : DialogViewModel<TemplateCh
     public IReadOnlyList<TemplateItem> Templates { get; }
 
     /// <inheritdoc />
+    public override string Description { get; }
+
+    /// <inheritdoc />
     public override double DialogWidth => 480;
+
+    /// <inheritdoc />
+    public override bool DismissesOnScrimClick => true;
 
     /// <inheritdoc />
     protected override TemplateChoice? DismissResult => null;

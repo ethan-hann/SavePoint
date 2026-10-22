@@ -57,7 +57,7 @@ public partial class DialogHostView : UserControl
 
     private void OnScrimPressed(object? sender, PointerPressedEventArgs e)
     {
-        _host?.RequestDismissCurrent();
+        _host?.RequestScrimDismiss();
         e.Handled = true;
     }
 

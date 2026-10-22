@@ -9,10 +9,10 @@ namespace Savepoint.App.Features.Games;
 public sealed partial class ProfileTableColumns : ObservableObject
 {
     /// <summary>The table's width below which the mod-files column is dropped.</summary>
-    public const double ModFilesMinWidth = 680;
+    public const double ModFilesMinWidth = 700;
 
     /// <summary>The table's width below which the version column is dropped too.</summary>
-    public const double VersionMinWidth = 520;
+    public const double VersionMinWidth = 600;
 
     /// <summary>Whether the version column is shown.</summary>
     [ObservableProperty]

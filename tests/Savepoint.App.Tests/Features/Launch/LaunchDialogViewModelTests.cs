@@ -233,6 +233,71 @@ public class LaunchDialogViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Save_them_first_shows_the_save_in_the_block_with_its_progress_and_announces_each_quarter()
+    {
+        var dialog = await _rig.DialogAsync();
+        var block = dialog.UnsavedBlocks[0];
+        Assert.True(block.ShowActions);
+        Assert.False(block.IsSaving);
+
+        var run = block.SaveFirstCommand.ExecuteAsync(null);
+
+        Assert.True(block.IsSaving);
+        Assert.False(block.ShowActions);
+        Assert.True(block.IsProgressIndeterminate);
+        Assert.Equal("Saving these changes…", block.ProgressText);
+        Assert.Equal("Saving these changes…", block.Announcement);
+
+        _rig.Backend.Jobs.ReportProgress(LastCaptureJob(), new JobProgress(FilesDone: 30, FilesTotal: 100));
+
+        Assert.False(block.IsProgressIndeterminate);
+        Assert.Equal(30, block.ProgressPercent);
+        Assert.Equal("30 of 100 files", block.ProgressText);
+        Assert.Equal("25% saved.", block.Announcement);
+
+        _rig.Backend.Jobs.ReportProgress(LastCaptureJob(), new JobProgress(FilesDone: 40, FilesTotal: 100));
+        Assert.Equal("25% saved.", block.Announcement);
+
+        _rig.Backend.Jobs.ReportProgress(LastCaptureJob(), new JobProgress(FilesDone: 80, FilesTotal: 100));
+        Assert.Equal("75% saved.", block.Announcement);
+
+        _rig.Backend.Jobs.Complete(LastCaptureJob());
+        await run;
+        Assert.False(block.IsSaving);
+    }
+
+    [Fact]
+    public async Task A_save_that_has_not_counted_its_files_yet_keeps_the_bar_moving_and_says_how_far_it_is()
+    {
+        var dialog = await _rig.DialogAsync();
+        var block = dialog.UnsavedBlocks[0];
+        var run = block.SaveFirstCommand.ExecuteAsync(null);
+
+        _rig.Backend.Jobs.ReportProgress(LastCaptureJob(), new JobProgress(FilesDone: 12));
+
+        Assert.True(block.IsProgressIndeterminate);
+        Assert.Equal("12 files saved so far", block.ProgressText);
+
+        _rig.Backend.Jobs.Complete(LastCaptureJob());
+        await run;
+    }
+
+    [Fact]
+    public async Task A_save_that_fails_gives_the_buttons_back()
+    {
+        var dialog = await _rig.DialogAsync();
+        var block = dialog.UnsavedBlocks[0];
+        var run = block.SaveFirstCommand.ExecuteAsync(null);
+        Assert.False(block.ShowActions);
+
+        _rig.Backend.Jobs.Fail(LastCaptureJob(), MockupScenario.SavesOutOfRoomError);
+        await run;
+
+        Assert.False(block.IsSaving);
+        Assert.True(block.ShowActions);
+    }
+
+    [Fact]
     public async Task A_save_that_does_not_fully_work_leaves_the_block_with_the_reason()
     {
         var dialog = await _rig.DialogAsync();
@@ -243,7 +308,7 @@ public class LaunchDialogViewModelTests : IDisposable
         await run;
 
         Assert.Single(dialog.UnsavedBlocks);
-        Assert.Equal("SavePoint couldn't save these changes. There's not enough free disk space to save this profile right now.", block.Error);
+        Assert.Equal("SavePoint couldn't save these changes. There's not enough free disk space to save this profile right now. Free up about 1.2 GB on drive D: and try again.", block.Error);
         Assert.True(block.HasError);
         Assert.False(block.IsBusy);
         Assert.False(dialog.CanSwitch);
@@ -424,7 +489,7 @@ public class LaunchDialogViewModelTests : IDisposable
         Assert.False(keep.IsClosed);
         Assert.False(keep.IsWorking);
         Assert.True(keep.CanDismiss);
-        Assert.Equal("SavePoint couldn't create the profile. There's not enough free disk space to save this profile right now.", keep.Error);
+        Assert.Equal("SavePoint couldn't create the profile. There's not enough free disk space to save this profile right now. Free up about 1.2 GB on drive D: and try again.", keep.Error);
         Assert.Single(dialog.UnsavedBlocks);
 
         keep.CancelCommand.Execute(null);

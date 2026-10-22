@@ -72,7 +72,13 @@ public sealed partial class ClearAllDataDialogViewModel : DialogViewModel<bool>
     public bool CanConfirm => string.Equals(TypedText.Trim(), Word.Trim(), StringComparison.OrdinalIgnoreCase);
 
     /// <inheritdoc />
+    public override string Description => Intro;
+
+    /// <inheritdoc />
     public override double DialogWidth => 520;
+
+    /// <inheritdoc />
+    public override bool PinsFooter => true;
 
     /// <inheritdoc />
     protected override bool DismissResult => false;

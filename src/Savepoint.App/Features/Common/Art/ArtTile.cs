@@ -33,7 +33,21 @@ public sealed class ArtTile : Border
     public static readonly StyledProperty<GameArt?> ArtProperty =
         AvaloniaProperty.Register<ArtTile, GameArt?>(nameof(Art));
 
+    /// <summary>True to draw the game's initials over the tint, for a tile that stands alone where the name is hidden.</summary>
+    public static readonly StyledProperty<bool> ShowInitialsProperty =
+        AvaloniaProperty.Register<ArtTile, bool>(nameof(ShowInitials));
+
     private readonly ImageSurface _surface = new();
+
+    private readonly TextBlock _initialsText = new()
+    {
+        HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+        FontWeight = FontWeight.Medium,
+        IsHitTestVisible = false,
+        IsVisible = false,
+    };
+
     private Bitmap? _bitmap;
     private ArtRequest? _shown;
     private bool _attached;
@@ -44,6 +58,7 @@ public sealed class ArtTile : Border
         GameNameProperty.Changed.AddClassHandler<ArtTile>((tile, _) => tile.Retint());
         SizeProperty.Changed.AddClassHandler<ArtTile>((tile, e) => tile.Resize((double)e.NewValue!));
         ArtProperty.Changed.AddClassHandler<ArtTile>((tile, e) => tile.OnArtChanged(e.OldValue as GameArt, e.NewValue as GameArt));
+        ShowInitialsProperty.Changed.AddClassHandler<ArtTile>((tile, _) => tile.UpdateInitials());
     }
 
     /// <summary>Creates a tile with the shared <c>art-tile</c> look.</summary>
@@ -51,7 +66,8 @@ public sealed class ArtTile : Border
     {
         Classes.Add("art-tile");
         AutomationProperties.SetAccessibilityView(this, AccessibilityView.Raw);
-        Child = _surface;
+        AutomationProperties.SetAccessibilityView(_initialsText, AccessibilityView.Raw);
+        Child = new Grid { Children = { _surface, _initialsText } };
         ActualThemeVariantChanged += (_, _) => Retint();
         Retint();
     }
@@ -76,6 +92,16 @@ public sealed class ArtTile : Border
         get => GetValue(ArtProperty);
         set => SetValue(ArtProperty, value);
     }
+
+    /// <summary>True to draw the game's initials over the tint, for a tile that stands alone where the name is hidden.</summary>
+    public bool ShowInitials
+    {
+        get => GetValue(ShowInitialsProperty);
+        set => SetValue(ShowInitialsProperty, value);
+    }
+
+    /// <summary>The initials drawn over the tint right now; empty when they are off or an image covers the tint.</summary>
+    public string Initials => ShowInitials && _bitmap is null ? ArtTint.Initials(GameName ?? string.Empty) : string.Empty;
 
     /// <summary>True while an image is drawn over the tint.</summary>
     public bool ShowsImage => _bitmap is not null;
@@ -121,6 +147,7 @@ public sealed class ArtTile : Border
         base.OnPropertyChanged(change);
         if (change.Property == BoundsProperty)
         {
+            _initialsText.FontSize = Math.Clamp(Bounds.Height * 0.42, 9, 16);
             Refresh();
         }
         else if (change.Property == CornerRadiusProperty)
@@ -217,6 +244,7 @@ public sealed class ArtTile : Border
         _bitmap = bitmap;
         _shown = request;
         _surface.Bitmap = bitmap;
+        UpdateInitials();
     }
 
     private void Resize(double size)
@@ -235,8 +263,18 @@ public sealed class ArtTile : Border
         CornerRadius = new CornerRadius(size <= 24 ? 5 : 8);
     }
 
+    // The initials sit on the tint, so they show while no image covers it and take the color that suits the tint's mode.
+    private void UpdateInitials()
+    {
+        var initials = Initials;
+        _initialsText.Text = initials;
+        _initialsText.IsVisible = initials.Length > 0;
+        _initialsText.Foreground = new SolidColorBrush(Color.FromUInt32(ArtTint.InitialsColor(ArtTint.Hue(GameName ?? string.Empty), ActualThemeVariant == ThemeVariant.Dark)));
+    }
+
     private void Retint()
     {
+        UpdateInitials();
         var (top, bottom) = ArtTint.Gradient(GameName ?? string.Empty, ActualThemeVariant == ThemeVariant.Dark);
         Background = new LinearGradientBrush
         {

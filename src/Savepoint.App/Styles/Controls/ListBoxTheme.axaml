@@ -77,6 +77,16 @@
                       Opacity="0"
                       IsHitTestVisible="False"
                       Transitions="{DynamicResource Md3TransitionsOpacityShort}" />
+              <!-- A 2px line under the selected item of a segmented list, so the choice never rests on a fill alone. -->
+              <Border x:Name="PART_SelectedMark"
+                      Height="2"
+                      Margin="10,0"
+                      VerticalAlignment="Bottom"
+                      CornerRadius="1"
+                      Background="{DynamicResource Md3PrimaryBrush}"
+                      Opacity="0"
+                      IsHitTestVisible="False"
+                      Transitions="{DynamicResource Md3TransitionsOpacityShort}" />
               <ContentPresenter x:Name="PART_ContentPresenter"
                                 Content="{TemplateBinding Content}"
                                 ContentTemplate="{TemplateBinding ContentTemplate}"

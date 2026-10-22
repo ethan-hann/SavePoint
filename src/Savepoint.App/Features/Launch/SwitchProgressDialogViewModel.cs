@@ -73,6 +73,9 @@ public sealed partial class SwitchProgressDialogViewModel : DialogViewModel<bool
     public override bool CanDismiss => false;
 
     /// <inheritdoc />
+    public override string Description => Explanation;
+
+    /// <inheritdoc />
     public override double DialogWidth => 600;
 
     /// <inheritdoc />

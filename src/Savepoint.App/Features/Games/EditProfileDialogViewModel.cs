@@ -38,6 +38,7 @@ public sealed partial class EditProfileDialogViewModel : ProfileFormDialogViewMo
         : base(text.Message("games.editProfile.title", ("name", name)), name, text)
     {
         _save = save;
+        Description = text.Message("games.editProfile.description");
         _notes = notes ?? string.Empty;
         _versionOverride = versionOverride ?? string.Empty;
         VersionPlaceholder = string.IsNullOrWhiteSpace(detectedVersion) ? null : detectedVersion.Trim();
@@ -48,6 +49,9 @@ public sealed partial class EditProfileDialogViewModel : ProfileFormDialogViewMo
 
     /// <summary>What to say under the version field: how a blank field behaves.</summary>
     public string VersionHelper { get; }
+
+    /// <inheritdoc />
+    public override string Description { get; }
 
     /// <summary>The detected version, shown faintly in an empty version field; null when there is none.</summary>
     public string? VersionPlaceholder { get; }

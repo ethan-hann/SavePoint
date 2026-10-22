@@ -163,6 +163,16 @@ public class ErrorCardViewModelTests
     }
 
     [Fact]
+    public void A_full_disk_shows_the_drive_to_clear_on_a_windows_card_and_the_folder_elsewhere()
+    {
+        var error = ErrorInfo.From(new DiskSpaceException(@"D:\SavePoint\Storage", 1_200_000_000, 0));
+        var linux = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), os: "linux", timeZone: TimeZoneInfo.Utc);
+
+        Assert.Equal("D:", new ErrorCardViewModel(error, _text).Path);
+        Assert.Equal(@"D:\SavePoint\Storage", new ErrorCardViewModel(error, linux).Path);
+    }
+
+    [Fact]
     public void A_custom_card_without_detail_or_path_offers_neither()
     {
         var card = ErrorCardViewModel.Custom(_text, Icons.Info, ErrorTone.Neutral, "Title", "Body");

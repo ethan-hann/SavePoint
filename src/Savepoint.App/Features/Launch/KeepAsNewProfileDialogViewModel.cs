@@ -49,6 +49,9 @@ public sealed partial class KeepAsNewProfileDialogViewModel : DialogViewModel<bo
     public bool HasError => Error is not null;
 
     /// <inheritdoc />
+    public override string Description => Body;
+
+    /// <inheritdoc />
     public override bool CanDismiss => !IsWorking;
 
     /// <inheritdoc />

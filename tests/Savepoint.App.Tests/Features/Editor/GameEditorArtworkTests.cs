@@ -199,6 +199,25 @@ public class GameEditorArtworkTests
         Assert.Empty(rig.Shell.Calls);
     }
 
+    [Theory]
+    [InlineData("abc")]
+    [InlineData("48 983")]
+    [InlineData("0")]
+    public void An_app_id_that_is_not_a_number_is_flagged_as_it_is_typed_and_cleared_when_it_is_fixed(string text)
+    {
+        var editor = Rig().Edit();
+
+        editor.SteamAppIdText = text;
+        Assert.Equal("Enter the Steam app ID as a number above zero, such as 489830, or leave it empty.", editor.SteamAppIdError);
+
+        editor.SteamAppIdText = "489830";
+        Assert.Null(editor.SteamAppIdError);
+
+        editor.SteamAppIdText = text;
+        editor.SteamAppIdText = string.Empty;
+        Assert.Null(editor.SteamAppIdError);
+    }
+
     [Fact]
     public async Task Typing_again_clears_the_app_id_problem()
     {

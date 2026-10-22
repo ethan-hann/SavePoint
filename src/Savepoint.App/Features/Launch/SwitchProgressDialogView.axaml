@@ -32,11 +32,18 @@
                  VerticalAlignment="Center"
                  IsVisible="{Binding IsCancelling}"
                  Text="{loc:Loc launch.progress.canceling}" />
+      <TextBlock x:Name="StopNoteText"
+                 Classes="caption"
+                 VerticalAlignment="Center"
+                 TextWrapping="Wrap"
+                 Margin="0,0,16,0"
+                 IsVisible="{Binding !IsCancelling}"
+                 Text="{loc:Loc launch.progress.stopNote}" />
       <Button x:Name="CancelButton"
               Grid.Column="1"
               Classes="pill large"
               Command="{Binding CancelCommand}"
-              Content="{loc:Loc common.cancel}" />
+              Content="{loc:Loc launch.progress.stop}" />
     </Grid>
   </StackPanel>
 </UserControl>

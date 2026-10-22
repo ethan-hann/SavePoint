@@ -15,6 +15,7 @@ public sealed partial class JobStatusViewModel : ObservableObject
 {
     private readonly UiFormatter _formatter;
     private readonly ToastHostViewModel _toasts;
+    private readonly Func<Guid, bool>? _showsOutcome;
     private readonly Func<string, string?> _gameName;
     private readonly Dictionary<Guid, JobSnapshot> _jobs = [];
     private readonly HashSet<Guid> _reported = [];
@@ -34,8 +35,10 @@ public sealed partial class JobStatusViewModel : ObservableObject
     /// <param name="text">Formats the pill and toast copy.</param>
     /// <param name="toasts">Receives a toast for each finished job.</param>
     /// <param name="gameName">Looks up a game's name by id; null for a game that is no longer in the library.</param>
-    public JobStatusViewModel(UiFormatter text, ToastHostViewModel toasts, Func<string, string?> gameName)
+    /// <param name="showsOutcome">Says whether something else already shows how a job ended, as the launch flow's card does for the save after play; null when nothing does.</param>
+    public JobStatusViewModel(UiFormatter text, ToastHostViewModel toasts, Func<string, string?> gameName, Func<Guid, bool>? showsOutcome = null)
     {
+        _showsOutcome = showsOutcome;
         _formatter = text;
         _toasts = toasts;
         _gameName = gameName;
@@ -70,13 +73,17 @@ public sealed partial class JobStatusViewModel : ObservableObject
         }
 
         _jobs[job.JobId] = job;
-        if (job.Status != JobStatus.Running && _reported.Add(job.JobId) && job.Kind != JobKind.Launch)
+        if (job.Status != JobStatus.Running && _reported.Add(job.JobId) && job.Kind != JobKind.Launch && !OutcomeShownElsewhere(job))
         {
             _toasts.Show(ToastFor(job));
         }
 
         Refresh();
     }
+
+    // A failure or half a save that a card already reports would be said twice, once more on top of the card's buttons.
+    private bool OutcomeShownElsewhere(JobSnapshot job) =>
+        job.Status is JobStatus.Failed or JobStatus.Partial && _showsOutcome?.Invoke(job.JobId) == true;
 
     /// <summary>Recomputes the pill from the jobs already held; the shell calls it when the games reload, so a pill written before a game's name was known catches up.</summary>
     public void Refresh()

@@ -31,8 +31,13 @@ public sealed record ViewModeOption(HistoryViewMode Mode, string Label);
 /// <param name="IsInUse">True for the point the install folder holds now; its dot is filled.</param>
 /// <param name="IsLast">True for the oldest entry; the rail ends at its dot.</param>
 /// <param name="AutomationName">What assistive technology calls the entry: the headline, the detail and the stamp as one line.</param>
-public sealed record TimelineEntryViewModel(string Headline, string Detail, string Stamp, bool IsInUse, bool IsLast, string AutomationName)
+/// <param name="GoBackAutomationName">The button's accessible name ("Go back to this: 14 mod files updated").</param>
+/// <param name="GoBackCommand">Starts the launch flow with both folders restored to this point.</param>
+public sealed record TimelineEntryViewModel(string Headline, string Detail, string Stamp, bool IsInUse, bool IsLast, string AutomationName, string GoBackAutomationName, ICommand GoBackCommand)
 {
+    /// <summary>True when the entry offers "Go back to this": it is not the point the install folder holds now.</summary>
+    public bool CanGoBack => !IsInUse;
+
     /// <summary>True while the rail continues below this entry.</summary>
     public bool HasRail => !IsLast;
 }

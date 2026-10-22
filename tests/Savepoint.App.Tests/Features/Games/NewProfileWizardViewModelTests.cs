@@ -330,7 +330,7 @@ public class NewProfileWizardViewModelTests
 
         Assert.Equal(WizardStep.Check, rig.Wizard.Step);
         Assert.True(rig.Wizard.HasSubmitError);
-        Assert.Equal("There's not enough free disk space to save this profile right now.", rig.Wizard.SubmitError);
+        Assert.Equal("There's not enough free disk space to save this profile right now. Free up about 1.2 GB on drive D: and try again.", rig.Wizard.SubmitError);
         Assert.Empty(rig.Backend.Jobs.Started);
 
         await rig.Wizard.ContinueCommand.ExecuteAsync(null);
@@ -513,11 +513,11 @@ public class NewProfileWizardViewModelTests
         var card = Assert.IsType<ErrorCardViewModel>(wizard.ResultCard);
         Assert.Equal("Half of that save worked", card.Title);
         Assert.Equal(
-            "Your game version and mods were saved. Your save files weren't. There's not enough free disk space to save this profile right now. Retry just that part; nothing you already saved is affected.",
+            "Your game version and mods were saved. Your save files weren't. There's not enough free disk space to save this profile right now. Free up about 1.2 GB on drive D: and try again. Retry just that part; nothing you already saved is affected.",
             card.Body);
         Assert.Equal(Icons.Warning, card.Icon);
         Assert.True(card.IsWarning);
-        Assert.False(card.HasPath);
+        Assert.Equal("D:", card.Path);
         var retry = Assert.Single(card.Actions);
         Assert.Equal("Retry the saves", retry.Label);
         Assert.True(retry.IsPrimary);
@@ -619,7 +619,7 @@ public class NewProfileWizardViewModelTests
         Assert.Equal(SaveState.Failed, rig.Wizard.State);
         var card = rig.Wizard.ResultCard!;
         Assert.Equal("There isn't enough room", card.Title);
-        Assert.Equal("There's not enough free disk space to save this profile right now.", card.Body);
+        Assert.Equal("There's not enough free disk space to save this profile right now. Free up about 1.2 GB on drive D: and try again.", card.Body);
         Assert.Equal("Try again", Assert.Single(card.Actions).Label);
         Assert.True(rig.Wizard.ShowClose);
 

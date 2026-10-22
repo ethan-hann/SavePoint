@@ -212,7 +212,7 @@ public class GamesScreenActionsTests
 
         var request = Assert.Single(rig.Dialogs.Confirmations);
         Assert.Equal("Delete Vanilla - latest update?", request.Title);
-        Assert.Equal("This removes the Vanilla - latest update profile and all its captured history. This can't be undone.", request.Message);
+        Assert.Equal("This removes the Vanilla - latest update profile and all its history. This can't be undone.", request.Message);
         Assert.Equal("Delete profile", request.ConfirmLabel);
         Assert.True(request.Destructive);
         Assert.Equal(["Modded playthrough - 7-2-26", "Survival test - 5-14-26"], rig.Screen.Profiles.Select(row => row.Name));
@@ -220,8 +220,8 @@ public class GamesScreenActionsTests
     }
 
     [Theory]
-    [InlineData(1, "1 point exists only in this profile. Deleting it loses that point for good, and the space is freed the next time storage is optimized. This can't be undone.")]
-    [InlineData(4, "4 points exist only in this profile. Deleting it loses those points for good, and the space is freed the next time storage is optimized. This can't be undone.")]
+    [InlineData(1, "1 point exists only in this profile. Deleting it loses that point for good, and the space is freed soon after. This can't be undone.")]
+    [InlineData(4, "4 points exist only in this profile. Deleting it loses those points for good, and the space is freed soon after. This can't be undone.")]
     public async Task Deleting_a_profile_names_how_many_points_only_it_holds(int points, string message)
     {
         var rig = await GamesRig.StartAsync(WithDeletePreview(Preview(MockupScenario.VanillaId, points)));
@@ -305,7 +305,7 @@ public class GamesScreenActionsTests
         var asked = Assert.Single(rig.Dialogs.Confirmations);
         Assert.Equal("Delete Skyrim Special Edition?", asked.Title);
         Assert.Equal(
-            "This removes Skyrim Special Edition from SavePoint, along with its 3 profiles and all captured history. This can't be undone. The files in your game folder and your saves folder are not touched.",
+            "This removes Skyrim Special Edition from SavePoint, along with its 3 profiles and all its history. This can't be undone. The files in your game folder and your saves folder are not touched.",
             asked.Message);
         Assert.Equal("Delete game", asked.ConfirmLabel);
         Assert.True(asked.Destructive);

@@ -168,7 +168,7 @@ public class ProfileDialogViewModelTests
 
         await dialog.SaveCommand.ExecuteAsync(null);
 
-        Assert.Equal("There's not enough free disk space to save this profile right now.", dialog.Error);
+        Assert.Equal("There's not enough free disk space to save this profile right now. Free up about 1.2 GB on drive D: and try again.", dialog.Error);
     }
 
     [Fact]

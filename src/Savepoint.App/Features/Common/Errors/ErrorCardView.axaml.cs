@@ -1,4 +1,6 @@
+using Avalonia;
 using Avalonia.Controls;
+using Savepoint.App.Features.Common.Accessibility;
 
 namespace Savepoint.App.Features.Common.Errors;
 
@@ -9,5 +11,15 @@ public partial class ErrorCardView : UserControl
     public ErrorCardView()
     {
         InitializeComponent();
+    }
+
+    /// <inheritdoc />
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        if (DataContext is ErrorCardViewModel card)
+        {
+            Announcements.Appeared(this, $"{card.Title} {card.Body}".Trim());
+        }
     }
 }

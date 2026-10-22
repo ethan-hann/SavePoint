@@ -1,8 +1,10 @@
 using Avalonia;
 using Avalonia.Automation;
+using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Savepoint.App.Features.Common.Art;
 using Savepoint.App.Tests.Theme;
 using Savepoint.App.Theme.Material;
@@ -72,6 +74,84 @@ public class ArtTileTests
         var (top, _) = ArtTint.Gradient("The Last Caretaker", dark: false);
 
         Assert.Equal(ArtTint.Hue("The Last Caretaker"), Hct.FromInt(top).Hue, 12.0);
+    }
+
+    [Theory]
+    [InlineData("Skyrim Special Edition", "SS")]
+    [InlineData("Satisfactory", "Sa")]
+    [InlineData("The Last Caretaker", "LC")]
+    [InlineData("The", "Th")]
+    [InlineData("A Plague Tale", "PT")]
+    [InlineData("Cyberpunk 2077", "C2")]
+    [InlineData("  baldur's gate 3 ", "BG")]
+    [InlineData("[Mod] Fallout", "MF")]
+    [InlineData("X", "X")]
+    [InlineData("", "")]
+    [InlineData("   ", "")]
+    public void The_initials_are_the_first_letters_of_the_first_two_words(string name, string expected)
+    {
+        Assert.Equal(expected, ArtTint.Initials(name));
+    }
+
+    [Fact]
+    public void An_initial_outside_the_basic_plane_is_not_cut_in_half()
+    {
+        // A mathematical script capital letter, which takes two UTF-16 units.
+        var script = string.Concat((char)0xD835, (char)0xDC9C);
+
+        Assert.Equal(script + "A", ArtTint.Initials(script + "ray Arcade"));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void The_initials_reach_4_5_to_1_on_both_ends_of_the_tint_for_every_hue(bool dark)
+    {
+        var failures = new List<string>();
+        for (var hue = 0; hue < 360; hue++)
+        {
+            var (top, bottom) = ArtTint.Gradient(hue, dark);
+            var color = ArtTint.InitialsColor(hue, dark);
+            var worst = Math.Min(Wcag.Ratio(color, top), Wcag.Ratio(color, bottom));
+            if (worst < 4.5)
+            {
+                failures.Add($"hue {hue}: {worst:0.00}");
+            }
+        }
+
+        Assert.True(failures.Count == 0, $"{(dark ? "Dark" : "Light")} initials below 4.5:1 for {failures.Count} hues, first {string.Join(", ", failures.Take(5))}");
+    }
+
+    [AvaloniaFact]
+    public void A_tile_draws_its_initials_over_the_tint_only_when_asked()
+    {
+        var tile = new ArtTile { GameName = "Skyrim Special Edition", Size = 24 };
+        using var host = new ThemeHost(tile, ThemePreference.Dark);
+        Assert.Equal(string.Empty, tile.Initials);
+
+        tile.ShowInitials = true;
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal("SS", tile.Initials);
+        var text = tile.GetVisualDescendants().OfType<TextBlock>().Single(block => block.IsEffectivelyVisible);
+        Assert.Equal("SS", text.Text);
+        Assert.Equal(Color.FromUInt32(ArtTint.InitialsColor(ArtTint.Hue("Skyrim Special Edition"), dark: true)), ((ISolidColorBrush)text.Foreground!).Color);
+
+        tile.GameName = "Satisfactory";
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal("Sa", tile.Initials);
+    }
+
+    [AvaloniaFact]
+    public void The_initials_are_decoration_beside_the_name_that_assistive_technology_already_has()
+    {
+        var tile = new ArtTile { GameName = "Skyrim Special Edition", Size = 24, ShowInitials = true };
+        using var host = new ThemeHost(tile, ThemePreference.Dark);
+
+        var text = tile.GetVisualDescendants().OfType<TextBlock>().Single(block => block.IsEffectivelyVisible);
+
+        Assert.Equal(AccessibilityView.Raw, AutomationProperties.GetAccessibilityView(tile));
+        Assert.Equal(AccessibilityView.Raw, AutomationProperties.GetAccessibilityView(text));
     }
 
     [AvaloniaFact]

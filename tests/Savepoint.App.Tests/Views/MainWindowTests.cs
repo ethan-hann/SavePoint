@@ -7,6 +7,7 @@ using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Localization;
 using Savepoint.App.Tests.Fakes;
+using Savepoint.App.Tests.Theme;
 using Savepoint.App.Views;
 using Savepoint.Core.Api;
 
@@ -45,8 +46,20 @@ public class MainWindowTests
 
         Assert.Equal(1040, window.Width);
         Assert.Equal(660, window.Height);
-        Assert.Equal(760, window.MinWidth);
-        Assert.Equal(520, window.MinHeight);
+        Assert.Equal(640, window.MinWidth);
+        Assert.Equal(420, window.MinHeight);
+    }
+
+    [AvaloniaFact]
+    public void The_minimum_size_fits_the_work_area_of_the_scaled_screens()
+    {
+        var window = new MainWindow();
+
+        foreach (var (name, width, height) in LayoutAudit.ScaledScreens)
+        {
+            Assert.True(window.MinWidth <= width, $"A {window.MinWidth} px minimum width does not fit {name} ({width} px).");
+            Assert.True(window.MinHeight <= height, $"A {window.MinHeight} px minimum height does not fit {name} ({height} px).");
+        }
     }
 
     [AvaloniaFact]

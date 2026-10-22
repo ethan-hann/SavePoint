@@ -22,7 +22,7 @@
         <TextBlock Classes="row-title" Text="Row title 13.5" />
         <TextBlock Classes="body" Text="Body 13: Here's exactly what SavePoint will change before the game starts." TextWrapping="Wrap" />
         <TextBlock Classes="caption" Text="Caption 12 in onSurfaceVariant" />
-        <TextBlock Classes="timestamp" Text="Timestamp 11.5 in outline" />
+        <TextBlock Classes="timestamp" Text="Timestamp 11.5 in subtle text" />
         <TextBlock Classes="overline" Text="OVERLINE 11 WITH 0.5 TRACKING" />
         <TextBlock Classes="mono" Text="C:\Games\SkyrimSE  mono 12" />
         <StackPanel Orientation="Horizontal" Spacing="10">

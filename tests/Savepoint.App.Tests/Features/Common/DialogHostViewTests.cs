@@ -124,6 +124,22 @@ public class DialogHostViewTests
     }
 
     [AvaloniaFact]
+    public void Clicking_the_scrim_leaves_a_dialog_with_input_or_a_decision_open_but_escape_still_closes_it()
+    {
+        using var harness = new Harness();
+        var pending = harness.Open(new SampleDialogViewModel { ScrimDismisses = false });
+
+        harness.Click(new Point(6, 6));
+
+        Assert.False(pending.IsCompleted);
+        Assert.True(harness.Host.IsOpen);
+
+        harness.Press(Key.Escape, PhysicalKey.Escape);
+
+        Assert.True(pending.IsCompleted);
+    }
+
+    [AvaloniaFact]
     public void Clicking_the_scrim_leaves_a_dialog_that_cannot_be_dismissed_open()
     {
         using var harness = new Harness();

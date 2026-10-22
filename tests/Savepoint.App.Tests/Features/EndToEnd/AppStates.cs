@@ -24,6 +24,8 @@ internal static class AppStates
         "games-banner",
         "games-banner-details",
         "games-running",
+        "games-checking",
+        "games-loading",
         "games-failure-card",
         "games-delete-game",
         "games-delete-profile",
@@ -32,6 +34,7 @@ internal static class AppStates
         "games-new-profile-wizard",
         "launch-dialog",
         "launch-dialog-unsaved",
+        "launch-dialog-saving",
         "launch-dialog-keep-as-new",
         "launch-progress",
         "launch-post-play",
@@ -50,6 +53,7 @@ internal static class AppStates
         "editor-reconnect",
         "startup-git-unavailable",
         "startup-corrupt-catalog",
+        "library-error",
         "toast",
         "job-pill",
     ];
@@ -77,6 +81,14 @@ internal static class AppStates
     private const string _gitPath = @"C:\Program Files\SavePoint\git\cmd\git.exe";
     private const string _catalogDirectory = @"C:\Users\you\AppData\Roaming\SavePoint";
 
+    // The first read of the game list fails, as a catalog that cannot be reached would.
+    private static FakeBackend LibraryUnreadable()
+    {
+        var backend = FakeBackend.Mockup();
+        backend.FailNext<IGamesApi>(nameof(IGamesApi.ListAsync), ErrorInfo.From(new CatalogCorruptException(_catalogDirectory + @"\games.json", null)));
+        return backend;
+    }
+
     private static FakeBackend StartupBackend(StartupStatus status) => new(ScenarioBuilder.Mockup().WithStartupStatus(status));
 
     private static ProfileRowViewModel Row(ComposedApp app, string id) => app.Games.Profiles.Single(row => row.Id == id);
@@ -91,6 +103,7 @@ internal static class AppStates
                 .WithSettings(MockupScenario.Settings)
                 .WithProfile(new Profile("profile-empty", _skyrim, "Fresh profile", "profile/profile-empty")))),
             "first-run" or "first-run-templates" => await ComposedApp.StartWithViewAsync(new FakeBackend(ScenarioBuilder.Empty().WithSettings(MockupScenario.Settings))),
+            "library-error" => await ComposedApp.StartWithViewAsync(LibraryUnreadable(), visitScreens: false),
             "startup-git-unavailable" => await ComposedApp.StartWithViewAsync(StartupBackend(new StartupStatus(
                 new GitStatus(false, _gitPath, null, ErrorInfo.From(new GitUnavailableException(_gitPath, "git exited with 127: not found", null))),
                 new CatalogStatus(_catalogDirectory, []))), visitScreens: false),
@@ -116,6 +129,16 @@ internal static class AppStates
                 _ = Row(app, MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null);
                 app.Backend.Launch.ReportRunning(_skyrim, MockupScenario.RunningSince);
                 break;
+            case "games-checking":
+                // The scan never returns, so the card that says it is checking stays on screen.
+                app.Backend.Launch.PreviewGate = token => new TaskCompletionSource().Task.WaitAsync(token);
+                _ = Row(app, MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null);
+                break;
+            case "games-loading":
+                // The first read of another game never returns, so the loading panel stays on screen.
+                app.Backend.Profiles.ListGate = token => new TaskCompletionSource().Task.WaitAsync(token);
+                app.Shell.SelectGame(MockupScenario.SatisfactoryId);
+                break;
             case "games-failure-card":
                 app.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync), MockupScenario.FileInUseError);
                 _ = Row(app, MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null);
@@ -140,6 +163,11 @@ internal static class AppStates
                 break;
             case "launch-dialog-unsaved":
                 _ = Row(app, MockupScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
+                break;
+            case "launch-dialog-saving":
+                _ = Row(app, MockupScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
+                _ = app.Dialog<LaunchDialogViewModel>().UnsavedBlocks[0].SaveFirstCommand.ExecuteAsync(null);
+                app.Backend.Jobs.ReportProgress(app.Backend.Jobs.LastStarted(JobKind.Capture).JobId, new JobProgress(FilesDone: 410, FilesTotal: 1000));
                 break;
             case "launch-dialog-keep-as-new":
                 _ = Row(app, MockupScenario.SurvivalId).PlayCommand.ExecuteAsync(null);

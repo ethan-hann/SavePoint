@@ -7,8 +7,8 @@
         Icon="/Assets/Icon/savepoint-256.png"
         Width="1040"
         Height="660"
-        MinWidth="760"
-        MinHeight="520"
+        MinWidth="640"
+        MinHeight="420"
         WindowStartupLocation="CenterScreen">
   <shell:MainView />
 </Window>

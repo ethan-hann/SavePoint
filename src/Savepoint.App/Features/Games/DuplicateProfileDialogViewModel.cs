@@ -27,6 +27,9 @@ public sealed class DuplicateProfileDialogViewModel : ProfileFormDialogViewModel
     public string Body { get; }
 
     /// <inheritdoc />
+    public override string Description => Body;
+
+    /// <inheritdoc />
     protected override async Task<ErrorInfo?> SubmitAsync()
     {
         var copied = await _duplicate(Name.Trim());
