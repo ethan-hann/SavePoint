@@ -46,7 +46,7 @@ public class PlayJourneyTests
         Assert.Equal([CompletionChoice.CaptureNew, CompletionChoice.UpdateExisting, CompletionChoice.Skip], postPlay.Choices.Select(choice => choice.Kind));
         Assert.Equal(CompletionChoice.CaptureNew, postPlay.SelectedChoice.Kind);
         Assert.Equal("Save it", postPlay.PrimaryLabel);
-        Assert.Contains("Update \"Vanilla\" instead", postPlay.Choices.Select(choice => choice.Title));
+        Assert.Contains("Replace \"Vanilla\" with this session", postPlay.Choices.Select(choice => choice.Title));
         var written = FolderSnapshot.Of(game.Saves);
         Assert.NotEmpty(written);
         Assert.Equal(rig.Text.Message("launch.postPlay.body", ("count", written.Count)), postPlay.Body);

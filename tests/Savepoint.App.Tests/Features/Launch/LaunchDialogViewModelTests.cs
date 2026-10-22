@@ -353,7 +353,7 @@ public class LaunchDialogViewModelTests : IDisposable
         var request = Assert.Single(_rig.Dialogs.Confirmations);
         Assert.Equal("Discard these changes?", request.Title);
         Assert.Equal(
-            $"The saves folder ({MockupScenario.SkyrimSaves}) goes back to how it was when it was last saved. 2 new files are deleted. 1 changed file is put back. This can't be undone.",
+            $"The saves folder ({MockupScenario.SkyrimSaves}) goes back to its last snapshot. Progress you saved in the game since then is lost. 2 new files are deleted. 1 changed file is put back as it was. This can't be undone.",
             request.Message);
         Assert.Equal("Discard them, permanently", request.ConfirmLabel);
         Assert.True(request.Destructive);

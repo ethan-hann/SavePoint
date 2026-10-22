@@ -25,7 +25,7 @@
   "gameEditor.cloudSaves": "Turn off cloud saves for this game in its store, such as Steam Cloud or GOG Galaxy. Otherwise the store can sync older saves over the ones SavePoint puts back.",
   "gameEditor.consent.confirm": "Confirm and save",
   "gameEditor.consent.install": "Game install folder",
-  "gameEditor.consent.message": "{count, plural, one {SavePoint will keep copies of everything in this folder and put files back inside it when you switch profiles. It also leaves a small file in the folder to remember you chose it. Make sure this is the right one.} other {SavePoint will keep copies of everything in these folders and put files back inside them when you switch profiles. It also leaves a small file in each folder to remember you chose it. Make sure these are the right ones.}}",
+  "gameEditor.consent.message": "{count, plural, one {SavePoint takes snapshots of everything in this folder. When you switch profiles, it makes the folder match that profile: it puts files back and removes files that profile doesn't have. It also leaves a small file in the folder to remember you chose it. Make sure this is the right one.} other {SavePoint takes snapshots of everything in these folders. When you switch profiles, it makes the folders match that profile: it puts files back and removes files that profile doesn't have. It also leaves a small file in each folder to remember you chose it. Make sure these are the right ones.}}",
   "gameEditor.consent.saves": "Saves folder",
   "gameEditor.consent.title": "{count, plural, one {Confirm this folder} other {Confirm these folders}}",
   "gameEditor.discard.confirm": "Discard changes",

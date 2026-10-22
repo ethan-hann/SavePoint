@@ -75,7 +75,7 @@ public class UnsavedChangesJourneyTests
         Assert.Equal("Discard these changes?", question.Title);
         Assert.Contains(game.Install, question.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("1 new file is deleted.", question.Message, StringComparison.Ordinal);
-        Assert.Contains("1 changed file is put back.", question.Message, StringComparison.Ordinal);
+        Assert.Contains("1 changed file is put back as it was.", question.Message, StringComparison.Ordinal);
         Assert.Contains("This can't be undone.", question.Message, StringComparison.Ordinal);
         Assert.Equal("Discard them, permanently", question.ConfirmLabel);
         Assert.True(question.IsDestructive);

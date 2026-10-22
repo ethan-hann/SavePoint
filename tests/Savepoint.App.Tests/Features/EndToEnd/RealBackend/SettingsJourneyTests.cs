@@ -61,7 +61,7 @@ public class SettingsJourneyTests
 
         // The question says what goes and what stays, and will not go ahead until the word is typed.
         Assert.Equal("Remove all SavePoint data?", dialog.Title);
-        Assert.Equal("1 game and 2 profiles, with all their saved history", dialog.Items[0]);
+        Assert.Equal("1 game and 2 profiles, with all their snapshots", dialog.Items[0]);
         Assert.Contains(rig.StorageRoot, dialog.Items[1], StringComparison.OrdinalIgnoreCase);
         Assert.StartsWith("Your game folders and everything in them stay exactly as they are.", dialog.Stays, StringComparison.Ordinal);
         Assert.Equal("Type DELETE to confirm.", dialog.Prompt);

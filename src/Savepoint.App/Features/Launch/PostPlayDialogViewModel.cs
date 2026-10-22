@@ -176,7 +176,7 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
                 CompletionChoice.UpdateExisting,
                 Icons.Edit,
                 _text.Message("launch.postPlay.update.title", ("pointName", target.Name)),
-                _text.Message("launch.postPlay.update.sub")));
+                _text.Message("launch.postPlay.update.sub", ("pointName", target.Name))));
         }
 
         if (offered.Contains(CompletionChoice.ForkNewProfile))
@@ -196,7 +196,7 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
                 CompletionChoice.MoveForward,
                 Icons.History,
                 _text.Message("launch.postPlay.move.title", ("profileName", _profileName)),
-                _text.Message("launch.postPlay.move.sub", ("count", _options.NewerPointCount))));
+                _text.Message("launch.postPlay.move.sub", ("count", _options.NewerPointCount), ("profileName", _profileName))));
         }
 
         cards.Add(new PostPlayChoiceViewModel(
