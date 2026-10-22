@@ -338,6 +338,23 @@ Velopack's Windows setup installs into `%LOCALAPPDATA%\<pack id>`, and on instal
 - **Uninstalling keeps the user's data.** To remove that too, use "Remove all SavePoint data" before uninstalling.
 - **A storage move refuses a destination inside SavePoint's own install folder,** since the next update or uninstall would delete it.
 
+## D39. Calls on the final gap analysis
+
+The final gap analysis (`.tools/reviews/gap-final.md`, GAP-001 to GAP-027) is settled as follows:
+
+- **Languages (GAP-010, GAP-011; refines D20).** v2 ships English only. Catalogs are embedded at build time, so adding a language means adding `Localization/Assets/Lang/<code>/*.json` and rebuilding, not dropping in a file. Settings shows no language list until a second catalog exists. The saved locale stays `en`, and its validation message says only that the language is not available. The developer guide gets an "Adding a language" section.
+- **API reference (GAP-013; refines D24).** No generated API reference site. SavePoint is an application with no SDK, and the XML docs already reach every IDE. D24's compiler enforcement stays for Core. The App's public surface exists for XAML binding, so CS1591 stays off there, and the App documents its non-obvious contracts by hand (GAP-027).
+- **Profile rows (GAP-016).** A row stays a tab stop, because it carries the row's spoken summary, and Enter on a focused row starts Play. The table's semantics stay as they are.
+- **Built for the polish pass:**
+  - real byte progress during a switch (GAP-009);
+  - the single-instance lock-file fallback, with the app icon on the "already running" window (GAP-014);
+  - the unreachable stand-ins removed from the shipped app: `startup.unavailable.*`, `StartupPhase.Unavailable`, and the placeholder screen with its copy (GAP-017);
+  - path-safety and overlap errors that carry the folder's role (GAP-015);
+  - a copy pass (GAP-018, GAP-019): American spelling, one dash style (an em dash for asides, never a spaced hyphen), and helper lines that end with a period;
+  - re-rendering 2a-2l and 3a-3c, reviewed against the mockups (GAP-007).
+- **Left to the owner (GAP-004, GAP-006, GAP-008):** the manual dogfood run, code signing, the MSYS2 and MINGW source archives, and SavePoint's own license.
+- **The final code review (GAP-005)** runs after the polish pass, over everything since the backend review.
+
 ## D8. "Clear all data" is a v2 requirement
 
 The v1 README lists "add a clear all data button" as an open TODO. v2 ships it in Settings behind a typed confirmation. It removes SavePoint's own storage, catalog, and consent markers, and never deletes or rolls back files in a game's install or save folders: whatever is on disk at that moment stays as it is.
