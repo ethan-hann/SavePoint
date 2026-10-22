@@ -41,6 +41,16 @@ internal sealed record FolderReading(FolderTarget Target, RepoStatus Status, IRe
     // place needs none.
     public bool NeedsSwitch => !InPlace || Note is not null;
 
-    public static async Task<FolderReading> ReadAsync(GitEngine engine, FolderTarget target, IReadOnlyList<Profile> profiles, CancellationToken cancellationToken) =>
-        new(target, await engine.GetStatusAsync(target.Repo, cancellationToken).ConfigureAwait(false), profiles);
+    public static async Task<FolderReading> ReadAsync(GitEngine engine, FolderTarget target, IReadOnlyList<Profile> profiles, CancellationToken cancellationToken)
+    {
+        var status = await engine.GetStatusAsync(target.Repo, cancellationToken).ConfigureAwait(false);
+
+        // A folder nobody has saved yet holds nothing a launch could lose; its files are whatever the game keeps there, and the next save picks them up.
+        if (target.Leave && status.HeadCommit is null)
+        {
+            status = status with { IsClean = true, ChangedPaths = [], UntrackedPaths = [] };
+        }
+
+        return new FolderReading(target, status, profiles);
+    }
 }

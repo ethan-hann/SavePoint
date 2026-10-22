@@ -100,11 +100,13 @@ internal static class TargetResolver
         {
             var lineage = await storage.Engine.ListCommitsAsync(repo, profile.BranchName, null, cancellationToken).ConfigureAwait(false);
 
-            // A saves folder the profile never saved (one added after the profile was made) is left as it is; the next save adds it (D31).
+            // A saves folder the profile never saved (one added after the profile was made) is left as it is, but it is read like every
+            // other folder: another profile's unsaved changes there still block the launch. The next save starts its history (D31, D37).
             if (lineage.Count == 0)
             {
                 if (repo.Role == RepoRole.External)
                 {
+                    folders.Add(FolderTarget.Left(repo));
                     continue;
                 }
 

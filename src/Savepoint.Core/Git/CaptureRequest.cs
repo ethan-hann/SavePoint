@@ -14,13 +14,19 @@ public enum CaptureMode
 
     /// <summary>Moves an existing branch to the folder's current commit without touching files, switches to it, and commits there.</summary>
     MoveForward,
+
+    /// <summary>
+    /// Starts a new branch with a point of its own that has no earlier point behind it, holding what the folder holds now, and switches to
+    /// it without touching files. The branch may be started whatever branch the folder is on, and a point is written even when nothing changed.
+    /// </summary>
+    Root,
 }
 
 /// <summary>What to capture and how it is recorded.</summary>
 public sealed record CaptureRequest
 {
     /// <summary>Describes a capture. See each property for what is checked.</summary>
-    /// <param name="branch">The profile's branch. For <see cref="CaptureMode.Fork"/> it is the new branch and must not exist yet.</param>
+    /// <param name="branch">The profile's branch. For <see cref="CaptureMode.Fork"/> and <see cref="CaptureMode.Root"/> it is the new branch and must not exist yet.</param>
     /// <param name="message">The point's name, stored as the commit subject.</param>
     /// <param name="captureId">Written into the commit as a <c>Savepoint-Capture</c> trailer so the commits of one capture event can be grouped exactly.</param>
     /// <exception cref="ArgumentException">The branch name is not one git accepts, the message is blank, contains NUL or the unit separator character, or has a line that starts like the capture id trailer, or the capture id is empty or contains whitespace.</exception>

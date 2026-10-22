@@ -8,7 +8,7 @@ public sealed partial class GitEngine
     /// Records the folder's current contents as a point on a branch, as described by <paramref name="request"/>.
     /// Nothing in the work tree is written or switched. A new file named by the request's ignore patterns, or the
     /// consent marker, is not added; a file an earlier point already holds stays in the history and is recorded again
-    /// when it changes, whatever the patterns say now. A fork or a move forward writes its new point first and then creates or
+    /// when it changes, whatever the patterns say now. A fork, a root or a move forward writes its new point first and then creates or
     /// moves the branch with one ref update, so a stop or a failure before that update leaves every branch and HEAD where they were.
     /// </summary>
     /// <param name="repo">The folder to capture; its repository must exist.</param>
@@ -27,7 +27,7 @@ public sealed partial class GitEngine
     /// <exception cref="Savepoint.Core.Errors.OperationCancelledByUserException">The token was cancelled.</exception>
     /// <exception cref="Savepoint.Core.Errors.NestedRepositoryException">A folder in the game keeps its own history; nothing was staged.</exception>
     /// <exception cref="Savepoint.Core.Errors.SessionMovedException">A fork or move forward was asked for, but the folder is not on the session's start point or after it.</exception>
-    /// <exception cref="Savepoint.Core.Errors.ProfileAlreadyExistsException">A fork was asked for onto a branch that exists at a different point.</exception>
+    /// <exception cref="Savepoint.Core.Errors.ProfileAlreadyExistsException">A fork or a root was asked for onto a branch that exists at a different point.</exception>
     /// <exception cref="Savepoint.Core.Errors.ProfileHasNoPointsException">A move forward was asked for on a branch that has no point.</exception>
     /// <exception cref="Savepoint.Core.Errors.GitOperationException">git failed, or the request does not fit the repository's state.</exception>
     public async Task<CaptureOutcome> CaptureAsync(RepoRef repo, CaptureRequest request, IProgress<FileProgress>? progress = null, CancellationToken ct = default)
@@ -89,6 +89,7 @@ public sealed partial class GitEngine
             CaptureMode.Normal => await CaptureNormalAsync(repo, request, head, tip, progress, ct).ConfigureAwait(false),
             CaptureMode.Amend => await CaptureAmendAsync(repo, request, head, tip, progress, ct).ConfigureAwait(false),
             CaptureMode.Fork => await CaptureForkAsync(repo, request, head, tip, progress, ct).ConfigureAwait(false),
+            CaptureMode.Root => await CaptureRootAsync(repo, request, head, tip, progress, ct).ConfigureAwait(false),
             CaptureMode.MoveForward => await CaptureMoveForwardAsync(repo, request, head, tip, progress, ct).ConfigureAwait(false),
             _ => throw new ArgumentOutOfRangeException(nameof(request), request.Mode, "Unknown capture mode."),
         };
@@ -159,6 +160,41 @@ public sealed partial class GitEngine
         return new CaptureOutcome(changed, commit);
     }
 
+    private async Task<CaptureOutcome> CaptureRootAsync(
+        RepoRef repo,
+        CaptureRequest request,
+        HeadState head,
+        string? tip,
+        IProgress<FileProgress>? progress,
+        CancellationToken ct)
+    {
+        // Nothing is saved here yet: the first capture of the repository already is a history of its own.
+        if (tip is null)
+        {
+            return await CaptureNormalAsync(repo, request, head, tip, progress, ct).ConfigureAwait(false);
+        }
+
+        // A branch left by an earlier attempt that was stopped is picked up, not refused: it holds the point this capture recorded.
+        var existing = await ResolveBranchAsync(repo, request.Branch, ct).ConfigureAwait(false);
+        if (existing is not null)
+        {
+            if (!await IsPointOfCaptureAsync(repo, existing, null, request.CaptureId, ct).ConfigureAwait(false))
+            {
+                throw new ProfileAlreadyExistsException(request.Branch);
+            }
+
+            await AttachHeadAsync(repo, request.Branch, head).ConfigureAwait(false);
+            return new CaptureOutcome(true, existing);
+        }
+
+        // Written before any ref changes, like a fork, so a stop up to the one ref write leaves every ref and HEAD where they were.
+        await StageAsync(repo, progress, ct).ConfigureAwait(false);
+        var commit = await WriteCommitAsync(repo, request, null, ct).ConfigureAwait(false);
+        await RefWriteAsync(repo, request.Branch, commit, () => CreateBranchRefAsync(repo, request.Branch, commit, "savepoint: start branch", ct)).ConfigureAwait(false);
+        await AttachHeadAsync(repo, request.Branch, head).ConfigureAwait(false);
+        return new CaptureOutcome(true, commit);
+    }
+
     private async Task<CaptureOutcome> CaptureMoveForwardAsync(
         RepoRef repo,
         CaptureRequest request,
@@ -218,12 +254,13 @@ public sealed partial class GitEngine
         }
     }
 
-    // Writes the staged tree as a point on top of <parent> and moves no ref; the id is all there is to it until a ref names it.
-    private async Task<string> WriteCommitAsync(RepoRef repo, CaptureRequest request, string parent, CancellationToken ct)
+    // Writes the staged tree as a point on top of <parent> (a point with nothing behind it when null) and moves no ref; the id is all there is to it until a ref names it.
+    private async Task<string> WriteCommitAsync(RepoRef repo, CaptureRequest request, string? parent, CancellationToken ct)
     {
         var tree = (await RunWriteAsync(() => Invocation(repo, readOnly: false, "write-tree"), ct).ConfigureAwait(false)).StandardOutput.Trim();
         var message = CommitMessage.Compose(request.Message, request.CaptureId, request.CapturedAt ?? _options.Clock.GetUtcNow());
-        var result = await RunWriteAsync(() => Invocation(repo, readOnly: false, "commit-tree", tree, "-p", parent, "-F", "-") with { Stdin = message }, ct).ConfigureAwait(false);
+        string[] arguments = parent is null ? ["commit-tree", tree, "-F", "-"] : ["commit-tree", tree, "-p", parent, "-F", "-"];
+        var result = await RunWriteAsync(() => Invocation(repo, readOnly: false, arguments) with { Stdin = message }, ct).ConfigureAwait(false);
         return result.StandardOutput.Trim();
     }
 
@@ -232,14 +269,16 @@ public sealed partial class GitEngine
     private Task AttachHeadAsync(RepoRef repo, string branch, HeadState head) =>
         string.Equals(head.Branch, branch, StringComparison.Ordinal) ? Task.CompletedTask : SetHeadAsync(repo, branch, CancellationToken.None);
 
-    // True when <commit> is the point a capture with this id recorded straight on top of <parent>: what a stopped attempt of the same capture left.
-    private async Task<bool> IsPointOfCaptureAsync(RepoRef repo, string commit, string parent, string captureId, CancellationToken ct)
+    // True when <commit> is the point a capture with this id recorded straight on top of <parent> (with nothing behind it when null): what a stopped attempt of the same capture left.
+    private async Task<bool> IsPointOfCaptureAsync(RepoRef repo, string commit, string? parent, string captureId, CancellationToken ct)
     {
         var result = await RunAsync(
             GitDirOnly(repo, "log", "-1", "--format=%P%x1f%(trailers:key=Savepoint-Capture,valueonly,separator=%x2c)", commit, "--"),
             ct).ConfigureAwait(false);
-        var fields = result.StandardOutput.Trim().Split('\x1f');
-        return fields.Length == 2 && string.Equals(fields[0].Trim(), parent, StringComparison.Ordinal) && string.Equals(fields[1].Trim(), captureId, StringComparison.Ordinal);
+
+        // The unit separator counts as white space, so only the line end is trimmed or a point with no parent would lose its first field.
+        var fields = result.StandardOutput.TrimEnd('\r', '\n').Split('\x1f');
+        return fields.Length == 2 && string.Equals(fields[0].Trim(), parent ?? string.Empty, StringComparison.Ordinal) && string.Equals(fields[1].Trim(), captureId, StringComparison.Ordinal);
     }
 
     // The folder has to be on the point the session started from, or on a later one; anything else means it was changed behind the session's back.

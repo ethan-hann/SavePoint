@@ -32,7 +32,8 @@ internal sealed class LaunchRig : IDisposable
 
     public BackendWorkspace Workspace { get; }
 
-    public GameDefinition Game { get; }
+    // The game as the catalog holds it; a saves folder added later through AddSavesFolderAsync replaces it.
+    public GameDefinition Game { get; private set; }
 
     // At most eight characters, so the kernel's 15-character process name keeps it whole.
     public string ExeName { get; }
@@ -148,6 +149,17 @@ internal sealed class LaunchRig : IDisposable
 
     // Saves a profile from what the folders hold now.
     public async Task<Profile> ProfileAsync(string name) => (await Workspace.CreateProfileAsync(Game, name)).Profile;
+
+    // Gives a game that had no saves folder one holding a save, as a player does later through Edit game; returns the folder.
+    public async Task<string> AddSavesFolderAsync(string saveFile = "slot1.sav", string content = "the player's own save")
+    {
+        var saves = Path.Combine(Workspace.GamesRoot, "later-saves");
+        BackendWorkspace.WriteFile(Path.Combine(saves, saveFile), content);
+        var updated = await Workspace.Games.UpdateAsync(Game with { External = new ExternalLocation(saves) });
+        Assert.True(updated.Ok, updated.Error?.Detail);
+        Game = updated.Value;
+        return saves;
+    }
 
     public void WriteInstall(string relativePath, string content) => BackendWorkspace.WriteFile(Path.Combine(InstallPath, relativePath), content);
 
