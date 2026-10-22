@@ -396,6 +396,16 @@ The recheck (`.tools/reviews/final-recheck.md`) found 25 of 38 items fixed and n
 4. **The Linux package is built from Windows like the Linux gate (RF-007).** A Windows wrapper checks the commit out into the Linux-only worktree, checks it is clean with Windows git, and hands the commit to `package.sh`, which uses a commit given to it instead of asking git.
 5. **YAGNI-002 is done now (recheck note):** the reason to defer it ended with the merge.
 
+## D43. Calls on the focused review of the last fix round
+
+The focused review (`.tools/reviews/last-round.md`) found one CRIT: a switch or a discard that writes a file where the player's disk holds a folder deletes every ignore-listed file inside it, because git treats ignored files as expendable (LR-001). It is settled as follows:
+
+1. **A file and a folder cannot share a path, so the switch refuses rather than delete (amends D41.2).** When a switch or a discard would write a file where the work tree holds a folder that still has files the operation does not itself remove (ignore-listed or untracked), or would make a folder where the work tree holds an untracked or ignore-listed file, it refuses before it writes anything, with its own error that names the folder and the file. The player moves or deletes those files, then tries again. Silently deleting a file the player asked SavePoint to leave alone is never acceptable; leaving the profile's file unwritten would leave the install silently incomplete. The check is on the file system, not on git's rule for ignored files.
+2. **Aligning the index never loses an entry silently (LR-002).** The alignment works on a copy of the index and is compared with the original before it is swapped in; clean profile content that a named path displaces is handled under the switch journal, and any refusal puts the saved original index back as it was.
+3. **"Find the folder" walks every folder of a candidate git directory for links, and every recursive walk in the engine skips links (LR-003).** A repository can gain a link after it was adopted, so the walks are link-safe on their own.
+4. **A git directory cannot redirect git (LR-009).** Every git process runs with `GIT_COMMON_DIR` set to the git directory, and "Find the folder" refuses a candidate whose git directory holds a `commondir` file or whose `objects/info/alternates` names a path.
+5. The SUGGs (LR-004 to LR-008) are fixed as the review recommends, or skipped by the fix agent with a one-line reason.
+
 ## D8. "Clear all data" is a v2 requirement
 
 The v1 README lists "add a clear all data button" as an open TODO. v2 ships it in Settings behind a typed confirmation. It removes SavePoint's own storage, catalog, and consent markers, and never deletes or rolls back files in a game's install or save folders: whatever is on disk at that moment stays as it is.
