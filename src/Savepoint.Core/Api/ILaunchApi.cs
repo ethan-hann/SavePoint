@@ -60,8 +60,10 @@ public interface ILaunchApi
     Task<OperationResult<Unit>> DiscardChangesAsync(string gameId, RepoRole folder);
 
     /// <summary>
-    /// "I'm done playing": ends the wait for the game to exit without stopping the game, so the session moves to Exited. Fails with
-    /// <c>error.launch.noActiveSession</c> when the game has no open session.
+    /// "I'm done playing": ends the wait for the game to exit without stopping the game, so the session moves to Exited. Does
+    /// nothing when the session has already exited or is completing. Fails with <c>error.launch.noActiveSession</c> when the game
+    /// has no open session, and also while its session is still preparing or switching, since there is no running game to stop
+    /// waiting for yet.
     /// </summary>
     /// <param name="gameId">The game.</param>
     Task<OperationResult<Unit>> MarkFinishedAsync(string gameId);
