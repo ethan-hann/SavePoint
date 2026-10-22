@@ -72,7 +72,7 @@ public sealed partial class GitEngine
         var newFiles = (await untracked.ConfigureAwait(false)).Files;
         if (changedPaths.Count > 0 || newFiles.Count > 0)
         {
-            throw OnlyHeldChanges(repo, changedPaths, newFiles.Count)?.ToException() ?? new DirtyWorkingTreeException(repo.Role);
+            throw OnlyHeldChanges(repo, changedPaths, newFiles.Count)?.ToException(HeldFileOperation.Switch) ?? new DirtyWorkingTreeException(repo.Role);
         }
     }
 

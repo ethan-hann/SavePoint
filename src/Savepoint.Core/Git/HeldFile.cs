@@ -12,6 +12,16 @@ public enum HeldFileKind
     Unreadable,
 }
 
+/// <summary>What could not go on because a file could not be read.</summary>
+public enum HeldFileOperation
+{
+    /// <summary>A switch of the folder to a point.</summary>
+    Switch,
+
+    /// <summary>A save of the folder.</summary>
+    Save,
+}
+
 /// <summary>
 /// A file git could not read, so it reports it as changed whether or not anyone changed it. When every change in a folder is such a
 /// file, the folder has no unsaved work, and the file is what stands in the way instead.
@@ -21,7 +31,8 @@ public enum HeldFileKind
 public sealed record HeldFile(string Path, HeldFileKind Kind)
 {
     /// <summary>The error a switch or a save that has to read this file stops with.</summary>
-    public SavepointException ToException() => Kind == HeldFileKind.InUse
-        ? new GitOperationException(Path, $"'{Path}' is in use by another program, so the folder could not be switched.")
+    /// <param name="operation">What stopped, which the developer text names.</param>
+    public SavepointException ToException(HeldFileOperation operation) => Kind == HeldFileKind.InUse
+        ? new GitOperationException(Path, $"'{Path}' is in use by another program, so the folder could not be {(operation == HeldFileOperation.Save ? "saved" : "switched")}.")
         : new FileUnreadableException(Path);
 }

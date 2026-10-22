@@ -61,6 +61,28 @@ public sealed class GitOutputParsingTests
         Assert.False(GitFailure.RefusedToOverwrite("fatal: not a git repository\n"));
     }
 
+    [Fact]
+    public void The_files_git_could_not_add_are_the_ones_it_says_it_could_not_index()
+    {
+        const string stderr =
+            "error: open(\"Saves/slot 1.sav\"): Permission denied\r\n"
+            + "error: unable to index file 'Saves/slot 1.sav'\r\n"
+            + "error: open(\"it's.txt\"): Permission denied\r\n"
+            + "error: unable to index file 'it's.txt'\r\n"
+            + "fatal: adding files failed\r\n";
+
+        Assert.Equal(["Saves/slot 1.sav", "it's.txt"], GitFailure.UnindexedPaths(stderr));
+    }
+
+    [Theory]
+    [InlineData("fatal: Unable to create 'x/index.lock': File exists.\n")]
+    [InlineData("error: open(\"a.txt\"): Permission denied\nfatal: adding files failed\n")]
+    [InlineData("")]
+    public void Other_failures_of_adding_files_name_no_file(string stderr)
+    {
+        Assert.Empty(GitFailure.UnindexedPaths(stderr));
+    }
+
     [Theory]
     [InlineData("fatal: Unable to create 'F:/x/repo.git/index.lock': File exists.\n\nAnother git process seems to be running in this repository", true)]
     [InlineData("fatal: Unable to create '/x/repo.git/refs/heads/a.lock': File exists.", true)]

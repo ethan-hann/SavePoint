@@ -416,7 +416,7 @@ public sealed partial class GitEngine
             var full = Path.Combine(repo.WorkTree, path.Replace('/', Path.DirectorySeparatorChar));
             if (FileLockProbe.Probe(full) is { } kind)
             {
-                return new HeldFile(full, kind).ToException();
+                return new HeldFile(full, kind).ToException(HeldFileOperation.Switch);
             }
         }
 

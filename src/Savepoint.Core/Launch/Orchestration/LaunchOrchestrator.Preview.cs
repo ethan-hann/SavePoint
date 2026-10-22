@@ -80,7 +80,7 @@ public sealed partial class LaunchOrchestrator
             reading.DirtyNewFileCount,
             reading.UnfinishedSwitch,
             reading.UnfinishedSwitch ? await UnfinishedTargetAsync(storage, profiles, previewed, reading, cancellationToken).ConfigureAwait(false) : null,
-            reading.Held ? ErrorInfo.From(reading.Status.HeldFile!.ToException()) : null);
+            reading.Held ? ErrorInfo.From(reading.Status.HeldFile!.ToException(HeldFileOperation.Switch)) : null);
 
     // Starting the previewed target finishes a switch that was heading there; one that was heading elsewhere is finished by that point's own target.
     private static async Task<LaunchTarget?> UnfinishedTargetAsync(

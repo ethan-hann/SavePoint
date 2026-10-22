@@ -52,6 +52,24 @@ internal static class GitFailure
         || line.Contains("would be removed by checkout", StringComparison.Ordinal)
         || line.Contains("would lose untracked files in them", StringComparison.Ordinal);
 
+    // The files git says it could not add, in the order it says so: "error: unable to index file '<path>'", the path relative to the work tree.
+    public static IReadOnlyList<string> UnindexedPaths(string text)
+    {
+        const string marker = "unable to index file '";
+        var paths = new List<string>();
+        foreach (var line in text.Split('\n'))
+        {
+            var trimmed = line.TrimEnd('\r');
+            var start = trimmed.IndexOf(marker, StringComparison.Ordinal);
+            if (start >= 0 && trimmed.EndsWith('\'') && trimmed.Length > start + marker.Length)
+            {
+                paths.Add(trimmed[(start + marker.Length)..^1]);
+            }
+        }
+
+        return paths;
+    }
+
     // The lock file git names when it cannot take a lock, if it names one.
     public static string? LockFilePath(string standardError)
     {
