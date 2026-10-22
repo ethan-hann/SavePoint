@@ -388,6 +388,30 @@ public sealed class ForkAndMoveTests : IDisposable
         Assert.Equal("refs/heads/profile-1", await _ws.HeadRefAsync(repo));
     }
 
+    [Theory]
+    [InlineData(CaptureMode.Fork)]
+    [InlineData(CaptureMode.MoveForward)]
+    public async Task A_cancel_that_arrives_after_git_has_moved_the_branch_keeps_the_point_and_lets_head_follow(CaptureMode mode)
+    {
+        var (repo, points) = await PlayingFromTheFirstPointAsync();
+        var branch = mode == CaptureMode.Fork ? "profile-fork" : "profile-1";
+        var request = mode == CaptureMode.Fork ? Fork(branch, points[0], "Kept", "id") : Move(branch, points[0], "Continued", "id");
+        var written = HoldGitOnceTheRefIsWritten(repo);
+        using var cancel = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+
+        var capture = _ws.Engine.CaptureAsync(repo, request, ct: cancel.Token);
+        await WaitForFileAsync(written);
+        await cancel.CancelAsync();
+        CaptureOutcome? outcome = null;
+        var error = await Record.ExceptionAsync(async () => outcome = await capture);
+
+        Assert.Null(error);
+        Assert.True(outcome!.Changed);
+        Assert.Equal(outcome.TipCommitId, await _ws.TipAsync(repo, branch));
+        Assert.Equal("refs/heads/" + branch, await _ws.HeadRefAsync(repo));
+        Assert.True((await _ws.Engine.GetStatusAsync(repo, Ct)).IsClean);
+    }
+
     [Fact]
     public async Task Move_forward_on_the_branch_already_checked_out_is_an_ordinary_capture()
     {
@@ -425,6 +449,35 @@ public sealed class ForkAndMoveTests : IDisposable
         else
         {
             throw new IOException("There is not enough space on the disk.");
+        }
+    }
+
+    // Makes the first ref update that git commits wait inside git, after the ref is written, until git is killed; returns the file it creates then.
+    private static string HoldGitOnceTheRefIsWritten(RepoRef repo)
+    {
+        var signal = Path.Combine(repo.GitDir, "ref-written");
+        var hook = Path.Combine(repo.GitDir, "hooks", "reference-transaction");
+        Directory.CreateDirectory(Path.GetDirectoryName(hook)!);
+
+        // The count bounds the wait, so a git that is never killed still lets go of the CPU after a while.
+        File.WriteAllText(
+            hook,
+            "#!/bin/sh\n[ \"$1\" = committed ] || exit 0\n[ ! -e \"$GIT_DIR/ref-written\" ] || exit 0\n: > \"$GIT_DIR/ref-written\"\ni=0\nwhile [ $i -lt 3000000 ]; do i=$((i+1)); done\n");
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(hook, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+
+        return signal;
+    }
+
+    private static async Task WaitForFileAsync(string path)
+    {
+        var until = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+        while (!File.Exists(path))
+        {
+            Assert.True(DateTime.UtcNow < until, "git never reached the point after the ref write");
+            await Task.Delay(10, Ct);
         }
     }
 

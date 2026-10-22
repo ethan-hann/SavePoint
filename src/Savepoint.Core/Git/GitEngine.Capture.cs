@@ -14,7 +14,7 @@ public sealed partial class GitEngine
     /// <param name="repo">The folder to capture; its repository must exist.</param>
     /// <param name="request">The branch, message, capture id, mode and ignore patterns.</param>
     /// <param name="progress">Receives files done and expected while git works; may be null.</param>
-    /// <param name="ct">Cancels the capture. git and its children are stopped; the next capture clears what the interrupted one left. Once a fork or a move forward has written its branch, HEAD is attached to it whatever the token says.</param>
+    /// <param name="ct">Cancels the capture. git and its children are stopped; the next capture clears what the interrupted one left. Once a fork or a move forward has written its branch, HEAD is attached to it whatever the token says, and a cancel that arrives while git finishes that write does not turn the capture into a cancelled one.</param>
     /// <returns>Whether a point was recorded, and the branch tip afterwards.</returns>
     /// <exception cref="Savepoint.Core.Errors.PathSafetyException">The work tree is a protected location.</exception>
     /// <exception cref="Savepoint.Core.Errors.PathMissingException">The work tree does not exist.</exception>
@@ -148,11 +148,11 @@ public sealed partial class GitEngine
         var commit = changed ? await WriteCommitAsync(repo, request, tip, ct).ConfigureAwait(false) : tip;
         if (existing is null)
         {
-            await CreateBranchRefAsync(repo, request.Branch, commit, "savepoint: fork branch", ct).ConfigureAwait(false);
+            await RefWriteAsync(repo, request.Branch, commit, () => CreateBranchRefAsync(repo, request.Branch, commit, "savepoint: fork branch", ct)).ConfigureAwait(false);
         }
         else if (changed)
         {
-            await MoveBranchRefAsync(repo, request.Branch, commit, existing, "savepoint: fork branch", ct).ConfigureAwait(false);
+            await RefWriteAsync(repo, request.Branch, commit, () => MoveBranchRefAsync(repo, request.Branch, commit, existing, "savepoint: fork branch", ct)).ConfigureAwait(false);
         }
 
         await AttachHeadAsync(repo, request.Branch, head).ConfigureAwait(false);
@@ -195,11 +195,27 @@ public sealed partial class GitEngine
         var commit = changed ? await WriteCommitAsync(repo, request, tip, ct).ConfigureAwait(false) : tip;
         if (!string.Equals(commit, branchTip, StringComparison.Ordinal))
         {
-            await MoveBranchRefAsync(repo, request.Branch, commit, branchTip, "savepoint: move branch", ct).ConfigureAwait(false);
+            await RefWriteAsync(repo, request.Branch, commit, () => MoveBranchRefAsync(repo, request.Branch, commit, branchTip, "savepoint: move branch", ct)).ConfigureAwait(false);
         }
 
         await AttachHeadAsync(repo, request.Branch, head).ConfigureAwait(false);
         return new CaptureOutcome(changed, commit);
+    }
+
+    // A stop that reaches the ref write after git has already moved the branch has nothing left to stop: the point is recorded, so HEAD still follows it.
+    private async Task RefWriteAsync(RepoRef repo, string branch, string commit, Func<Task> write)
+    {
+        try
+        {
+            await write().ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            if (!string.Equals(await ResolveBranchAsync(repo, branch, CancellationToken.None).ConfigureAwait(false), commit, StringComparison.Ordinal))
+            {
+                throw;
+            }
+        }
     }
 
     // Writes the staged tree as a point on top of <parent> and moves no ref; the id is all there is to it until a ref names it.
