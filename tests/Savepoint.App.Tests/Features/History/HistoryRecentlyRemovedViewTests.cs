@@ -171,4 +171,30 @@ public class HistoryRecentlyRemovedViewTests
         Assert.True(harness.Find<Panel>("PointsRegion").Bounds.Height >= 100, $"the snapshots keep only {harness.Find<Panel>("PointsRegion").Bounds.Height} px");
         Assert.True(Named<ScrollViewer>(harness, "RemovedScroll").Bounds.Height <= height * 0.5 + 1);
     }
+
+    [AvaloniaFact]
+    public async Task An_open_explanation_takes_room_too_and_the_open_section_gives_way_so_the_snapshots_keep_theirs()
+    {
+        using var harness = await StartAsync(width: 1040, height: 560);
+        Screen(harness).SnapshotHelp.IsOpen = true;
+        Open(harness);
+
+        var section = Named<Border>(harness, "RemovedSection");
+        var bottom = section.TranslatePoint(new Point(0, section.Bounds.Height), harness.View)!.Value.Y;
+
+        Assert.True(bottom <= harness.View.Bounds.Height + 0.5, $"the section ends at {bottom}, below the window's {harness.View.Bounds.Height}");
+        Assert.True(harness.Find<Panel>("PointsRegion").Bounds.Height >= 100, $"the snapshots keep only {harness.Find<Panel>("PointsRegion").Bounds.Height} px");
+    }
+
+    [AvaloniaFact]
+    public async Task A_closed_explanation_takes_no_room_between_the_header_and_the_snapshots()
+    {
+        using var harness = await StartAsync(width: 910, height: 432);
+
+        var header = Named<Border>(harness, "Header");
+        var headerBottom = header.TranslatePoint(new Point(0, header.Bounds.Height), harness.View)!.Value.Y;
+        var pointsTop = harness.Find<Panel>("PointsRegion").TranslatePoint(default, harness.View)!.Value.Y;
+
+        Assert.True(pointsTop <= headerBottom + 0.5, $"the snapshots start {pointsTop - headerBottom} px under the header");
+    }
 }
