@@ -104,7 +104,7 @@ public class GamesScreenActionsTests
 
         var question = Assert.Single(rig.Dialogs.Confirmations);
         Assert.Equal("Take the first snapshot of Fresh profile?", question.Title);
-        Assert.Equal("Fresh profile has no snapshots yet, so its first snapshot is a copy of what your game folders hold right now. If they hold another profile's files, that is what this profile starts with.", question.Message);
+        Assert.Equal("Fresh profile has no snapshot yet of at least one of your game folders. Its first snapshot of each is a copy of what the folder holds right now. If a folder holds another profile's files, that is what Fresh profile starts with there, and the folder then belongs to Fresh profile.", question.Message);
         Assert.Equal("Take the snapshot", question.ConfirmLabel);
         var call = Assert.Single(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CaptureAsync)));
         Assert.Equal([MockupScenario.SkyrimId, "profile-fresh", "Snapshot - 7-8-26", null], call.Args);

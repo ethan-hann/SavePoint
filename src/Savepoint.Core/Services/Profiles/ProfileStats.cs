@@ -114,7 +114,10 @@ internal static class ProfileStats
         var externalHasBranch = external is not null && await storage.Engine.GetBranchTipAsync(external, branch, cancellationToken).ConfigureAwait(false) is not null;
         var fits = SnapshotNowRule.Fits(installHasBranch, installState.Detached, installState.Branch, branch)
             && (externalState is null || SnapshotNowRule.Fits(externalHasBranch, externalState.Detached, externalState.Branch, branch));
-        return !fits ? SnapshotNowAvailability.NotLoaded : installHasBranch || externalHasBranch ? SnapshotNowAvailability.Available : SnapshotNowAvailability.FirstSnapshot;
+
+        // A folder with no branch of the profile takes its first snapshot, and that puts the folder on the profile, so any such folder asks first.
+        var everyFolderHasBranch = installHasBranch && (external is null || externalHasBranch);
+        return !fits ? SnapshotNowAvailability.NotLoaded : everyFolderHasBranch ? SnapshotNowAvailability.Available : SnapshotNowAvailability.FirstSnapshot;
     }
 
     private static async Task<FolderState> StateOfAsync(StorageSnapshot storage, RepoRef repo, CancellationToken cancellationToken)

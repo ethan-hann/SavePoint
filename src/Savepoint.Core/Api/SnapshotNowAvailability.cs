@@ -6,12 +6,12 @@ namespace Savepoint.Core.Api;
 /// </summary>
 public enum SnapshotNowAvailability
 {
-    /// <summary>Each folder holds this profile, or never saved one for it, so the snapshot adds to the profile's history.</summary>
+    /// <summary>Every folder holds this profile, so the snapshot adds to the profile's history in each.</summary>
     Available,
 
     /// <summary>
-    /// The profile has no snapshot of any folder yet, so its first snapshot is whatever the folders hold now, which may be another
-    /// profile's files. The caller should say so and ask first.
+    /// The profile has no snapshot yet of at least one folder, so that folder's first snapshot is whatever it holds now, which may be
+    /// another profile's files, and the folder then belongs to this profile. The caller should say so and ask first.
     /// </summary>
     FirstSnapshot,
 

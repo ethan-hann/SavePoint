@@ -59,7 +59,7 @@
   "games.profileTable.takeSnapshot.blockedTip": "A snapshot copies what your game folders hold now. Play this profile, or go back to one of its snapshots, to load it first.",
   "games.profileTable.takeSnapshot.defaultName": "Snapshot - {date}",
   "games.profileTable.takeSnapshot.firstConfirm.confirm": "Take the snapshot",
-  "games.profileTable.takeSnapshot.firstConfirm.message": "{name} has no snapshots yet, so its first snapshot is a copy of what your game folders hold right now. If they hold another profile's files, that is what this profile starts with.",
+  "games.profileTable.takeSnapshot.firstConfirm.message": "{name} has no snapshot yet of at least one of your game folders. Its first snapshot of each is a copy of what the folder holds right now. If a folder holds another profile's files, that is what {name} starts with there, and the folder then belongs to {name}.",
   "games.profileTable.takeSnapshot.firstConfirm.title": "Take the first snapshot of {name}?",
   "games.profileTable.unsavedChanges": "New changes",
   "games.storageFooter.freeUp": "Free up space",
