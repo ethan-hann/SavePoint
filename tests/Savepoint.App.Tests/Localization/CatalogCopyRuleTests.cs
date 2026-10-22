@@ -66,6 +66,14 @@ public class CatalogCopyRuleTests
     [InlineData("The grey area.", "grey")]
     [InlineData("Open the dialogue.", "dialogue")]
     [InlineData("Your behaviour.", "behaviour")]
+    [InlineData("An unrecognised file.", "unrecognised")]
+    [InlineData("The tile is greyed out.", "greyed")]
+    [InlineData("A colourful tile.", "colourful")]
+    [InlineData("The behavioural change.", "behavioural")]
+    [InlineData("Protective armour.", "armour")]
+    [InlineData("Localise the text.", "Localise")]
+    [InlineData("The organisational chart.", "organisational")]
+    [InlineData("A greying screen.", "greying")]
     public void A_non_american_spelling_in_a_value_is_reported_with_its_key_and_the_word(string message, string word)
     {
         var problem = Assert.Single(CatalogLint.NonAmericanSpellings(Catalog(("test.sample", message))));
@@ -81,6 +89,9 @@ public class CatalogCopyRuleTests
     [InlineData("Canceling the switch.")]
     [InlineData("That is an organism.")]
     [InlineData("A realistic view of the center.")]
+    [InlineData("The analyses are done.")]
+    [InlineData("They fulfill and enroll.")]
+    [InlineData("A greyhound is a dog.")]
     public void American_spellings_and_words_that_only_contain_a_british_stem_are_allowed(string message)
     {
         Assert.Empty(CatalogLint.NonAmericanSpellings(Catalog(("test.sample", message))));

@@ -92,4 +92,17 @@ public sealed record SettingsEnvironment(IFileRevealer Revealer, Func<string?> F
         var version = informational?.Split('+')[0];
         return string.IsNullOrWhiteSpace(version) ? assembly.GetName().Version?.ToString(3) ?? string.Empty : version;
     }
+
+    /// <summary>
+    /// The build with everything its informational version carries, which for a package is the version and the commit it was made
+    /// from ("0.9.0+3e0f9d9"); the startup log writes it so a report can be tied to a commit.
+    /// </summary>
+    /// <param name="assembly">The app's assembly.</param>
+    internal static string BuildOf(Assembly assembly)
+    {
+        var informational = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+        return string.IsNullOrWhiteSpace(informational) ? assembly.GetName().Version?.ToString(3) ?? string.Empty : informational;
+    }
+
+    internal static string ThisAppBuild() => BuildOf(typeof(SettingsEnvironment).Assembly);
 }

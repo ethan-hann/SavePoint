@@ -49,6 +49,8 @@
   "launch.dialog.versionTitle": "Game version and mods",
   "launch.failure.chooseFolder": "Choose the folder",
   "launch.failure.editGame": "Edit game",
+  "launch.failure.heldBody": "Something else on your computer is holding one of the game's files open. Close the game, its launcher and any mod manager, then try again. Nothing has been changed.",
+  "launch.failure.heldTitle": "A file is in use, so the switch didn't start",
   "launch.failure.reviewChanges": "Review the changes",
   "launch.failure.switchAgain": "Switch again",
   "launch.failure.tryAgain": "Try again",

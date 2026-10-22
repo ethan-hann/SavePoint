@@ -13,7 +13,7 @@ public class GameEditorArtworkTests
 {
     private const string _skyrim = MockupScenario.SkyrimId;
 
-    private static EditorRig Rig(FakeBackend? backend = null) => EditorRig.Create(backend, artwork: true);
+    private static EditorRig Rig(FakeBackend? backend = null) => EditorRig.Create(backend);
 
     private static IReadOnlyList<ApiCall> Calls(EditorRig rig, string member) => rig.Backend.Calls.To<IArtworkApi>(member);
 
@@ -50,22 +50,12 @@ public class GameEditorArtworkTests
     // ---- What the section shows
 
     [Fact]
-    public void Without_an_artwork_api_the_section_is_not_offered()
-    {
-        var editor = EditorRig.Create().Edit();
-
-        Assert.False(editor.HasArtworkSection);
-        Assert.False(editor.CanLookAgain);
-    }
-
-    [Fact]
     public void A_game_with_no_artwork_says_so_and_offers_nothing_to_remove()
     {
         var rig = Rig();
 
         var editor = rig.Edit();
 
-        Assert.True(editor.HasArtworkSection);
         Assert.Equal("No artwork found", editor.ArtworkSourceText);
         Assert.False(editor.ArtworkPreview.HasArtwork);
         Assert.False(editor.CanRemoveImage);
@@ -113,6 +103,49 @@ public class GameEditorArtworkTests
         Assert.False(editor.CanLookAgain);
         Assert.False(editor.LookAgainCommand.CanExecute(null));
         Assert.Empty(Calls(rig, nameof(IArtworkApi.GetAsync)));
+    }
+
+    [Fact]
+    public void Steam_artwork_that_arrives_while_the_editor_is_open_shows_in_its_preview()
+    {
+        var rig = Rig();
+
+        // The game's tile on the table is what has the shell's artwork read for it.
+        rig.Shell.Artwork.For(_skyrim).NotifyOnScreen();
+        var editor = rig.Edit();
+        Assert.False(editor.ArtworkPreview.HasArtwork);
+
+        rig.Backend.Artwork.ScriptSteamArrives(_skyrim, "/art/wide.jpg", "/art/square.jpg");
+
+        Assert.Equal("From Steam", editor.ArtworkSourceText);
+        Assert.Equal("/art/wide.jpg", editor.ArtworkPreview.WidePath);
+        Assert.Equal("/art/square.jpg", editor.ArtworkPreview.SquarePath);
+    }
+
+    [Fact]
+    public void A_disposed_editor_no_longer_follows_the_artwork()
+    {
+        var rig = Rig();
+        rig.Shell.Artwork.For(_skyrim).NotifyOnScreen();
+        var editor = rig.Edit();
+        editor.Dispose();
+
+        rig.Backend.Artwork.ScriptSteamArrives(_skyrim, "/art/wide.jpg", "/art/square.jpg");
+
+        Assert.False(editor.ArtworkPreview.HasArtwork);
+    }
+
+    [Fact]
+    public async Task An_image_chosen_in_the_editor_stays_in_the_preview_when_steam_artwork_arrives()
+    {
+        var rig = Rig();
+        rig.Shell.Artwork.For(_skyrim).NotifyOnScreen();
+        var editor = await ChooseAsync(rig, rig.Edit(), "/mine.png");
+
+        rig.Backend.Artwork.ScriptSteamArrives(_skyrim, "/art/wide.jpg", "/art/square.jpg");
+
+        Assert.Equal("/mine.png", editor.ArtworkPreview.WidePath);
+        Assert.Equal("Your image", editor.ArtworkSourceText);
     }
 
     // ---- The Steam app id
@@ -516,7 +549,7 @@ public class GameEditorArtworkTests
             Install: new InstallLocation(@"C:\Games\Hollow Knight"),
             Launch: new LaunchConfig(LaunchMethod.Exe, ExePath: "hollow_knight.exe"),
             SteamAppId: 367520);
-        var rig = EditorRig.Create(new FakeBackend(ScenarioBuilder.Mockup().WithImport(file, imported)), artwork: true);
+        var rig = EditorRig.Create(new FakeBackend(ScenarioBuilder.Mockup().WithImport(file, imported)));
         var editor = rig.New();
         rig.Dialogs.AnswerOpenFile(file);
 

@@ -1,4 +1,5 @@
 using Savepoint.Core.Api;
+using Savepoint.Core.Errors;
 
 namespace Savepoint.App.Tests.Fakes;
 
@@ -33,11 +34,19 @@ public sealed class FakeAppStatusApi : IAppStatusApi
             return OperationResult.Success($"{path}.corrupt");
         });
 
+    // As the real one: only a folder that holds the history of the games is taken, and nothing changes for any other.
     public Task<OperationResult<string>> UseStorageFolderAsync(string folder, CancellationToken cancellationToken = default) =>
-        _backend.Call(_api, nameof(UseStorageFolderAsync), [folder], () => Reachable(folder));
+        _backend.Call(_api, nameof(UseStorageFolderAsync), [folder], () =>
+            State.StorageFoldersWithHistory.Contains(folder)
+                ? Reachable(folder)
+                : OperationResult.Failure<string>(new StorageHistoryNotFoundException(folder)));
 
+    // As the real one: history already in the default folder is not an empty start.
     public Task<OperationResult<string>> StartWithEmptyStorageAsync(CancellationToken cancellationToken = default) =>
-        _backend.Call(_api, nameof(StartWithEmptyStorageAsync), [], () => Reachable(State.DefaultStorageRoot));
+        _backend.Call(_api, nameof(StartWithEmptyStorageAsync), [], () =>
+            State.StorageFoldersWithHistory.Contains(State.DefaultStorageRoot)
+                ? OperationResult.Failure<string>(new StorageDestinationNotEmptyException(State.DefaultStorageRoot))
+                : Reachable(State.DefaultStorageRoot));
 
     // Either choice leaves the storage reachable at the folder it names, as the real one does.
     private OperationResult<string> Reachable(string root)

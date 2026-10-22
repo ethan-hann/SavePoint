@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Threading;
 using Savepoint.App.Features.Shell;
 
 namespace Savepoint.App.Views;
@@ -42,9 +43,10 @@ public partial class MainWindow : Window
             _closeRequested = false;
         }
 
+        // Posted, so the close never runs inside the closing event that asked for it (that happens whenever nothing is running).
         if (_closeApproved)
         {
-            Close();
+            Dispatcher.UIThread.Post(Close);
         }
     }
 }

@@ -74,6 +74,42 @@ public class ExitGuardTests
     }
 
     [Fact]
+    public async Task A_job_that_starts_while_the_question_is_open_is_cancelled_with_the_rest()
+    {
+        var (guard, backend, dialogs) = Build();
+        dialogs.AnswerConfirm(true);
+        var move = FakeAssert.Ok(await backend.Settings.RelocateStorageAsync(@"E:\SavePoint"));
+        JobStarted? late = null;
+        dialogs.WhileConfirming = async _ => late = FakeAssert.Ok(await backend.Profiles.CaptureAsync(MockupScenario.SkyrimId, MockupScenario.ModdedId, "A point"));
+
+        var allowed = await guard.PrepareToCloseAsync();
+
+        Assert.True(allowed);
+        var cancelled = backend.Calls.To<IJobsApi>(nameof(IJobsApi.CancelAsync)).Select(call => call.Args[0]).ToList();
+        Assert.Contains(move.JobId, cancelled);
+        Assert.Contains(late!.JobId, cancelled);
+    }
+
+    [Fact]
+    public async Task A_job_that_ended_while_the_question_was_open_is_not_cancelled()
+    {
+        var (guard, backend, dialogs) = Build();
+        dialogs.AnswerConfirm(true);
+        var save = FakeAssert.Ok(await backend.Profiles.CaptureAsync(MockupScenario.SkyrimId, MockupScenario.ModdedId, "A point"));
+        var move = FakeAssert.Ok(await backend.Settings.RelocateStorageAsync(@"E:\SavePoint"));
+        dialogs.WhileConfirming = _ =>
+        {
+            backend.Jobs.Complete(save.JobId, null);
+            return Task.CompletedTask;
+        };
+
+        var allowed = await guard.PrepareToCloseAsync();
+
+        Assert.True(allowed);
+        Assert.Equal([move.JobId], Assert.Single(backend.Calls.To<IJobsApi>(nameof(IJobsApi.CancelAsync))).Args);
+    }
+
+    [Fact]
     public async Task A_save_is_cancelled_on_the_way_out_without_a_question()
     {
         var (guard, backend, dialogs) = Build();

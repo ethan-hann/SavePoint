@@ -16,7 +16,7 @@ namespace Savepoint.App.Tests.Features.History;
 // The real shell with the History screen the production factory builds, over the fake backend; times read in the mockup's zone (UTC-5).
 internal sealed class HistoryRig
 {
-    private HistoryRig(ShellRig shell, HistoryScreenViewModel screen, ScriptedLaunchFlow? flow, FakeBackend backend, UiFormatter text)
+    private HistoryRig(ShellRig shell, HistoryScreenViewModel screen, ScriptedLaunchFlow flow, FakeBackend backend, UiFormatter text)
     {
         ShellRig = shell;
         Screen = screen;
@@ -31,7 +31,7 @@ internal sealed class HistoryRig
 
     public HistoryScreenViewModel Screen { get; }
 
-    public ScriptedLaunchFlow? Flow { get; }
+    public ScriptedLaunchFlow Flow { get; }
 
     public FakeBackend Backend { get; }
 
@@ -45,11 +45,10 @@ internal sealed class HistoryRig
     // Starts the shell on Games and leaves History unvisited, so a test decides when the screen first shows.
     public static async Task<HistoryRig> StartAsync(
         FakeBackend? backend = null,
-        bool withFlow = true,
         Func<IHistoryApi, IHistoryApi>? history = null)
     {
         backend ??= FakeBackend.Mockup();
-        var flow = withFlow ? new ScriptedLaunchFlow() : null;
+        var flow = new ScriptedLaunchFlow();
         var text = FormatterFor(backend);
         var services = new AppServices(
             backend.Games,
@@ -58,7 +57,8 @@ internal sealed class HistoryRig
             backend.Settings,
             history is null ? backend.History : history(backend.History),
             backend.Jobs,
-            backend.AppStatus);
+            backend.AppStatus,
+            backend.Artwork);
         var context = new FeatureContext(
             services,
             new FakeDialogs(),
@@ -73,9 +73,9 @@ internal sealed class HistoryRig
     // Shows the screen the way the nav item does.
     public void Show() => Shell.Navigate(NavDestination.History);
 
-    public static async Task<HistoryRig> ShownAsync(FakeBackend? backend = null, bool withFlow = true)
+    public static async Task<HistoryRig> ShownAsync(FakeBackend? backend = null)
     {
-        var rig = await StartAsync(backend, withFlow);
+        var rig = await StartAsync(backend);
         rig.Show();
         return rig;
     }

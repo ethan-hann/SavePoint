@@ -14,6 +14,10 @@ public sealed class ArtworkProvider : IArtworkProvider, IDisposable
     private readonly object _gate = new();
     private readonly Dictionary<string, GameArt> _arts = new(StringComparer.Ordinal);
     private readonly HashSet<string> _onScreen = new(StringComparer.Ordinal);
+
+    // Reads of one game can finish in any order; a read that finishes after a later one was already shown is dropped.
+    private readonly Dictionary<string, long> _started = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, long> _shown = new(StringComparer.Ordinal);
     private bool _disposed;
 
     /// <summary>Creates the provider and starts listening for artwork changes.</summary>
@@ -105,6 +109,12 @@ public sealed class ArtworkProvider : IArtworkProvider, IDisposable
     // A read that fails changes nothing: the tile keeps what it shows and the next change reads again.
     private async Task ReadAsync(GameArt art, bool contentMayHaveChanged)
     {
+        long ticket;
+        lock (_gate)
+        {
+            ticket = _started[art.GameId] = _started.GetValueOrDefault(art.GameId) + 1;
+        }
+
         var read = await _api.GetAsync(art.GameId).ConfigureAwait(false);
         if (!read.Ok)
         {
@@ -115,10 +125,12 @@ public sealed class ArtworkProvider : IArtworkProvider, IDisposable
         {
             lock (_gate)
             {
-                if (_disposed)
+                if (_disposed || ticket < _shown.GetValueOrDefault(art.GameId))
                 {
                     return;
                 }
+
+                _shown[art.GameId] = ticket;
             }
 
             art.Show(read.Value, contentMayHaveChanged);

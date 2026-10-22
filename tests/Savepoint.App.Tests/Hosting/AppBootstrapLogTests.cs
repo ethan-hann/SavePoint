@@ -54,6 +54,17 @@ public sealed class AppBootstrapLogTests : IDisposable
     }
 
     [Fact]
+    public void Starting_logs_the_build_with_the_commit_it_was_made_from()
+    {
+        var platform = HostPlatform();
+
+        _started = AppBootstrap.Start(options => Over(options, platform), _log, build: "0.9.0+3e0f9d9a1b2c");
+
+        var line = Assert.Single(_log.Containing("SavePoint", "started"));
+        Assert.Contains("SavePoint 0.9.0+3e0f9d9a1b2c started on", line.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task The_backend_writes_to_the_log_it_was_started_with()
     {
         var platform = HostPlatform();

@@ -1,6 +1,7 @@
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Savepoint.App.Features.Common;
 using Savepoint.App.Features.Common.Art;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.Core.Api;
@@ -14,11 +15,13 @@ public class AppearanceArtworkTests
 {
     private sealed class RecordingProvider : IArtworkProvider
     {
+        private readonly ArtworkProvider _inner = new(FakeBackend.Mockup().Artwork, new ImmediateUiDispatcher());
+
         public int Refreshes { get; private set; }
 
-        public GameArt For(string gameId) => NoArtworkProvider.Instance.For(gameId);
+        public GameArt For(string gameId) => _inner.For(gameId);
 
-        public GameArt Preview(string gameId) => NoArtworkProvider.Instance.Preview(gameId);
+        public GameArt Preview(string gameId) => _inner.Preview(gameId);
 
         public void Refresh() => Refreshes++;
     }

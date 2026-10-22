@@ -415,7 +415,7 @@ public class GameEditorViewTests
     [AvaloniaFact]
     public async Task A_field_in_error_carries_the_error_as_its_help_text_so_tabbing_back_to_it_repeats_the_problem()
     {
-        using var harness = await EditorViewHarness.StartAsync(artwork: true, height: 1000);
+        using var harness = await EditorViewHarness.StartAsync(height: 1000);
         var editor = harness.Edit(MockupScenario.SkyrimId);
 
         editor.NameError = "Enter a name.";
@@ -482,7 +482,7 @@ public class GameEditorViewTests
     [AvaloniaFact]
     public async Task The_steam_app_id_field_is_a_fixed_size_target_whatever_is_typed_in_it()
     {
-        using var harness = await EditorViewHarness.StartAsync(artwork: true, height: 1000);
+        using var harness = await EditorViewHarness.StartAsync(height: 1000);
         harness.Edit(MockupScenario.SatisfactoryId);
 
         var field = harness.Find<TextBox>("SteamAppIdField");

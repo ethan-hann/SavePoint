@@ -58,6 +58,7 @@ internal sealed class FakeState
         Copy(scenario.Executables, Executables);
         Copy(scenario.Imports, Imports);
         RelocationPreview = scenario.RelocationPreview;
+        StorageFoldersWithHistory.UnionWith(scenario.StorageFoldersWithHistory);
         ClearAllDataPreview = scenario.ClearAllDataPreview;
     }
 
@@ -72,6 +73,9 @@ internal sealed class FakeState
     public string CatalogDirectory { get; }
 
     public StartupStatus Startup { get; set; }
+
+    // Folders that hold the stamped history of the listed games; see ScenarioBuilder.WithStorageHistoryIn.
+    public HashSet<string> StorageFoldersWithHistory { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     public List<GameDefinition> Games { get; } = [];
 

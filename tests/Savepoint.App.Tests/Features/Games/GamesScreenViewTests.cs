@@ -102,15 +102,13 @@ public class GamesScreenViewTests
     }
 
     [AvaloniaFact]
-    public async Task Play_starts_the_launch_flow_and_is_disabled_without_one()
+    public async Task Play_starts_the_launch_flow()
     {
         using var harness = await GamesViewHarness.StartAsync();
-        using var without = await GamesViewHarness.StartAsync(withLaunchFlow: false);
 
         PlayButtons(harness)[1].Command!.Execute(null);
 
         Assert.Single(harness.Rig.LaunchFlow!.Begun);
-        Assert.All(PlayButtons(without), button => Assert.False(button.IsEffectivelyEnabled));
         Assert.All(PlayButtons(harness), button => Assert.True(button.IsEffectivelyEnabled));
     }
 
@@ -311,15 +309,6 @@ public class GamesScreenViewTests
         harness.Settle();
 
         Assert.Single(harness.Rig.Editor!.Created);
-    }
-
-    [AvaloniaFact]
-    public async Task Edit_game_is_hidden_while_there_is_no_editor()
-    {
-        using var harness = await GamesViewHarness.StartAsync(withEditor: false);
-
-        Assert.False(harness.Find<Button>("EditGameButton").IsEffectivelyVisible);
-        Assert.DoesNotContain("Edit game", harness.VisibleTexts());
     }
 
     // ---- Narrow windows

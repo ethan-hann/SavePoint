@@ -81,19 +81,16 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         _deps = dependencies;
         LayoutToggle = shell.LayoutToggle;
         ShowHistoryCommand = new RelayCommand(() => _shell.Navigate(NavDestination.History));
-        EditGameCommand = new RelayCommand(OpenEditor, () => CanEditGame);
+        EditGameCommand = new RelayCommand(OpenEditor);
         NewProfileCommand = new AsyncRelayCommand(NewProfileAsync);
         DeleteGameCommand = new AsyncRelayCommand(DeleteGameAsync);
 
         _shell.PropertyChanged += OnShellChanged;
         _shell.LibraryRefreshed += OnLibraryRefreshed;
         _shell.AddGameRequested += OnAddGameRequested;
-        if (_shell.LaunchFlow is { } flow)
-        {
-            flow.PropertyChanged += OnFlowChanged;
-            flow.InlineContentChanged += OnInlineContentChanged;
-            flow.EditGameRequested += OnEditGameRequested;
-        }
+        _shell.LaunchFlow.PropertyChanged += OnFlowChanged;
+        _shell.LaunchFlow.InlineContentChanged += OnInlineContentChanged;
+        _shell.LaunchFlow.EditGameRequested += OnEditGameRequested;
 
         ShowGame(_shell.SelectedGame);
     }
@@ -121,9 +118,6 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
 
     /// <summary>True while the shell shows the library layout, whose header is a title rather than the game's art and path.</summary>
     public bool IsLibraryLayout => _shell.Layout == ShellLayout.Library;
-
-    /// <summary>True when there is a game editor to open, which is what shows Edit game.</summary>
-    public bool CanEditGame => _deps.Editor is not null;
 
     /// <summary>True when the profile table has rows to show.</summary>
     public bool ShowTable => HasGame && LoadError is null && Profiles.Count > 0;
@@ -282,12 +276,9 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         _shell.PropertyChanged -= OnShellChanged;
         _shell.LibraryRefreshed -= OnLibraryRefreshed;
         _shell.AddGameRequested -= OnAddGameRequested;
-        if (_shell.LaunchFlow is { } flow)
-        {
-            flow.PropertyChanged -= OnFlowChanged;
-            flow.InlineContentChanged -= OnInlineContentChanged;
-            flow.EditGameRequested -= OnEditGameRequested;
-        }
+        _shell.LaunchFlow.PropertyChanged -= OnFlowChanged;
+        _shell.LaunchFlow.InlineContentChanged -= OnInlineContentChanged;
+        _shell.LaunchFlow.EditGameRequested -= OnEditGameRequested;
     }
 
     private void OnShellChanged(object? sender, PropertyChangedEventArgs e)
@@ -308,13 +299,8 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
 
     private void OnLibraryRefreshed(object? sender, EventArgs e) => _ = ReloadAsync();
 
-    private void OnAddGameRequested(object? sender, AddGameRequest request)
-    {
-        if (_deps.Editor is { } editor)
-        {
-            _shell.ShowPane(editor.CreateForNew(_shell, request.Prefill));
-        }
-    }
+    private void OnAddGameRequested(object? sender, AddGameRequest request) =>
+        _shell.ShowPane(_deps.Editor.CreateForNew(_shell, request.Prefill));
 
     // The flow raises its events from any thread, so each one is handed to the dispatcher.
     private void OnFlowChanged(object? sender, PropertyChangedEventArgs e) =>
@@ -348,9 +334,9 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
 
     private void OpenEditor()
     {
-        if (_deps.Editor is { } editor && _game is { } game)
+        if (_game is { } game)
         {
-            _shell.ShowPane(editor.CreateForExisting(_shell, game.Id));
+            _shell.ShowPane(_deps.Editor.CreateForExisting(_shell, game.Id));
         }
     }
 
@@ -358,17 +344,17 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     private void OnEditGameRequested(object? sender, string gameId) =>
         _deps.Dispatcher.Post(() =>
         {
-            if (_disposed || _deps.Editor is not { } editor || _shell.Games.All(game => game.Id != gameId))
+            if (_disposed || _shell.Games.All(game => game.Id != gameId))
             {
                 return;
             }
 
             _shell.SelectGame(gameId);
             _shell.Navigate(NavDestination.Games);
-            _shell.ShowPane(editor.CreateForExisting(_shell, gameId));
+            _shell.ShowPane(_deps.Editor.CreateForExisting(_shell, gameId));
         });
 
-    private bool FlowOwns(GameDefinition? game) => game is not null && _shell.LaunchFlow?.IsActive(game.Id) == true;
+    private bool FlowOwns(GameDefinition? game) => game is not null && _shell.LaunchFlow.IsActive(game.Id);
 
     private void ShowGame(GameDefinition? game)
     {
@@ -386,7 +372,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     }
 
     private void RefreshInlineContent() =>
-        InlineContent = _game is { } game ? _shell.LaunchFlow?.InlineContentFor(game.Id) : null;
+        InlineContent = _game is { } game ? _shell.LaunchFlow.InlineContentFor(game.Id) : null;
 
     private void RaiseTableState()
     {
@@ -439,12 +425,11 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         }
     }
 
-    // Play needs a launch flow, no session for the game, and no profile already running.
+    // Play needs no session for the game and no profile already running.
     private void RefreshPlayAvailability()
     {
         var canPlay = _game is { } game
-            && _shell.LaunchFlow is { } flow
-            && !flow.IsActive(game.Id)
+            && !_shell.LaunchFlow.IsActive(game.Id)
             && !Profiles.Any(row => row.IsRunning);
         foreach (var row in Profiles)
         {

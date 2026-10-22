@@ -7,6 +7,7 @@ using Savepoint.App.Features.Editor;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Localization;
 using Savepoint.App.Tests.Fakes;
+using Savepoint.App.Tests.Features.History;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 
@@ -56,9 +57,9 @@ internal sealed class FakeShellContext : IShellContext
 
     public LayoutToggleViewModel LayoutToggle { get; }
 
-    public ILaunchFlowHost? LaunchFlow => null;
+    public ILaunchFlowHost LaunchFlow { get; } = new ScriptedLaunchFlow();
 
-    public IArtworkProvider Artwork { get; set; } = NoArtworkProvider.Instance;
+    public IArtworkProvider Artwork { get; set; } = null!;
 
     public void Navigate(NavDestination destination)
     {
@@ -98,15 +99,15 @@ internal sealed class FakeShellContext : IShellContext
 // The editor wired to the fake backend with every collaborator recorded.
 internal sealed class EditorRig
 {
-    private EditorRig(FakeBackend backend, string os, bool artwork)
+    private EditorRig(FakeBackend backend, string os)
     {
         Backend = backend;
         Text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), backend.Clock, os, TimeZoneInfo.Utc);
         Dialogs = new FakeDialogs();
         Toasts = new ToastHostViewModel(new ManualTimeProvider(), new ImmediateUiDispatcher());
         Shell = new FakeShellContext(FakeAssert.Ok(backend.Games.ListAsync().GetAwaiter().GetResult()), Text);
-        Shell.Artwork = artwork ? new ArtworkProvider(backend.Artwork, new ImmediateUiDispatcher()) : NoArtworkProvider.Instance;
-        Factory = new GameEditorFactory(backend.Games, Dialogs, Text, Toasts, artwork ? backend.Artwork : null);
+        Shell.Artwork = new ArtworkProvider(backend.Artwork, new ImmediateUiDispatcher());
+        Factory = new GameEditorFactory(backend.Games, Dialogs, Text, Toasts, backend.Artwork);
     }
 
     public FakeBackend Backend { get; }
@@ -121,7 +122,7 @@ internal sealed class EditorRig
 
     public GameEditorFactory Factory { get; }
 
-    public static EditorRig Create(FakeBackend? backend = null, string os = "windows", bool artwork = false) => new(backend ?? FakeBackend.Mockup(), os, artwork);
+    public static EditorRig Create(FakeBackend? backend = null, string os = "windows") => new(backend ?? FakeBackend.Mockup(), os);
 
     public GameEditorViewModel Edit(string gameId = MockupScenario.SkyrimId) =>
         Assert.IsType<GameEditorViewModel>(Factory.CreateForExisting(Shell, gameId));

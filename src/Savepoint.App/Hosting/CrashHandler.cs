@@ -27,6 +27,7 @@ public sealed class CrashHandler
     private readonly IDiagnosticLog _log;
     private readonly ICrashPresenter _presenter;
     private readonly Action<int> _exit;
+    private readonly Action? _stopWork;
     private readonly string? _logFolder;
     private readonly ManualResetEventSlim _finished = new();
 
@@ -38,12 +39,17 @@ public sealed class CrashHandler
     /// <param name="presenter">Shows the last window.</param>
     /// <param name="exit">Ends the process with an exit code.</param>
     /// <param name="logFolder">Where the log is, for the window; null when there is none.</param>
-    public CrashHandler(IDiagnosticLog log, ICrashPresenter presenter, Action<int> exit, string? logFolder)
+    /// <param name="stopWork">
+    /// Stops what still runs, called once after the crash is logged and before the window shows, so no job goes on changing a game's
+    /// folders while the window is up. A failure in it never stops the window.
+    /// </param>
+    public CrashHandler(IDiagnosticLog log, ICrashPresenter presenter, Action<int> exit, string? logFolder, Action? stopWork = null)
     {
         _log = log;
         _presenter = presenter;
         _exit = exit;
         _logFolder = logFolder;
+        _stopWork = stopWork;
     }
 
     /// <summary>
@@ -52,7 +58,10 @@ public sealed class CrashHandler
     /// </summary>
     /// <param name="exception">What was thrown.</param>
     /// <param name="origin">Where it came from.</param>
-    public void HandleFatal(Exception exception, string origin)
+    public void HandleFatal(Exception exception, string origin) => Handle(exception, origin, onWindowThread: false);
+
+    // A crash on the thread that shows the window is only logged while another crash is shown: waiting would freeze the window it waits for.
+    private void Handle(Exception exception, string origin, bool onWindowThread)
     {
         TryLog(() => _log.Error($"SavePoint crashed on {origin}: {exception.Message}", exception));
 
@@ -65,8 +74,21 @@ public sealed class CrashHandler
 
         if (owner != 0)
         {
-            _finished.Wait();
+            if (!onWindowThread)
+            {
+                _finished.Wait();
+            }
+
             return;
+        }
+
+        try
+        {
+            _stopWork?.Invoke();
+        }
+        catch (Exception)
+        {
+            // Whatever is left running ends with the process.
         }
 
         try
@@ -125,7 +147,7 @@ public sealed class CrashHandler
         {
             // Marked handled first: the window below is shown from inside this callback, and it needs the dispatcher to go on running.
             e.Handled = true;
-            HandleFatal(e.Exception, "the UI thread");
+            Handle(e.Exception, "the UI thread", onWindowThread: true);
         };
         Dispatcher.UIThread.UnhandledException += ui;
         return new Detach(() => Dispatcher.UIThread.UnhandledException -= ui);

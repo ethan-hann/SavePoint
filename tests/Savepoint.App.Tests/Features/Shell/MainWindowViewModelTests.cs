@@ -1,4 +1,5 @@
 using Savepoint.App.Features.Common;
+using Savepoint.App.Features.Common.Art;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Common.Preferences;
@@ -6,6 +7,7 @@ using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Localization;
 using Savepoint.App.Tests.Fakes;
+using Savepoint.App.Tests.Features.History;
 using Savepoint.Core.Api;
 using Savepoint.Core.Errors;
 
@@ -36,7 +38,9 @@ public class MainWindowViewModelTests
                     new FakeDialogs(),
                     toasts,
                     new RecordingThemeApplier(),
-                    StandInScreens.Complete([])));
+                    StandInScreens.Complete([]),
+                    new ArtworkProvider(backend.Artwork, new ImmediateUiDispatcher()),
+                    new ScriptedLaunchFlow()));
                 shells.Add(shell);
                 return shell;
             },

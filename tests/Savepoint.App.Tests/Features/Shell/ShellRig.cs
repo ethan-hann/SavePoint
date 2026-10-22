@@ -7,6 +7,7 @@ using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Localization;
 using Savepoint.App.Tests.Fakes;
+using Savepoint.App.Tests.Features.History;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 
@@ -35,8 +36,8 @@ internal sealed class ShellRig
             Toasts,
             Theme,
             screens,
-            launchFlow,
-            artwork));
+            artwork ?? new ArtworkProvider(backend.Artwork, dispatcher),
+            launchFlow ?? new ScriptedLaunchFlow()));
     }
 
     public FakeBackend Backend { get; }

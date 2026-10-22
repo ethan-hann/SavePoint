@@ -9,7 +9,7 @@ public class ShellArtworkTests
 {
     private sealed class DisposableProvider : IArtworkProvider, IDisposable
     {
-        private readonly NoArtworkProvider _inner = NoArtworkProvider.Instance;
+        private readonly ArtworkProvider _inner = new(FakeBackend.Mockup().Artwork, new ImmediateUiDispatcher());
 
         public bool Disposed { get; private set; }
 
@@ -21,7 +21,11 @@ public class ShellArtworkTests
         {
         }
 
-        public void Dispose() => Disposed = true;
+        public void Dispose()
+        {
+            Disposed = true;
+            _inner.Dispose();
+        }
     }
 
     private static ArtworkProvider ProviderFor(FakeBackend backend) => new(backend.Artwork, new ImmediateUiDispatcher());
@@ -68,11 +72,10 @@ public class ShellArtworkTests
     }
 
     [Fact]
-    public async Task A_shell_built_without_artwork_gives_every_row_artwork_that_never_has_an_image()
+    public async Task A_game_the_artwork_api_has_nothing_for_gets_artwork_with_no_image()
     {
         var rig = await ShellRig.StartAsync();
 
-        Assert.Same(NoArtworkProvider.Instance, rig.Shell.Artwork);
         Assert.All(rig.Shell.Games, row =>
         {
             Assert.NotNull(row.Art);

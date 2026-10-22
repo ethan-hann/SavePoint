@@ -802,6 +802,55 @@ public class ShellViewModelTests
     }
 
     [Fact]
+    public async Task A_pane_that_is_closed_or_replaced_is_disposed()
+    {
+        var rig = await ShellRig.StartAsync();
+        var first = new DisposablePane();
+        var second = new DisposablePane();
+
+        rig.Shell.ShowPane(first);
+        Assert.Equal(0, first.Disposed);
+        rig.Shell.ShowPane(second);
+        Assert.Equal(1, first.Disposed);
+        Assert.Equal(0, second.Disposed);
+        rig.Shell.ClosePane();
+
+        Assert.Equal(1, first.Disposed);
+        Assert.Equal(1, second.Disposed);
+    }
+
+    [Fact]
+    public async Task The_same_pane_shown_again_is_not_disposed()
+    {
+        var rig = await ShellRig.StartAsync();
+        var pane = new DisposablePane();
+
+        rig.Shell.ShowPane(pane);
+        rig.Shell.ShowPane(pane);
+
+        Assert.Equal(0, pane.Disposed);
+    }
+
+    [Fact]
+    public async Task A_pane_still_open_when_the_shell_ends_is_disposed()
+    {
+        var rig = await ShellRig.StartAsync();
+        var pane = new DisposablePane();
+        rig.Shell.ShowPane(pane);
+
+        rig.Shell.Dispose();
+
+        Assert.Equal(1, pane.Disposed);
+    }
+
+    private sealed class DisposablePane : IDisposable
+    {
+        public int Disposed { get; private set; }
+
+        public void Dispose() => Disposed++;
+    }
+
+    [Fact]
     public async Task A_pane_belongs_to_the_destination_it_was_opened_from()
     {
         var rig = await ShellRig.StartAsync();
@@ -1046,13 +1095,5 @@ public class ShellViewModelTests
 
         Assert.Same(flow, ((IShellContext)rig.Shell).LaunchFlow);
         Assert.Same(flow, rig.Shell.LaunchFlow);
-    }
-
-    [Fact]
-    public async Task Without_a_launch_flow_the_slot_is_empty()
-    {
-        var rig = await ShellRig.StartAsync();
-
-        Assert.Null(rig.Shell.LaunchFlow);
     }
 }

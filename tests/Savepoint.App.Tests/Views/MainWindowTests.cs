@@ -114,6 +114,21 @@ public class MainWindowTests
     }
 
     [AvaloniaFact]
+    public async Task With_nothing_running_the_window_closes_after_the_closing_event_and_not_inside_it()
+    {
+        var (window, _, dialogs) = await WindowWithRunningMoveAsync(answer: true, startMove: false);
+        var closing = ClosingArgs(WindowCloseReason.ApplicationShutdown);
+
+        window.RaiseClosing(closing);
+
+        Assert.True(closing.Cancel);
+        Assert.True(window.IsVisible);
+        await SettleAsync(() => !window.IsVisible);
+        Assert.False(window.IsVisible);
+        Assert.Empty(dialogs.Confirmations);
+    }
+
+    [AvaloniaFact]
     public async Task A_system_shutdown_is_never_held_up_by_a_question()
     {
         var (window, _, dialogs) = await WindowWithRunningMoveAsync(answer: false);
@@ -140,11 +155,11 @@ public class MainWindowTests
         public void RaiseClosing(WindowClosingEventArgs e) => OnClosing(e);
     }
 
-    private static async Task<(QuittableWindow Window, FakeBackend Backend, FakeDialogs Dialogs)> WindowWithRunningMoveAsync(bool answer)
+    private static async Task<(QuittableWindow Window, FakeBackend Backend, FakeDialogs Dialogs)> WindowWithRunningMoveAsync(bool answer, bool startMove = true)
     {
         var backend = FakeBackend.Mockup();
         var dialogs = new FakeDialogs().AnswerConfirm(answer);
-        var services = new AppServices(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus);
+        var services = new AppServices(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus, backend.Artwork);
         var main = AppComposition.Create(
             services,
             new UiFormatter(LocalizationCatalog.Current),
@@ -155,7 +170,11 @@ public class MainWindowTests
             dialogs);
         var window = new QuittableWindow { DataContext = main };
         window.Show();
-        FakeAssert.Ok(await backend.Settings.RelocateStorageAsync(@"E:\SavePoint"));
+        if (startMove)
+        {
+            FakeAssert.Ok(await backend.Settings.RelocateStorageAsync(@"E:\SavePoint"));
+        }
+
         return (window, backend, dialogs);
     }
 

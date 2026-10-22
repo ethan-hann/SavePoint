@@ -70,12 +70,9 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
         AddGameCommand = new RelayCommand(() => RequestAddGame());
         FirstRun = new FirstRunViewModel(text, AddGameCommand, new AsyncRelayCommand(StartFromTemplateAsync));
         LayoutToggle = new LayoutToggleViewModel(text, SetLayoutAsync, _layout);
-        JobStatus = new JobStatusViewModel(text, dependencies.Toasts, id => Games.FirstOrDefault(row => row.Id == id)?.Name, jobId => dependencies.LaunchFlow?.ShowsOutcomeOf(jobId) == true);
+        JobStatus = new JobStatusViewModel(text, dependencies.Toasts, id => Games.FirstOrDefault(row => row.Id == id)?.Name, jobId => dependencies.LaunchFlow.ShowsOutcomeOf(jobId));
 
-        if (dependencies.LaunchFlow is { } flow)
-        {
-            flow.SettingsSaved += OnFlowSettingsSaved;
-        }
+        dependencies.LaunchFlow.SettingsSaved += OnFlowSettingsSaved;
     }
 
     /// <inheritdoc />
@@ -185,10 +182,10 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
     public NavDestination Destination => _destination;
 
     /// <inheritdoc />
-    public ILaunchFlowHost? LaunchFlow => _deps.LaunchFlow;
+    public ILaunchFlowHost LaunchFlow => _deps.LaunchFlow;
 
     /// <inheritdoc />
-    public IArtworkProvider Artwork => _deps.Artwork ?? NoArtworkProvider.Instance;
+    public IArtworkProvider Artwork => _deps.Artwork;
 
     /// <summary>Opens the game editor in create mode.</summary>
     public IRelayCommand AddGameCommand { get; }
@@ -347,6 +344,7 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
     /// <inheritdoc />
     public void ShowPane(object paneViewModel)
     {
+        EndPane(except: paneViewModel);
         _pane = paneViewModel;
         _paneDestination = Destination;
         RaiseShellState();
@@ -355,8 +353,19 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
     /// <inheritdoc />
     public void ClosePane()
     {
-        _pane = null;
+        EndPane(except: null);
         RaiseShellState();
+    }
+
+    // A pane that listens for changes lets go of them when it is closed or replaced.
+    private void EndPane(object? except)
+    {
+        var ended = _pane;
+        _pane = null;
+        if (!ReferenceEquals(ended, except))
+        {
+            (ended as IDisposable)?.Dispose();
+        }
     }
 
     /// <summary>Stops following the Api's events.</summary>
@@ -364,11 +373,9 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
     {
         _disposed = true;
         _deps.Jobs.JobChanged -= OnJobChanged;
+        EndPane(except: null);
         (_deps.Artwork as IDisposable)?.Dispose();
-        if (_deps.LaunchFlow is { } flow)
-        {
-            flow.SettingsSaved -= OnFlowSettingsSaved;
-        }
+        _deps.LaunchFlow.SettingsSaved -= OnFlowSettingsSaved;
     }
 
     // Runs as each save lands, in the order they were stored, so a layout another change briefly undid is put back.

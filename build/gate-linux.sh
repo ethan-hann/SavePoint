@@ -57,6 +57,28 @@ else
 fi
 rm -rf "$probe"
 
+# Tests that make a file or folder unreadable skip where permissions do not hold: for a privileged user, and on a file system that
+# keeps none (a Windows drive mounted under WSL). Each skip carries its reason, but a green gate would not say that a whole group of
+# tests never ran, so this says it first and names the files the tests live in.
+probe="$temp_folder/permission-probe-$$"
+mkdir -p "$probe"
+printf x >"$probe/file"
+chmod 000 "$probe/file"
+permissions_reason=""
+if [ "$(id -u)" -eq 0 ]; then
+  permissions_reason="the gate runs as a privileged user"
+elif cat "$probe/file" >/dev/null 2>&1; then
+  permissions_reason="chmod has no effect in $temp_folder"
+fi
+chmod 600 "$probe/file"
+rm -rf "$probe"
+if [ -n "$permissions_reason" ]; then
+  skipping="$(grep -rlE 'HeldFiles\.(Hold|MakeUnreadable|SkipUnlessPermissionsHold|PreventDeleting)|IsPrivilegedProcess' "$gate_tree/tests" --include='*.cs' 2>/dev/null | grep -v '/obj/' | grep -v '/HeldFiles\.cs$' | sed 's#.*/##; s#\.cs$##' | sort -u | tr '\n' ' ' || true)"
+  echo "==> WARNING: file permissions do not hold here ($permissions_reason), so the tests that make a file or folder unreadable SKIP, in: ${skipping:-none found}" >&2
+else
+  echo "==> file permissions hold in $temp_folder"
+fi
+
 # D27: on this 9p mount a file just renamed into place can be briefly invisible, so file-heavy tests fail at random.
 # Failed tests are retried up to this many times and every one that needed a retry is listed below; a test that
 # fails every time still fails the gate. Only this script asks for retries: it builds the retry extension in

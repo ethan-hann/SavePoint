@@ -155,11 +155,8 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
         shell.PropertyChanged += OnShellPropertyChanged;
         shell.LibraryRefreshed += (_, _) => ReloadIfShown();
         dependencies.Jobs.JobChanged += (_, job) => dependencies.Dispatcher.Post(() => OnJobChanged(job));
-        if (shell.LaunchFlow is { } flow)
-        {
-            flow.PropertyChanged += (_, _) => dependencies.Dispatcher.Post(RefreshFlowCommands);
-            flow.InlineContentChanged += (_, _) => dependencies.Dispatcher.Post(RefreshFlowCommands);
-        }
+        shell.LaunchFlow.PropertyChanged += (_, _) => dependencies.Dispatcher.Post(RefreshFlowCommands);
+        shell.LaunchFlow.InlineContentChanged += (_, _) => dependencies.Dispatcher.Post(RefreshFlowCommands);
     }
 
     /// <inheritdoc />
@@ -502,16 +499,12 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
         return command.Command;
     }
 
-    private bool CanBegin(string gameId) => _shell.LaunchFlow is { } flow && !flow.IsActive(gameId);
+    private bool CanBegin(string gameId) => !_shell.LaunchFlow.IsActive(gameId);
 
     // The banner, the running card and a failure's card are shown on the Games screen, so a launch that got going (or failed to) takes the player there.
     private async Task BeginAsync(string gameId, LaunchTarget target)
     {
-        if (_shell.LaunchFlow is not { } flow)
-        {
-            return;
-        }
-
+        var flow = _shell.LaunchFlow;
         await flow.BeginAsync(gameId, target);
         if (_shell.Destination == NavDestination.History && (flow.IsActive(gameId) || flow.InlineContentFor(gameId) is not null))
         {

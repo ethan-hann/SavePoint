@@ -85,6 +85,10 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
         using var checking = new CancellationTokenSource();
         flow.Stage = FlowStage.Previewing;
         flow.Target = target;
+
+        // A start from an earlier session must not outlive its session: "Try again" on a card from this check may only repeat this check.
+        flow.StartTarget = null;
+        flow.Preview = null;
         SetInline(flow, new LaunchCheckingViewModel(_deps.Text, checking.Cancel));
         RaiseActivity();
 
@@ -101,7 +105,7 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
             }
             else
             {
-                ShowLaunchFailure(flow, preview.Error);
+                ShowLaunchFailure(flow, preview.Error, beforeStart: true);
             }
 
             RaiseActivity();
@@ -113,10 +117,10 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
 
         // A file that cannot be read is the only thing wrong with a folder that has to be switched: say which, and offer to try again,
         // rather than a dialog whose choices (keep, discard) could not help.
-        if (new[] { plan.Install, plan.External }.OfType<FolderLaunchState>().Select(folder => folder.HeldBy).FirstOrDefault(held => held is not null) is { } held)
+        if (HeldFileIn(plan) is { } held)
         {
             flow.Stage = FlowStage.Idle;
-            ShowLaunchFailure(flow, held);
+            ShowHeldFile(flow, held);
             RaiseActivity();
             return;
         }
@@ -154,6 +158,15 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
         || (flow.Session is { } session && !IsEnded(session.State));
 
     private static bool HasUnsaved(LaunchPreview preview) => preview.Install.Dirty || preview.External is { Dirty: true };
+
+    // The held file the check stops on. Unsaved work or a half-finished switch comes first: the dialog settles those, and the file is met when the switch starts.
+    private static ErrorInfo? HeldFileIn(LaunchPreview plan)
+    {
+        var folders = new[] { plan.Install, plan.External }.OfType<FolderLaunchState>().ToList();
+        return folders.Any(folder => folder.Dirty || folder.UnfinishedSwitch)
+            ? null
+            : folders.Select(folder => folder.HeldBy).FirstOrDefault(held => held is not null);
+    }
 
     private GameFlow FlowFor(string gameId)
     {

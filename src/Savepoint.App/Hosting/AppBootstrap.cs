@@ -23,7 +23,8 @@ public static class AppBootstrap
     /// <summary>Starts the backend over the machine's own folders and the bundled git, with the real launch orchestrator.</summary>
     /// <param name="configure">Replaces parts of the backend, for tests; the defaults when null.</param>
     /// <param name="log">The diagnostic log to use, for tests; when null the real log is opened in the platform's log folder (D34).</param>
-    public static BootstrapResult Start(Func<BackendOptions, BackendOptions>? configure = null, IDiagnosticLog? log = null)
+    /// <param name="build">The build text the startup line carries, for tests; the running app's version and commit when null.</param>
+    public static BootstrapResult Start(Func<BackendOptions, BackendOptions>? configure = null, IDiagnosticLog? log = null, string? build = null)
     {
         var diagnostics = log ?? DiagnosticLog.None;
         string? logFolder = null;
@@ -48,7 +49,7 @@ public static class AppBootstrap
                 logFolder = platform.Directories.LogsDir;
             }
 
-            diagnostics.Information($"SavePoint {SettingsEnvironment.ThisAppVersion()} started on {RuntimeInformation.OSDescription} ({RuntimeInformation.OSArchitecture}), {RuntimeInformation.FrameworkDescription}.");
+            diagnostics.Information($"SavePoint {build ?? SettingsEnvironment.ThisAppBuild()} started on {RuntimeInformation.OSDescription} ({RuntimeInformation.OSArchitecture}), {RuntimeInformation.FrameworkDescription}.");
             var backend = CoreBackend.Create(options with { Platform = platform, Log = diagnostics });
             return new BootstrapResult(ServicesOf(backend, logFolder), backend, null, diagnostics);
         }
@@ -65,10 +66,9 @@ public static class AppBootstrap
     /// <param name="backend">The running backend.</param>
     /// <param name="logFolder">Where the diagnostic log is written, for the screens that offer to open it; null when there is no log folder.</param>
     public static AppServices ServicesOf(CoreBackend backend, string? logFolder = null) =>
-        new(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus)
+        new(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus, backend.Artwork)
         {
             FileRevealer = new FileManagerRevealer(FileManager.CreateForCurrentOs()),
-            Artwork = backend.Artwork,
             LogFolder = logFolder,
         };
 
@@ -83,9 +83,9 @@ public static class AppBootstrap
             UnavailableApi.Create<ISettingsApi>(error),
             UnavailableApi.Create<IHistoryApi>(error),
             UnavailableApi.Create<IJobsApi>(error),
-            UnavailableApi.Create<IAppStatusApi>(error))
+            UnavailableApi.Create<IAppStatusApi>(error),
+            UnavailableApi.Create<IArtworkApi>(error))
         {
-            Artwork = UnavailableApi.Create<IArtworkApi>(error),
             BackendStarted = false,
             LogFolder = logFolder,
         };

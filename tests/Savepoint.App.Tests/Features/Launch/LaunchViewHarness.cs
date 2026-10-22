@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using Savepoint.App.Features.Common;
+using Savepoint.App.Features.Common.Art;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Launch;
 using Savepoint.App.Features.Shell;
@@ -74,6 +75,7 @@ internal sealed class LaunchViewHarness : IDisposable
                 rig.Toasts,
                 new ThemeServiceApplier(app.Theme),
                 StandInScreens.Complete([new StubGamesScreenFactory()]),
+                new ArtworkProvider(scenario.Artwork, immediate),
                 flow)),
             dialogs,
             rig.Toasts);

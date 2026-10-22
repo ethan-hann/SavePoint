@@ -162,7 +162,7 @@ public class ShellRenderTests
         public StartupHarness(FakeBackend backend, ThemePreference theme)
         {
             var text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), os: "windows", timeZone: TimeZoneInfo.Utc);
-            var services = new AppServices(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus);
+            var services = new AppServices(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus, backend.Artwork);
             Main = AppComposition.Create(
                 services,
                 text,

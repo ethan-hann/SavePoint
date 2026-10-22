@@ -55,8 +55,8 @@ public static class AppComposition
                 toasts,
                 theme,
                 ScreenFactories(feature, settingsEnvironment),
-                LaunchFlow: FeatureComposition.LaunchFlow(feature),
-                Artwork: FeatureComposition.Artwork(feature)));
+                FeatureComposition.Artwork(feature),
+                FeatureComposition.LaunchFlow(feature)));
         }
 
         return new MainWindowViewModel(startup, CreateShell, dialogStack, toasts, new ExitGuard(services.Jobs, pickers, text));
@@ -69,8 +69,8 @@ public static class AppComposition
         return
         [
             FeatureComposition.GamesScreen(feature, editor),
-            FeatureComposition.HistoryScreen(feature, editor),
-            FeatureComposition.SettingsScreen(feature, editor, settingsEnvironment),
+            FeatureComposition.HistoryScreen(feature),
+            FeatureComposition.SettingsScreen(feature, settingsEnvironment),
         ];
     }
 }

@@ -1,4 +1,5 @@
 using Savepoint.App.Features.Common.Errors;
+using Savepoint.App.Features.Launch;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.Core.Api;
 using Savepoint.Core.Errors;
@@ -29,7 +30,10 @@ public class LaunchHeldFileFlowTests : IDisposable
         await _f.Play(LaunchRig.ModdedTip);
 
         var card = _f.Inline<ErrorCardViewModel>();
-        Assert.Equal("A file is in use, so the switch stopped partway", card.Title);
+        Assert.Equal("A file is in use, so the switch didn't start", card.Title);
+        Assert.Equal(
+            "Something else on your computer is holding one of the game's files open. Close the game, its launcher and any mod manager, then try again. Nothing has been changed.",
+            card.Body);
         Assert.Equal(_file, card.Path);
         Assert.Equal(["Try again", "Dismiss"], card.Actions.Select(action => action.Label));
         Assert.True(FlowRig.Action(card, "Try again").IsPrimary);
@@ -65,5 +69,36 @@ public class LaunchHeldFileFlowTests : IDisposable
 
         Assert.True(_f.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync)).Count > before);
         Assert.NotEmpty(_f.Dialogs.Shown);
+    }
+
+    // The unsaved work is the first thing to settle: the dialog asks about it, and the held file is met when the switch starts.
+    [Fact]
+    public async Task A_file_in_use_beside_unsaved_changes_opens_the_dialog_and_not_the_card()
+    {
+        var source = FakeAssert.Ok(await _f.Backend.Launch.GetPreviewAsync(FlowRig.Skyrim, LaunchRig.SurvivalTip, TestContext.Current.CancellationToken));
+        Assert.True(source.External!.Dirty);
+        _f.Backend.State.LaunchPreviews[(FlowRig.Skyrim, LaunchRig.SurvivalTip)] = source with { Install = source.Install with { HeldBy = ErrorInfo.From(new GitOperationException(_file, "in use")) } };
+
+        var begin = _f.Play(LaunchRig.SurvivalTip);
+
+        Assert.Null(_f.Flow.InlineContentFor(FlowRig.Skyrim));
+        Assert.NotEmpty(_f.Dialogs.Shown.OfType<LaunchDialogViewModel>());
+        _f.LaunchDialog.CancelCommand.Execute(null);
+        await begin;
+    }
+
+    [Fact]
+    public async Task A_file_in_use_in_a_half_switched_folder_opens_the_dialog_and_not_the_card()
+    {
+        var source = FakeAssert.Ok(await _f.Backend.Launch.GetPreviewAsync(FlowRig.Skyrim, LaunchRig.VanillaTip, TestContext.Current.CancellationToken));
+        var held = source.Install with { Dirty = true, UnfinishedSwitch = true, HeldBy = ErrorInfo.From(new GitOperationException(_file, "in use")) };
+        _f.Backend.State.LaunchPreviews[(FlowRig.Skyrim, LaunchRig.VanillaTip)] = source with { Install = held };
+
+        var begin = _f.Play(LaunchRig.VanillaTip);
+
+        Assert.Null(_f.Flow.InlineContentFor(FlowRig.Skyrim));
+        Assert.NotEmpty(_f.Dialogs.Shown.OfType<LaunchDialogViewModel>());
+        _f.LaunchDialog.CancelCommand.Execute(null);
+        await begin;
     }
 }

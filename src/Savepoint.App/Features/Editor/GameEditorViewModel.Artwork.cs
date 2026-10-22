@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -43,9 +44,6 @@ public sealed partial class GameEditorViewModel
     [ObservableProperty]
     private ErrorCardViewModel? _artworkError;
 
-    /// <summary>True when the editor has an artwork Api, so the Artwork section shows.</summary>
-    public bool HasArtworkSection => _artwork is not null;
-
     /// <summary>What the Artwork section previews: the chosen image, or what the game has now.</summary>
     public GameArt ArtworkPreview { get; }
 
@@ -70,10 +68,10 @@ public sealed partial class GameEditorViewModel
     /// True when "Look again" can run: the game is saved, and the app id field still holds the id the game has, because a look up
     /// works on the saved game.
     /// </summary>
-    public bool CanLookAgain => _artwork is not null && _saved is not null && !IsLookingAgain && ParseSteamAppId() == _saved.SteamAppId;
+    public bool CanLookAgain => _saved is not null && !IsLookingAgain && ParseSteamAppId() == _saved.SteamAppId;
 
     /// <summary>True when the app id was changed on a saved game, so Look again waits until the change is saved.</summary>
-    public bool LookAgainWaitsForSave => _artwork is not null && _saved is not null && ParseSteamAppId() != _saved.SteamAppId;
+    public bool LookAgainWaitsForSave => _saved is not null && ParseSteamAppId() != _saved.SteamAppId;
 
     // True while a chosen image or a removal waits for Save; the form counts as changed.
     private bool HasPendingArtwork => _pendingImage is not null || _removeImage;
@@ -98,19 +96,44 @@ public sealed partial class GameEditorViewModel
 
     private void InitializeArtwork(IShellContext shell, GameDefinition? saved)
     {
-        if (saved is not null && _artwork is not null)
+        if (saved is not null)
         {
             var shared = shell.Artwork.For(saved.Id);
-            _knownArtwork = new GameArtwork(shared.GameId, shared.Source, shared.WidePath, shared.SquarePath, shared.SteamAppId, shared.SteamAppIdDetected);
+            _knownArtwork = KnownFrom(shared);
+            _followedArt = shared;
+            shared.PropertyChanged += OnFollowedArtChanged;
         }
 
         ShowPreview(force: false);
     }
 
+    /// <summary>Stops following the game's artwork. The shell calls it when the editor's pane is closed or replaced.</summary>
+    public void Dispose()
+    {
+        if (_followedArt is { } followed)
+        {
+            followed.PropertyChanged -= OnFollowedArtChanged;
+            _followedArt = null;
+        }
+    }
+
+    private static GameArtwork KnownFrom(GameArt art) =>
+        new(art.GameId, art.Source, art.WidePath, art.SquarePath, art.SteamAppId, art.SteamAppIdDetected);
+
+    // A lookup that finishes while the editor is open changes the shared artwork; the revision is raised after every path is in place.
+    private void OnFollowedArtChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(GameArt.Revision) && sender is GameArt art)
+        {
+            _knownArtwork = KnownFrom(art);
+            ShowPreview(force: true);
+        }
+    }
+
     // The shell's copy may not have been read yet, so the editor asks once for itself; it never waits for the network.
     private async Task LoadArtworkAsync()
     {
-        if (_artwork is null || _saved is null)
+        if (_saved is null)
         {
             return;
         }
@@ -168,7 +191,7 @@ public sealed partial class GameEditorViewModel
         ArtworkError = null;
         try
         {
-            var result = await _artwork!.LookAgainAsync(_saved!.Id);
+            var result = await _artwork.LookAgainAsync(_saved!.Id);
             if (result.Ok)
             {
                 _knownArtwork = result.Value;
@@ -195,7 +218,7 @@ public sealed partial class GameEditorViewModel
     // the editor stays open as an editor of the saved game, with the problem shown, and Save tries the artwork again.
     private async Task<bool> ApplyArtworkAsync(GameDefinition game)
     {
-        if (_artwork is null || !HasPendingArtwork)
+        if (!HasPendingArtwork)
         {
             return true;
         }
