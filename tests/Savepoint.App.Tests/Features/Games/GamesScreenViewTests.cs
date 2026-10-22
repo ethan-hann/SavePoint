@@ -199,6 +199,21 @@ public class GamesScreenViewTests
     }
 
     [AvaloniaFact]
+    public async Task The_storage_footer_sits_at_the_bottom_of_the_pane_below_the_table_as_the_mockup_draws_it()
+    {
+        using var harness = await GamesViewHarness.StartAsync();
+        var root = harness.Find<Grid>("Root");
+        var footer = harness.Find<Border>("StorageFooter");
+        var table = harness.Find<Border>("Table");
+
+        var footerBottom = footer.TranslatePoint(new Point(0, footer.Bounds.Height), root)!.Value.Y;
+        var tableBottom = table.TranslatePoint(new Point(0, table.Bounds.Height), root)!.Value.Y;
+
+        Assert.Equal(root.Bounds.Height, footerBottom, 1.0);
+        Assert.True(footer.Bounds.Top > tableBottom + 40, "the footer is pinned to the pane, not drawn straight under the table");
+    }
+
+    [AvaloniaFact]
     public async Task The_history_chip_goes_to_history_and_neither_chip_flips_when_pressed()
     {
         using var harness = await GamesViewHarness.StartAsync();

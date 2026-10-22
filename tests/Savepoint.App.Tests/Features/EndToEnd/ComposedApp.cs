@@ -124,6 +124,22 @@ internal sealed class ComposedApp : IDisposable
         }
     }
 
+    // Transitions (the nav pills fade over 150 ms) follow the render clock, which only runs when ticked: let it run past the longest one.
+    private void SettleAnimations()
+    {
+        if (View is null)
+        {
+            return;
+        }
+
+        for (var tick = 0; tick < 12; tick++)
+        {
+            Thread.Sleep(25);
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+        }
+    }
+
     // Shows a destination the way its nav item does and answers with its screen.
     public T Show<T>(NavDestination destination)
         where T : class, IScreen
@@ -161,6 +177,7 @@ internal sealed class ComposedApp : IDisposable
     public string Render(string area, string name)
     {
         Settle();
+        SettleAnimations();
         var frame = Window.CaptureRenderedFrame() ?? throw new InvalidOperationException("No frame was rendered.");
         Directory.CreateDirectory(RenderFolder(area));
         var path = Path.Combine(RenderFolder(area), name + ".png");
