@@ -127,6 +127,22 @@ public class PostPlayDialogViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task A_screen_reader_hears_why_the_choices_differ_when_a_session_started_from_an_older_snapshot_opens_the_dialog()
+    {
+        var dialog = await OlderAsync();
+
+        Assert.Equal($"{dialog.Body} {dialog.OlderNote}", dialog.Description);
+    }
+
+    [Fact]
+    public async Task A_normal_sessions_description_is_the_question_alone()
+    {
+        var dialog = await NormalAsync();
+
+        Assert.Equal(dialog.Body, dialog.Description);
+    }
+
+    [Fact]
     public async Task A_normal_session_has_no_older_note_and_an_unchanged_install_has_no_install_note()
     {
         var dialog = await NormalAsync();
