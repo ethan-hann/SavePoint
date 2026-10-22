@@ -8,7 +8,7 @@ How to build, run, test, and change SavePoint. What the code promises layer by l
 - **On Windows, PowerShell 7 (`pwsh`).** The build calls `build/fetch-git.ps1` through it.
 - **On Linux and macOS, `bash`, `tar`, and `curl` or `wget`.**
 - **Network access on the first build.** The build downloads SavePoint's own git (below). Later builds reuse it.
-- **For packaging only:** `dotnet tool restore`, which installs the pinned `vpk`.
+- **For packaging only:** `dotnet tool restore`, which installs the pinned `vpk`, and git on `PATH` (the package scripts read the commit they build).
 
 Nothing else is needed: SavePoint never uses a git installed on the machine.
 
@@ -49,7 +49,7 @@ The version lives in one place: `<Version>` in `Directory.Build.props`. Packages
 pwsh -NoProfile -File build/package.ps1
 ```
 
-- **Windows:** `build/package.ps1` publishes a self-contained `win-x64` build to `artifacts/publish/win-x64`. It checks that `git/`, `THIRD-PARTY-NOTICES.md`, and `licenses/` are there, then packs `SavePoint-win-Setup.exe` and `SavePoint-win-Portable.zip` into `artifacts/release/win-x64`. It opens each package afterwards, checks that the app, the git bundle, and the notices are inside, and writes the listing to `artifacts/release/contents-win-x64/`.
+- **Windows:** `build/package.ps1` publishes a self-contained `win-x64` build to `artifacts/publish/win-x64`. It checks that `git/`, `THIRD-PARTY-NOTICES.md`, and `licenses/` are there, then packs `SavePoint-win-Setup.exe` and `SavePoint-win-Portable.zip` into `artifacts/release/win-x64`. It opens each package afterwards, checks that the git bundle, the notices, and the license texts are inside, and writes the listing to `artifacts/release/contents-win-x64/`.
 - **Linux:** `build/package.sh` does the same for `linux-x64` and gives `SavePoint.AppImage`. Run it on Linux, or under WSL, from a tree that only Linux builds use, because the build outputs are not shared between the two platforms. Without a matching `dotnet` on `PATH`, it installs a .NET SDK into `<tree>/.tools/dotnet-linux`.
 - **Which build this is:** every package of one version has the same number, so the scripts put the commit into the informational version, and the startup log names it. A tree with uncommitted changes is refused; `-AllowDirty` (`--allow-dirty`) packs it anyway, marked `-dirty`, for a trial package.
 - **Source archives:** `-Sources` (or `--sources`) also downloads the source archives of the tags `build/git-manifest.json` pins into `artifacts/release/source/`, prints their SHA-256, and compares each with the hash the manifest pins. The three hashes are empty until the first such run; until they are pinned, a `-Sources` run fails after printing them.

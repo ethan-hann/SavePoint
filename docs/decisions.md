@@ -189,7 +189,7 @@ The Linux gate runs under WSL on the workspace's `/mnt/f` drvfs (9p) mount, beca
 
 Findings from the engine work that change behavior the plan relies on:
 
-- **A game folder's own `.gitignore` files are not honored.** SavePoint must restore exactly what was on disk, so only SavePoint's exclude list (`info/exclude`: the marker and the game's `ignorePaths`) decides what is skipped. Capture lists files itself (`ls-files -z -o -m -d --exclude-from=<gitDir>/info/exclude`, never `--exclude-standard`) and stages them with `add -f --pathspec-from-file=- --pathspec-file-nul`; status/unsaved-change detection and capture previews use the same listing; clean uses `clean -fdx` with SavePoint's patterns passed as `-e`, so a file a mod's `.gitignore` names is still saved, still detected as unsaved, and still cleaned on discard.
+- **A game folder's own `.gitignore` files are not honored.** (For a file SavePoint's patterns name that a point already recorded, D41.2 decides: a switch and a discard leave it as it is on disk, and a save stops recording it; a discard with patterns is therefore no longer one hard reset.) SavePoint must restore exactly what was on disk, so only SavePoint's exclude list (`info/exclude`: the marker and the game's `ignorePaths`) decides what is skipped. Capture lists files itself (`ls-files -z -o -m -d --exclude-from=<gitDir>/info/exclude`, never `--exclude-standard`) and stages them with `add -f --pathspec-from-file=- --pathspec-file-nul`; status/unsaved-change detection and capture previews use the same listing; clean uses `clean -fdx` with SavePoint's patterns passed as `-e`, so a file a mod's `.gitignore` names is still saved, still detected as unsaved, and still cleaned on discard.
 - **Nested version-control folders are refused, not half-saved.** A folder inside the game that holds its own `.git` (a mod cloned from GitHub) would otherwise be stored as an empty pointer whose files never come back, or fail the capture outright. Capture and preview detect any nested `.git` directory or file and refuse with `error.capture.nestedRepository`, naming the folder, before staging anything. The user moves the mod's hidden history folder out and captures again.
 - **Two optimization modes** (refines D25). *Routine* (`repack -d --geometric=2`) runs automatically after captures and never rewrites the large packs. *Reclaim* expires reflogs, then `repack -a -d` and `prune --expire=now`, dropping everything no profile reaches: it runs when the user presses "Optimize storage" and automatically after a profile or game is deleted (preemptible like any optimization, D13.17). So D17's "freed by the next optimization" and D14's "recoverable until the next optimization" hold. Repos keep `core.logAllRefUpdates=false`; reflogs add nothing for SavePoint.
 - **Profile branch names are always lowercase** (`CatalogIds`), so case-only collisions on case-insensitive file systems cannot happen.
@@ -266,6 +266,7 @@ The roadmap asks for an installer and a portable build per OS. v2 packages with 
   - **Outputs:**
     - Windows: `SavePoint-win-Setup.exe`, `SavePoint-win-Portable.zip`, `SavePointApp-<version>-full.nupkg` (vpk names it after the pack id, D38), and vpk's release index files.
     - Linux: `SavePoint.AppImage` and `SavePointApp-<version>-linux-full.nupkg`.
+  - **From the final review (D41):** the commit goes into the informational version (`0.9.0+<commit>`), a tree with uncommitted changes is refused unless a trial package is asked for, the source archives' hashes are pinned in `build/git-manifest.json` (empty until the first `-Sources` run), and each package's contents are listed in `artifacts/release/contents-<rid>/` and checked for the git bundle, the notices, and the license texts.
   - **Not yet covered:** the packages are unsigned, so SmartScreen warns on the setup. Releases still need to publish the MSYS2 and MINGW package sources that D21 also promises.
 
 ## D34. A local diagnostic log and a crash handler
@@ -291,7 +292,7 @@ v1's plan keeps each error's English message as dev-facing detail "for logs and 
   - The Serilog sink is unbuffered, so every line reaches the disk at once.
   - On a crash, a second crash while the last window is up is only logged, and a crash with no responsive UI thread gives up on the window after 5 seconds. The exit code is 1.
   - The startup screen for a backend that failed to start names the log folder and opens it.
-  - From the final review (D41): the start-up line names the commit the package was built from; a failed artwork lookup is a warning; a discard, a switch, a save that left a folder alone or skipped it, a profile delete, and a game delete each log what they did, with paths and file counts; an exception thrown by an event subscriber is logged; on a crash, running jobs are asked to stop before the last window shows.
+  - From the final review (D41): the start-up line names the commit the package was built from; a failed artwork lookup is a warning; a discard, a switch, a save that left a folder alone or skipped it, a profile delete, and a game delete each log what they did, with the paths, the bytes, and the branch tips removed; an exception thrown by an event subscriber is logged; on a crash, running jobs are asked to stop before the last window shows.
 
 ## D35. The "only the save changes" switch belongs to the check before playing
 
@@ -315,7 +316,7 @@ The review (`.tools/reviews/ux-a11y.md`) left eight questions open. They are set
 
 The recheck (`.tools/reviews/backend-launch-recheck.md`) found the D31 work complete: 29 fixed, 1 fixed differently, 3 partly fixed, 0 open. It also found four new warnings (RC-001 to RC-004) and eleven suggestions. v2 adopts the recheck's recommended fixes, with these owner-level calls:
 
-1. **Storage that is gone for good (RC-001).** Unreachable storage is a startup finding, like an unavailable git, with three choices:
+1. **Storage that is gone for good (RC-001; refined by D41.4 to D41.6 and D42.1).** Unreachable storage is a startup finding, like an unavailable git, with three choices:
    - "Try again";
    - "Find the folder": re-point the saved root at a folder that holds SavePoint's stamped git directories for the catalog's games, as a settings change with no copy;
    - "Start with an empty folder", after a confirmation that names the old path.
@@ -325,7 +326,7 @@ The recheck (`.tools/reviews/backend-launch-recheck.md`) found the D31 work comp
    - "Continue from here" is offered only when that start lies on the profile's own branch.
    - For "Keep as a new point" and "Update existing", whether such a folder is saved or skipped is decided before the save, never discovered as a half-failure.
 4. **Stray folders in the storage root (RC-004 and the scan suggestion).** A folder whose name is not a game id, such as "game - Copy", never fails a move after the switch. The move fails only on folders that could be SavePoint's.
-5. **Files held open (the suggestions on the racy fix).** The launch preview names a held file and offers "Try again" instead of Keep and Discard. A folder whose only changes are held files counts as clean. Only a sharing or lock violation counts as "in use"; access denied gets its own message, which names the file.
+5. **Files held open (the suggestions on the racy fix).** The launch preview names a held file and offers "Try again" instead of Keep and Discard. A folder whose only changes are held files counts as clean for a switch; a save treats it as "cannot tell" (D41.1). Only a sharing or lock violation counts as "in use"; access denied gets its own message, which names the file.
 
 The partly fixed BL-019, BL-026, and BL-032 are completed as the recheck describes. On macOS, an application-level shutdown (Cmd+Q) also asks before quitting during clear-all or a storage move.
 

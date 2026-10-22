@@ -23,7 +23,7 @@ On first start, SavePoint offers **Add your first game** or **Start from a templ
 5. Optional settings:
    - **Extra command-line options.**
    - **Knowing when you've stopped playing:** the name of the game's own process, for launchers that close themselves before the game opens.
-   - **Files to ignore:** for example `**/*.log`, so logs and crash dumps never count as changes.
+   - **Files to ignore:** for example `**/*.log`, so logs and crash dumps never count as changes. A file on this list is left as it is when you switch profiles and is no longer saved, even where older points saved it, so keep the list to files that don't matter: a pattern that names your saves would stop profiles from switching them.
    - **Folders that hold mods:** these only change what History highlights as a mod change.
 6. **Save changes**. SavePoint asks you to confirm each folder. It keeps copies of everything in them, and it leaves one small marker file in each folder to remember you chose it.
 
@@ -147,7 +147,10 @@ Every failure says what happened and what you can do; **Show details** gives the
 - **SavePoint's storage isn't reachable.** If the folder holding SavePoint's storage can't be reached at startup, SavePoint says so instead of showing empty history, and offers three ways on:
   - **Try again**, after you connect the drive or network share.
   - **Find the folder**, when the folder moved or the drive has a new letter. SavePoint checks that the folder you choose holds its storage before it uses it. Games that folder has no history for start again with their next save.
+  - If the storage folder can be reached again by the time you choose, SavePoint says so and changes nothing; use **Try again**. **Start with an empty folder** also refuses when SavePoint's default folder already holds saved history, and tells you to use that history through **Find the folder**, or move the folder away to start over.
   - **Start with an empty folder**, when the old storage is gone for good. You confirm first. Your games and profiles stay listed, but their saved history stays behind in the old folder, and SavePoint no longer uses it. Each profile starts its history again the next time you save it.
+- **Part of that session wasn't saved.** After you play from a point that left one folder as it was, because that folder belongs to another profile's history, SavePoint saves the folder that is yours and says the other was left alone. Its changes are still on disk.
+- **"Update the latest point" fails on a file another program holds,** even one that didn't change, because SavePoint can't tell whether it changed without reading it. Close that program and try again.
 - **Some old copies couldn't be removed.** After a storage move, SavePoint lists any old files it couldn't delete, for example because another program had them open, so you can delete them by hand.
 - **An unreadable settings file at startup.** SavePoint leaves the file as it found it. For each one, it offers to restore the last good copy or start that file empty. The unreadable file is moved aside, never deleted.
 
