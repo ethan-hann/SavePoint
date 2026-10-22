@@ -28,7 +28,7 @@ public static class ContextualHelp
     /// <param name="text">Formats the copy.</param>
     /// <param name="profileName">The profile the session was played from.</param>
     public static ContextualHelpViewModel OlderChoice(UiFormatter text, string profileName) =>
-        new(text.Message("help.olderChoice.question"), text.Message("help.olderChoice.answer", ("profileName", profileName)));
+        new(text.Message("help.olderChoice.question"), text.Message("help.olderChoice.answer", ("profileName", profileName)), picture: HelpPicture.Older);
 
     /// <summary>"When should I replace?", on the Replace card in the dialog after playing.</summary>
     /// <param name="text">Formats the copy.</param>

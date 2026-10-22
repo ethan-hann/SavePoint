@@ -26,6 +26,19 @@ namespace Savepoint.Core.Catalog;
 /// network request at all; artwork already on this computer is used either way. A settings file from before this setting existed
 /// reads as true.
 /// </param>
+/// <param name="OlderChoiceHelpSeen">
+/// True once the dialog after playing from an older snapshot has opened its "Which should I pick?" explanation for the player on
+/// its own. It is kept per player, not per run, so the explanation opens by itself only the first time. A settings file from before
+/// this setting existed reads as false.
+/// </param>
+/// <param name="DiscardHelpSeen">
+/// True once a discard confirmation has added its one line of advice for the player. Kept per player; reads as false in a settings
+/// file from before this setting existed.
+/// </param>
+/// <param name="ReplaceHelpSeen">
+/// True once the Replace choice after playing has opened its "When should I replace?" explanation on its own. Kept per player;
+/// reads as false in a settings file from before this setting existed.
+/// </param>
 public sealed record AppSettings(
     string StorageRoot = "",
     ThemePreference Theme = ThemePreference.System,
@@ -35,7 +48,10 @@ public sealed record AppSettings(
     bool ConfirmSessionCapture = true,
     bool SkipConfirmWhenOnlySaveChanges = false,
     DateTimeOffset? LastOptimizedAt = null,
-    bool LookUpArtworkOnline = true)
+    bool LookUpArtworkOnline = true,
+    bool OlderChoiceHelpSeen = false,
+    bool DiscardHelpSeen = false,
+    bool ReplaceHelpSeen = false)
 {
     /// <summary>
     /// The settings for a first run. They are written only once the user changes something, so every setting but the storage

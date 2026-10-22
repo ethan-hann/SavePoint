@@ -1,5 +1,7 @@
 {
   "firstRun.howItWorks": "How SavePoint works",
+  "help.discard.saferChoice": "Not sure? Cancel and choose Take a snapshot first. It only costs disk space.",
+  "help.discard.saferChoiceKeep": "Not sure? Cancel and keep them as a new profile first. It only costs disk space.",
   "help.moreInPage": "More in How SavePoint works",
   "help.newChanges.answer": "Files in this folder changed since SavePoint's last snapshot. You might have saved in the game, a mod manager might have installed something, or the game might have updated. Take a snapshot to keep them, or discard them to put the folder back the way the snapshot has it.",
   "help.newChanges.question": "What are new changes?",

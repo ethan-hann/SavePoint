@@ -228,6 +228,24 @@ public class ContextualHelpViewTests
     }
 
     [AvaloniaFact]
+    public async Task The_first_older_snapshot_choice_shows_its_answer_open_with_the_picture_of_the_choice_inside_it()
+    {
+        using var app = await AppStates.OpenAsync("post-play-from-older-snapshot");
+        var dialog = app.Dialog<PostPlayDialogViewModel>();
+
+        var answer = Answer(app, dialog.OlderChoiceHelp!);
+
+        Assert.True(dialog.OlderChoiceHelp!.IsOpen);
+        Assert.NotNull(answer);
+        Assert.True(answer.IsEffectivelyVisible);
+        var picture = answer.GetVisualDescendants().OfType<HelpPictureView>().Single();
+        Assert.True(picture.IsEffectivelyVisible);
+        Assert.Equal(HelpPicture.Older, picture.Picture);
+        Assert.NotNull(picture.Content);
+        Assert.True(picture.Bounds.Width <= answer.Bounds.Width, "The picture is wider than the callout it sits in.");
+    }
+
+    [AvaloniaFact]
     public async Task The_replace_card_shows_its_question_only_while_it_is_the_selected_card()
     {
         using var app = await AppStates.OpenAsync("launch-post-play");

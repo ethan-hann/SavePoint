@@ -185,7 +185,7 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
         SetInline(flow, null);
         RaiseActivity();
 
-        var dialog = new LaunchDialogViewModel(plan, GameName(flow.GameId), ProfileName(flow.GameId, plan.ProfileId), settings.SkipConfirmWhenOnlySaveChanges, id => _profileNames.GetValueOrDefault((flow.GameId, id)), _deps);
+        var dialog = new LaunchDialogViewModel(plan, GameName(flow.GameId), ProfileName(flow.GameId, plan.ProfileId), settings.SkipConfirmWhenOnlySaveChanges, id => _profileNames.GetValueOrDefault((flow.GameId, id)), _deps, explainDiscard: !settings.DiscardHelpSeen);
         dialog.SettingsSaved += (_, saved) => SettingsSaved?.Invoke(this, saved);
         var chosen = await _deps.Dialogs.ShowAsync(dialog);
         if (chosen is null)

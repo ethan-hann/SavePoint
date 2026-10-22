@@ -43,6 +43,7 @@ internal static class AppStates
         "launch-post-play",
         "launch-post-play-older-point",
         "post-play-from-older-snapshot",
+        "post-play-from-older-snapshot-again",
         "history-cards",
         "history-list",
         "history-filtered-empty",
@@ -86,7 +87,7 @@ internal static class AppStates
         "launch-dialog-keep-as-new",
         "launch-post-play",
         "launch-post-play-older-point",
-        "post-play-from-older-snapshot",
+        "post-play-from-older-snapshot-again",
         "settings-clear-all",
         "first-run-templates",
         "editor-consent",
@@ -126,6 +127,8 @@ internal static class AppStates
                 .WithSettings(MockupScenario.Settings)
                 .WithProfile(new Profile("profile-empty", _skyrim, "Fresh profile", "profile/profile-empty")))),
             "activity-jobs" or "activity-failed" => await ComposedApp.StartWithViewAsync(await BackendWithJobsAsync()),
+            // A player who has met the older-snapshot choice before: its explanation starts collapsed, so Escape goes to the dialog.
+            "post-play-from-older-snapshot-again" => await ComposedApp.StartWithViewAsync(new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { OlderChoiceHelpSeen = true }))),
             "first-run" or "first-run-templates" => await ComposedApp.StartWithViewAsync(new FakeBackend(ScenarioBuilder.Empty().WithSettings(MockupScenario.Settings))),
             "library-error" => await ComposedApp.StartWithViewAsync(LibraryUnreadable(), visitScreens: false),
             "startup-git-unavailable" => await ComposedApp.StartWithViewAsync(StartupBackend(new StartupStatus(
@@ -215,7 +218,7 @@ internal static class AppStates
             case "launch-post-play-older-point":
                 app.History.Groups.SelectMany(group => group.Cards).Single(card => card.Name == "Cleared Blackreach").GoBackCommand.Execute(null);
                 break;
-            case "post-play-from-older-snapshot":
+            case "post-play-from-older-snapshot" or "post-play-from-older-snapshot-again":
                 // Played from an older snapshot to the end, so the dialog after playing offers a new profile or continuing the old one.
                 var goBack = Assert.IsAssignableFrom<IAsyncRelayCommand>(app.History.Groups.SelectMany(group => group.Cards).Single(card => card.Name == "Cleared Blackreach").GoBackCommand).ExecuteAsync(null);
                 app.Dialog<LaunchDialogViewModel>().SwitchCommand.Execute(null);

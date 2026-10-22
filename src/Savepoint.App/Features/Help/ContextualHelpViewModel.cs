@@ -18,8 +18,10 @@ public sealed partial class ContextualHelpViewModel : ObservableObject
     /// <param name="answer">The text that opens below the button.</param>
     /// <param name="moreLabel">The text of the link to the "How SavePoint works" page; empty when the answer has no link.</param>
     /// <param name="openHowItWorks">Opens the page; null for an answer that sits in a dialog, where a page opened behind it could not be used.</param>
-    public ContextualHelpViewModel(string question, string answer, string moreLabel = "", Action? openHowItWorks = null)
+    /// <param name="picture">A picture drawn small inside the answer; <see cref="HelpPicture.None"/> for none.</param>
+    public ContextualHelpViewModel(string question, string answer, string moreLabel = "", Action? openHowItWorks = null, HelpPicture picture = HelpPicture.None)
     {
+        Picture = picture;
         Question = question;
         Answer = answer;
         MoreLabel = moreLabel;
@@ -39,6 +41,12 @@ public sealed partial class ContextualHelpViewModel : ObservableObject
 
     /// <summary>The text that opens below the button.</summary>
     public string Answer { get; }
+
+    /// <summary>A picture drawn small inside the answer, from the "How SavePoint works" page; <see cref="HelpPicture.None"/> for none.</summary>
+    public HelpPicture Picture { get; }
+
+    /// <summary>True when the answer draws a picture.</summary>
+    public bool HasPicture => Picture != HelpPicture.None;
 
     /// <summary>The text of the link to the page; empty when there is none.</summary>
     public string MoreLabel { get; }

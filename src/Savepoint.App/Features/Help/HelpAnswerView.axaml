@@ -13,6 +13,10 @@
       <TextBlock Classes="icon s18" VerticalAlignment="Top" Margin="0,1,0,0" Text="{x:Static theme:Icons.Info}" />
       <StackPanel Grid.Column="1" Spacing="8">
         <TextBlock x:Name="AnswerText" FontSize="13.5" LineHeight="20" TextWrapping="Wrap" Text="{Binding Answer}" />
+        <!-- The picture from the page, drawn small: it shrinks to the callout's width and never grows. -->
+        <Viewbox x:Name="AnswerPicture" MaxWidth="440" StretchDirection="DownOnly" HorizontalAlignment="Left" Margin="0,4,0,0" IsVisible="{Binding HasPicture}">
+          <help:HelpPictureView Picture="{Binding Picture}" />
+        </Viewbox>
         <Button x:Name="MoreButton"
                 Classes="text pill"
                 Padding="10,5"
