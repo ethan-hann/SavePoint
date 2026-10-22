@@ -15,7 +15,7 @@ public sealed partial class LaunchOrchestrator
 
     /// <inheritdoc />
     public Task<OperationResult<JobStarted>> StartAsync(string gameId, LaunchTarget target) =>
-        ApiGuard.RunAsync(async () =>
+        ApiGuard.RunAsync(_services.Log, async () =>
         {
             ArgumentNullException.ThrowIfNull(target);
             var game = await RequireGameAsync(gameId).ConfigureAwait(false);

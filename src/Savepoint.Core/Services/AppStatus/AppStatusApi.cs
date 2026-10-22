@@ -21,6 +21,7 @@ internal sealed class AppStatusApi : IAppStatusApi
 
     public Task<OperationResult<StartupStatus>> CheckAsync(CancellationToken cancellationToken = default) =>
         ApiGuard.RunAsync(
+            _services.Log,
             async () =>
             {
                 var git = await CheckGitAsync(cancellationToken).ConfigureAwait(false);
@@ -38,6 +39,7 @@ internal sealed class AppStatusApi : IAppStatusApi
 
     public Task<OperationResult<string>> RecoverCatalogFileAsync(string path, CatalogRecovery recovery, CancellationToken cancellationToken = default) =>
         ApiGuard.RunAsync(
+            _services.Log,
             async () =>
             {
                 var backup = path + ".bak";

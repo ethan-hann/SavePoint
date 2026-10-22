@@ -12,6 +12,7 @@ public sealed partial class LaunchOrchestrator
     /// <inheritdoc />
     public Task<OperationResult<LaunchPreview>> GetPreviewAsync(string gameId, LaunchTarget target, CancellationToken cancellationToken = default) =>
         ApiGuard.RunAsync(
+            _services.Log,
             async () =>
             {
                 ArgumentNullException.ThrowIfNull(target);

@@ -9,6 +9,7 @@ internal sealed partial class GamesApi
 {
     public Task<OperationResult<CapturePreview>> GetCapturePreviewAsync(string gameId, CancellationToken cancellationToken = default) =>
         ApiGuard.RunAsync(
+            _services.Log,
             async () =>
             {
                 var game = await RequireGameAsync(gameId, cancellationToken).ConfigureAwait(false);

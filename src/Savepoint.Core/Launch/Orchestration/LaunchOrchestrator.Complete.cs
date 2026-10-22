@@ -13,7 +13,7 @@ public sealed partial class LaunchOrchestrator
 
     /// <inheritdoc />
     public Task<OperationResult<Unit>> CompleteSessionAsync(string gameId, SessionCompletion completion) =>
-        ApiGuard.RunAsync(async () =>
+        ApiGuard.RunAsync(_services.Log, async () =>
         {
             ArgumentNullException.ThrowIfNull(completion);
             var record = _book.Record(gameId);
@@ -64,7 +64,7 @@ public sealed partial class LaunchOrchestrator
 
     /// <inheritdoc />
     public Task<OperationResult<Unit>> RetryCompletionAsync(string gameId) =>
-        ApiGuard.RunAsync(async () =>
+        ApiGuard.RunAsync(_services.Log, async () =>
         {
             var game = await RequireGameAsync(gameId).ConfigureAwait(false);
             if (_book.Record(gameId) is not { Run: { } run, Info.State: SessionState.Completed completed } || !DidNotAllSave(completed))
@@ -132,7 +132,7 @@ public sealed partial class LaunchOrchestrator
 
     /// <inheritdoc />
     public Task<OperationResult<Unit>> DiscardChangesAsync(string gameId, RepoRole folder) =>
-        ApiGuard.RunAsync(async () =>
+        ApiGuard.RunAsync(_services.Log, async () =>
         {
             var game = await RequireGameAsync(gameId).ConfigureAwait(false);
             await RefuseWhileOpenAsync(game).ConfigureAwait(false);

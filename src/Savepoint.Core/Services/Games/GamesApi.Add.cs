@@ -9,7 +9,7 @@ namespace Savepoint.Core.Services.Games;
 internal sealed partial class GamesApi
 {
     public Task<OperationResult<AddGameOutcome>> AddAsync(GameDefinition definition) =>
-        ApiGuard.RunAsync(() => AddCoreAsync(definition));
+        ApiGuard.RunAsync(_services.Log, () => AddCoreAsync(definition));
 
     private async Task<AddGameOutcome> AddCoreAsync(GameDefinition definition)
     {

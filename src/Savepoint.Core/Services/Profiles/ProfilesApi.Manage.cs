@@ -12,7 +12,7 @@ internal sealed partial class ProfilesApi
     private const string _startedMessage = "Profile started";
 
     public Task<OperationResult<Profile>> UpdateAsync(string gameId, string profileId, ProfileChanges changes) =>
-        ApiGuard.RunAsync(async () =>
+        ApiGuard.RunAsync(_services.Log, async () =>
         {
             await RequireGameAsync(gameId).ConfigureAwait(false);
             await RequireProfileAsync(gameId, profileId).ConfigureAwait(false);
@@ -25,7 +25,7 @@ internal sealed partial class ProfilesApi
         });
 
     public Task<OperationResult<Profile>> DuplicateAsync(string gameId, string sourceProfileId, string name) =>
-        ApiGuard.RunAsync(async () =>
+        ApiGuard.RunAsync(_services.Log, async () =>
         {
             var game = await RequireGameAsync(gameId).ConfigureAwait(false);
             return await _services.RunForGameAsync(
@@ -70,6 +70,7 @@ internal sealed partial class ProfilesApi
 
     public Task<OperationResult<ProfileDeletePreview>> GetDeletePreviewAsync(string gameId, string profileId, CancellationToken cancellationToken = default) =>
         ApiGuard.RunAsync(
+            _services.Log,
             async () =>
             {
                 var game = await RequireGameAsync(gameId, cancellationToken).ConfigureAwait(false);
@@ -100,7 +101,7 @@ internal sealed partial class ProfilesApi
             cancellationToken);
 
     public Task<OperationResult<Unit>> DeleteAsync(string gameId, string profileId) =>
-        ApiGuard.RunAsync(async () =>
+        ApiGuard.RunAsync(_services.Log, async () =>
         {
             var game = await RequireGameAsync(gameId).ConfigureAwait(false);
             await _services.RunForGameAsync(

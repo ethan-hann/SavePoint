@@ -1,5 +1,6 @@
 using Savepoint.Core.Artwork;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Diagnostics;
 using Savepoint.Core.Git;
 using Savepoint.Core.Paths;
 using Savepoint.Core.Platform;
@@ -37,8 +38,10 @@ public sealed class BackendServices
         IDiskSpace disk,
         TimeProvider time,
         string installDirectory,
-        int looseObjectThreshold)
+        int looseObjectThreshold,
+        IDiagnosticLog log)
     {
+        Log = log;
         Platform = platform;
         Catalog = catalog;
         Git = git;
@@ -57,6 +60,9 @@ public sealed class BackendServices
         Artwork = new ArtworkStore(catalog.DirectoryPath);
         Capture = new CaptureRunner(this, new OptimizationService(this));
     }
+
+    /// <summary>Where the backend records what happened (D34). Never null, and never throws: a failing log is swallowed.</summary>
+    public IDiagnosticLog Log { get; }
 
     /// <summary>The operating system's folders, path tokens and safety table.</summary>
     public IPlatform Platform { get; }

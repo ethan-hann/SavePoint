@@ -22,10 +22,11 @@ internal sealed partial class GamesApi : IGamesApi
     public IReadOnlyList<GameTemplate> Templates => GameTemplates.All;
 
     public Task<OperationResult<IReadOnlyList<GameDefinition>>> ListAsync(CancellationToken cancellationToken = default) =>
-        ApiGuard.RunAsync(() => _services.Catalog.ListGamesAsync(cancellationToken), cancellationToken);
+        ApiGuard.RunAsync(_services.Log, () => _services.Catalog.ListGamesAsync(cancellationToken), cancellationToken);
 
     public Task<OperationResult<IReadOnlyList<FolderStatus>>> GetFolderStatusAsync(string gameId, CancellationToken cancellationToken = default) =>
         ApiGuard.RunAsync<IReadOnlyList<FolderStatus>>(
+            _services.Log,
             async () =>
             {
                 var game = await RequireGameAsync(gameId, cancellationToken).ConfigureAwait(false);
@@ -40,6 +41,7 @@ internal sealed partial class GamesApi : IGamesApi
 
     public Task<OperationResult<GameStorageUsage>> GetStorageUsageAsync(string gameId, CancellationToken cancellationToken = default) =>
         ApiGuard.RunAsync(
+            _services.Log,
             async () =>
             {
                 var game = await RequireGameAsync(gameId, cancellationToken).ConfigureAwait(false);
@@ -58,15 +60,17 @@ internal sealed partial class GamesApi : IGamesApi
             cancellationToken);
 
     public Task<OperationResult<string>> ResolvePathAsync(string rawPath, CancellationToken cancellationToken = default) =>
-        ApiGuard.RunAsync(() => Task.FromResult(_services.PathTokens.Resolve(rawPath)), cancellationToken);
+        ApiGuard.RunAsync(_services.Log, () => Task.FromResult(_services.PathTokens.Resolve(rawPath)), cancellationToken);
 
     public Task<OperationResult<IReadOnlyList<string>>> ListExecutablesAsync(string installPath, CancellationToken cancellationToken = default) =>
         ApiGuard.RunAsync(
+            _services.Log,
             async () => await _services.Executables.ListAsync(_services.PathTokens.Resolve(installPath, "install.path"), cancellationToken).ConfigureAwait(false),
             cancellationToken);
 
     public Task<OperationResult<GameDefinition>> ImportDefinitionAsync(string filePath, CancellationToken cancellationToken = default) =>
         ApiGuard.RunAsync(
+            _services.Log,
             async () =>
             {
                 var bytes = await File.ReadAllBytesAsync(filePath, cancellationToken).ConfigureAwait(false);
@@ -88,6 +92,7 @@ internal sealed partial class GamesApi : IGamesApi
 
     public Task<OperationResult<Unit>> ExportDefinitionAsync(string gameId, string filePath, CancellationToken cancellationToken = default) =>
         ApiGuard.RunAsync(
+            _services.Log,
             async () =>
             {
                 var game = await RequireGameAsync(gameId, cancellationToken).ConfigureAwait(false);

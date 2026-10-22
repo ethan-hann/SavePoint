@@ -1,6 +1,7 @@
 using Savepoint.Core.Api;
 using Savepoint.Core.Artwork;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Diagnostics;
 using Savepoint.Core.Git;
 using Savepoint.Core.Platform;
 using Savepoint.Core.Services.AppStatus;
@@ -82,6 +83,7 @@ public sealed class CoreBackend
         ArgumentNullException.ThrowIfNull(options);
         var platform = options.Platform ?? PlatformFactory.ForCurrentOs();
         var time = options.Time ?? TimeProvider.System;
+        var log = new GuardedDiagnosticLog(options.Log ?? DiagnosticLog.None);
         var catalog = new CatalogStore(options.CatalogDirectory ?? platform.Directories.CatalogDir, time);
         var git = options.Git ?? GitBinary.Locate(Path.Combine(platform.Directories.RuntimeDir, "git"));
         var runner = new GitRunner(git);
@@ -107,7 +109,8 @@ public sealed class CoreBackend
             disk,
             time,
             installDirectory,
-            options.LooseObjectThreshold);
+            options.LooseObjectThreshold,
+            log);
 
         var optimization = new OptimizationService(services);
         var launch = options.Launch(services);
