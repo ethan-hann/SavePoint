@@ -7,9 +7,9 @@ using Savepoint.App.Features.Common;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Launch;
 using Savepoint.App.Features.Shell;
-using Savepoint.App.Tests.Features.Shell;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Tests.Features.Launch.Stub;
+using Savepoint.App.Tests.Features.Shell;
 using Savepoint.App.Tests.Theme;
 using Savepoint.Core.Catalog;
 

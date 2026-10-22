@@ -9,8 +9,8 @@ using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Shell;
-using Savepoint.App.Tests.Features.Shell;
 using Savepoint.App.Tests.Fakes;
+using Savepoint.App.Tests.Features.Shell;
 using Savepoint.App.Tests.Theme;
 using Savepoint.Core.Catalog;
 
