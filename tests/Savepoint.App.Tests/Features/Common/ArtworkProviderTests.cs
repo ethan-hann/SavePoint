@@ -324,18 +324,4 @@ public class ArtworkProviderTests
         Assert.Equal(1, Reads());
         Assert.False(art.HasArtwork);
     }
-
-    [Fact]
-    public void An_app_without_an_artwork_api_has_artwork_that_never_has_anything()
-    {
-        var provider = NoArtworkProvider.Instance;
-        var art = provider.For("any-game");
-
-        art.NotifyOnScreen();
-        provider.Refresh();
-
-        Assert.Same(art, provider.For("any-game"));
-        Assert.False(art.HasArtwork);
-        Assert.NotSame(provider.Preview("any-game"), provider.Preview("any-game"));
-    }
 }

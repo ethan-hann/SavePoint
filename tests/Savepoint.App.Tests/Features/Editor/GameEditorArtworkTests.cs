@@ -13,7 +13,7 @@ public class GameEditorArtworkTests
 {
     private const string _skyrim = MockupScenario.SkyrimId;
 
-    private static EditorRig Rig(FakeBackend? backend = null) => EditorRig.Create(backend, artwork: true);
+    private static EditorRig Rig(FakeBackend? backend = null) => EditorRig.Create(backend);
 
     private static IReadOnlyList<ApiCall> Calls(EditorRig rig, string member) => rig.Backend.Calls.To<IArtworkApi>(member);
 
@@ -50,22 +50,12 @@ public class GameEditorArtworkTests
     // ---- What the section shows
 
     [Fact]
-    public void Without_an_artwork_api_the_section_is_not_offered()
-    {
-        var editor = EditorRig.Create().Edit();
-
-        Assert.False(editor.HasArtworkSection);
-        Assert.False(editor.CanLookAgain);
-    }
-
-    [Fact]
     public void A_game_with_no_artwork_says_so_and_offers_nothing_to_remove()
     {
         var rig = Rig();
 
         var editor = rig.Edit();
 
-        Assert.True(editor.HasArtworkSection);
         Assert.Equal("No artwork found", editor.ArtworkSourceText);
         Assert.False(editor.ArtworkPreview.HasArtwork);
         Assert.False(editor.CanRemoveImage);
@@ -559,7 +549,7 @@ public class GameEditorArtworkTests
             Install: new InstallLocation(@"C:\Games\Hollow Knight"),
             Launch: new LaunchConfig(LaunchMethod.Exe, ExePath: "hollow_knight.exe"),
             SteamAppId: 367520);
-        var rig = EditorRig.Create(new FakeBackend(ScenarioBuilder.Mockup().WithImport(file, imported)), artwork: true);
+        var rig = EditorRig.Create(new FakeBackend(ScenarioBuilder.Mockup().WithImport(file, imported)));
         var editor = rig.New();
         rig.Dialogs.AnswerOpenFile(file);
 

@@ -341,7 +341,7 @@ public class SettingsScreenViewTests
     public void The_composition_registers_the_screen_for_the_settings_destination()
     {
         var backend = FakeBackend.Mockup();
-        var services = new AppServices(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus);
+        var services = new AppServices(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus, backend.Artwork);
         var context = new FeatureContext(
             services,
             new FakeDialogs(),

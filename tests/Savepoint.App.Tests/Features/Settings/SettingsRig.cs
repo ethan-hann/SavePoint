@@ -63,7 +63,8 @@ internal sealed class SettingsRig
             settings is null ? backend.Settings : settings(backend.Settings),
             backend.History,
             backend.Jobs,
-            backend.AppStatus);
+            backend.AppStatus,
+            backend.Artwork);
         var dialogs = new FakeDialogs();
         var toasts = new ToastHostViewModel(new ManualTimeProvider(), new ImmediateUiDispatcher());
         var revealer = new RecordingFileRevealer();

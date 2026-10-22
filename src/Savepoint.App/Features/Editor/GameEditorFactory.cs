@@ -15,14 +15,14 @@ public sealed class GameEditorFactory : IGameEditorFactory
     private readonly IDialogs _dialogs;
     private readonly UiFormatter _text;
     private readonly ToastHostViewModel _toasts;
-    private readonly IArtworkApi? _artwork;
+    private readonly IArtworkApi _artwork;
 
     /// <param name="games">The games Api the editor saves through.</param>
     /// <param name="dialogs">Pickers and confirmations.</param>
     /// <param name="text">Formats the editor's copy.</param>
     /// <param name="toasts">Reports the outcome of import and export.</param>
-    /// <param name="artwork">The artwork Api the editor's Artwork section works through; null hides the section.</param>
-    public GameEditorFactory(IGamesApi games, IDialogs dialogs, UiFormatter text, ToastHostViewModel toasts, IArtworkApi? artwork = null)
+    /// <param name="artwork">The artwork Api the editor's Artwork section works through.</param>
+    public GameEditorFactory(IGamesApi games, IDialogs dialogs, UiFormatter text, ToastHostViewModel toasts, IArtworkApi artwork)
     {
         _games = games;
         _dialogs = dialogs;

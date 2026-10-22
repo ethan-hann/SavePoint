@@ -66,10 +66,9 @@ public static class AppBootstrap
     /// <param name="backend">The running backend.</param>
     /// <param name="logFolder">Where the diagnostic log is written, for the screens that offer to open it; null when there is no log folder.</param>
     public static AppServices ServicesOf(CoreBackend backend, string? logFolder = null) =>
-        new(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus)
+        new(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus, backend.Artwork)
         {
             FileRevealer = new FileManagerRevealer(FileManager.CreateForCurrentOs()),
-            Artwork = backend.Artwork,
             LogFolder = logFolder,
         };
 
@@ -84,9 +83,9 @@ public static class AppBootstrap
             UnavailableApi.Create<ISettingsApi>(error),
             UnavailableApi.Create<IHistoryApi>(error),
             UnavailableApi.Create<IJobsApi>(error),
-            UnavailableApi.Create<IAppStatusApi>(error))
+            UnavailableApi.Create<IAppStatusApi>(error),
+            UnavailableApi.Create<IArtworkApi>(error))
         {
-            Artwork = UnavailableApi.Create<IArtworkApi>(error),
             BackendStarted = false,
             LogFolder = logFolder,
         };

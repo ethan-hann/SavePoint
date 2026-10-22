@@ -14,6 +14,7 @@ namespace Savepoint.App;
 /// <param name="History">The history Api.</param>
 /// <param name="Jobs">The jobs Api.</param>
 /// <param name="AppStatus">The startup status Api.</param>
+/// <param name="Artwork">The artwork Api (D30).</param>
 public sealed record AppServices(
     IGamesApi Games,
     IProfilesApi Profiles,
@@ -21,19 +22,14 @@ public sealed record AppServices(
     ISettingsApi Settings,
     IHistoryApi History,
     IJobsApi Jobs,
-    IAppStatusApi AppStatus)
+    IAppStatusApi AppStatus,
+    IArtworkApi Artwork)
 {
     /// <summary>
     /// Shows a file in the operating system's file manager; the running app supplies the platform one. Null in tests, where
     /// the screens that need it bring their own.
     /// </summary>
     public IFileRevealer? FileRevealer { get; init; }
-
-    /// <summary>
-    /// The artwork Api (D30). Optional so a host that has none, or a test that is not about artwork, builds <see cref="AppServices"/>
-    /// as before; the screens then show every game's name tint.
-    /// </summary>
-    public IArtworkApi? Artwork { get; init; }
 
     /// <summary>
     /// False when the backend failed to start and every Api answers the same failure; the startup screen then asks the user to restart

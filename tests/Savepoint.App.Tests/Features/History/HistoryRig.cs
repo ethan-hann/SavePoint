@@ -58,7 +58,8 @@ internal sealed class HistoryRig
             backend.Settings,
             history is null ? backend.History : history(backend.History),
             backend.Jobs,
-            backend.AppStatus);
+            backend.AppStatus,
+            backend.Artwork);
         var context = new FeatureContext(
             services,
             new FakeDialogs(),

@@ -188,7 +188,7 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
     public ILaunchFlowHost? LaunchFlow => _deps.LaunchFlow;
 
     /// <inheritdoc />
-    public IArtworkProvider Artwork => _deps.Artwork ?? NoArtworkProvider.Instance;
+    public IArtworkProvider Artwork => _deps.Artwork;
 
     /// <summary>Opens the game editor in create mode.</summary>
     public IRelayCommand AddGameCommand { get; }

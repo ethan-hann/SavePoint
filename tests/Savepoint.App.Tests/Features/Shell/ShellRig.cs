@@ -35,8 +35,8 @@ internal sealed class ShellRig
             Toasts,
             Theme,
             screens,
-            launchFlow,
-            artwork));
+            artwork ?? new ArtworkProvider(backend.Artwork, dispatcher),
+            launchFlow));
     }
 
     public FakeBackend Backend { get; }

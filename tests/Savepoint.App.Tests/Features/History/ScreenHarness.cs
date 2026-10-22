@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Threading;
 using Savepoint.App.Composition;
 using Savepoint.App.Features.Common;
+using Savepoint.App.Features.Common.Art;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Common.Toasts;
@@ -64,7 +65,7 @@ internal sealed class ScreenHarness : IDisposable
         backend ??= new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { Theme = theme }));
         var text = HistoryRig.FormatterFor(backend);
         var app = (App)Application.Current!;
-        var services = new AppServices(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus);
+        var services = new AppServices(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus, backend.Artwork);
         var dispatcher = new ImmediateUiDispatcher();
         var toasts = new ToastHostViewModel(new ManualTimeProvider(), dispatcher);
         var dialogStack = new DialogHostViewModel();
@@ -86,6 +87,7 @@ internal sealed class ScreenHarness : IDisposable
                 toasts,
                 new ThemeServiceApplier(app.Theme),
                 StandInScreens.Complete(factories(context)),
+                new ArtworkProvider(backend.Artwork, dispatcher),
                 flow)),
             dialogStack,
             toasts);

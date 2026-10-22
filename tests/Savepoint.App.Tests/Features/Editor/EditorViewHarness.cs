@@ -35,13 +35,13 @@ internal sealed class EditorViewHarness : IDisposable
 
     public DialogHostViewModel Dialogs => _shell.Main.Dialogs;
 
-    public static async Task<EditorViewHarness> StartAsync(FakeBackend? backend = null, ThemePreference theme = ThemePreference.Dark, string os = "windows", double height = 660, bool artwork = false)
+    public static async Task<EditorViewHarness> StartAsync(FakeBackend? backend = null, ThemePreference theme = ThemePreference.Dark, string os = "windows", double height = 660)
     {
         backend ??= new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { Theme = theme }));
         var shell = await ShellViewHarness.StartAsync(backend, theme, height: height, realDialogs: true);
         var text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), backend.Clock, os, TimeZoneInfo.Utc);
         var dialogs = new AvaloniaDialogs(shell.Main.Dialogs, text, () => null);
-        return new EditorViewHarness(shell, new GameEditorFactory(backend.Games, dialogs, text, shell.Main.Toasts, artwork ? backend.Artwork : null));
+        return new EditorViewHarness(shell, new GameEditorFactory(backend.Games, dialogs, text, shell.Main.Toasts, backend.Artwork));
     }
 
     public GameEditorViewModel Edit(string gameId = MockupScenario.SkyrimId) => Show((GameEditorViewModel)_factory.CreateForExisting(Shell, gameId));

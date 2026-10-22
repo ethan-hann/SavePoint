@@ -17,7 +17,7 @@ public class GamesCompositionTests
     {
         var backend = FakeBackend.Mockup();
         var rig = await GamesRig.StartAsync(backend);
-        var services = new AppServices(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus);
+        var services = new AppServices(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus, backend.Artwork);
         var context = new FeatureContext(services, rig.Dialogs, rig.Text, new ToastHostViewModel(TimeProvider.System, new ImmediateUiDispatcher()), new ImmediateUiDispatcher());
 
         var factory = FeatureComposition.GamesScreen(context, null);

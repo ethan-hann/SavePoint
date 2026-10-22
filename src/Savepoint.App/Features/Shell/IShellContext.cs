@@ -31,11 +31,8 @@ public interface IShellContext : INotifyPropertyChanged
     /// <summary>The launch flow, or null while none is plugged in.</summary>
     ILaunchFlowHost? LaunchFlow { get; }
 
-    /// <summary>
-    /// Each game's artwork by game id (D30). A shell built without an artwork Api, and a test double that says nothing, answers
-    /// with a provider that never has any, so a game shows its name tint.
-    /// </summary>
-    Common.Art.IArtworkProvider Artwork => Common.Art.NoArtworkProvider.Instance;
+    /// <summary>Each game's artwork by game id (D30); a game with none shows its name tint.</summary>
+    Common.Art.IArtworkProvider Artwork { get; }
 
     /// <summary>Raised after the game list, profile counts and sizes have been reloaded.</summary>
     event EventHandler? LibraryRefreshed;

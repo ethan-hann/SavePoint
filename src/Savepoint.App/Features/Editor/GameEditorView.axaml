@@ -271,7 +271,7 @@
         </Grid>
 
         <!-- Artwork: how the game looks in the library, where that comes from, and the Steam app id the lookup uses. -->
-        <StackPanel x:Name="ArtworkSection" Spacing="9" IsVisible="{Binding HasArtworkSection}">
+        <StackPanel x:Name="ArtworkSection" Spacing="9">
           <TextBlock Classes="overline" Text="{theme:Upper {loc:Loc gameEditor.artwork.label}}" />
           <Border Classes="panel">
             <Grid ColumnDefinitions="Auto,24,*">

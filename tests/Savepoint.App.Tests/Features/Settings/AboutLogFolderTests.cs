@@ -74,7 +74,7 @@ public class AboutLogFolderTests
     {
         var backend = FakeBackend.Mockup();
         var revealer = new RecordingFileRevealer();
-        var services = new AppServices(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus)
+        var services = new AppServices(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus, backend.Artwork)
         {
             FileRevealer = revealer,
             LogFolder = _logFolder,

@@ -159,7 +159,7 @@ public class MainWindowTests
     {
         var backend = FakeBackend.Mockup();
         var dialogs = new FakeDialogs().AnswerConfirm(answer);
-        var services = new AppServices(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus);
+        var services = new AppServices(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus, backend.Artwork);
         var main = AppComposition.Create(
             services,
             new UiFormatter(LocalizationCatalog.Current),

@@ -1,4 +1,5 @@
 using Savepoint.App.Features.Common;
+using Savepoint.App.Features.Common.Art;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Common.Preferences;
@@ -36,7 +37,8 @@ public class MainWindowViewModelTests
                     new FakeDialogs(),
                     toasts,
                     new RecordingThemeApplier(),
-                    StandInScreens.Complete([])));
+                    StandInScreens.Complete([]),
+                    new ArtworkProvider(backend.Artwork, new ImmediateUiDispatcher())));
                 shells.Add(shell);
                 return shell;
             },

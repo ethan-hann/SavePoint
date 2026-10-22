@@ -22,7 +22,7 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
     private readonly UiFormatter _text;
     private readonly ToastHostViewModel _toasts;
     private readonly IShellContext _shell;
-    private readonly IArtworkApi? _artwork;
+    private readonly IArtworkApi _artwork;
 
     // The shell's artwork for the game being edited, which the preview follows while the editor is open.
     private GameArt? _followedArt;
@@ -126,7 +126,7 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
         IShellContext shell,
         GameDefinition? saved,
         GameDefinition? prefill,
-        IArtworkApi? artwork)
+        IArtworkApi artwork)
     {
         _games = games;
         _dialogs = dialogs;
@@ -172,11 +172,11 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
     public bool IsDirty => BuildDefinition(_baseline.Id) != _baseline || HasPendingArtwork;
 
     /// <summary>Opens the editor on an existing game.</summary>
-    public static GameEditorViewModel ForExisting(IGamesApi games, IDialogs dialogs, UiFormatter text, ToastHostViewModel toasts, IShellContext shell, GameDefinition game, IArtworkApi? artwork = null) =>
+    public static GameEditorViewModel ForExisting(IGamesApi games, IDialogs dialogs, UiFormatter text, ToastHostViewModel toasts, IShellContext shell, GameDefinition game, IArtworkApi artwork) =>
         new(games, dialogs, text, toasts, shell, game, null, artwork);
 
     /// <summary>Opens the editor on a new game, optionally starting from a template or an imported definition.</summary>
-    public static GameEditorViewModel ForNew(IGamesApi games, IDialogs dialogs, UiFormatter text, ToastHostViewModel toasts, IShellContext shell, GameDefinition? prefill, IArtworkApi? artwork = null) =>
+    public static GameEditorViewModel ForNew(IGamesApi games, IDialogs dialogs, UiFormatter text, ToastHostViewModel toasts, IShellContext shell, GameDefinition? prefill, IArtworkApi artwork) =>
         new(games, dialogs, text, toasts, shell, null, prefill, artwork);
 
     /// <summary>Reads what needs the Api (each folder's confirmation and whether it still exists). Safe to call more than once.</summary>

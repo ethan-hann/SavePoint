@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using Savepoint.App.Features.Common;
+using Savepoint.App.Features.Common.Art;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Common.Navigation;
@@ -51,6 +52,7 @@ internal sealed class GamesRig
             Toasts,
             new RecordingThemeApplier(),
             StandInScreens.Complete([factory]),
+            new ArtworkProvider(backend.Artwork, ui),
             LaunchFlow));
     }
 

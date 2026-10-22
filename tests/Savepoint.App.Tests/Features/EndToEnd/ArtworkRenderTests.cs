@@ -91,7 +91,7 @@ public class ArtworkRenderTests
         var backend = BackendWithArt(fixtures, ThemePreference.Dark);
         var game = FakeAssert.Ok(await backend.Games.ListAsync(TestContext.Current.CancellationToken)).Single(g => g.Id == MockupScenario.SkyrimId);
         await backend.Games.UpdateAsync(game with { SteamAppId = 489830 });
-        using var harness = await EditorViewHarness.StartAsync(backend, height: 1000, artwork: true);
+        using var harness = await EditorViewHarness.StartAsync(backend, height: 1000);
         harness.Edit(MockupScenario.SkyrimId);
         var card = harness.Find<ArtTile>("ArtworkCardPreview");
         var square = harness.Find<ArtTile>("ArtworkSquarePreview");
@@ -108,7 +108,7 @@ public class ArtworkRenderTests
     {
         using var fixtures = new ArtFixtures();
         var backend = BackendWithArt(fixtures, ThemePreference.Light);
-        using var harness = await EditorViewHarness.StartAsync(backend, ThemePreference.Light, height: 1000, artwork: true);
+        using var harness = await EditorViewHarness.StartAsync(backend, ThemePreference.Light, height: 1000);
         harness.Edit(MockupScenario.SatisfactoryId);
         var card = harness.Find<ArtTile>("ArtworkCardPreview");
         Assert.True(await UiWait.UntilAsync(() => card.ShowsImage), "the preview never showed the artwork");
@@ -122,7 +122,7 @@ public class ArtworkRenderTests
     {
         using var fixtures = new ArtFixtures();
         var backend = BackendWithArt(fixtures, ThemePreference.Dark);
-        using var harness = await EditorViewHarness.StartAsync(backend, height: 1000, artwork: true);
+        using var harness = await EditorViewHarness.StartAsync(backend, height: 1000);
         var editor = harness.Edit(MockupScenario.CaretakerId);
         var text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), backend.Clock, "windows", TimeZoneInfo.Utc);
         editor.ArtworkError = new ErrorCardViewModel(ErrorInfo.From(new ArtworkNotAnImageException("page.png")), text);
