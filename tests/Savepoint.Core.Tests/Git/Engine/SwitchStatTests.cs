@@ -87,6 +87,54 @@ public sealed class SwitchStatTests : IDisposable
         Assert.Equal(["a.txt", "b.txt"], nested!.ChangedPaths.Order(StringComparer.Ordinal));
         Assert.Empty(Directory.EnumerateFiles(repo.GitDir, "savepoint-classify*"));
     }
+
+    // git reads an index file that is not there as an empty one and lists nothing, which would read as "no file is named".
+    [Fact]
+    public async Task A_classification_whose_index_disappears_is_not_taken_to_say_that_nothing_is_named()
+    {
+        var (repo, first, second) = await TwoPointsAsync();
+        _ws.OnInvoke = invocation =>
+        {
+            if (invocation.Arguments[0] == "ls-files" && invocation.ExtraEnvironment?.GetValueOrDefault("GIT_INDEX_FILE") is { } index)
+            {
+                File.Delete(index);
+            }
+        };
+
+        await Assert.ThrowsAsync<Savepoint.Core.Errors.GitOperationException>(() => _ws.Engine.SwitchStatAsync(repo, first, second, Ct));
+
+        _ws.OnInvoke = null;
+        Assert.Empty(Directory.EnumerateFiles(repo.GitDir, "savepoint-classify*"));
+    }
+
+    // A summary takes no lock on the game, so a write can start its sweep of stale files while the summary is asking: the file the summary
+    // is asking about is not stale.
+    [Fact]
+    public async Task The_sweep_of_a_write_leaves_the_index_a_summary_is_still_asking_about()
+    {
+        var (repo, first, second) = await TwoPointsAsync();
+        using var asking = new ManualResetEventSlim();
+        using var swept = new ManualResetEventSlim();
+        _ws.OnInvoke = invocation =>
+        {
+            if (invocation.Arguments[0] == "ls-files" && invocation.ExtraEnvironment?.ContainsKey("GIT_INDEX_FILE") == true)
+            {
+                asking.Set();
+                swept.Wait(TimeSpan.FromSeconds(30), Ct);
+            }
+        };
+
+        var summary = Task.Run(() => _ws.Engine.SwitchStatAsync(repo, first, second, Ct), Ct);
+        Assert.True(asking.Wait(TimeSpan.FromSeconds(30), Ct), "the summary never asked");
+        var removed = _ws.Engine.RemoveStaleLocks(repo.GitDir);
+        swept.Set();
+        var stat = await summary;
+
+        _ws.OnInvoke = null;
+        Assert.Equal(0, removed);
+        Assert.Equal(["a.txt", "b.txt"], stat.ChangedPaths.Order(StringComparer.Ordinal));
+    }
+
     [Fact]
     public async Task A_revision_that_does_not_exist_is_an_error_for_a_switch_summary()
     {

@@ -1,4 +1,5 @@
 using System.Text;
+using Savepoint.Core.Errors;
 
 namespace Savepoint.Core.Git;
 
@@ -86,6 +87,9 @@ public sealed partial class GitEngine
     private async Task<HashSet<string>> NamedInOneIndexAsync(RepoRef repo, IEnumerable<string> paths, CancellationToken ct)
     {
         var index = Path.Combine(repo.GitDir, $"{ClassifyIndexPrefix}{Guid.NewGuid():N}.index");
+
+        // The sweep of stale files must not take the file a question is still asking about.
+        _classifying[index] = 0;
         try
         {
             var environment = new Dictionary<string, string?> { ["GIT_INDEX_FILE"] = index };
@@ -96,11 +100,14 @@ public sealed partial class GitEngine
             }
 
             await RunAsync(Invocation(repo, readOnly: false, "update-index", "-z", "--add", "--index-info") with { Stdin = entries.ToString(), ExtraEnvironment = environment }, ct).ConfigureAwait(false);
+            RequireIndex(index);
             var listed = await RunAsync(Classify(repo, "ls-files", "-z", "-c", "-i", ExcludeFromArgument(repo)) with { ExtraEnvironment = environment }, ct).ConfigureAwait(false);
+            RequireIndex(index);
             return [.. listed.SplitStandardOutputOnNul()];
         }
         finally
         {
+            _classifying.TryRemove(index, out _);
             TryDelete(index);
             TryDelete(index + ".lock");
         }
@@ -114,6 +121,16 @@ public sealed partial class GitEngine
             await RunWriteAsync(
                 () => Invocation(repo, readOnly: false, "update-index", on ? "--skip-worktree" : "--no-skip-worktree", "-z", "--stdin") with { Stdin = NulList(paths), ExtraEnvironment = environment },
                 ct).ConfigureAwait(false);
+        }
+    }
+
+    // git reads an index file that is not there as an empty one and lists nothing, which would read as "no file is named"; the answer is
+    // only taken from an index that was there for the whole question.
+    private static void RequireIndex(string index)
+    {
+        if (!File.Exists(index))
+        {
+            throw new GitOperationException(index, "The index a classification works on disappeared, so its answer cannot be trusted.");
         }
     }
 

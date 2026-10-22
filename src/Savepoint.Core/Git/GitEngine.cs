@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Paths;
 
@@ -27,6 +28,9 @@ public sealed partial class GitEngine
     private readonly string _storageRoot;
     private readonly GitEngineOptions _options;
     private readonly InFlightTable _inFlight = new();
+
+    // The per-question index files that are being read right now; the sweep of stale files leaves them.
+    private readonly ConcurrentDictionary<string, byte> _classifying = new(OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
 
     /// <summary>Builds an engine over a runner.</summary>
     /// <param name="runner">Runs the bundled git.</param>
@@ -130,7 +134,7 @@ public sealed partial class GitEngine
 
         if (scope.IsAlone)
         {
-            StaleLocks.RemoveAll(repo.GitDir);
+            StaleLocks.RemoveAll(repo.GitDir, _classifying.ContainsKey);
         }
 
         EnsureRepoFiles(repo);

@@ -10,7 +10,8 @@ internal static class StaleLocks
     // Removes every lock file and every temporary object file it can; the caller has established that no git process is
     // using the directory. A git killed while it writes a big file leaves a temporary pack or object that can be hundreds of
     // megabytes and that nothing finishes or removes.
-    public static int RemoveAll(string gitDir) => RemoveLocks(gitDir) + RemoveTemporaryFiles(gitDir);
+    // A file that inUse says is being read is left.
+    public static int RemoveAll(string gitDir, Func<string, bool>? inUse = null) => RemoveLocks(gitDir, inUse) + RemoveTemporaryFiles(gitDir);
 
     private static int RemoveTemporaryFiles(string gitDir)
     {
@@ -48,7 +49,7 @@ internal static class StaleLocks
         return removed;
     }
 
-    private static int RemoveLocks(string gitDir)
+    private static int RemoveLocks(string gitDir, Func<string, bool>? inUse)
     {
         var removed = 0;
         foreach (var name in _topLevel)
@@ -60,7 +61,10 @@ internal static class StaleLocks
         {
             foreach (var file in Directory.EnumerateFiles(gitDir, prefix + "*", GitDirWalk.Files(recurse: false)).ToList())
             {
-                removed += TryDelete(file) ? 1 : 0;
+                if (inUse?.Invoke(file) != true)
+                {
+                    removed += TryDelete(file) ? 1 : 0;
+                }
             }
         }
 

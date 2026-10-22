@@ -62,7 +62,7 @@ public sealed partial class GitEngine
             return 0;
         }
 
-        return StaleLocks.RemoveAll(gitDir);
+        return StaleLocks.RemoveAll(gitDir, _classifying.ContainsKey);
     }
 
     private async Task<CaptureOutcome> CaptureCoreAsync(RepoRef repo, CaptureRequest request, IProgress<FileProgress>? progress, CancellationToken ct)
