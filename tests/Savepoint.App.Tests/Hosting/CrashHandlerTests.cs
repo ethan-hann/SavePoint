@@ -170,6 +170,38 @@ public class CrashHandlerTests
         Assert.Equal([1], _exits);
     }
 
+    // The real window is shown on the UI thread on behalf of a crash from another thread, which waits for it. A crash on the UI thread
+    // meanwhile must not wait for that thread too: the window could never be closed and the process would never end.
+    [AvaloniaFact]
+    public async Task A_crash_on_the_ui_thread_while_a_crash_from_another_thread_is_being_shown_is_logged_and_does_not_wait()
+    {
+        var handler = Handler();
+        using var attached = handler.AttachToUiThread();
+        using var inWindow = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        _presenter.WhileShown = () =>
+        {
+            inWindow.Set();
+            release.Wait(TimeSpan.FromSeconds(30));
+        };
+        var first = Task.Run(() => handler.HandleFatal(Thrown("first"), "a background thread"), TestContext.Current.CancellationToken);
+        Assert.True(inWindow.Wait(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
+
+        // A crash that waited would never return on its own, so the first one is let go after a while and the test fails instead of hanging.
+        using var safety = new Timer(_ => release.Set(), null, TimeSpan.FromSeconds(5), Timeout.InfiniteTimeSpan);
+        Dispatcher.UIThread.Post(() => throw Thrown("the UI thread failed too"));
+        var escaped = Record.Exception(() => Dispatcher.UIThread.RunJobs());
+        var firstStillShowing = !release.IsSet;
+        release.Set();
+        await first;
+
+        Assert.Null(escaped);
+        Assert.True(firstStillShowing);
+        Assert.Single(_presenter.Shown);
+        Assert.Equal([1], _exits);
+        Assert.Equal(2, _log.Entries.Count(entry => entry.Level == LogLevel.Error));
+    }
+
     private sealed class FakePresenter(RecordingDiagnosticLog log, List<int> exits) : ICrashPresenter
     {
         public List<Shown> Shown { get; } = [];

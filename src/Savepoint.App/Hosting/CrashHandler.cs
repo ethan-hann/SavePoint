@@ -52,7 +52,10 @@ public sealed class CrashHandler
     /// </summary>
     /// <param name="exception">What was thrown.</param>
     /// <param name="origin">Where it came from.</param>
-    public void HandleFatal(Exception exception, string origin)
+    public void HandleFatal(Exception exception, string origin) => Handle(exception, origin, onWindowThread: false);
+
+    // A crash on the thread that shows the window is only logged while another crash is shown: waiting would freeze the window it waits for.
+    private void Handle(Exception exception, string origin, bool onWindowThread)
     {
         TryLog(() => _log.Error($"SavePoint crashed on {origin}: {exception.Message}", exception));
 
@@ -65,7 +68,11 @@ public sealed class CrashHandler
 
         if (owner != 0)
         {
-            _finished.Wait();
+            if (!onWindowThread)
+            {
+                _finished.Wait();
+            }
+
             return;
         }
 
@@ -125,7 +132,7 @@ public sealed class CrashHandler
         {
             // Marked handled first: the window below is shown from inside this callback, and it needs the dispatcher to go on running.
             e.Handled = true;
-            HandleFatal(e.Exception, "the UI thread");
+            Handle(e.Exception, "the UI thread", onWindowThread: true);
         };
         Dispatcher.UIThread.UnhandledException += ui;
         return new Detach(() => Dispatcher.UIThread.UnhandledException -= ui);
