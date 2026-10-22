@@ -19,6 +19,9 @@ internal sealed class StorageRelocator
     /// <summary>The file a move writes in its destination before the first copy and removes when it ends; one that is found there means an earlier move did not finish.</summary>
     internal const string MarkerFileName = "savepoint-move-in-progress.txt";
 
+    // Velopack's updater, which sits beside the folder the app runs from.
+    private const string _updaterFileName = "Update.exe";
+
     private const int _bufferSize = 1024 * 1024;
     private const long _progressInterval = 16L * 1024 * 1024;
 
@@ -52,7 +55,17 @@ internal sealed class StorageRelocator
         return await _services.Storage.ReadAsync(
             async storage =>
             {
-                var listing = await Task.Run(() => StorageContent.Scan(storage.Root, cancellationToken, strict: true), cancellationToken).ConfigureAwait(false);
+                ContentListing listing;
+                try
+                {
+                    listing = await Task.Run(() => StorageContent.Scan(storage.Root, cancellationToken, strict: true), cancellationToken).ConfigureAwait(false);
+                }
+                catch (StorageSourceUnreadableException unreadable)
+                {
+                    // A move that cannot go ahead is an answer, not a failed call; nothing is sized because nothing could be listed.
+                    return new StorageRelocationPreview(storage.Root, destination, [], 0, 0, _services.Disk.GetFreeBytes(destination) ?? 0, ErrorInfo.From(unreadable));
+                }
+
                 var sizes = new List<GameBytesUsed>();
                 foreach (var game in games)
                 {
@@ -114,6 +127,11 @@ internal sealed class StorageRelocator
             return refused;
         }
 
+        if (InstallFolderOf(destination, storage) is { } installFolder)
+        {
+            return new StorageInsideInstallFolderException(destination, installFolder);
+        }
+
         foreach (var game in games)
         {
             foreach (var folder in GameFolders.ResolveLoosely(_services.PathTokens, game).Where(folder => folder.Path is not null))
@@ -138,6 +156,20 @@ internal sealed class StorageRelocator
 
         var required = listing.Bytes + _spareBytes;
         return _services.Disk.GetFreeBytes(destination) is { } free && free < required ? new DiskSpaceException(destination, required, free) : null;
+    }
+
+    // The installed app runs from "current" inside an install folder that also holds Update.exe, and an update or an uninstall deletes
+    // that whole folder. Returns the install folder when the destination lies in it.
+    private string? InstallFolderOf(string destination, StorageSnapshot storage)
+    {
+        if (Directory.GetParent(_services.InstallDirectory)?.FullName is not { } installFolder || !File.Exists(Path.Combine(installFolder, _updaterFileName)))
+        {
+            return null;
+        }
+
+        var relative = Path.GetRelativePath(storage.PathSafety.ResolveRealPath(installFolder), storage.PathSafety.ResolveRealPath(destination));
+        var inside = relative == "." || (!Path.IsPathRooted(relative) && relative != ".." && !relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal));
+        return inside ? installFolder : null;
     }
 
     private async Task<JobResult?> RunAsync(JobContext context, string destination)
@@ -273,16 +305,17 @@ internal sealed class StorageRelocator
 
         foreach (var folder in listing.Folders)
         {
-            var gameId = Path.GetFileName(folder);
-            foreach (var role in new[] { RepoRole.Install, RepoRole.External })
+            // Built from the folder as listed, since a folder in the storage need not be named like a game (a copy made in Explorer);
+            // GitDirRemoval still refuses whatever is not a git directory SavePoint made.
+            foreach (var gitDir in new[] { Path.Combine(folder, "install.git"), Path.Combine(folder, "external.git") })
             {
-                var gitDir = old.GitDirectory(gameId, role);
                 try
                 {
                     await GitDirRemoval.RemoveAsync(gitDir, old.Root, old.PathSafety.ResolveRealPath, _removeDelays, CancellationToken.None).ConfigureAwait(false);
                 }
-                catch (Exception e) when (e is SavepointException or IOException or UnauthorizedAccessException)
+                catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException))
                 {
+                    // The move has switched over, so nothing here may fail it.
                     context.AddLine(gitDir);
                     _services.Log.Warning($"Storage move: could not remove the old copy {gitDir}: {ErrorInfo.From(e).MessageId}.", e);
                     left.Add(new ClearFailure(gitDir, ErrorInfo.From(e)));

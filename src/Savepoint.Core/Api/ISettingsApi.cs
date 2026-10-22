@@ -34,7 +34,9 @@ public interface ISettingsApi
     /// reason in <see cref="StorageRelocationPreview.BlockedBy"/>: a folder that is not empty
     /// (<c>error.storageRelocation.destinationNotEmpty</c>), one that holds the partial copy of an earlier move that never finished
     /// (<c>error.storageRelocation.moveUnfinished</c>), an unsafe one, too little space (<c>error.diskSpace.low</c>), or a
-    /// running game (<c>error.gameService.gameRunning</c>).
+    /// running game (<c>error.gameService.gameRunning</c>), one inside the folder SavePoint is installed in, which an update or an
+    /// uninstall deletes (<c>error.storageRelocation.insideInstallFolder</c>), or something in the current storage that cannot be
+    /// read or carried over (<c>error.storageRelocation.sourceUnreadable</c>, the entry in its <c>path</c> argument).
     /// </summary>
     /// <param name="newRoot">The folder the storage would move to.</param>
     /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c> (D23).</param>
@@ -48,7 +50,8 @@ public interface ISettingsApi
     /// the job <see cref="JobStatus.Partial"/> with the copy listed in <see cref="StorageRelocationResult.NotRemoved"/>. While it
     /// copies, the destination holds a marker file that the move removes when it ends, so a destination left by a move that was
     /// cut short is refused later. Answers at once, or fails with
-    /// <c>error.gameService.gameRunning</c> when a game has an open session (D13.5). The result is a <see cref="StorageRelocationResult"/>.
+    /// <c>error.gameService.gameRunning</c> when a game has an open session (D13.5), or with the same errors as the preview lists
+    /// for a move that cannot go ahead. The result is a <see cref="StorageRelocationResult"/>.
     /// </summary>
     /// <param name="newRoot">The folder to move the storage to.</param>
     Task<OperationResult<JobStarted>> RelocateStorageAsync(string newRoot);

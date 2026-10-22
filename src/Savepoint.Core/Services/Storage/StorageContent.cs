@@ -1,3 +1,4 @@
+using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 
 namespace Savepoint.Core.Services.Storage;
@@ -32,8 +33,8 @@ internal static class StorageContent
 
     /// <summary>The folders directly under the root that hold a game's git directories, which is how SavePoint's own folders are told from anything else.</summary>
     /// <param name="root">The storage root.</param>
-    /// <param name="strict">True to fail on a folder that cannot be opened (a move must not leave one behind) instead of passing over it.</param>
-    /// <exception cref="StorageRelocationFailedException">Strict, and a folder under the root cannot be opened.</exception>
+    /// <param name="strict">True to fail on a folder that cannot be opened and could be one of SavePoint's (a move must not leave one behind) instead of passing over it; a folder named in a way no game folder is, is passed over either way.</param>
+    /// <exception cref="StorageSourceUnreadableException">Strict, and a folder under the root cannot be opened.</exception>
     public static IReadOnlyList<string> Folders(string root, bool strict = false)
     {
         if (!Directory.Exists(root))
@@ -46,7 +47,7 @@ internal static class StorageContent
         // A game folder that is a link cannot be copied as a link (its history lives elsewhere), and leaving it out would let the move look finished.
         if (strict && directories.FirstOrDefault(folder => folder.Attributes.HasFlag(FileAttributes.ReparsePoint) && LeadsToGitDirectories(folder)) is { } linked)
         {
-            throw new StorageRelocationFailedException(linked.FullName, $"'{linked.FullName}' in the storage is a link, so it would not be copied.", null);
+            throw new StorageSourceUnreadableException(linked.FullName, $"'{linked.FullName}' in the storage is a link, so it would not be copied.", null);
         }
 
         return
@@ -62,7 +63,8 @@ internal static class StorageContent
     private static bool LeadsToGitDirectories(DirectoryInfo link) =>
         Directory.Exists(Path.Combine(link.FullName, "install.git")) || Directory.Exists(Path.Combine(link.FullName, "external.git"));
 
-    // Looks inside, so a folder that cannot be opened is an error here and not a folder that "holds nothing".
+    // Looks inside, so a folder that cannot be opened is an error here and not a folder that "holds nothing" - when it could be one of
+    // SavePoint's, which are named by a game id. A folder with any other name (lost+found, a tool's cache) is not SavePoint's to carry.
     private static bool HoldsGitDirectories(DirectoryInfo folder)
     {
         try
@@ -71,7 +73,7 @@ internal static class StorageContent
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            throw Unreadable(folder.FullName, e);
+            return CatalogValidator.IsValidGameId(folder.Name) ? throw Unreadable(folder.FullName, e) : false;
         }
     }
 
@@ -79,7 +81,7 @@ internal static class StorageContent
     /// <param name="root">The storage root.</param>
     /// <param name="cancellationToken">Stops the walk between entries.</param>
     /// <param name="strict">True to fail on any entry that cannot be read, naming it, instead of leaving it out of the listing.</param>
-    /// <exception cref="StorageRelocationFailedException">Strict, and an entry cannot be read.</exception>
+    /// <exception cref="StorageSourceUnreadableException">Strict, and an entry cannot be read.</exception>
     public static ContentListing Scan(string root, CancellationToken cancellationToken, bool strict = false)
     {
         var folders = Folders(root, strict);
@@ -121,6 +123,6 @@ internal static class StorageContent
         }
     }
 
-    private static StorageRelocationFailedException Unreadable(string path, Exception inner) =>
+    private static StorageSourceUnreadableException Unreadable(string path, Exception inner) =>
         new(path, $"'{path}' in the storage could not be read, so it would not be copied: {inner.Message}", inner);
 }

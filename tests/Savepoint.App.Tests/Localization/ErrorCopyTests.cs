@@ -58,6 +58,8 @@ public class ErrorCopyTests
             new PathMissingException("/games/alpha/saves", RepoRole.External),
             new StorageDestinationNotEmptyException("/storage"),
             new StorageMoveUnfinishedException("/storage"),
+            new StorageInsideInstallFolderException("/install/data", "/install"),
+            new StorageSourceUnreadableException("/storage/alpha", "dev text", null),
             new ValidationException(issues),
             new CatalogCorruptException("/catalog/games.json", null),
             new GitUnavailableException("/app/git/git", "dev text", null),
