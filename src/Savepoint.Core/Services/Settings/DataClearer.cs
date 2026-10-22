@@ -102,14 +102,18 @@ internal sealed class DataClearer
         var left = new Dictionary<string, ErrorInfo>(StringComparer.Ordinal);
         var listing = await Task.Run(() => StorageContent.Scan(storage.Root, CancellationToken.None)).ConfigureAwait(false);
         var bytes = listing.Bytes;
+        Log($"starting; the history of {games.Count} games and every leftover folder in {storage.Root} will go.");
 
         foreach (var game in games)
         {
+            Log($"removing the history of game {game.Id}.");
             foreach (var folder in GameFolders.ResolveLoosely(_services.PathTokens, game).Where(folder => folder.Path is not null))
             {
                 await Attempt(left, folder.Path!, () => storage.Engine.DeleteRepoAsync(GameFolders.Repo(storage, game.Id, folder))).ConfigureAwait(false);
             }
         }
+
+        Log($"removing leftover history folders in {storage.Root} ({listing.Folders.Count} found).");
 
         // Whatever of SavePoint's is left in the root, including history of games the catalog no longer lists. Only git directories
         // SavePoint made are removed, and a folder that holds anything else stays, so a folder that merely looks like a game's is safe.
@@ -123,15 +127,25 @@ internal sealed class DataClearer
             StorageFolders.RemoveIfEmpty(folder);
         }
 
+        Log($"removing the catalog files in {_services.Catalog.DirectoryPath}.");
         foreach (var file in CatalogFiles())
         {
             await Attempt(left, file, () => Task.Run(() => DeleteFile(file))).ConfigureAwait(false);
         }
 
         // Artwork sits beside the catalog files, in the configuration folder, so it goes with them.
+        Log("removing the artwork.");
         await Attempt(left, _services.Artwork.Root, () => Task.Run(_services.Artwork.DeleteAll)).ConfigureAwait(false);
 
+        var spared = SparedLogFile();
+        Log($"emptying the log folder {_services.Platform.Directories.LogsDir}{(spared is null ? string.Empty : $", keeping {spared}, which is open")}.");
+        foreach (var entry in LogFolderEntries(spared))
+        {
+            await Attempt(left, entry, () => Task.Run(() => DeleteEntry(entry))).ConfigureAwait(false);
+        }
+
         _services.Storage.Reset();
+        Log($"finished; {left.Count} items could not be removed.");
         return new ClearAllDataResult(bytes, [.. left.Select(failure => new ClearFailure(failure.Key, failure.Value))]);
     }
 
@@ -148,6 +162,36 @@ internal sealed class DataClearer
             .ToList();
     }
 
+    private void Log(string step) => _services.Log.Information($"Clear all data: {step}");
+
+    // The file the log has open is never removed: on Windows it cannot be, and elsewhere removing it would leave the log writing to a file nobody can see.
+    private string? SparedLogFile() => _services.Log.CurrentFile is { Length: > 0 } current ? Path.GetFullPath(current) : null;
+
+    private IEnumerable<string> LogFolderEntries(string? spared)
+    {
+        var logs = _services.Platform.Directories.LogsDir;
+        if (!Directory.Exists(logs))
+        {
+            return [];
+        }
+
+        return Directory.EnumerateFileSystemEntries(logs)
+            .Where(entry => spared is null || !string.Equals(Path.GetFullPath(entry), spared, _services.Platform.PathComparison))
+            .ToList();
+    }
+
+    private static void DeleteEntry(string entry)
+    {
+        if (Directory.Exists(entry))
+        {
+            Directory.Delete(entry, recursive: true);
+        }
+        else
+        {
+            DeleteFile(entry);
+        }
+    }
+
     private static void DeleteFile(string file)
     {
         if ((File.GetAttributes(file) & FileAttributes.ReadOnly) != 0)
@@ -159,7 +203,7 @@ internal sealed class DataClearer
     }
 
     // One thing that cannot be removed does not stop the rest; it is listed so the user can remove it by hand.
-    private static async Task Attempt(Dictionary<string, ErrorInfo> left, string path, Func<Task> remove)
+    private async Task Attempt(Dictionary<string, ErrorInfo> left, string path, Func<Task> remove)
     {
         try
         {
@@ -170,7 +214,10 @@ internal sealed class DataClearer
             // The error names the file that stayed in use when it knows; otherwise the folder being removed is what is listed.
             var error = ErrorInfo.From(e);
             var named = error.Args.TryGetValue("path", out var at) && at is string { Length: > 0 } where ? where : path;
-            left.TryAdd(named, error);
+            if (left.TryAdd(named, error))
+            {
+                _services.Log.Warning($"Clear all data: could not remove {named}: {error.MessageId}.", e);
+            }
         }
     }
 }
