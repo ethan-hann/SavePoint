@@ -101,22 +101,10 @@ public sealed partial class LaunchOrchestrator
 
         // After a stopped switch HEAD may already be at the target, so the point the switch started from is the better "before".
         var from = reading.Pending && reading.Status.HeadCommit == target ? reading.Note!.FromCommit : reading.Status.HeadCommit;
-        IReadOnlyList<string> changed;
-        long bytes;
-        if (from is null)
-        {
-            changed = await storage.Engine.ListTreeFilesAsync(repo, target, cancellationToken).ConfigureAwait(false);
-            bytes = await _services.Insights.TreeBytesAsync(repo, target, cancellationToken).ConfigureAwait(false);
-        }
-        else
-        {
-            var diff = await storage.Engine.DiffStatAsync(repo, from, target, cancellationToken).ConfigureAwait(false);
-            changed = diff.ChangedPaths;
-            bytes = diff.BytesAtTarget;
-        }
-
-        var mods = repo.Role == RepoRole.Install ? changed.Count(path => GameInsights.MatchesHint(path, game.ModPathHints)) : 0;
-        return new SwitchSummary(changed.Count, mods, bytes, null);
+        // The files the ignore list names are left alone by the switch, so they are neither counted nor sized.
+        var diff = await storage.Engine.SwitchStatAsync(repo, from, target, cancellationToken).ConfigureAwait(false);
+        var mods = repo.Role == RepoRole.Install ? diff.ChangedPaths.Count(path => GameInsights.MatchesHint(path, game.ModPathHints)) : 0;
+        return new SwitchSummary(diff.FilesChanged, mods, diff.BytesAtTarget, null);
     }
 
     // The version and mod-file count a commit of the install folder holds; what cannot be read is left unsaid.
