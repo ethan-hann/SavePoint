@@ -22,9 +22,13 @@ internal sealed class ArtworkApi : IArtworkApi
     // One lookup per game at a time; a read that finds one running starts none.
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _lookupGates = new(StringComparer.Ordinal);
 
-    // When each (game, app id, online) lookup was last made in this run, so reads in a burst, and reads of a game with nothing to
-    // find, do not repeat it. Misses that outlive a run are in the game's lookup file.
+    // When each (game, app id, online) lookup last came to an answer in this run (found, not found, or no id to look for), so reads in a
+    // burst, and reads of a game with nothing to find, do not repeat it. A lookup that failed leaves nothing here, and is tried again
+    // at the next read. Misses that outlive a run are in the game's lookup file.
     private readonly ConcurrentDictionary<(string GameId, int? AppId, bool Online), DateTimeOffset> _lookedUp = new();
+
+    // The last failure written to the log for each game, so a failure that repeats on every read is not written every time.
+    private readonly ConcurrentDictionary<string, string> _loggedFailures = new(StringComparer.Ordinal);
 
     private readonly ConcurrentDictionary<Guid, Task> _running = new();
 
@@ -140,14 +144,15 @@ internal sealed class ArtworkApi : IArtworkApi
 
     private sealed record Read(GameArtwork Art, LookupState State, bool HasWide, bool HasSquare);
 
-    // What is on disk for the game. With tidy, Steam images kept for another app id are removed first: they are another game's.
+    // What is on disk for the game. With tidy, Steam images kept for another app id are removed first: they are another game's. A game
+    // with no app id at all keeps them, since that is also what an install folder that cannot be read looks like.
     private async Task<Read> ReadAsync(GameDefinition game, int? id, bool detected, bool tidy)
     {
         using var lease = await _store.EnterAsync(game.Id).ConfigureAwait(false);
         return await Task.Run(() =>
         {
             var state = _store.ReadState(game.Id);
-            if (tidy && state.AppId != id && (_store.SteamPath(game.Id, ArtworkKind.Wide) is not null || _store.SteamPath(game.Id, ArtworkKind.Square) is not null))
+            if (tidy && id is not null && state.AppId != id && (_store.SteamPath(game.Id, ArtworkKind.Wide) is not null || _store.SteamPath(game.Id, ArtworkKind.Square) is not null))
             {
                 _store.DeleteSteamImages(game.Id);
                 state = new LookupState(null, null);
@@ -225,6 +230,7 @@ internal sealed class ArtworkApi : IArtworkApi
             catch (Exception e) when (e is IOException or UnauthorizedAccessException or SavepointException or OperationCanceledException)
             {
                 // Nothing is learned from a lookup that could not finish; the next one tries again.
+                _services.Log.Warning($"The artwork lookup for game '{gameId}' could not finish.", e);
             }
             finally
             {
@@ -246,9 +252,9 @@ internal sealed class ArtworkApi : IArtworkApi
         var (id, _) = await Task.Run(() => ResolveId(game)).ConfigureAwait(false);
         var online = await IsOnlineAllowedAsync().ConfigureAwait(false);
         var now = _services.Time.GetUtcNow();
-        _lookedUp[(gameId, id, online)] = now;
 
         var found = new List<(ArtworkKind Kind, byte[] Bytes)>();
+        var failures = new List<string>();
         var sawNotFound = false;
         var before = _store.ReadState(gameId);
         if (id is { } appId)
@@ -267,6 +273,10 @@ internal sealed class ArtworkApi : IArtworkApi
                     var fetched = await _cdn!.FetchAsync(appId, kind, CancellationToken.None).ConfigureAwait(false);
                     bytes = fetched.Bytes;
                     sawNotFound |= fetched.Outcome == CdnOutcome.NotFound;
+                    if (fetched.Outcome == CdnOutcome.Failed)
+                    {
+                        failures.Add($"the {kind.ToString().ToLowerInvariant()} image ({fetched.Reason})");
+                    }
                 }
 
                 if (bytes is not null)
@@ -277,6 +287,22 @@ internal sealed class ArtworkApi : IArtworkApi
         }
 
         var changed = await CommitAsync(game, id, now, found, sawNotFound).ConfigureAwait(false);
+        if (failures.Count == 0)
+        {
+            _lookedUp[(gameId, id, online)] = now;
+            _loggedFailures.TryRemove(gameId, out _);
+        }
+        else
+        {
+            // A failure is retried at every read, so the same one is written once, not once per read.
+            var line = $"The artwork lookup for game '{gameId}' (Steam app {id}) could not finish: {string.Join("; ", failures)}.";
+            if (!_loggedFailures.TryGetValue(gameId, out var last) || last != line)
+            {
+                _loggedFailures[gameId] = line;
+                _services.Log.Warning(line);
+            }
+        }
+
         if (changed)
         {
             Raise(gameId);
@@ -315,7 +341,7 @@ internal sealed class ArtworkApi : IArtworkApi
         {
             var changed = false;
             var state = _store.ReadState(game.Id);
-            if (state.AppId != id && _store.DeleteSteamImages(game.Id))
+            if (id is not null && state.AppId != id && _store.DeleteSteamImages(game.Id))
             {
                 changed = true;
                 state = new LookupState(null, null);
@@ -331,7 +357,7 @@ internal sealed class ArtworkApi : IArtworkApi
                 && _store.SteamPath(game.Id, ArtworkKind.Wide) is not null
                 && _store.SteamPath(game.Id, ArtworkKind.Square) is not null;
             DateTimeOffset? missAt = id is null || sawNotFound ? now : complete || state.AppId != id ? null : state.MissAt;
-            var next = new LookupState(id, missAt);
+            var next = new LookupState(id ?? state.AppId, missAt);
             if (next != _store.ReadState(game.Id))
             {
                 _store.WriteState(game.Id, next);

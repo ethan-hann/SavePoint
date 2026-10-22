@@ -141,12 +141,13 @@ public class ArtworkOnlineTests
         using var rig = new ArtworkRig(Status(HttpStatusCode.ServiceUnavailable), online: true);
         var game = await rig.AddGameAsync(change: g => g with { SteamAppId = _app });
 
+        // Both reads ask: a failure is remembered neither in the run nor across a restart.
         await rig.LookedUpAsync(game.Id);
         var asked = rig.Http!.Requests.Count;
         rig.Restart();
         await rig.LookedUpAsync(game.Id);
 
-        Assert.Equal(4, asked);
+        Assert.Equal(8, asked);
         Assert.Equal(2 * asked, rig.Http.Requests.Count);
     }
 

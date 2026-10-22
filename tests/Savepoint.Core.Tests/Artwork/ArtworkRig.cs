@@ -13,7 +13,14 @@ internal sealed class FixedSteamFolder(string? folder) : ISteamFolderLocator
 {
     public string? Folder { get; set; } = folder;
 
-    public string? FindSteamFolder() => Folder;
+    // How many lookups asked where Steam is, which is how a test sees that a lookup ran.
+    public int Calls { get; private set; }
+
+    public string? FindSteamFolder()
+    {
+        Calls++;
+        return Folder;
+    }
 }
 
 // A whole backend whose artwork side is faked: a Steam folder in a temp folder, a handler standing in for Steam's servers, and a clock
@@ -23,14 +30,14 @@ internal sealed class ArtworkRig : IDisposable
     private readonly List<string> _changed = [];
     private readonly object _gate = new();
 
-    public ArtworkRig(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>>? respond = null, bool online = false, ManualTimeProvider? time = null)
+    public ArtworkRig(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>>? respond = null, bool online = false, ManualTimeProvider? time = null, RecordingDiagnosticLog? log = null)
     {
         SteamRoot = Path.Combine(Path.GetTempPath(), "savepoint-steam-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(SteamRoot);
         Steam = new FixedSteamFolder(SteamRoot);
         Http = online ? new FakeHttpHandler(respond) : null;
         Time = time;
-        Workspace = new BackendWorkspace(options => options with { SteamFolder = Steam, ArtworkHttp = Http, Time = time });
+        Workspace = new BackendWorkspace(options => options with { SteamFolder = Steam, ArtworkHttp = Http, Time = time, Log = log ?? options.Log });
         Subscribe();
     }
 
