@@ -125,7 +125,20 @@ internal sealed class FakeGameProcess : IDisposable
     public static async Task<int> WaitForReadyFileAsync(string path)
     {
         Assert.True(await WaitUntilAsync(() => File.Exists(path)), $"the ready file {path} never appeared");
-        return int.Parse((await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken)).Trim());
+
+        // The game renames the file into place whole, but on Windows a scanner or indexer can still hold the new file open for a moment.
+        var deadline = Stopwatch.StartNew();
+        while (true)
+        {
+            try
+            {
+                return int.Parse((await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken)).Trim());
+            }
+            catch (IOException) when (deadline.Elapsed < _patience)
+            {
+                await Task.Delay(10, TestContext.Current.CancellationToken);
+            }
+        }
     }
 
     public void Dispose()
