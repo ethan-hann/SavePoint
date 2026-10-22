@@ -13,7 +13,8 @@ public interface IAppStatusApi
 
     /// <summary>
     /// Fixes one corrupt catalog file by restoring its last good copy or starting it empty. Either way the corrupt file is moved
-    /// aside, never deleted. Fails when the path is not one of the corrupt files, or when a backup is asked for and there is none.
+    /// aside, never deleted. A restore copies the backup next to the file before anything moves, so a copy that fails leaves the
+    /// corrupt file where it was. Fails when the path is not one of the corrupt files, or when a backup is asked for and there is none.
     /// </summary>
     /// <param name="path">A path from <see cref="CatalogStatus.CorruptFiles"/>.</param>
     /// <param name="recovery">Which fix to apply.</param>
