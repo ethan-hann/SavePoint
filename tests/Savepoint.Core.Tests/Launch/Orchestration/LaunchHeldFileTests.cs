@@ -6,7 +6,7 @@ using Savepoint.Core.Tests.Git.Engine;
 namespace Savepoint.Core.Tests.Launch.Orchestration;
 
 // A file git cannot read is listed as a change nobody made. A folder whose only changes are such files counts as clean where a switch
-// reads it, and when a switch has to read the file the launch says which file and asks to try again, with nothing switched (D37). A
+// reads it, and when a switch has to read the file the launch says which file and asks to try again, with nothing switched. A
 // save cannot tell such a file from a changed one, so it never skips the folder as clean.
 public class LaunchHeldFileTests
 {

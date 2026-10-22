@@ -11,7 +11,7 @@ namespace Savepoint.Core.Api;
 /// <param name="Error">Why the folder failed, or null when the job succeeded on it. A cancellation is an error here too.</param>
 /// <param name="LeftAlone">
 /// True when a save left this folder as it was because it sits on another profile's history, which a point of this profile cannot be
-/// written onto (D37.3). That is not an error: nothing is lost, and what the session changed in the folder stays there, to be listed
+/// written onto. That is not an error: nothing is lost, and what the session changed in the folder stays there, to be listed
 /// as the other profile's unsaved changes at the next launch.
 /// </param>
 /// <param name="LeftOnBranch">The branch the folder sits on when <paramref name="LeftAlone"/> is true; null when it sits on an older point and on no branch.</param>

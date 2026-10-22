@@ -132,7 +132,7 @@ public class LaunchLeftFolderTests
         Assert.Equal(savesBefore, Subjects(await rig.CommitsAsync(RepoRole.External, vanilla)));
     }
 
-    // FR-010: the folders cannot be read when the game ends, so the choices come from where each folder stood at launch.
+    // The folders cannot be read when the game ends, so the choices come from where each folder stood at launch.
     [Fact(Timeout = 150_000)]
     public async Task When_the_folders_cannot_be_read_Continuing_is_not_offered_for_a_left_folder_that_never_began_on_the_profiles_branch()
     {

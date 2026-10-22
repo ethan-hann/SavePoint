@@ -2,7 +2,7 @@ using Savepoint.Testing;
 
 namespace Savepoint.Core.Tests.Backend;
 
-// "SavePoint deleted my save" has to be answerable from the log (D34, D41): a profile or a game that was deleted leaves a line saying
+// "SavePoint deleted my save" has to be answerable from the log: a profile or a game that was deleted leaves a line saying
 // which, and what went with it.
 public class DestructiveActionLogTests
 {

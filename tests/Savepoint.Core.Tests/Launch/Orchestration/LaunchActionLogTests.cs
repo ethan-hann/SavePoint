@@ -4,7 +4,7 @@ using Savepoint.Testing;
 
 namespace Savepoint.Core.Tests.Launch.Orchestration;
 
-// "SavePoint deleted my save" has to be answerable from the log (D34, D41): what a discard, a switch and a save that skipped a folder did.
+// "SavePoint deleted my save" has to be answerable from the log: what a discard, a switch and a save that skipped a folder did.
 public class LaunchActionLogTests
 {
     private readonly RecordingDiagnosticLog _log = new();

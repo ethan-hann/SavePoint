@@ -259,7 +259,7 @@ public class StorageUnreachableChoicesTests
         Assert.Equal(custom, (await workspace.Settings.GetAsync(workspace.Token)).Value!.StorageRoot);
     }
 
-    // FR-006: the folder is judged as a move's destination is.
+    // The folder is judged as a move's destination is.
     [Fact(Timeout = 120_000)]
     public async Task Finding_a_folder_inside_the_install_folder_is_refused_and_nothing_changes()
     {
@@ -303,7 +303,7 @@ public class StorageUnreachableChoicesTests
         Assert.Equal(workspace.DefaultStorageRoot, (await workspace.Settings.GetAsync(workspace.Token)).Value!.StorageRoot);
     }
 
-    // FR-013: the choices are for a folder that is gone, and a settings write that threw after it took effect still counts.
+    // The choices are for a folder that is gone, and a settings write that threw after it took effect still counts.
     [Fact(Timeout = 120_000)]
     public async Task Neither_choice_runs_while_the_storage_folder_is_there()
     {

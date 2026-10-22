@@ -148,7 +148,7 @@ public sealed partial class LaunchOrchestrator
     }
 
     // The choices when the folders cannot be read. "Continue" needs every folder the launch left alone to have begun on the profile's own
-    // branch (D37.3), which the starts recorded at launch say without a read; a profile that is gone cannot be continued at all.
+    // branch, which the starts recorded at launch say without a read; a profile that is gone cannot be continued at all.
     private static PostPlayOptions FallbackOptions(bool older, Profile? profile, IReadOnlyDictionary<RepoRole, FolderStart> starts)
     {
         if (!older)

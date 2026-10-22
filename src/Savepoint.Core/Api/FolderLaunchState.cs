@@ -33,7 +33,7 @@ namespace Savepoint.Core.Api;
 /// for one that cannot be read), with the file in its <c>path</c> argument. A file that cannot be read is not unsaved work, so it does not
 /// make the folder <paramref name="Dirty"/>; but the folder can be both: a half-switched folder (<paramref name="UnfinishedSwitch"/>) is
 /// dirty and can hold such a file too, and another folder of the same launch can be dirty while this one is held. When nothing is dirty
-/// or half switched, the launch asks to try again instead of offering to keep or discard anything (D37); otherwise unsaved and
+/// or half switched, the launch asks to try again instead of offering to keep or discard anything; otherwise unsaved and
 /// half-switched folders come first, since they must be resolved whatever happens to the file. Null when no file stands in the way.
 /// </param>
 public sealed record FolderLaunchState(

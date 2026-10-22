@@ -89,7 +89,7 @@ public sealed partial class LaunchOrchestrator
     // How each folder is saved. A new point plans only for a folder the launch left as it was, which the save must not force onto the
     // profile's branch; the other choices change history, so each folder is told what the session began from, and an update rewrites
     // only the point it names and leaves a folder with nothing unsaved alone. A new profile forks the folders the launch switched; a
-    // folder it left alone is another profile's history, so the new profile's first point there has nothing behind it (D37.2).
+    // folder it left alone is another profile's history, so the new profile's first point there has nothing behind it.
     private static Dictionary<RepoRole, FolderCapturePlan>? PlansFor(SessionCompletion completion, IReadOnlyList<RepoRole> roles, IReadOnlyDictionary<RepoRole, FolderStart> starts, string? updated)
     {
         bool Left(RepoRole role) => starts.TryGetValue(role, out var start) && start.Left;
