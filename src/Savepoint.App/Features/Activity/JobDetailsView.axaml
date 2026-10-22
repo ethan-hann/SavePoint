@@ -1,0 +1,140 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:Savepoint.App.Localization"
+             xmlns:theme="using:Savepoint.App.Theme"
+             xmlns:activity="using:Savepoint.App.Features.Activity"
+             x:Class="Savepoint.App.Features.Activity.JobDetailsView"
+             x:DataType="activity:JobDetailsViewModel">
+  <!--
+    One job's details: what it is and how it stands, Cancel while it can be stopped, the error that ended it, and its lines in a
+    monospace list that can be selected and copied. New lines follow at the bottom unless the reader has scrolled up.
+  -->
+  <ScrollViewer x:Name="Scroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+  <StackPanel x:Name="Root" Margin="22,18,22,18" Spacing="12">
+
+    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+      <StackPanel Spacing="2" VerticalAlignment="Center">
+        <TextBlock x:Name="HeadingText" Classes="card-title" TextWrapping="Wrap" Text="{Binding Row.Title}" />
+        <TextBlock x:Name="ProfileText" Classes="caption" TextWrapping="Wrap" IsVisible="{Binding Row.HasProfile}" Text="{Binding Row.ProfileText}" />
+      </StackPanel>
+      <Button x:Name="CancelButton"
+              Grid.Column="1"
+              Classes="pill"
+              VerticalAlignment="Top"
+              Padding="18,8"
+              IsVisible="{Binding CanCancel}"
+              Command="{Binding CancelCommand}"
+              Content="{loc:Loc activity.cancel}"
+              AutomationProperties.Name="{Binding CancelAutomationName}" />
+    </Grid>
+
+    <StackPanel Spacing="4">
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <TextBlock Classes="icon s18"
+                   Classes.accent="{Binding Row.IsToneRunning}"
+                   Classes.success="{Binding Row.IsToneSuccess}"
+                   Classes.warning="{Binding Row.IsToneWarning}"
+                   Classes.error="{Binding Row.IsToneError}"
+                   Classes.muted="{Binding Row.IsToneNeutral}"
+                   VerticalAlignment="Center"
+                   Text="{Binding Row.Icon}" />
+        <TextBlock x:Name="StatusText"
+                   FontSize="13.5"
+                   FontWeight="Medium"
+                   VerticalAlignment="Center"
+                   Classes.accent="{Binding Row.IsToneRunning}"
+                   Classes.success="{Binding Row.IsToneSuccess}"
+                   Classes.warning="{Binding Row.IsToneWarning}"
+                   Classes.error="{Binding Row.IsToneError}"
+                   Classes.muted="{Binding Row.IsToneNeutral}"
+                   Text="{Binding Row.StatusText}" />
+      </StackPanel>
+      <ProgressBar x:Name="Bar"
+                   Height="4"
+                   MinHeight="4"
+                   Margin="0,4,0,4"
+                   IsVisible="{Binding Row.ShowProgress}"
+                   IsIndeterminate="{Binding Row.IsIndeterminate}"
+                   Minimum="0"
+                   Maximum="100"
+                   Value="{Binding Row.ProgressPercent}"
+                   AutomationProperties.Name="{Binding Row.StatusText}" />
+      <TextBlock x:Name="ProgressText" Classes="caption" TextWrapping="Wrap" IsVisible="{Binding Row.HasProgressText}" Text="{Binding Row.ProgressText}" />
+      <TextBlock x:Name="TimeLeftText" Classes="caption" TextWrapping="Wrap" IsVisible="{Binding Row.HasTimeLeft}" Text="{Binding Row.TimeLeftText}" />
+      <TextBlock x:Name="StartedText" Classes="timestamp" TextWrapping="Wrap" Text="{Binding Row.StartedText}" />
+      <TextBlock x:Name="FinishedText" Classes="timestamp" TextWrapping="Wrap" IsVisible="{Binding Row.HasFinished}" Text="{Binding Row.FinishedText}" />
+      <TextBlock x:Name="StopNoteText"
+                 Classes="caption"
+                 Margin="0,4,0,0"
+                 TextWrapping="Wrap"
+                 IsVisible="{Binding HasStopNote}"
+                 AutomationProperties.LiveSetting="Polite"
+                 Text="{Binding StopNote}" />
+    </StackPanel>
+
+    <ContentControl x:Name="ErrorHost" Content="{Binding Error}" IsVisible="{Binding HasError}" />
+
+    <Grid x:Name="LinesSection" RowDefinitions="Auto,Auto" RowSpacing="8">
+      <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+        <TextBlock x:Name="DetailsHeading"
+                   Classes="overline"
+                   VerticalAlignment="Center"
+                   Text="{theme:Upper {loc:Loc activity.details.heading}}" />
+        <Button x:Name="JumpButton"
+                Grid.Column="1"
+                Classes="text"
+                Padding="12,6"
+                IsVisible="{Binding !IsFollowing}"
+                Click="OnJumpToLatest"
+                Content="{loc:Loc activity.details.jumpToLatest}" />
+        <Button x:Name="CopyButton"
+                Grid.Column="2"
+                Classes="pill"
+                Padding="14,6"
+                Command="{Binding CopyCommand}"
+                AutomationProperties.Name="{loc:Loc activity.details.copyAutomationName}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Classes="icon s16" Text="{x:Static theme:Icons.ContentCopy}" />
+            <TextBlock Text="{loc:Loc activity.details.copy}" />
+          </StackPanel>
+        </Button>
+      </Grid>
+
+      <Border x:Name="LinesHost" Grid.Row="1" Classes="recessed" Padding="6" Height="240">
+        <Panel>
+          <ListBox x:Name="LineList"
+                   Background="Transparent"
+                   BorderThickness="0"
+                   SelectionMode="Multiple"
+                   ItemsSource="{Binding Lines}"
+                   IsVisible="{Binding HasLines}"
+                   AutomationProperties.Name="{Binding LinesAutomationName}">
+            <ListBox.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel />
+              </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+            <ListBox.Styles>
+              <Style Selector="ListBoxItem" x:DataType="activity:JobLineViewModel">
+                <Setter Property="Padding" Value="8,2" />
+                <Setter Property="MinHeight" Value="0" />
+                <Setter Property="AutomationProperties.Name" Value="{Binding Text}" />
+              </Style>
+            </ListBox.Styles>
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="activity:JobLineViewModel">
+                <TextBlock Classes="mono small" TextWrapping="Wrap" Text="{Binding Text}" />
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+          <TextBlock x:Name="NoLines"
+                     Classes="body muted"
+                     Margin="10,8"
+                     IsVisible="{Binding !HasLines}"
+                     Text="{loc:Loc activity.details.empty}" />
+        </Panel>
+      </Border>
+    </Grid>
+  </StackPanel>
+  </ScrollViewer>
+</UserControl>

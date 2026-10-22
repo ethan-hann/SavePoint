@@ -44,6 +44,7 @@
   "shell.layout.sidebar": "Sidebar",
   "shell.libraryError.tryAgain": "Try again",
   "shell.librarySubtitle": "{profiles} · {size}",
+  "shell.nav.activity": "Activity",
   "shell.nav.games": "Games",
   "shell.nav.history": "History",
   "shell.nav.label": "Main",

@@ -9,6 +9,9 @@ public enum NavDestination
     /// <summary>The points of one game that can be gone back to.</summary>
     History,
 
+    /// <summary>The running and recent jobs of one game or of every game, their details, and a way to stop them.</summary>
+    Activity,
+
     /// <summary>Storage, appearance and the end-of-session choices.</summary>
     Settings,
 }

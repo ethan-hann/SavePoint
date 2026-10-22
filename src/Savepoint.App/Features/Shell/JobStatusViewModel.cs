@@ -1,8 +1,8 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Common.Toasts;
 using Savepoint.Core.Api;
-using Savepoint.Core.Errors;
 
 namespace Savepoint.App.Features.Shell;
 
@@ -110,7 +110,7 @@ public sealed partial class JobStatusViewModel : ObservableObject
             }
         }
 
-        // Only the newest few finished jobs are worth remembering; the registry itself keeps five.
+        // Only the newest few finished jobs are worth remembering; the registry keeps five for each game.
         if (_jobs.Count > 64)
         {
             foreach (var old in _jobs.Values.Where(job => job.Status != JobStatus.Running).OrderBy(job => job.FinishedAt).Take(_jobs.Count - 32).ToList())
@@ -164,18 +164,9 @@ public sealed partial class JobStatusViewModel : ObservableObject
     // The first thing that went wrong, so a failure says why and a partial result says which half.
     private string? ReasonFor(JobSnapshot job)
     {
-        var error = job.Error ?? FolderErrors(job.Result).FirstOrDefault();
+        var error = job.Error ?? JobErrors.FolderErrors(job.Result).FirstOrDefault();
         return error is null ? null : _formatter.Message(error);
     }
-
-    private static IEnumerable<ErrorInfo> FolderErrors(JobResult? result) => result switch
-    {
-        CaptureResult capture => capture.Folders.Where(folder => !folder.Ok).Select(folder => folder.Error!),
-        OptimizeResult optimize => optimize.Games.SelectMany(game => game.Folders).Where(folder => !folder.Ok).Select(folder => folder.Error!),
-        ClearAllDataResult clear => clear.NotRemoved.Select(failure => failure.Error),
-        StorageRelocationResult moved => moved.NotRemoved.Select(failure => failure.Error),
-        _ => [],
-    };
 
     private string NameOf(JobSnapshot job) =>
         (job.GameId is null ? null : _gameName(job.GameId)) ?? _formatter.Message("shell.jobStatus.thisGame");

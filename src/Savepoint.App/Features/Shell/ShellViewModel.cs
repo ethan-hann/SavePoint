@@ -63,6 +63,7 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
         [
             new NavItemViewModel(NavDestination.Games, text.Message("shell.nav.games"), Icons.StadiaController),
             new NavItemViewModel(NavDestination.History, text.Message("shell.nav.history"), Icons.History),
+            new NavItemViewModel(NavDestination.Activity, text.Message("shell.nav.activity"), Icons.Sync),
             new NavItemViewModel(NavDestination.Settings, text.Message("shell.nav.settings"), Icons.Settings),
         ];
         _selectedNav = Nav[0];
@@ -80,6 +81,9 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
 
     /// <inheritdoc />
     public event EventHandler<AddGameRequest>? AddGameRequested;
+
+    /// <inheritdoc />
+    public event EventHandler<ActivityRequest>? ActivityRequested;
 
     /// <summary>The three destinations, in order.</summary>
     public IReadOnlyList<NavItemViewModel> Nav { get; }
@@ -298,6 +302,20 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
         {
             Navigate(NavDestination.Games);
         }
+    }
+
+    /// <inheritdoc />
+    public void ShowActivity(string? gameId)
+    {
+        // The game is selected and the screen told before it is shown, so it opens on the right jobs the first time.
+        var row = gameId is null ? null : Games.FirstOrDefault(candidate => candidate.Id == gameId);
+        if (row is not null)
+        {
+            Select(row);
+        }
+
+        ActivityRequested?.Invoke(this, new ActivityRequest(row?.Id));
+        Navigate(NavDestination.Activity);
     }
 
     /// <inheritdoc />

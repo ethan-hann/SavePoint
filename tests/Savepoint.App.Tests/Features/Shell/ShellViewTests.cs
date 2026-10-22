@@ -77,7 +77,7 @@ public class ShellViewTests
         using var harness = await ShellViewHarness.StartAsync();
 
         harness.Find<ListBox>("RailGames").SelectedIndex = 1;
-        harness.Find<ListBox>("NavList").SelectedIndex = 2;
+        harness.Find<ListBox>("NavList").SelectedIndex = 3;
         harness.Settle();
 
         Assert.Equal(NavDestination.Settings, harness.Shell.Destination);
@@ -144,7 +144,7 @@ public class ShellViewTests
         var nav = harness.Find<ListBox>("NavList").GetVisualDescendants().OfType<ListBoxItem>().ToList();
         var games = harness.Find<ListBox>("RailGames").GetVisualDescendants().OfType<ListBoxItem>().ToList();
 
-        Assert.Equal(["Games", "History", "Settings"], nav.Select(AutomationProperties.GetName));
+        Assert.Equal(["Games", "History", "Activity", "Settings"], nav.Select(AutomationProperties.GetName));
         Assert.Equal("Skyrim Special Edition, 3 profiles", AutomationProperties.GetName(games[0]));
         Assert.Equal("Main", AutomationProperties.GetName(harness.Find<ListBox>("NavList")));
         Assert.Equal(AutomationLandmarkType.Navigation, AutomationProperties.GetLandmarkType(harness.Find<Border>("Rail")));
@@ -270,8 +270,8 @@ public class ShellViewTests
 
         var nav = harness.Find<ListBox>("NavList").GetVisualDescendants().OfType<ListBoxItem>().ToList();
         var games = harness.Find<ListBox>("RailGames").GetVisualDescendants().OfType<ListBoxItem>().ToList();
-        Assert.Equal(["Games", "History", "Settings"], nav.Select(ToolTip.GetTip));
-        Assert.Equal(["Games", "History", "Settings"], nav.Select(AutomationProperties.GetName));
+        Assert.Equal(["Games", "History", "Activity", "Settings"], nav.Select(ToolTip.GetTip));
+        Assert.Equal(["Games", "History", "Activity", "Settings"], nav.Select(AutomationProperties.GetName));
         Assert.Equal("Skyrim Special Edition, 3 profiles", ToolTip.GetTip(games[0]));
         Assert.Equal("Skyrim Special Edition, 3 profiles", AutomationProperties.GetName(games[0]));
         var add = harness.Find<Button>("RailAddButton");
@@ -411,10 +411,11 @@ public class ShellViewTests
 
         Assert.Contains("filled", harness.Find<Button>("RailAddButton").Classes);
         var items = harness.Find<ListBox>("NavList").GetVisualDescendants().OfType<ListBoxItem>().ToList();
-        Assert.Equal([true, false, true], items.Select(item => item.IsEnabled));
+        Assert.Equal([true, false, true, true], items.Select(item => item.IsEnabled));
         var dimmed = (Avalonia.Media.ISolidColorBrush)Application.Current!.FindResource("Md3DisabledContentBrush")!;
         Assert.Equal(dimmed.Color, ((Avalonia.Media.ISolidColorBrush)items[1].Foreground!).Color);
         Assert.NotEqual(dimmed.Color, ((Avalonia.Media.ISolidColorBrush)items[2].Foreground!).Color);
+        Assert.NotEqual(dimmed.Color, ((Avalonia.Media.ISolidColorBrush)items[3].Foreground!).Color);
     }
 
     [AvaloniaFact]
