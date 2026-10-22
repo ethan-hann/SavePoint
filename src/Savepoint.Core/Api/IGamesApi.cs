@@ -80,7 +80,7 @@ public interface IGamesApi
     /// <summary>
     /// Starts a <see cref="JobKind.Compact"/> job that frees up the game's space: it first deletes the recently removed snapshots
     /// the player agreed to lose (see <see cref="IHistoryApi.GetRecentlyRemovedAsync"/>), then optimizes the storage and reclaims space
-    /// nothing reaches any more (D28). Only the records in <paramref name="confirmed"/> are deleted; a snapshot removed after the
+    /// nothing reaches any more. Only the records in <paramref name="confirmed"/> are deleted; a snapshot removed after the
     /// preview that made it stays, and a run without it deletes none. Nothing else deletes a recently removed snapshot. Answers at once;
     /// the result is an <see cref="OptimizeResult"/>.
     /// </summary>

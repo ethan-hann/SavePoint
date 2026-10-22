@@ -277,7 +277,7 @@ public sealed partial class ActivityScreenViewModel : ObservableObject, IScreen,
         Announced?.Invoke(this, message);
     }
 
-    // The jobs shown are the registry's to keep: a finished job it has let go of (five per game, D44.5) is forgotten here too, so a long
+    // The jobs shown are the registry's to keep: a finished job it has let go of (five per game) is forgotten here too, so a long
     // session never shows more than the footer promises. A job still running stays whatever the registry says.
     private void Forget()
     {

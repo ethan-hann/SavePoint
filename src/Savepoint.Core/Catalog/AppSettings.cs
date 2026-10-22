@@ -20,7 +20,7 @@ namespace Savepoint.Core.Catalog;
 /// </param>
 /// <param name="LastOptimizedAt">
 /// When the player last freed up space, or null if they never did. Written by that run only: the cleanups SavePoint starts by itself
-/// (after a profile delete, or when snapshots pile up) leave it alone. Never written by saving settings (D23).
+/// (after a profile delete, or when snapshots pile up) leave it alone. Never written by saving settings.
 /// </param>
 /// <param name="LookUpArtworkOnline">
 /// True to let SavePoint fetch a game's artwork from Steam's servers when it is not already on this computer (D30). False makes no
