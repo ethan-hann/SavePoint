@@ -27,6 +27,7 @@
   "shell.jobStatus.partial": "Only part of {gameName} was saved.",
   "shell.jobStatus.relocateCancelled": "Cancelled moving your storage.",
   "shell.jobStatus.relocateFailure": "Something went wrong moving your storage.",
+  "shell.jobStatus.relocatePartial": "Storage moved, but some old files are still in the old folder.",
   "shell.jobStatus.relocateSuccess": "Storage moved.",
   "shell.jobStatus.relocating": "Moving your storage…",
   "shell.jobStatus.saving": "Saving {gameName}…",
