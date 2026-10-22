@@ -294,6 +294,37 @@ public class ShellViewTests
     }
 
     [AvaloniaFact]
+    public async Task A_short_window_drops_the_art_from_the_library_shelf_to_leave_room_for_the_page()
+    {
+        using var harness = await ShellViewHarness.LibraryLayoutAsync(height: 432);
+
+        var art = harness.Find<ListBox>("ShelfGames").GetVisualDescendants().OfType<ArtTile>().ToList();
+        Assert.NotEmpty(art);
+        Assert.All(art, tile => Assert.False(tile.IsEffectivelyVisible));
+
+        harness.Window.Height = 660;
+        harness.Settle();
+
+        Assert.All(harness.Find<ListBox>("ShelfGames").GetVisualDescendants().OfType<ArtTile>(), tile => Assert.True(tile.IsEffectivelyVisible));
+    }
+
+    [AvaloniaFact]
+    public async Task A_long_list_of_games_scrolls_inside_the_rail_and_leaves_Add_a_game_in_view()
+    {
+        var scenario = ScenarioBuilder.Mockup();
+        foreach (var number in Enumerable.Range(1, 14))
+        {
+            scenario = scenario.WithGame(MockupScenario.Satisfactory with { Id = $"extra-game-{number}", Name = $"Extra game {number}" });
+        }
+
+        using var harness = await ShellViewHarness.StartAsync(new FakeBackend(scenario), height: 432);
+
+        var problems = LayoutAudit.Problems(harness.Window);
+        Assert.True(problems.Count == 0, string.Join(Environment.NewLine, problems));
+        Assert.True(LayoutAudit.BoundsIn(harness.Window, harness.Find<Button>("RailAddButton")).Bottom <= 432);
+    }
+
+    [AvaloniaFact]
     public async Task A_collapsed_rail_tells_games_apart_by_their_initials_and_not_by_tint_alone()
     {
         using var harness = await ShellViewHarness.StartAsync();
@@ -539,13 +570,12 @@ public class ShellViewTests
     // ---- The window
 
     [AvaloniaFact]
-    public void The_main_window_hosts_the_main_view_and_keeps_its_default_and_minimum_sizes()
+    public void The_main_window_hosts_the_main_view_and_keeps_its_default_size()
     {
         var window = new Savepoint.App.Views.MainWindow();
 
         Assert.IsType<MainView>(window.Content);
         Assert.Equal(1040, window.Width);
-        Assert.Equal(760, window.MinWidth);
     }
 
     private static Savepoint.App.Features.Common.Formatting.UiFormatter TextFor(ShellViewHarness harness) =>

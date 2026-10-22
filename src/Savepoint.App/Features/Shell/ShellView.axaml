@@ -37,6 +37,10 @@
     <Style Selector="ListBox.nav ListBoxItem:disabled">
       <Setter Property="Foreground" Value="{DynamicResource Md3DisabledContentBrush}" />
     </Style>
+    <!-- A short window has no room for the shelf's art: the cards keep their names and counts. -->
+    <Style Selector="Grid.short ListBox.shelf Border.art-tile">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
     <Style Selector="Border.brand-mark">
       <Setter Property="Width" Value="24" />
       <Setter Property="Height" Value="24" />
@@ -48,7 +52,7 @@
     </Style>
   </UserControl.Styles>
 
-  <Grid ColumnDefinitions="Auto,*">
+  <Grid x:Name="ShellRoot" ColumnDefinitions="Auto,*" Classes.short="{Binding IsShort}">
 
     <!-- Sidebar layout: the rail. Below 900px it collapses to icons; names become tooltips and automation names. -->
     <Border x:Name="Rail"
@@ -58,61 +62,66 @@
             IsVisible="{Binding IsSidebarLayout}"
             AutomationProperties.LandmarkType="Navigation">
       <Grid RowDefinitions="*,Auto">
-        <StackPanel Spacing="4">
-          <StackPanel x:Name="RailBrand" Orientation="Horizontal" Spacing="9" Margin="8,2,8,8">
-            <Border Classes="brand-mark">
-              <TextBlock Classes="icon s16" HorizontalAlignment="Center" Text="{x:Static theme:Icons.Bookmark}" />
-            </Border>
-            <TextBlock Classes="row-title" FontSize="14" VerticalAlignment="Center" IsVisible="{Binding !IsCompact}" Text="{loc:Loc app.name}" />
-          </StackPanel>
-          <ListBox x:Name="NavList"
-                   Classes="nav"
-                   ItemsSource="{Binding Nav}"
-                   SelectedItem="{Binding SelectedNav, Mode=TwoWay}"
-                   AutomationProperties.Name="{Binding NavLabel}">
-            <ListBox.Styles>
-              <Style Selector="ListBoxItem" x:DataType="shell:NavItemViewModel">
-                <Setter Property="AutomationProperties.Name" Value="{Binding Label}" />
-                <Setter Property="ToolTip.Tip" Value="{Binding ToolTipText}" />
-                <Setter Property="IsEnabled" Value="{Binding IsEnabled}" />
-              </Style>
-            </ListBox.Styles>
-            <ListBox.ItemTemplate>
-              <DataTemplate x:DataType="shell:NavItemViewModel">
-                <StackPanel Orientation="Horizontal" Spacing="11">
-                  <TextBlock Classes="icon s18" Text="{Binding Icon}" />
-                  <TextBlock VerticalAlignment="Center" IsVisible="{Binding ShowLabel}" Text="{Binding Label}" />
-                </StackPanel>
-              </DataTemplate>
-            </ListBox.ItemTemplate>
-          </ListBox>
-          <Border Classes="divider" Margin="8,6,8,4" />
-          <TextBlock x:Name="YourGamesLabel" Classes="overline-small" Margin="8,6,8,2" IsVisible="{Binding !IsCompact}" Text="{theme:Upper {loc:Loc shell.yourGames}}" />
-          <TextBlock x:Name="NoGamesLabel" Classes="body subtle" Margin="8,2" IsVisible="{Binding ShowFirstRun}" Text="{loc:Loc shell.noGamesYet}" />
-          <ListBox x:Name="RailGames"
-                   Classes="rows"
-                   AutomationProperties.Name="{loc:Loc shell.yourGames}"
-                   ItemsSource="{Binding Games}"
-                   SelectedItem="{Binding SelectedGameRow, Mode=TwoWay}">
-            <ListBox.Styles>
-              <Style Selector="ListBoxItem" x:DataType="shell:GameRowViewModel">
-                <Setter Property="AutomationProperties.Name" Value="{Binding AutomationName}" />
-                <Setter Property="ToolTip.Tip" Value="{Binding ToolTipText}" />
-              </Style>
-            </ListBox.Styles>
-            <ListBox.ItemTemplate>
-              <DataTemplate x:DataType="shell:GameRowViewModel">
-                <StackPanel Orientation="Horizontal" Spacing="9">
-                  <art:ArtTile Size="24" GameName="{Binding Name}" Art="{Binding Art}" ShowInitials="{Binding !ShowLabels}" />
-                  <StackPanel VerticalAlignment="Center" IsVisible="{Binding ShowLabels}">
-                    <TextBlock Classes="body" FontWeight="Medium" FontSize="12.5" LineHeight="16" TextTrimming="CharacterEllipsis" Text="{Binding Name}" />
-                    <TextBlock Classes="overline-small" FontWeight="Normal" LetterSpacing="0" Text="{Binding ProfileCountText}" />
+        <!-- The list of games scrolls with the rest of the rail's top part, so a long library never pushes Add a game out of the window. -->
+        <ScrollViewer x:Name="RailScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Spacing="4">
+            <StackPanel x:Name="RailBrand" Orientation="Horizontal" Spacing="9" Margin="8,2,8,8">
+              <Border Classes="brand-mark">
+                <TextBlock Classes="icon s16" HorizontalAlignment="Center" Text="{x:Static theme:Icons.Bookmark}" />
+              </Border>
+              <TextBlock Classes="row-title" FontSize="14" VerticalAlignment="Center" IsVisible="{Binding !IsCompact}" Text="{loc:Loc app.name}" />
+            </StackPanel>
+            <ListBox x:Name="NavList"
+                     Classes="nav"
+                     ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                     ItemsSource="{Binding Nav}"
+                     SelectedItem="{Binding SelectedNav, Mode=TwoWay}"
+                     AutomationProperties.Name="{Binding NavLabel}">
+              <ListBox.Styles>
+                <Style Selector="ListBoxItem" x:DataType="shell:NavItemViewModel">
+                  <Setter Property="AutomationProperties.Name" Value="{Binding Label}" />
+                  <Setter Property="ToolTip.Tip" Value="{Binding ToolTipText}" />
+                  <Setter Property="IsEnabled" Value="{Binding IsEnabled}" />
+                </Style>
+              </ListBox.Styles>
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="shell:NavItemViewModel">
+                  <StackPanel Orientation="Horizontal" Spacing="11">
+                    <TextBlock Classes="icon s18" Text="{Binding Icon}" />
+                    <TextBlock VerticalAlignment="Center" IsVisible="{Binding ShowLabel}" Text="{Binding Label}" />
                   </StackPanel>
-                </StackPanel>
-              </DataTemplate>
-            </ListBox.ItemTemplate>
-          </ListBox>
-        </StackPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <Border Classes="divider" Margin="8,6,8,4" />
+            <TextBlock x:Name="YourGamesLabel" Classes="overline-small" Margin="8,6,8,2" IsVisible="{Binding !IsCompact}" Text="{theme:Upper {loc:Loc shell.yourGames}}" />
+            <TextBlock x:Name="NoGamesLabel" Classes="body subtle" Margin="8,2" IsVisible="{Binding ShowFirstRun}" Text="{loc:Loc shell.noGamesYet}" />
+            <ListBox x:Name="RailGames"
+                     Classes="rows"
+                     ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                     AutomationProperties.Name="{loc:Loc shell.yourGames}"
+                     ItemsSource="{Binding Games}"
+                     SelectedItem="{Binding SelectedGameRow, Mode=TwoWay}">
+              <ListBox.Styles>
+                <Style Selector="ListBoxItem" x:DataType="shell:GameRowViewModel">
+                  <Setter Property="AutomationProperties.Name" Value="{Binding AutomationName}" />
+                  <Setter Property="ToolTip.Tip" Value="{Binding ToolTipText}" />
+                </Style>
+              </ListBox.Styles>
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="shell:GameRowViewModel">
+                  <StackPanel Orientation="Horizontal" Spacing="9">
+                    <art:ArtTile Size="24" GameName="{Binding Name}" Art="{Binding Art}" ShowInitials="{Binding !ShowLabels}" />
+                    <StackPanel VerticalAlignment="Center" IsVisible="{Binding ShowLabels}">
+                      <TextBlock Classes="body" FontWeight="Medium" FontSize="12.5" LineHeight="16" TextTrimming="CharacterEllipsis" Text="{Binding Name}" />
+                      <TextBlock Classes="overline-small" FontWeight="Normal" LetterSpacing="0" Text="{Binding ProfileCountText}" />
+                    </StackPanel>
+                  </StackPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </StackPanel>
+        </ScrollViewer>
         <!-- Declared after the lists so Tab reaches it after them, where it is drawn. -->
         <Button x:Name="RailAddButton"
                 Grid.Row="1"

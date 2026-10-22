@@ -630,6 +630,20 @@ public class ShellViewModelTests
         Assert.Equal(railWidth, rig.Shell.RailWidth);
     }
 
+    [Theory]
+    [InlineData(660, false)]
+    [InlineData(560, false)]
+    [InlineData(559.5, true)]
+    [InlineData(432, true)]
+    public async Task A_short_window_compacts_the_shelf_below_560_pixels(double height, bool isShort)
+    {
+        var rig = await ShellRig.StartAsync();
+
+        rig.Shell.SetWindowHeight(height);
+
+        Assert.Equal(isShort, rig.Shell.IsShort);
+    }
+
     [Fact]
     public async Task A_collapsed_rail_hides_names_and_offers_them_as_tooltips()
     {

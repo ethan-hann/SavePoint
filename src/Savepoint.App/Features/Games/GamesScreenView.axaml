@@ -28,7 +28,7 @@
     </Style>
   </UserControl.Styles>
 
-  <Grid x:Name="Root" RowDefinitions="Auto,Auto,*,Auto,Auto" Margin="22,20,22,20">
+  <Grid x:Name="Root" RowDefinitions="Auto,Auto,*" Margin="22,20,22,20">
 
     <!-- Header, sidebar layout: art tile, name and install path, then the buttons and the layout toggle. -->
     <Grid x:Name="SidebarHeader" Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" IsVisible="{Binding IsSidebarLayout}">
@@ -192,18 +192,18 @@
             </Button>
           </StackPanel>
         </Border>
+
+        <!-- The launch flow's banner (2a) or running card (2c) for this game, below the table as the mockups draw it. -->
+        <ContentControl x:Name="InlineContentHost" IsVisible="{Binding HasInlineContent}" Content="{Binding InlineContent}" />
+
+        <!-- The storage footer; the library layout's shelf already shows each game's size. -->
+        <Border x:Name="StorageFooter" Classes="strip" Margin="0,2,0,0" IsVisible="{Binding ShowStorageFooter}">
+          <StackPanel Orientation="Horizontal" Spacing="12">
+            <TextBlock Classes="icon muted" Text="{x:Static theme:Icons.Database}" />
+            <TextBlock x:Name="StorageFooterText" Classes="muted" VerticalAlignment="Center" Text="{Binding StorageFooterText}" />
+          </StackPanel>
+        </Border>
       </StackPanel>
     </ScrollViewer>
-
-    <!-- The launch flow's banner (2a) or running card (2c) for this game, below the table as the mockups draw it. -->
-    <ContentControl x:Name="InlineContentHost" Grid.Row="3" Margin="0,12,0,0" IsVisible="{Binding HasInlineContent}" Content="{Binding InlineContent}" />
-
-    <!-- The storage footer; the library layout's shelf already shows each game's size. -->
-    <Border x:Name="StorageFooter" Grid.Row="4" Classes="strip" Margin="0,14,0,0" IsVisible="{Binding ShowStorageFooter}">
-      <StackPanel Orientation="Horizontal" Spacing="12">
-        <TextBlock Classes="icon muted" Text="{x:Static theme:Icons.Database}" />
-        <TextBlock x:Name="StorageFooterText" Classes="muted" VerticalAlignment="Center" Text="{Binding StorageFooterText}" />
-      </StackPanel>
-    </Border>
   </Grid>
 </UserControl>

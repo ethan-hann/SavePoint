@@ -28,6 +28,7 @@ public partial class ShellView : UserControl
         if (DataContext is ShellViewModel shell)
         {
             shell.SetWindowWidth(e.NewSize.Width);
+            shell.SetWindowHeight(e.NewSize.Height);
         }
     }
 
@@ -39,6 +40,7 @@ public partial class ShellView : UserControl
         if (DataContext is ShellViewModel shell && Bounds.Width > 0)
         {
             shell.SetWindowWidth(Bounds.Width);
+            shell.SetWindowHeight(Bounds.Height);
         }
     }
 

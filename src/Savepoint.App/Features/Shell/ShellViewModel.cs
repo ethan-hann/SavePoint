@@ -22,6 +22,9 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
     /// <summary>Below this window width the sidebar collapses to an icon rail.</summary>
     public const double CompactBelowWidth = 900;
 
+    /// <summary>A window shorter than this, in device-independent pixels, compacts the library shelf.</summary>
+    public const double ShortBelowHeight = 560;
+
     /// <summary>Width of the expanded rail.</summary>
     public const double ExpandedRailWidth = 236;
 
@@ -41,6 +44,7 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
     private bool _isLoaded;
     private bool _libraryKnown;
     private bool _isCompact;
+    private bool _isShort;
     private bool _initialized;
     private bool _disposed;
     private bool _refreshRequested;
@@ -157,6 +161,9 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
     /// <summary>True while the window is narrower than <see cref="CompactBelowWidth"/>.</summary>
     public bool IsCompact => _isCompact;
 
+    /// <summary>True while the window is shorter than <see cref="ShortBelowHeight"/>; the library shelf drops its art to leave room for the page.</summary>
+    public bool IsShort => _isShort;
+
     /// <summary>The rail's width for the current state.</summary>
     public double RailWidth => IsCompact ? CompactRailWidth : ExpandedRailWidth;
 
@@ -244,6 +251,19 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
 
         OnPropertyChanged(nameof(IsCompact));
         OnPropertyChanged(nameof(RailWidth));
+    }
+
+    /// <summary>Tells the shell how tall the window is; the library shelf compacts below <see cref="ShortBelowHeight"/>.</summary>
+    public void SetWindowHeight(double height)
+    {
+        var isShort = height < ShortBelowHeight;
+        if (isShort == _isShort)
+        {
+            return;
+        }
+
+        _isShort = isShort;
+        OnPropertyChanged(nameof(IsShort));
     }
 
     /// <inheritdoc />
