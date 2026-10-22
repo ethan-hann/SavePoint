@@ -1,6 +1,7 @@
 using Savepoint.Core.Api;
 using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Diagnostics;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Services.Profiles;
 
@@ -40,11 +41,20 @@ internal sealed record CompletionRun(
 // of a game's events only grows and no event is ever raised while the lock is held.
 internal sealed class SessionBook : IGameSessions
 {
+    private readonly IDiagnosticLog _log;
     private readonly Lock _gate = new();
     private readonly Dictionary<string, SessionRecord> _records = new(StringComparer.Ordinal);
     private readonly HashSet<string> _starting = new(StringComparer.Ordinal);
     private readonly EventPump _pump = new();
     private long _revision;
+
+    // Touched only by the pump, which runs one action at a time, so it needs no lock.
+    private readonly Dictionary<string, (Guid Job, Type State)> _logged = new(StringComparer.Ordinal);
+
+    public SessionBook(IDiagnosticLog? log = null)
+    {
+        _log = log ?? DiagnosticLog.None;
+    }
 
     public event EventHandler<LaunchSessionInfo>? SessionChanged;
 
@@ -251,9 +261,81 @@ internal sealed class SessionBook : IGameSessions
     // The caller holds the lock; the events are queued under it so they leave in the order the changes were made.
     private void Announce(LaunchSessionInfo info)
     {
+        _pump.Post(() => LogChange(info));
         _pump.Post(() => SessionChanged?.Invoke(this, info));
         _pump.Post(() => Changed?.Invoke(this, EventArgs.Empty));
     }
+
+    // One line for each phase a session enters. Switching repeats with every progress report, so it is written once.
+    private void LogChange(LaunchSessionInfo info)
+    {
+        var phase = info.State.GetType();
+        if (_logged.TryGetValue(info.GameId, out var last) && last.Job == info.LaunchJobId && last.State == phase)
+        {
+            return;
+        }
+
+        _logged[info.GameId] = (info.LaunchJobId, phase);
+        var prefix = $"Launch session for {info.GameId} (profile {info.ProfileId}, job {info.LaunchJobId}):";
+        switch (info.State)
+        {
+            case SessionState.Preparing:
+                _log.Information($"{prefix} preparing; target {info.Target.GetType().Name}{(info.StartedFromOlderPoint ? ", an older point" : string.Empty)}.");
+                break;
+            case SessionState.Switching:
+                _log.Information($"{prefix} switching the folders.");
+                break;
+            case SessionState.Running:
+                _log.Information($"{prefix} the game is running.");
+                break;
+            case SessionState.Exited exited:
+                _log.Information($"{prefix} the game stopped after {Describe(exited.PlayDuration)}; {exited.NewFileCount} new save files, {exited.ChangedInstallFileCount} changed install files.");
+                break;
+            case SessionState.Completing completing:
+                _log.Information($"{prefix} saving after play ({completing.Completion.GetType().Name}), job {completing.JobId}.");
+                break;
+            case SessionState.Completed completed:
+                LogCompleted(prefix, completed);
+                break;
+            case SessionState.Failed failed:
+                var reason = $"{prefix} failed with {failed.Error.MessageId}: {FirstLine(failed.Error.Detail)}";
+                if (failed.Error.MessageId == "error.unknown")
+                {
+                    _log.Error(reason);
+                }
+                else
+                {
+                    _log.Warning(reason);
+                }
+
+                break;
+        }
+    }
+
+    private void LogCompleted(string prefix, SessionState.Completed completed)
+    {
+        var name = completed.Completion.GetType().Name;
+        var notSaved = completed.Result?.Folders.Where(folder => !folder.Ok).Select(folder => $"{folder.Role}: {folder.Error!.MessageId}").ToList() ?? [];
+        if (completed.Error is { } error)
+        {
+            _log.Warning($"{prefix} finished ({name}) with {error.MessageId}: {FirstLine(error.Detail)}");
+        }
+        else if (notSaved.Count > 0)
+        {
+            _log.Warning($"{prefix} finished ({name}), but not every folder was saved: {string.Join("; ", notSaved)}.");
+        }
+        else
+        {
+            _log.Information($"{prefix} finished ({name}).");
+        }
+    }
+
+    private static string FirstLine(string text) => text.Split(['\r', '\n'], 2)[0];
+
+    private static string Describe(TimeSpan span) =>
+        span.TotalHours >= 1 ? $"{(int)span.TotalHours} h {span.Minutes} min"
+        : span.TotalMinutes >= 1 ? $"{span.Minutes} min {span.Seconds} s"
+        : $"{span.Seconds} s";
 
     private void RaiseChanged() => _pump.Post(() => Changed?.Invoke(this, EventArgs.Empty));
 }
