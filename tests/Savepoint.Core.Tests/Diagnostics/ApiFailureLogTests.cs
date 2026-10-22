@@ -42,8 +42,9 @@ public class ApiFailureLogTests
     }
 
     [Fact]
-    public async Task A_caller_that_cancelled_is_noted_but_is_not_a_failure()
+    public async Task A_caller_that_cancelled_is_not_a_failure_and_writes_nothing()
     {
+        // The screens cancel their reads every time the user moves on, so a line for each would bury the real ones.
         var log = new RecordingDiagnosticLog();
         using var cancelled = new CancellationTokenSource();
         await cancelled.CancelAsync();
@@ -51,9 +52,7 @@ public class ApiFailureLogTests
         var result = await ApiGuard.RunAsync(log, () => Task.FromResult(1), cancelled.Token, "FetchAsync");
 
         Assert.Equal("error.operation.cancelled", result.Error?.MessageId);
-        var entry = Assert.Single(log.Entries);
-        Assert.Equal(LogLevel.Information, entry.Level);
-        Assert.Contains("FetchAsync", entry.Message, StringComparison.Ordinal);
+        Assert.Empty(log.Entries);
     }
 
     [Fact]

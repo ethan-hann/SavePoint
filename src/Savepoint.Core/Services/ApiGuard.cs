@@ -10,9 +10,9 @@ internal static class ApiGuard
 {
     /// <summary>
     /// Runs the work and answers its value, or the <see cref="Savepoint.Core.Errors.ErrorInfo"/> of whatever it threw. A
-    /// cancelled token answers <c>error.operation.cancelled</c> (D23). Every failure is written to the log (D34): a
-    /// <see cref="SavepointException"/> as a warning, because SavePoint raised it on purpose; anything else as an error; the
-    /// caller's own cancellation as information, because it is not a failure.
+    /// cancelled token answers <c>error.operation.cancelled</c> (D23) and writes nothing, because it is not a failure. Every
+    /// failure is written to the log (D34): a <see cref="SavepointException"/> as a warning, because SavePoint raised it on purpose,
+    /// and anything else as an error.
     /// </summary>
     /// <param name="log">Where a failure is recorded.</param>
     /// <param name="body">The work.</param>
@@ -28,9 +28,7 @@ internal static class ApiGuard
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            log.Information($"{operation} was cancelled by the caller.");
-
-            // ErrorInfo.From knows only SavePoint's own errors, so the caller's cancellation is named here (D23).
+            // ErrorInfo.From knows only SavePoint's own errors, so the caller's cancellation is named here (D23). It is not logged: screens cancel their reads whenever the user moves on.
             return OperationResult.Failure<T>(new RequestCancelledException());
         }
         catch (Exception exception)

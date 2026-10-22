@@ -54,6 +54,7 @@ public class ClearAllLogTests
         {
             var platform = Savepoint.Core.Tests.Platform.FakePlatforms.ForHost(home);
             var logs = platform.Directories.LogsDir;
+            Assert.StartsWith(home, logs, StringComparison.Ordinal);
             var inUse = Path.Combine(logs, "savepoint-20261021.log");
             BackendWorkspace.WriteFile(inUse, "today");
             BackendWorkspace.WriteFile(Path.Combine(logs, "savepoint-20261020.log"), "yesterday");
@@ -80,6 +81,7 @@ public class ClearAllLogTests
     {
         using var workspace = new BackendWorkspace();
         var logs = workspace.Platform.Directories.LogsDir;
+        Assert.StartsWith(workspace.Root, logs, StringComparison.Ordinal);
         BackendWorkspace.WriteFile(Path.Combine(logs, "savepoint-20261020.log"), "yesterday");
 
         var started = await workspace.Settings.ClearAllDataAsync();
@@ -95,6 +97,7 @@ public class ClearAllLogTests
         Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows refuses to delete an open file");
         using var workspace = new BackendWorkspace();
         var logs = workspace.Platform.Directories.LogsDir;
+        Assert.StartsWith(workspace.Root, logs, StringComparison.Ordinal);
         var held = Path.Combine(logs, "savepoint-20261020.log");
         BackendWorkspace.WriteFile(held, "yesterday");
         await using var open = new FileStream(held, FileMode.Open, FileAccess.Read, FileShare.Read);

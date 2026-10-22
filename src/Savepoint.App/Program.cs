@@ -36,7 +36,7 @@ internal static class Program
         var started = AppBootstrap.Start();
         using var closeLog = started.Log as IDisposable;
 
-        // Whatever nothing catches is written to the log first, then shown in a last window, and the process ends after it (D34).
+        // Whatever nothing catches is written to the log first, then shown in a last window, and the process ends after it.
         var crash = new CrashHandler(started.Log, new AvaloniaCrashPresenter(path => started.Services.FileRevealer?.Reveal(path) ?? false), Environment.Exit, started.Services.LogFolder);
         using var processHooks = crash.AttachToProcess();
         App.Crash = crash;

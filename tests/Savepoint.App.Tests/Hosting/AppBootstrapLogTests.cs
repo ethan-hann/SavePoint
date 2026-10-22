@@ -107,6 +107,7 @@ public sealed class AppBootstrapLogTests : IDisposable
     public void Without_a_log_the_real_one_is_opened_in_the_platforms_log_folder_and_its_first_line_is_the_start()
     {
         var platform = HostPlatform();
+        Assert.StartsWith(_root, platform.Directories.LogsDir, StringComparison.Ordinal);
 
         _started = AppBootstrap.Start(options => Over(options, platform));
 
@@ -122,6 +123,7 @@ public sealed class AppBootstrapLogTests : IDisposable
     public void A_log_folder_that_cannot_be_made_does_not_stop_the_app_and_offers_no_folder()
     {
         var platform = HostPlatform();
+        Assert.StartsWith(_root, platform.Directories.LogsDir, StringComparison.Ordinal);
         Directory.CreateDirectory(Path.GetDirectoryName(platform.Directories.LogsDir)!);
         File.WriteAllText(platform.Directories.LogsDir, "a file where the folder should be");
 
