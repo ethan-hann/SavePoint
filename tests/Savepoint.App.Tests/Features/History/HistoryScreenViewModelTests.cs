@@ -297,6 +297,24 @@ public class HistoryScreenViewModelTests
     }
 
     [Fact]
+    public async Task Reading_again_with_the_same_profiles_keeps_the_filter_list_and_its_items_so_an_open_list_keeps_its_focus()
+    {
+        var rig = await HistoryRig.ShownAsync();
+        var list = rig.Screen.Filters;
+        var items = rig.Screen.Filters.ToList();
+        var raised = new List<string?>();
+        rig.Screen.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        rig.Screen.SelectedFilter = rig.Screen.Filters[2];
+        await rig.Screen.ReloadAsync();
+
+        Assert.Same(list, rig.Screen.Filters);
+        Assert.True(items.SequenceEqual(rig.Screen.Filters, ReferenceEqualityComparer.Instance as IEqualityComparer<ProfileFilter>));
+        Assert.Same(items[2], rig.Screen.SelectedFilter);
+        Assert.DoesNotContain(nameof(HistoryScreenViewModel.Filters), raised);
+    }
+
+    [Fact]
     public async Task Choosing_a_profile_reads_only_its_points_and_recounts_them()
     {
         var rig = await HistoryRig.ShownAsync();

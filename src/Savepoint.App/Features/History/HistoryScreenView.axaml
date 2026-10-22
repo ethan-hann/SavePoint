@@ -84,13 +84,14 @@
                 IsVisible="{Binding ShowFilter}"
                 AutomationProperties.Name="{Binding FilterAutomationName}">
           <Button.Flyout>
-            <Flyout Placement="BottomEdgeAlignedRight">
+            <Flyout Placement="BottomEdgeAlignedRight" Opened="OnFilterOpened">
+              <!-- Arrow keys only move through the list: the choice is made by a click or Enter, which closes it. -->
               <ListBox x:Name="FilterList"
                        Classes="rows"
                        MinWidth="220"
                        ItemsSource="{Binding Filters}"
-                       SelectedItem="{Binding SelectedFilter, Mode=TwoWay}"
-                       SelectionChanged="OnFilterChosen">
+                       SelectedItem="{Binding SelectedFilter, Mode=OneWay}"
+                       PointerReleased="OnFilterPointerReleased">
                 <ListBox.ItemTemplate>
                   <DataTemplate x:DataType="history:ProfileFilter">
                     <TextBlock Classes="body" Text="{Binding Label}" />

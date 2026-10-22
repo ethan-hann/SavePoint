@@ -389,10 +389,22 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
     {
         var all = new ProfileFilter(null, _deps.Text.Message("history.filter.all"));
         List<ProfileFilter> filters = [all, .. profiles.Select(profile => new ProfileFilter(profile.Id, profile.Name))];
+
+        // The same profiles as before keep the same list and items, so a list that is open keeps its focus while a choice reloads the points.
+        var unchanged = Filters.Count == filters.Count && Filters.Zip(filters).All(pair => pair.First == pair.Second);
+        if (unchanged)
+        {
+            filters = [.. Filters];
+        }
+
         var chosen = filters.FirstOrDefault(filter => filter.ProfileId == _currentFilter?.ProfileId);
         Restore(() =>
         {
-            Filters = filters;
+            if (!unchanged)
+            {
+                Filters = filters;
+            }
+
             _currentFilter = chosen ?? all;
             SelectedFilter = _currentFilter;
         });
