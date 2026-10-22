@@ -14,6 +14,9 @@ public class ErrorCardViewModelTests
 {
     private static readonly UiFormatter _text = new(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), os: "windows", timeZone: TimeZoneInfo.Utc);
 
+    // Core names a clash's folder by the last part of its path, split the way the running system splits one, so the paths are built for that system.
+    private static string PathOnThisSystem(params string[] parts) => Path.Combine([OperatingSystem.IsWindows() ? @"C:\" : "/", .. parts]);
+
     [Fact]
     public void A_file_in_use_card_has_the_headline_the_lock_icon_the_body_and_the_file()
     {
@@ -43,14 +46,16 @@ public class ErrorCardViewModelTests
     [Fact]
     public void A_folder_that_holds_files_where_a_file_is_needed_says_which_file_to_move()
     {
-        var error = ErrorInfo.From(new FileFolderClashException(RepoRole.Install, FileFolderClashKind.FolderHoldsFiles, @"C:\Games\Alpha\Mods\Foo", @"C:\Games\Alpha\Mods\Foo\data.bin"));
+        var folder = PathOnThisSystem("Games", "Alpha", "Mods", "Foo");
+        var file = Path.Combine(folder, "data.bin");
+        var error = ErrorInfo.From(new FileFolderClashException(RepoRole.Install, FileFolderClashKind.FolderHoldsFiles, folder, file));
 
         var card = new ErrorCardViewModel(error, _text);
 
         Assert.Equal("A file and a folder share a name", card.Title);
         Assert.Equal(Icons.Folder, card.Icon);
         Assert.Equal(ErrorTone.Warning, card.Tone);
-        Assert.Equal(@"C:\Games\Alpha\Mods\Foo\data.bin", card.Path);
+        Assert.Equal(file, card.Path);
         Assert.Contains("a file named Foo in your install folder", card.Body);
         Assert.Contains("already a folder with that name", card.Body);
         Assert.Contains("won't delete your files", card.Body);
@@ -59,12 +64,13 @@ public class ErrorCardViewModelTests
     [Fact]
     public void A_file_where_a_folder_is_needed_says_which_file_to_move()
     {
-        var error = ErrorInfo.From(new FileFolderClashException(RepoRole.External, FileFolderClashKind.FileInTheWay, @"C:\Saves\Alpha\Slots", @"C:\Saves\Alpha\Slots"));
+        var slots = PathOnThisSystem("Saves", "Alpha", "Slots");
+        var error = ErrorInfo.From(new FileFolderClashException(RepoRole.External, FileFolderClashKind.FileInTheWay, slots, slots));
 
         var card = new ErrorCardViewModel(error, _text);
 
         Assert.Equal("A file and a folder share a name", card.Title);
-        Assert.Equal(@"C:\Saves\Alpha\Slots", card.Path);
+        Assert.Equal(slots, card.Path);
         Assert.Contains("a folder named Slots in your saves folder", card.Body);
         Assert.Contains("already a file with that name", card.Body);
         Assert.Contains("won't delete your file", card.Body);
