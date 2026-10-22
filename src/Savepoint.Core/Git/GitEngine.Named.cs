@@ -88,8 +88,11 @@ public sealed partial class GitEngine
     {
         var index = Path.Combine(repo.GitDir, $"{ClassifyIndexPrefix}{Guid.NewGuid():N}.index");
 
-        // The sweep of stale files must not take the file a question is still asking about.
+        var exclude = index + ".exclude";
+
+        // The sweep of stale files must not take a file a question is still asking about.
         _classifying[index] = 0;
+        _classifying[exclude] = 0;
         try
         {
             var environment = new Dictionary<string, string?> { ["GIT_INDEX_FILE"] = index };
@@ -101,16 +104,31 @@ public sealed partial class GitEngine
 
             await RunAsync(Invocation(repo, readOnly: false, "update-index", "-z", "--add", "--index-info") with { Stdin = entries.ToString(), ExtraEnvironment = environment }, ct).ConfigureAwait(false);
             RequireIndex(index);
-            var listed = await RunAsync(Classify(repo, "ls-files", "-z", "-c", "-i", ExcludeFromArgument(repo)) with { ExtraEnvironment = environment }, ct).ConfigureAwait(false);
+            var listed = await RunAsync(Classify(repo, "ls-files", "-z", "-c", "-i", ExcludeForQuestion(repo, exclude)) with { ExtraEnvironment = environment }, ct).ConfigureAwait(false);
             RequireIndex(index);
             return [.. listed.SplitStandardOutputOnNul()];
         }
         finally
         {
             _classifying.TryRemove(index, out _);
+            _classifying.TryRemove(exclude, out _);
             TryDelete(index);
             TryDelete(index + ".lock");
+            TryDelete(exclude);
         }
+    }
+
+    // The list in the git directory is shared by every reader, and a reader that holds the game from before an ignore-list edit writes the
+    // older list into it. A question that carries the patterns asks against a file of its own, so no other reader can change its answer.
+    private static string ExcludeForQuestion(RepoRef repo, string file)
+    {
+        if (repo.IgnorePatterns is not { } current)
+        {
+            return ExcludeFromArgument(repo);
+        }
+
+        File.WriteAllText(file, RepoIgnoreFiles.ExcludeText(current), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        return "--exclude-from=" + file;
     }
 
     // A forced checkout writes every file whose stamp does not match its index entry, aligned or not; this bit tells it to leave them.

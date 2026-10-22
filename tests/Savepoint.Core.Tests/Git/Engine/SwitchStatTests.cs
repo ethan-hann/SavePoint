@@ -107,6 +107,27 @@ public sealed class SwitchStatTests : IDisposable
         Assert.Empty(Directory.EnumerateFiles(repo.GitDir, "savepoint-classify*"));
     }
 
+    // The list in the git directory is shared by every reader, and one that holds the game from before an ignore-list edit writes the
+    // older list into it; a classification asks against the list it was given.
+    [Fact]
+    public async Task A_classification_asks_against_the_patterns_it_was_given_when_another_reader_rewrites_the_shared_list()
+    {
+        var (repo, first, second) = await TwoPointsAsync();
+        _ws.OnInvoke = invocation =>
+        {
+            if (invocation.Arguments[0] == "ls-files" && invocation.ExtraEnvironment?.ContainsKey("GIT_INDEX_FILE") == true)
+            {
+                RepoIgnoreFiles.WriteExclude(repo.GitDir, []);
+            }
+        };
+
+        var switching = await _ws.Engine.SwitchStatAsync(repo, first, second, Ct);
+
+        _ws.OnInvoke = null;
+        Assert.Equal(["a.txt", "b.txt"], switching.ChangedPaths.Order(StringComparer.Ordinal));
+        Assert.Empty(Directory.EnumerateFiles(repo.GitDir, "savepoint-classify*"));
+    }
+
     // A summary takes no lock on the game, so a write can start its sweep of stale files while the summary is asking: the file the summary
     // is asking about is not stale.
     [Fact]
