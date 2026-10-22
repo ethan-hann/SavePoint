@@ -35,6 +35,7 @@
   "shell.layout.label": "Layout",
   "shell.layout.library": "Library",
   "shell.layout.sidebar": "Sidebar",
+  "shell.libraryError.tryAgain": "Try again",
   "shell.librarySubtitle": "{profiles} · {size}",
   "shell.nav.games": "Games",
   "shell.nav.history": "History",

@@ -53,6 +53,7 @@ internal static class AppStates
         "editor-reconnect",
         "startup-git-unavailable",
         "startup-corrupt-catalog",
+        "library-error",
         "toast",
         "job-pill",
     ];
@@ -80,6 +81,14 @@ internal static class AppStates
     private const string _gitPath = @"C:\Program Files\SavePoint\git\cmd\git.exe";
     private const string _catalogDirectory = @"C:\Users\you\AppData\Roaming\SavePoint";
 
+    // The first read of the game list fails, as a catalog that cannot be reached would.
+    private static FakeBackend LibraryUnreadable()
+    {
+        var backend = FakeBackend.Mockup();
+        backend.FailNext<IGamesApi>(nameof(IGamesApi.ListAsync), ErrorInfo.From(new CatalogCorruptException(_catalogDirectory + @"\games.json", null)));
+        return backend;
+    }
+
     private static FakeBackend StartupBackend(StartupStatus status) => new(ScenarioBuilder.Mockup().WithStartupStatus(status));
 
     private static ProfileRowViewModel Row(ComposedApp app, string id) => app.Games.Profiles.Single(row => row.Id == id);
@@ -94,6 +103,7 @@ internal static class AppStates
                 .WithSettings(MockupScenario.Settings)
                 .WithProfile(new Profile("profile-empty", _skyrim, "Fresh profile", "profile/profile-empty")))),
             "first-run" or "first-run-templates" => await ComposedApp.StartWithViewAsync(new FakeBackend(ScenarioBuilder.Empty().WithSettings(MockupScenario.Settings))),
+            "library-error" => await ComposedApp.StartWithViewAsync(LibraryUnreadable(), visitScreens: false),
             "startup-git-unavailable" => await ComposedApp.StartWithViewAsync(StartupBackend(new StartupStatus(
                 new GitStatus(false, _gitPath, null, ErrorInfo.From(new GitUnavailableException(_gitPath, "git exited with 127: not found", null))),
                 new CatalogStatus(_catalogDirectory, []))), visitScreens: false),

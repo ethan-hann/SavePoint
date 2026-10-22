@@ -129,7 +129,7 @@ public class ShellViewModelTests
     }
 
     [Fact]
-    public async Task A_game_list_that_cannot_be_read_tells_the_user_and_leaves_the_library_empty()
+    public async Task A_game_list_that_cannot_be_read_fills_the_page_with_the_error_and_Try_again_instead_of_a_blank_screen()
     {
         var backend = FakeBackend.Mockup();
         backend.FailNext<IGamesApi>(nameof(IGamesApi.ListAsync), ErrorInfo.From(new InvalidOperationException("boom")));
@@ -137,8 +137,50 @@ public class ShellViewModelTests
         var rig = await ShellRig.StartAsync(backend);
 
         Assert.Empty(rig.Shell.Games);
-        Assert.Equal(ToastKind.Error, Assert.Single(rig.Toasts.Toasts).Message.Kind);
         Assert.False(rig.Shell.ShowFirstRun);
+        var error = Assert.IsType<LibraryErrorViewModel>(rig.Shell.Content);
+        Assert.Same(error, rig.Shell.LibraryError);
+        Assert.Equal(["Try again"], error.Card.Actions.Select(action => action.Label));
+        Assert.True(error.Card.Actions[0].IsPrimary);
+        Assert.Empty(rig.Toasts.Toasts);
+    }
+
+    [Fact]
+    public async Task Try_again_reads_the_library_and_gives_the_page_back()
+    {
+        var backend = FakeBackend.Mockup();
+        backend.FailNext<IGamesApi>(nameof(IGamesApi.ListAsync), ErrorInfo.From(new InvalidOperationException("boom")));
+        var rig = await ShellRig.StartAsync(backend);
+        var error = Assert.IsType<LibraryErrorViewModel>(rig.Shell.Content);
+
+        error.Card.Actions[0].Command.Execute(null);
+        await rig.Shell.RefreshLibraryAsync();
+
+        Assert.Null(rig.Shell.LibraryError);
+        Assert.Equal(3, rig.Shell.Games.Count);
+        Assert.Same(rig.Shell.CurrentScreen, rig.Shell.Content);
+    }
+
+    [Fact]
+    public async Task A_second_failure_shows_the_error_again_and_a_library_already_read_keeps_its_page()
+    {
+        var backend = FakeBackend.Mockup();
+        backend.FailNext<IGamesApi>(nameof(IGamesApi.ListAsync), ErrorInfo.From(new InvalidOperationException("boom")));
+        var rig = await ShellRig.StartAsync(backend);
+        rig.Backend.FailNext<IGamesApi>(nameof(IGamesApi.ListAsync), ErrorInfo.From(new InvalidOperationException("boom")));
+
+        await rig.Shell.RefreshLibraryAsync();
+
+        Assert.IsType<LibraryErrorViewModel>(rig.Shell.Content);
+
+        await rig.Shell.RefreshLibraryAsync();
+        Assert.Null(rig.Shell.LibraryError);
+
+        rig.Backend.FailNext<IGamesApi>(nameof(IGamesApi.ListAsync), ErrorInfo.From(new InvalidOperationException("boom")));
+        await rig.Shell.RefreshLibraryAsync();
+
+        Assert.Null(rig.Shell.LibraryError);
+        Assert.Equal(3, rig.Shell.Games.Count);
     }
 
     // ---- Navigation

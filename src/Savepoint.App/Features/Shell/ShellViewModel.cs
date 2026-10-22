@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Art;
 using Savepoint.App.Features.Common.Dialogs;
+using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Theme;
 using Savepoint.Core.Api;
@@ -43,6 +44,7 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
     private NavDestination _paneDestination;
     private bool _isLoaded;
     private bool _libraryKnown;
+    private LibraryErrorViewModel? _libraryError;
     private bool _isCompact;
     private bool _isShort;
     private bool _initialized;
@@ -143,8 +145,11 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
     /// <summary>True while the first-run empty state replaces the Games screen: the library was read and has no games.</summary>
     public bool ShowFirstRun => _libraryKnown && Games.Count == 0 && Destination == NavDestination.Games && !PaneVisible;
 
-    /// <summary>What fills the content region: a full pane, the first-run state or the current screen.</summary>
-    public object? Content => PaneVisible ? _pane : ShowFirstRun ? FirstRun : CurrentScreen;
+    /// <summary>The error that fills the content region while the library has never been read; null otherwise.</summary>
+    public LibraryErrorViewModel? LibraryError => _libraryError;
+
+    /// <summary>What fills the content region: a full pane, the library error, the first-run state or the current screen.</summary>
+    public object? Content => PaneVisible ? _pane : _libraryError is not null ? _libraryError : ShowFirstRun ? FirstRun : CurrentScreen;
 
     /// <summary>The screen of the current destination; null until the shell has started.</summary>
     public IScreen? CurrentScreen => _screens.GetValueOrDefault(Destination);
@@ -425,6 +430,7 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
         OnPropertyChanged(nameof(CurrentScreen));
         OnPropertyChanged(nameof(ShowFirstRun));
         OnPropertyChanged(nameof(ShowShelf));
+        OnPropertyChanged(nameof(LibraryError));
         OnPropertyChanged(nameof(Content));
     }
 
@@ -448,7 +454,18 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
         var games = await gamesTask;
         if (!games.Ok)
         {
-            ShowError(games.Error);
+            // A library that was never read leaves nothing to show, so the page says why and offers a retry; one already on screen stays.
+            if (_libraryKnown)
+            {
+                ShowError(games.Error);
+            }
+            else
+            {
+                var tryAgain = new ErrorCardAction(_deps.Text.Message("shell.libraryError.tryAgain"), new AsyncRelayCommand(RefreshLibraryAsync), IsPrimary: true);
+                _libraryError = new LibraryErrorViewModel(new ErrorCardViewModel(games.Error, _deps.Text, [tryAgain]));
+                RaiseShellState();
+            }
+
             return;
         }
 
@@ -470,6 +487,8 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
         }
 
         _libraryKnown = true;
+        _libraryError = null;
+        RaiseShellState();
         Rebuild(games.Value);
         LibraryRefreshed?.Invoke(this, EventArgs.Empty);
     }
