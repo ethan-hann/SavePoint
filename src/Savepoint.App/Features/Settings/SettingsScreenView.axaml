@@ -262,21 +262,26 @@
           </Border>
         </StackPanel>
 
+        <!-- Before you play: the check that Play shows, which the launch dialog's "Don't ask again" box also switches off. -->
+        <StackPanel x:Name="BeforePlaySection">
+          <TextBlock Classes="section-label" Text="{theme:Upper {loc:Loc settings.beforePlay.heading}}" />
+          <Border Classes="panel">
+            <ToggleSwitch x:Name="SkipSwitch" HorizontalAlignment="Stretch" IsChecked="{Binding Session.SkipWhenOnlySaveChanges, Mode=TwoWay}" AutomationProperties.Name="{loc:Loc settings.beforePlay.skip}" AutomationProperties.HelpText="{loc:Loc settings.beforePlay.skipHint}">
+              <StackPanel Spacing="3">
+                <TextBlock Classes="body" FontSize="14.5" Text="{loc:Loc settings.beforePlay.skip}" />
+                <TextBlock Classes="caption" FontSize="12.5" TextWrapping="Wrap" Text="{loc:Loc settings.beforePlay.skipHint}" />
+              </StackPanel>
+            </ToggleSwitch>
+          </Border>
+        </StackPanel>
+
         <!-- When you finish playing. -->
         <StackPanel x:Name="SessionSection">
           <TextBlock Classes="section-label" Text="{theme:Upper {loc:Loc settings.session.heading}}" />
           <Border Classes="panel">
-            <StackPanel Spacing="16">
-              <ToggleSwitch x:Name="AskSwitch" HorizontalAlignment="Stretch" IsChecked="{Binding Session.AskToSave, Mode=TwoWay}">
-                <TextBlock Classes="body" FontSize="14.5" Text="{loc:Loc settings.session.ask}" />
-              </ToggleSwitch>
-              <ToggleSwitch x:Name="SkipSwitch" HorizontalAlignment="Stretch" IsChecked="{Binding Session.SkipWhenOnlySaveChanges, Mode=TwoWay}" AutomationProperties.Name="{loc:Loc settings.session.skip}" AutomationProperties.HelpText="{loc:Loc settings.session.skipHint}">
-                <StackPanel Spacing="3">
-                  <TextBlock Classes="body" FontSize="14.5" Text="{loc:Loc settings.session.skip}" />
-                  <TextBlock Classes="caption" FontSize="12.5" TextWrapping="Wrap" Text="{loc:Loc settings.session.skipHint}" />
-                </StackPanel>
-              </ToggleSwitch>
-            </StackPanel>
+            <ToggleSwitch x:Name="AskSwitch" HorizontalAlignment="Stretch" IsChecked="{Binding Session.AskToSave, Mode=TwoWay}">
+              <TextBlock Classes="body" FontSize="14.5" Text="{loc:Loc settings.session.ask}" />
+            </ToggleSwitch>
           </Border>
         </StackPanel>
 

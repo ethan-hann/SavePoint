@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
+using Avalonia.VisualTree;
 using Savepoint.App.Composition;
 using Savepoint.App.Features.Common;
 using Savepoint.App.Features.Common.Toasts;
@@ -71,10 +72,11 @@ public class SettingsScreenViewTests
             "Cover art up front",
             "Accent color",
             "Everything else is derived from it automatically.",
+            "BEFORE YOU PLAY",
+            "Skip the check before playing when only the save changes",
+            "A change to the game version or mods always shows the check.",
             "WHEN YOU FINISH PLAYING",
             "Ask whether to save the session",
-            "Skip the confirmation when only the save changes",
-            "A change to the game version or mods always asks first.",
             "REMOVE ALL SAVEPOINT DATA",
             "ABOUT",
             "Version 1.2.3",
@@ -210,6 +212,36 @@ public class SettingsScreenViewTests
         var violet = harness.All<Border>().Where(border => border.Width == 30 && border.Height == 30).Select(border => ((ISolidColorBrush)border.Background!).Color).ElementAt(1);
         Assert.Equal(Color.FromUInt32(AccentSeeds.For(AccentColorId.Violet)), violet);
         Assert.Equal(AccentColorId.Crimson, FakeAssert.Ok(await harness.Backend.Settings.GetAsync()).AccentColorId);
+    }
+
+    // ---- Before you play (D35)
+
+    [AvaloniaFact]
+    public async Task The_save_only_switch_sits_in_its_own_Before_you_play_group_with_the_wording_D35_gives_it()
+    {
+        using var harness = await StartAsync();
+
+        var group = harness.Find<StackPanel>("BeforePlaySection");
+        var skip = harness.Find<ToggleSwitch>("SkipSwitch");
+        Assert.Contains(skip, group.GetVisualDescendants());
+        var texts = group.GetVisualDescendants().OfType<TextBlock>().Select(block => block.Text).ToList();
+        Assert.Contains("BEFORE YOU PLAY", texts);
+        Assert.Contains("Skip the check before playing when only the save changes", texts);
+        Assert.Contains("A change to the game version or mods always shows the check.", texts);
+        Assert.Equal("Skip the check before playing when only the save changes", AutomationAudit.NameOf(skip));
+        Assert.Equal("A change to the game version or mods always shows the check.", AutomationProperties.GetHelpText(skip));
+    }
+
+    [AvaloniaFact]
+    public async Task When_you_finish_playing_keeps_only_the_question_about_saving_the_session()
+    {
+        using var harness = await StartAsync();
+
+        var group = harness.Find<StackPanel>("SessionSection");
+        Assert.Contains(harness.Find<ToggleSwitch>("AskSwitch"), group.GetVisualDescendants());
+        Assert.DoesNotContain(harness.Find<ToggleSwitch>("SkipSwitch"), group.GetVisualDescendants());
+        var order = harness.All<StackPanel>().Where(panel => panel.Name is "BeforePlaySection" or "SessionSection").Select(panel => panel.Name).ToList();
+        Assert.Equal(["BeforePlaySection", "SessionSection"], order);
     }
 
     // ---- When you finish playing

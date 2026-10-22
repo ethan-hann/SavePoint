@@ -130,7 +130,7 @@ public class TabOrderTests
                 "Settings", "Skyrim Special Edition, 3 profiles", "Add a game",
                 "Change", "Run now",
                 "Dark", "Sidebar", "Blue", "Look up game artwork online",
-                "Ask whether to save the session", "Skip the confirmation when only the save changes",
+                "Skip the check before playing when only the save changes", "Ask whether to save the session",
                 "Remove all data…", "Third-party notices",
             ],
             TabStops(app));
