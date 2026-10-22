@@ -41,6 +41,7 @@ internal sealed class AppStatusApi : IAppStatusApi
             async () =>
             {
                 var backup = path + ".bak";
+                string? restored = null;
                 if (recovery == CatalogRecovery.RestoreBackup)
                 {
                     // The copy is judged before anything moves, so a missing or broken backup leaves the file where it is.
@@ -50,16 +51,31 @@ internal sealed class AppStatusApi : IAppStatusApi
                     }
 
                     await RequireReadableAsync(backup, cancellationToken).ConfigureAwait(false);
+
+                    // Made next to the target before the corrupt file moves, so a copy that fails never leaves the catalog missing.
+                    restored = $"{path}.{Guid.NewGuid():N}.tmp";
+                    File.Copy(backup, restored);
                 }
 
-                var moved = await _services.Catalog.ReplaceCorruptFileAsync(path, cancellationToken).ConfigureAwait(false)
-                    ?? throw new InvalidOperationException($"'{path}' is not corrupt.");
-                if (recovery == CatalogRecovery.RestoreBackup)
+                try
                 {
-                    RestoreCopy(backup, path);
-                }
+                    var moved = await _services.Catalog.ReplaceCorruptFileAsync(path, cancellationToken).ConfigureAwait(false)
+                        ?? throw new InvalidOperationException($"'{path}' is not corrupt.");
+                    if (restored is not null)
+                    {
+                        PutInPlace(restored, path, moved);
+                        restored = null;
+                    }
 
-                return moved;
+                    return moved;
+                }
+                finally
+                {
+                    if (restored is not null)
+                    {
+                        TryDelete(restored);
+                    }
+                }
             },
             cancellationToken);
 
@@ -167,12 +183,38 @@ internal sealed class AppStatusApi : IAppStatusApi
         }
     }
 
-    // Written next to the target and renamed into place, so a crash leaves no half-restored file.
-    private static void RestoreCopy(string backup, string target)
+    // The finished copy is renamed into place, so a crash leaves no half-restored file; if that fails the corrupt file goes back, so the user is where they started.
+    private static void PutInPlace(string copy, string target, string movedAside)
     {
-        var temp = $"{target}.{Guid.NewGuid():N}.tmp";
-        File.Copy(backup, temp);
-        File.Move(temp, target, overwrite: false);
+        try
+        {
+            File.Move(copy, target, overwrite: false);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            try
+            {
+                File.Move(movedAside, target, overwrite: false);
+            }
+            catch (Exception back) when (back is IOException or UnauthorizedAccessException)
+            {
+                // The corrupt file stays under its new name, which the error names through the folder it is in.
+            }
+
+            throw;
+        }
+    }
+
+    private static void TryDelete(string file)
+    {
+        try
+        {
+            File.Delete(file);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // A stray temp file is swept by the next write of this catalog file.
+        }
     }
 
     // The storage folder is made only the first time, when no root has been saved. After that a folder that is not there is an

@@ -104,6 +104,43 @@ public class AppStatusTests
     }
 
     [Fact]
+    public async Task A_restore_never_leaves_the_catalog_file_missing_when_the_backup_cannot_be_read_again_once_the_corrupt_file_moves()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows refuses to read a file another handle holds shut");
+        FileStream? held = null;
+        string? backup = null;
+        using var workspace = new BackendWorkspace(options => options with
+        {
+            Time = new HookedClock(() =>
+            {
+                // The corrupt file is named for the moment it is moved aside; from here on the backup cannot be read.
+                if (Volatile.Read(ref backup) is { } path && held is null)
+                {
+                    held = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None);
+                }
+            }),
+        });
+        try
+        {
+            await workspace.AddGameAsync(workspace.NewGame("Alpha"));
+            await workspace.AddGameAsync(workspace.NewGame("Beta"));
+            var games = Path.Combine(workspace.CatalogDirectory, CatalogStore.GamesFileName);
+            await File.WriteAllTextAsync(games, "{ broken", workspace.Token);
+            Volatile.Write(ref backup, games + ".bak");
+
+            var recovered = await workspace.AppStatus.RecoverCatalogFileAsync(games, CatalogRecovery.RestoreBackup, workspace.Token);
+
+            Assert.True(recovered.Ok, recovered.Error?.Detail);
+            Assert.True(File.Exists(games), "the catalog file must exist whatever happens to the backup");
+            Assert.Equal(["Alpha"], (await workspace.Games.ListAsync(workspace.Token)).Value!.Select(g => g.Name));
+        }
+        finally
+        {
+            held?.Dispose();
+        }
+    }
+
+    [Fact]
     public async Task Starting_empty_moves_the_corrupt_file_aside_and_leaves_the_catalog_empty()
     {
         using var workspace = new BackendWorkspace();
@@ -237,5 +274,15 @@ public class AppStatusTests
         await cancelled.CancelAsync();
 
         Assert.Equal("error.operation.cancelled", (await workspace.AppStatus.CheckAsync(cancelled.Token)).Error?.MessageId);
+    }
+
+    // The real clock, with a hook that runs on every read.
+    private sealed class HookedClock(Action onRead) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow()
+        {
+            onRead();
+            return base.GetUtcNow();
+        }
     }
 }
