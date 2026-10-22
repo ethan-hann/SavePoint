@@ -257,7 +257,7 @@ public sealed partial class GitEngine
         await EnsureCheckoutSpaceAsync(repo, plan.Changes, ct).ConfigureAwait(false);
 
         using var scope = BeginWrite(repo);
-        SwitchJournal.Write(repo.GitDir, note?.FromCommit ?? from, to);
+        SwitchJournal.Write(repo.GitDir, note?.FromCommit ?? from, to, isBranch ? target : null);
         var reporter = progress is null ? null : new ProgressReporter(progress);
 
         await RunCheckoutAsync(repo, target, to, isBranch, force, ownsNote: note is null, reporter, ct).ConfigureAwait(false);

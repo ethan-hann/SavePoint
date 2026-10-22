@@ -22,8 +22,8 @@ internal sealed record FolderReading(FolderTarget Target, RepoStatus Status, IRe
     // The files a discard would delete; the rest of the unsaved files are put back.
     public int DirtyNewFileCount => Dirty ? Status.UntrackedPaths.Count : 0;
 
-    // A blocked folder counts as one thing to resolve even when git lists no file.
-    public int DirtyFileCount => Dirty ? Math.Max(1, Status.ChangedPaths.Count + Status.UntrackedPaths.Count) : 0;
+    // The files git lists; a half-switched folder git lists none for has none to count, and none is what it says.
+    public int DirtyFileCount => Dirty ? Status.ChangedPaths.Count + Status.UntrackedPaths.Count : 0;
 
     // Changes on a folder left on an older point, or on the branch of a profile that is gone, belong to nobody.
     public string? DirtyOwnerProfileId =>

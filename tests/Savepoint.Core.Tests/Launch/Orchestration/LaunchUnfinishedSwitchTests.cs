@@ -1,5 +1,7 @@
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Launch.Orchestration;
+using Savepoint.Core.Services;
 
 namespace Savepoint.Core.Tests.Launch.Orchestration;
 
@@ -91,6 +93,63 @@ public class LaunchUnfinishedSwitchTests
         Assert.True(preview.Install.UnfinishedSwitch);
         Assert.False(preview.Install.Dirty);
         Assert.Equal(Tip(vanilla), preview.Install.UnfinishedSwitchTarget);
+    }
+
+
+    [Fact(Timeout = 150_000)]
+    public async Task The_target_that_finishes_the_switch_is_the_profile_it_was_heading_for_even_when_another_profile_holds_the_same_point()
+    {
+        var (rig, vanilla, modded) = await LaunchRig.WithTwoProfilesAsync();
+        using var _ = rig;
+
+        // A duplicate shares its source's install point, so the point alone cannot say which of the two the switch was for.
+        var copy = (await rig.Profiles.DuplicateAsync(rig.Game.Id, vanilla.Id, "Copy")).Value!;
+        await CancelSwitchToAsync(rig, copy);
+
+        var preview = await rig.PreviewAsync(Tip(modded));
+
+        Assert.Equal(Tip(copy), preview.Install.UnfinishedSwitchTarget);
+    }
+
+    [Fact(Timeout = 150_000)]
+    public async Task A_point_that_two_profiles_hold_names_no_profile_unless_told_which_branch_was_meant()
+    {
+        var (rig, vanilla, _) = await LaunchRig.WithTwoProfilesAsync();
+        using var _ = rig;
+        var copy = (await rig.Profiles.DuplicateAsync(rig.Game.Id, vanilla.Id, "Copy")).Value!;
+        var profiles = (await rig.Profiles.ListAsync(rig.Game.Id, Ct)).Value!;
+
+        var (shared, told, uniqueOwner) = await rig.Workspace.Backend.Services.Storage.ReadAsync(async storage =>
+        {
+            var install = GameFolders.Repos(rig.Workspace.Backend.Services, storage, rig.Game).Single(repo => repo.Role == RepoRole.Install);
+            var tip = (await storage.Engine.GetBranchTipAsync(install, vanilla.BranchName, Ct))!;
+            var modded = profiles.Single(profile => profile.Name == "Modded");
+            var moddedTip = (await storage.Engine.GetBranchTipAsync(install, modded.BranchName, Ct))!;
+            return (
+                await TargetResolver.TargetOfCommitAsync(storage, install, profiles, tip, null, Ct),
+                await TargetResolver.TargetOfCommitAsync(storage, install, profiles, tip, copy.BranchName, Ct),
+                await TargetResolver.TargetOfCommitAsync(storage, install, profiles, moddedTip, null, Ct));
+        }, Ct);
+
+        Assert.Null(shared);
+        Assert.Equal(Tip(copy), told);
+        Assert.Equal(new LaunchTarget.ProfileTip(profiles.Single(profile => profile.Name == "Modded").Id), uniqueOwner);
+    }
+
+
+    [Fact(Timeout = 150_000)]
+    public async Task A_half_switched_folder_in_which_git_lists_no_file_reports_no_files_not_one()
+    {
+        var (rig, vanilla, modded) = await LaunchRig.WithTwoProfilesAsync();
+        using var _ = rig;
+        await CancelSwitchToAsync(rig, vanilla);
+
+        var preview = await rig.PreviewAsync(Tip(modded));
+
+        // The switch was stopped before git wrote anything, so there is nothing to count; a made-up "1" would be read out as a changed file.
+        Assert.True(preview.Install.Dirty);
+        Assert.Equal(0, preview.Install.DirtyFileCount);
+        Assert.Equal(0, preview.Install.DirtyNewFileCount);
     }
 
     [Fact(Timeout = 150_000)]

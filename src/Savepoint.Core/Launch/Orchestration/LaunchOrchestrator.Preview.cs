@@ -91,7 +91,7 @@ public sealed partial class LaunchOrchestrator
         CancellationToken cancellationToken) =>
         reading.Pending
             ? previewed
-            : await TargetResolver.TargetOfCommitAsync(storage, reading.Target.Repo, profiles, reading.Note!.ToCommit, cancellationToken).ConfigureAwait(false);
+            : await TargetResolver.TargetOfCommitAsync(storage, reading.Target.Repo, profiles, reading.Note!.ToCommit, reading.Note.ToBranch, cancellationToken).ConfigureAwait(false);
 
     // What the switch would write or remove, read from the two points alone.
     private async Task<SwitchSummary> SwitchSummaryAsync(StorageSnapshot storage, GameDefinition game, FolderReading reading, CancellationToken cancellationToken)
