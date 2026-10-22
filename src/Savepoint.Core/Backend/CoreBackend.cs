@@ -102,7 +102,7 @@ public sealed class CoreBackend
             catalog,
             git,
             runner,
-            new JobRegistry(time),
+            new JobRegistry(time, log),
             new GameLock(),
             sessions,
             new StorageHost(catalog, platform, runner, disk, installDirectory, engineOptions),
