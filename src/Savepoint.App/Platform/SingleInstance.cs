@@ -6,13 +6,22 @@ using Savepoint.Core.Platform;
 namespace Savepoint.App.Platform;
 
 /// <summary>
-/// Lets one copy of the app run per user. The first copy holds a named mutex and listens on a named pipe; a second copy
-/// finds the mutex taken, asks the first to bring its window forward through the pipe, and exits. Only the mutex decides who runs
-/// (or, on a machine that will not create the mutex, an exclusive lock on a file in the user's private folder): two copies working
-/// on the same repositories is worse than a copy that cannot be brought forward. So <see cref="TryAcquire"/> is true for the holder
-/// alone, a copy that cannot be told to show itself (no pipe) still holds its place, and a second copy whose
-/// <see cref="SignalFirstInstance"/> fails must still exit; it can show a brief "already running" notice first. A machine that
-/// refuses both the mutex and the file leaves no way to tell, and the safe answer there is not to run.
+/// Lets one copy of the app run per user. A copy takes a named mutex and an exclusive lock on a file in the user's private folder,
+/// and listens on a named pipe; a second copy finds a guard taken, asks the first to bring its window forward through the pipe,
+/// and exits. Both guards are taken so either one alone keeps a second copy out: the mutex does not reach across login sessions
+/// or sandboxes, and the file lock does not help on a machine where the folder cannot be written. Two copies working on the same
+/// repositories is worse than a copy that cannot be brought forward, so <see cref="TryAcquire"/> is true for the holder alone, a
+/// copy that cannot be told to show itself (no pipe) still holds its place, and a second copy whose <see cref="SignalFirstInstance"/>
+/// fails must still exit; it can show a brief "already running" notice first.
+/// <para>
+/// A copy runs when it holds the mutex and the lock together. It does not run when another copy holds either. Where one guard
+/// cannot be had for a reason that says nothing about other copies, the other decides: a machine that will not create the mutex
+/// runs on the file lock alone, and a copy that holds the mutex but cannot lock the file because the folder cannot be written
+/// runs on the mutex alone. A machine that refuses both leaves no way to tell, and the safe answer there is not to run.
+/// </para>
+/// <para>
+/// The lock belongs to the open handle, so a copy that crashes loses it with the process and a file left behind blocks nobody.
+/// </para>
 /// </summary>
 public sealed class SingleInstance : IDisposable
 {
@@ -21,6 +30,13 @@ public sealed class SingleInstance : IDisposable
 
     private const string _request = "activate";
     private const string _reply = "ok";
+
+    private enum FileLock
+    {
+        Locked,
+        HeldElsewhere,
+        Unusable,
+    }
 
     private readonly object _gate = new();
     private readonly TimeSpan _connectTimeout;
@@ -98,7 +114,7 @@ public sealed class SingleInstance : IDisposable
 
     internal string MutexName { get; }
 
-    /// <summary>The file a copy locks when the machine will not create the mutex; in the same private folder as the socket.</summary>
+    /// <summary>The file every running copy locks, beside the mutex; in the same private folder as the socket.</summary>
     internal string LockFilePath { get; }
 
     /// <summary>The pipe name handed to .NET: a bare name on Windows, the absolute path of the socket elsewhere.</summary>
@@ -120,7 +136,7 @@ public sealed class SingleInstance : IDisposable
     }
 
     /// <summary>Takes the right to be the running copy.</summary>
-    /// <returns>True only when this copy holds the mutex (or the lock file, where the machine refuses the mutex) and should start normally; false when another copy is running, or the machine allows neither.</returns>
+    /// <returns>True when this copy holds the mutex and the lock file and should start normally, or holds the one the machine allows; false when another copy holds either, or the machine allows neither.</returns>
     /// <exception cref="ObjectDisposedException">This object was disposed.</exception>
     public bool TryAcquire()
     {
@@ -142,14 +158,22 @@ public sealed class SingleInstance : IDisposable
                 // A mutex the machine would not create proves nothing about other copies; a lock on a file settles it the same way.
                 case MutexOutcome.Unavailable:
                     owner.Dispose();
-                    if (!TryLockFile())
+                    if (TryLockFile() != FileLock.Locked)
                     {
                         return false;
                     }
 
                     break;
 
+                // The file also keeps out a copy the machine gave no mutex (another session, a sandbox). A folder that cannot be
+                // written says nothing about other copies, so the mutex alone decides then.
                 default:
+                    if (TryLockFile() == FileLock.HeldElsewhere)
+                    {
+                        owner.Dispose();
+                        return false;
+                    }
+
                     _owner = owner;
                     break;
             }
@@ -219,18 +243,26 @@ public sealed class SingleInstance : IDisposable
         lockFile?.Dispose();
     }
 
+    private bool IsHeldElsewhere(IOException failure) =>
+        // A sharing violation is a plain IOException on a file that exists; a missing folder, a path too long and a full disk are not.
+        failure.GetType() == typeof(IOException) && File.Exists(LockFilePath);
+
     // The lock belongs to the open handle, so a copy that crashes loses it with the process and a file left behind blocks nobody.
-    private bool TryLockFile()
+    private FileLock TryLockFile()
     {
         try
         {
             _lockFile = new FileStream(LockFilePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-            return true;
+            return FileLock.Locked;
+        }
+        catch (IOException failure) when (IsHeldElsewhere(failure))
+        {
+            return FileLock.HeldElsewhere;
         }
         catch (Exception)
         {
-            // Held by another copy, or the folder cannot be written: either way this copy must not run.
-            return false;
+            // The folder or the file cannot be used at all.
+            return FileLock.Unusable;
         }
     }
 
