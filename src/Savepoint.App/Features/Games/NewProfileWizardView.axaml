@@ -20,7 +20,7 @@
         <Button x:Name="CancelButton" Classes="text pill large" IsVisible="{Binding ShowCancel}" Command="{Binding CancelCommand}" Content="{loc:Loc common.cancel}" />
         <Button x:Name="BackButton" Classes="text pill large" IsVisible="{Binding ShowBack}" Command="{Binding BackCommand}" Content="{loc:Loc profiles.wizard.back}" />
         <Button x:Name="StopSaveButton" Classes="text pill large" IsVisible="{Binding ShowStopSave}" Command="{Binding StopSaveCommand}" Content="{loc:Loc common.cancel}" />
-        <Button x:Name="ContinueButton" Classes="filled pill large" IsDefault="True" IsVisible="{Binding ShowContinue}" Command="{Binding ContinueCommand}" Content="{loc:Loc profiles.wizard.continue}" />
+        <Button x:Name="ContinueButton" Classes="filled pill large" IsDefault="True" IsVisible="{Binding ShowContinue}" Command="{Binding ContinueCommand}" Content="{Binding ContinueLabel}" />
         <Button x:Name="DoneButton" Classes="filled pill large" IsDefault="True" IsVisible="{Binding ShowDone}" Command="{Binding CloseCommand}" Content="{loc:Loc profiles.wizard.save.done}" />
         <Button x:Name="CloseButton" Classes="pill large" IsVisible="{Binding ShowClose}" Command="{Binding CloseCommand}" Content="{loc:Loc profiles.wizard.save.close}" />
       </StackPanel>

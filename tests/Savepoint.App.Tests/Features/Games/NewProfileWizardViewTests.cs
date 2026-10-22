@@ -49,6 +49,19 @@ public class NewProfileWizardViewTests
     }
 
     [AvaloniaFact]
+    public async Task The_check_steps_button_says_it_starts_the_save()
+    {
+        var (harness, wizard) = await OpenAsync();
+        using var _ = harness;
+        Assert.Equal("Continue", harness.Find<Button>("ContinueButton").Content);
+
+        await wizard.ContinueCommand.ExecuteAsync(null);
+        harness.Settle();
+
+        Assert.Equal("Save profile", harness.Find<Button>("ContinueButton").Content);
+    }
+
+    [AvaloniaFact]
     public async Task Each_step_shows_its_own_content_and_buttons()
     {
         var (harness, wizard) = await OpenAsync();

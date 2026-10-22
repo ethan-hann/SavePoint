@@ -88,6 +88,7 @@
   "profiles.wizard.save.savingHint": "This can take a while for a large install, especially the first time.",
   "profiles.wizard.save.success": "Profile saved.",
   "profiles.wizard.save.tryAgain": "Try again",
+  "profiles.wizard.saveProfile": "Save profile",
   "profiles.wizard.stepAutomationName": "Step {number} of {count}: {label}{state, select, current {, current step} done {, done} other {}}",
   "profiles.wizard.steps.check": "Check",
   "profiles.wizard.steps.nameIt": "Name it",
