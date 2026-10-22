@@ -51,6 +51,16 @@ public class BackendContractTests(ContractRuns runs) : IClassFixture<ContractRun
         }
     }
 
+    // A story that stopped before the refusal would still match, so the step that proves it ran is named here.
+    [Fact]
+    public void The_shared_story_refuses_a_snapshot_of_a_profile_the_folders_do_not_hold_before_any_job()
+    {
+        foreach (var story in new[] { runs.Fake.Shared, runs.Real.Shared })
+        {
+            Assert.Contains("snapshot of a profile the folders do not hold: error error.profile.notLoaded", story);
+        }
+    }
+
     // Where the fake is simpler than the real backend. Each side is pinned, so closing a gap in the fake fails here and the step
     // moves into the shared story.
     [Fact]
@@ -65,7 +75,6 @@ public class BackendContractTests(ContractRuns runs) : IClassFixture<ContractRun
                 "delete preview of the active profile: points=0 blocked=no",
                 "delete of the active profile: deleted",
                 "read with a cancelled token: success",
-                "snapshot of a profile the folders do not hold: started",
             ],
             runs.Fake.Gaps);
         Assert.Equal(
@@ -77,7 +86,6 @@ public class BackendContractTests(ContractRuns runs) : IClassFixture<ContractRun
                 "delete preview of the active profile: points=1 blocked=error.gameService.profileActive",
                 "delete of the active profile: error error.gameService.profileActive",
                 "read with a cancelled token: error error.operation.cancelled",
-                "snapshot of a profile the folders do not hold: error error.profile.notLoaded",
             ],
             runs.Real.Gaps);
     }

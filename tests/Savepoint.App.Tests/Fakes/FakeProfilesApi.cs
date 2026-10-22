@@ -64,6 +64,7 @@ public sealed class FakeProfilesApi : IProfilesApi
             var game = State.Game(gameId);
             var profile = CatalogIds.NewProfile(gameId, name, State.Random) with { Notes = notes };
             State.Profiles.Add(profile);
+            Load(profile);
             return OperationResult.Success(StartCapture(game, profile, pointName, FakeState.FoldersOf(game)));
         });
 
@@ -155,8 +156,32 @@ public sealed class FakeProfilesApi : IProfilesApi
         {
             var game = State.Game(gameId);
             var profile = State.Profile(gameId, profileId);
-            return OperationResult.Success(StartCapture(game, profile, pointName, folders ?? FakeState.FoldersOf(game)));
+            var roles = folders ?? FakeState.FoldersOf(game);
+
+            // A snapshot of the whole profile is refused when the row says it is not loaded, so the refusal and the row's menu never disagree
+            // and no job starts, as in the real backend. The row knows loaded-ness per profile, not per folder, so a request for particular
+            // folders (saving the changes a profile owns in one folder, retrying the folders that failed) is let through.
+            if (folders is null && State.StatsFor(profile).SnapshotNow == SnapshotNowAvailability.NotLoaded)
+            {
+                throw new ProfileNotLoadedException(profile.Id, roles.FirstOrDefault(RepoRole.Install));
+            }
+
+            return OperationResult.Success(StartCapture(game, profile, pointName, roles));
         });
+
+    // A new profile's snapshot is of what the folders hold, so afterwards its profile is the loaded one and the one that was loaded is not.
+    private void Load(Profile profile)
+    {
+        foreach (var other in State.Profiles.Where(p => p.GameId == profile.GameId && p.Id != profile.Id))
+        {
+            if (State.StatsFor(other) is { SnapshotNow: SnapshotNowAvailability.Available } stats)
+            {
+                State.RowStats[other.Id] = stats with { SnapshotNow = SnapshotNowAvailability.NotLoaded };
+            }
+        }
+
+        State.RowStats[profile.Id] = State.StatsFor(profile) with { SnapshotNow = SnapshotNowAvailability.Available };
+    }
 
     private JobStarted StartCapture(GameDefinition game, Profile profile, string pointName, IEnumerable<RepoRole> folders)
     {
