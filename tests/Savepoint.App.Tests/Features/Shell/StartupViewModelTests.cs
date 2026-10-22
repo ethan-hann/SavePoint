@@ -114,10 +114,70 @@ public class StartupViewModelTests
         Assert.Equal(StartupPhase.CatalogCorrupt, startup.Phase);
         Assert.Equal([withBackup.Path, without.Path], startup.CorruptFiles.Select(file => file.Card.Path));
         var first = startup.CorruptFiles[0].Card;
-        Assert.Equal("SavePoint couldn't read its data", first.Title);
+        Assert.Equal("Your game list couldn't be read", first.Title);
         Assert.Equal(["Restore the backup", "Start with nothing in it"], first.Actions.Select(action => action.Label));
         Assert.Equal(@"Last good copy: C:\Users\you\AppData\Roaming\SavePoint\games.json.bak", first.Supplement);
         Assert.Equal("There is no backup copy of this file.", startup.CorruptFiles[1].Card.Supplement);
+    }
+
+    [Theory]
+    [InlineData("games.json", "Your game list couldn't be read", "your list of games", "no games listed")]
+    [InlineData("profiles.json", "Your profile list couldn't be read", "your list of profiles", "no profiles listed")]
+    [InlineData("settings.json", "Your settings couldn't be read", "your settings", "the default settings")]
+    [InlineData("other.json", "SavePoint couldn't read one of its files", "some of its data", "an empty file")]
+    public async Task Each_kind_of_file_gets_its_own_title_and_a_body_that_says_what_the_buttons_do(string name, string title, string holds, string empty)
+    {
+        var startup = new StartupViewModel(Backend(WithCorrupt(Corrupt(name, @"C:\x\backup.bak"))).AppStatus, _text);
+
+        await startup.CheckAsync();
+
+        var card = startup.CorruptFiles.Single().Card;
+        Assert.Equal(title, card.Title);
+        Assert.Equal(
+            $"SavePoint couldn't read the file that holds {holds}, so it left the file exactly as it is. \"Restore the backup\" brings back the last good copy. \"Start with nothing in it\" begins again with {empty} and keeps this one beside it.",
+            card.Body);
+        Assert.DoesNotContain(".bak", card.Body);
+    }
+
+    [Fact]
+    public async Task Starting_with_nothing_asks_first_and_says_what_will_be_empty_and_that_the_old_file_is_kept()
+    {
+        var file = Corrupt("games.json", null);
+        var backend = Backend(WithCorrupt(file));
+        var dialogs = new FakeDialogs().AnswerConfirm(false);
+        var startup = new StartupViewModel(backend.AppStatus, _text, dialogs);
+        await startup.CheckAsync();
+
+        await startup.CorruptFiles[0].Card.Actions[1].Command.ExecuteAsync();
+
+        var asked = Assert.Single(dialogs.Confirmations);
+        Assert.Equal("Start with nothing in it?", asked.Title);
+        Assert.Equal("SavePoint will move the unreadable file aside, never delete it, and start with no games listed.", asked.Message);
+        Assert.Equal("Start with nothing in it", asked.ConfirmLabel);
+        Assert.True(asked.Destructive);
+        Assert.Empty(backend.Calls.To<IAppStatusApi>(nameof(IAppStatusApi.RecoverCatalogFileAsync)));
+        Assert.Equal(StartupPhase.CatalogCorrupt, startup.Phase);
+    }
+
+    [Fact]
+    public async Task Confirming_starts_with_nothing_and_restoring_a_backup_never_asks()
+    {
+        var withBackup = Corrupt("games.json", @"C:\x\games.json.bak");
+        var without = Corrupt("profiles.json", null);
+        var backend = Backend(WithCorrupt(withBackup, without));
+        var dialogs = new FakeDialogs();
+        var startup = new StartupViewModel(backend.AppStatus, _text, dialogs);
+        await startup.CheckAsync();
+
+        await startup.CorruptFiles[0].Card.Actions[0].Command.ExecuteAsync();
+        Assert.Empty(dialogs.Confirmations);
+
+        await startup.CorruptFiles[0].Card.Actions[1].Command.ExecuteAsync();
+
+        Assert.Single(dialogs.Confirmations);
+        var recoveries = backend.Calls.To<IAppStatusApi>(nameof(IAppStatusApi.RecoverCatalogFileAsync));
+        Assert.Equal([withBackup.Path, CatalogRecovery.RestoreBackup], recoveries[0].Args);
+        Assert.Equal([without.Path, CatalogRecovery.StartEmpty], recoveries[1].Args);
     }
 
     [Fact]
