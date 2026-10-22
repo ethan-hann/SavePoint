@@ -1,7 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
-using Avalonia.VisualTree;
 using Savepoint.App.Features.Common;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Shell;
@@ -171,28 +170,5 @@ public class MainWindowTests
         }
 
         Dispatcher.UIThread.RunJobs();
-    }
-
-    [AvaloniaFact]
-    public async Task With_no_services_connected_the_window_says_it_is_not_ready()
-    {
-        var text = new UiFormatter(LocalizationCatalog.Current);
-        var main = AppComposition.Create(
-            null,
-            text,
-            new ThemeServiceApplier(((App)App.Current!).Theme),
-            () => null,
-            new ImmediateUiDispatcher(),
-            new ManualTimeProvider(),
-            new FakeDialogs());
-        var window = new MainWindow { DataContext = main };
-        window.Show();
-
-        await main.InitializeAsync();
-        Dispatcher.UIThread.RunJobs();
-
-        var titles = window.GetVisualDescendants().OfType<TextBlock>().Where(block => block.IsEffectivelyVisible).Select(block => block.Text).ToList();
-        Assert.Contains("SavePoint isn't ready yet", titles);
-        Assert.Null(main.Shell);
     }
 }

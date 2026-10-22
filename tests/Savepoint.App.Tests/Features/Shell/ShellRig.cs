@@ -58,17 +58,19 @@ internal sealed class ShellRig
         IUiDispatcher? dispatcher = null,
         IReadOnlyList<IScreenFactory>? screens = null,
         ILaunchFlowHost? launchFlow = null,
-        IArtworkProvider? artwork = null) =>
-        new(backend ?? FakeBackend.Mockup(), dispatcher ?? new ImmediateUiDispatcher(), screens ?? [], launchFlow, artwork);
+        IArtworkProvider? artwork = null,
+        bool standIns = true) =>
+        new(backend ?? FakeBackend.Mockup(), dispatcher ?? new ImmediateUiDispatcher(), standIns ? StandInScreens.Complete(screens ?? []) : screens ?? [], launchFlow, artwork);
 
     public static async Task<ShellRig> StartAsync(
         FakeBackend? backend = null,
         IUiDispatcher? dispatcher = null,
         IReadOnlyList<IScreenFactory>? screens = null,
         ILaunchFlowHost? launchFlow = null,
-        IArtworkProvider? artwork = null)
+        IArtworkProvider? artwork = null,
+        bool standIns = true)
     {
-        var rig = Create(backend, dispatcher, screens, launchFlow, artwork);
+        var rig = Create(backend, dispatcher, screens, launchFlow, artwork, standIns);
         await rig.Shell.InitializeAsync();
         return rig;
     }

@@ -98,7 +98,7 @@ public class ShellViewModelTests
         rig.Shell.Navigate(NavDestination.Settings);
 
         Assert.False(rig.Shell.ShowFirstRun);
-        Assert.IsType<PlaceholderScreenViewModel>(rig.Shell.Content);
+        Assert.IsType<StandInScreen>(rig.Shell.Content);
     }
 
     [Fact]
@@ -231,16 +231,13 @@ public class ShellViewModelTests
     }
 
     [Fact]
-    public async Task A_destination_with_no_factory_shows_a_placeholder()
+    public async Task A_shell_without_a_screen_for_every_destination_refuses_to_start_and_names_the_one_missing()
     {
-        var rig = await ShellRig.StartAsync();
+        var rig = ShellRig.Create(screens: [new RecordingScreenFactory(NavDestination.Games), new RecordingScreenFactory(NavDestination.Settings)], standIns: false);
 
-        Assert.All([NavDestination.Games, NavDestination.History, NavDestination.Settings], destination =>
-        {
-            rig.Shell.Navigate(destination);
-            var placeholder = Assert.IsType<PlaceholderScreenViewModel>(rig.Shell.CurrentScreen);
-            Assert.Equal(destination, placeholder.Destination);
-        });
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(rig.Shell.InitializeAsync);
+
+        Assert.Contains("History", failure.Message, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -8,8 +8,8 @@ public static partial class FeatureComposition
 {
     /// <summary>The Games screen's factory.</summary>
     /// <param name="context">Shared App services.</param>
-    /// <param name="editor">Builds the game editor pane; null while the editor is not built yet, which hides Edit game.</param>
-    public static IScreenFactory? GamesScreen(FeatureContext context, IGameEditorFactory? editor) =>
+    /// <param name="editor">Builds the game editor pane; without one the screen offers no Edit game.</param>
+    public static IScreenFactory GamesScreen(FeatureContext context, IGameEditorFactory? editor) =>
         new GamesScreenFactory(new GamesDependencies(
             context.Services.Games,
             context.Services.Profiles,

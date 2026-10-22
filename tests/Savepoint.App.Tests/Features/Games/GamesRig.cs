@@ -50,7 +50,7 @@ internal sealed class GamesRig
             UiDialogs,
             Toasts,
             new RecordingThemeApplier(),
-            [factory],
+            StandInScreens.Complete([factory]),
             LaunchFlow));
     }
 

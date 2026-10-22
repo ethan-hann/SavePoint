@@ -10,7 +10,7 @@ public static partial class FeatureComposition
     /// <param name="context">Shared App services.</param>
     /// <param name="editor">Builds the game editor pane; Settings never opens it.</param>
     /// <param name="environment">What Settings asks of the machine; the running app's when null.</param>
-    public static IScreenFactory? SettingsScreen(FeatureContext context, IGameEditorFactory? editor, SettingsEnvironment? environment = null)
+    public static IScreenFactory SettingsScreen(FeatureContext context, IGameEditorFactory? editor, SettingsEnvironment? environment = null)
     {
         _ = editor;
         return new SettingsScreenFactory(context, environment ?? SettingsEnvironmentOf(context.Services));
