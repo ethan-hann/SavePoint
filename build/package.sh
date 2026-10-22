@@ -122,7 +122,9 @@ if [ -n "$given_revision" ]; then
   revision="$given_revision"
 else
   commit="$(git rev-parse --short=12 HEAD)" || fail "git could not say which commit this is"
-  changes="$(git status --porcelain | grep -c . || true)"
+  # A pipe would hide a git that failed, so its answer is taken first.
+  status="$(git status --porcelain)" || fail "git could not say whether the working tree has changes"
+  changes="$(printf '%s' "$status" | grep -c . || true)"
   if [ "$changes" -gt 0 ] && [ "$allow_dirty" -eq 0 ]; then
     fail "the working tree has $changes uncommitted change(s), so the package could not be tied to a commit. Commit them, or pass --allow-dirty for a trial package."
   fi

@@ -114,6 +114,7 @@ try {
     $commit = (git rev-parse --short=12 HEAD)
     if ($LASTEXITCODE -ne 0 -or -not $commit) { throw 'git could not say which commit this is.' }
     $changes = @(git status --porcelain)
+    if ($LASTEXITCODE -ne 0) { throw 'git could not say whether the working tree has changes.' }
     if ($changes.Count -gt 0 -and -not $AllowDirty) {
         throw "The working tree has $($changes.Count) uncommitted change(s), so the package could not be tied to a commit. Commit them, or pass -AllowDirty for a trial package."
     }
