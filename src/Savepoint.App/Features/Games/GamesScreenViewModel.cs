@@ -82,6 +82,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         LayoutToggle = shell.LayoutToggle;
         ShowHistoryCommand = new RelayCommand(() => _shell.Navigate(NavDestination.History));
         ShowActivityCommand = new RelayCommand(() => _shell.ShowActivity(_shell.SelectedGame?.Id));
+        FreeUp = new FreeUpSpaceViewModel(dependencies.Games, dependencies.Jobs, dependencies.Text, dependencies.Dispatcher, ShowError, RefreshStorageUsageAsync);
         EditGameCommand = new RelayCommand(OpenEditor);
         NewProfileCommand = new AsyncRelayCommand(NewProfileAsync);
         DeleteGameCommand = new AsyncRelayCommand(DeleteGameAsync);
@@ -159,6 +160,9 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     /// <summary>Opens Activity on the selected game, from the Activity chip.</summary>
     public IRelayCommand ShowActivityCommand { get; }
 
+    /// <summary>The storage footer's Free up space for the selected game.</summary>
+    public FreeUpSpaceViewModel FreeUp { get; }
+
     /// <summary>Opens the game editor pane for the selected game.</summary>
     public IRelayCommand EditGameCommand { get; }
 
@@ -169,7 +173,11 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     public IAsyncRelayCommand DeleteGameCommand { get; }
 
     /// <inheritdoc />
-    public void OnShown() => _ = ReloadAsync();
+    public void OnShown()
+    {
+        FreeUp.ClearResult();
+        _ = ReloadAsync();
+    }
 
     /// <summary>
     /// Reads the selected game's profiles, row stats and storage use again. A read that finishes after the selection
@@ -236,9 +244,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
 
         IsLoading = false;
         _loaded = true;
-        StorageFooterText = usage.Ok
-            ? _deps.Text.Message("games.storageFooter.usage", ("used", _deps.Text.FileSize(usage.Value.BytesUsed)), ("total", _deps.Text.FileSize(usage.Value.VolumeTotalBytes)))
-            : string.Empty;
+        StorageFooterText = usage.Ok ? StorageFooter(usage.Value) : string.Empty;
 
         if (!list.Ok)
         {
@@ -277,6 +283,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     {
         _disposed = true;
         _loadCts?.Cancel();
+        FreeUp.Dispose();
         _shell.PropertyChanged -= OnShellChanged;
         _shell.LibraryRefreshed -= OnLibraryRefreshed;
         _shell.AddGameRequested -= OnAddGameRequested;
@@ -298,6 +305,24 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
                 OnPropertyChanged(nameof(IsLibraryLayout));
                 OnPropertyChanged(nameof(ShowStorageFooter));
                 break;
+        }
+    }
+
+    private string StorageFooter(GameStorageUsage usage) =>
+        _deps.Text.Message("games.storageFooter.usage", ("used", _deps.Text.FileSize(usage.BytesUsed)), ("total", _deps.Text.FileSize(usage.VolumeTotalBytes)));
+
+    // After a free-up run the footer shows what the game uses now; the rest of the screen has not changed.
+    private async Task RefreshStorageUsageAsync()
+    {
+        if (_game is not { } game)
+        {
+            return;
+        }
+
+        var usage = await _deps.Games.GetStorageUsageAsync(game.Id);
+        if (usage.Ok && !_disposed && game.Id == _game?.Id)
+        {
+            StorageFooterText = StorageFooter(usage.Value);
         }
     }
 
@@ -365,6 +390,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         _game = game;
         _flowActive = FlowOwns(game);
         _shownGameId = game?.Id;
+        FreeUp.SetGame(game?.Id, game?.Name);
         GameName = game?.Name ?? string.Empty;
         Art = game is null ? null : _shell.Artwork.For(game.Id);
         InstallPath = game?.Install.Path ?? string.Empty;

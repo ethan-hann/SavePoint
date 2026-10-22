@@ -6,6 +6,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.VisualTree;
+using Savepoint.App.Features.Common.Accessibility;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Games;
@@ -68,7 +69,7 @@ public class GamesScreenViewTests
         Assert.Contains("1.6.1170", texts);
         Assert.Contains("212", texts);
         Assert.Contains("3 days ago", texts);
-        Assert.Contains("This game is using 41.2 GB of your 210 GB storage folder", texts);
+        Assert.Contains("This game's snapshots use 41.2 GB on a 210 GB drive", texts);
         Assert.False(harness.Find<Grid>("LibraryHeader").IsEffectivelyVisible);
     }
 
@@ -249,6 +250,75 @@ public class GamesScreenViewTests
 
         Assert.Equal(NavDestination.Activity, harness.Rig.Shell.Destination);
         Assert.False(activity.IsChecked);
+    }
+
+    [AvaloniaFact]
+    public async Task The_footer_has_free_up_space_that_shows_progress_and_then_how_much_it_freed()
+    {
+        using var harness = await GamesViewHarness.StartAsync();
+        var button = harness.All<Button>().SingleOrDefault(candidate => candidate.Name == "FreeUpButton");
+        Assert.NotNull(button);
+        var status = harness.Find<TextBlock>("FreeUpStatusText");
+        var bar = harness.Find<ProgressBar>("FreeUpBar");
+
+        Assert.Equal("Free up space", button.Content);
+        Assert.Equal("Free up space for Skyrim Special Edition", AutomationProperties.GetName(button));
+        Assert.Equal("Clears out snapshots no profile uses anymore, such as a deleted profile's.", AutomationProperties.GetHelpText(button));
+        Assert.True(button.IsEffectivelyEnabled);
+        Assert.False(status.IsEffectivelyVisible);
+        Assert.False(bar.IsEffectivelyVisible);
+
+        Press(harness, button, Key.Enter);
+
+        Assert.Equal("Freeing up space…", status.Text);
+        Assert.True(status.IsEffectivelyVisible);
+        Assert.True(bar.IsEffectivelyVisible);
+        Assert.True(bar.IsIndeterminate);
+        Assert.False(button.IsEffectivelyEnabled);
+        harness.Render("free-up-running");
+
+        var job = harness.Rig.Backend.Jobs.LastStarted(JobKind.Compact).JobId;
+        harness.Rig.Backend.Jobs.Complete(job, new OptimizeResult([new GameOptimizeOutcome(MockupScenario.SkyrimId, [new FolderOutcome(RepoRole.Install)], 3_400_000_000)]));
+        harness.Settle();
+
+        Assert.Equal("Freed up 3.4 GB.", status.Text);
+        Assert.True(status.IsEffectivelyVisible);
+        Assert.False(bar.IsEffectivelyVisible);
+        Assert.True(button.IsEffectivelyEnabled);
+        harness.Render("free-up-done");
+    }
+
+    [AvaloniaFact]
+    public async Task A_free_up_runs_progress_and_result_are_spoken_by_a_polite_live_region()
+    {
+        using var harness = await GamesViewHarness.StartAsync();
+        var region = harness.All<AnnouncementRegion>().SingleOrDefault(candidate => candidate.Name == "FreeUpAnnouncer");
+        Assert.NotNull(region);
+        harness.Rig.Screen.FreeUp.FreeUpCommand.Execute(null);
+        harness.Settle();
+        Assert.Equal("Freeing up space…", region.Text);
+
+        harness.Rig.Backend.Jobs.Complete(harness.Rig.Backend.Jobs.LastStarted(JobKind.Compact).JobId);
+        harness.Settle();
+
+        Assert.Equal("Done. There was nothing to clear out.", region.Text);
+        Assert.Equal(AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(region));
+    }
+
+    [AvaloniaFact]
+    public async Task The_library_layout_has_no_footer_so_its_game_menu_offers_free_up_space()
+    {
+        using var harness = await GamesViewHarness.StartAsync(layout: ShellLayout.Library);
+
+        var button = harness.Find<Button>("LibraryGameMenuButton");
+        button.Flyout!.ShowAt(button);
+        harness.Settle();
+        var menu = Assert.IsType<MenuFlyout>(button.Flyout);
+        var item = menu.Items.OfType<MenuItem>().SingleOrDefault(candidate => candidate.Header as string == "Free up space");
+
+        Assert.False(harness.Find<Border>("StorageFooter").IsEffectivelyVisible);
+        Assert.NotNull(item);
+        Assert.Same(harness.Rig.Screen.FreeUp.FreeUpCommand, item.Command);
     }
 
     // ---- Keyboard

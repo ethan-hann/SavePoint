@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:loc="using:Savepoint.App.Localization"
              xmlns:theme="using:Savepoint.App.Theme"
+             xmlns:a11y="using:Savepoint.App.Features.Common.Accessibility"
              xmlns:art="using:Savepoint.App.Features.Common.Art"
              xmlns:shell="using:Savepoint.App.Features.Shell"
              xmlns:games="using:Savepoint.App.Features.Games"
@@ -107,6 +108,7 @@
         <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.MoreVert}" />
         <Button.Flyout>
           <MenuFlyout Placement="BottomEdgeAlignedRight">
+            <MenuItem Header="{loc:Loc games.storageFooter.freeUp}" Command="{Binding FreeUp.FreeUpCommand}" />
             <MenuItem Header="{loc:Loc games.header.deleteGame}" Command="{Binding DeleteGameCommand}" />
           </MenuFlyout>
         </Button.Flyout>
@@ -249,10 +251,29 @@
 
     <!-- The storage footer, pinned to the bottom of the pane as the mockups draw it; the library layout's shelf already shows each game's size. -->
     <Border x:Name="StorageFooter" Grid.Row="4" Classes="strip" Margin="0,12,0,0" IsVisible="{Binding ShowStorageFooter}">
-      <StackPanel Orientation="Horizontal" Spacing="12">
-        <TextBlock Classes="icon muted" Text="{x:Static theme:Icons.Database}" />
-        <TextBlock x:Name="StorageFooterText" Classes="muted" VerticalAlignment="Center" Text="{Binding StorageFooterText}" />
-      </StackPanel>
+      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+        <TextBlock Classes="icon muted" VerticalAlignment="Center" Text="{x:Static theme:Icons.Database}" />
+        <a11y:AnnouncementRegion x:Name="FreeUpAnnouncer" HorizontalAlignment="Left" Message="{Binding FreeUp.Announcement}" />
+        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
+          <TextBlock x:Name="StorageFooterText" Classes="muted" TextWrapping="Wrap" Text="{Binding StorageFooterText}" />
+          <TextBlock x:Name="FreeUpStatusText" Classes="muted" TextWrapping="Wrap" IsVisible="{Binding FreeUp.HasStatus}" Text="{Binding FreeUp.StatusText}" />
+          <ProgressBar x:Name="FreeUpBar"
+                       Height="4"
+                       MinHeight="4"
+                       IsIndeterminate="True"
+                       IsVisible="{Binding FreeUp.IsRunning}"
+                       AutomationProperties.Name="{Binding FreeUp.StatusText}" />
+        </StackPanel>
+        <Button x:Name="FreeUpButton"
+                Grid.Column="2"
+                Classes="pill"
+                Padding="14,6"
+                Command="{Binding FreeUp.FreeUpCommand}"
+                Content="{loc:Loc games.storageFooter.freeUp}"
+                AutomationProperties.Name="{Binding FreeUp.Name}"
+                AutomationProperties.HelpText="{loc:Loc games.storageFooter.freeUpHelp}"
+                ToolTip.Tip="{loc:Loc games.storageFooter.freeUpHelp}" />
+      </Grid>
     </Border>
   </Grid>
 </UserControl>

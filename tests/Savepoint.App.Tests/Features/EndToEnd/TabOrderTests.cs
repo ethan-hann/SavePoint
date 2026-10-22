@@ -54,7 +54,7 @@ public class TabOrderTests
     private static string[] ProfileRows(string name) => [$"Row: {name}", $"Play {name}", $"More actions for {name}"];
 
     [AvaloniaFact]
-    public async Task The_sidebar_layout_goes_rail_then_header_then_chips_then_the_profile_rows()
+    public async Task The_sidebar_layout_goes_rail_then_header_then_chips_then_the_profile_rows_then_the_footer()
     {
         using var app = await ComposedApp.StartWithViewAsync();
 
@@ -64,6 +64,7 @@ public class TabOrderTests
                 "Edit game", "New profile", "More actions for Skyrim Special Edition", "Sidebar",
                 "Profiles", "History", "Activity",
                 .. ProfileRows(_modded), .. ProfileRows(_vanilla), .. ProfileRows(_survival),
+                "Free up space for Skyrim Special Edition",
             ],
             TabStops(app));
     }
