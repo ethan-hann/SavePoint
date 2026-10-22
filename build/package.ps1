@@ -27,6 +27,9 @@ $env:DOTNET_NOLOGO = '1'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $repoRoot
+# The CLI's tool cache lives in the workspace, like package.sh's: a cache in the user profile can point at a tree that no longer exists.
+$env:DOTNET_CLI_HOME = Join-Path $repoRoot '.tools/dotnet-cli-home'
+New-Item -ItemType Directory -Force -Path $env:DOTNET_CLI_HOME | Out-Null
 
 # Builds, vpk and the downloads all inherit this, so packaging never starves the desktop it runs on.
 [System.Diagnostics.Process]::GetCurrentProcess().PriorityClass = 'BelowNormal'
@@ -59,8 +62,12 @@ function Get-SourceTags {
 }
 
 try {
-    $version = (Select-Xml -Path (Join-Path $repoRoot 'Directory.Build.props') -XPath '//Version').Node.InnerText.Trim()
+    $props = Join-Path $repoRoot 'Directory.Build.props'
+    $version = (Select-Xml -Path $props -XPath '//Version').Node.InnerText.Trim()
     if (-not $version) { throw 'Directory.Build.props has no <Version>.' }
+    # The setup installs into %LOCALAPPDATA%\<pack id> and deletes that whole folder on uninstall, so it must not be SavePoint's data folder (D38).
+    $packId = (Select-Xml -Path $props -XPath '//SavepointPackId').Node.InnerText.Trim()
+    if (-not $packId) { throw 'Directory.Build.props has no <SavepointPackId>.' }
     Write-Host "==> SavePoint $version for $rid"
 
     Invoke-Step 'restore tools' { dotnet tool restore }
@@ -90,7 +97,11 @@ try {
     if (Test-Path -LiteralPath $releaseDir) { Remove-Item -LiteralPath $releaseDir -Recurse -Force }
     # --exclude drops the debug symbols and the XML documentation files the build writes next to the assemblies. Giving it replaces vpk's default (.pdb), so the pattern repeats that.
     Invoke-Step 'pack' {
-        dotnet vpk --skip-updates pack --packId SavePoint --packVersion $version --packTitle SavePoint --packDir $publishDir --mainExe SavePoint.exe --icon $icon --runtime $rid --shortcuts StartMenuRoot --exclude '(?i)\.pdb$|(^|[/\\])savepoint(\.core)?\.xml$' --outputDir $releaseDir
+        dotnet vpk --skip-updates pack --packId $packId --packVersion $version --packTitle SavePoint --packDir $publishDir --mainExe SavePoint.exe --icon $icon --runtime $rid --shortcuts StartMenuRoot --exclude '(?i)\.pdb$|(^|[/\\])savepoint(\.core)?\.xml$' --outputDir $releaseDir
+    }
+    # vpk names the files after the pack id; the ones people download carry the app's name.
+    foreach ($suffix in '-win-Setup.exe', '-win-Portable.zip') {
+        Move-Item -LiteralPath (Join-Path $releaseDir "$packId$suffix") -Destination (Join-Path $releaseDir "SavePoint$suffix") -Force
     }
 
     Write-Host "==> packages in $releaseDir"

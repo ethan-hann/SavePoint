@@ -36,7 +36,7 @@ Not supported: games with kernel-level anti-cheat. Turn off a storefront's cloud
 - **Linux:** make `SavePoint.AppImage` executable and run it.
 - **macOS:** not packaged yet.
 
-SavePoint never checks for updates on its own. To update, run a newer setup over the old install.
+SavePoint never checks for updates on its own. To update, run a newer setup over the old install. Uninstalling removes the app but keeps your games' saved history and settings; to remove those too, use **Settings > Remove all SavePoint data** first.
 
 ## Building from source
 

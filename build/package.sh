@@ -77,6 +77,9 @@ fi
 
 version="$(sed -n 's#.*<Version>\(.*\)</Version>.*#\1#p' Directory.Build.props | head -n 1 | tr -d '[:space:]')"
 [ -n "$version" ] || fail "Directory.Build.props has no <Version>"
+# The same pack id as the Windows setup, whose install folder must never be SavePoint's data folder (D38).
+pack_id="$(sed -n 's#.*<SavepointPackId>\(.*\)</SavepointPackId>.*#\1#p' Directory.Build.props | head -n 1 | tr -d '[:space:]')"
+[ -n "$pack_id" ] || fail "Directory.Build.props has no <SavepointPackId>"
 rid=linux-x64
 publish_dir="$repo/artifacts/publish/$rid"
 release_dir="$repo/artifacts/release/$rid"
@@ -105,7 +108,9 @@ git_entry="$(sed -n 's/^entry=//p' "$publish_dir/git/.savepoint-git-stamp" | tr 
 rm -rf "$release_dir"
 # --exclude drops the debug symbols and the XML documentation files the build writes next to the assemblies. Giving it replaces vpk's default (.pdb), so the pattern repeats that.
 echo "==> pack"
-dotnet vpk --skip-updates pack --packId SavePoint --packVersion "$version" --packTitle SavePoint --packDir "$publish_dir" --mainExe SavePoint --icon "$icon" --runtime "$rid" --exclude '(?i)\.pdb$|(^|[/\\])savepoint(\.core)?\.xml$' --outputDir "$release_dir"
+dotnet vpk --skip-updates pack --packId "$pack_id" --packVersion "$version" --packTitle SavePoint --packDir "$publish_dir" --mainExe SavePoint --icon "$icon" --runtime "$rid" --exclude '(?i)\.pdb$|(^|[/\\])savepoint(\.core)?\.xml$' --outputDir "$release_dir"
+# vpk names the AppImage after the pack id; the one people download carries the app's name.
+[ "$pack_id" = SavePoint ] || mv -f "$release_dir/$pack_id.AppImage" "$release_dir/SavePoint.AppImage"
 
 echo "==> packages in $release_dir"
 for file in "$release_dir"/*; do

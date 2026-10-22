@@ -328,6 +328,16 @@ The recheck (`.tools/reviews/backend-launch-recheck.md`) found the D31 work comp
 
 The partly fixed BL-019, BL-026, and BL-032 are completed as the recheck describes. On macOS, an application-level shutdown (Cmd+Q) also asks before quitting during clear-all or a storage move.
 
+## D38. The installer's folder is never SavePoint's data folder
+
+Velopack's Windows setup installs into `%LOCALAPPDATA%\<pack id>`, and on install and uninstall it replaces or removes that entire folder. D33 used the pack id `SavePoint`, so the setup owned `%LOCALAPPDATA%\SavePoint`. That is also where SavePoint keeps its default storage (every game's history) and its logs. Uninstalling, or installing over a copy that had already run portably, would have deleted all of it. Found while writing the dogfood checklist, before any package was installed.
+
+- **The pack id is `SavePointApp`.** It lives in one place, `<SavepointPackId>` in `Directory.Build.props`, which both package scripts read. The setup therefore owns `%LOCALAPPDATA%\SavePointApp`, and SavePoint's data stays in `%APPDATA%\SavePoint` and `%LOCALAPPDATA%\SavePoint`.
+- **Files people download keep the app's name.** The scripts rename vpk's outputs back to `SavePoint-win-Setup.exe`, `SavePoint-win-Portable.zip`, and `SavePoint.AppImage`.
+- **A test pins the rule.** `PackageLocationTests` checks that no folder SavePoint keeps data in lies inside `%LOCALAPPDATA%\<pack id>`, and that both scripts take the pack id from the build properties.
+- **Uninstalling keeps the user's data.** To remove that too, use "Remove all SavePoint data" before uninstalling.
+- **A storage move refuses a destination inside SavePoint's own install folder,** since the next update or uninstall would delete it.
+
 ## D8. "Clear all data" is a v2 requirement
 
 The v1 README lists "add a clear all data button" as an open TODO. v2 ships it in Settings behind a typed confirmation. It removes SavePoint's own storage, catalog, and consent markers, and never deletes or rolls back files in a game's install or save folders: whatever is on disk at that moment stays as it is.
