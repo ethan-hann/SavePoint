@@ -119,10 +119,11 @@ internal static partial class GitDirRemoval
             : new StorageRemoveFailedException(named, $"'{named}' could not be deleted: {e.Message}", e);
     }
 
-    // Pack files are read-only, and Windows will not delete a read-only file.
+    // Pack files are read-only, and Windows will not delete a read-only file. A link in the git directory is deleted as a link; what it
+    // leads to is not ours to change.
     private static void ClearReadOnly(string folder)
     {
-        foreach (var file in Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories))
+        foreach (var file in Directory.EnumerateFiles(folder, "*", new EnumerationOptions { RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint, IgnoreInaccessible = false }))
         {
             if ((File.GetAttributes(file) & FileAttributes.ReadOnly) != 0)
             {

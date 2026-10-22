@@ -14,23 +14,24 @@ internal static class StaleLocks
 
     private static int RemoveTemporaryFiles(string gitDir)
     {
+        // A link in the git directory leads out of it, and nothing there is ours to delete.
         var objects = Path.Combine(gitDir, "objects");
-        if (!Directory.Exists(objects))
+        if (!GitDirWalk.IsRealFolder(objects))
         {
             return 0;
         }
 
         var removed = 0;
         var pack = Path.Combine(objects, "pack");
-        if (Directory.Exists(pack))
+        if (GitDirWalk.IsRealFolder(pack))
         {
-            foreach (var file in Directory.EnumerateFiles(pack, "tmp_*").ToList())
+            foreach (var file in Directory.EnumerateFiles(pack, "tmp_*", GitDirWalk.Files(recurse: false)).ToList())
             {
                 removed += TryDelete(file) ? 1 : 0;
             }
         }
 
-        foreach (var folder in Directory.EnumerateDirectories(objects).ToList())
+        foreach (var folder in Directory.EnumerateDirectories(objects, "*", GitDirWalk.Folders()).ToList())
         {
             var name = Path.GetFileName(folder);
             if (name.Length != 2 || !name.All(char.IsAsciiHexDigit))
@@ -38,7 +39,7 @@ internal static class StaleLocks
                 continue;
             }
 
-            foreach (var file in Directory.EnumerateFiles(folder, "tmp_obj_*").ToList())
+            foreach (var file in Directory.EnumerateFiles(folder, "tmp_obj_*", GitDirWalk.Files(recurse: false)).ToList())
             {
                 removed += TryDelete(file) ? 1 : 0;
             }
@@ -57,16 +58,16 @@ internal static class StaleLocks
 
         foreach (var prefix in new[] { GitEngine.ClassifyIndexPrefix, GitEngine.AlignIndexPrefix })
         {
-            foreach (var file in Directory.EnumerateFiles(gitDir, prefix + "*").ToList())
+            foreach (var file in Directory.EnumerateFiles(gitDir, prefix + "*", GitDirWalk.Files(recurse: false)).ToList())
             {
                 removed += TryDelete(file) ? 1 : 0;
             }
         }
 
         var refs = Path.Combine(gitDir, "refs");
-        if (Directory.Exists(refs))
+        if (GitDirWalk.IsRealFolder(refs))
         {
-            foreach (var file in Directory.EnumerateFiles(refs, "*.lock", SearchOption.AllDirectories).ToList())
+            foreach (var file in Directory.EnumerateFiles(refs, "*.lock", GitDirWalk.Files(recurse: true)).ToList())
             {
                 removed += TryDelete(file) ? 1 : 0;
             }

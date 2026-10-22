@@ -199,6 +199,43 @@ public class StorageFolderLinkTests
         }
     }
 
+    // SavePoint writes into a git directory at every save and sweeps it at every start; a link in any folder of it, however deep, leads
+    // those deletes and writes out of the folder.
+    [Theory(Timeout = 120_000)]
+    [InlineData("refs/heads")]
+    [InlineData("refs/heads/team")]
+    [InlineData("objects/pack")]
+    public async Task A_folder_deeper_in_a_git_directory_that_is_a_link_refuses_the_folder_and_the_files_it_leads_to_are_left_alone(string linked)
+    {
+        var (workspace, game, away) = await WithStorageGoneAsync();
+        using var _ = workspace;
+        var somebodys = SomebodysFolder(workspace, "somebodys-saves");
+        BackendWorkspace.WriteFile(Path.Combine(somebodys, "keep.lock"), "keep");
+        BackendWorkspace.WriteFile(Path.Combine(somebodys, "sub", "also.lock"), "keep");
+        var prepared = PreparedWithExtraCopy(workspace, game, away);
+        var link = Path.Combine(prepared, "other", "install.git", linked.Replace('/', Path.DirectorySeparatorChar));
+        if (Directory.Exists(link))
+        {
+            Directory.Delete(link, recursive: true);
+        }
+
+        LinkOrSkip(link, somebodys);
+        try
+        {
+            var before = BackendWorkspace.Snapshot(somebodys);
+            var preparedBefore = BackendWorkspace.Snapshot(prepared);
+
+            var found = await workspace.AppStatus.UseStorageFolderAsync(prepared, workspace.Token);
+
+            await AssertRefusedUntouchedAsync(workspace, found, link, prepared, preparedBefore);
+            Assert.Equal(before, BackendWorkspace.Snapshot(somebodys));
+        }
+        finally
+        {
+            TestLinks.RemoveFolderLink(link);
+        }
+    }
+
     [Fact(Timeout = 120_000)]
     public async Task A_config_file_that_is_a_link_refuses_the_folder()
     {

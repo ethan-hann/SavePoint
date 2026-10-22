@@ -95,7 +95,8 @@ internal static class StorageFolderLinks
     }
 
     // What SavePoint reads, rewrites or empties in a git directory is its direct entries (the config, the hooks folder) and what its
-    // info folder holds; any link among them could lead a write or a delete out of the folder.
+    // info folder holds; any link among them could lead a write or a delete out of the folder. It also writes refs and objects at every
+    // save and sweeps lock and temporary files at every start, so a link in any folder below could lead those out of it too.
     private static string? FirstLinkInside(string gitDir)
     {
         var directory = new DirectoryInfo(gitDir);
@@ -115,6 +116,25 @@ internal static class StorageFolderLinks
                         return inner.FullName;
                     }
                 }
+            }
+        }
+
+        return FirstLinkedFolderBelow(directory);
+    }
+
+    // The first folder, in name order, that is a link anywhere below; folders only, so a repository of any size is cheap to look through.
+    private static string? FirstLinkedFolderBelow(DirectoryInfo folder)
+    {
+        foreach (var directory in folder.EnumerateDirectories("*", Everything).OrderBy(directory => directory.Name, StringComparer.Ordinal))
+        {
+            if (IsLink(directory))
+            {
+                return directory.FullName;
+            }
+
+            if (FirstLinkedFolderBelow(directory) is { } deeper)
+            {
+                return deeper;
             }
         }
 
