@@ -60,12 +60,12 @@ public partial class GamesScreenView : UserControl
         }
     }
 
-    // The banner or card sits below the table inside the scrolling body, so one that arrives in a short window is brought into view.
+    // A failure card sits below the table inside the scrolling body, so one that arrives in a short window is brought into view.
     private void OnScreenChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(GamesScreenViewModel.InlineContent) && _screen?.HasInlineContent == true)
+        if (e.PropertyName == nameof(GamesScreenViewModel.InlineContent) && _screen?.HasFailureContent == true)
         {
-            Dispatcher.UIThread.Post(InlineContentHost.BringIntoView, DispatcherPriority.Loaded);
+            Dispatcher.UIThread.Post(FailureContentHost.BringIntoView, DispatcherPriority.Loaded);
         }
     }
 

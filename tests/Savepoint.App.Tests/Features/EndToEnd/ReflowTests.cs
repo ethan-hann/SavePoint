@@ -3,6 +3,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Headless.XUnit;
 using Avalonia.VisualTree;
 using Savepoint.App.Tests.Fakes;
+using Savepoint.App.Tests.Features.Games;
 using Savepoint.App.Tests.Theme;
 using Savepoint.Core.Catalog;
 
@@ -44,5 +45,43 @@ public class ReflowTests
         Assert.NotEmpty(cards);
         var narrowest = cards.Min(card => card.Bounds.Width);
         Assert.True(narrowest >= 200, $"At {width}px the narrowest card is {narrowest:0}px wide.");
+    }
+
+    public static TheoryData<int, string> LaunchCardsAtNarrowWidths()
+    {
+        var data = new TheoryData<int, string>();
+        foreach (var width in new[] { 640, 720, 800, 900, 1040 })
+        {
+            data.Add(width, "banner");
+            data.Add(width, "running");
+        }
+
+        return data;
+    }
+
+    [AvaloniaTheory]
+    [MemberData(nameof(LaunchCardsAtNarrowWidths))]
+    public async Task The_launch_banner_and_the_running_card_stay_pinned_above_the_storage_footer_at_narrow_widths(int width, string card)
+    {
+        using var app = await ComposedApp.StartWithViewAsync(width: width, height: 432);
+        await app.Games.Profiles.Single(row => row.Id == MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null).Soon();
+        if (card == "running")
+        {
+            app.Backend.Launch.ReportRunning(MockupScenario.SkyrimId, MockupScenario.RunningSince);
+        }
+
+        app.Settle();
+        app.Render("reflow", $"launch-{card}-{width}");
+
+        var host = app.Find<ContentControl>("InlineContentHost");
+        var footer = app.Find<Border>("StorageFooter");
+        Assert.True(host.IsEffectivelyVisible);
+        Assert.Equal(12, LayoutAudit.BoundsIn(app.Window, footer).Top - LayoutAudit.BoundsIn(app.Window, host).Bottom, 1.0);
+
+        // The card has its own place, so the table is not scrolled away to make room for it.
+        var scroller = app.Find<Border>("Table").GetVisualAncestors().OfType<ScrollViewer>().First();
+        Assert.Equal(0, scroller.Offset.Y);
+        var problems = LayoutAudit.Problems(app.Window);
+        Assert.True(problems.Count == 0, $"At {width}px: {string.Join("; ", problems)}");
     }
 }

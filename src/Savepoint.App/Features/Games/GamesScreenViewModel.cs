@@ -13,8 +13,8 @@ using Savepoint.Core.Errors;
 namespace Savepoint.App.Features.Games;
 
 /// <summary>
-/// The Games screen: the selected game's header, its profile table, whatever the launch flow shows below the table,
-/// and the storage footer. It follows the shell's selected game, reloads when the library is refreshed, and turns
+/// The Games screen: the selected game's header, its profile table, whatever the launch flow shows (its banner and running
+/// card at the bottom of the pane, a failure card below the table), and the storage footer. It follows the shell's selected game, reloads when the library is refreshed, and turns
 /// Play into the launch flow, Edit game into the editor pane and New profile into the wizard.
 /// </summary>
 public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IProfileRowActions, IDisposable
@@ -64,9 +64,13 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     [NotifyPropertyChangedFor(nameof(ShowStorageFooter))]
     private string _storageFooterText = string.Empty;
 
-    /// <summary>The launch flow's banner or running card for the selected game, shown below the table; null when there is none.</summary>
+    /// <summary>What the launch flow shows for the selected game: its banner, checking, saving or running card, or a failure card; null when there is none.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasInlineContent))]
+    [NotifyPropertyChangedFor(nameof(PinnedContent))]
+    [NotifyPropertyChangedFor(nameof(HasPinnedContent))]
+    [NotifyPropertyChangedFor(nameof(FailureContent))]
+    [NotifyPropertyChangedFor(nameof(HasFailureContent))]
     private object? _inlineContent;
 
     /// <param name="shell">What the screen sees of the shell.</param>
@@ -139,8 +143,20 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     /// <summary>The accessible name of the header's overflow button ("More actions for Skyrim Special Edition").</summary>
     public string GameMoreActionsName => _game is { } game ? _deps.Text.Message("games.profileTable.moreActions", ("name", game.Name)) : string.Empty;
 
-    /// <summary>True while the launch flow has a banner or running card to show below the table.</summary>
+    /// <summary>True while the launch flow has anything to show for the selected game.</summary>
     public bool HasInlineContent => InlineContent is not null;
+
+    /// <summary>The launch flow's banner, checking, saving or running card, which is short enough to stay pinned above the storage footer; null when there is none.</summary>
+    public object? PinnedContent => InlineContent is ErrorCardViewModel ? null : InlineContent;
+
+    /// <summary>True while <see cref="PinnedContent"/> has a card to show.</summary>
+    public bool HasPinnedContent => PinnedContent is not null;
+
+    /// <summary>A failure or partial-result card, shown below the table where it can use the pane's height; pinned, it would squeeze the table to nothing in a short window. Null when there is none.</summary>
+    public ErrorCardViewModel? FailureContent => InlineContent as ErrorCardViewModel;
+
+    /// <summary>True while <see cref="FailureContent"/> has a card to show.</summary>
+    public bool HasFailureContent => FailureContent is not null;
 
     /// <summary>Switches to the History destination for the selected game.</summary>
     public IRelayCommand ShowHistoryCommand { get; }

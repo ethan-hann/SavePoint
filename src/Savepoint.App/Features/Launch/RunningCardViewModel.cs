@@ -8,7 +8,7 @@ namespace Savepoint.App.Features.Launch;
 /// <summary>
 /// The card that stands in for the progress dialog once the game runs (mockup 2c): the game, the profile and how long
 /// ago it started (refreshed every minute), and "I'm done playing" for the case where exit detection cannot tell.
-/// The Games screen shows it above the profile table; it is not a dialog, so the rest of the app stays usable.
+/// The Games screen pins it at the bottom of the pane; it is not a dialog, so the rest of the app stays usable.
 /// </summary>
 public sealed partial class RunningCardViewModel : ObservableObject, IDisposable
 {
