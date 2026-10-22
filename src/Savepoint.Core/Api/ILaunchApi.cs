@@ -41,7 +41,9 @@ public interface ILaunchApi
     /// Starts the launch: prepare, switch the folders if needed, start the game. Answers with the launch job at once. The job ends
     /// once the game is running (or fails or is cancelled); everything after that arrives through <see cref="SessionChanged"/>.
     /// Fails at once, with no job, with <c>error.launch.alreadyRunning</c> when the game already has an open session. The job
-    /// itself can fail with, for example, <c>error.launch.dirtyWorkingTree</c>, <c>error.gitOperation.checkoutFailed</c> (a file
+    /// itself can fail with, for example, <c>error.launch.dirtyWorkingTree</c>, <c>error.launch.fileFolderClash</c> (a point holds a
+    /// file where the folder has a folder with files the switch would delete that are not the point's own, or the reverse; nothing was
+    /// changed, and the file to move is named in <c>path</c>), <c>error.gitOperation.checkoutFailed</c> (a file
     /// another program holds open, named in its <c>path</c>, including one that only reads as an unsaved change because it cannot
     /// be read), <c>error.diskSpace.low</c>, or <c>error.launch.spawnFailed</c>.
     /// </summary>
@@ -52,7 +54,9 @@ public interface ILaunchApi
     /// <summary>
     /// Throws away one folder's unsaved changes, returning it to the last saved point of the profile it is on. It cannot be undone.
     /// A file the game's ignore list names is not an unsaved change: discarding leaves it exactly as it is on disk, whether or not a point
-    /// recorded it. Fails with <c>error.profile.noPoints</c> when the folder has no saved point to return to (D29), and with
+    /// recorded it. Fails with <c>error.launch.fileFolderClash</c> when restoring a file or a folder of the point would delete a
+    /// file of the player's that the discard does not remove itself (one the ignore list names), with nothing changed, with
+    /// <c>error.profile.noPoints</c> when the folder has no saved point to return to (D29), and with
     /// <c>error.gameService.gameRunning</c> while the game has an open session (including one that waits for the player's choice
     /// after play) or its process is still running; both are checked again once the game's lock is held (D13.14).
     /// </summary>

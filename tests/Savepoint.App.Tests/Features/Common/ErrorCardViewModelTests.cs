@@ -41,6 +41,36 @@ public class ErrorCardViewModelTests
     }
 
     [Fact]
+    public void A_folder_that_holds_files_where_a_file_is_needed_says_which_file_to_move()
+    {
+        var error = ErrorInfo.From(new FileFolderClashException(RepoRole.Install, FileFolderClashKind.FolderHoldsFiles, @"C:\Games\Alpha\Mods\Foo", @"C:\Games\Alpha\Mods\Foo\data.bin"));
+
+        var card = new ErrorCardViewModel(error, _text);
+
+        Assert.Equal("A file and a folder share a name", card.Title);
+        Assert.Equal(Icons.Folder, card.Icon);
+        Assert.Equal(ErrorTone.Warning, card.Tone);
+        Assert.Equal(@"C:\Games\Alpha\Mods\Foo\data.bin", card.Path);
+        Assert.Contains("a file named Foo in your install folder", card.Body);
+        Assert.Contains("already a folder with that name", card.Body);
+        Assert.Contains("won't delete your files", card.Body);
+    }
+
+    [Fact]
+    public void A_file_where_a_folder_is_needed_says_which_file_to_move()
+    {
+        var error = ErrorInfo.From(new FileFolderClashException(RepoRole.External, FileFolderClashKind.FileInTheWay, @"C:\Saves\Alpha\Slots", @"C:\Saves\Alpha\Slots"));
+
+        var card = new ErrorCardViewModel(error, _text);
+
+        Assert.Equal("A file and a folder share a name", card.Title);
+        Assert.Equal(@"C:\Saves\Alpha\Slots", card.Path);
+        Assert.Contains("a folder named Slots in your saves folder", card.Body);
+        Assert.Contains("already a file with that name", card.Body);
+        Assert.Contains("won't delete your file", card.Body);
+    }
+
+    [Fact]
     public void A_folder_gone_card_is_neutral_and_shows_the_path_of_the_missing_folder()
     {
         var card = new ErrorCardViewModel(MockupScenario.FolderGoneError, _text);

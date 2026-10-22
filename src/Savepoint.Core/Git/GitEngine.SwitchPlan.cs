@@ -8,13 +8,16 @@ public sealed partial class GitEngine
     internal readonly record struct GoneFile(string Path, string OldId);
 
     // Everything a switch is expected to change, known before git starts. Files the game's patterns name are not in it: the switch
-    // leaves them alone, so they are listed apart. NamedInTarget is the part of Named that the target holds.
+    // leaves them alone, so they are listed apart. NamedInTarget is the part of Named that the target holds. Written is what git
+    // writes as files, Removed what it removes (by the system's own idea of a name, which ignores case on Windows and macOS).
     private sealed record SwitchPlan(
         IReadOnlyList<TreeChange> Changes,
         IReadOnlySet<string> Touched,
         IReadOnlyList<GoneFile> Gone,
         IReadOnlySet<string> Named,
-        IReadOnlySet<string> NamedInTarget);
+        IReadOnlySet<string> NamedInTarget,
+        IReadOnlySet<string> Written,
+        IReadOnlySet<string> Removed);
 
     private static StringComparer PathComparer => OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
 
@@ -43,7 +46,9 @@ public sealed partial class GitEngine
             paths.Where(path => !named.Contains(path)).ToHashSet(StringComparer.Ordinal),
             gone,
             named,
-            all.Where(change => change.Status != 'D' && named.Contains(change.Path)).Select(change => change.Path).ToHashSet(StringComparer.Ordinal));
+            all.Where(change => change.Status != 'D' && named.Contains(change.Path)).Select(change => change.Path).ToHashSet(StringComparer.Ordinal),
+            all.Where(change => change.Status != 'D' && !named.Contains(change.Path)).Select(change => change.Path).ToHashSet(StringComparer.Ordinal),
+            all.Where(change => change.Status == 'D' && !named.Contains(change.Path)).Select(change => change.Path).ToHashSet(PathComparer));
     }
 
     // Refuses, before anything is written, a switch that would run over work that is not saved: unsaved changes in the folder, or

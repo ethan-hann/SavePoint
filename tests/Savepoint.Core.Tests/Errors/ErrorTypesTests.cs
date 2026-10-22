@@ -230,6 +230,10 @@ public class ErrorTypesTests
             ("path", "/games/alpha/mod/.git"), ("count", 2));
         Add("LinkedFolder", new LinkedFolderException(@"C:\Games\Alpha\Mods"), "error.capture.linkedFolder",
             ("path", @"C:\Games\Alpha\Mods"));
+        Add("FileFolderClash folder", new FileFolderClashException(RepoRole.Install, FileFolderClashKind.FolderHoldsFiles, "/games/alpha/Mods/Foo", "/games/alpha/Mods/Foo/data.bin"), "error.launch.fileFolderClash",
+            ("role", RepoRole.Install), ("kind", FileFolderClashKind.FolderHoldsFiles), ("folder", "/games/alpha/Mods/Foo"), ("name", "Foo"), ("path", "/games/alpha/Mods/Foo/data.bin"));
+        Add("FileFolderClash file", new FileFolderClashException(RepoRole.External, FileFolderClashKind.FileInTheWay, "/saves/alpha/Slots", "/saves/alpha/Slots"), "error.launch.fileFolderClash",
+            ("role", RepoRole.External), ("kind", FileFolderClashKind.FileInTheWay), ("folder", "/saves/alpha/Slots"), ("name", "Slots"), ("path", "/saves/alpha/Slots"));
 
         return cases;
     }

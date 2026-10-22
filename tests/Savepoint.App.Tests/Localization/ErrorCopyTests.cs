@@ -79,6 +79,8 @@ public class ErrorCopyTests
             new NestedRepositoryException("/games/alpha/mod/.git", 1),
             new NestedRepositoryException("/games/alpha/mod/.git", 3),
             new LinkedFolderException("/games/alpha/Mods"),
+            new FileFolderClashException(RepoRole.Install, FileFolderClashKind.FolderHoldsFiles, "/games/alpha/Mods/Foo", "/games/alpha/Mods/Foo/data.bin"),
+            new FileFolderClashException(RepoRole.External, FileFolderClashKind.FileInTheWay, "/saves/alpha/Slots", "/saves/alpha/Slots"),
             new SessionMovedException(RepoRole.Install, "dev text"),
             new ProfileAlreadyExistsException("profile-1"),
             new ProfileHasNoPointsException("profile-1"),

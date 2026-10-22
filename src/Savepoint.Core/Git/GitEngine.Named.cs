@@ -28,8 +28,17 @@ public sealed partial class GitEngine
             return [];
         }
 
-        var listed = await RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z", "-c", "-i", ExcludeFromArgument(repo)), ct).ConfigureAwait(false);
+        var listed = await RunAsync(Classify(repo, "ls-files", "-z", "-c", "-i", ExcludeFromArgument(repo)), ct).ConfigureAwait(false);
         return [.. listed.SplitStandardOutputOnNul()];
+    }
+
+    // A pattern for a folder (a trailing slash) names an entry only when the path is a folder, and for a file the index holds git settles
+    // that by looking at the work tree. So the answer for a file would follow whatever the player's disk holds at that path, which is the
+    // opposite of what the patterns say. The question is asked of a work tree that holds nothing, so an entry is the kind its mode says.
+    private GitInvocation Classify(RepoRef repo, params string[] arguments)
+    {
+        var empty = _runner.Binary.NoHooksPath;
+        return Invocation(repo, readOnly: true, arguments) with { WorkTree = empty, WorkingDirectory = empty };
     }
 
     // Which of these paths the patterns name, whether or not the path exists on disk or in the index: git lists a throwaway index of
@@ -87,7 +96,7 @@ public sealed partial class GitEngine
             }
 
             await RunAsync(Invocation(repo, readOnly: false, "update-index", "-z", "--add", "--index-info") with { Stdin = entries.ToString(), ExtraEnvironment = environment }, ct).ConfigureAwait(false);
-            var listed = await RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z", "-c", "-i", ExcludeFromArgument(repo)) with { ExtraEnvironment = environment }, ct).ConfigureAwait(false);
+            var listed = await RunAsync(Classify(repo, "ls-files", "-z", "-c", "-i", ExcludeFromArgument(repo)) with { ExtraEnvironment = environment }, ct).ConfigureAwait(false);
             return [.. listed.SplitStandardOutputOnNul()];
         }
         finally

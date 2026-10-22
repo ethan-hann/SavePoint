@@ -62,6 +62,7 @@ public static class ErrorPresentation
         ["error.launch.detachedCaptureNotSupported"] = new(Icons.History, ErrorTone.Warning, "errorCard.title.olderSave"),
         ["error.launch.completionNotOffered"] = new(Icons.Info, ErrorTone.Neutral, "errorCard.title.generic"),
         ["error.launch.dirtyWorkingTree"] = new(Icons.Warning, ErrorTone.Warning, "errorCard.title.unsavedChanges"),
+        ["error.launch.fileFolderClash"] = new(Icons.Folder, ErrorTone.Warning, "errorCard.title.fileAndFolderShareAName"),
         ["error.launch.noActiveSession"] = new(Icons.Info, ErrorTone.Neutral, "errorCard.title.generic"),
         ["error.launch.sessionMoved"] = new(Icons.History, ErrorTone.Warning, "errorCard.title.progressNotKept"),
         ["error.launch.sessionStillRunning"] = new(Icons.SportsEsports, ErrorTone.Neutral, "errorCard.title.gameRunning"),
