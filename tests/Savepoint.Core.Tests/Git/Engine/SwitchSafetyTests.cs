@@ -46,6 +46,56 @@ public sealed class SwitchSafetyTests : IDisposable
             return (repo, (a, b));
         });
 
+    // profile-a holds Mods/Foo as a file, profile-b holds Mods/Foo as a folder with x.txt in it; a-only.txt and b-only.txt tell the
+    // switches apart. The folder is on profile-b.
+    private Task<(RepoRef Repo, (string A, string B) Tips)> FileAndFolderProfilesAsync() =>
+        RepoTemplates.CopyAsync("switch-safety-file-folder", _ws, async ws =>
+        {
+            var repo = await ws.InitializedFreshAsync();
+            ws.Write(repo, "Mods/Foo", "a's file");
+            ws.Write(repo, "a-only.txt", "a");
+            var a = (await ws.CaptureAsync(repo, "profile-a", "A")).TipCommitId!;
+            await ws.Engine.CreateBranchAsync(repo, "profile-b", "profile-a", TestContext.Current.CancellationToken);
+            await ws.Engine.CheckoutBranchAsync(repo, "profile-b", ct: TestContext.Current.CancellationToken);
+            ws.Delete(repo, "Mods/Foo");
+            ws.Delete(repo, "a-only.txt");
+            ws.Write(repo, "Mods/Foo/x.txt", "b's x");
+            ws.Write(repo, "b-only.txt", "b");
+            var b = (await ws.CaptureAsync(repo, "profile-b", "B")).TipCommitId!;
+            return (repo, (a, b));
+        });
+
+    // A path that is a file in one point and a folder in the other is one path to the patterns, and the player's copy of it stays.
+    [Theory]
+    [InlineData("profile-a", "profile-b")]
+    [InlineData("profile-b", "profile-a")]
+    public async Task A_path_that_is_a_file_in_one_profile_and_a_folder_in_the_other_stays_as_the_player_has_it_when_the_patterns_name_it(string from, string to)
+    {
+        var (repo, _) = await FileAndFolderProfilesAsync();
+        if (from == "profile-a")
+        {
+            await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+        }
+
+        repo = repo with { IgnorePatterns = ["Mods/Foo"] };
+        var asFile = from == "profile-a";
+        var theirs = asFile ? "Mods/Foo" : "Mods/Foo/x.txt";
+        _ws.Write(repo, theirs, "the player's own copy");
+
+        await _ws.Engine.CheckoutBranchAsync(repo, to, ct: Ct);
+
+        Assert.Equal("refs/heads/" + to, await _ws.HeadRefAsync(repo));
+        Assert.True(File.Exists(_ws.FileOf(repo, theirs)), "the player's copy of " + theirs + " was removed");
+        Assert.Equal("the player's own copy", await File.ReadAllTextAsync(_ws.FileOf(repo, theirs), Ct));
+        Assert.Equal(asFile, File.Exists(_ws.FileOf(repo, "Mods/Foo")));
+        Assert.Equal(!asFile, Directory.Exists(_ws.FileOf(repo, "Mods/Foo")));
+        Assert.Equal(to == "profile-a", File.Exists(_ws.FileOf(repo, "a-only.txt")));
+        Assert.Equal(to == "profile-b", File.Exists(_ws.FileOf(repo, "b-only.txt")));
+        var status = await _ws.Engine.GetStatusAsync(repo, Ct);
+        Assert.True(status.IsClean);
+        Assert.Null(status.InterruptedSwitch);
+    }
+
     [Fact]
     public async Task A_switch_refuses_unsaved_edits_to_a_file_both_profiles_share_and_keeps_them()
     {
