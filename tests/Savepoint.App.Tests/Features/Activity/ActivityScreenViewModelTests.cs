@@ -1,5 +1,6 @@
 using Savepoint.App.Features.Activity;
 using Savepoint.App.Features.Common.Errors;
+using Savepoint.App.Features.Shell;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Tests.Features.Shell;
 using Savepoint.Core.Api;
@@ -141,6 +142,38 @@ public class ActivityScreenViewModelTests
     }
 
     // ---- Following the jobs
+
+    [Fact]
+    public async Task The_screen_lists_only_the_finished_jobs_the_registry_still_keeps_five_per_game()
+    {
+        var rig = await ActivityRig.ShownAsync();
+        var started = new List<Guid>();
+        for (var i = 0; i < 8; i++)
+        {
+            started.Add(await rig.StartFreeUpAsync());
+            rig.Backend.Jobs.Complete(started[^1]);
+            rig.Pass(TimeSpan.FromMinutes(1));
+        }
+
+        Assert.Equal(5, rig.Screen.Rows.Count);
+        Assert.Equal(started.Skip(3).Reverse(), rig.Screen.Rows.Select(row => row.JobId));
+        Assert.Equal(5, rig.Screen.Rows.Count(row => !row.IsRunning));
+    }
+
+    [Fact]
+    public async Task A_job_that_changes_while_another_screen_shows_is_listed_when_the_screen_comes_back_and_not_before()
+    {
+        var rig = await ActivityRig.StartAsync();
+        Assert.Empty(rig.Screen.Rows);
+
+        var id = await rig.StartCaptureAsync();
+
+        Assert.Empty(rig.Screen.Rows);
+
+        rig.Shell.Navigate(NavDestination.Activity);
+
+        Assert.Equal([id], rig.Screen.Rows.Select(row => row.JobId));
+    }
 
     [Fact]
     public async Task A_job_that_starts_appears_at_once_and_its_progress_moves_the_bar_in_place()

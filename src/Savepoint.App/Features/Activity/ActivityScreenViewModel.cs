@@ -15,9 +15,6 @@ namespace Savepoint.App.Features.Activity;
 /// </summary>
 public sealed partial class ActivityScreenViewModel : ObservableObject, IScreen, IDisposable
 {
-    // Finished jobs the registry has let go of are forgotten here too, once this many are held.
-    private const int _jobsKept = 200;
-
     private readonly IShellContext _shell;
     private readonly ActivityDependencies _deps;
     private readonly ActivityText _words;
@@ -152,6 +149,7 @@ public sealed partial class ActivityScreenViewModel : ObservableObject, IScreen,
             Take(job, announce: false);
         }
 
+        Forget();
         foreach (var row in _known.Values)
         {
             row.Apply(row.Job);
@@ -214,9 +212,16 @@ public sealed partial class ActivityScreenViewModel : ObservableObject, IScreen,
     private void OnJobChanged(object? sender, JobSnapshot job) =>
         _deps.Dispatcher.Post(() =>
         {
-            if (!_disposed)
+            if (_disposed)
             {
-                Take(job, announce: true);
+                return;
+            }
+
+            Take(job, announce: true);
+
+            // The list is rebuilt when the screen is shown again, so a screen that is not showing does not sort it for every progress report.
+            if (_shell.Destination == NavDestination.Activity)
+            {
                 RefreshRows();
             }
         });
@@ -243,6 +248,12 @@ public sealed partial class ActivityScreenViewModel : ObservableObject, IScreen,
                 Announce(Said(row));
             }
 
+            // A job that ends is what makes the registry let go of an older one.
+            if (job.Status != JobStatus.Running)
+            {
+                Forget();
+            }
+
             return;
         }
 
@@ -266,15 +277,12 @@ public sealed partial class ActivityScreenViewModel : ObservableObject, IScreen,
         Announced?.Invoke(this, message);
     }
 
-    // The jobs shown are the registry's to keep; a long session does not pile up every job it ever saw.
+    // The jobs shown are the registry's to keep: a finished job it has let go of (five per game, D44.5) is forgotten here too, so a long
+    // session never shows more than the footer promises. A job still running stays whatever the registry says.
     private void Forget()
     {
-        if (_known.Count <= _jobsKept)
-        {
-            return;
-        }
-
-        foreach (var old in _known.Values.Where(row => !row.IsRunning && !ReferenceEquals(row, _selected)).OrderBy(row => row.Job.FinishedAt).Take(_known.Count - _jobsKept).ToList())
+        var listed = _deps.Jobs.List().Select(job => job.JobId).ToHashSet();
+        foreach (var old in _known.Values.Where(row => !row.IsRunning && !listed.Contains(row.JobId)).ToList())
         {
             _known.Remove(old.JobId);
             _order.Remove(old.JobId);
