@@ -97,7 +97,7 @@ public sealed class LocalizationCatalog
         return new LocalizationCatalog(merged, locale, throwOnMissingKey);
     }
 
-    /// <summary>The locales shipped inside the app, one per folder under <c>Lang</c>, as language tags (<c>en</c>, <c>en-GB</c>); the language list in Settings is driven by this.</summary>
+    /// <summary>The locales shipped inside the app, one per folder under <c>Lang</c>, as language tags (<c>en</c>, <c>en-GB</c>). Settings offers no language list while this holds only English.</summary>
     public static IReadOnlyList<string> EmbeddedLocales() =>
         [.. EmbeddedFiles().Select(file => file.Locale).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase)];
 

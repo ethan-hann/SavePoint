@@ -129,19 +129,6 @@ public class ShellViewTests
     }
 
     [AvaloniaFact]
-    public void A_destination_without_a_screen_shows_the_placeholder()
-    {
-        // Built apart from the composition, which has a real screen for every destination that exists.
-        using var host = new ThemeHost(new ContentControl { Content = new PlaceholderScreenViewModel(NavDestination.History) }, width: 400, height: 200);
-        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
-
-        var texts = host.Window.GetVisualDescendants().OfType<TextBlock>().Select(block => block.Text);
-
-        Assert.Single(host.Window.GetVisualDescendants().OfType<PlaceholderScreenView>());
-        Assert.Contains("This screen is under construction.", texts);
-    }
-
-    [AvaloniaFact]
     public async Task Nothing_in_the_shell_is_an_unnamed_icon_button()
     {
         using var harness = await ShellViewHarness.StartAsync();

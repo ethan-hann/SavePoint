@@ -22,6 +22,9 @@ public class GamesScreenViewTests
 {
     private static List<Button> PlayButtons(GamesViewHarness harness) => [.. harness.All<Button>().Where(button => button.Name == "PlayButton")];
 
+    private static List<Border> Rows(GamesViewHarness harness) =>
+        [.. harness.Find<ItemsControl>("Rows").GetVisualDescendants().OfType<Border>().Where(border => border.Classes.Contains("table-row"))];
+
     private static List<Button> MoreButtons(GamesViewHarness harness) => [.. harness.All<Button>().Where(button => button.Name == "MoreButton")];
 
     private static void Press(GamesViewHarness harness, Control control, Key key)
@@ -196,6 +199,21 @@ public class GamesScreenViewTests
     }
 
     [AvaloniaFact]
+    public async Task The_storage_footer_sits_at_the_bottom_of_the_pane_below_the_table_as_the_mockup_draws_it()
+    {
+        using var harness = await GamesViewHarness.StartAsync();
+        var root = harness.Find<Grid>("Root");
+        var footer = harness.Find<Border>("StorageFooter");
+        var table = harness.Find<Border>("Table");
+
+        var footerBottom = footer.TranslatePoint(new Point(0, footer.Bounds.Height), root)!.Value.Y;
+        var tableBottom = table.TranslatePoint(new Point(0, table.Bounds.Height), root)!.Value.Y;
+
+        Assert.Equal(root.Bounds.Height, footerBottom, 1.0);
+        Assert.True(footer.Bounds.Top > tableBottom + 40, "the footer is pinned to the pane, not drawn straight under the table");
+    }
+
+    [AvaloniaFact]
     public async Task The_history_chip_goes_to_history_and_neither_chip_flips_when_pressed()
     {
         using var harness = await GamesViewHarness.StartAsync();
@@ -233,6 +251,28 @@ public class GamesScreenViewTests
         Press(harness, more, Key.Enter);
 
         Assert.True(more.Flyout!.IsOpen);
+    }
+
+    [AvaloniaFact]
+    public async Task Enter_on_a_focused_row_starts_play_for_that_profile_once()
+    {
+        using var harness = await GamesViewHarness.StartAsync();
+
+        Press(harness, Rows(harness)[2], Key.Enter);
+
+        var begun = Assert.Single(harness.Rig.LaunchFlow!.Begun);
+        Assert.Equal(new LaunchTarget.ProfileTip(MockupScenario.SurvivalId), begun.Target);
+    }
+
+    [AvaloniaFact]
+    public async Task Enter_on_a_row_that_cannot_play_starts_nothing()
+    {
+        using var harness = await GamesViewHarness.StartAsync();
+        harness.Rig.Screen.Profiles[2].SetCanPlay(false);
+
+        Press(harness, Rows(harness)[2], Key.Enter);
+
+        Assert.Empty(harness.Rig.LaunchFlow!.Begun);
     }
 
     [AvaloniaFact]

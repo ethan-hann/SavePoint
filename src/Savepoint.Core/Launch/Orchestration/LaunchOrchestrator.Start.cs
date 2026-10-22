@@ -158,14 +158,26 @@ public sealed partial class LaunchOrchestrator
     {
         Report(context, gameId, JobProgress.None);
         var done = 0;
+        var doneBytes = 0L;
         foreach (var folder in folders)
         {
             var offset = done;
+            var bytesOffset = doneBytes;
             var last = 0;
+            var lastBytes = 0L;
             var progress = new InlineProgress<FileProgress>(value =>
             {
                 last = value.FilesDone;
-                Report(context, gameId, new JobProgress(offset + value.FilesDone, value.FilesTotal is { } total ? offset + total : null, null, null, value.CurrentPath));
+                lastBytes = value.BytesDone ?? lastBytes;
+                Report(
+                    context,
+                    gameId,
+                    new JobProgress(
+                        offset + value.FilesDone,
+                        value.FilesTotal is { } total ? offset + total : null,
+                        value.BytesDone is { } bytes ? bytesOffset + bytes : null,
+                        value.BytesTotal is { } bytesTotal ? bytesOffset + bytesTotal : null,
+                        value.CurrentPath));
             });
             var target = folder.Target;
             if (target.Branch is { } branch)
@@ -178,6 +190,7 @@ public sealed partial class LaunchOrchestrator
             }
 
             done = offset + last;
+            doneBytes = bytesOffset + lastBytes;
         }
     }
 

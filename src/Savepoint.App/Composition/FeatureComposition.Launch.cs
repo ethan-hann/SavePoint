@@ -7,7 +7,7 @@ public static partial class FeatureComposition
 {
     /// <summary>The shell-owned launch flow (D13.19), built once for the shell and kept above every screen.</summary>
     /// <param name="context">Shared App services.</param>
-    public static ILaunchFlowHost? LaunchFlow(FeatureContext context)
+    public static ILaunchFlowHost LaunchFlow(FeatureContext context)
     {
         var api = context.Services;
         return new LaunchFlowViewModel(new LaunchDependencies(

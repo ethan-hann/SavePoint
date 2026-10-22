@@ -3,6 +3,7 @@ using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Platform;
 using Avalonia.Threading;
 using Savepoint.App.Features.Common.Formatting;
 
@@ -25,6 +26,11 @@ public sealed class AlreadyRunningWindow : Window
     public AlreadyRunningWindow(UiFormatter text)
     {
         Title = text.Message("app.name");
+        using (var icon = AssetLoader.Open(new Uri("avares://SavePoint/Assets/Icon/savepoint-256.png")))
+        {
+            Icon = new WindowIcon(icon);
+        }
+
         CanResize = false;
         SizeToContent = SizeToContent.WidthAndHeight;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;

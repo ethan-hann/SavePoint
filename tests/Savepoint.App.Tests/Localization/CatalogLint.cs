@@ -43,6 +43,18 @@ internal static class CatalogLint
         ("HEAD", new Regex(@"\bHEAD\b", RegexOptions.CultureInvariant)),
     ];
 
+    // A hyphen, double hyphen or en dash with a space on both sides; a hyphen inside a word or a number range written without spaces is fine.
+    private static readonly Regex _spacedDash = new(@"\s(?:-{1,2}|–)\s", RegexOptions.CultureInvariant);
+
+    // The British spellings that could plausibly turn up in copy; the stems are anchored so that "organism" and "realistic" do not match.
+    private static readonly Regex _nonAmerican = new(
+        @"\b(?:(?:colour|favour|behaviour|honour|neighbour|flavour)(?:s|ed|ing|ite|ites)?"
+        + @"|(?:optimis|organis|recognis|initialis|customis|summaris|synchronis|authoris|realis|prioritis|minimis|maximis|normalis|utilis|visualis|finalis|categoris|specialis|standardis|apologis)(?:e|es|ed|ing|ation|ations|er|ers)"
+        + @"|(?:centre|metre|litre|catalogue|dialogue|grey|programme|defence|offence|licence|artefact|mould)(?:s|d)?"
+        + @"|cancell(?:ed|ing|ation|ations)|travell(?:ed|er|ers|ing)|labell(?:ed|ing)|modell(?:ed|ing)"
+        + @"|analys(?:e|es|ed|ing)|practis(?:e|es|ed|ing)|judgement|ageing|whilst|amongst|learnt|fulfil|enrol)\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
     private static readonly string[] _operatingSystems = ["windows", "macos", "linux"];
 
     // Past this many argument combinations each argument is varied on its own, so a long message cannot make the test slow.
@@ -94,6 +106,26 @@ internal static class CatalogLint
             .SelectMany(entry => _banned
                 .Where(banned => banned.Pattern.IsMatch(entry.Value))
                 .Select(banned => $"'{entry.Key}' uses the banned word '{banned.Word}': {entry.Value}"))
+            .ToList();
+
+    // An aside is set off with an em dash, never a spaced hyphen. Default names stay as they are: they become file-safe profile names.
+    public static IReadOnlyList<string> SpacedHyphens(IReadOnlyDictionary<string, string> catalog) =>
+        catalog.OrderBy(entry => entry.Key, StringComparer.Ordinal)
+            .Where(entry => !entry.Key.EndsWith(".defaultName", StringComparison.Ordinal) && _spacedDash.IsMatch(entry.Value))
+            .Select(entry => $"'{entry.Key}' sets off an aside with a spaced hyphen or en dash; use an em dash: {entry.Value}")
+            .ToList();
+
+    // A helper line is a sentence under a field, so it ends with a period.
+    public static IReadOnlyList<string> HelperLinesWithoutPeriod(IReadOnlyDictionary<string, string> catalog) =>
+        catalog.OrderBy(entry => entry.Key, StringComparer.Ordinal)
+            .Where(entry => entry.Key[(entry.Key.LastIndexOf('.') + 1)..].Contains("helper", StringComparison.OrdinalIgnoreCase) && !entry.Value.TrimEnd().EndsWith('.'))
+            .Select(entry => $"'{entry.Key}' is a helper line and has to end with a period: {entry.Value}")
+            .ToList();
+
+    // Copy is American English; values are checked, not keys, which keep their names.
+    public static IReadOnlyList<string> NonAmericanSpellings(IReadOnlyDictionary<string, string> catalog) =>
+        catalog.OrderBy(entry => entry.Key, StringComparer.Ordinal)
+            .SelectMany(entry => _nonAmerican.Matches(entry.Value).Select(match => $"'{entry.Key}' uses '{match.Value}'; copy is American English: {entry.Value}"))
             .ToList();
 
     public static IReadOnlyList<IcuArgument> Arguments(string message)

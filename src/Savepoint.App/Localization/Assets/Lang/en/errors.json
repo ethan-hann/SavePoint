@@ -28,7 +28,7 @@
   "error.launch.canceled": "Switching was canceled.",
   "error.launch.completionNotOffered": "SavePoint can't save this play session that way. Pick one of the choices it offers after playing.",
   "error.launch.detachedCaptureNotSupported": "You're viewing an older save of this profile. Switch it back to the latest save before keeping new progress.",
-  "error.launch.dirtyWorkingTree": "There are unsaved changes in the way - resolve them and try again.",
+  "error.launch.dirtyWorkingTree": "There are unsaved changes in the way — resolve them and try again.",
   "error.launch.noActiveSession": "SavePoint isn't tracking a play session for this game right now. Start the game from SavePoint to begin one.",
   "error.launch.sessionMoved": "The game's files changed outside this play session, so SavePoint can't safely keep your new progress here. Start the game again from SavePoint and play from the save you want to keep.",
   "error.launch.sessionStillRunning": "The game is still running. Close it, then try again.",

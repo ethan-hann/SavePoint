@@ -135,9 +135,8 @@ public sealed partial class GameEditorViewModel
         {
             ShowIssues(issues);
         }
-        else if (_folderErrorIds.Contains(error.MessageId))
+        else if (_folderErrorIds.Contains(error.MessageId) && FolderRoleOf(error, resolved) is { } role)
         {
-            var role = FolderRoleOf(error, resolved);
             if (error.MessageId == "error.consentMarker.missing")
             {
                 _unconfirmed.Add(role);
@@ -170,8 +169,8 @@ public sealed partial class GameEditorViewModel
             ? [.. list]
             : null;
 
-    // The error names its folder by role, or by the path it refused; an overlap names neither, so it goes under the folder the user changed.
-    private RepoRole FolderRoleOf(ErrorInfo error, IReadOnlyDictionary<RepoRole, string> resolved)
+    // The Api names the folder by role or by the path it refused; an error naming neither goes above the form, not under a field it may not be about.
+    private static RepoRole? FolderRoleOf(ErrorInfo error, IReadOnlyDictionary<RepoRole, string> resolved)
     {
         if (error.Args.TryGetValue("role", out var role) && RoleOf(role) is { } named)
         {
@@ -189,7 +188,7 @@ public sealed partial class GameEditorViewModel
             }
         }
 
-        return ChangedFolder() ?? RepoRole.Install;
+        return null;
     }
 
     private static RepoRole? RoleOf(object? value) => value switch
@@ -199,20 +198,4 @@ public sealed partial class GameEditorViewModel
         "external" => RepoRole.External,
         _ => null,
     };
-
-    // Only an edit can tell which folder was changed; a new game's folders are all new, and the install folder comes first.
-    private RepoRole? ChangedFolder()
-    {
-        if (_saved is null)
-        {
-            return null;
-        }
-
-        if (!string.Equals(InstallPath.Trim(), _saved.Install.Path.Trim(), StringComparison.Ordinal))
-        {
-            return RepoRole.Install;
-        }
-
-        return string.Equals(SavesPath.Trim(), (_saved.External?.Path ?? string.Empty).Trim(), StringComparison.Ordinal) ? null : RepoRole.External;
-    }
 }

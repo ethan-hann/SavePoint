@@ -19,8 +19,8 @@ namespace Savepoint.App.Features.Shell;
 /// <param name="Dialogs">Dialogs and pickers.</param>
 /// <param name="Toasts">Where job results and failures are announced.</param>
 /// <param name="Theme">Applies the saved theme and accent.</param>
-/// <param name="Screens">One factory per destination; a destination without one shows a placeholder.</param>
-/// <param name="LaunchFlow">The launch flow, or null while none exists.</param>
+/// <param name="Screens">One factory per destination; the shell refuses to start without one for every destination.</param>
+/// <param name="LaunchFlow">The launch flow that owns starting a game; without one, Play does nothing.</param>
 /// <param name="Artwork">Each game's artwork for its tiles; null when the app has no artwork Api, which leaves every game its name tint.</param>
 public sealed record ShellDependencies(
     IGamesApi Games,

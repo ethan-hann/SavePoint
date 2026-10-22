@@ -203,6 +203,19 @@ public class GamesManageTests
     }
 
     [Fact]
+    public async Task An_edit_whose_saves_folder_overlaps_another_game_names_the_saves_role()
+    {
+        using var workspace = new BackendWorkspace();
+        var alpha = await workspace.AddGameAsync(workspace.NewGame("Alpha"));
+        var beta = await workspace.AddGameAsync(workspace.NewGame("Beta"));
+
+        var updated = await workspace.Games.UpdateAsync(beta with { External = new ExternalLocation(Path.Combine(alpha.Install.Path, "data")) });
+
+        Assert.Equal("error.gameService.pathOverlap", updated.Error?.MessageId);
+        Assert.Equal("external", updated.Error!.Args["role"]);
+    }
+
+    [Fact]
     public async Task Editing_an_unknown_game_is_an_error()
     {
         using var workspace = new BackendWorkspace();

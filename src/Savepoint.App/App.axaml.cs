@@ -22,7 +22,7 @@ public partial class App : Application
 
     /// <summary>
     /// The Api the app runs on. <c>Main</c> sets it from the real backend before the window opens; a test sets it to run
-    /// against anything else. Null makes the startup screen say services are not available.
+    /// against anything else. The main window cannot be built without it.
     /// </summary>
     public static AppServices? Services { get; set; }
 
@@ -64,9 +64,10 @@ public partial class App : Application
                 return;
             }
 
+            var services = Services ?? throw new InvalidOperationException("App.Services must be set before the main window is built.");
             var window = new MainWindow();
             var main = AppComposition.Create(
-                Services,
+                services,
                 text,
                 new ThemeServiceApplier(Theme),
                 () => window.StorageProvider);
@@ -80,9 +81,9 @@ public partial class App : Application
                 desktop.Exit += (_, _) => uiThreadHook.Dispose();
             }
 
-            if (IntegrateWithSystem && Services is not null)
+            if (IntegrateWithSystem)
             {
-                var integration = HostIntegration.Attach(window, Theme, Services, text, SingleInstance);
+                var integration = HostIntegration.Attach(window, Theme, services, text, SingleInstance);
                 desktop.Exit += (_, _) => integration.Dispose();
             }
         }

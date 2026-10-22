@@ -10,16 +10,16 @@ namespace Savepoint.App.Features.Shell;
 /// </summary>
 public sealed class ExitGuard
 {
-    private readonly IJobsApi? _jobs;
+    private readonly IJobsApi _jobs;
     private readonly IDialogs _dialogs;
     private readonly UiFormatter _text;
     private readonly TimeSpan _wait;
 
-    /// <param name="jobs">The jobs Api; null while no services exist, when nothing can be running.</param>
+    /// <param name="jobs">The jobs Api, to see what is running.</param>
     /// <param name="dialogs">Asks the question.</param>
     /// <param name="text">Formats the question.</param>
     /// <param name="wait">How long to wait for cancelled jobs to end; three seconds when null.</param>
-    public ExitGuard(IJobsApi? jobs, IDialogs dialogs, UiFormatter text, TimeSpan? wait = null)
+    public ExitGuard(IJobsApi jobs, IDialogs dialogs, UiFormatter text, TimeSpan? wait = null)
     {
         _jobs = jobs;
         _dialogs = dialogs;
@@ -31,11 +31,6 @@ public sealed class ExitGuard
     /// <returns>True when the window may close; false when the user chose to stay.</returns>
     public async Task<bool> PrepareToCloseAsync()
     {
-        if (_jobs is null)
-        {
-            return true;
-        }
-
         var running = _jobs.List().Where(job => job.Status == JobStatus.Running).ToList();
         if (running.Count == 0)
         {

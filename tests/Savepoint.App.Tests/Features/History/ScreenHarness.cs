@@ -8,6 +8,7 @@ using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Tests.Fakes;
+using Savepoint.App.Tests.Features.Shell;
 using Savepoint.App.Tests.Theme;
 using Savepoint.Core.Catalog;
 
@@ -84,7 +85,7 @@ internal sealed class ScreenHarness : IDisposable
                 dialogs,
                 toasts,
                 new ThemeServiceApplier(app.Theme),
-                factories(context),
+                StandInScreens.Complete(factories(context)),
                 flow)),
             dialogStack,
             toasts);

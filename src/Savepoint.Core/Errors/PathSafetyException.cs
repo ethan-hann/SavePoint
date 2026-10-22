@@ -3,7 +3,8 @@ namespace Savepoint.Core.Errors;
 /// <summary>
 /// A folder SavePoint refuses to track because it is a protected system or user location. Tier 1 blocks the folder, anything
 /// inside it, and any folder that would contain one; tier 2 blocks only that exact folder, a whole mounted drive, or a Steam
-/// library folder. Ids: <c>error.pathSafety.tier1Blocked</c> and <c>error.pathSafety.tier2Blocked</c>. Args: <c>path</c>, <c>tier</c>.
+/// library folder. Ids: <c>error.pathSafety.tier1Blocked</c> and <c>error.pathSafety.tier2Blocked</c>. Args: <c>path</c>, <c>tier</c>; when
+/// the games Api refuses one folder of a game it adds <c>role</c> (<c>install</c> or <c>external</c>).
 /// </summary>
 public sealed class PathSafetyException : SavepointException
 {

@@ -226,7 +226,7 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
         foreach (var destination in Enum.GetValues<NavDestination>())
         {
             var factory = _deps.Screens.FirstOrDefault(candidate => candidate.Destination == destination);
-            _screens[destination] = factory?.Create(this) ?? new PlaceholderScreenViewModel(destination);
+            _screens[destination] = factory?.Create(this) ?? throw new InvalidOperationException($"No screen is registered for the {destination} destination.");
         }
 
         IsLoaded = true;

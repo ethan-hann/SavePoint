@@ -15,8 +15,8 @@ public interface IScreen
 }
 
 /// <summary>
-/// Creates a screen for the shell. Register one per destination in <c>AppComposition</c>; a destination with no
-/// factory shows a placeholder.
+/// Creates a screen for the shell. Register one per destination in <c>AppComposition</c>; the shell refuses to start
+/// when a destination has none.
 /// </summary>
 public interface IScreenFactory
 {

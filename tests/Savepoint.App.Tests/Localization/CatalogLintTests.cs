@@ -11,6 +11,24 @@ public class CatalogLintTests
     }
 
     [Fact]
+    public void English_catalog_sets_off_asides_with_an_em_dash_never_a_spaced_hyphen()
+    {
+        LintAssert.NoProblems(CatalogLint.SpacedHyphens(CatalogLint.English()));
+    }
+
+    [Fact]
+    public void Every_english_helper_line_ends_with_a_period()
+    {
+        LintAssert.NoProblems(CatalogLint.HelperLinesWithoutPeriod(CatalogLint.English()));
+    }
+
+    [Fact]
+    public void English_catalog_is_in_american_spelling()
+    {
+        LintAssert.NoProblems(CatalogLint.NonAmericanSpellings(CatalogLint.English()));
+    }
+
+    [Fact]
     public void Every_english_message_parses_and_formats()
     {
         LintAssert.NoProblems(CatalogLint.FormatProblems("en", CatalogLint.English()));

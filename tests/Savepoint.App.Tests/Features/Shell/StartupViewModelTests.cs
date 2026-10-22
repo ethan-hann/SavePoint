@@ -1,5 +1,4 @@
 using Savepoint.App.Features.Common;
-using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Hosting;
@@ -329,21 +328,6 @@ public class StartupViewModelTests
         await main.Startup.CheckAsync();
 
         Assert.Empty(main.Startup.Card!.Actions);
-    }
-
-    [Fact]
-    public async Task With_no_services_connected_the_screen_says_it_is_not_ready_and_never_becomes_ready()
-    {
-        var startup = new StartupViewModel(null, _text);
-        var ready = 0;
-        startup.Ready += (_, _) => ready++;
-
-        await startup.CheckAsync();
-
-        Assert.Equal(StartupPhase.Unavailable, startup.Phase);
-        Assert.Equal("SavePoint isn't ready yet", startup.Card!.Title);
-        Assert.Equal(ErrorTone.Neutral, startup.Card.Tone);
-        Assert.Equal(0, ready);
     }
 
     [Fact]

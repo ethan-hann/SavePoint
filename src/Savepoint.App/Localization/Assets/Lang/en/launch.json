@@ -57,7 +57,7 @@
   "launch.keep.defaultName": "Kept changes - {date}",
   "launch.keep.failed": "SavePoint couldn't create the profile. {reason}",
   "launch.keep.nameLabel": "Profile name",
-  "launch.keep.partial": "Only part of that was kept. {reason} Your unsaved changes are still on disk - try again, or discard them.",
+  "launch.keep.partial": "Only part of that was kept. {reason} Your unsaved changes are still on disk — try again, or discard them.",
   "launch.keep.title": "Keep as a new profile",
   "launch.partial.body": "{saved, select, install {Your game version and mods were saved. Your save files weren't.} external {Your save files were saved. Your game version and mods weren't.} other {Part of your session was saved, and part wasn't.}} {reason} Fix that and retry just that part; nothing you already saved is affected.",
   "launch.partial.folder.external": "Saves",

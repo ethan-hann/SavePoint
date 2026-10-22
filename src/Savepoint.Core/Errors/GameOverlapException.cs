@@ -3,7 +3,7 @@ namespace Savepoint.Core.Errors;
 /// <summary>
 /// A game's folders are the same as, or inside, another game's folders, so two games would track the same files
 /// (<c>error.gameService.pathOverlap</c>). Adding or updating a game refuses it. Args: <c>conflictingGameId</c>,
-/// <c>conflictingGameName</c>.
+/// <c>conflictingGameName</c>; the games Api adds <c>role</c> (<c>install</c> or <c>external</c>), the folder of the game being saved that overlaps.
 /// </summary>
 public sealed class GameOverlapException : SavepointException
 {

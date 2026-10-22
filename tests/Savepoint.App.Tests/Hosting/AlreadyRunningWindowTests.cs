@@ -23,6 +23,14 @@ public class AlreadyRunningWindowTests
     }
 
     [AvaloniaFact]
+    public void The_notice_wears_the_app_icon()
+    {
+        var window = new AlreadyRunningWindow(new UiFormatter(LocalizationCatalog.Current));
+
+        Assert.NotNull(window.Icon);
+    }
+
+    [AvaloniaFact]
     public void The_ok_button_closes_the_notice()
     {
         var window = new AlreadyRunningWindow(new UiFormatter(LocalizationCatalog.Current));

@@ -254,11 +254,12 @@ public sealed partial class GitEngine
         var plan = await PlanSwitchAsync(repo, from, to, note, ct).ConfigureAwait(false);
         LinkedFolders.RefuseAny(repo.WorkTree, plan.Touched, ct);
         await RequireNothingInTheWayAsync(repo, from, to, force, note, plan, ct).ConfigureAwait(false);
-        await EnsureCheckoutSpaceAsync(repo, plan.Changes, ct).ConfigureAwait(false);
+        var sizes = await ObjectSizesAsync(repo, plan.Changes.SelectMany(change => new[] { change.OldId, change.NewId }), ct).ConfigureAwait(false);
+        EnsureCheckoutSpace(repo, plan.Changes, sizes);
 
         using var scope = BeginWrite(repo);
         SwitchJournal.Write(repo.GitDir, note?.FromCommit ?? from, to, isBranch ? target : null);
-        var reporter = progress is null ? null : new ProgressReporter(progress);
+        var reporter = progress is null ? null : new ProgressReporter(progress, new CheckoutBytePlan(plan.Changes, sizes));
 
         await RunCheckoutAsync(repo, target, to, isBranch, force, ownsNote: note is null, reporter, ct).ConfigureAwait(false);
         reporter?.Complete();
@@ -268,9 +269,8 @@ public sealed partial class GitEngine
         SwitchJournal.Clear(repo.GitDir);
     }
 
-    private async Task EnsureCheckoutSpaceAsync(RepoRef repo, IReadOnlyList<TreeChange> changes, CancellationToken ct)
+    private void EnsureCheckoutSpace(RepoRef repo, IReadOnlyList<TreeChange> changes, Dictionary<string, long> sizes)
     {
-        var sizes = await ObjectSizesAsync(repo, changes.SelectMany(change => new[] { change.OldId, change.NewId }), ct).ConfigureAwait(false);
         var growth = changes.Sum(change => sizes.GetValueOrDefault(change.NewId) - sizes.GetValueOrDefault(change.OldId));
         var required = _options.MinFreeBytesForCheckout + Math.Max(0, growth);
 

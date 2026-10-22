@@ -31,9 +31,6 @@ public enum StartupPhase
 
     /// <summary>The check itself failed.</summary>
     Failed,
-
-    /// <summary>No services are connected to this build.</summary>
-    Unavailable,
 }
 
 /// <summary>One unreadable catalog file on the recovery screen: an error card with the choices for it.</summary>
@@ -48,7 +45,7 @@ public sealed record CorruptFileViewModel(CorruptCatalogFile File, ErrorCardView
 /// </summary>
 public sealed partial class StartupViewModel : ObservableObject
 {
-    private readonly IAppStatusApi? _status;
+    private readonly IAppStatusApi _status;
     private readonly UiFormatter _text;
     private readonly bool _canTryAgain;
     private readonly string? _logFolder;
@@ -76,14 +73,14 @@ public sealed partial class StartupViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(HasStorageActionError))]
     private string? _storageActionError;
 
-    /// <param name="status">The startup Api; null when no services are connected, which shows the unavailable screen.</param>
+    /// <param name="status">The startup Api the checks run against.</param>
     /// <param name="text">Formats the screens' copy.</param>
     /// <param name="canTryAgain">False when a failed check cannot succeed on a second try, as when the backend never started.</param>
     /// <param name="logFolder">The folder the diagnostic log is written to; the screen for a backend that never started shows it and offers to open it. Null when there is none.</param>
     /// <param name="revealer">Opens the log folder in the file manager.</param>
     /// <param name="dialogs">Asks before a recovery that begins again with nothing; without it that recovery goes ahead at once.</param>
     public StartupViewModel(
-        IAppStatusApi? status,
+        IAppStatusApi status,
         UiFormatter text,
         bool canTryAgain = true,
         string? logFolder = null,
@@ -138,18 +135,6 @@ public sealed partial class StartupViewModel : ObservableObject
         Card = null;
         LogFolderError = null;
         StorageActionError = null;
-
-        if (_status is null)
-        {
-            Phase = StartupPhase.Unavailable;
-            Card = ErrorCardViewModel.Custom(
-                _text,
-                Icons.Info,
-                ErrorTone.Neutral,
-                _text.Message("startup.unavailable.title"),
-                _text.Message("startup.unavailable.body"));
-            return;
-        }
 
         Phase = StartupPhase.Checking;
         var checkedStatus = await _status.CheckAsync();

@@ -1,7 +1,0 @@
-<UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:loc="using:Savepoint.App.Localization"
-             x:Class="Savepoint.App.Features.Shell.PlaceholderScreenView">
-  <!-- What a destination shows until its real screen is registered. -->
-  <TextBlock Classes="body muted" HorizontalAlignment="Center" VerticalAlignment="Center" Text="{loc:Loc shell.placeholder.comingSoon}" />
-</UserControl>

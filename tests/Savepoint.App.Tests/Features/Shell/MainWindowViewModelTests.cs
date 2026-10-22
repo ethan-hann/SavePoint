@@ -36,7 +36,7 @@ public class MainWindowViewModelTests
                     new FakeDialogs(),
                     toasts,
                     new RecordingThemeApplier(),
-                    []));
+                    StandInScreens.Complete([])));
                 shells.Add(shell);
                 return shell;
             },

@@ -56,7 +56,7 @@ public class ProfileDialogViewModelTests
     {
         var dialog = Edit(detected: "1.6.640");
 
-        Assert.Equal("Leave blank to use the detected version, 1.6.640", dialog.VersionHelper);
+        Assert.Equal("Leave blank to use the detected version, 1.6.640.", dialog.VersionHelper);
         Assert.Equal("1.6.640", dialog.VersionPlaceholder);
     }
 
@@ -65,7 +65,7 @@ public class ProfileDialogViewModelTests
     {
         var dialog = Edit(detected: null);
 
-        Assert.Equal("No version could be detected - enter one to show it in the profile list", dialog.VersionHelper);
+        Assert.Equal("No version could be detected — enter one to show it in the profile list.", dialog.VersionHelper);
         Assert.Null(dialog.VersionPlaceholder);
     }
 

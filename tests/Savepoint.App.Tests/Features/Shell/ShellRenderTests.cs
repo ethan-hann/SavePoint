@@ -108,15 +108,6 @@ public class ShellRenderTests
     }
 
     [AvaloniaFact]
-    public async Task Startup_services_unavailable_dark_renders_to_a_png()
-    {
-        using var window = StartupWindow(null, ThemePreference.Dark);
-        await window.Main.InitializeAsync();
-
-        AssertRendered(window.Render("startup-unavailable-dark"));
-    }
-
-    [AvaloniaFact]
     public async Task Startup_git_unavailable_dark_renders_to_a_png()
     {
         var path = @"C:\Program Files\SavePoint\git\cmd\git.exe";
@@ -161,19 +152,17 @@ public class ShellRenderTests
         AssertRendered(path);
     }
 
-    private static StartupHarness StartupWindow(FakeBackend? backend, ThemePreference theme) => new(backend, theme);
+    private static StartupHarness StartupWindow(FakeBackend backend, ThemePreference theme) => new(backend, theme);
 
-    // The startup screens only: composed without services when no backend is given, which is how the app starts today.
+    // The startup screens only.
     private sealed class StartupHarness : IDisposable
     {
         private readonly ThemeHost _host;
 
-        public StartupHarness(FakeBackend? backend, ThemePreference theme)
+        public StartupHarness(FakeBackend backend, ThemePreference theme)
         {
             var text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), os: "windows", timeZone: TimeZoneInfo.Utc);
-            var services = backend is null
-                ? null
-                : new AppServices(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus);
+            var services = new AppServices(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus);
             Main = AppComposition.Create(
                 services,
                 text,

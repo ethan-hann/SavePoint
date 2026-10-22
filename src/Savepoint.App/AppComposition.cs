@@ -15,11 +15,8 @@ namespace Savepoint.App;
 /// </summary>
 public static class AppComposition
 {
-    /// <summary>
-    /// Builds the main window's view model. With no <paramref name="services"/> the startup screen says services are
-    /// not available and the shell never appears.
-    /// </summary>
-    /// <param name="services">The Api to build from; null while no real services exist.</param>
+    /// <summary>Builds the main window's view model: the startup checks first, then the shell once they pass.</summary>
+    /// <param name="services">The Api to build from.</param>
     /// <param name="text">Formats every message.</param>
     /// <param name="theme">Applies the saved theme once settings load.</param>
     /// <param name="storage">The storage provider of the window pickers attach to; null while no window exists.</param>
@@ -28,7 +25,7 @@ public static class AppComposition
     /// <param name="dialogs">Replaces the dialogs and pickers, for tests; the real ones over the window's dialog overlay when null.</param>
     /// <param name="settingsEnvironment">Replaces what Settings reads from the machine, for tests; the running app's when null.</param>
     public static MainWindowViewModel Create(
-        AppServices? services,
+        AppServices services,
         UiFormatter text,
         IThemeApplier theme,
         Func<IStorageProvider?> storage,
@@ -41,18 +38,17 @@ public static class AppComposition
         var toasts = new ToastHostViewModel(clock ?? TimeProvider.System, ui);
         var dialogStack = new DialogHostViewModel();
         var pickers = dialogs ?? new AvaloniaDialogs(dialogStack, text, storage);
-        var startup = new StartupViewModel(services?.AppStatus, text, services?.BackendStarted ?? true, services?.LogFolder, services?.FileRevealer, pickers);
+        var startup = new StartupViewModel(services.AppStatus, text, services.BackendStarted, services.LogFolder, services.FileRevealer, pickers);
 
         ShellViewModel CreateShell()
         {
-            var api = services!;
-            var feature = new FeatureContext(api, pickers, text, toasts, ui, clock);
+            var feature = new FeatureContext(services, pickers, text, toasts, ui, clock);
             return new(new ShellDependencies(
-                api.Games,
-                api.Profiles,
-                api.Settings,
+                services.Games,
+                services.Profiles,
+                services.Settings,
                 feature.SettingsWriter,
-                api.Jobs,
+                services.Jobs,
                 text,
                 ui,
                 pickers,
@@ -63,21 +59,18 @@ public static class AppComposition
                 Artwork: FeatureComposition.Artwork(feature)));
         }
 
-        return new MainWindowViewModel(startup, CreateShell, dialogStack, toasts, new ExitGuard(services?.Jobs, pickers, text));
+        return new MainWindowViewModel(startup, CreateShell, dialogStack, toasts, new ExitGuard(services.Jobs, pickers, text));
     }
 
-    /// <summary>
-    /// One factory per screen, each supplied by its feature's <see cref="FeatureComposition"/> file; a destination without
-    /// a factory shows the placeholder.
-    /// </summary>
+    /// <summary>One factory per screen, each supplied by its feature's <see cref="FeatureComposition"/> file.</summary>
     private static IReadOnlyList<IScreenFactory> ScreenFactories(FeatureContext feature, SettingsEnvironment? settingsEnvironment)
     {
         var editor = FeatureComposition.GameEditor(feature);
-        return new[]
-        {
+        return
+        [
             FeatureComposition.GamesScreen(feature, editor),
             FeatureComposition.HistoryScreen(feature, editor),
             FeatureComposition.SettingsScreen(feature, editor, settingsEnvironment),
-        }.OfType<IScreenFactory>().ToList();
+        ];
     }
 }
