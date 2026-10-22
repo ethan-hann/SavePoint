@@ -117,18 +117,22 @@ public sealed class GitBinaryTests : IDisposable
     }
 
     [Fact]
-    public void Hooks_and_the_file_system_monitor_are_switched_off_through_the_environment_whatever_the_parent_set()
+    public void Hooks_the_file_system_monitor_and_signing_are_switched_off_through_the_environment_whatever_the_parent_set()
     {
         var parent = new Dictionary<string, string> { ["GIT_CONFIG_COUNT"] = "1", ["GIT_CONFIG_KEY_0"] = "core.hooksPath", ["GIT_CONFIG_VALUE_0"] = "/elsewhere" };
 
         var binary = Create(MakeBundle("bin/git"), _linux, parent);
 
         var environment = binary.BaseEnvironment;
-        Assert.Equal("2", environment["GIT_CONFIG_COUNT"]);
+        Assert.Equal("4", environment["GIT_CONFIG_COUNT"]);
         Assert.Equal("core.hooksPath", environment["GIT_CONFIG_KEY_0"]);
         Assert.Equal(binary.NoHooksPath, environment["GIT_CONFIG_VALUE_0"]);
         Assert.Equal("core.fsmonitor", environment["GIT_CONFIG_KEY_1"]);
         Assert.Equal("false", environment["GIT_CONFIG_VALUE_1"]);
+        Assert.Equal("commit.gpgSign", environment["GIT_CONFIG_KEY_2"]);
+        Assert.Equal("false", environment["GIT_CONFIG_VALUE_2"]);
+        Assert.Equal("tag.gpgSign", environment["GIT_CONFIG_KEY_3"]);
+        Assert.Equal("false", environment["GIT_CONFIG_VALUE_3"]);
         Assert.True(Directory.Exists(binary.NoHooksPath));
         Assert.Empty(Directory.GetFileSystemEntries(binary.NoHooksPath));
     }

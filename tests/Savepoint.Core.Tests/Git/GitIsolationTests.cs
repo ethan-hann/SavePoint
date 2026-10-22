@@ -124,6 +124,42 @@ public sealed class GitIsolationTests : IDisposable
         Assert.False(File.Exists(monitorRan), "the program named by core.fsmonitor ran");
     }
 
+    // The repository's own config outranks the global file, so signing is switched off the way hooks are: by the environment. commit-tree
+    // signs only when asked to, whatever the config says, so it is not here.
+    [Theory]
+    [InlineData("commit")]
+    [InlineData("tag")]
+    public async Task A_repositorys_own_signing_settings_never_run_a_program(string command)
+    {
+        await _ws.InitAsync();
+        var signerRan = Path.Combine(_ws.Root, "signer-ran.txt");
+        var signer = Path.Combine(_ws.Root, "signer");
+        File.WriteAllText(signer, $"#!/bin/sh\necho ran >> '{InShell(signerRan)}'\nexit 1\n");
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(signer, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+
+        await _ws.RunAsync("config", "--local", "commit.gpgsign", "true");
+        await _ws.RunAsync("config", "--local", "tag.gpgsign", "true");
+        await _ws.RunAsync("config", "--local", "gpg.program", InShell(signer));
+        _ws.Write("save.dat", "data");
+        await _ws.RunAsync("add", "-A");
+        var tree = (await _ws.RunAsync("write-tree")).StandardOutput.Trim();
+
+        var invocation = command switch
+        {
+            "commit" => new GitInvocation(["commit", "--quiet", "--no-verify", "-m", "capture"]),
+            _ => new GitInvocation(["tag", "-a", "-m", "a tag", "a-tag", tree]),
+        };
+        var result = await _ws.RunAsync(invocation with { AllowedExitCodes = [0, 1, 128] });
+
+        Assert.False(File.Exists(signerRan), "the program the repository names for signing ran");
+        Assert.Equal(0, result.ExitCode);
+        var made = command == "commit" ? "HEAD" : "a-tag";
+        Assert.DoesNotContain("gpgsig", (await _ws.RunAsync("cat-file", "-p", made)).StandardOutput);
+    }
+
     [Fact]
     public async Task The_pinned_settings_are_in_effect()
     {
