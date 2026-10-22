@@ -28,7 +28,8 @@ public class StartupViewModelTests
     private static StartupStatus WithCorrupt(params CorruptCatalogFile[] files) =>
         new(new GitStatus(true, _gitPath, "2.56.0.windows.2", null), new CatalogStatus(_catalogDirectory, files));
 
-    private static FakeBackend Backend(StartupStatus status) => new(ScenarioBuilder.Mockup().WithStartupStatus(status));
+    private static FakeBackend Backend(StartupStatus status, params string[] foldersWithHistory) =>
+        new(ScenarioBuilder.Mockup().WithStartupStatus(status).WithStorageHistoryIn(foldersWithHistory));
 
     [Fact]
     public async Task A_healthy_start_is_ready_and_says_so_once()
@@ -397,7 +398,7 @@ public class StartupViewModelTests
     [Fact]
     public async Task Finding_the_folder_asks_for_one_starting_at_the_old_path_and_points_SavePoint_at_it()
     {
-        var backend = Backend(StorageGone());
+        var backend = Backend(StorageGone(), @"G:\SavePoint");
         var dialogs = new FakeDialogs().AnswerFolder(@"G:\SavePoint");
         var startup = new StartupViewModel(backend.AppStatus, _text, dialogs: dialogs);
         await startup.CheckAsync();
@@ -435,7 +436,6 @@ public class StartupViewModelTests
         var startup = new StartupViewModel(backend.AppStatus, _text, dialogs: new FakeDialogs().AnswerFolder(@"G:\Elsewhere"));
         await startup.CheckAsync();
         Assert.Equal(StartupPhase.StorageUnreachable, startup.Phase);
-        backend.FailNext<IAppStatusApi>(nameof(IAppStatusApi.UseStorageFolderAsync), ErrorInfo.From(new StorageHistoryNotFoundException(@"G:\Elsewhere")));
 
         await startup.Card!.Actions[1].Command.ExecuteAsync();
 
@@ -481,11 +481,10 @@ public class StartupViewModelTests
     [Fact]
     public async Task A_start_with_an_empty_folder_that_fails_says_why_and_stays_on_the_screen()
     {
-        var backend = Backend(StorageGone());
+        var backend = Backend(StorageGone(), @"C:\Users\you\AppData\Local\SavePoint\Storage");
         var startup = new StartupViewModel(backend.AppStatus, _text, dialogs: new FakeDialogs().AnswerConfirm(true));
         await startup.CheckAsync();
         Assert.Equal(StartupPhase.StorageUnreachable, startup.Phase);
-        backend.FailNext<IAppStatusApi>(nameof(IAppStatusApi.StartWithEmptyStorageAsync), ErrorInfo.From(new StorageDestinationNotEmptyException(@"C:\Users\you\AppData\Local\SavePoint\Storage")));
 
         await startup.Card!.Actions[2].Command.ExecuteAsync();
 

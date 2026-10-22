@@ -24,6 +24,9 @@ public sealed class ScenarioBuilder
 
     internal StartupStatus? Startup { get; private set; }
 
+    // The folders that hold the stamped history of the games, which is what the startup choice "Find the folder" looks for.
+    internal HashSet<string> StorageFoldersWithHistory { get; } = new(StringComparer.OrdinalIgnoreCase);
+
     internal List<(GameDefinition Game, long Bytes)> Games { get; } = [];
 
     internal Dictionary<string, IReadOnlyList<FolderStatus>> FolderStatuses { get; } = [];
@@ -89,6 +92,13 @@ public sealed class ScenarioBuilder
     public ScenarioBuilder WithStartupStatus(StartupStatus status)
     {
         Startup = status;
+        return this;
+    }
+
+    // Says these folders hold the history of the games, so the startup choices treat them as a real storage folder would be.
+    public ScenarioBuilder WithStorageHistoryIn(params string[] folders)
+    {
+        StorageFoldersWithHistory.UnionWith(folders);
         return this;
     }
 
