@@ -78,6 +78,24 @@ public class RecentlyRemovedTests
     }
 
     [Fact(Timeout = 120_000)]
+    public async Task A_snapshot_is_listed_with_every_folder_it_recorded_even_when_another_profile_still_holds_its_install()
+    {
+        using var world = await RemovedWorld.CreateAsync();
+        BackendWorkspace.WriteFile(Path.Combine(world.Game.Install.Path, "mods", "b.esp"), "another mod");
+        BackendWorkspace.WriteFile(Path.Combine(world.Game.External!.Path, "slot3.sav"), "third save");
+        var both = await RemovedWorld.CaptureAsync(world.Workspace, world.Game, world.Profile, "Both again", RepoRole.Install, RepoRole.External);
+
+        // The copy starts at the profile's install tip, so it holds the install commits the continue is about to take off the profile.
+        var copied = await world.Workspace.Profiles.DuplicateAsync(world.Game.Id, world.Profile.Id, "Copy");
+        Assert.True(copied.Ok, copied.Error?.Detail);
+        await world.ContinueFromFirstAsync();
+        var snapshot = Assert.Single(await world.ListAsync(), listed => listed.Id == both);
+
+        Assert.Equal(HistoryPointKind.VersionModsAndSave, snapshot.Kind);
+        Assert.Equal(new InstallState(null, 2), snapshot.Install);
+    }
+
+    [Fact(Timeout = 120_000)]
     public async Task Replacing_the_latest_snapshot_lists_what_each_folder_held_before()
     {
         using var world = await RemovedWorld.CreateAsync();

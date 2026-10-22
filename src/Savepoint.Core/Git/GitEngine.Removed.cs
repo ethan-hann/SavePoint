@@ -5,14 +5,14 @@ namespace Savepoint.Core.Git;
 public sealed partial class GitEngine
 {
     /// <summary>
-    /// Lists the commits that left a branch and are kept by a record, newest removal first. A commit that a branch reaches again
-    /// (a record left by a stop before the branch moved, or a commit brought back as a branch) is not listed, and neither is a
-    /// commit that carries no capture id, which is no snapshot. A commit removed twice is listed once, by its latest removal.
+    /// Lists every commit a record keeps, newest removal first, each with whether a branch reaches it again
+    /// (<see cref="RemovedCommit.OnBranch"/>: a record left by a stop before the branch moved, or a commit brought back as a branch).
+    /// A commit that carries no capture id is no snapshot and is left out. A commit removed twice appears once for each removal.
     /// Reads only the git directory, so it works while the game folder is missing.
     /// </summary>
     /// <param name="repo">The folder whose repository is read.</param>
     /// <param name="ct">Cancels the call.</param>
-    /// <returns>The removed commits; empty when the repository does not exist or nothing was removed.</returns>
+    /// <returns>The recorded commits; empty when the repository does not exist or nothing was removed.</returns>
     /// <exception cref="Savepoint.Core.Errors.GitOperationException">git failed.</exception>
     public async Task<IReadOnlyList<RemovedCommit>> ListRemovedAsync(RepoRef repo, CancellationToken ct = default)
     {
@@ -28,18 +28,20 @@ public sealed partial class GitEngine
             return [];
         }
 
+        // Exactly the recorded commits, with no walk behind them.
+        var stdin = string.Concat(records.Select(record => record.Commit).Distinct(StringComparer.Ordinal).Select(commit => commit + "\n"));
+        var read = await RunAsync(GitDirOnly(repo, "log", "-z", _commitFormat, "--no-walk", "--stdin") with { Stdin = stdin }, ct).ConfigureAwait(false);
+        var commits = ParseCommits(read).ToDictionary(commit => commit.Id, StringComparer.Ordinal);
+
         // What no branch reaches, among the recorded commits and the commits behind them; a recorded commit not in this answer is on a branch.
-        var stdin = string.Concat(records.Select(record => record.Commit + "\n"));
-        var unreached = await RunAsync(GitDirOnly(repo, "log", "-z", _commitFormat, "--stdin", "--not", "--branches") with { Stdin = stdin }, ct).ConfigureAwait(false);
-        var gone = ParseCommits(unreached).ToDictionary(commit => commit.Id, StringComparer.Ordinal);
+        var unreached = await RunAsync(GitDirOnly(repo, "rev-list", "--stdin", "--not", "--branches") with { Stdin = stdin }, ct).ConfigureAwait(false);
+        var gone = unreached.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToHashSet(StringComparer.Ordinal);
 
         return
         [
             .. records
-                .Where(record => gone.TryGetValue(record.Commit, out var commit) && commit.CaptureId is not null)
-                .GroupBy(record => record.Commit, StringComparer.Ordinal)
-                .Select(group => group.MaxBy(record => record.RemovedAt))
-                .Select(record => new RemovedCommit(gone[record.Commit], record.Branch, record.Reason, record.RemovedAt))
+                .Where(record => commits.TryGetValue(record.Commit, out var commit) && commit.CaptureId is not null)
+                .Select(record => new RemovedCommit(commits[record.Commit], record.Branch, record.Reason, record.RemovedAt, OnBranch: !gone.Contains(record.Commit)))
                 .OrderByDescending(removed => removed.RemovedAt)
                 .ThenByDescending(removed => removed.Commit.PointTime),
         ];

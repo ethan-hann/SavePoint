@@ -68,15 +68,61 @@ public class BringBackTests
     }
 
     [Fact(Timeout = 120_000)]
-    public async Task A_snapshot_with_no_install_to_start_from_is_refused_and_nothing_is_made()
+    public async Task A_second_snapshot_brought_back_starts_its_install_at_the_one_it_was_taken_with_even_after_the_first_was_brought_back()
+    {
+        using var world = await RemovedWorld.CreateAsync();
+        var installWhenTheSavesWereTaken = (await world.CommitsAsync(world.Profile.BranchName, RepoRole.Install)).Single(commit => commit.CaptureId == world.InstallOnly.Value).Id;
+        await world.ContinueFromFirstAsync();
+
+        var mods = await world.Workspace.Profiles.BringBackAsync(world.Game.Id, world.InstallOnly, "Mods");
+        var saves = await world.Workspace.Profiles.BringBackAsync(world.Game.Id, world.SavesOnly, "Saves");
+
+        Assert.True(mods.Ok, mods.Error?.Detail);
+        Assert.True(saves.Ok, saves.Error?.Detail);
+        Assert.Equal(installWhenTheSavesWereTaken, await world.BranchTipAsync(mods.Value.BranchName, RepoRole.Install));
+        Assert.Equal(installWhenTheSavesWereTaken, await world.BranchTipAsync(saves.Value.BranchName, RepoRole.Install));
+    }
+
+    [Fact(Timeout = 120_000)]
+    public async Task A_snapshot_every_folder_of_which_a_profile_holds_again_is_refused_as_not_removed()
     {
         using var world = await RemovedWorld.CreateAsync();
         await world.ContinueFromFirstAsync();
+        Assert.True((await world.Workspace.Profiles.BringBackAsync(world.Game.Id, world.InstallOnly, "Mods")).Ok);
+
+        var again = await world.Workspace.Profiles.BringBackAsync(world.Game.Id, world.InstallOnly, "Mods again");
+
+        Assert.False(again.Ok);
+        Assert.Equal("error.removed.notFound", again.Error.MessageId);
+    }
+
+    [Fact(Timeout = 120_000)]
+    public async Task A_saves_only_snapshot_still_starts_at_the_install_it_was_taken_with_after_that_install_became_another_profile_and_the_profile_both_came_from_was_deleted()
+    {
+        using var world = await RemovedWorld.CreateAsync();
+        var installWhenTheSavesWereTaken = (await world.CommitsAsync(world.Profile.BranchName, RepoRole.Install)).Single(commit => commit.CaptureId == world.InstallOnly.Value).Id;
+        await world.ContinueFromFirstAsync();
+        await world.Workspace.CreateProfileAsync(world.Game, "Other");
+        await world.Workspace.WaitForIdleAsync();
+        Assert.True((await world.Workspace.Profiles.BringBackAsync(world.Game.Id, world.InstallOnly, "Mods")).Ok);
+        Assert.True((await world.Workspace.Profiles.DeleteAsync(world.Game.Id, world.Profile.Id)).Ok);
+        await world.Workspace.WaitForIdleAsync();
+
+        var brought = await world.Workspace.Profiles.BringBackAsync(world.Game.Id, world.SavesOnly, "Saves");
+
+        Assert.True(brought.Ok, brought.Error?.Detail);
+        Assert.Equal(installWhenTheSavesWereTaken, await world.BranchTipAsync(brought.Value.BranchName, RepoRole.Install));
+    }
+
+    [Fact(Timeout = 120_000)]
+    public async Task A_snapshot_with_no_install_to_start_from_is_refused_and_nothing_is_made()
+    {
+        using var world = await RemovedWorld.CreateAsync();
+        await world.ContinueSavesFromFirstAsync();
         await world.Workspace.CreateProfileAsync(world.Game, "Other");
         await world.Workspace.WaitForIdleAsync();
 
-        // The install snapshot becomes a profile of its own and the profile both came from is deleted, so nothing is left to say which install the saves-only snapshot was played with.
-        Assert.True((await world.Workspace.Profiles.BringBackAsync(world.Game.Id, world.InstallOnly, "Mods")).Ok);
+        // The profile the saves came from is deleted and the install folder never recorded a commit of it, so nothing says which install the saves-only snapshot was played with.
         Assert.True((await world.Workspace.Profiles.DeleteAsync(world.Game.Id, world.Profile.Id)).Ok);
         await world.Workspace.WaitForIdleAsync();
         var profilesBefore = (await world.Workspace.Profiles.ListAsync(world.Game.Id, world.Workspace.Token)).Value!.Select(profile => profile.Id).ToList();

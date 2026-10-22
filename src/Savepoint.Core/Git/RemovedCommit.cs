@@ -15,4 +15,5 @@ public enum RemovalReason
 /// <param name="Branch">The branch it left.</param>
 /// <param name="Reason">Why it left.</param>
 /// <param name="RemovedAt">When it left: the capture time of the save that removed it, to the millisecond.</param>
-public sealed record RemovedCommit(CommitInfo Commit, string Branch, RemovalReason Reason, DateTimeOffset RemovedAt);
+/// <param name="OnBranch">True when a branch reaches the commit again (a stop before the branch moved, or the commit brought back as a branch), so the record keeps nothing alive that the branch does not.</param>
+public sealed record RemovedCommit(CommitInfo Commit, string Branch, RemovalReason Reason, DateTimeOffset RemovedAt, bool OnBranch);

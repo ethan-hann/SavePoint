@@ -54,7 +54,8 @@ public interface IProfilesApi
     /// <summary>
     /// Brings a recently removed snapshot back as a new profile. The snapshot's folders become the new profile's history: in each folder
     /// its branch starts at the commit the snapshot recorded there, or, for a folder the snapshot did not record, at the latest commit the
-    /// profile it came from had at or before it (the rule History and "Go back to this" use). The profile it came from is not touched,
+    /// profile it came from had at or before it, counting the commits that were taken off that profile (the rule History and "Go back to
+    /// this" use). The profile it came from is not touched,
     /// and no file in a game folder is. Takes the game's lock and finishes in every folder or changes nothing, like
     /// <see cref="DuplicateAsync"/>. The snapshot is part of the new profile from then on, so it leaves the recently removed list; its
     /// record stays until the player frees up space.

@@ -76,14 +76,16 @@ public sealed class RemovedSnapshotRecordTests : IDisposable
     }
 
     [Fact]
-    public async Task A_removed_snapshot_a_branch_reaches_again_is_no_longer_listed_and_its_record_stays()
+    public async Task A_removed_snapshot_a_branch_reaches_again_is_marked_as_on_a_branch_and_its_record_stays()
     {
         var (repo, points) = await PlayingFromTheFirstPointAsync();
         await _ws.Engine.CaptureAsync(repo, Move("profile-1", points[0], "Continued", "cap-move"), ct: Ct);
 
         await _ws.Engine.CreateBranchAsync(repo, "brought-back", points[1], Ct);
 
-        Assert.Equal([points[2]], (await _ws.Engine.ListRemovedAsync(repo, Ct)).Select(entry => entry.Commit.Id));
+        var removed = await _ws.Engine.ListRemovedAsync(repo, Ct);
+        Assert.Equal([points[2]], removed.Where(entry => !entry.OnBranch).Select(entry => entry.Commit.Id));
+        Assert.Equal([points[1]], removed.Where(entry => entry.OnBranch).Select(entry => entry.Commit.Id));
         Assert.Equal(2, (await RawRecordsAsync(repo)).Count);
     }
 
@@ -129,7 +131,9 @@ public sealed class RemovedSnapshotRecordTests : IDisposable
         // Every snapshot is still on the branch, and each also has its record, so a later reclaim cannot drop one.
         Assert.Equal(points[2], await _ws.TipAsync(repo, "profile-1"));
         Assert.Equal(2, (await RawRecordsAsync(repo)).Count);
-        Assert.Empty(await _ws.Engine.ListRemovedAsync(repo, Ct));
+        var recorded = await _ws.Engine.ListRemovedAsync(repo, Ct);
+        Assert.Equal(2, recorded.Count);
+        Assert.All(recorded, entry => Assert.True(entry.OnBranch));
         await _ws.Engine.RepackAsync(repo, OptimizationMode.Reclaim, Ct);
         Assert.Equal(new[] { true, true }, await _ws.ObjectsExistAsync(repo, points[1], points[2]));
 
@@ -202,7 +206,7 @@ public sealed class RemovedSnapshotRecordTests : IDisposable
 
         Assert.Equal(points[2], await _ws.TipAsync(repo, "profile-1"));
         Assert.Single(await RawRecordsAsync(repo));
-        Assert.Empty(await _ws.Engine.ListRemovedAsync(repo, Ct));
+        Assert.True(Assert.Single(await _ws.Engine.ListRemovedAsync(repo, Ct)).OnBranch);
 
         _ws.OnInvoke = null;
         await _ws.Engine.CaptureAsync(repo, request, ct: Ct);
