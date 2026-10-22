@@ -19,7 +19,13 @@
 
       <ContentControl x:Name="StartupCard" IsVisible="{Binding HasCard}" Content="{Binding Card}" />
       <TextBlock x:Name="LogFolderError" Classes="caption error" TextWrapping="Wrap" IsVisible="{Binding HasLogFolderError}" Text="{Binding LogFolderError}" />
-      <TextBlock x:Name="StorageActionError" Classes="caption error" TextWrapping="Wrap" IsVisible="{Binding HasStorageActionError}" Text="{Binding StorageActionError}" AutomationProperties.LiveSetting="Polite" />
+      <StackPanel Spacing="8" IsVisible="{Binding HasStorageActionError}">
+        <TextBlock x:Name="StorageActionError" Classes="caption error" TextWrapping="Wrap" IsVisible="{Binding HasStorageActionError}" Text="{Binding StorageActionError}" AutomationProperties.LiveSetting="Polite" />
+        <!-- The folder the error names, as the error card shows it: the error's copy says "shown below" and leaves the path out. -->
+        <Border x:Name="StorageActionErrorPathSurface" Classes="recessed" IsVisible="{Binding HasStorageActionErrorPath}" AutomationProperties.LiveSetting="Polite">
+          <SelectableTextBlock FontFamily="{DynamicResource RobotoMonoFont}" FontSize="12" Foreground="{DynamicResource Md3OnSurfaceVariantBrush}" TextWrapping="Wrap" Text="{Binding StorageActionErrorPath}" />
+        </Border>
+      </StackPanel>
 
       <StackPanel x:Name="RecoveryList" Spacing="14" IsVisible="{Binding ShowCorruptFiles}">
         <TextBlock Classes="body muted" TextWrapping="Wrap" Text="{loc:Loc startup.corrupt.intro}" />

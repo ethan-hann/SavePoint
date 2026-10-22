@@ -346,6 +346,37 @@ public class StartupViewModelTests
     }
 
     private const string _storageRoot = @"F:\SavePoint";
+    private const string _defaultStorageRoot = @"C:\Users\you\AppData\Local\SavePoint\Storage";
+    private const string _refusedFolder = @"G:\Refused";
+
+    // The Api of a screen whose storage choices are always refused with an error of the test's choosing.
+    private sealed class RefusingStatus(StartupStatus status, ErrorInfo refusal) : IAppStatusApi
+    {
+        public Task<OperationResult<StartupStatus>> CheckAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(OperationResult.Success(status));
+
+        public Task<OperationResult<string>> RecoverCatalogFileAsync(string path, CatalogRecovery recovery, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<OperationResult<string>> UseStorageFolderAsync(string folder, CancellationToken cancellationToken = default) =>
+            Task.FromResult(OperationResult.Failure<string>(refusal));
+
+        public Task<OperationResult<string>> StartWithEmptyStorageAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(OperationResult.Failure<string>(refusal));
+    }
+
+    private static ErrorInfo Refusal(string id)
+    {
+        SavepointException error = id switch
+        {
+            "error.storage.unreachable" => new StorageUnreachableException(_refusedFolder, null),
+            "error.storage.stillReachable" => new StorageStillReachableException(_refusedFolder),
+            "error.storage.noHistoryHere" => new StorageHistoryNotFoundException(_refusedFolder),
+            "error.storage.defaultFolderHasHistory" => new StorageDefaultFolderHasHistoryException(_refusedFolder),
+            _ => throw new ArgumentOutOfRangeException(nameof(id), id, null),
+        };
+        return ErrorInfo.From(error);
+    }
 
     private static StartupStatus StorageGone() => Healthy() with
     {
@@ -442,6 +473,7 @@ public class StartupViewModelTests
         Assert.Equal(StartupPhase.StorageUnreachable, startup.Phase);
         Assert.Contains("doesn't hold the saved history for your games", startup.StorageActionError, StringComparison.Ordinal);
         Assert.True(startup.HasStorageActionError);
+        Assert.Equal(@"G:\Elsewhere", startup.StorageActionErrorPath);
     }
 
     [Fact]
@@ -481,7 +513,7 @@ public class StartupViewModelTests
     [Fact]
     public async Task A_start_with_an_empty_folder_that_fails_says_why_and_stays_on_the_screen()
     {
-        var backend = Backend(StorageGone(), @"C:\Users\you\AppData\Local\SavePoint\Storage");
+        var backend = Backend(StorageGone(), _defaultStorageRoot);
         var startup = new StartupViewModel(backend.AppStatus, _text, dialogs: new FakeDialogs().AnswerConfirm(true));
         await startup.CheckAsync();
         Assert.Equal(StartupPhase.StorageUnreachable, startup.Phase);
@@ -489,7 +521,75 @@ public class StartupViewModelTests
         await startup.Card!.Actions[2].Command.ExecuteAsync();
 
         Assert.Equal(StartupPhase.StorageUnreachable, startup.Phase);
-        Assert.Equal("That folder already has files in it. Choose an empty folder for your storage.", startup.StorageActionError);
+        Assert.Equal(
+            "SavePoint can't start over in its default folder, shown below, because that folder already holds saved history. To use that history, choose \"Find the folder\" and pick this folder. To start over anyway, move or empty it first.",
+            startup.StorageActionError);
+        Assert.True(startup.HasStorageActionErrorPath);
+        Assert.Equal(_defaultStorageRoot, startup.StorageActionErrorPath);
+    }
+
+    [Theory]
+    [InlineData("error.storage.unreachable")]
+    [InlineData("error.storage.stillReachable")]
+    [InlineData("error.storage.noHistoryHere")]
+    [InlineData("error.storage.defaultFolderHasHistory")]
+    public async Task Either_choice_that_is_refused_with_a_folder_in_the_error_shows_that_folder(string id)
+    {
+        var dialogs = new FakeDialogs().AnswerFolder(@"G:\Anywhere").AnswerConfirm(true);
+        var startup = new StartupViewModel(new RefusingStatus(StorageGone(), Refusal(id)), _text, dialogs: dialogs);
+        await startup.CheckAsync();
+
+        await startup.Card!.Actions[1].Command.ExecuteAsync();
+        Assert.True(startup.HasStorageActionError);
+        Assert.Equal(_refusedFolder, startup.StorageActionErrorPath);
+
+        await startup.Card!.Actions[2].Command.ExecuteAsync();
+        Assert.True(startup.HasStorageActionError);
+        Assert.Equal(_refusedFolder, startup.StorageActionErrorPath);
+    }
+
+    [Fact]
+    public async Task A_refusal_that_names_no_folder_shows_no_folder()
+    {
+        var unknown = new ErrorInfo("error.unknown", new Dictionary<string, object?>(), "boom");
+        var startup = new StartupViewModel(new RefusingStatus(StorageGone(), unknown), _text, dialogs: new FakeDialogs().AnswerFolder(@"G:\Anywhere"));
+        await startup.CheckAsync();
+
+        await startup.Card!.Actions[1].Command.ExecuteAsync();
+
+        Assert.True(startup.HasStorageActionError);
+        Assert.Null(startup.StorageActionErrorPath);
+        Assert.False(startup.HasStorageActionErrorPath);
+    }
+
+    [Fact]
+    public async Task The_folder_of_a_refusal_goes_away_when_the_next_choice_starts()
+    {
+        var dialogs = new FakeDialogs().AnswerFolder(@"G:\Anywhere").AnswerFolder(null);
+        var startup = new StartupViewModel(new RefusingStatus(StorageGone(), Refusal("error.storage.noHistoryHere")), _text, dialogs: dialogs);
+        await startup.CheckAsync();
+        await startup.Card!.Actions[1].Command.ExecuteAsync();
+        Assert.Equal(_refusedFolder, startup.StorageActionErrorPath);
+
+        await startup.Card!.Actions[1].Command.ExecuteAsync();
+
+        Assert.False(startup.HasStorageActionError);
+        Assert.Null(startup.StorageActionErrorPath);
+    }
+
+    [Fact]
+    public async Task Trying_again_clears_the_folder_of_an_earlier_refusal()
+    {
+        var dialogs = new FakeDialogs().AnswerFolder(@"G:\Anywhere");
+        var startup = new StartupViewModel(new RefusingStatus(StorageGone(), Refusal("error.storage.noHistoryHere")), _text, dialogs: dialogs);
+        await startup.CheckAsync();
+        await startup.Card!.Actions[1].Command.ExecuteAsync();
+        Assert.Equal(_refusedFolder, startup.StorageActionErrorPath);
+
+        await startup.Card!.Actions[0].Command.ExecuteAsync();
+
+        Assert.False(startup.HasStorageActionError);
+        Assert.Null(startup.StorageActionErrorPath);
     }
 
     [Fact]
