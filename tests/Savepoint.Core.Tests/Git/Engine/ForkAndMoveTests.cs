@@ -260,7 +260,7 @@ public sealed class ForkAndMoveTests : IDisposable
     }
 
     [Fact]
-    public async Task The_points_a_move_forward_drops_are_still_in_the_store_until_a_reclaim()
+    public async Task The_points_a_move_forward_drops_leave_the_branch_and_stay_in_the_store_through_a_routine_run_and_a_reclaim()
     {
         var (repo, points) = await PlayingFromTheFirstPointAsync();
 
@@ -270,10 +270,11 @@ public sealed class ForkAndMoveTests : IDisposable
         var afterRoutine = await _ws.ObjectsExistAsync(repo, points[2]);
         await _ws.Engine.RepackAsync(repo, OptimizationMode.Reclaim, Ct);
 
+        // Their records keep them reachable, so only clearing the records (see RemovedSnapshotClearTests) lets a reclaim drop them.
         Assert.Equal("commit", afterTheMove.Item1);
         Assert.DoesNotContain(points[2], afterTheMove.Item2);
         Assert.Equal(new[] { true }, afterRoutine);
-        Assert.Equal(new[] { false }, await _ws.ObjectsExistAsync(repo, points[2]));
+        Assert.Equal(new[] { true }, await _ws.ObjectsExistAsync(repo, points[2]));
     }
 
     [Fact]
@@ -452,7 +453,8 @@ public sealed class ForkAndMoveTests : IDisposable
         }
     }
 
-    // Makes the first ref update that git commits wait inside git, after the ref is written, until git is killed; returns the file it creates then.
+    // Makes the first update of a branch that git commits wait inside git, after the ref is written, until git is killed; returns the file it creates then.
+    // The records a move forward keeps go in a transaction of their own, before the branch moves, and the hook lets that one through.
     // Git looks for hooks only in the folder it is told to use, and the workspace owns that folder, so no other test sees the hook.
     private string HoldGitOnceTheRefIsWritten(RepoRef repo)
     {
@@ -463,7 +465,7 @@ public sealed class ForkAndMoveTests : IDisposable
         // The count bounds the wait, so a git that is never killed still lets go of the CPU after a while.
         File.WriteAllText(
             hook,
-            "#!/bin/sh\n[ \"$1\" = committed ] || exit 0\n[ ! -e \"$GIT_DIR/ref-written\" ] || exit 0\n: > \"$GIT_DIR/ref-written\"\ni=0\nwhile [ $i -lt 3000000 ]; do i=$((i+1)); done\n");
+            "#!/bin/sh\n[ \"$1\" = committed ] || exit 0\n[ ! -e \"$GIT_DIR/ref-written\" ] || exit 0\nbranch=\nwhile read old new ref; do case \"$ref\" in refs/heads/*) branch=1;; esac; done\n[ -n \"$branch\" ] || exit 0\n: > \"$GIT_DIR/ref-written\"\ni=0\nwhile [ $i -lt 3000000 ]; do i=$((i+1)); done\n");
         if (!OperatingSystem.IsWindows())
         {
             File.SetUnixFileMode(hook, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);

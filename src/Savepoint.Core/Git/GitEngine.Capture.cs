@@ -10,6 +10,8 @@ public sealed partial class GitEngine
     /// not recorded: a new one is not added, and one an earlier point holds is left out of this point and every later one (the earlier
     /// points keep it, and the file on disk stays as it is). A save with nothing else to record still writes no point. A fork, a root or a move forward writes its new point first and then creates or
     /// moves the branch with one ref update, so a stop or a failure before that update leaves every branch and HEAD where they were.
+    /// A move forward and an amend take commits off the branch: each one is first kept by a record outside every branch (see <see cref="ListRemovedAsync"/>),
+    /// written in one ref transaction before the branch is touched, so a stop at any moment leaves a commit either still on the branch or recorded, never neither.
     /// </summary>
     /// <param name="repo">The folder to capture; its repository must exist.</param>
     /// <param name="request">The branch, message, capture id, mode and ignore patterns.</param>
@@ -116,6 +118,8 @@ public sealed partial class GitEngine
             return new CaptureOutcome(false, tip);
         }
 
+        // The amend gives the branch a new commit and drops the one it had; that one is recorded first.
+        await RecordRemovedAsync(repo, request.Branch, [tip], RemovalReason.Replaced, request.CapturedAt ?? _options.Clock.GetUtcNow(), ct).ConfigureAwait(false);
         await CommitAsync(repo, request, amend: true, ct).ConfigureAwait(false);
         return new CaptureOutcome(true, await ResolveBranchAsync(repo, request.Branch, ct).ConfigureAwait(false));
     }
@@ -249,6 +253,13 @@ public sealed partial class GitEngine
         var commit = changed ? await WriteCommitAsync(repo, request, tip, ct).ConfigureAwait(false) : tip;
         if (!string.Equals(commit, branchTip, StringComparison.Ordinal))
         {
+            // The dropped commits are recorded before the branch lets go of them, so no stop can leave one off the branch and unrecorded.
+            if (moves)
+            {
+                var dropped = await CommitsBetweenAsync(repo, branchTip, tip, ct).ConfigureAwait(false);
+                await RecordRemovedAsync(repo, request.Branch, dropped, RemovalReason.MovedBack, request.CapturedAt ?? _options.Clock.GetUtcNow(), ct).ConfigureAwait(false);
+            }
+
             await RefWriteAsync(repo, request.Branch, commit, () => MoveBranchRefAsync(repo, request.Branch, commit, branchTip, "savepoint: move branch", ct)).ConfigureAwait(false);
         }
 
