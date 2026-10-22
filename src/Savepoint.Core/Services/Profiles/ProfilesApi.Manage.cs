@@ -279,7 +279,7 @@ internal sealed partial class ProfilesApi
         }
         catch (Exception e) when (e is SavepointException or IOException)
         {
-            // A branch nothing refers to costs nothing but a name.
+            // A branch no profile names hides nothing, and Free up space removes it with the removed snapshots it holds.
         }
     }
 }

@@ -45,7 +45,9 @@ internal sealed class RemovedSnapshots
 
     /// <summary>
     /// What Free up space would delete for a game: how many snapshots its folders keep as removed, and every record of those snapshots
-    /// in either folder, so the run can delete those and no others.
+    /// in either folder, so the run can delete those and no others. A branch no profile names goes with them only when every snapshot
+    /// it holds on its own is one of those, because such a branch would keep their space from being freed; one that holds any other
+    /// snapshot is never named.
     /// </summary>
     public static async Task<FreeUpSpacePreview> PreviewAsync(StorageSnapshot storage, string gameId, IReadOnlyList<RepoRef> repos, IReadOnlyList<Profile> profiles, CancellationToken cancellationToken)
     {
@@ -56,6 +58,23 @@ internal sealed class RemovedSnapshots
                 .Where(removed => listed.Contains(removed.Commit.CaptureId!))
                 .Select(removed => new FreeUpSpaceRecord(gameId, folder.Key, removed.RefName)))
             .ToList();
+
+        if (listed.Count > 0)
+        {
+            var counted = profiles.Select(profile => profile.BranchName).ToList();
+            foreach (var repo in repos)
+            {
+                foreach (var stray in await storage.Engine.ListStrayBranchesAsync(repo, counted, cancellationToken).ConfigureAwait(false))
+                {
+                    var snapshots = stray.OnlyHere.Where(commit => commit.CaptureId is not null).ToList();
+                    if (snapshots.Count > 0 && snapshots.All(commit => listed.Contains(commit.CaptureId!)))
+                    {
+                        records.Add(new FreeUpSpaceRecord(gameId, repo.Role, GitDirFiles.BranchPrefix + stray.Name));
+                    }
+                }
+            }
+        }
+
         return new FreeUpSpacePreview(state.Groups.Count, new FreeUpSpaceToken(records));
     }
 

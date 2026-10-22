@@ -118,7 +118,14 @@ internal sealed class OptimizationService
                 var before = await SizeOfAsync(repos, context.CancellationToken).ConfigureAwait(false);
 
                 // Only the records the player was told about go; one written since stays and keeps its snapshot alive through the reclaim.
-                var records = repos.ToDictionary(repo => repo.Role, repo => confirmed.Records.Where(record => record.GameId == game.Id && record.Folder == repo.Role).Select(record => record.RefName).ToList());
+                // A branch a profile names is never among them, whatever the token says.
+                var profileBranches = (await _services.Catalog.ListProfilesAsync(game.Id).ConfigureAwait(false)).Select(profile => GitDirFiles.BranchPrefix + profile.BranchName).ToHashSet(StringComparer.Ordinal);
+                var records = repos.ToDictionary(
+                    repo => repo.Role,
+                    repo => confirmed.Records
+                        .Where(record => record.GameId == game.Id && record.Folder == repo.Role && !profileBranches.Contains(record.RefName))
+                        .Select(record => record.RefName)
+                        .ToList());
                 var (folders, pastTheClear) = records.Values.Any(names => names.Count > 0)
                     ? await FreeUpGameAsync(context, game, storage, repos, records, mode).ConfigureAwait(false)
                     : (await ReclaimFoldersAsync(context, game, storage, repos, mode, context.CancellationToken).ConfigureAwait(false), false);
@@ -192,7 +199,7 @@ internal sealed class OptimizationService
         // Marked first, so a stop request either arrived before this point, when the line below ends the run with nothing deleted, or is refused.
         context.NoLongerCancellable();
         context.CancellationToken.ThrowIfCancellationRequested();
-        var cleared = new List<(RepoRef Repo, IReadOnlyList<string> Names)>();
+        var cleared = new List<(RepoRef Repo, IReadOnlyList<ClearedRef> Refs)>();
         try
         {
             foreach (var repo in repos.Where(repo => records[repo.Role].Count > 0))
@@ -203,15 +210,15 @@ internal sealed class OptimizationService
         catch
         {
             // A folder that could not clear its records gives back the other's, so no snapshot is left with only some of its folders.
-            foreach (var (repo, names) in cleared)
+            foreach (var (repo, refs) in cleared)
             {
-                await RestoreQuietlyAsync(storage, repo, names).ConfigureAwait(false);
+                await RestoreQuietlyAsync(storage, repo, refs).ConfigureAwait(false);
             }
 
             throw;
         }
 
-        if (cleared.Sum(folder => folder.Names.Count) > 0)
+        if (cleared.Sum(folder => folder.Refs.Count) > 0)
         {
             context.AddStep(JobSteps.CompactRemovedDeleted, ("game", game.Name));
         }
@@ -220,11 +227,11 @@ internal sealed class OptimizationService
     }
 
     // Best effort: the failure being reported is the one worth showing, and a record that stays missing costs one snapshot's listing.
-    private static async Task RestoreQuietlyAsync(StorageSnapshot storage, RepoRef repo, IReadOnlyList<string> names)
+    private static async Task RestoreQuietlyAsync(StorageSnapshot storage, RepoRef repo, IReadOnlyList<ClearedRef> refs)
     {
         try
         {
-            await storage.Engine.RestoreRemovedAsync(repo, names, CancellationToken.None).ConfigureAwait(false);
+            await storage.Engine.RestoreRemovedAsync(repo, refs, CancellationToken.None).ConfigureAwait(false);
         }
         catch (Exception e) when (e is SavepointException or IOException)
         {

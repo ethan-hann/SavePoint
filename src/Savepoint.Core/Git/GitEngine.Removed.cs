@@ -126,17 +126,75 @@ public sealed partial class GitEngine
     }
 
     /// <summary>
-    /// Deletes exactly the named records and nothing else, in one ref transaction, so either all of them are gone or none is. A name that
-    /// is not a record, or whose record is already gone, is skipped; a record written after the names were read is never touched. The
-    /// commits stay in the store until a reclaim drops what no branch or record reaches. Needs only the git directory.
+    /// The branches in the folder that the caller does not count as a profile's, each with the commits only it holds. The branch HEAD
+    /// names is never one of them. A caller that finds a branch holds nothing but snapshots it is deleting may hand it to
+    /// <see cref="ClearRemovedAsync"/> with them. Reads only the git directory.
     /// </summary>
-    /// <param name="repo">The folder whose repository holds the records.</param>
-    /// <param name="records">Record names as <see cref="RemovedCommit.RefName"/> gave them.</param>
+    /// <param name="repo">The folder whose repository is read.</param>
+    /// <param name="countedBranches">The branches that are profiles', as the catalog names them.</param>
+    /// <param name="ct">Cancels the call.</param>
+    /// <returns>The stray branches, by name; empty when the repository does not exist or has no other branch.</returns>
+    /// <exception cref="Savepoint.Core.Errors.GitOperationException">git failed.</exception>
+    public async Task<IReadOnlyList<StrayBranch>> ListStrayBranchesAsync(RepoRef repo, IReadOnlyCollection<string> countedBranches, CancellationToken ct = default)
+    {
+        repo = Normalize(repo);
+        ArgumentNullException.ThrowIfNull(countedBranches);
+        if (!HasRepository(repo))
+        {
+            return [];
+        }
+
+        var existing = await ListBranchesAsync(repo, ct).ConfigureAwait(false);
+        var head = HeadBranchOrNull(repo);
+        List<string> counted = [.. existing.Where(countedBranches.Contains).Select(name => GitDirFiles.BranchPrefix + name)];
+        var strays = new List<StrayBranch>();
+        foreach (var name in existing.Where(name => !countedBranches.Contains(name) && !string.Equals(name, head, StringComparison.Ordinal)))
+        {
+            List<string> arguments = ["log", "-z", _commitFormat, GitDirFiles.BranchPrefix + name];
+            if (counted.Count > 0)
+            {
+                arguments.Add("--not");
+                arguments.AddRange(counted);
+            }
+
+            arguments.Add("--");
+            var only = ParseCommits(await RunAsync(GitDirOnly(repo, [.. arguments]), ct).ConfigureAwait(false));
+            if (await ResolveBranchAsync(repo, name, ct).ConfigureAwait(false) is { } tip)
+            {
+                strays.Add(new StrayBranch(name, tip, only));
+            }
+        }
+
+        return strays;
+    }
+
+    // The branch HEAD names, or null when HEAD is detached or cannot be read.
+    private static string? HeadBranchOrNull(RepoRef repo)
+    {
+        try
+        {
+            return GitDirFiles.ReadHead(repo.GitDir).Branch;
+        }
+        catch (GitOperationException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Deletes exactly the named refs and nothing else, in one ref transaction, so either all of them are gone or none is. A ref is a
+    /// record of a removed snapshot or a branch (<c>refs/heads/...</c>) the caller found no profile names and that holds nothing but
+    /// snapshots being deleted; the branch HEAD names, a name that is neither, and a ref that is already gone are skipped, and a record
+    /// written after the names were read is never touched. The commits stay in the store until a reclaim drops what no branch or record
+    /// reaches. Needs only the git directory.
+    /// </summary>
+    /// <param name="repo">The folder whose repository holds the refs.</param>
+    /// <param name="records">Record names as <see cref="RemovedCommit.RefName"/> gave them, and full branch ref names.</param>
     /// <param name="ct">Cancels the call; a cancel before the transaction runs deletes nothing.</param>
-    /// <returns>The names of the records that were deleted, which <see cref="RestoreRemovedAsync"/> takes to put them back.</returns>
+    /// <returns>The refs that were deleted with their values, which <see cref="RestoreRemovedAsync"/> takes to put them back.</returns>
     /// <exception cref="Savepoint.Core.Errors.OperationCancelledByUserException">The token was cancelled.</exception>
     /// <exception cref="Savepoint.Core.Errors.GitOperationException">git failed.</exception>
-    public async Task<IReadOnlyList<string>> ClearRemovedAsync(RepoRef repo, IReadOnlyCollection<string> records, CancellationToken ct = default)
+    public async Task<IReadOnlyList<ClearedRef>> ClearRemovedAsync(RepoRef repo, IReadOnlyCollection<string> records, CancellationToken ct = default)
     {
         repo = Normalize(repo);
         ArgumentNullException.ThrowIfNull(records);
@@ -149,7 +207,7 @@ public sealed partial class GitEngine
         {
             ct.ThrowIfCancellationRequested();
             using var scope = BeginWrite(repo);
-            var listed = await RunAsync(GitDirOnly(repo, "for-each-ref", "--format=%(refname) %(objectname)", RemovedRecords.Prefix), ct).ConfigureAwait(false);
+            var listed = await RunAsync(GitDirOnly(repo, "for-each-ref", "--format=%(refname) %(objectname)", RemovedRecords.Prefix, GitDirFiles.BranchPrefix), ct).ConfigureAwait(false);
             var present = new Dictionary<string, string>(StringComparer.Ordinal);
             foreach (var line in listed.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
             {
@@ -159,16 +217,18 @@ public sealed partial class GitEngine
                 }
             }
 
+            var head = HeadBranchOrNull(repo);
             var doomed = records
                 .Distinct(StringComparer.Ordinal)
-                .Where(name => RemovedRecords.TryParse(name, out _) && present.ContainsKey(name))
+                .Where(name => present.ContainsKey(name) && IsClearable(name, head))
+                .Select(name => new ClearedRef(name, present[name]))
                 .ToList();
             if (doomed.Count == 0)
             {
                 return [];
             }
 
-            var transaction = string.Concat(doomed.Select(name => "delete " + name + " " + present[name] + "\n"));
+            var transaction = string.Concat(doomed.Select(cleared => "delete " + cleared.RefName + " " + cleared.Value + "\n"));
             await RunWriteAsync(() => Invocation(repo, readOnly: false, "update-ref", "-m", "savepoint: free up space", "--stdin") with { Stdin = transaction }, ct).ConfigureAwait(false);
             return doomed;
         }
@@ -179,35 +239,50 @@ public sealed partial class GitEngine
     }
 
     /// <summary>
-    /// Puts back records <see cref="ClearRemovedAsync"/> deleted, in one ref transaction, for a caller that cleared the records of one
-    /// folder and then could not clear the other's. The commits are still in the store as long as nothing has been reclaimed since. A name
-    /// that is not a record is skipped. Needs only the git directory.
+    /// Puts back refs <see cref="ClearRemovedAsync"/> deleted, in one ref transaction, for a caller that cleared the refs of one
+    /// folder and then could not clear the other's. The commits are still in the store as long as nothing has been reclaimed since. A
+    /// ref that exists again is left as it is. Needs only the git directory.
     /// </summary>
-    /// <param name="repo">The folder whose repository held the records.</param>
-    /// <param name="records">Record names as <see cref="ClearRemovedAsync"/> returned them.</param>
+    /// <param name="repo">The folder whose repository held the refs.</param>
+    /// <param name="cleared">What <see cref="ClearRemovedAsync"/> returned.</param>
     /// <param name="ct">Cancels the call.</param>
-    /// <exception cref="Savepoint.Core.Errors.GitOperationException">git failed, or a commit a record names is no longer in the store.</exception>
-    public async Task RestoreRemovedAsync(RepoRef repo, IReadOnlyCollection<string> records, CancellationToken ct = default)
+    /// <exception cref="Savepoint.Core.Errors.GitOperationException">git failed, or a commit a ref names is no longer in the store.</exception>
+    public async Task RestoreRemovedAsync(RepoRef repo, IReadOnlyCollection<ClearedRef> cleared, CancellationToken ct = default)
     {
         repo = Normalize(repo);
-        ArgumentNullException.ThrowIfNull(records);
-        var transaction = new StringBuilder();
-        foreach (var name in records.Distinct(StringComparer.Ordinal))
-        {
-            if (RemovedRecords.TryParse(name, out var record))
-            {
-                transaction.Append("update ").Append(name).Append(' ').Append(record.Commit).Append('\n');
-            }
-        }
-
-        if (transaction.Length == 0 || !HasRepository(repo))
+        ArgumentNullException.ThrowIfNull(cleared);
+        if (cleared.Count == 0 || !HasRepository(repo))
         {
             return;
         }
 
         using var scope = BeginWrite(repo);
+        var listed = await RunAsync(GitDirOnly(repo, "for-each-ref", "--format=%(refname)", RemovedRecords.Prefix, GitDirFiles.BranchPrefix), ct).ConfigureAwait(false);
+        var present = listed.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToHashSet(StringComparer.Ordinal);
+        var head = HeadBranchOrNull(repo);
+        var transaction = new StringBuilder();
+        foreach (var back in cleared.DistinctBy(item => item.RefName, StringComparer.Ordinal))
+        {
+            if (!present.Contains(back.RefName) && IsClearable(back.RefName, head) && GitDirFiles.IsObjectId(back.Value))
+            {
+                transaction.Append("create ").Append(back.RefName).Append(' ').Append(back.Value).Append('\n');
+            }
+        }
+
+        if (transaction.Length == 0)
+        {
+            return;
+        }
+
         await RunWriteAsync(() => Invocation(repo, readOnly: false, "update-ref", "-m", "savepoint: free up space undone", "--stdin") with { Stdin = transaction.ToString() }, ct).ConfigureAwait(false);
     }
+
+    // A record of a removed snapshot, or a branch other than the one HEAD names.
+    private static bool IsClearable(string refName, string? head) =>
+        RemovedRecords.TryParse(refName, out _)
+        || (refName.StartsWith(GitDirFiles.BranchPrefix, StringComparison.Ordinal)
+            && BranchNames.IsValid(refName[GitDirFiles.BranchPrefix.Length..])
+            && !string.Equals(refName[GitDirFiles.BranchPrefix.Length..], head, StringComparison.Ordinal));
 
     private async Task<List<RemovedRecords.ParsedRecord>> ReadRecordsAsync(RepoRef repo, CancellationToken ct)
     {

@@ -41,7 +41,8 @@ public sealed class RemovedSnapshotClearTests : IDisposable
         await _ws.Engine.RepackAsync(repo, OptimizationMode.Reclaim, Ct);
 
         // The second point is still recorded, so it survives; the third had only its own record, so it goes.
-        Assert.Equal([newest.RefName], cleared);
+        Assert.Equal([newest.RefName], cleared.Select(item => item.RefName));
+        Assert.Equal([points[2]], cleared.Select(item => item.Value));
         Assert.Equal([points[1]], (await _ws.Engine.ListRemovedAsync(repo, Ct)).Select(entry => entry.Commit.Id));
         Assert.Equal(new[] { true, false }, await _ws.ObjectsExistAsync(repo, points[1], points[2]));
     }
@@ -68,12 +69,46 @@ public sealed class RemovedSnapshotClearTests : IDisposable
         var before = await _ws.Engine.ListRemovedAsync(repo, Ct);
         var cleared = await _ws.Engine.ClearRemovedAsync(repo, await RawRecordsAsync(repo), Ct);
 
-        await _ws.Engine.RestoreRemovedAsync(repo, [.. cleared, "refs/heads/profile-1", "refs/savepoint/removed/not-a-record"], Ct);
+        await _ws.Engine.RestoreRemovedAsync(repo, [.. cleared, new ClearedRef("refs/heads/profile-1", points[0]), new ClearedRef("refs/savepoint/removed/not-a-record", points[0])], Ct);
         await _ws.Engine.RepackAsync(repo, OptimizationMode.Reclaim, Ct);
 
         Assert.Equal(before.Select(entry => (entry.RefName, entry.Commit.Id)), (await _ws.Engine.ListRemovedAsync(repo, Ct)).Select(entry => (entry.RefName, entry.Commit.Id)));
         Assert.Equal(new[] { true, true }, await _ws.ObjectsExistAsync(repo, points[1], points[2]));
         Assert.Equal(["profile-1"], await _ws.Engine.ListBranchesAsync(repo, Ct));
+    }
+
+    [Fact]
+    public async Task A_branch_nobody_counts_is_listed_with_the_commits_only_it_holds_and_the_branch_head_names_never_is()
+    {
+        var (repo, points) = await AfterAMoveForwardAsync();
+        await _ws.Engine.CreateBranchAsync(repo, "left-behind", points[1], Ct);
+
+        var counted = await _ws.Engine.ListStrayBranchesAsync(repo, ["profile-1"], Ct);
+        var nobody = await _ws.Engine.ListStrayBranchesAsync(repo, [], Ct);
+
+        var stray = Assert.Single(counted);
+        Assert.Equal("left-behind", stray.Name);
+        Assert.Equal(points[1], stray.Tip);
+        Assert.Equal([points[1]], stray.OnlyHere.Select(commit => commit.Id));
+        Assert.Equal(["left-behind"], nobody.Select(item => item.Name));
+        Assert.Equal([points[1], points[0]], Assert.Single(nobody).OnlyHere.Select(commit => commit.Id));
+    }
+
+    [Fact]
+    public async Task Clearing_deletes_a_named_stray_branch_but_never_the_branch_head_names_and_a_restore_brings_it_back()
+    {
+        var (repo, points) = await AfterAMoveForwardAsync();
+        await _ws.Engine.CreateBranchAsync(repo, "left-behind", points[1], Ct);
+
+        var cleared = await _ws.Engine.ClearRemovedAsync(repo, ["refs/heads/left-behind", "refs/heads/profile-1"], Ct);
+
+        Assert.Equal([new ClearedRef("refs/heads/left-behind", points[1])], cleared);
+        Assert.Equal(["profile-1"], await _ws.Engine.ListBranchesAsync(repo, Ct));
+
+        await _ws.Engine.RestoreRemovedAsync(repo, cleared, Ct);
+
+        Assert.Equal(["left-behind", "profile-1"], await _ws.Engine.ListBranchesAsync(repo, Ct));
+        Assert.Equal(points[1], await _ws.TipAsync(repo, "left-behind"));
     }
 
     [Fact]
