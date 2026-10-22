@@ -52,6 +52,32 @@ public sealed class SwitchStatTests : IDisposable
     }
 
     [Fact]
+    public async Task A_switch_summary_counts_the_files_the_target_does_not_have_as_removed()
+    {
+        var (repo, first, second) = await TwoPointsAsync();
+
+        // Going back to the first point: a.txt is rewritten, b.txt goes, and so does logs/y.log unless the patterns leave it alone.
+        var switching = await _ws.Engine.SwitchStatAsync(repo, second, first, Ct);
+        var history = await _ws.Engine.DiffStatAsync(repo, second, first, Ct);
+
+        Assert.Equal(2, switching.FilesChanged);
+        Assert.Equal(1, switching.FilesRemoved);
+        Assert.Equal(3, history.FilesChanged);
+        Assert.Equal(2, history.FilesRemoved);
+    }
+
+    [Fact]
+    public async Task A_switch_summary_of_a_move_forward_removes_nothing()
+    {
+        var (repo, first, second) = await TwoPointsAsync();
+
+        var switching = await _ws.Engine.SwitchStatAsync(repo, first, second, Ct);
+
+        Assert.Equal(2, switching.FilesChanged);
+        Assert.Equal(0, switching.FilesRemoved);
+    }
+
+    [Fact]
     public async Task A_switch_into_a_folder_with_no_point_yet_counts_the_whole_target_less_the_files_the_patterns_name()
     {
         var (repo, first, _) = await TwoPointsAsync();

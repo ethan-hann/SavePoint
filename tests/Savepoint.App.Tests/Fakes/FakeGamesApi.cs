@@ -127,7 +127,7 @@ public sealed class FakeGamesApi : IGamesApi
         {
             var game = State.Game(gameId);
             var done = new OptimizeResult([FakeSettingsApi.Optimized(game)]);
-            return OperationResult.Success(new JobStarted(_backend.Jobs.Start(JobKind.Compact, gameId, done, _backend.Settings.MarkOptimized)));
+            return OperationResult.Success(new JobStarted(_backend.Jobs.Start(JobKind.Compact, gameId, done, _backend.Settings.MarkOptimized, [JobLine.ForStep(JobSteps.CompactGame, ("game", game.Name))])));
         });
 
     public Task<OperationResult<string>> ResolvePathAsync(string rawPath, CancellationToken cancellationToken = default) =>

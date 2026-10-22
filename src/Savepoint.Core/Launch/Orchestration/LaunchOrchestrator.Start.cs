@@ -85,6 +85,7 @@ public sealed partial class LaunchOrchestrator
         var prepared = await _services.RunForGameAsync(gameId, (storage, _) => PrepareAsync(storage, context, gameId, target), context.CancellationToken).ConfigureAwait(false);
         context.CancellationToken.ThrowIfCancellationRequested();
 
+        context.AddStep(JobSteps.LaunchStarting, ("game", prepared.Game.Name));
         var watcher = await _starter.StartAsync(prepared.Game.Launch, prepared.InstallPath, context.CancellationToken).ConfigureAwait(false);
 
         // The game is running, so it is tracked before anything else is attempted: nothing after this may lose it.
@@ -136,10 +137,23 @@ public sealed partial class LaunchOrchestrator
             throw held.Status.HeldFile!.ToException(HeldFileOperation.Switch);
         }
 
+        // A folder that needs no switch is said so first; the folders that do are said as each one is switched.
+        foreach (var reading in readings.Where(reading => !reading.NeedsSwitch))
+        {
+            if (reading.Target.Leave)
+            {
+                context.AddStep(JobSteps.LaunchFolderNotIncluded, ("folder", reading.Target.Role));
+            }
+            else
+            {
+                context.AddStep(JobSteps.LaunchFolderInPlace, ("folder", reading.Target.Role), ("profile", resolved.Profile.Name));
+            }
+        }
+
         var pending = readings.Where(reading => reading.NeedsSwitch).ToList();
         if (pending.Count > 0)
         {
-            await SwitchAsync(storage, context, gameId, pending).ConfigureAwait(false);
+            await SwitchAsync(storage, context, gameId, resolved.Profile.Name, pending).ConfigureAwait(false);
         }
 
 
@@ -154,7 +168,7 @@ public sealed partial class LaunchOrchestrator
         return new Prepared(game, repos.Single(repo => repo.Role == RepoRole.Install).WorkTree, resolved);
     }
 
-    private async Task SwitchAsync(StorageSnapshot storage, JobContext context, string gameId, IReadOnlyList<FolderReading> folders)
+    private async Task SwitchAsync(StorageSnapshot storage, JobContext context, string gameId, string profileName, IReadOnlyList<FolderReading> folders)
     {
         Report(context, gameId, JobProgress.None);
         var done = 0;
@@ -180,6 +194,15 @@ public sealed partial class LaunchOrchestrator
                         value.CurrentPath));
             });
             var target = folder.Target;
+            var counts = await SwitchCountsAsync(storage, folder, context.CancellationToken).ConfigureAwait(false);
+            context.AddStep(
+                JobSteps.LaunchSwitchFolder,
+                ("folder", target.Role),
+                ("profile", profileName),
+                ("older", target.Branch is null ? "yes" : "no"),
+                ("counted", counts is null ? "no" : "yes"),
+                ("written", counts?.Written ?? 0),
+                ("removed", counts?.Removed ?? 0));
             _services.Log.Information($"Switch: the {GameFolders.LogName(target.Role)} folder of {gameId} ({target.Repo.WorkTree}) from {folder.Status.HeadCommit ?? "(no point)"} to {target.Commit}{(target.Branch is { } named ? $" on {named}" : " (an older point)")}.");
             if (target.Branch is { } branch)
             {
@@ -192,6 +215,20 @@ public sealed partial class LaunchOrchestrator
 
             done = offset + last;
             doneBytes = bytesOffset + lastBytes;
+        }
+    }
+
+    // How many files the switch writes and removes, for the job's details; a folder git cannot compare is left for the switch itself to report.
+    private static async Task<(int Written, int Removed)?> SwitchCountsAsync(StorageSnapshot storage, FolderReading reading, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var diff = await storage.Engine.SwitchStatAsync(reading.Target.Repo, SwitchOrigin(reading), reading.Target.Commit, cancellationToken).ConfigureAwait(false);
+            return (diff.FilesChanged - diff.FilesRemoved, diff.FilesRemoved);
+        }
+        catch (SavepointException)
+        {
+            return null;
         }
     }
 

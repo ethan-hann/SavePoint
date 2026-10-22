@@ -224,6 +224,9 @@ internal static class ContractScenario
 
         var folders = result is null ? "none" : string.Join(", ", result.Folders.Select(f => $"{f.Role}:{(f.Ok ? "ok" : f.Error!.MessageId)}"));
         story.Add("capture finished", $"{job.Kind} {job.Status} folders={folders} point={(result?.PointId is null ? "none" : "named")}");
+
+        // The details say what the job did, in the same first words, whichever backend ran it.
+        story.Add("capture details begin with", job.RecentLines.FirstOrDefault() is JobLine.Step first ? first.MessageId : "nothing");
         return result?.ProfileId;
     }
 

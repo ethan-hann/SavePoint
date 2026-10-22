@@ -112,6 +112,7 @@ internal sealed class OptimizationService
                     })
                     : null;
 
+                context.AddStep(JobSteps.CompactGame, ("game", game.Name));
                 var repos = GameFolders.ReposForGitDirOnly(_services, storage, game);
                 var before = await SizeOfAsync(repos, context.CancellationToken).ConfigureAwait(false);
                 var folders = new List<FolderOutcome>();
@@ -125,12 +126,19 @@ internal sealed class OptimizationService
                     }
                     catch (Exception e) when (e is SavepointException and not OperationCancelledByUserException)
                     {
+                        context.AddStep(JobSteps.CompactFolderFailed, ("game", game.Name), ("folder", repo.Role));
                         folders.Add(new FolderOutcome(repo.Role, ErrorInfo.From(e)));
                     }
                 }
 
                 var after = await SizeOfAsync(repos, context.CancellationToken).ConfigureAwait(false);
-                return new GameOptimizeOutcome(game.Id, folders, folders.Any(folder => folder.Ok) ? Math.Max(0, before - after) : null);
+                var freed = folders.Any(folder => folder.Ok) ? Math.Max(0, before - after) : (long?)null;
+                if (freed is { } bytes)
+                {
+                    context.AddStep(bytes > 0 ? JobSteps.CompactFreed : JobSteps.CompactNothingFreed, bytes > 0 ? [("game", game.Name), ("bytes", bytes)] : [("game", game.Name)]);
+                }
+
+                return new GameOptimizeOutcome(game.Id, folders, freed);
             },
             context.CancellationToken);
 

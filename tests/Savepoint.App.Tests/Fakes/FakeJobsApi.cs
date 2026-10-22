@@ -56,6 +56,10 @@ public sealed class FakeJobsApi : IJobsApi
     // Progress for a job that already finished is dropped, the way a late report from a subprocess would be.
     public void ReportProgress(Guid jobId, JobProgress progress) => _backend.Script(() => ApplyProgress(jobId, progress));
 
+    // A step the job writes at a stage of its work, as the real work does; a step for a job that already finished is dropped.
+    public void ReportStep(Guid jobId, string messageId, params (string Name, object? Value)[] args) =>
+        _backend.Script(() => ApplyLine(jobId, JobLine.ForStep(messageId, args)));
+
     // Without a result, the job ends with what the call that started it would produce when everything works.
     public void Complete(Guid jobId, JobResult? result = null) => _backend.Script(() => Finish(jobId, result));
 
@@ -69,7 +73,8 @@ public sealed class FakeJobsApi : IJobsApi
             FinishWith(job, JobStatus.Cancelled, null, CancelledError(job.Snapshot));
         });
 
-    internal Guid Start(JobKind kind, string? gameId, JobResult? defaultResult, Action<JobSnapshot>? onFinished = null)
+    // The opening lines are what the real work writes as soon as it begins, so a job's details are never empty.
+    internal Guid Start(JobKind kind, string? gameId, JobResult? defaultResult, Action<JobSnapshot>? onFinished = null, IReadOnlyList<JobLine>? opening = null)
     {
         var id = new Guid($"00000000-0000-0000-0000-{++_sequence:D12}");
         var snapshot = new JobSnapshot(
@@ -80,7 +85,7 @@ public sealed class FakeJobsApi : IJobsApi
             Cancellable: kind != JobKind.ClearData,
             CancelRequested: false,
             JobProgress.None,
-            [],
+            opening ?? [],
             _backend.Clock.Now,
             FinishedAt: null,
             Result: null,
@@ -103,11 +108,25 @@ public sealed class FakeJobsApi : IJobsApi
         var lines = job.Snapshot.RecentLines;
         if (progress.CurrentPath is { } path)
         {
-            lines = [.. lines.Skip(Math.Max(0, lines.Count + 1 - _recentLinesKept)), path];
+            lines = Appended(lines, JobLine.ForPath(path));
         }
 
         Update(job, s => s with { Progress = progress, RecentLines = lines });
     }
+
+    internal void ApplyLine(Guid jobId, JobLine line)
+    {
+        var job = Find(jobId);
+        if (job.Snapshot.Status != JobStatus.Running)
+        {
+            return;
+        }
+
+        Update(job, s => s with { RecentLines = Appended(s.RecentLines, line) });
+    }
+
+    private static IReadOnlyList<JobLine> Appended(IReadOnlyList<JobLine> lines, JobLine line) =>
+        [.. lines.Skip(Math.Max(0, lines.Count + 1 - _recentLinesKept)), line];
 
     internal void Finish(Guid jobId, JobResult? result)
     {

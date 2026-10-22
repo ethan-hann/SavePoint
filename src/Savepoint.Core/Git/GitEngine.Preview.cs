@@ -123,7 +123,7 @@ public sealed partial class GitEngine
 
         var changes = await DiffTreesAsync(repo, from, to, ct).ConfigureAwait(false);
         var sizes = await ObjectSizesAsync(repo, changes.Select(change => change.NewId), ct).ConfigureAwait(false);
-        return new DiffSummary(changes.Count, changes.Sum(change => sizes.GetValueOrDefault(change.NewId)), [.. changes.Select(change => change.Path)]);
+        return new DiffSummary(changes.Count, changes.Sum(change => sizes.GetValueOrDefault(change.NewId)), [.. changes.Select(change => change.Path)], changes.Count(change => change.Status == 'D'));
     }
 
     /// <summary>
@@ -149,7 +149,7 @@ public sealed partial class GitEngine
         var named = await NamedAmongAsync(repo, [.. changes.Select(change => change.Path).Distinct(StringComparer.Ordinal)], ct).ConfigureAwait(false);
         var kept = changes.Where(change => !named.Contains(change.Path)).ToList();
         var sizes = await ObjectSizesAsync(repo, kept.Select(change => change.NewId), ct).ConfigureAwait(false);
-        return new DiffSummary(kept.Count, kept.Sum(change => sizes.GetValueOrDefault(change.NewId)), [.. kept.Select(change => change.Path)]);
+        return new DiffSummary(kept.Count, kept.Sum(change => sizes.GetValueOrDefault(change.NewId)), [.. kept.Select(change => change.Path)], kept.Count(change => change.Status == 'D'));
     }
 
     /// <summary>The files in a point's tree, relative paths with forward slashes; empty when the revision does not exist.</summary>

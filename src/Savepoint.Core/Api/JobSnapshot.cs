@@ -17,7 +17,7 @@ namespace Savepoint.Core.Api;
 /// True once a cancel was asked for. The job is still stopping until <paramref name="Status"/> leaves <see cref="JobStatus.Running"/>.
 /// </param>
 /// <param name="Progress">The latest progress report; <see cref="JobProgress.None"/> before the first.</param>
-/// <param name="RecentLines">The newest 200 progress paths and lines of output, oldest first, for the details view.</param>
+/// <param name="RecentLines">The newest 200 lines of the job's details, oldest first: the files it handles and the steps it takes.</param>
 /// <param name="StartedAt">When the job started, as an absolute instant.</param>
 /// <param name="FinishedAt">When the job ended, as an absolute instant; null while it is running.</param>
 /// <param name="Result">
@@ -37,7 +37,7 @@ public sealed record JobSnapshot(
     bool Cancellable,
     bool CancelRequested,
     JobProgress Progress,
-    IReadOnlyList<string> RecentLines,
+    IReadOnlyList<JobLine> RecentLines,
     DateTimeOffset StartedAt,
     DateTimeOffset? FinishedAt,
     JobResult? Result,

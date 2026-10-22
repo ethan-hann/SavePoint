@@ -24,7 +24,7 @@ public class FakeJobsApiTests
         Assert.Equal(JobStatus.Running, job.Status);
         Assert.True(job.Cancellable);
         Assert.Equal(JobProgress.None, job.Progress);
-        Assert.Empty(job.RecentLines);
+        Assert.Equal(JobSteps.CaptureStart, Assert.IsType<JobLine.Step>(Assert.Single(job.RecentLines)).MessageId);
         Assert.Equal(ScenarioBuilder.DefaultNow, job.StartedAt);
         Assert.Equal(id, Assert.Single(events).JobId);
     }
@@ -59,8 +59,70 @@ public class FakeJobsApiTests
 
         var lines = Job(backend, id).RecentLines;
         Assert.Equal(200, lines.Count);
-        Assert.Equal("Data/file2.esp", lines[0]);
-        Assert.Equal("Data/file201.esp", lines[^1]);
+        Assert.Equal(JobLine.ForPath("Data/file2.esp"), lines[0]);
+        Assert.Equal(JobLine.ForPath("Data/file201.esp"), lines[^1]);
+    }
+
+    [Fact]
+    public async Task A_reported_step_joins_the_progress_paths_as_a_recent_line_and_raises_an_event()
+    {
+        var backend = FakeBackend.Mockup();
+        var id = await StartCapture(backend);
+        var events = Collect(backend);
+
+        backend.Jobs.ReportProgress(id, new JobProgress(FilesDone: 1, CurrentPath: "Data/a.esp"));
+        backend.Jobs.ReportStep(id, JobSteps.CaptureFolderDone, ("folder", RepoRole.Install), ("files", 1));
+
+        Assert.Equal(
+            [JobLine.ForPath("Data/a.esp"), JobLine.ForStep(JobSteps.CaptureFolderDone, ("folder", "install"), ("files", 1))],
+            Job(backend, id).RecentLines.Skip(1));
+        Assert.Equal(2, events.Count);
+    }
+
+    [Fact]
+    public async Task A_step_for_a_job_that_already_finished_is_dropped_without_an_event()
+    {
+        var backend = FakeBackend.Mockup();
+        var id = await StartCapture(backend);
+        backend.Jobs.Complete(id);
+        var events = Collect(backend);
+        var linesBefore = Job(backend, id).RecentLines;
+
+        backend.Jobs.ReportStep(id, JobSteps.CaptureFolderDone, ("folder", RepoRole.Install), ("files", 1));
+
+        Assert.Empty(events);
+        Assert.Equal(linesBefore, Job(backend, id).RecentLines);
+    }
+
+    [Fact]
+    public async Task Every_job_starts_with_the_step_the_real_work_writes_first_so_its_details_are_never_empty()
+    {
+        var backend = FakeBackend.Mockup();
+        var modded = Ok(await backend.Profiles.ListAsync(SkyrimId, Ct)).Single(p => p.Id == ModdedId).Name;
+
+        var capture = await StartCapture(backend);
+        var one = Ok(await backend.Games.OptimizeStorageAsync(SkyrimId)).JobId;
+        var all = Ok(await backend.Settings.OptimizeAllStorageAsync()).JobId;
+        var move = Ok(await backend.Settings.RelocateStorageAsync(@"D:\SavePoint")).JobId;
+        var clear = Ok(await backend.Settings.ClearAllDataAsync()).JobId;
+
+        Assert.Equal([JobLine.ForStep(JobSteps.CaptureStart, ("profile", modded), ("snapshot", "After the Blackreach run"))], Job(backend, capture).RecentLines);
+        Assert.Equal([JobLine.ForStep(JobSteps.CompactGame, ("game", "Skyrim Special Edition"))], Job(backend, one).RecentLines);
+        Assert.Equal(3, Job(backend, all).RecentLines.Count(line => line is JobLine.Step { MessageId: JobSteps.CompactGame }));
+        Assert.Equal(JobSteps.RelocateStart, Assert.IsType<JobLine.Step>(Assert.Single(Job(backend, move).RecentLines)).MessageId);
+        Assert.Equal([JobLine.ForStep(JobSteps.ClearStart, ("games", 3))], Job(backend, clear).RecentLines);
+    }
+
+    [Fact]
+    public async Task A_launch_says_it_is_starting_the_game_when_it_reaches_a_running_game()
+    {
+        var backend = FakeBackend.Mockup();
+        Ok(await backend.Launch.StartAsync(SkyrimId, new LaunchTarget.ProfileTip(ModdedId)));
+        var launch = backend.Jobs.LastStarted(JobKind.Launch);
+
+        backend.Launch.ReportRunning(SkyrimId);
+
+        Assert.Equal([JobLine.ForStep(JobSteps.LaunchStarting, ("game", "Skyrim Special Edition"))], Job(backend, launch.JobId).RecentLines);
     }
 
     [Fact]

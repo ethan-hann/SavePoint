@@ -174,6 +174,7 @@ internal sealed class StorageRelocator
         }
 
         _services.Log.Information($"Storage move: copying {listing.FileCount} files ({listing.Bytes} bytes) from {storage.Root} to {destination}.");
+        context.AddStep(JobSteps.RelocateStart, ("from", storage.Root), ("to", destination), ("files", listing.FileCount), ("bytes", listing.Bytes));
         var createdRoot = !Directory.Exists(destination);
         var progress = new Tally(context, listing);
         StorageRelocationResult result;
@@ -188,6 +189,7 @@ internal sealed class StorageRelocator
             }
 
             _services.Log.Information("Storage move: every file is copied and checked.");
+            context.AddStep(JobSteps.RelocateCopied);
 
             // Everything is in place and checked; from here the switch is the only thing left that can fail.
             using var exclusive = await _services.Storage.Gate.EnterExclusiveAsync(context.CancellationToken).ConfigureAwait(false);
@@ -195,11 +197,13 @@ internal sealed class StorageRelocator
             await StorageRootSetting.CommitAsync(_services, moved.Root, _afterSettings).ConfigureAwait(false);
             _services.Storage.Replace(moved);
             _services.Log.Information($"Storage move: now using {moved.Root}.");
+            context.AddStep(JobSteps.RelocateSwitched, ("path", moved.Root));
             result = new StorageRelocationResult(storage.Root, moved.Root, progress.BytesDone, []);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
             _services.Log.Warning($"Storage move: failed; taking back the copy at {destination}.", e);
+            context.AddStep(JobSteps.RelocateTakingBack, ("path", destination));
             TakeBack(destination, listing, createdRoot);
             throw new StorageRelocationFailedException(destination, $"The storage could not be moved to '{destination}': {e.Message}", e);
         }
@@ -214,6 +218,7 @@ internal sealed class StorageRelocator
                 _services.Log.Warning($"Storage move: failed; taking back the copy at {destination}.", e);
             }
 
+            context.AddStep(JobSteps.RelocateTakingBack, ("path", destination));
             TakeBack(destination, listing, createdRoot);
             throw;
         }
@@ -237,6 +242,7 @@ internal sealed class StorageRelocator
             return left;
         }
 
+        context.AddStep(JobSteps.RelocateRemovingOld);
         foreach (var folder in listing.Folders)
         {
             // Built from the folder as listed, since a folder in the storage need not be named like a game (a copy made in Explorer);
@@ -250,7 +256,7 @@ internal sealed class StorageRelocator
                 catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException))
                 {
                     // The move has switched over, so nothing here may fail it.
-                    context.AddLine(gitDir);
+                    context.AddStep(JobSteps.RelocateNotRemoved, ("path", gitDir));
                     _services.Log.Warning($"Storage move: could not remove the old copy {gitDir}: {ErrorInfo.From(e).MessageId}.", e);
                     left.Add(new ClearFailure(gitDir, ErrorInfo.From(e)));
                 }

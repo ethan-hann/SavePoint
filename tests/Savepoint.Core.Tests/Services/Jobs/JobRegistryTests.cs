@@ -371,7 +371,7 @@ public class JobRegistryTests
 
         var job = registry.Get(held.Id)!;
         Assert.Equal(new JobProgress(FilesDone: 2), job.Progress);
-        Assert.Equal(["Data/a.esp"], job.RecentLines);
+        Assert.Equal([JobLine.ForPath("Data/a.esp")], job.RecentLines);
         held.Finish();
         await FinishedAsync(registry, held.Id);
     }
@@ -390,13 +390,13 @@ public class JobRegistryTests
 
         for (var i = 151; i <= 250; i++)
         {
-            context.AddLine($"path{i}");
+            context.AddPath($"path{i}");
         }
 
         var lines = registry.Get(held.Id)!.RecentLines;
         Assert.Equal(200, lines.Count);
-        Assert.Equal("path51", lines[0]);
-        Assert.Equal("path250", lines[^1]);
+        Assert.Equal(JobLine.ForPath("path51"), lines[0]);
+        Assert.Equal(JobLine.ForPath("path250"), lines[^1]);
         Assert.Equal(150, registry.Get(held.Id)!.Progress.FilesDone);
         held.Finish();
         await FinishedAsync(registry, held.Id);
@@ -409,13 +409,76 @@ public class JobRegistryTests
         var held = new HeldJob(registry);
         var context = await held.Context;
 
-        context.AddLine(string.Empty);
-        context.AddLine(null);
+        context.AddPath(string.Empty);
+        context.AddPath(null);
         context.Progress.Report(new JobProgress(FilesDone: 1, CurrentPath: string.Empty));
 
         Assert.Empty(registry.Get(held.Id)!.RecentLines);
         held.Finish();
         await FinishedAsync(registry, held.Id);
+    }
+
+    [Fact]
+    public async Task A_step_becomes_a_recent_line_with_its_arguments_in_the_order_it_was_written()
+    {
+        var registry = new JobRegistry();
+        var held = new HeldJob(registry);
+        var context = await held.Context;
+
+        context.AddStep(JobSteps.CaptureStart, ("profile", "Vanilla"), ("snapshot", "Session"));
+        context.Progress.Report(new JobProgress(FilesDone: 1, CurrentPath: "Data/a.esp"));
+        context.AddStep(JobSteps.CaptureFolder, ("folder", RepoRole.Install), ("path", "C:/Games/Alpha"));
+
+        Assert.Equal(
+            [
+                JobLine.ForStep(JobSteps.CaptureStart, ("profile", "Vanilla"), ("snapshot", "Session")),
+                JobLine.ForPath("Data/a.esp"),
+                JobLine.ForStep(JobSteps.CaptureFolder, ("folder", "install"), ("path", "C:/Games/Alpha")),
+            ],
+            registry.Get(held.Id)!.RecentLines);
+        held.Finish();
+        await FinishedAsync(registry, held.Id);
+    }
+
+    [Fact]
+    public async Task Steps_and_paths_share_the_newest_200_lines()
+    {
+        var registry = new JobRegistry();
+        var held = new HeldJob(registry);
+        var context = await held.Context;
+
+        for (var i = 1; i <= 150; i++)
+        {
+            context.AddPath($"path{i}");
+        }
+
+        for (var i = 1; i <= 100; i++)
+        {
+            context.AddStep(JobSteps.CompactGame, ("game", $"game{i}"));
+        }
+
+        var lines = registry.Get(held.Id)!.RecentLines;
+        Assert.Equal(200, lines.Count);
+        Assert.Equal(JobLine.ForPath("path51"), lines[0]);
+        Assert.Equal(JobLine.ForStep(JobSteps.CompactGame, ("game", "game100")), lines[^1]);
+        held.Finish();
+        await FinishedAsync(registry, held.Id);
+    }
+
+    [Fact]
+    public async Task A_step_written_after_the_job_ended_is_dropped()
+    {
+        var registry = new JobRegistry();
+        var held = new HeldJob(registry);
+        var context = await held.Context;
+        context.AddStep(JobSteps.ClearSettings);
+        held.Finish();
+        var done = await FinishedAsync(registry, held.Id);
+
+        context.AddStep(JobSteps.ClearArtwork);
+
+        Assert.Equal([JobLine.ForStep(JobSteps.ClearSettings)], registry.Get(held.Id)!.RecentLines);
+        Assert.Equal(done.Revision, registry.Get(held.Id)!.Revision);
     }
 
     [Fact]
@@ -430,12 +493,12 @@ public class JobRegistryTests
         var events = await EventLog.FromNowAsync(registry);
 
         context.Progress.Report(new JobProgress(FilesDone: 99, CurrentPath: "late"));
-        context.AddLine("late line");
+        context.AddPath("late line");
         await registry.WhenDeliveredAsync();
 
         AssertSame(done, registry.Get(held.Id));
         Assert.Equal(5, done.Progress.FilesDone);
-        Assert.Equal(["last"], done.RecentLines);
+        Assert.Equal([JobLine.ForPath("last")], done.RecentLines);
         Assert.Empty(events.All);
     }
 

@@ -311,9 +311,9 @@ public sealed class JobRegistry : IJobsApi
         ScheduleDelivery();
     }
 
-    private void Report(Job job, JobProgress? progress, string? line)
+    private void Report(Job job, JobProgress? progress, JobLine? line)
     {
-        var hasLine = !string.IsNullOrEmpty(line);
+        var hasLine = line is not null;
         if (progress is null && !hasLine)
         {
             return;
@@ -331,7 +331,7 @@ public sealed class JobRegistry : IJobsApi
             if (progress is not null)
             {
                 job.Progress = progress;
-                AddLine(job, progress.CurrentPath);
+                AddLine(job, string.IsNullOrEmpty(progress.CurrentPath) ? null : JobLine.ForPath(progress.CurrentPath));
             }
 
             if (hasLine)
@@ -349,9 +349,9 @@ public sealed class JobRegistry : IJobsApi
         }
     }
 
-    private static void AddLine(Job job, string? line)
+    private static void AddLine(Job job, JobLine? line)
     {
-        if (string.IsNullOrEmpty(line))
+        if (line is null)
         {
             return;
         }
@@ -566,7 +566,7 @@ public sealed class JobRegistry : IJobsApi
 
         public JobProgress Progress { get; set; } = JobProgress.None;
 
-        public Queue<string> Lines { get; } = new();
+        public Queue<JobLine> Lines { get; } = new();
 
         public DateTimeOffset? FinishedAt { get; set; }
 

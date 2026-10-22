@@ -3,6 +3,7 @@ using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Git;
+using Savepoint.Core.Services.Jobs;
 using Savepoint.Core.Services.Storage;
 
 namespace Savepoint.Core.Services.Settings;
@@ -65,7 +66,7 @@ internal sealed class DataClearer
         }
 
         // A clear cannot be stopped halfway: some games cleared and others not is worse than waiting for it to finish (D13.18).
-        return _services.Jobs.Start(JobKind.ClearData, null, cancellable: false, _ => ClearAsync());
+        return _services.Jobs.Start(JobKind.ClearData, null, cancellable: false, ClearAsync);
     }
 
     private SavepointException? RunningBlocker(IReadOnlyList<GameDefinition> games)
@@ -78,18 +79,18 @@ internal sealed class DataClearer
         return new GameRunningException(running, games.FirstOrDefault(game => game.Id == running)?.Name ?? running);
     }
 
-    private async Task<JobResult?> ClearAsync()
+    private async Task<JobResult?> ClearAsync(JobContext context)
     {
         return await _services.Locks.RunExclusiveAsync(
             BackendServices.LibraryLockKey,
             async () =>
             {
                 var games = await _services.Catalog.ListGamesAsync().ConfigureAwait(false);
-                return await _services.RunWithLocksAsync(games.Select(game => game.Id), () => ClearLockedAsync(games)).ConfigureAwait(false);
+                return await _services.RunWithLocksAsync(games.Select(game => game.Id), () => ClearLockedAsync(games, context)).ConfigureAwait(false);
             }).ConfigureAwait(false);
     }
 
-    private async Task<JobResult?> ClearLockedAsync(IReadOnlyList<GameDefinition> games)
+    private async Task<JobResult?> ClearLockedAsync(IReadOnlyList<GameDefinition> games, JobContext context)
     {
         if (RunningBlocker(games) is { } blocker)
         {
@@ -103,17 +104,20 @@ internal sealed class DataClearer
         var listing = await Task.Run(() => StorageContent.Scan(storage.Root, CancellationToken.None)).ConfigureAwait(false);
         var bytes = listing.Bytes;
         Log($"starting; the history of {games.Count} games and every leftover folder in {storage.Root} will go.");
+        context.AddStep(JobSteps.ClearStart, ("games", games.Count));
 
         foreach (var game in games)
         {
             Log($"removing the history of game {game.Id}.");
+            context.AddStep(JobSteps.ClearGame, ("game", game.Name));
             foreach (var folder in GameFolders.ResolveLoosely(_services.PathTokens, game).Where(folder => folder.Path is not null))
             {
-                await Attempt(left, folder.Path!, () => storage.Engine.DeleteRepoAsync(GameFolders.Repo(storage, game.Id, folder))).ConfigureAwait(false);
+                await Attempt(context, left, folder.Path!, () => storage.Engine.DeleteRepoAsync(GameFolders.Repo(storage, game.Id, folder))).ConfigureAwait(false);
             }
         }
 
         Log($"removing leftover history folders in {storage.Root} ({listing.Folders.Count} found).");
+        context.AddStep(JobSteps.ClearFolders, ("count", listing.Folders.Count));
 
         // Whatever of SavePoint's is left in the root, including history of games the catalog no longer lists. Only git directories
         // SavePoint made are removed, and a folder that holds anything else stays, so a folder that merely looks like a game's is safe.
@@ -121,31 +125,35 @@ internal sealed class DataClearer
         {
             foreach (var gitDir in new[] { Path.Combine(folder, "install.git"), Path.Combine(folder, "external.git") })
             {
-                await Attempt(left, gitDir, () => GitDirRemoval.RemoveAsync(gitDir, storage.Root, storage.PathSafety.ResolveRealPath, _removeDelays, CancellationToken.None)).ConfigureAwait(false);
+                await Attempt(context, left, gitDir, () => GitDirRemoval.RemoveAsync(gitDir, storage.Root, storage.PathSafety.ResolveRealPath, _removeDelays, CancellationToken.None)).ConfigureAwait(false);
             }
 
             StorageFolders.RemoveIfEmpty(folder);
         }
 
         Log($"removing the catalog files in {_services.Catalog.DirectoryPath}.");
+        context.AddStep(JobSteps.ClearSettings);
         foreach (var file in CatalogFiles())
         {
-            await Attempt(left, file, () => Task.Run(() => DeleteFile(file))).ConfigureAwait(false);
+            await Attempt(context, left, file, () => Task.Run(() => DeleteFile(file))).ConfigureAwait(false);
         }
 
         // Artwork sits beside the catalog files, in the configuration folder, so it goes with them.
         Log("removing the artwork.");
-        await Attempt(left, _services.Artwork.Root, () => Task.Run(_services.Artwork.DeleteAll)).ConfigureAwait(false);
+        context.AddStep(JobSteps.ClearArtwork);
+        await Attempt(context, left, _services.Artwork.Root, () => Task.Run(_services.Artwork.DeleteAll)).ConfigureAwait(false);
 
         var spared = SparedLogFile();
         Log($"emptying the log folder {_services.Platform.Directories.LogsDir}{(spared is null ? string.Empty : $", keeping {spared}, which is open")}.");
+        context.AddStep(JobSteps.ClearLogs);
         foreach (var entry in LogFolderEntries(spared))
         {
-            await Attempt(left, entry, () => Task.Run(() => DeleteEntry(entry))).ConfigureAwait(false);
+            await Attempt(context, left, entry, () => Task.Run(() => DeleteEntry(entry))).ConfigureAwait(false);
         }
 
         _services.Storage.Reset();
         Log($"finished; {left.Count} items could not be removed.");
+        context.AddStep(JobSteps.ClearDone, ("left", left.Count));
         return new ClearAllDataResult(bytes, [.. left.Select(failure => new ClearFailure(failure.Key, failure.Value))]);
     }
 
@@ -203,7 +211,7 @@ internal sealed class DataClearer
     }
 
     // One thing that cannot be removed does not stop the rest; it is listed so the user can remove it by hand.
-    private async Task Attempt(Dictionary<string, ErrorInfo> left, string path, Func<Task> remove)
+    private async Task Attempt(JobContext context, Dictionary<string, ErrorInfo> left, string path, Func<Task> remove)
     {
         try
         {
@@ -217,6 +225,7 @@ internal sealed class DataClearer
             if (left.TryAdd(named, error))
             {
                 _services.Log.Warning($"Clear all data: could not remove {named}: {error.MessageId}.", e);
+                context.AddStep(JobSteps.ClearNotRemoved, ("path", named));
             }
         }
     }
