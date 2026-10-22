@@ -16,6 +16,9 @@ namespace Savepoint.Core.Services.Settings;
 /// </summary>
 internal sealed class StorageRelocator
 {
+    /// <summary>The file a move writes in its destination before the first copy and removes when it ends; one that is found there means an earlier move did not finish.</summary>
+    internal const string MarkerFileName = "savepoint-move-in-progress.txt";
+
     private const int _bufferSize = 1024 * 1024;
     private const long _progressInterval = 16L * 1024 * 1024;
 
@@ -33,11 +36,13 @@ internal sealed class StorageRelocator
 
     private readonly BackendServices _services;
     private readonly Action<string, string>? _afterCopy;
+    private readonly Action<string>? _afterSettings;
 
-    public StorageRelocator(BackendServices services, Action<string, string>? afterCopy)
+    public StorageRelocator(BackendServices services, Action<string, string>? afterCopy, Action<string>? afterSettings = null)
     {
         _services = services;
         _afterCopy = afterCopy;
+        _afterSettings = afterSettings;
     }
 
     public async Task<StorageRelocationPreview> PreviewAsync(string newRoot, CancellationToken cancellationToken)
@@ -47,14 +52,14 @@ internal sealed class StorageRelocator
         return await _services.Storage.ReadAsync(
             async storage =>
             {
-                var listing = await Task.Run(() => StorageContent.Scan(storage.Root, cancellationToken), cancellationToken).ConfigureAwait(false);
+                var listing = await Task.Run(() => StorageContent.Scan(storage.Root, cancellationToken, strict: true), cancellationToken).ConfigureAwait(false);
                 var sizes = new List<GameBytesUsed>();
                 foreach (var game in games)
                 {
                     sizes.Add(new GameBytesUsed(game.Id, await DirectorySize.GetBytesAsync(storage.GameDirectory(game.Id), cancellationToken).ConfigureAwait(false)));
                 }
 
-                var blocker = BlockerOf(storage, games, destination, listing.Bytes);
+                var blocker = BlockerOf(storage, games, destination, listing);
                 return new StorageRelocationPreview(
                     storage.Root,
                     destination,
@@ -74,8 +79,8 @@ internal sealed class StorageRelocator
         var blocker = await _services.Storage.ReadAsync(
             async storage =>
             {
-                var listing = await Task.Run(() => StorageContent.Scan(storage.Root, CancellationToken.None)).ConfigureAwait(false);
-                return BlockerOf(storage, games, destination, listing.Bytes);
+                var listing = await Task.Run(() => StorageContent.Scan(storage.Root, CancellationToken.None, strict: true)).ConfigureAwait(false);
+                return BlockerOf(storage, games, destination, listing);
             }).ConfigureAwait(false);
         if (blocker is not null)
         {
@@ -86,8 +91,14 @@ internal sealed class StorageRelocator
     }
 
     // The first reason the move cannot go ahead, in the order the user would fix them; null when it can.
-    private SavepointException? BlockerOf(StorageSnapshot storage, IReadOnlyList<GameDefinition> games, string destination, long bytesNeeded)
+    private SavepointException? BlockerOf(StorageSnapshot storage, IReadOnlyList<GameDefinition> games, string destination, ContentListing listing)
     {
+        // Games in the catalog and none of their folders here: the drive is not the one that holds the history, and copying nothing would look like success.
+        if (games.Count > 0 && listing.Folders.Count == 0)
+        {
+            return new StorageUnreachableException(storage.Root, null);
+        }
+
         if (_services.Sessions.RunningGameIds().FirstOrDefault() is { } running)
         {
             var name = games.FirstOrDefault(game => game.Id == running)?.Name ?? running;
@@ -114,12 +125,18 @@ internal sealed class StorageRelocator
             }
         }
 
+        // Checked before "not empty": the files in such a folder are SavePoint's own half-finished copy, which the user can delete.
+        if (File.Exists(Path.Combine(destination, MarkerFileName)))
+        {
+            return new StorageMoveUnfinishedException(destination);
+        }
+
         if (Directory.Exists(destination) && Directory.EnumerateFileSystemEntries(destination).Any())
         {
             return new StorageDestinationNotEmptyException(destination);
         }
 
-        var required = bytesNeeded + _spareBytes;
+        var required = listing.Bytes + _spareBytes;
         return _services.Disk.GetFreeBytes(destination) is { } free && free < required ? new DiskSpaceException(destination, required, free) : null;
     }
 
@@ -149,10 +166,10 @@ internal sealed class StorageRelocator
     private async Task<JobResult?> CopyAndSwitchAsync(JobContext context, IReadOnlyList<GameDefinition> games, string destination)
     {
         var storage = await _services.Storage.GetAsync(context.CancellationToken).ConfigureAwait(false);
-        var listing = await Task.Run(() => StorageContent.Scan(storage.Root, context.CancellationToken), context.CancellationToken).ConfigureAwait(false);
+        var listing = await Task.Run(() => StorageContent.Scan(storage.Root, context.CancellationToken, strict: true), context.CancellationToken).ConfigureAwait(false);
 
         // Re-judged now that the locks are held: a game may have started, or the destination may have filled, while the job waited.
-        if (BlockerOf(storage, games, destination, listing.Bytes) is { } blocker)
+        if (BlockerOf(storage, games, destination, listing) is { } blocker)
         {
             throw blocker;
         }
@@ -163,6 +180,7 @@ internal sealed class StorageRelocator
         try
         {
             Directory.CreateDirectory(destination);
+            File.WriteAllText(Path.Combine(destination, MarkerFileName), $"SavePoint is moving its data here from '{storage.Root}'. If this file is still here, the move did not finish and the other files in this folder are an incomplete copy.{Environment.NewLine}");
             foreach (var entry in listing.Entries)
             {
                 context.CancellationToken.ThrowIfCancellationRequested();
@@ -172,11 +190,9 @@ internal sealed class StorageRelocator
             // Everything is in place and checked; from here the switch is the only thing left that can fail.
             using var exclusive = await _services.Storage.Gate.EnterExclusiveAsync(context.CancellationToken).ConfigureAwait(false);
             var moved = _services.Storage.Build(destination);
-            await _services.Catalog.UpdateSettingsAsync(
-                current => (current ?? AppSettings.Defaults(_services.Platform.Directories.DefaultStorageRoot)) with { StorageRoot = moved.Root },
-                CancellationToken.None).ConfigureAwait(false);
+            await CommitSettingsAsync(moved.Root).ConfigureAwait(false);
             _services.Storage.Replace(moved);
-            result = new StorageRelocationResult(storage.Root, moved.Root, progress.BytesDone);
+            result = new StorageRelocationResult(storage.Root, moved.Root, progress.BytesDone, []);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
@@ -189,19 +205,54 @@ internal sealed class StorageRelocator
             throw;
         }
 
-        // The move has switched over; nothing past this point may undo it.
-        await RemoveOldCopiesAsync(context, storage, listing, result.NewRoot).ConfigureAwait(false);
-        return result;
+        // The move has switched over; nothing past this point may undo it, so a cancel no longer reaches the removal either.
+        TryDelete(Path.Combine(destination, MarkerFileName));
+        return result with { NotRemoved = await RemoveOldCopiesAsync(context, storage, listing, result.NewRoot).ConfigureAwait(false) };
+    }
+
+    // The settings write is the commit point. A write that threw may still have taken effect (a clean-up after the rename failed,
+    // or the rename applied and reported a transient error), and then the move has to carry on, not be undone.
+    private async Task CommitSettingsAsync(string newRoot)
+    {
+        try
+        {
+            await _services.Catalog.UpdateSettingsAsync(
+                current => (current ?? AppSettings.Defaults(_services.Platform.Directories.DefaultStorageRoot)) with { StorageRoot = newRoot },
+                CancellationToken.None).ConfigureAwait(false);
+            _afterSettings?.Invoke(newRoot);
+        }
+        catch (Exception)
+        {
+            // Stored already: the new folder is the root from here on.
+            if (!await SettingsNameAsync(newRoot).ConfigureAwait(false))
+            {
+                throw;
+            }
+        }
+    }
+
+    private async Task<bool> SettingsNameAsync(string root)
+    {
+        try
+        {
+            var stored = await _services.Catalog.GetSettingsAsync(CancellationToken.None).ConfigureAwait(false);
+            return string.Equals(stored?.StorageRoot, root, StringComparison.Ordinal);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or SavepointException)
+        {
+            return false;
+        }
     }
 
     // Nothing refers to the old root any more, so its copies are only duplicates. Only SavePoint's own git directories go, each
-    // one checked again by GitDirRemoval, and the old root and anything else in it stay. A copy that cannot be removed is left
-    // and named in the job's lines; it never fails the move.
-    private static async Task RemoveOldCopiesAsync(JobContext context, StorageSnapshot old, ContentListing listing, string newRoot)
+    // one checked again by GitDirRemoval, and the old root and anything else in it stay. A copy that cannot be removed is left,
+    // named in the job's lines and returned; it never fails the move.
+    private static async Task<IReadOnlyList<ClearFailure>> RemoveOldCopiesAsync(JobContext context, StorageSnapshot old, ContentListing listing, string newRoot)
     {
+        var left = new List<ClearFailure>();
         if (Overlaps(old, newRoot))
         {
-            return;
+            return left;
         }
 
         foreach (var folder in listing.Folders)
@@ -212,20 +263,19 @@ internal sealed class StorageRelocator
                 var gitDir = old.GitDirectory(gameId, role);
                 try
                 {
-                    await GitDirRemoval.RemoveAsync(gitDir, old.Root, old.PathSafety.ResolveRealPath, _removeDelays, context.CancellationToken).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException)
-                {
-                    return;
+                    await GitDirRemoval.RemoveAsync(gitDir, old.Root, old.PathSafety.ResolveRealPath, _removeDelays, CancellationToken.None).ConfigureAwait(false);
                 }
                 catch (Exception e) when (e is SavepointException or IOException or UnauthorizedAccessException)
                 {
                     context.AddLine(gitDir);
+                    left.Add(new ClearFailure(gitDir, ErrorInfo.From(e)));
                 }
             }
 
-            RemoveIfEmpty(folder);
+            StorageFolders.RemoveIfEmpty(folder);
         }
+
+        return left;
     }
 
     // A root that cannot be judged is treated as overlapping: deleting nothing is always safe.
@@ -241,18 +291,15 @@ internal sealed class StorageRelocator
         }
     }
 
-    private static void RemoveIfEmpty(string folder)
+    private static void TryDelete(string file)
     {
         try
         {
-            if (Directory.Exists(folder) && !Directory.EnumerateFileSystemEntries(folder).Any())
-            {
-                Directory.Delete(folder);
-            }
+            File.Delete(file);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            // An empty folder left behind is harmless.
+            // A marker left in the folder now in use is only a note; the next move away from it never looks at it.
         }
     }
 
@@ -356,6 +403,7 @@ internal sealed class StorageRelocator
     // Removes what this move copied; the destination folder itself goes only if the move made it and nothing else is in it.
     private static void TakeBack(string destination, ContentListing listing, bool createdRoot)
     {
+        TryDelete(Path.Combine(destination, MarkerFileName));
         foreach (var folder in listing.Folders)
         {
             try

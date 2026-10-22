@@ -49,6 +49,19 @@ public class LinuxNotificationServiceTests
     }
 
     [Fact]
+    public async Task Markup_in_the_text_is_escaped_so_a_game_name_cannot_draw_a_link_or_a_tag()
+    {
+        var bus = new FakeFreedesktopBus();
+        var service = new LinuxNotificationService(bus, "SavePoint", _patient);
+
+        await service.ShowAsync("A & B", "Saved <a href=\"https://example.invalid\">Skyrim</a> & <b>more</b>");
+
+        var sent = Assert.Single(bus.Sent);
+        Assert.Equal("A &amp; B", sent.Summary);
+        Assert.Equal("Saved &lt;a href=\"https://example.invalid\"&gt;Skyrim&lt;/a&gt; &amp; &lt;b&gt;more&lt;/b&gt;", sent.Body);
+    }
+
+    [Fact]
     public async Task A_NUL_character_cannot_travel_in_a_D_Bus_string_so_it_becomes_a_space()
     {
         var bus = new FakeFreedesktopBus();

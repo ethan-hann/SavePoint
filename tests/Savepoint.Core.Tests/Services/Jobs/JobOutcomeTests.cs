@@ -130,9 +130,20 @@ public class JobOutcomeTests
     }
 
     [Fact]
-    public void A_storage_move_that_returned_a_result_succeeded()
+    public void A_storage_move_that_left_nothing_behind_succeeded()
     {
-        Assert.Equal(JobStatus.Succeeded, JobOutcome.Judge(new StorageRelocationResult("/old", "/new", 5)).Status);
+        Assert.Equal(JobStatus.Succeeded, JobOutcome.Judge(new StorageRelocationResult("/old", "/new", 5, [])).Status);
+    }
+
+    [Fact]
+    public void A_storage_move_that_left_an_old_copy_behind_is_partial_with_no_error()
+    {
+        var left = new ClearFailure("/old/game-1/install.git", ErrorInfo.From(new InvalidOperationException("in use")));
+
+        var (status, error) = JobOutcome.Judge(new StorageRelocationResult("/old", "/new", 5, [left]));
+
+        Assert.Equal(JobStatus.Partial, status);
+        Assert.Null(error);
     }
 
     [Theory]

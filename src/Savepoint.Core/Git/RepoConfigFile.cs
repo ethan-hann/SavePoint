@@ -27,7 +27,7 @@ internal static partial class RepoConfigFile
         // Only a missing file starts from nothing: one that cannot be read has settings git wrote (core.ignorecase among them) that a rebuild would lose.
         var path = ConfigPath(gitDir);
         var text = File.Exists(path)
-            ? AtomicText.ReadOrNull(path) ?? throw new GitOperationException(null, $"The repository's config file '{path}' could not be read, so it was left as it is.")
+            ? AtomicText.ReadOrNull(path) ?? throw new GitOperationException($"The repository's config file '{path}' could not be read, so it was left as it is.")
             : string.Empty;
         AtomicText.Write(path, Rewrite(text, isWindows));
     }

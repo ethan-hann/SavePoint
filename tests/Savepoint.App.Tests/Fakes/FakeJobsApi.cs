@@ -128,6 +128,11 @@ public sealed class FakeJobsApi : IJobsApi
             return clear.NotRemoved.Count == 0 ? (JobStatus.Succeeded, null) : (JobStatus.Partial, null);
         }
 
+        if (result is StorageRelocationResult relocated)
+        {
+            return relocated.NotRemoved.Count == 0 ? (JobStatus.Succeeded, null) : (JobStatus.Partial, null);
+        }
+
         IReadOnlyList<FolderOutcome> folders = result switch
         {
             CaptureResult capture => capture.Folders,

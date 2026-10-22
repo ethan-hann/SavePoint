@@ -31,6 +31,24 @@ public class BackendContractTests(ContractRuns runs) : IClassFixture<ContractRun
         }
     }
 
+    // The steps that prove the stopped switch and the save after play really ran in both backends, since a story that stopped early would still match.
+    [Fact]
+    public void The_shared_story_stops_a_switch_finishes_it_and_saves_the_play_after_it()
+    {
+        foreach (var story in new[] { runs.Fake.Shared, runs.Real.Shared })
+        {
+            Assert.Contains("preview before the switch: install unfinished=False dirty=False heading for nothing; saves unfinished=False dirty=False", story);
+            Assert.Contains("session after the switch was stopped: Failed profile=profile#3 older=False completion=none result=True", story);
+            Assert.Contains("preview after the switch was stopped: install unfinished=True dirty=True heading for the tip of profile#3; saves unfinished=False dirty=False", story);
+            Assert.Contains("start the recorded target: job started", story);
+            Assert.Contains("preview after the switch was finished: install unfinished=False dirty=False heading for nothing; saves unfinished=False dirty=False", story);
+            Assert.Contains("complete with a new save: started", story);
+            Assert.Contains("session after the new save: Completed profile=profile#3 older=False completion=CaptureNew result=False", story);
+            Assert.Contains("what the new save recorded: Install:ok, External:ok point=named", story);
+            Assert.Contains("session error after the new save: none", story);
+        }
+    }
+
     // Where the fake is simpler than the real backend. Each side is pinned, so closing a gap in the fake fails here and the step
     // moves into the shared story.
     [Fact]

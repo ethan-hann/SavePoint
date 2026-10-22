@@ -150,6 +150,12 @@ public class LaunchStartTests
         Assert.Equal("error.launch.alreadyRunning", started.Error?.MessageId);
         Assert.Null(rig.Launch.GetSession(rig.Game.Id));
         Assert.DoesNotContain(rig.Jobs.List(), job => job.Kind == JobKind.Launch);
+
+        // The refused call let go of the game: once the outside copy is closed, a launch goes through.
+        Assert.False(rig.Workspace.Backend.Services.Sessions.IsGameRunning(rig.Game.Id));
+        rig.KillGame();
+        Assert.True(await FakeGameProcess.WaitUntilAsync(() => rig.GameProcessIds().Count == 0), "the outside copy never closed");
+        Assert.Equal(JobStatus.Succeeded, (await rig.StartAsync(Tip(vanilla))).Status);
     }
 
     [Fact(Timeout = 120_000)]

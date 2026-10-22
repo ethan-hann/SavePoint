@@ -27,6 +27,22 @@ public sealed class ProgressSinkTests : IDisposable
     }
 
     [Fact]
+    public async Task A_switch_with_a_sink_does_not_wait_for_gits_own_two_second_delay_before_showing_its_meter()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.WriteMany(repo, "Data", 5, content: "a");
+        await _ws.CaptureAsync(repo, "profile-a");
+        await _ws.GitWriteAsync(repo, "checkout", "--quiet", "-b", "profile-b");
+        _ws.WriteMany(repo, "Data", 5, content: "b");
+        await _ws.CaptureAsync(repo, "profile-b");
+
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", new ProgressLog(), Ct);
+
+        var checkout = Assert.Single(_ws.Invocations, invocation => invocation.Arguments[0] == "checkout" && invocation.Arguments.Contains("--progress"));
+        Assert.Equal("0", checkout.ExtraEnvironment?["GIT_PROGRESS_DELAY"]);
+    }
+
+    [Fact]
     public async Task A_switch_finishes_when_the_progress_sink_throws()
     {
         var repo = await _ws.InitializedRepoAsync();

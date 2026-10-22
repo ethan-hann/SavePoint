@@ -110,7 +110,7 @@ public class LaunchPreviewTests(TwoProfiles shared) : IClassFixture<TwoProfiles>
     }
 
     [Fact]
-    public async Task A_preview_changes_nothing_on_disk_and_takes_no_lock_a_capture_needs()
+    public async Task A_preview_changes_nothing_on_disk_and_starts_no_job_or_session()
     {
         var rig = Shared;
         var vanilla = shared.Vanilla;

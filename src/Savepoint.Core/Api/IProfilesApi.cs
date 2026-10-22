@@ -41,7 +41,10 @@ public interface IProfilesApi
     /// <returns>The profile as stored.</returns>
     Task<OperationResult<Profile>> UpdateAsync(string gameId, string profileId, ProfileChanges changes);
 
-    /// <summary>Makes a new profile that starts from another profile's history. Takes the game's lock (D13.14).</summary>
+    /// <summary>
+    /// Makes a new profile that starts from another profile's history. Takes the game's lock (D13.14). It finishes in both folders or
+    /// changes nothing: a failure takes back the branch of every folder that got one.
+    /// </summary>
     /// <param name="gameId">The game.</param>
     /// <param name="sourceProfileId">The profile to copy.</param>
     /// <param name="name">The new profile's name.</param>
@@ -59,7 +62,8 @@ public interface IProfilesApi
 
     /// <summary>
     /// Deletes a profile and the history only it holds; storage optimization reclaims the space (D28). Both folders are
-    /// checked before either is touched (D13.9). Fails with <c>error.gameService.profileActive</c> for the active profile and
+    /// checked before either is touched (D13.9), and a failure on the second puts the first back, so a failed delete changes
+    /// nothing and can be repeated. Fails with <c>error.gameService.profileActive</c> for the active profile and
     /// <c>error.gameService.gameRunning</c> while the game has an open session (D13.5).
     /// </summary>
     /// <param name="gameId">The game.</param>
@@ -69,7 +73,8 @@ public interface IProfilesApi
     /// <summary>
     /// Saves the folders' current state as a new history point on a profile. Starts a capture job and answers at once; its result
     /// is a <see cref="CaptureResult"/>. A null folder list saves every configured folder; passing one folder is how "Retry the
-    /// saves" and "Save them first" work.
+    /// saves" and "Save them first" work. The job reads the game and the profile again once it holds the game's lock, so it uses the
+    /// ignore list as it is by then and fails with <c>error.profile.notFound</c> when the profile was deleted meanwhile.
     /// </summary>
     /// <param name="gameId">The game.</param>
     /// <param name="profileId">The profile that receives the point.</param>

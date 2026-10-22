@@ -62,8 +62,8 @@ public sealed class FakeGamesApi : IGamesApi
             return OperationResult.Success(definition);
         });
 
-    public Task<OperationResult<GameDefinition>> UpdateAsync(GameDefinition definition) =>
-        _backend.Call(_api, nameof(UpdateAsync), [definition], () =>
+    public Task<OperationResult<GameDefinition>> UpdateAsync(GameDefinition definition, bool confirmFolderChange = false) =>
+        _backend.Call(_api, nameof(UpdateAsync), [definition, confirmFolderChange], () =>
         {
             var index = State.Games.FindIndex(g => g.Id == definition.Id);
             if (index < 0)
@@ -72,8 +72,14 @@ public sealed class FakeGamesApi : IGamesApi
             }
 
             var previous = State.Games[index];
+            var foldersChanged = previous.Install != definition.Install || previous.External != definition.External;
+            if (foldersChanged && State.IsOpen(definition.Id))
+            {
+                return OperationResult.Failure<GameDefinition>(new GameRunningException(previous.Id, previous.Name));
+            }
+
             State.Games[index] = definition;
-            if (previous.Install != definition.Install || previous.External != definition.External)
+            if (foldersChanged)
             {
                 State.FolderStatuses[definition.Id] = ConfirmedNow(definition);
             }

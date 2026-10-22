@@ -152,6 +152,9 @@ public class ErrorTypesTests
             ("path", "/games/alpha"));
         Add("GitOperation without path", new GitOperationException(null, "checkout failed"), "error.gitOperation.checkoutFailed",
             ("path", null));
+        Add("GitOperation not a locked file", new GitOperationException("the repository does not exist"), "error.gitOperation.failed");
+        Add("GameAlreadyExists", new GameAlreadyExistsException("alpha"), "error.gameService.alreadyExists", ("gameId", "alpha"));
+        Add("NoHistoryToReconnect", new NoHistoryToReconnectException("alpha"), "error.gameService.noHistoryToReconnect", ("gameId", "alpha"));
         Add("AmendNotAvailable", new AmendNotAvailableException(), "error.gitOperation.amendNotAvailable");
         Add("Cancelled capture", new OperationCancelledByUserException(CancelledOperation.Capture, "game-1"),
             "error.capture.cancelled", ("op", CancelledOperation.Capture), ("gameId", "game-1"));
@@ -196,6 +199,8 @@ public class ErrorTypesTests
         Add("PathMissing external", new PathMissingException("/saves/alpha", RepoRole.External), "error.path.missing",
             ("path", "/saves/alpha"), ("role", RepoRole.External));
         Add("StorageDestinationNotEmpty", new StorageDestinationNotEmptyException("/storage"), "error.storageRelocation.destinationNotEmpty",
+            ("path", "/storage"));
+        Add("StorageMoveUnfinished", new StorageMoveUnfinishedException("/storage"), "error.storageRelocation.moveUnfinished",
             ("path", "/storage"));
         Add("Validation", new ValidationException(_issues), "error.validation.invalidPayload",
             ("issues", _issues));

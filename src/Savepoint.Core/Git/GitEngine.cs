@@ -124,7 +124,7 @@ public sealed partial class GitEngine
         // Writing config files into a folder that is not a repository would leave a half-made one behind.
         if (!IsInitialized(repo.GitDir))
         {
-            throw new GitOperationException(null, $"The repository at '{repo.GitDir}' does not exist.");
+            throw new GitOperationException($"The repository at '{repo.GitDir}' does not exist.");
         }
 
         if (scope.IsAlone)

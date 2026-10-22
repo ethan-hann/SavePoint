@@ -38,7 +38,7 @@ public static class AppComposition
         var toasts = new ToastHostViewModel(clock ?? TimeProvider.System, ui);
         var dialogStack = new DialogHostViewModel();
         var pickers = dialogs ?? new AvaloniaDialogs(dialogStack, text, storage);
-        var startup = new StartupViewModel(services?.AppStatus, text);
+        var startup = new StartupViewModel(services?.AppStatus, text, services?.BackendStarted ?? true);
 
         ShellViewModel CreateShell()
         {
@@ -60,7 +60,7 @@ public static class AppComposition
                 Artwork: FeatureComposition.Artwork(feature)));
         }
 
-        return new MainWindowViewModel(startup, CreateShell, dialogStack, toasts);
+        return new MainWindowViewModel(startup, CreateShell, dialogStack, toasts, new ExitGuard(services?.Jobs, pickers, text));
     }
 
     /// <summary>

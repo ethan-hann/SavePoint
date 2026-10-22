@@ -74,5 +74,25 @@ public class LaunchContinueTests
         Assert.True(result.Folders.Single(folder => folder.Role == RepoRole.Install).Ok);
         Assert.Equal("error.launch.sessionMoved", result.Folders.Single(folder => folder.Role == RepoRole.External).Error?.MessageId);
         Assert.Equal(["Moved on", "Second", "Vanilla"], Subjects(await rig.CommitsAsync(RepoRole.External, vanilla)));
+
+        // The same refusal when the session is kept as a new profile: the folder that moved is not branched, the other one is.
+        Assert.True((await rig.Launch.DiscardChangesAsync(rig.Game.Id, RepoRole.External)).Ok);
+        var older = (await rig.PreviewAsync(Tip(vanilla))).AvailableSaves[1];
+        await rig.StartAsync(new LaunchTarget.Save(vanilla.Id, older.Id));
+        await rig.WaitForAsync(session => session.State is SessionState.Exited, "Exited");
+        await rig.WithEngineAsync(async (engine, repo) =>
+        {
+            await engine.ForceCheckoutCommitAsync(repo, firstCommit, Ct);
+            return true;
+        }, RepoRole.External);
+        Assert.True((await rig.Launch.CompleteSessionAsync(rig.Game.Id, new SessionCompletion.ForkNewProfile("Too late branch", "Too late point"))).Ok);
+        var forkRefused = Assert.IsType<SessionState.Completed>((await rig.WaitForAsync<SessionState.Completed>()).State);
+
+        var forkResult = Assert.IsType<CaptureResult>(forkRefused.Result);
+        Assert.True(forkResult.Folders.Single(folder => folder.Role == RepoRole.Install).Ok);
+        Assert.Equal("error.launch.sessionMoved", forkResult.Folders.Single(folder => folder.Role == RepoRole.External).Error?.MessageId);
+        var lateBranch = (await rig.Profiles.ListAsync(rig.Game.Id, Ct)).Value!.Single(profile => profile.Name == "Too late branch");
+        Assert.Equal(["Vanilla"], Subjects(await rig.CommitsAsync(RepoRole.Install, lateBranch)));
+        Assert.Empty(await rig.CommitsAsync(RepoRole.External, lateBranch));
     }
 }

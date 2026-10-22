@@ -196,7 +196,8 @@ public class RelocationTests
         var started = await workspace.Settings.RelocateStorageAsync(destination);
         var job = await workspace.WaitForJobAsync(started.Value!.JobId);
 
-        Assert.Equal(JobStatus.Succeeded, job.Status);
+        Assert.Equal(JobStatus.Partial, job.Status);
+        Assert.Equal(Path.Combine(workspace.DefaultStorageRoot, "foreign", "install.git"), Assert.Single(Assert.IsType<StorageRelocationResult>(job.Result).NotRemoved).Path);
         Assert.False(Directory.Exists(Path.Combine(workspace.DefaultStorageRoot, game.Id)));
         Assert.Equal("not savepoint's", await File.ReadAllTextAsync(notes, workspace.Token));
         Assert.Equal("somebody's files", await File.ReadAllTextAsync(foreign, workspace.Token));
@@ -219,7 +220,9 @@ public class RelocationTests
             var started = await workspace.Settings.RelocateStorageAsync(destination);
             var job = await workspace.WaitForJobAsync(started.Value!.JobId);
 
-            Assert.Equal(JobStatus.Succeeded, job.Status);
+            Assert.Equal(JobStatus.Partial, job.Status);
+            var left = Assert.IsType<StorageRelocationResult>(job.Result).NotRemoved;
+            Assert.Equal(Path.Combine(workspace.DefaultStorageRoot, game.Id, "install.git"), Assert.Single(left).Path);
         }
 
         Assert.Equal(destination, (await workspace.Settings.GetAsync(workspace.Token)).Value!.StorageRoot);
@@ -249,9 +252,58 @@ public class RelocationTests
         var started = await workspace.Settings.RelocateStorageAsync(destination);
         var job = await workspace.WaitForJobAsync(started.Value!.JobId);
 
-        Assert.Equal(JobStatus.Succeeded, job.Status);
+        Assert.Equal(JobStatus.Partial, job.Status);
+        Assert.Equal(Path.Combine(workspace.DefaultStorageRoot, "linked-game", "install.git"), Assert.Single(Assert.IsType<StorageRelocationResult>(job.Result).NotRemoved).Path);
         Assert.Equal("keep me", await File.ReadAllTextAsync(Path.Combine(outside, "keep.txt"), workspace.Token));
         Assert.False(Directory.Exists(Path.Combine(workspace.DefaultStorageRoot, game.Id)));
+    }
+
+    [Fact]
+    public async Task A_real_stamped_git_directory_reached_through_a_link_is_never_touched()
+    {
+        using var workspace = new BackendWorkspace();
+        var game = await workspace.AddGameAsync();
+
+        // The outside folder is a copy of a real git directory of SavePoint's, so only the check of where the link leads can stop the removal.
+        var outside = Path.Combine(workspace.Root, "outside-the-storage", "install.git");
+        CopyTree(Path.Combine(workspace.DefaultStorageRoot, game.Id, "install.git"), outside);
+        var pack = Path.Combine(outside, "objects", "pack", "pack-held.pack");
+        BackendWorkspace.WriteFile(pack, "a pack that is read-only on purpose");
+        File.SetAttributes(pack, FileAttributes.ReadOnly);
+        var linked = Path.Combine(workspace.DefaultStorageRoot, "linked-game");
+        Directory.CreateDirectory(linked);
+        try
+        {
+            Directory.CreateSymbolicLink(Path.Combine(linked, "install.git"), outside);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+        {
+            Assert.Skip("this account cannot create symbolic links");
+        }
+
+        var destination = Path.Combine(workspace.Root, "new-storage");
+        var started = await workspace.Settings.RelocateStorageAsync(destination);
+        var job = await workspace.WaitForJobAsync(started.Value!.JobId);
+
+        Assert.Equal(JobStatus.Partial, job.Status);
+        Assert.Equal(Path.Combine(linked, "install.git"), Assert.Single(Assert.IsType<StorageRelocationResult>(job.Result).NotRemoved).Path);
+        Assert.True(new DirectoryInfo(Path.Combine(linked, "install.git")).LinkTarget is not null, "the link must still be there");
+        Assert.True(File.Exists(Path.Combine(outside, "HEAD")));
+        Assert.True((File.GetAttributes(pack) & FileAttributes.ReadOnly) != 0, "nothing outside the storage may have its attributes changed");
+    }
+
+    private static void CopyTree(string from, string to)
+    {
+        Directory.CreateDirectory(to);
+        foreach (var file in Directory.EnumerateFiles(from))
+        {
+            File.Copy(file, Path.Combine(to, Path.GetFileName(file)));
+        }
+
+        foreach (var directory in Directory.EnumerateDirectories(from))
+        {
+            CopyTree(directory, Path.Combine(to, Path.GetFileName(directory)));
+        }
     }
 
     [Fact]
@@ -348,6 +400,34 @@ public class RelocationTests
     }
 
     [Fact]
+    public async Task A_copy_that_differs_by_one_byte_and_not_in_length_is_caught_by_the_hash()
+    {
+        using var workspace = new BackendWorkspace(options => options with
+        {
+            AfterRelocationCopy = (_, destination) =>
+            {
+                if (Path.GetFileName(destination) == "HEAD")
+                {
+                    var bytes = File.ReadAllBytes(destination);
+                    bytes[5] ^= 0x01;
+                    File.WriteAllBytes(destination, bytes);
+                }
+            },
+        });
+        var game = await workspace.AddGameAsync();
+        var destination = Path.Combine(workspace.Root, "new-storage");
+
+        var started = await workspace.Settings.RelocateStorageAsync(destination);
+        var job = await workspace.WaitForJobAsync(started.Value!.JobId);
+
+        Assert.Equal(JobStatus.Failed, job.Status);
+        Assert.Equal("error.storageRelocation.copyFailed", job.Error?.MessageId);
+        Assert.False(Directory.Exists(destination));
+        Assert.Equal(workspace.DefaultStorageRoot, (await workspace.Backend.Services.Storage.GetAsync(workspace.Token)).Root);
+        Assert.True(Directory.Exists(Path.Combine(workspace.DefaultStorageRoot, game.Id, "install.git")));
+    }
+
+    [Fact]
     public async Task Cancelling_a_move_leaves_the_old_storage_in_use_and_the_destination_clean()
     {
         var reached = new ManualResetEventSlim();
@@ -413,7 +493,8 @@ public class RelocationTests
         var started = await workspace.Settings.RelocateStorageAsync(destination);
         var job = await workspace.WaitForJobAsync(started.Value!.JobId);
 
-        Assert.Equal(JobStatus.Succeeded, job.Status);
+        Assert.Equal(JobStatus.Partial, job.Status);
+        Assert.Equal(Path.Combine(workspace.DefaultStorageRoot, game.Id, "install.git"), Assert.Single(Assert.IsType<StorageRelocationResult>(job.Result).NotRemoved).Path);
         var copy = new FileInfo(Path.Combine(destination, game.Id, "install.git", "a-link"));
         Assert.Equal(outside, copy.LinkTarget);
     }

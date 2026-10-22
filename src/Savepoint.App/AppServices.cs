@@ -34,4 +34,10 @@ public sealed record AppServices(
     /// as before; the screens then show every game's name tint.
     /// </summary>
     public IArtworkApi? Artwork { get; init; }
+
+    /// <summary>
+    /// False when the backend failed to start and every Api answers the same failure; the startup screen then asks the user to restart
+    /// instead of offering a retry that cannot work.
+    /// </summary>
+    public bool BackendStarted { get; init; } = true;
 }

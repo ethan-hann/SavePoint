@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using Savepoint.Core.Api;
 using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
@@ -16,14 +15,11 @@ internal sealed partial class ProfilesApi : IProfilesApi
     private readonly CaptureRunner _capture;
     private readonly OptimizationService _optimization;
 
-    // When a new profile saved only some of its folders, the retry for the rest joins the same capture event.
-    private readonly ConcurrentDictionary<(string GameId, string ProfileId), PartialSave> _partial = new();
-
     public ProfilesApi(BackendServices services, OptimizationService optimization)
     {
         _services = services;
         _optimization = optimization;
-        _capture = new CaptureRunner(services, optimization);
+        _capture = services.Capture;
     }
 
     public Task<OperationResult<IReadOnlyList<Profile>>> ListAsync(string? gameId = null, CancellationToken cancellationToken = default) =>
@@ -34,10 +30,10 @@ internal sealed partial class ProfilesApi : IProfilesApi
         {
             var game = await RequireGameAsync(gameId).ConfigureAwait(false);
             var profile = CatalogValidator.RequireValid((await NewProfileAsync(gameId, name).ConfigureAwait(false)) with { Notes = notes });
-            var captureId = NewCaptureId();
+            var capture = _capture.NewEvent();
             var point = string.IsNullOrWhiteSpace(pointName) ? profile.Name : pointName;
             var roles = GameFolders.RolesOf(game);
-            var jobId = _capture.Start(game, profile, point, roles, captureId, creating: true, result => RememberPartial(game, profile, result, captureId));
+            var jobId = _capture.Start(game, profile, point, roles, capture, creating: true);
             return new JobStarted(jobId);
         });
 
@@ -49,8 +45,8 @@ internal sealed partial class ProfilesApi : IProfilesApi
             var configured = GameFolders.RolesOf(game);
             IReadOnlyList<RepoRole> roles = folders is { Count: > 0 } ? [.. configured.Where(folders.Contains)] : configured;
             var point = string.IsNullOrWhiteSpace(pointName) ? profile.Name : pointName;
-            var captureId = TakeCaptureId(gameId, profileId, roles);
-            return new JobStarted(_capture.Start(game, profile, point, roles, captureId, creating: false));
+            var capture = _capture.TakeEvent(gameId, profileId, roles);
+            return new JobStarted(_capture.Start(game, profile, point, roles, capture, creating: false));
         });
 
     public Task<OperationResult<IReadOnlyList<ProfileRowStats>>> GetRowStatsAsync(string gameId, CancellationToken cancellationToken = default) =>
@@ -65,8 +61,6 @@ internal sealed partial class ProfilesApi : IProfilesApi
             },
             cancellationToken);
 
-
-    private static string NewCaptureId() => Guid.NewGuid().ToString("D");
 
     private async Task<GameDefinition> RequireGameAsync(string gameId, CancellationToken cancellationToken = default) =>
         await _services.Catalog.GetGameAsync(gameId, cancellationToken).ConfigureAwait(false)
@@ -91,26 +85,4 @@ internal sealed partial class ProfilesApi : IProfilesApi
 
         throw new InvalidOperationException("No unused profile id was found.");
     }
-
-    private void RememberPartial(GameDefinition game, Profile profile, CaptureResult result, string captureId)
-    {
-        var failed = result.Folders.Where(folder => !folder.Ok).Select(folder => folder.Role).ToList();
-        if (failed.Count > 0 && failed.Count < result.Folders.Count)
-        {
-            _partial[(game.Id, profile.Id)] = new PartialSave(captureId, failed);
-        }
-    }
-
-    // The retry of exactly the folders a partial save missed joins that save's capture event; anything else starts a new one.
-    private string TakeCaptureId(string gameId, string profileId, IReadOnlyList<RepoRole> roles)
-    {
-        if (_partial.TryRemove((gameId, profileId), out var partial) && roles.All(partial.Missing.Contains))
-        {
-            return partial.CaptureId;
-        }
-
-        return NewCaptureId();
-    }
-
-    private sealed record PartialSave(string CaptureId, IReadOnlyList<RepoRole> Missing);
 }

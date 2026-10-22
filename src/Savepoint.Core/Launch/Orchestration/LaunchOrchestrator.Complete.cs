@@ -22,6 +22,12 @@ public sealed partial class LaunchOrchestrator
                 throw refusal;
             }
 
+            // The session offered certain choices; the Api is where input is judged, so an unoffered one never starts a capture.
+            if (record!.Info.State is SessionState.Exited { Options.Choices: var offered } && !offered.Contains(ChoiceOf(completion)))
+            {
+                throw new CompletionNotOfferedException(gameId, ChoiceOf(completion));
+            }
+
             // Skipping saves nothing: the session ends at once and no job runs.
             if (completion is SessionCompletion.Skip)
             {
@@ -40,23 +46,65 @@ public sealed partial class LaunchOrchestrator
             {
                 var target = forked ?? profile;
                 var name = PointNameOf(completion);
-                var point = string.IsNullOrWhiteSpace(name) ? target.Name : name;
-                var jobId = _capture.Start(game, target, point, roles, Guid.NewGuid().ToString("D"), creating: forked is not null, plans: PlansFor(completion, roles, current.StartCommits));
+                var run = new CompletionRun(
+                    completion,
+                    target,
+                    string.IsNullOrWhiteSpace(name) ? target.Name : name,
+                    roles,
+                    _services.Capture.NewEvent(),
+                    Creating: forked is not null,
+                    PlansFor(completion, roles, current.StartCommits, (current.Info.State as SessionState.Exited)?.Options.UpdateTarget?.Id.Value));
+                var jobId = StartRun(game, run, roles, creating: run.Creating);
+                current.Run = run;
+                current.SavedSoFar = null;
                 return new SessionState.Completing(completion, jobId);
             });
             return Unit.Value;
         });
 
+    /// <inheritdoc />
+    public Task<OperationResult<Unit>> RetryCompletionAsync(string gameId) =>
+        ApiGuard.RunAsync(async () =>
+        {
+            var game = await RequireGameAsync(gameId).ConfigureAwait(false);
+            if (_book.Record(gameId) is not { Run: { } run, Info.State: SessionState.Completed completed } || !DidNotAllSave(completed))
+            {
+                throw new NoActiveSessionException(gameId);
+            }
+
+            // Only the folders that did not save are tried again; a new profile's row exists once any folder of it saved.
+            var missing = completed.Result is { } result ? result.Folders.Where(folder => !folder.Ok).Select(folder => folder.Role).ToList() : [.. run.Roles];
+            var creating = run.Creating && await _services.Catalog.GetProfileAsync(run.Target.Id).ConfigureAwait(false) is null;
+            _book.Retry(gameId, _ => new SessionState.Completing(run.Completion, StartRun(game, run, missing, creating)));
+            return Unit.Value;
+        });
+
+    private static bool DidNotAllSave(SessionState.Completed completed) =>
+        completed.Error is not null || completed.Result is { } result && result.Folders.Any(folder => !folder.Ok);
+
+    // Every try of one after-play choice saves under the capture id the choice began with, so the session stays one point.
+    private Guid StartRun(GameDefinition game, CompletionRun run, IReadOnlyList<RepoRole> roles, bool creating) =>
+        _services.Capture.Start(game, run.Target, run.PointName, roles, run.Capture, creating, run.Plans);
+
     // How each folder is saved. A new point needs no plan; the other choices change history, so each folder is told what the session
-    // began from, and an update leaves a folder with nothing unsaved alone.
-    private static Dictionary<RepoRole, FolderCapturePlan>? PlansFor(SessionCompletion completion, IReadOnlyList<RepoRole> roles, IReadOnlyDictionary<RepoRole, string> starts) =>
+    // began from, and an update rewrites only the point it names and leaves a folder with nothing unsaved alone.
+    private static Dictionary<RepoRole, FolderCapturePlan>? PlansFor(SessionCompletion completion, IReadOnlyList<RepoRole> roles, IReadOnlyDictionary<RepoRole, string> starts, string? updated) =>
         completion switch
         {
-            SessionCompletion.UpdateExisting => roles.ToDictionary(role => role, _ => new FolderCapturePlan(CaptureMode.Amend, SkipWhenClean: true)),
+            SessionCompletion.UpdateExisting => roles.ToDictionary(role => role, _ => new FolderCapturePlan(CaptureMode.Amend, SkipWhenClean: true, AmendPointId: updated)),
             SessionCompletion.ForkNewProfile => roles.ToDictionary(role => role, role => new FolderCapturePlan(CaptureMode.Fork, starts.GetValueOrDefault(role))),
             SessionCompletion.MoveForward => roles.ToDictionary(role => role, role => new FolderCapturePlan(CaptureMode.MoveForward, starts.GetValueOrDefault(role))),
             _ => null,
         };
+
+    private static CompletionChoice ChoiceOf(SessionCompletion completion) => completion switch
+    {
+        SessionCompletion.CaptureNew => CompletionChoice.CaptureNew,
+        SessionCompletion.UpdateExisting => CompletionChoice.UpdateExisting,
+        SessionCompletion.ForkNewProfile => CompletionChoice.ForkNewProfile,
+        SessionCompletion.MoveForward => CompletionChoice.MoveForward,
+        _ => CompletionChoice.Skip,
+    };
 
     private static string? PointNameOf(SessionCompletion completion) => completion switch
     {
@@ -87,17 +135,14 @@ public sealed partial class LaunchOrchestrator
         ApiGuard.RunAsync(async () =>
         {
             var game = await RequireGameAsync(gameId).ConfigureAwait(false);
-
-            // The files of a game that is starting or running are in use; throwing changes away under it would corrupt the session.
-            if (_book.IsInUse(gameId))
-            {
-                throw new GameRunningException(gameId, game.Name);
-            }
+            await RefuseWhileOpenAsync(game).ConfigureAwait(false);
 
             return await _services.RunForGameAsync(
                 gameId,
                 async (storage, _) =>
                 {
+                    // The lock may have been queued behind a launch: the game can be open by now.
+                    await RefuseWhileOpenAsync(game).ConfigureAwait(false);
                     if (GameFolders.Repos(_services, storage, game).FirstOrDefault(repo => repo.Role == folder) is { } repo)
                     {
                         await storage.Engine.DiscardChangesAsync(repo).ConfigureAwait(false);
@@ -106,4 +151,14 @@ public sealed partial class LaunchOrchestrator
                     return Unit.Value;
                 }).ConfigureAwait(false);
         });
+
+    // The files of a game that is starting, running, or waiting for the player's choice are in use; throwing changes away under
+    // it would corrupt the session, and so would doing it under a game left open after its session was ended.
+    private async Task RefuseWhileOpenAsync(GameDefinition game)
+    {
+        if (_book.IsGameRunning(game.Id) || await IsGameOpenAsync(game).ConfigureAwait(false))
+        {
+            throw new GameRunningException(game.Id, game.Name);
+        }
+    }
 }

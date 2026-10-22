@@ -20,6 +20,7 @@ public class StorageHostTests
     {
         using var workspace = new BackendWorkspace();
         var chosen = Path.Combine(workspace.Root, "elsewhere", "storage");
+        Directory.CreateDirectory(chosen);
         await workspace.Backend.Services.Catalog.SaveSettingsAsync(new AppSettings(StorageRoot: chosen), workspace.Token);
 
         var snapshot = await workspace.Backend.Services.Storage.GetAsync(workspace.Token);
@@ -44,6 +45,7 @@ public class StorageHostTests
     {
         using var workspace = new BackendWorkspace();
         var chosen = Path.Combine(workspace.Root, "moved");
+        Directory.CreateDirectory(chosen);
         await workspace.Backend.Services.Catalog.SaveSettingsAsync(new AppSettings(StorageRoot: chosen), workspace.Token);
 
         var restarted = workspace.Restart();

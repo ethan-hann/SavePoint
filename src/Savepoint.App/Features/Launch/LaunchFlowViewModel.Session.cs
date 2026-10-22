@@ -130,7 +130,7 @@ public sealed partial class LaunchFlowViewModel
 
             case SessionState.Completed completed:
                 EndSaving(flow);
-                ShowOutcome(flow, completed.Completion, completed.Result, completed.Error);
+                ShowOutcome(flow, completed.Result, completed.Error);
                 break;
 
             case SessionState.Failed failed:

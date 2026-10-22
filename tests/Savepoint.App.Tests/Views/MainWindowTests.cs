@@ -8,6 +8,7 @@ using Savepoint.App.Features.Shell;
 using Savepoint.App.Localization;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Views;
+using Savepoint.Core.Api;
 
 namespace Savepoint.App.Tests.Views;
 
@@ -46,6 +47,63 @@ public class MainWindowTests
         Assert.Equal(660, window.Height);
         Assert.Equal(760, window.MinWidth);
         Assert.Equal(520, window.MinHeight);
+    }
+
+    [AvaloniaFact]
+    public async Task Closing_while_a_storage_move_runs_asks_first_and_staying_keeps_the_window_open()
+    {
+        var (window, backend, dialogs) = await WindowWithRunningMoveAsync(answer: false);
+
+        window.Close();
+        await SettleAsync(() => dialogs.Confirmations.Count == 1);
+
+        Assert.True(window.IsVisible);
+        Assert.Empty(backend.Calls.To<IJobsApi>(nameof(IJobsApi.CancelAsync)));
+    }
+
+    [AvaloniaFact]
+    public async Task Quitting_anyway_during_a_storage_move_cancels_it_and_closes_the_window()
+    {
+        var (window, backend, dialogs) = await WindowWithRunningMoveAsync(answer: true);
+
+        window.Close();
+        await SettleAsync(() => !window.IsVisible);
+
+        Assert.False(window.IsVisible);
+        Assert.Single(dialogs.Confirmations);
+        Assert.Single(backend.Calls.To<IJobsApi>(nameof(IJobsApi.CancelAsync)));
+    }
+
+    private static async Task<(MainWindow Window, FakeBackend Backend, FakeDialogs Dialogs)> WindowWithRunningMoveAsync(bool answer)
+    {
+        var backend = FakeBackend.Mockup();
+        var dialogs = new FakeDialogs().AnswerConfirm(answer);
+        var services = new AppServices(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus);
+        var main = AppComposition.Create(
+            services,
+            new UiFormatter(LocalizationCatalog.Current),
+            new ThemeServiceApplier(((App)App.Current!).Theme),
+            () => null,
+            new ImmediateUiDispatcher(),
+            new ManualTimeProvider(),
+            dialogs);
+        var window = new MainWindow { DataContext = main };
+        window.Show();
+        FakeAssert.Ok(await backend.Settings.RelocateStorageAsync(@"E:\SavePoint"));
+        return (window, backend, dialogs);
+    }
+
+    // The close runs its question and its waits on the UI thread; pump it until the outcome shows or a generous limit passes.
+    private static async Task SettleAsync(Func<bool> done)
+    {
+        var until = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        while (!done() && DateTime.UtcNow < until)
+        {
+            Dispatcher.UIThread.RunJobs();
+            await Task.Delay(10, TestContext.Current.CancellationToken);
+        }
+
+        Dispatcher.UIThread.RunJobs();
     }
 
     [AvaloniaFact]

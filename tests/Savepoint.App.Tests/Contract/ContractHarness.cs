@@ -10,6 +10,7 @@ using Savepoint.Core.Platform.Linux;
 using Savepoint.Core.Platform.MacOS;
 using Savepoint.Core.Platform.Windows;
 using Savepoint.Testing;
+using Savepoint.Core.Services.Storage;
 
 namespace Savepoint.App.Tests.Contract;
 
@@ -55,6 +56,21 @@ internal abstract class ContractHarness : IAsyncDisposable
 
     // Ends the job the way the backend does: the fake is told to finish it, the real one is waited for.
     public abstract Task<JobSnapshot> FinishAsync(Guid jobId, CancellationToken cancellationToken);
+
+    // Returns once the session has moved from saving to Completed; the fake moves with the job it was told to finish.
+    public virtual Task WaitForCompletedAsync(string gameId, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    // Switches toward <paramref name="toProfileId"/> from the profile the folders are on and stops it part way, so the install folder is left half switched.
+    public abstract Task InterruptSwitchAsync(GameDefinition game, string currentProfileId, string toProfileId, CancellationToken cancellationToken);
+
+    // Tells the backend the half-switched folder has been finished, so a fake can be scripted with what the real one works out for itself.
+    public virtual void SwitchFinished(GameDefinition game, string profileId)
+    {
+    }
+
+    // The player saving during a session: a new file in the saves folder, which the real backend's save after play picks up.
+    public static void PlayerSaves(GameDefinition game) =>
+        File.WriteAllText(Path.Combine(game.External!.Path, "after-play.sav"), "progress made while playing");
 
     // A game with an install folder and a saves folder holding a few files.
     public GameDefinition NewGame(string name)
@@ -156,6 +172,21 @@ internal sealed class FakeContractHarness : ContractHarness
         _backend.Jobs.Complete(jobId);
         return Task.FromResult(_backend.Jobs.Get(jobId)!);
     }
+
+    // Scripts what the real backend works out for a folder a stopped switch left half done: dirty, unfinished, and the target that finishes it.
+    public override async Task InterruptSwitchAsync(GameDefinition game, string currentProfileId, string toProfileId, CancellationToken cancellationToken)
+    {
+        var started = await _backend.Launch.StartAsync(game.Id, new LaunchTarget.ProfileTip(toProfileId));
+        _backend.Jobs.CompleteCancelled(started.Value!.JobId);
+        var key = (game.Id, (LaunchTarget)new LaunchTarget.ProfileTip(currentProfileId));
+        var preview = _backend.State.LaunchPreviews[key];
+        _backend.State.LaunchPreviews[key] = preview with
+        {
+            Install = preview.Install with { Dirty = true, DirtyOwnerProfileId = null, UnfinishedSwitch = true, UnfinishedSwitchTarget = new LaunchTarget.ProfileTip(toProfileId) },
+        };
+    }
+
+    public override void SwitchFinished(GameDefinition game, string profileId) => ExpectLaunch(game, profileId);
 }
 
 internal sealed class RealContractHarness : ContractHarness
@@ -165,6 +196,7 @@ internal sealed class RealContractHarness : ContractHarness
     private readonly CoreBackend _backend;
     private readonly ScriptedGame _game = new();
     private readonly string _steamFolder;
+    private readonly GatedDisk _disk = new();
 
     public RealContractHarness()
     {
@@ -179,6 +211,7 @@ internal sealed class RealContractHarness : ContractHarness
             Git = GitBinary.Locate(Path.Combine(Root, "gitconfig")),
             LooseObjectThreshold = int.MaxValue,
             SteamFolder = new FolderLocator(_steamFolder),
+            DiskSpace = _disk,
             Launch = LaunchOrchestrator.Factory(new LaunchOrchestratorOptions { Starter = _game.Starter(TimeProvider.System) }),
         });
     }
@@ -212,6 +245,32 @@ internal sealed class RealContractHarness : ContractHarness
     {
         _game.ExitAll();
         return WaitForSessionAsync(gameId, state => state is SessionState.Exited, cancellationToken);
+    }
+
+    public override Task WaitForCompletedAsync(string gameId, CancellationToken cancellationToken) =>
+        WaitForSessionAsync(gameId, state => state is SessionState.Completed, cancellationToken);
+
+    // Starts the switch with the install folder held at its first free-space question, then cancels it there: nothing is written, and the folder is marked unfinished.
+    public override async Task InterruptSwitchAsync(GameDefinition game, string currentProfileId, string toProfileId, CancellationToken cancellationToken)
+    {
+        _disk.Hold(game.Install.Path);
+        try
+        {
+            var started = await _backend.Launch.StartAsync(game.Id, new LaunchTarget.ProfileTip(toProfileId)).ConfigureAwait(false);
+            if (!started.Ok)
+            {
+                throw new InvalidOperationException("The switch to interrupt did not start: " + started.Error.MessageId);
+            }
+
+            await _disk.ReachedAsync(cancellationToken).ConfigureAwait(false);
+            await _backend.Jobs.CancelAsync(started.Value.JobId).ConfigureAwait(false);
+            _disk.Release();
+            await FinishAsync(started.Value.JobId, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _disk.Release();
+        }
     }
 
     // The real session moves on its own threads, so the story waits for the phase it needs.
@@ -288,4 +347,44 @@ internal sealed class RealContractHarness : ContractHarness
 internal sealed class FolderLocator(string folder) : ISteamFolderLocator
 {
     public string? FindSteamFolder() => Directory.Exists(folder) ? folder : null;
+}
+
+// Real free space, except that one folder can be held at its first question until released: how the story stops a switch part way.
+internal sealed class GatedDisk : IDiskSpace
+{
+    private static readonly TimeSpan _limit = TimeSpan.FromSeconds(60);
+
+    private readonly DiskSpace _real = new();
+    private readonly ManualResetEventSlim _reached = new();
+    private readonly ManualResetEventSlim _release = new(initialState: true);
+    private volatile string? _folder;
+
+    public void Hold(string folder)
+    {
+        _reached.Reset();
+        _release.Reset();
+        _folder = folder;
+    }
+
+    public void Release()
+    {
+        _folder = null;
+        _release.Set();
+    }
+
+    public Task ReachedAsync(CancellationToken cancellationToken) =>
+        Task.Run(() => _reached.Wait(_limit, cancellationToken) ? true : throw new TimeoutException("The switch never reached the folder it was to be stopped at."), cancellationToken);
+
+    public long? GetFreeBytes(string path)
+    {
+        if (_folder is { } held && path.StartsWith(held, StringComparison.OrdinalIgnoreCase) && !_release.IsSet)
+        {
+            _reached.Set();
+            _release.Wait(_limit);
+        }
+
+        return _real.GetFreeBytes(path);
+    }
+
+    public long? GetTotalBytes(string path) => _real.GetTotalBytes(path);
 }

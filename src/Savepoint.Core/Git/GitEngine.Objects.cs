@@ -27,7 +27,7 @@ public sealed partial class GitEngine
             var fields = meta.StartsWith(':') ? meta[1..].Split(' ') : [];
             if (fields.Length < 5)
             {
-                throw new GitOperationException(null, $"Unexpected output from git diff-tree: '{meta}'.");
+                throw new GitOperationException($"Unexpected output from git diff-tree: '{meta}'.");
             }
 
             changes.Add(new TreeChange(fields[4][0], fields[2], fields[3], records[i + 1]));

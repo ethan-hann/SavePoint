@@ -146,4 +146,6 @@ internal sealed class ReplayableLaunchApi : ILaunchApi
     public Task<OperationResult<Unit>> MarkFinishedAsync(string gameId) => _inner.MarkFinishedAsync(gameId);
 
     public Task<OperationResult<Unit>> CompleteSessionAsync(string gameId, SessionCompletion completion) => _inner.CompleteSessionAsync(gameId, completion);
+
+    public Task<OperationResult<Unit>> RetryCompletionAsync(string gameId) => _inner.RetryCompletionAsync(gameId);
 }

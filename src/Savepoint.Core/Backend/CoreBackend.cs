@@ -55,7 +55,7 @@ public sealed class CoreBackend
     /// <summary>The profiles Api.</summary>
     public IProfilesApi Profiles { get; }
 
-    /// <summary>The launch Api: the launch component's, or one that answers <c>error.launch.unavailable</c> when there is none.</summary>
+    /// <summary>The launch Api, which is the launch component's.</summary>
     public ILaunchApi Launch { get; }
 
     /// <summary>The settings Api.</summary>
@@ -74,12 +74,12 @@ public sealed class CoreBackend
     public IArtworkApi Artwork { get; }
 
     /// <summary>Builds the backend.</summary>
-    /// <param name="options">What to build it from; the real machine when null.</param>
+    /// <param name="options">What to build it from; every member but the launch component defaults to the real machine.</param>
     /// <exception cref="InvalidOperationException">The account has no home folder.</exception>
     /// <exception cref="IOException">The folder for git's configuration cannot be written.</exception>
-    public static CoreBackend Create(BackendOptions? options = null)
+    public static CoreBackend Create(BackendOptions options)
     {
-        options ??= new BackendOptions();
+        ArgumentNullException.ThrowIfNull(options);
         var platform = options.Platform ?? PlatformFactory.ForCurrentOs();
         var time = options.Time ?? TimeProvider.System;
         var catalog = new CatalogStore(options.CatalogDirectory ?? platform.Directories.CatalogDir, time);
@@ -110,18 +110,15 @@ public sealed class CoreBackend
             options.LooseObjectThreshold);
 
         var optimization = new OptimizationService(services);
-        var launch = options.Launch?.Invoke(services);
-        if (launch is not null)
-        {
-            sessions.Attach(launch.Sessions);
-        }
+        var launch = options.Launch(services);
+        sessions.Attach(launch.Sessions);
 
         return new CoreBackend(
             services,
             new GamesApi(services, optimization),
             new ProfilesApi(services, optimization),
-            launch?.Api ?? new UnavailableLaunchApi(),
-            new SettingsApi(services, optimization, new StorageRelocator(services, options.AfterRelocationCopy), new DataClearer(services)),
+            launch.Api,
+            new SettingsApi(services, optimization, new StorageRelocator(services, options.AfterRelocationCopy, options.AfterRelocationSettings), new DataClearer(services)),
             new HistoryApi(services),
             new AppStatusApi(services),
             new ArtworkApi(services, options.SteamFolder ?? SteamFolderLocator.ForPlatform(platform), options.ArtworkHttp));

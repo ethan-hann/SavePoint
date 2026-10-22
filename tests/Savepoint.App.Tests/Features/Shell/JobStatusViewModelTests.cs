@@ -196,6 +196,20 @@ public class JobStatusViewModelTests
     }
 
     [Fact]
+    public async Task A_storage_move_that_left_old_copies_behind_says_it_moved_and_warns()
+    {
+        var rig = new Rig();
+        var job = FakeAssert.Ok(await rig.Backend.Settings.RelocateStorageAsync(@"E:\SavePoint"));
+        var stayed = new ClearFailure(@"D:\Old\game-1\install.git", ErrorInfo.From(new GameRunningException("game-1", "Skyrim")));
+
+        rig.Backend.Jobs.Complete(job.JobId, new StorageRelocationResult(MockupScenario.StorageRoot, @"E:\SavePoint", 10, [stayed]));
+
+        var toast = Assert.Single(rig.Toasts.Toasts);
+        Assert.StartsWith("Storage moved, but some old files are still in the old folder.", toast.Text, StringComparison.Ordinal);
+        Assert.Equal(ToastKind.Warning, toast.Message.Kind);
+    }
+
+    [Fact]
     public async Task A_cancelled_storage_move_is_an_info_toast()
     {
         var rig = new Rig();

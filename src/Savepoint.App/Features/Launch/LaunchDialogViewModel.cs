@@ -81,7 +81,7 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
         }
 
         UnsavedBlocks.CollectionChanged += (_, _) => OnBlocksChanged();
-        ShowKeepCallout = UnsavedBlocks.Any(block => !block.CanSaveFirst);
+        ShowKeepCallout = KeepOffered();
         KeepText = text.Message("launch.dialog.keepExplain");
     }
 
@@ -233,13 +233,23 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
     {
         var text = _deps.Text;
         var role = folder.Role == RepoRole.Install ? "install" : "external";
+
+        // A folder an earlier switch left half done is finished or discarded, never saved: what it holds is a mixture of two saves.
+        var unfinished = folder.UnfinishedSwitch;
         var block = new UnsavedChangesBlockViewModel(
             folder.Role,
-            text.Message("launch.dialog.unsavedTitle"),
-            text.Message("launch.dialog.unsavedBody", ("count", folder.DirtyFileCount), ("role", role)),
-            folder.DirtyOwnerProfileId is not null,
+            text.Message(unfinished ? "launch.dialog.unfinishedTitle" : "launch.dialog.unsavedTitle"),
+            unfinished
+                ? text.Message("launch.dialog.unfinishedBody", ("role", role))
+                : text.Message("launch.dialog.unsavedBody", ("count", folder.DirtyFileCount), ("role", role)),
+            !unfinished && folder.DirtyOwnerProfileId is not null,
             SaveFirstAsync,
-            DiscardAsync);
+            DiscardAsync,
+            folder.Path,
+            folder.DirtyNewFileCount,
+            folder.DirtyFileCount - folder.DirtyNewFileCount,
+            unfinished ? Close : null,
+            unfinished ? folder.UnfinishedSwitchTarget : null);
         block.PropertyChanged += OnBlockPropertyChanged;
         UnsavedBlocks.Add(block);
     }
@@ -252,9 +262,12 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
         }
     }
 
+    // Only changes that belong to no profile can be kept as a new one; a half-switched folder cannot be saved at all.
+    private bool KeepOffered() => UnsavedBlocks.Any(block => !block.CanSaveFirst && !block.IsUnfinishedSwitch);
+
     private void OnBlocksChanged()
     {
-        ShowKeepCallout = UnsavedBlocks.Any(block => !block.CanSaveFirst);
+        ShowKeepCallout = KeepOffered();
         OnPropertyChanged(nameof(HasUnsaved));
         OnPropertyChanged(nameof(CanSwitch));
         SwitchCommand.NotifyCanExecuteChanged();
@@ -300,12 +313,31 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
         }
     }
 
+    // Names the folder and says how many files go and how many come back, because the discard cannot be undone.
+    private string DiscardMessage(UnsavedChangesBlockViewModel block)
+    {
+        var text = _deps.Text;
+        List<string> sentences = [text.Message("launch.dialog.discardMessage", ("role", block.Role == RepoRole.Install ? "install" : "external"), ("path", block.Path))];
+        if (block.RemovedFileCount > 0)
+        {
+            sentences.Add(text.Message("launch.dialog.discardRemoves", ("count", block.RemovedFileCount)));
+        }
+
+        if (block.RestoredFileCount > 0)
+        {
+            sentences.Add(text.Message("launch.dialog.discardRestores", ("count", block.RestoredFileCount)));
+        }
+
+        sentences.Add(text.Message("launch.dialog.discardUndo"));
+        return string.Join(' ', sentences);
+    }
+
     private async Task DiscardAsync(UnsavedChangesBlockViewModel block)
     {
         var text = _deps.Text;
         var confirmed = await _deps.Dialogs.ConfirmAsync(new ConfirmRequest(
             text.Message("launch.dialog.discardTitle"),
-            text.Message("launch.dialog.discardMessage"),
+            DiscardMessage(block),
             text.Message("launch.dialog.discardConfirm"),
             Destructive: true));
         if (!confirmed)

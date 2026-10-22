@@ -135,6 +135,10 @@
                           Margin="0,12,0,0"
                           Content="{Binding Storage.Problem}"
                           IsVisible="{Binding Storage.Problem, Converter={x:Static ObjectConverters.IsNotNull}}" />
+          <ContentControl x:Name="MoveLeftBehindHost"
+                          Margin="0,12,0,0"
+                          Content="{Binding Storage.LeftBehind}"
+                          IsVisible="{Binding Storage.LeftBehind, Converter={x:Static ObjectConverters.IsNotNull}}" />
         </StackPanel>
 
         <!-- Appearance. -->

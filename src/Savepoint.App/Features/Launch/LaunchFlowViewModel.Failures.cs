@@ -48,8 +48,9 @@ public sealed partial class LaunchFlowViewModel
                 actions.Add(Edit("launch.failure.editGame", primary: true));
                 break;
             case "error.launch.switchInterrupted":
-                // The unfinished switch is finished by switching again to the same point; reviewing the changes is the way out when it was heading elsewhere.
-                actions.Add(new ErrorCardAction(text.Message("launch.failure.switchAgain"), new AsyncRelayCommand(() => RestartAsync(flow)), IsPrimary: true));
+                // The unfinished switch is finished by starting the target the folder was heading for, which the folder's state records;
+                // reviewing the changes is the way out when that is not known, since discarding is always offered there.
+                actions.Add(new ErrorCardAction(text.Message("launch.failure.switchAgain"), new AsyncRelayCommand(() => SwitchAgainAsync(flow)), IsPrimary: true));
                 actions.Add(new ErrorCardAction(text.Message("launch.failure.reviewChanges"), new AsyncRelayCommand(() => BeginAsync(flow.GameId, flow.Target!)), IsPrimary: false));
                 break;
             case "error.launch.dirtyWorkingTree":
@@ -70,18 +71,27 @@ public sealed partial class LaunchFlowViewModel
         return actions;
     }
 
-    // What the capture after a session came to: nothing to show for a clean save, a card for a partial or failed one.
-    private void ShowOutcome(GameFlow flow, SessionCompletion completion, CaptureResult? result, ErrorInfo? error)
+    // Starts the target the half-switched folder was heading for; without one, the review is the way forward.
+    private async Task SwitchAgainAsync(GameFlow flow)
     {
-        flow.RetryBusy = false;
+        var preview = await _deps.Launch.GetPreviewAsync(flow.GameId, flow.Target!);
+        var recorded = preview.Ok
+            ? new[] { preview.Value.Install, preview.Value.External }.OfType<FolderLaunchState>().Select(folder => folder.UnfinishedSwitchTarget).FirstOrDefault(target => target is not null)
+            : null;
+        await BeginAsync(flow.GameId, recorded ?? flow.Target!);
+    }
+
+    // What the capture after a session came to: nothing to show for a clean save, a card for a partial or failed one.
+    private void ShowOutcome(GameFlow flow, CaptureResult? result, ErrorInfo? error)
+    {
         var failure = error ?? WholeFailure(result);
         if (failure is not null)
         {
-            ShowCaptureFailure(flow, completion, failure);
+            ShowCaptureFailure(flow, failure);
         }
         else if (result is not null && result.Folders.Any(folder => !folder.Ok))
         {
-            ShowPartial(flow, completion, result);
+            ShowPartial(flow, result);
         }
         else
         {
@@ -93,16 +103,16 @@ public sealed partial class LaunchFlowViewModel
     private static ErrorInfo? WholeFailure(CaptureResult? result) =>
         result is { Folders.Count: > 0 } && result.Folders.All(folder => !folder.Ok) ? result.Folders[0].Error : null;
 
-    private void ShowCaptureFailure(GameFlow flow, SessionCompletion completion, ErrorInfo error)
+    private void ShowCaptureFailure(GameFlow flow, ErrorInfo error)
     {
         var actions = new List<ErrorCardAction>();
 
-        // Only a plain new point can be tried again from here; the other choices change the history in ways a bare capture would not repeat.
-        if (completion is SessionCompletion.CaptureNew && flow.Session is { } session)
+        // Trying again repeats the same choice for the same session; a folder that moved on since the session began cannot be saved by repeating it.
+        if (flow.Session is not null && error.MessageId != "error.launch.sessionMoved")
         {
             actions.Add(new ErrorCardAction(
                 _deps.Text.Message("launch.failure.tryAgain"),
-                new AsyncRelayCommand(() => RetryCaptureAsync(flow, completion, session.ProfileId, null)),
+                new AsyncRelayCommand(() => RetryCompletionAsync(flow)),
                 IsPrimary: true));
         }
 
@@ -111,7 +121,7 @@ public sealed partial class LaunchFlowViewModel
     }
 
     // D13.20: half a save is never a success. The card says which half worked and retries only the other.
-    private void ShowPartial(GameFlow flow, SessionCompletion completion, CaptureResult result)
+    private void ShowPartial(GameFlow flow, CaptureResult result)
     {
         var text = _deps.Text;
         var failed = result.Folders.Where(folder => !folder.Ok).ToList();
@@ -127,10 +137,9 @@ public sealed partial class LaunchFlowViewModel
                 folder.Ok))
             .ToList();
 
-        var roles = failed.Select(folder => folder.Role).ToList();
         var retry = new ErrorCardAction(
-            text.Message("launch.partial.retry", ("role", RoleName(roles[0]))),
-            new AsyncRelayCommand(() => RetryCaptureAsync(flow, completion, result.ProfileId, roles)),
+            text.Message("launch.partial.retry", ("role", RoleName(failed[0].Role))),
+            new AsyncRelayCommand(() => RetryCompletionAsync(flow)),
             IsPrimary: true);
 
         SetInline(flow, ErrorCardViewModel.Custom(
@@ -146,33 +155,14 @@ public sealed partial class LaunchFlowViewModel
 
     private static string RoleName(RepoRole role) => role == RepoRole.Install ? "install" : "external";
 
-    private static string PointNameOf(SessionCompletion completion) => completion switch
+    // Asks the launch side to repeat the player's choice for the folders that did not save. The session's own events carry the rest:
+    // it goes back to saving and ends again, and the outcome is shown the same way the first try's was.
+    private async Task RetryCompletionAsync(GameFlow flow)
     {
-        SessionCompletion.CaptureNew capture => capture.PointName,
-        SessionCompletion.UpdateExisting update => update.PointName,
-        SessionCompletion.ForkNewProfile fork => fork.PointName,
-        SessionCompletion.MoveForward move => move.PointName,
-        _ => string.Empty,
-    };
-
-    // Saves again what the session's capture did not manage, and shows the outcome the same way the first try did.
-    private async Task RetryCaptureAsync(GameFlow flow, SessionCompletion completion, string profileId, IReadOnlyCollection<RepoRole>? folders)
-    {
-        var started = await _deps.Profiles.CaptureAsync(flow.GameId, profileId, PointNameOf(completion), folders);
+        var started = await _deps.Launch.RetryCompletionAsync(flow.GameId);
         if (!started.Ok)
         {
             ShowError(started.Error);
-            return;
         }
-
-        var jobId = started.Value.JobId;
-        flow.RetryBusy = true;
-        ShowSaving(flow, jobId);
-        RaiseActivity();
-
-        var job = await _deps.Awaiter.WaitAsync(jobId);
-        EndSaving(flow);
-        ShowOutcome(flow, completion, job.Result as CaptureResult, job.Status is JobStatus.Failed or JobStatus.Cancelled ? job.Error : null);
-        RaiseActivity();
     }
 }

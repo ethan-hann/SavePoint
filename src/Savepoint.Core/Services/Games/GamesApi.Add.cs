@@ -23,7 +23,7 @@ internal sealed partial class GamesApi
                 var games = await _services.Catalog.ListGamesAsync().ConfigureAwait(false);
                 if (games.Any(existing => existing.Id == game.Id))
                 {
-                    throw new InvalidOperationException($"There is already a game '{game.Id}'.");
+                    throw new GameAlreadyExistsException(game.Id);
                 }
 
                 var folders = GameFolders.ResolveStrictly(_services.PathTokens, game);

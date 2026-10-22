@@ -1,4 +1,5 @@
 using Savepoint.App.Localization;
+using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 
@@ -26,6 +27,9 @@ public class ErrorCopyTests
             new DiskSpaceException("/games", 5_000L, 1_000L),
             new GitOperationException("/games/alpha/data.pak", "dev text"),
             new GitOperationException(null, "dev text"),
+            new GitOperationException("dev text"),
+            new GameAlreadyExistsException("alpha"),
+            new NoHistoryToReconnectException("alpha"),
             new AmendNotAvailableException(),
             new OperationCancelledByUserException(CancelledOperation.Capture, "game-1"),
             new OperationCancelledByUserException(CancelledOperation.Compaction, null),
@@ -34,6 +38,8 @@ public class ErrorCopyTests
             new OperationCancelledByUserException(CancelledOperation.Launch, "game-1"),
             new OperationCancelledByUserException(CancelledOperation.StorageRelocation, null),
             new GameOverlapException("game-2", "Beta"),
+            new FolderMismatchException(RepoRole.External, "/games/alpha/saves", 3, 212),
+            new CompletionNotOfferedException("game-2", CompletionChoice.MoveForward),
             new ProfileActiveException("profile-1"),
             new ReconnectableGameException("game-2", roles, branches),
             new GameRunningException("game-1", "Alpha"),
@@ -50,11 +56,11 @@ public class ErrorCopyTests
             new PathMissingException("/games/alpha", RepoRole.Install),
             new PathMissingException("/games/alpha/saves", RepoRole.External),
             new StorageDestinationNotEmptyException("/storage"),
+            new StorageMoveUnfinishedException("/storage"),
             new ValidationException(issues),
             new CatalogCorruptException("/catalog/games.json", null),
             new GitUnavailableException("/app/git/git", "dev text", null),
             new RequestCancelledException(),
-            new LaunchUnavailableException(),
             new StorageUnreachableException("/storage", null),
             new StorageRelocationFailedException("/new/storage/a.pack", "dev text", null),
             new GameNotFoundException("game-1"),

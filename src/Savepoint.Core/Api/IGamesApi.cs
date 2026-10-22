@@ -21,14 +21,16 @@ public interface IGamesApi
     /// <see cref="AddGameOutcome.Added"/>, or <see cref="AddGameOutcome.HistoryFound"/> when the folders hold history from a removed
     /// game, in which case nothing is saved and <see cref="ResolveOrphanAsync"/> decides. Fails with
     /// <c>error.validation.invalidPayload</c> (every field problem at once), <c>error.pathSafety.tier1Blocked</c> or
-    /// <c>error.pathSafety.tier2Blocked</c>, <c>error.consentMarker.conflict</c>, or <c>error.gameService.pathOverlap</c>.
+    /// <c>error.pathSafety.tier2Blocked</c>, <c>error.consentMarker.conflict</c>, <c>error.gameService.pathOverlap</c>, or
+    /// <c>error.gameService.alreadyExists</c> when the id is taken.
     /// </summary>
     /// <param name="definition">The game to add, with an id the caller made (see <see cref="CatalogIds.NewGameId"/>).</param>
     Task<OperationResult<AddGameOutcome>> AddAsync(GameDefinition definition);
 
     /// <summary>
     /// Settles the question <see cref="AddGameOutcome.HistoryFound"/> raised: reconnects the old history or starts fresh, and adds
-    /// the game either way. Fails with the ids <see cref="AddAsync"/> can.
+    /// the game either way. Fails with the ids <see cref="AddAsync"/> can, and with <c>error.gameService.noHistoryToReconnect</c> when
+    /// a reconnect finds no saved history under the old id at the game's folders.
     /// </summary>
     /// <param name="definition">The game being added, as it was given to <see cref="AddAsync"/>.</param>
     /// <param name="resolution">The user's answer.</param>
@@ -37,15 +39,22 @@ public interface IGamesApi
 
     /// <summary>
     /// Saves changes to a game. Also how a moved folder is re-pointed; consent is confirmed again for a new path. Fails with the
-    /// ids <see cref="AddAsync"/> can.
+    /// ids <see cref="AddAsync"/> can. When a folder that has saved points is pointed somewhere else, the new folder is compared
+    /// with that folder's newest point (D31): if fewer than half of the recorded files are present at the same relative paths the
+    /// call fails with <c>error.gameService.folderMismatch</c> (args <c>role</c>, <c>path</c>, <c>presentCount</c>,
+    /// <c>recordedCount</c>) and saves nothing, so the caller can ask and then repeat the call with <paramref name="confirmFolderChange"/>.
+    /// A folder cannot be changed while the game has an open session, including one that waits for the player's choice after play:
+    /// the call fails with <c>error.gameService.gameRunning</c>. Other edits are allowed.
     /// </summary>
     /// <param name="definition">The game with its changes; its id picks the game.</param>
+    /// <param name="confirmFolderChange">True when the user agreed to a folder that holds few of the recorded files.</param>
     /// <returns>The game as stored.</returns>
-    Task<OperationResult<GameDefinition>> UpdateAsync(GameDefinition definition);
+    Task<OperationResult<GameDefinition>> UpdateAsync(GameDefinition definition, bool confirmFolderChange = false);
 
     /// <summary>
     /// Removes SavePoint's data for the game. Fails with <c>error.gameService.gameRunning</c> while the game has an open session
-    /// (D13.5).
+    /// (D13.5), and with <c>error.storage.unreachable</c> while the storage folder is not there, so the history behind it is
+    /// never forgotten by mistake (D31).
     /// </summary>
     /// <param name="gameId">The game to remove.</param>
     Task<OperationResult<Unit>> DeleteAsync(string gameId);
