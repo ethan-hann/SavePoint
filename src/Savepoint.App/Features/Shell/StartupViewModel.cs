@@ -45,6 +45,7 @@ public sealed partial class StartupViewModel : ObservableObject
 {
     private readonly IAppStatusApi? _status;
     private readonly UiFormatter _text;
+    private readonly bool _canTryAgain;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowCorruptFiles))]
@@ -61,10 +62,12 @@ public sealed partial class StartupViewModel : ObservableObject
 
     /// <param name="status">The startup Api; null when no services are connected, which shows the unavailable screen.</param>
     /// <param name="text">Formats the screens' copy.</param>
-    public StartupViewModel(IAppStatusApi? status, UiFormatter text)
+    /// <param name="canTryAgain">False when a failed check cannot succeed on a second try, as when the backend never started.</param>
+    public StartupViewModel(IAppStatusApi? status, UiFormatter text, bool canTryAgain = true)
     {
         _status = status;
         _text = text;
+        _canTryAgain = canTryAgain;
     }
 
     /// <summary>Raised once, when the checks pass.</summary>
@@ -114,7 +117,14 @@ public sealed partial class StartupViewModel : ObservableObject
         if (!checkedStatus.Ok)
         {
             Phase = StartupPhase.Failed;
-            Card = new ErrorCardViewModel(checkedStatus.Error, _text, [TryAgain()]);
+            Card = _canTryAgain
+                ? new ErrorCardViewModel(checkedStatus.Error, _text, [TryAgain()])
+                : ErrorCardViewModel.Custom(
+                    _text,
+                    Icons.Warning,
+                    ErrorTone.Warning,
+                    _text.Message("startup.restartNeeded.title"),
+                    _text.Message("startup.restartNeeded.body", ("reason", _text.Message(checkedStatus.Error))));
             return;
         }
 

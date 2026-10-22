@@ -28,4 +28,10 @@ public sealed record AppServices(
     /// the screens that need it bring their own.
     /// </summary>
     public IFileRevealer? FileRevealer { get; init; }
+
+    /// <summary>
+    /// False when the backend failed to start and every Api answers the same failure; the startup screen then asks the user to restart
+    /// instead of offering a retry that cannot work.
+    /// </summary>
+    public bool BackendStarted { get; init; } = true;
 }

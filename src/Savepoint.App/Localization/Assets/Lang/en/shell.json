@@ -56,6 +56,8 @@
   "startup.corrupt.noBackup": "There is no backup copy of this file.",
   "startup.corrupt.restoreBackup": "Restore the backup",
   "startup.corrupt.startEmpty": "Start with nothing in it",
+  "startup.restartNeeded.body": "{reason} Close SavePoint and open it again to try once more.",
+  "startup.restartNeeded.title": "SavePoint couldn't start",
   "startup.tryAgain": "Try again",
   "startup.unavailable.body": "The services SavePoint needs to run aren't connected in this build yet.",
   "startup.unavailable.title": "SavePoint isn't ready yet",
