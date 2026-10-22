@@ -160,7 +160,18 @@ public sealed partial class GitEngine
     private Task<GitResult> RunRawAsync(GitInvocation invocation, CancellationToken ct)
     {
         _options.InvocationObserver?.Invoke(invocation);
+        RefuseRedirect(invocation);
         return _runner.RunAsync(invocation, ct);
+    }
+
+    // git takes the refs of a git directory that holds a pointer file named commondir from the folder the file names, and the environment
+    // takes the objects from the git directory itself. SavePoint stores nothing that way, so no operation goes on from here.
+    private static void RefuseRedirect(GitInvocation invocation)
+    {
+        if (invocation.GitDir is { } gitDir && Path.Combine(gitDir, "commondir") is var pointer && File.Exists(pointer))
+        {
+            throw new GitOperationException(pointer, $"'{gitDir}' points git at another folder, so it was not used.");
+        }
     }
 
     // For commands that write: another process holding a lock for a moment is retried with a short backoff.

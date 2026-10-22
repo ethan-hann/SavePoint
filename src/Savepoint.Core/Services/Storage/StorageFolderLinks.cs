@@ -82,6 +82,11 @@ internal static class StorageFolderLinks
                 return link;
             }
 
+            if (FirstRedirectIn(gitDir) is { } redirect)
+            {
+                return redirect;
+            }
+
             foreach (var path in new[] { folder.FullName, gitDir, Path.Combine(gitDir, "hooks"), Path.Combine(gitDir, "config") })
             {
                 if (!StaysInside(realRoot, path, realPath))
@@ -120,6 +125,28 @@ internal static class StorageFolderLinks
         }
 
         return FirstLinkedFolderBelow(directory);
+    }
+
+    // git also follows plain pointer files: commondir moves the repository's shared data to the folder it names, and objects/info/alternates
+    // adds object stores. The file is named as the problem, since it is the thing to remove.
+    private static string? FirstRedirectIn(string gitDir)
+    {
+        var commondir = Path.Combine(gitDir, "commondir");
+        if (File.Exists(commondir))
+        {
+            return commondir;
+        }
+
+        var alternates = Path.Combine(gitDir, "objects", "info", "alternates");
+        try
+        {
+            return File.Exists(alternates) && File.ReadLines(alternates).Any(line => line.Trim() is { Length: > 0 } text && text[0] != '#') ? alternates : null;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // What cannot be read cannot be shown to name nothing.
+            return alternates;
+        }
     }
 
     // The first folder, in name order, that is a link anywhere below; folders only, so a repository of any size is cheap to look through.

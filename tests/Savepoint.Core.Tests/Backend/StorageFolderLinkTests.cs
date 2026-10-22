@@ -236,6 +236,43 @@ public class StorageFolderLinkTests
         }
     }
 
+    // A pointer file redirects git without being a link: git then takes the repository's refs, or its objects, from somewhere else.
+    [Theory(Timeout = 120_000)]
+    [InlineData("commondir", "../../elsewhere")]
+    [InlineData("objects/info/alternates", "/somebodys/other/objects")]
+    [InlineData("objects/info/alternates", "# an earlier one\n\n../../elsewhere/objects\n")]
+    public async Task A_git_directory_that_points_git_at_another_place_refuses_the_folder(string file, string content)
+    {
+        var (workspace, game, away) = await WithStorageGoneAsync();
+        using var _ = workspace;
+        var prepared = PreparedWithExtraCopy(workspace, game, away);
+        var pointer = Path.Combine(prepared, "other", "install.git", file.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(pointer)!);
+        File.WriteAllText(pointer, content);
+        var preparedBefore = BackendWorkspace.Snapshot(prepared);
+
+        var found = await workspace.AppStatus.UseStorageFolderAsync(prepared, workspace.Token);
+
+        await AssertRefusedUntouchedAsync(workspace, found, pointer, prepared, preparedBefore);
+    }
+
+    // An alternates file with nothing but comments and blank lines names no path.
+    [Fact(Timeout = 120_000)]
+    public async Task An_alternates_file_that_names_no_path_does_not_refuse_the_folder()
+    {
+        var (workspace, game, away) = await WithStorageGoneAsync();
+        using var _ = workspace;
+        var prepared = PreparedWithExtraCopy(workspace, game, away);
+        var alternates = Path.Combine(prepared, "other", "install.git", "objects", "info", "alternates");
+        Directory.CreateDirectory(Path.GetDirectoryName(alternates)!);
+        File.WriteAllText(alternates, "# nothing here\n\n   \n");
+
+        var found = await workspace.AppStatus.UseStorageFolderAsync(prepared, workspace.Token);
+
+        Assert.True(found.Ok, found.Error?.Detail);
+        Assert.Equal(prepared, found.Value);
+    }
+
     [Fact(Timeout = 120_000)]
     public async Task A_config_file_that_is_a_link_refuses_the_folder()
     {
