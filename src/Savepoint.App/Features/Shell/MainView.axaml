@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:a11y="using:Savepoint.App.Features.Common.Accessibility"
              xmlns:dialogs="using:Savepoint.App.Features.Common.Dialogs"
              xmlns:toasts="using:Savepoint.App.Features.Common.Toasts"
              xmlns:shell="using:Savepoint.App.Features.Shell"
@@ -17,6 +18,8 @@
   </UserControl.Styles>
 
   <Panel x:Name="Root" Classes.dialog-open="{Binding Dialogs.IsOpen}">
+    <!-- Always present, so a card or banner that appears is spoken: a screen reader only follows changes to elements it already knows. -->
+    <a11y:AnnouncementRegion x:Name="PageAnnouncer" />
     <Grid RowDefinitions="*,Auto">
       <Panel>
         <ContentControl x:Name="Page" Content="{Binding Content}" />

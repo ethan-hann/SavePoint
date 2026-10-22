@@ -1,4 +1,6 @@
+using Avalonia;
 using Avalonia.Controls;
+using Savepoint.App.Features.Common.Accessibility;
 
 namespace Savepoint.App.Features.Launch;
 
@@ -9,5 +11,15 @@ public partial class LaunchBannerView : UserControl
     public LaunchBannerView()
     {
         InitializeComponent();
+    }
+
+    /// <inheritdoc />
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        if (DataContext is LaunchBannerViewModel banner)
+        {
+            Announcements.Appeared(this, $"{banner.Title} {banner.Detail}".Trim());
+        }
     }
 }
