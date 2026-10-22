@@ -61,7 +61,6 @@ Done when: the gap analysis reports no unmet requirement and the packaged app ru
 
 There is no remote and no issue tracker, so open follow-ups live here.
 
-- Test teardown race: `GitWorkspace.DeleteDirectory` lists files and then calls `SetAttributes`, and a temp pack file git removes in between throws `FileNotFoundException` (seen once in `ProfilesManageTests.Deleting_a_profile_that_is_not_checked_out_removes_its_branches_and_row`). The teardown should tolerate a file that is already gone.
 - Fixture rework, deferred (`.tools/briefs/test-fixtures.md`): the slowest classes are `CheckoutTests`, `LaunchContinueTests`, `OrphanTests`, and `HistoryInputTests`.
 - GOG artwork from `goggame-<id>.info` (D30 follow-up).
 - Test isolation: neither `MainWindowViewModel` nor `ToastHostViewModel` can be disposed, so a finished journey's toast timers still post to the UI thread inside later tests (12 such posts, up to 6 s late, in one traced run). It does no harm today; making both disposable ends it.
