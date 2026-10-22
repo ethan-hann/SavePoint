@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
@@ -42,36 +43,7 @@ public class ActivityScreenViewTests
     private static async Task<FakeBackend> BusyAsync(ThemePreference theme = ThemePreference.Dark)
     {
         var backend = new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { Theme = theme }));
-
-        var canceled = FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(SkyrimId)).JobId;
-        backend.Jobs.ReportStep(canceled, JobSteps.CompactFolderFailed, ("game", "Skyrim Special Edition"), ("folder", RepoRole.External));
-        backend.Jobs.CompleteCancelled(canceled);
-        backend.Clock.Advance(TimeSpan.FromMinutes(4));
-
-        var partial = FakeAssert.Ok(await backend.Profiles.CaptureAsync(SkyrimId, ModdedId, "Before the final boss")).JobId;
-        backend.Jobs.ReportStep(partial, JobSteps.CaptureFolder, ("folder", RepoRole.Install), ("path", @"C:\Games\Skyrim Special Edition"));
-        backend.Jobs.ReportStep(partial, JobSteps.CaptureFolderDone, ("folder", RepoRole.Install), ("files", 14));
-        backend.Jobs.ReportStep(partial, JobSteps.CaptureFolderFailed, ("folder", RepoRole.External));
-        backend.Jobs.Complete(partial, HalfSaved);
-        backend.Clock.Advance(TimeSpan.FromMinutes(7));
-
-        var failed = FakeAssert.Ok(await backend.Profiles.CaptureAsync(SkyrimId, ModdedId, "After the patch")).JobId;
-        backend.Jobs.Fail(failed, FileInUseError);
-        backend.Clock.Advance(TimeSpan.FromMinutes(5));
-
-        var done = FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(SkyrimId)).JobId;
-        backend.Jobs.ReportStep(done, JobSteps.CompactFreed, ("game", "Skyrim Special Edition"), ("bytes", 3_400_000_000L));
-        backend.Jobs.Complete(done);
-        backend.Clock.Advance(TimeSpan.FromMinutes(3));
-
-        var running = FakeAssert.Ok(await backend.Profiles.CaptureAsync(SkyrimId, ModdedId, "Session 7-8-26")).JobId;
-        backend.Jobs.ReportStep(running, JobSteps.CaptureFolder, ("folder", RepoRole.Install), ("path", @"C:\Games\Skyrim Special Edition"));
-        for (var i = 1; i <= 30; i++)
-        {
-            backend.Jobs.ReportProgress(running, new JobProgress(FilesDone: i, FilesTotal: 120, CurrentPath: $@"Data\Textures\Landscape\tile{i:D3}.dds"));
-        }
-
-        backend.Clock.Advance(TimeSpan.FromSeconds(40));
+        await ActivityScenario.AddJobsAsync(backend);
         return backend;
     }
 
@@ -135,6 +107,24 @@ public class ActivityScreenViewTests
 
         Assert.Contains("All games · 6 jobs", harness.VisibleTexts());
         Assert.Contains("Freeing up space for The Last Caretaker", harness.VisibleTexts());
+    }
+
+    [AvaloniaFact]
+    public async Task A_job_chosen_in_code_is_scrolled_into_view_in_a_short_list()
+    {
+        using var harness = await StartAsync(await BusyAsync(), width: 910, height: 432);
+        var screen = Screen(harness);
+        var list = harness.Find<ListBox>("JobList");
+        var scroll = list.GetVisualDescendants().OfType<ScrollViewer>().First();
+        Assert.True(scroll.Extent.Height > scroll.Viewport.Height, "the jobs should overflow the list");
+
+        screen.SelectedRow = screen.Rows.Single(row => row.StatusText == "Canceled");
+        harness.Settle();
+
+        var item = list.GetVisualDescendants().OfType<ListBoxItem>().SingleOrDefault(candidate => ReferenceEquals(candidate.DataContext, screen.SelectedRow));
+        Assert.NotNull(item);
+        var top = item.TranslatePoint(default, scroll)!.Value.Y;
+        Assert.True(top >= -1 && top + item.Bounds.Height <= scroll.Viewport.Height + 1, $"the row sits at {top} to {top + item.Bounds.Height} in a viewport {scroll.Viewport.Height} tall");
     }
 
     // ---- The chosen job's details
@@ -361,6 +351,38 @@ public class ActivityScreenViewTests
     }
 
     // ---- Accessibility
+
+    [AvaloniaFact]
+    public async Task A_job_with_no_progress_yet_has_a_bar_that_sweeps_and_holds_still_under_reduced_motion()
+    {
+        var backend = FakeBackend.Mockup();
+        FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(SkyrimId));
+        using var harness = await StartAsync(backend);
+        var bar = harness.Find<ListBox>("JobList").GetVisualDescendants().OfType<ProgressBar>().Single(candidate => candidate.IsEffectivelyVisible);
+        Assert.True(bar.IsIndeterminate);
+
+        try
+        {
+            Assert.True(Sweeping(harness, bar));
+
+            ((App)Application.Current!).Theme.ReduceMotion = true;
+
+            Assert.False(Sweeping(harness, bar));
+            Assert.True(bar.GetVisualDescendants().OfType<Control>().First(part => part.Name == "ReducedMotionIndicator").IsEffectivelyVisible);
+        }
+        finally
+        {
+            ThemeTestSupport.ResetApplicationTheme();
+        }
+    }
+
+    // Whether the moving segment is under an animation: it starts off its resting place and returns to it when the animation stops.
+    private static bool Sweeping(ScreenHarness harness, ProgressBar bar)
+    {
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick(5);
+        harness.Settle();
+        return bar.GetVisualDescendants().OfType<Control>().First(part => part.Name == "IndeterminateProgressBarIndicator").RenderTransform?.Value.M31 is not (null or 0);
+    }
 
     [AvaloniaFact]
     public async Task Every_control_has_a_name_a_screen_reader_can_say()

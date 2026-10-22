@@ -6,6 +6,7 @@ using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Tests.Features.History;
 using Savepoint.App.Tests.Features.Shell;
 using Savepoint.Core.Api;
+using Savepoint.Core.Catalog;
 using static Savepoint.App.Tests.Fakes.MockupScenario;
 
 namespace Savepoint.App.Tests.Features.Activity;
@@ -81,6 +82,43 @@ internal sealed class ActivityRig
 }
 
 // A jobs Api whose cancel is accepted and then does nothing, as when a job reaches a point it cannot stop at between the press and the call.
+// The jobs the Activity screen is drawn with: a game's canceled, partly done, failed and finished jobs, and one still running with its files.
+internal static class ActivityScenario
+{
+    public static async Task AddJobsAsync(FakeBackend backend)
+    {
+        var canceled = FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(SkyrimId)).JobId;
+        backend.Jobs.ReportStep(canceled, JobSteps.CompactFolderFailed, ("game", "Skyrim Special Edition"), ("folder", RepoRole.External));
+        backend.Jobs.CompleteCancelled(canceled);
+        backend.Clock.Advance(TimeSpan.FromMinutes(4));
+
+        var partial = FakeAssert.Ok(await backend.Profiles.CaptureAsync(SkyrimId, ModdedId, "Before the final boss")).JobId;
+        backend.Jobs.ReportStep(partial, JobSteps.CaptureFolder, ("folder", RepoRole.Install), ("path", @"C:\Games\Skyrim Special Edition"));
+        backend.Jobs.ReportStep(partial, JobSteps.CaptureFolderDone, ("folder", RepoRole.Install), ("files", 14));
+        backend.Jobs.ReportStep(partial, JobSteps.CaptureFolderFailed, ("folder", RepoRole.External));
+        backend.Jobs.Complete(partial, HalfSaved);
+        backend.Clock.Advance(TimeSpan.FromMinutes(7));
+
+        var failed = FakeAssert.Ok(await backend.Profiles.CaptureAsync(SkyrimId, ModdedId, "After the patch")).JobId;
+        backend.Jobs.Fail(failed, FileInUseError);
+        backend.Clock.Advance(TimeSpan.FromMinutes(5));
+
+        var done = FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(SkyrimId)).JobId;
+        backend.Jobs.ReportStep(done, JobSteps.CompactFreed, ("game", "Skyrim Special Edition"), ("bytes", 3_400_000_000L));
+        backend.Jobs.Complete(done);
+        backend.Clock.Advance(TimeSpan.FromMinutes(3));
+
+        var running = FakeAssert.Ok(await backend.Profiles.CaptureAsync(SkyrimId, ModdedId, "Session 7-8-26")).JobId;
+        backend.Jobs.ReportStep(running, JobSteps.CaptureFolder, ("folder", RepoRole.Install), ("path", @"C:\Games\Skyrim Special Edition"));
+        for (var i = 1; i <= 30; i++)
+        {
+            backend.Jobs.ReportProgress(running, new JobProgress(FilesDone: i, FilesTotal: 120, CurrentPath: $@"Data\Textures\Landscape\tile{i:D3}.dds"));
+        }
+
+        backend.Clock.Advance(TimeSpan.FromSeconds(40));
+    }
+}
+
 internal sealed class IgnoringCancelJobs(IJobsApi inner) : IJobsApi
 {
     public event EventHandler<JobSnapshot>? JobChanged
