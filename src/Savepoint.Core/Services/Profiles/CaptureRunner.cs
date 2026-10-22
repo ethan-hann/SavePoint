@@ -214,8 +214,8 @@ internal sealed class CaptureRunner
             return outcome.Changed;
         }
 
-        // An empty folder in an empty repository has nothing to record; the profile still needs a branch here.
-        await storage.Engine.CreateEmptyBranchAsync(repo, branch, pointName, capture.Id, capture.At, cancellationToken).ConfigureAwait(false);
+        // An empty folder in an empty repository has nothing to record; the profile still needs a branch here, and the folder is on it, as after any first save.
+        await storage.Engine.CreateEmptyBranchAsync(repo, branch, pointName, capture.Id, capture.At, cancellationToken, attachToUnbornHead: true).ConfigureAwait(false);
         return true;
     }
 

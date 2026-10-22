@@ -124,6 +124,27 @@ public sealed class BranchTests : IDisposable
     }
 
     [Fact]
+    public async Task An_empty_branch_takes_head_when_asked_and_head_is_on_a_branch_with_no_point_yet()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+
+        await _ws.Engine.CreateEmptyBranchAsync(repo, "fresh", ct: Ct, attachToUnbornHead: true);
+
+        Assert.Equal("refs/heads/fresh", await _ws.HeadRefAsync(repo));
+        Assert.True((await _ws.Engine.GetStatusAsync(repo, Ct)).IsClean);
+    }
+
+    [Fact]
+    public async Task An_empty_branch_leaves_head_on_the_point_it_is_on_even_when_asked_to_take_it()
+    {
+        var repo = await TwoPointRepoAsync();
+
+        await _ws.Engine.CreateEmptyBranchAsync(repo, "fresh", ct: Ct, attachToUnbornHead: true);
+
+        Assert.Equal("refs/heads/profile-1", await _ws.HeadRefAsync(repo));
+    }
+
+    [Fact]
     public async Task The_empty_tree_is_a_real_object_so_a_pack_never_misses_it()
     {
         var repo = await TwoPointRepoAsync();

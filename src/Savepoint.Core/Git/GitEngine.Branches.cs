@@ -35,7 +35,7 @@ public sealed partial class GitEngine
 
     /// <summary>
     /// Creates a branch whose only point has an empty tree (a fresh start for a duplicated profile's saves), without
-    /// touching HEAD or any file. Does nothing when the branch already exists.
+    /// touching any file. HEAD is left alone unless <paramref name="attachToUnbornHead"/> asks for it. Does nothing when the branch already exists.
     /// </summary>
     /// <param name="repo">The folder.</param>
     /// <param name="branch">The new branch.</param>
@@ -43,10 +43,11 @@ public sealed partial class GitEngine
     /// <param name="captureId">Written as the point's <c>Savepoint-Capture</c> trailer; null writes none.</param>
     /// <param name="capturedAt">Written as the point's <c>Savepoint-Captured-At</c> trailer when a capture id is given; the engine's clock when null.</param>
     /// <param name="ct">Cancels the call.</param>
+    /// <param name="attachToUnbornHead">True to check the new branch out when HEAD is on a branch that has no point yet, as a first capture does, so the folder counts as being on it; HEAD is left alone when it is on a point already.</param>
     /// <exception cref="ArgumentException">A branch name git would refuse, or a blank message.</exception>
     /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
     /// <exception cref="Savepoint.Core.Errors.GitOperationException">git failed.</exception>
-    public async Task CreateEmptyBranchAsync(RepoRef repo, string branch, string message = "Profile started", string? captureId = null, DateTimeOffset? capturedAt = null, CancellationToken ct = default)
+    public async Task CreateEmptyBranchAsync(RepoRef repo, string branch, string message = "Profile started", string? captureId = null, DateTimeOffset? capturedAt = null, CancellationToken ct = default, bool attachToUnbornHead = false)
     {
         repo = Normalize(repo);
         BranchNames.Require(branch);
@@ -67,6 +68,12 @@ public sealed partial class GitEngine
         var commit = (await RunWriteAsync(() => Invocation(repo, readOnly: false, "commit-tree", tree, "-F", "-") with { Stdin = text }, ct)
             .ConfigureAwait(false)).StandardOutput.Trim();
         await CreateBranchRefAsync(repo, branch, commit, "savepoint: create empty branch", ct).ConfigureAwait(false);
+
+        // Not cancellable, like the other head moves: the branch exists by now.
+        if (attachToUnbornHead && GitDirFiles.ReadHead(repo.GitDir) is { Branch: { } current } && await ResolveBranchAsync(repo, current, CancellationToken.None).ConfigureAwait(false) is null)
+        {
+            await SetHeadAsync(repo, branch, CancellationToken.None).ConfigureAwait(false);
+        }
     }
 
     /// <summary>
