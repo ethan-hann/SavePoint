@@ -1,4 +1,5 @@
 using Savepoint.Core.Errors;
+using Savepoint.Core.Git;
 
 namespace Savepoint.Core.Tests.Git.Engine;
 
@@ -125,14 +126,95 @@ public sealed class RepoConfigTests : IDisposable
     }
 
     [Fact]
-    public async Task Init_again_leaves_the_config_alone_when_the_stamp_matches()
+    public async Task Init_again_leaves_a_config_alone_when_it_is_what_SavePoint_wrote()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        var path = Path.Combine(repo.GitDir, "config");
+        var old = new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        File.SetLastWriteTimeUtc(path, old);
+
+        await _ws.Engine.InitAsync(repo, ct: Ct);
+
+        Assert.Equal(old, File.GetLastWriteTimeUtc(path));
+    }
+
+    [Fact]
+    public async Task Init_again_puts_back_a_value_in_the_managed_block_that_someone_changed()
     {
         var repo = await _ws.InitializedRepoAsync();
         await _ws.GitAsync(repo, "config", "--local", "core.untrackedCache", "false");
 
         await _ws.Engine.InitAsync(repo, ct: Ct);
 
-        Assert.Equal("false", await _ws.ConfigAsync(repo, "core.untrackedCache"));
+        Assert.Equal("true", await _ws.ConfigAsync(repo, "core.untrackedCache"));
+    }
+
+    // A repository from somewhere else can carry the current stamp and still hold a setting that names a program, so the stamp alone
+    // never says a config is current.
+    [Theory]
+    [InlineData("\n[commit]\n\tgpgSign = true\n[gpg]\n\tprogram = evil\n")]
+    [InlineData("\n[core]\n\tfsmonitor = evil\n")]
+    [InlineData("\n[core]\n\tpager = evil\n")]
+    [InlineData("\n[alias]\n\tst = !evil\n")]
+    [InlineData("\n[include]\n\tpath = evil\n")]
+    [InlineData("\n[core \"x\"]\n\tpager = evil\n")]
+    [InlineData("\n[commit] gpgSign = true\n")]
+    [InlineData("\n[core]\n\tbare = false\\\n\tpager = evil\n")]
+    public async Task A_config_with_the_current_stamp_is_not_current_when_it_holds_a_setting_beyond_the_ones_SavePoint_keeps(string extra)
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        Assert.True(RepoConfigFile.IsCurrent(repo.GitDir), "a config SavePoint just wrote must be current, or every save would rewrite it");
+        await File.AppendAllTextAsync(Path.Combine(repo.GitDir, "config"), extra, Ct);
+
+        Assert.False(RepoConfigFile.IsCurrent(repo.GitDir));
+    }
+
+    [Fact]
+    public async Task A_setting_slipped_inside_the_managed_block_makes_the_config_not_current()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        var path = Path.Combine(repo.GitDir, "config");
+        var text = await File.ReadAllTextAsync(path, Ct);
+        await File.WriteAllTextAsync(path, text.Replace(RepoConfigFile.BlockEnd, "[commit]\n\tgpgSign = true\n" + RepoConfigFile.BlockEnd, StringComparison.Ordinal), Ct);
+
+        Assert.False(RepoConfigFile.IsCurrent(repo.GitDir));
+    }
+
+    [Fact]
+    public async Task A_config_that_was_rewritten_from_a_hostile_one_is_current()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        var path = Path.Combine(repo.GitDir, "config");
+        var hostile = (await File.ReadAllTextAsync(path, Ct)) + "[core]\n\tfsmonitor = evil\n[alias]\n\tst = !evil\n";
+        await File.WriteAllTextAsync(path, hostile, Ct);
+
+        RepoConfigFile.Apply(repo.GitDir, OperatingSystem.IsWindows());
+
+        Assert.True(RepoConfigFile.IsCurrent(repo.GitDir));
+        Assert.DoesNotContain("evil", await File.ReadAllTextAsync(path, Ct), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_save_rewrites_a_config_that_has_the_current_stamp_and_names_a_program_to_sign_with()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        var marker = Path.Combine(_ws.Root, "signer-ran.txt");
+        var signer = Path.Combine(_ws.Root, "signer");
+        await File.WriteAllTextAsync(signer, $"#!/bin/sh\necho ran >> '{marker.Replace('\\', '/')}'\nexit 1\n", Ct);
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(signer, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+
+        var config = Path.Combine(repo.GitDir, "config");
+        await File.AppendAllTextAsync(config, $"[commit]\n\tgpgSign = true\n[gpg]\n\tprogram = {signer.Replace('\\', '/')}\n", Ct);
+        _ws.Write(repo, "a.txt", "a");
+
+        var error = await Record.ExceptionAsync(() => _ws.CaptureAsync(repo, "profile-1"));
+
+        Assert.Null(error);
+        Assert.DoesNotContain("gpg", await File.ReadAllTextAsync(config, Ct), StringComparison.OrdinalIgnoreCase);
+        Assert.False(File.Exists(marker), "the program the config named ran");
     }
 
     [Fact]

@@ -19,8 +19,10 @@ internal static partial class RepoConfigFile
 
     public static string ConfigPath(string gitDir) => Path.Combine(gitDir, "config");
 
+    // Current means the file is exactly what a rewrite of it would write. The stamp alone is not enough: a repository from somewhere
+    // else can carry it along with settings that name a program. Costs no git process, and a steady state is a string comparison.
     public static bool IsCurrent(string gitDir) =>
-        AtomicText.ReadOrNull(ConfigPath(gitDir)) is { } text && ReadStamp(text) == Version;
+        AtomicText.ReadOrNull(ConfigPath(gitDir)) is { } text && string.Equals(text, Rewrite(text, OperatingSystem.IsWindows()), StringComparison.Ordinal);
 
     public static void Apply(string gitDir, bool isWindows)
     {
