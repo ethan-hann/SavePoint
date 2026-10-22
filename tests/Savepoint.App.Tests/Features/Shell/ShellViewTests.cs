@@ -490,6 +490,23 @@ public class ShellViewTests
     }
 
     [AvaloniaFact]
+    public async Task The_job_pill_has_a_row_of_its_own_below_the_page_so_it_never_covers_a_control()
+    {
+        using var harness = await ShellViewHarness.StartAsync();
+        var page = harness.Find<ContentControl>("Page");
+        var pill = harness.Find<UserControl>("JobPill");
+        var heightWithoutJob = page.Bounds.Height;
+        Assert.Equal(0, pill.Bounds.Height);
+
+        FakeAssert.Ok(await harness.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
+        harness.Settle();
+
+        Assert.True(pill.Bounds.Height > 0);
+        Assert.True(page.Bounds.Height < heightWithoutJob);
+        Assert.True(pill.Bounds.Top >= page.Bounds.Bottom - 0.5);
+    }
+
+    [AvaloniaFact]
     public async Task The_job_pill_is_gone_when_the_job_ends_and_a_toast_says_how_it_went()
     {
         using var harness = await ShellViewHarness.StartAsync();
