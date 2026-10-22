@@ -30,6 +30,15 @@ public class ErrorCardViewModelTests
     }
 
     [Fact]
+    public void A_paused_free_up_promises_no_rerun_that_nothing_schedules()
+    {
+        var card = new ErrorCardViewModel(ErrorInfo.From(new CompactionPreemptedException("skyrim")), _text);
+
+        Assert.Equal("Freeing up space paused so something else on this game could go first. Nothing was lost. Free up space again any time to finish the job.", card.Body);
+        Assert.DoesNotContain("by itself", card.Body, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void A_folder_too_broad_card_names_the_refused_path_and_the_operating_system()
     {
         var card = new ErrorCardViewModel(MockupScenario.FolderTooBroadError, _text);
