@@ -3,8 +3,9 @@
 #
 #   build/gate.sh [--allow-narrowed-tests]
 #
-# --allow-narrowed-tests lets a test filter in SAVEPOINT_TEST_ARGS through. Without it a filter is refused, because a run that
-# tests part of the code would read as a passed gate.
+# SAVEPOINT_TEST_ARGS takes only a report (--report-*) and retries of failed tests (--retry-failed-tests*). Anything else, such
+# as a filter, is refused unless --allow-narrowed-tests says it is on purpose, because a run that tests part of the code or lets a
+# failure pass would read as a passed gate.
 set -euo pipefail
 
 allow_narrowed=0
@@ -25,22 +26,49 @@ renice -n 10 $$ >/dev/null 2>&1 || true
 build_nodes="${SAVEPOINT_GATE_BUILD_NODES:-4}"
 test_threads="${SAVEPOINT_GATE_TEST_THREADS:-4}"
 
-# Said first, so a leftover value in the shell is seen before anything runs. An option that picks which tests run (or only lists
-# them) makes the gate a partial one.
+# SAVEPOINT_TEST_ARGS is for a report (--report-*) and for retrying failed tests (--retry-failed-tests*). Any other argument, a
+# filter in whatever spelling, a response file (@file) or an option that lets failures pass, could make "gate passed" mean less
+# than a full run, so it counts as narrowing. A word without dashes is allowed only as the value of an allowed option before it.
+# Prints each argument that is not allowed, one per line.
+narrowing_arguments() {
+  local argument after_allowed=0
+  for argument in "$@"; do
+    case "$argument" in
+      --report-* | --retry-failed-tests | --retry-failed-tests=* | --retry-failed-tests-*)
+        case "$argument" in
+          *=*) after_allowed=0 ;;
+          *) after_allowed=1 ;;
+        esac
+        ;;
+      -* | @*)
+        after_allowed=0
+        printf '%s\n' "$argument"
+        ;;
+      *)
+        if [ "$after_allowed" -eq 1 ]; then
+          after_allowed=0
+        else
+          printf '%s\n' "$argument"
+        fi
+        ;;
+    esac
+  done
+}
+
+# Said first, so a leftover value in the shell is seen before anything runs.
 narrowing=""
 if [ -n "${SAVEPOINT_TEST_ARGS:-}" ]; then
   echo "==> extra test arguments (SAVEPOINT_TEST_ARGS): ${SAVEPOINT_TEST_ARGS}"
-  for argument in ${SAVEPOINT_TEST_ARGS}; do
-    case "$argument" in
-      --filter | --filter-* | --treenode-filter | --list-tests) narrowing="$narrowing $argument" ;;
-    esac
-  done
+  read -r -a test_args <<<"${SAVEPOINT_TEST_ARGS}"
+  while read -r argument; do
+    narrowing="$narrowing $argument"
+  done < <(narrowing_arguments "${test_args[@]}")
   if [ -n "$narrowing" ] && [ "$allow_narrowed" -eq 0 ]; then
-    echo "gate refused: SAVEPOINT_TEST_ARGS holds${narrowing}, which would run only some of the tests. Unset it, or pass --allow-narrowed-tests if the narrowing is on purpose." >&2
+    echo "gate refused: SAVEPOINT_TEST_ARGS holds${narrowing}, which could run only some of the tests or let a failure pass. Only a report and retries are allowed there. Unset it, or pass --allow-narrowed-tests if that is on purpose." >&2
     exit 1
   fi
   if [ -n "$narrowing" ]; then
-    echo "==> NARROWED on purpose: only the tests the filter picks run, so a pass is not a full gate."
+    echo "==> NARROWED on purpose: the extra arguments can leave tests out or let a failure pass, so a pass is not a full gate."
   fi
 fi
 
@@ -56,7 +84,7 @@ echo "==> format"
 dotnet format Savepoint.slnx --verify-no-changes
 
 if [ -n "$narrowing" ]; then
-  echo "gate passed, NARROWED: only the tests the filter picks ran"
+  echo "gate passed, NARROWED: not a full gate"
 else
   echo "gate passed"
 fi

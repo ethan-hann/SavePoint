@@ -87,6 +87,26 @@ public class LaunchHeldFileFlowTests : IDisposable
         await begin;
     }
 
+    // A half switch that this very launch finishes counts as no unsaved work (the folder is not Dirty), so nothing in the dialog is
+    // left to settle first: the file is the one thing in the way, and the card says so before a switch that would fail on it.
+    [Fact]
+    public async Task A_file_in_use_in_a_folder_with_only_a_switch_to_finish_shows_the_card_and_not_the_dialog()
+    {
+        var source = FakeAssert.Ok(await _f.Backend.Launch.GetPreviewAsync(FlowRig.Skyrim, LaunchRig.VanillaTip, TestContext.Current.CancellationToken));
+        var held = source.Install with { Dirty = false, UnfinishedSwitch = true, HeldBy = ErrorInfo.From(new GitOperationException(_file, "in use")) };
+        _f.Backend.State.LaunchPreviews[(FlowRig.Skyrim, LaunchRig.VanillaTip)] = source with { Install = held };
+
+        var begin = _f.Play(LaunchRig.VanillaTip);
+
+        Assert.Empty(_f.Dialogs.Shown);
+        var card = _f.Inline<ErrorCardViewModel>();
+        Assert.Equal("A file is in use, so the switch didn't start", card.Title);
+        Assert.Equal(_file, card.Path);
+        Assert.Equal(["Try again", "Dismiss"], card.Actions.Select(action => action.Label));
+        Assert.Empty(_f.Starts());
+        await begin;
+    }
+
     [Fact]
     public async Task A_file_in_use_in_a_half_switched_folder_opens_the_dialog_and_not_the_card()
     {

@@ -277,6 +277,48 @@ public class ArtworkProviderTests
         Assert.Equal("/new.png", art.WidePath);
     }
 
+    // The read a change asked for can be the one that is dropped; the newer read that is shown instead has to reload the images too.
+    [Fact]
+    public void A_dropped_change_read_hands_its_reload_to_the_newer_read_that_is_shown()
+    {
+        var api = new HeldArtworkApi();
+        using var provider = new ArtworkProvider(api, _dispatcher, new ArtImages());
+        var art = provider.For("game");
+        art.NotifyOnScreen();
+        _dispatcher.RunIdle();
+        api.Reads[0].SetResult(OperationResult.Success(new GameArtwork("game", ArtworkSource.Custom, "/same.png", "/same.png")));
+        var revision = art.Revision;
+        api.RaiseChanged("game");
+        provider.Refresh();
+        Assert.Equal(3, api.Reads.Count);
+
+        api.Reads[2].SetResult(OperationResult.Success(new GameArtwork("game", ArtworkSource.Custom, "/same.png", "/same.png")));
+        api.Reads[1].SetResult(OperationResult.Success(new GameArtwork("game", ArtworkSource.Custom, "/same.png", "/same.png")));
+
+        Assert.Equal(revision + 1, art.Revision);
+    }
+
+    [Fact]
+    public void A_read_that_started_before_the_change_does_not_reload_the_images_and_the_change_read_does()
+    {
+        var api = new HeldArtworkApi();
+        using var provider = new ArtworkProvider(api, _dispatcher, new ArtImages());
+        var art = provider.For("game");
+        art.NotifyOnScreen();
+        _dispatcher.RunIdle();
+        api.Reads[0].SetResult(OperationResult.Success(new GameArtwork("game", ArtworkSource.Custom, "/same.png", "/same.png")));
+        var revision = art.Revision;
+        provider.Refresh();
+        api.RaiseChanged("game");
+        Assert.Equal(3, api.Reads.Count);
+
+        api.Reads[1].SetResult(OperationResult.Success(new GameArtwork("game", ArtworkSource.Custom, "/same.png", "/same.png")));
+        Assert.Equal(revision, art.Revision);
+        api.Reads[2].SetResult(OperationResult.Success(new GameArtwork("game", ArtworkSource.Custom, "/same.png", "/same.png")));
+
+        Assert.Equal(revision + 1, art.Revision);
+    }
+
     [Fact]
     public void An_older_read_still_counts_when_the_newer_one_failed()
     {

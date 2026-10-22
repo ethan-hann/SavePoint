@@ -323,6 +323,52 @@ public class LaunchFlowSessionTests : IDisposable
     }
 
     [Fact]
+    public async Task A_failure_beside_a_folder_the_save_left_alone_never_calls_that_folder_saved()
+    {
+        await _f.PlayToExitedAsync();
+        await _f.PostPlay.SaveCommand.ExecuteAsync(null);
+
+        _f.Backend.Jobs.Complete(
+            CaptureJob(),
+            new CaptureResult(
+                MockupScenario.ModdedId,
+                MockupScenario.BeforeFinalBoss,
+                [new FolderOutcome(RepoRole.Install, MockupScenario.SavesOutOfRoomError), new FolderOutcome(RepoRole.External, null, LeftAlone: true, LeftOnBranch: "profile/other")]));
+
+        var card = _f.Inline<ErrorCardViewModel>();
+        Assert.Equal("That session wasn't saved", card.Title);
+        Assert.Equal(
+            "Your game version and mods weren't saved. There's not enough free disk space to save this profile right now. Free up about 1.2 GB on drive D: and try again. Your save files were left as they are because they belong to another profile's saved history, so nothing from this session was added there. What changed in them is still on your computer, and SavePoint will ask about it the next time you play. Fix that and retry just that part.",
+            card.Body);
+        var rows = Assert.IsType<FolderOutcomeListViewModel>(card.Supplement).Rows;
+        Assert.Equal(["Game version and mods · not saved", "Saves · left as it was"], rows.Select(r => r.Text));
+        Assert.Equal([false, false], rows.Select(r => r.IsOk));
+        Assert.Equal([true, false], rows.Select(r => r.IsFailed));
+        Assert.Equal(["Retry the version and mods", "Dismiss"], card.Actions.Select(a => a.Label));
+    }
+
+    [Fact]
+    public async Task A_failure_beside_an_install_folder_the_save_left_alone_names_the_saves_as_the_one_that_failed()
+    {
+        await _f.PlayToExitedAsync();
+        await _f.PostPlay.SaveCommand.ExecuteAsync(null);
+
+        _f.Backend.Jobs.Complete(
+            CaptureJob(),
+            new CaptureResult(
+                MockupScenario.ModdedId,
+                MockupScenario.BeforeFinalBoss,
+                [new FolderOutcome(RepoRole.Install, null, LeftAlone: true, LeftOnBranch: "profile/other"), new FolderOutcome(RepoRole.External, MockupScenario.SavesOutOfRoomError)]));
+
+        var card = _f.Inline<ErrorCardViewModel>();
+        Assert.StartsWith("Your save files weren't saved. There's not enough free disk space", card.Body, StringComparison.Ordinal);
+        Assert.Contains("Your game version and mods were left as they are because they belong to another profile's saved history", card.Body, StringComparison.Ordinal);
+        var rows = Assert.IsType<FolderOutcomeListViewModel>(card.Supplement).Rows;
+        Assert.Equal(["Game version and mods · left as it was", "Saves · not saved"], rows.Select(r => r.Text));
+        Assert.Equal(["Retry the saves", "Dismiss"], card.Actions.Select(a => a.Label));
+    }
+
+    [Fact]
     public async Task A_capture_that_saved_only_one_folder_shows_the_half_of_that_save_card_never_a_success()
     {
         await _f.PlayToExitedAsync();

@@ -69,6 +69,19 @@ public partial class SourceArchivesTests
         Assert.Contains(sources["dugite-native"].Tag, manifest.GetProperty("linux-x64").GetProperty("url").GetString(), StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("osx-x64")]
+    [InlineData("osx-arm64")]
+    [InlineData("linux-x64")]
+    [InlineData("linux-arm64")]
+    public void The_git_source_tag_is_the_version_of_git_inside_the_dugite_bundle_of_each_runtime(string runtimeId)
+    {
+        var bundleVersion = Manifest().GetProperty(runtimeId).GetProperty("version").GetString()!;
+
+        // A dugite-native version reads "<git version>-<build>", so a bundle update that moves git moves the tag the notices promise.
+        Assert.Equal("v" + bundleVersion.Split('-')[0], Sources()["git"].Tag);
+    }
+
     [Fact]
     public void A_hash_that_is_pinned_is_a_lowercase_sha256()
     {

@@ -48,12 +48,16 @@ export PATH="$dotnet_root:$PATH"
 # The tests keep their temp files in <tree>/.tools/tmp/linux; this says what that folder can do.
 temp_folder="$gate_tree/.tools/tmp/linux"
 probe="$temp_folder/case-probe-$$"
+# The warnings below print now, go into the log first, and print again after the gate, so a green run does not hide them.
+warnings=""
 mkdir -p "$probe"
 mkdir "$probe/a"
 if mkdir "$probe/A" 2>/dev/null; then
   echo "==> temp folder $temp_folder is case sensitive"
 else
-  echo "==> WARNING: temp folder $temp_folder is NOT case sensitive (a and A are one directory); tests of case-sensitive behavior can fail here for that reason alone" >&2
+  case_warning="==> WARNING: temp folder $temp_folder is NOT case sensitive (a and A are one directory); tests of case-sensitive behavior can fail here for that reason alone"
+  echo "$case_warning" >&2
+  warnings="$warnings$case_warning"$'\n'
 fi
 rm -rf "$probe"
 
@@ -74,7 +78,9 @@ chmod 600 "$probe/file"
 rm -rf "$probe"
 if [ -n "$permissions_reason" ]; then
   skipping="$(grep -rlE 'HeldFiles\.(Hold|MakeUnreadable|SkipUnlessPermissionsHold|PreventDeleting)|IsPrivilegedProcess' "$gate_tree/tests" --include='*.cs' 2>/dev/null | grep -v '/obj/' | grep -v '/HeldFiles\.cs$' | sed 's#.*/##; s#\.cs$##' | sort -u | tr '\n' ' ' || true)"
-  echo "==> WARNING: file permissions do not hold here ($permissions_reason), so the tests that make a file or folder unreadable SKIP, in: ${skipping:-none found}" >&2
+  permissions_warning="==> WARNING: file permissions do not hold here ($permissions_reason), so the tests that make a file or folder unreadable SKIP, in: ${skipping:-none found}"
+  echo "$permissions_warning" >&2
+  warnings="$warnings$permissions_warning"$'\n'
 else
   echo "==> file permissions hold in $temp_folder"
 fi
@@ -91,11 +97,17 @@ echo "==> .NET SDK $(dotnet --version) from $dotnet_root, gating $gate_tree (fai
 cd "$gate_tree"
 mkdir -p "$tools"
 log="$tools/gate-linux-last.log"
+printf '%s' "$warnings" >"$log"
 set +e
-bash build/gate.sh 2>&1 | tee "$log"
+bash build/gate.sh 2>&1 | tee -a "$log"
 status="${PIPESTATUS[0]}"
 set -e
 
 bash build/report-retried-tests.sh "$log" "$retries"
+
+# The last lines of the run and of the log say what the gate could not check, however the gate went.
+if [ -n "$warnings" ]; then
+  printf '%s' "$warnings" | tee -a "$log" >&2
+fi
 
 exit "$status"
