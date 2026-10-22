@@ -85,6 +85,10 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
         using var checking = new CancellationTokenSource();
         flow.Stage = FlowStage.Previewing;
         flow.Target = target;
+
+        // A start from an earlier session must not outlive its session: "Try again" on a card from this check may only repeat this check.
+        flow.StartTarget = null;
+        flow.Preview = null;
         SetInline(flow, new LaunchCheckingViewModel(_deps.Text, checking.Cancel));
         RaiseActivity();
 
@@ -101,7 +105,7 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
             }
             else
             {
-                ShowLaunchFailure(flow, preview.Error);
+                ShowLaunchFailure(flow, preview.Error, beforeStart: true);
             }
 
             RaiseActivity();
@@ -116,7 +120,7 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
         if (new[] { plan.Install, plan.External }.OfType<FolderLaunchState>().Select(folder => folder.HeldBy).FirstOrDefault(held => held is not null) is { } held)
         {
             flow.Stage = FlowStage.Idle;
-            ShowLaunchFailure(flow, held);
+            ShowLaunchFailure(flow, held, beforeStart: true);
             RaiseActivity();
             return;
         }

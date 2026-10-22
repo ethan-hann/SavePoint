@@ -9,9 +9,10 @@ namespace Savepoint.App.Features.Launch;
 
 public sealed partial class LaunchFlowViewModel
 {
-    // A failure to start the game: the card offers what fits the error, and always a way to put it away.
-    private void ShowLaunchFailure(GameFlow flow, ErrorInfo error) =>
-        SetInline(flow, new ErrorCardViewModel(error, _deps.Text, LaunchFailureActions(flow, error)));
+    // A failure to start the game: the card offers what fits the error, and always a way to put it away. A failure of the check before
+    // the start has nothing to restart, so its "Try again" runs the check again for the profile the player chose.
+    private void ShowLaunchFailure(GameFlow flow, ErrorInfo error, bool beforeStart = false) =>
+        SetInline(flow, new ErrorCardViewModel(error, _deps.Text, LaunchFailureActions(flow, error, beforeStart)));
 
     // A failure with no better answer than reading it: a refused completion, for example.
     private void ShowPlainFailure(GameFlow flow, ErrorInfo error) =>
@@ -20,12 +21,12 @@ public sealed partial class LaunchFlowViewModel
     private ErrorCardAction DismissAction(GameFlow flow) =>
         new(_deps.Text.Message("common.dismiss"), new RelayCommand(() => SetInline(flow, null)));
 
-    private List<ErrorCardAction> LaunchFailureActions(GameFlow flow, ErrorInfo error)
+    private List<ErrorCardAction> LaunchFailureActions(GameFlow flow, ErrorInfo error, bool beforeStart)
     {
         var text = _deps.Text;
         var actions = new List<ErrorCardAction>();
         ErrorCardAction TryAgain(bool reenter = false) =>
-            new(text.Message("launch.failure.tryAgain"), new AsyncRelayCommand(() => reenter ? BeginAsync(flow.GameId, flow.Target!) : RestartAsync(flow)), IsPrimary: false);
+            new(text.Message("launch.failure.tryAgain"), new AsyncRelayCommand(() => reenter || beforeStart ? BeginAsync(flow.GameId, flow.Target!) : RestartAsync(flow)), IsPrimary: false);
         ErrorCardAction Edit(string label, bool primary) =>
             new(text.Message(label), new RelayCommand(() => EditGameRequested?.Invoke(this, flow.GameId)), primary);
 
