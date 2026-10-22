@@ -365,6 +365,25 @@ The final renders (2a-2l, 3a-3c) were compared with the v1 screenshots after the
 - **The "Try something like..." suggestion on a refused folder sits in the error's paragraph (2l),** not on a colored line of its own under the path, so it reads as part of the error it belongs to.
 - **The launch banner (2a) moves to the bottom of the pane, as the mockup draws it,** pinned above the storage footer rather than scrolling under the table. The checking, saving, and running cards go there too. A failure or partial-result card stays under the table and scrolls into view: it can be about 200 px tall, and pinned it would leave the table about 17 px of room at the smallest supported window.
 
+## D41. Calls on the final code review
+
+The final review (`.tools/reviews/final.md`, FR-001 to FR-032, YAGNI-001 to YAGNI-006) found no CRIT, six WARN, and confirmed the engine review's fixes. It is settled as follows; everything not named here is fixed as the review recommends, or skipped by the fix agent with a one-line reason.
+
+1. **A held file is "cannot tell" when saving (FR-001, refines D37.5).** For a switch, a folder whose only changes are files SavePoint cannot open still counts as clean, and the launch names the file and offers "Try again". When saving, such a folder is never skipped as clean: the save runs, fails with the held-file error that names the file, and the retry that already exists applies. The after-play dialog counts held files.
+2. **Files the ignore list names (FR-002, settles the engine review's WARN-004).** A switch leaves every file the ignore list names exactly as it is on disk, whether or not some point recorded it, and never refuses because of one. A save stops recording such a file, so later points do not hold it. A switch that is stopped part way must still leave the file as it was.
+3. **"Try again" after a failed check re-enters the check for the target the player chose (FR-003).** Nothing from an earlier start carries over.
+4. **A storage root change gives every listed game its repositories (FR-004).** After "Start with an empty folder", and for each game a "Find the folder" target lacks, SavePoint creates the game's empty repositories at once. Games and profiles stay listed; each profile starts its history again with its next save, and the confirmation says so.
+5. **Git never runs a program a repository names (FR-005).** Every git process starts with hooks pointed at an empty folder SavePoint owns and `core.fsmonitor` off, set through the environment so a repository's own config cannot override them, and SavePoint keeps only the keys `git init` writes plus its own in a repository's config. A folder adopted through "Find the folder" has its configs rewritten and its hooks folders emptied before any other git call.
+6. **"Find the folder" runs the checks a storage move runs on its destination (FR-006):** the installer-owned folder (D38), an unfinished move's marker, and overlap with game folders.
+7. **A left folder never forks another profile's history (FR-009).** D37.2 wins over the fork that "Keep as a new profile" would make: that folder's first point in the new profile has nothing behind it.
+8. **The fallback after-play choices for an older point decide "Continue" from the recorded starts alone (FR-010),** as D37.3 does, with no folder read.
+9. **Unreadable settings mean online artwork lookup is off (FR-018).** Privacy wins over art.
+10. **Successful discards and deletes are logged (FR-021):** the folder or game, what was removed, and how many files, so the log can answer what SavePoint deleted.
+11. **Switch progress moves while git removes files (FR-029).** The dialog's share and time left follow whichever of files and bytes is further along, so a removal-heavy switch never stands at 0%.
+12. **Restructures are deferred (FR-022, FR-027)** unless a fix needs the shared piece; the move's destination checks are shared with "Find the folder" (item 6).
+13. **YAGNI:** the members kept only for tests or for paths no shipped build reaches go (YAGNI-001, 002, 004, 006, and 003 unless item 7's or FR-008's fix makes the path live). The 1024 px icon and IconGen's output folder stay for a future macOS package (YAGNI-005).
+14. **Documentation (FR-028, FR-032's doc half)** is written in the docs pass, not by the fix agents.
+
 ## D8. "Clear all data" is a v2 requirement
 
 The v1 README lists "add a clear all data button" as an open TODO. v2 ships it in Settings behind a typed confirmation. It removes SavePoint's own storage, catalog, and consent markers, and never deletes or rolls back files in a game's install or save folders: whatever is on disk at that moment stays as it is.
