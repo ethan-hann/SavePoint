@@ -15,4 +15,11 @@ public enum OptimizationMode
     /// so it needs free space about the size of the store and must not run while anything else writes to the repository.
     /// </summary>
     Reclaim,
+
+    /// <summary>
+    /// What the user's "Free up space" asks for: everything <see cref="Reclaim"/> does, after first deleting the records of the
+    /// snapshots a move forward or an amend took off a branch, so those are dropped too. It is the only thing that deletes them. The
+    /// free-space and exclusive-access checks come first, so a run that is refused clears nothing.
+    /// </summary>
+    ReclaimClearingRemoved,
 }
