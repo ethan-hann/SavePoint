@@ -8,6 +8,7 @@ internal sealed class ProgressReporter
     private static readonly long _interval = Stopwatch.Frequency / 10;
 
     private readonly IProgress<FileProgress>? _sink;
+    private readonly CheckoutBytePlan? _bytes;
     private readonly object _gate = new();
     private int _done;
     private int? _total;
@@ -15,9 +16,10 @@ internal sealed class ProgressReporter
     private int _reportedDone = -1;
     private long _reportedAt;
 
-    public ProgressReporter(IProgress<FileProgress>? sink)
+    public ProgressReporter(IProgress<FileProgress>? sink, CheckoutBytePlan? bytes = null)
     {
         _sink = sink;
+        _bytes = bytes;
     }
 
     public void SetTotal(int? total)
@@ -83,7 +85,8 @@ internal sealed class ProgressReporter
         // Progress only decorates the work: a sink that fails must not stop git half way through a capture or a switch.
         try
         {
-            _sink.Report(new FileProgress(_done, _total is { } total ? Math.Max(total, _done) : null, _current));
+            var total = _total is { } counted ? Math.Max(counted, _done) : (int?)null;
+            _sink.Report(new FileProgress(_done, total, _current, _bytes?.BytesAfter(_done, total ?? _bytes.Entries), _bytes?.Total));
         }
         catch (Exception)
         {

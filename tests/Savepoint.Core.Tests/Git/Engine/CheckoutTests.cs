@@ -134,7 +134,8 @@ public sealed class CheckoutTests : IDisposable
 
         var reports = progress.Reports;
         Assert.NotEmpty(reports);
-        Assert.Equal(new FileProgress(2500, 2500, null), progress.Last);
+        Assert.Equal((2500, 2500), (progress.Last.FilesDone, progress.Last.FilesTotal));
+        Assert.Equal(progress.Last.BytesTotal, progress.Last.BytesDone);
         Assert.Equal(reports.OrderBy(report => report.FilesDone), reports);
         Assert.Single(reports.Select(report => report.FilesTotal).Distinct());
     }
