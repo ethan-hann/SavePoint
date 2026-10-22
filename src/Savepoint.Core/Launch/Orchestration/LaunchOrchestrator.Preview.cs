@@ -79,7 +79,8 @@ public sealed partial class LaunchOrchestrator
             reading.Matches || reading.Target.Leave ? null : await SwitchSummaryAsync(storage, game, reading, cancellationToken).ConfigureAwait(false),
             reading.DirtyNewFileCount,
             reading.UnfinishedSwitch,
-            reading.UnfinishedSwitch ? await UnfinishedTargetAsync(storage, profiles, previewed, reading, cancellationToken).ConfigureAwait(false) : null);
+            reading.UnfinishedSwitch ? await UnfinishedTargetAsync(storage, profiles, previewed, reading, cancellationToken).ConfigureAwait(false) : null,
+            reading.Held ? ErrorInfo.From(reading.Status.HeldFile!.ToException()) : null);
 
     // Starting the previewed target finishes a switch that was heading there; one that was heading elsewhere is finished by that point's own target.
     private static async Task<LaunchTarget?> UnfinishedTargetAsync(

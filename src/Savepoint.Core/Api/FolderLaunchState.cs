@@ -1,4 +1,5 @@
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Errors;
 
 namespace Savepoint.Core.Api;
 
@@ -26,6 +27,12 @@ namespace Savepoint.Core.Api;
 /// A target that completes the unfinished switch when it is started; null when the folder has no unfinished switch, or when the
 /// point it was heading for is not in any profile's history any more, which leaves discarding as the way out.
 /// </param>
+/// <param name="HeldBy">
+/// Set when switching the folder would stop on a file that cannot be read, which is the only thing wrong with it: the error the launch
+/// would fail with (<c>error.gitOperation.checkoutFailed</c> for a file another program holds open, <c>error.gitOperation.unreadableFile</c>
+/// for one that cannot be read), with the file in its <c>path</c> argument. Such a folder is not <paramref name="Dirty"/>; the launch
+/// asks to try again instead of offering to keep or discard anything (D37). Null when no file stands in the way.
+/// </param>
 public sealed record FolderLaunchState(
     RepoRole Role,
     string Path,
@@ -36,4 +43,5 @@ public sealed record FolderLaunchState(
     SwitchSummary? Switch,
     int DirtyNewFileCount = 0,
     bool UnfinishedSwitch = false,
-    LaunchTarget? UnfinishedSwitchTarget = null);
+    LaunchTarget? UnfinishedSwitchTarget = null,
+    ErrorInfo? HeldBy = null);

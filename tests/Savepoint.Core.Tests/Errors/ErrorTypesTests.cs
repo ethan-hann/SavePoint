@@ -206,6 +206,8 @@ public class ErrorTypesTests
             ("path", "/storage/alpha"));
         Add("StorageHistoryNotFound", new StorageHistoryNotFoundException("/elsewhere"), "error.storage.noHistoryHere",
             ("path", "/elsewhere"));
+        Add("FileUnreadable", new FileUnreadableException("/games/alpha/data.pak"), "error.gitOperation.unreadableFile",
+            ("path", "/games/alpha/data.pak"));
         Add("StorageMoveUnfinished", new StorageMoveUnfinishedException("/storage"), "error.storageRelocation.moveUnfinished",
             ("path", "/storage"));
         Add("Validation", new ValidationException(_issues), "error.validation.invalidPayload",

@@ -37,6 +37,9 @@ internal sealed record FolderReading(FolderTarget Target, RepoStatus Status, IRe
     // Holds exactly what the target asks for, with nothing unsaved and no switch left unfinished.
     public bool Matches => InPlace && Status.IsClean && Note is null;
 
+    // A file that cannot be read stands in the way of a switch; a folder that needs none carries on with it as it is.
+    public bool Held => NeedsSwitch && Status.HeldFile is not null;
+
     // The launch must run a switch on this folder. A folder with unsaved changes never gets this far, so a clean folder that is in
     // place needs none.
     public bool NeedsSwitch => !InPlace || Note is not null;

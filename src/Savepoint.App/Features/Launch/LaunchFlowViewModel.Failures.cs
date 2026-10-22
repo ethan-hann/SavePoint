@@ -32,6 +32,7 @@ public sealed partial class LaunchFlowViewModel
         switch (error.MessageId)
         {
             case "error.gitOperation.checkoutFailed":
+            case "error.gitOperation.unreadableFile":
                 actions.Add(TryAgain() with { IsPrimary = true });
                 break;
             case "error.launch.spawnFailed":

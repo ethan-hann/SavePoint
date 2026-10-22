@@ -57,7 +57,7 @@ public sealed partial class GitEngine
                 var newFiles = (await untracked.ConfigureAwait(false)).Files;
                 if (changedPaths.Count > 0 || newFiles.Count > 0)
                 {
-                    throw OnlyLockedChanges(repo, changedPaths, newFiles.Count) is { } inUse ? InUse(inUse) : new DirtyWorkingTreeException(repo.Role);
+                    throw OnlyHeldChanges(repo, changedPaths, newFiles.Count)?.ToException() ?? new DirtyWorkingTreeException(repo.Role);
                 }
             }
         }
@@ -73,32 +73,30 @@ public sealed partial class GitEngine
     }
 
     // git reads a file again when its timestamp is too new to trust (one stamped in the same second as the last index write), and a
-    // file another program holds open cannot be read, so it comes back as "changed". When every reported change is such a file the
-    // honest answer is "in use"; a change that can be read is unsaved work, and that answer stays.
-    private static string? OnlyLockedChanges(RepoRef repo, IReadOnlyList<string> changedPaths, int newFiles)
+    // file it cannot read (held open by another program on Windows, or not allowed to be read) comes back as "changed". When every
+    // reported change is such a file the honest answer is that file, not "unsaved changes"; a change that can be read is unsaved work,
+    // and that answer stays.
+    private static HeldFile? OnlyHeldChanges(RepoRef repo, IReadOnlyList<string> changedPaths, int newFiles)
     {
         if (newFiles > 0)
         {
             return null;
         }
 
-        string? locked = null;
+        HeldFile? held = null;
         foreach (var path in changedPaths)
         {
             var full = FullPath(repo, path);
-            if (!FileLockProbe.IsLocked(full))
+            if (FileLockProbe.Probe(full) is not { } kind)
             {
                 return null;
             }
 
-            locked ??= full;
+            held ??= new HeldFile(full, kind);
         }
 
-        return locked;
+        return held;
     }
-
-    private static GitOperationException InUse(string path) =>
-        new(path, $"'{path}' is in use by another program, so the folder could not be switched.");
 
     // Files the game's patterns name: recorded ones (a switch would overwrite or delete them) and unrecorded ones (a switch
     // would overwrite them). A folder that is wholly excluded comes back as one entry with a trailing slash.
