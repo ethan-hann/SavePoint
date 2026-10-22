@@ -383,6 +383,26 @@ public class ShellViewTests
         Assert.Contains("No games yet.", texts);
     }
 
+    private const string ArtworkNote = "SavePoint downloads cover art for Steam games from Steam. You can turn this off in Settings.";
+
+    [AvaloniaFact]
+    public async Task First_run_says_before_anything_happens_that_cover_art_is_downloaded_from_Steam()
+    {
+        using var harness = await ShellViewHarness.StartAsync(Empty());
+
+        Assert.Contains(ArtworkNote, VisibleTexts(harness));
+        Assert.True(harness.Find<StackPanel>("ArtworkNote").IsEffectivelyVisible);
+    }
+
+    [AvaloniaFact]
+    public async Task First_run_stays_quiet_about_cover_art_when_the_lookup_is_already_off()
+    {
+        var backend = new FakeBackend(ScenarioBuilder.Empty().WithSettings(AppSettings.Defaults(@"D:\SavePoint") with { LookUpArtworkOnline = false }));
+        using var harness = await ShellViewHarness.StartAsync(backend);
+
+        Assert.DoesNotContain(ArtworkNote, VisibleTexts(harness));
+    }
+
     [AvaloniaFact]
     public async Task First_run_says_where_data_is_kept_and_that_kernel_anti_cheat_is_not_supported()
     {

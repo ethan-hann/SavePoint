@@ -1,6 +1,7 @@
 {
   "firstRun.addFirstGame": "Add your first game",
   "firstRun.antiCheatNote": "Games protected by kernel-level anti-cheat aren't supported.",
+  "firstRun.artworkNote": "SavePoint downloads cover art for Steam games from Steam. You can turn this off in Settings.",
   "firstRun.body": "Point SavePoint at a game you've already got installed and modded. It remembers that exact version, its mods and its saves, so you can come back to it later even after the game updates.",
   "firstRun.startFromTemplate": "Start from a template",
   "firstRun.storageNote": "Everything is stored in {path} — you can change that in Settings.",

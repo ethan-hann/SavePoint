@@ -40,8 +40,19 @@ public sealed partial class FirstRunViewModel : ObservableObject
     /// <summary>Offers the built-in templates and a file to start from.</summary>
     public ICommand StartFromTemplateCommand { get; }
 
+    /// <summary>True while the cover art lookup is on, which is when the screen says that it contacts Steam.</summary>
+    public bool HasArtworkNote { get; private set; }
+
     /// <summary>True once the storage folder is known, which is when the note is shown.</summary>
     public bool HasStorageNote => StoragePath.Length > 0;
+
+    /// <summary>Tells the empty state whether the cover art lookup is on, so it can say so before any request is made.</summary>
+    /// <param name="lookUpArtworkOnline">The saved setting.</param>
+    public void SetArtworkLookUp(bool lookUpArtworkOnline)
+    {
+        HasArtworkNote = lookUpArtworkOnline;
+        OnPropertyChanged(nameof(HasArtworkNote));
+    }
 
     /// <summary>Tells the empty state where SavePoint keeps its data.</summary>
     public void SetStorageRoot(string path)

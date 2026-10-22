@@ -414,6 +414,7 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
         LayoutToggle.Sync(_layout);
         OnLayoutChanged();
         FirstRun.SetStorageRoot(settings.StorageRoot);
+        FirstRun.SetArtworkLookUp(settings.LookUpArtworkOnline);
         _deps.Theme.Apply(settings.Theme, settings.AccentColorId);
     }
 

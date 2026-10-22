@@ -50,6 +50,10 @@
           </TextBlock>
         </StackPanel>
       </Border>
+      <StackPanel x:Name="ArtworkNote" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8" IsVisible="{Binding HasArtworkNote}">
+        <TextBlock Classes="icon s16 muted" VerticalAlignment="Top" Margin="0,1,0,0" Text="{x:Static theme:Icons.Info}" />
+        <TextBlock Classes="caption" TextWrapping="Wrap" MaxWidth="480" Text="{loc:Loc firstRun.artworkNote}" />
+      </StackPanel>
       <StackPanel x:Name="AntiCheatNote" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
         <TextBlock Classes="icon s16 muted" VerticalAlignment="Top" Margin="0,1,0,0" Text="{x:Static theme:Icons.Info}" />
         <TextBlock Classes="caption" TextWrapping="Wrap" MaxWidth="480" Text="{loc:Loc firstRun.antiCheatNote}" />
