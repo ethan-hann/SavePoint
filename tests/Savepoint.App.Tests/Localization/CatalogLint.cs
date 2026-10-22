@@ -46,6 +46,12 @@ internal static class CatalogLint
     // A hyphen, double hyphen or en dash with a space on both sides; a hyphen inside a word or a number range written without spaces is fine.
     private static readonly Regex _spacedDash = new(@"\s(?:-{1,2}|–)\s", RegexOptions.CultureInvariant);
 
+    // The lead byte of a two- or three-byte UTF-8 character read as a Latin letter, then its continuation byte read as Latin-1
+    // (U+0080 to U+00BF) or as Windows-1252 (the printable symbols that stand in for the C1 controls).
+    private static readonly Regex _doubleEncoded = new(
+        @"[ÂÃâ][\u0080-¿ŒœŠšŸŽžƒˆ˜–—‘-„†-•…‰‹›€™]",
+        RegexOptions.CultureInvariant);
+
     // British spellings that could plausibly turn up in copy. These stems are found anywhere in a word, so a prefix or a suffix does not
     // hide them ("unrecognised", "colourful"); each -ise stem needs an ending that makes it a verb or a noun, so "organism" and
     // "realistic" do not match.
@@ -131,6 +137,14 @@ internal static class CatalogLint
         catalog.OrderBy(entry => entry.Key, StringComparer.Ordinal)
             .Where(entry => entry.Key[(entry.Key.LastIndexOf('.') + 1)..].Contains("helper", StringComparison.OrdinalIgnoreCase) && !entry.Value.TrimEnd().EndsWith('.'))
             .Select(entry => $"'{entry.Key}' is a helper line and has to end with a period: {entry.Value}")
+            .ToList();
+
+    // Text that was encoded to UTF-8 twice shows a Latin letter (U+00C2, U+00C3 or U+00E2) before a symbol that is no letter. Each
+    // value is checked as it reads under Latin-1 or Windows-1252, so a real accented letter ("café") and a lone capital pass.
+    public static IReadOnlyList<string> DoubleEncodedText(IReadOnlyDictionary<string, string> catalog) =>
+        catalog.OrderBy(entry => entry.Key, StringComparer.Ordinal)
+            .Where(entry => _doubleEncoded.IsMatch(entry.Value))
+            .Select(entry => $"'{entry.Key}' holds text that was encoded twice; save the file as UTF-8 and write the character once: {entry.Value}")
             .ToList();
 
     // Copy is American English; values are checked, not keys, which keep their names.

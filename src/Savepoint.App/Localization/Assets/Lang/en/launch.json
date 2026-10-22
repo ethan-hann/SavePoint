@@ -108,7 +108,7 @@
   "launch.progress.checking": "Checking your files…",
   "launch.progress.files": "{done} of {total} files",
   "launch.progress.filesSoFar": "{done} files switched so far",
-  "launch.progress.filesWithTime": "{done} of {total} files Â· about {time} left",
+  "launch.progress.filesWithTime": "{done} of {total} files · about {time} left",
   "launch.progress.hint": "This can take a while for a large install, especially if a lot changed.",
   "launch.progress.percent": "{percent}%",
   "launch.progress.putting": "Putting {state} back in place.",

@@ -56,6 +56,31 @@ public class CatalogCopyRuleTests
         Assert.Empty(CatalogLint.HelperLinesWithoutPeriod(catalog));
     }
 
+    // The samples are written with escapes, so this file never holds the garbled text itself.
+    [Theory]
+    [InlineData("{done} of {total} files Â· about {time} left")]
+    [InlineData("Saved Ã© today")]
+    [InlineData("Nothing is lost â\u0080\u0094 your saves stay on disk.")]
+    [InlineData("Nothing is lost â€” your saves stay on disk.")]
+    [InlineData("Savingâ€¦")]
+    public void Text_that_was_encoded_twice_is_reported_with_its_key(string message)
+    {
+        var problem = Assert.Single(CatalogLint.DoubleEncodedText(Catalog(("test.sample", message))));
+
+        Assert.Contains("test.sample", problem);
+    }
+
+    [Theory]
+    [InlineData("{done} of {total} files · about {time} left")]
+    [InlineData("Nothing is lost — your saves stay on disk.")]
+    [InlineData("Saving…")]
+    [InlineData("A café and a Façade.")]
+    [InlineData("Â and Ã as capital letters, then letters.")]
+    public void A_middle_dot_an_em_dash_an_accented_letter_and_a_stray_capital_are_not_double_encoded(string message)
+    {
+        Assert.Empty(CatalogLint.DoubleEncodedText(Catalog(("test.sample", message))));
+    }
+
     [Theory]
     [InlineData("Pick a colour.", "colour")]
     [InlineData("Optimise storage", "Optimise")]

@@ -140,7 +140,7 @@ public class SwitchProgressDialogViewModelTests
         dialog.Update(new JobProgress(FilesDone: 100, FilesTotal: 200, BytesDone: 0, BytesTotal: 10));
 
         // Half the files in 10 seconds leaves 10 seconds.
-        Assert.Equal("100 of 200 files Â· about 10 seconds left", dialog.ProgressText);
+        Assert.Equal("100 of 200 files · about 10 seconds left", dialog.ProgressText);
         Assert.Equal(50, dialog.PercentValue);
     }
 

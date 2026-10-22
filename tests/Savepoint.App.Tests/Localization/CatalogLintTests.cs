@@ -17,6 +17,12 @@ public class CatalogLintTests
     }
 
     [Fact]
+    public void English_catalog_holds_no_text_that_was_encoded_twice()
+    {
+        LintAssert.NoProblems(CatalogLint.DoubleEncodedText(CatalogLint.English()));
+    }
+
+    [Fact]
     public void Every_english_helper_line_ends_with_a_period()
     {
         LintAssert.NoProblems(CatalogLint.HelperLinesWithoutPeriod(CatalogLint.English()));
