@@ -121,10 +121,28 @@ public sealed partial class LaunchFlowViewModel
         {
             ShowLeftAlone(flow, result);
         }
+        else if (result is not null && result.Folders.Any(folder => folder.KeptAsNew))
+        {
+            ShowKeptAsNew(flow, result);
+        }
         else
         {
             SetInline(flow, null);
         }
+    }
+
+    // Nothing is lost, but a replacement that became a new snapshot must not read as the replacement the player chose.
+    private void ShowKeptAsNew(GameFlow flow, CaptureResult result)
+    {
+        var kept = result.Folders.Where(folder => folder.KeptAsNew).ToList();
+        var which = kept.Count == 1 ? RoleName(kept[0].Role) : "other";
+        SetInline(flow, ErrorCardViewModel.Custom(
+            _deps.Text,
+            Icons.Info,
+            ErrorTone.Neutral,
+            _deps.Text.Message("launch.keptAsNew.title"),
+            _deps.Text.Message("launch.keptAsNew.body", ("folder", which)),
+            actions: [DismissAction(flow)]));
     }
 
     // Not a failure and nothing is lost, but a save that skipped a folder must not look like one that saved everything.

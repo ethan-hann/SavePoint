@@ -15,7 +15,11 @@ namespace Savepoint.Core.Api;
 /// there, to be listed as unsaved changes at the next launch (as the other profile's, when the folder sits on its branch).
 /// </param>
 /// <param name="LeftOnBranch">The branch the folder sits on when <paramref name="LeftAlone"/> is true; null when it sits on an older point and on no branch.</param>
-public sealed record FolderOutcome(RepoRole Role, ErrorInfo? Error = null, bool LeftAlone = false, string? LeftOnBranch = null)
+/// <param name="KeptAsNew">
+/// True when a save that was asked to replace a snapshot found that snapshot was not the newest in this folder (the folder holds no commit
+/// of it, or a newer one), so the session was added as a new snapshot there instead. Nothing was replaced or removed in this folder.
+/// </param>
+public sealed record FolderOutcome(RepoRole Role, ErrorInfo? Error = null, bool LeftAlone = false, string? LeftOnBranch = null, bool KeptAsNew = false)
 {
     /// <summary>True when the job succeeded on this folder, that is, <see cref="Error"/> is null. A folder that was left alone is still Ok.</summary>
     public bool Ok => Error is null;

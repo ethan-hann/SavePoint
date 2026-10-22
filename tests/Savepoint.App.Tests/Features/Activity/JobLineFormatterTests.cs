@@ -21,6 +21,7 @@ public class JobLineFormatterTests
         JobLine.ForStep(JobSteps.CaptureFolderDone, ("folder", RepoRole.External), ("files", 3)),
         JobLine.ForStep(JobSteps.CaptureFolderNotIncluded, ("folder", RepoRole.External)),
         JobLine.ForStep(JobSteps.CaptureFolderFailed, ("folder", RepoRole.Install)),
+        JobLine.ForStep(JobSteps.CaptureFolderKeptAsNew, ("folder", RepoRole.Install)),
         JobLine.ForStep(JobSteps.LaunchSwitchFolder, ("folder", RepoRole.Install), ("profile", "Modded"), ("older", "no"), ("counted", "yes"), ("written", 4), ("removed", 1)),
         JobLine.ForStep(JobSteps.LaunchFolderInPlace, ("folder", RepoRole.External), ("profile", "Modded")),
         JobLine.ForStep(JobSteps.LaunchFolderNotIncluded, ("folder", RepoRole.External)),

@@ -22,6 +22,9 @@ public static class JobSteps
     /// <summary>A folder could not be copied. Arguments: <c>folder</c>.</summary>
     public const string CaptureFolderFailed = "activity.step.capture.folderFailed";
 
+    /// <summary>A save asked to replace a snapshot added the session to a folder as a new snapshot instead, because the snapshot was not the newest there. Arguments: <c>folder</c>.</summary>
+    public const string CaptureFolderKeptAsNew = "activity.step.capture.folderKeptAsNew";
+
     /// <summary>
     /// A folder is switched to a profile or snapshot. Arguments: <c>folder</c>, <c>profile</c>, <c>older</c> (<c>yes</c> when the target is
     /// an older snapshot, <c>no</c> otherwise), <c>counted</c> (<c>yes</c> when the counts are known, <c>no</c> otherwise), <c>written</c>,
