@@ -86,10 +86,13 @@ internal sealed class AppStatusApi : IAppStatusApi
         try
         {
             var version = await _services.Git.VerifyAsync(cancellationToken).ConfigureAwait(false);
-            return new GitStatus(true, _services.Git.ExecutablePath, version.StartsWith(_gitVersionPrefix, StringComparison.Ordinal) ? version[_gitVersionPrefix.Length..] : version, null);
+            var shown = version.StartsWith(_gitVersionPrefix, StringComparison.Ordinal) ? version[_gitVersionPrefix.Length..] : version;
+            _services.Log.Information($"Startup check: git {shown} at {_services.Git.ExecutablePath}.");
+            return new GitStatus(true, _services.Git.ExecutablePath, shown, null);
         }
         catch (GitUnavailableException e)
         {
+            _services.Log.Error($"Startup check: git is not available at {_services.Git.ExecutablePath}: {ErrorInfo.From(e).MessageId}.", e);
             return new GitStatus(false, _services.Git.ExecutablePath, null, ErrorInfo.From(e));
         }
     }
@@ -100,6 +103,17 @@ internal sealed class AppStatusApi : IAppStatusApi
         await Probe(() => _services.Catalog.ListGamesAsync(cancellationToken)).ConfigureAwait(false);
         await Probe(() => _services.Catalog.ListProfilesAsync(null, cancellationToken)).ConfigureAwait(false);
         await Probe(() => _services.Catalog.GetSettingsAsync(cancellationToken)).ConfigureAwait(false);
+        if (corrupt.Count == 0)
+        {
+            _services.Log.Information($"Startup check: the catalog in {_services.Catalog.DirectoryPath} is readable.");
+        }
+
+        foreach (var file in corrupt)
+        {
+            var backup = file.BackupPath is { } good ? $"a good backup is at {good}" : "there is no backup";
+            _services.Log.Warning($"Startup check: {file.Path} cannot be read ({file.Error.MessageId}); {backup}.");
+        }
+
         return new CatalogStatus(_services.Catalog.DirectoryPath, corrupt);
 
         async Task Probe<T>(Func<Task<T>> read)
@@ -240,6 +254,9 @@ internal sealed class AppStatusApi : IAppStatusApi
             await RememberRootAsync(storage.Root, cancellationToken).ConfigureAwait(false);
         }
 
+        var found = firstRun ? "was created for the first run" : Directory.Exists(storage.Root) ? "was found" : "was not found";
+        _services.Log.Information($"Startup check: storage folder {storage.Root} {found}.");
+
         // A lock left by a run that was killed would refuse the first save; this is the one moment nothing of ours is running (D18).
         if (Interlocked.Exchange(ref _swept, 1) == 0)
         {
@@ -247,7 +264,11 @@ internal sealed class AppStatusApi : IAppStatusApi
             {
                 foreach (var gitDir in new[] { "install.git", "external.git" }.Select(name => Path.Combine(folder, name)).Where(Directory.Exists))
                 {
-                    storage.Engine.RemoveStaleLocks(gitDir);
+                    var removed = storage.Engine.RemoveStaleLocks(gitDir);
+                    if (removed > 0)
+                    {
+                        _services.Log.Information($"Startup check: removed {removed} leftover lock or temporary files from {gitDir}.");
+                    }
                 }
             }
         }
