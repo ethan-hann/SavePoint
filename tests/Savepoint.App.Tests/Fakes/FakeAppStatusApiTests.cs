@@ -45,7 +45,7 @@ public class FakeAppStatusApiTests
 
         var result = await backend.AppStatus.StartWithEmptyStorageAsync(TestContext.Current.CancellationToken);
 
-        Assert.Equal("error.storageRelocation.destinationNotEmpty", result.Error?.MessageId);
+        Assert.Equal("error.storage.defaultFolderHasHistory", result.Error?.MessageId);
         Assert.Equal(_defaultRoot, result.Error!.Args["path"]);
     }
 

@@ -45,7 +45,7 @@ public sealed class FakeAppStatusApi : IAppStatusApi
     public Task<OperationResult<string>> StartWithEmptyStorageAsync(CancellationToken cancellationToken = default) =>
         _backend.Call(_api, nameof(StartWithEmptyStorageAsync), [], () =>
             State.StorageFoldersWithHistory.Contains(State.DefaultStorageRoot)
-                ? OperationResult.Failure<string>(new StorageDestinationNotEmptyException(State.DefaultStorageRoot))
+                ? OperationResult.Failure<string>(new StorageDefaultFolderHasHistoryException(State.DefaultStorageRoot))
                 : Reachable(State.DefaultStorageRoot));
 
     // Either choice leaves the storage reachable at the folder it names, as the real one does.
