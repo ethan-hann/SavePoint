@@ -47,6 +47,9 @@ public static class JobSteps
     /// <summary>There was nothing to free up for a game. Arguments: <c>game</c>.</summary>
     public const string CompactNothingFreed = "activity.step.compact.nothingFreed";
 
+    /// <summary>A game's recently removed snapshots the player agreed to lose were deleted, which cannot be undone. Arguments: <c>game</c>.</summary>
+    public const string CompactRemovedDeleted = "activity.step.compact.removedDeleted";
+
     /// <summary>Space could not be freed in one folder of a game. Arguments: <c>game</c>, <c>folder</c>.</summary>
     public const string CompactFolderFailed = "activity.step.compact.folderFailed";
 

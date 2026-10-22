@@ -117,6 +117,23 @@ public class StorageSectionViewModelTests
     }
 
     [Fact]
+    public async Task An_optimization_that_has_deleted_snapshots_offers_no_cancel_and_says_why()
+    {
+        var rig = await SettingsRig.ShownAsync();
+        await Storage(rig).RunNowCommand.ExecuteAsync(null);
+        var job = rig.Backend.Jobs.LastStarted(JobKind.Compact);
+        Assert.True(Storage(rig).CancelOptimizeCommand.CanExecute(null));
+        Assert.False(Storage(rig).HasStopNote);
+
+        rig.Backend.Jobs.ReportNoLongerCancellable(job.JobId);
+
+        Assert.True(Storage(rig).IsOptimizing);
+        Assert.False(Storage(rig).CancelOptimizeCommand.CanExecute(null));
+        Assert.True(Storage(rig).HasStopNote);
+        Assert.Equal("Freeing up space can't be stopped any more, because the recently removed snapshots it was asked to delete are already gone.", Storage(rig).StopNote);
+    }
+
+    [Fact]
     public async Task An_optimization_already_running_before_the_screen_existed_is_picked_up_when_it_shows()
     {
         var backend = FakeBackend.Mockup();

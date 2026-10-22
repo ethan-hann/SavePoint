@@ -23,7 +23,7 @@ public sealed class RemovedSnapshotClearTests : IDisposable
         var cleared = await _ws.Engine.ClearRemovedAsync(repo, await RawRecordsAsync(repo), Ct);
         await _ws.Engine.RepackAsync(repo, OptimizationMode.Reclaim, Ct);
 
-        Assert.Equal(2, cleared);
+        Assert.Equal(2, cleared.Count);
         Assert.Empty(await RawRecordsAsync(repo));
         Assert.Empty(await _ws.Engine.ListRemovedAsync(repo, Ct));
         Assert.Equal(new[] { true, false, false }, await _ws.ObjectsExistAsync(repo, points[0], points[1], points[2]));
@@ -41,7 +41,7 @@ public sealed class RemovedSnapshotClearTests : IDisposable
         await _ws.Engine.RepackAsync(repo, OptimizationMode.Reclaim, Ct);
 
         // The second point is still recorded, so it survives; the third had only its own record, so it goes.
-        Assert.Equal(1, cleared);
+        Assert.Equal([newest.RefName], cleared);
         Assert.Equal([points[1]], (await _ws.Engine.ListRemovedAsync(repo, Ct)).Select(entry => entry.Commit.Id));
         Assert.Equal(new[] { true, false }, await _ws.ObjectsExistAsync(repo, points[1], points[2]));
     }
@@ -55,9 +55,24 @@ public sealed class RemovedSnapshotClearTests : IDisposable
         var first = await _ws.Engine.ClearRemovedAsync(repo, [.. raw, "refs/heads/profile-1", "refs/savepoint/removed/not-a-record"], Ct);
         var again = await _ws.Engine.ClearRemovedAsync(repo, raw, Ct);
 
-        Assert.Equal(2, first);
-        Assert.Equal(0, again);
+        Assert.Equal(2, first.Count);
+        Assert.Empty(again);
         Assert.Equal(points[0], (await _ws.Engine.ListCommitsAsync(repo, "profile-1", ct: Ct)).Last().Id);
+        Assert.Equal(["profile-1"], await _ws.Engine.ListBranchesAsync(repo, Ct));
+    }
+
+    [Fact]
+    public async Task Cleared_records_can_be_put_back_before_a_reclaim_and_then_keep_their_snapshots_alive()
+    {
+        var (repo, points) = await AfterAMoveForwardAsync();
+        var before = await _ws.Engine.ListRemovedAsync(repo, Ct);
+        var cleared = await _ws.Engine.ClearRemovedAsync(repo, await RawRecordsAsync(repo), Ct);
+
+        await _ws.Engine.RestoreRemovedAsync(repo, [.. cleared, "refs/heads/profile-1", "refs/savepoint/removed/not-a-record"], Ct);
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Reclaim, Ct);
+
+        Assert.Equal(before.Select(entry => (entry.RefName, entry.Commit.Id)), (await _ws.Engine.ListRemovedAsync(repo, Ct)).Select(entry => (entry.RefName, entry.Commit.Id)));
+        Assert.Equal(new[] { true, true }, await _ws.ObjectsExistAsync(repo, points[1], points[2]));
         Assert.Equal(["profile-1"], await _ws.Engine.ListBranchesAsync(repo, Ct));
     }
 

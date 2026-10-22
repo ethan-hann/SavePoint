@@ -110,16 +110,16 @@ public sealed partial class GitEngine
     /// <param name="repo">The folder whose repository holds the records.</param>
     /// <param name="records">Record names as <see cref="RemovedCommit.RefName"/> gave them.</param>
     /// <param name="ct">Cancels the call; a cancel before the transaction runs deletes nothing.</param>
-    /// <returns>How many records were deleted.</returns>
+    /// <returns>The names of the records that were deleted, which <see cref="RestoreRemovedAsync"/> takes to put them back.</returns>
     /// <exception cref="Savepoint.Core.Errors.OperationCancelledByUserException">The token was cancelled.</exception>
     /// <exception cref="Savepoint.Core.Errors.GitOperationException">git failed.</exception>
-    public async Task<int> ClearRemovedAsync(RepoRef repo, IReadOnlyCollection<string> records, CancellationToken ct = default)
+    public async Task<IReadOnlyList<string>> ClearRemovedAsync(RepoRef repo, IReadOnlyCollection<string> records, CancellationToken ct = default)
     {
         repo = Normalize(repo);
         ArgumentNullException.ThrowIfNull(records);
         if (records.Count == 0 || !HasRepository(repo))
         {
-            return 0;
+            return [];
         }
 
         try
@@ -142,17 +142,48 @@ public sealed partial class GitEngine
                 .ToList();
             if (doomed.Count == 0)
             {
-                return 0;
+                return [];
             }
 
             var transaction = string.Concat(doomed.Select(name => "delete " + name + " " + present[name] + "\n"));
             await RunWriteAsync(() => Invocation(repo, readOnly: false, "update-ref", "-m", "savepoint: free up space", "--stdin") with { Stdin = transaction }, ct).ConfigureAwait(false);
-            return doomed.Count;
+            return doomed;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
             throw new OperationCancelledByUserException(CancelledOperation.Compaction, repo.GameId);
         }
+    }
+
+    /// <summary>
+    /// Puts back records <see cref="ClearRemovedAsync"/> deleted, in one ref transaction, for a caller that cleared the records of one
+    /// folder and then could not clear the other's. The commits are still in the store as long as nothing has been reclaimed since. A name
+    /// that is not a record is skipped. Needs only the git directory.
+    /// </summary>
+    /// <param name="repo">The folder whose repository held the records.</param>
+    /// <param name="records">Record names as <see cref="ClearRemovedAsync"/> returned them.</param>
+    /// <param name="ct">Cancels the call.</param>
+    /// <exception cref="Savepoint.Core.Errors.GitOperationException">git failed, or a commit a record names is no longer in the store.</exception>
+    public async Task RestoreRemovedAsync(RepoRef repo, IReadOnlyCollection<string> records, CancellationToken ct = default)
+    {
+        repo = Normalize(repo);
+        ArgumentNullException.ThrowIfNull(records);
+        var transaction = new StringBuilder();
+        foreach (var name in records.Distinct(StringComparer.Ordinal))
+        {
+            if (RemovedRecords.TryParse(name, out var record))
+            {
+                transaction.Append("update ").Append(name).Append(' ').Append(record.Commit).Append('\n');
+            }
+        }
+
+        if (transaction.Length == 0 || !HasRepository(repo))
+        {
+            return;
+        }
+
+        using var scope = BeginWrite(repo);
+        await RunWriteAsync(() => Invocation(repo, readOnly: false, "update-ref", "-m", "savepoint: free up space undone", "--stdin") with { Stdin = transaction.ToString() }, ct).ConfigureAwait(false);
     }
 
     private async Task<List<RemovedRecords.ParsedRecord>> ReadRecordsAsync(RepoRef repo, CancellationToken ct)

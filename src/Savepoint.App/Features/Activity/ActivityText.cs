@@ -152,6 +152,7 @@ public sealed class ActivityText
         {
             JobKind.ClearData => _text.Message("activity.stop.clear"),
             JobKind.RelocateStorage => _text.Message("activity.stop.relocate"),
+            JobKind.Compact => _text.Message("activity.stop.compact"),
             _ => _text.Message("activity.stop.generic"),
         };
     }

@@ -202,6 +202,7 @@ public class JobRowViewModelTests
     [InlineData(JobKind.Capture, true, true, true, "Stopping. SavePoint is finishing the step it is on, then it stops.")]
     [InlineData(JobKind.ClearData, false, false, false, "Clearing SavePoint's data can't be stopped once it has started.")]
     [InlineData(JobKind.RelocateStorage, false, false, false, "The move can't be stopped any more, because SavePoint already uses the new folder.")]
+    [InlineData(JobKind.Compact, false, false, false, "Freeing up space can't be stopped any more, because the recently removed snapshots it was asked to delete are already gone.")]
     [InlineData(JobKind.Capture, false, false, false, "This job can't be stopped right now.")]
     public void A_running_job_that_is_stopping_or_cannot_stop_says_so_instead_of_looking_stuck(JobKind kind, bool requested, bool cancellable, bool _, string expected)
     {

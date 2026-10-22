@@ -135,6 +135,7 @@
                   <TextBlock Classes="card-heading" Text="{loc:Loc settings.storage.optimizeTitle}" />
                   <TextBlock x:Name="OptimizeText" Classes="caption" FontSize="12.5" TextWrapping="Wrap" Text="{Binding Storage.OptimizeDescription}" />
                   <ProgressBar x:Name="OptimizeBar" Margin="0,6,0,0" IsIndeterminate="True" IsVisible="{Binding Storage.IsOptimizing}" AutomationProperties.Name="{loc:Loc settings.storage.optimizeTitle}" />
+                  <TextBlock x:Name="OptimizeStopNote" Classes="caption" FontSize="12.5" TextWrapping="Wrap" Text="{Binding Storage.StopNote}" IsVisible="{Binding Storage.HasStopNote}" />
                 </StackPanel>
                 <Button x:Name="RunNowButton"
                         Grid.Column="1"

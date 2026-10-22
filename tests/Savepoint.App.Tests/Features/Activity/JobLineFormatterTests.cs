@@ -28,6 +28,7 @@ public class JobLineFormatterTests
         JobLine.ForStep(JobSteps.CompactGame, ("game", "Skyrim")),
         JobLine.ForStep(JobSteps.CompactFreed, ("game", "Skyrim"), ("bytes", 1_500_000L)),
         JobLine.ForStep(JobSteps.CompactNothingFreed, ("game", "Skyrim")),
+        JobLine.ForStep(JobSteps.CompactRemovedDeleted, ("game", "Skyrim")),
         JobLine.ForStep(JobSteps.CompactFolderFailed, ("game", "Skyrim"), ("folder", RepoRole.External)),
         JobLine.ForStep(JobSteps.RelocateStart, ("from", @"C:\Old"), ("to", @"D:\New"), ("files", 52), ("bytes", 57_950L)),
         JobLine.ForStep(JobSteps.RelocateCopied),
