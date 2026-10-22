@@ -2,6 +2,7 @@ using Savepoint.Core.Api;
 using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
+using Savepoint.Core.Git;
 using Savepoint.Core.Services.Storage;
 
 namespace Savepoint.Core.Services.Settings;
@@ -13,6 +14,15 @@ namespace Savepoint.Core.Services.Settings;
 /// </summary>
 internal sealed class DataClearer
 {
+    // A process that was just stopped can hold a file of a git directory for a moment.
+    private static readonly IReadOnlyList<TimeSpan> _removeDelays =
+    [
+        TimeSpan.FromMilliseconds(100),
+        TimeSpan.FromMilliseconds(250),
+        TimeSpan.FromMilliseconds(500),
+        TimeSpan.FromMilliseconds(1000),
+    ];
+
     private readonly BackendServices _services;
 
     public DataClearer(BackendServices services)
@@ -101,10 +111,16 @@ internal sealed class DataClearer
             }
         }
 
-        // Whatever of SavePoint's is left in the root, including history of games the catalog no longer lists.
+        // Whatever of SavePoint's is left in the root, including history of games the catalog no longer lists. Only git directories
+        // SavePoint made are removed, and a folder that holds anything else stays, so a folder that merely looks like a game's is safe.
         foreach (var folder in listing.Folders)
         {
-            await Attempt(left, folder, () => StorageFolders.DeleteAsync(storage, folder, CancellationToken.None)).ConfigureAwait(false);
+            foreach (var gitDir in new[] { Path.Combine(folder, "install.git"), Path.Combine(folder, "external.git") })
+            {
+                await Attempt(left, gitDir, () => GitDirRemoval.RemoveAsync(gitDir, storage.Root, storage.PathSafety.ResolveRealPath, _removeDelays, CancellationToken.None)).ConfigureAwait(false);
+            }
+
+            StorageFolders.RemoveIfEmpty(folder);
         }
 
         foreach (var file in CatalogFiles())

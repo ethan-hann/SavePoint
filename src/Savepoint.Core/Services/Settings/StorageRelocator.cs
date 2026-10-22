@@ -272,7 +272,7 @@ internal sealed class StorageRelocator
                 }
             }
 
-            RemoveIfEmpty(folder);
+            StorageFolders.RemoveIfEmpty(folder);
         }
 
         return left;
@@ -300,21 +300,6 @@ internal sealed class StorageRelocator
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
             // A marker left in the folder now in use is only a note; the next move away from it never looks at it.
-        }
-    }
-
-    private static void RemoveIfEmpty(string folder)
-    {
-        try
-        {
-            if (Directory.Exists(folder) && !Directory.EnumerateFileSystemEntries(folder).Any())
-            {
-                Directory.Delete(folder);
-            }
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-            // An empty folder left behind is harmless.
         }
     }
 

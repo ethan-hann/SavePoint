@@ -52,6 +52,23 @@ internal static class StorageFolders
         }
     }
 
+    /// <summary>Deletes a folder that holds nothing; a folder with anything in it, or one that is gone or cannot be deleted, is left as it is.</summary>
+    /// <param name="folder">The folder to delete.</param>
+    internal static void RemoveIfEmpty(string folder)
+    {
+        try
+        {
+            if (Directory.Exists(folder) && !Directory.EnumerateFileSystemEntries(folder).Any())
+            {
+                Directory.Delete(folder);
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // An empty folder left behind is harmless.
+        }
+    }
+
     // Links inside the folder are removed as links, so deleting can never walk out of it.
     internal static void DeleteTree(string folder)
     {

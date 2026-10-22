@@ -41,15 +41,26 @@ internal static class StorageContent
             return [];
         }
 
+        var directories = new DirectoryInfo(root).EnumerateDirectories("*", Everything(strict)).ToList();
+
+        // A game folder that is a link cannot be copied as a link (its history lives elsewhere), and leaving it out would let the move look finished.
+        if (strict && directories.FirstOrDefault(folder => folder.Attributes.HasFlag(FileAttributes.ReparsePoint) && LeadsToGitDirectories(folder)) is { } linked)
+        {
+            throw new StorageRelocationFailedException(linked.FullName, $"'{linked.FullName}' in the storage is a link, so it would not be copied.", null);
+        }
+
         return
         [
-            .. new DirectoryInfo(root).EnumerateDirectories("*", Everything(strict))
+            .. directories
                 .Where(folder => !folder.Attributes.HasFlag(FileAttributes.ReparsePoint))
                 .Where(folder => strict ? HoldsGitDirectories(folder) : Directory.Exists(Path.Combine(folder.FullName, "install.git")) || Directory.Exists(Path.Combine(folder.FullName, "external.git")))
                 .Select(folder => folder.FullName)
                 .Order(StringComparer.Ordinal),
         ];
     }
+
+    private static bool LeadsToGitDirectories(DirectoryInfo link) =>
+        Directory.Exists(Path.Combine(link.FullName, "install.git")) || Directory.Exists(Path.Combine(link.FullName, "external.git"));
 
     // Looks inside, so a folder that cannot be opened is an error here and not a folder that "holds nothing".
     private static bool HoldsGitDirectories(DirectoryInfo folder)
