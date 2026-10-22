@@ -109,6 +109,8 @@
   "launch.progress.putting": "Putting {state} back in place.",
   "launch.progress.state.version": "version {version}",
   "launch.progress.state.versionAndMods": "version {version} and its {count, plural, one {# mod file} other {# mod files}}",
+  "launch.progress.stop": "Stop switching",
+  "launch.progress.stopNote": "Stopping leaves the game's folder part way between two saves. Play again and SavePoint finishes the job.",
   "launch.progress.title": "Getting {gameName} ready…",
   "launch.running.donePlaying": "I'm done playing",
   "launch.running.startedAgo": "{profileName} · started {duration} ago",
