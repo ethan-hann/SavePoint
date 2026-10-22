@@ -10,8 +10,9 @@
 #
 # --sources      also downloads the source archives of the three tags build/git-manifest.json pins (the ones
 #                THIRD-PARTY-NOTICES.md promises) into artifacts/release/source, prints their SHA-256 and compares each with
-#                the hash the manifest pins. A hash that is not pinned yet, or that differs, fails the run once every hash
-#                has been printed.
+#                the hash the manifest pins. This runs before anything is built, so a failed check leaves no new package. An
+#                archive keeps its name only when it matches its pin. A hash that is not pinned yet, or that differs, fails the
+#                run once every hash has been printed.
 # --allow-dirty  packs a tree with uncommitted changes anyway, for a trial package, marked "-dirty". Without it the run is
 #                refused, because a package from such a tree cannot be tied to a commit.
 # --revision     the commit to put into the informational version, as 12 or more hex digits with "-dirty" after them when the
@@ -135,6 +136,44 @@ else
 fi
 echo "==> SavePoint $version ($revision) for $rid, with .NET SDK $(dotnet --version)"
 
+if [ "$sources" -eq 1 ]; then
+  source_dir="$repo/artifacts/release/source"
+  mkdir -p "$source_dir"
+  # The source archives a release publishes are the ones the manifest pins, beside the binaries they belong to. The manifest keeps
+  # one "key": "value" pair per line, which is all this reads, as build/fetch-git.sh does.
+  pins="$(awk '
+    /^  "sources": \{/ { insources = 1; next }
+    insources && /^  \}/ { exit }
+    insources && /^      "repository": "/ { repository = $0; sub(/^      "repository": "/, "", repository); sub(/",?[ \t\r]*$/, "", repository) }
+    insources && /^      "tag": "/ { tag = $0; sub(/^      "tag": "/, "", tag); sub(/",?[ \t\r]*$/, "", tag) }
+    insources && /^      "sha256": "/ { sha = $0; sub(/^      "sha256": "/, "", sha); sub(/",?[ \t\r]*$/, "", sha) }
+    insources && /^    \}/ { print repository " " tag " " sha; repository = tag = sha = "" }
+  ' build/git-manifest.json)"
+  [ "$(printf '%s\n' "$pins" | grep -c .)" -eq 3 ] || fail "build/git-manifest.json does not pin exactly 3 source archives in \"sources\" (git, Git for Windows, dugite-native)"
+  problems=""
+  while read -r repository tag pinned; do
+    # The notices make the promise, so they have to name the same tag.
+    grep -qF "$repository, tag \`$tag\`" THIRD-PARTY-NOTICES.md || fail "THIRD-PARTY-NOTICES.md does not promise source for $repository, tag \`$tag\`, which build/git-manifest.json pins"
+    name="$(printf '%s' "${repository#https://github.com/}" | tr '/' '-')-$tag.tar.gz"
+    echo "==> $repository at $tag"
+    # The archive takes its name only when it matches its pin, so a wrong one never sits in the folder as if it were the right one.
+    partial="$source_dir/$name.part"
+    download "$repository/archive/refs/tags/$tag.tar.gz" "$partial"
+    actual="$(sha256sum "$partial" | cut -d' ' -f1)"
+    printf '%s  %s\n' "$actual" "$name"
+    if [ -z "$pinned" ]; then
+      problems="$problems$name has no pinned hash in build/git-manifest.json; if this download is the right one, pin $actual."$'\n'
+      rm -f "$partial"
+    elif [ "$pinned" != "$actual" ]; then
+      problems="$problems$name is not the archive build/git-manifest.json pins: expected $pinned, got $actual."$'\n'
+      rm -f "$partial"
+    else
+      mv -f "$partial" "$source_dir/$name"
+    fi
+  done <<<"$pins"
+  [ -z "$problems" ] || fail "$problems"
+fi
+
 echo "==> restore tools"
 dotnet tool restore
 
@@ -184,37 +223,5 @@ grep -qE '(^|/)git/\.savepoint-git-stamp$' "$listing" || fail "SavePoint.AppImag
 grep -qE '(^|/)THIRD-PARTY-NOTICES\.md$' "$listing" || fail "SavePoint.AppImage does not hold the notices"
 grep -qE '(^|/)licenses/[^/]+$' "$listing" || fail "SavePoint.AppImage does not hold the license texts"
 rm -rf "$inspect_dir"
-
-if [ "$sources" -eq 1 ]; then
-  source_dir="$repo/artifacts/release/source"
-  mkdir -p "$source_dir"
-  # The source archives a release publishes are the ones the manifest pins, beside the binaries they belong to. The manifest keeps
-  # one "key": "value" pair per line, which is all this reads, as build/fetch-git.sh does.
-  pins="$(awk '
-    /^  "sources": \{/ { insources = 1; next }
-    insources && /^  \}/ { exit }
-    insources && /^      "repository": "/ { repository = $0; sub(/^      "repository": "/, "", repository); sub(/",?[ \t\r]*$/, "", repository) }
-    insources && /^      "tag": "/ { tag = $0; sub(/^      "tag": "/, "", tag); sub(/",?[ \t\r]*$/, "", tag) }
-    insources && /^      "sha256": "/ { sha = $0; sub(/^      "sha256": "/, "", sha); sub(/",?[ \t\r]*$/, "", sha) }
-    insources && /^    \}/ { print repository " " tag " " sha; repository = tag = sha = "" }
-  ' build/git-manifest.json)"
-  [ "$(printf '%s\n' "$pins" | grep -c .)" -eq 3 ] || fail "build/git-manifest.json does not pin exactly 3 source archives in \"sources\" (git, Git for Windows, dugite-native)"
-  problems=""
-  while read -r repository tag pinned; do
-    # The notices make the promise, so they have to name the same tag.
-    grep -qF "$repository, tag \`$tag\`" THIRD-PARTY-NOTICES.md || fail "THIRD-PARTY-NOTICES.md does not promise source for $repository, tag \`$tag\`, which build/git-manifest.json pins"
-    name="$(printf '%s' "${repository#https://github.com/}" | tr '/' '-')-$tag.tar.gz"
-    echo "==> $repository at $tag"
-    download "$repository/archive/refs/tags/$tag.tar.gz" "$source_dir/$name"
-    actual="$(sha256sum "$source_dir/$name" | cut -d' ' -f1)"
-    printf '%s  %s\n' "$actual" "$name"
-    if [ -z "$pinned" ]; then
-      problems="$problems$name has no pinned hash in build/git-manifest.json; if this download is the right one, pin $actual."$'\n'
-    elif [ "$pinned" != "$actual" ]; then
-      problems="$problems$name is not the archive build/git-manifest.json pins: expected $pinned, got $actual."$'\n'
-    fi
-  done <<<"$pins"
-  [ -z "$problems" ] || fail "$problems"
-fi
 
 echo "package done"

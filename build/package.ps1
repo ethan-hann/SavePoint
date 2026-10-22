@@ -14,8 +14,9 @@ has to be signed and notarized before anyone else can open it.
 
 .PARAMETER Sources
 Also downloads the source archives of the three tags build/git-manifest.json pins (the ones THIRD-PARTY-NOTICES.md
-promises) into artifacts/release/source, prints their SHA-256 and compares each with the hash the manifest pins. A
-hash that is not pinned yet, or that differs, fails the run after every hash has been printed.
+promises) into artifacts/release/source, prints their SHA-256 and compares each with the hash the manifest pins. This runs
+before anything is built, so a failed check leaves no new package. An archive keeps its name only when it matches its
+pin. A hash that is not pinned yet, or that differs, fails the run after every hash has been printed.
 
 .PARAMETER AllowDirty
 Packs a tree with uncommitted changes anyway, for a trial package. The build is then marked "-dirty". Without it the
@@ -121,6 +122,35 @@ try {
     $revision = if ($changes.Count -gt 0) { "$commit-dirty" } else { $commit }
     Write-Host "==> SavePoint $version ($revision) for $rid"
 
+    if ($Sources) {
+        $sourceDir = Join-Path $repoRoot 'artifacts/release/source'
+        New-Item -ItemType Directory -Force -Path $sourceDir | Out-Null
+        $ProgressPreference = 'SilentlyContinue'
+        $problems = @()
+        foreach ($source in Get-SourceArchives) {
+            $name = ($source.Repository -replace '^https://github\.com/', '' -replace '/', '-') + "-$($source.Tag).tar.gz"
+            $target = Join-Path $sourceDir $name
+            # The archive takes its name only when it matches its pin, so a wrong one never sits in the folder as if it were the right one.
+            $partial = "$target.part"
+            Write-Host "==> $($source.Repository) at $($source.Tag)"
+            Invoke-WebRequest -Uri "$($source.Repository)/archive/refs/tags/$($source.Tag).tar.gz" -OutFile $partial
+            $actual = (Get-FileHash -LiteralPath $partial -Algorithm SHA256).Hash.ToLowerInvariant()
+            '{0}  {1}' -f $actual, $name
+            if (-not $source.Sha256) {
+                $problems += "$name has no pinned hash in build/git-manifest.json; if this download is the right one, pin $actual."
+                Remove-Item -LiteralPath $partial -Force
+            }
+            elseif ($source.Sha256 -ne $actual) {
+                $problems += "$name is not the archive build/git-manifest.json pins: expected $($source.Sha256), got $actual."
+                Remove-Item -LiteralPath $partial -Force
+            }
+            else {
+                Move-Item -LiteralPath $partial -Destination $target -Force
+            }
+        }
+        if ($problems.Count -gt 0) { throw ($problems -join [Environment]::NewLine) }
+    }
+
     Invoke-Step 'restore tools' { dotnet tool restore }
 
     if (Test-Path -LiteralPath $publishDir) { Remove-Item -LiteralPath $publishDir -Recurse -Force }
@@ -164,28 +194,6 @@ try {
     if ($packages.Count -eq 0) { throw "vpk wrote no zip or full package in $releaseDir to look inside." }
     foreach ($package in $packages) {
         Assert-PackageHolds -Path $package.FullName -ListingDir (Join-Path $repoRoot "artifacts/release/contents-$rid")
-    }
-
-    if ($Sources) {
-        $sourceDir = Join-Path $repoRoot 'artifacts/release/source'
-        New-Item -ItemType Directory -Force -Path $sourceDir | Out-Null
-        $ProgressPreference = 'SilentlyContinue'
-        $problems = @()
-        foreach ($source in Get-SourceArchives) {
-            $name = ($source.Repository -replace '^https://github\.com/', '' -replace '/', '-') + "-$($source.Tag).tar.gz"
-            $target = Join-Path $sourceDir $name
-            Write-Host "==> $($source.Repository) at $($source.Tag)"
-            Invoke-WebRequest -Uri "$($source.Repository)/archive/refs/tags/$($source.Tag).tar.gz" -OutFile $target
-            $actual = (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant()
-            '{0}  {1}' -f $actual, $name
-            if (-not $source.Sha256) {
-                $problems += "$name has no pinned hash in build/git-manifest.json; if this download is the right one, pin $actual."
-            }
-            elseif ($source.Sha256 -ne $actual) {
-                $problems += "$name is not the archive build/git-manifest.json pins: expected $($source.Sha256), got $actual."
-            }
-        }
-        if ($problems.Count -gt 0) { throw ($problems -join [Environment]::NewLine) }
     }
 }
 catch {
