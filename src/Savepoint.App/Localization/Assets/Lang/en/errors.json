@@ -20,6 +20,7 @@
   "error.history.pointNotFound": "That point isn't in this game's history anymore, so SavePoint couldn't go back to it. Open the history again and pick another one.",
   "error.launch.alreadyRunning": "This game is already running.",
   "error.launch.canceled": "Switching was canceled.",
+  "error.launch.completionNotOffered": "SavePoint can't save this play session that way. Pick one of the choices it offers after playing.",
   "error.launch.detachedCaptureNotSupported": "You're viewing an older save of this profile. Switch it back to the latest save before keeping new progress.",
   "error.launch.dirtyWorkingTree": "There are unsaved changes in the way - resolve them and try again.",
   "error.launch.noActiveSession": "SavePoint isn't tracking a play session for this game right now. Start the game from SavePoint to begin one.",

@@ -1,4 +1,5 @@
 using Savepoint.App.Localization;
+using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 
@@ -33,6 +34,7 @@ public class ErrorCopyTests
             new OperationCancelledByUserException(CancelledOperation.StorageRelocation, null),
             new GameOverlapException("game-2", "Beta"),
             new FolderMismatchException(RepoRole.External, "/games/alpha/saves", 3, 212),
+            new CompletionNotOfferedException("game-2", CompletionChoice.MoveForward),
             new ProfileActiveException("profile-1"),
             new ReconnectableGameException("game-2", roles, branches),
             new GameRunningException("game-1", "Alpha"),

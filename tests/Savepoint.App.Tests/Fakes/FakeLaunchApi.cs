@@ -87,6 +87,19 @@ public sealed class FakeLaunchApi : ILaunchApi
                 return OperationResult.Failure<Unit>(new SessionStillRunningException(gameId));
             }
 
+            var choice = completion switch
+            {
+                SessionCompletion.CaptureNew => CompletionChoice.CaptureNew,
+                SessionCompletion.UpdateExisting => CompletionChoice.UpdateExisting,
+                SessionCompletion.ForkNewProfile => CompletionChoice.ForkNewProfile,
+                SessionCompletion.MoveForward => CompletionChoice.MoveForward,
+                _ => CompletionChoice.Skip,
+            };
+            if (!((SessionState.Exited)session.State).Options.Choices.Contains(choice))
+            {
+                return OperationResult.Failure<Unit>(new CompletionNotOfferedException(gameId, choice));
+            }
+
             if (completion is SessionCompletion.Skip)
             {
                 Publish(session with { State = new SessionState.Completed(completion, null, null) });

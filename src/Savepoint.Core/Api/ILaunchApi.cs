@@ -69,7 +69,8 @@ public interface ILaunchApi
     /// <summary>
     /// Carries out the user's post-play choice. <see cref="SessionCompletion.Skip"/> ends the session at once. Every other choice
     /// moves it to Completing with a capture job. Fails with <c>error.launch.noActiveSession</c> when the game has no session or
-    /// it is already completing, completed, or failed, and with <c>error.launch.sessionStillRunning</c> when it has not exited yet.
+    /// it is already completing, completed, or failed, with <c>error.launch.sessionStillRunning</c> when it has not exited yet, and
+    /// with <c>error.launch.completionNotOffered</c> when the choice is not among the exited session's options (D31).
     /// </summary>
     /// <param name="gameId">The game.</param>
     /// <param name="completion">What to do with the session.</param>

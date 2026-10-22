@@ -22,6 +22,12 @@ public sealed partial class LaunchOrchestrator
                 throw refusal;
             }
 
+            // The session offered certain choices; the Api is where input is judged, so an unoffered one never starts a capture.
+            if (record!.Info.State is SessionState.Exited { Options.Choices: var offered } && !offered.Contains(ChoiceOf(completion)))
+            {
+                throw new CompletionNotOfferedException(gameId, ChoiceOf(completion));
+            }
+
             // Skipping saves nothing: the session ends at once and no job runs.
             if (completion is SessionCompletion.Skip)
             {
@@ -90,6 +96,15 @@ public sealed partial class LaunchOrchestrator
             SessionCompletion.MoveForward => roles.ToDictionary(role => role, role => new FolderCapturePlan(CaptureMode.MoveForward, starts.GetValueOrDefault(role))),
             _ => null,
         };
+
+    private static CompletionChoice ChoiceOf(SessionCompletion completion) => completion switch
+    {
+        SessionCompletion.CaptureNew => CompletionChoice.CaptureNew,
+        SessionCompletion.UpdateExisting => CompletionChoice.UpdateExisting,
+        SessionCompletion.ForkNewProfile => CompletionChoice.ForkNewProfile,
+        SessionCompletion.MoveForward => CompletionChoice.MoveForward,
+        _ => CompletionChoice.Skip,
+    };
 
     private static string? PointNameOf(SessionCompletion completion) => completion switch
     {

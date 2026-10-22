@@ -54,6 +54,7 @@ public static class ErrorPresentation
         ["error.launch.alreadyRunning"] = new(Icons.SportsEsports, ErrorTone.Neutral, "errorCard.title.gameRunning"),
         ["error.launch.canceled"] = new(Icons.Cancel, ErrorTone.Neutral, "errorCard.title.canceled"),
         ["error.launch.detachedCaptureNotSupported"] = new(Icons.History, ErrorTone.Warning, "errorCard.title.olderSave"),
+        ["error.launch.completionNotOffered"] = new(Icons.Info, ErrorTone.Neutral, "errorCard.title.generic"),
         ["error.launch.dirtyWorkingTree"] = new(Icons.Warning, ErrorTone.Warning, "errorCard.title.unsavedChanges"),
         ["error.launch.noActiveSession"] = new(Icons.Info, ErrorTone.Neutral, "errorCard.title.generic"),
         ["error.launch.sessionMoved"] = new(Icons.History, ErrorTone.Warning, "errorCard.title.progressNotKept"),
