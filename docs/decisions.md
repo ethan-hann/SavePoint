@@ -363,7 +363,7 @@ The final renders (2a-2l, 3a-3c) were compared with the v1 screenshots after the
 - **Quiet text uses the `SubtleText` role at tone 40 (light) and 70 (dark), not `outline` (the token table).** `outline` fails WCAG AA contrast for body-size text on the surface colors; the role keeps the mockup's lighter look at a contrast that passes.
 - **The saves folder preview shows the full resolved path (2f).** A shortened path can hide which of two similar folders was chosen, and the editor is where that mistake would be caught.
 - **The "Try something like..." suggestion on a refused folder sits in the error's paragraph (2l),** not on a colored line of its own under the path, so it reads as part of the error it belongs to.
-- **The launch banner (2a) moves to the bottom of the pane, as the mockup draws it,** pinned above the storage footer rather than scrolling under the table.
+- **The launch banner (2a) moves to the bottom of the pane, as the mockup draws it,** pinned above the storage footer rather than scrolling under the table. The checking, saving, and running cards go there too. A failure or partial-result card stays under the table and scrolls into view: it can be about 200 px tall, and pinned it would leave the table about 17 px of room at the smallest supported window.
 
 ## D8. "Clear all data" is a v2 requirement
 
