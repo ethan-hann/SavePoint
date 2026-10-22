@@ -83,7 +83,7 @@ public class GamesScreenActionsTests
         Assert.False(other.CanOfferSnapshot);
         Assert.True(other.SnapshotBlocked);
         Assert.Equal("Take a snapshot now (load this profile first)", other.SnapshotBlockedText);
-        Assert.Contains("copies what your game folders hold now", other.SnapshotBlockedTip, StringComparison.Ordinal);
+        Assert.Equal("A snapshot copies what your game folders hold now. Play this profile, or go back to its latest snapshot, to load it first.", other.SnapshotBlockedTip);
         Assert.False(other.TakeSnapshotCommand.CanExecute(null));
 
         await other.TakeSnapshotCommand.ExecuteAsync(null);
