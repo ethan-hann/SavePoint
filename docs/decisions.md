@@ -420,6 +420,18 @@ The owner, dogfooding v2 with a good grasp of git, still found some wording conf
 7. **Measuring it.** The owner's dogfooding is the comprehension test for now; the audit's five-player test (its OQ5) is a follow-up.
 8. **No em dashes (owner's choice; replaces D39's "em dashes for asides").** Many readers take an em dash for machine-written text. An aside is a sentence of its own or a comma clause, and the catalog lint rejects an em dash anywhere. The ellipsis and the middle dot stay.
 
+## D45. Calls on the review of the D44 work
+
+The review (`.tools/reviews/d44-review.md`) found 3 CRIT, 4 WARN, 11 SUGG, all in Recently removed, its copy, and one Activity cancel. Recording, both reclaim modes, moves, clear-all, delete game, reconnect, and keeping removed snapshots out of every profile view were found sound. Settled:
+
+1. **A removed snapshot is one unit (DR-001).** It is identified by the capture it came from, and each folder's commit is taken from its own record, never inferred from which commits no branch reaches. Its card and Bring back use exactly those commits. It is listed until every one of its folder commits is on a profile's branch again.
+2. **Free up space deletes only what it counted and asked about (DR-002).** The preview names the exact records; the job deletes those and no others. Records written after the preview stay, and a run that found none deletes none.
+3. **Free up space never says "nothing was lost" after it lost something (DR-003).** It checks space for every folder before it touches a record, deletes the records it counted in every folder before it reclaims anything, and from then on cannot be canceled (the Activity row, the exit guard, and the copy say so). A refusal or a stop before that point changes nothing.
+4. **Only a profile's branch keeps a snapshot out of Recently removed (DR-004).** A branch with no profile row (a crashed Bring back or Duplicate, a profile not reconnected) neither hides a removed snapshot nor keeps Free up space from freeing it.
+5. **Copy says what really happens (DR-005, DR-006).** The delete-profile warning says when its snapshots go to Recently removed instead of away for good, and Settings says exactly which automatic cleanups run and that they keep Recently removed.
+6. **Canceling a switch from Activity asks first and tells the truth (DR-007),** as the launch's own "Stop switching" does: the folder is left with a mix of two snapshots until the switch is finished or the changes are discarded.
+7. The SUGGs are fixed as the review recommends, or skipped by the fix agent with a one-line reason.
+
 ## D8. "Clear all data" is a v2 requirement
 
 The v1 README lists "add a clear all data button" as an open TODO. v2 ships it in Settings behind a typed confirmation. It removes SavePoint's own storage, catalog, and consent markers, and never deletes or rolls back files in a game's install or save folders: whatever is on disk at that moment stays as it is.
