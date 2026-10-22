@@ -91,9 +91,9 @@ function Assert-PackageHolds {
     $names | Sort-Object | Set-Content -LiteralPath (Join-Path $ListingDir "$leaf.txt")
     Write-Host ('    {0}: {1} files (listed in {2})' -f $leaf, $names.Count, (Join-Path $ListingDir "$leaf.txt"))
     $needed = [ordered]@{
-        'the git bundle'     = '(^|/)git/\.savepoint-git-stamp$'
-        'the notices'        = '(^|/)THIRD-PARTY-NOTICES\.md$'
-        'the license texts'  = '(^|/)licenses/[^/]+$'
+        'the git bundle'     = '(^|[/\\])git[/\\]\.savepoint-git-stamp$'
+        'the notices'        = '(^|[/\\])THIRD-PARTY-NOTICES\.md$'
+        'the license texts'  = '(^|[/\\])licenses[/\\][^/\\]+$'
     }
     foreach ($what in $needed.Keys) {
         if (-not ($names | Where-Object { $_ -match $needed[$what] })) {
