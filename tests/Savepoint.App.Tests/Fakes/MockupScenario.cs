@@ -138,13 +138,13 @@ public static class MockupScenario
         builder
             .WithProfile(
                 Profile(ModdedId, SkyrimId, "Modded playthrough - 7-2-26", At(2026, 7, 5, 12, 0)),
-                Stats(ModdedId, active: true, saves: 6, mods: 212, version: "1.6.640", lastPlayed: At(2026, 7, 5, 12, 0)))
+                Stats(ModdedId, active: true, snapshots: 4, mods: 212, version: "1.6.640", lastPlayed: At(2026, 7, 5, 12, 0)))
             .WithProfile(
                 Profile(VanillaId, SkyrimId, "Vanilla - latest update", At(2026, 5, 27, 12, 0)),
-                Stats(VanillaId, active: false, saves: 1, mods: 0, version: "1.6.1170", lastPlayed: At(2026, 5, 27, 12, 0)))
+                Stats(VanillaId, active: false, snapshots: 1, mods: 0, version: "1.6.1170", lastPlayed: At(2026, 5, 27, 12, 0)))
             .WithProfile(
                 Profile(SurvivalId, SkyrimId, "Survival test - 5-14-26", At(2026, 4, 15, 12, 0)),
-                Stats(SurvivalId, active: false, saves: 2, mods: 189, version: "1.6.640", lastPlayed: At(2026, 4, 15, 12, 0), unsaved: [RepoRole.External]));
+                Stats(SurvivalId, active: false, snapshots: 3, mods: 189, version: "1.6.640", lastPlayed: At(2026, 4, 15, 12, 0), unsaved: [RepoRole.External]));
 
         // 2h and 2j: one point per capture; "Fresh start with Nolvus" follows the 2j card, so 2h's two entries for it are one point here.
         const string modded = "Modded playthrough - 7-2-26";
@@ -239,10 +239,10 @@ public static class MockupScenario
         builder
             .WithProfile(
                 Profile(MainFactoryId, SatisfactoryId, "Main factory - 6-1-26", At(2026, 7, 6, 20, 0)),
-                Stats(MainFactoryId, active: true, saves: 9, mods: 37, version: "1.1.0.4", lastPlayed: At(2026, 7, 6, 20, 0)))
+                Stats(MainFactoryId, active: true, snapshots: 9, mods: 37, version: "1.1.0.4", lastPlayed: At(2026, 7, 6, 20, 0)))
             .WithProfile(
                 Profile(FactoryTestId, SatisfactoryId, "Update 1.1 test - 6-20-26", At(2026, 6, 20, 19, 0)),
-                Stats(FactoryTestId, active: false, saves: 1, mods: 0, version: "1.1.0.4", lastPlayed: At(2026, 6, 20, 19, 0)))
+                Stats(FactoryTestId, active: false, snapshots: 1, mods: 0, version: "1.1.0.4", lastPlayed: At(2026, 6, 20, 19, 0)))
             .WithLaunchPreview(Banner(SatisfactoryId, MainFactoryId, @"C:\Games\Satisfactory", @"C:\Users\you\AppData\Local\FactoryGame\Saved\SaveGames", state));
     }
 
@@ -251,7 +251,7 @@ public static class MockupScenario
         builder
             .WithProfile(
                 Profile(CaretakerRunId, CaretakerId, "First run - 6-28-26", At(2026, 6, 30, 21, 0)),
-                Stats(CaretakerRunId, active: true, saves: 3, mods: null, version: "0.9.2", lastPlayed: At(2026, 6, 30, 21, 0)))
+                Stats(CaretakerRunId, active: true, snapshots: 3, mods: null, version: "0.9.2", lastPlayed: At(2026, 6, 30, 21, 0)))
             .WithLaunchPreview(Banner(CaretakerId, CaretakerRunId, @"C:\Games\The Last Caretaker", @"C:\Users\you\AppData\Local\TheLastCaretaker\Saved\SaveGames", new InstallState("0.9.2", null)));
     }
 
@@ -277,12 +277,12 @@ public static class MockupScenario
     private static ProfileRowStats Stats(
         string id,
         bool active,
-        int saves,
+        int snapshots,
         int? mods,
         string version,
         DateTimeOffset lastPlayed,
         IReadOnlyList<RepoRole>? unsaved = null) =>
-        new(id, active, unsaved ?? [], saves, mods, version, null, lastPlayed, false);
+        new(id, active, unsaved ?? [], snapshots, mods, version, null, lastPlayed, false);
 
     private static HistoryPoint Point(
         HistoryPointId id,

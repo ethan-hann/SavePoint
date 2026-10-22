@@ -33,11 +33,25 @@ public class MockupScenarioTests
         Assert.Equal<string>(["Modded playthrough - 7-2-26", "Vanilla - latest update", "Survival test - 5-14-26"], profiles.Select(p => p.Name));
         Assert.Equal<string>([ModdedId, VanillaId, SurvivalId], stats.Select(s => s.ProfileId));
         Assert.Equal<bool>([true, false, false], stats.Select(s => s.IsActive));
-        Assert.Equal<int?>([6, 1, 2], stats.Select(s => s.SaveCount));
+        Assert.Equal<int?>([4, 1, 3], stats.Select(s => s.SnapshotCount));
         Assert.Equal<int?>([212, 0, 189], stats.Select(s => s.ModFileCount));
         Assert.Equal<string?>(["1.6.640", "1.6.1170", "1.6.640"], stats.Select(s => s.DetectedVersion));
         Assert.Equal<RepoRole>([RepoRole.External], stats[2].UnsavedChanges);
         Assert.Equal<double>([3, 42, 84], stats.Select(s => (ScenarioBuilder.DefaultNow - s.LastPlayedAt!.Value).TotalDays));
+    }
+
+    [Fact]
+    public async Task Each_row_counts_the_snapshots_History_lists_for_that_profile()
+    {
+        var backend = FakeBackend.Mockup();
+
+        var stats = Ok(await backend.Profiles.GetRowStatsAsync(SkyrimId, Ct));
+
+        foreach (var row in stats)
+        {
+            var listed = Ok(await backend.History.GetAsync(SkyrimId, row.ProfileId, Ct)).Points.Count;
+            Assert.Equal(listed, row.SnapshotCount);
+        }
     }
 
     [Fact]

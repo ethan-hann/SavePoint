@@ -192,7 +192,7 @@ public class FakeLibraryApisTests
 
         Assert.False(stats.IsActive);
         Assert.Empty(stats.UnsavedChanges);
-        Assert.Equal(0, stats.SaveCount);
+        Assert.Equal(0, stats.SnapshotCount);
         Assert.Null(stats.ModFileCount);
     }
 

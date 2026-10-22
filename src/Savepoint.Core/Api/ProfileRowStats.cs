@@ -6,7 +6,11 @@ namespace Savepoint.Core.Api;
 /// <param name="ProfileId">The profile.</param>
 /// <param name="IsActive">True when both folders hold this profile's latest points with nothing unsaved.</param>
 /// <param name="UnsavedChanges">The folders on this profile that have changes not yet saved; empty for none.</param>
-/// <param name="SaveCount">How many save points the profile has; null when the game has no saves folder.</param>
+/// <param name="SnapshotCount">
+/// How many snapshots the profile owns, whichever folders each took: the number History lists for the profile, so a snapshot both
+/// profiles can reach counts only for the first profile that reaches it. Null when the snapshots were not counted, as for a row drawn
+/// before its figures arrive.
+/// </param>
 /// <param name="ModFileCount">
 /// How many mod files the profile's install holds; null when the game names no mod folders or the profile has no install point yet.
 /// </param>
@@ -18,7 +22,7 @@ public sealed record ProfileRowStats(
     string ProfileId,
     bool IsActive,
     IReadOnlyList<RepoRole> UnsavedChanges,
-    int? SaveCount,
+    int? SnapshotCount,
     int? ModFileCount,
     string? DetectedVersion,
     string? VersionOverride,

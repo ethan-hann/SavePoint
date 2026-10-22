@@ -112,7 +112,7 @@ public class GamesScreenViewModelTests
     {
         var rig = await GamesRig.StartAsync();
 
-        Assert.Equal(["Loaded now \u00b7 6 save snapshots", "1 save snapshot", "New changes \u00b7 2 save snapshots"], rig.Screen.Profiles.Select(row => row.SecondaryText));
+        Assert.Equal(["Loaded now \u00b7 4 snapshots", "1 snapshot", "New changes \u00b7 3 snapshots"], rig.Screen.Profiles.Select(row => row.SecondaryText));
         Assert.Equal([true, false, false], rig.Screen.Profiles.Select(row => row.IsActive));
         Assert.Equal([true, false, false], rig.Screen.Profiles.Select(row => row.IsActiveLine));
         Assert.Equal([false, false, true], rig.Screen.Profiles.Select(row => row.IsUnsavedLine));
@@ -158,7 +158,7 @@ public class GamesScreenViewModelTests
     }
 
     [Fact]
-    public async Task Unsaved_changes_come_before_active_in_the_second_line_and_the_save_count_is_left_out_when_unknown()
+    public async Task New_changes_come_before_loaded_in_the_second_line_and_the_count_is_left_out_when_unknown()
     {
         var backend = WithProfiles(
             (Caretaker("p1", "Both"), new ProfileRowStats("p1", true, [RepoRole.Install], 4, null, null, null, null, false)),
@@ -166,7 +166,7 @@ public class GamesScreenViewModelTests
             (Caretaker("p3", "Active without saves folder"), new ProfileRowStats("p3", true, [], null, null, null, null, null, false)));
         var rig = await GamesRig.StartAsync(backend);
 
-        Assert.Equal(["New changes \u00b7 4 save snapshots", "New changes", "Loaded now"], rig.Screen.Profiles.Select(row => row.SecondaryText));
+        Assert.Equal(["New changes \u00b7 4 snapshots", "New changes", "Loaded now"], rig.Screen.Profiles.Select(row => row.SecondaryText));
         Assert.True(rig.Screen.Profiles[0].IsActive);
         Assert.True(rig.Screen.Profiles[0].IsUnsavedLine);
         Assert.False(rig.Screen.Profiles[0].IsActiveLine);
@@ -181,7 +181,7 @@ public class GamesScreenViewModelTests
         Assert.Equal("Play Modded playthrough - 7-2-26", row.PlayAutomationName);
         Assert.Equal("More actions for Modded playthrough - 7-2-26", row.MoreActionsAutomationName);
         Assert.Contains("Modded playthrough - 7-2-26", row.AutomationName);
-        Assert.Contains("Loaded now \u00b7 6 save snapshots", row.AutomationName);
+        Assert.Contains("Loaded now \u00b7 4 snapshots", row.AutomationName);
         Assert.Contains("1.6.640", row.AutomationName);
         Assert.Contains("212", row.AutomationName);
         Assert.Contains("3 days ago", row.AutomationName);

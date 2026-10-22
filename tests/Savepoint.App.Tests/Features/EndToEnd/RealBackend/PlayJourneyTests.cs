@@ -60,7 +60,7 @@ public class PlayJourneyTests
         await rig.WaitAsync(() => vanilla.CanPlay && rig.Games.InlineContent is null && rig.ToastTexts.Contains("Saved Play Game."), "the session to be saved");
         Assert.True(trail.Showed(nameof(LaunchBannerViewModel), nameof(RunningCardViewModel), nameof(LaunchSavingViewModel), "nothing"), string.Join(" > ", trail.Seen));
         await rig.WaitAsync(() => vanilla.IsActive && !vanilla.IsRunning, "the row to read active again");
-        Assert.StartsWith("Loaded now · 2 save snapshots", vanilla.SecondaryText, StringComparison.Ordinal);
+        Assert.StartsWith("Loaded now · 2 snapshots", vanilla.SecondaryText, StringComparison.Ordinal);
 
         // History lists the new point, newest first, as a save with the same game version and mods.
         rig.Shell.Navigate(NavDestination.History);

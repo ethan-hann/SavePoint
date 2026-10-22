@@ -9,5 +9,7 @@ internal interface IProfileRowActions
 
     Task DuplicateAsync(ProfileRowViewModel row);
 
+    Task TakeSnapshotAsync(ProfileRowViewModel row);
+
     Task DeleteAsync(ProfileRowViewModel row);
 }

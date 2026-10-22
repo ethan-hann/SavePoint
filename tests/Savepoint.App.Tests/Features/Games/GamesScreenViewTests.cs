@@ -62,9 +62,9 @@ public class GamesScreenViewTests
         Assert.Contains("MOD FILES", texts);
         Assert.Contains("LAST PLAYED", texts);
         Assert.Contains("Modded playthrough - 7-2-26", texts);
-        Assert.Contains("Loaded now \u00b7 6 save snapshots", texts);
-        Assert.Contains("New changes \u00b7 2 save snapshots", texts);
-        Assert.Contains("1 save snapshot", texts);
+        Assert.Contains("Loaded now \u00b7 4 snapshots", texts);
+        Assert.Contains("New changes \u00b7 3 snapshots", texts);
+        Assert.Contains("1 snapshot", texts);
         Assert.Contains("1.6.1170", texts);
         Assert.Contains("212", texts);
         Assert.Contains("3 days ago", texts);
@@ -124,7 +124,7 @@ public class GamesScreenViewTests
     }
 
     [AvaloniaFact]
-    public async Task The_row_menu_offers_edit_duplicate_and_delete_for_that_row()
+    public async Task The_row_menu_offers_a_snapshot_edit_duplicate_and_delete_for_that_row()
     {
         using var harness = await GamesViewHarness.StartAsync();
         var more = MoreButtons(harness)[1];
@@ -134,10 +134,11 @@ public class GamesScreenViewTests
         harness.Settle();
 
         var items = ((MenuFlyout)more.Flyout).Items.OfType<MenuItem>().ToList();
-        Assert.Equal(["Edit", "Duplicate", "Delete"], items.Select(item => item.Header));
-        Assert.Same(row.EditCommand, items[0].Command);
-        Assert.Same(row.DuplicateCommand, items[1].Command);
-        Assert.Same(row.DeleteCommand, items[2].Command);
+        Assert.Equal(["Take a snapshot now", "Edit", "Duplicate", "Delete"], items.Select(item => item.Header));
+        Assert.Same(row.TakeSnapshotCommand, items[0].Command);
+        Assert.Same(row.EditCommand, items[1].Command);
+        Assert.Same(row.DuplicateCommand, items[2].Command);
+        Assert.Same(row.DeleteCommand, items[3].Command);
     }
 
     [AvaloniaFact]

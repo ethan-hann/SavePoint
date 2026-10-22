@@ -76,6 +76,17 @@ internal sealed class HistoryReader
         return new GameHistory(game.Id, profileId, [.. points.OrderByDescending(point => point.CapturedAt)]);
     }
 
+    // How many points each profile owns, assigned as ReadAsync assigns them, so a profile's row shows the number History lists for it.
+    public static async Task<IReadOnlyDictionary<string, int>> CountByOwnerAsync(
+        StorageSnapshot storage,
+        IReadOnlyList<RepoRef> repos,
+        IReadOnlyList<Profile> profiles,
+        CancellationToken cancellationToken)
+    {
+        var lineages = await ReadLineagesAsync(storage, repos, profiles, cancellationToken).ConfigureAwait(false);
+        return Group(repos, profiles, lineages).GroupBy(point => point.Owner.Id).ToDictionary(group => group.Key, group => group.Count());
+    }
+
     // Each profile's points in each folder, newest first; every (folder, profile) pair is one git call.
     private static async Task<Dictionary<(RepoRole, string), IReadOnlyList<CommitInfo>>> ReadLineagesAsync(
         StorageSnapshot storage,

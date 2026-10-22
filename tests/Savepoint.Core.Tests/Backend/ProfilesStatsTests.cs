@@ -7,7 +7,7 @@ namespace Savepoint.Core.Tests.Backend;
 public class ProfilesStatsTests
 {
     [Fact]
-    public async Task A_fresh_profile_is_active_with_one_save_and_nothing_unsaved()
+    public async Task A_fresh_profile_is_active_with_one_snapshot_and_nothing_unsaved()
     {
         using var workspace = new BackendWorkspace();
         var game = await workspace.AddGameAsync();
@@ -17,7 +17,7 @@ public class ProfilesStatsTests
 
         Assert.True(row.IsActive);
         Assert.Empty(row.UnsavedChanges);
-        Assert.Equal(1, row.SaveCount);
+        Assert.Equal(1, row.SnapshotCount);
         Assert.Null(row.ModFileCount);
         Assert.Null(row.DetectedVersion);
         Assert.Null(row.VersionOverride);
@@ -26,17 +26,17 @@ public class ProfilesStatsTests
     }
 
     [Fact]
-    public async Task A_game_without_saves_has_no_save_count()
+    public async Task A_game_without_saves_counts_the_snapshots_of_its_install()
     {
         using var workspace = new BackendWorkspace();
         var game = await workspace.AddGameAsync(workspace.NewGame(withSaves: false));
         var (profile, _) = await workspace.CreateProfileAsync(game);
 
-        Assert.Null((await RowAsync(workspace, game, profile)).SaveCount);
+        Assert.Equal(1, (await RowAsync(workspace, game, profile)).SnapshotCount);
     }
 
     [Fact]
-    public async Task Each_capture_that_touched_the_saves_counts_as_one_save()
+    public async Task Every_snapshot_counts_whichever_folders_it_took()
     {
         using var workspace = new BackendWorkspace();
         var game = await workspace.AddGameAsync();
@@ -46,7 +46,28 @@ public class ProfilesStatsTests
         BackendWorkspace.WriteFile(Path.Combine(game.Install.Path, "data", "only-install.pak"), "x");
         await CaptureAsync(workspace, game, profile, "Install change", [RepoRole.Install]);
 
-        Assert.Equal(2, (await RowAsync(workspace, game, profile)).SaveCount);
+        Assert.Equal(3, (await RowAsync(workspace, game, profile)).SnapshotCount);
+    }
+
+    [Fact]
+    public async Task A_copy_counts_only_the_snapshots_it_took_itself_the_way_History_lists_them()
+    {
+        using var workspace = new BackendWorkspace();
+        var game = await workspace.AddGameAsync();
+        var (source, _) = await workspace.CreateProfileAsync(game, "Vanilla");
+        BackendWorkspace.WriteFile(Path.Combine(game.External!.Path, "slot2.sav"), "two");
+        await CaptureAsync(workspace, game, source, "Second");
+        var copy = (await workspace.Profiles.DuplicateAsync(game.Id, source.Id, "Vanilla copy")).Value!;
+
+        var rows = (await workspace.Profiles.GetRowStatsAsync(game.Id, workspace.Token)).Value!;
+
+        Assert.Equal(2, rows.Single(row => row.ProfileId == source.Id).SnapshotCount);
+        Assert.Equal(0, rows.Single(row => row.ProfileId == copy.Id).SnapshotCount);
+        foreach (var profile in new[] { source, copy })
+        {
+            var listed = (await workspace.History.GetAsync(game.Id, profile.Id, workspace.Token)).Value!.Points.Count;
+            Assert.Equal(listed, rows.Single(row => row.ProfileId == profile.Id).SnapshotCount);
+        }
     }
 
     [Fact]
@@ -103,7 +124,7 @@ public class ProfilesStatsTests
 
         Assert.True(row.IsActive);
         Assert.Empty(row.UnsavedChanges);
-        Assert.Equal(1, row.SaveCount);
+        Assert.Equal(1, row.SnapshotCount);
     }
 
     [Fact]
@@ -147,7 +168,7 @@ public class ProfilesStatsTests
         var row = await RowAsync(workspace, game, profile);
 
         Assert.False(row.IsActive);
-        Assert.Equal(1, row.SaveCount);
+        Assert.Equal(1, row.SnapshotCount);
     }
 
     [Fact]

@@ -39,6 +39,42 @@ public class GamesScreenActionsTests
         Assert.Empty(rig.LaunchFlow.Begun);
     }
 
+    // ---- Take a snapshot now
+
+    [Fact]
+    public async Task Take_a_snapshot_now_asks_the_api_to_capture_that_profile_under_a_dated_name()
+    {
+        var rig = await GamesRig.StartAsync();
+
+        await rig.Screen.Profiles[1].TakeSnapshotCommand.ExecuteAsync(null);
+
+        var call = Assert.Single(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CaptureAsync)));
+        Assert.Equal([MockupScenario.SkyrimId, MockupScenario.VanillaId, "Snapshot - 7-8-26", null], call.Args);
+    }
+
+    [Fact]
+    public async Task A_snapshot_the_api_refuses_to_start_is_shown_as_a_toast()
+    {
+        var rig = await GamesRig.StartAsync();
+        rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.CaptureAsync), MockupScenario.SavesOutOfRoomError);
+
+        await rig.Screen.Profiles[1].TakeSnapshotCommand.ExecuteAsync(null);
+
+        Assert.Single(rig.ToastTexts);
+    }
+
+    [Fact]
+    public async Task Take_a_snapshot_now_does_nothing_while_the_game_has_a_session()
+    {
+        var rig = await GamesRig.StartAsync();
+        rig.LaunchFlow!.SetActive(MockupScenario.SkyrimId, true);
+
+        Assert.False(rig.Screen.Profiles[0].TakeSnapshotCommand.CanExecute(null));
+        await rig.Screen.Profiles[0].TakeSnapshotCommand.ExecuteAsync(null);
+
+        Assert.Empty(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CaptureAsync)));
+    }
+
     // ---- New profile
 
     [Fact]
