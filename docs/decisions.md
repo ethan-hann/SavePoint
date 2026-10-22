@@ -385,6 +385,16 @@ The final review (`.tools/reviews/final.md`, FR-001 to FR-032, YAGNI-001 to YAGN
 13. **YAGNI:** the members kept only for tests or for paths no shipped build reaches go (YAGNI-001, 002, 004, 006, and 003 unless item 7's or FR-008's fix makes the path live). The 1024 px icon and IconGen's output folder stay for a future macOS package (YAGNI-005).
 14. **Documentation (FR-028, FR-032's doc half)** is written in the docs pass, not by the fix agents.
 
+## D42. Calls on the recheck of the final review's fixes
+
+The recheck (`.tools/reviews/final-recheck.md`) found 25 of 38 items fixed and none open, plus RF-001 to RF-027 (five WARN). Each RF item is fixed as the recheck recommends, except:
+
+1. **"Find the folder" never follows a link (RF-001, RF-002).** A candidate whose game folder, git directory, `hooks` folder, or config is a link, or resolves outside the candidate, is refused as a whole with its own error that names the path; nothing in it is written first. A repository config is rewritten whenever its content holds anything beyond `git init`'s keys and SavePoint's block, whatever its stamp, and every git process also runs with `commit.gpgSign` and `tag.gpgSign` off, so no repository setting can name a program SavePoint runs.
+2. **"Update existing" is a save (RF-014).** The point it writes stops holding files the ignore list names, as every later save does (D41.2); earlier points keep them. No change.
+3. **Copy never suggests emptying a folder that holds history (RF-026).** The default-folder refusal says to move that folder away to start over, or to use it through "Find the folder".
+4. **The Linux package is built from Windows like the Linux gate (RF-007).** A Windows wrapper checks the commit out into the Linux-only worktree, checks it is clean with Windows git, and hands the commit to `package.sh`, which uses a commit given to it instead of asking git.
+5. **YAGNI-002 is done now (recheck note):** the reason to defer it ended with the merge.
+
 ## D8. "Clear all data" is a v2 requirement
 
 The v1 README lists "add a clear all data button" as an open TODO. v2 ships it in Settings behind a typed confirmation. It removes SavePoint's own storage, catalog, and consent markers, and never deletes or rolls back files in a game's install or save folders: whatever is on disk at that moment stays as it is.
