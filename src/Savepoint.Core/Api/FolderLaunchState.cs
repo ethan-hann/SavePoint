@@ -31,10 +31,11 @@ namespace Savepoint.Core.Api;
 /// Set when switching the folder would stop on a file that cannot be read, which is the only thing wrong with it: the error the launch
 /// would fail with (<c>error.gitOperation.checkoutFailed</c> for a file another program holds open, <c>error.gitOperation.unreadableFile</c>
 /// for one that cannot be read), with the file in its <c>path</c> argument. For a switch, a file that cannot be read is not unsaved work, so
-/// it does not make the folder <paramref name="Dirty"/> (a save cannot tell such a file from a changed one, and runs on it anyway); but the folder can be both: a half-switched folder (<paramref name="UnfinishedSwitch"/>) is
-/// dirty and can hold such a file too, and another folder of the same launch can be dirty while this one is held. When nothing is dirty
-/// or half switched, the launch asks to try again instead of offering to keep or discard anything; otherwise unsaved and
-/// half-switched folders come first, since they must be resolved whatever happens to the file. Null when no file stands in the way.
+/// it does not make the folder <paramref name="Dirty"/> (a save cannot tell such a file from a changed one, and runs on it anyway); but the folder can be both: a half-switched folder (<paramref name="UnfinishedSwitch"/>) that
+/// the launch does not finish is dirty and can hold such a file too, and another folder of the same launch can be dirty while this one is
+/// held. When nothing is dirty, the launch asks to try again instead of offering to keep or discard anything; otherwise unsaved work
+/// comes first, since it must be resolved whatever happens to the file. A half-switched folder that the launch itself finishes is not
+/// unsaved work, so it does not come first: its held file is what the launch asks about. Null when no file stands in the way.
 /// </param>
 public sealed record FolderLaunchState(
     RepoRole Role,
