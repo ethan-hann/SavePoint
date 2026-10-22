@@ -90,6 +90,17 @@ public sealed partial class GitEngine
         return Task.CompletedTask;
     }
 
+    // A folder whose repository was never made (its drive was not there when the storage folder changed) gets an empty one when it is
+    // first written to. The callers have verified that the folder's marker names this game and role, so nothing is made for a folder
+    // that is not confirmed.
+    private async Task EnsureRepositoryAsync(RepoRef repo, CancellationToken ct)
+    {
+        if (!IsInitialized(repo.GitDir))
+        {
+            await InitAsync(repo, ct: ct).ConfigureAwait(false);
+        }
+    }
+
     // The settings and rule files a repository must have before anything is written to it; cheap when they are already current.
     private void EnsureRepoFiles(RepoRef repo)
     {

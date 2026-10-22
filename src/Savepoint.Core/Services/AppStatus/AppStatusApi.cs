@@ -202,8 +202,9 @@ internal sealed class AppStatusApi : IAppStatusApi
             cancellationToken);
 
     // An empty repository for each folder of each listed game that has none in the new root and whose folder confirms it belongs to that
-    // game. A folder that cannot take one (gone, refused by the path rules, claimed by another game) is left for the editor, which makes
-    // the repository when its folder is set again; it must not stop the others from being usable.
+    // game. A folder that cannot take one (gone, refused by the path rules, claimed by another game) is logged and left: the first save
+    // makes the repository once the folder confirms the game, and the editor makes it when the folder is set again. It must not stop
+    // the others from being usable.
     private async Task GiveRepositoriesAsync(StorageSnapshot snapshot, IReadOnlyList<GameDefinition> games, CancellationToken cancellationToken)
     {
         foreach (var game in games)
@@ -222,8 +223,14 @@ internal sealed class AppStatusApi : IAppStatusApi
             foreach (var folder in folders)
             {
                 var repo = GameFolders.Repo(snapshot, game.Id, folder);
-                if (!NeedsRepository(repo.GitDir) || !snapshot.Engine.GetConsentStatus(repo).Confirmed)
+                if (!NeedsRepository(repo.GitDir))
                 {
+                    continue;
+                }
+
+                if (!snapshot.Engine.GetConsentStatus(repo).Confirmed)
+                {
+                    _services.Log.Warning($"Storage: {game.Id} got no repository for its {folder.Role} folder in {snapshot.Root}: the folder at {folder.Path} could not be confirmed as that game's (it may be on a drive that is not connected), so its first save there makes it.");
                     continue;
                 }
 

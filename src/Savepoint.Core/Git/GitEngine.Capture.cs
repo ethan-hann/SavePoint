@@ -69,6 +69,7 @@ public sealed partial class GitEngine
     {
         CheckWorkTree(repo);
         RepoMarker.Verify(repo);
+        await EnsureRepositoryAsync(repo, ct).ConfigureAwait(false);
 
         // A folder a stopped switch left half done holds files of two points; recording it would save a mixture that never existed.
         if (SwitchJournal.Read(repo.GitDir) is { } unfinished)

@@ -165,6 +165,23 @@ internal sealed class BackendWorkspace : IDisposable
         File.WriteAllBytes(path, content);
     }
 
+    // Windows can still hold a folder git processes just worked in for a moment after the jobs that used them have ended, and refuses to move it then.
+    public static void MoveFolder(string from, string to)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                Directory.Move(from, to);
+                return;
+            }
+            catch (Exception e) when (attempt < 20 && e is IOException or UnauthorizedAccessException)
+            {
+                Thread.Sleep(100);
+            }
+        }
+    }
+
     // Every file under a folder with its content hash, so a test can prove nothing in it changed.
     public static IReadOnlyDictionary<string, string> Snapshot(string folder) =>
         Directory.Exists(folder)
