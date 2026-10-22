@@ -45,6 +45,17 @@ How to build a screen in `Savepoint.App`. The visual spec is `../Savepoint/docs/
 - Icons: `Savepoint.App.Theme.Icons` constants with the `icon` TextBlock class.
 - The style gallery (`tests/Savepoint.App.Tests/Theme/Gallery/`) shows every style in use.
 
+## Rules from the accessibility review (D36)
+
+- **Contrast:** every text and boundary role pair meets WCAG 2.2 AA (4.5:1 for text, 3:1 for field borders and switch tracks) in both themes and all five accents. `RoleContrastTests` computes the ratios from the generated palette, so a theme change that regresses fails a test.
+- **Names:** an accessible name contains the visible text, so voice control can say what it sees. Icon-only buttons are at least 32 px square.
+- **Toasts:** errors stay until dismissed and can be paused, every failure also has a durable place, and toasts never cover an error card's actions.
+- **Window size:** the window's minimum is 640x420, and every screen scrolls rather than clipping. Headless renders at 910x432 and 960x460 stand for 150% and 200% scaling.
+- **Dialogs:** a long dialog pins its footer (`PinsFooter` on the dialog, drawn by `DialogFrame`), so the actions stay visible while the body scrolls. Screen readers get the dialog's message as well as its title.
+- **Motion:** when the system asks for reduced motion, the window carries the `reduced-motion` class and indeterminate progress shows as a still bar.
+- **Announcements:** announcements go through `IAnnouncementHost`, and the live regions raise their automation events; tests assert the events, and a Narrator/NVDA pass is part of the manual dogfood.
+- **Focus:** focus survives a library refresh in the rail and the shelf.
+
 ## Testing
 
 - View models are tested against the scriptable fake backend (`tests/Savepoint.App.Tests/Fakes/`, `ScenarioBuilder.Mockup()` reproduces the mockup data) with `ImmediateUiDispatcher` and `FakeDialogs`. Fake events fire synchronously.
