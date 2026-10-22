@@ -300,35 +300,13 @@ public sealed partial class GitEngine
         SwitchJournal.Write(repo.GitDir, note?.FromCommit ?? from, to, isBranch ? target : null);
 
         // git must see nothing to do for the files the patterns name: their index entries are made to say what the target says, which
-        // changes no file. The note is already written, so a stop from here on is a stopped switch like any other.
-        try
-        {
-            await AlignIndexAsync(repo, to, plan.Named, ct).ConfigureAwait(false);
-            if (force)
-            {
-                await SetSkipWorktreeAsync(repo, on: true, plan.NamedInTarget, ct).ConfigureAwait(false);
-            }
-        }
-        catch (GitOperationException)
-        {
-            // git failed before any file moved (its lock stayed held, say), so this is a refusal: the entries go back and a note this
-            // call wrote goes. If they cannot go back the note stays, since the index may be half aligned.
-            try
-            {
-                await UndoAlignmentAsync(note is null, repo, from, plan.Named).ConfigureAwait(false);
-                ClearNoteIf(note is null, repo);
-            }
-            catch (GitOperationException)
-            {
-                // The original failure is the one to report.
-            }
-
-            throw;
-        }
+        // changes no file. The note is already written, so a stop from here on is a stopped switch like any other; a refusal puts back
+        // the index it started from, and the note this call wrote goes.
+        using var aligned = await AlignIndexAsync(repo, to, plan, force, ownsNote: note is null, ct).ConfigureAwait(false);
 
         var reporter = progress is null ? null : new ProgressReporter(progress, new CheckoutBytePlan(plan.Changes, sizes));
 
-        await RunCheckoutAsync(repo, target, to, isBranch, force, ownsNote: note is null, from, plan.Named, reporter, ct).ConfigureAwait(false);
+        await RunCheckoutAsync(repo, target, to, isBranch, force, ownsNote: note is null, aligned, reporter, ct).ConfigureAwait(false);
         reporter?.Complete();
         if (force)
         {
@@ -353,7 +331,7 @@ public sealed partial class GitEngine
     }
 
     // Runs the switch itself. git refusing (local changes, a lock) leaves nothing changed; any other failure leaves the note that the switch is unfinished.
-    private async Task RunCheckoutAsync(RepoRef repo, string target, string to, bool isBranch, bool force, bool ownsNote, string? from, IReadOnlySet<string> aligned, ProgressReporter? reporter, CancellationToken ct)
+    private async Task RunCheckoutAsync(RepoRef repo, string target, string to, bool isBranch, bool force, bool ownsNote, AlignedIndex? aligned, ProgressReporter? reporter, CancellationToken ct)
     {
         for (var attempt = 0; ; attempt++)
         {
@@ -372,15 +350,21 @@ public sealed partial class GitEngine
                     continue;
                 }
 
-                await UndoAlignmentAsync(ownsNote, repo, from, aligned).ConfigureAwait(false);
-                ClearNoteIf(ownsNote, repo);
+                if (await TryRestoreAsync(repo, aligned).ConfigureAwait(false))
+                {
+                    ClearNoteIf(ownsNote, repo);
+                }
+
                 throw new GitOperationException(GitFailure.LockFilePath(stderr), $"git could not take its lock: {stderr.Trim()}");
             }
 
             if (GitFailure.RefusedToOverwrite(stderr))
             {
-                await UndoAlignmentAsync(ownsNote, repo, from, aligned).ConfigureAwait(false);
-                ClearNoteIf(ownsNote, repo);
+                if (await TryRestoreAsync(repo, aligned).ConfigureAwait(false))
+                {
+                    ClearNoteIf(ownsNote, repo);
+                }
+
                 throw RefusalFor(repo, stderr);
             }
 
@@ -456,16 +440,6 @@ public sealed partial class GitEngine
     {
         var head = GitDirFiles.ReadHead(repo.GitDir);
         return isBranch ? string.Equals(head.Branch, target, StringComparison.Ordinal) : string.Equals(head.DetachedCommit, to, StringComparison.Ordinal);
-    }
-
-    // A refused switch changed nothing, so the index entries made to agree with the target for the files the patterns name go back to
-    // the point the folder is on; otherwise the status would list those files as changed.
-    private async Task UndoAlignmentAsync(bool ownsNote, RepoRef repo, string? from, IReadOnlySet<string> aligned)
-    {
-        if (ownsNote && from is not null)
-        {
-            await AlignIndexAsync(repo, from, aligned, CancellationToken.None).ConfigureAwait(false);
-        }
     }
 
     // A note describes a switch; one this call did not start describes work that is still unfinished, and a refusal changes nothing in it.

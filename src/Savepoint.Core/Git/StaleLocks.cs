@@ -55,9 +55,12 @@ internal static class StaleLocks
             removed += TryDelete(Path.Combine(gitDir, name)) ? 1 : 0;
         }
 
-        foreach (var file in Directory.EnumerateFiles(gitDir, GitEngine.ClassifyIndexPrefix + "*").ToList())
+        foreach (var prefix in new[] { GitEngine.ClassifyIndexPrefix, GitEngine.AlignIndexPrefix })
         {
-            removed += TryDelete(file) ? 1 : 0;
+            foreach (var file in Directory.EnumerateFiles(gitDir, prefix + "*").ToList())
+            {
+                removed += TryDelete(file) ? 1 : 0;
+            }
         }
 
         var refs = Path.Combine(gitDir, "refs");

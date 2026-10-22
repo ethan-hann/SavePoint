@@ -106,22 +106,13 @@ public sealed partial class GitEngine
         }
     }
 
-    // Makes the index hold the tree's version of each path (or none, where the tree has none) without touching a file.
-    private async Task AlignIndexAsync(RepoRef repo, string tree, IReadOnlyCollection<string> paths, CancellationToken ct)
-    {
-        if (paths.Count > 0)
-        {
-            await RunWriteAsync(() => Invocation(repo, readOnly: false, "reset", "--quiet", tree).WithPathspecs(paths), ct).ConfigureAwait(false);
-        }
-    }
-
     // A forced checkout writes every file whose stamp does not match its index entry, aligned or not; this bit tells it to leave them.
-    private async Task SetSkipWorktreeAsync(RepoRef repo, bool on, IReadOnlyCollection<string> paths, CancellationToken ct)
+    private async Task SetSkipWorktreeAsync(RepoRef repo, bool on, IReadOnlyCollection<string> paths, CancellationToken ct, IReadOnlyDictionary<string, string?>? environment = null)
     {
         if (paths.Count > 0)
         {
             await RunWriteAsync(
-                () => Invocation(repo, readOnly: false, "update-index", on ? "--skip-worktree" : "--no-skip-worktree", "-z", "--stdin") with { Stdin = NulList(paths) },
+                () => Invocation(repo, readOnly: false, "update-index", on ? "--skip-worktree" : "--no-skip-worktree", "-z", "--stdin") with { Stdin = NulList(paths), ExtraEnvironment = environment },
                 ct).ConfigureAwait(false);
         }
     }
