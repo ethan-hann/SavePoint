@@ -27,6 +27,7 @@ public sealed class CrashHandler
     private readonly IDiagnosticLog _log;
     private readonly ICrashPresenter _presenter;
     private readonly Action<int> _exit;
+    private readonly Action? _stopWork;
     private readonly string? _logFolder;
     private readonly ManualResetEventSlim _finished = new();
 
@@ -38,12 +39,17 @@ public sealed class CrashHandler
     /// <param name="presenter">Shows the last window.</param>
     /// <param name="exit">Ends the process with an exit code.</param>
     /// <param name="logFolder">Where the log is, for the window; null when there is none.</param>
-    public CrashHandler(IDiagnosticLog log, ICrashPresenter presenter, Action<int> exit, string? logFolder)
+    /// <param name="stopWork">
+    /// Stops what still runs, called once after the crash is logged and before the window shows, so no job goes on changing a game's
+    /// folders while the window is up. A failure in it never stops the window.
+    /// </param>
+    public CrashHandler(IDiagnosticLog log, ICrashPresenter presenter, Action<int> exit, string? logFolder, Action? stopWork = null)
     {
         _log = log;
         _presenter = presenter;
         _exit = exit;
         _logFolder = logFolder;
+        _stopWork = stopWork;
     }
 
     /// <summary>
@@ -74,6 +80,15 @@ public sealed class CrashHandler
             }
 
             return;
+        }
+
+        try
+        {
+            _stopWork?.Invoke();
+        }
+        catch (Exception)
+        {
+            // Whatever is left running ends with the process.
         }
 
         try

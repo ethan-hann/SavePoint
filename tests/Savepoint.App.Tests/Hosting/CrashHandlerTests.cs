@@ -18,7 +18,7 @@ public class CrashHandlerTests
         _presenter = new FakePresenter(_log, _exits);
     }
 
-    private CrashHandler Handler(string? folder = _logFolder) => new(_log, _presenter, _exits.Add, folder);
+    private CrashHandler Handler(string? folder = _logFolder, Action? stopWork = null) => new(_log, _presenter, _exits.Add, folder, stopWork);
 
     private static Exception Thrown(string message)
     {
@@ -59,6 +59,42 @@ public class CrashHandlerTests
         Assert.Equal(1, shown.ErrorsLoggedWhenShown);
         Assert.Equal([1], _exits);
         Assert.Equal(0, shown.ExitsWhenShown);
+    }
+
+    [Fact]
+    public void Running_work_is_stopped_after_the_crash_is_logged_and_before_the_window_shows()
+    {
+        var order = new List<string>();
+        _presenter.WhileShown = () => order.Add("window");
+        var handler = Handler(stopWork: () => order.Add($"stop after {_log.Entries.Count(entry => entry.Level == LogLevel.Error)} logged"));
+
+        handler.HandleFatal(Thrown("boom"), "a background thread");
+
+        Assert.Equal(["stop after 1 logged", "window"], order);
+        Assert.Equal([1], _exits);
+    }
+
+    [Fact]
+    public void Work_that_cannot_be_stopped_does_not_keep_the_window_from_showing()
+    {
+        var handler = Handler(stopWork: () => throw new InvalidOperationException("the jobs are gone"));
+
+        handler.HandleFatal(Thrown("boom"), "the UI thread");
+
+        Assert.Single(_presenter.Shown);
+        Assert.Equal([1], _exits);
+    }
+
+    [Fact]
+    public void A_second_crash_does_not_stop_the_work_again()
+    {
+        var stops = 0;
+        var handler = Handler(stopWork: () => stops++);
+        _presenter.WhileShown = () => handler.HandleFatal(Thrown("the window itself failed"), "the UI thread");
+
+        handler.HandleFatal(Thrown("first"), "the UI thread");
+
+        Assert.Equal(1, stops);
     }
 
     [Fact]

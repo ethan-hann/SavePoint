@@ -37,7 +37,13 @@ internal static class Program
         using var closeLog = started.Log as IDisposable;
 
         // Whatever nothing catches is written to the log first, then shown in a last window, and the process ends after it.
-        var crash = new CrashHandler(started.Log, new AvaloniaCrashPresenter(path => started.Services.FileRevealer?.Reveal(path) ?? false), Environment.Exit, started.Services.LogFolder);
+        // Jobs are asked to stop before the window shows, so no git process goes on changing a game's folders while it is up.
+        var crash = new CrashHandler(
+            started.Log,
+            new AvaloniaCrashPresenter(path => started.Services.FileRevealer?.Reveal(path) ?? false),
+            Environment.Exit,
+            started.Services.LogFolder,
+            () => RunningJobs.CancelAll(started.Services.Jobs, TimeSpan.FromSeconds(2)));
         using var processHooks = crash.AttachToProcess();
         App.Crash = crash;
         App.Services = started.Services;
