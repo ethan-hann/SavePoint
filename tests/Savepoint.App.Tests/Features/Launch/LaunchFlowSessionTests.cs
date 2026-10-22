@@ -345,7 +345,7 @@ public class LaunchFlowSessionTests : IDisposable
         var card = _f.Inline<ErrorCardViewModel>();
         Assert.Equal("Half of that save worked", card.Title);
         Assert.Equal(
-            "Your game version and mods were saved. Your save files weren't. There's not enough free disk space to save this profile right now. Fix that and retry just that part; nothing you already saved is affected.",
+            "Your game version and mods were saved. Your save files weren't. There's not enough free disk space to save this profile right now. Free up about 1.2 GB on drive D: and try again. Fix that and retry just that part; nothing you already saved is affected.",
             card.Body);
         var rows = Assert.IsType<FolderOutcomeListViewModel>(card.Supplement).Rows;
         Assert.Equal(["Game version and mods · saved", "Saves · not saved"], rows.Select(r => r.Text));

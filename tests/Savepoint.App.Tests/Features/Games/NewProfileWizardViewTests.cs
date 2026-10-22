@@ -252,7 +252,7 @@ public class NewProfileWizardViewTests
         harness.Settle();
 
         Assert.True(harness.Find<Border>("SubmitErrorBox").IsEffectivelyVisible);
-        Assert.Contains("There's not enough free disk space to save this profile right now.", harness.VisibleTexts());
+        Assert.Contains("There's not enough free disk space to save this profile right now. Free up about 1.2 GB on drive D: and try again.", harness.VisibleTexts());
         Assert.True(harness.Find<StackPanel>("CheckStep").IsEffectivelyVisible);
     }
 

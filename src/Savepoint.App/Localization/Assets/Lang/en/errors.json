@@ -9,7 +9,7 @@
   "error.compaction.preempted": "Optimizing storage stopped so something else on this game could go first. Nothing was lost, and it runs again by itself after your next save.",
   "error.consentMarker.conflict": "That folder is already tracked by a different game in SavePoint.",
   "error.consentMarker.missing": "This folder has not been confirmed for SavePoint yet. Save again to confirm it.",
-  "error.diskSpace.low": "There's not enough free disk space to save this profile right now.",
+  "error.diskSpace.low": "There's not enough free disk space to save this profile right now. {os, select, windows {Free up {hasShortfall, select, yes {about {shortfall}} other {some space}} on drive {drive} and try again.} other {Free up {hasShortfall, select, yes {about {shortfall}} other {some space}} on the disk that holds the folder below and try again.}}",
   "error.game.notFound": "That game isn't in your library anymore, so SavePoint couldn't do that. Go back to your games and try again.",
   "error.gameService.gameRunning": "{gameName} is running right now, so SavePoint can't do that yet. Close the game, then try again.",
   "error.gameService.pathOverlap": "That folder overlaps with {conflictingGameName}, which you already track. Pick a different location for one of them.",

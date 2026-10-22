@@ -1,3 +1,4 @@
+using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Localization;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
@@ -91,10 +92,9 @@ public class ErrorCopyTests
 
     private static string? FormatProblem(LocalizationCatalog catalog, ErrorInfo info, string os)
     {
-        var args = new Dictionary<string, object?>(info.Args) { ["os"] = os };
         try
         {
-            var text = catalog.Format(info.MessageId, args);
+            var text = new UiFormatter(catalog, os: os).Message(info);
             return text.Contains('{', StringComparison.Ordinal) || text.Contains('}', StringComparison.Ordinal)
                 ? $"{info.MessageId} (os={os}) leaves a brace in its text: {text}"
                 : null;

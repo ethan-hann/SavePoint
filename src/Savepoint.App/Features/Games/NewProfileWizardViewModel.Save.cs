@@ -203,15 +203,11 @@ public sealed partial class NewProfileWizardViewModel
             ErrorTone.Warning,
             _text.Message("profiles.wizard.partial.title"),
             body,
-            path: ErrorPath(first),
+            path: ErrorCardViewModel.PathFor(first, _text),
             detail: first.Detail,
             actions: [new ErrorCardAction(retryLabel, new AsyncRelayCommand(RetryAsync), IsPrimary: true)],
             supplement: new SaveOutcomeListViewModel(rows));
     }
-
-    // The folder an error names helps unless it is the storage folder of a full disk, which the user cannot act on there.
-    private static string? ErrorPath(ErrorInfo error) =>
-        error.MessageId != "error.diskSpace.low" && error.Args.TryGetValue("path", out var path) ? path as string : null;
 
     private SaveOutcomeRow OutcomeRow(RepoRole role, bool saved)
     {

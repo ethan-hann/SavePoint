@@ -249,6 +249,29 @@ public class UiFormatterTests
     }
 
     [Theory]
+    [InlineData("windows", 1_200_000_000L, 0L, "There's not enough free disk space to save this profile right now. Free up about 1.2 GB on drive D: and try again.")]
+    [InlineData("windows", 5_000_000_000L, 3_800_000_000L, "There's not enough free disk space to save this profile right now. Free up about 1.2 GB on drive D: and try again.")]
+    [InlineData("windows", 100_000_000L, 4_000_000_000L, "There's not enough free disk space to save this profile right now. Free up some space on drive D: and try again.")]
+    [InlineData("linux", 1_200_000_000L, 0L, "There's not enough free disk space to save this profile right now. Free up about 1.2 GB on the disk that holds the folder below and try again.")]
+    public void The_out_of_space_message_says_which_drive_and_how_much_to_free(string os, long required, long free, string expected)
+    {
+        var error = ErrorInfo.From(new DiskSpaceException(@"D:\SavePoint\Storage", required, free));
+
+        Assert.Equal(expected, English(os).Message(error));
+    }
+
+    [Theory]
+    [InlineData(@"D:\SavePoint\Storage", "D:")]
+    [InlineData(@"d:/games", "D:")]
+    [InlineData(@"\\nas\games\SavePoint", @"\\nas\games")]
+    [InlineData("/home/me/storage", "/home/me/storage")]
+    [InlineData("", null)]
+    public void The_drive_of_a_path_is_its_letter_or_its_share(string path, string? expected)
+    {
+        Assert.Equal(expected, UiFormatter.Drive(path));
+    }
+
+    [Theory]
     [InlineData("windows", "a Windows folder")]
     [InlineData("macos", "a macOS system folder")]
     [InlineData("linux", "a system folder")]
