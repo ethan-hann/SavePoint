@@ -6,7 +6,7 @@ namespace Savepoint.App.Tests.Features.EndToEnd;
 // An icon-only button is a small target for a hand that is not steady, so none is smaller than 32 by 32 anywhere in the app.
 public class TargetSizeTests
 {
-    private const double Smallest = 32;
+    private const double _smallest = 32;
 
     [AvaloniaTheory]
     [MemberData(nameof(AllStates))]
@@ -17,7 +17,7 @@ public class TargetSizeTests
 
         var small = app.All<Button>()
             .Where(button => button is not RepeatButton && button.Classes.Contains("icon") && button.IsEffectivelyVisible)
-            .Where(button => button.Bounds.Width < Smallest - 0.5 || button.Bounds.Height < Smallest - 0.5)
+            .Where(button => button.Bounds.Width < _smallest - 0.5 || button.Bounds.Height < _smallest - 0.5)
             .Select(button => $"{Avalonia.Automation.AutomationProperties.GetName(button)} is {button.Bounds.Width:0}x{button.Bounds.Height:0}")
             .ToList();
 

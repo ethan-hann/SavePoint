@@ -14,7 +14,7 @@ namespace Savepoint.App.Tests.Theme;
 
 public class ReducedMotionTests
 {
-    private const string ClassName = "reduced-motion";
+    private const string _className = "reduced-motion";
 
     private static ThemeService Theme => ((App)Application.Current!).Theme;
 
@@ -61,13 +61,13 @@ public class ReducedMotionTests
     public void A_window_carries_the_reduced_motion_class_only_while_the_setting_is_on()
     {
         using var host = new ThemeHost(new TextBlock());
-        Assert.DoesNotContain(ClassName, host.Window.Classes);
+        Assert.DoesNotContain(_className, host.Window.Classes);
 
         Theme.ReduceMotion = true;
-        Assert.Contains(ClassName, host.Window.Classes);
+        Assert.Contains(_className, host.Window.Classes);
 
         Theme.ReduceMotion = false;
-        Assert.DoesNotContain(ClassName, host.Window.Classes);
+        Assert.DoesNotContain(_className, host.Window.Classes);
     }
 
     [AvaloniaFact]
@@ -79,7 +79,7 @@ public class ReducedMotionTests
             Theme.ReduceMotion = true;
             late = Show(new TextBlock());
 
-            Assert.Contains(ClassName, late.Classes);
+            Assert.Contains(_className, late.Classes);
         }
         finally
         {

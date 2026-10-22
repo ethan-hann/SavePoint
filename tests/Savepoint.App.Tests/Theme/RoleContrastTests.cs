@@ -8,8 +8,8 @@ namespace Savepoint.App.Tests.Theme;
 // A pair belongs in a table only when some style or view draws it, so a later palette change cannot quietly drop below the bar.
 public partial class RoleContrastTests
 {
-    private const double TextMinimum = 4.5;
-    private const double BoundaryMinimum = 3.0;
+    private const double _textMinimum = 4.5;
+    private const double _boundaryMinimum = 3.0;
 
     // Everything text can sit on: the page, cards, rail and fields, dialogs, chips and toasts, wells and selected rows.
     private static readonly string[] _surfaces =
@@ -64,14 +64,14 @@ public partial class RoleContrastTests
     [Fact]
     public void Text_pairs_reach_4_5_to_1_for_every_accent_in_both_modes()
     {
-        var failures = Failures(_textPairs, TextMinimum);
+        var failures = Failures(_textPairs, _textMinimum);
         Assert.True(failures.Count == 0, "Text below 4.5:1 (worst accent shown):" + Environment.NewLine + string.Join(Environment.NewLine, failures));
     }
 
     [Fact]
     public void Boundary_pairs_reach_3_to_1_for_every_accent_in_both_modes()
     {
-        var failures = Failures(_boundaryPairs, BoundaryMinimum);
+        var failures = Failures(_boundaryPairs, _boundaryMinimum);
         Assert.True(failures.Count == 0, "Boundaries below 3:1 (worst accent shown):" + Environment.NewLine + string.Join(Environment.NewLine, failures));
     }
 

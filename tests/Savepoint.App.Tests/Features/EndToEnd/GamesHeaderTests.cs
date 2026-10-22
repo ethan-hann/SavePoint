@@ -1,7 +1,7 @@
 using Avalonia.Controls;
+using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
 using Savepoint.App.Tests.Theme;
-using Avalonia.Headless.XUnit;
 using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Tests.Features.EndToEnd;
@@ -10,13 +10,13 @@ namespace Savepoint.App.Tests.Features.EndToEnd;
 // up the name.
 public class GamesHeaderTests
 {
-    private const double NameRoom = 240;
+    private const double _nameRoom = 240;
 
     // The default 1040 px window keeps the buttons' words, which leaves the name about 200 px.
-    private const double NameRoomWithWords = 200;
+    private const double _nameRoomWithWords = 200;
 
     // Enough for about twenty characters of a profile name before the ellipsis.
-    private const double ProfileNameRoom = 150;
+    private const double _profileNameRoom = 150;
 
     [AvaloniaTheory]
     [InlineData(640)]
@@ -37,7 +37,7 @@ public class GamesHeaderTests
         app.Render("games", $"header-sidebar-{width}");
 
         var name = app.Find<TextBlock>("GameNameText");
-        var room = width >= 1040 ? NameRoomWithWords : NameRoom;
+        var room = width >= 1040 ? _nameRoomWithWords : _nameRoom;
         Assert.True(name.Bounds.Width >= room, $"At {width}px the name has {name.Bounds.Width:0}px, and needs {room}px.");
     }
 
@@ -53,7 +53,7 @@ public class GamesHeaderTests
         app.Render("games", $"header-library-{width}");
 
         var title = app.Find<TextBlock>("LibraryTitleText");
-        Assert.True(title.Bounds.Width >= NameRoom, $"At {width}px the title has {title.Bounds.Width:0}px.");
+        Assert.True(title.Bounds.Width >= _nameRoom, $"At {width}px the title has {title.Bounds.Width:0}px.");
     }
 
     [AvaloniaFact]
@@ -115,7 +115,7 @@ public class GamesHeaderTests
                 .First(text => text.Text is not null && text.Margin.Left == 14);
             var gap = LayoutAudit.BoundsIn(app.Window, next).Left - LayoutAudit.BoundsIn(app.Window, title).Right;
             Assert.True(gap >= 0, $"At {width}px \"{title.Text}\" runs {-gap:0}px into \"{next.Text}\".");
-            Assert.True(title.Bounds.Width >= ProfileNameRoom, $"At {width}px the profile name has {title.Bounds.Width:0}px.");
+            Assert.True(title.Bounds.Width >= _profileNameRoom, $"At {width}px the profile name has {title.Bounds.Width:0}px.");
         }
     }
 }

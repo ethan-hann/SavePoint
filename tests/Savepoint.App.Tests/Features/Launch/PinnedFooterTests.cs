@@ -1,8 +1,8 @@
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.VisualTree;
-using Savepoint.App.Tests.Features.EndToEnd;
 using Savepoint.App.Tests.Fakes;
+using Savepoint.App.Tests.Features.EndToEnd;
 using Savepoint.App.Tests.Theme;
 using Savepoint.Core.Catalog;
 
