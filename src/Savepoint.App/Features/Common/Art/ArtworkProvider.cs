@@ -18,6 +18,10 @@ public sealed class ArtworkProvider : IArtworkProvider, IDisposable
     // Reads of one game can finish in any order; a read that finishes after a later one was already shown is dropped.
     private readonly Dictionary<string, long> _started = new(StringComparer.Ordinal);
     private readonly Dictionary<string, long> _shown = new(StringComparer.Ordinal);
+
+    // The first read of a game that a change asked for. The read that carries the reload can be the one that is dropped, so the reload
+    // goes to the first read of at least that ticket that is shown: it started after the change and holds what the change brought.
+    private readonly Dictionary<string, long> _reloadFrom = new(StringComparer.Ordinal);
     private bool _disposed;
 
     /// <summary>Creates the provider and starts listening for artwork changes.</summary>
@@ -113,6 +117,10 @@ public sealed class ArtworkProvider : IArtworkProvider, IDisposable
         lock (_gate)
         {
             ticket = _started[art.GameId] = _started.GetValueOrDefault(art.GameId) + 1;
+            if (contentMayHaveChanged)
+            {
+                _reloadFrom.TryAdd(art.GameId, ticket);
+            }
         }
 
         var read = await _api.GetAsync(art.GameId).ConfigureAwait(false);
@@ -123,6 +131,7 @@ public sealed class ArtworkProvider : IArtworkProvider, IDisposable
 
         _dispatcher.Post(() =>
         {
+            bool reload;
             lock (_gate)
             {
                 if (_disposed || ticket < _shown.GetValueOrDefault(art.GameId))
@@ -131,9 +140,14 @@ public sealed class ArtworkProvider : IArtworkProvider, IDisposable
                 }
 
                 _shown[art.GameId] = ticket;
+                reload = _reloadFrom.TryGetValue(art.GameId, out var from) && ticket >= from;
+                if (reload)
+                {
+                    _reloadFrom.Remove(art.GameId);
+                }
             }
 
-            art.Show(read.Value, contentMayHaveChanged);
+            art.Show(read.Value, reload);
         });
     }
 }
