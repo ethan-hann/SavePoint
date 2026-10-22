@@ -8,8 +8,10 @@
              x:Class="Savepoint.App.Features.Games.GamesScreenView"
              x:DataType="games:GamesScreenViewModel">
   <!--
-    The Games screen (3a, 3b): the game's header, the Profiles / History chips, the launch flow's banner or running card,
-    the profile table and the storage footer. The library layout has no art tile, path, chips or toggle (the shell's shelf
+    The Games screen (3a, 3b): the game's header, the Profiles / History chips, the profile table, the launch flow's banner or
+    running card and the storage footer. The banner or card and the footer are pinned to the bottom of the pane, outside the
+    table's scroll area, so a launch's progress is in view however many profiles there are. A failure card is taller, so it
+    stays below the table in the scroll area. The library layout has no art tile, path, chips or toggle (the shell's shelf
     and top bar carry them), so its header is a title with the same buttons.
   -->
   <UserControl.Styles>
@@ -54,7 +56,7 @@
     </Style>
   </UserControl.Styles>
 
-  <Grid x:Name="Root" RowDefinitions="Auto,Auto,*,Auto" Margin="22,20,22,20">
+  <Grid x:Name="Root" RowDefinitions="Auto,Auto,*,Auto,Auto" Margin="22,20,22,20">
 
     <!-- Header, sidebar layout: art tile, name and install path, then the buttons and the layout toggle. -->
     <Grid x:Name="SidebarHeader" Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" IsVisible="{Binding IsSidebarLayout}" Classes.compact="{Binding Header.IsCompact}">
@@ -236,13 +238,16 @@
           </StackPanel>
         </Border>
 
-        <!-- The launch flow's banner (2a) or running card (2c) for this game, below the table as the mockups draw it. -->
-        <ContentControl x:Name="InlineContentHost" IsVisible="{Binding HasInlineContent}" Content="{Binding InlineContent}" />
+        <!-- A failure or partial-result card for this game, below the table where it can use the pane's height. -->
+        <ContentControl x:Name="FailureContentHost" IsVisible="{Binding HasFailureContent}" Content="{Binding FailureContent}" />
       </StackPanel>
     </ScrollViewer>
 
+    <!-- The launch flow's banner (2a) or running card (2c) for this game, pinned above the storage footer as the mockups draw it. -->
+    <ContentControl x:Name="InlineContentHost" Grid.Row="3" Margin="0,12,0,0" IsVisible="{Binding HasPinnedContent}" Content="{Binding PinnedContent}" />
+
     <!-- The storage footer, pinned to the bottom of the pane as the mockups draw it; the library layout's shelf already shows each game's size. -->
-    <Border x:Name="StorageFooter" Grid.Row="3" Classes="strip" Margin="0,12,0,0" IsVisible="{Binding ShowStorageFooter}">
+    <Border x:Name="StorageFooter" Grid.Row="4" Classes="strip" Margin="0,12,0,0" IsVisible="{Binding ShowStorageFooter}">
       <StackPanel Orientation="Horizontal" Spacing="12">
         <TextBlock Classes="icon muted" Text="{x:Static theme:Icons.Database}" />
         <TextBlock x:Name="StorageFooterText" Classes="muted" VerticalAlignment="Center" Text="{Binding StorageFooterText}" />

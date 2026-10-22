@@ -453,6 +453,56 @@ public class GamesScreenViewTests
     }
 
     [AvaloniaFact]
+    public async Task The_launch_flows_content_is_pinned_above_the_storage_footer_as_the_mockup_draws_it()
+    {
+        using var harness = await GamesViewHarness.StartAsync();
+        var host = harness.Find<ContentControl>("InlineContentHost");
+        var footer = harness.Find<Border>("StorageFooter");
+
+        harness.Rig.LaunchFlow!.SetInline(MockupScenario.SkyrimId, "Everything was already in place");
+        harness.Settle();
+
+        Assert.Equal(12, footer.Bounds.Top - host.Bounds.Bottom, 1.0);
+    }
+
+    [AvaloniaFact]
+    public async Task The_launch_flows_content_stays_in_view_when_the_profiles_outgrow_the_pane()
+    {
+        var scenario = ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings);
+        for (var i = 0; i < 12; i++)
+        {
+            scenario = scenario.WithProfile(new Profile($"profile-extra-{i}", MockupScenario.SkyrimId, $"Extra profile {i}", $"profile/extra-{i}"));
+        }
+
+        using var harness = await GamesViewHarness.StartAsync(new FakeBackend(scenario));
+        var root = harness.Find<Grid>("Root");
+        var host = harness.Find<ContentControl>("InlineContentHost");
+        var scroller = harness.Find<Border>("Table").GetVisualAncestors().OfType<ScrollViewer>().First();
+
+        harness.Rig.LaunchFlow!.SetInline(MockupScenario.SkyrimId, "Everything was already in place");
+        harness.Settle();
+
+        Assert.True(scroller.Extent.Height > scroller.Viewport.Height, "the profiles fill more than the pane");
+        Assert.True(host.Bounds.Top >= 0 && host.Bounds.Bottom <= root.Bounds.Height, $"the content at {host.Bounds} is outside the {root.Bounds.Height:0}px pane");
+    }
+
+    // A failure card is as tall as the pane allows, so pinning it would squeeze the table to nothing in a short window.
+    [AvaloniaFact]
+    public async Task A_failure_card_stays_with_the_profiles_in_the_scroll_area_instead_of_being_pinned()
+    {
+        using var harness = await GamesViewHarness.StartAsync();
+        var scroller = harness.Find<Border>("Table").GetVisualAncestors().OfType<ScrollViewer>().First();
+        var pinned = harness.Find<ContentControl>("InlineContentHost");
+
+        harness.Rig.LaunchFlow!.SetInline(MockupScenario.SkyrimId, new ErrorCardViewModel(MockupScenario.FileInUseError, harness.Rig.Text));
+        harness.Settle();
+
+        var card = harness.All<ErrorCardView>().Single();
+        Assert.True(card.GetVisualAncestors().Contains(scroller), "the failure card is outside the table's scroll area");
+        Assert.False(pinned.IsEffectivelyVisible);
+    }
+
+    [AvaloniaFact]
     public async Task A_failed_read_shows_the_error_card_instead_of_the_table()
     {
         using var harness = await GamesViewHarness.StartAsync();

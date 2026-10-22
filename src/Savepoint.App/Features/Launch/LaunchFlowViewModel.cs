@@ -11,7 +11,7 @@ namespace Savepoint.App.Features.Launch;
 /// The shell-owned launch flow (D13.19): Play, the dialog, the switch, the running game, the post-play prompt and every
 /// failure along the way. Its state is kept per game above all screens, layouts and selections, so changing any of them
 /// never loses a running session or its post-play prompt. The Games screen starts it with <see cref="BeginAsync"/>,
-/// shows <see cref="InlineContentFor"/> above the profile table, and keeps Play unavailable while <see cref="IsActive"/>
+/// shows <see cref="InlineContentFor"/> in the pane, and keeps Play unavailable while <see cref="IsActive"/>
 /// is true; it can follow <see cref="ActiveGameIds"/> and <see cref="InlineContentChanged"/> to refresh both.
 /// </summary>
 /// <remarks>
