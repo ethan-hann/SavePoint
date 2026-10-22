@@ -45,6 +45,7 @@
   "games.profileTable.noneAutomation": "none",
   "games.profileTable.play": "Play",
   "games.profileTable.playAutomationName": "Play {name}",
+  "games.profileTable.playBlocked": "A session is already running for this game. Play is available again when it ends.",
   "games.profileTable.rowAutomationName": "{name}. {status} Version: {version}. Mod files: {modFiles}. Last played: {lastPlayed}.",
   "games.profileTable.running": "Running",
   "games.profileTable.runningAutomationName": "Running: {name}",

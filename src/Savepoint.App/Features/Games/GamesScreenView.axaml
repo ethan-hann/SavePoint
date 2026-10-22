@@ -185,6 +185,8 @@
                                 Classes.filled="{Binding IsActive}"
                                 Padding="14,6"
                                 Command="{Binding PlayCommand}"
+                                ToolTip.Tip="{Binding PlayDisabledReason}"
+                                ToolTip.ShowOnDisabled="True"
                                 AutomationProperties.Name="{Binding PlayAutomationName}">
                           <StackPanel Orientation="Horizontal" Spacing="6">
                             <TextBlock Classes="icon s16" Text="{x:Static theme:Icons.PlayArrow}" />
