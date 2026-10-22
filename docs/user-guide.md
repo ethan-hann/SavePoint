@@ -66,7 +66,7 @@ Each row has **Play**, plus a menu with **Edit** (name, notes, version), **Take 
 - **Duplicate** starts a new profile with the same game version and mods and no save snapshots of its own.
 - **Delete** warns you when the profile has snapshots no other profile has. Deleting it deletes those for good.
 
-With a row selected from the keyboard, Enter starts Play. In the Sidebar layout, the footer under the table shows how much space this game's snapshots use and how big the drive is, and **Free up space** clears out the snapshots no profile uses anymore. In the Library layout, **Free up space** is in the game's menu.
+With a row selected from the keyboard, Enter starts Play. In the Sidebar layout, the footer under the table shows how much space this game's snapshots use and how big the drive is, and **Free up space** clears out the snapshots no profile uses anymore, asking first when it would delete snapshots from History's Recently removed. In the Library layout, **Free up space** is in the game's menu.
 
 ## Playing
 
