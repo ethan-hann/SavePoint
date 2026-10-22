@@ -15,6 +15,7 @@
         <ResourceInclude Source="avares://SavePoint/Styles/Controls/ToggleSwitchTheme.axaml" />
         <ResourceInclude Source="avares://SavePoint/Styles/Controls/ProgressBarTheme.axaml" />
         <ResourceInclude Source="avares://SavePoint/Styles/Controls/ListBoxTheme.axaml" />
+        <ResourceInclude Source="avares://SavePoint/Styles/Controls/DialogFrameTheme.axaml" />
       </ResourceDictionary.MergedDictionaries>
       <FontFamily x:Key="RobotoFont">avares://SavePoint/Assets/Fonts#Roboto</FontFamily>
       <FontFamily x:Key="RobotoMonoFont">avares://SavePoint/Assets/Fonts#Roboto Mono</FontFamily>

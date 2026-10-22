@@ -78,6 +78,9 @@ public sealed partial class ClearAllDataDialogViewModel : DialogViewModel<bool>
     public override double DialogWidth => 520;
 
     /// <inheritdoc />
+    public override bool PinsFooter => true;
+
+    /// <inheritdoc />
     protected override bool DismissResult => false;
 
     [RelayCommand(CanExecute = nameof(CanConfirm))]

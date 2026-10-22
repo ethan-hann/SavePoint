@@ -95,6 +95,9 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
     public override double DialogWidth => 600;
 
     /// <inheritdoc />
+    public override bool PinsFooter => true;
+
+    /// <inheritdoc />
     public override bool CanDismiss => !IsBusy;
 
     /// <summary>The game being started.</summary>

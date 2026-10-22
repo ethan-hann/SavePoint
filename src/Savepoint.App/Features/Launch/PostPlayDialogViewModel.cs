@@ -86,6 +86,9 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
     public override double DialogWidth => 580;
 
     /// <inheritdoc />
+    public override bool PinsFooter => true;
+
+    /// <inheritdoc />
     protected override SessionCompletion DismissResult => new SessionCompletion.Skip();
 
     partial void OnSelectedChoiceChanged(PostPlayChoiceViewModel? oldValue, PostPlayChoiceViewModel newValue)

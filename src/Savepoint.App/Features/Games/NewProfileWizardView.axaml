@@ -4,6 +4,7 @@
              xmlns:theme="using:Savepoint.App.Theme"
              xmlns:a11y="using:Savepoint.App.Features.Common.Accessibility"
              xmlns:games="using:Savepoint.App.Features.Games"
+             xmlns:dialogs="using:Savepoint.App.Features.Common.Dialogs"
              x:Class="Savepoint.App.Features.Games.NewProfileWizardView"
              x:DataType="games:NewProfileWizardViewModel">
   <!-- The New profile wizard (2f): Name it, Check, Save, in a 620px dialog. -->
@@ -13,84 +14,87 @@
       <Setter Property="Foreground" Value="{DynamicResource Md3PrimaryBrush}" />
     </Style>
   </UserControl.Styles>
-  <StackPanel Spacing="22">
-    <a11y:AnnouncementRegion x:Name="Announcer" Message="{Binding Announcement}" />
-    <TextBlock x:Name="TitleText" Classes="dialog-title" TextWrapping="Wrap" Text="{Binding Title}" />
-
-    <Grid x:Name="StepIndicator" ColumnDefinitions="Auto,*,Auto,*,Auto">
-      <ContentControl Grid.Column="0" Content="{Binding Steps[0]}" />
-      <Border Grid.Column="1" Classes="divider" Margin="16,0" VerticalAlignment="Center" />
-      <ContentControl Grid.Column="2" Content="{Binding Steps[1]}" />
-      <Border Grid.Column="3" Classes="divider" Margin="16,0" VerticalAlignment="Center" />
-      <ContentControl Grid.Column="4" Content="{Binding Steps[2]}" />
-    </Grid>
-
-    <!-- Step one: name it. -->
-    <StackPanel x:Name="NameStep" Spacing="18" IsVisible="{Binding IsNameStep}">
-      <StackPanel Classes="field" Spacing="6">
-        <TextBlock Classes="caption field-label" Text="{loc:Loc profiles.wizard.name.label}" />
-        <TextBox x:Name="NameField" Text="{Binding Name}" AutomationProperties.Name="{loc:Loc profiles.wizard.name.label}" />
-        <TextBlock x:Name="NameHelperText" Classes="caption subtle" Text="{Binding NameHelper}" />
+  <dialogs:DialogFrame>
+    <dialogs:DialogFrame.Footer>
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+        <Button x:Name="CancelButton" Classes="text pill large" IsVisible="{Binding ShowCancel}" Command="{Binding CancelCommand}" Content="{loc:Loc common.cancel}" />
+        <Button x:Name="BackButton" Classes="text pill large" IsVisible="{Binding ShowBack}" Command="{Binding BackCommand}" Content="{loc:Loc profiles.wizard.back}" />
+        <Button x:Name="StopSaveButton" Classes="text pill large" IsVisible="{Binding ShowStopSave}" Command="{Binding StopSaveCommand}" Content="{loc:Loc common.cancel}" />
+        <Button x:Name="ContinueButton" Classes="filled pill large" IsDefault="True" IsVisible="{Binding ShowContinue}" Command="{Binding ContinueCommand}" Content="{loc:Loc profiles.wizard.continue}" />
+        <Button x:Name="DoneButton" Classes="filled pill large" IsDefault="True" IsVisible="{Binding ShowDone}" Command="{Binding CloseCommand}" Content="{loc:Loc profiles.wizard.save.done}" />
+        <Button x:Name="CloseButton" Classes="pill large" IsVisible="{Binding ShowClose}" Command="{Binding CloseCommand}" Content="{loc:Loc profiles.wizard.save.close}" />
       </StackPanel>
-      <StackPanel Classes="field" Spacing="6">
-        <TextBlock Classes="caption field-label" Text="{loc:Loc profiles.wizard.notes.label}" />
-        <TextBox x:Name="NotesField"
-                 Text="{Binding Notes}"
-                 AcceptsReturn="True"
-                 TextWrapping="Wrap"
-                 MinHeight="84"
-                 MaxHeight="140"
-                 PlaceholderText="{loc:Loc profiles.wizard.notes.placeholder}"
-                 AutomationProperties.Name="{loc:Loc profiles.wizard.notes.label}" />
+    </dialogs:DialogFrame.Footer>
+    <StackPanel Spacing="22">
+      <a11y:AnnouncementRegion x:Name="Announcer" Message="{Binding Announcement}" />
+      <TextBlock x:Name="TitleText" Classes="dialog-title" TextWrapping="Wrap" Text="{Binding Title}" />
+
+      <Grid x:Name="StepIndicator" ColumnDefinitions="Auto,*,Auto,*,Auto">
+        <ContentControl Grid.Column="0" Content="{Binding Steps[0]}" />
+        <Border Grid.Column="1" Classes="divider" Margin="16,0" VerticalAlignment="Center" />
+        <ContentControl Grid.Column="2" Content="{Binding Steps[1]}" />
+        <Border Grid.Column="3" Classes="divider" Margin="16,0" VerticalAlignment="Center" />
+        <ContentControl Grid.Column="4" Content="{Binding Steps[2]}" />
+      </Grid>
+
+      <!-- Step one: name it. -->
+      <StackPanel x:Name="NameStep" Spacing="18" IsVisible="{Binding IsNameStep}">
+        <StackPanel Classes="field" Spacing="6">
+          <TextBlock Classes="caption field-label" Text="{loc:Loc profiles.wizard.name.label}" />
+          <TextBox x:Name="NameField" Text="{Binding Name}" AutomationProperties.Name="{loc:Loc profiles.wizard.name.label}" />
+          <TextBlock x:Name="NameHelperText" Classes="caption subtle" Text="{Binding NameHelper}" />
+        </StackPanel>
+        <StackPanel Classes="field" Spacing="6">
+          <TextBlock Classes="caption field-label" Text="{loc:Loc profiles.wizard.notes.label}" />
+          <TextBox x:Name="NotesField"
+                   Text="{Binding Notes}"
+                   AcceptsReturn="True"
+                   TextWrapping="Wrap"
+                   MinHeight="84"
+                   MaxHeight="140"
+                   PlaceholderText="{loc:Loc profiles.wizard.notes.placeholder}"
+                   AutomationProperties.Name="{loc:Loc profiles.wizard.notes.label}" />
+        </StackPanel>
+        <ContentControl x:Name="NamePreview" Content="{Binding Preview}" />
       </StackPanel>
-      <ContentControl x:Name="NamePreview" Content="{Binding Preview}" />
+
+      <!-- Step two: check it. -->
+      <StackPanel x:Name="CheckStep" Spacing="18" IsVisible="{Binding IsCheckStep}">
+        <TextBlock x:Name="CheckName" Classes="card-title" TextWrapping="Wrap" Text="{Binding TrimmedName}" />
+        <StackPanel x:Name="CheckNotes" Spacing="4" IsVisible="{Binding HasNotes}">
+          <TextBlock Classes="overline" Text="{theme:Upper {loc:Loc profiles.wizard.check.notesLabel}}" />
+          <TextBlock Classes="body muted" TextWrapping="Wrap" Text="{Binding TrimmedNotes}" />
+        </StackPanel>
+        <ContentControl x:Name="CheckPreview" Content="{Binding Preview}" />
+      </StackPanel>
+
+      <!-- Step three: the save, its progress and how it ended. -->
+      <StackPanel x:Name="SaveStep" Spacing="14" IsVisible="{Binding IsSaveStep}">
+        <StackPanel x:Name="SavingBlock" Spacing="10" IsVisible="{Binding IsSaving}">
+          <TextBlock x:Name="StatusText" Classes="card-heading" Text="{Binding StatusText}" />
+          <ProgressBar x:Name="SaveProgress"
+                       Minimum="0"
+                       Maximum="100"
+                       Value="{Binding ProgressPercent}"
+                       IsIndeterminate="{Binding IsIndeterminate}"
+                       AutomationProperties.Name="{Binding ProgressText}" />
+          <TextBlock x:Name="ProgressLine" Classes="caption" TextWrapping="Wrap" Text="{Binding ProgressText}" />
+          <TextBlock x:Name="CurrentFile"
+                     Classes="mono small subtle"
+                     TextTrimming="CharacterEllipsis"
+                     IsVisible="{Binding HasCurrentFile}"
+                     Text="{Binding CurrentFileText}" />
+        </StackPanel>
+        <StackPanel x:Name="SavedBlock" Orientation="Horizontal" Spacing="12" IsVisible="{Binding IsSaved}">
+          <TextBlock Classes="icon s28 success" Text="{x:Static theme:Icons.CheckCircle}" />
+          <TextBlock x:Name="SavedText" Classes="card-heading" VerticalAlignment="Center" Text="{Binding StatusText}" />
+        </StackPanel>
+        <ContentControl x:Name="ResultCardHost" Content="{Binding ResultCard}" IsVisible="{Binding HasResultCard}" />
+      </StackPanel>
+
+      <Border x:Name="SubmitErrorBox" Classes="callout error" IsVisible="{Binding HasSubmitError}" AutomationProperties.LiveSetting="Polite">
+        <TextBlock TextWrapping="Wrap" Text="{Binding SubmitError}" />
+      </Border>
     </StackPanel>
-
-    <!-- Step two: check it. -->
-    <StackPanel x:Name="CheckStep" Spacing="18" IsVisible="{Binding IsCheckStep}">
-      <TextBlock x:Name="CheckName" Classes="card-title" TextWrapping="Wrap" Text="{Binding TrimmedName}" />
-      <StackPanel x:Name="CheckNotes" Spacing="4" IsVisible="{Binding HasNotes}">
-        <TextBlock Classes="overline" Text="{theme:Upper {loc:Loc profiles.wizard.check.notesLabel}}" />
-        <TextBlock Classes="body muted" TextWrapping="Wrap" Text="{Binding TrimmedNotes}" />
-      </StackPanel>
-      <ContentControl x:Name="CheckPreview" Content="{Binding Preview}" />
-    </StackPanel>
-
-    <!-- Step three: the save, its progress and how it ended. -->
-    <StackPanel x:Name="SaveStep" Spacing="14" IsVisible="{Binding IsSaveStep}">
-      <StackPanel x:Name="SavingBlock" Spacing="10" IsVisible="{Binding IsSaving}">
-        <TextBlock x:Name="StatusText" Classes="card-heading" Text="{Binding StatusText}" />
-        <ProgressBar x:Name="SaveProgress"
-                     Minimum="0"
-                     Maximum="100"
-                     Value="{Binding ProgressPercent}"
-                     IsIndeterminate="{Binding IsIndeterminate}"
-                     AutomationProperties.Name="{Binding ProgressText}" />
-        <TextBlock x:Name="ProgressLine" Classes="caption" TextWrapping="Wrap" Text="{Binding ProgressText}" />
-        <TextBlock x:Name="CurrentFile"
-                   Classes="mono small subtle"
-                   TextTrimming="CharacterEllipsis"
-                   IsVisible="{Binding HasCurrentFile}"
-                   Text="{Binding CurrentFileText}" />
-      </StackPanel>
-      <StackPanel x:Name="SavedBlock" Orientation="Horizontal" Spacing="12" IsVisible="{Binding IsSaved}">
-        <TextBlock Classes="icon s28 success" Text="{x:Static theme:Icons.CheckCircle}" />
-        <TextBlock x:Name="SavedText" Classes="card-heading" VerticalAlignment="Center" Text="{Binding StatusText}" />
-      </StackPanel>
-      <ContentControl x:Name="ResultCardHost" Content="{Binding ResultCard}" IsVisible="{Binding HasResultCard}" />
-    </StackPanel>
-
-    <Border x:Name="SubmitErrorBox" Classes="callout error" IsVisible="{Binding HasSubmitError}" AutomationProperties.LiveSetting="Polite">
-      <TextBlock TextWrapping="Wrap" Text="{Binding SubmitError}" />
-    </Border>
-
-    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,4,0,0">
-      <Button x:Name="CancelButton" Classes="text pill large" IsVisible="{Binding ShowCancel}" Command="{Binding CancelCommand}" Content="{loc:Loc common.cancel}" />
-      <Button x:Name="BackButton" Classes="text pill large" IsVisible="{Binding ShowBack}" Command="{Binding BackCommand}" Content="{loc:Loc profiles.wizard.back}" />
-      <Button x:Name="StopSaveButton" Classes="text pill large" IsVisible="{Binding ShowStopSave}" Command="{Binding StopSaveCommand}" Content="{loc:Loc common.cancel}" />
-      <Button x:Name="ContinueButton" Classes="filled pill large" IsDefault="True" IsVisible="{Binding ShowContinue}" Command="{Binding ContinueCommand}" Content="{loc:Loc profiles.wizard.continue}" />
-      <Button x:Name="DoneButton" Classes="filled pill large" IsDefault="True" IsVisible="{Binding ShowDone}" Command="{Binding CloseCommand}" Content="{loc:Loc profiles.wizard.save.done}" />
-      <Button x:Name="CloseButton" Classes="pill large" IsVisible="{Binding ShowClose}" Command="{Binding CloseCommand}" Content="{loc:Loc profiles.wizard.save.close}" />
-    </StackPanel>
-  </StackPanel>
+  </dialogs:DialogFrame>
 </UserControl>

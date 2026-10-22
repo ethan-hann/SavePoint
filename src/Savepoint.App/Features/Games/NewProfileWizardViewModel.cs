@@ -242,6 +242,9 @@ public sealed partial class NewProfileWizardViewModel : DialogViewModel<bool>
     public override double DialogWidth => 620;
 
     /// <inheritdoc />
+    public override bool PinsFooter => true;
+
+    /// <inheritdoc />
     protected override bool DismissResult => Created;
 
     /// <summary>Reads what a capture would take, for the panel. Call it once, as the wizard opens.</summary>

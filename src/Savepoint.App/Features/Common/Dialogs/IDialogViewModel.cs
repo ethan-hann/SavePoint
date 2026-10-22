@@ -28,6 +28,12 @@ public interface IDialogViewModel : INotifyPropertyChanged
     /// </summary>
     bool DismissesOnScrimClick { get; }
 
+    /// <summary>
+    /// Whether the dialog's view arranges itself as a scrolling body above a footer that stays in view. False means the host
+    /// scrolls the whole view, buttons included, which is right for a dialog that is never taller than a small window.
+    /// </summary>
+    bool PinsFooter => false;
+
     /// <summary>Width of the dialog chrome in device-independent pixels.</summary>
     double DialogWidth { get; }
 

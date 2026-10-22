@@ -1,0 +1,23 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:dialogs="using:Savepoint.App.Features.Common.Dialogs">
+
+  <!--
+    A scrolling body above a footer that stays put. The viewer clips to its viewport, which would cut the 4px focus ring off a
+    control at its edge, so the content's margin gives the ring room and the viewer's negative margin puts the content back.
+    The scroll bar stays visible, so a person can tell there is more above the buttons.
+  -->
+  <ControlTheme x:Key="{x:Type dialogs:DialogFrame}" TargetType="dialogs:DialogFrame">
+    <Setter Property="Template">
+      <ControlTemplate TargetType="dialogs:DialogFrame">
+        <Grid RowDefinitions="*,Auto">
+          <ScrollViewer x:Name="PART_Body" Margin="-6,-6,-6,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" AllowAutoHide="False">
+            <ContentPresenter Margin="6" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" />
+          </ScrollViewer>
+          <ContentPresenter Grid.Row="1" Margin="0,12,0,0" Content="{TemplateBinding Footer}" />
+        </Grid>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+</ResourceDictionary>
