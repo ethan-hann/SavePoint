@@ -1,5 +1,6 @@
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Services.Locking;
 
 namespace Savepoint.Core.Tests.Launch.Orchestration;
 
@@ -41,7 +42,7 @@ public class GameIgnoreEditTests
 
         // The discard reads the game and then queues behind the lock; the pattern is saved while it waits.
         var discard = rig.Launch.DiscardChangesAsync(rig.Game.Id, RepoRole.Install);
-        await Task.Delay(1500, rig.Token);
+        await WaitUntilQueuedAsync(services.Locks, rig.Game.Id, rig.Token);
         await services.Catalog.SaveGameAsync(rig.Game with { IgnorePaths = ["Screenshots/"] }, rig.Token);
         release.SetResult();
         await holding;
@@ -49,6 +50,17 @@ public class GameIgnoreEditTests
 
         Assert.True(result.Ok, result.Error?.Detail);
         Assert.True(rig.InstallHas("Screenshots/one.png"));
+    }
+
+    // The discard has read the game and queued for the lock once a caller waits behind the holder.
+    private static async Task WaitUntilQueuedAsync(GameLock locks, string key, CancellationToken cancellationToken)
+    {
+        var until = DateTime.UtcNow + TimeSpan.FromSeconds(60);
+        while (locks.WaiterCount(key) == 0)
+        {
+            Assert.True(DateTime.UtcNow < until, "the discard never queued for the game's lock");
+            await Task.Delay(5, cancellationToken);
+        }
     }
 
     [Fact(Timeout = 120_000)]

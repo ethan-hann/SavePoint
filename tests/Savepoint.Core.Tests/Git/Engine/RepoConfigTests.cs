@@ -277,6 +277,22 @@ public sealed class RepoConfigTests : IDisposable
         Assert.Equal(1, rewritten.Split('\n').Count(line => line.Contains("repoConfigVersion", StringComparison.Ordinal)));
     }
 
+    // What git init decided about the repository format and the file system is not SavePoint's to change, so it survives every rewrite.
+    [Theory]
+    [InlineData("core", "precomposeunicode", "true")]
+    [InlineData("extensions", "objectformat", "sha256")]
+    [InlineData("extensions", "refstorage", "reftable")]
+    [InlineData("core", "repositoryformatversion", "1")]
+    public void A_rewrite_keeps_what_git_init_decided_about_the_format_and_the_file_system(string section, string key, string value)
+    {
+        var text = $"[core]\n\trepositoryformatversion = 1\n\tbare = false\n\tprecomposeunicode = true\n[extensions]\n\tobjectformat = sha256\n\trefstorage = reftable\n";
+
+        var rewritten = Savepoint.Core.Git.RepoConfigFile.Rewrite(text, isWindows: false);
+
+        Assert.Contains($"[{section}]", rewritten, StringComparison.Ordinal);
+        Assert.Contains($"\t{key} = {value}\n", rewritten, StringComparison.Ordinal);
+        Assert.Equal(rewritten, Savepoint.Core.Git.RepoConfigFile.Rewrite(rewritten, isWindows: false));
+    }
     [Fact]
     public async Task A_config_that_cannot_be_read_is_an_error_and_is_not_rebuilt_from_nothing()
     {

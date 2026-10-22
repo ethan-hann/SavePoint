@@ -1,6 +1,7 @@
 using Savepoint.Core.Api;
 using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Errors;
 using Savepoint.Core.Git;
 using Savepoint.Core.Services.Settings;
 using Savepoint.Testing;
@@ -589,5 +590,46 @@ public class StorageUnreachableChoicesTests
         Assert.True(started.Ok, started.Error?.Detail);
         Assert.True(!saved.Ok || job!.Status != JobStatus.Succeeded, "a save went ahead for a folder SavePoint has no consent for");
         Assert.False(Directory.Exists(gitDir), "a repository was made for a folder that is not confirmed");
+    }
+
+    // A folder that cannot take a repository is logged and left, and does not stop the others from being usable.
+    [Fact(Timeout = 120_000)]
+    public async Task A_game_whose_repository_cannot_be_made_is_logged_and_left_while_the_others_get_theirs()
+    {
+        var log = new RecordingDiagnosticLog();
+        var failFor = string.Empty;
+        using var workspace = new BackendWorkspace(options => options with
+        {
+            Log = log,
+            Engine = new GitEngineOptions
+            {
+                InvocationObserver = invocation =>
+                {
+                    if (failFor.Length > 0 && invocation.Arguments[0] == "init" && invocation.GitDir!.Contains(failFor, StringComparison.Ordinal))
+                    {
+                        throw new GitOperationException("git could not start the repository");
+                    }
+                },
+            },
+        });
+        await workspace.AppStatus.CheckAsync(workspace.Token);
+        var first = await workspace.AddGameAsync(workspace.NewGame("First"));
+        var second = await workspace.AddGameAsync(workspace.NewGame("Second"));
+        await workspace.CreateProfileAsync(first);
+        await workspace.CreateProfileAsync(second);
+        await workspace.WaitForIdleAsync(TimeSpan.FromSeconds(60));
+        BackendWorkspace.MoveFolder(workspace.DefaultStorageRoot, workspace.DefaultStorageRoot + "-away");
+        workspace.Restart();
+        failFor = second.Id;
+
+        var started = await workspace.AppStatus.StartWithEmptyStorageAsync(workspace.Token);
+
+        Assert.True(started.Ok, started.Error?.Detail);
+        Assert.True(Directory.Exists(Path.Combine(workspace.DefaultStorageRoot, first.Id, "install.git")));
+        Assert.True(Directory.Exists(Path.Combine(workspace.DefaultStorageRoot, first.Id, "external.git")));
+        Assert.False(Directory.Exists(Path.Combine(workspace.DefaultStorageRoot, second.Id, "install.git")));
+        var skipped = log.Containing("Storage:", second.Id, "error.gitOperation.failed");
+        Assert.Equal(2, skipped.Count);
+        Assert.All(skipped, line => Assert.Equal(LogLevel.Warning, line.Level));
     }
 }
