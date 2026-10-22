@@ -31,5 +31,6 @@
     <StyleInclude Source="avares://SavePoint/Styles/Typography.axaml" />
     <StyleInclude Source="avares://SavePoint/Styles/Surfaces.axaml" />
     <StyleInclude Source="avares://SavePoint/Styles/ListBoxVariants.axaml" />
+    <StyleInclude Source="avares://SavePoint/Styles/ProgressBarMotion.axaml" />
   </Application.Styles>
 </Application>

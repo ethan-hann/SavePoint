@@ -51,9 +51,13 @@ public sealed class ThemeService : IDisposable
     /// <summary>The mode in effect, after resolving <see cref="ThemePreference.System"/> against the operating system.</summary>
     public bool IsDark { get; private set; }
 
+    /// <summary>Raised when <see cref="ReduceMotion"/> changes, after the motion resources hold their new values.</summary>
+    public event EventHandler? ReduceMotionChanged;
+
     /// <summary>
-    /// Zeroes every transition duration and the <c>Md3MotionDuration*</c> tokens while true. The value is set from
-    /// outside (the operating system's setting, a user setting), takes effect immediately and survives later
+    /// Zeroes every transition duration and the <c>Md3MotionDuration*</c> tokens while true, and puts the
+    /// <c>reduced-motion</c> class on every window so styles can swap an animation for a still picture. The value is set
+    /// from outside (the operating system's setting, a user setting), takes effect immediately and survives later
     /// <see cref="Apply"/> calls.
     /// </summary>
     public bool ReduceMotion
@@ -61,8 +65,13 @@ public sealed class ThemeService : IDisposable
         get => _reduceMotion;
         set
         {
+            var changed = _reduceMotion != value;
             _reduceMotion = value;
             _motion.Apply(value);
+            if (changed)
+            {
+                ReduceMotionChanged?.Invoke(this, EventArgs.Empty);
+            }
         }
     }
 

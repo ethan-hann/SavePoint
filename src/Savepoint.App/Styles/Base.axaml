@@ -1,5 +1,6 @@
 <Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:theme="using:Savepoint.App.Theme">
 
   <!-- Window and popup text defaults: Roboto 13 in on-surface, so unclassed text is body text. -->
   <Style Selector="Window">
@@ -7,6 +8,7 @@
     <Setter Property="Foreground" Value="{DynamicResource Md3OnSurfaceBrush}" />
     <Setter Property="FontFamily" Value="{DynamicResource RobotoFont}" />
     <Setter Property="FontSize" Value="13" />
+    <Setter Property="theme:WindowMotion.Follows" Value="True" />
   </Style>
 
   <!-- Popups are their own top-level windows and do not inherit the window's text defaults. -->

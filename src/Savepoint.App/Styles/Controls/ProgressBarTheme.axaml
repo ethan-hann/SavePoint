@@ -1,7 +1,7 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-  <!-- 6px bar, determinate or indeterminate; the indeterminate sweep is driven by the control's TemplateSettings. -->
+  <!-- 6px bar, determinate or indeterminate; the sweep runs from the TemplateSettings and its animation is in ProgressBarMotion.axaml, which also swaps it for the still bar when motion is reduced. -->
   <ControlTheme x:Key="{x:Type ProgressBar}" TargetType="ProgressBar">
     <Setter Property="Foreground" Value="{DynamicResource Md3PrimaryBrush}" />
     <Setter Property="Background" Value="{DynamicResource Md3ProgressTrackBrush}" />
@@ -34,6 +34,13 @@
                       Margin="{TemplateBinding Padding}"
                       Background="{TemplateBinding Foreground}"
                       CornerRadius="{TemplateBinding CornerRadius}" />
+              <Grid x:Name="ReducedMotionIndicator" IsVisible="False" ColumnDefinitions="*,4,*,4,*,4,*,4,*">
+                <Border Grid.Column="0" Background="{TemplateBinding Foreground}" CornerRadius="{TemplateBinding CornerRadius}" />
+                <Border Grid.Column="2" Background="{TemplateBinding Foreground}" CornerRadius="{TemplateBinding CornerRadius}" />
+                <Border Grid.Column="4" Background="{TemplateBinding Foreground}" CornerRadius="{TemplateBinding CornerRadius}" />
+                <Border Grid.Column="6" Background="{TemplateBinding Foreground}" CornerRadius="{TemplateBinding CornerRadius}" />
+                <Border Grid.Column="8" Background="{TemplateBinding Foreground}" CornerRadius="{TemplateBinding CornerRadius}" />
+              </Grid>
             </Panel>
           </Panel>
         </Border>
@@ -53,36 +60,6 @@
     </Style>
     <Style Selector="^:indeterminate /template/ Panel#IndeterminateRoot">
       <Setter Property="Opacity" Value="1" />
-    </Style>
-    <Style Selector="^:horizontal:indeterminate /template/ Border#IndeterminateProgressBarIndicator">
-      <Style.Animations>
-        <Animation IterationCount="Infinite" Duration="0:0:2">
-          <KeyFrame KeySpline="0.4,0,0.6,1" KeyTime="0:0:0">
-            <Setter Property="TranslateTransform.X" Value="{Binding $parent[ProgressBar].TemplateSettings.ContainerAnimationStartPosition}" />
-          </KeyFrame>
-          <KeyFrame KeySpline="0.4,0,0.6,1" KeyTime="0:0:1.5">
-            <Setter Property="TranslateTransform.X" Value="{Binding $parent[ProgressBar].TemplateSettings.ContainerAnimationEndPosition}" />
-          </KeyFrame>
-          <KeyFrame KeySpline="0.4,0,0.6,1" KeyTime="0:0:2">
-            <Setter Property="TranslateTransform.X" Value="{Binding $parent[ProgressBar].TemplateSettings.ContainerAnimationEndPosition}" />
-          </KeyFrame>
-        </Animation>
-      </Style.Animations>
-    </Style>
-    <Style Selector="^:horizontal:indeterminate /template/ Border#IndeterminateProgressBarIndicator2">
-      <Style.Animations>
-        <Animation IterationCount="Infinite" Duration="0:0:2">
-          <KeyFrame KeySpline="0.4,0,0.6,1" KeyTime="0:0:0">
-            <Setter Property="TranslateTransform.X" Value="{Binding $parent[ProgressBar].TemplateSettings.Container2AnimationStartPosition}" />
-          </KeyFrame>
-          <KeyFrame KeySpline="0.4,0,0.6,1" KeyTime="0:0:0.75">
-            <Setter Property="TranslateTransform.X" Value="{Binding $parent[ProgressBar].TemplateSettings.Container2AnimationStartPosition}" />
-          </KeyFrame>
-          <KeyFrame KeySpline="0.4,0,0.6,1" KeyTime="0:0:2">
-            <Setter Property="TranslateTransform.X" Value="{Binding $parent[ProgressBar].TemplateSettings.Container2AnimationEndPosition}" />
-          </KeyFrame>
-        </Animation>
-      </Style.Animations>
     </Style>
     <Style Selector="^:horizontal /template/ Border#IndeterminateProgressBarIndicator">
       <Setter Property="Width" Value="{Binding $parent[ProgressBar].TemplateSettings.ContainerWidth}" />
