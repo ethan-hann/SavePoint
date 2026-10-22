@@ -28,11 +28,28 @@ public sealed class FakeLaunchApi : ILaunchApi
     public IReadOnlyList<LaunchSessionInfo> ListSessions() =>
         _backend.Read<IReadOnlyList<LaunchSessionInfo>>(_api, nameof(ListSessions), [], () => [.. State.Sessions.Values]);
 
-    public Task<OperationResult<LaunchPreview>> GetPreviewAsync(string gameId, LaunchTarget target, CancellationToken cancellationToken = default) =>
-        _backend.Call(_api, nameof(GetPreviewAsync), [gameId, target], () =>
+    // A test sets this to make the scan take as long as it likes; a cancelled token ends it with the cancelled error, as the real service does.
+    public Func<CancellationToken, Task>? PreviewGate { get; set; }
+
+    public async Task<OperationResult<LaunchPreview>> GetPreviewAsync(string gameId, LaunchTarget target, CancellationToken cancellationToken = default)
+    {
+        if (PreviewGate is { } gate)
+        {
+            try
+            {
+                await gate(cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                return OperationResult.Failure<LaunchPreview>(ErrorInfo.From(new RequestCancelledException()));
+            }
+        }
+
+        return await _backend.Call(_api, nameof(GetPreviewAsync), [gameId, target], () =>
             State.LaunchPreviews.TryGetValue((gameId, target), out var preview)
                 ? OperationResult.Success(preview)
                 : throw new KeyNotFoundException($"No launch preview is scripted for {target} in game '{gameId}'."));
+    }
 
     public Task<OperationResult<JobStarted>> StartAsync(string gameId, LaunchTarget target) =>
         _backend.Call(_api, nameof(StartAsync), [gameId, target], () =>

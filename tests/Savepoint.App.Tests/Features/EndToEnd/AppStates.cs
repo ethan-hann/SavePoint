@@ -24,6 +24,7 @@ internal static class AppStates
         "games-banner",
         "games-banner-details",
         "games-running",
+        "games-checking",
         "games-failure-card",
         "games-delete-game",
         "games-delete-profile",
@@ -115,6 +116,11 @@ internal static class AppStates
             case "games-running":
                 _ = Row(app, MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null);
                 app.Backend.Launch.ReportRunning(_skyrim, MockupScenario.RunningSince);
+                break;
+            case "games-checking":
+                // The scan never returns, so the card that says it is checking stays on screen.
+                app.Backend.Launch.PreviewGate = token => new TaskCompletionSource().Task.WaitAsync(token);
+                _ = Row(app, MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null);
                 break;
             case "games-failure-card":
                 app.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync), MockupScenario.FileInUseError);

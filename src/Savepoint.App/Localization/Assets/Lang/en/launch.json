@@ -2,6 +2,8 @@
   "launch.banner.detailWithSave": "{profileName} · save \"{saveName}\" loaded",
   "launch.banner.details": "Details",
   "launch.banner.headline": "Everything was already in place — starting {gameName} now",
+  "launch.checking.hint": "This can take a moment on a large game.",
+  "launch.checking.title": "Checking your files…",
   "launch.checks.clean": "No unsaved changes in your game files or saves",
   "launch.checks.cleanInstall": "No unsaved changes in your game files",
   "launch.checks.close": "Close",
