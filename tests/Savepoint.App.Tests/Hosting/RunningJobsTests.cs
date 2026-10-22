@@ -16,7 +16,8 @@ public class RunningJobsTests
         var finished = FakeAssert.Ok(await backend.Profiles.CaptureAsync(MockupScenario.SkyrimId, MockupScenario.VanillaId, "Another"));
         backend.Jobs.Complete(finished.JobId, null);
 
-        RunningJobs.CancelAll(backend.Jobs, TimeSpan.FromSeconds(5));
+        // The fake never ends a job on its own, so the short wait is all this call spends waiting.
+        RunningJobs.CancelAll(backend.Jobs, TimeSpan.FromMilliseconds(200));
 
         var asked = backend.Calls.To<IJobsApi>(nameof(IJobsApi.CancelAsync)).Select(call => call.Args[0]).ToList();
         Assert.Equal([save.JobId, move.JobId], asked);
@@ -44,6 +45,61 @@ public class RunningJobsTests
 
         Assert.Single(jobs.Asked);
         Assert.True(waited.Elapsed < TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
+    public void The_call_returns_only_after_a_cancelled_job_has_left_running()
+    {
+        var jobs = new SlowToStopJobs(TimeSpan.FromMilliseconds(500));
+
+        RunningJobs.CancelAll(jobs, TimeSpan.FromSeconds(5));
+
+        Assert.Single(jobs.Asked);
+        Assert.NotEqual(JobStatus.Running, jobs.Get(jobs.Asked[0])!.Status);
+    }
+
+    [Fact]
+    public void A_job_that_never_leaves_running_holds_the_call_only_for_the_wait()
+    {
+        var jobs = new SlowToStopJobs(TimeSpan.FromMinutes(5));
+
+        var waited = System.Diagnostics.Stopwatch.StartNew();
+        RunningJobs.CancelAll(jobs, TimeSpan.FromMilliseconds(300));
+        waited.Stop();
+
+        Assert.Equal(JobStatus.Running, jobs.Get(jobs.Asked[0])!.Status);
+        Assert.InRange(waited.Elapsed, TimeSpan.FromMilliseconds(250), TimeSpan.FromSeconds(10));
+    }
+
+    // One running job that takes the cancel request at once and leaves Running only after a delay, as a job unwinding does.
+    private sealed class SlowToStopJobs(TimeSpan unwind) : IJobsApi
+    {
+        private readonly Guid _id = Guid.NewGuid();
+        private long _cancelledAt;
+
+        public event EventHandler<JobSnapshot>? JobChanged
+        {
+            add { }
+            remove { }
+        }
+
+        public List<Guid> Asked { get; } = [];
+
+        public IReadOnlyList<JobSnapshot> List() => [Get(_id)!];
+
+        public JobSnapshot? Get(Guid jobId)
+        {
+            var cancelledAt = Interlocked.Read(ref _cancelledAt);
+            var left = cancelledAt != 0 && System.Diagnostics.Stopwatch.GetElapsedTime(cancelledAt) >= unwind;
+            return new JobSnapshot(_id, JobKind.Capture, "game", left ? JobStatus.Cancelled : JobStatus.Running, true, false, JobProgress.None, [], DateTimeOffset.UnixEpoch, null, null, null, 1);
+        }
+
+        public Task<OperationResult<Unit>> CancelAsync(Guid jobId)
+        {
+            Asked.Add(jobId);
+            Interlocked.CompareExchange(ref _cancelledAt, System.Diagnostics.Stopwatch.GetTimestamp(), 0);
+            return Task.FromResult(OperationResult.Success());
+        }
     }
 
     // One running job whose cancel request never completes.
