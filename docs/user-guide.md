@@ -66,7 +66,7 @@ Each row has **Play**, plus a menu with **Edit** (name, notes, version), **Take 
 - **Duplicate** starts a new profile with the same game version and mods and no save snapshots of its own.
 - **Delete** warns you when the profile has snapshots no other profile has. Deleting it deletes those for good.
 
-With a row selected from the keyboard, Enter starts Play. The footer under the table shows how much space this game's snapshots use, and **Free up space** clears out the ones no profile uses anymore.
+With a row selected from the keyboard, Enter starts Play. In the Sidebar layout, the footer under the table shows how much space this game's snapshots use and how big the drive is, and **Free up space** clears out the snapshots no profile uses anymore. In the Library layout, **Free up space** is in the game's menu.
 
 ## Playing
 
@@ -118,7 +118,7 @@ Both go through the same check of what will change as Play.
 
 ## Activity
 
-**Activity** shows what SavePoint is doing and has just done for the selected game: taking snapshots, switching and starting the game, freeing up space. **All games** also shows moving the snapshot folder and removing SavePoint's data. Each job shows which profile it was for, how far it got, and when it started and finished. **Details** lists the files and steps it went through, which you can copy into a bug report. **Cancel** stops a job that can be stopped; a job that can't stop at that moment says so. Clicking the job status indicator opens Activity too.
+**Activity** shows what SavePoint is doing and has just done for the selected game: taking snapshots, switching and starting the game, freeing up space. **All games** also shows moving the snapshot folder and removing SavePoint's data. Each job shows which profile it was for, how far it got, and when it started and finished. **Details** lists the files and steps it went through, which you can copy into a bug report. **Cancel** stops a job that can be stopped; a job that can't stop at that moment says so. Clicking the job status indicator opens Activity too, and in the Sidebar layout the game's **Activity** tab does the same.
 
 ## Settings
 
