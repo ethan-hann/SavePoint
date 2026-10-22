@@ -259,6 +259,71 @@ public class StorageUnreachableChoicesTests
         Assert.Equal(custom, (await workspace.Settings.GetAsync(workspace.Token)).Value!.StorageRoot);
     }
 
+    [Fact(Timeout = 120_000)]
+    public async Task Starting_with_an_empty_folder_makes_the_default_folder_again_when_it_is_the_one_that_is_gone()
+    {
+        var (workspace, game, away) = await WithStorageGoneAsync();
+        using var _ = workspace;
+        var before = BackendWorkspace.Snapshot(away);
+        Assert.False(Directory.Exists(workspace.DefaultStorageRoot));
+
+        var started = await workspace.AppStatus.StartWithEmptyStorageAsync(workspace.Token);
+        var check = await workspace.AppStatus.CheckAsync(workspace.Token);
+
+        Assert.True(started.Ok, started.Error?.Detail);
+        Assert.Equal(workspace.DefaultStorageRoot, started.Value);
+        Assert.True(Directory.Exists(workspace.DefaultStorageRoot));
+        Assert.True(check.Value!.Storage!.Reachable);
+        Assert.True(Directory.Exists(Path.Combine(workspace.DefaultStorageRoot, game.Id, "install.git")));
+        Assert.True(Directory.Exists(Path.Combine(workspace.DefaultStorageRoot, game.Id, "external.git")));
+        Assert.Empty((await workspace.History.GetAsync(game.Id, null, workspace.Token)).Value!.Points);
+        Assert.Equal(before, BackendWorkspace.Snapshot(away));
+    }
+
+    [Fact(Timeout = 120_000)]
+    public async Task With_no_games_listed_starting_with_an_empty_folder_still_makes_the_default_folder()
+    {
+        using var workspace = new BackendWorkspace();
+        await workspace.AppStatus.CheckAsync(workspace.Token);
+        Directory.Delete(workspace.DefaultStorageRoot, recursive: true);
+        workspace.Restart();
+
+        var started = await workspace.AppStatus.StartWithEmptyStorageAsync(workspace.Token);
+        var check = await workspace.AppStatus.CheckAsync(workspace.Token);
+
+        Assert.True(started.Ok, started.Error?.Detail);
+        Assert.Equal(workspace.DefaultStorageRoot, started.Value);
+        Assert.True(Directory.Exists(workspace.DefaultStorageRoot));
+        Assert.True(check.Value!.Storage!.Reachable);
+    }
+
+    [Fact(Timeout = 120_000)]
+    public async Task With_no_games_listed_finding_a_folder_takes_one_that_holds_a_game_folder_SavePoint_made_and_refuses_an_empty_one()
+    {
+        using var origin = new BackendWorkspace();
+        var game = await origin.AddGameAsync();
+        await origin.CreateProfileAsync(game);
+        await origin.WaitForIdleAsync(TimeSpan.FromSeconds(60));
+        using var workspace = new BackendWorkspace();
+        await workspace.AppStatus.CheckAsync(workspace.Token);
+        var carried = Path.Combine(workspace.Root, "carried");
+        CopyFolder(origin.DefaultStorageRoot, carried);
+        var empty = Path.Combine(workspace.Root, "empty-folder");
+        Directory.CreateDirectory(empty);
+        Directory.Delete(workspace.DefaultStorageRoot, recursive: true);
+        workspace.Restart();
+        Assert.Empty((await workspace.Games.ListAsync(workspace.Token)).Value!);
+
+        var refused = await workspace.AppStatus.UseStorageFolderAsync(empty, workspace.Token);
+        var found = await workspace.AppStatus.UseStorageFolderAsync(carried, workspace.Token);
+        var check = await workspace.AppStatus.CheckAsync(workspace.Token);
+
+        Assert.Equal("error.storage.noHistoryHere", refused.Error?.MessageId);
+        Assert.True(found.Ok, found.Error?.Detail);
+        Assert.Equal(carried, (await workspace.Settings.GetAsync(workspace.Token)).Value!.StorageRoot);
+        Assert.True(check.Value!.Storage!.Reachable);
+    }
+
     // The folder is judged as a move's destination is.
     [Fact(Timeout = 120_000)]
     public async Task Finding_a_folder_inside_the_install_folder_is_refused_and_nothing_changes()

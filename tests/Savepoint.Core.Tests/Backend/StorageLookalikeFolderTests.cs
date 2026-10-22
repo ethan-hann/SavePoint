@@ -90,11 +90,13 @@ public class StorageLookalikeFolderTests
         var started = await workspace.Settings.RelocateStorageAsync(destination);
         var job = await workspace.WaitForJobAsync(started.Value!.JobId, TimeSpan.FromSeconds(120));
 
-        Assert.NotEqual(JobStatus.Failed, job.Status);
+        Assert.Equal(JobStatus.Succeeded, job.Status);
+        Assert.Empty(Assert.IsType<StorageRelocationResult>(job.Result).NotRemoved);
         Assert.Equal(destination, (await workspace.Settings.GetAsync(workspace.Token)).Value!.StorageRoot);
         Assert.True(Directory.Exists(Path.Combine(destination, game.Id, "install.git")));
         Assert.True(Directory.Exists(Path.Combine(destination, game.Id + " - Copy", "install.git")));
         Assert.False(Directory.Exists(Path.Combine(workspace.DefaultStorageRoot, game.Id, "install.git")));
+        Assert.False(Directory.Exists(Path.Combine(workspace.DefaultStorageRoot, game.Id + " - Copy")), "the copy must be gone from the old drive");
     }
 
     [Fact(Timeout = 120_000)]
