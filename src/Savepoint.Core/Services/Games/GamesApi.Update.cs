@@ -15,9 +15,11 @@ internal sealed partial class GamesApi
     private async Task<GameDefinition> UpdateCoreAsync(GameDefinition definition, bool confirmFolderChange)
     {
         var edited = CatalogValidator.RequireValid(definition);
-        return await _services.RunForGameAsync(
-            edited.Id,
-            async (storage, _) =>
+
+        // The library key keeps two edits, or an edit and an add, from each passing the overlap check before the other's row is saved.
+        return await _services.RunWithLocksAsync(
+            [BackendServices.LibraryLockKey, edited.Id],
+            () => _services.Storage.ReadAsync(async storage =>
             {
                 var existing = await RequireGameAsync(edited.Id, CancellationToken.None).ConfigureAwait(false);
                 var others = (await _services.Catalog.ListGamesAsync().ConfigureAwait(false)).Where(game => game.Id != existing.Id).ToList();
@@ -25,6 +27,13 @@ internal sealed partial class GamesApi
                 Vet(storage, edited, folders, others);
 
                 var before = GameFolders.ResolveLoosely(_services.PathTokens, existing);
+
+                // The session and its after-play save read the folders from the catalog later, so they must not move under it.
+                if (_services.Sessions.IsGameRunning(existing.Id) && FoldersDiffer(before, folders))
+                {
+                    throw new GameRunningException(existing.Id, existing.Name);
+                }
+
                 if (!confirmFolderChange)
                 {
                     await RequireMatchingFoldersAsync(storage, existing.Id, before, folders).ConfigureAwait(false);
@@ -75,8 +84,12 @@ internal sealed partial class GamesApi
                     await TakeBackAsync(storage, edited.Id, made).ConfigureAwait(false);
                     throw;
                 }
-            }).ConfigureAwait(false);
+            })).ConfigureAwait(false);
     }
+
+    private bool FoldersDiffer(IReadOnlyList<GameFolder> before, IReadOnlyList<GameFolder> after) =>
+        before.Count != after.Count
+        || after.Any(folder => before.FirstOrDefault(previous => previous.Role == folder.Role) is not { Path: { } old } || !SamePath(old, folder.Path!));
 
     // A folder with history that is pointed somewhere else has to look like the folder it replaces: at least half of the files its
     // newest point recorded must be there at the same relative paths, or the player has most likely picked the wrong folder.

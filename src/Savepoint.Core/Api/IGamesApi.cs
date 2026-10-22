@@ -41,6 +41,8 @@ public interface IGamesApi
     /// with that folder's newest point (D31): if fewer than half of the recorded files are present at the same relative paths the
     /// call fails with <c>error.gameService.folderMismatch</c> (args <c>role</c>, <c>path</c>, <c>presentCount</c>,
     /// <c>recordedCount</c>) and saves nothing, so the caller can ask and then repeat the call with <paramref name="confirmFolderChange"/>.
+    /// A folder cannot be changed while the game has an open session, including one that waits for the player's choice after play:
+    /// the call fails with <c>error.gameService.gameRunning</c>. Other edits are allowed.
     /// </summary>
     /// <param name="definition">The game with its changes; its id picks the game.</param>
     /// <param name="confirmFolderChange">True when the user agreed to a folder that holds few of the recorded files.</param>
