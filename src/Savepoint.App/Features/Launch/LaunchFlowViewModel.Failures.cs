@@ -14,6 +14,28 @@ public sealed partial class LaunchFlowViewModel
     private void ShowLaunchFailure(GameFlow flow, ErrorInfo error, bool beforeStart = false) =>
         SetInline(flow, new ErrorCardViewModel(error, _deps.Text, LaunchFailureActions(flow, error, beforeStart)));
 
+    // A file the check found held. Nothing has been switched yet, so a file in use says that, not that a switch stopped partway.
+    private void ShowHeldFile(GameFlow flow, ErrorInfo held)
+    {
+        if (held.MessageId != "error.gitOperation.checkoutFailed")
+        {
+            ShowLaunchFailure(flow, held, beforeStart: true);
+            return;
+        }
+
+        var text = _deps.Text;
+        var kind = ErrorPresentation.For(held.MessageId);
+        SetInline(flow, ErrorCardViewModel.Custom(
+            text,
+            kind.Icon,
+            kind.Tone,
+            text.Message("launch.failure.heldTitle"),
+            text.Message("launch.failure.heldBody"),
+            ErrorCardViewModel.PathFor(held, text),
+            held.Detail,
+            LaunchFailureActions(flow, held, beforeStart: true)));
+    }
+
     // A failure with no better answer than reading it: a refused completion, for example.
     private void ShowPlainFailure(GameFlow flow, ErrorInfo error) =>
         SetInline(flow, new ErrorCardViewModel(error, _deps.Text, [DismissAction(flow)]));
