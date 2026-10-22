@@ -99,37 +99,6 @@ public class LaunchFlowSessionTests : IDisposable
     }
 
     [Fact]
-    public async Task A_switch_that_did_not_finish_offers_to_switch_again_first_and_to_review_the_changes()
-    {
-        await _f.PlayWithProgressAsync();
-        _f.Backend.Launch.FailLaunch(FlowRig.Skyrim, ErrorInfo.From(new InterruptedSwitchException(RepoRole.Install, "0123456789abcdef0123456789abcdef01234567")));
-        var card = _f.Inline<ErrorCardViewModel>();
-
-        Assert.Equal(["Switch again", "Review the changes", "Dismiss"], card.Actions.Select(a => a.Label));
-        Assert.True(FlowRig.Action(card, "Switch again").IsPrimary);
-        Assert.False(FlowRig.Action(card, "Review the changes").IsPrimary);
-
-        // Switching again starts the same switch, which is what finishes the unfinished one.
-        FlowRig.Press(card, "Switch again");
-
-        Assert.Equal(2, _f.Starts().Count);
-        Assert.Equal(_f.Starts()[0].Args, _f.Starts()[1].Args);
-        Assert.True(_f.Flow.IsActive(FlowRig.Skyrim));
-    }
-
-    [Fact]
-    public async Task Reviewing_the_changes_after_a_switch_that_did_not_finish_reads_the_folders_again()
-    {
-        await _f.PlayModdedAsync();
-        _f.Backend.Launch.FailLaunch(FlowRig.Skyrim, ErrorInfo.From(new InterruptedSwitchException(RepoRole.External)));
-        var previews = _f.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync)).Count;
-
-        FlowRig.Press(_f.Inline<ErrorCardViewModel>(), "Review the changes");
-
-        Assert.Equal(previews + 1, _f.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync)).Count);
-    }
-
-    [Fact]
     public async Task A_launch_that_fails_with_the_banner_showing_replaces_the_banner_with_the_card()
     {
         await _f.PlayModdedAsync();

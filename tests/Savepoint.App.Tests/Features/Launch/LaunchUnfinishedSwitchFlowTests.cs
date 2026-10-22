@@ -26,6 +26,17 @@ public class LaunchUnfinishedSwitchFlowTests : IDisposable
     }
 
     [Fact]
+    public async Task The_card_offers_switch_again_first_and_the_review_second()
+    {
+        await FailLaunchWithUnfinishedSwitchAsync(LaunchRig.ModdedTip);
+        var card = _f.Inline<ErrorCardViewModel>();
+
+        Assert.Equal(["Switch again", "Review the changes", "Dismiss"], card.Actions.Select(a => a.Label));
+        Assert.True(FlowRig.Action(card, "Switch again").IsPrimary);
+        Assert.False(FlowRig.Action(card, "Review the changes").IsPrimary);
+    }
+
+    [Fact]
     public async Task Switch_again_starts_the_target_the_unfinished_switch_was_heading_for()
     {
         await FailLaunchWithUnfinishedSwitchAsync(LaunchRig.ModdedTip);
@@ -52,8 +63,14 @@ public class LaunchUnfinishedSwitchFlowTests : IDisposable
     {
         await FailLaunchWithUnfinishedSwitchAsync(LaunchRig.ModdedTip);
 
+        var previewsBefore = _f.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync)).Count;
+
         FlowRig.Press(_f.Inline<ErrorCardViewModel>(), "Review the changes");
 
+        // The review reads the folders again for the point that was being switched to, and shows what it finds.
+        var previews = _f.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync));
+        Assert.True(previews.Count > previewsBefore);
+        Assert.Equal([FlowRig.Skyrim, LaunchRig.ClearedBlackreachPoint], previews[^1].Args.Take(2));
         var dialog = _f.LaunchDialog;
         var block = Assert.Single(dialog.UnsavedBlocks);
         Assert.True(block.IsUnfinishedSwitch);
