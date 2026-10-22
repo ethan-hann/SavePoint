@@ -360,10 +360,33 @@ public sealed partial class GitEngine
 
         // The names go on stdin and are literal (a file called [a].txt is not a pattern); -f is safe because the list was made with the exclude list applied.
         var staging = Invocation(repo, readOnly: false, reporter is null ? ["add", "-A", "-f"] : ["add", "-A", "-f", "--verbose"]).WithPathspecs(listing.Files);
-        await RunWriteAsync(
-            () => staging with { OnStdoutLine = reporter is null ? null : line => ObserveAddLine(reporter, line) },
-            ct).ConfigureAwait(false);
+        try
+        {
+            await RunWriteAsync(
+                () => staging with { OnStdoutLine = reporter is null ? null : line => ObserveAddLine(reporter, line) },
+                ct).ConfigureAwait(false);
+        }
+        catch (GitOperationException) when (FirstHeldFile(repo, listing.Files) is { } held)
+        {
+            // git only says that adding failed; the file it could not read is the answer the player needs.
+            throw held.ToException();
+        }
+
         reporter?.Complete();
+    }
+
+    private static HeldFile? FirstHeldFile(RepoRef repo, IEnumerable<string> paths)
+    {
+        foreach (var path in paths)
+        {
+            var full = FullPath(repo, path);
+            if (FileLockProbe.Probe(full) is { } kind)
+            {
+                return new HeldFile(full, kind);
+            }
+        }
+
+        return null;
     }
 
     private static void ObserveAddLine(ProgressReporter reporter, string line)

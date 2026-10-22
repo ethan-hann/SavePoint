@@ -207,7 +207,8 @@ internal sealed class CaptureRunner
 
             // Decided before anything is written, so a folder that cannot take the point is never a half-failed save.
             var elsewhere = plan.LeftAtLaunch && branchExists && (status.IsDetached || !string.Equals(status.Branch, branch, StringComparison.Ordinal));
-            if (elsewhere || (plan.SkipWhenClean && status.IsClean))
+            // A file nobody can read is "cannot tell", not "unchanged": the save runs and says which file it could not read.
+            if (elsewhere || (plan.SkipWhenClean && status.IsClean && status.HeldFile is null))
             {
                 return false;
             }

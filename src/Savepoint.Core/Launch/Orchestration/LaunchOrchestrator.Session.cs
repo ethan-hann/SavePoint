@@ -83,11 +83,12 @@ public sealed partial class LaunchOrchestrator
         }
     }
 
-    // Files that are new or changed in a folder since the session began; the folders were clean when it started.
+    // Files that are new or changed in a folder since the session began; the folders were clean when it started. A file nobody can read
+    // counts too: it may have changed, and the save will say so.
     private static async Task<int> ChangedFilesAsync(StorageSnapshot storage, RepoRef repo)
     {
         var status = await storage.Engine.GetStatusAsync(repo).ConfigureAwait(false);
-        return status.ChangedPaths.Count + status.UntrackedPaths.Count;
+        return status.ChangedPaths.Count + status.UntrackedPaths.Count + status.HeldFileCount;
     }
 
     // What the player may do with the session (D14): a session from an older point forks or moves the profile forward.
