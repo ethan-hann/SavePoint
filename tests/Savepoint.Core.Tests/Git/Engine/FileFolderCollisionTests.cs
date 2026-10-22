@@ -367,6 +367,39 @@ public sealed class FileFolderCollisionTests : IDisposable
         Assert.True((await _ws.Engine.GetStatusAsync(repo, Ct)).IsClean);
     }
 
+    // Git for Windows goes through a junction as if it were a folder, so a junction where a file is to be written is refused as a link,
+    // forced or not, before the file and everything in the folder it leads to can be touched.
+    [Fact]
+    public async Task A_junction_where_the_point_needs_a_file_is_refused_as_a_link_and_what_it_leads_to_is_left_alone()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows follows a folder link as git writes a file over it");
+        var repo = await PairAsync("Mods/Foo", "Mods/Foo");
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-c", ct: Ct);
+        var somebodys = Path.Combine(_ws.Root, "somebodys-folder");
+        Directory.CreateDirectory(somebodys);
+        await File.WriteAllTextAsync(Path.Combine(somebodys, "precious.txt"), "somebody else's file", Ct);
+        var link = _ws.FileOf(repo, "Mods/Foo");
+        if (!TestLinks.TryCreateFolderLink(link, somebodys))
+        {
+            Assert.Skip("this account cannot create folder links");
+        }
+
+        try
+        {
+            var thrown = await RunAsync(Operation.ForcedSwitch, repo, "profile-a");
+
+            Assert.Equal("somebody else's file", await File.ReadAllTextAsync(Path.Combine(somebodys, "precious.txt"), Ct));
+            var error = Assert.IsAssignableFrom<SavepointException>(thrown);
+            Assert.Equal("error.capture.linkedFolder", error.MessageId);
+            Assert.Equal(link, error.Args["path"]);
+            Assert.Equal("refs/heads/profile-c", await _ws.HeadRefAsync(repo));
+        }
+        finally
+        {
+            TestLinks.RemoveFolderLink(link);
+        }
+    }
+
     // ---- a file system that ignores case --------------------------------------------------------------------------------------
 
     [Theory]
