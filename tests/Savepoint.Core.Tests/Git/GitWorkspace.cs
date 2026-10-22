@@ -78,10 +78,23 @@ internal sealed class GitWorkspace : IDisposable
             }
             catch (Exception e) when (e is UnauthorizedAccessException or IOException)
             {
-                // Pack files are read-only, and a just-killed process may still hold a handle for a moment.
-                foreach (var file in Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories))
+                // Pack files are read-only, and a just-killed process may still hold a handle for a moment. Git may also remove a
+                // temporary pack between the listing and the attribute change, which leaves nothing to clear.
+                try
                 {
-                    File.SetAttributes(file, FileAttributes.Normal);
+                    foreach (var file in Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories))
+                    {
+                        try
+                        {
+                            File.SetAttributes(file, FileAttributes.Normal);
+                        }
+                        catch (IOException)
+                        {
+                        }
+                    }
+                }
+                catch (IOException)
+                {
                 }
 
                 Thread.Sleep(100);
