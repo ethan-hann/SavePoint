@@ -12,6 +12,7 @@ Build the app from `main` (`dotnet run --project src/Savepoint.App -c Release`),
 - [ ] Change something (install a mod, or let the game update), save a second profile, and switch back and forth. The game starts in the right state each time.
 - [ ] Go back to an older snapshot from History, play, then keep the session as a new profile. The original profile is unchanged.
 - [ ] Continue a profile from an older snapshot: its newer snapshots show under History > Recently removed, and Bring back as a new profile restores one.
+- [ ] Help: press F1, read How SavePoint works, open each What's this? button, and take the tour from Settings > Help. Then do the same with Narrator, and by keyboard only.
 - [ ] Read every screen as someone who has never heard of version control would. Note any word or sentence that needs explaining.
 - [ ] Activity: start a snapshot of a large profile, open Activity from the status indicator, watch Details, copy them, and cancel it.
 - [ ] Turn off the store's cloud saves for that game first (Steam Cloud, GOG Galaxy), as the editor recommends.

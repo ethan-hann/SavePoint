@@ -11,6 +11,13 @@ SavePoint keeps the setup that works. Point it at a game you have installed and 
 
 SavePoint keeps its snapshots in a folder of its own, the snapshot folder. When you play a profile, it puts that profile's files back into the game's folders first, then starts the game.
 
+## Help inside the app
+
+- **How SavePoint works:** a short illustrated page on profiles, snapshots, playing, keeping a session, going back, Recently removed, Activity, freeing up space, and what can't be undone. Press **F1** anywhere, or open **Settings > Help**; the first-run screen links to it too.
+- **What's this?** buttons sit next to the ideas that need explaining, such as snapshots, new changes, and replacing a snapshot. They open a short explanation in place; Escape closes it.
+- **The tour:** after you create your first profile, a four-step tour points at the profile row, Play, History, and New profile. Skip it at any step, or press Escape. **Settings > Help > Show the tour again** replays it.
+- **At the moment of a choice:** the first time you play from an older snapshot, the first time you discard changes, and the first time you replace a snapshot, SavePoint explains the choice right there. It remembers that you've seen each one.
+
 ## Getting started
 
 On first start, SavePoint offers **Add your first game** or **Start from a template**. A template fills in the details of a known game; you can also open a game settings file someone exported. The first-run screen also says that SavePoint downloads cover art for Steam games from Steam; you can turn that off in Settings.
