@@ -31,6 +31,6 @@ internal static class FileLockProbe
         }
     }
 
-    // True for the two failures Windows gives when another program has the file: a sharing violation and a lock violation.
-    public static bool IsSharingViolation(IOException e) => (e.HResult & 0xFFFF) is _sharingViolation or _lockViolation;
+    // True for the two failures Windows gives when another program has the file: a sharing violation and a lock violation. Those numbers mean other things elsewhere, so no other system reports a held file this way.
+    public static bool IsSharingViolation(IOException e) => OperatingSystem.IsWindows() && (e.HResult & 0xFFFF) is _sharingViolation or _lockViolation;
 }

@@ -17,7 +17,9 @@ public enum CaptureMode
 
     /// <summary>
     /// Starts a new branch with a point of its own that has no earlier point behind it, holding what the folder holds now, and switches to
-    /// it without touching files. The branch may be started whatever branch the folder is on, and a point is written even when nothing changed.
+    /// it without touching files. The branch may be started whatever branch the folder is on. Where the repository already has a point, a point is
+    /// written even when nothing changed; on a repository with none this is a normal capture, which writes nothing for an empty folder (the caller
+    /// then starts the branch itself).
     /// </summary>
     Root,
 }
