@@ -77,6 +77,9 @@
   <Style Selector="ListBox.segmented ListBoxItem /template/ Border#PART_Selected">
     <Setter Property="Background" Value="{DynamicResource Md3PrimaryContainerBrush}" />
   </Style>
+  <Style Selector="ListBox.segmented ListBoxItem:selected /template/ Border#PART_SelectedMark">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
 
   <!-- Segmented toggle, inset tray (layout toggle). -->
   <Style Selector="ListBox.segmented-tray">
@@ -97,10 +100,14 @@
     <Setter Property="FontSize" Value="12" />
   </Style>
   <Style Selector="ListBox.segmented-tray ListBoxItem:selected">
-    <Setter Property="Foreground" Value="{DynamicResource Md3OnSurfaceBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource Md3OnSecondaryContainerBrush}" />
+    <Setter Property="FontWeight" Value="Medium" />
   </Style>
   <Style Selector="ListBox.segmented-tray ListBoxItem /template/ Border#PART_Selected">
-    <Setter Property="Background" Value="{DynamicResource Md3SurfaceContainerHighBrush}" />
+    <Setter Property="Background" Value="{DynamicResource Md3SecondaryContainerBrush}" />
+  </Style>
+  <Style Selector="ListBox.segmented-tray ListBoxItem:selected /template/ Border#PART_SelectedMark">
+    <Setter Property="Opacity" Value="1" />
   </Style>
 
   <!-- Radio cards: a selectable card per choice; the selected one gets a 1.5px primary outline. -->
@@ -148,6 +155,9 @@
   </Style>
   <Style Selector="ListBox.choice ListBoxItem /template/ Border#PART_Selected">
     <Setter Property="Background" Value="{DynamicResource Md3PrimaryContainerBrush}" />
+  </Style>
+  <Style Selector="ListBox.choice ListBoxItem:selected /template/ Border#PART_SelectedMark">
+    <Setter Property="Opacity" Value="1" />
   </Style>
 
   <!-- Accent swatches: round items whose content is the swatch (30px); the selected one gets an on-surface ring with a gap. -->
