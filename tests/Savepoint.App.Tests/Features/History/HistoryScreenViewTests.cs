@@ -52,7 +52,7 @@ public class HistoryScreenViewTests
 
         Assert.True(harness.Find<ScrollViewer>("CardsRegion").IsEffectivelyVisible);
         Assert.False(harness.Find<Grid>("ListRegion").IsEffectivelyVisible);
-        Assert.Contains("THIS WEEK", texts);
+        Assert.Contains("LAST 7 DAYS", texts);
         Assert.Contains("EARLIER", texts);
         Assert.Contains("LOADED NOW", texts);
         Assert.Contains("Save only · 1.6.640 with 212 mod files", texts);

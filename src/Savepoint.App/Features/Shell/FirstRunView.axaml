@@ -43,12 +43,12 @@
         </Button>
       </StackPanel>
       <Border x:Name="StorageNote" Classes="strip" HorizontalAlignment="Center" IsVisible="{Binding HasStorageNote}">
-        <StackPanel Orientation="Horizontal" Spacing="12">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
           <TextBlock Classes="icon muted" Text="{x:Static theme:Icons.Folder}" />
-          <TextBlock Classes="caption" FontSize="13" VerticalAlignment="Center" TextWrapping="Wrap">
+          <TextBlock Grid.Column="1" Classes="caption" FontSize="13" VerticalAlignment="Center" TextWrapping="Wrap">
             <Run Text="{Binding StorageNoteBefore}" /><Run FontFamily="{DynamicResource RobotoMonoFont}" Foreground="{DynamicResource Md3OnSurfaceBrush}" Text="{Binding StoragePath}" /><Run Text="{Binding StorageNoteAfter}" />
           </TextBlock>
-        </StackPanel>
+        </Grid>
       </Border>
       <StackPanel x:Name="ArtworkNote" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8" IsVisible="{Binding HasArtworkNote}">
         <TextBlock Classes="icon s16 muted" VerticalAlignment="Top" Margin="0,1,0,0" Text="{x:Static theme:Icons.Info}" />
