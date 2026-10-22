@@ -96,14 +96,15 @@ public sealed class FileFolderCollisionTests : IDisposable
         var info = ErrorInfo.From(error);
         Assert.Equal(kind, info.Args["kind"]);
         Assert.Equal("install", info.Args["role"]);
-        Assert.Equal(_ws.FileOf(repo, folder), (string)info.Args["folder"]!, ignoreCase: !OperatingSystem.IsLinux());
+        Assert.Equal(_ws.FileOf(repo, folder), (string)info.Args["folder"]!);
         if (fileInside is null)
         {
-            Assert.Equal((string)info.Args["folder"]!, (string)info.Args["path"]!, ignoreCase: true);
+            Assert.Equal((string)info.Args["folder"]!, (string)info.Args["path"]!);
         }
         else
         {
-            Assert.Equal(_ws.FileOf(repo, fileInside), (string)info.Args["path"]!, ignoreCase: !OperatingSystem.IsLinux());
+            // The player's file is named as the file system lists it, which on a drive that ignores case can differ from the point's spelling.
+            Assert.Equal(_ws.FileOf(repo, fileInside), (string)info.Args["path"]!);
         }
 
         var after = await TakeAsync(repo);
@@ -437,7 +438,7 @@ public sealed class FileFolderCollisionTests : IDisposable
 
         var thrown = await RunAsync(Operation.Switch, repo, "profile-b");
 
-        await AssertRefusedAsync(thrown, repo, before, "fileInTheWay", "Mods/foo", null, ("Mods/FOO", "the player's own file"));
+        await AssertRefusedAsync(thrown, repo, before, "fileInTheWay", "Mods/foo", "Mods/FOO", ("Mods/FOO", "the player's own file"));
     }
 
     private static bool IgnoresCase(string folder)

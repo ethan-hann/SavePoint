@@ -82,13 +82,13 @@ public sealed partial class GitEngine
         {
             if (inside.Where(standInTheWay.Contains).Order(StringComparer.Ordinal).FirstOrDefault() is { } file)
             {
-                throw new FileFolderClashException(repo.Role, FileFolderClashKind.FolderHoldsFiles, FullPath(repo, folder), FullPath(repo, file));
+                throw new FileFolderClashException(repo.Role, FileFolderClashKind.FolderHoldsFiles, FullPath(repo, folder), OnDiskPath(repo, file));
             }
         }
 
         if (files.FirstOrDefault(standInTheWay.Contains) is { } blocking)
         {
-            throw new FileFolderClashException(repo.Role, FileFolderClashKind.FileInTheWay, FullPath(repo, blocking), FullPath(repo, blocking));
+            throw new FileFolderClashException(repo.Role, FileFolderClashKind.FileInTheWay, FullPath(repo, blocking), OnDiskPath(repo, blocking));
         }
     }
 
@@ -169,6 +169,50 @@ public sealed partial class GitEngine
         }
 
         return found;
+    }
+
+    // The full path of a work tree path with each part spelled as its folder lists it. A drive that ignores case (NTFS, exFAT, APFS) opens
+    // Mods/Foo for a folder on disk named Mods/foo, and the player looks for the file under the name they see, not the point's.
+    private static string OnDiskPath(RepoRef repo, string relative)
+    {
+        var parts = relative.Split('/');
+        var folder = repo.WorkTree;
+        for (var i = 0; i < parts.Length; i++)
+        {
+            parts[i] = ListedName(folder, parts[i]);
+            folder = Path.Combine(folder, parts[i]);
+        }
+
+        return FullPath(repo, string.Join('/', parts));
+    }
+
+    // The entry of the folder named like name: the exact spelling when the folder has it (a case-sensitive drive can hold both), else the one
+    // that differs only in case. A folder that cannot be listed, or holds no such entry, keeps the spelling it was asked about.
+    private static string ListedName(string folder, string name)
+    {
+        string? differsInCase = null;
+        try
+        {
+            var entries = new FileSystemEnumerable<string>(folder, (ref FileSystemEntry entry) => entry.FileName.ToString(), new EnumerationOptions { AttributesToSkip = 0 });
+            foreach (var entry in entries)
+            {
+                if (string.Equals(entry, name, StringComparison.Ordinal))
+                {
+                    return entry;
+                }
+
+                if (differsInCase is null && string.Equals(entry, name, StringComparison.OrdinalIgnoreCase))
+                {
+                    differsInCase = entry;
+                }
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // Left as asked about.
+        }
+
+        return differsInCase ?? name;
     }
 
     private static bool IsFolderLink(ref FileSystemEntry entry) =>
