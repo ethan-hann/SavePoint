@@ -146,8 +146,8 @@ Every failure says what happened and what you can do; **Show details** gives the
 - **That folder doesn't look like the one SavePoint saved.** When you point a game with history at a new folder, SavePoint compares the folder with what it saved. If fewer than half of the saved files are there, it shows both counts and asks you to confirm, so a slip like choosing the parent folder can't lead to a discard that wipes it.
 - **SavePoint's storage isn't reachable.** If the folder holding SavePoint's storage can't be reached at startup, SavePoint says so instead of showing empty history, and offers three ways on:
   - **Try again**, after you connect the drive or network share.
-  - **Find the folder**, when the folder moved or the drive has a new letter. SavePoint checks that the folder you choose holds its storage before it uses it.
-  - **Start with an empty folder**, when the old storage is gone for good. Your games stay listed, but their saved history stays behind in the old folder, and SavePoint no longer uses it.
+  - **Find the folder**, when the folder moved or the drive has a new letter. SavePoint checks that the folder you choose holds its storage before it uses it. Games that folder has no history for start again with their next save.
+  - **Start with an empty folder**, when the old storage is gone for good. You confirm first. Your games and profiles stay listed, but their saved history stays behind in the old folder, and SavePoint no longer uses it. Each profile starts its history again the next time you save it.
 - **Some old copies couldn't be removed.** After a storage move, SavePoint lists any old files it couldn't delete, for example because another program had them open, so you can delete them by hand.
 - **An unreadable settings file at startup.** SavePoint leaves the file as it found it. For each one, it offers to restore the last good copy or start that file empty. The unreadable file is moved aside, never deleted.
 
