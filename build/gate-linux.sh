@@ -73,7 +73,7 @@ fi
 chmod 600 "$probe/file"
 rm -rf "$probe"
 if [ -n "$permissions_reason" ]; then
-  skipping="$(grep -rlE 'HeldFiles\.(Hold|MakeUnreadable|SkipUnlessPermissionsHold|PreventDeleting)|IsPrivilegedProcess' "$gate_tree/tests" --include='*.cs' 2>/dev/null | grep -v '/obj/' | grep -v '/HeldFiles\.cs$' | sed 's#.*/##; s#\.cs$##' | sort -u | tr '\n' ' ')"
+  skipping="$(grep -rlE 'HeldFiles\.(Hold|MakeUnreadable|SkipUnlessPermissionsHold|PreventDeleting)|IsPrivilegedProcess' "$gate_tree/tests" --include='*.cs' 2>/dev/null | grep -v '/obj/' | grep -v '/HeldFiles\.cs$' | sed 's#.*/##; s#\.cs$##' | sort -u | tr '\n' ' ' || true)"
   echo "==> WARNING: file permissions do not hold here ($permissions_reason), so the tests that make a file or folder unreadable SKIP, in: ${skipping:-none found}" >&2
 else
   echo "==> file permissions hold in $temp_folder"
