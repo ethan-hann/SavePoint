@@ -259,6 +259,54 @@ public class RelocationTests
     }
 
     [Fact]
+    public async Task A_real_stamped_git_directory_reached_through_a_link_is_never_touched()
+    {
+        using var workspace = new BackendWorkspace();
+        var game = await workspace.AddGameAsync();
+
+        // The outside folder is a copy of a real git directory of SavePoint's, so only the check of where the link leads can stop the removal.
+        var outside = Path.Combine(workspace.Root, "outside-the-storage", "install.git");
+        CopyTree(Path.Combine(workspace.DefaultStorageRoot, game.Id, "install.git"), outside);
+        var pack = Path.Combine(outside, "objects", "pack", "pack-held.pack");
+        BackendWorkspace.WriteFile(pack, "a pack that is read-only on purpose");
+        File.SetAttributes(pack, FileAttributes.ReadOnly);
+        var linked = Path.Combine(workspace.DefaultStorageRoot, "linked-game");
+        Directory.CreateDirectory(linked);
+        try
+        {
+            Directory.CreateSymbolicLink(Path.Combine(linked, "install.git"), outside);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+        {
+            Assert.Skip("this account cannot create symbolic links");
+        }
+
+        var destination = Path.Combine(workspace.Root, "new-storage");
+        var started = await workspace.Settings.RelocateStorageAsync(destination);
+        var job = await workspace.WaitForJobAsync(started.Value!.JobId);
+
+        Assert.Equal(JobStatus.Partial, job.Status);
+        Assert.Equal(Path.Combine(linked, "install.git"), Assert.Single(Assert.IsType<StorageRelocationResult>(job.Result).NotRemoved).Path);
+        Assert.True(new DirectoryInfo(Path.Combine(linked, "install.git")).LinkTarget is not null, "the link must still be there");
+        Assert.True(File.Exists(Path.Combine(outside, "HEAD")));
+        Assert.True((File.GetAttributes(pack) & FileAttributes.ReadOnly) != 0, "nothing outside the storage may have its attributes changed");
+    }
+
+    private static void CopyTree(string from, string to)
+    {
+        Directory.CreateDirectory(to);
+        foreach (var file in Directory.EnumerateFiles(from))
+        {
+            File.Copy(file, Path.Combine(to, Path.GetFileName(file)));
+        }
+
+        foreach (var directory in Directory.EnumerateDirectories(from))
+        {
+            CopyTree(directory, Path.Combine(to, Path.GetFileName(directory)));
+        }
+    }
+
+    [Fact]
     public async Task A_move_survives_a_restart()
     {
         using var workspace = new BackendWorkspace();
