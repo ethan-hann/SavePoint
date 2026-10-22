@@ -95,16 +95,121 @@ public class ToastHostViewModelTests
     [Theory]
     [InlineData(ToastKind.Warning)]
     [InlineData(ToastKind.Error)]
-    public void A_warning_or_error_toast_stays_for_ten_seconds(ToastKind kind)
+    public void A_warning_or_error_toast_stays_until_it_is_dismissed(ToastKind kind)
     {
         var host = Host();
         host.Show(new ToastMessage("Trouble.", kind));
 
-        _clock.Advance(TimeSpan.FromSeconds(9.9));
+        _clock.Advance(TimeSpan.FromHours(1));
+
+        Assert.Single(host.Toasts);
+        Assert.Equal(0, _clock.ActiveTimers);
+    }
+
+    [Fact]
+    public void An_error_that_names_its_duration_still_leaves_on_time()
+    {
+        var host = Host();
+        host.Show(new ToastMessage("Trouble.", ToastKind.Error, Duration: TimeSpan.FromSeconds(30)));
+
+        _clock.Advance(TimeSpan.FromSeconds(31));
+
+        Assert.Empty(host.Toasts);
+    }
+
+    [Fact]
+    public void Newer_toasts_never_push_out_an_error_nobody_has_dismissed()
+    {
+        var host = Host();
+        var error = host.Show(new ToastMessage("Could not delete.", ToastKind.Error));
+
+        var others = Enumerable.Range(1, 5).Select(number => host.Show(new ToastMessage($"Toast {number}"))).ToList();
+
+        Assert.Contains(error, host.Toasts);
+        Assert.Equal([error, others[2], others[3], others[4]], host.Toasts);
+    }
+
+    [Fact]
+    public void The_same_problem_shown_twice_is_listed_once_and_announced_again()
+    {
+        var host = Host();
+        var first = host.Show(new ToastMessage("Could not delete.", ToastKind.Error, "The disk is full."));
+        host.Show(new ToastMessage("Another.", ToastKind.Info));
+        host.Announcement = string.Empty;
+
+        var second = host.Show(new ToastMessage("Could not delete.", ToastKind.Error, "The disk is full."));
+
+        Assert.Same(first, second);
+        Assert.Equal(2, host.Toasts.Count);
+        Assert.Equal("Could not delete. The disk is full.", host.Announcement);
+    }
+
+    [Fact]
+    public void Pausing_holds_every_timer_and_resuming_gives_back_the_time_that_was_left()
+    {
+        var host = Host();
+        host.Show(new ToastMessage("Saved.", ToastKind.Success));
+        _clock.Advance(TimeSpan.FromSeconds(1));
+
+        host.SetPaused(true);
+        _clock.Advance(TimeSpan.FromMinutes(5));
+
+        Assert.True(host.IsPaused);
+        Assert.Single(host.Toasts);
+        Assert.Equal(0, _clock.ActiveTimers);
+
+        host.SetPaused(false);
+        _clock.Advance(TimeSpan.FromSeconds(4.9));
         Assert.Single(host.Toasts);
 
         _clock.Advance(TimeSpan.FromSeconds(0.2));
         Assert.Empty(host.Toasts);
+    }
+
+    [Fact]
+    public void A_toast_that_was_nearly_gone_when_paused_gets_at_least_three_seconds_back()
+    {
+        var host = Host();
+        host.Show(new ToastMessage("Saved.", ToastKind.Success));
+        _clock.Advance(TimeSpan.FromSeconds(5.5));
+
+        host.SetPaused(true);
+        host.SetPaused(false);
+        _clock.Advance(TimeSpan.FromSeconds(2.9));
+        Assert.Single(host.Toasts);
+
+        _clock.Advance(TimeSpan.FromSeconds(0.2));
+        Assert.Empty(host.Toasts);
+    }
+
+    [Fact]
+    public void A_toast_that_arrives_while_paused_waits_to_start_its_timer()
+    {
+        var host = Host();
+        host.SetPaused(true);
+        host.Show(new ToastMessage("Saved.", ToastKind.Success));
+
+        _clock.Advance(TimeSpan.FromMinutes(1));
+        Assert.Single(host.Toasts);
+
+        host.SetPaused(false);
+        _clock.Advance(TimeSpan.FromSeconds(6.1));
+        Assert.Empty(host.Toasts);
+    }
+
+    [Fact]
+    public void Dismissing_all_clears_every_toast_and_timer()
+    {
+        var host = Host();
+        host.Show(new ToastMessage("Saved.", ToastKind.Success));
+        host.Show(new ToastMessage("Could not delete.", ToastKind.Error));
+        Assert.True(host.HasMany);
+
+        host.DismissAll();
+
+        Assert.Empty(host.Toasts);
+        Assert.False(host.HasMany);
+        Assert.Equal(0, _clock.ActiveTimers);
     }
 
     [Fact]

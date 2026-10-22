@@ -1,6 +1,7 @@
 {
   "common.cancel": "Cancel",
   "common.dismiss": "Dismiss",
+  "common.dismissAll": "Dismiss all",
   "errorCard.hideDetails": "Hide details",
   "errorCard.showDetails": "Show details",
   "errorCard.title.canceled": "Canceled",
