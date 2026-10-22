@@ -16,6 +16,9 @@
     <PackageVersion Include="Velopack" Version="1.2.161" />
     <!-- The version Avalonia.Skia 12.1.4 brings in; only tools/IconGen references it directly. -->
     <PackageVersion Include="SkiaSharp" Version="3.119.4" />
+    <!-- The App tests swap the Linux native Skia for the build without fontconfig; same version as SkiaSharp. -->
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="3.119.4" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.119.4" />
     <!-- Avalonia.FreeDesktop 12.1.4 depends on exactly this version; a lower pin is a downgrade error and a higher one a mismatch warning. -->
     <PackageVersion Include="Tmds.DBus.Protocol" Version="0.94.1" />
     <PackageVersion Include="AsmResolver.PE.Win32Resources" Version="6.0.1" />

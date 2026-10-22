@@ -22,6 +22,7 @@ public class StorageFolderDeleteTests
 
         using (Deny(folder, file))
         {
+            Assert.SkipWhen(!OperatingSystem.IsWindows() && CanDelete(file), "this file system ignores permission changes (a Windows drive mounted under WSL does)");
             var error = await Assert.ThrowsAsync<StorageRemoveFailedException>(() => StorageFolders.DeleteAsync(storage, folder, workspace.Token));
 
             Assert.Equal("error.storage.removeFailed", error.MessageId);
@@ -46,6 +47,26 @@ public class StorageFolderDeleteTests
             var error = await Assert.ThrowsAsync<GitOperationException>(() => StorageFolders.DeleteAsync(storage, folder, workspace.Token));
 
             Assert.Equal("error.gitOperation.checkoutFailed", error.MessageId);
+        }
+    }
+
+    // A folder without write access refuses both a new file and a delete; a copy beside the file tests that and leaves the file for the real attempt.
+    private static bool CanDelete(string file)
+    {
+        var probe = file + ".probe";
+        try
+        {
+            File.Copy(file, probe);
+            File.Delete(probe);
+            return true;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
+        catch (IOException)
+        {
+            return false;
         }
     }
 
