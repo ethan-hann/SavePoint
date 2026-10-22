@@ -10,7 +10,7 @@ namespace Savepoint.App.Tests.Hosting;
 
 public class CrashWindowTests
 {
-    private const string LogFolder = @"C:\Users\Sam\AppData\Local\SavePoint\Logs";
+    private const string _logFolder = @"C:\Users\Sam\AppData\Local\SavePoint\Logs";
 
     private static Exception Thrown(string message)
     {
@@ -49,14 +49,14 @@ public class CrashWindowTests
     [AvaloniaFact]
     public void The_window_says_savepoint_has_to_close_and_where_the_details_went()
     {
-        var window = Open(LogFolder);
+        var window = Open(_logFolder);
 
         var texts = Texts(window);
 
         Assert.Equal("SavePoint", window.Title);
         Assert.Contains("SavePoint ran into a problem and has to close", texts);
         Assert.Contains(texts, text => text!.Contains("send the newest file from the log folder", StringComparison.Ordinal));
-        Assert.Contains($"Log folder: {LogFolder}", texts);
+        Assert.Contains($"Log folder: {_logFolder}", texts);
         Assert.Equal("Close SavePoint", Named<Button>(window, "CloseButton").Content);
     }
 
@@ -64,7 +64,7 @@ public class CrashWindowTests
     public void The_details_are_hidden_until_asked_for_and_then_show_the_exception()
     {
         var crash = Thrown("the library is gone");
-        var window = Open(LogFolder, crash: crash);
+        var window = Open(_logFolder, crash: crash);
         var toggle = Named<Button>(window, "DetailsButton");
         var details = Named<TextBox>(window, "DetailsText");
 
@@ -89,7 +89,7 @@ public class CrashWindowTests
     {
         var opened = new List<string>();
         var works = true;
-        var window = Open(LogFolder, folder =>
+        var window = Open(_logFolder, folder =>
         {
             opened.Add(folder);
             return works;
@@ -100,7 +100,7 @@ public class CrashWindowTests
         Click(button);
 
         Assert.Equal("Open the log folder", button.Content);
-        Assert.Equal([LogFolder], opened);
+        Assert.Equal([_logFolder], opened);
         Assert.False(failure.IsEffectivelyVisible);
 
         works = false;
@@ -126,7 +126,7 @@ public class CrashWindowTests
     [AvaloniaFact]
     public void The_close_button_closes_the_window()
     {
-        var window = Open(LogFolder);
+        var window = Open(_logFolder);
         var closed = false;
         window.Closed += (_, _) => closed = true;
 
@@ -138,7 +138,7 @@ public class CrashWindowTests
     [AvaloniaFact]
     public void Every_button_is_named_for_assistive_technology()
     {
-        var window = Open(LogFolder);
+        var window = Open(_logFolder);
 
         var problems = window.GetVisualDescendants().OfType<Button>()
             .Where(button => string.IsNullOrWhiteSpace(Avalonia.Automation.AutomationProperties.GetName(button)))

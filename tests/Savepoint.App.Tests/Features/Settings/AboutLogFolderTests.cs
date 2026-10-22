@@ -4,24 +4,24 @@ using Savepoint.App.Composition;
 using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Settings;
 using Savepoint.App.Features.Shell;
-using Savepoint.App.Tests.Features.History;
 using Savepoint.App.Tests.Fakes;
+using Savepoint.App.Tests.Features.History;
 
 namespace Savepoint.App.Tests.Features.Settings;
 
 public class AboutLogFolderTests
 {
-    private const string LogFolder = @"C:\Users\Sam\AppData\Local\SavePoint\Logs";
+    private const string _logFolder = @"C:\Users\Sam\AppData\Local\SavePoint\Logs";
 
     [Fact]
     public async Task The_about_section_opens_the_log_folder_in_the_file_manager()
     {
-        var rig = await SettingsRig.ShownAsync(logFolder: LogFolder);
+        var rig = await SettingsRig.ShownAsync(logFolder: _logFolder);
 
         Assert.True(rig.Screen.About.HasLogFolder);
         rig.Screen.About.OpenLogFolderCommand.Execute(null);
 
-        Assert.Equal([LogFolder], rig.Revealer.Revealed);
+        Assert.Equal([_logFolder], rig.Revealer.Revealed);
         Assert.Empty(rig.Toasts.Toasts);
     }
 
@@ -39,7 +39,7 @@ public class AboutLogFolderTests
     [Fact]
     public async Task A_file_manager_that_will_not_open_is_reported_in_words()
     {
-        var rig = await SettingsRig.ShownAsync(logFolder: LogFolder);
+        var rig = await SettingsRig.ShownAsync(logFolder: _logFolder);
         rig.Revealer.Succeeds = false;
 
         rig.Screen.About.OpenLogFolderCommand.Execute(null);
@@ -52,7 +52,7 @@ public class AboutLogFolderTests
     [AvaloniaFact]
     public async Task The_button_shows_after_the_notices_button_when_there_is_a_folder()
     {
-        using var harness = await StartAsync(LogFolder);
+        using var harness = await StartAsync(_logFolder);
 
         var button = harness.Find<Button>("LogFolderButton");
 
@@ -77,12 +77,12 @@ public class AboutLogFolderTests
         var services = new AppServices(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus)
         {
             FileRevealer = revealer,
-            LogFolder = LogFolder,
+            LogFolder = _logFolder,
         };
 
         var environment = FeatureComposition.SettingsEnvironmentOf(services);
 
-        Assert.Equal(LogFolder, environment.LogFolder);
+        Assert.Equal(_logFolder, environment.LogFolder);
         Assert.Same(revealer, environment.Revealer);
     }
 

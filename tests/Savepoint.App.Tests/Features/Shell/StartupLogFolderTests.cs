@@ -5,15 +5,15 @@ using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Hosting;
 using Savepoint.App.Localization;
-using Savepoint.App.Tests.Features.Settings;
 using Savepoint.App.Tests.Fakes;
+using Savepoint.App.Tests.Features.Settings;
 using Savepoint.Core.Errors;
 
 namespace Savepoint.App.Tests.Features.Shell;
 
 public class StartupLogFolderTests
 {
-    private const string LogFolder = @"C:\Users\Sam\AppData\Local\SavePoint\Logs";
+    private const string _logFolder = @"C:\Users\Sam\AppData\Local\SavePoint\Logs";
 
     private static readonly UiFormatter _text = new(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), os: "windows", timeZone: TimeZoneInfo.Utc);
 
@@ -30,9 +30,9 @@ public class StartupLogFolderTests
     public async Task A_backend_that_never_started_shows_the_log_folder_and_offers_to_open_it()
     {
         var revealer = new RecordingFileRevealer();
-        var startup = await FailedAsync(LogFolder, revealer);
+        var startup = await FailedAsync(_logFolder, revealer);
 
-        Assert.Equal(LogFolder, startup.Card!.Path);
+        Assert.Equal(_logFolder, startup.Card!.Path);
         var action = Assert.Single(startup.Card.Actions);
         Assert.Equal("Open the log folder", action.Label);
         Assert.Contains("send the newest file from the log folder", startup.Card.Body, StringComparison.Ordinal);
@@ -40,7 +40,7 @@ public class StartupLogFolderTests
 
         action.Command.Execute(null);
 
-        Assert.Equal([LogFolder], revealer.Revealed);
+        Assert.Equal([_logFolder], revealer.Revealed);
         Assert.False(startup.HasLogFolderError);
     }
 
@@ -48,7 +48,7 @@ public class StartupLogFolderTests
     public async Task A_file_manager_that_will_not_open_is_reported_under_the_card()
     {
         var revealer = new RecordingFileRevealer { Succeeds = false };
-        var startup = await FailedAsync(LogFolder, revealer);
+        var startup = await FailedAsync(_logFolder, revealer);
 
         Assert.Single(startup.Card!.Actions).Command.Execute(null);
 
@@ -69,7 +69,7 @@ public class StartupLogFolderTests
     [Fact]
     public async Task A_check_that_can_be_tried_again_does_not_talk_about_the_log()
     {
-        var startup = new StartupViewModel(AppBootstrap.Unavailable(Failure, LogFolder).AppStatus, _text, canTryAgain: true, LogFolder, new RecordingFileRevealer());
+        var startup = new StartupViewModel(AppBootstrap.Unavailable(Failure, _logFolder).AppStatus, _text, canTryAgain: true, _logFolder, new RecordingFileRevealer());
 
         await startup.CheckAsync();
 
@@ -81,21 +81,21 @@ public class StartupLogFolderTests
     public async Task The_composition_hands_the_services_log_folder_and_file_manager_to_the_screen()
     {
         var revealer = new RecordingFileRevealer();
-        var services = AppBootstrap.Unavailable(Failure, LogFolder) with { FileRevealer = revealer };
+        var services = AppBootstrap.Unavailable(Failure, _logFolder) with { FileRevealer = revealer };
         var main = AppComposition.Create(services, _text, new RecordingThemeApplier(), () => null, new ImmediateUiDispatcher(), new ManualTimeProvider(), new FakeDialogs());
 
         await main.Startup.CheckAsync();
 
-        Assert.Equal(LogFolder, main.Startup.Card!.Path);
+        Assert.Equal(_logFolder, main.Startup.Card!.Path);
         Assert.Single(main.Startup.Card.Actions).Command.Execute(null);
-        Assert.Equal([LogFolder], revealer.Revealed);
+        Assert.Equal([_logFolder], revealer.Revealed);
     }
 
     [AvaloniaFact]
     public async Task The_error_under_the_card_shows_only_when_there_is_one()
     {
         var revealer = new RecordingFileRevealer { Succeeds = false };
-        var startup = await FailedAsync(LogFolder, revealer);
+        var startup = await FailedAsync(_logFolder, revealer);
         var view = new StartupView { DataContext = startup };
         var window = new Window { Content = view };
         window.Show();

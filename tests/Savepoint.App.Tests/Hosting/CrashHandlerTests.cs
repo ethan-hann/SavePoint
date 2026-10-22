@@ -7,7 +7,7 @@ namespace Savepoint.App.Tests.Hosting;
 
 public class CrashHandlerTests
 {
-    private const string LogFolder = @"C:\Users\Sam\AppData\Local\SavePoint\Logs";
+    private const string _logFolder = @"C:\Users\Sam\AppData\Local\SavePoint\Logs";
 
     private readonly RecordingDiagnosticLog _log = new();
     private readonly FakePresenter _presenter;
@@ -18,7 +18,7 @@ public class CrashHandlerTests
         _presenter = new FakePresenter(_log, _exits);
     }
 
-    private CrashHandler Handler(string? folder = LogFolder) => new(_log, _presenter, _exits.Add, folder);
+    private CrashHandler Handler(string? folder = _logFolder) => new(_log, _presenter, _exits.Add, folder);
 
     private static Exception Thrown(string message)
     {
@@ -55,7 +55,7 @@ public class CrashHandlerTests
         var shown = Assert.Single(_presenter.Shown);
         Assert.Same(crash, shown.Report.Exception);
         Assert.Equal("a background thread", shown.Report.Origin);
-        Assert.Equal(LogFolder, shown.Report.LogFolder);
+        Assert.Equal(_logFolder, shown.Report.LogFolder);
         Assert.Equal(1, shown.ErrorsLoggedWhenShown);
         Assert.Equal([1], _exits);
         Assert.Equal(0, shown.ExitsWhenShown);
