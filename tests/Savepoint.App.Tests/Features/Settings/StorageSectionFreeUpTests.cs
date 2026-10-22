@@ -29,6 +29,20 @@ public class StorageSectionFreeUpTests
     }
 
     [Fact]
+    public async Task The_run_it_starts_carries_the_records_the_player_was_asked_about()
+    {
+        var rig = await SeededAsync();
+        rig.Dialogs.AnswerConfirm(true);
+        var asked = FakeAssert.Ok(await rig.Backend.Settings.GetFreeUpSpacePreviewAsync(TestContext.Current.CancellationToken)).Token;
+
+        await rig.Screen.Storage.RunNowCommand.ExecuteAsync(null);
+
+        var run = Assert.Single(rig.Backend.Calls.To<ISettingsApi>(nameof(ISettingsApi.OptimizeAllStorageAsync)));
+        Assert.Equal(asked.Records, Assert.IsType<FreeUpSpaceToken>(run.Args[0]).Records);
+        Assert.Equal(3, asked.Records.Count);
+    }
+
+    [Fact]
     public async Task One_removed_snapshot_reads_in_the_singular()
     {
         var scenario = ScenarioBuilder.Mockup().WithRemovedSnapshot(MockupScenario.SkyrimId, RemovedSnapshotSamples.Continued);

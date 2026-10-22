@@ -1,4 +1,5 @@
 using System.Text;
+using Savepoint.Core.Errors;
 
 namespace Savepoint.Core.Git;
 
@@ -41,7 +42,7 @@ public sealed partial class GitEngine
         [
             .. records
                 .Where(record => commits.TryGetValue(record.Commit, out var commit) && commit.CaptureId is not null)
-                .Select(record => new RemovedCommit(commits[record.Commit], record.Branch, record.Reason, record.RemovedAt, OnBranch: !gone.Contains(record.Commit)))
+                .Select(record => new RemovedCommit(commits[record.Commit], record.Branch, record.Reason, record.RemovedAt, OnBranch: !gone.Contains(record.Commit), record.RefName))
                 .OrderByDescending(removed => removed.RemovedAt)
                 .ThenByDescending(removed => removed.Commit.PointTime),
         ];
@@ -101,18 +102,57 @@ public sealed partial class GitEngine
         return result.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
     }
 
-    // Deletes every record in one ref transaction, whatever its shape, so nothing under the prefix outlives a free-up.
-    private async Task ClearRecordsAsync(RepoRef repo, CancellationToken ct)
+    /// <summary>
+    /// Deletes exactly the named records and nothing else, in one ref transaction, so either all of them are gone or none is. A name that
+    /// is not a record, or whose record is already gone, is skipped; a record written after the names were read is never touched. The
+    /// commits stay in the store until a reclaim drops what no branch or record reaches. Needs only the git directory.
+    /// </summary>
+    /// <param name="repo">The folder whose repository holds the records.</param>
+    /// <param name="records">Record names as <see cref="RemovedCommit.RefName"/> gave them.</param>
+    /// <param name="ct">Cancels the call; a cancel before the transaction runs deletes nothing.</param>
+    /// <returns>How many records were deleted.</returns>
+    /// <exception cref="Savepoint.Core.Errors.OperationCancelledByUserException">The token was cancelled.</exception>
+    /// <exception cref="Savepoint.Core.Errors.GitOperationException">git failed.</exception>
+    public async Task<int> ClearRemovedAsync(RepoRef repo, IReadOnlyCollection<string> records, CancellationToken ct = default)
     {
-        var listed = await RunAsync(GitDirOnly(repo, "for-each-ref", "--format=%(refname)", RemovedRecords.Prefix), ct).ConfigureAwait(false);
-        var names = listed.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (names.Length == 0)
+        repo = Normalize(repo);
+        ArgumentNullException.ThrowIfNull(records);
+        if (records.Count == 0 || !HasRepository(repo))
         {
-            return;
+            return 0;
         }
 
-        var transaction = string.Concat(names.Select(name => "delete " + name + "\n"));
-        await RunWriteAsync(() => Invocation(repo, readOnly: false, "update-ref", "-m", "savepoint: free up space", "--stdin") with { Stdin = transaction }, ct).ConfigureAwait(false);
+        try
+        {
+            ct.ThrowIfCancellationRequested();
+            using var scope = BeginWrite(repo);
+            var listed = await RunAsync(GitDirOnly(repo, "for-each-ref", "--format=%(refname) %(objectname)", RemovedRecords.Prefix), ct).ConfigureAwait(false);
+            var present = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var line in listed.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (line.LastIndexOf(' ') is > 0 and var split)
+                {
+                    present[line[..split]] = line[(split + 1)..];
+                }
+            }
+
+            var doomed = records
+                .Distinct(StringComparer.Ordinal)
+                .Where(name => RemovedRecords.TryParse(name, out _) && present.ContainsKey(name))
+                .ToList();
+            if (doomed.Count == 0)
+            {
+                return 0;
+            }
+
+            var transaction = string.Concat(doomed.Select(name => "delete " + name + " " + present[name] + "\n"));
+            await RunWriteAsync(() => Invocation(repo, readOnly: false, "update-ref", "-m", "savepoint: free up space", "--stdin") with { Stdin = transaction }, ct).ConfigureAwait(false);
+            return doomed.Count;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw new OperationCancelledByUserException(CancelledOperation.Compaction, repo.GameId);
+        }
     }
 
     private async Task<List<RemovedRecords.ParsedRecord>> ReadRecordsAsync(RepoRef repo, CancellationToken ct)

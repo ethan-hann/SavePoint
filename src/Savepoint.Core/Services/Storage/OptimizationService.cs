@@ -23,8 +23,9 @@ internal sealed class OptimizationService
     /// <param name="gameId">The game to optimize, or null for every game, one after the other.</param>
     /// <param name="mode">How hard to work.</param>
     /// <param name="preemptible">True when a launch, capture or delete on the same game may stop it to go first (D13.17).</param>
-    public Guid Start(string? gameId, OptimizationMode mode, bool preemptible) =>
-        _services.Jobs.Start(JobKind.Compact, gameId, cancellable: true, context => RunAsync(context, gameId, mode, preemptible));
+    /// <param name="confirmed">The recently removed snapshots' records the run may delete, from a preview the player agreed to; null deletes none.</param>
+    public Guid Start(string? gameId, OptimizationMode mode, bool preemptible, FreeUpSpaceToken? confirmed = null) =>
+        _services.Jobs.Start(JobKind.Compact, gameId, cancellable: true, context => RunAsync(context, gameId, mode, preemptible, confirmed ?? FreeUpSpaceToken.Nothing));
 
     /// <summary>True when either repository of the game holds more loose objects than the threshold, which is when a save queues a routine optimization (D13.17).</summary>
     /// <param name="storage">The storage snapshot the caller holds the game's lock for.</param>
@@ -63,7 +64,7 @@ internal sealed class OptimizationService
         }
     }
 
-    private async Task<JobResult?> RunAsync(JobContext context, string? gameId, OptimizationMode mode, bool preemptible)
+    private async Task<JobResult?> RunAsync(JobContext context, string? gameId, OptimizationMode mode, bool preemptible, FreeUpSpaceToken confirmed)
     {
         var games = gameId is null
             ? await _services.Catalog.ListGamesAsync(context.CancellationToken).ConfigureAwait(false)
@@ -76,7 +77,7 @@ internal sealed class OptimizationService
             foreach (var game in games)
             {
                 context.CancellationToken.ThrowIfCancellationRequested();
-                outcomes.Add(await OptimizeGameAsync(context, game, mode, preemptible, () => preempted = true).ConfigureAwait(false));
+                outcomes.Add(await OptimizeGameAsync(context, game, mode, preemptible, confirmed, () => preempted = true).ConfigureAwait(false));
             }
         }
         catch (Exception e) when (e is OperationCanceledException or OperationCancelledByUserException)
@@ -99,7 +100,7 @@ internal sealed class OptimizationService
         return new OptimizeResult(outcomes);
     }
 
-    private Task<GameOptimizeOutcome> OptimizeGameAsync(JobContext context, GameDefinition game, OptimizationMode mode, bool preemptible, Action onPreempted) =>
+    private Task<GameOptimizeOutcome> OptimizeGameAsync(JobContext context, GameDefinition game, OptimizationMode mode, bool preemptible, FreeUpSpaceToken confirmed, Action onPreempted) =>
         _services.RunForGameAsync(
             game.Id,
             async (storage, handle) =>
@@ -121,6 +122,14 @@ internal sealed class OptimizationService
                     context.CancellationToken.ThrowIfCancellationRequested();
                     try
                     {
+                        // Only the records the player was told about go; one written since stays and keeps its snapshot alive through the reclaim.
+                        var records = confirmed.Records.Where(record => record.GameId == game.Id && record.Folder == repo.Role).Select(record => record.RefName).ToList();
+                        if (records.Count > 0)
+                        {
+                            await storage.Engine.CheckReclaimAsync(repo, context.CancellationToken).ConfigureAwait(false);
+                            await storage.Engine.ClearRemovedAsync(repo, records, context.CancellationToken).ConfigureAwait(false);
+                        }
+
                         await OptimizeRepoAsync(storage, repo, mode, context.CancellationToken).ConfigureAwait(false);
                         folders.Add(new FolderOutcome(repo.Role));
                     }

@@ -63,8 +63,8 @@ internal sealed partial class SettingsApi : ISettingsApi
             },
             cancellationToken);
 
-    public Task<OperationResult<JobStarted>> OptimizeAllStorageAsync() =>
-        ApiGuard.RunAsync(_services.Log, () => Task.FromResult(new JobStarted(_optimization.Start(null, OptimizationMode.ReclaimClearingRemoved, preemptible: false))));
+    public Task<OperationResult<JobStarted>> OptimizeAllStorageAsync(FreeUpSpaceToken? confirmed = null) =>
+        ApiGuard.RunAsync(_services.Log, () => Task.FromResult(new JobStarted(_optimization.Start(null, OptimizationMode.Reclaim, preemptible: false, confirmed))));
 
     public Task<OperationResult<FreeUpSpacePreview>> GetFreeUpSpacePreviewAsync(CancellationToken cancellationToken = default) =>
         ApiGuard.RunAsync(
@@ -76,12 +76,15 @@ internal sealed partial class SettingsApi : ISettingsApi
                     async storage =>
                     {
                         var total = 0;
+                        var records = new List<FreeUpSpaceRecord>();
                         foreach (var game in games)
                         {
-                            total += await RemovedSnapshots.CountAsync(storage, GameFolders.ReposForGitDirOnly(_services, storage, game), cancellationToken).ConfigureAwait(false);
+                            var preview = await RemovedSnapshots.PreviewAsync(storage, game.Id, GameFolders.ReposForGitDirOnly(_services, storage, game), cancellationToken).ConfigureAwait(false);
+                            total += preview.RecentlyRemovedSnapshots;
+                            records.AddRange(preview.Token.Records);
                         }
 
-                        return new FreeUpSpacePreview(total);
+                        return new FreeUpSpacePreview(total, new FreeUpSpaceToken(records));
                     },
                     cancellationToken).ConfigureAwait(false);
             },

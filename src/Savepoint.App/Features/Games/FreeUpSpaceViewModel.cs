@@ -140,7 +140,8 @@ public sealed partial class FreeUpSpaceViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var started = await _games.OptimizeStorageAsync(gameId);
+        // The run deletes the records the player was told about and none written since.
+        var started = await _games.OptimizeStorageAsync(gameId, preview.Value.Token);
         if (!started.Ok)
         {
             _showError(started.Error);

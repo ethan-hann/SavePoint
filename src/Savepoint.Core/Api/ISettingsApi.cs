@@ -25,14 +25,17 @@ public interface ISettingsApi
 
     /// <summary>
     /// Settings' "Run now" for Free up space: starts one <see cref="JobKind.Compact"/> job across every game, so its snapshot has no game
-    /// id. For each game it first deletes the game's recently removed snapshots for good (see <see cref="IHistoryApi.GetRecentlyRemovedAsync"/>),
-    /// then optimizes the storage and reclaims space nothing reaches any more. Answers at once; the result is an <see cref="OptimizeResult"/>.
+    /// id. For each game it first deletes the recently removed snapshots the player agreed to lose (see <see cref="IHistoryApi.GetRecentlyRemovedAsync"/>),
+    /// then optimizes the storage and reclaims space nothing reaches any more. Only the records in <paramref name="confirmed"/> are deleted:
+    /// a snapshot removed after the preview that made it stays, and a run without it deletes none. Answers at once; the result is an
+    /// <see cref="OptimizeResult"/>.
     /// </summary>
-    Task<OperationResult<JobStarted>> OptimizeAllStorageAsync();
+    /// <param name="confirmed">The token of <see cref="GetFreeUpSpacePreviewAsync"/>, as the player agreed to it; null deletes no recently removed snapshot.</param>
+    Task<OperationResult<JobStarted>> OptimizeAllStorageAsync(FreeUpSpaceToken? confirmed = null);
 
     /// <summary>
     /// Counts what <see cref="OptimizeAllStorageAsync"/> would delete for good that no profile holds, across every game, so a
-    /// confirmation can say so. Reads only the git directories.
+    /// confirmation can say so, and names the records behind the count so the run deletes exactly those. Reads only the git directories.
     /// </summary>
     /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c>.</param>
     Task<OperationResult<FreeUpSpacePreview>> GetFreeUpSpacePreviewAsync(CancellationToken cancellationToken = default);

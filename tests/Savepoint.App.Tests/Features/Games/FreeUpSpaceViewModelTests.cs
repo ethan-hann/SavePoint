@@ -87,6 +87,20 @@ public class FreeUpSpaceViewModelTests
     }
 
     [Fact]
+    public async Task The_run_it_starts_carries_the_records_the_player_was_asked_about()
+    {
+        var rig = new Rig(removed: true);
+        rig.Dialogs.AnswerConfirm(true);
+        var asked = FakeAssert.Ok(await rig.Backend.Games.GetFreeUpSpacePreviewAsync(SkyrimId, TestContext.Current.CancellationToken)).Token;
+
+        await rig.FreeUp.FreeUpCommand.ExecuteAsync(null);
+
+        var run = Assert.Single(rig.Backend.Calls.To<IGamesApi>(nameof(IGamesApi.OptimizeStorageAsync)));
+        Assert.Equal(asked.Records, Assert.IsType<FreeUpSpaceToken>(run.Args[1]).Records);
+        Assert.Equal(2, asked.Records.Count);
+    }
+
+    [Fact]
     public async Task Declining_starts_nothing_and_leaves_the_button_ready()
     {
         var rig = new Rig(removed: true);

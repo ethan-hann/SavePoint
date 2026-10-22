@@ -35,13 +35,13 @@ public sealed class FakeSettingsApi : ISettingsApi
             State.VolumeFreeBytes,
             State.Settings.LastOptimizedAt)));
 
-    public Task<OperationResult<JobStarted>> OptimizeAllStorageAsync() =>
-        _backend.Call(_api, nameof(OptimizeAllStorageAsync), [], () =>
+    public Task<OperationResult<JobStarted>> OptimizeAllStorageAsync(FreeUpSpaceToken? confirmed = null) =>
+        _backend.Call(_api, nameof(OptimizeAllStorageAsync), [confirmed], () =>
         {
             var done = new OptimizeResult([.. State.Games.Select(Optimized)]);
             var opening = State.Games.Select(game => JobLine.ForStep(JobSteps.CompactGame, ("game", game.Name))).ToList();
 
-            // Once the job has run, every game's recently removed snapshots are gone for good, as in the real backend.
+            // Once the job has run, the recently removed snapshots the player agreed to lose are gone for good and no others, as in the real backend.
             return OperationResult.Success(new JobStarted(_backend.Jobs.Start(
                 JobKind.Compact,
                 null,
@@ -50,7 +50,7 @@ public sealed class FakeSettingsApi : ISettingsApi
                 {
                     if (job.Status is JobStatus.Succeeded or JobStatus.Partial)
                     {
-                        State.Removed.Clear();
+                        State.DeleteRemoved(confirmed);
                     }
 
                     MarkOptimized(job);
@@ -59,7 +59,7 @@ public sealed class FakeSettingsApi : ISettingsApi
         });
 
     public Task<OperationResult<FreeUpSpacePreview>> GetFreeUpSpacePreviewAsync(CancellationToken cancellationToken = default) =>
-        _backend.Call(_api, nameof(GetFreeUpSpacePreviewAsync), [], () => OperationResult.Success(new FreeUpSpacePreview(State.Removed.Count)));
+        _backend.Call(_api, nameof(GetFreeUpSpacePreviewAsync), [], () => OperationResult.Success(State.FreeUpPreview(null)));
 
     public Task<OperationResult<StorageRelocationPreview>> GetRelocationPreviewAsync(string newRoot, CancellationToken cancellationToken = default) =>
         _backend.Call(_api, nameof(GetRelocationPreviewAsync), [newRoot], () => OperationResult.Success(State.RelocationPreview ?? new StorageRelocationPreview(

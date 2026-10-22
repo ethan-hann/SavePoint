@@ -359,7 +359,8 @@ public sealed partial class StorageSectionViewModel : ObservableObject
             return;
         }
 
-        var started = await _deps.Settings.OptimizeAllStorageAsync();
+        // The run deletes the records the player was told about and none written since.
+        var started = await _deps.Settings.OptimizeAllStorageAsync(preview.Value.Token);
         if (!started.Ok)
         {
             _deps.Toasts.Show(new ToastMessage(_deps.Text.Message(started.Error), ToastKind.Error));

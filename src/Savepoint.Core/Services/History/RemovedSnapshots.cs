@@ -43,9 +43,21 @@ internal sealed class RemovedSnapshots
     /// <summary>The snapshots listed, newest removal first, and every recorded commit of each folder (held by a profile again or not), which a snapshot's missing folder is resolved against.</summary>
     internal sealed record State(IReadOnlyList<Group> Groups, IReadOnlyDictionary<RepoRole, IReadOnlyList<RemovedCommit>> ByFolder);
 
-    /// <summary>How many snapshots a game's folders keep as removed: what Free up space would delete for good.</summary>
-    public static async Task<int> CountAsync(StorageSnapshot storage, IReadOnlyList<RepoRef> repos, CancellationToken cancellationToken) =>
-        (await ReadStateAsync(storage, repos, cancellationToken).ConfigureAwait(false)).Groups.Count;
+    /// <summary>
+    /// What Free up space would delete for a game: how many snapshots its folders keep as removed, and every record of those snapshots
+    /// in either folder, so the run can delete those and no others.
+    /// </summary>
+    public static async Task<FreeUpSpacePreview> PreviewAsync(StorageSnapshot storage, string gameId, IReadOnlyList<RepoRef> repos, CancellationToken cancellationToken)
+    {
+        var state = await ReadStateAsync(storage, repos, cancellationToken).ConfigureAwait(false);
+        var listed = state.Groups.Select(group => group.CaptureId).ToHashSet(StringComparer.Ordinal);
+        var records = state.ByFolder
+            .SelectMany(folder => folder.Value
+                .Where(removed => listed.Contains(removed.Commit.CaptureId!))
+                .Select(removed => new FreeUpSpaceRecord(gameId, folder.Key, removed.RefName)))
+            .ToList();
+        return new FreeUpSpacePreview(state.Groups.Count, new FreeUpSpaceToken(records));
+    }
 
     /// <summary>
     /// Reads every folder's records and groups them into snapshots by capture event. A snapshot is listed while any of its recorded

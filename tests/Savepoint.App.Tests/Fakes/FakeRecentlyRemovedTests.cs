@@ -100,8 +100,9 @@ public class FakeRecentlyRemovedTests
     public async Task Freeing_up_space_for_a_game_deletes_its_removed_snapshots_when_the_job_has_run_and_only_that_games()
     {
         var backend = Seeded();
+        var preview = FakeAssert.Ok(await backend.Games.GetFreeUpSpacePreviewAsync(MockupScenario.SkyrimId, Ct));
 
-        var started = FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(MockupScenario.SkyrimId));
+        var started = FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(MockupScenario.SkyrimId, preview.Token));
         Assert.Equal(2, FakeAssert.Ok(await backend.History.GetRecentlyRemovedAsync(MockupScenario.SkyrimId, Ct)).Snapshots.Count);
         backend.Jobs.Complete(started.JobId);
 
@@ -113,11 +114,31 @@ public class FakeRecentlyRemovedTests
     public async Task Freeing_up_space_for_every_game_deletes_every_games_removed_snapshots_when_the_job_has_run()
     {
         var backend = Seeded();
+        var preview = FakeAssert.Ok(await backend.Settings.GetFreeUpSpacePreviewAsync(Ct));
 
-        var started = FakeAssert.Ok(await backend.Settings.OptimizeAllStorageAsync());
+        var started = FakeAssert.Ok(await backend.Settings.OptimizeAllStorageAsync(preview.Token));
         backend.Jobs.Complete(started.JobId);
 
         Assert.Equal(0, FakeAssert.Ok(await backend.Settings.GetFreeUpSpacePreviewAsync(Ct)).RecentlyRemovedSnapshots);
+    }
+
+    [Fact]
+    public async Task Freeing_up_space_deletes_only_the_snapshots_its_preview_counted_and_a_run_without_one_deletes_none()
+    {
+        var backend = Seeded();
+        var preview = FakeAssert.Ok(await backend.Games.GetFreeUpSpacePreviewAsync(MockupScenario.SkyrimId, Ct));
+        var later = RemovedSnapshotSamples.Continued with { Id = new HistoryPointId("pt-removed-after-the-preview") };
+        backend.Script(() => backend.State.Removed.Add((MockupScenario.SkyrimId, later)));
+
+        var blind = FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(MockupScenario.SkyrimId));
+        backend.Jobs.Complete(blind.JobId);
+        Assert.Equal(3, FakeAssert.Ok(await backend.History.GetRecentlyRemovedAsync(MockupScenario.SkyrimId, Ct)).Snapshots.Count);
+
+        var counted = FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(MockupScenario.SkyrimId, preview.Token));
+        backend.Jobs.Complete(counted.JobId);
+
+        var left = Assert.Single(FakeAssert.Ok(await backend.History.GetRecentlyRemovedAsync(MockupScenario.SkyrimId, Ct)).Snapshots);
+        Assert.Equal(later.Id, left.Id);
     }
 
     [Fact]

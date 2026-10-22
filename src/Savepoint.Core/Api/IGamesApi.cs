@@ -78,17 +78,19 @@ public interface IGamesApi
     Task<OperationResult<CapturePreview>> GetCapturePreviewAsync(string gameId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Starts a <see cref="JobKind.Compact"/> job that frees up the game's space: it first deletes the game's recently removed
-    /// snapshots for good (see <see cref="IHistoryApi.GetRecentlyRemovedAsync"/>), then optimizes the storage and reclaims space
-    /// nothing reaches any more (D28). Nothing else deletes a recently removed snapshot. Answers at once; the result is an
-    /// <see cref="OptimizeResult"/>.
+    /// Starts a <see cref="JobKind.Compact"/> job that frees up the game's space: it first deletes the recently removed snapshots
+    /// the player agreed to lose (see <see cref="IHistoryApi.GetRecentlyRemovedAsync"/>), then optimizes the storage and reclaims space
+    /// nothing reaches any more (D28). Only the records in <paramref name="confirmed"/> are deleted; a snapshot removed after the
+    /// preview that made it stays, and a run without it deletes none. Nothing else deletes a recently removed snapshot. Answers at once;
+    /// the result is an <see cref="OptimizeResult"/>.
     /// </summary>
     /// <param name="gameId">The game.</param>
-    Task<OperationResult<JobStarted>> OptimizeStorageAsync(string gameId);
+    /// <param name="confirmed">The token of <see cref="GetFreeUpSpacePreviewAsync"/>, as the player agreed to it; null deletes no recently removed snapshot.</param>
+    Task<OperationResult<JobStarted>> OptimizeStorageAsync(string gameId, FreeUpSpaceToken? confirmed = null);
 
     /// <summary>
-    /// Counts what <see cref="OptimizeStorageAsync"/> would delete for good that no profile holds, so a confirmation can say so. Reads
-    /// only the git directories.
+    /// Counts what <see cref="OptimizeStorageAsync"/> would delete for good that no profile holds, so a confirmation can say so, and
+    /// names the records behind the count so the run deletes exactly those. Reads only the git directories.
     /// </summary>
     /// <param name="gameId">The game.</param>
     /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c>.</param>
