@@ -22,7 +22,7 @@ Cross-cutting: the Linux gate (`build/gate-linux.sh` under WSL, from its own wor
 Solution, projects, central package versions, `.editorconfig`, `build/fetch-mingit.ps1` (pinned version + SHA-256), bundled-git resolution and startup verification, Avalonia window showing one catalog-sourced string in the MD3 theme, test projects wired, `build/gate.ps1`.
 Done when: `dotnet build` and `dotnet test` pass, the app launches a themed window, and a test proves the bundled git runs and reports a version with no system git on PATH.
 
-### M1 - Engine (done; independent review findings fixed, D29; the fixes are re-checked by the M7 final review)
+### M1 - Engine (done; independent review findings fixed, D29, and re-checked by the M7 final review: all fixed but WARN-004, settled in D41)
 Path resolver (`{documents}`, `{appData}`, `{localAppData}`, `{userHome}`), path safety (two-tier denylist, real-path resolution, consent markers), git process runner (argument lists, streaming, stdin, binary stdout, cancellation with tree kill), git engine (repo-pair init with split git-dir/work-tree, capture with progress, checkout with lock retry/backoff, dirty detection, diff stat, discard, history, detached restore of an older save, branch fork/delete, reset, repack, object counts, blob read at ref), free-space preflight, stale `index.lock` recovery, git config tuning.
 Also: `info/exclude` for ignore rules and the marker (D13.1), `info/attributes` `-delta` list (D16), capture-id trailers (D15), fork and move-forward from a detached point (D14), points-only-in-this-branch query (D17), every gotcha G-1..G-37 in `docs/reference/v1-engine.md` fixed by design.
 Done when: the plan's Phase 1 verification passes (round trip byte-identical, locked file and low disk fail safely, denylisted paths rejected, nested path accepted, missing/foreign marker refuses every destructive op), a tree deeper than 260 characters round-trips on Windows (D19), and an independent Opus review (han-coding:code-review) of path safety and the engine reports no open blocking finding.
@@ -52,7 +52,7 @@ Done when: a Steam game's cards and tiles show its art from the local cache with
 Keyboard flow and automation names on every control, live-region announcements, responsive rules (rail collapses below ~900px, table drops mod-files column first), reduced motion, OS notifications when unfocused, single instance, logging with "Show details", crash/stale-state recovery on startup.
 Done when: an accessibility review and an adversarial resilience review report no open blocking findings.
 
-### M7 - Packaging and end-to-end (doing: packages `0c55208`, the installer data-folder guard D38, end-to-end journeys `3f20075`, and the final gap analysis D39 are done; the polish pass, final code review, and package rebuild remain)
+### M7 - Packaging and end-to-end (doing: packages `0c55208`, the installer data-folder guard D38, end-to-end journeys `3f20075`, the final gap analysis D39, the polish pass `cf812e2` with D40, and the final code review D41 are done; the review's fix round and the package rebuild remain)
 Installer + portable build per OS with the pruned, licensed git bundle (D21), end-to-end dogfood run against FakeGame through the real UI services, final code review and gap analysis against `plan.md` and `docs/ui/README.md`, project documentation (README, user guide, developer guide) and a generated API reference (D24).
 Done when: the gap analysis reports no unmet requirement and the packaged app runs the full capture, switch, play, capture cycle.
 

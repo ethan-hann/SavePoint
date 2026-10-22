@@ -264,8 +264,8 @@ The roadmap asks for an installer and a portable build per OS. v2 packages with 
   - **Startup order:** `VelopackApp.Build().Run()` is literally the first statement of `Main`, because vpk checks for it there and warns about a wrapper. A test reads `Main`'s IL to pin the order.
   - **vpk flags:** `--shortcuts StartMenuRoot` (no desktop shortcut), `--skip-updates`, and an `--exclude` that drops `.pdb` files and the two XML doc files.
   - **Outputs:**
-    - Windows: `SavePoint-win-Setup.exe`, `SavePoint-win-Portable.zip`, `SavePoint-<version>-full.nupkg`, and vpk's release index files.
-    - Linux: `SavePoint.AppImage` and `SavePoint-<version>-linux-full.nupkg`.
+    - Windows: `SavePoint-win-Setup.exe`, `SavePoint-win-Portable.zip`, `SavePointApp-<version>-full.nupkg` (vpk names it after the pack id, D38), and vpk's release index files.
+    - Linux: `SavePoint.AppImage` and `SavePointApp-<version>-linux-full.nupkg`.
   - **Not yet covered:** the packages are unsigned, so SmartScreen warns on the setup. Releases still need to publish the MSYS2 and MINGW package sources that D21 also promises.
 
 ## D34. A local diagnostic log and a crash handler

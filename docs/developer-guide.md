@@ -94,7 +94,9 @@ Other filters are `--filter-namespace` and `--filter-method`. Add `--report-xuni
   - the copy never says "commit", "branch", "checkout", "repo", or "HEAD";
   - an aside takes an em dash, never a spaced hyphen;
   - a helper line ends with a period;
-  - spelling is American (the `*.defaultName` keys are exempt, because they become the names people give their profiles).
+  - spelling is American.
+
+  The `*.defaultName` keys are exempt from the dash rule, because they become the names people give their profiles.
 
 ### Process starts are expensive
 
@@ -118,7 +120,7 @@ A change is done when the gate passes.
 
 - **Test first.** For every behavior, write the test and watch it fail on an assertion for the expected reason; a compile or harness error does not count. Then write the code. A test that passes on its first run gets a mutation check before it counts. Record the observed failure in the commit body.
 - **Copy lives in the catalog only.** Every user-visible string goes through `Localization/Assets/Lang/en/<area>.json`. A key enters the catalog together with the code that uses it. Error copy is keyed by the error's message id, and every `error.*` id has an `ErrorPresentation` entry (icon, tone, title).
-- **Docs and comments.** Public Core APIs carry XML doc comments that state their contract; a missing one fails the Core build (CS1591, D24). Inline comments are short, say why, and never name a milestone, task, or review.
+- **Docs and comments.** Public Core APIs carry XML doc comments that state their contract; a missing one fails the Core build (CS1591, D24). Inline comments are short, say why, and never name a milestone, task, or review. A comment may cite a decision (`D29`), because decisions are lasting design records in `decisions.md`.
 - **Core stays testable.** It holds no static mutable state and has no UI dependency. Side effects tests need to fake go through injected abstractions. Async methods take a `CancellationToken` all the way down.
 - **Departures are decisions.** A change that departs from the spec, or fills a gap in it, gets a decision in `decisions.md`.
 - **Cross-platform.** Windows, Linux, and macOS run from one target framework. OS-specific code is guarded with `OperatingSystem.Is*()` (D26).
@@ -130,7 +132,7 @@ SavePoint ships English only. The catalogs are embedded in the app when it is bu
 1. Copy `src/Savepoint.App/Localization/Assets/Lang/en/` to `Lang/<code>/`, where `<code>` is a language tag such as `de` or `pt-BR`. The files may be split differently from English, but together they must hold exactly the English keys.
 2. Translate the values. They are ICU MessageFormat: keep every `{argument}` name as it is, and give `plural` messages the categories the language needs. Plural rules and number formats follow the tag.
 3. Build and run the catalog lint tests (`CatalogLintTests`). They report a malformed tag, a missing or extra key, different argument names, and a message that does not parse, each with the locale and the key.
-4. With a second locale in the app, Settings shows a language list built from the locale folders (`LocalizationCatalog.EmbeddedLocales`), and the choice is saved with the other settings.
+4. Settings has no language list yet, because there is only one language. A second locale folder makes `LanguageAvailabilityTests` fail on purpose: it marks where Settings must gain a list built from `LocalizationCatalog.EmbeddedLocales`, with the choice saved in the settings file.
 
 ## Where to start reading
 

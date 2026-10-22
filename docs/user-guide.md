@@ -90,7 +90,7 @@ SavePoint asks what to do with the session:
 If you started from an older point, the progress can't simply go on the end of the profile, so the choices are:
 
 - **Keep this as a new profile** (recommended). The original profile stays exactly as it is.
-- **Continue the profile from here.** The newer points leave that profile. You can still recover them until the next storage optimization.
+- **Continue the profile from here**, offered when every folder started the session from that profile's own points. The newer points leave that profile. You can still recover them until the next storage optimization.
 
 If files in the game's own folder changed while you played, as an update would change them, SavePoint tells you.
 
@@ -139,6 +139,7 @@ Default locations, until you move them:
 Every failure says what happened and what you can do; **Show details** gives the technical text. Common cases:
 
 - **A file is in use.** A switch or a save stopped because another program held a file. Close that program, usually the game or its launcher, and try again. A retry picks up where it stopped.
+- **SavePoint can't read a file.** A file in a game folder can't be opened, usually because it belongs to another account or is marked private, so SavePoint can't tell whether it changed. Closing programs doesn't help: make the file readable for your account, or remove it, then try again.
 - **Half of that save worked.** One folder saved and the other didn't. Fix the reason shown and retry just that part. Nothing already saved is affected.
 - **The last switch didn't finish.** The folder holds files from two points. Switch again to finish it, or discard the changes to bring the folder back to a saved point.
 - **A folder moved or is gone.** SavePoint still has everything it saved. Point it at the new location to carry on.

@@ -180,6 +180,17 @@ public interface IAppStatusApi
 {
     Task<OperationResult<StartupStatus>> CheckAsync(CancellationToken cancellationToken = default);
     Task<OperationResult<string>> RecoverCatalogFileAsync(string path, CatalogRecovery recovery, CancellationToken cancellationToken = default);
+    Task<OperationResult<string>> UseStorageFolderAsync(string folder, CancellationToken cancellationToken = default);   // "Find the folder"
+    Task<OperationResult<string>> StartWithEmptyStorageAsync(CancellationToken cancellationToken = default);              // "Start with an empty folder"
+}
+
+public interface IArtworkApi
+{
+    event EventHandler<ArtworkChange>? ArtworkChanged;                                       // keyed by game id, after a background lookup
+    Task<OperationResult<GameArtwork>> GetAsync(string gameId, CancellationToken cancellationToken = default);  // what is on disk now; never waits for a lookup
+    Task<OperationResult<GameArtwork>> SetCustomImageAsync(string gameId, string imagePath);
+    Task<OperationResult<GameArtwork>> ClearCustomImageAsync(string gameId);
+    Task<OperationResult<GameArtwork>> LookAgainAsync(string gameId);
 }
 ```
 
@@ -195,7 +206,7 @@ Catalog models (`GameDefinition`, `Profile`, `AppSettings`, `GameTemplate`, `Rep
 
 **History.** `GameHistory` lists `HistoryPoint`s newest first, optionally for one profile: id, kind (`VersionModsAndSave`, `VersionAndMods`, `SaveOnly`, D15), name, date, profile id and name, the install state at that point, mod files changed since the profile's previous install point, bytes where known, and the `InUse` and `LoadedNow` markers. A `VersionModsAndSave` point belongs in both columns of the list view.
 
-**Storage and settings.** `GameStorageUsage` and `StorageSummary` give SavePoint's bytes per game and in total and the storage volume's size and free space; the summary adds the last optimization date. `StorageRelocationPreview` and `ClearAllDataPreview` list what will move or go, with sizes and a `BlockedBy` error, so the confirmation is exact. After a move is verified and SavePoint has switched to the new root, the old copies are deleted; a copy that cannot be removed is named in the job's lines and left in place.
+**Storage and settings.** `GameStorageUsage` and `StorageSummary` give SavePoint's bytes per game and in total and the storage volume's size and free space; the summary adds the last optimization date. A storage move carries everything in the storage root, including a readable folder that is not a game's (such as "game - Copy"), and removes it from the old root with the rest; only a folder that cannot be opened and is not named like a game folder is left where it is. `StorageRelocationPreview` and `ClearAllDataPreview` list what will move or go, with sizes and a `BlockedBy` error, so the confirmation is exact. After a move is verified and SavePoint has switched to the new root, the old copies are deleted; a copy that cannot be removed is named in the job's lines and left in place.
 
 **Startup (D18, D37).** `StartupStatus` holds `GitStatus(Available, Path, Version, Error)`, `CatalogStatus(Directory, CorruptFiles)`, and `StorageStatus(Reachable, Root, Error)`. Each `CorruptCatalogFile` names its path, its last good backup if any, and the error. `RecoverCatalogFileAsync` restores the backup or starts that file empty; either way the corrupt file is moved aside, never deleted, and the call answers with where it went. When the storage folder cannot be reached, the startup screen offers three ways on:
 - check again, after the drive is back;
