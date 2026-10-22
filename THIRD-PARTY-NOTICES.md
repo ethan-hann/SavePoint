@@ -16,6 +16,8 @@ SavePoint bundles the components below. Each keeps its own license. The longer l
 | CommunityToolkit.Mvvm | 8.4.2 | MIT | Copyright .NET Foundation and Contributors |
 | MessageFormat (messageformat.net) | 8.0.0 | MIT | Copyright 2014 Jeff Hansen |
 | Velopack | 1.2.161 | MIT | Copyright Velopack Ltd. |
+| Serilog | 4.4.0 | Apache-2.0 | Copyright Serilog Contributors |
+| Serilog.Sinks.File | 7.0.0 | Apache-2.0 | Copyright Serilog Contributors |
 | Tmds.DBus.Protocol | 0.94.1 | MIT | Copyright Tom Deseyn |
 | AsmResolver, AsmResolver.PE, AsmResolver.PE.File, AsmResolver.PE.Win32Resources | 6.0.1 | MIT | Copyright 2016-2026 Washi |
 | .NET runtime and libraries, in self-contained builds | 10.0 | MIT | Copyright .NET Foundation and Contributors |
