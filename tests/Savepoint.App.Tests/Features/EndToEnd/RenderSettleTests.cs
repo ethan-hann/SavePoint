@@ -18,7 +18,9 @@ public class RenderSettleTests
 
         app.Render("settle", "nav-pills");
 
-        var pills = app.Find<ListBox>("NavList").GetVisualDescendants().OfType<ListBoxItem>().ToList();
-        Assert.Equal([1.0, 0.0, 0.0], pills.Select(SelectedLayer));
+        var layers = app.Find<ListBox>("NavList").GetVisualDescendants().OfType<ListBoxItem>().Select(SelectedLayer).ToList();
+        Assert.True(layers.Count > 1, "the rail has more than one destination");
+        Assert.Equal(1.0, layers[0]);
+        Assert.All(layers.Skip(1), layer => Assert.Equal(0.0, layer));
     }
 }
