@@ -116,7 +116,7 @@ Switch between the **List** and **Cards** views, and filter by profile. A point 
   - accent color: blue, violet, green, amber, or crimson;
   - layout: **Sidebar** keeps every game one click away, **Library** puts cover art up front. You can also switch layout from the Games screen.
 - **When you finish playing:** whether to ask about saving the session. The same section currently holds **Skip the confirmation when only the save changes**, which skips the check *before* playing (see Playing).
-- **Remove all SavePoint data:** removes SavePoint's saved history, settings, and game list, and takes its marker file out of each game folder. Your game folders and everything in them stay exactly as they are. You confirm by typing a word.
+- **Remove all SavePoint data:** removes SavePoint's saved history, settings, game list, artwork, and logs (except today's open log file), and takes its marker file out of each game folder. Your game folders and everything in them stay exactly as they are. You confirm by typing a word.
 - **About:** the version, and the third-party notices.
 
 Default locations, until you move them:
@@ -141,6 +141,18 @@ Every failure says what happened and what you can do; **Show details** gives the
 
 Closing SavePoint while it removes all data or moves its storage asks first. Stopping those halfway would leave a mess.
 - **An unreadable settings file at startup.** SavePoint leaves the file as it found it. For each one, it offers to restore the last good copy or start that file empty. The unreadable file is moved aside, never deleted.
+
+### Reporting a problem
+
+SavePoint keeps a log of what it did and of every error, one file per day, with the newest 14 kept. **Settings > About > Open the log folder** shows it. When reporting a problem, send the log from the day it happened. It contains folder paths and game names from your computer, and nothing is ever sent anywhere by SavePoint itself.
+
+| | Log folder |
+| --- | --- |
+| Windows | `%LOCALAPPDATA%\SavePoint\Logs` |
+| macOS | `~/Library/Logs/SavePoint` |
+| Linux | `~/.local/state/savepoint/logs` |
+
+If SavePoint ever runs into a problem it can't recover from, it shows a last window with the details and the log folder, then closes. It doesn't carry on in an unknown state that could touch your game folders.
 
 ## What SavePoint touches
 

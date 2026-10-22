@@ -32,6 +32,7 @@ How to build a screen in `Savepoint.App`. The visual spec is `../Savepoint/docs/
   - The tile shows the tint until an image is ready, and it stays decoration for assistive technology.
 - `AnnouncementRegion` (`Announce`), `IUiDispatcher` (`AvaloniaUiDispatcher`, tests `ImmediateUiDispatcher`; `PostWhenIdle` for work that must wait until the library has rendered, such as artwork lookups).
 - Test images for decoders and tiles: `tests/Shared/TestImages.cs`.
+- Opening folders (the log folder, the notices) goes through `AppServices.FileRevealer`, which opens a folder as a folder on every OS; Settings > About and the startup card for a backend that failed to start both offer the log folder (D34).
 
 ## Theme vocabulary (`src/Savepoint.App/Styles`, `Theme/`)
 

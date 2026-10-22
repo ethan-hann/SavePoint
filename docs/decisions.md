@@ -284,6 +284,13 @@ v1's plan keeps each error's English message as dev-facing detail "for logs and 
 - **The App writes the files with Serilog 4.4.0 and Serilog.Sinks.File 7.0.0** (proven libraries; the rolling, size limits, and safe writes are their job). The logger is created and passed in, never the static `Log`. Files are `savepoint-<date>.log` in the platform's logs folder (`AppDirectories.LogsDir`), rolled daily and at 10 MB, with the newest 14 kept. Errors are flushed at once.
 - **Unhandled exceptions** from the UI thread, the thread pool, or unobserved tasks are logged. An unobserved task exception is logged and observed. A UI-thread or domain-level crash shows a last window ("SavePoint ran into a problem and has to close") with Show details and the log folder, then exits: continuing in an unknown state could touch game folders wrongly.
 - **Settings > About gets "Open the log folder".** "Clear all data" also empties the log folder, except the file in use.
+- **Settled while building it:**
+  - `IDiagnosticLog.CurrentFile` names the open file, so clear-all can spare it: Windows refuses to delete it, and Linux or macOS would unlink the live file. The backend wraps the log so a log that throws can never break the no-exception rule of the Api.
+  - Api failures are logged once, in `ApiGuard`, with the member's name: a `SavepointException` as a warning, anything else as an error. A caller's own cancellation is not logged, because screens cancel reads on every navigation.
+  - Failed git commands are warnings, since probes allow some exit codes. Each session phase logs once, not on every progress tick.
+  - The Serilog sink is unbuffered, so every line reaches the disk at once.
+  - On a crash, a second crash while the last window is up is only logged, and a crash with no responsive UI thread gives up on the window after 5 seconds. The exit code is 1.
+  - The startup screen for a backend that failed to start names the log folder and opens it.
 
 ## D35. The "only the save changes" switch belongs to the check before playing
 
