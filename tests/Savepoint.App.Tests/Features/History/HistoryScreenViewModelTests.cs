@@ -261,15 +261,6 @@ public class HistoryScreenViewModelTests
     }
 
     [Fact]
-    public async Task Buttons_are_unavailable_when_no_launch_flow_is_plugged_in()
-    {
-        var rig = await HistoryRig.ShownAsync(withFlow: false);
-
-        Assert.False(rig.Screen.Saves[1].LoadCommand.CanExecute(null));
-        Assert.False(rig.Screen.Groups[0].Cards[1].GoBackCommand.CanExecute(null));
-    }
-
-    [Fact]
     public async Task Buttons_are_unavailable_while_the_flow_holds_a_session_for_the_game_and_return_when_it_ends()
     {
         var rig = await HistoryRig.ShownAsync();

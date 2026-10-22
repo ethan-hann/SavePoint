@@ -1096,12 +1096,4 @@ public class ShellViewModelTests
         Assert.Same(flow, ((IShellContext)rig.Shell).LaunchFlow);
         Assert.Same(flow, rig.Shell.LaunchFlow);
     }
-
-    [Fact]
-    public async Task Without_a_launch_flow_the_slot_is_empty()
-    {
-        var rig = await ShellRig.StartAsync();
-
-        Assert.Null(rig.Shell.LaunchFlow);
-    }
 }

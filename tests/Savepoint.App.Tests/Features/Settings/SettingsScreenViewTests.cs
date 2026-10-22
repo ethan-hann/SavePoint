@@ -349,7 +349,7 @@ public class SettingsScreenViewTests
             new ToastHostViewModel(new ManualTimeProvider(), new ImmediateUiDispatcher()),
             new ImmediateUiDispatcher());
 
-        var factory = FeatureComposition.SettingsScreen(context, null);
+        var factory = FeatureComposition.SettingsScreen(context);
 
         Assert.NotNull(factory);
         Assert.Equal(NavDestination.Settings, factory.Destination);

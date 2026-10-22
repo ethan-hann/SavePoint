@@ -39,16 +39,6 @@ public class GamesScreenActionsTests
         Assert.Empty(rig.LaunchFlow.Begun);
     }
 
-    [Fact]
-    public async Task Play_does_nothing_without_a_launch_flow()
-    {
-        var rig = await GamesRig.StartAsync(withLaunchFlow: false);
-
-        await rig.Screen.Profiles[0].PlayCommand.ExecuteAsync(null);
-
-        Assert.Empty(rig.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.StartAsync)));
-    }
-
     // ---- New profile
 
     [Fact]

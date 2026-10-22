@@ -9,12 +9,12 @@ public sealed partial class GamesScreenViewModel
     async Task IProfileRowActions.PlayAsync(ProfileRowViewModel row)
     {
         // A command's Execute runs even when CanExecute is false, so the gate is checked again here.
-        if (!row.CanPlay || _shell.LaunchFlow is not { } flow)
+        if (!row.CanPlay)
         {
             return;
         }
 
-        await flow.BeginAsync(row.GameId, new LaunchTarget.ProfileTip(row.Id));
+        await _shell.LaunchFlow.BeginAsync(row.GameId, new LaunchTarget.ProfileTip(row.Id));
     }
 
     async Task IProfileRowActions.EditAsync(ProfileRowViewModel row)
@@ -106,7 +106,7 @@ public sealed partial class GamesScreenViewModel
             return;
         }
 
-        if (_shell.LaunchFlow?.IsActive(game.Id) == true)
+        if (_shell.LaunchFlow.IsActive(game.Id))
         {
             ShowError(ErrorInfo.From(new GameRunningException(game.Id, game.Name)));
             return;

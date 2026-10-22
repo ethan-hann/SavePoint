@@ -16,7 +16,7 @@ namespace Savepoint.App.Features.Games;
 /// <param name="Toasts">Where failures that have no dialog to sit in are announced.</param>
 /// <param name="Dispatcher">Brings Api and launch-flow events back to the UI thread.</param>
 /// <param name="Clock">What "now" means for the wizard's default profile name.</param>
-/// <param name="Editor">Builds the game editor pane; null while there is none, which hides Edit game.</param>
+/// <param name="Editor">Builds the game editor pane.</param>
 public sealed record GamesDependencies(
     IGamesApi Games,
     IProfilesApi Profiles,
@@ -26,4 +26,4 @@ public sealed record GamesDependencies(
     ToastHostViewModel Toasts,
     IUiDispatcher Dispatcher,
     TimeProvider Clock,
-    IGameEditorFactory? Editor);
+    IGameEditorFactory Editor);

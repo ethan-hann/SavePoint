@@ -70,12 +70,9 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
         AddGameCommand = new RelayCommand(() => RequestAddGame());
         FirstRun = new FirstRunViewModel(text, AddGameCommand, new AsyncRelayCommand(StartFromTemplateAsync));
         LayoutToggle = new LayoutToggleViewModel(text, SetLayoutAsync, _layout);
-        JobStatus = new JobStatusViewModel(text, dependencies.Toasts, id => Games.FirstOrDefault(row => row.Id == id)?.Name, jobId => dependencies.LaunchFlow?.ShowsOutcomeOf(jobId) == true);
+        JobStatus = new JobStatusViewModel(text, dependencies.Toasts, id => Games.FirstOrDefault(row => row.Id == id)?.Name, jobId => dependencies.LaunchFlow.ShowsOutcomeOf(jobId));
 
-        if (dependencies.LaunchFlow is { } flow)
-        {
-            flow.SettingsSaved += OnFlowSettingsSaved;
-        }
+        dependencies.LaunchFlow.SettingsSaved += OnFlowSettingsSaved;
     }
 
     /// <inheritdoc />
@@ -185,7 +182,7 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
     public NavDestination Destination => _destination;
 
     /// <inheritdoc />
-    public ILaunchFlowHost? LaunchFlow => _deps.LaunchFlow;
+    public ILaunchFlowHost LaunchFlow => _deps.LaunchFlow;
 
     /// <inheritdoc />
     public IArtworkProvider Artwork => _deps.Artwork;
@@ -378,10 +375,7 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
         _deps.Jobs.JobChanged -= OnJobChanged;
         EndPane(except: null);
         (_deps.Artwork as IDisposable)?.Dispose();
-        if (_deps.LaunchFlow is { } flow)
-        {
-            flow.SettingsSaved -= OnFlowSettingsSaved;
-        }
+        _deps.LaunchFlow.SettingsSaved -= OnFlowSettingsSaved;
     }
 
     // Runs as each save lands, in the order they were stored, so a layout another change briefly undid is put back.

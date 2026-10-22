@@ -69,8 +69,8 @@ public static class AppComposition
         return
         [
             FeatureComposition.GamesScreen(feature, editor),
-            FeatureComposition.HistoryScreen(feature, editor),
-            FeatureComposition.SettingsScreen(feature, editor, settingsEnvironment),
+            FeatureComposition.HistoryScreen(feature),
+            FeatureComposition.SettingsScreen(feature, settingsEnvironment),
         ];
     }
 }

@@ -21,7 +21,7 @@ namespace Savepoint.App.Features.Shell;
 /// <param name="Theme">Applies the saved theme and accent.</param>
 /// <param name="Screens">One factory per destination; the shell refuses to start without one for every destination.</param>
 /// <param name="Artwork">Each game's artwork for its tiles; a game with none keeps its name tint.</param>
-/// <param name="LaunchFlow">The launch flow that owns starting a game; without one, Play does nothing.</param>
+/// <param name="LaunchFlow">The launch flow that owns starting a game.</param>
 public sealed record ShellDependencies(
     IGamesApi Games,
     IProfilesApi Profiles,
@@ -35,4 +35,4 @@ public sealed record ShellDependencies(
     IThemeApplier Theme,
     IReadOnlyList<IScreenFactory> Screens,
     IArtworkProvider Artwork,
-    ILaunchFlowHost? LaunchFlow = null);
+    ILaunchFlowHost LaunchFlow);

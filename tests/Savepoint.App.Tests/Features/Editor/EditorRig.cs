@@ -7,6 +7,7 @@ using Savepoint.App.Features.Editor;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Localization;
 using Savepoint.App.Tests.Fakes;
+using Savepoint.App.Tests.Features.History;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 
@@ -56,7 +57,7 @@ internal sealed class FakeShellContext : IShellContext
 
     public LayoutToggleViewModel LayoutToggle { get; }
 
-    public ILaunchFlowHost? LaunchFlow => null;
+    public ILaunchFlowHost LaunchFlow { get; } = new ScriptedLaunchFlow();
 
     public IArtworkProvider Artwork { get; set; } = null!;
 

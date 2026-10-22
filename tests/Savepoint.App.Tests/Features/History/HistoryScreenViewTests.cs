@@ -220,7 +220,7 @@ public class HistoryScreenViewTests
             new ToastHostViewModel(new ManualTimeProvider(), new ImmediateUiDispatcher()),
             new ImmediateUiDispatcher());
 
-        var factory = FeatureComposition.HistoryScreen(context, null);
+        var factory = FeatureComposition.HistoryScreen(context);
 
         Assert.NotNull(factory);
         Assert.Equal(NavDestination.History, factory.Destination);

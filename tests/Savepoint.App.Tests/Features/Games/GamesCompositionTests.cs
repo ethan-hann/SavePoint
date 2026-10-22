@@ -20,14 +20,13 @@ public class GamesCompositionTests
         var services = new AppServices(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus, backend.Artwork);
         var context = new FeatureContext(services, rig.Dialogs, rig.Text, new ToastHostViewModel(TimeProvider.System, new ImmediateUiDispatcher()), new ImmediateUiDispatcher());
 
-        var factory = FeatureComposition.GamesScreen(context, null);
+        var factory = FeatureComposition.GamesScreen(context, new RecordingEditorFactory());
 
         Assert.NotNull(factory);
         Assert.Equal(NavDestination.Games, factory.Destination);
         var screen = Assert.IsType<GamesScreenViewModel>(factory.Create(rig.Shell));
         await screen.ReloadAsync();
         Assert.Equal(3, screen.Profiles.Count);
-        Assert.False(screen.CanEditGame);
     }
 
     [AvaloniaFact]

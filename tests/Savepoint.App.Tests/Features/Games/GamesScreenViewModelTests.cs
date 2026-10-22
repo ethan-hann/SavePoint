@@ -391,14 +391,6 @@ public class GamesScreenViewModelTests
     }
 
     [Fact]
-    public async Task Play_stays_unavailable_while_no_launch_flow_exists()
-    {
-        var rig = await GamesRig.StartAsync(withLaunchFlow: false);
-
-        Assert.All(Rows(rig), row => Assert.False(row.CanPlay));
-    }
-
-    [Fact]
     public async Task Play_is_unavailable_while_the_flow_has_a_session_for_the_game()
     {
         var rig = await GamesRig.StartAsync();
@@ -637,21 +629,11 @@ public class GamesScreenViewModelTests
     {
         var rig = await GamesRig.StartAsync();
 
-        Assert.True(rig.Screen.CanEditGame);
         rig.Screen.EditGameCommand.Execute(null);
 
         var pane = Assert.Single(rig.Editor!.Created);
         Assert.Equal(new EditorPane("existing", MockupScenario.SkyrimId, null), pane);
         Assert.Same(pane, rig.Shell.Content);
-    }
-
-    [Fact]
-    public async Task Edit_game_is_unavailable_while_there_is_no_editor()
-    {
-        var rig = await GamesRig.StartAsync(withEditor: false);
-
-        Assert.False(rig.Screen.CanEditGame);
-        Assert.False(rig.Screen.EditGameCommand.CanExecute(null));
     }
 
     [Fact]
@@ -666,16 +648,6 @@ public class GamesScreenViewModelTests
         Assert.Equal("new", pane.Kind);
         Assert.Same(prefill, pane.Prefill);
         Assert.Same(pane, rig.Shell.Content);
-    }
-
-    [Fact]
-    public async Task A_request_to_add_a_game_is_ignored_while_there_is_no_editor()
-    {
-        var rig = await GamesRig.StartAsync(withEditor: false);
-
-        rig.Shell.RequestAddGame();
-
-        Assert.Same(rig.Screen, rig.Shell.Content);
     }
 
     [Fact]

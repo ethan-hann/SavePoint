@@ -65,7 +65,7 @@
         <TextBlock x:Name="GameNameText" Classes="dialog-title" TextTrimming="CharacterEllipsis" Text="{Binding GameName}" />
         <TextBlock x:Name="InstallPathText" Classes="mono small subtle" TextTrimming="CharacterEllipsis" Text="{Binding InstallPath}" />
       </StackPanel>
-      <Button x:Name="EditGameButton" Grid.Column="2" Classes="header-action" IsVisible="{Binding CanEditGame}" Command="{Binding EditGameCommand}" AutomationProperties.Name="{loc:Loc games.header.editGame}">
+      <Button x:Name="EditGameButton" Grid.Column="2" Classes="header-action" Command="{Binding EditGameCommand}" AutomationProperties.Name="{loc:Loc games.header.editGame}">
         <StackPanel Orientation="Horizontal" Spacing="8">
           <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.Edit}" />
           <TextBlock Classes="header-words" Text="{loc:Loc games.header.editGame}" />
@@ -91,7 +91,7 @@
     <!-- Header, library layout: a title and the same buttons. -->
     <Grid x:Name="LibraryHeader" Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto" IsVisible="{Binding IsLibraryLayout}" Classes.compact="{Binding Header.IsCompact}">
       <TextBlock x:Name="LibraryTitleText" Classes="card-title" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,12,0" Text="{Binding LibraryTitle}" />
-      <Button x:Name="LibraryEditGameButton" Grid.Column="1" Classes="header-action" IsVisible="{Binding CanEditGame}" Command="{Binding EditGameCommand}" AutomationProperties.Name="{loc:Loc games.header.editGame}">
+      <Button x:Name="LibraryEditGameButton" Grid.Column="1" Classes="header-action" Command="{Binding EditGameCommand}" AutomationProperties.Name="{loc:Loc games.header.editGame}">
         <StackPanel Orientation="Horizontal" Spacing="8">
           <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.Edit}" />
           <TextBlock Classes="header-words" Text="{loc:Loc games.header.editGame}" />
