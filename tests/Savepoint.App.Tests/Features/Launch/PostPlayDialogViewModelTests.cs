@@ -119,7 +119,7 @@ public class PostPlayDialogViewModelTests : IDisposable
         Assert.Equal("Keep this as a new profile", fork.Title);
         Assert.Equal("Recommended. \"Modded playthrough - 7-2-26\" stays exactly as it is, and this progress becomes a profile of its own.", fork.Subtitle);
         Assert.Equal("Profile name:", fork.NameLabel);
-        Assert.Equal("Kept changes - 7-8-26", fork.Name);
+        Assert.Equal("New progress - 7-8-26", fork.Name);
         Assert.Equal("Continue \"Modded playthrough - 7-2-26\" from here", move.Title);
         Assert.Equal("Moves the profile forward from this older point. 1 newer point leaves it, and you can still recover it until the next storage optimization.", move.Subtitle);
         Assert.True(dialog.HasOlderNote);

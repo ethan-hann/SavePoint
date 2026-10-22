@@ -70,6 +70,7 @@
   "launch.postPlay.choicesLabel": "What to do with this session",
   "launch.postPlay.continueIt": "Continue from here",
   "launch.postPlay.defaultName": "Session - {date}",
+  "launch.postPlay.fork.defaultName": "New progress - {date}",
   "launch.postPlay.fork.nameLabel": "Profile name:",
   "launch.postPlay.fork.sub": "Recommended. \"{profileName}\" stays exactly as it is, and this progress becomes a profile of its own.",
   "launch.postPlay.fork.title": "Keep this as a new profile",

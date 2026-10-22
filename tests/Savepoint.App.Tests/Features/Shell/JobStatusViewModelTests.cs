@@ -43,7 +43,7 @@ public class JobStatusViewModelTests
         await rig.StartCapture();
         FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
 
-        Assert.Equal("Saving 2 things\u2026", rig.Status.PillText);
+        Assert.Equal("Working on 2 jobs\u2026", rig.Status.PillText);
     }
 
     [Fact]
@@ -160,7 +160,7 @@ public class JobStatusViewModelTests
         rig.Backend.Jobs.CompleteCancelled(job.JobId);
 
         var toast = Assert.Single(rig.Toasts.Toasts);
-        Assert.Equal("Cancelled saving Skyrim Special Edition.", toast.Text);
+        Assert.Equal("Canceled saving Skyrim Special Edition.", toast.Text);
         Assert.Equal(ToastKind.Info, toast.Message.Kind);
         Assert.Null(toast.Details);
     }
@@ -210,7 +210,7 @@ public class JobStatusViewModelTests
         var cancelled = FakeAssert.Ok(await rig.Backend.Settings.OptimizeAllStorageAsync());
         rig.Backend.Jobs.CompleteCancelled(cancelled.JobId);
 
-        Assert.Equal(["Something went wrong optimizing storage.", "Cancelled optimizing storage."], rig.Toasts.Toasts.Select(toast => toast.Text));
+        Assert.Equal(["Something went wrong optimizing storage.", "Canceled optimizing storage."], rig.Toasts.Toasts.Select(toast => toast.Text));
     }
 
     [Fact]
@@ -247,7 +247,7 @@ public class JobStatusViewModelTests
         rig.Backend.Jobs.CompleteCancelled(job.JobId);
 
         var toast = Assert.Single(rig.Toasts.Toasts);
-        Assert.Equal("Cancelled moving your storage.", toast.Text);
+        Assert.Equal("Canceled moving your storage.", toast.Text);
         Assert.Equal(ToastKind.Info, toast.Message.Kind);
     }
 
@@ -343,7 +343,7 @@ public class JobStatusViewModelTests
 
         FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
 
-        Assert.Equal("Saving 2 things\u2026", rig.Status.Announcement);
+        Assert.Equal("Working on 2 jobs\u2026", rig.Status.Announcement);
 
         rig.Backend.Jobs.Complete(job.JobId);
 

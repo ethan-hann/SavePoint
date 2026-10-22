@@ -60,7 +60,7 @@ public class StorageSectionViewModelTests
     {
         var rig = await SettingsRig.ShownAsync();
 
-        Assert.Equal("Squeezes down space from profiles you've deleted. Last run Jul 1.", Storage(rig).OptimizeDescription);
+        Assert.Equal("Frees space left by deleted profiles. It also runs by itself after a delete. Last run Jul 1.", Storage(rig).OptimizeDescription);
     }
 
     [Fact]
@@ -69,7 +69,7 @@ public class StorageSectionViewModelTests
         var never = MockupScenario.Settings with { LastOptimizedAt = null };
         var rig = await SettingsRig.ShownAsync(new FakeBackend(ScenarioBuilder.Mockup().WithSettings(never)));
 
-        Assert.Equal("Squeezes down space from profiles you've deleted. It hasn't run yet.", Storage(rig).OptimizeDescription);
+        Assert.Equal("Frees space left by deleted profiles. It also runs by itself after a delete. It hasn't run yet.", Storage(rig).OptimizeDescription);
     }
 
     // ---- Optimize storage
@@ -97,7 +97,7 @@ public class StorageSectionViewModelTests
 
         Assert.False(Storage(rig).IsOptimizing);
         Assert.True(Storage(rig).RunNowCommand.CanExecute(null));
-        Assert.Equal("Squeezes down space from profiles you've deleted. Last run Jul 8.", Storage(rig).OptimizeDescription);
+        Assert.Equal("Frees space left by deleted profiles. It also runs by itself after a delete. Last run Jul 8.", Storage(rig).OptimizeDescription);
         Assert.True(rig.Calls<ISettingsApi>(nameof(ISettingsApi.GetStorageSummaryAsync)) > summaries);
     }
 

@@ -117,7 +117,7 @@ public class HistoryScreenViewModelTests
     {
         var rig = await HistoryRig.ShownAsync();
 
-        Assert.Equal(["This week", "Earlier"], rig.Screen.Groups.Select(group => group.Heading));
+        Assert.Equal(["Last 7 days", "Earlier"], rig.Screen.Groups.Select(group => group.Heading));
         Assert.Equal(
             ["Before the final boss", "Cleared Blackreach", "14 mod files updated", "Fresh start with Nolvus"],
             rig.Screen.Groups[0].Cards.Select(card => card.Name));
@@ -635,7 +635,7 @@ public class HistoryScreenViewModelTests
         var rig = await HistoryRig.ShownAsync();
 
         Assert.Equal(
-            "41.2 GB kept for this game. Deleting a profile frees its space the next time storage is optimized.",
+            "41.2 GB kept for this game. Deleting a profile frees its space soon after.",
             rig.Screen.FooterText);
         Assert.True(rig.Screen.HasFooter);
     }

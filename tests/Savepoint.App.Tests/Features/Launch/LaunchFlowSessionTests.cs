@@ -430,7 +430,7 @@ public class LaunchFlowSessionTests : IDisposable
 
         await dialog.SaveCommand.ExecuteAsync(null);
 
-        Assert.Equal([FlowRig.Skyrim, new SessionCompletion.ForkNewProfile("Kept changes - 7-8-26", "Kept changes - 7-8-26")], Assert.Single(_f.Completes()).Args);
+        Assert.Equal([FlowRig.Skyrim, new SessionCompletion.ForkNewProfile("New progress - 7-8-26", "New progress - 7-8-26")], Assert.Single(_f.Completes()).Args);
         _f.Backend.Jobs.Complete(CaptureJob());
         Assert.Null(_f.Flow.InlineContentFor(FlowRig.Skyrim));
     }

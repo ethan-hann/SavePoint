@@ -62,7 +62,7 @@ public class SettingsScreenViewTests
             "79.3 GB used by 3 games",
             "131 GB free",
             "Optimize storage",
-            "Squeezes down space from profiles you've deleted. Last run Jul 1.",
+            "Frees space left by deleted profiles. It also runs by itself after a delete. Last run Jul 1.",
             "APPEARANCE",
             "Theme",
             "Match Windows",

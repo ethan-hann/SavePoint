@@ -38,9 +38,9 @@ public class NotificationTextTests
 
     [Theory]
     [InlineData(JobKind.Compact, JobStatus.Succeeded, "Optimized storage for Skyrim.")]
-    [InlineData(JobKind.Compact, JobStatus.Cancelled, "Cancelled optimizing storage for Skyrim.")]
+    [InlineData(JobKind.Compact, JobStatus.Cancelled, "Canceled optimizing storage for Skyrim.")]
     [InlineData(JobKind.RelocateStorage, JobStatus.Succeeded, "Storage moved.")]
-    [InlineData(JobKind.RelocateStorage, JobStatus.Cancelled, "Cancelled moving your storage.")]
+    [InlineData(JobKind.RelocateStorage, JobStatus.Cancelled, "Canceled moving your storage.")]
     [InlineData(JobKind.ClearData, JobStatus.Succeeded, "SavePoint's data was cleared.")]
     public void Each_kind_and_ending_has_its_sentence(JobKind kind, JobStatus status, string expected)
     {
