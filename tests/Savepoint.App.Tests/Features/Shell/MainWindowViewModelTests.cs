@@ -133,6 +133,34 @@ public class MainWindowViewModelTests
     }
 
     [Fact]
+    public async Task The_tour_shows_when_the_shell_says_so_and_waits_behind_a_dialog_until_it_closes()
+    {
+        var (main, _, _) = Build(new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { TourSeen = false })));
+        Assert.False(main.ShowTour);
+        await main.InitializeAsync();
+        Assert.True(main.ShowTour);
+        var changed = new List<string?>();
+        main.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        var dialog = new Common.Samples.SampleDialogViewModel();
+        _ = main.Dialogs.ShowAsync(dialog);
+        Assert.False(main.ShowTour);
+        dialog.AnswerFirstCommand.Execute(null);
+
+        Assert.True(main.ShowTour);
+        Assert.Equal(2, changed.Count(name => name == nameof(MainWindowViewModel.ShowTour)));
+    }
+
+    [Fact]
+    public async Task The_tour_does_not_show_for_a_player_who_has_seen_it()
+    {
+        var (main, _, _) = Build();
+        await main.InitializeAsync();
+
+        Assert.False(main.ShowTour);
+    }
+
+    [Fact]
     public void The_help_key_does_nothing_before_the_shell_exists()
     {
         var (main, _, _) = Build();

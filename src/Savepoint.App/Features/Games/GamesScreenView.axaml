@@ -169,7 +169,7 @@
                           ToolTip.Tip="{Binding HelpText}">
                     <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
                       <!-- A grid, not a horizontal stack, so a long name is cut short at the column's edge instead of running under the next one. -->
-                      <Grid ColumnDefinitions="Auto,*">
+                      <Grid x:Name="ProfileNameCell" ColumnDefinitions="Auto,*">
                         <Border Classes="profile-dot" Classes.active="{Binding IsActive}" Margin="0,0,10,0" />
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
                           <TextBlock Classes="row-title" TextTrimming="CharacterEllipsis" Text="{Binding Name}" />

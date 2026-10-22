@@ -86,4 +86,13 @@ public interface IShellContext : INotifyPropertyChanged
     /// underneath and comes back when the page closes. Does nothing while the page is already open.
     /// </summary>
     void ShowHelp();
+
+    /// <summary>True when the first-run tour can run now: the selected game has a profile for it to point at.</summary>
+    bool CanShowTour { get; }
+
+    /// <summary>
+    /// Shows the first-run tour from its first step: closes the page or pane that is open, goes to the Games screen and starts. It does
+    /// nothing while <see cref="CanShowTour"/> is false.
+    /// </summary>
+    void StartTour();
 }

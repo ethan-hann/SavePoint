@@ -150,13 +150,26 @@ public class TabOrderTests
         Assert.Equal(
             [
                 "Settings", "Skyrim Special Edition, 3 profiles", "Add a game",
-                "How SavePoint works",
+                "How SavePoint works", "Show the tour again",
                 "Change", "Run now", "How much space do snapshots take?",
                 "Dark", "Sidebar", "Blue", "Look up game artwork online",
                 "Skip the check before playing when only your saves change", "Ask whether to keep the session",
                 "Remove all data…", "Third-party notices",
             ],
             TabStops(app));
+    }
+
+    [AvaloniaFact]
+    public async Task The_tour_card_has_focus_when_it_starts_and_Tab_goes_Skip_tour_then_Next_before_the_next_step()
+    {
+        using var app = await AppStates.OpenAsync("tour-step-1");
+
+        var stops = TabStops(app);
+
+        Assert.Equal(["Row: Tour, step 1 of 4: This is a profile", "Skip tour", "Next"], stops.Take(3));
+        app.Shell.Tour.NextCommand.Execute(null);
+        app.Settle();
+        Assert.Equal(["Row: Tour, step 2 of 4: Play puts the right files in place", "Skip tour", "Back", "Next"], TabStops(app).Take(4));
     }
 
     [AvaloniaFact]

@@ -104,6 +104,10 @@ internal sealed class FakeShellContext : IShellContext
     }
 
     public void ShowHelp() => Calls.Add("help");
+
+    public bool CanShowTour => true;
+
+    public void StartTour() => Calls.Add("tour");
 }
 
 // The editor wired to the fake backend with every collaborator recorded.

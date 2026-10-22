@@ -3,6 +3,7 @@
              xmlns:a11y="using:Savepoint.App.Features.Common.Accessibility"
              xmlns:dialogs="using:Savepoint.App.Features.Common.Dialogs"
              xmlns:toasts="using:Savepoint.App.Features.Common.Toasts"
+             xmlns:help="using:Savepoint.App.Features.Help"
              xmlns:shell="using:Savepoint.App.Features.Shell"
              x:Class="Savepoint.App.Features.Shell.MainView"
              x:DataType="shell:MainWindowViewModel">
@@ -22,6 +23,10 @@
     <a11y:AnnouncementRegion x:Name="PageAnnouncer" />
     <Grid RowDefinitions="*,Auto,Auto">
       <ContentControl x:Name="Page" Content="{Binding Content}" />
+      <!-- The tour's outline and card sit over the page, in the page's own row, and are not there while a dialog or another screen covers the profile table. -->
+      <Panel x:Name="TourHost" IsVisible="{Binding ShowTour}">
+        <help:TourOverlay x:Name="Tour" DataContext="{Binding Shell.Tour}" />
+      </Panel>
       <shell:JobStatusView x:Name="JobPill"
                            Grid.Row="1"
                            HorizontalAlignment="Right"

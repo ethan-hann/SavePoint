@@ -12,8 +12,14 @@ public sealed class HowItWorksViewModel : ObservableObject
 {
     /// <param name="text">Formats the page's copy.</param>
     /// <param name="close">Closes the page and shows the screen it was opened from.</param>
-    public HowItWorksViewModel(UiFormatter text, Action close)
+    /// <param name="showTour">Closes the page and shows the first-run tour; null leaves the page without its closing button.</param>
+    /// <param name="canShowTour">Says whether the tour can run now; it needs a game with a profile to point at. A tour with nothing to show leaves the button off.</param>
+    public HowItWorksViewModel(UiFormatter text, Action close, Action? showTour = null, Func<bool>? canShowTour = null)
     {
+        TourLabel = text.Message("help.page.tour");
+        HasTour = showTour is not null;
+        CanShowTour = canShowTour?.Invoke() ?? HasTour;
+        ShowTourCommand = new RelayCommand(() => showTour?.Invoke(), () => CanShowTour);
         Title = text.Message("help.page.title");
         BackName = text.Message("help.page.back");
         Intro = text.Message("help.page.intro");
@@ -47,6 +53,18 @@ public sealed class HowItWorksViewModel : ObservableObject
 
     /// <summary>Closes the page.</summary>
     public IRelayCommand BackCommand { get; }
+
+    /// <summary>The text of the button at the end of the page that shows the tour again.</summary>
+    public string TourLabel { get; }
+
+    /// <summary>True when the page ends with a button for the tour.</summary>
+    public bool HasTour { get; }
+
+    /// <summary>True when the tour can run now, which is when its button works.</summary>
+    public bool CanShowTour { get; }
+
+    /// <summary>Closes the page and shows the first-run tour from its first step.</summary>
+    public IRelayCommand ShowTourCommand { get; }
 
     // The last topic is a plain list with no picture: what a player cannot take back, and what they can.
     private static HowItWorksTopic PermanentTopic(UiFormatter text) =>

@@ -44,6 +44,8 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
     private object? _pane;
     private NavDestination _paneDestination;
     private (object Pane, NavDestination Destination)? _underHelp;
+    private readonly TourViewModel _tour;
+    private bool _tourOffered;
     private bool _isLoaded;
     private bool _libraryKnown;
     private LibraryErrorViewModel? _libraryError;
@@ -71,6 +73,14 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
         _selectedNav = Nav[0];
         NavLabel = text.Message("shell.nav.label");
         AddGameCommand = new RelayCommand(() => RequestAddGame());
+        _tour = new TourViewModel(text);
+        _tour.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(TourViewModel.IsActive))
+            {
+                OnPropertyChanged(nameof(ShowTour));
+            }
+        };
         FirstRun = new FirstRunViewModel(text, AddGameCommand, new AsyncRelayCommand(StartFromTemplateAsync), new RelayCommand(ShowHelp));
         LayoutToggle = new LayoutToggleViewModel(text, SetLayoutAsync, _layout);
         JobStatus = new JobStatusViewModel(text, dependencies.Toasts, id => Games.FirstOrDefault(row => row.Id == id)?.Name, jobId => dependencies.LaunchFlow.ShowsOutcomeOf(jobId), ShowActivity);
@@ -235,6 +245,7 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
         IsLoaded = true;
         RaiseShellState();
         CurrentScreen?.OnShown();
+        StartTourIfDue();
     }
 
     /// <summary>Tells the shell how wide the window is; the sidebar collapses below <see cref="CompactBelowWidth"/>.</summary>
@@ -288,6 +299,7 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
         OnPropertyChanged(nameof(Destination));
         RaiseShellState();
         CurrentScreen?.OnShown();
+        StartTourIfDue();
     }
 
     /// <inheritdoc />
@@ -304,6 +316,8 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
         {
             Navigate(NavDestination.Games);
         }
+
+        StartTourIfDue();
     }
 
     /// <inheritdoc />
@@ -380,11 +394,13 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
             _paneDestination = covered.Destination;
             _underHelp = null;
             RaiseShellState();
+            StartTourIfDue();
             return;
         }
 
         EndPane(except: null);
         RaiseShellState();
+        StartTourIfDue();
     }
 
     /// <inheritdoc />
@@ -397,9 +413,53 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
 
         // A pane that is open (the game editor with a form half filled in) is kept, not replaced: ShowPane would end it.
         _underHelp = _pane is null ? null : (_pane, _paneDestination);
-        _pane = new HowItWorksViewModel(_deps.Text, ClosePane);
+        _pane = new HowItWorksViewModel(_deps.Text, ClosePane, StartTour, () => CanShowTour);
         _paneDestination = Destination;
         RaiseShellState();
+    }
+
+    /// <summary>The first-run tour.</summary>
+    public TourViewModel Tour => _tour;
+
+    /// <summary>True while the tour's card and outline should show: the tour is on a step, the Games screen is in view and nothing covers it.</summary>
+    public bool ShowTour => _tour.IsActive && Destination == NavDestination.Games && !PaneVisible;
+
+    /// <inheritdoc />
+    public bool CanShowTour => SelectedGameHasProfile;
+
+    /// <inheritdoc />
+    public void StartTour()
+    {
+        if (!CanShowTour)
+        {
+            return;
+        }
+
+        // The page that offered the tour closes, giving back any pane it covered; that pane keeps the tour waiting until it is closed.
+        if (_pane is HowItWorksViewModel)
+        {
+            ClosePane();
+        }
+
+        _tourOffered = true;
+        Navigate(NavDestination.Games);
+        _tour.Start(_selectedRow!.Name);
+    }
+
+    private bool SelectedGameHasProfile => _selectedRow is { } row && _profileCounts?.GetValueOrDefault(row.Id) > 0;
+
+    // The tour starts by itself once per run, when the Games screen is in view with a profile in it and the player has not seen it.
+    // Whether it has run is written to the settings the moment it starts, so a player who closes the window mid-tour is not shown it again.
+    private void StartTourIfDue()
+    {
+        if (_tourOffered || !IsLoaded || _tour.IsActive || _settings is not { TourSeen: false } || Destination != NavDestination.Games || PaneVisible || !SelectedGameHasProfile)
+        {
+            return;
+        }
+
+        _tourOffered = true;
+        _tour.Start(_selectedRow!.Name);
+        _ = _deps.SettingsWriter.UpdateAsync(settings => settings with { TourSeen = true }, saved => _settings = saved);
     }
 
     // A pane that listens for changes lets go of them when it is closed or replaced, and so does the one the help page covers.
@@ -468,6 +528,12 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
 
     private void ApplySettings(AppSettings settings)
     {
+        // Settings that say the tour has not run, after ones that said it had, are SavePoint's data having been removed: it may start again.
+        if (_settings is { TourSeen: true } && !settings.TourSeen)
+        {
+            _tourOffered = false;
+        }
+
         _settings = settings;
         _layout = settings.Layout;
         LayoutToggle.Sync(_layout);
@@ -475,6 +541,7 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
         FirstRun.SetStorageRoot(settings.StorageRoot);
         FirstRun.SetArtworkLookUp(settings.LookUpArtworkOnline);
         _deps.Theme.Apply(settings.Theme, settings.AccentColorId);
+        StartTourIfDue();
     }
 
     private void OnLayoutChanged()
@@ -492,6 +559,7 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
         OnPropertyChanged(nameof(ShowShelf));
         OnPropertyChanged(nameof(LibraryError));
         OnPropertyChanged(nameof(Content));
+        OnPropertyChanged(nameof(ShowTour));
     }
 
     // Overlapping requests collapse: while one reload runs, further requests only mark that another is due.
@@ -551,6 +619,7 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
         RaiseShellState();
         Rebuild(games.Value);
         LibraryRefreshed?.Invoke(this, EventArgs.Empty);
+        StartTourIfDue();
     }
 
     private void Rebuild(IReadOnlyList<GameDefinition> games)

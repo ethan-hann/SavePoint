@@ -71,6 +71,14 @@
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
+
+        <!-- The page ends with the way to see the tour again; it needs a game with a profile, so it is off without one. -->
+        <Button x:Name="TourButton"
+                Classes="pill"
+                Padding="18,8"
+                IsVisible="{Binding HasTour}"
+                Command="{Binding ShowTourCommand}"
+                Content="{Binding TourLabel}" />
       </StackPanel>
     </ScrollViewer>
   </DockPanel>

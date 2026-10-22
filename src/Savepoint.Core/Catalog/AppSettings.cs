@@ -39,6 +39,11 @@ namespace Savepoint.Core.Catalog;
 /// True once the Replace choice after playing has opened its "When should I replace?" explanation on its own. Kept per player;
 /// reads as false in a settings file from before this setting existed.
 /// </param>
+/// <param name="TourSeen">
+/// True once the first-run tour has started for the player. It starts once, after the first profile exists, and runs again only when
+/// the player asks for it. Removing all of SavePoint's data resets it with everything else. A settings file from before this setting
+/// existed reads as false.
+/// </param>
 public sealed record AppSettings(
     string StorageRoot = "",
     ThemePreference Theme = ThemePreference.System,
@@ -51,7 +56,8 @@ public sealed record AppSettings(
     bool LookUpArtworkOnline = true,
     bool OlderChoiceHelpSeen = false,
     bool DiscardHelpSeen = false,
-    bool ReplaceHelpSeen = false)
+    bool ReplaceHelpSeen = false,
+    bool TourSeen = false)
 {
     /// <summary>
     /// The settings for a first run. They are written only once the user changes something, so every setting but the storage

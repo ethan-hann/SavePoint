@@ -1,0 +1,53 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:Savepoint.App.Localization"
+             xmlns:theme="using:Savepoint.App.Theme"
+             xmlns:help="using:Savepoint.App.Features.Help"
+             x:Class="Savepoint.App.Features.Help.TourOverlay"
+             x:DataType="help:TourViewModel">
+  <!--
+    The first-run tour: a 2px primary outline round the real control a step points at and a small card beside it. It is drawn over
+    the page and is not modal: the layer takes no clicks, only the card does, so everything under it keeps working. Nothing here
+    animates, so it is the same with reduced motion. The code-behind finds the control and places the outline and the card.
+  -->
+  <Canvas x:Name="Layer">
+    <Border x:Name="TourRing"
+            IsVisible="False"
+            IsHitTestVisible="False"
+            BorderBrush="{DynamicResource Md3PrimaryBrush}"
+            BorderThickness="2"
+            CornerRadius="{DynamicResource Md3RadiusRow}" />
+    <Border x:Name="TourCard"
+            Classes="card"
+            Background="{DynamicResource Md3SurfaceContainerHighBrush}"
+            BoxShadow="{DynamicResource Md3DialogShadow}"
+            Padding="18,14"
+            Focusable="True"
+            AutomationProperties.Name="{Binding Current.AutomationName}"
+            AutomationProperties.HelpText="{Binding Current.Body}">
+      <StackPanel Spacing="8">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock x:Name="TourTitle" Classes="card-heading" TextWrapping="Wrap" Text="{Binding Current.Title}" />
+          <TextBlock x:Name="TourPosition" Grid.Column="1" Classes="caption" VerticalAlignment="Center" Margin="12,0,0,0" Text="{Binding Current.Position}" />
+        </Grid>
+        <TextBlock x:Name="TourBody" FontSize="13.5" LineHeight="20" TextWrapping="Wrap" Text="{Binding Current.Body}" />
+        <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding Current.HasFindAgain}">
+          <TextBlock Classes="icon s16 muted" VerticalAlignment="Top" Text="{x:Static theme:Icons.Info}" />
+          <TextBlock x:Name="TourFindAgain" Classes="caption" TextWrapping="Wrap" Text="{Binding Current.FindAgain}" />
+        </StackPanel>
+        <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="0,6,0,0">
+          <Button x:Name="TourSkipButton" Classes="text pill" Padding="12,6" Command="{Binding SkipCommand}" Content="{loc:Loc help.tour.skip}" />
+          <Button x:Name="TourBackButton"
+                  Grid.Column="2"
+                  Classes="pill"
+                  Padding="14,6"
+                  Margin="0,0,8,0"
+                  IsVisible="{Binding Current.CanGoBack}"
+                  Command="{Binding BackCommand}"
+                  Content="{loc:Loc help.tour.back}" />
+          <Button x:Name="TourNextButton" Grid.Column="3" Classes="filled pill" Padding="16,6" Command="{Binding NextCommand}" Content="{Binding Current.NextLabel}" />
+        </Grid>
+      </StackPanel>
+    </Border>
+  </Canvas>
+</UserControl>

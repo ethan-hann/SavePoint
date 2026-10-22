@@ -119,6 +119,7 @@ public sealed partial class SettingsScreenViewModel : ObservableObject, IScreen
 
         LoadError = null;
         About.Refresh();
+        Help.Refresh();
         IsLoaded = true;
 
         // Long jobs are read after subscribing, so none that changes in between is missed.

@@ -55,4 +55,30 @@ public class HelpProgressSettingsModelTests
         Assert.NotEqual(plain, plain with { DiscardHelpSeen = true });
         Assert.NotEqual(plain, plain with { ReplaceHelpSeen = true });
     }
+
+    [Fact]
+    public void The_tour_has_not_run_until_it_is_recorded_and_an_older_settings_file_reads_it_that_way()
+    {
+        var read = JsonSerializer.Deserialize("""{ "storageRoot": "S", "olderChoiceHelpSeen": true }""", CatalogJsonContext.Default.AppSettings)!;
+
+        Assert.False(AppSettings.Defaults("/data").TourSeen);
+        Assert.False(new AppSettings().TourSeen);
+        Assert.False(read.TourSeen);
+        Assert.True(read.OlderChoiceHelpSeen);
+    }
+
+    [Fact]
+    public void That_the_tour_has_run_survives_a_round_trip_through_json_and_makes_the_settings_unequal()
+    {
+        var plain = AppSettings.Defaults("/data");
+        var seen = plain with { TourSeen = true };
+
+        var written = JsonSerializer.Serialize(seen, CatalogJsonContext.Default.AppSettings);
+        var read = JsonSerializer.Deserialize(written, CatalogJsonContext.Default.AppSettings)!;
+
+        Assert.Contains("\"tourSeen\": true", written, StringComparison.Ordinal);
+        Assert.True(read.TourSeen);
+        Assert.Equal(seen, read);
+        Assert.NotEqual(plain, seen);
+    }
 }

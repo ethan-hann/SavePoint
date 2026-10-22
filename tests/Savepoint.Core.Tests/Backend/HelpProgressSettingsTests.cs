@@ -22,4 +22,18 @@ public class HelpProgressSettingsTests
         Assert.False(restarted.ReplaceHelpSeen);
         Assert.Equal(ThemePreference.Dark, restarted.Theme);
     }
+
+    [Fact]
+    public async Task That_the_tour_has_run_comes_back_after_a_restart()
+    {
+        using var workspace = new BackendWorkspace();
+        var first = (await workspace.Settings.GetAsync(workspace.Token)).Value!;
+
+        var saved = await workspace.Settings.SaveAsync(first with { TourSeen = true });
+        var restarted = (await workspace.Restart().Settings.GetAsync(workspace.Token)).Value!;
+
+        Assert.False(first.TourSeen);
+        Assert.True(saved.Ok, saved.Error?.Detail);
+        Assert.True(restarted.TourSeen);
+    }
 }

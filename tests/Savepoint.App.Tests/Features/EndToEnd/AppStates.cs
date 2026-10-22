@@ -58,6 +58,12 @@ internal static class AppStates
         "settings",
         "settings-clear-all",
         "how-it-works",
+        "tour-step-1",
+        "tour-step-2",
+        "tour-step-3",
+        "tour-step-4",
+        "tour-library-step-3",
+        "tour-library-step-4",
         "first-run",
         "first-run-templates",
         "editor-existing",
@@ -113,6 +119,9 @@ internal static class AppStates
         return backend;
     }
 
+    private static FakeBackend UnseenTour(ShellLayout layout) =>
+        new(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { TourSeen = false, Layout = layout }));
+
     private static FakeBackend StartupBackend(StartupStatus status) => new(ScenarioBuilder.Mockup().WithStartupStatus(status));
 
     private static ProfileRowViewModel Row(ComposedApp app, string id) => app.Games.Profiles.Single(row => row.Id == id);
@@ -127,6 +136,9 @@ internal static class AppStates
                 .WithSettings(MockupScenario.Settings)
                 .WithProfile(new Profile("profile-empty", _skyrim, "Fresh profile", "profile/profile-empty")))),
             "activity-jobs" or "activity-failed" => await ComposedApp.StartWithViewAsync(await BackendWithJobsAsync()),
+            // The tour starts by itself for a player who has not seen it; the steps are reached with its own Next button.
+            "tour-step-1" or "tour-step-2" or "tour-step-3" or "tour-step-4" => await ComposedApp.StartWithViewAsync(UnseenTour(ShellLayout.Sidebar)),
+            "tour-library-step-3" or "tour-library-step-4" => await ComposedApp.StartWithViewAsync(UnseenTour(ShellLayout.Library)),
             // A player who has met the older-snapshot choice before: its explanation starts collapsed, so Escape goes to the dialog.
             "post-play-from-older-snapshot-again" => await ComposedApp.StartWithViewAsync(new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { OlderChoiceHelpSeen = true }))),
             "first-run" or "first-run-templates" => await ComposedApp.StartWithViewAsync(new FakeBackend(ScenarioBuilder.Empty().WithSettings(MockupScenario.Settings))),
@@ -259,6 +271,13 @@ internal static class AppStates
                 break;
             case "how-it-works":
                 app.Shell.ShowHelp();
+                break;
+            case "tour-step-2" or "tour-step-3" or "tour-step-4" or "tour-library-step-3" or "tour-library-step-4":
+                for (var step = 1; step < int.Parse(state[^1..], System.Globalization.CultureInfo.InvariantCulture); step++)
+                {
+                    app.Shell.Tour.NextCommand.Execute(null);
+                }
+
                 break;
             case "history-help-open":
                 app.Show<HistoryScreenViewModel>(NavDestination.History).SnapshotHelp.IsOpen = true;

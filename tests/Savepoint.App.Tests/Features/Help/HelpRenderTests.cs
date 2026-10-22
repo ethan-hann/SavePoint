@@ -64,6 +64,25 @@ public class HelpRenderTests
         AssertRendered(app.Render("help", "history-help-open-light"));
     }
 
+    [AvaloniaTheory]
+    [InlineData(ShellLayout.Sidebar, ThemePreference.Dark, 1040, 660)]
+    [InlineData(ShellLayout.Sidebar, ThemePreference.Light, 1040, 660)]
+    [InlineData(ShellLayout.Library, ThemePreference.Dark, 1040, 660)]
+    [InlineData(ShellLayout.Library, ThemePreference.Light, 1040, 660)]
+    [InlineData(ShellLayout.Sidebar, ThemePreference.Dark, 910, 432)]
+    [InlineData(ShellLayout.Library, ThemePreference.Dark, 640, 420)]
+    public async Task Each_step_of_the_tour_renders_to_a_png(ShellLayout layout, ThemePreference theme, int width, int height)
+    {
+        var settings = MockupScenario.Settings with { TourSeen = false, Layout = layout, Theme = theme };
+        using var app = await ComposedApp.StartWithViewAsync(new FakeBackend(ScenarioBuilder.Mockup().WithSettings(settings)), theme: theme, width: width, height: height);
+
+        for (var step = 1; step <= 4; step++)
+        {
+            AssertRendered(app.Render("help", $"tour-{layout.ToString().ToLowerInvariant()}-{theme.ToString().ToLowerInvariant()}-{width}x{height}-step{step}"));
+            app.Shell.Tour.NextCommand.Execute(null);
+        }
+    }
+
     [AvaloniaFact]
     public async Task Settings_with_its_Help_section_renders_to_a_png()
     {
