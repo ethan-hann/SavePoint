@@ -51,7 +51,8 @@ internal sealed class SettingsRig
         string? notices = null,
         string version = "1.2.3",
         Func<ISettingsApi, ISettingsApi>? settings = null,
-        IArtworkProvider? artwork = null)
+        IArtworkProvider? artwork = null,
+        string? logFolder = null)
     {
         backend ??= FakeBackend.Mockup();
         var text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), backend.Clock, os, HistoryRig.MockupZone);
@@ -67,14 +68,14 @@ internal sealed class SettingsRig
         var toasts = new ToastHostViewModel(new ManualTimeProvider(), new ImmediateUiDispatcher());
         var revealer = new RecordingFileRevealer();
         var context = new FeatureContext(services, dialogs, text, toasts, new ImmediateUiDispatcher());
-        var factory = new CapturingFactory(new SettingsScreenFactory(context, new SettingsEnvironment(revealer, () => notices, version)));
+        var factory = new CapturingFactory(new SettingsScreenFactory(context, new SettingsEnvironment(revealer, () => notices, version, logFolder)));
         var shell = await ShellRig.StartAsync(backend, screens: [factory], artwork: artwork);
         return new SettingsRig(shell, (SettingsScreenViewModel)factory.Created!, backend, dialogs, toasts, revealer, text);
     }
 
-    public static async Task<SettingsRig> ShownAsync(FakeBackend? backend = null, string os = "windows", string? notices = null)
+    public static async Task<SettingsRig> ShownAsync(FakeBackend? backend = null, string os = "windows", string? notices = null, string? logFolder = null)
     {
-        var rig = await StartAsync(backend, os, notices);
+        var rig = await StartAsync(backend, os, notices, logFolder: logFolder);
         rig.Show();
         return rig;
     }

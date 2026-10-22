@@ -325,14 +325,20 @@
                 <TextBlock Classes="card-heading" Text="{loc:Loc app.name}" />
                 <TextBlock x:Name="VersionText" Classes="caption" FontSize="12.5" Text="{Binding About.VersionText}" />
               </StackPanel>
-              <Button x:Name="NoticesButton"
-                      Grid.Column="1"
-                      Classes="pill"
-                      Padding="18,8"
-                      VerticalAlignment="Center"
-                      IsVisible="{Binding About.HasNotices}"
-                      Command="{Binding About.ShowNoticesCommand}"
-                      Content="{loc:Loc settings.about.notices}" />
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <Button x:Name="NoticesButton"
+                        Classes="pill"
+                        Padding="18,8"
+                        IsVisible="{Binding About.HasNotices}"
+                        Command="{Binding About.ShowNoticesCommand}"
+                        Content="{loc:Loc settings.about.notices}" />
+                <Button x:Name="LogFolderButton"
+                        Classes="pill"
+                        Padding="18,8"
+                        IsVisible="{Binding About.HasLogFolder}"
+                        Command="{Binding About.OpenLogFolderCommand}"
+                        Content="{loc:Loc settings.about.logFolder}" />
+              </StackPanel>
             </Grid>
           </Border>
         </StackPanel>

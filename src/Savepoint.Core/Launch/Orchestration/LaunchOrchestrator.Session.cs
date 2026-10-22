@@ -11,7 +11,7 @@ public sealed partial class LaunchOrchestrator
 {
     /// <inheritdoc />
     public Task<OperationResult<Unit>> MarkFinishedAsync(string gameId) =>
-        ApiGuard.RunAsync(() =>
+        ApiGuard.RunAsync(_services.Log, () =>
         {
             var record = _book.Record(gameId);
             if (record is null || !record.IsOpen)

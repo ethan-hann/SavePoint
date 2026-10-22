@@ -18,6 +18,7 @@ internal sealed class HistoryApi : IHistoryApi
 
     public Task<OperationResult<GameHistory>> GetAsync(string gameId, string? profileId = null, CancellationToken cancellationToken = default) =>
         ApiGuard.RunAsync(
+            _services.Log,
             async () =>
             {
                 var game = await _services.Catalog.GetGameAsync(gameId, cancellationToken).ConfigureAwait(false)

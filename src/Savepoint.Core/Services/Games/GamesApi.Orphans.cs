@@ -9,7 +9,7 @@ namespace Savepoint.Core.Services.Games;
 internal sealed partial class GamesApi
 {
     public Task<OperationResult<GameDefinition>> ResolveOrphanAsync(GameDefinition definition, OrphanResolution resolution) =>
-        ApiGuard.RunAsync(() => ResolveOrphanCoreAsync(definition, resolution));
+        ApiGuard.RunAsync(_services.Log, () => ResolveOrphanCoreAsync(definition, resolution));
 
     private async Task<GameDefinition> ResolveOrphanCoreAsync(GameDefinition definition, OrphanResolution resolution)
     {

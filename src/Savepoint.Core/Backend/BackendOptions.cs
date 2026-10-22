@@ -1,4 +1,5 @@
 using Savepoint.Core.Artwork;
+using Savepoint.Core.Diagnostics;
 using Savepoint.Core.Git;
 using Savepoint.Core.Platform;
 using Savepoint.Core.Services.Storage;
@@ -48,6 +49,12 @@ public sealed record BackendOptions
     /// handler must not follow redirects or keep cookies.
     /// </summary>
     public HttpMessageHandler? ArtworkHttp { get; init; }
+
+    /// <summary>
+    /// Where the backend records startup checks, failed calls, jobs, launch sessions, storage moves and failed git commands (D34);
+    /// nothing is written when null. The backend shields itself from a log that throws.
+    /// </summary>
+    public IDiagnosticLog? Log { get; init; }
 
     /// <summary>How many loose objects in a repository make a capture queue an optimization (D13.17); 5000 by default.</summary>
     public int LooseObjectThreshold { get; init; } = 5000;

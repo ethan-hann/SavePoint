@@ -12,11 +12,12 @@ public sealed partial class LaunchOrchestrator : ILaunchApi
 {
     private readonly BackendServices _services;
     private readonly GameStarter _starter;
-    private readonly SessionBook _book = new();
+    private readonly SessionBook _book;
 
     private LaunchOrchestrator(BackendServices services, LaunchOrchestratorOptions options)
     {
         _services = services;
+        _book = new SessionBook(services.Log);
         _starter = options.Starter ?? GameStarter.For(services.Platform, options.Session, services.Time);
 
         // The orchestrator lives as long as the process, so it follows the registry's jobs for as long.

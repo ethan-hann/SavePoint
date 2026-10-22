@@ -12,6 +12,10 @@ public static partial class FeatureComposition
     public static IScreenFactory? SettingsScreen(FeatureContext context, IGameEditorFactory? editor)
     {
         _ = editor;
-        return new SettingsScreenFactory(context, SettingsEnvironment.ForThisApp());
+        return new SettingsScreenFactory(context, SettingsEnvironmentOf(context.Services));
     }
+
+    // The running app's file manager and log folder, so the About section opens a folder the way the rest of the app reveals files.
+    internal static SettingsEnvironment SettingsEnvironmentOf(AppServices services) =>
+        SettingsEnvironment.ForThisApp(services.FileRevealer, services.LogFolder);
 }

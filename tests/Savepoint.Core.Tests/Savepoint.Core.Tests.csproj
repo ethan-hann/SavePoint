@@ -43,6 +43,7 @@
   <ItemGroup>
     <Compile Include="..\Shared\TestEnvironment.cs" Link="Shared\TestEnvironment.cs" />
     <Compile Include="..\Shared\TestImages.cs" Link="Shared\TestImages.cs" />
+    <Compile Include="..\Shared\RecordingDiagnosticLog.cs" Link="Shared\RecordingDiagnosticLog.cs" />
   </ItemGroup>
 
   <ItemGroup>

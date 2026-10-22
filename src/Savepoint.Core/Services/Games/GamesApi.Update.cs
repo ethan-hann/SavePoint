@@ -10,7 +10,7 @@ namespace Savepoint.Core.Services.Games;
 internal sealed partial class GamesApi
 {
     public Task<OperationResult<GameDefinition>> UpdateAsync(GameDefinition definition, bool confirmFolderChange = false) =>
-        ApiGuard.RunAsync(() => UpdateCoreAsync(definition, confirmFolderChange));
+        ApiGuard.RunAsync(_services.Log, () => UpdateCoreAsync(definition, confirmFolderChange));
 
     private async Task<GameDefinition> UpdateCoreAsync(GameDefinition definition, bool confirmFolderChange)
     {

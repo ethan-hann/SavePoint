@@ -42,6 +42,7 @@ internal sealed class ArtworkApi : IArtworkApi
 
     public Task<OperationResult<GameArtwork>> GetAsync(string gameId, CancellationToken cancellationToken = default) =>
         ApiGuard.RunAsync(
+            _services.Log,
             async () =>
             {
                 var game = await RequireGameAsync(gameId, cancellationToken).ConfigureAwait(false);
@@ -57,7 +58,7 @@ internal sealed class ArtworkApi : IArtworkApi
             cancellationToken);
 
     public Task<OperationResult<GameArtwork>> SetCustomImageAsync(string gameId, string imagePath) =>
-        ApiGuard.RunAsync(async () =>
+        ApiGuard.RunAsync(_services.Log, async () =>
         {
             ArgumentNullException.ThrowIfNull(imagePath);
             var game = await RequireGameAsync(gameId, CancellationToken.None).ConfigureAwait(false);
@@ -71,7 +72,7 @@ internal sealed class ArtworkApi : IArtworkApi
         });
 
     public Task<OperationResult<GameArtwork>> ClearCustomImageAsync(string gameId) =>
-        ApiGuard.RunAsync(async () =>
+        ApiGuard.RunAsync(_services.Log, async () =>
         {
             var game = await RequireGameAsync(gameId, CancellationToken.None).ConfigureAwait(false);
             bool removed;
@@ -89,7 +90,7 @@ internal sealed class ArtworkApi : IArtworkApi
         });
 
     public Task<OperationResult<GameArtwork>> LookAgainAsync(string gameId) =>
-        ApiGuard.RunAsync(async () =>
+        ApiGuard.RunAsync(_services.Log, async () =>
         {
             var game = await RequireGameAsync(gameId, CancellationToken.None).ConfigureAwait(false);
             var gate = LookupGateOf(game.Id);

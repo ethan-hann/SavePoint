@@ -9,10 +9,10 @@ namespace Savepoint.Core.Services.Games;
 internal sealed partial class GamesApi
 {
     public Task<OperationResult<Unit>> DeleteAsync(string gameId) =>
-        ApiGuard.RunAsync(() => DeleteCoreAsync(gameId));
+        ApiGuard.RunAsync(_services.Log, () => DeleteCoreAsync(gameId));
 
     public Task<OperationResult<JobStarted>> OptimizeStorageAsync(string gameId) =>
-        ApiGuard.RunAsync(async () =>
+        ApiGuard.RunAsync(_services.Log, async () =>
         {
             var game = await RequireGameAsync(gameId, CancellationToken.None).ConfigureAwait(false);
 

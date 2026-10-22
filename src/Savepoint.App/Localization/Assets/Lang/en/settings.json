@@ -1,5 +1,7 @@
 {
   "settings.about.heading": "About",
+  "settings.about.logFolder": "Open the log folder",
+  "settings.about.logFolderFailed": "SavePoint couldn't open the log folder.",
   "settings.about.notices": "Third-party notices",
   "settings.about.noticesFailed": "SavePoint couldn't open the file manager.",
   "settings.about.version": "Version {version}",

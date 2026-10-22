@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Formatting;
+using Savepoint.App.Features.Settings;
 using Savepoint.App.Theme;
 using Savepoint.Core.Api;
 using Savepoint.Core.Errors;
@@ -46,6 +47,8 @@ public sealed partial class StartupViewModel : ObservableObject
     private readonly IAppStatusApi? _status;
     private readonly UiFormatter _text;
     private readonly bool _canTryAgain;
+    private readonly string? _logFolder;
+    private readonly IFileRevealer? _revealer;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowCorruptFiles))]
@@ -60,11 +63,19 @@ public sealed partial class StartupViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(HasRecoveryError))]
     private string? _recoveryError;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasLogFolderError))]
+    private string? _logFolderError;
+
     /// <param name="status">The startup Api; null when no services are connected, which shows the unavailable screen.</param>
     /// <param name="text">Formats the screens' copy.</param>
     /// <param name="canTryAgain">False when a failed check cannot succeed on a second try, as when the backend never started.</param>
-    public StartupViewModel(IAppStatusApi? status, UiFormatter text, bool canTryAgain = true)
+    /// <param name="logFolder">The folder the diagnostic log is written to; the screen for a backend that never started shows it and offers to open it. Null when there is none.</param>
+    /// <param name="revealer">Opens the log folder in the file manager.</param>
+    public StartupViewModel(IAppStatusApi? status, UiFormatter text, bool canTryAgain = true, string? logFolder = null, IFileRevealer? revealer = null)
     {
+        _logFolder = logFolder;
+        _revealer = revealer;
         _status = status;
         _text = text;
         _canTryAgain = canTryAgain;
@@ -91,6 +102,12 @@ public sealed partial class StartupViewModel : ObservableObject
     /// <summary>True when <see cref="RecoveryError"/> has something to say.</summary>
     public bool HasRecoveryError => RecoveryError is not null;
 
+    /// <summary>True when <see cref="LogFolderError"/> has something to say.</summary>
+    public bool HasLogFolderError => LogFolderError is not null;
+
+    /// <summary>Opens the log folder; says so in <see cref="LogFolderError"/> when the file manager cannot be started.</summary>
+    public IRelayCommand OpenLogFolderCommand => field ??= new RelayCommand(OpenLogFolder);
+
     /// <summary>Runs the checks again.</summary>
     public IAsyncRelayCommand CheckAgainCommand => field ??= new AsyncRelayCommand(CheckAsync);
 
@@ -99,6 +116,7 @@ public sealed partial class StartupViewModel : ObservableObject
     {
         CorruptFiles.Clear();
         Card = null;
+        LogFolderError = null;
 
         if (_status is null)
         {
@@ -117,14 +135,7 @@ public sealed partial class StartupViewModel : ObservableObject
         if (!checkedStatus.Ok)
         {
             Phase = StartupPhase.Failed;
-            Card = _canTryAgain
-                ? new ErrorCardViewModel(checkedStatus.Error, _text, [TryAgain()])
-                : ErrorCardViewModel.Custom(
-                    _text,
-                    Icons.Warning,
-                    ErrorTone.Warning,
-                    _text.Message("startup.restartNeeded.title"),
-                    _text.Message("startup.restartNeeded.body", ("reason", _text.Message(checkedStatus.Error))));
+            Card = _canTryAgain ? new ErrorCardViewModel(checkedStatus.Error, _text, [TryAgain()]) : RestartCard(checkedStatus.Error);
             return;
         }
 
@@ -149,6 +160,25 @@ public sealed partial class StartupViewModel : ObservableObject
 
         Phase = StartupPhase.Ready;
         Ready?.Invoke(this, EventArgs.Empty);
+    }
+
+    // The log folder is named here because this is the one screen a person can only leave by closing the app, and what they report from it is the log.
+    private ErrorCardViewModel RestartCard(ErrorInfo error)
+    {
+        var reason = ("reason", (object?)_text.Message(error));
+        if (_logFolder is null)
+        {
+            return ErrorCardViewModel.Custom(_text, Icons.Warning, ErrorTone.Warning, _text.Message("startup.restartNeeded.title"), _text.Message("startup.restartNeeded.body", reason));
+        }
+
+        return ErrorCardViewModel.Custom(
+            _text,
+            Icons.Warning,
+            ErrorTone.Warning,
+            _text.Message("startup.restartNeeded.title"),
+            _text.Message("startup.restartNeeded.bodyWithLog", reason),
+            path: _logFolder,
+            actions: [new ErrorCardAction(_text.Message("startup.openLogFolder"), OpenLogFolderCommand)]);
     }
 
     private ErrorCardAction TryAgain() => new(_text.Message("startup.tryAgain"), CheckAgainCommand, IsPrimary: true);
@@ -182,6 +212,9 @@ public sealed partial class StartupViewModel : ObservableObject
             ],
             supplement: backupNote);
     }
+
+    private void OpenLogFolder() =>
+        LogFolderError = _logFolder is { } folder && (_revealer?.Reveal(folder) ?? false) ? null : _text.Message("startup.logFolderFailed");
 
     private async Task RecoverAsync(CorruptCatalogFile file, CatalogRecovery recovery)
     {

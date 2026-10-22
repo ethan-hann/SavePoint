@@ -23,10 +23,10 @@ internal sealed partial class ProfilesApi : IProfilesApi
     }
 
     public Task<OperationResult<IReadOnlyList<Profile>>> ListAsync(string? gameId = null, CancellationToken cancellationToken = default) =>
-        ApiGuard.RunAsync(() => _services.Catalog.ListProfilesAsync(gameId, cancellationToken), cancellationToken);
+        ApiGuard.RunAsync(_services.Log, () => _services.Catalog.ListProfilesAsync(gameId, cancellationToken), cancellationToken);
 
     public Task<OperationResult<JobStarted>> CreateAsync(string gameId, string name, string? notes, string pointName) =>
-        ApiGuard.RunAsync(async () =>
+        ApiGuard.RunAsync(_services.Log, async () =>
         {
             var game = await RequireGameAsync(gameId).ConfigureAwait(false);
             var profile = CatalogValidator.RequireValid((await NewProfileAsync(gameId, name).ConfigureAwait(false)) with { Notes = notes });
@@ -38,7 +38,7 @@ internal sealed partial class ProfilesApi : IProfilesApi
         });
 
     public Task<OperationResult<JobStarted>> CaptureAsync(string gameId, string profileId, string pointName, IReadOnlyCollection<RepoRole>? folders = null) =>
-        ApiGuard.RunAsync(async () =>
+        ApiGuard.RunAsync(_services.Log, async () =>
         {
             var game = await RequireGameAsync(gameId).ConfigureAwait(false);
             var profile = await RequireProfileAsync(gameId, profileId).ConfigureAwait(false);
@@ -51,6 +51,7 @@ internal sealed partial class ProfilesApi : IProfilesApi
 
     public Task<OperationResult<IReadOnlyList<ProfileRowStats>>> GetRowStatsAsync(string gameId, CancellationToken cancellationToken = default) =>
         ApiGuard.RunAsync(
+            _services.Log,
             async () =>
             {
                 var game = await RequireGameAsync(gameId, cancellationToken).ConfigureAwait(false);

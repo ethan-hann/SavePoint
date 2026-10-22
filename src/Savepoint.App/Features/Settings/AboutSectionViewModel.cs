@@ -5,7 +5,7 @@ using Savepoint.App.Features.Common.Toasts;
 
 namespace Savepoint.App.Features.Settings;
 
-/// <summary>The About section: the version and, when the notices file was shipped beside the app, a way to see it.</summary>
+/// <summary>The About section: the version, a way to see the notices file when it was shipped beside the app, and a way to open the log folder.</summary>
 public sealed partial class AboutSectionViewModel : ObservableObject
 {
     private readonly SettingsEnvironment _environment;
@@ -32,8 +32,20 @@ public sealed partial class AboutSectionViewModel : ObservableObject
     /// <summary>True when the notices action shows.</summary>
     public bool HasNotices => NoticesPath is not null;
 
+    /// <summary>True when the action that opens the log folder shows.</summary>
+    public bool HasLogFolder => _environment.LogFolder is not null;
+
     // Looked up each time the screen shows, so a file added beside the app shows without a restart.
     internal void Refresh() => NoticesPath = _environment.FindNotices();
+
+    [RelayCommand(CanExecute = nameof(HasLogFolder))]
+    private void OpenLogFolder()
+    {
+        if (_environment.LogFolder is { } folder && !_environment.Revealer.Reveal(folder))
+        {
+            _toasts.Show(new ToastMessage(_text.Message("settings.about.logFolderFailed"), ToastKind.Error));
+        }
+    }
 
     [RelayCommand(CanExecute = nameof(HasNotices))]
     private void ShowNotices()

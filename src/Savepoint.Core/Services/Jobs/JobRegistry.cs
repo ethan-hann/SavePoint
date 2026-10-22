@@ -1,5 +1,8 @@
 using System.Collections.Concurrent;
+using System.Globalization;
+using System.Text;
 using Savepoint.Core.Api;
+using Savepoint.Core.Diagnostics;
 using Savepoint.Core.Errors;
 
 namespace Savepoint.Core.Services.Jobs;
@@ -22,6 +25,7 @@ public sealed class JobRegistry : IJobsApi
 
     private readonly Lock _gate = new();
     private readonly TimeProvider _time;
+    private readonly IDiagnosticLog _log;
     private readonly Dictionary<Guid, Job> _byId = [];
     private readonly List<Job> _running = [];
     private readonly Queue<Job> _finished = new();
@@ -30,9 +34,11 @@ public sealed class JobRegistry : IJobsApi
 
     /// <summary>Creates an empty registry.</summary>
     /// <param name="timeProvider">The clock for start and finish times and for the progress throttle; defaults to the system clock.</param>
-    public JobRegistry(TimeProvider? timeProvider = null)
+    /// <param name="log">Where job starts and ends are written (D34); nothing is written when null.</param>
+    public JobRegistry(TimeProvider? timeProvider = null, IDiagnosticLog? log = null)
     {
         _time = timeProvider ?? TimeProvider.System;
+        _log = log ?? DiagnosticLog.None;
     }
 
     /// <summary>
@@ -62,6 +68,7 @@ public sealed class JobRegistry : IJobsApi
         }
 
         var job = new Job(Guid.NewGuid(), kind, gameId, cancellable, _time.GetUtcNow());
+        _log.Information($"Job {job.Id} started: {kind} for {Describe(gameId)}.");
         lock (_gate)
         {
             _byId.Add(job.Id, job);
@@ -186,6 +193,7 @@ public sealed class JobRegistry : IJobsApi
         JobResult? result = null;
         JobStatus status;
         ErrorInfo? error;
+        Exception? failure = null;
         try
         {
             var context = new JobContext(job.Id, job.Cancellation.Token, progress => Report(job, progress, null), line => Report(job, null, line));
@@ -206,10 +214,57 @@ public sealed class JobRegistry : IJobsApi
         {
             result = null;
             (status, error) = (JobStatus.Failed, ErrorInfo.From(exception));
+            failure = exception;
         }
 
-        Complete(job, status, result, error);
+        Complete(job, status, result, error, failure);
     }
+
+    private void LogEnd(Job job, JobStatus status, JobResult? result, ErrorInfo? error, Exception? failure, TimeSpan duration)
+    {
+        var text = new StringBuilder($"Job {job.Id} {status}: {job.Kind} for {Describe(job.GameId)}, {duration.TotalSeconds.ToString("0.0", CultureInfo.InvariantCulture)} s.");
+        if (error is not null)
+        {
+            text.Append($" {error.MessageId}");
+            if (failure is not null)
+            {
+                text.Append($": {failure.Message}");
+            }
+
+            text.Append('.');
+        }
+
+        var left = NotDone(result).ToList();
+        if (left.Count > 0)
+        {
+            text.Append($" Not done: {string.Join("; ", left)}.");
+        }
+
+        switch (status)
+        {
+            case JobStatus.Failed:
+                _log.Error(text.ToString(), failure);
+                break;
+            case JobStatus.Partial:
+                _log.Warning(text.ToString());
+                break;
+            default:
+                _log.Information(text.ToString());
+                break;
+        }
+    }
+
+    private static string Describe(string? gameId) => gameId is null ? "every game" : $"game {gameId}";
+
+    // What a finished job did not manage, as short lines for the log: the folders that failed, or the files left behind.
+    private static IEnumerable<string> NotDone(JobResult? result) => result switch
+    {
+        CaptureResult capture => capture.Folders.Where(f => !f.Ok).Select(f => $"{f.Role}: {f.Error!.MessageId}"),
+        OptimizeResult optimize => optimize.Games.SelectMany(g => g.Folders.Where(f => !f.Ok).Select(f => $"{g.GameId} {f.Role}: {f.Error!.MessageId}")),
+        ClearAllDataResult clear => clear.NotRemoved.Select(n => $"{n.Path}: {n.Error.MessageId}"),
+        StorageRelocationResult moved => moved.NotRemoved.Select(n => $"{n.Path}: {n.Error.MessageId}"),
+        _ => [],
+    };
 
     private bool IsCancelRequested(Job job)
     {
@@ -227,14 +282,17 @@ public sealed class JobRegistry : IJobsApi
         }
     }
 
-    private void Complete(Job job, JobStatus status, JobResult? result, ErrorInfo? error)
+    private void Complete(Job job, JobStatus status, JobResult? result, ErrorInfo? error, Exception? failure)
     {
+        // Written before the state flips, so a reader that sees the job finished finds its line in the log, and outside the gate, so the file is never waited on while holding it.
+        var finishedAt = _time.GetUtcNow();
+        LogEnd(job, status, result, error, failure, finishedAt - job.StartedAt);
         lock (_gate)
         {
             job.Status = status;
             job.Result = result;
             job.Error = error;
-            job.FinishedAt = _time.GetUtcNow();
+            job.FinishedAt = finishedAt;
             job.Revision++;
             Publish(job);
             _running.Remove(job);

@@ -9,8 +9,8 @@ using Savepoint.Core.Platform;
 using Savepoint.Core.Platform.Linux;
 using Savepoint.Core.Platform.MacOS;
 using Savepoint.Core.Platform.Windows;
-using Savepoint.Testing;
 using Savepoint.Core.Services.Storage;
+using Savepoint.Testing;
 
 namespace Savepoint.App.Tests.Contract;
 

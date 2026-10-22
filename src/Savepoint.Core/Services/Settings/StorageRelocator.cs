@@ -174,6 +174,7 @@ internal sealed class StorageRelocator
             throw blocker;
         }
 
+        _services.Log.Information($"Storage move: copying {listing.FileCount} files ({listing.Bytes} bytes) from {storage.Root} to {destination}.");
         var createdRoot = !Directory.Exists(destination);
         var progress = new Tally(context, listing);
         StorageRelocationResult result;
@@ -187,27 +188,42 @@ internal sealed class StorageRelocator
                 await CopyEntryAsync(storage.Root, destination, entry, progress, context.CancellationToken).ConfigureAwait(false);
             }
 
+            _services.Log.Information("Storage move: every file is copied and checked.");
+
             // Everything is in place and checked; from here the switch is the only thing left that can fail.
             using var exclusive = await _services.Storage.Gate.EnterExclusiveAsync(context.CancellationToken).ConfigureAwait(false);
             var moved = _services.Storage.Build(destination);
             await CommitSettingsAsync(moved.Root).ConfigureAwait(false);
             _services.Storage.Replace(moved);
+            _services.Log.Information($"Storage move: now using {moved.Root}.");
             result = new StorageRelocationResult(storage.Root, moved.Root, progress.BytesDone, []);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
+            _services.Log.Warning($"Storage move: failed; taking back the copy at {destination}.", e);
             TakeBack(destination, listing, createdRoot);
             throw new StorageRelocationFailedException(destination, $"The storage could not be moved to '{destination}': {e.Message}", e);
         }
-        catch
+        catch (Exception e)
         {
+            if (e is OperationCanceledException or OperationCancelledByUserException)
+            {
+                _services.Log.Information($"Storage move: stopped on request; taking back the copy at {destination}.");
+            }
+            else
+            {
+                _services.Log.Warning($"Storage move: failed; taking back the copy at {destination}.", e);
+            }
+
             TakeBack(destination, listing, createdRoot);
             throw;
         }
 
         // The move has switched over; nothing past this point may undo it, so a cancel no longer reaches the removal either.
         TryDelete(Path.Combine(destination, MarkerFileName));
-        return result with { NotRemoved = await RemoveOldCopiesAsync(context, storage, listing, result.NewRoot).ConfigureAwait(false) };
+        var notRemoved = await RemoveOldCopiesAsync(context, storage, listing, result.NewRoot).ConfigureAwait(false);
+        _services.Log.Information($"Storage move: the old copies are removed; {notRemoved.Count} could not be removed.");
+        return result with { NotRemoved = notRemoved };
     }
 
     // The settings write is the commit point. A write that threw may still have taken effect (a clean-up after the rename failed,
@@ -247,7 +263,7 @@ internal sealed class StorageRelocator
     // Nothing refers to the old root any more, so its copies are only duplicates. Only SavePoint's own git directories go, each
     // one checked again by GitDirRemoval, and the old root and anything else in it stay. A copy that cannot be removed is left,
     // named in the job's lines and returned; it never fails the move.
-    private static async Task<IReadOnlyList<ClearFailure>> RemoveOldCopiesAsync(JobContext context, StorageSnapshot old, ContentListing listing, string newRoot)
+    private async Task<IReadOnlyList<ClearFailure>> RemoveOldCopiesAsync(JobContext context, StorageSnapshot old, ContentListing listing, string newRoot)
     {
         var left = new List<ClearFailure>();
         if (Overlaps(old, newRoot))
@@ -268,6 +284,7 @@ internal sealed class StorageRelocator
                 catch (Exception e) when (e is SavepointException or IOException or UnauthorizedAccessException)
                 {
                     context.AddLine(gitDir);
+                    _services.Log.Warning($"Storage move: could not remove the old copy {gitDir}: {ErrorInfo.From(e).MessageId}.", e);
                     left.Add(new ClearFailure(gitDir, ErrorInfo.From(e)));
                 }
             }

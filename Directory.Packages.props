@@ -11,6 +11,8 @@
     <PackageVersion Include="Avalonia.Skia" Version="12.1.4" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageVersion Include="MessageFormat" Version="8.0.0" />
+    <PackageVersion Include="Serilog" Version="4.4.0" />
+    <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageVersion Include="Velopack" Version="1.2.161" />
     <!-- The version Avalonia.Skia 12.1.4 brings in; only tools/IconGen references it directly. -->
     <PackageVersion Include="SkiaSharp" Version="3.119.4" />

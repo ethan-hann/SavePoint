@@ -7,17 +7,19 @@ using Savepoint.Core.Platform;
 using Savepoint.Core.Platform.Linux;
 using Savepoint.Core.Platform.MacOS;
 using Savepoint.Core.Platform.Windows;
+using Savepoint.Testing;
 
 namespace Savepoint.App.Tests.Hosting;
 
 public class AppBootstrapTests : IDisposable
 {
+    private readonly RecordingDiagnosticLog _log = new();
     private readonly string _root = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "savepoint-bootstrap-" + Guid.NewGuid().ToString("N")));
 
     [Fact]
     public async Task A_started_backend_gives_the_view_models_the_real_apis_and_a_file_revealer()
     {
-        var started = AppBootstrap.Start(options => options with { Platform = HostPlatform(), Git = GitBinary.Locate(Path.Combine(_root, "gitconfig")), ArtworkHttp = null });
+        var started = AppBootstrap.Start(options => options with { Platform = HostPlatform(), Git = GitBinary.Locate(Path.Combine(_root, "gitconfig")), ArtworkHttp = null }, _log);
 
         Assert.NotNull(started.Backend);
         Assert.Null(started.Failure);
@@ -32,7 +34,7 @@ public class AppBootstrapTests : IDisposable
     [Fact]
     public async Task The_started_backend_runs_the_real_launch_orchestrator()
     {
-        var started = AppBootstrap.Start(options => options with { Platform = HostPlatform(), Git = GitBinary.Locate(Path.Combine(_root, "gitconfig")), ArtworkHttp = null });
+        var started = AppBootstrap.Start(options => options with { Platform = HostPlatform(), Git = GitBinary.Locate(Path.Combine(_root, "gitconfig")), ArtworkHttp = null }, _log);
 
         var finished = await started.Services.Launch.MarkFinishedAsync("any");
         var preview = await started.Services.Launch.GetPreviewAsync("any", new LaunchTarget.ProfileTip("any"), TestContext.Current.CancellationToken);
@@ -50,7 +52,7 @@ public class AppBootstrapTests : IDisposable
         {
             seen = options;
             return options with { Platform = HostPlatform(), Git = GitBinary.Locate(Path.Combine(_root, "gitconfig")), ArtworkHttp = null };
-        });
+        }, _log);
 
         Assert.IsType<ArtworkHttpHandler>(seen!.ArtworkHttp);
         Assert.Same(started.Backend!.Artwork, started.Services.Artwork);
@@ -101,7 +103,7 @@ public class AppBootstrapTests : IDisposable
     public void Only_an_api_that_failed_to_start_says_a_retry_cannot_help()
     {
         var failed = AppBootstrap.Start(_ => throw new IOException("no"));
-        var started = AppBootstrap.Start(options => options with { Platform = HostPlatform(), Git = GitBinary.Locate(Path.Combine(_root, "gitconfig")) });
+        var started = AppBootstrap.Start(options => options with { Platform = HostPlatform(), Git = GitBinary.Locate(Path.Combine(_root, "gitconfig")) }, _log);
 
         Assert.False(failed.Services.BackendStarted);
         Assert.True(started.Services.BackendStarted);
