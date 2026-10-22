@@ -264,7 +264,7 @@ public class LaunchViewTests
 
         Assert.Null(harness.Flow.InlineContentFor(MockupScenario.SkyrimId));
         var toast = Assert.Single(harness.Rig.Toasts.Toasts);
-        Assert.Equal("Saved Skyrim Special Edition.", toast.Text);
+        Assert.Equal("Took a snapshot of Skyrim Special Edition.", toast.Text);
         Assert.True(toast.IsSuccess);
     }
 

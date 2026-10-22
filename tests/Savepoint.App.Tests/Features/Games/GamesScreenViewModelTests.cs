@@ -625,6 +625,20 @@ public class GamesScreenViewModelTests
     }
 
     [Fact]
+    public async Task The_activity_chip_opens_activity_on_the_selected_game()
+    {
+        var rig = await GamesRig.StartAsync();
+        var requests = new List<ActivityRequest>();
+        rig.Shell.ActivityRequested += (_, request) => requests.Add(request);
+        rig.Shell.SelectGame(MockupScenario.SatisfactoryId);
+
+        rig.Screen.ShowActivityCommand.Execute(null);
+
+        Assert.Equal(NavDestination.Activity, rig.Shell.Destination);
+        Assert.Equal([new ActivityRequest(MockupScenario.SatisfactoryId)], requests);
+    }
+
+    [Fact]
     public async Task Edit_game_opens_the_editor_pane_for_the_selected_game()
     {
         var rig = await GamesRig.StartAsync();

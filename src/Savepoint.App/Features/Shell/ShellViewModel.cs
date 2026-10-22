@@ -71,7 +71,7 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
         AddGameCommand = new RelayCommand(() => RequestAddGame());
         FirstRun = new FirstRunViewModel(text, AddGameCommand, new AsyncRelayCommand(StartFromTemplateAsync));
         LayoutToggle = new LayoutToggleViewModel(text, SetLayoutAsync, _layout);
-        JobStatus = new JobStatusViewModel(text, dependencies.Toasts, id => Games.FirstOrDefault(row => row.Id == id)?.Name, jobId => dependencies.LaunchFlow.ShowsOutcomeOf(jobId));
+        JobStatus = new JobStatusViewModel(text, dependencies.Toasts, id => Games.FirstOrDefault(row => row.Id == id)?.Name, jobId => dependencies.LaunchFlow.ShowsOutcomeOf(jobId), ShowActivity);
 
         dependencies.LaunchFlow.SettingsSaved += OnFlowSettingsSaved;
     }

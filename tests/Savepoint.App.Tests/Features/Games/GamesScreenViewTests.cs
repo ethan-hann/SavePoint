@@ -233,6 +233,24 @@ public class GamesScreenViewTests
         Assert.True(profiles.IsChecked);
     }
 
+    [AvaloniaFact]
+    public async Task The_activity_chip_sits_after_history_goes_to_activity_and_does_not_flip_when_pressed()
+    {
+        using var harness = await GamesViewHarness.StartAsync();
+        var chips = harness.Find<StackPanel>("Tabs").Children.OfType<TabChip>().ToList();
+        var activity = chips.SingleOrDefault(chip => chip.Name == "ActivityChip");
+
+        Assert.Equal(["Profiles", "History", "Activity"], chips.Select(chip => chip.Content));
+        Assert.NotNull(activity);
+        Assert.False(activity.IsChecked);
+        harness.Render("activity-chip");
+
+        Press(harness, activity, Key.Enter);
+
+        Assert.Equal(NavDestination.Activity, harness.Rig.Shell.Destination);
+        Assert.False(activity.IsChecked);
+    }
+
     // ---- Keyboard
 
     [AvaloniaFact]

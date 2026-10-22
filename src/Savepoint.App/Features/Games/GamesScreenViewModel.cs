@@ -81,6 +81,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         _deps = dependencies;
         LayoutToggle = shell.LayoutToggle;
         ShowHistoryCommand = new RelayCommand(() => _shell.Navigate(NavDestination.History));
+        ShowActivityCommand = new RelayCommand(() => _shell.ShowActivity(_shell.SelectedGame?.Id));
         EditGameCommand = new RelayCommand(OpenEditor);
         NewProfileCommand = new AsyncRelayCommand(NewProfileAsync);
         DeleteGameCommand = new AsyncRelayCommand(DeleteGameAsync);
@@ -154,6 +155,9 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
 
     /// <summary>Switches to the History destination for the selected game.</summary>
     public IRelayCommand ShowHistoryCommand { get; }
+
+    /// <summary>Opens Activity on the selected game, from the Activity chip.</summary>
+    public IRelayCommand ShowActivityCommand { get; }
 
     /// <summary>Opens the game editor pane for the selected game.</summary>
     public IRelayCommand EditGameCommand { get; }

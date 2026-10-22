@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Common.Toasts;
@@ -19,12 +20,16 @@ public sealed partial class JobStatusViewModel : ObservableObject
     private readonly Func<string, string?> _gameName;
     private readonly Dictionary<Guid, JobSnapshot> _jobs = [];
     private readonly HashSet<Guid> _reported = [];
+    private readonly Action<string?>? _showActivity;
+
+    // What pressing the pill opens: the game of the one running job, or all games. Kept after the last job ends, so a press just then still lands.
+    private string? _opens;
 
     /// <summary>True while at least one job other than a launch runs.</summary>
     [ObservableProperty]
     private bool _isVisible;
 
-    /// <summary>The pill's text ("Saving Skyrim Special Edition..."); empty while no job runs.</summary>
+    /// <summary>The pill's text ("Taking a snapshot of Skyrim Special Edition..."); empty while no job runs.</summary>
     [ObservableProperty]
     private string _pillText = string.Empty;
 
@@ -32,16 +37,26 @@ public sealed partial class JobStatusViewModel : ObservableObject
     [ObservableProperty]
     private string _announcement = string.Empty;
 
+    /// <summary>What a screen reader says for the pill: its text, then that pressing it opens Activity; empty while no job runs.</summary>
+    [ObservableProperty]
+    private string _openName = string.Empty;
+
+    /// <summary>Opens Activity on what the pill stands for: the one running job's game, or all games.</summary>
+    public IRelayCommand OpenCommand { get; }
+
     /// <param name="text">Formats the pill and toast copy.</param>
     /// <param name="toasts">Receives a toast for each finished job.</param>
     /// <param name="gameName">Looks up a game's name by id; null for a game that is no longer in the library.</param>
     /// <param name="showsOutcome">Says whether something else already shows how a job ended, as the launch flow's card does for the save after play; null when nothing does.</param>
-    public JobStatusViewModel(UiFormatter text, ToastHostViewModel toasts, Func<string, string?> gameName, Func<Guid, bool>? showsOutcome = null)
+    /// <param name="showActivity">Opens Activity on a game, or on all games for null; the pill calls it when pressed.</param>
+    public JobStatusViewModel(UiFormatter text, ToastHostViewModel toasts, Func<string, string?> gameName, Func<Guid, bool>? showsOutcome = null, Action<string?>? showActivity = null)
     {
         _showsOutcome = showsOutcome;
         _formatter = text;
         _toasts = toasts;
         _gameName = gameName;
+        _showActivity = showActivity;
+        OpenCommand = new RelayCommand(() => _showActivity?.Invoke(_opens));
     }
 
     /// <summary>Takes the jobs that exist when the shell starts. Running ones show in the pill; finished ones are history and get no toast.</summary>
@@ -94,6 +109,11 @@ public sealed partial class JobStatusViewModel : ObservableObject
             .ToList();
 
         IsVisible = running.Count > 0;
+        if (running.Count > 0)
+        {
+            _opens = running.Count == 1 ? running[0].GameId : null;
+        }
+
         var text = running.Count switch
         {
             0 => string.Empty,
@@ -104,6 +124,7 @@ public sealed partial class JobStatusViewModel : ObservableObject
         if (text != PillText)
         {
             PillText = text;
+            OpenName = text.Length == 0 ? string.Empty : _formatter.Message("shell.jobStatus.open", ("status", text));
             if (text.Length > 0)
             {
                 Announcement = text;

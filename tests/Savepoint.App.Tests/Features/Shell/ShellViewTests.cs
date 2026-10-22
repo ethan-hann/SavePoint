@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.VisualTree;
@@ -464,8 +465,28 @@ public class ShellViewTests
         sidebar.Settle();
         library.Settle();
 
-        Assert.Contains("Saving Skyrim Special Edition\u2026", VisibleTexts(sidebar));
-        Assert.Contains("Saving Skyrim Special Edition\u2026", VisibleTexts(library));
+        Assert.Contains("Taking a snapshot of Skyrim Special Edition\u2026", VisibleTexts(sidebar));
+        Assert.Contains("Taking a snapshot of Skyrim Special Edition\u2026", VisibleTexts(library));
+    }
+
+    [AvaloniaFact]
+    public async Task The_job_pill_is_a_button_named_for_what_it_does_and_opens_activity_from_the_keyboard()
+    {
+        using var harness = await ShellViewHarness.StartAsync();
+        FakeAssert.Ok(await harness.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
+        harness.Settle();
+        var pill = Assert.IsType<Button>(harness.Find<UserControl>("JobPill").FindControl<Control>("Pill"));
+
+        Assert.Equal("Freeing up space for Satisfactory… Open Activity", AutomationProperties.GetName(pill));
+
+        pill.Focus(NavigationMethod.Tab);
+        harness.Settle();
+        harness.Window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+        harness.Window.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+        harness.Settle();
+
+        Assert.Equal(NavDestination.Activity, harness.Shell.Destination);
+        Assert.Equal(MockupScenario.SatisfactoryId, harness.Shell.SelectedGame?.Id);
     }
 
     [AvaloniaFact]
@@ -478,8 +499,8 @@ public class ShellViewTests
         harness.Settle();
 
         var texts = VisibleTexts(harness).ToList();
-        Assert.DoesNotContain("Saving Skyrim Special Edition\u2026", texts);
-        Assert.Contains("Saved Skyrim Special Edition.", texts);
+        Assert.DoesNotContain("Taking a snapshot of Skyrim Special Edition\u2026", texts);
+        Assert.Contains("Took a snapshot of Skyrim Special Edition.", texts);
     }
 
     [AvaloniaFact]

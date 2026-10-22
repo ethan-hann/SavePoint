@@ -25,7 +25,7 @@ public class NotificationTextTests
     {
         var (_, body) = NotificationText.For(Job(JobKind.Capture, JobStatus.Succeeded), "Skyrim", _text);
 
-        Assert.Equal("Saved Skyrim.", body);
+        Assert.Equal("Took a snapshot of Skyrim.", body);
     }
 
     [Fact]
@@ -33,14 +33,14 @@ public class NotificationTextTests
     {
         var (_, body) = NotificationText.For(Job(JobKind.Capture, JobStatus.Succeeded), null, _text);
 
-        Assert.Equal("Saved this game.", body);
+        Assert.Equal("Took a snapshot of this game.", body);
     }
 
     [Theory]
-    [InlineData(JobKind.Compact, JobStatus.Succeeded, "Optimized storage for Skyrim.")]
-    [InlineData(JobKind.Compact, JobStatus.Cancelled, "Canceled optimizing storage for Skyrim.")]
-    [InlineData(JobKind.RelocateStorage, JobStatus.Succeeded, "Storage moved.")]
-    [InlineData(JobKind.RelocateStorage, JobStatus.Cancelled, "Canceled moving your storage.")]
+    [InlineData(JobKind.Compact, JobStatus.Succeeded, "Freed up space for Skyrim.")]
+    [InlineData(JobKind.Compact, JobStatus.Cancelled, "Canceled freeing up space for Skyrim.")]
+    [InlineData(JobKind.RelocateStorage, JobStatus.Succeeded, "Snapshots moved.")]
+    [InlineData(JobKind.RelocateStorage, JobStatus.Cancelled, "Canceled moving your snapshots.")]
     [InlineData(JobKind.ClearData, JobStatus.Succeeded, "SavePoint's data was cleared.")]
     public void Each_kind_and_ending_has_its_sentence(JobKind kind, JobStatus status, string expected)
     {
@@ -56,7 +56,7 @@ public class NotificationTextTests
     {
         var (_, body) = NotificationText.For(Job(JobKind.Compact, JobStatus.Succeeded), "Skyrim", _text);
 
-        Assert.Equal("Optimized storage for all your games.", body);
+        Assert.Equal("Freed up space for all your games.", body);
     }
 
     [Fact]
@@ -67,7 +67,7 @@ public class NotificationTextTests
 
         var (_, body) = NotificationText.For(Job(JobKind.Capture, JobStatus.Partial, "skyrim", result), "Skyrim", _text);
 
-        Assert.StartsWith("Only part of Skyrim was saved.", body, StringComparison.Ordinal);
+        Assert.StartsWith("Only part of Skyrim is in the new snapshot.", body, StringComparison.Ordinal);
         Assert.Contains("not enough free disk space", body, StringComparison.Ordinal);
     }
 
@@ -79,7 +79,7 @@ public class NotificationTextTests
 
         var (_, body) = NotificationText.For(Job(JobKind.RelocateStorage, JobStatus.Partial, result: result), null, _text);
 
-        Assert.StartsWith("Storage moved, but some old files are still in the old folder.", body, StringComparison.Ordinal);
+        Assert.StartsWith("Snapshots moved, but some old files are still in the old folder.", body, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -89,7 +89,7 @@ public class NotificationTextTests
 
         var (_, body) = NotificationText.For(Job(JobKind.RelocateStorage, JobStatus.Failed, error: error), null, _text);
 
-        Assert.StartsWith("Something went wrong moving your storage.", body, StringComparison.Ordinal);
+        Assert.StartsWith("Something went wrong moving your snapshots.", body, StringComparison.Ordinal);
         Assert.Contains("couldn't copy everything", body, StringComparison.Ordinal);
     }
 

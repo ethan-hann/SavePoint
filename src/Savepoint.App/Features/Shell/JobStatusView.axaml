@@ -4,18 +4,19 @@
              xmlns:shell="using:Savepoint.App.Features.Shell"
              x:Class="Savepoint.App.Features.Shell.JobStatusView"
              x:DataType="shell:JobStatusViewModel">
-  <!-- The job pill, shown in both layouts by the window. The hidden region speaks the pill's text when it changes. -->
+  <!-- The job pill, shown in both layouts by the window. Pressing it opens Activity. The hidden region speaks the pill's text when it changes. -->
   <Grid x:Name="PillRoot" IsVisible="{Binding IsVisible, FallbackValue=False}">
     <a11y:AnnouncementRegion x:Name="Announcer" Message="{Binding Announcement}" />
-    <Border x:Name="Pill"
-            Classes="panel"
+    <Button x:Name="Pill"
+            Classes="pill"
             Background="{DynamicResource Md3SurfaceContainerHighestBrush}"
-            CornerRadius="100"
-            Padding="16,9">
+            Padding="16,9"
+            Command="{Binding OpenCommand}"
+            AutomationProperties.Name="{Binding OpenName}">
       <StackPanel Orientation="Horizontal" Spacing="12">
         <ProgressBar IsIndeterminate="True" Width="34" Height="4" MinHeight="4" VerticalAlignment="Center" AutomationProperties.Name="{Binding PillText}" />
-        <TextBlock x:Name="PillText" Classes="body" VerticalAlignment="Center" Text="{Binding PillText}" />
+        <TextBlock x:Name="PillText" Classes="body" Foreground="{DynamicResource Md3OnSurfaceBrush}" VerticalAlignment="Center" Text="{Binding PillText}" />
       </StackPanel>
-    </Border>
+    </Button>
   </Grid>
 </UserControl>

@@ -57,7 +57,7 @@ public class PlayJourneyTests
         rig.Main.Toasts.DismissAll();
         postPlay.SelectedChoice.Name = "First session";
         await rig.FinishesAsync(postPlay.SaveCommand.ExecuteAsync(null), "the after-play dialog to answer");
-        await rig.WaitAsync(() => vanilla.CanPlay && rig.Games.InlineContent is null && rig.ToastTexts.Contains("Saved Play Game."), "the session to be saved");
+        await rig.WaitAsync(() => vanilla.CanPlay && rig.Games.InlineContent is null && rig.ToastTexts.Contains("Took a snapshot of Play Game."), "the session to be saved");
         Assert.True(trail.Showed(nameof(LaunchBannerViewModel), nameof(RunningCardViewModel), nameof(LaunchSavingViewModel), "nothing"), string.Join(" > ", trail.Seen));
         await rig.WaitAsync(() => vanilla.IsActive && !vanilla.IsRunning, "the row to read active again");
         Assert.StartsWith("Active now · 2 saves", vanilla.SecondaryText, StringComparison.Ordinal);

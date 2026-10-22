@@ -18,6 +18,7 @@
   "games.header.editGame": "Edit game",
   "games.header.libraryTitle": "{name} — profiles",
   "games.header.newProfile": "New profile",
+  "games.header.tabs.activity": "Activity",
   "games.header.tabs.ariaLabel": "View",
   "games.header.tabs.history": "History",
   "games.header.tabs.profiles": "Profiles",

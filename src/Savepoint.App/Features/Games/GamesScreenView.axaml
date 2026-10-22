@@ -113,7 +113,7 @@
       </Button>
     </Grid>
 
-    <!-- Profiles / History chips. Profiles is this screen, so it stays selected; History goes to its destination. -->
+    <!-- Profiles / History / Activity chips. Profiles is this screen, so it stays selected; the others go to their destinations. -->
     <StackPanel x:Name="Tabs"
                 Grid.Row="1"
                 Orientation="Horizontal"
@@ -123,6 +123,7 @@
                 AutomationProperties.Name="{loc:Loc games.header.tabs.ariaLabel}">
       <games:TabChip x:Name="ProfilesChip" Classes="chip" IsChecked="True" Content="{loc:Loc games.header.tabs.profiles}" />
       <games:TabChip x:Name="HistoryChip" Classes="chip" IsChecked="False" Command="{Binding ShowHistoryCommand}" Content="{loc:Loc games.header.tabs.history}" />
+      <games:TabChip x:Name="ActivityChip" Classes="chip" IsChecked="False" Command="{Binding ShowActivityCommand}" Content="{loc:Loc games.header.tabs.activity}" />
     </StackPanel>
 
     <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Margin="0,12,0,0">

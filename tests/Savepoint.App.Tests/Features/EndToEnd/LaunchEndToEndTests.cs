@@ -108,7 +108,7 @@ public class LaunchEndToEndTests
 
         app.Backend.Jobs.Complete(app.Backend.Jobs.LastStarted(JobKind.Capture).JobId);
 
-        Assert.Equal(["Saved Skyrim Special Edition."], app.ToastTexts);
+        Assert.Equal(["Took a snapshot of Skyrim Special Edition."], app.ToastTexts);
         Assert.Null(app.Games.InlineContent);
         AssertPlayIs(app, true);
     }

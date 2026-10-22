@@ -62,7 +62,7 @@ public class TabOrderTests
             [
                 "Games", "Skyrim Special Edition, 3 profiles", "Add a game",
                 "Edit game", "New profile", "More actions for Skyrim Special Edition", "Sidebar",
-                "Profiles", "History",
+                "Profiles", "History", "Activity",
                 .. ProfileRows(_modded), .. ProfileRows(_vanilla), .. ProfileRows(_survival),
             ],
             TabStops(app));
