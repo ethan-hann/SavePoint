@@ -6,6 +6,7 @@ using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Common.Preferences;
 using Savepoint.App.Features.Common.Toasts;
+using Savepoint.App.Features.Help;
 using Savepoint.App.Features.Shell;
 using Savepoint.Core.Api;
 
@@ -56,6 +57,7 @@ public sealed partial class SettingsScreenViewModel : ObservableObject, IScreen
         _deps = dependencies;
         _store = new SettingsStore(dependencies.Settings, dependencies.SettingsWriter, shell, dependencies.Toasts, dependencies.Text);
         Help = new HelpSectionViewModel(shell);
+        SpaceHelp = ContextualHelp.Space(dependencies.Text, shell.ShowHelp);
         Storage = new StorageSectionViewModel(dependencies, _store);
         Appearance = new AppearanceSectionViewModel(_store, shell, dependencies.Text);
         Session = new SessionSectionViewModel(_store);
@@ -76,6 +78,9 @@ public sealed partial class SettingsScreenViewModel : ObservableObject, IScreen
 
     /// <summary>The Help section, the first one on the screen.</summary>
     public HelpSectionViewModel Help { get; }
+
+    /// <summary>"How much space do snapshots take?", under the snapshot folder.</summary>
+    public ContextualHelpViewModel SpaceHelp { get; }
 
     /// <summary>The "Where SavePoint keeps your snapshots" section.</summary>
     public StorageSectionViewModel Storage { get; }

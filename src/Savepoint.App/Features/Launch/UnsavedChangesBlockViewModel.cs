@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Accessibility;
 using Savepoint.App.Features.Common.Formatting;
+using Savepoint.App.Features.Help;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 
@@ -63,6 +64,7 @@ public sealed partial class UnsavedChangesBlockViewModel : ObservableObject
     /// changes, which can be saved first or discarded.
     /// </param>
     /// <param name="finishTarget">The target <paramref name="finishSwitch"/> starts; null when it is not known, which leaves discarding as the only way out.</param>
+    /// <param name="help">"What are new changes?", shown in the callout; null for a folder a switch left half done, which holds a mix of two snapshots rather than new changes.</param>
     public UnsavedChangesBlockViewModel(
         RepoRole role,
         string title,
@@ -74,8 +76,10 @@ public sealed partial class UnsavedChangesBlockViewModel : ObservableObject
         int removedFileCount,
         int restoredFileCount,
         Action<LaunchTarget>? finishSwitch = null,
-        LaunchTarget? finishTarget = null)
+        LaunchTarget? finishTarget = null,
+        ContextualHelpViewModel? help = null)
     {
+        Help = help;
         IsUnfinishedSwitch = finishSwitch is not null;
         FinishTarget = finishTarget;
         _finishSwitch = finishSwitch;
@@ -89,6 +93,12 @@ public sealed partial class UnsavedChangesBlockViewModel : ObservableObject
         _saveFirst = saveFirst;
         _discard = discard;
     }
+
+    /// <summary>"What are new changes?"; null when the block is for a folder a switch left half done.</summary>
+    public ContextualHelpViewModel? Help { get; }
+
+    /// <summary>True when <see cref="Help"/> shows.</summary>
+    public bool HasHelp => Help is not null;
 
     /// <summary>The folder the changes are in.</summary>
     public RepoRole Role { get; }

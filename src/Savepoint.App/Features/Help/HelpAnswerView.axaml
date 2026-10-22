@@ -1,0 +1,27 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:theme="using:Savepoint.App.Theme"
+             xmlns:help="using:Savepoint.App.Features.Help"
+             x:Class="Savepoint.App.Features.Help.HelpAnswerView"
+             x:DataType="help:ContextualHelpViewModel">
+  <!--
+    The answer of one explanation: an info callout that opens in place, so the text reflows with the layout and works at any
+    scale. It is a callout and not a tooltip, because a tooltip is hover-only and vanishes. On a screen it ends with a link to the page.
+  -->
+  <Border x:Name="AnswerBox" Classes="callout info" Padding="14,12" IsVisible="{Binding IsOpen}">
+    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+      <TextBlock Classes="icon s18" VerticalAlignment="Top" Margin="0,1,0,0" Text="{x:Static theme:Icons.Info}" />
+      <StackPanel Grid.Column="1" Spacing="8">
+        <TextBlock x:Name="AnswerText" FontSize="13.5" LineHeight="20" TextWrapping="Wrap" Text="{Binding Answer}" />
+        <Button x:Name="MoreButton"
+                Classes="text pill"
+                Padding="10,5"
+                Foreground="{DynamicResource Md3OnPrimaryContainerBrush}"
+                IsVisible="{Binding HasLink}"
+                Command="{Binding OpenHowItWorksCommand}"
+                Content="{Binding MoreLabel}"
+                AutomationProperties.Name="{Binding MoreLabel}" />
+      </StackPanel>
+    </Grid>
+  </Border>
+</UserControl>

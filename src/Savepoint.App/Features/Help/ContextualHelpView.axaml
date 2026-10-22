@@ -1,0 +1,11 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:help="using:Savepoint.App.Features.Help"
+             x:Class="Savepoint.App.Features.Help.ContextualHelpView"
+             x:DataType="help:ContextualHelpViewModel">
+  <!-- A question with its answer under it, for the places that have room for both together. -->
+  <StackPanel Spacing="8">
+    <help:HelpQuestionView />
+    <help:HelpAnswerView />
+  </StackPanel>
+</UserControl>

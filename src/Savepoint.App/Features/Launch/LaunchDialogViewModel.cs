@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Toasts;
+using Savepoint.App.Features.Help;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 
@@ -77,6 +78,7 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
         _defaultSave = SaveOptions.FirstOrDefault(option => preview.SelectedSaveId is { } id && option.Entry.Id == id) ?? SaveOptions.FirstOrDefault();
         _selectedSave = _defaultSave;
         SaveCaption = text.Message("launch.dialog.saveCaption");
+        SaveSnapshotHelp = ContextualHelp.SaveSnapshot(text);
 
         foreach (var folder in new[] { preview.Install, preview.External }.OfType<FolderLaunchState>().Where(state => state.Dirty))
         {
@@ -138,6 +140,9 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
 
     /// <summary>"This replaces what's in your saves folder right now."</summary>
     public string SaveCaption { get; }
+
+    /// <summary>"What's a save snapshot?", under the choice of saves.</summary>
+    public ContextualHelpViewModel SaveSnapshotHelp { get; }
 
     /// <summary>One block per folder with unsaved changes, install first; empty once they are resolved.</summary>
     public ObservableCollection<UnsavedChangesBlockViewModel> UnsavedBlocks { get; } = [];
@@ -256,7 +261,8 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
             folder.DirtyNewFileCount,
             folder.DirtyFileCount - folder.DirtyNewFileCount,
             unfinished ? Close : null,
-            unfinished ? folder.UnfinishedSwitchTarget : null);
+            unfinished ? folder.UnfinishedSwitchTarget : null,
+            unfinished ? null : ContextualHelp.NewChanges(text));
         block.PropertyChanged += OnBlockPropertyChanged;
         UnsavedBlocks.Add(block);
     }

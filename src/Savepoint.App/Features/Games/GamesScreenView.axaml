@@ -164,7 +164,9 @@
                   <Border Classes="table-row"
                           Classes.selected="{Binding IsActive}"
                           AutomationProperties.ControlTypeOverride="DataItem"
-                          AutomationProperties.Name="{Binding AutomationName}">
+                          AutomationProperties.Name="{Binding AutomationName}"
+                          AutomationProperties.HelpText="{Binding HelpText}"
+                          ToolTip.Tip="{Binding HelpText}">
                     <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
                       <!-- A grid, not a horizontal stack, so a long name is cut short at the column's edge instead of running under the next one. -->
                       <Grid ColumnDefinitions="Auto,*">

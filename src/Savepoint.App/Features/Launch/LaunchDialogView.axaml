@@ -5,6 +5,7 @@
              xmlns:a11y="using:Savepoint.App.Features.Common.Accessibility"
              xmlns:dialogs="using:Savepoint.App.Features.Common.Dialogs"
              xmlns:launch="using:Savepoint.App.Features.Launch"
+             xmlns:help="using:Savepoint.App.Features.Help"
              x:Class="Savepoint.App.Features.Launch.LaunchDialogView"
              x:DataType="launch:LaunchDialogViewModel">
   <!-- The launch dialog (mockup 2b): what will change, which save loads, and anything unsaved that has to be dealt with first. -->
@@ -83,6 +84,7 @@
                             ContentTemplate="{StaticResource SaveOptionTemplate}"
                             IsVisible="{Binding !HasSaveChoice}" />
             <TextBlock x:Name="SaveCaptionText" Classes="body muted" TextWrapping="Wrap" Text="{Binding SaveCaption}" />
+            <help:ContextualHelpView x:Name="SaveSnapshotHelpHost" DataContext="{Binding SaveSnapshotHelp}" />
           </StackPanel>
         </Grid>
       </Border>
@@ -101,6 +103,9 @@
                 <StackPanel Grid.Column="1" Spacing="6">
                   <TextBlock Classes="card-heading" TextWrapping="Wrap" Text="{Binding Title}" />
                   <TextBlock Classes="body" FontSize="13.5" LineHeight="20" TextWrapping="Wrap" Text="{Binding Body}" />
+                  <StackPanel IsVisible="{Binding HasHelp}">
+                    <help:ContextualHelpView DataContext="{Binding Help}" />
+                  </StackPanel>
                   <TextBlock Classes="body"
                              FontWeight="Medium"
                              TextWrapping="Wrap"

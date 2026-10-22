@@ -42,6 +42,28 @@ public class HelpRenderTests
         AssertRendered(app.Render("help", "first-run-link"));
     }
 
+    [AvaloniaTheory]
+    [InlineData("history-help-open")]
+    [InlineData("settings-help-open")]
+    [InlineData("launch-dialog-help-open")]
+    [InlineData("post-play-replace-help-open")]
+    [InlineData("post-play-from-older-snapshot")]
+    public async Task An_open_explanation_renders_to_a_png(string state)
+    {
+        using var app = await AppStates.OpenAsync(state);
+
+        AssertRendered(app.Render("help", state));
+    }
+
+    [AvaloniaFact]
+    public async Task An_open_explanation_in_the_light_theme_renders_to_a_png()
+    {
+        using var app = await ComposedApp.StartWithViewAsync(theme: ThemePreference.Light);
+        app.Show<Savepoint.App.Features.History.HistoryScreenViewModel>(NavDestination.History).SnapshotHelp.IsOpen = true;
+
+        AssertRendered(app.Render("help", "history-help-open-light"));
+    }
+
     [AvaloniaFact]
     public async Task Settings_with_its_Help_section_renders_to_a_png()
     {

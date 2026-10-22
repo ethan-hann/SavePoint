@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Activity;
 using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Editor;
@@ -41,10 +42,15 @@ internal static class AppStates
         "launch-progress",
         "launch-post-play",
         "launch-post-play-older-point",
+        "post-play-from-older-snapshot",
         "history-cards",
         "history-list",
         "history-filtered-empty",
         "history-empty",
+        "history-help-open",
+        "settings-help-open",
+        "launch-dialog-help-open",
+        "post-play-replace-help-open",
         "activity-jobs",
         "activity-failed",
         "activity-empty",
@@ -80,6 +86,7 @@ internal static class AppStates
         "launch-dialog-keep-as-new",
         "launch-post-play",
         "launch-post-play-older-point",
+        "post-play-from-older-snapshot",
         "settings-clear-all",
         "first-run-templates",
         "editor-consent",
@@ -208,6 +215,14 @@ internal static class AppStates
             case "launch-post-play-older-point":
                 app.History.Groups.SelectMany(group => group.Cards).Single(card => card.Name == "Cleared Blackreach").GoBackCommand.Execute(null);
                 break;
+            case "post-play-from-older-snapshot":
+                // Played from an older snapshot to the end, so the dialog after playing offers a new profile or continuing the old one.
+                var goBack = Assert.IsAssignableFrom<IAsyncRelayCommand>(app.History.Groups.SelectMany(group => group.Cards).Single(card => card.Name == "Cleared Blackreach").GoBackCommand).ExecuteAsync(null);
+                app.Dialog<LaunchDialogViewModel>().SwitchCommand.Execute(null);
+                await goBack.WaitAsync(TimeSpan.FromSeconds(5));
+                app.Backend.Launch.ReportRunning(_skyrim, MockupScenario.RunningSince);
+                app.Backend.Launch.ReportExited(_skyrim, MockupScenario.PlayDuration, MockupScenario.NewSaveFiles);
+                break;
             case "history-cards":
                 app.Show<HistoryScreenViewModel>(NavDestination.History);
                 break;
@@ -241,6 +256,26 @@ internal static class AppStates
                 break;
             case "how-it-works":
                 app.Shell.ShowHelp();
+                break;
+            case "history-help-open":
+                app.Show<HistoryScreenViewModel>(NavDestination.History).SnapshotHelp.IsOpen = true;
+                break;
+            case "settings-help-open":
+                app.Show<SettingsScreenViewModel>(NavDestination.Settings).SpaceHelp.IsOpen = true;
+                break;
+            case "launch-dialog-help-open":
+                _ = Row(app, MockupScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
+                var checks = app.Dialog<LaunchDialogViewModel>();
+                checks.SaveSnapshotHelp.IsOpen = true;
+                checks.UnsavedBlocks[0].Help!.IsOpen = true;
+                break;
+            case "post-play-replace-help-open":
+                _ = Row(app, MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null);
+                app.Backend.Launch.ReportRunning(_skyrim, MockupScenario.RunningSince);
+                app.Backend.Launch.ReportExited(_skyrim, MockupScenario.PlayDuration, MockupScenario.NewSaveFiles);
+                var afterPlay = app.Dialog<PostPlayDialogViewModel>();
+                afterPlay.SelectedChoice = afterPlay.Choices.Single(choice => choice.Kind == CompletionChoice.UpdateExisting);
+                afterPlay.SelectedChoice.Help!.IsOpen = true;
                 break;
             case "first-run-templates":
                 app.Shell.FirstRun.StartFromTemplateCommand.Execute(null);

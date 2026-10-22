@@ -4,6 +4,7 @@
              xmlns:loc="using:Savepoint.App.Localization"
              xmlns:theme="using:Savepoint.App.Theme"
              xmlns:settings="using:Savepoint.App.Features.Settings"
+             xmlns:help="using:Savepoint.App.Features.Help"
              x:Class="Savepoint.App.Features.Settings.SettingsScreenView"
              x:DataType="settings:SettingsScreenViewModel">
   <!-- The Settings screen: mockups 2k (light) and 3c (the layout choice). -->
@@ -149,6 +150,7 @@
               </Grid>
             </StackPanel>
           </Border>
+          <help:ContextualHelpView x:Name="SpaceHelpHost" Margin="0,8,0,0" DataContext="{Binding SpaceHelp}" />
           <ContentControl x:Name="StorageProblemHost"
                           Margin="0,12,0,0"
                           Content="{Binding Storage.Problem}"

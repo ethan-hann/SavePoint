@@ -5,6 +5,7 @@
              xmlns:common="using:Savepoint.App.Features.Common"
              xmlns:art="using:Savepoint.App.Features.Common.Art"
              xmlns:history="using:Savepoint.App.Features.History"
+             xmlns:help="using:Savepoint.App.Features.Help"
              x:Class="Savepoint.App.Features.History.HistoryScreenView"
              x:DataType="history:HistoryScreenViewModel">
   <!-- The History screen: mockup 2h (list) and 2j (cards). -->
@@ -72,7 +73,11 @@
       <Grid ColumnDefinitions="Auto,*,Auto,Auto">
         <art:ArtTile Size="34" GameName="{Binding GameName}" Art="{Binding Art}" VerticalAlignment="Center" />
         <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center" Spacing="1">
-          <TextBlock x:Name="TitleText" Classes="section-title" Text="{loc:Loc history.title}" />
+          <!-- A wrap panel, so the question drops under the title when the window is too narrow for both on one line. -->
+          <WrapPanel Orientation="Horizontal">
+            <TextBlock x:Name="TitleText" Classes="section-title" VerticalAlignment="Center" Margin="0,0,12,0" Text="{loc:Loc history.title}" />
+            <help:HelpQuestionView VerticalAlignment="Center" DataContext="{Binding SnapshotHelp}" />
+          </WrapPanel>
           <TextBlock x:Name="SubtitleText" Classes="timestamp" FontSize="12" Text="{Binding Subtitle}" />
         </StackPanel>
         <Button x:Name="FilterButton"
@@ -128,6 +133,9 @@
         </ListBox>
       </Grid>
     </Border>
+
+    <!-- The answer to "What's a snapshot?" opens here, under the header, over a full line. -->
+    <help:HelpAnswerView DockPanel.Dock="Top" Margin="22,12,22,0" DataContext="{Binding SnapshotHelp}" />
 
     <!-- Footer: how much space SavePoint keeps for the game. -->
     <Border x:Name="Footer"

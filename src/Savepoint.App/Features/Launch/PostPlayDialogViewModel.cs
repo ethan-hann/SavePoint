@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Formatting;
+using Savepoint.App.Features.Help;
 using Savepoint.App.Theme;
 using Savepoint.Core.Api;
 
@@ -43,6 +44,7 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
         InstallNote = exited.ChangedInstallFileCount > 0 ? _text.Message("launch.postPlay.installChanged", ("count", exited.ChangedInstallFileCount)) : string.Empty;
         var older = _options.Choices.Contains(CompletionChoice.ForkNewProfile) || _options.Choices.Contains(CompletionChoice.MoveForward);
         OlderNote = older ? _text.Message("launch.postPlay.olderNote", ("profileName", profileName)) : string.Empty;
+        OlderChoiceHelp = older ? ContextualHelp.OlderChoice(_text, profileName) : null;
 
         Choices = BuildChoices(today);
         _selectedChoice = Choices.FirstOrDefault(choice => choice.Kind == _options.Default) ?? Choices[0];
@@ -63,6 +65,12 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
 
     /// <summary>True when <see cref="OlderNote"/> has text.</summary>
     public bool HasOlderNote => OlderNote.Length > 0;
+
+    /// <summary>"Which should I pick?", under the older-snapshot note; null when the session did not start from an older snapshot.</summary>
+    public ContextualHelpViewModel? OlderChoiceHelp { get; }
+
+    /// <summary>True when <see cref="OlderChoiceHelp"/> shows.</summary>
+    public bool HasOlderChoiceHelp => OlderChoiceHelp is not null;
 
     /// <summary>The cards, in order.</summary>
     public IReadOnlyList<PostPlayChoiceViewModel> Choices { get; }
@@ -176,7 +184,8 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
                 CompletionChoice.UpdateExisting,
                 Icons.Edit,
                 _text.Message("launch.postPlay.update.title", ("pointName", target.Name)),
-                _text.Message("launch.postPlay.update.sub", ("pointName", target.Name))));
+                _text.Message("launch.postPlay.update.sub", ("pointName", target.Name)),
+                help: ContextualHelp.Replace(_text, target.Name)));
         }
 
         if (offered.Contains(CompletionChoice.ForkNewProfile))
