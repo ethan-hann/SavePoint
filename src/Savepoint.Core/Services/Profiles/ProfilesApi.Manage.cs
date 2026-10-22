@@ -42,19 +42,27 @@ internal sealed partial class ProfilesApi
                     var install = repos.Single(repo => repo.Role == RepoRole.Install);
 
                     // The install folder continues from where the source is; the saves start over, so the copy begins with none of them.
-                    await storage.Engine.CreateBranchAsync(install, copy.BranchName, source.BranchName).ConfigureAwait(false);
+                    var made = new List<RepoRef>();
                     try
                     {
+                        await storage.Engine.CreateBranchAsync(install, copy.BranchName, source.BranchName).ConfigureAwait(false);
+                        made.Add(install);
                         foreach (var saves in repos.Where(repo => repo.Role == RepoRole.External))
                         {
                             await storage.Engine.CreateEmptyBranchAsync(saves, copy.BranchName, _startedMessage).ConfigureAwait(false);
+                            made.Add(saves);
                         }
 
                         return await _services.Catalog.SaveProfileAsync(copy).ConfigureAwait(false);
                     }
                     catch
                     {
-                        await TakeBackBranchAsync(storage, install, copy.BranchName).ConfigureAwait(false);
+                        // A branch is taken back from every folder that got one, so no half of the copy stays behind.
+                        foreach (var repo in made)
+                        {
+                            await TakeBackBranchAsync(storage, repo, copy.BranchName).ConfigureAwait(false);
+                        }
+
                         throw;
                     }
                 }).ConfigureAwait(false);
@@ -108,11 +116,7 @@ internal sealed partial class ProfilesApi
                         throw blocker;
                     }
 
-                    foreach (var repo in repos)
-                    {
-                        await storage.Engine.DeleteBranchAsync(repo, profile.BranchName).ConfigureAwait(false);
-                    }
-
+                    await RemoveBranchesAsync(storage, repos, profile.BranchName).ConfigureAwait(false);
                     await _services.Catalog.DeleteProfileAsync(profile.Id).ConfigureAwait(false);
                     return Unit.Value;
                 }).ConfigureAwait(false);
@@ -121,6 +125,47 @@ internal sealed partial class ProfilesApi
             _optimization.Start(gameId, OptimizationMode.Reclaim, preemptible: true);
             return Unit.Value;
         });
+
+    // Removes the branch from every folder or, when one folder cannot, puts the others back where they were: the points stay in the
+    // store until the tidy-up after a finished delete, so a branch made again at its old tip is the same profile as before.
+    private static async Task RemoveBranchesAsync(StorageSnapshot storage, IReadOnlyList<RepoRef> repos, string branch)
+    {
+        var removed = new List<(RepoRef Repo, string Tip)>();
+        try
+        {
+            foreach (var repo in repos)
+            {
+                var tip = await storage.Engine.GetBranchTipAsync(repo, branch).ConfigureAwait(false);
+                await storage.Engine.DeleteBranchAsync(repo, branch).ConfigureAwait(false);
+                if (tip is not null)
+                {
+                    removed.Add((repo, tip));
+                }
+            }
+        }
+        catch
+        {
+            foreach (var (repo, tip) in removed)
+            {
+                await RestoreBranchAsync(storage, repo, branch, tip).ConfigureAwait(false);
+            }
+
+            throw;
+        }
+    }
+
+    // Best effort, like the take-back: the failure being reported is the one worth showing.
+    private static async Task RestoreBranchAsync(StorageSnapshot storage, RepoRef repo, string branch, string tip)
+    {
+        try
+        {
+            await storage.Engine.CreateBranchAsync(repo, branch, tip).ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is SavepointException or IOException)
+        {
+            // The branch stays missing here; deleting the profile again finishes the job.
+        }
+    }
 
     // Why a delete would fail: the game is being played, or a folder is on the profile's branch. Null when it can go ahead.
     private SavepointException? BlockerOf(GameDefinition game, Profile profile, IEnumerable<RepoRef> repos)
