@@ -115,6 +115,32 @@ public class ArtworkLookupFailureTests
     }
 
     [Fact]
+    public async Task A_lookup_while_no_app_id_can_be_found_does_not_block_the_returning_id_from_finishing_its_art()
+    {
+        var squareUp = false;
+        using var rig = new ArtworkRig(
+            (request, token) => request.RequestUri!.AbsolutePath.EndsWith("header.jpg", StringComparison.Ordinal) || squareUp
+                ? Healthy(request, token)
+                : Task.FromResult(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)),
+            online: true);
+        var game = await rig.AddGameAsync(change: g => g with { SteamAppId = _app });
+
+        // Only the wide image arrives; the square one failed, which is not a miss.
+        var partial = await rig.LookedUpAsync(game.Id);
+
+        // The install drive is unplugged, so nothing names the app for a while, and then it is back with the square image available.
+        await rig.UpdateGameAsync(game with { SteamAppId = null });
+        await rig.LookedUpAsync(game.Id);
+        await rig.UpdateGameAsync(game);
+        squareUp = true;
+        var complete = await rig.LookedUpAsync(game.Id);
+
+        Assert.NotNull(partial.WidePath);
+        Assert.Null(partial.SquarePath);
+        Assert.NotNull(complete.SquarePath);
+        Assert.True(File.Exists(complete.SquarePath));
+    }
+    [Fact]
     public async Task Art_kept_for_another_app_id_is_still_removed_when_the_game_gets_a_different_one()
     {
         using var rig = new ArtworkRig(online: false);
