@@ -186,7 +186,8 @@ internal sealed class ArtworkApi : IArtworkApi
         return !(read.State.AppId == id && read.State.MissAt is { } miss && now - miss < _missMemory);
     }
 
-    // Lookups go online only with a handler, and only while the setting is on; a setting that cannot be read counts as on.
+    // Lookups go online only with a handler, and only while the setting is on. A setting that cannot be read cannot say it is on, so
+    // it counts as off: the app makes no request that the person has not allowed.
     private async Task<bool> IsOnlineAllowedAsync()
     {
         if (_cdn is null)
@@ -200,7 +201,7 @@ internal sealed class ArtworkApi : IArtworkApi
         }
         catch (CatalogCorruptException)
         {
-            return true;
+            return false;
         }
     }
 
