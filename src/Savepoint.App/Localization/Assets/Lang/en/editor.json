@@ -74,7 +74,7 @@
   "gameEditor.launch.uriPlaceholder": "steam://run/123456",
   "gameEditor.launchArgs.label": "Extra command-line options",
   "gameEditor.launchArgs.placeholder": "-skipintro",
-  "gameEditor.modPathHints.helper": "SavePoint keeps everything in the install folder either way — this only changes what History counts as a mod change.",
+  "gameEditor.modPathHints.helper": "SavePoint keeps everything in the install folder either way. This only changes what History counts as a mod change.",
   "gameEditor.modPathHints.label": "Folders that hold mods",
   "gameEditor.modPathHints.placeholder": "Data",
   "gameEditor.name.label": "Name",

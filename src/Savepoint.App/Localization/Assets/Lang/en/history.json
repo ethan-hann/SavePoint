@@ -5,7 +5,7 @@
   "history.card.loadedNow": "Loaded now",
   "history.column.saves": "Saves",
   "history.column.versions": "Versions & mods",
-  "history.empty.body": "Each time SavePoint takes a snapshot — when you create a profile or keep a session — it shows up here.",
+  "history.empty.body": "SavePoint takes a snapshot when you create a profile or keep a session, and each one shows up here.",
   "history.empty.filteredBody": "Snapshots show up here once SavePoint has taken one for this profile.",
   "history.empty.filteredTitle": "No snapshots for this profile yet",
   "history.empty.showAll": "Show all profiles",

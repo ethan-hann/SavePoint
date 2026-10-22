@@ -9,7 +9,7 @@ namespace Savepoint.App.Tests.Features.Games;
 
 public class GamesScreenViewModelTests
 {
-    private const string _dash = "\u2014";
+    private const string _dash = "-";
 
     private static FakeBackend WithProfiles(params (Profile Profile, ProfileRowStats Stats)[] profiles)
     {
@@ -197,7 +197,7 @@ public class GamesScreenViewModelTests
         Assert.True(rig.Screen.HasGame);
         Assert.Equal("Skyrim Special Edition", rig.Screen.GameName);
         Assert.Equal(@"C:\Games\SkyrimSE", rig.Screen.InstallPath);
-        Assert.Equal("Skyrim Special Edition \u2014 profiles", rig.Screen.LibraryTitle);
+        Assert.Equal("Profiles for Skyrim Special Edition", rig.Screen.LibraryTitle);
     }
 
     [Fact]

@@ -93,6 +93,8 @@ internal static class CatalogLint
     // A hyphen, double hyphen or en dash with a space on both sides; a hyphen inside a word or a number range written without spaces is fine.
     private static readonly Regex _spacedDash = new(@"\s(?:-{1,2}|–)\s", RegexOptions.CultureInvariant);
 
+    private const char _emDash = '\u2014';
+
     // The lead byte of a two- or three-byte UTF-8 character read as a Latin letter, then its continuation byte read as Latin-1
     // (U+0080 to U+00BF) or as Windows-1252 (the printable symbols that stand in for the C1 controls).
     private static readonly Regex _doubleEncoded = new(
@@ -172,11 +174,12 @@ internal static class CatalogLint
                 .Select(banned => $"'{entry.Key}' uses the banned word '{banned.Word}': {entry.Value}"))
             .ToList();
 
-    // An aside is set off with an em dash, never a spaced hyphen. Default names stay as they are: they become file-safe profile names.
-    public static IReadOnlyList<string> SpacedHyphens(IReadOnlyDictionary<string, string> catalog) =>
+    // No aside is set off with a dash: it becomes a sentence of its own or a comma clause, and no value holds an em dash, which many
+    // readers take for machine-written text. Default names keep a spaced hyphen: they become file-safe profile names.
+    public static IReadOnlyList<string> DashAsides(IReadOnlyDictionary<string, string> catalog) =>
         catalog.OrderBy(entry => entry.Key, StringComparer.Ordinal)
-            .Where(entry => !entry.Key.EndsWith(".defaultName", StringComparison.Ordinal) && _spacedDash.IsMatch(entry.Value))
-            .Select(entry => $"'{entry.Key}' sets off an aside with a spaced hyphen or en dash; use an em dash: {entry.Value}")
+            .Where(entry => entry.Value.Contains(_emDash) || (!entry.Key.EndsWith(".defaultName", StringComparison.Ordinal) && _spacedDash.IsMatch(entry.Value)))
+            .Select(entry => $"'{entry.Key}' sets off an aside with a dash; make it a sentence of its own or a comma clause: {entry.Value}")
             .ToList();
 
     // A helper line is a sentence under a field, so it ends with a period.

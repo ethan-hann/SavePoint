@@ -4,7 +4,7 @@
   "firstRun.artworkNote": "SavePoint downloads cover art for Steam games from Steam. You can turn this off in Settings.",
   "firstRun.body": "Point SavePoint at a game you've already got installed and modded. It takes snapshots of that exact version, its mods and its saves, so you can go back to them later, even after the game updates.",
   "firstRun.startFromTemplate": "Start from a template",
-  "firstRun.storageNote": "SavePoint keeps your snapshots in {path} — you can change that in Settings.",
+  "firstRun.storageNote": "SavePoint keeps your snapshots in {path}. You can change that in Settings.",
   "firstRun.title": "Keep the setup that works",
   "shell.addGame": "Add a game",
   "shell.exit.clearMessage": "SavePoint is still removing its data. If you quit now, some of it will be left, and you can remove the rest later.",

@@ -122,12 +122,12 @@ public class LaunchDialogViewModelTests : IDisposable
             dialog.SaveOptions,
             first =>
             {
-                Assert.Equal("Deep cave run — 5-30-26, 11:42 PM", first.Title);
+                Assert.Equal("Deep cave run \u00B7 5-30-26, 11:42 PM", first.Title);
                 Assert.Equal("Latest · 2 save snapshots in this profile", first.Subtitle);
             },
             second =>
             {
-                Assert.Equal("First night — 5-14-26, 9:04 PM", second.Title);
+                Assert.Equal("First night \u00B7 5-14-26, 9:04 PM", second.Title);
                 Assert.Equal("2 save snapshots in this profile", second.Subtitle);
             });
         Assert.Same(dialog.SaveOptions[0], dialog.SelectedSave);
@@ -416,7 +416,7 @@ public class LaunchDialogViewModelTests : IDisposable
         Assert.False(dialog.UnsavedBlocks[0].CanSaveFirst);
         Assert.True(dialog.ShowKeepCallout);
         Assert.Equal(
-            "These changes don't belong to any profile — they came from playing an older snapshot, or from a profile you deleted. Keep them as a new profile so nothing is lost.",
+            "These changes don't belong to any profile. They came from playing an older snapshot, or from a profile you deleted. Keep them as a new profile so nothing is lost.",
             dialog.KeepText);
     }
 

@@ -68,7 +68,7 @@ public class PostPlayDialogViewModelTests : IDisposable
         Assert.Equal("What \"Before the final boss\" held before is removed. It stays in History under \"Recently removed\" until you next free up space, and you can bring it back as a new profile.", update.Subtitle);
         Assert.Equal(Icons.Edit, update.Icon);
         Assert.Equal("Not now", skip.Title);
-        Assert.Equal("Nothing is lost — your saves stay in your game folders as new changes, and SavePoint asks again before you switch profiles.", skip.Subtitle);
+        Assert.Equal("Nothing is lost. Your saves stay in your game folders as new changes, and SavePoint asks again before you switch profiles.", skip.Subtitle);
         Assert.Equal(Icons.Schedule, skip.Icon);
     }
 

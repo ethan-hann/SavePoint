@@ -65,7 +65,7 @@ public class ProfileDialogViewModelTests
     {
         var dialog = Edit(detected: null);
 
-        Assert.Equal("No version could be detected — enter one to show it in the profile list.", dialog.VersionHelper);
+        Assert.Equal("No version could be detected. Enter one to show it in the profile list.", dialog.VersionHelper);
         Assert.Null(dialog.VersionPlaceholder);
     }
 

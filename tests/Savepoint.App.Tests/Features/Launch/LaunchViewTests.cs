@@ -172,7 +172,7 @@ public class LaunchViewTests
         var banner = harness.Find<Border>("Banner");
 
         Assert.Equal(AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(banner));
-        Assert.Equal("Everything was already in place — starting Skyrim Special Edition now", AutomationProperties.GetName(banner));
+        Assert.Equal("Everything was already in place, so Skyrim Special Edition is starting now", AutomationProperties.GetName(banner));
 
         var details = harness.Find<Button>("DetailsButton");
         details.Command!.Execute(null);

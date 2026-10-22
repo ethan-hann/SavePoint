@@ -351,7 +351,7 @@ public class GamesScreenViewTests
 
         var texts = harness.VisibleTexts().ToList();
 
-        Assert.Contains("Skyrim Special Edition \u2014 profiles", texts);
+        Assert.Contains("Profiles for Skyrim Special Edition", texts);
         Assert.True(harness.Find<Button>("LibraryEditGameButton").IsEffectivelyVisible);
         Assert.True(harness.Find<Button>("LibraryNewProfileButton").IsEffectivelyVisible);
         Assert.False(harness.Find<Grid>("SidebarHeader").IsEffectivelyVisible);

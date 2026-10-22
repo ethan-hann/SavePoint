@@ -23,9 +23,9 @@ public class CatalogLintTests
     }
 
     [Fact]
-    public void English_catalog_sets_off_asides_with_an_em_dash_never_a_spaced_hyphen()
+    public void English_catalog_sets_off_no_aside_with_a_dash()
     {
-        LintAssert.NoProblems(CatalogLint.SpacedHyphens(CatalogLint.English()));
+        LintAssert.NoProblems(CatalogLint.DashAsides(CatalogLint.English()));
     }
 
     [Fact]

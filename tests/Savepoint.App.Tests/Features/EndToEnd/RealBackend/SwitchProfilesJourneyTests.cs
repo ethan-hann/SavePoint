@@ -39,7 +39,7 @@ public class SwitchProfilesJourneyTests
         Assert.False(File.Exists(Path.Combine(game.Install, "mods", "a.txt")));
         Assert.False(File.Exists(Path.Combine(game.Saves, "slot2.sav")));
         await rig.SkipSessionAsync(afterFirstPlay);
-        await rig.WaitAsync(() => vanilla.IsActive && !modded.IsActive && vanilla.LastPlayedText != "—", "the rows to show Vanilla as the active profile");
+        await rig.WaitAsync(() => vanilla.IsActive && !modded.IsActive && vanilla.LastPlayedText != "-", "the rows to show Vanilla as the active profile");
 
         // And back: playing Modded asks again, and restores its mods, its patched file and its second save.
         await rig.PlayWithSwitchAsync(

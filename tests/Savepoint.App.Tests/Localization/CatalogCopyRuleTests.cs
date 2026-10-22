@@ -1,6 +1,6 @@
 namespace Savepoint.App.Tests.Localization;
 
-// The copy style rules (one dash style, helper lines end with a period, American spelling), each shown on a bad sample so a rule that stops catching anything fails here and not only in the repository scan.
+// The copy style rules (no dash asides, helper lines end with a period, American spelling), each shown on a bad sample so a rule that stops catching anything fails here and not only in the repository scan.
 public class CatalogCopyRuleTests
 {
     private static IReadOnlyDictionary<string, string> Catalog(params (string Key, string Message)[] entries) =>
@@ -11,20 +11,23 @@ public class CatalogCopyRuleTests
     [InlineData("Nothing is lost -- your saves stay on disk.")]
     [InlineData("Nothing is lost \u2013 your saves stay on disk.")]
     [InlineData("{count} - {name}")]
-    public void A_spaced_hyphen_or_en_dash_in_a_value_is_reported_with_its_key(string message)
+    [InlineData("Nothing is lost \u2014 your saves stay on disk.")]
+    [InlineData("Nothing is lost\u2014your saves stay on disk.")]
+    [InlineData("\u2014")]
+    public void A_dash_aside_or_any_em_dash_in_a_value_is_reported_with_its_key(string message)
     {
-        var problem = Assert.Single(CatalogLint.SpacedHyphens(Catalog(("test.sample", message))));
+        var problem = Assert.Single(CatalogLint.DashAsides(Catalog(("test.sample", message))));
 
         Assert.Contains("test.sample", problem);
     }
 
     [Theory]
-    [InlineData("Nothing is lost \u2014 your saves stay on disk.")]
     [InlineData("A well-known, 7-day, C:\\Games\\Mod-Pack folder.")]
     [InlineData("Mods from 2020–2024 work.")]
-    public void An_em_dash_and_a_hyphen_inside_a_word_are_allowed(string message)
+    [InlineData("-")]
+    public void A_hyphen_inside_a_word_a_range_and_a_lone_hyphen_are_allowed(string message)
     {
-        Assert.Empty(CatalogLint.SpacedHyphens(Catalog(("test.sample", message))));
+        Assert.Empty(CatalogLint.DashAsides(Catalog(("test.sample", message))));
     }
 
     [Fact]
@@ -32,7 +35,7 @@ public class CatalogCopyRuleTests
     {
         var catalog = Catalog(("launch.keep.defaultName", "Kept changes - {date}"), ("profiles.wizard.defaultName", "Modded playthrough - {date}"));
 
-        Assert.Empty(CatalogLint.SpacedHyphens(catalog));
+        Assert.Empty(CatalogLint.DashAsides(catalog));
     }
 
     [Theory]
@@ -154,7 +157,7 @@ public class CatalogCopyRuleTests
 
     [Theory]
     [InlineData("{done} of {total} files · about {time} left")]
-    [InlineData("Nothing is lost — your saves stay on disk.")]
+    [InlineData("Nothing is lost \u2014 your saves stay on disk.")]
     [InlineData("Saving…")]
     [InlineData("A café and a Façade.")]
     [InlineData("Â and Ã as capital letters, then letters.")]
