@@ -149,9 +149,11 @@ public sealed partial class LaunchOrchestrator
                 gameId,
                 async (storage, _) =>
                 {
-                    // The lock may have been queued behind a launch: the game can be open by now.
-                    await RefuseWhileOpenAsync(game).ConfigureAwait(false);
-                    if (GameFolders.Repos(_services, storage, game).FirstOrDefault(repo => repo.Role == folder) is { } repo)
+                    // The lock may have been queued behind a launch: the game can be open by now, and its ignore list may have been edited
+                    // while this waited, so the discard works from the game as it is now.
+                    var current = await RequireGameAsync(gameId).ConfigureAwait(false);
+                    await RefuseWhileOpenAsync(current).ConfigureAwait(false);
+                    if (GameFolders.Repos(_services, storage, current).FirstOrDefault(repo => repo.Role == folder) is { } repo)
                     {
                         await storage.Engine.DiscardChangesAsync(repo).ConfigureAwait(false);
                     }

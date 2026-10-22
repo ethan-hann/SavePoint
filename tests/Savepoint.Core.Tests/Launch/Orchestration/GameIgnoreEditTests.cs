@@ -26,6 +26,32 @@ public class GameIgnoreEditTests
     }
 
     [Fact(Timeout = 120_000)]
+    public async Task A_pattern_saved_while_a_discard_waits_for_the_game_lock_protects_its_files_from_that_discard()
+    {
+        using var rig = await LaunchRig.CreateAsync();
+        await rig.ProfileAsync("Vanilla");
+        rig.WriteInstall("Screenshots/one.png", "a screenshot");
+        var services = rig.Workspace.Backend.Services;
+        var release = new TaskCompletionSource();
+        var holding = services.Locks.RunExclusiveAsync(rig.Game.Id, async () =>
+        {
+            await release.Task;
+            return 0;
+        }, rig.Token);
+
+        // The discard reads the game and then queues behind the lock; the pattern is saved while it waits.
+        var discard = rig.Launch.DiscardChangesAsync(rig.Game.Id, RepoRole.Install);
+        await Task.Delay(1500, rig.Token);
+        await services.Catalog.SaveGameAsync(rig.Game with { IgnorePaths = ["Screenshots/"] }, rig.Token);
+        release.SetResult();
+        await holding;
+        var result = await discard;
+
+        Assert.True(result.Ok, result.Error?.Detail);
+        Assert.True(rig.InstallHas("Screenshots/one.png"));
+    }
+
+    [Fact(Timeout = 120_000)]
     public async Task Saving_a_game_rewrites_each_folders_exclude_list_from_its_ignore_patterns()
     {
         using var rig = await LaunchRig.CreateAsync();
