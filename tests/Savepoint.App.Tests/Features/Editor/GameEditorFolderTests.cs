@@ -148,7 +148,7 @@ public class GameEditorFolderTests
 
         await editor.LoadAsync();
 
-        Assert.Equal(@"Resolves to C:\Users\you\Documents\My Games\Skyrim Special Edition\Saves", editor.SavesResolves);
+        Assert.Equal(@"Full location: C:\Users\you\Documents\My Games\Skyrim Special Edition\Saves", editor.SavesResolves);
     }
 
     [Fact]
@@ -158,10 +158,10 @@ public class GameEditorFolderTests
         var editor = rig.New();
 
         editor.SavesPath = @"{appData}\Hollow Knight";
-        Assert.Equal(@"Resolves to C:\Users\you\AppData\Roaming\Hollow Knight", editor.SavesResolves);
+        Assert.Equal(@"Full location: C:\Users\you\AppData\Roaming\Hollow Knight", editor.SavesResolves);
 
         editor.SavesPath = @"{localAppData}\Hollow Knight";
-        Assert.Equal(@"Resolves to C:\Users\you\AppData\Local\Hollow Knight", editor.SavesResolves);
+        Assert.Equal(@"Full location: C:\Users\you\AppData\Local\Hollow Knight", editor.SavesResolves);
 
         editor.SavesPath = @"D:\Saves";
         Assert.Null(editor.SavesResolves);
@@ -190,6 +190,18 @@ public class GameEditorFolderTests
         var editor = EditorRig.Create(os: os).New();
 
         Assert.Equal(expected, editor.LocationChoices.Select(choice => choice.Text));
+    }
+
+    [Theory]
+    [InlineData("windows", new[] { "Documents", "Saved Games", "AppData", "Local AppData" })]
+    [InlineData("linux", new[] { "Documents", "Home folder", "AppData", "Local AppData" })]
+    [InlineData("macos", new[] { "Documents", "Home folder", "AppData", "Local AppData" })]
+    public void The_common_locations_are_offered_under_friendly_names_that_still_insert_the_shortcut(string os, string[] expected)
+    {
+        var editor = EditorRig.Create(os: os).New();
+
+        Assert.Equal(expected, editor.LocationChoices.Select(choice => choice.Display));
+        Assert.All(editor.LocationChoices, choice => Assert.StartsWith("{", choice.Text, StringComparison.Ordinal));
     }
 
     [Theory]

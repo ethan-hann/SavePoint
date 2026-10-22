@@ -248,7 +248,8 @@ public class GameEditorViewTests
         var row = harness.Find<Grid>("LocationRow");
 
         var buttons = row.GetVisualDescendants().OfType<Button>().ToList();
-        Assert.Equal(["{documents}", "{savedGames}", "{appData}", "{localAppData}"], buttons.Select(button => button.Content));
+        Assert.Equal(["Documents", "Saved Games", "AppData", "Local AppData"], buttons.Select(button => button.Content));
+        Assert.Equal(["{documents}", "{savedGames}", "{appData}", "{localAppData}"], buttons.Select(button => ToolTip.GetTip(button)));
 
         buttons[2].Command!.Execute(null);
         harness.Settle();
@@ -406,6 +407,16 @@ public class GameEditorViewTests
 
         Assert.Equal(ReconnectChoice.StartFresh, await question.Result);
         Assert.Single(harness.Backend.Calls.To<IGamesApi>("ResolveOrphanAsync"));
+    }
+
+    [AvaloniaFact]
+    public async Task The_start_file_and_steam_link_fields_are_spoken_by_what_they_are_not_by_their_type()
+    {
+        using var harness = await EditorViewHarness.StartAsync();
+        harness.Edit(MockupScenario.SkyrimId);
+
+        Assert.Equal("File that starts the game", AutomationProperties.GetName(harness.Find<TextBox>("ExeField")));
+        Assert.Equal("Steam launch link", AutomationProperties.GetName(harness.Find<TextBox>("UriField")));
     }
 
     [AvaloniaFact]

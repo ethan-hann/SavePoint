@@ -3,6 +3,11 @@ using System.Windows.Input;
 namespace Savepoint.App.Features.Editor;
 
 /// <summary>One suggested value shown as a small button under a field.</summary>
-/// <param name="Text">The value, which is also the button's text.</param>
+/// <param name="Text">The value put into the field.</param>
 /// <param name="Use">Puts the value into the field.</param>
-public sealed record SuggestionItem(string Text, ICommand Use);
+/// <param name="Label">What the button says when that differs from the value, as a friendly name for a path shortcut; null to show the value.</param>
+public sealed record SuggestionItem(string Text, ICommand Use, string? Label = null)
+{
+    /// <summary>The button's text.</summary>
+    public string Display => Label ?? Text;
+}

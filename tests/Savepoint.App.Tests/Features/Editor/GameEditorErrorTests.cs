@@ -49,7 +49,7 @@ public class GameEditorErrorTests
 
     [Theory]
     [InlineData(@"C:\Games\Hollow Knight\hk.exe", "Enter the start file's location relative to the game folder, not a full path.")]
-    [InlineData(@"..\hk.exe", "The start file has to be inside the game folder, so its path can't use .. to climb out of it.")]
+    [InlineData(@"..\hk.exe", "The start file has to be inside the game folder, so its path can't point outside it.")]
     public async Task A_start_file_that_is_absolute_or_climbs_out_is_refused_on_its_field(string exePath, string message)
     {
         var rig = EditorRig.Create();

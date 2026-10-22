@@ -130,7 +130,7 @@
                   </ItemsControl.ItemsPanel>
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="editor:SuggestionItem">
-                      <Button Classes="pill" Margin="0,0,6,6" Padding="10,3" FontFamily="{DynamicResource RobotoMonoFont}" FontSize="11.5" FontWeight="Normal" Content="{Binding Text}" Command="{Binding Use}" />
+                      <Button Classes="pill" Margin="0,0,6,6" Padding="10,3" FontFamily="{DynamicResource RobotoMonoFont}" FontSize="11.5" FontWeight="Normal" Content="{Binding Display}" ToolTip.Tip="{Binding Text}" Command="{Binding Use}" />
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
