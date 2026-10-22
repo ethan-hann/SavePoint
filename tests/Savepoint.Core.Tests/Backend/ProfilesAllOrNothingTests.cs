@@ -98,6 +98,56 @@ public class ProfilesAllOrNothingTests
         }
     }
 
+    [Fact(Timeout = 120_000)]
+    public async Task A_delete_whose_row_cannot_be_removed_puts_the_branches_back_in_both_folders_and_a_retry_finishes()
+    {
+        FileStream? held = null;
+        string? profilesFile = null;
+        using var workspace = new BackendWorkspace(options => options with
+        {
+            Engine = new GitEngineOptions
+            {
+                InvocationObserver = invocation =>
+                {
+                    // Both branches go first and the row is removed after; the catalog file is held shut from the moment the last branch goes.
+                    if (Volatile.Read(ref profilesFile) is { } file && held is null && IsRemovalIn(invocation, "external.git"))
+                    {
+                        held = new FileStream(file, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                    }
+                },
+            },
+        });
+        var game = await workspace.AddGameAsync();
+        var (spare, _) = await workspace.CreateProfileAsync(game, "Spare");
+        await workspace.CreateProfileAsync(game, "Active");
+        await workspace.WaitForIdleAsync(TimeSpan.FromSeconds(60));
+        Volatile.Write(ref profilesFile, Path.Combine(workspace.CatalogDirectory, CatalogStore.ProfilesFileName));
+
+        OperationResult<Unit> failed;
+        try
+        {
+            failed = await workspace.Profiles.DeleteAsync(game.Id, spare.Id);
+        }
+        finally
+        {
+            held?.Dispose();
+        }
+
+        Assert.NotNull(held);
+        Assert.False(failed.Ok);
+        Assert.Contains(spare.Id, (await workspace.Profiles.ListAsync(game.Id, workspace.Token)).Value!.Select(profile => profile.Id));
+        foreach (var role in new[] { RepoRole.Install, RepoRole.External })
+        {
+            Assert.Contains(spare.BranchName, await BranchesAsync(workspace, game, role));
+        }
+
+        var retried = await workspace.Profiles.DeleteAsync(game.Id, spare.Id);
+        await workspace.WaitForIdleAsync(TimeSpan.FromSeconds(60));
+
+        Assert.True(retried.Ok, retried.Error?.Detail);
+        Assert.DoesNotContain(spare.Id, (await workspace.Profiles.ListAsync(game.Id, workspace.Token)).Value!.Select(profile => profile.Id));
+    }
+
     private static bool IsRemovalIn(GitInvocation invocation, string gitDirName) =>
         invocation.Arguments[0] == "update-ref"
         && invocation.Arguments.Contains("-d")

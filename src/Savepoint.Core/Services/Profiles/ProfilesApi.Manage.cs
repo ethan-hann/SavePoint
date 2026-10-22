@@ -117,8 +117,19 @@ internal sealed partial class ProfilesApi
                         throw blocker;
                     }
 
-                    await RemoveBranchesAsync(storage, repos, profile.BranchName).ConfigureAwait(false);
-                    await _services.Catalog.DeleteProfileAsync(profile.Id).ConfigureAwait(false);
+                    var removed = await RemoveBranchesAsync(storage, repos, profile.BranchName).ConfigureAwait(false);
+
+                    // The row goes last, and a row that stays puts the branches back: a profile with a row and no branches says "nothing saved yet".
+                    try
+                    {
+                        await _services.Catalog.DeleteProfileAsync(profile.Id).ConfigureAwait(false);
+                    }
+                    catch
+                    {
+                        await RestoreBranchesAsync(storage, removed, profile.BranchName).ConfigureAwait(false);
+                        throw;
+                    }
+
                     return Unit.Value;
                 }).ConfigureAwait(false);
 
@@ -129,7 +140,7 @@ internal sealed partial class ProfilesApi
 
     // Removes the branch from every folder or, when one folder cannot, puts the others back where they were: the points stay in the
     // store until the tidy-up after a finished delete, so a branch made again at its old tip is the same profile as before.
-    private static async Task RemoveBranchesAsync(StorageSnapshot storage, IReadOnlyList<RepoRef> repos, string branch)
+    private static async Task<IReadOnlyList<(RepoRef Repo, string Tip)>> RemoveBranchesAsync(StorageSnapshot storage, IReadOnlyList<RepoRef> repos, string branch)
     {
         var removed = new List<(RepoRef Repo, string Tip)>();
         try
@@ -146,12 +157,18 @@ internal sealed partial class ProfilesApi
         }
         catch
         {
-            foreach (var (repo, tip) in removed)
-            {
-                await RestoreBranchAsync(storage, repo, branch, tip).ConfigureAwait(false);
-            }
-
+            await RestoreBranchesAsync(storage, removed, branch).ConfigureAwait(false);
             throw;
+        }
+
+        return removed;
+    }
+
+    private static async Task RestoreBranchesAsync(StorageSnapshot storage, IEnumerable<(RepoRef Repo, string Tip)> removed, string branch)
+    {
+        foreach (var (repo, tip) in removed)
+        {
+            await RestoreBranchAsync(storage, repo, branch, tip).ConfigureAwait(false);
         }
     }
 
