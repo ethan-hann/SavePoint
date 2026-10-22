@@ -87,7 +87,61 @@ public class MainWindowTests
         Assert.Single(backend.Calls.To<IJobsApi>(nameof(IJobsApi.CancelAsync)));
     }
 
-    private static async Task<(MainWindow Window, FakeBackend Backend, FakeDialogs Dialogs)> WindowWithRunningMoveAsync(bool answer)
+    [AvaloniaFact]
+    public async Task An_application_shutdown_during_a_storage_move_asks_first_and_staying_cancels_the_quit()
+    {
+        var (window, backend, dialogs) = await WindowWithRunningMoveAsync(answer: false);
+        var closing = ClosingArgs(WindowCloseReason.ApplicationShutdown);
+
+        window.RaiseClosing(closing);
+        await SettleAsync(() => dialogs.Confirmations.Count == 1);
+
+        Assert.True(closing.Cancel);
+        Assert.True(window.IsVisible);
+        Assert.Empty(backend.Calls.To<IJobsApi>(nameof(IJobsApi.CancelAsync)));
+    }
+
+    [AvaloniaFact]
+    public async Task Quitting_anyway_after_an_application_shutdown_cancels_the_move_and_closes_the_window()
+    {
+        var (window, backend, dialogs) = await WindowWithRunningMoveAsync(answer: true);
+
+        window.RaiseClosing(ClosingArgs(WindowCloseReason.ApplicationShutdown));
+        await SettleAsync(() => !window.IsVisible);
+
+        Assert.False(window.IsVisible);
+        Assert.Single(dialogs.Confirmations);
+        Assert.Single(backend.Calls.To<IJobsApi>(nameof(IJobsApi.CancelAsync)));
+    }
+
+    [AvaloniaFact]
+    public async Task A_system_shutdown_is_never_held_up_by_a_question()
+    {
+        var (window, _, dialogs) = await WindowWithRunningMoveAsync(answer: false);
+        var closing = ClosingArgs(WindowCloseReason.OSShutdown);
+
+        window.RaiseClosing(closing);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.False(closing.Cancel);
+        Assert.Empty(dialogs.Confirmations);
+    }
+
+    // The arguments the window gets when the application shuts down; Avalonia builds them itself, so the test has to as well.
+    private static WindowClosingEventArgs ClosingArgs(WindowCloseReason reason)
+    {
+        var constructor = typeof(WindowClosingEventArgs).GetConstructors(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Single();
+        var arguments = constructor.GetParameters().Select(parameter => parameter.ParameterType == typeof(WindowCloseReason) ? reason : (object)false).ToArray();
+        return (WindowClosingEventArgs)constructor.Invoke(arguments);
+    }
+
+    // Raises the close a quit sends, which only the application can send.
+    private sealed class QuittableWindow : MainWindow
+    {
+        public void RaiseClosing(WindowClosingEventArgs e) => OnClosing(e);
+    }
+
+    private static async Task<(QuittableWindow Window, FakeBackend Backend, FakeDialogs Dialogs)> WindowWithRunningMoveAsync(bool answer)
     {
         var backend = FakeBackend.Mockup();
         var dialogs = new FakeDialogs().AnswerConfirm(answer);
@@ -100,7 +154,7 @@ public class MainWindowTests
             new ImmediateUiDispatcher(),
             new ManualTimeProvider(),
             dialogs);
-        var window = new MainWindow { DataContext = main };
+        var window = new QuittableWindow { DataContext = main };
         window.Show();
         FakeAssert.Ok(await backend.Settings.RelocateStorageAsync(@"E:\SavePoint"));
         return (window, backend, dialogs);
