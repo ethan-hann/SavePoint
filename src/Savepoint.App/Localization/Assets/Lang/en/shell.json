@@ -52,6 +52,7 @@
   "shell.placeholder.comingSoon": "This screen is under construction.",
   "shell.profileCount": "{count, plural, one {# profile} other {# profiles}}",
   "shell.yourGames": "Your games",
+  "startup.checking": "Checking your files…",
   "startup.corrupt.backupAt": "Last good copy: {path}",
   "startup.corrupt.body": "SavePoint couldn't read the file that holds {kind, select, games {your list of games} profiles {your list of profiles} settings {your settings} other {some of its data}}, so it left the file exactly as it is. \"Restore the backup\" brings back the last good copy. \"Start with nothing in it\" begins again with {kind, select, games {no games listed} profiles {no profiles listed} settings {the default settings} other {an empty file}} and keeps this one beside it.",
   "startup.corrupt.confirm.message": "SavePoint will move the unreadable file aside, never delete it, and start with {kind, select, games {no games listed} profiles {no profiles listed} settings {the default settings} other {an empty file}}.",

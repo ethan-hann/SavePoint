@@ -361,7 +361,9 @@ public sealed partial class StorageSectionViewModel : ObservableObject
         }
     }
 
-    private ErrorCardViewModel Card(ErrorInfo error) => new(error, _deps.Text);
+    // Every message here ends "then try again", so the card carries the way to do it.
+    private ErrorCardViewModel Card(ErrorInfo error) =>
+        new(error, _deps.Text, [new ErrorCardAction(_deps.Text.Message("settings.storage.chooseAnother"), ChangeCommand, IsPrimary: true)]);
 
     private static ErrorInfo Unknown() => new("error.unknown", new Dictionary<string, object?>(), string.Empty);
 }

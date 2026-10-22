@@ -15,6 +15,8 @@
         <TextBlock Classes="row-title" FontSize="16" VerticalAlignment="Center" Text="{loc:Loc app.name}" />
       </StackPanel>
 
+      <TextBlock x:Name="CheckingText" Classes="body muted" HorizontalAlignment="Center" IsVisible="{Binding IsChecking}" Text="{loc:Loc startup.checking}" />
+
       <ContentControl x:Name="StartupCard" IsVisible="{Binding HasCard}" Content="{Binding Card}" />
 
       <StackPanel x:Name="RecoveryList" Spacing="14" IsVisible="{Binding ShowCorruptFiles}">
@@ -26,7 +28,7 @@
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
-        <Border x:Name="RecoveryError" Classes="callout error" IsVisible="{Binding HasRecoveryError}">
+        <Border x:Name="RecoveryError" Classes="callout error" IsVisible="{Binding HasRecoveryError}" AutomationProperties.LiveSetting="Polite">
           <TextBlock TextWrapping="Wrap" Text="{Binding RecoveryError}" />
         </Border>
         <ItemsControl x:Name="CorruptFiles" ItemsSource="{Binding CorruptFiles}">

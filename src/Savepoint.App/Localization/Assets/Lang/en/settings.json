@@ -45,6 +45,7 @@
   "settings.storage.announcePercent": "{percent}% moved.",
   "settings.storage.cancel": "Cancel",
   "settings.storage.change": "Change",
+  "settings.storage.chooseAnother": "Choose another folder",
   "settings.storage.free": "{size} free",
   "settings.storage.heading": "Where SavePoint keeps its data",
   "settings.storage.leftBehindBody": "SavePoint couldn't remove them. You can delete these by hand.",

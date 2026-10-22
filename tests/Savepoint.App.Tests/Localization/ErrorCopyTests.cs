@@ -96,6 +96,32 @@ public class ErrorCopyTests
         LintAssert.NoProblems(problems.Distinct().ToList());
     }
 
+    [Fact]
+    public void A_folder_that_is_not_confirmed_says_where_to_confirm_it()
+    {
+        var info = ErrorInfo.From(new ConsentMarkerException(ConsentFailure.Missing, "/games/alpha", RepoRole.Install, null, null));
+
+        var text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), os: "windows").Message(info);
+
+        Assert.Equal("This folder has not been confirmed for SavePoint yet. Open Edit game and choose Save changes to confirm it.", text);
+    }
+
+    [Theory]
+    [InlineData("windows", @"Try something like C:\Program Files (x86)\Steam\steamapps\common\YourGame.")]
+    [InlineData("macos", "Try something like ~/Library/Application Support/Steam/steamapps/common/YourGame.")]
+    [InlineData("linux", "Try something like ~/.local/share/Steam/steamapps/common/YourGame.")]
+    public void A_folder_that_is_too_broad_suggests_what_a_game_folder_looks_like(string os, string suggestion)
+    {
+        var catalog = LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true);
+
+        foreach (var tier in new[] { 1, 2 })
+        {
+            var text = new UiFormatter(catalog, os: os).Message(ErrorInfo.From(new PathSafetyException("/system", tier)));
+
+            Assert.EndsWith(suggestion, text, StringComparison.Ordinal);
+        }
+    }
+
     private static string? FormatProblem(LocalizationCatalog catalog, ErrorInfo info, string os)
     {
         try
