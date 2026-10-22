@@ -1,14 +1,19 @@
 #!/usr/bin/env bash
 # Builds the Linux (linux-x64) package: a self-contained publish, then vpk pack, which makes the AppImage.
 #
-#   build/package.sh [--sources]
+#   build/package.sh [--sources] [--allow-dirty]
 #
 # Publishes src/Savepoint.App into artifacts/publish/linux-x64, checks that the git bundle, the notices and the license
 # texts came along, and packs it with the pinned vpk (a local tool, never a global one) into artifacts/release/linux-x64,
-# with the 512 px PNG as the icon. The version is the one <Version> in Directory.Build.props.
+# with the 512 px PNG as the icon. The version is the one <Version> in Directory.Build.props. Afterwards it opens the
+# AppImage and checks that the git bundle, the notices and the license texts are inside it.
 #
-# --sources  also downloads the source archives of the three git tags THIRD-PARTY-NOTICES.md names into
-#            artifacts/release/source and prints their SHA-256.
+# --sources      also downloads the source archives of the three tags build/git-manifest.json pins (the ones
+#                THIRD-PARTY-NOTICES.md promises) into artifacts/release/source, prints their SHA-256 and compares each with
+#                the hash the manifest pins. A hash that is not pinned yet, or that differs, fails the run once every hash
+#                has been printed.
+# --allow-dirty  packs a tree with uncommitted changes anyway, for a trial package, marked "-dirty". Without it the run is
+#                refused, because a package from such a tree cannot be tied to a commit.
 #
 # Run it from a checkout that only Linux builds: Windows and Linux builds of one tree share obj/, and each restore
 # overwrites the other's. Under WSL, keep the tree on the Linux file system (not /mnt/c) for speed. Without a .NET SDK on the
@@ -19,9 +24,11 @@
 set -euo pipefail
 
 sources=0
+allow_dirty=0
 for argument in "$@"; do
   case "$argument" in
     --sources) sources=1 ;;
+    --allow-dirty) allow_dirty=1 ;;
     *) echo "package: unknown argument $argument" >&2; exit 2 ;;
   esac
 done
@@ -84,7 +91,19 @@ rid=linux-x64
 publish_dir="$repo/artifacts/publish/$rid"
 release_dir="$repo/artifacts/release/$rid"
 icon="$repo/src/Savepoint.App/Assets/Icon/savepoint-512.png"
-echo "==> SavePoint $version for $rid, with .NET SDK $(dotnet --version)"
+
+# Every build is the same version, so the commit is what tells two builds apart: it goes into the informational version, which
+# the startup log reads. A package from a tree with changes the commit does not hold cannot be tied to one.
+commit="$(git rev-parse --short=12 HEAD)" || fail "git could not say which commit this is"
+changes="$(git status --porcelain | grep -c . || true)"
+if [ "$changes" -gt 0 ] && [ "$allow_dirty" -eq 0 ]; then
+  fail "the working tree has $changes uncommitted change(s), so the package could not be tied to a commit. Commit them, or pass --allow-dirty for a trial package."
+fi
+revision="$commit"
+if [ "$changes" -gt 0 ]; then
+  revision="$commit-dirty"
+fi
+echo "==> SavePoint $version ($revision) for $rid, with .NET SDK $(dotnet --version)"
 
 echo "==> restore tools"
 dotnet tool restore
@@ -92,7 +111,7 @@ dotnet tool restore
 rm -rf "$publish_dir"
 build_nodes="${SAVEPOINT_PACKAGE_BUILD_NODES:-4}"
 echo "==> publish"
-dotnet publish src/Savepoint.App -c Release -r "$rid" --self-contained -o "$publish_dir" "-m:$build_nodes" -nodeReuse:false -p:UseSharedCompilation=false
+dotnet publish src/Savepoint.App -c Release -r "$rid" --self-contained -o "$publish_dir" "-m:$build_nodes" -nodeReuse:false -p:UseSharedCompilation=false "-p:SourceRevisionId=$revision"
 
 echo "==> check the publish folder"
 for expected in SavePoint THIRD-PARTY-NOTICES.md git/.savepoint-git-stamp; do
@@ -117,21 +136,55 @@ for file in "$release_dir"/*; do
   [ -f "$file" ] && printf '%14s bytes  %s\n' "$(wc -c <"$file" | tr -d ' ')" "$(basename "$file")"
 done
 
+# What vpk packed is what people install, so the AppImage is opened and the files the publish folder was checked for have to be in it.
+echo "==> check the package"
+appimage="$release_dir/SavePoint.AppImage"
+[ -f "$appimage" ] || fail "vpk wrote no $appimage to look inside"
+chmod +x "$appimage"
+inspect_dir="$tools/package-check"
+rm -rf "$inspect_dir"
+mkdir -p "$inspect_dir"
+# An AppImage unpacks itself with --appimage-extract, which needs no FUSE.
+(cd "$inspect_dir" && "$appimage" --appimage-extract >/dev/null) || fail "could not look inside $appimage"
+packed="$inspect_dir/squashfs-root"
+listing="$release_dir/../contents-$rid.txt"
+(cd "$packed" && find . -type f | LC_ALL=C sort) >"$listing"
+echo "    SavePoint.AppImage: $(grep -c . "$listing") files (listed in $listing)"
+grep -qE '(^|/)git/\.savepoint-git-stamp$' "$listing" || fail "SavePoint.AppImage does not hold the git bundle"
+grep -qE '(^|/)THIRD-PARTY-NOTICES\.md$' "$listing" || fail "SavePoint.AppImage does not hold the notices"
+grep -qE '(^|/)licenses/[^/]+$' "$listing" || fail "SavePoint.AppImage does not hold the license texts"
+rm -rf "$inspect_dir"
+
 if [ "$sources" -eq 1 ]; then
   source_dir="$repo/artifacts/release/source"
   mkdir -p "$source_dir"
-  # The tags the notices promise source for: "<repository URL>, tag `<tag>`".
-  tags="$(grep -oE 'https://github\.com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+, tag `[^`]+`' THIRD-PARTY-NOTICES.md || true)"
-  [ "$(printf '%s\n' "$tags" | grep -c .)" -eq 3 ] || fail "THIRD-PARTY-NOTICES.md does not name exactly 3 source tags (git, Git for Windows, dugite-native)"
-  while IFS= read -r line; do
-    repository="${line%%,*}"
-    tag="${line#*tag \`}"
-    tag="${tag%\`}"
+  # The source archives a release publishes are the ones the manifest pins, beside the binaries they belong to. The manifest keeps
+  # one "key": "value" pair per line, which is all this reads, as build/fetch-git.sh does.
+  pins="$(awk '
+    /^  "sources": \{/ { insources = 1; next }
+    insources && /^  \}/ { exit }
+    insources && /^      "repository": "/ { repository = $0; sub(/^      "repository": "/, "", repository); sub(/",?[ \t\r]*$/, "", repository) }
+    insources && /^      "tag": "/ { tag = $0; sub(/^      "tag": "/, "", tag); sub(/",?[ \t\r]*$/, "", tag) }
+    insources && /^      "sha256": "/ { sha = $0; sub(/^      "sha256": "/, "", sha); sub(/",?[ \t\r]*$/, "", sha) }
+    insources && /^    \}/ { print repository " " tag " " sha; repository = tag = sha = "" }
+  ' build/git-manifest.json)"
+  [ "$(printf '%s\n' "$pins" | grep -c .)" -eq 3 ] || fail "build/git-manifest.json does not pin exactly 3 source archives in \"sources\" (git, Git for Windows, dugite-native)"
+  problems=""
+  while read -r repository tag pinned; do
+    # The notices make the promise, so they have to name the same tag.
+    grep -qF "$repository, tag \`$tag\`" THIRD-PARTY-NOTICES.md || fail "THIRD-PARTY-NOTICES.md does not promise source for $repository, tag \`$tag\`, which build/git-manifest.json pins"
     name="$(printf '%s' "${repository#https://github.com/}" | tr '/' '-')-$tag.tar.gz"
     echo "==> $repository at $tag"
     download "$repository/archive/refs/tags/$tag.tar.gz" "$source_dir/$name"
-    printf '%s  %s\n' "$(sha256sum "$source_dir/$name" | cut -d' ' -f1)" "$name"
-  done <<<"$tags"
+    actual="$(sha256sum "$source_dir/$name" | cut -d' ' -f1)"
+    printf '%s  %s\n' "$actual" "$name"
+    if [ -z "$pinned" ]; then
+      problems="$problems$name has no pinned hash in build/git-manifest.json; if this download is the right one, pin $actual."$'\n'
+    elif [ "$pinned" != "$actual" ]; then
+      problems="$problems$name is not the archive build/git-manifest.json pins: expected $pinned, got $actual."$'\n'
+    fi
+  done <<<"$pins"
+  [ -z "$problems" ] || fail "$problems"
 fi
 
 echo "package done"

@@ -23,7 +23,8 @@ public static class AppBootstrap
     /// <summary>Starts the backend over the machine's own folders and the bundled git, with the real launch orchestrator.</summary>
     /// <param name="configure">Replaces parts of the backend, for tests; the defaults when null.</param>
     /// <param name="log">The diagnostic log to use, for tests; when null the real log is opened in the platform's log folder (D34).</param>
-    public static BootstrapResult Start(Func<BackendOptions, BackendOptions>? configure = null, IDiagnosticLog? log = null)
+    /// <param name="build">The build text the startup line carries, for tests; the running app's version and commit when null.</param>
+    public static BootstrapResult Start(Func<BackendOptions, BackendOptions>? configure = null, IDiagnosticLog? log = null, string? build = null)
     {
         var diagnostics = log ?? DiagnosticLog.None;
         string? logFolder = null;
@@ -48,7 +49,7 @@ public static class AppBootstrap
                 logFolder = platform.Directories.LogsDir;
             }
 
-            diagnostics.Information($"SavePoint {SettingsEnvironment.ThisAppVersion()} started on {RuntimeInformation.OSDescription} ({RuntimeInformation.OSArchitecture}), {RuntimeInformation.FrameworkDescription}.");
+            diagnostics.Information($"SavePoint {build ?? SettingsEnvironment.ThisAppBuild()} started on {RuntimeInformation.OSDescription} ({RuntimeInformation.OSArchitecture}), {RuntimeInformation.FrameworkDescription}.");
             var backend = CoreBackend.Create(options with { Platform = platform, Log = diagnostics });
             return new BootstrapResult(ServicesOf(backend, logFolder), backend, null, diagnostics);
         }

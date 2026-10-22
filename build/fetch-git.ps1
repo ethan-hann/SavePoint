@@ -182,7 +182,8 @@ function Expand-Bundle([hashtable]$Entry, [string]$ArchivePath, [string]$Destina
 if (-not $RuntimeId) { $RuntimeId = Get-HostRuntimeId }
 
 $manifest = Get-Content -LiteralPath $ManifestPath -Raw | ConvertFrom-Json -AsHashtable
-$knownIds = @($manifest.Keys | Where-Object { $_ -ne 'layouts' } | Sort-Object)
+# "layouts" and "sources" are not runtimes: the first says what to prune, the second pins the source archives a release publishes.
+$knownIds = @($manifest.Keys | Where-Object { $_ -notin 'layouts', 'sources' } | Sort-Object)
 if ($RuntimeId -notin $knownIds) {
     throw "No bundled git for runtime id '$RuntimeId'. Known ids: $($knownIds -join ', ')."
 }
