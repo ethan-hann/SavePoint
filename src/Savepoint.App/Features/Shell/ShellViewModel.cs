@@ -496,27 +496,58 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
     private void Rebuild(IReadOnlyList<GameDefinition> games)
     {
         var previous = _selectedRow;
-        var rows = games.Select(game => new GameRowViewModel(
-            game,
-            _profileCounts is null ? null : _profileCounts.GetValueOrDefault(game.Id),
-            _bytes is not null && _bytes.TryGetValue(game.Id, out var bytes) ? bytes : null,
-            _deps.Text,
-            Artwork.For(game.Id))
-        {
-            ShowLabels = !_isCompact,
-        }).ToList();
+        var previousGame = previous?.Game;
 
-        Games.Clear();
-        foreach (var row in rows)
+        // Rows are matched by game id and updated in place, so a refresh never replaces the row a person has focused in the rail or shelf.
+        var existing = Games.ToDictionary(row => row.Id);
+        var rows = new List<GameRowViewModel>(games.Count);
+        foreach (var game in games)
         {
-            Games.Add(row);
+            var profileCount = _profileCounts?.GetValueOrDefault(game.Id);
+            long? size = _bytes is not null && _bytes.TryGetValue(game.Id, out var bytes) ? bytes : null;
+            if (existing.TryGetValue(game.Id, out var row))
+            {
+                row.Apply(game, profileCount, size, _deps.Text);
+            }
+            else
+            {
+                row = new GameRowViewModel(game, profileCount, size, _deps.Text, Artwork.For(game.Id)) { ShowLabels = !_isCompact };
+            }
+
+            rows.Add(row);
+        }
+
+        for (var index = Games.Count - 1; index >= 0; index--)
+        {
+            if (!rows.Contains(Games[index]))
+            {
+                Games.RemoveAt(index);
+            }
+        }
+
+        for (var index = 0; index < rows.Count; index++)
+        {
+            if (index < Games.Count && ReferenceEquals(Games[index], rows[index]))
+            {
+                continue;
+            }
+
+            var at = Games.IndexOf(rows[index]);
+            if (at >= 0)
+            {
+                Games.Move(at, index);
+            }
+            else
+            {
+                Games.Insert(index, rows[index]);
+            }
         }
 
         // History is about one game's points, so it has nothing to show in an empty library.
         Nav.First(item => item.Destination == NavDestination.History).IsEnabled = rows.Count > 0;
 
         var selected = rows.FirstOrDefault(row => row.Id == previous?.Id) ?? rows.FirstOrDefault();
-        Select(selected, force: !Equals(previous?.Game, selected?.Game));
+        Select(selected, force: !Equals(previousGame, selected?.Game));
         RaiseShellState();
         JobStatus.Refresh();
     }
