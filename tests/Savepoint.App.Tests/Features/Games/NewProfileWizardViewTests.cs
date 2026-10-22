@@ -287,7 +287,7 @@ public class NewProfileWizardViewTests
         harness.Settle();
 
         Assert.Same(harness.Find<TextBox>("NameField"), harness.Window.FocusManager!.GetFocusedElement());
-        Assert.Contains("Leave blank to use the detected version, 1.6.1170", harness.VisibleTexts());
+        Assert.Contains("Leave blank to use the detected version, 1.6.1170.", harness.VisibleTexts());
         Assert.Equal("1.6.1170", harness.Find<TextBox>("VersionField").PlaceholderText);
         harness.Dialogs.Current!.RequestDismiss();
         harness.Settle();
