@@ -61,7 +61,7 @@ public sealed partial class LaunchOrchestrator
     private async Task<SessionState.Exited> DescribeExitAsync(string gameId, DateTimeOffset startedAt, TimeSpan duration)
     {
         var info = _book.Get(gameId);
-        var starts = _book.Record(gameId)?.StartCommits ?? new Dictionary<RepoRole, string>();
+        var starts = _book.Record(gameId)?.Starts ?? new Dictionary<RepoRole, FolderStart>();
         var older = info is { StartedFromOlderPoint: true };
         try
         {
@@ -96,7 +96,7 @@ public sealed partial class LaunchOrchestrator
         IReadOnlyList<RepoRef> repos,
         Profile? profile,
         bool older,
-        IReadOnlyDictionary<RepoRole, string> starts)
+        IReadOnlyDictionary<RepoRole, FolderStart> starts)
     {
         if (profile is null)
         {
@@ -105,15 +105,22 @@ public sealed partial class LaunchOrchestrator
 
         if (older)
         {
+            // Continuing moves the profile's branch to where the folder began, so every folder the launch left alone has to have begun on it.
             var newer = new HashSet<string>(StringComparer.Ordinal);
+            var canContinue = true;
             foreach (var repo in repos.Where(repo => starts.ContainsKey(repo.Role)))
             {
+                var start = starts[repo.Role];
                 var lineage = await storage.Engine.ListCommitsAsync(repo, profile.BranchName).ConfigureAwait(false);
-                var index = lineage.ToList().FindIndex(commit => commit.Id == starts[repo.Role]);
+                var index = lineage.ToList().FindIndex(commit => commit.Id == start.Commit);
+                canContinue &= !start.Left || index >= 0;
                 newer.UnionWith(lineage.Take(Math.Max(0, index)).Where(commit => commit.CaptureId is not null).Select(commit => commit.CaptureId!));
             }
 
-            return new PostPlayOptions([CompletionChoice.ForkNewProfile, CompletionChoice.MoveForward, CompletionChoice.Skip], CompletionChoice.ForkNewProfile, null, newer.Count);
+            CompletionChoice[] choices = canContinue
+                ? [CompletionChoice.ForkNewProfile, CompletionChoice.MoveForward, CompletionChoice.Skip]
+                : [CompletionChoice.ForkNewProfile, CompletionChoice.Skip];
+            return new PostPlayOptions(choices, CompletionChoice.ForkNewProfile, null, newer.Count);
         }
 
         // The save "update" would replace is the newest point of the saves folder, or of the install when the game has no saves folder.

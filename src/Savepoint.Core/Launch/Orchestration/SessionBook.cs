@@ -7,6 +7,10 @@ using Savepoint.Core.Services.Profiles;
 
 namespace Savepoint.Core.Launch.Orchestration;
 
+// Where one folder stood when the game started: the commit it was on, or none when nothing is saved there yet, and whether the
+// launch left the folder as it was instead of switching it.
+internal sealed record FolderStart(string? Commit, bool Left);
+
 // What one game's latest session holds besides the snapshot the Api shows.
 internal sealed class SessionRecord(LaunchSessionInfo info)
 {
@@ -15,8 +19,8 @@ internal sealed class SessionRecord(LaunchSessionInfo info)
     // The program or link being followed; null until the game has started.
     public GameSessionWatcher? Watcher { get; set; }
 
-    // The commit each folder was left on for the game to start from, which a fork or a move forward must still find the folder on.
-    public IReadOnlyDictionary<RepoRole, string> StartCommits { get; set; } = new Dictionary<RepoRole, string>();
+    // Each folder as the game started from it, which a fork or a move forward must still find the folder on.
+    public IReadOnlyDictionary<RepoRole, FolderStart> Starts { get; set; } = new Dictionary<RepoRole, FolderStart>();
 
     // What the player's after-play choice came to, kept so a save that only half worked can be tried again as the same choice.
     public CompletionRun? Run { get; set; }

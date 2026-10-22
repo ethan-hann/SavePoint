@@ -140,7 +140,9 @@ public sealed partial class LaunchOrchestrator
         _book.TryUpdate(gameId, context.JobId, record =>
         {
             record.Info = record.Info with { ProfileId = resolved.Profile.Id, StartedFromOlderPoint = resolved.IsOlderPoint };
-            record.StartCommits = resolved.Folders.Where(folder => !folder.Leave).ToDictionary(folder => folder.Role, folder => folder.Commit);
+            record.Starts = readings.ToDictionary(
+                reading => reading.Target.Role,
+                reading => reading.Target.Leave ? new FolderStart(reading.Status.HeadCommit, Left: true) : new FolderStart(reading.Target.Commit, Left: false));
         });
         return new Prepared(game, repos.Single(repo => repo.Role == RepoRole.Install).WorkTree, resolved);
     }

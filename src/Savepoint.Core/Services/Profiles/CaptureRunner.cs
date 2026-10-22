@@ -17,7 +17,11 @@ namespace Savepoint.Core.Services.Profiles;
 /// For <see cref="CaptureMode.Amend"/>: the capture id of the one point being replaced. Only a folder whose newest commit carries it is
 /// rewritten; a folder whose newest commit belongs to another point gets a new commit under the same capture id, so no other point is lost.
 /// </param>
-internal sealed record FolderCapturePlan(CaptureMode Mode, string? ExpectedStartCommit = null, bool SkipWhenClean = false, string? AmendPointId = null);
+/// <param name="LeftAtLaunch">
+/// True for a folder the launch left as it was. It may be on another profile's branch, which a new or updated point cannot be written
+/// onto, so such a folder is skipped instead of failing the save; a folder the profile has no branch in is saved as its first history.
+/// </param>
+internal sealed record FolderCapturePlan(CaptureMode Mode, string? ExpectedStartCommit = null, bool SkipWhenClean = false, string? AmendPointId = null, bool LeftAtLaunch = false);
 
 /// <summary>One capture event: the id every folder's point carries, and when it began, which every folder's point records the same way.</summary>
 /// <param name="Id">The capture id.</param>
@@ -197,9 +201,16 @@ internal sealed class CaptureRunner
         IProgress<FileProgress> progress,
         CancellationToken cancellationToken)
     {
-        if (plan is { SkipWhenClean: true } && (await storage.Engine.GetStatusAsync(repo, cancellationToken).ConfigureAwait(false)).IsClean)
+        if (plan is { SkipWhenClean: true } or { LeftAtLaunch: true })
         {
-            return false;
+            var status = await storage.Engine.GetStatusAsync(repo, cancellationToken).ConfigureAwait(false);
+
+            // Decided before anything is written, so a folder that cannot take the point is never a half-failed save.
+            var elsewhere = plan.LeftAtLaunch && branchExists && (status.IsDetached || !string.Equals(status.Branch, branch, StringComparison.Ordinal));
+            if (elsewhere || (plan.SkipWhenClean && status.IsClean))
+            {
+                return false;
+            }
         }
 
         var request = new CaptureRequest(branch, pointName, capture.Id)
