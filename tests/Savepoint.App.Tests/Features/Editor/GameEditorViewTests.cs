@@ -298,8 +298,20 @@ public class GameEditorViewTests
         }
 
         Assert.Equal("How to start the game", AutomationProperties.GetName(harness.Find<ListBox>("LaunchChoiceList")));
-        Assert.Equal("Files to ignore", AutomationProperties.GetName(harness.Find<ContentControl>("IgnoreRulesHost").GetVisualDescendants().OfType<ItemsControl>().First()));
+        Assert.Equal("Files to leave out", AutomationProperties.GetName(harness.Find<ContentControl>("IgnoreRulesHost").GetVisualDescendants().OfType<ItemsControl>().First()));
         Assert.True(harness.All<Button>().Where(button => button.Classes.Contains("icon")).Any());
+    }
+
+    [AvaloniaFact]
+    public async Task Files_to_leave_out_carries_its_warning_beside_the_rules()
+    {
+        using var harness = await EditorViewHarness.StartAsync();
+        harness.Edit();
+
+        var texts = harness.All<TextBlock>().Where(block => block.IsEffectivelyVisible).Select(block => block.Text).ToList();
+
+        Assert.Contains("FILES TO LEAVE OUT", texts);
+        Assert.Contains("SavePoint never copies or replaces files that match these rules, such as logs. Use * for any name and ** for any folder. Don't add a rule that matches your saves, or profiles stop switching them.", texts);
     }
 
     [AvaloniaFact]

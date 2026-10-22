@@ -36,8 +36,8 @@ public class HistoryScreenViewTests
 
         var texts = harness.VisibleTexts().ToList();
 
-        Assert.Contains("Points you can go back to", texts);
-        Assert.Contains("Skyrim Special Edition · 8 points kept", texts);
+        Assert.Contains("Snapshots you can go back to", texts);
+        Assert.Contains("Skyrim Special Edition · 8 snapshots", texts);
         Assert.Contains("All profiles", texts);
         Assert.Contains("Cards", texts);
         Assert.Contains("List", texts);
@@ -55,7 +55,7 @@ public class HistoryScreenViewTests
         Assert.Contains("LAST 7 DAYS", texts);
         Assert.Contains("EARLIER", texts);
         Assert.Contains("LOADED NOW", texts);
-        Assert.Contains("Save only · 1.6.640 with 212 mod files", texts);
+        Assert.Contains("Saves only · 1.6.640 with 212 mod files", texts);
         Assert.Equal(7, harness.All<Button>().Count(button => button.IsEffectivelyVisible && (button.Content as string) == "Go back to this"));
     }
 
@@ -73,8 +73,8 @@ public class HistoryScreenViewTests
         Assert.Contains("VERSIONS & MODS", texts);
         Assert.Contains("SAVES", texts);
         Assert.Contains("14 mod files updated", texts);
-        Assert.Contains("LOADED", texts);
-        Assert.Equal(4, harness.All<Button>().Count(button => button.IsEffectivelyVisible && (button.Content as string) == "Load"));
+        Assert.Contains("LOADED NOW", texts);
+        Assert.Equal(4, harness.All<Button>().Count(button => button.IsEffectivelyVisible && (button.Content as string) == "Go back"));
     }
 
     [AvaloniaFact]
@@ -122,7 +122,7 @@ public class HistoryScreenViewTests
         Screen(harness).SelectedViewOption = Screen(harness).ViewOptions[1];
         harness.Settle();
 
-        ButtonNamed(harness, "Load Deep cave run").Command!.Execute(null);
+        ButtonNamed(harness, "Go back to Deep cave run").Command!.Execute(null);
 
         var begun = Assert.Single(harness.Flow.Begun);
         Assert.Equal(new LaunchTarget.Save(MockupScenario.SurvivalId, MockupScenario.DeepCaveRun), begun.Target);
@@ -145,7 +145,7 @@ public class HistoryScreenViewTests
         using var harness = await StartAsync();
 
         Assert.True(harness.Find<Border>("Footer").IsEffectivelyVisible);
-        Assert.StartsWith("41.2 GB kept for this game.", harness.Find<TextBlock>("FooterText").Text);
+        Assert.StartsWith("This game's snapshots use 41.2 GB.", harness.Find<TextBlock>("FooterText").Text);
     }
 
     [AvaloniaFact]
@@ -183,7 +183,7 @@ public class HistoryScreenViewTests
         harness.Settle();
 
         Assert.True(harness.Find<StackPanel>("EmptyState").IsEffectivelyVisible);
-        Assert.Contains("No points for this profile yet", harness.VisibleTexts());
+        Assert.Contains("No snapshots for this profile yet", harness.VisibleTexts());
         var filter = harness.Find<Button>("FilterButton");
         Assert.True(filter.IsEffectivelyVisible);
         Assert.Contains("Fresh profile", harness.VisibleTexts());

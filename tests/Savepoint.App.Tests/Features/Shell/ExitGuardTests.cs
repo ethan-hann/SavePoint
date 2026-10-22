@@ -69,7 +69,7 @@ public class ExitGuardTests
         var allowed = await guard.PrepareToCloseAsync();
 
         Assert.True(allowed);
-        Assert.Contains("moving your data", Assert.Single(dialogs.Confirmations).Message, StringComparison.Ordinal);
+        Assert.Contains("moving your snapshots", Assert.Single(dialogs.Confirmations).Message, StringComparison.Ordinal);
         Assert.Equal([move.JobId], Assert.Single(backend.Calls.To<IJobsApi>(nameof(IJobsApi.CancelAsync))).Args);
     }
 

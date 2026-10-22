@@ -28,7 +28,7 @@ public class StorageSectionViewModelTests
         return rig.Backend.Jobs.LastStarted(JobKind.RelocateStorage);
     }
 
-    // ---- Where SavePoint keeps its data
+    // ---- Where SavePoint keeps your snapshots
 
     [Fact]
     public async Task The_section_shows_where_the_data_is_and_how_much_space_it_takes()
@@ -60,7 +60,7 @@ public class StorageSectionViewModelTests
     {
         var rig = await SettingsRig.ShownAsync();
 
-        Assert.Equal("Frees space left by deleted profiles. It also runs by itself after a delete. Last run Jul 1.", Storage(rig).OptimizeDescription);
+        Assert.Equal("Clears out snapshots no profile uses anymore, such as a deleted profile's. It also runs by itself after you delete a profile or game. Last run Jul 1.", Storage(rig).OptimizeDescription);
     }
 
     [Fact]
@@ -69,10 +69,10 @@ public class StorageSectionViewModelTests
         var never = MockupScenario.Settings with { LastOptimizedAt = null };
         var rig = await SettingsRig.ShownAsync(new FakeBackend(ScenarioBuilder.Mockup().WithSettings(never)));
 
-        Assert.Equal("Frees space left by deleted profiles. It also runs by itself after a delete. It hasn't run yet.", Storage(rig).OptimizeDescription);
+        Assert.Equal("Clears out snapshots no profile uses anymore, such as a deleted profile's. It also runs by itself after you delete a profile or game. It hasn't run yet.", Storage(rig).OptimizeDescription);
     }
 
-    // ---- Optimize storage
+    // ---- Free up space
 
     [Fact]
     public async Task Run_now_starts_the_optimization_for_every_game_and_shows_it_running()
@@ -97,7 +97,7 @@ public class StorageSectionViewModelTests
 
         Assert.False(Storage(rig).IsOptimizing);
         Assert.True(Storage(rig).RunNowCommand.CanExecute(null));
-        Assert.Equal("Frees space left by deleted profiles. It also runs by itself after a delete. Last run Jul 8.", Storage(rig).OptimizeDescription);
+        Assert.Equal("Clears out snapshots no profile uses anymore, such as a deleted profile's. It also runs by itself after you delete a profile or game. Last run Jul 8.", Storage(rig).OptimizeDescription);
         Assert.True(rig.Calls<ISettingsApi>(nameof(ISettingsApi.GetStorageSummaryAsync)) > summaries);
     }
 
@@ -187,7 +187,7 @@ public class StorageSectionViewModelTests
 
         var pick = Assert.Single(rig.Dialogs.FolderPicks);
         Assert.Equal(MockupScenario.StorageRoot, pick.StartPath);
-        Assert.Equal("Choose a new folder for SavePoint's data", pick.Title);
+        Assert.Equal("Choose a new folder for your snapshots", pick.Title);
     }
 
     [Fact]
@@ -211,11 +211,11 @@ public class StorageSectionViewModelTests
         await Storage(rig).ChangeCommand.ExecuteAsync(null);
 
         var confirmation = Assert.Single(rig.Dialogs.Confirmations);
-        Assert.Equal("Move SavePoint's data?", confirmation.Title);
+        Assert.Equal("Move your snapshots?", confirmation.Title);
         Assert.Contains("79.3 GB", confirmation.Message);
         Assert.Contains("3,430 files", confirmation.Message);
         Assert.Contains(_newRoot, confirmation.Message);
-        Assert.Equal("Move data", confirmation.ConfirmLabel);
+        Assert.Equal("Move snapshots", confirmation.ConfirmLabel);
         Assert.False(confirmation.Destructive);
     }
 
@@ -305,7 +305,7 @@ public class StorageSectionViewModelTests
         rig.Backend.Jobs.ReportProgress(job.JobId, new JobProgress(BytesDone: 300, BytesTotal: 1_000));
         rig.Backend.Jobs.ReportProgress(job.JobId, new JobProgress(BytesDone: 800, BytesTotal: 1_000));
 
-        Assert.Equal(["Moving your data\u2026", "25% moved.", "75% moved."], spoken);
+        Assert.Equal(["Moving your snapshots\u2026", "25% moved.", "75% moved."], spoken);
     }
 
     [Fact]
@@ -316,7 +316,7 @@ public class StorageSectionViewModelTests
 
         rig.Backend.Jobs.ReportProgress(job.JobId, new JobProgress(FilesDone: 40));
 
-        Assert.Equal("Moving your data\u2026", Storage(rig).Announcement);
+        Assert.Equal("Moving your snapshots\u2026", Storage(rig).Announcement);
     }
 
     [Fact]
@@ -384,7 +384,7 @@ public class StorageSectionViewModelTests
         Assert.Null(Storage(rig).Problem);
         var left = Storage(rig).LeftBehind;
         Assert.NotNull(left);
-        Assert.Equal("Your data moved, but some old files are still in the old folder", left.Title);
+        Assert.Equal("Your snapshots moved, but some old files are still in the old folder", left.Title);
         Assert.Contains(@"D:\Old\game-1\install.git", left.Path, StringComparison.Ordinal);
     }
 

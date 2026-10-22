@@ -274,7 +274,7 @@ public class NewProfileWizardViewTests
         harness.Settle();
 
         Assert.True(harness.Find<Border>("SubmitErrorBox").IsEffectivelyVisible);
-        Assert.Contains("There's not enough free disk space to save this profile right now. Free up about 1.2 GB on drive D: and try again.", harness.VisibleTexts());
+        Assert.Contains("There's not enough free disk space to take this snapshot right now. Free up about 1.2 GB on drive D: and try again.", harness.VisibleTexts());
         Assert.True(harness.Find<StackPanel>("CheckStep").IsEffectivelyVisible);
     }
 
@@ -297,6 +297,6 @@ public class NewProfileWizardViewTests
 
         Assert.Same(harness.Find<TextBox>("NameField"), harness.Window.FocusManager!.GetFocusedElement());
         Assert.Equal("Modded playthrough - 7-2-26 copy", harness.Find<TextBox>("NameField").Text);
-        Assert.Contains("The copy starts with the same game version and mods. Its save history starts fresh, and Modded playthrough - 7-2-26 is left as it is.", harness.VisibleTexts());
+        Assert.Contains("The copy starts with the same game version and mods, and no save snapshots of its own. Modded playthrough - 7-2-26 stays as it is.", harness.VisibleTexts());
     }
 }

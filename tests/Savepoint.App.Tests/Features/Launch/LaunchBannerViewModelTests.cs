@@ -26,7 +26,7 @@ public class LaunchBannerViewModelTests
         var banner = Banner(await PreviewAsync(MockupScenario.SkyrimId, new LaunchTarget.ProfileTip(MockupScenario.ModdedId)));
 
         Assert.Equal("Everything was already in place — starting Skyrim Special Edition now", banner.Title);
-        Assert.Equal("Modded playthrough - 7-2-26 · save \"Before the final boss\" loaded", banner.Detail);
+        Assert.Equal("Modded playthrough - 7-2-26 · saves from \"Before the final boss\"", banner.Detail);
     }
 
     [Fact]

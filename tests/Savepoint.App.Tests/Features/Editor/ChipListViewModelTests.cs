@@ -10,7 +10,7 @@ public class ChipListViewModelTests
 
     private static ChipListViewModel List(params string[] values)
     {
-        var list = new ChipListViewModel(_text, "Files to ignore", "Add a rule", "**/*.log");
+        var list = new ChipListViewModel(_text, "Files to leave out", "Add a rule", "**/*.log");
         list.SetValues(values);
         return list;
     }

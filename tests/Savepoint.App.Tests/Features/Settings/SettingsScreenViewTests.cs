@@ -57,12 +57,12 @@ public class SettingsScreenViewTests
         Assert.Contains("Settings", texts);
         foreach (var expected in new[]
         {
-            "WHERE SAVEPOINT KEEPS ITS DATA",
+            "WHERE SAVEPOINT KEEPS YOUR SNAPSHOTS",
             @"D:\SavePoint",
             "79.3 GB used by 3 games",
             "131 GB free",
-            "Optimize storage",
-            "Frees space left by deleted profiles. It also runs by itself after a delete. Last run Jul 1.",
+            "Free up space",
+            "Clears out snapshots no profile uses anymore, such as a deleted profile's. It also runs by itself after you delete a profile or game. Last run Jul 1.",
             "APPEARANCE",
             "Theme",
             "Match Windows",
@@ -71,12 +71,12 @@ public class SettingsScreenViewTests
             "Every game one click away",
             "Cover art up front",
             "Accent color",
-            "Everything else is derived from it automatically.",
+            "SavePoint picks the other colors to match.",
             "BEFORE YOU PLAY",
-            "Skip the check before playing when only the save changes",
+            "Skip the check before playing when only your saves change",
             "A change to the game version or mods always shows the check.",
             "WHEN YOU FINISH PLAYING",
-            "Ask whether to save the session",
+            "Ask whether to keep the session",
             "REMOVE ALL SAVEPOINT DATA",
             "ABOUT",
             "Version 1.2.3",
@@ -226,9 +226,9 @@ public class SettingsScreenViewTests
         Assert.Contains(skip, group.GetVisualDescendants());
         var texts = group.GetVisualDescendants().OfType<TextBlock>().Select(block => block.Text).ToList();
         Assert.Contains("BEFORE YOU PLAY", texts);
-        Assert.Contains("Skip the check before playing when only the save changes", texts);
+        Assert.Contains("Skip the check before playing when only your saves change", texts);
         Assert.Contains("A change to the game version or mods always shows the check.", texts);
-        Assert.Equal("Skip the check before playing when only the save changes", AutomationAudit.NameOf(skip));
+        Assert.Equal("Skip the check before playing when only your saves change", AutomationAudit.NameOf(skip));
         Assert.Equal("A change to the game version or mods always shows the check.", AutomationProperties.GetHelpText(skip));
     }
 
@@ -242,6 +242,20 @@ public class SettingsScreenViewTests
         Assert.DoesNotContain(harness.Find<ToggleSwitch>("SkipSwitch"), group.GetVisualDescendants());
         var order = harness.All<StackPanel>().Where(panel => panel.Name is "BeforePlaySection" or "SessionSection").Select(panel => panel.Name).ToList();
         Assert.Equal(["BeforePlaySection", "SessionSection"], order);
+    }
+
+    [AvaloniaFact]
+    public async Task The_session_question_says_what_happens_when_it_is_turned_off()
+    {
+        using var harness = await StartAsync();
+
+        var group = harness.Find<StackPanel>("SessionSection");
+        var ask = harness.Find<ToggleSwitch>("AskSwitch");
+        var texts = group.GetVisualDescendants().OfType<TextBlock>().Select(block => block.Text).ToList();
+        const string hint = "When this is off, SavePoint keeps nothing after you play. It asks about your new changes before the next switch instead.";
+        Assert.Contains(hint, texts);
+        Assert.Equal("Ask whether to keep the session", AutomationAudit.NameOf(ask));
+        Assert.Equal(hint, AutomationProperties.GetHelpText(ask));
     }
 
     // ---- When you finish playing

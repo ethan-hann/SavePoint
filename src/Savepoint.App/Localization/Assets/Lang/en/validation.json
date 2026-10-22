@@ -16,7 +16,7 @@
   "validation.launch.uriRequired": "Enter the launch link that starts the game, such as steam://run/123456.",
   "validation.path.invalidCharacter": "That folder location has a colon in a place it can't go. Pick the folder again.",
   "validation.path.notAbsolute": "Enter the folder's full location, starting from the top of the drive.",
-  "validation.path.unknownToken": "SavePoint doesn't recognize that shortcut in the folder location, or it isn't available on this computer.",
+  "validation.path.unknownToken": "SavePoint doesn't recognize a name in curly brackets in that folder location, or that place isn't on this computer.",
   "validation.profile.branchNameInvalid": "This profile's internal name can only use letters, numbers, hyphens, underscores and single slashes, and it can't begin with a hyphen or slash, or end with a slash.",
   "validation.profile.branchNameRequired": "This profile is missing the internal name SavePoint uses to keep its history.",
   "validation.profile.gameIdRequired": "This profile isn't linked to a game.",
@@ -25,6 +25,6 @@
   "validation.settings.accentColorInvalid": "Pick one of the accent colors from the list.",
   "validation.settings.layoutInvalid": "Pick the Sidebar or the Library layout.",
   "validation.settings.localeInvalid": "That language isn't available.",
-  "validation.settings.storageRootRequired": "Choose a folder for SavePoint's storage.",
+  "validation.settings.storageRootRequired": "Choose a folder for your snapshots.",
   "validation.settings.themeInvalid": "Pick Light, Dark, or the theme that matches your system."
 }

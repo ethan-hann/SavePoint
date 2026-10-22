@@ -328,7 +328,7 @@ public class LaunchDialogViewModelTests : IDisposable
         await run;
 
         Assert.Single(dialog.UnsavedBlocks);
-        Assert.Equal("SavePoint couldn't take a snapshot of these changes. There's not enough free disk space to save this profile right now. Free up about 1.2 GB on drive D: and try again.", block.Error);
+        Assert.Equal("SavePoint couldn't take a snapshot of these changes. There's not enough free disk space to take this snapshot right now. Free up about 1.2 GB on drive D: and try again.", block.Error);
         Assert.True(block.HasError);
         Assert.False(block.IsBusy);
         Assert.False(dialog.CanSwitch);
@@ -509,7 +509,7 @@ public class LaunchDialogViewModelTests : IDisposable
         Assert.False(keep.IsClosed);
         Assert.False(keep.IsWorking);
         Assert.True(keep.CanDismiss);
-        Assert.Equal("SavePoint couldn't create the profile. There's not enough free disk space to save this profile right now. Free up about 1.2 GB on drive D: and try again.", keep.Error);
+        Assert.Equal("SavePoint couldn't create the profile. There's not enough free disk space to take this snapshot right now. Free up about 1.2 GB on drive D: and try again.", keep.Error);
         Assert.Single(dialog.UnsavedBlocks);
 
         keep.CancelCommand.Execute(null);
@@ -723,7 +723,7 @@ public class LaunchDialogViewModelTests : IDisposable
 
         Assert.True(older.IsOlderPoint);
         Assert.Equal(
-            "This is an older point in \"Modded playthrough - 7-2-26\". After you play, SavePoint will offer to keep your progress as a new profile, or to continue this profile from here.",
+            "This is an older snapshot of \"Modded playthrough - 7-2-26\". After you play, you can keep the session as a new profile, or continue \"Modded playthrough - 7-2-26\" from it, which removes its newer snapshots from it.",
             older.OlderPointText);
         Assert.False(current.IsOlderPoint);
     }

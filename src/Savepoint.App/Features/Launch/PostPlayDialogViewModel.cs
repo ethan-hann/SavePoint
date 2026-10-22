@@ -49,7 +49,7 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
         _selectedChoice.IsSelected = true;
     }
 
-    /// <summary>"Your saves folder has 3 new files since you started. What should SavePoint do with them?"</summary>
+    /// <summary>"3 files in your saves folder are new or changed since you started. What should SavePoint do with them?"</summary>
     public string Body { get; }
 
     /// <summary>A line about the game's own files having changed while it ran; empty when they did not.</summary>

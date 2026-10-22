@@ -153,7 +153,7 @@ public class GamesScreenViewTests
 
         var confirm = Assert.IsType<ConfirmDialogViewModel>(harness.Dialogs.Current);
         Assert.Equal("Delete Vanilla - latest update?", confirm.Title);
-        Assert.StartsWith("1 point exists only in this profile.", confirm.Message);
+        Assert.StartsWith("1 snapshot is only in this profile.", confirm.Message);
     }
 
     [AvaloniaFact]

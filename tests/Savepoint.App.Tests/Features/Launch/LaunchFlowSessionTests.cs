@@ -338,7 +338,7 @@ public class LaunchFlowSessionTests : IDisposable
         var card = _f.Inline<ErrorCardViewModel>();
         Assert.Equal("SavePoint couldn't take a snapshot of that session", card.Title);
         Assert.Equal(
-            "Your game version and mods aren't in the snapshot yet. There's not enough free disk space to save this profile right now. Free up about 1.2 GB on drive D: and try again. Your saves weren't included, because you played them from another profile's snapshot. Nothing in your game folders changed, and SavePoint asks about any changes there the next time you play. Fix that and retry just that part.",
+            "Your game version and mods aren't in the snapshot yet. There's not enough free disk space to take this snapshot right now. Free up about 1.2 GB on drive D: and try again. Your saves weren't included, because you played them from another profile's snapshot. Nothing in your game folders changed, and SavePoint asks about any changes there the next time you play. Fix that and retry just that part.",
             card.Body);
         var rows = Assert.IsType<FolderOutcomeListViewModel>(card.Supplement).Rows;
         Assert.Equal(["Game version and mods · not in the snapshot yet", "Saves · not included"], rows.Select(r => r.Text));
@@ -379,7 +379,7 @@ public class LaunchFlowSessionTests : IDisposable
         var card = _f.Inline<ErrorCardViewModel>();
         Assert.Equal("Only part of the snapshot was taken", card.Title);
         Assert.Equal(
-            "Your game version and mods are in the snapshot. Your saves aren't yet. There's not enough free disk space to save this profile right now. Free up about 1.2 GB on drive D: and try again. Nothing in your game folders changed. Fix that and retry just that part.",
+            "Your game version and mods are in the snapshot. Your saves aren't yet. There's not enough free disk space to take this snapshot right now. Free up about 1.2 GB on drive D: and try again. Nothing in your game folders changed. Fix that and retry just that part.",
             card.Body);
         var rows = Assert.IsType<FolderOutcomeListViewModel>(card.Supplement).Rows;
         Assert.Equal(["Game version and mods · in the snapshot", "Saves · not in the snapshot yet"], rows.Select(r => r.Text));

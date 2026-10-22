@@ -123,7 +123,7 @@ public class LaunchEndToEndTests
         Assert.Empty(app.Dialogs.Shown.OfType<LaunchDialogViewModel>());
         var banner = Assert.IsType<LaunchBannerViewModel>(app.Games.InlineContent);
         Assert.Equal("Everything was already in place — starting Skyrim Special Edition now", banner.Title);
-        Assert.Equal("Modded playthrough - 7-2-26 · save \"Before the final boss\" loaded", banner.Detail);
+        Assert.Equal("Modded playthrough - 7-2-26 · saves from \"Before the final boss\"", banner.Detail);
         var start = Assert.Single(app.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.StartAsync)));
         Assert.Equal([_skyrim, new LaunchTarget.ProfileTip(MockupScenario.ModdedId)], start.Args);
         AssertPlayIs(app, false);

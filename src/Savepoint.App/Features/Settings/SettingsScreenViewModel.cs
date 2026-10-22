@@ -73,7 +73,7 @@ public sealed partial class SettingsScreenViewModel : ObservableObject, IScreen
     /// <inheritdoc />
     public NavDestination Destination => NavDestination.Settings;
 
-    /// <summary>The "Where SavePoint keeps its data" section.</summary>
+    /// <summary>The "Where SavePoint keeps your snapshots" section.</summary>
     public StorageSectionViewModel Storage { get; }
 
     /// <summary>The "Remove all SavePoint data" section.</summary>

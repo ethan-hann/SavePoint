@@ -16,7 +16,7 @@ public enum ReconnectChoice
 }
 
 /// <summary>
-/// "Found saved history for this location": a game that is no longer in the library left history at the folders being
+/// "This folder has snapshots from before": a game that is no longer in the library left history at the folders being
 /// added. The dialog lists the profiles that can come back and answers with the choice, or null when the user backs out.
 /// </summary>
 public sealed partial class ReconnectDialogViewModel : DialogViewModel<ReconnectChoice?>

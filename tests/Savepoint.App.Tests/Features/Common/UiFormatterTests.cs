@@ -249,10 +249,10 @@ public class UiFormatterTests
     }
 
     [Theory]
-    [InlineData("windows", 1_200_000_000L, 0L, "There's not enough free disk space to save this profile right now. Free up about 1.2 GB on drive D: and try again.")]
-    [InlineData("windows", 5_000_000_000L, 3_800_000_000L, "There's not enough free disk space to save this profile right now. Free up about 1.2 GB on drive D: and try again.")]
-    [InlineData("windows", 100_000_000L, 4_000_000_000L, "There's not enough free disk space to save this profile right now. Free up some space on drive D: and try again.")]
-    [InlineData("linux", 1_200_000_000L, 0L, "There's not enough free disk space to save this profile right now. Free up about 1.2 GB on the disk that holds the folder below and try again.")]
+    [InlineData("windows", 1_200_000_000L, 0L, "There's not enough free disk space to take this snapshot right now. Free up about 1.2 GB on drive D: and try again.")]
+    [InlineData("windows", 5_000_000_000L, 3_800_000_000L, "There's not enough free disk space to take this snapshot right now. Free up about 1.2 GB on drive D: and try again.")]
+    [InlineData("windows", 100_000_000L, 4_000_000_000L, "There's not enough free disk space to take this snapshot right now. Free up some space on drive D: and try again.")]
+    [InlineData("linux", 1_200_000_000L, 0L, "There's not enough free disk space to take this snapshot right now. Free up about 1.2 GB on the disk that holds the folder below and try again.")]
     public void The_out_of_space_message_says_which_drive_and_how_much_to_free(string os, long required, long free, string expected)
     {
         var error = ErrorInfo.From(new DiskSpaceException(@"D:\SavePoint\Storage", required, free));

@@ -399,7 +399,7 @@ public class ShellViewTests
         var runs = note.GetVisualDescendants().OfType<TextBlock>().SelectMany(block => block.Inlines ?? []).OfType<Avalonia.Controls.Documents.Run>().Select(run => run.Text).ToList();
 
         Assert.True(note.IsEffectivelyVisible);
-        Assert.Equal(["Everything is stored in ", @"D:\SavePoint", " \u2014 you can change that in Settings."], runs);
+        Assert.Equal(["SavePoint keeps your snapshots in ", @"D:\SavePoint", " \u2014 you can change that in Settings."], runs);
         Assert.True(harness.Find<StackPanel>("AntiCheatNote").IsEffectivelyVisible);
         Assert.Contains("Games protected by kernel-level anti-cheat aren't supported.", VisibleTexts(harness));
     }

@@ -330,7 +330,7 @@ public class NewProfileWizardViewModelTests
 
         Assert.Equal(WizardStep.Check, rig.Wizard.Step);
         Assert.True(rig.Wizard.HasSubmitError);
-        Assert.Equal("There's not enough free disk space to save this profile right now. Free up about 1.2 GB on drive D: and try again.", rig.Wizard.SubmitError);
+        Assert.Equal("There's not enough free disk space to take this snapshot right now. Free up about 1.2 GB on drive D: and try again.", rig.Wizard.SubmitError);
         Assert.Empty(rig.Backend.Jobs.Started);
 
         await rig.Wizard.ContinueCommand.ExecuteAsync(null);
@@ -513,7 +513,7 @@ public class NewProfileWizardViewModelTests
         var card = Assert.IsType<ErrorCardViewModel>(wizard.ResultCard);
         Assert.Equal("Only part of the snapshot was taken", card.Title);
         Assert.Equal(
-            "Your game version and mods are in the snapshot. Your saves aren't yet. There's not enough free disk space to save this profile right now. Free up about 1.2 GB on drive D: and try again. Nothing in your game folders changed. Retry just that part.",
+            "Your game version and mods are in the snapshot. Your saves aren't yet. There's not enough free disk space to take this snapshot right now. Free up about 1.2 GB on drive D: and try again. Nothing in your game folders changed. Retry just that part.",
             card.Body);
         Assert.Equal(Icons.Warning, card.Icon);
         Assert.True(card.IsWarning);
@@ -619,7 +619,7 @@ public class NewProfileWizardViewModelTests
         Assert.Equal(SaveState.Failed, rig.Wizard.State);
         var card = rig.Wizard.ResultCard!;
         Assert.Equal("There isn't enough room", card.Title);
-        Assert.Equal("There's not enough free disk space to save this profile right now. Free up about 1.2 GB on drive D: and try again.", card.Body);
+        Assert.Equal("There's not enough free disk space to take this snapshot right now. Free up about 1.2 GB on drive D: and try again.", card.Body);
         Assert.Equal("Try again", Assert.Single(card.Actions).Label);
         Assert.True(rig.Wizard.ShowClose);
 
@@ -648,7 +648,7 @@ public class NewProfileWizardViewModelTests
         Assert.Equal(SaveState.Cancelled, rig.Wizard.State);
         var card = rig.Wizard.ResultCard!;
         Assert.Equal("Canceled", card.Title);
-        Assert.Equal("Saving was canceled. Everything you saved earlier is untouched, so you can save again whenever you're ready.", card.Body);
+        Assert.Equal("The snapshot was canceled. Your earlier snapshots are untouched.", card.Body);
         Assert.Equal("Try again", Assert.Single(card.Actions).Label);
         Assert.True(rig.Wizard.ShowClose);
     }

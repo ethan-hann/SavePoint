@@ -97,9 +97,9 @@ public class SettingsJourneyTests
         rig.Dialogs.AnswerFolder(destination);
         var change = rig.Settings.Storage.ChangeCommand.ExecuteAsync(null);
         var question = await rig.DialogAsync<ConfirmDialogViewModel>();
-        Assert.Equal("Move SavePoint's data?", question.Title);
+        Assert.Equal("Move your snapshots?", question.Title);
         Assert.Contains(destination, question.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal("Move data", question.ConfirmLabel);
+        Assert.Equal("Move snapshots", question.ConfirmLabel);
         question.ConfirmCommand.Execute(null);
         await rig.FinishesAsync(change, "the move to be asked for");
         await rig.WaitAsync(() => SamePath(rig.Settings.Storage.StoragePath, destination) && !rig.Settings.Storage.IsRelocating, "Settings to show the data in its new folder");

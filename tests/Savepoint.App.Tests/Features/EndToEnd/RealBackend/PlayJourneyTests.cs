@@ -65,11 +65,11 @@ public class PlayJourneyTests
         // History lists the new point, newest first, as a save with the same game version and mods.
         rig.Shell.Navigate(NavDestination.History);
         await rig.WaitAsync(() => rig.History.State == HistoryState.Loaded && rig.History.Saves.Count == 2, "History to list both points");
-        Assert.Equal("Play Game · 2 points kept", rig.History.Subtitle);
+        Assert.Equal("Play Game · 2 snapshots", rig.History.Subtitle);
         Assert.Equal(["First session", "Vanilla"], rig.History.Saves.Select(save => save.Name));
         var newest = rig.History.Groups.SelectMany(group => group.Cards).First();
         Assert.Equal("First session", newest.Name);
-        Assert.StartsWith("Save only", newest.Contains, StringComparison.Ordinal);
+        Assert.StartsWith("Saves only", newest.Contains, StringComparison.Ordinal);
         Assert.True(newest.IsLoaded, "the point the saves folder holds is marked as loaded");
         Assert.Equal(HistoryPointKind.SaveOnly, newest.Point.Kind);
         rig.Render("2c-history-with-the-new-point");

@@ -4,7 +4,7 @@ namespace Savepoint.App.Tests.Features.Common;
 
 public class StoragePickerOptionsTests
 {
-    private static readonly FileTypeFilter _json = new("Game definition", ["*.json"]);
+    private static readonly FileTypeFilter _json = new("Game settings file", ["*.json"]);
     private static readonly FileTypeFilter _any = new("All files", ["*"]);
 
     [Fact]
@@ -25,7 +25,7 @@ public class StoragePickerOptionsTests
         Assert.Equal("Open a definition", options.Title);
         Assert.False(options.AllowMultiple);
         Assert.NotNull(options.FileTypeFilter);
-        Assert.Equal(["Game definition", "All files"], options.FileTypeFilter.Select(type => type.Name));
+        Assert.Equal(["Game settings file", "All files"], options.FileTypeFilter.Select(type => type.Name));
         Assert.Equal(["*.json"], options.FileTypeFilter[0].Patterns);
     }
 
@@ -45,7 +45,7 @@ public class StoragePickerOptionsTests
         Assert.Equal("skyrim.json", options.SuggestedFileName);
         Assert.Equal("json", options.DefaultExtension);
         Assert.True(options.ShowOverwritePrompt);
-        Assert.Equal(["Game definition"], options.FileTypeChoices!.Select(type => type.Name));
+        Assert.Equal(["Game settings file"], options.FileTypeChoices!.Select(type => type.Name));
     }
 
     [Theory]

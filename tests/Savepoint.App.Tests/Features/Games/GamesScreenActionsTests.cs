@@ -202,7 +202,7 @@ public class GamesScreenActionsTests
 
         var request = Assert.Single(rig.Dialogs.Confirmations);
         Assert.Equal("Delete Vanilla - latest update?", request.Title);
-        Assert.Equal("This removes the Vanilla - latest update profile and all its history. This can't be undone.", request.Message);
+        Assert.Equal("This deletes the Vanilla - latest update profile and all its snapshots. This can't be undone.", request.Message);
         Assert.Equal("Delete profile", request.ConfirmLabel);
         Assert.True(request.Destructive);
         Assert.Equal(["Modded playthrough - 7-2-26", "Survival test - 5-14-26"], rig.Screen.Profiles.Select(row => row.Name));
@@ -210,8 +210,8 @@ public class GamesScreenActionsTests
     }
 
     [Theory]
-    [InlineData(1, "1 point exists only in this profile. Deleting it loses that point for good, and the space is freed soon after. This can't be undone.")]
-    [InlineData(4, "4 points exist only in this profile. Deleting it loses those points for good, and the space is freed soon after. This can't be undone.")]
+    [InlineData(1, "1 snapshot is only in this profile. Deleting it deletes that snapshot for good and frees the space soon after. This can't be undone.")]
+    [InlineData(4, "4 snapshots are only in this profile. Deleting it deletes those snapshots for good and frees the space soon after. This can't be undone.")]
     public async Task Deleting_a_profile_names_how_many_points_only_it_holds(int points, string message)
     {
         var rig = await GamesRig.StartAsync(WithDeletePreview(Preview(MockupScenario.VanillaId, points)));
@@ -241,7 +241,7 @@ public class GamesScreenActionsTests
         await rig.Screen.Profiles[0].DeleteCommand.ExecuteAsync(null);
 
         Assert.Empty(rig.Dialogs.Confirmations);
-        Assert.Equal(["This is the currently active profile. Switch to a different one before deleting it."], rig.ToastTexts);
+        Assert.Equal(["This profile is loaded now. Play a different profile first, then delete this one."], rig.ToastTexts);
         Assert.Empty(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.DeleteAsync)));
     }
 
@@ -295,7 +295,7 @@ public class GamesScreenActionsTests
         var asked = Assert.Single(rig.Dialogs.Confirmations);
         Assert.Equal("Delete Skyrim Special Edition?", asked.Title);
         Assert.Equal(
-            "This removes Skyrim Special Edition from SavePoint, along with its 3 profiles and all its history. This can't be undone. The files in your game folder and your saves folder are not touched.",
+            "This removes Skyrim Special Edition from SavePoint, along with its 3 profiles and all their snapshots. This can't be undone. The files in your game folder and saves folder stay as they are now.",
             asked.Message);
         Assert.Equal("Delete game", asked.ConfirmLabel);
         Assert.True(asked.Destructive);
@@ -313,7 +313,7 @@ public class GamesScreenActionsTests
         await rig.Screen.DeleteGameCommand.ExecuteAsync(null);
 
         Assert.Equal(
-            "The Last Caretaker has no profiles yet, but everything SavePoint saved for it will be gone for good. This can't be undone. The files in your game folder and your saves folder are not touched.",
+            "The Last Caretaker has no profiles yet, but every snapshot SavePoint kept for it is deleted for good. This can't be undone. The files in your game folder and saves folder stay as they are now.",
             Assert.Single(rig.Dialogs.Confirmations).Message);
     }
 

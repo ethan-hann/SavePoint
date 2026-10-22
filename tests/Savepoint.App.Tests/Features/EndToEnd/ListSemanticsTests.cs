@@ -62,7 +62,7 @@ public class ListSemanticsTests
         Assert.Equal("Versions & mods", PeerOf(timeline).GetName());
         var items = Items(timeline, AutomationControlType.ListItem);
         Assert.Equal(app.History.Timeline.Count, items.Count);
-        Assert.Equal("14 mod files updated, Modded playthrough - 7-2-26 · version 1.6.640, Jul 2, 2026 · 6:03 PM · in use now", items[0].GetName());
+        Assert.Equal("14 mod files updated, Modded playthrough - 7-2-26 · version 1.6.640, Jul 2, 2026 · 6:03 PM · loaded now", items[0].GetName());
     }
 
     [AvaloniaFact]
@@ -78,7 +78,7 @@ public class ListSemanticsTests
         Assert.Equal("Saves", PeerOf(saves).GetName());
         var items = Items(saves, AutomationControlType.ListItem);
         Assert.Equal(app.History.Saves.Count, items.Count);
-        Assert.Equal("Before the final boss, Jul 5, 11:42 PM · Modded playthrough - 7-2-26, Loaded", items[0].GetName());
+        Assert.Equal("Before the final boss, Jul 5, 11:42 PM · Modded playthrough - 7-2-26, Loaded now", items[0].GetName());
         Assert.Equal("Cleared Blackreach, Jul 4, 8:15 PM · Modded playthrough - 7-2-26", items[1].GetName());
     }
 
@@ -94,7 +94,7 @@ public class ListSemanticsTests
         Assert.All(groups, group => Assert.Equal(AutomationControlType.List, PeerOf(group).GetAutomationControlType()));
         var thisWeek = Items(groups[0], AutomationControlType.ListItem);
         Assert.Equal(app.History.Groups[0].Cards.Count, thisWeek.Count);
-        Assert.Equal("Before the final boss, Save only · 1.6.640 with 212 mod files, Sun Jul 5, 11:42 PM, Loaded now", thisWeek[0].GetName());
-        Assert.Equal("Cleared Blackreach, Save only · 1.6.640 with 212 mod files, Sat Jul 4, 8:15 PM", thisWeek[1].GetName());
+        Assert.Equal("Before the final boss, Saves only · 1.6.640 with 212 mod files, Sun Jul 5, 11:42 PM, Loaded now", thisWeek[0].GetName());
+        Assert.Equal("Cleared Blackreach, Saves only · 1.6.640 with 212 mod files, Sat Jul 4, 8:15 PM", thisWeek[1].GetName());
     }
 }

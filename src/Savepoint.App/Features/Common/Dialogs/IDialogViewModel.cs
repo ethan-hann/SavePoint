@@ -17,7 +17,7 @@ public interface IDialogViewModel : INotifyPropertyChanged
     /// <summary>
     /// What the dialog is about, in a sentence or two, exposed to assistive technology as the dialog's description. Focus lands on
     /// the first control, so without this a screen reader user hears only the title and never the message that matters most
-    /// ("2 points exist only in this profile").
+    /// ("2 snapshots are only in this profile").
     /// </summary>
     string Description { get; }
 

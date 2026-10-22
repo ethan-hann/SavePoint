@@ -30,7 +30,7 @@ public class PostPlayDialogViewModelTests : IDisposable
         var dialog = await NormalAsync();
 
         Assert.Equal("You played for 2 hours 14 minutes", dialog.Title);
-        Assert.Equal("Your saves folder has 3 new files since you started. What should SavePoint do with them?", dialog.Body);
+        Assert.Equal("3 files in your saves folder are new or changed since you started. What should SavePoint do with them?", dialog.Body);
         Assert.Equal(580, dialog.DialogWidth);
     }
 
@@ -39,8 +39,8 @@ public class PostPlayDialogViewModelTests : IDisposable
     {
         var exited = await _rig.ExitedAsync(newFiles: 1);
 
-        Assert.Equal("Your saves folder has 1 new file since you started. What should SavePoint do with it?", Build(exited).Body);
-        Assert.Equal("Your saves folder has no new files since you started. What should SavePoint do with what's there?", Build(exited with { NewFileCount = 0 }).Body);
+        Assert.Equal("1 file in your saves folder is new or changed since you started. What should SavePoint do with it?", Build(exited).Body);
+        Assert.Equal("SavePoint found no new or changed saves to keep. What should it do with this session?", Build(exited with { NewFileCount = 0 }).Body);
     }
 
     [Fact]
@@ -61,8 +61,8 @@ public class PostPlayDialogViewModelTests : IDisposable
 
         Assert.Equal([CompletionChoice.CaptureNew, CompletionChoice.UpdateExisting, CompletionChoice.Skip], dialog.Choices.Select(c => c.Kind));
         var (keep, update, skip) = (dialog.Choices[0], dialog.Choices[1], dialog.Choices[2]);
-        Assert.Equal("Keep this as a new point in your history", keep.Title);
-        Assert.Equal("Recommended. Your previous saves stay exactly as they are.", keep.Subtitle);
+        Assert.Equal("Keep this session as a new snapshot", keep.Title);
+        Assert.Equal("Recommended. Your earlier snapshots stay exactly as they are.", keep.Subtitle);
         Assert.Equal(Icons.AddCircle, keep.Icon);
         Assert.Equal("Replace \"Before the final boss\" with this session", update.Title);
         Assert.Equal("What \"Before the final boss\" held before is removed. It stays in History under \"Recently removed\" until you next free up space, and you can bring it back as a new profile.", update.Subtitle);
@@ -116,14 +116,14 @@ public class PostPlayDialogViewModelTests : IDisposable
         Assert.Equal([CompletionChoice.ForkNewProfile, CompletionChoice.MoveForward, CompletionChoice.Skip], dialog.Choices.Select(c => c.Kind));
         Assert.Same(Card(dialog, CompletionChoice.ForkNewProfile), dialog.SelectedChoice);
         var (fork, move) = (dialog.Choices[0], dialog.Choices[1]);
-        Assert.Equal("Keep this as a new profile", fork.Title);
-        Assert.Equal("Recommended. \"Modded playthrough - 7-2-26\" stays exactly as it is, and this progress becomes a profile of its own.", fork.Subtitle);
+        Assert.Equal("Keep this session as a new profile", fork.Title);
+        Assert.Equal("Recommended. \"Modded playthrough - 7-2-26\" stays exactly as it is, newer snapshots included, and this session starts a profile of its own.", fork.Subtitle);
         Assert.Equal("Profile name:", fork.NameLabel);
         Assert.Equal("New progress - 7-8-26", fork.Name);
         Assert.Equal("Continue \"Modded playthrough - 7-2-26\" from this session", move.Title);
         Assert.Equal("This session becomes the latest snapshot of \"Modded playthrough - 7-2-26\". Its 1 newer snapshot is removed from it. It stays in History under \"Recently removed\" until you next free up space, and you can bring it back as a new profile.", move.Subtitle);
         Assert.True(dialog.HasOlderNote);
-        Assert.Equal("You started from an older point in \"Modded playthrough - 7-2-26\", so this progress can't just be added to the end of it.", dialog.OlderNote);
+        Assert.Equal("You played from an older snapshot of \"Modded playthrough - 7-2-26\", so this session can't simply go on the end of it.", dialog.OlderNote);
     }
 
     [Fact]
