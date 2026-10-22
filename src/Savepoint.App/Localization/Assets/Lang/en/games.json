@@ -1,6 +1,6 @@
 {
   "games.deleteConfirm.confirm": "Delete game",
-  "games.deleteConfirm.message": "{count, plural, =0 {{name} has no profiles yet, but every snapshot SavePoint kept for it is deleted for good.} one {This removes {name} from SavePoint, along with its one profile and all its snapshots.} other {This removes {name} from SavePoint, along with its # profiles and all their snapshots.}} This can't be undone. The files in your game folder and saves folder stay as they are now.",
+  "games.deleteConfirm.message": "{count, plural, =0 {{name} has no profiles yet, but every snapshot SavePoint kept for it is deleted for good.} one {This removes {name} from SavePoint, along with its one profile, all its snapshots, and its recently removed snapshots.} other {This removes {name} from SavePoint, along with its # profiles, all their snapshots, and its recently removed snapshots.}} This can't be undone. The files in your game folder and saves folder stay as they are now.",
   "games.deleteConfirm.prompt": "Type {name} to confirm.",
   "games.deleteConfirm.title": "Delete {name}?",
   "games.duplicateProfile.body": "The copy starts with the same game version and mods, and no save snapshots of its own. {name} stays as it is.",

@@ -418,7 +418,7 @@ public class GamesScreenActionsTests
         var asked = Assert.Single(rig.Dialogs.Confirmations);
         Assert.Equal("Delete Skyrim Special Edition?", asked.Title);
         Assert.Equal(
-            "This removes Skyrim Special Edition from SavePoint, along with its 3 profiles and all their snapshots. This can't be undone. The files in your game folder and saves folder stay as they are now.",
+            "This removes Skyrim Special Edition from SavePoint, along with its 3 profiles, all their snapshots, and its recently removed snapshots. This can't be undone. The files in your game folder and saves folder stay as they are now.",
             asked.Message);
         Assert.Equal("Delete game", asked.ConfirmLabel);
         Assert.True(asked.Destructive);
