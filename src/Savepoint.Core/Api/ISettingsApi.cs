@@ -32,7 +32,8 @@ public interface ISettingsApi
     /// <summary>
     /// Sizes a move of the storage folder without doing it. A move that cannot go ahead is still a successful answer, with the
     /// reason in <see cref="StorageRelocationPreview.BlockedBy"/>: a folder that is not empty
-    /// (<c>error.storageRelocation.destinationNotEmpty</c>), an unsafe one, too little space (<c>error.diskSpace.low</c>), or a
+    /// (<c>error.storageRelocation.destinationNotEmpty</c>), one that holds the partial copy of an earlier move that never finished
+    /// (<c>error.storageRelocation.moveUnfinished</c>), an unsafe one, too little space (<c>error.diskSpace.low</c>), or a
     /// running game (<c>error.gameService.gameRunning</c>).
     /// </summary>
     /// <param name="newRoot">The folder the storage would move to.</param>
@@ -43,7 +44,10 @@ public interface ISettingsApi
     /// Starts a <see cref="JobKind.RelocateStorage"/> job that copies the storage to a new folder. The settings point at the new
     /// folder only once the job has succeeded; a failed or cancelled move leaves them alone and keeps the old copies. After the
     /// switch the job removes SavePoint's own copies from the previous folder (only git directories it recognizes as its own, and
-    /// never the folder itself), and a copy it cannot remove does not fail the move. Answers at once, or fails with
+    /// never the folder itself); a cancel no longer stops that removal, and a copy it cannot remove does not fail the move but ends
+    /// the job <see cref="JobStatus.Partial"/> with the copy listed in <see cref="StorageRelocationResult.NotRemoved"/>. While it
+    /// copies, the destination holds a marker file that the move removes when it ends, so a destination left by a move that was
+    /// cut short is refused later. Answers at once, or fails with
     /// <c>error.gameService.gameRunning</c> when a game has an open session (D13.5). The result is a <see cref="StorageRelocationResult"/>.
     /// </summary>
     /// <param name="newRoot">The folder to move the storage to.</param>

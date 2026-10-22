@@ -74,6 +74,7 @@ public static class ErrorPresentation
         ["error.storageRelocation.cancelled"] = new(Icons.Cancel, ErrorTone.Neutral, "errorCard.title.canceled"),
         ["error.storageRelocation.copyFailed"] = new(Icons.Storage, ErrorTone.Warning, "errorCard.title.generic"),
         ["error.storageRelocation.destinationNotEmpty"] = new(Icons.Folder, ErrorTone.Warning, "errorCard.title.folderNotEmpty"),
+        ["error.storageRelocation.moveUnfinished"] = new(Icons.Folder, ErrorTone.Warning, "errorCard.title.folderNotEmpty"),
         ["error.unknown"] = new(Icons.Error, ErrorTone.Error, "errorCard.title.generic"),
         ["error.validation.invalidPayload"] = new(Icons.Warning, ErrorTone.Warning, "errorCard.title.checkFields"),
     };

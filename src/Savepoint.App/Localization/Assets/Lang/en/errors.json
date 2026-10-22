@@ -41,6 +41,7 @@
   "error.storageRelocation.cancelled": "Moving your storage was canceled. You can try again from Settings.",
   "error.storageRelocation.copyFailed": "SavePoint couldn't copy everything to the new folder, so it kept using the old one and nothing was lost. Check that the new location has room and isn't read-only, then try again.",
   "error.storageRelocation.destinationNotEmpty": "That folder already has files in it. Choose an empty folder for your storage.",
+  "error.storageRelocation.moveUnfinished": "An earlier move to that folder didn't finish, so it holds part of a copy of your data. Delete what's in it, or choose a different folder.",
   "error.unknown": "Something went wrong. Try again.",
   "error.validation.invalidPayload": "Some of these fields aren't valid yet. Check the name and paths above."
 }

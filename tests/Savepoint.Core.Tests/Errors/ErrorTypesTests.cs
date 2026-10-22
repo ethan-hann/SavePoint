@@ -194,6 +194,8 @@ public class ErrorTypesTests
             ("path", "/saves/alpha"), ("role", RepoRole.External));
         Add("StorageDestinationNotEmpty", new StorageDestinationNotEmptyException("/storage"), "error.storageRelocation.destinationNotEmpty",
             ("path", "/storage"));
+        Add("StorageMoveUnfinished", new StorageMoveUnfinishedException("/storage"), "error.storageRelocation.moveUnfinished",
+            ("path", "/storage"));
         Add("Validation", new ValidationException(_issues), "error.validation.invalidPayload",
             ("issues", _issues));
         Add("CatalogCorrupt", new CatalogCorruptException("catalog.json", null), "error.catalog.corrupt",

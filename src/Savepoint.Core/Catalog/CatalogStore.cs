@@ -534,10 +534,17 @@ public sealed class CatalogStore
             throw;
         }
 
-        // Anything a crashed write left behind for this file.
-        foreach (var stale in Directory.EnumerateFiles(DirectoryPath, $"{fileName}.*.tmp"))
+        // Anything a crashed write left behind for this file. The write has taken effect by now, so this must never throw.
+        try
         {
-            TryDelete(stale);
+            foreach (var stale in Directory.EnumerateFiles(DirectoryPath, $"{fileName}.*.tmp"))
+            {
+                TryDelete(stale);
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // The next write sweeps again.
         }
     }
 

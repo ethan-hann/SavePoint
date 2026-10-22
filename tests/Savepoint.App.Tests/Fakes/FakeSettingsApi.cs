@@ -61,7 +61,7 @@ public sealed class FakeSettingsApi : ISettingsApi
                 return OperationResult.Failure<JobStarted>(running);
             }
 
-            var done = new StorageRelocationResult(State.Settings.StorageRoot, newRoot, State.TotalBytes);
+            var done = new StorageRelocationResult(State.Settings.StorageRoot, newRoot, State.TotalBytes, []);
             var jobId = _backend.Jobs.Start(JobKind.RelocateStorage, null, done, job =>
             {
                 if (job.Status == JobStatus.Succeeded)

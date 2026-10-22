@@ -46,4 +46,7 @@ public sealed record BackendOptions
 
     // Called with the source and the destination after each file of a storage move is copied and before it is verified; tests use it to inject faults.
     internal Action<string, string>? AfterRelocationCopy { get; init; }
+
+    // Called with the new root right after a storage move has written the settings; tests use it to make that write seem to fail.
+    internal Action<string>? AfterRelocationSettings { get; init; }
 }
