@@ -39,7 +39,8 @@ public sealed class FakeSettingsApi : ISettingsApi
         _backend.Call(_api, nameof(OptimizeAllStorageAsync), [], () =>
         {
             var done = new OptimizeResult([.. State.Games.Select(Optimized)]);
-            return OperationResult.Success(new JobStarted(_backend.Jobs.Start(JobKind.Compact, null, done, MarkOptimized)));
+            var opening = State.Games.Select(game => JobLine.ForStep(JobSteps.CompactGame, ("game", game.Name))).ToList();
+            return OperationResult.Success(new JobStarted(_backend.Jobs.Start(JobKind.Compact, null, done, MarkOptimized, opening)));
         });
 
     public Task<OperationResult<StorageRelocationPreview>> GetRelocationPreviewAsync(string newRoot, CancellationToken cancellationToken = default) =>
@@ -62,13 +63,24 @@ public sealed class FakeSettingsApi : ISettingsApi
             }
 
             var done = new StorageRelocationResult(State.Settings.StorageRoot, newRoot, State.TotalBytes, []);
-            var jobId = _backend.Jobs.Start(JobKind.RelocateStorage, null, done, job =>
-            {
-                if (job.Status is JobStatus.Succeeded or JobStatus.Partial)
+            var opening = JobLine.ForStep(
+                JobSteps.RelocateStart,
+                ("from", State.Settings.StorageRoot),
+                ("to", newRoot),
+                ("files", State.CapturePreviews.Values.Sum(p => p.Folders.Sum(f => f.FileCount))),
+                ("bytes", State.TotalBytes));
+            var jobId = _backend.Jobs.Start(
+                JobKind.RelocateStorage,
+                null,
+                done,
+                job =>
                 {
-                    State.Settings = State.Settings with { StorageRoot = newRoot };
-                }
-            });
+                    if (job.Status is JobStatus.Succeeded or JobStatus.Partial)
+                    {
+                        State.Settings = State.Settings with { StorageRoot = newRoot };
+                    }
+                },
+                [opening]);
             return OperationResult.Success(new JobStarted(jobId));
         });
 
@@ -91,13 +103,18 @@ public sealed class FakeSettingsApi : ISettingsApi
             }
 
             var done = new ClearAllDataResult(State.TotalBytes, []);
-            var jobId = _backend.Jobs.Start(JobKind.ClearData, null, done, job =>
-            {
-                if (job.Status is JobStatus.Succeeded or JobStatus.Partial)
+            var jobId = _backend.Jobs.Start(
+                JobKind.ClearData,
+                null,
+                done,
+                job =>
                 {
-                    State.ClearLibrary();
-                }
-            });
+                    if (job.Status is JobStatus.Succeeded or JobStatus.Partial)
+                    {
+                        State.ClearLibrary();
+                    }
+                },
+                [JobLine.ForStep(JobSteps.ClearStart, ("games", State.Games.Count))]);
             return OperationResult.Success(new JobStarted(jobId));
         });
 

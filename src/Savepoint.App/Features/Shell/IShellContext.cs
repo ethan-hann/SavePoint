@@ -7,6 +7,10 @@ namespace Savepoint.App.Features.Shell;
 /// <param name="Prefill">A definition to start from (a template or an imported file); null starts empty.</param>
 public sealed record AddGameRequest(GameDefinition? Prefill);
 
+/// <summary>A request to show the Activity screen, raised before the shell navigates to it.</summary>
+/// <param name="GameId">The game whose jobs to show; null shows every game's jobs.</param>
+public sealed record ActivityRequest(string? GameId);
+
 /// <summary>
 /// What a screen sees of the shell. Screens never reference the shell view model itself: they take this in
 /// <see cref="IScreenFactory.Create"/>, read the selected game from it, and ask it to navigate, refresh or show a full pane.
@@ -40,11 +44,18 @@ public interface IShellContext : INotifyPropertyChanged
     /// <summary>Raised when something asks for the game editor in create mode. The screen that owns the editor handles it, usually by calling <see cref="ShowPane"/>.</summary>
     event EventHandler<AddGameRequest>? AddGameRequested;
 
+    /// <summary>Raised by <see cref="ShowActivity"/> before the shell navigates, so the Activity screen can take its scope even when it is already shown.</summary>
+    event EventHandler<ActivityRequest>? ActivityRequested;
+
     /// <summary>Switches to a destination. The shell keeps a screen's state, so coming back finds it as it was.</summary>
     void Navigate(NavDestination destination);
 
     /// <summary>Selects a game by id; an unknown id is ignored.</summary>
     void SelectGame(string gameId);
+
+    /// <summary>Shows the Activity screen for a game, which is selected, or for every game when <paramref name="gameId"/> is null.</summary>
+    /// <param name="gameId">The game id, or null for every game.</param>
+    void ShowActivity(string? gameId);
 
     /// <summary>
     /// Reloads the games, their profile counts and sizes. Call it after anything that adds, edits or removes a game or

@@ -1,3 +1,4 @@
+using Savepoint.App.Features.Activity;
 using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Editor;
 using Savepoint.App.Features.Games;
@@ -6,6 +7,7 @@ using Savepoint.App.Features.Launch;
 using Savepoint.App.Features.Settings;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Tests.Fakes;
+using Savepoint.App.Tests.Features.Activity;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
@@ -43,6 +45,9 @@ internal static class AppStates
         "history-list",
         "history-filtered-empty",
         "history-empty",
+        "activity-jobs",
+        "activity-failed",
+        "activity-empty",
         "settings",
         "settings-clear-all",
         "first-run",
@@ -91,6 +96,14 @@ internal static class AppStates
         return backend;
     }
 
+    // Jobs that ran before the app started are history: no toast for each, so the Activity screen is audited with the room it really has.
+    private static async Task<FakeBackend> BackendWithJobsAsync()
+    {
+        var backend = FakeBackend.Mockup();
+        await ActivityScenario.AddJobsAsync(backend);
+        return backend;
+    }
+
     private static FakeBackend StartupBackend(StartupStatus status) => new(ScenarioBuilder.Mockup().WithStartupStatus(status));
 
     private static ProfileRowViewModel Row(ComposedApp app, string id) => app.Games.Profiles.Single(row => row.Id == id);
@@ -104,6 +117,7 @@ internal static class AppStates
             "history-filtered-empty" => await ComposedApp.StartWithViewAsync(new FakeBackend(ScenarioBuilder.Mockup()
                 .WithSettings(MockupScenario.Settings)
                 .WithProfile(new Profile("profile-empty", _skyrim, "Fresh profile", "profile/profile-empty")))),
+            "activity-jobs" or "activity-failed" => await ComposedApp.StartWithViewAsync(await BackendWithJobsAsync()),
             "first-run" or "first-run-templates" => await ComposedApp.StartWithViewAsync(new FakeBackend(ScenarioBuilder.Empty().WithSettings(MockupScenario.Settings))),
             "library-error" => await ComposedApp.StartWithViewAsync(LibraryUnreadable(), visitScreens: false),
             "startup-git-unavailable" => await ComposedApp.StartWithViewAsync(StartupBackend(new StartupStatus(
@@ -206,6 +220,16 @@ internal static class AppStates
             case "history-empty":
                 app.Shell.SelectGame(MockupScenario.SatisfactoryId);
                 app.Show<HistoryScreenViewModel>(NavDestination.History);
+                break;
+            case "activity-jobs":
+                app.Show<ActivityScreenViewModel>(NavDestination.Activity);
+                break;
+            case "activity-failed":
+                var activity = app.Show<ActivityScreenViewModel>(NavDestination.Activity);
+                activity.SelectedRow = activity.Rows.Single(row => row.StatusText == "Failed");
+                break;
+            case "activity-empty":
+                app.Show<ActivityScreenViewModel>(NavDestination.Activity);
                 break;
             case "settings":
                 app.Show<SettingsScreenViewModel>(NavDestination.Settings);

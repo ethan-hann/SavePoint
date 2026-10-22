@@ -70,9 +70,6 @@ internal static class CatalogLint
         new("error.pathSafety.tier1Blocked", "point", "\"whatever you point it at\" is a verb."),
         new("error.pathSafety.tier2Blocked", "point", "\"whatever you point it at\" is a verb."),
         new("validation.launch.exePathEscapes", "point", "\"can't point outside it\" is a verb."),
-        new("shell.jobStatus.", "optimize", "These job status lines still use the old words."),
-        new("shell.jobStatus.", "storage", "These job status lines still use the old words."),
-        new("games.storageFooter.usage", "storage", "This footer line still uses the old word."),
     ];
 
     public static IReadOnlyList<string> RetiredTerms(IReadOnlyDictionary<string, string> catalog, IReadOnlyList<RetiredAllowance> allowances) =>

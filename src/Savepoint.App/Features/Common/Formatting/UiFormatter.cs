@@ -43,6 +43,10 @@ public sealed class UiFormatter
     /// <summary>The value messages receive as <c>os</c>: <c>windows</c>, <c>macos</c> or <c>linux</c>.</summary>
     public string Os { get; }
 
+    /// <summary>Whether the catalog has a message for the key, so a caller can tell a message it knows from one a newer Core wrote.</summary>
+    /// <param name="key">The catalog key.</param>
+    public bool Knows(string key) => _catalog.Contains(key);
+
     /// <summary>Formats a catalog message; <c>os</c> is supplied unless <paramref name="args"/> already has it.</summary>
     /// <exception cref="KeyNotFoundException">The key is missing and the catalog is set to throw.</exception>
     public string Message(string key, IReadOnlyDictionary<string, object?>? args = null)

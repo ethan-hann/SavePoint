@@ -1,0 +1,173 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:Savepoint.App.Localization"
+             xmlns:theme="using:Savepoint.App.Theme"
+             xmlns:a11y="using:Savepoint.App.Features.Common.Accessibility"
+             xmlns:art="using:Savepoint.App.Features.Common.Art"
+             xmlns:activity="using:Savepoint.App.Features.Activity"
+             x:Class="Savepoint.App.Features.Activity.ActivityScreenView"
+             x:DataType="activity:ActivityScreenViewModel">
+  <!--
+    The Activity screen: a header (the game or all games, and the scope choice), the jobs on the left and the chosen job's details on
+    the right, and a note under both. Below 760 px the two panes stack, so each keeps its whole width.
+  -->
+  <UserControl.Styles>
+    <Style Selector="Border.job-icon">
+      <Setter Property="Width" Value="34" />
+      <Setter Property="Height" Value="34" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Background" Value="{DynamicResource Md3SurfaceContainerBrush}" />
+    </Style>
+    <Style Selector="ListBox#JobList ListBoxItem">
+      <Setter Property="Padding" Value="12,10" />
+    </Style>
+  </UserControl.Styles>
+
+  <DockPanel>
+
+    <!-- Header: the game's tile or a generic one, the title with the job count, and the scope choice. -->
+    <Border x:Name="Header"
+            DockPanel.Dock="Top"
+            Padding="22,15"
+            BorderBrush="{DynamicResource Md3OutlineVariantBrush}"
+            BorderThickness="0,0,0,1">
+      <Grid ColumnDefinitions="Auto,*,Auto">
+        <art:ArtTile x:Name="GameTile" Size="34" GameName="{Binding GameName}" Art="{Binding Art}" VerticalAlignment="Center" IsVisible="{Binding ShowArt}" />
+        <Border x:Name="GenericTile" Classes="job-icon" VerticalAlignment="Center" IsVisible="{Binding !ShowArt}">
+          <TextBlock Classes="icon s18 accent" HorizontalAlignment="Center" VerticalAlignment="Center" Text="{x:Static theme:Icons.Sync}" />
+        </Border>
+        <StackPanel Grid.Column="1" Margin="14,0,12,0" VerticalAlignment="Center" Spacing="1">
+          <TextBlock x:Name="TitleText" Classes="section-title" Text="{Binding Title}" />
+          <TextBlock x:Name="SubtitleText" Classes="timestamp" FontSize="12" TextTrimming="CharacterEllipsis" Text="{Binding Subtitle}" />
+        </StackPanel>
+        <ListBox x:Name="ScopeToggle"
+                 Grid.Column="2"
+                 Classes="segmented-tray"
+                 VerticalAlignment="Center"
+                 IsVisible="{Binding ShowScope}"
+                 ItemsSource="{Binding ScopeOptions}"
+                 SelectedItem="{Binding SelectedScope, Mode=TwoWay}"
+                 AutomationProperties.Name="{Binding ScopeLabel}">
+          <ListBox.Styles>
+            <Style Selector="ListBoxItem" x:DataType="activity:ScopeOption">
+              <Setter Property="AutomationProperties.Name" Value="{Binding Label}" />
+              <Setter Property="Padding" Value="14,7" />
+            </Style>
+          </ListBox.Styles>
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="activity:ScopeOption">
+              <TextBlock Text="{Binding Label}" />
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Grid>
+    </Border>
+
+    <!-- The note under both panes: how much the screen remembers. -->
+    <Border x:Name="Footer"
+            DockPanel.Dock="Bottom"
+            Padding="22,12"
+            BorderBrush="{DynamicResource Md3OutlineVariantBrush}"
+            BorderThickness="0,1,0,0">
+      <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
+        <TextBlock Classes="icon s18 muted" Text="{x:Static theme:Icons.Info}" />
+        <TextBlock x:Name="FooterText" Grid.Column="1" Classes="caption" FontSize="13" VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding FooterText}" />
+      </Grid>
+    </Border>
+
+    <Panel>
+
+      <!-- Hidden live region: each start, change of state and end of a job is spoken. -->
+      <a11y:AnnouncementRegion x:Name="Announcer" Message="{Binding Announcement}" />
+
+      <Grid x:Name="Panes" ColumnDefinitions="5*,Auto,6*" IsVisible="{Binding HasRows}">
+        <Border x:Name="ListPane">
+          <ListBox x:Name="JobList"
+                   Classes="rows"
+                   Margin="14,14,14,14"
+                   ItemsSource="{Binding Rows}"
+                   SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
+                   AutomationProperties.Name="{loc:Loc activity.list.name}">
+            <ListBox.Styles>
+              <Style Selector="ListBoxItem" x:DataType="activity:JobRowViewModel">
+                <Setter Property="AutomationProperties.Name" Value="{Binding AutomationName}" />
+              </Style>
+            </ListBox.Styles>
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="activity:JobRowViewModel">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                  <TextBlock Classes="icon s20"
+                             Classes.accent="{Binding IsToneRunning}"
+                             Classes.success="{Binding IsToneSuccess}"
+                             Classes.warning="{Binding IsToneWarning}"
+                             Classes.error="{Binding IsToneError}"
+                             Classes.muted="{Binding IsToneNeutral}"
+                             VerticalAlignment="Top"
+                             Margin="0,1,0,0"
+                             Text="{Binding Icon}" />
+                  <StackPanel Grid.Column="1" Spacing="3">
+                    <TextBlock Classes="row-title" TextWrapping="Wrap" Text="{Binding Title}" />
+                    <TextBlock Classes="caption" TextWrapping="Wrap" IsVisible="{Binding HasProfile}" Text="{Binding ProfileText}" />
+                    <TextBlock FontSize="12.5"
+                               Classes.accent="{Binding IsToneRunning}"
+                               Classes.success="{Binding IsToneSuccess}"
+                               Classes.warning="{Binding IsToneWarning}"
+                               Classes.error="{Binding IsToneError}"
+                               Classes.muted="{Binding IsToneNeutral}"
+                               Text="{Binding StatusText}" />
+                    <ProgressBar Height="4"
+                                 MinHeight="4"
+                                 Margin="0,2,0,2"
+                                 IsVisible="{Binding ShowProgress}"
+                                 IsIndeterminate="{Binding IsIndeterminate}"
+                                 Minimum="0"
+                                 Maximum="100"
+                                 Value="{Binding ProgressPercent}"
+                                 AutomationProperties.Name="{Binding StatusText}" />
+                    <TextBlock Classes="caption" TextWrapping="Wrap" IsVisible="{Binding HasProgressText}" Text="{Binding ProgressText}" />
+                    <TextBlock Classes="caption" TextWrapping="Wrap" IsVisible="{Binding HasTimeLeft}" Text="{Binding TimeLeftText}" />
+                    <TextBlock Classes="timestamp" TextWrapping="Wrap" Text="{Binding StartedText}" />
+                    <TextBlock Classes="timestamp" TextWrapping="Wrap" IsVisible="{Binding HasFinished}" Text="{Binding FinishedText}" />
+                  </StackPanel>
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Border>
+
+        <Border x:Name="PaneDivider" Grid.Column="1" Width="1" Background="{DynamicResource Md3OutlineVariantBrush}" />
+
+        <Panel x:Name="DetailsPane" Grid.Column="2">
+          <ContentControl x:Name="DetailsHost" Content="{Binding Details}" IsVisible="{Binding ShowDetails}" />
+          <TextBlock x:Name="NoSelection"
+                     Classes="body muted"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Center"
+                     TextAlignment="Center"
+                     TextWrapping="Wrap"
+                     Margin="26"
+                     IsVisible="{Binding !ShowDetails}"
+                     Text="{loc:Loc activity.noSelection}" />
+        </Panel>
+      </Grid>
+
+      <!-- Nothing to list: at all, or for the selected game only. -->
+      <StackPanel x:Name="EmptyState" IsVisible="{Binding IsEmpty}" MaxWidth="440" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="14" Margin="26">
+        <Border Width="56" Height="56" HorizontalAlignment="Center" CornerRadius="16" Background="{DynamicResource Md3SurfaceContainerBrush}">
+          <TextBlock Classes="icon s28 accent" HorizontalAlignment="Center" VerticalAlignment="Center" Text="{x:Static theme:Icons.Sync}" />
+        </Border>
+        <TextBlock x:Name="EmptyTitle" Classes="card-title" TextAlignment="Center" TextWrapping="Wrap" IsVisible="{Binding !IsFilteredEmpty}" Text="{loc:Loc activity.empty.title}" />
+        <TextBlock x:Name="EmptyBody" Classes="body muted" TextAlignment="Center" TextWrapping="Wrap" IsVisible="{Binding !IsFilteredEmpty}" Text="{loc:Loc activity.empty.body}" />
+        <TextBlock x:Name="FilteredEmptyTitle" Classes="card-title" TextAlignment="Center" TextWrapping="Wrap" IsVisible="{Binding IsFilteredEmpty}" Text="{loc:Loc activity.empty.filteredTitle}" />
+        <TextBlock x:Name="FilteredEmptyBody" Classes="body muted" TextAlignment="Center" TextWrapping="Wrap" IsVisible="{Binding IsFilteredEmpty}" Text="{loc:Loc activity.empty.filteredBody}" />
+        <Button x:Name="ShowAllButton"
+                Classes="pill"
+                Padding="18,8"
+                HorizontalAlignment="Center"
+                IsVisible="{Binding IsFilteredEmpty}"
+                Command="{Binding ShowAllGamesCommand}"
+                Content="{loc:Loc activity.empty.showAll}" />
+      </StackPanel>
+    </Panel>
+  </DockPanel>
+</UserControl>

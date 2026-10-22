@@ -114,7 +114,7 @@ public class JobRegistryThrottleTests
         var done = await FinishedAsync(_registry, held.Id);
 
         Assert.Equal(4, done.Progress.FilesDone);
-        Assert.Equal(["a", "b"], done.RecentLines);
+        Assert.Equal([JobLine.ForPath("a"), JobLine.ForPath("b")], done.RecentLines);
         AssertSame(done, _events.All[^1]);
         Assert.Equal(0, _clock.PendingTimers);
         _clock.Advance(TimeSpan.FromSeconds(1));
@@ -146,7 +146,7 @@ public class JobRegistryThrottleTests
 
         for (var i = 1; i <= 300; i++)
         {
-            context.AddLine($"line{i}");
+            context.AddPath($"line{i}");
         }
 
         await _registry.WhenDeliveredAsync();
@@ -156,8 +156,8 @@ public class JobRegistryThrottleTests
 
         Assert.Equal(2, _events.All.Count);
         Assert.Equal(200, _events.All[1].RecentLines.Count);
-        Assert.Equal("line101", _events.All[1].RecentLines[0]);
-        Assert.Equal("line300", _events.All[1].RecentLines[^1]);
+        Assert.Equal(JobLine.ForPath("line101"), _events.All[1].RecentLines[0]);
+        Assert.Equal(JobLine.ForPath("line300"), _events.All[1].RecentLines[^1]);
         held.Finish();
         await FinishedAsync(_registry, held.Id);
     }

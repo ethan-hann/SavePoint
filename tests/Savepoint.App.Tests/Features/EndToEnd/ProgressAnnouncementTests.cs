@@ -87,6 +87,6 @@ public class ProgressAnnouncementTests
         FakeAssert.Ok(await app.Backend.Games.OptimizeStorageAsync(_skyrim));
         app.Settle();
 
-        Assert.Contains("Optimizing storage for Skyrim Special Edition\u2026", Spoken(app, "Announcer"));
+        Assert.Contains("Freeing up space for Skyrim Special Edition\u2026", Spoken(app, "Announcer"));
     }
 }

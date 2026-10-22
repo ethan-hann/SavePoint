@@ -353,7 +353,7 @@ public class GamesScreenViewModelTests
         var rig = await GamesRig.StartAsync();
 
         Assert.True(rig.Screen.HasStorageFooter);
-        Assert.Equal("This game is using 41.2 GB of your 210 GB storage folder", rig.Screen.StorageFooterText);
+        Assert.Equal("This game's snapshots use 41.2 GB on a 210 GB drive", rig.Screen.StorageFooterText);
     }
 
     [Fact]
@@ -363,7 +363,75 @@ public class GamesScreenViewModelTests
 
         rig.Shell.SelectGame(MockupScenario.SatisfactoryId);
 
-        Assert.Equal("This game is using 28.7 GB of your 210 GB storage folder", rig.Screen.StorageFooterText);
+        Assert.Equal("This game's snapshots use 28.7 GB on a 210 GB drive", rig.Screen.StorageFooterText);
+    }
+
+    [Fact]
+    public async Task The_footer_offers_free_up_space_for_the_selected_game_and_follows_the_selection()
+    {
+        var rig = await GamesRig.StartAsync();
+        Assert.Equal("Free up space for Skyrim Special Edition", rig.Screen.FreeUp.Name);
+
+        await rig.Screen.FreeUp.FreeUpCommand.ExecuteAsync(null);
+
+        Assert.Equal([MockupScenario.SkyrimId], rig.Backend.Jobs.List().Where(job => job.Kind == JobKind.Compact).Select(job => job.GameId));
+        Assert.True(rig.Screen.FreeUp.IsRunning);
+
+        rig.Shell.SelectGame(MockupScenario.SatisfactoryId);
+
+        Assert.Equal("Free up space for Satisfactory", rig.Screen.FreeUp.Name);
+        Assert.False(rig.Screen.FreeUp.IsRunning);
+    }
+
+    [Fact]
+    public async Task When_a_free_up_run_ends_the_footer_reads_the_games_storage_use_again()
+    {
+        var rig = await GamesRig.StartAsync();
+        await rig.Screen.FreeUp.FreeUpCommand.ExecuteAsync(null);
+        var job = rig.Backend.Jobs.LastStarted(JobKind.Compact).JobId;
+        rig.Backend.State.GameBytes[MockupScenario.SkyrimId] = 10_000_000_000;
+
+        rig.Backend.Jobs.Complete(job);
+        await Task.Yield();
+
+        Assert.Equal("This game's snapshots use 10 GB on a 210 GB drive", rig.Screen.StorageFooterText);
+    }
+
+    [Fact]
+    public async Task A_free_up_run_that_cannot_start_is_a_toast_like_the_screens_other_failures()
+    {
+        var rig = await GamesRig.StartAsync();
+        rig.Backend.FailNext<IGamesApi>(nameof(IGamesApi.OptimizeStorageAsync), MockupScenario.FileInUseError);
+
+        await rig.Screen.FreeUp.FreeUpCommand.ExecuteAsync(null);
+
+        Assert.Single(rig.ToastTexts);
+        Assert.StartsWith("Something else on your computer", rig.ToastTexts[0]);
+    }
+
+    [Fact]
+    public async Task Showing_the_screen_again_forgets_how_the_last_free_up_run_ended()
+    {
+        var rig = await GamesRig.StartAsync();
+        await rig.Screen.FreeUp.FreeUpCommand.ExecuteAsync(null);
+        rig.Backend.Jobs.Complete(rig.Backend.Jobs.LastStarted(JobKind.Compact).JobId);
+        Assert.True(rig.Screen.FreeUp.HasStatus);
+
+        rig.Screen.OnShown();
+
+        Assert.False(rig.Screen.FreeUp.HasStatus);
+    }
+
+    [Fact]
+    public async Task A_disposed_screen_stops_following_free_up_runs()
+    {
+        var rig = await GamesRig.StartAsync();
+        await rig.Screen.FreeUp.FreeUpCommand.ExecuteAsync(null);
+
+        rig.Screen.Dispose();
+        rig.Backend.Jobs.Complete(rig.Backend.Jobs.LastStarted(JobKind.Compact).JobId);
+
+        Assert.True(rig.Screen.FreeUp.IsRunning);
     }
 
     [Fact]
@@ -622,6 +690,20 @@ public class GamesScreenViewModelTests
 
         Assert.Equal(NavDestination.History, rig.Shell.Destination);
         Assert.Equal(MockupScenario.SkyrimId, rig.Shell.SelectedGame?.Id);
+    }
+
+    [Fact]
+    public async Task The_activity_chip_opens_activity_on_the_selected_game()
+    {
+        var rig = await GamesRig.StartAsync();
+        var requests = new List<ActivityRequest>();
+        rig.Shell.ActivityRequested += (_, request) => requests.Add(request);
+        rig.Shell.SelectGame(MockupScenario.SatisfactoryId);
+
+        rig.Screen.ShowActivityCommand.Execute(null);
+
+        Assert.Equal(NavDestination.Activity, rig.Shell.Destination);
+        Assert.Equal([new ActivityRequest(MockupScenario.SatisfactoryId)], requests);
     }
 
     [Fact]

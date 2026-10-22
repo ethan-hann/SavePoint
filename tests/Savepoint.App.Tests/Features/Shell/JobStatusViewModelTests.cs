@@ -32,7 +32,7 @@ public class JobStatusViewModelTests
         await rig.StartCapture();
 
         Assert.True(rig.Status.IsVisible);
-        Assert.Equal("Saving Skyrim Special Edition\u2026", rig.Status.PillText);
+        Assert.Equal("Taking a snapshot of Skyrim Special Edition\u2026", rig.Status.PillText);
     }
 
     [Fact]
@@ -46,21 +46,84 @@ public class JobStatusViewModelTests
         Assert.Equal("Working on 2 jobs\u2026", rig.Status.PillText);
     }
 
+    // ---- Opening Activity from the pill
+
+    [Fact]
+    public async Task Pressing_the_pill_opens_activity_on_the_running_jobs_game()
+    {
+        var rig = new Rig();
+        await rig.StartCapture();
+
+        rig.Status.OpenCommand.Execute(null);
+
+        Assert.Equal([MockupScenario.SkyrimId], rig.Opened);
+    }
+
+    [Fact]
+    public async Task Pressing_the_pill_for_a_job_that_spans_every_game_opens_activity_on_all_games()
+    {
+        var rig = new Rig();
+        FakeAssert.Ok(await rig.Backend.Settings.OptimizeAllStorageAsync());
+
+        rig.Status.OpenCommand.Execute(null);
+
+        Assert.Equal<string?[]>([null], [.. rig.Opened]);
+    }
+
+    [Fact]
+    public async Task Pressing_the_pill_while_several_jobs_run_opens_activity_on_all_games()
+    {
+        var rig = new Rig();
+        await rig.StartCapture();
+        FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(MockupScenario.SkyrimId));
+
+        rig.Status.OpenCommand.Execute(null);
+
+        Assert.Equal<string?[]>([null], [.. rig.Opened]);
+    }
+
+    [Fact]
+    public async Task A_press_just_after_the_last_job_ends_still_opens_activity_where_the_pill_pointed()
+    {
+        var rig = new Rig();
+        var job = await rig.StartCapture();
+        rig.Backend.Jobs.Complete(job.JobId);
+
+        rig.Status.OpenCommand.Execute(null);
+
+        Assert.Equal([MockupScenario.SkyrimId], rig.Opened);
+    }
+
+    [Fact]
+    public async Task The_pill_is_named_for_a_screen_reader_by_what_is_running_and_what_pressing_it_does()
+    {
+        var rig = new Rig();
+        Assert.Equal(string.Empty, rig.Status.OpenName);
+
+        await rig.StartCapture();
+
+        Assert.Equal("Taking a snapshot of Skyrim Special Edition… Open Activity", rig.Status.OpenName);
+
+        FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
+
+        Assert.Equal("Working on 2 jobs… Open Activity", rig.Status.OpenName);
+    }
+
     [Fact]
     public async Task A_storage_move_a_game_optimization_an_all_games_optimization_and_clearing_each_have_their_own_pill_text()
     {
         var rig = new Rig();
 
         var relocate = FakeAssert.Ok(await rig.Backend.Settings.RelocateStorageAsync(@"E:\SavePoint"));
-        Assert.Equal("Moving your storage\u2026", rig.Status.PillText);
+        Assert.Equal("Moving your snapshots\u2026", rig.Status.PillText);
         rig.Backend.Jobs.Complete(relocate.JobId);
 
         var compact = FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
-        Assert.Equal("Optimizing storage for Satisfactory\u2026", rig.Status.PillText);
+        Assert.Equal("Freeing up space for Satisfactory\u2026", rig.Status.PillText);
         rig.Backend.Jobs.Complete(compact.JobId);
 
         var all = FakeAssert.Ok(await rig.Backend.Settings.OptimizeAllStorageAsync());
-        Assert.Equal("Optimizing storage\u2026", rig.Status.PillText);
+        Assert.Equal("Freeing up space\u2026", rig.Status.PillText);
         rig.Backend.Jobs.Complete(all.JobId);
 
         FakeAssert.Ok(await rig.Backend.Settings.ClearAllDataAsync());
@@ -102,7 +165,7 @@ public class JobStatusViewModelTests
         rig.Backend.Jobs.Complete(job.JobId);
 
         var toast = Assert.Single(rig.Toasts.Toasts);
-        Assert.Equal("Saved Skyrim Special Edition.", toast.Text);
+        Assert.Equal("Took a snapshot of Skyrim Special Edition.", toast.Text);
         Assert.Equal(ToastKind.Success, toast.Message.Kind);
         Assert.Null(toast.Details);
     }
@@ -116,7 +179,7 @@ public class JobStatusViewModelTests
         rig.Backend.Jobs.Fail(job.JobId, MockupScenario.SavesOutOfRoomError);
 
         var toast = Assert.Single(rig.Toasts.Toasts);
-        Assert.Equal("Something went wrong saving Skyrim Special Edition.", toast.Text);
+        Assert.Equal("Something went wrong taking a snapshot of Skyrim Special Edition.", toast.Text);
         Assert.Equal(ToastKind.Error, toast.Message.Kind);
         Assert.Equal(rig.Text.Message(MockupScenario.SavesOutOfRoomError), toast.Details);
     }
@@ -147,7 +210,7 @@ public class JobStatusViewModelTests
         rig.Backend.Jobs.Complete(followed.JobId);
         rig.Backend.Jobs.Fail(other.JobId, MockupScenario.SavesOutOfRoomError);
 
-        Assert.Equal(["Saved Skyrim Special Edition.", "Something went wrong saving Skyrim Special Edition."], rig.Toasts.Toasts.Select(toast => toast.Text));
+        Assert.Equal(["Took a snapshot of Skyrim Special Edition.", "Something went wrong taking a snapshot of Skyrim Special Edition."], rig.Toasts.Toasts.Select(toast => toast.Text));
     }
 
     [Fact]
@@ -160,7 +223,7 @@ public class JobStatusViewModelTests
         rig.Backend.Jobs.CompleteCancelled(job.JobId);
 
         var toast = Assert.Single(rig.Toasts.Toasts);
-        Assert.Equal("Canceled saving Skyrim Special Edition.", toast.Text);
+        Assert.Equal("Canceled the snapshot of Skyrim Special Edition.", toast.Text);
         Assert.Equal(ToastKind.Info, toast.Message.Kind);
         Assert.Null(toast.Details);
     }
@@ -174,7 +237,7 @@ public class JobStatusViewModelTests
         rig.Backend.Jobs.Complete(job.JobId, MockupScenario.HalfSaved);
 
         var toast = Assert.Single(rig.Toasts.Toasts);
-        Assert.Equal("Only part of Skyrim Special Edition was saved.", toast.Text);
+        Assert.Equal("Only part of Skyrim Special Edition is in the new snapshot.", toast.Text);
         Assert.Equal(ToastKind.Warning, toast.Message.Kind);
         Assert.Equal(rig.Text.Message(MockupScenario.SavesOutOfRoomError), toast.Details);
     }
@@ -187,7 +250,7 @@ public class JobStatusViewModelTests
 
         rig.Backend.Jobs.Complete(job.JobId);
 
-        Assert.Equal("Optimized storage for Satisfactory.", Assert.Single(rig.Toasts.Toasts).Text);
+        Assert.Equal("Freed up space for Satisfactory.", Assert.Single(rig.Toasts.Toasts).Text);
     }
 
     [Fact]
@@ -198,7 +261,7 @@ public class JobStatusViewModelTests
 
         rig.Backend.Jobs.Complete(job.JobId);
 
-        Assert.Equal("Optimized storage for all your games.", Assert.Single(rig.Toasts.Toasts).Text);
+        Assert.Equal("Freed up space for all your games.", Assert.Single(rig.Toasts.Toasts).Text);
     }
 
     [Fact]
@@ -210,7 +273,7 @@ public class JobStatusViewModelTests
         var cancelled = FakeAssert.Ok(await rig.Backend.Settings.OptimizeAllStorageAsync());
         rig.Backend.Jobs.CompleteCancelled(cancelled.JobId);
 
-        Assert.Equal(["Something went wrong optimizing storage.", "Canceled optimizing storage."], rig.Toasts.Toasts.Select(toast => toast.Text));
+        Assert.Equal(["Something went wrong freeing up space.", "Canceled freeing up space."], rig.Toasts.Toasts.Select(toast => toast.Text));
     }
 
     [Fact]
@@ -221,7 +284,7 @@ public class JobStatusViewModelTests
 
         rig.Backend.Jobs.Complete(job.JobId);
 
-        Assert.Equal("Storage moved.", Assert.Single(rig.Toasts.Toasts).Text);
+        Assert.Equal("Snapshots moved.", Assert.Single(rig.Toasts.Toasts).Text);
     }
 
     [Fact]
@@ -234,7 +297,7 @@ public class JobStatusViewModelTests
         rig.Backend.Jobs.Complete(job.JobId, new StorageRelocationResult(MockupScenario.StorageRoot, @"E:\SavePoint", 10, [stayed]));
 
         var toast = Assert.Single(rig.Toasts.Toasts);
-        Assert.StartsWith("Storage moved, but some old files are still in the old folder.", toast.Text, StringComparison.Ordinal);
+        Assert.StartsWith("Snapshots moved, but some old files are still in the old folder.", toast.Text, StringComparison.Ordinal);
         Assert.Equal(ToastKind.Warning, toast.Message.Kind);
     }
 
@@ -247,7 +310,7 @@ public class JobStatusViewModelTests
         rig.Backend.Jobs.CompleteCancelled(job.JobId);
 
         var toast = Assert.Single(rig.Toasts.Toasts);
-        Assert.Equal("Canceled moving your storage.", toast.Text);
+        Assert.Equal("Canceled moving your snapshots.", toast.Text);
         Assert.Equal(ToastKind.Info, toast.Message.Kind);
     }
 
@@ -273,7 +336,7 @@ public class JobStatusViewModelTests
 
         rig.Backend.Jobs.Complete(job.JobId);
 
-        Assert.Equal("Saved this game.", Assert.Single(rig.Toasts.Toasts).Text);
+        Assert.Equal("Took a snapshot of this game.", Assert.Single(rig.Toasts.Toasts).Text);
     }
 
     [Fact]
@@ -287,13 +350,13 @@ public class JobStatusViewModelTests
         rig.Status.Seed(rig.Backend.Jobs.List());
 
         Assert.True(rig.Status.IsVisible);
-        Assert.Equal("Saving Skyrim Special Edition\u2026", rig.Status.PillText);
+        Assert.Equal("Taking a snapshot of Skyrim Special Edition\u2026", rig.Status.PillText);
         Assert.Empty(rig.Toasts.Toasts);
 
         rig.Backend.Jobs.Complete(running.JobId);
         rig.Status.Handle(rig.Backend.Jobs.Get(running.JobId)!);
 
-        Assert.Equal("Saved Skyrim Special Edition.", Assert.Single(rig.Toasts.Toasts).Text);
+        Assert.Equal("Took a snapshot of Skyrim Special Edition.", Assert.Single(rig.Toasts.Toasts).Text);
     }
 
     [Fact]
@@ -339,7 +402,7 @@ public class JobStatusViewModelTests
         var rig = new Rig();
         var job = await rig.StartCapture();
 
-        Assert.Equal("Saving Skyrim Special Edition\u2026", rig.Status.Announcement);
+        Assert.Equal("Taking a snapshot of Skyrim Special Edition\u2026", rig.Status.Announcement);
 
         FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
 
@@ -347,7 +410,7 @@ public class JobStatusViewModelTests
 
         rig.Backend.Jobs.Complete(job.JobId);
 
-        Assert.Equal("Optimizing storage for Satisfactory\u2026", rig.Status.Announcement);
+        Assert.Equal("Freeing up space for Satisfactory\u2026", rig.Status.Announcement);
     }
 
     [Fact]
@@ -383,7 +446,7 @@ public class JobStatusViewModelTests
                 [MockupScenario.SatisfactoryId] = "Satisfactory",
                 [MockupScenario.CaretakerId] = "The Last Caretaker",
             };
-            Status = new JobStatusViewModel(Text, Toasts, id => KnownGames.GetValueOrDefault(id), ShownElsewhere.Contains);
+            Status = new JobStatusViewModel(Text, Toasts, id => KnownGames.GetValueOrDefault(id), ShownElsewhere.Contains, Opened.Add);
             if (wireEvents)
             {
                 Backend.Jobs.JobChanged += (_, job) => Status.Handle(job);
@@ -400,6 +463,9 @@ public class JobStatusViewModelTests
 
         // Jobs whose outcome something else already shows.
         public HashSet<Guid> ShownElsewhere { get; } = [];
+
+        // The game each press of the pill asked Activity to show; null stands for all games.
+        public List<string?> Opened { get; } = [];
 
         public JobStatusViewModel Status { get; }
 

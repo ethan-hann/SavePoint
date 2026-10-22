@@ -30,7 +30,7 @@ public class OlderPointJourneyTests
         rig.Main.Toasts.DismissAll();
         keepSession.SelectedChoice.Name = "Chapter two";
         await rig.FinishesAsync(keepSession.SaveCommand.ExecuteAsync(null), "the after-play dialog to answer");
-        await rig.WaitAsync(() => rig.ToastTexts.Contains("Saved Older Game.") && vanilla.CanPlay && rig.Games.InlineContent is null, "the session to be saved");
+        await rig.WaitAsync(() => rig.ToastTexts.Contains("Took a snapshot of Older Game.") && vanilla.CanPlay && rig.Games.InlineContent is null, "the session to be saved");
         var savesAtChapterTwo = FolderSnapshot.Of(game.Saves);
         Assert.Contains("chapter2.sav", savesAtChapterTwo.Keys);
         var originalPoints = await PointsOfAsync(rig, added.Id, vanilla.Id);

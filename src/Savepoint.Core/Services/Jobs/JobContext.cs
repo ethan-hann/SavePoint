@@ -2,17 +2,19 @@ using Savepoint.Core.Api;
 
 namespace Savepoint.Core.Services.Jobs;
 
-/// <summary>What a job's work uses to learn it was cancelled and to report how far it has got.</summary>
+/// <summary>What a job's work uses to learn it was cancelled, to report how far it has got, and to say what it is doing.</summary>
 /// <remarks>Everything here is safe to call from any thread. Reports made after the job has ended are dropped.</remarks>
 public sealed class JobContext
 {
-    private readonly Action<string?> _addLine;
+    private readonly Action<JobLine> _addLine;
+    private readonly Action _noLongerCancellable;
 
-    internal JobContext(Guid jobId, CancellationToken cancellationToken, Action<JobProgress> report, Action<string?> addLine)
+    internal JobContext(Guid jobId, CancellationToken cancellationToken, Action<JobProgress> report, Action<JobLine> addLine, Action noLongerCancellable)
     {
         JobId = jobId;
         CancellationToken = cancellationToken;
         _addLine = addLine;
+        _noLongerCancellable = noLongerCancellable;
         Progress = new Reporter(report);
     }
 
@@ -24,13 +26,34 @@ public sealed class JobContext
 
     /// <summary>
     /// Reports progress. Each report replaces the previous one, and a non-null <c>CurrentPath</c> is also appended to the
-    /// job's recent lines. Subscribers see at most about twenty updates a second; the latest report always arrives.
+    /// job's recent lines as a path. Subscribers see at most about twenty updates a second; the latest report always arrives.
     /// </summary>
     public IProgress<JobProgress> Progress { get; }
 
-    /// <summary>Appends a line to the job's recent lines (the newest 200 are kept) without changing its progress.</summary>
-    /// <param name="line">Text such as a line of git output; null or empty lines are ignored.</param>
-    public void AddLine(string? line) => _addLine(line);
+    /// <summary>Appends a file path to the job's recent lines (the newest 200 are kept) without changing its progress.</summary>
+    /// <param name="path">A file or folder as the player should see it; null or empty is ignored.</param>
+    public void AddPath(string? path)
+    {
+        if (!string.IsNullOrEmpty(path))
+        {
+            _addLine(JobLine.ForPath(path));
+        }
+    }
+
+    /// <summary>Appends a step in plain words to the job's recent lines (the newest 200 are kept) without changing its progress.</summary>
+    /// <param name="messageId">The catalog key of the step; use a constant of <see cref="JobSteps"/>.</param>
+    /// <param name="args">The values for the message's placeholders; see <see cref="JobSteps"/> for what each step takes.</param>
+    public void AddStep(string messageId, params (string Name, object? Value)[] args)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(messageId);
+        _addLine(JobLine.ForStep(messageId, args));
+    }
+
+    /// <summary>
+    /// Says the job has passed the point where stopping it would do harm, so its snapshot stops being cancellable and a later cancel is
+    /// left alone. A job that cannot be stopped from here on calls it once, before the work that must finish.
+    /// </summary>
+    public void NoLongerCancellable() => _noLongerCancellable();
 
     private sealed class Reporter(Action<JobProgress> report) : IProgress<JobProgress>
     {

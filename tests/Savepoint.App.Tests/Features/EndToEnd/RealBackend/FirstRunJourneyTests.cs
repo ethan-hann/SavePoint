@@ -73,7 +73,7 @@ public class FirstRunJourneyTests
         var usage = (await rig.Services.Games.GetStorageUsageAsync(added.Id, TestContext.Current.CancellationToken)).Value!;
         Assert.True(usage.BytesUsed > 0, "SavePoint reports keeping nothing for a profile it saved");
         await rig.WaitAsync(() => rig.Games.StorageFooterText.Contains(rig.Text.FileSize(usage.BytesUsed), StringComparison.Ordinal), "the storage footer to count the saved bytes");
-        Assert.StartsWith("This game is using ", rig.Games.StorageFooterText, StringComparison.Ordinal);
+        Assert.StartsWith("This game's snapshots use ", rig.Games.StorageFooterText, StringComparison.Ordinal);
         await rig.WaitAsync(() => row.ProfileCount == 1, "the sidebar to count the profile");
         rig.Render("1d-first-profile");
 

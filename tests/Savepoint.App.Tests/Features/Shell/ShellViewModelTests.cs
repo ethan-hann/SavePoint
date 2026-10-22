@@ -81,8 +81,8 @@ public class ShellViewModelTests
         var empty = await ShellRig.StartAsync(FakeBackend.Empty());
         var full = await ShellRig.StartAsync();
 
-        Assert.Equal([true, false, true], empty.Shell.Nav.Select(item => item.IsEnabled));
-        Assert.Equal([true, true, true], full.Shell.Nav.Select(item => item.IsEnabled));
+        Assert.Equal([true, false, true, true], empty.Shell.Nav.Select(item => item.IsEnabled));
+        Assert.Equal([true, true, true, true], full.Shell.Nav.Select(item => item.IsEnabled));
 
         FakeAssert.Ok(await empty.Backend.Games.AddAsync(new GameDefinition(Id: "new-game", Name: "New Game", Install: new InstallLocation(@"D:\Games\New"))));
         await empty.Shell.RefreshLibraryAsync();
@@ -186,12 +186,12 @@ public class ShellViewModelTests
     // ---- Navigation
 
     [Fact]
-    public async Task The_navigation_has_games_history_and_settings_with_games_selected()
+    public async Task The_navigation_has_games_history_activity_and_settings_with_games_selected()
     {
         var rig = await ShellRig.StartAsync();
 
-        Assert.Equal(["Games", "History", "Settings"], rig.Shell.Nav.Select(item => item.Label));
-        Assert.Equal([NavDestination.Games, NavDestination.History, NavDestination.Settings], rig.Shell.Nav.Select(item => item.Destination));
+        Assert.Equal(["Games", "History", "Activity", "Settings"], rig.Shell.Nav.Select(item => item.Label));
+        Assert.Equal([NavDestination.Games, NavDestination.History, NavDestination.Activity, NavDestination.Settings], rig.Shell.Nav.Select(item => item.Destination));
         Assert.Equal(NavDestination.Games, rig.Shell.Destination);
         Assert.Same(rig.Shell.Nav[0], rig.Shell.SelectedNav);
     }
@@ -214,7 +214,7 @@ public class ShellViewModelTests
     {
         var rig = await ShellRig.StartAsync();
 
-        rig.Shell.SelectedNav = rig.Shell.Nav[2];
+        rig.Shell.SelectedNav = rig.Shell.Nav[3];
 
         Assert.Equal(NavDestination.Settings, rig.Shell.Destination);
     }
@@ -486,6 +486,75 @@ public class ShellViewModelTests
     }
 
     [Fact]
+    public async Task Selecting_a_game_while_activity_is_shown_stays_on_activity()
+    {
+        var rig = await ShellRig.StartAsync();
+        rig.Shell.Navigate(NavDestination.Activity);
+
+        rig.Shell.SelectGame(MockupScenario.CaretakerId);
+
+        Assert.Equal(NavDestination.Activity, rig.Shell.Destination);
+        Assert.Equal(MockupScenario.CaretakerId, rig.Shell.SelectedGame?.Id);
+    }
+
+    [Fact]
+    public async Task Showing_activity_for_a_game_selects_it_tells_the_screen_and_then_navigates()
+    {
+        var activity = new RecordingScreenFactory(NavDestination.Activity);
+        var rig = await ShellRig.StartAsync(screens: [activity]);
+        var seen = new List<string>();
+        rig.Shell.ActivityRequested += (_, request) => seen.Add($"request:{request.GameId}:shown={activity.Screen!.ShownCount}:selected={rig.Shell.SelectedGame?.Id}");
+
+        rig.Shell.ShowActivity(MockupScenario.SatisfactoryId);
+
+        // The screen hears the request before it is shown, and the game is already selected.
+        Assert.Equal([$"request:{MockupScenario.SatisfactoryId}:shown=0:selected={MockupScenario.SatisfactoryId}"], seen);
+        Assert.Equal(NavDestination.Activity, rig.Shell.Destination);
+        Assert.Equal(1, activity.Screen!.ShownCount);
+    }
+
+    [Fact]
+    public async Task Showing_activity_for_every_game_keeps_the_selected_game()
+    {
+        var rig = await ShellRig.StartAsync();
+        var requests = new List<ActivityRequest>();
+        rig.Shell.ActivityRequested += (_, request) => requests.Add(request);
+
+        rig.Shell.ShowActivity(null);
+
+        Assert.Equal([new ActivityRequest(null)], requests);
+        Assert.Equal(NavDestination.Activity, rig.Shell.Destination);
+        Assert.Equal(MockupScenario.SkyrimId, rig.Shell.SelectedGame?.Id);
+    }
+
+    [Fact]
+    public async Task Showing_activity_while_it_is_already_shown_still_tells_the_screen()
+    {
+        var rig = await ShellRig.StartAsync();
+        rig.Shell.Navigate(NavDestination.Activity);
+        var requests = new List<ActivityRequest>();
+        rig.Shell.ActivityRequested += (_, request) => requests.Add(request);
+
+        rig.Shell.ShowActivity(MockupScenario.CaretakerId);
+
+        Assert.Equal([new ActivityRequest(MockupScenario.CaretakerId)], requests);
+        Assert.Equal(NavDestination.Activity, rig.Shell.Destination);
+    }
+
+    [Fact]
+    public async Task Showing_activity_for_a_game_that_is_not_in_the_library_shows_every_game()
+    {
+        var rig = await ShellRig.StartAsync();
+        var requests = new List<ActivityRequest>();
+        rig.Shell.ActivityRequested += (_, request) => requests.Add(request);
+
+        rig.Shell.ShowActivity("no-such-game");
+
+        Assert.Equal([new ActivityRequest(null)], requests);
+        Assert.Equal(NavDestination.Activity, rig.Shell.Destination);
+    }
+
+    [Fact]
     public async Task Selecting_a_game_from_settings_goes_to_games_but_history_stays_on_history()
     {
         var rig = await ShellRig.StartAsync();
@@ -751,7 +820,7 @@ public class ShellViewModelTests
         rig.Shell.SetWindowWidth(700);
 
         Assert.All(rig.Shell.Nav, item => Assert.False(item.ShowLabel));
-        Assert.Equal(["Games", "History", "Settings"], rig.Shell.Nav.Select(item => item.ToolTipText));
+        Assert.Equal(["Games", "History", "Activity", "Settings"], rig.Shell.Nav.Select(item => item.ToolTipText));
         Assert.All(rig.Shell.Games, row => Assert.False(row.ShowLabels));
         Assert.Equal("Skyrim Special Edition, 3 profiles", rig.Shell.Games[0].ToolTipText);
 
@@ -999,12 +1068,42 @@ public class ShellViewModelTests
         var job = FakeAssert.Ok(await rig.Backend.Profiles.CaptureAsync(MockupScenario.SkyrimId, MockupScenario.ModdedId, "A point"));
 
         Assert.True(rig.Shell.JobStatus.IsVisible);
-        Assert.Equal("Saving Skyrim Special Edition\u2026", rig.Shell.JobStatus.PillText);
+        Assert.Equal("Taking a snapshot of Skyrim Special Edition\u2026", rig.Shell.JobStatus.PillText);
 
         rig.Backend.Jobs.Complete(job.JobId);
 
         Assert.False(rig.Shell.JobStatus.IsVisible);
-        Assert.Equal("Saved Skyrim Special Edition.", Assert.Single(rig.Toasts.Toasts).Text);
+        Assert.Equal("Took a snapshot of Skyrim Special Edition.", Assert.Single(rig.Toasts.Toasts).Text);
+    }
+
+    [Fact]
+    public async Task Pressing_the_pill_opens_activity_on_the_running_jobs_game()
+    {
+        var rig = await ShellRig.StartAsync();
+        var requests = new List<ActivityRequest>();
+        rig.Shell.ActivityRequested += (_, request) => requests.Add(request);
+        FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
+
+        rig.Shell.JobStatus.OpenCommand.Execute(null);
+
+        Assert.Equal(NavDestination.Activity, rig.Shell.Destination);
+        Assert.Equal(MockupScenario.SatisfactoryId, rig.Shell.SelectedGame?.Id);
+        Assert.Equal([new ActivityRequest(MockupScenario.SatisfactoryId)], requests);
+    }
+
+    [Fact]
+    public async Task Pressing_the_pill_for_a_job_across_every_game_opens_activity_on_all_games_and_keeps_the_selected_game()
+    {
+        var rig = await ShellRig.StartAsync();
+        var requests = new List<ActivityRequest>();
+        rig.Shell.ActivityRequested += (_, request) => requests.Add(request);
+        FakeAssert.Ok(await rig.Backend.Settings.OptimizeAllStorageAsync());
+
+        rig.Shell.JobStatus.OpenCommand.Execute(null);
+
+        Assert.Equal(NavDestination.Activity, rig.Shell.Destination);
+        Assert.Equal(MockupScenario.SkyrimId, rig.Shell.SelectedGame?.Id);
+        Assert.Equal([new ActivityRequest(null)], requests);
     }
 
     [Fact]
@@ -1016,7 +1115,7 @@ public class ShellViewModelTests
         var rig = await ShellRig.StartAsync(backend);
 
         Assert.True(rig.Shell.JobStatus.IsVisible);
-        Assert.Equal("Moving your storage\u2026", rig.Shell.JobStatus.PillText);
+        Assert.Equal("Moving your snapshots\u2026", rig.Shell.JobStatus.PillText);
     }
 
     [Fact]
@@ -1027,7 +1126,7 @@ public class ShellViewModelTests
 
         var rig = await ShellRig.StartAsync(backend);
 
-        Assert.Equal("Saving Skyrim Special Edition…", rig.Shell.JobStatus.PillText);
+        Assert.Equal("Taking a snapshot of Skyrim Special Edition…", rig.Shell.JobStatus.PillText);
     }
 
     [Fact]
@@ -1035,12 +1134,12 @@ public class ShellViewModelTests
     {
         var rig = await ShellRig.StartAsync();
         FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
-        Assert.Equal("Optimizing storage for Satisfactory…", rig.Shell.JobStatus.PillText);
+        Assert.Equal("Freeing up space for Satisfactory…", rig.Shell.JobStatus.PillText);
 
         FakeAssert.Ok(await rig.Backend.Games.UpdateAsync(MockupScenario.Satisfactory with { Name = "Satisfactory (modded)" }));
         await rig.Shell.RefreshLibraryAsync();
 
-        Assert.Equal("Optimizing storage for Satisfactory (modded)…", rig.Shell.JobStatus.PillText);
+        Assert.Equal("Freeing up space for Satisfactory (modded)…", rig.Shell.JobStatus.PillText);
     }
 
     [Fact]
@@ -1081,7 +1180,7 @@ public class ShellViewModelTests
 
         FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(MockupScenario.CaretakerId));
 
-        Assert.Equal("Optimizing storage for The Last Caretaker\u2026", rig.Shell.JobStatus.PillText);
+        Assert.Equal("Freeing up space for The Last Caretaker\u2026", rig.Shell.JobStatus.PillText);
     }
 
     // ---- The launch flow slot

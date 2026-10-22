@@ -64,7 +64,7 @@ public sealed class FakeProfilesApi : IProfilesApi
             var game = State.Game(gameId);
             var profile = CatalogIds.NewProfile(gameId, name, State.Random) with { Notes = notes };
             State.Profiles.Add(profile);
-            return OperationResult.Success(StartCapture(game, profile, FakeState.FoldersOf(game)));
+            return OperationResult.Success(StartCapture(game, profile, pointName, FakeState.FoldersOf(game)));
         });
 
     public Task<OperationResult<Profile>> UpdateAsync(string gameId, string profileId, ProfileChanges changes) =>
@@ -133,13 +133,13 @@ public sealed class FakeProfilesApi : IProfilesApi
         {
             var game = State.Game(gameId);
             var profile = State.Profile(gameId, profileId);
-            return OperationResult.Success(StartCapture(game, profile, folders ?? FakeState.FoldersOf(game)));
+            return OperationResult.Success(StartCapture(game, profile, pointName, folders ?? FakeState.FoldersOf(game)));
         });
 
-    private JobStarted StartCapture(GameDefinition game, Profile profile, IEnumerable<RepoRole> folders)
+    private JobStarted StartCapture(GameDefinition game, Profile profile, string pointName, IEnumerable<RepoRole> folders)
     {
         var saved = new CaptureResult(profile.Id, State.NewPointId(), [.. folders.Select(r => new FolderOutcome(r))]);
-        return new JobStarted(_backend.Jobs.Start(JobKind.Capture, game.Id, saved));
+        return new JobStarted(_backend.Jobs.Start(JobKind.Capture, game.Id, saved, opening: [JobLine.ForStep(JobSteps.CaptureStart, ("profile", profile.Name), ("snapshot", pointName))], profile: new JobProfile(profile.Id, profile.Name)));
     }
 
     // A running game blocks every destructive step (D13.5); the active profile cannot go either.

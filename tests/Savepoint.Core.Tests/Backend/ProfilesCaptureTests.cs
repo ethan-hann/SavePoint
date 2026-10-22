@@ -116,7 +116,7 @@ public class ProfilesCaptureTests
         var started = await workspace.Profiles.CaptureAsync(game.Id, profile.Id, "With a patch");
         var job = await workspace.WaitForJobAsync(started.Value!.JobId);
 
-        Assert.Contains(job.RecentLines, line => line.Contains("patch.pak", StringComparison.Ordinal));
+        Assert.Contains(job.RecentLines, line => line is JobLine.FilePath path && path.Path.Contains("patch.pak", StringComparison.Ordinal));
     }
 
     [Fact]

@@ -3,6 +3,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Tests.Fakes;
+using Savepoint.App.Tests.Features.Activity;
 using Savepoint.App.Tests.Theme;
 using Savepoint.Core.Catalog;
 
@@ -54,7 +55,7 @@ public class TabOrderTests
     private static string[] ProfileRows(string name) => [$"Row: {name}", $"Play {name}", $"More actions for {name}"];
 
     [AvaloniaFact]
-    public async Task The_sidebar_layout_goes_rail_then_header_then_chips_then_the_profile_rows()
+    public async Task The_sidebar_layout_goes_rail_then_header_then_chips_then_the_profile_rows_then_the_footer()
     {
         using var app = await ComposedApp.StartWithViewAsync();
 
@@ -62,8 +63,9 @@ public class TabOrderTests
             [
                 "Games", "Skyrim Special Edition, 3 profiles", "Add a game",
                 "Edit game", "New profile", "More actions for Skyrim Special Edition", "Sidebar",
-                "Profiles", "History",
+                "Profiles", "History", "Activity",
                 .. ProfileRows(_modded), .. ProfileRows(_vanilla), .. ProfileRows(_survival),
+                "Free up space for Skyrim Special Edition",
             ],
             TabStops(app));
     }
@@ -99,6 +101,25 @@ public class TabOrderTests
                 "Go back to this: First night", "Go back to this: Survival test - 5-14-26",
             ],
             TabStops(app));
+    }
+
+    [AvaloniaFact]
+    public async Task Activity_goes_rail_then_the_scope_then_the_jobs_then_cancel_copy_and_the_lines_then_the_job_pill()
+    {
+        var backend = FakeBackend.Mockup();
+        await ActivityScenario.AddJobsAsync(backend);
+        using var app = await ComposedApp.StartWithViewAsync(backend);
+        app.Shell.Navigate(NavDestination.Activity);
+        app.Settle();
+
+        var stops = TabStops(app);
+
+        Assert.Equal(["Activity", "Skyrim Special Edition, 3 profiles", "Add a game", "This game"], stops.Take(4));
+        Assert.StartsWith("Taking a snapshot of Skyrim Special Edition. In progress.", stops[4], StringComparison.Ordinal);
+        Assert.Equal(["Cancel Taking a snapshot of Skyrim Special Edition", "Copy details"], stops.Skip(5).Take(2));
+        Assert.StartsWith("Taking the snapshot", stops[7], StringComparison.Ordinal);
+        Assert.Equal("Taking a snapshot of Skyrim Special Edition… Open Activity", stops[8]);
+        Assert.Equal(9, stops.Count);
     }
 
     [AvaloniaFact]

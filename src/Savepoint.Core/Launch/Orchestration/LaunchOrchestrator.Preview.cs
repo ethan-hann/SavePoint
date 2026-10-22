@@ -93,14 +93,17 @@ public sealed partial class LaunchOrchestrator
             ? previewed
             : await TargetResolver.TargetOfCommitAsync(storage, reading.Target.Repo, profiles, reading.Note!.ToCommit, reading.Note.ToBranch, cancellationToken).ConfigureAwait(false);
 
+    // After a stopped switch HEAD may already be at the target, so the point the switch started from is the better "before".
+    private static string? SwitchOrigin(FolderReading reading) =>
+        reading.Pending && reading.Status.HeadCommit == reading.Target.Commit ? reading.Note!.FromCommit : reading.Status.HeadCommit;
+
     // What the switch would write or remove, read from the two points alone.
     private async Task<SwitchSummary> SwitchSummaryAsync(StorageSnapshot storage, GameDefinition game, FolderReading reading, CancellationToken cancellationToken)
     {
         var repo = reading.Target.Repo;
         var target = reading.Target.Commit;
 
-        // After a stopped switch HEAD may already be at the target, so the point the switch started from is the better "before".
-        var from = reading.Pending && reading.Status.HeadCommit == target ? reading.Note!.FromCommit : reading.Status.HeadCommit;
+        var from = SwitchOrigin(reading);
         // The files the ignore list names are left alone by the switch, so they are neither counted nor sized.
         var diff = await storage.Engine.SwitchStatAsync(repo, from, target, cancellationToken).ConfigureAwait(false);
         var mods = repo.Role == RepoRole.Install ? diff.ChangedPaths.Count(path => GameInsights.MatchesHint(path, game.ModPathHints)) : 0;

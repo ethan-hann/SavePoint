@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.VisualTree;
@@ -77,7 +78,7 @@ public class ShellViewTests
         using var harness = await ShellViewHarness.StartAsync();
 
         harness.Find<ListBox>("RailGames").SelectedIndex = 1;
-        harness.Find<ListBox>("NavList").SelectedIndex = 2;
+        harness.Find<ListBox>("NavList").SelectedIndex = 3;
         harness.Settle();
 
         Assert.Equal(NavDestination.Settings, harness.Shell.Destination);
@@ -144,7 +145,7 @@ public class ShellViewTests
         var nav = harness.Find<ListBox>("NavList").GetVisualDescendants().OfType<ListBoxItem>().ToList();
         var games = harness.Find<ListBox>("RailGames").GetVisualDescendants().OfType<ListBoxItem>().ToList();
 
-        Assert.Equal(["Games", "History", "Settings"], nav.Select(AutomationProperties.GetName));
+        Assert.Equal(["Games", "History", "Activity", "Settings"], nav.Select(AutomationProperties.GetName));
         Assert.Equal("Skyrim Special Edition, 3 profiles", AutomationProperties.GetName(games[0]));
         Assert.Equal("Main", AutomationProperties.GetName(harness.Find<ListBox>("NavList")));
         Assert.Equal(AutomationLandmarkType.Navigation, AutomationProperties.GetLandmarkType(harness.Find<Border>("Rail")));
@@ -270,8 +271,8 @@ public class ShellViewTests
 
         var nav = harness.Find<ListBox>("NavList").GetVisualDescendants().OfType<ListBoxItem>().ToList();
         var games = harness.Find<ListBox>("RailGames").GetVisualDescendants().OfType<ListBoxItem>().ToList();
-        Assert.Equal(["Games", "History", "Settings"], nav.Select(ToolTip.GetTip));
-        Assert.Equal(["Games", "History", "Settings"], nav.Select(AutomationProperties.GetName));
+        Assert.Equal(["Games", "History", "Activity", "Settings"], nav.Select(ToolTip.GetTip));
+        Assert.Equal(["Games", "History", "Activity", "Settings"], nav.Select(AutomationProperties.GetName));
         Assert.Equal("Skyrim Special Edition, 3 profiles", ToolTip.GetTip(games[0]));
         Assert.Equal("Skyrim Special Edition, 3 profiles", AutomationProperties.GetName(games[0]));
         var add = harness.Find<Button>("RailAddButton");
@@ -411,10 +412,11 @@ public class ShellViewTests
 
         Assert.Contains("filled", harness.Find<Button>("RailAddButton").Classes);
         var items = harness.Find<ListBox>("NavList").GetVisualDescendants().OfType<ListBoxItem>().ToList();
-        Assert.Equal([true, false, true], items.Select(item => item.IsEnabled));
+        Assert.Equal([true, false, true, true], items.Select(item => item.IsEnabled));
         var dimmed = (Avalonia.Media.ISolidColorBrush)Application.Current!.FindResource("Md3DisabledContentBrush")!;
         Assert.Equal(dimmed.Color, ((Avalonia.Media.ISolidColorBrush)items[1].Foreground!).Color);
         Assert.NotEqual(dimmed.Color, ((Avalonia.Media.ISolidColorBrush)items[2].Foreground!).Color);
+        Assert.NotEqual(dimmed.Color, ((Avalonia.Media.ISolidColorBrush)items[3].Foreground!).Color);
     }
 
     [AvaloniaFact]
@@ -463,8 +465,45 @@ public class ShellViewTests
         sidebar.Settle();
         library.Settle();
 
-        Assert.Contains("Saving Skyrim Special Edition\u2026", VisibleTexts(sidebar));
-        Assert.Contains("Saving Skyrim Special Edition\u2026", VisibleTexts(library));
+        Assert.Contains("Taking a snapshot of Skyrim Special Edition\u2026", VisibleTexts(sidebar));
+        Assert.Contains("Taking a snapshot of Skyrim Special Edition\u2026", VisibleTexts(library));
+    }
+
+    [AvaloniaFact]
+    public async Task The_job_pill_is_a_button_named_for_what_it_does_and_opens_activity_from_the_keyboard()
+    {
+        using var harness = await ShellViewHarness.StartAsync();
+        FakeAssert.Ok(await harness.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
+        harness.Settle();
+        var pill = Assert.IsType<Button>(harness.Find<UserControl>("JobPill").FindControl<Control>("Pill"));
+
+        Assert.Equal("Freeing up space for Satisfactory… Open Activity", AutomationProperties.GetName(pill));
+
+        pill.Focus(NavigationMethod.Tab);
+        harness.Settle();
+        harness.Window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+        harness.Window.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+        harness.Settle();
+
+        Assert.Equal(NavDestination.Activity, harness.Shell.Destination);
+        Assert.Equal(MockupScenario.SatisfactoryId, harness.Shell.SelectedGame?.Id);
+    }
+
+    [AvaloniaFact]
+    public async Task The_job_pill_has_a_row_of_its_own_below_the_page_so_it_never_covers_a_control()
+    {
+        using var harness = await ShellViewHarness.StartAsync();
+        var page = harness.Find<ContentControl>("Page");
+        var pill = harness.Find<UserControl>("JobPill");
+        var heightWithoutJob = page.Bounds.Height;
+        Assert.Equal(0, pill.Bounds.Height);
+
+        FakeAssert.Ok(await harness.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
+        harness.Settle();
+
+        Assert.True(pill.Bounds.Height > 0);
+        Assert.True(page.Bounds.Height < heightWithoutJob);
+        Assert.True(pill.Bounds.Top >= page.Bounds.Bottom - 0.5);
     }
 
     [AvaloniaFact]
@@ -477,8 +516,8 @@ public class ShellViewTests
         harness.Settle();
 
         var texts = VisibleTexts(harness).ToList();
-        Assert.DoesNotContain("Saving Skyrim Special Edition\u2026", texts);
-        Assert.Contains("Saved Skyrim Special Edition.", texts);
+        Assert.DoesNotContain("Taking a snapshot of Skyrim Special Edition\u2026", texts);
+        Assert.Contains("Took a snapshot of Skyrim Special Edition.", texts);
     }
 
     [AvaloniaFact]

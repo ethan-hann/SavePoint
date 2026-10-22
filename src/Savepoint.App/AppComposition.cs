@@ -70,6 +70,7 @@ public static class AppComposition
         [
             FeatureComposition.GamesScreen(feature, editor),
             FeatureComposition.HistoryScreen(feature),
+            FeatureComposition.ActivityScreen(feature),
             FeatureComposition.SettingsScreen(feature, settingsEnvironment),
         ];
     }

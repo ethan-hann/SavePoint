@@ -42,6 +42,12 @@ internal sealed class FakeShellContext : IShellContext
         remove { }
     }
 
+    public event EventHandler<ActivityRequest>? ActivityRequested
+    {
+        add { }
+        remove { }
+    }
+
     // "pane", "refresh", "select:<id>" and "close", in the order the editor made them.
     public List<string> Calls { get; } = [];
 
@@ -66,6 +72,8 @@ internal sealed class FakeShellContext : IShellContext
     }
 
     public void SelectGame(string gameId) => Calls.Add($"select:{gameId}");
+
+    public void ShowActivity(string? gameId) => Calls.Add($"activity:{gameId ?? "all"}");
 
     public Task RefreshLibraryAsync()
     {

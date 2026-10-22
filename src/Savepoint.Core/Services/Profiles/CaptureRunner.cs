@@ -99,7 +99,8 @@ internal sealed class CaptureRunner
                 }
 
                 return result;
-            });
+            },
+            new JobProfile(profile.Id, profile.Name));
 
     /// <summary>A new capture event: a fresh id, and now as the moment it began.</summary>
     public CaptureEvent NewEvent() => new(Guid.NewGuid().ToString("D"), _services.Time.GetUtcNow());
@@ -145,6 +146,7 @@ internal sealed class CaptureRunner
     {
         var repos = GameFolders.Repos(_services, storage, game).Where(repo => roles.Contains(repo.Role)).ToList();
         var progress = new CombinedProgress(context);
+        context.AddStep(JobSteps.CaptureStart, ("profile", profile.Name), ("snapshot", pointName));
 
         // The two folders are separate repositories, so they are saved side by side; one failing never stops the other.
         var saved = await Task.WhenAll(repos.Select(repo => SaveFolderAsync(context, storage, game, repo, profile.BranchName, pointName, capture, forksNewBranches, plans?.GetValueOrDefault(repo.Role), progress.For(repo.Role)))).ConfigureAwait(false);
@@ -169,7 +171,7 @@ internal sealed class CaptureRunner
         CaptureEvent capture,
         bool forksNewBranches,
         FolderCapturePlan? plan,
-        IProgress<FileProgress> progress)
+        CombinedProgress.Part progress)
     {
         if (context.CancellationToken.IsCancellationRequested)
         {
@@ -177,17 +179,32 @@ internal sealed class CaptureRunner
         }
 
         var startedBranch = false;
+        context.AddStep(JobSteps.CaptureFolder, ("folder", repo.Role), ("path", repo.WorkTree));
         try
         {
             var existed = await storage.Engine.BranchExistsAsync(repo, branch, context.CancellationToken).ConfigureAwait(false);
             startedBranch = !existed;
             var saved = await CaptureFolderAsync(storage, game, repo, branch, existed, pointName, capture, forksNewBranches, plan, progress, context.CancellationToken).ConfigureAwait(false);
             LogSkipped(game.Id, repo, branch, saved);
+            if (saved.LeftAlone)
+            {
+                context.AddStep(JobSteps.CaptureFolderNotIncluded, ("folder", repo.Role));
+            }
+            else
+            {
+                context.AddStep(JobSteps.CaptureFolderDone, ("folder", repo.Role), ("files", progress.FilesDone));
+            }
+
             return new SavedFolder(repo, new FolderOutcome(repo.Role, null, saved.LeftAlone, saved.LeftOnBranch), saved.Recorded, startedBranch);
         }
         catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException))
         {
             // A stop the user asked for reads as a cancelled save, not as an unknown failure.
+            if (e is not OperationCanceledException)
+            {
+                context.AddStep(JobSteps.CaptureFolderFailed, ("folder", repo.Role));
+            }
+
             var error = e is OperationCanceledException ? new OperationCancelledByUserException(CancelledOperation.Capture, game.Id) : e;
             return new SavedFolder(repo, new FolderOutcome(repo.Role, ErrorInfo.From(error)), false, startedBranch);
         }
@@ -323,7 +340,7 @@ internal sealed class CaptureRunner
         private readonly Dictionary<RepoRole, (int Done, int? Total)> _parts = [];
         private int _expected;
 
-        public IProgress<FileProgress> For(RepoRole role)
+        public Part For(RepoRole role)
         {
             lock (_gate)
             {
@@ -331,6 +348,14 @@ internal sealed class CaptureRunner
             }
 
             return new Part(this, role);
+        }
+
+        private int DoneOf(RepoRole role)
+        {
+            lock (_gate)
+            {
+                return _parts.TryGetValue(role, out var part) ? part.Done : 0;
+            }
         }
 
         private void Update(RepoRole role, FileProgress value)
@@ -344,8 +369,11 @@ internal sealed class CaptureRunner
             }
         }
 
-        private sealed class Part(CombinedProgress owner, RepoRole role) : IProgress<FileProgress>
+        public sealed class Part(CombinedProgress owner, RepoRole role) : IProgress<FileProgress>
         {
+            // The files this folder has handled so far; git reports only the files it adds, changes or removes.
+            public int FilesDone => owner.DoneOf(role);
+
             public void Report(FileProgress value) => owner.Update(role, value);
         }
     }
