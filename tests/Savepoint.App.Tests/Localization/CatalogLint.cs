@@ -46,14 +46,25 @@ internal static class CatalogLint
     // A hyphen, double hyphen or en dash with a space on both sides; a hyphen inside a word or a number range written without spaces is fine.
     private static readonly Regex _spacedDash = new(@"\s(?:-{1,2}|–)\s", RegexOptions.CultureInvariant);
 
-    // The British spellings that could plausibly turn up in copy; the stems are anchored so that "organism" and "realistic" do not match.
-    private static readonly Regex _nonAmerican = new(
-        @"\b(?:(?:colour|favour|behaviour|honour|neighbour|flavour)(?:s|ed|ing|ite|ites)?"
-        + @"|(?:optimis|organis|recognis|initialis|customis|summaris|synchronis|authoris|realis|prioritis|minimis|maximis|normalis|utilis|visualis|finalis|categoris|specialis|standardis|apologis)(?:e|es|ed|ing|ation|ations|er|ers)"
-        + @"|(?:centre|metre|litre|catalogue|dialogue|grey|programme|defence|offence|licence|artefact|mould)(?:s|d)?"
+    // British spellings that could plausibly turn up in copy. These stems are found anywhere in a word, so a prefix or a suffix does not
+    // hide them ("unrecognised", "colourful"); each -ise stem needs an ending that makes it a verb or a noun, so "organism" and
+    // "realistic" do not match.
+    private static readonly Regex _nonAmericanStems = new(
+        @"(?:colour|favour|behaviour|honour|neighbour|flavour|armour|vigour|rumour|humour|labour|harbour)"
+        + @"|(?:optimis|organis|recognis|initialis|customis|summaris|synchronis|authoris|realis|prioritis|minimis|maximis|normalis|utilis|visualis|finalis|categoris|specialis|standardis|apologis|localis|criticis|emphasis|capitalis)(?:e|es|ed|ing|ation|ations|er|ers)"
         + @"|cancell(?:ed|ing|ation|ations)|travell(?:ed|er|ers|ing)|labell(?:ed|ing)|modell(?:ed|ing)"
-        + @"|analys(?:e|es|ed|ing)|practis(?:e|es|ed|ing)|judgement|ageing|whilst|amongst|learnt|fulfil|enrol)\b",
+        + @"|analys(?:e|es|ed|ing)|practis(?:e|es|ed|ing)",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    // Words that are British whole, so they match only as a whole word: "fulfill", "enroll" and "greyhound" are not in this list's way.
+    private static readonly Regex _nonAmericanWords = new(
+        @"^(?:(?:centre|metre|litre|catalogue|dialogue|programme|defence|offence|licence|artefact|mould)(?:s|d)?|grey(?:s|d|ed|ing|er|est|ish)?|judgement|ageing|whilst|amongst|learnt|fulfil|enrol)$",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    // American words that a stem above also matches.
+    private static readonly HashSet<string> _americanWords = new(StringComparer.OrdinalIgnoreCase) { "analyses", "paralyses" };
+
+    private static readonly Regex _word = new(@"\p{L}+", RegexOptions.CultureInvariant);
 
     private static readonly string[] _operatingSystems = ["windows", "macos", "linux"];
 
@@ -125,7 +136,10 @@ internal static class CatalogLint
     // Copy is American English; values are checked, not keys, which keep their names.
     public static IReadOnlyList<string> NonAmericanSpellings(IReadOnlyDictionary<string, string> catalog) =>
         catalog.OrderBy(entry => entry.Key, StringComparer.Ordinal)
-            .SelectMany(entry => _nonAmerican.Matches(entry.Value).Select(match => $"'{entry.Key}' uses '{match.Value}'; copy is American English: {entry.Value}"))
+            .SelectMany(entry => _word.Matches(entry.Value)
+                .Select(match => match.Value)
+                .Where(word => !_americanWords.Contains(word) && (_nonAmericanStems.IsMatch(word) || _nonAmericanWords.IsMatch(word)))
+                .Select(word => $"'{entry.Key}' uses '{word}'; copy is American English: {entry.Value}"))
             .ToList();
 
     public static IReadOnlyList<IcuArgument> Arguments(string message)
