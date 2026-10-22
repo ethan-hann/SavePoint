@@ -59,7 +59,7 @@ public static class AppComposition
                 LaunchFlow: FeatureComposition.LaunchFlow(feature)));
         }
 
-        return new MainWindowViewModel(startup, CreateShell, dialogStack, toasts);
+        return new MainWindowViewModel(startup, CreateShell, dialogStack, toasts, new ExitGuard(services?.Jobs, pickers, text));
     }
 
     /// <summary>
