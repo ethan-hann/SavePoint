@@ -92,6 +92,36 @@ public class ProfilesStatsTests
     }
 
     [Fact]
+    public async Task A_profile_made_while_the_saves_folder_was_empty_is_active_with_nothing_unsaved()
+    {
+        using var workspace = new BackendWorkspace();
+        var game = await workspace.AddGameAsync();
+        File.Delete(Path.Combine(game.External!.Path, "slot1.sav"));
+        var (profile, _) = await workspace.CreateProfileAsync(game);
+
+        var row = await RowAsync(workspace, game, profile);
+
+        Assert.True(row.IsActive);
+        Assert.Empty(row.UnsavedChanges);
+        Assert.Equal(1, row.SaveCount);
+    }
+
+    [Fact]
+    public async Task A_save_the_game_writes_after_a_profile_was_made_from_an_empty_saves_folder_is_that_profiles_unsaved_change()
+    {
+        using var workspace = new BackendWorkspace();
+        var game = await workspace.AddGameAsync();
+        File.Delete(Path.Combine(game.External!.Path, "slot1.sav"));
+        var (profile, _) = await workspace.CreateProfileAsync(game);
+        BackendWorkspace.WriteFile(Path.Combine(game.External!.Path, "first.sav"), "new");
+
+        var row = await RowAsync(workspace, game, profile);
+
+        Assert.False(row.IsActive);
+        Assert.Equal([RepoRole.External], row.UnsavedChanges);
+    }
+
+    [Fact]
     public async Task Unsaved_changes_belong_to_the_profile_whose_branch_the_folder_is_on_not_to_the_others()
     {
         using var workspace = new BackendWorkspace();
