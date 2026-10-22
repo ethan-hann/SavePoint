@@ -44,8 +44,9 @@ public interface IAppStatusApi
     /// when the folder cannot be used as a storage folder at all; <c>error.storageRelocation.insideInstallFolder</c>,
     /// <c>error.gameService.pathOverlap</c> and <c>error.storageRelocation.moveUnfinished</c> for the three move-destination checks;
     /// <c>error.storage.folderHasLink</c> when a game's folder, a git directory, or the config, hooks folder or other entry inside one is
-    /// a link, or does not resolve to a path inside the folder, in which case nothing in the folder is changed; <c>error.gitOperation.failed</c> when a git directory's config cannot be read, so it cannot be made safe; and
-    /// <c>error.catalog.corrupt</c> when a catalog file the call reads or writes cannot be read. A cancelled call fails with
+    /// a link, or does not resolve to a path inside the folder, in which case nothing in the folder is changed; <c>error.gitOperation.failed</c>
+    /// when a git directory's config cannot be read, so it cannot be made safe; <c>error.storage.writeFailed</c> when a repository cannot be
+    /// written because the drive is full or read-only, in which case the call can be made again; and <c>error.catalog.corrupt</c> when a catalog file the call reads or writes cannot be read. A cancelled call fails with
     /// <c>error.operation.cancelled</c> (D23).
     /// </remarks>
     /// <param name="folder">The folder to use as the storage folder.</param>
@@ -64,8 +65,9 @@ public interface IAppStatusApi
     /// <remarks>
     /// Failures: <c>error.storage.stillReachable</c> when the saved folder can be reached; <c>error.storage.defaultFolderHasHistory</c>
     /// when the default folder already holds history of its own, which an empty start would hide (use <see cref="UseStorageFolderAsync"/>
-    /// to point at it instead); <c>error.storage.unreachable</c> when the default folder cannot be made; and <c>error.catalog.corrupt</c>
-    /// when a catalog file the call reads or writes cannot be read. The settings stay as they were for every one of them. A cancelled
+    /// to point at it instead; empty repositories and what an earlier start left half made are not history); <c>error.storage.unreachable</c>
+    /// when the default folder cannot be made; <c>error.storage.writeFailed</c> when a repository cannot be written because the drive is full or
+    /// read-only, in which case the call can be made again, and finishes what the failed one left; and <c>error.catalog.corrupt</c> when a catalog file the call reads or writes cannot be read. The settings stay as they were for every one of them. A cancelled
     /// call fails with <c>error.operation.cancelled</c> (D23).
     /// </remarks>
     /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c> (D23).</param>

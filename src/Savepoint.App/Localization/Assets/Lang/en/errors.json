@@ -48,6 +48,7 @@
   "error.storage.removeFailed": "SavePoint couldn't remove the item shown below. It may be read-only, or your account may not be allowed to delete it. Fix that or remove it yourself, then try again.",
   "error.storage.stillReachable": "SavePoint can reach the folder where it keeps your saved history, so there is nothing to find or start over from. If you want to use another folder, move your storage from Settings.",
   "error.storage.unreachable": "SavePoint can't reach the folder where it keeps your saved history. If it's on a drive or network share that isn't connected, connect it, then try again.",
+  "error.storage.writeFailed": "SavePoint couldn't write to the folder shown below, so it didn't start there. Check that the drive has room and that the folder isn't read-only, then try again.",
   "error.storageRelocation.cancelled": "Moving your storage was canceled. You can try again from Settings.",
   "error.storageRelocation.copyFailed": "SavePoint couldn't copy everything to the new folder, so it kept using the old one and nothing was lost. Check that the new location has room and isn't read-only, then try again.",
   "error.storageRelocation.destinationNotEmpty": "That folder already has files in it. Choose an empty folder for your storage.",

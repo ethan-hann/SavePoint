@@ -81,6 +81,7 @@ public static class ErrorPresentation
         ["error.storage.removeFailed"] = new(Icons.Lock, ErrorTone.Error, "errorCard.title.removeFailed"),
         ["error.storage.stillReachable"] = new(Icons.Storage, ErrorTone.Neutral, "errorCard.title.storageReachable"),
         ["error.storage.unreachable"] = new(Icons.Storage, ErrorTone.Error, "errorCard.title.storageUnreachable"),
+        ["error.storage.writeFailed"] = new(Icons.Lock, ErrorTone.Error, "errorCard.title.storageUnwritable"),
         ["error.storageRelocation.cancelled"] = new(Icons.Cancel, ErrorTone.Neutral, "errorCard.title.canceled"),
         ["error.storageRelocation.copyFailed"] = new(Icons.Storage, ErrorTone.Warning, "errorCard.title.generic"),
         ["error.storageRelocation.destinationNotEmpty"] = new(Icons.Folder, ErrorTone.Warning, "errorCard.title.folderNotEmpty"),
