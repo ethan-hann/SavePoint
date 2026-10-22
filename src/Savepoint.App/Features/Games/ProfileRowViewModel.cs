@@ -31,10 +31,25 @@ public sealed partial class ProfileRowViewModel : ObservableObject
         PlayCommand = new AsyncRelayCommand(() => _actions.PlayAsync(this), () => CanPlay);
         EditCommand = new AsyncRelayCommand(() => _actions.EditAsync(this));
         DuplicateCommand = new AsyncRelayCommand(() => _actions.DuplicateAsync(this));
-        TakeSnapshotCommand = new AsyncRelayCommand(() => _actions.TakeSnapshotAsync(this), () => CanPlay);
+        TakeSnapshotCommand = new AsyncRelayCommand(() => _actions.TakeSnapshotAsync(this), () => CanPlay && CanOfferSnapshot);
         DeleteCommand = new AsyncRelayCommand(() => _actions.DeleteAsync(this));
         Fill(profile, stats);
     }
+
+    /// <summary>Whether a snapshot of what the folders hold now can be added to this profile: the loaded profile, or one with no snapshot yet.</summary>
+    public SnapshotNowAvailability SnapshotNow { get; private set; } = SnapshotNowAvailability.NotLoaded;
+
+    /// <summary>True when "Take a snapshot now" is offered on this row; false for a profile the folders do not hold, which shows the reason instead.</summary>
+    public bool CanOfferSnapshot => SnapshotNow != SnapshotNowAvailability.NotLoaded;
+
+    /// <summary>True when the row's menu shows why a snapshot cannot be taken instead of the action.</summary>
+    public bool SnapshotBlocked => SnapshotNow == SnapshotNowAvailability.NotLoaded;
+
+    /// <summary>The menu entry that stands in for "Take a snapshot now" on a profile that is not loaded, with the reason in it.</summary>
+    public string SnapshotBlockedText => _text.Message("games.profileTable.takeSnapshot.blocked");
+
+    /// <summary>The longer reason, for the entry's tip.</summary>
+    public string SnapshotBlockedTip => _text.Message("games.profileTable.takeSnapshot.blockedTip");
 
     /// <summary>The profile's id.</summary>
     public string Id { get; }
@@ -121,6 +136,7 @@ public sealed partial class ProfileRowViewModel : ObservableObject
     {
         Fill(profile, stats);
         OnPropertyChanged(string.Empty);
+        TakeSnapshotCommand.NotifyCanExecuteChanged();
     }
 
     internal void SetCanPlay(bool canPlay) => CanPlay = canPlay;
@@ -137,6 +153,7 @@ public sealed partial class ProfileRowViewModel : ObservableObject
 
         Name = profile.Name;
         Notes = profile.Notes;
+        SnapshotNow = stats.SnapshotNow;
         IsActive = stats.IsActive;
         IsRunning = stats.IsRunning;
         HasUnsavedChanges = stats.UnsavedChanges.Count > 0;

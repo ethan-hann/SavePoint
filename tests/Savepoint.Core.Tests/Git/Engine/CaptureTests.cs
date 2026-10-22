@@ -220,10 +220,10 @@ public sealed partial class CaptureTests : IDisposable
         await _ws.CaptureAsync(repo, "profile-1");
         _ws.Write(repo, "a.txt", "edited on disk");
 
-        var error = await Assert.ThrowsAsync<GitOperationException>(() => _ws.CaptureAsync(repo, "profile-2"));
+        var error = await Assert.ThrowsAsync<ProfileNotLoadedException>(() => _ws.CaptureAsync(repo, "profile-2"));
 
-        Assert.Contains("profile-2", error.Message, StringComparison.Ordinal);
-        Assert.Equal("error.gitOperation.failed", error.MessageId);
+        Assert.Equal("error.profile.notLoaded", error.MessageId);
+        Assert.Equal("profile-2", error.Args["profileId"]);
         Assert.Equal("edited on disk", await File.ReadAllTextAsync(_ws.FileOf(repo, "a.txt"), Ct));
         Assert.Equal("refs/heads/profile-1", await _ws.HeadRefAsync(repo));
         Assert.Null(await _ws.TipAsync(repo, "profile-2"));

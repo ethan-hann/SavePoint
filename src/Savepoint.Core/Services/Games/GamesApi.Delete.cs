@@ -2,6 +2,7 @@ using Savepoint.Core.Api;
 using Savepoint.Core.Backend;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Git;
+using Savepoint.Core.Services.History;
 using Savepoint.Core.Services.Storage;
 
 namespace Savepoint.Core.Services.Games;
@@ -17,8 +18,20 @@ internal sealed partial class GamesApi
             var game = await RequireGameAsync(gameId, CancellationToken.None).ConfigureAwait(false);
 
             // The user asked for this one, so a launch or capture waits for it instead of stopping it.
-            return new JobStarted(_optimization.Start(game.Id, OptimizationMode.Reclaim, preemptible: false));
+            return new JobStarted(_optimization.Start(game.Id, OptimizationMode.ReclaimClearingRemoved, preemptible: false));
         });
+
+    public Task<OperationResult<FreeUpSpacePreview>> GetFreeUpSpacePreviewAsync(string gameId, CancellationToken cancellationToken = default) =>
+        ApiGuard.RunAsync(
+            _services.Log,
+            async () =>
+            {
+                var game = await RequireGameAsync(gameId, cancellationToken).ConfigureAwait(false);
+                return await _services.Storage.ReadAsync(
+                    async storage => new FreeUpSpacePreview(await RemovedSnapshots.CountAsync(storage, GameFolders.ReposForGitDirOnly(_services, storage, game), cancellationToken).ConfigureAwait(false)),
+                    cancellationToken).ConfigureAwait(false);
+            },
+            cancellationToken);
 
     private async Task<Unit> DeleteCoreAsync(string gameId)
     {

@@ -45,6 +45,19 @@
       <Setter Property="Background" Value="{DynamicResource Md3SelectedRowBrush}" />
     </Style>
 
+    <!-- The Recently removed header is a toggle that reads as a plain row: opening it must not fill it like a chosen chip. -->
+    <Style Selector="ToggleButton.section-toggle">
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Foreground" Value="{DynamicResource Md3OnSurfaceBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.section-toggle:checked">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource Md3OnSurfaceBrush}" />
+    </Style>
+
     <!-- The LOADED and LOADED NOW chips. -->
     <Style Selector="Border.status-chip">
       <Setter Property="Background" Value="{DynamicResource Md3PrimaryContainerBrush}" />
@@ -140,6 +153,74 @@
         <TextBlock Classes="icon s18 muted" Text="{x:Static theme:Icons.Database}" />
         <TextBlock x:Name="FooterText" Grid.Column="1" Classes="caption" FontSize="13" VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding FooterText}" />
       </Grid>
+    </Border>
+
+    <!-- Recently removed: snapshots that left a profile, closed until opened and hidden when there are none. Docked above the footer, under the snapshots. -->
+    <Border x:Name="RemovedSection"
+            DockPanel.Dock="Bottom"
+            BorderBrush="{DynamicResource Md3OutlineVariantBrush}"
+            BorderThickness="0,1,0,0"
+            IsVisible="{Binding ShowRemoved}">
+      <StackPanel>
+        <ToggleButton x:Name="RemovedToggle"
+                      Classes="text section-toggle"
+                      Padding="22,12"
+                      IsChecked="{Binding IsRemovedOpen, Mode=TwoWay}"
+                      AutomationProperties.Name="{Binding RemovedHeading}">
+          <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+            <TextBlock Classes="icon s20 accent" Text="{x:Static theme:Icons.History}" />
+            <TextBlock x:Name="RemovedHeadingText" Grid.Column="1" Classes="row-title" FontSize="14" VerticalAlignment="Center" Text="{Binding RemovedHeading}" />
+            <Panel Grid.Column="2">
+              <TextBlock Classes="icon s20 muted" IsVisible="{Binding !IsRemovedOpen}" Text="{x:Static theme:Icons.ExpandMore}" />
+              <TextBlock Classes="icon s20 muted" IsVisible="{Binding IsRemovedOpen}" Text="{x:Static theme:Icons.ExpandLess}" />
+            </Panel>
+          </Grid>
+        </ToggleButton>
+        <ScrollViewer x:Name="RemovedScroll" IsVisible="{Binding IsRemovedOpen}" VerticalScrollBarVisibility="Auto">
+          <StackPanel Margin="22,0,22,18" Spacing="12">
+            <TextBlock x:Name="RemovedNoteText" Classes="caption" FontSize="12.5" TextWrapping="Wrap" IsVisible="{Binding !HasRemovedError}" Text="{Binding RemovedNote}" />
+            <TextBlock x:Name="RemovedErrorText"
+                       Classes="body error"
+                       TextWrapping="Wrap"
+                       IsVisible="{Binding HasRemovedError}"
+                       AutomationProperties.LiveSetting="Polite"
+                       Text="{Binding RemovedError}" />
+            <ItemsControl x:Name="RemovedList"
+                          ItemsSource="{Binding Removed}"
+                          AutomationProperties.ControlTypeOverride="List"
+                          AutomationProperties.Name="{Binding RemovedHeading}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <StackPanel Spacing="10" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="history:RemovedSnapshotViewModel">
+                  <Border Classes="save-row"
+                          AutomationProperties.ControlTypeOverride="ListItem"
+                          AutomationProperties.Name="{Binding ItemAutomationName}">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14">
+                      <StackPanel Spacing="2" VerticalAlignment="Center">
+                        <TextBlock Classes="row-title" FontSize="14" TextTrimming="CharacterEllipsis" Text="{Binding Name}" />
+                        <TextBlock Classes="caption" FontSize="12.5" TextWrapping="Wrap" Text="{Binding Detail}" />
+                        <TextBlock Classes="caption" FontSize="12.5" TextWrapping="Wrap" Text="{Binding Origin}" />
+                        <TextBlock Classes="timestamp" Text="{Binding Removed}" />
+                      </StackPanel>
+                      <Button Grid.Column="1"
+                              Classes="pill"
+                              Padding="16,7"
+                              VerticalAlignment="Center"
+                              Command="{Binding BringBackCommand}"
+                              Content="{loc:Loc history.removed.bringBack}"
+                              AutomationProperties.Name="{Binding BringBackAutomationName}" />
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </ScrollViewer>
+      </StackPanel>
     </Border>
 
     <Panel>

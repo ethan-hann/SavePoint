@@ -35,8 +35,10 @@ public sealed partial class GitEngine
     /// new objects go into a new pack and only small packs are merged, so the large packs written earlier are left alone;
     /// objects no branch reaches any more (a deleted profile, points a move-forward dropped) are packed along, not removed.
     /// <see cref="OptimizationMode.Reclaim"/> expires reflogs, packs every reachable object into one pack and prunes the
-    /// rest, so those objects are gone afterwards; it rewrites the whole store. Neither mode detaches or starts garbage
-    /// collection, and neither needs the game folder. Nothing a branch, HEAD or the index reaches is ever dropped.
+    /// rest, so those objects are gone afterwards; it rewrites the whole store. <see cref="OptimizationMode.ReclaimClearingRemoved"/> first
+    /// deletes the records of removed snapshots (see <see cref="ListRemovedAsync"/>), after the checks that can refuse the run, so a refused
+    /// run clears nothing; it is the only call that deletes them, and the other two modes keep what a record reaches. No mode detaches or
+    /// starts garbage collection, and none needs the game folder. Nothing a branch, HEAD, the index or a record reaches is ever dropped.
     /// </summary>
     /// <param name="repo">The folder whose history is optimized.</param>
     /// <param name="mode">How far to go.</param>
@@ -61,7 +63,10 @@ public sealed partial class GitEngine
 
                     break;
                 case OptimizationMode.Reclaim:
-                    await ReclaimAsync(repo, ct).ConfigureAwait(false);
+                    await ReclaimAsync(repo, clearRemoved: false, ct).ConfigureAwait(false);
+                    break;
+                case OptimizationMode.ReclaimClearingRemoved:
+                    await ReclaimAsync(repo, clearRemoved: true, ct).ConfigureAwait(false);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown optimization mode.");
@@ -73,9 +78,10 @@ public sealed partial class GitEngine
         }
     }
 
-    // Everything no branch, HEAD or the index reaches goes: reflogs first (they pin old points), then one pack of what is
-    // reachable, then the loose objects nothing reaches.
-    private async Task ReclaimAsync(RepoRef repo, CancellationToken ct)
+    // Everything no branch, HEAD, the index or a removed-snapshot record reaches goes: reflogs first (they pin old points), then
+    // one pack of what is reachable, then the loose objects nothing reaches. Clearing the records comes after the checks that can
+    // refuse the run, so a refused run deletes nothing.
+    private async Task ReclaimAsync(RepoRef repo, bool clearRemoved, CancellationToken ct)
     {
         // The new pack is written before the old ones are removed, so the store briefly takes twice its size.
         EnsureStorageSpace(repo, await GetRepoSizeAsync(repo, ct).ConfigureAwait(false));
@@ -86,6 +92,11 @@ public sealed partial class GitEngine
         if (!scope.IsAlone)
         {
             throw new GitOperationException("Another operation is writing to this repository, so it cannot be reclaimed right now.");
+        }
+
+        if (clearRemoved)
+        {
+            await ClearRecordsAsync(repo, ct).ConfigureAwait(false);
         }
 
         await RunWriteAsync(() => GitDirOnly(repo, "reflog", "expire", "--expire=now", "--all") with { ReadOnly = false }, ct).ConfigureAwait(false);

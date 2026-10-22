@@ -3,6 +3,7 @@ using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Git;
+using Savepoint.Core.Services.History;
 
 namespace Savepoint.Core.Services.Profiles;
 
@@ -58,6 +59,65 @@ internal sealed partial class ProfilesApi
                     catch
                     {
                         // A branch is taken back from every folder that got one, so no half of the copy stays behind.
+                        foreach (var repo in made)
+                        {
+                            await TakeBackBranchAsync(storage, repo, copy.BranchName).ConfigureAwait(false);
+                        }
+
+                        throw;
+                    }
+                }).ConfigureAwait(false);
+        });
+
+    public Task<OperationResult<Profile>> BringBackAsync(string gameId, HistoryPointId snapshotId, string name) =>
+        ApiGuard.RunAsync(_services.Log, async () =>
+        {
+            var game = await RequireGameAsync(gameId).ConfigureAwait(false);
+            return await _services.RunForGameAsync(
+                gameId,
+                async (storage, _) =>
+                {
+                    // The name is judged before anything is read from git, so a refused name costs nothing.
+                    var fresh = CatalogValidator.RequireValid(await NewProfileAsync(gameId, name).ConfigureAwait(false));
+                    var profiles = await _services.Catalog.ListProfilesAsync(gameId).ConfigureAwait(false);
+                    var repos = GameFolders.Repos(_services, storage, game);
+                    var state = await RemovedSnapshots.ReadStateAsync(storage, repos, CancellationToken.None).ConfigureAwait(false);
+                    var group = state.Groups.FirstOrDefault(candidate => candidate.CaptureId == snapshotId.Value)
+                        ?? throw new RemovedSnapshotNotFoundException(snapshotId.Value);
+                    var origin = profiles.FirstOrDefault(profile => profile.BranchName == group.Lead.Branch);
+
+                    // Each folder starts at the commit the snapshot recorded there, or at the latest one before it in the history of the profile it came from.
+                    // A saves folder with none is left without a branch, as for any profile that never saved it; an install folder with none could not start.
+                    var starts = new List<(RepoRef Repo, string Commit)>();
+                    foreach (var repo in repos)
+                    {
+                        if (await RemovedSnapshots.CommitInAsync(storage, repo, state, group, null, CancellationToken.None).ConfigureAwait(false) is { } commit)
+                        {
+                            starts.Add((repo, commit.Id));
+                        }
+                        else if (repo.Role == RepoRole.Install)
+                        {
+                            throw new RemovedSnapshotNotRestorableException(snapshotId.Value);
+                        }
+                    }
+
+                    var copy = fresh with { VersionOverride = origin?.VersionOverride };
+                    var made = new List<RepoRef>();
+                    try
+                    {
+                        foreach (var (repo, commit) in starts)
+                        {
+                            await storage.Engine.CreateBranchAsync(repo, copy.BranchName, commit).ConfigureAwait(false);
+                            made.Add(repo);
+                        }
+
+                        var saved = await _services.Catalog.SaveProfileAsync(copy).ConfigureAwait(false);
+                        _services.Log.Information($"Snapshot brought back: '{group.Lead.Commit.Subject}' ({snapshotId.Value}) of {gameId}, removed from {(origin is null ? group.Lead.Branch : origin.Name)}, is now the history of the new profile {copy.Name} ({copy.Id}); " + string.Join(", ", starts.Select(start => $"{GameFolders.LogName(start.Repo.Role)} branch starts at {start.Commit}")) + ". The profile it came from was not touched.");
+                        return saved;
+                    }
+                    catch
+                    {
+                        // A branch is taken back from every folder that got one, so no half of the profile stays behind.
                         foreach (var repo in made)
                         {
                             await TakeBackBranchAsync(storage, repo, copy.BranchName).ConfigureAwait(false);

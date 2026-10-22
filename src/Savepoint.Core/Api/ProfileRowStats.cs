@@ -18,6 +18,10 @@ namespace Savepoint.Core.Api;
 /// <param name="VersionOverride">The profile's own version override (D13.6), or null.</param>
 /// <param name="LastPlayedAt">When the profile was last launched, as an absolute instant; null if it never was.</param>
 /// <param name="IsRunning">True when the game is running on this profile.</param>
+/// <param name="SnapshotNow">
+/// Whether "Take a snapshot now" works on this profile: on the loaded profile, and on a profile with no snapshot yet (whose first snapshot is
+/// what the folders hold now); not on one the folders do not hold. Decided by the rule the Api's refusal uses, so the two never disagree.
+/// </param>
 public sealed record ProfileRowStats(
     string ProfileId,
     bool IsActive,
@@ -27,4 +31,5 @@ public sealed record ProfileRowStats(
     string? DetectedVersion,
     string? VersionOverride,
     DateTimeOffset? LastPlayedAt,
-    bool IsRunning);
+    bool IsRunning,
+    SnapshotNowAvailability SnapshotNow = SnapshotNowAvailability.NotLoaded);

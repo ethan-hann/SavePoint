@@ -84,6 +84,10 @@ public class ErrorCopyTests
             new SessionMovedException(RepoRole.Install, "dev text"),
             new ProfileAlreadyExistsException("profile-1"),
             new ProfileHasNoPointsException("profile-1"),
+            new ProfileNotLoadedException("profile-1", RepoRole.Install),
+            new ProfileNotLoadedException("profile-1", RepoRole.External),
+            new RemovedSnapshotNotFoundException("snapshot-1"),
+            new RemovedSnapshotNotRestorableException("snapshot-1"),
         ];
 
         return errors.Select(ErrorInfo.From).Append(ErrorInfo.From(new InvalidOperationException("boom")));

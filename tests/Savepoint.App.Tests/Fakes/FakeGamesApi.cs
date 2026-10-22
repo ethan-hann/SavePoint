@@ -127,7 +127,28 @@ public sealed class FakeGamesApi : IGamesApi
         {
             var game = State.Game(gameId);
             var done = new OptimizeResult([FakeSettingsApi.Optimized(game)]);
-            return OperationResult.Success(new JobStarted(_backend.Jobs.Start(JobKind.Compact, gameId, done, _backend.Settings.MarkOptimized, [JobLine.ForStep(JobSteps.CompactGame, ("game", game.Name))])));
+            // Once the job has run, the game's recently removed snapshots are gone for good, as in the real backend.
+            return OperationResult.Success(new JobStarted(_backend.Jobs.Start(
+                JobKind.Compact,
+                gameId,
+                done,
+                job =>
+                {
+                    if (job.Status is JobStatus.Succeeded or JobStatus.Partial)
+                    {
+                        State.Removed.RemoveAll(removed => removed.GameId == gameId);
+                    }
+
+                    _backend.Settings.MarkOptimized(job);
+                },
+                [JobLine.ForStep(JobSteps.CompactGame, ("game", game.Name))])));
+        });
+
+    public Task<OperationResult<FreeUpSpacePreview>> GetFreeUpSpacePreviewAsync(string gameId, CancellationToken cancellationToken = default) =>
+        _backend.Call(_api, nameof(GetFreeUpSpacePreviewAsync), [gameId], () =>
+        {
+            State.Game(gameId);
+            return OperationResult.Success(new FreeUpSpacePreview(State.Removed.Count(removed => removed.GameId == gameId)));
         });
 
     public Task<OperationResult<string>> ResolvePathAsync(string rawPath, CancellationToken cancellationToken = default) =>

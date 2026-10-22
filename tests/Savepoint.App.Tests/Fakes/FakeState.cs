@@ -50,6 +50,7 @@ internal sealed class FakeState
             History.Add((gameId, point));
         }
 
+        Removed.AddRange(scenario.Removed);
         Copy(scenario.FolderStatuses, FolderStatuses);
         Copy(scenario.CapturePreviews, CapturePreviews);
         Copy(scenario.LaunchPreviews, LaunchPreviews);
@@ -91,6 +92,9 @@ internal sealed class FakeState
 
     public List<(string GameId, HistoryPoint Point)> History { get; } = [];
 
+    // Snapshots that left a profile; they belong to no profile, so nothing else counts them.
+    public List<(string GameId, RemovedSnapshot Snapshot)> Removed { get; } = [];
+
     public Dictionary<(string GameId, LaunchTarget Target), LaunchPreview> LaunchPreviews { get; } = [];
 
     public Dictionary<string, ProfileDeletePreview> DeletePreviews { get; } = [];
@@ -131,7 +135,7 @@ internal sealed class FakeState
         }
 
         var snapshots = History.Count(h => h.GameId == profile.GameId && h.Point.ProfileId == profile.Id);
-        return new ProfileRowStats(profile.Id, false, [], snapshots, null, null, profile.VersionOverride, profile.LastLaunchedAt, false);
+        return new ProfileRowStats(profile.Id, false, [], snapshots, null, null, profile.VersionOverride, profile.LastLaunchedAt, false, snapshots == 0 ? SnapshotNowAvailability.FirstSnapshot : SnapshotNowAvailability.NotLoaded);
     }
 
     public static IReadOnlyList<RepoRole> FoldersOf(GameDefinition game) =>
@@ -173,6 +177,7 @@ internal sealed class FakeState
         FolderStatuses.Remove(gameId);
         CapturePreviews.Remove(gameId);
         History.RemoveAll(h => h.GameId == gameId);
+        Removed.RemoveAll(r => r.GameId == gameId);
         Sessions.Remove(gameId);
         foreach (var key in LaunchPreviews.Keys.Where(k => k.GameId == gameId).ToList())
         {
@@ -187,6 +192,16 @@ internal sealed class FakeState
         RowStats.Remove(profile.Id);
         DeletePreviews.Remove(profile.Id);
         History.RemoveAll(h => h.GameId == profile.GameId && h.Point.ProfileId == profile.Id);
+
+        // A removed snapshot outlives the profile it left, which it then no longer names.
+        for (var i = 0; i < Removed.Count; i++)
+        {
+            if (Removed[i].GameId == profile.GameId && Removed[i].Snapshot.FromProfileId == profile.Id)
+            {
+                Removed[i] = (Removed[i].GameId, Removed[i].Snapshot with { FromProfileId = null, FromProfileName = null });
+            }
+        }
+
         foreach (var key in LaunchPreviews.Where(p => p.Value.GameId == profile.GameId && p.Value.ProfileId == profile.Id).Select(p => p.Key).ToList())
         {
             LaunchPreviews.Remove(key);

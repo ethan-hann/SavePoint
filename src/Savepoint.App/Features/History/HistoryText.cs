@@ -66,12 +66,23 @@ internal sealed class HistoryText
     public string SaveDetail(HistoryPoint point) => Join(_text.ShortDateTime(point.CapturedAt), point.ProfileName);
 
     // "Save only · 1.6.640 with 212 mod files": the kind, then the install state at that point.
-    public string Contains(HistoryPoint point)
+    public string Contains(HistoryPoint point) => Contains(point.Kind, point.Install);
+
+    public string Contains(HistoryPointKind kindOfPoint, InstallState state)
     {
-        var install = Install(point.Install);
-        var kind = Kind(point.Kind);
+        var install = Install(state);
+        var kind = Kind(kindOfPoint);
         return install.Length == 0 ? kind : Join(kind, install);
     }
+
+    // Where a removed snapshot came from and why it left: the profile by name while it exists, and the way the player removed it.
+    public string RemovedOrigin(RemovedSnapshot snapshot) => (snapshot.Reason, snapshot.FromProfileName) switch
+    {
+        (RemovedSnapshotReason.ReplacedWithSession, { } name) => _text.Message("history.removed.origin.replaced", ("profile", name)),
+        (RemovedSnapshotReason.ReplacedWithSession, null) => _text.Message("history.removed.origin.replacedDeleted"),
+        (_, { } name) => _text.Message("history.removed.origin.continued", ("profile", name)),
+        _ => _text.Message("history.removed.origin.continuedDeleted"),
+    };
 
     // "Sun Jul 5, 11:42 PM", the card's absolute date.
     public string Date(DateTimeOffset when) => _text.WeekdayDateTime(when);

@@ -340,6 +340,25 @@ public sealed partial class StorageSectionViewModel : ObservableObject
     private async Task RunNowAsync()
     {
         Problem = null;
+
+        // Freeing up space deletes recently removed snapshots for good, so when there are some the player is told how many and asked first.
+        var preview = await _deps.Settings.GetFreeUpSpacePreviewAsync();
+        if (!preview.Ok)
+        {
+            _deps.Toasts.Show(new ToastMessage(_deps.Text.Message(preview.Error), ToastKind.Error));
+            return;
+        }
+
+        if (preview.Value.RecentlyRemovedSnapshots is > 0 and var removed
+            && !await _deps.Dialogs.ConfirmAsync(new ConfirmRequest(
+                _deps.Text.Message("settings.storage.optimizeConfirm.title"),
+                _deps.Text.Message("settings.storage.optimizeConfirm.message", ("count", removed)),
+                _deps.Text.Message("settings.storage.optimizeConfirm.confirm", ("count", removed)),
+                Destructive: true)))
+        {
+            return;
+        }
+
         var started = await _deps.Settings.OptimizeAllStorageAsync();
         if (!started.Ok)
         {

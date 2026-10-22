@@ -65,6 +65,7 @@ public class BackendContractTests(ContractRuns runs) : IClassFixture<ContractRun
                 "delete preview of the active profile: points=0 blocked=no",
                 "delete of the active profile: deleted",
                 "read with a cancelled token: success",
+                "snapshot of a profile the folders do not hold: started",
             ],
             runs.Fake.Gaps);
         Assert.Equal(
@@ -76,6 +77,7 @@ public class BackendContractTests(ContractRuns runs) : IClassFixture<ContractRun
                 "delete preview of the active profile: points=1 blocked=error.gameService.profileActive",
                 "delete of the active profile: error error.gameService.profileActive",
                 "read with a cancelled token: error error.operation.cancelled",
+                "snapshot of a profile the folders do not hold: error error.profile.notLoaded",
             ],
             runs.Real.Gaps);
     }

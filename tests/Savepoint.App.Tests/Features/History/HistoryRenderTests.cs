@@ -80,6 +80,74 @@ public class HistoryRenderTests
         AssertRendered(harness.Render("history-failed-dark"));
     }
 
+    private static async Task<ScreenHarness> RemovedAsync(ThemePreference theme, bool open, bool list = false, double width = 1040, double height = 660, bool realDialogs = false)
+    {
+        var backend = new FakeBackend(RemovedSnapshotSamples.Scenario().WithSettings(MockupScenario.Settings with { Theme = theme }));
+        var clock = backend.Clock;
+        var harness = await ScreenHarness.StartAsync("history", context => [new HistoryScreenFactory(context, clock)], NavDestination.History, backend, theme, width, height, realDialogs);
+        var screen = (HistoryScreenViewModel)harness.Shell.CurrentScreen!;
+        if (list)
+        {
+            screen.SelectedViewOption = screen.ViewOptions[1];
+        }
+
+        screen.IsRemovedOpen = open;
+        harness.Settle();
+        return harness;
+    }
+
+    [AvaloniaFact]
+    public async Task Recently_removed_closed_cards_dark_render_to_a_png()
+    {
+        using var harness = await RemovedAsync(ThemePreference.Dark, open: false);
+
+        AssertRendered(harness.Render("history-removed-closed-dark"));
+    }
+
+    [AvaloniaFact]
+    public async Task Recently_removed_open_cards_dark_render_to_a_png()
+    {
+        using var harness = await RemovedAsync(ThemePreference.Dark, open: true);
+
+        AssertRendered(harness.Render("history-removed-open-dark"));
+    }
+
+    [AvaloniaFact]
+    public async Task Recently_removed_open_cards_light_render_to_a_png()
+    {
+        using var harness = await RemovedAsync(ThemePreference.Light, open: true);
+
+        AssertRendered(harness.Render("history-removed-open-light"));
+    }
+
+    [AvaloniaFact]
+    public async Task Recently_removed_open_list_dark_render_to_a_png()
+    {
+        using var harness = await RemovedAsync(ThemePreference.Dark, open: true, list: true);
+
+        AssertRendered(harness.Render("history-removed-open-list-dark"));
+    }
+
+    [AvaloniaFact]
+    public async Task Recently_removed_open_at_the_smallest_supported_window_renders_to_a_png()
+    {
+        using var harness = await RemovedAsync(ThemePreference.Dark, open: true, width: 960, height: 460);
+
+        AssertRendered(harness.Render("history-removed-open-small-dark"));
+    }
+
+    [AvaloniaFact]
+    public async Task The_bring_back_dialog_renders_to_a_png()
+    {
+        using var harness = await RemovedAsync(ThemePreference.Dark, open: true, realDialogs: true);
+        var screen = (HistoryScreenViewModel)harness.Shell.CurrentScreen!;
+
+        screen.Removed[0].BringBackCommand.Execute(null);
+        harness.Settle();
+
+        AssertRendered(harness.Render("history-removed-bring-back-dialog-dark"));
+    }
+
     [AvaloniaFact]
     public async Task Narrow_cards_dark_render_to_a_png()
     {

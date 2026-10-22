@@ -86,6 +86,9 @@ public class NewProfileWizardViewModelTests
         public Task<OperationResult<Profile>> DuplicateAsync(string gameId, string sourceProfileId, string name) =>
             backend.Profiles.DuplicateAsync(gameId, sourceProfileId, name);
 
+        public Task<OperationResult<Profile>> BringBackAsync(string gameId, HistoryPointId snapshotId, string name) =>
+            backend.Profiles.BringBackAsync(gameId, snapshotId, name);
+
         public Task<OperationResult<ProfileDeletePreview>> GetDeletePreviewAsync(string gameId, string profileId, CancellationToken cancellationToken = default) =>
             backend.Profiles.GetDeletePreviewAsync(gameId, profileId, cancellationToken);
 

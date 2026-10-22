@@ -34,10 +34,20 @@ public sealed partial class GamesScreenViewModel
     }
 
     // A snapshot of what the folders hold now, added to this profile; the job's result and any failure reach the player through the shell's job status.
+    // A profile with no snapshot yet starts with it, so the player is told first that it is whatever the folders hold, which may be another profile's files.
     async Task IProfileRowActions.TakeSnapshotAsync(ProfileRowViewModel row)
     {
         // A command's Execute runs even when CanExecute is false, so the gate is checked again here.
-        if (!row.CanPlay)
+        if (!row.CanPlay || !row.CanOfferSnapshot)
+        {
+            return;
+        }
+
+        if (row.SnapshotNow == SnapshotNowAvailability.FirstSnapshot
+            && !await _deps.Dialogs.ConfirmAsync(new(
+                _deps.Text.Message("games.profileTable.takeSnapshot.firstConfirm.title", ("name", row.Name)),
+                _deps.Text.Message("games.profileTable.takeSnapshot.firstConfirm.message", ("name", row.Name)),
+                _deps.Text.Message("games.profileTable.takeSnapshot.firstConfirm.confirm"))))
         {
             return;
         }

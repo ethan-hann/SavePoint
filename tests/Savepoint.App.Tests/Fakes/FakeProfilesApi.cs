@@ -89,8 +89,30 @@ public sealed class FakeProfilesApi : IProfilesApi
                 UnsavedChanges = [],
                 LastPlayedAt = null,
                 IsRunning = false,
+                SnapshotNow = SnapshotNowAvailability.NotLoaded,
             };
             return OperationResult.Success(copy);
+        });
+
+    // The snapshot becomes the new profile's only snapshot and leaves the list, as in the real backend, where its record stays until space is freed up.
+    public Task<OperationResult<Profile>> BringBackAsync(string gameId, HistoryPointId snapshotId, string name) =>
+        _backend.Call(_api, nameof(BringBackAsync), [gameId, snapshotId, name], () =>
+        {
+            State.Game(gameId);
+            var fresh = CatalogValidator.RequireValid(CatalogIds.NewProfile(gameId, name, State.Random));
+            var index = State.Removed.FindIndex(r => r.GameId == gameId && r.Snapshot.Id == snapshotId);
+            if (index < 0)
+            {
+                throw new RemovedSnapshotNotFoundException(snapshotId.Value);
+            }
+
+            var snapshot = State.Removed[index].Snapshot;
+            var origin = State.Profiles.Find(p => p.GameId == gameId && p.Id == snapshot.FromProfileId);
+            var profile = fresh with { VersionOverride = origin?.VersionOverride };
+            State.Profiles.Add(profile);
+            State.History.Add((gameId, new HistoryPoint(snapshot.Id, snapshot.Kind, snapshot.Name, snapshot.CapturedAt, profile.Id, profile.Name, snapshot.Install, null, null, false, false)));
+            State.Removed.RemoveAt(index);
+            return OperationResult.Success(profile);
         });
 
     // Unless scripted, the points lost are the ones this profile captured, counted per folder they touched (D17).

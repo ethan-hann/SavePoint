@@ -24,10 +24,18 @@ public interface ISettingsApi
     Task<OperationResult<StorageSummary>> GetStorageSummaryAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Settings' "Run now": starts one <see cref="JobKind.Compact"/> job across every game, so its snapshot has no game id. Answers at
-    /// once; the result is an <see cref="OptimizeResult"/>.
+    /// Settings' "Run now" for Free up space: starts one <see cref="JobKind.Compact"/> job across every game, so its snapshot has no game
+    /// id. For each game it first deletes the game's recently removed snapshots for good (see <see cref="IHistoryApi.GetRecentlyRemovedAsync"/>),
+    /// then optimizes the storage and reclaims space nothing reaches any more. Answers at once; the result is an <see cref="OptimizeResult"/>.
     /// </summary>
     Task<OperationResult<JobStarted>> OptimizeAllStorageAsync();
+
+    /// <summary>
+    /// Counts what <see cref="OptimizeAllStorageAsync"/> would delete for good that no profile holds, across every game, so a
+    /// confirmation can say so. Reads only the git directories.
+    /// </summary>
+    /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c>.</param>
+    Task<OperationResult<FreeUpSpacePreview>> GetFreeUpSpacePreviewAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Sizes a move of the storage folder without doing it. A move that cannot go ahead is still a successful answer, with the

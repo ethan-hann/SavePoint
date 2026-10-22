@@ -45,6 +45,14 @@ internal sealed partial class ProfilesApi : IProfilesApi
             var configured = GameFolders.RolesOf(game);
             IReadOnlyList<RepoRole> roles = folders is { Count: > 0 } ? [.. configured.Where(folders.Contains)] : configured;
             var point = string.IsNullOrWhiteSpace(pointName) ? profile.Name : pointName;
+
+            // Refused at once, before a job is queued, when a folder holds another profile; the job checks again under the game's lock.
+            var pending = _capture.PendingCaptureId(gameId, profileId);
+            await _services.Storage.ReadAsync(async storage =>
+            {
+                await _capture.RequireLoadedAsync(storage, game, profile, roles, pending, CancellationToken.None).ConfigureAwait(false);
+                return Unit.Value;
+            }).ConfigureAwait(false);
             var (capture, forksNewBranches) = _capture.TakeEvent(gameId, profileId, roles);
             return new JobStarted(_capture.Start(game, profile, point, roles, capture, creating: false, forksNewBranches: forksNewBranches));
         });

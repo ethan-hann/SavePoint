@@ -37,6 +37,8 @@ public sealed class ScenarioBuilder
 
     internal List<(string GameId, HistoryPoint Point)> History { get; } = [];
 
+    internal List<(string GameId, RemovedSnapshot Snapshot)> Removed { get; } = [];
+
     internal Dictionary<(string GameId, LaunchTarget Target), LaunchPreview> LaunchPreviews { get; } = [];
 
     internal Dictionary<string, ProfileDeletePreview> DeletePreviews { get; } = [];
@@ -129,6 +131,13 @@ public sealed class ScenarioBuilder
     public ScenarioBuilder WithHistoryPoint(string gameId, HistoryPoint point)
     {
         History.Add((gameId, point));
+        return this;
+    }
+
+    // A snapshot that left a profile and is kept until the player frees up space; GetRecentlyRemovedAsync lists the game's, most recently removed first.
+    public ScenarioBuilder WithRemovedSnapshot(string gameId, RemovedSnapshot snapshot)
+    {
+        Removed.Add((gameId, snapshot));
         return this;
     }
 

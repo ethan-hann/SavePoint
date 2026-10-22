@@ -65,6 +65,14 @@ internal static class ContractScenario
         story.Add("unknown profile", Show(await backend.Profiles.UpdateAsync(game.Id, "no-such-profile", new ProfileChanges("x", null, null)), _ => "unexpected success"));
         story.Add("unknown profile on delete", Show(await backend.Profiles.DeleteAsync(game.Id, "no-such-profile"), _ => "unexpected success"));
 
+        story.Add("recently removed of an unknown game", Show(await backend.History.GetRecentlyRemovedAsync("no-such-game", cancellationToken), _ => "unexpected success"));
+        story.Add("recently removed when nothing was removed", Show(await backend.History.GetRecentlyRemovedAsync(game.Id, cancellationToken), removed => $"{removed.Snapshots.Count} snapshots"));
+        story.Add("bring back a snapshot that is not there", Show(await backend.Profiles.BringBackAsync(game.Id, new HistoryPointId("no-such-snapshot"), "Brought back"), _ => "unexpected success"));
+        story.Add("bring back under a blank name", Show(await backend.Profiles.BringBackAsync(game.Id, new HistoryPointId("no-such-snapshot"), " "), _ => "unexpected success"));
+        story.Add("free up space preview of a game with nothing removed", Show(await backend.Games.GetFreeUpSpacePreviewAsync(game.Id, cancellationToken), preview => $"{preview.RecentlyRemovedSnapshots} snapshots"));
+        story.Add("free up space preview of an unknown game", Show(await backend.Games.GetFreeUpSpacePreviewAsync("no-such-game", cancellationToken), _ => "unexpected success"));
+        story.Add("free up space preview of every game with nothing removed", Show(await backend.Settings.GetFreeUpSpacePreviewAsync(cancellationToken), preview => $"{preview.RecentlyRemovedSnapshots} snapshots"));
+
         var settings = await backend.Settings.GetAsync(cancellationToken);
         story.Add("settings read", Show(settings, current => $"{current.Theme} {current.Layout} {current.Locale}"));
         if (settings.Ok)
@@ -205,6 +213,13 @@ internal static class ContractScenario
         using var cancelled = new CancellationTokenSource();
         await cancelled.CancelAsync();
         story.Add("read with a cancelled token", Show(await backend.Games.ListAsync(cancelled.Token), _ => "success"));
+
+        // A snapshot copies what the folders hold, which is the profile made last; the real backend refuses one for the other profile, the fake starts it.
+        var delta = backend.NewGame("Delta");
+        await backend.Games.AddAsync(delta);
+        var first = await FinishCaptureAsync(backend, new Story(), await backend.Profiles.CreateAsync(delta.Id, "Vanilla", null, "Fresh install"), cancellationToken) ?? "missing";
+        await FinishCaptureAsync(backend, new Story(), await backend.Profiles.CreateAsync(delta.Id, "Modded", null, "With a mod"), cancellationToken);
+        story.Add("snapshot of a profile the folders do not hold", Show(await backend.Profiles.CaptureAsync(delta.Id, first, "Not mine"), _ => "started"));
     }
 
     // Ends the job a CreateAsync started and describes what it reports; the new profile's id for later steps.

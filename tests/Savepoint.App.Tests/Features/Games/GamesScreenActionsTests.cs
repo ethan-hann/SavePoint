@@ -3,6 +3,7 @@ using Savepoint.App.Features.Games;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Errors;
 
 namespace Savepoint.App.Tests.Features.Games;
 
@@ -10,6 +11,11 @@ public class GamesScreenActionsTests
 {
     private static FakeBackend WithDeletePreview(ProfileDeletePreview preview) =>
         new(ScenarioBuilder.Mockup().WithDeletePreview(preview));
+
+    // A fourth profile of Skyrim that has no snapshot yet, so its first one is whatever the folders hold.
+    private static FakeBackend WithFirstSnapshotProfile() => new(ScenarioBuilder.Mockup().WithProfile(
+        new Profile("profile-fresh", MockupScenario.SkyrimId, "Fresh profile", "profile/profile-fresh"),
+        new ProfileRowStats("profile-fresh", false, [], 0, null, null, null, null, false, SnapshotNowAvailability.FirstSnapshot)));
 
     private static ProfileDeletePreview Preview(string profileId, int points) =>
         new(profileId, points, [new FolderPointLoss(RepoRole.Install, points, null)], null);
@@ -42,14 +48,15 @@ public class GamesScreenActionsTests
     // ---- Take a snapshot now
 
     [Fact]
-    public async Task Take_a_snapshot_now_asks_the_api_to_capture_that_profile_under_a_dated_name()
+    public async Task Take_a_snapshot_now_asks_the_api_to_capture_the_loaded_profile_under_a_dated_name()
     {
         var rig = await GamesRig.StartAsync();
 
-        await rig.Screen.Profiles[1].TakeSnapshotCommand.ExecuteAsync(null);
+        await rig.Screen.Profiles[0].TakeSnapshotCommand.ExecuteAsync(null);
 
         var call = Assert.Single(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CaptureAsync)));
-        Assert.Equal([MockupScenario.SkyrimId, MockupScenario.VanillaId, "Snapshot - 7-8-26", null], call.Args);
+        Assert.Equal([MockupScenario.SkyrimId, MockupScenario.ModdedId, "Snapshot - 7-8-26", null], call.Args);
+        Assert.Empty(rig.Dialogs.Confirmations);
     }
 
     [Fact]
@@ -58,9 +65,74 @@ public class GamesScreenActionsTests
         var rig = await GamesRig.StartAsync();
         rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.CaptureAsync), MockupScenario.SavesOutOfRoomError);
 
-        await rig.Screen.Profiles[1].TakeSnapshotCommand.ExecuteAsync(null);
+        await rig.Screen.Profiles[0].TakeSnapshotCommand.ExecuteAsync(null);
 
         Assert.Single(rig.ToastTexts);
+    }
+
+    [Fact]
+    public async Task A_profile_the_folders_do_not_hold_offers_no_snapshot_and_says_why_in_its_place()
+    {
+        var rig = await GamesRig.StartAsync();
+
+        var loaded = rig.Screen.Profiles[0];
+        var other = rig.Screen.Profiles[1];
+
+        Assert.True(loaded.CanOfferSnapshot);
+        Assert.False(loaded.SnapshotBlocked);
+        Assert.False(other.CanOfferSnapshot);
+        Assert.True(other.SnapshotBlocked);
+        Assert.Equal("Take a snapshot now (load this profile first)", other.SnapshotBlockedText);
+        Assert.Contains("copies what your game folders hold now", other.SnapshotBlockedTip, StringComparison.Ordinal);
+        Assert.False(other.TakeSnapshotCommand.CanExecute(null));
+
+        await other.TakeSnapshotCommand.ExecuteAsync(null);
+
+        Assert.Empty(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CaptureAsync)));
+    }
+
+    [Fact]
+    public async Task A_profile_with_no_snapshot_yet_asks_first_and_says_its_first_snapshot_is_what_the_folders_hold_now()
+    {
+        var rig = await GamesRig.StartAsync(WithFirstSnapshotProfile());
+        var fresh = rig.Screen.Profiles[3];
+        rig.Dialogs.AnswerConfirm(true);
+
+        Assert.Equal(SnapshotNowAvailability.FirstSnapshot, fresh.SnapshotNow);
+        Assert.True(fresh.CanOfferSnapshot);
+        await fresh.TakeSnapshotCommand.ExecuteAsync(null);
+
+        var question = Assert.Single(rig.Dialogs.Confirmations);
+        Assert.Equal("Take the first snapshot of Fresh profile?", question.Title);
+        Assert.Equal("Fresh profile has no snapshots yet, so its first snapshot is a copy of what your game folders hold right now. If they hold another profile's files, that is what this profile starts with.", question.Message);
+        Assert.Equal("Take the snapshot", question.ConfirmLabel);
+        var call = Assert.Single(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CaptureAsync)));
+        Assert.Equal([MockupScenario.SkyrimId, "profile-fresh", "Snapshot - 7-8-26", null], call.Args);
+    }
+
+    [Fact]
+    public async Task Declining_the_first_snapshot_takes_nothing()
+    {
+        var rig = await GamesRig.StartAsync(WithFirstSnapshotProfile());
+        rig.Dialogs.AnswerConfirm(false);
+
+        await rig.Screen.Profiles[3].TakeSnapshotCommand.ExecuteAsync(null);
+
+        Assert.Single(rig.Dialogs.Confirmations);
+        Assert.Empty(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CaptureAsync)));
+    }
+
+    [Fact]
+    public async Task A_refusal_for_a_profile_that_is_not_loaded_is_shown_when_it_comes_back_from_the_api()
+    {
+        var rig = await GamesRig.StartAsync();
+        rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.CaptureAsync), ErrorInfo.From(new ProfileNotLoadedException(MockupScenario.ModdedId, RepoRole.External)));
+
+        await rig.Screen.Profiles[0].TakeSnapshotCommand.ExecuteAsync(null);
+
+        Assert.Equal(
+            "A snapshot copies what your game folders hold now, and the saves folder isn't holding this profile. Play this profile first to load it, then take a snapshot.",
+            Assert.Single(rig.ToastTexts));
     }
 
     [Fact]

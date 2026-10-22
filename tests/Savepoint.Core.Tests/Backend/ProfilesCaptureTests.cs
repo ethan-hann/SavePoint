@@ -77,18 +77,19 @@ public class ProfilesCaptureTests
     }
 
     [Fact]
-    public async Task Capturing_a_profile_that_is_not_checked_out_reports_that_folder_as_failed()
+    public async Task Capturing_a_profile_that_is_not_checked_out_is_refused_with_its_own_error_and_starts_no_job()
     {
         using var workspace = new BackendWorkspace();
         var game = await workspace.AddGameAsync();
         var (first, _) = await workspace.CreateProfileAsync(game, "Vanilla");
         await workspace.CreateProfileAsync(game, "Modded");
+        var jobs = workspace.Jobs.List().Count;
 
-        var started = await workspace.Profiles.CaptureAsync(game.Id, first.Id, "Into the wrong one");
-        var job = await workspace.WaitForJobAsync(started.Value!.JobId);
+        var refused = await workspace.Profiles.CaptureAsync(game.Id, first.Id, "Into the wrong one");
 
-        Assert.Equal(JobStatus.Failed, job.Status);
-        Assert.All(Assert.IsType<CaptureResult>(job.Result).Folders, folder => Assert.False(folder.Ok));
+        Assert.False(refused.Ok);
+        Assert.Equal("error.profile.notLoaded", refused.Error.MessageId);
+        Assert.Equal(jobs, workspace.Jobs.List().Count);
     }
 
     [Fact]
