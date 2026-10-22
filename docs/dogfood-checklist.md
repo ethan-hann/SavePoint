@@ -8,9 +8,12 @@ Build the app from `main` (`dotnet run --project src/Savepoint.App -c Release`),
 
 - [ ] Add a game you actually play, with its real install and saves folders. The folder confirmation names both folders; Steam games pick up their cover art, and others show a name tint.
 - [ ] Create a first profile. The size estimate is plausible, and the save finishes without freezing the window.
-- [ ] Play through SavePoint, quit the game, keep the session as a new point. History shows it. During the switch, the dialog shows how much has been written and roughly how long is left.
+- [ ] Play through SavePoint, quit the game, keep the session as a new snapshot. History shows it. During the switch, the dialog shows how much has been copied and roughly how long is left.
 - [ ] Change something (install a mod, or let the game update), save a second profile, and switch back and forth. The game starts in the right state each time.
-- [ ] Go back to an older point from History, play, then keep the progress as a new profile. The original profile is unchanged.
+- [ ] Go back to an older snapshot from History, play, then keep the session as a new profile. The original profile is unchanged.
+- [ ] Continue a profile from an older snapshot: its newer snapshots show under History > Recently removed, and Bring back as a new profile restores one.
+- [ ] Read every screen as someone who has never heard of version control would. Note any word or sentence that needs explaining.
+- [ ] Activity: start a snapshot of a large profile, open Activity from the status indicator, watch Details, copy them, and cancel it.
 - [ ] Turn off the store's cloud saves for that game first (Steam Cloud, GOG Galaxy), as the editor recommends.
 
 ## Accessibility
@@ -23,7 +26,7 @@ Build the app from `main` (`dotnet run --project src/Savepoint.App -c Release`),
 ## Failure handling
 
 - [ ] Hold a save file open in another program during a switch: the error names the file; after closing it, "Try again" finishes.
-- [ ] Unplug or rename the drive holding SavePoint's storage, then start SavePoint: it says the storage is unreachable and offers Try again, Find the folder, and Start with an empty folder.
+- [ ] Unplug or rename the drive holding SavePoint's snapshot folder, then start SavePoint: it says it can't reach your snapshots and offers Try again, Find the folder, and Start with an empty folder.
 - [ ] Settings > About > Open the log folder: today's log exists and records what you did.
 - [ ] Start SavePoint twice: the second start brings the first window forward instead of opening another copy.
 - [ ] A crash: there is no crash button on purpose; if SavePoint ever closes with "SavePoint ran into a problem", note what you were doing and keep the log.
