@@ -1,4 +1,5 @@
 using Savepoint.Core.Api;
+using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Services.Settings;
 
@@ -408,5 +409,61 @@ public class StorageUnreachableChoicesTests
         Assert.Equal(away, (await workspace.Settings.GetAsync(workspace.Token)).Value!.StorageRoot);
         Assert.True(check.Value!.Storage!.Reachable);
         Assert.Equal(away, check.Value.Storage.Root);
+    }
+
+    // A choice waits for the locks and the gate, and the folder it was about to replace can come back in the meantime.
+    [Theory(Timeout = 120_000)]
+    [InlineData("find")]
+    [InlineData("empty")]
+    public async Task A_choice_that_waited_for_the_gate_is_refused_when_the_saved_folder_came_back_while_it_waited(string choice)
+    {
+        var (workspace, game, away) = await WithStorageGoneAsync();
+        using var _ = workspace;
+        var copy = Path.Combine(workspace.Root, "copy-of-storage");
+        CopyFolder(away, copy);
+        var gate = workspace.Backend.Services.Storage.Gate;
+        var reader = await gate.EnterSharedAsync(workspace.Token);
+        Task<OperationResult<string>> started;
+        try
+        {
+            started = choice == "find"
+                ? workspace.AppStatus.UseStorageFolderAsync(copy, workspace.Token)
+                : workspace.AppStatus.StartWithEmptyStorageAsync(workspace.Token);
+            await WaitUntilAnExclusiveRequestIsWaitingAsync(gate, workspace.Token);
+            Directory.Move(away, workspace.DefaultStorageRoot);
+        }
+        finally
+        {
+            reader.Dispose();
+        }
+
+        var result = await started;
+
+        Assert.Equal("error.storage.stillReachable", result.Error?.MessageId);
+        Assert.Equal(workspace.DefaultStorageRoot, (await workspace.Settings.GetAsync(workspace.Token)).Value!.StorageRoot);
+        Assert.Single((await workspace.History.GetAsync(game.Id, null, workspace.Token)).Value!.Points);
+    }
+
+    // An exclusive request that is waiting holds the turnstile, so a reader that arrives now cannot get past it.
+    private static async Task WaitUntilAnExclusiveRequestIsWaitingAsync(StorageGate gate, CancellationToken cancellationToken)
+    {
+        var until = DateTime.UtcNow + TimeSpan.FromSeconds(60);
+        while (DateTime.UtcNow < until)
+        {
+            using var probe = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            probe.CancelAfter(TimeSpan.FromMilliseconds(100));
+            try
+            {
+                using var lease = await gate.EnterSharedAsync(probe.Token);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+
+            await Task.Delay(10, cancellationToken);
+        }
+
+        Assert.Fail("the choice never started waiting for the gate");
     }
 }

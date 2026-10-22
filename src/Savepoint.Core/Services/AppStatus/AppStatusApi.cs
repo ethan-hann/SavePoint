@@ -174,6 +174,9 @@ internal sealed class AppStatusApi : IAppStatusApi
                     async () =>
                     {
                         using var exclusive = await _services.Storage.Gate.EnterExclusiveAsync(cancellationToken).ConfigureAwait(false);
+
+                        // The check made before the queue is stale by now: another choice, or the drive coming back, may have changed the root.
+                        await RequireStorageLostAsync(cancellationToken).ConfigureAwait(false);
                         var snapshot = _services.Storage.Build(root);
                         if (create)
                         {
