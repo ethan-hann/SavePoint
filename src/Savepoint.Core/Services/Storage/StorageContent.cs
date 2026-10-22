@@ -93,8 +93,9 @@ internal static class StorageContent
     {
         try
         {
+            // What a link leads to is not this git directory's, so it cannot be judged: it counts as history, like a folder that cannot be read.
             var heads = Path.Combine(gitDir, "refs", "heads");
-            if (Directory.Exists(heads) && Directory.EnumerateFiles(heads, "*", SearchOption.AllDirectories).Any())
+            if (Directory.Exists(heads) && (!GitDirWalk.IsRealFolder(Path.Combine(gitDir, "refs")) || !GitDirWalk.IsRealFolder(heads) || Directory.EnumerateFiles(heads, "*", GitDirWalk.Files(recurse: true)).Any()))
             {
                 return true;
             }

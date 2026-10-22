@@ -82,6 +82,11 @@ internal static class StorageFolderLinks
                 return link;
             }
 
+            if (FirstRedirectIn(gitDir) is { } redirect)
+            {
+                return redirect;
+            }
+
             foreach (var path in new[] { folder.FullName, gitDir, Path.Combine(gitDir, "hooks"), Path.Combine(gitDir, "config") })
             {
                 if (!StaysInside(realRoot, path, realPath))
@@ -95,7 +100,8 @@ internal static class StorageFolderLinks
     }
 
     // What SavePoint reads, rewrites or empties in a git directory is its direct entries (the config, the hooks folder) and what its
-    // info folder holds; any link among them could lead a write or a delete out of the folder.
+    // info folder holds; any link among them could lead a write or a delete out of the folder. It also writes refs and objects at every
+    // save and sweeps lock and temporary files at every start, so a link in any folder below could lead those out of it too.
     private static string? FirstLinkInside(string gitDir)
     {
         var directory = new DirectoryInfo(gitDir);
@@ -115,6 +121,47 @@ internal static class StorageFolderLinks
                         return inner.FullName;
                     }
                 }
+            }
+        }
+
+        return FirstLinkedFolderBelow(directory);
+    }
+
+    // git also follows plain pointer files: commondir moves the repository's shared data to the folder it names, and objects/info/alternates
+    // adds object stores. The file is named as the problem, since it is the thing to remove.
+    private static string? FirstRedirectIn(string gitDir)
+    {
+        var commondir = Path.Combine(gitDir, "commondir");
+        if (File.Exists(commondir))
+        {
+            return commondir;
+        }
+
+        var alternates = Path.Combine(gitDir, "objects", "info", "alternates");
+        try
+        {
+            return File.Exists(alternates) && File.ReadLines(alternates).Any(line => line.Trim() is { Length: > 0 } text && text[0] != '#') ? alternates : null;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // What cannot be read cannot be shown to name nothing.
+            return alternates;
+        }
+    }
+
+    // The first folder, in name order, that is a link anywhere below; folders only, so a repository of any size is cheap to look through.
+    private static string? FirstLinkedFolderBelow(DirectoryInfo folder)
+    {
+        foreach (var directory in folder.EnumerateDirectories("*", Everything).OrderBy(directory => directory.Name, StringComparer.Ordinal))
+        {
+            if (IsLink(directory))
+            {
+                return directory.FullName;
+            }
+
+            if (FirstLinkedFolderBelow(directory) is { } deeper)
+            {
+                return deeper;
             }
         }
 

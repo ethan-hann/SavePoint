@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Paths;
 
@@ -15,8 +16,9 @@ namespace Savepoint.Core.Git;
 /// cancellation as <see cref="Savepoint.Core.Errors.OperationCancelledByUserException"/>; every other method lets the
 /// <see cref="OperationCanceledException"/> through. Operations are asynchronous but do some file work on the calling
 /// thread before their first await, and a repository delete runs entirely there, so call them from a background thread.
-/// A game folder is never written through a folder link on Windows, and a file the game's patterns name is never
-/// recorded, overwritten or removed by a switch.
+/// A game folder is never written through a folder link on Windows, a file the game's patterns name is never
+/// recorded, overwritten or removed by a switch, and a switch or a discard never deletes a file of the player's that it does not
+/// remove itself to make room for a folder or a file of the same name.
 /// </remarks>
 public sealed partial class GitEngine
 {
@@ -26,6 +28,9 @@ public sealed partial class GitEngine
     private readonly string _storageRoot;
     private readonly GitEngineOptions _options;
     private readonly InFlightTable _inFlight = new();
+
+    // The per-question index files that are being read right now; the sweep of stale files leaves them.
+    private readonly ConcurrentDictionary<string, byte> _classifying = new(OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
 
     /// <summary>Builds an engine over a runner.</summary>
     /// <param name="runner">Runs the bundled git.</param>
@@ -129,7 +134,7 @@ public sealed partial class GitEngine
 
         if (scope.IsAlone)
         {
-            StaleLocks.RemoveAll(repo.GitDir);
+            StaleLocks.RemoveAll(repo.GitDir, _classifying.ContainsKey);
         }
 
         EnsureRepoFiles(repo);
@@ -159,7 +164,18 @@ public sealed partial class GitEngine
     private Task<GitResult> RunRawAsync(GitInvocation invocation, CancellationToken ct)
     {
         _options.InvocationObserver?.Invoke(invocation);
+        RefuseRedirect(invocation);
         return _runner.RunAsync(invocation, ct);
+    }
+
+    // git takes the refs of a git directory that holds a pointer file named commondir from the folder the file names, and the environment
+    // takes the objects from the git directory itself. SavePoint stores nothing that way, so no operation goes on from here.
+    private static void RefuseRedirect(GitInvocation invocation)
+    {
+        if (invocation.GitDir is { } gitDir && Path.Combine(gitDir, "commondir") is var pointer && File.Exists(pointer))
+        {
+            throw new GitOperationException($"'{pointer}' points git at another folder, so '{gitDir}' was not used.");
+        }
     }
 
     // For commands that write: another process holding a lock for a moment is retried with a short backoff.

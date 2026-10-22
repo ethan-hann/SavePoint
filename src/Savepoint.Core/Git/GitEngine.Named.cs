@@ -1,4 +1,5 @@
 using System.Text;
+using Savepoint.Core.Errors;
 
 namespace Savepoint.Core.Git;
 
@@ -12,6 +13,10 @@ public sealed partial class GitEngine
     // the launch dialog asks without it, so two questions about one folder can run at once and must not share a file. A stop can leave one
     // behind, and the stale-lock sweep removes every file with this prefix.
     internal const string ClassifyIndexPrefix = "savepoint-classify-";
+
+    // The list of patterns a question asks against sits beside its index. It ends in .tmp, which a git directory being deleted counts as
+    // its own, as it does a lock file.
+    internal static string ExcludeFileOf(string indexFile) => indexFile + ".exclude.tmp";
 
     // A blob id nothing has to hold: the index entries built for the question only need a path.
     private const string _anyBlob = "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391";
@@ -28,8 +33,18 @@ public sealed partial class GitEngine
             return [];
         }
 
-        var listed = await RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z", "-c", "-i", ExcludeFromArgument(repo)), ct).ConfigureAwait(false);
+        var listed = await RunAsync(Classify(repo, "ls-files", "-z", "-c", "-i", ExcludeFromArgument(repo)), ct).ConfigureAwait(false);
         return [.. listed.SplitStandardOutputOnNul()];
+    }
+
+    // A pattern for a folder (a trailing slash) names an entry only when the path is a folder, and for a file the index holds git settles
+    // that by looking at the work tree. So the answer for a file would follow whatever the player's disk holds at that path, which is the
+    // opposite of what the patterns say. The question is asked of a work tree that holds nothing, so an entry is the kind its mode says.
+    private GitInvocation Classify(RepoRef repo, params string[] arguments)
+    {
+        var empty = _runner.Binary.NoHooksPath;
+        Directory.CreateDirectory(empty);
+        return Invocation(repo, readOnly: true, arguments) with { WorkTree = empty, WorkingDirectory = empty };
     }
 
     // Which of these paths the patterns name, whether or not the path exists on disk or in the index: git lists a throwaway index of
@@ -77,6 +92,12 @@ public sealed partial class GitEngine
     private async Task<HashSet<string>> NamedInOneIndexAsync(RepoRef repo, IEnumerable<string> paths, CancellationToken ct)
     {
         var index = Path.Combine(repo.GitDir, $"{ClassifyIndexPrefix}{Guid.NewGuid():N}.index");
+
+        var exclude = ExcludeFileOf(index);
+
+        // The sweep of stale files must not take a file a question is still asking about.
+        _classifying[index] = 0;
+        _classifying[exclude] = 0;
         try
         {
             var environment = new Dictionary<string, string?> { ["GIT_INDEX_FILE"] = index };
@@ -87,33 +108,52 @@ public sealed partial class GitEngine
             }
 
             await RunAsync(Invocation(repo, readOnly: false, "update-index", "-z", "--add", "--index-info") with { Stdin = entries.ToString(), ExtraEnvironment = environment }, ct).ConfigureAwait(false);
-            var listed = await RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z", "-c", "-i", ExcludeFromArgument(repo)) with { ExtraEnvironment = environment }, ct).ConfigureAwait(false);
+            RequireIndex(index);
+            var listed = await RunAsync(Classify(repo, "ls-files", "-z", "-c", "-i", ExcludeForQuestion(repo, exclude)) with { ExtraEnvironment = environment }, ct).ConfigureAwait(false);
+            RequireIndex(index);
             return [.. listed.SplitStandardOutputOnNul()];
         }
         finally
         {
+            _classifying.TryRemove(index, out _);
+            _classifying.TryRemove(exclude, out _);
             TryDelete(index);
             TryDelete(index + ".lock");
+            TryDelete(exclude);
         }
     }
 
-    // Makes the index hold the tree's version of each path (or none, where the tree has none) without touching a file.
-    private async Task AlignIndexAsync(RepoRef repo, string tree, IReadOnlyCollection<string> paths, CancellationToken ct)
+    // The list in the git directory is shared by every reader, and a reader that holds the game from before an ignore-list edit writes the
+    // older list into it. A question that carries the patterns asks against a file of its own, so no other reader can change its answer.
+    private static string ExcludeForQuestion(RepoRef repo, string file)
     {
-        if (paths.Count > 0)
+        if (repo.IgnorePatterns is not { } current)
         {
-            await RunWriteAsync(() => Invocation(repo, readOnly: false, "reset", "--quiet", tree).WithPathspecs(paths), ct).ConfigureAwait(false);
+            return ExcludeFromArgument(repo);
         }
+
+        File.WriteAllText(file, RepoIgnoreFiles.ExcludeText(current), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        return "--exclude-from=" + file;
     }
 
     // A forced checkout writes every file whose stamp does not match its index entry, aligned or not; this bit tells it to leave them.
-    private async Task SetSkipWorktreeAsync(RepoRef repo, bool on, IReadOnlyCollection<string> paths, CancellationToken ct)
+    private async Task SetSkipWorktreeAsync(RepoRef repo, bool on, IReadOnlyCollection<string> paths, CancellationToken ct, IReadOnlyDictionary<string, string?>? environment = null)
     {
         if (paths.Count > 0)
         {
             await RunWriteAsync(
-                () => Invocation(repo, readOnly: false, "update-index", on ? "--skip-worktree" : "--no-skip-worktree", "-z", "--stdin") with { Stdin = NulList(paths) },
+                () => Invocation(repo, readOnly: false, "update-index", on ? "--skip-worktree" : "--no-skip-worktree", "-z", "--stdin") with { Stdin = NulList(paths), ExtraEnvironment = environment },
                 ct).ConfigureAwait(false);
+        }
+    }
+
+    // git reads an index file that is not there as an empty one and lists nothing, which would read as "no file is named"; the answer is
+    // only taken from an index that was there for the whole question.
+    private static void RequireIndex(string index)
+    {
+        if (!File.Exists(index))
+        {
+            throw new GitOperationException($"The index '{index}' a classification works on disappeared, so its answer cannot be trusted.");
         }
     }
 

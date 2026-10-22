@@ -150,7 +150,9 @@ public sealed class GitRunner
         var environment = new Dictionary<string, string>(_binary.BaseEnvironment, _binary.EnvironmentComparer);
         if (invocation.GitDir is { } gitDir)
         {
+            // The repository is the folder it was given; a pointer file in it must not move where git keeps the shared data.
             environment["GIT_DIR"] = Path.GetFullPath(gitDir);
+            environment["GIT_COMMON_DIR"] = Path.GetFullPath(gitDir);
         }
 
         if (invocation.WorkTree is { } workTree)

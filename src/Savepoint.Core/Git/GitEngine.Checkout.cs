@@ -15,7 +15,9 @@ public sealed partial class GitEngine
     /// refuses to start when anything is in the way: unsaved changes in the folder (edited, deleted or new files the game's
     /// patterns do not name), a folder link on Windows, or a folder a stopped switch left half done (only that same switch may
     /// finish it). Nothing is written then. A file the game's patterns name is never in the way and never touched: the switch
-    /// does not write it, remove it or restore it, whether or not either point holds it.
+    /// does not write it, remove it or restore it, whether or not either point holds it. A path that is a file in one place and a
+    /// folder in the other cannot be switched while the folder holds a file the switch does not remove itself (one the patterns
+    /// name, say), or while a file of the player's stands where a folder is needed: the switch stops before it writes anything.
     /// </summary>
     /// <param name="repo">The folder to switch.</param>
     /// <param name="branch">The profile's branch; it must have at least one point.</param>
@@ -28,6 +30,7 @@ public sealed partial class GitEngine
     /// <exception cref="Savepoint.Core.Errors.DirtyWorkingTreeException">Unsaved changes, or a file the game's patterns name, are in the way; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.InterruptedSwitchException">A stopped switch left the folder half done and this one is not the switch to finish it; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.LinkedFolderException">On Windows, a folder link lies in the way; nothing was changed.</exception>
+    /// <exception cref="Savepoint.Core.Errors.FileFolderClashException">Writing a file would delete a folder holding files of the player's that the switch does not remove, or making a folder would delete a file of the player's; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.ProfileHasNoPointsException">The branch has no point to switch to.</exception>
     /// <exception cref="Savepoint.Core.Errors.GitOperationException">A file stayed in use through every attempt (the path is in its arguments), the only files reported as changed are held open by another program so they could not be read, or git failed.</exception>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
@@ -62,7 +65,9 @@ public sealed partial class GitEngine
     /// <summary>
     /// Switches the folder to a branch and makes it match, discarding unsaved changes to recorded files and overwriting new
     /// files that are in the way. It still refuses a half-switched folder it is not finishing and a folder link on Windows, and it
-    /// still leaves the files the game's patterns name as they are. Everything else behaves like <see cref="CheckoutBranchAsync"/>.
+    /// still leaves the files the game's patterns name as they are. It also refuses a file and a folder that cannot share a path
+    /// while the player's own files that the patterns name (or a repository of its own) would be deleted with the folder. Everything
+    /// else behaves like <see cref="CheckoutBranchAsync"/>.
     /// </summary>
     /// <param name="repo">The folder to switch.</param>
     /// <param name="branch">The profile's branch; it must have at least one point.</param>
@@ -88,7 +93,9 @@ public sealed partial class GitEngine
     /// <summary>
     /// Throws away every change since the checked-out point: modified and deleted files come back, new files that
     /// the game's ignore patterns do not name are removed (an ignore file inside the game folder protects nothing).
-    /// Files those patterns name stay as they are on disk, recorded by the point or not, and so does the consent marker. Works on a detached HEAD, and also finishes
+    /// Files those patterns name stay as they are on disk, recorded by the point or not, and so does the consent marker. When the point holds
+    /// a file where the folder has a folder (or a folder where the player has a file), and what would be deleted with it includes a file
+    /// those patterns name or a repository of its own, the discard stops before it writes anything. Works on a detached HEAD, and also finishes
     /// the job of an unfinished switch by returning the folder to the point HEAD is on (which is the point the switch
     /// started from unless HEAD had already moved; <see cref="RepoStatus.InterruptedSwitch"/> says which).
     /// </summary>
@@ -99,6 +106,7 @@ public sealed partial class GitEngine
     /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
     /// <exception cref="Savepoint.Core.Errors.ProfileHasNoPointsException">The folder has no saved point to return to; without one a discard would delete the whole folder, so nothing is touched.</exception>
     /// <exception cref="Savepoint.Core.Errors.LinkedFolderException">On Windows, a folder link lies in the way; nothing was changed.</exception>
+    /// <exception cref="Savepoint.Core.Errors.FileFolderClashException">Restoring a file would delete a folder holding files of the player's that the discard does not remove, or restoring a folder would delete a file of the player's that the patterns name; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.DiskSpaceException">The disk filled while files were restored.</exception>
     /// <exception cref="Savepoint.Core.Errors.GitOperationException">A file stayed in use through every attempt, or git failed.</exception>
     /// <remarks>Empty folders are not recorded in a point, so a discard removes the ones the point does not hold along with the new files.</remarks>
@@ -115,6 +123,7 @@ public sealed partial class GitEngine
 
         var point = await RequireSavedPointAsync(repo, ct).ConfigureAwait(false);
         await RefuseLinkedFoldersInChangesAsync(repo, includeChanged: true, ct).ConfigureAwait(false);
+        await RefuseDiscardClashAsync(repo, ct).ConfigureAwait(false);
 
         using var scope = BeginWrite(repo);
 
@@ -283,6 +292,7 @@ public sealed partial class GitEngine
         var plan = await PlanSwitchAsync(repo, from, to, note, ct).ConfigureAwait(false);
         LinkedFolders.RefuseAny(repo.WorkTree, plan.Touched, ct);
         await RequireNothingInTheWayAsync(repo, from, to, force, note, ct).ConfigureAwait(false);
+        await RefuseFileFolderClashAsync(repo, plan, force, ct).ConfigureAwait(false);
         var sizes = await ObjectSizesAsync(repo, plan.Changes.SelectMany(change => new[] { change.OldId, change.NewId }), ct).ConfigureAwait(false);
         EnsureCheckoutSpace(repo, plan.Changes, sizes);
 
@@ -290,35 +300,13 @@ public sealed partial class GitEngine
         SwitchJournal.Write(repo.GitDir, note?.FromCommit ?? from, to, isBranch ? target : null);
 
         // git must see nothing to do for the files the patterns name: their index entries are made to say what the target says, which
-        // changes no file. The note is already written, so a stop from here on is a stopped switch like any other.
-        try
-        {
-            await AlignIndexAsync(repo, to, plan.Named, ct).ConfigureAwait(false);
-            if (force)
-            {
-                await SetSkipWorktreeAsync(repo, on: true, plan.NamedInTarget, ct).ConfigureAwait(false);
-            }
-        }
-        catch (GitOperationException)
-        {
-            // git failed before any file moved (its lock stayed held, say), so this is a refusal: the entries go back and a note this
-            // call wrote goes. If they cannot go back the note stays, since the index may be half aligned.
-            try
-            {
-                await UndoAlignmentAsync(note is null, repo, from, plan.Named).ConfigureAwait(false);
-                ClearNoteIf(note is null, repo);
-            }
-            catch (GitOperationException)
-            {
-                // The original failure is the one to report.
-            }
-
-            throw;
-        }
+        // changes no file. The note is already written, so a stop from here on is a stopped switch like any other; a refusal puts back
+        // the index it started from, and the note this call wrote goes.
+        using var aligned = await AlignIndexAsync(repo, to, plan, force, ownsNote: note is null, ct).ConfigureAwait(false);
 
         var reporter = progress is null ? null : new ProgressReporter(progress, new CheckoutBytePlan(plan.Changes, sizes));
 
-        await RunCheckoutAsync(repo, target, to, isBranch, force, ownsNote: note is null, from, plan.Named, reporter, ct).ConfigureAwait(false);
+        await RunCheckoutAsync(repo, target, to, isBranch, force, ownsNote: note is null, aligned, reporter, ct).ConfigureAwait(false);
         reporter?.Complete();
         if (force)
         {
@@ -343,7 +331,7 @@ public sealed partial class GitEngine
     }
 
     // Runs the switch itself. git refusing (local changes, a lock) leaves nothing changed; any other failure leaves the note that the switch is unfinished.
-    private async Task RunCheckoutAsync(RepoRef repo, string target, string to, bool isBranch, bool force, bool ownsNote, string? from, IReadOnlySet<string> aligned, ProgressReporter? reporter, CancellationToken ct)
+    private async Task RunCheckoutAsync(RepoRef repo, string target, string to, bool isBranch, bool force, bool ownsNote, AlignedIndex? aligned, ProgressReporter? reporter, CancellationToken ct)
     {
         for (var attempt = 0; ; attempt++)
         {
@@ -362,15 +350,21 @@ public sealed partial class GitEngine
                     continue;
                 }
 
-                await UndoAlignmentAsync(ownsNote, repo, from, aligned).ConfigureAwait(false);
-                ClearNoteIf(ownsNote, repo);
+                if (await TryRestoreAsync(repo, aligned).ConfigureAwait(false))
+                {
+                    ClearNoteIf(ownsNote, repo);
+                }
+
                 throw new GitOperationException(GitFailure.LockFilePath(stderr), $"git could not take its lock: {stderr.Trim()}");
             }
 
             if (GitFailure.RefusedToOverwrite(stderr))
             {
-                await UndoAlignmentAsync(ownsNote, repo, from, aligned).ConfigureAwait(false);
-                ClearNoteIf(ownsNote, repo);
+                if (await TryRestoreAsync(repo, aligned).ConfigureAwait(false))
+                {
+                    ClearNoteIf(ownsNote, repo);
+                }
+
                 throw RefusalFor(repo, stderr);
             }
 
@@ -446,16 +440,6 @@ public sealed partial class GitEngine
     {
         var head = GitDirFiles.ReadHead(repo.GitDir);
         return isBranch ? string.Equals(head.Branch, target, StringComparison.Ordinal) : string.Equals(head.DetachedCommit, to, StringComparison.Ordinal);
-    }
-
-    // A refused switch changed nothing, so the index entries made to agree with the target for the files the patterns name go back to
-    // the point the folder is on; otherwise the status would list those files as changed.
-    private async Task UndoAlignmentAsync(bool ownsNote, RepoRef repo, string? from, IReadOnlySet<string> aligned)
-    {
-        if (ownsNote && from is not null)
-        {
-            await AlignIndexAsync(repo, from, aligned, CancellationToken.None).ConfigureAwait(false);
-        }
     }
 
     // A note describes a switch; one this call did not start describes work that is still unfinished, and a refusal changes nothing in it.

@@ -24,4 +24,7 @@ public sealed class GitOperationException : SavepointException
         : base("error.gitOperation.failed", devMessage)
     {
     }
+
+    // What git itself printed when it failed; the developer message keeps only the first part of it, and the engine reads the whole.
+    internal string? StandardError { get; init; }
 }

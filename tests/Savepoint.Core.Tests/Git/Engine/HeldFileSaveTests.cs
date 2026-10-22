@@ -57,6 +57,24 @@ public sealed class HeldFileSaveTests : IDisposable
         }
     }
 
+    // What git says about a file with a long name is longer than the text a developer message keeps, and the line that names the file
+    // is the one that gets cut.
+    [Fact]
+    public async Task A_report_from_git_too_long_to_keep_whole_still_names_the_held_file()
+    {
+        var (repo, _) = await _ws.ThreePointsRepoAsync();
+        var relative = string.Join("/", Enumerable.Range(0, 4).Select(i => new string((char)('a' + i), 240))) + "/held.bin";
+        var file = _ws.Write(repo, relative, "a new file another program holds");
+
+        using (HeldFiles.Hold(file, HeldFileKind.InUse))
+        {
+            var error = await Assert.ThrowsAnyAsync<SavepointException>(() => _ws.CaptureAsync(repo, "profile-1"));
+
+            Assert.Equal(HeldFiles.ErrorIdOf(HeldFileKind.InUse), error.MessageId);
+            Assert.Equal(file, error.Args["path"]);
+        }
+    }
+
     [Fact]
     public async Task The_developer_text_for_a_file_another_program_holds_says_the_save_not_the_switch_could_not_go_on()
     {

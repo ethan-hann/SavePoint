@@ -31,6 +31,19 @@ public sealed class GitIsolationTests : IDisposable
     }
 
     [Fact]
+    public async Task The_shared_directory_is_the_git_directory_whatever_a_file_in_it_says()
+    {
+        await _ws.InitAsync();
+        var elsewhere = Path.Combine(_ws.Root, "elsewhere.git");
+        await _ws.RunPlainAsync("init", "--bare", "--quiet", elsewhere);
+        File.WriteAllText(Path.Combine(_ws.GitDir, "commondir"), elsewhere);
+
+        var common = await _ws.RunAsync("rev-parse", "--git-common-dir");
+
+        Assert.Equal(_ws.GitDir.Replace('\\', '/'), common.StandardOutput.Trim().Replace('\\', '/'), ignoreCase: OperatingSystem.IsWindows());
+    }
+
+    [Fact]
     public async Task A_hostile_user_config_is_ignored_and_the_commit_is_unsigned_and_authored_by_the_app()
     {
         var home = HostileHome("Wrong", "bogus-signer-that-does-not-exist");

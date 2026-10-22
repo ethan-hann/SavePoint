@@ -8,6 +8,7 @@
   "errorCard.title.canceled": "Canceled",
   "errorCard.title.checkFields": "Some fields need another look",
   "errorCard.title.dataUnreadable": "SavePoint couldn't read its data",
+  "errorCard.title.fileAndFolderShareAName": "A file and a folder share a name",
   "errorCard.title.fileInUse": "A file is in use, so the switch stopped partway",
   "errorCard.title.fileUnreadable": "SavePoint can't read a file",
   "errorCard.title.folderBelongsElsewhere": "That folder belongs to another game",

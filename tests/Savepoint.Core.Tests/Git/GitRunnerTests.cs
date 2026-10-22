@@ -190,6 +190,18 @@ public sealed class GitRunnerTests : IDisposable
     }
 
     [Fact]
+    public void The_git_directory_is_also_the_shared_directory_and_without_one_nothing_is_named()
+    {
+        var gitDir = Path.Combine(_ws.Root, "g");
+
+        var with = _ws.Runner.BuildEnvironment(new GitInvocation(["status"]) { GitDir = gitDir });
+        var without = _ws.Runner.BuildEnvironment(new GitInvocation(["--version"]));
+
+        Assert.Equal(gitDir, with.GetValueOrDefault("GIT_COMMON_DIR"));
+        Assert.False(without.ContainsKey("GIT_COMMON_DIR"));
+    }
+
+    [Fact]
     public void A_work_tree_without_a_git_dir_is_refused()
     {
         var invocation = new GitInvocation(["status"]) { WorkTree = _ws.Root };

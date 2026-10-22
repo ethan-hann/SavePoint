@@ -10,27 +10,29 @@ internal static class StaleLocks
     // Removes every lock file and every temporary object file it can; the caller has established that no git process is
     // using the directory. A git killed while it writes a big file leaves a temporary pack or object that can be hundreds of
     // megabytes and that nothing finishes or removes.
-    public static int RemoveAll(string gitDir) => RemoveLocks(gitDir) + RemoveTemporaryFiles(gitDir);
+    // A file that inUse says is being read is left.
+    public static int RemoveAll(string gitDir, Func<string, bool>? inUse = null) => RemoveLocks(gitDir, inUse) + RemoveTemporaryFiles(gitDir);
 
     private static int RemoveTemporaryFiles(string gitDir)
     {
+        // A link in the git directory leads out of it, and nothing there is ours to delete.
         var objects = Path.Combine(gitDir, "objects");
-        if (!Directory.Exists(objects))
+        if (!GitDirWalk.IsRealFolder(objects))
         {
             return 0;
         }
 
         var removed = 0;
         var pack = Path.Combine(objects, "pack");
-        if (Directory.Exists(pack))
+        if (GitDirWalk.IsRealFolder(pack))
         {
-            foreach (var file in Directory.EnumerateFiles(pack, "tmp_*").ToList())
+            foreach (var file in Directory.EnumerateFiles(pack, "tmp_*", GitDirWalk.Files(recurse: false)).ToList())
             {
                 removed += TryDelete(file) ? 1 : 0;
             }
         }
 
-        foreach (var folder in Directory.EnumerateDirectories(objects).ToList())
+        foreach (var folder in Directory.EnumerateDirectories(objects, "*", GitDirWalk.Folders()).ToList())
         {
             var name = Path.GetFileName(folder);
             if (name.Length != 2 || !name.All(char.IsAsciiHexDigit))
@@ -38,7 +40,7 @@ internal static class StaleLocks
                 continue;
             }
 
-            foreach (var file in Directory.EnumerateFiles(folder, "tmp_obj_*").ToList())
+            foreach (var file in Directory.EnumerateFiles(folder, "tmp_obj_*", GitDirWalk.Files(recurse: false)).ToList())
             {
                 removed += TryDelete(file) ? 1 : 0;
             }
@@ -47,7 +49,7 @@ internal static class StaleLocks
         return removed;
     }
 
-    private static int RemoveLocks(string gitDir)
+    private static int RemoveLocks(string gitDir, Func<string, bool>? inUse)
     {
         var removed = 0;
         foreach (var name in _topLevel)
@@ -55,15 +57,21 @@ internal static class StaleLocks
             removed += TryDelete(Path.Combine(gitDir, name)) ? 1 : 0;
         }
 
-        foreach (var file in Directory.EnumerateFiles(gitDir, GitEngine.ClassifyIndexPrefix + "*").ToList())
+        foreach (var prefix in new[] { GitEngine.ClassifyIndexPrefix, GitEngine.AlignIndexPrefix })
         {
-            removed += TryDelete(file) ? 1 : 0;
+            foreach (var file in Directory.EnumerateFiles(gitDir, prefix + "*", GitDirWalk.Files(recurse: false)).ToList())
+            {
+                if (inUse?.Invoke(file) != true)
+                {
+                    removed += TryDelete(file) ? 1 : 0;
+                }
+            }
         }
 
         var refs = Path.Combine(gitDir, "refs");
-        if (Directory.Exists(refs))
+        if (GitDirWalk.IsRealFolder(refs))
         {
-            foreach (var file in Directory.EnumerateFiles(refs, "*.lock", SearchOption.AllDirectories).ToList())
+            foreach (var file in Directory.EnumerateFiles(refs, "*.lock", GitDirWalk.Files(recurse: true)).ToList())
             {
                 removed += TryDelete(file) ? 1 : 0;
             }
