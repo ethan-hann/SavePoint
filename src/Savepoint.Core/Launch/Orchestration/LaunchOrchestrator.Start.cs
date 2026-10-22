@@ -109,6 +109,13 @@ public sealed partial class LaunchOrchestrator
     {
         var token = context.CancellationToken;
         var game = await RequireGameAsync(gameId, token).ConfigureAwait(false);
+
+        // The wait for the lock can be long (a save, an optimization, a storage move); the player may have started the game meanwhile.
+        if (await IsGameOpenAsync(game).ConfigureAwait(false))
+        {
+            throw new LaunchAlreadyRunningException(gameId);
+        }
+
         var profiles = await _services.Catalog.ListProfilesAsync(gameId, token).ConfigureAwait(false);
         var repos = GameFolders.Repos(_services, storage, game);
         var resolved = await TargetResolver.ResolveAsync(storage, repos, profiles, target, token).ConfigureAwait(false);
@@ -128,7 +135,13 @@ public sealed partial class LaunchOrchestrator
             await SwitchAsync(storage, context, gameId, pending).ConfigureAwait(false);
         }
 
-        _book.TryUpdate(gameId, context.JobId, record => record.StartCommits = resolved.Folders.Where(folder => !folder.Leave).ToDictionary(folder => folder.Role, folder => folder.Commit));
+
+        // The session opened with what was true before the wait for the lock; what the switch really started from is what counts.
+        _book.TryUpdate(gameId, context.JobId, record =>
+        {
+            record.Info = record.Info with { ProfileId = resolved.Profile.Id, StartedFromOlderPoint = resolved.IsOlderPoint };
+            record.StartCommits = resolved.Folders.Where(folder => !folder.Leave).ToDictionary(folder => folder.Role, folder => folder.Commit);
+        });
         return new Prepared(game, repos.Single(repo => repo.Role == RepoRole.Install).WorkTree, resolved);
     }
 
