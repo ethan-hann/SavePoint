@@ -29,6 +29,10 @@ public class GameEditorErrorTests
         return editor;
     }
 
+    // The Api names the folder at fault the way it does for the real backend: a role in the error's arguments.
+    private static ErrorInfo OnFolder(ErrorInfo error, RepoRole role) =>
+        error with { Args = new Dictionary<string, object?>(error.Args) { ["role"] = role } };
+
     private static ErrorInfo Invalid(params (string Path, string MessageId)[] issues) =>
         ErrorInfo.From(new ValidationException([.. issues.Select(issue => new ValidationIssue(issue.Path, issue.MessageId))]));
 
@@ -233,7 +237,50 @@ public class GameEditorErrorTests
     }
 
     [Fact]
-    public async Task An_overlap_with_another_game_is_shown_under_the_install_folder_of_a_new_game()
+    public async Task An_overlap_is_shown_under_the_install_folder_when_the_error_names_it()
+    {
+        var rig = EditorRig.Create();
+        var editor = Filled(rig);
+        rig.Backend.FailNext<IGamesApi>("AddAsync", OnFolder(ErrorInfo.From(new GameOverlapException(MockupScenario.SatisfactoryId, "Satisfactory")), RepoRole.Install));
+
+        await Save(rig, editor);
+
+        Assert.NotNull(editor.InstallCard);
+        Assert.Equal("That folder overlaps another game", editor.InstallCard.Title);
+        Assert.Contains("Satisfactory", editor.InstallCard.Body);
+        Assert.Null(editor.SavesCard);
+    }
+
+    [Fact]
+    public async Task An_overlap_on_the_saves_folder_of_a_new_game_is_shown_under_the_saves_field()
+    {
+        var rig = EditorRig.Create();
+        var editor = Filled(rig);
+        rig.Backend.FailNext<IGamesApi>("AddAsync", OnFolder(ErrorInfo.From(new GameOverlapException(MockupScenario.SatisfactoryId, "Satisfactory")), RepoRole.External));
+
+        await Save(rig, editor);
+
+        Assert.NotNull(editor.SavesCard);
+        Assert.Equal("That folder overlaps another game", editor.SavesCard.Title);
+        Assert.Null(editor.InstallCard);
+    }
+
+    [Fact]
+    public async Task An_overlap_is_shown_under_the_folder_the_error_names_when_editing()
+    {
+        var rig = EditorRig.Create();
+        var editor = rig.Edit();
+        editor.SavesPath = @"{localAppData}\FactoryGame";
+        rig.Backend.FailNext<IGamesApi>("UpdateAsync", OnFolder(ErrorInfo.From(new GameOverlapException(MockupScenario.SatisfactoryId, "Satisfactory")), RepoRole.External));
+
+        await Save(rig, editor);
+
+        Assert.NotNull(editor.SavesCard);
+        Assert.Null(editor.InstallCard);
+    }
+
+    [Fact]
+    public async Task An_error_that_names_no_folder_is_shown_above_the_form_and_not_under_a_guessed_field()
     {
         var rig = EditorRig.Create();
         var editor = Filled(rig);
@@ -241,23 +288,10 @@ public class GameEditorErrorTests
 
         await Save(rig, editor);
 
-        Assert.NotNull(editor.InstallCard);
-        Assert.Equal("That folder overlaps another game", editor.InstallCard.Title);
-        Assert.Contains("Satisfactory", editor.InstallCard.Body);
-    }
-
-    [Fact]
-    public async Task An_overlap_is_shown_under_the_folder_that_was_changed_when_editing()
-    {
-        var rig = EditorRig.Create();
-        var editor = rig.Edit();
-        editor.SavesPath = @"{localAppData}\FactoryGame";
-        rig.Backend.FailNext<IGamesApi>("UpdateAsync", ErrorInfo.From(new GameOverlapException(MockupScenario.SatisfactoryId, "Satisfactory")));
-
-        await Save(rig, editor);
-
-        Assert.NotNull(editor.SavesCard);
+        Assert.NotNull(editor.FormError);
+        Assert.Equal("That folder overlaps another game", editor.FormError.Title);
         Assert.Null(editor.InstallCard);
+        Assert.Null(editor.SavesCard);
     }
 
     [Fact]
