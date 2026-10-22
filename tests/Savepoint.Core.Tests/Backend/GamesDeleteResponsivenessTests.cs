@@ -18,24 +18,23 @@ public class GamesDeleteResponsivenessTests
         Directory.CreateDirectory(padding);
         Parallel.For(0, 30_000, i => File.WriteAllText(Path.Combine(padding, i + ".tmp"), "x"));
         using var window = new SingleThreadContext();
-        var beats = new ConcurrentQueue<long>();
-        using var heartbeat = new Timer(_ => window.Post(_ => beats.Enqueue(Stopwatch.GetTimestamp()), null), null, TimeSpan.Zero, TimeSpan.FromMilliseconds(20));
 
         var deleted = await window.InvokeAsync(() => workspace.Games.DeleteAsync(game.Id));
-        await Task.Delay(100, workspace.Token);
 
         Assert.True(deleted.Ok, deleted.Error?.Detail);
         Assert.False(Directory.Exists(Path.Combine(workspace.DefaultStorageRoot, game.Id)));
-        var stamps = beats.ToArray();
-        var longest = stamps.Zip(stamps.Skip(1), (before, after) => Stopwatch.GetElapsedTime(before, after)).DefaultIfEmpty().Max();
-        Assert.True(longest < _longestAllowedGap, $"the calling thread was held for {longest.TotalMilliseconds:F0} ms at a stretch");
+        // Each posted item is one stretch the window thread could not draw; a timer would also count a busy thread pool.
+        Assert.True(window.LongestItem < _longestAllowedGap, $"the calling thread was held for {window.LongestItem.TotalMilliseconds:F0} ms at a stretch");
     }
 
-    // One thread that runs what is posted to it, one item at a time, as the window's does.
+    // One thread that runs what is posted to it, one item at a time, as the window's does, and times each item.
     private sealed class SingleThreadContext : SynchronizationContext, IDisposable
     {
         private readonly BlockingCollection<(SendOrPostCallback Callback, object? State)> _queue = [];
         private readonly Thread _thread;
+        private long _longestTicks;
+
+        public TimeSpan LongestItem => TimeSpan.FromTicks(Interlocked.Read(ref _longestTicks));
 
         public SingleThreadContext()
         {
@@ -75,7 +74,13 @@ public class GamesDeleteResponsivenessTests
             SetSynchronizationContext(this);
             foreach (var (callback, state) in _queue.GetConsumingEnumerable())
             {
+                var started = Stopwatch.GetTimestamp();
                 callback(state);
+                var ticks = Stopwatch.GetElapsedTime(started).Ticks;
+                if (ticks > Interlocked.Read(ref _longestTicks))
+                {
+                    Interlocked.Exchange(ref _longestTicks, ticks);
+                }
             }
         }
     }

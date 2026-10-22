@@ -73,7 +73,7 @@ Press **Play** on a profile, or **Go back to this** on a point in History. SaveP
 - **Unsaved changes from your last session.** When files changed since the profile was last saved, you choose what happens to them before anything is switched:
   - **Save them first**, into the profile they belong to.
   - **Keep as a new profile**, when they don't belong to any profile, so nothing is lost.
-  - **Discard them**, permanently, after a second confirmation.
+  - **Discard them**, permanently, after a second confirmation that names the folder and counts the files it removes and puts back.
 
 **Switch and play** puts the files in place, shows the progress, and starts the game. While the game runs, SavePoint shows a running card. If SavePoint cannot tell when you stop (some launchers hide the game), press **I'm done playing**.
 
@@ -135,6 +135,11 @@ Every failure says what happened and what you can do; **Show details** gives the
 - **Half of that save worked.** One folder saved and the other didn't. Fix the reason shown and retry just that part. Nothing already saved is affected.
 - **The last switch didn't finish.** The folder holds files from two points. Switch again to finish it, or discard the changes to bring the folder back to a saved point.
 - **A folder moved or is gone.** SavePoint still has everything it saved. Point it at the new location to carry on.
+- **That folder doesn't look like the one SavePoint saved.** When you point a game with history at a new folder, SavePoint compares the folder with what it saved. If fewer than half of the saved files are there, it shows both counts and asks you to confirm, so a slip like choosing the parent folder can't lead to a discard that wipes it.
+- **SavePoint's storage isn't reachable.** If the drive holding SavePoint's storage is unplugged or asleep, SavePoint says so instead of showing empty history. Reconnect the drive. A storage move or a game delete waits until the storage is back.
+- **Some old copies couldn't be removed.** After a storage move, SavePoint lists any old files it couldn't delete, for example because another program had them open, so you can delete them by hand.
+
+Closing SavePoint while it removes all data or moves its storage asks first. Stopping those halfway would leave a mess.
 - **An unreadable settings file at startup.** SavePoint leaves the file as it found it. For each one, it offers to restore the last good copy or start that file empty. The unreadable file is moved aside, never deleted.
 
 ## What SavePoint touches

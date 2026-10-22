@@ -107,7 +107,7 @@ public interface IGamesApi
     Task<OperationResult<IReadOnlyList<GameDefinition>>> ListAsync(CancellationToken cancellationToken = default);
     Task<OperationResult<AddGameOutcome>> AddAsync(GameDefinition definition);              // Added(game) | HistoryFound(orphan)
     Task<OperationResult<GameDefinition>> ResolveOrphanAsync(GameDefinition definition, OrphanResolution resolution);
-    Task<OperationResult<GameDefinition>> UpdateAsync(GameDefinition definition);           // also re-points a moved folder
+    Task<OperationResult<GameDefinition>> UpdateAsync(GameDefinition definition, bool confirmFolderChange = false);  // re-points a moved folder; folderMismatch until confirmed (D31.4)
     Task<OperationResult<Unit>> DeleteAsync(string gameId);
     Task<OperationResult<IReadOnlyList<FolderStatus>>> GetFolderStatusAsync(string gameId, CancellationToken cancellationToken = default);
     Task<OperationResult<GameStorageUsage>> GetStorageUsageAsync(string gameId, CancellationToken cancellationToken = default);
@@ -138,9 +138,10 @@ public interface ILaunchApi
     IReadOnlyList<LaunchSessionInfo> ListSessions();
     Task<OperationResult<LaunchPreview>> GetPreviewAsync(string gameId, LaunchTarget target, CancellationToken cancellationToken = default);
     Task<OperationResult<JobStarted>> StartAsync(string gameId, LaunchTarget target);
-    Task<OperationResult<Unit>> DiscardChangesAsync(string gameId, RepoRole folder);
+    Task<OperationResult<Unit>> DiscardChangesAsync(string gameId, RepoRole folder);         // refused while a session is open or the game runs (D31.5)
     Task<OperationResult<Unit>> MarkFinishedAsync(string gameId);                            // "I'm done playing"
-    Task<OperationResult<Unit>> CompleteSessionAsync(string gameId, SessionCompletion completion);
+    Task<OperationResult<Unit>> CompleteSessionAsync(string gameId, SessionCompletion completion);  // only a choice the session offered
+    Task<OperationResult<Unit>> RetryCompletionAsync(string gameId);                         // reruns a partial completion's plan under its capture id (D31.7)
 }
 
 public interface ISettingsApi
@@ -190,6 +191,13 @@ Catalog models (`GameDefinition`, `Profile`, `AppSettings`, `GameTemplate`, `Rep
 **Storage and settings.** `GameStorageUsage` and `StorageSummary` give SavePoint's bytes per game and in total and the storage volume's size and free space; the summary adds the last optimization date. `StorageRelocationPreview` and `ClearAllDataPreview` list what will move or go, with sizes and a `BlockedBy` error, so the confirmation is exact. After a move is verified and SavePoint has switched to the new root, the old copies are deleted; a copy that cannot be removed is named in the job's lines and left in place.
 
 **Startup (D18).** `StartupStatus` holds `GitStatus(Available, Path, Version, Error)` and `CatalogStatus(Directory, CorruptFiles)`, each `CorruptCatalogFile` naming its path, its last good backup if any, and the error. `RecoverCatalogFileAsync` restores the backup or starts that file empty; either way the corrupt file is moved aside, never deleted, and the call answers with where it went.
+
+**From the backend review (D31).**
+- **Launch preview:** each `FolderLaunchState` also reports `DirtyNewFileCount` (so the discard confirmation can count what it removes) and `UnfinishedSwitch` with its `UnfinishedSwitchTarget`, a `LaunchTarget` that "Switch again" starts to finish the switch.
+- **Capture times:** commits carry a `Savepoint-Captured-At` trailer (milliseconds), and History and the launch resolver order points by it, using one shared rule.
+- **Storage move:** `StorageRelocationResult.NotRemoved` lists the old copies left behind, and the job ends Partial when it is not empty. While the copy runs, the destination holds `savepoint-move-in-progress.txt`, and a later move refuses a destination that still has it (`error.storageRelocation.moveUnfinished`).
+- **New error ids:** `error.gameService.folderMismatch`, `error.gameService.alreadyExists`, `error.gameService.noHistoryToReconnect`, `error.launch.completionNotOffered`, `error.storageRelocation.moveUnfinished`, `error.gitOperation.failed`. `error.launch.unavailable` is gone, and `BackendOptions.Launch` is required.
+- **App:** `AppServices.BackendStarted` is false when the backend failed to start; the startup screen then says to restart SavePoint. `ExitGuard` asks before quitting during a clear-all or a storage move, cancels the jobs that can be canceled, and waits up to three seconds.
 
 **Artwork (D30).** `IArtworkApi` answers with what is on disk at once and never waits for a lookup. A missing image starts a background lookup, and the `ArtworkChanged` event (keyed by game id) delivers the result.
 - **Images** live in `<catalog dir>/artwork/<gameId>/`: `custom.<ext>` (the user's own, copied in), `steam-wide.jpg`, `steam-square.jpg`, and `lookup.json`, which records the app id used and a miss for 7 days. A missing app id counts as a miss.
