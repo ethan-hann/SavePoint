@@ -25,7 +25,7 @@ public sealed class SingleInstanceTests : IDisposable
     }
 
     // A Unix socket needs a short path on a file system that holds sockets (a Windows drive in WSL does not); SAVEPOINT_TEST_SOCKET_DIR names another folder.
-    private static string PipeDirectory()
+    internal static string PipeDirectory()
     {
         var directory = Environment.GetEnvironmentVariable("SAVEPOINT_TEST_SOCKET_DIR") ?? Path.GetTempPath();
         if (!OperatingSystem.IsWindows())
@@ -320,14 +320,6 @@ public sealed class SingleInstanceTests : IDisposable
         Assert.False(delivered);
     }
 
-    [Fact]
-    public void A_mutex_the_machine_will_not_create_does_not_make_this_the_first_copy()
-    {
-        var instance = new SingleInstance(_appId, _user, PipeDirectory(), TimeSpan.FromSeconds(1), _ => InstanceMutex.Acquire("Global\\sp-no-such-folder\\mutex/name"));
-        _disposables.Add(instance);
-
-        Assert.False(instance.TryAcquire());
-    }
     [Fact]
     public void The_mutex_name_is_global_and_holds_no_other_backslash()
     {

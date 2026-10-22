@@ -7,10 +7,12 @@ namespace Savepoint.App.Platform;
 
 /// <summary>
 /// Lets one copy of the app run per user. The first copy holds a named mutex and listens on a named pipe; a second copy
-/// finds the mutex taken, asks the first to bring its window forward through the pipe, and exits. Only the mutex decides who runs:
-/// two copies working on the same repositories is worse than a copy that cannot be brought forward. So <see cref="TryAcquire"/> is
-/// true for the mutex's holder alone, a copy that cannot be told to show itself (no pipe) still holds the mutex, and a second copy
-/// whose <see cref="SignalFirstInstance"/> fails must still exit; it can show a brief "already running" notice first.
+/// finds the mutex taken, asks the first to bring its window forward through the pipe, and exits. Only the mutex decides who runs
+/// (or, on a machine that will not create the mutex, an exclusive lock on a file in the user's private folder): two copies working
+/// on the same repositories is worse than a copy that cannot be brought forward. So <see cref="TryAcquire"/> is true for the holder
+/// alone, a copy that cannot be told to show itself (no pipe) still holds its place, and a second copy whose
+/// <see cref="SignalFirstInstance"/> fails must still exit; it can show a brief "already running" notice first. A machine that
+/// refuses both the mutex and the file leaves no way to tell, and the safe answer there is not to run.
 /// </summary>
 public sealed class SingleInstance : IDisposable
 {
@@ -25,6 +27,7 @@ public sealed class SingleInstance : IDisposable
     private readonly TimeSpan _readTimeout;
     private readonly Func<string, InstanceMutex> _acquireMutex;
     private InstanceMutex? _owner;
+    private FileStream? _lockFile;
     private NamedPipeServerStream? _firstListener;
     private CancellationTokenSource? _stop;
     private Task? _server;
@@ -55,13 +58,11 @@ public sealed class SingleInstance : IDisposable
         MutexName = "Global\\sp-" + hash[..16];
         // Short on purpose: a Unix socket path holds about 100 bytes, and this lands inside a folder that may be long.
         var pipeName = "sp-" + hash[..12];
-        PipeName = OperatingSystem.IsWindows()
-            ? pipeName
-            : Path.Combine(
-                pipeDirectory
-                    ?? DefaultPipeDirectory(PlatformFactory.CurrentOs, Environment.GetEnvironmentVariable, Directory.Exists, Path.GetTempPath())
-                    ?? Path.GetTempPath(),
-                pipeName);
+        var directory = pipeDirectory
+            ?? DefaultPipeDirectory(PlatformFactory.CurrentOs, Environment.GetEnvironmentVariable, Directory.Exists, Path.GetTempPath())
+            ?? Path.GetTempPath();
+        PipeName = OperatingSystem.IsWindows() ? pipeName : Path.Combine(directory, pipeName);
+        LockFilePath = Path.Combine(directory, pipeName + ".lock");
     }
 
     /// <summary>
@@ -97,6 +98,9 @@ public sealed class SingleInstance : IDisposable
 
     internal string MutexName { get; }
 
+    /// <summary>The file a copy locks when the machine will not create the mutex; in the same private folder as the socket.</summary>
+    internal string LockFilePath { get; }
+
     /// <summary>The pipe name handed to .NET: a bare name on Windows, the absolute path of the socket elsewhere.</summary>
     internal string PipeName { get; }
 
@@ -116,7 +120,7 @@ public sealed class SingleInstance : IDisposable
     }
 
     /// <summary>Takes the right to be the running copy.</summary>
-    /// <returns>True only when this copy holds the mutex and should start normally; false when another copy is running, or the machine would not create the mutex.</returns>
+    /// <returns>True only when this copy holds the mutex (or the lock file, where the machine refuses the mutex) and should start normally; false when another copy is running, or the machine allows neither.</returns>
     /// <exception cref="ObjectDisposedException">This object was disposed.</exception>
     public bool TryAcquire()
     {
@@ -131,14 +135,25 @@ public sealed class SingleInstance : IDisposable
             var owner = _acquireMutex(MutexName);
             switch (owner.Outcome)
             {
-                // A mutex the machine would not create proves nothing about other copies, and the safe answer is not to run.
                 case MutexOutcome.Taken:
-                case MutexOutcome.Unavailable:
                     owner.Dispose();
                     return false;
+
+                // A mutex the machine would not create proves nothing about other copies; a lock on a file settles it the same way.
+                case MutexOutcome.Unavailable:
+                    owner.Dispose();
+                    if (!TryLockFile())
+                    {
+                        return false;
+                    }
+
+                    break;
+
+                default:
+                    _owner = owner;
+                    break;
             }
 
-            _owner = owner;
             _acquired = true;
             // Without a pipe the running copy cannot be told to show itself, but it still keeps every other copy out.
             StartServer();
@@ -174,6 +189,7 @@ public sealed class SingleInstance : IDisposable
         CancellationTokenSource? stop;
         Task? server;
         InstanceMutex? owner;
+        FileStream? lockFile;
         lock (_gate)
         {
             if (_disposed)
@@ -185,6 +201,7 @@ public sealed class SingleInstance : IDisposable
             stop = _stop;
             server = _server;
             owner = _owner;
+            lockFile = _lockFile;
         }
 
         stop?.Cancel();
@@ -199,6 +216,22 @@ public sealed class SingleInstance : IDisposable
 
         stop?.Dispose();
         owner?.Dispose();
+        lockFile?.Dispose();
+    }
+
+    // The lock belongs to the open handle, so a copy that crashes loses it with the process and a file left behind blocks nobody.
+    private bool TryLockFile()
+    {
+        try
+        {
+            _lockFile = new FileStream(LockFilePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            return true;
+        }
+        catch (Exception)
+        {
+            // Held by another copy, or the folder cannot be written: either way this copy must not run.
+            return false;
+        }
     }
 
     private NamedPipeServerStream CreateListener() =>
