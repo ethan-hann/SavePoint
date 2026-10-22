@@ -2,6 +2,7 @@ using Savepoint.Core.Api;
 using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
+using Savepoint.Core.Git;
 using Savepoint.Core.Services.Storage;
 
 namespace Savepoint.Core.Services.AppStatus;
@@ -96,6 +97,12 @@ internal sealed class AppStatusApi : IAppStatusApi
                 if (!Directory.Exists(root) || !holdsHistory)
                 {
                     throw new StorageHistoryNotFoundException(root);
+                }
+
+                // A folder someone else prepared can carry a config or a hook that names a program; nothing reads it before this.
+                foreach (var gitDir in StorageContent.Folders(root).SelectMany(folder => new[] { "install.git", "external.git" }.Select(name => Path.Combine(folder, name))).Where(Directory.Exists))
+                {
+                    AdoptedGitDirectory.MakeSafe(gitDir);
                 }
 
                 return await SwitchStorageAsync(root, create: false, cancellationToken).ConfigureAwait(false);

@@ -18,6 +18,7 @@ public sealed class GitBinary
 
     private const string _emptyExcludesFileName = "excludes";
     private const string _emptyAttributesFileName = "attributes";
+    private const string _noHooksFolderName = "no-hooks";
 
     // MinGit keeps the real git in one of these, by architecture; cmd/git.exe only sets PATH and starts it.
     private static readonly string[] _minGitToolchains = ["ucrt64", "mingw64", "clangarm64"];
@@ -61,9 +62,13 @@ public sealed class GitBinary
     /// <summary>The global configuration file git is pointed at; it replaces the user's and the system's.</summary>
     public string GlobalConfigPath { get; }
 
+    /// <summary>The empty folder every git process is told to look for hooks in, so a hook a repository carries never runs.</summary>
+    public string NoHooksPath => Path.Combine(ConfigDirectory, _noHooksFolderName);
+
     /// <summary>
     /// The environment every git process starts from: the parent's, minus every <c>GIT_*</c> variable, plus the settings that
-    /// isolate git (no system configuration, the SavePoint global configuration, a fixed author, no prompts, English output).
+    /// isolate git (no system configuration, the SavePoint global configuration, a fixed author, no prompts, English output, and
+    /// no hooks or file system monitor: <c>core.hooksPath</c> and <c>core.fsmonitor</c> are set in the environment, which outranks a repository's own config).
     /// </summary>
     public IReadOnlyDictionary<string, string> BaseEnvironment { get; }
 
@@ -181,6 +186,14 @@ public sealed class GitBinary
         environment["GIT_COMMITTER_NAME"] = "SavePoint";
         environment["GIT_COMMITTER_EMAIL"] = "savepoint@localhost";
 
+        // A repository's own config and hooks folder can name programs git would run (core.fsmonitor, a post-commit hook, ...). Settings
+        // given this way outrank every config file, so no repository, SavePoint's or one found elsewhere, can undo them.
+        environment["GIT_CONFIG_COUNT"] = "2";
+        environment["GIT_CONFIG_KEY_0"] = "core.hooksPath";
+        environment["GIT_CONFIG_VALUE_0"] = NoHooksPath;
+        environment["GIT_CONFIG_KEY_1"] = "core.fsmonitor";
+        environment["GIT_CONFIG_VALUE_1"] = "false";
+
         environment["GIT_TERMINAL_PROMPT"] = "0";
         environment["GIT_ASKPASS"] = string.Empty;
 
@@ -216,6 +229,7 @@ public sealed class GitBinary
     private void WriteConfigFiles(GitHost host)
     {
         Directory.CreateDirectory(ConfigDirectory);
+        Directory.CreateDirectory(NoHooksPath);
         var excludes = Path.Combine(ConfigDirectory, _emptyExcludesFileName);
         var attributes = Path.Combine(ConfigDirectory, _emptyAttributesFileName);
 

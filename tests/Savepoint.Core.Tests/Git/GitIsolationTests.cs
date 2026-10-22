@@ -85,11 +85,43 @@ public sealed class GitIsolationTests : IDisposable
             .Select(line => UnquoteOrigin(line[..line.IndexOf('\t')]))
             .Distinct()
             .ToList();
-        var allowed = new[] { "file:" + _ws.Binary.GlobalConfigPath.Replace('\\', '/'), "file:" + _ws.GitDir.Replace('\\', '/') + "/config" };
+        var allowed = new[] { "file:" + _ws.Binary.GlobalConfigPath.Replace('\\', '/'), "file:" + _ws.GitDir.Replace('\\', '/') + "/config", "command line:" };
         Assert.Contains("file:" + _ws.Binary.GlobalConfigPath.Replace('\\', '/'), origins, StringComparer.OrdinalIgnoreCase);
         Assert.All(origins, origin => Assert.Contains(origin, allowed, StringComparer.OrdinalIgnoreCase));
         Assert.DoesNotContain("FromProgramData", everything.StandardOutput);
         Assert.DoesNotContain("Wrong", everything.StandardOutput);
+    }
+
+    [Fact]
+    public async Task A_repositorys_own_hooks_and_program_settings_never_run_a_program()
+    {
+        await _ws.InitAsync();
+        var hookRan = Path.Combine(_ws.Root, "hook-ran.txt");
+        var monitorRan = Path.Combine(_ws.Root, "monitor-ran.txt");
+        var hooks = Path.Combine(_ws.GitDir, "hooks");
+        Directory.CreateDirectory(hooks);
+        foreach (var name in new[] { "post-commit", "reference-transaction", "post-checkout", "pre-commit" })
+        {
+            var hook = Path.Combine(hooks, name);
+            File.WriteAllText(hook, $"#!/bin/sh\necho ran >> '{InShell(hookRan)}'\n");
+            if (!OperatingSystem.IsWindows())
+            {
+                File.SetUnixFileMode(hook, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            }
+        }
+
+        // The setting runs a command, here one that ignores the arguments git hands it.
+        await _ws.RunAsync("config", "--local", "core.fsmonitor", $"echo ran >> '{InShell(monitorRan)}' #");
+        _ws.Write("save.dat", "data");
+
+        await _ws.RunAsync("add", "-A");
+        await _ws.RunAsync("status", "--short");
+        await _ws.RunAsync("commit", "-m", "capture");
+        await _ws.RunAsync("checkout", "-b", "other");
+        await _ws.RunAsync("diff", "--name-only");
+
+        Assert.False(File.Exists(hookRan), "a hook of the repository ran");
+        Assert.False(File.Exists(monitorRan), "the program named by core.fsmonitor ran");
     }
 
     [Fact]
@@ -132,6 +164,9 @@ public sealed class GitIsolationTests : IDisposable
 
         Assert.Contains("fatal: Needed a single revision", result.StandardError);
     }
+
+    // The path as a shell inside single quotes reads it; forward slashes work for the shell that ships with git on Windows too.
+    private static string InShell(string path) => path.Replace('\\', '/');
 
     // Git quotes an origin path that holds backslashes, as "file:\"C:\\dir\\config\"".
     private static string UnquoteOrigin(string origin)
