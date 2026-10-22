@@ -187,6 +187,23 @@ public class HistoryScreenViewModelTests
     }
 
     [Fact]
+    public async Task A_timeline_entry_goes_back_to_one_of_the_points_and_is_not_offered_for_the_point_in_use()
+    {
+        var rig = await HistoryRig.ShownAsync();
+        var entry = rig.Screen.Timeline.First(e => !e.IsInUse);
+        var points = rig.Screen.Groups.SelectMany(group => group.Cards).Select(card => new LaunchTarget.Point(card.Point.Id)).ToList();
+
+        entry.GoBackCommand.Execute(null);
+
+        var begun = Assert.Single(rig.Flow!.Begun);
+        Assert.Equal(MockupScenario.SkyrimId, begun.GameId);
+        Assert.Contains(begun.Target, points);
+        Assert.True(entry.CanGoBack);
+        Assert.StartsWith("Go back to this: ", entry.GoBackAutomationName, StringComparison.Ordinal);
+        Assert.All(rig.Screen.Timeline.Where(e => e.IsInUse), e => Assert.False(e.CanGoBack));
+    }
+
+    [Fact]
     public async Task A_launch_that_gets_going_takes_the_player_to_Games_where_the_session_shows()
     {
         var rig = await HistoryRig.ShownAsync();
