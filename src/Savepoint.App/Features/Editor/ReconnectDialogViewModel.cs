@@ -54,6 +54,9 @@ public sealed partial class ReconnectDialogViewModel : DialogViewModel<Reconnect
     public string CancelLabel { get; }
 
     /// <inheritdoc />
+    public override string Description => Message;
+
+    /// <inheritdoc />
     public override double DialogWidth => 480;
 
     /// <inheritdoc />

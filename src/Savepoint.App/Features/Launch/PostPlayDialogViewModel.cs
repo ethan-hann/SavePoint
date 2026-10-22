@@ -80,6 +80,9 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
     public bool ShowNotNowButton => SelectedChoice.Kind != CompletionChoice.Skip;
 
     /// <inheritdoc />
+    public override string Description => Body;
+
+    /// <inheritdoc />
     public override double DialogWidth => 580;
 
     /// <inheritdoc />

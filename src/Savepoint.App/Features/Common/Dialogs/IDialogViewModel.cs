@@ -15,6 +15,13 @@ public interface IDialogViewModel : INotifyPropertyChanged
     bool CanDismiss { get; }
 
     /// <summary>
+    /// What the dialog is about, in a sentence or two, exposed to assistive technology as the dialog's description. Focus lands on
+    /// the first control, so without this a screen reader user hears only the title and never the message that matters most
+    /// ("2 points exist only in this profile").
+    /// </summary>
+    string Description { get; }
+
+    /// <summary>
     /// Whether a click on the scrim closes the dialog. True only for a dialog with nothing to lose, such as a plain confirmation: a
     /// dialog that holds typed input or a decision stays open, since the scrim is the largest target on screen and the one a
     /// player clicks on the way back from a game. Escape and the dialog's own buttons still close it.

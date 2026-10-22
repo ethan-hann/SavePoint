@@ -89,6 +89,9 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
     public event EventHandler<AppSettings>? SettingsSaved;
 
     /// <inheritdoc />
+    public override string Description => IsOlderPoint ? $"{Subtitle} {OlderPointText}" : Subtitle;
+
+    /// <inheritdoc />
     public override double DialogWidth => 600;
 
     /// <inheritdoc />

@@ -130,6 +130,7 @@ public sealed partial class NewProfileWizardViewModel : DialogViewModel<bool>
         _text = text;
         _dispatcher = dispatcher;
         _name = text.Message("profiles.wizard.defaultName", ("date", text.NameDate(clock.GetUtcNow())));
+        Description = text.Message("profiles.wizard.description");
         NameHelper = text.Message("profiles.wizard.name.helper");
         Preview = new CapturePreviewViewModel(text);
         Steps =
@@ -233,6 +234,9 @@ public sealed partial class NewProfileWizardViewModel : DialogViewModel<bool>
 
     /// <summary>Closes the wizard once the save has ended.</summary>
     public IRelayCommand CloseCommand { get; }
+
+    /// <inheritdoc />
+    public override string Description { get; }
 
     /// <inheritdoc />
     public override double DialogWidth => 620;

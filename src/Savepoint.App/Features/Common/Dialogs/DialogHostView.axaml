@@ -20,6 +20,7 @@
             Classes="dialog"
             Width="{Binding Current.DialogWidth, FallbackValue=440}"
             AutomationProperties.Name="{Binding Current.Title}"
+            AutomationProperties.HelpText="{Binding Current.Description}"
             AutomationProperties.ControlTypeOverride="Window"
             KeyboardNavigation.TabNavigation="Cycle">
       <!-- The scroll viewer clips to its viewport, which would cut the 4px focus ring off buttons at the dialog's right and bottom edge; the content's margin gives the ring room inside the viewport and the viewer's negative margin puts the content back where it was. -->

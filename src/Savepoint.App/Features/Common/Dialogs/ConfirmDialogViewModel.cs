@@ -54,6 +54,9 @@ public sealed partial class ConfirmDialogViewModel : DialogViewModel<bool>
     public bool ConfirmIsDefault => !IsDestructive || RequiresTypedWord;
 
     /// <inheritdoc />
+    public override string Description => Message;
+
+    /// <inheritdoc />
     public override bool DismissesOnScrimClick => Typed is null;
 
     /// <inheritdoc />
