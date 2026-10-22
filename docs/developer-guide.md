@@ -93,12 +93,12 @@ Other filters are `--filter-namespace` and `--filter-method`. Add `--report-xuni
   - no XAML text is hard-coded;
   - extra locales match English;
   - the copy never says "commit", "branch", "checkout", "repo", or "HEAD";
-  - an aside takes an em dash, never a spaced hyphen;
+  - no aside is set off with a dash: it becomes a sentence of its own or a comma clause, and no value holds an em dash (many readers take one for machine-written text); the ellipsis and the middle dot are fine;
   - a helper line ends with a period;
   - spelling is American;
   - the terms D44 retired from the player's vocabulary ("point" as SavePoint's noun, "unsaved changes", "optimize", "capture", "marker file", and the rest) never come back; the allow-list for the few legitimate uses only shrinks, and a test fails when an allowance is no longer needed.
 
-  The `*.defaultName` keys are exempt from the dash rule, because they become the names people give their profiles.
+  The `*.defaultName` keys may keep a spaced hyphen, because they become the names people give their profiles.
 
 ### Process starts are expensive
 
