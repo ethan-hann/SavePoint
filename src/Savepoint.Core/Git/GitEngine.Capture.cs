@@ -242,6 +242,14 @@ public sealed partial class GitEngine
             throw new SessionMovedException(repo.Role, $"The point the folder is on is not part of the history of '{request.Branch}'.");
         }
 
+        // An earlier attempt that moved the branch and was stopped before HEAD followed is picked up, not written again: the branch already holds
+        // the point this capture recorded on top of the folder's commit, and a second one would list the first as a removed snapshot.
+        if (moves && await IsPointOfCaptureAsync(repo, branchTip, tip, request.CaptureId, ct).ConfigureAwait(false))
+        {
+            await AttachHeadAsync(repo, request.Branch, head).ConfigureAwait(false);
+            return new CaptureOutcome(true, branchTip);
+        }
+
         await StageAsync(repo, progress, ct).ConfigureAwait(false);
         var changed = await IndexDiffersAsync(repo, "HEAD", ct).ConfigureAwait(false);
 

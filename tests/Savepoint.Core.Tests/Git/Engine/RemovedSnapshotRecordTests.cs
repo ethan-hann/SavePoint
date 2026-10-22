@@ -174,6 +174,29 @@ public sealed class RemovedSnapshotRecordTests : IDisposable
     }
 
     [Fact]
+    public async Task A_repeat_of_a_move_forward_that_moved_the_branch_but_not_head_picks_up_its_own_snapshot_instead_of_listing_it_as_removed()
+    {
+        var (repo, points) = await PlayingFromTheFirstPointAsync();
+        var request = Move("profile-1", points[0], "Continued", "cap-move");
+        _ws.OnInvoke = invocation => FailAt(invocation, candidate => candidate.Arguments[0] == "symbolic-ref");
+        await Assert.ThrowsAsync<IOException>(() => _ws.Engine.CaptureAsync(repo, request, ct: Ct));
+        var movedTo = await _ws.TipAsync(repo, "profile-1");
+        var listedBefore = (await _ws.Engine.ListRemovedAsync(repo, Ct)).Select(entry => entry.Commit.Id).ToList();
+
+        // A second later a repeat would write a different commit for the same tree, so the pickup is what keeps it from doing so.
+        await Task.Delay(1100, Ct);
+        _ws.OnInvoke = null;
+        var outcome = await _ws.Engine.CaptureAsync(repo, request, ct: Ct);
+
+        Assert.Equal(movedTo, outcome.TipCommitId);
+        Assert.Equal(movedTo, await _ws.TipAsync(repo, "profile-1"));
+        Assert.Equal(2, (await _ws.Engine.ListCommitsAsync(repo, "profile-1", ct: Ct)).Count);
+        Assert.Equal(listedBefore, (await _ws.Engine.ListRemovedAsync(repo, Ct)).Select(entry => entry.Commit.Id));
+        Assert.DoesNotContain(movedTo, (await _ws.Engine.ListRemovedAsync(repo, Ct)).Select(entry => entry.Commit.Id));
+        Assert.Equal("refs/heads/profile-1", await _ws.HeadRefAsync(repo));
+    }
+
+    [Fact]
     public async Task An_amend_lists_the_commit_it_replaces_as_removed_from_that_branch()
     {
         var (repo, points) = await _ws.ThreePointsRepoAsync();
