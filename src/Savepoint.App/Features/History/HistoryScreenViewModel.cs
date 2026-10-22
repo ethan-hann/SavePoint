@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common;
 using Savepoint.App.Features.Common.Art;
+using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Shell;
@@ -37,6 +38,7 @@ public enum HistoryState
 /// <param name="Profiles">Supplies the profile filter's entries.</param>
 /// <param name="Games">Supplies the space kept for the game.</param>
 /// <param name="Jobs">Tells the screen when a capture or launch finished, so the markers stay current.</param>
+/// <param name="Dialogs">Asks for the name of a profile a recently removed snapshot comes back as.</param>
 /// <param name="Text">Formats the copy.</param>
 /// <param name="Dispatcher">Brings Api events to the UI thread.</param>
 /// <param name="Clock">What "this week" is measured from.</param>
@@ -45,6 +47,7 @@ public sealed record HistoryDependencies(
     IProfilesApi Profiles,
     IGamesApi Games,
     IJobsApi Jobs,
+    IDialogs Dialogs,
     UiFormatter Text,
     IUiDispatcher Dispatcher,
     TimeProvider Clock);
@@ -81,6 +84,7 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
     [NotifyPropertyChangedFor(nameof(ShowFilter))]
     [NotifyPropertyChangedFor(nameof(HasPoints))]
     [NotifyPropertyChangedFor(nameof(HasNoGame))]
+    [NotifyPropertyChangedFor(nameof(ShowRemoved))]
     private HistoryState _state = HistoryState.Loading;
 
     /// <summary>The selected game's name; null when the library is empty.</summary>
@@ -131,6 +135,24 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasFooter))]
     private string? _footerText;
+
+    /// <summary>The selected game's recently removed snapshots, the most recently removed first; empty when there are none or they could not be read.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasRemoved))]
+    [NotifyPropertyChangedFor(nameof(ShowRemoved))]
+    [NotifyPropertyChangedFor(nameof(RemovedHeading))]
+    private IReadOnlyList<RemovedSnapshotViewModel> _removed = [];
+
+    /// <summary>Why the recently removed snapshots could not be read; null when they were.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasRemoved))]
+    [NotifyPropertyChangedFor(nameof(ShowRemoved))]
+    [NotifyPropertyChangedFor(nameof(HasRemovedError))]
+    private string? _removedError;
+
+    /// <summary>True while the "Recently removed" section is open. It starts closed and stays as the player left it while the screen follows the same game.</summary>
+    [ObservableProperty]
+    private bool _isRemovedOpen;
 
     /// <param name="shell">What the screen follows: the selected game, library refreshes and the launch flow.</param>
     /// <param name="dependencies">The Api and helpers.</param>
@@ -207,6 +229,23 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
     /// <summary>True when the storage line shows.</summary>
     public bool HasFooter => FooterText is not null;
 
+    /// <summary>True when there is something to say about recently removed snapshots: some are kept, or they could not be read.</summary>
+    public bool HasRemoved => Removed.Count > 0 || RemovedError is not null;
+
+    /// <summary>True when the "Recently removed" section shows: it has something to say and the screen has read the game's snapshots.</summary>
+    public bool ShowRemoved => HasRemoved && State is HistoryState.Loaded or HistoryState.Empty;
+
+    /// <summary>True when <see cref="RemovedError"/> shows instead of the list.</summary>
+    public bool HasRemovedError => RemovedError is not null;
+
+    /// <summary>The section's heading, with how many snapshots it holds ("Recently removed (3)").</summary>
+    public string RemovedHeading => Removed.Count > 0
+        ? _deps.Text.Message("history.removed.heading", ("count", Removed.Count))
+        : _deps.Text.Message("history.removed.title");
+
+    /// <summary>What the section says about the snapshots: they belong to no profile, and are deleted for good the next time space is freed up.</summary>
+    public string RemovedNote => _deps.Text.Message("history.removed.note");
+
     /// <summary>Reads the history again after a failure.</summary>
     public IAsyncRelayCommand RetryCommand { get; }
 
@@ -253,7 +292,8 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
         var historyTask = _deps.History.GetAsync(game.Id, _currentFilter?.ProfileId, source.Token);
         var profilesTask = _deps.Profiles.ListAsync(game.Id, source.Token);
         var usageTask = _deps.Games.GetStorageUsageAsync(game.Id, source.Token);
-        await Task.WhenAll(historyTask, profilesTask, usageTask);
+        var removedTask = _deps.History.GetRecentlyRemovedAsync(game.Id, source.Token);
+        await Task.WhenAll(historyTask, profilesTask, usageTask, removedTask);
         if (generation != _generation)
         {
             return;
@@ -278,6 +318,11 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
         FooterText = usage.Ok
             ? _deps.Text.Message("history.footer", ("size", _deps.Text.FileSize(usage.Value.BytesUsed)))
             : null;
+
+        // A list that cannot be read is said so in its own section, and never takes the history down with it.
+        var removed = await removedTask;
+        RemovedError = removed.Ok ? null : _deps.Text.Message(removed.Error);
+        Removed = removed.Ok ? BuildRemoved(game, removed.Value.Snapshots) : [];
         Show(game, history.Value.Points);
     }
 
@@ -362,6 +407,7 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
         Subtitle = game.Name;
         ErrorCard = null;
         FooterText = null;
+        IsRemovedOpen = false;
         Clear();
         var all = new ProfileFilter(null, _deps.Text.Message("history.filter.all"));
         Restore(() =>
@@ -378,6 +424,8 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
         Timeline = [];
         Saves = [];
         Groups = [];
+        Removed = [];
+        RemovedError = null;
         _flowCommands.Clear();
     }
 
@@ -490,6 +538,38 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
         }
 
         return groups;
+    }
+
+    private List<RemovedSnapshotViewModel> BuildRemoved(GameDefinition game, IReadOnlyList<RemovedSnapshot> removed) =>
+        [
+            .. removed.OrderByDescending(snapshot => snapshot.RemovedAt).Select(snapshot =>
+            {
+                var detail = _words.Contains(snapshot.Kind, snapshot.Install);
+                var origin = _words.RemovedOrigin(snapshot);
+                var when = _deps.Text.Message("history.removed.when", ("when", _deps.Text.ShortDateTime(snapshot.RemovedAt)));
+                return new RemovedSnapshotViewModel(
+                    snapshot,
+                    detail,
+                    origin,
+                    when,
+                    _deps.Text.Message("history.removed.bringBackAutomation", ("name", snapshot.Name)),
+                    _words.ItemName(snapshot.Name, detail, origin, when),
+                    new AsyncRelayCommand(() => BringBackAsync(game.Id, snapshot)));
+            }),
+        ];
+
+    // Asks for the new profile's name; the player's answer decides, and the Api's refusal stays in the dialog until they give up or fix it.
+    private async Task BringBackAsync(string gameId, RemovedSnapshot snapshot)
+    {
+        var dialog = new BringBackDialogViewModel(snapshot.Name, name => _deps.Profiles.BringBackAsync(gameId, snapshot.Id, name), _deps.Text);
+        if (!await _deps.Dialogs.ShowAsync(dialog))
+        {
+            return;
+        }
+
+        // A profile exists now, so the shell's rail and the other screens read again too.
+        await _shell.RefreshLibraryAsync();
+        await ReloadAsync();
     }
 
     private ICommand BeginCommand(string gameId, LaunchTarget target)

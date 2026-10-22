@@ -26,6 +26,6 @@ public sealed class HistoryScreenFactory : IScreenFactory
         var services = _context.Services;
         return new HistoryScreenViewModel(
             shell,
-            new HistoryDependencies(services.History, services.Profiles, services.Games, services.Jobs, _context.Text, _context.Dispatcher, _clock));
+            new HistoryDependencies(services.History, services.Profiles, services.Games, services.Jobs, _context.Dialogs, _context.Text, _context.Dispatcher, _clock));
     }
 }

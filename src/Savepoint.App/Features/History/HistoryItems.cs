@@ -141,6 +141,52 @@ public sealed class PointCardViewModel
 /// <param name="Cards">Its cards, newest first.</param>
 public sealed record PointGroupViewModel(string Heading, IReadOnlyList<PointCardViewModel> Cards);
 
+/// <summary>One row of the "Recently removed" section: a snapshot that left a profile and can be brought back as a new one.</summary>
+public sealed class RemovedSnapshotViewModel
+{
+    /// <param name="snapshot">The snapshot it stands for.</param>
+    /// <param name="detail">What the snapshot held ("Saves only · 1.6.640 with 212 mod files").</param>
+    /// <param name="origin">The profile it came from and why it left.</param>
+    /// <param name="removed">When it left ("Removed Jul 8, 10:00 AM").</param>
+    /// <param name="automationName">What assistive technology calls the Bring back button.</param>
+    /// <param name="itemAutomationName">What assistive technology calls the row in its list: the name, what it held, where it came from and when.</param>
+    /// <param name="bringBack">Asks for a name and brings the snapshot back as a new profile; never null.</param>
+    public RemovedSnapshotViewModel(RemovedSnapshot snapshot, string detail, string origin, string removed, string automationName, string itemAutomationName, ICommand bringBack)
+    {
+        Snapshot = snapshot;
+        Detail = detail;
+        Origin = origin;
+        Removed = removed;
+        BringBackAutomationName = automationName;
+        ItemAutomationName = itemAutomationName;
+        BringBackCommand = bringBack;
+    }
+
+    /// <summary>The snapshot it stands for.</summary>
+    public RemovedSnapshot Snapshot { get; }
+
+    /// <summary>The snapshot's name.</summary>
+    public string Name => Snapshot.Name;
+
+    /// <summary>What the snapshot held, read from the install state at that snapshot.</summary>
+    public string Detail { get; }
+
+    /// <summary>The profile it came from and why it left it.</summary>
+    public string Origin { get; }
+
+    /// <summary>When it left the profile.</summary>
+    public string Removed { get; }
+
+    /// <summary>The button's accessible name ("Bring back as a new profile: Before the final boss").</summary>
+    public string BringBackAutomationName { get; }
+
+    /// <summary>The row's accessible name in its list.</summary>
+    public string ItemAutomationName { get; }
+
+    /// <summary>Asks for a name, then brings the snapshot back as a new profile.</summary>
+    public ICommand BringBackCommand { get; }
+}
+
 /// <summary>An action command whose availability the screen refreshes when the launch flow changes.</summary>
 internal sealed class FlowCommand
 {

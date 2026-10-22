@@ -16,7 +16,12 @@ public partial class HistoryScreenView : UserControl
     public HistoryScreenView()
     {
         InitializeComponent();
+        SizeChanged += (_, e) => LimitRemovedSection(e.NewSize.Height);
     }
+
+    // An open section never takes more than a third of the window, so the snapshots above it keep room at the smallest supported size; its rows scroll instead.
+    private void LimitRemovedSection(double windowHeight) =>
+        RemovedScroll.MaxHeight = Math.Max(96, windowHeight * 0.35);
 
     // Each opening starts from the filter in force, whatever the arrow keys did the last time, and puts focus in the list.
     private void OnFilterOpened(object? sender, EventArgs e)

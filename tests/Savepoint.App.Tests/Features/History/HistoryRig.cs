@@ -16,13 +16,14 @@ namespace Savepoint.App.Tests.Features.History;
 // The real shell with the History screen the production factory builds, over the fake backend; times read in the mockup's zone (UTC-5).
 internal sealed class HistoryRig
 {
-    private HistoryRig(ShellRig shell, HistoryScreenViewModel screen, ScriptedLaunchFlow flow, FakeBackend backend, UiFormatter text)
+    private HistoryRig(ShellRig shell, HistoryScreenViewModel screen, ScriptedLaunchFlow flow, FakeBackend backend, UiFormatter text, FakeDialogs dialogs)
     {
         ShellRig = shell;
         Screen = screen;
         Flow = flow;
         Backend = backend;
         Text = text;
+        Dialogs = dialogs;
     }
 
     public ShellRig ShellRig { get; }
@@ -36,6 +37,8 @@ internal sealed class HistoryRig
     public FakeBackend Backend { get; }
 
     public UiFormatter Text { get; }
+
+    public FakeDialogs Dialogs { get; }
 
     public static TimeZoneInfo MockupZone { get; } = TimeZoneInfo.CreateCustomTimeZone("mockup", TimeSpan.FromHours(-5), "mockup", "mockup");
 
@@ -59,15 +62,16 @@ internal sealed class HistoryRig
             backend.Jobs,
             backend.AppStatus,
             backend.Artwork);
+        var dialogs = new FakeDialogs();
         var context = new FeatureContext(
             services,
-            new FakeDialogs(),
+            dialogs,
             text,
             new ToastHostViewModel(new ManualTimeProvider(), new ImmediateUiDispatcher()),
             new ImmediateUiDispatcher());
         var factory = new CapturingFactory(new HistoryScreenFactory(context, backend.Clock));
         var shell = await ShellRig.StartAsync(backend, screens: [factory], launchFlow: flow);
-        return new HistoryRig(shell, (HistoryScreenViewModel)factory.Created!, flow, backend, text);
+        return new HistoryRig(shell, (HistoryScreenViewModel)factory.Created!, flow, backend, text, dialogs);
     }
 
     // Shows the screen the way the nav item does.
