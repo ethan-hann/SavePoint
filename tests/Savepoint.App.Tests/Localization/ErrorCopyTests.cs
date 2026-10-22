@@ -63,7 +63,7 @@ public class ErrorCopyTests
             new FileUnreadableException("/games/alpha/data.pak"),
             new StorageRemoveFailedException("/storage/alpha", "dev text"),
             new StorageMoveUnfinishedException("/storage"),
-            new StorageInsideInstallFolderException("/install/data", "/install"),
+            new StorageInsideInstallFolderException("/install/data"),
             new StorageSourceUnreadableException("/storage/alpha", "dev text", null),
             new ValidationException(issues),
             new CatalogCorruptException("/catalog/games.json", null),

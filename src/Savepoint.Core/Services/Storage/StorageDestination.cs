@@ -24,9 +24,9 @@ internal static class StorageDestination
     /// <param name="destination">The folder, absolute.</param>
     public static SavepointException? Refusal(BackendServices services, PathSafety pathSafety, IReadOnlyList<GameDefinition> games, string destination)
     {
-        if (InstallFolderOf(services.InstallDirectory, destination, pathSafety) is { } installFolder)
+        if (IsInInstallFolder(services.InstallDirectory, destination, pathSafety))
         {
-            return new StorageInsideInstallFolderException(destination, installFolder);
+            return new StorageInsideInstallFolderException(destination);
         }
 
         foreach (var game in games)
@@ -45,16 +45,15 @@ internal static class StorageDestination
     }
 
     // The installed app runs from "current" inside an install folder that also holds Update.exe, and an update or an uninstall deletes
-    // that whole folder. Returns the install folder when the destination lies in it.
-    private static string? InstallFolderOf(string installDirectory, string destination, PathSafety pathSafety)
+    // that whole folder.
+    private static bool IsInInstallFolder(string installDirectory, string destination, PathSafety pathSafety)
     {
         if (Directory.GetParent(installDirectory)?.FullName is not { } installFolder || !File.Exists(Path.Combine(installFolder, _updaterFileName)))
         {
-            return null;
+            return false;
         }
 
         var relative = Path.GetRelativePath(pathSafety.ResolveRealPath(installFolder), pathSafety.ResolveRealPath(destination));
-        var inside = relative == "." || (!Path.IsPathRooted(relative) && relative != ".." && !relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal));
-        return inside ? installFolder : null;
+        return relative == "." || (!Path.IsPathRooted(relative) && relative != ".." && !relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal));
     }
 }
