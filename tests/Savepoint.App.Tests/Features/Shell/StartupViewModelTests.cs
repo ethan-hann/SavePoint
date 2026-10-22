@@ -522,7 +522,7 @@ public class StartupViewModelTests
 
         Assert.Equal(StartupPhase.StorageUnreachable, startup.Phase);
         Assert.Equal(
-            "SavePoint can't start over in its default folder, shown below, because that folder already holds saved history. To use that history, choose \"Find the folder\" and pick this folder. To start over anyway, move or empty it first.",
+            "SavePoint can't start over in its default folder, shown below, because that folder already holds saved history. To use that history, choose \"Find the folder\" and pick this folder. To start over instead, move that folder somewhere else first. The history goes with it.",
             startup.StorageActionError);
         Assert.True(startup.HasStorageActionErrorPath);
         Assert.Equal(_defaultStorageRoot, startup.StorageActionErrorPath);
