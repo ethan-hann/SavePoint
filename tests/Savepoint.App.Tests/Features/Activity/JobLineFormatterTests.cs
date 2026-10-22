@@ -93,10 +93,10 @@ public class JobLineFormatterTests
     public void A_switch_says_what_it_writes_and_removes_and_whether_it_goes_to_an_older_snapshot()
     {
         Assert.Equal(
-            "Switching the game folder to \"Modded\" — writing 4 files and removing 1 file.",
+            "Switching the game folder to \"Modded\", writing 4 files and removing 1 file.",
             Format(_samples[JobSteps.LaunchSwitchFolder]));
         Assert.Equal(
-            "Switching the saves folder to an older snapshot of \"Modded\" — writing no files and removing 2 files.",
+            "Switching the saves folder to an older snapshot of \"Modded\", writing no files and removing 2 files.",
             Format(JobLine.ForStep(JobSteps.LaunchSwitchFolder, ("folder", RepoRole.External), ("profile", "Modded"), ("older", "yes"), ("counted", "yes"), ("written", 0), ("removed", 2))));
         Assert.Equal(
             "Switching the game folder to \"Modded\".",

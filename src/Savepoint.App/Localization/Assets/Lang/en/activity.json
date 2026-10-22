@@ -62,7 +62,7 @@
   "activity.step.launch.folderInPlace": "The {folder, select, install {game folder} external {saves folder} other {folder}} already matches \"{profile}\", so nothing was switched.",
   "activity.step.launch.folderNotIncluded": "The {folder, select, install {game folder} external {saves folder} other {folder}} stays as it is, because this snapshot doesn't include it.",
   "activity.step.launch.starting": "Starting {game}.",
-  "activity.step.launch.switchFolder": "{older, select, yes {Switching the {folder, select, install {game folder} external {saves folder} other {folder}} to an older snapshot of \"{profile}\"} other {Switching the {folder, select, install {game folder} external {saves folder} other {folder}} to \"{profile}\"}}{counted, select, yes { — writing {written, plural, =0 {no files} one {# file} other {# files}} and removing {removed, plural, =0 {no files} one {# file} other {# files}}} other {}}.",
+  "activity.step.launch.switchFolder": "{older, select, yes {Switching the {folder, select, install {game folder} external {saves folder} other {folder}} to an older snapshot of \"{profile}\"} other {Switching the {folder, select, install {game folder} external {saves folder} other {folder}} to \"{profile}\"}}{counted, select, yes {, writing {written, plural, =0 {no files} one {# file} other {# files}} and removing {removed, plural, =0 {no files} one {# file} other {# files}}} other {}}.",
   "activity.step.relocate.copied": "Every file is copied and checked.",
   "activity.step.relocate.notRemoved": "Couldn't remove {path}. You can delete it yourself.",
   "activity.step.relocate.removingOld": "Removing the old copies.",
