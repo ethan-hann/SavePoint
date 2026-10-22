@@ -10,6 +10,9 @@ namespace Savepoint.App.Tests.Localization;
 
 internal sealed record IcuArgument(string Name, string Kind, IReadOnlyList<string> Options);
 
+/// <summary>One place a retired term may stay: a key (or, when it ends in a dot, every key under it) and the term it may keep, with why.</summary>
+internal sealed record RetiredAllowance(string Key, string Term, string Why);
+
 internal static class LintAssert
 {
     public static void NoProblems(IReadOnlyCollection<string> problems)
@@ -42,6 +45,50 @@ internal static class CatalogLint
         BannedWord("detached"),
         ("HEAD", new Regex(@"\bHEAD\b", RegexOptions.CultureInvariant)),
     ];
+
+    // The names the plain-language vocabulary retired for what SavePoint keeps and does: a snapshot, not a point; new changes, not
+    // unsaved ones; free up space, not optimize storage. Matched in values, as whole words, so "SavePoint" and "{pointName}" pass.
+    private static readonly (string Term, Regex Pattern)[] _retired =
+    [
+        RetiredTerm("point", "points?"),
+        RetiredTerm("unsaved changes", @"unsaved\s+changes"),
+        RetiredTerm("half", "half"),
+        RetiredTerm("left alone", @"left\s+alone"),
+        RetiredTerm("storage", "storage"),
+        RetiredTerm("optimize", @"optimi[sz]\w*"),
+        RetiredTerm("capture", @"captur\w*"),
+        RetiredTerm("marker file", @"marker\s+files?"),
+        RetiredTerm("ignore", @"ignor\w*"),
+        RetiredTerm("on disk", @"on\s+disk"),
+    ];
+
+    // The few uses that are not the retired meaning, and lines still on the old words. An entry nothing needs any more fails
+    // UnusedRetiredAllowances, so this list only ever shrinks.
+    public static IReadOnlyList<RetiredAllowance> AllowedRetiredTerms { get; } =
+    [
+        new("firstRun.body", "point", "\"Point SavePoint at a game\" is a verb."),
+        new("error.pathSafety.tier1Blocked", "point", "\"whatever you point it at\" is a verb."),
+        new("error.pathSafety.tier2Blocked", "point", "\"whatever you point it at\" is a verb."),
+        new("validation.launch.exePathEscapes", "point", "\"can't point outside it\" is a verb."),
+        new("shell.jobStatus.", "optimize", "These job status lines still use the old words."),
+        new("shell.jobStatus.", "storage", "These job status lines still use the old words."),
+        new("games.storageFooter.usage", "storage", "This footer line still uses the old word."),
+    ];
+
+    public static IReadOnlyList<string> RetiredTerms(IReadOnlyDictionary<string, string> catalog, IReadOnlyList<RetiredAllowance> allowances) =>
+        catalog.OrderBy(entry => entry.Key, StringComparer.Ordinal)
+            .SelectMany(entry => _retired
+                .Where(retired => retired.Pattern.IsMatch(entry.Value) && !allowances.Any(allowance => Covers(allowance, entry.Key, retired.Term)))
+                .Select(retired => $"'{entry.Key}' uses the retired term '{retired.Term}'; use the plain-language word for it: {entry.Value}"))
+            .ToList();
+
+    // An allowance that matches no value is dead weight, and one for a key that is gone hides nothing: both are reported so they get removed.
+    public static IReadOnlyList<string> UnusedRetiredAllowances(IReadOnlyDictionary<string, string> catalog, IReadOnlyList<RetiredAllowance> allowances) =>
+        allowances
+            .Where(allowance => !catalog.Any(entry => Covers(allowance, entry.Key, allowance.Term)
+                && _retired.Any(retired => retired.Term == allowance.Term && retired.Pattern.IsMatch(entry.Value))))
+            .Select(allowance => $"The allowance for '{allowance.Term}' in '{allowance.Key}' ({allowance.Why}) is not needed any more; remove it")
+            .ToList();
 
     // A hyphen, double hyphen or en dash with a space on both sides; a hyphen inside a word or a number range written without spaces is fine.
     private static readonly Regex _spacedDash = new(@"\s(?:-{1,2}|–)\s", RegexOptions.CultureInvariant);
@@ -494,6 +541,12 @@ internal static class CatalogLint
 
         return apostrophe + 1;
     }
+
+    private static bool Covers(RetiredAllowance allowance, string key, string term) =>
+        allowance.Term == term && (allowance.Key.EndsWith('.') ? key.StartsWith(allowance.Key, StringComparison.Ordinal) : key == allowance.Key);
+
+    private static (string Term, Regex Pattern) RetiredTerm(string term, string pattern) =>
+        (term, new Regex($@"\b(?:{pattern})\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant));
 
     private static (string Word, Regex Pattern) BannedWord(string word) =>
         (word, new Regex($@"\b{word}\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant));

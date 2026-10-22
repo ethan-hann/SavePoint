@@ -56,6 +56,88 @@ public class CatalogCopyRuleTests
         Assert.Empty(CatalogLint.HelperLinesWithoutPeriod(catalog));
     }
 
+    private static RetiredAllowance Allow(string key, string term) => new(key, term, "a sample");
+
+    [Theory]
+    [InlineData("This point is old.", "point")]
+    [InlineData("Both points exist.", "point")]
+    [InlineData("You have unsaved changes.", "unsaved changes")]
+    [InlineData("Half of it worked.", "half")]
+    [InlineData("It was left alone.", "left alone")]
+    [InlineData("Your storage folder.", "storage")]
+    [InlineData("Optimize it.", "optimize")]
+    [InlineData("Optimization ran.", "optimize")]
+    [InlineData("Storage was optimised.", "optimize")]
+    [InlineData("Capture it.", "capture")]
+    [InlineData("It was captured.", "capture")]
+    [InlineData("The marker file.", "marker file")]
+    [InlineData("Ignore these.", "ignore")]
+    [InlineData("Ignored files.", "ignore")]
+    [InlineData("Files on disk.", "on disk")]
+    public void A_retired_term_in_a_value_is_reported_with_its_key_and_the_term(string message, string term)
+    {
+        var problems = CatalogLint.RetiredTerms(Catalog(("test.sample", message)), []);
+
+        Assert.Contains(problems, problem => problem.Contains("test.sample", StringComparison.Ordinal) && problem.Contains($"'{term}'", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("SavePoint is open.")]
+    [InlineData("\"{pointName}\" held it.")]
+    [InlineData("A halfway house.")]
+    [InlineData("The disk is full, and the storekeeper left.")]
+    [InlineData("A snapshot of the saves folder.")]
+    [InlineData("Free up space.")]
+    public void Words_that_only_contain_a_retired_term_and_the_new_vocabulary_are_allowed(string message)
+    {
+        Assert.Empty(CatalogLint.RetiredTerms(Catalog(("test.sample", message)), []));
+    }
+
+    [Fact]
+    public void A_retired_term_in_a_key_is_allowed()
+    {
+        Assert.Empty(CatalogLint.RetiredTerms(Catalog(("error.history.pointNotFound", "That snapshot is gone.")), []));
+    }
+
+    [Fact]
+    public void An_allowance_lets_one_key_keep_one_term_and_nothing_else()
+    {
+        var catalog = Catalog(("a.one", "Point it at the folder."), ("a.two", "Point it at the folder."), ("a.three", "Point it at the storage."));
+        var allowances = new[] { Allow("a.one", "point"), Allow("a.three", "point") };
+
+        var problems = CatalogLint.RetiredTerms(catalog, allowances);
+
+        Assert.Equal(2, problems.Count);
+        Assert.Contains(problems, problem => problem.Contains("a.two", StringComparison.Ordinal) && problem.Contains("'point'", StringComparison.Ordinal));
+        Assert.Contains(problems, problem => problem.Contains("a.three", StringComparison.Ordinal) && problem.Contains("'storage'", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void An_allowance_that_ends_in_a_dot_covers_every_key_under_it()
+    {
+        var catalog = Catalog(("job.one", "Optimizing storage."), ("job.two", "Optimizing storage."), ("other.one", "Optimizing storage."));
+        var allowances = new[] { Allow("job.", "optimize"), Allow("job.", "storage") };
+
+        var problems = CatalogLint.RetiredTerms(catalog, allowances);
+
+        Assert.Equal(2, problems.Count);
+        Assert.All(problems, problem => Assert.Contains("other.one", problem, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void An_allowance_no_value_needs_any_more_is_reported_so_it_gets_removed()
+    {
+        var catalog = Catalog(("a.one", "Nothing retired here."), ("a.two", "Point it at the folder."), ("job.one", "Free up space."));
+        var allowances = new[] { Allow("a.one", "point"), Allow("a.two", "point"), Allow("a.missing", "point"), Allow("job.", "storage") };
+
+        var problems = CatalogLint.UnusedRetiredAllowances(catalog, allowances);
+
+        Assert.Equal(3, problems.Count);
+        Assert.Contains(problems, problem => problem.Contains("a.one", StringComparison.Ordinal));
+        Assert.Contains(problems, problem => problem.Contains("a.missing", StringComparison.Ordinal));
+        Assert.Contains(problems, problem => problem.Contains("job.", StringComparison.Ordinal));
+    }
+
     // The samples are written with escapes, so this file never holds the garbled text itself.
     [Theory]
     [InlineData("{done} of {total} files Â· about {time} left")]

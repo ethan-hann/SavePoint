@@ -11,6 +11,18 @@ public class CatalogLintTests
     }
 
     [Fact]
+    public void English_catalog_uses_none_of_the_retired_terms_outside_the_allowances()
+    {
+        LintAssert.NoProblems(CatalogLint.RetiredTerms(CatalogLint.English(), CatalogLint.AllowedRetiredTerms));
+    }
+
+    [Fact]
+    public void Every_allowance_for_a_retired_term_is_still_needed()
+    {
+        LintAssert.NoProblems(CatalogLint.UnusedRetiredAllowances(CatalogLint.English(), CatalogLint.AllowedRetiredTerms));
+    }
+
+    [Fact]
     public void English_catalog_sets_off_asides_with_an_em_dash_never_a_spaced_hyphen()
     {
         LintAssert.NoProblems(CatalogLint.SpacedHyphens(CatalogLint.English()));
