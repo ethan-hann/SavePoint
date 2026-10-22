@@ -45,7 +45,7 @@
   "activity.status.running": "In progress",
   "activity.status.stopping": "Stopping…",
   "activity.step.capture.folder": "Copying the {folder, select, install {game folder} external {saves folder} other {folder}} ({path}).",
-  "activity.step.capture.folderDone": "{files, plural, =0 {No new or changed files in the {folder, select, install {game folder} external {saves folder} other {folder}}.} one {Added # new or changed file from the {folder, select, install {game folder} external {saves folder} other {folder}}.} other {Added # new or changed files from the {folder, select, install {game folder} external {saves folder} other {folder}}.}}",
+  "activity.step.capture.folderDone": "{files, plural, =0 {Nothing changed in the {folder, select, install {game folder} external {saves folder} other {folder}}.} one {# file was new, changed or removed in the {folder, select, install {game folder} external {saves folder} other {folder}}.} other {# files were new, changed or removed in the {folder, select, install {game folder} external {saves folder} other {folder}}.}}",
   "activity.step.capture.folderFailed": "Couldn't copy the {folder, select, install {game folder} external {saves folder} other {folder}}.",
   "activity.step.capture.folderKeptAsNew": "The snapshot to replace wasn't the newest in the {folder, select, install {game folder} external {saves folder} other {folder}}, so the session was kept there as a new snapshot instead.",
   "activity.step.capture.folderNotIncluded": "The {folder, select, install {game folder} external {saves folder} other {folder}} isn't included, because you played it from another profile's snapshot.",

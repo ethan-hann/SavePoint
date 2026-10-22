@@ -13,7 +13,7 @@ public static class JobSteps
     /// <summary>A snapshot starts copying one folder. Arguments: <c>folder</c>, <c>path</c>.</summary>
     public const string CaptureFolder = "activity.step.capture.folder";
 
-    /// <summary>A folder is copied. Arguments: <c>folder</c>, <c>files</c>, the new or changed files it added, which may be none.</summary>
+    /// <summary>A folder is copied. Arguments: <c>folder</c>, <c>files</c>, the files found new, changed or removed since the last snapshot, which may be none.</summary>
     public const string CaptureFolderDone = "activity.step.capture.folderDone";
 
     /// <summary>A folder is not part of the snapshot because it was played from another profile's snapshot. Arguments: <c>folder</c>.</summary>

@@ -59,7 +59,9 @@ public class JobLineFormatterTests
     [Fact]
     public void A_step_is_said_in_the_catalogs_words_with_its_arguments()
     {
-        Assert.Equal("Added 3 new or changed files from the saves folder.", Format(_samples[JobSteps.CaptureFolderDone]));
+        Assert.Equal("3 files were new, changed or removed in the saves folder.", Format(_samples[JobSteps.CaptureFolderDone]));
+        Assert.Equal("1 file was new, changed or removed in the game folder.", Format(JobLine.ForStep(JobSteps.CaptureFolderDone, ("folder", RepoRole.Install), ("files", 1))));
+        Assert.Equal("Nothing changed in the game folder.", Format(JobLine.ForStep(JobSteps.CaptureFolderDone, ("folder", RepoRole.Install), ("files", 0))));
         Assert.Equal("Starting Skyrim.", Format(_samples[JobSteps.LaunchStarting]));
     }
 

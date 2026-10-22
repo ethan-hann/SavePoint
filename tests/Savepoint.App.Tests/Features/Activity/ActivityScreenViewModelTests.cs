@@ -296,7 +296,7 @@ public class ActivityScreenViewModelTests
         rig.Backend.Jobs.ReportStep(id, JobSteps.CaptureFolderDone, ("folder", RepoRole.Install), ("files", 2));
 
         Assert.Same(held, Line(Details(rig), 0));
-        Assert.Equal(["a.esp", "b.esp", "Added 2 new or changed files from the game folder."], Details(rig).Lines.Skip(1).Select(line => line.Text));
+        Assert.Equal(["a.esp", "b.esp", "2 files were new, changed or removed in the game folder."], Details(rig).Lines.Skip(1).Select(line => line.Text));
         Assert.Equal([0L, 1, 2, 3], Details(rig).Lines.Select(line => line.Number));
     }
 
