@@ -385,7 +385,7 @@ public sealed partial class GitEngine
                 () => staging with { OnStdoutLine = reporter is null ? null : line => ObserveAddLine(reporter, line) },
                 ct).ConfigureAwait(false);
         }
-        catch (GitOperationException e) when (FirstHeldFileNamedBy(repo, e.Message) is { } held)
+        catch (GitOperationException e) when (FirstHeldFileNamedBy(repo, e.StandardError ?? e.Message) is { } held)
         {
             // The file git says it could not index is the answer the player needs, when it is one nobody can read now.
             throw held.ToException(HeldFileOperation.Save);
