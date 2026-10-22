@@ -49,6 +49,40 @@ public class OptimizeTests
         Assert.Equal(settings.LastOptimizedAt, (await workspace.Settings.GetStorageSummaryAsync(workspace.Token)).Value!.LastOptimizedAt);
     }
 
+    [Theory]
+    [InlineData(OptimizationMode.Routine)]
+    [InlineData(OptimizationMode.Reclaim)]
+    public async Task An_automatic_cleanup_leaves_the_date_Free_up_space_last_ran_alone(OptimizationMode mode)
+    {
+        using var workspace = new BackendWorkspace();
+        var game = await workspace.AddGameAsync();
+        await workspace.CreateProfileAsync(game);
+
+        var started = new OptimizationService(workspace.Backend.Services).Start(game.Id, mode, preemptible: true);
+        var job = await workspace.WaitForJobAsync(started);
+
+        Assert.Equal(JobStatus.Succeeded, job.Status);
+        Assert.Null((await workspace.Settings.GetAsync(workspace.Token)).Value!.LastOptimizedAt);
+    }
+
+    [Fact]
+    public async Task The_cleanup_that_follows_deleting_a_profile_leaves_the_date_Free_up_space_last_ran_alone_and_the_player_s_run_moves_it()
+    {
+        using var workspace = new BackendWorkspace();
+        var game = await workspace.AddGameAsync();
+        await workspace.CreateProfileAsync(game, "Vanilla");
+        var (other, _) = await workspace.CreateProfileAsync(game, "Other");
+        var vanilla = (await workspace.Profiles.ListAsync(game.Id, workspace.Token)).Value!.First(profile => profile.Id != other.Id);
+
+        Assert.True((await workspace.Profiles.DeleteAsync(game.Id, vanilla.Id)).Ok);
+        await workspace.WaitForIdleAsync();
+        Assert.Null((await workspace.Settings.GetAsync(workspace.Token)).Value!.LastOptimizedAt);
+
+        var started = await workspace.Games.OptimizeStorageAsync(game.Id);
+        await workspace.WaitForJobAsync(started.Value!.JobId);
+        Assert.NotNull((await workspace.Settings.GetAsync(workspace.Token)).Value!.LastOptimizedAt);
+    }
+
     [Fact]
     public async Task Optimizing_a_library_with_no_games_succeeds_and_changes_no_date()
     {

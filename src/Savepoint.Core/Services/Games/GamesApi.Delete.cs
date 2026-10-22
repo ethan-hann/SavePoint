@@ -18,7 +18,7 @@ internal sealed partial class GamesApi
             var game = await RequireGameAsync(gameId, CancellationToken.None).ConfigureAwait(false);
 
             // The user asked for this one, so a launch or capture waits for it instead of stopping it.
-            return new JobStarted(_optimization.Start(game.Id, OptimizationMode.Reclaim, preemptible: false, confirmed));
+            return new JobStarted(_optimization.Start(game.Id, OptimizationMode.Reclaim, preemptible: false, confirmed, byRequest: true));
         });
 
     public Task<OperationResult<FreeUpSpacePreview>> GetFreeUpSpacePreviewAsync(string gameId, CancellationToken cancellationToken = default) =>

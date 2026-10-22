@@ -64,7 +64,7 @@ internal sealed partial class SettingsApi : ISettingsApi
             cancellationToken);
 
     public Task<OperationResult<JobStarted>> OptimizeAllStorageAsync(FreeUpSpaceToken? confirmed = null) =>
-        ApiGuard.RunAsync(_services.Log, () => Task.FromResult(new JobStarted(_optimization.Start(null, OptimizationMode.Reclaim, preemptible: false, confirmed))));
+        ApiGuard.RunAsync(_services.Log, () => Task.FromResult(new JobStarted(_optimization.Start(null, OptimizationMode.Reclaim, preemptible: false, confirmed, byRequest: true))));
 
     public Task<OperationResult<FreeUpSpacePreview>> GetFreeUpSpacePreviewAsync(CancellationToken cancellationToken = default) =>
         ApiGuard.RunAsync(

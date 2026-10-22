@@ -60,7 +60,21 @@ public class StorageSectionViewModelTests
     {
         var rig = await SettingsRig.ShownAsync();
 
-        Assert.Equal("Clears out snapshots no profile uses anymore, such as a deleted profile's. It also runs by itself after you delete a profile or game. Last run Jul 1.", Storage(rig).OptimizeDescription);
+        Assert.Equal("Clears out snapshots no profile uses anymore, such as a deleted profile's, and deletes recently removed snapshots for good. SavePoint also tidies up by itself after you delete a profile and when snapshots pile up, and that never deletes recently removed snapshots. You last freed up space on Jul 1.", Storage(rig).OptimizeDescription);
+    }
+
+    [Fact]
+    public async Task The_optimize_row_never_says_free_up_space_runs_by_itself_and_says_the_automatic_cleanups_keep_recently_removed()
+    {
+        var shown = await SettingsRig.ShownAsync();
+        var never = await SettingsRig.ShownAsync(new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { LastOptimizedAt = null })));
+
+        foreach (var text in new[] { Storage(shown).OptimizeDescription, Storage(never).OptimizeDescription })
+        {
+            Assert.DoesNotContain("runs by itself", text, StringComparison.Ordinal);
+            Assert.DoesNotContain("or game", text, StringComparison.Ordinal);
+            Assert.Contains("that never deletes recently removed snapshots", text, StringComparison.Ordinal);
+        }
     }
 
     [Fact]
@@ -69,7 +83,7 @@ public class StorageSectionViewModelTests
         var never = MockupScenario.Settings with { LastOptimizedAt = null };
         var rig = await SettingsRig.ShownAsync(new FakeBackend(ScenarioBuilder.Mockup().WithSettings(never)));
 
-        Assert.Equal("Clears out snapshots no profile uses anymore, such as a deleted profile's. It also runs by itself after you delete a profile or game. It hasn't run yet.", Storage(rig).OptimizeDescription);
+        Assert.Equal("Clears out snapshots no profile uses anymore, such as a deleted profile's, and deletes recently removed snapshots for good. SavePoint also tidies up by itself after you delete a profile and when snapshots pile up, and that never deletes recently removed snapshots. You haven't freed up space yet.", Storage(rig).OptimizeDescription);
     }
 
     // ---- Free up space
@@ -97,7 +111,7 @@ public class StorageSectionViewModelTests
 
         Assert.False(Storage(rig).IsOptimizing);
         Assert.True(Storage(rig).RunNowCommand.CanExecute(null));
-        Assert.Equal("Clears out snapshots no profile uses anymore, such as a deleted profile's. It also runs by itself after you delete a profile or game. Last run Jul 8.", Storage(rig).OptimizeDescription);
+        Assert.Equal("Clears out snapshots no profile uses anymore, such as a deleted profile's, and deletes recently removed snapshots for good. SavePoint also tidies up by itself after you delete a profile and when snapshots pile up, and that never deletes recently removed snapshots. You last freed up space on Jul 8.", Storage(rig).OptimizeDescription);
         Assert.True(rig.Calls<ISettingsApi>(nameof(ISettingsApi.GetStorageSummaryAsync)) > summaries);
     }
 

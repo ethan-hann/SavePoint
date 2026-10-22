@@ -19,7 +19,8 @@ namespace Savepoint.Core.Catalog;
 /// True to start a game without the launch dialog when only the saves folder would change and nothing is unsaved.
 /// </param>
 /// <param name="LastOptimizedAt">
-/// When storage optimization last ran, or null if it never did. Written by optimization, never by saving settings (D23).
+/// When the player last freed up space, or null if they never did. Written by that run only: the cleanups SavePoint starts by itself
+/// (after a profile delete, or when snapshots pile up) leave it alone. Never written by saving settings (D23).
 /// </param>
 /// <param name="LookUpArtworkOnline">
 /// True to let SavePoint fetch a game's artwork from Steam's servers when it is not already on this computer (D30). False makes no

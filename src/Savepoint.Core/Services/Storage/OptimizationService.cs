@@ -24,8 +24,9 @@ internal sealed class OptimizationService
     /// <param name="mode">How hard to work.</param>
     /// <param name="preemptible">True when a launch, capture or delete on the same game may stop it to go first (D13.17).</param>
     /// <param name="confirmed">The recently removed snapshots' records the run may delete, from a preview the player agreed to; null deletes none.</param>
-    public Guid Start(string? gameId, OptimizationMode mode, bool preemptible, FreeUpSpaceToken? confirmed = null) =>
-        _services.Jobs.Start(JobKind.Compact, gameId, cancellable: true, context => RunAsync(context, gameId, mode, preemptible, confirmed ?? FreeUpSpaceToken.Nothing));
+    /// <param name="byRequest">True for the Free up space the player asked for, the only run that moves the date Settings shows; the cleanups SavePoint starts by itself leave it alone.</param>
+    public Guid Start(string? gameId, OptimizationMode mode, bool preemptible, FreeUpSpaceToken? confirmed = null, bool byRequest = false) =>
+        _services.Jobs.Start(JobKind.Compact, gameId, cancellable: true, context => RunAsync(context, gameId, mode, preemptible, confirmed ?? FreeUpSpaceToken.Nothing, byRequest));
 
     /// <summary>True when either repository of the game holds more loose objects than the threshold, which is when a save queues a routine optimization (D13.17).</summary>
     /// <param name="storage">The storage snapshot the caller holds the game's lock for.</param>
@@ -64,7 +65,7 @@ internal sealed class OptimizationService
         }
     }
 
-    private async Task<JobResult?> RunAsync(JobContext context, string? gameId, OptimizationMode mode, bool preemptible, FreeUpSpaceToken confirmed)
+    private async Task<JobResult?> RunAsync(JobContext context, string? gameId, OptimizationMode mode, bool preemptible, FreeUpSpaceToken confirmed, bool byRequest)
     {
         var games = gameId is null
             ? await _services.Catalog.ListGamesAsync(context.CancellationToken).ConfigureAwait(false)
@@ -96,7 +97,11 @@ internal sealed class OptimizationService
             throw new OperationCancelledByUserException(CancelledOperation.Compaction, gameId);
         }
 
-        await MarkOptimizedAsync(outcomes).ConfigureAwait(false);
+        if (byRequest)
+        {
+            await MarkOptimizedAsync(outcomes).ConfigureAwait(false);
+        }
+
         return new OptimizeResult(outcomes);
     }
 
