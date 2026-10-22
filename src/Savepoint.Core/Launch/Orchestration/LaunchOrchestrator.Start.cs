@@ -180,6 +180,7 @@ public sealed partial class LaunchOrchestrator
                         value.CurrentPath));
             });
             var target = folder.Target;
+            _services.Log.Information($"Switch: the {GameFolders.LogName(target.Role)} folder of {gameId} ({target.Repo.WorkTree}) from {folder.Status.HeadCommit ?? "(no point)"} to {target.Commit}{(target.Branch is { } named ? $" on {named}" : " (an older point)")}.");
             if (target.Branch is { } branch)
             {
                 await storage.Engine.CheckoutBranchAsync(target.Repo, branch, progress, context.CancellationToken).ConfigureAwait(false);

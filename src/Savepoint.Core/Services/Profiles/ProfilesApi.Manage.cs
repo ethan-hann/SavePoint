@@ -130,6 +130,8 @@ internal sealed partial class ProfilesApi
                         throw;
                     }
 
+                    var tips = removed.Count == 0 ? "it had no points" : string.Join(", ", removed.Select(branch => $"{GameFolders.LogName(branch.Repo.Role)} branch {profile.BranchName} was at {branch.Tip}"));
+                    _services.Log.Information($"Profile deleted: {profile.Name} ({profile.Id}) of {gameId}; {tips}. The points only it held stay in the store until the tidy-up that follows.");
                     return Unit.Value;
                 }).ConfigureAwait(false);
 

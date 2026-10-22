@@ -155,7 +155,21 @@ public sealed partial class LaunchOrchestrator
                     await RefuseWhileOpenAsync(current).ConfigureAwait(false);
                     if (GameFolders.Repos(_services, storage, current).FirstOrDefault(repo => repo.Role == folder) is { } repo)
                     {
+                        // Read first so the log can say what the discard took away; the log is a courtesy, so a status that cannot be read only costs the counts.
+                        RepoStatus? before = null;
+                        try
+                        {
+                            before = await storage.Engine.GetStatusAsync(repo).ConfigureAwait(false);
+                        }
+                        catch (SavepointException)
+                        {
+                            // The discard reports its own refusal.
+                        }
+
                         await storage.Engine.DiscardChangesAsync(repo).ConfigureAwait(false);
+                        _services.Log.Information(
+                            $"Discard: the {GameFolders.LogName(folder)} folder of {gameId} ({repo.WorkTree}) was put back to point {before?.HeadCommit ?? "(none)"}: "
+                            + (before is null ? "counts unknown." : $"{before.ChangedPaths.Count} changed or deleted files restored, {before.UntrackedPaths.Count} new files removed."));
                     }
 
                     return Unit.Value;

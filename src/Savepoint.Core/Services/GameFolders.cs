@@ -22,6 +22,9 @@ internal static class GameFolders
             ? [(RepoRole.Install, game.Install.Path, "install.path"), (RepoRole.External, external.Path, "external.path")]
             : [(RepoRole.Install, game.Install.Path, "install.path")];
 
+    /// <summary>How the log names a folder: "install" or "saves".</summary>
+    public static string LogName(RepoRole role) => role == RepoRole.Install ? "install" : "saves";
+
     /// <summary>The roles a definition has folders for.</summary>
     public static IReadOnlyList<RepoRole> RolesOf(GameDefinition game) =>
         game.External is null ? [RepoRole.Install] : [RepoRole.Install, RepoRole.External];

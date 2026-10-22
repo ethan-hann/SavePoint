@@ -49,7 +49,7 @@ internal sealed class SessionBook : IGameSessions
     private readonly Lock _gate = new();
     private readonly Dictionary<string, SessionRecord> _records = new(StringComparer.Ordinal);
     private readonly HashSet<string> _starting = new(StringComparer.Ordinal);
-    private readonly EventPump _pump = new();
+    private readonly EventPump _pump;
     private long _revision;
 
     // Touched only by the pump, which runs one action at a time, so it needs no lock.
@@ -58,6 +58,7 @@ internal sealed class SessionBook : IGameSessions
     public SessionBook(IDiagnosticLog? log = null)
     {
         _log = log ?? DiagnosticLog.None;
+        _pump = new EventPump(_log);
     }
 
     public event EventHandler<LaunchSessionInfo>? SessionChanged;

@@ -484,9 +484,10 @@ public sealed class JobRegistry : IJobsApi
             {
                 handler(this, snapshot);
             }
-            catch (Exception)
+            catch (Exception e)
             {
-                // A subscriber's failure must reach neither the work nor the other subscribers.
+                // A subscriber's failure must reach neither the work nor the other subscribers; the log is where it shows.
+                _log.Warning($"A subscriber to a change of job {snapshot.JobId} threw; the job and the other subscribers carried on.", e);
             }
         }
     }

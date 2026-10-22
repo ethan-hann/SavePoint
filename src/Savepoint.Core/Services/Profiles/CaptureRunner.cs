@@ -182,6 +182,7 @@ internal sealed class CaptureRunner
             var existed = await storage.Engine.BranchExistsAsync(repo, branch, context.CancellationToken).ConfigureAwait(false);
             startedBranch = !existed;
             var saved = await CaptureFolderAsync(storage, game, repo, branch, existed, pointName, capture, forksNewBranches, plan, progress, context.CancellationToken).ConfigureAwait(false);
+            LogSkipped(game.Id, repo, branch, saved);
             return new SavedFolder(repo, new FolderOutcome(repo.Role, null, saved.LeftAlone, saved.LeftOnBranch), saved.Recorded, startedBranch);
         }
         catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException))
@@ -192,8 +193,21 @@ internal sealed class CaptureRunner
         }
     }
 
+    // A folder a save did not write to leaves no point to find later, so the log says which one and why.
+    private void LogSkipped(string gameId, RepoRef repo, string branch, FolderSave saved)
+    {
+        if (saved.LeftAlone)
+        {
+            _services.Log.Information($"Save: the {GameFolders.LogName(repo.Role)} folder of {gameId} ({repo.WorkTree}) was left alone: it sits on {saved.LeftOnBranch ?? "an older point"}, not on {branch}, so nothing was added to it.");
+        }
+        else if (saved.SkippedAsClean)
+        {
+            _services.Log.Information($"Save: the {GameFolders.LogName(repo.Role)} folder of {gameId} ({repo.WorkTree}) had nothing unsaved, so {branch} was not changed there.");
+        }
+    }
+
     // What a save did to one folder: whether it recorded a new point, or left the folder alone (and on which branch it sits).
-    private readonly record struct FolderSave(bool Recorded, bool LeftAlone = false, string? LeftOnBranch = null);
+    private readonly record struct FolderSave(bool Recorded, bool LeftAlone = false, string? LeftOnBranch = null, bool SkippedAsClean = false);
 
     private static async Task<FolderSave> CaptureFolderAsync(
         StorageSnapshot storage,
@@ -227,7 +241,7 @@ internal sealed class CaptureRunner
             // A file nobody can read is "cannot tell", not "unchanged": the save runs and says which file it could not read.
             if (plan.SkipWhenClean && status.IsClean && status.HeldFile is null)
             {
-                return new FolderSave(false);
+                return new FolderSave(false, SkippedAsClean: true);
             }
         }
 
