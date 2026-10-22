@@ -39,7 +39,7 @@ public class ArtworkLookupTests
         rig.PutSteamCache(_app);
 
         var first = await rig.Artwork.GetAsync(game.Id, rig.Token);
-        await rig.Real.WhenIdleAsync();
+        await rig.WhenIdleAsync();
         var second = await rig.Artwork.GetAsync(game.Id, rig.Token);
 
         Assert.Equal(ArtworkSource.None, first.Value!.Source);
@@ -202,7 +202,7 @@ public class ArtworkLookupTests
         await rig.UpdateGameAsync(game with { SteamAppId = 222 });
 
         var right = await rig.Artwork.GetAsync(game.Id, rig.Token);
-        await rig.Real.WhenIdleAsync();
+        await rig.WhenIdleAsync();
         var later = await rig.Artwork.GetAsync(game.Id, rig.Token);
 
         Assert.Equal(ArtworkSource.Steam, old.Source);
@@ -238,7 +238,7 @@ public class ArtworkLookupTests
         rig.PutSteamCache(_app);
 
         await Task.WhenAll(Enumerable.Range(0, 20).Select(_ => rig.Artwork.GetAsync(game.Id, rig.Token)));
-        await rig.Real.WhenIdleAsync();
+        await rig.WhenIdleAsync();
 
         Assert.Equal([game.Id], rig.Changes);
     }

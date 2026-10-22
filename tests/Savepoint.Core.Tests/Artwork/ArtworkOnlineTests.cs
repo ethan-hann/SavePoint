@@ -244,7 +244,7 @@ public class ArtworkOnlineTests
         await Task.Delay(150, rig.Token);
         Assert.Equal(2, rig.Http.Requests.Count);
         gate.SetResult();
-        await rig.Real.WhenIdleAsync();
+        await rig.WhenIdleAsync();
 
         Assert.Equal(2, rig.Http.MaxInFlight);
         foreach (var game in games)
@@ -270,7 +270,7 @@ public class ArtworkOnlineTests
         await rig.Workspace.Backend.Services.Catalog.DeleteGameAsync(game.Id, rig.Token);
         rig.Workspace.Backend.Services.Artwork.DeleteGame(game.Id);
         gate.SetResult();
-        await rig.Real.WhenIdleAsync();
+        await rig.WhenLookupDoneAsync(game.Id);
 
         Assert.False(Directory.Exists(rig.ArtworkFolder(game.Id)));
         Assert.Empty(rig.Changes);
@@ -294,7 +294,7 @@ public class ArtworkOnlineTests
             time.Advance(TimeSpan.FromSeconds(10.5));
         }
 
-        await rig.Real.WhenIdleAsync();
+        await rig.WhenIdleAsync();
         var art = await rig.Artwork.GetAsync(game.Id, rig.Token);
 
         Assert.Equal(ArtworkSource.None, art.Value!.Source);
