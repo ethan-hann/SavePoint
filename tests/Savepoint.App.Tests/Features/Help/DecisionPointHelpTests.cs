@@ -1,10 +1,10 @@
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Help;
 using Savepoint.App.Features.Launch;
+using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Tests.Features.EndToEnd;
 using Savepoint.App.Tests.Features.Games;
 using Savepoint.App.Tests.Features.Launch;
-using Savepoint.App.Tests.Fakes;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 

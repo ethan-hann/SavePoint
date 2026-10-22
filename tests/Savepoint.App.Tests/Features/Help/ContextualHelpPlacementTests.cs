@@ -1,10 +1,10 @@
 using Savepoint.App.Features.Help;
 using Savepoint.App.Features.Launch;
+using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Tests.Features.EndToEnd;
 using Savepoint.App.Tests.Features.History;
 using Savepoint.App.Tests.Features.Launch;
 using Savepoint.App.Tests.Features.Settings;
-using Savepoint.App.Tests.Fakes;
 using Savepoint.Core.Api;
 
 namespace Savepoint.App.Tests.Features.Help;

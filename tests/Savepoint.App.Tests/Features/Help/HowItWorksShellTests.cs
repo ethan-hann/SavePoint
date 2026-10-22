@@ -1,8 +1,8 @@
 using Savepoint.App.Features.Help;
 using Savepoint.App.Features.Shell;
+using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Tests.Features.Settings;
 using Savepoint.App.Tests.Features.Shell;
-using Savepoint.App.Tests.Fakes;
 
 namespace Savepoint.App.Tests.Features.Help;
 
