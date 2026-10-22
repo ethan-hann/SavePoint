@@ -32,4 +32,17 @@ public sealed class FakeAppStatusApi : IAppStatusApi
             State.Startup = State.Startup with { Catalog = catalog with { CorruptFiles = [.. catalog.CorruptFiles.Where(f => f != file)] } };
             return OperationResult.Success($"{path}.corrupt");
         });
+
+    public Task<OperationResult<string>> UseStorageFolderAsync(string folder, CancellationToken cancellationToken = default) =>
+        _backend.Call(_api, nameof(UseStorageFolderAsync), [folder], () => Reachable(folder));
+
+    public Task<OperationResult<string>> StartWithEmptyStorageAsync(CancellationToken cancellationToken = default) =>
+        _backend.Call(_api, nameof(StartWithEmptyStorageAsync), [], () => Reachable(State.DefaultStorageRoot));
+
+    // Either choice leaves the storage reachable at the folder it names, as the real one does.
+    private OperationResult<string> Reachable(string root)
+    {
+        State.Startup = State.Startup with { Storage = new StorageStatus(true, root, null) };
+        return OperationResult.Success(root);
+    }
 }

@@ -53,6 +53,7 @@ internal static class AppStates
         "editor-reconnect",
         "startup-git-unavailable",
         "startup-corrupt-catalog",
+        "startup-storage-unreachable",
         "library-error",
         "toast",
         "job-pill",
@@ -80,6 +81,7 @@ internal static class AppStates
     ];
     private const string _gitPath = @"C:\Program Files\SavePoint\git\cmd\git.exe";
     private const string _catalogDirectory = @"C:\Users\you\AppData\Roaming\SavePoint";
+    private const string _storageRoot = @"F:\SavePoint";
 
     // The first read of the game list fails, as a catalog that cannot be reached would.
     private static FakeBackend LibraryUnreadable()
@@ -113,6 +115,10 @@ internal static class AppStates
                     new CorruptCatalogFile(_catalogDirectory + @"\games.json", _catalogDirectory + @"\games.json.bak", ErrorInfo.From(new CatalogCorruptException(_catalogDirectory + @"\games.json", null))),
                     new CorruptCatalogFile(_catalogDirectory + @"\profiles.json", null, ErrorInfo.From(new CatalogCorruptException(_catalogDirectory + @"\profiles.json", null))),
                 ]))), visitScreens: false),
+            "startup-storage-unreachable" => await ComposedApp.StartWithViewAsync(StartupBackend(new StartupStatus(
+                new GitStatus(true, _gitPath, "2.56.0.windows.2", null),
+                new CatalogStatus(_catalogDirectory, []),
+                new StorageStatus(false, _storageRoot, ErrorInfo.From(new StorageUnreachableException(_storageRoot, null))))), visitScreens: false),
             _ => await ComposedApp.StartWithViewAsync(),
         };
 

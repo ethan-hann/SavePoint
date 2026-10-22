@@ -204,6 +204,8 @@ public class ErrorTypesTests
             ("path", "/install/data"));
         Add("StorageSourceUnreadable", new StorageSourceUnreadableException("/storage/alpha", "dev text", null), "error.storageRelocation.sourceUnreadable",
             ("path", "/storage/alpha"));
+        Add("StorageHistoryNotFound", new StorageHistoryNotFoundException("/elsewhere"), "error.storage.noHistoryHere",
+            ("path", "/elsewhere"));
         Add("StorageMoveUnfinished", new StorageMoveUnfinishedException("/storage"), "error.storageRelocation.moveUnfinished",
             ("path", "/storage"));
         Add("Validation", new ValidationException(_issues), "error.validation.invalidPayload",

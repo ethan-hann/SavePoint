@@ -206,7 +206,7 @@ public class AppStatusTests
     }
 
     [Fact]
-    public async Task A_storage_folder_that_cannot_be_made_fails_the_check_with_the_path()
+    public async Task A_storage_folder_that_cannot_be_made_is_reported_as_a_finding_with_the_path()
     {
         using var workspace = new BackendWorkspace();
         var blocker = Path.Combine(workspace.Root, "a-file");
@@ -216,8 +216,12 @@ public class AppStatusTests
 
         var status = await workspace.AppStatus.CheckAsync(workspace.Token);
 
-        Assert.Equal("error.storage.unreachable", status.Error?.MessageId);
-        Assert.Equal(root, status.Error!.Args["path"]);
+        Assert.True(status.Ok, status.Error?.Detail);
+        var storage = Assert.IsType<StorageStatus>(status.Value.Storage);
+        Assert.False(storage.Reachable);
+        Assert.Equal(root, storage.Root);
+        Assert.Equal("error.storage.unreachable", storage.Error?.MessageId);
+        Assert.Equal(root, storage.Error!.Args["path"]);
     }
 
     [Fact]

@@ -74,6 +74,7 @@ public static class ErrorPresentation
         ["error.profile.alreadyExists"] = new(Icons.Info, ErrorTone.Neutral, "errorCard.title.profileExists"),
         ["error.profile.noPoints"] = new(Icons.Info, ErrorTone.Neutral, "errorCard.title.nothingSavedYet"),
         ["error.profile.notFound"] = new(Icons.Info, ErrorTone.Neutral, "errorCard.title.notFound"),
+        ["error.storage.noHistoryHere"] = new(Icons.FolderOff, ErrorTone.Warning, "errorCard.title.historyNotHere"),
         ["error.storage.unreachable"] = new(Icons.Storage, ErrorTone.Error, "errorCard.title.storageUnreachable"),
         ["error.storageRelocation.cancelled"] = new(Icons.Cancel, ErrorTone.Neutral, "errorCard.title.canceled"),
         ["error.storageRelocation.copyFailed"] = new(Icons.Storage, ErrorTone.Warning, "errorCard.title.generic"),

@@ -1,3 +1,4 @@
+using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 
 namespace Savepoint.Core.Tests.Backend;
@@ -38,7 +39,7 @@ public class StorageUnreachableTests
     }
 
     [Fact]
-    public async Task A_storage_folder_that_has_gone_missing_is_unreachable_for_history_and_the_startup_check()
+    public async Task A_storage_folder_that_has_gone_missing_is_unreachable_for_history_and_a_finding_of_the_startup_check()
     {
         var (workspace, game) = await WithHistoryAsync();
         using var _ = workspace;
@@ -50,7 +51,12 @@ public class StorageUnreachableTests
         var check = await restarted.AppStatus.CheckAsync(workspace.Token);
 
         Assert.Equal("error.storage.unreachable", history.Error?.MessageId);
-        Assert.Equal("error.storage.unreachable", check.Error?.MessageId);
+        Assert.True(check.Ok, check.Error?.Detail);
+        Assert.True(check.Value.Git.Available);
+        var storage = Assert.IsType<StorageStatus>(check.Value.Storage);
+        Assert.False(storage.Reachable);
+        Assert.Equal(workspace.DefaultStorageRoot, storage.Root);
+        Assert.Equal("error.storage.unreachable", storage.Error?.MessageId);
         Assert.False(Directory.Exists(workspace.DefaultStorageRoot), "an unreachable storage folder must not be made again");
 
         Directory.Move(away, workspace.DefaultStorageRoot);

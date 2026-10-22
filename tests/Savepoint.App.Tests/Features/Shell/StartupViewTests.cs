@@ -22,6 +22,12 @@ public class StartupViewTests
 
         public Task<OperationResult<string>> RecoverCatalogFileAsync(string path, CatalogRecovery recovery, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
+
+        public Task<OperationResult<string>> UseStorageFolderAsync(string folder, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<OperationResult<string>> StartWithEmptyStorageAsync(CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
     }
 
     [AvaloniaFact]
@@ -45,6 +51,30 @@ public class StartupViewTests
         using var app = await AppStates.OpenAsync("startup-corrupt-catalog");
 
         var error = app.Find<Border>("RecoveryError");
+
+        Assert.Equal(AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(error));
+    }
+
+    [AvaloniaFact]
+    public async Task The_unreachable_storage_screen_shows_the_path_and_a_button_for_each_way_on()
+    {
+        using var app = await AppStates.OpenAsync("startup-storage-unreachable");
+
+        var texts = app.All<TextBlock>().Where(block => block.IsEffectivelyVisible).Select(block => block.Text).ToList();
+        var buttons = app.All<Button>().Where(button => button.IsEffectivelyVisible).Select(button => button.Content as string ?? (button.Content as TextBlock)?.Text).ToList();
+
+        Assert.Contains(@"F:\SavePoint", texts);
+        Assert.Contains("Try again", buttons);
+        Assert.Contains("Find the folder", buttons);
+        Assert.Contains("Start with an empty folder", buttons);
+    }
+
+    [AvaloniaFact]
+    public async Task The_storage_error_is_a_live_region_so_a_refused_folder_is_heard()
+    {
+        using var app = await AppStates.OpenAsync("startup-storage-unreachable");
+
+        var error = app.Find<TextBlock>("StorageActionError");
 
         Assert.Equal(AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(error));
     }

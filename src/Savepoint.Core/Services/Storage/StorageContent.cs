@@ -1,5 +1,6 @@
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
+using Savepoint.Core.Git;
 
 namespace Savepoint.Core.Services.Storage;
 
@@ -59,6 +60,24 @@ internal static class StorageContent
                 .Order(StringComparer.Ordinal),
         ];
     }
+
+    /// <summary>
+    /// True when the folder holds a git directory that carries SavePoint's own stamp: the mark of history SavePoint made, as opposed
+    /// to a folder that merely has the right names. A folder that cannot be read holds none.
+    /// </summary>
+    /// <param name="gameFolder">A game's folder under the storage root.</param>
+    public static bool HoldsStampedGitDirectory(string gameFolder) =>
+        new[] { "install.git", "external.git" }.Select(name => Path.Combine(gameFolder, name, "config")).Any(config =>
+        {
+            try
+            {
+                return File.Exists(config) && AtomicText.ReadOrNull(config) is { } text && RepoConfigFile.ReadStamp(text) is not null;
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                return false;
+            }
+        });
 
     private static bool LeadsToGitDirectories(DirectoryInfo link) =>
         Directory.Exists(Path.Combine(link.FullName, "install.git")) || Directory.Exists(Path.Combine(link.FullName, "external.git"));

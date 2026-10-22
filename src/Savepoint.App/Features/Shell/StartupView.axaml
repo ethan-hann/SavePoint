@@ -19,6 +19,7 @@
 
       <ContentControl x:Name="StartupCard" IsVisible="{Binding HasCard}" Content="{Binding Card}" />
       <TextBlock x:Name="LogFolderError" Classes="caption error" TextWrapping="Wrap" IsVisible="{Binding HasLogFolderError}" Text="{Binding LogFolderError}" />
+      <TextBlock x:Name="StorageActionError" Classes="caption error" TextWrapping="Wrap" IsVisible="{Binding HasStorageActionError}" Text="{Binding StorageActionError}" AutomationProperties.LiveSetting="Polite" />
 
       <StackPanel x:Name="RecoveryList" Spacing="14" IsVisible="{Binding ShowCorruptFiles}">
         <TextBlock Classes="body muted" TextWrapping="Wrap" Text="{loc:Loc startup.corrupt.intro}" />

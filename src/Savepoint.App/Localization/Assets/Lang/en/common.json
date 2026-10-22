@@ -23,6 +23,7 @@
   "errorCard.title.gameRunning": "The game is running",
   "errorCard.title.generic": "Something went wrong",
   "errorCard.title.historyFound": "Saved history was found here",
+  "errorCard.title.historyNotHere": "No saved history in that folder",
   "errorCard.title.imageTooLarge": "That picture is too big",
   "errorCard.title.noHistoryToReconnect": "There's no saved history to reconnect",
   "errorCard.title.noRoom": "There isn't enough room",
