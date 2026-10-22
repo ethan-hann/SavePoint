@@ -33,7 +33,14 @@ internal static class Program
         }
 
         // A backend that cannot start becomes the startup screen's error card, never a crash (D18).
-        App.Services = AppBootstrap.Start().Services;
+        var started = AppBootstrap.Start();
+        using var closeLog = started.Log as IDisposable;
+
+        // Whatever nothing catches is written to the log first, then shown in a last window, and the process ends after it (D34).
+        var crash = new CrashHandler(started.Log, new AvaloniaCrashPresenter(path => started.Services.FileRevealer?.Reveal(path) ?? false), Environment.Exit, started.Services.LogFolder);
+        using var processHooks = crash.AttachToProcess();
+        App.Crash = crash;
+        App.Services = started.Services;
         App.SingleInstance = single;
         App.IntegrateWithSystem = true;
         return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);

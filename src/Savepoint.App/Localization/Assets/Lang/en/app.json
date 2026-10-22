@@ -2,5 +2,12 @@
   "app.alreadyRunning.body": "SavePoint is open in another window, and only one copy can work on your history at a time. Look for it on your taskbar or dock. This message closes by itself.",
   "app.alreadyRunning.ok": "OK",
   "app.alreadyRunning.title": "SavePoint is already running",
+  "app.crash.body": "The details were saved to SavePoint's log. If you report this problem, send the newest file from the log folder.",
+  "app.crash.bodyNoLog": "SavePoint couldn't save the details of this problem. Show details has them, if you want to copy them.",
+  "app.crash.close": "Close SavePoint",
+  "app.crash.logFolder": "Log folder: {path}",
+  "app.crash.openFailed": "SavePoint couldn't open the log folder.",
+  "app.crash.openLogFolder": "Open the log folder",
+  "app.crash.title": "SavePoint ran into a problem and has to close",
   "app.name": "SavePoint"
 }

@@ -38,6 +38,9 @@ public partial class App : Application
     /// <summary>True when this copy only shows the brief "already running" notice and then ends.</summary>
     public static bool ShowAlreadyRunningNotice { get; set; }
 
+    /// <summary>What happens to an exception nothing catches (D34); its UI thread hook is attached once the window exists. Null in tests.</summary>
+    public static CrashHandler? Crash { get; set; }
+
     public override void Initialize()
     {
         // Must be set before any XAML that uses the Loc extension is loaded.
@@ -70,6 +73,12 @@ public partial class App : Application
             window.DataContext = main;
             window.Opened += (_, _) => _ = main.InitializeAsync();
             desktop.MainWindow = window;
+
+            if (Crash is not null)
+            {
+                var uiThreadHook = Crash.AttachToUiThread();
+                desktop.Exit += (_, _) => uiThreadHook.Dispose();
+            }
 
             if (IntegrateWithSystem && Services is not null)
             {
