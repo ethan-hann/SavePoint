@@ -133,16 +133,18 @@ public class CrashHandlerTests
         using var attached = Handler().AttachToProcess();
 
         FailInTheBackground();
+        // The hook is process-wide, so other tests' abandoned tasks can land in the log first; wait for this one.
+        static bool Ours(LogEntry entry) => entry.Exception?.ToString().Contains("failed with nobody watching", StringComparison.Ordinal) == true;
         SpinWait.SpinUntil(
             () =>
             {
                 GC.Collect();
                 GC.WaitForPendingFinalizers();
-                return _log.Entries.Count > 0;
+                return _log.Entries.Any(Ours);
             },
             TimeSpan.FromSeconds(10));
 
-        var line = Assert.Single(_log.Entries, entry => entry.Exception?.ToString().Contains("failed with nobody watching", StringComparison.Ordinal) == true);
+        var line = Assert.Single(_log.Entries, Ours);
         Assert.Equal(LogLevel.Error, line.Level);
         Assert.Empty(_exits);
     }
