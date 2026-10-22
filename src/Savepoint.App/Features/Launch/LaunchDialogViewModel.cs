@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Toasts;
+using Savepoint.App.Features.Help;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 
@@ -28,6 +29,7 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
     private readonly LaunchDependencies _deps;
     private readonly SaveOptionViewModel? _defaultSave;
     private bool _restoringPreference;
+    private bool _explainDiscard;
 
     /// <summary>The save the picker shows as chosen; null when the profile has no saves.</summary>
     [ObservableProperty]
@@ -53,13 +55,15 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
     /// <param name="skipConfirmWhenOnlySaveChanges">The saved "don't ask again" preference.</param>
     /// <param name="profileNameOf">Looks up a profile's name by id; null for one it does not know. Names the profile that new changes belong to.</param>
     /// <param name="deps">The Api and formatting the dialog uses.</param>
-    public LaunchDialogViewModel(LaunchPreview preview, string gameName, string profileName, bool skipConfirmWhenOnlySaveChanges, Func<string, string?> profileNameOf, LaunchDependencies deps)
+    /// <param name="explainDiscard">True until a player has seen the extra line a discard confirmation carries the first time: it is added once, and the player's settings remember it was shown.</param>
+    public LaunchDialogViewModel(LaunchPreview preview, string gameName, string profileName, bool skipConfirmWhenOnlySaveChanges, Func<string, string?> profileNameOf, LaunchDependencies deps, bool explainDiscard = false)
         : base(deps.Text.Message("launch.dialog.title", ("profileName", profileName)))
     {
         _preview = preview;
         _profileName = profileName;
         _profileNameOf = profileNameOf;
         _deps = deps;
+        _explainDiscard = explainDiscard;
         GameName = gameName;
         _dontAskAgain = skipConfirmWhenOnlySaveChanges;
 
@@ -77,6 +81,7 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
         _defaultSave = SaveOptions.FirstOrDefault(option => preview.SelectedSaveId is { } id && option.Entry.Id == id) ?? SaveOptions.FirstOrDefault();
         _selectedSave = _defaultSave;
         SaveCaption = text.Message("launch.dialog.saveCaption");
+        SaveSnapshotHelp = ContextualHelp.SaveSnapshot(text);
 
         foreach (var folder in new[] { preview.Install, preview.External }.OfType<FolderLaunchState>().Where(state => state.Dirty))
         {
@@ -138,6 +143,9 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
 
     /// <summary>"This replaces what's in your saves folder right now."</summary>
     public string SaveCaption { get; }
+
+    /// <summary>"What's a save snapshot?", under the choice of saves.</summary>
+    public ContextualHelpViewModel SaveSnapshotHelp { get; }
 
     /// <summary>One block per folder with unsaved changes, install first; empty once they are resolved.</summary>
     public ObservableCollection<UnsavedChangesBlockViewModel> UnsavedBlocks { get; } = [];
@@ -256,7 +264,8 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
             folder.DirtyNewFileCount,
             folder.DirtyFileCount - folder.DirtyNewFileCount,
             unfinished ? Close : null,
-            unfinished ? folder.UnfinishedSwitchTarget : null);
+            unfinished ? folder.UnfinishedSwitchTarget : null,
+            unfinished ? null : ContextualHelp.NewChanges(text));
         block.PropertyChanged += OnBlockPropertyChanged;
         UnsavedBlocks.Add(block);
     }
@@ -376,7 +385,26 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
         }
 
         sentences.Add(text.Message("launch.dialog.discardUndo"));
+        if (DiscardAdvice(block) is { } advice)
+        {
+            sentences.Add(advice);
+        }
+
         return string.Join(' ', sentences);
+    }
+
+    // The first time a player is asked to confirm a discard, one more line says there is a safer choice. A mix of two snapshots has
+    // none, because it can be neither kept nor saved; and once the line has been given it is remembered for good.
+    private string? DiscardAdvice(UnsavedChangesBlockViewModel block)
+    {
+        if (!_explainDiscard || block.IsUnfinishedSwitch)
+        {
+            return null;
+        }
+
+        _explainDiscard = false;
+        _ = _deps.SettingsWriter.UpdateAsync(settings => settings with { DiscardHelpSeen = true });
+        return _deps.Text.Message(block.CanSaveFirst ? "help.discard.saferChoice" : "help.discard.saferChoiceKeep");
     }
 
     private async Task DiscardAsync(UnsavedChangesBlockViewModel block)

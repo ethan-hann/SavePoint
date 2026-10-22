@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using Savepoint.App.Features.Help;
 using Savepoint.Core.Api;
 
 namespace Savepoint.App.Features.Launch;
@@ -8,7 +9,7 @@ public sealed partial class PostPlayChoiceViewModel : ObservableObject
 {
     /// <summary>True while this card is the selected one.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowNameField))]
+    [NotifyPropertyChangedFor(nameof(ShowNameField), nameof(ShowHelp))]
     private bool _isSelected;
 
     /// <summary>What the name field holds.</summary>
@@ -21,8 +22,10 @@ public sealed partial class PostPlayChoiceViewModel : ObservableObject
     /// <param name="subtitle">What choosing it does.</param>
     /// <param name="nameLabel">The field's label, or null for a card with no field.</param>
     /// <param name="suggestedName">What the field starts with.</param>
-    public PostPlayChoiceViewModel(CompletionChoice kind, string icon, string title, string subtitle, string? nameLabel = null, string suggestedName = "")
+    /// <param name="help">An explanation that opens inside the card while it is selected; null for a card with none.</param>
+    public PostPlayChoiceViewModel(CompletionChoice kind, string icon, string title, string subtitle, string? nameLabel = null, string suggestedName = "", ContextualHelpViewModel? help = null)
     {
+        Help = help;
         Kind = kind;
         Icon = icon;
         Title = title;
@@ -31,6 +34,12 @@ public sealed partial class PostPlayChoiceViewModel : ObservableObject
         SuggestedName = suggestedName;
         _name = suggestedName;
     }
+
+    /// <summary>The explanation that opens inside the card while it is selected; null for a card with none.</summary>
+    public ContextualHelpViewModel? Help { get; }
+
+    /// <summary>True while the card is selected and has an explanation, which is when the explanation shows.</summary>
+    public bool ShowHelp => IsSelected && Help is not null;
 
     /// <summary>Which completion the card stands for.</summary>
     public CompletionChoice Kind { get; }

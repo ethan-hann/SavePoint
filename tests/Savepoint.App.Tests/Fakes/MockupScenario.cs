@@ -59,7 +59,9 @@ public static class MockupScenario
         Layout: ShellLayout.Sidebar,
         ConfirmSessionCapture: true,
         SkipConfirmWhenOnlySaveChanges: false,
-        LastOptimizedAt: At(2026, 7, 1, 9, 0));
+        LastOptimizedAt: At(2026, 7, 1, 9, 0),
+        // A player who has been through the tour, so no screen test finds a card of it in the way; the tour's own tests turn this off.
+        TourSeen: true);
 
     public static GameDefinition Skyrim { get; } = new(
         Id: SkyrimId,

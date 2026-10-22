@@ -77,6 +77,14 @@ public class FirstRunJourneyTests
         await rig.WaitAsync(() => row.ProfileCount == 1, "the sidebar to count the profile");
         rig.Render("1d-first-profile");
 
+        // The first profile starts the tour, once, and the settings file on disk remembers that it started.
+        Assert.True(rig.Shell.Tour.IsActive);
+        Assert.Equal("This is a profile", rig.Shell.Tour.Current.Title);
+        Assert.Contains("Journey Game", rig.Shell.Tour.Current.Body, StringComparison.Ordinal);
+        var settingsFile = Path.Combine(rig.CatalogFolder, "settings.json");
+        await rig.WaitAsync(() => File.Exists(settingsFile) && File.ReadAllText(settingsFile).Contains("\"tourSeen\": true", StringComparison.Ordinal), "the settings file to record that the tour started");
+        rig.Render("1e-the-tour-after-the-first-profile");
+
         // Saving leaves the person's folders as they were, and what SavePoint keeps is in its own storage folder.
         Assert.Equal(installBefore, FolderSnapshot.Of(game.Install));
         Assert.Equal(savesBefore, FolderSnapshot.Of(game.Saves));

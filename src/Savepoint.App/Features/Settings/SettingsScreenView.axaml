@@ -4,6 +4,7 @@
              xmlns:loc="using:Savepoint.App.Localization"
              xmlns:theme="using:Savepoint.App.Theme"
              xmlns:settings="using:Savepoint.App.Features.Settings"
+             xmlns:help="using:Savepoint.App.Features.Help"
              x:Class="Savepoint.App.Features.Settings.SettingsScreenView"
              x:DataType="settings:SettingsScreenViewModel">
   <!-- The Settings screen: mockups 2k (light) and 3c (the layout choice). -->
@@ -48,6 +49,31 @@
       <ContentControl x:Name="LoadErrorHost" Content="{Binding LoadError}" IsVisible="{Binding HasLoadError}" />
 
       <StackPanel x:Name="Sections" Spacing="22" IsVisible="{Binding IsLoaded}">
+
+        <!-- Help: the way into the "How SavePoint works" page. -->
+        <StackPanel x:Name="HelpSection">
+          <TextBlock Classes="section-label" Text="{theme:Upper {loc:Loc settings.help.heading}}" />
+          <Border Classes="panel">
+            <StackPanel Spacing="12">
+              <TextBlock Classes="caption" FontSize="12.5" TextWrapping="Wrap" Text="{loc:Loc settings.help.hint}" />
+              <WrapPanel Orientation="Horizontal">
+                <Button x:Name="HowItWorksButton"
+                        Classes="pill"
+                        Margin="0,0,8,8"
+                        Padding="18,8"
+                        Command="{Binding Help.ShowHowItWorksCommand}"
+                        Content="{loc:Loc settings.help.howItWorks}" />
+                <Button x:Name="TourButton"
+                        Classes="pill"
+                        Margin="0,0,8,8"
+                        Padding="18,8"
+                        Command="{Binding Help.ShowTourCommand}"
+                        Content="{loc:Loc settings.help.tour}" />
+              </WrapPanel>
+              <TextBlock x:Name="TourHint" Classes="caption" FontSize="12.5" TextWrapping="Wrap" IsVisible="{Binding Help.ShowTourHint}" Text="{loc:Loc settings.help.tourNeedsProfile}" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
 
         <!-- Where SavePoint keeps your snapshots. -->
         <StackPanel x:Name="StorageSection">
@@ -131,6 +157,7 @@
               </Grid>
             </StackPanel>
           </Border>
+          <help:ContextualHelpView x:Name="SpaceHelpHost" Margin="0,8,0,0" DataContext="{Binding SpaceHelp}" />
           <ContentControl x:Name="StorageProblemHost"
                           Margin="0,12,0,0"
                           Content="{Binding Storage.Problem}"
@@ -151,6 +178,7 @@
                 <ListBox x:Name="ThemeSelector"
                          Grid.Column="1"
                          Classes="segmented"
+                         AutoScrollToSelectedItem="False"
                          ItemsSource="{Binding Appearance.ThemeOptions}"
                          SelectedItem="{Binding Appearance.SelectedTheme, Mode=TwoWay}"
                          AutomationProperties.Name="{loc:Loc settings.theme.label}">
@@ -177,6 +205,7 @@
                 <ListBox x:Name="LayoutCards"
                          Classes="radio-cards layout-cards"
                          Margin="-6,0"
+                         AutoScrollToSelectedItem="False"
                          ItemsSource="{Binding Appearance.LayoutChoices}"
                          SelectedItem="{Binding Appearance.SelectedLayout, Mode=TwoWay}"
                          AutomationProperties.Name="{loc:Loc settings.layout.label}">
@@ -237,6 +266,7 @@
                          Grid.Column="1"
                          Classes="swatches"
                          VerticalAlignment="Center"
+                         AutoScrollToSelectedItem="False"
                          ItemsSource="{Binding Appearance.AccentOptions}"
                          SelectedItem="{Binding Appearance.SelectedAccent, Mode=TwoWay}"
                          AutomationProperties.Name="{loc:Loc settings.accent.label}">

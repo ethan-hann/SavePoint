@@ -1,0 +1,31 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:theme="using:Savepoint.App.Theme"
+             xmlns:help="using:Savepoint.App.Features.Help"
+             x:Class="Savepoint.App.Features.Help.HelpQuestionView"
+             x:DataType="help:ContextualHelpViewModel">
+  <!--
+    The question of one explanation: a short text button with a help icon. It is a toggle, so assistive technology hears whether the
+    answer is open, and it never opens a hover-only tip. Its text is its accessible name.
+  -->
+  <UserControl.Styles>
+    <!-- Dark text in every theme, so it reads the same on a card, in a dialog and inside a colored callout. -->
+    <Style Selector="ToggleButton.help-link">
+      <Setter Property="Foreground" Value="{DynamicResource Md3OnSurfaceBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.help-link:checked">
+      <Setter Property="Foreground" Value="{DynamicResource Md3OnPrimaryContainerBrush}" />
+    </Style>
+  </UserControl.Styles>
+
+  <ToggleButton x:Name="QuestionButton"
+                Classes="text pill help-link"
+                Padding="10,5"
+                IsChecked="{Binding IsOpen, Mode=TwoWay}"
+                AutomationProperties.Name="{Binding Question}">
+    <StackPanel Orientation="Horizontal" Spacing="6">
+      <TextBlock Classes="icon s16 accent" VerticalAlignment="Center" Text="{x:Static theme:Icons.Help}" />
+      <TextBlock VerticalAlignment="Center" Text="{Binding Question}" />
+    </StackPanel>
+  </ToggleButton>
+</UserControl>

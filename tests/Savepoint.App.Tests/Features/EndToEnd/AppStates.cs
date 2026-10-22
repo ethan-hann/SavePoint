@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Activity;
 using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Editor;
@@ -38,18 +39,32 @@ internal static class AppStates
         "launch-dialog-unsaved",
         "launch-dialog-saving",
         "launch-dialog-keep-as-new",
+        "launch-discard-first-time",
         "launch-progress",
         "launch-post-play",
         "launch-post-play-older-point",
+        "post-play-from-older-snapshot",
+        "post-play-from-older-snapshot-again",
         "history-cards",
         "history-list",
         "history-filtered-empty",
         "history-empty",
+        "history-help-open",
+        "settings-help-open",
+        "launch-dialog-help-open",
+        "post-play-replace-help-open",
         "activity-jobs",
         "activity-failed",
         "activity-empty",
         "settings",
         "settings-clear-all",
+        "how-it-works",
+        "tour-step-1",
+        "tour-step-2",
+        "tour-step-3",
+        "tour-step-4",
+        "tour-library-step-3",
+        "tour-library-step-4",
         "first-run",
         "first-run-templates",
         "editor-existing",
@@ -77,8 +92,10 @@ internal static class AppStates
         "launch-dialog",
         "launch-dialog-unsaved",
         "launch-dialog-keep-as-new",
+        "launch-discard-first-time",
         "launch-post-play",
         "launch-post-play-older-point",
+        "post-play-from-older-snapshot-again",
         "settings-clear-all",
         "first-run-templates",
         "editor-consent",
@@ -104,9 +121,23 @@ internal static class AppStates
         return backend;
     }
 
+    private static FakeBackend UnseenTour(ShellLayout layout) =>
+        new(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { TourSeen = false, Layout = layout }));
+
     private static FakeBackend StartupBackend(StartupStatus status) => new(ScenarioBuilder.Mockup().WithStartupStatus(status));
 
     private static ProfileRowViewModel Row(ComposedApp app, string id) => app.Games.Profiles.Single(row => row.Id == id);
+
+    // Plays from the older snapshot "Cleared Blackreach" to the end of the session, so the dialog after playing offers a new profile or
+    // continuing the old one.
+    public static async Task PlayFromOlderSnapshotAsync(this ComposedApp app)
+    {
+        var goBack = Assert.IsAssignableFrom<IAsyncRelayCommand>(app.History.Groups.SelectMany(group => group.Cards).Single(card => card.Name == "Cleared Blackreach").GoBackCommand).ExecuteAsync(null);
+        app.Dialog<LaunchDialogViewModel>().SwitchCommand.Execute(null);
+        await goBack.WaitAsync(TimeSpan.FromSeconds(5));
+        app.Backend.Launch.ReportRunning(_skyrim, MockupScenario.RunningSince);
+        app.Backend.Launch.ReportExited(_skyrim, MockupScenario.PlayDuration, MockupScenario.NewSaveFiles);
+    }
 
     // Opens a state the way a person gets there.
     public static async Task<ComposedApp> OpenAsync(string state)
@@ -118,6 +149,11 @@ internal static class AppStates
                 .WithSettings(MockupScenario.Settings)
                 .WithProfile(new Profile("profile-empty", _skyrim, "Fresh profile", "profile/profile-empty")))),
             "activity-jobs" or "activity-failed" => await ComposedApp.StartWithViewAsync(await BackendWithJobsAsync()),
+            // The tour starts by itself for a player who has not seen it; the steps are reached with its own Next button.
+            "tour-step-1" or "tour-step-2" or "tour-step-3" or "tour-step-4" => await ComposedApp.StartWithViewAsync(UnseenTour(ShellLayout.Sidebar)),
+            "tour-library-step-3" or "tour-library-step-4" => await ComposedApp.StartWithViewAsync(UnseenTour(ShellLayout.Library)),
+            // A player who has met the older-snapshot choice before: its explanation starts collapsed, so Escape goes to the dialog.
+            "post-play-from-older-snapshot-again" => await ComposedApp.StartWithViewAsync(new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { OlderChoiceHelpSeen = true }))),
             "first-run" or "first-run-templates" => await ComposedApp.StartWithViewAsync(new FakeBackend(ScenarioBuilder.Empty().WithSettings(MockupScenario.Settings))),
             "library-error" => await ComposedApp.StartWithViewAsync(LibraryUnreadable(), visitScreens: false),
             "startup-git-unavailable" => await ComposedApp.StartWithViewAsync(StartupBackend(new StartupStatus(
@@ -184,6 +220,11 @@ internal static class AppStates
             case "launch-dialog-unsaved":
                 _ = Row(app, MockupScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
                 break;
+            case "launch-discard-first-time":
+                // The first discard confirmation a player is asked: it carries one more line of advice.
+                _ = Row(app, MockupScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
+                _ = app.Dialog<LaunchDialogViewModel>().UnsavedBlocks[0].DiscardCommand.ExecuteAsync(null);
+                break;
             case "launch-dialog-saving":
                 _ = Row(app, MockupScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
                 _ = app.Dialog<LaunchDialogViewModel>().UnsavedBlocks[0].SaveFirstCommand.ExecuteAsync(null);
@@ -206,6 +247,9 @@ internal static class AppStates
                 break;
             case "launch-post-play-older-point":
                 app.History.Groups.SelectMany(group => group.Cards).Single(card => card.Name == "Cleared Blackreach").GoBackCommand.Execute(null);
+                break;
+            case "post-play-from-older-snapshot" or "post-play-from-older-snapshot-again":
+                await app.PlayFromOlderSnapshotAsync();
                 break;
             case "history-cards":
                 app.Show<HistoryScreenViewModel>(NavDestination.History);
@@ -237,6 +281,36 @@ internal static class AppStates
             case "settings-clear-all":
                 app.Show<SettingsScreenViewModel>(NavDestination.Settings);
                 _ = app.Settings.ClearAll.RemoveCommand.ExecuteAsync(null);
+                break;
+            case "how-it-works":
+                app.Shell.ShowHelp();
+                break;
+            case "tour-step-2" or "tour-step-3" or "tour-step-4" or "tour-library-step-3" or "tour-library-step-4":
+                for (var step = 1; step < int.Parse(state[^1..], System.Globalization.CultureInfo.InvariantCulture); step++)
+                {
+                    app.Shell.Tour.NextCommand.Execute(null);
+                }
+
+                break;
+            case "history-help-open":
+                app.Show<HistoryScreenViewModel>(NavDestination.History).SnapshotHelp.IsOpen = true;
+                break;
+            case "settings-help-open":
+                app.Show<SettingsScreenViewModel>(NavDestination.Settings).SpaceHelp.IsOpen = true;
+                break;
+            case "launch-dialog-help-open":
+                _ = Row(app, MockupScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
+                var checks = app.Dialog<LaunchDialogViewModel>();
+                checks.SaveSnapshotHelp.IsOpen = true;
+                checks.UnsavedBlocks[0].Help!.IsOpen = true;
+                break;
+            case "post-play-replace-help-open":
+                _ = Row(app, MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null);
+                app.Backend.Launch.ReportRunning(_skyrim, MockupScenario.RunningSince);
+                app.Backend.Launch.ReportExited(_skyrim, MockupScenario.PlayDuration, MockupScenario.NewSaveFiles);
+                var afterPlay = app.Dialog<PostPlayDialogViewModel>();
+                afterPlay.SelectedChoice = afterPlay.Choices.Single(choice => choice.Kind == CompletionChoice.UpdateExisting);
+                afterPlay.SelectedChoice.Help!.IsOpen = true;
                 break;
             case "first-run-templates":
                 app.Shell.FirstRun.StartFromTemplateCommand.Execute(null);

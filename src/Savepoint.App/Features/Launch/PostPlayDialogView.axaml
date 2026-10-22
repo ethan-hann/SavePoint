@@ -3,6 +3,7 @@
              xmlns:loc="using:Savepoint.App.Localization"
              xmlns:launch="using:Savepoint.App.Features.Launch"
              xmlns:dialogs="using:Savepoint.App.Features.Common.Dialogs"
+             xmlns:help="using:Savepoint.App.Features.Help"
              x:Class="Savepoint.App.Features.Launch.PostPlayDialogView"
              x:DataType="launch:PostPlayDialogViewModel">
   <!--
@@ -30,6 +31,9 @@
         <TextBlock x:Name="BodyText" Classes="body muted" FontSize="14" TextWrapping="Wrap" Text="{Binding Body}" />
         <TextBlock x:Name="InstallNoteText" Classes="caption" TextWrapping="Wrap" IsVisible="{Binding HasInstallNote}" Text="{Binding InstallNote}" />
         <TextBlock x:Name="OlderNoteText" Classes="caption" TextWrapping="Wrap" IsVisible="{Binding HasOlderNote}" Text="{Binding OlderNote}" />
+        <StackPanel x:Name="OlderChoiceHelpHost" IsVisible="{Binding HasOlderChoiceHelp}">
+          <help:ContextualHelpView DataContext="{Binding OlderChoiceHelp}" />
+        </StackPanel>
       </StackPanel>
       <ListBox x:Name="ChoiceList"
                Classes="radio-cards"
@@ -62,6 +66,9 @@
                     <TextBlock Classes="body" Margin="14,0,0,0" VerticalAlignment="Center" Text="{Binding NameLabel}" />
                   </TextBox.InnerLeftContent>
                 </TextBox>
+                <StackPanel Margin="0,8,0,0" IsVisible="{Binding ShowHelp}">
+                  <help:ContextualHelpView DataContext="{Binding Help}" />
+                </StackPanel>
               </StackPanel>
             </Grid>
           </DataTemplate>

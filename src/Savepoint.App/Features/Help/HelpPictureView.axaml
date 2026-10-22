@@ -1,0 +1,416 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:Savepoint.App.Localization"
+             xmlns:theme="using:Savepoint.App.Theme"
+             x:Class="Savepoint.App.Features.Help.HelpPictureView">
+  <!--
+    The pictures of the "How SavePoint works" page, drawn from the app's own cards, dots and icons so no image ships. A dot is one
+    snapshot, the newest on the right: a filled dot is a snapshot that exists, a ring is the one this session adds, and a red ring
+    is one that is removed. Every picture is a template keyed by its HelpPicture name; the view builds the one it is asked for.
+  -->
+  <UserControl.Styles>
+    <Style Selector="Border.pic-card">
+      <Setter Property="Background" Value="{DynamicResource Md3SurfaceContainerBrush}" />
+      <Setter Property="CornerRadius" Value="{DynamicResource Md3RadiusRow}" />
+      <Setter Property="Padding" Value="12,9" />
+    </Style>
+    <Style Selector="Border.pic-dot">
+      <Setter Property="Width" Value="12" />
+      <Setter Property="Height" Value="12" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Md3PrimaryBrush}" />
+      <Setter Property="Background" Value="{DynamicResource Md3PrimaryBrush}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.pic-dot.new">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Border.pic-dot.gone">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Md3ErrorBrush}" />
+    </Style>
+    <Style Selector="Border.pic-file">
+      <Setter Property="Width" Value="64" />
+      <Setter Property="Height" Value="6" />
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="Background" Value="{DynamicResource Md3OutlineVariantBrush}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.pic-marker">
+      <Setter Property="Width" Value="6" />
+      <Setter Property="Height" Value="6" />
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="Background" Value="{DynamicResource Md3PrimaryBrush}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+  </UserControl.Styles>
+
+  <UserControl.Resources>
+
+    <!-- A game, and three profiles of it with a row of snapshots each. -->
+    <DataTemplate x:Key="Basics">
+      <StackPanel Spacing="10">
+        <StackPanel Orientation="Horizontal" Spacing="16">
+          <Border Classes="pic-card" Width="104" VerticalAlignment="Center">
+            <StackPanel Spacing="4">
+              <TextBlock Classes="icon s28 accent" HorizontalAlignment="Center" Text="{x:Static theme:Icons.StadiaController}" />
+              <TextBlock Classes="caption" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" Text="{loc:Loc help.picture.basics.game}" />
+            </StackPanel>
+          </Border>
+          <StackPanel Spacing="6">
+            <Border Classes="pic-card" Width="290">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Classes="row-title" Text="{loc:Loc help.picture.vanilla}" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="7">
+                  <Border Classes="pic-dot" />
+                  <Border Classes="pic-dot" />
+                  <Border Classes="pic-dot" />
+                </StackPanel>
+              </Grid>
+            </Border>
+            <Border Classes="pic-card" Width="290">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Classes="row-title" Text="{loc:Loc help.picture.modded}" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="7">
+                  <Border Classes="pic-dot" />
+                  <Border Classes="pic-dot" />
+                  <Border Classes="pic-dot" />
+                  <Border Classes="pic-dot" />
+                </StackPanel>
+              </Grid>
+            </Border>
+            <Border Classes="pic-card" Width="290">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Classes="row-title" Text="{loc:Loc help.picture.survival}" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="7">
+                  <Border Classes="pic-dot" />
+                  <Border Classes="pic-dot" />
+                </StackPanel>
+              </Grid>
+            </Border>
+          </StackPanel>
+        </StackPanel>
+        <TextBlock Classes="caption" TextWrapping="Wrap" Text="{loc:Loc help.picture.basics.legend}" />
+      </StackPanel>
+    </DataTemplate>
+
+    <!-- The game's own saves on the left, one save snapshot that holds all of them on the right. -->
+    <DataTemplate x:Key="Saves">
+      <StackPanel Orientation="Horizontal" Spacing="16">
+        <StackPanel Spacing="6" Width="150">
+          <TextBlock Classes="caption" Text="{loc:Loc help.picture.saves.inGame}" />
+          <Border Classes="pic-card" Padding="12,7">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Classes="icon s16 muted" Text="{x:Static theme:Icons.Save}" />
+              <TextBlock Classes="body" Text="{loc:Loc help.picture.save1}" />
+            </StackPanel>
+          </Border>
+          <Border Classes="pic-card" Padding="12,7">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Classes="icon s16 muted" Text="{x:Static theme:Icons.Save}" />
+              <TextBlock Classes="body" Text="{loc:Loc help.picture.save2}" />
+            </StackPanel>
+          </Border>
+          <Border Classes="pic-card" Padding="12,7">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Classes="icon s16 muted" Text="{x:Static theme:Icons.Save}" />
+              <TextBlock Classes="body" Text="{loc:Loc help.picture.save3}" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+        <TextBlock Classes="icon s24 muted" VerticalAlignment="Center" Text="{x:Static theme:Icons.ChevronRight}" />
+        <StackPanel Spacing="6" Width="190">
+          <TextBlock Classes="caption" Text="{loc:Loc help.picture.saves.snapshot}" />
+          <Border Classes="pic-card">
+            <StackPanel Spacing="9">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Classes="icon s18 accent" Text="{x:Static theme:Icons.Folder}" />
+                <TextBlock Classes="row-title" Text="{loc:Loc help.picture.savesFolder}" />
+              </StackPanel>
+              <Border Classes="pic-file" HorizontalAlignment="Left" />
+              <Border Classes="pic-file" HorizontalAlignment="Left" />
+              <Border Classes="pic-file" HorizontalAlignment="Left" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </StackPanel>
+    </DataTemplate>
+
+    <!-- A profile, then the two folders Play puts files into, then the game. -->
+    <DataTemplate x:Key="Play">
+      <StackPanel Orientation="Horizontal" Spacing="12">
+        <Border Classes="pic-card" VerticalAlignment="Center">
+          <StackPanel Spacing="6">
+            <TextBlock Classes="row-title" Text="{loc:Loc help.picture.vanilla}" />
+            <StackPanel Orientation="Horizontal" Spacing="7">
+              <Border Classes="pic-dot" />
+              <Border Classes="pic-dot" />
+              <Border Classes="pic-dot" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+        <TextBlock Classes="icon s24 muted" VerticalAlignment="Center" Text="{x:Static theme:Icons.ChevronRight}" />
+        <StackPanel Spacing="6" VerticalAlignment="Center">
+          <Border Classes="pic-card" Padding="12,7">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Classes="icon s18 accent" Text="{x:Static theme:Icons.Folder}" />
+              <TextBlock Classes="body" Text="{loc:Loc help.picture.installFolder}" />
+            </StackPanel>
+          </Border>
+          <Border Classes="pic-card" Padding="12,7">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Classes="icon s18 accent" Text="{x:Static theme:Icons.Folder}" />
+              <TextBlock Classes="body" Text="{loc:Loc help.picture.savesFolder}" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+        <TextBlock Classes="icon s24 muted" VerticalAlignment="Center" Text="{x:Static theme:Icons.ChevronRight}" />
+        <TextBlock Classes="icon s28 accent" VerticalAlignment="Center" Text="{x:Static theme:Icons.StadiaController}" />
+      </StackPanel>
+    </DataTemplate>
+
+    <!-- A folder with changed files, kept as a new snapshot or discarded back to the last one. -->
+    <DataTemplate x:Key="NewChanges">
+      <StackPanel Spacing="10">
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <Border Classes="pic-card" Width="150" VerticalAlignment="Center">
+            <StackPanel Spacing="8">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Classes="icon s18 accent" Text="{x:Static theme:Icons.Folder}" />
+                <TextBlock Classes="caption" TextWrapping="Wrap" Text="{loc:Loc help.picture.newChanges.folder}" />
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Border Classes="pic-marker" />
+                <Border Classes="pic-file" />
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Border Classes="pic-marker" />
+                <Border Classes="pic-file" />
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Border Width="6" />
+                <Border Classes="pic-file" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+          <StackPanel Spacing="14" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <TextBlock Classes="icon s18 muted" Text="{x:Static theme:Icons.ChevronRight}" />
+              <TextBlock Classes="body" Width="120" Text="{loc:Loc help.picture.takeSnapshot}" />
+              <StackPanel Orientation="Horizontal" Spacing="7">
+                <Border Classes="pic-dot" />
+                <Border Classes="pic-dot" />
+                <Border Classes="pic-dot new" />
+              </StackPanel>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <TextBlock Classes="icon s18 muted" Text="{x:Static theme:Icons.Undo}" />
+              <TextBlock Classes="body" Width="120" Text="{loc:Loc help.picture.discard}" />
+              <StackPanel Orientation="Horizontal" Spacing="7">
+                <Border Classes="pic-dot" />
+                <Border Classes="pic-dot" />
+              </StackPanel>
+            </StackPanel>
+          </StackPanel>
+        </StackPanel>
+      </StackPanel>
+    </DataTemplate>
+
+    <!-- The three choices after playing: a new snapshot, the last one swapped, or nothing yet. -->
+    <DataTemplate x:Key="AfterPlay">
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <Border Classes="pic-card" Width="140">
+          <StackPanel Spacing="8">
+            <TextBlock Classes="row-title" Text="{loc:Loc help.picture.afterPlay.keep}" />
+            <StackPanel Orientation="Horizontal" Spacing="7">
+              <Border Classes="pic-dot" />
+              <Border Classes="pic-dot" />
+              <Border Classes="pic-dot new" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+        <Border Classes="pic-card" Width="140">
+          <StackPanel Spacing="8">
+            <TextBlock Classes="row-title" Text="{loc:Loc help.picture.afterPlay.replace}" />
+            <StackPanel Orientation="Horizontal" Spacing="7">
+              <Border Classes="pic-dot" />
+              <Border Classes="pic-dot gone" />
+              <Border Classes="pic-dot new" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+        <Border Classes="pic-card" Width="140">
+          <StackPanel Spacing="8">
+            <TextBlock Classes="row-title" Text="{loc:Loc help.picture.afterPlay.notNow}" />
+            <StackPanel Orientation="Horizontal" Spacing="7">
+              <Border Classes="pic-dot" />
+              <Border Classes="pic-dot" />
+              <TextBlock Classes="icon s16 muted" VerticalAlignment="Center" Text="{x:Static theme:Icons.Schedule}" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </DataTemplate>
+
+    <!-- Playing from the middle snapshot of a row of three: a new profile keeps all three, continuing removes the last. -->
+    <DataTemplate x:Key="Older">
+      <StackPanel Spacing="12">
+        <Border Classes="pic-card" HorizontalAlignment="Left">
+          <StackPanel Spacing="6">
+            <StackPanel Orientation="Horizontal" Spacing="14">
+              <TextBlock Classes="row-title" Width="64" Text="{loc:Loc help.picture.vanilla}" />
+              <StackPanel Orientation="Horizontal" Spacing="7">
+                <Border Classes="pic-dot" />
+                <Border Classes="pic-dot" />
+                <Border Classes="pic-dot" />
+              </StackPanel>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="4" Margin="78,0,0,0">
+              <TextBlock Classes="icon s14 accent" Margin="19,0,0,0" Text="{x:Static theme:Icons.KeyboardArrowUp}" />
+              <TextBlock Classes="caption" Text="{loc:Loc help.picture.older.playedFrom}" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <Border Classes="pic-card" Width="220">
+            <StackPanel Spacing="8">
+              <TextBlock Classes="row-title" Text="{loc:Loc help.picture.older.newProfile}" />
+              <StackPanel Orientation="Horizontal" Spacing="14">
+                <TextBlock Classes="caption" Width="64" Text="{loc:Loc help.picture.vanilla}" />
+                <StackPanel Orientation="Horizontal" Spacing="7">
+                  <Border Classes="pic-dot" />
+                  <Border Classes="pic-dot" />
+                  <Border Classes="pic-dot" />
+                </StackPanel>
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="14">
+                <TextBlock Classes="caption" Width="64" Text="{loc:Loc help.picture.modded}" />
+                <StackPanel Orientation="Horizontal" Spacing="7">
+                  <Border Classes="pic-dot" />
+                  <Border Classes="pic-dot" />
+                  <Border Classes="pic-dot new" />
+                </StackPanel>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+          <Border Classes="pic-card" Width="220">
+            <StackPanel Spacing="8">
+              <TextBlock Classes="row-title" Text="{loc:Loc help.picture.older.continue}" />
+              <StackPanel Orientation="Horizontal" Spacing="14">
+                <TextBlock Classes="caption" Width="64" Text="{loc:Loc help.picture.vanilla}" />
+                <StackPanel Orientation="Horizontal" Spacing="7">
+                  <Border Classes="pic-dot" />
+                  <Border Classes="pic-dot" />
+                  <Border Classes="pic-dot new" />
+                </StackPanel>
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Border Classes="pic-dot gone" />
+                <TextBlock Classes="caption" Text="{loc:Loc help.picture.removed.box}" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </StackPanel>
+    </DataTemplate>
+
+    <!-- A removed snapshot waiting in Recently removed, then brought back as a profile of its own. -->
+    <DataTemplate x:Key="Removed">
+      <StackPanel Orientation="Horizontal" Spacing="12">
+        <Border Classes="pic-card" VerticalAlignment="Center">
+          <StackPanel Spacing="6">
+            <TextBlock Classes="row-title" Text="{loc:Loc help.picture.vanilla}" />
+            <StackPanel Orientation="Horizontal" Spacing="7">
+              <Border Classes="pic-dot" />
+              <Border Classes="pic-dot" />
+              <Border Classes="pic-dot new" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+        <Border Classes="pic-card" VerticalAlignment="Center">
+          <StackPanel Spacing="6">
+            <TextBlock Classes="caption" Text="{loc:Loc help.picture.removed.box}" />
+            <Border Classes="pic-dot gone" HorizontalAlignment="Left" />
+          </StackPanel>
+        </Border>
+        <StackPanel Spacing="2" VerticalAlignment="Center" Width="96">
+          <TextBlock Classes="icon s18 accent" HorizontalAlignment="Center" Text="{x:Static theme:Icons.Undo}" />
+          <TextBlock Classes="caption" TextAlignment="Center" TextWrapping="Wrap" Text="{loc:Loc help.picture.removed.bringBack}" />
+        </StackPanel>
+        <Border Classes="pic-card" VerticalAlignment="Center">
+          <StackPanel Spacing="6">
+            <TextBlock Classes="row-title" Text="{loc:Loc help.picture.modded}" />
+            <StackPanel Orientation="Horizontal" Spacing="7">
+              <Border Classes="pic-dot" />
+              <Border Classes="pic-dot" />
+              <Border Classes="pic-dot" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </DataTemplate>
+
+    <!-- The jobs Activity lists: one running with a bar, two finished. -->
+    <DataTemplate x:Key="Activity">
+      <StackPanel Spacing="6" Width="400">
+        <Border Classes="pic-card">
+          <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+            <TextBlock Classes="icon s18 accent" VerticalAlignment="Center" Text="{x:Static theme:Icons.Sync}" />
+            <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
+              <TextBlock Classes="body" Text="{loc:Loc help.picture.activity.snapshot}" />
+              <Grid ColumnDefinitions="140,100">
+                <Border Height="4" CornerRadius="2" Background="{DynamicResource Md3PrimaryBrush}" />
+                <Border Grid.Column="1" Height="4" CornerRadius="2" Background="{DynamicResource Md3OutlineVariantBrush}" />
+              </Grid>
+            </StackPanel>
+            <Border Grid.Column="2" Classes="chip" Padding="12,4" VerticalAlignment="Center">
+              <TextBlock FontFamily="{DynamicResource RobotoFont}" FontSize="12" Text="{loc:Loc help.picture.activity.details}" />
+            </Border>
+          </Grid>
+        </Border>
+        <Border Classes="pic-card">
+          <StackPanel Orientation="Horizontal" Spacing="12">
+            <TextBlock Classes="icon s18 accent" VerticalAlignment="Center" Text="{x:Static theme:Icons.CheckCircle}" />
+            <TextBlock Classes="body" Text="{loc:Loc help.picture.activity.switch}" />
+          </StackPanel>
+        </Border>
+        <Border Classes="pic-card">
+          <StackPanel Orientation="Horizontal" Spacing="12">
+            <TextBlock Classes="icon s18 accent" VerticalAlignment="Center" Text="{x:Static theme:Icons.CheckCircle}" />
+            <TextBlock Classes="body" Text="{loc:Loc help.picture.activity.freeUp}" />
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </DataTemplate>
+
+    <!-- The snapshot folder on a drive: one wide first snapshot, then thin ones that only add what changed. -->
+    <DataTemplate x:Key="Space">
+      <Border Classes="pic-card" Width="400" Padding="16,12">
+        <StackPanel Spacing="10">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Classes="icon s18 muted" Text="{x:Static theme:Icons.Database}" />
+            <TextBlock Classes="caption" Text="{loc:Loc help.picture.space.drive}" />
+          </StackPanel>
+          <Border Classes="recessed">
+            <StackPanel Spacing="8">
+              <TextBlock Classes="row-title" Text="{loc:Loc help.picture.space.folder}" />
+              <StackPanel Orientation="Horizontal" Spacing="4">
+                <Border Width="200" Height="16" CornerRadius="3" Background="{DynamicResource Md3PrimaryBrush}" />
+                <Border Width="12" Height="16" CornerRadius="3" Background="{DynamicResource Md3PrimaryBrush}" Opacity="0.6" />
+                <Border Width="8" Height="16" CornerRadius="3" Background="{DynamicResource Md3PrimaryBrush}" Opacity="0.6" />
+                <Border Width="14" Height="16" CornerRadius="3" Background="{DynamicResource Md3PrimaryBrush}" Opacity="0.6" />
+                <Border Width="8" Height="16" CornerRadius="3" Background="{DynamicResource Md3PrimaryBrush}" Opacity="0.6" />
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="18">
+                <TextBlock Classes="caption" Width="204" Text="{loc:Loc help.picture.space.first}" />
+                <TextBlock Classes="caption" Text="{loc:Loc help.picture.space.later}" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </Border>
+    </DataTemplate>
+
+  </UserControl.Resources>
+</UserControl>

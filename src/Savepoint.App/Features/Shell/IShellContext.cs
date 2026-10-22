@@ -80,4 +80,19 @@ public interface IShellContext : INotifyPropertyChanged
 
     /// <summary>Closes the full pane, if one is open.</summary>
     void ClosePane();
+
+    /// <summary>
+    /// Opens the "How SavePoint works" page as a full pane. A pane that is open (the game editor, with a form half filled in) is kept
+    /// underneath and comes back when the page closes. Does nothing while the page is already open.
+    /// </summary>
+    void ShowHelp();
+
+    /// <summary>True when the first-run tour can run now: the selected game has a profile for it to point at.</summary>
+    bool CanShowTour { get; }
+
+    /// <summary>
+    /// Shows the first-run tour from its first step: closes the page or pane that is open, goes to the Games screen and starts. It does
+    /// nothing while <see cref="CanShowTour"/> is false.
+    /// </summary>
+    void StartTour();
 }

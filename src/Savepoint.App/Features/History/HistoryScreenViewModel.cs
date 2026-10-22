@@ -7,6 +7,7 @@ using Savepoint.App.Features.Common.Art;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Formatting;
+using Savepoint.App.Features.Help;
 using Savepoint.App.Features.Shell;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
@@ -173,6 +174,7 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
         _selectedViewOption = _currentViewOption;
         RetryCommand = new AsyncRelayCommand(ReloadAsync);
         ShowAllProfilesCommand = new RelayCommand(ShowAllProfiles);
+        SnapshotHelp = ContextualHelp.Snapshot(text, shell.ShowHelp);
 
         shell.PropertyChanged += OnShellPropertyChanged;
         shell.LibraryRefreshed += (_, _) => ReloadIfShown();
@@ -183,6 +185,9 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
 
     /// <inheritdoc />
     public NavDestination Destination => NavDestination.History;
+
+    /// <summary>"What's a snapshot?", beside the title.</summary>
+    public ContextualHelpViewModel SnapshotHelp { get; }
 
     /// <summary>The Cards and List segments, Cards first.</summary>
     public IReadOnlyList<ViewModeOption> ViewOptions { get; }

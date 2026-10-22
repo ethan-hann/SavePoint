@@ -2,8 +2,11 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Formatting;
+using Savepoint.App.Features.Common.Preferences;
+using Savepoint.App.Features.Help;
 using Savepoint.App.Theme;
 using Savepoint.Core.Api;
+using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Features.Launch;
 
@@ -20,6 +23,8 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
     private readonly string _profileName;
     private readonly PostPlayOptions _options;
     private readonly string _defaultPointName;
+    private readonly SettingsWriter _settingsWriter;
+    private bool _explainReplace;
 
     /// <summary>The card the player has selected; the main button acts on it.</summary>
     [ObservableProperty]
@@ -29,7 +34,9 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
     /// <param name="exited">The session's exit: its length, new files and the choices it allows.</param>
     /// <param name="profileName">The profile the session was played from.</param>
     /// <param name="deps">The Api and formatting the dialog uses.</param>
-    public PostPlayDialogViewModel(SessionState.Exited exited, string profileName, LaunchDependencies deps)
+    /// <param name="explainOlderChoice">True the first time a player meets the older-snapshot choice: "Which should I pick?" opens by itself, and the player's settings remember it was shown.</param>
+    /// <param name="explainReplace">True the first time a player has not yet seen the Replace card's explanation: it opens by itself when the card is first selected, and the player's settings remember it was shown.</param>
+    public PostPlayDialogViewModel(SessionState.Exited exited, string profileName, LaunchDependencies deps, bool explainOlderChoice = false, bool explainReplace = false)
         : base(deps.Text.Message("launch.postPlay.title", ("duration", deps.Text.Duration(exited.PlayDuration))))
     {
         _text = deps.Text;
@@ -43,6 +50,16 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
         InstallNote = exited.ChangedInstallFileCount > 0 ? _text.Message("launch.postPlay.installChanged", ("count", exited.ChangedInstallFileCount)) : string.Empty;
         var older = _options.Choices.Contains(CompletionChoice.ForkNewProfile) || _options.Choices.Contains(CompletionChoice.MoveForward);
         OlderNote = older ? _text.Message("launch.postPlay.olderNote", ("profileName", profileName)) : string.Empty;
+        OlderChoiceHelp = older ? ContextualHelp.OlderChoice(_text, profileName) : null;
+        _settingsWriter = deps.SettingsWriter;
+        _explainReplace = explainReplace;
+
+        // The first time a player meets this choice, the explanation is already open: they learn it before they pick, then it stays out of the way.
+        if (explainOlderChoice && OlderChoiceHelp is not null)
+        {
+            OlderChoiceHelp.IsOpen = true;
+            Remember(settings => settings with { OlderChoiceHelpSeen = true });
+        }
 
         Choices = BuildChoices(today);
         _selectedChoice = Choices.FirstOrDefault(choice => choice.Kind == _options.Default) ?? Choices[0];
@@ -63,6 +80,12 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
 
     /// <summary>True when <see cref="OlderNote"/> has text.</summary>
     public bool HasOlderNote => OlderNote.Length > 0;
+
+    /// <summary>"Which should I pick?", under the older-snapshot note; null when the session did not start from an older snapshot.</summary>
+    public ContextualHelpViewModel? OlderChoiceHelp { get; }
+
+    /// <summary>True when <see cref="OlderChoiceHelp"/> shows.</summary>
+    public bool HasOlderChoiceHelp => OlderChoiceHelp is not null;
 
     /// <summary>The cards, in order.</summary>
     public IReadOnlyList<PostPlayChoiceViewModel> Choices { get; }
@@ -99,7 +122,18 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
         }
 
         newValue.IsSelected = true;
+
+        // The first time a player picks Replace, the card says where the old snapshot goes before they confirm.
+        if (_explainReplace && newValue.Kind == CompletionChoice.UpdateExisting && newValue.Help is { } help)
+        {
+            _explainReplace = false;
+            help.IsOpen = true;
+            Remember(settings => settings with { ReplaceHelpSeen = true });
+        }
     }
+
+    // Best effort: a player whose settings cannot be written is shown the explanation again next time, which does no harm.
+    private void Remember(Func<AppSettings, AppSettings> change) => _ = _settingsWriter.UpdateAsync(change);
 
     [RelayCommand]
     private async Task SaveAsync()
@@ -176,7 +210,8 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
                 CompletionChoice.UpdateExisting,
                 Icons.Edit,
                 _text.Message("launch.postPlay.update.title", ("pointName", target.Name)),
-                _text.Message("launch.postPlay.update.sub", ("pointName", target.Name))));
+                _text.Message("launch.postPlay.update.sub", ("pointName", target.Name)),
+                help: ContextualHelp.Replace(_text, target.Name)));
         }
 
         if (offered.Contains(CompletionChoice.ForkNewProfile))
