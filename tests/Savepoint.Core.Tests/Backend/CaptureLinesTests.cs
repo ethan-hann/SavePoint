@@ -48,11 +48,12 @@ public class CaptureLinesTests
     {
         using var workspace = new BackendWorkspace();
         var game = await workspace.AddGameAsync();
-        var (first, _) = await workspace.CreateProfileAsync(game, "Vanilla");
-        await workspace.CreateProfileAsync(game, "Modded");
+        var (profile, _) = await workspace.CreateProfileAsync(game);
 
-        // The folders are on the other profile now, so a snapshot into the first one cannot be taken.
-        var started = await workspace.Profiles.CaptureAsync(game.Id, first.Id, "Into the wrong one");
+        // Moving the folders away is plain file work, so it behaves the same on every OS; the profile is still loaded, so the job is queued and fails there.
+        Directory.Move(game.Install.Path, game.Install.Path + "-gone");
+        Directory.Move(game.External!.Path, game.External.Path + "-gone");
+        var started = await workspace.Profiles.CaptureAsync(game.Id, profile.Id, "Folders moved away");
         var job = await workspace.WaitForJobAsync(started.Value!.JobId);
 
         var steps = Steps(job);
