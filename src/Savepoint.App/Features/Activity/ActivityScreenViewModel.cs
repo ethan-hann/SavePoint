@@ -107,7 +107,7 @@ public sealed partial class ActivityScreenViewModel : ObservableObject, IScreen,
             }
 
             _selected = value;
-            _details = value is null ? null : new JobDetailsViewModel(value, _words, _deps.Jobs, _deps.Text, Announce);
+            _details = value is null ? null : new JobDetailsViewModel(value, _words, _deps.Jobs, _deps.Dialogs, _deps.Text, Announce);
             OnPropertyChanged();
             OnPropertyChanged(nameof(Details));
             OnPropertyChanged(nameof(ShowDetails));
