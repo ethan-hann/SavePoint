@@ -3,6 +3,7 @@ using System.Security.AccessControl;
 using System.Security.Principal;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
+using Savepoint.Core.Git;
 
 namespace Savepoint.Core.Tests.Git.Engine;
 
@@ -26,6 +27,19 @@ public sealed class DeleteRepoTests : IDisposable
         Assert.False(Directory.Exists(repo.GitDir));
         Assert.False(File.Exists(EngineWorkspace.MarkerPath(repo)));
         Assert.Equal("progress", await File.ReadAllTextAsync(_ws.FileOf(repo, "save.dat"), Ct));
+    }
+
+    // A killed process can leave the file a classification keeps beside its index; the git directory it leaves is still SavePoint's own.
+    [Fact]
+    public async Task What_a_stopped_classification_leaves_beside_its_index_does_not_make_the_git_directory_look_foreign()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        var index = Path.Combine(repo.GitDir, GitEngine.ClassifyIndexPrefix + "0123456789abcdef.index");
+        await File.WriteAllTextAsync(GitEngine.ExcludeFileOf(index), string.Empty, Ct);
+
+        await _ws.Engine.DeleteRepoAsync(repo, Ct);
+
+        Assert.False(Directory.Exists(repo.GitDir));
     }
 
     [Fact]

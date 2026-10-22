@@ -14,6 +14,10 @@ public sealed partial class GitEngine
     // behind, and the stale-lock sweep removes every file with this prefix.
     internal const string ClassifyIndexPrefix = "savepoint-classify-";
 
+    // The list of patterns a question asks against sits beside its index. It ends in .tmp, which a git directory being deleted counts as
+    // its own, as it does a lock file.
+    internal static string ExcludeFileOf(string indexFile) => indexFile + ".exclude.tmp";
+
     // A blob id nothing has to hold: the index entries built for the question only need a path.
     private const string _anyBlob = "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391";
 
@@ -89,7 +93,7 @@ public sealed partial class GitEngine
     {
         var index = Path.Combine(repo.GitDir, $"{ClassifyIndexPrefix}{Guid.NewGuid():N}.index");
 
-        var exclude = index + ".exclude";
+        var exclude = ExcludeFileOf(index);
 
         // The sweep of stale files must not take a file a question is still asking about.
         _classifying[index] = 0;
@@ -149,7 +153,7 @@ public sealed partial class GitEngine
     {
         if (!File.Exists(index))
         {
-            throw new GitOperationException(index, "The index a classification works on disappeared, so its answer cannot be trusted.");
+            throw new GitOperationException($"The index '{index}' a classification works on disappeared, so its answer cannot be trusted.");
         }
     }
 

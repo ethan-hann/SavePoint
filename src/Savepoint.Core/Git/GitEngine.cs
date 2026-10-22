@@ -174,7 +174,7 @@ public sealed partial class GitEngine
     {
         if (invocation.GitDir is { } gitDir && Path.Combine(gitDir, "commondir") is var pointer && File.Exists(pointer))
         {
-            throw new GitOperationException(pointer, $"'{gitDir}' points git at another folder, so it was not used.");
+            throw new GitOperationException($"'{pointer}' points git at another folder, so '{gitDir}' was not used.");
         }
     }
 

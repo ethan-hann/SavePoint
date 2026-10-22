@@ -211,7 +211,7 @@ public sealed partial class GitEngine
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
             TryDelete(gate);
-            throw new GitOperationException(index, $"The index could not be replaced: {e.Message}");
+            throw new GitOperationException($"The index '{index}' could not be replaced: {e.Message}");
         }
     }
 }

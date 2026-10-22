@@ -26,7 +26,8 @@ public sealed class RedirectedGitDirectoryTests : IDisposable
 
         var error = await Assert.ThrowsAsync<GitOperationException>(() => _ws.CaptureAsync(repo, "profile-1"));
 
-        Assert.Equal(pointer, error.Args["path"]);
+        Assert.Equal("error.gitOperation.failed", error.MessageId);
+        Assert.Contains(pointer, error.Message, StringComparison.Ordinal);
         Assert.Empty(Directory.EnumerateFileSystemEntries(elsewhere));
         Assert.Null(await _ws.TipAsync(repo, "profile-1"));
     }

@@ -101,9 +101,10 @@ public sealed class SwitchStatTests : IDisposable
             }
         };
 
-        await Assert.ThrowsAsync<Savepoint.Core.Errors.GitOperationException>(() => _ws.Engine.SwitchStatAsync(repo, first, second, Ct));
+        var error = await Assert.ThrowsAsync<Savepoint.Core.Errors.GitOperationException>(() => _ws.Engine.SwitchStatAsync(repo, first, second, Ct));
 
         _ws.OnInvoke = null;
+        Assert.Equal("error.gitOperation.failed", error.MessageId);
         Assert.Empty(Directory.EnumerateFiles(repo.GitDir, "savepoint-classify*"));
     }
 
