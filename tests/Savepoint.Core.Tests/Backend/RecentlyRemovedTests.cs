@@ -96,6 +96,26 @@ public class RecentlyRemovedTests
     }
 
     [Fact(Timeout = 120_000)]
+    public async Task A_branch_no_profile_names_does_not_take_a_snapshot_out_of_the_list_or_out_of_the_count_free_up_space_shows()
+    {
+        using var world = await RemovedWorld.CreateAsync();
+        await world.ContinueFromFirstAsync();
+        var storage = await world.Workspace.Backend.Services.Storage.GetAsync(world.Workspace.Token);
+        var removedInstall = (await world.RecordedCommitsAsync(RepoRole.Install)).Single();
+
+        // What a Bring back that was killed between making its branches and saving the profile leaves behind.
+        await storage.Engine.CreateBranchAsync(world.RepoOf(storage, RepoRole.Install), "profile/left-behind-abcd", removedInstall, world.Workspace.Token);
+        var listed = await world.ListAsync();
+        var preview = await world.Workspace.Games.GetFreeUpSpacePreviewAsync(world.Game.Id, world.Workspace.Token);
+
+        Assert.Equal([world.SavesOnly, world.InstallOnly], listed.Select(snapshot => snapshot.Id));
+        Assert.Equal(2, preview.Value!.RecentlyRemovedSnapshots);
+        var brought = await world.Workspace.Profiles.BringBackAsync(world.Game.Id, world.InstallOnly, "Mods");
+        Assert.True(brought.Ok, brought.Error?.Detail);
+        Assert.Equal(removedInstall, await world.BranchTipAsync(brought.Value.BranchName, RepoRole.Install));
+    }
+
+    [Fact(Timeout = 120_000)]
     public async Task Replacing_the_latest_snapshot_lists_what_each_folder_held_before()
     {
         using var world = await RemovedWorld.CreateAsync();

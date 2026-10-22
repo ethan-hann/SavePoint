@@ -90,6 +90,24 @@ public sealed class RemovedSnapshotRecordTests : IDisposable
     }
 
     [Fact]
+    public async Task Only_the_branches_the_caller_counts_decide_whether_a_recorded_commit_is_on_a_branch()
+    {
+        var (repo, points) = await PlayingFromTheFirstPointAsync();
+        await _ws.Engine.CaptureAsync(repo, Move("profile-1", points[0], "Continued", "cap-move"), ct: Ct);
+        await _ws.Engine.CreateBranchAsync(repo, "left-behind", points[1], Ct);
+
+        var everyBranch = await _ws.Engine.ListRemovedAsync(repo, Ct);
+        var profilesOnly = await _ws.Engine.ListRemovedAsync(repo, ["profile-1"], Ct);
+        var nobody = await _ws.Engine.ListRemovedAsync(repo, [], Ct);
+        var unknownName = await _ws.Engine.ListRemovedAsync(repo, ["profile-1", "no-such-branch"], Ct);
+
+        Assert.Equal([points[2]], everyBranch.Where(entry => !entry.OnBranch).Select(entry => entry.Commit.Id));
+        Assert.Equal([points[2], points[1]], profilesOnly.Where(entry => !entry.OnBranch).Select(entry => entry.Commit.Id));
+        Assert.Equal([points[2], points[1]], nobody.Where(entry => !entry.OnBranch).Select(entry => entry.Commit.Id));
+        Assert.Equal([points[2], points[1]], unknownName.Where(entry => !entry.OnBranch).Select(entry => entry.Commit.Id));
+    }
+
+    [Fact]
     public async Task A_move_forward_stopped_before_the_records_are_written_has_recorded_nothing_and_moved_nothing()
     {
         var (repo, points) = await PlayingFromTheFirstPointAsync();

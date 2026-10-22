@@ -72,6 +72,7 @@ internal sealed partial class SettingsApi : ISettingsApi
             async () =>
             {
                 var games = await _services.Catalog.ListGamesAsync(cancellationToken).ConfigureAwait(false);
+                var profiles = await _services.Catalog.ListProfilesAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
                 return await _services.Storage.ReadAsync(
                     async storage =>
                     {
@@ -79,7 +80,7 @@ internal sealed partial class SettingsApi : ISettingsApi
                         var records = new List<FreeUpSpaceRecord>();
                         foreach (var game in games)
                         {
-                            var preview = await RemovedSnapshots.PreviewAsync(storage, game.Id, GameFolders.ReposForGitDirOnly(_services, storage, game), cancellationToken).ConfigureAwait(false);
+                            var preview = await RemovedSnapshots.PreviewAsync(storage, game.Id, GameFolders.ReposForGitDirOnly(_services, storage, game), [.. profiles.Where(profile => profile.GameId == game.Id)], cancellationToken).ConfigureAwait(false);
                             total += preview.RecentlyRemovedSnapshots;
                             records.AddRange(preview.Token.Records);
                         }

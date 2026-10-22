@@ -36,7 +36,7 @@ public sealed partial class GitEngine
     /// objects no branch reaches any more (a deleted profile, points a move-forward dropped) are packed along, not removed.
     /// <see cref="OptimizationMode.Reclaim"/> expires reflogs, packs every reachable object into one pack and prunes the
     /// rest, so those objects are gone afterwards; it rewrites the whole store. Neither mode deletes a record of a removed snapshot
-    /// (see <see cref="ListRemovedAsync"/>); only <see cref="ClearRemovedAsync"/> does, so what a record reaches survives both. No mode
+    /// (see <see cref="ListRemovedAsync(RepoRef, IReadOnlyCollection{string}, CancellationToken)"/>); only <see cref="ClearRemovedAsync"/> does, so what a record reaches survives both. No mode
     /// detaches or starts garbage collection, and none needs the game folder. Nothing a branch, HEAD, the index or a record reaches is
     /// ever dropped.
     /// </summary>

@@ -7,7 +7,7 @@ using Savepoint.Core.Git;
 namespace Savepoint.Core.Services.History;
 
 /// <summary>
-/// Reads a game's recently removed snapshots back from the records the engine keeps (see <see cref="GitEngine.ListRemovedAsync"/>). The
+/// Reads a game's recently removed snapshots back from the records the engine keeps (see <see cref="GitEngine.ListRemovedAsync(RepoRef, IReadOnlyCollection{string}, CancellationToken)"/>). The
 /// commits the two folders removed in one capture event are one snapshot, as in History, and a snapshot belongs to no profile.
 /// </summary>
 internal sealed class RemovedSnapshots
@@ -47,9 +47,9 @@ internal sealed class RemovedSnapshots
     /// What Free up space would delete for a game: how many snapshots its folders keep as removed, and every record of those snapshots
     /// in either folder, so the run can delete those and no others.
     /// </summary>
-    public static async Task<FreeUpSpacePreview> PreviewAsync(StorageSnapshot storage, string gameId, IReadOnlyList<RepoRef> repos, CancellationToken cancellationToken)
+    public static async Task<FreeUpSpacePreview> PreviewAsync(StorageSnapshot storage, string gameId, IReadOnlyList<RepoRef> repos, IReadOnlyList<Profile> profiles, CancellationToken cancellationToken)
     {
-        var state = await ReadStateAsync(storage, repos, cancellationToken).ConfigureAwait(false);
+        var state = await ReadStateAsync(storage, repos, profiles, cancellationToken).ConfigureAwait(false);
         var listed = state.Groups.Select(group => group.CaptureId).ToHashSet(StringComparer.Ordinal);
         var records = state.ByFolder
             .SelectMany(folder => folder.Value
@@ -61,11 +61,13 @@ internal sealed class RemovedSnapshots
 
     /// <summary>
     /// Reads every folder's records and groups them into snapshots by capture event. A snapshot is listed while any of its recorded
-    /// commits is on no branch; each folder's commit comes from that folder's own record. Needs only the git directories.
+    /// commits is on no profile's branch (a branch no profile names does not count); each folder's commit comes from that folder's own
+    /// record. Needs only the git directories.
     /// </summary>
-    public static async Task<State> ReadStateAsync(StorageSnapshot storage, IReadOnlyList<RepoRef> repos, CancellationToken cancellationToken)
+    public static async Task<State> ReadStateAsync(StorageSnapshot storage, IReadOnlyList<RepoRef> repos, IReadOnlyList<Profile> profiles, CancellationToken cancellationToken)
     {
-        var reads = await Task.WhenAll(repos.Select(async repo => (repo.Role, Removed: await storage.Engine.ListRemovedAsync(repo, cancellationToken).ConfigureAwait(false)))).ConfigureAwait(false);
+        var counted = profiles.Select(profile => profile.BranchName).ToList();
+        var reads = await Task.WhenAll(repos.Select(async repo => (repo.Role, Removed: await storage.Engine.ListRemovedAsync(repo, counted, cancellationToken).ConfigureAwait(false)))).ConfigureAwait(false);
         var byFolder = reads.ToDictionary(read => read.Role, read => read.Removed);
 
         // One entry per folder and capture event; a folder that somehow removed two commits of one event keeps the later removal.
@@ -90,7 +92,7 @@ internal sealed class RemovedSnapshots
         IReadOnlyList<Profile> profiles,
         CancellationToken cancellationToken)
     {
-        var state = await ReadStateAsync(storage, repos, cancellationToken).ConfigureAwait(false);
+        var state = await ReadStateAsync(storage, repos, profiles, cancellationToken).ConfigureAwait(false);
         if (state.Groups.Count == 0)
         {
             return [];

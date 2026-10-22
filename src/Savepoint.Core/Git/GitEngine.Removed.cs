@@ -15,7 +15,18 @@ public sealed partial class GitEngine
     /// <param name="ct">Cancels the call.</param>
     /// <returns>The recorded commits; empty when the repository does not exist or nothing was removed.</returns>
     /// <exception cref="Savepoint.Core.Errors.GitOperationException">git failed.</exception>
-    public async Task<IReadOnlyList<RemovedCommit>> ListRemovedAsync(RepoRef repo, CancellationToken ct = default)
+    public Task<IReadOnlyList<RemovedCommit>> ListRemovedAsync(RepoRef repo, CancellationToken ct = default) => ListRemovedAsync(repo, null, ct);
+
+    /// <summary>
+    /// The same list, with the branches that count named: only they decide whether a commit is <see cref="RemovedCommit.OnBranch"/>, so a
+    /// branch no profile names cannot take a snapshot out of the list.
+    /// </summary>
+    /// <param name="repo">The folder whose repository is read.</param>
+    /// <param name="countedBranches">The branches that keep a commit off the list, as the catalog's profiles name them; null counts every branch. A name with no branch in this folder is ignored.</param>
+    /// <param name="ct">Cancels the call.</param>
+    /// <returns>The recorded commits; empty when the repository does not exist or nothing was removed.</returns>
+    /// <exception cref="Savepoint.Core.Errors.GitOperationException">git failed.</exception>
+    public async Task<IReadOnlyList<RemovedCommit>> ListRemovedAsync(RepoRef repo, IReadOnlyCollection<string>? countedBranches, CancellationToken ct = default)
     {
         repo = Normalize(repo);
         if (!HasRepository(repo))
@@ -34,9 +45,14 @@ public sealed partial class GitEngine
         var read = await RunAsync(GitDirOnly(repo, "log", "-z", _commitFormat, "--no-walk", "--stdin") with { Stdin = stdin }, ct).ConfigureAwait(false);
         var commits = ParseCommits(read).ToDictionary(commit => commit.Id, StringComparer.Ordinal);
 
-        // What no branch reaches, among the recorded commits and the commits behind them; a recorded commit not in this answer is on a branch.
-        var unreached = await RunAsync(GitDirOnly(repo, "rev-list", "--stdin", "--not", "--branches") with { Stdin = stdin }, ct).ConfigureAwait(false);
-        var gone = unreached.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToHashSet(StringComparer.Ordinal);
+        // What no counted branch reaches, among the recorded commits and the commits behind them; a recorded commit not in this answer is on a branch.
+        List<string> counted = countedBranches is null ? ["--branches"] : await CountedBranchRefsAsync(repo, countedBranches, ct).ConfigureAwait(false);
+        var gone = records.Select(record => record.Commit).ToHashSet(StringComparer.Ordinal);
+        if (counted.Count > 0)
+        {
+            var unreached = await RunAsync(GitDirOnly(repo, ["rev-list", "--stdin", "--not", .. counted]) with { Stdin = stdin }, ct).ConfigureAwait(false);
+            gone = unreached.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToHashSet(StringComparer.Ordinal);
+        }
 
         return
         [
@@ -46,6 +62,13 @@ public sealed partial class GitEngine
                 .OrderByDescending(removed => removed.RemovedAt)
                 .ThenByDescending(removed => removed.Commit.PointTime),
         ];
+    }
+
+    // The counted branches that exist here, as refs git can subtract; a name with no branch would make git refuse the whole call.
+    private async Task<List<string>> CountedBranchRefsAsync(RepoRef repo, IReadOnlyCollection<string> counted, CancellationToken ct)
+    {
+        var existing = await ListBranchesAsync(repo, ct).ConfigureAwait(false);
+        return [.. existing.Where(counted.Contains).Select(name => GitDirFiles.BranchPrefix + name)];
     }
 
     /// <summary>

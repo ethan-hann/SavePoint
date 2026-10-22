@@ -27,8 +27,9 @@ internal sealed partial class GamesApi
             async () =>
             {
                 var game = await RequireGameAsync(gameId, cancellationToken).ConfigureAwait(false);
+                var profiles = await _services.Catalog.ListProfilesAsync(game.Id, cancellationToken).ConfigureAwait(false);
                 return await _services.Storage.ReadAsync(
-                    storage => RemovedSnapshots.PreviewAsync(storage, game.Id, GameFolders.ReposForGitDirOnly(_services, storage, game), cancellationToken),
+                    storage => RemovedSnapshots.PreviewAsync(storage, game.Id, GameFolders.ReposForGitDirOnly(_services, storage, game), profiles, cancellationToken),
                     cancellationToken).ConfigureAwait(false);
             },
             cancellationToken);

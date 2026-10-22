@@ -81,7 +81,7 @@ internal sealed partial class ProfilesApi
                     var fresh = CatalogValidator.RequireValid(await NewProfileAsync(gameId, name).ConfigureAwait(false));
                     var profiles = await _services.Catalog.ListProfilesAsync(gameId).ConfigureAwait(false);
                     var repos = GameFolders.Repos(_services, storage, game);
-                    var state = await RemovedSnapshots.ReadStateAsync(storage, repos, CancellationToken.None).ConfigureAwait(false);
+                    var state = await RemovedSnapshots.ReadStateAsync(storage, repos, profiles, CancellationToken.None).ConfigureAwait(false);
                     var group = state.Groups.FirstOrDefault(candidate => candidate.CaptureId == snapshotId.Value)
                         ?? throw new RemovedSnapshotNotFoundException(snapshotId.Value);
                     var origin = profiles.FirstOrDefault(profile => profile.BranchName == group.Lead.Branch);
