@@ -1,8 +1,9 @@
 #Requires -Version 7
 # Local gate: build, test, format check. Exits non-zero on the first failure.
 #
-# -AllowNarrowedTests lets a test filter in SAVEPOINT_TEST_ARGS through. Without it a filter is refused, because a run that
-# tests part of the code would read as a passed gate.
+# SAVEPOINT_TEST_ARGS takes only a report (--report-*) and retries of failed tests (--retry-failed-tests*). Anything else, such
+# as a filter, is refused unless -AllowNarrowedTests says it is on purpose, because a run that tests part of the code or lets a
+# failure pass would read as a passed gate.
 [CmdletBinding()]
 param(
     [switch]$AllowNarrowedTests
@@ -23,21 +24,41 @@ $env:DOTNET_NOLOGO = '1'
 # Caps that keep one gate from saturating the machine; override per run when needed.
 $buildNodes = if ($env:SAVEPOINT_GATE_BUILD_NODES) { $env:SAVEPOINT_GATE_BUILD_NODES } else { '4' }
 $testThreads = if ($env:SAVEPOINT_GATE_TEST_THREADS) { $env:SAVEPOINT_GATE_TEST_THREADS } else { '4' }
-# Extra test-platform arguments (a report, a filter), space-separated, as gate.sh takes them.
+# Extra test-platform arguments (a report, retries), space-separated, as gate.sh takes them.
 [string[]]$testArgs = if ($env:SAVEPOINT_TEST_ARGS) { @($env:SAVEPOINT_TEST_ARGS -split '\s+' | Where-Object { $_ }) } else { @() }
 
-# Said first, so a leftover value in the shell is seen before anything runs. An option that picks which tests run (or only lists them)
-# makes the gate a partial one.
+# Says which of the arguments the gate does not take. Only a report and retries of failed tests are allowed; any other argument, a
+# filter in whatever spelling, a response file (@file) or an option that lets failures pass, could make "gate passed" mean less
+# than a full run. A word without dashes is allowed only as the value of an allowed option before it. Matching is case sensitive,
+# so an odd spelling is refused, never let through.
+function Get-NarrowingArguments {
+    param([string[]]$Arguments)
+    $afterAllowed = $false
+    foreach ($argument in $Arguments) {
+        if ($argument -cmatch '^--(report-[A-Za-z0-9-]+|retry-failed-tests(-[A-Za-z0-9-]+)?)(=.*)?$') {
+            $afterAllowed = -not $argument.Contains('=')
+        }
+        elseif ($afterAllowed -and $argument -notmatch '^[-@]') {
+            $afterAllowed = $false
+        }
+        else {
+            $afterAllowed = $false
+            $argument
+        }
+    }
+}
+
+# Said first, so a leftover value in the shell is seen before anything runs.
 $narrowing = @()
 if ($testArgs.Count -gt 0) {
     Write-Host "==> extra test arguments (SAVEPOINT_TEST_ARGS): $($testArgs -join ' ')"
-    $narrowing = @($testArgs | Where-Object { $_ -match '^--(treenode-)?filter(-|$)' -or $_ -eq '--list-tests' })
+    $narrowing = @(Get-NarrowingArguments $testArgs)
     if ($narrowing.Count -gt 0 -and -not $AllowNarrowedTests) {
-        Write-Host "gate refused: SAVEPOINT_TEST_ARGS holds $($narrowing -join ' '), which would run only some of the tests. Unset it, or pass -AllowNarrowedTests if the narrowing is on purpose." -ForegroundColor Red
+        Write-Host "gate refused: SAVEPOINT_TEST_ARGS holds $($narrowing -join ' '), which could run only some of the tests or let a failure pass. Only a report and retries are allowed there. Unset it, or pass -AllowNarrowedTests if that is on purpose." -ForegroundColor Red
         exit 1
     }
     if ($narrowing.Count -gt 0) {
-        Write-Host '==> NARROWED on purpose: only the tests the filter picks run, so a pass is not a full gate.' -ForegroundColor Yellow
+        Write-Host '==> NARROWED on purpose: the extra arguments can leave tests out or let a failure pass, so a pass is not a full gate.' -ForegroundColor Yellow
     }
 }
 
@@ -84,7 +105,7 @@ finally {
 }
 
 if ($narrowing.Count -gt 0) {
-    Write-Host 'gate passed, NARROWED: only the tests the filter picks ran' -ForegroundColor Yellow
+    Write-Host 'gate passed, NARROWED: not a full gate' -ForegroundColor Yellow
 }
 else {
     Write-Host 'gate passed' -ForegroundColor Green
