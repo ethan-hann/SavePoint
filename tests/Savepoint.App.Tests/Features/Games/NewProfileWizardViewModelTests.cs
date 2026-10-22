@@ -113,7 +113,7 @@ public class NewProfileWizardViewModelTests
         Assert.True(wizard.IsNameStep);
         Assert.False(wizard.IsCheckStep);
         Assert.False(wizard.IsSaveStep);
-        Assert.Equal(["Name it", "Check", "Save"], wizard.Steps.Select(step => step.Label));
+        Assert.Equal(["Name it", "Check", "Create"], wizard.Steps.Select(step => step.Label));
     }
 
     [Fact]
@@ -136,7 +136,7 @@ public class NewProfileWizardViewModelTests
         Assert.Equal([true, false, false], steps.Select(step => step.IsCurrent));
         Assert.Equal([true, false, false], steps.Select(step => step.IsFilled));
         Assert.Equal([false, true, true], steps.Select(step => step.IsUpcoming));
-        Assert.Equal(["Step 1 of 3: Name it, current step", "Step 2 of 3: Check", "Step 3 of 3: Save"], steps.Select(step => step.AutomationName));
+        Assert.Equal(["Step 1 of 3: Name it, current step", "Step 2 of 3: Check", "Step 3 of 3: Create"], steps.Select(step => step.AutomationName));
     }
 
     [Fact]
@@ -208,7 +208,7 @@ public class NewProfileWizardViewModelTests
 
         Assert.False(rig.Wizard.Preview.IsLoading);
         Assert.True(rig.Wizard.Preview.HasError);
-        Assert.Equal("SavePoint couldn't check how much will be saved. You can still continue.", rig.Wizard.Preview.Error);
+        Assert.Equal("SavePoint couldn't check how much will be copied. You can still continue.", rig.Wizard.Preview.Error);
         Assert.Empty(rig.Wizard.Preview.Rows);
         Assert.True(rig.Wizard.CanContinue);
     }
@@ -352,7 +352,7 @@ public class NewProfileWizardViewModelTests
         Assert.True(wizard.IsSaveStep);
         Assert.Equal(SaveState.Saving, wizard.State);
         Assert.True(wizard.IsSaving);
-        Assert.Equal("Saving your profile\u2026", wizard.StatusText);
+        Assert.Equal("Taking the first snapshot\u2026", wizard.StatusText);
         Assert.Equal("This can take a while for a large install, especially the first time.", wizard.ProgressText);
         Assert.True(wizard.IsIndeterminate);
         Assert.False(wizard.HasCurrentFile);
@@ -362,7 +362,7 @@ public class NewProfileWizardViewModelTests
         Assert.False(wizard.ShowCancel);
         Assert.False(wizard.ShowDone);
         Assert.False(wizard.ShowClose);
-        Assert.Equal("Saving your profile\u2026", wizard.Announcement);
+        Assert.Equal("Taking the first snapshot\u2026", wizard.Announcement);
         Assert.Equal([true, true, true], wizard.Steps.Select(step => step.IsFilled));
     }
 
@@ -375,11 +375,11 @@ public class NewProfileWizardViewModelTests
         rig.Backend.Jobs.ReportProgress(rig.JobId, new JobProgress(1200, 3430, CurrentPath: @"Data\textures\sky.dds"));
 
         var wizard = rig.Wizard;
-        Assert.Equal("1,200 of 3,430 files saved", wizard.ProgressText);
+        Assert.Equal("1,200 of 3,430 files copied", wizard.ProgressText);
         Assert.False(wizard.IsIndeterminate);
         Assert.Equal(35, wizard.ProgressPercent, 0);
         Assert.True(wizard.HasCurrentFile);
-        Assert.Equal(@"Currently saving Data\textures\sky.dds", wizard.CurrentFileText);
+        Assert.Equal(@"Copying Data\textures\sky.dds", wizard.CurrentFileText);
     }
 
     [Fact]
@@ -390,7 +390,7 @@ public class NewProfileWizardViewModelTests
 
         rig.Backend.Jobs.ReportProgress(rig.JobId, new JobProgress(FilesDone: 12));
 
-        Assert.Equal("12 files saved so far", rig.Wizard.ProgressText);
+        Assert.Equal("12 files copied so far", rig.Wizard.ProgressText);
         Assert.True(rig.Wizard.IsIndeterminate);
         Assert.False(rig.Wizard.HasCurrentFile);
     }
@@ -402,13 +402,13 @@ public class NewProfileWizardViewModelTests
         await rig.SaveAsync();
 
         rig.Backend.Jobs.ReportProgress(rig.JobId, new JobProgress(1000, 4000));
-        Assert.Equal("25% of the files are saved", rig.Wizard.Announcement);
+        Assert.Equal("25% of the files are copied", rig.Wizard.Announcement);
 
         rig.Backend.Jobs.ReportProgress(rig.JobId, new JobProgress(1100, 4000));
-        Assert.Equal("25% of the files are saved", rig.Wizard.Announcement);
+        Assert.Equal("25% of the files are copied", rig.Wizard.Announcement);
 
         rig.Backend.Jobs.ReportProgress(rig.JobId, new JobProgress(3100, 4000));
-        Assert.Equal("75% of the files are saved", rig.Wizard.Announcement);
+        Assert.Equal("75% of the files are copied", rig.Wizard.Announcement);
     }
 
     [Fact]
@@ -425,7 +425,7 @@ public class NewProfileWizardViewModelTests
 
         Assert.True(rig.Wizard.IsIndeterminate);
         dispatcher.RunAll();
-        Assert.Equal("5 of 10 files saved", rig.Wizard.ProgressText);
+        Assert.Equal("5 of 10 files copied", rig.Wizard.ProgressText);
     }
 
     [Fact]
@@ -454,7 +454,7 @@ public class NewProfileWizardViewModelTests
 
         Assert.Equal(SaveState.Saved, rig.Wizard.State);
         Assert.Equal(shown, rig.Wizard.ProgressText);
-        Assert.NotEqual("5 of 10 files saved", rig.Wizard.ProgressText);
+        Assert.NotEqual("5 of 10 files copied", rig.Wizard.ProgressText);
     }
 
     [Fact]
@@ -469,7 +469,7 @@ public class NewProfileWizardViewModelTests
         dispatcher.RunAll();
 
         Assert.True(rig.Wizard.IsIndeterminate);
-        Assert.NotEqual("5 of 10 files saved", rig.Wizard.ProgressText);
+        Assert.NotEqual("5 of 10 files copied", rig.Wizard.ProgressText);
     }
 
     // ---- Step three: outcomes
@@ -486,8 +486,8 @@ public class NewProfileWizardViewModelTests
         Assert.Equal(SaveState.Saved, wizard.State);
         Assert.True(wizard.IsSaved);
         Assert.False(wizard.IsSaving);
-        Assert.Equal("Profile saved.", wizard.StatusText);
-        Assert.Equal("Profile saved.", wizard.Announcement);
+        Assert.Equal("Profile created.", wizard.StatusText);
+        Assert.Equal("Profile created.", wizard.Announcement);
         Assert.Null(wizard.ResultCard);
         Assert.False(wizard.HasResultCard);
         Assert.True(wizard.ShowDone);
@@ -511,9 +511,9 @@ public class NewProfileWizardViewModelTests
         Assert.Equal(SaveState.Partial, wizard.State);
         Assert.False(wizard.IsSaved);
         var card = Assert.IsType<ErrorCardViewModel>(wizard.ResultCard);
-        Assert.Equal("Half of that save worked", card.Title);
+        Assert.Equal("Only part of the snapshot was taken", card.Title);
         Assert.Equal(
-            "Your game version and mods were saved. Your save files weren't. There's not enough free disk space to save this profile right now. Free up about 1.2 GB on drive D: and try again. Retry just that part; nothing you already saved is affected.",
+            "Your game version and mods are in the snapshot. Your saves aren't yet. There's not enough free disk space to save this profile right now. Free up about 1.2 GB on drive D: and try again. Nothing in your game folders changed. Retry just that part.",
             card.Body);
         Assert.Equal(Icons.Warning, card.Icon);
         Assert.True(card.IsWarning);
@@ -524,13 +524,13 @@ public class NewProfileWizardViewModelTests
         var list = Assert.IsType<SaveOutcomeListViewModel>(card.Supplement);
         Assert.Equal(
             [
-                new SaveOutcomeRow(Icons.CheckCircle, true, "Game version and mods \u00b7 saved"),
-                new SaveOutcomeRow(Icons.Cancel, false, "Saves \u00b7 not saved"),
+                new SaveOutcomeRow(Icons.CheckCircle, true, "Game version and mods \u00b7 in the snapshot"),
+                new SaveOutcomeRow(Icons.Cancel, false, "Saves \u00b7 not in the snapshot yet"),
             ],
             list.Rows);
         Assert.True(wizard.ShowClose);
         Assert.False(wizard.ShowDone);
-        Assert.Equal("Half of that save worked", wizard.Announcement);
+        Assert.Equal("Only part of the snapshot was taken", wizard.Announcement);
     }
 
     [Fact]
@@ -543,10 +543,10 @@ public class NewProfileWizardViewModelTests
         rig.Backend.Jobs.Complete(rig.JobId, new CaptureResult(pid, new HistoryPointId("pt"), [new FolderOutcome(RepoRole.Install, MockupScenario.FileInUseError), new FolderOutcome(RepoRole.External)]));
 
         var card = rig.Wizard.ResultCard!;
-        Assert.StartsWith("Your saves were saved. Your game version and mods weren't.", card.Body);
+        Assert.StartsWith("Your saves are in the snapshot. Your game version and mods aren't yet.", card.Body);
         Assert.Equal("Retry the game version and mods", Assert.Single(card.Actions).Label);
         Assert.Equal(
-            [("Game version and mods \u00b7 not saved", false), ("Saves \u00b7 saved", true)],
+            [("Game version and mods \u00b7 not in the snapshot yet", false), ("Saves \u00b7 in the snapshot", true)],
             ((SaveOutcomeListViewModel)card.Supplement!).Rows.Select(row => (row.Text, row.Succeeded)));
         Assert.True(card.HasDetail);
         Assert.Equal(@"C:\Games\SkyrimSE\Data\Skyrim.esm", card.Path);
@@ -589,7 +589,7 @@ public class NewProfileWizardViewModelTests
         rig.Backend.Jobs.Complete(rig.JobId, new CaptureResult(pid, null, [new FolderOutcome(RepoRole.External, MockupScenario.SavesOutOfRoomError)]));
 
         Assert.Equal(SaveState.Partial, rig.Wizard.State);
-        Assert.Equal("Half of that save worked", rig.Wizard.ResultCard!.Title);
+        Assert.Equal("Only part of the snapshot was taken", rig.Wizard.ResultCard!.Title);
         Assert.Equal("Retry the saves", rig.Wizard.ResultCard.Actions.Single().Label);
     }
 

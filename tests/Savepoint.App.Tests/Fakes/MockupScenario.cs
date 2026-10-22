@@ -95,7 +95,7 @@ public static class MockupScenario
 
     public static ErrorInfo FolderGoneError { get; } = ErrorInfo.From(new PathMissingException(@"C:\Games\The Last Caretaker", RepoRole.Install));
 
-    // 2l "Half of that save worked": version and mods saved, saves not.
+    // 2l "Only part of the snapshot was taken": version and mods are in it, saves are not.
     public static CaptureResult HalfSaved { get; } = new(
         ModdedId,
         BeforeFinalBoss,

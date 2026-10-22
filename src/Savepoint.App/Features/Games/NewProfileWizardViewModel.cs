@@ -28,7 +28,7 @@ public enum SaveState
     Cancelled,
 }
 
-/// <summary>One line of the "Half of that save worked" status list.</summary>
+/// <summary>One line of the "Only part of the snapshot was taken" status list.</summary>
 /// <param name="Icon">A check for a folder that was saved, a cross for one that was not.</param>
 /// <param name="Succeeded">Whether the folder was saved.</param>
 /// <param name="Text">"Game version and mods · saved".</param>
@@ -41,7 +41,7 @@ public sealed record SaveOutcomeListViewModel(IReadOnlyList<SaveOutcomeRow> Rows
 /// <summary>
 /// The New profile wizard (2f): Name it, Check, Save. Step one names the profile and previews what will be captured;
 /// step two reviews it; step three runs the capture as a job, shows its progress, and ends in success, in the
-/// "Half of that save worked" card with a retry for the folder that failed, or in a failure the user can try again.
+/// "Only part of the snapshot was taken" card with a retry for the folder that failed, or in a failure the user can try again.
 /// Closing the dialog during the save is allowed: the job carries on and the shell's job indicator reports how it ended.
 /// The dialog answers true when a profile was saved, whole or in part.
 /// </summary>
@@ -80,11 +80,11 @@ public sealed partial class NewProfileWizardViewModel : DialogViewModel<bool>
     [ObservableProperty]
     private SaveState _state = SaveState.Saving;
 
-    /// <summary>"1,200 of 3,430 files saved", a count, or the hint while nothing is known.</summary>
+    /// <summary>"1,200 of 3,430 files copied", a count, or the hint while nothing is known.</summary>
     [ObservableProperty]
     private string _progressText = string.Empty;
 
-    /// <summary>"Currently saving ..." with the file the capture reports; empty when it reports none.</summary>
+    /// <summary>"Copying ..." with the file the capture reports; empty when it reports none.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasCurrentFile))]
     private string _currentFileText = string.Empty;
@@ -152,7 +152,7 @@ public sealed partial class NewProfileWizardViewModel : DialogViewModel<bool>
     /// <summary>The three step dots.</summary>
     public IReadOnlyList<WizardStepViewModel> Steps { get; }
 
-    /// <summary>The "What will be captured" panel.</summary>
+    /// <summary>The "What goes in the first snapshot" panel.</summary>
     public CapturePreviewViewModel Preview { get; }
 
     /// <summary>The step's number, from 1.</summary>

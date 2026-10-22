@@ -155,7 +155,7 @@ public class TabOrderTests
         app.Settle();
 
         Assert.Equal(
-            ["Save to load", "Save them first", "Discard them", "Don't ask again when only the save changes", "Cancel"],
+            ["Saves to load", "Take a snapshot first", "Discard them", "Skip this check when only your saves change", "Cancel"],
             TabStops(app));
     }
 
@@ -190,7 +190,7 @@ public class TabOrderTests
 
         var stops = TabStops(app);
 
-        Assert.Equal(["Not now", "Save it"], stops[^2..]);
+        Assert.Equal(["Not now", "Keep it"], stops[^2..]);
         Assert.True(stops.Count > 2, "The choices come before the buttons.");
     }
 

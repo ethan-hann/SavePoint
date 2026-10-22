@@ -56,13 +56,13 @@ public sealed partial class ProfileRowViewModel : ObservableObject
     /// <summary>True when at least one folder has changes that are not saved.</summary>
     public bool HasUnsavedChanges { get; private set; }
 
-    /// <summary>The line under the name: "Active now · 6 saves", "Unsaved changes · 2 saves", "1 save", or empty.</summary>
+    /// <summary>The line under the name: "Loaded now · 6 save snapshots", "New changes · 2 save snapshots", "1 save snapshot", or empty.</summary>
     public string SecondaryText { get; private set; } = string.Empty;
 
-    /// <summary>True when the secondary line is the "Active now" one (drawn in the accent color).</summary>
+    /// <summary>True when the secondary line is the "Loaded now" one (drawn in the accent color).</summary>
     public bool IsActiveLine { get; private set; }
 
-    /// <summary>True when the secondary line is the "Unsaved changes" one (drawn in the error color).</summary>
+    /// <summary>True when the secondary line is the "New changes" one (drawn in the error color).</summary>
     public bool IsUnsavedLine { get; private set; }
 
     /// <summary>True when the secondary line is the plain save count (drawn in the subtle color).</summary>

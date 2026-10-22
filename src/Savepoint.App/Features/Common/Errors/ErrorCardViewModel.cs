@@ -16,7 +16,7 @@ public sealed record ErrorCardAction(string Label, ICommand Command, bool IsPrim
 /// The view model of an error card (mockup 2l): an icon, a headline, a plain-language body, the path involved on a
 /// recessed monospace surface, optional extra content and actions, and a "Show details" toggle that reveals the
 /// developer detail in a selectable box. Build one from an <see cref="ErrorInfo"/> with the constructor, or from
-/// scratch with <see cref="Custom"/> for a card that is not one error (such as "Half of that save worked").
+/// scratch with <see cref="Custom"/> for a card that is not one error (such as "Only part of the snapshot was taken").
 /// </summary>
 public sealed partial class ErrorCardViewModel : ObservableObject
 {

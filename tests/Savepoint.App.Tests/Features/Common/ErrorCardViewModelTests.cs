@@ -176,13 +176,13 @@ public class ErrorCardViewModelTests
             _text,
             Icons.Warning,
             ErrorTone.Warning,
-            "Half of that save worked",
+            "Only part of the snapshot was taken",
             "Your game version and mods were saved.",
             path: @"D:\SavePoint",
             detail: "no space left",
             actions: [new ErrorCardAction("Retry the saves", retry, true)]);
 
-        Assert.Equal("Half of that save worked", card.Title);
+        Assert.Equal("Only part of the snapshot was taken", card.Title);
         Assert.Equal("Your game version and mods were saved.", card.Body);
         Assert.Equal(Icons.Warning, card.Icon);
         Assert.True(card.IsWarning);

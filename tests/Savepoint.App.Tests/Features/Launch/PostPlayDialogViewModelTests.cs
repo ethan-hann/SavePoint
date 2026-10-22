@@ -68,7 +68,7 @@ public class PostPlayDialogViewModelTests : IDisposable
         Assert.Equal("What \"Before the final boss\" held before is removed. It stays in History under \"Recently removed\" until you next free up space, and you can bring it back as a new profile.", update.Subtitle);
         Assert.Equal(Icons.Edit, update.Icon);
         Assert.Equal("Not now", skip.Title);
-        Assert.Equal("Nothing is lost — your saves stay on disk and SavePoint will ask again before switching profiles.", skip.Subtitle);
+        Assert.Equal("Nothing is lost — your saves stay in your game folders as new changes, and SavePoint asks again before you switch profiles.", skip.Subtitle);
         Assert.Equal(Icons.Schedule, skip.Icon);
     }
 
@@ -148,7 +148,7 @@ public class PostPlayDialogViewModelTests : IDisposable
     public async Task The_main_button_names_the_selected_choice_and_not_now_hides_when_it_would_repeat_it()
     {
         var dialog = await NormalAsync();
-        Assert.Equal("Save it", dialog.PrimaryLabel);
+        Assert.Equal("Keep it", dialog.PrimaryLabel);
         Assert.True(dialog.ShowNotNowButton);
 
         dialog.SelectedChoice = Card(dialog, CompletionChoice.UpdateExisting);
@@ -163,7 +163,7 @@ public class PostPlayDialogViewModelTests : IDisposable
     public async Task The_older_variants_name_their_main_button_too()
     {
         var dialog = await OlderAsync();
-        Assert.Equal("Save it", dialog.PrimaryLabel);
+        Assert.Equal("Keep it", dialog.PrimaryLabel);
 
         dialog.SelectedChoice = Card(dialog, CompletionChoice.MoveForward);
         Assert.Equal("Continue", dialog.PrimaryLabel);

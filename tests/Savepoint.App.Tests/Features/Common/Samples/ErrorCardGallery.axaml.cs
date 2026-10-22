@@ -30,8 +30,8 @@ public sealed class ErrorCardGalleryViewModel
             text,
             Icons.Warning,
             ErrorTone.Warning,
-            "Half of that save worked",
-            "Your game version and mods were saved. Your save files weren't: the drive ran out of room with 1.2 GB still to write. Free up some space and retry just that part; nothing you already saved is affected.",
+            "Only part of the snapshot was taken",
+            "Your game version and mods are in the snapshot. Your saves aren't yet: the drive ran out of room with 1.2 GB still to write. Nothing in your game folders changed. Free up some space and retry just that part.",
             detail: "no space left on device",
             actions: [new ErrorCardAction("Retry the saves", noop, IsPrimary: true)],
             supplement: new SaveStatusViewModel(

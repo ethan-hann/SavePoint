@@ -247,7 +247,7 @@ public class LaunchViewTests
         var rows = harness.Find<ItemsControl>("Rows");
 
         Assert.Equal(2, rows.ItemCount);
-        Assert.Contains(harness.All<TextBlock>(), block => block.Text == "Saves · not saved");
+        Assert.Contains(harness.All<TextBlock>(), block => block.Text == "Saves · not in the snapshot yet");
         Assert.Contains(harness.All<Button>(), button => Equals(button.Content, "Retry the saves"));
     }
 

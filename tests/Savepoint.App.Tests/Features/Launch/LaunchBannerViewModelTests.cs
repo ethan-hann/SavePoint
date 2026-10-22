@@ -59,7 +59,7 @@ public class LaunchBannerViewModelTests
             },
             clean =>
             {
-                Assert.Equal("No unsaved changes in your game files or saves", clean.Text);
+                Assert.Equal("No new changes in your game files or saves", clean.Text);
                 Assert.Null(clean.Path);
             });
     }
@@ -74,7 +74,7 @@ public class LaunchBannerViewModelTests
         Assert.Collection(
             banner.Checks,
             install => Assert.StartsWith("Game version and mods", install.Text),
-            clean => Assert.Equal("No unsaved changes in your game files", clean.Text));
+            clean => Assert.Equal("No new changes in your game files", clean.Text));
     }
 
     [Fact]

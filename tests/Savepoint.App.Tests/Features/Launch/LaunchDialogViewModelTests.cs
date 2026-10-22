@@ -123,12 +123,12 @@ public class LaunchDialogViewModelTests : IDisposable
             first =>
             {
                 Assert.Equal("Deep cave run — 5-30-26, 11:42 PM", first.Title);
-                Assert.Equal("Most recent · 2 saves in this profile", first.Subtitle);
+                Assert.Equal("Latest · 2 save snapshots in this profile", first.Subtitle);
             },
             second =>
             {
                 Assert.Equal("First night — 5-14-26, 9:04 PM", second.Title);
-                Assert.Equal("2 saves in this profile", second.Subtitle);
+                Assert.Equal("2 save snapshots in this profile", second.Subtitle);
             });
         Assert.Same(dialog.SaveOptions[0], dialog.SelectedSave);
         Assert.Equal("This replaces what's in your saves folder right now.", dialog.SaveCaption);
@@ -142,7 +142,7 @@ public class LaunchDialogViewModelTests : IDisposable
         Assert.True(dialog.HasSaveSection);
         Assert.False(dialog.HasSaveChoice);
         var only = Assert.Single(dialog.SaveOptions);
-        Assert.Equal("Most recent · 1 save in this profile", only.Subtitle);
+        Assert.Equal("Latest · 1 save snapshot in this profile", only.Subtitle);
         Assert.Same(only, dialog.SelectedSave);
     }
 
@@ -178,12 +178,32 @@ public class LaunchDialogViewModelTests : IDisposable
 
         var block = Assert.Single(dialog.UnsavedBlocks);
         Assert.Equal(RepoRole.External, block.Role);
-        Assert.Equal("You have unsaved changes from your last session", block.Title);
-        Assert.Equal("3 files in your saves folder changed since the last time this profile was saved. They'll be lost unless you keep them.", block.Body);
+        Assert.Equal("New changes since the last snapshot", block.Title);
+        Assert.Equal("3 files in your saves folder changed since the last snapshot of \"Survival test - 5-14-26\". Take a snapshot to keep them there, or discard them.", block.Body);
         Assert.True(block.CanSaveFirst);
         Assert.True(dialog.HasUnsaved);
         Assert.False(dialog.CanSwitch);
         Assert.False(dialog.ShowKeepCallout);
+    }
+
+    [Fact]
+    public async Task New_changes_name_the_profile_that_owns_them_when_it_is_not_the_one_being_switched_to()
+    {
+        var dialog = await _rig.DialogAsync(change: preview => preview with { External = preview.External! with { DirtyOwnerProfileId = MockupScenario.ModdedId } });
+
+        var block = Assert.Single(dialog.UnsavedBlocks);
+        Assert.Equal("3 files in your saves folder changed since the last snapshot of \"Modded playthrough - 7-2-26\". Take a snapshot to keep them there, or discard them.", block.Body);
+        Assert.True(block.CanSaveFirst);
+    }
+
+    [Fact]
+    public async Task New_changes_that_belong_to_no_profile_point_at_keeping_them_as_a_new_profile()
+    {
+        var dialog = await _rig.DialogAsync(change: Unclaimed);
+
+        var block = Assert.Single(dialog.UnsavedBlocks);
+        Assert.Equal("3 files in your saves folder changed since the last snapshot. Keep them as a new profile, or discard them.", block.Body);
+        Assert.False(block.CanSaveFirst);
     }
 
     [Fact]
@@ -245,21 +265,21 @@ public class LaunchDialogViewModelTests : IDisposable
         Assert.True(block.IsSaving);
         Assert.False(block.ShowActions);
         Assert.True(block.IsProgressIndeterminate);
-        Assert.Equal("Saving these changes…", block.ProgressText);
-        Assert.Equal("Saving these changes…", block.Announcement);
+        Assert.Equal("Taking a snapshot of these changes…", block.ProgressText);
+        Assert.Equal("Taking a snapshot of these changes…", block.Announcement);
 
         _rig.Backend.Jobs.ReportProgress(LastCaptureJob(), new JobProgress(FilesDone: 30, FilesTotal: 100));
 
         Assert.False(block.IsProgressIndeterminate);
         Assert.Equal(30, block.ProgressPercent);
         Assert.Equal("30 of 100 files", block.ProgressText);
-        Assert.Equal("25% saved.", block.Announcement);
+        Assert.Equal("25% copied.", block.Announcement);
 
         _rig.Backend.Jobs.ReportProgress(LastCaptureJob(), new JobProgress(FilesDone: 40, FilesTotal: 100));
-        Assert.Equal("25% saved.", block.Announcement);
+        Assert.Equal("25% copied.", block.Announcement);
 
         _rig.Backend.Jobs.ReportProgress(LastCaptureJob(), new JobProgress(FilesDone: 80, FilesTotal: 100));
-        Assert.Equal("75% saved.", block.Announcement);
+        Assert.Equal("75% copied.", block.Announcement);
 
         _rig.Backend.Jobs.Complete(LastCaptureJob());
         await run;
@@ -276,7 +296,7 @@ public class LaunchDialogViewModelTests : IDisposable
         _rig.Backend.Jobs.ReportProgress(LastCaptureJob(), new JobProgress(FilesDone: 12));
 
         Assert.True(block.IsProgressIndeterminate);
-        Assert.Equal("12 files saved so far", block.ProgressText);
+        Assert.Equal("12 files copied so far", block.ProgressText);
 
         _rig.Backend.Jobs.Complete(LastCaptureJob());
         await run;
@@ -308,7 +328,7 @@ public class LaunchDialogViewModelTests : IDisposable
         await run;
 
         Assert.Single(dialog.UnsavedBlocks);
-        Assert.Equal("SavePoint couldn't save these changes. There's not enough free disk space to save this profile right now. Free up about 1.2 GB on drive D: and try again.", block.Error);
+        Assert.Equal("SavePoint couldn't take a snapshot of these changes. There's not enough free disk space to save this profile right now. Free up about 1.2 GB on drive D: and try again.", block.Error);
         Assert.True(block.HasError);
         Assert.False(block.IsBusy);
         Assert.False(dialog.CanSwitch);
@@ -338,7 +358,7 @@ public class LaunchDialogViewModelTests : IDisposable
 
         await dialog.UnsavedBlocks[0].SaveFirstCommand.ExecuteAsync(null);
 
-        Assert.StartsWith("SavePoint couldn't save these changes.", dialog.UnsavedBlocks[0].Error);
+        Assert.StartsWith("SavePoint couldn't take a snapshot of these changes.", dialog.UnsavedBlocks[0].Error);
         Assert.False(dialog.UnsavedBlocks[0].IsBusy);
     }
 
@@ -396,7 +416,7 @@ public class LaunchDialogViewModelTests : IDisposable
         Assert.False(dialog.UnsavedBlocks[0].CanSaveFirst);
         Assert.True(dialog.ShowKeepCallout);
         Assert.Equal(
-            "Some of these changes aren't linked to a profile — they came from an older save or a profile that was removed. Keep them as a new profile so nothing is lost.",
+            "These changes don't belong to any profile — they came from playing an older snapshot, or from a profile you deleted. Keep them as a new profile so nothing is lost.",
             dialog.KeepText);
     }
 
@@ -429,7 +449,7 @@ public class LaunchDialogViewModelTests : IDisposable
 
         var keep = Assert.IsType<KeepAsNewProfileDialogViewModel>(Assert.Single(_rig.Dialogs.Shown));
         Assert.Equal("Keep as a new profile", keep.Title);
-        Assert.Equal("Everything on disk right now is saved as a brand-new profile, so nothing is lost. You can switch back to it any time.", keep.Body);
+        Assert.Equal("SavePoint takes a snapshot of your game folders as they are now and makes it a new profile, so nothing is lost. You can play it any time.", keep.Body);
         Assert.Equal("Kept changes - 7-8-26", keep.Name);
         keep.CancelCommand.Execute(null);
         await open;

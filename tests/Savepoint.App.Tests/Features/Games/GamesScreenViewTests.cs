@@ -62,9 +62,9 @@ public class GamesScreenViewTests
         Assert.Contains("MOD FILES", texts);
         Assert.Contains("LAST PLAYED", texts);
         Assert.Contains("Modded playthrough - 7-2-26", texts);
-        Assert.Contains("Active now \u00b7 6 saves", texts);
-        Assert.Contains("Unsaved changes \u00b7 2 saves", texts);
-        Assert.Contains("1 save", texts);
+        Assert.Contains("Loaded now \u00b7 6 save snapshots", texts);
+        Assert.Contains("New changes \u00b7 2 save snapshots", texts);
+        Assert.Contains("1 save snapshot", texts);
         Assert.Contains("1.6.1170", texts);
         Assert.Contains("212", texts);
         Assert.Contains("3 days ago", texts);

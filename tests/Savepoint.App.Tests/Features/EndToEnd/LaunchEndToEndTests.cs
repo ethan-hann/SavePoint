@@ -96,7 +96,7 @@ public class LaunchEndToEndTests
         var postPlay = app.Dialog<PostPlayDialogViewModel>();
         Assert.Equal("You played for 2 hours 14 minutes", postPlay.Title);
         Assert.Null(app.Games.InlineContent);
-        Assert.Equal("Save it", postPlay.PrimaryLabel);
+        Assert.Equal("Keep it", postPlay.PrimaryLabel);
 
         await postPlay.SaveCommand.ExecuteAsync(null).Soon();
 

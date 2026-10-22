@@ -65,7 +65,7 @@ public class OlderPointJourneyTests
         Assert.Equal(CompletionChoice.ForkNewProfile, afterPlay.SelectedChoice.Kind);
         Assert.Equal("Keep this as a new profile", afterPlay.SelectedChoice.Title);
         Assert.Contains("can't just be added to the end", afterPlay.OlderNote, StringComparison.Ordinal);
-        Assert.Equal("Save it", afterPlay.PrimaryLabel);
+        Assert.Equal("Keep it", afterPlay.PrimaryLabel);
         rig.Render("4c-after-playing-on-from-the-older-point");
         afterPlay.SelectedChoice.Name = "Alternate chapter two";
         await rig.FinishesAsync(afterPlay.SaveCommand.ExecuteAsync(null), "the after-play dialog to answer");

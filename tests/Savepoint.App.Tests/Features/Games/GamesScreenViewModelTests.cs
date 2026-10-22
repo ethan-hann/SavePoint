@@ -112,7 +112,7 @@ public class GamesScreenViewModelTests
     {
         var rig = await GamesRig.StartAsync();
 
-        Assert.Equal(["Active now \u00b7 6 saves", "1 save", "Unsaved changes \u00b7 2 saves"], rig.Screen.Profiles.Select(row => row.SecondaryText));
+        Assert.Equal(["Loaded now \u00b7 6 save snapshots", "1 save snapshot", "New changes \u00b7 2 save snapshots"], rig.Screen.Profiles.Select(row => row.SecondaryText));
         Assert.Equal([true, false, false], rig.Screen.Profiles.Select(row => row.IsActive));
         Assert.Equal([true, false, false], rig.Screen.Profiles.Select(row => row.IsActiveLine));
         Assert.Equal([false, false, true], rig.Screen.Profiles.Select(row => row.IsUnsavedLine));
@@ -166,7 +166,7 @@ public class GamesScreenViewModelTests
             (Caretaker("p3", "Active without saves folder"), new ProfileRowStats("p3", true, [], null, null, null, null, null, false)));
         var rig = await GamesRig.StartAsync(backend);
 
-        Assert.Equal(["Unsaved changes \u00b7 4 saves", "Unsaved changes", "Active now"], rig.Screen.Profiles.Select(row => row.SecondaryText));
+        Assert.Equal(["New changes \u00b7 4 save snapshots", "New changes", "Loaded now"], rig.Screen.Profiles.Select(row => row.SecondaryText));
         Assert.True(rig.Screen.Profiles[0].IsActive);
         Assert.True(rig.Screen.Profiles[0].IsUnsavedLine);
         Assert.False(rig.Screen.Profiles[0].IsActiveLine);
@@ -181,7 +181,7 @@ public class GamesScreenViewModelTests
         Assert.Equal("Play Modded playthrough - 7-2-26", row.PlayAutomationName);
         Assert.Equal("More actions for Modded playthrough - 7-2-26", row.MoreActionsAutomationName);
         Assert.Contains("Modded playthrough - 7-2-26", row.AutomationName);
-        Assert.Contains("Active now \u00b7 6 saves", row.AutomationName);
+        Assert.Contains("Loaded now \u00b7 6 save snapshots", row.AutomationName);
         Assert.Contains("1.6.640", row.AutomationName);
         Assert.Contains("212", row.AutomationName);
         Assert.Contains("3 days ago", row.AutomationName);

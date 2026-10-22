@@ -112,7 +112,7 @@
                     <Button Classes="filled pill" FontSize="13.5" Padding="16,8" IsVisible="{Binding CanFinishSwitch}" Command="{Binding FinishSwitchCommand}" Content="{loc:Loc launch.dialog.finishSwitch}" />
                     <Button Classes="error-outlined pill" FontSize="13.5" Padding="16,8" Command="{Binding DiscardCommand}" Content="{loc:Loc launch.dialog.discardThem}" />
                   </StackPanel>
-                  <!-- While "Save them first" runs the bar takes the buttons' place; saving can take minutes. -->
+                  <!-- While "Take a snapshot first" runs the bar takes the buttons' place; saving can take minutes. -->
                   <StackPanel x:Name="SavingProgress" Spacing="6" Margin="0,8,0,0" IsVisible="{Binding IsSaving}">
                     <a11y:AnnouncementRegion Message="{Binding Announcement}" />
                     <TextBlock Classes="body" FontWeight="Medium" Text="{loc:Loc launch.dialog.savingFirst}" />

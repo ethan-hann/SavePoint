@@ -6,14 +6,14 @@ using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Features.Games;
 
-/// <summary>One folder in the "What will be captured" panel.</summary>
+/// <summary>One folder in the "What goes in the first snapshot" panel.</summary>
 /// <param name="Icon">A Material Symbols glyph: a folder for the game, a disk for the saves.</param>
 /// <param name="Title">What the folder holds ("Game version and mods").</param>
 /// <param name="Subtitle">Its path and how much is in it, shown in monospace.</param>
 public sealed record CaptureRowViewModel(string Icon, string Title, string Subtitle);
 
 /// <summary>
-/// The "What will be captured" panel of the New profile wizard: each tracked folder with its size, and what saving
+/// The "What goes in the first snapshot" panel of the New profile wizard: each tracked folder with its size, and what saving
 /// will really add to storage after SavePoint reuses the files it already has.
 /// </summary>
 public sealed partial class CapturePreviewViewModel : ObservableObject

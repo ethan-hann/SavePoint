@@ -45,7 +45,7 @@ public class PlayJourneyTests
         Assert.StartsWith("You played for ", postPlay.Title, StringComparison.Ordinal);
         Assert.Equal([CompletionChoice.CaptureNew, CompletionChoice.UpdateExisting, CompletionChoice.Skip], postPlay.Choices.Select(choice => choice.Kind));
         Assert.Equal(CompletionChoice.CaptureNew, postPlay.SelectedChoice.Kind);
-        Assert.Equal("Save it", postPlay.PrimaryLabel);
+        Assert.Equal("Keep it", postPlay.PrimaryLabel);
         Assert.Contains("Replace \"Vanilla\" with this session", postPlay.Choices.Select(choice => choice.Title));
         var written = FolderSnapshot.Of(game.Saves);
         Assert.NotEmpty(written);
@@ -60,7 +60,7 @@ public class PlayJourneyTests
         await rig.WaitAsync(() => vanilla.CanPlay && rig.Games.InlineContent is null && rig.ToastTexts.Contains("Saved Play Game."), "the session to be saved");
         Assert.True(trail.Showed(nameof(LaunchBannerViewModel), nameof(RunningCardViewModel), nameof(LaunchSavingViewModel), "nothing"), string.Join(" > ", trail.Seen));
         await rig.WaitAsync(() => vanilla.IsActive && !vanilla.IsRunning, "the row to read active again");
-        Assert.StartsWith("Active now · 2 saves", vanilla.SecondaryText, StringComparison.Ordinal);
+        Assert.StartsWith("Loaded now · 2 save snapshots", vanilla.SecondaryText, StringComparison.Ordinal);
 
         // History lists the new point, newest first, as a save with the same game version and mods.
         rig.Shell.Navigate(NavDestination.History);

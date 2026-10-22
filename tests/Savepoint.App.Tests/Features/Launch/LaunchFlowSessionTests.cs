@@ -252,7 +252,7 @@ public class LaunchFlowSessionTests : IDisposable
         var complete = Assert.Single(_f.Completes());
         Assert.Equal([FlowRig.Skyrim, new SessionCompletion.CaptureNew("Session - 7-8-26")], complete.Args);
         var saving = _f.Inline<LaunchSavingViewModel>();
-        Assert.Equal("Saving your session…", saving.Title);
+        Assert.Equal("Taking a snapshot of your session…", saving.Title);
         Assert.True(saving.IsIndeterminate);
         Assert.True(_f.Flow.IsActive(FlowRig.Skyrim));
 
@@ -314,9 +314,9 @@ public class LaunchFlowSessionTests : IDisposable
             new CaptureResult(MockupScenario.ModdedId, MockupScenario.BeforeFinalBoss, [new FolderOutcome(RepoRole.Install), new FolderOutcome(RepoRole.External, null, LeftAlone: true, LeftOnBranch: "profile/other")]));
 
         var card = _f.Inline<ErrorCardViewModel>();
-        Assert.Equal("Part of that session wasn't saved", card.Title);
+        Assert.Equal("Part of that session isn't in the snapshot", card.Title);
         Assert.Equal(
-            "Your save files were left as they are because they belong to another profile's saved history, so nothing from this session was added there. What changed in them is still on your computer, and SavePoint will ask about it the next time you play.",
+            "Your saves weren't included, because you played them from another profile's snapshot. Anything that changed in them is still in your game folders, and SavePoint asks about it the next time you play.",
             card.Body);
         Assert.Equal(ErrorTone.Neutral, card.Tone);
         Assert.Equal(["Dismiss"], card.Actions.Select(a => a.Label));
@@ -336,12 +336,12 @@ public class LaunchFlowSessionTests : IDisposable
                 [new FolderOutcome(RepoRole.Install, MockupScenario.SavesOutOfRoomError), new FolderOutcome(RepoRole.External, null, LeftAlone: true, LeftOnBranch: "profile/other")]));
 
         var card = _f.Inline<ErrorCardViewModel>();
-        Assert.Equal("That session wasn't saved", card.Title);
+        Assert.Equal("SavePoint couldn't take a snapshot of that session", card.Title);
         Assert.Equal(
-            "Your game version and mods weren't saved. There's not enough free disk space to save this profile right now. Free up about 1.2 GB on drive D: and try again. Your save files were left as they are because they belong to another profile's saved history, so nothing from this session was added there. What changed in them is still on your computer, and SavePoint will ask about it the next time you play. Fix that and retry just that part.",
+            "Your game version and mods aren't in the snapshot yet. There's not enough free disk space to save this profile right now. Free up about 1.2 GB on drive D: and try again. Your saves weren't included, because you played them from another profile's snapshot. Nothing in your game folders changed, and SavePoint asks about any changes there the next time you play. Fix that and retry just that part.",
             card.Body);
         var rows = Assert.IsType<FolderOutcomeListViewModel>(card.Supplement).Rows;
-        Assert.Equal(["Game version and mods · not saved", "Saves · left as it was"], rows.Select(r => r.Text));
+        Assert.Equal(["Game version and mods · not in the snapshot yet", "Saves · not included"], rows.Select(r => r.Text));
         Assert.Equal([false, false], rows.Select(r => r.IsOk));
         Assert.Equal([true, false], rows.Select(r => r.IsFailed));
         Assert.Equal(["Retry the version and mods", "Dismiss"], card.Actions.Select(a => a.Label));
@@ -361,10 +361,10 @@ public class LaunchFlowSessionTests : IDisposable
                 [new FolderOutcome(RepoRole.Install, null, LeftAlone: true, LeftOnBranch: "profile/other"), new FolderOutcome(RepoRole.External, MockupScenario.SavesOutOfRoomError)]));
 
         var card = _f.Inline<ErrorCardViewModel>();
-        Assert.StartsWith("Your save files weren't saved. There's not enough free disk space", card.Body, StringComparison.Ordinal);
-        Assert.Contains("Your game version and mods were left as they are because they belong to another profile's saved history", card.Body, StringComparison.Ordinal);
+        Assert.StartsWith("Your saves aren't in the snapshot yet. There's not enough free disk space", card.Body, StringComparison.Ordinal);
+        Assert.Contains("Your game version and mods weren't included, because you played them from another profile's snapshot", card.Body, StringComparison.Ordinal);
         var rows = Assert.IsType<FolderOutcomeListViewModel>(card.Supplement).Rows;
-        Assert.Equal(["Game version and mods · left as it was", "Saves · not saved"], rows.Select(r => r.Text));
+        Assert.Equal(["Game version and mods · not included", "Saves · not in the snapshot yet"], rows.Select(r => r.Text));
         Assert.Equal(["Retry the saves", "Dismiss"], card.Actions.Select(a => a.Label));
     }
 
@@ -377,12 +377,12 @@ public class LaunchFlowSessionTests : IDisposable
         _f.Backend.Jobs.Complete(CaptureJob(), MockupScenario.HalfSaved);
 
         var card = _f.Inline<ErrorCardViewModel>();
-        Assert.Equal("Half of that save worked", card.Title);
+        Assert.Equal("Only part of the snapshot was taken", card.Title);
         Assert.Equal(
-            "Your game version and mods were saved. Your save files weren't. There's not enough free disk space to save this profile right now. Free up about 1.2 GB on drive D: and try again. Fix that and retry just that part; nothing you already saved is affected.",
+            "Your game version and mods are in the snapshot. Your saves aren't yet. There's not enough free disk space to save this profile right now. Free up about 1.2 GB on drive D: and try again. Nothing in your game folders changed. Fix that and retry just that part.",
             card.Body);
         var rows = Assert.IsType<FolderOutcomeListViewModel>(card.Supplement).Rows;
-        Assert.Equal(["Game version and mods · saved", "Saves · not saved"], rows.Select(r => r.Text));
+        Assert.Equal(["Game version and mods · in the snapshot", "Saves · not in the snapshot yet"], rows.Select(r => r.Text));
         Assert.Equal([true, false], rows.Select(r => r.IsOk));
         Assert.Equal(ErrorTone.Warning, card.Tone);
         Assert.Equal(["Retry the saves", "Dismiss"], card.Actions.Select(a => a.Label));
