@@ -103,7 +103,7 @@ public class AppBootstrapTests : IDisposable
     public void Only_an_api_that_failed_to_start_says_a_retry_cannot_help()
     {
         var failed = AppBootstrap.Start(_ => throw new IOException("no"));
-        var started = AppBootstrap.Start(options => options with { Platform = HostPlatform(), Git = GitBinary.Locate(Path.Combine(_root, "gitconfig")) }, _log);
+        var started = AppBootstrap.Start(options => options with { Platform = HostPlatform(), Git = GitBinary.Locate(Path.Combine(_root, "gitconfig")), ArtworkHttp = null }, _log);
 
         Assert.False(failed.Services.BackendStarted);
         Assert.True(started.Services.BackendStarted);
