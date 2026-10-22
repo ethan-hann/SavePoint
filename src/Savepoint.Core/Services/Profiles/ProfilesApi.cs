@@ -45,8 +45,8 @@ internal sealed partial class ProfilesApi : IProfilesApi
             var configured = GameFolders.RolesOf(game);
             IReadOnlyList<RepoRole> roles = folders is { Count: > 0 } ? [.. configured.Where(folders.Contains)] : configured;
             var point = string.IsNullOrWhiteSpace(pointName) ? profile.Name : pointName;
-            var capture = _capture.TakeEvent(gameId, profileId, roles);
-            return new JobStarted(_capture.Start(game, profile, point, roles, capture, creating: false));
+            var (capture, forksNewBranches) = _capture.TakeEvent(gameId, profileId, roles);
+            return new JobStarted(_capture.Start(game, profile, point, roles, capture, creating: false, forksNewBranches: forksNewBranches));
         });
 
     public Task<OperationResult<IReadOnlyList<ProfileRowStats>>> GetRowStatsAsync(string gameId, CancellationToken cancellationToken = default) =>

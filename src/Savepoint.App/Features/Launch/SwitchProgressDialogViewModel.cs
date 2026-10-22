@@ -88,9 +88,14 @@ public sealed partial class SwitchProgressDialogViewModel : DialogViewModel<bool
         _firstReport ??= now;
         CurrentPath = progress.CurrentPath;
 
-        if (progress.BytesTotal is > 0 && progress.BytesDone is { } bytesDone)
+        // Git removes files before it writes any, and a removal has no bytes, so the bar and the line follow whichever of the files and
+        // the bytes is further along: a switch that mostly removes files moves from the start.
+        var fileShare = progress.FilesTotal is > 0 && progress.FilesDone is { } done ? (double)done / progress.FilesTotal.Value : (double?)null;
+        var byteShare = progress.BytesTotal is > 0 && progress.BytesDone is { } written ? (double)written / progress.BytesTotal.Value : (double?)null;
+        if (byteShare is { } bytes && !(fileShare > bytes))
         {
-            var total = progress.BytesTotal.Value;
+            var bytesDone = progress.BytesDone!.Value;
+            var total = progress.BytesTotal!.Value;
             var remaining = LaunchTiming.Remaining(bytesDone, total, now - _firstReport.Value);
             ProgressText = remaining is { } left
                 ? _text.Message(
@@ -101,17 +106,25 @@ public sealed partial class SwitchProgressDialogViewModel : DialogViewModel<bool
                 : _text.Message("launch.progress.bytes", ("done", _text.FileSize(bytesDone)), ("total", _text.FileSize(total)));
             ShowFraction((double)bytesDone / total);
         }
-        else if (progress.FilesTotal is > 0 && progress.FilesDone is { } filesDone)
+        else if (fileShare is { } files)
         {
-            ProgressText = _text.Message("launch.progress.files", ("done", _text.Number(filesDone)), ("total", _text.Number(progress.FilesTotal.Value)));
-            ShowFraction((double)filesDone / progress.FilesTotal.Value);
+            var filesDone = progress.FilesDone!.Value;
+            var filesTotal = progress.FilesTotal!.Value;
+            ProgressText = LaunchTiming.RemainingAtShare(files, now - _firstReport.Value) is { } left
+                ? _text.Message(
+                    "launch.progress.filesWithTime",
+                    ("done", _text.Number(filesDone)),
+                    ("total", _text.Number(filesTotal)),
+                    ("time", _text.Duration(LaunchTiming.RoundForDisplay(left))))
+                : _text.Message("launch.progress.files", ("done", _text.Number(filesDone)), ("total", _text.Number(filesTotal)));
+            ShowFraction(files);
         }
         else
         {
             IsIndeterminate = true;
             PercentText = string.Empty;
-            ProgressText = progress.FilesDone is { } done
-                ? _text.Message("launch.progress.filesSoFar", ("done", _text.Number(done)))
+            ProgressText = progress.FilesDone is { } counted
+                ? _text.Message("launch.progress.filesSoFar", ("done", _text.Number(counted)))
                 : _text.Message("launch.progress.hint");
         }
     }

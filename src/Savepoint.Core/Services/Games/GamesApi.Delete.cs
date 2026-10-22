@@ -33,16 +33,22 @@ internal sealed partial class GamesApi
                 }
 
                 // The engine takes the markers out of the game's folders with the repositories; a folder that cannot be found is skipped.
+                var bytes = await DirectorySize.GetBytesAsync(storage.GameDirectory(game.Id), CancellationToken.None).ConfigureAwait(false);
+                var removed = new List<string>();
                 foreach (var folder in GameFolders.ResolveLoosely(_services.PathTokens, game).Where(folder => folder.Path is not null))
                 {
                     await storage.Engine.DeleteRepoAsync(GameFolders.Repo(storage, game.Id, folder)).ConfigureAwait(false);
+                    removed.Add(GameFolders.LogName(folder.Role));
                 }
 
                 await StorageFolders.DeleteAsync(storage, storage.GameDirectory(game.Id), CancellationToken.None).ConfigureAwait(false);
-                foreach (var profile in await _services.Catalog.ListProfilesAsync(game.Id).ConfigureAwait(false))
+                var profiles = await _services.Catalog.ListProfilesAsync(game.Id).ConfigureAwait(false);
+                foreach (var profile in profiles)
                 {
                     await _services.Catalog.DeleteProfileAsync(profile.Id).ConfigureAwait(false);
                 }
+
+                _services.Log.Information($"Game deleted: {game.Name} ({game.Id}); the history of its {string.Join(" and ", removed)} folders was removed ({bytes} bytes of storage), with {profiles.Count} profiles. The game's own folders were not touched.");
 
                 await _services.Catalog.DeleteGameAsync(game.Id).ConfigureAwait(false);
 

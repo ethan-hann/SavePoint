@@ -37,6 +37,7 @@
   "errorCard.title.profileExists": "That profile already exists",
   "errorCard.title.progressNotKept": "Your progress can't be kept here",
   "errorCard.title.removeFailed": "SavePoint couldn't remove something",
+  "errorCard.title.storageReachable": "Your storage folder is there",
   "errorCard.title.storageUnreachable": "SavePoint's storage isn't reachable",
   "errorCard.title.storageUnreadable": "SavePoint couldn't read part of its storage",
   "errorCard.title.switchUnfinished": "The last switch didn't finish",

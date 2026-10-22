@@ -35,7 +35,7 @@ internal static class StorageContent
     /// <summary>The folders directly under the root that hold a game's git directories, which is how SavePoint's own folders are told from anything else.</summary>
     /// <param name="root">The storage root.</param>
     /// <param name="strict">True to fail on a folder that cannot be opened and could be one of SavePoint's (a move must not leave one behind) instead of passing over it; a folder named in a way no game folder is, is passed over either way.</param>
-    /// <exception cref="StorageSourceUnreadableException">Strict, and a folder under the root cannot be opened.</exception>
+    /// <exception cref="StorageSourceUnreadableException">Strict, and the root or a folder under it cannot be opened.</exception>
     public static IReadOnlyList<string> Folders(string root, bool strict = false)
     {
         if (!Directory.Exists(root))
@@ -43,7 +43,16 @@ internal static class StorageContent
             return [];
         }
 
-        var directories = new DirectoryInfo(root).EnumerateDirectories("*", Everything(strict)).ToList();
+        List<DirectoryInfo> directories;
+        try
+        {
+            directories = new DirectoryInfo(root).EnumerateDirectories("*", Everything(strict)).ToList();
+        }
+        catch (Exception e) when (strict && e is IOException or UnauthorizedAccessException)
+        {
+            // The root itself can exist and still refuse to be listed (permissions, a privacy prompt that was refused); a loose scan passes over that, a move must name it.
+            throw Unreadable(root, e);
+        }
 
         // A game folder that is a link cannot be copied as a link (its history lives elsewhere), and leaving it out would let the move look finished.
         if (strict && directories.FirstOrDefault(folder => folder.Attributes.HasFlag(FileAttributes.ReparsePoint) && LeadsToGitDirectories(folder)) is { } linked)

@@ -20,7 +20,7 @@ public sealed class RepoConfigTests : IDisposable
         { "core.autocrlf", "false" },
         { "core.bigfilethreshold", "128m" },
         { "core.logallrefupdates", "false" },
-        { "savepoint.repoconfigversion", "3" },
+        { "savepoint.repoconfigversion", "4" },
     };
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -119,7 +119,7 @@ public sealed class RepoConfigTests : IDisposable
 
         await _ws.Engine.InitAsync(repo, ct: Ct);
 
-        Assert.Equal("3", await _ws.ConfigAsync(repo, "savepoint.repoConfigVersion"));
+        Assert.Equal("4", await _ws.ConfigAsync(repo, "savepoint.repoConfigVersion"));
         Assert.Equal("true", await _ws.ConfigAsync(repo, "core.untrackedCache"));
         Assert.Equal("false", await _ws.ConfigAsync(repo, "maintenance.auto"));
     }
@@ -150,17 +150,49 @@ public sealed class RepoConfigTests : IDisposable
         Assert.Equal(1, text.Split('\n').Count(line => line.Contains("repoConfigVersion", StringComparison.Ordinal)));
     }
 
-    [Fact]
-    public async Task Reapplying_keeps_settings_other_than_its_own()
+    [Theory]
+    [InlineData("user", "note", "user.note")]
+    [InlineData("core", "fsmonitor", "core.fsmonitor")]
+    [InlineData("core", "hooksPath", "core.hooksPath")]
+    [InlineData("core", "sshCommand", "core.sshCommand")]
+    [InlineData("core", "pager", "core.pager")]
+    [InlineData("alias", "st", "alias.st")]
+    [InlineData("include", "path", "include.path")]
+    [InlineData("filter \"lfs\"", "clean", "filter.lfs.clean")]
+    [InlineData("remote \"origin\"", "url", "remote.origin.url")]
+    [InlineData("credential", "helper", "credential.helper")]
+    public async Task Reapplying_drops_a_setting_that_git_init_does_not_write_and_that_is_not_its_own(string section, string key, string name)
     {
         var repo = await _ws.InitializedRepoAsync();
-        await _ws.GitAsync(repo, "config", "--local", "user.note", "kept");
+
+        // Added to the end of the file, the way a repository from somewhere else carries it, not inside the managed block.
+        await File.AppendAllTextAsync(Path.Combine(repo.GitDir, "config"), $"[{section}]\n\t{key} = something\n", Ct);
         await _ws.GitAsync(repo, "config", "--local", "savepoint.repoConfigVersion", "1");
 
         await _ws.Engine.InitAsync(repo, ct: Ct);
 
-        Assert.Equal("kept", await _ws.ConfigAsync(repo, "user.note"));
+        Assert.Null(await _ws.ConfigAsync(repo, name));
         Assert.Equal("0", await _ws.ConfigAsync(repo, "core.repositoryformatversion"));
+        Assert.NotNull(await _ws.ConfigAsync(repo, "core.ignorecase"));
+        Assert.Equal("false", await _ws.ConfigAsync(repo, "core.bare"));
+    }
+
+    [Fact]
+    public void A_rewrite_keeps_exactly_the_keys_git_init_writes_plus_the_managed_block_whatever_the_file_held()
+    {
+        const string hostile = "[core]\n\trepositoryformatversion = 0\n\tfilemode = false\n\tbare = false\n\tignorecase = true\n\tFSMonitor = evil #\n\thooksPath = /tmp/evil\n[Alias]\n\tx = !evil\n[include]\n\tpath = /tmp/evil\n[includeIf \"gitdir:/\"]\n\tpath = /tmp/evil\n[core]\n\tpager = evil\n\tsymlinks = false\n[savepoint]\n\trepoConfigVersion = 3\n";
+
+        var rewritten = Savepoint.Core.Git.RepoConfigFile.Rewrite(hostile, isWindows: false);
+
+        Assert.DoesNotContain("evil", rewritten, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("[Alias]", rewritten, StringComparison.Ordinal);
+        Assert.DoesNotContain("[include", rewritten, StringComparison.Ordinal);
+        Assert.Contains("repositoryformatversion = 0", rewritten, StringComparison.Ordinal);
+        Assert.Contains("filemode = false", rewritten, StringComparison.Ordinal);
+        Assert.Contains("ignorecase = true", rewritten, StringComparison.Ordinal);
+        Assert.Contains("symlinks = false", rewritten, StringComparison.Ordinal);
+        Assert.Contains(Savepoint.Core.Git.RepoConfigFile.BlockStart, rewritten, StringComparison.Ordinal);
+        Assert.Equal(1, rewritten.Split('\n').Count(line => line.Contains("repoConfigVersion", StringComparison.Ordinal)));
     }
 
     [Fact]
@@ -192,6 +224,6 @@ public sealed class RepoConfigTests : IDisposable
         await _ws.Engine.InitAsync(repo, ct: Ct);
 
         Assert.Equal("128m", await _ws.ConfigAsync(repo, "core.bigFileThreshold"));
-        Assert.Equal("3", await _ws.ConfigAsync(repo, "savepoint.repoConfigVersion"));
+        Assert.Equal("4", await _ws.ConfigAsync(repo, "savepoint.repoConfigVersion"));
     }
 }

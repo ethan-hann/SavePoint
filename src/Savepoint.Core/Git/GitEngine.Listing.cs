@@ -40,11 +40,13 @@ public sealed partial class GitEngine
     }
 
     // What a capture would stage: new files, plus tracked files that were changed or removed. A folder that is its own
-    // repository is listed with a trailing slash instead of its files.
+    // repository is listed with a trailing slash instead of its files. A recorded file the patterns name is not staged, whatever
+    // happened to it.
     private async Task<WorkTreeListing> ListForStagingAsync(RepoRef repo, CancellationToken ct)
     {
         var result = await RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z", "-o", "-m", "-d", ExcludeFromArgument(repo)), ct).ConfigureAwait(false);
-        return WorkTreeListing.From(result.SplitStandardOutputOnNul());
+        var named = await RecordedNamedAsync(repo, ct).ConfigureAwait(false);
+        return WorkTreeListing.From(result.SplitStandardOutputOnNul().Where(entry => !named.Contains(entry)));
     }
 
     // New files the exclude list does not name.
@@ -55,11 +57,23 @@ public sealed partial class GitEngine
     }
 
     // Tracked files that differ from the last point (or from nothing, before the first one): edits, removals and anything left staged.
+    // A recorded file the patterns name is not a change, however it differs.
     private async Task<IReadOnlyList<string>> ListChangedAsync(RepoRef repo, bool hasCommits, CancellationToken ct)
     {
-        var result = await RunAsync(
-            Invocation(repo, readOnly: true, "diff", "--name-only", "-z", "--no-renames", hasCommits ? "HEAD" : GitDirFiles.EmptyTree, "--"),
-            ct).ConfigureAwait(false);
+        var changed = await DiffNamesAsync(repo, hasCommits ? "HEAD" : GitDirFiles.EmptyTree, ct).ConfigureAwait(false);
+        if (changed.Count == 0)
+        {
+            return changed;
+        }
+
+        var named = await RecordedNamedAsync(repo, ct).ConfigureAwait(false);
+        return named.Count == 0 ? changed : [.. changed.Where(path => !named.Contains(path))];
+    }
+
+    // Every file in the work tree that differs from the tree, with no regard for the patterns.
+    private async Task<IReadOnlyList<string>> DiffNamesAsync(RepoRef repo, string tree, CancellationToken ct)
+    {
+        var result = await RunAsync(Invocation(repo, readOnly: true, "diff", "--name-only", "-z", "--no-renames", tree, "--"), ct).ConfigureAwait(false);
         return result.SplitStandardOutputOnNul();
     }
 }

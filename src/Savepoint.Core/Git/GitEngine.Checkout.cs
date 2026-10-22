@@ -13,8 +13,9 @@ public sealed partial class GitEngine
     /// Switches the folder to a branch: git rewrites the files that differ, then the engine verifies that the files the
     /// switch changed match the point and re-syncs any that stayed behind (a file another program held open). The switch
     /// refuses to start when anything is in the way: unsaved changes in the folder (edited, deleted or new files the game's
-    /// patterns do not name), a file the game's patterns name that the switch would overwrite or delete, a folder link on
-    /// Windows, or a folder a stopped switch left half done (only that same switch may finish it). Nothing is written then.
+    /// patterns do not name), a folder link on Windows, or a folder a stopped switch left half done (only that same switch may
+    /// finish it). Nothing is written then. A file the game's patterns name is never in the way and never touched: the switch
+    /// does not write it, remove it or restore it, whether or not either point holds it.
     /// </summary>
     /// <param name="repo">The folder to switch.</param>
     /// <param name="branch">The profile's branch; it must have at least one point.</param>
@@ -60,8 +61,8 @@ public sealed partial class GitEngine
 
     /// <summary>
     /// Switches the folder to a branch and makes it match, discarding unsaved changes to recorded files and overwriting new
-    /// files that are in the way. It still refuses a half-switched folder it is not finishing, a folder link on Windows, and a
-    /// file the game's patterns name that it would overwrite or delete. Everything else behaves like <see cref="CheckoutBranchAsync"/>.
+    /// files that are in the way. It still refuses a half-switched folder it is not finishing and a folder link on Windows, and it
+    /// still leaves the files the game's patterns name as they are. Everything else behaves like <see cref="CheckoutBranchAsync"/>.
     /// </summary>
     /// <param name="repo">The folder to switch.</param>
     /// <param name="branch">The profile's branch; it must have at least one point.</param>
@@ -85,9 +86,9 @@ public sealed partial class GitEngine
     }
 
     /// <summary>
-    /// Throws away every change since the checked-out point: modified and deleted files come back, new files that are
-    /// that the game's ignore patterns do not name are removed (an ignore file inside the game folder protects nothing).
-    /// Files those patterns name and the consent marker stay. Works on a detached HEAD, and also finishes
+    /// Throws away every change since the checked-out point: modified and deleted files come back, new files that
+    /// the game's ignore patterns do not name are removed (an ignore file inside the game folder protects nothing).
+    /// Files those patterns name stay as they are on disk, recorded by the point or not, and so does the consent marker. Works on a detached HEAD, and also finishes
     /// the job of an unfinished switch by returning the folder to the point HEAD is on (which is the point the switch
     /// started from unless HEAD had already moved; <see cref="RepoStatus.InterruptedSwitch"/> says which).
     /// </summary>
@@ -117,24 +118,52 @@ public sealed partial class GitEngine
 
         using var scope = BeginWrite(repo);
 
-        // A file another program holds fails the reset for that file only; the verify pass below finds it and tries again.
-        var reset = await RunRawAsync(Invocation(repo, readOnly: false, "reset", "--hard", "--quiet") with { AllowedExitCodes = _anyExitCode }, ct).ConfigureAwait(false);
-        if (reset.ExitCode != 0)
-        {
-            if (GitFailure.IsDiskFull(reset.StandardError))
-            {
-                throw new DiskSpaceException(repo.WorkTree, _options.MinFreeBytesForCheckout, _freeSpace(repo.WorkTree));
-            }
-
-            if (!GitFailure.FileCouldNotBeReplaced(reset.StandardError))
-            {
-                throw GitFailure.ToException(new GitCommandException(["reset", "--hard"], reset.ExitCode, reset.StandardError));
-            }
-        }
-
-        await VerifyAsync(repo, point, [], null, ct).ConfigureAwait(false);
+        var named = await ResetToPointAsync(repo, ct).ConfigureAwait(false);
+        await VerifyAsync(repo, point, [], null, named, ct).ConfigureAwait(false);
         await RemoveNewFilesAsync(repo, ct).ConfigureAwait(false);
         SwitchJournal.Clear(repo.GitDir);
+    }
+
+    // Writes the point's copy of every file that differs and returns the files the patterns name, which are left as they are. With no
+    // patterns that is one hard reset. With patterns the index goes back to the point first, which changes no file, and only the
+    // differing files they do not name are written: a hard reset would write the point's copy of a named file as well.
+    private async Task<IReadOnlySet<string>> ResetToPointAsync(RepoRef repo, CancellationToken ct)
+    {
+        if (!HasPatterns(repo))
+        {
+            await RunRewriteAsync(Invocation(repo, readOnly: false, "reset", "--hard", "--quiet"), ["reset", "--hard"], ct).ConfigureAwait(false);
+            return new HashSet<string>();
+        }
+
+        await RunWriteAsync(() => Invocation(repo, readOnly: false, "reset", "--quiet"), ct).ConfigureAwait(false);
+        var named = await RecordedNamedAsync(repo, ct).ConfigureAwait(false);
+        var differing = (await DiffNamesAsync(repo, "HEAD", ct).ConfigureAwait(false)).Where(path => !named.Contains(path)).ToArray();
+        if (differing.Length > 0)
+        {
+            await RunRewriteAsync(Invocation(repo, readOnly: false, "checkout", "HEAD").WithPathspecs(differing), ["checkout", "HEAD"], ct).ConfigureAwait(false);
+        }
+
+        return named;
+    }
+
+    // A file another program holds fails the command for that file only; the verify pass after it finds the file and tries again.
+    private async Task RunRewriteAsync(GitInvocation invocation, string[] command, CancellationToken ct)
+    {
+        var result = await RunRawAsync(invocation with { AllowedExitCodes = _anyExitCode }, ct).ConfigureAwait(false);
+        if (result.ExitCode == 0)
+        {
+            return;
+        }
+
+        if (GitFailure.IsDiskFull(result.StandardError))
+        {
+            throw new DiskSpaceException(invocation.WorkTree ?? string.Empty, _options.MinFreeBytesForCheckout, _freeSpace(invocation.WorkTree ?? string.Empty));
+        }
+
+        if (!GitFailure.FileCouldNotBeReplaced(result.StandardError))
+        {
+            throw GitFailure.ToException(new GitCommandException(command, result.ExitCode, result.StandardError));
+        }
     }
 
     /// <summary>
@@ -253,19 +282,32 @@ public sealed partial class GitEngine
         var note = SwitchJournal.Read(repo.GitDir);
         var plan = await PlanSwitchAsync(repo, from, to, note, ct).ConfigureAwait(false);
         LinkedFolders.RefuseAny(repo.WorkTree, plan.Touched, ct);
-        await RequireNothingInTheWayAsync(repo, from, to, force, note, plan, ct).ConfigureAwait(false);
+        await RequireNothingInTheWayAsync(repo, from, to, force, note, ct).ConfigureAwait(false);
         var sizes = await ObjectSizesAsync(repo, plan.Changes.SelectMany(change => new[] { change.OldId, change.NewId }), ct).ConfigureAwait(false);
         EnsureCheckoutSpace(repo, plan.Changes, sizes);
 
         using var scope = BeginWrite(repo);
         SwitchJournal.Write(repo.GitDir, note?.FromCommit ?? from, to, isBranch ? target : null);
+
+        // git must see nothing to do for the files the patterns name: their index entries are made to say what the target says, which
+        // changes no file. The note is already written, so a stop from here on is a stopped switch like any other.
+        await AlignIndexAsync(repo, to, plan.Named, ct).ConfigureAwait(false);
+        if (force)
+        {
+            await SetSkipWorktreeAsync(repo, on: true, plan.NamedInTarget, ct).ConfigureAwait(false);
+        }
+
         var reporter = progress is null ? null : new ProgressReporter(progress, new CheckoutBytePlan(plan.Changes, sizes));
 
-        await RunCheckoutAsync(repo, target, to, isBranch, force, ownsNote: note is null, reporter, ct).ConfigureAwait(false);
+        await RunCheckoutAsync(repo, target, to, isBranch, force, ownsNote: note is null, from, plan.Named, reporter, ct).ConfigureAwait(false);
         reporter?.Complete();
+        if (force)
+        {
+            await SetSkipWorktreeAsync(repo, on: false, plan.NamedInTarget, ct).ConfigureAwait(false);
+        }
 
         // A switch only re-syncs what it was meant to change; any other difference is the player's work and stays for status to report.
-        await VerifyAsync(repo, to, plan.Gone, force ? null : plan.Touched, ct).ConfigureAwait(false);
+        await VerifyAsync(repo, to, plan.Gone, force ? null : plan.Touched, plan.Named, ct).ConfigureAwait(false);
         SwitchJournal.Clear(repo.GitDir);
     }
 
@@ -282,7 +324,7 @@ public sealed partial class GitEngine
     }
 
     // Runs the switch itself. git refusing (local changes, a lock) leaves nothing changed; any other failure leaves the note that the switch is unfinished.
-    private async Task RunCheckoutAsync(RepoRef repo, string target, string to, bool isBranch, bool force, bool ownsNote, ProgressReporter? reporter, CancellationToken ct)
+    private async Task RunCheckoutAsync(RepoRef repo, string target, string to, bool isBranch, bool force, bool ownsNote, string? from, IReadOnlySet<string> aligned, ProgressReporter? reporter, CancellationToken ct)
     {
         for (var attempt = 0; ; attempt++)
         {
@@ -301,12 +343,14 @@ public sealed partial class GitEngine
                     continue;
                 }
 
+                await UndoAlignmentAsync(ownsNote, repo, from, aligned).ConfigureAwait(false);
                 ClearNoteIf(ownsNote, repo);
                 throw new GitOperationException(GitFailure.LockFilePath(stderr), $"git could not take its lock: {stderr.Trim()}");
             }
 
             if (GitFailure.RefusedToOverwrite(stderr))
             {
+                await UndoAlignmentAsync(ownsNote, repo, from, aligned).ConfigureAwait(false);
                 ClearNoteIf(ownsNote, repo);
                 throw RefusalFor(repo, stderr);
             }
@@ -385,6 +429,16 @@ public sealed partial class GitEngine
         return isBranch ? string.Equals(head.Branch, target, StringComparison.Ordinal) : string.Equals(head.DetachedCommit, to, StringComparison.Ordinal);
     }
 
+    // A refused switch changed nothing, so the index entries made to agree with the target for the files the patterns name go back to
+    // the point the folder is on; otherwise the status would list those files as changed.
+    private async Task UndoAlignmentAsync(bool ownsNote, RepoRef repo, string? from, IReadOnlySet<string> aligned)
+    {
+        if (ownsNote && from is not null)
+        {
+            await AlignIndexAsync(repo, from, aligned, CancellationToken.None).ConfigureAwait(false);
+        }
+    }
+
     // A note describes a switch; one this call did not start describes work that is still unfinished, and a refusal changes nothing in it.
     private static void ClearNoteIf(bool ownsNote, RepoRef repo)
     {
@@ -395,15 +449,16 @@ public sealed partial class GitEngine
     }
 
     // Up to three passes: find what does not match the point, give it to git again, wait a moment, look again. With a
-    // list of paths in <paramref name="only"/> nothing else is touched, whatever differs.
-    private async Task VerifyAsync(RepoRef repo, string to, IReadOnlyList<GoneFile> expectedGone, IReadOnlySet<string>? only, CancellationToken ct)
+    // list of paths in <paramref name="only"/> nothing else is touched, whatever differs, and the paths in <paramref name="skip"/> are
+    // never touched.
+    private async Task VerifyAsync(RepoRef repo, string to, IReadOnlyList<GoneFile> expectedGone, IReadOnlySet<string>? only, IReadOnlySet<string> skip, CancellationToken ct)
     {
         for (var pass = 0; ; pass++)
         {
             ct.ThrowIfCancellationRequested();
             var differing = (await RunAsync(Invocation(repo, readOnly: true, "diff", "--name-only", "-z", "--no-renames", to, "--"), ct).ConfigureAwait(false))
                 .SplitStandardOutputOnNul()
-                .Where(path => only is null || only.Contains(path))
+                .Where(path => (only is null || only.Contains(path)) && !skip.Contains(path))
                 .ToArray();
             var leftovers = expectedGone.Where(gone => IsLeftover(repo, gone)).Select(gone => gone.Path).ToArray();
             if (differing.Length == 0 && leftovers.Length == 0)

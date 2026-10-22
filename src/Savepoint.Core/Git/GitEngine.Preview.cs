@@ -5,8 +5,8 @@ namespace Savepoint.Core.Git;
 public sealed partial class GitEngine
 {
     /// <summary>
-    /// The files a capture would record right now, with their sizes: everything already recorded plus every new file the
-    /// game's ignore patterns do not name (an ignore file inside the game folder counts for nothing). Rewrites <c>info/exclude</c> from <paramref name="ignorePatterns"/> (in the storage folder; the work
+    /// The files a capture would record right now, with their sizes: everything already recorded and every new file, except the
+    /// files the game's ignore patterns name, recorded or not (an ignore file inside the game folder counts for nothing). Rewrites <c>info/exclude</c> from <paramref name="ignorePatterns"/> (in the storage folder; the work
     /// tree is never written). A file that disappears while its size is read is left out.
     /// </summary>
     /// <param name="repo">The folder.</param>
@@ -22,7 +22,8 @@ public sealed partial class GitEngine
         var listing = await RunAsync(
             Invocation(repo, readOnly: true, "ls-files", "-z", "--cached", "--others", ExcludeFromArgument(repo), "--deduplicate"),
             ct).ConfigureAwait(false);
-        var entries = WorkTreeListing.From(listing.SplitStandardOutputOnNul());
+        var named = await RecordedNamedAsync(repo, ct).ConfigureAwait(false);
+        var entries = WorkTreeListing.From(listing.SplitStandardOutputOnNul().Where(entry => !named.Contains(entry)));
         LinkedFolders.RefuseAny(repo.WorkTree, entries.Files, ct);
         NestedRepositories.RefuseAny(repo.WorkTree, entries, ct);
         var paths = entries.Files;

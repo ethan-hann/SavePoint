@@ -1,5 +1,7 @@
 using Savepoint.Core.Api;
+using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Git;
 
 namespace Savepoint.Core.Tests.Launch.Orchestration;
 
@@ -8,9 +10,9 @@ namespace Savepoint.Core.Tests.Launch.Orchestration;
 public class LaunchSavesOfOtherProfilesTests
 {
     // Two profiles made before the game had a saves folder; the folder is then added and only the first profile saves it.
-    private static async Task<(LaunchRig Rig, Profile Saved, Profile Unsaved)> WithOneSavedAsync(IReadOnlyList<string>? gameArguments = null)
+    private static async Task<(LaunchRig Rig, Profile Saved, Profile Unsaved)> WithOneSavedAsync(IReadOnlyList<string>? gameArguments = null, Func<BackendOptions, BackendOptions>? configure = null)
     {
-        var rig = await LaunchRig.CreateAsync(withSaves: false, gameArguments: gameArguments);
+        var rig = await LaunchRig.CreateAsync(configure, withSaves: false, gameArguments: gameArguments);
         try
         {
             var saved = await rig.ProfileAsync("Vanilla");
@@ -61,6 +63,47 @@ public class LaunchSavesOfOtherProfilesTests
         Assert.True(saves.MatchesTarget);
         Assert.False(saves.Dirty);
         Assert.Equal("the player's own save", rig.ReadSave("slot1.sav"));
+    }
+
+    // The first save of a folder writes the new branch, then moves the folder onto it. A stop in between leaves the branch and the folder where it was.
+    [Fact(Timeout = 150_000)]
+    public async Task A_first_save_that_stopped_after_the_branch_was_written_is_finished_by_the_retry_and_the_folder_follows_the_branch()
+    {
+        var armed = 0;
+        var (rig, saved, unsaved) = await WithOneSavedAsync(
+            ["--exit-after", "800"],
+            options => options with
+            {
+                Engine = new GitEngineOptions
+                {
+                    InvocationObserver = invocation =>
+                    {
+                        if (invocation.Arguments[0] == "symbolic-ref" && Interlocked.CompareExchange(ref armed, 0, 1) == 1)
+                        {
+                            throw new IOException("the computer stopped before the folder moved onto its branch");
+                        }
+                    },
+                },
+            });
+        using var _ = rig;
+        await rig.StartAsync(new LaunchTarget.ProfileTip(unsaved.Id));
+        await rig.WaitForAsync<SessionState.Exited>();
+        Volatile.Write(ref armed, 1);
+
+        Assert.True((await rig.Launch.CompleteSessionAsync(rig.Game.Id, new SessionCompletion.CaptureNew("After play"))).Ok);
+        var stopped = Assert.IsType<SessionState.Completed>((await rig.WaitForAsync<SessionState.Completed>()).State);
+
+        Assert.False(Assert.IsType<CaptureResult>(stopped.Result).Folders.Single(folder => folder.Role == RepoRole.External).Ok);
+        var written = Assert.Single(await rig.CommitsAsync(RepoRole.External, unsaved));
+        Assert.Equal(saved.BranchName, (await rig.StatusAsync(RepoRole.External)).Branch);
+
+        Assert.True((await rig.Launch.RetryCompletionAsync(rig.Game.Id)).Ok);
+        var retried = Assert.IsType<SessionState.Completed>((await rig.WaitForAsync(session => session.State is SessionState.Completed completed && completed != stopped, "the retried save")).State);
+
+        Assert.All(Assert.IsType<CaptureResult>(retried.Result).Folders, folder => Assert.True(folder.Ok, folder.Error?.Detail));
+        Assert.Equal(written.Id, Assert.Single(await rig.CommitsAsync(RepoRole.External, unsaved)).Id);
+        Assert.Equal(unsaved.BranchName, (await rig.StatusAsync(RepoRole.External)).Branch);
+        Assert.False((await rig.Launch.GetPreviewAsync(rig.Game.Id, new LaunchTarget.ProfileTip(unsaved.Id), rig.Token)).Value!.External!.Dirty);
     }
 
     [Fact(Timeout = 150_000)]

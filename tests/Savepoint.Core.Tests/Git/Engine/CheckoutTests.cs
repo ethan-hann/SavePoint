@@ -135,7 +135,11 @@ public sealed class CheckoutTests : IDisposable
         var reports = progress.Reports;
         Assert.NotEmpty(reports);
         Assert.Equal((2500, 2500), (progress.Last.FilesDone, progress.Last.FilesTotal));
-        Assert.Equal(progress.Last.BytesTotal, progress.Last.BytesDone);
+
+        // Every file differs between the two profiles ("a 0" against "b 0"), so the switch writes all of them.
+        var written = Enumerable.Range(0, 2500).Sum(i => $"a {i}".Length);
+        Assert.Equal(written, progress.Last.BytesTotal);
+        Assert.Equal(written, progress.Last.BytesDone);
         Assert.Equal(reports.OrderBy(report => report.FilesDone), reports);
         Assert.Single(reports.Select(report => report.FilesTotal).Distinct());
     }

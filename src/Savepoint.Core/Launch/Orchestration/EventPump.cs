@@ -1,10 +1,11 @@
 using System.Collections.Concurrent;
+using Savepoint.Core.Diagnostics;
 
 namespace Savepoint.Core.Launch.Orchestration;
 
 // Runs posted actions one at a time, in the order they were posted, on a thread-pool thread and never inside the call that posted
 // them, so a subscriber that calls back into the code that raised the event cannot deadlock it.
-internal sealed class EventPump
+internal sealed class EventPump(IDiagnosticLog log)
 {
     private readonly ConcurrentQueue<Action> _queue = new();
     private int _draining;
@@ -33,9 +34,10 @@ internal sealed class EventPump
                 {
                     action();
                 }
-                catch (Exception)
+                catch (Exception e)
                 {
-                    // A subscriber's failure must reach neither the work nor the other subscribers.
+                    // A subscriber's failure must reach neither the work nor the other subscribers; the log is where it shows.
+                    log.Warning("A subscriber to a session change threw; the session and the other subscribers carried on.", e);
                 }
             }
 

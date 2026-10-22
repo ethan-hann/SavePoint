@@ -9,7 +9,7 @@ namespace Savepoint.Core.Git;
 internal static partial class RepoConfigFile
 {
     // Bumped whenever a setting below changes, so existing repositories take the new value the next time they are touched.
-    public const string Version = "3";
+    public const string Version = "4";
 
     internal const string BlockStart = "# >>> savepoint managed (do not edit) >>>";
     internal const string BlockEnd = "# <<< savepoint managed <<<";
@@ -53,7 +53,23 @@ internal static partial class RepoConfigFile
         return stamp;
     }
 
-    // Drops the previous block and every other definition of a setting the block holds (git init writes some, and the work tree path, which always comes from the environment), then appends a fresh block.
+    // The settings git init writes, which a repository needs and which name no program. Every other setting in a config file is
+    // dropped: a repository from somewhere else can carry settings that make git run a program (core.fsmonitor, an alias, a filter,
+    // an include of another file), and SavePoint needs none of them.
+    private static readonly (string Section, string Key)[] _initSettings =
+    [
+        ("core", "repositoryformatversion"),
+        ("core", "filemode"),
+        ("core", "bare"),
+        ("core", "ignorecase"),
+        ("core", "precomposeunicode"),
+        ("core", "symlinks"),
+        ("extensions", "objectformat"),
+        ("extensions", "refstorage"),
+    ];
+
+    // Keeps only the settings git init writes (apart from the ones the block sets, and the work tree path, which always comes from the
+    // environment), then appends a fresh block. Each kept setting is written again as one plain line.
     internal static string Rewrite(string configText, bool isWindows)
     {
         var lines = configText.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n').ToList();
@@ -63,12 +79,18 @@ internal static partial class RepoConfigFile
         }
 
         RemoveBlock(lines);
-        RemoveSettingsOfOurs(lines, isWindows);
 
         var result = new StringBuilder();
-        foreach (var line in lines)
+        string? current = null;
+        foreach (var (section, key, value) in KeptSettings(lines, isWindows))
         {
-            result.Append(line).Append('\n');
+            if (!string.Equals(current, section, StringComparison.Ordinal))
+            {
+                result.Append('[').Append(section).Append("]\n");
+                current = section;
+            }
+
+            result.Append('\t').Append(key).Append(" = ").Append(value).Append('\n');
         }
 
         result.Append(Block(isWindows));
@@ -137,34 +159,39 @@ internal static partial class RepoConfigFile
         }
     }
 
-    // A setting defined twice cannot be changed with git config (it refuses to overwrite two values), so the block is the only place ours live.
-    private static void RemoveSettingsOfOurs(List<string> lines, bool isWindows)
+    // The settings git init wrote that stay. A setting defined twice cannot be changed with git config (it refuses to overwrite two
+    // values), so the block is the only place ours live and a definition of one outside it goes. A section with a name of its own
+    // ([core "x"]) is a different section and never matches.
+    private static List<(string Section, string Key, string Value)> KeptSettings(List<string> lines, bool isWindows)
     {
         var ours = Settings(isWindows).Select(setting => (setting.Section, setting.Key)).ToList();
-        ours.Add(("core", "worktree"));
+        var kept = new List<(string, string, string)>();
         var section = string.Empty;
-        var keep = new List<string>(lines.Count);
         foreach (var line in lines)
         {
             if (SectionLine().Match(line) is { Success: true } header)
             {
-                section = header.Groups["name"].Value;
+                section = header.Groups["sub"].Success ? string.Empty : header.Groups["name"].Value;
             }
-            else if (KeyLine().Match(line) is { Success: true } entry
-                && ours.Any(setting => setting.Section.Equals(section, StringComparison.OrdinalIgnoreCase)
-                    && setting.Key.Equals(entry.Groups["key"].Value, StringComparison.OrdinalIgnoreCase)))
+            else if (KeyLine().Match(line) is { Success: true } entry && section.Length > 0)
             {
-                continue;
+                var key = entry.Groups["key"].Value;
+                var value = entry.Groups["value"].Value;
+                if (!value.EndsWith('\\')
+                    && _initSettings.Any(setting => setting.Section.Equals(section, StringComparison.OrdinalIgnoreCase) && setting.Key.Equals(key, StringComparison.OrdinalIgnoreCase))
+                    && !ours.Any(setting => setting.Section.Equals(section, StringComparison.OrdinalIgnoreCase) && setting.Key.Equals(key, StringComparison.OrdinalIgnoreCase)))
+                {
+                    kept.RemoveAll(setting => setting.Item1 == section.ToLowerInvariant() && setting.Item2 == key.ToLowerInvariant());
+                    kept.Add((section.ToLowerInvariant(), key.ToLowerInvariant(), value));
+                }
             }
-
-            keep.Add(line);
         }
 
-        lines.Clear();
-        lines.AddRange(keep);
+        // Settings of one section sit together; the last definition of a setting is the one git uses.
+        return [.. kept.OrderBy(setting => setting.Item1, StringComparer.Ordinal)];
     }
 
-    [GeneratedRegex(@"^\s*\[\s*(?<name>[A-Za-z0-9.\-]+)(\s+""[^""]*"")?\s*\]")]
+    [GeneratedRegex(@"^\s*\[\s*(?<name>[A-Za-z0-9.\-]+)(?<sub>\s+""[^""]*"")?\s*\]")]
     private static partial Regex SectionLine();
 
     [GeneratedRegex(@"^\s*(?<key>[A-Za-z][A-Za-z0-9\-]*)\s*=\s*(?<value>[^#;\r]*?)\s*$")]

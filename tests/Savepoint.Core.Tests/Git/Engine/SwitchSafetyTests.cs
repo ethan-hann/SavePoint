@@ -279,16 +279,19 @@ public sealed class SwitchSafetyTests : IDisposable
     }
 
     [Fact]
-    public async Task A_switch_never_deletes_a_tracked_file_the_games_patterns_now_name()
+    public async Task A_switch_leaves_a_recorded_file_the_games_patterns_now_name_where_it_is_and_does_not_refuse()
     {
         var (repo, _) = await LogProfilesAsync();
         await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
         await _ws.CaptureAsync(repo, "profile-a", ignore: ["logs/"]);
 
-        await Assert.ThrowsAsync<DirtyWorkingTreeException>(() => _ws.Engine.CheckoutBranchAsync(repo, "profile-b", ct: Ct));
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-b", ct: Ct);
 
         Assert.Equal("a's copy", await File.ReadAllTextAsync(_ws.FileOf(repo, "logs/run.log"), Ct));
-        Assert.Equal("refs/heads/profile-a", await _ws.HeadRefAsync(repo));
+        Assert.Equal("refs/heads/profile-b", await _ws.HeadRefAsync(repo));
+        var status = await _ws.Engine.GetStatusAsync(repo, Ct);
+        Assert.True(status.IsClean);
+        Assert.Null(status.InterruptedSwitch);
     }
 
     [Theory]
@@ -300,25 +303,140 @@ public sealed class SwitchSafetyTests : IDisposable
         await _ws.CaptureAsync(repo, "profile-b", ignore: ["logs/"]);
         _ws.Write(repo, "logs/run.log", "the player's own log");
 
-        var switching = force
-            ? _ws.Engine.ForceCheckoutBranchAsync(repo, "profile-a", Ct)
-            : _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
-        await Assert.ThrowsAsync<DirtyWorkingTreeException>(() => switching);
+        if (force)
+        {
+            await _ws.Engine.ForceCheckoutBranchAsync(repo, "profile-a", Ct);
+        }
+        else
+        {
+            await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+        }
 
         Assert.Equal("the player's own log", await File.ReadAllTextAsync(_ws.FileOf(repo, "logs/run.log"), Ct));
-        Assert.Equal("refs/heads/profile-b", await _ws.HeadRefAsync(repo));
+        Assert.Equal("refs/heads/profile-a", await _ws.HeadRefAsync(repo));
+        Assert.True((await _ws.Engine.GetStatusAsync(repo, Ct)).IsClean);
     }
 
     [Fact]
-    public async Task Files_the_games_patterns_name_do_not_stand_in_the_way_of_a_switch_that_only_adds_a_file_beside_them()
+    public async Task Files_the_games_patterns_do_not_name_are_switched_as_usual_beside_the_ones_they_name()
     {
-        var (repo, _) = await LogProfilesAsync();
-        await _ws.CaptureAsync(repo, "profile-b", ignore: ["logs/"]);
-        _ws.Write(repo, "logs/other.log", "the player's own log");
+        var (repo, _) = await NamedProfilesAsync();
 
         await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
 
-        Assert.Equal("the player's own log", await File.ReadAllTextAsync(_ws.FileOf(repo, "logs/other.log"), Ct));
-        Assert.Equal("a's copy", await File.ReadAllTextAsync(_ws.FileOf(repo, "logs/run.log"), Ct));
+        Assert.Equal("refs/heads/profile-a", await _ws.HeadRefAsync(repo));
+        Assert.True(File.Exists(_ws.FileOf(repo, "a-only.txt")));
+        Assert.False(File.Exists(_ws.FileOf(repo, "b-only.txt")));
+        AssertNamedFilesAsTheyWere(repo);
+        Assert.True((await _ws.Engine.GetStatusAsync(repo, Ct)).IsClean);
+    }
+
+    [Theory]
+    [InlineData("repeat")]
+    [InlineData("discard")]
+    public async Task A_switch_stopped_part_way_leaves_the_files_the_patterns_name_as_they_were_when_it_is_repeated_or_discarded(string then)
+    {
+        var (repo, tips) = await NamedProfilesAsync();
+        _ws.OnInvoke = invocation =>
+        {
+            if (invocation.Arguments[0] == "checkout")
+            {
+                throw new InvalidOperationException("the switch was stopped");
+            }
+        };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct));
+        _ws.OnInvoke = null;
+        Assert.Equal(new InterruptedSwitch(tips.B, tips.A, "profile-a"), SwitchJournal.Read(repo.GitDir));
+        AssertNamedFilesAsTheyWere(repo);
+
+        if (then == "repeat")
+        {
+            await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+            Assert.Equal("refs/heads/profile-a", await _ws.HeadRefAsync(repo));
+            Assert.True(File.Exists(_ws.FileOf(repo, "a-only.txt")));
+        }
+        else
+        {
+            await _ws.Engine.DiscardChangesAsync(repo, Ct);
+            Assert.Equal("refs/heads/profile-b", await _ws.HeadRefAsync(repo));
+            Assert.True(File.Exists(_ws.FileOf(repo, "b-only.txt")));
+        }
+
+        AssertNamedFilesAsTheyWere(repo);
+        Assert.Null(SwitchJournal.Read(repo.GitDir));
+        Assert.True((await _ws.Engine.GetStatusAsync(repo, Ct)).IsClean);
+    }
+
+    [Fact]
+    public async Task Repeating_a_switch_that_stopped_after_head_moved_does_not_put_back_the_files_the_patterns_name()
+    {
+        var (repo, tips) = await NamedProfilesAsync();
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+        SwitchJournal.Write(repo.GitDir, tips.B, tips.A, "profile-a");
+
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+
+        AssertNamedFilesAsTheyWere(repo);
+        Assert.Null(SwitchJournal.Read(repo.GitDir));
+        Assert.True((await _ws.Engine.GetStatusAsync(repo, Ct)).IsClean);
+    }
+
+    [Fact]
+    public async Task A_switch_git_refuses_after_the_check_leaves_the_files_the_patterns_name_out_of_the_status()
+    {
+        var (repo, _) = await NamedProfilesAsync();
+        _ws.OnInvoke = invocation =>
+        {
+            if (invocation.Arguments[0] == "checkout")
+            {
+                _ws.Write(repo, "b-only.txt", "edited at the last moment");
+            }
+        };
+
+        await Assert.ThrowsAsync<DirtyWorkingTreeException>(() => _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct));
+
+        _ws.OnInvoke = null;
+        var status = await _ws.Engine.GetStatusAsync(repo, Ct);
+        Assert.Equal(["b-only.txt"], status.ChangedPaths);
+        Assert.Null(status.InterruptedSwitch);
+        AssertNamedFilesAsTheyWere(repo);
+    }
+    // profile-a: game.cfg, a-only.txt, logs/run.log, cache/shared.bin; profile-b: game.cfg, b-only.txt, logs/b-only.log, logs/b-same.log
+    // and its own cache/shared.bin. The folder is on profile-b, the game's patterns are "logs/" and "cache/", and the folder holds the
+    // player's own copies of the files those patterns name: logs/b-only.log and cache/shared.bin differ from what profile-b recorded,
+    // logs/b-same.log is as profile-b recorded it, and logs/run.log is absent.
+    private async Task<(RepoRef Repo, (string A, string B) Tips)> NamedProfilesAsync()
+    {
+        var (repo, tips) = await RepoTemplates.CopyAsync("switch-safety-named", _ws, async ws =>
+        {
+            var repo = await ws.InitializedFreshAsync();
+            ws.Write(repo, "game.cfg", "cfg");
+            ws.Write(repo, "a-only.txt", "a");
+            ws.Write(repo, "logs/run.log", "a's log");
+            ws.Write(repo, "cache/shared.bin", "a's cache");
+            var a = (await ws.CaptureAsync(repo, "profile-a", "A")).TipCommitId!;
+            await ws.Engine.CreateBranchAsync(repo, "profile-b", "profile-a", TestContext.Current.CancellationToken);
+            await ws.Engine.CheckoutBranchAsync(repo, "profile-b", ct: TestContext.Current.CancellationToken);
+            ws.Delete(repo, "a-only.txt");
+            ws.Delete(repo, "logs/run.log");
+            ws.Write(repo, "b-only.txt", "b");
+            ws.Write(repo, "logs/b-only.log", "b's log");
+            ws.Write(repo, "logs/b-same.log", "b's log, as the player left it");
+            ws.Write(repo, "cache/shared.bin", "b's cache");
+            var b = (await ws.CaptureAsync(repo, "profile-b", "B")).TipCommitId!;
+            return (repo, (a, b));
+        });
+        _ws.Write(repo, "logs/b-only.log", "the player's own b log");
+        _ws.Write(repo, "cache/shared.bin", "the player's own cache");
+        return (repo with { IgnorePatterns = ["logs/", "cache/"] }, tips);
+    }
+    // What the player's copies held before the switch, whatever the switch, its repeat or a discard did.
+    private void AssertNamedFilesAsTheyWere(RepoRef repo)
+    {
+        Assert.Equal("the player's own b log", File.ReadAllText(_ws.FileOf(repo, "logs/b-only.log")));
+        Assert.Equal("the player's own cache", File.ReadAllText(_ws.FileOf(repo, "cache/shared.bin")));
+        Assert.Equal("b's log, as the player left it", File.ReadAllText(_ws.FileOf(repo, "logs/b-same.log")));
+        Assert.False(File.Exists(_ws.FileOf(repo, "logs/run.log")));
     }
 }

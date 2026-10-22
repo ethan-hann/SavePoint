@@ -8,11 +8,10 @@ public sealed class StorageInsideInstallFolderException : SavepointException
 {
     /// <summary>Creates the error.</summary>
     /// <param name="path">The destination folder that was refused.</param>
-    /// <param name="installFolder">The install folder it lies in.</param>
-    public StorageInsideInstallFolderException(string path, string installFolder)
+    public StorageInsideInstallFolderException(string path)
         : base(
             "error.storageRelocation.insideInstallFolder",
-            $"The storage destination '{path}' is inside the install folder '{installFolder}', which an update or an uninstall deletes.",
+            $"The storage destination '{path}' is inside the install folder, which an update or an uninstall deletes.",
             new Dictionary<string, object?> { ["path"] = path })
     {
     }

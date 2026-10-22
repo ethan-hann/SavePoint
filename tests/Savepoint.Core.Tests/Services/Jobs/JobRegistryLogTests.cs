@@ -27,6 +27,24 @@ public class JobRegistryLogTests
     }
 
     [Fact]
+    public async Task A_subscriber_that_throws_is_logged_and_does_not_stop_the_others_or_the_job()
+    {
+        var log = new RecordingDiagnosticLog();
+        var registry = new JobRegistry(new ManualTimeProvider(), log);
+        var heard = new List<Guid>();
+        registry.JobChanged += (_, _) => throw new InvalidOperationException("a view model broke");
+        registry.JobChanged += (_, snapshot) => heard.Add(snapshot.JobId);
+
+        var held = new HeldJob(registry, JobKind.Capture, "skyrim");
+        held.Finish();
+        await FinishedAsync(registry, held.Id);
+
+        Assert.Contains(held.Id, heard);
+        var warning = log.Entries.First(entry => entry.Level == LogLevel.Warning && entry.Message.Contains("subscriber", StringComparison.OrdinalIgnoreCase));
+        Assert.IsType<InvalidOperationException>(warning.Exception);
+    }
+
+    [Fact]
     public async Task A_job_that_spans_every_game_says_so()
     {
         var log = new RecordingDiagnosticLog();

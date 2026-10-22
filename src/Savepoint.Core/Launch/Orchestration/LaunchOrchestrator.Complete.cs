@@ -88,7 +88,8 @@ public sealed partial class LaunchOrchestrator
 
     // How each folder is saved. A new point plans only for a folder the launch left as it was, which the save must not force onto the
     // profile's branch; the other choices change history, so each folder is told what the session began from, and an update rewrites
-    // only the point it names and leaves a folder with nothing unsaved alone.
+    // only the point it names and leaves a folder with nothing unsaved alone. A new profile forks the folders the launch switched; a
+    // folder it left alone is another profile's history, so the new profile's first point there has nothing behind it.
     private static Dictionary<RepoRole, FolderCapturePlan>? PlansFor(SessionCompletion completion, IReadOnlyList<RepoRole> roles, IReadOnlyDictionary<RepoRole, FolderStart> starts, string? updated)
     {
         bool Left(RepoRole role) => starts.TryGetValue(role, out var start) && start.Left;
@@ -98,7 +99,7 @@ public sealed partial class LaunchOrchestrator
         {
             SessionCompletion.CaptureNew => roles.Where(Left).ToDictionary(role => role, _ => new FolderCapturePlan(CaptureMode.Normal, LeftAtLaunch: true)),
             SessionCompletion.UpdateExisting => roles.ToDictionary(role => role, role => new FolderCapturePlan(CaptureMode.Amend, SkipWhenClean: true, AmendPointId: updated, LeftAtLaunch: Left(role))),
-            SessionCompletion.ForkNewProfile => roles.ToDictionary(role => role, role => new FolderCapturePlan(CaptureMode.Fork, StartOf(role))),
+            SessionCompletion.ForkNewProfile => roles.ToDictionary(role => role, role => Left(role) ? new FolderCapturePlan(CaptureMode.Root, LeftAtLaunch: true) : new FolderCapturePlan(CaptureMode.Fork, StartOf(role))),
             SessionCompletion.MoveForward => roles.ToDictionary(role => role, role => new FolderCapturePlan(CaptureMode.MoveForward, StartOf(role))),
             _ => null,
         };
@@ -148,11 +149,27 @@ public sealed partial class LaunchOrchestrator
                 gameId,
                 async (storage, _) =>
                 {
-                    // The lock may have been queued behind a launch: the game can be open by now.
-                    await RefuseWhileOpenAsync(game).ConfigureAwait(false);
-                    if (GameFolders.Repos(_services, storage, game).FirstOrDefault(repo => repo.Role == folder) is { } repo)
+                    // The lock may have been queued behind a launch: the game can be open by now, and its ignore list may have been edited
+                    // while this waited, so the discard works from the game as it is now.
+                    var current = await RequireGameAsync(gameId).ConfigureAwait(false);
+                    await RefuseWhileOpenAsync(current).ConfigureAwait(false);
+                    if (GameFolders.Repos(_services, storage, current).FirstOrDefault(repo => repo.Role == folder) is { } repo)
                     {
+                        // Read first so the log can say what the discard took away; the log is a courtesy, so a status that cannot be read only costs the counts.
+                        RepoStatus? before = null;
+                        try
+                        {
+                            before = await storage.Engine.GetStatusAsync(repo).ConfigureAwait(false);
+                        }
+                        catch (SavepointException)
+                        {
+                            // The discard reports its own refusal.
+                        }
+
                         await storage.Engine.DiscardChangesAsync(repo).ConfigureAwait(false);
+                        _services.Log.Information(
+                            $"Discard: the {GameFolders.LogName(folder)} folder of {gameId} ({repo.WorkTree}) was put back to point {before?.HeadCommit ?? "(none)"}: "
+                            + (before is null ? "counts unknown." : $"{before.ChangedPaths.Count} changed or deleted files restored, {before.UntrackedPaths.Count} new files removed."));
                     }
 
                     return Unit.Value;

@@ -5,8 +5,9 @@ using Savepoint.Core.Tests.Git.Engine;
 
 namespace Savepoint.Core.Tests.Launch.Orchestration;
 
-// A file git cannot read is listed as a change nobody made. A folder whose only changes are such files counts as clean everywhere it
-// is read, and when a switch has to read the file the launch says which file and asks to try again, with nothing switched (D37).
+// A file git cannot read is listed as a change nobody made. A folder whose only changes are such files counts as clean where a switch
+// reads it, and when a switch has to read the file the launch says which file and asks to try again, with nothing switched. A
+// save cannot tell such a file from a changed one, so it never skips the folder as clean.
 public class LaunchHeldFileTests
 {
     public static TheoryData<HeldFileKind> Kinds => HeldFiles.Kinds;
@@ -95,14 +96,15 @@ public class LaunchHeldFileTests
 
     [Theory(Timeout = 150_000)]
     [MemberData(nameof(Kinds))]
-    public async Task After_play_such_a_file_is_not_counted_and_an_update_leaves_the_folder_alone(HeldFileKind kind)
+    public async Task After_play_a_changed_file_nobody_can_read_is_counted_and_an_update_names_it_instead_of_reporting_success(HeldFileKind kind)
     {
         var (rig, _, modded) = await LaunchRig.WithTwoProfilesAsync();
         using var _ = rig;
         await rig.StartAsync(Tip(modded));
         await rig.WaitForGameAsync();
-        await MakeRacyAsync(rig);
 
+        // The game rewrote a recorded file with content of another length, and a program still holds it.
+        rig.WriteInstall("data/base.pak", "what the game wrote this time, which is longer than before");
         SessionState.Exited exited;
         SessionState.Completed done;
         using (HeldFiles.Hold(HeldFile(rig), kind))
@@ -113,8 +115,20 @@ public class LaunchHeldFileTests
             done = Assert.IsType<SessionState.Completed>((await rig.WaitForAsync<SessionState.Completed>()).State);
         }
 
-        Assert.Equal(0, exited.ChangedInstallFileCount);
-        Assert.Null(done.Error);
-        Assert.All(Assert.IsType<CaptureResult>(done.Result).Folders, folder => Assert.True(folder.Ok, folder.Error?.Detail));
+        // The file counts as a change, so the dialog never says nothing changed, and the update is not reported as saved.
+        Assert.Equal(1, exited.ChangedInstallFileCount);
+        var folders = Assert.IsType<CaptureResult>(done.Result).Folders;
+        var install = folders.Single(folder => folder.Role == RepoRole.Install);
+        Assert.Equal(HeldFiles.ErrorIdOf(kind), install.Error?.MessageId);
+        Assert.Equal(HeldFile(rig), install.Error!.Args["path"]);
+        Assert.True(folders.Single(folder => folder.Role == RepoRole.External).Ok);
+
+        // Once the file is free, the retry that already exists saves it.
+        Assert.True((await rig.Launch.RetryCompletionAsync(rig.Game.Id)).Ok);
+        var retried = Assert.IsType<SessionState.Completed>((await rig.WaitForAsync(session => session.State is SessionState.Completed completed && completed != done, "the retried save")).State);
+        Assert.All(Assert.IsType<CaptureResult>(retried.Result).Folders, folder => Assert.True(folder.Ok, folder.Error?.Detail));
+        var after = await rig.StatusAsync(RepoRole.Install);
+        Assert.True(after.IsClean);
+        Assert.Null(after.HeldFile);
     }
 }

@@ -200,7 +200,7 @@ public class ErrorTypesTests
             ("path", "/saves/alpha"), ("role", RepoRole.External));
         Add("StorageDestinationNotEmpty", new StorageDestinationNotEmptyException("/storage"), "error.storageRelocation.destinationNotEmpty",
             ("path", "/storage"));
-        Add("StorageInsideInstallFolder", new StorageInsideInstallFolderException("/install/data", "/install"), "error.storageRelocation.insideInstallFolder",
+        Add("StorageInsideInstallFolder", new StorageInsideInstallFolderException("/install/data"), "error.storageRelocation.insideInstallFolder",
             ("path", "/install/data"));
         Add("StorageSourceUnreadable", new StorageSourceUnreadableException("/storage/alpha", "dev text", null), "error.storageRelocation.sourceUnreadable",
             ("path", "/storage/alpha"));

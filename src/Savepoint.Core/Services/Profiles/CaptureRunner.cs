@@ -19,7 +19,8 @@ namespace Savepoint.Core.Services.Profiles;
 /// </param>
 /// <param name="LeftAtLaunch">
 /// True for a folder the launch left as it was. It may be on another profile's branch, which a new or updated point cannot be written
-/// onto, so such a folder is skipped instead of failing the save; a folder the profile has no branch in is saved as its first history.
+/// onto, so such a folder is skipped instead of failing the save and reported as left alone; a folder the profile has no branch in is
+/// saved as its first history.
 /// </param>
 internal sealed record FolderCapturePlan(CaptureMode Mode, string? ExpectedStartCommit = null, bool SkipWhenClean = false, string? AmendPointId = null, bool LeftAtLaunch = false);
 
@@ -53,6 +54,7 @@ internal sealed class CaptureRunner
     /// <param name="capture">The capture event: the id every folder's point carries and when the event began.</param>
     /// <param name="creating">True when the profile does not exist yet: its row is saved with the first folder that works, and branches left by a total failure are taken back.</param>
     /// <param name="plans">How a folder is saved when it is not a plain capture, as the play session after an older point asks for; a folder it names no plan for is saved plainly.</param>
+    /// <param name="forksNewBranches">True for the retry of a creation that saved only some folders: the profile exists by now, but a folder it never saved still starts its branch from what the folder held, as the first try did.</param>
     public Guid Start(
         GameDefinition game,
         Profile profile,
@@ -60,7 +62,8 @@ internal sealed class CaptureRunner
         IReadOnlyList<RepoRole> roles,
         CaptureEvent capture,
         bool creating,
-        IReadOnlyDictionary<RepoRole, FolderCapturePlan>? plans = null) =>
+        IReadOnlyDictionary<RepoRole, FolderCapturePlan>? plans = null,
+        bool forksNewBranches = false) =>
         _services.Jobs.Start(
             JobKind.Capture,
             game.Id,
@@ -80,14 +83,14 @@ internal sealed class CaptureRunner
                             : await _services.Catalog.GetProfileAsync(profile.Id, CancellationToken.None).ConfigureAwait(false) is { } found && found.GameId == game.Id
                                 ? found
                                 : throw new ProfileNotFoundException(game.Id, profile.Id);
-                        var saved = await RunAsync(context, storage, current, target, pointName, roles, capture, creating, plans).ConfigureAwait(false);
+                        var saved = await RunAsync(context, storage, current, target, pointName, roles, capture, creating, forksNewBranches || creating, plans).ConfigureAwait(false);
 
                         // Counted while the lock is held, only for a save nobody stopped (D13.17), so the job ends without waiting for the lock again.
                         crowded = !context.CancellationToken.IsCancellationRequested && saved.Folders.Any(folder => folder.Ok) && _optimization.IsCrowded(storage, current);
                         return saved;
                     },
                     context.CancellationToken).ConfigureAwait(false);
-                Remember(game.Id, profile.Id, capture, result);
+                Remember(game.Id, profile.Id, capture, result, forksNewBranches || creating);
 
                 // Starting the tidy-up only schedules it; the save is already over.
                 if (crowded)
@@ -103,21 +106,22 @@ internal sealed class CaptureRunner
 
     /// <summary>
     /// The capture event a save of these folders belongs to: the earlier save that reached only some folders when the roles are
-    /// exactly ones it missed (the retry joins that event, with its id and its time), a new event otherwise.
+    /// exactly ones it missed (the retry joins that event, with its id and its time, and keeps its intent to branch from the folder
+    /// when it was making a profile), a new event otherwise.
     /// </summary>
     /// <param name="gameId">The game.</param>
     /// <param name="profileId">The profile being saved.</param>
     /// <param name="roles">The folders about to be saved.</param>
-    public CaptureEvent TakeEvent(string gameId, string profileId, IReadOnlyList<RepoRole> roles) =>
-        _partial.TryRemove((gameId, profileId), out var partial) && roles.All(partial.Missing.Contains) ? partial.Capture : NewEvent();
+    public (CaptureEvent Capture, bool ForksNewBranches) TakeEvent(string gameId, string profileId, IReadOnlyList<RepoRole> roles) =>
+        _partial.TryRemove((gameId, profileId), out var partial) && roles.All(partial.Missing.Contains) ? (partial.Capture, partial.ForksNewBranches) : (NewEvent(), false);
 
     // A partial save is remembered; any other ending, including the retry that finished it, clears the memory.
-    private void Remember(string gameId, string profileId, CaptureEvent capture, CaptureResult result)
+    private void Remember(string gameId, string profileId, CaptureEvent capture, CaptureResult result, bool forksNewBranches)
     {
         var failed = result.Folders.Where(folder => !folder.Ok).Select(folder => folder.Role).ToList();
         if (failed.Count > 0 && failed.Count < result.Folders.Count)
         {
-            _partial[(gameId, profileId)] = new PartialSave(capture, failed);
+            _partial[(gameId, profileId)] = new PartialSave(capture, failed, forksNewBranches);
         }
         else
         {
@@ -125,7 +129,7 @@ internal sealed class CaptureRunner
         }
     }
 
-    private sealed record PartialSave(CaptureEvent Capture, IReadOnlyList<RepoRole> Missing);
+    private sealed record PartialSave(CaptureEvent Capture, IReadOnlyList<RepoRole> Missing, bool ForksNewBranches);
 
     private async Task<CaptureResult> RunAsync(
         JobContext context,
@@ -136,13 +140,14 @@ internal sealed class CaptureRunner
         IReadOnlyList<RepoRole> roles,
         CaptureEvent capture,
         bool creating,
+        bool forksNewBranches,
         IReadOnlyDictionary<RepoRole, FolderCapturePlan>? plans)
     {
         var repos = GameFolders.Repos(_services, storage, game).Where(repo => roles.Contains(repo.Role)).ToList();
         var progress = new CombinedProgress(context);
 
         // The two folders are separate repositories, so they are saved side by side; one failing never stops the other.
-        var saved = await Task.WhenAll(repos.Select(repo => SaveFolderAsync(context, storage, game, repo, profile.BranchName, pointName, capture, creating, plans?.GetValueOrDefault(repo.Role), progress.For(repo.Role)))).ConfigureAwait(false);
+        var saved = await Task.WhenAll(repos.Select(repo => SaveFolderAsync(context, storage, game, repo, profile.BranchName, pointName, capture, forksNewBranches, plans?.GetValueOrDefault(repo.Role), progress.For(repo.Role)))).ConfigureAwait(false);
 
         var outcomes = saved.Select(folder => folder.Outcome).ToList();
         if (creating)
@@ -162,7 +167,7 @@ internal sealed class CaptureRunner
         string branch,
         string pointName,
         CaptureEvent capture,
-        bool creating,
+        bool forksNewBranches,
         FolderCapturePlan? plan,
         IProgress<FileProgress> progress)
     {
@@ -176,8 +181,9 @@ internal sealed class CaptureRunner
         {
             var existed = await storage.Engine.BranchExistsAsync(repo, branch, context.CancellationToken).ConfigureAwait(false);
             startedBranch = !existed;
-            var recorded = await CaptureFolderAsync(storage, game, repo, branch, existed, pointName, capture, creating, plan, progress, context.CancellationToken).ConfigureAwait(false);
-            return new SavedFolder(repo, new FolderOutcome(repo.Role), recorded, startedBranch);
+            var saved = await CaptureFolderAsync(storage, game, repo, branch, existed, pointName, capture, forksNewBranches, plan, progress, context.CancellationToken).ConfigureAwait(false);
+            LogSkipped(game.Id, repo, branch, saved);
+            return new SavedFolder(repo, new FolderOutcome(repo.Role, null, saved.LeftAlone, saved.LeftOnBranch), saved.Recorded, startedBranch);
         }
         catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException))
         {
@@ -187,8 +193,23 @@ internal sealed class CaptureRunner
         }
     }
 
-    // True when a new point was recorded in this folder.
-    private static async Task<bool> CaptureFolderAsync(
+    // A folder a save did not write to leaves no point to find later, so the log says which one and why.
+    private void LogSkipped(string gameId, RepoRef repo, string branch, FolderSave saved)
+    {
+        if (saved.LeftAlone)
+        {
+            _services.Log.Information($"Save: the {GameFolders.LogName(repo.Role)} folder of {gameId} ({repo.WorkTree}) was left alone: it sits on {saved.LeftOnBranch ?? "an older point"}, not on {branch}, so nothing was added to it.");
+        }
+        else if (saved.SkippedAsClean)
+        {
+            _services.Log.Information($"Save: the {GameFolders.LogName(repo.Role)} folder of {gameId} ({repo.WorkTree}) had nothing unsaved, so {branch} was not changed there.");
+        }
+    }
+
+    // What a save did to one folder: whether it recorded a new point, or left the folder alone (and on which branch it sits).
+    private readonly record struct FolderSave(bool Recorded, bool LeftAlone = false, string? LeftOnBranch = null, bool SkippedAsClean = false);
+
+    private static async Task<FolderSave> CaptureFolderAsync(
         StorageSnapshot storage,
         GameDefinition game,
         RepoRef repo,
@@ -196,54 +217,69 @@ internal sealed class CaptureRunner
         bool branchExists,
         string pointName,
         CaptureEvent capture,
-        bool creating,
+        bool forksNewBranch,
         FolderCapturePlan? plan,
         IProgress<FileProgress> progress,
         CancellationToken cancellationToken)
     {
+        // A first save of this folder that stopped after its branch was written, before the folder moved onto it, is finished as it was begun.
+        var finishing = branchExists
+            && plan is null or { Mode: CaptureMode.Normal or CaptureMode.Root }
+            && !string.Equals(GitDirFiles.ReadHead(repo.GitDir).Branch, branch, StringComparison.Ordinal)
+            && await HoldsOnlyAsync(storage, repo, branch, capture.Id, cancellationToken).ConfigureAwait(false);
+
         if (plan is { SkipWhenClean: true } or { LeftAtLaunch: true })
         {
             var status = await storage.Engine.GetStatusAsync(repo, cancellationToken).ConfigureAwait(false);
 
             // Decided before anything is written, so a folder that cannot take the point is never a half-failed save.
-            var elsewhere = plan.LeftAtLaunch && branchExists && (status.IsDetached || !string.Equals(status.Branch, branch, StringComparison.Ordinal));
-            if (elsewhere || (plan.SkipWhenClean && status.IsClean))
+            if (plan.LeftAtLaunch && branchExists && !finishing && (status.IsDetached || !string.Equals(status.Branch, branch, StringComparison.Ordinal)))
             {
-                return false;
+                return new FolderSave(false, LeftAlone: true, status.IsDetached ? null : status.Branch);
+            }
+
+            // A file nobody can read is "cannot tell", not "unchanged": the save runs and says which file it could not read.
+            if (plan.SkipWhenClean && status.IsClean && status.HeldFile is null)
+            {
+                return new FolderSave(false, SkippedAsClean: true);
             }
         }
 
         var request = new CaptureRequest(branch, pointName, capture.Id)
         {
             CapturedAt = capture.At,
-            Mode = await ModeOfAsync(storage, repo, branch, branchExists, creating, plan, cancellationToken).ConfigureAwait(false),
+            Mode = finishing ? CaptureMode.Root : await ModeOfAsync(storage, repo, branch, branchExists, forksNewBranch, plan, cancellationToken).ConfigureAwait(false),
             IgnorePatterns = game.IgnorePaths,
             ExpectedStartCommit = plan?.ExpectedStartCommit,
         };
         var outcome = await storage.Engine.CaptureAsync(repo, request, progress, cancellationToken).ConfigureAwait(false);
         if (outcome.Changed || outcome.TipCommitId is not null)
         {
-            return outcome.Changed;
+            return new FolderSave(outcome.Changed);
         }
 
         // An empty folder in an empty repository has nothing to record; the profile still needs a branch here, and the folder is on it, as after any first save.
         await storage.Engine.CreateEmptyBranchAsync(repo, branch, pointName, capture.Id, capture.At, cancellationToken, attachToUnbornHead: true).ConfigureAwait(false);
-        return true;
+        return new FolderSave(true);
     }
 
-    // A fork or a move forward is as the session asked. Otherwise a new profile's branch starts from what the folder holds now, and an
-    // existing profile's first save of a folder it never saved starts a history of its own instead of continuing another profile's.
+    // True when the branch is exactly one point, the one this capture event wrote: a point with nothing behind it, as a first save writes.
+    private static async Task<bool> HoldsOnlyAsync(StorageSnapshot storage, RepoRef repo, string branch, string captureId, CancellationToken cancellationToken) =>
+        await storage.Engine.ListCommitsAsync(repo, branch, 2, cancellationToken).ConfigureAwait(false) is [{ CaptureId: { } id }] && string.Equals(id, captureId, StringComparison.Ordinal);
+
+    // A fork, a root or a move forward is as the session asked. Otherwise a new profile's branch starts from what the folder holds now, and
+    // an existing profile's first save of a folder it never saved starts a history of its own instead of continuing another profile's.
     // An amend rewrites the newest commit, so it only runs where that commit is the point being replaced.
-    private static async Task<CaptureMode> ModeOfAsync(StorageSnapshot storage, RepoRef repo, string branch, bool branchExists, bool creating, FolderCapturePlan? plan, CancellationToken cancellationToken)
+    private static async Task<CaptureMode> ModeOfAsync(StorageSnapshot storage, RepoRef repo, string branch, bool branchExists, bool forksNewBranch, FolderCapturePlan? plan, CancellationToken cancellationToken)
     {
-        if (plan is { Mode: CaptureMode.Fork or CaptureMode.MoveForward })
+        if (plan is { Mode: CaptureMode.Fork or CaptureMode.MoveForward or CaptureMode.Root })
         {
             return plan.Mode;
         }
 
         if (!branchExists)
         {
-            return creating ? CaptureMode.Fork : CaptureMode.Root;
+            return forksNewBranch ? CaptureMode.Fork : CaptureMode.Root;
         }
 
         if (plan is not { Mode: CaptureMode.Amend, AmendPointId: { } replaced })

@@ -25,4 +25,31 @@ public class LaunchSwitchProgressTests
         var done = reports.Select(report => report.BytesDone ?? 0).ToList();
         Assert.Equal(done.Order(), done);
     }
+
+    [Fact(Timeout = 180_000)]
+    public async Task A_switch_that_writes_in_both_folders_adds_the_second_folders_bytes_and_files_to_the_first_ones()
+    {
+        using var rig = await LaunchRig.CreateAsync();
+        var vanilla = await rig.ProfileAsync("Vanilla");
+        rig.WriteInstall("data/base.pak", "a patched install file of 31 bytes");
+        rig.WriteSave("slot1.sav", "a longer save than the first one was");
+        var modded = await rig.ProfileAsync("Modded");
+        Assert.Equal(modded.Id, (await rig.PreviewAsync(new LaunchTarget.ProfileTip(modded.Id))).ProfileId);
+
+        // Going back to Vanilla writes the install file (12 bytes, "base content") and then the save (8 bytes, "save one").
+        await rig.StartAsync(new LaunchTarget.ProfileTip(vanilla.Id));
+
+        var reports = rig.Events.Select(session => session.State).OfType<SessionState.Switching>().Select(state => state.Progress).ToList();
+        var last = reports[^1];
+        Assert.Equal(20, last.BytesTotal);
+        Assert.Equal(20, last.BytesDone);
+        Assert.Equal(2, last.FilesDone);
+        Assert.Equal(2, last.FilesTotal);
+
+        // The first folder ends at its own 12 bytes, and the second starts counting from there.
+        Assert.Contains(reports, report => report.BytesDone == 12 && report.FilesDone == 1);
+        Assert.All(reports.Where(report => report.BytesDone is not null), report => Assert.True(report.BytesDone <= report.BytesTotal));
+        var done = reports.Select(report => report.BytesDone ?? 0).ToList();
+        Assert.Equal(done.Order(), done);
+    }
 }

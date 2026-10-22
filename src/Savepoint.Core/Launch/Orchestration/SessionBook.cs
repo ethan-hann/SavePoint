@@ -7,9 +7,9 @@ using Savepoint.Core.Services.Profiles;
 
 namespace Savepoint.Core.Launch.Orchestration;
 
-// Where one folder stood when the game started: the commit it was on, or none when nothing is saved there yet, and whether the
-// launch left the folder as it was instead of switching it.
-internal sealed record FolderStart(string? Commit, bool Left);
+// Where one folder stood when the game started: the commit it was on, or none when nothing is saved there yet, the branch it was on
+// (none on an older point or before any point), and whether the launch left the folder as it was instead of switching it.
+internal sealed record FolderStart(string? Commit, bool Left, string? Branch = null);
 
 // What one game's latest session holds besides the snapshot the Api shows.
 internal sealed class SessionRecord(LaunchSessionInfo info)
@@ -49,7 +49,7 @@ internal sealed class SessionBook : IGameSessions
     private readonly Lock _gate = new();
     private readonly Dictionary<string, SessionRecord> _records = new(StringComparer.Ordinal);
     private readonly HashSet<string> _starting = new(StringComparer.Ordinal);
-    private readonly EventPump _pump = new();
+    private readonly EventPump _pump;
     private long _revision;
 
     // Touched only by the pump, which runs one action at a time, so it needs no lock.
@@ -58,6 +58,7 @@ internal sealed class SessionBook : IGameSessions
     public SessionBook(IDiagnosticLog? log = null)
     {
         _log = log ?? DiagnosticLog.None;
+        _pump = new EventPump(_log);
     }
 
     public event EventHandler<LaunchSessionInfo>? SessionChanged;

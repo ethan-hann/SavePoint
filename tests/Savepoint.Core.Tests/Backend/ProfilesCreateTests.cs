@@ -146,6 +146,30 @@ public class ProfilesCreateTests
     }
 
     [Fact]
+    public async Task Retrying_the_saves_of_a_new_profile_branches_from_what_the_folder_held_as_the_first_try_did()
+    {
+        using var workspace = new BackendWorkspace();
+        var game = await workspace.AddGameAsync();
+        await workspace.CreateProfileAsync(game, "Vanilla");
+        BackendWorkspace.WriteFile(Path.Combine(game.External!.Path, "slot2.sav"), "a second save");
+        var gone = game.External.Path + "-gone";
+        Directory.Move(game.External.Path, gone);
+        var started = await workspace.Profiles.CreateAsync(game.Id, "Modded", null, "Modded");
+        var partial = await workspace.WaitForJobAsync(started.Value!.JobId);
+        var profileId = Assert.IsType<CaptureResult>(partial.Result).ProfileId;
+        Directory.Move(gone, game.External.Path);
+
+        var retry = await workspace.Profiles.CaptureAsync(game.Id, profileId, "Modded", [RepoRole.External]);
+        var job = await workspace.WaitForJobAsync(retry.Value!.JobId);
+
+        Assert.Equal(JobStatus.Succeeded, job.Status);
+        var modded = (await workspace.Profiles.ListAsync(game.Id, workspace.Token)).Value!.Single(profile => profile.Id == profileId);
+
+        // The first try would have branched from Vanilla's point; so does the retry, not a history of its own.
+        Assert.Equal(["Modded", "Vanilla"], (await CommitsAsync(workspace, game, RepoRole.External, modded)).Select(commit => commit.Subject));
+    }
+
+    [Fact]
     public async Task Retrying_just_the_saves_completes_the_same_point()
     {
         using var workspace = new BackendWorkspace();

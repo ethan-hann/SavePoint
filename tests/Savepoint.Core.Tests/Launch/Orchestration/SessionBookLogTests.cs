@@ -38,6 +38,20 @@ public class SessionBookLogTests
     }
 
     [Fact]
+    public void A_subscriber_that_throws_is_logged()
+    {
+        var book = NewBook();
+        book.SessionChanged += (_, _) => throw new InvalidOperationException("a view model broke");
+
+        book.Open("skyrim", "modded", new LaunchTarget.ProfileTip("modded"), startedFromOlderPoint: false, _job);
+
+        Assert.True(SpinWait.SpinUntil(() => _log.Entries.Any(entry => entry.Level == LogLevel.Warning), TimeSpan.FromSeconds(10)), "no warning was logged");
+        var warning = _log.Entries.First(entry => entry.Level == LogLevel.Warning);
+        Assert.Contains("subscriber", warning.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.IsType<InvalidOperationException>(warning.Exception);
+    }
+
+    [Fact]
     public void A_stream_of_switch_progress_is_one_line_not_one_per_report()
     {
         var book = NewBook();
