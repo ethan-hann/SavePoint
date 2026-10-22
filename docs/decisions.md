@@ -303,6 +303,24 @@ The review (`.tools/reviews/ux-a11y.md`) left eight questions open. They are set
 - **Re-pointing a folder (OQ6).** It belongs to D31 item 4 and is built with the review fixes.
 - **The "only the save changes" switch (OQ7):** see D35.
 
+## D37. Fixes from the recheck of the review fixes
+
+The recheck (`.tools/reviews/backend-launch-recheck.md`) found the D31 work complete: 29 fixed, 1 fixed differently, 3 partly fixed, 0 open. It also found four new warnings (RC-001 to RC-004) and eleven suggestions. v2 adopts the recheck's recommended fixes, with these owner-level calls:
+
+1. **Storage that is gone for good (RC-001).** Unreachable storage is a startup finding, like an unavailable git, with three choices:
+   - "Try again";
+   - "Find the folder": re-point the saved root at a folder that holds SavePoint's stamped git directories for the catalog's games, as a settings change with no copy;
+   - "Start with an empty folder", after a confirmation that names the old path.
+2. **A folder a profile never saved (RC-002, refines D31 item 8).** It is still left as it is, but it is read like every other folder, so another profile's unsaved changes there block the launch with their owner named. The profile's first save of that folder is a new history of its own (a root commit), never a fork of another profile's branch.
+3. **Folders "Go back to this" leaves alone (RC-003).**
+   - Each one's current commit and branch at launch are recorded as its start, so fork and move-forward check it like every other folder.
+   - "Continue from here" is offered only when that start lies on the profile's own branch.
+   - For "Keep as a new point" and "Update existing", whether such a folder is saved or skipped is decided before the save, never discovered as a half-failure.
+4. **Stray folders in the storage root (RC-004 and the scan suggestion).** A folder whose name is not a game id, such as "game - Copy", never fails a move after the switch. The move fails only on folders that could be SavePoint's.
+5. **Files held open (the suggestions on the racy fix).** The launch preview names a held file and offers "Try again" instead of Keep and Discard. A folder whose only changes are held files counts as clean. Only a sharing or lock violation counts as "in use"; access denied gets its own message, which names the file.
+
+The partly fixed BL-019, BL-026, and BL-032 are completed as the recheck describes. On macOS, an application-level shutdown (Cmd+Q) also asks before quitting during clear-all or a storage move.
+
 ## D8. "Clear all data" is a v2 requirement
 
 The v1 README lists "add a clear all data button" as an open TODO. v2 ships it in Settings behind a typed confirmation. It removes SavePoint's own storage, catalog, and consent markers, and never deletes or rolls back files in a game's install or save folders: whatever is on disk at that moment stays as it is.
