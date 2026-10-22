@@ -20,6 +20,7 @@ public class RelocationUnreadableTests
 
         using (MakeUnreadable(unreadable))
         {
+            Assert.SkipWhen(CanList(unreadable), "this file system ignores permission changes (a Windows drive mounted under WSL does)");
             var started = await workspace.Settings.RelocateStorageAsync(destination);
 
             Assert.Equal("error.storageRelocation.copyFailed", started.Error?.MessageId);
@@ -28,6 +29,19 @@ public class RelocationUnreadableTests
 
         Assert.False(Directory.Exists(destination));
         Assert.Equal(workspace.DefaultStorageRoot, (await workspace.Settings.GetAsync(workspace.Token)).Value!.StorageRoot);
+    }
+
+    private static bool CanList(string folder)
+    {
+        try
+        {
+            _ = Directory.EnumerateFileSystemEntries(folder).Any();
+            return true;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     private static IDisposable MakeUnreadable(string folder)
