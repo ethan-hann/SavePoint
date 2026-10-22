@@ -161,18 +161,20 @@
                           AutomationProperties.ControlTypeOverride="DataItem"
                           AutomationProperties.Name="{Binding AutomationName}">
                     <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
-                      <StackPanel Orientation="Horizontal" Spacing="10">
-                        <Border Classes="profile-dot" Classes.active="{Binding IsActive}" />
-                        <StackPanel VerticalAlignment="Center">
+                      <!-- A grid, not a horizontal stack, so a long name is cut short at the column's edge instead of running under the next one. -->
+                      <Grid ColumnDefinitions="Auto,*">
+                        <Border Classes="profile-dot" Classes.active="{Binding IsActive}" Margin="0,0,10,0" />
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
                           <TextBlock Classes="row-title" TextTrimming="CharacterEllipsis" Text="{Binding Name}" />
                           <TextBlock FontSize="10.5"
+                                     TextTrimming="CharacterEllipsis"
                                      Classes.accent="{Binding IsActiveLine}"
                                      Classes.error="{Binding IsUnsavedLine}"
                                      Classes.subtle="{Binding IsPlainLine}"
                                      IsVisible="{Binding SecondaryText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                      Text="{Binding SecondaryText}" />
                         </StackPanel>
-                      </StackPanel>
+                      </Grid>
                       <TextBlock Grid.Column="1" Width="108" Margin="14,0,0,0" VerticalAlignment="Center" IsVisible="{Binding Columns.ShowVersion}" Text="{Binding VersionText}" />
                       <TextBlock Grid.Column="2" Width="92" Margin="14,0,0,0" VerticalAlignment="Center" IsVisible="{Binding Columns.ShowModFiles}" Text="{Binding ModFilesText}" />
                       <TextBlock Grid.Column="3" Width="118" Margin="14,0,0,0" VerticalAlignment="Center" Text="{Binding LastPlayedText}" />

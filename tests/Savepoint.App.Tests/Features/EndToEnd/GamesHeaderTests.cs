@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.LogicalTree;
+using Savepoint.App.Tests.Theme;
 using Avalonia.Headless.XUnit;
 using Savepoint.Core.Catalog;
 
@@ -13,6 +14,9 @@ public class GamesHeaderTests
 
     // The default 1040 px window keeps the buttons' words, which leaves the name about 200 px.
     private const double NameRoomWithWords = 200;
+
+    // Enough for about twenty characters of a profile name before the ellipsis.
+    private const double ProfileNameRoom = 150;
 
     [AvaloniaTheory]
     [InlineData(640)]
@@ -86,4 +90,32 @@ public class GamesHeaderTests
 
     private static TextBlock Words(Button button) =>
         button.GetLogicalDescendants().OfType<TextBlock>().Single(text => !text.Classes.Contains("icon"));
+
+    [AvaloniaTheory]
+    [InlineData(640)]
+    [InlineData(700)]
+    [InlineData(760)]
+    [InlineData(900)]
+    [InlineData(960)]
+    [InlineData(1040)]
+    [InlineData(1400)]
+    public async Task A_long_profile_name_is_cut_short_instead_of_running_into_the_next_column_and_keeps_room_to_read(int width)
+    {
+        using var app = await ComposedApp.StartWithViewAsync(width: width, height: 660);
+        app.Settle();
+        app.Render("games", $"profile-names-{width}");
+
+        var rows = app.Find<ItemsControl>("Rows");
+        foreach (var row in rows.GetLogicalDescendants().OfType<Border>().Where(border => border.Classes.Contains("table-row")))
+        {
+            var cells = row.GetLogicalDescendants().OfType<TextBlock>().Where(text => text.IsEffectivelyVisible && !text.Classes.Contains("icon")).ToList();
+            var title = cells.First(text => text.Classes.Contains("row-title"));
+            var next = cells.Where(text => text != title && LayoutAudit.BoundsIn(app.Window, text).Left > LayoutAudit.BoundsIn(app.Window, title).Left)
+                .OrderBy(text => LayoutAudit.BoundsIn(app.Window, text).Left)
+                .First(text => text.Text is not null && text.Margin.Left == 14);
+            var gap = LayoutAudit.BoundsIn(app.Window, next).Left - LayoutAudit.BoundsIn(app.Window, title).Right;
+            Assert.True(gap >= 0, $"At {width}px \"{title.Text}\" runs {-gap:0}px into \"{next.Text}\".");
+            Assert.True(title.Bounds.Width >= ProfileNameRoom, $"At {width}px the profile name has {title.Bounds.Width:0}px.");
+        }
+    }
 }
