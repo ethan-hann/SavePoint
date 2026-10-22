@@ -19,9 +19,6 @@ internal sealed class StorageRelocator
     /// <summary>The file a move writes in its destination before the first copy and removes when it ends; one that is found there means an earlier move did not finish.</summary>
     internal const string MarkerFileName = "savepoint-move-in-progress.txt";
 
-    // Velopack's updater, which sits beside the folder the app runs from.
-    private const string _updaterFileName = "Update.exe";
-
     private const int _bufferSize = 1024 * 1024;
     private const long _progressInterval = 16L * 1024 * 1024;
 
@@ -127,26 +124,9 @@ internal sealed class StorageRelocator
             return refused;
         }
 
-        if (InstallFolderOf(destination, storage) is { } installFolder)
+        if (StorageDestination.Refusal(_services, storage.PathSafety, games, destination) is { } refusal)
         {
-            return new StorageInsideInstallFolderException(destination, installFolder);
-        }
-
-        foreach (var game in games)
-        {
-            foreach (var folder in GameFolders.ResolveLoosely(_services.PathTokens, game).Where(folder => folder.Path is not null))
-            {
-                if (storage.PathSafety.PathsOverlap(destination, folder.Path!))
-                {
-                    return new GameOverlapException(game.Id, game.Name);
-                }
-            }
-        }
-
-        // Checked before "not empty": the files in such a folder are SavePoint's own half-finished copy, which the user can delete.
-        if (File.Exists(Path.Combine(destination, MarkerFileName)))
-        {
-            return new StorageMoveUnfinishedException(destination);
+            return refusal;
         }
 
         if (Directory.Exists(destination) && Directory.EnumerateFileSystemEntries(destination).Any())
@@ -158,19 +138,6 @@ internal sealed class StorageRelocator
         return _services.Disk.GetFreeBytes(destination) is { } free && free < required ? new DiskSpaceException(destination, required, free) : null;
     }
 
-    // The installed app runs from "current" inside an install folder that also holds Update.exe, and an update or an uninstall deletes
-    // that whole folder. Returns the install folder when the destination lies in it.
-    private string? InstallFolderOf(string destination, StorageSnapshot storage)
-    {
-        if (Directory.GetParent(_services.InstallDirectory)?.FullName is not { } installFolder || !File.Exists(Path.Combine(installFolder, _updaterFileName)))
-        {
-            return null;
-        }
-
-        var relative = Path.GetRelativePath(storage.PathSafety.ResolveRealPath(installFolder), storage.PathSafety.ResolveRealPath(destination));
-        var inside = relative == "." || (!Path.IsPathRooted(relative) && relative != ".." && !relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal));
-        return inside ? installFolder : null;
-    }
 
     private async Task<JobResult?> RunAsync(JobContext context, string destination)
     {
@@ -225,7 +192,7 @@ internal sealed class StorageRelocator
             // Everything is in place and checked; from here the switch is the only thing left that can fail.
             using var exclusive = await _services.Storage.Gate.EnterExclusiveAsync(context.CancellationToken).ConfigureAwait(false);
             var moved = _services.Storage.Build(destination);
-            await CommitSettingsAsync(moved.Root).ConfigureAwait(false);
+            await StorageRootSetting.CommitAsync(_services, moved.Root, _afterSettings).ConfigureAwait(false);
             _services.Storage.Replace(moved);
             _services.Log.Information($"Storage move: now using {moved.Root}.");
             result = new StorageRelocationResult(storage.Root, moved.Root, progress.BytesDone, []);
@@ -258,39 +225,6 @@ internal sealed class StorageRelocator
         return result with { NotRemoved = notRemoved };
     }
 
-    // The settings write is the commit point. A write that threw may still have taken effect (a clean-up after the rename failed,
-    // or the rename applied and reported a transient error), and then the move has to carry on, not be undone.
-    private async Task CommitSettingsAsync(string newRoot)
-    {
-        try
-        {
-            await _services.Catalog.UpdateSettingsAsync(
-                current => (current ?? AppSettings.Defaults(_services.Platform.Directories.DefaultStorageRoot)) with { StorageRoot = newRoot },
-                CancellationToken.None).ConfigureAwait(false);
-            _afterSettings?.Invoke(newRoot);
-        }
-        catch (Exception)
-        {
-            // Stored already: the new folder is the root from here on.
-            if (!await SettingsNameAsync(newRoot).ConfigureAwait(false))
-            {
-                throw;
-            }
-        }
-    }
-
-    private async Task<bool> SettingsNameAsync(string root)
-    {
-        try
-        {
-            var stored = await _services.Catalog.GetSettingsAsync(CancellationToken.None).ConfigureAwait(false);
-            return string.Equals(stored?.StorageRoot, root, StringComparison.Ordinal);
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException or SavepointException)
-        {
-            return false;
-        }
-    }
 
     // Nothing refers to the old root any more, so its copies are only duplicates. Only SavePoint's own git directories go, each
     // one checked again by GitDirRemoval, and the old root and anything else in it stay. A copy that cannot be removed is left,

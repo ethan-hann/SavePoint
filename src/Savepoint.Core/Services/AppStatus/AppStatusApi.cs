@@ -13,11 +13,13 @@ internal sealed class AppStatusApi : IAppStatusApi
     private const string _gitVersionPrefix = "git version ";
 
     private readonly BackendServices _services;
+    private readonly Action<string>? _afterSettings;
     private int _swept;
 
-    public AppStatusApi(BackendServices services)
+    public AppStatusApi(BackendServices services, Action<string>? afterSettings = null)
     {
         _services = services;
+        _afterSettings = afterSettings;
     }
 
     public Task<OperationResult<StartupStatus>> CheckAsync(CancellationToken cancellationToken = default) =>
@@ -87,6 +89,7 @@ internal sealed class AppStatusApi : IAppStatusApi
             async () =>
             {
                 var root = _services.PathTokens.Resolve(folder, "storageRoot");
+                await RequireStorageLostAsync(cancellationToken).ConfigureAwait(false);
                 var games = await _services.Catalog.ListGamesAsync(cancellationToken).ConfigureAwait(false);
 
                 // Judged before anything changes: a folder with no history of these games is the wrong one, or a drive that came back empty.
@@ -97,6 +100,12 @@ internal sealed class AppStatusApi : IAppStatusApi
                 if (!Directory.Exists(root) || !holdsHistory)
                 {
                     throw new StorageHistoryNotFoundException(root);
+                }
+
+                // The folder is judged as a move's destination is: not inside the installer's folder, not over a game's folders, not what an unfinished move left.
+                if (StorageDestination.Refusal(_services, _services.Storage.Build(root).PathSafety, games, root) is { } refusal)
+                {
+                    throw refusal;
                 }
 
                 // A folder someone else prepared can carry a config or a hook that names a program; nothing reads it before this.
@@ -114,42 +123,109 @@ internal sealed class AppStatusApi : IAppStatusApi
             _services.Log,
             async () =>
             {
+                await RequireStorageLostAsync(cancellationToken).ConfigureAwait(false);
                 var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(_services.Platform.Directories.DefaultStorageRoot));
 
                 // History already in the default folder is not an empty start; "Find the folder" is how to use it.
                 if (Directory.Exists(root) && StorageContent.Folders(root).Count > 0)
                 {
-                    throw new StorageDestinationNotEmptyException(root);
+                    throw new StorageDefaultFolderHasHistoryException(root);
                 }
 
                 return await SwitchStorageAsync(root, create: true, cancellationToken).ConfigureAwait(false);
             },
             cancellationToken);
 
-    // Nothing else reads or writes the storage while the root changes. The settings are written before the engine is switched, so a
-    // failed write leaves the app on the root it had.
-    private async Task<string> SwitchStorageAsync(string root, bool create, CancellationToken cancellationToken)
+    // Both choices are for a folder that is gone; with the saved folder in reach there is nothing to find or start over from.
+    private async Task RequireStorageLostAsync(CancellationToken cancellationToken)
     {
-        using var exclusive = await _services.Storage.Gate.EnterExclusiveAsync(cancellationToken).ConfigureAwait(false);
-        var snapshot = _services.Storage.Build(root);
-        if (create)
+        StorageSnapshot reachable;
+        try
         {
-            try
-            {
-                Directory.CreateDirectory(snapshot.Root);
-            }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException or NotSupportedException)
-            {
-                throw new StorageUnreachableException(snapshot.Root, e);
-            }
+            reachable = await _services.Storage.GetAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (StorageUnreachableException)
+        {
+            return;
         }
 
-        await _services.Catalog.UpdateSettingsAsync(
-            current => (current ?? AppSettings.Defaults(snapshot.Root)) with { StorageRoot = snapshot.Root },
-            cancellationToken).ConfigureAwait(false);
-        _services.Storage.Replace(snapshot);
-        _services.Log.Information($"Storage: now using {snapshot.Root}, chosen at startup.");
-        return snapshot.Root;
+        throw new StorageStillReachableException(reachable.Root);
+    }
+
+    // The library key, then every game's key, then the storage gate: the order everything that changes the root takes them in. Nothing
+    // else reads or writes the storage while the root changes. Every listed game gets its repositories in the new root before the
+    // settings change, so a failure up to there leaves the app on the root it had; a root change that leaves a game without them would
+    // leave every save of it failing.
+    private Task<string> SwitchStorageAsync(string root, bool create, CancellationToken cancellationToken) =>
+        _services.Locks.RunExclusiveAsync(
+            BackendServices.LibraryLockKey,
+            async () =>
+            {
+                var games = await _services.Catalog.ListGamesAsync(cancellationToken).ConfigureAwait(false);
+                return await _services.RunWithLocksAsync(
+                    games.Select(game => game.Id),
+                    async () =>
+                    {
+                        using var exclusive = await _services.Storage.Gate.EnterExclusiveAsync(cancellationToken).ConfigureAwait(false);
+                        var snapshot = _services.Storage.Build(root);
+                        if (create)
+                        {
+                            try
+                            {
+                                Directory.CreateDirectory(snapshot.Root);
+                            }
+                            catch (Exception e) when (e is IOException or UnauthorizedAccessException or NotSupportedException)
+                            {
+                                throw new StorageUnreachableException(snapshot.Root, e);
+                            }
+                        }
+
+                        await GiveRepositoriesAsync(snapshot, games, cancellationToken).ConfigureAwait(false);
+                        await StorageRootSetting.CommitAsync(_services, snapshot.Root, _afterSettings).ConfigureAwait(false);
+                        _services.Storage.Replace(snapshot);
+                        _services.Log.Information($"Storage: now using {snapshot.Root}, chosen at startup.");
+                        return snapshot.Root;
+                    },
+                    cancellationToken).ConfigureAwait(false);
+            },
+            cancellationToken);
+
+    // An empty repository for each folder of each listed game that has none in the new root and whose folder confirms it belongs to that
+    // game. A folder that cannot take one (gone, refused by the path rules, claimed by another game) is left for the editor, which makes
+    // the repository when its folder is set again; it must not stop the others from being usable.
+    private async Task GiveRepositoriesAsync(StorageSnapshot snapshot, IReadOnlyList<GameDefinition> games, CancellationToken cancellationToken)
+    {
+        foreach (var game in games)
+        {
+            IReadOnlyList<GameFolder> folders;
+            try
+            {
+                folders = GameFolders.ResolveStrictly(_services.PathTokens, game);
+            }
+            catch (ValidationException e)
+            {
+                _services.Log.Warning($"Storage: {game.Id} has a folder this system cannot resolve, so it got no repository in {snapshot.Root}.", e);
+                continue;
+            }
+
+            foreach (var folder in folders)
+            {
+                var repo = GameFolders.Repo(snapshot, game.Id, folder);
+                if (File.Exists(Path.Combine(repo.GitDir, "HEAD")) || !snapshot.Engine.GetConsentStatus(repo).Confirmed)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    await snapshot.Engine.InitAsync(repo, ct: cancellationToken).ConfigureAwait(false);
+                }
+                catch (SavepointException e)
+                {
+                    _services.Log.Warning($"Storage: {game.Id} got no repository for its {folder.Role} folder in {snapshot.Root}: {ErrorInfo.From(e).MessageId}.", e);
+                }
+            }
+        }
     }
 
     private async Task<GitStatus> CheckGitAsync(CancellationToken cancellationToken)

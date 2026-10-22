@@ -57,6 +57,8 @@ public class ErrorCopyTests
             new PathMissingException("/games/alpha", RepoRole.Install),
             new PathMissingException("/games/alpha/saves", RepoRole.External),
             new StorageDestinationNotEmptyException("/storage"),
+            new StorageDefaultFolderHasHistoryException("/storage"),
+            new StorageStillReachableException("/storage"),
             new StorageHistoryNotFoundException("/elsewhere"),
             new FileUnreadableException("/games/alpha/data.pak"),
             new StorageRemoveFailedException("/storage/alpha", "dev text"),
