@@ -86,10 +86,16 @@ public sealed partial class GamesScreenViewModel
             return;
         }
 
+        // Snapshots a recently removed record keeps are not lost: they go back to that list, and the question says so apart from the ones that are.
         var points = preview.Value.PointsOnlyHere;
-        var message = points > 0
-            ? _deps.Text.Message("games.profileTable.deleteConfirm.messageWithPoints", ("count", points))
-            : _deps.Text.Message("games.profileTable.deleteConfirm.message", ("name", row.Name));
+        var back = preview.Value.PointsBackToRemoved;
+        var message = (points, back) switch
+        {
+            (> 0, > 0) => _deps.Text.Message("games.profileTable.deleteConfirm.messageWithPointsAndRemoved", ("count", points), ("back", back)),
+            (> 0, _) => _deps.Text.Message("games.profileTable.deleteConfirm.messageWithPoints", ("count", points)),
+            (_, > 0) => _deps.Text.Message("games.profileTable.deleteConfirm.messageOnlyRemoved", ("count", back)),
+            _ => _deps.Text.Message("games.profileTable.deleteConfirm.message", ("name", row.Name)),
+        };
         var confirmed = await _deps.Dialogs.ConfirmAsync(new(
             _deps.Text.Message("games.profileTable.deleteConfirm.title", ("name", row.Name)),
             message,

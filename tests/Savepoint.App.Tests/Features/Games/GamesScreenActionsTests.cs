@@ -329,6 +329,21 @@ public class GamesScreenActionsTests
         Assert.Equal(message, Assert.Single(rig.Dialogs.Confirmations).Message);
     }
 
+    [Theory]
+    [InlineData(2, 1, "2 snapshots are only in this profile. Deleting it deletes those snapshots for good and frees the space soon after. 1 more snapshot goes back to Recently removed until you next free up space. This can't be undone.")]
+    [InlineData(1, 3, "1 snapshot is only in this profile. Deleting it deletes that snapshot for good and frees the space soon after. 3 more snapshots go back to Recently removed until you next free up space. This can't be undone.")]
+    [InlineData(0, 1, "1 snapshot is only in this profile, and it is also in Recently removed. Deleting the profile puts it back there until you next free up space. Nothing is deleted for good.")]
+    [InlineData(0, 4, "4 snapshots are only in this profile, and they are also in Recently removed. Deleting the profile puts them back there until you next free up space. Nothing is deleted for good.")]
+    public async Task Deleting_a_profile_whose_snapshots_go_back_to_Recently_removed_says_which_are_deleted_for_good_and_which_are_not(int forGood, int back, string message)
+    {
+        var preview = new ProfileDeletePreview(MockupScenario.VanillaId, forGood, [new FolderPointLoss(RepoRole.Install, forGood, null)], null, back);
+        var rig = await GamesRig.StartAsync(WithDeletePreview(preview));
+
+        await rig.Screen.Profiles[1].DeleteCommand.ExecuteAsync(null);
+
+        Assert.Equal(message, Assert.Single(rig.Dialogs.Confirmations).Message);
+    }
+
     [Fact]
     public async Task Declining_the_question_deletes_nothing()
     {

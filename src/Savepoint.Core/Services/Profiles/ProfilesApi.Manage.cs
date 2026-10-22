@@ -145,16 +145,24 @@ internal sealed partial class ProfilesApi
                         var repos = GameFolders.ReposForGitDirOnly(_services, storage, game);
                         var losses = new List<FolderPointLoss>();
                         var lost = new HashSet<string>(StringComparer.Ordinal);
+                        var kept = new HashSet<string>(StringComparer.Ordinal);
                         foreach (var repo in repos)
                         {
-                            var commits = await storage.Engine.ListCommitsOnlyOnAsync(repo, profile.BranchName, others, cancellationToken).ConfigureAwait(false);
-                            var points = commits.Where(commit => commit.CaptureId is not null).ToList();
-                            lost.UnionWith(points.Select(point => point.CaptureId!));
-                            losses.Add(new FolderPointLoss(repo.Role, points.Count, null));
+                            // A commit a record of a removed snapshot names comes back to Recently removed after the delete; the rest is lost.
+                            var onlyHere = (await storage.Engine.ListCommitsOnlyOnAsync(repo, profile.BranchName, others, cancellationToken).ConfigureAwait(false))
+                                .Where(commit => commit.CaptureId is not null)
+                                .ToList();
+                            var recorded = (await storage.Engine.ListRemovedAsync(repo, cancellationToken).ConfigureAwait(false)).Select(removed => removed.Commit.Id).ToHashSet(StringComparer.Ordinal);
+                            var forGood = onlyHere.Where(commit => !recorded.Contains(commit.Id)).ToList();
+                            kept.UnionWith(onlyHere.Where(commit => recorded.Contains(commit.Id)).Select(commit => commit.CaptureId!));
+                            lost.UnionWith(forGood.Select(point => point.CaptureId!));
+                            losses.Add(new FolderPointLoss(repo.Role, forGood.Count, null));
                         }
 
+                        // A snapshot with any commit that comes back is listed again, whatever the other folder's commit does.
+                        lost.ExceptWith(kept);
                         var blocker = BlockerOf(game, profile, repos);
-                        return new ProfileDeletePreview(profile.Id, lost.Count, losses, blocker is null ? null : ErrorInfo.From(blocker));
+                        return new ProfileDeletePreview(profile.Id, lost.Count, losses, blocker is null ? null : ErrorInfo.From(blocker), kept.Count);
                     },
                     cancellationToken).ConfigureAwait(false);
             },
