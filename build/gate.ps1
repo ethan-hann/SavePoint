@@ -1,5 +1,13 @@
 #Requires -Version 7
 # Local gate: build, test, format check. Exits non-zero on the first failure.
+#
+# -AllowNarrowedTests lets a test filter in SAVEPOINT_TEST_ARGS through. Without it a filter is refused, because a run that
+# tests part of the code would read as a passed gate.
+[CmdletBinding()]
+param(
+    [switch]$AllowNarrowedTests
+)
+
 $ErrorActionPreference = 'Stop'
 $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
 $env:DOTNET_NOLOGO = '1'
@@ -17,6 +25,21 @@ $buildNodes = if ($env:SAVEPOINT_GATE_BUILD_NODES) { $env:SAVEPOINT_GATE_BUILD_N
 $testThreads = if ($env:SAVEPOINT_GATE_TEST_THREADS) { $env:SAVEPOINT_GATE_TEST_THREADS } else { '4' }
 # Extra test-platform arguments (a report, a filter), space-separated, as gate.sh takes them.
 [string[]]$testArgs = if ($env:SAVEPOINT_TEST_ARGS) { @($env:SAVEPOINT_TEST_ARGS -split '\s+' | Where-Object { $_ }) } else { @() }
+
+# Said first, so a leftover value in the shell is seen before anything runs. An option that picks which tests run (or only lists them)
+# makes the gate a partial one.
+$narrowing = @()
+if ($testArgs.Count -gt 0) {
+    Write-Host "==> extra test arguments (SAVEPOINT_TEST_ARGS): $($testArgs -join ' ')"
+    $narrowing = @($testArgs | Where-Object { $_ -match '^--(treenode-)?filter(-|$)' -or $_ -eq '--list-tests' })
+    if ($narrowing.Count -gt 0 -and -not $AllowNarrowedTests) {
+        Write-Host "gate refused: SAVEPOINT_TEST_ARGS holds $($narrowing -join ' '), which would run only some of the tests. Unset it, or pass -AllowNarrowedTests if the narrowing is on purpose." -ForegroundColor Red
+        exit 1
+    }
+    if ($narrowing.Count -gt 0) {
+        Write-Host '==> NARROWED on purpose: only the tests the filter picks run, so a pass is not a full gate.' -ForegroundColor Yellow
+    }
+}
 
 # One gate at a time across every worktree of this repository: they share one lock file in the main checkout.
 $commonGitDir = git rev-parse --path-format=absolute --git-common-dir
@@ -60,4 +83,9 @@ finally {
     $lock.Dispose()
 }
 
-Write-Host 'gate passed' -ForegroundColor Green
+if ($narrowing.Count -gt 0) {
+    Write-Host 'gate passed, NARROWED: only the tests the filter picks ran' -ForegroundColor Yellow
+}
+else {
+    Write-Host 'gate passed' -ForegroundColor Green
+}
