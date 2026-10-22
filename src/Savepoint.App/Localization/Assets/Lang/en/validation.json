@@ -24,7 +24,7 @@
   "validation.profile.nameRequired": "Give the profile a name.",
   "validation.settings.accentColorInvalid": "Pick one of the accent colors from the list.",
   "validation.settings.layoutInvalid": "Pick the Sidebar or the Library layout.",
-  "validation.settings.localeInvalid": "That language isn't valid. Pick one from the list.",
+  "validation.settings.localeInvalid": "That language isn't available.",
   "validation.settings.storageRootRequired": "Choose a folder for SavePoint's storage.",
   "validation.settings.themeInvalid": "Pick Light, Dark, or the theme that matches your system."
 }
