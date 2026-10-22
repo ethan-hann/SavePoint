@@ -345,6 +345,25 @@ public class GamesScreenViewTests
         Assert.Same(harness.Rig.Screen.FreeUp.FreeUpCommand, item.Command);
     }
 
+    [AvaloniaFact]
+    public async Task The_library_layouts_free_up_space_asks_first_when_snapshots_were_removed()
+    {
+        var scenario = RemovedSnapshotSamples.Scenario().WithSettings(MockupScenario.Settings with { Layout = ShellLayout.Library });
+        using var harness = await GamesViewHarness.StartAsync(new FakeBackend(scenario), layout: ShellLayout.Library);
+        var button = harness.Find<Button>("LibraryGameMenuButton");
+        button.Flyout!.ShowAt(button);
+        harness.Settle();
+        var item = ((MenuFlyout)button.Flyout).Items.OfType<MenuItem>().Single(candidate => candidate.Header as string == "Free up space");
+
+        item.Command!.Execute(null);
+        harness.Settle();
+
+        var confirm = Assert.IsType<ConfirmDialogViewModel>(harness.Dialogs.Current);
+        Assert.Equal("Free up space?", confirm.Title);
+        Assert.StartsWith("Freeing up space also deletes 2 recently removed snapshots for good.", confirm.Message);
+        Assert.DoesNotContain(harness.Rig.Backend.Jobs.List(), job => job.Kind == JobKind.Compact);
+    }
+
     // ---- Keyboard
 
     [AvaloniaFact]

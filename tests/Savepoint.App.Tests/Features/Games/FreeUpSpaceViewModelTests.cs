@@ -66,6 +66,68 @@ public class FreeUpSpaceViewModelTests
         Assert.Equal("Free up space for Skyrim Special Edition", rig.FreeUp.Name);
     }
 
+    // ---- Asking first
+
+    // Freeing up space deletes the game's recently removed snapshots for good, so when there are some the footer says how many and asks first.
+    [Fact]
+    public async Task With_removed_snapshots_it_asks_first_naming_how_many_it_deletes_and_starts_after_a_yes()
+    {
+        var rig = new Rig(removed: true);
+        rig.Dialogs.AnswerConfirm(true);
+
+        await rig.FreeUp.FreeUpCommand.ExecuteAsync(null);
+
+        var question = Assert.Single(rig.Dialogs.Confirmations);
+        Assert.Equal("Free up space?", question.Title);
+        Assert.Equal("Freeing up space also deletes 2 recently removed snapshots for good. They are no longer part of any profile, and you can't bring them back afterward.", question.Message);
+        Assert.Equal("Delete 2 snapshots and free up space", question.ConfirmLabel);
+        Assert.True(question.Destructive);
+        Assert.Equal([SkyrimId], rig.Backend.Jobs.List().Where(job => job.Kind == JobKind.Compact).Select(job => job.GameId));
+        Assert.True(rig.FreeUp.IsRunning);
+    }
+
+    [Fact]
+    public async Task Declining_starts_nothing_and_leaves_the_button_ready()
+    {
+        var rig = new Rig(removed: true);
+        rig.Dialogs.AnswerConfirm(false);
+
+        await rig.FreeUp.FreeUpCommand.ExecuteAsync(null);
+
+        Assert.Single(rig.Dialogs.Confirmations);
+        Assert.Empty(rig.Backend.Jobs.List());
+        Assert.False(rig.FreeUp.IsRunning);
+        Assert.False(rig.FreeUp.HasStatus);
+        Assert.True(rig.FreeUp.FreeUpCommand.CanExecute(null));
+        Assert.Equal(2, FakeAssert.Ok(await rig.Backend.Games.GetFreeUpSpacePreviewAsync(SkyrimId, TestContext.Current.CancellationToken)).RecentlyRemovedSnapshots);
+    }
+
+    [Fact]
+    public async Task With_nothing_removed_it_asks_nothing_and_starts_at_once()
+    {
+        var rig = new Rig();
+
+        await rig.FreeUp.FreeUpCommand.ExecuteAsync(null);
+
+        Assert.Empty(rig.Dialogs.Confirmations);
+        Assert.True(rig.FreeUp.IsRunning);
+    }
+
+    [Fact]
+    public async Task A_count_that_cannot_be_read_is_shown_as_an_error_and_starts_nothing()
+    {
+        var rig = new Rig(removed: true);
+        rig.Backend.FailNext<IGamesApi>(nameof(IGamesApi.GetFreeUpSpacePreviewAsync), FileInUseError);
+
+        await rig.FreeUp.FreeUpCommand.ExecuteAsync(null);
+
+        Assert.Equal([FileInUseError], rig.Errors);
+        Assert.Empty(rig.Dialogs.Confirmations);
+        Assert.Empty(rig.Backend.Jobs.List());
+        Assert.False(rig.FreeUp.IsRunning);
+        Assert.True(rig.FreeUp.FreeUpCommand.CanExecute(null));
+    }
+
     // ---- How it ends
 
     [Fact]
@@ -269,13 +331,15 @@ public class FreeUpSpaceViewModelTests
 
     private sealed class Rig
     {
-        public Rig(bool selected = true)
+        // With removed, two snapshots of Skyrim and one of Satisfactory are waiting to be deleted for good.
+        public Rig(bool selected = true, bool removed = false)
         {
-            Backend = FakeBackend.Mockup();
+            Backend = removed ? new FakeBackend(RemovedSnapshotSamples.Scenario()) : FakeBackend.Mockup();
             Text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), Backend.Clock, "windows", TimeZoneInfo.Utc);
             FreeUp = new FreeUpSpaceViewModel(
                 Backend.Games,
                 Backend.Jobs,
+                Dialogs,
                 Text,
                 new ImmediateUiDispatcher(),
                 Errors.Add,
@@ -291,6 +355,8 @@ public class FreeUpSpaceViewModelTests
         }
 
         public FakeBackend Backend { get; }
+
+        public FakeDialogs Dialogs { get; } = new();
 
         public UiFormatter Text { get; }
 

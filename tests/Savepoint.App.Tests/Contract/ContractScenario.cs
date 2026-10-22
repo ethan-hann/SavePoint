@@ -15,6 +15,7 @@ internal static class ContractScenario
         var shared = new Story();
         await RunSharedAsync(backend, shared, cancellationToken);
         await RunInterruptedSwitchAsync(backend, shared, cancellationToken);
+        await RunSnapshotOfAnotherProfileAsync(backend, shared, cancellationToken);
         var gaps = new Story();
         await RunGapsAsync(backend, gaps, cancellationToken);
         return new ScenarioTranscript(shared.Lines, gaps.Lines);
@@ -213,13 +214,16 @@ internal static class ContractScenario
         using var cancelled = new CancellationTokenSource();
         await cancelled.CancelAsync();
         story.Add("read with a cancelled token", Show(await backend.Games.ListAsync(cancelled.Token), _ => "success"));
+    }
 
-        // A snapshot copies what the folders hold, which is the profile made last; the real backend refuses one for the other profile, the fake starts it.
-        var delta = backend.NewGame("Delta");
-        await backend.Games.AddAsync(delta);
-        var first = await FinishCaptureAsync(backend, new Story(), await backend.Profiles.CreateAsync(delta.Id, "Vanilla", null, "Fresh install"), cancellationToken) ?? "missing";
-        await FinishCaptureAsync(backend, new Story(), await backend.Profiles.CreateAsync(delta.Id, "Modded", null, "With a mod"), cancellationToken);
-        story.Add("snapshot of a profile the folders do not hold", Show(await backend.Profiles.CaptureAsync(delta.Id, first, "Not mine"), _ => "started"));
+    // A snapshot copies what the folders hold, which is the profile made last, so one asked for on the profile made before it is refused before a job starts.
+    private static async Task RunSnapshotOfAnotherProfileAsync(ContractHarness backend, Story story, CancellationToken cancellationToken)
+    {
+        var game = backend.NewGame("Delta");
+        await backend.Games.AddAsync(game);
+        var first = await FinishCaptureAsync(backend, new Story(), await backend.Profiles.CreateAsync(game.Id, "Vanilla", null, "Fresh install"), cancellationToken) ?? "missing";
+        await FinishCaptureAsync(backend, new Story(), await backend.Profiles.CreateAsync(game.Id, "Modded", null, "With a mod"), cancellationToken);
+        story.Add("snapshot of a profile the folders do not hold", Show(await backend.Profiles.CaptureAsync(game.Id, first, "Not mine"), _ => "started"));
     }
 
     // Ends the job a CreateAsync started and describes what it reports; the new profile's id for later steps.

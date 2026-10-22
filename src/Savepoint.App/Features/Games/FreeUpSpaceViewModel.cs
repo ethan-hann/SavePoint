@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common;
+using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.Core.Api;
 using Savepoint.Core.Errors;
@@ -8,13 +9,15 @@ using Savepoint.Core.Errors;
 namespace Savepoint.App.Features.Games;
 
 /// <summary>
-/// The storage footer's Free up space for the selected game: starts the game's compaction, follows it while it runs, and says
-/// how it ended. It also picks up a compaction that is already running for the game or for every game, started elsewhere.
+/// The storage footer's Free up space for the selected game: asks first when it would delete recently removed snapshots, starts the
+/// game's compaction, follows it while it runs, and says how it ended. It also picks up a compaction that is already running for the
+/// game or for every game, started elsewhere.
 /// </summary>
 public sealed partial class FreeUpSpaceViewModel : ObservableObject, IDisposable
 {
     private readonly IGamesApi _games;
     private readonly IJobsApi _jobs;
+    private readonly IDialogs _dialogs;
     private readonly UiFormatter _text;
     private readonly IUiDispatcher _dispatcher;
     private readonly Action<ErrorInfo> _showError;
@@ -40,16 +43,18 @@ public sealed partial class FreeUpSpaceViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _announcement = string.Empty;
 
-    /// <param name="games">Starts the compaction.</param>
+    /// <param name="games">Counts the recently removed snapshots the compaction deletes, and starts it.</param>
     /// <param name="jobs">Reports the compaction's progress and end.</param>
+    /// <param name="dialogs">Asks before the compaction deletes recently removed snapshots.</param>
     /// <param name="text">Formats the words and sizes.</param>
     /// <param name="dispatcher">Brings job events back to the UI thread.</param>
-    /// <param name="showError">Shows a failure to start the compaction.</param>
+    /// <param name="showError">Shows a failure to count what the compaction deletes or to start it.</param>
     /// <param name="afterRun">Runs after a compaction ends, so the footer can read the game's storage use again.</param>
-    public FreeUpSpaceViewModel(IGamesApi games, IJobsApi jobs, UiFormatter text, IUiDispatcher dispatcher, Action<ErrorInfo> showError, Func<Task> afterRun)
+    public FreeUpSpaceViewModel(IGamesApi games, IJobsApi jobs, IDialogs dialogs, UiFormatter text, IUiDispatcher dispatcher, Action<ErrorInfo> showError, Func<Task> afterRun)
     {
         _games = games;
         _jobs = jobs;
+        _dialogs = dialogs;
         _text = text;
         _dispatcher = dispatcher;
         _showError = showError;
@@ -64,7 +69,7 @@ public sealed partial class FreeUpSpaceViewModel : ObservableObject, IDisposable
     /// <summary>The button's name for a screen reader ("Free up space for Skyrim Special Edition"); empty without a game.</summary>
     public string Name => _gameId is null ? string.Empty : _text.Message("games.storageFooter.freeUpName", ("name", _gameName));
 
-    /// <summary>Starts the compaction for the game.</summary>
+    /// <summary>Starts the compaction for the game, after the player agrees when it would delete recently removed snapshots.</summary>
     public IAsyncRelayCommand FreeUpCommand { get; }
 
     /// <summary>Points the action at a game, or at none; a different game clears the status and follows that game's compaction if one runs.</summary>
@@ -113,6 +118,24 @@ public sealed partial class FreeUpSpaceViewModel : ObservableObject, IDisposable
     private async Task FreeUpAsync()
     {
         if (_gameId is not { } gameId)
+        {
+            return;
+        }
+
+        // Freeing up space deletes the game's recently removed snapshots for good, so when there are some the player is told how many and asked first.
+        var preview = await _games.GetFreeUpSpacePreviewAsync(gameId);
+        if (!preview.Ok)
+        {
+            _showError(preview.Error);
+            return;
+        }
+
+        if (preview.Value.RecentlyRemovedSnapshots is > 0 and var removed
+            && !await _dialogs.ConfirmAsync(new ConfirmRequest(
+                _text.Message("settings.storage.optimizeConfirm.title"),
+                _text.Message("settings.storage.optimizeConfirm.message", ("count", removed)),
+                _text.Message("settings.storage.optimizeConfirm.confirm", ("count", removed)),
+                Destructive: true)))
         {
             return;
         }

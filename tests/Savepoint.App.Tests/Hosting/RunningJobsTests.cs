@@ -13,7 +13,7 @@ public class RunningJobsTests
         var backend = FakeBackend.Mockup();
         var save = FakeAssert.Ok(await backend.Profiles.CaptureAsync(MockupScenario.SkyrimId, MockupScenario.ModdedId, "A point"));
         var move = FakeAssert.Ok(await backend.Settings.RelocateStorageAsync(@"E:\SavePoint"));
-        var finished = FakeAssert.Ok(await backend.Profiles.CaptureAsync(MockupScenario.SkyrimId, MockupScenario.VanillaId, "Another"));
+        var finished = FakeAssert.Ok(await backend.Profiles.CaptureAsync(MockupScenario.SatisfactoryId, MockupScenario.MainFactoryId, "Another"));
         backend.Jobs.Complete(finished.JobId, null);
 
         // The fake never ends a job on its own, so the short wait is all this call spends waiting.

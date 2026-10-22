@@ -219,6 +219,61 @@ public class FakeLibraryApisTests
         Assert.Empty(backend.Jobs.Started);
     }
 
+    // The real backend refuses a snapshot of a profile the folders do not hold before it queues a job, and the row says so (SnapshotNow).
+    [Fact]
+    public async Task Capturing_a_profile_that_is_not_loaded_is_refused_without_a_job()
+    {
+        var backend = FakeBackend.Mockup();
+
+        var result = await backend.Profiles.CaptureAsync(SkyrimId, SurvivalId, "Not loaded");
+
+        Assert.False(result.Ok);
+        Assert.Equal("error.profile.notLoaded", result.Error.MessageId);
+        Assert.Empty(backend.Jobs.Started);
+    }
+
+    // The row knows whether a profile is loaded as a whole, not per folder, so a request for particular folders is let through (it is how
+    // the changes a profile owns in one folder are saved first).
+    [Fact]
+    public async Task Capturing_particular_folders_of_a_profile_that_is_not_loaded_is_let_through()
+    {
+        var backend = FakeBackend.Mockup();
+
+        var result = await backend.Profiles.CaptureAsync(SkyrimId, SurvivalId, "Its own changes", [RepoRole.External]);
+
+        Assert.True(result.Ok);
+        Assert.Single(backend.Jobs.Started);
+    }
+
+    [Fact]
+    public async Task A_profile_with_no_snapshot_yet_can_take_its_first_while_another_profile_is_loaded()
+    {
+        var fresh = new Profile("profile-fresh", SkyrimId, "Fresh profile", "profile/profile-fresh");
+        var backend = new FakeBackend(ScenarioBuilder.Mockup().WithProfile(
+            fresh,
+            new ProfileRowStats(fresh.Id, false, [], 0, null, null, null, null, false, SnapshotNowAvailability.FirstSnapshot)));
+
+        var result = await backend.Profiles.CaptureAsync(SkyrimId, fresh.Id, "First snapshot");
+
+        Assert.True(result.Ok);
+        Assert.Single(backend.Jobs.Started);
+    }
+
+    [Fact]
+    public async Task Creating_a_profile_loads_it_and_leaves_the_one_loaded_before_not_loaded()
+    {
+        var backend = FakeBackend.Mockup();
+        Ok(await backend.Profiles.CreateAsync(SkyrimId, "Newest", null, "Newest"));
+        var newest = Ok(await backend.Profiles.ListAsync(SkyrimId, Ct)).Single(p => p.Name == "Newest");
+
+        var before = await backend.Profiles.CaptureAsync(SkyrimId, ModdedId, "Loaded until the new one");
+        var after = await backend.Profiles.CaptureAsync(SkyrimId, newest.Id, "Loaded now");
+
+        Assert.False(before.Ok);
+        Assert.Equal("error.profile.notLoaded", before.Error.MessageId);
+        Assert.True(after.Ok);
+    }
+
     [Fact]
     public async Task Updating_a_profile_changes_only_the_user_fields()
     {
