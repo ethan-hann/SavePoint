@@ -25,7 +25,7 @@ internal sealed class LinuxNotificationService : INotificationService
     {
         try
         {
-            var notification = new FreedesktopNotification(_appName, 0, string.Empty, WithoutNul(title), WithoutNul(body), [], -1);
+            var notification = new FreedesktopNotification(_appName, 0, string.Empty, Safe(title), Safe(body), [], -1);
             using var limit = new CancellationTokenSource(_timeout);
             await _bus.NotifyAsync(notification, limit.Token).ConfigureAwait(false);
         }
@@ -35,6 +35,8 @@ internal sealed class LinuxNotificationService : INotificationService
         }
     }
 
-    // A D-Bus string cannot hold NUL, and a message that does is rejected as a whole.
-    private static string WithoutNul(string text) => text.Replace('\0', ' ');
+    // A D-Bus string cannot hold NUL, and a message that does is rejected as a whole. The body is read as markup (links, tags),
+    // so a game name goes in escaped; the summary gets the same treatment since some servers read it that way too.
+    private static string Safe(string text) =>
+        text.Replace('\0', ' ').Replace("&", "&amp;", StringComparison.Ordinal).Replace("<", "&lt;", StringComparison.Ordinal).Replace(">", "&gt;", StringComparison.Ordinal);
 }
