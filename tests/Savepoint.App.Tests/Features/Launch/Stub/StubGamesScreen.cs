@@ -38,9 +38,9 @@ public sealed partial class StubGamesScreenViewModel : ObservableObject, IScreen
 
         Rows =
         [
-            new("Modded playthrough - 7-2-26", "Active now · 6 saves", true, false, "1.6.640", "212", "3 days ago", new LaunchTarget.ProfileTip(MockupScenario.ModdedId)),
-            new("Vanilla - latest update", "1 save", false, false, "1.6.1170", "—", "6 weeks ago", new LaunchTarget.ProfileTip(MockupScenario.VanillaId)),
-            new("Survival test - 5-14-26", "Unsaved changes · 2 saves", false, true, "1.6.640", "189", "12 weeks ago", new LaunchTarget.ProfileTip(MockupScenario.SurvivalId)),
+            new("Modded playthrough - 7-2-26", "Loaded now · 4 snapshots", true, false, "1.6.640", "212", "3 days ago", new LaunchTarget.ProfileTip(MockupScenario.ModdedId)),
+            new("Vanilla - latest update", "1 snapshot", false, false, "1.6.1170", "—", "6 weeks ago", new LaunchTarget.ProfileTip(MockupScenario.VanillaId)),
+            new("Survival test - 5-14-26", "New changes · 3 snapshots", false, true, "1.6.640", "189", "12 weeks ago", new LaunchTarget.ProfileTip(MockupScenario.SurvivalId)),
         ];
         PlayCommand = new AsyncRelayCommand<StubProfileRow>(PlayAsync);
     }

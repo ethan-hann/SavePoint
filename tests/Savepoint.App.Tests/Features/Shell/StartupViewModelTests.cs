@@ -136,7 +136,7 @@ public class StartupViewModelTests
         var card = startup.CorruptFiles.Single().Card;
         Assert.Equal(title, card.Title);
         Assert.Equal(
-            $"SavePoint couldn't read the file that holds {holds}, so it left the file exactly as it is. \"Restore the backup\" brings back the last good copy. \"Start with nothing in it\" begins again with {empty} and keeps this one beside it.",
+            $"SavePoint couldn't read the file that holds {holds}, so it left the file exactly as it is. \"Restore the backup\" brings back the last good copy. \"Start with nothing in it\" begins again with {empty} and keeps the unreadable file next to it.",
             card.Body);
         Assert.DoesNotContain(".bak", card.Body);
     }
@@ -395,7 +395,7 @@ public class StartupViewModelTests
         Assert.Equal(StartupPhase.StorageUnreachable, startup.Phase);
         Assert.Equal(0, ready);
         var card = startup.Card!;
-        Assert.Equal("SavePoint's storage isn't reachable", card.Title);
+        Assert.Equal("SavePoint can't reach your snapshots", card.Title);
         Assert.Equal(_storageRoot, card.Path);
         Assert.Equal(["Try again", "Find the folder", "Start with an empty folder"], card.Actions.Select(action => action.Label));
         Assert.True(card.Actions[0].IsPrimary);
@@ -438,7 +438,7 @@ public class StartupViewModelTests
         await startup.Card!.Actions[1].Command.ExecuteAsync();
 
         var asked = Assert.Single(dialogs.FolderPicks);
-        Assert.Equal("Choose the folder that holds your saved history", asked.Title);
+        Assert.Equal("Choose the folder that holds your snapshots", asked.Title);
         Assert.Equal(_storageRoot, asked.StartPath);
         var used = Assert.Single(backend.Calls.To<IAppStatusApi>(nameof(IAppStatusApi.UseStorageFolderAsync)));
         Assert.Equal([@"G:\SavePoint"], used.Args);
@@ -471,7 +471,7 @@ public class StartupViewModelTests
         await startup.Card!.Actions[1].Command.ExecuteAsync();
 
         Assert.Equal(StartupPhase.StorageUnreachable, startup.Phase);
-        Assert.Contains("doesn't hold the saved history for your games", startup.StorageActionError, StringComparison.Ordinal);
+        Assert.Contains("doesn't hold your games' snapshots", startup.StorageActionError, StringComparison.Ordinal);
         Assert.True(startup.HasStorageActionError);
         Assert.Equal(@"G:\Elsewhere", startup.StorageActionErrorPath);
     }
@@ -522,7 +522,7 @@ public class StartupViewModelTests
 
         Assert.Equal(StartupPhase.StorageUnreachable, startup.Phase);
         Assert.Equal(
-            "SavePoint can't start over in its default folder, shown below, because that folder already holds saved history. To use that history, choose \"Find the folder\" and pick this folder. To start over instead, move that folder somewhere else first. The history goes with it.",
+            "SavePoint can't start over in its default folder, shown below, because that folder already holds snapshots. To use them, choose \"Find the folder\" and pick this folder. To start over instead, move that folder somewhere else first; the snapshots go with it.",
             startup.StorageActionError);
         Assert.True(startup.HasStorageActionErrorPath);
         Assert.Equal(_defaultStorageRoot, startup.StorageActionErrorPath);

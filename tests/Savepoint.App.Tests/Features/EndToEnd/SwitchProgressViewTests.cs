@@ -15,6 +15,6 @@ public class SwitchProgressViewTests
         Assert.Equal("Stop switching", button.Content);
         var note = app.Find<TextBlock>("StopNoteText");
         Assert.True(note.IsEffectivelyVisible);
-        Assert.Equal("Stopping leaves the game's folder part way between two saves. Play again and SavePoint finishes the job.", note.Text);
+        Assert.Equal("Stopping leaves the game's folder with a mix of two snapshots. Press Play again and SavePoint finishes the job.", note.Text);
     }
 }

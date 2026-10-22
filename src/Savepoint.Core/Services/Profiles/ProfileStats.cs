@@ -3,10 +3,11 @@ using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Git;
+using Savepoint.Core.Services.History;
 
 namespace Savepoint.Core.Services.Profiles;
 
-/// <summary>Builds the figures on a profile row: whether it is active, what is unsaved, how many saves and mod files it holds, and its version.</summary>
+/// <summary>Builds the figures on a profile row: whether it is active, what is unsaved, how many snapshots and mod files it holds, and its version.</summary>
 internal static class ProfileStats
 {
     // What one folder looks like right now; unknown when it cannot be read (the folder moved, its marker is gone).
@@ -34,11 +35,12 @@ internal static class ProfileStats
         var installState = await installRead.ConfigureAwait(false);
         var externalState = externalRead is null ? null : await externalRead.ConfigureAwait(false);
         var running = services.Sessions.RunningProfileId(game.Id);
+        var snapshots = await HistoryReader.CountByOwnerAsync(storage, repos, profiles, cancellationToken).ConfigureAwait(false);
 
         var rows = new Task<ProfileRowStats>[profiles.Count];
         for (var i = 0; i < profiles.Count; i++)
         {
-            rows[i] = RowAsync(services, storage, game, profiles[i], install, external, installState, externalState, running, cancellationToken);
+            rows[i] = RowAsync(services, storage, game, profiles[i], install, installState, externalState, snapshots.GetValueOrDefault(profiles[i].Id), running, cancellationToken);
         }
 
         return await Task.WhenAll(rows).ConfigureAwait(false);
@@ -50,9 +52,9 @@ internal static class ProfileStats
         GameDefinition game,
         Profile profile,
         RepoRef install,
-        RepoRef? external,
         FolderState installState,
         FolderState? externalState,
+        int snapshotCount,
         string? running,
         CancellationToken cancellationToken)
     {
@@ -84,18 +86,11 @@ internal static class ProfileStats
             version = await services.Insights.DetectedVersionAsync(install, tip, game.Launch, cancellationToken).ConfigureAwait(false);
         }
 
-        int? saves = null;
-        if (external is not null)
-        {
-            var points = await storage.Engine.ListCommitsAsync(external, branch, null, cancellationToken).ConfigureAwait(false);
-            saves = points.Count(point => point.CaptureId is not null);
-        }
-
         return new ProfileRowStats(
             profile.Id,
             active,
             unsaved,
-            saves,
+            snapshotCount,
             modFiles,
             version,
             profile.VersionOverride,

@@ -168,7 +168,7 @@ public class ProfileDialogViewModelTests
 
         await dialog.SaveCommand.ExecuteAsync(null);
 
-        Assert.Equal("There's not enough free disk space to save this profile right now. Free up about 1.2 GB on drive D: and try again.", dialog.Error);
+        Assert.Equal("There's not enough free disk space to take this snapshot right now. Free up about 1.2 GB on drive D: and try again.", dialog.Error);
     }
 
     [Fact]
@@ -240,7 +240,7 @@ public class ProfileDialogViewModelTests
     {
         var dialog = Duplicate();
 
-        Assert.Equal("The copy starts with the same game version and mods. Its save history starts fresh, and Modded playthrough is left as it is.", dialog.Body);
+        Assert.Equal("The copy starts with the same game version and mods, and no save snapshots of its own. Modded playthrough stays as it is.", dialog.Body);
     }
 
     [Fact]

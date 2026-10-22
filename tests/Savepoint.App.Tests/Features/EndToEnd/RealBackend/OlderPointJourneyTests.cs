@@ -45,7 +45,7 @@ public class OlderPointJourneyTests
         var goBack = JourneyRig.RunAsync(oldest.GoBackCommand);
         var dialog = await rig.DialogAsync<LaunchDialogViewModel>();
         Assert.True(dialog.IsOlderPoint);
-        Assert.Contains("older point in \"Vanilla\"", dialog.OlderPointText, StringComparison.Ordinal);
+        Assert.Contains("older snapshot of \"Vanilla\"", dialog.OlderPointText, StringComparison.Ordinal);
         Assert.False(dialog.HasVersionSection, "the game's own files are the same at both points");
         Assert.Empty(dialog.UnsavedBlocks);
         rig.Render("4b-going-back-to-the-older-point");
@@ -63,9 +63,9 @@ public class OlderPointJourneyTests
         var afterPlay = await rig.DialogAsync<PostPlayDialogViewModel>();
         Assert.Equal([CompletionChoice.ForkNewProfile, CompletionChoice.MoveForward, CompletionChoice.Skip], afterPlay.Choices.Select(choice => choice.Kind));
         Assert.Equal(CompletionChoice.ForkNewProfile, afterPlay.SelectedChoice.Kind);
-        Assert.Equal("Keep this as a new profile", afterPlay.SelectedChoice.Title);
-        Assert.Contains("can't just be added to the end", afterPlay.OlderNote, StringComparison.Ordinal);
-        Assert.Equal("Save it", afterPlay.PrimaryLabel);
+        Assert.Equal("Keep this session as a new profile", afterPlay.SelectedChoice.Title);
+        Assert.Contains("can't simply go on the end", afterPlay.OlderNote, StringComparison.Ordinal);
+        Assert.Equal("Keep it", afterPlay.PrimaryLabel);
         rig.Render("4c-after-playing-on-from-the-older-point");
         afterPlay.SelectedChoice.Name = "Alternate chapter two";
         await rig.FinishesAsync(afterPlay.SaveCommand.ExecuteAsync(null), "the after-play dialog to answer");

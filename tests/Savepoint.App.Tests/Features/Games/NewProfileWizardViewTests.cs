@@ -67,7 +67,7 @@ public class NewProfileWizardViewTests
         await wizard.ContinueCommand.ExecuteAsync(null);
         harness.Settle();
 
-        Assert.Equal("Save profile", harness.Find<Button>("ContinueButton").Content);
+        Assert.Equal("Create profile", harness.Find<Button>("ContinueButton").Content);
     }
 
     [AvaloniaFact]
@@ -110,7 +110,7 @@ public class NewProfileWizardViewTests
         Assert.Contains("Current saves", harness.VisibleTexts());
         Assert.Contains(@"C:\Games\SkyrimSE" + " \u00b7 212 mod files \u00b7 41.2 GB", harness.VisibleTexts());
         Assert.Contains("SavePoint reuses files it already has, so this will only add about 2.4 GB.", harness.VisibleTexts());
-        Assert.Contains("WHAT WILL BE CAPTURED", harness.VisibleTexts());
+        Assert.Contains("WHAT GOES IN THE FIRST SNAPSHOT", harness.VisibleTexts());
 
         await wizard.ContinueCommand.ExecuteAsync(null);
         harness.Settle();
@@ -185,7 +185,7 @@ public class NewProfileWizardViewTests
 
         Assert.Equal(3, dots.Count);
         Assert.Equal(
-            ["Step 1 of 3: Name it, done", "Step 2 of 3: Check, current step", "Step 3 of 3: Save"],
+            ["Step 1 of 3: Name it, done", "Step 2 of 3: Check, current step", "Step 3 of 3: Create"],
             dots.Select(dot => AutomationProperties.GetName(dot.GetVisualDescendants().OfType<StackPanel>().First())));
         Assert.True(dots[0].GetVisualDescendants().OfType<TextBlock>().First(block => block.Name == "DoneIcon").IsEffectivelyVisible);
         Assert.False(dots[1].GetVisualDescendants().OfType<TextBlock>().First(block => block.Name == "DoneIcon").IsEffectivelyVisible);
@@ -210,10 +210,10 @@ public class NewProfileWizardViewTests
 
         Assert.False(bar.IsIndeterminate);
         Assert.Equal(25, bar.Value, 1);
-        Assert.Contains("1,000 of 4,000 files saved", harness.VisibleTexts());
-        Assert.Contains(@"Currently saving Data\x.esm", harness.VisibleTexts());
-        Assert.Equal("1,000 of 4,000 files saved", AutomationProperties.GetName(bar));
-        Assert.Equal("25% of the files are saved", harness.All<NewProfileWizardView>().Single().GetVisualDescendants().OfType<AnnouncementRegion>().Single().Message);
+        Assert.Contains("1,000 of 4,000 files copied", harness.VisibleTexts());
+        Assert.Contains(@"Copying Data\x.esm", harness.VisibleTexts());
+        Assert.Equal("1,000 of 4,000 files copied", AutomationProperties.GetName(bar));
+        Assert.Equal("25% of the files are copied", harness.All<NewProfileWizardView>().Single().GetVisualDescendants().OfType<AnnouncementRegion>().Single().Message);
     }
 
     [AvaloniaFact]
@@ -227,7 +227,7 @@ public class NewProfileWizardViewTests
         harness.Settle();
 
         Assert.True(harness.Find<StackPanel>("SavedBlock").IsEffectivelyVisible);
-        Assert.Equal("Profile saved.", harness.Find<TextBlock>("SavedText").Text);
+        Assert.Equal("Profile created.", harness.Find<TextBlock>("SavedText").Text);
         var done = harness.Find<Button>("DoneButton");
         Assert.True(done.IsEffectivelyVisible);
 
@@ -253,10 +253,10 @@ public class NewProfileWizardViewTests
         var texts = harness.VisibleTexts().ToList();
 
         Assert.True(harness.Find<ContentControl>("ResultCardHost").IsEffectivelyVisible);
-        Assert.Contains("Half of that save worked", texts);
+        Assert.Contains("Only part of the snapshot was taken", texts);
         Assert.Contains("Retry the saves", texts);
-        Assert.Contains("Game version and mods \u00b7 saved", texts);
-        Assert.Contains("Saves \u00b7 not saved", texts);
+        Assert.Contains("Game version and mods \u00b7 in the snapshot", texts);
+        Assert.Contains("Saves \u00b7 not in the snapshot yet", texts);
         Assert.True(harness.Find<Button>("CloseButton").IsEffectivelyVisible);
         Assert.False(harness.Find<Button>("DoneButton").IsEffectivelyVisible);
         Assert.False(harness.Find<StackPanel>("SavingBlock").IsEffectivelyVisible);
@@ -274,7 +274,7 @@ public class NewProfileWizardViewTests
         harness.Settle();
 
         Assert.True(harness.Find<Border>("SubmitErrorBox").IsEffectivelyVisible);
-        Assert.Contains("There's not enough free disk space to save this profile right now. Free up about 1.2 GB on drive D: and try again.", harness.VisibleTexts());
+        Assert.Contains("There's not enough free disk space to take this snapshot right now. Free up about 1.2 GB on drive D: and try again.", harness.VisibleTexts());
         Assert.True(harness.Find<StackPanel>("CheckStep").IsEffectivelyVisible);
     }
 
@@ -297,6 +297,6 @@ public class NewProfileWizardViewTests
 
         Assert.Same(harness.Find<TextBox>("NameField"), harness.Window.FocusManager!.GetFocusedElement());
         Assert.Equal("Modded playthrough - 7-2-26 copy", harness.Find<TextBox>("NameField").Text);
-        Assert.Contains("The copy starts with the same game version and mods. Its save history starts fresh, and Modded playthrough - 7-2-26 is left as it is.", harness.VisibleTexts());
+        Assert.Contains("The copy starts with the same game version and mods, and no save snapshots of its own. Modded playthrough - 7-2-26 stays as it is.", harness.VisibleTexts());
     }
 }

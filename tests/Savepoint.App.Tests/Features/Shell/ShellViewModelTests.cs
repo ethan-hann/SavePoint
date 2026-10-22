@@ -70,7 +70,7 @@ public class ShellViewModelTests
         Assert.Null(rig.Shell.SelectedGame);
         Assert.Empty(rig.Shell.Games);
         Assert.Equal(@"C:\Users\you\AppData\Local\SavePoint\Storage", rig.Shell.FirstRun.StoragePath);
-        Assert.Equal("Everything is stored in ", rig.Shell.FirstRun.StorageNoteBefore);
+        Assert.Equal("SavePoint keeps your snapshots in ", rig.Shell.FirstRun.StorageNoteBefore);
         Assert.Equal(" \u2014 you can change that in Settings.", rig.Shell.FirstRun.StorageNoteAfter);
         Assert.True(rig.Shell.FirstRun.HasStorageNote);
     }

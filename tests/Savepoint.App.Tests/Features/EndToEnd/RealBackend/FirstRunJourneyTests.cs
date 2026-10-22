@@ -65,7 +65,7 @@ public class FirstRunJourneyTests
         Assert.Equal(["Game version and mods", "Current saves"], captured);
         await rig.WaitAsync(() => profile.IsActive, "the row to show the profile as active once its status is read");
         Assert.False(profile.HasUnsavedChanges);
-        Assert.StartsWith("Active now", profile.SecondaryText, StringComparison.Ordinal);
+        Assert.StartsWith("Loaded now", profile.SecondaryText, StringComparison.Ordinal);
         Assert.Equal("Vanilla", profile.Name);
         Assert.True(profile.CanPlay);
 

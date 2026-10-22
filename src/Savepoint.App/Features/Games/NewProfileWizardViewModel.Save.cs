@@ -179,7 +179,7 @@ public sealed partial class NewProfileWizardViewModel
         Announcement = ResultCard.Title;
     }
 
-    // The "Half of that save worked" card (2l): what was saved, what was not and why, and a retry for just that part.
+    // The "Only part of the snapshot was taken" card (2l): what was saved, what was not and why, and a retry for just that part.
     private ErrorCardViewModel PartialCard(IReadOnlyList<FolderOutcome> failures)
     {
         _failedRoles = [.. failures.Select(failure => failure.Role)];

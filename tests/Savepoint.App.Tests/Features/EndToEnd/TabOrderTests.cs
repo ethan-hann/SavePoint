@@ -114,7 +114,7 @@ public class TabOrderTests
                 "History", "Skyrim Special Edition, 3 profiles", "Add a game",
                 "Filter by profile: All profiles", "List",
                 .. app.History.Timeline.Where(entry => entry.CanGoBack).Select(entry => entry.GoBackAutomationName),
-                "Load Cleared Blackreach", "Load Fresh start with Nolvus", "Load Deep cave run", "Load First night",
+                "Go back to Cleared Blackreach", "Go back to Fresh start with Nolvus", "Go back to Deep cave run", "Go back to First night",
             ],
             TabStops(app));
     }
@@ -131,7 +131,7 @@ public class TabOrderTests
                 "Settings", "Skyrim Special Edition, 3 profiles", "Add a game",
                 "Change", "Run now",
                 "Dark", "Sidebar", "Blue", "Look up game artwork online",
-                "Skip the check before playing when only the save changes", "Ask whether to save the session",
+                "Skip the check before playing when only your saves change", "Ask whether to keep the session",
                 "Remove all data…", "Third-party notices",
             ],
             TabStops(app));
@@ -155,7 +155,7 @@ public class TabOrderTests
         app.Settle();
 
         Assert.Equal(
-            ["Save to load", "Save them first", "Discard them", "Don't ask again when only the save changes", "Cancel"],
+            ["Saves to load", "Take a snapshot first", "Discard them", "Skip this check when only your saves change", "Cancel"],
             TabStops(app));
     }
 
@@ -190,7 +190,7 @@ public class TabOrderTests
 
         var stops = TabStops(app);
 
-        Assert.Equal(["Not now", "Save it"], stops[^2..]);
+        Assert.Equal(["Not now", "Keep it"], stops[^2..]);
         Assert.True(stops.Count > 2, "The choices come before the buttons.");
     }
 

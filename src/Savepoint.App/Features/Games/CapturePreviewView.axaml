@@ -5,7 +5,7 @@
              xmlns:games="using:Savepoint.App.Features.Games"
              x:Class="Savepoint.App.Features.Games.CapturePreviewView"
              x:DataType="games:CapturePreviewViewModel">
-  <!-- "What will be captured" (2f): the tracked folders with their sizes, and what saving will really add to storage. -->
+  <!-- "What goes in the first snapshot" (2f): the tracked folders with their sizes, and what saving will really add to storage. -->
   <StackPanel Spacing="12">
     <TextBlock Classes="overline" Text="{theme:Upper {loc:Loc profiles.wizard.preview.sectionLabel}}" />
     <TextBlock x:Name="LoadingText" Classes="body subtle" IsVisible="{Binding IsLoading}" Text="{loc:Loc profiles.wizard.preview.loading}" />

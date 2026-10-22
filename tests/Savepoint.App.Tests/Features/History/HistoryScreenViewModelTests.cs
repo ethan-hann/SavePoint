@@ -33,7 +33,7 @@ public class HistoryScreenViewModelTests
         var rig = await HistoryRig.ShownAsync();
 
         Assert.Equal("Skyrim Special Edition", rig.Screen.GameName);
-        Assert.Equal("Skyrim Special Edition · 8 points kept", rig.Screen.Subtitle);
+        Assert.Equal("Skyrim Special Edition · 8 snapshots", rig.Screen.Subtitle);
     }
 
     [Fact]
@@ -44,9 +44,9 @@ public class HistoryScreenViewModelTests
         Assert.Equal(
             [
                 "14 mod files updated",
-                "Captured 1.6.640 with 198 mod files",
-                "Captured 1.6.1170, no mods",
-                "Captured 1.6.640 with 189 mod files",
+                "Snapshot of 1.6.640 with 198 mod files",
+                "Snapshot of 1.6.1170, no mods",
+                "Snapshot of 1.6.640 with 189 mod files",
             ],
             rig.Screen.Timeline.Select(entry => entry.Headline));
     }
@@ -73,7 +73,7 @@ public class HistoryScreenViewModelTests
 
         Assert.Equal(
             [
-                "Jul 2, 2026 · 6:03 PM · in use now",
+                "Jul 2, 2026 · 6:03 PM · loaded now",
                 "Jul 2, 2026 · 5:47 PM",
                 "Jun 21, 2026 · 9:12 PM",
                 "May 14, 2026 · 8:30 PM",
@@ -98,7 +98,7 @@ public class HistoryScreenViewModelTests
         Assert.Equal(
             ["Before the final boss", "Cleared Blackreach", "Fresh start with Nolvus", "Deep cave run", "First night"],
             rig.Screen.Saves.Select(row => row.Name));
-        Assert.Contains(rig.Screen.Timeline, entry => entry.Headline == "Captured 1.6.640 with 198 mod files");
+        Assert.Contains(rig.Screen.Timeline, entry => entry.Headline == "Snapshot of 1.6.640 with 198 mod files");
     }
 
     [Fact]
@@ -143,10 +143,10 @@ public class HistoryScreenViewModelTests
         var rig = await HistoryRig.ShownAsync();
         var cards = rig.Screen.Groups.SelectMany(group => group.Cards).ToDictionary(card => card.Name);
 
-        Assert.Equal("Save only · 1.6.640 with 212 mod files", cards["Before the final boss"].Contains);
+        Assert.Equal("Saves only · 1.6.640 with 212 mod files", cards["Before the final boss"].Contains);
         Assert.Equal("Version and mods · 1.6.640 with 212 mod files", cards["14 mod files updated"].Contains);
         Assert.Equal("Version and mods · 1.6.1170, no mods", cards["Vanilla 1.6.1170"].Contains);
-        Assert.Equal("Version, mods and save · 1.6.640 with 198 mod files", cards["Fresh start with Nolvus"].Contains);
+        Assert.Equal("Version, mods and saves · 1.6.640 with 198 mod files", cards["Fresh start with Nolvus"].Contains);
     }
 
     [Fact]
@@ -254,7 +254,7 @@ public class HistoryScreenViewModelTests
     {
         var rig = await HistoryRig.ShownAsync();
 
-        Assert.Equal("Load Cleared Blackreach", rig.Screen.Saves.Single(r => r.Name == "Cleared Blackreach").LoadAutomationName);
+        Assert.Equal("Go back to Cleared Blackreach", rig.Screen.Saves.Single(r => r.Name == "Cleared Blackreach").LoadAutomationName);
         Assert.Equal(
             "Go back to this: Cleared Blackreach",
             rig.Screen.Groups.SelectMany(group => group.Cards).Single(c => c.Name == "Cleared Blackreach").GoBackAutomationName);
@@ -331,8 +331,8 @@ public class HistoryScreenViewModelTests
 
         var read = rig.Backend.Calls.To<IHistoryApi>(nameof(IHistoryApi.GetAsync)).Last();
         Assert.Equal([MockupScenario.SkyrimId, MockupScenario.ModdedId], read.Args);
-        Assert.Equal("Skyrim Special Edition · 4 points kept", rig.Screen.Subtitle);
-        Assert.Equal(["14 mod files updated", "Captured 1.6.640 with 198 mod files"], rig.Screen.Timeline.Select(entry => entry.Headline));
+        Assert.Equal("Skyrim Special Edition · 4 snapshots", rig.Screen.Subtitle);
+        Assert.Equal(["14 mod files updated", "Snapshot of 1.6.640 with 198 mod files"], rig.Screen.Timeline.Select(entry => entry.Headline));
     }
 
     [Fact]
@@ -342,7 +342,7 @@ public class HistoryScreenViewModelTests
 
         rig.Screen.SelectedFilter = rig.Screen.Filters.Single(filter => filter.ProfileId == MockupScenario.VanillaId);
 
-        Assert.Equal("Skyrim Special Edition · 1 point kept", rig.Screen.Subtitle);
+        Assert.Equal("Skyrim Special Edition · 1 snapshot", rig.Screen.Subtitle);
     }
 
     [Fact]
@@ -353,7 +353,7 @@ public class HistoryScreenViewModelTests
 
         rig.Screen.SelectedFilter = rig.Screen.Filters[0];
 
-        Assert.Equal("Skyrim Special Edition · 8 points kept", rig.Screen.Subtitle);
+        Assert.Equal("Skyrim Special Edition · 8 snapshots", rig.Screen.Subtitle);
         Assert.Null(rig.Backend.Calls.To<IHistoryApi>(nameof(IHistoryApi.GetAsync)).Last().Args[1]);
     }
 
@@ -418,7 +418,7 @@ public class HistoryScreenViewModelTests
 
         Assert.Equal(HistoryState.Empty, rig.Screen.State);
         Assert.False(rig.Screen.IsFilteredEmpty);
-        Assert.Equal("Satisfactory · 0 points kept", rig.Screen.Subtitle);
+        Assert.Equal("Satisfactory · 0 snapshots", rig.Screen.Subtitle);
     }
 
     [Fact]
@@ -545,8 +545,8 @@ public class HistoryScreenViewModelTests
         gate.Pending[1].Release();
         gate.Pending[0].Release();
 
-        Assert.Equal("Skyrim Special Edition · 1 point kept", rig.Screen.Subtitle);
-        Assert.Equal(["Captured 1.6.1170, no mods"], rig.Screen.Timeline.Select(entry => entry.Headline));
+        Assert.Equal("Skyrim Special Edition · 1 snapshot", rig.Screen.Subtitle);
+        Assert.Equal(["Snapshot of 1.6.1170, no mods"], rig.Screen.Timeline.Select(entry => entry.Headline));
     }
 
     [Fact]
@@ -643,7 +643,7 @@ public class HistoryScreenViewModelTests
         var rig = await HistoryRig.ShownAsync();
 
         Assert.Equal(
-            "41.2 GB kept for this game. Deleting a profile frees its space soon after.",
+            "This game's snapshots use 41.2 GB. Deleting a profile frees its space soon after.",
             rig.Screen.FooterText);
         Assert.True(rig.Screen.HasFooter);
     }

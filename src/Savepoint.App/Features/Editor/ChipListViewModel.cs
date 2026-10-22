@@ -30,7 +30,7 @@ public sealed partial class ChipListViewModel : ObservableObject
     private string _newText = string.Empty;
 
     /// <param name="text">Formats the remove buttons' names.</param>
-    /// <param name="groupName">The list's accessible name, such as "Files to ignore".</param>
+    /// <param name="groupName">The list's accessible name, such as "Files to leave out".</param>
     /// <param name="addLabel">The text of the add chip.</param>
     /// <param name="placeholder">The example shown in the empty add field.</param>
     public ChipListViewModel(UiFormatter text, string groupName, string addLabel, string placeholder)

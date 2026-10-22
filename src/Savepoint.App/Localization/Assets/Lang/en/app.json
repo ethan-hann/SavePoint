@@ -1,5 +1,5 @@
 {
-  "app.alreadyRunning.body": "SavePoint is open in another window, and only one copy can work on your history at a time. Look for it on your taskbar or dock. This message closes by itself.",
+  "app.alreadyRunning.body": "SavePoint is open in another window, and only one copy can run at a time. Look for it on your taskbar or dock. This message closes by itself.",
   "app.alreadyRunning.ok": "OK",
   "app.alreadyRunning.title": "SavePoint is already running",
   "app.crash.body": "The details were saved to SavePoint's log. If you report this problem, send the newest file from the log folder.",

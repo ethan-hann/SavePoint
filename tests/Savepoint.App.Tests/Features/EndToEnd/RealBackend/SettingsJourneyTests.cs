@@ -61,7 +61,7 @@ public class SettingsJourneyTests
 
         // The question says what goes and what stays, and will not go ahead until the word is typed.
         Assert.Equal("Remove all SavePoint data?", dialog.Title);
-        Assert.Equal("1 game and 2 profiles, with all their saved history", dialog.Items[0]);
+        Assert.Equal("1 game and 2 profiles, with all their snapshots", dialog.Items[0]);
         Assert.Contains(rig.StorageRoot, dialog.Items[1], StringComparison.OrdinalIgnoreCase);
         Assert.StartsWith("Your game folders and everything in them stay exactly as they are.", dialog.Stays, StringComparison.Ordinal);
         Assert.Equal("Type DELETE to confirm.", dialog.Prompt);
@@ -97,9 +97,9 @@ public class SettingsJourneyTests
         rig.Dialogs.AnswerFolder(destination);
         var change = rig.Settings.Storage.ChangeCommand.ExecuteAsync(null);
         var question = await rig.DialogAsync<ConfirmDialogViewModel>();
-        Assert.Equal("Move SavePoint's data?", question.Title);
+        Assert.Equal("Move your snapshots?", question.Title);
         Assert.Contains(destination, question.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal("Move data", question.ConfirmLabel);
+        Assert.Equal("Move snapshots", question.ConfirmLabel);
         question.ConfirmCommand.Execute(null);
         await rig.FinishesAsync(change, "the move to be asked for");
         await rig.WaitAsync(() => SamePath(rig.Settings.Storage.StoragePath, destination) && !rig.Settings.Storage.IsRelocating, "Settings to show the data in its new folder");

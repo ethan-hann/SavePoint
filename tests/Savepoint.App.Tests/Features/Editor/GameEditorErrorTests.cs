@@ -180,7 +180,7 @@ public class GameEditorErrorTests
         await Save(rig, editor);
 
         Assert.NotNull(editor.InstallCard);
-        Assert.Equal("That folder is too broad to track", editor.InstallCard.Title);
+        Assert.Equal("That folder is too broad to use", editor.InstallCard.Title);
         Assert.Equal(@"C:\Program Files (x86)", editor.InstallCard.Path);
         Assert.Null(editor.SavesCard);
         Assert.Null(editor.FormError);
@@ -350,7 +350,7 @@ public class GameEditorErrorTests
 
         await Save(rig, editor);
 
-        Assert.Equal("SavePoint doesn't recognize that shortcut in the folder location, or it isn't available on this computer.", editor.InstallError);
+        Assert.Equal("SavePoint doesn't recognize a name in curly brackets in that folder location, or that place isn't on this computer.", editor.InstallError);
         Assert.Null(editor.SavesError);
         Assert.Empty(rig.Dialogs.Shown);
         Assert.Empty(rig.Calls("AddAsync"));

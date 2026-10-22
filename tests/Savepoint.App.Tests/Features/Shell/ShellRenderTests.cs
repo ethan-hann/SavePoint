@@ -91,7 +91,7 @@ public class ShellRenderTests
         FakeAssert.Ok(await harness.Backend.Profiles.CaptureAsync(MockupScenario.SkyrimId, MockupScenario.ModdedId, "A point"));
         var finished = FakeAssert.Ok(await harness.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
         harness.Backend.Jobs.Complete(finished.JobId);
-        harness.Main.Toasts.Show(new ToastMessage("Something went wrong saving The Last Caretaker.", ToastKind.Error, "There's not enough free disk space to save this profile right now."));
+        harness.Main.Toasts.Show(new ToastMessage("Something went wrong saving The Last Caretaker.", ToastKind.Error, "There's not enough free disk space to take this snapshot right now."));
 
         AssertRendered(harness.Render("shell-job-pill-and-toasts-dark"));
     }

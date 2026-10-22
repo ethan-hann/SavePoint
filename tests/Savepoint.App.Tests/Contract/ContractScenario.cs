@@ -196,7 +196,7 @@ internal static class ContractScenario
 
         story.Add("history after the first save", Show(await backend.History.GetAsync(game.Id, null, cancellationToken), history => $"{history.Points.Count} points"));
         story.Add("row stats after the first save", Show(await backend.Profiles.GetRowStatsAsync(game.Id, cancellationToken), stats =>
-            string.Join("; ", stats.Select(s => $"active={s.IsActive} saves={s.SaveCount}"))));
+            string.Join("; ", stats.Select(s => $"active={s.IsActive} snapshots={s.SnapshotCount}"))));
         story.Add("storage used", Show(await backend.Games.GetStorageUsageAsync(game.Id, cancellationToken), usage => $"{usage.BytesUsed > 0}"));
         story.Add("delete preview of the active profile", Show(await backend.Profiles.GetDeletePreviewAsync(game.Id, profileId, cancellationToken), preview =>
             $"points={preview.PointsOnlyHere} blocked={preview.BlockedBy?.MessageId ?? "no"}"));

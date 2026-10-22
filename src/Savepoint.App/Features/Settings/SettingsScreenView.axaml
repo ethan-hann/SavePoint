@@ -49,7 +49,7 @@
 
       <StackPanel x:Name="Sections" Spacing="22" IsVisible="{Binding IsLoaded}">
 
-        <!-- Where SavePoint keeps its data. -->
+        <!-- Where SavePoint keeps your snapshots. -->
         <StackPanel x:Name="StorageSection">
           <TextBlock Classes="section-label" Text="{theme:Upper {loc:Loc settings.storage.heading}}" />
           <Border Classes="panel">
@@ -283,8 +283,11 @@
         <StackPanel x:Name="SessionSection">
           <TextBlock Classes="section-label" Text="{theme:Upper {loc:Loc settings.session.heading}}" />
           <Border Classes="panel">
-            <ToggleSwitch x:Name="AskSwitch" HorizontalAlignment="Stretch" IsChecked="{Binding Session.AskToSave, Mode=TwoWay}">
-              <TextBlock Classes="body" FontSize="14.5" Text="{loc:Loc settings.session.ask}" />
+            <ToggleSwitch x:Name="AskSwitch" HorizontalAlignment="Stretch" IsChecked="{Binding Session.AskToSave, Mode=TwoWay}" AutomationProperties.Name="{loc:Loc settings.session.ask}" AutomationProperties.HelpText="{loc:Loc settings.session.askHint}">
+              <StackPanel Spacing="3">
+                <TextBlock Classes="body" FontSize="14.5" Text="{loc:Loc settings.session.ask}" />
+                <TextBlock Classes="caption" FontSize="12.5" TextWrapping="Wrap" Text="{loc:Loc settings.session.askHint}" />
+              </StackPanel>
             </ToggleSwitch>
           </Border>
         </StackPanel>

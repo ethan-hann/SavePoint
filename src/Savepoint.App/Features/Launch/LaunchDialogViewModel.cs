@@ -24,6 +24,7 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
 
     private readonly LaunchPreview _preview;
     private readonly string _profileName;
+    private readonly Func<string, string?> _profileNameOf;
     private readonly LaunchDependencies _deps;
     private readonly SaveOptionViewModel? _defaultSave;
     private bool _restoringPreference;
@@ -50,12 +51,14 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
     /// <param name="gameName">The game being started.</param>
     /// <param name="profileName">The profile being switched to.</param>
     /// <param name="skipConfirmWhenOnlySaveChanges">The saved "don't ask again" preference.</param>
+    /// <param name="profileNameOf">Looks up a profile's name by id; null for one it does not know. Names the profile that new changes belong to.</param>
     /// <param name="deps">The Api and formatting the dialog uses.</param>
-    public LaunchDialogViewModel(LaunchPreview preview, string gameName, string profileName, bool skipConfirmWhenOnlySaveChanges, LaunchDependencies deps)
+    public LaunchDialogViewModel(LaunchPreview preview, string gameName, string profileName, bool skipConfirmWhenOnlySaveChanges, Func<string, string?> profileNameOf, LaunchDependencies deps)
         : base(deps.Text.Message("launch.dialog.title", ("profileName", profileName)))
     {
         _preview = preview;
         _profileName = profileName;
+        _profileNameOf = profileNameOf;
         _deps = deps;
         GameName = gameName;
         _dontAskAgain = skipConfirmWhenOnlySaveChanges;
@@ -245,9 +248,7 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
         var block = new UnsavedChangesBlockViewModel(
             folder.Role,
             text.Message(unfinished ? "launch.dialog.unfinishedTitle" : "launch.dialog.unsavedTitle"),
-            unfinished
-                ? text.Message("launch.dialog.unfinishedBody", ("role", role))
-                : text.Message("launch.dialog.unsavedBody", ("count", folder.DirtyFileCount), ("role", role)),
+            unfinished ? text.Message("launch.dialog.unfinishedBody", ("role", role)) : ChangesBody(folder, role),
             !unfinished && folder.DirtyOwnerProfileId is not null,
             SaveFirstAsync,
             DiscardAsync,
@@ -258,6 +259,19 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
             unfinished ? folder.UnfinishedSwitchTarget : null);
         block.PropertyChanged += OnBlockPropertyChanged;
         UnsavedBlocks.Add(block);
+    }
+
+    // The snapshot goes to the profile the changes belong to, which need not be the one being switched to, so it is named; changes nobody owns are kept as a new profile.
+    private string ChangesBody(FolderLaunchState folder, string role)
+    {
+        var text = _deps.Text;
+        if (folder.DirtyOwnerProfileId is not { } ownerId)
+        {
+            return text.Message("launch.dialog.unsavedBodyUnowned", ("count", folder.DirtyFileCount), ("role", role));
+        }
+
+        var owner = _profileNameOf(ownerId) ?? text.Message("launch.thisProfile");
+        return text.Message("launch.dialog.unsavedBody", ("count", folder.DirtyFileCount), ("role", role), ("ownerName", owner));
     }
 
     private void OnBlockPropertyChanged(object? sender, PropertyChangedEventArgs e)

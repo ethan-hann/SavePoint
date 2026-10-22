@@ -3,7 +3,7 @@
              xmlns:games="using:Savepoint.App.Features.Games"
              x:Class="Savepoint.App.Features.Games.SaveOutcomeListView"
              x:DataType="games:SaveOutcomeListViewModel">
-  <!-- Which folders a capture saved and which it did not, inside the "Half of that save worked" card (2l). -->
+  <!-- Which folders a capture saved and which it did not, inside the "Only part of the snapshot was taken" card (2l). -->
   <ItemsControl ItemsSource="{Binding Rows}">
     <ItemsControl.ItemsPanel>
       <ItemsPanelTemplate>

@@ -33,6 +33,23 @@ public sealed partial class GamesScreenViewModel
         }
     }
 
+    // A snapshot of what the folders hold now, added to this profile; the job's result and any failure reach the player through the shell's job status.
+    async Task IProfileRowActions.TakeSnapshotAsync(ProfileRowViewModel row)
+    {
+        // A command's Execute runs even when CanExecute is false, so the gate is checked again here.
+        if (!row.CanPlay)
+        {
+            return;
+        }
+
+        var name = _deps.Text.Message("games.profileTable.takeSnapshot.defaultName", ("date", _deps.Text.NameDate(_deps.Clock.GetUtcNow())));
+        var started = await _deps.Profiles.CaptureAsync(row.GameId, row.Id, name);
+        if (!started.Ok)
+        {
+            ShowError(started.Error);
+        }
+    }
+
     async Task IProfileRowActions.DuplicateAsync(ProfileRowViewModel row)
     {
         var dialog = new DuplicateProfileDialogViewModel(row.Name, name => _deps.Profiles.DuplicateAsync(row.GameId, row.Id, name), _deps.Text);

@@ -31,6 +31,7 @@ public sealed partial class ProfileRowViewModel : ObservableObject
         PlayCommand = new AsyncRelayCommand(() => _actions.PlayAsync(this), () => CanPlay);
         EditCommand = new AsyncRelayCommand(() => _actions.EditAsync(this));
         DuplicateCommand = new AsyncRelayCommand(() => _actions.DuplicateAsync(this));
+        TakeSnapshotCommand = new AsyncRelayCommand(() => _actions.TakeSnapshotAsync(this), () => CanPlay);
         DeleteCommand = new AsyncRelayCommand(() => _actions.DeleteAsync(this));
         Fill(profile, stats);
     }
@@ -56,16 +57,16 @@ public sealed partial class ProfileRowViewModel : ObservableObject
     /// <summary>True when at least one folder has changes that are not saved.</summary>
     public bool HasUnsavedChanges { get; private set; }
 
-    /// <summary>The line under the name: "Active now · 6 saves", "Unsaved changes · 2 saves", "1 save", or empty.</summary>
+    /// <summary>The line under the name: "Loaded now · 4 snapshots", "New changes · 3 snapshots", "1 snapshot", or empty.</summary>
     public string SecondaryText { get; private set; } = string.Empty;
 
-    /// <summary>True when the secondary line is the "Active now" one (drawn in the accent color).</summary>
+    /// <summary>True when the secondary line is the "Loaded now" one (drawn in the accent color).</summary>
     public bool IsActiveLine { get; private set; }
 
-    /// <summary>True when the secondary line is the "Unsaved changes" one (drawn in the error color).</summary>
+    /// <summary>True when the secondary line is the "New changes" one (drawn in the error color).</summary>
     public bool IsUnsavedLine { get; private set; }
 
-    /// <summary>True when the secondary line is the plain save count (drawn in the subtle color).</summary>
+    /// <summary>True when the secondary line is the plain snapshot count (drawn in the subtle color).</summary>
     public bool IsPlainLine { get; private set; }
 
     /// <summary>The version: the user's override, else the detected one, else an em dash.</summary>
@@ -110,6 +111,9 @@ public sealed partial class ProfileRowViewModel : ObservableObject
     /// <summary>Opens the duplicate dialog.</summary>
     public IAsyncRelayCommand DuplicateCommand { get; }
 
+    /// <summary>Takes a snapshot of the game's folders as they are now into this profile; off while the game has a session, as Play is.</summary>
+    public IAsyncRelayCommand TakeSnapshotCommand { get; }
+
     /// <summary>Starts deleting the profile, which asks first.</summary>
     public IAsyncRelayCommand DeleteCommand { get; }
 
@@ -121,7 +125,11 @@ public sealed partial class ProfileRowViewModel : ObservableObject
 
     internal void SetCanPlay(bool canPlay) => CanPlay = canPlay;
 
-    partial void OnCanPlayChanged(bool value) => PlayCommand.NotifyCanExecuteChanged();
+    partial void OnCanPlayChanged(bool value)
+    {
+        PlayCommand.NotifyCanExecuteChanged();
+        TakeSnapshotCommand.NotifyCanExecuteChanged();
+    }
 
     private void Fill(Profile profile, ProfileRowStats stats)
     {
@@ -137,7 +145,7 @@ public sealed partial class ProfileRowViewModel : ObservableObject
 
         IsUnsavedLine = HasUnsavedChanges;
         IsActiveLine = !IsUnsavedLine && IsActive;
-        IsPlainLine = !IsUnsavedLine && !IsActiveLine && stats.SaveCount is not null;
+        IsPlainLine = !IsUnsavedLine && !IsActiveLine && stats.SnapshotCount is not null;
         SecondaryText = SecondaryLine(stats);
 
         VersionText = VersionOverride ?? DetectedVersion ?? noValue;
@@ -157,14 +165,14 @@ public sealed partial class ProfileRowViewModel : ObservableObject
             ("lastPlayed", LastPlayedText == noValue ? none : LastPlayedText));
     }
 
-    // The first rule that matches wins: unsaved changes, then the active profile, then the plain count.
-    private string SecondaryLine(ProfileRowStats stats) => (IsUnsavedLine, IsActiveLine, stats.SaveCount) switch
+    // The first rule that matches wins: new changes, then the loaded profile, then the plain count.
+    private string SecondaryLine(ProfileRowStats stats) => (IsUnsavedLine, IsActiveLine, stats.SnapshotCount) switch
     {
-        (true, _, { } count) => _text.Message("games.profileTable.unsavedChangesWithSaves", ("count", count)),
+        (true, _, { } count) => _text.Message("games.profileTable.newChangesWithSnapshots", ("count", count)),
         (true, _, null) => _text.Message("games.profileTable.unsavedChanges"),
-        (_, true, { } count) => _text.Message("games.profileTable.activeNowWithSaves", ("count", count)),
+        (_, true, { } count) => _text.Message("games.profileTable.loadedNowWithSnapshots", ("count", count)),
         (_, true, null) => _text.Message("games.profileTable.activeNow"),
-        (_, _, { } count) => _text.Message("games.profileTable.saveCount", ("count", count)),
+        (_, _, { } count) => _text.Message("games.profileTable.snapshotCount", ("count", count)),
         _ => string.Empty,
     };
 

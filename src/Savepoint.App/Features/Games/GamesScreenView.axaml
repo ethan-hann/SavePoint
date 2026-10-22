@@ -206,6 +206,7 @@
                           <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.MoreVert}" />
                           <Button.Flyout>
                             <MenuFlyout Placement="BottomEdgeAlignedRight">
+                              <MenuItem Header="{loc:Loc games.profileTable.takeSnapshot}" Command="{Binding TakeSnapshotCommand}" />
                               <MenuItem Header="{loc:Loc games.profileTable.edit}" Command="{Binding EditCommand}" />
                               <MenuItem Header="{loc:Loc games.profileTable.duplicate}" Command="{Binding DuplicateCommand}" />
                               <MenuItem Header="{loc:Loc games.profileTable.delete}" Command="{Binding DeleteCommand}" />

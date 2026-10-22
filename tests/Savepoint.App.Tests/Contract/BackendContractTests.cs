@@ -60,7 +60,7 @@ public class BackendContractTests(ContractRuns runs) : IClassFixture<ContractRun
             [
                 "choices after play with one save: CaptureNew,Skip",
                 "history after the first save: 0 points",
-                "row stats after the first save: active=False saves=0",
+                "row stats after the first save: active=False snapshots=0",
                 "storage used: False",
                 "delete preview of the active profile: points=0 blocked=no",
                 "delete of the active profile: deleted",
@@ -71,7 +71,7 @@ public class BackendContractTests(ContractRuns runs) : IClassFixture<ContractRun
             [
                 "choices after play with one save: CaptureNew,UpdateExisting,Skip",
                 "history after the first save: 1 points",
-                "row stats after the first save: active=True saves=1",
+                "row stats after the first save: active=True snapshots=1",
                 "storage used: True",
                 "delete preview of the active profile: points=1 blocked=error.gameService.profileActive",
                 "delete of the active profile: error error.gameService.profileActive",

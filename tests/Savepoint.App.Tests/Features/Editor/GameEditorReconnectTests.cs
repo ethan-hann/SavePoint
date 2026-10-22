@@ -47,7 +47,7 @@ public class GameEditorReconnectTests
     {
         var dialog = new ReconnectDialogViewModel(_history, _text);
 
-        Assert.Equal("Found saved history for this location", dialog.Title);
+        Assert.Equal("This folder has snapshots from before", dialog.Title);
         Assert.Equal(["Recovered: Modded run", "Recovered profile"], dialog.Lines);
         Assert.Equal(
             [new RecoveredProfile("profile/modded-run-ab12", "Modded run"), new RecoveredProfile("profile/xy99", "Recovered profile")],
@@ -177,6 +177,6 @@ public class GameEditorReconnectTests
 
         Assert.Empty(rig.Dialogs.Shown);
         Assert.NotNull(editor.FormError);
-        Assert.Equal("Saved history was found here", editor.FormError.Title);
+        Assert.Equal("Snapshots were found here", editor.FormError.Title);
     }
 }

@@ -45,8 +45,8 @@ public class PlayJourneyTests
         Assert.StartsWith("You played for ", postPlay.Title, StringComparison.Ordinal);
         Assert.Equal([CompletionChoice.CaptureNew, CompletionChoice.UpdateExisting, CompletionChoice.Skip], postPlay.Choices.Select(choice => choice.Kind));
         Assert.Equal(CompletionChoice.CaptureNew, postPlay.SelectedChoice.Kind);
-        Assert.Equal("Save it", postPlay.PrimaryLabel);
-        Assert.Contains("Update \"Vanilla\" instead", postPlay.Choices.Select(choice => choice.Title));
+        Assert.Equal("Keep it", postPlay.PrimaryLabel);
+        Assert.Contains("Replace \"Vanilla\" with this session", postPlay.Choices.Select(choice => choice.Title));
         var written = FolderSnapshot.Of(game.Saves);
         Assert.NotEmpty(written);
         Assert.Equal(rig.Text.Message("launch.postPlay.body", ("count", written.Count)), postPlay.Body);
@@ -60,16 +60,16 @@ public class PlayJourneyTests
         await rig.WaitAsync(() => vanilla.CanPlay && rig.Games.InlineContent is null && rig.ToastTexts.Contains("Saved Play Game."), "the session to be saved");
         Assert.True(trail.Showed(nameof(LaunchBannerViewModel), nameof(RunningCardViewModel), nameof(LaunchSavingViewModel), "nothing"), string.Join(" > ", trail.Seen));
         await rig.WaitAsync(() => vanilla.IsActive && !vanilla.IsRunning, "the row to read active again");
-        Assert.StartsWith("Active now · 2 saves", vanilla.SecondaryText, StringComparison.Ordinal);
+        Assert.StartsWith("Loaded now · 2 snapshots", vanilla.SecondaryText, StringComparison.Ordinal);
 
         // History lists the new point, newest first, as a save with the same game version and mods.
         rig.Shell.Navigate(NavDestination.History);
         await rig.WaitAsync(() => rig.History.State == HistoryState.Loaded && rig.History.Saves.Count == 2, "History to list both points");
-        Assert.Equal("Play Game · 2 points kept", rig.History.Subtitle);
+        Assert.Equal("Play Game · 2 snapshots", rig.History.Subtitle);
         Assert.Equal(["First session", "Vanilla"], rig.History.Saves.Select(save => save.Name));
         var newest = rig.History.Groups.SelectMany(group => group.Cards).First();
         Assert.Equal("First session", newest.Name);
-        Assert.StartsWith("Save only", newest.Contains, StringComparison.Ordinal);
+        Assert.StartsWith("Saves only", newest.Contains, StringComparison.Ordinal);
         Assert.True(newest.IsLoaded, "the point the saves folder holds is marked as loaded");
         Assert.Equal(HistoryPointKind.SaveOnly, newest.Point.Kind);
         rig.Render("2c-history-with-the-new-point");

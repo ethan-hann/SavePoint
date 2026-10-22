@@ -34,7 +34,7 @@ public class ErrorCardViewModelTests
     {
         var card = new ErrorCardViewModel(MockupScenario.FolderTooBroadError, _text);
 
-        Assert.Equal("That folder is too broad to track", card.Title);
+        Assert.Equal("That folder is too broad to use", card.Title);
         Assert.Equal(Icons.Block, card.Icon);
         Assert.Equal(@"C:\Program Files (x86)", card.Path);
         Assert.Contains("a Windows folder", card.Body);
@@ -176,14 +176,14 @@ public class ErrorCardViewModelTests
             _text,
             Icons.Warning,
             ErrorTone.Warning,
-            "Half of that save worked",
-            "Your game version and mods were saved.",
+            "Only part of the snapshot was taken",
+            "Your game version and mods are in the snapshot.",
             path: @"D:\SavePoint",
             detail: "no space left",
             actions: [new ErrorCardAction("Retry the saves", retry, true)]);
 
-        Assert.Equal("Half of that save worked", card.Title);
-        Assert.Equal("Your game version and mods were saved.", card.Body);
+        Assert.Equal("Only part of the snapshot was taken", card.Title);
+        Assert.Equal("Your game version and mods are in the snapshot.", card.Body);
         Assert.Equal(Icons.Warning, card.Icon);
         Assert.True(card.IsWarning);
         Assert.Equal(@"D:\SavePoint", card.Path);

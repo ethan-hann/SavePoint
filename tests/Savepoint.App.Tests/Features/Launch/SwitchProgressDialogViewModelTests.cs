@@ -185,7 +185,7 @@ public class SwitchProgressDialogViewModelTests
         dialog.Update(new JobProgress(FilesDone: 812));
 
         Assert.True(dialog.IsIndeterminate);
-        Assert.Equal("812 files switched so far", dialog.ProgressText);
+        Assert.Equal("812 files put in place so far", dialog.ProgressText);
         Assert.Equal(string.Empty, dialog.PercentText);
     }
 

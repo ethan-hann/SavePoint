@@ -31,8 +31,8 @@ public class LaunchUnfinishedSwitchFlowTests : IDisposable
         await FailLaunchWithUnfinishedSwitchAsync(LaunchRig.ModdedTip);
         var card = _f.Inline<ErrorCardViewModel>();
 
-        Assert.Equal(["Switch again", "Review the changes", "Dismiss"], card.Actions.Select(a => a.Label));
-        Assert.True(FlowRig.Action(card, "Switch again").IsPrimary);
+        Assert.Equal(["Finish the switch", "Review the changes", "Dismiss"], card.Actions.Select(a => a.Label));
+        Assert.True(FlowRig.Action(card, "Finish the switch").IsPrimary);
         Assert.False(FlowRig.Action(card, "Review the changes").IsPrimary);
     }
 
@@ -41,7 +41,7 @@ public class LaunchUnfinishedSwitchFlowTests : IDisposable
     {
         await FailLaunchWithUnfinishedSwitchAsync(LaunchRig.ModdedTip);
 
-        FlowRig.Press(_f.Inline<ErrorCardViewModel>(), "Switch again");
+        FlowRig.Press(_f.Inline<ErrorCardViewModel>(), "Finish the switch");
 
         Assert.Equal(2, _f.Starts().Count);
         Assert.Equal([FlowRig.Skyrim, LaunchRig.ModdedTip], _f.Starts()[1].Args);
@@ -52,7 +52,7 @@ public class LaunchUnfinishedSwitchFlowTests : IDisposable
     {
         await FailLaunchWithUnfinishedSwitchAsync(null);
 
-        FlowRig.Press(_f.Inline<ErrorCardViewModel>(), "Switch again");
+        FlowRig.Press(_f.Inline<ErrorCardViewModel>(), "Finish the switch");
 
         Assert.Single(_f.Starts());
         Assert.Equal("Skyrim Special Edition", _f.LaunchDialog.GameName);

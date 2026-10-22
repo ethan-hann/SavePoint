@@ -67,7 +67,7 @@ internal sealed class LaunchRig : IDisposable
     {
         var preview = await PreviewAsync(target ?? SurvivalTip);
         preview = change?.Invoke(preview) ?? preview;
-        return new LaunchDialogViewModel(preview, "Skyrim Special Edition", ProfileName(preview.ProfileId), skipConfirm, Deps);
+        return new LaunchDialogViewModel(preview, "Skyrim Special Edition", ProfileName(preview.ProfileId), skipConfirm, id => ProfileName(id), Deps);
     }
 
     // Plays a session through the fake to its exit, so the options are the ones the service would offer for that start.

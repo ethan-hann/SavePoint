@@ -58,7 +58,7 @@ public class GameEditorTransferTests
         await editor.ImportCommand.ExecuteAsync(null);
 
         var request = Assert.Single(rig.Dialogs.OpenFilePicks);
-        Assert.Equal("Choose a game definition file", request.Title);
+        Assert.Equal("Choose a game settings file", request.Title);
         Assert.Equal(["*.json"], Assert.Single(request.Filters!).Patterns);
         var toast = OnlyToast(rig);
         Assert.Equal(ToastKind.Success, toast.Message.Kind);

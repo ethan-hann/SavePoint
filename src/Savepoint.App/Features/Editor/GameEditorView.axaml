@@ -143,6 +143,7 @@
             <StackPanel Spacing="9">
               <TextBlock Classes="overline" Text="{theme:Upper {loc:Loc gameEditor.ignorePaths.label}}" />
               <ContentControl x:Name="IgnoreRulesHost" Content="{Binding IgnoreRules}" />
+              <TextBlock Classes="body muted" TextWrapping="Wrap" Text="{loc:Loc gameEditor.ignorePaths.helper}" />
             </StackPanel>
 
           </StackPanel>

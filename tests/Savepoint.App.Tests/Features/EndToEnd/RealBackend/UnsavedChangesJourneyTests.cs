@@ -5,7 +5,7 @@ using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Tests.Features.EndToEnd.RealBackend;
 
-// Work in the game's folder that nobody saved: playing another profile stops at it and asks, "Save them first" keeps the work in the profile it
+// Work in the game's folder that nobody saved: playing another profile stops at it and asks, "Take a snapshot first" keeps the work in the profile it
 // belongs to, and "Discard them" throws it away, but only after a second question that says exactly what goes.
 public class UnsavedChangesJourneyTests
 {
@@ -19,20 +19,20 @@ public class UnsavedChangesJourneyTests
         var edited = FolderSnapshot.Of(game.Install);
         Assert.NotEqual(two.ModdedInstall, edited);
         Assert.True(modded.HasUnsavedChanges);
-        Assert.StartsWith("Unsaved changes", modded.SecondaryText, StringComparison.Ordinal);
+        Assert.StartsWith("New changes", modded.SecondaryText, StringComparison.Ordinal);
 
         // Play stops at the unsaved work before anything is switched, and will not go on until it is dealt with.
         var play = vanilla.PlayCommand.ExecuteAsync(null);
         var dialog = await rig.DialogAsync<LaunchDialogViewModel>();
         var block = Assert.Single(dialog.UnsavedBlocks);
-        Assert.Equal("You have unsaved changes from your last session", block.Title);
+        Assert.Equal("New changes since the last snapshot", block.Title);
         Assert.Equal(RepoRole.Install, block.Role);
         Assert.True(block.CanSaveFirst, "the changes belong to Modded, so they can be saved into it");
         Assert.False(dialog.ShowKeepCallout);
         Assert.False(dialog.CanSwitch);
         rig.Render("5a-unsaved-changes-before-a-switch");
 
-        // "Save them first" saves them into Modded as a point of its own, and the dialog lets the switch go ahead.
+        // "Take a snapshot first" saves them into Modded as a point of its own, and the dialog lets the switch go ahead.
         await rig.FinishesAsync(block.SaveFirstCommand.ExecuteAsync(null), "the changes to be saved first");
         Assert.Empty(dialog.UnsavedBlocks);
         Assert.True(dialog.CanSwitch);
@@ -75,7 +75,7 @@ public class UnsavedChangesJourneyTests
         Assert.Equal("Discard these changes?", question.Title);
         Assert.Contains(game.Install, question.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("1 new file is deleted.", question.Message, StringComparison.Ordinal);
-        Assert.Contains("1 changed file is put back.", question.Message, StringComparison.Ordinal);
+        Assert.Contains("1 changed file is put back as it was.", question.Message, StringComparison.Ordinal);
         Assert.Contains("This can't be undone.", question.Message, StringComparison.Ordinal);
         Assert.Equal("Discard them, permanently", question.ConfirmLabel);
         Assert.True(question.IsDestructive);

@@ -69,7 +69,7 @@ public class LaunchFlowSurvivalTests
         Assert.Same(dialog, f.PostPlay);
 
         await dialog.SaveCommand.ExecuteAsync(null);
-        Assert.Equal("Saving your session…", f.Inline<LaunchSavingViewModel>().Title);
+        Assert.Equal("Taking a snapshot of your session…", f.Inline<LaunchSavingViewModel>().Title);
     }
 
     [Fact]

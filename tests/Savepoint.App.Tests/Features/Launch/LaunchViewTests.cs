@@ -63,8 +63,8 @@ public class LaunchViewTests
 
         Assert.Equal("What to do with this session", AutomationProperties.GetName(list));
         var first = list.GetVisualDescendants().OfType<ListBoxItem>().First();
-        Assert.Equal("Keep this as a new point in your history", AutomationProperties.GetName(first));
-        Assert.Equal("Recommended. Your previous saves stay exactly as they are.", AutomationProperties.GetHelpText(first));
+        Assert.Equal("Keep this session as a new snapshot", AutomationProperties.GetName(first));
+        Assert.Equal("Recommended. Your earlier snapshots stay exactly as they are.", AutomationProperties.GetHelpText(first));
     }
 
     [AvaloniaFact]
@@ -247,7 +247,7 @@ public class LaunchViewTests
         var rows = harness.Find<ItemsControl>("Rows");
 
         Assert.Equal(2, rows.ItemCount);
-        Assert.Contains(harness.All<TextBlock>(), block => block.Text == "Saves · not saved");
+        Assert.Contains(harness.All<TextBlock>(), block => block.Text == "Saves · not in the snapshot yet");
         Assert.Contains(harness.All<Button>(), button => Equals(button.Content, "Retry the saves"));
     }
 

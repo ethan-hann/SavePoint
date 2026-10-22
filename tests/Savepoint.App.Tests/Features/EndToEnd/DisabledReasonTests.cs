@@ -6,7 +6,7 @@ namespace Savepoint.App.Tests.Features.EndToEnd;
 // A greyed-out button that says nothing teaches the rules by trial and error, so Play says why it is off.
 public class DisabledReasonTests
 {
-    private const string _reason = "A session is already running for this game. Play is available again when it ends.";
+    private const string _reason = "This game is already running from SavePoint. Play works again after you close it.";
 
     private static List<Button> PlayButtons(ComposedApp app) => [.. app.All<Button>().Where(button => button.Name == "PlayButton")];
 

@@ -130,8 +130,8 @@ internal sealed class FakeState
             return stats;
         }
 
-        var hasSaves = Games.Find(g => g.Id == profile.GameId)?.External is not null;
-        return new ProfileRowStats(profile.Id, false, [], hasSaves ? 0 : null, null, null, profile.VersionOverride, profile.LastLaunchedAt, false);
+        var snapshots = History.Count(h => h.GameId == profile.GameId && h.Point.ProfileId == profile.Id);
+        return new ProfileRowStats(profile.Id, false, [], snapshots, null, null, profile.VersionOverride, profile.LastLaunchedAt, false);
     }
 
     public static IReadOnlyList<RepoRole> FoldersOf(GameDefinition game) =>

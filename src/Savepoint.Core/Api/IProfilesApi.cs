@@ -25,7 +25,7 @@ public interface IProfilesApi
     /// </summary>
     /// <remarks>
     /// The profile's catalog row appears when the first capture finishes with at least one folder saved (D23). A capture that saves
-    /// nothing leaves no row and no branch. A partial result keeps the row and shows the "Half of that save worked" card with a
+    /// nothing leaves no row and no branch. A partial result keeps the row and shows the "Only part of the snapshot was taken" card with a
     /// retry for the missing folder.
     /// </remarks>
     /// <param name="gameId">The game.</param>
@@ -73,7 +73,7 @@ public interface IProfilesApi
     /// <summary>
     /// Saves the folders' current state as a new history point on a profile. Starts a capture job and answers at once; its result
     /// is a <see cref="CaptureResult"/>. A null folder list saves every configured folder; passing one folder is how "Retry the
-    /// saves" and "Save them first" work. The job reads the game and the profile again once it holds the game's lock, so it uses the
+    /// saves" and "Take a snapshot first" work. The job reads the game and the profile again once it holds the game's lock, so it uses the
     /// ignore list as it is by then and fails with <c>error.profile.notFound</c> when the profile was deleted meanwhile.
     /// </summary>
     /// <param name="gameId">The game.</param>

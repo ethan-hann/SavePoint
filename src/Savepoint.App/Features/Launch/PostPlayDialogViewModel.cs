@@ -49,7 +49,7 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
         _selectedChoice.IsSelected = true;
     }
 
-    /// <summary>"Your saves folder has 3 new files since you started. What should SavePoint do with them?"</summary>
+    /// <summary>"3 files in your saves folder are new or changed since you started. What should SavePoint do with them?"</summary>
     public string Body { get; }
 
     /// <summary>A line about the game's own files having changed while it ran; empty when they did not.</summary>
@@ -80,7 +80,7 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
     public bool ShowNotNowButton => SelectedChoice.Kind != CompletionChoice.Skip;
 
     /// <inheritdoc />
-    public override string Description => Body;
+    public override string Description => HasOlderNote ? $"{Body} {OlderNote}" : Body;
 
     /// <inheritdoc />
     public override double DialogWidth => 580;
@@ -176,7 +176,7 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
                 CompletionChoice.UpdateExisting,
                 Icons.Edit,
                 _text.Message("launch.postPlay.update.title", ("pointName", target.Name)),
-                _text.Message("launch.postPlay.update.sub")));
+                _text.Message("launch.postPlay.update.sub", ("pointName", target.Name))));
         }
 
         if (offered.Contains(CompletionChoice.ForkNewProfile))
@@ -196,7 +196,7 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
                 CompletionChoice.MoveForward,
                 Icons.History,
                 _text.Message("launch.postPlay.move.title", ("profileName", _profileName)),
-                _text.Message("launch.postPlay.move.sub", ("count", _options.NewerPointCount))));
+                _text.Message("launch.postPlay.move.sub", ("count", _options.NewerPointCount), ("profileName", _profileName))));
         }
 
         cards.Add(new PostPlayChoiceViewModel(

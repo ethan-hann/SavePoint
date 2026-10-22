@@ -53,12 +53,12 @@ public class ProgressAnnouncementTests
         app.Backend.Jobs.ReportProgress(capture.JobId, new JobProgress(FilesDone: 30, FilesTotal: 100));
         app.Settle();
 
-        Assert.Contains("25% saved.", Spoken(app, "Announcer"));
+        Assert.Contains("25% copied.", Spoken(app, "Announcer"));
 
         app.Backend.Jobs.ReportProgress(capture.JobId, new JobProgress(FilesDone: 80, FilesTotal: 100));
         app.Settle();
 
-        Assert.Contains("75% saved.", Spoken(app, "Announcer"));
+        Assert.Contains("75% copied.", Spoken(app, "Announcer"));
     }
 
     [AvaloniaFact]
@@ -71,7 +71,7 @@ public class ProgressAnnouncementTests
         var started = FakeAssert.Ok(await app.Backend.Settings.RelocateStorageAsync(@"E:\NewData"));
         app.Settle();
 
-        Assert.Equal(["Moving your data\u2026"], Spoken(app, "MoveAnnouncer"));
+        Assert.Equal(["Moving your snapshots\u2026"], Spoken(app, "MoveAnnouncer"));
 
         app.Backend.Jobs.ReportProgress(started.JobId, new JobProgress(BytesDone: 600, BytesTotal: 1_000));
         app.Settle();
