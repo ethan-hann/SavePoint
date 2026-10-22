@@ -30,7 +30,7 @@ public class LaunchSavingViewModelTests
         saving.Update(new JobProgress(FilesDone: 80, FilesTotal: 100));
         saving.Update(new JobProgress(FilesDone: 90, FilesTotal: 100));
 
-        Assert.Equal(["25% saved.", "75% saved."], spoken);
+        Assert.Equal(["25% copied.", "75% copied."], spoken);
     }
 
     [Fact]
