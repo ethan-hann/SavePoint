@@ -450,10 +450,12 @@ internal sealed class StorageRelocator
         return await SHA256.HashDataAsync(stream, cancellationToken).ConfigureAwait(false);
     }
 
-    // Removes what this move copied; the destination folder itself goes only if the move made it and nothing else is in it.
+    // Removes what this move copied; the destination folder itself goes only if the move made it and nothing else is in it. The
+    // marker goes last and only once every copied folder is gone: a take-back that is cut short, or cannot remove everything, leaves a
+    // partial copy that still says an earlier move did not finish.
     private static void TakeBack(string destination, ContentListing listing, bool createdRoot)
     {
-        TryDelete(Path.Combine(destination, MarkerFileName));
+        var allGone = true;
         foreach (var folder in listing.Folders)
         {
             try
@@ -463,7 +465,13 @@ internal sealed class StorageRelocator
             catch (Exception e) when (e is IOException or UnauthorizedAccessException)
             {
                 // Left behind, the copy is only a folder the user can delete; the old storage is what stays in use.
+                allGone = false;
             }
+        }
+
+        if (allGone)
+        {
+            TryDelete(Path.Combine(destination, MarkerFileName));
         }
 
         try

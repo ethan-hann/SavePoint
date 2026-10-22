@@ -1,3 +1,4 @@
+using System.Runtime.Versioning;
 using Savepoint.Core.Api;
 using Savepoint.Core.Services.Settings;
 
@@ -169,6 +170,66 @@ public class RelocationLeftoversTests
         Assert.False(Directory.Exists(destination));
         Assert.Equal(workspace.DefaultStorageRoot, (await workspace.Backend.Services.Storage.GetAsync(workspace.Token)).Root);
         Assert.True(Directory.Exists(Path.Combine(workspace.DefaultStorageRoot, game.Id, "install.git")));
+    }
+
+    [Fact(Timeout = 120_000)]
+    public async Task A_take_back_that_cannot_remove_the_whole_copy_leaves_the_marker_so_the_next_move_there_says_the_earlier_one_did_not_finish()
+    {
+        BackendWorkspace? self = null;
+        IDisposable? hold = null;
+        using var workspace = new BackendWorkspace(options => options with
+        {
+            // The first git file copied cannot be deleted afterwards: held open on Windows, in a folder nobody may write to elsewhere.
+            AfterRelocationCopy = (_, target) => hold ??= Path.GetFileName(target) == "HEAD" ? PreventDeleting(target) : null,
+            AfterRelocationSettings = _ =>
+            {
+                var old = self!.DefaultStorageRoot;
+                Task.Run(() => self.Backend.Services.Catalog.UpdateSettingsAsync(current => current! with { StorageRoot = old })).GetAwaiter().GetResult();
+                throw new IOException("the write failed");
+            },
+        });
+        self = workspace;
+        await workspace.AddGameAsync();
+        var destination = Path.Combine(workspace.Root, "new-storage");
+
+        try
+        {
+            var started = await workspace.Settings.RelocateStorageAsync(destination);
+            var job = await workspace.WaitForJobAsync(started.Value!.JobId);
+            var next = (await workspace.Settings.GetRelocationPreviewAsync(destination, workspace.Token)).Value!;
+
+            Assert.Equal(JobStatus.Failed, job.Status);
+            Assert.True(File.Exists(Path.Combine(destination, StorageRelocator.MarkerFileName)), "the marker must stay while part of the copy does");
+            Assert.Equal("error.storageRelocation.moveUnfinished", next.BlockedBy?.MessageId);
+        }
+        finally
+        {
+            hold?.Dispose();
+        }
+    }
+
+    // Makes the file's folder impossible to empty until the returned handle is let go.
+    private static IDisposable PreventDeleting(string file)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read);
+        }
+
+        return RemoveWriteAccess(Path.GetDirectoryName(file)!);
+    }
+
+    [UnsupportedOSPlatform("windows")]
+    private static Restore RemoveWriteAccess(string folder)
+    {
+        var original = File.GetUnixFileMode(folder);
+        File.SetUnixFileMode(folder, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        return new Restore(() => File.SetUnixFileMode(folder, original));
+    }
+
+    private sealed class Restore(Action action) : IDisposable
+    {
+        public void Dispose() => action();
     }
 
     private static async Task WaitForEveryFileAsync(BackendWorkspace workspace, Guid jobId)
