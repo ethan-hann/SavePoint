@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Threading;
 
 namespace Savepoint.App.Features.Games;
@@ -15,6 +16,7 @@ public partial class GamesScreenView : UserControl
         InitializeComponent();
         Table.SizeChanged += OnTableSizeChanged;
         Root.SizeChanged += OnRootSizeChanged;
+        AddHandler(KeyDownEvent, OnKeyDown);
     }
 
     /// <inheritdoc />
@@ -34,6 +36,16 @@ public partial class GamesScreenView : UserControl
 
         Feed(Table.Bounds.Width);
         FeedHeader(Root.Bounds.Width);
+    }
+
+    // A row is a Tab stop that carries the row's spoken summary, so Enter on it plays the row; a button inside the row handles its own Enter first.
+    private static void OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter && e.Source is Border { DataContext: ProfileRowViewModel profile } row && row.Classes.Contains("table-row"))
+        {
+            profile.PlayCommand.Execute(null);
+            e.Handled = true;
+        }
     }
 
     private void OnTableSizeChanged(object? sender, SizeChangedEventArgs e) => Feed(e.NewSize.Width);
