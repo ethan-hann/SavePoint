@@ -102,7 +102,7 @@ public class TabOrderTests
     }
 
     [AvaloniaFact]
-    public async Task The_history_list_goes_through_the_saves_after_the_filter_and_the_view_toggle()
+    public async Task The_history_list_goes_through_the_versions_then_the_saves_after_the_filter_and_the_view_toggle()
     {
         using var app = await ComposedApp.StartWithViewAsync();
         app.Shell.Navigate(NavDestination.History);
@@ -113,6 +113,7 @@ public class TabOrderTests
             [
                 "History", "Skyrim Special Edition, 3 profiles", "Add a game",
                 "Filter by profile: All profiles", "List",
+                .. app.History.Timeline.Where(entry => entry.CanGoBack).Select(entry => entry.GoBackAutomationName),
                 "Load Cleared Blackreach", "Load Fresh start with Nolvus", "Load Deep cave run", "Load First night",
             ],
             TabStops(app));
