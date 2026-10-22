@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 
 namespace Savepoint.Core.Artwork;
@@ -37,8 +38,9 @@ internal sealed class ArtworkStore
 
     public string FolderOf(string gameId)
     {
-        // Ids are checked when a game is saved, so this only guards the one place a path is built from one.
-        if (gameId.Length == 0 || gameId is "." or ".." || gameId.AsSpan().IndexOfAny('/', '\\', ':') >= 0)
+        // The same rule as every other folder named after a game, so a game id written by hand into the catalog cannot name more here
+        // than it can in the storage root, and DeleteGame can never remove a folder that is not a game's.
+        if (!CatalogValidator.IsValidGameId(gameId))
         {
             throw new ArgumentException($"'{gameId}' cannot name a game's artwork folder.", nameof(gameId));
         }
@@ -57,8 +59,9 @@ internal sealed class ArtworkStore
     public string? CustomPath(string gameId)
     {
         var folder = FolderOf(gameId);
+        // The newest wins: when a replaced image could not be removed, it is the one left behind.
         return Directory.Exists(folder)
-            ? Directory.EnumerateFiles(folder, _customStem + ".*").FirstOrDefault(file => ExtensionIsImage(Path.GetExtension(file)))
+            ? Directory.EnumerateFiles(folder, _customStem + ".*").Where(file => ExtensionIsImage(Path.GetExtension(file))).OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault()
             : null;
     }
 
@@ -87,8 +90,20 @@ internal sealed class ArtworkStore
     public void WriteState(string gameId, LookupState state) =>
         WriteAtomically(Path.Combine(FolderOf(gameId), _stateFile), JsonSerializer.SerializeToUtf8Bytes(state, ArtworkJsonContext.Default.LookupState));
 
-    public void SaveSteamImage(string gameId, ArtworkKind kind, byte[] bytes) =>
+    // True when the bytes are a whole image and were kept; anything else is refused, whoever read it and from where.
+    public bool SaveSteamImage(string gameId, ArtworkKind kind, byte[] bytes)
+    {
+        using (var stream = new MemoryStream(bytes, writable: false))
+        {
+            if (ImageProbe.Read(stream) is null)
+            {
+                return false;
+            }
+        }
+
         WriteAtomically(SteamFile(gameId, kind), bytes);
+        return true;
+    }
 
     // True when something was removed.
     public bool DeleteSteamImages(string gameId)
@@ -132,13 +147,22 @@ internal sealed class ArtworkStore
 
             // The copy is what is judged, in case the file changed while it was read.
             var format = ImageProbe.ReadFile(temporary)?.Format ?? throw new ArtworkNotAnImageException(sourcePath);
-            foreach (var old in Directory.EnumerateFiles(folder, _customStem + ".*").Where(file => ExtensionIsImage(Path.GetExtension(file))))
-            {
-                File.Delete(old);
-            }
 
+            // The new image goes in first, so a move that fails leaves the old one; the old ones of another format go after.
             var target = Path.Combine(folder, _customStem + ExtensionOf(format));
             File.Move(temporary, target, overwrite: true);
+            foreach (var old in Directory.EnumerateFiles(folder, _customStem + ".*").Where(file => ExtensionIsImage(Path.GetExtension(file)) && !string.Equals(file, target, StringComparison.Ordinal)))
+            {
+                try
+                {
+                    File.Delete(old);
+                }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+                {
+                    // Held open by a decoder: the new image is already the newest, which is the one CustomPath picks.
+                }
+            }
+
             return target;
         }
         finally
@@ -188,12 +212,30 @@ internal sealed class ArtworkStore
         }
     }
 
-    // Removes every game's artwork, including that of games the catalog no longer lists. Failures are the caller's to report.
+    // Removes every game's artwork, including that of games the catalog no longer lists, once the changes under way have finished.
+    // Failures are the caller's to report.
     public void DeleteAll()
     {
-        if (Directory.Exists(Root))
+        var held = new List<SemaphoreSlim>();
+        try
         {
-            Directory.Delete(Root, recursive: true);
+            foreach (var gate in _leases.OrderBy(entry => entry.Key, StringComparer.Ordinal).Select(entry => entry.Value))
+            {
+                gate.Wait();
+                held.Add(gate);
+            }
+
+            if (Directory.Exists(Root))
+            {
+                Directory.Delete(Root, recursive: true);
+            }
+        }
+        finally
+        {
+            foreach (var gate in held)
+            {
+                gate.Release();
+            }
         }
     }
 

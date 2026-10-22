@@ -68,6 +68,8 @@ internal sealed class ArtworkApi : IArtworkApi
             var game = await RequireGameAsync(gameId, CancellationToken.None).ConfigureAwait(false);
             using (await _store.EnterAsync(game.Id).ConfigureAwait(false))
             {
+                // The game may have been deleted while this waited for the lease; a folder made now would outlive it.
+                _ = await RequireGameAsync(game.Id, CancellationToken.None).ConfigureAwait(false);
                 await Task.Run(() => _store.SaveCustom(game.Id, imagePath)).ConfigureAwait(false);
             }
 
@@ -82,6 +84,7 @@ internal sealed class ArtworkApi : IArtworkApi
             bool removed;
             using (await _store.EnterAsync(game.Id).ConfigureAwait(false))
             {
+                _ = await RequireGameAsync(game.Id, CancellationToken.None).ConfigureAwait(false);
                 removed = await Task.Run(() => _store.DeleteCustom(game.Id)).ConfigureAwait(false);
             }
 
@@ -349,8 +352,8 @@ internal sealed class ArtworkApi : IArtworkApi
 
             foreach (var (kind, bytes) in found)
             {
-                _store.SaveSteamImage(game.Id, kind, bytes);
-                changed = true;
+                // An image the store refuses is left out, as if the lookup had not found it; the next lookup looks again.
+                changed |= _store.SaveSteamImage(game.Id, kind, bytes);
             }
 
             var complete = id is not null
