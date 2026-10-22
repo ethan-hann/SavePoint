@@ -115,6 +115,49 @@ public class GameEditorArtworkTests
         Assert.Empty(Calls(rig, nameof(IArtworkApi.GetAsync)));
     }
 
+    [Fact]
+    public void Steam_artwork_that_arrives_while_the_editor_is_open_shows_in_its_preview()
+    {
+        var rig = Rig();
+
+        // The game's tile on the table is what has the shell's artwork read for it.
+        rig.Shell.Artwork.For(_skyrim).NotifyOnScreen();
+        var editor = rig.Edit();
+        Assert.False(editor.ArtworkPreview.HasArtwork);
+
+        rig.Backend.Artwork.ScriptSteamArrives(_skyrim, "/art/wide.jpg", "/art/square.jpg");
+
+        Assert.Equal("From Steam", editor.ArtworkSourceText);
+        Assert.Equal("/art/wide.jpg", editor.ArtworkPreview.WidePath);
+        Assert.Equal("/art/square.jpg", editor.ArtworkPreview.SquarePath);
+    }
+
+    [Fact]
+    public void A_disposed_editor_no_longer_follows_the_artwork()
+    {
+        var rig = Rig();
+        rig.Shell.Artwork.For(_skyrim).NotifyOnScreen();
+        var editor = rig.Edit();
+        editor.Dispose();
+
+        rig.Backend.Artwork.ScriptSteamArrives(_skyrim, "/art/wide.jpg", "/art/square.jpg");
+
+        Assert.False(editor.ArtworkPreview.HasArtwork);
+    }
+
+    [Fact]
+    public async Task An_image_chosen_in_the_editor_stays_in_the_preview_when_steam_artwork_arrives()
+    {
+        var rig = Rig();
+        rig.Shell.Artwork.For(_skyrim).NotifyOnScreen();
+        var editor = await ChooseAsync(rig, rig.Edit(), "/mine.png");
+
+        rig.Backend.Artwork.ScriptSteamArrives(_skyrim, "/art/wide.jpg", "/art/square.jpg");
+
+        Assert.Equal("/mine.png", editor.ArtworkPreview.WidePath);
+        Assert.Equal("Your image", editor.ArtworkSourceText);
+    }
+
     // ---- The Steam app id
 
     [Fact]

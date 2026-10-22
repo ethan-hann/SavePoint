@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -101,10 +102,35 @@ public sealed partial class GameEditorViewModel
         if (saved is not null && _artwork is not null)
         {
             var shared = shell.Artwork.For(saved.Id);
-            _knownArtwork = new GameArtwork(shared.GameId, shared.Source, shared.WidePath, shared.SquarePath, shared.SteamAppId, shared.SteamAppIdDetected);
+            _knownArtwork = KnownFrom(shared);
+            _followedArt = shared;
+            shared.PropertyChanged += OnFollowedArtChanged;
         }
 
         ShowPreview(force: false);
+    }
+
+    /// <summary>Stops following the game's artwork. The shell calls it when the editor's pane is closed or replaced.</summary>
+    public void Dispose()
+    {
+        if (_followedArt is { } followed)
+        {
+            followed.PropertyChanged -= OnFollowedArtChanged;
+            _followedArt = null;
+        }
+    }
+
+    private static GameArtwork KnownFrom(GameArt art) =>
+        new(art.GameId, art.Source, art.WidePath, art.SquarePath, art.SteamAppId, art.SteamAppIdDetected);
+
+    // A lookup that finishes while the editor is open changes the shared artwork; the revision is raised after every path is in place.
+    private void OnFollowedArtChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(GameArt.Revision) && sender is GameArt art)
+        {
+            _knownArtwork = KnownFrom(art);
+            ShowPreview(force: true);
+        }
     }
 
     // The shell's copy may not have been read yet, so the editor asks once for itself; it never waits for the network.

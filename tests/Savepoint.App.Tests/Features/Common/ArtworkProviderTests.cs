@@ -49,6 +49,29 @@ internal sealed class ManualDispatcher : IUiDispatcher
     }
 }
 
+// An artwork Api whose reads end when the test says, so reads can finish in any order.
+internal sealed class HeldArtworkApi : IArtworkApi
+{
+    public event EventHandler<ArtworkChange>? ArtworkChanged;
+
+    public List<TaskCompletionSource<OperationResult<GameArtwork>>> Reads { get; } = [];
+
+    public Task<OperationResult<GameArtwork>> GetAsync(string gameId, CancellationToken cancellationToken = default)
+    {
+        var read = new TaskCompletionSource<OperationResult<GameArtwork>>();
+        Reads.Add(read);
+        return read.Task;
+    }
+
+    public void RaiseChanged(string gameId) => ArtworkChanged?.Invoke(this, new ArtworkChange(gameId));
+
+    public Task<OperationResult<GameArtwork>> SetCustomImageAsync(string gameId, string imagePath) => throw new NotSupportedException();
+
+    public Task<OperationResult<GameArtwork>> ClearCustomImageAsync(string gameId) => throw new NotSupportedException();
+
+    public Task<OperationResult<GameArtwork>> LookAgainAsync(string gameId) => throw new NotSupportedException();
+}
+
 public class ArtworkProviderTests
 {
     private readonly FakeBackend _backend = FakeBackend.Mockup();
@@ -218,6 +241,56 @@ public class ArtworkProviderTests
         Assert.Equal(2, Reads(id));
         Assert.Equal(ArtworkSource.Custom, art.Source);
         Assert.Equal("/mine.png", art.WidePath);
+    }
+
+    [Fact]
+    public void A_read_that_finishes_after_a_newer_one_does_not_replace_it()
+    {
+        var api = new HeldArtworkApi();
+        using var provider = new ArtworkProvider(api, _dispatcher, new ArtImages());
+        var art = provider.For("game");
+        art.NotifyOnScreen();
+        _dispatcher.RunIdle();
+        api.RaiseChanged("game");
+        Assert.Equal(2, api.Reads.Count);
+
+        api.Reads[1].SetResult(OperationResult.Success(new GameArtwork("game", ArtworkSource.Custom, "/new.png", "/new.png")));
+        api.Reads[0].SetResult(OperationResult.Success(new GameArtwork("game", ArtworkSource.Custom, "/old.png", "/old.png")));
+
+        Assert.Equal("/new.png", art.WidePath);
+    }
+
+    [Fact]
+    public void A_read_that_finishes_before_a_newer_one_is_shown_and_then_replaced()
+    {
+        var api = new HeldArtworkApi();
+        using var provider = new ArtworkProvider(api, _dispatcher, new ArtImages());
+        var art = provider.For("game");
+        art.NotifyOnScreen();
+        _dispatcher.RunIdle();
+        api.RaiseChanged("game");
+
+        api.Reads[0].SetResult(OperationResult.Success(new GameArtwork("game", ArtworkSource.Custom, "/old.png", "/old.png")));
+        Assert.Equal("/old.png", art.WidePath);
+        api.Reads[1].SetResult(OperationResult.Success(new GameArtwork("game", ArtworkSource.Custom, "/new.png", "/new.png")));
+
+        Assert.Equal("/new.png", art.WidePath);
+    }
+
+    [Fact]
+    public void An_older_read_still_counts_when_the_newer_one_failed()
+    {
+        var api = new HeldArtworkApi();
+        using var provider = new ArtworkProvider(api, _dispatcher, new ArtImages());
+        var art = provider.For("game");
+        art.NotifyOnScreen();
+        _dispatcher.RunIdle();
+        api.RaiseChanged("game");
+
+        api.Reads[1].SetResult(OperationResult.Failure<GameArtwork>(ErrorInfo.From(new GameNotFoundException("game"))));
+        api.Reads[0].SetResult(OperationResult.Success(new GameArtwork("game", ArtworkSource.Custom, "/old.png", "/old.png")));
+
+        Assert.Equal("/old.png", art.WidePath);
     }
 
     [Fact]

@@ -347,6 +347,7 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
     /// <inheritdoc />
     public void ShowPane(object paneViewModel)
     {
+        EndPane(except: paneViewModel);
         _pane = paneViewModel;
         _paneDestination = Destination;
         RaiseShellState();
@@ -355,8 +356,19 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
     /// <inheritdoc />
     public void ClosePane()
     {
-        _pane = null;
+        EndPane(except: null);
         RaiseShellState();
+    }
+
+    // A pane that listens for changes lets go of them when it is closed or replaced.
+    private void EndPane(object? except)
+    {
+        var ended = _pane;
+        _pane = null;
+        if (!ReferenceEquals(ended, except))
+        {
+            (ended as IDisposable)?.Dispose();
+        }
     }
 
     /// <summary>Stops following the Api's events.</summary>
@@ -364,6 +376,7 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
     {
         _disposed = true;
         _deps.Jobs.JobChanged -= OnJobChanged;
+        EndPane(except: null);
         (_deps.Artwork as IDisposable)?.Dispose();
         if (_deps.LaunchFlow is { } flow)
         {

@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using Savepoint.App.Features.Common.Art;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Formatting;
@@ -14,7 +15,7 @@ namespace Savepoint.App.Features.Editor;
 /// It builds a <see cref="GameDefinition"/> from the form, asks the user to confirm each new folder, saves through
 /// <see cref="IGamesApi"/>, and closes itself after refreshing the library. Game notes are never shown and always kept (D13.22).
 /// </summary>
-public sealed partial class GameEditorViewModel : ObservableObject
+public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
 {
     private readonly IGamesApi _games;
     private readonly IDialogs _dialogs;
@@ -22,6 +23,9 @@ public sealed partial class GameEditorViewModel : ObservableObject
     private readonly ToastHostViewModel _toasts;
     private readonly IShellContext _shell;
     private readonly IArtworkApi? _artwork;
+
+    // The shell's artwork for the game being edited, which the preview follows while the editor is open.
+    private GameArt? _followedArt;
 
     // The library's definition when editing; null when adding.
     private GameDefinition? _saved;
