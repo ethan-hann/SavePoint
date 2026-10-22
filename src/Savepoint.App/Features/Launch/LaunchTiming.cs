@@ -34,6 +34,16 @@ public static class LaunchTiming
         return TimeSpan.FromSeconds((bytesTotal - bytesDone) / rate);
     }
 
+    /// <summary>
+    /// How long a running switch has left from the share of it that is done, for work that is counted in files and not priced in bytes
+    /// (git removes files before it writes any). Null before <see cref="MeasureAfter"/> has passed, and when the share is nothing,
+    /// everything or outside that range.
+    /// </summary>
+    /// <param name="share">How much is done, from 0 to 1.</param>
+    /// <param name="elapsed">How long the switch has run.</param>
+    public static TimeSpan? RemainingAtShare(double share, TimeSpan elapsed) =>
+        share is > 0 and < 1 && elapsed >= MeasureAfter ? elapsed * ((1 - share) / share) : null;
+
     /// <summary>Rounds a time for display: to the nearest 10 seconds under a minute (never below 10), otherwise to the nearest minute.</summary>
     public static TimeSpan RoundForDisplay(TimeSpan span)
     {

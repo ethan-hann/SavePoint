@@ -117,6 +117,67 @@ public class SwitchProgressDialogViewModelTests
     }
 
     [Fact]
+    public void A_switch_that_is_removing_files_moves_the_bar_while_no_bytes_have_been_written()
+    {
+        var dialog = Create();
+
+        // 150 of 201 files are gone, and the one file git has to write has not been started: no byte is done yet.
+        dialog.Update(new JobProgress(FilesDone: 150, FilesTotal: 201, BytesDone: 0, BytesTotal: 10));
+
+        Assert.False(dialog.IsIndeterminate);
+        Assert.Equal(74.6, dialog.PercentValue, 1);
+        Assert.Equal("74%", dialog.PercentText);
+        Assert.Equal("150 of 201 files", dialog.ProgressText);
+    }
+
+    [Fact]
+    public void The_time_left_of_a_removal_follows_the_share_of_files_done_once_the_switch_has_run_for_a_few_seconds()
+    {
+        var dialog = Create();
+        dialog.Update(new JobProgress(FilesDone: 0, FilesTotal: 200, BytesDone: 0, BytesTotal: 10));
+
+        _clock.Advance(TimeSpan.FromSeconds(10));
+        dialog.Update(new JobProgress(FilesDone: 100, FilesTotal: 200, BytesDone: 0, BytesTotal: 10));
+
+        // Half the files in 10 seconds leaves 10 seconds.
+        Assert.Equal("100 of 200 files Â· about 10 seconds left", dialog.ProgressText);
+        Assert.Equal(50, dialog.PercentValue);
+    }
+
+    [Fact]
+    public void When_the_bytes_are_further_along_than_the_files_the_bar_and_the_line_follow_the_bytes()
+    {
+        var dialog = Create();
+
+        dialog.Update(new JobProgress(FilesDone: 1, FilesTotal: 201, BytesDone: 900_000_000, BytesTotal: 1_000_000_000));
+
+        Assert.Equal(90, dialog.PercentValue);
+        Assert.StartsWith("900 MB of 1 GB", dialog.ProgressText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_bar_never_goes_back_when_the_files_overtake_the_bytes_and_the_bytes_catch_up()
+    {
+        var dialog = Create();
+        var seen = new List<double>();
+
+        foreach (var progress in new[]
+        {
+            new JobProgress(FilesDone: 100, FilesTotal: 200, BytesDone: 0, BytesTotal: 1_000),
+            new JobProgress(FilesDone: 199, FilesTotal: 200, BytesDone: 0, BytesTotal: 1_000),
+            new JobProgress(FilesDone: 200, FilesTotal: 200, BytesDone: 500, BytesTotal: 1_000),
+            new JobProgress(FilesDone: 200, FilesTotal: 200, BytesDone: 1_000, BytesTotal: 1_000),
+        })
+        {
+            dialog.Update(progress);
+            seen.Add(dialog.PercentValue);
+        }
+
+        Assert.Equal(seen.Order(), seen);
+        Assert.Equal(100, seen[^1]);
+    }
+
+    [Fact]
     public void A_count_without_a_total_stays_indeterminate_and_says_how_many_files_are_done()
     {
         var dialog = Create();

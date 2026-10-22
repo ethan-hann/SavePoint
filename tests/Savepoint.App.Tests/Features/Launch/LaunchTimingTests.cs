@@ -42,6 +42,29 @@ public class LaunchTimingTests
         Assert.Equal(TimeSpan.FromSeconds(20), left);
     }
 
+    [Fact]
+    public void The_time_left_from_a_share_waits_for_the_measure_window()
+    {
+        Assert.Null(LaunchTiming.RemainingAtShare(0.5, TimeSpan.FromSeconds(2)));
+    }
+
+    [Fact]
+    public void After_the_measure_window_the_time_left_from_a_share_is_what_the_rest_takes_at_the_measured_pace()
+    {
+        // A quarter done in 10 seconds leaves three times as long.
+        Assert.Equal(TimeSpan.FromSeconds(30), LaunchTiming.RemainingAtShare(0.25, TimeSpan.FromSeconds(10)));
+    }
+
+    [Theory]
+    [InlineData(0.0)]
+    [InlineData(1.0)]
+    [InlineData(1.5)]
+    [InlineData(-0.2)]
+    public void There_is_no_time_left_from_a_share_that_is_nothing_or_everything(double share)
+    {
+        Assert.Null(LaunchTiming.RemainingAtShare(share, TimeSpan.FromSeconds(10)));
+    }
+
     [Theory]
     [InlineData(100L, 0L)]
     [InlineData(100L, -1L)]

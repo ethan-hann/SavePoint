@@ -42,6 +42,28 @@ public sealed class CheckoutBytesTests : IDisposable
     }
 
     [Fact]
+    public async Task A_switch_that_removes_many_files_counts_them_while_the_bytes_wait_at_zero()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "Data/base.bin", "base");
+        await _ws.CaptureAsync(repo, "profile-a");
+        await _ws.GitWriteAsync(repo, "checkout", "--quiet", "-b", "profile-b");
+        _ws.WriteMany(repo, "Mods", 200, content: "mod file");
+        _ws.Write(repo, "Data/base.bin", "base, patched");
+        await _ws.CaptureAsync(repo, "profile-b");
+        var progress = new ProgressLog();
+
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", progress, Ct);
+
+        // 200 removals, then the one file that changed: the file count moves through the removals, and no byte is done until the write.
+        var removing = progress.Reports.Where(report => report.FilesDone is > 0 and < 200).ToList();
+        Assert.NotEmpty(removing);
+        Assert.All(removing, report => Assert.Equal(0, report.BytesDone));
+        Assert.All(progress.Reports, report => Assert.Equal(201, report.FilesTotal));
+        Assert.Equal(new FileProgress(201, 201, null, 4, 4), progress.Last);
+    }
+
+    [Fact]
     public async Task A_switch_that_only_removes_files_has_no_bytes_to_write()
     {
         var repo = await _ws.InitializedRepoAsync();
