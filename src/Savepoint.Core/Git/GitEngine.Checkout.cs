@@ -291,10 +291,29 @@ public sealed partial class GitEngine
 
         // git must see nothing to do for the files the patterns name: their index entries are made to say what the target says, which
         // changes no file. The note is already written, so a stop from here on is a stopped switch like any other.
-        await AlignIndexAsync(repo, to, plan.Named, ct).ConfigureAwait(false);
-        if (force)
+        try
         {
-            await SetSkipWorktreeAsync(repo, on: true, plan.NamedInTarget, ct).ConfigureAwait(false);
+            await AlignIndexAsync(repo, to, plan.Named, ct).ConfigureAwait(false);
+            if (force)
+            {
+                await SetSkipWorktreeAsync(repo, on: true, plan.NamedInTarget, ct).ConfigureAwait(false);
+            }
+        }
+        catch (GitOperationException)
+        {
+            // git failed before any file moved (its lock stayed held, say), so this is a refusal: the entries go back and a note this
+            // call wrote goes. If they cannot go back the note stays, since the index may be half aligned.
+            try
+            {
+                await UndoAlignmentAsync(note is null, repo, from, plan.Named).ConfigureAwait(false);
+                ClearNoteIf(note is null, repo);
+            }
+            catch (GitOperationException)
+            {
+                // The original failure is the one to report.
+            }
+
+            throw;
         }
 
         var reporter = progress is null ? null : new ProgressReporter(progress, new CheckoutBytePlan(plan.Changes, sizes));

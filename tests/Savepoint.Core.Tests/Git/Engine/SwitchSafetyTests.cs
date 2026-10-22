@@ -419,6 +419,31 @@ public sealed class SwitchSafetyTests : IDisposable
     }
 
     [Fact]
+    public async Task A_switch_that_cannot_align_the_index_for_the_files_the_patterns_name_is_refused_whole_with_no_note_left()
+    {
+        var (repo, _) = await NamedProfilesAsync();
+        var armed = true;
+        _ws.OnInvoke = invocation =>
+        {
+            // The first reset of the switch fails, as it does when git's lock stays held; the one that puts the index back works.
+            if (armed && invocation.Arguments[0] == "reset")
+            {
+                armed = false;
+                throw new GitOperationException("the index lock stayed held");
+            }
+        };
+
+        await Assert.ThrowsAsync<GitOperationException>(() => _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct));
+
+        _ws.OnInvoke = null;
+        Assert.Null(SwitchJournal.Read(repo.GitDir));
+        Assert.Equal("refs/heads/profile-b", await _ws.HeadRefAsync(repo));
+        AssertNamedFilesAsTheyWere(repo);
+        var status = await _ws.Engine.GetStatusAsync(repo, Ct);
+        Assert.True(status.IsClean);
+        Assert.Null(status.InterruptedSwitch);
+    }
+    [Fact]
     public async Task Repeating_a_switch_that_stopped_after_head_moved_does_not_put_back_the_files_the_patterns_name()
     {
         var (repo, tips) = await NamedProfilesAsync();
