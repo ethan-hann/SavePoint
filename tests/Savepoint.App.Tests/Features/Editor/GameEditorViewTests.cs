@@ -410,6 +410,33 @@ public class GameEditorViewTests
     }
 
     [AvaloniaFact]
+    public async Task A_field_in_error_carries_the_error_as_its_help_text_so_tabbing_back_to_it_repeats_the_problem()
+    {
+        using var harness = await EditorViewHarness.StartAsync(artwork: true, height: 1000);
+        var editor = harness.Edit(MockupScenario.SkyrimId);
+
+        editor.NameError = "Enter a name.";
+        editor.InstallError = "Choose the install folder.";
+        editor.SavesError = "Choose the saves folder.";
+        editor.ExePathError = "Choose the file that starts the game.";
+        editor.UriError = "Enter a Steam link.";
+        editor.SteamAppIdError = "Enter a number.";
+        harness.Settle();
+
+        Assert.Equal("Enter a name.", AutomationProperties.GetHelpText(harness.Find<TextBox>("NameField")));
+        Assert.Equal("Choose the install folder.", AutomationProperties.GetHelpText(harness.Find<TextBox>("InstallField")));
+        Assert.Equal("Choose the saves folder.", AutomationProperties.GetHelpText(harness.Find<TextBox>("SavesField")));
+        Assert.Equal("Choose the file that starts the game.", AutomationProperties.GetHelpText(harness.Find<TextBox>("ExeField")));
+        Assert.Equal("Enter a Steam link.", AutomationProperties.GetHelpText(harness.Find<TextBox>("UriField")));
+        Assert.Equal("Enter a number.", AutomationProperties.GetHelpText(harness.Find<TextBox>("SteamAppIdField")));
+
+        editor.NameError = null;
+        harness.Settle();
+
+        Assert.True(string.IsNullOrEmpty(AutomationProperties.GetHelpText(harness.Find<TextBox>("NameField"))));
+    }
+
+    [AvaloniaFact]
     public async Task The_start_file_and_steam_link_fields_are_spoken_by_what_they_are_not_by_their_type()
     {
         using var harness = await EditorViewHarness.StartAsync();

@@ -49,6 +49,15 @@ public class NewProfileWizardViewTests
     }
 
     [AvaloniaFact]
+    public async Task The_name_field_carries_its_helper_line_as_help_text()
+    {
+        var (harness, _) = await OpenAsync();
+        using var _ = harness;
+
+        Assert.Equal("Anything that helps you recognize it later.", AutomationProperties.GetHelpText(harness.Find<TextBox>("NameField")));
+    }
+
+    [AvaloniaFact]
     public async Task The_check_steps_button_says_it_starts_the_save()
     {
         var (harness, wizard) = await OpenAsync();
