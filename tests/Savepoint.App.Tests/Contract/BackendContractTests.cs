@@ -28,6 +28,8 @@ public class BackendContractTests(ContractRuns runs) : IClassFixture<ContractRun
             Assert.Contains(story, line => line.StartsWith("session after the game exits: Exited ", StringComparison.Ordinal));
             Assert.Contains("session after skip: Completed profile=profile#1 older=False completion=Skip result=True", story);
             Assert.Contains("second start while it runs: error error.launch.alreadyRunning", story);
+            Assert.Contains("discard while it runs: error error.gameService.gameRunning", story);
+            Assert.Contains("discard while it waits for the choice: error error.gameService.gameRunning", story);
         }
     }
 

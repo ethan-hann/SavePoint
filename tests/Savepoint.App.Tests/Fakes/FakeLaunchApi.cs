@@ -71,6 +71,13 @@ public sealed class FakeLaunchApi : ILaunchApi
         _backend.Call(_api, nameof(DiscardChangesAsync), [gameId, folder], () =>
         {
             State.Game(gameId);
+
+            // As the real one: not while a session is open (including one waiting for the player's choice), since the game may be writing.
+            if (State.IsOpen(gameId))
+            {
+                return OperationResult.Failure<Unit>(new GameRunningException(gameId, State.Game(gameId).Name));
+            }
+
             foreach (var profile in State.Profiles.Where(p => p.GameId == gameId))
             {
                 var stats = State.StatsFor(profile);
