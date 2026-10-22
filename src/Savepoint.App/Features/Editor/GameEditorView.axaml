@@ -290,7 +290,7 @@
                   <TextBlock Classes="overline" Text="{theme:Upper {loc:Loc gameEditor.artwork.appId.label}}" />
                   <TextBox x:Name="SteamAppIdField"
                            Classes="field mono"
-                           MaxWidth="260"
+                           Width="200"
                            HorizontalAlignment="Left"
                            Classes.error="{Binding SteamAppIdError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                            Text="{Binding SteamAppIdText, Mode=TwoWay}"

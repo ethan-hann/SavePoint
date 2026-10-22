@@ -407,4 +407,19 @@ public class GameEditorViewTests
         Assert.Equal(ReconnectChoice.StartFresh, await question.Result);
         Assert.Single(harness.Backend.Calls.To<IGamesApi>("ResolveOrphanAsync"));
     }
+
+    [AvaloniaFact]
+    public async Task The_steam_app_id_field_is_a_fixed_size_target_whatever_is_typed_in_it()
+    {
+        using var harness = await EditorViewHarness.StartAsync(artwork: true, height: 1000);
+        harness.Edit(MockupScenario.SatisfactoryId);
+
+        var field = harness.Find<TextBox>("SteamAppIdField");
+        Assert.True(field.Bounds.Width >= 160, $"The empty field is {field.Bounds.Width:0}px wide.");
+
+        field.Text = "abc";
+        harness.Settle();
+
+        Assert.True(field.Bounds.Width >= 160, $"The field holding abc is {field.Bounds.Width:0}px wide.");
+    }
 }
