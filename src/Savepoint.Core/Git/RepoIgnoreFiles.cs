@@ -19,10 +19,11 @@ internal static class RepoIgnoreFiles
 
     public static string AttributesPath(string gitDir) => Path.Combine(gitDir, "info", "attributes");
 
-    // The marker pattern is last: in a gitignore file the last matching line wins, so no game pattern can re-include the marker.
-    public static string ExcludeText(IEnumerable<string> patterns)
+    // The lines the exclude file holds besides its comment: the non-empty patterns, then the marker pattern. The marker pattern is
+    // last: in a gitignore file the last matching line wins, so no game pattern can re-include the marker.
+    public static IReadOnlyList<string> ExcludeLines(IEnumerable<string> patterns)
     {
-        var text = new StringBuilder("# Written by SavePoint before every capture. Changes here are overwritten.\n");
+        var lines = new List<string>();
         foreach (var pattern in patterns)
         {
             if (pattern.Length == 0)
@@ -35,10 +36,21 @@ internal static class RepoIgnoreFiles
                 throw new ArgumentException("An ignore pattern is one line and cannot contain a line break or NUL.", nameof(patterns));
             }
 
-            text.Append(pattern).Append('\n');
+            lines.Add(pattern);
         }
 
-        text.Append('/').Append(ConsentMarker.ExcludePattern).Append('\n');
+        lines.Add("/" + ConsentMarker.ExcludePattern);
+        return lines;
+    }
+
+    public static string ExcludeText(IEnumerable<string> patterns)
+    {
+        var text = new StringBuilder("# Written by SavePoint before every capture. Changes here are overwritten.\n");
+        foreach (var line in ExcludeLines(patterns))
+        {
+            text.Append(line).Append('\n');
+        }
+
         return text.ToString();
     }
 

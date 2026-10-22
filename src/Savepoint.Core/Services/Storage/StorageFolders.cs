@@ -1,5 +1,6 @@
 using Savepoint.Core.Backend;
 using Savepoint.Core.Errors;
+using Savepoint.Core.Git;
 
 namespace Savepoint.Core.Services.Storage;
 
@@ -44,7 +45,7 @@ internal static class StorageFolders
             {
                 if (attempt >= _retryDelays.Length)
                 {
-                    throw new GitOperationException(full, $"'{full}' could not be deleted: {e.Message}");
+                    throw GitDirRemoval.DeleteFailure(full, e);
                 }
 
                 await Task.Delay(_retryDelays[attempt], cancellationToken).ConfigureAwait(false);

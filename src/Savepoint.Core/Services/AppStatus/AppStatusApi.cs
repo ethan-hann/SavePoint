@@ -28,12 +28,11 @@ internal sealed class AppStatusApi : IAppStatusApi
                 var catalog = await CheckCatalogAsync(cancellationToken).ConfigureAwait(false);
 
                 // The storage is only touched once the screens that explain a missing tool or a corrupt file are out of the way.
-                if (git.Available && catalog.CorruptFiles.Count == 0)
-                {
-                    await PrepareStorageAsync(cancellationToken).ConfigureAwait(false);
-                }
+                var storage = git.Available && catalog.CorruptFiles.Count == 0
+                    ? await PrepareStorageAsync(cancellationToken).ConfigureAwait(false)
+                    : null;
 
-                return new StartupStatus(git, catalog);
+                return new StartupStatus(git, catalog, storage);
             },
             cancellationToken);
 
@@ -80,6 +79,71 @@ internal sealed class AppStatusApi : IAppStatusApi
                 }
             },
             cancellationToken);
+
+    public Task<OperationResult<string>> UseStorageFolderAsync(string folder, CancellationToken cancellationToken = default) =>
+        ApiGuard.RunAsync(
+            _services.Log,
+            async () =>
+            {
+                var root = _services.PathTokens.Resolve(folder, "storageRoot");
+                var games = await _services.Catalog.ListGamesAsync(cancellationToken).ConfigureAwait(false);
+
+                // Judged before anything changes: a folder with no history of these games is the wrong one, or a drive that came back empty.
+                // With no games listed, any game folder SavePoint made counts.
+                var holdsHistory = games.Count > 0
+                    ? games.Any(game => StorageContent.HoldsStampedGitDirectory(Path.Combine(root, game.Id)))
+                    : StorageContent.Folders(root).Any(StorageContent.HoldsStampedGitDirectory);
+                if (!Directory.Exists(root) || !holdsHistory)
+                {
+                    throw new StorageHistoryNotFoundException(root);
+                }
+
+                return await SwitchStorageAsync(root, create: false, cancellationToken).ConfigureAwait(false);
+            },
+            cancellationToken);
+
+    public Task<OperationResult<string>> StartWithEmptyStorageAsync(CancellationToken cancellationToken = default) =>
+        ApiGuard.RunAsync(
+            _services.Log,
+            async () =>
+            {
+                var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(_services.Platform.Directories.DefaultStorageRoot));
+
+                // History already in the default folder is not an empty start; "Find the folder" is how to use it.
+                if (Directory.Exists(root) && StorageContent.Folders(root).Count > 0)
+                {
+                    throw new StorageDestinationNotEmptyException(root);
+                }
+
+                return await SwitchStorageAsync(root, create: true, cancellationToken).ConfigureAwait(false);
+            },
+            cancellationToken);
+
+    // Nothing else reads or writes the storage while the root changes. The settings are written before the engine is switched, so a
+    // failed write leaves the app on the root it had.
+    private async Task<string> SwitchStorageAsync(string root, bool create, CancellationToken cancellationToken)
+    {
+        using var exclusive = await _services.Storage.Gate.EnterExclusiveAsync(cancellationToken).ConfigureAwait(false);
+        var snapshot = _services.Storage.Build(root);
+        if (create)
+        {
+            try
+            {
+                Directory.CreateDirectory(snapshot.Root);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or NotSupportedException)
+            {
+                throw new StorageUnreachableException(snapshot.Root, e);
+            }
+        }
+
+        await _services.Catalog.UpdateSettingsAsync(
+            current => (current ?? AppSettings.Defaults(snapshot.Root)) with { StorageRoot = snapshot.Root },
+            cancellationToken).ConfigureAwait(false);
+        _services.Storage.Replace(snapshot);
+        _services.Log.Information($"Storage: now using {snapshot.Root}, chosen at startup.");
+        return snapshot.Root;
+    }
 
     private async Task<GitStatus> CheckGitAsync(CancellationToken cancellationToken)
     {
@@ -234,43 +298,55 @@ internal sealed class AppStatusApi : IAppStatusApi
     }
 
     // The storage folder is made only the first time, when no root has been saved. After that a folder that is not there is an
-    // unplugged drive or a renamed folder, and making an empty one in its place would hide the history behind it (D31).
-    private async Task PrepareStorageAsync(CancellationToken cancellationToken)
+    // unplugged drive or a renamed folder, and making an empty one in its place would hide the history behind it (D31). Such a
+    // folder is a finding, not a failed check: the startup screen offers a way on (D37).
+    private async Task<StorageStatus> PrepareStorageAsync(CancellationToken cancellationToken)
     {
-        var settings = await _services.Catalog.GetSettingsAsync(cancellationToken).ConfigureAwait(false);
-        var firstRun = string.IsNullOrWhiteSpace(settings?.StorageRoot);
-        var storage = await _services.Storage.GetAsync(cancellationToken).ConfigureAwait(false);
-        if (firstRun)
+        try
         {
-            try
+            var settings = await _services.Catalog.GetSettingsAsync(cancellationToken).ConfigureAwait(false);
+            var firstRun = string.IsNullOrWhiteSpace(settings?.StorageRoot);
+            var storage = await _services.Storage.GetAsync(cancellationToken).ConfigureAwait(false);
+            if (firstRun)
             {
-                Directory.CreateDirectory(storage.Root);
-            }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException or NotSupportedException)
-            {
-                throw new StorageUnreachableException(storage.Root, e);
-            }
-
-            await RememberRootAsync(storage.Root, cancellationToken).ConfigureAwait(false);
-        }
-
-        var found = firstRun ? "was created for the first run" : Directory.Exists(storage.Root) ? "was found" : "was not found";
-        _services.Log.Information($"Startup check: storage folder {storage.Root} {found}.");
-
-        // A lock left by a run that was killed would refuse the first save; this is the one moment nothing of ours is running (D18).
-        if (Interlocked.Exchange(ref _swept, 1) == 0)
-        {
-            foreach (var folder in StorageContent.Folders(storage.Root))
-            {
-                foreach (var gitDir in new[] { "install.git", "external.git" }.Select(name => Path.Combine(folder, name)).Where(Directory.Exists))
+                try
                 {
-                    var removed = storage.Engine.RemoveStaleLocks(gitDir);
-                    if (removed > 0)
+                    Directory.CreateDirectory(storage.Root);
+                }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException or NotSupportedException)
+                {
+                    throw new StorageUnreachableException(storage.Root, e);
+                }
+
+                await RememberRootAsync(storage.Root, cancellationToken).ConfigureAwait(false);
+            }
+
+            var found = firstRun ? "was created for the first run" : Directory.Exists(storage.Root) ? "was found" : "was not found";
+            _services.Log.Information($"Startup check: storage folder {storage.Root} {found}.");
+
+            // A lock left by a run that was killed would refuse the first save; this is the one moment nothing of ours is running (D18).
+            if (Interlocked.Exchange(ref _swept, 1) == 0)
+            {
+                foreach (var folder in StorageContent.Folders(storage.Root))
+                {
+                    foreach (var gitDir in new[] { "install.git", "external.git" }.Select(name => Path.Combine(folder, name)).Where(Directory.Exists))
                     {
-                        _services.Log.Information($"Startup check: removed {removed} leftover lock or temporary files from {gitDir}.");
+                        var removed = storage.Engine.RemoveStaleLocks(gitDir);
+                        if (removed > 0)
+                        {
+                            _services.Log.Information($"Startup check: removed {removed} leftover lock or temporary files from {gitDir}.");
+                        }
                     }
                 }
             }
+
+            return new StorageStatus(true, storage.Root, null);
+        }
+        catch (StorageUnreachableException e)
+        {
+            var root = e.Args.GetValueOrDefault("path") as string ?? string.Empty;
+            _services.Log.Warning($"Startup check: storage folder {root} cannot be reached.", e);
+            return new StorageStatus(false, root, ErrorInfo.From(e));
         }
     }
 }

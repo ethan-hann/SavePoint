@@ -110,6 +110,17 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
 
         var settings = await LoadSettingsAsync();
         var plan = preview.Value;
+
+        // A file that cannot be read is the only thing wrong with a folder that has to be switched: say which, and offer to try again,
+        // rather than a dialog whose choices (keep, discard) could not help.
+        if (new[] { plan.Install, plan.External }.OfType<FolderLaunchState>().Select(folder => folder.HeldBy).FirstOrDefault(held => held is not null) is { } held)
+        {
+            flow.Stage = FlowStage.Idle;
+            ShowLaunchFailure(flow, held);
+            RaiseActivity();
+            return;
+        }
+
         if (plan.ShowBanner)
         {
             await StartAsync(flow, target, plan, viaBanner: true);

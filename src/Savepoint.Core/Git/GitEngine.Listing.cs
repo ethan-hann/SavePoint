@@ -21,10 +21,17 @@ public sealed partial class GitEngine
         return "--exclude-from=" + path;
     }
 
-    // The patterns of the exclude list, in order, for commands that take them as arguments.
+    // The patterns of the exclude list, in order, for commands that take them as arguments. When the folder carries the game's current
+    // patterns they are used as they are: the file was just written from them, and a read can return what a call that started
+    // before an edit of the ignore list wrote since.
     private static IReadOnlyList<string> ExcludePatterns(RepoRef repo)
     {
         ExcludeFromArgument(repo);
+        if (repo.IgnorePatterns is { } current)
+        {
+            return RepoIgnoreFiles.ExcludeLines(current);
+        }
+
         return
         [
             .. File.ReadAllLines(RepoIgnoreFiles.ExcludePath(repo.GitDir))

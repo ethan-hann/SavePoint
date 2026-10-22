@@ -11,7 +11,7 @@ internal static class SwitchJournal
 
     public static string PathIn(string gitDir) => Path.Combine(gitDir, FileName);
 
-    public static void Write(string gitDir, string? from, string to)
+    public static void Write(string gitDir, string? from, string to, string? branch = null)
     {
         using var buffer = new MemoryStream();
         using (var writer = new Utf8JsonWriter(buffer))
@@ -19,6 +19,11 @@ internal static class SwitchJournal
             writer.WriteStartObject();
             writer.WriteString("from", from);
             writer.WriteString("to", to);
+            if (branch is not null)
+            {
+                writer.WriteString("branch", branch);
+            }
+
             writer.WriteEndObject();
         }
 
@@ -39,7 +44,8 @@ internal static class SwitchJournal
             var root = document.RootElement;
             var to = root.GetProperty("to").GetString();
             var from = root.TryGetProperty("from", out var fromElement) ? fromElement.GetString() : null;
-            return to is null ? null : new InterruptedSwitch(from, to);
+            var branch = root.TryGetProperty("branch", out var branchElement) ? branchElement.GetString() : null;
+            return to is null ? null : new InterruptedSwitch(from, to, branch);
         }
         catch (Exception e) when (e is JsonException or KeyNotFoundException or InvalidOperationException)
         {

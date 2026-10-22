@@ -1,0 +1,120 @@
+using Savepoint.Core.Api;
+using Savepoint.Core.Catalog;
+using Savepoint.Core.Git;
+using Savepoint.Core.Tests.Git.Engine;
+
+namespace Savepoint.Core.Tests.Launch.Orchestration;
+
+// A file git cannot read is listed as a change nobody made. A folder whose only changes are such files counts as clean everywhere it
+// is read, and when a switch has to read the file the launch says which file and asks to try again, with nothing switched (D37).
+public class LaunchHeldFileTests
+{
+    public static TheoryData<HeldFileKind> Kinds => HeldFiles.Kinds;
+
+    private static LaunchTarget Tip(Profile profile) => new LaunchTarget.ProfileTip(profile.Id);
+
+    // The folders end on Modded, whose data/base.pak differs from Vanilla's, so going to Vanilla has to read and replace that file.
+    private static string HeldFile(LaunchRig rig) => Path.Combine(rig.InstallPath, "data", "base.pak");
+
+    private static Task MakeRacyAsync(LaunchRig rig, RepoRole role = RepoRole.Install) =>
+        rig.WithEngineAsync(
+            (_, repo) =>
+            {
+                HeldFiles.MakeRacy(repo);
+                return Task.FromResult(true);
+            },
+            role);
+
+    [Theory(Timeout = 150_000)]
+    [MemberData(nameof(Kinds))]
+    public async Task The_preview_names_a_file_that_stands_in_the_way_of_the_switch_instead_of_offering_to_keep_or_discard_it(HeldFileKind kind)
+    {
+        var (rig, vanilla, modded) = await LaunchRig.WithTwoProfilesAsync();
+        using var _ = rig;
+        await MakeRacyAsync(rig);
+
+        using (HeldFiles.Hold(HeldFile(rig), kind))
+        {
+            var toVanilla = await rig.PreviewAsync(Tip(vanilla));
+            var staying = await rig.PreviewAsync(Tip(modded));
+
+            Assert.False(toVanilla.Install.Dirty);
+            Assert.Equal(0, toVanilla.Install.DirtyFileCount);
+            Assert.False(toVanilla.Install.MatchesTarget);
+            Assert.Equal(HeldFiles.ErrorIdOf(kind), toVanilla.Install.HeldBy?.MessageId);
+            Assert.Equal(HeldFile(rig), toVanilla.Install.HeldBy!.Args["path"]);
+            Assert.Null(toVanilla.External!.HeldBy);
+
+            // A folder that needs no switch has nothing to read: it is clean, and the launch carries on with it.
+            Assert.True(staying.Install.MatchesTarget);
+            Assert.Null(staying.Install.HeldBy);
+            Assert.True(staying.ShowBanner);
+        }
+    }
+
+    [Theory(Timeout = 150_000)]
+    [MemberData(nameof(Kinds))]
+    public async Task A_launch_stops_for_such_a_file_before_it_switches_either_folder(HeldFileKind kind)
+    {
+        var (rig, vanilla, _) = await LaunchRig.WithTwoProfilesAsync();
+        using var _ = rig;
+        await MakeRacyAsync(rig, RepoRole.External);
+
+        // The saves folder is switched second, so a stop there must come before the install folder is touched.
+        var held = Path.Combine(rig.SavesPath, "slot2.sav");
+        JobSnapshot job;
+        using (HeldFiles.Hold(held, kind))
+        {
+            job = await rig.StartAsync(Tip(vanilla));
+        }
+
+        Assert.Equal(JobStatus.Failed, job.Status);
+        Assert.Equal(HeldFiles.ErrorIdOf(kind), job.Error?.MessageId);
+        Assert.Equal(held, job.Error!.Args["path"]);
+        Assert.True(rig.InstallHas("mods/a.txt"));
+        Assert.Equal("a longer, patched base content", rig.ReadInstall("data/base.pak"));
+    }
+
+    [Theory(Timeout = 150_000)]
+    [MemberData(nameof(Kinds))]
+    public async Task A_profile_whose_only_change_is_such_a_file_has_no_unsaved_changes_in_its_row(HeldFileKind kind)
+    {
+        var (rig, _, modded) = await LaunchRig.WithTwoProfilesAsync();
+        using var _ = rig;
+        await MakeRacyAsync(rig);
+
+        using (HeldFiles.Hold(HeldFile(rig), kind))
+        {
+            var stats = (await rig.Profiles.GetRowStatsAsync(rig.Game.Id, rig.Token)).Value!;
+
+            var row = stats.Single(stat => stat.ProfileId == modded.Id);
+            Assert.True(row.IsActive);
+            Assert.Empty(row.UnsavedChanges);
+        }
+    }
+
+    [Theory(Timeout = 150_000)]
+    [MemberData(nameof(Kinds))]
+    public async Task After_play_such_a_file_is_not_counted_and_an_update_leaves_the_folder_alone(HeldFileKind kind)
+    {
+        var (rig, _, modded) = await LaunchRig.WithTwoProfilesAsync();
+        using var _ = rig;
+        await rig.StartAsync(Tip(modded));
+        await rig.WaitForGameAsync();
+        await MakeRacyAsync(rig);
+
+        SessionState.Exited exited;
+        SessionState.Completed done;
+        using (HeldFiles.Hold(HeldFile(rig), kind))
+        {
+            Assert.True((await rig.Launch.MarkFinishedAsync(rig.Game.Id)).Ok);
+            exited = Assert.IsType<SessionState.Exited>((await rig.WaitForAsync<SessionState.Exited>()).State);
+            Assert.True((await rig.Launch.CompleteSessionAsync(rig.Game.Id, new SessionCompletion.UpdateExisting("Updated"))).Ok);
+            done = Assert.IsType<SessionState.Completed>((await rig.WaitForAsync<SessionState.Completed>()).State);
+        }
+
+        Assert.Equal(0, exited.ChangedInstallFileCount);
+        Assert.Null(done.Error);
+        Assert.All(Assert.IsType<CaptureResult>(done.Result).Folders, folder => Assert.True(folder.Ok, folder.Error?.Detail));
+    }
+}

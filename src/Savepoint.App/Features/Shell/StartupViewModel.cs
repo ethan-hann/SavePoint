@@ -26,6 +26,9 @@ public enum StartupPhase
     /// <summary>A catalog file cannot be read; the recovery screen lists them (D13.2).</summary>
     CatalogCorrupt,
 
+    /// <summary>The folder where SavePoint keeps its saved history cannot be reached; the screen offers three ways on (D37).</summary>
+    StorageUnreachable,
+
     /// <summary>The check itself failed.</summary>
     Failed,
 
@@ -68,6 +71,10 @@ public sealed partial class StartupViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasLogFolderError))]
     private string? _logFolderError;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasStorageActionError))]
+    private string? _storageActionError;
 
     /// <param name="status">The startup Api; null when no services are connected, which shows the unavailable screen.</param>
     /// <param name="text">Formats the screens' copy.</param>
@@ -115,6 +122,9 @@ public sealed partial class StartupViewModel : ObservableObject
     /// <summary>True when <see cref="LogFolderError"/> has something to say.</summary>
     public bool HasLogFolderError => LogFolderError is not null;
 
+    /// <summary>True when <see cref="StorageActionError"/> has something to say.</summary>
+    public bool HasStorageActionError => StorageActionError is not null;
+
     /// <summary>Opens the log folder; says so in <see cref="LogFolderError"/> when the file manager cannot be started.</summary>
     public IRelayCommand OpenLogFolderCommand => field ??= new RelayCommand(OpenLogFolder);
 
@@ -127,6 +137,7 @@ public sealed partial class StartupViewModel : ObservableObject
         CorruptFiles.Clear();
         Card = null;
         LogFolderError = null;
+        StorageActionError = null;
 
         if (_status is null)
         {
@@ -165,6 +176,13 @@ public sealed partial class StartupViewModel : ObservableObject
             }
 
             Phase = StartupPhase.CatalogCorrupt;
+            return;
+        }
+
+        if (status.Storage is { Reachable: false } storage)
+        {
+            Phase = StartupPhase.StorageUnreachable;
+            Card = StorageCard(storage);
             return;
         }
 
@@ -238,6 +256,20 @@ public sealed partial class StartupViewModel : ObservableObject
             supplement: backupNote);
     }
 
+    // A folder that is gone for good is not a dead end: the history may be on a drive that has a new letter, or SavePoint can start over.
+    private ErrorCardViewModel StorageCard(StorageStatus storage)
+    {
+        var error = storage.Error ?? new ErrorInfo("error.storage.unreachable", new Dictionary<string, object?> { ["path"] = storage.Root }, string.Empty);
+        List<ErrorCardAction> actions = [TryAgain()];
+        if (_dialogs is not null)
+        {
+            actions.Add(new ErrorCardAction(_text.Message("startup.storage.findFolder"), new AsyncRelayCommand(() => FindStorageFolderAsync(storage))));
+            actions.Add(new ErrorCardAction(_text.Message("startup.storage.startEmpty"), new AsyncRelayCommand(() => StartWithEmptyStorageAsync(storage))));
+        }
+
+        return new ErrorCardViewModel(error, _text, actions, supplement: _text.Message("startup.storage.choices"));
+    }
+
     private void OpenLogFolder() =>
         LogFolderError = _logFolder is { } folder && (_revealer?.Reveal(folder) ?? false) ? null : _text.Message("startup.logFolderFailed");
 
@@ -271,6 +303,49 @@ public sealed partial class StartupViewModel : ObservableObject
 
         RecoveryError = null;
         RecoveryNotes.Add(_text.Message("startup.corrupt.movedTo", ("path", recovered.Value)));
+        await CheckAsync();
+    }
+
+    // Pointing at where the history is now changes only a setting, so it needs no confirmation; the Api checks the folder holds it.
+    private async Task FindStorageFolderAsync(StorageStatus storage)
+    {
+        StorageActionError = null;
+        if (await _dialogs!.PickFolderAsync(new FolderPickRequest(_text.Message("startup.storage.pickTitle"), storage.Root)) is not { } folder)
+        {
+            return;
+        }
+
+        var used = await _status!.UseStorageFolderAsync(folder);
+        if (!used.Ok)
+        {
+            StorageActionError = _text.Message(used.Error);
+            return;
+        }
+
+        await CheckAsync();
+    }
+
+    // Beginning again leaves the old history behind, so it asks first and names the folder that is given up.
+    private async Task StartWithEmptyStorageAsync(StorageStatus storage)
+    {
+        StorageActionError = null;
+        var confirmed = await _dialogs!.ConfirmAsync(new ConfirmRequest(
+            _text.Message("startup.storage.confirm.title"),
+            _text.Message("startup.storage.confirm.message", ("path", storage.Root)),
+            _text.Message("startup.storage.startEmpty"),
+            Destructive: true));
+        if (!confirmed)
+        {
+            return;
+        }
+
+        var started = await _status!.StartWithEmptyStorageAsync();
+        if (!started.Ok)
+        {
+            StorageActionError = _text.Message(started.Error);
+            return;
+        }
+
         await CheckAsync();
     }
 }

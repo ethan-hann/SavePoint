@@ -200,6 +200,16 @@ public class ErrorTypesTests
             ("path", "/saves/alpha"), ("role", RepoRole.External));
         Add("StorageDestinationNotEmpty", new StorageDestinationNotEmptyException("/storage"), "error.storageRelocation.destinationNotEmpty",
             ("path", "/storage"));
+        Add("StorageInsideInstallFolder", new StorageInsideInstallFolderException("/install/data", "/install"), "error.storageRelocation.insideInstallFolder",
+            ("path", "/install/data"));
+        Add("StorageSourceUnreadable", new StorageSourceUnreadableException("/storage/alpha", "dev text", null), "error.storageRelocation.sourceUnreadable",
+            ("path", "/storage/alpha"));
+        Add("StorageHistoryNotFound", new StorageHistoryNotFoundException("/elsewhere"), "error.storage.noHistoryHere",
+            ("path", "/elsewhere"));
+        Add("FileUnreadable", new FileUnreadableException("/games/alpha/data.pak"), "error.gitOperation.unreadableFile",
+            ("path", "/games/alpha/data.pak"));
+        Add("StorageRemoveFailed", new StorageRemoveFailedException("/storage/alpha", "dev text"), "error.storage.removeFailed",
+            ("path", "/storage/alpha"));
         Add("StorageMoveUnfinished", new StorageMoveUnfinishedException("/storage"), "error.storageRelocation.moveUnfinished",
             ("path", "/storage"));
         Add("Validation", new ValidationException(_issues), "error.validation.invalidPayload",

@@ -17,7 +17,11 @@ namespace Savepoint.Core.Services.Profiles;
 /// For <see cref="CaptureMode.Amend"/>: the capture id of the one point being replaced. Only a folder whose newest commit carries it is
 /// rewritten; a folder whose newest commit belongs to another point gets a new commit under the same capture id, so no other point is lost.
 /// </param>
-internal sealed record FolderCapturePlan(CaptureMode Mode, string? ExpectedStartCommit = null, bool SkipWhenClean = false, string? AmendPointId = null);
+/// <param name="LeftAtLaunch">
+/// True for a folder the launch left as it was. It may be on another profile's branch, which a new or updated point cannot be written
+/// onto, so such a folder is skipped instead of failing the save; a folder the profile has no branch in is saved as its first history.
+/// </param>
+internal sealed record FolderCapturePlan(CaptureMode Mode, string? ExpectedStartCommit = null, bool SkipWhenClean = false, string? AmendPointId = null, bool LeftAtLaunch = false);
 
 /// <summary>One capture event: the id every folder's point carries, and when it began, which every folder's point records the same way.</summary>
 /// <param name="Id">The capture id.</param>
@@ -138,7 +142,7 @@ internal sealed class CaptureRunner
         var progress = new CombinedProgress(context);
 
         // The two folders are separate repositories, so they are saved side by side; one failing never stops the other.
-        var saved = await Task.WhenAll(repos.Select(repo => SaveFolderAsync(context, storage, game, repo, profile.BranchName, pointName, capture, plans?.GetValueOrDefault(repo.Role), progress.For(repo.Role)))).ConfigureAwait(false);
+        var saved = await Task.WhenAll(repos.Select(repo => SaveFolderAsync(context, storage, game, repo, profile.BranchName, pointName, capture, creating, plans?.GetValueOrDefault(repo.Role), progress.For(repo.Role)))).ConfigureAwait(false);
 
         var outcomes = saved.Select(folder => folder.Outcome).ToList();
         if (creating)
@@ -158,6 +162,7 @@ internal sealed class CaptureRunner
         string branch,
         string pointName,
         CaptureEvent capture,
+        bool creating,
         FolderCapturePlan? plan,
         IProgress<FileProgress> progress)
     {
@@ -171,7 +176,7 @@ internal sealed class CaptureRunner
         {
             var existed = await storage.Engine.BranchExistsAsync(repo, branch, context.CancellationToken).ConfigureAwait(false);
             startedBranch = !existed;
-            var recorded = await CaptureFolderAsync(storage, game, repo, branch, existed, pointName, capture, plan, progress, context.CancellationToken).ConfigureAwait(false);
+            var recorded = await CaptureFolderAsync(storage, game, repo, branch, existed, pointName, capture, creating, plan, progress, context.CancellationToken).ConfigureAwait(false);
             return new SavedFolder(repo, new FolderOutcome(repo.Role), recorded, startedBranch);
         }
         catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException))
@@ -191,20 +196,27 @@ internal sealed class CaptureRunner
         bool branchExists,
         string pointName,
         CaptureEvent capture,
+        bool creating,
         FolderCapturePlan? plan,
         IProgress<FileProgress> progress,
         CancellationToken cancellationToken)
     {
-        if (plan is { SkipWhenClean: true } && (await storage.Engine.GetStatusAsync(repo, cancellationToken).ConfigureAwait(false)).IsClean)
+        if (plan is { SkipWhenClean: true } or { LeftAtLaunch: true })
         {
-            return false;
+            var status = await storage.Engine.GetStatusAsync(repo, cancellationToken).ConfigureAwait(false);
+
+            // Decided before anything is written, so a folder that cannot take the point is never a half-failed save.
+            var elsewhere = plan.LeftAtLaunch && branchExists && (status.IsDetached || !string.Equals(status.Branch, branch, StringComparison.Ordinal));
+            if (elsewhere || (plan.SkipWhenClean && status.IsClean))
+            {
+                return false;
+            }
         }
 
-        // A branch that does not exist yet is started at what the folder holds now, whatever branch it is on.
         var request = new CaptureRequest(branch, pointName, capture.Id)
         {
             CapturedAt = capture.At,
-            Mode = await ModeOfAsync(storage, repo, branch, branchExists, plan, cancellationToken).ConfigureAwait(false),
+            Mode = await ModeOfAsync(storage, repo, branch, branchExists, creating, plan, cancellationToken).ConfigureAwait(false),
             IgnorePatterns = game.IgnorePaths,
             ExpectedStartCommit = plan?.ExpectedStartCommit,
         };
@@ -219,12 +231,24 @@ internal sealed class CaptureRunner
         return true;
     }
 
+    // A fork or a move forward is as the session asked. Otherwise a new profile's branch starts from what the folder holds now, and an
+    // existing profile's first save of a folder it never saved starts a history of its own instead of continuing another profile's.
     // An amend rewrites the newest commit, so it only runs where that commit is the point being replaced.
-    private static async Task<CaptureMode> ModeOfAsync(StorageSnapshot storage, RepoRef repo, string branch, bool branchExists, FolderCapturePlan? plan, CancellationToken cancellationToken)
+    private static async Task<CaptureMode> ModeOfAsync(StorageSnapshot storage, RepoRef repo, string branch, bool branchExists, bool creating, FolderCapturePlan? plan, CancellationToken cancellationToken)
     {
+        if (plan is { Mode: CaptureMode.Fork or CaptureMode.MoveForward })
+        {
+            return plan.Mode;
+        }
+
+        if (!branchExists)
+        {
+            return creating ? CaptureMode.Fork : CaptureMode.Root;
+        }
+
         if (plan is not { Mode: CaptureMode.Amend, AmendPointId: { } replaced })
         {
-            return plan?.Mode ?? (branchExists ? CaptureMode.Normal : CaptureMode.Fork);
+            return plan?.Mode ?? CaptureMode.Normal;
         }
 
         var newest = (await storage.Engine.ListCommitsAsync(repo, branch, 1, cancellationToken).ConfigureAwait(false)).FirstOrDefault();

@@ -257,7 +257,7 @@ public sealed partial class GitEngine
         await EnsureCheckoutSpaceAsync(repo, plan.Changes, ct).ConfigureAwait(false);
 
         using var scope = BeginWrite(repo);
-        SwitchJournal.Write(repo.GitDir, note?.FromCommit ?? from, to);
+        SwitchJournal.Write(repo.GitDir, note?.FromCommit ?? from, to, isBranch ? target : null);
         var reporter = progress is null ? null : new ProgressReporter(progress);
 
         await RunCheckoutAsync(repo, target, to, isBranch, force, ownsNote: note is null, reporter, ct).ConfigureAwait(false);
@@ -364,15 +364,15 @@ public sealed partial class GitEngine
         }
     }
 
-    // git refused because local changes (or new files) are in the way: a file another program holds is "in use", anything else is the player's work.
+    // git refused because local changes (or new files) are in the way: a file that cannot be read is named as such, anything else is the player's work.
     private static SavepointException RefusalFor(RepoRef repo, string stderr)
     {
         foreach (var path in GitFailure.OverwrittenPaths(stderr))
         {
             var full = Path.Combine(repo.WorkTree, path.Replace('/', Path.DirectorySeparatorChar));
-            if (FileLockProbe.IsLocked(full))
+            if (FileLockProbe.Probe(full) is { } kind)
             {
-                return InUse(full);
+                return new HeldFile(full, kind).ToException();
             }
         }
 

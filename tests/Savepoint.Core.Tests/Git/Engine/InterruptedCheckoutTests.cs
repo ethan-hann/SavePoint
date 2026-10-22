@@ -49,7 +49,7 @@ public sealed class InterruptedCheckoutTests : IDisposable
 
         _ws.OnInvoke = null;
         var status = await _ws.Engine.GetStatusAsync(repo, Ct);
-        Assert.Equal(new InterruptedSwitch(from, to!), status.InterruptedSwitch);
+        Assert.Equal(new InterruptedSwitch(from, to!, "profile-a"), status.InterruptedSwitch);
 
         await _ws.Engine.DiscardChangesAsync(repo, Ct);
 

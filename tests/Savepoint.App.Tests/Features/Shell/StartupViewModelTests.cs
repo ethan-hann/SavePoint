@@ -359,6 +359,166 @@ public class StartupViewModelTests
         Assert.Empty(startup.CorruptFiles);
         Assert.Equal(StartupPhase.Ready, startup.Phase);
     }
+
+    private const string _storageRoot = @"F:\SavePoint";
+
+    private static StartupStatus StorageGone() => Healthy() with
+    {
+        Storage = new StorageStatus(false, _storageRoot, ErrorInfo.From(new StorageUnreachableException(_storageRoot, null))),
+    };
+
+    [Fact]
+    public async Task A_storage_folder_that_cannot_be_reached_names_it_and_offers_three_ways_on()
+    {
+        var startup = new StartupViewModel(Backend(StorageGone()).AppStatus, _text, dialogs: new FakeDialogs());
+        var ready = 0;
+        startup.Ready += (_, _) => ready++;
+
+        await startup.CheckAsync();
+
+        Assert.Equal(StartupPhase.StorageUnreachable, startup.Phase);
+        Assert.Equal(0, ready);
+        var card = startup.Card!;
+        Assert.Equal("SavePoint's storage isn't reachable", card.Title);
+        Assert.Equal(_storageRoot, card.Path);
+        Assert.Equal(["Try again", "Find the folder", "Start with an empty folder"], card.Actions.Select(action => action.Label));
+        Assert.True(card.Actions[0].IsPrimary);
+        Assert.Contains("choose where it is now", card.Supplement as string, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_reachable_storage_folder_is_ready_and_one_that_was_not_checked_changes_nothing()
+    {
+        var startup = new StartupViewModel(Backend(Healthy() with { Storage = new StorageStatus(true, _storageRoot, null) }).AppStatus, _text);
+
+        await startup.CheckAsync();
+
+        Assert.Equal(StartupPhase.Ready, startup.Phase);
+    }
+
+    [Fact]
+    public async Task Trying_again_gets_past_the_screen_once_the_drive_is_back()
+    {
+        var backend = Backend(StorageGone());
+        var startup = new StartupViewModel(backend.AppStatus, _text, dialogs: new FakeDialogs());
+        await startup.CheckAsync();
+        Assert.Equal(StartupPhase.StorageUnreachable, startup.Phase);
+
+        backend.State.Startup = Healthy();
+        await startup.Card!.Actions[0].Command.ExecuteAsync();
+
+        Assert.Equal(StartupPhase.Ready, startup.Phase);
+    }
+
+    [Fact]
+    public async Task Finding_the_folder_asks_for_one_starting_at_the_old_path_and_points_SavePoint_at_it()
+    {
+        var backend = Backend(StorageGone());
+        var dialogs = new FakeDialogs().AnswerFolder(@"G:\SavePoint");
+        var startup = new StartupViewModel(backend.AppStatus, _text, dialogs: dialogs);
+        await startup.CheckAsync();
+        Assert.Equal(StartupPhase.StorageUnreachable, startup.Phase);
+
+        await startup.Card!.Actions[1].Command.ExecuteAsync();
+
+        var asked = Assert.Single(dialogs.FolderPicks);
+        Assert.Equal("Choose the folder that holds your saved history", asked.Title);
+        Assert.Equal(_storageRoot, asked.StartPath);
+        var used = Assert.Single(backend.Calls.To<IAppStatusApi>(nameof(IAppStatusApi.UseStorageFolderAsync)));
+        Assert.Equal([@"G:\SavePoint"], used.Args);
+        Assert.Equal(StartupPhase.Ready, startup.Phase);
+    }
+
+    [Fact]
+    public async Task Cancelling_the_folder_picker_changes_nothing()
+    {
+        var backend = Backend(StorageGone());
+        var startup = new StartupViewModel(backend.AppStatus, _text, dialogs: new FakeDialogs().AnswerFolder(null));
+        await startup.CheckAsync();
+        Assert.Equal(StartupPhase.StorageUnreachable, startup.Phase);
+
+        await startup.Card!.Actions[1].Command.ExecuteAsync();
+
+        Assert.Empty(backend.Calls.To<IAppStatusApi>(nameof(IAppStatusApi.UseStorageFolderAsync)));
+        Assert.Equal(StartupPhase.StorageUnreachable, startup.Phase);
+        Assert.Null(startup.StorageActionError);
+    }
+
+    [Fact]
+    public async Task A_folder_with_no_saved_history_says_so_and_stays_on_the_screen()
+    {
+        var backend = Backend(StorageGone());
+        var startup = new StartupViewModel(backend.AppStatus, _text, dialogs: new FakeDialogs().AnswerFolder(@"G:\Elsewhere"));
+        await startup.CheckAsync();
+        Assert.Equal(StartupPhase.StorageUnreachable, startup.Phase);
+        backend.FailNext<IAppStatusApi>(nameof(IAppStatusApi.UseStorageFolderAsync), ErrorInfo.From(new StorageHistoryNotFoundException(@"G:\Elsewhere")));
+
+        await startup.Card!.Actions[1].Command.ExecuteAsync();
+
+        Assert.Equal(StartupPhase.StorageUnreachable, startup.Phase);
+        Assert.Contains("doesn't hold the saved history for your games", startup.StorageActionError, StringComparison.Ordinal);
+        Assert.True(startup.HasStorageActionError);
+    }
+
+    [Fact]
+    public async Task Starting_with_an_empty_folder_asks_first_and_names_the_old_path()
+    {
+        var backend = Backend(StorageGone());
+        var dialogs = new FakeDialogs().AnswerConfirm(false);
+        var startup = new StartupViewModel(backend.AppStatus, _text, dialogs: dialogs);
+        await startup.CheckAsync();
+        Assert.Equal(StartupPhase.StorageUnreachable, startup.Phase);
+
+        await startup.Card!.Actions[2].Command.ExecuteAsync();
+
+        var asked = Assert.Single(dialogs.Confirmations);
+        Assert.Equal("Start with an empty folder?", asked.Title);
+        Assert.Contains(_storageRoot, asked.Message, StringComparison.Ordinal);
+        Assert.Equal("Start with an empty folder", asked.ConfirmLabel);
+        Assert.True(asked.Destructive);
+        Assert.Empty(backend.Calls.To<IAppStatusApi>(nameof(IAppStatusApi.StartWithEmptyStorageAsync)));
+        Assert.Equal(StartupPhase.StorageUnreachable, startup.Phase);
+    }
+
+    [Fact]
+    public async Task Confirming_starts_with_an_empty_folder_and_gets_past_the_screen()
+    {
+        var backend = Backend(StorageGone());
+        var startup = new StartupViewModel(backend.AppStatus, _text, dialogs: new FakeDialogs().AnswerConfirm(true));
+        await startup.CheckAsync();
+        Assert.Equal(StartupPhase.StorageUnreachable, startup.Phase);
+
+        await startup.Card!.Actions[2].Command.ExecuteAsync();
+
+        Assert.Single(backend.Calls.To<IAppStatusApi>(nameof(IAppStatusApi.StartWithEmptyStorageAsync)));
+        Assert.Equal(StartupPhase.Ready, startup.Phase);
+    }
+
+    [Fact]
+    public async Task A_start_with_an_empty_folder_that_fails_says_why_and_stays_on_the_screen()
+    {
+        var backend = Backend(StorageGone());
+        var startup = new StartupViewModel(backend.AppStatus, _text, dialogs: new FakeDialogs().AnswerConfirm(true));
+        await startup.CheckAsync();
+        Assert.Equal(StartupPhase.StorageUnreachable, startup.Phase);
+        backend.FailNext<IAppStatusApi>(nameof(IAppStatusApi.StartWithEmptyStorageAsync), ErrorInfo.From(new StorageDestinationNotEmptyException(@"C:\Users\you\AppData\Local\SavePoint\Storage")));
+
+        await startup.Card!.Actions[2].Command.ExecuteAsync();
+
+        Assert.Equal(StartupPhase.StorageUnreachable, startup.Phase);
+        Assert.Equal("That folder already has files in it. Choose an empty folder for your storage.", startup.StorageActionError);
+    }
+
+    [Fact]
+    public async Task Without_dialogs_only_trying_again_is_offered_because_the_other_two_need_them()
+    {
+        var startup = new StartupViewModel(Backend(StorageGone()).AppStatus, _text);
+
+        await startup.CheckAsync();
+        Assert.Equal(StartupPhase.StorageUnreachable, startup.Phase);
+
+        Assert.Equal(["Try again"], startup.Card!.Actions.Select(action => action.Label));
+    }
 }
 
 internal static class CommandExtensions

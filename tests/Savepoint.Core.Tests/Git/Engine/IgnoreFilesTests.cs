@@ -1,3 +1,5 @@
+using Savepoint.Core.Git;
+
 
 namespace Savepoint.Core.Tests.Git.Engine;
 
@@ -18,6 +20,17 @@ public sealed class IgnoreFilesTests : IDisposable
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     public void Dispose() => _ws.Dispose();
+
+    [Fact]
+    public void The_exclude_lines_are_the_patterns_then_the_marker_and_are_what_the_file_holds()
+    {
+        string[] patterns = ["keep/", string.Empty, "*.log"];
+
+        var lines = RepoIgnoreFiles.ExcludeLines(patterns);
+
+        Assert.Equal(["keep/", "*.log", "/.savepoint-managed.json*"], lines);
+        Assert.Equal(lines, RepoIgnoreFiles.ExcludeText(patterns).Split('\n').Where(line => line.Length > 0 && line[0] != '#'));
+    }
 
     [Fact]
     public async Task Init_excludes_only_the_marker_pattern()

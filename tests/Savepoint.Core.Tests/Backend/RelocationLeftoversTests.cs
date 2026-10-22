@@ -1,5 +1,6 @@
 using Savepoint.Core.Api;
 using Savepoint.Core.Services.Settings;
+using Savepoint.Core.Tests.Git.Engine;
 
 namespace Savepoint.Core.Tests.Backend;
 
@@ -10,8 +11,8 @@ public class RelocationLeftoversTests
     [Fact(Timeout = 120_000)]
     public async Task Cancelling_once_the_move_has_switched_does_not_stop_the_removal_of_the_other_old_copies()
     {
-        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows refuses to delete a file another program holds open");
         using var workspace = new BackendWorkspace();
+        HeldFiles.SkipUnlessPermissionsHold(workspace.Root);
         var first = await workspace.AddGameAsync(workspace.NewGame("Alpha"));
         var second = await workspace.AddGameAsync(workspace.NewGame("Beta"));
         await workspace.CreateProfileAsync(first);
@@ -22,7 +23,7 @@ public class RelocationLeftoversTests
 
         // Readable by the copy, but not deletable by anyone until it is let go; the removal waits on it before giving up.
         JobSnapshot job;
-        using (new FileStream(held, FileMode.Open, FileAccess.Read, FileShare.Read))
+        using (HeldFiles.PreventDeleting(held))
         {
             var started = await workspace.Settings.RelocateStorageAsync(destination);
             await WaitForSwitchAsync(workspace, destination);
@@ -169,6 +170,43 @@ public class RelocationLeftoversTests
         Assert.False(Directory.Exists(destination));
         Assert.Equal(workspace.DefaultStorageRoot, (await workspace.Backend.Services.Storage.GetAsync(workspace.Token)).Root);
         Assert.True(Directory.Exists(Path.Combine(workspace.DefaultStorageRoot, game.Id, "install.git")));
+    }
+
+    [Fact(Timeout = 120_000)]
+    public async Task A_take_back_that_cannot_remove_the_whole_copy_leaves_the_marker_so_the_next_move_there_says_the_earlier_one_did_not_finish()
+    {
+        HeldFiles.SkipUnlessPermissionsHold(Path.GetTempPath());
+        BackendWorkspace? self = null;
+        IDisposable? hold = null;
+        using var workspace = new BackendWorkspace(options => options with
+        {
+            // The first git file copied cannot be deleted afterwards: held open on Windows, in a folder nobody may write to elsewhere.
+            AfterRelocationCopy = (_, target) => hold ??= Path.GetFileName(target) == "HEAD" ? HeldFiles.PreventDeleting(target) : null,
+            AfterRelocationSettings = _ =>
+            {
+                var old = self!.DefaultStorageRoot;
+                Task.Run(() => self.Backend.Services.Catalog.UpdateSettingsAsync(current => current! with { StorageRoot = old })).GetAwaiter().GetResult();
+                throw new IOException("the write failed");
+            },
+        });
+        self = workspace;
+        await workspace.AddGameAsync();
+        var destination = Path.Combine(workspace.Root, "new-storage");
+
+        try
+        {
+            var started = await workspace.Settings.RelocateStorageAsync(destination);
+            var job = await workspace.WaitForJobAsync(started.Value!.JobId);
+            var next = (await workspace.Settings.GetRelocationPreviewAsync(destination, workspace.Token)).Value!;
+
+            Assert.Equal(JobStatus.Failed, job.Status);
+            Assert.True(File.Exists(Path.Combine(destination, StorageRelocator.MarkerFileName)), "the marker must stay while part of the copy does");
+            Assert.Equal("error.storageRelocation.moveUnfinished", next.BlockedBy?.MessageId);
+        }
+        finally
+        {
+            hold?.Dispose();
+        }
     }
 
     private static async Task WaitForEveryFileAsync(BackendWorkspace workspace, Guid jobId)

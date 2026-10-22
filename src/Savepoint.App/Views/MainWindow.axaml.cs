@@ -13,11 +13,12 @@ public partial class MainWindow : Window
         InitializeComponent();
     }
 
-    // The window stays open while the exit guard asks; it closes itself again once the guard says it may.
+    // The window stays open while the exit guard asks; it closes itself again once the guard says it may. A quit from the application
+    // (Cmd+Q on macOS) arrives as ApplicationShutdown and honors the cancel; only the system ending the session cannot be held up.
     protected override void OnClosing(WindowClosingEventArgs e)
     {
         base.OnClosing(e);
-        if (_closeApproved || DataContext is not MainWindowViewModel main || e.CloseReason is WindowCloseReason.OSShutdown or WindowCloseReason.ApplicationShutdown)
+        if (_closeApproved || DataContext is not MainWindowViewModel main || e.CloseReason is WindowCloseReason.OSShutdown)
         {
             return;
         }

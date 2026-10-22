@@ -53,7 +53,7 @@ public sealed partial class LaunchOrchestrator
                     roles,
                     _services.Capture.NewEvent(),
                     Creating: forked is not null,
-                    PlansFor(completion, roles, current.StartCommits, (current.Info.State as SessionState.Exited)?.Options.UpdateTarget?.Id.Value));
+                    PlansFor(completion, roles, current.Starts, (current.Info.State as SessionState.Exited)?.Options.UpdateTarget?.Id.Value));
                 var jobId = StartRun(game, run, roles, creating: run.Creating);
                 current.Run = run;
                 current.SavedSoFar = null;
@@ -86,16 +86,23 @@ public sealed partial class LaunchOrchestrator
     private Guid StartRun(GameDefinition game, CompletionRun run, IReadOnlyList<RepoRole> roles, bool creating) =>
         _services.Capture.Start(game, run.Target, run.PointName, roles, run.Capture, creating, run.Plans);
 
-    // How each folder is saved. A new point needs no plan; the other choices change history, so each folder is told what the session
-    // began from, and an update rewrites only the point it names and leaves a folder with nothing unsaved alone.
-    private static Dictionary<RepoRole, FolderCapturePlan>? PlansFor(SessionCompletion completion, IReadOnlyList<RepoRole> roles, IReadOnlyDictionary<RepoRole, string> starts, string? updated) =>
-        completion switch
+    // How each folder is saved. A new point plans only for a folder the launch left as it was, which the save must not force onto the
+    // profile's branch; the other choices change history, so each folder is told what the session began from, and an update rewrites
+    // only the point it names and leaves a folder with nothing unsaved alone.
+    private static Dictionary<RepoRole, FolderCapturePlan>? PlansFor(SessionCompletion completion, IReadOnlyList<RepoRole> roles, IReadOnlyDictionary<RepoRole, FolderStart> starts, string? updated)
+    {
+        bool Left(RepoRole role) => starts.TryGetValue(role, out var start) && start.Left;
+        string? StartOf(RepoRole role) => starts.GetValueOrDefault(role)?.Commit;
+
+        return completion switch
         {
-            SessionCompletion.UpdateExisting => roles.ToDictionary(role => role, _ => new FolderCapturePlan(CaptureMode.Amend, SkipWhenClean: true, AmendPointId: updated)),
-            SessionCompletion.ForkNewProfile => roles.ToDictionary(role => role, role => new FolderCapturePlan(CaptureMode.Fork, starts.GetValueOrDefault(role))),
-            SessionCompletion.MoveForward => roles.ToDictionary(role => role, role => new FolderCapturePlan(CaptureMode.MoveForward, starts.GetValueOrDefault(role))),
+            SessionCompletion.CaptureNew => roles.Where(Left).ToDictionary(role => role, _ => new FolderCapturePlan(CaptureMode.Normal, LeftAtLaunch: true)),
+            SessionCompletion.UpdateExisting => roles.ToDictionary(role => role, role => new FolderCapturePlan(CaptureMode.Amend, SkipWhenClean: true, AmendPointId: updated, LeftAtLaunch: Left(role))),
+            SessionCompletion.ForkNewProfile => roles.ToDictionary(role => role, role => new FolderCapturePlan(CaptureMode.Fork, StartOf(role))),
+            SessionCompletion.MoveForward => roles.ToDictionary(role => role, role => new FolderCapturePlan(CaptureMode.MoveForward, StartOf(role))),
             _ => null,
         };
+    }
 
     private static CompletionChoice ChoiceOf(SessionCompletion completion) => completion switch
     {

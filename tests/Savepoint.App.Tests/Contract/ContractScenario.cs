@@ -97,9 +97,11 @@ internal static class ContractScenario
         story.Add("session while the game runs", Describe(backend.Launch.GetSession(game.Id), story));
         story.Add("second start while it runs", Show(await backend.Launch.StartAsync(game.Id, tip), _ => "unexpected success"));
         story.Add("complete while it runs", Show(await backend.Launch.CompleteSessionAsync(game.Id, new SessionCompletion.Skip()), _ => "unexpected success"));
+        story.Add("discard while it runs", Show(await backend.Launch.DiscardChangesAsync(game.Id, RepoRole.External), _ => "unexpected success"));
 
         await backend.GameExitedAsync(game.Id, cancellationToken);
         story.Add("session after the game exits", Describe(backend.Launch.GetSession(game.Id), story));
+        story.Add("discard while it waits for the choice", Show(await backend.Launch.DiscardChangesAsync(game.Id, RepoRole.External), _ => "unexpected success"));
 
         story.Add("complete with skip", Show(await backend.Launch.CompleteSessionAsync(game.Id, new SessionCompletion.Skip()), _ => "ended"));
         story.Add("session after skip", Describe(backend.Launch.GetSession(game.Id), story));

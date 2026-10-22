@@ -22,8 +22,8 @@ internal sealed record FolderReading(FolderTarget Target, RepoStatus Status, IRe
     // The files a discard would delete; the rest of the unsaved files are put back.
     public int DirtyNewFileCount => Dirty ? Status.UntrackedPaths.Count : 0;
 
-    // A blocked folder counts as one thing to resolve even when git lists no file.
-    public int DirtyFileCount => Dirty ? Math.Max(1, Status.ChangedPaths.Count + Status.UntrackedPaths.Count) : 0;
+    // The files git lists; a half-switched folder git lists none for has none to count, and none is what it says.
+    public int DirtyFileCount => Dirty ? Status.ChangedPaths.Count + Status.UntrackedPaths.Count : 0;
 
     // Changes on a folder left on an older point, or on the branch of a profile that is gone, belong to nobody.
     public string? DirtyOwnerProfileId =>
@@ -37,10 +37,23 @@ internal sealed record FolderReading(FolderTarget Target, RepoStatus Status, IRe
     // Holds exactly what the target asks for, with nothing unsaved and no switch left unfinished.
     public bool Matches => InPlace && Status.IsClean && Note is null;
 
+    // A file that cannot be read stands in the way of a switch; a folder that needs none carries on with it as it is.
+    public bool Held => NeedsSwitch && Status.HeldFile is not null;
+
     // The launch must run a switch on this folder. A folder with unsaved changes never gets this far, so a clean folder that is in
     // place needs none.
     public bool NeedsSwitch => !InPlace || Note is not null;
 
-    public static async Task<FolderReading> ReadAsync(GitEngine engine, FolderTarget target, IReadOnlyList<Profile> profiles, CancellationToken cancellationToken) =>
-        new(target, await engine.GetStatusAsync(target.Repo, cancellationToken).ConfigureAwait(false), profiles);
+    public static async Task<FolderReading> ReadAsync(GitEngine engine, FolderTarget target, IReadOnlyList<Profile> profiles, CancellationToken cancellationToken)
+    {
+        var status = await engine.GetStatusAsync(target.Repo, cancellationToken).ConfigureAwait(false);
+
+        // A folder nobody has saved yet holds nothing a launch could lose; its files are whatever the game keeps there, and the next save picks them up.
+        if (target.Leave && status.HeadCommit is null)
+        {
+            status = status with { IsClean = true, ChangedPaths = [], UntrackedPaths = [] };
+        }
+
+        return new FolderReading(target, status, profiles);
+    }
 }

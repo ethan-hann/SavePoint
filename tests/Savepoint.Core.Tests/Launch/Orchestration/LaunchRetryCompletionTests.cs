@@ -1,5 +1,7 @@
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Git;
+using Savepoint.Core.Tests.Git.Engine;
 using Savepoint.Core.Tests.Services.Exe;
 
 namespace Savepoint.Core.Tests.Launch.Orchestration;
@@ -16,10 +18,16 @@ public class LaunchRetryCompletionTests
     private static bool AllSaved(LaunchSessionInfo session) =>
         session.State is SessionState.Completed { Result: { } result } && result.Folders.All(folder => folder.Ok);
 
-    // The player's own edit to a tracked save, then held open by another program: the saves folder cannot be saved, the install can.
+    // The player's own edit to a tracked save, then made unreadable: the saves folder cannot be saved, the install can. Another program
+    // holds it open where Windows enforces that, and elsewhere the account may not read it.
     private static async Task<IDisposable> LockEditedSaveAsync(LaunchRig rig)
     {
         rig.WriteSave("slot1.sav", "edited, then held open");
+        if (!OperatingSystem.IsWindows())
+        {
+            return HeldFiles.Hold(Path.Combine(rig.SavesPath, "slot1.sav"), HeldFileKind.Unreadable);
+        }
+
         var ready = Path.Combine(rig.Workspace.Root, "locker-ready.txt");
         var locker = FakeGameProcess.Start("--lock", Path.Combine(rig.SavesPath, "slot1.sav"), "--ready-file", ready);
         await FakeGameProcess.WaitForReadyFileAsync(ready);
@@ -29,7 +37,6 @@ public class LaunchRetryCompletionTests
     [Fact(Timeout = 200_000)]
     public async Task Retrying_an_update_that_half_worked_replaces_the_point_in_place_under_the_original_capture_id()
     {
-        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows refuses to read a file another program holds open");
         using var rig = await LaunchRig.CreateAsync(gameArguments: _playsBriefly);
         var vanilla = await rig.ProfileAsync("Vanilla");
         await rig.StartAsync(Tip(vanilla));
@@ -63,7 +70,6 @@ public class LaunchRetryCompletionTests
     [Fact(Timeout = 250_000)]
     public async Task Retrying_a_move_forward_that_half_worked_moves_the_profile_on_in_one_point()
     {
-        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows refuses to read a file another program holds open");
         using var rig = await LaunchRig.CreateAsync(gameArguments: _playsBriefly);
         var vanilla = await rig.ProfileAsync("Vanilla");
         await Task.Delay(1100, Ct);
@@ -101,7 +107,6 @@ public class LaunchRetryCompletionTests
     [Fact(Timeout = 200_000)]
     public async Task A_plain_save_of_the_folders_a_half_worked_save_missed_joins_its_capture_event()
     {
-        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows refuses to read a file another program holds open");
         using var rig = await LaunchRig.CreateAsync(gameArguments: _playsBriefly);
         var vanilla = await rig.ProfileAsync("Vanilla");
         await rig.StartAsync(Tip(vanilla));

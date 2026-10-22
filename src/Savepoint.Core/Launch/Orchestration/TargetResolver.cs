@@ -49,38 +49,48 @@ internal static class TargetResolver
     }
 
     // The target that puts a folder on this commit: a profile's tip, one of its saves (saves folder) or the point the commit belongs
-    // to (install folder). Null when no profile's history holds the commit any more.
+    // to (install folder). The branch the switch was heading for, when it is known, names the profile; without it the commit must be
+    // held by exactly one profile, since profiles can share points and starting the wrong one would switch the folder somewhere else.
+    // Null when no profile can be named.
     public static async Task<LaunchTarget?> TargetOfCommitAsync(
         StorageSnapshot storage,
         RepoRef repo,
         IReadOnlyList<Profile> profiles,
         string commit,
+        string? toBranch,
         CancellationToken cancellationToken)
     {
+        var holders = new List<(Profile Profile, IReadOnlyList<CommitInfo> Lineage, CommitInfo Found)>();
         foreach (var profile in profiles)
         {
             var lineage = await storage.Engine.ListCommitsAsync(repo, profile.BranchName, null, cancellationToken).ConfigureAwait(false);
-            if (lineage.FirstOrDefault(candidate => candidate.Id == commit) is not { } found)
+            if (lineage.FirstOrDefault(candidate => candidate.Id == commit) is { } found)
             {
-                continue;
+                holders.Add((profile, lineage, found));
             }
-
-            if (lineage[0].Id == commit)
-            {
-                return new LaunchTarget.ProfileTip(profile.Id);
-            }
-
-            if (found.CaptureId is not { } captureId)
-            {
-                return null;
-            }
-
-            return repo.Role == RepoRole.External
-                ? new LaunchTarget.Save(profile.Id, new HistoryPointId(captureId))
-                : new LaunchTarget.Point(new HistoryPointId(captureId));
         }
 
-        return null;
+        var chosen = toBranch is not null && holders.FindIndex(holder => holder.Profile.BranchName == toBranch) is var index and >= 0
+            ? holders[index]
+            : holders.Count == 1 ? holders[0] : default;
+        if (chosen.Profile is null)
+        {
+            return null;
+        }
+
+        if (chosen.Lineage[0].Id == commit)
+        {
+            return new LaunchTarget.ProfileTip(chosen.Profile.Id);
+        }
+
+        if (chosen.Found.CaptureId is not { } captureId)
+        {
+            return null;
+        }
+
+        return repo.Role == RepoRole.External
+            ? new LaunchTarget.Save(chosen.Profile.Id, new HistoryPointId(captureId))
+            : new LaunchTarget.Point(new HistoryPointId(captureId));
     }
 
     private static Profile RequireProfile(IReadOnlyList<Profile> profiles, string gameId, string profileId) =>
@@ -100,11 +110,13 @@ internal static class TargetResolver
         {
             var lineage = await storage.Engine.ListCommitsAsync(repo, profile.BranchName, null, cancellationToken).ConfigureAwait(false);
 
-            // A saves folder the profile never saved (one added after the profile was made) is left as it is; the next save adds it (D31).
+            // A saves folder the profile never saved (one added after the profile was made) is left as it is, but it is read like every
+            // other folder: another profile's unsaved changes there still block the launch. The next save starts its history (D31, D37).
             if (lineage.Count == 0)
             {
                 if (repo.Role == RepoRole.External)
                 {
+                    folders.Add(FolderTarget.Left(repo));
                     continue;
                 }
 

@@ -1,4 +1,5 @@
 using Savepoint.Core.Api;
+using Savepoint.Core.Tests.Git.Engine;
 using Savepoint.Testing;
 
 namespace Savepoint.Core.Tests.Backend;
@@ -94,13 +95,13 @@ public class ClearAllLogTests
     [Fact(Timeout = 120_000)]
     public async Task A_log_file_that_cannot_be_removed_is_listed_like_any_other_item()
     {
-        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows refuses to delete an open file");
         using var workspace = new BackendWorkspace();
+        HeldFiles.SkipUnlessPermissionsHold(workspace.Root);
         var logs = workspace.Platform.Directories.LogsDir;
         Assert.StartsWith(workspace.Root, logs, StringComparison.Ordinal);
         var held = Path.Combine(logs, "savepoint-20261020.log");
         BackendWorkspace.WriteFile(held, "yesterday");
-        await using var open = new FileStream(held, FileMode.Open, FileAccess.Read, FileShare.Read);
+        using var open = HeldFiles.PreventDeleting(held);
 
         var started = await workspace.Settings.ClearAllDataAsync();
         var job = await workspace.WaitForJobAsync(started.Value!.JobId, TimeSpan.FromSeconds(120));

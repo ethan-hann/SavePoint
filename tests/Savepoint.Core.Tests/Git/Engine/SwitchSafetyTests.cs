@@ -174,7 +174,7 @@ public sealed class SwitchSafetyTests : IDisposable
         await Assert.ThrowsAsync<DirtyWorkingTreeException>(() => _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct));
 
         _ws.OnInvoke = null;
-        Assert.Equal(new InterruptedSwitch(tips.B, tips.A), SwitchJournal.Read(repo.GitDir));
+        Assert.Equal(new InterruptedSwitch(tips.B, tips.A, "profile-a"), SwitchJournal.Read(repo.GitDir));
     }
 
     [Fact]

@@ -186,7 +186,7 @@ public sealed class CheckoutVerifyTests : IDisposable
         await Assert.ThrowsAsync<GitOperationException>(() => _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct));
 
         var interrupted = (await _ws.Engine.GetStatusAsync(repo, Ct)).InterruptedSwitch;
-        Assert.Equal(new InterruptedSwitch(from, to!), interrupted);
+        Assert.Equal(new InterruptedSwitch(from, to!, "profile-a"), interrupted);
     }
 
     [Fact]
