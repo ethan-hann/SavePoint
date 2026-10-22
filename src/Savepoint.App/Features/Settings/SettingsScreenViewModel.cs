@@ -55,6 +55,7 @@ public sealed partial class SettingsScreenViewModel : ObservableObject, IScreen
     {
         _deps = dependencies;
         _store = new SettingsStore(dependencies.Settings, dependencies.SettingsWriter, shell, dependencies.Toasts, dependencies.Text);
+        Help = new HelpSectionViewModel(shell);
         Storage = new StorageSectionViewModel(dependencies, _store);
         Appearance = new AppearanceSectionViewModel(_store, shell, dependencies.Text);
         Session = new SessionSectionViewModel(_store);
@@ -72,6 +73,9 @@ public sealed partial class SettingsScreenViewModel : ObservableObject, IScreen
 
     /// <inheritdoc />
     public NavDestination Destination => NavDestination.Settings;
+
+    /// <summary>The Help section, the first one on the screen.</summary>
+    public HelpSectionViewModel Help { get; }
 
     /// <summary>The "Where SavePoint keeps your snapshots" section.</summary>
     public StorageSectionViewModel Storage { get; }

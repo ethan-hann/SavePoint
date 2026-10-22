@@ -42,6 +42,12 @@
           </StackPanel>
         </Button>
       </StackPanel>
+      <Button x:Name="HowItWorksLink" Classes="text pill" HorizontalAlignment="Center" Command="{Binding HowItWorksCommand}" AutomationProperties.Name="{loc:Loc firstRun.howItWorks}">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.Help}" />
+          <TextBlock Text="{loc:Loc firstRun.howItWorks}" />
+        </StackPanel>
+      </Button>
       <Border x:Name="StorageNote" Classes="strip" HorizontalAlignment="Center" IsVisible="{Binding HasStorageNote}">
         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
           <TextBlock Classes="icon muted" Text="{x:Static theme:Icons.Folder}" />

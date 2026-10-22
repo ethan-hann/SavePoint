@@ -1,0 +1,77 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:theme="using:Savepoint.App.Theme"
+             xmlns:help="using:Savepoint.App.Features.Help"
+             x:Class="Savepoint.App.Features.Help.HowItWorksView"
+             x:DataType="help:HowItWorksViewModel">
+  <!--
+    The "How SavePoint works" page, a full pane: a header with the back arrow and the title, then the topics. Each topic is a
+    heading, a short text and a picture drawn from the app's own shapes; the last is a plain list. The text carries everything,
+    so the pictures are hidden from assistive technology.
+  -->
+  <DockPanel>
+
+    <Border x:Name="Header" DockPanel.Dock="Top" BorderBrush="{DynamicResource Md3OutlineVariantBrush}" BorderThickness="0,0,0,1" Padding="22,12">
+      <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+        <Button x:Name="BackButton"
+                Classes="icon"
+                FontSize="22"
+                Content="{x:Static theme:Icons.ArrowBack}"
+                Command="{Binding BackCommand}"
+                AutomationProperties.Name="{Binding BackName}"
+                ToolTip.Tip="{Binding BackName}" />
+        <TextBlock x:Name="TitleText" Classes="page-title" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Title}" />
+      </StackPanel>
+    </Border>
+
+    <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto">
+      <StackPanel MaxWidth="720" Margin="26,22,26,30" Spacing="26">
+        <TextBlock x:Name="IntroText" Classes="body muted" FontSize="14.5" LineHeight="23" TextWrapping="Wrap" Text="{Binding Intro}" />
+
+        <ItemsControl x:Name="TopicList" ItemsSource="{Binding Topics}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Spacing="32" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="help:HowItWorksTopic">
+              <StackPanel Spacing="10">
+                <TextBlock Classes="section-title" TextWrapping="Wrap" Text="{Binding Title}" />
+                <TextBlock Classes="body" FontSize="14" LineHeight="22" TextWrapping="Wrap" Text="{Binding Body}" />
+                <help:HelpPictureView HorizontalAlignment="Left" Margin="0,6,0,0" Picture="{Binding Picture}" IsVisible="{Binding HasPicture}" />
+                <ItemsControl ItemsSource="{Binding Items}" IsVisible="{Binding HasItems}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <StackPanel Spacing="8" />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="x:String">
+                      <Grid ColumnDefinitions="Auto,*">
+                        <Border Width="5" Height="5" CornerRadius="3" Margin="2,9,12,0" VerticalAlignment="Top" Background="{DynamicResource Md3OnSurfaceVariantBrush}" />
+                        <TextBlock Grid.Column="1" Classes="body" FontSize="14" LineHeight="22" TextWrapping="Wrap" Text="{Binding}" />
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <ItemsControl ItemsSource="{Binding Notes}" IsVisible="{Binding HasNotes}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <StackPanel Spacing="8" />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="x:String">
+                      <TextBlock Classes="body muted" FontSize="14" LineHeight="22" TextWrapping="Wrap" Text="{Binding}" />
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </ScrollViewer>
+  </DockPanel>
+</UserControl>

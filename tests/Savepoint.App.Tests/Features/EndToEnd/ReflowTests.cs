@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless.XUnit;
 using Avalonia.VisualTree;
+using Savepoint.App.Features.Help;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Tests.Features.Games;
 using Savepoint.App.Tests.Theme;
@@ -45,6 +46,32 @@ public class ReflowTests
         Assert.NotEmpty(cards);
         var narrowest = cards.Min(card => card.Bounds.Width);
         Assert.True(narrowest >= 200, $"At {width}px the narrowest card is {narrowest:0}px wide.");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(640)]
+    [InlineData(720)]
+    [InlineData(900)]
+    [InlineData(1040)]
+    public async Task The_how_it_works_page_never_scrolls_sideways_and_keeps_its_pictures_inside_the_window(int width)
+    {
+        using var app = await AppStates.OpenAsync("how-it-works");
+        app.Window.Width = width;
+        app.Settle();
+        app.Render("reflow", $"how-it-works-{width}");
+
+        var scroller = app.Find<ScrollViewer>("PageScroll");
+        var pictures = app.All<HelpPictureView>().Where(picture => picture.IsEffectivelyVisible).ToList();
+
+        Assert.NotEmpty(pictures);
+        Assert.True(scroller.Extent.Width <= scroller.Viewport.Width + 1, $"At {width}px the page is {scroller.Extent.Width:0}px wide in a {scroller.Viewport.Width:0}px viewport.");
+
+        // A picture is a user control that clips what it draws, so what counts is where its shapes end, not where it does.
+        Assert.All(pictures, picture =>
+        {
+            var farthest = picture.GetVisualDescendants().OfType<Control>().Where(control => control.IsEffectivelyVisible).Max(control => LayoutAudit.BoundsIn(app.Window, control).Right);
+            Assert.True(farthest <= app.Window.Bounds.Width, $"A picture draws out to {farthest:0} in a {width}px window.");
+        });
     }
 
     public static TheoryData<int, string> LaunchCardsAtNarrowWidths()

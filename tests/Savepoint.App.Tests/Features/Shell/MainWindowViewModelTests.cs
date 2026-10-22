@@ -131,4 +131,36 @@ public class MainWindowViewModelTests
         Assert.NotNull(main.Dialogs);
         Assert.NotNull(main.Toasts);
     }
+
+    [Fact]
+    public void The_help_key_does_nothing_before_the_shell_exists()
+    {
+        var (main, _, _) = Build();
+
+        Assert.False(main.TryShowHelp());
+        Assert.Same(main.Startup, main.Content);
+    }
+
+    [Fact]
+    public async Task The_help_key_opens_the_page_once_the_shell_exists()
+    {
+        var (main, _, _) = Build();
+        await main.InitializeAsync();
+
+        Assert.True(main.TryShowHelp());
+
+        Assert.IsType<Savepoint.App.Features.Help.HowItWorksViewModel>(main.Shell!.Content);
+    }
+
+    [Fact]
+    public async Task The_help_key_does_nothing_while_a_dialog_is_open()
+    {
+        var (main, _, _) = Build();
+        await main.InitializeAsync();
+        _ = main.Dialogs.ShowAsync(new Common.Samples.SampleDialogViewModel());
+
+        Assert.False(main.TryShowHelp());
+
+        Assert.IsNotType<Savepoint.App.Features.Help.HowItWorksViewModel>(main.Shell!.Content);
+    }
 }

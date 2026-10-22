@@ -5,6 +5,7 @@ using Savepoint.App.Features.Common.Art;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Toasts;
+using Savepoint.App.Features.Help;
 using Savepoint.App.Theme;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
@@ -42,6 +43,7 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
     private NavItemViewModel _selectedNav;
     private object? _pane;
     private NavDestination _paneDestination;
+    private (object Pane, NavDestination Destination)? _underHelp;
     private bool _isLoaded;
     private bool _libraryKnown;
     private LibraryErrorViewModel? _libraryError;
@@ -69,7 +71,7 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
         _selectedNav = Nav[0];
         NavLabel = text.Message("shell.nav.label");
         AddGameCommand = new RelayCommand(() => RequestAddGame());
-        FirstRun = new FirstRunViewModel(text, AddGameCommand, new AsyncRelayCommand(StartFromTemplateAsync));
+        FirstRun = new FirstRunViewModel(text, AddGameCommand, new AsyncRelayCommand(StartFromTemplateAsync), new RelayCommand(ShowHelp));
         LayoutToggle = new LayoutToggleViewModel(text, SetLayoutAsync, _layout);
         JobStatus = new JobStatusViewModel(text, dependencies.Toasts, id => Games.FirstOrDefault(row => row.Id == id)?.Name, jobId => dependencies.LaunchFlow.ShowsOutcomeOf(jobId), ShowActivity);
 
@@ -371,18 +373,50 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
     /// <inheritdoc />
     public void ClosePane()
     {
+        // Closing the help page gives back the pane it covered, unharmed; any other pane is simply closed.
+        if (_pane is HowItWorksViewModel && _underHelp is { } covered)
+        {
+            _pane = covered.Pane;
+            _paneDestination = covered.Destination;
+            _underHelp = null;
+            RaiseShellState();
+            return;
+        }
+
         EndPane(except: null);
         RaiseShellState();
     }
 
-    // A pane that listens for changes lets go of them when it is closed or replaced.
+    /// <inheritdoc />
+    public void ShowHelp()
+    {
+        if (_pane is HowItWorksViewModel)
+        {
+            return;
+        }
+
+        // A pane that is open (the game editor with a form half filled in) is kept, not replaced: ShowPane would end it.
+        _underHelp = _pane is null ? null : (_pane, _paneDestination);
+        _pane = new HowItWorksViewModel(_deps.Text, ClosePane);
+        _paneDestination = Destination;
+        RaiseShellState();
+    }
+
+    // A pane that listens for changes lets go of them when it is closed or replaced, and so does the one the help page covers.
     private void EndPane(object? except)
     {
         var ended = _pane;
+        var covered = _underHelp?.Pane;
         _pane = null;
+        _underHelp = null;
         if (!ReferenceEquals(ended, except))
         {
             (ended as IDisposable)?.Dispose();
+        }
+
+        if (!ReferenceEquals(covered, except))
+        {
+            (covered as IDisposable)?.Dispose();
         }
     }
 

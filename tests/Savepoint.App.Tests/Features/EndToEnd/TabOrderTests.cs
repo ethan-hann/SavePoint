@@ -150,6 +150,7 @@ public class TabOrderTests
         Assert.Equal(
             [
                 "Settings", "Skyrim Special Edition, 3 profiles", "Add a game",
+                "How SavePoint works",
                 "Change", "Run now",
                 "Dark", "Sidebar", "Blue", "Look up game artwork online",
                 "Skip the check before playing when only your saves change", "Ask whether to keep the session",

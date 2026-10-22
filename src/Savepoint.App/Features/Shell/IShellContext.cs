@@ -80,4 +80,10 @@ public interface IShellContext : INotifyPropertyChanged
 
     /// <summary>Closes the full pane, if one is open.</summary>
     void ClosePane();
+
+    /// <summary>
+    /// Opens the "How SavePoint works" page as a full pane. A pane that is open (the game editor, with a form half filled in) is kept
+    /// underneath and comes back when the page closes. Does nothing while the page is already open.
+    /// </summary>
+    void ShowHelp();
 }

@@ -49,6 +49,24 @@
 
       <StackPanel x:Name="Sections" Spacing="22" IsVisible="{Binding IsLoaded}">
 
+        <!-- Help: the way into the "How SavePoint works" page. -->
+        <StackPanel x:Name="HelpSection">
+          <TextBlock Classes="section-label" Text="{theme:Upper {loc:Loc settings.help.heading}}" />
+          <Border Classes="panel">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="caption" FontSize="12.5" TextWrapping="Wrap" VerticalAlignment="Center" Text="{loc:Loc settings.help.hint}" />
+              <Button x:Name="HowItWorksButton"
+                      Grid.Column="1"
+                      Classes="pill"
+                      Margin="16,0,0,0"
+                      Padding="18,8"
+                      VerticalAlignment="Center"
+                      Command="{Binding Help.ShowHowItWorksCommand}"
+                      Content="{loc:Loc settings.help.howItWorks}" />
+            </Grid>
+          </Border>
+        </StackPanel>
+
         <!-- Where SavePoint keeps your snapshots. -->
         <StackPanel x:Name="StorageSection">
           <TextBlock Classes="section-label" Text="{theme:Upper {loc:Loc settings.storage.heading}}" />

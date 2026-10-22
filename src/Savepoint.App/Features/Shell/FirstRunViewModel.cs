@@ -27,11 +27,13 @@ public sealed partial class FirstRunViewModel : ObservableObject
     /// <param name="text">Formats the storage note.</param>
     /// <param name="addFirstGame">Opens the game editor.</param>
     /// <param name="startFromTemplate">Offers the built-in templates and a file.</param>
-    public FirstRunViewModel(UiFormatter text, ICommand addFirstGame, ICommand startFromTemplate)
+    /// <param name="howItWorks">Opens the "How SavePoint works" page.</param>
+    public FirstRunViewModel(UiFormatter text, ICommand addFirstGame, ICommand startFromTemplate, ICommand howItWorks)
     {
         _text = text;
         AddFirstGameCommand = addFirstGame;
         StartFromTemplateCommand = startFromTemplate;
+        HowItWorksCommand = howItWorks;
     }
 
     /// <summary>Opens the game editor in create mode.</summary>
@@ -39,6 +41,9 @@ public sealed partial class FirstRunViewModel : ObservableObject
 
     /// <summary>Offers the built-in templates and a file to start from.</summary>
     public ICommand StartFromTemplateCommand { get; }
+
+    /// <summary>Opens the "How SavePoint works" page, for a player who has not added anything yet.</summary>
+    public ICommand HowItWorksCommand { get; }
 
     /// <summary>True while the cover art lookup is on, which is when the screen says that it contacts Steam.</summary>
     public bool HasArtworkNote { get; private set; }

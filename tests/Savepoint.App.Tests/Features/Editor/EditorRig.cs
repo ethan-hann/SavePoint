@@ -102,6 +102,8 @@ internal sealed class FakeShellContext : IShellContext
         Pane = null;
         Calls.Add("close");
     }
+
+    public void ShowHelp() => Calls.Add("help");
 }
 
 // The editor wired to the fake backend with every collaborator recorded.

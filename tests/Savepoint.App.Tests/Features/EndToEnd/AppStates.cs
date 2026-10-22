@@ -50,6 +50,7 @@ internal static class AppStates
         "activity-empty",
         "settings",
         "settings-clear-all",
+        "how-it-works",
         "first-run",
         "first-run-templates",
         "editor-existing",
@@ -237,6 +238,9 @@ internal static class AppStates
             case "settings-clear-all":
                 app.Show<SettingsScreenViewModel>(NavDestination.Settings);
                 _ = app.Settings.ClearAll.RemoveCommand.ExecuteAsync(null);
+                break;
+            case "how-it-works":
+                app.Shell.ShowHelp();
                 break;
             case "first-run-templates":
                 app.Shell.FirstRun.StartFromTemplateCommand.Execute(null);

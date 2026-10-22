@@ -51,6 +51,22 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>Runs the startup checks; the shell appears when they pass.</summary>
     public Task InitializeAsync() => Startup.CheckAsync();
 
+    /// <summary>
+    /// Opens the "How SavePoint works" page for the help key. It does nothing before the shell exists and while a dialog is open,
+    /// because a page that opened behind a dialog could not be read or used.
+    /// </summary>
+    /// <returns>True when the page opened.</returns>
+    public bool TryShowHelp()
+    {
+        if (Shell is null || Dialogs.IsOpen)
+        {
+            return false;
+        }
+
+        Shell.ShowHelp();
+        return true;
+    }
+
     private async Task ShowShellAsync()
     {
         if (Shell is not null)
