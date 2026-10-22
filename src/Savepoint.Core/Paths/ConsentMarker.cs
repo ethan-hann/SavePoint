@@ -312,7 +312,7 @@ public static class ConsentMarker
     private static ConsentMarkerData? TryParse(JsonElement root)
     {
         if (root.ValueKind != JsonValueKind.Object
-            || !TryGetString(root, "gameId", out var gameId) || string.IsNullOrWhiteSpace(gameId)
+            || !TryGetString(root, "gameId", out var gameId) || !CatalogValidator.IsValidGameId(gameId)
             || !TryGetString(root, "role", out var roleText)
             || !TryGetString(root, "confirmedAt", out var time)
             || !DateTimeOffset.TryParse(time, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var confirmedAt))

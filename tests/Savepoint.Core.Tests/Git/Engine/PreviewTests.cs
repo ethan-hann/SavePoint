@@ -122,6 +122,7 @@ public sealed class PreviewTests : IDisposable
     {
         var repo = await _ws.InitializedRepoAsync();
         _ws.WriteMany(repo, "Data", 30);
+        _ws.AgeFiles(repo);
         await _ws.CaptureAsync(repo, "profile-1");
         _ws.Write(repo, "new.txt", "123456789");
         var candidates = await _ws.Engine.ListCaptureCandidatesAsync(repo, [], Ct);

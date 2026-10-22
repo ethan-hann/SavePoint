@@ -1,6 +1,7 @@
 using Savepoint.Core.Api;
 using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Errors;
 using Savepoint.Core.Paths;
 
 namespace Savepoint.Core.Services.Games;
@@ -24,7 +25,7 @@ internal sealed partial class GamesApi
                 var games = await _services.Catalog.ListGamesAsync().ConfigureAwait(false);
                 if (games.Any(existing => existing.Id == game.Id))
                 {
-                    throw new InvalidOperationException($"There is already a game '{game.Id}'.");
+                    throw new GameAlreadyExistsException(game.Id);
                 }
 
                 var folders = GameFolders.ResolveStrictly(_services.PathTokens, game);
@@ -62,7 +63,7 @@ internal sealed partial class GamesApi
 
         if (!claimed || branches.Count == 0)
         {
-            throw new InvalidOperationException($"There is no saved history for '{game.Id}' at these folders to reconnect.");
+            throw new NoHistoryToReconnectException(game.Id);
         }
 
         var saved = await InitAndSaveAsync(storage, game, folders).ConfigureAwait(false);

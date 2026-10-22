@@ -129,7 +129,8 @@ public sealed partial class JobStatusViewModel : ObservableObject
         {
             (JobKind.RelocateStorage, JobStatus.Succeeded) => ("shell.jobStatus.relocateSuccess", ToastKind.Success),
             (JobKind.RelocateStorage, JobStatus.Cancelled) => ("shell.jobStatus.relocateCancelled", ToastKind.Info),
-            (JobKind.RelocateStorage, _) => ("shell.jobStatus.relocateFailure", job.Status == JobStatus.Partial ? ToastKind.Warning : ToastKind.Error),
+            (JobKind.RelocateStorage, JobStatus.Partial) => ("shell.jobStatus.relocatePartial", ToastKind.Warning),
+            (JobKind.RelocateStorage, _) => ("shell.jobStatus.relocateFailure", ToastKind.Error),
 
             (JobKind.ClearData, JobStatus.Succeeded) => ("shell.jobStatus.clearSuccess", ToastKind.Success),
             (JobKind.ClearData, JobStatus.Partial) => ("shell.jobStatus.clearPartial", ToastKind.Warning),
@@ -165,6 +166,7 @@ public sealed partial class JobStatusViewModel : ObservableObject
         CaptureResult capture => capture.Folders.Where(folder => !folder.Ok).Select(folder => folder.Error!),
         OptimizeResult optimize => optimize.Games.SelectMany(game => game.Folders).Where(folder => !folder.Ok).Select(folder => folder.Error!),
         ClearAllDataResult clear => clear.NotRemoved.Select(failure => failure.Error),
+        StorageRelocationResult moved => moved.NotRemoved.Select(failure => failure.Error),
         _ => [],
     };
 

@@ -86,7 +86,8 @@ public sealed partial class LaunchOrchestrator
         context.CancellationToken.ThrowIfCancellationRequested();
 
         var watcher = await _starter.StartAsync(prepared.Game.Launch, prepared.InstallPath, context.CancellationToken).ConfigureAwait(false);
-        await RecordLaunchAsync(prepared.Resolved.Profile.Id, watcher.StartedAt).ConfigureAwait(false);
+
+        // The game is running, so it is tracked before anything else is attempted: nothing after this may lose it.
         var running = _book.TryChange(gameId, context.JobId, record =>
         {
             record.Watcher = watcher;
@@ -99,6 +100,7 @@ public sealed partial class LaunchOrchestrator
         }
 
         _ = FollowGameAsync(gameId, context.JobId, watcher);
+        await RecordLaunchAsync(prepared.Resolved.Profile.Id, watcher.StartedAt).ConfigureAwait(false);
         return null;
     }
 
@@ -107,6 +109,13 @@ public sealed partial class LaunchOrchestrator
     {
         var token = context.CancellationToken;
         var game = await RequireGameAsync(gameId, token).ConfigureAwait(false);
+
+        // The wait for the lock can be long (a save, an optimization, a storage move); the player may have started the game meanwhile.
+        if (await IsGameOpenAsync(game).ConfigureAwait(false))
+        {
+            throw new LaunchAlreadyRunningException(gameId);
+        }
+
         var profiles = await _services.Catalog.ListProfilesAsync(gameId, token).ConfigureAwait(false);
         var repos = GameFolders.Repos(_services, storage, game);
         var resolved = await TargetResolver.ResolveAsync(storage, repos, profiles, target, token).ConfigureAwait(false);
@@ -117,7 +126,7 @@ public sealed partial class LaunchOrchestrator
         {
             throw blocked.Blocked
                 ? new InterruptedSwitchException(blocked.Target.Role, blocked.Note!.ToCommit)
-                : new DirtyWorkingTreeException(blocked.Target.Role);
+                : UnsavedOrInUse(storage.Engine, readings);
         }
 
         var pending = readings.Where(reading => reading.NeedsSwitch).ToList();
@@ -126,8 +135,34 @@ public sealed partial class LaunchOrchestrator
             await SwitchAsync(storage, context, gameId, pending).ConfigureAwait(false);
         }
 
-        _book.TryUpdate(gameId, context.JobId, record => record.StartCommits = resolved.Folders.ToDictionary(folder => folder.Role, folder => folder.Commit));
+
+        // The session opened with what was true before the wait for the lock; what the switch really started from is what counts.
+        _book.TryUpdate(gameId, context.JobId, record =>
+        {
+            record.Info = record.Info with { ProfileId = resolved.Profile.Id, StartedFromOlderPoint = resolved.IsOlderPoint };
+            record.StartCommits = resolved.Folders.Where(folder => !folder.Leave).ToDictionary(folder => folder.Role, folder => folder.Commit);
+        });
         return new Prepared(game, repos.Single(repo => repo.Role == RepoRole.Install).WorkTree, resolved);
+    }
+
+    // A folder whose only "changes" are files another program holds open has no unsaved work to resolve: the player is told which
+    // file to let go of. Unsaved work in any folder wins, since that is what has to be resolved first.
+    private static SavepointException UnsavedOrInUse(GitEngine engine, IReadOnlyList<FolderReading> readings)
+    {
+        var dirty = readings.Where(reading => reading.Dirty && !reading.Blocked).ToList();
+        string? inUse = null;
+        foreach (var reading in dirty)
+        {
+            var held = engine.FindFileInUse(reading.Target.Repo, reading.Status);
+            if (held is null)
+            {
+                return new DirtyWorkingTreeException(reading.Target.Role);
+            }
+
+            inUse ??= held;
+        }
+
+        return new GitOperationException(inUse, $"'{inUse}' is in use by another program, so the folder could not be switched.");
     }
 
     private async Task SwitchAsync(StorageSnapshot storage, JobContext context, string gameId, IReadOnlyList<FolderReading> folders)
@@ -170,9 +205,9 @@ public sealed partial class LaunchOrchestrator
         {
             await _services.Catalog.UpdateProfileAsync(profileId, profile => profile with { LastLaunchedAt = startedAt }).ConfigureAwait(false);
         }
-        catch (Exception e) when (e is SavepointException or IOException)
+        catch (Exception e) when (e is not (OperationCanceledException or OutOfMemoryException or StackOverflowException))
         {
-            // Left as it was.
+            // Left as it was: a file that is locked or read-only is not worth a launch that worked.
         }
     }
 }

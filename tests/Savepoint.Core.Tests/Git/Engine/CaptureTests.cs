@@ -114,7 +114,7 @@ public sealed partial class CaptureTests : IDisposable
         Assert.Equal(
             "5d2c7a0e-3f4b-4b0e-9d84-0a1b2c3d4e5f",
             await _ws.LogAsync(repo, "profile-1", "%(trailers:key=Savepoint-Capture,valueonly)"));
-        Assert.EndsWith("\n\nSavepoint-Capture: 5d2c7a0e-3f4b-4b0e-9d84-0a1b2c3d4e5f", await _ws.LogAsync(repo, "profile-1", "%B"));
+        Assert.Matches(@"\n\nSavepoint-Capture: 5d2c7a0e-3f4b-4b0e-9d84-0a1b2c3d4e5f\nSavepoint-Captured-At: \d{13}$", await _ws.LogAsync(repo, "profile-1", "%B"));
     }
 
     [Theory]
@@ -223,6 +223,7 @@ public sealed partial class CaptureTests : IDisposable
         var error = await Assert.ThrowsAsync<GitOperationException>(() => _ws.CaptureAsync(repo, "profile-2"));
 
         Assert.Contains("profile-2", error.Message, StringComparison.Ordinal);
+        Assert.Equal("error.gitOperation.failed", error.MessageId);
         Assert.Equal("edited on disk", await File.ReadAllTextAsync(_ws.FileOf(repo, "a.txt"), Ct));
         Assert.Equal("refs/heads/profile-1", await _ws.HeadRefAsync(repo));
         Assert.Null(await _ws.TipAsync(repo, "profile-2"));

@@ -41,6 +41,7 @@ internal sealed class AppStatusApi : IAppStatusApi
             async () =>
             {
                 var backup = path + ".bak";
+                string? restored = null;
                 if (recovery == CatalogRecovery.RestoreBackup)
                 {
                     // The copy is judged before anything moves, so a missing or broken backup leaves the file where it is.
@@ -50,16 +51,31 @@ internal sealed class AppStatusApi : IAppStatusApi
                     }
 
                     await RequireReadableAsync(backup, cancellationToken).ConfigureAwait(false);
+
+                    // Made next to the target before the corrupt file moves, so a copy that fails never leaves the catalog missing.
+                    restored = $"{path}.{Guid.NewGuid():N}.tmp";
+                    File.Copy(backup, restored);
                 }
 
-                var moved = await _services.Catalog.ReplaceCorruptFileAsync(path, cancellationToken).ConfigureAwait(false)
-                    ?? throw new InvalidOperationException($"'{path}' is not corrupt.");
-                if (recovery == CatalogRecovery.RestoreBackup)
+                try
                 {
-                    RestoreCopy(backup, path);
-                }
+                    var moved = await _services.Catalog.ReplaceCorruptFileAsync(path, cancellationToken).ConfigureAwait(false)
+                        ?? throw new InvalidOperationException($"'{path}' is not corrupt.");
+                    if (restored is not null)
+                    {
+                        PutInPlace(restored, path, moved);
+                        restored = null;
+                    }
 
-                return moved;
+                    return moved;
+                }
+                finally
+                {
+                    if (restored is not null)
+                    {
+                        TryDelete(restored);
+                    }
+                }
             },
             cancellationToken);
 
@@ -151,24 +167,75 @@ internal sealed class AppStatusApi : IAppStatusApi
         }
     }
 
-    // Written next to the target and renamed into place, so a crash leaves no half-restored file.
-    private static void RestoreCopy(string backup, string target)
+    // From now on the root counts as saved: a missing folder is reported, not made again. The next start tries again if this write fails.
+    private async Task RememberRootAsync(string root, CancellationToken cancellationToken)
     {
-        var temp = $"{target}.{Guid.NewGuid():N}.tmp";
-        File.Copy(backup, temp);
-        File.Move(temp, target, overwrite: false);
-    }
-
-    private async Task PrepareStorageAsync(CancellationToken cancellationToken)
-    {
-        var storage = await _services.Storage.GetAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            Directory.CreateDirectory(storage.Root);
+            await _services.Catalog.UpdateSettingsAsync(
+                current => (current ?? AppSettings.Defaults(root)) with { StorageRoot = root },
+                cancellationToken).ConfigureAwait(false);
+            _services.Storage.MarkRootSaved();
         }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException or NotSupportedException)
+        catch (Exception e) when (e is SavepointException or IOException or UnauthorizedAccessException)
         {
-            throw new StorageUnreachableException(storage.Root, e);
+            // Left unsaved; the root is the default one and is made again, empty, only while no settings name one.
+        }
+    }
+
+    // The finished copy is renamed into place, so a crash leaves no half-restored file; if that fails the corrupt file goes back, so the user is where they started.
+    private static void PutInPlace(string copy, string target, string movedAside)
+    {
+        try
+        {
+            File.Move(copy, target, overwrite: false);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            try
+            {
+                File.Move(movedAside, target, overwrite: false);
+            }
+            catch (Exception back) when (back is IOException or UnauthorizedAccessException)
+            {
+                // The corrupt file stays under its new name, which the error names through the folder it is in.
+            }
+
+            throw;
+        }
+    }
+
+    private static void TryDelete(string file)
+    {
+        try
+        {
+            File.Delete(file);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // A stray temp file is swept by the next write of this catalog file.
+        }
+    }
+
+    // The storage folder is made only the first time, when no root has been saved. After that a folder that is not there is an
+    // unplugged drive or a renamed folder, and making an empty one in its place would hide the history behind it (D31).
+    private async Task PrepareStorageAsync(CancellationToken cancellationToken)
+    {
+        var settings = await _services.Catalog.GetSettingsAsync(cancellationToken).ConfigureAwait(false);
+        var firstRun = string.IsNullOrWhiteSpace(settings?.StorageRoot);
+        var storage = await _services.Storage.GetAsync(cancellationToken).ConfigureAwait(false);
+        if (firstRun)
+        {
+            try
+            {
+                Directory.CreateDirectory(storage.Root);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or NotSupportedException)
+            {
+                throw new StorageUnreachableException(storage.Root, e);
+            }
+
+            await RememberRootAsync(storage.Root, cancellationToken).ConfigureAwait(false);
         }
 
         // A lock left by a run that was killed would refuse the first save; this is the one moment nothing of ours is running (D18).

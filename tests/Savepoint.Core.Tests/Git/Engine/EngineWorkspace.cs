@@ -295,6 +295,17 @@ internal sealed class EngineWorkspace : IDisposable
         Parallel.For(0, count, i => File.WriteAllText(FileOf(repo, $"{folder}/{prefix}{i}.txt"), $"{content} {i}"));
     }
 
+    // Stamps every file of the folder as written an hour ago. git cannot vouch for a file stamped in the same second as the index
+    // write and reads it again, which a test that holds a file open must not depend on; a folder that has sat for a while holds none.
+    public void AgeFiles(RepoRef repo)
+    {
+        var written = DateTime.UtcNow.AddHours(-1);
+        foreach (var file in Directory.EnumerateFiles(repo.WorkTree, "*", SearchOption.AllDirectories))
+        {
+            File.SetLastWriteTimeUtc(file, written);
+        }
+    }
+
     // The verify pass of a switch lists differences from the target commit; the checks before it compare with HEAD.
     public static bool IsVerifyDiff(GitInvocation invocation) =>
         invocation.Arguments[0] == "diff" && !invocation.Arguments.Contains("HEAD");

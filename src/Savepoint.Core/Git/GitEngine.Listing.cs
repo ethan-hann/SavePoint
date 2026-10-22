@@ -7,7 +7,13 @@ public sealed partial class GitEngine
     private static string ExcludeFromArgument(RepoRef repo)
     {
         var path = RepoIgnoreFiles.ExcludePath(repo.GitDir);
-        if (!File.Exists(path))
+
+        // The patterns the folder carries are the game's current ones; the file only has to say the same, whatever wrote it last.
+        if (repo.IgnorePatterns is { } current)
+        {
+            RepoIgnoreFiles.WriteExclude(repo.GitDir, current);
+        }
+        else if (!File.Exists(path))
         {
             RepoIgnoreFiles.WriteExclude(repo.GitDir, []);
         }

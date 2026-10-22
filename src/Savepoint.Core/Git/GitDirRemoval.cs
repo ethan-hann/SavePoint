@@ -39,12 +39,12 @@ internal static partial class GitDirRemoval
         // Both the path as given and where it really leads must be below the storage root, so a link cannot lead a delete out of it.
         if (!IsBelow(storageRoot, gitDir) || !IsBelow(realPath(storageRoot), realPath(gitDir)))
         {
-            throw new GitOperationException(gitDir, $"'{gitDir}' is not inside the storage folder, so it was not deleted.");
+            throw new GitOperationException($"'{gitDir}' is not inside the storage folder, so it was not deleted.");
         }
 
         if (!IsOursOrWhatIsLeftOfIt(gitDir))
         {
-            throw new GitOperationException(gitDir, $"'{gitDir}' is not a git directory made by SavePoint, so it was not deleted.");
+            throw new GitOperationException($"'{gitDir}' is not a git directory made by SavePoint, so it was not deleted.");
         }
 
         for (var attempt = 0; ; attempt++)

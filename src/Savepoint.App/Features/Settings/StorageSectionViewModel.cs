@@ -4,6 +4,7 @@ using Savepoint.App.Features.Common.Accessibility;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Toasts;
+using Savepoint.App.Theme;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
@@ -82,6 +83,10 @@ public sealed partial class StorageSectionViewModel : ObservableObject
     /// <summary>Why the last attempt to move or optimize did not go ahead or failed; null otherwise.</summary>
     [ObservableProperty]
     private ErrorCardViewModel? _problem;
+
+    /// <summary>What a move that worked could not remove from the old folder, so the user can delete it by hand; null otherwise.</summary>
+    [ObservableProperty]
+    private ErrorCardViewModel? _leftBehind;
 
     internal StorageSectionViewModel(SettingsDependencies dependencies, SettingsStore store)
     {
@@ -210,11 +215,27 @@ public sealed partial class StorageSectionViewModel : ObservableObject
                 break;
             case JobStatus.Cancelled:
                 break;
+            case JobStatus.Partial:
+                // The move worked and the settings follow it; only some old copies stayed, and the user is told which.
+                _ = RefreshAfterJobAsync(tellShell: true);
+                LeftBehind = LeftBehindCard(job.Result);
+                break;
             default:
                 Problem = Card(job.Error ?? Unknown());
                 break;
         }
     }
+
+    private ErrorCardViewModel? LeftBehindCard(JobResult? result) =>
+        result is StorageRelocationResult { NotRemoved.Count: > 0 } moved
+            ? ErrorCardViewModel.Custom(
+                _deps.Text,
+                Icons.Warning,
+                ErrorTone.Warning,
+                _deps.Text.Message("settings.storage.leftBehindTitle"),
+                _deps.Text.Message("settings.storage.leftBehindBody"),
+                path: string.Join(Environment.NewLine, moved.NotRemoved.Select(failure => failure.Path)))
+            : null;
 
     private void ShowProgress(JobProgress progress)
     {
@@ -268,6 +289,7 @@ public sealed partial class StorageSectionViewModel : ObservableObject
     {
         var picked = await _deps.Dialogs.PickFolderAsync(new FolderPickRequest(_deps.Text.Message("settings.storage.pickTitle"), StoragePath));
         Problem = null;
+        LeftBehind = null;
         if (picked is null)
         {
             return;

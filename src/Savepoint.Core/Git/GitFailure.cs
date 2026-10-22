@@ -68,5 +68,5 @@ internal static class GitFailure
     }
 
     // A failure nothing more specific explains; the developer message carries git's own words.
-    public static GitOperationException ToException(GitCommandException e) => new(null, e.Message);
+    public static GitOperationException ToException(GitCommandException e) => new(e.Message);
 }

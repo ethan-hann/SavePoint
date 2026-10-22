@@ -5,12 +5,12 @@ namespace Savepoint.Core.Git;
 public sealed partial class GitEngine
 {
     // Fields are separated by the ASCII unit separator and commits end with NUL (-z), so no subject can break the parse.
-    private const string _commitFormat = "--format=%H%x1f%s%x1f%aI%x1f%(trailers:key=Savepoint-Capture,valueonly,separator=%x2c)";
+    private const string _commitFormat = "--format=%H%x1f%s%x1f%aI%x1f%(trailers:key=Savepoint-Capture,valueonly,separator=%x2c)%x1f%(trailers:key=Savepoint-Captured-At,valueonly,separator=%x2c)";
 
     /// <summary>
     /// Reads the folder's state. Needs the work tree, so it refuses a protected or missing folder and one without this game's marker.
     /// What counts as unsaved is exactly what a capture would record: ignore files inside the game folder are not read, and
-    /// files the game's ignore patterns name (as of the last capture or preview) are not changes.
+    /// files the game's ignore patterns name (those <see cref="RepoRef.IgnorePatterns"/> carries, or the ones the last capture or preview stored) are not changes.
     /// </summary>
     /// <param name="repo">The folder.</param>
     /// <param name="ct">Cancels the call.</param>
@@ -41,6 +41,19 @@ public sealed partial class GitEngine
             changedPaths,
             untrackedPaths,
             SwitchJournal.Read(repo.GitDir));
+    }
+
+    /// <summary>
+    /// Tells a file another program holds open from unsaved work. git reads a file again when its timestamp is too new to
+    /// trust, and a file it cannot open then reads as changed, so a status can list a change nobody made.
+    /// </summary>
+    /// <param name="repo">The folder the status was read from.</param>
+    /// <param name="status">The folder's state, from <see cref="GetStatusAsync"/>.</param>
+    /// <returns>The full path of a changed file that is held open, when every change in <paramref name="status"/> is such a file; null when there is a new file or a change that can be read, or nothing is held open.</returns>
+    public string? FindFileInUse(RepoRef repo, RepoStatus status)
+    {
+        ArgumentNullException.ThrowIfNull(status);
+        return OnlyLockedChanges(Normalize(repo), status.ChangedPaths, status.UntrackedPaths.Count);
     }
 
     /// <summary>
@@ -183,16 +196,17 @@ public sealed partial class GitEngine
         var commits = new List<CommitInfo>();
         foreach (var record in result.SplitStandardOutputOnNul())
         {
-            // The id, date and trailer cannot hold the separator, but a subject written by something else can; reading the
-            // last two fields from the right keeps such a subject from shifting them.
+            // The id, date and trailers cannot hold the separator, but a subject written by something else can; reading the
+            // last three fields from the right keeps such a subject from shifting them.
             var fields = record.Trim('\n', '\r').Split('\x1f');
-            if (fields.Length < 4 || !DateTimeOffset.TryParse(fields[^2], CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
+            if (fields.Length < 5 || !DateTimeOffset.TryParse(fields[^3], CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
             {
                 continue;
             }
 
-            var captureId = fields[^1].Trim() is { Length: > 0 } trailer ? trailer : null;
-            commits.Add(new CommitInfo(fields[0], string.Join('\x1f', fields[1..^2]), date, captureId));
+            var captureId = fields[^2].Trim() is { Length: > 0 } trailer ? trailer : null;
+            DateTimeOffset? capturedAt = long.TryParse(fields[^1].Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var milliseconds) ? DateTimeOffset.FromUnixTimeMilliseconds(milliseconds) : null;
+            commits.Add(new CommitInfo(fields[0], string.Join('\x1f', fields[1..^3]), date, captureId, capturedAt));
         }
 
         return commits;

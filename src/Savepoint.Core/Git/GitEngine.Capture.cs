@@ -14,7 +14,7 @@ public sealed partial class GitEngine
     /// <param name="repo">The folder to capture; its repository must exist.</param>
     /// <param name="request">The branch, message, capture id, mode and ignore patterns.</param>
     /// <param name="progress">Receives files done and expected while git works; may be null.</param>
-    /// <param name="ct">Cancels the capture. git and its children are stopped; the next capture clears what the interrupted one left. Once a fork or a move forward has written its branch, HEAD is attached to it whatever the token says.</param>
+    /// <param name="ct">Cancels the capture. git and its children are stopped; the next capture clears what the interrupted one left. Once a fork or a move forward has written its branch, HEAD is attached to it whatever the token says, and a cancel that arrives while git finishes that write does not turn the capture into a cancelled one.</param>
     /// <returns>Whether a point was recorded, and the branch tip afterwards.</returns>
     /// <exception cref="Savepoint.Core.Errors.PathSafetyException">The work tree is a protected location.</exception>
     /// <exception cref="Savepoint.Core.Errors.PathMissingException">The work tree does not exist.</exception>
@@ -148,11 +148,11 @@ public sealed partial class GitEngine
         var commit = changed ? await WriteCommitAsync(repo, request, tip, ct).ConfigureAwait(false) : tip;
         if (existing is null)
         {
-            await CreateBranchRefAsync(repo, request.Branch, commit, "savepoint: fork branch", ct).ConfigureAwait(false);
+            await RefWriteAsync(repo, request.Branch, commit, () => CreateBranchRefAsync(repo, request.Branch, commit, "savepoint: fork branch", ct)).ConfigureAwait(false);
         }
         else if (changed)
         {
-            await MoveBranchRefAsync(repo, request.Branch, commit, existing, "savepoint: fork branch", ct).ConfigureAwait(false);
+            await RefWriteAsync(repo, request.Branch, commit, () => MoveBranchRefAsync(repo, request.Branch, commit, existing, "savepoint: fork branch", ct)).ConfigureAwait(false);
         }
 
         await AttachHeadAsync(repo, request.Branch, head).ConfigureAwait(false);
@@ -195,18 +195,34 @@ public sealed partial class GitEngine
         var commit = changed ? await WriteCommitAsync(repo, request, tip, ct).ConfigureAwait(false) : tip;
         if (!string.Equals(commit, branchTip, StringComparison.Ordinal))
         {
-            await MoveBranchRefAsync(repo, request.Branch, commit, branchTip, "savepoint: move branch", ct).ConfigureAwait(false);
+            await RefWriteAsync(repo, request.Branch, commit, () => MoveBranchRefAsync(repo, request.Branch, commit, branchTip, "savepoint: move branch", ct)).ConfigureAwait(false);
         }
 
         await AttachHeadAsync(repo, request.Branch, head).ConfigureAwait(false);
         return new CaptureOutcome(changed, commit);
     }
 
+    // A stop that reaches the ref write after git has already moved the branch has nothing left to stop: the point is recorded, so HEAD still follows it.
+    private async Task RefWriteAsync(RepoRef repo, string branch, string commit, Func<Task> write)
+    {
+        try
+        {
+            await write().ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            if (!string.Equals(await ResolveBranchAsync(repo, branch, CancellationToken.None).ConfigureAwait(false), commit, StringComparison.Ordinal))
+            {
+                throw;
+            }
+        }
+    }
+
     // Writes the staged tree as a point on top of <parent> and moves no ref; the id is all there is to it until a ref names it.
     private async Task<string> WriteCommitAsync(RepoRef repo, CaptureRequest request, string parent, CancellationToken ct)
     {
         var tree = (await RunWriteAsync(() => Invocation(repo, readOnly: false, "write-tree"), ct).ConfigureAwait(false)).StandardOutput.Trim();
-        var message = CommitMessage.Compose(request.Message, request.CaptureId);
+        var message = CommitMessage.Compose(request.Message, request.CaptureId, request.CapturedAt ?? _options.Clock.GetUtcNow());
         var result = await RunWriteAsync(() => Invocation(repo, readOnly: false, "commit-tree", tree, "-p", parent, "-F", "-") with { Stdin = message }, ct).ConfigureAwait(false);
         return result.StandardOutput.Trim();
     }
@@ -268,7 +284,7 @@ public sealed partial class GitEngine
         // A repository with no commit yet starts whichever branch is asked for; otherwise the checked-out branch is the only one that can be captured.
         if (tip is not null && !string.Equals(head.Branch, request.Branch, StringComparison.Ordinal))
         {
-            throw new GitOperationException(null, $"Cannot capture onto '{request.Branch}' while '{head.Branch}' is checked out; switch to it first.");
+            throw new GitOperationException($"Cannot capture onto '{request.Branch}' while '{head.Branch}' is checked out; switch to it first.");
         }
 
         await StageAsync(repo, progress, ct).ConfigureAwait(false);
@@ -350,7 +366,7 @@ public sealed partial class GitEngine
 
     private Task CommitAsync(RepoRef repo, CaptureRequest request, bool amend, CancellationToken ct)
     {
-        var message = CommitMessage.Compose(request.Message, request.CaptureId);
+        var message = CommitMessage.Compose(request.Message, request.CaptureId, request.CapturedAt ?? _options.Clock.GetUtcNow());
         string[] arguments = amend
             ? ["commit", "--quiet", "--amend", "--reset-author", "--allow-empty", "--no-verify", "--cleanup=verbatim", "-F", "-"]
             : ["commit", "--quiet", "--no-verify", "--cleanup=verbatim", "-F", "-"];

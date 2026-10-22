@@ -52,6 +52,12 @@ public sealed record CaptureRequest
     /// <summary>How the capture relates to existing history; <see cref="CaptureMode.Normal"/> by default.</summary>
     public CaptureMode Mode { get; init; } = CaptureMode.Normal;
 
+    /// <summary>
+    /// When the capture event began, written into every commit it creates as the <c>Savepoint-Captured-At</c> trailer (to the
+    /// millisecond) so points are ordered exactly even when two fall in one second. The engine's clock when null.
+    /// </summary>
+    public DateTimeOffset? CapturedAt { get; init; }
+
     /// <summary>The game's ignore patterns, in gitignore syntax, one per entry. They replace the previous list on every capture.</summary>
     public IReadOnlyList<string> IgnorePatterns { get; init; } = [];
 

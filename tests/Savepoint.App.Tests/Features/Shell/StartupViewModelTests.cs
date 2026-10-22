@@ -1,6 +1,8 @@
+using Savepoint.App.Features.Common;
 using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Shell;
+using Savepoint.App.Hosting;
 using Savepoint.App.Localization;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.Core.Api;
@@ -145,7 +147,7 @@ public class StartupViewModelTests
         var file = Corrupt("games.json", null);
         var backend = Backend(WithCorrupt(file));
         var dialogs = new FakeDialogs().AnswerConfirm(false);
-        var startup = new StartupViewModel(backend.AppStatus, _text, dialogs);
+        var startup = new StartupViewModel(backend.AppStatus, _text, dialogs: dialogs);
         await startup.CheckAsync();
 
         await startup.CorruptFiles[0].Card.Actions[1].Command.ExecuteAsync();
@@ -166,7 +168,7 @@ public class StartupViewModelTests
         var without = Corrupt("profiles.json", null);
         var backend = Backend(WithCorrupt(withBackup, without));
         var dialogs = new FakeDialogs();
-        var startup = new StartupViewModel(backend.AppStatus, _text, dialogs);
+        var startup = new StartupViewModel(backend.AppStatus, _text, dialogs: dialogs);
         await startup.CheckAsync();
 
         await startup.CorruptFiles[0].Card.Actions[0].Command.ExecuteAsync();
@@ -302,6 +304,31 @@ public class StartupViewModelTests
         await startup.Card.Actions[0].Command.ExecuteAsync();
 
         Assert.Equal(StartupPhase.Ready, startup.Phase);
+    }
+
+    [Fact]
+    public async Task A_check_that_cannot_succeed_on_a_second_try_asks_for_a_restart_instead_of_offering_one()
+    {
+        var failure = ErrorInfo.From(new IOException("The configuration folder cannot be created."));
+        var startup = new StartupViewModel(AppBootstrap.Unavailable(failure).AppStatus, _text, canTryAgain: false);
+
+        await startup.CheckAsync();
+
+        Assert.Equal(StartupPhase.Failed, startup.Phase);
+        Assert.Equal("SavePoint couldn't start", startup.Card!.Title);
+        Assert.Contains("Close SavePoint and open it again", startup.Card.Body, StringComparison.Ordinal);
+        Assert.Empty(startup.Card.Actions);
+    }
+
+    [Fact]
+    public async Task The_composition_does_not_offer_a_retry_for_a_backend_that_never_started()
+    {
+        var failure = ErrorInfo.From(new IOException("The configuration folder cannot be created."));
+        var main = AppComposition.Create(AppBootstrap.Unavailable(failure), _text, new RecordingThemeApplier(), () => null, new ImmediateUiDispatcher(), new ManualTimeProvider(), new FakeDialogs());
+
+        await main.Startup.CheckAsync();
+
+        Assert.Empty(main.Startup.Card!.Actions);
     }
 
     [Fact]

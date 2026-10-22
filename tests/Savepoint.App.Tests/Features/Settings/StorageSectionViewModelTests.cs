@@ -370,6 +370,39 @@ public class StorageSectionViewModelTests
     }
 
     [Fact]
+    public async Task A_move_that_could_not_remove_every_old_copy_still_switches_and_lists_what_stayed()
+    {
+        var rig = await SettingsRig.ShownAsync();
+        var job = await StartedMoveAsync(rig);
+        var stayed = new ClearFailure(@"D:\Old\game-1\install.git", ErrorInfo.From(new GameRunningException("game-1", "Skyrim")));
+
+        rig.Backend.Jobs.Complete(job.JobId, new StorageRelocationResult(MockupScenario.StorageRoot, _newRoot, 10, [stayed]));
+
+        Assert.False(Storage(rig).IsRelocating);
+        Assert.Equal(_newRoot, Storage(rig).StoragePath);
+        Assert.Equal(_newRoot, rig.Shell.FirstRun.StoragePath);
+        Assert.Null(Storage(rig).Problem);
+        var left = Storage(rig).LeftBehind;
+        Assert.NotNull(left);
+        Assert.Equal("Your data moved, but some old files are still in the old folder", left.Title);
+        Assert.Contains(@"D:\Old\game-1\install.git", left.Path, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Starting_another_move_clears_the_list_of_what_stayed()
+    {
+        var rig = await SettingsRig.ShownAsync();
+        var job = await StartedMoveAsync(rig);
+        rig.Backend.Jobs.Complete(job.JobId, new StorageRelocationResult(MockupScenario.StorageRoot, _newRoot, 10, [new ClearFailure(@"D:\Old\game-1\install.git", ErrorInfo.From(new GameRunningException("game-1", "Skyrim")))]));
+        Assert.NotNull(Storage(rig).LeftBehind);
+
+        rig.Dialogs.AnswerFolder(@"F:\Other");
+        await Storage(rig).ChangeCommand.ExecuteAsync(null);
+
+        Assert.Null(Storage(rig).LeftBehind);
+    }
+
+    [Fact]
     public async Task A_failed_move_shows_why_and_keeps_the_old_folder()
     {
         var rig = await SettingsRig.ShownAsync();

@@ -11,6 +11,8 @@ namespace Savepoint.App.Features.Shell;
 public sealed partial class MainWindowViewModel : ObservableObject
 {
     private readonly Func<ShellViewModel> _createShell;
+    private readonly ExitGuard? _exit;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Content))]
     private ShellViewModel? _shell;
@@ -19,8 +21,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <param name="createShell">Builds the shell once the checks pass.</param>
     /// <param name="dialogs">The modal stack shown above everything.</param>
     /// <param name="toasts">The transient messages shown above everything.</param>
-    public MainWindowViewModel(StartupViewModel startup, Func<ShellViewModel> createShell, DialogHostViewModel dialogs, ToastHostViewModel toasts)
+    /// <param name="exit">Decides whether the window may close while jobs run; the window always closes when null.</param>
+    public MainWindowViewModel(StartupViewModel startup, Func<ShellViewModel> createShell, DialogHostViewModel dialogs, ToastHostViewModel toasts, ExitGuard? exit = null)
     {
+        _exit = exit;
         Startup = startup;
         _createShell = createShell;
         Dialogs = dialogs;
@@ -39,6 +43,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     /// <summary>The shell, or null until the startup checks have passed.</summary>
     public object Content => Shell ?? (object)Startup;
+
+    /// <summary>Called when the window is asked to close; asks, and stops what can be stopped, when jobs run.</summary>
+    /// <returns>True when the window may close.</returns>
+    public Task<bool> PrepareToCloseAsync() => _exit?.PrepareToCloseAsync() ?? Task.FromResult(true);
 
     /// <summary>Runs the startup checks; the shell appears when they pass.</summary>
     public Task InitializeAsync() => Startup.CheckAsync();

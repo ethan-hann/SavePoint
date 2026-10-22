@@ -104,6 +104,19 @@ public sealed class FakeLaunchApi : ILaunchApi
                 return OperationResult.Failure<Unit>(new SessionStillRunningException(gameId));
             }
 
+            var choice = completion switch
+            {
+                SessionCompletion.CaptureNew => CompletionChoice.CaptureNew,
+                SessionCompletion.UpdateExisting => CompletionChoice.UpdateExisting,
+                SessionCompletion.ForkNewProfile => CompletionChoice.ForkNewProfile,
+                SessionCompletion.MoveForward => CompletionChoice.MoveForward,
+                _ => CompletionChoice.Skip,
+            };
+            if (!((SessionState.Exited)session.State).Options.Choices.Contains(choice))
+            {
+                return OperationResult.Failure<Unit>(new CompletionNotOfferedException(gameId, choice));
+            }
+
             if (completion is SessionCompletion.Skip)
             {
                 Publish(session with { State = new SessionState.Completed(completion, null, null) });
@@ -122,6 +135,26 @@ public sealed class FakeLaunchApi : ILaunchApi
             var saved = new CaptureResult(profileId, State.NewPointId(), [.. FakeState.FoldersOf(game).Select(r => new FolderOutcome(r))]);
             var jobId = _backend.Jobs.Start(JobKind.Capture, gameId, saved, job => OnCompletionFinished(gameId, completion, job));
             Publish(session with { State = new SessionState.Completing(completion, jobId) });
+            return OperationResult.Success();
+        });
+
+    public Task<OperationResult<Unit>> RetryCompletionAsync(string gameId) =>
+        _backend.Call(_api, nameof(RetryCompletionAsync), [gameId], () =>
+        {
+            if (!State.Sessions.TryGetValue(gameId, out var session)
+                || session.State is not SessionState.Completed { Completion: not SessionCompletion.Skip } completed
+                || (completed.Error is null && completed.Result?.Folders.All(folder => folder.Ok) != false))
+            {
+                return OperationResult.Failure<Unit>(new NoActiveSessionException(gameId));
+            }
+
+            // Only the folders that did not save run again; the job's scripted result joins them to the ones that did.
+            var game = State.Game(gameId);
+            var earlier = completed.Result?.Folders.Where(folder => folder.Ok).ToList() ?? [];
+            var missing = FakeState.FoldersOf(game).Where(role => earlier.All(folder => folder.Role != role));
+            var saved = new CaptureResult(completed.Result?.ProfileId ?? session.ProfileId, completed.Result?.PointId ?? State.NewPointId(), [.. earlier, .. missing.Select(role => new FolderOutcome(role))]);
+            var jobId = _backend.Jobs.Start(JobKind.Capture, gameId, saved, job => OnCompletionFinished(gameId, completed.Completion, job));
+            Publish(session with { State = new SessionState.Completing(completed.Completion, jobId) });
             return OperationResult.Success();
         });
 

@@ -14,7 +14,13 @@ internal sealed record FolderReading(FolderTarget Target, RepoStatus Status, IRe
     // A half-finished switch to something else cannot be told apart from work the player did, so it blocks like unsaved changes.
     public bool Blocked => Note is not null && !Pending;
 
+    // The folder holds files from two points, whether this launch finishes the switch or not.
+    public bool UnfinishedSwitch => Note is not null;
+
     public bool Dirty => Blocked || (Note is null && !Status.IsClean);
+
+    // The files a discard would delete; the rest of the unsaved files are put back.
+    public int DirtyNewFileCount => Dirty ? Status.UntrackedPaths.Count : 0;
 
     // A blocked folder counts as one thing to resolve even when git lists no file.
     public int DirtyFileCount => Dirty ? Math.Max(1, Status.ChangedPaths.Count + Status.UntrackedPaths.Count) : 0;
@@ -24,9 +30,9 @@ internal sealed record FolderReading(FolderTarget Target, RepoStatus Status, IRe
         Dirty && !Blocked && !Status.IsDetached ? Profiles.FirstOrDefault(profile => profile.BranchName == Status.Branch)?.Id : null;
 
     // The folder is on the commit the launch wants, attached the way it wants (to the branch for a tip, detached for an older point).
-    public bool InPlace => Target.Branch is { } branch
+    public bool InPlace => Target.Leave || (Target.Branch is { } branch
         ? !Status.IsDetached && Status.Branch == branch && Status.HeadCommit == Target.Commit
-        : Status.IsDetached && Status.HeadCommit == Target.Commit;
+        : Status.IsDetached && Status.HeadCommit == Target.Commit);
 
     // Holds exactly what the target asks for, with nothing unsaved and no switch left unfinished.
     public bool Matches => InPlace && Status.IsClean && Note is null;

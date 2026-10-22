@@ -7,7 +7,7 @@ using Savepoint.Core.Launch.Orchestration;
 namespace Savepoint.App.Hosting;
 
 /// <summary>What starting the backend produced: the Api the app runs on, and the backend itself when it started.</summary>
-/// <param name="Services">The Api for the view models. When the backend did not start this is an Api whose every call answers <paramref name="Failure"/>.</param>
+/// <param name="Services">The Api for the view models. When the backend did not start this is an Api whose every call answers <paramref name="Failure"/>, and <see cref="AppServices.BackendStarted"/> is false.</param>
 /// <param name="Backend">The running backend; null when it did not start.</param>
 /// <param name="Failure">Why the backend did not start; null when it did.</param>
 public sealed record BootstrapResult(AppServices Services, CoreBackend? Backend, ErrorInfo? Failure);
@@ -25,9 +25,9 @@ public static class AppBootstrap
             var backend = CoreBackend.Create(configure is null ? options : configure(options));
             return new BootstrapResult(ServicesOf(backend), backend, null);
         }
-        catch (Exception e) when (e is InvalidOperationException or IOException or UnauthorizedAccessException or SavepointException)
+        catch (Exception e) when (e is not OutOfMemoryException)
         {
-            // No home folder, a configuration folder that cannot be written: the startup screen names it and offers to try again.
+            // No home folder, a configuration folder that cannot be written: the startup screen names it and asks for a restart.
             return new BootstrapResult(Unavailable(ErrorInfo.From(e)), null, ErrorInfo.From(e));
         }
     }
@@ -54,5 +54,6 @@ public static class AppBootstrap
             UnavailableApi.Create<IAppStatusApi>(error))
         {
             Artwork = UnavailableApi.Create<IArtworkApi>(error),
+            BackendStarted = false,
         };
 }

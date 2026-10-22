@@ -76,8 +76,9 @@ public sealed partial class LaunchOrchestrator
                 return new SessionState.Exited(startedAt, duration, counts.GetValueOrDefault(RepoRole.External), counts.GetValueOrDefault(RepoRole.Install), options);
             }).ConfigureAwait(false);
         }
-        catch (Exception e) when (e is SavepointException or IOException)
+        catch (Exception e) when (e is not (OperationCanceledException or OutOfMemoryException or StackOverflowException))
         {
+            // Whatever went wrong reading the folders, the game has ended and the session must say so.
             return new SessionState.Exited(startedAt, duration, 0, 0, FallbackOptions(older));
         }
     }
@@ -132,6 +133,18 @@ public sealed partial class LaunchOrchestrator
             ? new PostPlayOptions([CompletionChoice.ForkNewProfile, CompletionChoice.MoveForward, CompletionChoice.Skip], CompletionChoice.ForkNewProfile, null, 0)
             : new PostPlayOptions([CompletionChoice.CaptureNew, CompletionChoice.Skip], CompletionChoice.CaptureNew, null, 0);
 
+    // A retry's result joins what the folders that already saved reported, so the card always speaks for the whole save.
+    private static CaptureResult? Joined(CaptureResult? before, CaptureResult? now)
+    {
+        if (before is null || now is null)
+        {
+            return now ?? before;
+        }
+
+        var kept = before.Folders.Where(folder => folder.Ok && now.Folders.All(other => other.Role != folder.Role));
+        return new CaptureResult(now.ProfileId, now.PointId ?? before.PointId, [.. kept.Concat(now.Folders).OrderBy(folder => folder.Role)]);
+    }
+
     // A launch or capture job that ends moves its session: the launch job failing or being cancelled ends the session as Failed,
     // and the capture job after play ends it as Completed. Both read the job's own outcome, so the card and the job agree.
     private void OnJobChanged(object? sender, JobSnapshot job)
@@ -149,7 +162,8 @@ public sealed partial class LaunchOrchestrator
                     return new SessionState.Failed(job.Error ?? ErrorInfo.From(new InvalidOperationException("The launch ended without saying why.")));
                 case SessionState.Completing completing when completing.JobId == job.JobId:
                     var failed = job.Status is JobStatus.Failed or JobStatus.Cancelled;
-                    return new SessionState.Completed(completing.Completion, job.Result as CaptureResult, failed ? job.Error : null);
+                    record.SavedSoFar = Joined(record.SavedSoFar, job.Result as CaptureResult);
+                    return new SessionState.Completed(completing.Completion, record.SavedSoFar, failed ? job.Error : null);
                 default:
                     return null;
             }

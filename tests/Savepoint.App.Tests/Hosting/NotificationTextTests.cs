@@ -72,6 +72,17 @@ public class NotificationTextTests
     }
 
     [Fact]
+    public void A_storage_move_that_left_old_copies_behind_says_so()
+    {
+        var stayed = new ClearFailure("/old/game-1/install.git", new ErrorInfo("error.gameService.gameRunning", new Dictionary<string, object?> { ["gameName"] = "Skyrim" }, string.Empty));
+        var result = new StorageRelocationResult("/old", "/new", 5, [stayed]);
+
+        var (_, body) = NotificationText.For(Job(JobKind.RelocateStorage, JobStatus.Partial, result: result), null, _text);
+
+        Assert.StartsWith("Storage moved, but some old files are still in the old folder.", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void A_failed_job_says_why_with_its_own_error()
     {
         var error = new ErrorInfo("error.storageRelocation.copyFailed", new Dictionary<string, object?>(), string.Empty);

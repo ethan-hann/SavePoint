@@ -52,6 +52,24 @@ public class LaunchSwitchFailureTests
     }
 
     [Fact(Timeout = 150_000)]
+    public async Task Unsaved_work_beside_a_file_the_game_holds_open_still_stops_the_launch_as_unsaved_changes()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows refuses to read a file another program holds open");
+        var (rig, vanilla, _) = await LaunchRig.WithTwoProfilesAsync();
+        using var _ = rig;
+        rig.WriteInstall("mods/unsaved.txt", "work nobody captured");
+        var ready = Path.Combine(rig.Workspace.Root, "locker-ready.txt");
+        using var locker = FakeGameProcess.Start("--lock", Path.Combine(rig.InstallPath, "data", "base.pak"), "--ready-file", ready);
+        await FakeGameProcess.WaitForReadyFileAsync(ready);
+
+        var failed = await rig.StartAsync(Tip(vanilla));
+
+        Assert.Equal(JobStatus.Failed, failed.Status);
+        Assert.Equal("error.launch.dirtyWorkingTree", failed.Error?.MessageId);
+        Assert.True(rig.InstallHas("mods/unsaved.txt"));
+    }
+
+    [Fact(Timeout = 150_000)]
     public async Task Cancelling_the_switch_ends_the_launch_cancelled_and_leaves_a_state_a_second_launch_finishes_from()
     {
         var (rig, vanilla, _) = await LaunchRig.WithTwoProfilesAsync();

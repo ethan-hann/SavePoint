@@ -26,30 +26,19 @@ internal sealed class OptimizationService
     public Guid Start(string? gameId, OptimizationMode mode, bool preemptible) =>
         _services.Jobs.Start(JobKind.Compact, gameId, cancellable: true, context => RunAsync(context, gameId, mode, preemptible));
 
-    /// <summary>Starts a routine optimization for the game when either repository holds more loose objects than the threshold (D13.17).</summary>
-    public async Task QueueRoutineIfNeededAsync(string gameId)
+    /// <summary>True when either repository of the game holds more loose objects than the threshold, which is when a save queues a routine optimization (D13.17).</summary>
+    /// <param name="storage">The storage snapshot the caller holds the game's lock for.</param>
+    /// <param name="game">The game.</param>
+    public bool IsCrowded(StorageSnapshot storage, GameDefinition game)
     {
         try
         {
-            var crowded = await _services.RunForGameAsync(
-                gameId,
-                async (storage, _) =>
-                {
-                    if (await _services.Catalog.GetGameAsync(gameId).ConfigureAwait(false) is not { } game)
-                    {
-                        return false;
-                    }
-
-                    return GameFolders.ReposForGitDirOnly(_services, storage, game).Any(repo => CountLooseObjects(repo.GitDir) > _services.LooseObjectThreshold);
-                }).ConfigureAwait(false);
-            if (crowded)
-            {
-                Start(gameId, OptimizationMode.Routine, preemptible: true);
-            }
+            return GameFolders.ReposForGitDirOnly(_services, storage, game).Any(repo => CountLooseObjects(repo.GitDir) > _services.LooseObjectThreshold);
         }
         catch (Exception e) when (e is SavepointException or IOException)
         {
-            // The check only decides whether to tidy up; a failure of it must not fail the save it follows.
+            // The count only decides whether to tidy up; a failure of it must not fail the save it follows.
+            return false;
         }
     }
 

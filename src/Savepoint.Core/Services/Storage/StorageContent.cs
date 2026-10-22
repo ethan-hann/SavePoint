@@ -1,3 +1,5 @@
+using Savepoint.Core.Errors;
+
 namespace Savepoint.Core.Services.Storage;
 
 /// <summary>One thing inside SavePoint's storage: a folder (empty ones too), a file, or a link.</summary>
@@ -20,66 +22,105 @@ internal sealed record ContentListing(IReadOnlyList<string> Folders, IReadOnlyLi
 /// <summary>Finds what SavePoint itself keeps in a storage root, and nothing else a user may have put there.</summary>
 internal static class StorageContent
 {
-    // Hidden and system entries are real storage; the default options would skip them.
-    private static readonly EnumerationOptions _everything = new()
+    // Hidden and system entries are real storage; the default options would skip them. A strict walk does not skip what it cannot open.
+    private static EnumerationOptions Everything(bool strict) => new()
     {
         AttributesToSkip = 0,
-        IgnoreInaccessible = true,
+        IgnoreInaccessible = !strict,
         RecurseSubdirectories = false,
     };
 
     /// <summary>The folders directly under the root that hold a game's git directories, which is how SavePoint's own folders are told from anything else.</summary>
-    public static IReadOnlyList<string> Folders(string root)
+    /// <param name="root">The storage root.</param>
+    /// <param name="strict">True to fail on a folder that cannot be opened (a move must not leave one behind) instead of passing over it.</param>
+    /// <exception cref="StorageRelocationFailedException">Strict, and a folder under the root cannot be opened.</exception>
+    public static IReadOnlyList<string> Folders(string root, bool strict = false)
     {
         if (!Directory.Exists(root))
         {
             return [];
         }
 
+        var directories = new DirectoryInfo(root).EnumerateDirectories("*", Everything(strict)).ToList();
+
+        // A game folder that is a link cannot be copied as a link (its history lives elsewhere), and leaving it out would let the move look finished.
+        if (strict && directories.FirstOrDefault(folder => folder.Attributes.HasFlag(FileAttributes.ReparsePoint) && LeadsToGitDirectories(folder)) is { } linked)
+        {
+            throw new StorageRelocationFailedException(linked.FullName, $"'{linked.FullName}' in the storage is a link, so it would not be copied.", null);
+        }
+
         return
         [
-            .. new DirectoryInfo(root).EnumerateDirectories("*", _everything)
+            .. directories
                 .Where(folder => !folder.Attributes.HasFlag(FileAttributes.ReparsePoint))
-                .Where(folder => Directory.Exists(Path.Combine(folder.FullName, "install.git")) || Directory.Exists(Path.Combine(folder.FullName, "external.git")))
+                .Where(folder => strict ? HoldsGitDirectories(folder) : Directory.Exists(Path.Combine(folder.FullName, "install.git")) || Directory.Exists(Path.Combine(folder.FullName, "external.git")))
                 .Select(folder => folder.FullName)
                 .Order(StringComparer.Ordinal),
         ];
     }
 
+    private static bool LeadsToGitDirectories(DirectoryInfo link) =>
+        Directory.Exists(Path.Combine(link.FullName, "install.git")) || Directory.Exists(Path.Combine(link.FullName, "external.git"));
+
+    // Looks inside, so a folder that cannot be opened is an error here and not a folder that "holds nothing".
+    private static bool HoldsGitDirectories(DirectoryInfo folder)
+    {
+        try
+        {
+            return folder.EnumerateDirectories("*", Everything(strict: true)).Any(child => child.Name is "install.git" or "external.git");
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            throw Unreadable(folder.FullName, e);
+        }
+    }
+
     /// <summary>Lists SavePoint's folders and everything in them. Links are listed as links and never entered.</summary>
     /// <param name="root">The storage root.</param>
     /// <param name="cancellationToken">Stops the walk between entries.</param>
-    public static ContentListing Scan(string root, CancellationToken cancellationToken)
+    /// <param name="strict">True to fail on any entry that cannot be read, naming it, instead of leaving it out of the listing.</param>
+    /// <exception cref="StorageRelocationFailedException">Strict, and an entry cannot be read.</exception>
+    public static ContentListing Scan(string root, CancellationToken cancellationToken, bool strict = false)
     {
-        var folders = Folders(root);
+        var folders = Folders(root, strict);
         var entries = new List<ContentEntry>();
         foreach (var folder in folders)
         {
-            Walk(root, new DirectoryInfo(folder), entries, cancellationToken);
+            Walk(root, new DirectoryInfo(folder), entries, strict, cancellationToken);
         }
 
         return new ContentListing(folders, entries);
     }
 
-    private static void Walk(string root, DirectoryInfo folder, List<ContentEntry> entries, CancellationToken cancellationToken)
+    private static void Walk(string root, DirectoryInfo folder, List<ContentEntry> entries, bool strict, CancellationToken cancellationToken)
     {
         entries.Add(new ContentEntry(Path.GetRelativePath(root, folder.FullName), true, 0, null));
-        foreach (var entry in folder.EnumerateFileSystemInfos("*", _everything).OrderBy(entry => entry.Name, StringComparer.Ordinal))
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            var relative = Path.GetRelativePath(root, entry.FullName);
-            if (entry.LinkTarget is { } target)
+            foreach (var entry in folder.EnumerateFileSystemInfos("*", Everything(strict)).OrderBy(entry => entry.Name, StringComparer.Ordinal))
             {
-                entries.Add(new ContentEntry(relative, entry is DirectoryInfo, 0, target));
-            }
-            else if (entry is DirectoryInfo directory)
-            {
-                Walk(root, directory, entries, cancellationToken);
-            }
-            else if (entry is FileInfo file)
-            {
-                entries.Add(new ContentEntry(relative, false, file.Length, null));
+                cancellationToken.ThrowIfCancellationRequested();
+                var relative = Path.GetRelativePath(root, entry.FullName);
+                if (entry.LinkTarget is { } target)
+                {
+                    entries.Add(new ContentEntry(relative, entry is DirectoryInfo, 0, target));
+                }
+                else if (entry is DirectoryInfo directory)
+                {
+                    Walk(root, directory, entries, strict, cancellationToken);
+                }
+                else if (entry is FileInfo file)
+                {
+                    entries.Add(new ContentEntry(relative, false, file.Length, null));
+                }
             }
         }
+        catch (Exception e) when (strict && e is IOException or UnauthorizedAccessException)
+        {
+            throw Unreadable(folder.FullName, e);
+        }
     }
+
+    private static StorageRelocationFailedException Unreadable(string path, Exception inner) =>
+        new(path, $"'{path}' in the storage could not be read, so it would not be copied: {inner.Message}", inner);
 }

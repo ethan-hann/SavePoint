@@ -19,6 +19,7 @@ public static class NotificationText
         {
             (JobKind.RelocateStorage, JobStatus.Succeeded) => "shell.jobStatus.relocateSuccess",
             (JobKind.RelocateStorage, JobStatus.Cancelled) => "shell.jobStatus.relocateCancelled",
+            (JobKind.RelocateStorage, JobStatus.Partial) => "shell.jobStatus.relocatePartial",
             (JobKind.RelocateStorage, _) => "shell.jobStatus.relocateFailure",
 
             (JobKind.ClearData, JobStatus.Succeeded) => "shell.jobStatus.clearSuccess",
@@ -55,6 +56,7 @@ public static class NotificationText
             CaptureResult capture => capture.Folders.FirstOrDefault(folder => !folder.Ok)?.Error,
             OptimizeResult optimize => optimize.Games.SelectMany(game => game.Folders).FirstOrDefault(folder => !folder.Ok)?.Error,
             ClearAllDataResult clear => clear.NotRemoved.FirstOrDefault()?.Error,
+            StorageRelocationResult moved => moved.NotRemoved.FirstOrDefault()?.Error,
             _ => null,
         };
 }

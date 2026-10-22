@@ -6,8 +6,8 @@ using Savepoint.Core.Services.Storage;
 namespace Savepoint.Core.Backend;
 
 /// <summary>
-/// What <see cref="CoreBackend.Create"/> builds the backend from. Every member is optional: the defaults are the real machine,
-/// and tests replace the parts they need with temp folders and fakes.
+/// What <see cref="CoreBackend.Create"/> builds the backend from. Only <see cref="Launch"/> is required: every other member
+/// defaults to the real machine, and tests replace the parts they need with temp folders and fakes.
 /// </summary>
 public sealed record BackendOptions
 {
@@ -34,10 +34,10 @@ public sealed record BackendOptions
 
     /// <summary>
     /// Builds the launch component from the shared services; <see cref="Launch.Orchestration.LaunchOrchestrator.Factory"/> makes the
-    /// real one. The backend attaches the sessions it returns, and answers <see cref="CoreBackend.Launch"/> with its Api; without it
-    /// every launch call fails with <c>error.launch.unavailable</c>.
+    /// real one. The backend attaches the sessions it returns and answers <see cref="CoreBackend.Launch"/> with its Api. Every
+    /// shipped build has the orchestrator, so there is no backend without one.
     /// </summary>
-    public Func<BackendServices, LaunchComponents>? Launch { get; init; }
+    public required Func<BackendServices, LaunchComponents> Launch { get; init; }
 
     /// <summary>Finds the Steam client's folder, where artwork Steam already downloaded is read from; the real one for the platform when null (D30).</summary>
     public ISteamFolderLocator? SteamFolder { get; init; }
@@ -57,4 +57,7 @@ public sealed record BackendOptions
 
     // Called with the source and the destination after each file of a storage move is copied and before it is verified; tests use it to inject faults.
     internal Action<string, string>? AfterRelocationCopy { get; init; }
+
+    // Called with the new root right after a storage move has written the settings; tests use it to make that write seem to fail.
+    internal Action<string>? AfterRelocationSettings { get; init; }
 }

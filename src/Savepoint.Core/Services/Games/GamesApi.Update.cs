@@ -1,4 +1,5 @@
 using Savepoint.Core.Api;
+using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Git;
@@ -8,15 +9,17 @@ namespace Savepoint.Core.Services.Games;
 
 internal sealed partial class GamesApi
 {
-    public Task<OperationResult<GameDefinition>> UpdateAsync(GameDefinition definition) =>
-        ApiGuard.RunAsync(() => UpdateCoreAsync(definition));
+    public Task<OperationResult<GameDefinition>> UpdateAsync(GameDefinition definition, bool confirmFolderChange = false) =>
+        ApiGuard.RunAsync(() => UpdateCoreAsync(definition, confirmFolderChange));
 
-    private async Task<GameDefinition> UpdateCoreAsync(GameDefinition definition)
+    private async Task<GameDefinition> UpdateCoreAsync(GameDefinition definition, bool confirmFolderChange)
     {
         var edited = CatalogValidator.RequireValid(definition);
-        return await _services.RunForGameAsync(
-            edited.Id,
-            async (storage, _) =>
+
+        // The library key keeps two edits, or an edit and an add, from each passing the overlap check before the other's row is saved.
+        return await _services.RunWithLocksAsync(
+            [BackendServices.LibraryLockKey, edited.Id],
+            () => _services.Storage.ReadAsync(async storage =>
             {
                 var existing = await RequireGameAsync(edited.Id, CancellationToken.None).ConfigureAwait(false);
                 var others = (await _services.Catalog.ListGamesAsync().ConfigureAwait(false)).Where(game => game.Id != existing.Id).ToList();
@@ -24,6 +27,18 @@ internal sealed partial class GamesApi
                 Vet(storage, edited, folders, others);
 
                 var before = GameFolders.ResolveLoosely(_services.PathTokens, existing);
+
+                // The session and its after-play save read the folders from the catalog later, so they must not move under it.
+                if (_services.Sessions.IsGameRunning(existing.Id) && FoldersDiffer(before, folders))
+                {
+                    throw new GameRunningException(existing.Id, existing.Name);
+                }
+
+                if (!confirmFolderChange)
+                {
+                    await RequireMatchingFoldersAsync(storage, existing.Id, before, folders).ConfigureAwait(false);
+                }
+
                 var claimed = new List<GameFolder>();
                 var made = new List<RepoRef>();
                 try
@@ -49,6 +64,12 @@ internal sealed partial class GamesApi
                         }
                     }
 
+                    // The ignore list is part of the edit: each folder's exclude file says what the saved game says before anything else reads it.
+                    foreach (var folder in folders)
+                    {
+                        await storage.Engine.WriteExcludeAsync(GameFolders.Repo(storage, edited.Id, folder), edited.IgnorePaths, CancellationToken.None).ConfigureAwait(false);
+                    }
+
                     var saved = await _services.Catalog.SaveGameAsync(edited).ConfigureAwait(false);
                     ReleaseOldFolders(existing.Id, before, folders);
                     return saved;
@@ -63,7 +84,53 @@ internal sealed partial class GamesApi
                     await TakeBackAsync(storage, edited.Id, made).ConfigureAwait(false);
                     throw;
                 }
-            }).ConfigureAwait(false);
+            })).ConfigureAwait(false);
+    }
+
+    private bool FoldersDiffer(IReadOnlyList<GameFolder> before, IReadOnlyList<GameFolder> after) =>
+        before.Count != after.Count
+        || after.Any(folder => before.FirstOrDefault(previous => previous.Role == folder.Role) is not { Path: { } old } || !SamePath(old, folder.Path!));
+
+    // A folder with history that is pointed somewhere else has to look like the folder it replaces: at least half of the files its
+    // newest point recorded must be there at the same relative paths, or the player has most likely picked the wrong folder.
+    private async Task RequireMatchingFoldersAsync(StorageSnapshot storage, string gameId, IReadOnlyList<GameFolder> before, IReadOnlyList<GameFolder> folders)
+    {
+        foreach (var folder in folders)
+        {
+            var old = before.FirstOrDefault(previous => previous.Role == folder.Role);
+            if (old?.Path is null || SamePath(old.Path, folder.Path!))
+            {
+                continue;
+            }
+
+            var recorded = await NewestPointFilesAsync(storage, GameFolders.Repo(storage, gameId, folder)).ConfigureAwait(false);
+            if (recorded.Count == 0)
+            {
+                continue;
+            }
+
+            var present = await Task.Run(() => recorded.Count(path => File.Exists(Path.Combine(folder.Path!, path.Replace('/', Path.DirectorySeparatorChar))))).ConfigureAwait(false);
+            if (present * 2 < recorded.Count)
+            {
+                throw new FolderMismatchException(folder.Role, folder.Path!, present, recorded.Count);
+            }
+        }
+    }
+
+    // The files of the newest point on any branch of the folder's history; none when it has no point yet.
+    private static async Task<IReadOnlyList<string>> NewestPointFilesAsync(StorageSnapshot storage, RepoRef repo)
+    {
+        CommitInfo? newest = null;
+        foreach (var branch in await storage.Engine.ListBranchesAsync(repo).ConfigureAwait(false))
+        {
+            var tip = (await storage.Engine.ListCommitsAsync(repo, branch, 1).ConfigureAwait(false)).FirstOrDefault();
+            if (tip is not null && (newest is null || tip.Date > newest.Date))
+            {
+                newest = tip;
+            }
+        }
+
+        return newest is null ? [] : await storage.Engine.ListTreeFilesAsync(repo, newest.Id).ConfigureAwait(false);
     }
 
     private bool SamePath(string left, string right) =>

@@ -14,6 +14,7 @@ internal static class ContractScenario
     {
         var shared = new Story();
         await RunSharedAsync(backend, shared, cancellationToken);
+        await RunInterruptedSwitchAsync(backend, shared, cancellationToken);
         var gaps = new Story();
         await RunGapsAsync(backend, gaps, cancellationToken);
         return new ScenarioTranscript(shared.Lines, gaps.Lines);
@@ -107,6 +108,67 @@ internal static class ContractScenario
         story.Add("sessions listed", $"{backend.Launch.ListSessions().Count} sessions");
         story.Add("unknown game", Show(await backend.Launch.StartAsync("no-such-game", tip), _ => "unexpected success"));
     }
+
+    // A switch stopped part way leaves the install folder unfinished, the preview names the target that finishes it, and starting that
+    // target brings the folders to where they were heading; the play that follows is saved as a new point.
+    private static async Task RunInterruptedSwitchAsync(ContractHarness backend, Story story, CancellationToken cancellationToken)
+    {
+        var game = backend.NewGame("Gamma");
+        await backend.Games.AddAsync(game);
+        var vanilla = await FinishCaptureAsync(backend, story, await backend.Profiles.CreateAsync(game.Id, "Vanilla", null, "Fresh install"), cancellationToken) ?? "missing";
+        File.WriteAllText(Path.Combine(game.Install.Path, "data", "mod.pak"), "a mod");
+        var modded = await FinishCaptureAsync(backend, story, await backend.Profiles.CreateAsync(game.Id, "Modded", null, "With a mod"), cancellationToken) ?? "missing";
+        backend.ExpectLaunch(game, vanilla);
+        backend.ExpectLaunch(game, modded);
+        var moddedTip = new LaunchTarget.ProfileTip(modded);
+        story.Add("preview before the switch", Show(await backend.Launch.GetPreviewAsync(game.Id, moddedTip, cancellationToken), preview => DescribeFolders(preview, story)));
+
+        await backend.InterruptSwitchAsync(game, modded, vanilla, cancellationToken);
+        var stopped = await backend.Launch.GetPreviewAsync(game.Id, moddedTip, cancellationToken);
+        story.Add("session after the switch was stopped", Describe(backend.Launch.GetSession(game.Id), story));
+        story.Add("preview after the switch was stopped", Show(stopped, preview => DescribeFolders(preview, story)));
+
+        var recorded = stopped.Ok ? stopped.Value.Install.UnfinishedSwitchTarget : null;
+        if (recorded is null)
+        {
+            story.Add("finishing the switch", "no target records where it was heading");
+            return;
+        }
+
+        var finishing = await backend.Launch.StartAsync(game.Id, recorded);
+        story.Add("start the recorded target", Show(finishing, _ => "job started"));
+        await backend.GameRunningAsync(game.Id, cancellationToken);
+        backend.SwitchFinished(game, vanilla);
+        story.Add("preview after the switch was finished", Show(await backend.Launch.GetPreviewAsync(game.Id, new LaunchTarget.ProfileTip(vanilla), cancellationToken), preview => DescribeFolders(preview, story)));
+
+        ContractHarness.PlayerSaves(game);
+        await backend.GameExitedAsync(game.Id, cancellationToken);
+        story.Add("complete with a new save", Show(await backend.Launch.CompleteSessionAsync(game.Id, new SessionCompletion.CaptureNew("After play")), _ => "started"));
+        if (backend.Launch.GetSession(game.Id)?.State is SessionState.Completing saving)
+        {
+            await backend.FinishAsync(saving.JobId, cancellationToken);
+        }
+
+        await backend.WaitForCompletedAsync(game.Id, cancellationToken);
+        var session = backend.Launch.GetSession(game.Id);
+        var saved = (session?.State as SessionState.Completed)?.Result;
+        story.Add("session after the new save", Describe(session, story));
+        story.Add("what the new save recorded", saved is null
+            ? "no result"
+            : $"{string.Join(", ", saved.Folders.Select(folder => $"{folder.Role}:{(folder.Ok ? "ok" : folder.Error!.MessageId)}"))} point={(saved.PointId is null ? "none" : "named")}");
+        story.Add("session error after the new save", (session?.State as SessionState.Completed)?.Error?.MessageId ?? "none");
+    }
+
+    private static string DescribeFolders(LaunchPreview preview, Story story) =>
+        $"install unfinished={preview.Install.UnfinishedSwitch} dirty={preview.Install.Dirty} heading for {DescribeTarget(preview.Install.UnfinishedSwitchTarget, story)}; "
+        + $"saves unfinished={preview.External?.UnfinishedSwitch} dirty={preview.External?.Dirty}";
+
+    private static string DescribeTarget(LaunchTarget? target, Story story) => target switch
+    {
+        null => "nothing",
+        LaunchTarget.ProfileTip tip => "the tip of " + story.Name(tip.ProfileId, "profile"),
+        _ => target.GetType().Name,
+    };
 
     private static string Describe(LaunchSessionInfo? session, Story story) => session is null
         ? "no session"

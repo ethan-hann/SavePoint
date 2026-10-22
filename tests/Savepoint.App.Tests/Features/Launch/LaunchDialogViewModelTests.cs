@@ -352,7 +352,9 @@ public class LaunchDialogViewModelTests : IDisposable
 
         var request = Assert.Single(_rig.Dialogs.Confirmations);
         Assert.Equal("Discard these changes?", request.Title);
-        Assert.Equal("This permanently discards the unsaved changes. This can't be undone.", request.Message);
+        Assert.Equal(
+            $"The saves folder ({MockupScenario.SkyrimSaves}) goes back to how it was when it was last saved. 2 new files are deleted. 1 changed file is put back. This can't be undone.",
+            request.Message);
         Assert.Equal("Discard them, permanently", request.ConfirmLabel);
         Assert.True(request.Destructive);
         Assert.Empty(_rig.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.DiscardChangesAsync)));

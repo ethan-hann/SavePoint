@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Git;
 
@@ -211,6 +212,47 @@ public sealed class CheckoutVerifyTests : IDisposable
         Assert.Equal(before, await File.ReadAllBytesAsync(locked, Ct));
         await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
         Assert.Equal(a, TreeSnapshot.Take(repo.WorkTree));
+    }
+
+    [Fact]
+    public async Task A_locked_file_git_has_to_read_again_is_reported_as_in_use_not_as_unsaved_changes()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows refuses to read a file another program holds open");
+        var (repo, a) = await TwoProfilesAsync();
+        var locked = _ws.FileOf(repo, "Data/blob.bin");
+
+        // A file stamped no earlier than the index cannot be vouched for by its stamp, so git reads it again; this makes every file such a file.
+        File.SetLastWriteTimeUtc(Path.Combine(repo.GitDir, "index"), DateTime.UtcNow.AddHours(-1));
+        var held = new FileStream(locked, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+        try
+        {
+            var error = await Assert.ThrowsAsync<GitOperationException>(() => _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct));
+
+            Assert.Equal(locked, error.Args["path"]);
+        }
+        finally
+        {
+            await held.DisposeAsync();
+        }
+
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+        Assert.Equal(a, TreeSnapshot.Take(repo.WorkTree));
+    }
+
+    [Fact]
+    public async Task Unsaved_work_beside_a_locked_file_is_still_reported_as_unsaved_changes()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows refuses to read a file another program holds open");
+        var (repo, _) = await TwoProfilesAsync();
+        File.SetLastWriteTimeUtc(Path.Combine(repo.GitDir, "index"), DateTime.UtcNow.AddHours(-1));
+        _ws.Write(repo, "readme.txt", "edited by the player\n");
+
+        using var held = new FileStream(_ws.FileOf(repo, "Data/blob.bin"), FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+
+        var error = await Assert.ThrowsAsync<DirtyWorkingTreeException>(() => _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct));
+
+        Assert.Equal(RepoRole.Install, error.Args["role"]);
+        Assert.Equal("edited by the player\n", await File.ReadAllTextAsync(_ws.FileOf(repo, "readme.txt"), Ct));
     }
 
     [Fact]

@@ -37,7 +37,7 @@ internal sealed class HistoryReader
 
         public Profile Owner => (Install ?? External)!.Profile;
 
-        public DateTimeOffset At => (Install ?? External)!.Commit.Date;
+        public DateTimeOffset At => (Install ?? External)!.Commit.PointTime;
 
         public string Name => (Install ?? External)!.Commit.Subject;
     }
@@ -171,11 +171,7 @@ internal sealed class HistoryReader
             return own.Commit.Id;
         }
 
-        return lineages[(install.Role, point.Owner.Id)]
-            .Where(commit => commit.CaptureId is not null && commit.Date <= point.At)
-            .OrderByDescending(commit => commit.Date)
-            .Select(commit => commit.Id)
-            .FirstOrDefault();
+        return PointCommits.For(lineages[(install.Role, point.Owner.Id)], point.CaptureId, point.At)?.Id;
     }
 
     private async Task<HistoryPoint> DescribeAsync(
