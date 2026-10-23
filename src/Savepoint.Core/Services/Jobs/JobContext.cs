@@ -7,9 +7,9 @@ namespace Savepoint.Core.Services.Jobs;
 public sealed class JobContext
 {
     private readonly Action<JobLine> _addLine;
-    private readonly Action _noLongerCancellable;
+    private readonly Func<bool> _noLongerCancellable;
 
-    internal JobContext(Guid jobId, CancellationToken cancellationToken, Action<JobProgress> report, Action<JobLine> addLine, Action noLongerCancellable)
+    internal JobContext(Guid jobId, CancellationToken cancellationToken, Action<JobProgress> report, Action<JobLine> addLine, Func<bool> noLongerCancellable)
     {
         JobId = jobId;
         CancellationToken = cancellationToken;
@@ -53,7 +53,11 @@ public sealed class JobContext
     /// Says the job has passed the point where stopping it would do harm, so its snapshot stops being cancellable and a later cancel is
     /// left alone. A job that cannot be stopped from here on calls it once, before the work that must finish.
     /// </summary>
-    public void NoLongerCancellable() => _noLongerCancellable();
+    /// <returns>
+    /// True when a stop had already been asked for, which the job has not necessarily heard yet through <see cref="CancellationToken"/>:
+    /// it should end as stopped instead of going past the point. False when none had; none is accepted from here on.
+    /// </returns>
+    public bool NoLongerCancellable() => _noLongerCancellable();
 
     private sealed class Reporter(Action<JobProgress> report) : IProgress<JobProgress>
     {

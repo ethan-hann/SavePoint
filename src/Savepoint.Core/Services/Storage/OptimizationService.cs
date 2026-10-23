@@ -205,9 +205,12 @@ internal sealed class OptimizationService
             return ([.. repos.Select(repo => new FolderOutcome(repo.Role, refusals.GetValueOrDefault(repo.Role) ?? first))], false);
         }
 
-        // Marked first, so a stop request either arrived before this point, when the line below ends the run with nothing deleted, or is refused.
-        context.NoLongerCancellable();
-        context.CancellationToken.ThrowIfCancellationRequested();
+        // Marked first, so a stop request either arrived before this point, when the run ends with nothing deleted, or is refused. The token
+        // alone could miss a stop that was accepted a moment ago, so the registry says whether one was.
+        if (context.NoLongerCancellable())
+        {
+            throw new OperationCanceledException(context.CancellationToken);
+        }
 
         // What each folder will delete, with the values, written down before the first record goes.
         var plans = new Dictionary<RepoRole, IReadOnlyList<ClearedRef>>();

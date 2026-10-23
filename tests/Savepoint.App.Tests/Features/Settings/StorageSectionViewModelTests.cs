@@ -144,7 +144,7 @@ public class StorageSectionViewModelTests
         Assert.True(Storage(rig).IsOptimizing);
         Assert.False(Storage(rig).CancelOptimizeCommand.CanExecute(null));
         Assert.True(Storage(rig).HasStopNote);
-        Assert.Equal("Freeing up space can't be stopped any more, because the recently removed snapshots it was asked to delete are already gone.", Storage(rig).StopNote);
+        Assert.Equal("Freeing up space can't be stopped any more, because it has already started deleting the recently removed snapshots it was asked to delete.", Storage(rig).StopNote);
     }
 
     [Fact]

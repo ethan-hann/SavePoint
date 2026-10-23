@@ -124,6 +124,7 @@ public class ExitGuardTests
         var asked = Assert.Single(dialogs.Confirmations);
         Assert.Equal("SavePoint is still working", asked.Title);
         Assert.Contains("freeing up space", asked.Message, StringComparison.Ordinal);
+        Assert.Contains("because it has started deleting the snapshots you chose to delete", asked.Message, StringComparison.Ordinal);
         Assert.Contains("quit as soon as it is done", asked.Message, StringComparison.Ordinal);
         Assert.Equal("Quit when it's done", asked.ConfirmLabel);
         Assert.Equal("Stay open", asked.CancelLabel);

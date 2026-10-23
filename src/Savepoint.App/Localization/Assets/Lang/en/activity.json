@@ -74,7 +74,7 @@
   "activity.step.relocate.switched": "SavePoint now uses the new snapshot folder ({path}).",
   "activity.step.relocate.takingBack": "Taking back the copy in {path}.",
   "activity.stop.clear": "Clearing SavePoint's data can't be stopped once it has started.",
-  "activity.stop.compact": "Freeing up space can't be stopped any more, because the recently removed snapshots it was asked to delete are already gone.",
+  "activity.stop.compact": "Freeing up space can't be stopped any more, because it has already started deleting the recently removed snapshots it was asked to delete.",
   "activity.stop.generic": "This job can't be stopped right now.",
   "activity.stop.ignored": "That job couldn't be stopped just now. It will finish on its own.",
   "activity.stop.relocate": "The move can't be stopped any more, because SavePoint already uses the new folder.",

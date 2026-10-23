@@ -322,14 +322,17 @@ public sealed class JobRegistry : IJobsApi
         }
     }
 
-    // A job that reaches the point where stopping it would do harm says so; its snapshot then stops offering a cancel.
-    private void MarkNotCancellable(Job job)
+    // A job that reaches the point where stopping it would do harm says so; its snapshot then stops offering a cancel. The answer is whether a
+    // stop had been accepted before, decided under the same lock that accepts one, so a stop is either heard here or refused afterwards.
+    private bool MarkNotCancellable(Job job)
     {
+        bool asked;
         lock (_gate)
         {
+            asked = job.CancelRequested;
             if (job.Status != JobStatus.Running || !job.Cancellable)
             {
-                return;
+                return asked;
             }
 
             job.Cancellable = false;
@@ -338,6 +341,7 @@ public sealed class JobRegistry : IJobsApi
         }
 
         ScheduleDelivery();
+        return asked;
     }
 
     private void Report(Job job, JobProgress? progress, JobLine? line)
