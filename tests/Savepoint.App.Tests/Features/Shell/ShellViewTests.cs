@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Media;
 using Avalonia.VisualTree;
 using Savepoint.App.Features.Common.Art;
 using Savepoint.App.Features.Common.Toasts;
@@ -518,6 +519,24 @@ public class ShellViewTests
         Assert.False(pill.IsEffectivelyVisible);
         Assert.Equal(pageBefore, LayoutAudit.BoundsIn(harness.Window, page));
         Assert.Equal(contentBefore, LayoutAudit.BoundsIn(harness.Window, content));
+    }
+
+    [AvaloniaFact]
+    public async Task A_long_job_name_is_trimmed_so_the_pill_stays_short_of_the_actions_on_the_right()
+    {
+        using var harness = await ShellViewHarness.StartAsync(width: 640, height: 420);
+        FakeAssert.Ok(await harness.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
+        harness.Settle();
+        var pill = harness.Find<Button>("Pill");
+        var text = harness.Find<TextBlock>("PillText");
+
+        harness.Shell.JobStatus.PillText = "Taking a snapshot of The Elder Scrolls V: Skyrim Special Edition, Anniversary Edition with every mod…";
+        harness.Settle();
+
+        var shown = LayoutAudit.BoundsIn(harness.Window, pill);
+        Assert.True(shown.Width <= 360, $"The pill is {shown.Width:0} px wide.");
+        Assert.True(LayoutAudit.BoundsIn(harness.Window, text).Right <= shown.Right, "The text runs out of the pill.");
+        Assert.Equal(TextTrimming.CharacterEllipsis, text.TextTrimming);
     }
 
     [AvaloniaFact]
