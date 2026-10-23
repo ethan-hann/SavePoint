@@ -159,6 +159,8 @@ public class GameEditorSaveTests
         var rig = EditorRig.Create();
         var template = rig.Backend.Games.Templates.First(t => t.Definition.Notes is not null).ToDraft();
         var editor = rig.New(template);
+        // Templates leave the install folder for the player to pick.
+        editor.InstallPath = @"C:\Games\SkyrimSE";
 
         await Save(rig, editor);
 
@@ -171,6 +173,7 @@ public class GameEditorSaveTests
         var rig = EditorRig.Create();
         var template = rig.Backend.Games.Templates[0].ToDraft();
         var editor = rig.New(template);
+        editor.InstallPath = @"C:\Games\SkyrimSE";
 
         await Save(rig, editor);
 

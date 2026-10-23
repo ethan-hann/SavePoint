@@ -382,6 +382,8 @@ public class GameEditorViewTests
     {
         using var harness = await EditorViewHarness.StartAsync();
         var editor = harness.New(harness.Backend.Games.Templates[0].ToDraft());
+        // Templates leave the install folder for the player to pick.
+        editor.InstallPath = @"C:\Games\SkyrimSE";
         var saving = editor.SaveCommand.ExecuteAsync(null);
         harness.Settle();
 
