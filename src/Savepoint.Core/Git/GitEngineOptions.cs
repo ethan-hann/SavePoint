@@ -12,6 +12,10 @@ public sealed record GitEngineOptions
     /// <summary>The clock used for the consent marker's confirmation time.</summary>
     public TimeProvider Clock { get; init; } = TimeProvider.System;
 
+    // Overrides whether the operating system treats names that differ only in case as one file (Windows and macOS do, Linux does not);
+    // a test sets it to run the comparison another system uses. A drive that ignores case is still found out and still counts.
+    internal bool? SystemIgnoresCase { get; init; }
+
     // Sees every git call just before it runs; tests use it to assert argument lists and to inject faults.
     internal Action<GitInvocation>? InvocationObserver { get; init; }
 

@@ -95,17 +95,18 @@ public sealed partial class GitEngine
         var listBefore = RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z") with { ExtraEnvironment = new Dictionary<string, string?> { ["GIT_INDEX_FILE"] = before } }, ct);
         var listAfter = RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z") with { ExtraEnvironment = new Dictionary<string, string?> { ["GIT_INDEX_FILE"] = after } }, ct);
         var kept = new HashSet<string>((await listAfter.ConfigureAwait(false)).SplitStandardOutputOnNul(), StringComparer.Ordinal);
-        var aligned = new HashSet<string>(plan.Named, PathComparer);
+        var aligned = new HashSet<string>(plan.Named, PathComparerFor(repo));
         return [.. (await listBefore.ConfigureAwait(false)).SplitStandardOutputOnNul().Where(entry => !kept.Contains(entry) && !aligned.Contains(entry))];
     }
 
     // Removes the file of each displaced entry when it is exactly what the point held (a forced switch discards edits to a recorded file
     // on purpose). An entry the switch has no reason to drop, or a file that is not the point's, is the player's: the switch is refused.
-    private static void RemoveDisplaced(RepoRef repo, SwitchPlan plan, IReadOnlyList<string> displaced, bool force, List<string> removed)
+    private void RemoveDisplaced(RepoRef repo, SwitchPlan plan, IReadOnlyList<string> displaced, bool force, List<string> removed)
     {
+        var comparer = PathComparerFor(repo);
         foreach (var path in displaced)
         {
-            if (plan.Gone.Where(entry => PathComparer.Equals(entry.Path, path)).Select(entry => (GoneFile?)entry).FirstOrDefault() is not { } gone)
+            if (plan.Gone.Where(entry => comparer.Equals(entry.Path, path)).Select(entry => (GoneFile?)entry).FirstOrDefault() is not { } gone)
             {
                 throw new DirtyWorkingTreeException(repo.Role);
             }
