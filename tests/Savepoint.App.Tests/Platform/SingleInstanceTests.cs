@@ -266,18 +266,27 @@ public sealed class SingleInstanceTests : IDisposable
         GC.KeepAlive(crashed);
         Assert.True(acquired);
     }
+
+    // Closing a bound socket deletes its file, so a crash is imitated by renaming the file out from under the socket before it closes.
+    private static void LeaveStaleSocketFile(string path)
+    {
+        var staging = path + ".staging";
+        using (var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified))
+        {
+            socket.Bind(new UnixDomainSocketEndPoint(staging));
+            File.Move(staging, path);
+        }
+    }
+
     [Fact]
     public void A_socket_file_left_by_a_crashed_copy_does_not_stop_the_next_one_serving()
     {
         Assert.SkipWhen(OperatingSystem.IsWindows(), "Windows pipes disappear with their process; only Unix leaves a file behind.");
         var first = Create();
         Assert.StartsWith("/", first.PipeName, StringComparison.Ordinal);
-        using (var stale = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified))
-        {
-            stale.Bind(new UnixDomainSocketEndPoint(first.PipeName));
-        }
+        LeaveStaleSocketFile(first.PipeName);
 
-        Assert.True(File.Exists(first.PipeName));
+        Assert.True(File.Exists(first.PipeName), "the crashed copy's socket file should be there");
 
         Assert.True(first.TryAcquire());
         Assert.True(Create().SignalFirstInstance());
