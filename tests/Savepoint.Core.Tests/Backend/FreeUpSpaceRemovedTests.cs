@@ -169,6 +169,36 @@ public class FreeUpSpaceRemovedTests
     }
 
     [Fact(Timeout = 240_000)]
+    public async Task One_games_failed_clear_is_reported_for_that_game_and_the_run_over_every_game_goes_on()
+    {
+        var hooks = new GitHooks();
+        using var alpha = await RemovedWorld.CreateAsync(options => options with { Engine = new GitEngineOptions { InvocationObserver = hooks.Observe } });
+        using var beta = await RemovedWorld.CreateAsync(shared: alpha.Workspace, name: "Beta");
+        await alpha.ContinueFromFirstAsync();
+        await beta.ContinueFromFirstAsync();
+        var betaBefore = (await beta.ListAsync()).Select(snapshot => (snapshot.Id, snapshot.Kind)).ToList();
+        var preview = await alpha.Workspace.Settings.GetFreeUpSpacePreviewAsync(alpha.Workspace.Token);
+        hooks.OnGit = invocation =>
+        {
+            if (invocation.Arguments[0] == "update-ref" && invocation.Arguments.Contains("savepoint: free up space") && invocation.GitDir!.Contains(beta.Game.Id, StringComparison.Ordinal))
+            {
+                throw new IOException("The disk reported an error.");
+            }
+        };
+
+        var started = await alpha.Workspace.Settings.OptimizeAllStorageAsync(preview.Value!.Token);
+        var job = await alpha.Workspace.WaitForJobAsync(started.Value!.JobId);
+
+        Assert.Equal(JobStatus.Partial, job.Status);
+        var result = Assert.IsType<OptimizeResult>(job.Result);
+        Assert.All(result.Games.Single(game => game.GameId == alpha.Game.Id).Folders, folder => Assert.True(folder.Ok));
+        Assert.All(result.Games.Single(game => game.GameId == beta.Game.Id).Folders, folder => Assert.False(folder.Ok));
+        Assert.Empty(await alpha.ListAsync());
+        Assert.Equal(betaBefore, (await beta.ListAsync()).Select(snapshot => (snapshot.Id, snapshot.Kind)));
+        Assert.NotNull((await alpha.Workspace.Settings.GetStorageSummaryAsync(alpha.Workspace.Token)).Value!.LastOptimizedAt);
+    }
+
+    [Fact(Timeout = 240_000)]
     public async Task A_free_up_started_without_a_preview_deletes_no_removed_snapshot_and_still_succeeds()
     {
         using var world = await RemovedWorld.CreateAsync();

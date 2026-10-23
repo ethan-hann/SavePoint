@@ -79,7 +79,7 @@ internal sealed class OptimizationService
             foreach (var game in games)
             {
                 context.CancellationToken.ThrowIfCancellationRequested();
-                outcomes.Add(await OptimizeGameAsync(context, game, mode, preemptible, confirmed, () => preempted = true).ConfigureAwait(false));
+                outcomes.Add(await OptimizeOneGameAsync(context, game, mode, preemptible, confirmed, () => preempted = true).ConfigureAwait(false));
             }
         }
         catch (Exception e) when (e is OperationCanceledException or OperationCancelledByUserException)
@@ -104,6 +104,27 @@ internal sealed class OptimizationService
         }
 
         return new OptimizeResult(outcomes);
+    }
+
+    // A game that cannot be tidied is reported for itself, with whatever it had already done undone or finished, and the games after it
+    // still go; a failure of one must not hide what the others freed or keep them from being tidied.
+    private async Task<GameOptimizeOutcome> OptimizeOneGameAsync(JobContext context, GameDefinition game, OptimizationMode mode, bool preemptible, FreeUpSpaceToken confirmed, Action onPreempted)
+    {
+        try
+        {
+            return await OptimizeGameAsync(context, game, mode, preemptible, confirmed, onPreempted).ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is IOException or (SavepointException and not (OperationCancelledByUserException or CompactionPreemptedException)))
+        {
+            var error = ErrorInfo.From(e);
+            var roles = GameFolders.RolesOf(game);
+            foreach (var role in roles)
+            {
+                context.AddStep(JobSteps.CompactFolderFailed, ("game", game.Name), ("folder", role));
+            }
+
+            return new GameOptimizeOutcome(game.Id, [.. roles.Select(role => new FolderOutcome(role, error))], null);
+        }
     }
 
     private Task<GameOptimizeOutcome> OptimizeGameAsync(JobContext context, GameDefinition game, OptimizationMode mode, bool preemptible, FreeUpSpaceToken confirmed, Action onPreempted) =>
