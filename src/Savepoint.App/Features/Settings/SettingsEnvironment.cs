@@ -69,14 +69,22 @@ public sealed class ProcessFileRevealer : IFileRevealer
 /// <param name="FindNotices">Where <c>THIRD-PARTY-NOTICES.md</c> is, or null when it was not shipped; asked each time the screen shows.</param>
 /// <param name="AppVersion">The version the About section states.</param>
 /// <param name="LogFolder">The folder the diagnostic log is written to, or null when there is none, which hides the action that opens it.</param>
-public sealed record SettingsEnvironment(IFileRevealer Revealer, Func<string?> FindNotices, string AppVersion, string? LogFolder = null)
+/// <param name="FindLicense">Where <c>LICENSE</c> is, or null when it was not shipped; asked each time the screen shows. A null delegate counts as not shipped.</param>
+public sealed record SettingsEnvironment(IFileRevealer Revealer, Func<string?> FindNotices, string AppVersion, string? LogFolder = null, Func<string?>? FindLicense = null)
 {
     private const string _noticesFile = "THIRD-PARTY-NOTICES.md";
+    private const string _licenseFile = "LICENSE";
 
     /// <summary>The running app: the file beside the executable and this assembly's version.</summary>
     /// <param name="revealer">Shows a file or folder in the file manager; a plain process start when null.</param>
     /// <param name="logFolder">The folder the diagnostic log is written to, or null when there is none.</param>
-    public static SettingsEnvironment ForThisApp(IFileRevealer? revealer = null, string? logFolder = null) => new(revealer ?? new ProcessFileRevealer(), NoticesBesideTheApp, ThisAppVersion(), logFolder);
+    public static SettingsEnvironment ForThisApp(IFileRevealer? revealer = null, string? logFolder = null) => new(revealer ?? new ProcessFileRevealer(), NoticesBesideTheApp, ThisAppVersion(), logFolder, LicenseBesideTheApp);
+
+    private static string? LicenseBesideTheApp()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, _licenseFile);
+        return File.Exists(path) ? path : null;
+    }
 
     private static string? NoticesBesideTheApp()
     {

@@ -18,6 +18,16 @@ public class NoticesBesideTheAppTests
     }
 
     [Fact]
+    public void Settings_finds_the_license_file_in_the_apps_output_folder()
+    {
+        var found = SettingsEnvironment.ForThisApp().FindLicense?.Invoke();
+
+        Assert.NotNull(found);
+        Assert.Equal(Path.Combine(AppContext.BaseDirectory, "LICENSE"), found);
+        Assert.Equal(File.ReadAllText(Path.Combine(RepoRoot, "LICENSE")), File.ReadAllText(found));
+    }
+
+    [Fact]
     public void Every_license_text_is_in_the_output_folder_beside_the_notices()
     {
         var source = Path.Combine(RepoRoot, "licenses");

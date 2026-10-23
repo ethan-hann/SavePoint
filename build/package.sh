@@ -183,7 +183,7 @@ echo "==> publish"
 dotnet publish src/Savepoint.App -c Release -r "$rid" --self-contained -o "$publish_dir" "-m:$build_nodes" -nodeReuse:false -p:UseSharedCompilation=false "-p:SourceRevisionId=$revision"
 
 echo "==> check the publish folder"
-for expected in SavePoint THIRD-PARTY-NOTICES.md git/.savepoint-git-stamp; do
+for expected in SavePoint THIRD-PARTY-NOTICES.md LICENSE git/.savepoint-git-stamp; do
   [ -f "$publish_dir/$expected" ] || fail "$expected is missing from $publish_dir"
 done
 # The stamp inside the bundle names the git executable, relative to git/.
@@ -221,6 +221,8 @@ listing="$release_dir/../contents-$rid.txt"
 echo "    SavePoint.AppImage: $(grep -c . "$listing") files (listed in $listing)"
 grep -qE '(^|/)git/\.savepoint-git-stamp$' "$listing" || fail "SavePoint.AppImage does not hold the git bundle"
 grep -qE '(^|/)THIRD-PARTY-NOTICES\.md$' "$listing" || fail "SavePoint.AppImage does not hold the notices"
+# Only SavePoint's own file counts; the app lives in usr/bin inside the AppImage, and bundled components carry LICENSE files deeper down.
+grep -qE '^\./usr/bin/LICENSE$' "$listing" || fail "SavePoint.AppImage does not hold the license"
 grep -qE '(^|/)licenses/[^/]+$' "$listing" || fail "SavePoint.AppImage does not hold the license texts"
 rm -rf "$inspect_dir"
 

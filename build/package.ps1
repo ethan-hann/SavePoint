@@ -94,10 +94,13 @@ function Assert-PackageHolds {
     $needed = [ordered]@{
         'the git bundle'     = '(^|[/\\])git[/\\]\.savepoint-git-stamp$'
         'the notices'        = '(^|[/\\])THIRD-PARTY-NOTICES\.md$'
+        # Only SavePoint's own file counts: the bundled git and libraries carry LICENSE files of their own, deeper in the package.
+        # Velopack puts the app under lib/app/ in the nupkg and current/ in the portable zip.
+        'the license'        = '^(lib/app|current)/LICENSE$'
         'the license texts'  = '(^|[/\\])licenses[/\\][^/\\]+$'
     }
     foreach ($what in $needed.Keys) {
-        if (-not ($names | Where-Object { $_ -match $needed[$what] })) {
+        if (-not ($names | Where-Object { $_ -cmatch $needed[$what] })) {
             throw "$leaf does not hold $what."
         }
     }
@@ -159,7 +162,7 @@ try {
     }
 
     Write-Host '==> check the publish folder'
-    foreach ($expected in 'SavePoint.exe', 'THIRD-PARTY-NOTICES.md', 'git/.savepoint-git-stamp') {
+    foreach ($expected in 'SavePoint.exe', 'THIRD-PARTY-NOTICES.md', 'LICENSE', 'git/.savepoint-git-stamp') {
         if (-not (Test-Path -LiteralPath (Join-Path $publishDir $expected) -PathType Leaf)) {
             throw "$expected is missing from $publishDir."
         }

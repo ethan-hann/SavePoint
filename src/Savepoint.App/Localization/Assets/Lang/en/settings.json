@@ -1,5 +1,8 @@
 {
   "settings.about.heading": "About",
+  "settings.about.license": "License",
+  "settings.about.licenseFailed": "SavePoint couldn't open the file manager.",
+  "settings.about.licenseNotice": "SavePoint is free software under the GNU GPL, version 3 or later, and comes with no warranty.",
   "settings.about.logFolder": "Open the log folder",
   "settings.about.logFolderFailed": "SavePoint couldn't open the log folder.",
   "settings.about.notices": "Third-party notices",
