@@ -75,6 +75,35 @@ public class ProcessInspectorTests
         Assert.Equal([100], processes.Select(p => p.Pid));
     }
 
+    [Theory]
+    [InlineData("Z")]
+    [InlineData("X")]
+    [InlineData("x")]
+    public void Linux_leaves_out_a_process_that_has_exited_but_not_been_reaped(string state)
+    {
+        using var tree = new TempTree();
+        var proc = tree.Dir("proc");
+        FakeProcess(proc, "100", "game\n", "game\0", $"100 (game) {state} 1 100 100 0 -1 4210700 0 0 0 0 0 0 0 0 20 0 1 0 5 0 0\n");
+        FakeProcess(proc, "101", "game\n", "game\0", "101 (game) S 1 101 101 0 -1 4210688 0 0 0 0 0 0 0 0 20 0 1 0 5 0 0\n");
+
+        var processes = new LinuxProcessInspector(proc).List();
+
+        Assert.Equal([101], processes.Select(p => p.Pid));
+    }
+
+    [Fact]
+    public void Linux_reads_the_state_after_the_last_bracket_so_a_name_with_brackets_cannot_fake_one()
+    {
+        using var tree = new TempTree();
+        var proc = tree.Dir("proc");
+        FakeProcess(proc, "100", "a) Z (b\n", "game\0", "100 (a) Z (b) S 1 100 100 0 -1 4210688 0 0 0 0 0 0 0 0 20 0 1 0 5 0 0\n");
+        FakeProcess(proc, "101", "g) S (h\n", "game\0", "101 (g) S (h) Z 1 101 101 0 -1 4210700 0 0 0 0 0 0 0 0 20 0 1 0 5 0 0\n");
+
+        var processes = new LinuxProcessInspector(proc).List();
+
+        Assert.Equal([100], processes.Select(p => p.Pid));
+    }
+
     [Fact]
     public void Linux_gives_an_empty_list_when_the_proc_folder_is_missing()
     {
@@ -124,10 +153,14 @@ public class ProcessInspectorTests
         Assert.IsType<MacOSProcessInspector>(FakePlatforms.For(OsKind.MacOS).Processes);
     }
 
-    private static void FakeProcess(string proc, string pid, string comm, string cmdline)
+    private static void FakeProcess(string proc, string pid, string comm, string cmdline, string? stat = null)
     {
         var dir = Directory.CreateDirectory(Path.Combine(proc, pid)).FullName;
         File.WriteAllText(Path.Combine(dir, "comm"), comm);
         File.WriteAllBytes(Path.Combine(dir, "cmdline"), Encoding.UTF8.GetBytes(cmdline));
+        if (stat is not null)
+        {
+            File.WriteAllText(Path.Combine(dir, "stat"), stat);
+        }
     }
 }

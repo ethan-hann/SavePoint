@@ -187,9 +187,27 @@ internal sealed class FakeGameProcess : IDisposable
         try
         {
             using var other = Process.GetProcessById(processId);
-            return !other.HasExited;
+            return !other.HasExited && !IsZombie(processId);
         }
         catch (ArgumentException)
+        {
+            return false;
+        }
+    }
+
+    // A process nobody has reaped (a container's PID 1 may never) still answers to its id, though it ran its last instruction.
+    private static bool IsZombie(int processId)
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return false;
+        }
+
+        try
+        {
+            return Savepoint.Core.Platform.Linux.LinuxProcessInspector.IsExitedState(File.ReadAllText($"/proc/{processId}/stat"));
+        }
+        catch (IOException)
         {
             return false;
         }

@@ -107,7 +107,7 @@ public sealed class RepoConfigTests : IDisposable
         var repo = await _ws.InitializedRepoAsync();
 
         Assert.Equal("0", await _ws.ConfigAsync(repo, "core.repositoryformatversion"));
-        Assert.NotNull(await _ws.ConfigAsync(repo, "core.ignorecase"));
+        Assert.Equal(await _ws.PlainInitConfigAsync("core.ignorecase"), await _ws.ConfigAsync(repo, "core.ignorecase"));
     }
 
     [Fact]
@@ -255,7 +255,7 @@ public sealed class RepoConfigTests : IDisposable
 
         Assert.Null(await _ws.ConfigAsync(repo, name));
         Assert.Equal("0", await _ws.ConfigAsync(repo, "core.repositoryformatversion"));
-        Assert.NotNull(await _ws.ConfigAsync(repo, "core.ignorecase"));
+        Assert.Equal(await _ws.PlainInitConfigAsync("core.ignorecase"), await _ws.ConfigAsync(repo, "core.ignorecase"));
         Assert.Equal("false", await _ws.ConfigAsync(repo, "core.bare"));
     }
 
