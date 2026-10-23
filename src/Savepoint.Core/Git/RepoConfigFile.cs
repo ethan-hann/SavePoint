@@ -9,7 +9,7 @@ namespace Savepoint.Core.Git;
 internal static partial class RepoConfigFile
 {
     // Bumped whenever a setting below changes, so existing repositories take the new value the next time they are touched.
-    public const string Version = "4";
+    public const string Version = "5";
 
     internal const string BlockStart = "# >>> savepoint managed (do not edit) >>>";
     internal const string BlockEnd = "# <<< savepoint managed <<<";
@@ -107,6 +107,9 @@ internal static partial class RepoConfigFile
             ("gc", "auto", "0"),
             ("core", "looseCompression", "0"),
             ("core", "untrackedCache", "true"),
+            // Permission changes, backup tools and scanners move a file's change time without editing it; size and write time still
+            // catch real edits, and trusting the change time would make git re-read (or fail on) every file such a tool touched.
+            ("core", "trustCtime", "false"),
             ("index", "version", "4"),
             ("checkout", "workers", "0"),
             ("core", "longPaths", "true"),

@@ -134,6 +134,41 @@ public sealed class PreviewTests : IDisposable
         Assert.Equal(9, bytes);
     }
 
+    // Permission changes, backup tools and virus scanners move a file's change time without touching its content; git must not
+    // take that for an edit, or the estimate reads the file (and counts it in full when it cannot).
+    [Fact]
+    public async Task A_file_whose_change_time_moved_but_whose_content_did_not_is_not_read()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.WriteMany(repo, "Data", 30);
+        _ws.AgeFiles(repo);
+        await _ws.CaptureAsync(repo, "profile-1");
+        _ws.Write(repo, "new.txt", "123456789");
+        var candidates = await _ws.Engine.ListCaptureCandidatesAsync(repo, [], Ct);
+        Assert.SkipWhen(!OperatingSystem.IsWindows() && Environment.IsPrivilegedProcess, "a privileged user reads any file");
+        var file = _ws.FileOf(repo, "Data/f3.txt");
+        await MoveChangeTimeAsync(file);
+        using var closed = MakeUnreadable(file);
+
+        var bytes = await _ws.Engine.EstimateNewBytesAsync(repo, candidates, [], Ct);
+
+        Assert.Equal(9, bytes);
+    }
+
+    // Windows keeps the creation time where git looks for the change time; elsewhere a rewrite of the same stamp moves it, but git
+    // compares whole seconds, so the move has to land in a later second than the capture's.
+    private static async Task MoveChangeTimeAsync(string path)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            File.SetCreationTimeUtc(path, DateTime.UtcNow.AddDays(-3));
+            return;
+        }
+
+        await Task.Delay(TimeSpan.FromMilliseconds(1100), Ct);
+        File.SetLastWriteTimeUtc(path, File.GetLastWriteTimeUtc(path));
+    }
+
     [Fact]
     public async Task The_same_content_under_another_name_costs_nothing()
     {
