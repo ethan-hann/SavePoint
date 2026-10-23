@@ -403,7 +403,7 @@ public class ShellViewTests
         Assert.True(note.IsEffectivelyVisible);
         Assert.Equal(["SavePoint keeps your snapshots in ", @"D:\SavePoint", ". You can change that in Settings."], runs);
         Assert.True(harness.Find<StackPanel>("AntiCheatNote").IsEffectivelyVisible);
-        Assert.Contains("Games protected by kernel-level anti-cheat aren't supported.", VisibleTexts(harness));
+        Assert.Contains("Don't use SavePoint with online games protected by anti-cheat. Changed game files can get your account flagged, and those games can't be modded or rolled back anyway.", VisibleTexts(harness));
     }
 
     [AvaloniaFact]

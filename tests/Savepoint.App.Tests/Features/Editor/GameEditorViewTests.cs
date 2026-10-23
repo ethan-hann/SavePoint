@@ -140,7 +140,7 @@ public class GameEditorViewTests
         Assert.True(harness.Find<Border>("GuidanceStrip").IsEffectivelyVisible);
         var texts = harness.All<TextBlock>().Select(block => block.Text).ToList();
         Assert.Contains(texts, text => text is not null && text.StartsWith("Turn off cloud saves for this game"));
-        Assert.Contains("Games protected by kernel-level anti-cheat aren't supported.", texts);
+        Assert.Contains("Don't use SavePoint with online games protected by anti-cheat. Changed game files can get your account flagged, and those games can't be modded or rolled back anyway.", texts);
     }
 
     [AvaloniaFact]
