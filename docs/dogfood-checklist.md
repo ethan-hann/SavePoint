@@ -37,5 +37,6 @@ Build the app from `main` (`dotnet run --project src/Savepoint.App -c Release`),
 - [ ] Run `SavePoint-win-Setup.exe` (SmartScreen will warn, since it is unsigned). The Start menu shortcut works; the app shows version 0.9.0 in Settings > About and opens the third-party notices.
 - [ ] The portable zip runs from any folder.
 - [ ] Uninstall from Windows Settings > Apps. The app goes (it lived in `%LOCALAPPDATA%\SavePointApp`), but SavePoint's data stays in `%APPDATA%\SavePoint` and `%LOCALAPPDATA%\SavePoint`. Reinstalling picks your games and history up again (D38).
+- [ ] macOS and a Linux desktop or VM: follow `testing-on-mac-and-linux.md`.
 - [ ] Linux (if you have a desktop Linux machine, not WSL): the AppImage starts, notifications appear, a game started through a launcher is followed, and starting it twice brings the first window forward (the tests for that skip under WSL).
 - [ ] macOS: not packaged and never run on a Mac (D9, D33). Nothing to check until a Mac is available.
