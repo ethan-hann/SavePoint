@@ -132,31 +132,35 @@ public sealed partial class LaunchFlowViewModel
     }
 
     // Nothing is lost, but a replacement that became a new snapshot must not read as the replacement the player chose.
-    private void ShowKeptAsNew(GameFlow flow, CaptureResult result)
-    {
-        var kept = result.Folders.Where(folder => folder.KeptAsNew).ToList();
-        var which = kept.Count == 1 ? RoleName(kept[0].Role) : "other";
+    private void ShowKeptAsNew(GameFlow flow, CaptureResult result) =>
         SetInline(flow, ErrorCardViewModel.Custom(
             _deps.Text,
             Icons.Info,
             ErrorTone.Neutral,
             _deps.Text.Message("launch.keptAsNew.title"),
-            _deps.Text.Message("launch.keptAsNew.body", ("folder", which)),
+            KeptAsNewSentence(result),
             actions: [DismissAction(flow)]));
-    }
 
-    // Not a failure and nothing is lost, but a save that skipped a folder must not look like one that saved everything.
+    // Not a failure and nothing is lost, but a save that skipped a folder must not look like one that saved everything. When another folder's
+    // replacement also became a new snapshot, the card says that too, so neither hides the other.
     private void ShowLeftAlone(GameFlow flow, CaptureResult result)
     {
         var left = result.Folders.Where(folder => folder.LeftAlone).ToList();
         var which = left.Count == 1 ? RoleName(left[0].Role) : "other";
+        var body = _deps.Text.Message("launch.leftAlone.body", ("folder", which));
         SetInline(flow, ErrorCardViewModel.Custom(
             _deps.Text,
             Icons.Info,
             ErrorTone.Neutral,
             _deps.Text.Message("launch.leftAlone.title"),
-            _deps.Text.Message("launch.leftAlone.body", ("folder", which)),
+            result.Folders.Any(folder => folder.KeptAsNew) ? body + " " + KeptAsNewSentence(result) : body,
             actions: [DismissAction(flow)]));
+    }
+
+    private string KeptAsNewSentence(CaptureResult result)
+    {
+        var kept = result.Folders.Where(folder => folder.KeptAsNew).ToList();
+        return _deps.Text.Message("launch.keptAsNew.body", ("folder", kept.Count == 1 ? RoleName(kept[0].Role) : "other"));
     }
 
     // Every folder failed, which the service may report as a result alone.
