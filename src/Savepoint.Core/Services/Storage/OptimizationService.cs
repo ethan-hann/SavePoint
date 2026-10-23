@@ -132,7 +132,7 @@ internal sealed class OptimizationService
                     repo => repo.Role,
                     repo => confirmed.Records
                         .Where(record => record.GameId == game.Id && record.Folder == repo.Role && !profileBranches.Contains(record.RefName))
-                        .Select(record => record.RefName)
+                        .Select(record => new ClearedRef(record.RefName, record.Value))
                         .ToList());
                 var (folders, pastTheClear) = records.Values.Any(names => names.Count > 0)
                     ? await FreeUpGameAsync(context, game, storage, repos, records, mode).ConfigureAwait(false)
@@ -182,7 +182,7 @@ internal sealed class OptimizationService
         GameDefinition game,
         StorageSnapshot storage,
         IReadOnlyList<RepoRef> repos,
-        IReadOnlyDictionary<RepoRole, List<string>> records,
+        IReadOnlyDictionary<RepoRole, List<ClearedRef>> records,
         OptimizationMode mode)
     {
         var refusals = new Dictionary<RepoRole, ErrorInfo>();
@@ -212,11 +212,13 @@ internal sealed class OptimizationService
             throw new OperationCanceledException(context.CancellationToken);
         }
 
-        // What each folder will delete, with the values, written down before the first record goes.
+        // What each folder will delete, with the values, written down before the first record goes. A ref that no longer holds the value
+        // the preview read (a branch that moved on) was not what the player agreed to lose, so it is left out.
         var plans = new Dictionary<RepoRole, IReadOnlyList<ClearedRef>>();
         foreach (var repo in repos.Where(repo => records[repo.Role].Count > 0))
         {
-            plans[repo.Role] = await storage.Engine.FindClearableAsync(repo, records[repo.Role], CancellationToken.None).ConfigureAwait(false);
+            var found = await storage.Engine.FindClearableAsync(repo, [.. records[repo.Role].Select(record => record.RefName)], CancellationToken.None).ConfigureAwait(false);
+            plans[repo.Role] = [.. found.Where(records[repo.Role].Contains)];
         }
 
         var gameDirectory = storage.GameDirectory(game.Id);

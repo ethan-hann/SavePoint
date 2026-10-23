@@ -26,5 +26,6 @@ public sealed record FreeUpSpaceToken(IReadOnlyList<FreeUpSpaceRecord> Records)
 /// <summary>One record that keeps a removed snapshot's commit in a folder's repository.</summary>
 /// <param name="GameId">The game the record belongs to.</param>
 /// <param name="Folder">The folder whose repository holds it.</param>
-/// <param name="RefName">The record's own name in that repository, which also says which commit it keeps.</param>
-public sealed record FreeUpSpaceRecord(string GameId, RepoRole Folder, string RefName);
+/// <param name="RefName">The record's own name in that repository, which also says which commit it keeps; or a branch no profile names.</param>
+/// <param name="Value">The commit the ref pointed at when the preview read it. The run deletes the ref only while it still points there.</param>
+public sealed record FreeUpSpaceRecord(string GameId, RepoRole Folder, string RefName, string Value);

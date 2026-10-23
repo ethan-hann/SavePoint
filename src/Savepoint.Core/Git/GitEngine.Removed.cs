@@ -127,7 +127,7 @@ public sealed partial class GitEngine
 
     /// <summary>
     /// The branches in the folder that the caller does not count as a profile's, each with the commits only it holds. The branch HEAD
-    /// names is never one of them. A caller that finds a branch holds nothing but snapshots it is deleting may hand it to
+    /// names is never one of them, and none is when HEAD cannot be read. A caller that finds a branch holds nothing but snapshots it is deleting may hand it to
     /// <see cref="ClearRemovedAsync"/> with them. Reads only the git directory.
     /// </summary>
     /// <param name="repo">The folder whose repository is read.</param>
@@ -145,10 +145,16 @@ public sealed partial class GitEngine
         }
 
         var existing = await ListBranchesAsync(repo, ct).ConfigureAwait(false);
-        var head = HeadBranchOrNull(repo);
+        var head = ReadHeadBranch(repo);
+        if (!head.Readable)
+        {
+            // No branch can be told from the one HEAD names, so none is offered.
+            return [];
+        }
+
         List<string> counted = [.. existing.Where(countedBranches.Contains).Select(name => GitDirFiles.BranchPrefix + name)];
         var strays = new List<StrayBranch>();
-        foreach (var name in existing.Where(name => !countedBranches.Contains(name) && !string.Equals(name, head, StringComparison.Ordinal)))
+        foreach (var name in existing.Where(name => !countedBranches.Contains(name) && !string.Equals(name, head.Name, StringComparison.Ordinal)))
         {
             List<string> arguments = ["log", "-z", _commitFormat, GitDirFiles.BranchPrefix + name];
             if (counted.Count > 0)
@@ -168,25 +174,27 @@ public sealed partial class GitEngine
         return strays;
     }
 
-    // The branch HEAD names, or null when HEAD is detached or cannot be read.
-    private static string? HeadBranchOrNull(RepoRef repo)
+    // The branch HEAD names. A detached HEAD is readable and names none; one that cannot be read is not, and then no branch can be told from the one it names.
+    private readonly record struct HeadBranch(bool Readable, string? Name);
+
+    private static HeadBranch ReadHeadBranch(RepoRef repo)
     {
         try
         {
-            return GitDirFiles.ReadHead(repo.GitDir).Branch;
+            return new HeadBranch(true, GitDirFiles.ReadHead(repo.GitDir).Branch);
         }
         catch (GitOperationException)
         {
-            return null;
+            return new HeadBranch(false, null);
         }
     }
 
     /// <summary>
     /// Deletes exactly the named refs and nothing else, in one ref transaction, so either all of them are gone or none is. A ref is a
     /// record of a removed snapshot or a branch (<c>refs/heads/...</c>) the caller found no profile names and that holds nothing but
-    /// snapshots being deleted; the branch HEAD names, a name that is neither, and a ref that is already gone are skipped, and a record
-    /// written after the names were read is never touched. The commits stay in the store until a reclaim drops what no branch or record
-    /// reaches. Needs only the git directory.
+    /// snapshots being deleted; the branch HEAD names (every branch, when HEAD cannot be read), a name that is neither, and a ref that is
+    /// already gone are skipped, and a record written after the names were read is never touched. The commits stay in the store until a
+    /// reclaim drops what no branch or record reaches. Needs only the git directory.
     /// </summary>
     /// <param name="repo">The folder whose repository holds the refs.</param>
     /// <param name="records">Record names as <see cref="RemovedCommit.RefName"/> gave them, and full branch ref names.</param>
@@ -236,7 +244,7 @@ public sealed partial class GitEngine
         }
 
         var present = await ReadClearableRefsAsync(repo, ct).ConfigureAwait(false);
-        var head = HeadBranchOrNull(repo);
+        var head = ReadHeadBranch(repo);
         return
         [
             .. records
@@ -272,7 +280,7 @@ public sealed partial class GitEngine
             ct.ThrowIfCancellationRequested();
             using var scope = BeginWrite(repo);
             var present = await ReadClearableRefsAsync(repo, ct).ConfigureAwait(false);
-            var head = HeadBranchOrNull(repo);
+            var head = ReadHeadBranch(repo);
             var doomed = expected
                 .DistinctBy(item => item.RefName, StringComparer.Ordinal)
                 .Where(item => present.TryGetValue(item.RefName, out var value) && string.Equals(value, item.Value, StringComparison.Ordinal) && IsClearable(item.RefName, head))
@@ -335,7 +343,7 @@ public sealed partial class GitEngine
         using var scope = BeginWrite(repo);
         var listed = await RunAsync(GitDirOnly(repo, "for-each-ref", "--format=%(refname)", RemovedRecords.Prefix, GitDirFiles.BranchPrefix), ct).ConfigureAwait(false);
         var present = listed.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToHashSet(StringComparer.Ordinal);
-        var head = HeadBranchOrNull(repo);
+        var head = ReadHeadBranch(repo);
         var transaction = new StringBuilder();
         foreach (var back in cleared.DistinctBy(item => item.RefName, StringComparer.Ordinal))
         {
@@ -354,11 +362,12 @@ public sealed partial class GitEngine
     }
 
     // A record of a removed snapshot, or a branch other than the one HEAD names.
-    private static bool IsClearable(string refName, string? head) =>
+    private static bool IsClearable(string refName, HeadBranch head) =>
         RemovedRecords.TryParse(refName, out _)
-        || (refName.StartsWith(GitDirFiles.BranchPrefix, StringComparison.Ordinal)
+        || (head.Readable
+            && refName.StartsWith(GitDirFiles.BranchPrefix, StringComparison.Ordinal)
             && BranchNames.IsValid(refName[GitDirFiles.BranchPrefix.Length..])
-            && !string.Equals(refName[GitDirFiles.BranchPrefix.Length..], head, StringComparison.Ordinal));
+            && !string.Equals(refName[GitDirFiles.BranchPrefix.Length..], head.Name, StringComparison.Ordinal));
 
     private async Task<List<RemovedRecords.ParsedRecord>> ReadRecordsAsync(RepoRef repo, CancellationToken ct)
     {

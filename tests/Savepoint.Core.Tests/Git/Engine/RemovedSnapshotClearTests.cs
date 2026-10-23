@@ -111,6 +111,30 @@ public sealed class RemovedSnapshotClearTests : IDisposable
         Assert.Equal(2, (await RawRecordsAsync(repo)).Count);
     }
 
+    // The branch HEAD names is the one branch never deleted. When HEAD cannot be read, no branch can be told from it, so none is offered or deleted.
+    [Fact]
+    public async Task With_HEAD_unreadable_no_branch_is_offered_or_deleted_and_the_records_still_go()
+    {
+        var (repo, points) = await AfterAMoveForwardAsync();
+        await _ws.Engine.CreateBranchAsync(repo, "left-behind", points[1], Ct);
+        var raw = await RawRecordsAsync(repo);
+        string[] named = [.. raw, "refs/heads/left-behind", "refs/heads/profile-1"];
+
+        // HEAD names something that is no branch, which the engine reads as unreadable.
+        await _ws.GitWriteAsync(repo, "symbolic-ref", "HEAD", "refs/tags/odd");
+        var strays = await _ws.Engine.ListStrayBranchesAsync(repo, [], Ct);
+        var found = await _ws.Engine.FindClearableAsync(repo, named, Ct);
+        var exact = await _ws.Engine.ClearExactAsync(repo, [new ClearedRef("refs/heads/left-behind", points[1])], Ct);
+        var cleared = await _ws.Engine.ClearRemovedAsync(repo, named, Ct);
+
+        Assert.Empty(strays);
+        Assert.Equal(raw.Order(), found.Select(item => item.RefName).Order());
+        Assert.Empty(exact);
+        Assert.Equal(raw.Order(), cleared.Select(item => item.RefName).Order());
+        Assert.Equal(["left-behind", "profile-1"], await _ws.Engine.ListBranchesAsync(repo, Ct));
+        Assert.Empty(await RawRecordsAsync(repo));
+    }
+
     [Fact]
     public async Task Cleared_records_can_be_put_back_before_a_reclaim_and_then_keep_their_snapshots_alive()
     {

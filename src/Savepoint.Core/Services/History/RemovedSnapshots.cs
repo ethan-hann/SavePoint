@@ -57,7 +57,7 @@ internal sealed class RemovedSnapshots
         var records = state.ByFolder
             .SelectMany(folder => folder.Value
                 .Where(removed => listed.Contains(removed.Commit.CaptureId!))
-                .Select(removed => new FreeUpSpaceRecord(gameId, folder.Key, removed.RefName)))
+                .Select(removed => new FreeUpSpaceRecord(gameId, folder.Key, removed.RefName, removed.Commit.Id)))
             .ToList();
 
         if (listed.Count > 0)
@@ -70,7 +70,7 @@ internal sealed class RemovedSnapshots
                     var snapshots = stray.OnlyHere.Where(commit => commit.CaptureId is not null).ToList();
                     if (snapshots.Count > 0 && snapshots.All(commit => listed.Contains(commit.CaptureId!)))
                     {
-                        records.Add(new FreeUpSpaceRecord(gameId, repo.Role, GitDirFiles.BranchPrefix + stray.Name));
+                        records.Add(new FreeUpSpaceRecord(gameId, repo.Role, GitDirFiles.BranchPrefix + stray.Name, stray.Tip));
                     }
                 }
             }
