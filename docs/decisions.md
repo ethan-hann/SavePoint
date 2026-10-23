@@ -432,6 +432,17 @@ The review (`.tools/reviews/d44-review.md`) found 3 CRIT, 4 WARN, 11 SUGG, all i
 6. **Canceling a switch from Activity asks first and tells the truth (DR-007),** as the launch's own "Stop switching" does: the folder is left with a mix of two snapshots until the switch is finished or the changes are discarded.
 7. The SUGGs are fixed as the review recommends, or skipped by the fix agent with a one-line reason.
 
+## D46. Calls on the recheck of D45
+
+The recheck (`.tools/reviews/d45-recheck.md`) found 14 of 18 fixed, no CRIT, 3 WARN. Settled:
+
+1. **A git SavePoint starts must not outlive it unnoticed (RR-001).** A note in the git directory and a wait at the next start and before every game write, not a job object: .NET cannot tie a child's life to the app portably (Windows needs native job-object calls, Linux has no parent-death signal for a .NET child, macOS has neither). Known cost: after a kill during a long repack, the next start waits on "Checking your files..." with no feedback until that git ends.
+2. **A free-up cut off between its folders is finished, not undone (RR-002),** because the player confirmed the deletion.
+3. **The delete-profile warning judges each folder's commit on its own (RR-003).**
+4. **Left for the owner (RR-004):** whether an all-games Free up space can be stopped between games. Today it cannot once it has started deleting.
+5. **Not done (RR-005):** an opaque preview token; tests build tokens by hand to try the run's own guards, and each token ref carries the value the preview read, which already stops a stale or edited token from deleting a moved branch.
+6. DR-004 also removes a stray branch whose snapshots are all being deleted anyway, and DR-003 follows D45.3 (no cancel once deleting starts) rather than the review's cancel between games.
+
 ## D8. "Clear all data" is a v2 requirement
 
 The v1 README lists "add a clear all data button" as an open TODO. v2 ships it in Settings behind a typed confirmation. It removes SavePoint's own storage, catalog, and consent markers, and never deletes or rolls back files in a game's install or save folders: whatever is on disk at that moment stays as it is.

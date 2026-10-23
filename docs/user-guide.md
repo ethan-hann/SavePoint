@@ -131,7 +131,7 @@ Both go through the same check of what will change as Play.
 
 - **Where SavePoint keeps your snapshots:** how much space your games use.
   - **Change** moves the snapshot folder to another folder or drive. SavePoint copies everything, checks every file, switches over, and then removes its old copy.
-  - **Free up space** clears out snapshots no profile uses anymore, such as a deleted profile's, and the ones in Recently removed; when it would delete some of those, it asks first and says how many. It also runs by itself after you delete a profile or a game, and that run leaves Recently removed alone.
+  - **Free up space** clears out snapshots no profile uses anymore, such as a deleted profile's, and the ones in Recently removed; when it would delete some of those, it asks first and says how many. A smaller cleanup also runs by itself after you delete a profile, and it leaves Recently removed alone. Once Free up space has started deleting, it can't be stopped, and quitting waits for it to finish.
 - **Appearance:**
   - theme: light, dark, or match the system;
   - accent color: blue, violet, green, amber, or crimson;
