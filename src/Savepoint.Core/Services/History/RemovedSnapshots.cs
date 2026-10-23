@@ -3,6 +3,7 @@ using Savepoint.Core.Api;
 using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Git;
+using Savepoint.Core.Services.Storage;
 
 namespace Savepoint.Core.Services.History;
 
@@ -87,7 +88,11 @@ internal sealed class RemovedSnapshots
     {
         var counted = profiles.Select(profile => profile.BranchName).ToList();
         var reads = await Task.WhenAll(repos.Select(async repo => (repo.Role, Removed: await storage.Engine.ListRemovedAsync(repo, counted, cancellationToken).ConfigureAwait(false)))).ConfigureAwait(false);
-        var byFolder = reads.ToDictionary(read => read.Role, read => read.Removed);
+
+        // A free-up that was cut off has deleted some of its records and will delete the rest; none of them is listed meanwhile, so no
+        // snapshot shows with only some of its folders.
+        IReadOnlySet<string> pending = repos.Count == 0 ? new HashSet<string>() : FreeUpIntent.NamedRefs(storage.GameDirectory(repos[0].GameId));
+        var byFolder = reads.ToDictionary(read => read.Role, read => (IReadOnlyList<RemovedCommit>)[.. read.Removed.Where(removed => !pending.Contains(removed.RefName))]);
 
         // One entry per folder and capture event; a folder that somehow removed two commits of one event keeps the later removal.
         RemovedCommit? Pick(RepoRole role, string captureId) =>

@@ -207,35 +207,111 @@ public sealed partial class GitEngine
         {
             ct.ThrowIfCancellationRequested();
             using var scope = BeginWrite(repo);
-            var listed = await RunAsync(GitDirOnly(repo, "for-each-ref", "--format=%(refname) %(objectname)", RemovedRecords.Prefix, GitDirFiles.BranchPrefix), ct).ConfigureAwait(false);
-            var present = new Dictionary<string, string>(StringComparer.Ordinal);
-            foreach (var line in listed.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-            {
-                if (line.LastIndexOf(' ') is > 0 and var split)
-                {
-                    present[line[..split]] = line[(split + 1)..];
-                }
-            }
-
-            var head = HeadBranchOrNull(repo);
-            var doomed = records
-                .Distinct(StringComparer.Ordinal)
-                .Where(name => present.ContainsKey(name) && IsClearable(name, head))
-                .Select(name => new ClearedRef(name, present[name]))
-                .ToList();
-            if (doomed.Count == 0)
-            {
-                return [];
-            }
-
-            var transaction = string.Concat(doomed.Select(cleared => "delete " + cleared.RefName + " " + cleared.Value + "\n"));
-            await RunWriteAsync(() => Invocation(repo, readOnly: false, "update-ref", "-m", "savepoint: free up space", "--stdin") with { Stdin = transaction }, ct).ConfigureAwait(false);
-            return doomed;
+            return await DeleteRefsAsync(repo, await FindClearableAsync(repo, records, ct).ConfigureAwait(false), ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
             throw new OperationCancelledByUserException(CancelledOperation.Compaction, repo.GameId);
         }
+    }
+
+    /// <summary>
+    /// The refs <see cref="ClearRemovedAsync"/> would delete for these names right now, each with the value it holds, and changes nothing.
+    /// A caller that must be able to finish a clear after being cut off writes this down first and gives it to
+    /// <see cref="ClearExactAsync"/>. The branch HEAD names, a name that is neither a record nor a branch, and a ref that does not exist
+    /// are not offered. Needs only the git directory.
+    /// </summary>
+    /// <param name="repo">The folder whose repository holds the refs.</param>
+    /// <param name="records">Record names as <see cref="RemovedCommit.RefName"/> gave them, and full branch ref names.</param>
+    /// <param name="ct">Cancels the call.</param>
+    /// <returns>The refs that could be deleted, with their values; empty when the repository does not exist or none qualifies.</returns>
+    /// <exception cref="Savepoint.Core.Errors.GitOperationException">git failed.</exception>
+    public async Task<IReadOnlyList<ClearedRef>> FindClearableAsync(RepoRef repo, IReadOnlyCollection<string> records, CancellationToken ct = default)
+    {
+        repo = Normalize(repo);
+        ArgumentNullException.ThrowIfNull(records);
+        if (records.Count == 0 || !HasRepository(repo))
+        {
+            return [];
+        }
+
+        var present = await ReadClearableRefsAsync(repo, ct).ConfigureAwait(false);
+        var head = HeadBranchOrNull(repo);
+        return
+        [
+            .. records
+                .Distinct(StringComparer.Ordinal)
+                .Where(name => present.ContainsKey(name) && IsClearable(name, head))
+                .Select(name => new ClearedRef(name, present[name])),
+        ];
+    }
+
+    /// <summary>
+    /// Deletes exactly these refs, in one ref transaction, and only those that still hold the value they are given: a branch that has
+    /// moved since the refs were found stays where it is. The branch HEAD names, a name that is neither a record nor a branch, and a
+    /// ref that is already gone are skipped, so a call that was cut off can be repeated until it has nothing left to delete. Needs only
+    /// the git directory.
+    /// </summary>
+    /// <param name="repo">The folder whose repository holds the refs.</param>
+    /// <param name="expected">What <see cref="FindClearableAsync"/> returned, possibly kept for later.</param>
+    /// <param name="ct">Cancels the call; a cancel before the transaction runs deletes nothing.</param>
+    /// <returns>The refs that were deleted with their values.</returns>
+    /// <exception cref="Savepoint.Core.Errors.OperationCancelledByUserException">The token was cancelled.</exception>
+    /// <exception cref="Savepoint.Core.Errors.GitOperationException">git failed.</exception>
+    public async Task<IReadOnlyList<ClearedRef>> ClearExactAsync(RepoRef repo, IReadOnlyCollection<ClearedRef> expected, CancellationToken ct = default)
+    {
+        repo = Normalize(repo);
+        ArgumentNullException.ThrowIfNull(expected);
+        if (expected.Count == 0 || !HasRepository(repo))
+        {
+            return [];
+        }
+
+        try
+        {
+            ct.ThrowIfCancellationRequested();
+            using var scope = BeginWrite(repo);
+            var present = await ReadClearableRefsAsync(repo, ct).ConfigureAwait(false);
+            var head = HeadBranchOrNull(repo);
+            var doomed = expected
+                .DistinctBy(item => item.RefName, StringComparer.Ordinal)
+                .Where(item => present.TryGetValue(item.RefName, out var value) && string.Equals(value, item.Value, StringComparison.Ordinal) && IsClearable(item.RefName, head))
+                .ToList();
+            return await DeleteRefsAsync(repo, doomed, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw new OperationCancelledByUserException(CancelledOperation.Compaction, repo.GameId);
+        }
+    }
+
+    // Every record and every branch of the repository with the value it holds.
+    private async Task<Dictionary<string, string>> ReadClearableRefsAsync(RepoRef repo, CancellationToken ct)
+    {
+        var listed = await RunAsync(GitDirOnly(repo, "for-each-ref", "--format=%(refname) %(objectname)", RemovedRecords.Prefix, GitDirFiles.BranchPrefix), ct).ConfigureAwait(false);
+        var present = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var line in listed.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (line.LastIndexOf(' ') is > 0 and var split)
+            {
+                present[line[..split]] = line[(split + 1)..];
+            }
+        }
+
+        return present;
+    }
+
+    // One transaction, each ref deleted only at the value it was found with, so a ref that changed since fails the whole call instead of being taken.
+    private async Task<IReadOnlyList<ClearedRef>> DeleteRefsAsync(RepoRef repo, IReadOnlyList<ClearedRef> doomed, CancellationToken ct)
+    {
+        if (doomed.Count == 0)
+        {
+            return [];
+        }
+
+        var transaction = string.Concat(doomed.Select(cleared => "delete " + cleared.RefName + " " + cleared.Value + "\n"));
+        await RunWriteAsync(() => GitDirOnly(repo, "update-ref", "-m", "savepoint: free up space", "--stdin") with { ReadOnly = false, Stdin = transaction }, ct).ConfigureAwait(false);
+        return doomed;
     }
 
     /// <summary>
@@ -274,7 +350,7 @@ public sealed partial class GitEngine
             return;
         }
 
-        await RunWriteAsync(() => Invocation(repo, readOnly: false, "update-ref", "-m", "savepoint: free up space undone", "--stdin") with { Stdin = transaction.ToString() }, ct).ConfigureAwait(false);
+        await RunWriteAsync(() => GitDirOnly(repo, "update-ref", "-m", "savepoint: free up space undone", "--stdin") with { ReadOnly = false, Stdin = transaction.ToString() }, ct).ConfigureAwait(false);
     }
 
     // A record of a removed snapshot, or a branch other than the one HEAD names.

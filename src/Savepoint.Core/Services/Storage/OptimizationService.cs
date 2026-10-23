@@ -119,6 +119,9 @@ internal sealed class OptimizationService
                     : null;
 
                 context.AddStep(JobSteps.CompactGame, ("game", game.Name));
+
+                // A free-up that was cut off earlier has deleted some of its records and not others; it is finished before anything else is judged.
+                await FreeUpIntent.FinishAsync(storage, game.Id, context.CancellationToken).ConfigureAwait(false);
                 var repos = GameFolders.ReposForGitDirOnly(_services, storage, game);
                 var before = await SizeOfAsync(repos, context.CancellationToken).ConfigureAwait(false);
 
@@ -170,7 +173,8 @@ internal sealed class OptimizationService
     }
 
     // A game's recently removed snapshots are one unit across its folders. Every folder is judged before any record goes, so a folder that
-    // refuses leaves all of them as they were; the records of every folder then go together, or are put back; and from there the run
+    // refuses leaves all of them as they were; what is about to go is written down, and the records of every folder then go together or
+    // are put back, and a run cut off in between is finished by the next start from what was written down; and from there the run
     // finishes whatever is asked of it, because the snapshots it deleted cannot be brought back and a stop would only leave the space
     // unfreed under a message saying nothing was lost.
     private static async Task<(List<FolderOutcome> Folders, bool PastTheClear)> FreeUpGameAsync(
@@ -204,25 +208,41 @@ internal sealed class OptimizationService
         // Marked first, so a stop request either arrived before this point, when the line below ends the run with nothing deleted, or is refused.
         context.NoLongerCancellable();
         context.CancellationToken.ThrowIfCancellationRequested();
+
+        // What each folder will delete, with the values, written down before the first record goes.
+        var plans = new Dictionary<RepoRole, IReadOnlyList<ClearedRef>>();
+        foreach (var repo in repos.Where(repo => records[repo.Role].Count > 0))
+        {
+            plans[repo.Role] = await storage.Engine.FindClearableAsync(repo, records[repo.Role], CancellationToken.None).ConfigureAwait(false);
+        }
+
+        var gameDirectory = storage.GameDirectory(game.Id);
+        if (plans.Values.Any(refs => refs.Count > 0))
+        {
+            FreeUpIntent.Write(gameDirectory, plans);
+        }
+
         var cleared = new List<(RepoRef Repo, IReadOnlyList<ClearedRef> Refs)>();
         try
         {
-            foreach (var repo in repos.Where(repo => records[repo.Role].Count > 0))
+            foreach (var repo in repos.Where(repo => plans.ContainsKey(repo.Role)))
             {
-                cleared.Add((repo, await storage.Engine.ClearRemovedAsync(repo, records[repo.Role], CancellationToken.None).ConfigureAwait(false)));
+                cleared.Add((repo, await storage.Engine.ClearExactAsync(repo, plans[repo.Role], CancellationToken.None).ConfigureAwait(false)));
             }
         }
         catch
         {
-            // A folder that could not clear its records gives back the other's, so no snapshot is left with only some of its folders.
-            foreach (var (repo, refs) in cleared)
+            // A folder that could not clear its records gives back the other's, so no snapshot is left with only some of its folders. When
+            // that fails too, the note stays and the next start finishes the clear instead.
+            if (await RestoreAllQuietlyAsync(storage, cleared).ConfigureAwait(false))
             {
-                await RestoreQuietlyAsync(storage, repo, refs).ConfigureAwait(false);
+                FreeUpIntent.Clear(gameDirectory);
             }
 
             throw;
         }
 
+        FreeUpIntent.Clear(gameDirectory);
         if (cleared.Sum(folder => folder.Refs.Count) > 0)
         {
             context.AddStep(JobSteps.CompactRemovedDeleted, ("game", game.Name));
@@ -231,17 +251,23 @@ internal sealed class OptimizationService
         return (await ReclaimFoldersAsync(context, game, storage, repos, mode, CancellationToken.None).ConfigureAwait(false), true);
     }
 
-    // Best effort: the failure being reported is the one worth showing, and a record that stays missing costs one snapshot's listing.
-    private static async Task RestoreQuietlyAsync(StorageSnapshot storage, RepoRef repo, IReadOnlyList<ClearedRef> refs)
+    // Best effort: the failure being reported is the one worth showing. True when every folder has its records back.
+    private static async Task<bool> RestoreAllQuietlyAsync(StorageSnapshot storage, IReadOnlyList<(RepoRef Repo, IReadOnlyList<ClearedRef> Refs)> cleared)
     {
-        try
+        var allBack = true;
+        foreach (var (repo, refs) in cleared)
         {
-            await storage.Engine.RestoreRemovedAsync(repo, refs, CancellationToken.None).ConfigureAwait(false);
+            try
+            {
+                await storage.Engine.RestoreRemovedAsync(repo, refs, CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception e) when (e is SavepointException or IOException)
+            {
+                allBack = false;
+            }
         }
-        catch (Exception e) when (e is SavepointException or IOException)
-        {
-            // The records stay deleted; the job's own error says the run failed.
-        }
+
+        return allBack;
     }
 
     // The engine keeps the free-space floor itself and refuses a reclaim that needs room the volume lacks.

@@ -63,6 +63,55 @@ public sealed class RemovedSnapshotClearTests : IDisposable
     }
 
     [Fact]
+    public async Task Finding_what_a_clear_would_delete_names_each_ref_with_its_value_and_deletes_nothing()
+    {
+        var (repo, points) = await AfterAMoveForwardAsync();
+        await _ws.Engine.CreateBranchAsync(repo, "left-behind", points[1], Ct);
+        var raw = await RawRecordsAsync(repo);
+
+        var found = await _ws.Engine.FindClearableAsync(repo, [.. raw, "refs/heads/left-behind", "refs/heads/profile-1", "refs/savepoint/removed/not-a-record", "refs/heads/never-was"], Ct);
+
+        // The branch the folder is on, a name that is no record and a ref that does not exist are not offered.
+        Assert.Equal(3, found.Count);
+        Assert.Equal(new[] { points[1], points[2] }.Order(), found.Where(item => item.RefName.StartsWith("refs/savepoint/", StringComparison.Ordinal)).Select(item => item.Value).Order());
+        Assert.Contains(new ClearedRef("refs/heads/left-behind", points[1]), found);
+        Assert.Equal(raw.Count, (await RawRecordsAsync(repo)).Count);
+        Assert.Equal(["left-behind", "profile-1"], await _ws.Engine.ListBranchesAsync(repo, Ct));
+    }
+
+    [Fact]
+    public async Task Clearing_exactly_what_was_found_deletes_a_ref_only_while_it_still_holds_the_value_found()
+    {
+        var (repo, points) = await AfterAMoveForwardAsync();
+        await _ws.Engine.CreateBranchAsync(repo, "left-behind", points[1], Ct);
+        var found = await _ws.Engine.FindClearableAsync(repo, [.. await RawRecordsAsync(repo), "refs/heads/left-behind"], Ct);
+
+        // Somebody moves the branch on after it was found; the records cannot change under their names.
+        await _ws.GitWriteAsync(repo, "update-ref", "refs/heads/left-behind", points[0]);
+        var cleared = await _ws.Engine.ClearExactAsync(repo, found, Ct);
+        var again = await _ws.Engine.ClearExactAsync(repo, found, Ct);
+
+        Assert.Equal(2, cleared.Count);
+        Assert.DoesNotContain(cleared, item => item.RefName == "refs/heads/left-behind");
+        Assert.Empty(again);
+        Assert.Empty(await RawRecordsAsync(repo));
+        Assert.Equal(["left-behind", "profile-1"], await _ws.Engine.ListBranchesAsync(repo, Ct));
+        Assert.Equal(points[0], await _ws.TipAsync(repo, "left-behind"));
+    }
+
+    [Fact]
+    public async Task Clearing_exactly_what_was_found_never_deletes_the_branch_head_names_or_anything_that_is_no_record()
+    {
+        var (repo, points) = await AfterAMoveForwardAsync();
+
+        var cleared = await _ws.Engine.ClearExactAsync(repo, [new ClearedRef("refs/heads/profile-1", await _ws.TipAsync(repo, "profile-1") ?? points[0]), new ClearedRef("refs/savepoint/removed/not-a-record", points[0])], Ct);
+
+        Assert.Empty(cleared);
+        Assert.Equal(["profile-1"], await _ws.Engine.ListBranchesAsync(repo, Ct));
+        Assert.Equal(2, (await RawRecordsAsync(repo)).Count);
+    }
+
+    [Fact]
     public async Task Cleared_records_can_be_put_back_before_a_reclaim_and_then_keep_their_snapshots_alive()
     {
         var (repo, points) = await AfterAMoveForwardAsync();
