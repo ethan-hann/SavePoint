@@ -8,6 +8,7 @@ using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Games;
 using Savepoint.App.Features.Launch;
+using Savepoint.App.Features.Shell;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Tests.Theme;
 using Savepoint.Core.Api;
@@ -77,6 +78,20 @@ public class LiveRegionEventTests
 
         var banner = Assert.IsType<LaunchBannerViewModel>(app.Games.InlineContent);
         Assert.Contains(spoken, text => text.Contains(banner.Title, StringComparison.Ordinal));
+    }
+
+    [AvaloniaFact]
+    public async Task The_job_pill_is_spoken_through_its_own_announcer_when_a_job_starts()
+    {
+        using var app = await ComposedApp.StartWithViewAsync();
+        var announcer = app.Find<JobStatusView>("JobPill").GetVisualDescendants().OfType<AnnouncementRegion>().Single();
+        var events = Listen(announcer);
+
+        FakeAssert.Ok(await app.Backend.Profiles.CaptureAsync(MockupScenario.SkyrimId, MockupScenario.ModdedId, "A snapshot"));
+        app.Settle();
+
+        var spoken = events.Where(e => e.Property == AutomationElementIdentifiers.NameProperty).Select(e => e.NewValue).OfType<string>();
+        Assert.Contains(spoken, text => text.StartsWith("Taking a snapshot of Skyrim Special Edition", StringComparison.Ordinal));
     }
 
     [AvaloniaFact]

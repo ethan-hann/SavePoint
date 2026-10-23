@@ -61,7 +61,7 @@ internal static class LayoutAudit
     public static Rect BoundsIn(Visual root, Visual visual) =>
         new(visual.TranslatePoint(default, root) ?? default, visual.Bounds.Size);
 
-    private static bool IsReachable(Control control) =>
+    public static bool IsReachable(Control control) =>
         control is Button or TextBox or ComboBox or ListBoxItem or CheckBox or ToggleSwitch && control.Name?.StartsWith("PART_", StringComparison.Ordinal) != true;
 
     private static bool Scrolls(ScrollViewer scroller) =>

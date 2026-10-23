@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Media;
 using Avalonia.VisualTree;
 using Savepoint.App.Features.Common.Art;
 using Savepoint.App.Features.Common.Toasts;
@@ -489,21 +490,60 @@ public class ShellViewTests
         Assert.Equal(MockupScenario.SatisfactoryId, harness.Shell.SelectedGame?.Id);
     }
 
-    [AvaloniaFact]
-    public async Task The_job_pill_has_a_row_of_its_own_below_the_page_so_it_never_covers_a_control()
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task The_job_pill_floats_over_the_shell_and_leaves_its_layout_alone(bool library)
     {
-        using var harness = await ShellViewHarness.StartAsync();
+        using var harness = library ? await ShellViewHarness.LibraryLayoutAsync() : await ShellViewHarness.StartAsync();
         var page = harness.Find<ContentControl>("Page");
-        var pill = harness.Find<UserControl>("JobPill");
-        var heightWithoutJob = page.Bounds.Height;
-        Assert.Equal(0, pill.Bounds.Height);
+        var content = harness.Find<ContentControl>("ContentRegion");
+        var pill = harness.Find<Button>("Pill");
+        var scroller = harness.All<ScrollViewer>().First(candidate => candidate.IsEffectivelyVisible && candidate.Classes.Contains("page-scroll"));
+        var pageBefore = LayoutAudit.BoundsIn(harness.Window, page);
+        var contentBefore = LayoutAudit.BoundsIn(harness.Window, content);
+        var viewportBefore = scroller.Viewport.Height;
+        var extentBefore = scroller.Extent.Height;
+        Assert.False(pill.IsEffectivelyVisible);
 
-        FakeAssert.Ok(await harness.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
+        var job = FakeAssert.Ok(await harness.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
         harness.Settle();
 
+        Assert.True(pill.IsEffectivelyVisible);
         Assert.True(pill.Bounds.Height > 0);
-        Assert.True(page.Bounds.Height < heightWithoutJob);
-        Assert.True(pill.Bounds.Top >= page.Bounds.Bottom - 0.5);
+        Assert.Equal(pageBefore, LayoutAudit.BoundsIn(harness.Window, page));
+        Assert.Equal(contentBefore, LayoutAudit.BoundsIn(harness.Window, content));
+        Assert.True(pageBefore.Contains(LayoutAudit.BoundsIn(harness.Window, pill)), "The pill floats over the page, not beside it.");
+
+        // The room under a page's last row is added to what scrolls; the area a person sees keeps its size.
+        Assert.Equal(viewportBefore, scroller.Viewport.Height);
+        Assert.Equal(extentBefore + 64, scroller.Extent.Height);
+
+        harness.Backend.Jobs.Complete(job.JobId);
+        harness.Main.Toasts.DismissAll();
+        harness.Settle();
+
+        Assert.False(pill.IsEffectivelyVisible);
+        Assert.Equal(pageBefore, LayoutAudit.BoundsIn(harness.Window, page));
+        Assert.Equal(contentBefore, LayoutAudit.BoundsIn(harness.Window, content));
+    }
+
+    [AvaloniaFact]
+    public async Task A_long_job_name_is_trimmed_so_the_pill_stays_short_of_the_actions_on_the_right()
+    {
+        using var harness = await ShellViewHarness.StartAsync(width: 640, height: 420);
+        FakeAssert.Ok(await harness.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
+        harness.Settle();
+        var pill = harness.Find<Button>("Pill");
+        var text = harness.Find<TextBlock>("PillText");
+
+        harness.Shell.JobStatus.PillText = "Taking a snapshot of The Elder Scrolls V: Skyrim Special Edition, Anniversary Edition with every mod and every patch";
+        harness.Settle();
+
+        var shown = LayoutAudit.BoundsIn(harness.Window, pill);
+        Assert.True(shown.Width <= 360, $"The pill is {shown.Width:0} px wide.");
+        Assert.True(LayoutAudit.BoundsIn(harness.Window, text).Right <= shown.Right, "The text runs out of the pill.");
+        Assert.Equal(TextTrimming.CharacterEllipsis, text.TextTrimming);
     }
 
     [AvaloniaFact]

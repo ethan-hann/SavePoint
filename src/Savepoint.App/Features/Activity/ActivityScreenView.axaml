@@ -83,7 +83,7 @@
       <Grid x:Name="Panes" ColumnDefinitions="5*,Auto,6*" IsVisible="{Binding HasRows}">
         <Border x:Name="ListPane">
           <ListBox x:Name="JobList"
-                   Classes="rows"
+                   Classes="rows page-scroll"
                    Margin="14,14,14,14"
                    ItemsSource="{Binding Rows}"
                    SelectedItem="{Binding SelectedRow, Mode=TwoWay}"

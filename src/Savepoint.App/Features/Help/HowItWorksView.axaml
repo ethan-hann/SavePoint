@@ -24,7 +24,7 @@
       </StackPanel>
     </Border>
 
-    <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto">
+    <ScrollViewer x:Name="PageScroll" Classes="page-scroll" VerticalScrollBarVisibility="Auto">
       <StackPanel MaxWidth="720" Margin="26,22,26,30" Spacing="26">
         <TextBlock x:Name="IntroText" Classes="body muted" FontSize="14.5" LineHeight="23" TextWrapping="Wrap" Text="{Binding Intro}" />
 
