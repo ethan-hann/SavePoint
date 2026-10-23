@@ -1,3 +1,4 @@
+using Savepoint.App.Features.Activity;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.Core.Api;
@@ -6,7 +7,8 @@ namespace Savepoint.App.Features.Shell;
 
 /// <summary>
 /// Decides whether the main window may close while jobs run (D31). A clear-all or a storage move that is cut short leaves a
-/// half-done job behind, so closing asks first; whatever can be cancelled is cancelled, and the close waits briefly for it. A
+/// half-done job behind, and so does a launch that is switching a folder (it is left with a mix of two snapshots), so closing asks
+/// first; whatever can be cancelled is cancelled, and the close waits briefly for it. A
 /// free-up that has already deleted the snapshots the player chose to lose cannot be stopped and must not be cut off either, so
 /// closing asks, offers no way to quit now, and waits for the run to finish however long that takes.
 /// </summary>
@@ -77,8 +79,9 @@ public sealed class ExitGuard
     }
 
     // Only these leave something half done that the user has to know about; a save, or an optimization that has not deleted anything yet, is simply stopped.
+    // A launch is one of them only while it switches the folder: stopped then, the folder holds a mix of two snapshots.
     private static bool NeedsQuestion(JobSnapshot job) =>
-        job.Kind is JobKind.ClearData or JobKind.RelocateStorage || IsPastItsClear(job);
+        job.Kind is JobKind.ClearData or JobKind.RelocateStorage || IsPastItsClear(job) || ActivityText.IsSwitching(job);
 
     // A free-up that has deleted the snapshots it was asked to cannot be stopped, and a git process left running would outlive the app.
     private static bool IsPastItsClear(JobSnapshot job) => job is { Kind: JobKind.Compact, Cancellable: false };
@@ -89,6 +92,7 @@ public sealed class ExitGuard
         {
             JobKind.ClearData => ("shell.exit.clearMessage", "shell.exit.confirm"),
             JobKind.Compact => ("shell.exit.freeUpMessage", "shell.exit.freeUpConfirm"),
+            JobKind.Launch => ("shell.exit.switchMessage", "shell.exit.confirm"),
             _ => ("shell.exit.moveMessage", "shell.exit.confirm"),
         };
         return _dialogs.ConfirmAsync(new ConfirmRequest(

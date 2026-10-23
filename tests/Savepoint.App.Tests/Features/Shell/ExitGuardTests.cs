@@ -3,6 +3,7 @@ using Savepoint.App.Features.Shell;
 using Savepoint.App.Localization;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.Core.Api;
+using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Tests.Features.Shell;
 
@@ -178,6 +179,58 @@ public class ExitGuardTests
         Assert.Equal(2, dialogs.Confirmations.Count);
         Assert.Contains("freeing up space", dialogs.Confirmations[1].Message, StringComparison.Ordinal);
         Assert.Equal([move.JobId], Assert.Single(backend.Calls.To<IJobsApi>(nameof(IJobsApi.CancelAsync))).Args);
+    }
+
+    [Fact]
+    public async Task A_launch_that_is_switching_asks_first_and_says_the_folder_is_left_with_a_mix_of_two_snapshots()
+    {
+        var (guard, backend, dialogs) = Build();
+        dialogs.AnswerConfirm(false);
+        await StartSwitchingAsync(backend);
+
+        var allowed = await guard.PrepareToCloseAsync();
+
+        Assert.False(allowed);
+        var asked = Assert.Single(dialogs.Confirmations);
+        Assert.Equal("SavePoint is still working", asked.Title);
+        Assert.Contains("mix of two snapshots until the switch is finished or the changes are discarded", asked.Message, StringComparison.Ordinal);
+        Assert.Equal("Quit anyway", asked.ConfirmLabel);
+        Assert.Equal("Stay open", asked.CancelLabel);
+        Assert.Empty(backend.Calls.To<IJobsApi>(nameof(IJobsApi.CancelAsync)));
+    }
+
+    [Fact]
+    public async Task Quitting_anyway_during_a_switch_stops_it_on_the_way_out_and_asks_only_once()
+    {
+        var (guard, backend, dialogs) = Build();
+        dialogs.AnswerConfirm(true);
+        var launch = await StartSwitchingAsync(backend);
+
+        var allowed = await guard.PrepareToCloseAsync();
+
+        Assert.True(allowed);
+        Assert.Single(dialogs.Confirmations);
+        Assert.Equal([launch], Assert.Single(backend.Calls.To<IJobsApi>(nameof(IJobsApi.CancelAsync))).Args);
+    }
+
+    [Fact]
+    public async Task A_launch_that_has_not_begun_to_switch_is_stopped_on_the_way_out_without_a_question()
+    {
+        var (guard, backend, dialogs) = Build();
+        var launch = FakeAssert.Ok(await backend.Launch.StartAsync(MockupScenario.SkyrimId, new LaunchTarget.ProfileTip(MockupScenario.ModdedId))).JobId;
+
+        var allowed = await guard.PrepareToCloseAsync();
+
+        Assert.True(allowed);
+        Assert.Empty(dialogs.Confirmations);
+        Assert.Equal([launch], Assert.Single(backend.Calls.To<IJobsApi>(nameof(IJobsApi.CancelAsync))).Args);
+    }
+
+    private static async Task<Guid> StartSwitchingAsync(FakeBackend backend)
+    {
+        var launch = FakeAssert.Ok(await backend.Launch.StartAsync(MockupScenario.SkyrimId, new LaunchTarget.ProfileTip(MockupScenario.ModdedId))).JobId;
+        backend.Jobs.ReportStep(launch, JobSteps.LaunchSwitchFolder, ("folder", RepoRole.Install), ("profile", "Modded playthrough"), ("older", "no"), ("counted", "yes"), ("written", 12), ("removed", 2));
+        return launch;
     }
 
     [Fact]

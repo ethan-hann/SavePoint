@@ -13,6 +13,7 @@
   "shell.exit.freeUpMessage": "SavePoint is freeing up space and can't stop now, because the snapshots you chose to delete are already gone. It can quit as soon as it is done.",
   "shell.exit.moveMessage": "SavePoint is still moving your snapshots. If you quit now, the move stops and your snapshots stay where they are.",
   "shell.exit.stay": "Stay open",
+  "shell.exit.switchMessage": "SavePoint is switching your game's folder to another snapshot. If you quit now, the folder is left with a mix of two snapshots until the switch is finished or the changes are discarded.",
   "shell.exit.title": "SavePoint is still working",
   "shell.gameAutomationName": "{name}, {profiles}",
   "shell.jobStatus.cancelled": "Canceled the snapshot of {gameName}.",
