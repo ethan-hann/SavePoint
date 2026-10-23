@@ -1,17 +1,15 @@
 # Testing SavePoint on a Mac and a Linux VM
 
-The Windows machine runs the full suite natively and the Linux suite under WSL. WSL cannot check desktop behavior (notifications, launchers, single instance), and macOS has never run at all (D9). This guide covers both gaps. Run the automated gate first, then the manual checks, then bring the files listed under "What to bring back" to the Windows machine.
+The full suite runs natively on Windows, and the Linux suite runs under WSL and in CI. Neither can check desktop behavior (notifications, launchers, single instance), and macOS has never run at all (D9). This guide covers both gaps (issues #2 and #3). Run the automated gate first, then the manual checks, then report as described under "Reporting".
 
-## Getting the code there
-
-There is no remote. The whole repository is in one file, `artifacts/savepoint-v2.bundle`, made with `git bundle create artifacts/savepoint-v2.bundle --all`. Copy it to the other machine (USB stick, network share, AirDrop), then:
+## Getting the code
 
 ```bash
-git clone savepoint-v2.bundle Savepoint-v2
+git clone https://git.tortal.tech/ethan-hann/SavePoint.git
 ```
 
 ```bash
-cd Savepoint-v2
+cd SavePoint
 ```
 
 On a Mac, the first `git` asks to install the Command Line Tools; accept it. Building also needs the .NET 10 SDK from https://dotnet.microsoft.com/download/dotnet/10.0 (the macOS Arm64 installer on Apple silicon, x64 on Intel). On Linux, use the distribution's `dotnet-sdk-10.0` package or Microsoft's install script. `bash`, `tar`, and `curl` are already there on both. The bundled git is downloaded and hash-checked by the build, so nothing else is installed.
@@ -30,7 +28,7 @@ It builds with warnings as errors, runs every test, and checks formatting, endin
 dotnet run --project src/Savepoint.App -c Release
 ```
 
-On Linux the AppImage can be tried as well: copy `artifacts/release/SavePoint.AppImage`, `chmod +x` it, and run it. Ubuntu 22.04 and later need `libfuse2` for AppImages; without it, `./SavePoint.AppImage --appimage-extract-and-run` works.
+On Linux the AppImage can be tried as well: download `SavePoint.AppImage` from the latest release, `chmod +x` it, and run it. Ubuntu 22.04 and later need `libfuse2` for AppImages; without it, `./SavePoint.AppImage --appimage-extract-and-run` works.
 
 ## 3. Manual checks on both
 
@@ -59,10 +57,10 @@ On Linux the AppImage can be tried as well: copy `artifacts/release/SavePoint.Ap
 - [ ] **Wayland and X11:** if the VM offers both at login, start SavePoint once under each.
 - [ ] **Uninstall:** deleting the AppImage leaves `~/.local/share/savepoint` and `~/.config/savepoint` in place, and a new AppImage picks the games up again.
 
-## What to bring back
+## Reporting
 
-Copy these into `F:\GitHub Repos\Savepoint-v2\.tools\field-tests\<mac|linux>\` on the Windows machine:
+On issue #2 (macOS) or #3 (Linux), add a comment with:
 
-- `gate-Darwin.log` or `gate-Linux.log` from the clone's folder;
-- the newest files from SavePoint's log folder (Settings > About > Open the log folder);
-- a short note of each check that failed or felt wrong, with a screenshot where it helps.
+- `gate-Darwin.log` or `gate-Linux.log` from the clone's folder, attached;
+- the newest files from SavePoint's log folder (Settings > About > Open the log folder), attached;
+- each check that passed, and for each one that failed or felt wrong, a short note with a screenshot where it helps. A failure that needs a fix gets its own issue.

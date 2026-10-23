@@ -1,0 +1,33 @@
+# Runs the Linux gate (build with warnings as errors, every test, format check) on pushes to main and on pull requests.
+# The Windows gate (build/gate.ps1) still runs locally; there is no Windows runner.
+name: Gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v4
+
+      # Forgejo has no setup-dotnet mirror. global.json rolls forward to the newest feature band, so the newest 10.0 SDK fits.
+      - name: Install the .NET SDK
+        run: |
+          curl -fsSL --retry 3 --retry-delay 2 -o "$RUNNER_TEMP/dotnet-install.sh" https://dot.net/v1/dotnet-install.sh
+          bash "$RUNNER_TEMP/dotnet-install.sh" --channel 10.0 --install-dir "$HOME/.dotnet" --no-path
+          echo "DOTNET_ROOT=$HOME/.dotnet" >> "$GITHUB_ENV"
+          echo "$HOME/.dotnet" >> "$GITHUB_PATH"
+
+      - name: Gate
+        env:
+          DOTNET_CLI_USE_MSBUILD_SERVER: "0"
+          MSBUILDDISABLENODEREUSE: "1"
+        run: bash build/gate.sh

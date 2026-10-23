@@ -1,11 +1,11 @@
 # SavePoint v2 - guide for screen authors
 
-How to build a screen in `Savepoint.App`. The visual spec is `../Savepoint/docs/ui/README.md` and its screenshots (`docs/ui/screenshots/<id>.png`); behavior comes from `../Savepoint/plan.md`, `docs/reference/v1-ui.md`, and `docs/decisions.md`.
+How to build a screen in `Savepoint.App`. The visual spec was the unpublished v1's UI mockups (screen ids such as `2a` and `3c` refer to them); behavior comes from v1's `plan.md` and `docs/decisions.md`, which records every departure.
 
 ## Where things go
 
 - A feature lives in `src/Savepoint.App/Features/<Area>/` (view models, views, dialogs) with tests in `tests/Savepoint.App.Tests/Features/<Area>/`.
-- Its copy lives in `src/Savepoint.App/Localization/Assets/Lang/en/<area>.json`. Every user-visible string goes through the catalog; keys are literal strings (never built at run time); a key enters the catalog with the code that uses it. Port v1 copy (`docs/reference/v1-en.json`) and v1 keys where the same element exists. Lint tests enforce all of this.
+- Its copy lives in `src/Savepoint.App/Localization/Assets/Lang/en/<area>.json`. Every user-visible string goes through the catalog; keys are literal strings (never built at run time); a key enters the catalog with the code that uses it. Keep v1's keys where the same element exists. Lint tests enforce all of this.
 - It is wired in exactly one file: `src/Savepoint.App/Composition/FeatureComposition.<Feature>.cs`. Nothing else in the composition changes.
 - Views are found by name: `FooViewModel` is shown by `FooView` (same folder), dialogs `FooDialogViewModel` by `FooDialogView`.
 

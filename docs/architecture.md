@@ -1,6 +1,6 @@
 # SavePoint v2 - architecture
 
-How the code is organized and what each layer promises the one above it. Behavior details live in `../Savepoint/plan.md` and `docs/reference/`; departures in `docs/decisions.md`. When this file and a reference doc disagree, this file and `decisions.md` win.
+How the code is organized and what each layer promises the one above it. The behavior spec was the unpublished v1's `plan.md` and inventories of its code; every place v2 departs from them is in `docs/decisions.md`. Where they disagree, this file and `decisions.md` win.
 
 ## Layers
 
@@ -32,7 +32,7 @@ Rules:
 
 `SavepointException` (abstract) carries `MessageId` (a catalog key such as `error.pathSafety.tier1Blocked`), `Args` (`IReadOnlyDictionary<string, object?>` for ICU placeholders and extras such as `path`, `role`, `conflictingGameId`), and the English `Message` (dev-facing, logged, shown only behind "Show details").
 
-Subclasses and ids (keep the v1 ids from `docs/reference/v1-ui.md` section 1.2, plus the new ones marked *new*):
+Subclasses and ids (v1's ids are kept, plus the new ones marked *new*):
 
 | Exception | MessageId | Args |
 |---|---|---|
@@ -95,7 +95,7 @@ One implementation per OS under `Platform/Windows`, `Platform/Linux`, `Platform/
 - `GitBinary`: locates the bundled git under `<AppContext.BaseDirectory>/git/` (override: `SAVEPOINT_GIT_ROOT` for tests and dev) and builds the base environment for the platform's bundle layout (MinGit on Windows: the real `git.exe` under `ucrt64/bin`, `mingw64/bin`, or `clangarm64/bin`, started directly with the `PATH` and `GIT_EXEC_PATH` that `cmd/git.exe` would set, which saves one process per git call; `cmd/git.exe` only when no toolchain folder is found; dugite-native elsewhere: `bin/git` with `GIT_EXEC_PATH`, `GIT_TEMPLATE_DIR`, `GIT_CONFIG_SYSTEM`/`PREFIX`). `VerifyAsync()` runs `git --version` and throws `GitUnavailableException` when it cannot.
 - **Git never runs a program a repository names (D41.5, D42.1).** Every git process gets four settings through `GIT_CONFIG_COUNT`, which outranks a repository's own config: `core.hooksPath` (an empty `no-hooks` folder in SavePoint's config folder), `core.fsmonitor=false`, `commit.gpgSign=false`, and `tag.gpgSign=false`. SavePoint's config writes keep only the keys `git init` writes plus SavePoint's own block, and a config counts as current only when its text is exactly what SavePoint would write, so a foreign key or a changed value in the managed block is rewritten on the next touch whatever the stamp. A git directory adopted through "Find the folder" goes through `AdoptedGitDirectory.MakeSafe` (config rewritten, hooks folder emptied) before anything else reads it, and a candidate that holds a link anywhere SavePoint would read or write (a game folder, a git directory, its `hooks`, `config`, or `info` entries) or a path that resolves outside it is refused whole with `error.storage.folderHasLink` before anything is written.
 - `GitRunner`: runs one git process with an argument list (never a shell string), `GIT_DIR`/`GIT_WORK_TREE`, the pinned identity and config isolation (D13.24), `GIT_OPTIONAL_LOCKS=0` for read-only calls, optional stdin, line-streamed stdout/stderr callbacks, or binary stdout. Cancellation kills the whole process tree (`Process.Kill(entireProcessTree: true)`). Non-zero exit throws `GitCommandException` (internal; the engine maps it to a typed error).
-- `GitEngine`: the operations in `docs/reference/v1-engine.md` on a `RepoRef(string GitDir, string WorkTree, string GameId, RepoRole Role)`. Every operation that writes checks path safety and the consent marker first.
+- `GitEngine`: v1's engine operations on a `RepoRef(string GitDir, string WorkTree, string GameId, RepoRole Role)`. Every operation that writes checks path safety and the consent marker first.
 
 ## Catalog
 

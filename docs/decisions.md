@@ -1,6 +1,6 @@
 # SavePoint v2 - decisions
 
-Choices made for the rewrite. The original `../Savepoint/plan.md` remains the behavioral spec; this file records only where v2 departs from it or fills a gap it leaves open. Each entry: the decision, then why.
+Choices made for the rewrite. The original v1 `plan.md` (unpublished) remains the behavioral spec; this file records only where v2 departs from it or fills a gap it leaves open. Each entry: the decision, then why.
 
 ## D1. Rewrite in C# / .NET 10 with Avalonia UI
 
@@ -74,7 +74,7 @@ Avalonia does not render variable fonts. Roboto, Roboto Mono (OFL 1.1), and Mate
 
 ## D13. Resolutions for v1 defects found during the inventory
 
-The inventories (`docs/reference/v1-services.md` section 10, `v1-ui.md` section 5.4, `v1-engine.md` gotchas) list behavior v1 got wrong or left undecided. v2 resolves each on purpose:
+The inventories of the v1 code (unpublished) list behavior v1 got wrong or left undecided. v2 resolves each on purpose:
 
 1. **Consent marker and ignore rules stay out of the game folders' history.** v2 never writes a `.gitignore` into a game's folder. `ignorePaths` and the marker file name are written to `<gitDir>/info/exclude`, which lives in SavePoint's storage. The marker is therefore never committed, so checking out an older point can never rewrite it. Previews read the same exclude file and never write into the work tree.
 2. **A corrupt catalog file is never overwritten.** Missing means empty; unreadable or invalid JSON raises `CatalogCorruptException`, the app shows a recovery screen naming the file, and no write happens until it is resolved. Every overwrite first copies the previous good file to `<name>.bak`.
