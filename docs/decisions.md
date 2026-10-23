@@ -1,10 +1,10 @@
 # SavePoint v2 - decisions
 
-Choices made for the rewrite. The original v1 `plan.md` (unpublished) remains the behavioral spec; this file records only where v2 departs from it or fills a gap it leaves open. Each entry: the decision, then why.
+Choices made for the rewrite. The original v1 plan remains the behavioral spec; this file records only where v2 departs from it or fills a gap it leaves open. Each entry: the decision, then why.
 
 ## D1. Rewrite in C# / .NET 10 with Avalonia UI
 
-The original plan fixed Electron + TypeScript. The rewrite brief rules out TypeScript and asks for a native desktop stack. C# on .NET 10 with Avalonia UI:
+The original plan fixed Electron + TypeScript. The rewrite rules out TypeScript and calls for a native desktop stack. C# on .NET 10 with Avalonia UI:
 
 - Native desktop app, no browser runtime, small memory footprint compared to Electron.
 - Cross-platform UI toolkit (Windows, macOS, Linux), which keeps the plan's "a Linux/macOS adapter later is additive" promise. WPF and WinUI are Windows-only.
@@ -39,9 +39,13 @@ The plan marks it "Phase 6 (stretch, later)" and "deferred until v1's manual-cap
 
 The v1 background-jobs proposal floated curated per-engine ignore lists (Idea B) and object-store compression knobs (Idea C). Both were dropped during v1 dogfooding: engine caches live in AppData, outside the tracked install, and git compression gains on binary assets are marginal. The win that shipped was capture speed through git config tuning, which v2 keeps.
 
+## D8. "Clear all data" is a v2 requirement
+
+v1 listed "add a clear all data button" as an open TODO. v2 ships it in Settings behind a typed confirmation. It removes SavePoint's own storage, catalog, and consent markers, and never deletes or rolls back files in a game's install or save folders: whatever is on disk at that moment stays as it is.
+
 ## D9. v2 ships on Windows, Linux, and macOS
 
-Confirmed by the owner on 2026-10-20: v2 is fully cross-platform. This replaces the plan's "Windows only for v1, seams for later". Consequences:
+Decided on 2026-10-20: v2 is fully cross-platform. This replaces the plan's "Windows only for v1, seams for later". Consequences:
 
 - Bundled git on every platform, still nothing for the user to install: GitHub Desktop's portable git builds (dugite-native: Windows, macOS x64/arm64, Linux x64/arm64), pinned by version and SHA-256. Windows can keep MinGit if dugite-native proves unsuitable there.
 - Path-safety denylist tables and path tokens for all three OSes. The plan already sketches the macOS and Linux tiers; tokens map to the OS conventions (XDG dirs on Linux, `~/Library/Application Support` on macOS).
@@ -66,7 +70,7 @@ Confirmed by the owner on 2026-10-20: v2 is fully cross-platform. This replaces 
 
 ## D11. Port Material Color Utilities instead of depending on a C# port
 
-The MD3 palette needs HCT, `SchemeTonalSpot`, and the surface-container roles. The only C# port with those roles (Bdziam.DynamicColor 0.0.11) has had no change since April 2025 and an unclear license. v2 ports the needed subset of Google's Apache-2.0 library (with attribution) and verifies it with golden vectors generated from the official `@material/material-color-utilities` 0.3.0, the exact version v1 pinned, for all five seeds in both modes. The token table in `../Savepoint/docs/ui/README.md` is a second check for the blue seed.
+The MD3 palette needs HCT, `SchemeTonalSpot`, and the surface-container roles. The only C# port with those roles (Bdziam.DynamicColor 0.0.11) has had no change since April 2025 and an unclear license. v2 ports the needed subset of Google's Apache-2.0 library (with attribution) and verifies it with golden vectors generated from the official `@material/material-color-utilities` 0.3.0, the exact version v1 pinned, for all five seeds in both modes. The token table in the v1 design is a second check for the blue seed.
 
 ## D12. Static, subset fonts built from the official variable fonts
 
@@ -74,7 +78,7 @@ Avalonia does not render variable fonts. Roboto, Roboto Mono (OFL 1.1), and Mate
 
 ## D13. Resolutions for v1 defects found during the inventory
 
-The inventories of the v1 code (unpublished) list behavior v1 got wrong or left undecided. v2 resolves each on purpose:
+Inventories of the v1 code listed behavior v1 got wrong or left undecided. v2 resolves each on purpose:
 
 1. **Consent marker and ignore rules stay out of the game folders' history.** v2 never writes a `.gitignore` into a game's folder. `ignorePaths` and the marker file name are written to `<gitDir>/info/exclude`, which lives in SavePoint's storage. The marker is therefore never committed, so checking out an older point can never rewrite it. Previews read the same exclude file and never write into the work tree.
 2. **A corrupt catalog file is never overwritten.** Missing means empty; unreadable or invalid JSON raises `CatalogCorruptException`, the app shows a recovery screen naming the file, and no write happens until it is resolved. Every overwrite first copies the previous good file to `<name>.bak`.
@@ -103,7 +107,7 @@ The inventories of the v1 code (unpublished) list behavior v1 got wrong or left 
 
 ## D14. Playing from an older point, then saving
 
-`plan.md` ("Save history within one Profile") requires two choices when the player continued from an older point and then captures: move the profile forward from that point (the newer points stop being part of the profile, recoverable until the next storage optimization) or fork a new profile from that point, with fork as the safer default. v1 never built this (it threw `detachedCaptureNotSupported`, later patched with keep-as-new in the launch dialog). v2 builds it:
+The v1 plan ("Save history within one Profile") requires two choices when the player continued from an older point and then captures: move the profile forward from that point (the newer points stop being part of the profile, recoverable until the next storage optimization) or fork a new profile from that point, with fork as the safer default. v1 never built this (it threw `detachedCaptureNotSupported`, later patched with keep-as-new in the launch dialog). v2 builds it:
 
 - The post-play dialog, when the session started from an older point, offers: **Keep this as a new profile** (default, name field prefilled), **Continue "<profile>" from here** (moves the profile forward; second confirmation that names how many newer points leave the profile), and **Not now**.
 - `SessionCompletion` variants: `CaptureNew(message)`, `UpdateExisting(message)` (amend), `ForkNewProfile(name, message)`, `MoveForward(message)`, `Skip`.
@@ -145,7 +149,7 @@ Distributing git means shipping the GPLv2 text and a written source offer pointi
 
 ## D22. Colors come from SchemeTonalSpot; the mockup hexes are approximate
 
-The UI README's token table was evidently drawn with the legacy `Scheme` API (its light primary `#00639D` and light onPrimaryContainer `#001D34` match that API exactly), while v1 shipped `SchemeTonalSpot` at contrast 0, as the README itself instructs ("derive them from the theme instead", "hardcoding these hexes would break the accent-preset feature"). v2 follows v1: every role comes from `SchemeTonalSpot`. Dark mode lands within a few units of the table; light primaries are slightly less saturated. Fidelity and Content variants were checked and rejected: they match the light primary better but turn primary containers into the saturated seed color, which departs further from the mockup. Roles M3 does not define (warning, success) come from fixed-hue tonal palettes at the same tones M3 uses for error (40/100/90/10 light, 80/20/30/90 dark): warning hue from the mockup's gold `#F5D488` (the first pass used amber `#f9a825`, which read orange), success hue from green `#2e7d32`.
+The v1 design's token table was evidently drawn with the legacy `Scheme` API (its light primary `#00639D` and light onPrimaryContainer `#001D34` match that API exactly), while v1 shipped `SchemeTonalSpot` at contrast 0, as the design itself instructs ("derive them from the theme instead", "hardcoding these hexes would break the accent-preset feature"). v2 follows v1: every role comes from `SchemeTonalSpot`. Dark mode lands within a few units of the table; light primaries are slightly less saturated. Fidelity and Content variants were checked and rejected: they match the light primary better but turn primary containers into the saturated seed color, which departs further from the mockup. Roles M3 does not define (warning, success) come from fixed-hue tonal palettes at the same tones M3 uses for error (40/100/90/10 light, 80/20/30/90 dark): warning hue from the mockup's gold `#F5D488` (the first pass used amber `#f9a825`, which read orange), success hue from green `#2e7d32`.
 
 ## D23. Api contract details settled after the contract landed
 
@@ -159,7 +163,7 @@ The UI README's token table was evidently drawn with the legacy `Scheme` API (it
 - Every public type and member in `Savepoint.Core` has an XML doc comment (`///`): a `<summary>` stating the contract (what it promises, failure ids it can return, threading of events), plus `<param>`, `<returns>`, `<remarks>` only where they add information beyond the name. CS1591 is an error for `Savepoint.Core`. `Savepoint.App` documents its public view-model and service surface the same way; generated and view code-behind are exempt.
 - The one-line rule for comments applies to inline implementation comments only; API docs are the contract and are written to be read without opening the code.
 - Already-merged Core code gets a documentation pass once the in-flight branches land, then the warning is switched on.
-- Project documentation (README, user guide, developer guide covering architecture, building, testing, and adding a language) is a v2 deliverable in M7, written by the orchestrator, not delegated. An API reference is generated from the XML docs.
+- Project documentation (README, user guide, developer guide covering architecture, building, testing, and adding a language) is a v2 deliverable, completed with the packaging work. An API reference is generated from the XML docs.
 
 ## D25. No Git LFS; large files handled by git's own store and geometric repacking
 
@@ -181,9 +185,9 @@ WinRT toasts (`ToastNotificationManager`, chosen in D10) need the `net10.0-windo
 - **Reduced motion**: read from the OS (Windows `SPI_GETCLIENTAREAANIMATION`, macOS accessibility "reduce motion", GNOME `enable-animations`), feeding `ThemeService.ReduceMotion`.
 - **Reveal in file manager**: Explorer `/select`, `open -R`, `xdg-open` on the folder.
 
-## D27. The Linux gate retries failed tests once, and says which
+## D27. The Linux gate retries failed tests up to twice, and says which
 
-The Linux gate runs under WSL on the workspace's `/mnt/f` drvfs (9p) mount, because the workspace rule keeps every file inside `Savepoint-v2`. That mount shows rename/visibility races ordinary Linux file systems do not (a file just renamed into place is briefly "not found"), so file-heavy tests fail at random there, a different one each run. The Linux gate therefore re-runs failed tests up to twice and prints every test that needed a retry; a test failing all three times fails the gate. The Windows gate never retries, so real races in SavePoint's own logic are still caught there. Product code does not treat "file not found" as transient, since on a real file system that would hide genuine losses.
+The Linux gate runs under WSL on the repository's `/mnt/f` drvfs (9p) mount, because the sources live on that drive. That mount shows rename/visibility races ordinary Linux file systems do not (a file just renamed into place is briefly "not found"), so file-heavy tests fail at random there, a different one each run. The Linux gate therefore re-runs failed tests up to twice and prints every test that needed a retry; a test failing all three times fails the gate. The Windows gate never retries, so real races in SavePoint's own logic are still caught there. Product code does not treat "file not found" as transient, since on a real file system that would hide genuine losses.
 
 ## D28. What a capture stores, and how optimization reclaims space
 
@@ -197,7 +201,7 @@ Findings from the engine work that change behavior the plan relies on:
 
 ## D29. Engine safety rules from the engine review
 
-The independent review (`.tools/reviews/git-engine.md`) reproduced three ways the engine could damage files. v2 adopts these rules, enforced in the engine itself (not only by callers):
+An independent review of the engine reproduced three ways the engine could damage files. v2 adopts these rules, enforced in the engine itself (not only by callers):
 
 1. **No folder links inside a tracked folder on Windows.** Git for Windows follows directory junctions and directory symlinks, so a switch or discard could delete or overwrite files outside the game folder. Capture, preview, switch, discard, and clean scan the work tree for directory reparse points (junctions, directory symlinks, mount points) and refuse with `error.capture.linkedFolder` naming the first one; nothing is staged or written. On Linux and macOS git stores symlinks as links and never follows them, so they are captured and restored as links (native games ship `.so` symlinks).
 2. **A switch never runs over unsaved changes.** Non-forced checkout refuses a folder with unsaved changes (`DirtyWorkingTreeException`) instead of letting the verify/re-sync pass overwrite them; the launch flow already resolves unsaved changes first (D13.8), and this makes the guarantee hold for every caller.
@@ -206,7 +210,7 @@ The independent review (`.tools/reviews/git-engine.md`) reproduced three ways th
 
 ## D30. Game artwork from Steam, the name tint as fallback, the user's own image always wins
 
-Owner request (2026-10-21): show a game's real artwork when it can be found, fall back to the existing name tint when it cannot, and always let the user set their own image. This amends `docs/ui/README.md` ("v1 has no art source ... Do not invent artwork"): publisher artwork served by Steam is not invented, the tint stays the fallback, and nothing is ever generated.
+Requested on 2026-10-21: show a game's real artwork when it can be found, fall back to the existing name tint when it cannot, and always let the user set their own image. This amends the v1 design ("v1 has no art source ... Do not invent artwork"): publisher artwork served by Steam is not invented, the tint stays the fallback, and nothing is ever generated.
 
 - **Precedence:** the user's own image, then Steam artwork, then the tint. A game with none of the first two looks exactly as it does today.
 - **Source: Steam only, no SteamDB.** SteamDB asks not to be scraped and sits behind bot protection; its images come from Steam's CDN anyway. Other sources need an account key (SteamGridDB, IGDB) and are out of scope. GOG (`goggame-<id>.info` in the install folder) is a possible follow-up.
@@ -227,7 +231,7 @@ Owner request (2026-10-21): show a game's real artwork when it can be found, fal
 
 ## D31. Fixes from the backend and launch review
 
-The independent review (`.tools/reviews/backend-launch.md`, findings BL-001 to BL-033) found two ways the merged backend could lose history or files, and several ways it could mislead the player. v2 adopts these rules:
+An independent review of the backend and launch code (findings BL-001 to BL-033) found two ways the merged backend could lose history or files, and several ways it could mislead the player. v2 adopts these rules:
 
 1. **"Update existing" rewrites only the point the player named (BL-001).** A folder whose newest commit carries the named point's capture id is amended. A folder that changed but whose newest commit belongs to another point gets a new commit carrying the same capture id, so the update stays one point and no other point is ever rewritten.
 2. **Ignore patterns never depend on an earlier call (BL-002).** Status, discard, clean, capture, and preview take the game's current ignore patterns from its definition on every call. Saving a game also rewrites each folder's `info/exclude` under the game lock.
@@ -238,27 +242,27 @@ The independent review (`.tools/reviews/backend-launch.md`, findings BL-001 to B
 7. **A partial after-play save is retried as the same choice (BL-008).** The orchestrator and the profiles service share one `CaptureRunner`. Retrying a partial completion reruns that completion's plan for the failed folders under the original capture id, so the session still yields one point.
 8. **A folder a profile never saved is left alone (BL-012).** Launching a profile that has no points in one folder (a saves folder added after the profile existed) leaves that folder as it is; the after-play capture adds it. No empty branches are seeded.
 9. **One function picks the commit that stands for a point in a folder (BL-024),** shared by History and the launch resolver. A folder with no commit at or before the point is left as it is. Points are ordered by a millisecond capture time recorded in the trailer, falling back to commit order, so two captures within one second cannot be confused.
-10. **A storage move deletes the old copies, and reports what it could not remove.** After the copy is verified and SavePoint has switched to the new root, the old git directories are deleted (an owner call; v1 left them). `StorageRelocationResult` lists the old copies left behind; the job ends Partial when the list is not empty and the App shows it. Removal ignores cancellation once the switch is done. A move writes an in-progress marker in its destination first; a later move to a folder carrying that marker is refused with copy saying an earlier move did not finish (BL-019).
+10. **A storage move deletes the old copies, and reports what it could not remove.** After the copy is verified and SavePoint has switched to the new root, the old git directories are deleted (decided; v1 left them). `StorageRelocationResult` lists the old copies left behind; the job ends Partial when the list is not empty and the App shows it. Removal ignores cancellation once the switch is done. A move writes an in-progress marker in its destination first; a later move to a folder carrying that marker is refused with copy saying an earlier move did not finish (BL-019).
 11. **Closing during clear-all or a storage move asks first (BL-019).** On exit SavePoint cancels cancellable jobs and waits briefly for them.
 12. **Consent-marker game ids are validated (BL-013).** A marker whose `gameId` fails the catalog's id rule counts as corrupt, and the storage paths refuse rooted ids, separators, and dot segments, so no path from a marker can leave the storage root (on Windows, a UNC id would otherwise send the user's network login hash to a remote server).
 13. **Errors keep their meaning (BL-026).** A git operation failure that is not a file in use gets its own message id and copy; a duplicate game and "no saved history to reconnect" get typed errors.
 
-The remaining findings (BL-009, BL-010, BL-011, BL-014 to BL-023, BL-025, BL-027, BL-028, BL-030 to BL-032) are fixed as the review recommends. D18's stale-lock rule is restated to match the code: the startup sweep removes every lock once, before any git work, since each one it finds predates the process (BL-029). `UnavailableLaunchApi` and its shipped copy move to the test project, since every shipped build has the orchestrator (YAGNI-001).
+Every other finding from that review was fixed as it recommended. D18's stale-lock rule is restated to match the code: the startup sweep removes every lock once, before any git work, since each one it finds predates the process (BL-029). `UnavailableLaunchApi` and its shipped copy move to the test project, since every shipped build has the orchestrator (YAGNI-001).
 
 ## D32. Builds send no telemetry
 
-Avalonia's packages bring in `Avalonia.BuildServices`, whose `AvaloniaStats` task sends anonymous build telemetry (machine id, hashed project and machine names, OS, tooling) from every compile, unless `AVALONIA_TELEMETRY_OPTOUT=1` is set. SavePoint is a local-first app, and its builds run on the owner's machine, often by the hundred during development. `Directory.Build.targets` therefore defines an empty `AvaloniaStats` target, which replaces the package's, so no build of SavePoint sends anything whatever the environment holds. The shipped app was never affected; the package says its telemetry is build-time only. The .NET CLI's own telemetry is turned off by `DOTNET_CLI_TELEMETRY_OPTOUT=1`, which the gate scripts and the test runner script set.
+Avalonia's packages bring in `Avalonia.BuildServices`, whose `AvaloniaStats` task sends anonymous build telemetry (machine id, hashed project and machine names, OS, tooling) from every compile, unless `AVALONIA_TELEMETRY_OPTOUT=1` is set. SavePoint is a local-first app, and its builds run on developers' machines, often by the hundred during development. `Directory.Build.targets` therefore defines an empty `AvaloniaStats` target, which replaces the package's, so no build of SavePoint sends anything whatever the environment holds. The shipped app was never affected; the package says its telemetry is build-time only. The .NET CLI's own telemetry is turned off by `DOTNET_CLI_TELEMETRY_OPTOUT=1`, which the gate scripts and the test runner script set.
 
 ## D33. Packaging with Velopack, no automatic update checks
 
-The roadmap asks for an installer and a portable build per OS. v2 packages with Velopack 1.2.161, the newest stable release on 2026-10-21. The `Velopack` package goes in the App, and `VelopackApp.Build().Run()` is the first call in `Main`. The `vpk` CLI is pinned as a local tool in `.config/dotnet-tools.json`, never installed globally.
+The project calls for an installer and a portable build per OS. v2 packages with Velopack 1.2.161, the newest stable release on 2026-10-21. The `Velopack` package goes in the App, and `VelopackApp.Build().Run()` is the first call in `Main`. The `vpk` CLI is pinned as a local tool in `.config/dotnet-tools.json`, never installed globally.
 
 - **Windows (`win-x64`):** a self-contained `dotnet publish`, then `vpk pack`, which gives `SavePoint-Setup.exe` (per-user install, Start menu shortcut, uninstall entry) and `SavePoint-Portable.zip`.
 - **Linux (`linux-x64`):** the same steps on Linux (under WSL here), giving an `.AppImage`.
 - **macOS:** `vpk pack` must run on macOS, and the result must be signed and notarized before anyone else can run it. Neither can be done here, so macOS packages are documented but not produced (D9).
 - **Every package holds** the app, the pruned git bundle in `git/` (copied by `build/Git.targets` on publish), `THIRD-PARTY-NOTICES.md`, and `licenses/`. Each release also publishes the source archives of the git bundles it ships (D21).
 - **No automatic update checks.** The app makes no network request the user did not ask for (D30's artwork lookup is the only one, behind its setting), and no release feed exists yet. Velopack contacts a feed only when the app calls `UpdateManager`, and v2 never does. A newer release installs over an older one by running its setup. An opt-in "check for updates" belongs to a later decision once a feed exists.
-- **Versions:** one `Version` property in `Directory.Build.props` (semver, pre-release until the owner calls it 1.0) feeds the assembly versions, the About section, and `vpk pack --packVersion`.
+- **Versions:** one `Version` property in `Directory.Build.props` (semver, pre-release until the project calls it 1.0) feeds the assembly versions, the About section, and `vpk pack --packVersion`.
 - **Settled while building it:**
   - **Version:** `0.9.0`.
   - **Startup order:** `VelopackApp.Build().Run()` is literally the first statement of `Main`, because vpk checks for it there and warns about a wrapper. A test reads `Main`'s IL to pin the order.
@@ -266,7 +270,7 @@ The roadmap asks for an installer and a portable build per OS. v2 packages with 
   - **Outputs:**
     - Windows: `SavePoint-win-Setup.exe`, `SavePoint-win-Portable.zip`, `SavePointApp-<version>-full.nupkg` (vpk names it after the pack id, D38), and vpk's release index files.
     - Linux: `SavePoint.AppImage` and `SavePointApp-<version>-linux-full.nupkg`.
-  - **From the final review (D41):** the commit goes into the informational version (`0.9.0+<commit>`), a tree with uncommitted changes is refused unless a trial package is asked for, the source archives' hashes are pinned in `build/git-manifest.json` (empty until the first `-Sources` run; the check runs before anything is published, and a download is kept only when it matches its pin, D42), and each package's contents are listed in `artifacts/release/contents-<rid>/` and checked for the git bundle, the notices, and the license texts.
+  - **From the final review (D41):** the commit goes into the informational version (`0.9.0+<commit>`), a tree with uncommitted changes is refused unless a trial package is asked for, the source archives' hashes are pinned in `build/git-manifest.json` (since the 0.9.0 release); the `-Sources` run checks each download against its pin before anything is published and fails on a mismatch, and a download is kept only when it matches its pin (D42), and each package's contents are listed in `artifacts/release/contents-<rid>/` and checked for the git bundle, the notices, and the license texts.
   - **Not yet covered:** the packages are unsigned, so SmartScreen warns on the setup. Releases still need to publish the MSYS2 and MINGW package sources that D21 also promises.
 
 ## D34. A local diagnostic log and a crash handler
@@ -302,11 +306,11 @@ Behavior stays as the launch dialog defines it. Settings moves the switch into i
 
 ## D36. Calls on the UX and accessibility review's open questions
 
-The review (`.tools/reviews/ux-a11y.md`) left eight questions open. They are settled as follows:
+The UX and accessibility review left eight questions open. They are settled as follows:
 
 - **OS scaling (OQ1).** SavePoint works at 150% on 1366x768 and at 200% on 1920x1080, which leaves about 960x490 logical pixels once the taskbar is counted. The window's minimum size shrinks to fit that, and every screen scrolls vertically instead of clipping. Headless renders at those sizes prove it.
 - **Slow scans (OQ2).** Play shows "Checking your files..." at once, before the preview returns, however long the scan takes. "Save them first" shows progress too. The diagnostic log (D34) times the scans for later tuning.
-- **Screen readers (OQ3).** Live regions raise the UI Automation live-region event when their text changes, and banners and error cards are announced when they appear; tests assert the events. A manual pass with Narrator and NVDA is listed for the owner's dogfood run, since it cannot be automated here.
+- **Screen readers (OQ3).** Live regions raise the UI Automation live-region event when their text changes, and banners and error cards are announced when they appear; tests assert the events. A manual pass with Narrator and NVDA is listed for the manual dogfood run, since it cannot be automated here.
 - **Focus after a refresh (OQ4) and the History filter's arrow keys (OQ8):** a headless test settles each one, and any failure is fixed.
 - **Artwork disclosure (OQ5).** The lookup stays on by default (D30). The first-run screen says in one line that SavePoint downloads cover art for Steam games from Steam and can be turned off in Settings, so the one network request is disclosed before it happens.
 - **Re-pointing a folder (OQ6).** It belongs to D31 item 4 and is built with the review fixes.
@@ -314,7 +318,7 @@ The review (`.tools/reviews/ux-a11y.md`) left eight questions open. They are set
 
 ## D37. Fixes from the recheck of the review fixes
 
-The recheck (`.tools/reviews/backend-launch-recheck.md`) found the D31 work complete: 29 fixed, 1 fixed differently, 3 partly fixed, 0 open. It also found four new warnings (RC-001 to RC-004) and eleven suggestions. v2 adopts the recheck's recommended fixes, with these owner-level calls:
+A recheck of the D31 work found it complete: 29 fixed, 1 fixed differently, 3 partly fixed, 0 open. It also found four new warnings (RC-001 to RC-004) and eleven suggestions. v2 adopts the recheck's recommended fixes, with these calls:
 
 1. **Storage that is gone for good (RC-001; refined by D41.4 to D41.6 and D42.1).** Unreachable storage is a startup finding, like an unavailable git, with three choices:
    - "Try again";
@@ -328,7 +332,7 @@ The recheck (`.tools/reviews/backend-launch-recheck.md`) found the D31 work comp
 4. **Stray folders in the storage root (RC-004 and the scan suggestion).** A folder whose name is not a game id, such as "game - Copy", never fails a move after the switch. The move fails only on folders that could be SavePoint's.
 5. **Files held open (the suggestions on the racy fix).** The launch preview names a held file and offers "Try again" instead of Keep and Discard. A folder whose only changes are held files counts as clean for a switch; a save treats it as "cannot tell" (D41.1). Only a sharing or lock violation counts as "in use"; access denied gets its own message, which names the file.
 
-The partly fixed BL-019, BL-026, and BL-032 are completed as the recheck describes. On macOS, an application-level shutdown (Cmd+Q) also asks before quitting during clear-all or a storage move.
+The three partly fixed findings (BL-019, BL-026, BL-032) were completed. On macOS, an application-level shutdown (Cmd+Q) also asks before quitting during clear-all or a storage move.
 
 ## D38. The installer's folder is never SavePoint's data folder
 
@@ -342,7 +346,7 @@ Velopack's Windows setup installs into `%LOCALAPPDATA%\<pack id>`, and on instal
 
 ## D39. Calls on the final gap analysis
 
-The final gap analysis (`.tools/reviews/gap-final.md`, GAP-001 to GAP-027) is settled as follows:
+The final gap analysis (GAP-001 to GAP-027) is settled as follows:
 
 - **Languages (GAP-010, GAP-011; refines D20).** v2 ships English only. Catalogs are embedded at build time, so adding a language means adding `Localization/Assets/Lang/<code>/*.json` and rebuilding, not dropping in a file. Settings shows no language list until a second catalog exists. The saved locale stays `en`, and its validation message says only that the language is not available. The developer guide gets an "Adding a language" section.
 - **API reference (GAP-013; refines D24).** No generated API reference site. SavePoint is an application with no SDK, and the XML docs already reach every IDE. D24's compiler enforcement stays for Core. The App's public surface exists for XAML binding, so CS1591 stays off there, and the App documents its non-obvious contracts by hand (GAP-027).
@@ -354,7 +358,7 @@ The final gap analysis (`.tools/reviews/gap-final.md`, GAP-001 to GAP-027) is se
   - path-safety and overlap errors that carry the folder's role (GAP-015);
   - a copy pass (GAP-018, GAP-019): American spelling, one dash style (an em dash for asides, never a spaced hyphen), and helper lines that end with a period;
   - re-rendering 2a-2l and 3a-3c, reviewed against the mockups (GAP-007).
-- **Left to the owner (GAP-004, GAP-006, GAP-008):** the manual dogfood run, code signing, the MSYS2 and MINGW source archives, and SavePoint's own license.
+- **Still open (GAP-004, GAP-006, GAP-008):** the manual dogfood run, code signing, and the MSYS2 and MINGW source archives, which are tracked in the issue tracker. SavePoint's own license is settled: GPL-3.0-or-later (`LICENSE`).
 - **The final code review (GAP-005)** runs after the polish pass, over everything since the backend review.
 
 ## D40. Mockup differences left after the final renders
@@ -369,10 +373,10 @@ The final renders (2a-2l, 3a-3c) were compared with the v1 screenshots after the
 
 ## D41. Calls on the final code review
 
-The final review (`.tools/reviews/final.md`, FR-001 to FR-032, YAGNI-001 to YAGNI-006) found no CRIT, six WARN, and confirmed the engine review's fixes. It is settled as follows; everything not named here is fixed as the review recommends, or skipped by the fix agent with a one-line reason.
+The final code review (FR-001 to FR-032, YAGNI-001 to YAGNI-006) found no critical findings and six warnings, and confirmed the engine review's fixes. It is settled as follows; everything not named here was fixed as the review recommended, or skipped with a one-line reason.
 
 1. **A held file is "cannot tell" when saving (FR-001, refines D37.5).** For a switch, a folder whose only changes are files SavePoint cannot open still counts as clean, and the launch names the file and offers "Try again". When saving, such a folder is never skipped as clean: the save runs, fails with the held-file error that names the file, and the retry that already exists applies. The after-play dialog counts held files. A consequence: an unchanged file that another program holds also fails "Update existing" until it is let go, since SavePoint cannot tell it is unchanged.
-2. **Files the ignore list names (FR-002, settles the engine review's WARN-004; amended by D43.1).** A switch leaves every file the ignore list names exactly as it is on disk, whether or not some point recorded it, and never refuses because of one, except where a file and a folder would have to share a path (D43.1). A save stops recording such a file, so later points do not hold it; the earlier points keep it. A discard leaves it as well. A switch that is stopped part way must still leave the file as it was. A path that is a file at one point and a folder at the other is classified whole (each group of paths gets its own index), so a switch between them never removes a file the patterns name.
+2. **Files the ignore list names (FR-002, settles a finding of the engine review; amended by D43.1).** A switch leaves every file the ignore list names exactly as it is on disk, whether or not some point recorded it, and never refuses because of one, except where a file and a folder would have to share a path (D43.1). A save stops recording such a file, so later points do not hold it; the earlier points keep it. A discard leaves it as well. A switch that is stopped part way must still leave the file as it was. A path that is a file at one point and a folder at the other is classified whole (each group of paths gets its own index), so a switch between them never removes a file the patterns name.
 3. **"Try again" after a failed check re-enters the check for the target the player chose (FR-003).** Nothing from an earlier start carries over.
 4. **A storage root change gives every listed game its repositories (FR-004).** After "Start with an empty folder", and for each game a "Find the folder" target lacks, SavePoint creates the game's empty repositories at once. Games and profiles stay listed; each profile starts its history again with its next save, and the confirmation says so.
 5. **Git never runs a program a repository names (FR-005).** Every git process starts with hooks pointed at an empty folder SavePoint owns and `core.fsmonitor` off, set through the environment so a repository's own config cannot override them, and SavePoint keeps only the keys `git init` writes plus its own in a repository's config. A folder adopted through "Find the folder" has its configs rewritten and its hooks folders emptied before any other git call.
@@ -384,11 +388,11 @@ The final review (`.tools/reviews/final.md`, FR-001 to FR-032, YAGNI-001 to YAGN
 11. **Switch progress moves while git removes files (FR-029).** The dialog's share and time left follow whichever of files and bytes is further along, so a removal-heavy switch never stands at 0%.
 12. **Restructures are deferred (FR-022, FR-027)** unless a fix needs the shared piece; the move's destination checks are shared with "Find the folder" (item 6).
 13. **YAGNI:** the members kept only for tests or for paths no shipped build reaches go (YAGNI-001, 002, 004, 006, and 003 unless item 7's or FR-008's fix makes the path live). The 1024 px icon and IconGen's output folder stay for a future macOS package (YAGNI-005).
-14. **Documentation (FR-028, FR-032's doc half)** is written in the docs pass, not by the fix agents.
+14. **Documentation (FR-028, FR-032's doc half)** is written in a separate documentation pass, not as part of the fixes.
 
 ## D42. Calls on the recheck of the final review's fixes
 
-The recheck (`.tools/reviews/final-recheck.md`) found 25 of 38 items fixed and none open, plus RF-001 to RF-027 (five WARN). Each RF item is fixed as the recheck recommends, except:
+A recheck of the final review's fixes found 25 of 38 items fixed and none open, plus RF-001 to RF-027 (five warnings). Each is fixed as the recheck recommended, except:
 
 1. **"Find the folder" never follows a link (RF-001, RF-002).** A candidate whose game folder, git directory, `hooks` folder, or config is a link, or resolves outside the candidate, is refused as a whole with its own error that names the path; nothing in it is written first. A repository config is rewritten whenever its content holds anything beyond `git init`'s keys and SavePoint's block, whatever its stamp, and every git process also runs with `commit.gpgSign` and `tag.gpgSign` off, so no repository setting can name a program SavePoint runs.
 2. **"Update existing" is a save (RF-014).** The point it writes stops holding files the ignore list names, as every later save does (D41.2); earlier points keep them. No change.
@@ -398,31 +402,31 @@ The recheck (`.tools/reviews/final-recheck.md`) found 25 of 38 items fixed and n
 
 ## D43. Calls on the focused review of the last fix round
 
-The focused review (`.tools/reviews/last-round.md`) found one CRIT: a switch or a discard that writes a file where the player's disk holds a folder deletes every ignore-listed file inside it, because git treats ignored files as expendable (LR-001). It is settled as follows:
+A focused review of the last fix round found one critical finding: a switch or a discard that writes a file where the player's disk holds a folder deletes every ignore-listed file inside it, because git treats ignored files as expendable (LR-001). It is settled as follows:
 
 1. **A file and a folder cannot share a path, so the switch refuses rather than delete (amends D41.2).** When a switch or a discard would write a file where the work tree holds a folder that still has files the operation does not itself remove (ignore-listed or untracked), or would make a folder where the work tree holds an untracked or ignore-listed file, it refuses before it writes anything, with its own error that names the folder and the file. The player moves or deletes those files, then tries again. Silently deleting a file the player asked SavePoint to leave alone is never acceptable; leaving the profile's file unwritten would leave the install silently incomplete. The check is on the file system, not on git's rule for ignored files. A forced switch and a discard still remove plain new files inside such a folder, as they remove any new file the discard confirmation counted; they refuse over ignore-listed files and anything inside a nested repository. A switch that is not forced refuses over any new file earlier, as unsaved work.
 2. **Aligning the index never loses an entry silently (LR-002).** The alignment works on a copy of the index and is compared with the original before it is swapped in; clean profile content that a named path displaces is handled under the switch journal, and any refusal puts the saved original index back as it was.
 3. **"Find the folder" walks every folder of a candidate git directory for links, and every recursive walk in the engine skips links (LR-003).** A repository can gain a link after it was adopted, so the walks are link-safe on their own.
 4. **A git directory cannot redirect git (LR-009).** Every git process that names a repository runs with `GIT_COMMON_DIR` set to that git directory (per call, next to `GIT_DIR`); because git still reads refs through a `commondir` file even then, every engine operation refuses a git directory that holds one, and "Find the folder" refuses a candidate whose git directory holds a `commondir` file or whose `objects/info/alternates` names a path.
-5. The SUGGs (LR-004 to LR-008) are fixed as the review recommends, or skipped by the fix agent with a one-line reason.
+5. The suggestions (LR-004 to LR-008) were fixed as the review recommended, or skipped with a one-line reason.
 
 ## D44. Plain language, in-app help, an Activity screen, and a way back for removed snapshots
 
-The owner, dogfooding v2 with a good grasp of git, still found some wording confusing, and SavePoint's players may never have heard of version control. Banning the git words was not enough: "point", "switch", "left alone", "half switched", and "storage" still described the engine instead of what a player sees. The plain-language audit (`.tools/reviews/plain-language.md`) and a sweep of v1's shipped renderer (which found v1's per-game Jobs tab missing from v2) are settled as follows; the owner chose items 1, 4, and 5.
+Dogfooding v2 showed that some wording was still confusing to a reader with a good grasp of git, and SavePoint's players may never have heard of version control. Banning the git words was not enough: "point", "switch", "left alone", "half switched", and "storage" still described the engine instead of what a player sees. A plain-language audit and a sweep of v1's shipped renderer (which found v1's per-game Jobs tab missing from v2) are settled as follows; the project chose items 1, 4, and 5.
 
-1. **The vocabulary (owner's choice: "snapshot").** The app keeps **snapshots**: a copy of a profile's game version, mods, and saves at one moment. "Save" means only the game's own save files; SavePoint's act is "take a snapshot" in status lines, "Keep" in choices, and "Create profile" in the wizard. The rest of the audit's vocabulary table is adopted as written: "new changes" (not "unsaved changes"), "Loaded now" for every in-use marker, "Go back (to this)" as the one action on any snapshot, "Replace "X" with this session", "Continue "X" from this session", "a mix of two snapshots", "not included", "snapshot folder", "Free up space", "Files to leave out", and "game settings file". This departs from the v1 spec's copy rules as the audit lists; the History title keeps "...you can go back to". Copy may gain the placeholders the audit asks for (`{ownerName}`, `{pointName}`, `{profileName}`).
+1. **The vocabulary (decided: "snapshot").** The app keeps **snapshots**: a copy of a profile's game version, mods, and saves at one moment. "Save" means only the game's own save files; SavePoint's act is "take a snapshot" in status lines, "Keep" in choices, and "Create profile" in the wizard. The rest of the audit's vocabulary table is adopted as written: "new changes" (not "unsaved changes"), "Loaded now" for every in-use marker, "Go back (to this)" as the one action on any snapshot, "Replace "X" with this session", "Continue "X" from this session", "a mix of two snapshots", "not included", "snapshot folder", "Free up space", "Files to leave out", and "game settings file". This departs from the v1 spec's copy rules as the audit lists; the History title keeps "...you can go back to". Copy may gain the placeholders the audit asks for (`{ownerName}`, `{pointName}`, `{profileName}`).
 2. **Permanence is stated where the choice is made.** Anything permanent says so in the option's title or its confirm button, not only in a subtitle.
 3. **The profile row counts every snapshot of the profile** (not only snapshots of the saves folder), with the ownership rule History's profile filter uses, so it matches History (a duplicate that has taken no snapshot of its own reads 0), and a profile's row menu gains **Take a snapshot now**, which is also what the no-snapshot error points to.
-4. **A way back for removed snapshots (owner's choice).** Snapshots that "Continue "X" from this session" or "Replace "X" with this session" take off a profile are listed in History under **Recently removed** until the next "Free up space", and each can be brought back as a new profile. The copy says exactly that, instead of promising a recovery the app cannot do. As built: each removed snapshot is recorded before its profile moves (a record for a snapshot still on its branch is harmless and not listed), only Free up space clears the records (every Free up space, in Settings, on the Games footer, and in the library layout's game menu, asks first when it would delete some), a profile brought back and later deleted puts its snapshot back in the list until then, and a saves-only snapshot whose origin profile is gone and whose install snapshot became another profile cannot be brought back (no install to start from). This supersedes the "recoverable until the next optimization" wording in D14 and D28.
-5. **An Activity screen (owner's choice).** A new rail item, Activity, lists running and recent jobs for the selected game, with an "All games" filter that also shows the jobs that span every game (a snapshot-folder move, clearing SavePoint's data). Each job shows what it is, which profile, its status, progress, and times; **Details** shows its output (file paths and steps in plain words, from the catalog, never git's own text), selectable for copying, following new lines unless the player scrolled up; **Cancel** stops a job that can be stopped. The Games screen's tab strip links to it, and the job status pill opens it. Launch and free-up-space jobs report steps too, so no job's details are empty. The Games screen footer gains **Free up space** for that game, as v1 had.
+4. **A way back for removed snapshots (decided).** Snapshots that "Continue "X" from this session" or "Replace "X" with this session" take off a profile are listed in History under **Recently removed** until the next "Free up space", and each can be brought back as a new profile. The copy says exactly that, instead of promising a recovery the app cannot do. As built: each removed snapshot is recorded before its profile moves (a record for a snapshot still on its branch is harmless and not listed), only Free up space clears the records (every Free up space, in Settings, on the Games footer, and in the library layout's game menu, asks first when it would delete some), a profile brought back and later deleted puts its snapshot back in the list until then, and a saves-only snapshot whose origin profile is gone and whose install snapshot became another profile cannot be brought back (no install to start from). This supersedes the "recoverable until the next optimization" wording in D14 and D28.
+5. **An Activity screen (decided).** A new rail item, Activity, lists running and recent jobs for the selected game, with an "All games" filter that also shows the jobs that span every game (a snapshot-folder move, clearing SavePoint's data). Each job shows what it is, which profile, its status, progress, and times; **Details** shows its output (file paths and steps in plain words, from the catalog, never git's own text), selectable for copying, following new lines unless the player scrolled up; **Cancel** stops a job that can be stopped. The Games screen's tab strip links to it, and the job status pill opens it. Launch and free-up-space jobs report steps too, so no job's details are empty. The Games screen footer gains **Free up space** for that game, as v1 had.
 6. **In-app help.** A first-run tour of four steps (the profile row, Play, History, New profile) runs once after the first profile is made, can be skipped at every step, and can be shown again from Settings > Help. Six "What's this?" explanations open in place next to the ideas the audit names. A "How SavePoint works" page lives in Settings > Help (also F1 and a first-run link), ending with what cannot be undone. The three moments where the app explains itself at the point of decision are the first older-snapshot choice, a permanent discard, and the first Replace. All of it works by keyboard and screen reader, goes through the catalog (`help.json`), and stays out of an experienced player's way.
    As built: the page opens as a pane over the screen it covers, which is kept and comes back; the "seen" flags for the tour and the three decision notes live in the settings file (additive fields); the tour is marked seen when it starts, so closing the window mid-tour does not start it again, and it starts at most once per run; explanations shown inside a dialog leave out the link to the page; and Settings' theme, layout, and accent selectors no longer scroll themselves into view on open (Settings opened scrolled down and hid its title).
-7. **Measuring it.** The owner's dogfooding is the comprehension test for now; the audit's five-player test (its OQ5) is a follow-up.
-8. **No em dashes (owner's choice; replaces D39's "em dashes for asides").** Many readers take an em dash for machine-written text. An aside is a sentence of its own or a comma clause, and the catalog lint rejects an em dash anywhere. The ellipsis and the middle dot stay.
+7. **Measuring it.** Dogfooding is the comprehension test for now; a five-player test (the audit's OQ5) is a follow-up.
+8. **No em dashes (decided; replaces D39's "em dashes for asides").** Many readers take an em dash for machine-written text. An aside is a sentence of its own or a comma clause, and the catalog lint rejects an em dash anywhere. The ellipsis and the middle dot stay.
 
 ## D45. Calls on the review of the D44 work
 
-The review (`.tools/reviews/d44-review.md`) found 3 CRIT, 4 WARN, 11 SUGG, all in Recently removed, its copy, and one Activity cancel. Recording, both reclaim modes, moves, clear-all, delete game, reconnect, and keeping removed snapshots out of every profile view were found sound. Settled:
+A review of the D44 work found 3 critical findings, 4 warnings, and 11 suggestions, all in Recently removed, its copy, and one Activity cancel. Recording, both reclaim modes, moves, clear-all, delete game, reconnect, and keeping removed snapshots out of every profile view were found sound. Settled:
 
 1. **A removed snapshot is one unit (DR-001).** It is identified by the capture it came from, and each folder's commit is taken from its own record, never inferred from which commits no branch reaches. Its card and Bring back use exactly those commits. It is listed until every one of its folder commits is on a profile's branch again.
 2. **Free up space deletes only what it counted and asked about (DR-002).** The preview names the exact records; the job deletes those and no others. Records written after the preview stay, and a run that found none deletes none.
@@ -430,19 +434,15 @@ The review (`.tools/reviews/d44-review.md`) found 3 CRIT, 4 WARN, 11 SUGG, all i
 4. **Only a profile's branch keeps a snapshot out of Recently removed (DR-004).** A branch with no profile row (a crashed Bring back or Duplicate, a profile not reconnected) neither hides a removed snapshot nor keeps Free up space from freeing it.
 5. **Copy says what really happens (DR-005, DR-006).** The delete-profile warning says when its snapshots go to Recently removed instead of away for good, and Settings says exactly which automatic cleanups run and that they keep Recently removed.
 6. **Canceling a switch from Activity asks first and tells the truth (DR-007),** as the launch's own "Stop switching" does: the folder is left with a mix of two snapshots until the switch is finished or the changes are discarded.
-7. The SUGGs are fixed as the review recommends, or skipped by the fix agent with a one-line reason.
+7. The suggestions were fixed as the review recommended, or skipped with a one-line reason.
 
 ## D46. Calls on the recheck of D45
 
-The recheck (`.tools/reviews/d45-recheck.md`) found 14 of 18 fixed, no CRIT, 3 WARN. Settled:
+A recheck of the D45 fixes found 14 of 18 fixed, no critical findings, 3 warnings. Settled:
 
 1. **A git SavePoint starts must not outlive it unnoticed (RR-001).** A note in the git directory and a wait at the next start and before every game write, not a job object: .NET cannot tie a child's life to the app portably (Windows needs native job-object calls, Linux has no parent-death signal for a .NET child, macOS has neither). Known cost: after a kill during a long repack, the next start waits on "Checking your files..." with no feedback until that git ends.
 2. **A free-up cut off between its folders is finished, not undone (RR-002),** because the player confirmed the deletion.
 3. **The delete-profile warning judges each folder's commit on its own (RR-003).**
-4. **An all-games Free up space cannot be stopped between games (RR-004, owner's call).** Once it has started deleting, it runs to the end, which keeps one rule ("once it deletes, it finishes") and no "stopped after some games" state for players to make sense of.
+4. **An all-games Free up space cannot be stopped between games (RR-004).** Once it has started deleting, it runs to the end, which keeps one rule ("once it deletes, it finishes") and no "stopped after some games" state for players to make sense of.
 5. **Not done (RR-005):** an opaque preview token; tests build tokens by hand to try the run's own guards, and each token ref carries the value the preview read, which already stops a stale or edited token from deleting a moved branch.
 6. DR-004 also removes a stray branch whose snapshots are all being deleted anyway, and DR-003 follows D45.3 (no cancel once deleting starts) rather than the review's cancel between games.
-
-## D8. "Clear all data" is a v2 requirement
-
-The v1 README lists "add a clear all data button" as an open TODO. v2 ships it in Settings behind a typed confirmation. It removes SavePoint's own storage, catalog, and consent markers, and never deletes or rolls back files in a game's install or save folders: whatever is on disk at that moment stays as it is.
