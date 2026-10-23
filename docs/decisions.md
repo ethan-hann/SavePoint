@@ -131,7 +131,7 @@ On launch, before any screen: verify the bundled git (`git --version`); failure 
 
 ## D19. Onboarding and editor guidance from the plan's risk table
 
-- First run and the game editor say plainly that games with kernel anti-cheat are not supported (the plan's explicit non-goal), without attempting detection.
+- First run and the game editor warn against online games protected by anti-cheat (the plan's explicit non-goal), without attempting detection. The warning gives the reason, because there is no technical conflict: SavePoint never injects into a game, reads its memory, or hooks it. Anti-cheat checks the game's own files, so changed or rolled-back files can get an account flagged, and those games forbid mods, require the latest version online, and keep progress on their servers, so SavePoint cannot help them. Games that can be played offline with anti-cheat turned off for mods are fine.
 - The game editor recommends turning off the storefront's cloud saves for a managed game (Steam Cloud, GOG Galaxy), next to the launch-method choice.
 - Long paths: `core.longpaths=true` everywhere, and the engine's tests include a tree deeper than 260 characters on Windows.
 
