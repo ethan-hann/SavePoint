@@ -393,7 +393,7 @@ public class ShellViewTests
     }
 
     [AvaloniaFact]
-    public async Task First_run_says_where_data_is_kept_and_that_kernel_anti_cheat_is_not_supported()
+    public async Task First_run_says_where_data_is_kept_and_warns_against_online_games_with_anti_cheat()
     {
         using var harness = await ShellViewHarness.StartAsync(Empty());
 
