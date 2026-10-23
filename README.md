@@ -14,7 +14,7 @@ SavePoint is the undo button for that morning. It takes snapshots of the game's 
 
 1. **Add a game.** Point SavePoint at the game's folder and its saves folder. Steam games get their cover art.
 2. **Take a snapshot.** That's your checkpoint: the game version, the mods, and the saves, as they are right now.
-3. **Press Play in SavePoint.** It puts the right files in place, starts the game, and waits. When you quit, it asks what to do with the session: keep it as a new snapshot, keep it as a new profile, or decide later.
+3. **Press Play in SavePoint.** It puts the right files in place, starts the game, and waits. When you quit, it asks what to do with the session: keep it as a new snapshot, replace the snapshot you started from, keep it as a new profile, or decide later.
 
 ![After you quit, SavePoint asks what to do with the session](docs/images/after-play.png)
 
