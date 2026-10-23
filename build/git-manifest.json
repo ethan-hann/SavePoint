@@ -116,17 +116,20 @@
     "dugite-native": {
       "repository": "https://github.com/desktop/dugite-native",
       "tag": "v2.53.0-4",
-      "sha256": ""
+      "sha256": "6600bdf3c7e2cbb127ac63d9d38da3a91267610c6034ecb8ff73e94f89508f33",
+      "hashSource": "GitHub tag archive, the same hash from two downloads with different clients on 2026-10-23"
     },
     "git": {
       "repository": "https://github.com/git/git",
       "tag": "v2.53.0",
-      "sha256": ""
+      "sha256": "0492bcd8a9fc99bedca75dbec7c8c15b24dd1501c82d4518294ee0850f91f219",
+      "hashSource": "GitHub tag archive, the same hash from two downloads with different clients on 2026-10-23"
     },
     "git-for-windows": {
       "repository": "https://github.com/git-for-windows/git",
       "tag": "v2.56.0.windows.2",
-      "sha256": ""
+      "sha256": "1b65aabab5892a2b2758aca64a2fda0a290b06e0eeab8116a9835cb712010f65",
+      "hashSource": "GitHub tag archive, the same hash from two downloads with different clients on 2026-10-23"
     }
   }
 }
