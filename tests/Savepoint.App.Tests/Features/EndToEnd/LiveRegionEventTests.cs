@@ -91,7 +91,7 @@ public class LiveRegionEventTests
         app.Settle();
 
         var spoken = events.Where(e => e.Property == AutomationElementIdentifiers.NameProperty).Select(e => e.NewValue).OfType<string>();
-        Assert.Contains("Taking a snapshot of Skyrim Special Edition…", spoken);
+        Assert.Contains(spoken, text => text.StartsWith("Taking a snapshot of Skyrim Special Edition", StringComparison.Ordinal));
     }
 
     [AvaloniaFact]

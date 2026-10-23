@@ -152,7 +152,7 @@ public class JobPillPlacementTests
         // A long game name makes the widest pill there can be, so that is the one the controls are tried against.
         if (widestPill)
         {
-            app.Shell.JobStatus.PillText = "Taking a snapshot of The Elder Scrolls V: Skyrim Special Edition, Anniversary Edition with every mod…";
+            app.Shell.JobStatus.PillText = "Taking a snapshot of The Elder Scrolls V: Skyrim Special Edition, Anniversary Edition with every mod and every patch";
         }
 
         app.Settle();

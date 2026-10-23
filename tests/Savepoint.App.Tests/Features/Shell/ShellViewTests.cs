@@ -530,7 +530,7 @@ public class ShellViewTests
         var pill = harness.Find<Button>("Pill");
         var text = harness.Find<TextBlock>("PillText");
 
-        harness.Shell.JobStatus.PillText = "Taking a snapshot of The Elder Scrolls V: Skyrim Special Edition, Anniversary Edition with every mod…";
+        harness.Shell.JobStatus.PillText = "Taking a snapshot of The Elder Scrolls V: Skyrim Special Edition, Anniversary Edition with every mod and every patch";
         harness.Settle();
 
         var shown = LayoutAudit.BoundsIn(harness.Window, pill);
