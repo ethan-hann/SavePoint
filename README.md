@@ -1,50 +1,64 @@
 # SavePoint
 
-SavePoint keeps a modded game playable exactly as you set it up, while the game itself keeps getting updates. It takes snapshots of the game's files and your saves together. You can switch between setups, go back to any earlier snapshot, and pick up where you left off, and SavePoint never needs to know how a game stores its mods.
+**Quicksave for your whole game folder.**
 
-You keep your game where it is. SavePoint keeps each snapshot in its own storage, and when you switch, it puts the right files back in the game's folders before the game starts.
+You spent a weekend getting 140 mods to load in the right order, and the game finally runs right. Then a patch comes down overnight, half the mods break, and your 60-hour save won't load.
 
-**Status:** pre-release, in active development. This is v2, a native rewrite of the unreleased Electron v1 (see `docs/decisions.md`).
+SavePoint is the undo button for that morning. It takes snapshots of the game's files and your saves together, so you can go back to the exact setup that worked, keep a vanilla install and a modded one side by side, or try that one sketchy mod knowing you can take it all back. It works with any game and any mod manager, because it never needs to know how a game stores its mods. It just remembers what was in the folders.
 
-## What it does
+> **Status:** pre-release. Windows and Linux builds work. macOS hasn't been tried on real hardware yet.
 
-- **Profiles.** Each profile is its own line of play, for example "Vanilla 1.5" and "Modded 1.6". Each keeps its own history of the game's folder and of your saves folder.
-- **Snapshots.** A snapshot records what is on disk now: the game version and mods, the saves, or both. Files are stored once, so a snapshot that changes only a few files costs little space. **Take a snapshot now** records one at any time.
-- **Play from SavePoint.** Pick a profile or a snapshot and press Play. SavePoint shows exactly what it will change, switches the folders, starts the game (a program or a Steam link), and follows it. When you finish, it asks what to do with the session: keep it as a new snapshot, keep it as a new profile, continue the profile from it, or decide later.
-- **Go back any time.** History lists every snapshot, as a list or as cards, and **Go back to this** starts the game from any of them. Snapshots a profile moves past are kept under **Recently removed**, where you can bring one back as a new profile.
-- **Activity.** Every job, such as a snapshot, a switch, or freeing up space, shows its progress and details there, and most can be stopped.
-- **Help built in.** Press F1 for a short illustrated guide, take the tour, or use the "What's this?" buttons. No knowledge of version control is needed.
-- **Your storage, your call.** See how much space each game uses, **Free up space**, move SavePoint's storage to another drive, or remove all of SavePoint's data. None of these touch your game's own files.
-- **Careful by default:**
-  - It refuses whole drives and system folders, and asks before it takes over a folder.
-  - It never switches over new changes: you keep them, discard them, or take a snapshot first.
-  - Anything that can't be undone says so and needs a second confirmation.
-  - Every failure explains what happened and what to do.
-- **Game artwork:** Steam games get their cover art, from the Steam client's local cache or from Steam's servers. Other games show a tint based on their name. Your own image always wins.
-- **Comfortable to use:**
-  - Light and dark themes with five accent colors.
-  - Sidebar and library layouts.
-  - Full keyboard use, screen-reader names and announcements, and reduced motion when the system asks for it.
-  - Notifications when a long job finishes while SavePoint is in the background.
-- **Cross-platform.** One build for Windows, Linux, and macOS. macOS has not yet been tested on real hardware.
+## How it plays
 
-SavePoint bundles its own pinned copy of git and never uses one installed on your machine. Everything stays on your computer. The only network request it ever makes is the optional artwork download from Steam, which you can turn off in Settings.
+1. **Add a game.** Point SavePoint at the game's folder and its saves folder. Steam games get their cover art.
+2. **Take a snapshot.** That's your checkpoint: the game version, the mods, and the saves, as they are right now.
+3. **Press Play in SavePoint.** It puts the right files in place, starts the game, and waits. When you quit, it asks what to do with the session: keep it as a new snapshot, keep it as a new profile, or decide later.
 
-Not supported: games with kernel-level anti-cheat. Turn off a storefront's cloud saves (Steam Cloud, GOG Galaxy) for a game SavePoint manages, or the two will overwrite each other.
+That's the whole loop. Everything else is about having more than one checkpoint.
 
-## Installing
+## What you can do with it
 
-Packages are attached to each release on the repository's releases page.
+- **Run vanilla and modded side by side.** Each profile is its own line of play, like "Vanilla 1.5" and "Survival Overhaul 1.6". Switching between them swaps the files, so you never reinstall anything.
+- **Go back after a bad patch.** History lists every snapshot. Pick the one from before the update, press **Go back to this**, and play.
+- **Try things without worrying.** Take a snapshot, install the risky mod, and play. Didn't work out? Go back. Snapshots a profile moves past aren't thrown away either. They wait under **Recently removed** until you clear them, and you can bring one back as a new profile.
+- **Split your playthrough.** Sided with the wrong faction? Go back to the snapshot from before the choice and keep the new session as its own profile. Both stories stay playable.
+- **See what's happening.** Activity shows every job (a snapshot, a switch, freeing up space) with its progress and details, and you can stop most of them.
+- **Keep the disk in check.** Files are only stored once, so a snapshot that changes just a few saves takes up very little space. **Free up space** shows you what it'll delete before it deletes anything, and you can move SavePoint's storage to another drive.
+- **Make it yours.** Light and dark themes with five accent colors, a sidebar or a library layout, and cover art for Steam games (other games get a color tint from their name, and your own image always wins). It works fully from the keyboard, with screen readers, and with reduced motion, and it sends a notification when a long job finishes while you're in another window.
 
-- **Windows:** run `SavePoint-win-Setup.exe`. It installs for your user only and adds a Start menu shortcut. Or unzip `SavePoint-win-Portable.zip` anywhere and run `SavePoint.exe`. The packages are not code-signed yet, so Windows SmartScreen asks before the first run.
-- **Linux:** make `SavePoint.AppImage` executable and run it.
+New to all this? Press **F1** for a short illustrated guide, take the tour, or click any "What's this?" button. You don't need to know anything about version control.
+
+## Playing it safe
+
+SavePoint only touches the folders you give it, and it's careful with them:
+
+- It won't accept a whole drive or a system folder, and it asks before it takes over a folder.
+- It never switches over new changes in the folders. You keep them, discard them, or take a snapshot first.
+- Anything that can't be undone tells you so and asks a second time.
+- When something goes wrong, it tells you what happened and what to do next, in plain words.
+
+Two things to watch out for:
+
+- **Online games with anti-cheat.** SavePoint never touches a game while it's running, but online games protected by anti-cheat check their own files. Changed or rolled-back files can get your account flagged, and those games can't be modded or rolled back anyway. Games you can play offline with anti-cheat turned off for mods are fine.
+- **Cloud saves.** Turn off Steam Cloud or GOG Galaxy sync for any game SavePoint manages, or the two will keep overwriting each other.
+
+Everything stays on your computer. The only network request SavePoint ever makes is the optional artwork lookup on Steam, and you can turn that off in Settings.
+
+## Install
+
+Grab a package from the latest release:
+
+- **Windows:** run `SavePoint-win-Setup.exe` (it installs for your user and adds a Start menu shortcut), or unzip `SavePoint-win-Portable.zip` anywhere and run `SavePoint.exe`. The packages aren't code-signed yet, so SmartScreen will ask before the first run.
+- **Linux:** run `chmod +x SavePoint.AppImage`, then run the AppImage.
 - **macOS:** not packaged yet.
 
-SavePoint never checks for updates on its own. To update, run a newer setup over the old install. Uninstalling removes the app but keeps your snapshots and settings; to remove those too, use **Settings > Remove all data** first.
+SavePoint never phones home for updates. To update, run a newer setup over the old one. Uninstalling removes the app but keeps your snapshots and settings. If you want those gone too, use **Settings > Remove all data** before you uninstall.
 
-## Building from source
+## Under the hood
 
-You need the .NET 10 SDK; on Windows, also PowerShell 7.
+SavePoint is a native C# app (.NET 10 and Avalonia) that runs on Windows, Linux, and macOS from one build. Snapshots are stored with git, the tool programmers use to track code, so they're compact and every file comes back byte for byte. SavePoint bundles its own pinned copy and never uses one installed on your machine, and you'll never see a git word in the app.
+
+To build it yourself, you need the .NET 10 SDK (and PowerShell 7 on Windows):
 
 ```bash
 dotnet build Savepoint.slnx -c Release
@@ -54,20 +68,21 @@ dotnet build Savepoint.slnx -c Release
 dotnet run --project src/Savepoint.App -c Release
 ```
 
-The first build downloads the pinned git bundle and checks its SHA-256. Running the tests, the gates, and the rules for changes are covered in [docs/developer-guide.md](docs/developer-guide.md).
+The first build downloads the pinned git bundle and checks its SHA-256.
 
 ## Documentation
 
-- [User guide](docs/user-guide.md): how to use SavePoint, for players.
-- [Testing on macOS and Linux](docs/testing-on-mac-and-linux.md): the gate and the manual checks on a Mac or a Linux desktop.
-- [Developer guide](docs/developer-guide.md): building, testing, gates, and the rules for changes.
-- [Architecture](docs/architecture.md): the layers and what each one promises.
-- [Decisions](docs/decisions.md): every departure from, and gap-fill of, the v1 spec, with reasons.
+- [User guide](docs/user-guide.md): every screen and action, for players.
+- [Developer guide](docs/developer-guide.md): building, testing, gates, and packaging.
+- [Architecture](docs/architecture.md) and [Decisions](docs/decisions.md): how it's built and why.
 - [UI guide](docs/ui-guide.md): how to build a screen.
+- [Testing on macOS and Linux](docs/testing-on-mac-and-linux.md): the gate and the manual checks on a Mac or a Linux desktop.
 - [AGENTS.md](AGENTS.md): the working rules for every change.
 
-Planned work is tracked in the repository's issues and milestones, and the manual dogfood checklist is on the wiki.
+Planned work is tracked in the issues and milestones, and the manual dogfood checklist is on the wiki.
 
 ## License
 
-SavePoint is free software: you can redistribute it and modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version ([LICENSE](LICENSE), SPDX `GPL-3.0-or-later`). It comes with no warranty. The bundled git is licensed under GPLv2 and runs as a separate program. The packages ship its license texts, the other third-party notices, and the source offer next to the app ([THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md), `licenses/`, D21).
+SavePoint is free software: you can redistribute it and modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version ([LICENSE](LICENSE), SPDX `GPL-3.0-or-later`). It comes with no warranty.
+
+The bundled git is licensed under GPLv2 and runs as a separate program. Its license texts, the other third-party notices, and the source offer ship next to the app ([THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md), `licenses/`).
