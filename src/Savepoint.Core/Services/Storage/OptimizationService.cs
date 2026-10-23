@@ -3,6 +3,7 @@ using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Git;
+using Savepoint.Core.Services.History;
 using Savepoint.Core.Services.Jobs;
 
 namespace Savepoint.Core.Services.Storage;
@@ -127,13 +128,24 @@ internal sealed class OptimizationService
 
                 // Only the records the player was told about go; one written since stays and keeps its snapshot alive through the reclaim.
                 // A branch a profile names is never among them, whatever the token says.
-                var profileBranches = (await _services.Catalog.ListProfilesAsync(game.Id).ConfigureAwait(false)).Select(profile => GitDirFiles.BranchPrefix + profile.BranchName).ToHashSet(StringComparer.Ordinal);
+                var profiles = await _services.Catalog.ListProfilesAsync(game.Id).ConfigureAwait(false);
+                var profileBranches = profiles.Select(profile => GitDirFiles.BranchPrefix + profile.BranchName).ToHashSet(StringComparer.Ordinal);
                 var records = repos.ToDictionary(
                     repo => repo.Role,
                     repo => confirmed.Records
                         .Where(record => record.GameId == game.Id && record.Folder == repo.Role && !profileBranches.Contains(record.RefName))
                         .Select(record => new ClearedRef(record.RefName, record.Value))
                         .ToList());
+                if (records.Values.Any(refs => refs.Count > 0))
+                {
+                    var (whole, keptBack) = await KeepSnapshotsWholeAsync(storage, repos, profiles, records, context.CancellationToken).ConfigureAwait(false);
+                    records = whole;
+                    if (keptBack > 0)
+                    {
+                        context.AddStep(JobSteps.CompactRemovedKept, ("game", game.Name), ("count", keptBack));
+                    }
+                }
+
                 var (folders, pastTheClear) = records.Values.Any(names => names.Count > 0)
                     ? await FreeUpGameAsync(context, game, storage, repos, records, mode).ConfigureAwait(false)
                     : (await ReclaimFoldersAsync(context, game, storage, repos, mode, context.CancellationToken).ConfigureAwait(false), false);
@@ -149,6 +161,32 @@ internal sealed class OptimizationService
                 return new GameOptimizeOutcome(game.Id, folders, freed);
             },
             context.CancellationToken);
+
+    // A snapshot goes whole or not at all. The preview took every record the snapshot had then; one a folder wrote since (its commit was taken
+    // off a profile again) is a record the player was never told about, and deleting the rest would leave the snapshot in half. A snapshot
+    // with such a record keeps all of them.
+    private static async Task<(Dictionary<RepoRole, List<ClearedRef>> Records, int Kept)> KeepSnapshotsWholeAsync(
+        StorageSnapshot storage,
+        IReadOnlyList<RepoRef> repos,
+        IReadOnlyList<Profile> profiles,
+        Dictionary<RepoRole, List<ClearedRef>> records,
+        CancellationToken cancellationToken)
+    {
+        var state = await RemovedSnapshots.ReadStateAsync(storage, repos, profiles, cancellationToken).ConfigureAwait(false);
+        var agreed = records.Values.SelectMany(refs => refs.Select(item => item.RefName)).ToHashSet(StringComparer.Ordinal);
+        var changed = state.ByFolder.Values
+            .SelectMany(removed => removed)
+            .GroupBy(removed => removed.Commit.CaptureId!, StringComparer.Ordinal)
+            .Where(snapshot => snapshot.Any(removed => agreed.Contains(removed.RefName)) && snapshot.Any(removed => !agreed.Contains(removed.RefName)))
+            .ToList();
+        if (changed.Count == 0)
+        {
+            return (records, 0);
+        }
+
+        var keep = changed.SelectMany(snapshot => snapshot.Select(removed => removed.RefName)).ToHashSet(StringComparer.Ordinal);
+        return (records.ToDictionary(pair => pair.Key, pair => pair.Value.Where(item => !keep.Contains(item.RefName)).ToList()), changed.Count);
+    }
 
     // Each folder on its own: one that refuses or fails is named, and the others still go.
     private static async Task<List<FolderOutcome>> ReclaimFoldersAsync(JobContext context, GameDefinition game, StorageSnapshot storage, IReadOnlyList<RepoRef> repos, OptimizationMode mode, CancellationToken cancellationToken)

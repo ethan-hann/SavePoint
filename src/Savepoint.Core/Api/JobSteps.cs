@@ -53,6 +53,12 @@ public static class JobSteps
     /// <summary>A game's recently removed snapshots the player agreed to lose were deleted, which cannot be undone. Arguments: <c>game</c>.</summary>
     public const string CompactRemovedDeleted = "activity.step.compact.removedDeleted";
 
+    /// <summary>
+    /// Recently removed snapshots the player agreed to lose were kept, because one of their folders took the snapshot off a profile again
+    /// after the player agreed. Arguments: <c>game</c>, <c>count</c>.
+    /// </summary>
+    public const string CompactRemovedKept = "activity.step.compact.removedKept";
+
     /// <summary>Space could not be freed in one folder of a game. Arguments: <c>game</c>, <c>folder</c>.</summary>
     public const string CompactFolderFailed = "activity.step.compact.folderFailed";
 

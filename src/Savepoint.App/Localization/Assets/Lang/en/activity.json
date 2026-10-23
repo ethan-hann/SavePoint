@@ -63,6 +63,7 @@
   "activity.step.compact.game": "Freeing up space for {game}.",
   "activity.step.compact.nothingFreed": "There was nothing to free up for {game}.",
   "activity.step.compact.removedDeleted": "Deleted the recently removed snapshots of {game}.",
+  "activity.step.compact.removedKept": "{count, plural, one {Kept # recently removed snapshot} other {Kept # recently removed snapshots}} of {game}, because {count, plural, one {it was} other {they were}} changed after you agreed to delete {count, plural, one {it} other {them}}.",
   "activity.step.launch.folderInPlace": "The {folder, select, install {game folder} external {saves folder} other {folder}} already matches \"{profile}\", so nothing was switched.",
   "activity.step.launch.folderNotIncluded": "The {folder, select, install {game folder} external {saves folder} other {folder}} stays as it is, because this snapshot doesn't include it.",
   "activity.step.launch.starting": "Starting {game}.",
