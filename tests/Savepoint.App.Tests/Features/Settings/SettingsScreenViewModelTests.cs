@@ -362,7 +362,7 @@ public class SettingsScreenViewModelTests
     }
 
     [Theory]
-    [InlineData("windows", "explorer.exe","/select,\"C:\\App\\THIRD-PARTY-NOTICES.md\"", "")]
+    [InlineData("windows", "explorer.exe", "/select,\"C:\\App\\THIRD-PARTY-NOTICES.md\"", "")]
     [InlineData("macos", "open", "", "-R|/Applications/SavePoint/THIRD-PARTY-NOTICES.md")]
     [InlineData("linux", "xdg-open", "", "/opt/savepoint")]
     public void The_file_manager_is_started_the_way_each_system_expects(string os, string program, string arguments, string argumentList)
