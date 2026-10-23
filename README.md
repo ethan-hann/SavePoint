@@ -8,11 +8,15 @@ SavePoint is the undo button for that morning. It takes snapshots of the game's 
 
 > **Status:** pre-release. Windows and Linux builds work. macOS hasn't been tried on real hardware yet.
 
+![A game with three profiles: a modded playthrough, the vanilla latest update, and a survival test](docs/images/games.png)
+
 ## How it plays
 
 1. **Add a game.** Point SavePoint at the game's folder and its saves folder. Steam games get their cover art.
 2. **Take a snapshot.** That's your checkpoint: the game version, the mods, and the saves, as they are right now.
 3. **Press Play in SavePoint.** It puts the right files in place, starts the game, and waits. When you quit, it asks what to do with the session: keep it as a new snapshot, keep it as a new profile, or decide later.
+
+![After you quit, SavePoint asks what to do with the session](docs/images/after-play.png)
 
 That's the whole loop. Everything else is about having more than one checkpoint.
 
@@ -25,6 +29,8 @@ That's the whole loop. Everything else is about having more than one checkpoint.
 - **See what's happening.** Activity shows every job (a snapshot, a switch, freeing up space) with its progress and details, and you can stop most of them.
 - **Keep the disk in check.** Files are only stored once, so a snapshot that changes just a few saves takes up very little space. **Free up space** shows you what it'll delete before it deletes anything, and you can move SavePoint's storage to another drive.
 - **Make it yours.** Light and dark themes with five accent colors, a sidebar or a library layout, and cover art for Steam games (other games get a color tint from their name, and your own image always wins). It works fully from the keyboard, with screen readers, and with reduced motion, and it sends a notification when a long job finishes while you're in another window.
+
+![History shows every snapshot as a card, each with Go back to this](docs/images/history.png)
 
 New to all this? Press **F1** for a short illustrated guide, take the tour, or click any "What's this?" button. You don't need to know anything about version control.
 
