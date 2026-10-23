@@ -10,6 +10,7 @@
   "activity.details.empty": "Nothing to show yet.",
   "activity.details.heading": "Details",
   "activity.details.jumpToLatest": "Jump to latest",
+  "activity.details.keptNote": "SavePoint no longer keeps this job. It leaves the list when you choose another.",
   "activity.details.linesName": "Details of {title}",
   "activity.empty.body": "When SavePoint takes a snapshot, switches your files, frees up space or moves its folder, the job shows up here.",
   "activity.empty.filteredBody": "Other games have jobs. Show all games to see them.",
