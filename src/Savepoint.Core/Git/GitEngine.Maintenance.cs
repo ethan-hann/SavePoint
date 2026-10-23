@@ -101,6 +101,32 @@ public sealed partial class GitEngine
         }
     }
 
+    // A reclaim notes itself in the git directory (see ReclaimMarker). When the SavePoint that ran it is gone and the git it started last is
+    // still running, that git goes on deleting packs, so anything written meanwhile could lose the only copy of an object that
+    // sat in a pack being replaced. This waits for that git to end, then removes the note. A note whose owner still runs is a reclaim in progress.
+    internal async Task SettleReclaimAsync(string gitDir, CancellationToken ct)
+    {
+        if (!File.Exists(ReclaimMarker.PathIn(gitDir)))
+        {
+            return;
+        }
+
+        if (ReclaimMarker.Read(gitDir) is { } note)
+        {
+            if (note.Owner.IsRunning())
+            {
+                return;
+            }
+
+            if (note.Git is { } git && git.IsRunning())
+            {
+                await git.WaitForExitAsync(ct).ConfigureAwait(false);
+            }
+        }
+
+        ReclaimMarker.Clear(gitDir);
+    }
+
     // An object another operation of this engine has just written but not yet referenced would be pruned.
     private static void RequireAlone(InFlightTable.Scope scope)
     {
@@ -120,10 +146,22 @@ public sealed partial class GitEngine
         using var scope = BeginWrite(repo);
         RequireAlone(scope);
 
-        await RunWriteAsync(() => GitDirOnly(repo, "reflog", "expire", "--expire=now", "--all") with { ReadOnly = false }, ct).ConfigureAwait(false);
-        await RunWriteAsync(() => GitDirOnly(repo, "repack", "-q", "-a", "-d") with { ReadOnly = false }, ct).ConfigureAwait(false);
-        await RunWriteAsync(() => GitDirOnly(repo, "prune", "--expire=now") with { ReadOnly = false }, ct).ConfigureAwait(false);
+        // Noted before git starts and again for each git that does, so a SavePoint that is killed in the middle leaves the next start the process to wait for.
+        ReclaimMarker.Begin(repo.GitDir);
+        try
+        {
+            await RunWriteAsync(() => ReclaimStep(repo, "reflog", "expire", "--expire=now", "--all"), ct).ConfigureAwait(false);
+            await RunWriteAsync(() => ReclaimStep(repo, "repack", "-q", "-a", "-d"), ct).ConfigureAwait(false);
+            await RunWriteAsync(() => ReclaimStep(repo, "prune", "--expire=now"), ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            ReclaimMarker.Clear(repo.GitDir);
+        }
     }
+
+    private static GitInvocation ReclaimStep(RepoRef repo, params string[] arguments) =>
+        GitDirOnly(repo, arguments) with { ReadOnly = false, Started = git => ReclaimMarker.Record(repo.GitDir, git) };
 
     private async Task<long> ObjectStoreFigureAsync(RepoRef repo, string name, CancellationToken ct) =>
         Figure(await CountObjectsAsync(repo, ct).ConfigureAwait(false), name);

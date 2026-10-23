@@ -110,7 +110,7 @@ public class ExitGuardTests
     }
 
     [Fact]
-    public async Task A_free_up_that_has_deleted_snapshots_asks_first_and_staying_leaves_it_alone()
+    public async Task A_free_up_that_has_deleted_snapshots_asks_first_offers_no_quit_anyway_and_staying_leaves_it_alone()
     {
         var (guard, backend, dialogs) = Build();
         dialogs.AnswerConfirm(false);
@@ -123,7 +123,61 @@ public class ExitGuardTests
         var asked = Assert.Single(dialogs.Confirmations);
         Assert.Equal("SavePoint is still working", asked.Title);
         Assert.Contains("freeing up space", asked.Message, StringComparison.Ordinal);
+        Assert.Contains("quit as soon as it is done", asked.Message, StringComparison.Ordinal);
+        Assert.Equal("Quit when it's done", asked.ConfirmLabel);
+        Assert.Equal("Stay open", asked.CancelLabel);
         Assert.Empty(backend.Calls.To<IJobsApi>(nameof(IJobsApi.CancelAsync)));
+    }
+
+    [Fact]
+    public async Task Quitting_while_a_free_up_is_past_its_clear_waits_for_it_to_finish_however_long_that_takes()
+    {
+        var (guard, backend, dialogs) = Build(TimeSpan.FromMilliseconds(100));
+        dialogs.AnswerConfirm(true);
+        var run = FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(MockupScenario.SkyrimId));
+        backend.Jobs.ReportNoLongerCancellable(run.JobId);
+
+        var closing = guard.PrepareToCloseAsync();
+
+        // Five times the bound a cancelled job gets: only a wait for the run itself can hold the close this long.
+        var early = await Task.WhenAny(closing, Task.Delay(500, TestContext.Current.CancellationToken));
+        backend.Jobs.Complete(run.JobId);
+        var allowed = await closing.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        Assert.NotSame(closing, early);
+        Assert.True(allowed);
+        Assert.Empty(backend.Calls.To<IJobsApi>(nameof(IJobsApi.CancelAsync)));
+    }
+
+    [Fact]
+    public async Task A_free_up_that_passes_its_clear_while_another_question_is_open_is_asked_about_and_waited_for_too()
+    {
+        var (guard, backend, dialogs) = Build(TimeSpan.FromMilliseconds(100));
+        dialogs.AnswerConfirm(true, true);
+        var move = FakeAssert.Ok(await backend.Settings.RelocateStorageAsync(@"E:\SavePoint"));
+        var run = FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(MockupScenario.SkyrimId));
+        var passed = false;
+        dialogs.WhileConfirming = _ =>
+        {
+            if (!passed)
+            {
+                passed = true;
+                backend.Jobs.ReportNoLongerCancellable(run.JobId);
+            }
+
+            return Task.CompletedTask;
+        };
+
+        var closing = guard.PrepareToCloseAsync();
+        var early = await Task.WhenAny(closing, Task.Delay(500, TestContext.Current.CancellationToken));
+        backend.Jobs.Complete(run.JobId);
+        var allowed = await closing.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        Assert.NotSame(closing, early);
+        Assert.True(allowed);
+        Assert.Equal(2, dialogs.Confirmations.Count);
+        Assert.Contains("freeing up space", dialogs.Confirmations[1].Message, StringComparison.Ordinal);
+        Assert.Equal([move.JobId], Assert.Single(backend.Calls.To<IJobsApi>(nameof(IJobsApi.CancelAsync))).Args);
     }
 
     [Fact]

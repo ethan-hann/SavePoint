@@ -59,6 +59,9 @@ public sealed record GitInvocation
     /// <summary>The exit codes that count as success; the call fails for any other. Defaults to 0 only.</summary>
     public IReadOnlyCollection<int> AllowedExitCodes { get; init; } = [0];
 
+    // Called with the new process as soon as it has started, before anything is read from it. A reclaim notes it so a later start can find it.
+    internal Action<ProcessStamp>? Started { get; init; }
+
     /// <summary>
     /// Returns a copy that reads its paths from standard input as a NUL-separated list (<c>--pathspec-from-file=-</c>) and
     /// takes them literally (<c>GIT_LITERAL_PATHSPECS=1</c>), which keeps a long list off the command line (Windows allows

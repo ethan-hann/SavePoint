@@ -444,6 +444,7 @@ internal sealed class AppStatusApi : IAppStatusApi
                 {
                     foreach (var gitDir in new[] { "install.git", "external.git" }.Select(name => Path.Combine(folder, name)).Where(Directory.Exists))
                     {
+                        await storage.Engine.SettleReclaimAsync(gitDir, cancellationToken).ConfigureAwait(false);
                         var removed = storage.Engine.RemoveStaleLocks(gitDir);
                         if (removed > 0)
                         {
