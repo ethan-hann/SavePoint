@@ -6,7 +6,7 @@
              x:DataType="samples:ErrorCardGalleryViewModel"
              Width="1040"
              Height="660">
-  <!-- Test-only: the four error states of mockup 2l in a 2x2 grid, with sample copy that is not catalog text. -->
+  <!-- Test-only: the four error card states in a 2x2 grid, with sample copy that is not catalog text. -->
   <Grid Background="{DynamicResource Md3SurfaceBrush}" RowDefinitions="Auto,*,*" ColumnDefinitions="*,*" Margin="0,0,0,27">
     <TextBlock Grid.ColumnSpan="2" Classes="overline" Margin="27,22,0,12" Text="ERROR STATES" />
     <ContentControl Grid.Row="1" Grid.Column="0" Margin="27,0,6,6" Content="{Binding FileInUse}" />

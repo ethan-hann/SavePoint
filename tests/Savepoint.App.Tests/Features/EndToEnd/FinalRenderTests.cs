@@ -12,8 +12,8 @@ using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Tests.Features.EndToEnd;
 
-// Every screen of the mockups (3a, 3b, 2a-2l, 3c and the first run) as the finished app draws it, from the composed app at the
-// mockups' 1040x660 frame, in render-output/final/ to be set beside docs/ui/screenshots.
+// Every screen of the design (both shell layouts, the launch flow, the wizard, editor, History, Settings, the error cards and the
+// first run) as the finished app draws it, from the composed app at the design's 1040x660 frame, in render-output/final/ to be set beside docs/ui/screenshots.
 public class FinalRenderTests
 {
     private const string _area = "final";
@@ -146,8 +146,8 @@ public class FinalRenderTests
         AssertRendered(app.Render(_area, "2k-settings-light"));
     }
 
-    // 2l: the four error states, each as the app shows it: a file in use and a folder gone on the Games screen, half a save
-    // after a session, and a folder that is too broad in the editor; then the four cards together as the mockup draws them.
+    // The four error card states, each as the app shows it: a file in use and a folder gone on the Games screen, half a save
+    // after a session, and a folder that is too broad in the editor; then the four cards together as the design draws them.
     [AvaloniaFact]
     public async Task Error_states_2l()
     {

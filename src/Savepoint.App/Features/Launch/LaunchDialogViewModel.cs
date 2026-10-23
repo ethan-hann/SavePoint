@@ -11,7 +11,7 @@ using Savepoint.Core.Catalog;
 namespace Savepoint.App.Features.Launch;
 
 /// <summary>
-/// The dialog that appears when starting a profile would change something (mockup 2b): what version and mods are
+/// The dialog that appears when starting a profile would change something: what version and mods are
 /// about to be put back, which save will be loaded, and any unsaved changes that have to be dealt with first. It
 /// answers with the target to start, or null when the user cancels. "Switch and play" stays off until every unsaved
 /// change is saved, discarded or kept as a new profile.

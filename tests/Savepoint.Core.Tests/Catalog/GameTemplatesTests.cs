@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Savepoint.Core.Catalog;
 
 namespace Savepoint.Core.Tests.Catalog;
@@ -8,17 +9,34 @@ public class GameTemplatesTests
     public static TheoryData<string> TemplateIds => new(GameTemplates.All.Select(t => t.Id));
 
     [Fact]
-    public void Ships_the_skyrim_and_simple_indie_templates()
+    public void Ships_only_the_skyrim_template()
     {
-        Assert.Equal(["skyrim-se", "simple-indie-example"], GameTemplates.All.Select(t => t.Id));
+        Assert.Equal(["skyrim-se"], GameTemplates.All.Select(t => t.Id));
     }
 
     [Fact]
     public void Display_name_is_the_game_name_from_the_definition()
     {
         Assert.Equal(
-            ["The Elder Scrolls V: Skyrim Special Edition", "A Simple Indie Platformer"],
+            ["The Elder Scrolls V: Skyrim Special Edition"],
             GameTemplates.All.Select(t => t.DisplayName));
+    }
+
+    [Theory]
+    [MemberData(nameof(TemplateIds))]
+    public void Templates_leave_the_install_folder_for_the_player_to_pick(string id)
+    {
+        // A drive-letter path would be wrong on Linux and macOS, and no token names a game's install folder.
+        Assert.Empty(GameTemplates.All.Single(t => t.Id == id).Definition.Install.Path);
+    }
+
+    [Theory]
+    [MemberData(nameof(TemplateIds))]
+    public void Templates_name_the_saves_folder_with_a_path_token(string id)
+    {
+        var external = GameTemplates.All.Single(t => t.Id == id).Definition.External;
+
+        Assert.True(external is null || Regex.IsMatch(external.Path, @"^\{[A-Za-z]+\}"));
     }
 
     [Fact]
@@ -29,7 +47,7 @@ public class GameTemplatesTests
             SchemaVersion = 1,
             Id = "skyrim-se",
             Name = "The Elder Scrolls V: Skyrim Special Edition",
-            Install = new InstallLocation(@"C:\Games\SkyrimSE"),
+            Install = new InstallLocation(),
             External = new ExternalLocation(@"{documents}\My Games\Skyrim Special Edition\Saves", ExternalRole.Saves),
             Launch = new LaunchConfig(
                 LaunchMethod.Exe,
@@ -44,36 +62,16 @@ public class GameTemplatesTests
         Assert.Equal(expected, GameTemplates.All.Single(t => t.Id == "skyrim-se").Definition);
     }
 
-    [Fact]
-    public void Simple_indie_template_matches_the_v1_definition_exactly()
-    {
-        var expected = new GameDefinition
-        {
-            SchemaVersion = 1,
-            Id = "simple-indie-example",
-            Name = "A Simple Indie Platformer",
-            Install = new InstallLocation(@"C:\Games\SimpleIndie"),
-            External = new ExternalLocation(@"{appData}\SimpleIndie\saves", ExternalRole.Saves),
-            Launch = new LaunchConfig(
-                LaunchMethod.Exe,
-                ExePath: "SimpleIndie.exe",
-                Args: [],
-                ProcessNameForExitDetection: "SimpleIndie.exe"),
-            IgnorePaths = [],
-            ModPathHints = ["mods"],
-        };
-
-        Assert.Equal(expected, GameTemplates.All.Single(t => t.Id == "simple-indie-example").Definition);
-    }
-
     [Theory]
     [MemberData(nameof(TemplateIds))]
-    public void Every_template_passes_validation_unchanged(string id)
+    public void Every_template_is_valid_once_the_player_picks_the_install_folder(string id)
     {
         var template = GameTemplates.All.Single(t => t.Id == id);
 
-        Assert.Empty(CatalogValidator.Validate(template.Definition));
-        Assert.Equal(template.Definition, CatalogValidator.Normalize(template.Definition));
+        Assert.Equal(["install.path"], CatalogValidator.Validate(template.Definition).Select(issue => issue.Path));
+        var picked = template.Definition with { Install = new InstallLocation(@"D:\Picked") };
+        Assert.Empty(CatalogValidator.Validate(picked));
+        Assert.Equal(picked, CatalogValidator.Normalize(picked));
         Assert.Equal(template.Id, template.Definition.Id);
     }
 
@@ -93,7 +91,7 @@ public class GameTemplatesTests
         Assert.Equal("the-elder-scrolls-v-skyrim-special-editi-aaaa", draft.Id);
         Assert.NotEqual(template.Id, draft.Id);
         Assert.Equal(template.Definition with { Id = draft.Id }, draft);
-        Assert.Empty(CatalogValidator.Validate(draft));
+        Assert.Equal(["install.path"], CatalogValidator.Validate(draft).Select(issue => issue.Path));
     }
 
     [Fact]

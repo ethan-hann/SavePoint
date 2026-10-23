@@ -7,11 +7,12 @@ public static class GameTemplates
 {
     private const string _resourcePrefix = "Savepoint.Core.Catalog.Templates.";
 
-    private static readonly string[] _files = ["skyrim-se.json", "simple-indie-example.json"];
+    private static readonly string[] _files = ["skyrim-se.json"];
 
     /// <summary>
-    /// Every embedded template in a fixed order: Skyrim Special Edition, then the simple indie platformer example. The display name is the
-    /// game's own name, so Core carries no UI copy. The lists inside each definition are read-only copies.
+    /// Every embedded template in a fixed order. The display name is the game's own name, so Core carries no UI copy. A template leaves
+    /// the install folder empty for the player to pick, because no path works on every operating system. The lists inside each
+    /// definition are read-only copies.
     /// </summary>
     public static IReadOnlyList<GameTemplate> All { get; } = Load();
 

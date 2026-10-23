@@ -5,7 +5,7 @@ using static Savepoint.App.Tests.Fakes.MockupScenario;
 
 namespace Savepoint.App.Tests.Fakes;
 
-// The default scenario must show what the mockup screens show, read back through the Api the screens use.
+// The default scenario must show what the design screens show, read back through the Api the screens use.
 public class MockupScenarioTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;

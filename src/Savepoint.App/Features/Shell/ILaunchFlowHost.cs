@@ -22,7 +22,7 @@ public interface ILaunchFlowHost : INotifyPropertyChanged
 
     /// <summary>
     /// The view model the Games screen shows below the profile table for a game: the "everything was already in place"
-    /// banner (2a) or the running card (2c), or null when there is nothing to show. Its view is found by name.
+    /// banner or the running card, or null when there is nothing to show. Its view is found by name.
     /// </summary>
     object? InlineContentFor(string gameId);
 

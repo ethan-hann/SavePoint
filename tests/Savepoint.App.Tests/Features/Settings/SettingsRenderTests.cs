@@ -7,7 +7,7 @@ using Savepoint.Core.Errors;
 
 namespace Savepoint.App.Tests.Features.Settings;
 
-// Writes PNGs to render-output/settings/ (gitignored) for side-by-side review against 2k and 3c at 1040x660.
+// Writes PNGs to render-output/settings/ (gitignored) for side-by-side review against the Settings screen and layout choice designs at 1040x660.
 public class SettingsRenderTests
 {
     private static void AssertRendered(string path) =>

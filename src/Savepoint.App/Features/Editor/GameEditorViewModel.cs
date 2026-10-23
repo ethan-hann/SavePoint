@@ -11,7 +11,7 @@ using Savepoint.Core.Catalog;
 namespace Savepoint.App.Features.Editor;
 
 /// <summary>
-/// The game editor (mockup 2g): a full pane, opened by the Games screen, that creates a game or edits an existing one.
+/// The game editor: a full pane, opened by the Games screen, that creates a game or edits an existing one.
 /// It builds a <see cref="GameDefinition"/> from the form, asks the user to confirm each new folder, saves through
 /// <see cref="IGamesApi"/>, and closes itself after refreshing the library. Game notes are never shown and always kept (D13.22).
 /// </summary>

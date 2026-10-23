@@ -5,7 +5,7 @@
              xmlns:shell="using:Savepoint.App.Features.Shell"
              x:Class="Savepoint.App.Features.Shell.FirstRunView"
              x:DataType="shell:FirstRunViewModel">
-  <!-- The first-run empty state (mockup 2e). -->
+  <!-- The first-run empty state. -->
   <ScrollViewer VerticalScrollBarVisibility="Auto">
     <StackPanel MaxWidth="640" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="22" Margin="26">
       <Border x:Name="IconTile"

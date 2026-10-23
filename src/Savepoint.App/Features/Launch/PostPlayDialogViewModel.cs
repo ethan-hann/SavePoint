@@ -11,7 +11,7 @@ using Savepoint.Core.Catalog;
 namespace Savepoint.App.Features.Launch;
 
 /// <summary>
-/// The dialog that opens when the game exits (mockup 2d): how long the session was, how many new files there are, and
+/// The dialog that opens when the game exits: how long the session was, how many new files there are, and
 /// radio cards to keep it as a new point, update the latest one, or leave it. A session that started from an older
 /// point offers a new profile, continuing the profile from there, or leaving it instead (D14). It answers with the
 /// completion to apply; Escape and "Not now" answer with <see cref="SessionCompletion.Skip"/>.

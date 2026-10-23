@@ -13,7 +13,7 @@ namespace Savepoint.App.Features.Launch;
 public sealed record LaunchCheckLine(string Icon, string Text, string? Path);
 
 /// <summary>
-/// The "Everything was already in place" banner (mockup 2a), pinned at the bottom of the Games pane while the game starts
+/// The "Everything was already in place" banner, pinned at the bottom of the Games pane while the game starts
 /// without a dialog. It is a polite live region, and Details lists what was checked.
 /// </summary>
 public sealed partial class LaunchBannerViewModel

@@ -54,7 +54,7 @@ public sealed record HistoryDependencies(
     TimeProvider Clock);
 
 /// <summary>
-/// The History screen (mockups 2h and 2j): the points the selected game can go back to, as a timeline and a list of
+/// The History screen: the points the selected game can go back to, as a timeline and a list of
 /// saves or as cards, with a profile filter and a Cards / List choice that lasts for the session. "Go back to this" and
 /// "Load" hand a target to the shell's launch flow. The screen follows the selected game, library refreshes and
 /// finished jobs while it is shown, and reads again each time it comes into view.

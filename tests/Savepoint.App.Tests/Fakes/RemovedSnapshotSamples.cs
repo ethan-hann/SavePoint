@@ -2,7 +2,7 @@ using Savepoint.Core.Api;
 
 namespace Savepoint.App.Tests.Fakes;
 
-// Recently removed snapshots drawn against the mockup's Skyrim profiles, for the fake's tests and the History screen's.
+// Recently removed snapshots drawn against the sample scenario's Skyrim profiles, for the fake's tests and the History screen's.
 public static class RemovedSnapshotSamples
 {
     public const string ModdedName = "Modded playthrough - 7-2-26";
@@ -46,7 +46,7 @@ public static class RemovedSnapshotSamples
         RemovedAt - TimeSpan.FromDays(4),
         RemovedSnapshotReason.ContinuedFromSession);
 
-    // The mockup, with the first two on Skyrim and the third on Satisfactory.
+    // The sample scenario, with the first two on Skyrim and the third on Satisfactory.
     public static ScenarioBuilder Scenario() => ScenarioBuilder.Mockup()
         .WithRemovedSnapshot(MockupScenario.SkyrimId, Replaced)
         .WithRemovedSnapshot(MockupScenario.SkyrimId, Continued)

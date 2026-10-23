@@ -2,7 +2,6 @@
   "schemaVersion": 1,
   "id": "skyrim-se",
   "name": "The Elder Scrolls V: Skyrim Special Edition",
-  "install": { "path": "C:\\Games\\SkyrimSE" },
   "external": { "path": "{documents}\\My Games\\Skyrim Special Edition\\Saves", "role": "saves" },
   "launch": {
     "method": "exe",

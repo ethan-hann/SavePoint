@@ -12,7 +12,7 @@ using Savepoint.Core.Errors;
 namespace Savepoint.App.Features.Settings;
 
 /// <summary>
-/// The "Where SavePoint keeps your snapshots" section (mockup 2k): the storage folder with Change, how much of the drive
+/// The "Where SavePoint keeps your snapshots" section: the storage folder with Change, how much of the drive
 /// SavePoint uses, and the Free up space row. Changing the folder reads what the move would do, asks once naming
 /// the size and the destination, then follows the move as a job with progress and Cancel. Both long jobs are followed
 /// through the jobs Api, so the section is right when the screen is opened while one is already running.

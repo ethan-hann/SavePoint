@@ -6,7 +6,7 @@ using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Tests.Features.Games;
 
-// Writes PNGs to render-output/games/ (gitignored) for side-by-side review against the mockups at 1040x660.
+// Writes PNGs to render-output/games/ (gitignored) for side-by-side review against the Games screen and wizard designs at 1040x660.
 public class GamesRenderTests
 {
     private static void AssertRendered(string path) =>
@@ -63,7 +63,7 @@ public class GamesRenderTests
         AssertRendered(harness.Render("games-row-menu-dark"));
     }
 
-    // ---- The New profile wizard (2f)
+    // ---- The New profile wizard
 
     private static NewProfileWizardViewModel OpenWizard(GamesViewHarness harness)
     {

@@ -56,7 +56,7 @@ public sealed class ScenarioBuilder
     // No games: the first-run screen.
     public static ScenarioBuilder Empty() => new();
 
-    // The data drawn in the mockup screens (3a-3c, 2a-2l).
+    // The sample data behind the design screens: the Games screen, launch flow, editor, History and Settings.
     public static ScenarioBuilder Mockup() => MockupScenario.CreateBuilder();
 
     public ScenarioBuilder WithNow(DateTimeOffset now)

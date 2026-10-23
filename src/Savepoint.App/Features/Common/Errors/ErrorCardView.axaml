@@ -4,7 +4,7 @@
              x:Class="Savepoint.App.Features.Common.Errors.ErrorCardView"
              x:DataType="errors:ErrorCardViewModel">
   <!--
-    The shared error card (mockup 2l): icon and headline, what happened, the path on a recessed monospace surface,
+    The shared error card: icon and headline, what happened, the path on a recessed monospace surface,
     optional extra content, the actions, and a toggle for the developer detail.
   -->
   <Border x:Name="Card"

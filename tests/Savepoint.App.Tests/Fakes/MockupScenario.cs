@@ -4,7 +4,7 @@ using Savepoint.Core.Errors;
 
 namespace Savepoint.App.Tests.Fakes;
 
-// The mockups disagree with each other in places; each seed follows the screen named beside it.
+// The design screens disagree with each other in places; each seed follows the screen named beside it.
 public static class MockupScenario
 {
     public const string SkyrimId = "skyrim-special-edition-k2v9";
@@ -34,7 +34,7 @@ public static class MockupScenario
     public static readonly HistoryPointId FirstNight = new("pt-first-night");
     public static readonly HistoryPointId SurvivalStart = new("pt-survival-test");
 
-    // 2c: the progress dialog part way through switching to the modded profile.
+    // The switching dialog: part way through switching to the modded profile.
     public static readonly JobProgress SwitchProgress = new(
         FilesDone: 812,
         FilesTotal: 1_311,
@@ -42,10 +42,10 @@ public static class MockupScenario
         BytesTotal: 6_100_000_000,
         CurrentPath: @"Data\textures\architecture\whiterun\wrbuilding05.dds");
 
-    // 2c: "started 41 minutes ago".
+    // The running card: "started 41 minutes ago".
     public static readonly DateTimeOffset RunningSince = ScenarioBuilder.DefaultNow - TimeSpan.FromMinutes(41);
 
-    // 2d: "You played for 2 hours 14 minutes", "3 new files".
+    // The post-play dialog: "You played for 2 hours 14 minutes", "3 new files".
     public static readonly TimeSpan PlayDuration = new(2, 14, 0);
     public const int NewSaveFiles = 3;
 
@@ -87,7 +87,7 @@ public static class MockupScenario
         External: new ExternalLocation(@"{localAppData}\TheLastCaretaker\Saved\SaveGames"),
         Launch: new LaunchConfig(LaunchMethod.Exe, ExePath: "TheLastCaretaker.exe"));
 
-    // 2l: the four error cards.
+    // The four error cards.
     public static ErrorInfo FileInUseError { get; } =
         ErrorInfo.From(new GitOperationException(@"C:\Games\SkyrimSE\Data\Skyrim.esm", "unable to unlink Data/Skyrim.esm"));
 
@@ -97,7 +97,7 @@ public static class MockupScenario
 
     public static ErrorInfo FolderGoneError { get; } = ErrorInfo.From(new PathMissingException(@"C:\Games\The Last Caretaker", RepoRole.Install));
 
-    // 2l "Only part of the snapshot was taken": version and mods are in it, saves are not.
+    // The error card "Only part of the snapshot was taken": version and mods are in it, saves are not.
     public static CaptureResult HalfSaved { get; } = new(
         ModdedId,
         BeforeFinalBoss,
@@ -127,7 +127,7 @@ public static class MockupScenario
             new FolderStatus(RepoRole.Install, SkyrimInstall, SkyrimInstall, true, confirmed),
             new FolderStatus(RepoRole.External, SkyrimSavesRaw, SkyrimSaves, true, confirmed));
 
-        // 2f: "212 mod files, 41.2 GB", "18 files", "only add about 2.4 GB".
+        // The New profile wizard preview: "212 mod files, 41.2 GB", "18 files", "only add about 2.4 GB".
         builder.WithCapturePreview(new CapturePreview(
             SkyrimId,
             [
@@ -136,7 +136,7 @@ public static class MockupScenario
             ],
             2_400_000_000));
 
-        // 3a: the profile table; last-played dates give "3 days", "6 weeks", "12 weeks" ago against DefaultNow.
+        // The Games screen's profile table; last-played dates give "3 days", "6 weeks", "12 weeks" ago against DefaultNow.
         builder
             .WithProfile(
                 Profile(ModdedId, SkyrimId, "Modded playthrough - 7-2-26", At(2026, 7, 5, 12, 0)),
@@ -148,7 +148,7 @@ public static class MockupScenario
                 Profile(SurvivalId, SkyrimId, "Survival test - 5-14-26", At(2026, 4, 15, 12, 0)),
                 Stats(SurvivalId, active: false, snapshots: 3, mods: 189, version: "1.6.640", lastPlayed: At(2026, 4, 15, 12, 0), unsaved: [RepoRole.External]));
 
-        // 2h and 2j: one point per capture; "Fresh start with Nolvus" follows the 2j card, so 2h's two entries for it are one point here.
+        // The History list and cards views: one point per capture; "Fresh start with Nolvus" follows the cards view, so the list view's two entries for it are one point here.
         const string modded = "Modded playthrough - 7-2-26";
         const string vanilla = "Vanilla - latest update";
         const string survival = "Survival test - 5-14-26";
@@ -171,7 +171,7 @@ public static class MockupScenario
             new SaveEntry(FreshStart, "Fresh start with Nolvus", At(2026, 7, 2, 17, 47), false),
         };
 
-        // 2a: everything already in place.
+        // The launch banner: everything already in place.
         builder.WithLaunchPreview(new LaunchPreview(
             SkyrimId,
             ModdedId,
@@ -186,7 +186,7 @@ public static class MockupScenario
             OnlySaveDiffers: false,
             TargetIsOlderPoint: false));
 
-        // 2b: from 1.6.1170 without mods to 1.6.640 with 189, three unsaved files in the saves folder.
+        // The launch dialog: from 1.6.1170 without mods to 1.6.640 with 189, three unsaved files in the saves folder.
         builder.WithLaunchPreview(new LaunchPreview(
             SkyrimId,
             SurvivalId,

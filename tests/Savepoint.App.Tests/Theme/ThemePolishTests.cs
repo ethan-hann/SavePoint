@@ -11,7 +11,7 @@ namespace Savepoint.App.Tests.Theme;
 // Findings from the theme review: the warning family is gold, the accent swatches need the raw seeds, and a recessed well shows in light mode.
 public class ThemePolishTests
 {
-    // The gold the mockup draws the game editor's Steam callout in (#F5D488 text on an olive fill).
+    // The gold the design draws the game editor's Steam callout in (#F5D488 text on an olive fill).
     private const uint _mockupGold = 0xFFF5D488;
 
     public static TheoryData<AccentColorId, bool> EveryAccentAndMode()

@@ -115,7 +115,7 @@ public class UiFormatterTests
         Assert.Equal("Jul 2, 2026", English(timeZone: _centralDaylight).Date(captured));
     }
 
-    // 2026-07-05 23:42 in the mockup's zone, the saves list's top row.
+    // 2026-07-05 23:42 in the sample scenario's zone, the saves list's top row.
     private static readonly DateTimeOffset _lateSunday = new(2026, 7, 5, 23, 42, 0, TimeSpan.FromHours(-5));
 
     [Fact]

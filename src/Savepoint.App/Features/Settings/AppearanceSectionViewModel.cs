@@ -7,7 +7,7 @@ using Savepoint.Core.Catalog;
 namespace Savepoint.App.Features.Settings;
 
 /// <summary>
-/// The Appearance section (mockups 2k and 3c): theme, layout, accent and whether game artwork may be looked up online. A theme
+/// The Appearance section: theme, layout, accent and whether game artwork may be looked up online. A theme
 /// or accent choice is saved and the shell follows at once; a layout choice goes through the shell, which saves it, and the
 /// selection follows the shell when the layout changes on the Games screen. The artwork switch is saved when it is flipped and
 /// has the tiles read their artwork again. A choice that fails to save goes back to what is stored.

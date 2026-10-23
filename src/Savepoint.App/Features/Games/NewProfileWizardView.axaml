@@ -7,9 +7,9 @@
              xmlns:dialogs="using:Savepoint.App.Features.Common.Dialogs"
              x:Class="Savepoint.App.Features.Games.NewProfileWizardView"
              x:DataType="games:NewProfileWizardViewModel">
-  <!-- The New profile wizard (2f): Name it, Check, Save, in a 620px dialog. -->
+  <!-- The New profile wizard: Name it, Check, Save, in a 620px dialog. -->
   <UserControl.Styles>
-    <!-- The label above a field takes the accent color while the field has focus, as in the mockup. -->
+    <!-- The label above a field takes the accent color while the field has focus, as in the other dialogs. -->
     <Style Selector="StackPanel.field:focus-within > TextBlock.field-label">
       <Setter Property="Foreground" Value="{DynamicResource Md3PrimaryBrush}" />
     </Style>
