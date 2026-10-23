@@ -103,11 +103,19 @@ public sealed partial class ActivityScreenViewModel : ObservableObject, IScreen,
                 return;
             }
 
+            var left = _selected;
             _selected = value;
             _details = value is null ? null : new JobDetailsViewModel(value, _words, _deps.Jobs, _deps.Dialogs, _deps.Text, Announce);
             OnPropertyChanged();
             OnPropertyChanged(nameof(Details));
             OnPropertyChanged(nameof(ShowDetails));
+
+            // A job that was only kept for the reader to finish reading goes now that another is chosen.
+            if (left is not null && value is not null && Forgotten(left))
+            {
+                Forget();
+                RefreshRows();
+            }
         }
     }
 
@@ -278,16 +286,26 @@ public sealed partial class ActivityScreenViewModel : ObservableObject, IScreen,
     }
 
     // The jobs shown are the registry's to keep: a finished job it has let go of (five per game) is forgotten here too, so a long
-    // session never shows more than the footer promises. A job still running stays whatever the registry says.
+    // session never shows more than the footer promises. A job still running stays whatever the registry says, and so does the one the
+    // reader has open, with a note that it is no longer kept, until another is chosen: the details they are reading never change under them.
     private void Forget()
     {
         var listed = _deps.Jobs.List().Select(job => job.JobId).ToHashSet();
         foreach (var old in _known.Values.Where(row => !row.IsRunning && !listed.Contains(row.JobId)).ToList())
         {
+            if (ReferenceEquals(old, _selected))
+            {
+                _details?.MarkNoLongerKept();
+                continue;
+            }
+
             _known.Remove(old.JobId);
             _order.Remove(old.JobId);
         }
     }
+
+    private bool Forgotten(JobRowViewModel row) =>
+        !row.IsRunning && _deps.Jobs.List().All(job => job.JobId != row.JobId);
 
     private bool Matches(JobRowViewModel row) =>
         IsAllGames || (_shell.SelectedGame is { } game && row.Job.GameId == game.Id);

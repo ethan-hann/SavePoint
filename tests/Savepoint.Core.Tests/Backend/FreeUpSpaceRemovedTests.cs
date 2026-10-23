@@ -1,6 +1,7 @@
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
+using Savepoint.Core.Git;
 
 namespace Savepoint.Core.Tests.Backend;
 
@@ -88,6 +89,47 @@ public class FreeUpSpaceRemovedTests
         Assert.True(await world.ObjectExistsAsync(RepoRole.External, savesRecord));
     }
 
+    // A snapshot is listed while one of its commits is off every profile's branch, so the preview takes the records of its other folder too,
+    // although a profile still holds that commit. When that profile then takes the commit off, its folder records the commit again under a
+    // new name the player was never told about; deleting the old record and keeping the new one would leave half of the snapshot.
+    [Fact(Timeout = 240_000)]
+    public async Task A_snapshot_one_of_whose_commits_is_removed_again_while_the_free_up_waits_is_kept_whole()
+    {
+        using var world = await RemovedWorld.CreateAsync();
+        BackendWorkspace.WriteFile(Path.Combine(world.Game.Install.Path, "mods", "b.esp"), "another mod");
+        BackendWorkspace.WriteFile(Path.Combine(world.Game.External!.Path, "slot3.sav"), "third save");
+        var both = await RemovedWorld.CaptureAsync(world.Workspace, world.Game, world.Profile, "Both again", RepoRole.Install, RepoRole.External);
+        var copy = (await world.Workspace.Profiles.DuplicateAsync(world.Game.Id, world.Profile.Id, "Copy")).Value!;
+        await world.ContinueFromFirstAsync();
+        var preview = (await world.Workspace.Games.GetFreeUpSpacePreviewAsync(world.Game.Id, world.Workspace.Token)).Value!;
+        Assert.Equal(new[] { both.Value, world.SavesOnly.Value }.Order(StringComparer.Ordinal), (await world.ListAsync()).Select(snapshot => snapshot.Id.Value).Order(StringComparer.Ordinal));
+
+        // The free-up queues behind a capture, and the copy is continued from the first snapshot in the meantime.
+        var inside = new TaskCompletionSource();
+        var release = new TaskCompletionSource();
+        var capture = world.Workspace.Backend.Services.RunForGameAsync(
+            world.Game.Id,
+            async (_, _) =>
+            {
+                inside.SetResult();
+                await release.Task;
+                return 0;
+            },
+            world.Workspace.Token);
+        await inside.Task;
+        var started = await world.Workspace.Games.OptimizeStorageAsync(world.Game.Id, preview.Token);
+        await ContinueInstallAsync(world, copy.BranchName);
+        release.SetResult();
+        await capture;
+        var job = await world.Workspace.WaitForJobAsync(started.Value!.JobId);
+
+        Assert.Equal(JobStatus.Succeeded, job.Status);
+        var left = (await world.ListAsync()).ToDictionary(snapshot => snapshot.Id);
+        Assert.Equal(HistoryPointKind.VersionModsAndSave, left[both].Kind);
+        Assert.DoesNotContain(world.SavesOnly, left.Keys);
+        Assert.Contains(job.RecentLines.OfType<JobLine.Step>(), step => step.MessageId == JobSteps.CompactRemovedKept);
+    }
+
     [Fact(Timeout = 240_000)]
     public async Task A_free_up_deletes_the_snapshots_the_preview_counted_and_keeps_one_removed_after_it()
     {
@@ -124,6 +166,36 @@ public class FreeUpSpaceRemovedTests
         Assert.Equal(JobStatus.Succeeded, job.Status);
         Assert.Empty(await alpha.ListAsync());
         Assert.Equal(2, (await beta.ListAsync()).Count);
+    }
+
+    [Fact(Timeout = 240_000)]
+    public async Task One_games_failed_clear_is_reported_for_that_game_and_the_run_over_every_game_goes_on()
+    {
+        var hooks = new GitHooks();
+        using var alpha = await RemovedWorld.CreateAsync(options => options with { Engine = new GitEngineOptions { InvocationObserver = hooks.Observe } });
+        using var beta = await RemovedWorld.CreateAsync(shared: alpha.Workspace, name: "Beta");
+        await alpha.ContinueFromFirstAsync();
+        await beta.ContinueFromFirstAsync();
+        var betaBefore = (await beta.ListAsync()).Select(snapshot => (snapshot.Id, snapshot.Kind)).ToList();
+        var preview = await alpha.Workspace.Settings.GetFreeUpSpacePreviewAsync(alpha.Workspace.Token);
+        hooks.OnGit = invocation =>
+        {
+            if (invocation.Arguments[0] == "update-ref" && invocation.Arguments.Contains("savepoint: free up space") && invocation.GitDir!.Contains(beta.Game.Id, StringComparison.Ordinal))
+            {
+                throw new IOException("The disk reported an error.");
+            }
+        };
+
+        var started = await alpha.Workspace.Settings.OptimizeAllStorageAsync(preview.Value!.Token);
+        var job = await alpha.Workspace.WaitForJobAsync(started.Value!.JobId);
+
+        Assert.Equal(JobStatus.Partial, job.Status);
+        var result = Assert.IsType<OptimizeResult>(job.Result);
+        Assert.All(result.Games.Single(game => game.GameId == alpha.Game.Id).Folders, folder => Assert.True(folder.Ok));
+        Assert.All(result.Games.Single(game => game.GameId == beta.Game.Id).Folders, folder => Assert.False(folder.Ok));
+        Assert.Empty(await alpha.ListAsync());
+        Assert.Equal(betaBefore, (await beta.ListAsync()).Select(snapshot => (snapshot.Id, snapshot.Kind)));
+        Assert.NotNull((await alpha.Workspace.Settings.GetStorageSummaryAsync(alpha.Workspace.Token)).Value!.LastOptimizedAt);
     }
 
     [Fact(Timeout = 240_000)]
@@ -193,5 +265,16 @@ public class FreeUpSpaceRemovedTests
 
         Assert.False(result.Ok);
         Assert.Equal(new GameNotFoundException("no-such-game").MessageId, result.Error.MessageId);
+    }
+
+    // The install folder alone goes back to the first snapshot on the profile's branch, as a continue does: what it takes off is recorded.
+    private static async Task ContinueInstallAsync(RemovedWorld world, string branch)
+    {
+        var storage = await world.Workspace.Backend.Services.Storage.GetAsync(world.Workspace.Token);
+        var repo = world.RepoOf(storage, RepoRole.Install);
+        var start = (await storage.Engine.ListCommitsAsync(repo, branch, ct: world.Workspace.Token)).Single(commit => commit.CaptureId == world.First.Value);
+        await storage.Engine.CheckoutCommitAsync(repo, start.Id, ct: world.Workspace.Token);
+        var request = new CaptureRequest(branch, "Continued", Guid.NewGuid().ToString("D")) { Mode = CaptureMode.MoveForward, ExpectedStartCommit = start.Id };
+        await storage.Engine.CaptureAsync(repo, request, ct: world.Workspace.Token);
     }
 }

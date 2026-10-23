@@ -19,7 +19,36 @@ public sealed partial class GitEngine
         IReadOnlySet<string> Written,
         IReadOnlySet<string> Removed);
 
-    private static StringComparer PathComparer => OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+    // How the work tree's system compares two spellings of a path. Windows and macOS treat names that differ only in case as one file; so
+    // does a drive mounted on Linux that ignores case (NTFS, exFAT), which only the drive can say.
+    private StringComparer PathComparerFor(RepoRef repo) =>
+        (_options.SystemIgnoresCase ?? (OperatingSystem.IsWindows() || OperatingSystem.IsMacOS())) || DriveIgnoresCase(repo.WorkTree)
+            ? StringComparer.OrdinalIgnoreCase
+            : StringComparer.Ordinal;
+
+    // True when the drive the folder is on treats names that differ only in case as one. Asked for the folder (or the nearest folder above it
+    // with a letter in its name) under the same name with every letter's case swapped, such a drive answers yes though its parent lists only
+    // the original spelling. What the question cannot settle (a parent that cannot be listed, no letter on the way up) counts as a drive that
+    // tells cases apart, which only makes the checks stricter.
+    internal static bool DriveIgnoresCase(string folder) => DriveIgnoresCase(folder, Directory.Exists, ListedName);
+
+    // The file system's two answers are passed in, so a test can play a drive that tells cases apart on a machine whose drive does not.
+    internal static bool DriveIgnoresCase(string folder, Func<string, bool> folderExists, Func<string, string, string> listedName)
+    {
+        for (var current = folder; Path.GetDirectoryName(current) is { } parent; current = parent)
+        {
+            var name = Path.GetFileName(current);
+            var swapped = new string([.. name.Select(letter => char.IsUpper(letter) ? char.ToLowerInvariant(letter) : char.ToUpperInvariant(letter))]);
+            if (string.Equals(swapped, name, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            return folderExists(Path.Combine(parent, swapped)) && !string.Equals(listedName(parent, swapped), swapped, StringComparison.Ordinal);
+        }
+
+        return false;
+    }
 
     // What the switch will write and remove. After an unfinished switch HEAD may already be at the target, so the point the
     // unfinished switch started from counts too.
@@ -33,7 +62,8 @@ public sealed partial class GitEngine
         }
 
         // A name that differs from a removed one only in case is the same file on this system, and the target holds it.
-        var target = all.Where(change => change.Status != 'D').Select(change => change.Path).ToHashSet(PathComparer);
+        var comparer = PathComparerFor(repo);
+        var target = all.Where(change => change.Status != 'D').Select(change => change.Path).ToHashSet(comparer);
         var paths = all.Select(change => change.Path).ToHashSet(StringComparer.Ordinal);
         var named = await NamedAmongAsync(repo, paths, ct).ConfigureAwait(false);
         var gone = all
@@ -48,7 +78,7 @@ public sealed partial class GitEngine
             named,
             all.Where(change => change.Status != 'D' && named.Contains(change.Path)).Select(change => change.Path).ToHashSet(StringComparer.Ordinal),
             all.Where(change => change.Status != 'D' && !named.Contains(change.Path)).Select(change => change.Path).ToHashSet(StringComparer.Ordinal),
-            all.Where(change => change.Status == 'D' && !named.Contains(change.Path)).Select(change => change.Path).ToHashSet(PathComparer));
+            all.Where(change => change.Status == 'D' && !named.Contains(change.Path)).Select(change => change.Path).ToHashSet(comparer));
     }
 
     // Refuses, before anything is written, a switch that would run over work that is not saved: unsaved changes in the folder, or

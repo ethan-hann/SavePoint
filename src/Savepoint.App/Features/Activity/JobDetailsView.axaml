@@ -70,6 +70,12 @@
                  IsVisible="{Binding HasStopNote}"
                  AutomationProperties.LiveSetting="Polite"
                  Text="{Binding StopNote}" />
+      <TextBlock x:Name="KeptNoteText"
+                 Classes="caption"
+                 Margin="0,4,0,0"
+                 TextWrapping="Wrap"
+                 IsVisible="{Binding IsNoLongerKept}"
+                 Text="{Binding KeptNote}" />
     </StackPanel>
 
     <ContentControl x:Name="ErrorHost" Content="{Binding Error}" IsVisible="{Binding HasError}" />

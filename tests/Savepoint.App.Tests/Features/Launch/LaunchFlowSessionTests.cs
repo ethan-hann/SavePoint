@@ -323,8 +323,8 @@ public class LaunchFlowSessionTests : IDisposable
     }
 
     [Theory]
-    [InlineData(RepoRole.Install, "Your game version and mods had a newer snapshot than the one you chose to replace, so SavePoint kept this session there as a new snapshot instead. Nothing was replaced or removed.")]
-    [InlineData(RepoRole.External, "Your saves had a newer snapshot than the one you chose to replace, so SavePoint kept this session there as a new snapshot instead. Nothing was replaced or removed.")]
+    [InlineData(RepoRole.Install, "Your game version and mods didn't end with the snapshot you chose to replace, so SavePoint added this session there as a new snapshot instead. The other snapshots there are as they were.")]
+    [InlineData(RepoRole.External, "Your saves didn't end with the snapshot you chose to replace, so SavePoint added this session there as a new snapshot instead. The other snapshots there are as they were.")]
     public async Task A_replacement_that_became_a_new_snapshot_in_a_folder_says_so_instead_of_vanishing_as_a_plain_success(RepoRole kept, string body)
     {
         await _f.PlayToExitedAsync();
@@ -338,6 +338,25 @@ public class LaunchFlowSessionTests : IDisposable
         Assert.Equal("Kept as a new snapshot", card.Title);
         Assert.Equal(body, card.Body);
         Assert.Equal(ErrorTone.Neutral, card.Tone);
+        Assert.Equal(["Dismiss"], card.Actions.Select(a => a.Label));
+    }
+
+    [Fact]
+    public async Task A_replacement_that_became_a_new_snapshot_in_one_folder_is_not_hidden_by_the_other_folder_being_left_alone()
+    {
+        await _f.PlayToExitedAsync();
+        await _f.PostPlay.SaveCommand.ExecuteAsync(null);
+
+        _f.Backend.Jobs.Complete(
+            CaptureJob(),
+            new CaptureResult(MockupScenario.ModdedId, MockupScenario.BeforeFinalBoss, [new FolderOutcome(RepoRole.Install, KeptAsNew: true), new FolderOutcome(RepoRole.External, null, LeftAlone: true, LeftOnBranch: "profile/other")]));
+
+        var card = _f.Inline<ErrorCardViewModel>();
+        Assert.Equal("Part of that session isn't in the snapshot", card.Title);
+        Assert.Equal(
+            "Your saves weren't included, because you played them from another profile's snapshot. Anything that changed in them is still in your game folders, and SavePoint asks about it the next time you play. "
+            + "Your game version and mods didn't end with the snapshot you chose to replace, so SavePoint added this session there as a new snapshot instead. The other snapshots there are as they were.",
+            card.Body);
         Assert.Equal(["Dismiss"], card.Actions.Select(a => a.Label));
     }
 

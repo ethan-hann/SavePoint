@@ -155,9 +155,54 @@ public class ActivityScreenViewModelTests
             rig.Pass(TimeSpan.FromMinutes(1));
         }
 
+        // The first job is the one whose details are open, so it stays beside the five until another job is chosen.
+        rig.Screen.SelectedRow = rig.Screen.Rows[0];
+
         Assert.Equal(5, rig.Screen.Rows.Count);
         Assert.Equal(started.Skip(3).Reverse(), rig.Screen.Rows.Select(row => row.JobId));
         Assert.Equal(5, rig.Screen.Rows.Count(row => !row.IsRunning));
+    }
+
+    // The registry keeps five finished jobs per game; the one the reader has open must not be swapped for another under their eyes.
+    [Fact]
+    public async Task The_job_being_read_stays_when_the_registry_lets_it_go_says_so_and_goes_when_another_job_is_chosen()
+    {
+        var rig = await ActivityRig.ShownAsync();
+        var first = await rig.StartFreeUpAsync();
+        rig.Backend.Jobs.Complete(first);
+        rig.Pass(TimeSpan.FromMinutes(1));
+        rig.Screen.SelectedRow = RowWhere(rig, row => row.JobId == first);
+        var newer = new List<Guid>();
+        for (var i = 0; i < 5; i++)
+        {
+            newer.Add(await rig.StartFreeUpAsync());
+            rig.Backend.Jobs.Complete(newer[^1]);
+            rig.Pass(TimeSpan.FromMinutes(1));
+        }
+
+        // Six finished jobs are known; the registry has let the first one go.
+        Assert.Equal(6, rig.Screen.Rows.Count);
+        Assert.Equal(first, Details(rig).Row.JobId);
+        Assert.True(Details(rig).IsNoLongerKept);
+        Assert.Equal("SavePoint no longer keeps this job. It leaves the list when you choose another.", Details(rig).KeptNote);
+
+        rig.Screen.SelectedRow = RowWhere(rig, row => row.JobId == newer[^1]);
+
+        Assert.Equal(newer.AsEnumerable().Reverse(), rig.Screen.Rows.Select(row => row.JobId));
+        Assert.False(Details(rig).IsNoLongerKept);
+        Assert.Empty(Details(rig).KeptNote);
+    }
+
+    [Fact]
+    public async Task A_job_the_registry_still_keeps_says_nothing_about_being_kept()
+    {
+        var rig = await ActivityRig.ShownAsync();
+        var id = await rig.StartFreeUpAsync();
+        rig.Backend.Jobs.Complete(id);
+        rig.Screen.SelectedRow = RowWhere(rig, row => row.JobId == id);
+
+        Assert.False(Details(rig).IsNoLongerKept);
+        Assert.Empty(Details(rig).KeptNote);
     }
 
     [Fact]

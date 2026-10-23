@@ -189,7 +189,7 @@ internal sealed class FakeState
     public FreeUpSpacePreview FreeUpPreview(string? gameId)
     {
         var counted = Removed.Where(removed => gameId is null || removed.GameId == gameId).ToList();
-        return new FreeUpSpacePreview(counted.Count, new FreeUpSpaceToken([.. counted.Select(removed => new FreeUpSpaceRecord(removed.GameId, RepoRole.Install, removed.Snapshot.Id.Value))]));
+        return new FreeUpSpacePreview(counted.Count, new FreeUpSpaceToken([.. counted.Select(removed => new FreeUpSpaceRecord(removed.GameId, RepoRole.Install, removed.Snapshot.Id.Value, removed.Snapshot.Id.Value))]));
     }
 
     // A run deletes the snapshots its token names and no others, so one removed after the preview survives it.

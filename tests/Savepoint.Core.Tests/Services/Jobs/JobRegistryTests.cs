@@ -662,6 +662,40 @@ public class JobRegistryTests
         await FinishedAsync(registry, held.Id);
     }
 
+    // The token of a job that is asked to stop is cancelled a moment after the request is recorded, so a job that reads the token alone can
+    // pass its point of no return with a stop already accepted.
+    [Fact]
+    public async Task A_job_is_told_when_a_stop_was_already_accepted_as_it_says_it_can_no_longer_be_stopped()
+    {
+        var registry = new JobRegistry();
+        var held = new HeldJob(registry);
+        var context = await held.Context;
+        Assert.Equal(JobCancelOutcome.Requested, registry.Cancel(held.Id));
+
+        var asked = context.NoLongerCancellable();
+
+        Assert.True(asked);
+        Assert.True(registry.Get(held.Id)!.CancelRequested);
+        held.Throw(new OperationCanceledException(context.CancellationToken));
+        var done = await FinishedAsync(registry, held.Id);
+        Assert.Equal(JobStatus.Cancelled, done.Status);
+    }
+
+    [Fact]
+    public async Task A_job_nobody_asked_to_stop_is_told_so_and_a_later_stop_is_refused()
+    {
+        var registry = new JobRegistry();
+        var held = new HeldJob(registry);
+        var context = await held.Context;
+
+        var asked = context.NoLongerCancellable();
+
+        Assert.False(asked);
+        Assert.Equal(JobCancelOutcome.NotCancellable, registry.Cancel(held.Id));
+        held.Finish();
+        await FinishedAsync(registry, held.Id);
+    }
+
     [Fact]
     public async Task Saying_a_job_can_no_longer_be_stopped_twice_or_after_it_ended_changes_nothing()
     {

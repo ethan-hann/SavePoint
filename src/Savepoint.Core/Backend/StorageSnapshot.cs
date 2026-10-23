@@ -41,4 +41,16 @@ public sealed class StorageSnapshot
     /// <exception cref="ArgumentException">The id is not one the catalog accepts.</exception>
     public string GitDirectory(string gameId, RepoRole role) =>
         Path.Combine(GameDirectory(gameId), role == RepoRole.Install ? "install.git" : "external.git");
+
+    // Waits for a reclaim a SavePoint that was killed left running in either folder of the game, before anything writes there.
+    internal async Task SettleReclaimsAsync(string gameId, CancellationToken ct)
+    {
+        if (!CatalogValidator.IsValidGameId(gameId))
+        {
+            return;
+        }
+
+        await Engine.SettleReclaimAsync(GitDirectory(gameId, RepoRole.Install), ct).ConfigureAwait(false);
+        await Engine.SettleReclaimAsync(GitDirectory(gameId, RepoRole.External), ct).ConfigureAwait(false);
+    }
 }

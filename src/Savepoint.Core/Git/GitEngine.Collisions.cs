@@ -35,7 +35,7 @@ public sealed partial class GitEngine
         }
 
         var named = await NamedAmongAsync(repo, differing, ct).ConfigureAwait(false);
-        await RefuseFileFolderClashAsync(repo, differing.Where(path => !named.Contains(path)).ToHashSet(StringComparer.Ordinal), new HashSet<string>(PathComparer), unsavedFilesGo: true, ct).ConfigureAwait(false);
+        await RefuseFileFolderClashAsync(repo, differing.Where(path => !named.Contains(path)).ToHashSet(StringComparer.Ordinal), new HashSet<string>(), unsavedFilesGo: true, ct).ConfigureAwait(false);
     }
 
     // written: the paths the operation will write as files. removed: the paths of tracked files it removes itself.

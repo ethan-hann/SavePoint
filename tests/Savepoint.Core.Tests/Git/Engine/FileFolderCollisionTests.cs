@@ -12,11 +12,22 @@ public sealed class FileFolderCollisionTests : IDisposable
 {
     private const string _clash = "error.launch.fileFolderClash";
 
-    private readonly EngineWorkspace _ws = new(options => options with { ResyncDelays = [TimeSpan.FromMilliseconds(20), TimeSpan.FromMilliseconds(20)] });
+    private EngineWorkspace _ws = NewWorkspace(null);
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     public void Dispose() => _ws.Dispose();
+
+    private static EngineWorkspace NewWorkspace(bool? systemIgnoresCase) =>
+        new(options => options with { ResyncDelays = [TimeSpan.FromMilliseconds(20), TimeSpan.FromMilliseconds(20)], SystemIgnoresCase = systemIgnoresCase });
+
+    // Makes the engine compare names the way a Linux machine does before it has looked at the drive, whatever this machine is. On Windows the
+    // drive ignores case, which is what a Linux machine sees on a mounted NTFS, exFAT or FAT drive.
+    private void CompareAsLinuxDoes()
+    {
+        _ws.Dispose();
+        _ws = NewWorkspace(false);
+    }
 
     public enum Operation
     {
@@ -404,11 +415,19 @@ public sealed class FileFolderCollisionTests : IDisposable
     // ---- a file system that ignores case --------------------------------------------------------------------------------------
 
     [Theory]
-    [InlineData(Operation.Switch)]
-    [InlineData(Operation.ForcedSwitch)]
-    [InlineData(Operation.Discard)]
-    public async Task A_folder_that_differs_from_the_files_name_only_in_case_holds_the_player_s_file_just_the_same(Operation operation)
+    [InlineData(Operation.Switch, false)]
+    [InlineData(Operation.ForcedSwitch, false)]
+    [InlineData(Operation.Discard, false)]
+    [InlineData(Operation.Switch, true)]
+    [InlineData(Operation.ForcedSwitch, true)]
+    [InlineData(Operation.Discard, true)]
+    public async Task A_folder_that_differs_from_the_files_name_only_in_case_holds_the_player_s_file_just_the_same(Operation operation, bool asOnLinux)
     {
+        if (asOnLinux)
+        {
+            CompareAsLinuxDoes();
+        }
+
         Assert.SkipUnless(IgnoresCase(_ws.Root), "The file system tells Mods/Foo and Mods/foo apart.");
         var repo = await PairAsync("Mods/Foo", "Mods/foo");
         if (operation == Operation.Discard)
@@ -426,9 +445,41 @@ public sealed class FileFolderCollisionTests : IDisposable
         await AssertRefusedAsync(thrown, repo, before, "folderHoldsFiles", "Mods/Foo", "Mods/foo/data.bin", ("Mods/foo/data.bin", "the player's own file"));
     }
 
-    [Fact]
-    public async Task A_file_whose_name_differs_from_the_folders_only_in_case_is_in_the_way_just_the_same()
+    // The folder holds only what the switch removes itself, spelled the way the point it leaves spelled it: nothing of the player's is in the
+    // way, so the file is written.
+    [Theory]
+    [InlineData(Operation.Switch, false)]
+    [InlineData(Operation.ForcedSwitch, false)]
+    [InlineData(Operation.Switch, true)]
+    [InlineData(Operation.ForcedSwitch, true)]
+    public async Task A_folder_holding_only_what_the_switch_removes_is_replaced_by_the_file_whatever_the_case_of_its_name(Operation operation, bool asOnLinux)
     {
+        if (asOnLinux)
+        {
+            CompareAsLinuxDoes();
+        }
+
+        Assert.SkipUnless(IgnoresCase(_ws.Root), "The file system tells Mods/Foo and Mods/foo apart.");
+        var repo = await PairAsync("Mods/Foo", "Mods/foo");
+
+        var thrown = await RunAsync(operation, repo, "profile-a");
+
+        Assert.Null(thrown);
+        Assert.Equal("a's file", await File.ReadAllTextAsync(_ws.FileOf(repo, "Mods/Foo"), Ct));
+        Assert.Equal("refs/heads/profile-a", await _ws.HeadRefAsync(repo));
+        Assert.True((await _ws.Engine.GetStatusAsync(repo, Ct)).IsClean);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_file_whose_name_differs_from_the_folders_only_in_case_is_in_the_way_just_the_same(bool asOnLinux)
+    {
+        if (asOnLinux)
+        {
+            CompareAsLinuxDoes();
+        }
+
         Assert.SkipUnless(IgnoresCase(_ws.Root), "The file system tells Mods/Foo and Mods/foo apart.");
         var repo = await PairAsync("Mods/Foo", "Mods/foo");
         await _ws.Engine.CheckoutBranchAsync(repo, "profile-c", ct: Ct);
@@ -439,6 +490,70 @@ public sealed class FileFolderCollisionTests : IDisposable
         var thrown = await RunAsync(Operation.Switch, repo, "profile-b");
 
         await AssertRefusedAsync(thrown, repo, before, "fileInTheWay", "Mods/foo", "Mods/FOO", ("Mods/FOO", "the player's own file"));
+    }
+
+    // ---- telling the two kinds of drive apart ---------------------------------------------------------------------------------------
+
+    [Fact]
+    public void A_drive_that_ignores_case_is_found_out_from_a_folder_on_it()
+    {
+        Assert.SkipUnless(IgnoresCase(_ws.Root), "The file system tells names that differ in case apart.");
+
+        Assert.True(GitEngine.DriveIgnoresCase(_ws.GamesRoot));
+    }
+
+    // A drive that holds Mods/Foo and Mods/foo as two folders must never be taken for one that ignores case, or the check would let a switch
+    // delete a file of the player's that it does not remove itself.
+    [Fact]
+    public void A_drive_that_tells_cases_apart_is_not_taken_for_one_that_ignores_it_even_when_both_spellings_exist()
+    {
+        Assert.SkipWhen(IgnoresCase(_ws.Root), "The file system ignores case, so both spellings cannot exist.");
+        Directory.CreateDirectory(Path.Combine(_ws.GamesRoot, "Mods"));
+        Directory.CreateDirectory(Path.Combine(_ws.GamesRoot, "MODS"));
+
+        Assert.False(GitEngine.DriveIgnoresCase(Path.Combine(_ws.GamesRoot, "Mods")));
+        Assert.False(GitEngine.DriveIgnoresCase(Path.Combine(_ws.GamesRoot, "mods")));
+    }
+
+    [Fact]
+    public void A_folder_that_does_not_exist_is_taken_to_tell_cases_apart()
+    {
+        Assert.False(GitEngine.DriveIgnoresCase(Path.Combine(_ws.GamesRoot, "NoSuchFolder")));
+    }
+
+    // The drive's two answers played by hand, so the guard against a drive that tells cases apart is tried on a machine whose drive does not.
+    private static readonly string _games = Path.Combine(Path.GetTempPath(), "Games");
+
+    [Fact]
+    public void A_drive_that_answers_for_the_other_spelling_though_its_folder_lists_only_the_first_ignores_case()
+    {
+        var folder = Path.Combine(_games, "Mods");
+
+        Assert.True(GitEngine.DriveIgnoresCase(folder, path => path == Path.Combine(_games, "mODS"), (_, name) => "Mods"));
+    }
+
+    // Listing the parent hands back the name it was asked about when it holds that exact entry, and also when it cannot be read.
+    [Fact]
+    public void A_drive_that_lists_the_other_spelling_as_an_entry_of_its_own_tells_cases_apart()
+    {
+        var folder = Path.Combine(_games, "Mods");
+
+        Assert.False(GitEngine.DriveIgnoresCase(folder, _ => true, (_, name) => name));
+    }
+
+    [Fact]
+    public void A_drive_that_does_not_answer_for_the_other_spelling_tells_cases_apart()
+    {
+        Assert.False(GitEngine.DriveIgnoresCase(Path.Combine(_games, "Mods"), _ => false, (_, _) => "Mods"));
+    }
+
+    [Fact]
+    public void A_name_with_no_letter_in_it_is_asked_about_through_the_nearest_folder_above_that_has_one()
+    {
+        var folder = Path.Combine(_games, "Mods", "2048");
+
+        Assert.True(GitEngine.DriveIgnoresCase(folder, path => path == Path.Combine(_games, "mODS"), (_, _) => "Mods"));
+        Assert.False(GitEngine.DriveIgnoresCase(folder, path => path == Path.Combine(_games, "mods"), (_, _) => "Mods"));
     }
 
     private static bool IgnoresCase(string folder)

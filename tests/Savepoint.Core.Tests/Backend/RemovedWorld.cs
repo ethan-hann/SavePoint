@@ -67,6 +67,27 @@ internal sealed class RemovedWorld : IDisposable
         }
     }
 
+    // A both-folder snapshot besides the two single-folder ones, all three taken off the profile by a continue from the first, so a clear
+    // that reaches one folder and not the other shows as a changed kind. The hooks see every git call the engine makes.
+    public static async Task<RemovedWorld> AfterContinueAsync(GitHooks hooks)
+    {
+        var world = await CreateAsync(options => options with { Engine = new GitEngineOptions { InvocationObserver = hooks.Observe } });
+        try
+        {
+            BackendWorkspace.WriteFile(Path.Combine(world.Game.Install.Path, "mods", "b.esp"), "another mod");
+            BackendWorkspace.WriteFile(Path.Combine(world.Game.External!.Path, "slot3.sav"), "third save");
+            await CaptureAsync(world.Workspace, world.Game, world.Profile, "Both again", RepoRole.Install, RepoRole.External);
+            await world.ContinueFromFirstAsync();
+            Assert.Equal(3, (await world.ListAsync()).Count);
+            return world;
+        }
+        catch
+        {
+            world.Dispose();
+            throw;
+        }
+    }
+
     public static async Task<HistoryPointId> CaptureAsync(BackendWorkspace workspace, GameDefinition game, Profile profile, string name, params RepoRole[] folders)
     {
         var started = await workspace.Profiles.CaptureAsync(game.Id, profile.Id, name, folders);

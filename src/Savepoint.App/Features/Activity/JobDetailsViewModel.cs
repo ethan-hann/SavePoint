@@ -75,6 +75,25 @@ public sealed partial class JobDetailsViewModel : ObservableObject
     /// <summary>True when <see cref="StopNote"/> has something to say.</summary>
     public bool HasStopNote => StopNote.Length > 0;
 
+    /// <summary>True when SavePoint has stopped keeping this job but still shows it, because the reader has it open.</summary>
+    public bool IsNoLongerKept { get; private set; }
+
+    /// <summary>Says <see cref="IsNoLongerKept"/> in words; empty while the job is kept.</summary>
+    public string KeptNote => IsNoLongerKept ? _text.Message("activity.details.keptNote") : string.Empty;
+
+    /// <summary>Says the job is shown only because the reader has it open: SavePoint no longer keeps it.</summary>
+    public void MarkNoLongerKept()
+    {
+        if (IsNoLongerKept)
+        {
+            return;
+        }
+
+        IsNoLongerKept = true;
+        OnPropertyChanged(nameof(IsNoLongerKept));
+        OnPropertyChanged(nameof(KeptNote));
+    }
+
     /// <summary>The accessible name of the Cancel button, which says which job it stops.</summary>
     public string CancelAutomationName => _text.Message("activity.cancel.automationName", ("title", _row.Title));
 

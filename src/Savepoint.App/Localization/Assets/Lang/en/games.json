@@ -33,7 +33,7 @@
   "games.profileTable.delete": "Delete",
   "games.profileTable.deleteConfirm.confirm": "Delete profile",
   "games.profileTable.deleteConfirm.message": "This deletes the {name} profile and all its snapshots. This can't be undone.",
-  "games.profileTable.deleteConfirm.messageOnlyRemoved": "{count, plural, one {# snapshot is} other {# snapshots are}} only in this profile, and {count, plural, one {it is} other {they are}} also in Recently removed. Deleting the profile puts {count, plural, one {it} other {them}} back there until you next free up space. Nothing is deleted for good.",
+  "games.profileTable.deleteConfirm.messageOnlyRemoved": "{count, plural, one {# snapshot is} other {# snapshots are}} only in this profile. Deleting the profile puts {count, plural, one {it} other {them}} in Recently removed until you next free up space. Nothing is deleted for good.",
   "games.profileTable.deleteConfirm.messageWithPoints": "{count, plural, one {# snapshot is} other {# snapshots are}} only in this profile. Deleting it deletes {count, plural, one {that snapshot} other {those snapshots}} for good and frees the space soon after. This can't be undone.",
   "games.profileTable.deleteConfirm.messageWithPointsAndRemoved": "{count, plural, one {# snapshot is} other {# snapshots are}} only in this profile. Deleting it deletes {count, plural, one {that snapshot} other {those snapshots}} for good and frees the space soon after. {back, plural, one {# more snapshot goes} other {# more snapshots go}} back to Recently removed until you next free up space. This can't be undone.",
   "games.profileTable.deleteConfirm.title": "Delete {name}?",

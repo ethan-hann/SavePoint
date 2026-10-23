@@ -444,12 +444,19 @@ internal sealed class AppStatusApi : IAppStatusApi
                 {
                     foreach (var gitDir in new[] { "install.git", "external.git" }.Select(name => Path.Combine(folder, name)).Where(Directory.Exists))
                     {
+                        await storage.Engine.SettleReclaimAsync(gitDir, cancellationToken).ConfigureAwait(false);
                         var removed = storage.Engine.RemoveStaleLocks(gitDir);
                         if (removed > 0)
                         {
                             _services.Log.Information($"Startup check: removed {removed} leftover lock or temporary files from {gitDir}.");
                         }
                     }
+                }
+
+                // A free-up that was cut off between its two folders is finished now, so no snapshot is listed in half.
+                foreach (var folder in StorageContent.Folders(storage.Root))
+                {
+                    await FinishFreeUpAsync(storage, Path.GetFileName(folder), cancellationToken).ConfigureAwait(false);
                 }
             }
 
@@ -460,6 +467,24 @@ internal sealed class AppStatusApi : IAppStatusApi
             var root = e.Args.GetValueOrDefault("path") as string ?? string.Empty;
             _services.Log.Warning($"Startup check: storage folder {root} cannot be reached.", e);
             return new StorageStatus(false, root, ErrorInfo.From(e));
+        }
+    }
+
+    // A clear that cannot be finished now keeps its note and is tried again next start; the check must not fail because of it.
+    private async Task FinishFreeUpAsync(StorageSnapshot storage, string gameId, CancellationToken cancellationToken)
+    {
+        if (!CatalogValidator.IsValidGameId(gameId))
+        {
+            return;
+        }
+
+        try
+        {
+            await FreeUpIntent.FinishAsync(storage, gameId, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is SavepointException or IOException)
+        {
+            _services.Log.Warning($"Startup check: the free-up that was cut off for game {gameId} could not be finished, and will be tried again at the next start.", e);
         }
     }
 }

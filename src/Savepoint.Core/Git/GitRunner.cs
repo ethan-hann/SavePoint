@@ -81,6 +81,8 @@ public sealed class GitRunner
             throw new GitUnavailableException(_binary.ExecutablePath, $"git could not be started: {e.Message}", e);
         }
 
+        NoteStarted(invocation, process);
+
         // Cancelled by the caller, or by a callback that threw.
         using var abort = CancellationTokenSource.CreateLinkedTokenSource(ct);
         using var stdinStop = CancellationTokenSource.CreateLinkedTokenSource(abort.Token);
@@ -137,6 +139,33 @@ public sealed class GitRunner
             // Tasks that were given up on end (or fail) by themselves; nobody is left to look at their result.
             _ = readers.ContinueWith(static t => _ = t.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
             _ = stdin.ContinueWith(static t => _ = t.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+        }
+    }
+
+    // A caller that cannot record the process must not be left with one running that it does not know of, so git is stopped and the failure is the caller's.
+    private static void NoteStarted(GitInvocation invocation, Process process)
+    {
+        if (invocation.Started is not { } started || ProcessStamp.Of(process) is not { } stamp)
+        {
+            return;
+        }
+
+        try
+        {
+            started(stamp);
+        }
+        catch
+        {
+            try
+            {
+                process.Kill(entireProcessTree: true);
+            }
+            catch (Exception e) when (e is InvalidOperationException or Win32Exception)
+            {
+                // Already gone.
+            }
+
+            throw;
         }
     }
 
