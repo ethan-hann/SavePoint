@@ -7,7 +7,7 @@
              x:Class="Savepoint.App.Features.Launch.PostPlayDialogView"
              x:DataType="launch:PostPlayDialogViewModel">
   <!--
-    The post-play dialog (mockup 2d). The choices are radio cards: arrow keys move the selection, Tab leaves the group,
+    The post-play dialog. The choices are radio cards: arrow keys move the selection, Tab leaves the group,
     and the name field inside the selected card is reachable by Tab.
   -->
   <dialogs:DialogFrame>

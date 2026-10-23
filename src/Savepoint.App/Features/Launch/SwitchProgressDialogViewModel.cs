@@ -8,7 +8,7 @@ using Savepoint.Core.Api;
 namespace Savepoint.App.Features.Launch;
 
 /// <summary>
-/// The progress dialog shown while a profile is switched in (mockup 2c): what is being put back, a bar that is
+/// The progress dialog shown while a profile is switched in: what is being put back, a bar that is
 /// determinate once the job reports totals, the bytes or files done with a time left, the path being written, and
 /// Cancel. It cannot be dismissed; the launch flow closes it when the switch ends. Progress is announced at each quarter through
 /// <see cref="Announcement"/>.

@@ -10,7 +10,7 @@ namespace Savepoint.App.Theme;
 /// </summary>
 public static class ThemeRoles
 {
-    // Seeds whose hue D22 uses for the roles M3 does not define; the warning hue is the mockup's gold, not the amber preset.
+    // Seeds whose hue D22 uses for the roles M3 does not define; the warning hue is the design's gold, not the amber preset.
     private const uint _warningHueSeed = 0xFFF5D488;
     private const uint _successHueSeed = 0xFF2E7D32;
 

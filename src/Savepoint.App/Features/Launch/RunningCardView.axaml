@@ -5,7 +5,7 @@
              xmlns:launch="using:Savepoint.App.Features.Launch"
              x:Class="Savepoint.App.Features.Launch.RunningCardView"
              x:DataType="launch:RunningCardViewModel">
-  <!-- The running card (mockup 2c): not a dialog, so the rest of the app stays usable while the game runs. -->
+  <!-- The running card: not a dialog, so the rest of the app stays usable while the game runs. -->
   <Border x:Name="Card"
           Background="{DynamicResource Md3SurfaceContainerHighBrush}"
           CornerRadius="16"

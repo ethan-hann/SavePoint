@@ -43,7 +43,7 @@ public class GamesScreenViewTests
     private static FakeBackend NoProfiles() =>
         new(ScenarioBuilder.Empty().WithSettings(MockupScenario.Settings).WithVolume(210 * MockupScenario.Gb, 131 * MockupScenario.Gb).WithGame(MockupScenario.Caretaker, 9_400_000_000));
 
-    // ---- The sidebar layout (3a)
+    // ---- The sidebar layout
 
     [AvaloniaFact]
     public async Task The_sidebar_layout_shows_the_header_chips_table_and_footer()
@@ -472,7 +472,7 @@ public class GamesScreenViewTests
         Assert.Contains("212", harness.VisibleTexts());
     }
 
-    // ---- The library layout (3b)
+    // ---- The library layout
 
     [AvaloniaFact]
     public async Task The_library_layout_shows_a_title_with_the_buttons_and_leaves_out_the_rest()

@@ -32,7 +32,7 @@ public sealed record SettingsDependencies(
     SettingsEnvironment Environment);
 
 /// <summary>
-/// The Settings screen (mockups 2k and 3c): where SavePoint keeps its data, appearance, what happens when a game
+/// The Settings screen: where SavePoint keeps its data, appearance, what happens when a game
 /// stops, a way to remove all of SavePoint's data, and About. It reads the stored settings each time it is shown, so
 /// a change made elsewhere (the layout toggle on the Games screen) is never overwritten by a stale copy.
 /// </summary>

@@ -3,7 +3,7 @@
              xmlns:launch="using:Savepoint.App.Features.Launch"
              x:Class="Savepoint.App.Features.Launch.FolderOutcomeListView"
              x:DataType="launch:FolderOutcomeListViewModel">
-  <!-- The two-line status list in the "Only part of the snapshot was taken" card (mockup 2l). -->
+  <!-- The two-line status list in the "Only part of the snapshot was taken" card. -->
   <ItemsControl x:Name="Rows" ItemsSource="{Binding Rows}">
     <ItemsControl.ItemsPanel>
       <ItemsPanelTemplate>

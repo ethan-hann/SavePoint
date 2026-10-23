@@ -25,7 +25,7 @@ public class ShellViewTests
     private static IEnumerable<string?> VisibleTexts(ShellViewHarness harness) =>
         harness.All<TextBlock>().Where(block => block.IsEffectivelyVisible && block.Opacity > 0).Select(block => block.Text);
 
-    // ---- The sidebar layout (3a)
+    // ---- The sidebar layout
 
     [AvaloniaFact]
     public async Task The_sidebar_layout_shows_the_rail_and_hides_the_top_bar_and_shelf()
@@ -152,7 +152,7 @@ public class ShellViewTests
         Assert.Equal(AutomationLandmarkType.Navigation, AutomationProperties.GetLandmarkType(harness.Find<Border>("Rail")));
     }
 
-    // ---- The library layout (3b)
+    // ---- The library layout
 
     [AvaloniaFact]
     public async Task The_library_layout_shows_the_top_bar_and_the_shelf_and_hides_the_rail()
@@ -357,7 +357,7 @@ public class ShellViewTests
         Assert.All(nav, item => Assert.Null(ToolTip.GetTip(item)));
     }
 
-    // ---- First run (2e)
+    // ---- First run
 
     [AvaloniaFact]
     public async Task An_empty_library_shows_the_first_run_state_in_the_content_region()
@@ -449,7 +449,7 @@ public class ShellViewTests
 
         Assert.Contains("Start from a template", texts);
         Assert.Contains("The Elder Scrolls V: Skyrim Special Edition", texts);
-        Assert.Contains("A Simple Indie Platformer", texts);
+        Assert.DoesNotContain("A Simple Indie Platformer", texts);
     }
 
     // ---- The overlays

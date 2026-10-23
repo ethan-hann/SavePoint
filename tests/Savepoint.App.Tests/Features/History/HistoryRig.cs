@@ -13,7 +13,7 @@ using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Tests.Features.History;
 
-// The real shell with the History screen the production factory builds, over the fake backend; times read in the mockup's zone (UTC-5).
+// The real shell with the History screen the production factory builds, over the fake backend; times read in the sample scenario's zone (UTC-5).
 internal sealed class HistoryRig
 {
     private HistoryRig(ShellRig shell, HistoryScreenViewModel screen, ScriptedLaunchFlow flow, FakeBackend backend, UiFormatter text, FakeDialogs dialogs)

@@ -6,7 +6,7 @@
              x:DataType="games:DuplicateProfileDialogViewModel">
   <!-- Copy a profile under a new name. -->
   <UserControl.Styles>
-    <!-- The label above a field takes the accent color while the field has focus, as in the mockup. -->
+    <!-- The label above a field takes the accent color while the field has focus, as in the other dialogs. -->
     <Style Selector="StackPanel.field:focus-within > TextBlock.field-label">
       <Setter Property="Foreground" Value="{DynamicResource Md3PrimaryBrush}" />
     </Style>

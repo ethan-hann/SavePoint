@@ -7,7 +7,7 @@
              xmlns:help="using:Savepoint.App.Features.Help"
              x:Class="Savepoint.App.Features.Settings.SettingsScreenView"
              x:DataType="settings:SettingsScreenViewModel">
-  <!-- The Settings screen: mockups 2k (light) and 3c (the layout choice). -->
+  <!-- The Settings screen: the storage, appearance and layout sections. -->
   <UserControl.Styles>
     <!-- The uppercase label over each section's card. -->
     <Style Selector="TextBlock.section-label">

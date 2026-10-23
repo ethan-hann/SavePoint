@@ -7,7 +7,7 @@
              x:Class="Savepoint.App.Features.Editor.GameEditorView"
              x:DataType="editor:GameEditorViewModel">
   <!--
-    The game editor (mockup 2g), a full pane: a header with back, title, Export or Import and Save, then two columns.
+    The game editor, a full pane: a header with back, title, Export or Import and Save, then two columns.
     Left: name, install folder, saves folder, files to ignore. Right: how to start the game, how SavePoint knows the
     game stopped, and the folders that hold mods. A problem with a field shows under that field.
   -->

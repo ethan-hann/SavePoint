@@ -13,7 +13,7 @@ public class TourStartTests
 {
     private sealed class Pane;
 
-    // The mockup's library for a player who has not seen the tour.
+    // The sample library for a player who has not seen the tour.
     private static FakeBackend Unseen() => new(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { TourSeen = false }));
 
     // A game with no profile yet: the Games screen shows its empty state, which has nothing for the tour to point at.

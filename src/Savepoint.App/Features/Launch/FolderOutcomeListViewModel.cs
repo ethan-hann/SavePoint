@@ -11,6 +11,6 @@ public sealed record FolderOutcomeRow(string Icon, string Text, bool IsOk, bool 
     public bool IsFailed => !IsOk && !IsLeftAlone;
 }
 
-/// <summary>The two-line status list inside the "Only part of the snapshot was taken" card (mockup 2l).</summary>
+/// <summary>The two-line status list inside the "Only part of the snapshot was taken" card.</summary>
 /// <param name="Rows">One row per folder the capture touched.</param>
 public sealed record FolderOutcomeListViewModel(IReadOnlyList<FolderOutcomeRow> Rows);

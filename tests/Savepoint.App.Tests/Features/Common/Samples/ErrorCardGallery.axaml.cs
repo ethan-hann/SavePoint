@@ -15,7 +15,7 @@ public partial class ErrorCardGallery : UserControl
     }
 }
 
-// The same four cards the mockup draws; the half-saved one is custom because it is not a single error.
+// The same four cards the error screens show; the half-saved one is custom because it is not a single error.
 public sealed class ErrorCardGalleryViewModel
 {
     public ErrorCardGalleryViewModel(UiFormatter text)

@@ -5,7 +5,7 @@
              xmlns:launch="using:Savepoint.App.Features.Launch"
              x:Class="Savepoint.App.Features.Launch.SwitchProgressDialogView"
              x:DataType="launch:SwitchProgressDialogViewModel">
-  <!-- The switching dialog (mockup 2c). The hidden region speaks the start and each quarter. -->
+  <!-- The switching dialog. The hidden region speaks the start and each quarter. -->
   <StackPanel>
     <a11y:AnnouncementRegion x:Name="ProgressAnnouncer" Message="{Binding Announcement}" />
     <TextBlock x:Name="TitleText" Classes="dialog-title" TextWrapping="Wrap" Text="{Binding Title}" />

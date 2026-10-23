@@ -5,7 +5,7 @@
              xmlns:launch="using:Savepoint.App.Features.Launch"
              x:Class="Savepoint.App.Features.Launch.LaunchBannerView"
              x:DataType="launch:LaunchBannerViewModel">
-  <!-- The "Everything was already in place" banner (mockup 2a), a polite live region, pinned at the bottom of the Games pane. -->
+  <!-- The "Everything was already in place" banner, a polite live region, pinned at the bottom of the Games pane. -->
   <Border x:Name="Banner"
           Classes="callout info"
           CornerRadius="16"

@@ -5,7 +5,7 @@ using Savepoint.App.Features.Common.Formatting;
 namespace Savepoint.App.Features.Shell;
 
 /// <summary>
-/// The first-run empty state (mockup 2e): shown in place of the Games screen while the library has no games. Its
+/// The first-run empty state: shown in place of the Games screen while the library has no games. Its
 /// buttons are the shell's own commands; the storage note is split around the path so the path can be drawn in monospace.
 /// </summary>
 public sealed partial class FirstRunViewModel : ObservableObject

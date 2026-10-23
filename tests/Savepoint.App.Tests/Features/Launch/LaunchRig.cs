@@ -10,7 +10,7 @@ using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Tests.Features.Launch;
 
-// Everything a launch view model needs, wired to the fake backend with one clock: the mockup's central time zone, so dates read as drawn.
+// Everything a launch view model needs, wired to the fake backend with one clock: the sample scenario's central time zone, so dates read as designed.
 internal sealed class LaunchRig : IDisposable
 {
     public static readonly TimeZoneInfo CentralDaylight = TimeZoneInfo.CreateCustomTimeZone("cdt", TimeSpan.FromHours(-5), "CDT", "CDT");

@@ -39,7 +39,7 @@ public sealed record SaveOutcomeRow(string Icon, bool Succeeded, string Text);
 public sealed record SaveOutcomeListViewModel(IReadOnlyList<SaveOutcomeRow> Rows);
 
 /// <summary>
-/// The New profile wizard (2f): Name it, Check, Save. Step one names the profile and previews what will be captured;
+/// The New profile wizard: Name it, Check, Save. Step one names the profile and previews what will be captured;
 /// step two reviews it; step three runs the capture as a job, shows its progress, and ends in success, in the
 /// "Only part of the snapshot was taken" card with a retry for the folder that failed, or in a failure the user can try again.
 /// Closing the dialog during the save is allowed: the job carries on and the shell's job indicator reports how it ended.

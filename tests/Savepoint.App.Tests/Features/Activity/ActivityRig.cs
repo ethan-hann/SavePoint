@@ -11,7 +11,7 @@ using static Savepoint.App.Tests.Fakes.MockupScenario;
 
 namespace Savepoint.App.Tests.Features.Activity;
 
-// The real shell with the Activity screen the production factory builds, over the fake backend; times read in the mockup's zone (UTC-5).
+// The real shell with the Activity screen the production factory builds, over the fake backend; times read in the sample scenario's zone (UTC-5).
 internal sealed class ActivityRig
 {
     private ActivityRig(ShellRig shell, ActivityScreenViewModel screen, FakeBackend backend, UiFormatter text, FakeDialogs dialogs)

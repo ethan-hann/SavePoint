@@ -8,7 +8,7 @@
              xmlns:help="using:Savepoint.App.Features.Help"
              x:Class="Savepoint.App.Features.History.HistoryScreenView"
              x:DataType="history:HistoryScreenViewModel">
-  <!-- The History screen: mockup 2h (list) and 2j (cards). -->
+  <!-- The History screen: the list view and the cards view. -->
   <UserControl.Styles>
     <!-- Timeline: an 11px dot per entry on a 2px rail; the point in use has a filled dot. -->
     <Style Selector="Border.timeline-dot">

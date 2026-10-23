@@ -19,7 +19,7 @@ public sealed partial class GameEditorViewModel
         SteamAppId,
     }
 
-    // Errors about one folder are drawn under that folder's field with the 2l copy; every other id is a card above the form.
+    // Errors about one folder are drawn under that folder's field with the error card's copy; every other id is a card above the form.
     private static readonly string[] _folderErrorIds =
     [
         "error.pathSafety.tier1Blocked",

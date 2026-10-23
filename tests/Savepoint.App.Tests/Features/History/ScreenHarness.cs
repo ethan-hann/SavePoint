@@ -16,7 +16,7 @@ using Savepoint.Core.Catalog;
 namespace Savepoint.App.Tests.Features.History;
 
 // The whole window over the fake backend with only the screen under test registered, so a render shows it the way the shell does.
-// Times read in the mockup's zone and "this week" runs from the fake clock; the launch flow is scripted so buttons are enabled.
+// Times read in the sample scenario's zone and "this week" runs from the fake clock; the launch flow is scripted so buttons are enabled.
 internal sealed class ScreenHarness : IDisposable
 {
     private readonly ThemeHost _host;

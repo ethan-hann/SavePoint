@@ -8,7 +8,7 @@
              xmlns:help="using:Savepoint.App.Features.Help"
              x:Class="Savepoint.App.Features.Launch.LaunchDialogView"
              x:DataType="launch:LaunchDialogViewModel">
-  <!-- The launch dialog (mockup 2b): what will change, which save loads, and anything unsaved that has to be dealt with first. -->
+  <!-- The launch dialog: what will change, which save loads, and anything unsaved that has to be dealt with first. -->
   <UserControl.Styles>
     <Style Selector="Border.section">
       <Setter Property="Background" Value="{DynamicResource Md3CardBrush}" />
