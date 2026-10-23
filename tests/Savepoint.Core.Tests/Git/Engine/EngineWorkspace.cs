@@ -344,6 +344,18 @@ internal sealed class EngineWorkspace : IDisposable
         return result.ExitCode == 0 ? result.StandardOutput.Trim() : null;
     }
 
+    // What a plain git init writes for a key on this file system, or null when it writes nothing (core.ignorecase is written only on a case-insensitive one).
+    public async Task<string?> PlainInitConfigAsync(string key)
+    {
+        var folder = Path.Combine(Root, "plain-init-" + Interlocked.Increment(ref _folders));
+        Directory.CreateDirectory(folder);
+        await Runner.RunAsync(new GitInvocation(["init", "--quiet"]) { WorkingDirectory = folder }, TestContext.Current.CancellationToken);
+        var result = await Runner.RunAsync(
+            new GitInvocation(["config", "--local", "--get", key]) { WorkingDirectory = folder, ReadOnly = true, AllowedExitCodes = [0, 1] },
+            TestContext.Current.CancellationToken);
+        return result.ExitCode == 0 ? result.StandardOutput.Trim() : null;
+    }
+
     public void Dispose() => GitWorkspace.DeleteDirectory(Root);
 
     private static void RequireGitDir(RepoRef repo) =>
