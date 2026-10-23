@@ -3,7 +3,7 @@
     "SessionStart": [
       {
         "hooks": [
-          { "type": "command", "command": "pwsh -NoProfile -Command \"& (Join-Path ([Environment]::GetFolderPath('UserProfile')) '.claude/afk/afk-bootstrap.ps1')\"" }
+          { "type": "command", "command": "pwsh -NoProfile -Command \"$p = Join-Path ([Environment]::GetFolderPath('UserProfile')) '.claude/afk/afk-bootstrap.ps1'; if (Test-Path $p) { & $p }\"" }
         ]
       }
     ]
