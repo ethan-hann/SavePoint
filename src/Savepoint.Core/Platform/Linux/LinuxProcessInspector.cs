@@ -45,11 +45,41 @@ public sealed class LinuxProcessInspector : IProcessInspector
         {
             // A process that exits mid-read has no comm any more; skip it.
             var name = File.ReadAllText(Path.Combine(dir, "comm")).TrimEnd('\n', '\r');
+            if (HasExited(dir))
+            {
+                return null;
+            }
+
             return new RunningProcess(pid, name, ReadExecutable(dir), ReadFirstArgument(dir));
         }
         catch (Exception ex) when (IsReadFailure(ex))
         {
             return null;
+        }
+    }
+
+    /// <summary>
+    /// True when a <c>/proc/&lt;pid&gt;/stat</c> line says the process has exited: a zombie (Z) waits for its parent to collect it,
+    /// and a dead one (X) is about to vanish. Both still have a folder in /proc but run nothing.
+    /// </summary>
+    /// <param name="statLine">The stat file's text; the state letter follows the process name, which is in brackets and may hold brackets itself.</param>
+    internal static bool IsExitedState(string statLine)
+    {
+        var close = statLine.LastIndexOf(')');
+        var state = close >= 0 ? statLine.AsSpan(close + 1).TrimStart() : default;
+        return !state.IsEmpty && state[0] is 'Z' or 'X' or 'x';
+    }
+
+    // A process without a readable stat (a made-up /proc, or one that is mid-exit) counts as running; the other files decide.
+    private static bool HasExited(string dir)
+    {
+        try
+        {
+            return IsExitedState(File.ReadAllText(Path.Combine(dir, "stat")));
+        }
+        catch (Exception ex) when (IsReadFailure(ex))
+        {
+            return false;
         }
     }
 
