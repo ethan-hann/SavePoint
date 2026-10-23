@@ -2,11 +2,11 @@
 
 **Quicksave for your whole game folder.**
 
-You spent a weekend getting 140 mods to load in the right order. The game runs beautifully. Then a patch lands overnight, half the mods break, and your 60-hour save won't load.
+You spent a weekend getting 140 mods to load in the right order, and the game finally runs right. Then a patch comes down overnight, half the mods break, and your 60-hour save won't load.
 
 SavePoint is the undo button for that morning. It takes snapshots of the game's files and your saves together, so you can go back to the exact setup that worked, keep a vanilla install and a modded one side by side, or try that one sketchy mod knowing you can take it all back. It works with any game and any mod manager, because it never needs to know how a game stores its mods. It just remembers what was in the folders.
 
-> **Status:** pre-release. Windows and Linux builds work; macOS hasn't been tried on real hardware yet.
+> **Status:** pre-release. Windows and Linux builds work. macOS hasn't been tried on real hardware yet.
 
 ## How it plays
 
@@ -14,48 +14,49 @@ SavePoint is the undo button for that morning. It takes snapshots of the game's 
 2. **Take a snapshot.** That's your checkpoint: the game version, the mods, and the saves, as they are right now.
 3. **Press Play in SavePoint.** It puts the right files in place, starts the game, and waits. When you quit, it asks what to do with the session: keep it as a new snapshot, keep it as a new profile, or decide later.
 
-That's the loop. Everything else is about having more than one checkpoint.
+That's the whole loop. Everything else is about having more than one checkpoint.
 
 ## What you can do with it
 
-- **Run vanilla and modded side by side.** Each profile is its own line of play, like "Vanilla 1.5" and "Survival Overhaul 1.6". Switching between them swaps the files; you never reinstall anything.
-- **Roll back a bad patch.** History lists every snapshot. Pick the one from before the update, press **Go back to this**, and play.
-- **Try things without fear.** Take a snapshot, install the risky mod, play. Didn't work out? Go back. Snapshots a profile moves past aren't thrown away either: they wait under **Recently removed** until you clear them, and you can bring one back as a new profile.
-- **Branch your playthrough.** Sided with the wrong faction? Go back to the snapshot before the choice and keep the new session as its own profile. Both stories stay playable.
-- **See what's happening.** Activity shows every job (a snapshot, a switch, freeing up space) with its progress and details, and most can be stopped.
-- **Keep the disk in check.** Files are stored once, so a snapshot that only changes a few saves costs little. **Free up space** shows what it will delete before it deletes anything.
+- **Run vanilla and modded side by side.** Each profile is its own line of play, like "Vanilla 1.5" and "Survival Overhaul 1.6". Switching between them swaps the files, so you never reinstall anything.
+- **Go back after a bad patch.** History lists every snapshot. Pick the one from before the update, press **Go back to this**, and play.
+- **Try things without worrying.** Take a snapshot, install the risky mod, and play. Didn't work out? Go back. Snapshots a profile moves past aren't thrown away either. They wait under **Recently removed** until you clear them, and you can bring one back as a new profile.
+- **Split your playthrough.** Sided with the wrong faction? Go back to the snapshot from before the choice and keep the new session as its own profile. Both stories stay playable.
+- **See what's happening.** Activity shows every job (a snapshot, a switch, freeing up space) with its progress and details, and you can stop most of them.
+- **Keep the disk in check.** Files are only stored once, so a snapshot that changes just a few saves takes up very little space. **Free up space** shows you what it'll delete before it deletes anything, and you can move SavePoint's storage to another drive.
+- **Make it yours.** Light and dark themes with five accent colors, a sidebar or a library layout, and cover art for Steam games (other games get a color tint from their name, and your own image always wins). It works fully from the keyboard, with screen readers, and with reduced motion, and it sends a notification when a long job finishes while you're in another window.
 
-New to all this? Press **F1** for a short illustrated guide, take the tour, or hit any "What's this?" button. No knowledge of version control needed.
+New to all this? Press **F1** for a short illustrated guide, take the tour, or click any "What's this?" button. You don't need to know anything about version control.
 
 ## Playing it safe
 
-SavePoint touches only the folders you give it, and it's careful with them:
+SavePoint only touches the folders you give it, and it's careful with them:
 
-- It refuses whole drives and system folders, and asks before it takes over a folder.
+- It won't accept a whole drive or a system folder, and it asks before it takes over a folder.
 - It never switches over new changes in the folders. You keep them, discard them, or take a snapshot first.
-- Anything that can't be undone says so, and asks a second time.
+- Anything that can't be undone tells you so and asks a second time.
 - When something goes wrong, it tells you what happened and what to do next, in plain words.
 
-Two things it can't help with:
+Two things to watch out for:
 
-- **Games with kernel-level anti-cheat.** Don't point SavePoint at them.
-- **Cloud saves.** Turn off Steam Cloud or GOG Galaxy sync for a game SavePoint manages, or the two will keep overwriting each other.
+- **Online games with anti-cheat.** SavePoint never touches a game while it's running, but online games protected by anti-cheat check their own files. Changed or rolled-back files can get your account flagged, and those games can't be modded or rolled back anyway. Games you can play offline with anti-cheat turned off for mods are fine.
+- **Cloud saves.** Turn off Steam Cloud or GOG Galaxy sync for any game SavePoint manages, or the two will keep overwriting each other.
 
-Everything stays on your computer. The only network request SavePoint ever makes is the optional artwork lookup on Steam, which you can turn off in Settings.
+Everything stays on your computer. The only network request SavePoint ever makes is the optional artwork lookup on Steam, and you can turn that off in Settings.
 
 ## Install
 
 Grab a package from the latest release:
 
-- **Windows:** run `SavePoint-win-Setup.exe` (installs for your user, adds a Start menu shortcut), or unzip `SavePoint-win-Portable.zip` anywhere and run `SavePoint.exe`. The packages aren't code-signed yet, so SmartScreen asks before the first run.
-- **Linux:** `chmod +x SavePoint.AppImage` and run it.
+- **Windows:** run `SavePoint-win-Setup.exe` (it installs for your user and adds a Start menu shortcut), or unzip `SavePoint-win-Portable.zip` anywhere and run `SavePoint.exe`. The packages aren't code-signed yet, so SmartScreen will ask before the first run.
+- **Linux:** run `chmod +x SavePoint.AppImage`, then run the AppImage.
 - **macOS:** not packaged yet.
 
-SavePoint never phones home for updates. To update, run a newer setup over the old one. Uninstalling removes the app but keeps your snapshots and settings; to remove those too, use **Settings > Remove all data** first.
+SavePoint never phones home for updates. To update, run a newer setup over the old one. Uninstalling removes the app but keeps your snapshots and settings. If you want those gone too, use **Settings > Remove all data** before you uninstall.
 
 ## Under the hood
 
-SavePoint is a native C# app (.NET 10 and Avalonia) that runs on Windows, Linux, and macOS from one build. Snapshots are stored with git, the tool programmers use to track code, so they're compact and every file comes back byte for byte. SavePoint bundles its own pinned copy and never uses one installed on your machine, and you never see a git word in the app.
+SavePoint is a native C# app (.NET 10 and Avalonia) that runs on Windows, Linux, and macOS from one build. Snapshots are stored with git, the tool programmers use to track code, so they're compact and every file comes back byte for byte. SavePoint bundles its own pinned copy and never uses one installed on your machine, and you'll never see a git word in the app.
 
 To build it yourself, you need the .NET 10 SDK (and PowerShell 7 on Windows):
 
@@ -78,7 +79,7 @@ The first build downloads the pinned git bundle and checks its SHA-256.
 - [Testing on macOS and Linux](docs/testing-on-mac-and-linux.md): the gate and the manual checks on a Mac or a Linux desktop.
 - [AGENTS.md](AGENTS.md): the working rules for every change.
 
-Planned work lives in the issues and milestones, and the manual dogfood checklist is on the wiki.
+Planned work is tracked in the issues and milestones, and the manual dogfood checklist is on the wiki.
 
 ## License
 
