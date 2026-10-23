@@ -446,3 +446,9 @@ A recheck of the D45 fixes found 14 of 18 fixed, no critical findings, 3 warning
 4. **An all-games Free up space cannot be stopped between games (RR-004).** Once it has started deleting, it runs to the end, which keeps one rule ("once it deletes, it finishes") and no "stopped after some games" state for players to make sense of.
 5. **Not done (RR-005):** an opaque preview token; tests build tokens by hand to try the run's own guards, and each token ref carries the value the preview read, which already stops a stale or edited token from deleting a moved branch.
 6. DR-004 also removes a stray branch whose snapshots are all being deleted anyway, and DR-003 follows D45.3 (no cancel once deleting starts) rather than the review's cancel between games.
+
+## D47. SavePoint's repositories do not trust a file's change time
+
+The first native Linux CI run showed a preview counting a file whose content had not changed. Git compares each file's stat data with the index, including the change time (ctime) by default. A permission change, an antivirus pass, or a backup tool moves a file's ctime without editing it, so git reports the file as modified, and the preview then reads it again or, when it cannot read it, counts its whole size as new bytes.
+
+The managed repository config sets `core.trustCtime = false` (config stamp 5, so existing repositories pick it up the next time SavePoint touches them). Size and modification time still catch real edits. A program that rewrites a file with the same size and then restores its old modification time would go unnoticed, which game launchers and mod managers do not do in practice.
