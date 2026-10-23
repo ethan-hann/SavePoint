@@ -94,11 +94,13 @@ function Assert-PackageHolds {
     $needed = [ordered]@{
         'the git bundle'     = '(^|[/\\])git[/\\]\.savepoint-git-stamp$'
         'the notices'        = '(^|[/\\])THIRD-PARTY-NOTICES\.md$'
-        'the license'        = '(^|[/\\])LICENSE$'
+        # Only SavePoint's own file counts: the bundled git and libraries carry LICENSE files of their own, deeper in the package.
+        # Velopack puts the app under lib/app/ in the nupkg and current/ in the portable zip.
+        'the license'        = '^(lib/app|current)/LICENSE$'
         'the license texts'  = '(^|[/\\])licenses[/\\][^/\\]+$'
     }
     foreach ($what in $needed.Keys) {
-        if (-not ($names | Where-Object { $_ -match $needed[$what] })) {
+        if (-not ($names | Where-Object { $_ -cmatch $needed[$what] })) {
             throw "$leaf does not hold $what."
         }
     }

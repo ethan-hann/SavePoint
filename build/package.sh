@@ -221,7 +221,8 @@ listing="$release_dir/../contents-$rid.txt"
 echo "    SavePoint.AppImage: $(grep -c . "$listing") files (listed in $listing)"
 grep -qE '(^|/)git/\.savepoint-git-stamp$' "$listing" || fail "SavePoint.AppImage does not hold the git bundle"
 grep -qE '(^|/)THIRD-PARTY-NOTICES\.md$' "$listing" || fail "SavePoint.AppImage does not hold the notices"
-grep -qE '(^|/)LICENSE$' "$listing" || fail "SavePoint.AppImage does not hold the license"
+# Only SavePoint's own file counts; the app lives in usr/bin inside the AppImage, and bundled components carry LICENSE files deeper down.
+grep -qE '^\./usr/bin/LICENSE$' "$listing" || fail "SavePoint.AppImage does not hold the license"
 grep -qE '(^|/)licenses/[^/]+$' "$listing" || fail "SavePoint.AppImage does not hold the license texts"
 rm -rf "$inspect_dir"
 
