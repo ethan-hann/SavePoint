@@ -256,6 +256,38 @@ public class BringBackTests
         Assert.Equal(0, preview.Folders.Single(folder => folder.Role == RepoRole.Install).PointCount);
     }
 
+    [Fact(Timeout = 120_000)]
+    public async Task A_snapshot_with_one_folder_recorded_and_the_other_not_is_warned_about_as_lost_for_good_when_the_profile_holding_it_is_deleted()
+    {
+        using var world = await RemovedWorld.CreateAsync();
+
+        // A snapshot of both folders, then a continue of the saves folder alone from the first snapshot: only the saves folder records it.
+        BackendWorkspace.WriteFile(Path.Combine(world.Game.Install.Path, "mods", "b.esp"), "another mod");
+        BackendWorkspace.WriteFile(Path.Combine(world.Game.External!.Path, "slot3.sav"), "third save");
+        var both = await RemovedWorld.CaptureAsync(world.Workspace, world.Game, world.Profile, "Both again", RepoRole.Install, RepoRole.External);
+        await world.ContinueSavesFromFirstAsync();
+        var brought = (await world.Workspace.Profiles.BringBackAsync(world.Game.Id, both, "Both")).Value!;
+
+        // Both folders step off the profile, onto a branch no profile names, so the profile can be deleted and the brought back one is the only holder left.
+        var storage = await world.Workspace.Backend.Services.Storage.GetAsync(world.Workspace.Token);
+        foreach (var role in new[] { RepoRole.Install, RepoRole.External })
+        {
+            var repo = world.RepoOf(storage, role);
+            await storage.Engine.CreateBranchAsync(repo, "parked", world.Profile.BranchName, world.Workspace.Token);
+            await storage.Engine.CheckoutBranchAsync(repo, "parked", ct: world.Workspace.Token);
+        }
+
+        Assert.True((await world.Workspace.Profiles.DeleteAsync(world.Game.Id, world.Profile.Id)).Ok);
+        await world.Workspace.WaitForIdleAsync();
+
+        var preview = (await world.Workspace.Profiles.GetDeletePreviewAsync(world.Game.Id, brought.Id, world.Workspace.Token)).Value!;
+
+        Assert.Equal(3, preview.PointsOnlyHere);
+        Assert.Equal(1, preview.PointsBackToRemoved);
+        Assert.Equal(3, preview.Folders.Single(folder => folder.Role == RepoRole.Install).PointCount);
+        Assert.Equal(1, preview.Folders.Single(folder => folder.Role == RepoRole.External).PointCount);
+    }
+
     private static async Task<IReadOnlyList<string>> BranchesAsync(RemovedWorld world, RepoRole role)
     {
         var storage = await world.Workspace.Backend.Services.Storage.GetAsync(world.Workspace.Token);
