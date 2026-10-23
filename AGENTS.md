@@ -14,7 +14,7 @@ SavePoint is licensed GPL-3.0-or-later (`LICENSE`). Bundled components keep thei
 
 - Tests first for every behavior. A red must be an assertion failure for the expected reason, not a compile or harness error. A test that passes on its first run gets a mutation check before it counts. Record the observed red in the commit message.
 - Every user-visible string goes through the catalog (`src/Savepoint.App/Localization/Assets/Lang/en/*.json`); keys are literal. The catalog never says "commit", "branch", "checkout", "repo", or "HEAD", uses no em dashes, and states permanence in the title or the button (D44). Lint tests enforce this.
-- Players may not know version control. Use the D44 vocabulary (snapshot, profile, Go back, Recently removed, Free up space) and explain a new concept in plain words, with a "What's this?" entry when it needs one.
+- Players may not know version control. Use the D44 vocabulary (snapshot, profile, Go back, Recently removed, Free up space) and explain a new concept in plain words, with a question button (such as "What's a snapshot?") when it needs one.
 - Inline comments are short and say why. They never name a milestone, slice, issue, or build step. Public APIs carry XML doc comments stating their contract; CS1591 is an error in Core.
 - Tests never touch real user folders: every test uses a fresh temp directory and injected app-data and storage paths.
 - Cross-platform by default: Windows, Linux, and macOS run from one target framework, and OS-specific code is guarded with `OperatingSystem.Is*()` (D9, D26).
@@ -26,11 +26,13 @@ SavePoint is licensed GPL-3.0-or-later (`LICENSE`). Bundled components keep thei
 
 ## Branches and commits
 
-- Work on a branch named `issue-<n>-<slug>` and open a pull request to `main`. Commits are signed (`commit.gpgsign=true` in the repo-local config).
+- Work on a branch named `issue-<n>-<slug>` and open a pull request to `main`. The maintainer signs every commit on `main`; contributed commits do not need to be signed.
 - Commit messages and PR descriptions are ASCII, say what changed and why, and carry no tool attribution footer.
 - Follow-ups found along the way become issues, not comments in code or notes in docs.
 
-## Machine load (agents)
+## Coordinating several agents on one machine
+
+These apply when one session dispatches implementer agents on a single workstation, so the machine stays usable while they work.
 
 - At most two implementer agents at a time. Implementers work in isolated worktrees; remove each worktree and its branch right after it merges.
 - Builds and test runs never overlap: every gate takes one machine-wide lock (`<main checkout>/.tools/locks/gate.lock`) and runs at below-normal priority with capped parallelism.

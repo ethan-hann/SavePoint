@@ -1,11 +1,11 @@
-# SavePoint v2 - guide for screen authors
+# SavePoint guide for screen authors
 
-How to build a screen in `Savepoint.App`. The visual spec was the unpublished v1's UI mockups (screen ids such as `2a` and `3c` refer to them); behavior comes from v1's `plan.md` and `docs/decisions.md`, which records every departure.
+How to build a screen in `Savepoint.App`. The screens follow a visual design from an earlier, unpublished version of SavePoint; the headless renders in `render-output/` show each screen as built, and `docs/decisions.md` records every design call.
 
 ## Where things go
 
 - A feature lives in `src/Savepoint.App/Features/<Area>/` (view models, views, dialogs) with tests in `tests/Savepoint.App.Tests/Features/<Area>/`.
-- Its copy lives in `src/Savepoint.App/Localization/Assets/Lang/en/<area>.json`. Every user-visible string goes through the catalog; keys are literal strings (never built at run time); a key enters the catalog with the code that uses it. Keep v1's keys where the same element exists. Lint tests enforce all of this.
+- Its copy lives in `src/Savepoint.App/Localization/Assets/Lang/en/<area>.json`. Every user-visible string goes through the catalog; keys are literal strings (never built at run time); a key enters the catalog with the code that uses it. Lint tests enforce all of this.
 - It is wired in exactly one file: `src/Savepoint.App/Composition/FeatureComposition.<Feature>.cs`. Nothing else in the composition changes.
 - Views are found by name: `FooViewModel` is shown by `FooView` (same folder), dialogs `FooDialogViewModel` by `FooDialogView`.
 
@@ -16,7 +16,7 @@ How to build a screen in `Savepoint.App`. The visual spec was the unpublished v1
 - The job status pill is a button that floats in the content area's bottom-left corner (past the rail in the sidebar layout), capped at 360 px with long text trimmed and the full text in its tooltip and name; the shell's layout never moves when it shows. No pinned control sits there, and while it shows, pages that scroll get 64 px of room under their last row so nothing ends under it; it opens Activity on the running job's game, or on every game for a job that spans them all or for several jobs.
 - The Games screen's tab strip (sidebar layout) has an Activity chip next to History; the library layout reaches Activity through the top navigation.
 - The sidebar layout's storage footer has **Free up space** for the game, with its progress and result; the library layout puts that action in the game's menu.
-- `ILaunchFlowHost` (shell-owned launch flow, D13.19): `BeginAsync(gameId, LaunchTarget)`, `IsActive(gameId)`, `InlineContentFor(gameId)` (2a banner, 2c running card, saving card, or failure card view model; or null). The Games screen pins the banner and the checking, saving, and running cards at the bottom of the pane, above the storage footer, and shows a failure or partial-result card under the profile table, scrolled into view and `InlineContentChanged`; `SettingsSaved` (the shell takes the stored settings) and `EditGameRequested` (game id; the Games screen opens the editor). A launch started from History navigates to Games so its banner and failures are visible.
+- `ILaunchFlowHost` (shell-owned launch flow, D13.19): `BeginAsync(gameId, LaunchTarget)`, `IsActive(gameId)`, `InlineContentFor(gameId)` (the launch banner, the running card, the saving card, or the failure card view model; or null). The Games screen pins the banner and the checking, saving, and running cards at the bottom of the pane, above the storage footer, and shows a failure or partial-result card under the profile table, scrolled into view and `InlineContentChanged`; `SettingsSaved` (the shell takes the stored settings) and `EditGameRequested` (game id; the Games screen opens the editor). A launch started from History navigates to Games so its banner and failures are visible.
 - `IGameEditorFactory` (`Features/Common/Navigation`): `CreateForExisting(shell, gameId)`, `CreateForNew(shell, prefill)`; the Games screen opens the result with `ShowPane`.
 - Layout toggle in a header: `<shell:LayoutToggleView DataContext="{Binding Shell.LayoutToggle}"/>`.
 
@@ -25,7 +25,7 @@ How to build a screen in `Savepoint.App`. The visual spec was the unpublished v1
 - Dialogs: `IDialogs.ShowAsync<T>(DialogViewModel<T>)`, `ConfirmAsync(ConfirmRequest(Title, Message, ConfirmLabel, Destructive, CancelLabel, Typed))`, `PickFolderAsync`, `PickOpenFileAsync`, `PickSaveFileAsync`. Custom dialogs derive from `DialogViewModel<T>` (`Title`, `CanDismiss`, `DialogWidth`, `DismissResult`, `Close(result)`). Tests use `FakeDialogs`.
 - Errors: `ErrorCardViewModel(ErrorInfo, UiFormatter, actions?, supplement?)` with `ErrorCardAction(Label, Command, IsPrimary)`; `ErrorPresentation.For(id)` gives icon/tone/title key (every `error.*` id needs an entry).
 - `ToastHostViewModel.Show(ToastMessage(Text, Kind, Details, Duration))`.
-- `UiFormatter`: `Message(key, args)`, `Message(ErrorInfo)`, `FileSize`, `Number`, `RelativeTime`, `Date`, `Time`, `DateAndTime`, `NameDate`, `Duration`, and the mockup forms `ShortDateTime` ("Jul 5, 11:42 PM", year only outside the current year), `WeekdayDateTime` ("Sun Jul 5, 11:42 PM"), `TimelineDateTime` ("Jul 2, 2026 · 6:03 PM"), `ShortDate` ("Jul 1").
+- `UiFormatter`: `Message(key, args)`, `Message(ErrorInfo)`, `FileSize`, `Number`, `RelativeTime`, `Date`, `Time`, `DateAndTime`, `NameDate`, `Duration`, and the short display forms `ShortDateTime` ("Jul 5, 11:42 PM", year only outside the current year), `WeekdayDateTime` ("Sun Jul 5, 11:42 PM"), `TimelineDateTime` ("Jul 2, 2026 · 6:03 PM"), `ShortDate` ("Jul 1").
 - Settings writes: always through `SettingsWriter` on `FeatureContext` (read-modify-write of one field, so writers never clobber each other); `FeatureContext.Clock` for anything time-based.
 - Destructive confirmations: `ConfirmRequest.Typed` makes the user type a word (the game name for delete game; a shown word for clear all data).
 - `ProgressMilestones` announces long progress at each quarter through a live region.
@@ -61,8 +61,8 @@ How to build a screen in `Savepoint.App`. The visual spec was the unpublished v1
 
 ## Testing
 
-- View models are tested against the scriptable fake backend (`tests/Savepoint.App.Tests/Fakes/`, `ScenarioBuilder.Mockup()` reproduces the mockup data) with `ImmediateUiDispatcher` and `FakeDialogs`. Fake events fire synchronously.
+- View models are tested against the scriptable fake backend (`tests/Savepoint.App.Tests/Fakes/`, `ScenarioBuilder.Mockup()` builds the sample library the renders show) with `ImmediateUiDispatcher` and `FakeDialogs`. Fake events fire synchronously.
 - TDD: test first, observed assertion failure, then code; mutation-check first-time passes; record reds in commit bodies.
-- Views: headless renders (Skia) at 1040x660 under `render-output/<area>/`, opened and compared with the matching screenshot. Use `ThemeHost` so the theme resets after each test.
-- Accessibility (plan "Theming and accessibility"): every flow keyboard-operable (Tab order, Enter/Space, Escape dismisses dialogs), visible focus, icon buttons named, progress milestones announced, list/table semantics through automation properties.
+- Views: headless renders (Skia) at 1040x660 under `render-output/<area>/`, opened and checked by eye after every change to the screen. Use `ThemeHost` so the theme resets after each test.
+- Accessibility: every flow keyboard-operable (Tab order, Enter/Space, Escape dismisses dialogs), visible focus, icon buttons named, progress milestones announced, list/table semantics through automation properties.
 - Every destructive action takes a second explicit confirmation. Every failure shows copy (D13.21); partial results show the partial card (D13.20).

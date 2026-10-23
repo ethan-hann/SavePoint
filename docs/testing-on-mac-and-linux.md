@@ -37,9 +37,9 @@ On Linux the AppImage can be tried as well: download `SavePoint.AppImage` from t
 - [ ] Notifications appear when a game is ready and when a job finishes.
 - [ ] Starting SavePoint a second time brings the first window forward instead of opening another.
 - [ ] Turning on the OS's reduce-motion setting (macOS: Accessibility > Display > Reduce motion; GNOME: Settings > Accessibility > Reduce animation) makes progress show a still bar.
-- [ ] The tour, F1 help, and every "What's this?" button work, and the text is sharp (Retina or HiDPI).
+- [ ] The tour, F1 help, and every question button (such as "What's a snapshot?") work, and the text is sharp (Retina or HiDPI).
 - [ ] Settings > About > Open the log folder opens the folder in Finder or the file manager.
-- [ ] Settings > Move the storage folder to another drive works, and the app finds it after a restart.
+- [ ] Settings > Where SavePoint keeps your snapshots > Change moves the snapshots to another drive, and the app finds them after a restart.
 
 ## 4. macOS only
 

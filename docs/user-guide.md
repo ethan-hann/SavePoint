@@ -14,7 +14,7 @@ SavePoint keeps its snapshots in a folder of its own, the snapshot folder. When 
 ## Help inside the app
 
 - **How SavePoint works:** a short illustrated page on profiles, snapshots, playing, keeping a session, going back, Recently removed, Activity, freeing up space, and what can't be undone. Press **F1** anywhere or open **Settings > Help**. The first-run screen links to it too.
-- **What's this?** buttons sit next to the ideas that need explaining, like snapshots, new changes, and replacing a snapshot. They open a short explanation right there, and Escape closes it.
+- **Question buttons**, such as **What's a snapshot?** and **What are new changes?**, sit next to the ideas that need explaining, like snapshots, new changes, and replacing a snapshot. They open a short explanation right there, and Escape closes it.
 - **The tour:** after you create your first profile, a four-step tour points out the profile row, Play, History, and New profile. You can skip it at any step or press Escape. **Settings > Help > Show the tour again** plays it again.
 - **At the moment of a choice:** the first time you play from an older snapshot, the first time you discard changes, and the first time you replace a snapshot, SavePoint explains the choice right then. It remembers which ones you've already seen.
 
@@ -72,7 +72,7 @@ Each row has **Play**, plus a menu with **Edit** (name, notes, version), **Take 
 
 - **Take a snapshot now** keeps what your game folders hold right now as a new snapshot of the profile that's loaded. It's also how a profile with no snapshot yet gets its first one.
 - **Duplicate** starts a new profile with the same game version and mods, but no save snapshots of its own.
-- **Delete** warns you when the profile has snapshots no other profile has. Deleting the profile deletes those for good.
+- **Delete** warns you when the profile has snapshots no other profile has. Usually deleting the profile deletes those for good. Snapshots that Recently removed still holds a record of, as in a profile you brought back from there, go back to Recently removed instead and stay until you next free up space. The warning says which it will be.
 
 If you select a row with the keyboard, Enter starts Play. In the Sidebar layout, the footer under the table shows how much space this game's snapshots use and how big the drive is. **Free up space** there clears out the snapshots no profile uses anymore, and it asks first when it would delete snapshots from History's Recently removed. In the Library layout, **Free up space** is in the game's menu.
 
@@ -179,7 +179,7 @@ Every error tells you what happened and what you can do about it. **Show details
 - **Some old copies couldn't be removed.** After moving the snapshot folder, SavePoint lists any old files it couldn't delete (for example, because another program had them open), so you can delete them by hand.
 - **An unreadable settings file at startup.** SavePoint leaves the file the way it found it. For each one, it offers to restore the last good copy or start that file empty. The unreadable file gets moved aside, never deleted.
 
-If you close SavePoint while it's removing all data or moving the snapshot folder, it asks first, whether you close the window or quit with Cmd+Q on macOS. Stopping either of those halfway would leave a mess.
+If you close SavePoint while it's removing all data or moving the snapshot folder, it asks first when you close the window. Quitting with Cmd+Q on macOS is meant to ask the same way, but it hasn't been checked on a Mac yet. Stopping either of those halfway would leave a mess.
 
 ### Reporting a problem
 

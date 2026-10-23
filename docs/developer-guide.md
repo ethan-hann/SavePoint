@@ -1,6 +1,6 @@
-# SavePoint v2 - developer guide
+# SavePoint developer guide
 
-How to build, run, test, and change SavePoint. What the code promises layer by layer is in `architecture.md`. Why it behaves as it does is in `decisions.md` (D1 onward). How to build a screen is in `ui-guide.md`. The behavior spec was the unpublished v1's `plan.md`; `decisions.md` records every departure. The working rules for every change are in `../AGENTS.md`, and planned work is in the repository's issues and milestones.
+How to build, run, test, and change SavePoint. What the code promises layer by layer is in `architecture.md`. Why it behaves as it does is in `decisions.md` (D1 onward). How to build a screen is in `ui-guide.md`. The working rules for every change are in `../AGENTS.md`, and planned work is in the repository's issues and milestones.
 
 ## Tools the build needs
 
@@ -53,7 +53,7 @@ pwsh -NoProfile -File build/package.ps1
 - **Linux:** `build/package.sh` does the same for `linux-x64` and gives `SavePoint.AppImage`. On a Linux machine, run it from a clone. Without a matching `dotnet`, `package.sh` installs a .NET SDK into its tools folder.
 - **Linux package from Windows:** run `build/package-linux.ps1` (`-Commit`, default `HEAD`). Like the Linux gate, it takes the gate lock, checks the commit out into `.linux-gate`, and asks Windows git for the commit and whether the tree is clean. It then runs `package.sh --revision <commit> --tools-dir <main checkout>/.tools` under WSL, because Linux git cannot follow a worktree made by Windows git. The package lands in `.linux-gate/artifacts/release/linux-x64`.
 - **Which build this is:** every package of one version has the same number, so the scripts put the commit into the informational version, and the startup log names it. A tree with uncommitted changes is refused; `-AllowDirty` (`--allow-dirty`) packs it anyway, marked `-dirty`, for a trial package.
-- **Source archives:** `-Sources` (or `--sources`) also downloads the source archives of the tags `build/git-manifest.json` pins into `artifacts/release/source/`, prints their SHA-256, and compares each with the hash the manifest pins. The check runs before anything is published, and an archive is kept only when it matches. The three hashes are empty until the first such run; until they are pinned, a `-Sources` run fails after printing them.
+- **Source archives:** `-Sources` (or `--sources`) also downloads the source archives of the tags `build/git-manifest.json` pins into `artifacts/release/source/`, prints their SHA-256, and compares each with the hash the manifest pins. The check runs before anything is published, and an archive is kept only when it matches. All three hashes are pinned; a download that differs fails the run. A release publishes these archives beside its packages (D21).
 - **macOS:** no package is built, since that needs a Mac and signing.
 - **No update checks:** the packages do not check for updates. Running a newer release's setup installs it over an older one.
 
@@ -89,7 +89,7 @@ Other filters are `--filter-namespace` and `--filter-method`. Add `--report-xuni
 - Journey tests in `tests/Savepoint.App.Tests/Features/EndToEnd/RealBackend/` build the app through `AppBootstrap.Start` and `AppComposition` on temp folders, show the shell in a headless window, and walk whole user journeys with FakeGame as a real child process: first run, play, switching, older points, unsaved changes, a file in use, and storage moves. They are the closest thing to a person using the app.
 - Tests that care about logging pass a `RecordingDiagnosticLog` (`tests/Shared`); no test opens a real log file, and tests that touch a log folder check first that it lies inside their own temp home.
 - Opt-in smoke tests make the real OS calls: a notification, opening a link. Run them by hand with `SAVEPOINT_OS_SMOKE=1` (and `SAVEPOINT_SMOKE_URI` for the link opener).
-- Headless renders (Skia, 1040x660) land in `render-output/<area>/`. Compare them with the mockup screenshots in v1's `docs/ui/screenshots/`.
+- Headless renders (Skia, 1040x660) land in `render-output/<area>/`. Open them after a UI change and compare them with the previous render of the same screen.
 - Lint tests guard the catalog:
   - every key the code uses exists, and no key is unused;
   - keys are literal strings;
