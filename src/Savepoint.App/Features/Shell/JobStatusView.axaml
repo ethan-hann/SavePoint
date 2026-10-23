@@ -5,7 +5,7 @@
              x:Class="Savepoint.App.Features.Shell.JobStatusView"
              x:DataType="shell:JobStatusViewModel">
   <!-- The job pill, shown in both layouts by the window. Pressing it opens Activity. The hidden region speaks the pill's text when it changes. -->
-  <Grid x:Name="PillRoot" Margin="16,4,16,12" IsVisible="{Binding IsVisible, FallbackValue=False}">
+  <Grid x:Name="PillRoot" IsVisible="{Binding IsVisible, FallbackValue=False}">
     <a11y:AnnouncementRegion x:Name="Announcer" Message="{Binding Announcement}" />
     <Button x:Name="Pill"
             Classes="pill"

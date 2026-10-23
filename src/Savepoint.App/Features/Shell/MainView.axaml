@@ -8,9 +8,9 @@
              x:Class="Savepoint.App.Features.Shell.MainView"
              x:DataType="shell:MainWindowViewModel">
   <!--
-    The window's content: the page (startup screens, then the shell), the job pill in a row of its own below it, the toasts in
-    a row below that so neither ever covers a control, and the modal overlay above all of it. The pill's row has no height
-    while no job runs. While a dialog is open the page is hidden from assistive technology.
+    The window's content: the page (startup screens, then the shell) with the job pill floating over its bottom right corner, so
+    the page never moves when a job starts or ends, the toasts in a row of their own below the page so none ever covers a
+    control, and the modal overlay above all of it. While a dialog is open the page is hidden from assistive technology.
   -->
   <UserControl.Styles>
     <Style Selector="Panel.dialog-open ContentControl#Page">
@@ -21,17 +21,18 @@
   <Panel x:Name="Root" Classes.dialog-open="{Binding Dialogs.IsOpen}">
     <!-- Always present, so a card or banner that appears is spoken: a screen reader only follows changes to elements it already knows. -->
     <a11y:AnnouncementRegion x:Name="PageAnnouncer" />
-    <Grid RowDefinitions="*,Auto,Auto">
+    <Grid RowDefinitions="*,Auto">
       <ContentControl x:Name="Page" Content="{Binding Content}" />
+      <shell:JobStatusView x:Name="JobPill"
+                           HorizontalAlignment="Right"
+                           VerticalAlignment="Bottom"
+                           Margin="16"
+                           DataContext="{Binding Shell.JobStatus}" />
       <!-- The tour's outline and card sit over the page, in the page's own row, and are not there while a dialog or another screen covers the profile table. -->
       <Panel x:Name="TourHost" IsVisible="{Binding ShowTour}">
         <help:TourOverlay x:Name="Tour" DataContext="{Binding Shell.Tour}" />
       </Panel>
-      <shell:JobStatusView x:Name="JobPill"
-                           Grid.Row="1"
-                           HorizontalAlignment="Right"
-                           DataContext="{Binding Shell.JobStatus}" />
-      <toasts:ToastHostView x:Name="Toasts" Grid.Row="2" DataContext="{Binding Toasts}" />
+      <toasts:ToastHostView x:Name="Toasts" Grid.Row="1" DataContext="{Binding Toasts}" />
     </Grid>
     <dialogs:DialogHostView DataContext="{Binding Dialogs}" />
   </Panel>

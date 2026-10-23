@@ -489,21 +489,35 @@ public class ShellViewTests
         Assert.Equal(MockupScenario.SatisfactoryId, harness.Shell.SelectedGame?.Id);
     }
 
-    [AvaloniaFact]
-    public async Task The_job_pill_has_a_row_of_its_own_below_the_page_so_it_never_covers_a_control()
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task The_job_pill_floats_over_the_shell_and_leaves_its_layout_alone(bool library)
     {
-        using var harness = await ShellViewHarness.StartAsync();
+        using var harness = library ? await ShellViewHarness.LibraryLayoutAsync() : await ShellViewHarness.StartAsync();
         var page = harness.Find<ContentControl>("Page");
-        var pill = harness.Find<UserControl>("JobPill");
-        var heightWithoutJob = page.Bounds.Height;
-        Assert.Equal(0, pill.Bounds.Height);
+        var content = harness.Find<ContentControl>("ContentRegion");
+        var pill = harness.Find<Button>("Pill");
+        var pageBefore = LayoutAudit.BoundsIn(harness.Window, page);
+        var contentBefore = LayoutAudit.BoundsIn(harness.Window, content);
+        Assert.False(pill.IsEffectivelyVisible);
 
-        FakeAssert.Ok(await harness.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
+        var job = FakeAssert.Ok(await harness.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
         harness.Settle();
 
+        Assert.True(pill.IsEffectivelyVisible);
         Assert.True(pill.Bounds.Height > 0);
-        Assert.True(page.Bounds.Height < heightWithoutJob);
-        Assert.True(pill.Bounds.Top >= page.Bounds.Bottom - 0.5);
+        Assert.Equal(pageBefore, LayoutAudit.BoundsIn(harness.Window, page));
+        Assert.Equal(contentBefore, LayoutAudit.BoundsIn(harness.Window, content));
+        Assert.True(pageBefore.Contains(LayoutAudit.BoundsIn(harness.Window, pill)), "The pill floats over the page, not beside it.");
+
+        harness.Backend.Jobs.Complete(job.JobId);
+        harness.Main.Toasts.DismissAll();
+        harness.Settle();
+
+        Assert.False(pill.IsEffectivelyVisible);
+        Assert.Equal(pageBefore, LayoutAudit.BoundsIn(harness.Window, page));
+        Assert.Equal(contentBefore, LayoutAudit.BoundsIn(harness.Window, content));
     }
 
     [AvaloniaFact]
