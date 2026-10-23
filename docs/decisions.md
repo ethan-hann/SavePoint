@@ -439,7 +439,7 @@ The recheck (`.tools/reviews/d45-recheck.md`) found 14 of 18 fixed, no CRIT, 3 W
 1. **A git SavePoint starts must not outlive it unnoticed (RR-001).** A note in the git directory and a wait at the next start and before every game write, not a job object: .NET cannot tie a child's life to the app portably (Windows needs native job-object calls, Linux has no parent-death signal for a .NET child, macOS has neither). Known cost: after a kill during a long repack, the next start waits on "Checking your files..." with no feedback until that git ends.
 2. **A free-up cut off between its folders is finished, not undone (RR-002),** because the player confirmed the deletion.
 3. **The delete-profile warning judges each folder's commit on its own (RR-003).**
-4. **Left for the owner (RR-004):** whether an all-games Free up space can be stopped between games. Today it cannot once it has started deleting.
+4. **An all-games Free up space cannot be stopped between games (RR-004, owner's call).** Once it has started deleting, it runs to the end, which keeps one rule ("once it deletes, it finishes") and no "stopped after some games" state for players to make sense of.
 5. **Not done (RR-005):** an opaque preview token; tests build tokens by hand to try the run's own guards, and each token ref carries the value the preview read, which already stops a stale or edited token from deleting a moved branch.
 6. DR-004 also removes a stray branch whose snapshots are all being deleted anyway, and DR-003 follows D45.3 (no cancel once deleting starts) rather than the review's cancel between games.
 
