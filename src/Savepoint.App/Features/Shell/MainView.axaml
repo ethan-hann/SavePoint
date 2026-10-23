@@ -8,26 +8,36 @@
              x:Class="Savepoint.App.Features.Shell.MainView"
              x:DataType="shell:MainWindowViewModel">
   <!--
-    The window's content: the page (startup screens, then the shell) with the job pill floating over its bottom right corner, so
-    the page never moves when a job starts or ends, the toasts in a row of their own below the page so none ever covers a
-    control, and the modal overlay above all of it. While a dialog is open the page is hidden from assistive technology.
+    The window's content: the page (startup screens, then the shell) with the job pill floating over the bottom left corner of
+    its content area, so the page never moves when a job starts or ends, the toasts in a row of their own below the page so
+    none ever covers a control, and the modal overlay above all of it. While a dialog is open the page is hidden from
+    assistive technology.
   -->
   <UserControl.Styles>
     <Style Selector="Panel.dialog-open ContentControl#Page">
       <Setter Property="AutomationProperties.AccessibilityView" Value="Raw" />
     </Style>
+    <!-- While the pill shows, a page's scroll area ends with room under its last row (the pill's height and margin, and a little air), so that row can be scrolled clear of the pill. -->
+    <Style Selector="Panel.job-running ContentControl#Page ScrollViewer.page-scroll, Panel.job-running ContentControl#Page ListBox.page-scroll">
+      <Setter Property="Padding" Value="0,0,0,64" />
+    </Style>
   </UserControl.Styles>
 
-  <Panel x:Name="Root" Classes.dialog-open="{Binding Dialogs.IsOpen}">
+  <Panel x:Name="Root" Classes.dialog-open="{Binding Dialogs.IsOpen}" Classes.job-running="{Binding Shell.JobStatus.IsVisible, FallbackValue=False}">
     <!-- Always present, so a card or banner that appears is spoken: a screen reader only follows changes to elements it already knows. -->
     <a11y:AnnouncementRegion x:Name="PageAnnouncer" />
     <Grid RowDefinitions="*,Auto">
       <ContentControl x:Name="Page" Content="{Binding Content}" />
-      <shell:JobStatusView x:Name="JobPill"
-                           HorizontalAlignment="Right"
-                           VerticalAlignment="Bottom"
-                           Margin="16"
-                           DataContext="{Binding Shell.JobStatus}" />
+      <!-- The pill stands in the content area's bottom left corner, past the rail: nothing fixed sits there, while the right hand side holds the actions. -->
+      <Grid ColumnDefinitions="Auto,*">
+        <Border Width="{Binding Shell.RailWidth, FallbackValue=0}" IsVisible="{Binding Shell.IsSidebarLayout, FallbackValue=False}" />
+        <shell:JobStatusView x:Name="JobPill"
+                             Grid.Column="1"
+                             HorizontalAlignment="Left"
+                             VerticalAlignment="Bottom"
+                             Margin="22,0,16,16"
+                             DataContext="{Binding Shell.JobStatus}" />
+      </Grid>
       <!-- The tour's outline and card sit over the page, in the page's own row, and are not there while a dialog or another screen covers the profile table. -->
       <Panel x:Name="TourHost" IsVisible="{Binding ShowTour}">
         <help:TourOverlay x:Name="Tour" DataContext="{Binding Shell.Tour}" />

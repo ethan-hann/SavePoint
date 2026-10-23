@@ -42,7 +42,7 @@
     </Style>
   </UserControl.Styles>
 
-  <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto">
+  <ScrollViewer x:Name="PageScroll" Classes="page-scroll" VerticalScrollBarVisibility="Auto">
     <StackPanel MaxWidth="820" Margin="26,22,26,30" Spacing="6">
       <TextBlock x:Name="TitleText" Classes="page-title" Margin="0,0,0,14" Text="{loc:Loc settings.title}" />
 
