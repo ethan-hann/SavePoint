@@ -22,6 +22,7 @@ namespace Savepoint.App.Tests.Features.Settings;
 public class SettingsScreenViewTests
 {
     private const string _notices = @"C:\Program Files\SavePoint\THIRD-PARTY-NOTICES.md";
+    private const string _license = @"C:\Program Files\SavePoint\LICENSE";
 
     internal static Task<ScreenHarness> StartAsync(
         FakeBackend? backend = null,
@@ -29,12 +30,13 @@ public class SettingsScreenViewTests
         double width = 1040,
         double height = 660,
         bool realDialogs = false,
-        string? notices = _notices)
+        string? notices = _notices,
+        string? license = _license)
     {
         backend ??= new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { Theme = theme }));
         return ScreenHarness.StartAsync(
             "settings",
-            context => [new SettingsScreenFactory(context, new SettingsEnvironment(new RecordingFileRevealer(), () => notices, "1.2.3"))],
+            context => [new SettingsScreenFactory(context, new SettingsEnvironment(new RecordingFileRevealer(), () => notices, "1.2.3", FindLicense: () => license))],
             NavDestination.Settings,
             backend,
             theme,
@@ -105,6 +107,36 @@ public class SettingsScreenViewTests
         using var harness = await StartAsync(notices: null);
 
         Assert.False(harness.Find<Button>("NoticesButton").IsEffectivelyVisible);
+    }
+
+    [AvaloniaFact]
+    public async Task About_states_the_license_and_offers_the_license_text()
+    {
+        using var harness = await StartAsync();
+
+        Assert.Contains("SavePoint is free software under the GNU GPL, version 3 or later, and comes with no warranty.", harness.VisibleTexts());
+        var button = Assert.Single(harness.All<Button>(), candidate => candidate.IsEffectivelyVisible && (candidate.Content as string) == "License");
+        Assert.Equal("LicenseButton", button.Name);
+        Assert.Equal("License", AutomationAudit.NameOf(button));
+    }
+
+    [AvaloniaFact]
+    public async Task The_license_button_sits_beside_the_notices_button()
+    {
+        using var harness = await StartAsync();
+
+        var license = Assert.Single(harness.All<Button>(), button => button.Name == "LicenseButton");
+
+        Assert.True(harness.Find<Button>("NoticesButton").Bounds.X < license.Bounds.X);
+    }
+
+    [AvaloniaFact]
+    public async Task The_license_button_is_hidden_when_the_file_was_not_shipped_but_the_line_stays()
+    {
+        using var harness = await StartAsync(license: null);
+
+        Assert.DoesNotContain(harness.All<Button>(), button => button.IsEffectivelyVisible && (button.Content as string) == "License");
+        Assert.Contains("SavePoint is free software under the GNU GPL, version 3 or later, and comes with no warranty.", harness.VisibleTexts());
     }
 
     [AvaloniaFact]

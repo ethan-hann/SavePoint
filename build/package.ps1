@@ -94,6 +94,7 @@ function Assert-PackageHolds {
     $needed = [ordered]@{
         'the git bundle'     = '(^|[/\\])git[/\\]\.savepoint-git-stamp$'
         'the notices'        = '(^|[/\\])THIRD-PARTY-NOTICES\.md$'
+        'the license'        = '(^|[/\\])LICENSE$'
         'the license texts'  = '(^|[/\\])licenses[/\\][^/\\]+$'
     }
     foreach ($what in $needed.Keys) {
@@ -159,7 +160,7 @@ try {
     }
 
     Write-Host '==> check the publish folder'
-    foreach ($expected in 'SavePoint.exe', 'THIRD-PARTY-NOTICES.md', 'git/.savepoint-git-stamp') {
+    foreach ($expected in 'SavePoint.exe', 'THIRD-PARTY-NOTICES.md', 'LICENSE', 'git/.savepoint-git-stamp') {
         if (-not (Test-Path -LiteralPath (Join-Path $publishDir $expected) -PathType Leaf)) {
             throw "$expected is missing from $publishDir."
         }

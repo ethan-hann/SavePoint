@@ -309,8 +309,60 @@ public class SettingsScreenViewModelTests
         Assert.Equal(ToastKind.Error, toast.Message.Kind);
     }
 
+    [Fact]
+    public async Task The_license_action_is_hidden_when_the_file_was_not_shipped()
+    {
+        var rig = await SettingsRig.ShownAsync(license: null);
+
+        Assert.False(rig.Screen.About.HasLicense);
+        Assert.Null(rig.Screen.About.LicensePath);
+        Assert.False(rig.Screen.About.ShowLicenseCommand.CanExecute(null));
+        rig.Screen.About.ShowLicenseCommand.Execute(null);
+        Assert.Empty(rig.Revealer.Revealed);
+    }
+
+    [Fact]
+    public async Task The_license_action_shows_the_file_in_the_file_manager()
+    {
+        var rig = await SettingsRig.ShownAsync(license: @"C:\Program Files\SavePoint\LICENSE");
+
+        Assert.True(rig.Screen.About.HasLicense);
+        rig.Screen.About.ShowLicenseCommand.Execute(null);
+
+        Assert.Equal([@"C:\Program Files\SavePoint\LICENSE"], rig.Revealer.Revealed);
+        Assert.Empty(rig.Toasts.Toasts);
+    }
+
+    [Fact]
+    public async Task A_file_manager_that_will_not_open_the_license_is_reported_in_words()
+    {
+        var rig = await SettingsRig.ShownAsync(license: @"C:\Program Files\SavePoint\LICENSE");
+        rig.Revealer.Succeeds = false;
+
+        rig.Screen.About.ShowLicenseCommand.Execute(null);
+
+        var toast = Assert.Single(rig.Toasts.Toasts);
+        Assert.Equal(ToastKind.Error, toast.Message.Kind);
+        Assert.Equal("SavePoint couldn't open the file manager.", toast.Message.Text);
+    }
+
+    [Fact]
+    public async Task A_license_added_beside_the_app_shows_the_next_time_the_screen_shows()
+    {
+        string? license = null;
+        var rig = await SettingsRig.ShownAsync(license: null);
+        Assert.False(rig.Screen.About.HasLicense);
+
+        license = @"C:\Program Files\SavePoint\LICENSE";
+        var refreshed = new AboutSectionViewModel(new SettingsEnvironment(rig.Revealer, () => null, "1.2.3", FindLicense: () => license), rig.Text, rig.Toasts);
+        refreshed.Refresh();
+
+        Assert.True(refreshed.HasLicense);
+        Assert.Equal(license, refreshed.LicensePath);
+    }
+
     [Theory]
-    [InlineData("windows", "explorer.exe", "/select,\"C:\\App\\THIRD-PARTY-NOTICES.md\"", "")]
+    [InlineData("windows", "explorer.exe","/select,\"C:\\App\\THIRD-PARTY-NOTICES.md\"", "")]
     [InlineData("macos", "open", "", "-R|/Applications/SavePoint/THIRD-PARTY-NOTICES.md")]
     [InlineData("linux", "xdg-open", "", "/opt/savepoint")]
     public void The_file_manager_is_started_the_way_each_system_expects(string os, string program, string arguments, string argumentList)
