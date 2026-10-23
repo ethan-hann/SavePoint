@@ -1,6 +1,6 @@
 {
   "firstRun.addFirstGame": "Add your first game",
-  "firstRun.antiCheatNote": "Games protected by kernel-level anti-cheat aren't supported.",
+  "firstRun.antiCheatNote": "Don't use SavePoint with online games protected by anti-cheat. Changed game files can get your account flagged, and those games can't be modded or rolled back anyway.",
   "firstRun.artworkNote": "SavePoint downloads cover art for Steam games from Steam. You can turn this off in Settings.",
   "firstRun.body": "Point SavePoint at a game you've already got installed and modded. It takes snapshots of that exact version, its mods and its saves, so you can go back to them later, even after the game updates.",
   "firstRun.startFromTemplate": "Start from a template",

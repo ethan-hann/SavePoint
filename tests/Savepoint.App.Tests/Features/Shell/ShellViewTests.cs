@@ -393,7 +393,7 @@ public class ShellViewTests
     }
 
     [AvaloniaFact]
-    public async Task First_run_says_where_data_is_kept_and_that_kernel_anti_cheat_is_not_supported()
+    public async Task First_run_says_where_data_is_kept_and_warns_against_online_games_with_anti_cheat()
     {
         using var harness = await ShellViewHarness.StartAsync(Empty());
 
@@ -403,7 +403,7 @@ public class ShellViewTests
         Assert.True(note.IsEffectivelyVisible);
         Assert.Equal(["SavePoint keeps your snapshots in ", @"D:\SavePoint", ". You can change that in Settings."], runs);
         Assert.True(harness.Find<StackPanel>("AntiCheatNote").IsEffectivelyVisible);
-        Assert.Contains("Games protected by kernel-level anti-cheat aren't supported.", VisibleTexts(harness));
+        Assert.Contains("Don't use SavePoint with online games protected by anti-cheat. Changed game files can get your account flagged, and those games can't be modded or rolled back anyway.", VisibleTexts(harness));
     }
 
     [AvaloniaFact]
