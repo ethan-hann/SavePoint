@@ -39,6 +39,7 @@ public sealed class ActivityText
         return job.Kind switch
         {
             JobKind.Launch => _text.Message("activity.job.launch", game),
+            JobKind.Switch => _text.Message("activity.job.switch", game),
             JobKind.Capture => _text.Message("activity.job.capture", game),
             JobKind.Compact when job.GameId is null => _text.Message("activity.job.compactAll"),
             JobKind.Compact => _text.Message("activity.job.compact", game),
@@ -124,12 +125,17 @@ public sealed class ActivityText
     /// </summary>
     /// <param name="job">The job.</param>
     public static bool IsSwitching(JobSnapshot job) =>
-        job is { Kind: JobKind.Launch, Status: JobStatus.Running }
+        job is { Kind: JobKind.Launch or JobKind.Switch, Status: JobStatus.Running }
         && !HasStep(job, JobSteps.LaunchStarting)
         && (job.LinesDropped > 0 || HasStep(job, JobSteps.LaunchSwitchFolder));
 
     private static bool HasStep(JobSnapshot job, string messageId) =>
         job.RecentLines.Any(line => line is JobLine.Step step && step.MessageId == messageId);
+
+    /// <summary>What stopping a switching job leaves behind and how to finish it; a switch tells the player to switch again, a launch to press Play.</summary>
+    /// <param name="job">The job.</param>
+    public string SwitchStopWarning(JobSnapshot job) =>
+        _text.Message(job.Kind == JobKind.Switch ? "launch.progress.stopNoteSwitch" : "launch.progress.stopNote");
 
     /// <summary>What to say about stopping the job: that it is stopping, or why it cannot be stopped; empty when there is nothing to say.</summary>
     /// <param name="job">The job.</param>
@@ -143,7 +149,7 @@ public sealed class ActivityText
         if (job.CancelRequested)
         {
             // A stopped switch is the one stop that leaves something behind, and the launch's own warning already says what.
-            return IsSwitching(job) ? _text.Message("launch.progress.stopNote") : _text.Message("activity.stop.stopping");
+            return IsSwitching(job) ? SwitchStopWarning(job) : _text.Message("activity.stop.stopping");
         }
 
         if (job.Cancellable)

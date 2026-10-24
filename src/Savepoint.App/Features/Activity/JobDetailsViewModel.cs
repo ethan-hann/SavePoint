@@ -202,7 +202,7 @@ public sealed partial class JobDetailsViewModel : ObservableObject
         if (ActivityText.IsSwitching(_job)
             && !await _dialogs.ConfirmAsync(new ConfirmRequest(
                 _text.Message("activity.cancel.switchTitle"),
-                _text.Message("launch.progress.stopNote"),
+                _words.SwitchStopWarning(_job),
                 _text.Message("launch.progress.stop"),
                 Destructive: true,
                 CancelLabel: _text.Message("activity.cancel.switchStay"))))

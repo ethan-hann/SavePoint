@@ -24,6 +24,7 @@
   "activity.job.compactAll": "Freeing up space for all games",
   "activity.job.launch": "Starting {game}",
   "activity.job.relocate": "Moving the snapshot folder",
+  "activity.job.switch": "Switching {game}'s files",
   "activity.job.unknownGame": "a game that was removed",
   "activity.line.unknown": "Something happened that this version of SavePoint can't describe.",
   "activity.list.name": "Jobs",

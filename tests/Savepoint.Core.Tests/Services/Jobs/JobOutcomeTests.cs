@@ -148,6 +148,7 @@ public class JobOutcomeTests
 
     [Theory]
     [InlineData(JobKind.Launch, "error.launch.canceled")]
+    [InlineData(JobKind.Switch, "error.launch.canceled")]
     [InlineData(JobKind.Capture, "error.capture.cancelled")]
     [InlineData(JobKind.Compact, "error.compaction.cancelled")]
     [InlineData(JobKind.RelocateStorage, "error.storageRelocation.cancelled")]

@@ -54,6 +54,7 @@ public class JobRowViewModelTests
     [Theory]
     [InlineData(JobKind.Capture, "skyrim", "Taking a snapshot of Skyrim Special Edition")]
     [InlineData(JobKind.Launch, "skyrim", "Starting Skyrim Special Edition")]
+    [InlineData(JobKind.Switch, "skyrim", "Switching Skyrim Special Edition's files")]
     [InlineData(JobKind.Compact, "skyrim", "Freeing up space for Skyrim Special Edition")]
     [InlineData(JobKind.Compact, null, "Freeing up space for all games")]
     [InlineData(JobKind.RelocateStorage, null, "Moving the snapshot folder")]
@@ -236,6 +237,19 @@ public class JobRowViewModelTests
         Assert.Equal("Stopping leaves the game's folder with a mix of two snapshots. Press Play again and SavePoint finishes the job.", Row(switching).StopNote);
         Assert.Equal("Stopping leaves the game's folder with a mix of two snapshots. Press Play again and SavePoint finishes the job.", Row(longSwitch).StopNote);
         Assert.Equal("Stopping now.", Row(starting).StopNote);
+    }
+
+    [Fact]
+    public void A_switch_that_is_stopping_says_the_folder_is_left_with_a_mix_and_how_to_finish_it()
+    {
+        var switching = Job(JobKind.Switch, cancelRequested: true) with
+        {
+            RecentLines = [JobLine.ForStep(JobSteps.LaunchSwitchFolder, ("folder", RepoRole.Install), ("profile", "Modded"), ("older", "no"), ("counted", "no"), ("written", 0), ("removed", 0))],
+        };
+        var notYet = Job(JobKind.Switch, cancelRequested: true);
+
+        Assert.Equal("Stopping leaves the game's folder with a mix of two snapshots. Switch again and SavePoint finishes the job.", Row(switching).StopNote);
+        Assert.Equal("Stopping now.", Row(notYet).StopNote);
     }
 
     [Fact]

@@ -201,6 +201,22 @@ public class ExitGuardTests
     }
 
     [Fact]
+    public async Task A_switch_without_playing_asks_first_in_the_same_words()
+    {
+        var (guard, backend, dialogs) = Build();
+        dialogs.AnswerConfirm(false);
+        var job = FakeAssert.Ok(await backend.Launch.SwitchAsync(MockupScenario.SkyrimId, new LaunchTarget.ProfileTip(MockupScenario.ModdedId))).JobId;
+        backend.Jobs.ReportStep(job, JobSteps.LaunchSwitchFolder, ("folder", RepoRole.Install), ("profile", "Modded playthrough"), ("older", "no"), ("counted", "yes"), ("written", 12), ("removed", 2));
+
+        var allowed = await guard.PrepareToCloseAsync();
+
+        Assert.False(allowed);
+        var asked = Assert.Single(dialogs.Confirmations);
+        Assert.Contains("mix of two snapshots until the switch is finished or the changes are discarded", asked.Message, StringComparison.Ordinal);
+        Assert.Empty(backend.Calls.To<IJobsApi>(nameof(IJobsApi.CancelAsync)));
+    }
+
+    [Fact]
     public async Task Quitting_anyway_during_a_switch_stops_it_on_the_way_out_and_asks_only_once()
     {
         var (guard, backend, dialogs) = Build();

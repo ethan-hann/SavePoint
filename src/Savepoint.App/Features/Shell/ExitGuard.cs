@@ -92,7 +92,7 @@ public sealed class ExitGuard
         {
             JobKind.ClearData => ("shell.exit.clearMessage", "shell.exit.confirm"),
             JobKind.Compact => ("shell.exit.freeUpMessage", "shell.exit.freeUpConfirm"),
-            JobKind.Launch => ("shell.exit.switchMessage", "shell.exit.confirm"),
+            JobKind.Launch or JobKind.Switch => ("shell.exit.switchMessage", "shell.exit.confirm"),
             _ => ("shell.exit.moveMessage", "shell.exit.confirm"),
         };
         return _dialogs.ConfirmAsync(new ConfirmRequest(
