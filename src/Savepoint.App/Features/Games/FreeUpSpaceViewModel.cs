@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common;
 using Savepoint.App.Features.Common.Dialogs;
+using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.Core.Api;
 using Savepoint.Core.Errors;
@@ -20,7 +21,7 @@ public sealed partial class FreeUpSpaceViewModel : ObservableObject, IDisposable
     private readonly IDialogs _dialogs;
     private readonly UiFormatter _text;
     private readonly IUiDispatcher _dispatcher;
-    private readonly Action<ErrorInfo> _showError;
+    private readonly Action<ErrorInfo, ErrorOperation> _showError;
     private readonly Func<Task> _afterRun;
     private readonly Dictionary<Guid, long> _revisions = [];
 
@@ -50,7 +51,7 @@ public sealed partial class FreeUpSpaceViewModel : ObservableObject, IDisposable
     /// <param name="dispatcher">Brings job events back to the UI thread.</param>
     /// <param name="showError">Shows a failure to count what the compaction deletes or to start it.</param>
     /// <param name="afterRun">Runs after a compaction ends, so the footer can read the game's storage use again.</param>
-    public FreeUpSpaceViewModel(IGamesApi games, IJobsApi jobs, IDialogs dialogs, UiFormatter text, IUiDispatcher dispatcher, Action<ErrorInfo> showError, Func<Task> afterRun)
+    public FreeUpSpaceViewModel(IGamesApi games, IJobsApi jobs, IDialogs dialogs, UiFormatter text, IUiDispatcher dispatcher, Action<ErrorInfo, ErrorOperation> showError, Func<Task> afterRun)
     {
         _games = games;
         _jobs = jobs;
@@ -126,7 +127,7 @@ public sealed partial class FreeUpSpaceViewModel : ObservableObject, IDisposable
         var preview = await _games.GetFreeUpSpacePreviewAsync(gameId);
         if (!preview.Ok)
         {
-            _showError(preview.Error);
+            _showError(preview.Error, ErrorOperation.FreeUpSpace);
             return;
         }
 
@@ -144,7 +145,7 @@ public sealed partial class FreeUpSpaceViewModel : ObservableObject, IDisposable
         var started = await _games.OptimizeStorageAsync(gameId, preview.Value.Token);
         if (!started.Ok)
         {
-            _showError(started.Error);
+            _showError(started.Error, ErrorOperation.FreeUpSpace);
             return;
         }
 
@@ -211,7 +212,7 @@ public sealed partial class FreeUpSpaceViewModel : ObservableObject, IDisposable
                 return _text.Message("games.storageFooter.freeUpCanceled");
             default:
                 return job.Error is { } error
-                    ? _text.Message("games.storageFooter.freeUpFailedBecause", ("reason", _text.Message(error)))
+                    ? _text.Message("games.storageFooter.freeUpFailedBecause", ("reason", _text.Message(error, ErrorOperation.FreeUpSpace)))
                     : _text.Message("games.storageFooter.freeUpFailed");
         }
     }

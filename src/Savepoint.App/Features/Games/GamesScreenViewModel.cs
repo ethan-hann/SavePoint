@@ -470,5 +470,6 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     private ErrorCardViewModel LoadFailure(ErrorInfo error) =>
         new(error, _deps.Text, [new ErrorCardAction(_deps.Text.Message("games.loadError.tryAgain"), new AsyncRelayCommand(ReloadAsync), IsPrimary: true)]);
 
-    private void ShowError(ErrorInfo error) => _deps.Toasts.Show(new ToastMessage(_deps.Text.Message(error), ToastKind.Error));
+    private void ShowError(ErrorInfo error, ErrorOperation operation = ErrorOperation.Unspecified) =>
+        _deps.Toasts.Show(new ToastMessage(_deps.Text.Message(error, operation), ToastKind.Error));
 }
