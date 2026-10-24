@@ -1,5 +1,6 @@
 using Avalonia.Headless.XUnit;
 using Savepoint.App.Features.Common.Errors;
+using Savepoint.App.Features.Games;
 using Savepoint.App.Features.Launch;
 
 namespace Savepoint.App.Tests.Features.EndToEnd.RealBackend;
@@ -46,6 +47,45 @@ public class FileInUseJourneyTests
         Assert.Equal(two.VanillaSaves, FolderSnapshot.Of(game.Saves));
         await rig.SkipSessionAsync(afterPlay);
         await rig.WaitAsync(() => vanilla.IsActive && !two.Modded.IsActive, "the rows to show Vanilla as the active profile");
+    }
+
+    [AvaloniaFact(Timeout = 300_000)]
+    public async Task A_file_another_program_holds_fails_the_first_snapshot_by_name_and_Try_again_finishes_it_once_it_is_released()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Only Windows refuses to read a file another program holds open.");
+        await using var rig = await JourneyRig.StartAsync();
+        var game = rig.NewGame("Held First");
+        JourneyRig.WriteFile(Path.Combine(game.Saves, "slot1.sav"), "save one");
+        await rig.AddGameAsync(game, ["--saves", game.Saves]);
+
+        var held = Path.Combine(game.Install, "data", "base.pak");
+        ErrorCardViewModel failure;
+        using (var holder = StandInProcess.Start(Path.Combine(rig.Root, "holder-ready.txt"), "--lock", held))
+        {
+            await holder.WaitUntilReadyAsync(TestContext.Current.CancellationToken);
+
+            var wizardClosed = rig.Games.NewProfileCommand.ExecuteAsync(null);
+            var wizard = await rig.DialogAsync<NewProfileWizardViewModel>();
+            await rig.WaitAsync(() => !wizard.Preview.IsLoading, "the wizard to read what would be captured");
+            wizard.Name = "Vanilla";
+            await rig.FinishesAsync(wizard.ContinueCommand.ExecuteAsync(null), "the wizard to reach its check step");
+            await rig.FinishesAsync(wizard.ContinueCommand.ExecuteAsync(null), "the wizard to start saving");
+            await rig.WaitAsync(() => wizard.IsSaveStep && wizard.State != SaveState.Saving, "the first snapshot to stop");
+
+            // The saves folder has no held file, so it is saved and the game folder is the half that failed.
+            Assert.Equal(SaveState.Partial, wizard.State);
+            failure = Assert.IsType<ErrorCardViewModel>(wizard.ResultCard);
+            Assert.NotNull(failure.Path);
+            Assert.EndsWith("base.pak", failure.Path, StringComparison.Ordinal);
+            Assert.True(failure.Actions[0].IsPrimary);
+            Assert.Contains("holding one of the game's files open", failure.Body, StringComparison.Ordinal);
+            _ = wizardClosed;
+        }
+
+        // The other program lets go; Try again takes the snapshot.
+        await rig.WaitAsync(() => CanWrite(held), "the other program to release the file");
+        await rig.FinishesAsync(JourneyRig.RunAsync(failure.Actions[0].Command), "Try again to take the first snapshot");
+        await rig.WaitAsync(() => rig.Games.Profiles.Any(row => row.Name == "Vanilla"), "the Vanilla profile to appear in the table");
     }
 
     private static bool CanWrite(string path)

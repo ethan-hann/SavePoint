@@ -19,6 +19,9 @@ public static class JobSteps
     /// <summary>A folder is not part of the snapshot because it was played from another profile's snapshot. Arguments: <c>folder</c>.</summary>
     public const string CaptureFolderNotIncluded = "activity.step.capture.folderNotIncluded";
 
+    /// <summary>A folder had nothing new, so its latest snapshot was kept as it was instead of being updated. Arguments: <c>folder</c>.</summary>
+    public const string CaptureFolderSkipped = "activity.step.capture.folderSkipped";
+
     /// <summary>A folder could not be copied. Arguments: <c>folder</c>.</summary>
     public const string CaptureFolderFailed = "activity.step.capture.folderFailed";
 

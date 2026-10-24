@@ -46,6 +46,7 @@
   "activity.step.capture.folderDone": "{files, plural, =0 {Nothing changed in the {folder, select, install {game folder} external {saves folder} other {folder}}.} one {# file was new, changed or removed in the {folder, select, install {game folder} external {saves folder} other {folder}}.} other {# files were new, changed or removed in the {folder, select, install {game folder} external {saves folder} other {folder}}.}}",
   "activity.step.capture.folderFailed": "Couldn't copy the {folder, select, install {game folder} external {saves folder} other {folder}}.",
   "activity.step.capture.folderKeptAsNew": "The snapshot to replace wasn't the newest in the {folder, select, install {game folder} external {saves folder} other {folder}}, so the session was kept there as a new snapshot instead.",
+  "activity.step.capture.folderSkipped": "Nothing new in the {folder, select, install {game folder} external {saves folder} other {folder}}, so its latest snapshot stays as it is.",
   "activity.step.capture.folderNotIncluded": "The {folder, select, install {game folder} external {saves folder} other {folder}} isn't included, because you played it from another profile's snapshot.",
   "activity.step.capture.start": "Taking the snapshot \"{snapshot}\" of the profile \"{profile}\".",
   "activity.step.clear.artwork": "Removing the cover art.",

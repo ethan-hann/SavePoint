@@ -189,13 +189,15 @@ public sealed partial class LaunchFlowViewModel
     {
         var text = _deps.Text;
         var failed = result.Folders.Where(folder => !folder.Ok).ToList();
-        var saved = result.Folders.Where(folder => folder.Saved).ToList();
         var left = result.Folders.Where(folder => folder.LeftAlone).ToList();
-        var savedRole = saved.Count == 1 ? RoleName(saved[0].Role) : "other";
+
+        // A skipped folder's latest snapshot is already current, so for the sentence about what is in the snapshot it counts with the saved ones.
+        var inSnapshot = result.Folders.Where(folder => folder.Saved || folder.Skipped).ToList();
+        var savedRole = inSnapshot.Count == 1 ? RoleName(inSnapshot[0].Role) : "other";
         var reason = LaunchText.Reason(text, failed[0].Error);
 
         // A folder the save left alone is neither saved nor failed; when nothing was saved at all, the card must not say half was.
-        var nothingSaved = saved.Count == 0 && left.Count > 0;
+        var nothingSaved = inSnapshot.Count == 0 && left.Count > 0;
         var title = text.Message(nothingSaved ? "launch.partial.titleNothingSaved" : "launch.partial.title");
         var body = nothingSaved
             ? text.Message("launch.partial.bodyLeftAlone", ("failed", RoleName(failed[0].Role)), ("reason", reason), ("left", left.Count == 1 ? RoleName(left[0].Role) : "other"))
@@ -204,12 +206,12 @@ public sealed partial class LaunchFlowViewModel
         var rows = result.Folders
             .OrderBy(folder => folder.Role)
             .Select(folder => new FolderOutcomeRow(
-                folder.Saved ? Icons.CheckCircle : folder.LeftAlone ? Icons.Info : Icons.Cancel,
+                folder.Saved ? Icons.CheckCircle : folder.LeftAlone || folder.Skipped ? Icons.Info : Icons.Cancel,
                 text.Message(
-                    folder.Saved ? "launch.partial.rowSaved" : folder.LeftAlone ? "launch.partial.rowLeftAlone" : "launch.partial.rowFailed",
+                    folder.Saved ? "launch.partial.rowSaved" : folder.Skipped ? "launch.partial.rowSkipped" : folder.LeftAlone ? "launch.partial.rowLeftAlone" : "launch.partial.rowFailed",
                     ("folder", text.Message(folder.Role == RepoRole.Install ? "launch.partial.folder.install" : "launch.partial.folder.external"))),
                 folder.Saved,
-                folder.LeftAlone))
+                folder.LeftAlone || folder.Skipped))
             .ToList();
 
         var retry = new ErrorCardAction(

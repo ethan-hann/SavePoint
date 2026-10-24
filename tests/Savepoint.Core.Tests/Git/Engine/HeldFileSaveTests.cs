@@ -75,6 +75,25 @@ public sealed class HeldFileSaveTests : IDisposable
         }
     }
 
+    // A first snapshot of a folder has no earlier point to compare with, and the wizard runs it with progress reporting on.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_first_snapshot_over_a_file_another_program_holds_names_the_file(bool withProgress)
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "a.txt", "one");
+        var file = _ws.Write(repo, "held.bin", "a new file another program holds");
+
+        using (HeldFiles.Hold(file, HeldFileKind.InUse))
+        {
+            var error = await Assert.ThrowsAnyAsync<SavepointException>(() => _ws.CaptureAsync(repo, "profile-1", progress: withProgress ? new Progress<FileProgress>(_ => { }) : null));
+
+            Assert.Equal(HeldFiles.ErrorIdOf(HeldFileKind.InUse), error.MessageId);
+            Assert.Equal(file, error.Args["path"]);
+        }
+    }
+
     [Fact]
     public async Task The_developer_text_for_a_file_another_program_holds_says_the_save_not_the_switch_could_not_go_on()
     {
