@@ -134,6 +134,22 @@ public class LaunchDialogViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Files_the_switch_removes_are_sized_in_their_own_sentence()
+    {
+        var dialog = await _rig.DialogAsync(change: p => WithInstallSwitch(p, new SwitchSummary(41, 0, 3, null, 600_000_000)));
+
+        Assert.Equal(". About 3 bytes of files will be replaced. About 600 MB of files will be removed. Takes less than a minute.", dialog.VersionAfter);
+    }
+
+    [Fact]
+    public async Task A_switch_that_only_removes_files_says_so_without_a_replaced_amount()
+    {
+        var dialog = await _rig.DialogAsync(change: p => WithInstallSwitch(p, new SwitchSummary(1, 0, 0, null, 600_000_000)));
+
+        Assert.Equal(". About 600 MB of files will be removed. Takes less than a minute.", dialog.VersionAfter);
+    }
+
+    [Fact]
     public async Task With_no_summary_the_sentence_ends_after_the_versions()
     {
         var dialog = await _rig.DialogAsync(change: p => WithInstallSwitch(p, null));
@@ -153,12 +169,12 @@ public class LaunchDialogViewModelTests : IDisposable
             first =>
             {
                 Assert.Equal("Deep cave run \u00B7 5-30-26, 11:42 PM", first.Title);
-                Assert.Equal("Latest · 2 save snapshots in this profile", first.Subtitle);
+                Assert.Equal("Latest · 2 save snapshots to choose from", first.Subtitle);
             },
             second =>
             {
                 Assert.Equal("First night \u00B7 5-14-26, 9:04 PM", second.Title);
-                Assert.Equal("2 save snapshots in this profile", second.Subtitle);
+                Assert.Equal("2 save snapshots to choose from", second.Subtitle);
             });
         Assert.Same(dialog.SaveOptions[0], dialog.SelectedSave);
         Assert.Equal("This replaces what's in your saves folder right now.", dialog.SaveCaption);
@@ -172,7 +188,7 @@ public class LaunchDialogViewModelTests : IDisposable
         Assert.True(dialog.HasSaveSection);
         Assert.False(dialog.HasSaveChoice);
         var only = Assert.Single(dialog.SaveOptions);
-        Assert.Equal("Latest · 1 save snapshot in this profile", only.Subtitle);
+        Assert.Equal("Latest · 1 save snapshot to choose from", only.Subtitle);
         Assert.Same(only, dialog.SelectedSave);
     }
 

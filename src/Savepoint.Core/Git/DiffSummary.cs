@@ -5,4 +5,5 @@ namespace Savepoint.Core.Git;
 /// <param name="BytesAtTarget">Bytes those files have at the target point; a removed file adds none.</param>
 /// <param name="ChangedPaths">The changed files in git's order, relative to the work tree with forward slashes.</param>
 /// <param name="FilesRemoved">How many of <paramref name="FilesChanged"/> are files the target point does not have, so a switch removes them.</param>
-public sealed record DiffSummary(int FilesChanged, long BytesAtTarget, IReadOnlyList<string> ChangedPaths, int FilesRemoved = 0);
+/// <param name="BytesRemoved">Bytes the removed files have at the starting point; 0 when nothing is removed.</param>
+public sealed record DiffSummary(int FilesChanged, long BytesAtTarget, IReadOnlyList<string> ChangedPaths, int FilesRemoved = 0, long BytesRemoved = 0);

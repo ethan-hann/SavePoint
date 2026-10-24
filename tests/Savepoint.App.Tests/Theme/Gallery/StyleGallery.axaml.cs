@@ -9,7 +9,7 @@ public partial class StyleGallery : UserControl
         InitializeComponent();
         SavePicker.ItemsSource = new[]
         {
-            new SaveChoice("Deep cave run - 5-30-26, 11:42 PM", "Most recent - 2 saves in this profile"),
+            new SaveChoice("Deep cave run - 5-30-26, 11:42 PM", "Latest - 2 save snapshots to choose from"),
             new SaveChoice("Before the final boss - 5-14-26, 9:10 PM", "1 save"),
         };
     }
