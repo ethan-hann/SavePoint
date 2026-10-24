@@ -96,4 +96,28 @@ public class AuditsCanFailTests
         var only = Assert.Single(covered);
         Assert.Contains("'Under'", only, StringComparison.Ordinal);
     }
+
+    [AvaloniaFact]
+    public void The_job_pill_audit_at_the_end_of_a_scroll_area_names_what_it_ends_with_and_leaves_pinned_controls_to_the_other_pass()
+    {
+        var inScroll = new Button { Name = "InScrollUnder", Content = "InScrollUnder", Width = 60, Height = 24, Margin = new Thickness(0, 215, 0, 0) };
+        var words = new TextBlock { Name = "LastWords", Text = "The last words of the page", Margin = new Thickness(0, 10, 0, 0) };
+        var farBelow = new Border { Height = 600 };
+        var scrollArea = new ScrollViewer { Name = "Scrolls", Width = 200, Height = 300, Content = new StackPanel { Children = { inScroll, words, farBelow } } };
+        Canvas.SetLeft(scrollArea, 0);
+        Canvas.SetTop(scrollArea, 0);
+        var pinned = Placed("PinnedUnder", 215, 230);
+        var pill = Placed("Pill", 10, 210, 250, 50);
+        using var host = new ThemeHost(new Canvas { Children = { scrollArea, pinned, pill } }, width: 400, height: 300);
+        Redraw();
+
+        var atEnd = JobPillAudit.Covered(host.Window, pill, scrolledToEnd: true).ToList();
+        var pinnedView = JobPillAudit.Covered(host.Window, pill, scrolledToEnd: false).ToList();
+
+        Assert.Equal(2, atEnd.Count);
+        Assert.Contains(atEnd, problem => problem.Contains("'InScrollUnder'", StringComparison.Ordinal));
+        Assert.Contains(atEnd, problem => problem.Contains("Text 'The last words", StringComparison.Ordinal));
+        var pinnedOnly = Assert.Single(pinnedView);
+        Assert.Contains("'PinnedUnder'", pinnedOnly, StringComparison.Ordinal);
+    }
 }
