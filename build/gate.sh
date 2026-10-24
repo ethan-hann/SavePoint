@@ -78,7 +78,25 @@ dotnet build Savepoint.slnx -c Release -warnaserror "-m:${build_nodes}" -nodeReu
 echo "==> test"
 # SAVEPOINT_TEST_ARGS is empty unless a wrapper sets it (build/gate-linux.sh does, for retries); no retry logic lives here.
 # shellcheck disable=SC2086
-dotnet test Savepoint.slnx -c Release --no-build --max-parallel-test-modules 2 --max-threads "${test_threads}" ${SAVEPOINT_TEST_ARGS:-}
+# The gate always asks for the xunit report itself (the skip check reads it), so SAVEPOINT_TEST_ARGS must not.
+results_dir="$PWD/artifacts/test-results"
+rm -rf "$results_dir"
+dotnet test Savepoint.slnx -c Release --no-build --max-parallel-test-modules 2 --max-threads "${test_threads}" --report-xunit --results-directory "$results_dir" ${SAVEPOINT_TEST_ARGS:-}
+
+# A skip probe that breaks turns real tests into skips and the run still passes; this fails on any skip the list does not name.
+# SAVEPOINT_EXPECTED_SKIPS names the list in build/expected-skips (build/gate-linux.sh sets linux-wsl); no macOS list exists yet.
+expected_skips="${SAVEPOINT_EXPECTED_SKIPS:-}"
+if [ -z "$expected_skips" ]; then
+  case "$(uname -s)" in
+    Linux) expected_skips="linux-ci" ;;
+  esac
+fi
+if [ -n "$expected_skips" ]; then
+  echo "==> skips (expected: build/expected-skips/${expected_skips}.txt)"
+  dotnet run --project tools/SkipCheck -c Release --no-build -- --reports "$results_dir" --expected "build/expected-skips/${expected_skips}.txt"
+else
+  echo "==> skips: no list for $(uname -s), not checked"
+fi
 
 echo "==> format"
 dotnet format Savepoint.slnx --verify-no-changes
