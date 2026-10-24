@@ -117,6 +117,30 @@ public class LaunchFlowSwitchTests : IDisposable
     }
 
     [Fact]
+    public async Task A_switch_stopped_by_a_held_file_says_the_switch_stopped_partway_and_will_pick_up()
+    {
+        await SwitchWithProgressAsync();
+
+        _f.Backend.Jobs.Fail(_f.Backend.Jobs.LastStarted(JobKind.Switch).JobId, ErrorInfo.From(new GitOperationException(_file, "unable to unlink Data/Skyrim.esm")));
+
+        var card = _f.Inline<ErrorCardViewModel>();
+        Assert.Equal("A file is in use, so the switch stopped partway", card.Title);
+        Assert.Contains("picks up where it left off", card.Body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_switch_that_ran_out_of_room_says_it_needed_the_room_to_switch()
+    {
+        await SwitchWithProgressAsync();
+
+        _f.Backend.Jobs.Fail(_f.Backend.Jobs.LastStarted(JobKind.Switch).JobId, MockupScenario.SavesOutOfRoomError);
+
+        var body = _f.Inline<ErrorCardViewModel>().Body;
+        Assert.Contains("to switch", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("take this snapshot", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task A_failed_switch_shows_its_card_and_try_again_switches_again_instead_of_launching()
     {
         await SwitchWithProgressAsync();

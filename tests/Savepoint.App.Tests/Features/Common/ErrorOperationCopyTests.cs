@@ -124,6 +124,7 @@ public class ErrorOperationCopyTests
 
     [Theory]
     [InlineData(JobKind.Launch, ErrorOperation.Switch)]
+    [InlineData(JobKind.Switch, ErrorOperation.Switch)]
     [InlineData(JobKind.Capture, ErrorOperation.Snapshot)]
     [InlineData(JobKind.Compact, ErrorOperation.FreeUpSpace)]
     [InlineData(JobKind.RelocateStorage, ErrorOperation.MoveSnapshots)]
@@ -132,4 +133,14 @@ public class ErrorOperationCopyTests
     {
         Assert.Equal(expected, ErrorOperations.Of(kind));
     }
+
+    // A new kind of job has to be given an operation on purpose, not fall through to the neutral words.
+    [Theory]
+    [MemberData(nameof(JobKinds))]
+    public void No_kind_of_job_falls_back_to_the_neutral_operation(JobKind kind)
+    {
+        Assert.NotEqual(ErrorOperation.Unspecified, ErrorOperations.Of(kind));
+    }
+
+    public static TheoryData<JobKind> JobKinds => new(Enum.GetValues<JobKind>());
 }

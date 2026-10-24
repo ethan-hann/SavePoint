@@ -96,6 +96,17 @@ public class NotificationTextTests
         Assert.Contains("couldn't copy everything", body, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void A_switch_stopped_by_a_held_file_says_the_switch_stopped_and_will_pick_up()
+    {
+        var (_, body) = NotificationText.For(Job(JobKind.Switch, JobStatus.Failed, "skyrim", error: HeldFile), "Skyrim", _text);
+
+        Assert.StartsWith("Something went wrong switching Skyrim's files.", body, StringComparison.Ordinal);
+        Assert.Contains("picks up where it left off", body, StringComparison.Ordinal);
+    }
+
+    private static ErrorInfo HeldFile { get; } = ErrorInfo.From(new GitOperationException(@"C:\Games\Skyrim.esm", "unable to unlink Skyrim.esm"));
+
     private static JobSnapshot Job(JobKind kind, JobStatus status, string? gameId = null, JobResult? result = null, ErrorInfo? error = null) =>
         new(Guid.NewGuid(), kind, gameId, null, status, true, false, JobProgress.None, [], 0, _at, _at, result, error, 3);
 }

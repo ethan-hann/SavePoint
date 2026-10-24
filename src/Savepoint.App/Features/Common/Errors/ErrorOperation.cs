@@ -35,6 +35,7 @@ public static class ErrorOperations
     public static ErrorOperation Of(JobKind kind) => kind switch
     {
         JobKind.Launch => ErrorOperation.Switch,
+        JobKind.Switch => ErrorOperation.Switch,
         JobKind.Capture => ErrorOperation.Snapshot,
         JobKind.Compact => ErrorOperation.FreeUpSpace,
         JobKind.RelocateStorage => ErrorOperation.MoveSnapshots,
