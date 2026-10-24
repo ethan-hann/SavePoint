@@ -377,6 +377,44 @@ public class JobRegistryTests
     }
 
     [Fact]
+    public async Task A_file_that_stays_current_across_many_reports_is_one_recent_line()
+    {
+        var registry = new JobRegistry();
+        var held = new HeldJob(registry);
+        var context = await held.Context;
+
+        // While one file is stored the byte count keeps moving and each report still names that file.
+        for (var bytes = 1L; bytes <= 16; bytes++)
+        {
+            context.Progress.Report(new JobProgress(FilesDone: 1, BytesDone: bytes, CurrentPath: "Data/Web/a.png"));
+        }
+
+        context.Progress.Report(new JobProgress(FilesDone: 2, CurrentPath: "Data/Web/b.png"));
+
+        Assert.Equal([JobLine.ForPath("Data/Web/a.png"), JobLine.ForPath("Data/Web/b.png")], registry.Get(held.Id)!.RecentLines);
+        held.Finish();
+        await FinishedAsync(registry, held.Id);
+    }
+
+    [Fact]
+    public async Task Two_folders_taking_turns_on_their_own_files_still_show_each_file_once()
+    {
+        var registry = new JobRegistry();
+        var held = new HeldJob(registry);
+        var context = await held.Context;
+
+        for (var bytes = 1L; bytes <= 3; bytes++)
+        {
+            context.Progress.Report(new JobProgress(FilesDone: 1, BytesDone: bytes, CurrentPath: "a.png"));
+            context.Progress.Report(new JobProgress(FilesDone: 2, BytesDone: bytes, CurrentPath: "b.sav"));
+        }
+
+        Assert.Equal([JobLine.ForPath("a.png"), JobLine.ForPath("b.sav")], registry.Get(held.Id)!.RecentLines);
+        held.Finish();
+        await FinishedAsync(registry, held.Id);
+    }
+
+    [Fact]
     public async Task Recent_lines_keep_the_newest_200_oldest_first()
     {
         var registry = new JobRegistry();
