@@ -1,40 +1,72 @@
 using System.Collections.Concurrent;
-using System.Diagnostics;
+using Savepoint.Core.Api;
+using Savepoint.Core.Git;
 
 namespace Savepoint.Core.Tests.Backend;
 
 // A large delete must not hold the thread that asked for it: that thread is the window's (D31).
 public class GamesDeleteResponsivenessTests
 {
-    private static readonly TimeSpan _longestAllowedGap = TimeSpan.FromMilliseconds(250);
+    // Only waited out when the test is failing; a delete that frees the thread returns at once.
+    private static readonly TimeSpan _patience = TimeSpan.FromSeconds(20);
 
-    [Fact(Timeout = 180_000)]
-    public async Task Deleting_a_game_with_a_large_history_never_blocks_the_calling_thread_for_long()
+    [Fact(Timeout = 120_000)]
+    public async Task Deleting_a_game_hands_the_calling_thread_back_while_the_folder_is_still_being_deleted()
     {
-        using var workspace = new BackendWorkspace();
+        using var reachedFolder = new ManualResetEventSlim();
+        using var letDeleteFinish = new ManualResetEventSlim();
+        var deletingThread = 0;
+        var testToken = TestContext.Current.CancellationToken;
+        using var workspace = new BackendWorkspace(options => options with
+        {
+            Engine = new GitEngineOptions
+            {
+                // The slow part, held shut until the test opens it.
+                BeforeGitDirDelete = _ =>
+                {
+                    deletingThread = Environment.CurrentManagedThreadId;
+                    reachedFolder.Set();
+                    letDeleteFinish.Wait(testToken);
+                },
+            },
+        });
         var game = await workspace.AddGameAsync();
         await workspace.CreateProfileAsync(game);
-        var padding = Path.Combine(workspace.DefaultStorageRoot, game.Id, "install.git", "objects", "padding");
-        Directory.CreateDirectory(padding);
-        Parallel.For(0, 30_000, i => File.WriteAllText(Path.Combine(padding, i + ".tmp"), "x"));
         using var window = new SingleThreadContext();
+        var callReturned = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task<OperationResult<Unit>>? deleting = null;
 
-        var deleted = await window.InvokeAsync(() => workspace.Games.DeleteAsync(game.Id));
+        window.Post(
+            _ =>
+            {
+                deleting = workspace.Games.DeleteAsync(game.Id);
+                callReturned.SetResult();
+            },
+            null);
 
+        try
+        {
+            var first = await Task.WhenAny(callReturned.Task, Task.Delay(_patience, workspace.Token));
+            Assert.True(first == callReturned.Task, "the call did not return to the calling thread while the folder delete was held shut");
+            Assert.True(reachedFolder.Wait(_patience, workspace.Token), "the delete never reached the folder");
+            Assert.NotEqual(window.ThreadId, deletingThread);
+            Assert.True(Directory.Exists(Path.Combine(workspace.DefaultStorageRoot, game.Id)), "the folder was already gone when the call returned");
+        }
+        finally
+        {
+            letDeleteFinish.Set();
+        }
+
+        var deleted = await deleting!;
         Assert.True(deleted.Ok, deleted.Error?.Detail);
         Assert.False(Directory.Exists(Path.Combine(workspace.DefaultStorageRoot, game.Id)));
-        // Each posted item is one stretch the window thread could not draw; a timer would also count a busy thread pool.
-        Assert.True(window.LongestItem < _longestAllowedGap, $"the calling thread was held for {window.LongestItem.TotalMilliseconds:F0} ms at a stretch");
     }
 
-    // One thread that runs what is posted to it, one item at a time, as the window's does, and times each item.
+    // One thread that runs what is posted to it, one item at a time, as the window's does.
     private sealed class SingleThreadContext : SynchronizationContext, IDisposable
     {
         private readonly BlockingCollection<(SendOrPostCallback Callback, object? State)> _queue = [];
         private readonly Thread _thread;
-        private long _longestTicks;
-
-        public TimeSpan LongestItem => TimeSpan.FromTicks(Interlocked.Read(ref _longestTicks));
 
         public SingleThreadContext()
         {
@@ -42,25 +74,18 @@ public class GamesDeleteResponsivenessTests
             _thread.Start();
         }
 
-        public override void Post(SendOrPostCallback d, object? state) => _queue.Add((d, state));
+        public int ThreadId => _thread.ManagedThreadId;
 
-        public Task<T> InvokeAsync<T>(Func<Task<T>> work)
+        public override void Post(SendOrPostCallback d, object? state)
         {
-            var done = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
-            Post(
-                async _ =>
-                {
-                    try
-                    {
-                        done.SetResult(await work());
-                    }
-                    catch (Exception e)
-                    {
-                        done.SetException(e);
-                    }
-                },
-                null);
-            return done.Task;
+            try
+            {
+                _queue.Add((d, state));
+            }
+            catch (InvalidOperationException)
+            {
+                // Work that outlives a failed test has no thread left to run on.
+            }
         }
 
         public void Dispose()
@@ -74,13 +99,7 @@ public class GamesDeleteResponsivenessTests
             SetSynchronizationContext(this);
             foreach (var (callback, state) in _queue.GetConsumingEnumerable())
             {
-                var started = Stopwatch.GetTimestamp();
                 callback(state);
-                var ticks = Stopwatch.GetElapsedTime(started).Ticks;
-                if (ticks > Interlocked.Read(ref _longestTicks))
-                {
-                    Interlocked.Exchange(ref _longestTicks, ticks);
-                }
             }
         }
     }

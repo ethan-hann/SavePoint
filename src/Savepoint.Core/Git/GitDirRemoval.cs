@@ -29,7 +29,7 @@ internal static partial class GitDirRemoval
 
     // Removes the folder when it lies inside the storage root and is a git directory SavePoint made (or what an interrupted
     // delete left of one); anything else is refused and nothing is touched.
-    public static async Task RemoveAsync(string gitDir, string storageRoot, Func<string, string> realPath, IReadOnlyList<TimeSpan> retryDelays, CancellationToken ct)
+    public static async Task RemoveAsync(string gitDir, string storageRoot, Func<string, string> realPath, IReadOnlyList<TimeSpan> retryDelays, CancellationToken ct, Action<string>? beforeDelete = null)
     {
         if (!Directory.Exists(gitDir))
         {
@@ -52,6 +52,7 @@ internal static partial class GitDirRemoval
             ct.ThrowIfCancellationRequested();
             try
             {
+                beforeDelete?.Invoke(gitDir);
                 ClearReadOnly(gitDir);
                 Directory.Delete(gitDir, recursive: true);
                 return;
