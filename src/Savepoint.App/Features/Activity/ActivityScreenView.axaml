@@ -63,6 +63,9 @@
       </Grid>
     </Border>
 
+    <!-- Room for the job pill under the note, so the note is never under it. -->
+    <Border x:Name="PillRoom" DockPanel.Dock="Bottom" Classes="pill-room" />
+
     <!-- The note under both panes: how much the screen remembers. -->
     <Border x:Name="Footer"
             DockPanel.Dock="Bottom"
@@ -83,7 +86,7 @@
       <Grid x:Name="Panes" ColumnDefinitions="5*,Auto,6*" IsVisible="{Binding HasRows}">
         <Border x:Name="ListPane">
           <ListBox x:Name="JobList"
-                   Classes="rows page-scroll"
+                   Classes="rows"
                    Margin="14,14,14,14"
                    ItemsSource="{Binding Rows}"
                    SelectedItem="{Binding SelectedRow, Mode=TwoWay}"

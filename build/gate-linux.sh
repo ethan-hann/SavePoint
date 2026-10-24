@@ -92,6 +92,8 @@ fi
 retries=2
 export SAVEPOINT_TEST_RETRIES="$retries"
 export SAVEPOINT_TEST_ARGS="--retry-failed-tests $retries"
+# This workspace skips more than CI does (no sockets, no permissions on the 9p mount), so it has its own skip list.
+export SAVEPOINT_EXPECTED_SKIPS=linux-wsl
 
 echo "==> .NET SDK $(dotnet --version) from $dotnet_root, gating $gate_tree (failed tests are retried up to $retries times)"
 cd "$gate_tree"

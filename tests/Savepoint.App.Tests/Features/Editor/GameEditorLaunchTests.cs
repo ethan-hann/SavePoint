@@ -1,3 +1,4 @@
+using Savepoint.App.Features.Editor;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
@@ -143,6 +144,218 @@ public class GameEditorLaunchTests
         await editor.RefreshSuggestionsAsync();
 
         Assert.Equal(2, rig.Backend.Calls.To<IGamesApi>("ListExecutablesAsync").Count);
+    }
+
+    private static GameEditorViewModel LinkEditor(EditorRig rig)
+    {
+        var editor = rig.New();
+        editor.InstallPath = MockupScenario.SkyrimInstall;
+        return editor;
+    }
+
+    [Fact]
+    public async Task Choosing_a_launch_link_offers_the_games_own_program_as_the_process_name()
+    {
+        var rig = RigWithExecutables("SkyrimSELauncher.exe", "SkyrimSE.exe", @"bin\tools\Helper.exe");
+        var editor = LinkEditor(rig);
+
+        editor.LaunchChoice = 1;
+        await editor.RefreshProcessNameSuggestionAsync();
+
+        Assert.Equal("SkyrimSE.exe", editor.SuggestedProcessName);
+        Assert.True(editor.HasProcessNameSuggestion);
+        Assert.True(editor.ShowProcessNameWhy);
+        Assert.Equal("Use SkyrimSE.exe", editor.UseSuggestedProcessNameLabel);
+    }
+
+    [Fact]
+    public async Task Using_the_suggestion_fills_the_process_name_and_clears_the_offer()
+    {
+        var rig = RigWithExecutables("SkyrimSE.exe");
+        var editor = LinkEditor(rig);
+        editor.LaunchChoice = 1;
+        await editor.RefreshProcessNameSuggestionAsync();
+
+        editor.UseSuggestedProcessNameCommand.Execute(null);
+
+        Assert.Equal("SkyrimSE.exe", editor.ProcessName);
+        Assert.False(editor.HasProcessNameSuggestion);
+        Assert.False(editor.ShowProcessNameWhy);
+    }
+
+    [Fact]
+    public async Task Nothing_is_offered_while_the_game_starts_from_a_file_and_the_folder_is_not_asked()
+    {
+        var rig = RigWithExecutables("SkyrimSE.exe");
+        var editor = LinkEditor(rig);
+
+        await editor.RefreshProcessNameSuggestionAsync();
+
+        Assert.False(editor.HasProcessNameSuggestion);
+        Assert.False(editor.ShowProcessNameWhy);
+        Assert.Empty(rig.Backend.Calls.To<IGamesApi>("SuggestProcessNameAsync"));
+    }
+
+    [Fact]
+    public async Task Nothing_is_offered_when_a_process_name_is_already_typed()
+    {
+        var rig = RigWithExecutables("SkyrimSE.exe");
+        var editor = LinkEditor(rig);
+        editor.ProcessName = "Game.exe";
+        editor.LaunchChoice = 1;
+
+        await editor.RefreshProcessNameSuggestionAsync();
+
+        Assert.False(editor.HasProcessNameSuggestion);
+        Assert.False(editor.ShowProcessNameWhy);
+        Assert.Empty(rig.Backend.Calls.To<IGamesApi>("SuggestProcessNameAsync"));
+    }
+
+    [Fact]
+    public async Task A_folder_with_no_game_program_still_explains_why_the_name_matters_but_offers_no_button()
+    {
+        var rig = RigWithExecutables("SkyrimSELauncher.exe");
+        var editor = LinkEditor(rig);
+        editor.LaunchChoice = 1;
+
+        await editor.RefreshProcessNameSuggestionAsync();
+
+        Assert.True(editor.ShowProcessNameWhy);
+        Assert.False(editor.HasProcessNameSuggestion);
+        Assert.Equal(string.Empty, editor.SuggestedProcessName);
+    }
+
+    [Fact]
+    public async Task The_explanation_is_shown_before_a_folder_is_chosen_and_the_folder_is_not_asked()
+    {
+        var rig = RigWithExecutables("SkyrimSE.exe");
+        var editor = rig.New();
+        editor.LaunchChoice = 1;
+
+        await editor.RefreshProcessNameSuggestionAsync();
+
+        Assert.True(editor.ShowProcessNameWhy);
+        Assert.False(editor.HasProcessNameSuggestion);
+        Assert.Empty(rig.Backend.Calls.To<IGamesApi>("SuggestProcessNameAsync"));
+    }
+
+    [Fact]
+    public async Task A_new_install_folder_is_asked_again_for_a_link_started_game()
+    {
+        var rig = RigWithExecutables("SkyrimSE.exe");
+        var editor = LinkEditor(rig);
+        editor.LaunchChoice = 1;
+        await editor.RefreshProcessNameSuggestionAsync();
+
+        editor.InstallPath = @"D:\Games\Other";
+        await editor.RefreshSuggestionsAsync();
+
+        Assert.Equal(@"D:\Games\Other", rig.Backend.Calls.To<IGamesApi>("SuggestProcessNameAsync").Last().Args[0]);
+        Assert.False(editor.HasProcessNameSuggestion);
+    }
+
+    [Fact]
+    public async Task Clearing_the_install_folder_takes_the_offer_away_at_once()
+    {
+        var rig = RigWithExecutables("SkyrimSE.exe");
+        var editor = LinkEditor(rig);
+        editor.LaunchChoice = 1;
+        await editor.RefreshProcessNameSuggestionAsync();
+        Assert.True(editor.HasProcessNameSuggestion);
+
+        editor.InstallPath = string.Empty;
+
+        Assert.False(editor.HasProcessNameSuggestion);
+        Assert.Equal(string.Empty, editor.SuggestedProcessName);
+    }
+
+    [Fact]
+    public async Task Choosing_another_folder_takes_the_old_offer_away_before_the_new_look_finishes()
+    {
+        var rig = RigWithExecutables("SkyrimSE.exe");
+        var editor = LinkEditor(rig);
+        editor.LaunchChoice = 1;
+        await editor.RefreshProcessNameSuggestionAsync();
+
+        editor.InstallPath = @"D:\Games\Other";
+
+        Assert.False(editor.HasProcessNameSuggestion);
+        Assert.Equal(string.Empty, editor.SuggestedProcessName);
+    }
+
+    [Fact]
+    public async Task A_late_answer_for_an_old_folder_does_not_replace_the_newer_offer()
+    {
+        const string other = @"D:\Games\Other";
+        var rig = EditorRig.Create(new FakeBackend(ScenarioBuilder.Mockup()
+            .WithExecutables(MockupScenario.SkyrimInstall, "SkyrimSE.exe")
+            .WithExecutables(other, "Other.exe")));
+        var editor = rig.New();
+        editor.LaunchChoice = 1;
+        var held = new TaskCompletionSource();
+        rig.Backend.Games.SuggestGate = (folder, _) => folder == MockupScenario.SkyrimInstall ? held.Task : Task.CompletedTask;
+
+        editor.InstallPath = MockupScenario.SkyrimInstall;
+        var first = editor.RefreshProcessNameSuggestionAsync();
+        editor.InstallPath = other;
+        await editor.RefreshProcessNameSuggestionAsync();
+        held.SetResult();
+        await first;
+
+        Assert.Equal("Other.exe", editor.SuggestedProcessName);
+        Assert.True(editor.HasProcessNameSuggestion);
+    }
+
+    [Fact]
+    public async Task Choosing_another_folder_cancels_the_look_in_the_old_one()
+    {
+        var rig = RigWithExecutables("SkyrimSE.exe");
+        var editor = rig.New();
+        editor.LaunchChoice = 1;
+        var held = new TaskCompletionSource();
+        rig.Backend.Games.SuggestGate = (_, _) => held.Task;
+        editor.InstallPath = MockupScenario.SkyrimInstall;
+        var first = editor.RefreshProcessNameSuggestionAsync();
+        var token = Assert.Single(rig.Backend.Games.SuggestTokens);
+        Assert.False(token.IsCancellationRequested);
+
+        editor.InstallPath = @"D:\Games\Other";
+        rig.Backend.Games.SuggestGate = null;
+        await editor.RefreshSuggestionsAsync();
+        held.SetResult();
+        await first;
+
+        Assert.True(token.IsCancellationRequested);
+    }
+
+    [Fact]
+    public async Task A_suggestion_that_cannot_be_read_offers_nothing_and_shows_no_error()
+    {
+        var rig = RigWithExecutables("SkyrimSE.exe");
+        rig.Backend.FailNext<IGamesApi>("SuggestProcessNameAsync", new ErrorInfo("error.unknown", new Dictionary<string, object?>(), string.Empty));
+        var editor = LinkEditor(rig);
+        // Choosing the link asks once, and that one answer is the failure.
+        editor.LaunchChoice = 1;
+
+        Assert.Single(rig.Backend.Calls.To<IGamesApi>("SuggestProcessNameAsync"));
+        Assert.False(editor.HasProcessNameSuggestion);
+        Assert.True(editor.ShowProcessNameWhy);
+        Assert.Empty(rig.Toasts.Toasts);
+        Assert.Null(editor.FormError);
+    }
+
+    [Fact]
+    public async Task Going_back_to_a_file_start_hides_the_offer()
+    {
+        var rig = RigWithExecutables("SkyrimSE.exe");
+        var editor = LinkEditor(rig);
+        editor.LaunchChoice = 1;
+        await editor.RefreshProcessNameSuggestionAsync();
+
+        editor.LaunchChoice = 0;
+
+        Assert.False(editor.HasProcessNameSuggestion);
+        Assert.False(editor.ShowProcessNameWhy);
     }
 
     [Fact]

@@ -4,6 +4,7 @@ using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Git;
 using Savepoint.Core.Services.Settings;
+using Savepoint.Core.Services.Storage;
 using Savepoint.Testing;
 
 namespace Savepoint.Core.Tests.Backend;
@@ -190,7 +191,10 @@ public class StorageUnreachableChoicesTests
         Assert.True(check.Value!.Storage!.Reachable);
 
         // Every listed game has its repositories again, with nothing recorded in them.
-        Assert.Equal([Path.Combine(workspace.DefaultStorageRoot, game.Id)], Directory.GetFileSystemEntries(workspace.DefaultStorageRoot));
+        // Beside the game's folder sits the marker the empty start leaves.
+        Assert.Equal(
+            [Path.Combine(workspace.DefaultStorageRoot, StorageContent.EmptyStartMarkerFileName), Path.Combine(workspace.DefaultStorageRoot, game.Id)],
+            Directory.GetFileSystemEntries(workspace.DefaultStorageRoot).Order(StringComparer.Ordinal));
         Assert.True(Directory.Exists(Path.Combine(workspace.DefaultStorageRoot, game.Id, "install.git")));
         Assert.True(Directory.Exists(Path.Combine(workspace.DefaultStorageRoot, game.Id, "external.git")));
         Assert.Equal(game.Id, Assert.Single((await workspace.Games.ListAsync(workspace.Token)).Value!).Id);

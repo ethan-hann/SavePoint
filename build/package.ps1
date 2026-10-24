@@ -17,6 +17,8 @@ Also downloads the source archives of the three tags build/git-manifest.json pin
 promises) into artifacts/release/source, prints their SHA-256 and compares each with the hash the manifest pins. This runs
 before anything is built, so a failed check leaves no new package. An archive keeps its name only when it matches its
 pin. A hash that is not pinned yet, or that differs, fails the run after every hash has been printed.
+It also downloads the source archives of the MSYS2 and MINGW packages inside the Windows git bundle, which
+build/msys2-sources.json lists with their pinned hashes, into artifacts/release/source/packages, and checks them the same way.
 
 .PARAMETER AllowDirty
 Packs a tree with uncommitted changes anyway, for a trial package. The build is then marked "-dirty". Without it the
@@ -73,6 +75,17 @@ function Get-SourceArchives {
             throw "THIRD-PARTY-NOTICES.md does not promise source for $promise, which build/git-manifest.json pins for $key."
         }
         [pscustomobject]@{ Repository = $listed[$key].repository; Tag = $listed[$key].tag; Sha256 = "$($listed[$key].sha256)".Trim().ToLowerInvariant() }
+    }
+}
+
+function Get-PackageSourceArchives {
+    # The MSYS2 and MINGW packages inside the Windows git bundle are listed, with their hashes, in build/msys2-sources.json.
+    $listed = (Get-Content -LiteralPath (Join-Path $repoRoot 'build/msys2-sources.json') -Raw | ConvertFrom-Json -AsHashtable)['archives']
+    if (-not $listed -or $listed.Count -eq 0) {
+        throw 'build/msys2-sources.json lists no source archives in "archives".'
+    }
+    foreach ($archive in $listed) {
+        [pscustomobject]@{ File = $archive['file']; Url = $archive['url']; Sha256 = "$($archive['sha256'])".Trim().ToLowerInvariant() }
     }
 }
 
@@ -136,7 +149,7 @@ try {
             # The archive takes its name only when it matches its pin, so a wrong one never sits in the folder as if it were the right one.
             $partial = "$target.part"
             Write-Host "==> $($source.Repository) at $($source.Tag)"
-            Invoke-WebRequest -Uri "$($source.Repository)/archive/refs/tags/$($source.Tag).tar.gz" -OutFile $partial
+            Invoke-WebRequest -Uri "$($source.Repository)/archive/refs/tags/$($source.Tag).tar.gz" -OutFile $partial -MaximumRetryCount 3 -RetryIntervalSec 2
             $actual = (Get-FileHash -LiteralPath $partial -Algorithm SHA256).Hash.ToLowerInvariant()
             '{0}  {1}' -f $actual, $name
             if (-not $source.Sha256) {
@@ -145,6 +158,33 @@ try {
             }
             elseif ($source.Sha256 -ne $actual) {
                 $problems += "$name is not the archive build/git-manifest.json pins: expected $($source.Sha256), got $actual."
+                Remove-Item -LiteralPath $partial -Force
+            }
+            else {
+                Move-Item -LiteralPath $partial -Destination $target -Force
+            }
+        }
+        # The packages of the Windows git bundle go in a folder of their own, so the three tag archives stay easy to find.
+        $packageDir = Join-Path $sourceDir 'packages'
+        New-Item -ItemType Directory -Force -Path $packageDir | Out-Null
+        foreach ($package in Get-PackageSourceArchives) {
+            $target = Join-Path $packageDir $package.File
+            $partial = "$target.part"
+            Write-Host "==> $($package.File)"
+            # An archive already in the folder was checked against its pin when it took its name, so only a changed pin makes it download again.
+            if ((Test-Path -LiteralPath $target) -and (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant() -eq $package.Sha256) {
+                '{0}  {1}' -f $package.Sha256, $package.File
+                continue
+            }
+            Invoke-WebRequest -Uri $package.Url -OutFile $partial -MaximumRetryCount 3 -RetryIntervalSec 2
+            $actual = (Get-FileHash -LiteralPath $partial -Algorithm SHA256).Hash.ToLowerInvariant()
+            '{0}  {1}' -f $actual, $package.File
+            if (-not $package.Sha256) {
+                $problems += "$($package.File) has no pinned hash in build/msys2-sources.json; if this download is the right one, pin $actual."
+                Remove-Item -LiteralPath $partial -Force
+            }
+            elseif ($package.Sha256 -ne $actual) {
+                $problems += "$($package.File) is not the archive build/msys2-sources.json pins: expected $($package.Sha256), got $actual."
                 Remove-Item -LiteralPath $partial -Force
             }
             else {

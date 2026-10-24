@@ -1,3 +1,4 @@
+using Savepoint.App.Features.Common.Errors;
 using Savepoint.Core.Api;
 using Savepoint.Core.Errors;
 
@@ -185,7 +186,7 @@ public sealed partial class LaunchFlowViewModel
             var skipped = await _deps.Launch.CompleteSessionAsync(flow.GameId, new SessionCompletion.Skip());
             if (!skipped.Ok)
             {
-                ShowPlainFailure(flow, skipped.Error);
+                ShowPlainFailure(flow, skipped.Error, ErrorOperation.Snapshot);
             }
 
             return;
@@ -203,7 +204,7 @@ public sealed partial class LaunchFlowViewModel
         var completed = await _deps.Launch.CompleteSessionAsync(flow.GameId, await dialog.Result);
         if (!completed.Ok)
         {
-            ShowPlainFailure(flow, completed.Error);
+            ShowPlainFailure(flow, completed.Error, ErrorOperation.Snapshot);
             RaiseActivity();
         }
     }

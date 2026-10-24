@@ -17,10 +17,17 @@ namespace Savepoint.App.Tests.Features.Shell;
 public class StartupViewTests
 {
     // A status check that never answers, which is how the checks look while they run.
-    private sealed class NeverAnswers : IAppStatusApi
+    private sealed class NeverAnswers(StartupProgress? reports = null) : IAppStatusApi
     {
-        public Task<OperationResult<StartupStatus>> CheckAsync(CancellationToken cancellationToken = default) =>
-            new TaskCompletionSource<OperationResult<StartupStatus>>().Task.WaitAsync(cancellationToken);
+        public Task<OperationResult<StartupStatus>> CheckAsync(CancellationToken cancellationToken = default, IProgress<StartupProgress>? progress = null)
+        {
+            if (reports is { } step)
+            {
+                progress?.Report(step);
+            }
+
+            return new TaskCompletionSource<OperationResult<StartupStatus>>().Task.WaitAsync(cancellationToken);
+        }
 
         public Task<OperationResult<string>> RecoverCatalogFileAsync(string path, CatalogRecovery recovery, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
@@ -45,6 +52,22 @@ public class StartupViewTests
 
         var texts = view.GetVisualDescendants().OfType<TextBlock>().Where(block => block.IsEffectivelyVisible).Select(block => block.Text).ToList();
         Assert.Contains("Checking your files\u2026", texts);
+    }
+
+    [AvaloniaFact]
+    public void While_an_earlier_cleanup_is_finished_the_screen_says_so_in_plain_words()
+    {
+        var text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), os: "windows", timeZone: TimeZoneInfo.Utc);
+        var startup = new StartupViewModel(new NeverAnswers(StartupProgress.FinishingEarlierCleanup), text);
+        var view = new StartupView { DataContext = startup };
+        using var host = new ThemeHost(view);
+
+        _ = startup.CheckAsync();
+        Dispatcher.UIThread.RunJobs();
+
+        var texts = view.GetVisualDescendants().OfType<TextBlock>().Where(block => block.IsEffectivelyVisible).Select(block => block.Text).ToList();
+        Assert.Contains("Checking your files…", texts);
+        Assert.Contains("SavePoint is finishing a cleanup it started earlier. This can take a few minutes, and your games are not touched meanwhile.", texts);
     }
 
     [AvaloniaFact]

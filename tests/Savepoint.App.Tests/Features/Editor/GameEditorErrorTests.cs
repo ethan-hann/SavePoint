@@ -305,7 +305,7 @@ public class GameEditorErrorTests
 
         Assert.NotNull(editor.FormError);
         Assert.Equal("Something went wrong", editor.FormError.Title);
-        Assert.Equal("System.IO.IOException: disk", editor.FormError.Detail);
+        Assert.Equal("System.IO.IOException: disk", editor.FormError.SupportText);
         Assert.Null(editor.InstallCard);
     }
 

@@ -20,7 +20,7 @@ public class ErrorCardViewModelTests
     [Fact]
     public void A_file_in_use_card_has_the_headline_the_lock_icon_the_body_and_the_file()
     {
-        var card = new ErrorCardViewModel(MockupScenario.FileInUseError, _text);
+        var card = new ErrorCardViewModel(MockupScenario.FileInUseError, _text, operation: ErrorOperation.Switch);
 
         Assert.Equal("A file is in use, so the switch stopped partway", card.Title);
         Assert.StartsWith("Something else on your computer is holding one of the game's files open.", card.Body);
@@ -108,6 +108,38 @@ public class ErrorCardViewModelTests
     }
 
     [Fact]
+    public void A_copy_that_could_not_reach_the_clipboard_says_so()
+    {
+        var card = new ErrorCardViewModel(MockupScenario.FileInUseError, _text);
+
+        card.ConfirmCopyFailed();
+
+        Assert.Equal("SavePoint couldn't reach the clipboard. Try again.", card.CopyNote);
+    }
+
+    [Fact]
+    public void An_unclassified_git_failure_points_at_the_copy_button_not_at_details_nobody_can_read()
+    {
+        var card = new ErrorCardViewModel(ErrorInfo.From(new GitOperationException("the repository does not exist")), _text);
+
+        Assert.Contains(_text.Message("errorCard.copyDetails"), card.Body, StringComparison.Ordinal);
+        Assert.DoesNotContain("details may say", card.Body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_path_inside_a_snapshot_folder_shows_the_game_folder_instead()
+    {
+        var game = PathOnThisSystem("SavePoint", "skyrim");
+        var held = Path.Combine(game, "install.git", "objects", "pack", "pack-1.pack");
+        var error = new ErrorInfo("error.gitOperation.checkoutFailed", new Dictionary<string, object?> { ["path"] = held }, string.Empty);
+
+        var card = new ErrorCardViewModel(error, _text);
+
+        Assert.Equal(game, card.Path);
+        Assert.DoesNotContain(".git", card.Path, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void A_path_argument_that_is_not_text_is_ignored()
     {
         var error = new ErrorInfo("error.unknown", new Dictionary<string, object?> { ["path"] = 42 }, string.Empty);
@@ -130,10 +162,10 @@ public class ErrorCardViewModelTests
     {
         var card = new ErrorCardViewModel(MockupScenario.FileInUseError, _text);
 
-        Assert.True(card.HasDetail);
+        Assert.True(card.HasSupportText);
         Assert.False(card.ShowDetails);
         Assert.Equal("Show details", card.DetailsToggleLabel);
-        Assert.Contains("unable to unlink", card.Detail);
+        Assert.Contains("unable to unlink", card.SupportText);
 
         card.ToggleDetailsCommand.Execute(null);
 
@@ -144,6 +176,20 @@ public class ErrorCardViewModelTests
 
         Assert.False(card.ShowDetails);
         Assert.Equal("Show details", card.DetailsToggleLabel);
+    }
+
+    [Fact]
+    public void Copy_details_asks_for_the_whole_technical_text_and_an_error_without_any_cannot_copy()
+    {
+        var card = new ErrorCardViewModel(MockupScenario.FileInUseError, _text);
+        var requested = new List<string>();
+        card.CopyRequested += (_, text) => requested.Add(text);
+
+        card.CopyDetailsCommand.Execute(null);
+
+        Assert.Equal([MockupScenario.FileInUseError.Detail], requested);
+        Assert.Contains("unable to unlink", requested[0], StringComparison.Ordinal);
+        Assert.False(new ErrorCardViewModel(new ErrorInfo("error.unknown", new Dictionary<string, object?>(), " "), _text).CopyDetailsCommand.CanExecute(null));
     }
 
     [Fact]
@@ -164,7 +210,7 @@ public class ErrorCardViewModelTests
     {
         var card = new ErrorCardViewModel(new ErrorInfo("error.unknown", new Dictionary<string, object?>(), "  "), _text);
 
-        Assert.False(card.HasDetail);
+        Assert.False(card.HasSupportText);
     }
 
     [Fact]
@@ -194,7 +240,7 @@ public class ErrorCardViewModelTests
             "Only part of the snapshot was taken",
             "Your game version and mods are in the snapshot.",
             path: @"D:\SavePoint",
-            detail: "no space left",
+            supportText: "no space left",
             actions: [new ErrorCardAction("Retry the saves", retry, true)]);
 
         Assert.Equal("Only part of the snapshot was taken", card.Title);
@@ -202,8 +248,8 @@ public class ErrorCardViewModelTests
         Assert.Equal(Icons.Warning, card.Icon);
         Assert.True(card.IsWarning);
         Assert.Equal(@"D:\SavePoint", card.Path);
-        Assert.Equal("no space left", card.Detail);
-        Assert.True(card.HasDetail);
+        Assert.Equal("no space left", card.SupportText);
+        Assert.True(card.HasSupportText);
         Assert.Single(card.Actions);
     }
 
@@ -222,7 +268,7 @@ public class ErrorCardViewModelTests
     {
         var card = ErrorCardViewModel.Custom(_text, Icons.Info, ErrorTone.Neutral, "Title", "Body");
 
-        Assert.False(card.HasDetail);
+        Assert.False(card.HasSupportText);
         Assert.False(card.HasPath);
     }
 

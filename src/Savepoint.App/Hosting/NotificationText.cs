@@ -1,3 +1,4 @@
+using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.Core.Api;
 using Savepoint.Core.Errors;
@@ -48,7 +49,7 @@ public static class NotificationText
         var body = text.Message(key, [name]);
         if (job.Status is JobStatus.Failed or JobStatus.Partial && FirstReason(job) is { } reason)
         {
-            body = $"{body} {text.Message(reason)}";
+            body = $"{body} {text.Message(reason, ErrorOperations.Of(job.Kind))}";
         }
 
         return (text.Message("app.name"), body);

@@ -168,6 +168,30 @@ public class ClearAllDataTests
     }
 
     [Fact]
+    public async Task Leftovers_in_a_snapshot_folder_are_listed_by_the_game_folder_once_and_never_by_the_git_folder()
+    {
+        var rig = await SettingsRig.ShownAsync(WithPreview(_preview));
+        var run = StartAsync(rig);
+        Confirm(Dialog(rig));
+        await run;
+        var job = rig.Backend.Jobs.LastStarted(JobKind.ClearData);
+        var held = ErrorInfo.From(new InvalidOperationException("In use"));
+
+        // Built with the system's own separators, because the folder is found by splitting the path the way the system does.
+        var root = Path.Combine(Path.GetTempPath(), "SavePoint");
+        var game = Path.Combine(root, "skyrim");
+        var catalog = Path.Combine(root, "catalog", "games.json");
+
+        rig.Backend.Jobs.Complete(job.JobId, new ClearAllDataResult(0, [
+            new ClearFailure(Path.Combine(game, "install.git", "objects", "pack-1.pack"), held),
+            new ClearFailure(Path.Combine(game, "external.git"), held),
+            new ClearFailure(catalog, held),
+        ]));
+
+        Assert.Equal([game, catalog], Section(rig).LeftBehind!.Path!.Split(Environment.NewLine));
+    }
+
+    [Fact]
     public async Task A_failed_removal_shows_why_and_leaves_the_app_where_it_is()
     {
         var rig = await SettingsRig.ShownAsync(WithPreview(_preview));

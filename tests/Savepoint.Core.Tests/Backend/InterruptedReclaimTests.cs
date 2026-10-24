@@ -1,3 +1,4 @@
+using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Git;
 using Savepoint.Core.Tests.Git;
@@ -71,6 +72,53 @@ public class InterruptedReclaimTests
         Assert.True(status.Ok, status.Error?.Detail);
         Assert.False(File.Exists(ReclaimMarker.PathIn(gitDir)));
         Assert.False(File.Exists(leftover));
+    }
+
+    [Fact(Timeout = 120_000)]
+    public async Task The_startup_check_says_it_is_finishing_an_earlier_cleanup_before_it_starts_waiting()
+    {
+        var (workspace, _, gitDir) = await WorldAsync();
+        using var _ = workspace;
+        var runner = workspace.Backend.Services.Runner;
+        var gone = await LiveOrphan.EndedAsync(runner, gitDir);
+        var orphan = await LiveOrphan.StartAsync(runner, gitDir);
+        ReclaimMarker.Write(gitDir, gone, orphan.Stamp);
+        workspace.Restart();
+        var told = new TaskCompletionSource<StartupProgress>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var check = workspace.AppStatus.CheckAsync(workspace.Token, new Progress<StartupProgress>(step => told.TrySetResult(step)));
+        var first = await Task.WhenAny(told.Task, Task.Delay(5000, workspace.Token));
+        var checkWasStillRunning = !check.IsCompleted;
+        await orphan.EndAsync();
+        await check.WaitAsync(TimeSpan.FromSeconds(30), workspace.Token);
+
+        Assert.Same(told.Task, first);
+        Assert.Equal(StartupProgress.FinishingEarlierCleanup, await told.Task);
+        Assert.True(checkWasStillRunning);
+    }
+
+    [Fact(Timeout = 120_000)]
+    public async Task The_startup_check_reports_nothing_when_no_cleanup_was_left_behind_or_the_one_left_has_ended()
+    {
+        var (workspace, _, gitDir) = await WorldAsync();
+        using var _ = workspace;
+        var runner = workspace.Backend.Services.Runner;
+        var steps = new List<StartupProgress>();
+        var progress = new SyncProgress(steps.Add);
+
+        await workspace.AppStatus.CheckAsync(workspace.Token, progress);
+        var gone = await LiveOrphan.EndedAsync(runner, gitDir);
+        ReclaimMarker.Write(gitDir, gone, gone);
+        workspace.Restart();
+        await workspace.AppStatus.CheckAsync(workspace.Token, progress);
+
+        Assert.Empty(steps);
+        Assert.False(File.Exists(ReclaimMarker.PathIn(gitDir)));
+    }
+
+    private sealed class SyncProgress(Action<StartupProgress> report) : IProgress<StartupProgress>
+    {
+        public void Report(StartupProgress value) => report(value);
     }
 
     [Fact(Timeout = 120_000)]

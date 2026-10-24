@@ -1,3 +1,4 @@
+using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.Core.Api;
 using Savepoint.Core.Errors;
@@ -29,5 +30,5 @@ internal static class LaunchText
         job.Error ?? (job.Result as CaptureResult)?.Folders.FirstOrDefault(folder => !folder.Ok)?.Error;
 
     // The error as one sentence; a job that failed without saying why reads as a general failure.
-    public static string Reason(UiFormatter text, ErrorInfo? error) => text.Message(error ?? _unknown);
+    public static string Reason(UiFormatter text, ErrorInfo? error, ErrorOperation operation = ErrorOperation.Unspecified) => text.Message(error ?? _unknown, operation);
 }

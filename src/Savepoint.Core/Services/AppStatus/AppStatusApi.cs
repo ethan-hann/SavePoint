@@ -22,7 +22,7 @@ internal sealed class AppStatusApi : IAppStatusApi
         _afterSettings = afterSettings;
     }
 
-    public Task<OperationResult<StartupStatus>> CheckAsync(CancellationToken cancellationToken = default) =>
+    public Task<OperationResult<StartupStatus>> CheckAsync(CancellationToken cancellationToken = default, IProgress<StartupProgress>? progress = null) =>
         ApiGuard.RunAsync(
             _services.Log,
             async () =>
@@ -32,7 +32,7 @@ internal sealed class AppStatusApi : IAppStatusApi
 
                 // The storage is only touched once the screens that explain a missing tool or a corrupt file are out of the way.
                 var storage = git.Available && catalog.CorruptFiles.Count == 0
-                    ? await PrepareStorageAsync(cancellationToken).ConfigureAwait(false)
+                    ? await PrepareStorageAsync(progress, cancellationToken).ConfigureAwait(false)
                     : null;
 
                 return new StartupStatus(git, catalog, storage);
@@ -184,6 +184,12 @@ internal sealed class AppStatusApi : IAppStatusApi
                             try
                             {
                                 Directory.CreateDirectory(snapshot.Root);
+
+                                // Marks the folder as SavePoint's own empty start, so a later storage move can tell it from a drive whose contents are missing.
+                                if (!Directory.EnumerateFileSystemEntries(snapshot.Root).Any(entry => Path.GetFileName(entry) != StorageContent.EmptyStartMarkerFileName))
+                                {
+                                    File.WriteAllText(Path.Combine(snapshot.Root, StorageContent.EmptyStartMarkerFileName), $"SavePoint made this folder when it was started with an empty folder.{Environment.NewLine}");
+                                }
                             }
                             catch (Exception e) when (e is IOException or UnauthorizedAccessException or NotSupportedException)
                             {
@@ -413,7 +419,7 @@ internal sealed class AppStatusApi : IAppStatusApi
     // The storage folder is made only the first time, when no root has been saved. After that a folder that is not there is an
     // unplugged drive or a renamed folder, and making an empty one in its place would hide the history behind it (D31). Such a
     // folder is a finding, not a failed check: the startup screen offers a way on (D37).
-    private async Task<StorageStatus> PrepareStorageAsync(CancellationToken cancellationToken)
+    private async Task<StorageStatus> PrepareStorageAsync(IProgress<StartupProgress>? progress, CancellationToken cancellationToken)
     {
         try
         {
@@ -440,11 +446,23 @@ internal sealed class AppStatusApi : IAppStatusApi
             // A lock left by a run that was killed would refuse the first save; this is the one moment nothing of ours is running (D18).
             if (Interlocked.Exchange(ref _swept, 1) == 0)
             {
+                var told = false;
                 foreach (var folder in StorageContent.Folders(storage.Root))
                 {
                     foreach (var gitDir in new[] { "install.git", "external.git" }.Select(name => Path.Combine(folder, name)).Where(Directory.Exists))
                     {
-                        await storage.Engine.SettleReclaimAsync(gitDir, cancellationToken).ConfigureAwait(false);
+                        await storage.Engine.SettleReclaimAsync(
+                            gitDir,
+                            cancellationToken,
+                            () =>
+                            {
+                                // Said once, however many games wait.
+                                if (!told)
+                                {
+                                    told = true;
+                                    progress?.Report(StartupProgress.FinishingEarlierCleanup);
+                                }
+                            }).ConfigureAwait(false);
                         var removed = storage.Engine.RemoveStaleLocks(gitDir);
                         if (removed > 0)
                         {

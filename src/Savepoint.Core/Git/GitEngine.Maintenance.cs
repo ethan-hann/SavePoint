@@ -104,7 +104,8 @@ public sealed partial class GitEngine
     // A reclaim notes itself in the git directory (see ReclaimMarker). When the SavePoint that ran it is gone and the git it started last is
     // still running, that git goes on deleting packs, so anything written meanwhile could lose the only copy of an object that
     // sat in a pack being replaced. This waits for that git to end, then removes the note. A note whose owner still runs is a reclaim in progress.
-    internal async Task SettleReclaimAsync(string gitDir, CancellationToken ct)
+    // onWaiting is called just before the wait begins, so a screen can say why nothing moves.
+    internal async Task SettleReclaimAsync(string gitDir, CancellationToken ct, Action? onWaiting = null)
     {
         if (!File.Exists(ReclaimMarker.PathIn(gitDir)))
         {
@@ -120,6 +121,7 @@ public sealed partial class GitEngine
 
             if (note.Git is { } git && git.IsRunning())
             {
+                onWaiting?.Invoke();
                 await git.WaitForExitAsync(ct).ConfigureAwait(false);
             }
         }

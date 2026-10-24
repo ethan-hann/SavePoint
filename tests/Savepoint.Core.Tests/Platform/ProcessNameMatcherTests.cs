@@ -23,6 +23,12 @@ public class ProcessNameMatcherTests
         { OsKind.MacOS, "Game.exe", "Game", null, null, true },
         { OsKind.MacOS, "Game", "GameHelper", null, null, false },
 
+        // A bundle's name stands for the program inside it.
+        { OsKind.MacOS, "Game.app", "Game", null, null, true },
+        { OsKind.MacOS, "game.APP", "Game", null, null, true },
+        { OsKind.MacOS, "Game.app", "GameHelper", null, null, false },
+        { OsKind.Windows, "Game.app", "Game", null, null, false },
+
         // Linux: case-sensitive, .exe optional, also the executable's and argv0's file names.
         { OsKind.Linux, "factorio", "factorio", null, null, true },
         { OsKind.Linux, "SkyrimSE.exe", "SkyrimSE.exe", null, null, true },

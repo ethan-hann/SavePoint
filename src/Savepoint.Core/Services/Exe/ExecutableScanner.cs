@@ -1,3 +1,4 @@
+using Savepoint.Core.Launch;
 using Savepoint.Core.Platform;
 
 namespace Savepoint.Core.Services.Exe;
@@ -90,7 +91,31 @@ public sealed class ExecutableScanner
     public Task<IReadOnlyList<string>> ListAsync(string installFolder, CancellationToken cancellationToken = default) =>
         Task.Run(() => List(installFolder, cancellationToken), cancellationToken);
 
-    internal IReadOnlyList<string> List(string installFolder, CancellationToken cancellationToken)
+    /// <summary>Lists every launchable file found under <paramref name="installFolder"/>, with its size, for ranking.</summary>
+    /// <param name="installFolder">The game's install folder.</param>
+    /// <param name="cancellationToken">Stops the scan between entries.</param>
+    /// <returns>
+    /// The files the scan found, in no particular order, with paths relative to the install folder. The same bounds apply as for
+    /// <see cref="ListAsync"/> except the count of results: ranking needs the deep files that a short list would cut. A missing
+    /// folder gives an empty list.
+    /// </returns>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    /// <remarks>Runs on the thread pool.</remarks>
+    public Task<IReadOnlyList<InstalledProgram>> ListProgramsAsync(string installFolder, CancellationToken cancellationToken = default) =>
+        Task.Run(() => ListPrograms(installFolder, cancellationToken), cancellationToken);
+
+    internal IReadOnlyList<string> List(string installFolder, CancellationToken cancellationToken) =>
+        [.. Collect(installFolder, cancellationToken)
+            .OrderBy(c => c.Depth)
+            .ThenByDescending(c => c.Length)
+            .ThenBy(c => c.RelativePath, StringComparer.Ordinal)
+            .Take(MaxResults)
+            .Select(c => c.RelativePath)];
+
+    internal IReadOnlyList<InstalledProgram> ListPrograms(string installFolder, CancellationToken cancellationToken) =>
+        [.. Collect(installFolder, cancellationToken).Select(c => new InstalledProgram(c.RelativePath, c.Length))];
+
+    private List<Candidate> Collect(string installFolder, CancellationToken cancellationToken)
     {
         var root = Path.GetFullPath(installFolder);
         if (!Directory.Exists(root))
@@ -125,12 +150,7 @@ public sealed class ExecutableScanner
             }
         }
 
-        return [.. found
-            .OrderBy(c => c.Depth)
-            .ThenByDescending(c => c.Length)
-            .ThenBy(c => c.RelativePath, StringComparer.Ordinal)
-            .Take(MaxResults)
-            .Select(c => c.RelativePath)];
+        return found;
     }
 
     private void Visit(FileSystemInfo entry, string root, int depth, Queue<(string Path, int Depth)> pending, List<Candidate> found)

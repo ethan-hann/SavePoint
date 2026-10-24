@@ -1,4 +1,5 @@
 using Savepoint.App.Features.Common;
+using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Shell;
@@ -195,7 +196,7 @@ public class JobStatusViewModelTests
         var toast = Assert.Single(rig.Toasts.Toasts);
         Assert.Equal("Something went wrong taking a snapshot of Skyrim Special Edition.", toast.Text);
         Assert.Equal(ToastKind.Error, toast.Message.Kind);
-        Assert.Equal(rig.Text.Message(MockupScenario.SavesOutOfRoomError), toast.Details);
+        Assert.Equal(rig.Text.Message(MockupScenario.SavesOutOfRoomError, ErrorOperation.Snapshot), toast.Details);
     }
 
     [Fact]
@@ -253,7 +254,7 @@ public class JobStatusViewModelTests
         var toast = Assert.Single(rig.Toasts.Toasts);
         Assert.Equal("Only part of Skyrim Special Edition is in the new snapshot.", toast.Text);
         Assert.Equal(ToastKind.Warning, toast.Message.Kind);
-        Assert.Equal(rig.Text.Message(MockupScenario.SavesOutOfRoomError), toast.Details);
+        Assert.Equal(rig.Text.Message(MockupScenario.SavesOutOfRoomError, ErrorOperation.Snapshot), toast.Details);
     }
 
     [Fact]

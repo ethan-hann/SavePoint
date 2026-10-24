@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using Savepoint.Core.Platform.Linux;
 
 namespace Savepoint.Core.Git;
 
@@ -29,12 +30,19 @@ internal readonly record struct ProcessStamp(int Id, long StartedAtUtcTicks)
     }
 
     // True while the very process this stamp was taken from is still running; a process that took over its number does not count.
-    public bool IsRunning()
+    public bool IsRunning() => IsRunning(null);
+
+    // Where nothing reaps orphans, a finished git stays a zombie that .NET still reports as running, so Linux also reads /proc.
+    // The /proc folder is injectable so the rule can be tested on any OS.
+    internal bool IsRunning(string? procRoot)
     {
+        procRoot ??= OperatingSystem.IsLinux() ? "/proc" : null;
         try
         {
             using var process = Process.GetProcessById(Id);
-            return !process.HasExited && Of(process) is { } now && Math.Abs(now.StartedAtUtcTicks - StartedAtUtcTicks) <= _toleranceTicks;
+            return !process.HasExited
+                && (procRoot is null || !LinuxProcessInspector.HasExited(Id, procRoot))
+                && Of(process) is { } now && Math.Abs(now.StartedAtUtcTicks - StartedAtUtcTicks) <= _toleranceTicks;
         }
         catch (Exception e) when (e is ArgumentException or InvalidOperationException or Win32Exception)
         {
@@ -42,8 +50,22 @@ internal readonly record struct ProcessStamp(int Id, long StartedAtUtcTicks)
         }
     }
 
-    public async Task WaitForExitAsync(CancellationToken ct)
+    public Task WaitForExitAsync(CancellationToken ct) => WaitForExitAsync(OperatingSystem.IsLinux() ? "/proc" : null, TimeSpan.FromMilliseconds(100), ct);
+
+    // A process this run did not start is not its child: .NET waits on it by probing its id, which still succeeds for a zombie that
+    // nothing reaps, so the wait would never end. Where /proc is read, poll the same check IsRunning makes instead.
+    internal async Task WaitForExitAsync(string? procRoot, TimeSpan pollEvery, CancellationToken ct)
     {
+        if (procRoot is not null)
+        {
+            while (IsRunning(procRoot))
+            {
+                await Task.Delay(pollEvery, ct).ConfigureAwait(false);
+            }
+
+            return;
+        }
+
         try
         {
             using var process = Process.GetProcessById(Id);

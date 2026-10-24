@@ -8,8 +8,13 @@ public interface IAppStatusApi
     /// Checks that the bundled git runs, that every catalog file can be read, and that the storage folder can be reached. A problem
     /// found is part of the answer, not a failure of the call.
     /// </summary>
+    /// <remarks>
+    /// The check can wait a long time for a cleanup that an earlier run began and did not finish (D46.1). It reports
+    /// <see cref="StartupProgress.FinishingEarlierCleanup"/> to <paramref name="progress"/> before it starts waiting, so a screen can say why.
+    /// </remarks>
     /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c> (D23).</param>
-    Task<OperationResult<StartupStatus>> CheckAsync(CancellationToken cancellationToken = default);
+    /// <param name="progress">Told what the check is waiting on; null when nobody listens.</param>
+    Task<OperationResult<StartupStatus>> CheckAsync(CancellationToken cancellationToken = default, IProgress<StartupProgress>? progress = null);
 
     /// <summary>
     /// Fixes one corrupt catalog file by restoring its last good copy or starting it empty. Either way the corrupt file is moved

@@ -22,7 +22,7 @@ public class ErrorCardViewTests
     [AvaloniaFact]
     public void The_card_shows_the_headline_the_body_and_the_path_on_its_own_surface()
     {
-        using var shown = Show(new ErrorCardViewModel(MockupScenario.FileInUseError, _text));
+        using var shown = Show(new ErrorCardViewModel(MockupScenario.FileInUseError, _text, operation: ErrorOperation.Switch));
 
         Assert.Equal("A file is in use, so the switch stopped partway", shown.Text("TitleText"));
         Assert.StartsWith("Something else on your computer", shown.Text("BodyText"));
@@ -39,7 +39,7 @@ public class ErrorCardViewTests
     }
 
     [AvaloniaFact]
-    public void The_detail_box_stays_hidden_until_the_toggle_is_pressed_then_shows_the_detail_in_a_selectable_box()
+    public void The_details_panel_stays_hidden_until_the_toggle_is_pressed_then_explains_the_technical_text_and_offers_to_copy_it()
     {
         var card = new ErrorCardViewModel(MockupScenario.FileInUseError, _text);
         using var shown = Show(card);
@@ -55,12 +55,61 @@ public class ErrorCardViewTests
         Assert.True(card.ShowDetails);
         Assert.Equal("Hide details", toggle.Content);
         Assert.True(shown.Find<Border>("DetailsSurface").IsEffectivelyVisible);
-        Assert.Contains("unable to unlink", shown.Find<SelectableTextBlock>("DetailsText").Text);
+        Assert.Contains("technical details for a bug report", shown.Text("DetailsExplanation"), StringComparison.Ordinal);
+        Assert.Equal("Copy details for support", shown.Find<Button>("CopyDetails").Content);
 
         toggle.IsChecked = false;
         Dispatcher.UIThread.RunJobs();
 
         Assert.False(shown.Find<Border>("DetailsSurface").IsEffectivelyVisible);
+    }
+
+    [AvaloniaFact]
+    public void No_exception_or_tool_text_is_rendered_anywhere_on_the_card_even_with_the_details_open()
+    {
+        var error = ErrorInfo.From(new GitOperationException(@"C:\Games\SkyrimSE\Data\Skyrim.esm", "fatal: unable to unlink 'Data/Skyrim.esm': Permission denied"));
+        var card = new ErrorCardViewModel(error, _text) { ShowDetails = true };
+        using var shown = Show(card);
+
+        var rendered = shown.Card.GetVisualDescendants()
+            .Select(visual => visual switch
+            {
+                SelectableTextBlock selectable => selectable.Text,
+                TextBlock block => block.Text,
+                _ => null,
+            })
+            .Where(text => !string.IsNullOrEmpty(text))
+            .ToList();
+
+        Assert.NotEmpty(rendered);
+        Assert.DoesNotContain(rendered, text => text!.Contains("unable to unlink", StringComparison.Ordinal));
+        Assert.DoesNotContain(rendered, text => text!.Contains("GitOperationException", StringComparison.Ordinal));
+        Assert.DoesNotContain(rendered, text => text!.Contains("fatal:", StringComparison.Ordinal));
+        Assert.DoesNotContain(rendered, text => text!.Contains(" at Savepoint.", StringComparison.Ordinal));
+    }
+
+    [AvaloniaFact]
+    public async Task Copy_details_puts_the_full_technical_text_on_the_clipboard_and_says_so()
+    {
+        var error = ErrorInfo.From(new GitOperationException(@"C:\Games\SkyrimSE\Data\Skyrim.esm", "fatal: unable to unlink 'Data/Skyrim.esm': Permission denied"));
+        var card = new ErrorCardViewModel(error, _text) { ShowDetails = true };
+        using var shown = Show(card);
+        var clipboard = TopLevel.GetTopLevel(shown.View)?.Clipboard;
+        Assert.NotNull(clipboard);
+        await clipboard.ClearAsync();
+
+        shown.Find<Button>("CopyDetails").Command!.Execute(null);
+        // The handler finishes on its own; the note it sets is the sign that it has.
+        for (var waited = 0; card.CopyNote.Length == 0 && waited < 200; waited++)
+        {
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            await Task.Delay(25, TestContext.Current.CancellationToken);
+        }
+
+        var copied = await Avalonia.Input.Platform.ClipboardExtensions.TryGetTextAsync(clipboard);
+        Assert.Equal(error.Detail, copied);
+        Assert.Contains("unable to unlink", copied, StringComparison.Ordinal);
+        Assert.Equal("Copied. Paste it into your bug report.", card.CopyNote);
     }
 
     [AvaloniaFact]
@@ -83,7 +132,7 @@ public class ErrorCardViewTests
         };
         using var shown = Show(new ErrorCardViewModel(MockupScenario.FileInUseError, _text, actions));
 
-        var buttons = shown.Card.GetVisualDescendants().OfType<Button>().Where(button => button is not ToggleButton).ToList();
+        var buttons = shown.Card.GetVisualDescendants().OfType<Button>().Where(button => button is not ToggleButton && button.Name != "CopyDetails").ToList();
 
         Assert.Equal(["Try again", "Choose the folder"], buttons.Select(button => button.Content));
         Assert.Contains("filled", buttons[0].Classes);
@@ -120,7 +169,7 @@ public class ErrorCardViewTests
     [AvaloniaFact]
     public void The_card_is_named_after_its_headline_and_announced_politely_and_its_icon_is_decorative()
     {
-        using var shown = Show(new ErrorCardViewModel(MockupScenario.FileInUseError, _text));
+        using var shown = Show(new ErrorCardViewModel(MockupScenario.FileInUseError, _text, operation: ErrorOperation.Switch));
 
         Assert.Equal("A file is in use, so the switch stopped partway", AutomationProperties.GetName(shown.Find<Border>("Card")));
         Assert.Equal(AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(shown.Find<Border>("Card")));

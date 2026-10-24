@@ -186,7 +186,7 @@ public sealed partial class JobStatusViewModel : ObservableObject
     private string? ReasonFor(JobSnapshot job)
     {
         var error = job.Error ?? JobErrors.FolderErrors(job.Result).FirstOrDefault();
-        return error is null ? null : _formatter.Message(error);
+        return error is null ? null : _formatter.Message(error, ErrorOperations.Of(job.Kind));
     }
 
     private string NameOf(JobSnapshot job) =>

@@ -10,36 +10,12 @@ namespace Savepoint.App.Features.History;
 /// <summary>The History screen's view.</summary>
 public partial class HistoryScreenView : UserControl
 {
-    private const double _removedShare = 0.35;
-    private const double _removedFloor = 96;
-    private const double _snapshotRoom = 120;
-
     private bool _filterKeysWired;
 
     /// <summary>Creates the view; its data context is a <see cref="HistoryScreenViewModel"/>.</summary>
     public HistoryScreenView()
     {
         InitializeComponent();
-        SizeChanged += (_, _) => LimitRemovedSection();
-
-        // A header that wraps, an explanation that opens and a footer that comes and goes all move the line between the snapshots and the section.
-        BodyRegion.SizeChanged += (_, _) => LimitRemovedSection();
-        RemovedScroll.SizeChanged += (_, _) => LimitRemovedSection();
-    }
-
-    // An open section takes at most a third of the window and never the room the snapshots need above it, so at the smallest supported
-    // size it gives way and its rows scroll instead.
-    private void LimitRemovedSection()
-    {
-        // The snapshots and the open section split a height that does not depend on the split, so this does not chase its own result.
-        var shared = BodyRegion.Bounds.Height + (RemovedScroll.IsEffectivelyVisible ? RemovedScroll.Bounds.Height : 0);
-        var limit = Math.Max(_removedFloor, Math.Min(Bounds.Height * _removedShare, shared - _snapshotRoom));
-
-        // Whole pixels only, so sub-pixel rounding in the layout cannot keep it flipping between two values.
-        if (double.IsInfinity(RemovedScroll.MaxHeight) || Math.Abs(RemovedScroll.MaxHeight - limit) >= 1)
-        {
-            RemovedScroll.MaxHeight = limit;
-        }
     }
 
     // Each opening starts from the filter in force, whatever the arrow keys did the last time, and puts focus in the list.

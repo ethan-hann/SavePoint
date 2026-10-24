@@ -6,8 +6,12 @@ public sealed record GameSessionOptions
     /// <summary>How often the process list is read while a named process is followed: two seconds.</summary>
     public static readonly TimeSpan DefaultPollInterval = TimeSpan.FromSeconds(2);
 
-    /// <summary>How long the named process has to appear before the session settles without it: thirty seconds (D13.10).</summary>
-    public static readonly TimeSpan DefaultGrace = TimeSpan.FromSeconds(30);
+    /// <summary>
+    /// How long the named process has to appear before the session settles without it: two minutes. A launcher or an anti-cheat
+    /// bootstrap can take longer than half a minute to start the game, and ending the session early would cut the play time and
+    /// ask to save while the game is still starting. The player can end the wait at any time, so a wrong name costs little.
+    /// </summary>
+    public static readonly TimeSpan DefaultGrace = TimeSpan.FromMinutes(2);
 
     /// <summary>Time between reads of the process list; must be positive.</summary>
     public TimeSpan PollInterval { get; init; } = DefaultPollInterval;

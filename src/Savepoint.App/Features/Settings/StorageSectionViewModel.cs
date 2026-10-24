@@ -8,6 +8,7 @@ using Savepoint.App.Theme;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
+using Savepoint.Core.Services.Storage;
 
 namespace Savepoint.App.Features.Settings;
 
@@ -84,10 +85,6 @@ public sealed partial class StorageSectionViewModel : ObservableObject
     /// <summary>"19.8 GB of 79.2 GB", or empty while the totals are not known.</summary>
     [ObservableProperty]
     private string _relocationDetail = string.Empty;
-
-    /// <summary>The file the move is on.</summary>
-    [ObservableProperty]
-    private string _relocationPath = string.Empty;
 
     /// <summary>Why the last attempt to move or optimize did not go ahead or failed; null otherwise.</summary>
     [ObservableProperty]
@@ -247,7 +244,7 @@ public sealed partial class StorageSectionViewModel : ObservableObject
                 ErrorTone.Warning,
                 _deps.Text.Message("settings.storage.leftBehindTitle"),
                 _deps.Text.Message("settings.storage.leftBehindBody"),
-                path: string.Join(Environment.NewLine, moved.NotRemoved.Select(failure => failure.Path)))
+                path: string.Join(Environment.NewLine, SnapshotFolderNames.Plain(moved.NotRemoved.Select(failure => failure.Path))))
             : null;
 
     private void ShowProgress(JobProgress progress)
@@ -259,7 +256,6 @@ public sealed partial class StorageSectionViewModel : ObservableObject
         RelocationDetail = known
             ? _deps.Text.Message("settings.storage.movingDetail", ("done", _deps.Text.FileSize(done!.Value)), ("total", _deps.Text.FileSize(total!.Value)))
             : string.Empty;
-        RelocationPath = progress.CurrentPath ?? string.Empty;
 
         if (RelocationFraction is { } fraction && _milestones.Crossed((int)Math.Floor(fraction * 100)) is { } crossed)
         {
@@ -358,7 +354,7 @@ public sealed partial class StorageSectionViewModel : ObservableObject
         var preview = await _deps.Settings.GetFreeUpSpacePreviewAsync();
         if (!preview.Ok)
         {
-            _deps.Toasts.Show(new ToastMessage(_deps.Text.Message(preview.Error), ToastKind.Error));
+            _deps.Toasts.Show(new ToastMessage(_deps.Text.Message(preview.Error, ErrorOperation.FreeUpSpace), ToastKind.Error));
             return;
         }
 
@@ -376,7 +372,7 @@ public sealed partial class StorageSectionViewModel : ObservableObject
         var started = await _deps.Settings.OptimizeAllStorageAsync(preview.Value.Token);
         if (!started.Ok)
         {
-            _deps.Toasts.Show(new ToastMessage(_deps.Text.Message(started.Error), ToastKind.Error));
+            _deps.Toasts.Show(new ToastMessage(_deps.Text.Message(started.Error, ErrorOperation.FreeUpSpace), ToastKind.Error));
             return;
         }
 
@@ -396,7 +392,7 @@ public sealed partial class StorageSectionViewModel : ObservableObject
 
     // Every message here ends "then try again", so the card carries the way to do it.
     private ErrorCardViewModel Card(ErrorInfo error) =>
-        new(error, _deps.Text, [new ErrorCardAction(_deps.Text.Message("settings.storage.chooseAnother"), ChangeCommand, IsPrimary: true)]);
+        new(error, _deps.Text, [new ErrorCardAction(_deps.Text.Message("settings.storage.chooseAnother"), ChangeCommand, IsPrimary: true)], operation: ErrorOperation.MoveSnapshots);
 
     private static ErrorInfo Unknown() => new("error.unknown", new Dictionary<string, object?>(), string.Empty);
 }

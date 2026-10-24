@@ -32,7 +32,7 @@ public sealed class ErrorCardGalleryViewModel
             ErrorTone.Warning,
             "Only part of the snapshot was taken",
             "Your game version and mods are in the snapshot. Your saves aren't yet: the drive ran out of room with 1.2 GB still to write. Nothing in your game folders changed. Free up some space and retry just that part.",
-            detail: "no space left on device",
+            supportText: "no space left on device",
             actions: [new ErrorCardAction("Retry the saves", noop, IsPrimary: true)],
             supplement: new SaveStatusViewModel(
                 [

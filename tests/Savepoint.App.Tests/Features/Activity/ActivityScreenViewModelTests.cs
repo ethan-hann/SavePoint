@@ -5,6 +5,7 @@ using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Tests.Features.Shell;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Errors;
 using static Savepoint.App.Tests.Fakes.MockupScenario;
 
 namespace Savepoint.App.Tests.Features.Activity;
@@ -578,8 +579,42 @@ public class ActivityScreenViewModelTests
         var card = Details(rig).Error;
         Assert.NotNull(card);
         Assert.True(Details(rig).HasError);
-        Assert.Equal(new ErrorCardViewModel(FileInUseError, rig.Text).Title, card.Title);
-        Assert.Equal(new ErrorCardViewModel(FileInUseError, rig.Text).Body, card.Body);
+        Assert.Equal(new ErrorCardViewModel(FileInUseError, rig.Text, operation: ErrorOperation.Snapshot).Title, card.Title);
+        Assert.Equal(new ErrorCardViewModel(FileInUseError, rig.Text, operation: ErrorOperation.Snapshot).Body, card.Body);
+    }
+
+    [Fact]
+    public async Task A_failed_job_words_a_held_file_for_what_the_job_does()
+    {
+        var rig = await ActivityRig.ShownAsync();
+        var snapshot = await rig.StartCaptureAsync();
+        rig.Backend.Jobs.Fail(snapshot, FileInUseError);
+        Assert.Contains("earlier snapshots are untouched", Details(rig).Error?.Body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_failed_job_that_names_a_file_inside_a_snapshot_folder_shows_the_game_folder()
+    {
+        var rig = await ActivityRig.ShownAsync(FakeBackend.Empty());
+        var move = await rig.StartMoveAsync();
+        var game = Path.Combine(Path.GetTempPath(), "SavePoint", "skyrim");
+        var held = Path.Combine(game, "install.git", "objects", "pack", "pack-1.pack");
+
+        rig.Backend.Jobs.Fail(move, new ErrorInfo("error.gitOperation.checkoutFailed", new Dictionary<string, object?> { ["path"] = held }, string.Empty));
+
+        Assert.Equal(game, Details(rig).Error?.Path);
+    }
+
+    [Fact]
+    public async Task A_failed_move_words_a_held_file_for_a_move()
+    {
+        var rig = await ActivityRig.ShownAsync(FakeBackend.Empty());
+        var move = await rig.StartMoveAsync();
+
+        rig.Backend.Jobs.Fail(move, FileInUseError);
+
+        Assert.DoesNotContain("switch", Details(rig).Error?.Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("moved", Details(rig).Error?.Body, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -591,7 +626,7 @@ public class ActivityScreenViewModelTests
         rig.Backend.Jobs.Complete(id, HalfSaved);
 
         Assert.Equal("Partly done", FirstRow(rig).StatusText);
-        Assert.Equal(new ErrorCardViewModel(SavesOutOfRoomError, rig.Text).Body, Details(rig).Error?.Body);
+        Assert.Equal(new ErrorCardViewModel(SavesOutOfRoomError, rig.Text, operation: ErrorOperation.Snapshot).Body, Details(rig).Error?.Body);
     }
 
     [Fact]

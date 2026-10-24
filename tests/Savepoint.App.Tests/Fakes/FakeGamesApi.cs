@@ -1,6 +1,7 @@
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
+using Savepoint.Core.Launch;
 
 namespace Savepoint.App.Tests.Fakes;
 
@@ -165,6 +166,31 @@ public sealed class FakeGamesApi : IGamesApi
             var game = State.Games.Find(g => string.Equals(g.Install.Path, installPath, StringComparison.OrdinalIgnoreCase));
             return OperationResult.Success<IReadOnlyList<string>>(game?.Launch.ExePath is { } exe ? [exe] : []);
         });
+
+    // Every scripted program counts as the same size, so only names and folders decide the answer.
+    public async Task<OperationResult<string>> SuggestProcessNameAsync(string installPath, string gameName, CancellationToken cancellationToken = default)
+    {
+        // The answer is worked out when the call is made; the gate only delays when the caller sees it.
+        var answer = await _backend.Call(_api, nameof(SuggestProcessNameAsync), [installPath, gameName], () =>
+        {
+            var programs = State.Executables.TryGetValue(installPath, out var scripted) ? scripted : [];
+            return OperationResult.Success(
+                ProcessNameSuggester.Suggest(null, gameName, programs.Select(path => new InstalledProgram(path, 5 << 20))) ?? string.Empty);
+        });
+        SuggestTokens.Add(cancellationToken);
+        if (SuggestGate is { } gate)
+        {
+            await gate(installPath, cancellationToken);
+        }
+
+        return answer;
+    }
+
+    // A test sets this to hold the answer of a suggestion, so a late first answer can arrive after a newer one.
+    public Func<string, CancellationToken, Task>? SuggestGate { get; set; }
+
+    // The token each suggestion call was given, in call order.
+    public List<CancellationToken> SuggestTokens { get; } = [];
 
     public Task<OperationResult<GameDefinition>> ImportDefinitionAsync(string filePath, CancellationToken cancellationToken = default) =>
         _backend.Call(_api, nameof(ImportDefinitionAsync), [filePath], () =>

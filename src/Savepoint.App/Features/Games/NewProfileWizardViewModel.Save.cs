@@ -35,7 +35,7 @@ public sealed partial class NewProfileWizardViewModel
         if (!created.Ok)
         {
             Step = WizardStep.Check;
-            SubmitError = _text.Message(created.Error);
+            SubmitError = _text.Message(created.Error, ErrorOperation.Snapshot);
             return;
         }
 
@@ -54,7 +54,7 @@ public sealed partial class NewProfileWizardViewModel
         var started = await _profiles.CaptureAsync(_game.Id, _profileId, TrimmedName, _failedRoles);
         if (!started.Ok)
         {
-            SubmitError = _text.Message(started.Error);
+            SubmitError = _text.Message(started.Error, ErrorOperation.Snapshot);
             return;
         }
 
@@ -198,7 +198,7 @@ public sealed partial class NewProfileWizardViewModel
         {
             var error = snapshot.Error ?? failures.FirstOrDefault()?.Error ?? ErrorInfo.From(new InvalidOperationException("The capture ended without saying why."));
             var tryAgain = new ErrorCardAction(_text.Message("profiles.wizard.save.tryAgain"), new AsyncRelayCommand(BeginSaveAsync), IsPrimary: true);
-            ResultCard = new ErrorCardViewModel(error, _text, [tryAgain]);
+            ResultCard = new ErrorCardViewModel(error, _text, [tryAgain], operation: ErrorOperation.Snapshot);
             State = snapshot.Status == JobStatus.Cancelled ? SaveState.Cancelled : SaveState.Failed;
         }
 
@@ -211,7 +211,7 @@ public sealed partial class NewProfileWizardViewModel
         _failedRoles = [.. failures.Select(failure => failure.Role)];
         var first = failures[0].Error!;
         var installFailed = _failedRoles.Contains(RepoRole.Install);
-        var reason = _text.Message(first);
+        var reason = _text.Message(first, ErrorOperation.Snapshot);
         var body = installFailed
             ? _text.Message("profiles.wizard.partial.bodyInstallFailed", ("reason", reason))
             : _text.Message("profiles.wizard.partial.bodySavesFailed", ("reason", reason));
@@ -230,7 +230,7 @@ public sealed partial class NewProfileWizardViewModel
             _text.Message("profiles.wizard.partial.title"),
             body,
             path: ErrorCardViewModel.PathFor(first, _text),
-            detail: first.Detail,
+            supportText: first.Detail,
             actions: [new ErrorCardAction(retryLabel, new AsyncRelayCommand(RetryAsync), IsPrimary: true)],
             supplement: new SaveOutcomeListViewModel(rows));
     }

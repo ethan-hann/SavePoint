@@ -24,6 +24,26 @@ internal sealed record ContentListing(IReadOnlyList<string> Folders, IReadOnlyLi
 /// <summary>Finds what SavePoint itself keeps in a storage root, and nothing else a user may have put there.</summary>
 internal static class StorageContent
 {
+    /// <summary>The file "Start with an empty folder" leaves in the folder it makes, so a folder SavePoint made empty can be told from one whose contents are missing.</summary>
+    internal const string EmptyStartMarkerFileName = ".savepoint-empty-start";
+
+    /// <summary>True when the folder holds nothing but SavePoint's empty-start marker; hidden and system entries count, and a folder that cannot be listed is not known to be that.</summary>
+    /// <param name="root">The storage root.</param>
+    public static bool HoldsOnlyEmptyStartMarker(string root)
+    {
+        try
+        {
+            var names = Directory.EnumerateFileSystemEntries(root, "*", new EnumerationOptions { AttributesToSkip = 0, IgnoreInaccessible = false })
+                .Select(Path.GetFileName)
+                .ToList();
+            return names.Count == 1 && names[0] == EmptyStartMarkerFileName;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
     // Hidden and system entries are real storage; the default options would skip them. A strict walk does not skip what it cannot open.
     private static EnumerationOptions Everything(bool strict) => new()
     {

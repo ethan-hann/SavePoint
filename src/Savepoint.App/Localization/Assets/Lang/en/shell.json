@@ -60,6 +60,7 @@
   "shell.profileCount": "{count, plural, one {# profile} other {# profiles}}",
   "shell.yourGames": "Your games",
   "startup.checking": "Checking your files…",
+  "startup.finishingCleanup": "SavePoint is finishing a cleanup it started earlier. This can take a few minutes, and your games are not touched meanwhile.",
   "startup.corrupt.backupAt": "Last good copy: {path}",
   "startup.corrupt.body": "SavePoint couldn't read the file that holds {kind, select, games {your list of games} profiles {your list of profiles} settings {your settings} other {some of its data}}, so it left the file exactly as it is. \"Restore the backup\" brings back the last good copy. \"Start with nothing in it\" begins again with {kind, select, games {no games listed} profiles {no profiles listed} settings {the default settings} other {an empty file}} and keeps the unreadable file next to it.",
   "startup.corrupt.confirm.message": "SavePoint will move the unreadable file aside, never delete it, and start with {kind, select, games {no games listed} profiles {no profiles listed} settings {the default settings} other {an empty file}}.",

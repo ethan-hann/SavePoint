@@ -160,7 +160,7 @@ public class GameEditorReconnectTests
         await saving;
 
         Assert.NotNull(editor.FormError);
-        Assert.Equal("boom", editor.FormError.Detail);
+        Assert.Equal("boom", editor.FormError.SupportText);
         Assert.Empty(rig.Shell.Calls);
     }
 

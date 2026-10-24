@@ -12,7 +12,9 @@
 #                THIRD-PARTY-NOTICES.md promises) into artifacts/release/source, prints their SHA-256 and compares each with
 #                the hash the manifest pins. This runs before anything is built, so a failed check leaves no new package. An
 #                archive keeps its name only when it matches its pin. A hash that is not pinned yet, or that differs, fails the
-#                run once every hash has been printed.
+#                run once every hash has been printed. It also downloads the source archives of the MSYS2 and MINGW packages
+#                inside the Windows git bundle, which build/msys2-sources.json lists with their pinned hashes, into
+#                artifacts/release/source/packages, and checks them the same way.
 # --allow-dirty  packs a tree with uncommitted changes anyway, for a trial package, marked "-dirty". Without it the run is
 #                refused, because a package from such a tree cannot be tied to a commit.
 # --revision     the commit to put into the informational version, as 12 or more hex digits with "-dirty" after them when the
@@ -146,7 +148,7 @@ if [ "$sources" -eq 1 ]; then
     insources && /^  \}/ { exit }
     insources && /^      "repository": "/ { repository = $0; sub(/^      "repository": "/, "", repository); sub(/",?[ \t\r]*$/, "", repository) }
     insources && /^      "tag": "/ { tag = $0; sub(/^      "tag": "/, "", tag); sub(/",?[ \t\r]*$/, "", tag) }
-    insources && /^      "sha256": "/ { sha = $0; sub(/^      "sha256": "/, "", sha); sub(/",?[ \t\r]*$/, "", sha) }
+    insources && /^      "sha256": "/ { sha = $0; sub(/^      "sha256": "/, "", sha); sub(/",?[ \t\r]*$/, "", sha); sha = tolower(sha) }
     insources && /^    \}/ { print repository " " tag " " sha; repository = tag = sha = "" }
   ' build/git-manifest.json)"
   [ "$(printf '%s\n' "$pins" | grep -c .)" -eq 3 ] || fail "build/git-manifest.json does not pin exactly 3 source archives in \"sources\" (git, Git for Windows, dugite-native)"
@@ -171,6 +173,40 @@ if [ "$sources" -eq 1 ]; then
       mv -f "$partial" "$source_dir/$name"
     fi
   done <<<"$pins"
+  # The packages of the Windows git bundle go in a folder of their own, so the three tag archives stay easy to find. Their list keeps
+  # one "key": "value" pair per line, like the manifest above.
+  package_pins="$(awk '
+    /^  "archives": \[/ { inarchives = 1; next }
+    inarchives && /^  \]/ { exit }
+    inarchives && /^      "file": "/ { file = $0; sub(/^      "file": "/, "", file); sub(/",?[ \t\r]*$/, "", file) }
+    inarchives && /^      "url": "/ { url = $0; sub(/^      "url": "/, "", url); sub(/",?[ \t\r]*$/, "", url) }
+    inarchives && /^      "sha256": "/ { sha = $0; sub(/^      "sha256": "/, "", sha); sub(/",?[ \t\r]*$/, "", sha); sha = tolower(sha) }
+    inarchives && /^    \}/ { print file " " url " " sha; file = url = sha = "" }
+  ' build/msys2-sources.json)"
+  [ "$(printf '%s\n' "$package_pins" | grep -c .)" -gt 0 ] || fail "build/msys2-sources.json lists no source archives in \"archives\""
+  package_dir="$source_dir/packages"
+  mkdir -p "$package_dir"
+  while read -r file url pinned; do
+    echo "==> $file"
+    # An archive already in the folder was checked against its pin when it took its name, so only a changed pin makes it download again.
+    if [ -f "$package_dir/$file" ] && [ "$(sha256sum "$package_dir/$file" | cut -d' ' -f1)" = "$pinned" ]; then
+      printf '%s  %s\n' "$pinned" "$file"
+      continue
+    fi
+    partial="$package_dir/$file.part"
+    download "$url" "$partial"
+    actual="$(sha256sum "$partial" | cut -d' ' -f1)"
+    printf '%s  %s\n' "$actual" "$file"
+    if [ -z "$pinned" ]; then
+      problems="$problems$file has no pinned hash in build/msys2-sources.json; if this download is the right one, pin $actual."$'\n'
+      rm -f "$partial"
+    elif [ "$pinned" != "$actual" ]; then
+      problems="$problems$file is not the archive build/msys2-sources.json pins: expected $pinned, got $actual."$'\n'
+      rm -f "$partial"
+    else
+      mv -f "$partial" "$package_dir/$file"
+    fi
+  done <<<"$package_pins"
   [ -z "$problems" ] || fail "$problems"
 fi
 

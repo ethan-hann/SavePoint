@@ -1,9 +1,7 @@
 using Avalonia;
-using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
-using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Savepoint.App.Features.Activity;
@@ -224,6 +222,56 @@ public class JobPillPlacementTests
         Assert.True(new Rect(app.Window.ClientSize).Contains(pill), $"The pill at {pill} is not inside the {app.Window.ClientSize} window.");
     }
 
+    // Words that stay put while the page scrolls (a pinned footer, a pinned card) never get the 64 px of room a scroll area keeps under
+    // its last row, so none of their text may sit under the pill, at any size and in either layout.
+    [AvaloniaTheory]
+    [MemberData(nameof(ScreensAtEverySize))]
+    public async Task No_pinned_text_is_hidden_under_the_job_pill(string layoutName, string screen, string sizeName)
+    {
+        var (_, width, height) = _sizes.Single(size => size.Name == sizeName);
+        using var app = await OpenAsync(screen, Enum.Parse<ShellLayout>(layoutName), width, height);
+
+        Redraw(app);
+        var problems = HiddenPinnedText(app).Distinct().ToList();
+
+        Assert.True(problems.Count == 0, $"{screen}, {layoutName} layout, {sizeName} ({width}x{height}):{Environment.NewLine}{string.Join(Environment.NewLine, problems)}");
+    }
+
+    private static IEnumerable<string> HiddenPinnedText(ComposedApp app)
+    {
+        var window = app.Window;
+        var pill = app.Find<Button>("Pill");
+        var pillBounds = LayoutAudit.BoundsIn(window, pill);
+        var client = new Rect(window.ClientSize);
+
+        foreach (var block in window.GetVisualDescendants().OfType<TextBlock>())
+        {
+            var hasWords = !string.IsNullOrWhiteSpace(block.Text) || block.Inlines?.Count > 0;
+            if (!hasWords || block.Opacity <= 0 || !block.IsEffectivelyVisible || block.GetVisualAncestors().Contains(pill))
+            {
+                continue;
+            }
+
+            // Text inside a scroll area that can move is the scroll test's business: it can be scrolled clear of the pill.
+            if (block.GetVisualAncestors().OfType<ScrollViewer>().Any(Scrolls))
+            {
+                continue;
+            }
+
+            var visible = LayoutAudit.BoundsIn(window, block).Intersect(client);
+            foreach (var ancestor in block.GetVisualAncestors().OfType<Control>().Where(ancestor => ancestor is ScrollViewer || ancestor.ClipToBounds))
+            {
+                visible = visible.Intersect(LayoutAudit.BoundsIn(window, ancestor));
+            }
+
+            var overlap = visible.Intersect(pillBounds);
+            if (overlap.Width > 0 && overlap.Height > 0)
+            {
+                yield return $"Text '{(block.Text?.Length > 40 ? block.Text[..40] : block.Text)}' at {LayoutAudit.BoundsIn(window, block)} is under the pill at {pillBounds}";
+            }
+        }
+    }
+
     // Hit testing follows the last frame that was drawn, not the layout, so a frame is drawn before the clicks are tried.
     private static void Redraw(ComposedApp app)
     {
@@ -235,88 +283,8 @@ public class JobPillPlacementTests
         }
     }
 
-    private static bool Scrolls(ScrollViewer scroller) =>
-        scroller.IsEffectivelyVisible && scroller.Extent.Height > scroller.Viewport.Height + 1;
+    private static bool Scrolls(ScrollViewer scroller) => JobPillAudit.Scrolls(scroller);
 
-    // Every control a person can press that the pill sits on: some point of the control's visible part, under the pill's bounds, takes the
-    // click to the pill. A control in a scroll area is looked at only with the area at its end, since anywhere else it can be scrolled
-    // clear of the pill; a control outside any scroll area is looked at as it stands. With the area at its end, the text it ends with
-    // counts too: the last thing on a page is not to be left behind the pill when there is room to scroll it clear.
-    private static IEnumerable<string> Covered(ComposedApp app, bool scrolledToEnd)
-    {
-        var window = app.Window;
-        var pill = app.Find<Button>("Pill");
-        var pillBounds = LayoutAudit.BoundsIn(window, pill);
-        var client = new Rect(window.ClientSize);
-
-        foreach (var control in window.GetVisualDescendants().OfType<Control>())
-        {
-            if (control == pill || !control.IsEffectivelyVisible || control.GetVisualAncestors().Contains(pill))
-            {
-                continue;
-            }
-
-            var pressable = LayoutAudit.IsReachable(control) && control.IsEffectivelyEnabled && control.IsHitTestVisible;
-            var text = scrolledToEnd && IsReadableText(control);
-            if (!pressable && !text)
-            {
-                continue;
-            }
-
-            if (control.GetVisualAncestors().OfType<ScrollViewer>().Any(Scrolls) != scrolledToEnd)
-            {
-                continue;
-            }
-
-            var overlap = VisibleBounds(window, control, client).Intersect(pillBounds);
-            if (overlap.Width > 0 && overlap.Height > 0 && PointsIn(overlap).Any(point => TakesTheClick(window, pill, point)))
-            {
-                yield return $"{Describe(control)} at {LayoutAudit.BoundsIn(window, control)} is under the pill at {pillBounds}";
-            }
-        }
-    }
-
-    // Words a person reads in their own right, not the label of a control that is looked at as a whole.
-    private static bool IsReadableText(Control control) =>
-        control is TextBlock { Opacity: > 0 } block
-        && (!string.IsNullOrWhiteSpace(block.Text) || block.Inlines?.Count > 0)
-        && !block.GetVisualAncestors().OfType<Control>().Any(LayoutAudit.IsReachable);
-
-    // The part of a control a person can see: what its scroll areas and clipping parents leave of it, inside the window.
-    private static Rect VisibleBounds(Window window, Control control, Rect client)
-    {
-        var visible = LayoutAudit.BoundsIn(window, control).Intersect(client);
-        foreach (var ancestor in control.GetVisualAncestors().OfType<Control>().Where(ancestor => ancestor is ScrollViewer || ancestor.ClipToBounds))
-        {
-            visible = visible.Intersect(LayoutAudit.BoundsIn(window, ancestor));
-        }
-
-        return visible;
-    }
-
-    // The middle of the area and points a pixel in from its corners, so a pill with rounded corners is still found.
-    private static IEnumerable<Point> PointsIn(Rect area)
-    {
-        var inset = Math.Min(1, Math.Min(area.Width, area.Height) / 2);
-        yield return area.Center;
-        yield return new Point(area.Left + inset, area.Top + inset);
-        yield return new Point(area.Right - inset, area.Top + inset);
-        yield return new Point(area.Left + inset, area.Bottom - inset);
-        yield return new Point(area.Right - inset, area.Bottom - inset);
-    }
-
-    private static bool TakesTheClick(Window window, Control pill, Point point) =>
-        window.InputHitTest(point) is Visual hit && (hit == pill || hit.GetVisualAncestors().Contains(pill));
-
-    private static string Describe(Control control)
-    {
-        if (control is TextBlock { Text: { Length: > 0 } words })
-        {
-            return $"Text '{(words.Length > 40 ? words[..40] : words)}'";
-        }
-
-        var name = AutomationProperties.GetName(control);
-        var label = string.IsNullOrWhiteSpace(name) ? control.Name : name;
-        return $"{control.GetType().Name} '{label}' [{string.Join(' ', control.Classes.Where(c => !c.StartsWith(':')))}]";
-    }
+    private static IEnumerable<string> Covered(ComposedApp app, bool scrolledToEnd) =>
+        JobPillAudit.Covered(app.Window, app.Find<Button>("Pill"), scrolledToEnd);
 }

@@ -14,6 +14,34 @@ public class ExecutableScannerTests
         new ExecutableScanner(kinds).ListAsync(folder.Path, Ct);
 
     [Fact]
+    public async Task Programs_are_listed_with_their_sizes_and_every_one_found_is_kept()
+    {
+        using var temp = new TempFolder();
+        temp.WriteBytes("Game.exe", 1234);
+        temp.WriteBytes("bin/Other.exe", 99);
+        for (var number = 0; number < ExecutableScanner.MaxResults + 10; number++)
+        {
+            temp.WriteBytes($"tools{number:00}/Tool{number:00}.exe", 5);
+        }
+
+        var found = await new ExecutableScanner(ExecutableKinds.WindowsExe).ListProgramsAsync(temp.Path, Ct);
+
+        Assert.Equal(ExecutableScanner.MaxResults + 12, found.Count);
+        Assert.Equal(1234, found.Single(p => p.RelativePath == P("Game.exe")).Length);
+        Assert.Equal(99, found.Single(p => p.RelativePath == P("bin", "Other.exe")).Length);
+    }
+
+    [Fact]
+    public async Task Programs_of_a_folder_that_is_not_there_are_an_empty_list()
+    {
+        using var temp = new TempFolder();
+
+        var found = await new ExecutableScanner(ExecutableKinds.WindowsExe).ListProgramsAsync(temp.Combine("nope"), Ct);
+
+        Assert.Empty(found);
+    }
+
+    [Fact]
     public async Task Windows_executables_are_listed_at_any_depth_as_paths_relative_to_the_folder()
     {
         using var temp = new TempFolder();

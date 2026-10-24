@@ -76,6 +76,7 @@
   "launch.partial.rowFailed": "{folder} · not in the snapshot yet",
   "launch.partial.rowLeftAlone": "{folder} · not included",
   "launch.partial.rowSaved": "{folder} · in the snapshot",
+  "launch.partial.rowSkipped": "{folder} · nothing new, snapshot kept as it was",
   "launch.partial.title": "Only part of the snapshot was taken",
   "launch.partial.titleNothingSaved": "SavePoint couldn't take a snapshot of that session",
   "launch.postPlay.body": "{count, plural, =0 {SavePoint found no new or changed saves to keep. What should it do with this session?} one {# file in your saves folder is new or changed since you started. What should SavePoint do with it?} other {# files in your saves folder are new or changed since you started. What should SavePoint do with them?}}",

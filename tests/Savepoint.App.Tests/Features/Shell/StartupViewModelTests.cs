@@ -56,6 +56,41 @@ public class StartupViewModelTests
     }
 
     [Fact]
+    public async Task While_an_earlier_cleanup_is_finished_the_screen_says_so_and_stays_in_the_checking_phase()
+    {
+        var backend = Backend(Healthy());
+        var release = new TaskCompletionSource();
+        backend.State.StartupSteps.Add(StartupProgress.FinishingEarlierCleanup);
+        backend.State.StartupGate = release.Task;
+        var startup = new StartupViewModel(backend.AppStatus, _text);
+        var ready = 0;
+        startup.Ready += (_, _) => ready++;
+
+        var check = startup.CheckAsync();
+        var duringWait = (startup.Phase, startup.IsFinishingEarlierCleanup, ready);
+        release.SetResult();
+        await check;
+
+        Assert.Equal((StartupPhase.Checking, true, 0), duringWait);
+        Assert.Equal(StartupPhase.Ready, startup.Phase);
+        Assert.False(startup.IsFinishingEarlierCleanup);
+        Assert.Equal(1, ready);
+    }
+
+    [Fact]
+    public async Task A_check_with_nothing_left_behind_never_shows_the_cleanup_note()
+    {
+        var startup = new StartupViewModel(Backend(Healthy()).AppStatus, _text);
+        var shown = false;
+        startup.PropertyChanged += (_, e) => shown |= e.PropertyName == nameof(StartupViewModel.IsFinishingEarlierCleanup) && startup.IsFinishingEarlierCleanup;
+
+        await startup.CheckAsync();
+
+        Assert.False(shown);
+        Assert.False(startup.IsFinishingEarlierCleanup);
+    }
+
+    [Fact]
     public async Task Without_the_bundled_tool_the_screen_names_the_path_and_says_to_reinstall()
     {
         var startup = new StartupViewModel(Backend(NoGit()).AppStatus, _text);
@@ -70,7 +105,7 @@ public class StartupViewModelTests
         Assert.Equal("SavePoint's built-in tool is missing", card.Title);
         Assert.Contains("Reinstall SavePoint", card.Body);
         Assert.Equal(_gitPath, card.Path);
-        Assert.Contains("git exited with 127", card.Detail);
+        Assert.Contains("git exited with 127", card.SupportText);
         Assert.Equal(["Try again"], card.Actions.Select(action => action.Label));
         Assert.True(card.Actions[0].IsPrimary);
     }
@@ -352,7 +387,7 @@ public class StartupViewModelTests
     // The Api of a screen whose storage choices are always refused with an error of the test's choosing.
     private sealed class RefusingStatus(StartupStatus status, ErrorInfo refusal) : IAppStatusApi
     {
-        public Task<OperationResult<StartupStatus>> CheckAsync(CancellationToken cancellationToken = default) =>
+        public Task<OperationResult<StartupStatus>> CheckAsync(CancellationToken cancellationToken = default, IProgress<StartupProgress>? progress = null) =>
             Task.FromResult(OperationResult.Success(status));
 
         public Task<OperationResult<string>> RecoverCatalogFileAsync(string path, CatalogRecovery recovery, CancellationToken cancellationToken = default) =>

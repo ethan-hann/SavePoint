@@ -21,6 +21,13 @@
     <Style Selector="Panel.job-running ContentControl#Page ScrollViewer.page-scroll, Panel.job-running ContentControl#Page ListBox.page-scroll">
       <Setter Property="Padding" Value="0,0,0,64" />
     </Style>
+    <!-- A screen with content pinned to its bottom edge (a footer, a launch card) ends with a pill-room strip: empty until the pill shows, then tall enough that the pinned content sits above the pill instead of under it. -->
+    <Style Selector="ContentControl#Page Border.pill-room">
+      <Setter Property="Height" Value="0" />
+    </Style>
+    <Style Selector="Panel.job-running ContentControl#Page Border.pill-room">
+      <Setter Property="Height" Value="64" />
+    </Style>
   </UserControl.Styles>
 
   <Panel x:Name="Root" Classes.dialog-open="{Binding Dialogs.IsOpen}" Classes.job-running="{Binding Shell.JobStatus.IsVisible, FallbackValue=False}">

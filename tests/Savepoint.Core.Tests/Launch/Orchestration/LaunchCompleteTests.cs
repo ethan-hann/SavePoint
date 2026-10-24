@@ -82,6 +82,46 @@ public class LaunchCompleteTests
     }
 
     [Fact(Timeout = 180_000)]
+    public async Task Updating_the_latest_point_reports_the_folder_with_nothing_unsaved_as_skipped_and_the_other_as_saved()
+    {
+        using var rig = await LaunchRig.CreateAsync(gameArguments: _playsAndSaves);
+        var vanilla = await rig.ProfileAsync("Vanilla");
+        await rig.StartAsync(Tip(vanilla));
+        await rig.WaitForAsync<SessionState.Exited>();
+
+        Assert.True((await rig.Launch.CompleteSessionAsync(rig.Game.Id, new SessionCompletion.UpdateExisting("Updated"))).Ok);
+        var done = Assert.IsType<SessionState.Completed>((await rig.WaitForAsync<SessionState.Completed>()).State);
+
+        var folders = Assert.IsType<CaptureResult>(done.Result).Folders;
+        var install = folders.Single(folder => folder.Role == RepoRole.Install);
+        var saves = folders.Single(folder => folder.Role == RepoRole.External);
+        Assert.True(install.Skipped, "the install had nothing unsaved and should say it was skipped");
+        Assert.False(install.Saved);
+        Assert.True(install.Ok);
+        Assert.False(saves.Skipped);
+        Assert.True(saves.Saved);
+    }
+
+    [Fact(Timeout = 180_000)]
+    public async Task Updating_the_latest_point_logs_the_skipped_folder_as_skipped_and_not_as_done()
+    {
+        using var rig = await LaunchRig.CreateAsync(gameArguments: _playsAndSaves);
+        var vanilla = await rig.ProfileAsync("Vanilla");
+        await rig.StartAsync(Tip(vanilla));
+        await rig.WaitForAsync<SessionState.Exited>();
+
+        Assert.True((await rig.Launch.CompleteSessionAsync(rig.Game.Id, new SessionCompletion.UpdateExisting("Updated"))).Ok);
+        await rig.WaitForAsync<SessionState.Completed>();
+
+        var completing = rig.Events.Select(session => session.State).OfType<SessionState.Completing>().First();
+        var steps = rig.Jobs.Get(completing.JobId)!.RecentLines.OfType<JobLine.Step>().ToList();
+        Assert.Contains(JobLine.ForStep(JobSteps.CaptureFolderSkipped, ("folder", RepoRole.Install)), steps);
+        Assert.DoesNotContain(steps, step => step.MessageId == JobSteps.CaptureFolderDone && Equals(step.Args["folder"], "install"));
+        Assert.Contains(steps, step => step.MessageId == JobSteps.CaptureFolderDone && Equals(step.Args["folder"], "external"));
+        Assert.DoesNotContain(steps, step => step.MessageId == JobSteps.CaptureFolderSkipped && Equals(step.Args["folder"], "external"));
+    }
+
+    [Fact(Timeout = 180_000)]
     public async Task A_capture_after_play_queues_the_routine_optimization_like_any_other_capture()
     {
         using var rig = await LaunchRig.CreateAsync(options => options with { LooseObjectThreshold = 0 }, _playsAndSaves);

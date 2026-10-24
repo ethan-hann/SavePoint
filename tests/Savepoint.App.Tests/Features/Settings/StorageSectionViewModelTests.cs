@@ -303,7 +303,7 @@ public class StorageSectionViewModelTests
     }
 
     [Fact]
-    public async Task The_move_shows_its_progress_and_the_file_it_is_on()
+    public async Task The_move_shows_its_progress()
     {
         var rig = await SettingsRig.ShownAsync();
         var job = await StartedMoveAsync(rig);
@@ -314,7 +314,6 @@ public class StorageSectionViewModelTests
         Assert.Equal(0.25, Storage(rig).RelocationValue);
         Assert.False(Storage(rig).IsRelocationIndeterminate);
         Assert.Equal("19.8 GB of 79.2 GB", Storage(rig).RelocationDetail);
-        Assert.Equal(@"Skyrim\Data\textures\wrbuilding05.dds", Storage(rig).RelocationPath);
     }
 
     [Fact]
@@ -405,7 +404,9 @@ public class StorageSectionViewModelTests
     {
         var rig = await SettingsRig.ShownAsync();
         var job = await StartedMoveAsync(rig);
-        var stayed = new ClearFailure(@"D:\Old\game-1\install.git", ErrorInfo.From(new GameRunningException("game-1", "Skyrim")));
+        // Built with the system's own separators, because the folder is found by splitting the path the way the system does.
+        var game = Path.Combine(Path.GetTempPath(), "Old", "game-1");
+        var stayed = new ClearFailure(Path.Combine(game, "install.git"), ErrorInfo.From(new GameRunningException("game-1", "Skyrim")));
 
         rig.Backend.Jobs.Complete(job.JobId, new StorageRelocationResult(MockupScenario.StorageRoot, _newRoot, 10, [stayed]));
 
@@ -416,7 +417,8 @@ public class StorageSectionViewModelTests
         var left = Storage(rig).LeftBehind;
         Assert.NotNull(left);
         Assert.Equal("Your snapshots moved, but some old files are still in the old folder", left.Title);
-        Assert.Contains(@"D:\Old\game-1\install.git", left.Path, StringComparison.Ordinal);
+        Assert.Equal(game, left.Path);
+        Assert.DoesNotContain(".git", left.Path, StringComparison.Ordinal);
     }
 
     [Fact]

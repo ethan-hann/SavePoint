@@ -225,7 +225,8 @@ internal sealed class DataClearer
             if (left.TryAdd(named, error))
             {
                 _services.Log.Warning($"Clear all data: could not remove {named}: {error.MessageId}.", e);
-                context.AddStep(JobSteps.ClearNotRemoved, ("path", named));
+                var (shown, part) = SnapshotFolderNames.Describe(named);
+                context.AddStep(JobSteps.ClearNotRemoved, ("path", shown), ("part", part));
             }
         }
     }

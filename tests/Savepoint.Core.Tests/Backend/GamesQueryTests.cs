@@ -128,6 +128,35 @@ public class GamesQueryTests
     }
 
     [Fact]
+    public async Task The_process_name_suggested_is_the_game_program_not_the_launcher_beside_it()
+    {
+        using var workspace = new BackendWorkspace();
+        var folder = Path.Combine(workspace.Home, "Games", "Alpha");
+        Directory.CreateDirectory(Path.Combine(folder, "Alpha", "Binaries", "Win64"));
+        File.WriteAllBytes(Path.Combine(folder, "AlphaLauncher.exe"), new byte[4_000_000]);
+        File.WriteAllBytes(Path.Combine(folder, "Alpha.exe"), new byte[2_000]);
+        File.WriteAllBytes(Path.Combine(folder, "Alpha", "Binaries", "Win64", "Alpha-Win64-Shipping.exe"), new byte[3_000_000]);
+
+        var suggested = await workspace.Games.SuggestProcessNameAsync("{userHome}/Games/Alpha", "Alpha", workspace.Token);
+
+        Assert.Equal("Alpha-Win64-Shipping.exe", suggested.Value);
+    }
+
+    [Fact]
+    public async Task No_process_name_is_suggested_for_a_folder_that_is_not_there_or_holds_no_game()
+    {
+        using var workspace = new BackendWorkspace();
+        BackendWorkspace.WriteFile(Path.Combine(workspace.Home, "Games", "Only", "Launcher.exe"), "MZ");
+
+        var missing = await workspace.Games.SuggestProcessNameAsync(Path.Combine(workspace.Root, "nothing-here"), "Alpha", workspace.Token);
+        var noGame = await workspace.Games.SuggestProcessNameAsync("{userHome}/Games/Only", "Only", workspace.Token);
+
+        Assert.True(missing.Ok);
+        Assert.Equal(string.Empty, missing.Value);
+        Assert.Equal(string.Empty, noGame.Value);
+    }
+
+    [Fact]
     public async Task Executables_of_a_folder_that_is_not_there_are_an_empty_list()
     {
         using var workspace = new BackendWorkspace();
