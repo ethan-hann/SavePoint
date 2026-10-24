@@ -41,6 +41,13 @@
     <Style Selector="Grid.short ListBox.shelf Border.art-tile">
       <Setter Property="IsVisible" Value="False" />
     </Style>
+    <!-- The wide rail gives the label room from the button's edge; the icon rail has none to spare. -->
+    <Style Selector="Button.rail-library">
+      <Setter Property="Padding" Value="16,8" />
+    </Style>
+    <Style Selector="Button.rail-library.compact">
+      <Setter Property="Padding" Value="12,8" />
+    </Style>
     <Style Selector="Border.brand-mark">
       <Setter Property="Width" Value="24" />
       <Setter Property="Height" Value="24" />
@@ -96,19 +103,19 @@
             <Border Classes="divider" Margin="8,6,8,4" />
             <TextBlock x:Name="YourGamesLabel" Classes="overline-small" Margin="8,6,8,2" IsVisible="{Binding !IsCompact}" Text="{theme:Upper {loc:Loc shell.yourGames}}" />
             <TextBlock x:Name="NoGamesLabel" Classes="body subtle" Margin="8,2" IsVisible="{Binding ShowFirstRun}" Text="{loc:Loc shell.noGamesYet}" />
-            <ListBox x:Name="RailGames"
+            <shell:GameListBox x:Name="RailGames"
                      Classes="rows"
                      ScrollViewer.VerticalScrollBarVisibility="Disabled"
                      AutomationProperties.Name="{loc:Loc shell.yourGames}"
                      ItemsSource="{Binding Games}"
                      SelectedItem="{Binding SelectedGameRow, Mode=TwoWay}">
-              <ListBox.Styles>
+              <shell:GameListBox.Styles>
                 <Style Selector="ListBoxItem" x:DataType="shell:GameRowViewModel">
                   <Setter Property="AutomationProperties.Name" Value="{Binding AutomationName}" />
                   <Setter Property="ToolTip.Tip" Value="{Binding ToolTipText}" />
                 </Style>
-              </ListBox.Styles>
-              <ListBox.ItemTemplate>
+              </shell:GameListBox.Styles>
+              <shell:GameListBox.ItemTemplate>
                 <DataTemplate x:DataType="shell:GameRowViewModel">
                   <StackPanel Orientation="Horizontal" Spacing="9">
                     <art:ArtTile Size="24" GameName="{Binding Name}" Art="{Binding Art}" ShowInitials="{Binding !ShowLabels}" />
@@ -118,16 +125,16 @@
                     </StackPanel>
                   </StackPanel>
                 </DataTemplate>
-              </ListBox.ItemTemplate>
-            </ListBox>
+              </shell:GameListBox.ItemTemplate>
+            </shell:GameListBox>
           </StackPanel>
         </ScrollViewer>
         <!-- Declared after the lists so Tab reaches it after them, where it is drawn. -->
         <StackPanel Grid.Row="1" Spacing="6" Margin="0,10,0,0">
           <Button x:Name="RailLibrariesButton"
-                  Classes="pill"
+                  Classes="pill rail-library"
+                  Classes.compact="{Binding IsCompact}"
                   HorizontalAlignment="Stretch"
-                  Padding="16,8"
                   FontSize="13.5"
                   Command="{Binding AddFromLibrariesCommand}"
                   AutomationProperties.Name="{loc:Loc library.entry}"
@@ -147,10 +154,10 @@
                   Command="{Binding AddGameCommand}"
                   AutomationProperties.Name="{loc:Loc shell.addGame}"
                   ToolTip.Tip="{loc:Loc shell.addGame}">
-            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
-              <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.Add}" />
-              <TextBlock Text="{loc:Loc shell.addGame}" IsVisible="{Binding !IsCompact}" />
-            </StackPanel>
+            <Grid ColumnDefinitions="Auto,*" HorizontalAlignment="Center">
+              <TextBlock Classes="icon s18" VerticalAlignment="Center" Text="{x:Static theme:Icons.Add}" />
+              <TextBlock Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap" IsVisible="{Binding !IsCompact}" Text="{loc:Loc shell.addGame}" />
+            </Grid>
           </Button>
         </StackPanel>
       </Grid>
@@ -202,17 +209,17 @@
             </StackPanel>
           </Grid>
           <Grid ColumnDefinitions="Auto,Auto,*">
-            <ListBox x:Name="ShelfGames"
+            <shell:GameListBox x:Name="ShelfGames"
                      Classes="shelf"
                      AutomationProperties.Name="{loc:Loc shell.yourGames}"
                      ItemsSource="{Binding Games}"
                      SelectedItem="{Binding SelectedGameRow, Mode=TwoWay}">
-              <ListBox.Styles>
+              <shell:GameListBox.Styles>
                 <Style Selector="ListBoxItem" x:DataType="shell:GameRowViewModel">
                   <Setter Property="AutomationProperties.Name" Value="{Binding AutomationName}" />
                 </Style>
-              </ListBox.Styles>
-              <ListBox.ItemTemplate>
+              </shell:GameListBox.Styles>
+              <shell:GameListBox.ItemTemplate>
                 <DataTemplate x:DataType="shell:GameRowViewModel">
                   <StackPanel Width="202">
                     <art:ArtTile Height="74" CornerRadius="13,13,0,0" GameName="{Binding Name}" Art="{Binding Art}" />
@@ -222,8 +229,8 @@
                     </StackPanel>
                   </StackPanel>
                 </DataTemplate>
-              </ListBox.ItemTemplate>
-            </ListBox>
+              </shell:GameListBox.ItemTemplate>
+            </shell:GameListBox>
             <Button x:Name="ShelfAddTile"
                     Grid.Column="1"
                     Classes="dashed tile"

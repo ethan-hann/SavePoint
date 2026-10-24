@@ -23,7 +23,8 @@ public partial class ShellView : UserControl
         // The list marks Enter handled before it bubbles, so the key handler also listens to handled events.
         foreach (var name in new[] { "RailGames", "ShelfGames" })
         {
-            var list = this.FindControl<ListBox>(name)!;
+            var list = this.FindControl<GameListBox>(name)!;
+            list.GameInvoked += (_, row) => OpenGame(row);
             list.AddHandler(TappedEvent, OnGameTapped, RoutingStrategies.Bubble);
             list.AddHandler(KeyDownEvent, OnGameKeyDown, RoutingStrategies.Bubble, handledEventsToo: true);
         }
@@ -39,7 +40,8 @@ public partial class ShellView : UserControl
 
     private void OnGameKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Enter && sender is ListBox { SelectedItem: GameRowViewModel row })
+        // The focused item, not the selected one: Ctrl+arrow moves focus without selecting.
+        if (e.Key == Key.Enter && e.Source is Visual source && source.FindAncestorOfType<ListBoxItem>(includeSelf: true) is { DataContext: GameRowViewModel row })
         {
             OpenGame(row);
             e.Handled = true;

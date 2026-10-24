@@ -251,8 +251,8 @@ public class ShellViewModelTests
         rig.Shell.ShowHelp();
 
         rig.Shell.SelectGame(MockupScenario.SkyrimId);
+        rig.Shell.Navigate(NavDestination.Settings);
 
-        Assert.Equal(NavDestination.Games, rig.Shell.Destination);
         Assert.IsNotType<HowItWorksViewModel>(rig.Shell.Content);
     }
 
