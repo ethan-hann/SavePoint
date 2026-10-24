@@ -222,6 +222,56 @@ public class JobPillPlacementTests
         Assert.True(new Rect(app.Window.ClientSize).Contains(pill), $"The pill at {pill} is not inside the {app.Window.ClientSize} window.");
     }
 
+    // Words that stay put while the page scrolls (a pinned footer, a pinned card) never get the 64 px of room a scroll area keeps under
+    // its last row, so none of their text may sit under the pill, at any size and in either layout.
+    [AvaloniaTheory]
+    [MemberData(nameof(ScreensAtEverySize))]
+    public async Task No_pinned_text_is_hidden_under_the_job_pill(string layoutName, string screen, string sizeName)
+    {
+        var (_, width, height) = _sizes.Single(size => size.Name == sizeName);
+        using var app = await OpenAsync(screen, Enum.Parse<ShellLayout>(layoutName), width, height);
+
+        Redraw(app);
+        var problems = HiddenPinnedText(app).Distinct().ToList();
+
+        Assert.True(problems.Count == 0, $"{screen}, {layoutName} layout, {sizeName} ({width}x{height}):{Environment.NewLine}{string.Join(Environment.NewLine, problems)}");
+    }
+
+    private static IEnumerable<string> HiddenPinnedText(ComposedApp app)
+    {
+        var window = app.Window;
+        var pill = app.Find<Button>("Pill");
+        var pillBounds = LayoutAudit.BoundsIn(window, pill);
+        var client = new Rect(window.ClientSize);
+
+        foreach (var block in window.GetVisualDescendants().OfType<TextBlock>())
+        {
+            var hasWords = !string.IsNullOrWhiteSpace(block.Text) || block.Inlines?.Count > 0;
+            if (!hasWords || block.Opacity <= 0 || !block.IsEffectivelyVisible || block.GetVisualAncestors().Contains(pill))
+            {
+                continue;
+            }
+
+            // Text inside a scroll area that can move is the scroll test's business: it can be scrolled clear of the pill.
+            if (block.GetVisualAncestors().OfType<ScrollViewer>().Any(Scrolls))
+            {
+                continue;
+            }
+
+            var visible = LayoutAudit.BoundsIn(window, block).Intersect(client);
+            foreach (var ancestor in block.GetVisualAncestors().OfType<Control>().Where(ancestor => ancestor is ScrollViewer || ancestor.ClipToBounds))
+            {
+                visible = visible.Intersect(LayoutAudit.BoundsIn(window, ancestor));
+            }
+
+            var overlap = visible.Intersect(pillBounds);
+            if (overlap.Width > 0 && overlap.Height > 0)
+            {
+                yield return $"Text '{(block.Text?.Length > 40 ? block.Text[..40] : block.Text)}' at {LayoutAudit.BoundsIn(window, block)} is under the pill at {pillBounds}";
+            }
+        }
+    }
+
     // Hit testing follows the last frame that was drawn, not the layout, so a frame is drawn before the clicks are tried.
     private static void Redraw(ComposedApp app)
     {

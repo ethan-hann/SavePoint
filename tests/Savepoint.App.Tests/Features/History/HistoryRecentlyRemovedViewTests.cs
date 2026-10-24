@@ -65,7 +65,7 @@ public class HistoryRecentlyRemovedViewTests
 
         Assert.True(section.IsEffectivelyVisible);
         Assert.Contains("Recently removed (2)", harness.VisibleTexts());
-        Assert.False(Named<ScrollViewer>(harness, "RemovedScroll").IsEffectivelyVisible);
+        Assert.False(Named<StackPanel>(harness, "RemovedContent").IsEffectivelyVisible);
         Assert.False(Named<ToggleButton>(harness, "RemovedToggle").IsChecked);
         Assert.DoesNotContain(harness.VisibleTexts(), text => text is not null && text.StartsWith("From \"", StringComparison.Ordinal));
         Assert.True(section.TranslatePoint(default, harness.View)!.Value.Y >= points.TranslatePoint(default, harness.View)!.Value.Y + points.Bounds.Height - 1, "the section sits below the snapshot list");
@@ -80,13 +80,13 @@ public class HistoryRecentlyRemovedViewTests
         harness.Settle();
 
         Assert.True(Screen(harness).IsRemovedOpen);
-        Assert.True(Named<ScrollViewer>(harness, "RemovedScroll").IsEffectivelyVisible);
+        Assert.True(Named<StackPanel>(harness, "RemovedContent").IsEffectivelyVisible);
 
         Screen(harness).IsRemovedOpen = false;
         harness.Settle();
 
         Assert.False(Named<ToggleButton>(harness, "RemovedToggle").IsChecked);
-        Assert.False(Named<ScrollViewer>(harness, "RemovedScroll").IsEffectivelyVisible);
+        Assert.False(Named<StackPanel>(harness, "RemovedContent").IsEffectivelyVisible);
     }
 
     [AvaloniaFact]
@@ -159,31 +159,72 @@ public class HistoryRecentlyRemovedViewTests
     [AvaloniaTheory]
     [InlineData(960, 460)]
     [InlineData(910, 432)]
-    public async Task At_the_smallest_supported_windows_an_open_section_leaves_the_snapshots_room_and_stays_inside_the_window(double width, double height)
+    public async Task At_the_smallest_supported_windows_an_open_section_leaves_the_snapshots_their_floor(double width, double height)
     {
         using var harness = await StartAsync(width: width, height: height);
         Open(harness);
 
-        var section = Named<Border>(harness, "RemovedSection");
-        var bottom = section.TranslatePoint(new Point(0, section.Bounds.Height), harness.View)!.Value.Y;
-
-        Assert.True(bottom <= harness.View.Bounds.Height + 0.5, $"the section ends at {bottom}, below the window's {harness.View.Bounds.Height}");
-        Assert.True(harness.Find<Panel>("PointsRegion").Bounds.Height >= 100, $"the snapshots keep only {harness.Find<Panel>("PointsRegion").Bounds.Height} px");
-        Assert.True(Named<ScrollViewer>(harness, "RemovedScroll").Bounds.Height <= height * 0.5 + 1);
+        Assert.True(harness.Find<Panel>("PointsRegion").Bounds.Height >= _listFloor, $"the snapshots keep only {harness.Find<Panel>("PointsRegion").Bounds.Height} px");
     }
 
     [AvaloniaFact]
-    public async Task An_open_explanation_takes_room_too_and_the_open_section_gives_way_so_the_snapshots_keep_theirs()
+    public async Task An_open_explanation_takes_room_too_and_the_snapshots_still_keep_their_floor()
     {
         using var harness = await StartAsync(width: 1040, height: 560);
         Screen(harness).SnapshotHelp.IsOpen = true;
         Open(harness);
 
+        Assert.True(harness.Find<Panel>("PointsRegion").Bounds.Height >= _listFloor, $"the snapshots keep only {harness.Find<Panel>("PointsRegion").Bounds.Height} px");
+    }
+
+    [AvaloniaFact]
+    public async Task With_room_to_spare_the_snapshots_fill_the_screen_and_nothing_scrolls()
+    {
+        using var harness = await StartAsync(width: 1040, height: 900);
+        Open(harness);
+
+        var page = Named<ScrollViewer>(harness, "PageScroll");
+        var points = harness.Find<Panel>("PointsRegion");
         var section = Named<Border>(harness, "RemovedSection");
         var bottom = section.TranslatePoint(new Point(0, section.Bounds.Height), harness.View)!.Value.Y;
 
+        Assert.True(page.Extent.Height <= page.Viewport.Height + 1, $"the screen scrolls: {page.Extent.Height} px in {page.Viewport.Height}");
+        Assert.True(points.Bounds.Height > _listFloor, $"the snapshots stay at the floor, {points.Bounds.Height} px");
         Assert.True(bottom <= harness.View.Bounds.Height + 0.5, $"the section ends at {bottom}, below the window's {harness.View.Bounds.Height}");
-        Assert.True(harness.Find<Panel>("PointsRegion").Bounds.Height >= 100, $"the snapshots keep only {harness.Find<Panel>("PointsRegion").Bounds.Height} px");
+    }
+
+    // Three rows of the snapshot list: its heading, then three saves of about 70 px each.
+    private const double _listFloor = 220;
+
+    [AvaloniaTheory]
+    [InlineData(640, 420)]
+    [InlineData(910, 432)]
+    public async Task At_the_smallest_windows_with_the_explanation_and_the_section_both_open_the_list_keeps_three_rows_and_the_screen_scrolls_to_the_rest(double width, double height)
+    {
+        using var harness = await StartAsync(width: width, height: height);
+        Screen(harness).SnapshotHelp.IsOpen = true;
+        Open(harness);
+
+        var points = harness.Find<Panel>("PointsRegion");
+        Assert.True(points.Bounds.Height >= _listFloor, $"the snapshot list keeps only {points.Bounds.Height} px, under the {_listFloor} px floor");
+
+        var page = Named<ScrollViewer>(harness, "PageScroll");
+        Assert.True(page.Extent.Height > page.Viewport.Height + 1, $"the screen has {page.Extent.Height} px to show in {page.Viewport.Height}, so nothing scrolls");
+
+        page.ScrollToEnd();
+        harness.Settle();
+
+        var window = new Rect(harness.View.Bounds.Size);
+        foreach (var name in new[] { "Footer", "RemovedToggle", "RemovedList" })
+        {
+            var control = Named<Control>(harness, name);
+            var bounds = new Rect(control.TranslatePoint(default, harness.View)!.Value, control.Bounds.Size);
+            Assert.True(bounds.Bottom <= window.Bottom + 1 && bounds.Top >= -1, $"{name} at {bounds} is outside the {window.Size} window after scrolling to the end");
+        }
+
+        // The screen's own controls; the rail beside it is audited with the shell.
+        Assert.Empty(LayoutAudit.Problems(harness.Window));
+        Assert.Empty(AutomationAudit.Problems(page.FindAncestorOfType<HistoryScreenView>()!));
     }
 
     [AvaloniaFact]
