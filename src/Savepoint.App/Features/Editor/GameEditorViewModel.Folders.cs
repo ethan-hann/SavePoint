@@ -24,6 +24,9 @@ public sealed partial class GameEditorViewModel
     [ObservableProperty]
     private string? _savesResolves;
 
+    /// <summary>True while the saves field is empty, which is when the editor explains what a game without a saves folder is missing.</summary>
+    public bool HasNoSavesFolder => string.IsNullOrWhiteSpace(SavesPath);
+
     /// <summary>The path shortcuts offered under the saves field, such as <c>{documents}</c>; which ones exist depends on the operating system.</summary>
     public IReadOnlyList<SuggestionItem> LocationChoices { get; private set; } = [];
 
@@ -56,6 +59,7 @@ public sealed partial class GameEditorViewModel
 
     partial void OnSavesPathChanged(string value)
     {
+        OnPropertyChanged(nameof(HasNoSavesFolder));
         SavesError = null;
         SavesCard = null;
         UpdateConfirmations();

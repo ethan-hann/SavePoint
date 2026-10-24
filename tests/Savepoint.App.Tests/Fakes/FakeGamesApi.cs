@@ -36,6 +36,40 @@ public sealed class FakeGamesApi : IGamesApi
             return OperationResult.Success<AddGameOutcome>(new AddGameOutcome.Added(definition));
         });
 
+    public Task<OperationResult<LibraryScan>> ScanLibrariesAsync(CancellationToken cancellationToken = default) =>
+        _backend.Call(_api, nameof(ScanLibrariesAsync), [], () =>
+        {
+            var scripted = State.Library ?? new LibraryScan([], false, false);
+            var games = scripted.Games.Select(game => game with { AddedGameId = State.Games.Find(g => SameFolder(g.Install.Path, game.InstallPath))?.Id ?? game.AddedGameId });
+            return OperationResult.Success(scripted with { Games = [.. games] });
+        });
+
+    public Task<OperationResult<LibraryAddResult>> AddLibraryGameAsync(LibraryGame game) =>
+        _backend.Call(_api, nameof(AddLibraryGameAsync), [game], () =>
+        {
+            if (State.Games.Find(g => SameFolder(g.Install.Path, game.InstallPath)) is { } there)
+            {
+                return OperationResult.Success(new LibraryAddResult(game.Key, game.Name, LibraryAddStatus.AlreadyAdded, there.Id));
+            }
+
+            if (State.LibraryRefusals.TryGetValue(game.Key, out var refusal))
+            {
+                return OperationResult.Success(new LibraryAddResult(game.Key, game.Name, LibraryAddStatus.Refused, Error: refusal));
+            }
+
+            if (State.Orphans.ContainsKey(game.Draft.Install.Path))
+            {
+                return OperationResult.Success(new LibraryAddResult(game.Key, game.Name, LibraryAddStatus.HasOlderHistory));
+            }
+
+            var draft = game.SavesFolder is not null && !game.SavesFolderExists ? game.Draft with { External = null } : game.Draft;
+            Add(draft);
+            return OperationResult.Success(new LibraryAddResult(game.Key, game.Name, LibraryAddStatus.Added, draft.Id, SavesFolderLeftOut: draft.External is null ? game.SavesFolder : null));
+        });
+
+    private static bool SameFolder(string a, string b) =>
+        string.Equals(a.TrimEnd('\\', '/'), b.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase);
+
     public Task<OperationResult<GameDefinition>> ResolveOrphanAsync(GameDefinition definition, OrphanResolution resolution) =>
         _backend.Call(_api, nameof(ResolveOrphanAsync), [definition, resolution], () =>
         {

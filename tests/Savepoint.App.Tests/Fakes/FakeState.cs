@@ -110,6 +110,12 @@ internal sealed class FakeState
 
     public Dictionary<string, GameDefinition> Imports { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+    // What a library scan finds; null means no store is installed. Each game's added flag is worked out from the games the fake holds.
+    public LibraryScan? Library { get; set; }
+
+    // Games a test wants refused when added from a library, by key.
+    public Dictionary<string, ErrorInfo> LibraryRefusals { get; } = new(StringComparer.Ordinal);
+
     public StorageRelocationPreview? RelocationPreview { get; }
 
     public ClearAllDataPreview? ClearAllDataPreview { get; }
