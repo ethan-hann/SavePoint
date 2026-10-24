@@ -4,6 +4,7 @@ using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Common.Preferences;
 using Savepoint.App.Features.Common.Toasts;
+using Savepoint.App.Features.Library;
 using Savepoint.Core.Api;
 
 namespace Savepoint.App.Features.Shell;
@@ -22,6 +23,7 @@ namespace Savepoint.App.Features.Shell;
 /// <param name="Screens">One factory per destination; the shell refuses to start without one for every destination.</param>
 /// <param name="Artwork">Each game's artwork for its tiles; a game with none keeps its name tint.</param>
 /// <param name="LaunchFlow">The launch flow that owns starting a game.</param>
+/// <param name="LibraryRuns">Tells the exit guard while games are being added from a library; none when null.</param>
 public sealed record ShellDependencies(
     IGamesApi Games,
     IProfilesApi Profiles,
@@ -35,4 +37,5 @@ public sealed record ShellDependencies(
     IThemeApplier Theme,
     IReadOnlyList<IScreenFactory> Screens,
     IArtworkProvider Artwork,
-    ILaunchFlowHost LaunchFlow);
+    ILaunchFlowHost LaunchFlow,
+    LibraryRunTracker? LibraryRuns = null);

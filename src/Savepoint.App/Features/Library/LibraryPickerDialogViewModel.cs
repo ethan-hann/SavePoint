@@ -33,6 +33,7 @@ public sealed partial class LibraryPickerDialogViewModel : DialogViewModel<IRead
 {
     private readonly IGamesApi _games;
     private readonly UiFormatter _text;
+    private readonly CancellationTokenSource _scan = new();
     private List<LibraryRowViewModel> _rows = [];
     private bool _loaded;
 
@@ -55,6 +56,8 @@ public sealed partial class LibraryPickerDialogViewModel : DialogViewModel<IRead
     {
         _games = games;
         _text = text;
+        // Closing the dialog, by any means, is the player giving up on the scan.
+        Closed += (_, _) => _scan.Cancel();
         SortChoices =
         [
             new LibrarySortChoice(text.Message("library.picker.sort.name"), LibrarySort.Name),
@@ -130,7 +133,13 @@ public sealed partial class LibraryPickerDialogViewModel : DialogViewModel<IRead
     /// <summary>Scans the libraries and fills the list. Call once, as the dialog is shown.</summary>
     public async Task LoadAsync()
     {
-        var scanned = await _games.ScanLibrariesAsync().ConfigureAwait(true);
+        var scanned = await _games.ScanLibrariesAsync(_scan.Token).ConfigureAwait(true);
+        if (_scan.IsCancellationRequested)
+        {
+            // The player closed the dialog; there is nothing left to show it in.
+            return;
+        }
+
         if (scanned.Ok)
         {
             _rows = [.. scanned.Value.Games.Select(game => new LibraryRowViewModel(game, _text))];

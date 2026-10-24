@@ -705,7 +705,7 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
 
     private async Task AddFromLibrariesAsync()
     {
-        var summary = await new LibraryImportFlow(_deps.Games, _deps.Dialogs, _deps.Text).RunAsync();
+        var summary = await new LibraryImportFlow(_deps.Games, _deps.Dialogs, _deps.Text, _deps.LibraryRuns).RunAsync();
         if (summary?.Added.FirstOrDefault()?.GameId is not { } firstAdded)
         {
             return;

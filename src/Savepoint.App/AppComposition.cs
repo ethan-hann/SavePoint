@@ -4,6 +4,7 @@ using Savepoint.App.Features.Common;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Common.Toasts;
+using Savepoint.App.Features.Library;
 using Savepoint.App.Features.Settings;
 using Savepoint.App.Features.Shell;
 
@@ -42,6 +43,8 @@ public static class AppComposition
         var pickers = dialogs ?? new AvaloniaDialogs(dialogStack, text, storage);
         var startup = new StartupViewModel(services.AppStatus, text, services.BackendStarted, services.LogFolder, services.FileRevealer, pickers);
 
+        var libraryRuns = new LibraryRunTracker();
+
         ShellViewModel CreateShell()
         {
             var feature = new FeatureContext(services, pickers, text, toasts, ui, clock);
@@ -58,10 +61,11 @@ public static class AppComposition
                 theme,
                 ScreenFactories(feature, settingsEnvironment),
                 FeatureComposition.Artwork(feature),
-                FeatureComposition.LaunchFlow(feature)));
+                FeatureComposition.LaunchFlow(feature),
+                libraryRuns));
         }
 
-        return new MainWindowViewModel(startup, CreateShell, dialogStack, toasts, new ExitGuard(services.Jobs, pickers, text, exitWait));
+        return new MainWindowViewModel(startup, CreateShell, dialogStack, toasts, new ExitGuard(services.Jobs, pickers, text, exitWait, libraryRuns));
     }
 
     /// <summary>One factory per screen, each supplied by its feature's <see cref="FeatureComposition"/> file.</summary>

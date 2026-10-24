@@ -57,7 +57,8 @@ public sealed class SteamFolderLocator : ISteamFolderLocator
                 _ => FirstExisting(
                     Path.Combine(_home, ".steam", "steam"),
                     Path.Combine(_home, ".local", "share", "Steam"),
-                    Path.Combine(_home, ".var", "app", "com.valvesoftware.Steam", ".local", "share", "Steam")),
+                    Path.Combine(_home, ".var", "app", "com.valvesoftware.Steam", ".local", "share", "Steam"),
+                    Path.Combine(_home, "snap", "steam", "common", ".local", "share", "Steam")),
             };
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or SecurityException)

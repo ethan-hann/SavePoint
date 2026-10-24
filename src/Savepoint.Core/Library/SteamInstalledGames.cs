@@ -26,19 +26,17 @@ internal static class SteamInstalledGames
     /// </summary>
     /// <param name="steamFolder">The Steam client's folder.</param>
     /// <param name="syntax">How paths in <c>libraryfolders.vdf</c> are written on this computer.</param>
-    public static IReadOnlyList<InstalledGame> Scan(string steamFolder, PathSyntax syntax)
+    /// <param name="cancellationToken">Checked before each library and each manifest.</param>
+    public static IReadOnlyList<InstalledGame> Scan(string steamFolder, PathSyntax syntax, CancellationToken cancellationToken = default)
     {
         var found = new Dictionary<int, InstalledGame>();
         foreach (var library in Libraries(steamFolder, syntax))
         {
-            ScanLibrary(library, found);
+            cancellationToken.ThrowIfCancellationRequested();
+            ScanLibrary(library, found, cancellationToken);
         }
 
-        // Some apps share one folder (a game and its editor, a game's two modes); a folder can be added once, so the lowest app id stands for it.
-        var byFolder = found.Values
-            .GroupBy(game => game.InstallPath, StringComparer.FromComparison(syntax.Comparison))
-            .Select(group => group.OrderBy(game => game.SteamAppId).First());
-        return [.. byFolder.OrderBy(game => game.Name, StringComparer.OrdinalIgnoreCase).ThenBy(game => game.StoreId, StringComparer.Ordinal)];
+        return [.. found.Values.OrderBy(game => game.Name, StringComparer.OrdinalIgnoreCase).ThenBy(game => game.StoreId, StringComparer.Ordinal)];
     }
 
     private static List<string> Libraries(string steamFolder, PathSyntax syntax)
@@ -56,7 +54,7 @@ internal static class SteamInstalledGames
         return libraries;
     }
 
-    private static void ScanLibrary(string library, Dictionary<int, InstalledGame> found)
+    private static void ScanLibrary(string library, Dictionary<int, InstalledGame> found, CancellationToken cancellationToken)
     {
         var steamApps = Path.Combine(library, "steamapps");
         List<string> manifests;
@@ -76,6 +74,7 @@ internal static class SteamInstalledGames
 
         foreach (var manifest in manifests)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (ReadGame(manifest, steamApps) is { SteamAppId: { } appId } game)
             {
                 found.TryAdd(appId, game);
@@ -117,9 +116,11 @@ internal static class SteamInstalledGames
         || installDir.StartsWith("SteamLinuxRuntime", StringComparison.OrdinalIgnoreCase);
 
     // A manifest is data from disk: its folder name must stay inside steamapps/common, so no separator, drive, or dot segment.
+    // Windows drops trailing dots and spaces from a name, which would turn "..." into the folder above, so they are refused everywhere.
     private static bool IsPlainFolderName(string name) =>
         !string.IsNullOrWhiteSpace(name)
-        && name is not ("." or "..")
+        && !name.EndsWith('.')
+        && !name.EndsWith(' ')
         && name.IndexOfAny(['/', '\\', ':', '\0']) < 0;
 
     // Manifests and the library list are a few KB; a file past the reader's bound is not one.

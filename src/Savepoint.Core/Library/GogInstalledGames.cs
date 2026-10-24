@@ -12,17 +12,20 @@ internal static class GogInstalledGames
 
     /// <summary>The installed games among <paramref name="records"/>, each folder once, sorted by name.</summary>
     /// <param name="records">What GOG recorded; nothing here is trusted to be well formed.</param>
-    public static IReadOnlyList<InstalledGame> From(IReadOnlyList<GogInstallRecord> records)
+    /// <param name="cancellationToken">Checked before each record.</param>
+    public static IReadOnlyList<InstalledGame> From(IReadOnlyList<GogInstallRecord> records, CancellationToken cancellationToken = default)
     {
         var found = new List<InstalledGame>();
         var folders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var record in records)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (string.IsNullOrWhiteSpace(record.Id)
                 || string.IsNullOrWhiteSpace(record.Name)
                 || string.IsNullOrWhiteSpace(record.Path)
                 || !string.IsNullOrWhiteSpace(record.DependsOn)
-                || !Directory.Exists(record.Path)
+                || !Path.IsPathFullyQualified(record.Path.Trim())
+                || !Directory.Exists(record.Path.Trim())
                 || IsAddOn(record))
             {
                 continue;

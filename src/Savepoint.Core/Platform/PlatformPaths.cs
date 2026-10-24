@@ -37,6 +37,19 @@ internal sealed class PlatformPaths
 
     public string? SteamFolder() => AbsoluteOrNull(_environment.GetSteamFolder());
 
+    // A lookup that fails or answers with a path that is not absolute adds nothing, so a broken registry never breaks the table.
+    public IReadOnlyList<string> GogFolders()
+    {
+        try
+        {
+            return [.. _environment.GetGogFolders().Select(AbsoluteOrNull).OfType<string>().Distinct(StringComparer.FromComparison(Syntax.Comparison))];
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            return [];
+        }
+    }
+
     public string? ReadFile(string path) => _environment.ReadTextFile(path);
 
     public IReadOnlyList<string> LocalHostNames() => _environment.LocalHostNames();

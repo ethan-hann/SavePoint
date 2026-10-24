@@ -17,7 +17,7 @@ public class GogInstalledGamesTests : IDisposable
         var folder = Folder("Deus Ex GOTY");
         Touch(folder, "system", "DeusEx.exe");
 
-        var game = Assert.Single(GogInstalledGames.From([Deus(folder)]));
+        var game = Assert.Single(From([Deus(folder)]));
 
         Assert.Equal(LibrarySource.Gog, game.Source);
         Assert.Equal("1207658995", game.StoreId);
@@ -41,7 +41,7 @@ public class GogInstalledGamesTests : IDisposable
             new GogInstallRecord("1597316373", "Cyberpunk 2077 REDmod", folder, DependsOn: "1423049311"),
         };
 
-        var game = Assert.Single(GogInstalledGames.From(records));
+        var game = Assert.Single(From(records));
 
         Assert.Equal("1423049311", game.StoreId);
         Assert.Equal("REDprelauncher.exe", game.Launch.ExePath);
@@ -62,7 +62,7 @@ public class GogInstalledGamesTests : IDisposable
             new GogInstallRecord("1423049311", "Cyberpunk 2077", folder, Path.Combine(folder, "REDprelauncher.exe"), "REDprelauncher.exe"),
         };
 
-        var games = GogInstalledGames.From(records);
+        var games = From(records);
 
         Assert.Equal(["1423049311"], games.Select(g => g.StoreId));
     }
@@ -74,7 +74,7 @@ public class GogInstalledGamesTests : IDisposable
         Touch(folder, "REDprelauncher.exe");
         File.WriteAllText(Path.Combine(folder, "goggame-1423049311.info"), "{ \"gameId\": \"1423049311\", \"rootGameId\": \"1423049311\" }");
 
-        var games = GogInstalledGames.From([new GogInstallRecord("1423049311", "Cyberpunk 2077", folder, Path.Combine(folder, "REDprelauncher.exe"), "REDprelauncher.exe")]);
+        var games = From([new GogInstallRecord("1423049311", "Cyberpunk 2077", folder, Path.Combine(folder, "REDprelauncher.exe"), "REDprelauncher.exe")]);
 
         Assert.Equal(["1423049311"], games.Select(g => g.StoreId));
     }
@@ -84,7 +84,7 @@ public class GogInstalledGamesTests : IDisposable
     {
         var gone = Path.Combine(_root, "Soldier of Fortune 2");
 
-        var games = GogInstalledGames.From([new GogInstallRecord("1228964594", "Soldier of Fortune II: Double Helix", gone, Path.Combine(gone, "SoF2.exe"), "SoF2.exe")]);
+        var games = From([new GogInstallRecord("1228964594", "Soldier of Fortune II: Double Helix", gone, Path.Combine(gone, "SoF2.exe"), "SoF2.exe")]);
 
         Assert.Empty(games);
     }
@@ -94,7 +94,7 @@ public class GogInstalledGamesTests : IDisposable
     {
         var folder = Folder("Mystery");
 
-        var game = Assert.Single(GogInstalledGames.From([new GogInstallRecord("42", "Mystery", folder)]));
+        var game = Assert.Single(From([new GogInstallRecord("42", "Mystery", folder)]));
 
         Assert.Equal(LaunchMethod.Uri, game.Launch.Method);
         Assert.Equal("goggalaxy://openGameView/42", game.Launch.Uri);
@@ -106,7 +106,7 @@ public class GogInstalledGamesTests : IDisposable
         var folder = Folder("Soldier of Fortune 2");
         Touch(folder, "SoF2.exe");
 
-        var game = Assert.Single(GogInstalledGames.From([new GogInstallRecord("1228964594", "Soldier of Fortune II", folder, Path.Combine(_root, "elsewhere", "SoF2.exe"), "SoF2.exe")]));
+        var game = Assert.Single(From([new GogInstallRecord("1228964594", "Soldier of Fortune II", folder, Path.Combine(_root, "elsewhere", "SoF2.exe"), "SoF2.exe")]));
 
         Assert.Equal("SoF2.exe", game.Launch.ExePath);
     }
@@ -116,10 +116,42 @@ public class GogInstalledGamesTests : IDisposable
     {
         var folder = Folder("Blank");
 
-        var games = GogInstalledGames.From(
+        var games = From(
             [new GogInstallRecord("", "No Id", folder), new GogInstallRecord("7", " ", folder), new GogInstallRecord("8", "No Folder", " ")]);
 
         Assert.Empty(games);
+    }
+
+    [Theory]
+    [InlineData("Games")]
+    [InlineData(@"Games\Deus Ex")]
+    [InlineData("..")]
+    public void A_folder_that_is_not_fully_qualified_is_not_offered_even_if_it_exists_from_here(string relative)
+    {
+        var elsewhere = Path.Combine(_root, "elsewhere");
+        Directory.CreateDirectory(Path.Combine(elsewhere, "Games", "Deus Ex"));
+        var before = Directory.GetCurrentDirectory();
+        try
+        {
+            Directory.SetCurrentDirectory(elsewhere);
+
+            var games = From([new GogInstallRecord("9", "Relative", relative)]);
+
+            Assert.Empty(games);
+        }
+        finally
+        {
+            Directory.SetCurrentDirectory(before);
+        }
+    }
+
+    [Fact]
+    public void A_scan_that_is_cancelled_stops_before_the_next_record()
+    {
+        using var cancelled = new CancellationTokenSource();
+        cancelled.Cancel();
+
+        Assert.Throws<OperationCanceledException>(() => From([new GogInstallRecord("1", "A", Folder("A"))], cancelled.Token));
     }
 
     [Fact]
@@ -128,7 +160,7 @@ public class GogInstalledGamesTests : IDisposable
         var zebra = Folder("Zebra");
         var alpha = Folder("Alpha");
 
-        var games = GogInstalledGames.From([new GogInstallRecord("2", "Zebra Racing", zebra), new GogInstallRecord("1", "alpha Quest", alpha)]);
+        var games = From([new GogInstallRecord("2", "Zebra Racing", zebra), new GogInstallRecord("1", "alpha Quest", alpha)]);
 
         Assert.Equal(["alpha Quest", "Zebra Racing"], games.Select(g => g.Name));
     }
@@ -144,6 +176,9 @@ public class GogInstalledGamesTests : IDisposable
             // A temp folder left behind is harmless.
         }
     }
+
+    private static IReadOnlyList<InstalledGame> From(IReadOnlyList<GogInstallRecord> records, CancellationToken? token = null) =>
+        GogInstalledGames.From(records, token ?? TestContext.Current.CancellationToken);
 
     private static GogInstallRecord Deus(string folder) =>
         new("1207658995", "Deus Ex GOTY", folder, Path.Combine(folder, "system", "DeusEx.exe"), "DeusEx.exe");

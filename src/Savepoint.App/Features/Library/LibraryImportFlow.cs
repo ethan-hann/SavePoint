@@ -13,15 +13,18 @@ public sealed class LibraryImportFlow
     private readonly IGamesApi _games;
     private readonly IDialogs _dialogs;
     private readonly UiFormatter _text;
+    private readonly LibraryRunTracker? _tracker;
 
     /// <param name="games">The games Api that scans and adds.</param>
     /// <param name="dialogs">Shows the three dialogs.</param>
     /// <param name="text">Formats the copy.</param>
-    public LibraryImportFlow(IGamesApi games, IDialogs dialogs, UiFormatter text)
+    /// <param name="tracker">Tells the exit guard while games are being added; none when null.</param>
+    public LibraryImportFlow(IGamesApi games, IDialogs dialogs, UiFormatter text, LibraryRunTracker? tracker = null)
     {
         _games = games;
         _dialogs = dialogs;
         _text = text;
+        _tracker = tracker;
     }
 
     /// <summary>Runs the flow to the end.</summary>
@@ -31,18 +34,20 @@ public sealed class LibraryImportFlow
         var picker = new LibraryPickerDialogViewModel(_games, _text);
         var loading = picker.LoadAsync();
         var chosen = await _dialogs.ShowAsync(picker).ConfigureAwait(true);
-        await loading.ConfigureAwait(true);
         if (chosen is not { Count: > 0 })
         {
+            // A scan the player gave up on may still be blocked on a slow drive; it is not waited for.
             return null;
         }
+
+        await loading.ConfigureAwait(true);
 
         if (!await _dialogs.ShowAsync(new LibraryConfirmDialogViewModel(chosen, _text)).ConfigureAwait(true))
         {
             return null;
         }
 
-        var run = new LibraryAddDialogViewModel(_games, chosen, _text);
+        var run = new LibraryAddDialogViewModel(_games, chosen, _text, _tracker);
         var running = run.RunAsync();
         var summary = await _dialogs.ShowAsync(run).ConfigureAwait(true);
         await running.ConfigureAwait(true);

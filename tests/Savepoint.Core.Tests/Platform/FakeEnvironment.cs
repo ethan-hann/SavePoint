@@ -26,6 +26,9 @@ internal sealed class FakeEnvironment
     /// <summary>Where the Steam client is installed; null when Steam is not.</summary>
     public string? SteamFolder { get; set; }
 
+    /// <summary>The folders GOG Galaxy keeps its games in; empty when Galaxy is not installed.</summary>
+    public List<string> GogFolders { get; } = [];
+
     /// <summary>How many times a file was read, by path, so a test can tell a cached answer from a repeated read.</summary>
     public Dictionary<string, int> Reads { get; } = [];
 
@@ -67,6 +70,7 @@ internal sealed class FakeEnvironment
         GetKnownFolder = folder => KnownFolders.GetValueOrDefault(folder),
         ListDriveRoots = () => [.. DriveRoots],
         GetSteamFolder = () => SteamFolder,
+        GetGogFolders = () => [.. GogFolders],
         ReadTextFile = path =>
         {
             Reads[path] = Reads.GetValueOrDefault(path) + 1;

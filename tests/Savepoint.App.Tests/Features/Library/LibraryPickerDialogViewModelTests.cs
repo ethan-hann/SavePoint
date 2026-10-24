@@ -37,6 +37,17 @@ public class LibraryPickerDialogViewModelTests
     }
 
     [Fact]
+    public async Task A_rows_screen_reader_name_holds_the_game_the_store_the_status_and_where_it_is_installed()
+    {
+        var (picker, _) = await LoadedAsync(LibraryTestData.Scan(LibraryTestData.Game("Portal 2", id: "620", addedGameId: "p2"), LibraryTestData.Game("Portal 2", LibrarySource.Gog, "9")));
+
+        var names = picker.VisibleRows.Select(row => row.AutomationName).ToList();
+
+        Assert.Contains(@"Portal 2, Steam, Already added, installed at C:\Games\Portal 2", names);
+        Assert.Contains(@"Portal 2, GOG Galaxy, installed at C:\Games\Portal 2", names);
+    }
+
+    [Fact]
     public async Task A_saves_folder_the_game_has_not_made_yet_says_it_is_left_out()
     {
         var game = LibraryTestData.Game("Skyrim", saves: @"C:\Docs\Skyrim\Saves", savesExist: false);
@@ -244,6 +255,46 @@ public class LibraryPickerDialogViewModelTests
         Assert.StartsWith("SavePoint couldn't look through your libraries.", picker.ErrorText);
         Assert.Empty(picker.VisibleRows);
         Assert.False(picker.IsLoading);
+    }
+
+    [Theory]
+    [InlineData("cancel")]
+    [InlineData("dismiss")]
+    public async Task Closing_the_dialog_cancels_the_scan_it_started(string how)
+    {
+        var backend = FakeBackend.Empty();
+        var picker = new LibraryPickerDialogViewModel(backend.Games, LibraryTestData.Text);
+        await picker.LoadAsync();
+        var token = backend.Games.ScanTokens.Single();
+        Assert.False(token.IsCancellationRequested);
+
+        if (how == "cancel")
+        {
+            picker.CancelCommand.Execute(null);
+        }
+        else
+        {
+            picker.RequestDismiss();
+        }
+
+        Assert.True(token.IsCancellationRequested);
+    }
+
+    [Fact]
+    public async Task A_scan_that_closing_the_dialog_cancelled_shows_no_error()
+    {
+        var backend = FakeBackend.Empty();
+        var picker = new LibraryPickerDialogViewModel(backend.Games, LibraryTestData.Text);
+        backend.Games.ScanGate = async token =>
+        {
+            picker.CancelCommand.Execute(null);
+            await Task.CompletedTask;
+        };
+
+        await picker.LoadAsync();
+
+        Assert.False(picker.HasError);
+        Assert.Empty(picker.ErrorText);
     }
 
     [Fact]

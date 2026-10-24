@@ -180,6 +180,34 @@ public class LibraryAddDialogViewModelTests
         Assert.Single(AddedKeys(backend));
     }
 
+    [Fact]
+    public async Task A_game_whose_add_throws_ends_the_run_cleanly_and_can_still_be_closed()
+    {
+        var games = new[] { LibraryTestData.Game("A", id: "1"), LibraryTestData.Game("B", id: "2"), LibraryTestData.Game("C", id: "3") };
+        var calls = 0;
+        var dialog = new LibraryAddDialogViewModel(
+            game =>
+            {
+                calls++;
+                return calls == 2
+                    ? throw new InvalidOperationException("boom")
+                    : Task.FromResult(OperationResult.Success(new LibraryAddResult(game.Key, game.Name, LibraryAddStatus.Added, game.Draft.Id)));
+            },
+            games,
+            LibraryTestData.Text);
+
+        await dialog.RunAsync();
+
+        Assert.True(dialog.IsFinished);
+        Assert.True(dialog.CanDismiss);
+        Assert.Equal("1 game was added.", dialog.AddedSummary);
+        Assert.Equal("1 game could not be added.", dialog.NotAddedSummary);
+        dialog.CloseCommand.Execute(null);
+        var summary = await dialog.Result;
+        Assert.Equal(["steam:1", "steam:2"], summary.Results.Select(r => r.Key));
+        Assert.Equal(1, summary.NotTried);
+    }
+
     private static async Task<LibraryAddSummary> Summary(LibraryAddDialogViewModel dialog)
     {
         dialog.CloseCommand.Execute(null);

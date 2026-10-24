@@ -6,7 +6,7 @@ namespace Savepoint.Core.Tests.Library;
 
 public class SteamInstalledGamesTests
 {
-    private static IReadOnlyList<InstalledGame> Scan(SteamLibraryRig rig) => SteamInstalledGames.Scan(rig.SteamFolder, LibraryFixtures.Syntax);
+    private static IReadOnlyList<InstalledGame> Scan(SteamLibraryRig rig) => SteamInstalledGames.Scan(rig.SteamFolder, LibraryFixtures.Syntax, TestContext.Current.CancellationToken);
 
     [Fact]
     public void Games_in_the_steam_folder_and_in_a_second_library_are_all_listed()
@@ -118,7 +118,7 @@ public class SteamInstalledGamesTests
     }
 
     [Fact]
-    public void Apps_that_share_one_install_folder_are_listed_once_under_the_lowest_app_id()
+    public void Apps_that_share_one_install_folder_are_each_listed_and_the_scan_picks_one_per_folder_later()
     {
         // On the PC the manifests came from, Fallout 4 and its Creation Kit both install into "Fallout 4", and so do the two Modern Warfare 2 apps.
         using var rig = new SteamLibraryRig();
@@ -130,7 +130,7 @@ public class SteamInstalledGamesTests
 
         var games = Scan(rig);
 
-        Assert.Equal(["10180", "377160"], games.Select(g => g.StoreId).Order(StringComparer.Ordinal).ToList());
+        Assert.Equal(["10180", "10190", "1946160", "377160"], games.Select(g => g.StoreId).Order(StringComparer.Ordinal).ToList());
     }
 
     [Fact]
@@ -183,10 +183,37 @@ public class SteamInstalledGamesTests
         Assert.Empty(Scan(rig));
     }
 
+    [Theory]
+    [InlineData("...")]
+    [InlineData(".. ")]
+    [InlineData("Skyrim Special Edition ")]
+    [InlineData("Skyrim Special Edition.")]
+    public void An_install_folder_name_that_windows_would_trim_is_refused_everywhere(string installDir)
+    {
+        using var rig = new SteamLibraryRig();
+        File.WriteAllText(Path.Combine(rig.SteamFolder, "steamapps", "appmanifest_4001.acf"), LibraryFixtures.Manifest(4001, "Trimmed", installDir, 4));
+        Directory.CreateDirectory(Path.Combine(rig.SteamFolder, "steamapps", "common"));
+        rig.WriteLibraryList();
+
+        Assert.Empty(Scan(rig));
+    }
+
+    [Fact]
+    public void A_scan_that_is_cancelled_stops_instead_of_listing()
+    {
+        using var rig = new SteamLibraryRig();
+        rig.AddGame(rig.SteamFolder, 240, "Counter-Strike: Source", "Counter-Strike Source");
+        rig.WriteLibraryList();
+        using var cancelled = new CancellationTokenSource();
+        cancelled.Cancel();
+
+        Assert.Throws<OperationCanceledException>(() => SteamInstalledGames.Scan(rig.SteamFolder, LibraryFixtures.Syntax, cancelled.Token));
+    }
+
     [Fact]
     public void A_missing_steam_folder_lists_nothing()
     {
-        var games = SteamInstalledGames.Scan(Path.Combine(Path.GetTempPath(), "savepoint-no-such-steam-" + Guid.NewGuid().ToString("N")), LibraryFixtures.Syntax);
+        var games = SteamInstalledGames.Scan(Path.Combine(Path.GetTempPath(), "savepoint-no-such-steam-" + Guid.NewGuid().ToString("N")), LibraryFixtures.Syntax, TestContext.Current.CancellationToken);
 
         Assert.Empty(games);
     }

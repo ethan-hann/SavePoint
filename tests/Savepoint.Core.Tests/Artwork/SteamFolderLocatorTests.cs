@@ -67,6 +67,17 @@ public class SteamFolderLocatorTests
     }
 
     [Fact]
+    public void Linux_finds_the_snap_package_of_steam_after_the_other_places()
+    {
+        var home = Path.Combine("/home", "me");
+        var share = Path.Combine(home, ".local", "share", "Steam");
+        var snap = Path.Combine(home, "snap", "steam", "common", ".local", "share", "Steam");
+
+        Assert.Equal(snap, new SteamFolderLocator(OsKind.Linux, home, null, Existing(snap)).FindSteamFolder());
+        Assert.Equal(share, new SteamFolderLocator(OsKind.Linux, home, null, Existing(share, snap)).FindSteamFolder());
+    }
+
+    [Fact]
     public void Linux_does_not_read_the_registry()
     {
         var read = false;

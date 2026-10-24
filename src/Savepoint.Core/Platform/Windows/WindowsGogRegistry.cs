@@ -47,6 +47,20 @@ internal sealed class WindowsGogRegistry : IGogInstalls
         }
     }
 
+    /// <summary>GOG Galaxy's program folder and its default <c>Games</c> folder; empty when Galaxy is not installed. Read-only.</summary>
+    public static IReadOnlyList<string> ReadGalaxyFolders()
+    {
+        try
+        {
+            using var paths = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\GOG.com\GalaxyClient\paths");
+            return paths?.GetValue("client") is string { Length: > 0 } client ? [client, Path.Combine(client, "Games")] : [];
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or SecurityException)
+        {
+            return [];
+        }
+    }
+
     private static string? Text(Microsoft.Win32.RegistryKey key, string name) =>
         key.GetValue(name) is string { Length: > 0 } value ? value : null;
 }

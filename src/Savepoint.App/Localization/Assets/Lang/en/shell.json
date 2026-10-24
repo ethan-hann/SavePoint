@@ -11,6 +11,8 @@
   "shell.exit.confirm": "Quit anyway",
   "shell.exit.freeUpConfirm": "Quit when it's done",
   "shell.exit.freeUpMessage": "SavePoint is freeing up space and can't stop now, because it has started deleting the snapshots you chose to delete. It can quit as soon as it is done.",
+  "shell.exit.libraryConfirm": "Finish this game and quit",
+  "shell.exit.libraryMessage": "SavePoint is still adding your games. If you quit now, it finishes the game it is on and skips the rest, and you won't see which games were added. Games it skipped can be added again later.",
   "shell.exit.moveMessage": "SavePoint is still moving your snapshots. If you quit now, the move stops and your snapshots stay where they are.",
   "shell.exit.stay": "Stay open",
   "shell.exit.switchMessage": "SavePoint is switching your game's folder to another snapshot. If you quit now, the folder is left with a mix of two snapshots until the switch is finished or the changes are discarded.",

@@ -1,6 +1,7 @@
 using Savepoint.App.Features.Activity;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Formatting;
+using Savepoint.App.Features.Library;
 using Savepoint.Core.Api;
 
 namespace Savepoint.App.Features.Shell;
@@ -18,17 +19,20 @@ public sealed class ExitGuard
     private readonly IDialogs _dialogs;
     private readonly UiFormatter _text;
     private readonly TimeSpan _wait;
+    private readonly LibraryRunTracker? _libraryRuns;
 
     /// <param name="jobs">The jobs Api, to see what is running.</param>
     /// <param name="dialogs">Asks the question.</param>
     /// <param name="text">Formats the question.</param>
     /// <param name="wait">How long to wait for cancelled jobs to end; three seconds when null.</param>
-    public ExitGuard(IJobsApi jobs, IDialogs dialogs, UiFormatter text, TimeSpan? wait = null)
+    /// <param name="libraryRuns">Tells whether games are being added from a library, which closing the window must not cut off silently; none when null.</param>
+    public ExitGuard(IJobsApi jobs, IDialogs dialogs, UiFormatter text, TimeSpan? wait = null, LibraryRunTracker? libraryRuns = null)
     {
         _jobs = jobs;
         _dialogs = dialogs;
         _text = text;
         _wait = wait ?? TimeSpan.FromSeconds(3);
+        _libraryRuns = libraryRuns;
     }
 
     /// <summary>
@@ -38,6 +42,11 @@ public sealed class ExitGuard
     /// <returns>True when the window may close; false when the user chose to stay.</returns>
     public async Task<bool> PrepareToCloseAsync()
     {
+        if (_libraryRuns is { IsRunning: true } runs && !await FinishLibraryRunAsync(runs).ConfigureAwait(true))
+        {
+            return false;
+        }
+
         var answered = new HashSet<Guid>();
         var cancelled = new List<Guid>();
         while (true)
@@ -76,6 +85,31 @@ public sealed class ExitGuard
             await WaitForAsync(cancelled).ConfigureAwait(true);
             return true;
         }
+    }
+
+    // Adding games cannot be stopped between a game's folders and its catalog row, so quitting asks the run to stop after the game it
+    // is on and waits for that game, which takes seconds; a run that never ends is left to the process ending after a minute.
+    private async Task<bool> FinishLibraryRunAsync(LibraryRunTracker runs)
+    {
+        var asked = await _dialogs.ConfirmAsync(new ConfirmRequest(
+            _text.Message("shell.exit.title"),
+            _text.Message("shell.exit.libraryMessage"),
+            _text.Message("shell.exit.libraryConfirm"),
+            Destructive: true,
+            CancelLabel: _text.Message("shell.exit.stay"))).ConfigureAwait(true);
+        if (!asked)
+        {
+            return false;
+        }
+
+        runs.RequestStop();
+        var until = DateTime.UtcNow + TimeSpan.FromMinutes(1);
+        while (runs.IsRunning && DateTime.UtcNow < until)
+        {
+            await Task.Delay(25).ConfigureAwait(true);
+        }
+
+        return true;
     }
 
     // Only these leave something half done that the user has to know about; a save, or an optimization that has not deleted anything yet, is simply stopped.
