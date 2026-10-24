@@ -184,6 +184,12 @@ internal sealed class AppStatusApi : IAppStatusApi
                             try
                             {
                                 Directory.CreateDirectory(snapshot.Root);
+
+                                // Marks the folder as SavePoint's own empty start, so a later storage move can tell it from a drive whose contents are missing.
+                                if (!Directory.EnumerateFileSystemEntries(snapshot.Root).Any(entry => Path.GetFileName(entry) != StorageContent.EmptyStartMarkerFileName))
+                                {
+                                    File.WriteAllText(Path.Combine(snapshot.Root, StorageContent.EmptyStartMarkerFileName), $"SavePoint made this folder when it was started with an empty folder.{Environment.NewLine}");
+                                }
                             }
                             catch (Exception e) when (e is IOException or UnauthorizedAccessException or NotSupportedException)
                             {

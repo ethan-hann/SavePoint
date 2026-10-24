@@ -59,11 +59,12 @@ public class StorageMoveAfterEmptyStartTests
         Assert.Equal(destination, (await workspace.Settings.GetAsync(workspace.Token)).Value!.StorageRoot);
     }
 
-    // The guard still stops a folder that holds something that is not SavePoint's: it may be a drive that is not the one with the history.
+    // The guard still stops a folder that holds something that is not SavePoint's, even next to the empty start's marker: it may be a drive that is not the one with the history.
     [Fact(Timeout = 120_000)]
     public async Task A_move_is_still_refused_from_a_folder_with_other_files_and_none_of_the_listed_games()
     {
         using var workspace = await EmptyStartWithUnconfirmedGameAsync();
+        Assert.Single(Directory.GetFileSystemEntries(workspace.DefaultStorageRoot));
         BackendWorkspace.WriteFile(Path.Combine(workspace.DefaultStorageRoot, "someone-elses-file.txt"), "not ours");
         var destination = Path.Combine(workspace.Root, "moved-storage");
 

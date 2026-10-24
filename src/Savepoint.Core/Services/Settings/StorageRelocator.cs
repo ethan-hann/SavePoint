@@ -104,8 +104,8 @@ internal sealed class StorageRelocator
     private SavepointException? BlockerOf(StorageSnapshot storage, IReadOnlyList<GameDefinition> games, string destination, ContentListing listing)
     {
         // Games in the catalog and none of their folders next to other files: the drive is not the one that holds the history, and copying
-        // nothing would look like success. A folder with nothing in it is what an empty start leaves, and moving it loses nothing.
-        if (games.Count > 0 && listing.Folders.Count == 0 && HoldsAnything(storage.Root))
+        // nothing would look like success. A folder holding only the marker an empty start leaves is SavePoint's own and loses nothing.
+        if (games.Count > 0 && listing.Folders.Count == 0 && !StorageContent.HoldsOnlyEmptyStartMarker(storage.Root))
         {
             return new StorageUnreachableException(storage.Root, null);
         }
@@ -139,19 +139,6 @@ internal sealed class StorageRelocator
         return _services.Disk.GetFreeBytes(destination) is { } free && free < required ? new DiskSpaceException(destination, required, free) : null;
     }
 
-
-    // Hidden and system entries count; a folder that cannot be listed is not known to be empty.
-    private static bool HoldsAnything(string root)
-    {
-        try
-        {
-            return Directory.EnumerateFileSystemEntries(root, "*", new EnumerationOptions { AttributesToSkip = 0, IgnoreInaccessible = false }).Any();
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-            return true;
-        }
-    }
 
     private async Task<JobResult?> RunAsync(JobContext context, string destination)
     {
