@@ -69,7 +69,7 @@ public static class JobOutcome
     {
         var op = kind switch
         {
-            JobKind.Launch => CancelledOperation.Launch,
+            JobKind.Launch or JobKind.Switch => CancelledOperation.Launch,
             JobKind.Capture => CancelledOperation.Capture,
             JobKind.Compact => CancelledOperation.Compaction,
             JobKind.RelocateStorage => CancelledOperation.StorageRelocation,

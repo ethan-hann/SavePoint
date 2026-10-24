@@ -141,6 +141,8 @@ internal sealed class ReplayableLaunchApi : ILaunchApi
 
     public Task<OperationResult<JobStarted>> StartAsync(string gameId, LaunchTarget target) => _inner.StartAsync(gameId, target);
 
+    public Task<OperationResult<JobStarted>> SwitchAsync(string gameId, LaunchTarget target) => _inner.SwitchAsync(gameId, target);
+
     public Task<OperationResult<Unit>> DiscardChangesAsync(string gameId, RepoRole folder) => _inner.DiscardChangesAsync(gameId, folder);
 
     public Task<OperationResult<Unit>> MarkFinishedAsync(string gameId) => _inner.MarkFinishedAsync(gameId);

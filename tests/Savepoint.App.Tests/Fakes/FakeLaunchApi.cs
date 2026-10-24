@@ -67,6 +67,20 @@ public sealed class FakeLaunchApi : ILaunchApi
             return OperationResult.Success(new JobStarted(jobId));
         });
 
+    // As the real one: a switch job and no session, so the game counts as taken only while a session is open here.
+    public Task<OperationResult<JobStarted>> SwitchAsync(string gameId, LaunchTarget target) =>
+        _backend.Call(_api, nameof(SwitchAsync), [gameId, target], () =>
+        {
+            State.Game(gameId);
+            if (State.IsOpen(gameId))
+            {
+                return OperationResult.Failure<JobStarted>(new LaunchAlreadyRunningException(gameId));
+            }
+
+            var jobId = _backend.Jobs.Start(JobKind.Switch, gameId, null, profile: JobProfileOf(ProfileOf(gameId, target)));
+            return OperationResult.Success(new JobStarted(jobId));
+        });
+
     public Task<OperationResult<Unit>> DiscardChangesAsync(string gameId, RepoRole folder) =>
         _backend.Call(_api, nameof(DiscardChangesAsync), [gameId, folder], () =>
         {

@@ -125,6 +125,8 @@ public class CoreBackendTests
 
         public Task<OperationResult<JobStarted>> StartAsync(string gameId, LaunchTarget target) => throw new NotSupportedException();
 
+        public Task<OperationResult<JobStarted>> SwitchAsync(string gameId, LaunchTarget target) => throw new NotSupportedException();
+
         public Task<OperationResult<Unit>> DiscardChangesAsync(string gameId, RepoRole folder) => throw new NotSupportedException();
 
         public Task<OperationResult<Unit>> MarkFinishedAsync(string gameId) => throw new NotSupportedException();

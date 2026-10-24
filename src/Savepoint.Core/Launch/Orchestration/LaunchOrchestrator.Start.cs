@@ -54,6 +54,54 @@ public sealed partial class LaunchOrchestrator
             }
         });
 
+    /// <inheritdoc />
+    public Task<OperationResult<JobStarted>> SwitchAsync(string gameId, LaunchTarget target) =>
+        ApiGuard.RunAsync(_services.Log, async () =>
+        {
+            ArgumentNullException.ThrowIfNull(target);
+            var game = await RequireGameAsync(gameId).ConfigureAwait(false);
+
+            // The claim keeps the game taken for the whole job, so a launch or a second switch cannot begin while folders are changing.
+            if (!_book.TryClaim(gameId))
+            {
+                throw new LaunchAlreadyRunningException(gameId);
+            }
+
+            var started = false;
+            try
+            {
+                if (await IsGameOpenAsync(game).ConfigureAwait(false))
+                {
+                    throw new LaunchAlreadyRunningException(gameId);
+                }
+
+                var (profile, _) = await ResolveForSessionAsync(game, target).ConfigureAwait(false);
+                var jobId = _services.Jobs.Start(JobKind.Switch, gameId, cancellable: true, context => RunSwitchAsync(context, gameId, target), new JobProfile(profile.Id, profile.Name));
+                started = true;
+                return new JobStarted(jobId);
+            }
+            finally
+            {
+                if (!started)
+                {
+                    _book.Unclaim(gameId);
+                }
+            }
+        });
+
+    private async Task<JobResult?> RunSwitchAsync(JobContext context, string gameId, LaunchTarget target)
+    {
+        try
+        {
+            await _services.RunForGameAsync(gameId, (storage, _) => PrepareAsync(storage, context, gameId, target), context.CancellationToken).ConfigureAwait(false);
+            return null;
+        }
+        finally
+        {
+            _book.Unclaim(gameId);
+        }
+    }
+
     // A game is open when the session is, or when the game's own process is still alive: a player who said they were done may have
     // left it running, and a game started outside SavePoint shows up by the process name its definition gives.
     private async Task<bool> IsGameOpenAsync(GameDefinition game)

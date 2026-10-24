@@ -52,6 +52,21 @@ public interface ILaunchApi
     Task<OperationResult<JobStarted>> StartAsync(string gameId, LaunchTarget target);
 
     /// <summary>
+    /// Loads a target's files into the game's folders and stops there: the same checks and the same switch as <see cref="StartAsync"/>,
+    /// without starting the game. Answers with a <see cref="JobKind.Switch"/> job at once; the job ends once the folders hold the
+    /// target (or fails or is cancelled). No play session opens, so nothing arrives through <see cref="SessionChanged"/>, no after-play
+    /// choice is offered, and the profile's last-played time is left alone. The game is taken for as long as the job runs, so a launch
+    /// or another switch for it fails at once with <c>error.launch.alreadyRunning</c>, which is also how this call fails, with no job,
+    /// when the game has an open session or its process is running. The job fails with the same errors as a launch's switch, for example
+    /// <c>error.launch.dirtyWorkingTree</c>, <c>error.launch.fileFolderClash</c>, <c>error.gitOperation.checkoutFailed</c> (the file
+    /// another program holds open is named in <c>path</c>), or <c>error.diskSpace.low</c>, and it is cancelled with
+    /// <c>error.launch.canceled</c>. <see cref="GetPreviewAsync"/> previews it exactly as it does a launch.
+    /// </summary>
+    /// <param name="gameId">The game.</param>
+    /// <param name="target">What to load.</param>
+    Task<OperationResult<JobStarted>> SwitchAsync(string gameId, LaunchTarget target);
+
+    /// <summary>
     /// Throws away one folder's unsaved changes, returning it to the last saved point of the profile it is on. It cannot be undone.
     /// A file the game's ignore list names is not an unsaved change: discarding leaves it exactly as it is on disk, whether or not a point
     /// recorded it. Fails with <c>error.launch.fileFolderClash</c> when restoring a file or a folder of the point would delete a

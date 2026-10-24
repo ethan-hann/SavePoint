@@ -211,6 +211,14 @@ internal sealed class LaunchRig : IDisposable
         return await WaitForJobAsync(started.Value.JobId);
     }
 
+    // Switches the folders without starting the game and waits for the job to end.
+    public async Task<JobSnapshot> SwitchAsync(LaunchTarget target)
+    {
+        var started = await Launch.SwitchAsync(Game.Id, target);
+        Assert.True(started.Ok, started.Error?.Detail);
+        return await WaitForJobAsync(started.Value.JobId);
+    }
+
     public async Task<LaunchSessionInfo> WaitForAsync(Func<LaunchSessionInfo, bool> condition, string described)
     {
         var until = DateTime.UtcNow + _patience;

@@ -6,6 +6,9 @@ public enum JobKind
     /// <summary>Preparing, switching folders, and starting the game. The play session itself continues in <see cref="ILaunchApi"/>.</summary>
     Launch,
 
+    /// <summary>Preparing and switching folders without starting the game. No play session follows.</summary>
+    Switch,
+
     /// <summary>Taking a snapshot of the folders. Its result is a <see cref="CaptureResult"/>.</summary>
     Capture,
 

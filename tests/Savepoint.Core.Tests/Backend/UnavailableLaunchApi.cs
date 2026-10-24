@@ -22,6 +22,8 @@ internal sealed class UnavailableLaunchApi : ILaunchApi
 
     public Task<OperationResult<JobStarted>> StartAsync(string gameId, LaunchTarget target) => Unavailable<JobStarted>();
 
+    public Task<OperationResult<JobStarted>> SwitchAsync(string gameId, LaunchTarget target) => Unavailable<JobStarted>();
+
     public Task<OperationResult<Unit>> DiscardChangesAsync(string gameId, RepoRole folder) => Unavailable<Unit>();
 
     public Task<OperationResult<Unit>> MarkFinishedAsync(string gameId) => Unavailable<Unit>();
