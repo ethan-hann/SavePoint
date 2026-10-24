@@ -29,6 +29,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
 
     // Until the view reports a width there is nothing to squeeze, so the header keeps its words.
     private double _headerWidth = double.PositiveInfinity;
+    private bool _cardsScroll;
     private bool _flowActive;
     private long _generation;
     private CancellationTokenSource? _loadCts;
@@ -69,8 +70,8 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     [NotifyPropertyChangedFor(nameof(HasInlineContent))]
     [NotifyPropertyChangedFor(nameof(PinnedContent))]
     [NotifyPropertyChangedFor(nameof(HasPinnedContent))]
-    [NotifyPropertyChangedFor(nameof(FailureContent))]
-    [NotifyPropertyChangedFor(nameof(HasFailureContent))]
+    [NotifyPropertyChangedFor(nameof(ScrollingContent))]
+    [NotifyPropertyChangedFor(nameof(HasScrollingContent))]
     private object? _inlineContent;
 
     /// <param name="shell">What the screen sees of the shell.</param>
@@ -96,6 +97,9 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
 
         ShowGame(_shell.SelectedGame);
     }
+
+    /// <summary>The shortest pane that keeps a launch card pinned; the toast stack and the pill can take a third of a shorter one.</summary>
+    public const double PinnedCardMinHeight = 300;
 
     /// <inheritdoc />
     public NavDestination Destination => NavDestination.Games;
@@ -142,17 +146,19 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     /// <summary>True while the launch flow has anything to show for the selected game.</summary>
     public bool HasInlineContent => InlineContent is not null;
 
-    /// <summary>The launch flow's banner, checking, saving or running card, which is short enough to stay pinned above the storage footer; null when there is none.</summary>
-    public object? PinnedContent => InlineContent is ErrorCardViewModel ? null : InlineContent;
+    /// <summary>The launch flow's banner, checking, saving or running card, which is short enough to stay pinned above the storage footer while the pane is tall enough; null when there is none or the card scrolls with the profiles.</summary>
+    public object? PinnedContent => InlineContent is null || ScrollsWithProfiles ? null : InlineContent;
 
     /// <summary>True while <see cref="PinnedContent"/> has a card to show.</summary>
     public bool HasPinnedContent => PinnedContent is not null;
 
-    /// <summary>A failure or partial-result card, shown below the table where it can use the pane's height; pinned, it would squeeze the table to nothing in a short window. Null when there is none.</summary>
-    public ErrorCardViewModel? FailureContent => InlineContent as ErrorCardViewModel;
+    /// <summary>A failure or partial-result card, or any card in a pane too short to pin it, shown below the table where it can use the pane's height; pinned, it would squeeze the table to nothing. Null when there is none.</summary>
+    public object? ScrollingContent => InlineContent is not null && ScrollsWithProfiles ? InlineContent : null;
 
-    /// <summary>True while <see cref="FailureContent"/> has a card to show.</summary>
-    public bool HasFailureContent => FailureContent is not null;
+    /// <summary>True while <see cref="ScrollingContent"/> has a card to show.</summary>
+    public bool HasScrollingContent => ScrollingContent is not null;
+
+    private bool ScrollsWithProfiles => InlineContent is ErrorCardViewModel || _cardsScroll;
 
     /// <summary>Switches to the History destination for the selected game.</summary>
     public IRelayCommand ShowHistoryCommand { get; }
@@ -276,6 +282,26 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     {
         _headerWidth = width;
         Header.Update(width, IsSidebarLayout);
+    }
+
+    /// <summary>
+    /// Tells the screen how tall its pane is. Below <see cref="PinnedCardMinHeight"/> the launch flow's card scrolls with the profiles
+    /// instead of being pinned, because the toasts and the job pill take the room it would stand in.
+    /// </summary>
+    /// <param name="height">The pane's height in device-independent pixels.</param>
+    public void SetPaneHeight(double height)
+    {
+        var scrolls = height > 0 && height < PinnedCardMinHeight;
+        if (scrolls == _cardsScroll)
+        {
+            return;
+        }
+
+        _cardsScroll = scrolls;
+        OnPropertyChanged(nameof(PinnedContent));
+        OnPropertyChanged(nameof(HasPinnedContent));
+        OnPropertyChanged(nameof(ScrollingContent));
+        OnPropertyChanged(nameof(HasScrollingContent));
     }
 
     /// <summary>Stops following the shell and the launch flow.</summary>

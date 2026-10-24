@@ -50,10 +50,9 @@ public class JobPillPlacementTests
         "editor",
     ];
 
-    // The screens that scroll something by themselves as they open (the error card into view, the selected row into view), at some of the sizes.
-    private static readonly HashSet<string> _opensScrolled = ["games-failure-card", "activity"];
-
-    private static readonly HashSet<string> _pinnedCardScreens = ["games-banner", "games-running", "games-checking"];
+    // The screens that scroll something by themselves as they open (the error card into view, the selected row into view, a launch card that
+    // scrolls with the profiles in a short window), at some of the sizes.
+    private static readonly HashSet<string> _opensScrolled = ["games-failure-card", "activity", "games-banner", "games-running", "games-checking"];
 
     private static (string Name, double Width, double Height)[] LargestFirst((string Name, double Width, double Height)[] sizes) =>
         [.. sizes.OrderByDescending(size => size.Width).ThenByDescending(size => size.Height)];
@@ -245,12 +244,6 @@ public class JobPillPlacementTests
         {
             foreach (var (sizeName, width, height) in _sizes.Where(size => onlySize is null || size.Name == onlySize))
             {
-                // The library layout's shelf leaves a pinned launch card no slack in a window this short, so a toast over it cannot be avoided.
-                if (toasts != ToastLoad.None && layout == ShellLayout.Library && _pinnedCardScreens.Contains(screen) && height <= 460)
-                {
-                    continue;
-                }
-
                 var reused = app is not null && !openFreshEachTime;
                 if (!reused)
                 {

@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Threading;
@@ -35,7 +36,7 @@ public partial class GamesScreenView : UserControl
         }
 
         Feed(Table.Bounds.Width);
-        FeedHeader(Root.Bounds.Width);
+        FeedHeader(Root.Bounds.Size);
     }
 
     // A row is a Tab stop that carries the row's spoken summary, so Enter on it plays the row; a button inside the row handles its own Enter first.
@@ -50,22 +51,23 @@ public partial class GamesScreenView : UserControl
 
     private void OnTableSizeChanged(object? sender, SizeChangedEventArgs e) => Feed(e.NewSize.Width);
 
-    private void OnRootSizeChanged(object? sender, SizeChangedEventArgs e) => FeedHeader(e.NewSize.Width);
+    private void OnRootSizeChanged(object? sender, SizeChangedEventArgs e) => FeedHeader(e.NewSize);
 
-    private void FeedHeader(double width)
+    private void FeedHeader(Size size)
     {
-        if (DataContext is GamesScreenViewModel screen && width > 0)
+        if (DataContext is GamesScreenViewModel screen && size.Width > 0)
         {
-            screen.SetHeaderWidth(width);
+            screen.SetHeaderWidth(size.Width);
+            screen.SetPaneHeight(size.Height);
         }
     }
 
-    // A failure card sits below the table inside the scrolling body, so one that arrives in a short window is brought into view.
+    // A card below the table sits inside the scrolling body, so one that arrives in a short window is brought into view.
     private void OnScreenChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(GamesScreenViewModel.InlineContent) && _screen?.HasFailureContent == true)
+        if (e.PropertyName == nameof(GamesScreenViewModel.InlineContent) && _screen?.HasScrollingContent == true)
         {
-            Dispatcher.UIThread.Post(FailureContentHost.BringIntoView, DispatcherPriority.Loaded);
+            Dispatcher.UIThread.Post(ScrollingContentHost.BringIntoView, DispatcherPriority.Loaded);
         }
     }
 
