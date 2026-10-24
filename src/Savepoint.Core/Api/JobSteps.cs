@@ -65,6 +65,13 @@ public static class JobSteps
     /// <summary>Moving the snapshot folder begins. Arguments: <c>from</c>, <c>to</c>, <c>files</c>, <c>bytes</c>.</summary>
     public const string RelocateStart = "activity.step.relocate.start";
 
+    /// <summary>
+    /// One folder of a game is being copied. Arguments: <c>game</c>, the game's name; <c>part</c>, which folder it is
+    /// (<c>install</c> for the game's files, <c>saves</c> for its save folders, <c>other</c> for a folder that is neither);
+    /// <c>files</c>, how many files it holds. A move names no file and no folder of the engine's own.
+    /// </summary>
+    public const string RelocateFolder = "activity.step.relocate.folder";
+
     /// <summary>Every file is copied and checked. No arguments.</summary>
     public const string RelocateCopied = "activity.step.relocate.copied";
 
@@ -74,7 +81,10 @@ public static class JobSteps
     /// <summary>The old copies are being removed. No arguments.</summary>
     public const string RelocateRemovingOld = "activity.step.relocate.removingOld";
 
-    /// <summary>An old copy could not be removed and stays where it was. Arguments: <c>path</c>.</summary>
+    /// <summary>
+    /// An old copy could not be removed and stays where it was. Arguments: <c>path</c>, the game's folder in the old location
+    /// (never the engine's own folder inside it); <c>part</c>, <c>install</c>, <c>saves</c> or <c>other</c> as for <see cref="RelocateFolder"/>.
+    /// </summary>
     public const string RelocateNotRemoved = "activity.step.relocate.notRemoved";
 
     /// <summary>The move stopped, so the copy it made is being taken back. Arguments: <c>path</c>.</summary>
@@ -98,7 +108,10 @@ public static class JobSteps
     /// <summary>The log folder is being emptied. No arguments.</summary>
     public const string ClearLogs = "activity.step.clear.logs";
 
-    /// <summary>Something could not be removed and stays where it was. Arguments: <c>path</c>.</summary>
+    /// <summary>
+    /// Something could not be removed and stays where it was. Arguments: <c>path</c>, what stayed (for a snapshot folder, the
+    /// game's folder, never the engine's own folder inside it); <c>part</c>, <c>install</c>, <c>saves</c> or <c>other</c> as for <see cref="RelocateFolder"/>.
+    /// </summary>
     public const string ClearNotRemoved = "activity.step.clear.notRemoved";
 
     /// <summary>Clearing is over. Arguments: <c>left</c>, how many items could not be removed.</summary>
