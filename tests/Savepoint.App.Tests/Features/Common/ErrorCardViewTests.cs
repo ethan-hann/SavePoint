@@ -99,7 +99,12 @@ public class ErrorCardViewTests
         await clipboard.ClearAsync();
 
         shown.Find<Button>("CopyDetails").Command!.Execute(null);
-        await Task.Delay(50, TestContext.Current.CancellationToken);
+        // The handler finishes on its own; the note it sets is the sign that it has.
+        for (var waited = 0; card.CopyNote.Length == 0 && waited < 200; waited++)
+        {
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            await Task.Delay(25, TestContext.Current.CancellationToken);
+        }
 
         var copied = await Avalonia.Input.Platform.ClipboardExtensions.TryGetTextAsync(clipboard);
         Assert.Equal(error.Detail, copied);

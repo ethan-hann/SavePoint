@@ -108,6 +108,16 @@ public class ErrorCardViewModelTests
     }
 
     [Fact]
+    public void A_copy_that_could_not_reach_the_clipboard_says_so()
+    {
+        var card = new ErrorCardViewModel(MockupScenario.FileInUseError, _text);
+
+        card.ConfirmCopyFailed();
+
+        Assert.Equal("SavePoint couldn't reach the clipboard. Try again.", card.CopyNote);
+    }
+
+    [Fact]
     public void An_unclassified_git_failure_points_at_the_copy_button_not_at_details_nobody_can_read()
     {
         var card = new ErrorCardViewModel(ErrorInfo.From(new GitOperationException("the repository does not exist")), _text);

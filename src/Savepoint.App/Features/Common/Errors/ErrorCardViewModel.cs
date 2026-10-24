@@ -122,6 +122,9 @@ public sealed partial class ErrorCardViewModel : ObservableObject
     /// <summary>Tells the card that the technical text reached the clipboard, so it says so.</summary>
     public void ConfirmCopied() => CopyNote = _text.Message("errorCard.copied");
 
+    /// <summary>Tells the card that the clipboard could not be reached, so it says so instead of leaving the press unanswered.</summary>
+    public void ConfirmCopyFailed() => CopyNote = _text.Message("errorCard.copyFailed");
+
     // The generated CopyDetailsCommand asks the view to put the technical text on the clipboard.
     [RelayCommand(CanExecute = nameof(HasSupportText))]
     private void CopyDetails()

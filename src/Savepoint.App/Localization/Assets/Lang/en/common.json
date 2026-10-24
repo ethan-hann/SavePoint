@@ -16,6 +16,7 @@
   "errorCard.body.noRoom.switch": "There's not enough free disk space to switch right now. {os, select, windows {Free up {hasShortfall, select, yes {about {shortfall}} other {some space}} on drive {drive} and try again.} other {Free up {hasShortfall, select, yes {about {shortfall}} other {some space}} on the disk that holds the folder below and try again.}}",
   "errorCard.copied": "Copied. Paste it into your bug report.",
   "errorCard.copyDetails": "Copy details for support",
+  "errorCard.copyFailed": "SavePoint couldn't reach the clipboard. Try again.",
   "errorCard.detailsExplanation": "These are technical details for a bug report. They can be long and hard to read, and they can include file names and folder paths from this computer, so SavePoint doesn't show them here. Copy them and paste them into your report.",
   "errorCard.hideDetails": "Hide details",
   "errorCard.showDetails": "Show details",
