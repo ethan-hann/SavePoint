@@ -56,6 +56,24 @@ public class RealSessionTests
     }
 
     [Fact]
+    public async Task A_game_that_exits_at_once_and_is_started_again_by_another_program_is_followed_to_the_end_of_the_new_copy()
+    {
+        using var game = new FakeGameInstall();
+        var secondReady = game.Combine("second.txt");
+        var config = Program(game, game.Name, "--exit-after", "600");
+
+        using var watcher = await Starter(grace: TimeSpan.FromSeconds(20)).StartAsync(config, game.Folder, Ct);
+        await Task.Delay(TimeSpan.FromMilliseconds(1200), Ct);
+        using var store = FakeGameProcess.StartIn(game.Folder, "--spawn", game.ExecutablePath, "--ready-file", secondReady, "--exit-after", "2000");
+        var secondPid = await FakeGameProcess.WaitForReadyFileAsync(secondReady);
+        var outcome = await OutcomeAsync(watcher);
+
+        Assert.Equal(SessionEndKind.NamedProcessEnded, outcome.Kind);
+        Assert.True(outcome.PlayDuration >= TimeSpan.FromSeconds(2), $"the session ended after only {outcome.PlayDuration}, before the new copy left");
+        Assert.False(FakeGameProcess.IsRunning(secondPid), "the session ended while the new copy was still running");
+    }
+
+    [Fact]
     public async Task A_name_that_never_shows_up_settles_the_session_after_the_grace_counted_from_the_stubs_exit()
     {
         using var stub = new FakeGameInstall();

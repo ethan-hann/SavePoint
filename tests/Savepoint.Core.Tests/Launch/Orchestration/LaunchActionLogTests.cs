@@ -50,6 +50,24 @@ public class LaunchActionLogTests
         Assert.Single(_log.Containing("Switch", rig.Game.Id, "saves"));
     }
 
+    [Fact(Timeout = 120_000)]
+    public async Task A_session_that_ends_logs_how_it_was_found_over_and_the_pid_of_the_game_it_started()
+    {
+        using var rig = await RigAsync();
+        var vanilla = await rig.ProfileAsync("Vanilla");
+        await rig.StartAsync(new LaunchTarget.ProfileTip(vanilla.Id));
+        await rig.WaitForGameAsync();
+        var pid = Assert.Single(rig.GameProcessIds());
+
+        Assert.True((await rig.Launch.MarkFinishedAsync(rig.Game.Id)).Ok);
+        await rig.WaitForAsync<SessionState.Exited>();
+
+        var line = Assert.Single(_log.Containing("Launch session for", rig.Game.Id, "ended"));
+        Assert.Equal(LogLevel.Information, line.Level);
+        Assert.Contains("ManuallyFinished", line.Message, StringComparison.Ordinal);
+        Assert.Contains($"started pid {pid}", line.Message, StringComparison.Ordinal);
+    }
+
     [Fact(Timeout = 150_000)]
     public async Task A_save_that_skipped_a_folder_logs_which_folder_and_why()
     {

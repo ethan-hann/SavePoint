@@ -13,6 +13,13 @@ public sealed record GameSessionOptions
     /// </summary>
     public static readonly TimeSpan DefaultGrace = TimeSpan.FromMinutes(2);
 
+    /// <summary>
+    /// How long a started program may have run and still be taken for a game that quit to be started again by its store: thirty
+    /// seconds. Such a game exits within seconds of starting, so a same-named process that is gone after a longer run means the
+    /// player quit.
+    /// </summary>
+    public static readonly TimeSpan DefaultRelaunchWindow = TimeSpan.FromSeconds(30);
+
     /// <summary>Time between reads of the process list; must be positive.</summary>
     public TimeSpan PollInterval { get; init; } = DefaultPollInterval;
 
@@ -21,6 +28,12 @@ public sealed record GameSessionOptions
     /// that has handed over), or from the link being opened when there is no program; it never runs while that program is alive.
     /// </summary>
     public TimeSpan Grace { get; init; } = DefaultGrace;
+
+    /// <summary>
+    /// The longest run after which the started program's exit still gets the <see cref="Grace"/> to be followed by a new copy under
+    /// its own name. It applies only when the started program is itself the named process; after a longer run its exit ends the session.
+    /// </summary>
+    public TimeSpan RelaunchWindow { get; init; } = DefaultRelaunchWindow;
 
     /// <summary>Throws when the timings would spin or never wait.</summary>
     /// <exception cref="ArgumentOutOfRangeException">The polling interval is not positive or the grace is negative.</exception>
