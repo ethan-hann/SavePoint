@@ -50,8 +50,22 @@ internal readonly record struct ProcessStamp(int Id, long StartedAtUtcTicks)
         }
     }
 
-    public async Task WaitForExitAsync(CancellationToken ct)
+    public Task WaitForExitAsync(CancellationToken ct) => WaitForExitAsync(OperatingSystem.IsLinux() ? "/proc" : null, TimeSpan.FromMilliseconds(100), ct);
+
+    // A process this run did not start is not its child: .NET waits on it by probing its id, which still succeeds for a zombie that
+    // nothing reaps, so the wait would never end. Where /proc is read, poll the same check IsRunning makes instead.
+    internal async Task WaitForExitAsync(string? procRoot, TimeSpan pollEvery, CancellationToken ct)
     {
+        if (procRoot is not null)
+        {
+            while (IsRunning(procRoot))
+            {
+                await Task.Delay(pollEvery, ct).ConfigureAwait(false);
+            }
+
+            return;
+        }
+
         try
         {
             using var process = Process.GetProcessById(Id);
