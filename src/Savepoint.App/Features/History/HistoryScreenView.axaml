@@ -74,6 +74,8 @@
     </Style>
   </UserControl.Styles>
 
+  <!-- The whole screen scrolls: the header, the explanation, the snapshots, the removed ones and the footer move together when the window is too short for them. -->
+  <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
   <DockPanel>
 
     <!-- Header: the game, the profile filter and the Cards / List toggle. -->
@@ -189,8 +191,7 @@
             </Panel>
           </Grid>
         </ToggleButton>
-        <ScrollViewer x:Name="RemovedScroll" IsVisible="{Binding IsRemovedOpen}" VerticalScrollBarVisibility="Auto">
-          <StackPanel Margin="22,0,22,18" Spacing="12">
+        <StackPanel x:Name="RemovedContent" Margin="22,0,22,18" Spacing="12" IsVisible="{Binding IsRemovedOpen}">
             <TextBlock x:Name="RemovedNoteText" Classes="caption" FontSize="12.5" TextWrapping="Wrap" IsVisible="{Binding !HasRemovedError}" Text="{Binding RemovedNote}" />
             <TextBlock x:Name="RemovedErrorText"
                        Classes="body error"
@@ -231,11 +232,12 @@
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
-          </StackPanel>
-        </ScrollViewer>
+        </StackPanel>
       </StackPanel>
     </Border>
 
+    <!-- The snapshots take the rest of the screen but never less than three rows; below that the whole screen scrolls. -->
+    <common:FloorHeightHost Floor="220">
     <Panel x:Name="BodyRegion">
 
       <!-- The points: the two-column list or the cards. -->
@@ -436,5 +438,7 @@
         <TextBlock Classes="body muted" TextAlignment="Center" TextWrapping="Wrap" Text="{loc:Loc history.noGame.body}" />
       </StackPanel>
     </Panel>
+    </common:FloorHeightHost>
   </DockPanel>
+  </ScrollViewer>
 </UserControl>
