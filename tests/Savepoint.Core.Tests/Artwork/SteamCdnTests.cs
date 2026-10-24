@@ -110,9 +110,9 @@ public class SteamCdnTests
 
     [Theory]
     [InlineData("text/html")]
-    [InlineData("image/png")]
+    [InlineData("image/gif")]
     [InlineData("application/octet-stream")]
-    public async Task Only_a_jpeg_content_type_is_accepted(string contentType)
+    public async Task Only_an_image_content_type_the_app_reads_is_accepted(string contentType)
     {
         var handler = new FakeHttpHandler((_, _) => Task.FromResult(FakeHttpHandler.Jpeg(TestImages.Jpeg(460, 215), contentType)));
 
@@ -120,6 +120,53 @@ public class SteamCdnTests
 
         Assert.Equal(CdnOutcome.Failed, result.Outcome);
         Assert.Null(result.Bytes);
+    }
+
+    [Fact]
+    public async Task A_png_answer_is_accepted_when_the_bytes_are_a_png()
+    {
+        var png = TestImages.Png(600, 900);
+        var handler = new FakeHttpHandler((_, _) => Task.FromResult(FakeHttpHandler.Jpeg(png, "image/png")));
+
+        var result = await Fetch(handler, ArtworkKind.Square);
+
+        Assert.Equal(CdnOutcome.Found, result.Outcome);
+        Assert.Equal(png, result.Bytes);
+    }
+
+    [Fact]
+    public async Task A_webp_answer_is_accepted_when_the_bytes_are_a_webp()
+    {
+        var webp = TestImages.WebPLossless(460, 215);
+        var handler = new FakeHttpHandler((_, _) => Task.FromResult(FakeHttpHandler.Jpeg(webp, "image/webp")));
+
+        var result = await Fetch(handler);
+
+        Assert.Equal(CdnOutcome.Found, result.Outcome);
+        Assert.Equal(webp, result.Bytes);
+    }
+
+    [Theory]
+    [InlineData("image/png")]
+    [InlineData("image/webp")]
+    public async Task A_png_or_webp_content_type_over_bytes_that_are_not_an_image_is_refused(string contentType)
+    {
+        var handler = new FakeHttpHandler((_, _) => Task.FromResult(FakeHttpHandler.Jpeg(TestImages.Html(), contentType)));
+
+        Assert.Equal(CdnOutcome.Failed, (await Fetch(handler)).Outcome);
+    }
+
+    [Fact]
+    public async Task The_request_says_which_image_types_it_will_take()
+    {
+        var handler = new FakeHttpHandler((_, _) => Task.FromResult(FakeHttpHandler.Jpeg(TestImages.Jpeg(460, 215))));
+
+        await Fetch(handler);
+
+        var accepted = handler.Requests[0].Headers.Accept.Select(h => h.MediaType).ToArray();
+        Assert.Contains("image/jpeg", accepted);
+        Assert.Contains("image/png", accepted);
+        Assert.Contains("image/webp", accepted);
     }
 
     [Fact]

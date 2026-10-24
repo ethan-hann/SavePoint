@@ -10,7 +10,13 @@ internal static partial class SteamAppIdDetector
     // A text file holding one number is a few bytes; anything bigger is something else.
     private const int _appIdFileLimit = 64;
 
-    // Tries the launch link, then steam_appid.txt in the install folder, then the Steam library's app manifests; null when none agrees.
+    // The real files sit up to three folders down (Online/Binaries/Win32); 200 folders is far more than a game needs and keeps the search cheap.
+    private const int _subfolderDepth = 3;
+    private const int _subfolderBudget = 200;
+    private const int _folderListLimit = 1000;
+
+    // Tries the launch link, then the Steam library's app manifests, then steam_appid.txt in the install folder or just below it;
+    // null when none agrees. The manifest comes first because games ship a steam_appid.txt that names a different app than the store lists.
     public static int? Detect(GameDefinition game, string? installPath, StringComparison pathComparison)
     {
         ArgumentNullException.ThrowIfNull(game);
@@ -25,7 +31,7 @@ internal static partial class SteamAppIdDetector
             return null;
         }
 
-        return FromAppIdFile(installPath) ?? FromManifest(installPath, pathComparison);
+        return FromManifest(installPath, pathComparison) ?? FromAppIdFile(installPath);
     }
 
     [GeneratedRegex(@"^steam://(?:run|rungameid)/(\d+)(?:[/?#].*)?\z", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
@@ -44,23 +50,79 @@ internal static partial class SteamAppIdDetector
             ? ParseId(match.Groups[1].Value)
             : null;
 
-    private static int? FromAppIdFile(string installPath)
+    // The install folder's own file first, then a bounded look through its subfolders (many games keep it beside the executable).
+    private static int? FromAppIdFile(string installPath) => ReadAppIdFile(installPath) ?? FromSubfolders(installPath);
+
+    private static int? ReadAppIdFile(string folder)
     {
         try
         {
-            var file = new FileInfo(Path.Combine(installPath, "steam_appid.txt"));
-            if (!file.Exists || file.Length > _appIdFileLimit)
+            var file = new FileInfo(Path.Combine(folder, "steam_appid.txt"));
+            if (!file.Exists || file.Length > _appIdFileLimit || file.Attributes.HasFlag(FileAttributes.ReparsePoint))
             {
                 return null;
             }
 
-            return ParseId(File.ReadAllText(file.FullName).Trim());
+            return ParseId(TrimWhitespaceAndNul(File.ReadAllText(file.FullName)));
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
             return null;
         }
     }
+
+    // Breadth first, so a shallower file wins; links are never entered, and the number of folders looked at is capped.
+    private static int? FromSubfolders(string installPath)
+    {
+        var budget = _subfolderBudget;
+        var level = new List<string> { installPath };
+        for (var depth = 1; depth <= _subfolderDepth && level.Count > 0; depth++)
+        {
+            var next = new List<string>();
+            foreach (var parent in level)
+            {
+                foreach (var child in ChildFolders(parent).Take(budget))
+                {
+                    budget--;
+                    if (ReadAppIdFile(child) is { } id)
+                    {
+                        return id;
+                    }
+
+                    next.Add(child);
+                }
+
+                if (budget <= 0)
+                {
+                    return null;
+                }
+            }
+
+            level = next;
+        }
+
+        return null;
+    }
+
+    // Sorted so the result does not depend on the order the file system lists folders in.
+    private static List<string> ChildFolders(string parent)
+    {
+        try
+        {
+            var options = new EnumerationOptions { AttributesToSkip = FileAttributes.ReparsePoint | FileAttributes.System, IgnoreInaccessible = true };
+            var names = Directory.EnumerateDirectories(parent, "*", options).Take(_folderListLimit).ToList();
+            names.Sort(StringComparer.Ordinal);
+            return names;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return [];
+        }
+    }
+
+    // Steam writes the id followed by a newline and a NUL byte; neither is part of the number.
+    private static string TrimWhitespaceAndNul(string text) =>
+        text.AsSpan().Trim(['\0', ' ', '\t', '\r', '\n', '\v', '\f', ' ', '﻿']).ToString();
 
     // A folder under <library>/steamapps/common/<dir> belongs to the app whose manifest in <library>/steamapps names <dir> as its installdir.
     private static int? FromManifest(string installPath, StringComparison pathComparison)

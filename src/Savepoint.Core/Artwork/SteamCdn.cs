@@ -40,7 +40,7 @@ internal sealed record StoreAnswer(CdnOutcome Outcome, string? Format = null, IR
 
 // Fetches a game's artwork from Steam's servers under these network rules: HTTPS and GET only, three named hosts (two image
 // servers and the store API), no redirect followed, ten seconds per request, five megabytes at most for an image and 256 KB for
-// the API answer, a JPEG content type, bytes that really are an image, and no more than two requests in flight. The handler it is
+// the API answer, a JPEG, PNG, or WebP content type, bytes that really are an image, and no more than two requests in flight. The handler it is
 // given must not follow redirects or keep cookies; the app's handler is set up that way.
 internal sealed class SteamCdn
 {
@@ -52,6 +52,8 @@ internal sealed class SteamCdn
 
     // An optional 40-hex-digit folder, a slash, and a plain JPEG file name; \z so a trailing newline does not slip through.
     private static readonly Regex _assetName = new(@"^(?:[0-9a-f]{40}/)?[A-Za-z0-9_]+\.jpg\z", RegexOptions.CultureInvariant);
+    private static readonly string[] _imageTypes = ["image/jpeg", "image/png", "image/webp"];
+    private static readonly string[] _jsonTypes = ["application/json"];
     private static readonly string[] _squareKeys = ["library_capsule_2x", "library_capsule"];
     private static readonly string[] _wideKeys = ["header"];
 
@@ -257,7 +259,10 @@ internal sealed class SteamCdn
         var cap = isImage ? _maxBytes : _maxApiBytes;
         var capWords = isImage ? "5 MB" : "256 KB";
         using var request = new HttpRequestMessage(HttpMethod.Get, address);
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(isImage ? "image/jpeg" : "application/json"));
+        foreach (var type in isImage ? _imageTypes : _jsonTypes)
+        {
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(type));
+        }
         using var response = await _client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
 
         // A redirect is not followed. If the handler followed one anyway, the answer came from a host that was not asked for.
@@ -276,9 +281,10 @@ internal sealed class SteamCdn
             return new CdnResult(CdnOutcome.Failed, Reason: $"answered {(int)response.StatusCode}");
         }
 
-        if (isImage && !string.Equals(response.Content.Headers.ContentType?.MediaType, "image/jpeg", StringComparison.OrdinalIgnoreCase))
+        // The servers may answer in any of these; the bytes are still checked below.
+        if (isImage && !_imageTypes.Contains(response.Content.Headers.ContentType?.MediaType ?? string.Empty, StringComparer.OrdinalIgnoreCase))
         {
-            return new CdnResult(CdnOutcome.Failed, Reason: "sent something that is not a JPEG image");
+            return new CdnResult(CdnOutcome.Failed, Reason: "sent something that is not a JPEG, PNG, or WebP image");
         }
 
         if (response.Content.Headers.ContentLength > cap)

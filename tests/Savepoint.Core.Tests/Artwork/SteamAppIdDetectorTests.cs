@@ -74,6 +74,11 @@ public class SteamAppIdDetectorTests
     [InlineData("489830\r\n", 489830)]
     [InlineData("  489830  ", 489830)]
     [InlineData("\uFEFF489830", 489830)]
+    // The endings Steam itself writes: 13 of the 25 real install-folder files end in a newline and a NUL byte, one in a space and CRLF.
+    [InlineData("377160\n\0", 377160)]
+    [InlineData("1551360 \r\n", 1551360)]
+    [InlineData("\0\0 489830 \n\0\0", 489830)]
+    [InlineData("489830\0", 489830)]
     public void A_steam_appid_file_holding_only_digits_names_the_app(string content, int expected)
     {
         using var folder = new TempFolder();
@@ -92,6 +97,12 @@ public class SteamAppIdDetectorTests
     [InlineData("-480")]
     [InlineData("99999999999")]
     [InlineData("4,898")]
+    [InlineData("\0")]
+    [InlineData("\n\0")]
+    [InlineData("48\09830")]
+    [InlineData("489830\0 12")]
+    [InlineData("489830\n\0\n489831\n\0")]
+    [InlineData("48 9830")]
     public void A_steam_appid_file_holding_anything_else_names_nothing(string content)
     {
         using var folder = new TempFolder();
@@ -193,18 +204,131 @@ public class SteamAppIdDetectorTests
     }
 
     [Fact]
-    public void The_launch_link_beats_the_appid_file_and_the_appid_file_beats_the_manifest()
+    public void The_launch_link_beats_the_manifest_and_the_manifest_beats_the_appid_file_inside_a_library()
     {
         using var folder = new TempFolder();
         var install = folder.Combine("lib", "steamapps", "common", "Skyrim");
         folder.WriteText("lib/steamapps/common/Skyrim/steam_appid.txt", "222");
         folder.WriteText("lib/steamapps/appmanifest_333.acf", Manifest("Skyrim"));
 
-        Assert.Equal(222, Detect(FolderGame(install)));
+        Assert.Equal(333, Detect(FolderGame(install)));
         var linked = FolderGame(install) with { Launch = new LaunchConfig(LaunchMethod.Uri, Uri: "steam://run/111") };
         Assert.Equal(111, Detect(linked));
         File.Delete(Path.Combine(install, "steam_appid.txt"));
         Assert.Equal(333, Detect(FolderGame(install)));
+    }
+
+    // Mafia III: the file says 398870, which has no store page; the manifest says 360430.
+    [Fact]
+    public void A_file_that_names_an_app_with_no_store_page_loses_to_the_manifest_in_a_library()
+    {
+        using var folder = new TempFolder();
+        folder.WriteText("lib/steamapps/common/Mafia III/steam_appid.txt", "398870");
+        folder.WriteText("lib/steamapps/appmanifest_360430.acf", Manifest("Mafia III"));
+
+        Assert.Equal(360430, Detect(FolderGame(folder.Combine("lib", "steamapps", "common", "Mafia III"))));
+    }
+
+    [Fact]
+    public void The_appid_file_is_the_fallback_when_a_library_folder_has_no_matching_manifest()
+    {
+        using var folder = new TempFolder();
+        folder.WriteText("lib/steamapps/common/Skyrim/steam_appid.txt", "222");
+        folder.WriteText("lib/steamapps/appmanifest_333.acf", Manifest("Something Else"));
+
+        Assert.Equal(222, Detect(FolderGame(folder.Combine("lib", "steamapps", "common", "Skyrim"))));
+    }
+
+    // Real shapes: Borderlands 2 keeps "49520" (no newline) in Binaries/Win32, Borderlands GOTY in Binaries/Win64, BioShock in Build/Final.
+    [Theory]
+    [InlineData("Binaries/Win32", "49520")]
+    [InlineData("Binaries/Win64", "729040")]
+    [InlineData("Binaries", "35140\r\n")]
+    [InlineData("Build/Final", "409710")]
+    [InlineData("x64", "356190")]
+    [InlineData("bin", "431960")]
+    [InlineData("Launcher", "8500")]
+    [InlineData("Online/Binaries/Win32", "209000")]
+    public void A_game_outside_a_library_with_the_appid_file_only_in_a_subfolder_names_the_app(string subfolder, string content)
+    {
+        using var folder = new TempFolder();
+        folder.WriteText($"game/{subfolder}/steam_appid.txt", content);
+
+        Assert.Equal(int.Parse(content.Trim(), System.Globalization.CultureInfo.InvariantCulture), Detect(FolderGame(folder.Combine("game"))));
+    }
+
+    [Fact]
+    public void The_appid_file_in_the_install_folder_beats_one_in_a_subfolder()
+    {
+        using var folder = new TempFolder();
+        folder.WriteText("game/steam_appid.txt", "200260\n\0");
+        folder.WriteText("game/Binaries/Win32/steam_appid.txt", "999");
+
+        Assert.Equal(200260, Detect(FolderGame(folder.Combine("game"))));
+    }
+
+    [Fact]
+    public void A_shallower_subfolder_beats_a_deeper_one()
+    {
+        using var folder = new TempFolder();
+        folder.WriteText("game/aaa/bbb/ccc/steam_appid.txt", "111");
+        folder.WriteText("game/zzz/steam_appid.txt", "222");
+
+        Assert.Equal(222, Detect(FolderGame(folder.Combine("game"))));
+    }
+
+    [Fact]
+    public void A_subfolder_search_stops_three_levels_down()
+    {
+        using var folder = new TempFolder();
+        folder.WriteText("game/a/b/c/steam_appid.txt", "111");
+        folder.WriteText("other/a/b/c/d/steam_appid.txt", "222");
+
+        Assert.Equal(111, Detect(FolderGame(folder.Combine("game"))));
+        Assert.Null(Detect(FolderGame(folder.Combine("other"))));
+    }
+
+    [Fact]
+    public void A_subfolder_search_gives_up_on_a_folder_with_a_great_many_subfolders()
+    {
+        using var folder = new TempFolder();
+        for (var i = 0; i < 600; i++)
+        {
+            Directory.CreateDirectory(folder.Combine("game", $"d{i:D4}"));
+        }
+
+        folder.WriteText("game/d0599/steam_appid.txt", "111");
+
+        Assert.Null(Detect(FolderGame(folder.Combine("game"))));
+    }
+
+    [Fact]
+    public void A_subfolder_search_never_follows_a_link()
+    {
+        using var folder = new TempFolder();
+        folder.WriteText("elsewhere/steam_appid.txt", "111");
+        Directory.CreateDirectory(folder.Combine("game"));
+        try
+        {
+            Directory.CreateSymbolicLink(folder.Combine("game", "link"), folder.Combine("elsewhere"));
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            Assert.Skip("This account may not create symbolic links.");
+        }
+
+        Assert.Null(Detect(FolderGame(folder.Combine("game"))));
+    }
+
+    [Fact]
+    public void A_subfolder_file_is_not_looked_for_when_the_manifest_already_answered()
+    {
+        using var folder = new TempFolder();
+        folder.WriteText("lib/steamapps/common/House Flipper/Assets/Plugins/Windows_x64/steam_appid.txt", "480");
+        folder.WriteText("lib/steamapps/common/House Flipper/steam_appid.txt", "1471280");
+        folder.WriteText("lib/steamapps/appmanifest_613100.acf", Manifest("House Flipper"));
+
+        Assert.Equal(613100, Detect(FolderGame(folder.Combine("lib", "steamapps", "common", "House Flipper"))));
     }
 
     [Fact]
