@@ -169,12 +169,12 @@ public class LaunchDialogViewModelTests : IDisposable
             first =>
             {
                 Assert.Equal("Deep cave run \u00B7 5-30-26, 11:42 PM", first.Title);
-                Assert.Equal("Latest · 2 save snapshots to choose from, including any from the profile this one started from", first.Subtitle);
+                Assert.Equal("Latest · 2 save snapshots to choose from", first.Subtitle);
             },
             second =>
             {
                 Assert.Equal("First night \u00B7 5-14-26, 9:04 PM", second.Title);
-                Assert.Equal("2 save snapshots to choose from, including any from the profile this one started from", second.Subtitle);
+                Assert.Equal("2 save snapshots to choose from", second.Subtitle);
             });
         Assert.Same(dialog.SaveOptions[0], dialog.SelectedSave);
         Assert.Equal("This replaces what's in your saves folder right now.", dialog.SaveCaption);
@@ -188,7 +188,7 @@ public class LaunchDialogViewModelTests : IDisposable
         Assert.True(dialog.HasSaveSection);
         Assert.False(dialog.HasSaveChoice);
         var only = Assert.Single(dialog.SaveOptions);
-        Assert.Equal("Latest · 1 save snapshot to choose from, including any from the profile this one started from", only.Subtitle);
+        Assert.Equal("Latest · 1 save snapshot to choose from", only.Subtitle);
         Assert.Same(only, dialog.SelectedSave);
     }
 

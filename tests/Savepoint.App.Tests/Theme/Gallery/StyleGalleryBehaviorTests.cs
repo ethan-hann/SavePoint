@@ -85,7 +85,7 @@ public class StyleGalleryBehaviorTests
         var texts = gallery.SavePicker.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
 
         Assert.Contains("Deep cave run - 5-30-26, 11:42 PM", texts);
-        Assert.Contains("Most recent - 2 saves in this profile", texts);
+        Assert.Contains("Latest - 2 save snapshots to choose from", texts);
     }
 
     [AvaloniaFact]
