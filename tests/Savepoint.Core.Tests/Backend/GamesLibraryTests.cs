@@ -17,7 +17,7 @@ public class GamesLibraryTests : IDisposable
     public GamesLibraryTests()
     {
         _steamFolder = new FixedSteamFolder(_steam.SteamFolder);
-        _workspace = new BackendWorkspace(options => options with { SteamFolder = _steamFolder, GogInstalls = _gog }, _steam.SteamFolder);
+        _workspace = new BackendWorkspace(options => options with { SteamFolder = _steamFolder, GogInstalls = _gog, Templates = ShippedTemplatesWithSkyrimSavesOnEveryOs.Build() }, _steam.SteamFolder);
     }
 
     private IGamesApi Games => _workspace.Games;
@@ -102,7 +102,7 @@ public class GamesLibraryTests : IDisposable
         var draft = (await Games.ScanLibrariesAsync(_workspace.Token)).Value!.Games.Single().Draft;
 
         Assert.Equal(folder, draft.Install.Path);
-        Assert.Equal(@"{documents}\My Games\Skyrim Special Edition\Saves", draft.External!.Path);
+        Assert.Equal(OperatingSystem.IsWindows() ? @"{documents}\My Games\Skyrim Special Edition\Saves" : "{documents}/My Games/Skyrim Special Edition/Saves", draft.External!.Path);
         // The template's program starts the game where it can run, and the Steam link everywhere else.
         Assert.Equal(OperatingSystem.IsWindows() ? "SkyrimSELauncher.exe" : null, draft.Launch.ExePath);
         Assert.Equal(OperatingSystem.IsWindows() ? LaunchMethod.Exe : LaunchMethod.Uri, draft.Launch.Method);

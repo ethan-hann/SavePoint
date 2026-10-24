@@ -34,7 +34,7 @@ public class GamesLibraryRulesTests : IDisposable
     private void Use(IReadOnlyList<GameTemplate>? templates)
     {
         _workspace?.Dispose();
-        _workspace = new BackendWorkspace(options => options with { SteamFolder = _steamFolder, GogInstalls = _gog, Templates = templates }, _steam.SteamFolder);
+        _workspace = new BackendWorkspace(options => options with { SteamFolder = _steamFolder, GogInstalls = _gog, Templates = templates ?? ShippedTemplatesWithSkyrimSavesOnEveryOs.Build() }, _steam.SteamFolder);
     }
 
     private static GameTemplate Template(string id, int? steamAppId, TemplateLibraryHints? hints = null, string exe = "game.exe") =>
