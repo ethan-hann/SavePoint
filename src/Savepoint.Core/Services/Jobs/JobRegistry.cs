@@ -364,7 +364,12 @@ public sealed class JobRegistry : IJobsApi
             if (progress is not null)
             {
                 job.Progress = progress;
-                AddLine(job, string.IsNullOrEmpty(progress.CurrentPath) ? null : JobLine.ForPath(progress.CurrentPath));
+                // Every byte tick of a big file names the same file again; it is one line, however many reports it takes.
+                var path = progress.CurrentPath;
+                if (!string.IsNullOrEmpty(path) && !job.Lines.Any(existing => existing is JobLine.FilePath named && named.Path == path))
+                {
+                    AddLine(job, JobLine.ForPath(path));
+                }
             }
 
             if (hasLine)

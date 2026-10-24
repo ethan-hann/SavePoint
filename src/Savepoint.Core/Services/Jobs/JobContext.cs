@@ -26,7 +26,7 @@ public sealed class JobContext
 
     /// <summary>
     /// Reports progress. Each report replaces the previous one, and a non-null <c>CurrentPath</c> is also appended to the
-    /// job's recent lines as a path. Subscribers see at most about twenty updates a second; the latest report always arrives.
+    /// job's recent lines as a path unless those lines already hold it. Subscribers see at most about twenty updates a second; the latest report always arrives.
     /// </summary>
     public IProgress<JobProgress> Progress { get; }
 
