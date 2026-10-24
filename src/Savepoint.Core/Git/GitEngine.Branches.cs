@@ -188,10 +188,13 @@ internal static class CommitMessage
     }
 
     private static bool StartsLikeTrailer(string line) =>
-        line.StartsWith(_captureTrailerKey, StringComparison.OrdinalIgnoreCase) || line.StartsWith(_capturedAtTrailerKey, StringComparison.OrdinalIgnoreCase);
+        line.StartsWith(_captureTrailerKey, StringComparison.OrdinalIgnoreCase)
+        || line.StartsWith(_capturedAtTrailerKey, StringComparison.OrdinalIgnoreCase)
+        || line.StartsWith(EmptyFolders.TrailerKey + ":", StringComparison.OrdinalIgnoreCase);
 
     // The capture time is written with the capture id, as whole milliseconds since 1970, so every commit of one event agrees on it.
-    public static string Compose(string message, string? captureId, DateTimeOffset capturedAt)
+    // The empty folders ride in the commit itself so they stay with the point through every operation on history.
+    public static string Compose(string message, string? captureId, DateTimeOffset capturedAt, IReadOnlyList<string>? emptyFolders = null)
     {
         RequireValidMessage(message, nameof(message));
 
@@ -206,6 +209,11 @@ internal static class CommitMessage
 
             text.Append("\n\nSavepoint-Capture: ").Append(captureId);
             text.Append("\nSavepoint-Captured-At: ").Append(capturedAt.ToUnixTimeMilliseconds().ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        if (emptyFolders is { Count: > 0 })
+        {
+            text.Append(captureId is null ? "\n\n" : "\n").Append(EmptyFolders.TrailerKey).Append(": ").Append(EmptyFolders.Encode(emptyFolders));
         }
 
         return text.Append('\n').ToString();
