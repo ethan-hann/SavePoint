@@ -405,7 +405,9 @@ public class StorageSectionViewModelTests
     {
         var rig = await SettingsRig.ShownAsync();
         var job = await StartedMoveAsync(rig);
-        var stayed = new ClearFailure(@"D:\Old\game-1\install.git", ErrorInfo.From(new GameRunningException("game-1", "Skyrim")));
+        // Built with the system's own separators, because the folder is found by splitting the path the way the system does.
+        var game = Path.Combine(Path.GetTempPath(), "Old", "game-1");
+        var stayed = new ClearFailure(Path.Combine(game, "install.git"), ErrorInfo.From(new GameRunningException("game-1", "Skyrim")));
 
         rig.Backend.Jobs.Complete(job.JobId, new StorageRelocationResult(MockupScenario.StorageRoot, _newRoot, 10, [stayed]));
 
@@ -416,7 +418,7 @@ public class StorageSectionViewModelTests
         var left = Storage(rig).LeftBehind;
         Assert.NotNull(left);
         Assert.Equal("Your snapshots moved, but some old files are still in the old folder", left.Title);
-        Assert.Equal(@"D:\Old\game-1", left.Path);
+        Assert.Equal(game, left.Path);
         Assert.DoesNotContain(".git", left.Path, StringComparison.Ordinal);
     }
 
