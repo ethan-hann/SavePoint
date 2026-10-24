@@ -30,7 +30,7 @@ Rules for the layers:
 
 ## Errors
 
-`SavepointException` (abstract) carries `MessageId` (a catalog key such as `error.pathSafety.tier1Blocked`), `Args` (`IReadOnlyDictionary<string, object?>` for ICU placeholders and extras such as `path`, `role`, `conflictingGameId`), and the English `Message` (dev-facing, logged, shown only behind "Show details").
+`SavepointException` (abstract) carries `MessageId` (a catalog key such as `error.pathSafety.tier1Blocked`), `Args` (`IReadOnlyDictionary<string, object?>` for ICU placeholders and extras such as `path`, `role`, `conflictingGameId`), and the English `Message` (dev-facing, logged, never shown; the error card's "Copy details for support" copies it with git's output for a bug report, D48.3).
 
 Subclasses and ids (v1's ids are kept, plus the new ones marked *new*):
 
