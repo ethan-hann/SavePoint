@@ -112,7 +112,6 @@
   "profiles.wizard.save.filesCopied": "{count, plural, one {{countText} file} other {{countText} files}} copied",
   "profiles.wizard.save.filesDetail": "{done} of {total, plural, one {{totalText} file} other {{totalText} files}} finished",
   "profiles.wizard.save.filesProgress": "{done} of {total, plural, one {{totalText} file} other {{totalText} files}} copied",
-  "profiles.wizard.save.finishing": "Making sure everything is stored safely…",
   "profiles.wizard.save.keepWorking": "Keep working",
   "profiles.wizard.save.keepWorkingHelp": "Closes this window. The snapshot carries on in the background and shows in Activity.",
   "profiles.wizard.save.milestone": "{percent}% copied",

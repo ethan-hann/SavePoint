@@ -1,4 +1,5 @@
 using Savepoint.Core.Git;
+using Savepoint.Core.Tests.Services;
 
 namespace Savepoint.Core.Tests.Git.Engine;
 
@@ -89,14 +90,49 @@ public sealed class CaptureBytesTests : IDisposable
     [Fact]
     public async Task A_store_that_has_all_its_bytes_and_goes_quiet_while_git_works_is_reported_as_finishing()
     {
+        UseQuietStoreWhileGitIsHeld();
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "Data/a.bin", new byte[1000]);
+        var progress = new ProgressLog();
+
+        await _ws.CaptureAsync(repo, "profile-1", progress: progress);
+
+        Assert.Contains(progress.Reports, report => report.Finishing);
+        var finishing = progress.Reports.First(report => report.Finishing);
+        Assert.True(finishing.BytesDone < finishing.BytesTotal, "the figure stays short of the total until the capture is done");
+        Assert.False(progress.Last.Finishing);
+        Assert.Equal(1000, progress.Last.BytesDone);
+    }
+
+    [Fact]
+    public async Task A_capture_that_is_stopped_while_finishing_ends_with_a_report_that_is_not_finishing()
+    {
+        UseQuietStoreWhileGitIsHeld();
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "Data/a.bin", new byte[1000]);
+        using var stop = new CancellationTokenSource();
+        var progress = new ProgressLog { OnReport = report => { if (report.Finishing) { stop.Cancel(); } } };
+
+        await Assert.ThrowsAsync<Savepoint.Core.Errors.OperationCancelledByUserException>(
+            () => _ws.Engine.CaptureAsync(repo, new CaptureRequest("profile-1", "A point", Guid.NewGuid().ToString()), progress, stop.Token));
+
+        Assert.Contains(progress.Reports, report => report.Finishing);
+        Assert.False(progress.Last.Finishing);
+    }
+
+    // The store has all its bytes as soon as git is asked to add, and git is held for half a second, standing in for the wait at the
+    // end of a very large capture. The clock jumps 5 s per sample, so the stillness window passes within the hold.
+    private void UseQuietStoreWhileGitIsHeld()
+    {
         var added = false;
+        var clock = new ManualTimeProvider();
         _ws.Dispose();
         _ws = new EngineWorkspace(options =>
         {
             var inner = options.InvocationObserver!;
             return options with
             {
-                // git is held for half a second after the store has its bytes, standing in for the wait at the end of a very large capture.
+                Clock = clock,
                 InvocationObserver = invocation =>
                 {
                     inner(invocation);
@@ -107,18 +143,12 @@ public sealed class CaptureBytesTests : IDisposable
                     }
                 },
                 ObjectStoreSize = _ => Volatile.Read(ref added) ? 1000 : 0,
-                SampleWait = ct => Task.Delay(20, ct),
+                SampleWait = ct =>
+                {
+                    clock.Advance(TimeSpan.FromSeconds(5));
+                    return Task.Delay(20, ct);
+                },
             };
         });
-        var repo = await _ws.InitializedRepoAsync();
-        _ws.Write(repo, "Data/a.bin", new byte[1000]);
-        var progress = new ProgressLog();
-
-        await _ws.CaptureAsync(repo, "profile-1", progress: progress);
-
-        var finishing = Assert.Single(progress.Reports.Where(report => report.Finishing).Take(1));
-        Assert.True(finishing.BytesDone < finishing.BytesTotal, "the figure stays short of the total until the capture is done");
-        Assert.False(progress.Last.Finishing);
-        Assert.Equal(1000, progress.Last.BytesDone);
     }
 }

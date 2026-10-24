@@ -175,6 +175,16 @@ public class JobRowViewModelTests
         Assert.True(row.HasTimeLeft);
     }
 
+    [Fact]
+    public void No_time_is_guessed_while_the_job_is_wrapping_up()
+    {
+        // 99% after 20 minutes would otherwise give "about 12 seconds left" beside text that says a few minutes.
+        var row = Row(Job(startedAgo: TimeSpan.FromMinutes(20), progress: new JobProgress(BytesDone: 39_600_000, BytesTotal: 40_000_000, Finishing: true)));
+
+        Assert.False(row.HasTimeLeft);
+        Assert.Equal(string.Empty, row.TimeLeftText);
+    }
+
     [Theory]
     [InlineData(3, 50)]
     [InlineData(100, 2)]

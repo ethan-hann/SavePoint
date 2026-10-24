@@ -21,17 +21,23 @@ internal sealed class ProgressReporter
     private long _written;
     private long _reportedWritten = -1;
 
-    // Samples come twice a second, so this is a second of no growth.
-    private const int _steadySamplesToFinish = 2;
+    // How long the store must hold still at its expected size before the wait is called finishing. git reads and hashes a whole file
+    // under the big-file threshold before it writes it, and a slow disk or a scanner makes that take several seconds with no growth, so
+    // the window is longer than the slowest such read (128 MiB at about 20 MB/s). The real wait lasts minutes, so this costs little.
+    internal static readonly TimeSpan FinishingWindow = TimeSpan.FromSeconds(8);
+
     private long _lastObserved = -1;
-    private int _steady;
+    private long _lastGrowthAt;
     private bool _finishing;
     private bool _reportedFinishing;
 
-    public ProgressReporter(IProgress<FileProgress>? sink, CheckoutBytePlan? bytes = null)
+    private readonly TimeProvider _time;
+
+    public ProgressReporter(IProgress<FileProgress>? sink, CheckoutBytePlan? bytes = null, TimeProvider? time = null)
     {
         _sink = sink;
         _bytes = bytes;
+        _time = time ?? TimeProvider.System;
     }
 
     public void SetTotal(int? total)
@@ -76,9 +82,14 @@ internal sealed class ProgressReporter
 
             // Git keeps working after it has stored the last byte (it closes its last pack and writes the index), and shows nothing for
             // it. A store that has reached its expected size and then holds still is that wait, so the report says so.
-            _steady = written == _lastObserved ? _steady + 1 : 0;
-            _lastObserved = written;
-            var finishing = !_finishing && total > 0 && written >= ceiling && _steady >= _steadySamplesToFinish;
+            var now = _time.GetTimestamp();
+            if (written != _lastObserved)
+            {
+                _lastObserved = written;
+                _lastGrowthAt = now;
+            }
+
+            var finishing = !_finishing && total > 0 && written >= ceiling && _time.GetElapsedTime(_lastGrowthAt, now) >= FinishingWindow;
             if (next == _written && !finishing)
             {
                 return;
@@ -87,6 +98,19 @@ internal sealed class ProgressReporter
             _finishing |= finishing;
             _written = next;
             Report();
+        }
+    }
+
+    // The capture ended without a final report (failed or stopped): the wrap-up flag must not outlive the work.
+    public void Abandon()
+    {
+        lock (_gate)
+        {
+            _finishing = false;
+            if (_reportedFinishing)
+            {
+                Report();
+            }
         }
     }
 
