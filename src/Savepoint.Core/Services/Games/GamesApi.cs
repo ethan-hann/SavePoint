@@ -3,6 +3,7 @@ using Savepoint.Core.Api;
 using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
+using Savepoint.Core.Launch;
 using Savepoint.Core.Services.Storage;
 
 namespace Savepoint.Core.Services.Games;
@@ -66,6 +67,17 @@ internal sealed partial class GamesApi : IGamesApi
         ApiGuard.RunAsync(
             _services.Log,
             async () => await _services.Executables.ListAsync(_services.PathTokens.Resolve(installPath, "install.path"), cancellationToken).ConfigureAwait(false),
+            cancellationToken);
+
+    public Task<OperationResult<string>> SuggestProcessNameAsync(string installPath, string gameName, CancellationToken cancellationToken = default) =>
+        ApiGuard.RunAsync(
+            _services.Log,
+            async () =>
+            {
+                var folder = _services.PathTokens.Resolve(installPath, "install.path");
+                var programs = await _services.Executables.ListProgramsAsync(folder, cancellationToken).ConfigureAwait(false);
+                return ProcessNameSuggester.Suggest(Path.GetFileName(folder.TrimEnd('\\', '/')), gameName, programs) ?? string.Empty;
+            },
             cancellationToken);
 
     public Task<OperationResult<GameDefinition>> ImportDefinitionAsync(string filePath, CancellationToken cancellationToken = default) =>

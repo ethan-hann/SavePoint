@@ -244,6 +244,10 @@
                        Classes="field mono"
                        Text="{Binding ProcessName, Mode=TwoWay}"
                        AutomationProperties.Name="{loc:Loc gameEditor.processName.label}" />
+              <StackPanel x:Name="ProcessWhyRow" Spacing="6" IsVisible="{Binding ShowProcessNameWhy}">
+                <TextBlock x:Name="ProcessWhyText" Classes="body" TextWrapping="Wrap" Text="{loc:Loc gameEditor.processName.linkWhy}" />
+                <Button x:Name="UseSuggestedProcessButton" Classes="pill" HorizontalAlignment="Left" Padding="10,3" FontFamily="{DynamicResource RobotoMonoFont}" FontSize="11.5" FontWeight="Normal" IsVisible="{Binding HasProcessNameSuggestion}" Content="{Binding UseSuggestedProcessNameLabel}" Command="{Binding UseSuggestedProcessNameCommand}" />
+              </StackPanel>
               <StackPanel x:Name="ProcessSuggestionRow" Spacing="6" IsVisible="{Binding HasProcessSuggestions}">
                 <TextBlock Classes="caption" Text="{loc:Loc gameEditor.suggestions.found}" />
                 <ItemsControl ItemsSource="{Binding ProcessSuggestions}">

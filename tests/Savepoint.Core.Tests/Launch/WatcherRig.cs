@@ -40,11 +40,11 @@ internal sealed class WatcherRig : IDisposable
 
     private readonly bool _polls;
 
-    private WatcherRig(ScriptedProcess? child, string? name, OsKind os)
+    private WatcherRig(ScriptedProcess? child, string? name, OsKind os, GameSessionOptions? options = null)
     {
         Child = child;
         _polls = name is not null;
-        Watcher = new GameSessionWatcher(child, name, Processes, os, new GameSessionOptions { PollInterval = Interval, Grace = Grace }, Clock);
+        Watcher = new GameSessionWatcher(child, name, Processes, os, options ?? new GameSessionOptions { PollInterval = Interval, Grace = Grace }, Clock);
     }
 
     public ManualTimeProvider Clock { get; } = new();
@@ -66,9 +66,9 @@ internal sealed class WatcherRig : IDisposable
     }
 
     // A link handed to the OS: there is no program, only the process name to look for.
-    public static async Task<WatcherRig> LinkAsync(string? name = null, OsKind os = OsKind.Windows)
+    public static async Task<WatcherRig> LinkAsync(string? name = null, OsKind os = OsKind.Windows, GameSessionOptions? options = null)
     {
-        var rig = new WatcherRig(null, name, os);
+        var rig = new WatcherRig(null, name, os, options);
         await rig.ParkedAsync();
         return rig;
     }

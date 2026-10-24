@@ -1,6 +1,7 @@
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
+using Savepoint.Core.Launch;
 
 namespace Savepoint.App.Tests.Fakes;
 
@@ -164,6 +165,15 @@ public sealed class FakeGamesApi : IGamesApi
 
             var game = State.Games.Find(g => string.Equals(g.Install.Path, installPath, StringComparison.OrdinalIgnoreCase));
             return OperationResult.Success<IReadOnlyList<string>>(game?.Launch.ExePath is { } exe ? [exe] : []);
+        });
+
+    // Every scripted program counts as the same size, so only names and folders decide the answer.
+    public Task<OperationResult<string>> SuggestProcessNameAsync(string installPath, string gameName, CancellationToken cancellationToken = default) =>
+        _backend.Call(_api, nameof(SuggestProcessNameAsync), [installPath, gameName], () =>
+        {
+            var programs = State.Executables.TryGetValue(installPath, out var scripted) ? scripted : [];
+            return OperationResult.Success(
+                ProcessNameSuggester.Suggest(null, gameName, programs.Select(path => new InstalledProgram(path, 5 << 20))) ?? string.Empty);
         });
 
     public Task<OperationResult<GameDefinition>> ImportDefinitionAsync(string filePath, CancellationToken cancellationToken = default) =>
