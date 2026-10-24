@@ -42,6 +42,9 @@ public class NotificationTextTests
     [InlineData(JobKind.RelocateStorage, JobStatus.Succeeded, "Snapshots moved.")]
     [InlineData(JobKind.RelocateStorage, JobStatus.Cancelled, "Canceled moving your snapshots.")]
     [InlineData(JobKind.ClearData, JobStatus.Succeeded, "SavePoint's data was cleared.")]
+    [InlineData(JobKind.Switch, JobStatus.Succeeded, "Skyrim's files are switched. The game was not started.")]
+    [InlineData(JobKind.Switch, JobStatus.Cancelled, "Canceled switching Skyrim's files.")]
+    [InlineData(JobKind.Switch, JobStatus.Failed, "Something went wrong switching Skyrim's files.")]
     public void Each_kind_and_ending_has_its_sentence(JobKind kind, JobStatus status, string expected)
     {
         var gameId = kind == JobKind.Compact ? "skyrim" : null;

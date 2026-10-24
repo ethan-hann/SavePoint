@@ -4,14 +4,14 @@ namespace Savepoint.App.Platform;
 
 /// <summary>
 /// Decides whether a finished job deserves an operating-system notification: only the long jobs a user walks away from
-/// (capture, compaction, storage move, clearing data), and only while the window is not in front of them. Launches never
-/// notify, since the game opening is the signal.
+/// (a switch without playing, capture, compaction, storage move, clearing data), and only while the window is not in front
+/// of them. Launches never notify, since the game opening is the signal.
 /// </summary>
 public static class NotificationPolicy
 {
     /// <summary>True when jobs of this kind may notify at all, whatever the window is doing.</summary>
     public static bool IsNotifiable(JobKind kind) =>
-        kind is JobKind.Capture or JobKind.Compact or JobKind.RelocateStorage or JobKind.ClearData;
+        kind is JobKind.Switch or JobKind.Capture or JobKind.Compact or JobKind.RelocateStorage or JobKind.ClearData;
 
     /// <summary>True when a job of this kind that just finished should raise a notification.</summary>
     /// <param name="kind">The kind of the finished job.</param>

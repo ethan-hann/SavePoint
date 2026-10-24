@@ -22,6 +22,10 @@ public static class NotificationText
             (JobKind.RelocateStorage, JobStatus.Partial) => "shell.jobStatus.relocatePartial",
             (JobKind.RelocateStorage, _) => "shell.jobStatus.relocateFailure",
 
+            (JobKind.Switch, JobStatus.Succeeded) => "shell.jobStatus.switchSuccess",
+            (JobKind.Switch, JobStatus.Cancelled) => "shell.jobStatus.switchCancelled",
+            (JobKind.Switch, _) => "shell.jobStatus.switchFailure",
+
             (JobKind.ClearData, JobStatus.Succeeded) => "shell.jobStatus.clearSuccess",
             (JobKind.ClearData, JobStatus.Partial) => "shell.jobStatus.clearPartial",
             (JobKind.ClearData, _) => "shell.jobStatus.clearFailure",

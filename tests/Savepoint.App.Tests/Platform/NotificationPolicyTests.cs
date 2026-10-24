@@ -11,7 +11,7 @@ public class NotificationPolicyTests
     // Some platforms keep reporting a minimized window as the active one.
     private static readonly WindowActivity _minimizedButStillActive = new(IsActive: true, IsMinimized: true);
 
-    public static TheoryData<JobKind> NotifiableKinds => new() { JobKind.Capture, JobKind.Compact, JobKind.RelocateStorage, JobKind.ClearData };
+    public static TheoryData<JobKind> NotifiableKinds => new() { JobKind.Switch, JobKind.Capture, JobKind.Compact, JobKind.RelocateStorage, JobKind.ClearData };
 
     [Theory]
     [MemberData(nameof(NotifiableKinds))]
@@ -51,11 +51,11 @@ public class NotificationPolicyTests
     }
 
     [Fact]
-    public void Exactly_the_four_long_kinds_are_notifiable()
+    public void Exactly_the_five_long_kinds_are_notifiable()
     {
         var notifiable = Enum.GetValues<JobKind>().Where(NotificationPolicy.IsNotifiable);
 
-        Assert.Equal([JobKind.Capture, JobKind.Compact, JobKind.RelocateStorage, JobKind.ClearData], notifiable);
+        Assert.Equal([JobKind.Switch, JobKind.Capture, JobKind.Compact, JobKind.RelocateStorage, JobKind.ClearData], notifiable);
     }
 
     [Fact]
