@@ -8,6 +8,7 @@ using Savepoint.App.Theme;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
+using Savepoint.Core.Services.Storage;
 
 namespace Savepoint.App.Features.Settings;
 
@@ -247,7 +248,7 @@ public sealed partial class StorageSectionViewModel : ObservableObject
                 ErrorTone.Warning,
                 _deps.Text.Message("settings.storage.leftBehindTitle"),
                 _deps.Text.Message("settings.storage.leftBehindBody"),
-                path: string.Join(Environment.NewLine, moved.NotRemoved.Select(failure => failure.Path)))
+                path: string.Join(Environment.NewLine, SnapshotFolderNames.Plain(moved.NotRemoved.Select(failure => failure.Path))))
             : null;
 
     private void ShowProgress(JobProgress progress)

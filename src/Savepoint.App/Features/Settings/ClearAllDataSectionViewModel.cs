@@ -5,6 +5,7 @@ using Savepoint.App.Features.Shell;
 using Savepoint.App.Theme;
 using Savepoint.Core.Api;
 using Savepoint.Core.Errors;
+using Savepoint.Core.Services.Storage;
 
 namespace Savepoint.App.Features.Settings;
 
@@ -148,7 +149,7 @@ public sealed partial class ClearAllDataSectionViewModel : ObservableObject
                 ErrorTone.Warning,
                 _deps.Text.Message("settings.clearAll.leftBehindTitle"),
                 _deps.Text.Message("settings.clearAll.leftBehindBody"),
-                path: string.Join(Environment.NewLine, result.NotRemoved.Select(failure => failure.Path)));
+                path: string.Join(Environment.NewLine, SnapshotFolderNames.Plain(result.NotRemoved.Select(failure => failure.Path))));
             return;
         }
 

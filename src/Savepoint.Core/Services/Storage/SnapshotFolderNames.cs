@@ -4,7 +4,7 @@ namespace Savepoint.Core.Services.Storage;
 /// Turns the engine's own folder names into the plain parts a player reads: <c>install</c> for a game's files, <c>saves</c> for its
 /// save folders, <c>other</c> for anything else. Job lines carry these words and never the engine's folder names.
 /// </summary>
-internal static class SnapshotFolderNames
+public static class SnapshotFolderNames
 {
     /// <summary>The part for a game's files.</summary>
     public const string Install = "install";
@@ -45,4 +45,12 @@ internal static class SnapshotFolderNames
 
         return (path, Other);
     }
+
+    /// <summary>
+    /// The paths a player is shown for leftovers: each one described by <see cref="Describe"/>, so the engine's folder never
+    /// appears, and listed once even when two parts of one game stayed.
+    /// </summary>
+    /// <param name="paths">The paths that could not be removed.</param>
+    public static IReadOnlyList<string> Plain(IEnumerable<string> paths) =>
+        [.. paths.Select(path => Describe(path).Path).Distinct(StringComparer.Ordinal)];
 }
