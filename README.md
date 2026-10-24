@@ -1,5 +1,7 @@
 # SavePoint
 
+> **Looking at this on GitHub?** This is a read-only mirror. SavePoint lives at [git.tortal.tech/ethan-hann/SavePoint](https://git.tortal.tech/ethan-hann/SavePoint): downloads are on its [releases page](https://git.tortal.tech/ethan-hann/SavePoint/releases), and [issues](https://git.tortal.tech/ethan-hann/SavePoint/issues), [pull requests](https://git.tortal.tech/ethan-hann/SavePoint/pulls) and the [wiki](https://git.tortal.tech/ethan-hann/SavePoint/wiki) are there too. Issues and pull requests opened on GitHub are not seen.
+
 **Quicksave for your whole game folder.**
 
 You spent a weekend getting 140 mods to load in the right order, and the game finally runs right. Then a patch comes down overnight, half the mods break, and your 60-hour save won't load.
