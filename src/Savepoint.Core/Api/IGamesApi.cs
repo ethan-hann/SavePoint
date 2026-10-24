@@ -116,6 +116,16 @@ public interface IGamesApi
     Task<OperationResult<IReadOnlyList<string>>> ListExecutablesAsync(string installPath, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Suggests the process name for a game started through a link: the program in the install folder that most likely is the game
+    /// itself, ranked above launchers, anti-cheat bootstraps, crash reporters, and tools. Reads the folder only.
+    /// </summary>
+    /// <param name="installPath">The install folder as the user wrote it; a leading path token is expanded before the scan.</param>
+    /// <param name="gameName">The game's name as the user wrote it, used as a hint; may be blank.</param>
+    /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c> (D23).</param>
+    /// <returns>The file name with its extension, or an empty string when the folder is missing or nothing in it looks like a game.</returns>
+    Task<OperationResult<string>> SuggestProcessNameAsync(string installPath, string gameName, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Reads and validates a definition file; never saves it. The definition keeps the file's id, which may belong to a game already
     /// in the library, so the caller gives the new game an id of its own before adding it.
     /// </summary>
