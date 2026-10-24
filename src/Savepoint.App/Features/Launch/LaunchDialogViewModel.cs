@@ -220,11 +220,24 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
     private (string Before, string Target, string After) VersionSentence()
     {
         var text = _deps.Text;
-        var sentence = text.Message(
-            "launch.dialog.versionSentence",
-            ("from", LaunchText.InstallState(text, _preview.CurrentInstall)),
-            ("direction", DirectionOf(_preview.CurrentInstall, _preview.TargetInstall)),
-            ("target", _targetMarker));
+        var from = _preview.CurrentInstall;
+        var to = _preview.TargetInstall;
+
+        // Only what changes is said: a version that stays is not named twice, and mods that stay are not named at all.
+        var sameVersion = string.Equals(from.Version ?? string.Empty, to.Version ?? string.Empty, StringComparison.Ordinal);
+        var sameMods = from.ModFileCount == to.ModFileCount;
+        var (sentence, target) = (sameVersion, sameMods) switch
+        {
+            (true, true) => (text.Message("launch.dialog.versionStays", ("target", _targetMarker)), LaunchText.InstallState(text, to)),
+            (true, false) => (text.Message("launch.dialog.modsSentence", ("from", LaunchText.Mods(text, from)), ("target", _targetMarker)), LaunchText.Mods(text, to)),
+            _ => (
+                text.Message(
+                    "launch.dialog.versionSentence",
+                    ("from", LaunchText.InstallState(text, from)),
+                    ("direction", DirectionOf(from, to)),
+                    ("target", _targetMarker)),
+                LaunchText.InstallState(text, to)),
+        };
         var parts = sentence.Split(_targetMarker, 2);
         var after = parts.Length > 1 ? parts[1] : string.Empty;
 
@@ -237,7 +250,7 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
             after += " " + text.Message("launch.dialog.versionReplaced", ("size", text.FileSize(summary.BytesChanged))) + " " + time;
         }
 
-        return (parts[0], LaunchText.InstallState(text, _preview.TargetInstall), after);
+        return (parts[0], target, after);
     }
 
     private List<SaveOptionViewModel> SaveOptionsFor(LaunchPreview preview)

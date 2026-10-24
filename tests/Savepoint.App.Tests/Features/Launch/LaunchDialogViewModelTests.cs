@@ -71,6 +71,36 @@ public class LaunchDialogViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task A_version_that_does_not_change_is_not_named_twice_and_only_the_mods_that_change_are_said()
+    {
+        var dialog = await _rig.DialogAsync(change: p => p with { CurrentInstall = new InstallState("1.6.640", 212), TargetInstall = new InstallState("1.6.640", 0) });
+
+        Assert.Equal("Going from 212 mod files to ", dialog.VersionBefore);
+        Assert.Equal("no mods", dialog.VersionTarget);
+        Assert.DoesNotContain("1.6.640", dialog.VersionBefore + dialog.VersionTarget + dialog.VersionAfter, StringComparison.Ordinal);
+        Assert.StartsWith(". About ", dialog.VersionAfter, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_version_and_mods_that_both_stay_are_said_once_as_staying()
+    {
+        var dialog = await _rig.DialogAsync(change: p => p with { CurrentInstall = new InstallState("1.6.640", 212), TargetInstall = new InstallState("1.6.640", 212) });
+
+        Assert.Equal("Staying on ", dialog.VersionBefore);
+        Assert.Equal("1.6.640 with 212 mod files", dialog.VersionTarget);
+        Assert.StartsWith(". About ", dialog.VersionAfter, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_version_that_stays_with_no_mod_folders_to_count_is_said_once_as_staying()
+    {
+        var dialog = await _rig.DialogAsync(change: p => p with { CurrentInstall = new InstallState("++Game+release.1.4.7", null), TargetInstall = new InstallState("++Game+release.1.4.7", null) });
+
+        Assert.Equal("Staying on ", dialog.VersionBefore);
+        Assert.Equal("++Game+release.1.4.7", dialog.VersionTarget);
+    }
+
+    [Fact]
     public async Task Versions_that_cannot_be_compared_are_described_without_a_direction()
     {
         var dialog = await _rig.DialogAsync(change: p => p with { CurrentInstall = new InstallState(null, null), TargetInstall = new InstallState("beta", null) });
