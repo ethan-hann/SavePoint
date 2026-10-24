@@ -46,7 +46,6 @@
   "history.save.load": "Go back",
   "history.save.loadAutomation": "Go back to {name}",
   "history.save.loaded": "Loaded now",
-  "history.save.switch": "Switch only",
   "history.subtitle": "{game} · {count, plural, one {# snapshot} other {# snapshots}}",
   "history.timeline.captured": "Snapshot of {install}",
   "history.timeline.capturedPlain": "Snapshot",

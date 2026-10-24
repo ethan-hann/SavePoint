@@ -134,6 +134,28 @@ public class HistoryScreenViewTests
         Assert.Empty(harness.Flow.Begun);
     }
 
+    // WCAG 2.5.3: what a button says on screen is inside the name assistive technology and speech input know it by.
+    [AvaloniaFact]
+    public async Task Every_history_button_has_its_visible_words_inside_its_accessible_name()
+    {
+        using var harness = await StartAsync();
+        Screen(harness).SelectedViewOption = Screen(harness).ViewOptions[1];
+        harness.Settle();
+        var commands = Screen(harness).Saves.SelectMany(row => new[] { row.LoadCommand, row.SwitchCommand })
+            .Concat(Screen(harness).Timeline.Where(entry => entry.CanGoBack).SelectMany(entry => new[] { entry.GoBackCommand, entry.SwitchCommand }))
+            .Concat(Screen(harness).Groups.SelectMany(group => group.Cards).SelectMany(card => new[] { card.GoBackCommand, card.SwitchCommand }))
+            .ToHashSet();
+
+        var buttons = harness.All<Button>().Where(button => button.Command is not null && commands.Contains(button.Command)).ToList();
+
+        Assert.NotEmpty(buttons);
+        Assert.All(buttons, button =>
+        {
+            var visible = Assert.IsType<string>(button.Content);
+            Assert.Contains(visible, AutomationProperties.GetName(button), StringComparison.Ordinal);
+        });
+    }
+
     [AvaloniaFact]
     public async Task A_save_rows_button_begins_the_launch_flow_with_that_save()
     {

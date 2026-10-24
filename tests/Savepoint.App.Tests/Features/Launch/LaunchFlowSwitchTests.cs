@@ -82,6 +82,18 @@ public class LaunchFlowSwitchTests : IDisposable
     }
 
     [Fact]
+    public async Task The_older_snapshot_note_for_a_switch_says_what_becomes_of_changes_made_there()
+    {
+        var preview = (await _f.Rig.PreviewAsync(LaunchRig.ClearedBlackreachPoint)) with { TargetIsOlderPoint = true };
+
+        var dialog = new LaunchDialogViewModel(preview, "Skyrim Special Edition", "Modded", false, _ => null, _f.Rig.Deps, switchOnly: true);
+
+        Assert.Equal(
+            "This is an older snapshot of \"Modded\". Your game folders hold it until you switch or play again. Changes you make there can be kept as a new profile the next time you switch or play.",
+            dialog.OlderPointText);
+    }
+
+    [Fact]
     public async Task A_play_dialog_still_says_switch_and_play()
     {
         var dialog = await _f.Rig.DialogAsync();

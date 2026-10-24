@@ -25,7 +25,7 @@
   "launch.dialog.keepAction": "Keep as a new profile…",
   "launch.dialog.keepExplain": "These changes don't belong to any profile. They came from playing an older snapshot, or from a profile you deleted. Keep them as a new profile so nothing is lost.",
   "launch.dialog.olderPoint": "This is an older snapshot of \"{profileName}\". After you play, you can keep the session as a new profile, or continue \"{profileName}\" from it, which removes its newer snapshots from it.",
-  "launch.dialog.olderPointSwitch": "This is an older snapshot of \"{profileName}\". Your game folders hold it until you switch or play again.",
+  "launch.dialog.olderPointSwitch": "This is an older snapshot of \"{profileName}\". Your game folders hold it until you switch or play again. Changes you make there can be kept as a new profile the next time you switch or play.",
   "launch.dialog.saveCaption": "This replaces what's in your saves folder right now.",
   "launch.dialog.savingFirst": "Taking a snapshot of these changes…",
   "launch.dialog.saveFirstFailed": "SavePoint couldn't take a snapshot of these changes. {reason}",
