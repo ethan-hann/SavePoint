@@ -80,6 +80,33 @@ public sealed class SwitchStatTests : IDisposable
         Assert.Equal(2 + 6, history.BytesRemoved);
     }
 
+    // On a system that ignores case, Data/Foo.BSA and Data/foo.bsa are one file: the switch rewrites it and removes nothing.
+    [Fact]
+    public async Task A_case_only_rename_is_replaced_not_removed_on_a_system_that_ignores_case()
+    {
+        using var ws = new EngineWorkspace(options => options with { SystemIgnoresCase = true });
+        var repo = await ws.InitializedFreshAsync();
+        var environment = new Dictionary<string, string?> { ["GIT_INDEX_FILE"] = Path.Combine(ws.Root, "rename-index") };
+        async Task<string> Run(string? stdin, params string[] arguments) =>
+            (await ws.Runner.RunAsync(new GitInvocation(arguments) { GitDir = repo.GitDir, WorkTree = repo.WorkTree, ExtraEnvironment = environment, Stdin = stdin }, Ct)).StandardOutput.Trim();
+
+        async Task<string> PointWithAsync(string path, string content, params string[] parents)
+        {
+            await Run(null, "read-tree", "--empty");
+            await Run(null, "update-index", "--add", "--cacheinfo", $"100644,{await Run(content, "hash-object", "-w", "--stdin")},{path}");
+            return await Run(null, [.. new[] { "commit-tree", await Run(null, "write-tree") }, .. parents.SelectMany(parent => new[] { "-p", parent }), "-m", "point"]);
+        }
+
+        var before = await PointWithAsync("Data/Foo.BSA", "twelve bytes", []);
+        var after = await PointWithAsync("Data/foo.bsa", "twelve bytes", before);
+
+        var switching = await ws.Engine.SwitchStatAsync(repo, before, after, Ct);
+
+        Assert.Equal(12, switching.BytesAtTarget);
+        Assert.Equal(0, switching.FilesRemoved);
+        Assert.Equal(0, switching.BytesRemoved);
+    }
+
     [Fact]
     public async Task A_switch_summary_of_a_move_forward_removes_nothing()
     {

@@ -122,13 +122,14 @@ public sealed partial class GitEngine
             ?? throw new GitOperationException($"'{toRevision}' is not a point in the repository.");
 
         var changes = await DiffTreesAsync(repo, from, to, ct).ConfigureAwait(false);
-        var sizes = await ObjectSizesAsync(repo, changes.SelectMany(change => new[] { change.NewId, change.OldId }), ct).ConfigureAwait(false);
+        var deleted = changes.Where(change => change.Status == 'D').ToList();
+        var sizes = await ObjectSizesAsync(repo, changes.Select(change => change.NewId).Concat(deleted.Select(change => change.OldId)), ct).ConfigureAwait(false);
         return new DiffSummary(
             changes.Count,
             changes.Sum(change => sizes.GetValueOrDefault(change.NewId)),
             [.. changes.Select(change => change.Path)],
-            changes.Count(change => change.Status == 'D'),
-            changes.Where(change => change.Status == 'D').Sum(change => sizes.GetValueOrDefault(change.OldId)));
+            deleted.Count,
+            deleted.Sum(change => sizes.GetValueOrDefault(change.OldId)));
     }
 
     /// <summary>
@@ -154,13 +155,17 @@ public sealed partial class GitEngine
         var named = await NamedAmongAsync(repo, [.. changes.Select(change => change.Path).Distinct(StringComparer.Ordinal)], ct).ConfigureAwait(false);
         var kept = changes.Where(change => !named.Contains(change.Path)).ToList();
         // Sizes come from the stored objects, so no file on disk is read or hashed.
-        var sizes = await ObjectSizesAsync(repo, kept.SelectMany(change => new[] { change.NewId, change.OldId }), ct).ConfigureAwait(false);
+        // A deleted name that the target holds under another spelling is the same file on a system that ignores case: rewritten, not removed.
+        var comparer = PathComparerFor(repo);
+        var held = changes.Where(change => change.Status != 'D').Select(change => change.Path).ToHashSet(comparer);
+        var removed = kept.Where(change => change.Status == 'D' && !held.Contains(change.Path)).ToList();
+        var sizes = await ObjectSizesAsync(repo, kept.Select(change => change.NewId).Concat(removed.Select(change => change.OldId)), ct).ConfigureAwait(false);
         return new DiffSummary(
             kept.Count,
             kept.Sum(change => sizes.GetValueOrDefault(change.NewId)),
             [.. kept.Select(change => change.Path)],
-            kept.Count(change => change.Status == 'D'),
-            kept.Where(change => change.Status == 'D').Sum(change => sizes.GetValueOrDefault(change.OldId)));
+            removed.Count,
+            removed.Sum(change => sizes.GetValueOrDefault(change.OldId)));
     }
 
     /// <summary>The files in a point's tree, relative paths with forward slashes; empty when the revision does not exist.</summary>
