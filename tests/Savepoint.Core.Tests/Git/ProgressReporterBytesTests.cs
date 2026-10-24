@@ -96,6 +96,26 @@ public sealed class ProgressReporterBytesTests
     }
 
     [Fact]
+    public void Finishing_stays_on_once_said_and_the_last_report_clears_it()
+    {
+        var log = new ProgressLog();
+        var reporter = new ProgressReporter(log);
+        reporter.SetByteTotal(1000);
+        reporter.Start();
+        reporter.ObserveWritten(5000);
+        reporter.ObserveWritten(5000);
+        reporter.ObserveWritten(5000);
+
+        reporter.FileHandled("a.bin");
+        var whileWaiting = log.Last;
+        reporter.Complete();
+
+        Assert.True(whileWaiting.Finishing);
+        Assert.False(log.Last.Finishing);
+        Assert.Equal(1000, log.Last.BytesDone);
+    }
+
+    [Fact]
     public void Reports_carry_no_bytes_when_no_byte_total_was_set()
     {
         var log = new ProgressLog();

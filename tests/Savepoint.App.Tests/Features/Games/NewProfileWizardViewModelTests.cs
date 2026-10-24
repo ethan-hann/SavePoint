@@ -462,7 +462,7 @@ public class NewProfileWizardViewModelTests
         var rig = await Rig.StartAsync();
         await rig.SaveAsync();
 
-        rig.Backend.Jobs.ReportProgress(rig.JobId, new JobProgress(3, 23, 69_300_000_000, 70_000_000_000));
+        rig.Backend.Jobs.ReportProgress(rig.JobId, new JobProgress(3, 23, 69_300_000_000, 70_000_000_000, null, Finishing: true));
 
         Assert.Equal("Making sure everything is stored safely…", rig.Wizard.ProgressText);
         Assert.False(rig.Wizard.IsIndeterminate);

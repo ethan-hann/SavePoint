@@ -85,4 +85,40 @@ public sealed class CaptureBytesTests : IDisposable
 
         Assert.Contains(progress.Reports, report => report.BytesDone == 400 && report.BytesTotal == 1000);
     }
+
+    [Fact]
+    public async Task A_store_that_has_all_its_bytes_and_goes_quiet_while_git_works_is_reported_as_finishing()
+    {
+        var added = false;
+        _ws.Dispose();
+        _ws = new EngineWorkspace(options =>
+        {
+            var inner = options.InvocationObserver!;
+            return options with
+            {
+                // git is held for half a second after the store has its bytes, standing in for the wait at the end of a very large capture.
+                InvocationObserver = invocation =>
+                {
+                    inner(invocation);
+                    if (invocation.Arguments[0] == "add")
+                    {
+                        Volatile.Write(ref added, true);
+                        Thread.Sleep(500);
+                    }
+                },
+                ObjectStoreSize = _ => Volatile.Read(ref added) ? 1000 : 0,
+                SampleWait = ct => Task.Delay(20, ct),
+            };
+        });
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "Data/a.bin", new byte[1000]);
+        var progress = new ProgressLog();
+
+        await _ws.CaptureAsync(repo, "profile-1", progress: progress);
+
+        var finishing = Assert.Single(progress.Reports.Where(report => report.Finishing).Take(1));
+        Assert.True(finishing.BytesDone < finishing.BytesTotal, "the figure stays short of the total until the capture is done");
+        Assert.False(progress.Last.Finishing);
+        Assert.Equal(1000, progress.Last.BytesDone);
+    }
 }

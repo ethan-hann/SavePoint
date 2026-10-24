@@ -77,6 +77,41 @@ public sealed class StagingByteSamplerTests
     }
 
     [Fact]
+    public async Task A_store_that_stops_growing_once_it_is_as_big_as_expected_is_reported_as_finishing()
+    {
+        var log = new ProgressLog();
+        using var stop = new CancellationTokenSource();
+
+        await StagingByteSampler.RunAsync(Measures(0, 5000, 5000, 5000, 5000), ReporterOver(log, 1000), WaitsThenStops(4, stop), stop.Token);
+
+        Assert.Contains(log.Reports, report => report.Finishing);
+        var finishing = log.Reports.First(report => report.Finishing);
+        Assert.True(finishing.BytesDone < finishing.BytesTotal, "the figure must stay short of the total until the capture is done");
+    }
+
+    [Fact]
+    public async Task A_store_still_growing_is_not_finishing()
+    {
+        var log = new ProgressLog();
+        using var stop = new CancellationTokenSource();
+
+        await StagingByteSampler.RunAsync(Measures(0, 995, 996, 997, 998, 999), ReporterOver(log, 1000), WaitsThenStops(5, stop), stop.Token);
+
+        Assert.DoesNotContain(log.Reports, report => report.Finishing);
+    }
+
+    [Fact]
+    public async Task A_store_that_stops_short_of_the_expected_size_is_not_finishing()
+    {
+        var log = new ProgressLog();
+        using var stop = new CancellationTokenSource();
+
+        await StagingByteSampler.RunAsync(Measures(0, 400, 400, 400, 400), ReporterOver(log, 1000), WaitsThenStops(4, stop), stop.Token);
+
+        Assert.DoesNotContain(log.Reports, report => report.Finishing);
+    }
+
+    [Fact]
     public async Task A_store_that_shrinks_below_the_baseline_reports_nothing_negative()
     {
         var log = new ProgressLog();

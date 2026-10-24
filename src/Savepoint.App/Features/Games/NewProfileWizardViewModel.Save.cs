@@ -134,8 +134,7 @@ public sealed partial class NewProfileWizardViewModel
 
         if (bytes is { } stored)
         {
-            // The sampled figure stops a hundredth short of the total until the snapshot is done, so reaching it means git is finishing.
-            ProgressText = stored.Done >= stored.Total - stored.Total / 100
+            ProgressText = progress.Finishing
                 ? _text.Message("profiles.wizard.save.finishing")
                 : _text.Message("profiles.wizard.save.bytesProgress", ("done", _text.FileSize(stored.Done)), ("total", _text.FileSize(stored.Total)));
             FilesText = (filesDone, filesTotal) switch

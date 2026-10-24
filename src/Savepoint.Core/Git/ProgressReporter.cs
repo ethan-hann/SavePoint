@@ -21,6 +21,13 @@ internal sealed class ProgressReporter
     private long _written;
     private long _reportedWritten = -1;
 
+    // Samples come twice a second, so this is a second of no growth.
+    private const int _steadySamplesToFinish = 2;
+    private long _lastObserved = -1;
+    private int _steady;
+    private bool _finishing;
+    private bool _reportedFinishing;
+
     public ProgressReporter(IProgress<FileProgress>? sink, CheckoutBytePlan? bytes = null)
     {
         _sink = sink;
@@ -66,11 +73,18 @@ internal sealed class ProgressReporter
 
             var ceiling = total - total / 100;
             var next = Math.Max(_written, Math.Min(written, ceiling));
-            if (next == _written)
+
+            // Git keeps working after it has stored the last byte (it closes its last pack and writes the index), and shows nothing for
+            // it. A store that has reached its expected size and then holds still is that wait, so the report says so.
+            _steady = written == _lastObserved ? _steady + 1 : 0;
+            _lastObserved = written;
+            var finishing = !_finishing && total > 0 && written >= ceiling && _steady >= _steadySamplesToFinish;
+            if (next == _written && !finishing)
             {
                 return;
             }
 
+            _finishing |= finishing;
             _written = next;
             Report();
         }
@@ -108,7 +122,8 @@ internal sealed class ProgressReporter
                 _written = total;
             }
 
-            if ((_done > 0 && _done != _reportedDone) || (_byteTotal is not null && _written != _reportedWritten))
+            _finishing = false;
+            if ((_done > 0 && _done != _reportedDone) || (_byteTotal is not null && _written != _reportedWritten) || _reportedFinishing)
             {
                 Report();
             }
@@ -132,6 +147,7 @@ internal sealed class ProgressReporter
 
         _reportedDone = _done;
         _reportedWritten = _written;
+        _reportedFinishing = _finishing;
         _reportedAt = Stopwatch.GetTimestamp();
 
         // Progress only decorates the work: a sink that fails must not stop git half way through a capture or a switch.
@@ -139,7 +155,7 @@ internal sealed class ProgressReporter
         {
             var total = _total is { } counted ? Math.Max(counted, _done) : (int?)null;
             var report = _byteTotal is { } bytes
-                ? new FileProgress(_done, total, _current, _written, bytes)
+                ? new FileProgress(_done, total, _current, _written, bytes, _finishing)
                 : new FileProgress(_done, total, _current, _bytes?.BytesAfter(_done, total ?? _bytes.Entries), _bytes?.Total);
             _sink.Report(report);
         }

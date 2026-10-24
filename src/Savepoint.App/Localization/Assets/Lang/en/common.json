@@ -5,6 +5,7 @@
   "common.progress.bytesOf": "{done} of {total}",
   "common.progress.counting": "Working out how much there is to copy…",
   "common.progress.filesOf": "{done} of {total, plural, one {{totalText} file} other {{totalText} files}}",
+  "common.progress.finishing": "Making sure everything is stored safely. This can take a few minutes for a big game.",
   "errorCard.body.fileInUse.clearData": "Something else on your computer is holding one of SavePoint's files open, so it couldn't be removed. Everything else was removed. Close any program that is using the snapshot folder, then delete what's left yourself.",
   "errorCard.body.fileInUse.freeUpSpace": "Something else on your computer is holding one of the snapshot folder's files open, so freeing up space stopped. Close any program that is using that folder, such as a backup tool, then free up space again.",
   "errorCard.body.fileInUse.moveSnapshots": "Something else on your computer is holding one of the old snapshot files open, so SavePoint couldn't remove it. Your snapshots moved and SavePoint uses the new folder. Close any program that is using the old folder, then delete what's left yourself.",
