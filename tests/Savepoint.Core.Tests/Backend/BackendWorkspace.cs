@@ -236,8 +236,8 @@ internal sealed class BackendWorkspace : IDisposable
         }
     }
 
-    // Git's object stores hold compressed data and no paths, so they are skipped; every other file is searched for the old root, as written
-    // plainly, with forward slashes, and escaped for JSON.
+    // Objects are named by their hash, so editing one would break it (the template's game files hold no paths); every other file is
+    // searched for the old root, as written plainly, with forward slashes, and escaped for JSON.
     private static void RewriteRoot(string root, string oldRoot)
     {
         var plain = oldRoot;
@@ -247,7 +247,7 @@ internal sealed class BackendWorkspace : IDisposable
         foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
         {
             var relative = Path.GetRelativePath(root, file).Replace('\\', '/');
-            if (IsKeptAsCopied(relative))
+            if (IsKeptAsCopied(file, relative))
             {
                 continue;
             }
@@ -269,8 +269,17 @@ internal sealed class BackendWorkspace : IDisposable
     }
 
     // Git's untracked cache in the index names the folder it was taken in; git discards the cache when the folder differs.
-    private static bool IsKeptAsCopied(string relative) =>
-        relative.Contains("/objects/", StringComparison.Ordinal) || Path.GetFileName(relative) == "index";
+    // Only an index directly inside a git directory; a game file that happens to be called index is searched like any other.
+    private static bool IsKeptAsCopied(string file, string relative)
+    {
+        if (relative.Contains("/objects/", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        var parent = Path.GetDirectoryName(file)!;
+        return Path.GetFileName(file) == "index" && File.Exists(Path.Combine(parent, "HEAD")) && Directory.Exists(Path.Combine(parent, "objects"));
+    }
 
     // Whatever form of the root the rewrite did not recognise still names the template's unique folder; a copy that shares it would
     // change the template's data under other tests.
@@ -281,7 +290,7 @@ internal sealed class BackendWorkspace : IDisposable
         foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
         {
             var relative = Path.GetRelativePath(root, file).Replace('\\', '/');
-            if (!IsKeptAsCopied(relative))
+            if (!IsKeptAsCopied(file, relative))
             {
                 Assert.False(utf8.GetString(File.ReadAllBytes(file)).Contains(marker, StringComparison.OrdinalIgnoreCase), $"{relative} still names the template folder {marker}");
             }
