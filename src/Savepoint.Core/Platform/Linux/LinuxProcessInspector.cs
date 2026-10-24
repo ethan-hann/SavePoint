@@ -70,6 +70,12 @@ public sealed class LinuxProcessInspector : IProcessInspector
         return !state.IsEmpty && state[0] is 'Z' or 'X' or 'x';
     }
 
+    /// <summary>Whether the stat of one process says it has exited; a process with no readable stat counts as not exited.</summary>
+    /// <param name="pid">The process id.</param>
+    /// <param name="procRoot">The /proc folder; injectable so this can be tested against a made-up one on any OS.</param>
+    internal static bool HasExited(int pid, string procRoot = "/proc") =>
+        HasExited(Path.Combine(procRoot, pid.ToString(CultureInfo.InvariantCulture)));
+
     // A process without a readable stat (a made-up /proc, or one that is mid-exit) counts as running; the other files decide.
     private static bool HasExited(string dir)
     {
