@@ -15,6 +15,7 @@ public sealed class WindowsPlatform : IPlatform
     private readonly string _downloads;
     private readonly string _savedGames;
     private readonly string _systemDriveRoot;
+    private readonly SteamFolders _steam;
 
     /// <summary>Builds the tables from <paramref name="environment"/>; throws <see cref="ArgumentException"/> if its home folder is not an absolute Windows path.</summary>
     /// <param name="environment">What to read: home, variables, known folders, drives.</param>
@@ -31,6 +32,7 @@ public sealed class WindowsPlatform : IPlatform
         _downloads = _paths.Known(KnownFolder.Downloads) ?? _paths.Under(home, "Downloads");
         _savedGames = _paths.Known(KnownFolder.SavedGames) ?? _paths.Under(home, "Saved Games");
         _systemDriveRoot = ReadSystemDriveRoot();
+        _steam = new SteamFolders(_paths);
 
         Directories = new AppDirectories(
             CatalogDir: _paths.Under(_roaming, "SavePoint"),
@@ -138,6 +140,8 @@ public sealed class WindowsPlatform : IPlatform
         {
             builder.ExactIfPresent(_paths.Variable(oneDrive), "The OneDrive root syncs everything beneath it");
         }
+
+        _steam.AddTo(builder);
 
         // A Steam library can be on any drive, so the library's own folders are matched by name.
         builder.NameRule("steamapps holds every game in a Steam library", "steamapps");

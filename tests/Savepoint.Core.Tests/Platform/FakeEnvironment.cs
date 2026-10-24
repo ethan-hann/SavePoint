@@ -23,6 +23,12 @@ internal sealed class FakeEnvironment
 
     public List<string> LocalHostNames { get; } = [];
 
+    /// <summary>Where the Steam client is installed; null when Steam is not.</summary>
+    public string? SteamFolder { get; set; }
+
+    /// <summary>How many times a file was read, by path, so a test can tell a cached answer from a repeated read.</summary>
+    public Dictionary<string, int> Reads { get; } = [];
+
     /// <summary>A Windows user with OneDrive folder backup: Documents and Desktop live under OneDrive.</summary>
     public static FakeEnvironment Windows()
     {
@@ -57,7 +63,12 @@ internal sealed class FakeEnvironment
         GetVariable = name => Variables.GetValueOrDefault(name),
         GetKnownFolder = folder => KnownFolders.GetValueOrDefault(folder),
         ListDriveRoots = () => [.. DriveRoots],
-        ReadTextFile = path => Files.GetValueOrDefault(path),
+        GetSteamFolder = () => SteamFolder,
+        ReadTextFile = path =>
+        {
+            Reads[path] = Reads.GetValueOrDefault(path) + 1;
+            return Files.GetValueOrDefault(path);
+        },
         LocalHostNames = () => [.. LocalHostNames],
     };
 }

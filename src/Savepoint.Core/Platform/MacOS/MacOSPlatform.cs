@@ -22,6 +22,7 @@ public sealed class MacOSPlatform : IPlatform
     private readonly PlatformPaths _paths;
     private readonly string _appSupport;
     private readonly string _documents;
+    private readonly SteamFolders _steam;
 
     /// <summary>Builds the tables from <paramref name="environment"/>; throws <see cref="ArgumentException"/> if its home folder is not an absolute path.</summary>
     /// <param name="environment">What to read: the home folder.</param>
@@ -49,6 +50,7 @@ public sealed class MacOSPlatform : IPlatform
             ["localAppData"] = _appSupport,
         };
 
+        _steam = new SteamFolders(_paths);
         Processes = processes ?? new MacOSProcessInspector();
     }
 
@@ -116,6 +118,8 @@ public sealed class MacOSPlatform : IPlatform
         }
 
         builder.Exact(_paths.Under(_appSupport, "Steam"), "The Steam folder holds every Steam game");
+
+        _steam.AddTo(builder);
 
         // A Steam library can be on any drive, so the library's own folders are matched by name.
         builder.NameRule("steamapps holds every game in a Steam library", "steamapps");

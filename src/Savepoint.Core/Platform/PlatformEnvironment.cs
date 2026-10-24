@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using Savepoint.Core.Artwork;
 using Savepoint.Core.Platform.Windows;
 
 namespace Savepoint.Core.Platform;
@@ -20,7 +21,10 @@ public sealed record PlatformEnvironment
     /// <summary>Lists the root of every drive (Windows).</summary>
     public Func<IReadOnlyList<string>> ListDriveRoots { get; init; } = static () => [];
 
-    /// <summary>Reads a small text file (the Linux user-dirs.dirs); null when it is missing or unreadable.</summary>
+    /// <summary>Finds the folder the Steam client is installed in; null when Steam is not installed or cannot be found.</summary>
+    public Func<string?> GetSteamFolder { get; init; } = static () => null;
+
+    /// <summary>Reads a small text file (the Linux user-dirs.dirs, Steam's library list); null when it is missing or unreadable.</summary>
     public Func<string, string?> ReadTextFile { get; init; } = static _ => null;
 
     /// <summary>The names this machine answers to on a network (computer name, DNS name); "localhost" is implied.</summary>
@@ -36,9 +40,15 @@ public sealed record PlatformEnvironment
                 ?? throw new InvalidOperationException("This account has no home directory.");
         }
 
+        var locator = new SteamFolderLocator(
+            PlatformFactory.CurrentOs,
+            home,
+            OperatingSystem.IsWindows() ? WindowsSteamRegistry.ReadSteamPath : null);
+
         return new PlatformEnvironment
         {
             HomeDirectory = home,
+            GetSteamFolder = locator.FindSteamFolder,
             GetVariable = name => Environment.GetEnvironmentVariable(name),
             GetKnownFolder = WindowsKnownFolders.Get,
             ListDriveRoots = ListDrives,

@@ -1,5 +1,7 @@
 using Savepoint.Core.Paths;
 using Savepoint.Core.Platform;
+using Savepoint.Core.Platform.Linux;
+using Savepoint.Core.Platform.MacOS;
 using Savepoint.Core.Platform.Windows;
 using Savepoint.Core.Tests.Paths;
 
@@ -34,10 +36,22 @@ public class PlatformFactoryTests
             dir => Assert.True(syntax.IsAbsolute(dir), dir));
     }
 
+    // The real machine's tables without the Steam lookup, which would read the real registry and Steam folder.
+    private static IPlatform CurrentOsWithoutSteam()
+    {
+        var environment = PlatformEnvironment.FromCurrentMachine() with { GetSteamFolder = static () => null };
+        return PlatformFactory.CurrentOs switch
+        {
+            OsKind.Windows => new WindowsPlatform(environment),
+            OsKind.MacOS => new MacOSPlatform(environment),
+            _ => new LinuxPlatform(environment),
+        };
+    }
+
     [Fact]
     public void Its_denylist_protects_the_real_home_folder_and_the_system_folder()
     {
-        var platform = PlatformFactory.ForCurrentOs();
+        var platform = CurrentOsWithoutSteam();
         var syntax = PathSyntax.For(platform.Os);
         var entries = platform.Denylist([]).Entries;
 
@@ -56,7 +70,7 @@ public class PlatformFactoryTests
     [Fact]
     public void PathSafety_on_the_real_platform_refuses_the_real_home_and_accepts_a_temp_game_folder()
     {
-        var platform = PlatformFactory.ForCurrentOs();
+        var platform = CurrentOsWithoutSteam();
         using var tree = new TempTree();
         var safety = new PathSafety(platform, platform.Directories.DefaultStorageRoot);
 

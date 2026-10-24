@@ -35,6 +35,8 @@ internal sealed class PlatformPaths
 
     public string? Known(KnownFolder folder) => AbsoluteOrNull(_environment.GetKnownFolder(folder));
 
+    public string? SteamFolder() => AbsoluteOrNull(_environment.GetSteamFolder());
+
     public string? ReadFile(string path) => _environment.ReadTextFile(path);
 
     public IReadOnlyList<string> LocalHostNames() => _environment.LocalHostNames();

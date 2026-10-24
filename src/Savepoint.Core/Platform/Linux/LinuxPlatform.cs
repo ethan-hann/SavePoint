@@ -24,6 +24,7 @@ public sealed class LinuxPlatform : IPlatform
     private readonly string _documents;
     private readonly string _desktop;
     private readonly string _downloads;
+    private readonly SteamFolders _steam;
 
     /// <summary>Builds the tables from <paramref name="environment"/>; throws <see cref="ArgumentException"/> if its home folder is not an absolute path.</summary>
     /// <param name="environment">What to read: home, variables, and the user-dirs file.</param>
@@ -57,6 +58,7 @@ public sealed class LinuxPlatform : IPlatform
             ["localAppData"] = _xdgData,
         };
 
+        _steam = new SteamFolders(_paths);
         Processes = processes ?? new LinuxProcessInspector();
     }
 
@@ -151,6 +153,8 @@ public sealed class LinuxPlatform : IPlatform
         {
             builder.Exact(_paths.Under(dataHome, "Steam"), "The Steam folder holds every Steam game");
         }
+
+        _steam.AddTo(builder);
 
         // A Steam library can be on any drive or in a Flatpak, so the library's own folders are matched by name.
         builder.NameRule("steamapps holds every game in a Steam library", "steamapps");
