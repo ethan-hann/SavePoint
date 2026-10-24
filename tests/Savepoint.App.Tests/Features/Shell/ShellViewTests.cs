@@ -499,11 +499,10 @@ public class ShellViewTests
         var page = harness.Find<ContentControl>("Page");
         var content = harness.Find<ContentControl>("ContentRegion");
         var pill = harness.Find<Button>("Pill");
-        var scroller = harness.All<ScrollViewer>().First(candidate => candidate.IsEffectivelyVisible && candidate.Classes.Contains("page-scroll"));
+        var room = harness.All<Border>().First(candidate => candidate.IsEffectivelyVisible && candidate.Classes.Contains("pill-room"));
         var pageBefore = LayoutAudit.BoundsIn(harness.Window, page);
         var contentBefore = LayoutAudit.BoundsIn(harness.Window, content);
-        var viewportBefore = scroller.Viewport.Height;
-        var extentBefore = scroller.Extent.Height;
+        Assert.Equal(0, room.Bounds.Height);
         Assert.False(pill.IsEffectivelyVisible);
 
         var job = FakeAssert.Ok(await harness.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
@@ -515,9 +514,8 @@ public class ShellViewTests
         Assert.Equal(contentBefore, LayoutAudit.BoundsIn(harness.Window, content));
         Assert.True(pageBefore.Contains(LayoutAudit.BoundsIn(harness.Window, pill)), "The pill floats over the page, not beside it.");
 
-        // The room under a page's last row is added to what scrolls; the area a person sees keeps its size.
-        Assert.Equal(viewportBefore, scroller.Viewport.Height);
-        Assert.Equal(extentBefore + 64, scroller.Extent.Height);
+        // The room for the pill grows inside the page, under its pinned content; the shell around the page keeps its size.
+        Assert.Equal(64, room.Bounds.Height);
 
         harness.Backend.Jobs.Complete(job.JobId);
         harness.Main.Toasts.DismissAll();
