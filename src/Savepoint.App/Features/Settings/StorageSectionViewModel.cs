@@ -86,10 +86,6 @@ public sealed partial class StorageSectionViewModel : ObservableObject
     [ObservableProperty]
     private string _relocationDetail = string.Empty;
 
-    /// <summary>The file the move is on.</summary>
-    [ObservableProperty]
-    private string _relocationPath = string.Empty;
-
     /// <summary>Why the last attempt to move or optimize did not go ahead or failed; null otherwise.</summary>
     [ObservableProperty]
     private ErrorCardViewModel? _problem;
@@ -260,7 +256,6 @@ public sealed partial class StorageSectionViewModel : ObservableObject
         RelocationDetail = known
             ? _deps.Text.Message("settings.storage.movingDetail", ("done", _deps.Text.FileSize(done!.Value)), ("total", _deps.Text.FileSize(total!.Value)))
             : string.Empty;
-        RelocationPath = progress.CurrentPath ?? string.Empty;
 
         if (RelocationFraction is { } fraction && _milestones.Crossed((int)Math.Floor(fraction * 100)) is { } crossed)
         {

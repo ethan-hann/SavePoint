@@ -10,7 +10,7 @@ namespace Savepoint.Core.Errors;
 /// set and enum values become camelCase strings, so an ICU select can match them and a later change to the caller's dictionary
 /// never shows.
 /// </param>
-/// <param name="Detail">English text for logs and "Show details": the exception's full <c>ToString()</c>. Never the user's copy.</param>
+/// <param name="Detail">English text for logs and for "Copy details for support": the exception's full <c>ToString()</c>. Copied on request, never shown, and never the user's copy.</param>
 public sealed record ErrorInfo(string MessageId, IReadOnlyDictionary<string, object?> Args, string Detail)
 {
     private readonly IReadOnlyDictionary<string, object?> _args = ErrorArgs.Normalize(Args);

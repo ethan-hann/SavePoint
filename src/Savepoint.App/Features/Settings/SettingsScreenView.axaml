@@ -116,7 +116,6 @@
                                IsIndeterminate="{Binding Storage.IsRelocationIndeterminate}"
                                AutomationProperties.Name="{loc:Loc settings.storage.moving}" />
                   <TextBlock Classes="caption" Text="{Binding Storage.RelocationDetail}" IsVisible="{Binding !Storage.IsRelocationIndeterminate}" />
-                  <TextBlock Classes="mono small muted" TextTrimming="CharacterEllipsis" Text="{Binding Storage.RelocationPath}" />
                 </StackPanel>
               </Border>
 

@@ -303,7 +303,7 @@ public class StorageSectionViewModelTests
     }
 
     [Fact]
-    public async Task The_move_shows_its_progress_and_the_file_it_is_on()
+    public async Task The_move_shows_its_progress()
     {
         var rig = await SettingsRig.ShownAsync();
         var job = await StartedMoveAsync(rig);
@@ -314,7 +314,6 @@ public class StorageSectionViewModelTests
         Assert.Equal(0.25, Storage(rig).RelocationValue);
         Assert.False(Storage(rig).IsRelocationIndeterminate);
         Assert.Equal("19.8 GB of 79.2 GB", Storage(rig).RelocationDetail);
-        Assert.Equal(@"Skyrim\Data\textures\wrbuilding05.dds", Storage(rig).RelocationPath);
     }
 
     [Fact]
