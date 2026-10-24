@@ -53,7 +53,6 @@ public class ScaledWindowTests
         app.Window.Width = width;
         app.Window.Height = height;
         app.Settle();
-        app.Render("scaled", $"{state}-{(int)width}x{(int)height}");
 
         var problems = LayoutAudit.Problems(app.Window);
         Assert.True(problems.Count == 0, $"{state} at {screen} ({width}x{height}):{Environment.NewLine}{string.Join(Environment.NewLine, problems)}");
