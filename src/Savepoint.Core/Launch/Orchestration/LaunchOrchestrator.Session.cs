@@ -47,9 +47,11 @@ public sealed partial class LaunchOrchestrator
             // The watcher was let go because a newer launch replaced this session.
             return;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             // The process could not be read; the session ends as of now.
+            var started = watcher.StartedPid is { } pid ? $"started pid {pid}" : "started no program";
+            _services.Log.Warning($"Launch session for {gameId} (job {launchJobId}): could not be followed; {started}: {ex.Message}", ex);
         }
 
         if (outcome is not null)

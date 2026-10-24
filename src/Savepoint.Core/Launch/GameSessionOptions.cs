@@ -36,7 +36,7 @@ public sealed record GameSessionOptions
     public TimeSpan RelaunchWindow { get; init; } = DefaultRelaunchWindow;
 
     /// <summary>Throws when the timings would spin or never wait.</summary>
-    /// <exception cref="ArgumentOutOfRangeException">The polling interval is not positive or the grace is negative.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The polling interval is not positive, or the grace or the relaunch window is negative.</exception>
     internal void EnsureValid()
     {
         if (PollInterval <= TimeSpan.Zero)
@@ -47,6 +47,11 @@ public sealed record GameSessionOptions
         if (Grace < TimeSpan.Zero)
         {
             throw new ArgumentOutOfRangeException(nameof(Grace), Grace, "The grace period cannot be negative.");
+        }
+
+        if (RelaunchWindow < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(RelaunchWindow), RelaunchWindow, "The relaunch window cannot be negative.");
         }
     }
 }

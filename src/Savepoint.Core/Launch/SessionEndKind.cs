@@ -3,7 +3,11 @@ namespace Savepoint.Core.Launch;
 /// <summary>How a play session was found to be over.</summary>
 public enum SessionEndKind
 {
-    /// <summary>The program SavePoint started exited, and no process name was configured to follow.</summary>
+    /// <summary>
+    /// The program SavePoint started exited, and no process name was configured to follow; or the program was itself the named
+    /// process and its exit was the game quitting (a long run, or a quick exit with no new copy within the grace). The end time is then
+    /// the program's exit.
+    /// </summary>
     ChildExited,
 
     /// <summary>

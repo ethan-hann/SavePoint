@@ -74,14 +74,15 @@ internal sealed class LaunchRig : IDisposable
         string? exePath = null,
         bool followProcessName = false,
         bool withSaves = true,
-        GameSessionOptions? session = null)
+        GameSessionOptions? session = null,
+        GameStarter? starter = null)
     {
         var exeName = "fg" + Guid.NewGuid().ToString("N")[..6];
         var exeFile = exeName + (OperatingSystem.IsWindows() ? ".exe" : string.Empty);
         var rigSession = session ?? new GameSessionOptions { PollInterval = TimeSpan.FromMilliseconds(100), Grace = TimeSpan.FromSeconds(3) };
         var workspace = new BackendWorkspace(options =>
         {
-            var launching = options with { Launch = LaunchOrchestrator.Factory(new LaunchOrchestratorOptions { Session = rigSession }) };
+            var launching = options with { Launch = LaunchOrchestrator.Factory(new LaunchOrchestratorOptions { Session = rigSession, Starter = starter }) };
             return configure is null ? launching : configure(launching);
         });
         try
