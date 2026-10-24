@@ -127,15 +127,16 @@
           <Button x:Name="RailLibrariesButton"
                   Classes="pill"
                   HorizontalAlignment="Stretch"
-                  Padding="12,8"
+                  Padding="16,8"
                   FontSize="13.5"
                   Command="{Binding AddFromLibrariesCommand}"
                   AutomationProperties.Name="{loc:Loc library.entry}"
                   ToolTip.Tip="{loc:Loc library.entry.hint}">
-            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
-              <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.StadiaController}" />
-              <TextBlock Text="{loc:Loc library.entry}" IsVisible="{Binding !IsCompact}" TextTrimming="CharacterEllipsis" />
-            </StackPanel>
+            <!-- A grid, not a row, so a long label wraps inside the button instead of running past it. -->
+            <Grid ColumnDefinitions="Auto,*" HorizontalAlignment="Center">
+              <TextBlock Classes="icon s18" VerticalAlignment="Center" Text="{x:Static theme:Icons.StadiaController}" />
+              <TextBlock Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap" IsVisible="{Binding !IsCompact}" Text="{loc:Loc library.entry}" />
+            </Grid>
           </Button>
           <Button x:Name="RailAddButton"
                   Classes="pill"

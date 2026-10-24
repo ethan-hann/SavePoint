@@ -125,7 +125,7 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
     /// <summary>The game rows, in list order.</summary>
     public ObservableCollection<GameRowViewModel> Games { get; } = [];
 
-    /// <summary>The selected game's row; setting it selects that game.</summary>
+    /// <summary>The selected game's row; setting it selects that game without changing the screen, so arrowing through the list never leaves a half-filled page. Opening the game is <see cref="SelectGame"/>.</summary>
     public GameRowViewModel? SelectedGameRow
     {
         get => _selectedRow;
@@ -137,7 +137,8 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
                 return;
             }
 
-            SelectGame(value.Id);
+            Select(value);
+            StartTourIfDue();
         }
     }
 
@@ -317,6 +318,13 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
         }
 
         Select(row);
+
+        // Choosing a game on purpose puts the player back on its screen, so the help page goes first.
+        if (_pane is HowItWorksViewModel)
+        {
+            ClosePane();
+        }
+
         if (Destination == NavDestination.Settings)
         {
             Navigate(NavDestination.Games);

@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 
 namespace Savepoint.App.Features.Shell;
 
@@ -17,7 +18,35 @@ public partial class ShellView : UserControl
         var games = this.FindControl<ListBox>("RailGames")!;
         games.AddHandler(GotFocusEvent, OnGameFocused, RoutingStrategies.Bubble);
         games.AddHandler(LostFocusEvent, OnGameBlurred, RoutingStrategies.Bubble);
+
+        // Selecting a game only marks it; a click or Enter on it opens it, even when it is already the selected one.
+        // The list marks Enter handled before it bubbles, so the key handler also listens to handled events.
+        foreach (var name in new[] { "RailGames", "ShelfGames" })
+        {
+            var list = this.FindControl<ListBox>(name)!;
+            list.AddHandler(TappedEvent, OnGameTapped, RoutingStrategies.Bubble);
+            list.AddHandler(KeyDownEvent, OnGameKeyDown, RoutingStrategies.Bubble, handledEventsToo: true);
+        }
     }
+
+    private void OnGameTapped(object? sender, TappedEventArgs e)
+    {
+        if (e.Source is Visual source && source.FindAncestorOfType<ListBoxItem>(includeSelf: true) is { DataContext: GameRowViewModel row })
+        {
+            OpenGame(row);
+        }
+    }
+
+    private void OnGameKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter && sender is ListBox { SelectedItem: GameRowViewModel row })
+        {
+            OpenGame(row);
+            e.Handled = true;
+        }
+    }
+
+    private void OpenGame(GameRowViewModel row) => (DataContext as ShellViewModel)?.SelectGame(row.Id);
 
     /// <inheritdoc />
     protected override void OnSizeChanged(SizeChangedEventArgs e)
