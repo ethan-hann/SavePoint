@@ -28,7 +28,7 @@
   "error.launch.canceled": "Switching was canceled.",
   "error.launch.completionNotOffered": "SavePoint can't keep this session that way. Pick one of the choices it offers after playing.",
   "error.launch.detachedCaptureNotSupported": "You're on an older snapshot of this profile. Go back to its latest snapshot before keeping new progress.",
-  "error.launch.dirtyWorkingTree": "Some files in your game folders changed since the last snapshot. Press Play to choose whether to keep or discard them.",
+  "error.launch.dirtyWorkingTree": "Some files in your game folders changed since the last snapshot. Choose whether to keep or discard them.",
   "error.launch.fileFolderClash": "{kind, select, folderHoldsFiles {SavePoint needs to put a file named {name} in your {role, select, install {install folder} external {saves folder} other {folder}}, but there's already a folder with that name, and it holds files that aren't in any snapshot (one is shown below). SavePoint won't delete your files, so it changed nothing. Move or delete the files in that folder, then try again.} other {SavePoint needs to put a folder named {name} in your {role, select, install {install folder} external {saves folder} other {folder}}, but there's already a file with that name that isn't in any snapshot (shown below). SavePoint won't delete your file, so it changed nothing. Move or delete that file, then try again.}}",
   "error.launch.noActiveSession": "SavePoint isn't tracking a play session for this game right now. Start the game from SavePoint to begin one.",
   "error.launch.sessionMoved": "The game's files changed outside this play session, so SavePoint can't safely keep your new progress here. Start the game again from SavePoint and play from the snapshot you want to keep.",

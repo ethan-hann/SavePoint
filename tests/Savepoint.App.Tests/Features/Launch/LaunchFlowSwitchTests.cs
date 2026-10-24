@@ -3,6 +3,7 @@ using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Launch;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.Core.Api;
+using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 
 namespace Savepoint.App.Tests.Features.Launch;
@@ -119,6 +120,41 @@ public class LaunchFlowSwitchTests : IDisposable
         Assert.Empty(_f.Rig.Toasts.Toasts);
 
         FlowRig.Press(card, "Try again");
+
+        Assert.Equal(2, Switches().Count);
+        Assert.Empty(_f.Starts());
+    }
+
+    [Fact]
+    public async Task A_switch_that_finds_new_changes_says_so_without_sending_the_player_to_Play_and_Review_the_changes_stays_a_switch()
+    {
+        await SwitchWithProgressAsync();
+        var job = _f.Backend.Jobs.LastStarted(JobKind.Switch);
+
+        _f.Backend.Jobs.Fail(job.JobId, ErrorInfo.From(new DirtyWorkingTreeException(RepoRole.External)));
+
+        var card = _f.Inline<ErrorCardViewModel>();
+        Assert.Equal("Some files in your game folders changed since the last snapshot. Choose whether to keep or discard them.", card.Body);
+        Assert.Equal(["Review the changes", "Dismiss"], card.Actions.Select(action => action.Label));
+
+        FlowRig.Press(card, "Review the changes");
+
+        Assert.Equal(2, Switches().Count);
+        Assert.Empty(_f.Starts());
+    }
+
+    [Fact]
+    public async Task Finish_the_switch_after_an_interrupted_switch_stays_a_switch()
+    {
+        await SwitchWithProgressAsync();
+        var job = _f.Backend.Jobs.LastStarted(JobKind.Switch);
+
+        _f.Backend.Jobs.Fail(job.JobId, ErrorInfo.From(new InterruptedSwitchException(RepoRole.Install, "abc123")));
+
+        var card = _f.Inline<ErrorCardViewModel>();
+        Assert.Equal(["Finish the switch", "Review the changes", "Dismiss"], card.Actions.Select(action => action.Label));
+
+        await FlowRig.AsyncCommand(FlowRig.Action(card, "Finish the switch")).ExecuteAsync(null);
 
         Assert.Equal(2, Switches().Count);
         Assert.Empty(_f.Starts());
