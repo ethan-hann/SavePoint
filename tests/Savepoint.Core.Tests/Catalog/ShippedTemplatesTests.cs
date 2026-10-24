@@ -154,6 +154,116 @@ public partial class ShippedTemplatesTests
         Assert.True(resolved is null, $"'{location.Path}' does not resolve on {os}: {issues?.FirstOrDefault()?.MessageId ?? resolved?.Message}");
     }
 
+    // Every saves folder a template names, with the system it is for.
+    private static IEnumerable<(string Os, string Path)> SavesPaths(GameTemplate template)
+    {
+        if (template.Definition.External is { } external)
+        {
+            yield return ("windows", external.Path);
+        }
+
+        foreach (var (os, location) in template.Hints.SavesByOs)
+        {
+            yield return (os, location.Path);
+        }
+    }
+
+    private static string[] Segments(string path) => path.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries);
+
+    // Letters and digits only, so "Crysis2Remastered" and "Crysis 2 Remastered" compare equal.
+    private static string Squash(string text) => NotAlphanumeric().Replace(Years().Replace(text, string.Empty), string.Empty).ToLowerInvariant();
+
+    [GeneratedRegex(@"[^A-Za-z0-9]+", RegexOptions.CultureInvariant)]
+    private static partial Regex NotAlphanumeric();
+
+    [GeneratedRegex(@"\(\d{4}\)", RegexOptions.CultureInvariant)]
+    private static partial Regex Years();
+
+    private static readonly HashSet<string> _fileExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "sav", "save", "dat", "bin", "json", "xml", "ini", "cfg", "conf", "lua", "db", "sl2", "txt", "log", "bak", "data", "fsav",
+        "b", "yml", "yaml", "plist", "sdt", "ess", "es3", "sqlite", "png", "jpg",
+    };
+
+    [Theory]
+    [MemberData(nameof(TemplateIds))]
+    public void A_saves_folder_does_not_end_in_a_file_name_or_a_wildcard(string id)
+    {
+        foreach (var (os, path) in SavesPaths(Template(id)))
+        {
+            var last = Segments(path)[^1];
+            var extension = Path.GetExtension(last).TrimStart('.');
+
+            Assert.DoesNotContain('*', path);
+            Assert.DoesNotContain('?', path);
+            Assert.False(extension.Length > 0 && _fileExtensions.Contains(extension), $"'{path}' ({os}) ends in a file name, not a folder.");
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(TemplateIds))]
+    public void No_saves_folder_is_another_games_folder(string id)
+    {
+        var template = Template(id);
+        var own = Squash(template.DisplayName);
+        var others = GameTemplates.All.Where(other => other.Id != id).Select(other => (other.DisplayName, Squashed: Squash(other.DisplayName)))
+            .Where(other => other.Squashed.Length > 0 && !own.Contains(other.Squashed, StringComparison.Ordinal))
+            .ToList();
+
+        foreach (var (os, path) in SavesPaths(template))
+        {
+            var named = Segments(path).Select(Squash).ToHashSet();
+            var clash = others.FirstOrDefault(other => named.Contains(other.Squashed));
+
+            Assert.True(clash.DisplayName is null, $"'{path}' ({os}) is a folder of '{clash.DisplayName}', not of '{template.DisplayName}'.");
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(TemplateIds))]
+    public void Linux_and_macos_drafts_use_only_their_own_entry(string id)
+    {
+        var template = Template(id);
+
+        foreach (var (os, key) in new[] { (OsKind.Linux, "linux"), (OsKind.MacOS, "macos") })
+        {
+            var expected = template.Hints.SavesByOs.TryGetValue(key, out var entry) ? entry : null;
+
+            Assert.Equal(expected, template.ToDraft(os).External);
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(TemplateIds))]
+    public void A_saves_folder_is_not_one_of_the_platforms_broad_folders(string id)
+    {
+        foreach (var (os, path) in SavesPaths(Template(id)))
+        {
+            AssertNotBroad(os, path);
+        }
+    }
+
+    private static void AssertNotBroad(string os, string path)
+    {
+        var platform = PlatformFor(os);
+        var resolved = new PathTokenResolver(platform).Resolve(path, "external.path");
+        var comparison = platform.PathComparison;
+        var separators = new[] { '/', '\\' };
+        foreach (var entry in platform.Denylist([]).Entries)
+        {
+            var blocked = entry.Path.TrimEnd(separators);
+            var here = resolved.TrimEnd(separators);
+            var inside = entry.Tier == DenylistTier.Subtree
+                && here.StartsWith(blocked + PlatformSeparator(os), comparison)
+                && !(entry.AllowedSubRoots ?? []).Any(root => here.StartsWith(root.TrimEnd(separators), comparison));
+            var equal = !entry.ChildrenOnly && string.Equals(here, blocked, comparison);
+
+            Assert.False(equal || inside, $"'{path}' ({os}) is {resolved}, which SavePoint will not track: {entry.Reason}");
+        }
+    }
+
+    private static char PlatformSeparator(string os) => os == "windows" ? '\\' : '/';
+
     [Theory]
     [MemberData(nameof(TemplateIds))]
     public void Per_system_saves_use_only_the_three_system_names(string id)
