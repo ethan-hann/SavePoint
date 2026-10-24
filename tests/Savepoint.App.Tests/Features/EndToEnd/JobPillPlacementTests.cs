@@ -24,12 +24,13 @@ namespace Savepoint.App.Tests.Features.EndToEnd;
 // be scrolled clear of the pill. The toasts have a row of their own, so the pill never lands on them either.
 public class JobPillPlacementTests
 {
-    private static readonly (string Name, double Width, double Height)[] _sizes =
+    // Largest first: a reused composition is only ever shrunk, so every size is one a fresh open could also produce.
+    private static readonly (string Name, double Width, double Height)[] _sizes = LargestFirst(
     [
         ("1040x660", 1040, 660),
         .. LayoutAudit.ScaledScreens,
         ("the smallest window", 640, 420),
-    ];
+    ]);
 
     private static readonly string[] _screens =
     [
@@ -51,6 +52,9 @@ public class JobPillPlacementTests
 
     // The screens that scroll something by themselves as they open (the error card into view, the selected row into view), at some of the sizes.
     private static readonly HashSet<string> _opensScrolled = ["games-failure-card", "activity"];
+
+    private static (string Name, double Width, double Height)[] LargestFirst((string Name, double Width, double Height)[] sizes) =>
+        [.. sizes.OrderByDescending(size => size.Width).ThenByDescending(size => size.Height)];
 
     public static TheoryData<string, string> ScreensInBothLayouts()
     {
