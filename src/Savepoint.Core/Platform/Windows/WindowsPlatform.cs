@@ -20,7 +20,8 @@ public sealed class WindowsPlatform : IPlatform
     /// <summary>Builds the tables from <paramref name="environment"/>; throws <see cref="ArgumentException"/> if its home folder is not an absolute Windows path.</summary>
     /// <param name="environment">What to read: home, variables, known folders, drives.</param>
     /// <param name="processes">Replaces the real process inspector, for tests.</param>
-    public WindowsPlatform(PlatformEnvironment environment, IProcessInspector? processes = null)
+    /// <param name="clock">Paces the retry of a failed Steam library read; the system clock when null.</param>
+    public WindowsPlatform(PlatformEnvironment environment, IProcessInspector? processes = null, TimeProvider? clock = null)
     {
         _paths = new PlatformPaths(_syntax, environment);
         var home = _paths.Home;
@@ -32,7 +33,7 @@ public sealed class WindowsPlatform : IPlatform
         _downloads = _paths.Known(KnownFolder.Downloads) ?? _paths.Under(home, "Downloads");
         _savedGames = _paths.Known(KnownFolder.SavedGames) ?? _paths.Under(home, "Saved Games");
         _systemDriveRoot = ReadSystemDriveRoot();
-        _steam = new SteamFolders(_paths);
+        _steam = new SteamFolders(_paths, clock);
 
         Directories = new AppDirectories(
             CatalogDir: _paths.Under(_roaming, "SavePoint"),

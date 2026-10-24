@@ -4,6 +4,7 @@ using Savepoint.Core.Platform.Linux;
 using Savepoint.Core.Platform.MacOS;
 using Savepoint.Core.Platform.Windows;
 using Savepoint.Core.Tests.Paths;
+using Savepoint.Core.Tests.Services;
 
 namespace Savepoint.Core.Tests.Platform;
 
@@ -221,6 +222,72 @@ public class SteamFolderProtectionTests
 
     [Theory]
     [MemberData(nameof(AllOs))]
+    public void A_library_read_that_fails_keeps_the_folder_protected_and_is_retried_after_a_few_seconds(OsKind os)
+    {
+        var machine = Machine.For(os);
+        var env = machine.Environment();
+        env.FailingReads[machine.LibraryFile] = 1;
+        var clock = new ManualTimeProvider();
+        var platform = machine.Platform(env, clock);
+
+        var first = platform.Denylist([]);
+        var sameMoment = platform.Denylist([]);
+        clock.Advance(TimeSpan.FromSeconds(6));
+        var later = platform.Denylist([]);
+        clock.Advance(TimeSpan.FromMinutes(5));
+        platform.Denylist([]);
+
+        Assert.Contains(first.Entries, e => e.Path == machine.SteamFolder);
+        Assert.DoesNotContain(first.Entries, e => e.Path == machine.Libraries[1]);
+        Assert.DoesNotContain(sameMoment.Entries, e => e.Path == machine.Libraries[1]);
+        Assert.Contains(later.Entries, e => e.Path == machine.Libraries[1]);
+        Assert.Equal(2, env.Reads[machine.LibraryFile]);
+    }
+
+    [Theory]
+    [MemberData(nameof(AllOs))]
+    public void A_library_file_that_appears_later_is_picked_up_on_a_retry(OsKind os)
+    {
+        var machine = Machine.For(os);
+        var env = machine.Environment();
+        var text = env.Files[machine.LibraryFile];
+        env.Files.Remove(machine.LibraryFile);
+        var clock = new ManualTimeProvider();
+        var platform = machine.Platform(env, clock);
+
+        var before = platform.Denylist([]);
+        env.Files[machine.LibraryFile] = text;
+        clock.Advance(TimeSpan.FromSeconds(6));
+        var after = platform.Denylist([]);
+
+        Assert.DoesNotContain(before.Entries, e => e.Path == machine.Libraries[1]);
+        Assert.Contains(after.Entries, e => e.Path == machine.Libraries[1]);
+    }
+
+    [Theory]
+    [MemberData(nameof(AllOs))]
+    public void A_read_that_keeps_failing_is_tried_at_most_once_per_few_seconds(OsKind os)
+    {
+        var machine = Machine.For(os);
+        var env = machine.Environment();
+        env.FailingReads[machine.LibraryFile] = 1000;
+        var clock = new ManualTimeProvider();
+        var platform = machine.Platform(env, clock);
+
+        for (var i = 0; i < 60; i++)
+        {
+            platform.Denylist([]);
+            clock.Advance(TimeSpan.FromMilliseconds(50));
+        }
+
+        Assert.Equal(1, env.Reads[machine.LibraryFile]);
+        clock.Advance(TimeSpan.FromSeconds(6));
+        platform.Denylist([]);
+        Assert.Equal(2, env.Reads[machine.LibraryFile]);
+    }
+
+    [Theory]
+    [MemberData(nameof(AllOs))]
     public void A_library_that_names_a_tier_one_root_does_not_weaken_it(OsKind os)
     {
         var machine = Machine.For(os);
@@ -286,11 +353,13 @@ public class SteamFolderProtectionTests
 
         public IPlatform Platform(FakeEnvironment env) => Platform(env.Build());
 
-        public IPlatform Platform(PlatformEnvironment env) => Os switch
+        public IPlatform Platform(FakeEnvironment env, TimeProvider clock) => Platform(env.Build(), clock);
+
+        public IPlatform Platform(PlatformEnvironment env, TimeProvider? clock = null) => Os switch
         {
-            OsKind.Windows => new WindowsPlatform(env),
-            OsKind.Linux => new LinuxPlatform(env),
-            _ => new MacOSPlatform(env),
+            OsKind.Windows => new WindowsPlatform(env, clock: clock),
+            OsKind.Linux => new LinuxPlatform(env, clock: clock),
+            _ => new MacOSPlatform(env, clock: clock),
         };
 
         public PathSafety Safety(FakeEnvironment env) =>

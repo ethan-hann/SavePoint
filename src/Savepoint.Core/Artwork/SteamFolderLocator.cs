@@ -1,6 +1,6 @@
-using System.Runtime.Versioning;
 using System.Security;
 using Savepoint.Core.Platform;
+using Savepoint.Core.Platform.Windows;
 
 namespace Savepoint.Core.Artwork;
 
@@ -42,7 +42,7 @@ public sealed class SteamFolderLocator : ISteamFolderLocator
     public static SteamFolderLocator ForPlatform(IPlatform platform)
     {
         ArgumentNullException.ThrowIfNull(platform);
-        return new SteamFolderLocator(platform.Os, platform.Directories.HomeDir, OperatingSystem.IsWindows() ? ReadRegistry : null);
+        return new SteamFolderLocator(platform.Os, platform.Directories.HomeDir, OperatingSystem.IsWindows() ? WindowsSteamRegistry.ReadSteamPath : null);
     }
 
     /// <inheritdoc />
@@ -80,18 +80,4 @@ public sealed class SteamFolderLocator : ISteamFolderLocator
 
     private string? FirstExisting(params string[] candidates) =>
         candidates.FirstOrDefault(_directoryExists);
-
-    [SupportedOSPlatform("windows")]
-    private static string? ReadRegistry()
-    {
-        try
-        {
-            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Valve\Steam");
-            return key?.GetValue("SteamPath") as string;
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException or SecurityException)
-        {
-            return null;
-        }
-    }
 }

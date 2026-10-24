@@ -2,16 +2,33 @@ namespace Savepoint.Core.Platform;
 
 /// <summary>
 /// The Steam client's folder and every library folder Steam lists, as tier 2: each holds every game in it, so none may be tracked
-/// as a whole. A game's own install folder beneath them is not affected. Lookups run once per platform, on the first table built.
+/// as a whole. A game's own install folder beneath them is not affected. A lookup that finds nothing or fails is retried on a
+/// later check, at most once per <see cref="RetryInterval"/>, so a path check never waits on repeated file reads.
 /// </summary>
-internal sealed class SteamFolders(PlatformPaths paths)
+internal sealed class SteamFolders(PlatformPaths paths, TimeProvider? clock = null)
 {
-    private readonly Lazy<(string? Client, IReadOnlyList<string> Libraries)> _found = new(() => Find(paths));
+    /// <summary>The shortest time between two attempts to find the folder or read the library list.</summary>
+    public static readonly TimeSpan RetryInterval = TimeSpan.FromSeconds(5);
 
-    /// <summary>Adds the Steam folder and the libraries to <paramref name="builder"/>; adds nothing when Steam cannot be found.</summary>
+    private readonly TimeProvider _clock = clock ?? TimeProvider.System;
+    private readonly object _gate = new();
+    private string? _client;
+    private IReadOnlyList<string> _libraries = [];
+    private bool _listRead;
+    private long _lastAttempt;
+    private bool _attempted;
+
+    /// <summary>Adds the Steam folder and the libraries found so far to <paramref name="builder"/>; adds nothing when Steam cannot be found.</summary>
     public void AddTo(DenylistBuilder builder)
     {
-        var (client, libraries) = _found.Value;
+        string? client;
+        IReadOnlyList<string> libraries;
+        lock (_gate)
+        {
+            Refresh();
+            (client, libraries) = (_client, _libraries);
+        }
+
         if (client is null)
         {
             return;
@@ -24,33 +41,50 @@ internal sealed class SteamFolders(PlatformPaths paths)
         }
     }
 
-    // Nothing here may break a path check: any failure to look means the rules that need no lookup still apply.
-    private static (string? Client, IReadOnlyList<string> Libraries) Find(PlatformPaths paths)
+    // Called with the gate held. A found folder and a read list are kept for good; anything missing is looked for again.
+    private void Refresh()
     {
-        string? client;
+        if (_listRead)
+        {
+            return;
+        }
+
+        var now = _clock.GetTimestamp();
+        if (_attempted && _clock.GetElapsedTime(_lastAttempt, now) < RetryInterval)
+        {
+            return;
+        }
+
+        _attempted = true;
+        _lastAttempt = now;
+
+        // Nothing here may break a path check: any failure to look leaves the rules that need no lookup in force.
         try
         {
-            client = paths.SteamFolder();
+            _client ??= paths.SteamFolder();
         }
         catch (Exception e) when (e is not OutOfMemoryException)
         {
-            return (null, []);
+            return;
         }
 
-        if (client is null)
+        if (_client is null)
         {
-            return (null, []);
+            return;
         }
 
-        // The folder stays protected when only its library list cannot be read.
         try
         {
-            var file = paths.Under(paths.Under(client, "steamapps"), "libraryfolders.vdf");
-            return (client, SteamLibraryFile.LibraryPaths(paths.ReadFile(file), paths.Syntax));
+            var file = paths.Under(paths.Under(_client, "steamapps"), "libraryfolders.vdf");
+            if (paths.ReadFile(file) is { } text)
+            {
+                _libraries = SteamLibraryFile.LibraryPaths(text, paths.Syntax);
+                _listRead = true;
+            }
         }
         catch (Exception e) when (e is not OutOfMemoryException)
         {
-            return (client, []);
+            // The folder stays protected; the list is tried again on a later check.
         }
     }
 }

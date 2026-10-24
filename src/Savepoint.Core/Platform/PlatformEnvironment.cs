@@ -99,7 +99,10 @@ public sealed record PlatformEnvironment
     {
         try
         {
-            return File.ReadAllText(path);
+            // Shared access, so a program writing the file at that moment (Steam) does not make the read fail.
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            using var reader = new StreamReader(stream, detectEncodingFromByteOrderMarks: true);
+            return reader.ReadToEnd();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

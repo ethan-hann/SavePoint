@@ -27,7 +27,8 @@ public sealed class MacOSPlatform : IPlatform
     /// <summary>Builds the tables from <paramref name="environment"/>; throws <see cref="ArgumentException"/> if its home folder is not an absolute path.</summary>
     /// <param name="environment">What to read: the home folder.</param>
     /// <param name="processes">Replaces the real process inspector, for tests.</param>
-    public MacOSPlatform(PlatformEnvironment environment, IProcessInspector? processes = null)
+    /// <param name="clock">Paces the retry of a failed Steam library read; the system clock when null.</param>
+    public MacOSPlatform(PlatformEnvironment environment, IProcessInspector? processes = null, TimeProvider? clock = null)
     {
         _paths = new PlatformPaths(_syntax, environment);
         var home = _paths.Home;
@@ -50,7 +51,7 @@ public sealed class MacOSPlatform : IPlatform
             ["localAppData"] = _appSupport,
         };
 
-        _steam = new SteamFolders(_paths);
+        _steam = new SteamFolders(_paths, clock);
         Processes = processes ?? new MacOSProcessInspector();
     }
 

@@ -29,6 +29,9 @@ internal sealed class FakeEnvironment
     /// <summary>How many times a file was read, by path, so a test can tell a cached answer from a repeated read.</summary>
     public Dictionary<string, int> Reads { get; } = [];
 
+    /// <summary>How many more reads of a path fail with an I/O error before reads succeed again.</summary>
+    public Dictionary<string, int> FailingReads { get; } = [];
+
     /// <summary>A Windows user with OneDrive folder backup: Documents and Desktop live under OneDrive.</summary>
     public static FakeEnvironment Windows()
     {
@@ -67,6 +70,12 @@ internal sealed class FakeEnvironment
         ReadTextFile = path =>
         {
             Reads[path] = Reads.GetValueOrDefault(path) + 1;
+            if (FailingReads.GetValueOrDefault(path) > 0)
+            {
+                FailingReads[path]--;
+                throw new IOException("The file is in use.");
+            }
+
             return Files.GetValueOrDefault(path);
         },
         LocalHostNames = () => [.. LocalHostNames],
