@@ -178,15 +178,25 @@ public class SwitchProgressDialogViewModelTests
     }
 
     [Fact]
-    public void A_count_without_a_total_stays_indeterminate_and_says_how_many_files_are_done()
+    public void A_count_without_a_total_stays_indeterminate_and_says_the_total_is_being_worked_out()
     {
         var dialog = Create();
 
         dialog.Update(new JobProgress(FilesDone: 812));
 
         Assert.True(dialog.IsIndeterminate);
-        Assert.Equal("812 files put in place so far", dialog.ProgressText);
+        Assert.Equal("Working out how much there is to copy…", dialog.ProgressText);
         Assert.Equal(string.Empty, dialog.PercentText);
+    }
+
+    [Fact]
+    public void One_file_in_all_is_not_called_files()
+    {
+        var dialog = Create();
+
+        dialog.Update(new JobProgress(FilesDone: 1, FilesTotal: 1));
+
+        Assert.Equal("1 of 1 file", dialog.ProgressText);
     }
 
     [Fact]

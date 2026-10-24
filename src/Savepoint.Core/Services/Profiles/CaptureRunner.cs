@@ -190,7 +190,7 @@ internal sealed class CaptureRunner
         IReadOnlyDictionary<RepoRole, FolderCapturePlan>? plans)
     {
         var repos = GameFolders.Repos(_services, storage, game).Where(repo => roles.Contains(repo.Role)).ToList();
-        var progress = new CombinedProgress(context);
+        var progress = new CaptureProgressCombiner(context.Progress);
         context.AddStep(JobSteps.CaptureStart, ("profile", profile.Name), ("snapshot", pointName));
 
         // The two folders are separate repositories, so they are saved side by side; one failing never stops the other.
@@ -216,7 +216,7 @@ internal sealed class CaptureRunner
         CaptureEvent capture,
         bool forksNewBranches,
         FolderCapturePlan? plan,
-        CombinedProgress.Part progress)
+        CaptureProgressCombiner.Part progress)
     {
         if (context.CancellationToken.IsCancellationRequested)
         {
@@ -256,6 +256,11 @@ internal sealed class CaptureRunner
 
             var error = e is OperationCanceledException ? new OperationCancelledByUserException(CancelledOperation.Capture, game.Id) : e;
             return new SavedFolder(repo, new FolderOutcome(repo.Role, ErrorInfo.From(error)), false, startedBranch);
+        }
+        finally
+        {
+            // A folder with nothing to store never reports, and would otherwise hold the other folder's total back until the job ends.
+            progress.Finish();
         }
     }
 
@@ -384,49 +389,4 @@ internal sealed class CaptureRunner
     }
 
     private sealed record SavedFolder(RepoRef Repo, FolderOutcome Outcome, bool Recorded, bool StartedBranch);
-
-    // Both folders report into one bar: the files done and expected add up, and the total stays unknown until every folder has counted.
-    private sealed class CombinedProgress(JobContext context)
-    {
-        private readonly Lock _gate = new();
-        private readonly Dictionary<RepoRole, (int Done, int? Total)> _parts = [];
-        private int _expected;
-
-        public Part For(RepoRole role)
-        {
-            lock (_gate)
-            {
-                _expected++;
-            }
-
-            return new Part(this, role);
-        }
-
-        private int DoneOf(RepoRole role)
-        {
-            lock (_gate)
-            {
-                return _parts.TryGetValue(role, out var part) ? part.Done : 0;
-            }
-        }
-
-        private void Update(RepoRole role, FileProgress value)
-        {
-            lock (_gate)
-            {
-                _parts[role] = (value.FilesDone, value.FilesTotal);
-                var done = _parts.Values.Sum(part => part.Done);
-                var counted = _parts.Count == _expected && _parts.Values.All(part => part.Total is not null);
-                context.Progress.Report(new JobProgress(done, counted ? _parts.Values.Sum(part => part.Total!.Value) : null, null, null, value.CurrentPath));
-            }
-        }
-
-        public sealed class Part(CombinedProgress owner, RepoRole role) : IProgress<FileProgress>
-        {
-            // The files this folder has handled so far; git reports only the files it adds, changes or removes.
-            public int FilesDone => owner.DoneOf(role);
-
-            public void Report(FileProgress value) => owner.Update(role, value);
-        }
-    }
 }

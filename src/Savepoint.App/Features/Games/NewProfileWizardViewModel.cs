@@ -80,11 +80,16 @@ public sealed partial class NewProfileWizardViewModel : DialogViewModel<bool>
     [ObservableProperty]
     private SaveState _state = SaveState.Saving;
 
-    /// <summary>"1,200 of 3,430 files copied", a count, or the hint while nothing is known.</summary>
+    /// <summary>"3.1 GB of 70 GB copied", "1,200 of 3,430 files copied", or plain words while nothing is known.</summary>
     [ObservableProperty]
     private string _progressText = string.Empty;
 
-    /// <summary>"Copying ..." with the file the capture reports; empty when it reports none.</summary>
+    /// <summary>The line under the progress text that counts files; empty when the progress text already does.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasFilesText))]
+    private string _filesText = string.Empty;
+
+    /// <summary>"Latest file finished: ..." with the file the capture reports; empty when it reports none.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasCurrentFile))]
     private string _currentFileText = string.Empty;
@@ -144,6 +149,9 @@ public sealed partial class NewProfileWizardViewModel : DialogViewModel<bool>
         CancelCommand = new RelayCommand(() => Close(false));
         StopSaveCommand = new AsyncRelayCommand(StopSaveAsync, () => IsSaving && !_stopRequested);
         CloseCommand = new RelayCommand(() => Close(Created));
+        KeepWorkingCommand = new RelayCommand(() => Close(Created));
+        BackgroundHint = text.Message("profiles.wizard.save.backgroundHint");
+        KeepWorkingHelp = text.Message("profiles.wizard.save.keepWorkingHelp");
         ProgressText = text.Message("profiles.wizard.save.savingHint");
         UpdateSteps();
         Closed += OnClosed;
@@ -234,6 +242,21 @@ public sealed partial class NewProfileWizardViewModel : DialogViewModel<bool>
 
     /// <summary>Asks the running capture to stop.</summary>
     public IAsyncRelayCommand StopSaveCommand { get; }
+
+    /// <summary>True when <see cref="FilesText"/> has something to say.</summary>
+    public bool HasFilesText => FilesText.Length > 0;
+
+    /// <summary>True while the capture runs, when the wizard can be left and the snapshot carried on without it.</summary>
+    public bool ShowKeepWorking => IsSaving;
+
+    /// <summary>What the wizard says under the bar while the first snapshot runs, so a player knows the window can be closed.</summary>
+    public string BackgroundHint { get; }
+
+    /// <summary>What a screen reader says for the Keep working button besides its name.</summary>
+    public string KeepWorkingHelp { get; }
+
+    /// <summary>Closes the wizard and leaves the running snapshot to finish in the background.</summary>
+    public IRelayCommand KeepWorkingCommand { get; }
 
     /// <summary>Closes the wizard once the save has ended.</summary>
     public IRelayCommand CloseCommand { get; }
@@ -331,6 +354,7 @@ public sealed partial class NewProfileWizardViewModel : DialogViewModel<bool>
         OnPropertyChanged(nameof(ShowContinue));
         OnPropertyChanged(nameof(ContinueLabel));
         OnPropertyChanged(nameof(ShowStopSave));
+        OnPropertyChanged(nameof(ShowKeepWorking));
         OnPropertyChanged(nameof(ShowDone));
         OnPropertyChanged(nameof(ShowClose));
         ContinueCommand.NotifyCanExecuteChanged();

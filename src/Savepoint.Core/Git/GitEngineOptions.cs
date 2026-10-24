@@ -19,6 +19,12 @@ public sealed record GitEngineOptions
     // Sees every git call just before it runs; tests use it to assert argument lists and to inject faults.
     internal Action<GitInvocation>? InvocationObserver { get; init; }
 
+    // How many bytes the object store at a path holds; tests replace it to fake the growth of a large file being stored.
+    internal Func<string, long>? ObjectStoreSize { get; init; }
+
+    // The wait between two looks at the object store while files are staged; tests replace it so no look depends on a clock.
+    internal Func<CancellationToken, Task>? SampleWait { get; init; }
+
     // Waits between the passes that re-sync paths a checkout left stale.
     internal IReadOnlyList<TimeSpan> ResyncDelays { get; init; } = [TimeSpan.FromMilliseconds(150), TimeSpan.FromMilliseconds(300)];
 

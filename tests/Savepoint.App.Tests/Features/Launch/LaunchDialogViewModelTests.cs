@@ -287,7 +287,7 @@ public class LaunchDialogViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task A_save_that_has_not_counted_its_files_yet_keeps_the_bar_moving_and_says_how_far_it_is()
+    public async Task A_save_that_has_not_counted_its_files_yet_keeps_the_bar_moving_and_says_so()
     {
         var dialog = await _rig.DialogAsync();
         var block = dialog.UnsavedBlocks[0];
@@ -296,7 +296,24 @@ public class LaunchDialogViewModelTests : IDisposable
         _rig.Backend.Jobs.ReportProgress(LastCaptureJob(), new JobProgress(FilesDone: 12));
 
         Assert.True(block.IsProgressIndeterminate);
-        Assert.Equal("12 files copied so far", block.ProgressText);
+        Assert.Equal("Working out how much there is to copy…", block.ProgressText);
+
+        _rig.Backend.Jobs.Complete(LastCaptureJob());
+        await run;
+    }
+
+    [Fact]
+    public async Task A_save_that_reports_bytes_fills_the_bar_by_bytes_and_says_so()
+    {
+        var dialog = await _rig.DialogAsync();
+        var block = dialog.UnsavedBlocks[0];
+        var run = block.SaveFirstCommand.ExecuteAsync(null);
+
+        _rig.Backend.Jobs.ReportProgress(LastCaptureJob(), new JobProgress(FilesDone: 0, FilesTotal: 3, BytesDone: 35_000_000_000, BytesTotal: 70_000_000_000));
+
+        Assert.False(block.IsProgressIndeterminate);
+        Assert.Equal(50, block.ProgressPercent);
+        Assert.Equal("35 GB of 70 GB", block.ProgressText);
 
         _rig.Backend.Jobs.Complete(LastCaptureJob());
         await run;

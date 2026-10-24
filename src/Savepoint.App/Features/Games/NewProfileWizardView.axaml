@@ -20,6 +20,13 @@
         <Button x:Name="CancelButton" Classes="text pill large" IsVisible="{Binding ShowCancel}" Command="{Binding CancelCommand}" Content="{loc:Loc common.cancel}" />
         <Button x:Name="BackButton" Classes="text pill large" IsVisible="{Binding ShowBack}" Command="{Binding BackCommand}" Content="{loc:Loc profiles.wizard.back}" />
         <Button x:Name="StopSaveButton" Classes="text pill large" IsVisible="{Binding ShowStopSave}" Command="{Binding StopSaveCommand}" Content="{loc:Loc common.cancel}" />
+        <Button x:Name="KeepWorkingButton"
+                Classes="filled pill large"
+                IsDefault="True"
+                IsVisible="{Binding ShowKeepWorking}"
+                Command="{Binding KeepWorkingCommand}"
+                Content="{loc:Loc profiles.wizard.save.keepWorking}"
+                AutomationProperties.HelpText="{Binding KeepWorkingHelp}" />
         <Button x:Name="ContinueButton" Classes="filled pill large" IsDefault="True" IsVisible="{Binding ShowContinue}" Command="{Binding ContinueCommand}" Content="{Binding ContinueLabel}" />
         <Button x:Name="DoneButton" Classes="filled pill large" IsDefault="True" IsVisible="{Binding ShowDone}" Command="{Binding CloseCommand}" Content="{loc:Loc profiles.wizard.save.done}" />
         <Button x:Name="CloseButton" Classes="pill large" IsVisible="{Binding ShowClose}" Command="{Binding CloseCommand}" Content="{loc:Loc profiles.wizard.save.close}" />
@@ -79,11 +86,13 @@
                        IsIndeterminate="{Binding IsIndeterminate}"
                        AutomationProperties.Name="{Binding ProgressText}" />
           <TextBlock x:Name="ProgressLine" Classes="caption" TextWrapping="Wrap" Text="{Binding ProgressText}" />
+          <TextBlock x:Name="FilesLine" Classes="caption subtle" TextWrapping="Wrap" IsVisible="{Binding HasFilesText}" Text="{Binding FilesText}" />
           <TextBlock x:Name="CurrentFile"
                      Classes="mono small subtle"
                      TextTrimming="CharacterEllipsis"
                      IsVisible="{Binding HasCurrentFile}"
                      Text="{Binding CurrentFileText}" />
+          <TextBlock x:Name="BackgroundHintText" Classes="caption subtle" TextWrapping="Wrap" Text="{Binding BackgroundHint}" />
         </StackPanel>
         <StackPanel x:Name="SavedBlock" Orientation="Horizontal" Spacing="12" IsVisible="{Binding IsSaved}">
           <TextBlock Classes="icon s28 success" Text="{x:Static theme:Icons.CheckCircle}" />

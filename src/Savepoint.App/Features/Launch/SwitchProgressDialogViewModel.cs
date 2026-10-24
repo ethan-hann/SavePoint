@@ -103,7 +103,7 @@ public sealed partial class SwitchProgressDialogViewModel : DialogViewModel<bool
                     ("done", _text.FileSize(bytesDone)),
                     ("total", _text.FileSize(total)),
                     ("time", _text.Duration(LaunchTiming.RoundForDisplay(left))))
-                : _text.Message("launch.progress.bytes", ("done", _text.FileSize(bytesDone)), ("total", _text.FileSize(total)));
+                : _text.BytesOf(bytesDone, total);
             ShowFraction((double)bytesDone / total);
         }
         else if (fileShare is { } files)
@@ -113,19 +113,16 @@ public sealed partial class SwitchProgressDialogViewModel : DialogViewModel<bool
             ProgressText = LaunchTiming.RemainingAtShare(files, now - _firstReport.Value) is { } left
                 ? _text.Message(
                     "launch.progress.filesWithTime",
-                    ("done", _text.Number(filesDone)),
-                    ("total", _text.Number(filesTotal)),
+                    ("progress", _text.FilesOf(filesDone, filesTotal)),
                     ("time", _text.Duration(LaunchTiming.RoundForDisplay(left))))
-                : _text.Message("launch.progress.files", ("done", _text.Number(filesDone)), ("total", _text.Number(filesTotal)));
+                : _text.FilesOf(filesDone, filesTotal);
             ShowFraction(files);
         }
         else
         {
             IsIndeterminate = true;
             PercentText = string.Empty;
-            ProgressText = progress.FilesDone is { } counted
-                ? _text.Message("launch.progress.filesSoFar", ("done", _text.Number(counted)))
-                : _text.Message("launch.progress.hint");
+            ProgressText = progress.FilesDone is not null ? _text.Counting() : _text.Message("launch.progress.hint");
         }
     }
 
