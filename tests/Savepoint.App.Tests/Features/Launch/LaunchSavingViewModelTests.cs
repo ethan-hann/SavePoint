@@ -34,6 +34,27 @@ public class LaunchSavingViewModelTests
     }
 
     [Fact]
+    public void The_start_of_finishing_is_announced_once()
+    {
+        var saving = Create();
+        var spoken = new List<string>();
+        saving.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(LaunchSavingViewModel.Announcement))
+            {
+                spoken.Add(saving.Announcement);
+            }
+        };
+
+        saving.Update(new JobProgress(3, 23, 69_300_000_000, 70_000_000_000));
+        spoken.Clear();
+        saving.Update(new JobProgress(3, 23, 69_300_000_000, 70_000_000_000, null, Finishing: true));
+        saving.Update(new JobProgress(4, 23, 69_300_000_000, 70_000_000_000, null, Finishing: true));
+
+        Assert.Equal(["Making sure everything is stored safely. This can take a few minutes for a big game."], spoken);
+    }
+
+    [Fact]
     public void Bytes_lead_when_the_job_reports_them_and_a_single_file_is_not_called_files()
     {
         var saving = Create();

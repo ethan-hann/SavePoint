@@ -163,6 +163,10 @@ public sealed partial class UnsavedChangesBlockViewModel : ObservableObject
             }
 
             ProgressText = text.Describe(progress)!;
+            if (_milestones.StartedFinishing(progress.Finishing))
+            {
+                Announcement = ProgressText;
+            }
         }
         else if (progress.FilesDone is not null)
         {

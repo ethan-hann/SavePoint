@@ -4,6 +4,19 @@ namespace Savepoint.App.Tests.Features.Common;
 
 public class ProgressMilestonesTests
 {
+    [Fact]
+    public void The_start_of_finishing_is_worth_saying_once_until_the_job_starts_over()
+    {
+        var milestones = new ProgressMilestones();
+
+        Assert.False(milestones.StartedFinishing(false));
+        Assert.True(milestones.StartedFinishing(true));
+        Assert.False(milestones.StartedFinishing(true));
+
+        milestones.Reset();
+        Assert.True(milestones.StartedFinishing(true));
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(24)]
