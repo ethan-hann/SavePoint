@@ -5,10 +5,12 @@ using Savepoint.App.Features.Editor;
 using Savepoint.App.Features.Games;
 using Savepoint.App.Features.History;
 using Savepoint.App.Features.Launch;
+using Savepoint.App.Features.Library;
 using Savepoint.App.Features.Settings;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Tests.Features.Activity;
+using Savepoint.App.Tests.Features.Library;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
@@ -71,6 +73,10 @@ internal static class AppStates
         "editor-new",
         "editor-consent",
         "editor-reconnect",
+        "library-picker",
+        "library-picker-many",
+        "library-confirm",
+        "library-add-done",
         "startup-git-unavailable",
         "startup-corrupt-catalog",
         "startup-storage-unreachable",
@@ -100,6 +106,10 @@ internal static class AppStates
         "first-run-templates",
         "editor-consent",
         "editor-reconnect",
+        "library-picker",
+        "library-picker-many",
+        "library-confirm",
+        "library-add-done",
     ];
     private const string _gitPath = @"C:\Program Files\SavePoint\git\cmd\git.exe";
     private const string _catalogDirectory = @"C:\Users\you\AppData\Roaming\SavePoint";
@@ -334,6 +344,21 @@ internal static class AppStates
                 _ = app.Main.Dialogs.ShowAsync(new ReconnectDialogViewModel(
                     new OrphanedHistory("old-game", [RepoRole.Install, RepoRole.External], [new RecoverableProfile("profile/one", "Modded run"), new RecoverableProfile("profile/two", null)]),
                     app.Text));
+                break;
+            case "library-picker" or "library-picker-many":
+                app.Backend.State.Library = LibraryStates.Scan(many: state.EndsWith("many", StringComparison.Ordinal));
+                var checklist = new LibraryPickerDialogViewModel(app.Backend.Games, app.Text);
+                _ = app.Main.Dialogs.ShowAsync(checklist);
+                await checklist.LoadAsync();
+                break;
+            case "library-confirm":
+                _ = app.Main.Dialogs.ShowAsync(new LibraryConfirmDialogViewModel(LibraryStates.Scan(many: false).Games.Take(3).ToList(), app.Text));
+                break;
+            case "library-add-done":
+                app.Backend.State.Library = LibraryStates.Scan(many: false);
+                var adding = new LibraryAddDialogViewModel(app.Backend.Games, app.Backend.State.Library.Games, app.Text);
+                _ = app.Main.Dialogs.ShowAsync(adding);
+                await adding.RunAsync();
                 break;
         }
 

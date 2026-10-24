@@ -123,6 +123,12 @@
               </Grid>
               <TextBlock x:Name="SavesErrorText" Classes="body error" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" IsVisible="{Binding SavesError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding SavesError}" />
               <ContentControl x:Name="SavesCardHost" Content="{Binding SavesCard}" IsVisible="{Binding SavesCard, Converter={x:Static ObjectConverters.IsNotNull}}" />
+              <Border x:Name="SavesMissingNote" Classes="strip" IsVisible="{Binding HasNoSavesFolder}">
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                  <TextBlock Classes="icon accent" VerticalAlignment="Top" Text="{x:Static theme:Icons.Info}" />
+                  <TextBlock Classes="caption" FontSize="13" MaxWidth="470" TextWrapping="Wrap" VerticalAlignment="Center" Text="{loc:Loc gameEditor.external.missingNote}" />
+                </StackPanel>
+              </Border>
               <Grid x:Name="LocationRow" ColumnDefinitions="Auto,*" ColumnSpacing="8">
                 <TextBlock Classes="caption" VerticalAlignment="Top" Margin="0,4,0,0" Text="{loc:Loc gameEditor.external.commonLocations}" />
                 <ItemsControl Grid.Column="1" ItemsSource="{Binding LocationChoices}">

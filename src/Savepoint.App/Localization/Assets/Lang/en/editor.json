@@ -45,6 +45,7 @@
   "gameEditor.external.location.home": "Home folder",
   "gameEditor.external.location.localAppData": "Local AppData",
   "gameEditor.external.location.savedGames": "Saved Games",
+  "gameEditor.external.missingNote": "No saves folder is set yet. Saves are often kept outside the game's own folder, in Documents or Saved Games, and many games only make that folder the first time you play. Until you add it here, SavePoint keeps snapshots of the game's files but not of your saves.",
   "gameEditor.external.pickTitle": "Choose the saves folder",
   "gameEditor.external.resolvesTo": "Full location: {path}",
   "gameEditor.fileType": "Game settings file",

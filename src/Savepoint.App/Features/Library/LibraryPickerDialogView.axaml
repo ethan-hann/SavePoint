@@ -1,0 +1,103 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:Savepoint.App.Localization"
+             xmlns:theme="using:Savepoint.App.Theme"
+             xmlns:dialogs="using:Savepoint.App.Features.Common.Dialogs"
+             xmlns:library="using:Savepoint.App.Features.Library"
+             x:Class="Savepoint.App.Features.Library.LibraryPickerDialogView"
+             x:DataType="library:LibraryPickerDialogViewModel">
+  <!-- "Add games from your libraries": a searchable checklist of the installed games found in Steam and GOG Galaxy. -->
+  <dialogs:DialogFrame>
+    <dialogs:DialogFrame.Footer>
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock x:Name="CountText" Classes="caption" VerticalAlignment="Center" IsVisible="{Binding ShowList}" Text="{Binding CountText}" AutomationProperties.LiveSetting="Polite" />
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+          <Button x:Name="CancelButton" Classes="text pill large" Content="{loc:Loc common.cancel}" Command="{Binding CancelCommand}" />
+          <Button x:Name="AddButton" Classes="filled pill large" IsDefault="True" Content="{Binding AddLabel}" Command="{Binding AddCommand}" />
+        </StackPanel>
+      </Grid>
+    </dialogs:DialogFrame.Footer>
+    <StackPanel Spacing="14">
+      <TextBlock x:Name="TitleText" Classes="dialog-title" TextWrapping="Wrap" Text="{Binding Title}" />
+      <TextBlock x:Name="IntroText" Classes="body muted" TextWrapping="Wrap" Text="{Binding Description}" />
+
+      <StackPanel x:Name="LoadingPanel" Spacing="8" IsVisible="{Binding IsLoading}">
+        <ProgressBar IsIndeterminate="True" AutomationProperties.Name="{Binding LoadingText}" />
+        <TextBlock Classes="caption" Text="{Binding LoadingText}" />
+      </StackPanel>
+
+      <Border x:Name="ErrorNote" Classes="callout error" IsVisible="{Binding HasError}">
+        <TextBlock Classes="body" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" Text="{Binding ErrorText}" />
+      </Border>
+
+      <ItemsControl x:Name="StoreNoteList" ItemsSource="{Binding StoreNotes}" IsVisible="{Binding HasStoreNotes}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="x:String">
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,4">
+              <TextBlock Classes="icon s16 muted" VerticalAlignment="Top" Margin="0,1,0,0" Text="{x:Static theme:Icons.Info}" />
+              <TextBlock Classes="caption" TextWrapping="Wrap" MaxWidth="560" Text="{Binding}" />
+            </StackPanel>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <TextBlock x:Name="EmptyText" Classes="body" TextWrapping="Wrap" IsVisible="{Binding ShowEmpty}" Text="{Binding EmptyText}" />
+
+      <StackPanel x:Name="ListControls" Spacing="10" IsVisible="{Binding ShowList}">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+          <TextBox x:Name="SearchField"
+                   Text="{Binding SearchText, Mode=TwoWay}"
+                   PlaceholderText="{loc:Loc library.picker.search}"
+                   AutomationProperties.Name="{loc:Loc library.picker.search}" />
+          <ComboBox x:Name="SortPicker"
+                    Grid.Column="1"
+                    MinWidth="200"
+                    ItemsSource="{Binding SortChoices}"
+                    SelectedItem="{Binding Sort, Mode=TwoWay}"
+                    AutomationProperties.Name="{loc:Loc library.picker.sort}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="library:LibrarySortChoice">
+                <TextBlock Text="{Binding Label}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+        </Grid>
+        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+          <CheckBox x:Name="HideAddedBox" IsChecked="{Binding HideAdded, Mode=TwoWay}" Content="{loc:Loc library.picker.hideAdded}" />
+          <Button x:Name="SelectAllButton" Grid.Column="1" Classes="text pill" Command="{Binding SelectAllCommand}" Content="{loc:Loc library.picker.selectAll}" />
+          <Button x:Name="SelectNoneButton" Grid.Column="2" Classes="text pill" Command="{Binding SelectNoneCommand}" Content="{loc:Loc library.picker.selectNone}" />
+        </Grid>
+        <Border Classes="recessed" Padding="4">
+          <ScrollViewer x:Name="GameScroll" MaxHeight="320" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <ItemsControl x:Name="GameList" ItemsSource="{Binding VisibleRows}" AutomationProperties.Name="{loc:Loc library.picker.title}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <VirtualizingStackPanel />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="library:LibraryRowViewModel">
+                  <CheckBox Margin="6,4"
+                            IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                            IsEnabled="{Binding CanSelect}"
+                            AutomationProperties.Name="{Binding AutomationName}">
+                    <StackPanel Spacing="2">
+                      <StackPanel Orientation="Horizontal" Spacing="10">
+                        <TextBlock Classes="row-title" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Classes="overline-small" VerticalAlignment="Center" Text="{Binding StoreLabel}" />
+                        <TextBlock Classes="caption accent" VerticalAlignment="Center" Text="{Binding StatusText}" />
+                      </StackPanel>
+                      <TextBlock Classes="mono small muted" TextTrimming="CharacterEllipsis" Text="{Binding InstallLine}" ToolTip.Tip="{Binding InstallLine}" />
+                      <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding SavesLine}" />
+                    </StackPanel>
+                  </CheckBox>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </Border>
+        <TextBlock x:Name="NoMatchesText" Classes="body muted" IsVisible="{Binding ShowNoMatches}" Text="{Binding NoMatchesText}" />
+      </StackPanel>
+    </StackPanel>
+  </dialogs:DialogFrame>
+</UserControl>

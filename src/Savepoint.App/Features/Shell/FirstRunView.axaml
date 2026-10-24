@@ -28,7 +28,7 @@
                    TextWrapping="Wrap"
                    Text="{loc:Loc firstRun.body}" />
       </StackPanel>
-      <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
+      <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center" ItemSpacing="12" LineSpacing="12">
         <Button x:Name="AddFirstGameButton" Classes="filled pill large" Padding="24,12" Command="{Binding AddFirstGameCommand}" AutomationProperties.Name="{loc:Loc firstRun.addFirstGame}">
           <StackPanel Orientation="Horizontal" Spacing="8">
             <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.Add}" />
@@ -41,7 +41,13 @@
             <TextBlock Text="{loc:Loc firstRun.startFromTemplate}" />
           </StackPanel>
         </Button>
-      </StackPanel>
+        <Button x:Name="AddFromLibrariesButton" Classes="pill large" Padding="24,12" Command="{Binding AddFromLibrariesCommand}" AutomationProperties.Name="{loc:Loc library.entry}" ToolTip.Tip="{loc:Loc library.entry.hint}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.StadiaController}" />
+            <TextBlock Text="{loc:Loc library.entry}" />
+          </StackPanel>
+        </Button>
+      </WrapPanel>
       <Button x:Name="HowItWorksLink" Classes="text pill" HorizontalAlignment="Center" Command="{Binding HowItWorksCommand}" AutomationProperties.Name="{loc:Loc firstRun.howItWorks}">
         <StackPanel Orientation="Horizontal" Spacing="8">
           <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.Help}" />

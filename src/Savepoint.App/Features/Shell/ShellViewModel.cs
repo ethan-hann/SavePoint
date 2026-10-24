@@ -6,6 +6,7 @@ using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Help;
+using Savepoint.App.Features.Library;
 using Savepoint.App.Theme;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
@@ -81,7 +82,8 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
                 OnPropertyChanged(nameof(ShowTour));
             }
         };
-        FirstRun = new FirstRunViewModel(text, AddGameCommand, new AsyncRelayCommand(StartFromTemplateAsync), new RelayCommand(ShowHelp));
+        AddFromLibrariesCommand = new AsyncRelayCommand(AddFromLibrariesAsync);
+        FirstRun = new FirstRunViewModel(text, AddGameCommand, new AsyncRelayCommand(StartFromTemplateAsync), AddFromLibrariesCommand, new RelayCommand(ShowHelp));
         LayoutToggle = new LayoutToggleViewModel(text, SetLayoutAsync, _layout);
         JobStatus = new JobStatusViewModel(text, dependencies.Toasts, id => Games.FirstOrDefault(row => row.Id == id)?.Name, jobId => dependencies.LaunchFlow.ShowsOutcomeOf(jobId), ShowActivity);
 
@@ -205,6 +207,9 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
 
     /// <summary>Opens the game editor in create mode.</summary>
     public IRelayCommand AddGameCommand { get; }
+
+    /// <summary>Looks through the Steam and GOG Galaxy libraries and adds the games the player checks, after one confirmation.</summary>
+    public IAsyncRelayCommand AddFromLibrariesCommand { get; }
 
     private bool PaneVisible => _pane is not null && _paneDestination == Destination;
 
@@ -696,6 +701,19 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
         _selectedRow = row;
         OnPropertyChanged(nameof(SelectedGameRow));
         OnPropertyChanged(nameof(SelectedGame));
+    }
+
+    private async Task AddFromLibrariesAsync()
+    {
+        var summary = await new LibraryImportFlow(_deps.Games, _deps.Dialogs, _deps.Text).RunAsync();
+        if (summary?.Added.FirstOrDefault()?.GameId is not { } firstAdded)
+        {
+            return;
+        }
+
+        await RefreshLibraryAsync();
+        Navigate(NavDestination.Games);
+        SelectGame(firstAdded);
     }
 
     private async Task StartFromTemplateAsync()

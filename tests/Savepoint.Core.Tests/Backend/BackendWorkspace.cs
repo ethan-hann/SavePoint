@@ -14,7 +14,8 @@ internal sealed class BackendWorkspace : IDisposable
     private readonly Func<BackendOptions, BackendOptions>? _configure;
     private int _games;
 
-    public BackendWorkspace(Func<BackendOptions, BackendOptions>? configure = null)
+    // steamFolder is where the platform says Steam is, which decides what the path judge protects.
+    public BackendWorkspace(Func<BackendOptions, BackendOptions>? configure = null, string? steamFolder = null)
     {
         _configure = configure;
         Root = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "savepoint-backend-" + Guid.NewGuid().ToString("N")));
@@ -23,7 +24,7 @@ internal sealed class BackendWorkspace : IDisposable
         InstallDirectory = Path.Combine(Root, "app");
         Directory.CreateDirectory(GamesRoot);
         Directory.CreateDirectory(InstallDirectory);
-        Platform = FakePlatforms.ForHost(Home);
+        Platform = FakePlatforms.ForHost(Home, steamFolder);
         Backend = Build();
     }
 
@@ -118,6 +119,15 @@ internal sealed class BackendWorkspace : IDisposable
             Launch: new LaunchConfig(LaunchMethod.Exe, "game.exe"),
             IgnorePaths: ignore,
             ModPathHints: modHints);
+    }
+
+    // A folder a GOG install would live in, made under the games folder.
+    public string GogFolder(string name)
+    {
+        var folder = Path.Combine(GamesRoot, "gog", name);
+        Directory.CreateDirectory(folder);
+        WriteFile(Path.Combine(folder, "DeusEx.exe"), "MZ not a real program");
+        return folder;
     }
 
     // Adds a game and fails the test if it was not simply added.
@@ -310,6 +320,7 @@ internal sealed class BackendWorkspace : IDisposable
             Git = Savepoint.Core.Git.GitBinary.Locate(Path.Combine(Root, "gitconfig")),
             // No test reads the real machine's Steam folder.
             SteamFolder = new Savepoint.Core.Tests.Artwork.FixedSteamFolder(null),
+            GogInstalls = new Savepoint.Core.Tests.Library.FakeGogInstalls(null),
         };
         return CoreBackend.Create(_configure is null ? options : _configure(options));
     }

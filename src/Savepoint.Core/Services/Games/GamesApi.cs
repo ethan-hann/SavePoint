@@ -4,6 +4,7 @@ using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Launch;
+using Savepoint.Core.Library;
 using Savepoint.Core.Services.Storage;
 
 namespace Savepoint.Core.Services.Games;
@@ -14,13 +15,16 @@ internal sealed partial class GamesApi : IGamesApi
     private readonly BackendServices _services;
     private readonly OptimizationService _optimization;
 
-    public GamesApi(BackendServices services, OptimizationService optimization)
+    private readonly LibrarySources _library;
+
+    public GamesApi(BackendServices services, OptimizationService optimization, LibrarySources library)
     {
         _services = services;
         _optimization = optimization;
+        _library = library;
     }
 
-    public IReadOnlyList<GameTemplate> Templates => GameTemplates.All;
+    public IReadOnlyList<GameTemplate> Templates => _library.Templates;
 
     public Task<OperationResult<IReadOnlyList<GameDefinition>>> ListAsync(CancellationToken cancellationToken = default) =>
         ApiGuard.RunAsync(_services.Log, () => _services.Catalog.ListGamesAsync(cancellationToken), cancellationToken);

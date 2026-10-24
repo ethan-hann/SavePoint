@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Text.Json;
 
 namespace Savepoint.Core.Catalog;
@@ -24,14 +25,31 @@ public static class GameTemplates
         {
             using var stream = assembly.GetManifestResourceStream(_resourcePrefix + file)
                 ?? throw new InvalidOperationException($"Embedded template '{file}' is missing from the assembly.");
-            var definition = JsonSerializer.Deserialize(stream, CatalogJsonContext.Default.GameDefinition)
-                ?? throw new InvalidOperationException($"Embedded template '{file}' is empty.");
-            var shared = ReadOnlyLists(definition);
-            templates.Add(new GameTemplate(shared.Id, shared.Name, shared));
+            using var reader = new StreamReader(stream);
+            templates.Add(Read(reader.ReadToEnd()));
         }
 
         return templates;
     }
+
+    // Reads one template file: the definition, and the optional library hints that sit beside it.
+    internal static GameTemplate Read(string json)
+    {
+        var definition = JsonSerializer.Deserialize(json, CatalogJsonContext.Default.GameDefinition)
+            ?? throw new InvalidOperationException("A template is empty.");
+        var shared = ReadOnlyLists(definition);
+        var hints = JsonSerializer.Deserialize(json, CatalogJsonContext.Default.TemplateFileHints)?.LibraryHints ?? new TemplateLibraryHints();
+        return new GameTemplate(shared.Id, shared.Name, shared, ReadOnlyLists(hints));
+    }
+
+    private static TemplateLibraryHints ReadOnlyLists(TemplateLibraryHints hints) => hints with
+    {
+        SteamAppIds = [.. hints.SteamAppIds],
+        SteamInstallDirs = [.. hints.SteamInstallDirs],
+        GogIds = [.. hints.GogIds],
+        GogFolders = [.. hints.GogFolders],
+        SavesByOs = hints.SavesByOs.ToFrozenDictionary(pair => pair.Key.ToLowerInvariant(), pair => pair.Value),
+    };
 
     // Drafts copy the definition but share its lists, so the lists must not be changeable through a draft.
     private static GameDefinition ReadOnlyLists(GameDefinition definition) => definition with

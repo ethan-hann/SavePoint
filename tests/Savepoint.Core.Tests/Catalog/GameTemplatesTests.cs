@@ -47,6 +47,7 @@ public class GameTemplatesTests
             SchemaVersion = 1,
             Id = "skyrim-se",
             Name = "The Elder Scrolls V: Skyrim Special Edition",
+            SteamAppId = 489830,
             Install = new InstallLocation(),
             External = new ExternalLocation(@"{documents}\My Games\Skyrim Special Edition\Saves", ExternalRole.Saves),
             Launch = new LaunchConfig(
