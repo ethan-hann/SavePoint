@@ -1,5 +1,5 @@
-# Runs the Linux gate (build with warnings as errors, every test, format check) on pushes to main and on pull requests.
-# The Windows gate (build/gate.ps1) still runs locally; there is no Windows runner.
+# Runs the Linux and Windows gates (build with warnings as errors, every test, skip check, format check) on pushes to main
+# and on pull requests. The Windows job runs on a self-hosted Windows VM in host mode, as a standard (non-admin) account.
 name: Gate
 
 on:
@@ -62,3 +62,50 @@ jobs:
           env HOME=/home/gate PATH="/opt/dotnet:$PATH" DOTNET_ROOT=/opt/dotnet
           DOTNET_CLI_USE_MSBUILD_SERVER=0 MSBUILDDISABLENODEREUSE=1
           bash build/gate.sh
+
+  windows:
+    runs-on: windows
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Same rule as the Linux job.
+      - name: Decide whether the change needs the gate
+        id: scope
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          $needed = 'true'
+          if ($env:BASE -and (git cat-file -e "$($env:BASE)^{commit}" 2>$null; $LASTEXITCODE -eq 0)) {
+            $changed = @(git diff --name-only $env:BASE HEAD)
+            $changed
+            $code = @($changed | Where-Object { $_ -and $_ -notmatch '^(docs/.*|[^/]+\.md)$' })
+            if ($code.Count -eq 0 -and $changed -notcontains 'THIRD-PARTY-NOTICES.md') { $needed = 'false' }
+          } else {
+            'No base to compare with: running the gate.'
+          }
+          "needed=$needed" | Out-File -Append -Encoding utf8 $env:GITHUB_OUTPUT
+          if ($needed -eq 'false') { 'Only documentation changed: the gate is not needed.' } else { 'Code changed: running the gate.' }
+
+      # Kept between runs in the runner's own folder; the script only downloads when the newest 10.0 SDK is missing.
+      - name: Install the .NET SDK
+        if: steps.scope.outputs.needed == 'true'
+        run: |
+          $dotnet = Join-Path ($env:RUNNER_TOOL_CACHE ?? $env:USERPROFILE) 'dotnet'
+          Invoke-WebRequest -UseBasicParsing -Uri https://dot.net/v1/dotnet-install.ps1 -OutFile "$env:RUNNER_TEMP\dotnet-install.ps1"
+          & "$env:RUNNER_TEMP\dotnet-install.ps1" -Channel 10.0 -InstallDir $dotnet -NoPath
+          "DOTNET_ROOT=$dotnet" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          $dotnet | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+
+      - name: Gate
+        if: steps.scope.outputs.needed == 'true'
+        env:
+          DOTNET_CLI_USE_MSBUILD_SERVER: '0'
+          MSBUILDDISABLENODEREUSE: '1'
+          DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+        run: ./build/gate.ps1
