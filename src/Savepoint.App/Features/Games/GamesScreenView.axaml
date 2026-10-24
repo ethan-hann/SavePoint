@@ -12,7 +12,7 @@
     The Games screen (sidebar and library layouts): the game's header, the Profiles / History chips, the profile table, the launch flow's banner or
     running card and the storage footer. The banner or card and the footer are pinned to the bottom of the pane, outside the
     table's scroll area, so a launch's progress is in view however many profiles there are. A failure card is taller, so it
-    stays below the table in the scroll area. The library layout has no art tile, path, chips or toggle (the shell's shelf
+    stays below the table in the scroll area, and so does any card while the pane is too short to pin it. The library layout has no art tile, path, chips or toggle (the shell's shelf
     and top bar carry them), so its header is a title with the same buttons.
   -->
   <UserControl.Styles>
@@ -256,7 +256,7 @@
       </StackPanel>
     </ScrollViewer>
 
-    <!-- The launch flow's banner or running card for this game, pinned above the storage footer. -->
+    <!-- The launch flow's banner or running card for this game, pinned above the storage footer while the pane has room. -->
     <ContentControl x:Name="InlineContentHost" Grid.Row="3" Margin="0,12,0,0" IsVisible="{Binding HasPinnedContent}" Content="{Binding PinnedContent}" />
 
     <!-- The storage footer, pinned to the bottom of the pane; the library layout's shelf already shows each game's size. -->
