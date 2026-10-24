@@ -7,7 +7,7 @@
              x:Class="Savepoint.App.Features.Common.Toasts.ToastHostView"
              x:DataType="toasts:ToastHostViewModel">
   <!--
-    Messages in their own row below the page, so no toast ever covers a control. Warnings and errors stay until dismissed, so
+    Messages that float over the page's bottom right corner; the page lifts its pinned content clear of them. Warnings and errors stay until dismissed, so
     the stack scrolls instead of growing without end. The hidden region is what assistive technology hears when a toast arrives.
   -->
   <StackPanel>

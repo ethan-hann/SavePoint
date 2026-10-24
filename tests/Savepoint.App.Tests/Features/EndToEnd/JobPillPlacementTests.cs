@@ -21,7 +21,7 @@ namespace Savepoint.App.Tests.Features.EndToEnd;
 // The job pill floats over the bottom left corner of the page's content while a job runs. Whatever a person needs to press must
 // still take their clicks: on every screen, in both layouts, at the sizes the reflow and scaled-window tests use. A control outside
 // a scroll area is tried as it stands; a control inside one is tried with the area scrolled to its end, because anywhere else it can
-// be scrolled clear of the pill. The toasts have a row of their own, so the pill never lands on them either.
+// be scrolled clear of the pill. The toasts float over the bottom right corner and the pill stands above them, so the pill never lands on them either.
 public class JobPillPlacementTests
 {
     // Largest first: a reused composition is only ever shrunk, so every size is one a fresh open could also produce.

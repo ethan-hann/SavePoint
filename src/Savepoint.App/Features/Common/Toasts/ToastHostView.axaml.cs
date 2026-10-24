@@ -4,8 +4,8 @@ using Avalonia.Controls;
 namespace Savepoint.App.Features.Common.Toasts;
 
 /// <summary>
-/// The toast stack; its DataContext is a <see cref="ToastHostViewModel"/>. It sits in its own row below the page, so it
-/// never covers anything. While the pointer or keyboard focus is on it, every timer is held.
+/// The toast stack; its DataContext is a <see cref="ToastHostViewModel"/>. The window floats it over the page's bottom right
+/// corner and makes room for it under the page's pinned content. While the pointer or keyboard focus is on it, every timer is held.
 /// </summary>
 public partial class ToastHostView : UserControl
 {

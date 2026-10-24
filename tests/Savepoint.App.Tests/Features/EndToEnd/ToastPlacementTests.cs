@@ -1,11 +1,20 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Savepoint.App.Features.Activity;
 using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Toasts;
+using Savepoint.App.Features.History;
+using Savepoint.App.Features.Settings;
+using Savepoint.App.Features.Shell;
 using Savepoint.App.Tests.Fakes;
+using Savepoint.App.Tests.Features.Activity;
+using Savepoint.App.Tests.Theme;
 using Savepoint.Core.Api;
+using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Tests.Features.EndToEnd;
 
@@ -41,19 +50,117 @@ public class ToastPlacementTests
         }
     }
 
-    [AvaloniaTheory]
-    [InlineData(900.0, 660.0)]
-    [InlineData(1040.0, 660.0)]
-    public async Task The_toast_stack_sits_outside_the_page_it_reports_on(double width, double height)
+    public static TheoryData<string, double, double> LayoutsAtAuditedSizes()
     {
-        using var app = await ComposedApp.StartWithViewAsync(width: width, height: height);
-        app.Toasts.Show(new ToastMessage("Could not save Skyrim Special Edition.", ToastKind.Error));
+        var data = new TheoryData<string, double, double>();
+        foreach (var layout in new[] { ShellLayout.Sidebar, ShellLayout.Library })
+        {
+            data.Add(layout.ToString(), 1040, 660);
+            data.Add(layout.ToString(), 900, 660);
+            foreach (var (_, width, height) in LayoutAudit.ScaledScreens)
+            {
+                data.Add(layout.ToString(), width, height);
+            }
+
+            data.Add(layout.ToString(), 640, 420);
+        }
+
+        return data;
+    }
+
+    [AvaloniaTheory]
+    [MemberData(nameof(LayoutsAtAuditedSizes))]
+    public async Task A_toast_floats_over_the_shell_and_leaves_its_layout_alone(string layoutName, double width, double height)
+    {
+        var layout = Enum.Parse<ShellLayout>(layoutName);
+        var backend = new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { Layout = layout }));
+        using var app = await ComposedApp.StartWithViewAsync(backend, layout: layout, width: width, height: height);
+        app.Settle();
+        var names = new[] { "ShellRoot", "Rail", "Page", "ContentRegion" };
+        var before = names.Select(name => BoundsIn(app, app.Find<Control>(name))).ToList();
+
+        app.Toasts.Show(new ToastMessage("Vanilla is loaded. Grounded was not started.", ToastKind.Success));
         app.Settle();
 
-        var page = BoundsIn(app, app.Find<ContentControl>("Page"));
-        var stack = BoundsIn(app, app.Find<ItemsControl>("ToastList"));
+        Assert.True(app.Find<ItemsControl>("ToastList").GetVisualDescendants().OfType<Border>().Any(border => border.Classes.Contains("panel")), "No toast is showing.");
+        var after = names.Select(name => BoundsIn(app, app.Find<Control>(name))).ToList();
+        for (var index = 0; index < names.Length; index++)
+        {
+            Assert.True(before[index] == after[index], $"{names[index]} moved from {before[index]} to {after[index]} when a toast showed ({layoutName}, {width}x{height}).");
+        }
 
-        Assert.False(page.Intersects(stack), $"The toast stack {stack} overlaps the page {page}.");
+        var toast = BoundsIn(app, app.Find<StackPanel>("Strip"));
+        Assert.True(new Rect(app.Window.ClientSize).Contains(toast), $"The toasts at {toast} are not inside the {app.Window.ClientSize} window.");
+        Assert.True(BoundsIn(app, app.Find<ContentControl>("Page")).Contains(toast), "The toasts float over the page, not beside it.");
+
+        app.Toasts.DismissAll();
+        app.Settle();
+        Assert.True(before.SequenceEqual(names.Select(name => BoundsIn(app, app.Find<Control>(name)))), "The shell moved when the toast went.");
+    }
+
+    // Whatever a person presses, on each screen that pins something to its bottom edge, still takes the click with toasts up.
+    [AvaloniaTheory]
+    [InlineData("games", 1040.0, 660.0)]
+    [InlineData("games", 640.0, 420.0)]
+    [InlineData("games-failure-card", 900.0, 660.0)]
+    [InlineData("games-failure-card", 910.0, 432.0)]
+    [InlineData("history", 1040.0, 660.0)]
+    [InlineData("history", 640.0, 420.0)]
+    [InlineData("activity", 900.0, 660.0)]
+    [InlineData("settings", 640.0, 420.0)]
+    public async Task No_pressable_control_is_under_a_toast_on_the_screens_that_pin_something(string screen, double width, double height)
+    {
+        var backend = new FakeBackend(ScenarioBuilder.Mockup());
+        if (screen == "activity")
+        {
+            await ActivityScenario.AddJobsAsync(backend);
+        }
+
+        using var app = await ComposedApp.StartWithViewAsync(backend, width: width, height: height);
+        switch (screen)
+        {
+            case "games-failure-card":
+                app.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync), MockupScenario.FileInUseError);
+                _ = app.Games.Profiles.Single(row => row.Id == MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null);
+                break;
+            case "history":
+                app.Show<HistoryScreenViewModel>(NavDestination.History);
+                break;
+            case "activity":
+                app.Show<ActivityScreenViewModel>(NavDestination.Activity);
+                break;
+            case "settings":
+                app.Show<SettingsScreenViewModel>(NavDestination.Settings);
+                break;
+        }
+
+        app.Toasts.Show(new ToastMessage("Could not save Skyrim Special Edition.", ToastKind.Error, "There is not enough free disk space to save this profile right now."));
+        app.Toasts.Show(new ToastMessage("Only part of Satisfactory was saved.", ToastKind.Warning, "A file is in use."));
+        app.Settle();
+
+        var problems = new List<string>();
+        var strip = app.Find<StackPanel>("Strip");
+        Redraw(app);
+        problems.AddRange(JobPillAudit.Covered(app.Window, strip, scrolledToEnd: false));
+        foreach (var scroller in app.Window.GetVisualDescendants().OfType<ScrollViewer>().Where(JobPillAudit.Scrolls))
+        {
+            scroller.ScrollToEnd();
+        }
+
+        Redraw(app);
+        problems.AddRange(JobPillAudit.Covered(app.Window, strip, scrolledToEnd: true));
+
+        Assert.True(problems.Count == 0, $"{screen} at {width}x{height}:{Environment.NewLine}{string.Join(Environment.NewLine, problems)}");
+    }
+
+    private static void Redraw(ComposedApp app)
+    {
+        app.Settle();
+        for (var frame = 0; frame < 2; frame++)
+        {
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+        }
     }
 
     private static Rect BoundsIn(ComposedApp app, Visual visual) =>

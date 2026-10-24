@@ -9,31 +9,31 @@
              x:DataType="shell:MainWindowViewModel">
   <!--
     The window's content: the page (startup screens, then the shell) with the job pill floating over the bottom left corner of
-    its content area, so the page never moves when a job starts or ends, the toasts in a row of their own below the page so
-    none ever covers a control, and the modal overlay above all of it. While a dialog is open the page is hidden from
-    assistive technology.
+    its content area and the toasts over the bottom right, so the shell never moves when either shows, and the modal overlay
+    above all of it. While the pill or a toast shows, the page keeps room under its pinned content (see the code behind), so
+    neither covers a control. While a dialog is open the page is hidden from assistive technology.
   -->
   <UserControl.Styles>
     <Style Selector="Panel.dialog-open ContentControl#Page">
       <Setter Property="AutomationProperties.AccessibilityView" Value="Raw" />
     </Style>
     <!-- While the pill shows, a page's scroll area ends with room under its last row (the pill's height and margin, and a little air), so that row can be scrolled clear of the pill. -->
-    <Style Selector="Panel.job-running ContentControl#Page ScrollViewer.page-scroll, Panel.job-running ContentControl#Page ListBox.page-scroll">
-      <Setter Property="Padding" Value="0,0,0,64" />
+    <Style Selector="Panel.has-room ContentControl#Page ScrollViewer.page-scroll, Panel.has-room ContentControl#Page ListBox.page-scroll">
+      <Setter Property="Padding" Value="{DynamicResource PageRoomPadding}" />
     </Style>
-    <!-- A screen with content pinned to its bottom edge (a footer, a launch card) ends with a pill-room strip: empty until the pill shows, then tall enough that the pinned content sits above the pill instead of under it. -->
+    <!-- A screen with content pinned to its bottom edge (a footer, a launch card) ends with a pill-room strip: empty until the pill or a toast shows, then tall enough that the pinned content sits above them instead of under them. -->
     <Style Selector="ContentControl#Page Border.pill-room">
       <Setter Property="Height" Value="0" />
     </Style>
-    <Style Selector="Panel.job-running ContentControl#Page Border.pill-room">
-      <Setter Property="Height" Value="64" />
+    <Style Selector="Panel.has-room ContentControl#Page Border.pill-room">
+      <Setter Property="Height" Value="{DynamicResource PageRoomHeight}" />
     </Style>
   </UserControl.Styles>
 
-  <Panel x:Name="Root" Classes.dialog-open="{Binding Dialogs.IsOpen}" Classes.job-running="{Binding Shell.JobStatus.IsVisible, FallbackValue=False}">
+  <Panel x:Name="Root" Classes.dialog-open="{Binding Dialogs.IsOpen}">
     <!-- Always present, so a card or banner that appears is spoken: a screen reader only follows changes to elements it already knows. -->
     <a11y:AnnouncementRegion x:Name="PageAnnouncer" />
-    <Grid RowDefinitions="*,Auto">
+    <Grid>
       <ContentControl x:Name="Page" Content="{Binding Content}" />
       <!-- The pill stands in the content area's bottom left corner, past the rail: nothing fixed sits there, while the right hand side holds the actions. -->
       <Grid ColumnDefinitions="Auto,*">
@@ -49,7 +49,7 @@
       <Panel x:Name="TourHost" IsVisible="{Binding ShowTour}">
         <help:TourOverlay x:Name="Tour" DataContext="{Binding Shell.Tour}" />
       </Panel>
-      <toasts:ToastHostView x:Name="Toasts" Grid.Row="1" DataContext="{Binding Toasts}" />
+      <toasts:ToastHostView x:Name="Toasts" HorizontalAlignment="Right" VerticalAlignment="Bottom" DataContext="{Binding Toasts}" />
     </Grid>
     <dialogs:DialogHostView DataContext="{Binding Dialogs}" />
   </Panel>
