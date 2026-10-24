@@ -27,4 +27,14 @@ public enum LibraryAddStatus
 /// <param name="Status">How it ended.</param>
 /// <param name="GameId">The id of the game in the library when it was added or already there; otherwise null.</param>
 /// <param name="Error">Why the game was refused; null for every other status.</param>
-public sealed record LibraryAddResult(string Key, string Name, LibraryAddStatus Status, string? GameId = null, ErrorInfo? Error = null);
+/// <param name="SavesFolderLeftOut">
+/// For an added game: the saves folder its template names, when it was left out because that folder does not exist yet (a game
+/// makes it the first time it is played), so the game was added with its install folder only. Null otherwise.
+/// </param>
+public sealed record LibraryAddResult(
+    string Key,
+    string Name,
+    LibraryAddStatus Status,
+    string? GameId = null,
+    ErrorInfo? Error = null,
+    string? SavesFolderLeftOut = null);

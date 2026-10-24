@@ -118,6 +118,22 @@ public class SteamInstalledGamesTests
     }
 
     [Fact]
+    public void Apps_that_share_one_install_folder_are_listed_once_under_the_lowest_app_id()
+    {
+        // On the PC the manifests came from, Fallout 4 and its Creation Kit both install into "Fallout 4", and so do the two Modern Warfare 2 apps.
+        using var rig = new SteamLibraryRig();
+        rig.AddGame(rig.SteamFolder, 1946160, "Fallout 4: Creation Kit", "Fallout 4");
+        rig.AddGame(rig.SteamFolder, 377160, "Fallout 4", "Fallout 4");
+        rig.AddGame(rig.SteamFolder, 10190, "Call of Duty: Modern Warfare 2 (2009) - Multiplayer", "Call of Duty Modern Warfare 2");
+        rig.AddGame(rig.SteamFolder, 10180, "Call of Duty: Modern Warfare 2 (2009)", "Call of Duty Modern Warfare 2");
+        rig.WriteLibraryList();
+
+        var games = Scan(rig);
+
+        Assert.Equal(["10180", "377160"], games.Select(g => g.StoreId).Order(StringComparer.Ordinal).ToList());
+    }
+
+    [Fact]
     public void A_library_on_a_drive_that_is_not_connected_is_skipped_and_the_rest_are_listed()
     {
         using var rig = new SteamLibraryRig();

@@ -34,7 +34,11 @@ internal static class SteamInstalledGames
             ScanLibrary(library, found);
         }
 
-        return [.. found.Values.OrderBy(game => game.Name, StringComparer.OrdinalIgnoreCase).ThenBy(game => game.StoreId, StringComparer.Ordinal)];
+        // Some apps share one folder (a game and its editor, a game's two modes); a folder can be added once, so the lowest app id stands for it.
+        var byFolder = found.Values
+            .GroupBy(game => game.InstallPath, StringComparer.FromComparison(syntax.Comparison))
+            .Select(group => group.OrderBy(game => game.SteamAppId).First());
+        return [.. byFolder.OrderBy(game => game.Name, StringComparer.OrdinalIgnoreCase).ThenBy(game => game.StoreId, StringComparer.Ordinal)];
     }
 
     private static List<string> Libraries(string steamFolder, PathSyntax syntax)

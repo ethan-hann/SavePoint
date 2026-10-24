@@ -15,9 +15,9 @@ internal static class FakePlatforms
     };
 
     /// <summary>The platform of the running OS, with a minimal environment rooted at <paramref name="home"/>.</summary>
-    public static IPlatform ForHost(string home)
+    public static IPlatform ForHost(string home, string? steamFolder = null)
     {
-        var env = new PlatformEnvironment { HomeDirectory = home };
+        var env = new PlatformEnvironment { HomeDirectory = home, GetSteamFolder = () => steamFolder };
         return PlatformFactory.CurrentOs switch
         {
             OsKind.Windows => new WindowsPlatform(env),

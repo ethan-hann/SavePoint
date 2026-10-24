@@ -1,6 +1,8 @@
 using Savepoint.Core.Artwork;
+using Savepoint.Core.Catalog;
 using Savepoint.Core.Diagnostics;
 using Savepoint.Core.Git;
+using Savepoint.Core.Library;
 using Savepoint.Core.Platform;
 using Savepoint.Core.Services.Storage;
 
@@ -44,6 +46,12 @@ public sealed record BackendOptions
     public ISteamFolderLocator? SteamFolder { get; init; }
 
     /// <summary>
+    /// Reads what GOG's installer recorded for installed games; the Windows registry reader on Windows and nothing on other systems
+    /// when null. Tests pass a fake so none reads the real machine.
+    /// </summary>
+    public IGogInstalls? GogInstalls { get; init; }
+
+    /// <summary>
     /// The handler game artwork is fetched through from Steam's servers (D30). Null, the default, turns online lookup off whatever the
     /// setting says, so nothing built from default options ever reaches the network; only the app's startup supplies a real one. The
     /// handler must not follow redirects or keep cookies.
@@ -61,6 +69,9 @@ public sealed record BackendOptions
 
     /// <summary>Tuning for the git engine; its defaults when null. The clock is always replaced by <see cref="Time"/>.</summary>
     public GitEngineOptions? Engine { get; init; }
+
+    // The templates a library scan matches games against; the embedded ones when null. Tests use it to match without the shipped files.
+    internal IReadOnlyList<GameTemplate>? Templates { get; init; }
 
     // Called with the source and the destination after each file of a storage move is copied and before it is verified; tests use it to inject faults.
     internal Action<string, string>? AfterRelocationCopy { get; init; }

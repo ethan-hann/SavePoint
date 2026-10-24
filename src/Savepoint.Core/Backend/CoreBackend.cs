@@ -3,7 +3,9 @@ using Savepoint.Core.Artwork;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Diagnostics;
 using Savepoint.Core.Git;
+using Savepoint.Core.Library;
 using Savepoint.Core.Platform;
+using Savepoint.Core.Platform.Windows;
 using Savepoint.Core.Services.AppStatus;
 using Savepoint.Core.Services.Games;
 using Savepoint.Core.Services.History;
@@ -116,14 +118,18 @@ public sealed class CoreBackend
         var launch = options.Launch(services);
         sessions.Attach(launch.Sessions);
 
+        var steam = options.SteamFolder ?? SteamFolderLocator.ForPlatform(platform);
+        var gog = options.GogInstalls ?? (OperatingSystem.IsWindows() ? new WindowsGogRegistry() : null);
+        var sources = new LibrarySources(steam, gog, options.Templates ?? GameTemplates.All);
+
         return new CoreBackend(
             services,
-            new GamesApi(services, optimization),
+            new GamesApi(services, optimization, sources),
             new ProfilesApi(services, optimization),
             launch.Api,
             new SettingsApi(services, optimization, new StorageRelocator(services, options.AfterRelocationCopy, options.AfterRelocationSettings), new DataClearer(services)),
             new HistoryApi(services),
             new AppStatusApi(services, options.AfterRelocationSettings),
-            new ArtworkApi(services, options.SteamFolder ?? SteamFolderLocator.ForPlatform(platform), options.ArtworkHttp));
+            new ArtworkApi(services, steam, options.ArtworkHttp));
     }
 }
