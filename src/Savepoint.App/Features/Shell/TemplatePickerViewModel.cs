@@ -13,7 +13,7 @@ public abstract record TemplateChoice
     {
     }
 
-    /// <summary>A built-in template; <see cref="GameTemplate.ToDraft"/> turns it into a definition to edit.</summary>
+    /// <summary>A built-in template; <see cref="GameTemplate.ToDraft(Random?)"/> turns it into a definition to edit.</summary>
     public sealed record Template(GameTemplate Chosen) : TemplateChoice;
 
     /// <summary>The user wants to pick a game definition file instead.</summary>

@@ -2,6 +2,10 @@
   "schemaVersion": 1,
   "id": "skyrim-se",
   "name": "The Elder Scrolls V: Skyrim Special Edition",
+  "steamAppId": 489830,
+  "libraryHints": {
+    "steamInstallDirs": ["Skyrim Special Edition"]
+  },
   "external": { "path": "{documents}\\My Games\\Skyrim Special Edition\\Saves", "role": "saves" },
   "launch": {
     "method": "exe",

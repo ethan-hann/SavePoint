@@ -15,6 +15,7 @@ namespace Savepoint.Core.Catalog;
 [JsonSerializable(typeof(AppSettings))]
 [JsonSerializable(typeof(List<GameDefinition>))]
 [JsonSerializable(typeof(List<Profile>))]
+[JsonSerializable(typeof(TemplateFileHints))]
 public sealed partial class CatalogJsonContext : JsonSerializerContext
 {
 }

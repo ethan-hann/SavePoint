@@ -7,7 +7,7 @@ namespace Savepoint.Core.Api;
 public interface IGamesApi
 {
     /// <summary>
-    /// The built-in game templates. Each template's <see cref="GameTemplate.ToDraft"/> gives a definition with a fresh id; nothing is
+    /// The built-in game templates. Each template's <see cref="GameTemplate.ToDraft(Random?)"/> gives a definition with a fresh id; nothing is
     /// saved until <see cref="AddAsync"/>. Reads memory and cannot fail.
     /// </summary>
     IReadOnlyList<GameTemplate> Templates { get; }
