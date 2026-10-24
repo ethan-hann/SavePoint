@@ -18,8 +18,8 @@ internal static class SteamLocalCache
             var cache = Path.Combine(steamFolder, "appcache", "librarycache");
             var id = appId.ToString(CultureInfo.InvariantCulture);
             var fileName = kind.SteamFileName();
-            return NewestImage(Path.Combine(cache, id), fileName)
-                ?? NewestImage(cache, $"{id}_{fileName}", recurse: false);
+            return NewestImage(Path.Combine(cache, id), kind.SteamCacheFileNames())
+                ?? NewestImage(cache, [$"{id}_{fileName}"], recurse: false);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException)
         {
@@ -28,7 +28,7 @@ internal static class SteamLocalCache
     }
 
     // Candidates are tried newest first, so a half-written or replaced file never hides an older complete one.
-    private static string? NewestImage(string folder, string fileName, bool recurse = true)
+    private static string? NewestImage(string folder, IReadOnlyList<string> fileNames, bool recurse = true)
     {
         if (!Directory.Exists(folder))
         {
@@ -43,8 +43,9 @@ internal static class SteamLocalCache
             IgnoreInaccessible = true,
             AttributesToSkip = FileAttributes.Hidden | FileAttributes.System | FileAttributes.ReparsePoint,
         };
-        return new DirectoryInfo(folder)
-            .EnumerateFiles(fileName, options)
+        var directory = new DirectoryInfo(folder);
+        return fileNames
+            .SelectMany(name => directory.EnumerateFiles(name, options))
             .OrderByDescending(file => file.LastWriteTimeUtc)
             .Select(file => file.FullName)
             .FirstOrDefault(path => ImageProbe.ReadFile(path) is not null);

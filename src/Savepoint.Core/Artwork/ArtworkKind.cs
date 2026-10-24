@@ -11,4 +11,10 @@ internal static class ArtworkKinds
 {
     // The file names Steam uses for the two images, in its library cache and on its servers.
     public static string SteamFileName(this ArtworkKind kind) => kind == ArtworkKind.Wide ? "header.jpg" : "library_600x900.jpg";
+
+    // Every name the Steam client may have cached the image under: newer games use the library_ names. Hero, logo, blur and icon files are not listed on purpose.
+    public static IReadOnlyList<string> SteamCacheFileNames(this ArtworkKind kind) =>
+        kind == ArtworkKind.Wide
+            ? ["header.jpg", "library_header.jpg"]
+            : ["library_600x900.jpg", "library_capsule_2x.jpg", "library_capsule.jpg"];
 }

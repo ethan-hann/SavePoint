@@ -34,6 +34,64 @@ public class SteamLocalCacheTests
     }
 
     [Fact]
+    public void The_names_newer_games_are_cached_under_are_found_in_their_hashed_subfolders()
+    {
+        using var steam = new TempFolder();
+        var wide = Write(steam, $"{_app}/e2b94d8cc516181f3af228a56849843cc02e5082/library_header.jpg");
+        var square = Write(steam, $"{_app}/7d4b4f430dc4d07e6562eb445456f9615cb52f77/library_capsule.jpg", TestImages.Jpeg(300, 450));
+
+        Assert.Equal(wide, SteamLocalCache.Find(steam.Path, _app, ArtworkKind.Wide));
+        Assert.Equal(square, SteamLocalCache.Find(steam.Path, _app, ArtworkKind.Square));
+    }
+
+    [Fact]
+    public void The_double_size_capsule_is_found_for_the_tall_kind()
+    {
+        using var steam = new TempFolder();
+        var square = Write(steam, $"{_app}/7d4b/library_capsule_2x.jpg", TestImages.Jpeg(600, 900));
+
+        Assert.Equal(square, SteamLocalCache.Find(steam.Path, _app, ArtworkKind.Square));
+        Assert.Null(SteamLocalCache.Find(steam.Path, _app, ArtworkKind.Wide));
+    }
+
+    [Fact]
+    public void The_newest_complete_image_wins_across_the_old_and_the_new_names()
+    {
+        using var steam = new TempFolder();
+        Write(steam, $"{_app}/a/header.jpg", written: new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        var newest = Write(steam, $"{_app}/b/library_header.jpg", written: new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        Write(steam, $"{_app}/c/library_600x900.jpg", TestImages.Jpeg(600, 900), new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        var newestSquare = Write(steam, $"{_app}/d/library_capsule.jpg", TestImages.Jpeg(300, 450), new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+
+        Assert.Equal(newest, SteamLocalCache.Find(steam.Path, _app, ArtworkKind.Wide));
+        Assert.Equal(newestSquare, SteamLocalCache.Find(steam.Path, _app, ArtworkKind.Square));
+    }
+
+    [Fact]
+    public void An_unfinished_new_name_does_not_hide_a_complete_old_one()
+    {
+        using var steam = new TempFolder();
+        var good = Write(steam, $"{_app}/a/header.jpg", written: new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        Write(steam, $"{_app}/b/library_header.jpg", TestImages.Html(), new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+
+        Assert.Equal(good, SteamLocalCache.Find(steam.Path, _app, ArtworkKind.Wide));
+    }
+
+    [Theory]
+    [InlineData("library_hero.jpg")]
+    [InlineData("library_hero_blur.jpg")]
+    [InlineData("logo.png")]
+    [InlineData("0123456789abcdef0123456789abcdef01234567.jpg")]
+    public void Hero_logo_blur_and_icon_files_are_never_taken(string name)
+    {
+        using var steam = new TempFolder();
+        Write(steam, $"{_app}/6800d1/{name}");
+
+        Assert.Null(SteamLocalCache.Find(steam.Path, _app, ArtworkKind.Wide));
+        Assert.Null(SteamLocalCache.Find(steam.Path, _app, ArtworkKind.Square));
+    }
+
+    [Fact]
     public void An_image_in_a_subfolder_of_the_apps_folder_is_found_at_any_depth()
     {
         using var steam = new TempFolder();
