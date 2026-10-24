@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Savepoint.Core\Savepoint.Core.csproj" />
+    <ProjectReference Include="..\..\tools\SkipCheck\SkipCheck.csproj" />
 
     <!-- The stand-in game is only started as a child process; referencing it builds it first without linking it. -->
     <ProjectReference Include="..\..\tools\FakeGame\FakeGame.csproj" ReferenceOutputAssembly="false" />

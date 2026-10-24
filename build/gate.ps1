@@ -24,6 +24,8 @@ $env:DOTNET_NOLOGO = '1'
 # Caps that keep one gate from saturating the machine; override per run when needed.
 $buildNodes = if ($env:SAVEPOINT_GATE_BUILD_NODES) { $env:SAVEPOINT_GATE_BUILD_NODES } else { '4' }
 $testThreads = if ($env:SAVEPOINT_GATE_TEST_THREADS) { $env:SAVEPOINT_GATE_TEST_THREADS } else { '4' }
+# Where the test step writes its xunit reports, which the skip check reads. The gate always asks for them, so SAVEPOINT_TEST_ARGS must not.
+$resultsDir = Join-Path (Get-Location) 'artifacts/test-results'
 # Extra test-platform arguments (a report, retries), space-separated, as gate.sh takes them.
 [string[]]$testArgs = if ($env:SAVEPOINT_TEST_ARGS) { @($env:SAVEPOINT_TEST_ARGS -split '\s+' | Where-Object { $_ }) } else { @() }
 
@@ -93,7 +95,11 @@ function Invoke-Step {
 
 try {
     Invoke-Step 'build' { dotnet build Savepoint.slnx -c Release -warnaserror "-m:$buildNodes" -nodeReuse:false }
-    Invoke-Step 'test' { dotnet test Savepoint.slnx -c Release --no-build --max-parallel-test-modules 1 --max-threads $testThreads @testArgs }
+    # Cleared first so a report left by an earlier run cannot stand in for this one.
+    if (Test-Path -LiteralPath $resultsDir) { Remove-Item -LiteralPath $resultsDir -Recurse -Force }
+    Invoke-Step 'test' { dotnet test Savepoint.slnx -c Release --no-build --max-parallel-test-modules 2 --max-threads $testThreads --report-xunit --results-directory $resultsDir @testArgs }
+    # A skip probe that breaks turns real tests into skips and the run still passes; this fails on any skip the list does not name.
+    Invoke-Step 'skips' { dotnet run --project tools/SkipCheck -c Release --no-build -- --reports $resultsDir --expected build/expected-skips/windows.txt }
     Invoke-Step 'format' { dotnet format Savepoint.slnx --verify-no-changes }
 }
 catch {
