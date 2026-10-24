@@ -28,6 +28,25 @@ public interface IGamesApi
     Task<OperationResult<AddGameOutcome>> AddAsync(GameDefinition definition);
 
     /// <summary>
+    /// Looks through the Steam and GOG Galaxy libraries on this computer for installed games and reports each one with the template
+    /// that matched it (Steam app id first, then install folder name, ignoring case), the saves folder that template names, and
+    /// whether the game is already in the library. Reads files and, on Windows, GOG's install records; changes nothing. A store that
+    /// is not installed contributes no games and is reported as not found, which is not an error. Fails with
+    /// <c>error.catalog.corrupt</c> when the games file is unreadable.
+    /// </summary>
+    /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c> (D23).</param>
+    Task<OperationResult<LibraryScan>> ScanLibrariesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Adds one game found by <see cref="ScanLibrariesAsync"/> through the same checks as <see cref="AddAsync"/> (validation, path
+    /// safety, consent, overlap with other games). A game that is already in the library is not added again. Nothing here asks the
+    /// player: the caller names every folder and gets a yes first. A game that cannot be added is a result, not a failed call, so one
+    /// refusal never stops a list; the call itself fails only for problems that stop every game, such as an unreadable games file.
+    /// </summary>
+    /// <param name="game">The game to add, as the scan reported it.</param>
+    Task<OperationResult<LibraryAddResult>> AddLibraryGameAsync(LibraryGame game);
+
+    /// <summary>
     /// Settles the question <see cref="AddGameOutcome.HistoryFound"/> raised: reconnects the old history or starts fresh, and adds
     /// the game either way. Fails with the ids <see cref="AddAsync"/> can, and with <c>error.gameService.noHistoryToReconnect</c> when
     /// a reconnect finds no saved history under the old id at the game's folders.
