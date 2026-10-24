@@ -67,7 +67,34 @@ public sealed partial class GamesScreenViewModel
         var started = await _deps.Profiles.CaptureAsync(row.GameId, row.Id, name);
         if (!started.Ok)
         {
-            ShowError(started.Error);
+            await ShowProfileErrorAsync(started.Error, row);
+        }
+    }
+
+    // The errors that told the player to load a profile first offer to do it: a confirmation whose button starts a switch. Any other
+    // error is a toast, as before.
+    private async Task ShowProfileErrorAsync(ErrorInfo error, ProfileRowViewModel row)
+    {
+        ProfileRowViewModel? target = error.MessageId switch
+        {
+            "error.profile.notLoaded" => row,
+            "error.gameService.profileActive" => Profiles.FirstOrDefault(other => other.Id != row.Id),
+            _ => null,
+        };
+        if (target is null)
+        {
+            ShowError(error);
+            return;
+        }
+
+        var text = _deps.Text;
+        var title = text.Message(error.MessageId == "error.profile.notLoaded" ? "errorCard.title.profileNotLoaded" : "errorCard.title.profileActive");
+        var label = error.MessageId == "error.profile.notLoaded"
+            ? text.Message("games.errorOffer.switchThis")
+            : text.Message("games.errorOffer.switchTo", ("name", target.Name));
+        if (await _deps.Dialogs.ConfirmAsync(new ConfirmRequest(title, text.Message(error), label, CancelLabel: text.Message("games.errorOffer.notNow"))))
+        {
+            await ((IProfileRowActions)this).SwitchAsync(target);
         }
     }
 
@@ -93,7 +120,7 @@ public sealed partial class GamesScreenViewModel
 
         if (preview.Value.BlockedBy is { } blocked)
         {
-            ShowError(blocked);
+            await ShowProfileErrorAsync(blocked, row);
             return;
         }
 
@@ -120,7 +147,7 @@ public sealed partial class GamesScreenViewModel
         var deleted = await _deps.Profiles.DeleteAsync(row.GameId, row.Id);
         if (!deleted.Ok)
         {
-            ShowError(deleted.Error);
+            await ShowProfileErrorAsync(deleted.Error, row);
             return;
         }
 

@@ -150,16 +150,37 @@ public class GamesScreenActionsTests
     }
 
     [Fact]
-    public async Task A_refusal_for_a_profile_that_is_not_loaded_is_shown_when_it_comes_back_from_the_api()
+    public async Task A_refusal_for_a_profile_that_is_not_loaded_offers_to_switch_to_it()
     {
         var rig = await GamesRig.StartAsync();
         rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.CaptureAsync), ErrorInfo.From(new ProfileNotLoadedException(MockupScenario.ModdedId, RepoRole.External)));
+        rig.Dialogs.AnswerConfirm(true);
 
         await rig.Screen.Profiles[0].TakeSnapshotCommand.ExecuteAsync(null);
 
+        var offer = Assert.Single(rig.Dialogs.Confirmations);
+        Assert.Equal("This profile isn't loaded", offer.Title);
         Assert.Equal(
             "A snapshot copies what your game folders hold now, and the saves folder isn't holding this profile. Switch to this profile, or play it, to load it, then take a snapshot.",
-            Assert.Single(rig.ToastTexts));
+            offer.Message);
+        Assert.Equal("Switch to this profile", offer.ConfirmLabel);
+        Assert.Empty(rig.ToastTexts);
+        var begun = Assert.Single(rig.LaunchFlow!.BegunSwitches);
+        Assert.Equal(new LaunchTarget.ProfileTip(MockupScenario.ModdedId), begun.Target);
+        Assert.Empty(rig.LaunchFlow.Begun);
+    }
+
+    [Fact]
+    public async Task Declining_the_offer_to_switch_leaves_things_as_they_are()
+    {
+        var rig = await GamesRig.StartAsync();
+        rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.CaptureAsync), ErrorInfo.From(new ProfileNotLoadedException(MockupScenario.ModdedId, RepoRole.External)));
+        rig.Dialogs.AnswerConfirm(false);
+
+        await rig.Screen.Profiles[0].TakeSnapshotCommand.ExecuteAsync(null);
+
+        Assert.Single(rig.Dialogs.Confirmations);
+        Assert.Empty(rig.LaunchFlow!.BegunSwitches);
     }
 
     [Fact]
@@ -420,15 +441,21 @@ public class GamesScreenActionsTests
     }
 
     [Fact]
-    public async Task The_active_profile_is_refused_with_its_copy_and_nothing_is_asked()
+    public async Task The_active_profile_is_refused_with_its_copy_and_offers_to_switch_to_another_profile()
     {
         var rig = await GamesRig.StartAsync();
+        rig.Dialogs.AnswerConfirm(true);
 
         await rig.Screen.Profiles[0].DeleteCommand.ExecuteAsync(null);
 
-        Assert.Empty(rig.Dialogs.Confirmations);
-        Assert.Equal(["This profile is loaded now. Switch to a different profile, or play one, then delete this one."], rig.ToastTexts);
+        var offer = Assert.Single(rig.Dialogs.Confirmations);
+        Assert.Equal("This profile is loaded now", offer.Title);
+        Assert.Equal("This profile is loaded now. Switch to a different profile, or play one, then delete this one.", offer.Message);
+        Assert.Equal("Switch to Vanilla - latest update", offer.ConfirmLabel);
+        Assert.Empty(rig.ToastTexts);
         Assert.Empty(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.DeleteAsync)));
+        var begun = Assert.Single(rig.LaunchFlow!.BegunSwitches);
+        Assert.Equal(new LaunchTarget.ProfileTip(MockupScenario.VanillaId), begun.Target);
     }
 
     [Fact]
