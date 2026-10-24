@@ -5,6 +5,7 @@ using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Tests.Features.Shell;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Errors;
 using static Savepoint.App.Tests.Fakes.MockupScenario;
 
 namespace Savepoint.App.Tests.Features.Activity;
@@ -589,6 +590,19 @@ public class ActivityScreenViewModelTests
         var snapshot = await rig.StartCaptureAsync();
         rig.Backend.Jobs.Fail(snapshot, FileInUseError);
         Assert.Contains("earlier snapshots are untouched", Details(rig).Error?.Body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_failed_job_that_names_a_file_inside_a_snapshot_folder_shows_the_game_folder()
+    {
+        var rig = await ActivityRig.ShownAsync(FakeBackend.Empty());
+        var move = await rig.StartMoveAsync();
+        var game = Path.Combine(Path.GetTempPath(), "SavePoint", "skyrim");
+        var held = Path.Combine(game, "install.git", "objects", "pack", "pack-1.pack");
+
+        rig.Backend.Jobs.Fail(move, new ErrorInfo("error.gitOperation.checkoutFailed", new Dictionary<string, object?> { ["path"] = held }, string.Empty));
+
+        Assert.Equal(game, Details(rig).Error?.Path);
     }
 
     [Fact]

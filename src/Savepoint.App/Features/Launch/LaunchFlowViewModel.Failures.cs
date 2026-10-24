@@ -37,8 +37,8 @@ public sealed partial class LaunchFlowViewModel
     }
 
     // A failure with no better answer than reading it: a refused completion, for example.
-    private void ShowPlainFailure(GameFlow flow, ErrorInfo error) =>
-        SetInline(flow, new ErrorCardViewModel(error, _deps.Text, [DismissAction(flow)]));
+    private void ShowPlainFailure(GameFlow flow, ErrorInfo error, ErrorOperation operation = ErrorOperation.Unspecified) =>
+        SetInline(flow, new ErrorCardViewModel(error, _deps.Text, [DismissAction(flow)], operation: operation));
 
     private ErrorCardAction DismissAction(GameFlow flow) =>
         new(_deps.Text.Message("common.dismiss"), new RelayCommand(() => SetInline(flow, null)));

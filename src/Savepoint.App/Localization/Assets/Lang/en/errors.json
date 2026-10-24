@@ -21,7 +21,7 @@
   "error.git.unavailable": "SavePoint can't run the built-in tool it uses to take snapshots and put your files back. Reinstall SavePoint to repair it, then open the app again.",
   "error.gitOperation.amendNotAvailable": "SavePoint can't replace that snapshot right now. Keep the session as a new snapshot or a new profile instead.",
   "error.gitOperation.checkoutFailed": "Something else on your computer is holding one of the files open. Close the game, its launcher and any mod manager, then try again.",
-  "error.gitOperation.failed": "SavePoint couldn't finish that. Try again, and if it keeps happening, the details may say why.",
+  "error.gitOperation.failed": "SavePoint couldn't finish that. Try again. If it keeps happening, use \"Copy details for support\" and include them in a bug report.",
   "error.gitOperation.unreadableFile": "SavePoint can't read the file shown below, so it can't tell whether it changed. Check that your account is allowed to read it (it may belong to another account or be marked private), then try again.",
   "error.history.pointNotFound": "That snapshot isn't in this game's history anymore, so SavePoint couldn't go back to it. Open History again and pick another one.",
   "error.launch.alreadyRunning": "This game is already running.",

@@ -149,7 +149,7 @@ try {
             # The archive takes its name only when it matches its pin, so a wrong one never sits in the folder as if it were the right one.
             $partial = "$target.part"
             Write-Host "==> $($source.Repository) at $($source.Tag)"
-            Invoke-WebRequest -Uri "$($source.Repository)/archive/refs/tags/$($source.Tag).tar.gz" -OutFile $partial
+            Invoke-WebRequest -Uri "$($source.Repository)/archive/refs/tags/$($source.Tag).tar.gz" -OutFile $partial -MaximumRetryCount 3 -RetryIntervalSec 2
             $actual = (Get-FileHash -LiteralPath $partial -Algorithm SHA256).Hash.ToLowerInvariant()
             '{0}  {1}' -f $actual, $name
             if (-not $source.Sha256) {
@@ -176,7 +176,7 @@ try {
                 '{0}  {1}' -f $package.Sha256, $package.File
                 continue
             }
-            Invoke-WebRequest -Uri $package.Url -OutFile $partial
+            Invoke-WebRequest -Uri $package.Url -OutFile $partial -MaximumRetryCount 3 -RetryIntervalSec 2
             $actual = (Get-FileHash -LiteralPath $partial -Algorithm SHA256).Hash.ToLowerInvariant()
             '{0}  {1}' -f $actual, $package.File
             if (-not $package.Sha256) {

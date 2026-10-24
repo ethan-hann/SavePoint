@@ -148,7 +148,7 @@ if [ "$sources" -eq 1 ]; then
     insources && /^  \}/ { exit }
     insources && /^      "repository": "/ { repository = $0; sub(/^      "repository": "/, "", repository); sub(/",?[ \t\r]*$/, "", repository) }
     insources && /^      "tag": "/ { tag = $0; sub(/^      "tag": "/, "", tag); sub(/",?[ \t\r]*$/, "", tag) }
-    insources && /^      "sha256": "/ { sha = $0; sub(/^      "sha256": "/, "", sha); sub(/",?[ \t\r]*$/, "", sha) }
+    insources && /^      "sha256": "/ { sha = $0; sub(/^      "sha256": "/, "", sha); sub(/",?[ \t\r]*$/, "", sha); sha = tolower(sha) }
     insources && /^    \}/ { print repository " " tag " " sha; repository = tag = sha = "" }
   ' build/git-manifest.json)"
   [ "$(printf '%s\n' "$pins" | grep -c .)" -eq 3 ] || fail "build/git-manifest.json does not pin exactly 3 source archives in \"sources\" (git, Git for Windows, dugite-native)"
@@ -180,7 +180,7 @@ if [ "$sources" -eq 1 ]; then
     inarchives && /^  \]/ { exit }
     inarchives && /^      "file": "/ { file = $0; sub(/^      "file": "/, "", file); sub(/",?[ \t\r]*$/, "", file) }
     inarchives && /^      "url": "/ { url = $0; sub(/^      "url": "/, "", url); sub(/",?[ \t\r]*$/, "", url) }
-    inarchives && /^      "sha256": "/ { sha = $0; sub(/^      "sha256": "/, "", sha); sub(/",?[ \t\r]*$/, "", sha) }
+    inarchives && /^      "sha256": "/ { sha = $0; sub(/^      "sha256": "/, "", sha); sub(/",?[ \t\r]*$/, "", sha); sha = tolower(sha) }
     inarchives && /^    \}/ { print file " " url " " sha; file = url = sha = "" }
   ' build/msys2-sources.json)"
   [ "$(printf '%s\n' "$package_pins" | grep -c .)" -gt 0 ] || fail "build/msys2-sources.json lists no source archives in \"archives\""

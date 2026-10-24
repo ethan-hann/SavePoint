@@ -544,6 +544,17 @@ public class LaunchFlowSessionTests : IDisposable
     }
 
     [Fact]
+    public async Task A_post_play_choice_refused_over_a_held_file_is_worded_for_a_snapshot()
+    {
+        await _f.PlayToExitedAsync();
+        _f.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.CompleteSessionAsync), MockupScenario.FileInUseError);
+
+        await _f.PostPlay.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal("A file is in use, so the snapshot didn't finish", _f.Inline<ErrorCardViewModel>().Title);
+    }
+
+    [Fact]
     public async Task Playing_from_an_older_point_offers_a_new_profile_by_default_and_creates_it()
     {
         await _f.PlayWithProgressAsync();

@@ -108,6 +108,38 @@ public class ErrorCardViewModelTests
     }
 
     [Fact]
+    public void A_copy_that_could_not_reach_the_clipboard_says_so()
+    {
+        var card = new ErrorCardViewModel(MockupScenario.FileInUseError, _text);
+
+        card.ConfirmCopyFailed();
+
+        Assert.Equal("SavePoint couldn't reach the clipboard. Try again.", card.CopyNote);
+    }
+
+    [Fact]
+    public void An_unclassified_git_failure_points_at_the_copy_button_not_at_details_nobody_can_read()
+    {
+        var card = new ErrorCardViewModel(ErrorInfo.From(new GitOperationException("the repository does not exist")), _text);
+
+        Assert.Contains(_text.Message("errorCard.copyDetails"), card.Body, StringComparison.Ordinal);
+        Assert.DoesNotContain("details may say", card.Body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_path_inside_a_snapshot_folder_shows_the_game_folder_instead()
+    {
+        var game = PathOnThisSystem("SavePoint", "skyrim");
+        var held = Path.Combine(game, "install.git", "objects", "pack", "pack-1.pack");
+        var error = new ErrorInfo("error.gitOperation.checkoutFailed", new Dictionary<string, object?> { ["path"] = held }, string.Empty);
+
+        var card = new ErrorCardViewModel(error, _text);
+
+        Assert.Equal(game, card.Path);
+        Assert.DoesNotContain(".git", card.Path, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void A_path_argument_that_is_not_text_is_ignored()
     {
         var error = new ErrorInfo("error.unknown", new Dictionary<string, object?> { ["path"] = 42 }, string.Empty);

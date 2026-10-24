@@ -177,13 +177,18 @@ public class ClearAllDataTests
         var job = rig.Backend.Jobs.LastStarted(JobKind.ClearData);
         var held = ErrorInfo.From(new InvalidOperationException("In use"));
 
+        // Built with the system's own separators, because the folder is found by splitting the path the way the system does.
+        var root = Path.Combine(Path.GetTempPath(), "SavePoint");
+        var game = Path.Combine(root, "skyrim");
+        var catalog = Path.Combine(root, "catalog", "games.json");
+
         rig.Backend.Jobs.Complete(job.JobId, new ClearAllDataResult(0, [
-            new ClearFailure(@"D:\SavePoint\skyrim\install.git\objects\pack-1.pack", held),
-            new ClearFailure(@"D:\SavePoint\skyrim\external.git", held),
-            new ClearFailure(@"D:\SavePoint\catalog\games.json", held),
+            new ClearFailure(Path.Combine(game, "install.git", "objects", "pack-1.pack"), held),
+            new ClearFailure(Path.Combine(game, "external.git"), held),
+            new ClearFailure(catalog, held),
         ]));
 
-        Assert.Equal(["D:\\SavePoint\\skyrim", "D:\\SavePoint\\catalog\\games.json"], Section(rig).LeftBehind!.Path!.Split(Environment.NewLine));
+        Assert.Equal([game, catalog], Section(rig).LeftBehind!.Path!.Split(Environment.NewLine));
     }
 
     [Fact]

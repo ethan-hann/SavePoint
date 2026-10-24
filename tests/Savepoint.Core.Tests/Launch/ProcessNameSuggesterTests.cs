@@ -205,6 +205,13 @@ public class ProcessNameSuggesterTests
     }
 
     [Fact]
+    public void An_anti_cheat_suffix_only_counts_at_the_end_of_the_name()
+    {
+        Assert.Equal("game_beta.exe", Suggest("Game", "game_beta.exe|5000"));
+        Assert.Null(Suggest("Game", "Game_BE.exe|5000"));
+    }
+
+    [Fact]
     public void A_runtime_with_hundreds_of_tools_is_not_a_game()
     {
         var wine = Enumerable.Range(1, 40).Select(n => $@"runtime\wine\fakedlls\tool{n}.exe|{n}").ToArray();

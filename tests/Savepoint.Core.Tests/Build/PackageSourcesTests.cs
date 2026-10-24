@@ -80,10 +80,7 @@ public partial class PackageSourcesTests
     {
         // Only a Windows build copies the bundle next to the tests; elsewhere there is no package list to compare with.
         var listing = Path.Combine(AppContext.BaseDirectory, "git", "etc", "package-versions.txt");
-        if (!File.Exists(listing))
-        {
-            return;
-        }
+        Assert.SkipUnless(File.Exists(listing), "Only a Windows build copies the git bundle next to the tests, so there is no package list to compare with.");
 
         var inBundle = File.ReadAllLines(listing).Select(line => line.Trim()).Where(line => line.Length > 0).ToHashSet(StringComparer.Ordinal);
         var covered = Archives().SelectMany(archive => archive.Provides).ToHashSet(StringComparer.Ordinal);
@@ -92,14 +89,79 @@ public partial class PackageSourcesTests
         Assert.Empty(covered.Except(inBundle));
     }
 
-    [Theory]
-    [InlineData("build/package.ps1")]
-    [InlineData("build/package.sh")]
-    public void Both_package_scripts_download_the_package_sources_from_their_manifest_into_one_folder(string script)
-    {
-        var text = File.ReadAllText(Path.Combine(RepoRoot, script));
+    // The scripts' header comments name the manifest and the folder, so only the lines that run count.
+    private static string CodeOf(string script) =>
+        string.Join('\n', File.ReadAllLines(Path.Combine(RepoRoot, script)).Where(line => !line.TrimStart().StartsWith('#')));
 
-        Assert.Contains("msys2-sources.json", text, StringComparison.Ordinal);
-        Assert.Contains("source/packages", text, StringComparison.Ordinal);
+    [Fact]
+    public void The_powershell_script_reads_the_manifest_and_downloads_and_compares_each_archive()
+    {
+        var code = CodeOf("build/package.ps1");
+
+        Assert.Contains("build/msys2-sources.json", code, StringComparison.Ordinal);
+        Assert.Contains("foreach ($package in Get-PackageSourceArchives)", code, StringComparison.Ordinal);
+        Assert.Contains("Invoke-WebRequest -Uri $package.Url", code, StringComparison.Ordinal);
+        Assert.Contains("$package.Sha256 -ne $actual", code, StringComparison.Ordinal);
+        Assert.Contains("'packages'", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_bash_script_downloads_and_compares_each_archive_it_parses_from_the_manifest()
+    {
+        var code = CodeOf("build/package.sh");
+
+        Assert.Contains("build/msys2-sources.json", code, StringComparison.Ordinal);
+        Assert.Contains("done <<<\"$package_pins\"", code, StringComparison.Ordinal);
+        Assert.Contains("download \"$url\" \"$partial\"", code, StringComparison.Ordinal);
+        Assert.Contains("\"$pinned\" != \"$actual\"", code, StringComparison.Ordinal);
+        Assert.Contains("$source_dir/packages", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task The_bash_parse_yields_every_archive_of_the_real_manifest_as_file_url_and_hash()
+    {
+        var script = File.ReadAllText(Path.Combine(RepoRoot, "build", "package.sh"));
+        const string start = "package_pins=\"$(awk '";
+        const string end = "' build/msys2-sources.json)\"";
+        var from = script.IndexOf(start, StringComparison.Ordinal);
+        Assert.True(from >= 0, "package.sh no longer parses build/msys2-sources.json with awk.");
+        from += start.Length;
+        var program = script[from..script.IndexOf(end, from, StringComparison.Ordinal)];
+
+        var folder = Directory.CreateTempSubdirectory("savepoint-awk-");
+        try
+        {
+            var file = Path.Combine(folder.FullName, "parse.awk");
+            await File.WriteAllTextAsync(file, program, TestContext.Current.CancellationToken);
+            var info = new System.Diagnostics.ProcessStartInfo("awk") { RedirectStandardOutput = true, UseShellExecute = false };
+            info.ArgumentList.Add("-f");
+            info.ArgumentList.Add(file);
+            info.ArgumentList.Add(Path.Combine(RepoRoot, "build", "msys2-sources.json"));
+            System.Diagnostics.Process? process = null;
+            try
+            {
+                process = System.Diagnostics.Process.Start(info);
+            }
+            catch (System.ComponentModel.Win32Exception)
+            {
+                // Not every machine has awk on its path.
+            }
+
+            Assert.SkipWhen(process is null, "awk is not installed here.");
+            using (process)
+            {
+                var output = await process!.StandardOutput.ReadToEndAsync(TestContext.Current.CancellationToken);
+                await process.WaitForExitAsync(TestContext.Current.CancellationToken);
+
+                var parsed = output.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => line.TrimEnd('\r')).ToList();
+                var expected = Archives().Select(archive => $"{archive.File} {archive.Url} {archive.Sha256}").ToList();
+                Assert.NotEmpty(expected);
+                Assert.Equal(expected, parsed);
+            }
+        }
+        finally
+        {
+            folder.Delete(recursive: true);
+        }
     }
 }

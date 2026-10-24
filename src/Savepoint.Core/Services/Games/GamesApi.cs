@@ -76,7 +76,7 @@ internal sealed partial class GamesApi : IGamesApi
             {
                 var folder = _services.PathTokens.Resolve(installPath, "install.path");
                 var programs = await _services.Executables.ListProgramsAsync(folder, cancellationToken).ConfigureAwait(false);
-                return ProcessNameSuggester.Suggest(Path.GetFileName(folder.TrimEnd('\\', '/')), gameName, programs) ?? string.Empty;
+                return ProcessNameSuggester.Suggest(Path.GetFileName(folder.TrimEnd('\\', '/')), gameName, programs, folder) ?? string.Empty;
             },
             cancellationToken);
 

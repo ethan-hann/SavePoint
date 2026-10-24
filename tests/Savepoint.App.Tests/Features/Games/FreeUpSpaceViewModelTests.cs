@@ -1,4 +1,5 @@
 using Savepoint.App.Features.Common;
+using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Games;
 using Savepoint.App.Localization;
@@ -42,6 +43,7 @@ public class FreeUpSpaceViewModelTests
         await rig.FreeUp.FreeUpCommand.ExecuteAsync(null);
 
         Assert.Equal([FileInUseError], rig.Errors);
+        Assert.Equal([ErrorOperation.FreeUpSpace], rig.Operations);
         Assert.False(rig.FreeUp.IsRunning);
         Assert.False(rig.FreeUp.HasStatus);
         Assert.True(rig.FreeUp.FreeUpCommand.CanExecute(null));
@@ -136,6 +138,7 @@ public class FreeUpSpaceViewModelTests
         await rig.FreeUp.FreeUpCommand.ExecuteAsync(null);
 
         Assert.Equal([FileInUseError], rig.Errors);
+        Assert.Equal([ErrorOperation.FreeUpSpace], rig.Operations);
         Assert.Empty(rig.Dialogs.Confirmations);
         Assert.Empty(rig.Backend.Jobs.List());
         Assert.False(rig.FreeUp.IsRunning);
@@ -189,7 +192,7 @@ public class FreeUpSpaceViewModelTests
         rig.Backend.Jobs.Fail(job, FileInUseError);
 
         Assert.False(rig.FreeUp.IsRunning);
-        Assert.Equal($"Couldn't free up space. {rig.Text.Message(FileInUseError)}", rig.FreeUp.StatusText);
+        Assert.Equal($"Couldn't free up space. {rig.Text.Message(FileInUseError, ErrorOperation.FreeUpSpace)}", rig.FreeUp.StatusText);
     }
 
     [Fact]
@@ -356,7 +359,11 @@ public class FreeUpSpaceViewModelTests
                 Dialogs,
                 Text,
                 new ImmediateUiDispatcher(),
-                Errors.Add,
+                (error, operation) =>
+                {
+                    Errors.Add(error);
+                    Operations.Add(operation);
+                },
                 () =>
                 {
                     AfterRuns++;
@@ -377,6 +384,8 @@ public class FreeUpSpaceViewModelTests
         public FreeUpSpaceViewModel FreeUp { get; }
 
         public List<ErrorInfo> Errors { get; } = [];
+
+        public List<ErrorOperation> Operations { get; } = [];
 
         public int AfterRuns { get; private set; }
 

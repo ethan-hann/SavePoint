@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.Core.Errors;
+using Savepoint.Core.Services.Storage;
 
 namespace Savepoint.App.Features.Common.Errors;
 
@@ -76,6 +77,8 @@ public sealed partial class ErrorCardViewModel : ObservableObject
             return null;
         }
 
+        // A file inside a game's snapshot folder reads as the game's folder, so the engine's folder name never reaches the player.
+        path = SnapshotFolderNames.Describe(path).Path;
         return error.MessageId == "error.diskSpace.low" && text.Os == "windows" ? UiFormatter.Drive(path) ?? path : path;
     }
 
@@ -118,6 +121,9 @@ public sealed partial class ErrorCardViewModel : ObservableObject
 
     /// <summary>Tells the card that the technical text reached the clipboard, so it says so.</summary>
     public void ConfirmCopied() => CopyNote = _text.Message("errorCard.copied");
+
+    /// <summary>Tells the card that the clipboard could not be reached, so it says so instead of leaving the press unanswered.</summary>
+    public void ConfirmCopyFailed() => CopyNote = _text.Message("errorCard.copyFailed");
 
     // The generated CopyDetailsCommand asks the view to put the technical text on the clipboard.
     [RelayCommand(CanExecute = nameof(HasSupportText))]

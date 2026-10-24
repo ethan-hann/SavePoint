@@ -8,7 +8,7 @@ public static class ProcessNameMatcher
 
     /// <summary>
     /// True when <paramref name="process"/> is the program <paramref name="configuredName"/> names. A trailing .exe is optional on
-    /// either side. Windows and macOS ignore case; Linux is case-sensitive unless the configured name ends in .exe (a Windows
+    /// either side, and on macOS so is a trailing .app. Windows and macOS ignore case; Linux is case-sensitive unless the configured name ends in .exe (a Windows
     /// program under Proton or Wine, whose file name keeps its Windows case rules). macOS and Linux also compare the executable
     /// file's name, since the kernel shortens process names; Linux also compares the first argument (where Proton carries the
     /// Windows path) and, last, a 15-character kernel name against the first 15 characters of the configured one.
@@ -20,6 +20,13 @@ public static class ProcessNameMatcher
     {
         var configured = configuredName.Trim();
         var wanted = WithoutExe(configured);
+
+        // A bundle's name stands for the program inside it, which is what the system lists as the process.
+        if (os == OsKind.MacOS && wanted.EndsWith(".app", StringComparison.OrdinalIgnoreCase))
+        {
+            wanted = wanted[..^4];
+        }
+
         if (wanted.Length == 0)
         {
             return false;
