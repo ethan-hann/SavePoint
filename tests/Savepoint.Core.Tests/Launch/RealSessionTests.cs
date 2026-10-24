@@ -12,9 +12,43 @@ public class RealSessionTests
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    private static GameStarter Starter(TimeSpan? grace = null, IGameLauncher? launcher = null) => new(
+    // The real process list, counting how often the watcher reads it so a test can wait for the watcher's looks instead of for a time.
+    private sealed class CountingInspector(IProcessInspector inner) : IProcessInspector
+    {
+        private readonly object _gate = new();
+        private readonly List<(int Reads, TaskCompletionSource Reached)> _waiters = [];
+        private int _reads;
+
+        public IReadOnlyList<RunningProcess> List()
+        {
+            var result = inner.List();
+            lock (_gate)
+            {
+                _reads++;
+                foreach (var waiter in _waiters.Where(waiter => _reads >= waiter.Reads))
+                {
+                    waiter.Reached.TrySetResult();
+                }
+            }
+
+            return result;
+        }
+
+        // Completes once the list has been read this many more times than it has been so far.
+        public Task ReadAgainAsync(int times)
+        {
+            lock (_gate)
+            {
+                var reached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                _waiters.Add((_reads + times, reached));
+                return reached.Task.WaitAsync(_patience, Ct);
+            }
+        }
+    }
+
+    private static GameStarter Starter(TimeSpan? grace = null, IGameLauncher? launcher = null, IProcessInspector? processes = null) => new(
         launcher ?? GameLaunchers.ForCurrentOs(),
-        FakeGameInstall.Inspector(),
+        processes ?? FakeGameInstall.Inspector(),
         PlatformFactory.CurrentOs,
         new GameSessionOptions { PollInterval = TimeSpan.FromMilliseconds(100), Grace = grace ?? TimeSpan.FromSeconds(3) },
         TimeProvider.System);
@@ -117,16 +151,24 @@ public class RealSessionTests
         using var game = new FakeGameInstall();
         var launcher = new RecordingLauncher();
         var ready = game.Combine("ready.txt");
-        using var running = GameLaunchers.ForCurrentOs().StartExecutable(game.ExecutablePath, ["--ready-file", ready, "--exit-after", "2000"], game.Folder);
-        await FakeGameProcess.WaitForReadyFileAsync(ready);
+        using var running = GameLaunchers.ForCurrentOs().StartExecutable(game.ExecutablePath, ["--ready-file", ready], game.Folder);
+        var pid = await FakeGameProcess.WaitForReadyFileAsync(ready);
 
-        using var watcher = await Starter(launcher: launcher).StartAsync(new LaunchConfig(LaunchMethod.Uri, null, "steam://run/1", null, game.Name), game.Folder, Ct);
+        var processes = new CountingInspector(FakeGameInstall.Inspector());
+        using var watcher = await Starter(launcher: launcher, processes: processes).StartAsync(new LaunchConfig(LaunchMethod.Uri, null, "steam://run/1", null, game.Name), game.Folder, Ct);
+
+        // The game stays until the test stops it, so the order of "the game left" and "the session ended" does not depend on a timer or on how
+        // soon this process collects a finished child: a session that settled before the stop settled while the game ran. The watcher has looked
+        // at the running game twice by then, so a session that ends at the first sight of it has ended already.
+        await processes.ReadAgainAsync(2);
+        var stoppedAt = DateTimeOffset.UtcNow;
+        FakeGameProcess.Kill(pid);
         var outcome = await OutcomeAsync(watcher);
 
         Assert.Equal(["steam://run/1"], launcher.Links);
         Assert.Equal(SessionEndKind.NamedProcessEnded, outcome.Kind);
         Assert.Null(outcome.ChildExitCode);
-        Assert.True(running.HasExited, "the session ended while the game was still running");
+        Assert.True(outcome.EndedAt >= stoppedAt, $"the session ended at {outcome.EndedAt:O}, before the game was stopped at {stoppedAt:O}");
     }
 
     [Fact]
