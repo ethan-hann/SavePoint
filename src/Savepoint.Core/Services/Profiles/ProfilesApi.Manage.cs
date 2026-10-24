@@ -260,7 +260,7 @@ internal sealed partial class ProfilesApi
     {
         if (_services.Sessions.IsGameRunning(game.Id))
         {
-            return new GameRunningException(game.Id, game.Name);
+            return SwitchInProgressException.Refusal(_services.Sessions, game.Id, game.Name);
         }
 
         return repos.Any(repo => BranchCheckedOut(repo, profile.BranchName)) ? new ProfileActiveException(profile.Id) : null;

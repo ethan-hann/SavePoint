@@ -18,6 +18,13 @@ public interface IGameSessions
     /// <param name="gameId">The game to ask about.</param>
     bool IsGameRunning(string gameId);
 
+    /// <summary>
+    /// True while a switch without playing holds the game. The game then counts as running for the destructive-work checks, but the
+    /// refusal should say a switch is under way. False by default.
+    /// </summary>
+    /// <param name="gameId">The game to ask about.</param>
+    bool IsSwitching(string gameId) => false;
+
     /// <summary>The profile of the game's open session, or null when none is open.</summary>
     /// <param name="gameId">The game to ask about.</param>
     string? RunningProfileId(string gameId);

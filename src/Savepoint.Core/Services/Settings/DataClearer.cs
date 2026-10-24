@@ -76,7 +76,7 @@ internal sealed class DataClearer
             return null;
         }
 
-        return new GameRunningException(running, games.FirstOrDefault(game => game.Id == running)?.Name ?? running);
+        return SwitchInProgressException.Refusal(_services.Sessions, running, games.FirstOrDefault(game => game.Id == running)?.Name ?? running);
     }
 
     private async Task<JobResult?> ClearAsync(JobContext context)

@@ -49,6 +49,7 @@ internal sealed class SessionBook : IGameSessions
     private readonly Lock _gate = new();
     private readonly Dictionary<string, SessionRecord> _records = new(StringComparer.Ordinal);
     private readonly HashSet<string> _starting = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _switchClaims = new(StringComparer.Ordinal);
     private readonly EventPump _pump;
     private long _revision;
 
@@ -64,6 +65,14 @@ internal sealed class SessionBook : IGameSessions
     public event EventHandler<LaunchSessionInfo>? SessionChanged;
 
     public event EventHandler? Changed;
+
+    public bool IsSwitching(string gameId)
+    {
+        lock (_gate)
+        {
+            return _switchClaims.Contains(gameId);
+        }
+    }
 
     public bool IsGameRunning(string gameId)
     {
@@ -125,7 +134,7 @@ internal sealed class SessionBook : IGameSessions
 
     // Claims the game for a launch that is still being checked, so two calls made at the same moment cannot both go on. False
     // when the game already has an open session or another launch is being checked.
-    public bool TryClaim(string gameId)
+    public bool TryClaim(string gameId, bool switching = false)
     {
         lock (_gate)
         {
@@ -135,6 +144,10 @@ internal sealed class SessionBook : IGameSessions
             }
 
             _starting.Add(gameId);
+            if (switching)
+            {
+                _switchClaims.Add(gameId);
+            }
         }
 
         RaiseChanged();
@@ -146,6 +159,7 @@ internal sealed class SessionBook : IGameSessions
         lock (_gate)
         {
             _starting.Remove(gameId);
+            _switchClaims.Remove(gameId);
         }
 
         RaiseChanged();

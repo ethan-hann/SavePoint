@@ -182,7 +182,7 @@ public sealed partial class LaunchOrchestrator
     {
         if (_book.IsGameRunning(game.Id) || await IsGameOpenAsync(game).ConfigureAwait(false))
         {
-            throw new GameRunningException(game.Id, game.Name);
+            throw SwitchInProgressException.Refusal(_book, game.Id, game.Name);
         }
     }
 }

@@ -49,6 +49,7 @@ public static class ErrorPresentation
         ["error.gameService.gameRunning"] = new(Icons.SportsEsports, ErrorTone.Warning, "errorCard.title.gameRunning"),
         ["error.gameService.folderMismatch"] = new(Icons.Folder, ErrorTone.Warning, "errorCard.title.folderLooksWrong"),
         ["error.gameService.pathOverlap"] = new(Icons.Block, ErrorTone.Error, "errorCard.title.folderOverlaps"),
+        ["error.gameService.switching"] = new(Icons.Schedule, ErrorTone.Neutral, "errorCard.title.switching"),
         ["error.gameService.profileActive"] = new(Icons.Info, ErrorTone.Neutral, "errorCard.title.profileActive"),
         ["error.gameService.reconnectable"] = new(Icons.History, ErrorTone.Neutral, "errorCard.title.historyFound"),
         ["error.git.unavailable"] = new(Icons.Error, ErrorTone.Error, "errorCard.title.toolMissing"),

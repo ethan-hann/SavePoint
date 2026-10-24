@@ -188,6 +188,7 @@ internal static class ContractScenario
         var job = await backend.HoldSwitchAsync(game, vanilla, cancellationToken);
         story.Add("start while a switch job runs", Show(await backend.Launch.StartAsync(game.Id, vanillaTip), _ => "unexpected success"));
         story.Add("switch while a switch job runs", Show(await backend.Launch.SwitchAsync(game.Id, vanillaTip), _ => "unexpected success"));
+        story.Add("discard while a switch job runs", Show(await backend.Launch.DiscardChangesAsync(game.Id, RepoRole.External), _ => "unexpected success"));
         story.Add("session while a switch job runs", backend.Launch.GetSession(game.Id) is null ? "no session" : "a session");
 
         backend.ReleaseSwitch();

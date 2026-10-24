@@ -17,6 +17,7 @@
   "error.gameService.noHistoryToReconnect": "SavePoint can't find that game's snapshots anymore, so it can't be reconnected. Add the game as a new one instead.",
   "error.gameService.pathOverlap": "That folder overlaps with {conflictingGameName}, which you already added. Pick a different location for one of them.",
   "error.gameService.profileActive": "This profile is loaded now. Switch to a different profile, or play one, then delete this one.",
+  "error.gameService.switching": "SavePoint is switching {gameName}'s files right now, so it can't do that yet. Wait for the switch to finish, then try again.",
   "error.gameService.reconnectable": "That folder has snapshots from a game you removed. Add it as a new game to reconnect them, or choose a different folder.",
   "error.git.unavailable": "SavePoint can't run the built-in tool it uses to take snapshots and put your files back. Reinstall SavePoint to repair it, then open the app again.",
   "error.gitOperation.amendNotAvailable": "SavePoint can't replace that snapshot right now. Keep the session as a new snapshot or a new profile instead.",

@@ -178,8 +178,12 @@ public class LaunchSwitchOnlyTests
 
         // Waiting for the lock, the switch already holds the game: nothing else may begin for it.
         Assert.True(services.Sessions.IsGameRunning(rig.Game.Id));
-        Assert.Equal("error.launch.alreadyRunning", (await rig.Launch.StartAsync(rig.Game.Id, Tip(vanilla))).Error?.MessageId);
-        Assert.Equal("error.launch.alreadyRunning", (await rig.Launch.SwitchAsync(rig.Game.Id, Tip(vanilla))).Error?.MessageId);
+        // The game is not running, so the refusals say a switch is under way and not that the game runs.
+        Assert.Equal("error.gameService.switching", (await rig.Launch.StartAsync(rig.Game.Id, Tip(vanilla))).Error?.MessageId);
+        Assert.Equal("error.gameService.switching", (await rig.Launch.SwitchAsync(rig.Game.Id, Tip(vanilla))).Error?.MessageId);
+        var refused = await rig.Launch.DiscardChangesAsync(rig.Game.Id, RepoRole.External);
+        Assert.Equal("error.gameService.switching", refused.Error?.MessageId);
+        Assert.Equal("Play", refused.Error!.Args["gameName"]);
 
         Assert.True((await rig.Jobs.CancelAsync(started.Value.JobId)).Ok);
         held.Release();

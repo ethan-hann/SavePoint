@@ -44,6 +44,7 @@ public class ErrorCopyTests
             new ProfileActiveException("profile-1"),
             new ReconnectableGameException("game-2", roles, branches),
             new GameRunningException("game-1", "Alpha"),
+            new SwitchInProgressException("game-1", "Alpha"),
             new LaunchAlreadyRunningException("game-1"),
             new NoActiveSessionException("game-1"),
             new SessionStillRunningException("game-1"),

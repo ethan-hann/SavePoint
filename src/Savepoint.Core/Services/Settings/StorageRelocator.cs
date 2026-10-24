@@ -112,7 +112,7 @@ internal sealed class StorageRelocator
         if (_services.Sessions.RunningGameIds().FirstOrDefault() is { } running)
         {
             var name = games.FirstOrDefault(game => game.Id == running)?.Name ?? running;
-            return new GameRunningException(running, name);
+            return SwitchInProgressException.Refusal(_services.Sessions, running, name);
         }
 
         try

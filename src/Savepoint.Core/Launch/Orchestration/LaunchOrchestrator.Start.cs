@@ -23,7 +23,7 @@ public sealed partial class LaunchOrchestrator
             // The claim makes the check and the session one step: a second call made at the same moment finds the game taken.
             if (!_book.TryClaim(gameId))
             {
-                throw new LaunchAlreadyRunningException(gameId);
+                throw TakenBy(game);
             }
 
             var opened = false;
@@ -62,9 +62,9 @@ public sealed partial class LaunchOrchestrator
             var game = await RequireGameAsync(gameId).ConfigureAwait(false);
 
             // The claim keeps the game taken for the whole job, so a launch or a second switch cannot begin while folders are changing.
-            if (!_book.TryClaim(gameId))
+            if (!_book.TryClaim(gameId, switching: true))
             {
-                throw new LaunchAlreadyRunningException(gameId);
+                throw TakenBy(game);
             }
 
             var started = false;
@@ -101,6 +101,10 @@ public sealed partial class LaunchOrchestrator
             _book.Unclaim(gameId);
         }
     }
+
+    // A switch that holds the game says so; anything else that holds it is a game that is running or starting.
+    private Exception TakenBy(GameDefinition game) =>
+        _book.IsSwitching(game.Id) ? new SwitchInProgressException(game.Id, game.Name) : new LaunchAlreadyRunningException(game.Id);
 
     // A game is open when the session is, or when the game's own process is still alive: a player who said they were done may have
     // left it running, and a game started outside SavePoint shows up by the process name its definition gives.

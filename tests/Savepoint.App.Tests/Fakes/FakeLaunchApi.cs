@@ -56,9 +56,9 @@ public sealed class FakeLaunchApi : ILaunchApi
         _backend.Call(_api, nameof(StartAsync), [gameId, target], () =>
         {
             State.Game(gameId);
-            if (State.IsOpen(gameId) || _switching.Contains(gameId))
+            if (Taken(gameId) is { } taken)
             {
-                return OperationResult.Failure<JobStarted>(new LaunchAlreadyRunningException(gameId));
+                return OperationResult.Failure<JobStarted>(taken);
             }
 
             var profileId = ProfileOf(gameId, target);
@@ -73,9 +73,9 @@ public sealed class FakeLaunchApi : ILaunchApi
         _backend.Call(_api, nameof(SwitchAsync), [gameId, target], () =>
         {
             State.Game(gameId);
-            if (State.IsOpen(gameId) || _switching.Contains(gameId))
+            if (Taken(gameId) is { } taken)
             {
-                return OperationResult.Failure<JobStarted>(new LaunchAlreadyRunningException(gameId));
+                return OperationResult.Failure<JobStarted>(taken);
             }
 
             _switching.Add(gameId);
@@ -89,6 +89,11 @@ public sealed class FakeLaunchApi : ILaunchApi
             State.Game(gameId);
 
             // As the real one: not while a session is open (including one waiting for the player's choice), since the game may be writing.
+            if (_switching.Contains(gameId))
+            {
+                return OperationResult.Failure<Unit>(new SwitchInProgressException(gameId, State.Game(gameId).Name));
+            }
+
             if (State.IsOpen(gameId))
             {
                 return OperationResult.Failure<Unit>(new GameRunningException(gameId, State.Game(gameId).Name));
@@ -215,6 +220,12 @@ public sealed class FakeLaunchApi : ILaunchApi
             var exited = new SessionState.Exited(running.StartedAt, playDuration, newFileCount, changedInstallFileCount, options ?? DefaultOptions(session));
             Publish(session with { State = exited });
         });
+
+    // Why a start or a switch cannot begin: a switch holds the game, or a session is open.
+    private Exception? Taken(string gameId) =>
+        _switching.Contains(gameId) ? new SwitchInProgressException(gameId, State.Game(gameId).Name)
+        : State.IsOpen(gameId) ? new LaunchAlreadyRunningException(gameId)
+        : null;
 
     private static FolderLaunchState? Clean(FolderLaunchState? state, RepoRole folder) =>
         state is not null && state.Role == folder ? state with { Dirty = false, DirtyFileCount = 0, DirtyOwnerProfileId = null } : state;

@@ -31,7 +31,7 @@ internal sealed partial class GamesApi
                 // The session and its after-play save read the folders from the catalog later, so they must not move under it.
                 if (_services.Sessions.IsGameRunning(existing.Id) && FoldersDiffer(before, folders))
                 {
-                    throw new GameRunningException(existing.Id, existing.Name);
+                    throw SwitchInProgressException.Refusal(_services.Sessions, existing.Id, existing.Name);
                 }
 
                 if (!confirmFolderChange)

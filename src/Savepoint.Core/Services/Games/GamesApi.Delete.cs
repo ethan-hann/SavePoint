@@ -43,7 +43,7 @@ internal sealed partial class GamesApi
                 var game = await RequireGameAsync(gameId, CancellationToken.None).ConfigureAwait(false);
                 if (_services.Sessions.IsGameRunning(game.Id))
                 {
-                    throw new GameRunningException(game.Id, game.Name);
+                    throw SwitchInProgressException.Refusal(_services.Sessions, game.Id, game.Name);
                 }
 
                 // The engine takes the markers out of the game's folders with the repositories; a folder that cannot be found is skipped.
