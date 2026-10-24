@@ -81,7 +81,12 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           $needed = 'true'
-          if ($env:BASE -and (git cat-file -e "$($env:BASE)^{commit}" 2>$null; $LASTEXITCODE -eq 0)) {
+          $hasBase = $false
+          if ($env:BASE) {
+            git cat-file -e "$($env:BASE)^{commit}" 2>$null
+            $hasBase = $LASTEXITCODE -eq 0
+          }
+          if ($hasBase) {
             $changed = @(git diff --name-only $env:BASE HEAD)
             $changed
             $code = @($changed | Where-Object { $_ -and $_ -notmatch '^(docs/.*|[^/]+\.md)$' })
