@@ -130,6 +130,7 @@ public interface IGamesApi
     Task<OperationResult<JobStarted>> OptimizeStorageAsync(string gameId);
     Task<OperationResult<string>> ResolvePathAsync(string rawPath, CancellationToken cancellationToken = default);
     Task<OperationResult<IReadOnlyList<string>>> ListExecutablesAsync(string installPath, CancellationToken cancellationToken = default);
+    Task<OperationResult<string>> SuggestProcessNameAsync(string installPath, string gameName, CancellationToken cancellationToken = default);  // the likely game program for a link start, "" when none (ProcessNameSuggester)
     Task<OperationResult<GameDefinition>> ImportDefinitionAsync(string filePath, CancellationToken cancellationToken = default);  // never saves
     Task<OperationResult<Unit>> ExportDefinitionAsync(string gameId, string filePath, CancellationToken cancellationToken = default);
 }

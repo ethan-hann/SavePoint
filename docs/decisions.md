@@ -89,7 +89,7 @@ Inventories of the v1 code listed behavior v1 got wrong or left undecided. v2 re
 7. **History sorts by `DateTimeOffset`**, never by string.
 8. **Launch checks both folders for unsaved changes before switching either.**
 9. **Profile delete validates both folders before deleting from either**, so a refused delete changes nothing.
-10. **The 30-second grace for a launcher stub stays**, but the running card offers "I'm done playing" from the first second, so the wait never blocks the user.
+10. **A grace for a launcher stub stays**, two minutes since 0.9.2 (it was 30 seconds, which ended a link start's session while a slow launcher was still starting the game, even with a process name set), but the running card offers "I'm done playing" from the first second, so the wait never blocks the user.
 11. **`exePath` must be relative to the install folder** and must not escape it (`..`). The editor's Browse converts a picked file to a relative path or refuses one outside the install folder.
 12. **Process-name matching** is case-insensitive on Windows and macOS, ignores a trailing `.exe` difference, and on Linux also matches the executable's file name (the kernel truncates process names to 15 characters, which would otherwise break games run through Proton).
 13. **Read-only git calls run with `GIT_OPTIONAL_LOCKS=0`**, so previews and row stats never take `index.lock` while a capture or switch runs.
