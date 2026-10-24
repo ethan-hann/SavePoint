@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Savepoint.Core.Platform;
 
 namespace Savepoint.Core.Catalog;
@@ -21,7 +22,8 @@ public sealed record GameTemplate(string Id, string DisplayName, GameDefinition 
     /// <summary>
     /// Returns a copy of the definition with a fresh game id. A template's fixed id would collide on a second use, so a draft
     /// always gets a new one. The saves folder is the one the template names for <paramref name="os"/> when it names one, and the
-    /// definition's own otherwise. Nothing is saved.
+    /// definition's own otherwise, except that the definition's own is left out (null) when it uses a token or path that means
+    /// nothing on <paramref name="os"/>, such as <c>{localLow}</c> on Linux. Nothing is saved.
     /// </summary>
     /// <param name="os">The operating system the game will be added on.</param>
     /// <param name="random">The source of the id's random suffix; defaults to a shared instance, and tests pass a seeded one.</param>
@@ -29,6 +31,24 @@ public sealed record GameTemplate(string Id, string DisplayName, GameDefinition 
     {
         var draft = Definition with { Id = CatalogIds.NewGameId(Definition.Name, random) };
         var key = os switch { OsKind.Windows => "windows", OsKind.MacOS => "macos", _ => "linux" };
-        return Hints.SavesByOs.TryGetValue(key, out var saves) ? draft with { External = saves } : draft;
+        if (Hints.SavesByOs.TryGetValue(key, out var saves))
+        {
+            return draft with { External = saves };
+        }
+
+        // The default is written for Windows; where it means nothing the folder stays blank for the player to pick.
+        return draft.External is { } external && !ResolvesOn(external.Path, os) ? draft with { External = null } : draft;
+    }
+
+    // The tokens each system's platform defines; a test keeps these in step with the platforms themselves.
+    internal static IReadOnlySet<string> TokensOn(OsKind os) => os == OsKind.Windows ? _windowsTokens : _sharedTokens;
+
+    private static readonly HashSet<string> _sharedTokens = ["userHome", "documents", "appData", "localAppData"];
+    private static readonly HashSet<string> _windowsTokens = [.. _sharedTokens, "localLow", "savedGames"];
+
+    private static bool ResolvesOn(string path, OsKind os)
+    {
+        var token = Regex.Match(path, @"^\{([A-Za-z]+)\}");
+        return token.Success ? TokensOn(os).Contains(token.Groups[1].Value) : os == OsKind.Windows;
     }
 }

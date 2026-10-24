@@ -1,6 +1,11 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Platform;
+using Savepoint.Core.Platform.Linux;
+using Savepoint.Core.Platform.MacOS;
+using Savepoint.Core.Platform.Windows;
+using Savepoint.Core.Tests.Platform;
 
 namespace Savepoint.Core.Tests.Catalog;
 
@@ -154,6 +159,61 @@ public class GameTemplatesTests
     public void Fake_game_is_not_offered_to_users()
     {
         Assert.DoesNotContain(GameTemplates.All, t => t.Id == "fake-game");
+    }
+
+    private static GameTemplate WithSaves(string path) => new(
+        "x",
+        "X",
+        new GameDefinition(Id: "x", Name: "X", External: new ExternalLocation(path, ExternalRole.Saves)));
+
+    [Theory]
+    [InlineData(OsKind.Linux)]
+    [InlineData(OsKind.MacOS)]
+    public void Draft_leaves_the_saves_folder_blank_when_a_windows_only_token_has_no_meaning_here(OsKind os)
+    {
+        Assert.Null(WithSaves(@"{localLow}\Studio\Game").ToDraft(os, new FixedRandom()).External);
+        Assert.Null(WithSaves(@"{savedGames}\Game").ToDraft(os, new FixedRandom()).External);
+        Assert.Null(WithSaves(@"C:\Users\Someone\Saves").ToDraft(os, new FixedRandom()).External);
+    }
+
+    [Theory]
+    [InlineData(OsKind.Windows)]
+    [InlineData(OsKind.Linux)]
+    [InlineData(OsKind.MacOS)]
+    public void Draft_keeps_a_saves_folder_whose_token_exists_on_that_system(OsKind os)
+    {
+        var draft = WithSaves(@"{documents}\My Games\Game").ToDraft(os, new FixedRandom());
+
+        Assert.Equal(@"{documents}\My Games\Game", draft.External!.Path);
+    }
+
+    [Fact]
+    public void Draft_on_windows_keeps_the_windows_only_tokens()
+    {
+        Assert.Equal(@"{localLow}\Studio\Game", WithSaves(@"{localLow}\Studio\Game").ToDraft(OsKind.Windows, new FixedRandom()).External!.Path);
+    }
+
+    [Fact]
+    public void A_per_system_saves_folder_still_wins_over_a_blank_default()
+    {
+        var hints = new TemplateLibraryHints(SavesByOs: new Dictionary<string, ExternalLocation> { ["linux"] = new("{userHome}/.game/saves", ExternalRole.Saves) });
+        var template = WithSaves(@"{localLow}\Studio\Game") with { Hints = hints };
+
+        Assert.Equal("{userHome}/.game/saves", template.ToDraft(OsKind.Linux, new FixedRandom()).External!.Path);
+    }
+
+    [Fact]
+    public void The_token_names_a_draft_checks_are_the_ones_each_platform_defines()
+    {
+        Assert.Equal(
+            new WindowsPlatform(FakeEnvironment.Windows().Build()).PathTokens.Keys.Order(),
+            GameTemplate.TokensOn(OsKind.Windows).Order());
+        Assert.Equal(
+            new LinuxPlatform(FakeEnvironment.Linux().Build()).PathTokens.Keys.Order(),
+            GameTemplate.TokensOn(OsKind.Linux).Order());
+        Assert.Equal(
+            new MacOSPlatform(FakeEnvironment.MacOS().Build()).PathTokens.Keys.Order(),
+            GameTemplate.TokensOn(OsKind.MacOS).Order());
     }
 
     private sealed class FixedRandom : Random
