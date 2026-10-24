@@ -287,6 +287,24 @@ public class GameSessionWatcherTests
     // ---- a link: there is no program, so the process list is all there is ----
 
     [Fact]
+    public async Task With_the_default_timings_a_launcher_that_starts_the_game_after_a_minute_is_still_followed()
+    {
+        // A launcher or anti-cheat bootstrap can take well over half a minute before the game's own process exists.
+        using var rig = await WatcherRig.LinkAsync(_name, options: new GameSessionOptions { PollInterval = WatcherRig.Interval });
+        await rig.AdvanceAsync(Seconds(90));
+        Assert.False(rig.Watcher.IsSettled);
+
+        rig.Processes.Set(WatcherRig.Game, ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(10));
+        Assert.False(rig.Watcher.IsSettled);
+
+        rig.Processes.Set(ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(2));
+
+        Assert.Equal(SessionEndKind.NamedProcessEnded, (await rig.OutcomeAsync()).Kind);
+    }
+
+    [Fact]
     public async Task A_link_with_a_named_process_ends_when_the_process_has_been_seen_and_is_gone()
     {
         using var rig = await WatcherRig.LinkAsync(_name);
