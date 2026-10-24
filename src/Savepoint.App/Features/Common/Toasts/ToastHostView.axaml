@@ -12,8 +12,15 @@
   -->
   <StackPanel>
     <a11y:AnnouncementRegion x:Name="Announcer" Message="{Binding Announcement}" />
-    <StackPanel x:Name="Strip" Margin="16,8,16,16" Spacing="8" IsVisible="{Binding HasToasts}">
-      <ScrollViewer MaxHeight="128" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <Grid x:Name="Strip" Margin="16,8,16,16" IsVisible="{Binding HasToasts}">
+      <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+       <StackPanel Spacing="8">
+        <Button x:Name="DismissAllButton"
+                Classes="text"
+                HorizontalAlignment="Right"
+                IsVisible="{Binding HasMany}"
+                Command="{Binding DismissAllCommand}"
+                Content="{loc:Loc common.dismissAll}" />
         <ItemsControl x:Name="ToastList" ItemsSource="{Binding Toasts}" HorizontalAlignment="Right">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
@@ -55,13 +62,8 @@
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
+       </StackPanel>
       </ScrollViewer>
-      <Button x:Name="DismissAllButton"
-              Classes="text"
-              HorizontalAlignment="Right"
-              IsVisible="{Binding HasMany}"
-              Command="{Binding DismissAllCommand}"
-              Content="{loc:Loc common.dismissAll}" />
-    </StackPanel>
+    </Grid>
   </StackPanel>
 </UserControl>

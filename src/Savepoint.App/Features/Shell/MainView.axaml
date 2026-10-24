@@ -13,6 +13,10 @@
     above all of it. While the pill or a toast shows, the page keeps room under its pinned content (see the code behind), so
     neither covers a control. While a dialog is open the page is hidden from assistive technology.
   -->
+  <UserControl.Resources>
+    <!-- The pill's height and its margin below, and a little air: the room the page keeps for it. -->
+    <x:Double x:Key="PillRoomHeight">64</x:Double>
+  </UserControl.Resources>
   <UserControl.Styles>
     <Style Selector="Panel.dialog-open ContentControl#Page">
       <Setter Property="AutomationProperties.AccessibilityView" Value="Raw" />

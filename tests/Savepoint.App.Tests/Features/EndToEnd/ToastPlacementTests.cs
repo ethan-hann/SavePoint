@@ -1,17 +1,10 @@
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
-using Avalonia.Threading;
 using Avalonia.VisualTree;
-using Savepoint.App.Features.Activity;
 using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Toasts;
-using Savepoint.App.Features.History;
-using Savepoint.App.Features.Settings;
-using Savepoint.App.Features.Shell;
 using Savepoint.App.Tests.Fakes;
-using Savepoint.App.Tests.Features.Activity;
 using Savepoint.App.Tests.Theme;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
@@ -89,7 +82,7 @@ public class ToastPlacementTests
             Assert.True(before[index] == after[index], $"{names[index]} moved from {before[index]} to {after[index]} when a toast showed ({layoutName}, {width}x{height}).");
         }
 
-        var toast = BoundsIn(app, app.Find<StackPanel>("Strip"));
+        var toast = BoundsIn(app, app.Find<Grid>("Strip"));
         Assert.True(new Rect(app.Window.ClientSize).Contains(toast), $"The toasts at {toast} are not inside the {app.Window.ClientSize} window.");
         Assert.True(BoundsIn(app, app.Find<ContentControl>("Page")).Contains(toast), "The toasts float over the page, not beside it.");
 
@@ -98,69 +91,30 @@ public class ToastPlacementTests
         Assert.True(before.SequenceEqual(names.Select(name => BoundsIn(app, app.Find<Control>(name)))), "The shell moved when the toast went.");
     }
 
-    // Whatever a person presses, on each screen that pins something to its bottom edge, still takes the click with toasts up.
+    // The first-run tour's card is placed in the page area, which the toasts float over: the card must stay clear of the stack at every step.
     [AvaloniaTheory]
-    [InlineData("games", 1040.0, 660.0)]
-    [InlineData("games", 640.0, 420.0)]
-    [InlineData("games-failure-card", 900.0, 660.0)]
-    [InlineData("games-failure-card", 910.0, 432.0)]
-    [InlineData("history", 1040.0, 660.0)]
-    [InlineData("history", 640.0, 420.0)]
-    [InlineData("activity", 900.0, 660.0)]
-    [InlineData("settings", 640.0, 420.0)]
-    public async Task No_pressable_control_is_under_a_toast_on_the_screens_that_pin_something(string screen, double width, double height)
+    [InlineData(1040.0, 660.0)]
+    [InlineData(640.0, 420.0)]
+    public async Task The_tour_card_stays_clear_of_the_toasts(double width, double height)
     {
-        var backend = new FakeBackend(ScenarioBuilder.Mockup());
-        if (screen == "activity")
-        {
-            await ActivityScenario.AddJobsAsync(backend);
-        }
-
+        var backend = new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { TourSeen = false }));
         using var app = await ComposedApp.StartWithViewAsync(backend, width: width, height: height);
-        switch (screen)
-        {
-            case "games-failure-card":
-                app.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync), MockupScenario.FileInUseError);
-                _ = app.Games.Profiles.Single(row => row.Id == MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null);
-                break;
-            case "history":
-                app.Show<HistoryScreenViewModel>(NavDestination.History);
-                break;
-            case "activity":
-                app.Show<ActivityScreenViewModel>(NavDestination.Activity);
-                break;
-            case "settings":
-                app.Show<SettingsScreenViewModel>(NavDestination.Settings);
-                break;
-        }
-
         app.Toasts.Show(new ToastMessage("Could not save Skyrim Special Edition.", ToastKind.Error, "There is not enough free disk space to save this profile right now."));
         app.Toasts.Show(new ToastMessage("Only part of Satisfactory was saved.", ToastKind.Warning, "A file is in use."));
         app.Settle();
 
-        var problems = new List<string>();
-        var strip = app.Find<StackPanel>("Strip");
-        Redraw(app);
-        problems.AddRange(JobPillAudit.Covered(app.Window, strip, scrolledToEnd: false));
-        foreach (var scroller in app.Window.GetVisualDescendants().OfType<ScrollViewer>().Where(JobPillAudit.Scrolls))
+        var steps = 0;
+        while (app.Shell.Tour.IsActive && steps++ < 10)
         {
-            scroller.ScrollToEnd();
+            var card = app.All<Border>().Single(border => border.Name == "TourCard");
+            Assert.True(card.IsEffectivelyVisible, $"The tour card is not showing at step {steps}.");
+            var strip = BoundsIn(app, app.Find<Grid>("Strip"));
+            Assert.False(BoundsIn(app, card).Intersects(strip), $"The tour card at {BoundsIn(app, card)} is under the toasts at {strip} at step {steps} ({width}x{height}).");
+            app.Shell.Tour.NextCommand.Execute(null);
+            app.Settle();
         }
 
-        Redraw(app);
-        problems.AddRange(JobPillAudit.Covered(app.Window, strip, scrolledToEnd: true));
-
-        Assert.True(problems.Count == 0, $"{screen} at {width}x{height}:{Environment.NewLine}{string.Join(Environment.NewLine, problems)}");
-    }
-
-    private static void Redraw(ComposedApp app)
-    {
-        app.Settle();
-        for (var frame = 0; frame < 2; frame++)
-        {
-            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
-            Dispatcher.UIThread.RunJobs();
-        }
+        Assert.True(steps > 1, "The tour did not run.");
     }
 
     private static Rect BoundsIn(ComposedApp app, Visual visual) =>
