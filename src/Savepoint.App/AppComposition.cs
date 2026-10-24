@@ -24,6 +24,7 @@ public static class AppComposition
     /// <param name="clock">Times toasts; the system clock when null.</param>
     /// <param name="dialogs">Replaces the dialogs and pickers, for tests; the real ones over the window's dialog overlay when null.</param>
     /// <param name="settingsEnvironment">Replaces what Settings reads from the machine, for tests; the running app's when null.</param>
+    /// <param name="exitWait">How long closing waits for cancelled jobs to end, for tests; the exit guard's default when null.</param>
     public static MainWindowViewModel Create(
         AppServices services,
         UiFormatter text,
@@ -32,7 +33,8 @@ public static class AppComposition
         IUiDispatcher? dispatcher = null,
         TimeProvider? clock = null,
         IDialogs? dialogs = null,
-        SettingsEnvironment? settingsEnvironment = null)
+        SettingsEnvironment? settingsEnvironment = null,
+        TimeSpan? exitWait = null)
     {
         var ui = dispatcher ?? new AvaloniaUiDispatcher();
         var toasts = new ToastHostViewModel(clock ?? TimeProvider.System, ui);
@@ -59,7 +61,7 @@ public static class AppComposition
                 FeatureComposition.LaunchFlow(feature)));
         }
 
-        return new MainWindowViewModel(startup, CreateShell, dialogStack, toasts, new ExitGuard(services.Jobs, pickers, text));
+        return new MainWindowViewModel(startup, CreateShell, dialogStack, toasts, new ExitGuard(services.Jobs, pickers, text, exitWait));
     }
 
     /// <summary>One factory per screen, each supplied by its feature's <see cref="FeatureComposition"/> file.</summary>

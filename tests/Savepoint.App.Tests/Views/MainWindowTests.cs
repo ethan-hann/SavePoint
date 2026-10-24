@@ -167,7 +167,8 @@ public class MainWindowTests
             () => null,
             new ImmediateUiDispatcher(),
             new ManualTimeProvider(),
-            dialogs);
+            dialogs,
+            exitWait: TimeSpan.FromMilliseconds(100));
         var window = new QuittableWindow { DataContext = main };
         window.Show();
         if (startMove)
