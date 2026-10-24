@@ -27,6 +27,31 @@ internal sealed class BackendWorkspace : IDisposable
         Backend = Build();
     }
 
+    // A workspace that starts as a copy of another's folders, so a world built once can be handed to many tests. Files that store absolute
+    // paths (the catalog, the git config) are pointed at the copy's own root; one that cannot be rewritten is an error, not a stale path.
+    private BackendWorkspace(string templateRoot)
+    {
+        Root = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "savepoint-backend-" + Guid.NewGuid().ToString("N")));
+        Home = Path.Combine(Root, "home");
+        GamesRoot = Path.Combine(Root, "games");
+        InstallDirectory = Path.Combine(Root, "app");
+        try
+        {
+            CopyTree(templateRoot, Root);
+            RewriteRoot(Root, templateRoot);
+            Directory.CreateDirectory(GamesRoot);
+            Directory.CreateDirectory(InstallDirectory);
+            Platform = FakePlatforms.ForHost(Home);
+            _games = Directory.GetDirectories(GamesRoot).Length;
+            Backend = Build();
+        }
+        catch
+        {
+            Savepoint.Core.Tests.Git.GitWorkspace.DeleteDirectory(Root);
+            throw;
+        }
+    }
+
     public string Root { get; }
 
     public string Home { get; }
@@ -60,6 +85,9 @@ internal sealed class BackendWorkspace : IDisposable
     public IJobsApi Jobs => Backend.Jobs;
 
     public CancellationToken Token => TestContext.Current.CancellationToken;
+
+    // A new workspace, over its own folders, that holds what the template holds now. The template must be idle and stay unchanged.
+    public static BackendWorkspace CopyOf(BackendWorkspace template) => new(template.Root);
 
     // A second backend over the same folders, as the app has after a restart: nothing in memory carries over.
     public CoreBackend Restart() => Backend = Build();
@@ -192,6 +220,58 @@ internal sealed class BackendWorkspace : IDisposable
             : new Dictionary<string, string>();
 
     public void Dispose() => Savepoint.Core.Tests.Git.GitWorkspace.DeleteDirectory(Root);
+
+    private static void CopyTree(string from, string to)
+    {
+        Directory.CreateDirectory(to);
+        foreach (var directory in Directory.EnumerateDirectories(from, "*", SearchOption.AllDirectories))
+        {
+            Directory.CreateDirectory(Path.Combine(to, Path.GetRelativePath(from, directory)));
+        }
+
+        foreach (var file in Directory.EnumerateFiles(from, "*", SearchOption.AllDirectories))
+        {
+            File.Copy(file, Path.Combine(to, Path.GetRelativePath(from, file)));
+        }
+    }
+
+    // Git's object stores hold compressed data and no paths, so they are skipped; every other file is searched for the old root, as written
+    // plainly, with forward slashes, and escaped for JSON.
+    private static void RewriteRoot(string root, string oldRoot)
+    {
+        var plain = oldRoot;
+        var slashes = oldRoot.Replace('\\', '/');
+        var escaped = oldRoot.Replace("\\", "\\\\", StringComparison.Ordinal);
+        var utf8 = new UTF8Encoding(false);
+        foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
+        {
+            var relative = Path.GetRelativePath(root, file).Replace('\\', '/');
+            if (relative.Contains("/objects/", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var text = utf8.GetString(File.ReadAllBytes(file));
+            if (!text.Contains(plain, StringComparison.Ordinal) && !text.Contains(slashes, StringComparison.Ordinal) && !text.Contains(escaped, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            // Git's untracked cache in the index names the folder it was taken in; git discards the cache when the folder differs.
+            if (Path.GetFileName(file) == "index")
+            {
+                continue;
+            }
+
+            Assert.False(text.Contains('\0'), $"{relative} stores an absolute path and is binary, so it cannot be rewritten for a copy");
+            var rewritten = text
+                .Replace(escaped, root.Replace("\\", "\\\\", StringComparison.Ordinal), StringComparison.Ordinal)
+                .Replace(plain, root, StringComparison.Ordinal)
+                .Replace(slashes, root.Replace('\\', '/'), StringComparison.Ordinal);
+            File.SetAttributes(file, FileAttributes.Normal);
+            File.WriteAllBytes(file, utf8.GetBytes(rewritten));
+        }
+    }
 
     private CoreBackend Build()
     {
