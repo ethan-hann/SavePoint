@@ -23,6 +23,7 @@ public partial class TourOverlay : UserControl
     private TourViewModel? _tour;
     private Control? _target;
     private Visual? _host;
+    private (Rect? Ring, Size Area, TourStep Step, Size Card) _placed;
 
     /// <summary>Creates the overlay.</summary>
     public TourOverlay()
@@ -178,6 +179,16 @@ public partial class TourOverlay : UserControl
         }
 
         TourRing.IsVisible = ring is not null;
+
+        // Trying the card at each width re-measures it, which queues another layout pass; a card that fits nowhere would then be placed
+        // again for ever, so a placement whose inputs have not changed is left as it is.
+        var inputs = (ring, Bounds.Size, tour.Current.Step, TourCard.Bounds.Size);
+        if (_placed == inputs)
+        {
+            return;
+        }
+
+        _placed = inputs;
         PlaceCard(ring);
     }
 
