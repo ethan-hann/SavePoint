@@ -9,23 +9,30 @@
   <StackPanel Spacing="14">
     <TextBlock Classes="dialog-title" TextWrapping="Wrap" Text="{loc:Loc templatePicker.title}" />
     <TextBlock Classes="body muted" TextWrapping="Wrap" Text="{loc:Loc templatePicker.body}" />
-    <ItemsControl ItemsSource="{Binding Templates}">
-      <ItemsControl.ItemsPanel>
-        <ItemsPanelTemplate>
-          <StackPanel Spacing="8" />
-        </ItemsPanelTemplate>
-      </ItemsControl.ItemsPanel>
-      <ItemsControl.ItemTemplate>
-        <DataTemplate x:DataType="shell:TemplateItem">
-          <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="14,10" Command="{Binding Choose}" AutomationProperties.Name="{Binding Name}">
-            <StackPanel Orientation="Horizontal" Spacing="12">
-              <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.StadiaController}" />
-              <TextBlock Classes="body" VerticalAlignment="Center" Text="{Binding Name}" />
-            </StackPanel>
-          </Button>
-        </DataTemplate>
-      </ItemsControl.ItemTemplate>
-    </ItemsControl>
+    <TextBox x:Name="SearchField"
+             Text="{Binding SearchText, Mode=TwoWay}"
+             PlaceholderText="{loc:Loc templatePicker.search}"
+             AutomationProperties.Name="{loc:Loc templatePicker.search}" />
+    <ScrollViewer x:Name="TemplateScroll" MaxHeight="360" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+      <ItemsControl x:Name="TemplateList" ItemsSource="{Binding Templates}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <VirtualizingStackPanel />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="shell:TemplateItem">
+            <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="0,0,0,8" Padding="14,10" Command="{Binding Choose}" AutomationProperties.Name="{Binding Name}">
+              <StackPanel Orientation="Horizontal" Spacing="12">
+                <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.StadiaController}" />
+                <TextBlock Classes="body" VerticalAlignment="Center" Text="{Binding Name}" />
+              </StackPanel>
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+    <TextBlock x:Name="NoMatchesText" Classes="body muted" IsVisible="{Binding ShowNoMatches}" Text="{Binding NoMatchesText}" />
     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,4,0,0">
       <Button Classes="text pill large" Command="{Binding CancelCommand}" Content="{loc:Loc common.cancel}" />
       <Button Classes="pill large" Command="{Binding OpenFileCommand}" Content="{loc:Loc templatePicker.openFile}" />

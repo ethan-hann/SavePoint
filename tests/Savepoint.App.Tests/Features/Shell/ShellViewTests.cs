@@ -441,15 +441,26 @@ public class ShellViewTests
     public async Task The_template_picker_dialog_lists_the_built_in_templates()
     {
         using var harness = await ShellViewHarness.StartAsync(Empty());
-        _ = harness.Main.Dialogs.ShowAsync(new TemplatePickerViewModel(harness.Backend.Games.Templates, TextFor(harness)));
+        var viewModel = new TemplatePickerViewModel(harness.Backend.Games.Templates, TextFor(harness));
+        _ = harness.Main.Dialogs.ShowAsync(viewModel);
         harness.Settle();
 
         var picker = harness.All<TemplatePickerView>().Single();
-        var texts = picker.GetVisualDescendants().OfType<TextBlock>().Where(block => block.IsEffectivelyVisible).Select(block => block.Text).ToList();
+        List<string?> Texts() => [.. picker.GetVisualDescendants().OfType<TextBlock>().Where(block => block.IsEffectivelyVisible).Select(block => block.Text)];
 
-        Assert.Contains("Start from a template", texts);
-        Assert.Contains("The Elder Scrolls V: Skyrim Special Edition", texts);
-        Assert.DoesNotContain("A Simple Indie Platformer", texts);
+        Assert.Contains("Start from a template", Texts());
+        Assert.NotNull(picker.FindControl<TextBox>("SearchField"));
+        Assert.False(picker.FindControl<TextBlock>("NoMatchesText")!.IsEffectivelyVisible);
+
+        // Hundreds of templates ship, so the list scrolls and the search is how a game is found.
+        viewModel.SearchText = "skyrim special";
+        harness.Settle();
+        Assert.Contains("The Elder Scrolls V: Skyrim Special Edition", Texts());
+        Assert.DoesNotContain("A Simple Indie Platformer", Texts());
+
+        viewModel.SearchText = "no such game";
+        harness.Settle();
+        Assert.True(picker.FindControl<TextBlock>("NoMatchesText")!.IsEffectivelyVisible);
     }
 
     // ---- The overlays

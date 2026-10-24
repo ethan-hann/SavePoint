@@ -85,6 +85,8 @@
   "startup.tryAgain": "Try again",
   "templatePicker.body": "Pick a ready-made setup to fill in the details, or open a game settings file someone shared.",
   "templatePicker.fileType": "Game settings file",
+  "templatePicker.noMatches": "No games match your search.",
   "templatePicker.openFile": "Open a file…",
+  "templatePicker.search": "Search games",
   "templatePicker.title": "Start from a template"
 }
