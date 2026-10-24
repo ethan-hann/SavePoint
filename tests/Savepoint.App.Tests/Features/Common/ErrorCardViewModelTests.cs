@@ -108,6 +108,19 @@ public class ErrorCardViewModelTests
     }
 
     [Fact]
+    public void A_path_inside_a_snapshot_folder_shows_the_game_folder_instead()
+    {
+        var game = PathOnThisSystem("SavePoint", "skyrim");
+        var held = Path.Combine(game, "install.git", "objects", "pack", "pack-1.pack");
+        var error = new ErrorInfo("error.gitOperation.checkoutFailed", new Dictionary<string, object?> { ["path"] = held }, string.Empty);
+
+        var card = new ErrorCardViewModel(error, _text);
+
+        Assert.Equal(game, card.Path);
+        Assert.DoesNotContain(".git", card.Path, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void A_path_argument_that_is_not_text_is_ignored()
     {
         var error = new ErrorInfo("error.unknown", new Dictionary<string, object?> { ["path"] = 42 }, string.Empty);
