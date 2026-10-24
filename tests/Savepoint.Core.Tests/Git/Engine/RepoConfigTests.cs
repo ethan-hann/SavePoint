@@ -132,7 +132,11 @@ public sealed class RepoConfigTests : IDisposable
     {
         var repo = await _ws.InitializedRepoAsync();
 
-        var sections = (await File.ReadAllLinesAsync(Path.Combine(repo.GitDir, "config"), Ct)).Where(line => line.StartsWith('[')).ToArray();
+        var sections = (await File.ReadAllLinesAsync(Path.Combine(repo.GitDir, "config"), Ct))
+            .SkipWhile(line => line.Trim() != RepoConfigFile.BlockStart)
+            .TakeWhile(line => line.Trim() != RepoConfigFile.BlockEnd)
+            .Where(line => line.StartsWith('['))
+            .ToArray();
 
         Assert.Equal(sections.Distinct().Count(), sections.Length);
     }

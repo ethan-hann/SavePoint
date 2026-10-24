@@ -137,16 +137,14 @@ internal static partial class RepoConfigFile
     {
         var block = new StringBuilder();
         block.Append(BlockStart).Append('\n');
-        string? current = null;
-        foreach (var (section, key, value) in Settings(isWindows))
+        // Grouped by section in order of first appearance, so each header is written once and the stamp stays last.
+        foreach (var section in Settings(isWindows).GroupBy(setting => setting.Section, StringComparer.Ordinal))
         {
-            if (!string.Equals(current, section, StringComparison.Ordinal))
+            block.Append('[').Append(section.Key).Append("]\n");
+            foreach (var (_, key, value) in section)
             {
-                block.Append('[').Append(section).Append("]\n");
-                current = section;
+                block.Append('\t').Append(key).Append(" = ").Append(value).Append('\n');
             }
-
-            block.Append('\t').Append(key).Append(" = ").Append(value).Append('\n');
         }
 
         block.Append(BlockEnd).Append('\n');
