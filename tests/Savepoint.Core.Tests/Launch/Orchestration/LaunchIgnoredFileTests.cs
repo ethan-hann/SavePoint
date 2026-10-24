@@ -65,5 +65,6 @@ public class LaunchIgnoredFileTests
         Assert.NotNull(summary);
         Assert.Equal(1, summary.FilesChanged);
         Assert.Equal(0, summary.BytesChanged);
+        Assert.Equal("only B has this".Length, summary.BytesRemoved);
     }
 }

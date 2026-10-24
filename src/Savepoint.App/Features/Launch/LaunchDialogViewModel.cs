@@ -241,13 +241,23 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
         var parts = sentence.Split(_targetMarker, 2);
         var after = parts.Length > 1 ? parts[1] : string.Empty;
 
-        if (_preview.Install.Switch is { BytesChanged: > 0 } summary)
+        if (_preview.Install.Switch is { } summary && (summary.BytesChanged > 0 || summary.BytesRemoved > 0))
         {
             var estimate = summary.EstimatedDuration ?? LaunchTiming.Estimate(summary.BytesChanged);
             var time = estimate < _quickSwitch
                 ? text.Message("launch.dialog.versionTimeShort")
                 : text.Message("launch.dialog.versionTime", ("time", text.Duration(TimeSpan.FromMinutes(Math.Max(1, Math.Round(estimate.TotalMinutes, MidpointRounding.AwayFromZero))))));
-            after += " " + text.Message("launch.dialog.versionReplaced", ("size", text.FileSize(summary.BytesChanged))) + " " + time;
+            if (summary.BytesChanged > 0)
+            {
+                after += " " + text.Message("launch.dialog.versionReplaced", ("size", text.FileSize(summary.BytesChanged)));
+            }
+
+            if (summary.BytesRemoved > 0)
+            {
+                after += " " + text.Message("launch.dialog.versionRemoved", ("size", text.FileSize(summary.BytesRemoved)));
+            }
+
+            after += " " + time;
         }
 
         return (parts[0], target, after);

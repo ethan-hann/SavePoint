@@ -67,6 +67,20 @@ public sealed class SwitchStatTests : IDisposable
     }
 
     [Fact]
+    public async Task A_switch_summary_sizes_the_files_it_removes_by_what_the_folder_holds_now()
+    {
+        var (repo, first, second) = await TwoPointsAsync();
+
+        // b.txt (2 bytes) goes; logs/y.log (6 bytes) is left alone by the patterns, and a.txt is rewritten, not removed.
+        var switching = await _ws.Engine.SwitchStatAsync(repo, second, first, Ct);
+        var history = await _ws.Engine.DiffStatAsync(repo, second, first, Ct);
+
+        Assert.Equal(2, switching.BytesRemoved);
+        Assert.Equal(3, switching.BytesAtTarget);
+        Assert.Equal(2 + 6, history.BytesRemoved);
+    }
+
+    [Fact]
     public async Task A_switch_summary_of_a_move_forward_removes_nothing()
     {
         var (repo, first, second) = await TwoPointsAsync();

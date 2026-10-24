@@ -107,7 +107,7 @@ public sealed partial class LaunchOrchestrator
         // The files the ignore list names are left alone by the switch, so they are neither counted nor sized.
         var diff = await storage.Engine.SwitchStatAsync(repo, from, target, cancellationToken).ConfigureAwait(false);
         var mods = repo.Role == RepoRole.Install ? diff.ChangedPaths.Count(path => GameInsights.MatchesHint(path, game.ModPathHints)) : 0;
-        return new SwitchSummary(diff.FilesChanged, mods, diff.BytesAtTarget, null);
+        return new SwitchSummary(diff.FilesChanged, mods, diff.BytesAtTarget, null, diff.BytesRemoved);
     }
 
     // The version and mod-file count a commit of the install folder holds; what cannot be read is left unsaid.
