@@ -33,7 +33,9 @@ public sealed record ViewModeOption(HistoryViewMode Mode, string Label);
 /// <param name="AutomationName">What assistive technology calls the entry: the headline, the detail and the stamp as one line.</param>
 /// <param name="GoBackAutomationName">The button's accessible name ("Go back to this: 14 mod files updated").</param>
 /// <param name="GoBackCommand">Starts the launch flow with both folders restored to this point.</param>
-public sealed record TimelineEntryViewModel(string Headline, string Detail, string Stamp, bool IsInUse, bool IsLast, string AutomationName, string GoBackAutomationName, ICommand GoBackCommand)
+/// <param name="SwitchAutomationName">The switch button's accessible name ("Switch to this snapshot: 14 mod files updated").</param>
+/// <param name="SwitchCommand">Restores both folders to this point without starting the game.</param>
+public sealed record TimelineEntryViewModel(string Headline, string Detail, string Stamp, bool IsInUse, bool IsLast, string AutomationName, string GoBackAutomationName, ICommand GoBackCommand, string SwitchAutomationName, ICommand SwitchCommand)
 {
     /// <summary>True when the entry offers "Go back to this": it is not the point the install folder holds now.</summary>
     public bool CanGoBack => !IsInUse;
@@ -50,14 +52,24 @@ public sealed class SaveRowViewModel
     /// <param name="automationName">What assistive technology calls the Load button.</param>
     /// <param name="itemAutomationName">What assistive technology calls the row in its list: name, date and profile, and whether it is loaded.</param>
     /// <param name="load">Loads the save; never null.</param>
-    public SaveRowViewModel(HistoryPoint point, string detail, string automationName, string itemAutomationName, ICommand load)
+    /// <param name="switchAutomationName">What assistive technology calls the switch button.</param>
+    /// <param name="switchOnly">Loads the save without starting the game; never null.</param>
+    public SaveRowViewModel(HistoryPoint point, string detail, string automationName, string itemAutomationName, ICommand load, string switchAutomationName, ICommand switchOnly)
     {
         Point = point;
         Detail = detail;
         LoadAutomationName = automationName;
         ItemAutomationName = itemAutomationName;
         LoadCommand = load;
+        SwitchAutomationName = switchAutomationName;
+        SwitchCommand = switchOnly;
     }
+
+    /// <summary>The switch button's accessible name ("Switch to this snapshot: Before the final boss").</summary>
+    public string SwitchAutomationName { get; }
+
+    /// <summary>Starts the launch flow with this save loaded, but only loads the files: the game does not start.</summary>
+    public ICommand SwitchCommand { get; }
 
     /// <summary>The point it stands for.</summary>
     public HistoryPoint Point { get; }
@@ -94,8 +106,12 @@ public sealed class PointCardViewModel
     /// <param name="automationName">What assistive technology calls the button.</param>
     /// <param name="itemAutomationName">What assistive technology calls the card in its list: name, what it holds, date, and whether it is loaded.</param>
     /// <param name="goBack">Goes back to the point; never null.</param>
-    public PointCardViewModel(HistoryPoint point, string icon, string contains, string date, string automationName, string itemAutomationName, ICommand goBack)
+    /// <param name="switchAutomationName">What assistive technology calls the switch button.</param>
+    /// <param name="switchOnly">Restores the point without starting the game; never null.</param>
+    public PointCardViewModel(HistoryPoint point, string icon, string contains, string date, string automationName, string itemAutomationName, ICommand goBack, string switchAutomationName, ICommand switchOnly)
     {
+        SwitchAutomationName = switchAutomationName;
+        SwitchCommand = switchOnly;
         Point = point;
         Icon = icon;
         Contains = contains;
@@ -134,6 +150,12 @@ public sealed class PointCardViewModel
 
     /// <summary>Starts the launch flow with both folders restored to this point.</summary>
     public ICommand GoBackCommand { get; }
+
+    /// <summary>The switch button's accessible name ("Switch to this snapshot: Cleared Blackreach").</summary>
+    public string SwitchAutomationName { get; }
+
+    /// <summary>Restores both folders to this point without starting the game.</summary>
+    public ICommand SwitchCommand { get; }
 }
 
 /// <summary>The cards of one age group, under a heading such as "This week".</summary>

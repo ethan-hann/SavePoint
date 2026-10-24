@@ -79,7 +79,7 @@ public class ContextualHelpViewModelTests
 
         Assert.Equal("What's a snapshot?", help.Question);
         Assert.Equal(
-            "A snapshot is a copy SavePoint keeps of a profile's game version, mods and saves, or just some of them, as they were at one moment. SavePoint takes one when you create a profile and each time you keep a session. Choose Go back to this on a snapshot to play from that moment.",
+            "A snapshot is a copy SavePoint keeps of a profile's game version, mods and saves, or just some of them, as they were at one moment. SavePoint takes one when you create a profile and each time you keep a session. Choose Go back to this on a snapshot to play from that moment, or Switch to this snapshot to load it without playing.",
             help.Answer);
     }
 

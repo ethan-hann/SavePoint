@@ -17,6 +17,17 @@ public sealed partial class GamesScreenViewModel
         await _shell.LaunchFlow.BeginAsync(row.GameId, new LaunchTarget.ProfileTip(row.Id));
     }
 
+    async Task IProfileRowActions.SwitchAsync(ProfileRowViewModel row)
+    {
+        // A command's Execute runs even when CanExecute is false, so the gate is checked again here.
+        if (!row.CanPlay)
+        {
+            return;
+        }
+
+        await _shell.LaunchFlow.BeginSwitchAsync(row.GameId, new LaunchTarget.ProfileTip(row.Id));
+    }
+
     async Task IProfileRowActions.EditAsync(ProfileRowViewModel row)
     {
         var dialog = new EditProfileDialogViewModel(

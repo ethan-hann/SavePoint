@@ -135,13 +135,14 @@ public class GamesScreenViewTests
         harness.Settle();
 
         var items = ((MenuFlyout)more.Flyout).Items.OfType<MenuItem>().ToList();
-        Assert.Equal(["Take a snapshot now", "Take a snapshot now (load this profile first)", "Edit", "Duplicate", "Delete"], items.Select(item => item.Header));
-        Assert.Same(row.TakeSnapshotCommand, items[0].Command);
-        Assert.True(items[0].IsVisible);
-        Assert.False(items[1].IsVisible);
-        Assert.Same(row.EditCommand, items[2].Command);
-        Assert.Same(row.DuplicateCommand, items[3].Command);
-        Assert.Same(row.DeleteCommand, items[4].Command);
+        Assert.Equal(["Switch to this profile", "Take a snapshot now", "Take a snapshot now (load this profile first)", "Edit", "Duplicate", "Delete"], items.Select(item => item.Header));
+        Assert.Same(row.SwitchCommand, items[0].Command);
+        Assert.Same(row.TakeSnapshotCommand, items[1].Command);
+        Assert.True(items[1].IsVisible);
+        Assert.False(items[2].IsVisible);
+        Assert.Same(row.EditCommand, items[3].Command);
+        Assert.Same(row.DuplicateCommand, items[4].Command);
+        Assert.Same(row.DeleteCommand, items[5].Command);
     }
 
     [AvaloniaFact]
@@ -155,14 +156,15 @@ public class GamesScreenViewTests
         harness.Settle();
 
         var items = ((MenuFlyout)more.Flyout).Items.OfType<MenuItem>().ToList();
-        Assert.False(items[0].IsVisible);
-        var blocked = items[1];
+        Assert.Same(row.SwitchCommand, items[0].Command);
+        Assert.False(items[1].IsVisible);
+        var blocked = items[2];
         Assert.True(blocked.IsVisible);
         Assert.False(blocked.IsEnabled);
         Assert.Equal("Take a snapshot now (load this profile first)", blocked.Header);
         Assert.Equal(row.SnapshotBlockedTip, Avalonia.Controls.ToolTip.GetTip(blocked));
-        Assert.Same(row.EditCommand, items[2].Command);
-        Assert.Same(row.DeleteCommand, items[4].Command);
+        Assert.Same(row.EditCommand, items[3].Command);
+        Assert.Same(row.DeleteCommand, items[5].Command);
     }
 
     [AvaloniaFact]

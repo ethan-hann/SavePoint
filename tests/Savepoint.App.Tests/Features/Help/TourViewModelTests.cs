@@ -77,9 +77,9 @@ public class TourViewModelTests
         }
 
         Assert.Equal(
-            "Press Play and SavePoint makes your game folders match this profile, then starts the game. When you close the game, it asks whether to keep the session as a new snapshot.",
+            "Press Play and SavePoint makes your game folders match this profile, then starts the game. When you close the game, it asks whether to keep the session as a new snapshot. To load the files without starting the game, choose Switch to this profile from the profile's menu.",
             bodies[1]);
-        Assert.Equal("History lists every snapshot. Choose Go back to this on one to play from that moment, even after the game updates.", bodies[2]);
+        Assert.Equal("History lists every snapshot. Choose Go back to this on one to play from that moment, even after the game updates, or Switch to this snapshot to load it without starting the game.", bodies[2]);
         Assert.Equal("Want a different mod list or game version? Make another profile. Each keeps its own snapshots, and Play switches between them.", bodies[3]);
     }
 

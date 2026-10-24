@@ -211,6 +211,7 @@
                           <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.MoreVert}" />
                           <Button.Flyout>
                             <MenuFlyout Placement="BottomEdgeAlignedRight">
+                              <MenuItem Header="{loc:Loc games.profileTable.switch}" Command="{Binding SwitchCommand}" ToolTip.Tip="{loc:Loc games.profileTable.switchTip}" />
                               <MenuItem Header="{loc:Loc games.profileTable.takeSnapshot}" Command="{Binding TakeSnapshotCommand}" IsVisible="{Binding CanOfferSnapshot}" />
                               <!-- A profile the folders do not hold cannot take a snapshot: the entry stays, disabled, with the reason in its text. -->
                               <MenuItem x:Name="SnapshotBlockedItem"

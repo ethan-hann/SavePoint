@@ -86,6 +86,8 @@ public class HowItWorksViewModelTests
 
         Assert.Contains("shows you exactly what first", play.Body, StringComparison.Ordinal);
         Assert.Contains("nothing changes until you press Switch and play", play.Body, StringComparison.Ordinal);
+        Assert.Contains("choose Switch to this profile from the profile's menu", play.Body, StringComparison.Ordinal);
+        Assert.Contains("The game doesn't start", play.Body, StringComparison.Ordinal);
     }
 
     [Fact]

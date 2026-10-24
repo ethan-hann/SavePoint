@@ -500,7 +500,9 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
                     index == onTimeline.Count - 1,
                     _words.ItemName(headline, detail, stamp),
                     _deps.Text.Message("history.card.goBackAutomation", ("name", point.Name)),
-                    BeginCommand(game.Id, new LaunchTarget.Point(point.Id)));
+                    BeginCommand(game.Id, new LaunchTarget.Point(point.Id)),
+                    _deps.Text.Message("history.card.switchAutomation", ("name", point.Name)),
+                    BeginCommand(game.Id, new LaunchTarget.Point(point.Id), switchOnly: true));
             }),
         ];
     }
@@ -514,7 +516,9 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
                     _words.SaveDetail(point),
                     _deps.Text.Message("history.save.loadAutomation", ("name", point.Name)),
                     _words.ItemName(point.Name, _words.SaveDetail(point), point.LoadedNow ? _deps.Text.Message("history.save.loaded") : string.Empty),
-                    BeginCommand(game.Id, new LaunchTarget.Save(point.ProfileId, point.Id)))),
+                    BeginCommand(game.Id, new LaunchTarget.Save(point.ProfileId, point.Id)),
+                    _deps.Text.Message("history.card.switchAutomation", ("name", point.Name)),
+                    BeginCommand(game.Id, new LaunchTarget.Save(point.ProfileId, point.Id), switchOnly: true))),
         ];
 
     private List<PointGroupViewModel> BuildGroups(GameDefinition game, List<HistoryPoint> points)
@@ -527,7 +531,9 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
             _words.Date(point.CapturedAt),
             _deps.Text.Message("history.card.goBackAutomation", ("name", point.Name)),
             _words.ItemName(point.Name, _words.Contains(point), _words.Date(point.CapturedAt), point.LoadedNow ? _deps.Text.Message("history.card.loadedNow") : string.Empty),
-            BeginCommand(game.Id, new LaunchTarget.Point(point.Id))))).ToList();
+            BeginCommand(game.Id, new LaunchTarget.Point(point.Id)),
+            _deps.Text.Message("history.card.switchAutomation", ("name", point.Name)),
+            BeginCommand(game.Id, new LaunchTarget.Point(point.Id), switchOnly: true)))).ToList();
 
         var thisWeek = cards.Where(item => now - item.Point.CapturedAt < _thisWeek).Select(item => item.Card).ToList();
         var earlier = cards.Where(item => now - item.Point.CapturedAt >= _thisWeek).Select(item => item.Card).ToList();
@@ -577,9 +583,9 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
         await ReloadAsync();
     }
 
-    private ICommand BeginCommand(string gameId, LaunchTarget target)
+    private ICommand BeginCommand(string gameId, LaunchTarget target, bool switchOnly = false)
     {
-        var command = new FlowCommand(() => BeginAsync(gameId, target), () => CanBegin(gameId));
+        var command = new FlowCommand(() => BeginAsync(gameId, target, switchOnly), () => CanBegin(gameId));
         _flowCommands.Add(command);
         return command.Command;
     }
@@ -587,10 +593,10 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
     private bool CanBegin(string gameId) => !_shell.LaunchFlow.IsActive(gameId);
 
     // The banner, the running card and a failure's card are shown on the Games screen, so a launch that got going (or failed to) takes the player there.
-    private async Task BeginAsync(string gameId, LaunchTarget target)
+    private async Task BeginAsync(string gameId, LaunchTarget target, bool switchOnly)
     {
         var flow = _shell.LaunchFlow;
-        await flow.BeginAsync(gameId, target);
+        await (switchOnly ? flow.BeginSwitchAsync(gameId, target) : flow.BeginAsync(gameId, target));
         if (_shell.Destination == NavDestination.History && (flow.IsActive(gameId) || flow.InlineContentFor(gameId) is not null))
         {
             _shell.Navigate(NavDestination.Games);

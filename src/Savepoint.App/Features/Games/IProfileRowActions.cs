@@ -5,6 +5,8 @@ internal interface IProfileRowActions
 {
     Task PlayAsync(ProfileRowViewModel row);
 
+    Task SwitchAsync(ProfileRowViewModel row);
+
     Task EditAsync(ProfileRowViewModel row);
 
     Task DuplicateAsync(ProfileRowViewModel row);

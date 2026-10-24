@@ -116,6 +116,25 @@ public class HistoryScreenViewTests
     }
 
     [AvaloniaFact]
+    public async Task A_cards_switch_button_begins_a_switch_for_its_point_and_a_save_rows_does_for_its_save()
+    {
+        using var harness = await StartAsync();
+
+        // The same name belongs to a card and to a save row, so each button is found by the command it carries.
+        var card = Screen(harness).Groups.SelectMany(group => group.Cards).Single(candidate => candidate.Name == "Cleared Blackreach");
+        harness.All<Button>().Single(button => ReferenceEquals(button.Command, card.SwitchCommand)).Command!.Execute(null);
+        Screen(harness).SelectedViewOption = Screen(harness).ViewOptions[1];
+        harness.Settle();
+        var row = Screen(harness).Saves.Single(candidate => candidate.Name == "Deep cave run");
+        harness.All<Button>().Single(button => ReferenceEquals(button.Command, row.SwitchCommand)).Command!.Execute(null);
+
+        Assert.Equal(
+            [new LaunchTarget.Point(MockupScenario.ClearedBlackreach), new LaunchTarget.Save(MockupScenario.SurvivalId, MockupScenario.DeepCaveRun)],
+            harness.Flow.BegunSwitches.Select(begun => begun.Target));
+        Assert.Empty(harness.Flow.Begun);
+    }
+
+    [AvaloniaFact]
     public async Task A_save_rows_button_begins_the_launch_flow_with_that_save()
     {
         using var harness = await StartAsync();

@@ -29,6 +29,7 @@ public sealed partial class ProfileRowViewModel : ObservableObject
         Id = profile.Id;
         GameId = profile.GameId;
         PlayCommand = new AsyncRelayCommand(() => _actions.PlayAsync(this), () => CanPlay);
+        SwitchCommand = new AsyncRelayCommand(() => _actions.SwitchAsync(this), () => CanPlay);
         EditCommand = new AsyncRelayCommand(() => _actions.EditAsync(this));
         DuplicateCommand = new AsyncRelayCommand(() => _actions.DuplicateAsync(this));
         TakeSnapshotCommand = new AsyncRelayCommand(() => _actions.TakeSnapshotAsync(this), () => CanPlay && CanOfferSnapshot);
@@ -120,6 +121,9 @@ public sealed partial class ProfileRowViewModel : ObservableObject
     /// <summary>Starts the game on this profile's latest points.</summary>
     public IAsyncRelayCommand PlayCommand { get; }
 
+    /// <summary>Loads this profile's latest points into the game's folders without starting the game; off whenever Play is.</summary>
+    public IAsyncRelayCommand SwitchCommand { get; }
+
     /// <summary>Opens the edit dialog (name, notes, version).</summary>
     public IAsyncRelayCommand EditCommand { get; }
 
@@ -144,6 +148,7 @@ public sealed partial class ProfileRowViewModel : ObservableObject
     partial void OnCanPlayChanged(bool value)
     {
         PlayCommand.NotifyCanExecuteChanged();
+        SwitchCommand.NotifyCanExecuteChanged();
         TakeSnapshotCommand.NotifyCanExecuteChanged();
     }
 

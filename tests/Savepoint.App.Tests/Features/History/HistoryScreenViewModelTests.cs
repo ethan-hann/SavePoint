@@ -187,6 +187,65 @@ public class HistoryScreenViewModelTests
     }
 
     [Fact]
+    public async Task Switch_to_this_snapshot_on_a_card_begins_a_switch_at_that_point_and_not_a_launch()
+    {
+        var rig = await HistoryRig.ShownAsync();
+        var card = rig.Screen.Groups.SelectMany(group => group.Cards).Single(c => c.Name == "Cleared Blackreach");
+
+        card.SwitchCommand.Execute(null);
+
+        var begun = Assert.Single(rig.Flow!.BegunSwitches);
+        Assert.Equal(MockupScenario.SkyrimId, begun.GameId);
+        Assert.Equal(new LaunchTarget.Point(MockupScenario.ClearedBlackreach), begun.Target);
+        Assert.Empty(rig.Flow.Begun);
+        Assert.Equal("Switch to this snapshot: Cleared Blackreach", card.SwitchAutomationName);
+    }
+
+    [Fact]
+    public async Task Switch_to_this_snapshot_on_a_timeline_entry_and_a_save_row_switch_their_own_target()
+    {
+        var rig = await HistoryRig.ShownAsync();
+        var entry = rig.Screen.Timeline.First(e => !e.IsInUse);
+        var row = rig.Screen.Saves.Single(r => r.Name == "Deep cave run");
+        var points = rig.Screen.Groups.SelectMany(group => group.Cards).Select(card => new LaunchTarget.Point(card.Point.Id)).ToList();
+
+        entry.SwitchCommand.Execute(null);
+        row.SwitchCommand.Execute(null);
+
+        Assert.Equal(2, rig.Flow!.BegunSwitches.Count);
+        Assert.Contains(rig.Flow.BegunSwitches[0].Target, points);
+        Assert.Equal(new LaunchTarget.Save(MockupScenario.SurvivalId, MockupScenario.DeepCaveRun), rig.Flow.BegunSwitches[1].Target);
+        Assert.Empty(rig.Flow.Begun);
+        Assert.StartsWith("Switch to this snapshot: ", entry.SwitchAutomationName, StringComparison.Ordinal);
+        Assert.Equal("Switch to this snapshot: Deep cave run", row.SwitchAutomationName);
+    }
+
+    [Fact]
+    public async Task A_switch_that_gets_going_takes_the_player_to_Games_where_the_progress_and_any_card_show()
+    {
+        var rig = await HistoryRig.ShownAsync();
+        rig.Flow!.OnBegin = gameId => rig.Flow.SetActive(gameId, true);
+
+        rig.Screen.Groups.SelectMany(group => group.Cards).Single(c => c.Name == "Cleared Blackreach").SwitchCommand.Execute(null);
+
+        Assert.Equal(NavDestination.Games, rig.Shell.Destination);
+    }
+
+    [Fact]
+    public async Task The_switch_buttons_are_unavailable_while_the_flow_holds_the_game()
+    {
+        var rig = await HistoryRig.ShownAsync();
+        var card = rig.Screen.Groups[0].Cards[1].SwitchCommand;
+        var save = rig.Screen.Saves[1].SwitchCommand;
+        Assert.True(card.CanExecute(null));
+
+        rig.Flow!.SetActive(MockupScenario.SkyrimId, true);
+
+        Assert.False(card.CanExecute(null));
+        Assert.False(save.CanExecute(null));
+    }
+
+    [Fact]
     public async Task A_timeline_entry_goes_back_to_one_of_the_points_and_is_not_offered_for_the_point_in_use()
     {
         var rig = await HistoryRig.ShownAsync();

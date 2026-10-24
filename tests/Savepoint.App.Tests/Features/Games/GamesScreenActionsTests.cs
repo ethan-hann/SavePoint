@@ -45,6 +45,33 @@ public class GamesScreenActionsTests
         Assert.Empty(rig.LaunchFlow.Begun);
     }
 
+    // ---- Switch to this profile
+
+    [Fact]
+    public async Task Switch_asks_the_launch_flow_to_load_the_profiles_latest_points_without_playing()
+    {
+        var rig = await GamesRig.StartAsync();
+
+        await rig.Screen.Profiles[1].SwitchCommand.ExecuteAsync(null);
+
+        var begun = Assert.Single(rig.LaunchFlow!.BegunSwitches);
+        Assert.Equal(MockupScenario.SkyrimId, begun.GameId);
+        Assert.Equal(new LaunchTarget.ProfileTip(MockupScenario.VanillaId), begun.Target);
+        Assert.Empty(rig.LaunchFlow.Begun);
+    }
+
+    [Fact]
+    public async Task Switch_does_nothing_while_the_game_has_a_session()
+    {
+        var rig = await GamesRig.StartAsync();
+        rig.LaunchFlow!.SetActive(MockupScenario.SkyrimId, true);
+
+        await rig.Screen.Profiles[0].SwitchCommand.ExecuteAsync(null);
+
+        Assert.False(rig.Screen.Profiles[0].SwitchCommand.CanExecute(null));
+        Assert.Empty(rig.LaunchFlow.BegunSwitches);
+    }
+
     // ---- Take a snapshot now
 
     [Fact]
@@ -83,7 +110,7 @@ public class GamesScreenActionsTests
         Assert.False(other.CanOfferSnapshot);
         Assert.True(other.SnapshotBlocked);
         Assert.Equal("Take a snapshot now (load this profile first)", other.SnapshotBlockedText);
-        Assert.Equal("A snapshot copies what your game folders hold now. Play this profile, or go back to its latest snapshot, to load it first.", other.SnapshotBlockedTip);
+        Assert.Equal("A snapshot copies what your game folders hold now. Switch to this profile, play it, or go back to its latest snapshot, to load it first.", other.SnapshotBlockedTip);
         Assert.False(other.TakeSnapshotCommand.CanExecute(null));
 
         await other.TakeSnapshotCommand.ExecuteAsync(null);
@@ -131,7 +158,7 @@ public class GamesScreenActionsTests
         await rig.Screen.Profiles[0].TakeSnapshotCommand.ExecuteAsync(null);
 
         Assert.Equal(
-            "A snapshot copies what your game folders hold now, and the saves folder isn't holding this profile. Play this profile first to load it, then take a snapshot.",
+            "A snapshot copies what your game folders hold now, and the saves folder isn't holding this profile. Switch to this profile, or play it, to load it, then take a snapshot.",
             Assert.Single(rig.ToastTexts));
     }
 
@@ -400,7 +427,7 @@ public class GamesScreenActionsTests
         await rig.Screen.Profiles[0].DeleteCommand.ExecuteAsync(null);
 
         Assert.Empty(rig.Dialogs.Confirmations);
-        Assert.Equal(["This profile is loaded now. Play a different profile first, then delete this one."], rig.ToastTexts);
+        Assert.Equal(["This profile is loaded now. Switch to a different profile, or play one, then delete this one."], rig.ToastTexts);
         Assert.Empty(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.DeleteAsync)));
     }
 
