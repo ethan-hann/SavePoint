@@ -199,6 +199,24 @@ public class GameSessionWatcherTests
 
         Assert.Equal(SessionEndKind.NamedProcessEnded, outcome.Kind);
         Assert.Equal(Seconds(4 + 6) + TimeSpan.FromMinutes(5) + Seconds(2), outcome.PlayDuration);
+        Assert.Equal(rig.Child.Pid, outcome.StartedPid);
+        Assert.Equal([901], outcome.FollowedPids);
+    }
+
+    [Fact]
+    public async Task A_program_that_ran_past_the_relaunch_window_and_exits_ends_the_session_at_once()
+    {
+        using var rig = await WatcherRig.ProgramAsync(_name);
+        rig.Processes.Set(Copy(rig.Child!.Pid), ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(40));
+
+        rig.Processes.Set(ScriptedInspector.Bystander);
+        await rig.ExitChildAsync();
+
+        Assert.True(rig.Watcher.IsSettled, "a game that was quit after a long run must not get the grace");
+        var outcome = await rig.OutcomeAsync();
+        Assert.Equal(SessionEndKind.NamedProcessEnded, outcome.Kind);
+        Assert.Equal(Seconds(40), outcome.PlayDuration);
     }
 
     [Fact]

@@ -9,7 +9,8 @@ namespace Savepoint.Core.Launch;
 /// the wait: a launcher stub that hands over to the real game exits early, so the session then follows the named process, which has
 /// <see cref="GameSessionOptions.Grace"/> from the stub's exit to appear. The list is read from the moment the watcher starts, so
 /// a game seen while the stub was still alive needs no grace. The started program itself never counts as that game, even under the
-/// same name: a game that exits and asks its store to start it again has the grace to come back as a new process. A link has no program, so it is poll-only and best effort, and with no
+/// same name: a game that exits within <see cref="GameSessionOptions.RelaunchWindow"/> of starting and asks its store to start it again
+/// has the grace to come back as a new process, while one that ran longer and is gone was quit and ends the session at once. A link has no program, so it is poll-only and best effort, and with no
 /// process name it can only be ended by <see cref="MarkFinished"/>.
 /// </para>
 /// <para>
@@ -27,6 +28,7 @@ public sealed class GameSessionWatcher : IDisposable
     private readonly GameSessionOptions _options;
     private readonly TimeProvider _clock;
     private readonly Task _loop;
+    private readonly SortedSet<int> _followed = [];
     private bool _disposed;
     private bool _childReleased;
 
@@ -144,6 +146,7 @@ public sealed class GameSessionWatcher : IDisposable
         var childExit = _child?.WaitForExitAsync(stop);
         var childGone = false;
         var observed = false;
+        var selfSeen = false;
         var graceFrom = StartedAt;
 
         while (true)
@@ -160,14 +163,30 @@ public sealed class GameSessionWatcher : IDisposable
 
             // The started program does not count as the game it hands over to: a game that exits and asks its store to start it again
             // leaves a same-named process behind only by being the one that was started.
-            var state = _check.Probe(name, _child?.Pid);
+            var look = _check.Look(name, _child?.Pid);
+            var state = look.State;
             observed |= state == NamedProcessState.Running;
+            selfSeen |= look.IgnoredMatched;
+            if (look.OtherPids.Count > 0)
+            {
+                lock (_gate)
+                {
+                    _followed.UnionWith(look.OtherPids);
+                }
+            }
 
             // The program's own exit is always needed; the named process only lengthens the wait after it.
             if (childGone && state != NamedProcessState.Running)
             {
                 var deadline = graceFrom + _options.Grace;
                 if (observed && state == NamedProcessState.Absent)
+                {
+                    Settle(SessionEndKind.NamedProcessEnded);
+                    return;
+                }
+
+                // A game that ran for a while under the named process and is gone was quit; only a quick exit may be a restart.
+                if (!observed && selfSeen && state == NamedProcessState.Absent && graceFrom - StartedAt >= _options.RelaunchWindow)
                 {
                     Settle(SessionEndKind.NamedProcessEnded);
                     return;
@@ -207,7 +226,13 @@ public sealed class GameSessionWatcher : IDisposable
 
     private bool Settle(SessionEndKind kind)
     {
-        var outcome = new SessionOutcome(kind, StartedAt, _clock.GetUtcNow(), ChildExitCode());
+        int[] followed;
+        lock (_gate)
+        {
+            followed = [.. _followed];
+        }
+
+        var outcome = new SessionOutcome(kind, StartedAt, _clock.GetUtcNow(), ChildExitCode()) { StartedPid = _child?.Pid, FollowedPids = followed };
         if (!_outcome.TrySetResult(outcome))
         {
             return false;

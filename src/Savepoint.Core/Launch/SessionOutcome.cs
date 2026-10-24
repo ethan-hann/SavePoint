@@ -7,6 +7,12 @@ namespace Savepoint.Core.Launch;
 /// <param name="ChildExitCode">The exit code of the program SavePoint started, or null for a link and for a program still running when the session settled.</param>
 public sealed record SessionOutcome(SessionEndKind Kind, DateTimeOffset StartedAt, DateTimeOffset EndedAt, int? ChildExitCode)
 {
+    /// <summary>The process id of the program SavePoint started, or null for a link.</summary>
+    public int? StartedPid { get; init; }
+
+    /// <summary>The ids of the processes with the configured name, other than the started program, that the watcher saw; empty when it saw none.</summary>
+    public IReadOnlyList<int> FollowedPids { get; init; } = [];
+
     /// <summary>The time from the start to the end; for <see cref="SessionEndKind.NamedProcessNeverAppeared"/> it includes the grace period that found nothing.</summary>
     public TimeSpan PlayDuration => EndedAt - StartedAt;
 }

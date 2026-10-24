@@ -52,6 +52,13 @@ public sealed partial class LaunchOrchestrator
             // The process could not be read; the session ends as of now.
         }
 
+        if (outcome is not null)
+        {
+            var started = outcome.StartedPid is { } pid ? $"started pid {pid}" : "started no program";
+            var followed = outcome.FollowedPids.Count > 0 ? string.Join(", ", outcome.FollowedPids) : "none";
+            _services.Log.Information($"Launch session for {gameId} (job {launchJobId}): ended as {outcome.Kind}; {started}, followed pids {followed}.");
+        }
+
         var endedAt = outcome?.EndedAt ?? _services.Time.GetUtcNow();
         var exited = await DescribeExitAsync(gameId, watcher.StartedAt, endedAt - watcher.StartedAt).ConfigureAwait(false);
         _book.TryChange(gameId, launchJobId, record => record.Info.State is SessionState.Running ? exited : null);
