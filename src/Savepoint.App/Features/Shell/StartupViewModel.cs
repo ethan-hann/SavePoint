@@ -57,6 +57,9 @@ public sealed partial class StartupViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsChecking))]
     private StartupPhase _phase = StartupPhase.Checking;
 
+    private bool _isFinishingEarlierCleanup;
+    private int _checkRun;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasCard))]
     private ErrorCardViewModel? _card;
@@ -114,6 +117,9 @@ public sealed partial class StartupViewModel : ObservableObject
     /// <summary>True while the checks run.</summary>
     public bool IsChecking => Phase == StartupPhase.Checking;
 
+    /// <summary>True while the checks wait for a cleanup an earlier run of SavePoint began and did not finish; the screen then says why it is slow.</summary>
+    public bool IsFinishingEarlierCleanup => _isFinishingEarlierCleanup;
+
     /// <summary>True when <see cref="Card"/> is the screen.</summary>
     public bool HasCard => Card is not null;
 
@@ -144,7 +150,10 @@ public sealed partial class StartupViewModel : ObservableObject
         ClearStorageActionError();
 
         Phase = StartupPhase.Checking;
-        var checkedStatus = await _status.CheckAsync();
+        SetFinishingEarlierCleanup(false);
+        var run = ++_checkRun;
+        var checkedStatus = await _status.CheckAsync(progress: new UiProgress(SynchronizationContext.Current, step => ShowProgress(run, step)));
+        SetFinishingEarlierCleanup(false);
         if (!checkedStatus.Ok)
         {
             Phase = StartupPhase.Failed;
@@ -180,6 +189,40 @@ public sealed partial class StartupViewModel : ObservableObject
 
         Phase = StartupPhase.Ready;
         Ready?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void ShowProgress(int run, StartupProgress progress)
+    {
+        // A report still queued when its check ended must not show a note for a wait that is over.
+        if (run == _checkRun && Phase == StartupPhase.Checking && progress == StartupProgress.FinishingEarlierCleanup)
+        {
+            SetFinishingEarlierCleanup(true);
+        }
+    }
+
+    private void SetFinishingEarlierCleanup(bool value)
+    {
+        if (_isFinishingEarlierCleanup != value)
+        {
+            _isFinishingEarlierCleanup = value;
+            OnPropertyChanged(nameof(IsFinishingEarlierCleanup));
+        }
+    }
+
+    // The backend reports from its own thread; the screen's state changes where the screen runs.
+    private sealed class UiProgress(SynchronizationContext? context, Action<StartupProgress> show) : IProgress<StartupProgress>
+    {
+        public void Report(StartupProgress value)
+        {
+            if (context is null)
+            {
+                show(value);
+            }
+            else
+            {
+                context.Post(_ => show(value), null);
+            }
+        }
     }
 
     // The log folder is named here because this is the one screen a person can only leave by closing the app, and what they report from it is the log.

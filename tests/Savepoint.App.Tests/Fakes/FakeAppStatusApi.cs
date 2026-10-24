@@ -16,8 +16,20 @@ public sealed class FakeAppStatusApi : IAppStatusApi
 
     private FakeState State => _backend.State;
 
-    public Task<OperationResult<StartupStatus>> CheckAsync(CancellationToken cancellationToken = default) =>
-        _backend.Call(_api, nameof(CheckAsync), [], () => OperationResult.Success(State.Startup));
+    public async Task<OperationResult<StartupStatus>> CheckAsync(CancellationToken cancellationToken = default, IProgress<StartupProgress>? progress = null)
+    {
+        foreach (var step in State.StartupSteps)
+        {
+            progress?.Report(step);
+        }
+
+        if (State.StartupGate is { } gate)
+        {
+            await gate;
+        }
+
+        return await _backend.Call(_api, nameof(CheckAsync), [], () => OperationResult.Success(State.Startup));
+    }
 
     public Task<OperationResult<string>> RecoverCatalogFileAsync(string path, CatalogRecovery recovery, CancellationToken cancellationToken = default) =>
         _backend.Call(_api, nameof(RecoverCatalogFileAsync), [path, recovery], () =>

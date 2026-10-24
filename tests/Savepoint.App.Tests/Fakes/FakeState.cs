@@ -75,6 +75,11 @@ internal sealed class FakeState
 
     public StartupStatus Startup { get; set; }
 
+    // What the startup check reports before it answers, and a task it then waits on, to hold a check open the way a leftover cleanup does.
+    public List<StartupProgress> StartupSteps { get; } = [];
+
+    public Task? StartupGate { get; set; }
+
     // Folders that hold the stamped history of the listed games; see ScenarioBuilder.WithStorageHistoryIn.
     public HashSet<string> StorageFoldersWithHistory { get; } = new(StringComparer.OrdinalIgnoreCase);
 
