@@ -1,3 +1,6 @@
+using System.Xml;
+using System.Xml.Linq;
+
 namespace Savepoint.Core.Launch;
 
 /// <summary>One program file found in an install folder.</summary>
@@ -30,8 +33,11 @@ public static class ProcessNameSuggester
         "errorreport", "dumpwriter", "minidump", "sndrpt", "handler", "helper", "subprocess", "webhelper", "cefclient", "cefsimple",
         "beservice", "easyanticheat", "start_protected_game", "bootstrap", "watchdog", "uploader", "sender", "converter", "editor",
         "creationkit", "benchmark", "dedicated", "srcds", "hlds", "hltv", "vconsole", "overlay", "startapp", "settings",
-        "shadercompile", "ffmpeg", "python", "java", "checker", "dotnet", "restarter", "modtest", "_be", "_eac", "_uc", "_zk",
+        "shadercompile", "ffmpeg", "python", "java", "checker", "dotnet", "restarter", "modtest",
     ];
+
+    // Anti-cheat launchers add these to the game's own name, so they count only at its end.
+    private static readonly string[] _helperNameEndings = ["_be", "_eac", "_uc", "_zk"];
 
     // Too short to match as a part of a longer name, or too common as one.
     private static readonly string[] _helperExactNames = ["dxc", "fxc", "ucc", "scc", "play", "start", "run", "cleaner", "codcleaner"];
@@ -53,7 +59,56 @@ public static class ProcessNameSuggester
     /// <param name="gameName">The game's name as the player wrote it, or null; used as a second hint.</param>
     /// <param name="programs">The programs found in the install folder.</param>
     /// <returns>The file name with its extension, or null when nothing in the folder looks like a game.</returns>
-    public static string? Suggest(string? installFolderName, string? gameName, IEnumerable<InstalledProgram> programs)
+    public static string? Suggest(string? installFolderName, string? gameName, IEnumerable<InstalledProgram> programs) =>
+        SuggestProgram(installFolderName, gameName, programs)?.FileName;
+
+    /// <summary>
+    /// Names the process to follow for the program in an install folder that most likely is the game. The same pick as
+    /// <see cref="Suggest(string?, string?, IEnumerable{InstalledProgram})"/>, except that a macOS <c>.app</c> bundle is named by the program inside it
+    /// (the <c>CFBundleExecutable</c> of its <c>Info.plist</c>, or the bundle's own name without <c>.app</c> when that is missing or unreadable),
+    /// because that is the name of the running process.
+    /// </summary>
+    /// <param name="installFolderName">The install folder's own name, used as a hint.</param>
+    /// <param name="gameName">The game's name as the player wrote it, or null; used as a second hint.</param>
+    /// <param name="programs">The programs found in the install folder, with paths relative to <paramref name="installFolder"/>.</param>
+    /// <param name="installFolder">The install folder, where a bundle's <c>Info.plist</c> is read.</param>
+    /// <returns>The process name, or null when nothing in the folder looks like a game.</returns>
+    public static string? Suggest(string? installFolderName, string? gameName, IEnumerable<InstalledProgram> programs, string installFolder) =>
+        SuggestProgram(installFolderName, gameName, programs) is not { } best
+            ? null
+            : best.FileName.EndsWith(".app", StringComparison.OrdinalIgnoreCase)
+                ? BundleProgramName(Path.Combine(installFolder, best.RelativePath), best.FileName)
+                : best.FileName;
+
+    // The running process is the bundle's program, not the bundle folder.
+    private static string BundleProgramName(string bundleFolder, string bundleFileName)
+    {
+        try
+        {
+            var plist = Path.Combine(bundleFolder, "Contents", "Info.plist");
+            if (File.Exists(plist))
+            {
+                using var reader = XmlReader.Create(plist, new XmlReaderSettings { DtdProcessing = DtdProcessing.Ignore });
+                var document = XDocument.Load(reader);
+                var entries = document.Descendants("dict").FirstOrDefault()?.Elements().ToList() ?? [];
+                for (var i = 0; i + 1 < entries.Count; i++)
+                {
+                    if (entries[i].Name == "key" && entries[i].Value == "CFBundleExecutable" && entries[i + 1].Name == "string" && entries[i + 1].Value.Trim() is { Length: > 0 } name)
+                    {
+                        return name;
+                    }
+                }
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or XmlException)
+        {
+            // A binary or damaged plist falls through to the bundle's own name.
+        }
+
+        return bundleFileName[..^4];
+    }
+
+    private static ParsedProgram? SuggestProgram(string? installFolderName, string? gameName, IEnumerable<InstalledProgram> programs)
     {
         var parsed = programs.Select(Parse).ToList();
         var candidates = parsed.Where(p => !IsHelper(p)).ToList();
@@ -78,14 +133,14 @@ public static class ProcessNameSuggester
             .ThenBy(entry => entry.Program.FileName, StringComparer.OrdinalIgnoreCase)
             .FirstOrDefault();
 
-        return best.Program is null ? null : best.Program.FileName;
+        return best.Program;
     }
 
     private static ParsedProgram Parse(InstalledProgram program)
     {
         var parts = program.RelativePath.Split(['\\', '/'], StringSplitOptions.RemoveEmptyEntries);
         var fileName = parts.Length == 0 ? string.Empty : parts[^1];
-        return new ParsedProgram(fileName, parts.Length <= 1 ? [] : parts[..^1], program.Length);
+        return new ParsedProgram(fileName, parts.Length <= 1 ? [] : parts[..^1], program.Length, program.RelativePath);
     }
 
     private static bool IsHelper(ParsedProgram program)
@@ -101,7 +156,7 @@ public static class ProcessNameSuggester
             return true;
         }
 
-        if (_helperNameParts.Any(part => stem.Contains(part, StringComparison.Ordinal)))
+        if (_helperNameParts.Any(part => stem.Contains(part, StringComparison.Ordinal)) || _helperNameEndings.Any(ending => stem.EndsWith(ending, StringComparison.Ordinal)))
         {
             return true;
         }
@@ -189,5 +244,5 @@ public static class ProcessNameSuggester
     private static string Normalize(string? text) =>
         text is null ? string.Empty : new string([.. text.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant)]);
 
-    private sealed record ParsedProgram(string FileName, string[] Folders, long Length);
+    private sealed record ParsedProgram(string FileName, string[] Folders, long Length, string RelativePath);
 }
