@@ -22,23 +22,50 @@ internal static class EmptyFolders
 
         try
         {
-            return JsonSerializer.Deserialize<string[]>(value) ?? [];
+            // Only text entries count: a null or a number in the list is dropped, the rest still stand.
+            return JsonSerializer.Deserialize<JsonElement[]>(value)?.Where(item => item.ValueKind == JsonValueKind.String).Select(item => item.GetString()!).ToArray() ?? [];
         }
-        catch (JsonException)
+        catch (Exception e) when (e is JsonException or InvalidOperationException)
         {
             return [];
         }
     }
 
     // A recorded path is only ever created under the game folder: relative, no way out of it, and nothing named like a git directory.
-    public static bool IsSafe(string path)
+    public static bool IsSafe(string path) => IsSafe(path, OperatingSystem.IsWindows());
+
+    // Where backslash and colon are path syntax (Windows) they are refused; elsewhere they are ordinary name characters. On Windows a name
+    // that ends in a dot or a space, or is a device name, is read as a different path than the one written.
+    public static bool IsSafe(string path, bool windows)
     {
-        if (path.Length == 0 || path[0] == '/' || path.Contains('\\', StringComparison.Ordinal) || path.Any(char.IsControl) || path.Contains(':', StringComparison.Ordinal))
+        if (path.Length == 0 || path[0] == '/' || path.Any(char.IsControl) || (windows && (path.Contains('\\', StringComparison.Ordinal) || path.Contains(':', StringComparison.Ordinal))))
         {
             return false;
         }
 
-        return path.Split('/').All(segment => segment.Length > 0 && segment is not ("." or "..") && !segment.Equals(".git", StringComparison.OrdinalIgnoreCase));
+        return path.Split('/').All(segment =>
+            segment.Length > 0
+            && segment is not ("." or "..")
+            && !segment.Equals(".git", StringComparison.OrdinalIgnoreCase)
+            && !(windows && (segment[^1] is '.' or ' ' || IsDeviceName(segment))));
+    }
+
+    private static bool IsDeviceName(string segment)
+    {
+        var dot = segment.IndexOf('.', StringComparison.Ordinal);
+        var stem = dot < 0 ? segment : segment[..dot];
+        return stem.ToUpperInvariant() is "CON" or "PRN" or "AUX" or "NUL"
+            || (stem.Length == 4 && stem[3] is >= '1' and <= '9' && stem[..3].ToUpperInvariant() is "COM" or "LPT");
+    }
+
+    // True when the folder, joined to the work tree and resolved by the system, is that very path and lies under the work tree.
+    public static bool ResolvesInside(string workTree, string relative)
+    {
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(workTree));
+        var joined = Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar));
+        var resolved = Path.GetFullPath(joined);
+        var comparison = OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        return string.Equals(resolved, joined, comparison) && resolved.StartsWith(root + Path.DirectorySeparatorChar, comparison);
     }
 
     // Folders with nothing in them at all, relative to the work tree. A folder holding only an empty folder is not listed, its inner one is.
@@ -64,7 +91,7 @@ internal static class EmptyFolders
                     {
                         repository = true;
                     }
-                    else if (entry is DirectoryInfo && (entry.Attributes & FileAttributes.ReparsePoint) == 0)
+                    else if (entry is DirectoryInfo && !LinkedFolders.IsLink(entry.FullName))
                     {
                         inside.Add((entry.FullName, relative.Length == 0 ? entry.Name : relative + "/" + entry.Name));
                     }

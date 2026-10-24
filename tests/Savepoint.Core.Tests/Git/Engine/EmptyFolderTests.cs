@@ -247,4 +247,209 @@ public sealed class EmptyFolderTests : IDisposable
 
         await Assert.ThrowsAsync<ArgumentException>(() => _ws.CaptureAsync(repo, "profile-a", "Savepoint-Empty-Folders: [\"x\"]"));
     }
+
+    [Theory]
+    [InlineData("Savepoint-Empty-Folders : [\"x\"]")]
+    [InlineData("savepoint-EMPTY-folders:[\"x\"]")]
+    [InlineData("Subject\nSavepoint-Empty-Folders\t: [\"x\"]")]
+    [InlineData("Savepoint-Capture : abc")]
+    public async Task Any_spelling_git_reads_as_a_trailer_key_is_refused_in_a_message(string message)
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "a.txt", "a");
+
+        await Assert.ThrowsAsync<ArgumentException>(() => _ws.CaptureAsync(repo, "profile-a", message));
+    }
+
+    // profile-a carries a hand-written trailer (as storage adopted from elsewhere could); the folder is left on profile-b.
+    private async Task<RepoRef> WithPlantedTrailerAsync(string value)
+    {
+        var repo = await VanillaAndModdedAsync();
+        await _ws.GitWriteAsync(repo, "checkout", "--quiet", "profile-a");
+        await _ws.GitWriteAsync(repo, "commit", "--amend", "--allow-empty", "--no-verify", "-m", "Planted\n\nSavepoint-Empty-Folders: " + value);
+        await _ws.GitWriteAsync(repo, "checkout", "--quiet", "profile-b");
+        return repo;
+    }
+
+    private async Task AssertSwitchFinishedAsync(RepoRef repo)
+    {
+        Assert.Null((await _ws.Engine.GetStatusAsync(repo, Ct)).InterruptedSwitch);
+        Assert.True(File.Exists(_ws.FileOf(repo, "game.exe")));
+        Assert.False(File.Exists(_ws.FileOf(repo, _modFolder + "/tweak.archive")));
+    }
+
+    [Theory]
+    [InlineData("[null]")]
+    [InlineData("[\"ok\",null]")]
+    [InlineData("[1,{\"a\":2}]")]
+    [InlineData("{}")]
+    [InlineData("[\"unterminated")]
+    [InlineData("\"just a string\"")]
+    [InlineData("null")]
+    public async Task A_trailer_that_is_not_a_list_of_names_never_stops_a_switch(string value)
+    {
+        var repo = await WithPlantedTrailerAsync(value);
+
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+
+        await AssertSwitchFinishedAsync(repo);
+        Assert.Equal(value.Contains("\"ok\"", StringComparison.Ordinal), Exists(repo, "ok"));
+    }
+
+    [Fact]
+    public async Task A_trailer_that_is_not_a_list_never_stops_a_discard_or_a_clean()
+    {
+        var repo = await WithPlantedTrailerAsync("[null]");
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+
+        await _ws.Engine.DiscardChangesAsync(repo, Ct);
+        await _ws.Engine.CleanAsync(repo, Ct);
+
+        await AssertSwitchFinishedAsync(repo);
+    }
+
+    [Fact]
+    public async Task A_very_long_list_is_made_in_full()
+    {
+        var names = string.Join(",", Enumerable.Range(0, 2000).Select(i => $"\"many/f{i}\""));
+        var repo = await WithPlantedTrailerAsync("[" + names + "]");
+
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+
+        await AssertSwitchFinishedAsync(repo);
+        Assert.Equal(2000, Directory.GetDirectories(_ws.FileOf(repo, "many")).Length);
+    }
+
+    [Fact]
+    public async Task A_recorded_path_that_leaves_the_game_folder_or_names_a_git_folder_is_not_made()
+    {
+        var repo = await WithPlantedTrailerAsync("[\"../escape-66\",\"/abs-66\",\".git\",\"x/.git/y\",\"a/../b\",\"ok\"]");
+
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+
+        await AssertSwitchFinishedAsync(repo);
+        Assert.True(Exists(repo, "ok"));
+        Assert.False(Directory.Exists(Path.Combine(Path.GetDirectoryName(repo.WorkTree)!, "escape-66")));
+        Assert.False(Exists(repo, ".git"));
+        Assert.False(Exists(repo, "x"));
+        Assert.False(Exists(repo, "a"));
+        Assert.False(Exists(repo, "b"));
+    }
+
+    [Fact]
+    public async Task A_recorded_path_below_a_file_is_left_out_and_the_file_stays()
+    {
+        var repo = await WithPlantedTrailerAsync("[\"game.exe/sub\",\"ok\"]");
+
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+
+        await AssertSwitchFinishedAsync(repo);
+        Assert.Equal("exe", await File.ReadAllTextAsync(_ws.FileOf(repo, "game.exe"), Ct));
+        Assert.True(Exists(repo, "ok"));
+    }
+
+    [Fact]
+    public async Task A_folder_below_a_link_added_after_the_snapshot_is_not_made_through_it()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "game.exe", "exe");
+        Directory.CreateDirectory(_ws.FileOf(repo, "Sub/Empty"));
+        await _ws.CaptureAsync(repo, "profile-a");
+        await _ws.GitWriteAsync(repo, "checkout", "--quiet", "-b", "profile-b");
+        Directory.Delete(_ws.FileOf(repo, "Sub"), recursive: true);
+        _ws.Write(repo, "other.txt", "other");
+        await _ws.CaptureAsync(repo, "profile-b");
+        var outside = Path.Combine(_ws.Root, "outside-link-target");
+        Directory.CreateDirectory(outside);
+        Assert.SkipUnless(TestLinks.TryCreateFolderLink(_ws.FileOf(repo, "Sub"), outside), "this system cannot make folder links");
+        // The link is not saved work git can see on every system, so the switch is the finish of a stopped one, which does not look for it.
+        SwitchJournal.Write(repo.GitDir, (await _ws.TipAsync(repo, "profile-b"))!, (await _ws.TipAsync(repo, "profile-a"))!, "profile-a");
+
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+
+        Assert.Empty(Directory.GetFileSystemEntries(outside));
+    }
+
+    [Theory]
+    [InlineData("Mods/Empty", true, true)]
+    [InlineData("COM10", true, true)]
+    [InlineData("console/a.b", true, true)]
+    [InlineData("foo.", true, false)]
+    [InlineData("foo ", true, false)]
+    [InlineData(".git.", true, false)]
+    [InlineData(".git ", true, false)]
+    [InlineData("a/NUL", true, false)]
+    [InlineData("nul.txt", true, false)]
+    [InlineData("a/LPT9.x", true, false)]
+    [InlineData("Con", true, false)]
+    [InlineData("a\\b", true, false)]
+    [InlineData("a:b", true, false)]
+    [InlineData("foo.", false, true)]
+    [InlineData("NUL", false, true)]
+    [InlineData("a\\b", false, true)]
+    [InlineData("a:b", false, true)]
+    [InlineData(":(glob)x", false, true)]
+    [InlineData("..", false, false)]
+    [InlineData("a//b", false, false)]
+    [InlineData(".GIT", false, false)]
+    public void A_name_is_safe_to_make_only_where_the_system_reads_it_as_written(string path, bool windows, bool safe) =>
+        Assert.Equal(safe, EmptyFolders.IsSafe(path, windows));
+
+    [Fact]
+    public void A_path_that_resolves_elsewhere_than_where_it_is_joined_is_refused()
+    {
+        var work = Path.Combine(Path.GetTempPath(), "savepoint-resolve-check");
+
+        Assert.True(EmptyFolders.ResolvesInside(work, "a/b"));
+        Assert.False(EmptyFolders.ResolvesInside(work, "a/../b"));
+        Assert.False(EmptyFolders.ResolvesInside(work, "../b"));
+    }
+
+    [Fact]
+    public async Task A_folder_with_a_name_that_looks_like_pathspec_magic_is_recorded_and_made()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Windows cannot hold a colon in a name");
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "game.exe", "exe");
+        Directory.CreateDirectory(_ws.FileOf(repo, ":(glob)x"));
+        await _ws.CaptureAsync(repo, "profile-a");
+        await _ws.GitWriteAsync(repo, "checkout", "--quiet", "-b", "profile-b");
+        _ws.Write(repo, ":(glob)x/f.txt", "f");
+        await _ws.CaptureAsync(repo, "profile-b");
+
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+
+        Assert.Equal("[\":(glob)x\"]", await TrailerAsync(repo, "profile-a"));
+        Assert.True(Exists(repo, ":(glob)x"));
+    }
+
+    [Fact]
+    public async Task Every_capture_mode_records_the_empty_folders()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "game.exe", "exe");
+        Directory.CreateDirectory(_ws.FileOf(repo, "e"));
+        const string expected = "[\"e\"]";
+
+        await _ws.CaptureAsync(repo, "p1");
+        Assert.Equal(expected, await TrailerAsync(repo, "p1"));
+
+        _ws.Write(repo, "two.txt", "2");
+        await _ws.Engine.CaptureAsync(repo, new CaptureRequest("p1", "Amended", "id-amend") { Mode = CaptureMode.Amend }, ct: Ct);
+        Assert.Equal(expected, await TrailerAsync(repo, "p1"));
+
+        var start = (await _ws.TipAsync(repo, "p1"))!;
+        _ws.Write(repo, "three.txt", "3");
+        await _ws.Engine.CaptureAsync(repo, new CaptureRequest("p1", "Moved", "id-move") { Mode = CaptureMode.MoveForward, ExpectedStartCommit = start }, ct: Ct);
+        Assert.NotEqual(start, await _ws.TipAsync(repo, "p1"));
+        Assert.Equal(expected, await TrailerAsync(repo, "p1"));
+
+        _ws.Write(repo, "four.txt", "4");
+        await _ws.Engine.CaptureAsync(repo, new CaptureRequest("p2", "Forked", "id-fork") { Mode = CaptureMode.Fork }, ct: Ct);
+        Assert.Equal(expected, await TrailerAsync(repo, "p2"));
+
+        _ws.Write(repo, "five.txt", "5");
+        await _ws.Engine.CaptureAsync(repo, new CaptureRequest("p3", "Rooted", "id-root") { Mode = CaptureMode.Root }, ct: Ct);
+        Assert.Equal(expected, await TrailerAsync(repo, "p3"));
+    }
 }

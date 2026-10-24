@@ -18,6 +18,9 @@ public sealed partial class GitEngine
     /// does not write it, remove it or restore it, whether or not either point holds it. A path that is a file in one place and a
     /// folder in the other cannot be switched while the folder holds a file the switch does not remove itself (one the patterns
     /// name, say), or while a file of the player's stands where a folder is needed: the switch stops before it writes anything.
+    /// When the switch is done it creates the empty folders the target point was taken with (git does not track them) that are missing.
+    /// It only creates: no folder is removed or filled, and one the game's patterns name, one below a folder link and one a file of the
+    /// player's stands on are left out. An empty folder the target does not hold is left as it is. This holds for the other switch methods too.
     /// </summary>
     /// <param name="repo">The folder to switch.</param>
     /// <param name="branch">The profile's branch; it must have at least one point.</param>
@@ -41,7 +44,8 @@ public sealed partial class GitEngine
     }
 
     /// <summary>
-    /// Switches the folder to an older point, leaving HEAD detached. Behaves like <see cref="CheckoutBranchAsync"/> otherwise.
+    /// Switches the folder to an older point, leaving HEAD detached. Behaves like <see cref="CheckoutBranchAsync"/> otherwise, including
+    /// creating the empty folders that point was taken with.
     /// </summary>
     /// <param name="repo">The folder to switch.</param>
     /// <param name="commitId">The full id of a point in the repository.</param>
@@ -67,7 +71,7 @@ public sealed partial class GitEngine
     /// files that are in the way. It still refuses a half-switched folder it is not finishing and a folder link on Windows, and it
     /// still leaves the files the game's patterns name as they are. It also refuses a file and a folder that cannot share a path
     /// while the player's own files that the patterns name (or a repository of its own) would be deleted with the folder. Everything
-    /// else behaves like <see cref="CheckoutBranchAsync"/>.
+    /// else behaves like <see cref="CheckoutBranchAsync"/>, including creating the empty folders the target point was taken with.
     /// </summary>
     /// <param name="repo">The folder to switch.</param>
     /// <param name="branch">The profile's branch; it must have at least one point.</param>
@@ -79,7 +83,8 @@ public sealed partial class GitEngine
     }
 
     /// <summary>
-    /// Switches the folder to an older point and makes it match, discarding local changes like <see cref="ForceCheckoutBranchAsync"/>.
+    /// Switches the folder to an older point and makes it match, discarding local changes like <see cref="ForceCheckoutBranchAsync"/>, and
+    /// creates the empty folders that point was taken with.
     /// </summary>
     /// <param name="repo">The folder to switch.</param>
     /// <param name="commitId">The full id of a point in the repository.</param>
