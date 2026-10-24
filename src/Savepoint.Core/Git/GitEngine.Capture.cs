@@ -296,7 +296,7 @@ public sealed partial class GitEngine
     private async Task<string> WriteCommitAsync(RepoRef repo, CaptureRequest request, string? parent, CancellationToken ct)
     {
         var tree = (await RunWriteAsync(() => Invocation(repo, readOnly: false, "write-tree"), ct).ConfigureAwait(false)).StandardOutput.Trim();
-        var message = CommitMessage.Compose(request.Message, request.CaptureId, request.CapturedAt ?? _options.Clock.GetUtcNow());
+        var message = CommitMessage.Compose(request.Message, request.CaptureId, request.CapturedAt ?? _options.Clock.GetUtcNow(), await ListEmptyFoldersAsync(repo, ct).ConfigureAwait(false));
         string[] arguments = parent is null ? ["commit-tree", tree, "-F", "-"] : ["commit-tree", tree, "-p", parent, "-F", "-"];
         var result = await RunWriteAsync(() => Invocation(repo, readOnly: false, arguments) with { Stdin = message }, ct).ConfigureAwait(false);
         return result.StandardOutput.Trim();
@@ -502,13 +502,13 @@ public sealed partial class GitEngine
     private Task SetHeadAsync(RepoRef repo, string branch, CancellationToken ct) =>
         RunWriteAsync(() => Invocation(repo, readOnly: false, "symbolic-ref", "HEAD", GitDirFiles.BranchPrefix + branch), ct);
 
-    private Task CommitAsync(RepoRef repo, CaptureRequest request, bool amend, CancellationToken ct)
+    private async Task CommitAsync(RepoRef repo, CaptureRequest request, bool amend, CancellationToken ct)
     {
-        var message = CommitMessage.Compose(request.Message, request.CaptureId, request.CapturedAt ?? _options.Clock.GetUtcNow());
+        var message = CommitMessage.Compose(request.Message, request.CaptureId, request.CapturedAt ?? _options.Clock.GetUtcNow(), await ListEmptyFoldersAsync(repo, ct).ConfigureAwait(false));
         string[] arguments = amend
             ? ["commit", "--quiet", "--amend", "--reset-author", "--allow-empty", "--no-verify", "--cleanup=verbatim", "-F", "-"]
             : ["commit", "--quiet", "--no-verify", "--cleanup=verbatim", "-F", "-"];
-        return RunWriteAsync(() => Invocation(repo, readOnly: false, arguments) with { Stdin = message }, ct);
+        await RunWriteAsync(() => Invocation(repo, readOnly: false, arguments) with { Stdin = message }, ct).ConfigureAwait(false);
     }
 
     // The commit a branch points at: the loose ref file when there is one, git otherwise (the ref may be packed, or the branch may not exist).
