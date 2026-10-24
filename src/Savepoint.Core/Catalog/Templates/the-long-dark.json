@@ -9,7 +9,7 @@
     ],
     "savesByOs": {
       "linux": {
-        "path": "{userHome}/.local/share/Hinterland/TheLongDark",
+        "path": "{localAppData}/Hinterland/TheLongDark",
         "role": "saves"
       }
     }

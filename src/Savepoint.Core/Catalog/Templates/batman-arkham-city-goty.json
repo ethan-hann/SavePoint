@@ -6,13 +6,11 @@
   "libraryHints": {
     "steamInstallDirs": [
       "Batman Arkham City GOTY"
-    ],
-    "savesByOs": {
-      "macos": {
-        "path": "{userHome}/Library/Application Support/Feral Interactive/Batman Arkham City GOTY/Save Data",
-        "role": "saves"
-      }
-    }
+    ]
+  },
+  "external": {
+    "path": "{documents}\\WB Games\\Batman Arkham City GOTY\\SaveData",
+    "role": "saves"
   },
   "launch": {
     "method": "exe",
@@ -22,5 +20,5 @@
   },
   "ignorePaths": [],
   "modPathHints": [],
-  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
 }

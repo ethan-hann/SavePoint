@@ -8,6 +8,10 @@
       "The Forest"
     ]
   },
+  "external": {
+    "path": "{localLow}\\SKS\\TheForest",
+    "role": "saves"
+  },
   "launch": {
     "method": "exe",
     "exePath": "TheForest.exe",
@@ -16,5 +20,5 @@
   },
   "ignorePaths": [],
   "modPathHints": [],
-  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
 }

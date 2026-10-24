@@ -6,7 +6,7 @@
   "libraryHints": {
     "savesByOs": {
       "linux": {
-        "path": "{userHome}/.local/share/Paradox Interactive/Victoria 3/save games",
+        "path": "{localAppData}/Paradox Interactive/Victoria 3/save games",
         "role": "saves"
       }
     }

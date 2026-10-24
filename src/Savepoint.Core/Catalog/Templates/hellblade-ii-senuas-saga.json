@@ -3,6 +3,10 @@
   "id": "hellblade-ii-senuas-saga",
   "name": "Hellblade II: Senua's Saga",
   "steamAppId": 2461850,
+  "external": {
+    "path": "{localAppData}\\Hellblade2\\Saved\\SaveGames",
+    "role": "saves"
+  },
   "launch": {
     "method": "uri",
     "uri": "steam://rungameid/2461850",
@@ -10,5 +14,5 @@
   },
   "ignorePaths": [],
   "modPathHints": [],
-  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
 }

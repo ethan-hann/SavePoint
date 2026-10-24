@@ -6,13 +6,7 @@
   "libraryHints": {
     "steamInstallDirs": [
       "Batman Arkham Asylum GOTY"
-    ],
-    "savesByOs": {
-      "macos": {
-        "path": "{userHome}/Library/Application Support/Feral Interactive/Batman Arkham City GOTY/Save Data",
-        "role": "saves"
-      }
-    }
+    ]
   },
   "launch": {
     "method": "exe",
@@ -22,5 +16,5 @@
   },
   "ignorePaths": [],
   "modPathHints": [],
-  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+  "notes": "Saves are in Steam's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
 }

@@ -6,13 +6,7 @@
   "libraryHints": {
     "steamInstallDirs": [
       "Star Wars The Force Unleashed"
-    ],
-    "savesByOs": {
-      "macos": {
-        "path": "{userHome}/Library/Application Support/Star Wars The Force Unleashed/SWTFU.BIN",
-        "role": "saves"
-      }
-    }
+    ]
   },
   "external": {
     "path": "{documents}\\Aspyr\\Star Wars The Force Unleashed",

@@ -6,16 +6,10 @@
   "libraryHints": {
     "gogIds": [
       "1094900565"
-    ],
-    "savesByOs": {
-      "linux": {
-        "path": "{userHome}/.config/unity3d/Ludeon Studios/RimWorld/Saves",
-        "role": "saves"
-      }
-    }
+    ]
   },
   "external": {
-    "path": "{localLow}\\Ludeon Studios\\RimWorld",
+    "path": "{localLow}\\Ludeon Studios\\RimWorld by Ludeon Studios\\Saves",
     "role": "saves"
   },
   "launch": {

@@ -6,13 +6,7 @@
   "libraryHints": {
     "gogIds": [
       "1926077727"
-    ],
-    "savesByOs": {
-      "macos": {
-        "path": "{userHome}/Library/Application Support/Feral Interactive/Shadow of the Tomb Raider/SaveData",
-        "role": "saves"
-      }
-    }
+    ]
   },
   "launch": {
     "method": "uri",

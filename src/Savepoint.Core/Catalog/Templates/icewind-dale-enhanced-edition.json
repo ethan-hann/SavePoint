@@ -9,7 +9,7 @@
     ],
     "savesByOs": {
       "linux": {
-        "path": "{userHome}/.local/share/Icewind Dale - Enhanced Edition/save",
+        "path": "{localAppData}/Icewind Dale - Enhanced Edition/save",
         "role": "saves"
       },
       "macos": {

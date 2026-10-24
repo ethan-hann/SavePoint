@@ -6,7 +6,7 @@
   "libraryHints": {
     "savesByOs": {
       "linux": {
-        "path": "{userHome}/.config/unity3d/Beam Team Games/Stranded Deep/Data",
+        "path": "{appData}/unity3d/Beam Team Games/Stranded Deep/Data",
         "role": "saves"
       },
       "macos": {

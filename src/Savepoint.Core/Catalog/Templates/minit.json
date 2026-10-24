@@ -9,11 +9,11 @@
     ],
     "savesByOs": {
       "linux": {
-        "path": "{userHome}/.config/minit/minitsaves/minit_v1.sav",
+        "path": "{userHome}/.config/minit/minitsaves",
         "role": "saves"
       },
       "macos": {
-        "path": "{userHome}/Library/Application Support/com.22ndtoys.minit/minitSaves/minit_v1.sav",
+        "path": "{userHome}/Library/Application Support/com.22ndtoys.minit/minitSaves",
         "role": "saves"
       }
     }
@@ -26,5 +26,5 @@
   },
   "ignorePaths": [],
   "modPathHints": [],
-  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand."
+  "notes": "Saves are in Steam's userdata folder; add the saves folder by hand."
 }

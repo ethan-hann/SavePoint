@@ -8,6 +8,10 @@
       "1770130134"
     ]
   },
+  "external": {
+    "path": "{localLow}\\Owlcat Games\\Pathfinder Wrath Of The Righteous\\Saved Games",
+    "role": "saves"
+  },
   "launch": {
     "method": "uri",
     "uri": "steam://rungameid/1184370",
@@ -15,5 +19,5 @@
   },
   "ignorePaths": [],
   "modPathHints": [],
-  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
 }

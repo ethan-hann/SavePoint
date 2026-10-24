@@ -6,13 +6,11 @@
   "libraryHints": {
     "steamInstallDirs": [
       "Metro Exodus Enhanced Edition"
-    ],
-    "savesByOs": {
-      "linux": {
-        "path": "{localAppData}/metro_3",
-        "role": "saves"
-      }
-    }
+    ]
+  },
+  "external": {
+    "path": "{savedGames}\\metro exodus",
+    "role": "saves"
   },
   "launch": {
     "method": "exe",
@@ -22,5 +20,5 @@
   },
   "ignorePaths": [],
   "modPathHints": [],
-  "notes": "Saves are in a folder named after your account id; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
 }

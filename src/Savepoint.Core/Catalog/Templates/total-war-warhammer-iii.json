@@ -3,6 +3,10 @@
   "id": "total-war-warhammer-iii",
   "name": "Total War: WARHAMMER III",
   "steamAppId": 1142710,
+  "external": {
+    "path": "{appData}\\The Creative Assembly\\Warhammer3",
+    "role": "saves"
+  },
   "launch": {
     "method": "uri",
     "uri": "steam://rungameid/1142710",
@@ -10,5 +14,5 @@
   },
   "ignorePaths": [],
   "modPathHints": [],
-  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
 }

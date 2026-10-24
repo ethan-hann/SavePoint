@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "hitman-world-of-assassination",
+  "name": "HITMAN World of Assassination (HITMAN 3)",
+  "steamAppId": 1659040,
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/1659040",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

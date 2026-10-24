@@ -9,7 +9,7 @@
     ],
     "savesByOs": {
       "linux": {
-        "path": "{userHome}/.local/share/aspyr-media/kotor2/saves",
+        "path": "{localAppData}/aspyr-media/kotor2/saves",
         "role": "saves"
       },
       "macos": {

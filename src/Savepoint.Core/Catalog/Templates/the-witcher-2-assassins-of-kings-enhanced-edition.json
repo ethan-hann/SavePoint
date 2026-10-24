@@ -9,7 +9,7 @@
     ],
     "savesByOs": {
       "linux": {
-        "path": "{userHome}/.local/share/cdprojektred/witcher2/GameDocuments/Witcher 2/gamesaves",
+        "path": "{localAppData}/cdprojektred/witcher2/GameDocuments/Witcher 2/gamesaves",
         "role": "saves"
       },
       "macos": {
@@ -18,10 +18,6 @@
       }
     }
   },
-  "external": {
-    "path": "{documents}\\Witcher 2\\gamesaves",
-    "role": "saves"
-  },
   "launch": {
     "method": "uri",
     "uri": "steam://rungameid/20920",
@@ -29,5 +25,5 @@
   },
   "ignorePaths": [],
   "modPathHints": [],
-  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+  "notes": "Saves are in Steam's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
 }

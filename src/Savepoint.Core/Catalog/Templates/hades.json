@@ -12,7 +12,7 @@
     }
   },
   "external": {
-    "path": "{savedGames}\\Hades",
+    "path": "{documents}\\Saved Games\\Hades",
     "role": "saves"
   },
   "launch": {

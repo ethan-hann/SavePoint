@@ -9,7 +9,7 @@
     ],
     "savesByOs": {
       "linux": {
-        "path": "{userHome}/.local/share/Paradox Interactive/Europa Universalis IV",
+        "path": "{localAppData}/Paradox Interactive/Europa Universalis IV",
         "role": "saves"
       },
       "macos": {

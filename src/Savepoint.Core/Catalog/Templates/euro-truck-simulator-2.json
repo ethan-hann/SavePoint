@@ -6,7 +6,7 @@
   "libraryHints": {
     "savesByOs": {
       "linux": {
-        "path": "{userHome}/.local/share/Euro Truck Simulator 2/profiles",
+        "path": "{localAppData}/Euro Truck Simulator 2/profiles",
         "role": "saves"
       },
       "macos": {
@@ -14,10 +14,6 @@
         "role": "saves"
       }
     }
-  },
-  "external": {
-    "path": "{documents}\\Euro Truck Simulator 2\\profiles",
-    "role": "saves"
   },
   "launch": {
     "method": "uri",
@@ -28,5 +24,5 @@
   "modPathHints": [
     "bin/win_x64"
   ],
-  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+  "notes": "Saves are in Steam's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
 }

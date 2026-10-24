@@ -114,7 +114,8 @@ public class GamesLibraryTests : IDisposable
     [Fact]
     public async Task A_game_with_no_template_is_offered_with_its_install_folder_only_and_a_draft_that_can_be_added()
     {
-        var folder = _steam.AddGame(_steam.SteamFolder, 240, "Counter-Strike: Source", "Counter-Strike Source");
+        // An app id and folder no shipped template names.
+        var folder = _steam.AddGame(_steam.SteamFolder, 4999001, "Unlisted Test Game", "Unlisted Test Game");
         _steam.WriteLibraryList();
 
         var game = (await Games.ScanLibrariesAsync(_workspace.Token)).Value!.Games.Single();
@@ -122,10 +123,10 @@ public class GamesLibraryTests : IDisposable
         Assert.Null(game.TemplateId);
         Assert.Null(game.SavesFolder);
         Assert.False(game.SavesFolderExists);
-        Assert.Equal("Counter-Strike: Source", game.Name);
+        Assert.Equal("Unlisted Test Game", game.Name);
         Assert.Equal(folder, game.Draft.Install.Path);
         Assert.Null(game.Draft.External);
-        Assert.Equal(240, game.Draft.SteamAppId);
+        Assert.Equal(4999001, game.Draft.SteamAppId);
         Assert.Empty(CatalogValidator.Validate(game.Draft));
     }
 
