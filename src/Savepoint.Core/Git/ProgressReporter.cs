@@ -16,6 +16,11 @@ internal sealed class ProgressReporter
     private int _reportedDone = -1;
     private long _reportedAt;
 
+    // A capture counts bytes by watching the object store; a switch counts them from its plan instead.
+    private long? _byteTotal;
+    private long _written;
+    private long _reportedWritten = -1;
+
     public ProgressReporter(IProgress<FileProgress>? sink, CheckoutBytePlan? bytes = null)
     {
         _sink = sink;
@@ -27,6 +32,47 @@ internal sealed class ProgressReporter
         lock (_gate)
         {
             _total = total;
+        }
+    }
+
+    // The bytes the capture has to store in all; reports carry them from then on.
+    public void SetByteTotal(long total)
+    {
+        lock (_gate)
+        {
+            _byteTotal = Math.Max(total, 0);
+        }
+    }
+
+    // Delivers the totals at once, so a screen has something to fill towards before the first file is done.
+    public void Start()
+    {
+        lock (_gate)
+        {
+            Report();
+        }
+    }
+
+    // Bytes git has put in the store so far. A report is made for each change, because the caller already paces them; the figure
+    // never goes back, and stays under the total until Complete, since the store's size is only an estimate of the source bytes.
+    public void ObserveWritten(long written)
+    {
+        lock (_gate)
+        {
+            if (_byteTotal is not { } total)
+            {
+                return;
+            }
+
+            var ceiling = total - total / 100;
+            var next = Math.Max(_written, Math.Min(written, ceiling));
+            if (next == _written)
+            {
+                return;
+            }
+
+            _written = next;
+            Report();
         }
     }
 
@@ -57,7 +103,12 @@ internal sealed class ProgressReporter
     {
         lock (_gate)
         {
-            if (_done > 0 && _done != _reportedDone)
+            if (_byteTotal is { } total)
+            {
+                _written = total;
+            }
+
+            if ((_done > 0 && _done != _reportedDone) || (_byteTotal is not null && _written != _reportedWritten))
             {
                 Report();
             }
@@ -80,13 +131,17 @@ internal sealed class ProgressReporter
         }
 
         _reportedDone = _done;
+        _reportedWritten = _written;
         _reportedAt = Stopwatch.GetTimestamp();
 
         // Progress only decorates the work: a sink that fails must not stop git half way through a capture or a switch.
         try
         {
             var total = _total is { } counted ? Math.Max(counted, _done) : (int?)null;
-            _sink.Report(new FileProgress(_done, total, _current, _bytes?.BytesAfter(_done, total ?? _bytes.Entries), _bytes?.Total));
+            var report = _byteTotal is { } bytes
+                ? new FileProgress(_done, total, _current, _written, bytes)
+                : new FileProgress(_done, total, _current, _bytes?.BytesAfter(_done, total ?? _bytes.Entries), _bytes?.Total);
+            _sink.Report(report);
         }
         catch (Exception)
         {

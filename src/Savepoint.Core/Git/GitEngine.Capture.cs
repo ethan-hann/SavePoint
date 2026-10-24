@@ -15,7 +15,7 @@ public sealed partial class GitEngine
     /// </summary>
     /// <param name="repo">The folder to capture; its repository must exist.</param>
     /// <param name="request">The branch, message, capture id, mode and ignore patterns.</param>
-    /// <param name="progress">Receives files done and expected while git works; may be null.</param>
+    /// <param name="progress">Receives files and bytes done and expected while git works, starting with a report of the totals; may be null.</param>
     /// <param name="ct">Cancels the capture. git and its children are stopped; the next capture clears what the interrupted one left. Once a fork or a move forward has written its branch, HEAD is attached to it whatever the token says, and a cancel that arrives while git finishes that write does not turn the capture into a cancelled one.</param>
     /// <returns>Whether a point was recorded, and the branch tip afterwards.</returns>
     /// <exception cref="Savepoint.Core.Errors.PathSafetyException">The work tree is a protected location.</exception>
@@ -396,6 +396,16 @@ public sealed partial class GitEngine
 
         var reporter = progress is null ? null : new ProgressReporter(progress);
         reporter?.SetTotal(listing.Files.Count);
+        if (reporter is not null)
+        {
+            reporter.SetByteTotal(await SizeOfAsync(repo, listing.Files, ct).ConfigureAwait(false));
+            reporter.Start();
+        }
+
+        // git prints a file's line only once it is stored, and holds the lines back while it works, so a large file shows nothing
+        // there for minutes; the store's growth is what moves the bar meanwhile.
+        using var stopWatching = new CancellationTokenSource();
+        var watching = reporter is null ? Task.CompletedTask : WatchStoreAsync(repo, reporter, stopWatching.Token);
 
         // The names go on stdin and are literal (a file called [a].txt is not a pattern); -f is safe because the list was made with the exclude list applied.
         var staging = Invocation(repo, readOnly: false, reporter is null ? ["add", "-A", "-f"] : ["add", "-A", "-f", "--verbose"]).WithPathspecs(listing.Files);
@@ -410,8 +420,34 @@ public sealed partial class GitEngine
             // The file git says it could not index is the answer the player needs, when it is one nobody can read now.
             throw held.ToException(HeldFileOperation.Save);
         }
+        finally
+        {
+            await stopWatching.CancelAsync().ConfigureAwait(false);
+            await watching.ConfigureAwait(false);
+        }
 
         reporter?.Complete();
+    }
+
+    // Often enough to move the bar for a large file, rarely enough that counting a big store costs little.
+    private static readonly TimeSpan _sampleInterval = TimeSpan.FromMilliseconds(500);
+
+    private Task WatchStoreAsync(RepoRef repo, ProgressReporter reporter, CancellationToken stop)
+    {
+        var objects = Path.Combine(repo.GitDir, "objects");
+        var size = _options.ObjectStoreSize ?? ObjectStoreMeter.Size;
+        var wait = _options.SampleWait ?? (ct => Task.Delay(_sampleInterval, ct));
+        return StagingByteSampler.RunAsync(() => size(objects), reporter, wait, stop);
+    }
+
+    // The bytes the files will add to the store; a file that is gone counts for nothing.
+    private static async Task<long> SizeOfAsync(RepoRef repo, IReadOnlyList<string> paths, CancellationToken ct)
+    {
+        var sizes = new long[paths.Count];
+        await Task.Run(
+            () => Parallel.For(0, paths.Count, new ParallelOptions { CancellationToken = ct, MaxDegreeOfParallelism = Environment.ProcessorCount }, i => sizes[i] = Math.Max(SizeOrMissing(repo, paths[i]), 0)),
+            ct).ConfigureAwait(false);
+        return sizes.Sum();
     }
 
     // Only the files git itself names are looked at: any other failure of adding the files is not a held file, whatever else is held.

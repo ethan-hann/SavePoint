@@ -360,6 +360,7 @@ public class NewProfileWizardViewModelTests
         Assert.True(wizard.IsIndeterminate);
         Assert.False(wizard.HasCurrentFile);
         Assert.True(wizard.ShowStopSave);
+        Assert.True(wizard.ShowKeepWorking);
         Assert.False(wizard.ShowContinue);
         Assert.False(wizard.ShowBack);
         Assert.False(wizard.ShowCancel);
@@ -382,20 +383,89 @@ public class NewProfileWizardViewModelTests
         Assert.False(wizard.IsIndeterminate);
         Assert.Equal(35, wizard.ProgressPercent, 0);
         Assert.True(wizard.HasCurrentFile);
-        Assert.Equal(@"Copying Data\textures\sky.dds", wizard.CurrentFileText);
+        Assert.Equal(@"Latest file finished: Data\textures\sky.dds", wizard.CurrentFileText);
+        Assert.False(wizard.HasFilesText);
     }
 
     [Fact]
-    public async Task Progress_with_only_a_count_stays_indeterminate()
+    public async Task Progress_with_only_a_count_says_the_total_is_still_being_worked_out()
     {
         var rig = await Rig.StartAsync();
         await rig.SaveAsync();
 
         rig.Backend.Jobs.ReportProgress(rig.JobId, new JobProgress(FilesDone: 12));
 
-        Assert.Equal("12 files copied so far", rig.Wizard.ProgressText);
+        Assert.Equal("Working out how much there is to copy…", rig.Wizard.ProgressText);
+        Assert.Equal("12 files copied", rig.Wizard.FilesText);
         Assert.True(rig.Wizard.IsIndeterminate);
         Assert.False(rig.Wizard.HasCurrentFile);
+    }
+
+    [Fact]
+    public async Task One_file_is_not_called_files()
+    {
+        var rig = await Rig.StartAsync();
+        await rig.SaveAsync();
+
+        rig.Backend.Jobs.ReportProgress(rig.JobId, new JobProgress(FilesDone: 1));
+        Assert.Equal("1 file copied", rig.Wizard.FilesText);
+
+        rig.Backend.Jobs.ReportProgress(rig.JobId, new JobProgress(1, 1));
+        Assert.Equal("1 of 1 file copied", rig.Wizard.ProgressText);
+    }
+
+    [Fact]
+    public async Task Bytes_move_the_bar_and_the_text_while_no_file_has_finished()
+    {
+        var rig = await Rig.StartAsync();
+        await rig.SaveAsync();
+
+        rig.Backend.Jobs.ReportProgress(rig.JobId, new JobProgress(0, 23, 3_100_000_000, 70_000_000_000, "user.gls"));
+
+        var wizard = rig.Wizard;
+        Assert.Equal("3.1 GB of 70 GB copied", wizard.ProgressText);
+        Assert.False(wizard.IsIndeterminate);
+        Assert.Equal(4.4, wizard.ProgressPercent, 1);
+        Assert.Equal("0 of 23 files finished", wizard.FilesText);
+        Assert.True(wizard.HasFilesText);
+        Assert.Equal("Latest file finished: user.gls", wizard.CurrentFileText);
+    }
+
+    [Fact]
+    public async Task The_bar_follows_the_bytes_not_the_files_when_both_are_known()
+    {
+        var rig = await Rig.StartAsync();
+        await rig.SaveAsync();
+
+        rig.Backend.Jobs.ReportProgress(rig.JobId, new JobProgress(22, 23, 35_000_000_000, 70_000_000_000));
+
+        Assert.Equal(50, rig.Wizard.ProgressPercent, 1);
+        Assert.Equal("35 GB of 70 GB copied", rig.Wizard.ProgressText);
+    }
+
+    [Fact]
+    public async Task Bytes_without_a_file_count_still_fill_the_bar()
+    {
+        var rig = await Rig.StartAsync();
+        await rig.SaveAsync();
+
+        rig.Backend.Jobs.ReportProgress(rig.JobId, new JobProgress(BytesDone: 1_000_000_000, BytesTotal: 4_000_000_000));
+
+        Assert.Equal(25, rig.Wizard.ProgressPercent, 1);
+        Assert.False(rig.Wizard.IsIndeterminate);
+        Assert.False(rig.Wizard.HasFilesText);
+    }
+
+    [Fact]
+    public async Task When_the_store_holds_nearly_everything_the_text_says_it_is_being_made_safe()
+    {
+        var rig = await Rig.StartAsync();
+        await rig.SaveAsync();
+
+        rig.Backend.Jobs.ReportProgress(rig.JobId, new JobProgress(3, 23, 69_300_000_000, 70_000_000_000));
+
+        Assert.Equal("Making sure everything is stored safely…", rig.Wizard.ProgressText);
+        Assert.False(rig.Wizard.IsIndeterminate);
     }
 
     [Fact]
@@ -405,13 +475,53 @@ public class NewProfileWizardViewModelTests
         await rig.SaveAsync();
 
         rig.Backend.Jobs.ReportProgress(rig.JobId, new JobProgress(1000, 4000));
-        Assert.Equal("25% of the files are copied", rig.Wizard.Announcement);
+        Assert.Equal("25% copied", rig.Wizard.Announcement);
 
         rig.Backend.Jobs.ReportProgress(rig.JobId, new JobProgress(1100, 4000));
-        Assert.Equal("25% of the files are copied", rig.Wizard.Announcement);
+        Assert.Equal("25% copied", rig.Wizard.Announcement);
 
         rig.Backend.Jobs.ReportProgress(rig.JobId, new JobProgress(3100, 4000));
-        Assert.Equal("75% of the files are copied", rig.Wizard.Announcement);
+        Assert.Equal("75% copied", rig.Wizard.Announcement);
+    }
+
+    [Fact]
+    public async Task Milestones_follow_the_bytes_during_one_large_file()
+    {
+        var rig = await Rig.StartAsync();
+        await rig.SaveAsync();
+
+        rig.Backend.Jobs.ReportProgress(rig.JobId, new JobProgress(0, 3, 520, 1000));
+
+        Assert.Equal("50% copied", rig.Wizard.Announcement);
+    }
+
+    // ---- Step three: keep working
+
+    [Fact]
+    public async Task Keep_working_closes_the_wizard_and_leaves_the_job_running()
+    {
+        var rig = await Rig.StartAsync();
+        await rig.SaveAsync();
+
+        rig.Wizard.KeepWorkingCommand.Execute(null);
+
+        Assert.True(rig.Wizard.IsClosed);
+        Assert.False(await rig.Wizard.Result.Soon());
+        Assert.Empty(rig.Backend.Calls.To<IJobsApi>(nameof(IJobsApi.CancelAsync)));
+        Assert.Equal(JobStatus.Running, rig.Backend.Jobs.LastStarted(JobKind.Capture).Status);
+    }
+
+    [Fact]
+    public async Task Keep_working_is_offered_only_while_the_snapshot_runs()
+    {
+        var rig = await Rig.StartAsync();
+        Assert.False(rig.Wizard.ShowKeepWorking);
+        await rig.SaveAsync();
+        Assert.True(rig.Wizard.ShowKeepWorking);
+
+        rig.Backend.Jobs.Complete(rig.JobId);
+
+        Assert.False(rig.Wizard.ShowKeepWorking);
     }
 
     [Fact]

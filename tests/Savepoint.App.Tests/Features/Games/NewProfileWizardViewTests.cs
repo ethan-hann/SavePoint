@@ -211,9 +211,54 @@ public class NewProfileWizardViewTests
         Assert.False(bar.IsIndeterminate);
         Assert.Equal(25, bar.Value, 1);
         Assert.Contains("1,000 of 4,000 files copied", harness.VisibleTexts());
-        Assert.Contains(@"Copying Data\x.esm", harness.VisibleTexts());
+        Assert.Contains(@"Latest file finished: Data\x.esm", harness.VisibleTexts());
         Assert.Equal("1,000 of 4,000 files copied", AutomationProperties.GetName(bar));
-        Assert.Equal("25% of the files are copied", harness.All<NewProfileWizardView>().Single().GetVisualDescendants().OfType<AnnouncementRegion>().Single().Message);
+        Assert.Equal("25% copied", harness.All<NewProfileWizardView>().Single().GetVisualDescendants().OfType<AnnouncementRegion>().Single().Message);
+    }
+
+    [AvaloniaFact]
+    public async Task The_bar_fills_by_bytes_while_one_large_file_is_stored()
+    {
+        var (harness, wizard) = await OpenAsync();
+        using var _ = harness;
+        await wizard.ContinueCommand.ExecuteAsync(null);
+        await wizard.ContinueCommand.ExecuteAsync(null);
+        harness.Settle();
+        var bar = harness.Find<ProgressBar>("SaveProgress");
+
+        harness.Rig.Backend.Jobs.ReportProgress(harness.Rig.Backend.Jobs.LastStarted(Capture).JobId, new JobProgress(0, 23, 35_000_000_000, 70_000_000_000));
+        harness.Settle();
+
+        Assert.False(bar.IsIndeterminate);
+        Assert.Equal(50, bar.Value, 1);
+        Assert.Contains("35 GB of 70 GB copied", harness.VisibleTexts());
+        Assert.Contains("0 of 23 files finished", harness.VisibleTexts());
+        Assert.Equal("35 GB of 70 GB copied", AutomationProperties.GetName(bar));
+    }
+
+    [AvaloniaFact]
+    public async Task Keep_working_sits_next_to_cancel_and_closes_the_dialog_without_stopping_the_snapshot()
+    {
+        var (harness, wizard) = await OpenAsync();
+        using var _ = harness;
+        await wizard.ContinueCommand.ExecuteAsync(null);
+        await wizard.ContinueCommand.ExecuteAsync(null);
+        harness.Settle();
+
+        var keep = harness.Find<Button>("KeepWorkingButton");
+
+        Assert.True(keep.IsEffectivelyVisible);
+        Assert.True(keep.Focusable);
+        Assert.Equal("Keep working", keep.Content);
+        Assert.False(string.IsNullOrWhiteSpace(AutomationProperties.GetHelpText(keep)));
+        Assert.True(harness.Find<Button>("StopSaveButton").IsEffectivelyVisible);
+
+        keep.Command!.Execute(null);
+        harness.Settle();
+
+        Assert.Null(harness.Dialogs.Current);
+        Assert.Equal(JobStatus.Running, harness.Rig.Backend.Jobs.LastStarted(Capture).Status);
+        Assert.False(harness.Rig.Backend.Jobs.LastStarted(Capture).CancelRequested);
     }
 
     [AvaloniaFact]

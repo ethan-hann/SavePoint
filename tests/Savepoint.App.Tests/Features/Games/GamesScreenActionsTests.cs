@@ -199,6 +199,42 @@ public class GamesScreenActionsTests
     }
 
     [Fact]
+    public async Task A_snapshot_left_running_with_keep_working_says_when_it_is_done_and_the_profile_stays_in_the_table()
+    {
+        var rig = await GamesRig.StartAsync();
+        var shown = rig.Screen.NewProfileCommand.ExecuteAsync(null);
+        var wizard = Assert.IsType<NewProfileWizardViewModel>(Assert.Single(rig.Dialogs.Shown));
+        wizard.Name = "Big game profile";
+        await wizard.ContinueCommand.ExecuteAsync(null);
+        await wizard.ContinueCommand.ExecuteAsync(null);
+        wizard.KeepWorkingCommand.Execute(null);
+        await shown.Soon();
+        Assert.Empty(rig.ToastTexts);
+
+        rig.Backend.Jobs.Complete(rig.Backend.Jobs.LastStarted(JobKind.Capture).JobId);
+
+        Assert.Equal(["Took a snapshot of Skyrim Special Edition."], rig.ToastTexts);
+        Assert.Contains("Big game profile", rig.Screen.Profiles.Select(row => row.Name));
+    }
+
+    [Fact]
+    public async Task A_snapshot_left_running_with_keep_working_that_fails_says_why()
+    {
+        var rig = await GamesRig.StartAsync();
+        var shown = rig.Screen.NewProfileCommand.ExecuteAsync(null);
+        var wizard = Assert.IsType<NewProfileWizardViewModel>(Assert.Single(rig.Dialogs.Shown));
+        await wizard.ContinueCommand.ExecuteAsync(null);
+        await wizard.ContinueCommand.ExecuteAsync(null);
+        wizard.KeepWorkingCommand.Execute(null);
+        await shown.Soon();
+
+        rig.Backend.Jobs.Fail(rig.Backend.Jobs.LastStarted(JobKind.Capture).JobId, MockupScenario.SavesOutOfRoomError);
+
+        Assert.Equal(["Something went wrong taking a snapshot of Skyrim Special Edition."], rig.ToastTexts);
+        Assert.True(Assert.Single(rig.Toasts.Toasts).HasDetails);
+    }
+
+    [Fact]
     public async Task New_profile_does_nothing_without_a_game()
     {
         var rig = await GamesRig.StartAsync(FakeBackend.Empty());

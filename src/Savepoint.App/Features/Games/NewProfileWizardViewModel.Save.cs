@@ -80,6 +80,7 @@ public sealed partial class NewProfileWizardViewModel
         ResultCard = null;
         ProgressText = _text.Message("profiles.wizard.save.savingHint");
         CurrentFileText = string.Empty;
+        FilesText = string.Empty;
         IsIndeterminate = true;
         ProgressPercent = 0;
         State = SaveState.Saving;
@@ -117,18 +118,42 @@ public sealed partial class NewProfileWizardViewModel
         }
     }
 
+    // The bytes lead whenever they are known, because git names no file while it stores a large one; the file count is the second line.
     private void ShowProgress(JobProgress progress)
     {
-        var done = progress.FilesDone;
-        var total = progress.FilesTotal is > 0 ? progress.FilesTotal : null;
-        IsIndeterminate = total is null;
-        ProgressPercent = total is { } all ? Math.Clamp(100.0 * (done ?? 0) / all, 0, 100) : 0;
-        ProgressText = (done, total) switch
+        var filesDone = progress.FilesDone;
+        var filesTotal = progress.FilesTotal is > 0 ? progress.FilesTotal : null;
+        var bytes = progress is { BytesTotal: > 0, BytesDone: not null } ? (Done: progress.BytesDone.Value, Total: progress.BytesTotal.Value) : ((long Done, long Total)?)null;
+
+        double? share = bytes is { } counted
+            ? (double)counted.Done / counted.Total
+            : filesTotal is { } all ? (double)(filesDone ?? 0) / all : null;
+        IsIndeterminate = share is null;
+        ProgressPercent = share is { } fraction ? Math.Clamp(100.0 * fraction, 0, 100) : 0;
+
+        if (bytes is { } stored)
         {
-            ({ } filesDone, { } filesTotal) => _text.Message("profiles.wizard.save.filesProgress", ("filesDone", _text.Number(filesDone)), ("filesTotal", _text.Number(filesTotal))),
-            ({ } filesDone, null) => _text.Message("profiles.wizard.save.filesProgressIndeterminate", ("filesDone", _text.Number(filesDone))),
-            _ => _text.Message("profiles.wizard.save.savingHint"),
-        };
+            // The sampled figure stops a hundredth short of the total until the snapshot is done, so reaching it means git is finishing.
+            ProgressText = stored.Done >= stored.Total - stored.Total / 100
+                ? _text.Message("profiles.wizard.save.finishing")
+                : _text.Message("profiles.wizard.save.bytesProgress", ("done", _text.FileSize(stored.Done)), ("total", _text.FileSize(stored.Total)));
+            FilesText = (filesDone, filesTotal) switch
+            {
+                ({ } done, { } total) => _text.Message("profiles.wizard.save.filesDetail", ("done", _text.Number(done)), ("total", total), ("totalText", _text.Number(total))),
+                ({ } done, null) when done > 0 => _text.Message("profiles.wizard.save.filesCopied", ("count", done), ("countText", _text.Number(done))),
+                _ => string.Empty,
+            };
+        }
+        else
+        {
+            (ProgressText, FilesText) = (filesDone, filesTotal) switch
+            {
+                ({ } done, { } total) => (_text.Message("profiles.wizard.save.filesProgress", ("done", _text.Number(done)), ("total", total), ("totalText", _text.Number(total))), string.Empty),
+                ({ } done, null) => (_text.Message("profiles.wizard.save.counting"), done > 0 ? _text.Message("profiles.wizard.save.filesCopied", ("count", done), ("countText", _text.Number(done))) : string.Empty),
+                _ => (_text.Message("profiles.wizard.save.savingHint"), string.Empty),
+            };
+        }
+
         CurrentFileText = progress.CurrentPath is { Length: > 0 } path ? _text.Message("profiles.wizard.save.currentFile", ("currentFile", path)) : string.Empty;
 
         // Each quarter is announced once, so a screen reader hears progress without a flood of updates.
