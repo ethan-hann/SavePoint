@@ -117,6 +117,12 @@ public sealed class HostIntegration : IDisposable
         }
 
         _window.Show();
+        // GNOME ignores the stale timestamp of Avalonia's own request, so under X11 the request is sent stamped "now" instead.
+        if (OperatingSystem.IsLinux() && _window.TryGetPlatformHandle() is { HandleDescriptor: "XID" } handle && X11WindowRaiser.TryRaise(handle.Handle))
+        {
+            return;
+        }
+
         _window.Activate();
     }
 }

@@ -44,7 +44,8 @@ internal static class Program
             new AvaloniaCrashPresenter(path => started.Services.FileRevealer?.Reveal(path) ?? false),
             Environment.Exit,
             started.Services.LogFolder,
-            () => RunningJobs.CancelAll(started.Services.Jobs, TimeSpan.FromSeconds(2)));
+            () => RunningJobs.CancelAll(started.Services.Jobs, TimeSpan.FromSeconds(2)),
+            PlainCrashNote.WriteToStandardError);
         using var processHooks = crash.AttachToProcess();
         App.Crash = crash;
         App.Services = started.Services;
@@ -57,6 +58,7 @@ internal static class Program
     public static AppBuilder BuildAvaloniaApp() =>
         AppBuilder.Configure<App>()
             .UsePlatformDetect()
+            .With(new X11PlatformOptions { WmClass = DesktopIdentity.WindowClass })
             .UseSavepointFonts()
             .LogToTrace();
 }

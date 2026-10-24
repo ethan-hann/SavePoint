@@ -28,6 +28,7 @@ public sealed class CrashHandler
     private readonly ICrashPresenter _presenter;
     private readonly Action<int> _exit;
     private readonly Action? _stopWork;
+    private readonly Action<CrashReport>? _plainNote;
     private readonly string? _logFolder;
     private readonly ManualResetEventSlim _finished = new();
 
@@ -43,8 +44,13 @@ public sealed class CrashHandler
     /// Stops what still runs, called once after the crash is logged and before the window shows, so no job goes on changing a game's
     /// folders while the window is up. A failure in it never stops the window.
     /// </param>
-    public CrashHandler(IDiagnosticLog log, ICrashPresenter presenter, Action<int> exit, string? logFolder, Action? stopWork = null)
+    /// <param name="plainNote">
+    /// Writes the crash in plain words somewhere a person might look without a window (the terminal), called once after the crash is
+    /// logged and before the window shows. A failure in it never stops the window.
+    /// </param>
+    public CrashHandler(IDiagnosticLog log, ICrashPresenter presenter, Action<int> exit, string? logFolder, Action? stopWork = null, Action<CrashReport>? plainNote = null)
     {
+        _plainNote = plainNote;
         _log = log;
         _presenter = presenter;
         _exit = exit;
@@ -91,9 +97,19 @@ public sealed class CrashHandler
             // Whatever is left running ends with the process.
         }
 
+        var report = new CrashReport(exception, origin, _logFolder);
         try
         {
-            _presenter.Show(new CrashReport(exception, origin, _logFolder));
+            _plainNote?.Invoke(report);
+        }
+        catch (Exception)
+        {
+            // The window and the log are still there to report it.
+        }
+
+        try
+        {
+            _presenter.Show(report);
         }
         catch (Exception)
         {

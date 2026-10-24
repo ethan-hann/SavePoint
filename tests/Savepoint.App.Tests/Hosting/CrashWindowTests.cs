@@ -46,6 +46,15 @@ public class CrashWindowTests
 
     private static List<string?> Texts(Window window) => [.. window.GetVisualDescendants().OfType<TextBlock>().Where(block => block.IsEffectivelyVisible).Select(block => block.Text)];
 
+    // Without it the desktop shows the generic window icon over the crash message.
+    [AvaloniaFact]
+    public void The_window_carries_the_app_icon()
+    {
+        var window = Open(_logFolder);
+
+        Assert.NotNull(window.Icon);
+    }
+
     [AvaloniaFact]
     public void The_window_says_savepoint_has_to_close_and_where_the_details_went()
     {
