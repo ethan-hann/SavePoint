@@ -493,3 +493,24 @@ A real install (Cyberpunk 2077) ships an empty `archive\pc\mod` folder that mod 
 5. **Older snapshots have no list** and behave exactly as before.
 
 Known limit: a change that only adds or removes an empty folder is not a change to git, so it does not make a new snapshot and the list keeps the folders as they were at the last real change.
+
+## D52. Adding many games at once from the Steam and GOG libraries
+
+A player with a large library added games one at a time. "Add games from your libraries" scans what is installed and adds a ticked set in one go.
+
+1. **What is scanned.** Steam: `libraryfolders.vdf` and each `appmanifest_*.acf`, a game counting as installed when `steamapps/common/<installdir>` exists (a manifest of an installed game can carry update states). Steam's own tools (Proton, the Linux runtime, redistributables, SteamVR) are left out. Steam installed through Flatpak or Snap and on macOS is found too. GOG Galaxy (Windows): its install records in the registry, add-ons dropped. An install path that is not fully qualified, an `installdir` with separators, dot segments or a trailing dot or space, and any folder that holds another installed game's folder are left out. Apps that share one folder are listed once, under the app a template describes, else the lowest app id. Programs that are not games (benchmarks, editors) still show, since Steam does not mark them.
+2. **Matching a template.** Store id first (Steam app id, GOG id), then the install folder name, ignoring case. Templates carry these in an optional `libraryHints` block (`steamAppIds`, `steamInstallDirs`, `gogIds`, `gogFolders`, and `savesByOs` per system) that never reaches a stored game.
+3. **What is added.** Every add goes through the single add's checks (validation, path safety, overlap). The player confirms once, with every game's folders named. Only the install folder and the saves folder the scan showed as existing are added; a saves folder that appears later, or a template folder that does not exist yet, is left out and named in the result, and the game is added with its install folder. A template's program is used only on Windows and only when it is in the install folder; otherwise the store link starts the game, and a game started through a link with no process name from its template gets one suggested from its install folder (D48.7).
+4. **"Already added"** means the install folder overlaps a game's install folder, a saves folder another game tracks, or the same Steam app id (a GOG copy is never judged by a template's Steam id). A second install of the same Steam app cannot be added.
+5. **A loop, not a job.** The UI adds the games one by one through the Api, with per-game progress and "Stop after this game". It is not a job, so Activity does not list it, but quitting while it runs asks first and stops after the current game. One game's failure is reported for that game and does not stop the rest.
+6. **GOG Galaxy's own folders are protected** like Steam's (D40): Galaxy's program folder and its default `Games` folder are refused as a game folder; games inside the `Games` folder are accepted.
+7. **Reading the stores does not hold the storage lock,** so a scan of slow or missing drives never blocks a snapshot-folder move; the scan can be canceled and stops when its dialog closes.
+
+## D53. Templates for many games
+
+SavePoint shipped one template. It now ships templates for about 320 games: the games installed on the test machine and widely played PC games, each from researched facts with a source (PCGamingWiki, the store's manifests, folders seen on a real machine). Templates are discovered from the embedded resources, so adding one is adding a JSON file.
+
+1. **A wrong saves path is worse than none.** A template carries a saves folder only when a source names it and SavePoint has a token for it. Saves under a per-user id, in Steam's userdata folder, inside the install folder, or with several candidate folders get no saves folder and a plain note saying why, so the player picks it. Every template is checked by tests: it loads, its ids and store folders are safe, every saves path resolves through the real tokens on its system and is not a file or one of the broad folders (Documents, AppData, the home folder), and no path names another game's folder.
+2. **Linux and macOS use only their own entries.** A draft on Linux or macOS takes the saves folder from that system's `savesByOs` entry and otherwise leaves it blank; a Windows path does not carry over, since games under Proton save inside their prefix and native ports elsewhere.
+3. **The template picker searches.** Each typed word must start a word of the game's name, ignoring case and punctuation.
+4. **Known limit:** template notes are English text in the template files, not in the catalog.

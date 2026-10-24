@@ -131,6 +131,8 @@ public interface IGamesApi
     Task<OperationResult<string>> ResolvePathAsync(string rawPath, CancellationToken cancellationToken = default);
     Task<OperationResult<IReadOnlyList<string>>> ListExecutablesAsync(string installPath, CancellationToken cancellationToken = default);
     Task<OperationResult<string>> SuggestProcessNameAsync(string installPath, string gameName, CancellationToken cancellationToken = default);  // the likely game program for a link start, "" when none (ProcessNameSuggester)
+    Task<OperationResult<LibraryScan>> ScanLibrariesAsync(CancellationToken cancellationToken = default);   // installed Steam and GOG games, matched to templates, with "already added" (D52)
+    Task<OperationResult<LibraryAddResult>> AddLibraryGameAsync(LibraryGame game);                            // one scanned game through AddAsync's checks: Added | AlreadyAdded | HasOlderHistory | Refused
     Task<OperationResult<GameDefinition>> ImportDefinitionAsync(string filePath, CancellationToken cancellationToken = default);  // never saves
     Task<OperationResult<Unit>> ExportDefinitionAsync(string gameId, string filePath, CancellationToken cancellationToken = default);
 }
