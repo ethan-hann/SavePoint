@@ -255,6 +255,80 @@ public class GameEditorLaunchTests
     }
 
     [Fact]
+    public async Task Clearing_the_install_folder_takes_the_offer_away_at_once()
+    {
+        var rig = RigWithExecutables("SkyrimSE.exe");
+        var editor = LinkEditor(rig);
+        editor.LaunchChoice = 1;
+        await editor.RefreshProcessNameSuggestionAsync();
+        Assert.True(editor.HasProcessNameSuggestion);
+
+        editor.InstallPath = string.Empty;
+
+        Assert.False(editor.HasProcessNameSuggestion);
+        Assert.Equal(string.Empty, editor.SuggestedProcessName);
+    }
+
+    [Fact]
+    public async Task Choosing_another_folder_takes_the_old_offer_away_before_the_new_look_finishes()
+    {
+        var rig = RigWithExecutables("SkyrimSE.exe");
+        var editor = LinkEditor(rig);
+        editor.LaunchChoice = 1;
+        await editor.RefreshProcessNameSuggestionAsync();
+
+        editor.InstallPath = @"D:\Games\Other";
+
+        Assert.False(editor.HasProcessNameSuggestion);
+        Assert.Equal(string.Empty, editor.SuggestedProcessName);
+    }
+
+    [Fact]
+    public async Task A_late_answer_for_an_old_folder_does_not_replace_the_newer_offer()
+    {
+        const string other = @"D:\Games\Other";
+        var rig = EditorRig.Create(new FakeBackend(ScenarioBuilder.Mockup()
+            .WithExecutables(MockupScenario.SkyrimInstall, "SkyrimSE.exe")
+            .WithExecutables(other, "Other.exe")));
+        var editor = rig.New();
+        editor.LaunchChoice = 1;
+        var held = new TaskCompletionSource();
+        rig.Backend.Games.SuggestGate = (folder, _) => folder == MockupScenario.SkyrimInstall ? held.Task : Task.CompletedTask;
+
+        editor.InstallPath = MockupScenario.SkyrimInstall;
+        var first = editor.RefreshProcessNameSuggestionAsync();
+        editor.InstallPath = other;
+        await editor.RefreshProcessNameSuggestionAsync();
+        held.SetResult();
+        await first;
+
+        Assert.Equal("Other.exe", editor.SuggestedProcessName);
+        Assert.True(editor.HasProcessNameSuggestion);
+    }
+
+    [Fact]
+    public async Task Choosing_another_folder_cancels_the_look_in_the_old_one()
+    {
+        var rig = RigWithExecutables("SkyrimSE.exe");
+        var editor = rig.New();
+        editor.LaunchChoice = 1;
+        var held = new TaskCompletionSource();
+        rig.Backend.Games.SuggestGate = (_, _) => held.Task;
+        editor.InstallPath = MockupScenario.SkyrimInstall;
+        var first = editor.RefreshProcessNameSuggestionAsync();
+        var token = Assert.Single(rig.Backend.Games.SuggestTokens);
+        Assert.False(token.IsCancellationRequested);
+
+        editor.InstallPath = @"D:\Games\Other";
+        rig.Backend.Games.SuggestGate = null;
+        await editor.RefreshSuggestionsAsync();
+        held.SetResult();
+        await first;
+
+        Assert.True(token.IsCancellationRequested);
+    }
+
+    [Fact]
     public async Task A_suggestion_that_cannot_be_read_offers_nothing_and_shows_no_error()
     {
         var rig = RigWithExecutables("SkyrimSE.exe");

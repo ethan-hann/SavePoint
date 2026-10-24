@@ -57,7 +57,7 @@ public sealed partial class GameEditorViewModel
         }
 
         var run = ++_suggestRun;
-        var found = await _games.SuggestProcessNameAsync(install, Name.Trim());
+        var found = await _games.SuggestProcessNameAsync(install, Name.Trim(), (_scan ??= new CancellationTokenSource()).Token);
         if (run != _suggestRun)
         {
             return;
@@ -65,6 +65,15 @@ public sealed partial class GameEditorViewModel
 
         _suggestedFor = found.Ok ? install : null;
         SuggestedProcessName = found.Ok ? found.Value : string.Empty;
+        NotifyProcessNameOffer();
+    }
+
+    // An offer belongs to the folder it was read from, so it goes as soon as the folder changes and any answer still on its way is dropped.
+    private void ClearProcessNameOffer()
+    {
+        _suggestRun++;
+        _suggestedFor = null;
+        SuggestedProcessName = string.Empty;
         NotifyProcessNameOffer();
     }
 

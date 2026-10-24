@@ -108,6 +108,15 @@ public class ErrorCardViewModelTests
     }
 
     [Fact]
+    public void An_unclassified_git_failure_points_at_the_copy_button_not_at_details_nobody_can_read()
+    {
+        var card = new ErrorCardViewModel(ErrorInfo.From(new GitOperationException("the repository does not exist")), _text);
+
+        Assert.Contains(_text.Message("errorCard.copyDetails"), card.Body, StringComparison.Ordinal);
+        Assert.DoesNotContain("details may say", card.Body, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void A_path_inside_a_snapshot_folder_shows_the_game_folder_instead()
     {
         var game = PathOnThisSystem("SavePoint", "skyrim");

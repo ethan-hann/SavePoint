@@ -66,6 +66,7 @@ public sealed partial class GameEditorViewModel
     {
         InstallError = null;
         InstallCard = null;
+        ClearProcessNameOffer();
         UpdateConfirmations();
     }
 
