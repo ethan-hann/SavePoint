@@ -152,6 +152,9 @@
       <help:HelpAnswerView DataContext="{Binding SnapshotHelp}" />
     </Panel>
 
+    <!-- Room for the job pill under the footer, so the footer is never under it. -->
+    <Border x:Name="PillRoom" DockPanel.Dock="Bottom" Classes="pill-room" />
+
     <!-- Footer: how much space SavePoint keeps for the game. -->
     <Border x:Name="Footer"
             DockPanel.Dock="Bottom"
