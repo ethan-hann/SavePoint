@@ -17,9 +17,32 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: https://data.forgejo.org/actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # A change that touches only documentation (docs/ and Markdown files at the root) cannot change a build or a test, so the
+      # job passes without them. The notices file is shipped with the app and read by tests, so it always takes the full gate.
+      - name: Decide whether the change needs the gate
+        id: scope
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            echo "needed=true" >> "$GITHUB_OUTPUT"; echo "No base to compare with: running the gate."; exit 0
+          fi
+          changed=$(git diff --name-only "$BASE" HEAD)
+          echo "$changed"
+          code=$(printf '%s\n' "$changed" | grep -v -E '^(docs/.*|[^/]+\.md)$' | grep -v '^$' || true)
+          needed=true
+          if [ -z "$code" ] && ! printf '%s\n' "$changed" | grep -q -x 'THIRD-PARTY-NOTICES.md'; then
+            needed=false
+          fi
+          echo "needed=$needed" >> "$GITHUB_OUTPUT"
+          [ "$needed" = false ] && echo "Only documentation changed: the gate is not needed." || echo "Code changed: running the gate."
 
       # Forgejo has no setup-dotnet mirror. global.json rolls forward to the newest feature band, so the newest 10.0 SDK fits.
       - name: Install the .NET SDK
+        if: steps.scope.outputs.needed == 'true'
         run: |
           curl -fsSL --retry 3 --retry-delay 2 -o "$RUNNER_TEMP/dotnet-install.sh" https://dot.net/v1/dotnet-install.sh
           bash "$RUNNER_TEMP/dotnet-install.sh" --channel 10.0 --install-dir /opt/dotnet --no-path
@@ -27,11 +50,13 @@ jobs:
       # The job container runs as root, and root ignores file permissions, so the tests of unreadable and undeletable files
       # would skip. An ordinary user runs them for real.
       - name: Make an ordinary user
+        if: steps.scope.outputs.needed == 'true'
         run: |
           useradd --create-home gate
           chown -R gate:gate "$GITHUB_WORKSPACE"
 
       - name: Gate
+        if: steps.scope.outputs.needed == 'true'
         run: >-
           runuser -u gate --
           env HOME=/home/gate PATH="/opt/dotnet:$PATH" DOTNET_ROOT=/opt/dotnet
