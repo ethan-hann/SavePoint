@@ -19,11 +19,15 @@ namespace Savepoint.Core.Api;
 /// True when a save that was asked to replace a snapshot found that snapshot was not the newest in this folder (the folder holds no commit
 /// of it, or a newer one), so the session was added as a new snapshot there instead. Nothing was replaced or removed in this folder.
 /// </param>
-public sealed record FolderOutcome(RepoRole Role, ErrorInfo? Error = null, bool LeftAlone = false, string? LeftOnBranch = null, bool KeptAsNew = false)
+/// <param name="Skipped">
+/// True when a save that was asked to update the latest snapshot found nothing unsaved in this folder and so left its snapshot exactly as
+/// it was. That is not an error and not a write: the folder is as saved as it ever was.
+/// </param>
+public sealed record FolderOutcome(RepoRole Role, ErrorInfo? Error = null, bool LeftAlone = false, string? LeftOnBranch = null, bool KeptAsNew = false, bool Skipped = false)
 {
-    /// <summary>True when the job succeeded on this folder, that is, <see cref="Error"/> is null. A folder that was left alone is still Ok.</summary>
+    /// <summary>True when the job succeeded on this folder, that is, <see cref="Error"/> is null. A folder that was left alone or skipped is still Ok.</summary>
     public bool Ok => Error is null;
 
-    /// <summary>True when the job wrote this folder: it succeeded on it (<see cref="Ok"/>) and did not leave it alone.</summary>
-    public bool Saved => Ok && !LeftAlone;
+    /// <summary>True when the job wrote this folder: it succeeded on it (<see cref="Ok"/>) and neither left it alone nor skipped it.</summary>
+    public bool Saved => Ok && !LeftAlone && !Skipped;
 }

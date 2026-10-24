@@ -235,6 +235,10 @@ internal sealed class CaptureRunner
             {
                 context.AddStep(JobSteps.CaptureFolderNotIncluded, ("folder", repo.Role));
             }
+            else if (saved.SkippedAsClean)
+            {
+                context.AddStep(JobSteps.CaptureFolderSkipped, ("folder", repo.Role));
+            }
             else
             {
                 context.AddStep(JobSteps.CaptureFolderDone, ("folder", repo.Role), ("files", progress.FilesDone));
@@ -244,7 +248,7 @@ internal sealed class CaptureRunner
                 }
             }
 
-            return new SavedFolder(repo, new FolderOutcome(repo.Role, null, saved.LeftAlone, saved.LeftOnBranch, saved.KeptAsNew), saved.Recorded, startedBranch);
+            return new SavedFolder(repo, new FolderOutcome(repo.Role, null, saved.LeftAlone, saved.LeftOnBranch, saved.KeptAsNew, saved.SkippedAsClean), saved.Recorded, startedBranch);
         }
         catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException))
         {

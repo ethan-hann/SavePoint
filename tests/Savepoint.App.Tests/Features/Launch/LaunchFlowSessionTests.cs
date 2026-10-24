@@ -407,6 +407,27 @@ public class LaunchFlowSessionTests : IDisposable
     }
 
     [Fact]
+    public async Task A_failure_beside_a_folder_the_update_skipped_for_having_nothing_new_says_so_and_does_not_call_it_failed()
+    {
+        await _f.PlayToExitedAsync();
+        await _f.PostPlay.SaveCommand.ExecuteAsync(null);
+
+        _f.Backend.Jobs.Complete(
+            CaptureJob(),
+            new CaptureResult(
+                MockupScenario.ModdedId,
+                MockupScenario.BeforeFinalBoss,
+                [new FolderOutcome(RepoRole.Install, null, Skipped: true), new FolderOutcome(RepoRole.External, MockupScenario.SavesOutOfRoomError)]));
+
+        var card = _f.Inline<ErrorCardViewModel>();
+        Assert.Equal("Only part of the snapshot was taken", card.Title);
+        Assert.StartsWith("Your game version and mods are in the snapshot. Your saves aren't yet.", card.Body, StringComparison.Ordinal);
+        var rows = Assert.IsType<FolderOutcomeListViewModel>(card.Supplement).Rows;
+        Assert.Equal(["Game version and mods · nothing new, snapshot kept as it was", "Saves · not in the snapshot yet"], rows.Select(r => r.Text));
+        Assert.Equal([false, true], rows.Select(r => r.IsFailed));
+    }
+
+    [Fact]
     public async Task A_capture_that_saved_only_one_folder_shows_the_half_of_that_save_card_never_a_success()
     {
         await _f.PlayToExitedAsync();

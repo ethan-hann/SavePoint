@@ -20,6 +20,7 @@ public class JobLineFormatterTests
         JobLine.ForStep(JobSteps.CaptureFolder, ("folder", RepoRole.Install), ("path", @"C:\Games\Skyrim")),
         JobLine.ForStep(JobSteps.CaptureFolderDone, ("folder", RepoRole.External), ("files", 3)),
         JobLine.ForStep(JobSteps.CaptureFolderNotIncluded, ("folder", RepoRole.External)),
+        JobLine.ForStep(JobSteps.CaptureFolderSkipped, ("folder", RepoRole.Install)),
         JobLine.ForStep(JobSteps.CaptureFolderFailed, ("folder", RepoRole.Install)),
         JobLine.ForStep(JobSteps.CaptureFolderKeptAsNew, ("folder", RepoRole.Install)),
         JobLine.ForStep(JobSteps.LaunchSwitchFolder, ("folder", RepoRole.Install), ("profile", "Modded"), ("older", "no"), ("counted", "yes"), ("written", 4), ("removed", 1)),
