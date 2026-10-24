@@ -96,13 +96,16 @@ public class GamesLibraryTests : IDisposable
     public async Task The_draft_of_a_template_game_is_valid_and_carries_the_template_and_the_install_folder()
     {
         var folder = _steam.AddGame(_steam.SteamFolder, 489830, "The Elder Scrolls V: Skyrim Special Edition", "Skyrim Special Edition");
+        File.WriteAllText(Path.Combine(folder, "SkyrimSELauncher.exe"), "x");
         _steam.WriteLibraryList();
 
         var draft = (await Games.ScanLibrariesAsync(_workspace.Token)).Value!.Games.Single().Draft;
 
         Assert.Equal(folder, draft.Install.Path);
         Assert.Equal(@"{documents}\My Games\Skyrim Special Edition\Saves", draft.External!.Path);
-        Assert.Equal("SkyrimSELauncher.exe", draft.Launch.ExePath);
+        // The template's program starts the game where it can run, and the Steam link everywhere else.
+        Assert.Equal(OperatingSystem.IsWindows() ? "SkyrimSELauncher.exe" : null, draft.Launch.ExePath);
+        Assert.Equal(OperatingSystem.IsWindows() ? LaunchMethod.Exe : LaunchMethod.Uri, draft.Launch.Method);
         Assert.Equal(489830, draft.SteamAppId);
         Assert.Empty(CatalogValidator.Validate(draft));
         Assert.StartsWith("the-elder-scrolls-v-skyrim-special-editi", draft.Id, StringComparison.Ordinal);
