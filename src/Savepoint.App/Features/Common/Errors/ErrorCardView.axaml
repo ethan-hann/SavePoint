@@ -5,7 +5,7 @@
              x:DataType="errors:ErrorCardViewModel">
   <!--
     The shared error card: icon and headline, what happened, the path on a recessed monospace surface,
-    optional extra content, the actions, and a toggle for the developer detail.
+    optional extra content, the actions, and a toggle that explains the technical text and offers to copy it; the text itself is never drawn.
   -->
   <Border x:Name="Card"
           Classes="card"
@@ -53,14 +53,16 @@
                         Classes="pill"
                         Padding="18,8"
                         FontSize="13"
-                        IsVisible="{Binding HasDetail}"
+                        IsVisible="{Binding HasSupportText}"
                         IsChecked="{Binding ShowDetails, Mode=TwoWay}"
                         Content="{Binding DetailsToggleLabel}" />
         </StackPanel>
         <Border x:Name="DetailsSurface" Classes="recessed" IsVisible="{Binding ShowDetails}">
-          <ScrollViewer MaxHeight="180" HorizontalScrollBarVisibility="Auto">
-            <SelectableTextBlock x:Name="DetailsText" FontFamily="{DynamicResource RobotoMonoFont}" FontSize="11.5" Foreground="{DynamicResource Md3OnSurfaceVariantBrush}" Text="{Binding Detail}" />
-          </ScrollViewer>
+          <StackPanel Spacing="10">
+            <TextBlock x:Name="DetailsExplanation" Classes="body muted" TextWrapping="Wrap" Text="{Binding DetailsExplanation}" />
+            <Button x:Name="CopyDetails" Classes="pill" Padding="18,8" FontSize="13" HorizontalAlignment="Left" Content="{Binding CopyDetailsLabel}" Command="{Binding CopyDetailsCommand}" />
+            <TextBlock x:Name="CopyNoteText" Classes="caption muted" TextWrapping="Wrap" Text="{Binding CopyNote}" IsVisible="{Binding CopyNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          </StackPanel>
         </Border>
       </StackPanel>
     </Grid>

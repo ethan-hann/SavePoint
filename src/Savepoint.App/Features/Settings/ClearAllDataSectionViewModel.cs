@@ -5,6 +5,7 @@ using Savepoint.App.Features.Shell;
 using Savepoint.App.Theme;
 using Savepoint.Core.Api;
 using Savepoint.Core.Errors;
+using Savepoint.Core.Services.Storage;
 
 namespace Savepoint.App.Features.Settings;
 
@@ -93,7 +94,7 @@ public sealed partial class ClearAllDataSectionViewModel : ObservableObject
         }
         else
         {
-            Problem = new ErrorCardViewModel(job.Error ?? new ErrorInfo("error.unknown", new Dictionary<string, object?>(), string.Empty), _deps.Text);
+            Problem = new ErrorCardViewModel(job.Error ?? new ErrorInfo("error.unknown", new Dictionary<string, object?>(), string.Empty), _deps.Text, operation: ErrorOperation.ClearData);
         }
     }
 
@@ -104,14 +105,14 @@ public sealed partial class ClearAllDataSectionViewModel : ObservableObject
         var read = await _deps.Settings.GetClearAllDataPreviewAsync();
         if (!read.Ok)
         {
-            Problem = new ErrorCardViewModel(read.Error, _deps.Text);
+            Problem = new ErrorCardViewModel(read.Error, _deps.Text, operation: ErrorOperation.ClearData);
             return;
         }
 
         // A running game blocks the removal; the card says which.
         if (read.Value.BlockedBy is { } blocked)
         {
-            Problem = new ErrorCardViewModel(blocked, _deps.Text);
+            Problem = new ErrorCardViewModel(blocked, _deps.Text, operation: ErrorOperation.ClearData);
             return;
         }
 
@@ -123,7 +124,7 @@ public sealed partial class ClearAllDataSectionViewModel : ObservableObject
         var started = await _deps.Settings.ClearAllDataAsync();
         if (!started.Ok)
         {
-            Problem = new ErrorCardViewModel(started.Error, _deps.Text);
+            Problem = new ErrorCardViewModel(started.Error, _deps.Text, operation: ErrorOperation.ClearData);
             return;
         }
 
@@ -148,7 +149,7 @@ public sealed partial class ClearAllDataSectionViewModel : ObservableObject
                 ErrorTone.Warning,
                 _deps.Text.Message("settings.clearAll.leftBehindTitle"),
                 _deps.Text.Message("settings.clearAll.leftBehindBody"),
-                path: string.Join(Environment.NewLine, result.NotRemoved.Select(failure => failure.Path)));
+                path: string.Join(Environment.NewLine, SnapshotFolderNames.Plain(result.NotRemoved.Select(failure => failure.Path))));
             return;
         }
 

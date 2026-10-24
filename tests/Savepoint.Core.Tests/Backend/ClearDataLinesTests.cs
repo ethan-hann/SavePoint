@@ -38,15 +38,15 @@ public class ClearDataLinesTests
         await workspace.AddGameAsync();
 
         // A folder shaped like a game's storage whose "git directory" holds something that git never writes stays where it is.
-        var foreign = Path.Combine(workspace.DefaultStorageRoot, "foreign", "install.git");
-        BackendWorkspace.WriteFile(Path.Combine(foreign, "family-photos.zip"), "somebody's files");
+        var foreign = Path.Combine(workspace.DefaultStorageRoot, "foreign");
+        BackendWorkspace.WriteFile(Path.Combine(foreign, "install.git", "family-photos.zip"), "somebody's files");
 
         var started = await workspace.Settings.ClearAllDataAsync();
         var job = await workspace.WaitForJobAsync(started.Value!.JobId);
 
         var steps = Steps(job);
         Assert.Equal(JobStatus.Partial, job.Status);
-        Assert.Contains(JobLine.ForStep(JobSteps.ClearNotRemoved, ("path", foreign)), steps);
+        Assert.Contains(JobLine.ForStep(JobSteps.ClearNotRemoved, ("path", foreign), ("part", "install")), steps);
         Assert.Equal(JobLine.ForStep(JobSteps.ClearDone, ("left", 1)), steps[^1]);
     }
 

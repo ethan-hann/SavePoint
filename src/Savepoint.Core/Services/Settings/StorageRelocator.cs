@@ -196,9 +196,11 @@ internal sealed class StorageRelocator
         {
             Directory.CreateDirectory(destination);
             File.WriteAllText(Path.Combine(destination, MarkerFileName), $"SavePoint is moving its data here from '{storage.Root}'. If this file is still here, the move did not finish and the other files in this folder are an incomplete copy.{Environment.NewLine}");
+            var folders = new FolderAnnouncer(context, storage, games, listing, _services.Platform.PathComparison);
             foreach (var entry in listing.Entries)
             {
                 context.CancellationToken.ThrowIfCancellationRequested();
+                folders.Entering(entry);
                 await CopyEntryAsync(storage.Root, destination, entry, progress, context.CancellationToken).ConfigureAwait(false);
             }
 
@@ -273,7 +275,8 @@ internal sealed class StorageRelocator
                 catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException))
                 {
                     // The move has switched over, so nothing here may fail it.
-                    context.AddStep(JobSteps.RelocateNotRemoved, ("path", gitDir));
+                    var (shown, part) = SnapshotFolderNames.Describe(gitDir);
+                    context.AddStep(JobSteps.RelocateNotRemoved, ("path", shown), ("part", part));
                     _services.Log.Warning($"Storage move: could not remove the old copy {gitDir}: {ErrorInfo.From(e).MessageId}.", e);
                     left.Add(new ClearFailure(gitDir, ErrorInfo.From(e)));
                 }
@@ -331,7 +334,7 @@ internal sealed class StorageRelocator
                 return;
             }
 
-            progress.FileDone(entry.RelativePath, 0);
+            progress.FileDone(0);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
         {
@@ -365,7 +368,6 @@ internal sealed class StorageRelocator
         byte[] expected;
         long copied = 0;
         var sinceReport = 0L;
-        progress.Starting(entry.RelativePath);
         using (var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256))
         {
             await using var from = new FileStream(source, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, _bufferSize, FileOptions.Asynchronous | FileOptions.SequentialScan);
@@ -380,7 +382,7 @@ internal sealed class StorageRelocator
                 sinceReport += read;
                 if (sinceReport >= _progressInterval)
                 {
-                    progress.Moved(entry.RelativePath, sinceReport);
+                    progress.Moved(sinceReport);
                     sinceReport = 0;
                 }
             }
@@ -398,7 +400,7 @@ internal sealed class StorageRelocator
             throw new StorageRelocationFailedException(target, $"The copy '{target}' does not match '{source}'.", null);
         }
 
-        progress.FileDone(entry.RelativePath, sinceReport);
+        progress.FileDone(sinceReport);
     }
 
     private static async Task<byte[]> HashAsync(string path, CancellationToken cancellationToken)
@@ -444,7 +446,54 @@ internal sealed class StorageRelocator
         }
     }
 
-    // Files and bytes done so far, reported to the job as one bar.
+    // Says which folder of which game is being copied, once as the copy enters it. The entries come grouped by game folder and git
+    // directory; the engine's own folder names are turned into plain parts and never reach the job's lines.
+    private sealed class FolderAnnouncer
+    {
+        private readonly JobContext _context;
+        private readonly StorageSnapshot _storage;
+        private readonly IReadOnlyList<GameDefinition> _games;
+        private readonly StringComparison _comparison;
+        private readonly Dictionary<(string Game, string Part), int> _filesIn;
+        private (string Game, string Part)? _current;
+
+        public FolderAnnouncer(JobContext context, StorageSnapshot storage, IReadOnlyList<GameDefinition> games, ContentListing listing, StringComparison comparison)
+        {
+            _context = context;
+            _storage = storage;
+            _games = games;
+            _comparison = comparison;
+            _filesIn = [];
+            foreach (var entry in listing.Entries.Where(entry => entry.LinkTarget is not null || !entry.IsFolder))
+            {
+                if (KeyOf(entry) is { } key)
+                {
+                    _filesIn[key] = _filesIn.GetValueOrDefault(key) + 1;
+                }
+            }
+        }
+
+        public void Entering(ContentEntry entry)
+        {
+            if (KeyOf(entry) is not { } key || key == _current)
+            {
+                return;
+            }
+
+            _current = key;
+            var name = _games.FirstOrDefault(game => string.Equals(Path.GetFileName(_storage.GameDirectory(game.Id)), key.Game, _comparison))?.Name ?? key.Game;
+            _context.AddStep(JobSteps.RelocateFolder, ("game", name), ("part", key.Part), ("files", _filesIn.GetValueOrDefault(key)));
+        }
+
+        // The game's folder and the part inside it; null for the game's folder itself, which holds nothing to copy.
+        private static (string Game, string Part)? KeyOf(ContentEntry entry)
+        {
+            var segments = entry.RelativePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            return segments.Length < 2 ? null : (segments[0], SnapshotFolderNames.PartOf(segments[1]));
+        }
+    }
+
+    // Files and bytes done so far, reported to the job as one bar. It names no file: the paths are the engine's own.
     private sealed class Tally
     {
         private readonly JobContext _context;
@@ -457,27 +506,25 @@ internal sealed class StorageRelocator
             _context = context;
             _filesTotal = listing.FileCount;
             _bytesTotal = listing.Bytes;
-            Report(null);
+            Report();
         }
 
         public long BytesDone { get; private set; }
 
-        public void Starting(string path) => Report(path);
-
-        public void Moved(string path, long bytes)
+        public void Moved(long bytes)
         {
             BytesDone += bytes;
-            Report(path);
+            Report();
         }
 
-        public void FileDone(string path, long remainingBytes)
+        public void FileDone(long remainingBytes)
         {
             BytesDone += remainingBytes;
             _filesDone++;
-            Report(path);
+            Report();
         }
 
-        private void Report(string? path) =>
-            _context.Progress.Report(new JobProgress(_filesDone, _filesTotal, BytesDone, _bytesTotal, path));
+        private void Report() =>
+            _context.Progress.Report(new JobProgress(_filesDone, _filesTotal, BytesDone, _bytesTotal));
     }
 }

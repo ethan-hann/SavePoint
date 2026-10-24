@@ -28,7 +28,7 @@ public class RelocationLinesTests
                 JobLine.ForStep(JobSteps.RelocateSwitched, ("path", destination)),
                 JobLine.ForStep(JobSteps.RelocateRemovingOld),
             ],
-            Steps(job));
+            Steps(job).Where(step => step.MessageId != JobSteps.RelocateFolder));
     }
 
     [Fact]
@@ -38,15 +38,15 @@ public class RelocationLinesTests
         await workspace.AddGameAsync();
 
         // A folder shaped like a game's storage whose "git directory" holds something that git never writes stays where it is.
-        var foreign = Path.Combine(workspace.DefaultStorageRoot, "foreign", "install.git");
-        BackendWorkspace.WriteFile(Path.Combine(foreign, "family-photos.zip"), "somebody's files");
+        var foreign = Path.Combine(workspace.DefaultStorageRoot, "foreign");
+        BackendWorkspace.WriteFile(Path.Combine(foreign, "install.git", "family-photos.zip"), "somebody's files");
         var destination = Path.Combine(workspace.Root, "new-storage");
 
         var started = await workspace.Settings.RelocateStorageAsync(destination);
         var job = await workspace.WaitForJobAsync(started.Value!.JobId);
 
         Assert.Equal(JobStatus.Partial, job.Status);
-        Assert.Contains(JobLine.ForStep(JobSteps.RelocateNotRemoved, ("path", foreign)), Steps(job));
+        Assert.Contains(JobLine.ForStep(JobSteps.RelocateNotRemoved, ("path", foreign), ("part", "install")), Steps(job));
         Assert.DoesNotContain(JobLine.ForPath(foreign), job.RecentLines);
     }
 

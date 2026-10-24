@@ -3,6 +3,7 @@ using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Dialogs;
+using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Help;
 using Savepoint.Core.Api;
@@ -323,7 +324,7 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
             var started = await _deps.Profiles.CaptureAsync(GameId, FolderState(block.Role).DirtyOwnerProfileId!, message, [block.Role]);
             if (!started.Ok)
             {
-                block.Error = text.Message("launch.dialog.saveFirstFailed", ("reason", LaunchText.Reason(text, started.Error)));
+                block.Error = text.Message("launch.dialog.saveFirstFailed", ("reason", LaunchText.Reason(text, started.Error, ErrorOperation.Snapshot)));
                 return;
             }
 
@@ -361,7 +362,7 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
                 return;
             }
 
-            block.Error = text.Message("launch.dialog.saveFirstFailed", ("reason", LaunchText.Reason(text, LaunchText.FirstError(job))));
+            block.Error = text.Message("launch.dialog.saveFirstFailed", ("reason", LaunchText.Reason(text, LaunchText.FirstError(job), ErrorOperation.Snapshot)));
         }
         finally
         {

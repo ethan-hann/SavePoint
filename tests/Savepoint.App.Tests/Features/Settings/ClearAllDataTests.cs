@@ -168,6 +168,25 @@ public class ClearAllDataTests
     }
 
     [Fact]
+    public async Task Leftovers_in_a_snapshot_folder_are_listed_by_the_game_folder_once_and_never_by_the_git_folder()
+    {
+        var rig = await SettingsRig.ShownAsync(WithPreview(_preview));
+        var run = StartAsync(rig);
+        Confirm(Dialog(rig));
+        await run;
+        var job = rig.Backend.Jobs.LastStarted(JobKind.ClearData);
+        var held = ErrorInfo.From(new InvalidOperationException("In use"));
+
+        rig.Backend.Jobs.Complete(job.JobId, new ClearAllDataResult(0, [
+            new ClearFailure(@"D:\SavePoint\skyrim\install.git\objects\pack-1.pack", held),
+            new ClearFailure(@"D:\SavePoint\skyrim\external.git", held),
+            new ClearFailure(@"D:\SavePoint\catalog\games.json", held),
+        ]));
+
+        Assert.Equal(["D:\\SavePoint\\skyrim", "D:\\SavePoint\\catalog\\games.json"], Section(rig).LeftBehind!.Path!.Split(Environment.NewLine));
+    }
+
+    [Fact]
     public async Task A_failed_removal_shows_why_and_leaves_the_app_where_it_is()
     {
         var rig = await SettingsRig.ShownAsync(WithPreview(_preview));

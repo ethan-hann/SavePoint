@@ -34,10 +34,11 @@ public class JobLineFormatterTests
         JobLine.ForStep(JobSteps.CompactRemovedKept, ("game", "Skyrim"), ("count", 2)),
         JobLine.ForStep(JobSteps.CompactFolderFailed, ("game", "Skyrim"), ("folder", RepoRole.External)),
         JobLine.ForStep(JobSteps.RelocateStart, ("from", @"C:\Old"), ("to", @"D:\New"), ("files", 52), ("bytes", 57_950L)),
+        JobLine.ForStep(JobSteps.RelocateFolder, ("game", "Skyrim"), ("part", "install"), ("files", 12)),
         JobLine.ForStep(JobSteps.RelocateCopied),
         JobLine.ForStep(JobSteps.RelocateSwitched, ("path", @"D:\New")),
         JobLine.ForStep(JobSteps.RelocateRemovingOld),
-        JobLine.ForStep(JobSteps.RelocateNotRemoved, ("path", @"C:\Old\foreign")),
+        JobLine.ForStep(JobSteps.RelocateNotRemoved, ("path", @"C:\Old\foreign"), ("part", "install")),
         JobLine.ForStep(JobSteps.RelocateTakingBack, ("path", @"D:\New")),
         JobLine.ForStep(JobSteps.ClearStart, ("games", 2)),
         JobLine.ForStep(JobSteps.ClearGame, ("game", "Skyrim")),
@@ -45,7 +46,7 @@ public class JobLineFormatterTests
         JobLine.ForStep(JobSteps.ClearSettings),
         JobLine.ForStep(JobSteps.ClearArtwork),
         JobLine.ForStep(JobSteps.ClearLogs),
-        JobLine.ForStep(JobSteps.ClearNotRemoved, ("path", @"C:\Old\foreign")),
+        JobLine.ForStep(JobSteps.ClearNotRemoved, ("path", @"C:\Old\foreign"), ("part", "saves")),
         JobLine.ForStep(JobSteps.ClearDone, ("left", 1)),
     }.Cast<JobLine.Step>().ToDictionary(step => step.MessageId);
 

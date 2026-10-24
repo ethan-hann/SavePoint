@@ -416,7 +416,8 @@ public class StorageSectionViewModelTests
         var left = Storage(rig).LeftBehind;
         Assert.NotNull(left);
         Assert.Equal("Your snapshots moved, but some old files are still in the old folder", left.Title);
-        Assert.Contains(@"D:\Old\game-1\install.git", left.Path, StringComparison.Ordinal);
+        Assert.Equal(@"D:\Old\game-1", left.Path);
+        Assert.DoesNotContain(".git", left.Path, StringComparison.Ordinal);
     }
 
     [Fact]

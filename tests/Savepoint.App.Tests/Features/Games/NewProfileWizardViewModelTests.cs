@@ -661,7 +661,7 @@ public class NewProfileWizardViewModelTests
         Assert.Equal(
             [("Game version and mods \u00b7 not in the snapshot yet", false), ("Saves \u00b7 in the snapshot", true)],
             ((SaveOutcomeListViewModel)card.Supplement!).Rows.Select(row => (row.Text, row.Succeeded)));
-        Assert.True(card.HasDetail);
+        Assert.True(card.HasSupportText);
         Assert.Equal(@"C:\Games\SkyrimSE\Data\Skyrim.esm", card.Path);
     }
 

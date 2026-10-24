@@ -282,7 +282,7 @@ public sealed partial class StartupViewModel : ObservableObject
             _text.Message("startup.corrupt.title", ("kind", kind)),
             _text.Message("startup.corrupt.body", ("kind", kind)),
             path: file.Path,
-            detail: file.Error.Detail,
+            supportText: file.Error.Detail,
             actions:
             [
                 new ErrorCardAction(_text.Message("startup.corrupt.restoreBackup"), restore, IsPrimary: true),

@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Dialogs;
+using Savepoint.App.Features.Common.Errors;
 using Savepoint.Core.Api;
 
 namespace Savepoint.App.Features.Launch;
@@ -68,7 +69,7 @@ public sealed partial class KeepAsNewProfileDialogViewModel : DialogViewModel<bo
             var started = await _deps.Profiles.CreateAsync(_gameId, name, null, name);
             if (!started.Ok)
             {
-                Error = _deps.Text.Message("launch.keep.failed", ("reason", LaunchText.Reason(_deps.Text, started.Error)));
+                Error = _deps.Text.Message("launch.keep.failed", ("reason", LaunchText.Reason(_deps.Text, started.Error, ErrorOperation.Snapshot)));
                 return;
             }
 
@@ -79,10 +80,10 @@ public sealed partial class KeepAsNewProfileDialogViewModel : DialogViewModel<bo
                     Close(true);
                     break;
                 case JobStatus.Partial:
-                    Error = _deps.Text.Message("launch.keep.partial", ("reason", LaunchText.Reason(_deps.Text, LaunchText.FirstError(job))));
+                    Error = _deps.Text.Message("launch.keep.partial", ("reason", LaunchText.Reason(_deps.Text, LaunchText.FirstError(job), ErrorOperation.Snapshot)));
                     break;
                 default:
-                    Error = _deps.Text.Message("launch.keep.failed", ("reason", LaunchText.Reason(_deps.Text, LaunchText.FirstError(job))));
+                    Error = _deps.Text.Message("launch.keep.failed", ("reason", LaunchText.Reason(_deps.Text, LaunchText.FirstError(job), ErrorOperation.Snapshot)));
                     break;
             }
         }
