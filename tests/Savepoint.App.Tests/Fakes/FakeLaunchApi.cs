@@ -11,6 +11,7 @@ public sealed class FakeLaunchApi : ILaunchApi
 
     private readonly FakeBackend _backend;
     private readonly Dictionary<string, DateTimeOffset> _startedAt = [];
+    private readonly HashSet<string> _switching = [];
     private long _revision;
 
     internal FakeLaunchApi(FakeBackend backend)
@@ -55,7 +56,7 @@ public sealed class FakeLaunchApi : ILaunchApi
         _backend.Call(_api, nameof(StartAsync), [gameId, target], () =>
         {
             State.Game(gameId);
-            if (State.IsOpen(gameId))
+            if (State.IsOpen(gameId) || _switching.Contains(gameId))
             {
                 return OperationResult.Failure<JobStarted>(new LaunchAlreadyRunningException(gameId));
             }
@@ -67,17 +68,18 @@ public sealed class FakeLaunchApi : ILaunchApi
             return OperationResult.Success(new JobStarted(jobId));
         });
 
-    // As the real one: a switch job and no session, so the game counts as taken only while a session is open here.
+    // As the real one: a switch job and no session, with the game taken from the start of the job until it ends.
     public Task<OperationResult<JobStarted>> SwitchAsync(string gameId, LaunchTarget target) =>
         _backend.Call(_api, nameof(SwitchAsync), [gameId, target], () =>
         {
             State.Game(gameId);
-            if (State.IsOpen(gameId))
+            if (State.IsOpen(gameId) || _switching.Contains(gameId))
             {
                 return OperationResult.Failure<JobStarted>(new LaunchAlreadyRunningException(gameId));
             }
 
-            var jobId = _backend.Jobs.Start(JobKind.Switch, gameId, null, profile: JobProfileOf(ProfileOf(gameId, target)));
+            _switching.Add(gameId);
+            var jobId = _backend.Jobs.Start(JobKind.Switch, gameId, null, _ => _switching.Remove(gameId), profile: JobProfileOf(ProfileOf(gameId, target)));
             return OperationResult.Success(new JobStarted(jobId));
         });
 

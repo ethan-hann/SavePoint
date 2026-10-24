@@ -16,6 +16,7 @@ internal static class ContractScenario
         await RunSharedAsync(backend, shared, cancellationToken);
         await RunInterruptedSwitchAsync(backend, shared, cancellationToken);
         await RunSnapshotOfAnotherProfileAsync(backend, shared, cancellationToken);
+        await RunSwitchWithoutPlayingAsync(backend, shared, cancellationToken);
         var gaps = new Story();
         await RunGapsAsync(backend, gaps, cancellationToken);
         return new ScenarioTranscript(shared.Lines, gaps.Lines);
@@ -170,6 +171,36 @@ internal static class ContractScenario
             ? "no result"
             : $"{string.Join(", ", saved.Folders.Select(folder => $"{folder.Role}:{(folder.Ok ? "ok" : folder.Error!.MessageId)}"))} point={(saved.PointId is null ? "none" : "named")}");
         story.Add("session error after the new save", (session?.State as SessionState.Completed)?.Error?.MessageId ?? "none");
+    }
+
+    // A switch without playing keeps the game taken for as long as its job runs, opens no session, and lets the game go when it ends.
+    private static async Task RunSwitchWithoutPlayingAsync(ContractHarness backend, Story story, CancellationToken cancellationToken)
+    {
+        var game = backend.NewGame("Epsilon");
+        await backend.Games.AddAsync(game);
+        var vanilla = await FinishCaptureAsync(backend, story, await backend.Profiles.CreateAsync(game.Id, "Vanilla", null, "Fresh install"), cancellationToken) ?? "missing";
+        File.WriteAllText(Path.Combine(game.Install.Path, "data", "mod.pak"), "a mod");
+        var modded = await FinishCaptureAsync(backend, story, await backend.Profiles.CreateAsync(game.Id, "Modded", null, "With a mod"), cancellationToken) ?? "missing";
+        backend.ExpectLaunch(game, vanilla);
+        backend.ExpectLaunch(game, modded);
+        var vanillaTip = new LaunchTarget.ProfileTip(vanilla);
+
+        var job = await backend.HoldSwitchAsync(game, vanilla, cancellationToken);
+        story.Add("start while a switch job runs", Show(await backend.Launch.StartAsync(game.Id, vanillaTip), _ => "unexpected success"));
+        story.Add("switch while a switch job runs", Show(await backend.Launch.SwitchAsync(game.Id, vanillaTip), _ => "unexpected success"));
+        story.Add("session while a switch job runs", backend.Launch.GetSession(game.Id) is null ? "no session" : "a session");
+
+        backend.ReleaseSwitch();
+        var finished = await backend.FinishAsync(job, cancellationToken);
+        story.Add("the switch job ends", $"{finished.Kind} {finished.Status}");
+        story.Add("session after the switch job", backend.Launch.GetSession(game.Id) is null ? "no session" : "a session");
+
+        var again = await backend.Launch.SwitchAsync(game.Id, new LaunchTarget.ProfileTip(modded));
+        story.Add("switch after the switch job ended", Show(again, _ => "job started"));
+        if (again.Ok)
+        {
+            story.Add("the second switch job ends", $"{(await backend.FinishAsync(again.Value.JobId, cancellationToken)).Status}");
+        }
     }
 
     private static string DescribeFolders(LaunchPreview preview, Story story) =>

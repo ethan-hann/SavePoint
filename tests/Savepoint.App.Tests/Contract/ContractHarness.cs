@@ -63,6 +63,14 @@ internal abstract class ContractHarness : IAsyncDisposable
     // Switches toward <paramref name="toProfileId"/> from the profile the folders are on and stops it part way, so the install folder is left half switched.
     public abstract Task InterruptSwitchAsync(GameDefinition game, string currentProfileId, string toProfileId, CancellationToken cancellationToken);
 
+    // Starts a switch that does not play and returns its job once it is under way and cannot end until <see cref="ReleaseSwitch"/>.
+    public abstract Task<Guid> HoldSwitchAsync(GameDefinition game, string toProfileId, CancellationToken cancellationToken);
+
+    // Lets the switch started by <see cref="HoldSwitchAsync"/> go on; the story then waits for its job through <see cref="FinishAsync"/>.
+    public virtual void ReleaseSwitch()
+    {
+    }
+
     // Tells the backend the half-switched folder has been finished, so a fake can be scripted with what the real one works out for itself.
     public virtual void SwitchFinished(GameDefinition game, string profileId)
     {
@@ -173,6 +181,13 @@ internal sealed class FakeContractHarness : ContractHarness
         return Task.FromResult(_backend.Jobs.Get(jobId)!);
     }
 
+    // The fake's job stays running until the story finishes it.
+    public override async Task<Guid> HoldSwitchAsync(GameDefinition game, string toProfileId, CancellationToken cancellationToken)
+    {
+        var started = await _backend.Launch.SwitchAsync(game.Id, new LaunchTarget.ProfileTip(toProfileId)).ConfigureAwait(false);
+        return started.Ok ? started.Value.JobId : throw new InvalidOperationException("The switch to hold did not start: " + started.Error.MessageId);
+    }
+
     // Scripts what the real backend works out for a folder a stopped switch left half done: dirty, unfinished, and the target that finishes it.
     public override async Task InterruptSwitchAsync(GameDefinition game, string currentProfileId, string toProfileId, CancellationToken cancellationToken)
     {
@@ -272,6 +287,23 @@ internal sealed class RealContractHarness : ContractHarness
             _disk.Release();
         }
     }
+
+    // The switch is held at the install folder's first free-space question, with the game claimed.
+    public override async Task<Guid> HoldSwitchAsync(GameDefinition game, string toProfileId, CancellationToken cancellationToken)
+    {
+        _disk.Hold(game.Install.Path);
+        var started = await _backend.Launch.SwitchAsync(game.Id, new LaunchTarget.ProfileTip(toProfileId)).ConfigureAwait(false);
+        if (!started.Ok)
+        {
+            _disk.Release();
+            throw new InvalidOperationException("The switch to hold did not start: " + started.Error.MessageId);
+        }
+
+        await _disk.ReachedAsync(cancellationToken).ConfigureAwait(false);
+        return started.Value.JobId;
+    }
+
+    public override void ReleaseSwitch() => _disk.Release();
 
     // The real session moves on its own threads, so the story waits for the phase it needs.
     private async Task WaitForSessionAsync(string gameId, Func<SessionState, bool> reached, CancellationToken cancellationToken)
