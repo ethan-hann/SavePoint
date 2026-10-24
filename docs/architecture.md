@@ -154,6 +154,7 @@ public interface ILaunchApi
     IReadOnlyList<LaunchSessionInfo> ListSessions();
     Task<OperationResult<LaunchPreview>> GetPreviewAsync(string gameId, LaunchTarget target, CancellationToken cancellationToken = default);
     Task<OperationResult<JobStarted>> StartAsync(string gameId, LaunchTarget target);
+    Task<OperationResult<JobStarted>> SwitchAsync(string gameId, LaunchTarget target);      // a Switch job: StartAsync's steps up to the start, then stops (D49)
     Task<OperationResult<Unit>> DiscardChangesAsync(string gameId, RepoRole folder);         // refused while a session is open or the game runs (D31.5)
     Task<OperationResult<Unit>> MarkFinishedAsync(string gameId);                            // "I'm done playing"
     Task<OperationResult<Unit>> CompleteSessionAsync(string gameId, SessionCompletion completion);  // only a choice the session offered
