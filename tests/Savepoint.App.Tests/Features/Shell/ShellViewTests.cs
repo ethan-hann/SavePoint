@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
@@ -9,6 +10,7 @@ using Avalonia.Media;
 using Avalonia.VisualTree;
 using Savepoint.App.Features.Common.Art;
 using Savepoint.App.Features.Common.Toasts;
+using Savepoint.App.Features.Help;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Tests.Theme;
@@ -84,6 +86,167 @@ public class ShellViewTests
 
         Assert.Equal(NavDestination.Settings, harness.Shell.Destination);
         Assert.Equal(MockupScenario.SatisfactoryId, harness.Shell.SelectedGame?.Id);
+    }
+
+    private static void ClickCenter(ShellViewHarness harness, Control control)
+    {
+        var bounds = LayoutAudit.BoundsIn(harness.Window, control);
+        var point = bounds.Center;
+        harness.Window.MouseDown(point, MouseButton.Left);
+        harness.Window.MouseUp(point, MouseButton.Left);
+        harness.Settle();
+    }
+
+    private static ListBoxItem ItemOf(ShellViewHarness harness, string list, int index) =>
+        harness.Find<ListBox>(list).GetVisualDescendants().OfType<ListBoxItem>().ElementAt(index);
+
+    [AvaloniaTheory]
+    [InlineData(0)]
+    [InlineData(1)]
+    public async Task Clicking_a_game_in_the_rail_opens_it_from_settings_even_when_it_is_already_selected(int index)
+    {
+        using var harness = await ShellViewHarness.StartAsync();
+        harness.Shell.Navigate(NavDestination.Settings);
+        harness.Settle();
+
+        ClickCenter(harness, ItemOf(harness, "RailGames", index));
+
+        Assert.Equal(NavDestination.Games, harness.Shell.Destination);
+        Assert.Equal(harness.Shell.Games[index].Id, harness.Shell.SelectedGame?.Id);
+    }
+
+    [AvaloniaFact]
+    public async Task Clicking_a_game_in_the_rail_closes_the_help_page()
+    {
+        using var harness = await ShellViewHarness.StartAsync();
+        harness.Shell.ShowHelp();
+        harness.Settle();
+
+        ClickCenter(harness, ItemOf(harness, "RailGames", 0));
+
+        Assert.IsNotType<HowItWorksViewModel>(harness.Shell.Content);
+    }
+
+    [AvaloniaFact]
+    public async Task Arrowing_through_the_rail_keeps_settings_open_and_enter_opens_the_game()
+    {
+        using var harness = await ShellViewHarness.StartAsync();
+        harness.Shell.Navigate(NavDestination.Settings);
+        harness.Settle();
+        var first = ItemOf(harness, "RailGames", 0);
+        first.Focus();
+        harness.Settle();
+
+        harness.Window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+        harness.Window.KeyRelease(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+        harness.Settle();
+
+        Assert.Equal(NavDestination.Settings, harness.Shell.Destination);
+        Assert.Equal(MockupScenario.SatisfactoryId, harness.Shell.SelectedGame?.Id);
+
+        harness.Window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+        harness.Window.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+        harness.Settle();
+
+        Assert.Equal(NavDestination.Games, harness.Shell.Destination);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("RailLibrariesButton")]
+    [InlineData("RailAddButton")]
+    public async Task A_rail_button_label_keeps_clear_of_the_button_edge_and_is_not_cut_off(string button)
+    {
+        using var harness = await ShellViewHarness.StartAsync();
+        var target = harness.Find<Button>(button);
+        var label = target.GetVisualDescendants().OfType<TextBlock>().First(block => !block.Classes.Contains("icon") && block.IsEffectivelyVisible);
+
+        var bounds = LayoutAudit.BoundsIn(harness.Window, target);
+        var text = LayoutAudit.BoundsIn(harness.Window, label);
+        var lines = label.TextLayout.TextLines;
+
+        Assert.True(text.Left - bounds.Left >= 16, $"The label starts {text.Left - bounds.Left:0}px from the button's left edge.");
+        Assert.True(bounds.Right - text.Right >= 16, $"The label ends {bounds.Right - text.Right:0}px from the button's right edge.");
+        Assert.DoesNotContain(lines, line => line.HasCollapsed);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("RailLibrariesButton")]
+    [InlineData("RailAddButton")]
+    public async Task A_rail_button_label_wraps_so_a_longer_translation_cannot_overflow(string button)
+    {
+        using var harness = await ShellViewHarness.StartAsync();
+        var label = harness.Find<Button>(button).GetVisualDescendants().OfType<TextBlock>().First(block => !block.Classes.Contains("icon") && block.IsEffectivelyVisible);
+
+        Assert.Equal(TextWrapping.Wrap, label.TextWrapping);
+    }
+
+    [AvaloniaFact]
+    public async Task In_the_icon_rail_both_buttons_centre_their_icon()
+    {
+        using var harness = await ShellViewHarness.StartAsync(width: 800);
+
+        double Offset(string name)
+        {
+            var target = harness.Find<Button>(name);
+            var icon = target.GetVisualDescendants().OfType<TextBlock>().First(block => block.Classes.Contains("icon"));
+            return LayoutAudit.BoundsIn(harness.Window, icon).Center.X - LayoutAudit.BoundsIn(harness.Window, target).Center.X;
+        }
+
+        Assert.True(harness.Shell.IsCompact);
+        Assert.InRange(Offset("RailAddButton"), -1, 1);
+        Assert.InRange(Offset("RailLibrariesButton"), -1, 1);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("RailGames")]
+    [InlineData("ShelfGames")]
+    public async Task Invoking_a_game_through_accessibility_opens_it_from_settings(string list)
+    {
+        using var harness = list == "RailGames" ? await ShellViewHarness.StartAsync() : await ShellViewHarness.LibraryLayoutAsync();
+        var item = ItemOf(harness, list, 1);
+        harness.Shell.Navigate(NavDestination.Settings);
+        harness.Settle();
+
+        var invoke = Assert.IsAssignableFrom<IInvokeProvider>(ControlAutomationPeer.CreatePeerForElement(item));
+        invoke.Invoke();
+        harness.Settle();
+
+        Assert.Equal(NavDestination.Games, harness.Shell.Destination);
+        Assert.Equal(MockupScenario.SatisfactoryId, harness.Shell.SelectedGame?.Id);
+    }
+
+    [AvaloniaFact]
+    public async Task Enter_opens_the_focused_game_even_when_it_is_not_the_selected_one()
+    {
+        using var harness = await ShellViewHarness.StartAsync();
+        harness.Shell.Navigate(NavDestination.Settings);
+        harness.Settle();
+        ItemOf(harness, "RailGames", 0).Focus();
+        harness.Settle();
+
+        // Ctrl+arrow moves focus without selecting.
+        harness.Window.KeyPress(Key.Down, RawInputModifiers.Control, PhysicalKey.ArrowDown, null);
+        harness.Window.KeyRelease(Key.Down, RawInputModifiers.Control, PhysicalKey.ArrowDown, null);
+        harness.Settle();
+        Assert.Equal(MockupScenario.SkyrimId, harness.Shell.SelectedGame?.Id);
+
+        harness.Window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+        harness.Window.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+        harness.Settle();
+
+        Assert.Equal(NavDestination.Games, harness.Shell.Destination);
+        Assert.Equal(MockupScenario.SatisfactoryId, harness.Shell.SelectedGame?.Id);
+    }
+
+    [AvaloniaFact]
+    public async Task Clicking_a_card_on_the_shelf_selects_that_game()
+    {
+        using var harness = await ShellViewHarness.LibraryLayoutAsync();
+
+        ClickCenter(harness, ItemOf(harness, "ShelfGames", 1));
+
+        Assert.Equal(MockupScenario.SatisfactoryId, harness.Shell.SelectedGame?.Id);
+        Assert.Equal(NavDestination.Games, harness.Shell.Destination);
     }
 
     [AvaloniaFact]

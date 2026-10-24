@@ -60,6 +60,7 @@ How to build a screen in `Savepoint.App`. The screens follow a visual design fro
 - **Motion:** when the system asks for reduced motion, the window carries the `reduced-motion` class and indeterminate progress shows as a still bar.
 - **Announcements:** announcements go through `IAnnouncementHost`, and the live regions raise their automation events; tests assert the events, and a Narrator/NVDA pass is part of the manual dogfood.
 - **Focus:** focus survives a library refresh in the rail and the shelf.
+- **Picking a game:** in the rail, moving the selection (arrow keys) only marks a game, so it never pulls the player off a half-filled Settings page; a click, Enter or a screen reader's invoke opens it, even when it is already selected, closing an open Help page and leaving Settings for Games. History and Activity stay put and show the new game. The shelf only shows on Games with no page open, so there a selection is all a pick needs.
 
 ## Testing
 

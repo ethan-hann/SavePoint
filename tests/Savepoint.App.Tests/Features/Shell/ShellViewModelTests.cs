@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Toasts;
+using Savepoint.App.Features.Help;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.Core.Api;
@@ -217,6 +218,54 @@ public class ShellViewModelTests
         rig.Shell.SelectedNav = rig.Shell.Nav[3];
 
         Assert.Equal(NavDestination.Settings, rig.Shell.Destination);
+    }
+
+    [Fact]
+    public async Task Moving_the_game_selection_leaves_the_current_screen_alone()
+    {
+        var rig = await ShellRig.StartAsync();
+        rig.Shell.Navigate(NavDestination.Settings);
+
+        rig.Shell.SelectedGameRow = rig.Shell.Games[1];
+
+        Assert.Equal(NavDestination.Settings, rig.Shell.Destination);
+        Assert.Equal(MockupScenario.SatisfactoryId, rig.Shell.SelectedGame?.Id);
+    }
+
+    [Fact]
+    public async Task Opening_the_selected_game_from_settings_shows_the_games_screen()
+    {
+        var rig = await ShellRig.StartAsync();
+        rig.Shell.Navigate(NavDestination.Settings);
+
+        rig.Shell.SelectGame(MockupScenario.SkyrimId);
+
+        Assert.Equal(NavDestination.Games, rig.Shell.Destination);
+    }
+
+    [Fact]
+    public async Task Opening_a_game_while_the_help_page_is_open_closes_the_page()
+    {
+        var rig = await ShellRig.StartAsync();
+        rig.Shell.Navigate(NavDestination.Settings);
+        rig.Shell.ShowHelp();
+
+        rig.Shell.SelectGame(MockupScenario.SkyrimId);
+        rig.Shell.Navigate(NavDestination.Settings);
+
+        Assert.IsNotType<HowItWorksViewModel>(rig.Shell.Content);
+    }
+
+    [Fact]
+    public async Task Opening_a_game_while_the_help_page_is_open_over_games_closes_the_page()
+    {
+        var rig = await ShellRig.StartAsync();
+        rig.Shell.ShowHelp();
+
+        rig.Shell.SelectGame(MockupScenario.SatisfactoryId);
+
+        Assert.IsNotType<HowItWorksViewModel>(rig.Shell.Content);
+        Assert.Equal(MockupScenario.SatisfactoryId, rig.Shell.SelectedGame?.Id);
     }
 
     [Fact]
