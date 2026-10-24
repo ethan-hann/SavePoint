@@ -35,7 +35,7 @@ public sealed partial class NewProfileWizardViewModel
         if (!created.Ok)
         {
             Step = WizardStep.Check;
-            SubmitError = _text.Message(created.Error);
+            SubmitError = _text.Message(created.Error, ErrorOperation.Snapshot);
             return;
         }
 
@@ -230,7 +230,7 @@ public sealed partial class NewProfileWizardViewModel
             _text.Message("profiles.wizard.partial.title"),
             body,
             path: ErrorCardViewModel.PathFor(first, _text),
-            detail: first.Detail,
+            supportText: first.Detail,
             actions: [new ErrorCardAction(retryLabel, new AsyncRelayCommand(RetryAsync), IsPrimary: true)],
             supplement: new SaveOutcomeListViewModel(rows));
     }

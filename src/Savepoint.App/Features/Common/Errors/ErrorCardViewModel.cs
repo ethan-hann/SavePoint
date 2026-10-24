@@ -14,8 +14,9 @@ public sealed record ErrorCardAction(string Label, ICommand Command, bool IsPrim
 
 /// <summary>
 /// The view model of an error card: an icon, a headline, a plain-language body, the path involved on a
-/// recessed monospace surface, optional extra content and actions, and a "Show details" toggle that reveals the
-/// developer detail in a selectable box. Build one from an <see cref="ErrorInfo"/> with the constructor, or from
+/// recessed monospace surface, optional extra content and actions, and a "Show details" toggle. The technical text behind
+/// the error (the exception and the output of the tools SavePoint runs) is never shown: "Show details" explains what it is
+/// and offers to copy it for a bug report. Build one from an <see cref="ErrorInfo"/> with the constructor, or from
 /// scratch with <see cref="Custom"/> for a card that is not one error (such as "Only part of the snapshot was taken").
 /// </summary>
 public sealed partial class ErrorCardViewModel : ObservableObject
@@ -41,12 +42,12 @@ public sealed partial class ErrorCardViewModel : ObservableObject
         Title = text.Message(ErrorCopy.TitleKey(error.MessageId, operation));
         Body = text.Message(error, operation);
         Path = PathFor(error, text);
-        Detail = string.IsNullOrWhiteSpace(error.Detail) ? null : error.Detail;
+        SupportText = string.IsNullOrWhiteSpace(error.Detail) ? null : error.Detail;
         Actions = actions ?? [];
         Supplement = supplement;
     }
 
-    private ErrorCardViewModel(UiFormatter text, string icon, ErrorTone tone, string title, string body, string? path, string? detail, IReadOnlyList<ErrorCardAction>? actions, object? supplement)
+    private ErrorCardViewModel(UiFormatter text, string icon, ErrorTone tone, string title, string body, string? path, string? supportText, IReadOnlyList<ErrorCardAction>? actions, object? supplement)
     {
         _text = text;
         Icon = icon;
@@ -54,10 +55,13 @@ public sealed partial class ErrorCardViewModel : ObservableObject
         Title = title;
         Body = body;
         Path = string.IsNullOrEmpty(path) ? null : path;
-        Detail = string.IsNullOrWhiteSpace(detail) ? null : detail;
+        SupportText = string.IsNullOrWhiteSpace(supportText) ? null : supportText;
         Actions = actions ?? [];
         Supplement = supplement;
     }
+
+    /// <summary>Raised with the technical text to put on the clipboard when "Copy details for support" is pressed.</summary>
+    public event EventHandler<string>? CopyRequested;
 
     /// <summary>
     /// What the card's recessed surface shows for an error: the folder or file it names, or for a full disk on Windows the drive to
@@ -93,11 +97,37 @@ public sealed partial class ErrorCardViewModel : ObservableObject
     /// <summary>True when <see cref="Path"/> is set.</summary>
     public bool HasPath => Path is not null;
 
-    /// <summary>The developer detail behind "Show details"; null when there is none.</summary>
-    public string? Detail { get; private set; }
+    /// <summary>
+    /// The full technical text behind the error (the exception and any output from the tools SavePoint runs), kept only to be
+    /// copied for a bug report; null when there is none. No view shows it.
+    /// </summary>
+    public string? SupportText { get; private set; }
 
-    /// <summary>True when there is detail to reveal, which is when the toggle is offered.</summary>
-    public bool HasDetail => Detail is not null;
+    /// <summary>True when there is technical text to copy, which is when "Show details" is offered.</summary>
+    public bool HasSupportText => SupportText is not null;
+
+    /// <summary>What "Show details" shows instead of the technical text: what it is and what to do with it.</summary>
+    public string DetailsExplanation => _text.Message("errorCard.detailsExplanation");
+
+    /// <summary>The label of the copy button.</summary>
+    public string CopyDetailsLabel => _text.Message("errorCard.copyDetails");
+
+    /// <summary>A short line after the copy, or empty before it.</summary>
+    [ObservableProperty]
+    private string _copyNote = string.Empty;
+
+    /// <summary>Tells the card that the technical text reached the clipboard, so it says so.</summary>
+    public void ConfirmCopied() => CopyNote = _text.Message("errorCard.copied");
+
+    // The generated CopyDetailsCommand asks the view to put the technical text on the clipboard.
+    [RelayCommand(CanExecute = nameof(HasSupportText))]
+    private void CopyDetails()
+    {
+        if (SupportText is { } text)
+        {
+            CopyRequested?.Invoke(this, text);
+        }
+    }
 
     /// <summary>Whether the card draws its icon in the error color.</summary>
     public bool IsError => Tone == ErrorTone.Error;
@@ -125,10 +155,10 @@ public sealed partial class ErrorCardViewModel : ObservableObject
         string title,
         string body,
         string? path = null,
-        string? detail = null,
+        string? supportText = null,
         IReadOnlyList<ErrorCardAction>? actions = null,
         object? supplement = null) =>
-        new(text, icon, tone, title, body, path, detail, actions, supplement);
+        new(text, icon, tone, title, body, path, supportText, actions, supplement);
 
     [RelayCommand]
     private void ToggleDetails() => ShowDetails = !ShowDetails;

@@ -223,7 +223,7 @@ public sealed partial class LaunchFlowViewModel
             ErrorTone.Warning,
             title,
             body,
-            detail: failed[0].Error?.Detail,
+            supportText: failed[0].Error?.Detail,
             actions: [retry, DismissAction(flow)],
             supplement: new FolderOutcomeListViewModel(rows)));
     }

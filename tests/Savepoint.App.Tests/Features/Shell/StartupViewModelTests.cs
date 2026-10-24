@@ -70,7 +70,7 @@ public class StartupViewModelTests
         Assert.Equal("SavePoint's built-in tool is missing", card.Title);
         Assert.Contains("Reinstall SavePoint", card.Body);
         Assert.Equal(_gitPath, card.Path);
-        Assert.Contains("git exited with 127", card.Detail);
+        Assert.Contains("git exited with 127", card.SupportText);
         Assert.Equal(["Try again"], card.Actions.Select(action => action.Label));
         Assert.True(card.Actions[0].IsPrimary);
     }
