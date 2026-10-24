@@ -61,7 +61,7 @@ public class TabOrderTests
 
         Assert.Equal(
             [
-                "Games", "Skyrim Special Edition, 3 profiles", "Add a game",
+                "Games", "Skyrim Special Edition, 3 profiles", "Add games from your libraries", "Add a game",
                 "Edit game", "New profile", "More actions for Skyrim Special Edition", "Sidebar",
                 "Profiles", "History", "Activity",
                 .. ProfileRows(_modded), .. ProfileRows(_vanilla), .. ProfileRows(_survival),
@@ -78,7 +78,7 @@ public class TabOrderTests
         Assert.Equal(
             [
                 "Games", "Library",
-                "Add a game", "Skyrim Special Edition, 3 profiles", "Add a game",
+                "Add games from your libraries", "Add a game", "Skyrim Special Edition, 3 profiles", "Add a game",
                 "Edit game", "New profile", "More actions for Skyrim Special Edition",
                 .. ProfileRows(_modded), .. ProfileRows(_vanilla), .. ProfileRows(_survival),
             ],
@@ -94,7 +94,7 @@ public class TabOrderTests
 
         Assert.Equal(
             [
-                "History", "Skyrim Special Edition, 3 profiles", "Add a game",
+                "History", "Skyrim Special Edition, 3 profiles", "Add games from your libraries", "Add a game",
                 "What's a snapshot?", "Filter by profile: All profiles", "Cards",
                 "Go back to this: Cleared Blackreach", "Switch to this snapshot: Cleared Blackreach",
                 "Go back to this: 14 mod files updated", "Switch to this snapshot: 14 mod files updated",
@@ -118,12 +118,12 @@ public class TabOrderTests
 
         var stops = TabStops(app);
 
-        Assert.Equal(["Activity", "Skyrim Special Edition, 3 profiles", "Add a game", "This game"], stops.Take(4));
-        Assert.StartsWith("Taking a snapshot of Skyrim Special Edition. In progress.", stops[4], StringComparison.Ordinal);
-        Assert.Equal(["Cancel Taking a snapshot of Skyrim Special Edition", "Copy details"], stops.Skip(5).Take(2));
-        Assert.StartsWith("Taking the snapshot", stops[7], StringComparison.Ordinal);
-        Assert.Equal("Taking a snapshot of Skyrim Special Edition… Open Activity", stops[8]);
-        Assert.Equal(9, stops.Count);
+        Assert.Equal(["Activity", "Skyrim Special Edition, 3 profiles", "Add games from your libraries", "Add a game", "This game"], stops.Take(5));
+        Assert.StartsWith("Taking a snapshot of Skyrim Special Edition. In progress.", stops[5], StringComparison.Ordinal);
+        Assert.Equal(["Cancel Taking a snapshot of Skyrim Special Edition", "Copy details"], stops.Skip(6).Take(2));
+        Assert.StartsWith("Taking the snapshot", stops[8], StringComparison.Ordinal);
+        Assert.Equal("Taking a snapshot of Skyrim Special Edition… Open Activity", stops[9]);
+        Assert.Equal(10, stops.Count);
     }
 
     [AvaloniaFact]
@@ -136,7 +136,7 @@ public class TabOrderTests
 
         Assert.Equal(
             [
-                "History", "Skyrim Special Edition, 3 profiles", "Add a game",
+                "History", "Skyrim Special Edition, 3 profiles", "Add games from your libraries", "Add a game",
                 "What's a snapshot?", "Filter by profile: All profiles", "List",
                 .. app.History.Timeline.Where(entry => entry.CanGoBack).SelectMany(entry => new[] { entry.GoBackAutomationName, entry.SwitchAutomationName }),
                 "Go back to Cleared Blackreach", "Switch to this snapshot: Cleared Blackreach",
@@ -156,7 +156,7 @@ public class TabOrderTests
 
         Assert.Equal(
             [
-                "Settings", "Skyrim Special Edition, 3 profiles", "Add a game",
+                "Settings", "Skyrim Special Edition, 3 profiles", "Add games from your libraries", "Add a game",
                 "How SavePoint works", "Show the tour again",
                 "Change", "Run now", "How much space do snapshots take?",
                 "Dark", "Sidebar", "Blue", "Look up game artwork online",

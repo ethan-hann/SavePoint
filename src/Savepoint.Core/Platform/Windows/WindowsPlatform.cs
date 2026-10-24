@@ -144,6 +144,11 @@ public sealed class WindowsPlatform : IPlatform
 
         _steam.AddTo(builder);
 
+        foreach (var folder in _paths.GogFolders())
+        {
+            builder.Exact(folder, "GOG Galaxy's folders hold every GOG game");
+        }
+
         // A Steam library can be on any drive, so the library's own folders are matched by name.
         builder.NameRule("steamapps holds every game in a Steam library", "steamapps");
         builder.NameRule("steamapps/common holds every game in a Steam library", "steamapps", "common");

@@ -9,7 +9,8 @@ namespace Savepoint.App.Features.Library;
 /// <param name="Name">The game's name.</param>
 /// <param name="InstallPath">Its install folder, fully resolved.</param>
 /// <param name="SavesLine">Its saves folder, or the plain statement that it has none yet.</param>
-public sealed record LibraryConfirmEntry(string Name, string InstallPath, string SavesLine);
+/// <param name="InstallLine">Its install folder with its label ("Game folder: ...").</param>
+public sealed record LibraryConfirmEntry(string Name, string InstallPath, string SavesLine, string InstallLine = "");
 
 /// <summary>
 /// The one confirmation before several library games are added: it names every game with each folder SavePoint will manage, and says
@@ -30,7 +31,8 @@ public sealed partial class LibraryConfirmDialogViewModel : DialogViewModel<bool
                 game.InstallPath,
                 game.SavesFolder is { } saves && game.SavesFolderExists
                     ? text.Message("library.confirm.savesLine", ("path", saves))
-                    : text.Message("library.confirm.noSaves"))),
+                    : text.Message("library.confirm.noSaves"),
+                text.Message("library.confirm.installLine", ("path", game.InstallPath)))),
         ];
         Message = text.Message("library.confirm.message");
         ConfirmLabel = text.Message("library.confirm.confirm");

@@ -36,13 +36,32 @@ public sealed class FakeGamesApi : IGamesApi
             return OperationResult.Success<AddGameOutcome>(new AddGameOutcome.Added(definition));
         });
 
-    public Task<OperationResult<LibraryScan>> ScanLibrariesAsync(CancellationToken cancellationToken = default) =>
-        _backend.Call(_api, nameof(ScanLibrariesAsync), [], () =>
+    // A test sets this to hold a scan, as a slow drive would; it may ignore the token.
+    public Func<CancellationToken, Task>? ScanGate { get; set; }
+
+    // The token each scan was given, in call order.
+    public List<CancellationToken> ScanTokens { get; } = [];
+
+    public async Task<OperationResult<LibraryScan>> ScanLibrariesAsync(CancellationToken cancellationToken = default)
+    {
+        ScanTokens.Add(cancellationToken);
+        if (ScanGate is { } gate)
+        {
+            await gate(cancellationToken);
+        }
+
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return OperationResult.Failure<LibraryScan>(new RequestCancelledException());
+        }
+
+        return await _backend.Call(_api, nameof(ScanLibrariesAsync), [], () =>
         {
             var scripted = State.Library ?? new LibraryScan([], false, false);
             var games = scripted.Games.Select(game => game with { AddedGameId = State.Games.Find(g => SameFolder(g.Install.Path, game.InstallPath))?.Id ?? game.AddedGameId });
             return OperationResult.Success(scripted with { Games = [.. games] });
         });
+    }
 
     public Task<OperationResult<LibraryAddResult>> AddLibraryGameAsync(LibraryGame game) =>
         _backend.Call(_api, nameof(AddLibraryGameAsync), [game], () =>

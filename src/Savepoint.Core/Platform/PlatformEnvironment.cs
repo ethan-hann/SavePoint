@@ -24,6 +24,12 @@ public sealed record PlatformEnvironment
     /// <summary>Finds the folder the Steam client is installed in; null when Steam is not installed or cannot be found.</summary>
     public Func<string?> GetSteamFolder { get; init; } = static () => null;
 
+    /// <summary>
+    /// The folders GOG Galaxy keeps its games in: the program's own folder and its default <c>Games</c> folder. Empty when Galaxy is not
+    /// installed or the OS has none (Windows only).
+    /// </summary>
+    public Func<IReadOnlyList<string>> GetGogFolders { get; init; } = static () => [];
+
     /// <summary>Reads a small text file (the Linux user-dirs.dirs, Steam's library list); null when it is missing or unreadable.</summary>
     public Func<string, string?> ReadTextFile { get; init; } = static _ => null;
 
@@ -49,6 +55,7 @@ public sealed record PlatformEnvironment
         {
             HomeDirectory = home,
             GetSteamFolder = locator.FindSteamFolder,
+            GetGogFolders = OperatingSystem.IsWindows() ? WindowsGogRegistry.ReadGalaxyFolders : static () => [],
             GetVariable = name => Environment.GetEnvironmentVariable(name),
             GetKnownFolder = WindowsKnownFolders.Get,
             ListDriveRoots = ListDrives,

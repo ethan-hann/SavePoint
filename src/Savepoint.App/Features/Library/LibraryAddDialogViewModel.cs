@@ -40,7 +40,8 @@ public sealed record LibraryAddSummary(IReadOnlyList<LibraryAddResult> Results, 
 /// </summary>
 public sealed partial class LibraryAddDialogViewModel : DialogViewModel<LibraryAddSummary>
 {
-    private readonly IGamesApi _games;
+    private readonly Func<LibraryGame, Task<OperationResult<LibraryAddResult>>> _add;
+    private readonly LibraryRunTracker? _tracker;
     private readonly IReadOnlyList<LibraryGame> _toAdd;
     private readonly UiFormatter _text;
     private readonly ProgressMilestones _milestones = new();
@@ -85,10 +86,21 @@ public sealed partial class LibraryAddDialogViewModel : DialogViewModel<LibraryA
     /// <param name="games">The games Api that adds each game.</param>
     /// <param name="toAdd">The games to add, in order.</param>
     /// <param name="text">Formats the copy.</param>
-    public LibraryAddDialogViewModel(IGamesApi games, IReadOnlyList<LibraryGame> toAdd, UiFormatter text)
+    /// <param name="tracker">Tells the exit guard a run is going on; none when null.</param>
+    public LibraryAddDialogViewModel(IGamesApi games, IReadOnlyList<LibraryGame> toAdd, UiFormatter text, LibraryRunTracker? tracker = null)
+        : this(game => games.AddLibraryGameAsync(game), toAdd, text, tracker)
+    {
+    }
+
+    /// <param name="add">Adds one game; the games Api's <see cref="IGamesApi.AddLibraryGameAsync"/> in the app.</param>
+    /// <param name="toAdd">The games to add, in order.</param>
+    /// <param name="text">Formats the copy.</param>
+    /// <param name="tracker">Tells the exit guard a run is going on; none when null.</param>
+    public LibraryAddDialogViewModel(Func<LibraryGame, Task<OperationResult<LibraryAddResult>>> add, IReadOnlyList<LibraryGame> toAdd, UiFormatter text, LibraryRunTracker? tracker = null)
         : base(text.Message("library.add.title.working"))
     {
-        _games = games;
+        _add = add;
+        _tracker = tracker;
         _toAdd = toAdd;
         _text = text;
         _heading = Title;
@@ -135,26 +147,53 @@ public sealed partial class LibraryAddDialogViewModel : DialogViewModel<LibraryA
         }
 
         _started = true;
+        using var running = _tracker?.Begin(StopRun);
         var tried = 0;
-        foreach (var game in _toAdd)
-        {
-            if (_stopRequested)
-            {
-                break;
-            }
 
-            ProgressText = _text.Message("library.add.progress", ("done", tried + 1), ("total", _toAdd.Count), ("name", game.Name));
-            var added = await _games.AddLibraryGameAsync(game).ConfigureAwait(true);
-            _results.Add(added.Ok ? added.Value : new LibraryAddResult(game.Key, game.Name, LibraryAddStatus.Refused, Error: added.Error));
-            tried++;
-            PercentValue = 100.0 * tried / _toAdd.Count;
-            if (_milestones.Crossed((int)PercentValue) is not null)
+        // Whatever goes wrong, the dialog must end in a state that can be closed, with the games not reached counted as not tried.
+        try
+        {
+            foreach (var game in _toAdd)
             {
-                Announcement = _text.Message("library.add.progressAnnounce", ("done", tried), ("total", _toAdd.Count));
+                if (_stopRequested)
+                {
+                    break;
+                }
+
+                ProgressText = _text.Message("library.add.progress", ("done", tried + 1), ("total", _toAdd.Count), ("name", game.Name));
+                var (added, threw) = await AddOneAsync(game).ConfigureAwait(true);
+                _results.Add(added);
+                tried++;
+                PercentValue = 100.0 * tried / _toAdd.Count;
+                if (_milestones.Crossed((int)PercentValue) is not null)
+                {
+                    Announcement = _text.Message("library.add.progressAnnounce", ("done", tried), ("total", _toAdd.Count));
+                }
+
+                if (threw)
+                {
+                    break;
+                }
             }
         }
+        finally
+        {
+            Finish(_toAdd.Count - tried);
+        }
+    }
 
-        Finish(_toAdd.Count - tried);
+    // The Api never throws; if anything does, the game is reported and the run ends there.
+    private async Task<(LibraryAddResult Result, bool Threw)> AddOneAsync(LibraryGame game)
+    {
+        try
+        {
+            var added = await _add(game).ConfigureAwait(true);
+            return (added.Ok ? added.Value : new LibraryAddResult(game.Key, game.Name, LibraryAddStatus.Refused, Error: added.Error), false);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            return (new LibraryAddResult(game.Key, game.Name, LibraryAddStatus.Refused, Error: Savepoint.Core.Errors.ErrorInfo.From(e)), true);
+        }
     }
 
     private void Finish(int notTried)
@@ -198,7 +237,9 @@ public sealed partial class LibraryAddDialogViewModel : DialogViewModel<LibraryA
     }
 
     [RelayCommand]
-    private void Stop()
+    private void Stop() => StopRun();
+
+    private void StopRun()
     {
         _stopRequested = true;
         IsStopping = true;

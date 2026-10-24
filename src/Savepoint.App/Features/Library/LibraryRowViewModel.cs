@@ -19,7 +19,9 @@ public sealed class LibraryRowViewModel : ObservableObject
         InstallLine = text.Message("library.row.install", ("path", game.InstallPath));
         SavesLine = SavesLineFor(game, text);
         StatusText = game.AlreadyAdded ? text.Message("library.row.added") : string.Empty;
-        AutomationName = StatusText.Length == 0 ? $"{Name}, {StoreLabel}" : $"{Name}, {StoreLabel}, {StatusText}";
+        AutomationName = StatusText.Length == 0
+            ? text.Message("library.row.automation", ("name", Name), ("store", StoreLabel), ("path", game.InstallPath))
+            : text.Message("library.row.automationAdded", ("name", Name), ("store", StoreLabel), ("status", StatusText), ("path", game.InstallPath));
     }
 
     /// <summary>The game as the scan reported it.</summary>

@@ -16,6 +16,7 @@ public class LibraryConfirmDialogViewModelTests
 
         Assert.Equal(["Skyrim", "Fallout 4"], dialog.Entries.Select(entry => entry.Name));
         Assert.Equal([@"C:\Games\Skyrim", @"C:\Games\Fallout 4"], dialog.Entries.Select(entry => entry.InstallPath));
+        Assert.Equal([@"Game folder: C:\Games\Skyrim", @"Game folder: C:\Games\Fallout 4"], dialog.Entries.Select(entry => entry.InstallLine));
         Assert.Equal(@"Saves folder: C:\Users\you\Documents\My Games\Skyrim\Saves", dialog.Entries[0].SavesLine);
         Assert.Equal("No saves folder yet", dialog.Entries[1].SavesLine);
     }
@@ -40,8 +41,12 @@ public class LibraryConfirmDialogViewModelTests
     {
         var dialog = Dialog(LibraryTestData.Game("A"));
 
+        // The same words as the confirmation for one game, so the two never promise different things.
+        Assert.Contains("takes snapshots of everything in these folders", dialog.Message);
         Assert.Contains("small file in each folder", dialog.Message);
         Assert.Contains("puts files back and removes files", dialog.Message);
+        Assert.Contains("No snapshot is taken now", dialog.Message);
+        Assert.DoesNotContain("for now", dialog.Message);
         Assert.Equal(dialog.Message, dialog.Description);
         Assert.True(dialog.PinsFooter);
         Assert.Equal("Confirm and add", dialog.ConfirmLabel);
