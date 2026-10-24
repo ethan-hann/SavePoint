@@ -163,13 +163,14 @@ public sealed partial class GitEngine
     }
 
     // The repository sets pack.compression = 0 for the big files a capture streams. A repack compresses what it packs anew at zlib's
-    // default level (-1) and copies data already in a pack as it is, so those big files stay as captured. Environment config keeps
+    // fastest level and copies data already in a pack as it is, so those big files stay as captured. The default level cost most of
+    // a repack on game archives that shrink by under 6%, while level 1 still shrinks saves and configs. Environment config keeps
     // the argument list as it is and outranks the repository file.
     private static readonly IReadOnlyDictionary<string, string?> _defaultPackCompression = new Dictionary<string, string?>
     {
         ["GIT_CONFIG_COUNT"] = (GitBinary.ForcedConfigCount + 1).ToString(System.Globalization.CultureInfo.InvariantCulture),
         ["GIT_CONFIG_KEY_" + GitBinary.ForcedConfigCount.ToString(System.Globalization.CultureInfo.InvariantCulture)] = "pack.compression",
-        ["GIT_CONFIG_VALUE_" + GitBinary.ForcedConfigCount.ToString(System.Globalization.CultureInfo.InvariantCulture)] = "-1",
+        ["GIT_CONFIG_VALUE_" + GitBinary.ForcedConfigCount.ToString(System.Globalization.CultureInfo.InvariantCulture)] = "1",
     };
 
     private static GitInvocation ReclaimStep(RepoRef repo, params string[] arguments) =>

@@ -8,11 +8,14 @@ namespace Savepoint.Core.Git;
 internal static class RepoIgnoreFiles
 {
     // Archives and media are already compressed, and the common game containers are large and gain nothing from delta search.
+    // Unity's bundles are compressed in blocks, so a small change shifts everything after it and searching them for deltas
+    // took most of a repack for no saving. Its serialized data and texture streams (assets, resS) compress and stay out.
     private static readonly string[] _noDeltaExtensions =
     [
         "zip", "7z", "rar", "gz", "xz", "zst", "cab",
         "mp4", "webm", "mkv", "bik", "bk2", "usm", "ogg", "mp3", "flac",
         "pak", "ucas", "utoc", "bsa", "ba2", "archive", "vpk", "pck",
+        "bundle", "unity3d", "assetbundle", "resource",
     ];
 
     public static string ExcludePath(string gitDir) => Path.Combine(gitDir, "info", "exclude");
