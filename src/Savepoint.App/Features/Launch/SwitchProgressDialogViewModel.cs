@@ -55,16 +55,21 @@ public sealed partial class SwitchProgressDialogViewModel : DialogViewModel<bool
     /// <param name="text">Formats every message.</param>
     /// <param name="clock">Times the switch, for the time left.</param>
     /// <param name="cancel">Asks the service to cancel the launch job; answers false when it could not.</param>
-    public SwitchProgressDialogViewModel(string gameName, InstallState? target, UiFormatter text, TimeProvider clock, Func<Task<bool>> cancel)
-        : base(text.Message("launch.progress.title", ("gameName", gameName)))
+    /// <param name="switchOnly">True when the files are being loaded without starting the game, which words the title, the announcement and the note about stopping to match.</param>
+    public SwitchProgressDialogViewModel(string gameName, InstallState? target, UiFormatter text, TimeProvider clock, Func<Task<bool>> cancel, bool switchOnly = false)
+        : base(text.Message(switchOnly ? "launch.progress.titleSwitch" : "launch.progress.title", ("gameName", gameName)))
     {
         _text = text;
         _clock = clock;
         _cancel = cancel;
         Explanation = ExplanationFor(target);
+        StopNote = text.Message(switchOnly ? "launch.progress.stopNoteSwitch" : "launch.progress.stopNote");
         _progressText = text.Message("launch.progress.checking");
-        _announcement = text.Message("launch.progress.announceStart", ("gameName", gameName));
+        _announcement = text.Message(switchOnly ? "launch.progress.announceStartSwitch" : "launch.progress.announceStart", ("gameName", gameName));
     }
+
+    /// <summary>What stopping leaves behind, and how to finish.</summary>
+    public string StopNote { get; }
 
     /// <summary>The line under the title: what is being put back in place.</summary>
     public string Explanation { get; }

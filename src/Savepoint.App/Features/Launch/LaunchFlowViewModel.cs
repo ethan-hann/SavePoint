@@ -73,13 +73,17 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
     /// Completes when the dialog has been answered and the start has been handed to the service; the session itself
     /// carries on through the flow's own state.
     /// </summary>
-    public async Task BeginAsync(string gameId, LaunchTarget target)
+    public Task BeginAsync(string gameId, LaunchTarget target) => BeginCoreAsync(gameId, target, switchOnly: false);
+
+    private async Task BeginCoreAsync(string gameId, LaunchTarget target, bool switchOnly)
     {
         var flow = FlowFor(gameId);
         if (IsOwned(flow))
         {
             return;
         }
+
+        flow.SwitchOnly = switchOnly;
 
         // The scan of both folders can take seconds on a large install, so the card that says so shows before it starts.
         using var checking = new CancellationTokenSource();
@@ -125,7 +129,14 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
             return;
         }
 
-        if (plan.ShowBanner)
+        if (plan.ShowBanner && switchOnly)
+        {
+            // Nothing to load, and there is no game starting to explain it, so the card says so.
+            flow.Stage = FlowStage.Idle;
+            ShowAlreadyLoaded(flow, plan);
+            RaiseActivity();
+        }
+        else if (plan.ShowBanner)
         {
             await StartAsync(flow, target, plan, viaBanner: true);
         }
@@ -154,7 +165,7 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
     private static bool IsEnded(SessionState state) => state is SessionState.Completed or SessionState.Failed;
 
     private static bool IsOwned(GameFlow flow) =>
-        flow.Stage is FlowStage.Previewing or FlowStage.Dialog or FlowStage.Starting
+        flow.Stage is FlowStage.Previewing or FlowStage.Dialog or FlowStage.Starting or FlowStage.Switching
         || (flow.Session is { } session && !IsEnded(session.State));
 
     private static bool HasUnsaved(LaunchPreview preview) => preview.Install.Dirty || preview.External is { Dirty: true };
@@ -185,7 +196,7 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
         SetInline(flow, null);
         RaiseActivity();
 
-        var dialog = new LaunchDialogViewModel(plan, GameName(flow.GameId), ProfileName(flow.GameId, plan.ProfileId), settings.SkipConfirmWhenOnlySaveChanges, id => _profileNames.GetValueOrDefault((flow.GameId, id)), _deps, explainDiscard: !settings.DiscardHelpSeen);
+        var dialog = new LaunchDialogViewModel(plan, GameName(flow.GameId), ProfileName(flow.GameId, plan.ProfileId), settings.SkipConfirmWhenOnlySaveChanges, id => _profileNames.GetValueOrDefault((flow.GameId, id)), _deps, explainDiscard: !settings.DiscardHelpSeen, switchOnly: flow.SwitchOnly);
         dialog.SettingsSaved += (_, saved) => SettingsSaved?.Invoke(this, saved);
         var chosen = await _deps.Dialogs.ShowAsync(dialog);
         if (chosen is null)
@@ -208,6 +219,12 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
         SetInline(flow, viaBanner ? new LaunchBannerViewModel(plan, GameName(flow.GameId), ProfileName(flow.GameId, plan.ProfileId), _deps.Text, _deps.Dialogs) : null);
         RaiseActivity();
 
+        if (flow.SwitchOnly)
+        {
+            await StartSwitchAsync(flow, target);
+            return;
+        }
+
         var started = await _deps.Launch.StartAsync(flow.GameId, target);
         if (!started.Ok)
         {
@@ -227,7 +244,7 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
             return StartAsync(flow, target, plan, viaBanner: false);
         }
 
-        return BeginAsync(flow.GameId, flow.Target ?? throw new InvalidOperationException("The flow has no target to start."));
+        return ReenterAsync(flow);
     }
 
     private void RaiseActivity()
@@ -305,6 +322,7 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
         Previewing,
         Dialog,
         Starting,
+        Switching,
         Session,
     }
 
@@ -323,6 +341,13 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
         public LaunchPreview? Preview { get; set; }
 
         public bool ViaBanner { get; set; }
+
+        // True when the player asked to load the files only: no game starts and no session follows.
+        public bool SwitchOnly { get; set; }
+
+        public Guid? SwitchJobId { get; set; }
+
+        public long SwitchRevision { get; set; }
 
         public LaunchSessionInfo? Session { get; set; }
 

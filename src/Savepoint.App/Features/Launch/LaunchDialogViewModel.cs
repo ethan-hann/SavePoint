@@ -27,6 +27,7 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
     private readonly string _profileName;
     private readonly Func<string, string?> _profileNameOf;
     private readonly LaunchDependencies _deps;
+    private readonly bool _switchOnly;
     private readonly SaveOptionViewModel? _defaultSave;
     private bool _restoringPreference;
     private bool _explainDiscard;
@@ -56,9 +57,11 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
     /// <param name="profileNameOf">Looks up a profile's name by id; null for one it does not know. Names the profile that new changes belong to.</param>
     /// <param name="deps">The Api and formatting the dialog uses.</param>
     /// <param name="explainDiscard">True until a player has seen the extra line a discard confirmation carries the first time: it is added once, and the player's settings remember it was shown.</param>
-    public LaunchDialogViewModel(LaunchPreview preview, string gameName, string profileName, bool skipConfirmWhenOnlySaveChanges, Func<string, string?> profileNameOf, LaunchDependencies deps, bool explainDiscard = false)
+    /// <param name="switchOnly">True when the files are only being loaded and the game will not start, which words the subtitle, the older-snapshot note and the confirm button to match.</param>
+    public LaunchDialogViewModel(LaunchPreview preview, string gameName, string profileName, bool skipConfirmWhenOnlySaveChanges, Func<string, string?> profileNameOf, LaunchDependencies deps, bool explainDiscard = false, bool switchOnly = false)
         : base(deps.Text.Message("launch.dialog.title", ("profileName", profileName)))
     {
+        _switchOnly = switchOnly;
         _preview = preview;
         _profileName = profileName;
         _profileNameOf = profileNameOf;
@@ -68,9 +71,9 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
         _dontAskAgain = skipConfirmWhenOnlySaveChanges;
 
         var text = deps.Text;
-        Subtitle = text.Message("launch.dialog.subtitle");
+        Subtitle = text.Message(switchOnly ? "launch.dialog.subtitleSwitch" : "launch.dialog.subtitle");
         IsOlderPoint = preview.TargetIsOlderPoint;
-        OlderPointText = IsOlderPoint ? text.Message("launch.dialog.olderPoint", ("profileName", profileName)) : string.Empty;
+        OlderPointText = IsOlderPoint ? text.Message(switchOnly ? "launch.dialog.olderPointSwitch" : "launch.dialog.olderPoint", ("profileName", profileName)) : string.Empty;
 
         HasVersionSection = !preview.Install.MatchesTarget;
         (VersionBefore, VersionTarget, VersionAfter) = HasVersionSection ? VersionSentence() : (string.Empty, string.Empty, string.Empty);
@@ -110,6 +113,9 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
 
     /// <summary>The game being started.</summary>
     public string GameName { get; }
+
+    /// <summary>The confirm button's label.</summary>
+    public string ConfirmLabel => _deps.Text.Message(_switchOnly ? "launch.dialog.switchOnly" : "launch.dialog.switchAndPlay");
 
     /// <summary>"Here's exactly what SavePoint will change before the game starts."</summary>
     public string Subtitle { get; }

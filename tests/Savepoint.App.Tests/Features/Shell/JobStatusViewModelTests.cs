@@ -157,6 +157,20 @@ public class JobStatusViewModelTests
     }
 
     [Fact]
+    public async Task A_switch_job_never_shows_in_the_pill_or_as_a_toast_because_the_launch_flow_reports_it()
+    {
+        var rig = new Rig();
+
+        var started = FakeAssert.Ok(await rig.Backend.Launch.SwitchAsync(MockupScenario.SkyrimId, new LaunchTarget.ProfileTip(MockupScenario.ModdedId)));
+        Assert.False(rig.Status.IsVisible);
+
+        rig.Backend.Jobs.Complete(started.JobId);
+
+        Assert.False(rig.Status.IsVisible);
+        Assert.Empty(rig.Toasts.Toasts);
+    }
+
+    [Fact]
     public async Task A_finished_capture_is_a_success_toast_that_names_the_game()
     {
         var rig = new Rig();

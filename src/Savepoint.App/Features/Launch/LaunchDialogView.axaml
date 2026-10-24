@@ -39,7 +39,7 @@
                   Classes="filled pill large"
                   IsDefault="True"
                   Command="{Binding SwitchCommand}"
-                  Content="{loc:Loc launch.dialog.switchAndPlay}" />
+                  Content="{Binding ConfirmLabel}" />
         </StackPanel>
       </Grid>
     </dialogs:DialogFrame.Footer>

@@ -17,6 +17,13 @@ public interface ILaunchFlowHost : INotifyPropertyChanged
     /// </summary>
     Task BeginAsync(string gameId, LaunchTarget target);
 
+    /// <summary>
+    /// Starts the flow for a game the way <see cref="BeginAsync"/> does, but only loads the target's files into the game's folders:
+    /// "Switch to this profile" on a profile row, or "Switch to this snapshot" on a history point. The same check, the same
+    /// dialog and the same guards apply; the game does not start, and no after-play prompt follows.
+    /// </summary>
+    Task BeginSwitchAsync(string gameId, LaunchTarget target);
+
     /// <summary>True while the flow owns a session for the game (preparing, switching, running or waiting on the post-play choice); Play stays unavailable then.</summary>
     bool IsActive(string gameId);
 

@@ -38,7 +38,7 @@
                  TextWrapping="Wrap"
                  Margin="0,0,16,0"
                  IsVisible="{Binding !IsCancelling}"
-                 Text="{loc:Loc launch.progress.stopNote}" />
+                 Text="{Binding StopNote}" />
       <Button x:Name="CancelButton"
               Grid.Column="1"
               Classes="pill large"

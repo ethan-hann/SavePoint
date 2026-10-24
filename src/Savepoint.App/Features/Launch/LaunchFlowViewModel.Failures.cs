@@ -48,7 +48,7 @@ public sealed partial class LaunchFlowViewModel
         var text = _deps.Text;
         var actions = new List<ErrorCardAction>();
         ErrorCardAction TryAgain(bool reenter = false) =>
-            new(text.Message("launch.failure.tryAgain"), new AsyncRelayCommand(() => reenter || beforeStart ? BeginAsync(flow.GameId, flow.Target!) : RestartAsync(flow)), IsPrimary: false);
+            new(text.Message("launch.failure.tryAgain"), new AsyncRelayCommand(() => reenter || beforeStart ? ReenterAsync(flow) : RestartAsync(flow)), IsPrimary: false);
         ErrorCardAction Edit(string label, bool primary) =>
             new(text.Message(label), new RelayCommand(() => EditGameRequested?.Invoke(this, flow.GameId)), primary);
 
@@ -75,10 +75,10 @@ public sealed partial class LaunchFlowViewModel
                 // The unfinished switch is finished by starting the target the folder was heading for, which the folder's state records;
                 // reviewing the changes is the way out when that is not known, since discarding is always offered there.
                 actions.Add(new ErrorCardAction(text.Message("launch.failure.switchAgain"), new AsyncRelayCommand(() => SwitchAgainAsync(flow)), IsPrimary: true));
-                actions.Add(new ErrorCardAction(text.Message("launch.failure.reviewChanges"), new AsyncRelayCommand(() => BeginAsync(flow.GameId, flow.Target!)), IsPrimary: false));
+                actions.Add(new ErrorCardAction(text.Message("launch.failure.reviewChanges"), new AsyncRelayCommand(() => ReenterAsync(flow)), IsPrimary: false));
                 break;
             case "error.launch.dirtyWorkingTree":
-                actions.Add(new ErrorCardAction(text.Message("launch.failure.reviewChanges"), new AsyncRelayCommand(() => BeginAsync(flow.GameId, flow.Target!)), IsPrimary: true));
+                actions.Add(new ErrorCardAction(text.Message("launch.failure.reviewChanges"), new AsyncRelayCommand(() => ReenterAsync(flow)), IsPrimary: true));
                 break;
             case "error.launch.alreadyRunning":
             case "error.gameService.gameRunning":
@@ -102,7 +102,7 @@ public sealed partial class LaunchFlowViewModel
         var recorded = preview.Ok
             ? new[] { preview.Value.Install, preview.Value.External }.OfType<FolderLaunchState>().Select(folder => folder.UnfinishedSwitchTarget).FirstOrDefault(target => target is not null)
             : null;
-        await BeginAsync(flow.GameId, recorded ?? flow.Target!);
+        await ReenterAsync(flow, recorded);
     }
 
     // What the capture after a session came to: nothing to show for a clean save, a card for a partial or failed one.

@@ -134,6 +134,15 @@ internal sealed class ScriptedLaunchFlow : ILaunchFlowHost
         return Task.CompletedTask;
     }
 
+    public List<(string GameId, LaunchTarget Target)> BegunSwitches { get; } = [];
+
+    public Task BeginSwitchAsync(string gameId, LaunchTarget target)
+    {
+        BegunSwitches.Add((gameId, target));
+        OnBegin?.Invoke(gameId);
+        return Task.CompletedTask;
+    }
+
     public bool IsActive(string gameId) => _active.Contains(gameId);
 
     public Dictionary<string, object?> Inline { get; } = [];

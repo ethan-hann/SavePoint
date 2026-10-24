@@ -160,6 +160,8 @@ internal sealed class FakeLaunchFlow : ILaunchFlowHost
         return Task.CompletedTask;
     }
 
+    public Task BeginSwitchAsync(string gameId, LaunchTarget target) => Task.CompletedTask;
+
     public bool IsActive(string gameId) => false;
 
     public object? InlineContentFor(string gameId) => null;

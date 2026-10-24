@@ -30,6 +30,12 @@ public sealed partial class LaunchFlowViewModel
                     flow.SavingRevision = job.Revision;
                     saving.Update(job.Progress);
                 }
+
+                if (flow.SwitchJobId == job.JobId && flow.Progress is { } switching && job.Revision > flow.SwitchRevision)
+                {
+                    flow.SwitchRevision = job.Revision;
+                    switching.Update(job.Progress);
+                }
             }
         });
 
@@ -155,7 +161,8 @@ public sealed partial class LaunchFlowViewModel
             flow.Preview?.TargetInstall,
             _deps.Text,
             _deps.Clock,
-            () => CancelJobAsync(flow.Session!.LaunchJobId));
+            () => CancelJobAsync(flow.SwitchJobId ?? flow.Session!.LaunchJobId),
+            flow.SwitchOnly);
         flow.Progress = dialog;
 
         // The dialog ends when the flow closes it, so nothing waits for its result.

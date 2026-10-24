@@ -88,7 +88,7 @@ public sealed partial class JobStatusViewModel : ObservableObject
         }
 
         _jobs[job.JobId] = job;
-        if (job.Status != JobStatus.Running && _reported.Add(job.JobId) && job.Kind != JobKind.Launch && !OutcomeShownElsewhere(job))
+        if (job.Status != JobStatus.Running && _reported.Add(job.JobId) && job.Kind is not (JobKind.Launch or JobKind.Switch) &&!OutcomeShownElsewhere(job))
         {
             _toasts.Show(ToastFor(job));
         }
@@ -104,7 +104,7 @@ public sealed partial class JobStatusViewModel : ObservableObject
     public void Refresh()
     {
         var running = _jobs.Values
-            .Where(job => job.Status == JobStatus.Running && job.Kind != JobKind.Launch)
+            .Where(job => job.Status == JobStatus.Running && job.Kind is not (JobKind.Launch or JobKind.Switch))
             .OrderBy(job => job.StartedAt)
             .ToList();
 
