@@ -138,10 +138,10 @@ public partial class JobDetailsView : UserControl
     private void OnSelectionChanged(object? sender, SelectionChangedEventArgs e) =>
         _details?.SetSelection([.. LineList.SelectedItems?.OfType<JobLineViewModel>() ?? []]);
 
-    // Ctrl+C in the list copies what is selected, the way Copy does.
+    // The copy shortcut in the list copies what is selected, the way Copy does.
     private void OnLineKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key == Key.C && e.KeyModifiers.HasFlag(KeyModifiers.Control) && _details?.CopyCommand.CanExecute(null) == true)
+        if (CopyKey.Matches(e.Key, e.KeyModifiers) && _details?.CopyCommand.CanExecute(null) == true)
         {
             _details.CopyCommand.Execute(null);
             e.Handled = true;
