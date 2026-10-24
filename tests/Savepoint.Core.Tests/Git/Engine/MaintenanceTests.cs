@@ -38,6 +38,22 @@ public sealed class MaintenanceTests : IDisposable
         Assert.DoesNotContain(_ws.Invocations, invocation => invocation.Arguments[0] is "gc" or "maintenance");
     }
 
+    [Theory]
+    [InlineData(OptimizationMode.Routine)]
+    [InlineData(OptimizationMode.Reclaim)]
+    public async Task A_repack_compresses_a_small_file_it_packs_even_though_captures_write_packs_without_zlib(OptimizationMode mode)
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "Saves/save.txt", string.Concat(Enumerable.Repeat("the same line of a save file\n", 100_000)));
+        await _ws.CaptureAsync(repo, "profile-1");
+        Assert.True(await _ws.Engine.CountLooseObjectsAsync(repo, Ct) > 0);
+
+        await _ws.Engine.RepackAsync(repo, mode, Ct);
+
+        var packBytes = Directory.GetFiles(Path.Combine(repo.GitDir, "objects", "pack"), "*.pack").Sum(pack => new FileInfo(pack).Length);
+        Assert.True(packBytes < 500_000, $"the 2.9 MB save file should be compressed in the pack, but the packs hold {packBytes} bytes");
+    }
+
     [Fact]
     public async Task A_repository_that_does_not_exist_has_no_objects_and_no_size()
     {
