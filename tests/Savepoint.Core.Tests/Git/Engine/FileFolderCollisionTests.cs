@@ -52,6 +52,13 @@ public sealed class FileFolderCollisionTests : IDisposable
             await ws.Engine.CreateBranchAsync(repo, "profile-c", "profile-a", TestContext.Current.CancellationToken);
             await ws.Engine.CheckoutBranchAsync(repo, "profile-c", ct: TestContext.Current.CancellationToken);
             ws.Delete(repo, path);
+
+            // The folders the file leaves empty would be recorded as empty folders of this point; the point is meant to hold none of the path.
+            for (var parent = Path.GetDirectoryName(ws.FileOf(repo, path)); parent is not null && parent.Length > repo.WorkTree.Length && !Directory.EnumerateFileSystemEntries(parent).Any(); parent = Path.GetDirectoryName(parent))
+            {
+                Directory.Delete(parent);
+            }
+
             ws.Delete(repo, "a-only.txt");
             ws.Write(repo, "c-only.txt", "c");
             await ws.CaptureAsync(repo, "profile-c", "C");
