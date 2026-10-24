@@ -146,6 +146,12 @@ public class LaunchEndToEndTests
         Assert.Empty(app.Dialogs.Shown.OfType<PostPlayDialogViewModel>());
         Assert.Null(app.Backend.Launch.GetSession(_skyrim));
         AssertPlayIs(app, true);
+
+        // The files are in place, so the table reads the switched profile as loaded and the one it replaced as not.
+        await app.Games.ReloadAsync().Soon();
+        Assert.True(Row(app, MockupScenario.VanillaId).IsActive);
+        Assert.StartsWith("Loaded now", Row(app, MockupScenario.VanillaId).SecondaryText, StringComparison.Ordinal);
+        Assert.False(Row(app, MockupScenario.ModdedId).IsActive);
     }
 
     [Fact]

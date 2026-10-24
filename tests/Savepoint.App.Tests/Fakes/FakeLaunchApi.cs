@@ -79,7 +79,8 @@ public sealed class FakeLaunchApi : ILaunchApi
             }
 
             _switching.Add(gameId);
-            var jobId = _backend.Jobs.Start(JobKind.Switch, gameId, null, _ => _switching.Remove(gameId), profile: JobProfileOf(ProfileOf(gameId, target)));
+            var profileId = ProfileOf(gameId, target);
+            var jobId = _backend.Jobs.Start(JobKind.Switch, gameId, null, job => OnSwitchJobFinished(gameId, profileId, job), profile: JobProfileOf(profileId));
             return OperationResult.Success(new JobStarted(jobId));
         });
 
@@ -291,6 +292,21 @@ public sealed class FakeLaunchApi : ILaunchApi
         }
 
         Publish(session with { State = new SessionState.Running(startedAt) });
+    }
+
+    // The game is let go, and a switch that worked leaves the folders holding the target: only that profile reads as loaded now.
+    private void OnSwitchJobFinished(string gameId, string profileId, JobSnapshot job)
+    {
+        _switching.Remove(gameId);
+        if (job.Status != JobStatus.Succeeded)
+        {
+            return;
+        }
+
+        foreach (var profile in State.Profiles.Where(candidate => candidate.GameId == gameId))
+        {
+            State.RowStats[profile.Id] = State.StatsFor(profile) with { IsActive = profile.Id == profileId };
+        }
     }
 
     private JobProfile? JobProfileOf(string profileId) =>
