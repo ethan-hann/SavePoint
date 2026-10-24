@@ -64,6 +64,39 @@ public class DBusNotificationBusTests
         Assert.Equal(-1, received.ExpireTimeoutMilliseconds);
     }
 
+    // GNOME closes the notifications of an app that has a window as soon as the connection that sent them goes away.
+    [Fact]
+    public async Task The_sender_stays_on_the_bus_after_the_call_so_the_desktop_keeps_the_notification()
+    {
+        Assert.SkipWhen(!OperatingSystem.IsLinux() || PrivateSessionBus.FindDaemon() is null, "Needs Linux and dbus-daemon to run a private session bus.");
+        using var session = PrivateSessionBus.TryStart() ?? throw new InvalidOperationException("The private bus did not start.");
+        using var server = await FakeNotificationServer.StartAsync(session.Address);
+        using var bus = new DBusNotificationBus(() => session.Address);
+
+        await bus.NotifyAsync(_notification, Ct);
+        var received = await server.Received.WaitAsync(TimeSpan.FromSeconds(20), Ct);
+        await Task.Delay(TimeSpan.FromMilliseconds(500), Ct);
+
+        Assert.True(await server.IsConnectedAsync(received.Sender), "the connection that sent the notification was already gone");
+    }
+
+    [Fact]
+    public async Task A_second_notification_reuses_the_connection_of_the_first()
+    {
+        Assert.SkipWhen(!OperatingSystem.IsLinux() || PrivateSessionBus.FindDaemon() is null, "Needs Linux and dbus-daemon to run a private session bus.");
+        using var session = PrivateSessionBus.TryStart() ?? throw new InvalidOperationException("The private bus did not start.");
+        using var server = await FakeNotificationServer.StartAsync(session.Address);
+        using var bus = new DBusNotificationBus(() => session.Address);
+
+        await bus.NotifyAsync(_notification, Ct);
+        var first = await server.Received.WaitAsync(TimeSpan.FromSeconds(20), Ct);
+        await bus.NotifyAsync(_notification, Ct);
+
+        Assert.True(await server.IsConnectedAsync(first.Sender));
+        Assert.Equal(2, server.Count);
+        Assert.Equal(first.Sender, server.LastSender);
+    }
+
     [Fact]
     public async Task A_bus_with_no_notification_service_answers_with_an_error_and_the_service_skips_the_notification()
     {

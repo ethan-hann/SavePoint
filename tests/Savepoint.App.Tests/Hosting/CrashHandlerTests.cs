@@ -18,7 +18,8 @@ public class CrashHandlerTests
         _presenter = new FakePresenter(_log, _exits);
     }
 
-    private CrashHandler Handler(string? folder = _logFolder, Action? stopWork = null) => new(_log, _presenter, _exits.Add, folder, stopWork);
+    private CrashHandler Handler(string? folder = _logFolder, Action? stopWork = null, Action<CrashReport>? plainNote = null) =>
+        new(_log, _presenter, _exits.Add, folder, stopWork, plainNote);
 
     private static Exception Thrown(string message)
     {
@@ -59,6 +60,31 @@ public class CrashHandlerTests
         Assert.Equal(1, shown.ErrorsLoggedWhenShown);
         Assert.Equal([1], _exits);
         Assert.Equal(0, shown.ExitsWhenShown);
+    }
+
+    [Fact]
+    public void A_plain_note_is_made_once_after_the_crash_is_logged_and_before_the_window_shows()
+    {
+        var order = new List<string>();
+        _presenter.WhileShown = () => order.Add("window");
+        var crash = Thrown("boom");
+        var handler = Handler(plainNote: report =>
+            order.Add($"note for {report.Exception.Message} after {_log.Entries.Count(entry => entry.Level == LogLevel.Error)} logged"));
+
+        handler.HandleFatal(crash, "the UI thread");
+
+        Assert.Equal(["note for boom after 1 logged", "window"], order);
+    }
+
+    [Fact]
+    public void A_plain_note_that_fails_does_not_keep_the_window_from_showing_or_the_process_from_ending()
+    {
+        var handler = Handler(plainNote: _ => throw new IOException("the terminal is closed"));
+
+        handler.HandleFatal(Thrown("boom"), "the UI thread");
+
+        Assert.Single(_presenter.Shown);
+        Assert.Equal([1], _exits);
     }
 
     [Fact]

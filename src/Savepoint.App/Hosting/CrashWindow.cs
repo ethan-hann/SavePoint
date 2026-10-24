@@ -3,6 +3,7 @@ using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Platform;
 using Savepoint.App.Features.Common.Formatting;
 
 namespace Savepoint.App.Hosting;
@@ -26,6 +27,7 @@ public sealed class CrashWindow : Window
     {
         _text = text;
         Title = text.Message("app.name");
+        TryUseAppIcon();
         CanResize = false;
         SizeToContent = SizeToContent.WidthAndHeight;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
@@ -70,6 +72,20 @@ public sealed class CrashWindow : Window
         buttons.Children.Add(close);
         content.Children.Add(buttons);
         Content = content;
+    }
+
+    // A missing icon only costs the generic one; it must never stop the crash from being shown.
+    private void TryUseAppIcon()
+    {
+        try
+        {
+            using var icon = AssetLoader.Open(new Uri("avares://SavePoint/Assets/Icon/savepoint-256.png"));
+            Icon = new WindowIcon(icon);
+        }
+        catch (Exception)
+        {
+            // Left as the desktop's default.
+        }
     }
 
     private static Button NewButton(string name, string label)
