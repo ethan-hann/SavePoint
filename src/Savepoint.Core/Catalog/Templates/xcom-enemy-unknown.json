@@ -9,7 +9,7 @@
     ],
     "savesByOs": {
       "linux": {
-        "path": "{userHome}/.local/share/feral-interactive/XCOM/savedata",
+        "path": "{localAppData}/feral-interactive/XCOM/savedata",
         "role": "saves"
       },
       "macos": {

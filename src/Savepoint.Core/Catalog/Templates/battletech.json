@@ -8,10 +8,6 @@
       "1482783682"
     ]
   },
-  "external": {
-    "path": "{localLow}\\Harebrained Schemes\\BattleTech\\C#\\SGS#",
-    "role": "saves"
-  },
   "launch": {
     "method": "uri",
     "uri": "steam://rungameid/637090",
@@ -19,5 +15,5 @@
   },
   "ignorePaths": [],
   "modPathHints": [],
-  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+  "notes": "Saves are in Steam's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
 }

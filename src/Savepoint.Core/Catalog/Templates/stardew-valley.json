@@ -9,7 +9,7 @@
     ],
     "savesByOs": {
       "linux": {
-        "path": "{userHome}/.config/StardewValley/Saves",
+        "path": "{appData}/StardewValley/Saves",
         "role": "saves"
       },
       "macos": {

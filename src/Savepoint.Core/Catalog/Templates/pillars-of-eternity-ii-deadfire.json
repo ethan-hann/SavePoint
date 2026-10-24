@@ -9,7 +9,7 @@
     ],
     "savesByOs": {
       "linux": {
-        "path": "{userHome}/.local/share/PillarsOfEternityII/SavedGames",
+        "path": "{localAppData}/PillarsOfEternityII/SavedGames",
         "role": "saves"
       },
       "macos": {

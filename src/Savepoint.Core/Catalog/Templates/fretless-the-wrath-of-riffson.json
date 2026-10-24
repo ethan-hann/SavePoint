@@ -8,6 +8,10 @@
       "Fretless - The Wrath of Riffson"
     ]
   },
+  "external": {
+    "path": "{localLow}\\Ritual Studios\\Fretless_ The Wrath of Riffson",
+    "role": "saves"
+  },
   "launch": {
     "method": "exe",
     "exePath": "Fretless The Wrath of Riffson.exe",
@@ -15,6 +19,5 @@
     "processNameForExitDetection": "Fretless The Wrath of Riffson"
   },
   "ignorePaths": [],
-  "modPathHints": [],
-  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand."
+  "modPathHints": []
 }

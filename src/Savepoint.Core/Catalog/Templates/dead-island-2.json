@@ -3,6 +3,10 @@
   "id": "dead-island-2",
   "name": "Dead Island 2",
   "steamAppId": 934700,
+  "external": {
+    "path": "{localAppData}\\DeadIslandSteam\\Saved\\SaveGames",
+    "role": "saves"
+  },
   "launch": {
     "method": "uri",
     "uri": "steam://rungameid/934700",
@@ -10,5 +14,5 @@
   },
   "ignorePaths": [],
   "modPathHints": [],
-  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
 }

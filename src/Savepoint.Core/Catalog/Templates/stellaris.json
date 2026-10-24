@@ -9,7 +9,7 @@
     ],
     "savesByOs": {
       "linux": {
-        "path": "{userHome}/.local/share/Paradox Interactive/Stellaris",
+        "path": "{localAppData}/Paradox Interactive/Stellaris",
         "role": "saves"
       },
       "macos": {

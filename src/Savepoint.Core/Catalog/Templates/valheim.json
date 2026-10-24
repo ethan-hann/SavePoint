@@ -6,14 +6,10 @@
   "libraryHints": {
     "savesByOs": {
       "linux": {
-        "path": "{userHome}/.config/unity3d/IronGate/Valheim",
+        "path": "{appData}/unity3d/IronGate/Valheim",
         "role": "saves"
       }
     }
-  },
-  "external": {
-    "path": "{localLow}\\IronGate\\Valheim",
-    "role": "saves"
   },
   "launch": {
     "method": "uri",
@@ -22,5 +18,5 @@
   },
   "ignorePaths": [],
   "modPathHints": [],
-  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+  "notes": "Saves are in Steam's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
 }

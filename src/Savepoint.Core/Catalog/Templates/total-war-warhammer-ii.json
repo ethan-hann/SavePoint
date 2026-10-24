@@ -3,6 +3,10 @@
   "id": "total-war-warhammer-ii",
   "name": "Total War: WARHAMMER II",
   "steamAppId": 594570,
+  "external": {
+    "path": "{appData}\\The Creative Assembly\\Warhammer2",
+    "role": "saves"
+  },
   "launch": {
     "method": "uri",
     "uri": "steam://rungameid/594570",
@@ -10,5 +14,5 @@
   },
   "ignorePaths": [],
   "modPathHints": [],
-  "notes": "Saves are in a folder named after your account id; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
 }

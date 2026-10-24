@@ -14,6 +14,10 @@
       }
     }
   },
+  "external": {
+    "path": "{documents}\\GTA Vice City User Files",
+    "role": "saves"
+  },
   "launch": {
     "method": "exe",
     "exePath": "gta-vc.exe",
@@ -21,6 +25,5 @@
     "processNameForExitDetection": "gta-vc"
   },
   "ignorePaths": [],
-  "modPathHints": [],
-  "notes": "This game keeps saves in more than one place; add the saves folder by hand."
+  "modPathHints": []
 }

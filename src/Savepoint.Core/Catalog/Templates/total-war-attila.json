@@ -14,6 +14,10 @@
       }
     }
   },
+  "external": {
+    "path": "{appData}\\The Creative Assembly\\Attila\\save_games",
+    "role": "saves"
+  },
   "launch": {
     "method": "uri",
     "uri": "steam://rungameid/325610",
@@ -21,5 +25,5 @@
   },
   "ignorePaths": [],
   "modPathHints": [],
-  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
 }

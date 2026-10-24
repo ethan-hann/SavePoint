@@ -8,6 +8,10 @@
       "Starfield"
     ]
   },
+  "external": {
+    "path": "{documents}\\My Games\\Starfield\\Saves",
+    "role": "saves"
+  },
   "launch": {
     "method": "exe",
     "exePath": "Starfield.exe",
@@ -16,5 +20,5 @@
   },
   "ignorePaths": [],
   "modPathHints": [],
-  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
 }

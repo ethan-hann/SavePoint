@@ -69,6 +69,32 @@ public partial class ShippedTemplatesTests
     }
 
     [Fact]
+    public void Games_checked_against_their_wiki_page_keep_their_corrected_facts()
+    {
+        Assert.Equal(@"{documents}\Saved Games\Hades", Template("hades").Definition.External!.Path);
+        Assert.Equal(1659040, Template("hitman-world-of-assassination").Definition.SteamAppId);
+        Assert.Empty(Template("hitman-world-of-assassination").Hints.GogIds);
+        Assert.Equal("steam://rungameid/1659040", Template("hitman-world-of-assassination").Definition.Launch.Uri);
+        Assert.Equal(1091500, Template("cyberpunk-2077").Definition.SteamAppId);
+        Assert.Equal(@"{localLow}\Ludeon Studios\RimWorld by Ludeon Studios\Saves", Template("rimworld").Definition.External!.Path);
+        Assert.Empty(Template("rise-of-the-tomb-raider").Hints.SavesByOs);
+        Assert.DoesNotContain("macos", Template("batman-arkham-asylum-goty-edition").Hints.SavesByOs.Keys);
+        Assert.Equal("Dead Space (2008)", Template("dead-space").DisplayName);
+        Assert.Equal("Lords of the Fallen (2014)", Template("lords-of-the-fallen").DisplayName);
+    }
+
+    [Fact]
+    public void A_steam_row_in_the_userdata_folder_leaves_the_saves_folder_blank()
+    {
+        // The wiki gives these games a Steam-only location the tokens cannot name, and no Windows folder was confirmed on disk.
+        foreach (var id in new[] { "valheim", "terraria", "cuphead", "transport-fever-2", "grim-dawn", "frostpunk" })
+        {
+            Assert.Null(Template(id).Definition.External);
+            Assert.Contains("Steam's userdata folder", Template(id).Definition.Notes);
+        }
+    }
+
+    [Fact]
     public void Template_ids_are_unique_and_names_are_unique()
     {
         var ids = GameTemplates.All.Select(t => t.Id).ToList();

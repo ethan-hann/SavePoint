@@ -3,6 +3,10 @@
   "id": "oblivion-remastered",
   "name": "Oblivion Remastered",
   "steamAppId": 2623190,
+  "external": {
+    "path": "{documents}\\My Games\\Oblivion Remastered\\Saved\\SaveGames",
+    "role": "saves"
+  },
   "launch": {
     "method": "uri",
     "uri": "steam://rungameid/2623190",
@@ -10,5 +14,5 @@
   },
   "ignorePaths": [],
   "modPathHints": [],
-  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
 }

@@ -9,7 +9,7 @@
     ],
     "savesByOs": {
       "linux": {
-        "path": "{userHome}/.config/unity3d/Team Cherry/Hollow Knight Silksong",
+        "path": "{appData}/unity3d/Team Cherry/Hollow Knight Silksong",
         "role": "saves"
       },
       "macos": {

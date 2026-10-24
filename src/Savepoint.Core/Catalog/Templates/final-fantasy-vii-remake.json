@@ -3,6 +3,10 @@
   "id": "final-fantasy-vii-remake",
   "name": "FINAL FANTASY VII REMAKE",
   "steamAppId": 1462040,
+  "external": {
+    "path": "{documents}\\My Games\\FINAL FANTASY VII REMAKE\\Steam",
+    "role": "saves"
+  },
   "launch": {
     "method": "uri",
     "uri": "steam://rungameid/1462040",
@@ -10,5 +14,5 @@
   },
   "ignorePaths": [],
   "modPathHints": [],
-  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
 }
