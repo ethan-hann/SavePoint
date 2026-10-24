@@ -86,7 +86,10 @@ public class ArtworkLookupFailureTests
     public async Task A_not_found_is_not_a_failure_and_writes_no_warning()
     {
         var log = new RecordingDiagnosticLog();
-        using var rig = new ArtworkRig((_, _) => Task.FromResult(FakeHttpHandler.NotFound()), online: true, log: log);
+        using var rig = new ArtworkRig(
+            (request, _) => Task.FromResult(FakeHttpHandler.IsStoreApi(request) ? FakeHttpHandler.Json(FakeHttpHandler.StoreItems(_app, null)) : FakeHttpHandler.NotFound()),
+            online: true,
+            log: log);
         var game = await rig.AddGameAsync(change: g => g with { SteamAppId = _app });
 
         await rig.LookedUpAsync(game.Id);

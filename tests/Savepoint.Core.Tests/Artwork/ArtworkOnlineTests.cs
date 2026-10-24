@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.Net;
+using System.Text.RegularExpressions;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Tests.Services;
@@ -20,6 +22,13 @@ public class ArtworkOnlineTests
     private static Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> Serve(params int[] missing) =>
         (request, _) =>
         {
+            // The store API knows no hashed names for these apps.
+            if (FakeHttpHandler.IsStoreApi(request))
+            {
+                var asked = int.Parse(Regex.Match(Uri.UnescapeDataString(request.RequestUri!.Query), "\"appid\":(\\d+)").Groups[1].Value, CultureInfo.InvariantCulture);
+                return Task.FromResult(FakeHttpHandler.Json(FakeHttpHandler.StoreItems(asked, null)));
+            }
+
             var path = request.RequestUri!.AbsolutePath;
             if (missing.Any(app => path.Contains($"/apps/{app}/", StringComparison.Ordinal)))
             {
@@ -50,6 +59,39 @@ public class ArtworkOnlineTests
             ],
             rig.Http!.Urls.Order());
         Assert.Equal([game.Id], rig.Changes);
+    }
+
+    [Fact]
+    public async Task A_game_served_only_under_hashed_paths_gets_both_images_from_one_store_request()
+    {
+        const string capsule = "7d4b4f430dc4d07e6562eb445456f9615cb52f77";
+        const string header = "1e0c76e4253d347bb1304c3f213570251d924edf";
+        var store = FakeHttpHandler.StoreItems(
+            _app,
+            $"{{\"asset_url_format\":\"steam/apps/{_app}/${{FILENAME}}?t=1\",\"header\":\"{header}/header.jpg\",\"library_capsule\":\"{capsule}/library_capsule.jpg\"}}");
+        using var rig = new ArtworkRig(
+            (request, _) =>
+            {
+                var path = request.RequestUri!.AbsolutePath;
+                if (FakeHttpHandler.IsStoreApi(request))
+                {
+                    return Task.FromResult(FakeHttpHandler.Json(store));
+                }
+
+                return Task.FromResult(
+                    path.Contains(header, StringComparison.Ordinal) ? FakeHttpHandler.Jpeg(_wide)
+                    : path.Contains(capsule, StringComparison.Ordinal) ? FakeHttpHandler.Jpeg(_square)
+                    : FakeHttpHandler.NotFound());
+            },
+            online: true);
+        var game = await rig.AddGameAsync(change: g => g with { SteamAppId = _app });
+
+        var art = await rig.LookedUpAsync(game.Id);
+
+        Assert.Equal(ArtworkSource.Steam, art.Source);
+        Assert.Equal(_wide, File.ReadAllBytes(art.WidePath!));
+        Assert.Equal(_square, File.ReadAllBytes(art.SquarePath!));
+        Assert.Single(rig.Http!.Requests, FakeHttpHandler.IsStoreApi);
     }
 
     [Fact]
@@ -130,7 +172,8 @@ public class ArtworkOnlineTests
         time.Advance(TimeSpan.FromHours(2));
         await rig.LookedUpAsync(game.Id);
 
-        Assert.Equal(4, asked);
+        // Two plain addresses for each image, then one store request shared by both.
+        Assert.Equal(5, asked);
         Assert.Equal(asked, withinTheWeek);
         Assert.Equal(2 * asked, rig.Http.Requests.Count);
     }
@@ -171,9 +214,12 @@ public class ArtworkOnlineTests
 
         Assert.NotNull(art.WidePath);
         Assert.Null(art.SquarePath);
-        Assert.Equal(3, first);
-        Assert.Equal(5, rig.Http.Requests.Count);
-        Assert.All(rig.Http.Requests.Skip(first), request => Assert.EndsWith("library_600x900.jpg", request.RequestUri!.AbsolutePath, StringComparison.Ordinal));
+        // The wide image once, then the two plain tall addresses and the store request.
+        Assert.Equal(4, first);
+        Assert.Equal(7, rig.Http.Requests.Count);
+        Assert.All(
+            rig.Http.Requests.Skip(first).Where(request => !FakeHttpHandler.IsStoreApi(request)),
+            request => Assert.EndsWith("library_600x900.jpg", request.RequestUri!.AbsolutePath, StringComparison.Ordinal));
     }
 
     [Fact]

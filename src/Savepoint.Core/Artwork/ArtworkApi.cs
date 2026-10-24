@@ -251,6 +251,8 @@ internal sealed class ArtworkApi : IArtworkApi
         if (id is { } appId)
         {
             var steamFolder = _steam.FindSteamFolder();
+            // One store answer serves both images of this lookup.
+            var storeMemo = new StoreAssetsMemo();
             foreach (var kind in new[] { ArtworkKind.Wide, ArtworkKind.Square })
             {
                 if (!force && before.AppId == appId && _store.SteamPath(gameId, kind) is not null)
@@ -261,7 +263,7 @@ internal sealed class ArtworkApi : IArtworkApi
                 var bytes = steamFolder is null ? null : await Task.Run(() => FromSteamCache(steamFolder, appId, kind)).ConfigureAwait(false);
                 if (bytes is null && online)
                 {
-                    var fetched = await _cdn!.FetchAsync(appId, kind, CancellationToken.None).ConfigureAwait(false);
+                    var fetched = await _cdn!.FetchAsync(appId, kind, CancellationToken.None, storeMemo).ConfigureAwait(false);
                     bytes = fetched.Bytes;
                     sawNotFound |= fetched.Outcome == CdnOutcome.NotFound;
                     if (fetched.Outcome == CdnOutcome.Failed)

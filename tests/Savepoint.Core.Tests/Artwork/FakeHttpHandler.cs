@@ -42,6 +42,22 @@ internal sealed class FakeHttpHandler : HttpMessageHandler
         return response;
     }
 
+    public static HttpResponseMessage Json(string body)
+    {
+        var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body) };
+        response.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+        return response;
+    }
+
+    public static bool IsStoreApi(HttpRequestMessage request) => request.RequestUri!.Host == "api.steampowered.com";
+
+    // The store API's answer for one app: the assets object is written by the caller, or left out for an app with none.
+    public static string StoreItems(int appId, string? assets)
+    {
+        var tail = assets is null ? string.Empty : ",\"assets\":" + assets;
+        return "{\"response\":{\"store_items\":[{\"item_type\":0,\"id\":" + appId + ",\"success\":1,\"appid\":" + appId + tail + "}]}}";
+    }
+
     public static HttpResponseMessage Redirect(string location)
     {
         var response = new HttpResponseMessage(HttpStatusCode.Found);

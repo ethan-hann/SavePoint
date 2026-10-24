@@ -71,15 +71,17 @@ public class SteamCdnTests
     }
 
     [Fact]
-    public async Task When_both_hosts_say_it_is_not_there_the_answer_is_not_found()
+    public async Task When_both_hosts_and_the_store_say_it_is_not_there_the_answer_is_not_found()
     {
-        var handler = new FakeHttpHandler();
+        var handler = new FakeHttpHandler((request, _) => Task.FromResult(
+            FakeHttpHandler.IsStoreApi(request) ? FakeHttpHandler.Json(FakeHttpHandler.StoreItems(489830, null)) : FakeHttpHandler.NotFound()));
 
         var result = await Fetch(handler);
 
         Assert.Equal(CdnOutcome.NotFound, result.Outcome);
         Assert.Null(result.Bytes);
-        Assert.Equal([_primaryHeader, _fallbackHeader], handler.Urls);
+        Assert.Equal([_primaryHeader, _fallbackHeader], handler.Urls.Take(2));
+        Assert.Equal(3, handler.Urls.Count);
     }
 
     [Fact]
