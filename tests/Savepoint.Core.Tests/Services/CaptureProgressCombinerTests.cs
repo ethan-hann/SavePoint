@@ -70,4 +70,57 @@ public sealed class CaptureProgressCombinerTests
 
         Assert.Equal(new JobProgress(2, 2, 9_000, 9_000), log.Reports[^1] with { CurrentPath = null });
     }
+
+    [Fact]
+    public void A_single_folder_that_is_finishing_makes_the_job_finishing()
+    {
+        var log = new Log();
+        var combiner = new CaptureProgressCombiner(log);
+        var install = combiner.For(RepoRole.Install);
+
+        install.Report(new FileProgress(4, 10, "a", 8_900, 9_000, Finishing: true));
+
+        Assert.True(log.Reports[^1].Finishing);
+    }
+
+    [Fact]
+    public void The_job_is_not_finishing_while_the_other_folder_is_still_storing()
+    {
+        var log = new Log();
+        var combiner = new CaptureProgressCombiner(log);
+        var install = combiner.For(RepoRole.Install);
+        var saves = combiner.For(RepoRole.External);
+        saves.Report(new FileProgress(1, 3, "b", 40, 100));
+
+        install.Report(new FileProgress(4, 10, "a", 8_900, 9_000, Finishing: true));
+
+        Assert.False(log.Reports[^1].Finishing);
+    }
+
+    [Fact]
+    public void The_job_is_finishing_once_the_other_folder_has_stored_everything()
+    {
+        var log = new Log();
+        var combiner = new CaptureProgressCombiner(log);
+        var install = combiner.For(RepoRole.Install);
+        var saves = combiner.For(RepoRole.External);
+        saves.Report(new FileProgress(3, 3, "b", 100, 100));
+
+        install.Report(new FileProgress(4, 10, "a", 8_900, 9_000, Finishing: true));
+
+        Assert.True(log.Reports[^1].Finishing);
+    }
+
+    [Fact]
+    public void A_finished_folder_is_no_longer_finishing()
+    {
+        var log = new Log();
+        var combiner = new CaptureProgressCombiner(log);
+        var install = combiner.For(RepoRole.Install);
+        install.Report(new FileProgress(4, 10, "a", 8_900, 9_000, Finishing: true));
+
+        install.Finish();
+
+        Assert.False(log.Reports[^1].Finishing);
+    }
 }

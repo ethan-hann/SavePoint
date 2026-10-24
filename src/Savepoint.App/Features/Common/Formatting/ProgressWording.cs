@@ -30,7 +30,8 @@ public static class ProgressWording
     {
         if (progress is { BytesTotal: > 0, BytesDone: { } bytesDone, BytesTotal: { } bytesTotal })
         {
-            return text.BytesOf(bytesDone, bytesTotal);
+            // A figure that has stopped looks like a hang; the job is only wrapping up.
+            return progress.Finishing ? text.Message("common.progress.finishing") : text.BytesOf(bytesDone, bytesTotal);
         }
 
         return progress is { FilesTotal: > 0, FilesDone: { } filesDone, FilesTotal: { } filesTotal } ? text.FilesOf(filesDone, filesTotal) : null;
