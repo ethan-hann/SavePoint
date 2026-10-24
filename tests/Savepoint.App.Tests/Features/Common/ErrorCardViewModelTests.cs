@@ -86,6 +86,24 @@ public class ErrorCardViewModelTests
     }
 
     [Fact]
+    public void Two_names_that_differ_only_in_case_on_a_drive_that_ignores_case_say_so_and_what_to_do()
+    {
+        var folder = PathOnThisSystem("Games", "Alpha", "Mods", "Foo");
+        var error = ErrorInfo.From(new NamesDifferOnlyInCaseException(RepoRole.Install, folder, Path.Combine(Path.GetDirectoryName(folder)!, "foo")));
+
+        var card = new ErrorCardViewModel(error, _text);
+
+        Assert.Equal("Two names differ only in upper and lower case", card.Title);
+        Assert.Equal(Icons.Folder, card.Icon);
+        Assert.Equal(ErrorTone.Warning, card.Tone);
+        Assert.Equal(folder, card.Path);
+        Assert.Contains("Foo and foo", card.Body);
+        Assert.Contains("install folder", card.Body);
+        Assert.Contains("changed nothing", card.Body);
+        Assert.Contains("choose a different profile", card.Body);
+    }
+
+    [Fact]
     public void A_folder_gone_card_is_neutral_and_shows_the_path_of_the_missing_folder()
     {
         var card = new ErrorCardViewModel(MockupScenario.FolderGoneError, _text);

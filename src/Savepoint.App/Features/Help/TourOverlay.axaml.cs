@@ -23,6 +23,7 @@ public partial class TourOverlay : UserControl
     private TourViewModel? _tour;
     private Control? _target;
     private Visual? _host;
+    private string? _placedFor;
 
     /// <summary>Creates the overlay.</summary>
     public TourOverlay()
@@ -178,41 +179,70 @@ public partial class TourOverlay : UserControl
         }
 
         TourRing.IsVisible = ring is not null;
-        PlaceCard(ring);
+        PlaceCard(ring, tour.Current.Step == TourStep.Profile ? RowsBelow(window, _target) : [], tour.Current.Step);
     }
 
-    // The card goes below the outline, else above, else to a side, at its usual width and then at a wider one that is shorter; with nothing
-    // to point at it sits at the top. It always stays inside the window.
-    private void PlaceCard(Rect? ring)
+    // The other rows of the profile list that are on screen: the card must not hide them. The first step points at one row of the list
+    // and the rest of the list is what the player came to use.
+    private List<Rect> RowsBelow(Visual window, Control? target)
+    {
+        if (target is null)
+        {
+            return [];
+        }
+
+        var area = new Rect(Bounds.Size);
+        var rows = new List<Rect>();
+        foreach (var row in window.GetVisualDescendants().OfType<Border>().Where(border => border.Classes.Contains("table-row") && border.IsEffectivelyVisible))
+        {
+            if (!row.GetVisualDescendants().Contains(target) && row.TranslatePoint(default, this) is { } origin && new Rect(origin, row.Bounds.Size).Intersect(area) is { Width: > 0, Height: > 0 } shown)
+            {
+                rows.Add(shown);
+            }
+        }
+
+        return rows;
+    }
+
+    // The card goes below the outline, else below the rows it must not hide, else above, else to a side, at its usual width and then at a wider
+    // one that is shorter; with nothing to point at it sits at the top. It always stays inside the window.
+    private void PlaceCard(Rect? ring, List<Rect> keepClear, TourStep step)
     {
         var area = Bounds.Size;
         var widest = Math.Max(0, area.Width - (2 * _edge));
         var widths = new[] { Math.Min(_cardWidth, widest), Math.Min(_wideCardWidth, widest) }.Distinct().ToArray();
 
-        Point? chosen = null;
-        var chosenWidth = widths[^1];
-        foreach (var width in widths)
+        // A new situation starts at the usual width and the same one only ever moves on to the wider, so the width is never set and set
+        // back within a pass, which would keep the layout from ever settling. Each change of width lays the card out again and comes back here.
+        var situation = $"{step}|{ring}|{area}|{string.Join(';', keepClear)}";
+        if (!string.Equals(situation, _placedFor, StringComparison.Ordinal))
         {
-            TourCard.MaxWidth = width;
-            TourCard.Measure(Size.Infinity);
-            var size = TourCard.DesiredSize;
-            chosenWidth = width;
-            if (Fit(ring, size, area) is { } spot)
+            _placedFor = situation;
+            if (TourCard.MaxWidth != widths[0])
             {
-                chosen = spot;
-                break;
+                TourCard.MaxWidth = widths[0];
+                return;
             }
         }
 
-        TourCard.MaxWidth = chosenWidth;
         TourCard.Measure(Size.Infinity);
         var card = TourCard.DesiredSize;
-        var at = chosen ?? Clamp(new Point(ring?.X ?? (area.Width - card.Width) / 2, (ring?.Bottom ?? 0) + _gap), card, area);
-        Canvas.SetLeft(TourCard, at.X);
-        Canvas.SetTop(TourCard, at.Y);
+        if (Fit(ring, card, area, keepClear) is not { } spot)
+        {
+            if (TourCard.MaxWidth < widths[^1])
+            {
+                TourCard.MaxWidth = widths[^1];
+                return;
+            }
+
+            spot = Clamp(new Point(ring?.X ?? (area.Width - card.Width) / 2, (ring?.Bottom ?? 0) + _gap), card, area);
+        }
+
+        Canvas.SetLeft(TourCard, spot.X);
+        Canvas.SetTop(TourCard, spot.Y);
     }
 
-    private static Point? Fit(Rect? ring, Size card, Size area)
+    private static Point? Fit(Rect? ring, Size card, Size area, List<Rect> keepClear)
     {
         if (ring is not { } outline)
         {
@@ -221,9 +251,11 @@ public partial class TourOverlay : UserControl
 
         var left = Math.Clamp(outline.X, _edge, Math.Max(_edge, area.Width - card.Width - _edge));
         var top = Math.Clamp(outline.Y, _edge, Math.Max(_edge, area.Height - card.Height - _edge));
+        var belowRows = keepClear.Count == 0 ? outline.Bottom : Math.Max(outline.Bottom, keepClear.Max(row => row.Bottom));
         Point[] candidates =
         [
             new(left, outline.Bottom + _gap),
+            new(left, belowRows + _gap),
             new(left, outline.Top - _gap - card.Height),
             new(outline.Right + _gap, top),
             new(outline.Left - _gap - card.Width, top),
@@ -231,7 +263,7 @@ public partial class TourOverlay : UserControl
         foreach (var spot in candidates)
         {
             var rect = new Rect(spot, card);
-            if (rect.Left >= _edge - 0.5 && rect.Top >= _edge - 0.5 && rect.Right <= area.Width - _edge + 0.5 && rect.Bottom <= area.Height - _edge + 0.5 && !rect.Intersects(outline))
+            if (rect.Left >= _edge - 0.5 && rect.Top >= _edge - 0.5 && rect.Right <= area.Width - _edge + 0.5 && rect.Bottom <= area.Height - _edge + 0.5 && !rect.Intersects(outline) && !keepClear.Any(rect.Intersects))
             {
                 return spot;
             }

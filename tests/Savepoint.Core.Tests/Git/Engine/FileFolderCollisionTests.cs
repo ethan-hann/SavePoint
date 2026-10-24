@@ -1,6 +1,7 @@
 using System.Globalization;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Git;
+using Savepoint.Core.Paths;
 
 namespace Savepoint.Core.Tests.Git.Engine;
 
@@ -561,6 +562,27 @@ public sealed class FileFolderCollisionTests : IDisposable
 
         Assert.True(GitEngine.DriveIgnoresCase(folder, path => path == Path.Combine(_games, "mODS"), (_, _) => "Mods"));
         Assert.False(GitEngine.DriveIgnoresCase(folder, path => path == Path.Combine(_games, "mods"), (_, _) => "Mods"));
+    }
+
+    // A game folder can be the root of a drive (a mount point), whose parent lives on another drive and says nothing about it; the marker
+    // file every game folder holds is asked about instead.
+    [Fact]
+    public void The_root_of_a_drive_that_ignores_case_is_found_out_from_the_marker_file_it_holds()
+    {
+        var folder = Path.Combine(_games, "Mods");
+        var marker = Path.Combine(folder, ConsentMarker.FileName);
+        var other = Path.Combine(folder, ConsentMarker.FileName.ToUpperInvariant());
+
+        Assert.True(GitEngine.DriveIgnoresCase(folder, path => path == marker || path == other, (_, _) => ConsentMarker.FileName));
+    }
+
+    [Fact]
+    public void The_marker_file_decides_over_the_folders_parent_when_the_folder_holds_one()
+    {
+        var folder = Path.Combine(_games, "Mods");
+        var marker = Path.Combine(folder, ConsentMarker.FileName);
+
+        Assert.False(GitEngine.DriveIgnoresCase(folder, path => path == marker || path == Path.Combine(_games, "mODS"), (_, _) => "Mods"));
     }
 
     private static bool IgnoresCase(string folder)

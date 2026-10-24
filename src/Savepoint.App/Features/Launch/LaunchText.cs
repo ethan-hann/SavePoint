@@ -22,6 +22,15 @@ internal static class LaunchText
         };
     }
 
+    // The mods alone, for a switch that keeps the version.
+    public static string Mods(UiFormatter text, InstallState state) =>
+        state.ModFileCount switch
+        {
+            null => text.Message("launch.state.modsUnknown"),
+            0 => text.Message("launch.state.noModsOnly"),
+            var count => text.Message("launch.state.modsOnly", ("count", count)),
+        };
+
     // Neither a version nor a mod count: nothing worth saying about the install.
     public static bool IsUnknown(InstallState state) => state.Version is not { Length: > 0 } && state.ModFileCount is null;
 

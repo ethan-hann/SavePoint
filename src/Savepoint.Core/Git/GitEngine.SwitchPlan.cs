@@ -1,4 +1,5 @@
 using Savepoint.Core.Errors;
+using Savepoint.Core.Paths;
 
 namespace Savepoint.Core.Git;
 
@@ -26,28 +27,40 @@ public sealed partial class GitEngine
             ? StringComparer.OrdinalIgnoreCase
             : StringComparer.Ordinal;
 
-    // True when the drive the folder is on treats names that differ only in case as one. Asked for the folder (or the nearest folder above it
-    // with a letter in its name) under the same name with every letter's case swapped, such a drive answers yes though its parent lists only
-    // the original spelling. What the question cannot settle (a parent that cannot be listed, no letter on the way up) counts as a drive that
+    // True when the drive the folder is on treats names that differ only in case as one. Asked for the marker file the folder holds (the
+    // folder may be the root of a drive, whose parent lives on another one), else for the folder (or the nearest folder above it with a
+    // letter in its name), under the same name with every letter's case swapped: such a drive answers yes though the folder lists only the
+    // original spelling. What the question cannot settle (a parent that cannot be listed, no letter on the way up) counts as a drive that
     // tells cases apart, which only makes the checks stricter.
-    internal static bool DriveIgnoresCase(string folder) => DriveIgnoresCase(folder, Directory.Exists, ListedName);
+    internal static bool DriveIgnoresCase(string folder) => DriveIgnoresCase(folder, path => Directory.Exists(path) || File.Exists(path), ListedName);
 
     // The file system's two answers are passed in, so a test can play a drive that tells cases apart on a machine whose drive does not.
-    internal static bool DriveIgnoresCase(string folder, Func<string, bool> folderExists, Func<string, string, string> listedName)
+    internal static bool DriveIgnoresCase(string folder, Func<string, bool> exists, Func<string, string, string> listedName)
     {
+        if (exists(Path.Combine(folder, ConsentMarker.FileName)))
+        {
+            return AnswersToSwappedCase(folder, ConsentMarker.FileName, exists, listedName) == true;
+        }
+
         for (var current = folder; Path.GetDirectoryName(current) is { } parent; current = parent)
         {
-            var name = Path.GetFileName(current);
-            var swapped = new string([.. name.Select(letter => char.IsUpper(letter) ? char.ToLowerInvariant(letter) : char.ToUpperInvariant(letter))]);
-            if (string.Equals(swapped, name, StringComparison.Ordinal))
+            if (AnswersToSwappedCase(parent, Path.GetFileName(current), exists, listedName) is { } answer)
             {
-                continue;
+                return answer;
             }
-
-            return folderExists(Path.Combine(parent, swapped)) && !string.Equals(listedName(parent, swapped), swapped, StringComparison.Ordinal);
         }
 
         return false;
+    }
+
+    // Whether the folder answers for the entry under its name with every letter's case swapped though it lists only the original; null
+    // when the name has no letter to swap.
+    private static bool? AnswersToSwappedCase(string folder, string name, Func<string, bool> exists, Func<string, string, string> listedName)
+    {
+        var swapped = new string([.. name.Select(letter => char.IsUpper(letter) ? char.ToLowerInvariant(letter) : char.ToUpperInvariant(letter))]);
+        return string.Equals(swapped, name, StringComparison.Ordinal)
+            ? null
+            : exists(Path.Combine(folder, swapped)) && !string.Equals(listedName(folder, swapped), swapped, StringComparison.Ordinal);
     }
 
     // What the switch will write and remove. After an unfinished switch HEAD may already be at the target, so the point the

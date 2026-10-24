@@ -92,6 +92,47 @@ public sealed partial class GitEngine
         }
     }
 
+    // Before anything is written: a drive that ignores case puts Mods/Foo and Mods/foo in one place, so a point that holds both cannot be
+    // written there. The point's whole tree is asked about, since a file already on disk under one spelling is overwritten by the other.
+    private async Task RefuseCaseClashAsync(RepoRef repo, string commit, CancellationToken ct)
+    {
+        if (!PathComparerFor(repo).Equals("a", "A"))
+        {
+            return;
+        }
+
+        var listing = await RunAsync(GitDirOnly(repo, "ls-tree", "-r", "-z", "--name-only", commit), ct).ConfigureAwait(false);
+        if (FindCaseClash(listing.SplitStandardOutputOnNul()) is { } clash)
+        {
+            throw new NamesDifferOnlyInCaseException(repo.Role, FullPath(repo, clash.First), FullPath(repo, clash.Second));
+        }
+    }
+
+    // The first two spellings (paths up to the part that differs) of one name in the list, or null when no name is spelled two ways.
+    internal static (string First, string Second)? FindCaseClash(IEnumerable<string> paths)
+    {
+        var seen = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var path in paths)
+        {
+            // Shortest part first, so the parts above the one reported are spelled alike.
+            for (var end = path.IndexOf('/', StringComparison.Ordinal); ; end = path.IndexOf('/', end + 1))
+            {
+                var part = end < 0 ? path : path[..end];
+                if (!seen.TryAdd(part, part) && !string.Equals(seen[part], part, StringComparison.Ordinal))
+                {
+                    return (seen[part], part);
+                }
+
+                if (end < 0)
+                {
+                    break;
+                }
+            }
+        }
+
+        return null;
+    }
+
     private DiskEntry[] ProbeAll(RepoRef repo, IReadOnlyList<string> paths, CancellationToken ct)
     {
         var kinds = new DiskEntry[paths.Count];
