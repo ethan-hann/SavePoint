@@ -276,7 +276,7 @@ SavePoint changes no file in either bundle. It only removes parts it never uses:
 - Git for Windows: https://github.com/git-for-windows/git, tag `v2.56.0.windows.2`, together with the MSYS2 and MINGW package sources the Git for Windows project publishes;
 - dugite-native: https://github.com/desktop/dugite-native, tag `v2.53.0-4`.
 
-Each SavePoint release also publishes the source archives of the exact bundles it ships, next to the release downloads, including one source archive for every MSYS2 and MINGW package in the Windows bundle (listed in `build/msys2-sources.json`, published under `source/packages/`).
+The source archives of the exact bundles SavePoint ships, including one source archive for every MSYS2 and MINGW package in the Windows bundle (listed in `build/msys2-sources.json`), are published on the SavePoint releases page as a release of their own for each bundled git version (for example `git-sources-2.56.0.2`), and every SavePoint release names the one that matches it.
 
 ## MIT License
 

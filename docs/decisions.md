@@ -145,7 +145,7 @@ The v1 FormatJS extraction step becomes two tests plus a short guide: every key 
 
 ## D21. Licensing of the bundled git
 
-Distributing git means shipping the GPLv2 text and a written source offer pointing at the exact upstream source tags (git-for-windows `v2.56.0.windows.2`, git `v2.53.0`, dugite-native `v2.53.0-4`). The bundle is pruned of components SavePoint never uses (Git Credential Manager and its UI assemblies, Git LFS, network helpers), which also shrinks the installer; whatever stays is listed in `THIRD-PARTY-NOTICES.md` with its license.
+Distributing git means shipping the GPLv2 text and a written source offer pointing at the exact upstream source tags (git-for-windows `v2.56.0.windows.2`, git `v2.53.0`, dugite-native `v2.53.0-4`). The bundle is pruned of components SavePoint never uses (Git Credential Manager and its UI assemblies, Git LFS, network helpers), which also shrinks the installer; whatever stays is listed in `THIRD-PARTY-NOTICES.md` with its license. From 0.9.5 the source archives (the three tags and every MSYS2 and MINGW package in MinGit) are published once per bundled git version as a release of their own (`git-sources-<MinGit version>`), and each app release links to it, instead of every release carrying about 55 identical archives; 0.9.2 to 0.9.4 keep theirs so their checksums still hold.
 
 ## D22. Colors come from SchemeTonalSpot; the mockup hexes are approximate
 
@@ -271,7 +271,7 @@ The project calls for an installer and a portable build per OS. v2 packages with
     - Windows: `SavePoint-win-Setup.exe`, `SavePoint-win-Portable.zip`, `SavePointApp-<version>-full.nupkg` (vpk names it after the pack id, D38), and vpk's release index files.
     - Linux: `SavePoint.AppImage` and `SavePointApp-<version>-linux-full.nupkg`.
   - **From the final review (D41):** the commit goes into the informational version (`0.9.0+<commit>`), a tree with uncommitted changes is refused unless a trial package is asked for, the source archives' hashes are pinned in `build/git-manifest.json` (since the 0.9.0 release); the `-Sources` run checks each download against its pin before anything is published and fails on a mismatch, and a download is kept only when it matches its pin (D42), and each package's contents are listed in `artifacts/release/contents-<rid>/` and checked for the git bundle, the notices, and the license texts.
-  - **Not yet covered:** the packages are unsigned, so SmartScreen warns on the setup. The MSYS2 and MINGW package sources D21 promises are published with each release since 0.9.2: `build/msys2-sources.json` pins one source archive per package line in MinGit's `etc/package-versions.txt` (50 archives, about 670 MiB, from repo.msys2.org and Git for Windows' pacman-repo releases), and a MinGit update needs that list regenerated.
+  - **Not yet covered:** the packages are unsigned, so SmartScreen warns on the setup. The MSYS2 and MINGW package sources D21 promises are published since 0.9.2 (from 0.9.5 in the bundled git's own sources release, D21): `build/msys2-sources.json` pins one source archive per package line in MinGit's `etc/package-versions.txt` (50 archives, about 670 MiB, from repo.msys2.org and Git for Windows' pacman-repo releases), and a MinGit update needs that list regenerated.
 
 ## D34. A local diagnostic log and a crash handler
 
