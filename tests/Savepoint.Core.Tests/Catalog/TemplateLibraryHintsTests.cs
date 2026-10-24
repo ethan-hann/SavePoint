@@ -94,9 +94,10 @@ public class TemplateLibraryHintsTests
     {
         var template = GameTemplates.Read(_withoutHints);
 
-        var draft = template.ToDraft(OsKind.Linux);
+        var draft = template.ToDraft(OsKind.Windows);
 
         Assert.Equal(template.Definition with { Id = draft.Id }, draft);
+        Assert.Equal(template.Definition with { Id = draft.Id, External = null }, template.ToDraft(OsKind.Linux) with { Id = draft.Id });
     }
 
     [Fact]
