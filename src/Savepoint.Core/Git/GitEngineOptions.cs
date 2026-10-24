@@ -19,6 +19,9 @@ public sealed record GitEngineOptions
     // Sees every git call just before it runs; tests use it to assert argument lists and to inject faults.
     internal Action<GitInvocation>? InvocationObserver { get; init; }
 
+    // Called with a git directory just before its files are deleted, on the thread that deletes them; tests block in it to see who is kept waiting.
+    internal Action<string>? BeforeGitDirDelete { get; init; }
+
     // How many bytes the object store at a path holds; tests replace it to fake the growth of a large file being stored.
     internal Func<string, long>? ObjectStoreSize { get; init; }
 

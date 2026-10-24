@@ -62,7 +62,7 @@ public sealed partial class GitEngine
             RepoMarker.Verify(repo);
         }
 
-        await GitDirRemoval.RemoveAsync(repo.GitDir, _storageRoot, _pathSafety.ResolveRealPath, _options.DeleteRetryDelays, ct).ConfigureAwait(false);
+        await GitDirRemoval.RemoveAsync(repo.GitDir, _storageRoot, _pathSafety.ResolveRealPath, _options.DeleteRetryDelays, ct, _options.BeforeGitDirDelete).ConfigureAwait(false);
         RepoMarker.RemoveIfOurs(repo);
     }
 

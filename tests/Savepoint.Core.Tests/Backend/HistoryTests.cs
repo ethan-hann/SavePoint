@@ -46,10 +46,8 @@ public class HistoryTests
         using var workspace = new BackendWorkspace();
         var game = await workspace.AddGameAsync();
         var (profile, _) = await workspace.CreateProfileAsync(game, "Vanilla");
-        await Task.Delay(1100, workspace.Token);
         BackendWorkspace.WriteFile(Path.Combine(game.Install.Path, "data", "patch.pak"), "patched");
         await CaptureAsync(workspace, game, profile, "Patched", [RepoRole.Install]);
-        await Task.Delay(1100, workspace.Token);
         BackendWorkspace.WriteFile(Path.Combine(game.External!.Path, "slot2.sav"), "second");
         await CaptureAsync(workspace, game, profile, "Second save", [RepoRole.External]);
 
@@ -93,7 +91,6 @@ public class HistoryTests
         BackendWorkspace.WriteFile(Path.Combine(game.Install.Path, "mods", "b.esp"), "b");
         await workspace.AddGameAsync(game);
         var (profile, _) = await workspace.CreateProfileAsync(game, "Vanilla");
-        await Task.Delay(1100, workspace.Token);
         BackendWorkspace.WriteFile(Path.Combine(game.External!.Path, "slot2.sav"), "second");
         await CaptureAsync(workspace, game, profile, "Second save", [RepoRole.External]);
 
@@ -112,7 +109,6 @@ public class HistoryTests
         var game = await workspace.AddGameAsync(workspace.NewGame(withSaves: false, modHints: ["mods"]));
         BackendWorkspace.WriteFile(Path.Combine(game.Install.Path, "mods", "a.esp"), "a");
         var (profile, _) = await workspace.CreateProfileAsync(game, "Vanilla");
-        await Task.Delay(1100, workspace.Token);
         BackendWorkspace.WriteFile(Path.Combine(game.Install.Path, "mods", "b.esp"), "bbbbbbbb");
         BackendWorkspace.WriteFile(Path.Combine(game.Install.Path, "mods", "c.esp"), "cc");
         BackendWorkspace.WriteFile(Path.Combine(game.Install.Path, "data", "other.pak"), "not a mod");

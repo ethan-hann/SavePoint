@@ -41,7 +41,62 @@ internal sealed class RemovedWorld : IDisposable
 
     // "Vanilla" holds three snapshots, oldest first: both folders, then the install folder with a mod file, then the saves folder with a second save.
     // Another game of the same shape can be built in a workspace that another world already owns.
+    // The plain world, with no options and no neighbours, is built once for the whole run and each caller gets its own copy of it. Every other
+    // shape is built from scratch, since its options or its second game cannot be copied in.
     public static async Task<RemovedWorld> CreateAsync(Func<BackendOptions, BackendOptions>? configure = null, BackendWorkspace? shared = null, string name = "Alpha")
+    {
+        if (configure is null && shared is null && name == "Alpha")
+        {
+            return await CopyOfTemplateAsync();
+        }
+
+        return await BuildAsync(configure, shared, name);
+    }
+
+    private static readonly Lock _templateGate = new();
+    private static Task<RemovedWorld>? _template;
+
+    private static async Task<RemovedWorld> CopyOfTemplateAsync()
+    {
+        var template = await TemplateAsync();
+        var workspace = BackendWorkspace.CopyOf(template.Workspace);
+        try
+        {
+            var game = Assert.Single((await workspace.Games.ListAsync(workspace.Token)).Value!);
+            var profile = Assert.Single((await workspace.Profiles.ListAsync(game.Id, workspace.Token)).Value!);
+            return new RemovedWorld(workspace, true, game, profile, template.First, template.InstallOnly, template.SavesOnly);
+        }
+        catch
+        {
+            workspace.Dispose();
+            throw;
+        }
+    }
+
+    // A build that failed (or was canceled with the test that started it) is not kept, so the next test builds it again.
+    private static Task<RemovedWorld> TemplateAsync()
+    {
+        lock (_templateGate)
+        {
+            if (_template is null or { IsFaulted: true } or { IsCanceled: true })
+            {
+                _template = BuildTemplateAsync();
+            }
+
+            return _template;
+        }
+    }
+
+    private static async Task<RemovedWorld> BuildTemplateAsync()
+    {
+        var world = await BuildAsync(null, null, "Alpha");
+        await world.Workspace.WaitForIdleAsync();
+        var folder = world.Workspace.Root;
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => Savepoint.Core.Tests.Git.GitWorkspace.DeleteDirectory(folder);
+        return world;
+    }
+
+    private static async Task<RemovedWorld> BuildAsync(Func<BackendOptions, BackendOptions>? configure, BackendWorkspace? shared, string name)
     {
         var workspace = shared ?? new BackendWorkspace(configure);
         try
