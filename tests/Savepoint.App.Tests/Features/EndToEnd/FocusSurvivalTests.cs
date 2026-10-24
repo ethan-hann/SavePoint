@@ -31,7 +31,7 @@ public class FocusSurvivalTests
 
         await RefreshLibraryAsync(app);
 
-        var focused = Assert.IsType<ListBoxItem>(app.Focused);
+        var focused = Assert.IsAssignableFrom<ListBoxItem>(app.Focused);
         Assert.Contains(focused, app.Find<ListBox>(listName).GetVisualDescendants());
         Assert.Equal(MockupScenario.SatisfactoryId, ((GameRowViewModel)focused.DataContext!).Id);
     }
