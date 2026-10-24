@@ -37,7 +37,7 @@ The plan marks it "Phase 6 (stretch, later)" and "deferred until v1's manual-cap
 
 ## D7. Engine-based ignore suggestions and compression knobs stay out
 
-The v1 background-jobs proposal floated curated per-engine ignore lists (Idea B) and object-store compression knobs (Idea C). Both were dropped during v1 dogfooding: engine caches live in AppData, outside the tracked install, and git compression gains on binary assets are marginal. The win that shipped was capture speed through git config tuning, which v2 keeps.
+The v1 background-jobs proposal floated curated per-engine ignore lists (Idea B) and object-store compression knobs (Idea C). Both were dropped during v1 dogfooding: engine caches live in AppData, outside the tracked install, and git compression gains on binary assets are marginal. The win that shipped was capture speed through git config tuning, which v2 keeps. One compression setting did come back, for speed rather than size: `pack.compression = 0` (D50).
 
 ## D8. "Clear all data" is a v2 requirement
 
@@ -451,7 +451,7 @@ A recheck of the D45 fixes found 14 of 18 fixed, no critical findings, 3 warning
 
 The first native Linux CI run showed a preview counting a file whose content had not changed. Git compares each file's stat data with the index, including the change time (ctime) by default. A permission change, an antivirus pass, or a backup tool moves a file's ctime without editing it, so git reports the file as modified, and the preview then reads it again or, when it cannot read it, counts its whole size as new bytes.
 
-The managed repository config sets `core.trustCtime = false` (config stamp 5, so existing repositories pick it up the next time SavePoint touches them). Size and modification time still catch real edits. A program that rewrites a file with the same size and then restores its old modification time would go unnoticed, which game launchers and mod managers do not do in practice.
+The managed repository config sets `core.trustCtime = false` (config stamp 5, so existing repositories pick it up the next time SavePoint touches them; D50 raises it to 6). Size and modification time still catch real edits. A program that rewrites a file with the same size and then restores its old modification time would go unnoticed, which game launchers and mod managers do not do in practice.
 
 ## D48. Calls on the way to 1.0
 
@@ -475,3 +475,9 @@ Before this, Play was the only way to load a profile's files, so a player who wa
 5. **Try again and the recovery buttons stay a switch.** "Try again", "Finish the switch" and "Review the changes" after a failed switch start another switch, never the game.
 6. **A switch notifies when it finishes,** like the other long jobs. A launch does not, because the game opening is the signal; a switch has no such signal.
 7. **The errors that said "Play this profile first" offer the switch.** `error.profile.notLoaded` opens a confirmation with "Switch to this profile", and `error.gameService.profileActive` offers a switch to the first other profile in the table.
+
+## D50. Packs are written without zlib
+
+Files above `core.bigFileThreshold` (128 MiB) stream straight into a pack, and `core.looseCompression = 0` does not cover them; `pack.compression` does. Measured on a real 85 GiB install (Cyberpunk 2077 from GOG: 5,068 files, 98.8% of the bytes in 17 archives over the threshold), a first snapshot took 35 minutes with the default compression and 9 minutes with `pack.compression = 0` (about 44 against 168 MB/s), for a store 2.4% larger (85.2 against 83.1 GiB). Two runs with the default differed by 4% in time and gave byte-identical stores. Game archives are already compressed, so zlib spends most of a large capture to save little.
+
+The managed repository config sets `pack.compression = 0` (config stamp 6, so existing repositories pick it up the next time SavePoint touches them). Repacks reuse the data already in a pack, so existing stores are not rewritten. Byte progress during a big first snapshot now tracks the bytes read more closely, since what is written is what was read. Known cost: a game with large uncompressed assets (raw audio or textures over 128 MiB) stores them at full size; no such game has been measured yet.
