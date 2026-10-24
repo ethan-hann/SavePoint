@@ -1,0 +1,105 @@
+using System.Text.Json;
+using System.Text.RegularExpressions;
+using Savepoint.Testing;
+
+namespace Savepoint.Core.Tests.Build;
+
+// The notices promise the sources of the MSYS2 and MINGW packages inside the Windows git bundle. build/msys2-sources.json lists them with
+// pinned hashes, and both package scripts download and compare from it. None of these tests touches the network.
+public partial class PackageSourcesTests
+{
+    private static string RepoRoot => TestEnvironment.RepoRoot ?? throw new InvalidOperationException("These tests read the repository's build files.");
+
+    private sealed record Archive(string File, string Url, string Sha256, long Size, string[] Provides);
+
+    private static JsonElement Root()
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(RepoRoot, "build", "msys2-sources.json")));
+        return document.RootElement.Clone();
+    }
+
+    private static IReadOnlyList<Archive> Archives() =>
+        [.. Root().GetProperty("archives").EnumerateArray().Select(archive => new Archive(
+            archive.GetProperty("file").GetString()!,
+            archive.GetProperty("url").GetString()!,
+            archive.GetProperty("sha256").GetString()!,
+            archive.GetProperty("size").GetInt64(),
+            archive.GetProperty("provides").GetString()!.Split(", ", StringSplitOptions.RemoveEmptyEntries)))];
+
+    [GeneratedRegex("^[0-9a-f]{64}$")]
+    private static partial Regex Sha256Pattern();
+
+    [Fact]
+    public void Every_archive_has_a_download_address_named_after_its_file_and_a_lowercase_sha256()
+    {
+        var archives = Archives();
+
+        Assert.NotEmpty(archives);
+        Assert.All(archives, archive =>
+        {
+            Assert.StartsWith("https://", archive.Url, StringComparison.Ordinal);
+            Assert.EndsWith("/" + archive.File, archive.Url, StringComparison.Ordinal);
+            Assert.Matches(@"\.src\.tar\.(gz|zst)$", archive.File);
+            Assert.True(Sha256Pattern().IsMatch(archive.Sha256), $"{archive.File} does not pin a 64 digit lowercase SHA-256.");
+            Assert.True(archive.Size > 0, $"{archive.File} has no size.");
+            Assert.NotEmpty(archive.Provides);
+        });
+    }
+
+    [Fact]
+    public void Archives_come_from_msys2_or_from_the_git_for_windows_package_releases()
+    {
+        Assert.All(Archives(), archive => Assert.True(
+            archive.Url.StartsWith("https://repo.msys2.org/msys/sources/", StringComparison.Ordinal)
+            || archive.Url.StartsWith("https://repo.msys2.org/mingw/sources/", StringComparison.Ordinal)
+            || archive.Url.StartsWith("https://github.com/git-for-windows/pacman-repo/releases/download/", StringComparison.Ordinal),
+            $"{archive.File} is not hosted where the sources are published."));
+    }
+
+    [Fact]
+    public void No_file_name_or_package_is_listed_twice()
+    {
+        var archives = Archives();
+
+        Assert.Equal(archives.Count, archives.Select(archive => archive.File).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(archives.Sum(archive => archive.Provides.Length), archives.SelectMany(archive => archive.Provides).Distinct(StringComparer.Ordinal).Count());
+    }
+
+    [Fact]
+    public void The_list_is_for_the_version_of_the_windows_bundle_the_manifest_fetches()
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(GitManifestFile.ManifestPath));
+        var fetched = document.RootElement.GetProperty("win-x64").GetProperty("version").GetString();
+
+        Assert.Equal("win-x64", Root().GetProperty("bundle").GetString());
+        Assert.Equal(fetched, Root().GetProperty("bundleVersion").GetString());
+    }
+
+    [Fact]
+    public void Every_package_the_windows_bundle_lists_has_its_source_in_the_list()
+    {
+        // Only a Windows build copies the bundle next to the tests; elsewhere there is no package list to compare with.
+        var listing = Path.Combine(AppContext.BaseDirectory, "git", "etc", "package-versions.txt");
+        if (!File.Exists(listing))
+        {
+            return;
+        }
+
+        var inBundle = File.ReadAllLines(listing).Select(line => line.Trim()).Where(line => line.Length > 0).ToHashSet(StringComparer.Ordinal);
+        var covered = Archives().SelectMany(archive => archive.Provides).ToHashSet(StringComparer.Ordinal);
+
+        Assert.Empty(inBundle.Except(covered));
+        Assert.Empty(covered.Except(inBundle));
+    }
+
+    [Theory]
+    [InlineData("build/package.ps1")]
+    [InlineData("build/package.sh")]
+    public void Both_package_scripts_download_the_package_sources_from_their_manifest_into_one_folder(string script)
+    {
+        var text = File.ReadAllText(Path.Combine(RepoRoot, script));
+
+        Assert.Contains("msys2-sources.json", text, StringComparison.Ordinal);
+        Assert.Contains("source/packages", text, StringComparison.Ordinal);
+    }
+}
