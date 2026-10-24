@@ -12,6 +12,10 @@ public sealed partial class GameEditorViewModel
     private IReadOnlyList<string> _executables = [];
     private CancellationTokenSource? _scan;
 
+    // The folder the process name suggestion was last read for, and a counter so a slow answer for an old folder is dropped.
+    private string? _suggestedFor;
+    private int _suggestRun;
+
     // The folder the suggestions were last read for, so leaving the field unchanged does not scan a large install again.
     private string? _scannedFolder;
 
@@ -26,6 +30,54 @@ public sealed partial class GameEditorViewModel
 
     /// <summary>True when there are process names to suggest.</summary>
     public bool HasProcessSuggestions => ProcessSuggestions.Count > 0;
+
+    /// <summary>The program name worth offering for a game started through a link; empty when there is none to offer.</summary>
+    public string SuggestedProcessName { get; private set; } = string.Empty;
+
+    /// <summary>True when a link-started game has no process name yet and a likely one was found in the install folder.</summary>
+    public bool HasProcessNameSuggestion => ShowProcessNameWhy && SuggestedProcessName.Length > 0;
+
+    /// <summary>True when the explanation of why the process name matters is shown: a link-started game with the field empty.</summary>
+    public bool ShowProcessNameWhy => IsSteamMethod && string.IsNullOrWhiteSpace(ProcessName);
+
+    /// <summary>The label of the button that fills in the suggested process name.</summary>
+    public string UseSuggestedProcessNameLabel => _text.Message("gameEditor.processName.use", ("name", SuggestedProcessName));
+
+    /// <summary>
+    /// Looks in the install folder for the game's own program, to offer as the process name of a link-started game. Does nothing
+    /// unless the start method is a link, the field is empty, and a folder is chosen; a folder already asked about is not asked
+    /// again, and a folder that cannot be read just means there is nothing to offer.
+    /// </summary>
+    public async Task RefreshProcessNameSuggestionAsync()
+    {
+        var install = InstallPath.Trim();
+        if (!ShowProcessNameWhy || install.Length == 0 || install == _suggestedFor)
+        {
+            return;
+        }
+
+        var run = ++_suggestRun;
+        var found = await _games.SuggestProcessNameAsync(install, Name.Trim());
+        if (run != _suggestRun)
+        {
+            return;
+        }
+
+        _suggestedFor = found.Ok ? install : null;
+        SuggestedProcessName = found.Ok ? found.Value : string.Empty;
+        NotifyProcessNameOffer();
+    }
+
+    private void NotifyProcessNameOffer()
+    {
+        OnPropertyChanged(nameof(SuggestedProcessName));
+        OnPropertyChanged(nameof(HasProcessNameSuggestion));
+        OnPropertyChanged(nameof(ShowProcessNameWhy));
+        OnPropertyChanged(nameof(UseSuggestedProcessNameLabel));
+    }
+
+    [RelayCommand]
+    private void UseSuggestedProcessName() => ProcessName = SuggestedProcessName;
 
     /// <summary>The "Run the .exe" segment's text, named for the operating system's kind of program.</summary>
     public string RunExeLabel => _text.Message("gameEditor.launch.exe");
@@ -48,6 +100,7 @@ public sealed partial class GameEditorViewModel
         var install = InstallPath.Trim();
         if (install == _scannedFolder)
         {
+            await RefreshProcessNameSuggestionAsync();
             return;
         }
 
@@ -72,6 +125,7 @@ public sealed partial class GameEditorViewModel
         _executables = found.Ok ? found.Value : [];
         _scannedFolder = found.Ok ? install : null;
         UpdateSuggestions();
+        await RefreshProcessNameSuggestionAsync();
     }
 
     partial void OnLaunchChoiceChanged(int value)
@@ -79,6 +133,8 @@ public sealed partial class GameEditorViewModel
         LaunchError = null;
         OnPropertyChanged(nameof(IsExeMethod));
         OnPropertyChanged(nameof(IsSteamMethod));
+        NotifyProcessNameOffer();
+        _ = RefreshProcessNameSuggestionAsync();
     }
 
     partial void OnExePathChanged(string value)
@@ -87,7 +143,11 @@ public sealed partial class GameEditorViewModel
         UpdateSuggestions();
     }
 
-    partial void OnProcessNameChanged(string value) => UpdateSuggestions();
+    partial void OnProcessNameChanged(string value)
+    {
+        UpdateSuggestions();
+        NotifyProcessNameOffer();
+    }
 
     private void UpdateSuggestions()
     {

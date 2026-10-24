@@ -244,6 +244,31 @@ public class GameEditorViewTests
     }
 
     [AvaloniaFact]
+    public async Task A_link_start_explains_the_process_name_and_offers_the_games_program_as_a_button()
+    {
+        var backend = new FakeBackend(ScenarioBuilder.Mockup().WithExecutables(MockupScenario.SkyrimInstall, "SkyrimSELauncher.exe", "SkyrimSE.exe"));
+        using var harness = await EditorViewHarness.StartAsync(backend);
+        var editor = harness.Edit();
+        var row = harness.Find<StackPanel>("ProcessWhyRow");
+        Assert.False(row.IsEffectivelyVisible);
+
+        editor.ProcessName = string.Empty;
+        editor.LaunchChoice = 1;
+        harness.Settle();
+
+        Assert.True(row.IsEffectivelyVisible);
+        Assert.Contains("can't tell when you've stopped playing", harness.Find<TextBlock>("ProcessWhyText").Text);
+        var button = harness.Find<Button>("UseSuggestedProcessButton");
+        Assert.Equal("Use SkyrimSE.exe", button.Content);
+
+        button.Command!.Execute(null);
+        harness.Settle();
+
+        Assert.Equal("SkyrimSE.exe", harness.Find<TextBox>("ProcessField").Text);
+        Assert.False(row.IsEffectivelyVisible);
+    }
+
+    [AvaloniaFact]
     public async Task The_common_locations_are_buttons_that_prefix_the_saves_field()
     {
         using var harness = await EditorViewHarness.StartAsync();

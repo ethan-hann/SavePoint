@@ -218,10 +218,10 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
         Name = game.Name;
         InstallPath = game.Install.Path;
         SavesPath = game.External?.Path ?? string.Empty;
-        LaunchChoice = game.Launch.Method == LaunchMethod.Uri ? 1 : 0;
         ExePath = game.Launch.ExePath ?? string.Empty;
         Uri = game.Launch.Uri ?? string.Empty;
         ProcessName = game.Launch.ProcessNameForExitDetection ?? string.Empty;
+        LaunchChoice = game.Launch.Method == LaunchMethod.Uri ? 1 : 0;
         SteamAppIdText = game.SteamAppId?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
         LaunchArgs.SetValues(game.Launch.Args);
         IgnoreRules.SetValues(game.IgnorePaths);

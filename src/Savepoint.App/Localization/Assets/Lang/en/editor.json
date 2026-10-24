@@ -80,6 +80,8 @@
   "gameEditor.name.label": "Name",
   "gameEditor.processName.helper": "Used when the launcher closes itself before the game opens.",
   "gameEditor.processName.label": "Knowing when you've stopped playing",
+  "gameEditor.processName.linkWhy": "This game starts through a link, so SavePoint can't see its program. Without the game's program name here, SavePoint can't tell when you've stopped playing, and you'll have to say so yourself.",
+  "gameEditor.processName.use": "Use {name}",
   "gameEditor.reconnect.genericProfileName": "Recovered profile",
   "gameEditor.reconnect.message": "A game you removed from SavePoint used this folder, and its snapshots are still here. Reconnect to bring back its profiles and snapshots, or start fresh and leave them unused.",
   "gameEditor.reconnect.recoveredProfileName": "Recovered: {name}",
