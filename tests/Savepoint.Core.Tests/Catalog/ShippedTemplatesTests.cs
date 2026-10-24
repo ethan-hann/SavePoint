@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
@@ -42,6 +43,29 @@ public partial class ShippedTemplatesTests
             .Order(StringComparer.Ordinal);
 
         Assert.Equal(embedded, GameTemplates.All.Select(t => t.Id).Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void No_template_file_repeats_a_key()
+    {
+        // The loader keeps the last of two equal keys without a word, so a copy-and-paste slip would change a template silently.
+        var assembly = typeof(GameTemplates).Assembly;
+        var options = new JsonDocumentOptions { AllowDuplicateProperties = false };
+        var problems = new List<string>();
+        foreach (var resource in assembly.GetManifestResourceNames().Where(name => name.StartsWith(_resourcePrefix, StringComparison.Ordinal)))
+        {
+            using var reader = new StreamReader(assembly.GetManifestResourceStream(resource)!);
+            try
+            {
+                using var document = JsonDocument.Parse(reader.ReadToEnd(), options);
+            }
+            catch (JsonException exception)
+            {
+                problems.Add($"{resource[_resourcePrefix.Length..]}: {exception.Message}");
+            }
+        }
+
+        Assert.Empty(problems);
     }
 
     [Fact]
