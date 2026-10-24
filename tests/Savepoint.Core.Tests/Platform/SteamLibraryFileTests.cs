@@ -60,7 +60,7 @@ public class SteamLibraryFileTests
     {
         var text = SteamFixtures.File(@"""0""{""path""""d:/Steam Library//""}");
 
-        Assert.Equal([@"D:\Steam Library"],SteamLibraryFile.LibraryPaths(text, _windows));
+        Assert.Equal([@"D:\Steam Library"], SteamLibraryFile.LibraryPaths(text, _windows));
     }
 
     [Fact]

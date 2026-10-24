@@ -7,9 +7,9 @@ namespace Savepoint.Core.Platform;
 internal static class SteamLibraryFile
 {
     // The real file is a few KB; the bounds keep a hostile or corrupt file from costing memory or stack.
-    private const int MaxChars = 1 << 20;
-    private const int MaxDepth = 16;
-    private const int MaxLibraries = 256;
+    private const int _maxChars = 1 << 20;
+    private const int _maxDepth = 16;
+    private const int _maxLibraries = 256;
 
     /// <summary>
     /// The absolute library folders the file lists, in file order, normalized for <paramref name="syntax"/>. Entries that are not
@@ -17,7 +17,7 @@ internal static class SteamLibraryFile
     /// </summary>
     public static IReadOnlyList<string> LibraryPaths(string? text, PathSyntax syntax)
     {
-        if (string.IsNullOrWhiteSpace(text) || text.Length > MaxChars)
+        if (string.IsNullOrWhiteSpace(text) || text.Length > _maxChars)
         {
             return [];
         }
@@ -46,7 +46,7 @@ internal static class SteamLibraryFile
                 }
             }
 
-            if (found.Count >= MaxLibraries)
+            if (found.Count >= _maxLibraries)
             {
                 break;
             }
@@ -67,7 +67,7 @@ internal static class SteamLibraryFile
 
         private List<KeyValuePair<string, Node>>? ReadPairs(int depth, bool topLevel)
         {
-            if (depth > MaxDepth)
+            if (depth > _maxDepth)
             {
                 return null;
             }
