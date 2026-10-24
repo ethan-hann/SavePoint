@@ -34,6 +34,7 @@ public sealed partial class GitEngine
     /// <exception cref="Savepoint.Core.Errors.InterruptedSwitchException">A stopped switch left the folder half done and this one is not the switch to finish it; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.LinkedFolderException">On Windows, a folder link lies in the way; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.FileFolderClashException">Writing a file would delete a folder holding files of the player's that the switch does not remove, or making a folder would delete a file of the player's; nothing was changed.</exception>
+    /// <exception cref="Savepoint.Core.Errors.NamesDifferOnlyInCaseException">The folder is on a drive that ignores case and the target point holds two names that differ only in case; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.ProfileHasNoPointsException">The branch has no point to switch to.</exception>
     /// <exception cref="Savepoint.Core.Errors.GitOperationException">A file stayed in use through every attempt (the path is in its arguments), the only files reported as changed are held open by another program so they could not be read, or git failed.</exception>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
@@ -112,6 +113,7 @@ public sealed partial class GitEngine
     /// <exception cref="Savepoint.Core.Errors.ProfileHasNoPointsException">The folder has no saved point to return to; without one a discard would delete the whole folder, so nothing is touched.</exception>
     /// <exception cref="Savepoint.Core.Errors.LinkedFolderException">On Windows, a folder link lies in the way; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.FileFolderClashException">Restoring a file would delete a folder holding files of the player's that the discard does not remove, or restoring a folder would delete a file of the player's that the patterns name; nothing was changed.</exception>
+    /// <exception cref="Savepoint.Core.Errors.NamesDifferOnlyInCaseException">The folder is on a drive that ignores case and the point holds two names that differ only in case; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.DiskSpaceException">The disk filled while files were restored.</exception>
     /// <exception cref="Savepoint.Core.Errors.GitOperationException">A file stayed in use through every attempt, or git failed.</exception>
     /// <remarks>A point taken since empty folders were recorded holds its own, and a discard makes them again (git does not track them). A discard removes the empty folders the point does not hold along with the new files, and every empty folder of a point taken before that.</remarks>
@@ -128,6 +130,7 @@ public sealed partial class GitEngine
 
         var point = await RequireSavedPointAsync(repo, ct).ConfigureAwait(false);
         await RefuseLinkedFoldersInChangesAsync(repo, includeChanged: true, ct).ConfigureAwait(false);
+        await RefuseCaseClashAsync(repo, point, ct).ConfigureAwait(false);
         await RefuseDiscardClashAsync(repo, ct).ConfigureAwait(false);
 
         using var scope = BeginWrite(repo);
@@ -298,6 +301,7 @@ public sealed partial class GitEngine
         var note = SwitchJournal.Read(repo.GitDir);
         var plan = await PlanSwitchAsync(repo, from, to, note, ct).ConfigureAwait(false);
         LinkedFolders.RefuseAny(repo.WorkTree, plan.Touched, ct);
+        await RefuseCaseClashAsync(repo, to, ct).ConfigureAwait(false);
         await RequireNothingInTheWayAsync(repo, from, to, force, note, ct).ConfigureAwait(false);
         await RefuseFileFolderClashAsync(repo, plan, force, ct).ConfigureAwait(false);
         var sizes = await ObjectSizesAsync(repo, plan.Changes.SelectMany(change => new[] { change.OldId, change.NewId }), ct).ConfigureAwait(false);

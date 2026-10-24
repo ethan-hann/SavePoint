@@ -60,6 +60,7 @@ public static class ErrorPresentation
         ["error.history.pointNotFound"] = new(Icons.History, ErrorTone.Neutral, "errorCard.title.notFound"),
         ["error.launch.alreadyRunning"] = new(Icons.SportsEsports, ErrorTone.Neutral, "errorCard.title.gameRunning"),
         ["error.launch.canceled"] = new(Icons.Cancel, ErrorTone.Neutral, "errorCard.title.canceled"),
+        ["error.launch.caseClash"] = new(Icons.Folder, ErrorTone.Warning, "errorCard.title.sameNameDifferentCase"),
         ["error.launch.detachedCaptureNotSupported"] = new(Icons.History, ErrorTone.Warning, "errorCard.title.olderSave"),
         ["error.launch.completionNotOffered"] = new(Icons.Info, ErrorTone.Neutral, "errorCard.title.generic"),
         ["error.launch.dirtyWorkingTree"] = new(Icons.Warning, ErrorTone.Warning, "errorCard.title.unsavedChanges"),

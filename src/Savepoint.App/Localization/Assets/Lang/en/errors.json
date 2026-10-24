@@ -27,6 +27,7 @@
   "error.history.pointNotFound": "That snapshot isn't in this game's history anymore, so SavePoint couldn't go back to it. Open History again and pick another one.",
   "error.launch.alreadyRunning": "This game is already running.",
   "error.launch.canceled": "Switching was canceled.",
+  "error.launch.caseClash": "Your {role, select, install {install folder} external {saves folder} other {folder}} is on a drive that treats upper and lower case letters as the same, so it can't hold both {name} and {other} in one place, and this profile's snapshot has both (one is shown below). SavePoint changed nothing. Move the game to a drive that tells them apart, or choose a different profile.",
   "error.launch.completionNotOffered": "SavePoint can't keep this session that way. Pick one of the choices it offers after playing.",
   "error.launch.detachedCaptureNotSupported": "You're on an older snapshot of this profile. Go back to its latest snapshot before keeping new progress.",
   "error.launch.dirtyWorkingTree": "Some files in your game folders changed since the last snapshot. Choose whether to keep or discard them.",

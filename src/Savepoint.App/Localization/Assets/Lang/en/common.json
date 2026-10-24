@@ -64,6 +64,7 @@
   "errorCard.title.profileNotLoaded": "This profile isn't loaded",
   "errorCard.title.progressNotKept": "Your progress can't be kept here",
   "errorCard.title.removeFailed": "SavePoint couldn't remove something",
+  "errorCard.title.sameNameDifferentCase": "Two names differ only in upper and lower case",
   "errorCard.title.storageReachable": "Your snapshot folder is there",
   "errorCard.title.storageUnreachable": "SavePoint can't reach your snapshots",
   "errorCard.title.storageUnreadable": "SavePoint couldn't read part of its snapshot folder",

@@ -82,6 +82,8 @@ public class ErrorCopyTests
             new LinkedFolderException("/games/alpha/Mods"),
             new FileFolderClashException(RepoRole.Install, FileFolderClashKind.FolderHoldsFiles, "/games/alpha/Mods/Foo", "/games/alpha/Mods/Foo/data.bin"),
             new FileFolderClashException(RepoRole.External, FileFolderClashKind.FileInTheWay, "/saves/alpha/Slots", "/saves/alpha/Slots"),
+            new NamesDifferOnlyInCaseException(RepoRole.Install, "/games/alpha/Mods/Foo", "/games/alpha/Mods/foo"),
+            new NamesDifferOnlyInCaseException(RepoRole.External, "/saves/alpha/Slot", "/saves/alpha/slot"),
             new SessionMovedException(RepoRole.Install, "dev text"),
             new ProfileAlreadyExistsException("profile-1"),
             new ProfileHasNoPointsException("profile-1"),
