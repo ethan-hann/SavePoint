@@ -186,7 +186,8 @@ public interface IJobsApi
 
 public interface IAppStatusApi
 {
-    Task<OperationResult<StartupStatus>> CheckAsync(CancellationToken cancellationToken = default);
+    Task<OperationResult<StartupStatus>> CheckAsync(CancellationToken cancellationToken = default,
+        IProgress<StartupProgress>? progress = null);   // reports FinishingEarlierCleanup while a leftover git ends
     Task<OperationResult<string>> RecoverCatalogFileAsync(string path, CatalogRecovery recovery, CancellationToken cancellationToken = default);
     Task<OperationResult<string>> UseStorageFolderAsync(string folder, CancellationToken cancellationToken = default);   // "Find the folder"
     Task<OperationResult<string>> StartWithEmptyStorageAsync(CancellationToken cancellationToken = default);              // "Start with an empty folder"
@@ -256,6 +257,7 @@ Each choice checks again that the storage is lost once it holds the exclusive ga
 - **Case-insensitive drives:** the clash check picks its comparison per work tree, case-insensitive on Windows and macOS and wherever a probe shows the drive ignores case (NTFS or exFAT under Linux).
 - **Files the ignore list names (D41.2):** a switch leaves them exactly as they are on disk, whether or not a point recorded them, and never refuses because of one; a save stops recording them (earlier points keep them); a discard leaves them too.
 - **Folders the launch left alone:** a save reports such a folder as `FolderOutcome.LeftAlone`, with `LeftOnBranch` naming the branch it sits on (null on an older point), instead of counting it as saved. `FolderStart` records each folder's commit and branch at launch (D37.3).
+- **Folders with nothing new:** an update that finds nothing unsaved in a folder reports `FolderOutcome.Skipped` (still Ok, not Saved), and the partial card shows that folder as kept as it was rather than saved or failed.
 - **First save of a folder:** `CaptureMode.Root` starts a new branch whose first point has nothing behind it, holding what the folder holds now, from whatever branch the folder is on. Where the repository already has a point, it writes one even when nothing changed; on a repository with none it is a normal capture, and an empty folder gets an empty branch instead. A profile that saves a folder for the first time uses it, so its history there starts on its own instead of continuing another profile's.
 - **Storage moves:** a move refuses a destination inside the installer's own folder (`error.storageRelocation.insideInstallFolder`, D38), and refuses to start when anything in the current storage cannot be read (`error.storageRelocation.sourceUnreadable`, named in `path`). A folder that cannot be opened and is not named like a game folder does not stop the move and is left in place. An old copy that cannot be deleted for a reason closing a program will not fix is `error.storage.removeFailed`.
 
