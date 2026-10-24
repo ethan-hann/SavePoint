@@ -327,16 +327,16 @@
                           <TextBlock Text="{theme:Upper {loc:Loc history.save.loaded}}" />
                         </Border>
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" IsVisible="{Binding CanLoad}">
-                          <Button Classes="text pill"
-                                  Padding="12,7"
-                                  Command="{Binding SwitchCommand}"
-                                  Content="{loc:Loc history.save.switch}"
-                                  AutomationProperties.Name="{Binding SwitchAutomationName}" />
                           <Button Classes="pill"
                                   Padding="16,7"
                                   Command="{Binding LoadCommand}"
                                   Content="{loc:Loc history.save.load}"
                                   AutomationProperties.Name="{Binding LoadAutomationName}" />
+                          <Button Classes="text pill"
+                                  Padding="12,7"
+                                  Command="{Binding SwitchCommand}"
+                                  Content="{loc:Loc history.save.switch}"
+                                  AutomationProperties.Name="{Binding SwitchAutomationName}" />
                         </StackPanel>
                       </Grid>
                     </Border>

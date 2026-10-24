@@ -105,6 +105,7 @@ internal static class ContractScenario
         await backend.GameRunningAsync(game.Id, cancellationToken);
         story.Add("session while the game runs", Describe(backend.Launch.GetSession(game.Id), story));
         story.Add("second start while it runs", Show(await backend.Launch.StartAsync(game.Id, tip), _ => "unexpected success"));
+        story.Add("switch while it runs", Show(await backend.Launch.SwitchAsync(game.Id, tip), _ => "unexpected success"));
         story.Add("complete while it runs", Show(await backend.Launch.CompleteSessionAsync(game.Id, new SessionCompletion.Skip()), _ => "unexpected success"));
         story.Add("discard while it runs", Show(await backend.Launch.DiscardChangesAsync(game.Id, RepoRole.External), _ => "unexpected success"));
 
@@ -118,6 +119,7 @@ internal static class ContractScenario
         story.Add("finish with no game running", Show(await backend.Launch.MarkFinishedAsync(game.Id), _ => "unexpected success"));
         story.Add("sessions listed", $"{backend.Launch.ListSessions().Count} sessions");
         story.Add("unknown game", Show(await backend.Launch.StartAsync("no-such-game", tip), _ => "unexpected success"));
+        story.Add("switch of an unknown game", Show(await backend.Launch.SwitchAsync("no-such-game", tip), _ => "unexpected success"));
     }
 
     // A switch stopped part way leaves the install folder unfinished, the preview names the target that finishes it, and starting that

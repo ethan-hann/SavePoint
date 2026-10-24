@@ -96,9 +96,13 @@ public class TabOrderTests
             [
                 "History", "Skyrim Special Edition, 3 profiles", "Add a game",
                 "What's a snapshot?", "Filter by profile: All profiles", "Cards",
-                "Go back to this: Cleared Blackreach", "Go back to this: 14 mod files updated",
-                "Go back to this: Fresh start with Nolvus", "Go back to this: Vanilla 1.6.1170", "Go back to this: Deep cave run",
-                "Go back to this: First night", "Go back to this: Survival test - 5-14-26",
+                "Go back to this: Cleared Blackreach", "Switch to this snapshot: Cleared Blackreach",
+                "Go back to this: 14 mod files updated", "Switch to this snapshot: 14 mod files updated",
+                "Go back to this: Fresh start with Nolvus", "Switch to this snapshot: Fresh start with Nolvus",
+                "Go back to this: Vanilla 1.6.1170", "Switch to this snapshot: Vanilla 1.6.1170",
+                "Go back to this: Deep cave run", "Switch to this snapshot: Deep cave run",
+                "Go back to this: First night", "Switch to this snapshot: First night",
+                "Go back to this: Survival test - 5-14-26", "Switch to this snapshot: Survival test - 5-14-26",
             ],
             TabStops(app));
     }
@@ -134,8 +138,11 @@ public class TabOrderTests
             [
                 "History", "Skyrim Special Edition, 3 profiles", "Add a game",
                 "What's a snapshot?", "Filter by profile: All profiles", "List",
-                .. app.History.Timeline.Where(entry => entry.CanGoBack).Select(entry => entry.GoBackAutomationName),
-                "Go back to Cleared Blackreach", "Go back to Fresh start with Nolvus", "Go back to Deep cave run", "Go back to First night",
+                .. app.History.Timeline.Where(entry => entry.CanGoBack).SelectMany(entry => new[] { entry.GoBackAutomationName, entry.SwitchAutomationName }),
+                "Go back to Cleared Blackreach", "Switch to this snapshot: Cleared Blackreach",
+                "Go back to Fresh start with Nolvus", "Switch to this snapshot: Fresh start with Nolvus",
+                "Go back to Deep cave run", "Switch to this snapshot: Deep cave run",
+                "Go back to First night", "Switch to this snapshot: First night",
             ],
             TabStops(app));
     }

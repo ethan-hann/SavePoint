@@ -114,6 +114,41 @@ public class LaunchEndToEndTests
     }
 
     [Fact]
+    public async Task Switching_to_a_profile_from_its_row_goes_from_the_dialog_through_a_switch_job_to_a_toast_with_no_session_and_no_after_play_prompt()
+    {
+        using var app = await ComposedApp.StartAsync();
+
+        var switching = Row(app, MockupScenario.VanillaId).SwitchCommand.ExecuteAsync(null);
+        var dialog = app.Dialog<LaunchDialogViewModel>();
+
+        Assert.Equal("Switch", dialog.ConfirmLabel);
+        AssertPlayIs(app, false);
+
+        dialog.SwitchCommand.Execute(null);
+        await switching.Soon();
+
+        Assert.Empty(app.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.StartAsync)));
+        var call = Assert.Single(app.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.SwitchAsync)));
+        Assert.Equal([_skyrim, new LaunchTarget.ProfileTip(MockupScenario.VanillaId)], call.Args);
+        var job = app.Backend.Jobs.LastStarted(JobKind.Switch);
+        var progress = app.Dialog<SwitchProgressDialogViewModel>();
+        Assert.Equal("Switching Skyrim Special Edition's files…", progress.Title);
+        AssertPlayIs(app, false);
+
+        app.Backend.Jobs.ReportProgress(job.JobId, MockupScenario.SwitchProgress);
+        Assert.Equal("62%", progress.PercentText);
+
+        app.Backend.Jobs.Complete(job.JobId);
+
+        Assert.True(progress.IsClosed);
+        Assert.Null(app.Games.InlineContent);
+        Assert.Equal(["Vanilla - latest update is loaded. Skyrim Special Edition was not started."], app.ToastTexts);
+        Assert.Empty(app.Dialogs.Shown.OfType<PostPlayDialogViewModel>());
+        Assert.Null(app.Backend.Launch.GetSession(_skyrim));
+        AssertPlayIs(app, true);
+    }
+
+    [Fact]
     public async Task A_profile_already_in_place_starts_at_once_under_the_banner_with_no_dialog()
     {
         using var app = await ComposedApp.StartAsync();
