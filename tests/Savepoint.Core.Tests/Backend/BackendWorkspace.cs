@@ -39,6 +39,7 @@ internal sealed class BackendWorkspace : IDisposable
         {
             CopyTree(templateRoot, Root);
             RewriteRoot(Root, templateRoot);
+            AssertNoTemplateName(Root, templateRoot);
             Directory.CreateDirectory(GamesRoot);
             Directory.CreateDirectory(InstallDirectory);
             Platform = FakePlatforms.ForHost(Home);
@@ -246,19 +247,13 @@ internal sealed class BackendWorkspace : IDisposable
         foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
         {
             var relative = Path.GetRelativePath(root, file).Replace('\\', '/');
-            if (relative.Contains("/objects/", StringComparison.Ordinal))
+            if (IsKeptAsCopied(relative))
             {
                 continue;
             }
 
             var text = utf8.GetString(File.ReadAllBytes(file));
             if (!text.Contains(plain, StringComparison.Ordinal) && !text.Contains(slashes, StringComparison.Ordinal) && !text.Contains(escaped, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            // Git's untracked cache in the index names the folder it was taken in; git discards the cache when the folder differs.
-            if (Path.GetFileName(file) == "index")
             {
                 continue;
             }
@@ -270,6 +265,26 @@ internal sealed class BackendWorkspace : IDisposable
                 .Replace(slashes, root.Replace('\\', '/'), StringComparison.Ordinal);
             File.SetAttributes(file, FileAttributes.Normal);
             File.WriteAllBytes(file, utf8.GetBytes(rewritten));
+        }
+    }
+
+    // Git's untracked cache in the index names the folder it was taken in; git discards the cache when the folder differs.
+    private static bool IsKeptAsCopied(string relative) =>
+        relative.Contains("/objects/", StringComparison.Ordinal) || Path.GetFileName(relative) == "index";
+
+    // Whatever form of the root the rewrite did not recognise still names the template's unique folder; a copy that shares it would
+    // change the template's data under other tests.
+    private static void AssertNoTemplateName(string root, string templateRoot)
+    {
+        var marker = Path.GetFileName(templateRoot);
+        var utf8 = new UTF8Encoding(false);
+        foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
+        {
+            var relative = Path.GetRelativePath(root, file).Replace('\\', '/');
+            if (!IsKeptAsCopied(relative))
+            {
+                Assert.False(utf8.GetString(File.ReadAllBytes(file)).Contains(marker, StringComparison.OrdinalIgnoreCase), $"{relative} still names the template folder {marker}");
+            }
         }
     }
 
