@@ -8,7 +8,8 @@ namespace Savepoint.Core.Launch;
 /// A program SavePoint started ends the session when it exits. When a process name is configured, that exit is only the start of
 /// the wait: a launcher stub that hands over to the real game exits early, so the session then follows the named process, which has
 /// <see cref="GameSessionOptions.Grace"/> from the stub's exit to appear. The list is read from the moment the watcher starts, so
-/// a game seen while the stub was still alive needs no grace. A link has no program, so it is poll-only and best effort, and with no
+/// a game seen while the stub was still alive needs no grace. The started program itself never counts as that game, even under the
+/// same name: a game that exits and asks its store to start it again has the grace to come back as a new process. A link has no program, so it is poll-only and best effort, and with no
 /// process name it can only be ended by <see cref="MarkFinished"/>.
 /// </para>
 /// <para>
@@ -157,7 +158,9 @@ public sealed class GameSessionWatcher : IDisposable
                 }
             }
 
-            var state = _check.Probe(name);
+            // The started program does not count as the game it hands over to: a game that exits and asks its store to start it again
+            // leaves a same-named process behind only by being the one that was started.
+            var state = _check.Probe(name, _child?.Pid);
             observed |= state == NamedProcessState.Running;
 
             // The program's own exit is always needed; the named process only lengthens the wait after it.

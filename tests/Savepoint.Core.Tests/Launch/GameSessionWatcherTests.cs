@@ -174,6 +174,51 @@ public class GameSessionWatcherTests
         Assert.Equal(Seconds(4), outcome.PlayDuration);
     }
 
+    // A game that asks its store to start it again exits at once, and the store starts a new copy under the same name a moment later.
+    private static RunningProcess Copy(int pid) => new(pid, "Game", null);
+
+    [Fact]
+    public async Task A_program_that_exits_and_is_started_again_under_its_own_name_is_followed_to_the_end_of_the_new_copy()
+    {
+        using var rig = await WatcherRig.ProgramAsync(_name);
+        rig.Processes.Set(Copy(rig.Child!.Pid), ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(4));
+
+        rig.Processes.Set(ScriptedInspector.Bystander);
+        await rig.ExitChildAsync();
+        await rig.AdvanceAsync(Seconds(6));
+        Assert.False(rig.Watcher.IsSettled);
+
+        rig.Processes.Set(Copy(901), ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(TimeSpan.FromMinutes(5));
+        Assert.False(rig.Watcher.IsSettled);
+
+        rig.Processes.Set(ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(2));
+        var outcome = await rig.OutcomeAsync();
+
+        Assert.Equal(SessionEndKind.NamedProcessEnded, outcome.Kind);
+        Assert.Equal(Seconds(4 + 6) + TimeSpan.FromMinutes(5) + Seconds(2), outcome.PlayDuration);
+    }
+
+    [Fact]
+    public async Task A_program_that_exits_and_is_not_started_again_settles_when_the_grace_runs_out()
+    {
+        using var rig = await WatcherRig.ProgramAsync(_name);
+        rig.Processes.Set(Copy(rig.Child!.Pid), ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(4));
+
+        rig.Processes.Set(ScriptedInspector.Bystander);
+        await rig.ExitChildAsync();
+        await rig.AdvanceAsync(Seconds(29));
+        Assert.False(rig.Watcher.IsSettled);
+        await rig.AdvanceAsync(Seconds(1));
+        var outcome = await rig.OutcomeAsync();
+
+        Assert.Equal(SessionEndKind.NamedProcessNeverAppeared, outcome.Kind);
+        Assert.Equal(Seconds(34), outcome.PlayDuration);
+    }
+
     [Fact]
     public async Task With_no_grace_the_session_settles_at_the_first_look_after_the_stub_exits()
     {

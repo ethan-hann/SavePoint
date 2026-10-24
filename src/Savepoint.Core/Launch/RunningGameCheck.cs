@@ -27,7 +27,7 @@ public sealed class RunningGameCheck
     public bool IsRunning(string processName) => Probe(processName) == NamedProcessState.Running;
 
     // The inspectors report a list they could not read as an empty one, and a machine always runs something.
-    internal NamedProcessState Probe(string processName)
+    internal NamedProcessState Probe(string processName, int? ignoringPid = null)
     {
         if (string.IsNullOrWhiteSpace(processName))
         {
@@ -50,7 +50,9 @@ public sealed class RunningGameCheck
             return NamedProcessState.Unknown;
         }
 
-        return running.Any(process => ProcessNameMatcher.Matches(processName, process, _os)) ? NamedProcessState.Running : NamedProcessState.Absent;
+        return running.Any(process => process.Pid != ignoringPid && ProcessNameMatcher.Matches(processName, process, _os))
+            ? NamedProcessState.Running
+            : NamedProcessState.Absent;
     }
 }
 
