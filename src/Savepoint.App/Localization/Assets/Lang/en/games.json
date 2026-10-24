@@ -102,7 +102,6 @@
   "profiles.wizard.save.backgroundHint": "You can close this window and keep using SavePoint. The snapshot carries on, Activity shows how far it has got, and you'll get a message when it's done.",
   "profiles.wizard.save.bytesProgress": "{done} of {total} copied",
   "profiles.wizard.save.close": "Close",
-  "profiles.wizard.save.counting": "Working out how much there is to copy…",
   "profiles.wizard.save.currentFile": "Latest file finished: {currentFile}",
   "profiles.wizard.save.done": "Done",
   "profiles.wizard.save.filesCopied": "{count, plural, one {{countText} file} other {{countText} files}} copied",

@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Errors;
+using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Theme;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
@@ -149,7 +150,7 @@ public sealed partial class NewProfileWizardViewModel
             (ProgressText, FilesText) = (filesDone, filesTotal) switch
             {
                 ({ } done, { } total) => (_text.Message("profiles.wizard.save.filesProgress", ("done", _text.Number(done)), ("total", total), ("totalText", _text.Number(total))), string.Empty),
-                ({ } done, null) => (_text.Message("profiles.wizard.save.counting"), done > 0 ? _text.Message("profiles.wizard.save.filesCopied", ("count", done), ("countText", _text.Number(done))) : string.Empty),
+                ({ } done, null) => (_text.Counting(), done > 0 ? _text.Message("profiles.wizard.save.filesCopied", ("count", done), ("countText", _text.Number(done))) : string.Empty),
                 _ => (_text.Message("profiles.wizard.save.savingHint"), string.Empty),
             };
         }

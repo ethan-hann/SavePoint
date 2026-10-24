@@ -153,21 +153,21 @@ public sealed partial class UnsavedChangesBlockViewModel : ObservableObject
     /// <param name="text">Formats the files line and the quarter announcements.</param>
     internal void UpdateSaving(JobProgress progress, UiFormatter text)
     {
-        if (progress.FilesTotal is > 0 && progress.FilesDone is { } done)
+        if (ProgressWording.Fraction(progress) is { } share)
         {
             IsProgressIndeterminate = false;
-            ProgressPercent = Math.Clamp((double)done / progress.FilesTotal.Value, 0, 1) * 100;
+            ProgressPercent = share * 100;
             if (_milestones.Crossed((int)Math.Floor(ProgressPercent)) is { } crossed)
             {
                 Announcement = text.Message("launch.saving.announcePercent", ("percent", crossed));
             }
 
-            ProgressText = text.Message("launch.progress.files", ("done", text.Number(done)), ("total", text.Number(progress.FilesTotal.Value)));
+            ProgressText = text.Describe(progress)!;
         }
-        else if (progress.FilesDone is { } count)
+        else if (progress.FilesDone is not null)
         {
             IsProgressIndeterminate = true;
-            ProgressText = text.Message("launch.dialog.savingFiles", ("done", text.Number(count)));
+            ProgressText = text.Counting();
         }
     }
 

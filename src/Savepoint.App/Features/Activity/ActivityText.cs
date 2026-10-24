@@ -75,30 +75,19 @@ public sealed class ActivityText
     public string Progress(JobSnapshot job)
     {
         var progress = job.Progress;
-        if (progress is { BytesTotal: > 0, BytesDone: { } bytesDone, BytesTotal: { } bytesTotal })
+        if (_text.Describe(progress) is { } described)
         {
-            return _text.Message("activity.progress.bytes", ("done", _text.FileSize(bytesDone)), ("total", _text.FileSize(bytesTotal)));
+            return described;
         }
 
-        if (progress is { FilesTotal: > 0, FilesDone: { } filesDone, FilesTotal: { } filesTotal })
-        {
-            return _text.Message("activity.progress.files", ("done", filesDone), ("total", filesTotal));
-        }
-
-        return progress.FilesDone is > 0 and { } counted ? _text.Message("activity.progress.filesSoFar", ("done", counted)) : string.Empty;
+        return progress.FilesDone is > 0 ? _text.Counting() : string.Empty;
     }
 
     /// <summary>The share of the work done, from 0 to 1, or null when the job cannot say.</summary>
     /// <param name="job">The job.</param>
     public double? Fraction(JobSnapshot job)
     {
-        var progress = job.Progress;
-        if (progress is { BytesTotal: > 0, BytesDone: { } bytesDone, BytesTotal: { } bytesTotal })
-        {
-            return Math.Clamp((double)bytesDone / bytesTotal, 0, 1);
-        }
-
-        return progress is { FilesTotal: > 0, FilesDone: { } filesDone, FilesTotal: { } filesTotal } ? Math.Clamp((double)filesDone / filesTotal, 0, 1) : null;
+        return ProgressWording.Fraction(job.Progress);
     }
 
     /// <summary>A guess at the time left, worked out from how fast the job has gone; empty when it is too early or too late to say.</summary>

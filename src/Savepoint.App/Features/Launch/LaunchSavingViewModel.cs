@@ -54,21 +54,21 @@ public sealed partial class LaunchSavingViewModel : ObservableObject
     /// <summary>Takes the newest progress report from the capture job.</summary>
     public void Update(JobProgress progress)
     {
-        if (progress.FilesTotal is > 0 && progress.FilesDone is { } done)
+        if (ProgressWording.Fraction(progress) is { } share)
         {
             IsIndeterminate = false;
-            PercentValue = Math.Clamp((double)done / progress.FilesTotal.Value, 0, 1) * 100;
+            PercentValue = share * 100;
             if (_milestones.Crossed((int)Math.Floor(PercentValue)) is { } crossed)
             {
                 Announcement = _text.Message("launch.saving.announcePercent", ("percent", crossed));
             }
 
-            ProgressText = _text.Message("launch.progress.files", ("done", _text.Number(done)), ("total", _text.Number(progress.FilesTotal.Value)));
+            ProgressText = _text.Describe(progress)!;
         }
-        else if (progress.FilesDone is { } count)
+        else if (progress.FilesDone is not null)
         {
             IsIndeterminate = true;
-            ProgressText = _text.Message("launch.progress.filesSoFar", ("done", _text.Number(count)));
+            ProgressText = _text.Counting();
         }
     }
 

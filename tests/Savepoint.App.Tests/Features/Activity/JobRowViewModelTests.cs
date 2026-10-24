@@ -132,9 +132,17 @@ public class JobRowViewModelTests
     {
         var row = Row(Job(progress: new JobProgress(FilesDone: 7)));
 
-        Assert.Equal("7 files so far", row.ProgressText);
+        Assert.Equal("Working out how much there is to copy…", row.ProgressText);
         Assert.True(row.IsIndeterminate);
         Assert.True(row.ShowProgress);
+    }
+
+    [Fact]
+    public void One_file_in_all_is_not_called_files()
+    {
+        var row = Row(Job(progress: new JobProgress(FilesDone: 1, FilesTotal: 1)));
+
+        Assert.Equal("1 of 1 file", row.ProgressText);
     }
 
     [Fact]
