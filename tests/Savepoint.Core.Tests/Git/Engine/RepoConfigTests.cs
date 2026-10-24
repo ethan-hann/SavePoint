@@ -128,6 +128,16 @@ public sealed class RepoConfigTests : IDisposable
     }
 
     [Fact]
+    public async Task The_managed_block_opens_each_section_once()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+
+        var sections = (await File.ReadAllLinesAsync(Path.Combine(repo.GitDir, "config"), Ct)).Where(line => line.StartsWith('[')).ToArray();
+
+        Assert.Equal(sections.Distinct().Count(), sections.Length);
+    }
+
+    [Fact]
     public async Task A_repository_stamped_5_takes_pack_compression_off_the_next_time_it_is_touched()
     {
         var repo = await _ws.InitializedRepoAsync();

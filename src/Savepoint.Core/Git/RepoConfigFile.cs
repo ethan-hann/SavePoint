@@ -116,9 +116,6 @@ internal static partial class RepoConfigFile
             ("core", "quotePath", "false"),
             ("core", "autocrlf", "false"),
             ("core", "bigFileThreshold", "128m"),
-            // Files over the threshold are streamed into a pack, and nearly all are archives that are already compressed; zlib there
-            // cost several times the time for a few percent of space.
-            ("pack", "compression", "0"),
             ("core", "logAllRefUpdates", "false"),
         ];
 
@@ -126,6 +123,10 @@ internal static partial class RepoConfigFile
         {
             settings.Add(("core", "symlinks", "false"));
         }
+
+        // Files over the threshold are streamed into a pack, and nearly all are archives that are already compressed; zlib there
+        // cost several times the time for a few percent of space. After the core entries so that section opens once.
+        settings.Add(("pack", "compression", "0"));
 
         // Last, so a rewrite that stopped half way is repeated.
         settings.Add((_stampSection, _stampKey, Version));
