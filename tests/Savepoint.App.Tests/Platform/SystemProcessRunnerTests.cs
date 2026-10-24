@@ -54,15 +54,26 @@ public class SystemProcessRunnerTests
     public async Task The_killed_program_never_gets_to_its_next_step()
     {
         var runner = new SystemProcessRunner();
-        var marker = $"savepoint-kill-marker-{Guid.NewGuid():N}.tmp";
-        var markerPath = Path.Combine(Environment.CurrentDirectory, marker);
+        var folder = Path.Combine(Path.GetTempPath(), "savepoint-kill-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        var markerPath = Path.Combine(folder, "marker.tmp");
+        var controlPath = Path.Combine(folder, "control.tmp");
+
+        // The path travels as its own argument, so the runner quotes it and a folder with spaces in its name still works; cmd mangles quotes written into a script.
         var script = OperatingSystem.IsWindows()
-            ? $"ping -n 4 127.0.0.1 >nul & echo x>{marker}"
-            : $"sleep 3; touch {marker}";
+            ? new ProcessCommand("cmd.exe", ["/c", "ping", "-n", "4", "127.0.0.1", ">nul", "&", "echo", "x", ">", markerPath])
+            : new ProcessCommand("/bin/sh", ["-c", "sleep 3; touch \"$1\"", "sh", markerPath]);
+        var control = OperatingSystem.IsWindows()
+            ? new ProcessCommand("cmd.exe", ["/c", "echo", "x", ">", controlPath])
+            : new ProcessCommand("/bin/sh", ["-c", "touch \"$1\"", "sh", controlPath]);
 
         try
         {
-            var output = await runner.RunAsync(Shell(script), TimeSpan.FromMilliseconds(300), Ct);
+            // Without this a script that cannot write its marker would pass the test for the wrong reason.
+            await runner.RunAsync(control, _generous, Ct);
+            Assert.True(File.Exists(controlPath), "the script cannot write a marker into the test's folder");
+
+            var output = await runner.RunAsync(script, TimeSpan.FromMilliseconds(300), Ct);
             await Task.Delay(TimeSpan.FromSeconds(5), Ct);
 
             Assert.Null(output);
@@ -70,7 +81,7 @@ public class SystemProcessRunnerTests
         }
         finally
         {
-            File.Delete(markerPath);
+            Directory.Delete(folder, recursive: true);
         }
     }
 
