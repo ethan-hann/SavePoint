@@ -450,6 +450,8 @@ public class ShellViewTests
 
         Assert.Contains("Start from a template", Texts());
         Assert.NotNull(picker.FindControl<TextBox>("SearchField"));
+        Assert.True(picker.FindControl<TextBox>("SearchField")!.IsFocused, "The search field has the keyboard focus as soon as the picker opens.");
+        Assert.Equal(AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(picker.FindControl<TextBlock>("NoMatchesText")!));
         Assert.False(picker.FindControl<TextBlock>("NoMatchesText")!.IsEffectivelyVisible);
 
         // Hundreds of templates ship, so the list scrolls and the search is how a game is found.

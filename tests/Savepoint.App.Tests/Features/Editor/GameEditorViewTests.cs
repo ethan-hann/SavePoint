@@ -14,6 +14,7 @@ using Savepoint.App.Tests.Theme;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
+using Savepoint.Core.Platform;
 
 namespace Savepoint.App.Tests.Features.Editor;
 
@@ -406,7 +407,8 @@ public class GameEditorViewTests
     public async Task The_folder_confirmation_names_the_paths_and_its_buttons_answer_it()
     {
         using var harness = await EditorViewHarness.StartAsync();
-        var editor = harness.New(harness.Backend.Games.Templates[0].ToDraft());
+        // Skyrim names a saves folder as well as the install folder, so two folders are confirmed.
+        var editor = harness.New(harness.Backend.Games.Templates.Single(t => t.Id == "skyrim-se").ToDraft(OsKind.Windows));
         // Templates leave the install folder for the player to pick.
         editor.InstallPath = @"C:\Games\SkyrimSE";
         var saving = editor.SaveCommand.ExecuteAsync(null);

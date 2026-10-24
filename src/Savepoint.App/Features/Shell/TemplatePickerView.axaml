@@ -32,7 +32,7 @@
         </ItemsControl.ItemTemplate>
       </ItemsControl>
     </ScrollViewer>
-    <TextBlock x:Name="NoMatchesText" Classes="body muted" IsVisible="{Binding ShowNoMatches}" Text="{Binding NoMatchesText}" />
+    <TextBlock x:Name="NoMatchesText" Classes="body muted" AutomationProperties.LiveSetting="Polite" IsVisible="{Binding ShowNoMatches}" Text="{Binding NoMatchesText}" />
     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,4,0,0">
       <Button Classes="text pill large" Command="{Binding CancelCommand}" Content="{loc:Loc common.cancel}" />
       <Button Classes="pill large" Command="{Binding OpenFileCommand}" Content="{loc:Loc templatePicker.openFile}" />
