@@ -163,8 +163,8 @@ public sealed partial class GitEngine
 // The text of a commit: the point's name, then the capture id as a trailer in its own paragraph.
 internal static class CommitMessage
 {
-    private const string _captureTrailerKey = "Savepoint-Capture:";
-    private const string _capturedAtTrailerKey = "Savepoint-Captured-At:";
+    private const string _captureTrailerKey = "Savepoint-Capture";
+    private const string _capturedAtTrailerKey = "Savepoint-Captured-At";
 
     // What a name may hold. History reads split git's output on the unit separator and take the capture id from a trailer, so
     // a name that holds either could shift the fields of its own point or pass itself off as another capture's id.
@@ -187,10 +187,12 @@ internal static class CommitMessage
         }
     }
 
+    // git reads the key without regard to case and allows blanks before the colon.
     private static bool StartsLikeTrailer(string line) =>
-        line.StartsWith(_captureTrailerKey, StringComparison.OrdinalIgnoreCase)
-        || line.StartsWith(_capturedAtTrailerKey, StringComparison.OrdinalIgnoreCase)
-        || line.StartsWith(EmptyFolders.TrailerKey + ":", StringComparison.OrdinalIgnoreCase);
+        IsKeyOf(line, _captureTrailerKey) || IsKeyOf(line, _capturedAtTrailerKey) || IsKeyOf(line, EmptyFolders.TrailerKey);
+
+    private static bool IsKeyOf(string line, string key) =>
+        line.StartsWith(key, StringComparison.OrdinalIgnoreCase) && line[key.Length..].TrimStart(' ', '\t').StartsWith(':');
 
     // The capture time is written with the capture id, as whole milliseconds since 1970, so every commit of one event agrees on it.
     // The empty folders ride in the commit itself so they stay with the point through every operation on history.

@@ -12,7 +12,7 @@ public sealed partial class GitEngine
         }
 
         var excluded = await ExcludedAmongAsync(repo, found, ct).ConfigureAwait(false);
-        return [.. found.Where(folder => !excluded.Contains(folder) && EmptyFolders.IsSafe(folder) && !LinkedFolders.IsInsideLink(repo.WorkTree, folder))];
+        return [.. found.Where(folder => !excluded.Contains(folder) && EmptyFolders.IsSafe(folder) && EmptyFolders.ResolvesInside(repo.WorkTree, folder) && !LinkedFolders.IsInsideLink(repo.WorkTree, folder))];
     }
 
     // Makes again the empty folders the point was taken with. Folders are only created, never removed: one that is there stays, one the
@@ -23,10 +23,8 @@ public sealed partial class GitEngine
             GitDirOnly(repo, "log", "-1", "--format=%(trailers:key=" + EmptyFolders.TrailerKey + ",valueonly)", commit, "--"),
             ct).ConfigureAwait(false);
         var line = result.StandardOutput.Split('\n').Select(text => text.Trim()).FirstOrDefault(text => text.Length > 0);
-        var comparer = PathComparerFor(repo);
         var missing = EmptyFolders.Decode(line)
-            .Where(EmptyFolders.IsSafe)
-            .Distinct(comparer)
+            .Where(folder => EmptyFolders.IsSafe(folder) && EmptyFolders.ResolvesInside(repo.WorkTree, folder))
             .Where(folder => !Directory.Exists(FullPath(repo, folder)))
             .ToArray();
         if (missing.Length == 0)
@@ -54,14 +52,14 @@ public sealed partial class GitEngine
     private async Task<HashSet<string>> ExcludedAmongAsync(RepoRef repo, IReadOnlyList<string> folders, CancellationToken ct)
     {
         ExcludeFromArgument(repo);
-        var stdin = string.Concat(folders.Select(folder => folder + "/\0"));
-        var invocation = GitDirOnly(repo, "check-ignore", "--no-index", "-z", "--stdin") with
+        // check-ignore refuses literal pathspecs, so a name that starts with a colon would read as pathspec magic; the "./" in front keeps it a name.
+        var stdin = string.Concat(folders.Select(folder => "./" + folder + "/\0"));
+        var invocation = Classify(repo, "check-ignore", "--no-index", "-z", "--stdin") with
         {
             Stdin = stdin,
-            WorkTree = Path.Combine(repo.GitDir, "info"),
             AllowedExitCodes = [0, 1],
         };
         var result = await RunAsync(invocation, ct).ConfigureAwait(false);
-        return [.. result.SplitStandardOutputOnNul().Select(path => path.TrimEnd('/'))];
+        return [.. result.SplitStandardOutputOnNul().Select(path => path.TrimEnd('/')[2..])];
     }
 }
