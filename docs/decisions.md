@@ -271,7 +271,7 @@ The project calls for an installer and a portable build per OS. v2 packages with
     - Windows: `SavePoint-win-Setup.exe`, `SavePoint-win-Portable.zip`, `SavePointApp-<version>-full.nupkg` (vpk names it after the pack id, D38), and vpk's release index files.
     - Linux: `SavePoint.AppImage` and `SavePointApp-<version>-linux-full.nupkg`.
   - **From the final review (D41):** the commit goes into the informational version (`0.9.0+<commit>`), a tree with uncommitted changes is refused unless a trial package is asked for, the source archives' hashes are pinned in `build/git-manifest.json` (since the 0.9.0 release); the `-Sources` run checks each download against its pin before anything is published and fails on a mismatch, and a download is kept only when it matches its pin (D42), and each package's contents are listed in `artifacts/release/contents-<rid>/` and checked for the git bundle, the notices, and the license texts.
-  - **Not yet covered:** the packages are unsigned, so SmartScreen warns on the setup. Releases still need to publish the MSYS2 and MINGW package sources that D21 also promises.
+  - **Not yet covered:** the packages are unsigned, so SmartScreen warns on the setup. The MSYS2 and MINGW package sources D21 promises are published with each release since 0.9.2: `build/msys2-sources.json` pins one source archive per package line in MinGit's `etc/package-versions.txt` (50 archives, about 670 MiB, from repo.msys2.org and Git for Windows' pacman-repo releases), and a MinGit update needs that list regenerated.
 
 ## D34. A local diagnostic log and a crash handler
 
@@ -358,7 +358,7 @@ The final gap analysis (GAP-001 to GAP-027) is settled as follows:
   - path-safety and overlap errors that carry the folder's role (GAP-015);
   - a copy pass (GAP-018, GAP-019): American spelling, one dash style (an em dash for asides, never a spaced hyphen), and helper lines that end with a period;
   - re-rendering 2a-2l and 3a-3c, reviewed against the mockups (GAP-007).
-- **Still open (GAP-004, GAP-006, GAP-008):** the manual dogfood run, code signing, and the MSYS2 and MINGW source archives, which are tracked in the issue tracker. SavePoint's own license is settled: GPL-3.0-or-later (`LICENSE`).
+- **Still open (GAP-004, GAP-006, GAP-008):** the manual dogfood run and code signing, which are tracked in the issue tracker. SavePoint's own license is settled: GPL-3.0-or-later (`LICENSE`).
 - **The final code review (GAP-005)** runs after the polish pass, over everything since the backend review.
 
 ## D40. Mockup differences left after the final renders
