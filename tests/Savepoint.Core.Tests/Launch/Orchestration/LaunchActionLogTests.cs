@@ -1,5 +1,7 @@
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Launch;
+using Savepoint.Core.Platform;
 using Savepoint.Testing;
 
 namespace Savepoint.Core.Tests.Launch.Orchestration;
@@ -66,6 +68,44 @@ public class LaunchActionLogTests
         Assert.Equal(LogLevel.Information, line.Level);
         Assert.Contains("ManuallyFinished", line.Message, StringComparison.Ordinal);
         Assert.Contains($"started pid {pid}", line.Message, StringComparison.Ordinal);
+    }
+
+    [Fact(Timeout = 120_000)]
+    public async Task A_session_whose_game_cannot_be_followed_logs_that_it_ended_that_way_with_the_error_and_the_started_pid()
+    {
+        var starter = new GameStarter(new BrokenLauncher(), new ScriptedInspector(), PlatformFactory.CurrentOs, new GameSessionOptions(), TimeProvider.System);
+        using var rig = await LaunchRig.CreateAsync(options => options with { Log = _log }, starter: starter);
+        var vanilla = await rig.ProfileAsync("Vanilla");
+
+        await rig.StartAsync(new LaunchTarget.ProfileTip(vanilla.Id));
+        await rig.WaitForAsync<SessionState.Exited>();
+
+        var line = Assert.Single(_log.Containing("Launch session for", rig.Game.Id, "could not be followed"));
+        Assert.Contains("started pid 777", line.Message, StringComparison.Ordinal);
+        Assert.Contains("the process is gone", line.Message, StringComparison.Ordinal);
+    }
+
+    // Starts nothing; the process it hands back fails when waited on, as a watcher that cannot read a program's state would.
+    private sealed class BrokenLauncher : IGameLauncher
+    {
+        public IGameProcess StartExecutable(string path, IReadOnlyList<string> args, string workingDirectory) => new BrokenProcess();
+
+        public Task OpenUriAsync(string uri, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
+    private sealed class BrokenProcess : IGameProcess
+    {
+        public int Pid => 777;
+
+        public bool HasExited => false;
+
+        public int? ExitCode => null;
+
+        public Task WaitForExitAsync(CancellationToken cancellationToken) => Task.FromException(new InvalidOperationException("the process is gone"));
+
+        public void Dispose()
+        {
+        }
     }
 
     [Fact(Timeout = 150_000)]

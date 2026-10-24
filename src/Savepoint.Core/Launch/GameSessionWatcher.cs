@@ -39,7 +39,7 @@ public sealed class GameSessionWatcher : IDisposable
     /// <param name="os">The OS the process list came from; it decides how names are compared.</param>
     /// <param name="options">Polling interval and grace.</param>
     /// <param name="clock">Time source for the start, the end, and every wait.</param>
-    /// <exception cref="ArgumentOutOfRangeException">The polling interval is not positive or the grace is negative.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The polling interval is not positive, or the grace or the relaunch window is negative.</exception>
     public GameSessionWatcher(
         IGameProcess? child,
         string? processName,
@@ -60,6 +60,9 @@ public sealed class GameSessionWatcher : IDisposable
 
     /// <summary>When the session began.</summary>
     public DateTimeOffset StartedAt { get; }
+
+    /// <summary>The process id of the program SavePoint started, or null for a link; it stays readable after the program exits.</summary>
+    public int? StartedPid => _child?.Pid;
 
     /// <summary>
     /// Completes once, with how the session ended. It is canceled when the watcher is disposed first, and faulted only if reading
@@ -188,13 +191,22 @@ public sealed class GameSessionWatcher : IDisposable
                 // A game that ran for a while under the named process and is gone was quit; only a quick exit may be a restart.
                 if (!observed && selfSeen && state == NamedProcessState.Absent && graceFrom - StartedAt >= _options.RelaunchWindow)
                 {
-                    Settle(SessionEndKind.NamedProcessEnded);
+                    Settle(SessionEndKind.ChildExited, graceFrom);
                     return;
                 }
 
                 if (!observed && _clock.GetUtcNow() >= deadline)
                 {
-                    Settle(SessionEndKind.NamedProcessNeverAppeared);
+                    // No restart came, so the game ended when the program did, and the wait is not play time.
+                    if (selfSeen)
+                    {
+                        Settle(SessionEndKind.ChildExited, graceFrom);
+                    }
+                    else
+                    {
+                        Settle(SessionEndKind.NamedProcessNeverAppeared);
+                    }
+
                     return;
                 }
             }
@@ -224,7 +236,7 @@ public sealed class GameSessionWatcher : IDisposable
         await tick.CancelAsync();
     }
 
-    private bool Settle(SessionEndKind kind)
+    private bool Settle(SessionEndKind kind, DateTimeOffset? endedAt = null)
     {
         int[] followed;
         lock (_gate)
@@ -232,7 +244,7 @@ public sealed class GameSessionWatcher : IDisposable
             followed = [.. _followed];
         }
 
-        var outcome = new SessionOutcome(kind, StartedAt, _clock.GetUtcNow(), ChildExitCode()) { StartedPid = _child?.Pid, FollowedPids = followed };
+        var outcome = new SessionOutcome(kind, StartedAt, endedAt ?? _clock.GetUtcNow(), ChildExitCode()) { StartedPid = _child?.Pid, FollowedPids = followed };
         if (!_outcome.TrySetResult(outcome))
         {
             return false;

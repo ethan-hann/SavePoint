@@ -22,7 +22,7 @@ public sealed class GameStarter
     /// <param name="os">The OS the processes come from; it decides how paths and process names are compared.</param>
     /// <param name="options">Polling interval and grace for every session this starter starts.</param>
     /// <param name="clock">Time source for play durations and waits.</param>
-    /// <exception cref="ArgumentOutOfRangeException">The polling interval is not positive or the grace is negative.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The polling interval is not positive, or the grace or the relaunch window is negative.</exception>
     public GameStarter(IGameLauncher launcher, IProcessInspector processes, OsKind os, GameSessionOptions options, TimeProvider clock)
     {
         options.EnsureValid();

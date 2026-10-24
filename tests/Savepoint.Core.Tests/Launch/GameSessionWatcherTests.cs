@@ -160,7 +160,7 @@ public class GameSessionWatcherTests
     }
 
     [Fact]
-    public async Task A_program_that_is_itself_the_named_process_ends_when_it_does()
+    public async Task A_named_process_with_another_pid_that_is_gone_when_the_program_exits_ends_the_session_at_once()
     {
         using var rig = await WatcherRig.ProgramAsync(_name);
         rig.Processes.Set(WatcherRig.Game, ScriptedInspector.Bystander);
@@ -215,8 +215,135 @@ public class GameSessionWatcherTests
 
         Assert.True(rig.Watcher.IsSettled, "a game that was quit after a long run must not get the grace");
         var outcome = await rig.OutcomeAsync();
-        Assert.Equal(SessionEndKind.NamedProcessEnded, outcome.Kind);
+        Assert.Equal(SessionEndKind.ChildExited, outcome.Kind);
         Assert.Equal(Seconds(40), outcome.PlayDuration);
+    }
+
+    [Fact]
+    public async Task A_program_that_exits_at_exactly_the_relaunch_window_counts_as_quit()
+    {
+        using var rig = await WatcherRig.ProgramAsync(_name);
+        rig.Processes.Set(Copy(rig.Child!.Pid), ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(30));
+
+        rig.Processes.Set(ScriptedInspector.Bystander);
+        await rig.ExitChildAsync();
+
+        Assert.True(rig.Watcher.IsSettled, "the window is closed at its own length");
+        Assert.Equal(Seconds(30), (await rig.OutcomeAsync()).PlayDuration);
+    }
+
+    [Fact]
+    public async Task A_program_that_exits_just_inside_the_relaunch_window_gets_the_grace()
+    {
+        using var rig = await WatcherRig.ProgramAsync(_name);
+        rig.Processes.Set(Copy(rig.Child!.Pid), ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(29));
+
+        rig.Processes.Set(ScriptedInspector.Bystander);
+        await rig.ExitChildAsync();
+
+        Assert.False(rig.Watcher.IsSettled);
+    }
+
+    [Fact]
+    public async Task A_slow_quit_is_not_settled_on_a_read_that_could_not_be_made_and_ends_at_the_exit_on_the_next_one()
+    {
+        using var rig = await WatcherRig.ProgramAsync(_name);
+        rig.Processes.Set(Copy(rig.Child!.Pid), ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(40));
+
+        rig.Processes.Unreadable();
+        await rig.ExitChildAsync();
+        await rig.AdvanceAsync(Seconds(6));
+        Assert.False(rig.Watcher.IsSettled);
+
+        rig.Processes.Set(ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(2));
+        var outcome = await rig.OutcomeAsync();
+
+        Assert.Equal(SessionEndKind.ChildExited, outcome.Kind);
+        Assert.Equal(Seconds(40), outcome.PlayDuration);
+    }
+
+    [Fact]
+    public async Task A_copy_already_running_before_the_program_started_is_followed_after_the_program_quits()
+    {
+        using var rig = await WatcherRig.ProgramAsync(_name);
+        rig.Processes.Set(Copy(rig.Child!.Pid), Copy(901), ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(40));
+
+        rig.Processes.Set(Copy(901), ScriptedInspector.Bystander);
+        await rig.ExitChildAsync();
+        await rig.AdvanceAsync(Seconds(60));
+        Assert.False(rig.Watcher.IsSettled);
+
+        rig.Processes.Set(ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(2));
+        var outcome = await rig.OutcomeAsync();
+
+        Assert.Equal(SessionEndKind.NamedProcessEnded, outcome.Kind);
+        Assert.Equal([901], outcome.FollowedPids);
+    }
+
+    [Fact]
+    public async Task A_game_that_starts_a_child_under_its_own_name_and_quits_is_followed_until_the_child_is_gone()
+    {
+        using var rig = await WatcherRig.ProgramAsync(_name);
+        rig.Processes.Set(Copy(rig.Child!.Pid), ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(10));
+        rig.Processes.Set(Copy(rig.Child.Pid), Copy(902), ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(40));
+
+        rig.Processes.Set(Copy(902), ScriptedInspector.Bystander);
+        await rig.ExitChildAsync();
+        await rig.AdvanceAsync(Seconds(60));
+        Assert.False(rig.Watcher.IsSettled);
+
+        rig.Processes.Set(ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(2));
+
+        Assert.Equal([902], (await rig.OutcomeAsync()).FollowedPids);
+    }
+
+    [Fact]
+    public async Task Every_other_copy_that_was_seen_is_named_in_the_outcome_once()
+    {
+        using var rig = await WatcherRig.ProgramAsync(_name);
+        rig.Processes.Set(Copy(rig.Child!.Pid), Copy(902), ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(4));
+        rig.Processes.Set(Copy(902), Copy(901), ScriptedInspector.Bystander);
+        await rig.ExitChildAsync();
+        await rig.AdvanceAsync(Seconds(4));
+
+        rig.Processes.Set(ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(2));
+        var outcome = await rig.OutcomeAsync();
+
+        Assert.Equal(rig.Child.Pid, outcome.StartedPid);
+        Assert.Equal([901, 902], outcome.FollowedPids);
+    }
+
+    [Fact]
+    public async Task A_program_that_was_never_seen_under_the_name_gets_the_grace_even_after_a_quick_exit()
+    {
+        using var rig = await WatcherRig.ProgramAsync(_name);
+        await rig.AdvanceAsync(Seconds(4));
+
+        await rig.ExitChildAsync();
+        await rig.AdvanceAsync(Seconds(29));
+        Assert.False(rig.Watcher.IsSettled);
+        await rig.AdvanceAsync(Seconds(1));
+
+        Assert.Equal(SessionEndKind.NamedProcessNeverAppeared, (await rig.OutcomeAsync()).Kind);
+    }
+
+    [Fact]
+    public void A_negative_relaunch_window_is_refused()
+    {
+        var options = new GameSessionOptions { RelaunchWindow = Seconds(-1) };
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => new GameSessionWatcher(null, _name, new ScriptedInspector(), OsKind.Windows, options, TimeProvider.System));
     }
 
     [Fact]
@@ -233,8 +360,8 @@ public class GameSessionWatcherTests
         await rig.AdvanceAsync(Seconds(1));
         var outcome = await rig.OutcomeAsync();
 
-        Assert.Equal(SessionEndKind.NamedProcessNeverAppeared, outcome.Kind);
-        Assert.Equal(Seconds(34), outcome.PlayDuration);
+        Assert.Equal(SessionEndKind.ChildExited, outcome.Kind);
+        Assert.Equal(Seconds(4), outcome.PlayDuration);
     }
 
     [Fact]

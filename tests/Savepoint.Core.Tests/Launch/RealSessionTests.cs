@@ -60,10 +60,14 @@ public class RealSessionTests
     {
         using var game = new FakeGameInstall();
         var secondReady = game.Combine("second.txt");
-        var config = Program(game, game.Name, "--exit-after", "600");
+        var firstReady = game.Combine("first.txt");
+        var config = Program(game, game.Name, "--ready-file", firstReady, "--exit-after", "600");
 
         using var watcher = await Starter(grace: TimeSpan.FromSeconds(20)).StartAsync(config, game.Folder, Ct);
-        await Task.Delay(TimeSpan.FromMilliseconds(1200), Ct);
+        var firstPid = await FakeGameProcess.WaitForReadyFileAsync(firstReady);
+
+        // The store starts the new copy only after the first one is gone, which is what makes this a relaunch.
+        Assert.True(await FakeGameProcess.WaitUntilAsync(() => !FakeGameProcess.IsRunning(firstPid)), "the first copy never exited");
         using var store = FakeGameProcess.StartIn(game.Folder, "--spawn", game.ExecutablePath, "--ready-file", secondReady, "--exit-after", "2000");
         var secondPid = await FakeGameProcess.WaitForReadyFileAsync(secondReady);
         var outcome = await OutcomeAsync(watcher);
@@ -124,8 +128,8 @@ public class RealSessionTests
         await WatcherRig.UntilAsync(() => !starter.IsRunning(config));
         var outcome = await OutcomeAsync(watcher);
 
-        // The game was found by name while it ran; whether the poll caught it before the kill is a matter of timing.
-        Assert.True(outcome.Kind is SessionEndKind.NamedProcessEnded or SessionEndKind.NamedProcessNeverAppeared, $"{outcome.Kind}");
+        // Whether the poll caught the game by name before the kill is a matter of timing; either way the program was the game.
+        Assert.True(outcome.Kind is SessionEndKind.ChildExited or SessionEndKind.NamedProcessNeverAppeared, $"{outcome.Kind}");
         Assert.False(watcher.IsRunning());
     }
 
