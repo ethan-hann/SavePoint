@@ -58,7 +58,17 @@ internal sealed class RemovedWorld : IDisposable
 
     private static async Task<RemovedWorld> CopyOfTemplateAsync()
     {
-        var template = await TemplateAsync();
+        RemovedWorld template;
+        try
+        {
+            template = await TemplateAsync();
+        }
+        catch (OperationCanceledException) when (!TestContext.Current.CancellationToken.IsCancellationRequested)
+        {
+            // The test that started the shared build was cancelled; this one is not, so it builds the template again.
+            template = await TemplateAsync();
+        }
+
         var workspace = BackendWorkspace.CopyOf(template.Workspace);
         try
         {
