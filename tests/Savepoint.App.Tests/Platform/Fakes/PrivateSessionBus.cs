@@ -101,6 +101,10 @@ internal sealed class FakeNotificationServer : IPathMethodHandler, IDisposable
 
     public Task<ReceivedNotify> Received => _received.Task;
 
+    public int Count { get; private set; }
+
+    public string LastSender { get; private set; } = string.Empty;
+
     public static async Task<FakeNotificationServer> StartAsync(string address)
     {
         var server = new FakeNotificationServer(new DBusConnection(address));
@@ -131,7 +135,10 @@ internal sealed class FakeNotificationServer : IPathMethodHandler, IDisposable
             reader.ReadString(),
             reader.ReadArrayOfString(),
             reader.ReadDictionaryOfStringToVariantValue().Count,
-            reader.ReadInt32());
+            reader.ReadInt32())
+        {
+            Sender = request.SenderAsString ?? string.Empty,
+        };
 
         using (var writer = context.CreateReplyWriter("u"))
         {
@@ -139,8 +146,24 @@ internal sealed class FakeNotificationServer : IPathMethodHandler, IDisposable
             context.Reply(writer.CreateMessage());
         }
 
+        Count++;
+        LastSender = notify.Sender;
         _received.TrySetResult(notify);
         return ValueTask.CompletedTask;
+    }
+
+    /// <summary>Whether the bus still has a client with this unique name; a desktop that ties a notification to its sender closes it when this turns false.</summary>
+    public async Task<bool> IsConnectedAsync(string uniqueName)
+    {
+        return await _connection.CallMethodAsync(BuildNameHasOwner(uniqueName), static (message, _) => message.GetBodyReader().ReadBool(), null);
+    }
+
+    private MessageBuffer BuildNameHasOwner(string uniqueName)
+    {
+        using var writer = _connection.GetMessageWriter();
+        writer.WriteMethodCallHeader("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "NameHasOwner", "s");
+        writer.WriteString(uniqueName);
+        return writer.CreateMessage();
     }
 
     public void Dispose() => _connection.Dispose();
@@ -157,4 +180,7 @@ internal sealed record ReceivedNotify(
     string Body,
     string[] Actions,
     int HintCount,
-    int ExpireTimeoutMilliseconds);
+    int ExpireTimeoutMilliseconds)
+{
+    public string Sender { get; init; } = string.Empty;
+}
