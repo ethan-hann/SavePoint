@@ -80,8 +80,8 @@ If you select a row with the keyboard, Enter starts Play. In the Sidebar layout,
 
 Press **Play** on a profile, or **Go back to this** on a snapshot in History. Before anything happens, SavePoint shows you exactly what it's going to change:
 
-- **Game version and mods:** what it switches from and to, how much gets replaced, and roughly how long that takes.
-- **Saves to load:** the profile's save snapshots, newest first.
+- **Game version and mods:** what it switches from and to, how much gets replaced, how much gets removed, and roughly how long that takes.
+- **Saves to load:** the save snapshots you can choose from, newest first. A profile you made from another one also offers the saves it started with.
 - **New changes since the last snapshot.** If files changed since the profile's last snapshot, you pick what happens to them before anything gets switched:
   - **Take a snapshot first** keeps them in the profile they belong to (the dialog names it).
   - **Keep as a new profile** is for when they don't belong to any profile, so nothing is lost.
