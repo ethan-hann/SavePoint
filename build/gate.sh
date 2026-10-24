@@ -78,7 +78,7 @@ dotnet build Savepoint.slnx -c Release -warnaserror "-m:${build_nodes}" -nodeReu
 echo "==> test"
 # SAVEPOINT_TEST_ARGS is empty unless a wrapper sets it (build/gate-linux.sh does, for retries); no retry logic lives here.
 # shellcheck disable=SC2086
-dotnet test Savepoint.slnx -c Release --no-build --max-parallel-test-modules 1 --max-threads "${test_threads}" ${SAVEPOINT_TEST_ARGS:-}
+dotnet test Savepoint.slnx -c Release --no-build --max-parallel-test-modules 2 --max-threads "${test_threads}" ${SAVEPOINT_TEST_ARGS:-}
 
 echo "==> format"
 dotnet format Savepoint.slnx --verify-no-changes

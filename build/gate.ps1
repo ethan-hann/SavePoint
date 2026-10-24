@@ -93,7 +93,7 @@ function Invoke-Step {
 
 try {
     Invoke-Step 'build' { dotnet build Savepoint.slnx -c Release -warnaserror "-m:$buildNodes" -nodeReuse:false }
-    Invoke-Step 'test' { dotnet test Savepoint.slnx -c Release --no-build --max-parallel-test-modules 1 --max-threads $testThreads @testArgs }
+    Invoke-Step 'test' { dotnet test Savepoint.slnx -c Release --no-build --max-parallel-test-modules 2 --max-threads $testThreads @testArgs }
     Invoke-Step 'format' { dotnet format Savepoint.slnx --verify-no-changes }
 }
 catch {
