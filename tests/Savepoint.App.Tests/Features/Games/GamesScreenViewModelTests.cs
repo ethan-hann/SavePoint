@@ -519,6 +519,29 @@ public class GamesScreenViewModelTests
     // ---- What the launch flow shows below the table
 
     [Fact]
+    public async Task A_launch_card_scrolls_with_the_profiles_in_a_pane_too_short_to_pin_it_and_is_pinned_again_when_it_grows()
+    {
+        var rig = await GamesRig.StartAsync();
+        var banner = new object();
+        rig.LaunchFlow!.SetInline(MockupScenario.SkyrimId, banner);
+        rig.Screen.SetPaneHeight(GamesScreenViewModel.PinnedCardMinHeight);
+        Assert.Same(banner, rig.Screen.PinnedContent);
+        Assert.Null(rig.Screen.ScrollingContent);
+
+        rig.Screen.SetPaneHeight(GamesScreenViewModel.PinnedCardMinHeight - 1);
+
+        Assert.Null(rig.Screen.PinnedContent);
+        Assert.False(rig.Screen.HasPinnedContent);
+        Assert.Same(banner, rig.Screen.ScrollingContent);
+        Assert.True(rig.Screen.HasScrollingContent);
+
+        rig.Screen.SetPaneHeight(GamesScreenViewModel.PinnedCardMinHeight);
+
+        Assert.Same(banner, rig.Screen.PinnedContent);
+        Assert.Null(rig.Screen.ScrollingContent);
+    }
+
+    [Fact]
     public async Task The_launch_flows_inline_content_for_the_selected_game_shows_above_the_table()
     {
         var rig = await GamesRig.StartAsync();

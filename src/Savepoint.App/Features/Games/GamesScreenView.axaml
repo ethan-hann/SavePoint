@@ -251,8 +251,8 @@
           </StackPanel>
         </Border>
 
-        <!-- A failure or partial-result card for this game, below the table where it can use the pane's height. -->
-        <ContentControl x:Name="FailureContentHost" IsVisible="{Binding HasFailureContent}" Content="{Binding FailureContent}" />
+        <!-- A failure or partial-result card for this game, below the table where it can use the pane's height; so is a launch card in a pane too short to pin it. -->
+        <ContentControl x:Name="ScrollingContentHost" IsVisible="{Binding HasScrollingContent}" Content="{Binding ScrollingContent}" />
       </StackPanel>
     </ScrollViewer>
 
