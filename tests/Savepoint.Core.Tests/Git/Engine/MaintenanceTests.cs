@@ -54,6 +54,22 @@ public sealed class MaintenanceTests : IDisposable
         Assert.True(packBytes < 500_000, $"the 2.9 MB save file should be compressed in the pack, but the packs hold {packBytes} bytes");
     }
 
+    // Level 1 keeps small saves and configs compressed but spends far less time on game archives that barely shrink.
+    [Theory]
+    [InlineData(OptimizationMode.Routine)]
+    [InlineData(OptimizationMode.Reclaim)]
+    public async Task A_repack_asks_zlib_for_its_fastest_level_through_the_environment(OptimizationMode mode)
+    {
+        var (repo, _) = await _ws.ThreePointsRepoAsync();
+
+        await _ws.Engine.RepackAsync(repo, mode, Ct);
+
+        var repack = Assert.Single(_ws.Invocations, invocation => invocation.Arguments[0] == "repack");
+        var environment = Assert.IsAssignableFrom<IReadOnlyDictionary<string, string?>>(repack.ExtraEnvironment);
+        var key = Assert.Single(environment, entry => entry.Key.StartsWith("GIT_CONFIG_KEY_", StringComparison.Ordinal) && entry.Value == "pack.compression");
+        Assert.Equal("1", environment["GIT_CONFIG_VALUE_" + key.Key["GIT_CONFIG_KEY_".Length..]]);
+    }
+
     [Fact]
     public async Task A_repository_that_does_not_exist_has_no_objects_and_no_size()
     {

@@ -11,11 +11,17 @@ public sealed class IgnoreFilesTests : IDisposable
         "zip", "7z", "rar", "gz", "xz", "zst", "cab",
         "mp4", "webm", "mkv", "bik", "bk2", "usm", "ogg", "mp3", "flac",
         "pak", "ucas", "utoc", "bsa", "ba2", "archive", "vpk", "pck",
+        "bundle", "unity3d", "assetbundle", "resource",
     ];
+
+    // Unity's serialized data and streamed textures compress well and change a little between versions, so they keep both.
+    private static readonly string[] _unityDataExtensions = ["assets", "resS", "sharedAssets"];
 
     private readonly EngineWorkspace _ws = new();
 
     public static TheoryData<string> CompressedExtensions => [.. _compressedExtensions];
+
+    public static TheoryData<string> UnityDataExtensions => [.. _unityDataExtensions];
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -100,6 +106,17 @@ public sealed class IgnoreFilesTests : IDisposable
         var line = await _ws.GitOutAsync(repo, "check-attr", "delta", "--", $"data/big.{extension}");
 
         Assert.Equal($"data/big.{extension}: delta: unset", line);
+    }
+
+    [Theory]
+    [MemberData(nameof(UnityDataExtensions))]
+    public async Task Unity_data_that_compresses_keeps_delta_compression(string extension)
+    {
+        var repo = await _ws.InitializedRepoAsync();
+
+        var line = await _ws.GitOutAsync(repo, "check-attr", "delta", "--", $"data/big.{extension}");
+
+        Assert.Equal($"data/big.{extension}: delta: unspecified", line);
     }
 
     [Fact]
