@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "metro-exodus-enhanced-edition",
+  "name": "Metro Exodus Enhanced Edition",
+  "steamAppId": 1449560,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Metro Exodus Enhanced Edition"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{localAppData}/metro_3",
+        "role": "saves"
+      }
+    }
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "MetroExodus.exe",
+    "args": [],
+    "processNameForExitDetection": "MetroExodus"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in a folder named after your account id; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

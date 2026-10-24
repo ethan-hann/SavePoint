@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "neverwinter-nights-2",
+  "name": "Neverwinter Nights 2",
+  "steamAppId": 2760,
+  "libraryHints": {
+    "gogIds": [
+      "1207659162"
+    ]
+  },
+  "external": {
+    "path": "{documents}\\Neverwinter Nights 2\\saves",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/2760",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [
+    "override"
+  ]
+}

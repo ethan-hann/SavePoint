@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "house-flipper-2",
+  "name": "House Flipper 2",
+  "steamAppId": 1190970,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "House Flipper 2"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "HouseFlipper2.exe",
+    "args": [],
+    "processNameForExitDetection": "HouseFlipper2"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "This game keeps saves in more than one place; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

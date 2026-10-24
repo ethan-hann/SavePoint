@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "dishonored",
+  "name": "Dishonored",
+  "steamAppId": 205100,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Dishonored"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Binaries/Win32/Dishonored.exe",
+    "args": [],
+    "processNameForExitDetection": "Dishonored"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

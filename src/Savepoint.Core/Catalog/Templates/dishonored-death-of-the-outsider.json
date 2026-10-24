@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "dishonored-death-of-the-outsider",
+  "name": "Dishonored: Death of the Outsider",
+  "steamAppId": 614570,
+  "libraryHints": {
+    "gogIds": [
+      "1707860700"
+    ]
+  },
+  "external": {
+    "path": "{savedGames}\\Arkane Studios\\Dishonored_DO\\base\\savegame",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/614570",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

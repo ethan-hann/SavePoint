@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "dying-light",
+  "name": "Dying Light",
+  "steamAppId": 239140,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Dying Light"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "DyingLightGame.exe",
+    "args": [],
+    "processNameForExitDetection": "DyingLightGame"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

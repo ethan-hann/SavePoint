@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "kingdom-come-deliverance-ii",
+  "name": "Kingdom Come: Deliverance II",
+  "steamAppId": 1771300,
+  "libraryHints": {
+    "gogIds": [
+      "1248083010"
+    ]
+  },
+  "external": {
+    "path": "{savedGames}\\kingdomcome2\\saves",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/1771300",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

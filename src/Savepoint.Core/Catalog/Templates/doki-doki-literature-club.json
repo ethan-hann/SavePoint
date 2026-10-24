@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "doki-doki-literature-club",
+  "name": "Doki Doki Literature Club!",
+  "steamAppId": 698780,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Doki Doki Literature Club"
+    ]
+  },
+  "external": {
+    "path": "{appData}\\RenPy\\DDLC-1454445547",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "DDLC.exe",
+    "args": [],
+    "processNameForExitDetection": "DDLC"
+  },
+  "ignorePaths": [],
+  "modPathHints": []
+}

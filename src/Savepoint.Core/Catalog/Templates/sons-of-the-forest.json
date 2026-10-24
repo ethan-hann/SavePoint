@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "sons-of-the-forest",
+  "name": "Sons of the Forest",
+  "steamAppId": 1326470,
+  "external": {
+    "path": "{localLow}\\Endnight\\SonsOfTheForest\\Saves",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/1326470",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

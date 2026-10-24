@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "dungeons-3",
+  "name": "Dungeons 3",
+  "steamAppId": 493900,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Dungeons 3"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/.config/Kalypso Media/Dungeons 3/savegames",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{appData}\\Kalypso Media\\Dungeons 3\\savegames",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Dungeons3Bin.exe",
+    "args": [],
+    "processNameForExitDetection": "Dungeons3Bin"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

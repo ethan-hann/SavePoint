@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "project-zomboid",
+  "name": "Project Zomboid",
+  "steamAppId": 108600,
+  "libraryHints": {
+    "gogIds": [
+      "1453298883"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/Zomboid/Saves",
+        "role": "saves"
+      },
+      "macos": {
+        "path": "{userHome}/Zomboid/Saves",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{userHome}\\Zomboid\\Saves",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/108600",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

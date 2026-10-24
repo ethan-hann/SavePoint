@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "doom-2016",
+  "name": "DOOM (2016)",
+  "steamAppId": 379720,
+  "libraryHints": {
+    "gogIds": [
+      "1390579243"
+    ]
+  },
+  "external": {
+    "path": "{savedGames}\\id Software\\DOOM\\base\\savegame",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/379720",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

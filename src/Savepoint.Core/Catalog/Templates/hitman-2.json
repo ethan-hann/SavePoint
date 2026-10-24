@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "hitman-2",
+  "name": "HITMAN 2",
+  "steamAppId": 863550,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "HITMAN2"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Retail/HITMAN2.exe",
+    "args": [],
+    "processNameForExitDetection": "HITMAN2"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

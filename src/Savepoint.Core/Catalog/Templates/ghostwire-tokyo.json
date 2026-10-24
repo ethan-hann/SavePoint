@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "ghostwire-tokyo",
+  "name": "Ghostwire: Tokyo",
+  "steamAppId": 1475810,
+  "libraryHints": {
+    "gogIds": [
+      "1180670910"
+    ]
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/1475810",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

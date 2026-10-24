@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "hidden-folks",
+  "name": "Hidden Folks",
+  "steamAppId": 435400,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "HiddenFolks"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/.config/unity3d/Adriaan de Jongh/Hidden Folks",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{localLow}\\Adriaan de Jongh\\Hidden Folks",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Hidden Folks.exe",
+    "args": [],
+    "processNameForExitDetection": "Hidden Folks"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

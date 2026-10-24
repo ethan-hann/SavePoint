@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "dark-souls-remastered",
+  "name": "DARK SOULS: REMASTERED",
+  "steamAppId": 570940,
+  "external": {
+    "path": "{documents}\\NBGI\\DARK SOULS REMASTERED",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/570940",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

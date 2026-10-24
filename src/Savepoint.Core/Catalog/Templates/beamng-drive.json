@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "beamng-drive",
+  "name": "BeamNG.drive",
+  "steamAppId": 284160,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "BeamNG.drive"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Bin64/BeamNG.drive.x64.exe",
+    "args": [],
+    "processNameForExitDetection": "BeamNG.drive.x64"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

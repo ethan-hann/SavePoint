@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "fretless-the-wrath-of-riffson",
+  "name": "Fretless - The Wrath of Riffson",
+  "steamAppId": 2429050,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Fretless - The Wrath of Riffson"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Fretless The Wrath of Riffson.exe",
+    "args": [],
+    "processNameForExitDetection": "Fretless The Wrath of Riffson"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand."
+}

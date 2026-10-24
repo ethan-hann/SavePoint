@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "assassins-creed-iv-black-flag",
+  "name": "Assassin's Creed IV Black Flag",
+  "steamAppId": 242050,
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/242050",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand."
+}

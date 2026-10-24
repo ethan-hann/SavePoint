@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "subnautica",
+  "name": "Subnautica",
+  "steamAppId": 264710,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Subnautica"
+    ],
+    "savesByOs": {
+      "macos": {
+        "path": "{userHome}/Library/Application Support/unity.Unknown Worlds.Subnautica/Subnautica/SavedGames",
+        "role": "saves"
+      }
+    }
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Subnautica.exe",
+    "args": [],
+    "processNameForExitDetection": "Subnautica"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are kept inside the game's install folder, so there is no separate saves folder to add. Turn off Steam Cloud for this game while SavePoint manages it."
+}

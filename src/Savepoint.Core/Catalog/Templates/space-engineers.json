@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "space-engineers",
+  "name": "Space Engineers",
+  "steamAppId": 244850,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "SpaceEngineers"
+    ]
+  },
+  "external": {
+    "path": "{appData}\\SpaceEngineers\\Saves",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Bin64/SpaceEngineers.exe",
+    "args": [],
+    "processNameForExitDetection": "SpaceEngineers"
+  },
+  "ignorePaths": [],
+  "modPathHints": []
+}

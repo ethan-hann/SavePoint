@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "the-forest",
+  "name": "The Forest",
+  "steamAppId": 242760,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "The Forest"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "TheForest.exe",
+    "args": [],
+    "processNameForExitDetection": "TheForest"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "dragon-quest-xi-s-echoes-of-an-elusive-age",
+  "name": "Dragon Quest XI S: Echoes of an Elusive Age",
+  "steamAppId": 1295510,
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/1295510",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "arc-raiders",
+  "name": "ARC Raiders",
+  "steamAppId": 1808500,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Arc Raiders"
+    ]
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/1808500",
+    "args": [],
+    "processNameForExitDetection": "PioneerGame"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand. Uses anti-cheat; don't use SavePoint with its online mode."
+}

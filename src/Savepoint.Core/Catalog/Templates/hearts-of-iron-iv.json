@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "hearts-of-iron-iv",
+  "name": "Hearts of Iron IV",
+  "steamAppId": 394360,
+  "libraryHints": {
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/.local/share/Paradox Interactive/Hearts of Iron IV/save games",
+        "role": "saves"
+      },
+      "macos": {
+        "path": "{userHome}/Paradox Interactive/Hearts of Iron IV/save games",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{documents}\\Paradox Interactive\\Hearts of Iron IV\\save games",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/394360",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

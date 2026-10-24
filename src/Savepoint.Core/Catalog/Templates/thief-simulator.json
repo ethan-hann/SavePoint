@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "thief-simulator",
+  "name": "Thief Simulator",
+  "steamAppId": 704850,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Thief Simulator"
+    ],
+    "savesByOs": {
+      "macos": {
+        "path": "{userHome}/Library/Containers/com.noblemuffins.thiefsimulator/Data/Library/Application Support/com.noblemuffins.thiefsimulator",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{localLow}\\Noble Muffins\\Thief Simulator",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "thief.exe",
+    "args": [],
+    "processNameForExitDetection": "thief"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

@@ -9,17 +9,36 @@ public class GameTemplatesTests
     public static TheoryData<string> TemplateIds => new(GameTemplates.All.Select(t => t.Id));
 
     [Fact]
-    public void Ships_only_the_skyrim_template()
+    public void Ships_the_skyrim_template_and_many_more()
     {
-        Assert.Equal(["skyrim-se"], GameTemplates.All.Select(t => t.Id));
+        Assert.Contains("skyrim-se", GameTemplates.All.Select(t => t.Id));
+        Assert.True(GameTemplates.All.Count >= 300);
     }
 
     [Fact]
-    public void Display_name_is_the_game_name_from_the_definition()
+    public void Templates_come_in_a_fixed_order()
+    {
+        var ids = GameTemplates.All.Select(t => t.Id).ToList();
+
+        Assert.Equal(ids.Order(StringComparer.Ordinal), ids);
+    }
+
+    [Theory]
+    [MemberData(nameof(TemplateIds))]
+    public void Display_name_is_the_game_name_from_the_definition(string id)
+    {
+        var template = GameTemplates.All.Single(t => t.Id == id);
+
+        Assert.Equal(template.Definition.Name, template.DisplayName);
+        Assert.False(string.IsNullOrWhiteSpace(template.DisplayName));
+    }
+
+    [Fact]
+    public void Skyrim_display_name_is_the_full_game_name()
     {
         Assert.Equal(
-            ["The Elder Scrolls V: Skyrim Special Edition"],
-            GameTemplates.All.Select(t => t.DisplayName));
+            "The Elder Scrolls V: Skyrim Special Edition",
+            GameTemplates.All.Single(t => t.Id == "skyrim-se").DisplayName);
     }
 
     [Theory]
@@ -108,13 +127,13 @@ public class GameTemplatesTests
     [Fact]
     public void Drafting_leaves_the_template_itself_unchanged()
     {
-        var template = GameTemplates.All[0];
+        var template = GameTemplates.All.Single(t => t.Id == "skyrim-se");
         var before = template.Definition;
 
         _ = template.ToDraft();
 
-        Assert.Equal(before, GameTemplates.All[0].Definition);
-        Assert.Equal("skyrim-se", GameTemplates.All[0].Definition.Id);
+        Assert.Equal(before, GameTemplates.All.Single(t => t.Id == "skyrim-se").Definition);
+        Assert.Equal("skyrim-se", template.Definition.Id);
     }
 
     [Fact]

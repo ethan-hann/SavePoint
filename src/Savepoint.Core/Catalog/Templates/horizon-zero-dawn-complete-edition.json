@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "horizon-zero-dawn-complete-edition",
+  "name": "Horizon Zero Dawn Complete Edition",
+  "steamAppId": 1151640,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Horizon Zero Dawn"
+    ]
+  },
+  "external": {
+    "path": "{documents}\\Horizon Zero Dawn\\Saved Game",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "HorizonZeroDawn.exe",
+    "args": [],
+    "processNameForExitDetection": "HorizonZeroDawn"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

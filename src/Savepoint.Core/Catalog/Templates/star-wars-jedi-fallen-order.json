@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "star-wars-jedi-fallen-order",
+  "name": "Star Wars Jedi: Fallen Order",
+  "steamAppId": 1172380,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Jedi Fallen Order"
+    ]
+  },
+  "external": {
+    "path": "{savedGames}\\Respawn\\JediFallenOrder",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "SwGame/Binaries/Win64/starwarsjedifallenorder.exe",
+    "args": [],
+    "processNameForExitDetection": "starwarsjedifallenorder"
+  },
+  "ignorePaths": [],
+  "modPathHints": []
+}

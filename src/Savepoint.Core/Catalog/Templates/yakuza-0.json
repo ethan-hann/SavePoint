@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "yakuza-0",
+  "name": "Yakuza 0",
+  "steamAppId": 638970,
+  "libraryHints": {
+    "gogIds": [
+      "1103602225"
+    ]
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/638970",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

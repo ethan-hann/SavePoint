@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "borderlands-the-pre-sequel",
+  "name": "Borderlands: The Pre-Sequel",
+  "steamAppId": 261640,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "BorderlandsPreSequel"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{localAppData}/aspyr-media/borderlands the pre-sequel/willowgame/savedata",
+        "role": "saves"
+      },
+      "macos": {
+        "path": "{userHome}/Library/Application Support/Borderlands The Pre-Sequel/WillowGame/SaveData",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{documents}\\My Games\\Borderlands The Pre-Sequel\\WillowGame\\SaveData",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Binaries/Win32/BorderlandsPreSequel.exe",
+    "args": [],
+    "processNameForExitDetection": "BorderlandsPreSequel"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

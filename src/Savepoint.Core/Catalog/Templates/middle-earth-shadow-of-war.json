@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "middle-earth-shadow-of-war",
+  "name": "Middle-earth: Shadow of War",
+  "steamAppId": 356190,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "ShadowOfWar"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "x64/ShadowOfWar.exe",
+    "args": [],
+    "processNameForExitDetection": "ShadowOfWar"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

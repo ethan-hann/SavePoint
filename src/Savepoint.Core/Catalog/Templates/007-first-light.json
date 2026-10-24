@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "007-first-light",
+  "name": "007 First Light",
+  "steamAppId": 3768760,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "007 First Light"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Retail/007FirstLight.exe",
+    "args": [],
+    "processNameForExitDetection": "007FirstLight"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

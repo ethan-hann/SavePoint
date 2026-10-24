@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "inzoi",
+  "name": "inZOI",
+  "steamAppId": 2456740,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "inZOI"
+    ],
+    "savesByOs": {
+      "macos": {
+        "path": "{userHome}/Documents/inZOI/SaveGames",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{documents}\\inZOI\\SaveGames",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "BlueClient/Binaries/Win64/inZOI-Win64-Shipping.exe",
+    "args": [],
+    "processNameForExitDetection": "inZOI-Win64-Shipping"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "starfield",
+  "name": "Starfield",
+  "steamAppId": 1716740,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Starfield"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Starfield.exe",
+    "args": [],
+    "processNameForExitDetection": "Starfield"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

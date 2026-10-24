@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "pillars-of-eternity-ii-deadfire",
+  "name": "Pillars of Eternity II: Deadfire",
+  "steamAppId": 560130,
+  "libraryHints": {
+    "gogIds": [
+      "1788509829"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/.local/share/PillarsOfEternityII/SavedGames",
+        "role": "saves"
+      },
+      "macos": {
+        "path": "{userHome}/Library/Application Support/Pillars of Eternity II/Saved Games",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{savedGames}\\Pillars of Eternity II",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/560130",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

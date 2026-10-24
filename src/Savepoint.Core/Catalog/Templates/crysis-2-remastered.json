@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "crysis-2-remastered",
+  "name": "Crysis 2 Remastered",
+  "steamAppId": 2096600,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Crysis2Remastered"
+    ]
+  },
+  "external": {
+    "path": "{savedGames}\\Crysis2Remastered",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Bin64/Crysis2Remastered.exe",
+    "args": [],
+    "processNameForExitDetection": "Crysis2Remastered"
+  },
+  "ignorePaths": [],
+  "modPathHints": []
+}

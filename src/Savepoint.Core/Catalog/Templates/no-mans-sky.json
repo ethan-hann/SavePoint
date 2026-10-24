@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "no-mans-sky",
+  "name": "No Man's Sky",
+  "steamAppId": 275850,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "No Man's Sky"
+    ],
+    "savesByOs": {
+      "macos": {
+        "path": "{userHome}/Library/Application Support/HelloGames/NMS",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{appData}\\HelloGames\\NMS",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Binaries/NMS.exe",
+    "args": [],
+    "processNameForExitDetection": "NMS"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

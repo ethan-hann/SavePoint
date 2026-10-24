@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "resident-evil-village",
+  "name": "Resident Evil Village",
+  "steamAppId": 1196590,
+  "libraryHints": {
+    "savesByOs": {
+      "macos": {
+        "path": "{userHome}/Library/Containers/jp.co.capcom.VillageUS/Data/Library/Application Support/CAPCOM/Resident Evil Village/SaveData",
+        "role": "saves"
+      }
+    }
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/1196590",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "dyson-sphere-program",
+  "name": "Dyson Sphere Program",
+  "steamAppId": 1366540,
+  "external": {
+    "path": "{documents}\\Dyson Sphere Program",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/1366540",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": []
+}

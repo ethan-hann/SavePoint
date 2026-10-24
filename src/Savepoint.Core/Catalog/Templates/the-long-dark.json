@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "the-long-dark",
+  "name": "The Long Dark",
+  "steamAppId": 305620,
+  "libraryHints": {
+    "gogIds": [
+      "1447763046"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/.local/share/Hinterland/TheLongDark",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{localAppData}\\Hinterland\\TheLongDark",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/305620",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

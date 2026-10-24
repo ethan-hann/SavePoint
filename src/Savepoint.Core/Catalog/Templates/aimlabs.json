@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "aimlabs",
+  "name": "Aimlabs",
+  "steamAppId": 714010,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Aim Lab"
+    ]
+  },
+  "external": {
+    "path": "{localLow}\\Statespace\\aimlab_tb",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "AimLab_tb.exe",
+    "args": [],
+    "processNameForExitDetection": "AimLab_tb"
+  },
+  "ignorePaths": [],
+  "modPathHints": []
+}

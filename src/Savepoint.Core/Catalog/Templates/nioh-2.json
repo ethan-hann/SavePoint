@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "nioh-2",
+  "name": "Nioh 2",
+  "steamAppId": 1325200,
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/1325200",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in a folder named after your account id; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

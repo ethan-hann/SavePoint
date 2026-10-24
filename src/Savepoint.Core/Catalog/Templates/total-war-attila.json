@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "total-war-attila",
+  "name": "Total War: ATTILA",
+  "steamAppId": 325610,
+  "libraryHints": {
+    "gogIds": [
+      "1156056129"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/.Creative Assembly/Attila/save_games",
+        "role": "saves"
+      }
+    }
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/325610",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

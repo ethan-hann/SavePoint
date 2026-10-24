@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "total-war-three-kingdoms",
+  "name": "Total War: THREE KINGDOMS",
+  "steamAppId": 779340,
+  "libraryHints": {
+    "gogIds": [
+      "1717887914"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/.local/share/feral-interactive/Three Kingdoms/VFS/User/AppData/Roaming/The Creative Assembly/ThreeKingdoms/save_games",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{appData}\\The Creative Assembly\\ThreeKingdoms\\save_games",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/779340",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

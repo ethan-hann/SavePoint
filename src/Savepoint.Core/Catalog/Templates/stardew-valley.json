@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "stardew-valley",
+  "name": "Stardew Valley",
+  "steamAppId": 413150,
+  "libraryHints": {
+    "gogIds": [
+      "1453375253"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/.config/StardewValley/Saves",
+        "role": "saves"
+      },
+      "macos": {
+        "path": "{userHome}/.config/StardewValley/Saves",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{appData}\\StardewValley\\Saves",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/413150",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "mass-effect-2",
+  "name": "Mass Effect 2",
+  "steamAppId": 2362420,
+  "external": {
+    "path": "{documents}\\BioWare\\Mass Effect 2\\Save",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/2362420",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": []
+}

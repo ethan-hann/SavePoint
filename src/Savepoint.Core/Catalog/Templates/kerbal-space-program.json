@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "kerbal-space-program",
+  "name": "Kerbal Space Program",
+  "steamAppId": 220200,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Kerbal Space Program"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "KSP_x64.exe",
+    "args": [],
+    "processNameForExitDetection": "KSP_x64"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are kept inside the game's install folder, so there is no separate saves folder to add. Turn off Steam Cloud for this game while SavePoint manages it."
+}

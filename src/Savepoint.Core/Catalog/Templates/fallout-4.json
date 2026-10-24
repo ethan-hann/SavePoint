@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "fallout-4",
+  "name": "Fallout 4",
+  "steamAppId": 377160,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Fallout 4"
+    ]
+  },
+  "external": {
+    "path": "{documents}\\My Games\\Fallout4\\Saves",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Fallout4.exe",
+    "args": [],
+    "processNameForExitDetection": "Fallout4"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "dragon-age-ii",
+  "name": "Dragon Age II",
+  "steamAppId": 1238040,
+  "libraryHints": {
+    "savesByOs": {
+      "macos": {
+        "path": "{userHome}/Documents/BioWare/Dragon Age 2/Characters",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{documents}\\BioWare\\Dragon Age 2\\Characters",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/1238040",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": []
+}

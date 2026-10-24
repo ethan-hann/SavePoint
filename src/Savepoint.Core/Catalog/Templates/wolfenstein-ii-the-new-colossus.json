@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "wolfenstein-ii-the-new-colossus",
+  "name": "Wolfenstein II: The New Colossus",
+  "steamAppId": 612880,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Wolfenstein.II.The.New.Colossus"
+    ]
+  },
+  "external": {
+    "path": "{savedGames}\\MachineGames\\Wolfenstein II The New Colossus\\base\\savegame.user",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "NewColossus_x64vk.exe",
+    "args": [],
+    "processNameForExitDetection": "NewColossus_x64vk"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

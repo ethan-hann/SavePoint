@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "marvels-spider-man-miles-morales",
+  "name": "Marvel's Spider-Man: Miles Morales",
+  "steamAppId": 1817190,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Marvel's Spider-Man Miles Morales"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "MilesMorales.exe",
+    "args": [],
+    "processNameForExitDetection": "MilesMorales"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in a folder named after your account id; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

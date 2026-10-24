@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "silent-hill-2",
+  "name": "Silent Hill 2",
+  "steamAppId": 2124490,
+  "libraryHints": {
+    "gogIds": [
+      "2051029707"
+    ]
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/2124490",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in a folder named after your account id; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

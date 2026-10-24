@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "assassins-creed-syndicate",
+  "name": "Assassin's Creed Syndicate",
+  "steamAppId": 368500,
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/368500",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand."
+}

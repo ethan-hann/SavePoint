@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "batman-arkham-city-goty",
+  "name": "Batman: Arkham City GOTY",
+  "steamAppId": 200260,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Batman Arkham City GOTY"
+    ],
+    "savesByOs": {
+      "macos": {
+        "path": "{userHome}/Library/Application Support/Feral Interactive/Batman Arkham City GOTY/Save Data",
+        "role": "saves"
+      }
+    }
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Binaries/Win32/BatmanAC.exe",
+    "args": [],
+    "processNameForExitDetection": "BatmanAC"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

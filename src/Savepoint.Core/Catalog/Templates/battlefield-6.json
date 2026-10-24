@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "battlefield-6",
+  "name": "Battlefield 6",
+  "steamAppId": 2807960,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Battlefield 6"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "bf6.exe",
+    "args": [],
+    "processNameForExitDetection": "bf6"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it. Uses anti-cheat; don't use SavePoint with its online mode."
+}

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "monster-hunter-wilds",
+  "name": "Monster Hunter Wilds",
+  "steamAppId": 2246340,
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/2246340",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

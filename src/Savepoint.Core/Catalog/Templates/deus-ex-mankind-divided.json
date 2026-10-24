@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "deus-ex-mankind-divided",
+  "name": "Deus Ex: Mankind Divided",
+  "steamAppId": 337000,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Deus Ex Mankind Divided"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "retail/DXMD.exe",
+    "args": [],
+    "processNameForExitDetection": "DXMD"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "chrono-trigger",
+  "name": "Chrono Trigger",
+  "steamAppId": 613830,
+  "external": {
+    "path": "{documents}\\My Games\\Chrono Trigger",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/613830",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

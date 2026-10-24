@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "star-wars-jedi-survivor",
+  "name": "Star Wars Jedi: Survivor",
+  "steamAppId": 1774580,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Jedi Survivor"
+    ]
+  },
+  "external": {
+    "path": "{savedGames}\\Respawn\\JediSurvivor",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "SwGame/Binaries/Win64/JediSurvivor.exe",
+    "args": [],
+    "processNameForExitDetection": "JediSurvivor"
+  },
+  "ignorePaths": [],
+  "modPathHints": []
+}

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "shadow-of-the-tomb-raider",
+  "name": "Shadow of the Tomb Raider",
+  "steamAppId": 750920,
+  "libraryHints": {
+    "gogIds": [
+      "1356518037"
+    ]
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/750920",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in a folder named after your account id; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

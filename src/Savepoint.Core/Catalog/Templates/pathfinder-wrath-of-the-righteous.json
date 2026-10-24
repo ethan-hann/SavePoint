@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "pathfinder-wrath-of-the-righteous",
+  "name": "Pathfinder: Wrath of the Righteous",
+  "steamAppId": 1184370,
+  "libraryHints": {
+    "gogIds": [
+      "1770130134"
+    ]
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/1184370",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

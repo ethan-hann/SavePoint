@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "dying-light-2-reloaded-edition",
+  "name": "Dying Light 2: Reloaded Edition",
+  "steamAppId": 534380,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Dying Light 2"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "ph/work/bin/x64/DyingLightGame_x64_rwdi.exe",
+    "args": [],
+    "processNameForExitDetection": "DyingLightGame_x64_rwdi"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

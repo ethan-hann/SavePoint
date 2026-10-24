@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "gotham-knights",
+  "name": "Gotham Knights",
+  "steamAppId": 1496790,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Gotham Knights"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Mercury/Binaries/Win64/GothamKnights.exe",
+    "args": [],
+    "processNameForExitDetection": "GothamKnights"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "call-of-duty-modern-warfare-2-2009",
+  "name": "Call of Duty: Modern Warfare 2 (2009)",
+  "steamAppId": 10180,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Call of Duty Modern Warfare 2"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "iw4sp.exe",
+    "args": [],
+    "processNameForExitDetection": "iw4sp"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are kept inside the game's install folder, so there is no separate saves folder to add."
+}

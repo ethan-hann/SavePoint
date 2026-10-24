@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "grand-theft-auto-san-andreas",
+  "name": "Grand Theft Auto: San Andreas",
+  "steamAppId": 12120,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Grand Theft Auto San Andreas"
+    ]
+  },
+  "external": {
+    "path": "{documents}\\GTA San Andreas User Files",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "gta-sa.exe",
+    "args": [],
+    "processNameForExitDetection": "gta-sa"
+  },
+  "ignorePaths": [],
+  "modPathHints": []
+}

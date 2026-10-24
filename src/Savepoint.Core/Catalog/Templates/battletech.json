@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "battletech",
+  "name": "BattleTech",
+  "steamAppId": 637090,
+  "libraryHints": {
+    "gogIds": [
+      "1482783682"
+    ]
+  },
+  "external": {
+    "path": "{localLow}\\Harebrained Schemes\\BattleTech\\C#\\SGS#",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/637090",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

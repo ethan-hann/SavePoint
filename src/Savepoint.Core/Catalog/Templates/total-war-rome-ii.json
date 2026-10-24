@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "total-war-rome-ii",
+  "name": "Total War: ROME II",
+  "steamAppId": 214950,
+  "libraryHints": {
+    "gogIds": [
+      "1576420196"
+    ]
+  },
+  "external": {
+    "path": "{appData}\\The Creative Assembly\\Rome2\\save_games",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/214950",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

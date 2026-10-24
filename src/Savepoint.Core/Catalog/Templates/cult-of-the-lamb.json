@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "cult-of-the-lamb",
+  "name": "Cult of the Lamb",
+  "steamAppId": 1313140,
+  "libraryHints": {
+    "gogIds": [
+      "2034949552"
+    ],
+    "savesByOs": {
+      "macos": {
+        "path": "{userHome}/Library/Application Support/Massive Monster/Cult Of The Lamb/saves",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{localLow}\\Massive Monster\\Cult Of The Lamb\\saves",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/1313140",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

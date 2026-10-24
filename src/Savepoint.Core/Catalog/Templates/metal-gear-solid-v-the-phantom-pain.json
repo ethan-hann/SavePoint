@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "metal-gear-solid-v-the-phantom-pain",
+  "name": "Metal Gear Solid V: The Phantom Pain",
+  "steamAppId": 287700,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "MGS_TPP"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "mgsvtpp.exe",
+    "args": [],
+    "processNameForExitDetection": "mgsvtpp"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "euro-truck-simulator-2",
+  "name": "Euro Truck Simulator 2",
+  "steamAppId": 227300,
+  "libraryHints": {
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/.local/share/Euro Truck Simulator 2/profiles",
+        "role": "saves"
+      },
+      "macos": {
+        "path": "{userHome}/Library/Application Support/Euro Truck Simulator 2/profiles",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{documents}\\Euro Truck Simulator 2\\profiles",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/227300",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [
+    "bin/win_x64"
+  ],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

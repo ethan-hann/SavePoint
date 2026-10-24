@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "clair-obscur-expedition-33",
+  "name": "Clair Obscur: Expedition 33",
+  "steamAppId": 1903340,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Expedition 33"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Sandfall/Binaries/Win64/SandFall-Win64-Shipping.exe",
+    "args": [],
+    "processNameForExitDetection": "SandFall-Win64-Shipping"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in a folder named after your account id; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

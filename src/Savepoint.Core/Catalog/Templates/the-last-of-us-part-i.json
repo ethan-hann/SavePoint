@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "the-last-of-us-part-i",
+  "name": "The Last of Us Part I",
+  "steamAppId": 1888930,
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/1888930",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in a folder named after your account id; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

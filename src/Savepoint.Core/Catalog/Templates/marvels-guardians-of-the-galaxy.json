@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "marvels-guardians-of-the-galaxy",
+  "name": "Marvel's Guardians of the Galaxy",
+  "steamAppId": 1088850,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Marvel's Guardians of the Galaxy"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "bin/gotg.exe",
+    "args": [],
+    "processNameForExitDetection": "gotg"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

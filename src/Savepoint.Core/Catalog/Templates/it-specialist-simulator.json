@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "it-specialist-simulator",
+  "name": "IT Specialist Simulator",
+  "steamAppId": 3266090,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "IT Specialist Simulator"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "IT Specialist Simulator.exe",
+    "args": [],
+    "processNameForExitDetection": "IT Specialist Simulator"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand."
+}

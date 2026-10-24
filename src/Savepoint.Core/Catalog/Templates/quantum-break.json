@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "quantum-break",
+  "name": "Quantum Break",
+  "steamAppId": 474960,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "QuantumBreak"
+    ]
+  },
+  "external": {
+    "path": "{localAppData}\\QuantumBreak",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "dx11/QuantumBreak.exe",
+    "args": [],
+    "processNameForExitDetection": "QuantumBreak"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "chaqs",
+  "name": "CHAQS",
+  "steamAppId": 2183200,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "CHAQS"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "CHAQS.exe",
+    "args": [],
+    "processNameForExitDetection": "CHAQS"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand."
+}

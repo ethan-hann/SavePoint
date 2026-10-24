@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "sid-meiers-civilization-v",
+  "name": "Sid Meier's Civilization V",
+  "steamAppId": 8930,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Sid Meier's Civilization V"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{localAppData}/Aspyr/Sid Meier's Civilization 5/Saves",
+        "role": "saves"
+      },
+      "macos": {
+        "path": "{userHome}/Documents/Aspyr/Sid Meier's Civilization 5/Saves",
+        "role": "saves"
+      }
+    }
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "CivilizationV_DX11.exe",
+    "args": [],
+    "processNameForExitDetection": "CivilizationV_DX11"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

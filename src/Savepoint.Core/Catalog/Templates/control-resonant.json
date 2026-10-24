@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "control-resonant",
+  "name": "Control Resonant",
+  "steamAppId": 3669870,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "CONTROL Resonant"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "CONTROLResonant.exe",
+    "args": [],
+    "processNameForExitDetection": "CONTROLResonant"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

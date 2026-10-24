@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "oxygen-not-included",
+  "name": "Oxygen Not Included",
+  "steamAppId": 457140,
+  "libraryHints": {
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/.config/unity3d/Klei/Oxygen Not Included/save_files",
+        "role": "saves"
+      },
+      "macos": {
+        "path": "{userHome}/Library/Application Support/unity.Klei.Oxygen Not Included/save_files",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{documents}\\Klei\\OxygenNotIncluded\\save_files",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/457140",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

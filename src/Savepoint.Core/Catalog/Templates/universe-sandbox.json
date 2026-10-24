@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "universe-sandbox",
+  "name": "Universe Sandbox",
+  "steamAppId": 230290,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Universe Sandbox 2"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/Universe Sandbox/Simulations",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{documents}\\My Games\\Universe Sandbox\\Simulations",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Universe Sandbox x64.exe",
+    "args": [],
+    "processNameForExitDetection": "Universe Sandbox x64"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

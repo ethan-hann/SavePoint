@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "left-4-dead-2",
+  "name": "Left 4 Dead 2",
+  "steamAppId": 550,
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/550",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

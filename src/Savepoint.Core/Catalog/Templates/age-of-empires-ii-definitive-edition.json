@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "age-of-empires-ii-definitive-edition",
+  "name": "Age of Empires II: Definitive Edition",
+  "steamAppId": 813780,
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/813780",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in a folder named after your account id; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

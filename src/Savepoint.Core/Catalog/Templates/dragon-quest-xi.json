@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "dragon-quest-xi",
+  "name": "Dragon Quest XI",
+  "steamAppId": 742120,
+  "external": {
+    "path": "{documents}\\My Games\\DRAGON QUEST XI\\Saved\\SaveGames",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/742120",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

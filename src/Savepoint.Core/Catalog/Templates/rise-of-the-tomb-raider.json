@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "rise-of-the-tomb-raider",
+  "name": "Rise of the Tomb Raider",
+  "steamAppId": 391220,
+  "libraryHints": {
+    "gogIds": [
+      "1926077727"
+    ],
+    "savesByOs": {
+      "macos": {
+        "path": "{userHome}/Library/Application Support/Feral Interactive/Shadow of the Tomb Raider/SaveData",
+        "role": "saves"
+      }
+    }
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/391220",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

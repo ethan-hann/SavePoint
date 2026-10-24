@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "cuphead",
+  "name": "Cuphead",
+  "steamAppId": 268910,
+  "libraryHints": {
+    "gogIds": [
+      "1963513391"
+    ],
+    "savesByOs": {
+      "macos": {
+        "path": "{userHome}/Library/Application Support/unity.Studio MDHR.Cuphead/Cuphead",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{localLow}\\Studio MDHR\\Cuphead",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/268910",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

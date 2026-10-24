@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "neverwinter-nights-enhanced-edition",
+  "name": "Neverwinter Nights: Enhanced Edition",
+  "steamAppId": 704450,
+  "libraryHints": {
+    "gogIds": [
+      "1746700646"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/.local/share/Neverwinter Nights/saves",
+        "role": "saves"
+      },
+      "macos": {
+        "path": "{userHome}/Documents/Neverwinter Nights/saves",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{documents}\\Neverwinter Nights\\saves",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/704450",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": []
+}

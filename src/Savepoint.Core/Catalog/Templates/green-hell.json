@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "green-hell",
+  "name": "Green Hell",
+  "steamAppId": 815370,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Green Hell"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "GH.exe",
+    "args": [],
+    "processNameForExitDetection": "GH"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

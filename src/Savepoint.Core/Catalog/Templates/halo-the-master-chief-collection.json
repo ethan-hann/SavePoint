@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "halo-the-master-chief-collection",
+  "name": "Halo: The Master Chief Collection",
+  "steamAppId": 976730,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Halo The Master Chief Collection"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "MCC/Binaries/Win64/MCC-Win64-Shipping.exe",
+    "args": [],
+    "processNameForExitDetection": "MCC-Win64-Shipping"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it. Uses anti-cheat; don't use SavePoint with its online mode."
+}

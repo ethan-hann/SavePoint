@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "europa-universalis-iv",
+  "name": "Europa Universalis IV",
+  "steamAppId": 236850,
+  "libraryHints": {
+    "gogIds": [
+      "2057001589"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/.local/share/Paradox Interactive/Europa Universalis IV",
+        "role": "saves"
+      },
+      "macos": {
+        "path": "{userHome}/Documents/Paradox Interactive/Europa Universalis IV",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{documents}\\Paradox Interactive\\Europa Universalis IV",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/236850",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

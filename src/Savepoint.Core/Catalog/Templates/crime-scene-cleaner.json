@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "crime-scene-cleaner",
+  "name": "Crime Scene Cleaner",
+  "steamAppId": 1040200,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Crime Scene Cleaner"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "CrimeCleaner.exe",
+    "args": [],
+    "processNameForExitDetection": "CrimeCleaner"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in a folder named after your account id; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

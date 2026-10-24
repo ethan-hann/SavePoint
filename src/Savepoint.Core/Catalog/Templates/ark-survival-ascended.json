@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "ark-survival-ascended",
+  "name": "ARK: Survival Ascended",
+  "steamAppId": 2399830,
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/2399830",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are kept inside the game's install folder, so there is no separate saves folder to add. Turn off Steam Cloud for this game while SavePoint manages it."
+}

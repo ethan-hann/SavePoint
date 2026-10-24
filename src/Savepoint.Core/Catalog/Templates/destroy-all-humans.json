@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "destroy-all-humans",
+  "name": "Destroy All Humans!",
+  "steamAppId": 803330,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Destroy All Humans!"
+    ]
+  },
+  "external": {
+    "path": "{localAppData}\\DH\\Saved\\SaveGames",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "DH/Binaries/Win64/DH-Win64-Shipping.exe",
+    "args": [],
+    "processNameForExitDetection": "DH-Win64-Shipping"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "kenshi",
+  "name": "Kenshi",
+  "steamAppId": 233860,
+  "libraryHints": {
+    "gogIds": [
+      "1193046833"
+    ]
+  },
+  "external": {
+    "path": "{localAppData}\\Kenshi\\save",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/233860",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

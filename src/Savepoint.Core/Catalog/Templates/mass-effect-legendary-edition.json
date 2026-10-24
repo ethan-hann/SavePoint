@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "mass-effect-legendary-edition",
+  "name": "Mass Effect Legendary Edition",
+  "steamAppId": 1328670,
+  "external": {
+    "path": "{documents}\\BioWare\\Mass Effect Legendary Edition\\Save",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/1328670",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": []
+}

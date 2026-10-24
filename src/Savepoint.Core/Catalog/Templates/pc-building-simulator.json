@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "pc-building-simulator",
+  "name": "PC Building Simulator",
+  "steamAppId": 621060,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "PC Building Simulator"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "PCBS.exe",
+    "args": [],
+    "processNameForExitDetection": "PCBS"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are kept inside the game's install folder, so there is no separate saves folder to add. Turn off Steam Cloud for this game while SavePoint manages it."
+}

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "cyberpunk-2077",
+  "name": "Cyberpunk 2077",
+  "libraryHints": {
+    "gogIds": [
+      "1423049311"
+    ],
+    "gogFolders": [
+      "Cyberpunk 2077"
+    ],
+    "savesByOs": {
+      "macos": {
+        "path": "{userHome}/Library/Application Support/CD Projekt Red/Cyberpunk 2077/saves",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{savedGames}\\CD Projekt Red\\Cyberpunk 2077",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "bin/x64/Cyberpunk2077.exe",
+    "args": [],
+    "processNameForExitDetection": "Cyberpunk2077"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

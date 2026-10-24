@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "the-witcher-3-wild-hunt",
+  "name": "The Witcher 3: Wild Hunt",
+  "steamAppId": 292030,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "The Witcher 3"
+    ]
+  },
+  "external": {
+    "path": "{documents}\\The Witcher 3\\gamesaves",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "bin/x64_dx12/witcher3.exe",
+    "args": [],
+    "processNameForExitDetection": "witcher3"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

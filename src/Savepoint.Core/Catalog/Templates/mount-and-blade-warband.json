@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "mount-and-blade-warband",
+  "name": "Mount & Blade: Warband",
+  "steamAppId": 48700,
+  "libraryHints": {
+    "gogIds": [
+      "1207666913"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/.mbwarband/Savegames",
+        "role": "saves"
+      },
+      "macos": {
+        "path": "{userHome}/Library/Application Support/MBWarband/Savegames",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{documents}\\Mount&Blade Warband Savegames",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/48700",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [
+    "Modules"
+  ],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "dont-starve",
+  "name": "Don't Starve",
+  "steamAppId": 219740,
+  "libraryHints": {
+    "gogIds": [
+      "1207659210"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/.klei/DoNotStarve",
+        "role": "saves"
+      },
+      "macos": {
+        "path": "{userHome}/Documents/Klei/DoNotStarve",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{documents}\\Klei\\DoNotStarve\\save",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/219740",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [
+    "mods"
+  ],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

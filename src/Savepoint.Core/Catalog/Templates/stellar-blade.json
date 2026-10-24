@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "stellar-blade",
+  "name": "Stellar Blade",
+  "steamAppId": 3489700,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "StellarBlade"
+    ]
+  },
+  "external": {
+    "path": "{localAppData}\\SB\\Saved\\SaveGames",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "SB/Binaries/Win64/SB-Win64-Shipping.exe",
+    "args": [],
+    "processNameForExitDetection": "SB-Win64-Shipping"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "hades",
+  "name": "Hades",
+  "steamAppId": 1145360,
+  "libraryHints": {
+    "savesByOs": {
+      "macos": {
+        "path": "{userHome}/Library/Application Support/Supergiant Games/Hades",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{savedGames}\\Hades",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/1145360",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

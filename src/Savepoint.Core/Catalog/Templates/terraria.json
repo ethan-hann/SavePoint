@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "terraria",
+  "name": "Terraria",
+  "steamAppId": 105600,
+  "libraryHints": {
+    "gogIds": [
+      "1207665503"
+    ],
+    "savesByOs": {
+      "macos": {
+        "path": "{userHome}/Library/Application Support/Terraria",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{documents}\\My Games\\Terraria",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/105600",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

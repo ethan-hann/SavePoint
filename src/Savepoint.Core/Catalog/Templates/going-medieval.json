@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "going-medieval",
+  "name": "Going Medieval",
+  "steamAppId": 1029780,
+  "libraryHints": {
+    "gogIds": [
+      "1697094317"
+    ]
+  },
+  "external": {
+    "path": "{localLow}\\Foxy Voxel\\Going Medieval\\VillageSaves",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/1029780",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

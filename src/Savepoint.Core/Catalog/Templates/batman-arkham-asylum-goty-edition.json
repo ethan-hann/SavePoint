@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "batman-arkham-asylum-goty-edition",
+  "name": "Batman: Arkham Asylum GOTY Edition",
+  "steamAppId": 35140,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Batman Arkham Asylum GOTY"
+    ],
+    "savesByOs": {
+      "macos": {
+        "path": "{userHome}/Library/Application Support/Feral Interactive/Batman Arkham City GOTY/Save Data",
+        "role": "saves"
+      }
+    }
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Binaries/ShippingPC-BmGame.exe",
+    "args": [],
+    "processNameForExitDetection": "ShippingPC-BmGame"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "assassins-creed-ii",
+  "name": "Assassin's Creed II",
+  "steamAppId": 33230,
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/33230",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand."
+}

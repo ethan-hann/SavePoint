@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "mount-and-blade-ii-bannerlord",
+  "name": "Mount & Blade II: Bannerlord",
+  "steamAppId": 261550,
+  "libraryHints": {
+    "gogIds": [
+      "1802539526"
+    ]
+  },
+  "external": {
+    "path": "{documents}\\Mount and Blade II Bannerlord\\Game Saves",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/261550",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it. Uses anti-cheat; don't use SavePoint with its online mode."
+}

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "yu-gi-oh-duel-links",
+  "name": "Yu-Gi-Oh! Duel Links",
+  "steamAppId": 601510,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Yu-Gi-Oh! Duel Links"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "dlpc.exe",
+    "args": [],
+    "processNameForExitDetection": "dlpc"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand."
+}

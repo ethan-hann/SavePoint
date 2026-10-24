@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "while-true-learn",
+  "name": "while True: learn()",
+  "steamAppId": 619150,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "wtl"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "wtl.exe",
+    "args": [],
+    "processNameForExitDetection": "wtl"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand."
+}

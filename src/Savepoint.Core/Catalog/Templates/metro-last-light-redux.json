@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "metro-last-light-redux",
+  "name": "Metro: Last Light Redux",
+  "steamAppId": 287390,
+  "libraryHints": {
+    "gogIds": [
+      "1430740172"
+    ]
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/287390",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in a folder named after your account id; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

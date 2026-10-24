@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "borderlands-2",
+  "name": "Borderlands 2",
+  "steamAppId": 49520,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Borderlands 2"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{localAppData}/aspyr-media/borderlands 2/willowgame/savedata",
+        "role": "saves"
+      },
+      "macos": {
+        "path": "{userHome}/Library/Application Support/Borderlands 2/WillowGame/SaveData",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{documents}\\My Games\\Borderlands 2\\WillowGame\\SaveData",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Binaries/Win32/Borderlands2.exe",
+    "args": [],
+    "processNameForExitDetection": "Borderlands2"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

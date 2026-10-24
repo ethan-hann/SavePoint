@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "the-sims-4",
+  "name": "The Sims 4",
+  "steamAppId": 1222670,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "The Sims 4"
+    ],
+    "savesByOs": {
+      "macos": {
+        "path": "{userHome}/Documents/Electronic Arts/The Sims 4/saves",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{documents}\\Electronic Arts\\The Sims 4\\saves",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Game/Bin/TS4_x64.exe",
+    "args": [],
+    "processNameForExitDetection": "TS4_x64"
+  },
+  "ignorePaths": [],
+  "modPathHints": []
+}

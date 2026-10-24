@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "the-invincible",
+  "name": "The Invincible",
+  "steamAppId": 731040,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "The Invincible"
+    ]
+  },
+  "external": {
+    "path": "{localAppData}\\TheInvincible\\Saved\\SaveGames",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "TheInvincible/Binaries/Win64/TheInvincible-Win64-Shipping.exe",
+    "args": [],
+    "processNameForExitDetection": "TheInvincible-Win64-Shipping"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

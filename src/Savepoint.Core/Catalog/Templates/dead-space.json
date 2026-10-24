@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "dead-space",
+  "name": "Dead Space",
+  "steamAppId": 17470,
+  "libraryHints": {
+    "gogIds": [
+      "1312818781"
+    ]
+  },
+  "external": {
+    "path": "{documents}\\Electronic Arts\\Dead Space",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/17470",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": []
+}

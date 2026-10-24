@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "stranded-deep",
+  "name": "Stranded Deep",
+  "steamAppId": 313120,
+  "libraryHints": {
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/.config/unity3d/Beam Team Games/Stranded Deep/Data",
+        "role": "saves"
+      },
+      "macos": {
+        "path": "{userHome}/Library/Application Support/com.BeamTeamGames.StrandedDeep/Data",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{localLow}\\Beam Team Games\\Stranded Deep\\Data",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/313120",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": []
+}

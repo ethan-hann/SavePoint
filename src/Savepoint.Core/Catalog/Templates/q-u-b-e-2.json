@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "q-u-b-e-2",
+  "name": "Q.U.B.E. 2",
+  "steamAppId": 359100,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Q.U.B.E. 2"
+    ]
+  },
+  "external": {
+    "path": "{localAppData}\\QUBE\\Saved\\SaveGames",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "QUBE/Binaries/Win64/QUBE-Win64-Shipping.exe",
+    "args": [],
+    "processNameForExitDetection": "QUBE-Win64-Shipping"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

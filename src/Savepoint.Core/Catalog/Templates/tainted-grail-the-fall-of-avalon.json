@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "tainted-grail-the-fall-of-avalon",
+  "name": "Tainted Grail: The Fall of Avalon",
+  "steamAppId": 1466060,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Tainted Grail FoA"
+    ]
+  },
+  "external": {
+    "path": "{localLow}\\Questline\\Fall of Avalon",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Fall of Avalon.exe",
+    "args": [],
+    "processNameForExitDetection": "Fall of Avalon"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

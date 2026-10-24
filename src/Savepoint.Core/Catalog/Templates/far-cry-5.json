@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "far-cry-5",
+  "name": "Far Cry 5",
+  "steamAppId": 552520,
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/552520",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand."
+}

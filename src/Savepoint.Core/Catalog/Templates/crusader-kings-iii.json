@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "crusader-kings-iii",
+  "name": "Crusader Kings III",
+  "steamAppId": 1158310,
+  "libraryHints": {
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/.local/share/Paradox Interactive/Crusader Kings III/save games",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{documents}\\Paradox Interactive\\Crusader Kings III\\save games",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/1158310",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

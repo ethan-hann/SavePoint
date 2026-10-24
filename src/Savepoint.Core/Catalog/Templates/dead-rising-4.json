@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "dead-rising-4",
+  "name": "Dead Rising 4",
+  "steamAppId": 543460,
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/543460",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

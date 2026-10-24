@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "resident-evil-3",
+  "name": "Resident Evil 3",
+  "steamAppId": 952060,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "RE3"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "re3.exe",
+    "args": [],
+    "processNameForExitDetection": "re3"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

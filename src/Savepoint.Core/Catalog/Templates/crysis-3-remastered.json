@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "crysis-3-remastered",
+  "name": "Crysis 3 Remastered",
+  "steamAppId": 2096610,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Crysis3Remastered"
+    ]
+  },
+  "external": {
+    "path": "{savedGames}\\Crysis3Remastered",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Bin64/Crysis3Remastered.exe",
+    "args": [],
+    "processNameForExitDetection": "Crysis3Remastered"
+  },
+  "ignorePaths": [],
+  "modPathHints": []
+}

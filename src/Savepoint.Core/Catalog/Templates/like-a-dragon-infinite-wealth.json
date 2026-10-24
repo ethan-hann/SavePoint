@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "like-a-dragon-infinite-wealth",
+  "name": "Like a Dragon: Infinite Wealth",
+  "steamAppId": 2072450,
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/2072450",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

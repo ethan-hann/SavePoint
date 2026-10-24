@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "sid-meiers-civilization-vii",
+  "name": "Sid Meier's Civilization VII",
+  "steamAppId": 1295660,
+  "libraryHints": {
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/My Games/Sid Meier's Civilization VII/Saves",
+        "role": "saves"
+      },
+      "macos": {
+        "path": "{userHome}/Library/Application Support/Civilization VII/Saves",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{documents}\\My Games\\Sid Meier's Civilization VII\\Saves",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/1295660",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": []
+}

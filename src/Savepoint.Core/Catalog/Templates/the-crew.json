@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "the-crew",
+  "name": "The Crew",
+  "steamAppId": 241560,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "The Crew"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "TheCrew.exe",
+    "args": [],
+    "processNameForExitDetection": "TheCrew"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand."
+}

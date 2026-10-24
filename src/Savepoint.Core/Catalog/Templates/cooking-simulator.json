@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "cooking-simulator",
+  "name": "Cooking Simulator",
+  "steamAppId": 641320,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "CookingSimulator"
+    ]
+  },
+  "external": {
+    "path": "{documents}\\Wastelands-Interactive\\CookingSim\\Saves",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "CookingSim.exe",
+    "args": [],
+    "processNameForExitDetection": "CookingSim"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

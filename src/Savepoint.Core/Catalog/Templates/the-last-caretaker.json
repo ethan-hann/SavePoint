@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "the-last-caretaker",
+  "name": "The Last Caretaker",
+  "steamAppId": 1783560,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Voyage"
+    ]
+  },
+  "external": {
+    "path": "{localAppData}\\Voyage\\Saved\\SaveGames",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Voyage/Binaries/Win64/VoyageSteam-Win64-Shipping.exe",
+    "args": [],
+    "processNameForExitDetection": "VoyageSteam-Win64-Shipping"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

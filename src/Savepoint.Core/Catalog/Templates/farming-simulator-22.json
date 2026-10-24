@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "farming-simulator-22",
+  "name": "Farming Simulator 22",
+  "steamAppId": 1248130,
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/1248130",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "This game keeps saves in more than one place; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "minit",
+  "name": "Minit",
+  "steamAppId": 609490,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Minit"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/.config/minit/minitsaves/minit_v1.sav",
+        "role": "saves"
+      },
+      "macos": {
+        "path": "{userHome}/Library/Application Support/com.22ndtoys.minit/minitSaves/minit_v1.sav",
+        "role": "saves"
+      }
+    }
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "minit.exe",
+    "args": [],
+    "processNameForExitDetection": "minit"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand."
+}

@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "balatro",
+  "name": "Balatro",
+  "steamAppId": 2379780,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Balatro"
+    ],
+    "savesByOs": {
+      "macos": {
+        "path": "{userHome}/Library/Application Support/Balatro",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{appData}\\Balatro",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Balatro.exe",
+    "args": [],
+    "processNameForExitDetection": "Balatro"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

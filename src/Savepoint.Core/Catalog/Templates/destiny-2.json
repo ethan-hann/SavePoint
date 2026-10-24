@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "destiny-2",
+  "name": "Destiny 2",
+  "steamAppId": 1085660,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Destiny 2"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "destiny2.exe",
+    "args": [],
+    "processNameForExitDetection": "destiny2"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand. Uses anti-cheat; don't use SavePoint with its online mode."
+}

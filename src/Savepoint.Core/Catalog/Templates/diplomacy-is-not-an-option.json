@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "diplomacy-is-not-an-option",
+  "name": "Diplomacy is Not an Option",
+  "steamAppId": 1272320,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Diplomacy is Not an Option"
+    ]
+  },
+  "external": {
+    "path": "{localLow}\\Door 407\\Diplomacy is Not an Option\\DNOPersistentData",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Diplomacy is Not an Option.exe",
+    "args": [],
+    "processNameForExitDetection": "Diplomacy is Not an Option"
+  },
+  "ignorePaths": [],
+  "modPathHints": []
+}

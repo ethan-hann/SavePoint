@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "valheim",
+  "name": "Valheim",
+  "steamAppId": 892970,
+  "libraryHints": {
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/.config/unity3d/IronGate/Valheim",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{localLow}\\IronGate\\Valheim",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/892970",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

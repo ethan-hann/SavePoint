@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "wolfenstein-the-new-order",
+  "name": "Wolfenstein: The New Order",
+  "steamAppId": 201810,
+  "libraryHints": {
+    "gogIds": [
+      "1943729964"
+    ]
+  },
+  "external": {
+    "path": "{savedGames}\\MachineGames\\Wolfenstein The New Order\\base\\savegame",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/201810",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": []
+}

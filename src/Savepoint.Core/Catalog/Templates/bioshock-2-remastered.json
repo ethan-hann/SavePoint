@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "bioshock-2-remastered",
+  "name": "BioShock 2 Remastered",
+  "steamAppId": 409720,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "BioShock 2 Remastered"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Build/Final/Bioshock2HD.exe",
+    "args": [],
+    "processNameForExitDetection": "Bioshock2HD"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in a folder named after your account id; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

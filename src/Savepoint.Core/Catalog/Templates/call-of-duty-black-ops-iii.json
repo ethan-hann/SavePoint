@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "call-of-duty-black-ops-iii",
+  "name": "Call of Duty: Black Ops III",
+  "steamAppId": 311210,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Call of Duty Black Ops III"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "BlackOps3.exe",
+    "args": [],
+    "processNameForExitDetection": "BlackOps3"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are kept inside the game's install folder, so there is no separate saves folder to add. Turn off Steam Cloud for this game while SavePoint manages it."
+}

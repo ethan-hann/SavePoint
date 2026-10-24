@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "helldivers-2",
+  "name": "Helldivers 2",
+  "steamAppId": 553850,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Helldivers 2"
+    ]
+  },
+  "external": {
+    "path": "{appData}\\Arrowhead\\Helldivers2\\saves",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "bin/helldivers2.exe",
+    "args": [],
+    "processNameForExitDetection": "helldivers2"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it. Uses anti-cheat; don't use SavePoint with its online mode."
+}

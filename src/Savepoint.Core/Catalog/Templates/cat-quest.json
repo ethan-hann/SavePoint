@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "cat-quest",
+  "name": "Cat Quest",
+  "steamAppId": 593280,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Cat Quest"
+    ],
+    "savesByOs": {
+      "macos": {
+        "path": "{userHome}/Library/Application Support/com.thegentlebros.catquest",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{localLow}\\The Gentlebros Pte_ Ltd_\\Cat Quest",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Cat Quest.exe",
+    "args": [],
+    "processNameForExitDetection": "Cat Quest"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

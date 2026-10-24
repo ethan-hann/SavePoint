@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "core-keeper",
+  "name": "Core Keeper",
+  "steamAppId": 1621690,
+  "libraryHints": {
+    "gogIds": [
+      "1084933262"
+    ]
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/1621690",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in a folder named after your account id; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

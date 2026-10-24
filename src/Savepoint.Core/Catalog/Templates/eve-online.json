@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "eve-online",
+  "name": "EVE Online",
+  "steamAppId": 8500,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Eve Online"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "SharedCache/tq/bin64/exefile.exe",
+    "args": [],
+    "processNameForExitDetection": "exefile"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand."
+}

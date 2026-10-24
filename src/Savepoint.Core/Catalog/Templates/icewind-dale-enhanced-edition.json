@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "icewind-dale-enhanced-edition",
+  "name": "Icewind Dale: Enhanced Edition",
+  "steamAppId": 321800,
+  "libraryHints": {
+    "gogIds": [
+      "1207666683"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/.local/share/Icewind Dale - Enhanced Edition/save",
+        "role": "saves"
+      },
+      "macos": {
+        "path": "{userHome}/Documents/Icewind Dale - Enhanced Edition/save",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{documents}\\Icewind Dale - Enhanced Edition\\save",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/321800",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

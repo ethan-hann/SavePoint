@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "hollow-knight-silksong",
+  "name": "Hollow Knight: Silksong",
+  "steamAppId": 1030300,
+  "libraryHints": {
+    "gogIds": [
+      "1558393671"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/.config/unity3d/Team Cherry/Hollow Knight Silksong",
+        "role": "saves"
+      },
+      "macos": {
+        "path": "{userHome}/Library/Application Support/unity.Team-Cherry.Silksong/default",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{localLow}\\Team Cherry\\Hollow Knight Silksong",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/1030300",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

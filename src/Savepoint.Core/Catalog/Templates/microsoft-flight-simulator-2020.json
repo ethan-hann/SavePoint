@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "microsoft-flight-simulator-2020",
+  "name": "Microsoft Flight Simulator (2020)",
+  "steamAppId": 1250410,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "MicrosoftFlightSimulator"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "FlightSimulator.exe",
+    "args": [],
+    "processNameForExitDetection": "FlightSimulator"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

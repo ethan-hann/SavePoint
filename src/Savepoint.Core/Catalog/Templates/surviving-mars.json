@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "surviving-mars",
+  "name": "Surviving Mars",
+  "steamAppId": 464920,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Surviving Mars"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{localAppData}/Surviving Mars/Save",
+        "role": "saves"
+      },
+      "macos": {
+        "path": "{userHome}/Library/Application Support/Surviving Mars/Save",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{appData}\\Surviving Mars\\Save",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "MarsSteam.exe",
+    "args": [],
+    "processNameForExitDetection": "MarsSteam"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

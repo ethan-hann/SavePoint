@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "god-of-war",
+  "name": "God of War",
+  "steamAppId": 1593500,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "GodOfWar"
+    ]
+  },
+  "external": {
+    "path": "{savedGames}\\God of War",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "GoW.exe",
+    "args": [],
+    "processNameForExitDetection": "GoW"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

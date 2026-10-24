@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "black-myth-wukong",
+  "name": "Black Myth: Wukong",
+  "steamAppId": 2358720,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "BlackMythWukong"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "b1/Binaries/Win64/b1-Win64-Shipping.exe",
+    "args": [],
+    "processNameForExitDetection": "b1-Win64-Shipping"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in a folder named after your account id; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

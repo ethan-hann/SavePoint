@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "red-dead-redemption",
+  "name": "Red Dead Redemption",
+  "steamAppId": 2668510,
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/2668510",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in a folder named after your account id; add the saves folder by hand."
+}

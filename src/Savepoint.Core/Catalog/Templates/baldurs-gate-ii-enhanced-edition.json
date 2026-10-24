@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "baldurs-gate-ii-enhanced-edition",
+  "name": "Baldur's Gate II: Enhanced Edition",
+  "steamAppId": 257350,
+  "libraryHints": {
+    "gogIds": [
+      "1207666373"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/.local/share/Baldur's Gate II - Enhanced Edition/save",
+        "role": "saves"
+      },
+      "macos": {
+        "path": "{userHome}/Documents/Baldur's Gate II - Enhanced Edition/save",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{documents}\\Baldur's Gate II - Enhanced Edition\\save",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/257350",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

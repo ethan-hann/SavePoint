@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "prison-architect",
+  "name": "Prison Architect",
+  "steamAppId": 233450,
+  "libraryHints": {
+    "gogIds": [
+      "1441974651"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/.Prison Architect",
+        "role": "saves"
+      },
+      "macos": {
+        "path": "{userHome}/Library/Application Support/Prison Architect",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{localAppData}\\Introversion\\Prison Architect",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/233450",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

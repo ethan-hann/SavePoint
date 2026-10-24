@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "crusader-kings-ii",
+  "name": "Crusader Kings II",
+  "steamAppId": 203770,
+  "libraryHints": {
+    "gogIds": [
+      "1137712636"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/.paradoxinteractive/Crusader Kings II",
+        "role": "saves"
+      },
+      "macos": {
+        "path": "{userHome}/Paradox Interactive/Crusader Kings II",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{documents}\\Paradox Interactive\\Crusader Kings II",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/203770",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

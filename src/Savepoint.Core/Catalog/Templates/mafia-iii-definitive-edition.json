@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "mafia-iii-definitive-edition",
+  "name": "Mafia III: Definitive Edition",
+  "steamAppId": 360430,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Mafia III"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "mafia3definitiveedition.exe",
+    "args": [],
+    "processNameForExitDetection": "mafia3definitiveedition"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in a folder named after your account id; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

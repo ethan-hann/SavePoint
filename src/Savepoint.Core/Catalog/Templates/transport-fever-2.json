@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "transport-fever-2",
+  "name": "Transport Fever 2",
+  "steamAppId": 1066780,
+  "libraryHints": {
+    "gogIds": [
+      "1611784904"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/.local/share/Transport Fever 2/save",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{appData}\\Transport Fever 2\\save",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/1066780",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

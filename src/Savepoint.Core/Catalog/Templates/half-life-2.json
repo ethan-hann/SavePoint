@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "half-life-2",
+  "name": "Half-Life 2",
+  "steamAppId": 220,
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/220",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

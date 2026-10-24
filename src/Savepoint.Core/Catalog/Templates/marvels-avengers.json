@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "marvels-avengers",
+  "name": "Marvel's Avengers",
+  "steamAppId": 997070,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Marvels Avengers"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Avengers.exe",
+    "args": [],
+    "processNameForExitDetection": "Avengers"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in a folder named after your account id; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

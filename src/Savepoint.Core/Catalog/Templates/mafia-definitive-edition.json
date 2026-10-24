@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "mafia-definitive-edition",
+  "name": "Mafia: Definitive Edition",
+  "steamAppId": 1030840,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Mafia Definitive Edition"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "mafiadefinitiveedition.exe",
+    "args": [],
+    "processNameForExitDetection": "mafiadefinitiveedition"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in a folder named after your account id; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

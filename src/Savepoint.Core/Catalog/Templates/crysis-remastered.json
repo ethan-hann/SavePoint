@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "crysis-remastered",
+  "name": "Crysis Remastered",
+  "steamAppId": 1715130,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Crysis Remastered"
+    ]
+  },
+  "external": {
+    "path": "{savedGames}\\CrysisRemastered\\SaveGames",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Bin64/CrysisRemastered.exe",
+    "args": [],
+    "processNameForExitDetection": "CrysisRemastered"
+  },
+  "ignorePaths": [],
+  "modPathHints": []
+}

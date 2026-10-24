@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "grounded",
+  "name": "Grounded",
+  "steamAppId": 962130,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Grounded"
+    ]
+  },
+  "external": {
+    "path": "{savedGames}\\Grounded",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Maine/Binaries/Win64/Maine-Win64-Shipping.exe",
+    "args": [],
+    "processNameForExitDetection": "Maine-Win64-Shipping"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

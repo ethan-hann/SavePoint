@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "dragon-age-origins",
+  "name": "Dragon Age: Origins",
+  "steamAppId": 47810,
+  "libraryHints": {
+    "gogIds": [
+      "1949616134"
+    ]
+  },
+  "external": {
+    "path": "{documents}\\BioWare\\Dragon Age\\Characters",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "bin_ship/daorigins.exe",
+    "args": [],
+    "processNameForExitDetection": "daorigins.exe"
+  },
+  "ignorePaths": [],
+  "modPathHints": []
+}

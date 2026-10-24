@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "yakuza-like-a-dragon",
+  "name": "Yakuza: Like a Dragon",
+  "steamAppId": 1235140,
+  "libraryHints": {
+    "gogIds": [
+      "1229228729"
+    ]
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/1235140",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in a folder named after your account id; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

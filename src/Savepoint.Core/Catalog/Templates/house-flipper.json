@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "house-flipper",
+  "name": "House Flipper",
+  "steamAppId": 613100,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "House Flipper"
+    ],
+    "savesByOs": {
+      "macos": {
+        "path": "{userHome}/Library/Application Support/Empyrean/House Flipper Game/Profiles",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{localLow}\\Empyrean\\House Flipper Game\\Profiles",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "HouseFlipper.exe",
+    "args": [],
+    "processNameForExitDetection": "HouseFlipper"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

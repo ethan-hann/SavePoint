@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "ancestors-the-humankind-odyssey",
+  "name": "Ancestors: The Humankind Odyssey",
+  "steamAppId": 536270,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Ancestors The Humankind Odyssey"
+    ]
+  },
+  "external": {
+    "path": "{localAppData}\\Ancestors\\Saved\\SaveGames",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Ancestors/Binaries/Win64/Ancestors-Win64-Shipping.exe",
+    "args": [],
+    "processNameForExitDetection": "Ancestors-Win64-Shipping"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

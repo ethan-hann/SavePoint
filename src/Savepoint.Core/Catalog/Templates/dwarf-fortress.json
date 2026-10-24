@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "dwarf-fortress",
+  "name": "Dwarf Fortress",
+  "steamAppId": 975370,
+  "external": {
+    "path": "{appData}\\Bay 12 Games\\Dwarf Fortress\\save",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/975370",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": []
+}

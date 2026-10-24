@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "xcom-2",
+  "name": "XCOM 2",
+  "steamAppId": 268500,
+  "libraryHints": {
+    "gogIds": [
+      "1482002159"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/.local/share/feral-interactive/XCOM2/VFS/Local/my games/XCOM2/XComGame/SaveData",
+        "role": "saves"
+      },
+      "macos": {
+        "path": "{userHome}/Library/Application Support/Feral Interactive/XCOM 2/VFS/Local/my games/XCOM2/XComGame/SaveData",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{documents}\\My Games\\XCOM2\\XComGame\\SaveData",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "XCom2.exe",
+    "args": [],
+    "processNameForExitDetection": "XCom2.exe"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

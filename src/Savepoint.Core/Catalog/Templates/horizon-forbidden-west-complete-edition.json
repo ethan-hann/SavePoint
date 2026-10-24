@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "horizon-forbidden-west-complete-edition",
+  "name": "Horizon Forbidden West Complete Edition",
+  "steamAppId": 2420110,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Horizon Forbidden West Complete Edition"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "HorizonForbiddenWest.exe",
+    "args": [],
+    "processNameForExitDetection": "HorizonForbiddenWest"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in a folder named after your account id; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

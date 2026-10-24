@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "assassins-creed-mirage",
+  "name": "Assassin's Creed Mirage",
+  "steamAppId": 3035570,
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/3035570",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand."
+}

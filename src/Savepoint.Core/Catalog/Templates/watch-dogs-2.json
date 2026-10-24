@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "watch-dogs-2",
+  "name": "Watch Dogs 2",
+  "steamAppId": 447040,
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/447040",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand."
+}

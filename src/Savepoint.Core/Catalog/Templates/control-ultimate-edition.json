@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "control-ultimate-edition",
+  "name": "Control Ultimate Edition",
+  "steamAppId": 870780,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Control"
+    ],
+    "savesByOs": {
+      "macos": {
+        "path": "{userHome}/Library/Containers/com.remedygames.control-ue/Data/Library/Application Support/com.remedygames.control-ue/nlps-storage/Default-Apple-User",
+        "role": "saves"
+      }
+    }
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Control_DX12.exe",
+    "args": [],
+    "processNameForExitDetection": "Control_DX12"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

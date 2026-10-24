@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "portal-2",
+  "name": "Portal 2",
+  "steamAppId": 620,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Portal 2"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "portal2.exe",
+    "args": [],
+    "processNameForExitDetection": "portal2"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

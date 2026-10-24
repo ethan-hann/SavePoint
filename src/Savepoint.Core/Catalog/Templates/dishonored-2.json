@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "dishonored-2",
+  "name": "Dishonored 2",
+  "steamAppId": 403640,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Dishonored2"
+    ]
+  },
+  "external": {
+    "path": "{savedGames}\\Arkane Studios\\dishonored2\\base\\savegame",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Dishonored2.exe",
+    "args": [],
+    "processNameForExitDetection": "Dishonored2"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

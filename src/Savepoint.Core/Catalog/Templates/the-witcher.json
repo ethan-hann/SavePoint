@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "the-witcher",
+  "name": "The Witcher",
+  "steamAppId": 20900,
+  "libraryHints": {
+    "gogIds": [
+      "1207658924"
+    ],
+    "savesByOs": {
+      "macos": {
+        "path": "{userHome}/Library/Application Support/com.cdprojektred.TheWitcher/GameDocuments/The Witcher/saves",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{documents}\\The Witcher\\saves",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/20900",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

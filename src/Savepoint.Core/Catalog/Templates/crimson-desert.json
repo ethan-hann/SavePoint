@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "crimson-desert",
+  "name": "Crimson Desert",
+  "steamAppId": 3321460,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Crimson Desert"
+    ],
+    "savesByOs": {
+      "macos": {
+        "path": "{userHome}/Library/Application Support/Pearl Abyss/CD/save",
+        "role": "saves"
+      }
+    }
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "bin64/CrimsonDesert.exe",
+    "args": [],
+    "processNameForExitDetection": "CrimsonDesert"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in a folder named after your account id; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

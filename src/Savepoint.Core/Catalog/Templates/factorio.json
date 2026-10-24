@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "factorio",
+  "name": "Factorio",
+  "steamAppId": 427520,
+  "libraryHints": {
+    "gogIds": [
+      "1238653230"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/.factorio/saves",
+        "role": "saves"
+      },
+      "macos": {
+        "path": "{userHome}/Library/Application Support/factorio/saves",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{appData}\\Factorio\\saves",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/427520",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

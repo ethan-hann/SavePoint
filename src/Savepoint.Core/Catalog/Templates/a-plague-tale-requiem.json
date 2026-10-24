@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "a-plague-tale-requiem",
+  "name": "A Plague Tale: Requiem",
+  "steamAppId": 1182900,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "A Plague Tale Requiem"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "APlagueTaleRequiem_x64.exe",
+    "args": [],
+    "processNameForExitDetection": "APlagueTaleRequiem_x64"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

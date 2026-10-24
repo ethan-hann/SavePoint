@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "undertale",
+  "name": "Undertale",
+  "steamAppId": 391540,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Undertale"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/.config/UNDERTALE",
+        "role": "saves"
+      },
+      "macos": {
+        "path": "{userHome}/Library/Application Support/com.tobyfox.undertale",
+        "role": "saves"
+      }
+    }
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "UNDERTALE.exe",
+    "args": [],
+    "processNameForExitDetection": "UNDERTALE"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand."
+}

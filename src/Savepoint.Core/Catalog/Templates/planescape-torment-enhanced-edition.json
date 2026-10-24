@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "planescape-torment-enhanced-edition",
+  "name": "Planescape: Torment: Enhanced Edition",
+  "steamAppId": 466300,
+  "libraryHints": {
+    "gogIds": [
+      "1203613131"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/.local/share/Planescape Torment - Enhanced Edition/save",
+        "role": "saves"
+      },
+      "macos": {
+        "path": "{userHome}/Documents/Planescape Torment - Enhanced Edition/save",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{documents}\\Planescape Torment - Enhanced Edition\\save",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/466300",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

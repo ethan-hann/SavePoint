@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "mass-effect-3",
+  "name": "Mass Effect 3",
+  "steamAppId": 1238020,
+  "external": {
+    "path": "{documents}\\BioWare\\Mass Effect 3\\Save",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/1238020",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": []
+}

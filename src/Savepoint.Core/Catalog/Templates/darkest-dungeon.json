@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "darkest-dungeon",
+  "name": "Darkest Dungeon",
+  "steamAppId": 262060,
+  "libraryHints": {
+    "gogIds": [
+      "1450711444"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/.local/share/Red Hook Studios/Darkest",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{documents}\\Darkest",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/262060",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

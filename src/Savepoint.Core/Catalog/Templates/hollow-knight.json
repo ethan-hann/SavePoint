@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "hollow-knight",
+  "name": "Hollow Knight",
+  "steamAppId": 367520,
+  "libraryHints": {
+    "gogIds": [
+      "1308320804"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/.config/unity3d/Team Cherry/Hollow Knight",
+        "role": "saves"
+      },
+      "macos": {
+        "path": "{userHome}/Library/Application Support/unity.Team Cherry.Hollow Knight",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{localLow}\\Team Cherry\\Hollow Knight",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/367520",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

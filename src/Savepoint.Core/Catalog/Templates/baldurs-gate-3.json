@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "baldurs-gate-3",
+  "name": "Baldur's Gate 3",
+  "steamAppId": 1086940,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Baldurs Gate 3"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{localAppData}/Larian Studios/Baldur's Gate 3/PlayerProfiles/Public/Savegames/Story",
+        "role": "saves"
+      },
+      "macos": {
+        "path": "{userHome}/Documents/Larian Studios/Baldur's Gate 3/PlayerProfiles/Public/Savegames/Story",
+        "role": "saves"
+      }
+    }
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "bin/bg3.exe",
+    "args": [],
+    "processNameForExitDetection": "bg3"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

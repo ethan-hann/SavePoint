@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "metro-2033-redux",
+  "name": "Metro 2033 Redux",
+  "steamAppId": 286690,
+  "libraryHints": {
+    "gogIds": [
+      "1436434037"
+    ],
+    "savesByOs": {
+      "macos": {
+        "path": "{userHome}/Library/Application Support/Metro_Redux_2033",
+        "role": "saves"
+      }
+    }
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/286690",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in a folder named after your account id; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

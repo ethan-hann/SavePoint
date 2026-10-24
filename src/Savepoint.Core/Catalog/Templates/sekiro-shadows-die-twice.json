@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "sekiro-shadows-die-twice",
+  "name": "Sekiro: Shadows Die Twice",
+  "steamAppId": 814380,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Sekiro"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "sekiro.exe",
+    "args": [],
+    "processNameForExitDetection": "sekiro"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in a folder named after your account id; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

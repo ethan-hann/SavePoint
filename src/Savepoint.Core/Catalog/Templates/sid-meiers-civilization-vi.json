@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "sid-meiers-civilization-vi",
+  "name": "Sid Meier's Civilization VI",
+  "steamAppId": 289070,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Sid Meier's Civilization VI"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{localAppData}/aspyr-media/Sid Meier's Civilization VI/Saves",
+        "role": "saves"
+      },
+      "macos": {
+        "path": "{userHome}/Library/Application Support/Sid Meier's Civilization VI/Saves",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{documents}\\My Games\\Sid Meier's Civilization VI\\Saves",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Base/Binaries/Win64Steam/CivilizationVI_DX12.exe",
+    "args": [],
+    "processNameForExitDetection": "CivilizationVI_DX12"
+  },
+  "ignorePaths": [],
+  "modPathHints": []
+}

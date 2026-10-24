@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "batman-arkham-knight",
+  "name": "Batman: Arkham Knight",
+  "steamAppId": 208650,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Batman Arkham Knight"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Binaries/Win64/BatmanAK.exe",
+    "args": [],
+    "processNameForExitDetection": "BatmanAK"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

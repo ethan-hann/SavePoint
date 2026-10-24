@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "star-wars-the-force-unleashed-ultimate-sith-edition",
+  "name": "Star Wars: The Force Unleashed Ultimate Sith Edition",
+  "steamAppId": 32430,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Star Wars The Force Unleashed"
+    ],
+    "savesByOs": {
+      "macos": {
+        "path": "{userHome}/Library/Application Support/Star Wars The Force Unleashed/SWTFU.BIN",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{documents}\\Aspyr\\Star Wars The Force Unleashed",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "SWTFU.exe",
+    "args": [],
+    "processNameForExitDetection": "SWTFU"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

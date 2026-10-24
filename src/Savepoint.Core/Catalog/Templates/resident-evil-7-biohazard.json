@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "resident-evil-7-biohazard",
+  "name": "Resident Evil 7 biohazard",
+  "steamAppId": 418370,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "RESIDENT EVIL 7 biohazard"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "re7.exe",
+    "args": [],
+    "processNameForExitDetection": "re7"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand."
+}

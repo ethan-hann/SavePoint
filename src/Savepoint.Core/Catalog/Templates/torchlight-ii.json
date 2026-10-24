@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "torchlight-ii",
+  "name": "Torchlight II",
+  "steamAppId": 200710,
+  "libraryHints": {
+    "gogIds": [
+      "1958228073"
+    ],
+    "savesByOs": {
+      "macos": {
+        "path": "{userHome}/Library/Application Support/Runic Games/Torchlight 2/save",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{documents}\\My Games\\Runic Games\\Torchlight 2\\save",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/200710",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "darkest-dungeon-ii",
+  "name": "Darkest Dungeon II",
+  "steamAppId": 1940340,
+  "libraryHints": {
+    "gogIds": [
+      "1131974108"
+    ]
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/1940340",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in a folder named after your account id; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

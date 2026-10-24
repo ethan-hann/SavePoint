@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "planet-coaster",
+  "name": "Planet Coaster",
+  "steamAppId": 493340,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Planet Coaster"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "PlanetCoaster.exe",
+    "args": [],
+    "processNameForExitDetection": "PlanetCoaster"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in a folder named after your account id; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

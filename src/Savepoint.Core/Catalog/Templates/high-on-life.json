@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "high-on-life",
+  "name": "High On Life",
+  "steamAppId": 1583230,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "HighOnLife"
+    ]
+  },
+  "external": {
+    "path": "{localAppData}\\Oregon\\Saved\\SaveGames",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Oregon/Binaries/Win64/Oregon-Win64-Shipping.exe",
+    "args": [],
+    "processNameForExitDetection": "Oregon-Win64-Shipping"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

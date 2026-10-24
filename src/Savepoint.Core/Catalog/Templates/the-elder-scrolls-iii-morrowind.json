@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "the-elder-scrolls-iii-morrowind",
+  "name": "The Elder Scrolls III: Morrowind",
+  "steamAppId": 22320,
+  "libraryHints": {
+    "gogIds": [
+      "1440163901"
+    ]
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/22320",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are kept inside the game's install folder, so there is no separate saves folder to add. Turn off Steam Cloud for this game while SavePoint manages it."
+}

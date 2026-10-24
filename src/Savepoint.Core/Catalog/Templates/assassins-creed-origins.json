@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "assassins-creed-origins",
+  "name": "Assassin's Creed Origins",
+  "steamAppId": 582160,
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/582160",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand."
+}

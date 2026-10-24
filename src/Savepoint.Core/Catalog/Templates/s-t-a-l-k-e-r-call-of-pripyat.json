@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "s-t-a-l-k-e-r-call-of-pripyat",
+  "name": "S.T.A.L.K.E.R.: Call of Pripyat",
+  "steamAppId": 41700,
+  "libraryHints": {
+    "gogIds": [
+      "1246586254"
+    ]
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/41700",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

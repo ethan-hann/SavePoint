@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "sniper-elite-4",
+  "name": "Sniper Elite 4",
+  "steamAppId": 312660,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Sniper Elite 4"
+    ]
+  },
+  "external": {
+    "path": "{localAppData}\\SniperElite4\\PC_ProfileSaves",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "bin/SniperElite4_DX11.exe",
+    "args": [],
+    "processNameForExitDetection": "SniperElite4_DX11"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

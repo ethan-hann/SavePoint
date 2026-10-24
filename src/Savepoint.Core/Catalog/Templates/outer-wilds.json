@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "outer-wilds",
+  "name": "Outer Wilds",
+  "steamAppId": 753640,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Outer Wilds"
+    ]
+  },
+  "external": {
+    "path": "{localLow}\\Mobius Digital\\Outer Wilds\\SteamSaves",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "OuterWilds.exe",
+    "args": [],
+    "processNameForExitDetection": "OuterWilds"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

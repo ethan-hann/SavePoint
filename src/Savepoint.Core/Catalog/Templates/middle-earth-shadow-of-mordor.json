@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "middle-earth-shadow-of-mordor",
+  "name": "Middle-earth: Shadow of Mordor",
+  "steamAppId": 241930,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "ShadowOfMordor"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "x64/ShadowOfMordor.exe",
+    "args": [],
+    "processNameForExitDetection": "ShadowOfMordor"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

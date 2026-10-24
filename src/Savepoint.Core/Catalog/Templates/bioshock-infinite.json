@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "bioshock-infinite",
+  "name": "BioShock Infinite",
+  "steamAppId": 8870,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "BioShock Infinite"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Binaries/Win32/BioShockInfinite.exe",
+    "args": [],
+    "processNameForExitDetection": "BioShockInfinite"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

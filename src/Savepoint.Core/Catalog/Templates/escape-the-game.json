@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "escape-the-game",
+  "name": "Escape the Game",
+  "steamAppId": 542310,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Escape the Game"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "EscapeTheGame.exe",
+    "args": [],
+    "processNameForExitDetection": "EscapeTheGame"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand."
+}

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "celeste",
+  "name": "Celeste",
+  "steamAppId": 504230,
+  "libraryHints": {
+    "savesByOs": {
+      "macos": {
+        "path": "{userHome}/Library/Application Support/Celeste/Saves",
+        "role": "saves"
+      }
+    }
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/504230",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are kept inside the game's install folder, so there is no separate saves folder to add. Turn off Steam Cloud for this game while SavePoint manages it."
+}

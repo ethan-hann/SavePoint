@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "grand-theft-auto-vice-city",
+  "name": "Grand Theft Auto: Vice City",
+  "steamAppId": 12110,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Grand Theft Auto Vice City"
+    ],
+    "savesByOs": {
+      "macos": {
+        "path": "{userHome}/Library/Application Support/Grand Theft Auto Vice City/p_drive/Documents/GTA Vice City User Files",
+        "role": "saves"
+      }
+    }
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "gta-vc.exe",
+    "args": [],
+    "processNameForExitDetection": "gta-vc"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "This game keeps saves in more than one place; add the saves folder by hand."
+}

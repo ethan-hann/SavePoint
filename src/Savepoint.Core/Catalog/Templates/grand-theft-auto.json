@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "grand-theft-auto",
+  "name": "Grand Theft Auto",
+  "steamAppId": 12170,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Grand Theft Auto"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "WINO/Grand Theft Auto.exe",
+    "args": [],
+    "processNameForExitDetection": "Grand Theft Auto"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are kept inside the game's install folder, so there is no separate saves folder to add."
+}

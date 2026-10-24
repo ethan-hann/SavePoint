@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "fallout-2",
+  "name": "Fallout 2",
+  "steamAppId": 38410,
+  "libraryHints": {
+    "gogIds": [
+      "1440166436"
+    ],
+    "savesByOs": {
+      "macos": {
+        "path": "{userHome}/Library/Application Support/Fallout 2/saves",
+        "role": "saves"
+      }
+    }
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/38410",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are kept inside the game's install folder, so there is no separate saves folder to add. Turn off Steam Cloud for this game while SavePoint manages it."
+}

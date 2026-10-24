@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "batman-arkham-origins",
+  "name": "Batman: Arkham Origins",
+  "steamAppId": 209000,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Batman Arkham Origins"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "SinglePlayer/Binaries/Win32/BatmanOrigins.exe",
+    "args": [],
+    "processNameForExitDetection": "BatmanOrigins"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are in Steam Cloud's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "age-of-wonders-4",
+  "name": "Age of Wonders 4",
+  "steamAppId": 1669000,
+  "libraryHints": {
+    "gogIds": [
+      "1915432764"
+    ]
+  },
+  "external": {
+    "path": "{documents}\\Paradox Interactive\\Age of Wonders 4\\Storage",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/1669000",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

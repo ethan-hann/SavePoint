@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "warframe",
+  "name": "Warframe",
+  "steamAppId": 230410,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Warframe"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Warframe.x64.exe",
+    "args": [],
+    "processNameForExitDetection": "Warframe.x64"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it. Uses anti-cheat; don't use SavePoint with its online mode."
+}

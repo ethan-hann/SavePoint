@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "shapez-2",
+  "name": "shapez 2",
+  "steamAppId": 2162800,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "shapez 2 - Factory"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{appData}/unity3d/tobspr Games/shapez 2/savegames",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{localLow}\\tobspr Games\\shapez 2\\savegames",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "shapez 2.exe",
+    "args": [],
+    "processNameForExitDetection": "shapez 2"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

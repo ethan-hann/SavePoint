@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "frostpunk",
+  "name": "Frostpunk",
+  "steamAppId": 323190,
+  "libraryHints": {
+    "gogIds": [
+      "1648559910"
+    ],
+    "savesByOs": {
+      "macos": {
+        "path": "{userHome}/Library/Application Support/11bitstudios/FrostPunk/Default/saves",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{appData}\\11bitstudios\\Frostpunk\\Default\\saves",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/323190",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

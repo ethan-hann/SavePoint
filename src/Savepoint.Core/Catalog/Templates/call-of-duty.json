@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "call-of-duty",
+  "name": "Call of Duty",
+  "steamAppId": 1938090,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Call of Duty HQ"
+    ]
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/1938090",
+    "args": [],
+    "processNameForExitDetection": "cod25-cod"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand."
+}

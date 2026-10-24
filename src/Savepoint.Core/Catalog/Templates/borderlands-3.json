@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "borderlands-3",
+  "name": "Borderlands 3",
+  "steamAppId": 397540,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Borderlands 3"
+    ],
+    "savesByOs": {
+      "macos": {
+        "path": "{userHome}/Library/Application Support/GearboxSoftware/OakGame/Saved/SaveGames",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{documents}\\My Games\\Borderlands 3\\Saved\\SaveGames",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "OakGame/Binaries/Win64/Borderlands3.exe",
+    "args": [],
+    "processNameForExitDetection": "Borderlands3"
+  },
+  "ignorePaths": [],
+  "modPathHints": []
+}

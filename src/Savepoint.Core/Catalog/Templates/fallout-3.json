@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "fallout-3",
+  "name": "Fallout 3",
+  "steamAppId": 22300,
+  "libraryHints": {
+    "gogIds": [
+      "1248282609"
+    ]
+  },
+  "external": {
+    "path": "{documents}\\My Games\\Fallout3\\Saves",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "Fallout3.exe",
+    "args": [],
+    "processNameForExitDetection": "Fallout3.exe"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}

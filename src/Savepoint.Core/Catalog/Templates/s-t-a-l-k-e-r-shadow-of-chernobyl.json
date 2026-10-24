@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "s-t-a-l-k-e-r-shadow-of-chernobyl",
+  "name": "S.T.A.L.K.E.R.: Shadow of Chernobyl",
+  "steamAppId": 4500,
+  "libraryHints": {
+    "gogIds": [
+      "1962372962"
+    ]
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/4500",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+}

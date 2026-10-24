@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "grand-theft-auto-2",
+  "name": "Grand Theft Auto 2",
+  "steamAppId": 12180,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Grand Theft Auto 2"
+    ]
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "gta2.exe",
+    "args": [],
+    "processNameForExitDetection": "gta2"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are kept inside the game's install folder, so there is no separate saves folder to add."
+}

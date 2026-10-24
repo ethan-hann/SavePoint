@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "star-wars-knights-of-the-old-republic",
+  "name": "Star Wars: Knights of the Old Republic",
+  "steamAppId": 32370,
+  "libraryHints": {
+    "gogIds": [
+      "1207666283"
+    ],
+    "savesByOs": {
+      "macos": {
+        "path": "{userHome}/Library/Application Support/Knights of the Old Republic/saves",
+        "role": "saves"
+      }
+    }
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "swkotor.exe",
+    "args": [],
+    "processNameForExitDetection": "swkotor.exe"
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are kept inside the game's install folder, so there is no separate saves folder to add. Turn off Steam Cloud for this game while SavePoint manages it."
+}

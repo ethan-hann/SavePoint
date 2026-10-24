@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "hitman-3",
+  "name": "HITMAN 3",
+  "steamAppId": 247430,
+  "libraryHints": {
+    "gogIds": [
+      "1207660853"
+    ]
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/247430",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Saves are kept inside the game's install folder, so there is no separate saves folder to add. Turn off Steam Cloud for this game while SavePoint manages it."
+}

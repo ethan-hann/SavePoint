@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "grand-theft-auto-iii",
+  "name": "Grand Theft Auto III",
+  "steamAppId": 12100,
+  "libraryHints": {
+    "steamInstallDirs": [
+      "Grand Theft Auto 3"
+    ],
+    "savesByOs": {
+      "macos": {
+        "path": "{userHome}/Documents/GTA3 User Files",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{documents}\\GTA3 User Files",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "exe",
+    "exePath": "gta3.exe",
+    "args": [],
+    "processNameForExitDetection": "gta3"
+  },
+  "ignorePaths": [],
+  "modPathHints": []
+}

@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "stellaris",
+  "name": "Stellaris",
+  "steamAppId": 281990,
+  "libraryHints": {
+    "gogIds": [
+      "1508702879"
+    ],
+    "savesByOs": {
+      "linux": {
+        "path": "{userHome}/.local/share/Paradox Interactive/Stellaris",
+        "role": "saves"
+      },
+      "macos": {
+        "path": "{userHome}/Documents/Paradox Interactive/Stellaris",
+        "role": "saves"
+      }
+    }
+  },
+  "external": {
+    "path": "{documents}\\Paradox Interactive\\Stellaris",
+    "role": "saves"
+  },
+  "launch": {
+    "method": "uri",
+    "uri": "steam://rungameid/281990",
+    "args": []
+  },
+  "ignorePaths": [],
+  "modPathHints": [],
+  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+}
