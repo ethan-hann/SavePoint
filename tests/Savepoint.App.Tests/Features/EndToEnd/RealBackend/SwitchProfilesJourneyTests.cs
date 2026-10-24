@@ -23,8 +23,8 @@ public class SwitchProfilesJourneyTests
             {
                 Assert.Equal("Switch to \"Vanilla\"?", dialog.Title);
                 Assert.True(dialog.HasVersionSection);
-                Assert.EndsWith("with 2 mod files, to ", dialog.VersionBefore, StringComparison.Ordinal);
-                Assert.EndsWith("with no mods", dialog.VersionTarget, StringComparison.Ordinal);
+                Assert.EndsWith("Going from 2 mod files to ", dialog.VersionBefore, StringComparison.Ordinal);
+                Assert.Equal("no mods", dialog.VersionTarget);
                 Assert.True(dialog.HasSaveSection);
                 Assert.Single(dialog.SaveOptions);
                 Assert.Empty(dialog.UnsavedBlocks);
@@ -47,8 +47,8 @@ public class SwitchProfilesJourneyTests
             dialog =>
             {
                 Assert.Equal("Switch to \"Modded\"?", dialog.Title);
-                Assert.EndsWith("with no mods, to ", dialog.VersionBefore, StringComparison.Ordinal);
-                Assert.EndsWith("with 2 mod files", dialog.VersionTarget, StringComparison.Ordinal);
+                Assert.EndsWith("Going from no mods to ", dialog.VersionBefore, StringComparison.Ordinal);
+                Assert.Equal("2 mod files", dialog.VersionTarget);
                 Assert.Empty(dialog.UnsavedBlocks);
             });
         var afterSecondPlay = await rig.DialogAsync<PostPlayDialogViewModel>();
