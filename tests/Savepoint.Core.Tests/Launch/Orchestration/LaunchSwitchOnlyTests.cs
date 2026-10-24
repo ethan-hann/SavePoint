@@ -197,6 +197,66 @@ public class LaunchSwitchOnlyTests
         Assert.True((await rig.Launch.SwitchAsync(rig.Game.Id, Tip(vanilla))).Ok);
     }
 
+    [Fact(Timeout = 240_000)]
+    public async Task A_switch_stopped_at_the_engine_leaves_the_folder_unfinished_frees_the_game_and_the_next_switch_to_the_same_target_finishes_it()
+    {
+        var (rig, vanilla, modded) = await LaunchRig.WithTwoProfilesAsync();
+        using var _ = rig;
+        var services = rig.Workspace.Backend.Services;
+        using (var reached = new ManualResetEventSlim())
+        using (var release = new ManualResetEventSlim())
+        {
+            rig.Workspace.Disk.FreePerPath = path =>
+            {
+                if (path.StartsWith(rig.InstallPath, StringComparison.OrdinalIgnoreCase) && !release.IsSet)
+                {
+                    reached.Set();
+                    release.Wait(TimeSpan.FromSeconds(20));
+                }
+
+                return null;
+            };
+            try
+            {
+                var started = await rig.Launch.SwitchAsync(rig.Game.Id, Tip(vanilla));
+                Assert.True(started.Ok, started.Error?.Detail);
+                Assert.True(reached.Wait(TimeSpan.FromSeconds(20), Ct), "the switch never reached the engine");
+                await rig.Jobs.CancelAsync(started.Value.JobId);
+                release.Set();
+                var stopped = await rig.WaitForJobAsync(started.Value.JobId);
+                Assert.Equal(JobStatus.Cancelled, stopped.Status);
+                Assert.Equal("error.launch.canceled", stopped.Error?.MessageId);
+            }
+            finally
+            {
+                release.Set();
+                rig.Workspace.Disk.FreePerPath = null;
+            }
+        }
+
+        // Stopped part way: the folder says so, the game is free, and no session or game was ever opened.
+        Assert.NotNull((await rig.StatusAsync(RepoRole.Install)).InterruptedSwitch);
+        Assert.False(services.Sessions.IsGameRunning(rig.Game.Id));
+        Assert.Null(rig.Launch.GetSession(rig.Game.Id));
+
+        // A play to another target is refused until the switch is finished or discarded.
+        var refused = await rig.StartAsync(Tip(modded));
+        Assert.Equal(JobStatus.Failed, refused.Status);
+        Assert.Equal("error.launch.switchInterrupted", refused.Error?.MessageId);
+        Assert.Equal("install", refused.Error!.Args["role"]);
+        Assert.Empty(rig.GameProcessIds());
+
+        // The same target finishes it, as a switch, with the folders on Vanilla and no game started.
+        var finished = await rig.SwitchAsync(Tip(vanilla));
+        Assert.Equal(JobStatus.Succeeded, finished.Status);
+        var install = await rig.StatusAsync(RepoRole.Install);
+        Assert.Null(install.InterruptedSwitch);
+        Assert.Equal(vanilla.BranchName, install.Branch);
+        Assert.False(rig.InstallHas("mods/a.txt"));
+        Assert.Empty(rig.GameProcessIds());
+        Assert.False(services.Sessions.IsGameRunning(rig.Game.Id));
+    }
+
     // Holds the next capture at its first free-space question, with the game's lock, so a switch started meanwhile has to queue.
     private sealed class HeldCapture : IDisposable
     {
