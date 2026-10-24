@@ -49,17 +49,17 @@ public class JobPillPlacementTests
         "editor",
     ];
 
-    public static TheoryData<string, string, string> ScreensAtEverySize()
+    // The screens that scroll something by themselves as they open (the error card into view, the selected row into view), at some of the sizes.
+    private static readonly HashSet<string> _opensScrolled = ["games-failure-card", "activity"];
+
+    public static TheoryData<string, string> ScreensInBothLayouts()
     {
-        var data = new TheoryData<string, string, string>();
+        var data = new TheoryData<string, string>();
         foreach (var layout in new[] { ShellLayout.Sidebar, ShellLayout.Library })
         {
             foreach (var screen in _screens)
             {
-                foreach (var (size, _, _) in _sizes)
-                {
-                    data.Add(layout.ToString(), screen, size);
-                }
+                data.Add(layout.ToString(), screen);
             }
         }
 
@@ -158,24 +158,65 @@ public class JobPillPlacementTests
         return app;
     }
 
+    // One composition per screen steps through the sizes, from the largest down, so the window only shrinks. Before each size every scroll
+    // area goes back to the top, which is where a fresh open has it; a screen that opens already scrolled (the one that scrolls its error
+    // card or its selected row into view) is opened fresh at every size instead, so it keeps the scroll its own opening gave it.
     [AvaloniaTheory]
-    [MemberData(nameof(ScreensAtEverySize))]
-    public async Task No_control_under_the_job_pill_loses_its_clicks(string layoutName, string screen, string sizeName)
+    [MemberData(nameof(ScreensInBothLayouts))]
+    public async Task No_control_under_the_job_pill_loses_its_clicks_and_no_pinned_text_is_hidden_under_it(string layoutName, string screen)
     {
-        var (_, width, height) = _sizes.Single(size => size.Name == sizeName);
-        using var app = await OpenAsync(screen, Enum.Parse<ShellLayout>(layoutName), width, height);
-
-        Redraw(app);
-        var problems = Covered(app, scrolledToEnd: false).Select(problem => $"{problem} (pinned)").ToList();
-        foreach (var scroller in app.Window.GetVisualDescendants().OfType<ScrollViewer>().Where(Scrolls))
+        var layout = Enum.Parse<ShellLayout>(layoutName);
+        var problems = new List<string>();
+        ComposedApp? app = null;
+        var openFreshEachTime = _opensScrolled.Contains(screen);
+        try
         {
-            scroller.ScrollToEnd();
+            foreach (var (sizeName, width, height) in _sizes)
+            {
+                var reused = app is not null && !openFreshEachTime;
+                if (!reused)
+                {
+                    app?.Dispose();
+                    app = await OpenAsync(screen, layout, width, height);
+                }
+                else
+                {
+                    foreach (var scroller in app!.Window.GetVisualDescendants().OfType<ScrollViewer>())
+                    {
+                        scroller.ScrollToHome();
+                    }
+
+                    app.Window.Width = width;
+                    app.Window.Height = height;
+                    app.Settle();
+                    Assert.True(app.Find<Button>("Pill").IsEffectivelyVisible, $"The job pill is not up at {sizeName}.");
+                }
+
+                Redraw(app);
+                var moved = app.Window.GetVisualDescendants().OfType<ScrollViewer>().Where(scroller => scroller.Offset != default).ToList();
+                if (!openFreshEachTime)
+                {
+                    Assert.True(moved.Count == 0, $"{screen}, {layoutName} layout, {sizeName}: a scroll area did not start at the top; add the screen to {nameof(_opensScrolled)}.");
+                }
+
+                var found = Covered(app, scrolledToEnd: false).Select(problem => $"{problem} (pinned)").ToList();
+                found.AddRange(HiddenPinnedText(app).Select(problem => $"{problem} (pinned text)"));
+                foreach (var scroller in app.Window.GetVisualDescendants().OfType<ScrollViewer>().Where(Scrolls))
+                {
+                    scroller.ScrollToEnd();
+                }
+
+                Redraw(app);
+                found.AddRange(Covered(app, scrolledToEnd: true).Select(problem => $"{problem} (scrolled to the end)"));
+                problems.AddRange(found.Distinct().Select(problem => $"{sizeName} ({width}x{height}): {problem}"));
+            }
+        }
+        finally
+        {
+            app?.Dispose();
         }
 
-        Redraw(app);
-        problems.AddRange(Covered(app, scrolledToEnd: true).Select(problem => $"{problem} (scrolled to the end)"));
-
-        Assert.True(problems.Count == 0, $"{screen}, {layoutName} layout, {sizeName} ({width}x{height}):{Environment.NewLine}{string.Join(Environment.NewLine, problems.Distinct())}");
+        Assert.True(problems.Count == 0, $"{screen}, {layoutName} layout:{Environment.NewLine}{string.Join(Environment.NewLine, problems)}");
     }
 
     [AvaloniaTheory]
@@ -224,19 +265,6 @@ public class JobPillPlacementTests
 
     // Words that stay put while the page scrolls (a pinned footer, a pinned card) never get the 64 px of room a scroll area keeps under
     // its last row, so none of their text may sit under the pill, at any size and in either layout.
-    [AvaloniaTheory]
-    [MemberData(nameof(ScreensAtEverySize))]
-    public async Task No_pinned_text_is_hidden_under_the_job_pill(string layoutName, string screen, string sizeName)
-    {
-        var (_, width, height) = _sizes.Single(size => size.Name == sizeName);
-        using var app = await OpenAsync(screen, Enum.Parse<ShellLayout>(layoutName), width, height);
-
-        Redraw(app);
-        var problems = HiddenPinnedText(app).Distinct().ToList();
-
-        Assert.True(problems.Count == 0, $"{screen}, {layoutName} layout, {sizeName} ({width}x{height}):{Environment.NewLine}{string.Join(Environment.NewLine, problems)}");
-    }
-
     private static IEnumerable<string> HiddenPinnedText(ComposedApp app)
     {
         var window = app.Window;
