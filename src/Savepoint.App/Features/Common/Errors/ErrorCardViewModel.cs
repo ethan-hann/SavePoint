@@ -31,14 +31,15 @@ public sealed partial class ErrorCardViewModel : ObservableObject
     /// <param name="text">Formats the message and the card's own labels.</param>
     /// <param name="actions">Buttons to show, in order; at most one should be primary.</param>
     /// <param name="supplement">A view model for extra content between the path and the buttons; its view is found by <see cref="ViewLocator"/>.</param>
-    public ErrorCardViewModel(ErrorInfo error, UiFormatter text, IReadOnlyList<ErrorCardAction>? actions = null, object? supplement = null)
+    /// <param name="operation">What SavePoint was doing, so an error several operations can raise reads right for this one; neutral when unknown.</param>
+    public ErrorCardViewModel(ErrorInfo error, UiFormatter text, IReadOnlyList<ErrorCardAction>? actions = null, object? supplement = null, ErrorOperation operation = ErrorOperation.Unspecified)
     {
         _text = text;
         var kind = ErrorPresentation.For(error.MessageId);
         Icon = kind.Icon;
         Tone = kind.Tone;
-        Title = text.Message(kind.TitleKey);
-        Body = text.Message(error);
+        Title = text.Message(ErrorCopy.TitleKey(error.MessageId, operation));
+        Body = text.Message(error, operation);
         Path = PathFor(error, text);
         Detail = string.IsNullOrWhiteSpace(error.Detail) ? null : error.Detail;
         Actions = actions ?? [];

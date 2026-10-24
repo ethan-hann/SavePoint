@@ -1,3 +1,4 @@
+using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Localization;
 using Savepoint.Core.Errors;
@@ -257,7 +258,7 @@ public class UiFormatterTests
     {
         var error = ErrorInfo.From(new DiskSpaceException(@"D:\SavePoint\Storage", required, free));
 
-        Assert.Equal(expected, English(os).Message(error));
+        Assert.Equal(expected, English(os).Message(error, ErrorOperation.Snapshot));
     }
 
     [Theory]

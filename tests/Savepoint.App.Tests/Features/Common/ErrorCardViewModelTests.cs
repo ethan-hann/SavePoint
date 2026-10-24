@@ -20,7 +20,7 @@ public class ErrorCardViewModelTests
     [Fact]
     public void A_file_in_use_card_has_the_headline_the_lock_icon_the_body_and_the_file()
     {
-        var card = new ErrorCardViewModel(MockupScenario.FileInUseError, _text);
+        var card = new ErrorCardViewModel(MockupScenario.FileInUseError, _text, operation: ErrorOperation.Switch);
 
         Assert.Equal("A file is in use, so the switch stopped partway", card.Title);
         Assert.StartsWith("Something else on your computer is holding one of the game's files open.", card.Body);

@@ -191,7 +191,7 @@ public sealed partial class JobDetailsViewModel : ObservableObject
         }
 
         _reason = reason;
-        _error = reason is null ? null : new ErrorCardViewModel(reason, _text);
+        _error = reason is null ? null : new ErrorCardViewModel(reason, _text, operation: ErrorOperations.Of(job.Kind));
     }
 
     private async Task CancelAsync()

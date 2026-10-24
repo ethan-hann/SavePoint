@@ -1,4 +1,5 @@
 using System.Globalization;
+using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Localization;
 using Savepoint.Core.Errors;
 
@@ -65,10 +66,20 @@ public sealed class UiFormatter
     /// An id the catalog does not know (a newer Core than this app) reads as the generic unknown-error message, never
     /// as a raw key. The developer detail is never part of it.
     /// </summary>
-    public string Message(ErrorInfo error)
+    public string Message(ErrorInfo error) => Message(error, ErrorOperation.Unspecified);
+
+    /// <summary>
+    /// The user-facing text for an error that happened during a known operation: the same as <see cref="Message(ErrorInfo)"/>, but an
+    /// error that several operations can raise is said in the terms of this one. An operation with no wording of its own gets the
+    /// neutral text.
+    /// </summary>
+    /// <param name="error">The error.</param>
+    /// <param name="operation">What SavePoint was doing.</param>
+    public string Message(ErrorInfo error, ErrorOperation operation)
     {
         var id = _catalog.Contains(error.MessageId) ? error.MessageId : "error.unknown";
-        return Message(id, id == "error.diskSpace.low" ? WithDiskSpaceArguments(error.Args) : error.Args);
+        var key = ErrorCopy.BodyKey(id, operation);
+        return Message(_catalog.Contains(key) ? key : id, id == "error.diskSpace.low" ? WithDiskSpaceArguments(error.Args) : error.Args);
     }
 
     /// <summary>The drive a path is on: "D:" for a Windows drive letter, the "\\server\share" of a network path, the path itself otherwise; null for an empty path.</summary>

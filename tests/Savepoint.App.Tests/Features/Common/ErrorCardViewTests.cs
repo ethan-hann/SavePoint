@@ -22,7 +22,7 @@ public class ErrorCardViewTests
     [AvaloniaFact]
     public void The_card_shows_the_headline_the_body_and_the_path_on_its_own_surface()
     {
-        using var shown = Show(new ErrorCardViewModel(MockupScenario.FileInUseError, _text));
+        using var shown = Show(new ErrorCardViewModel(MockupScenario.FileInUseError, _text, operation: ErrorOperation.Switch));
 
         Assert.Equal("A file is in use, so the switch stopped partway", shown.Text("TitleText"));
         Assert.StartsWith("Something else on your computer", shown.Text("BodyText"));
@@ -120,7 +120,7 @@ public class ErrorCardViewTests
     [AvaloniaFact]
     public void The_card_is_named_after_its_headline_and_announced_politely_and_its_icon_is_decorative()
     {
-        using var shown = Show(new ErrorCardViewModel(MockupScenario.FileInUseError, _text));
+        using var shown = Show(new ErrorCardViewModel(MockupScenario.FileInUseError, _text, operation: ErrorOperation.Switch));
 
         Assert.Equal("A file is in use, so the switch stopped partway", AutomationProperties.GetName(shown.Find<Border>("Card")));
         Assert.Equal(AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(shown.Find<Border>("Card")));

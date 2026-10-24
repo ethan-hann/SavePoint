@@ -12,7 +12,7 @@ public sealed partial class LaunchFlowViewModel
     // A failure to start the game: the card offers what fits the error, and always a way to put it away. A failure of the check before
     // the start has nothing to restart, so its "Try again" runs the check again for the profile the player chose.
     private void ShowLaunchFailure(GameFlow flow, ErrorInfo error, bool beforeStart = false) =>
-        SetInline(flow, new ErrorCardViewModel(error, _deps.Text, LaunchFailureActions(flow, error, beforeStart)));
+        SetInline(flow, new ErrorCardViewModel(error, _deps.Text, LaunchFailureActions(flow, error, beforeStart), operation: ErrorOperation.Switch));
 
     // A file the check found held. Nothing has been switched yet, so a file in use says that, not that a switch stopped partway.
     private void ShowHeldFile(GameFlow flow, ErrorInfo held)
@@ -181,7 +181,7 @@ public sealed partial class LaunchFlowViewModel
         }
 
         actions.Add(DismissAction(flow));
-        SetInline(flow, new ErrorCardViewModel(error, _deps.Text, actions));
+        SetInline(flow, new ErrorCardViewModel(error, _deps.Text, actions, operation: ErrorOperation.Snapshot));
     }
 
     // D13.20: half a save is never a success. The card says which half worked and retries only the other.
@@ -192,7 +192,7 @@ public sealed partial class LaunchFlowViewModel
         var saved = result.Folders.Where(folder => folder.Saved).ToList();
         var left = result.Folders.Where(folder => folder.LeftAlone).ToList();
         var savedRole = saved.Count == 1 ? RoleName(saved[0].Role) : "other";
-        var reason = LaunchText.Reason(text, failed[0].Error);
+        var reason = LaunchText.Reason(text, failed[0].Error, ErrorOperation.Snapshot);
 
         // A folder the save left alone is neither saved nor failed; when nothing was saved at all, the card must not say half was.
         var nothingSaved = saved.Count == 0 && left.Count > 0;
