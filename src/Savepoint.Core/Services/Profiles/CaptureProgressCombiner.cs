@@ -39,7 +39,10 @@ internal sealed class CaptureProgressCombiner(IProgress<JobProgress> sink)
             var filesTotal = counted && parts.All(part => part.FilesTotal is not null) ? parts.Sum(part => part.FilesTotal!.Value) : (int?)null;
             var bytesTotal = counted && parts.All(part => part.BytesTotal is not null) ? parts.Sum(part => part.BytesTotal!.Value) : (long?)null;
             var bytesDone = parts.Any(part => part.BytesDone is not null) ? parts.Sum(part => part.BytesDone ?? 0) : (long?)null;
-            sink.Report(new JobProgress(parts.Sum(part => part.FilesDone), filesTotal, bytesDone, bytesTotal, path));
+
+            // Only when no folder is still storing: a folder that is wrapping up must not hide another that has bytes to go.
+            var finishing = counted && parts.Any(part => part.Finishing) && parts.All(part => part.Finishing || (part.BytesTotal is { } total && part.BytesDone >= total));
+            sink.Report(new JobProgress(parts.Sum(part => part.FilesDone), filesTotal, bytesDone, bytesTotal, path, finishing));
         }
     }
 

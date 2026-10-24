@@ -16,6 +16,9 @@ public sealed class GitBinary
     /// <summary>The environment variable that points at a bundle in another place than next to the app (tests and development use it).</summary>
     public const string RootEnvironmentVariable = "SAVEPOINT_GIT_ROOT";
 
+    // Settings the base environment forces on every git; a per-call setting continues the numbering.
+    internal const int ForcedConfigCount = 4;
+
     private const string _emptyExcludesFileName = "excludes";
     private const string _emptyAttributesFileName = "attributes";
     private const string _noHooksFolderName = "no-hooks";
@@ -189,7 +192,7 @@ public sealed class GitBinary
         // A repository's own config and hooks folder can name programs git would run (core.fsmonitor, a post-commit hook, a program to
         // sign with, ...). Settings given this way outrank every config file, so no repository, SavePoint's or one found elsewhere, can
         // undo them.
-        environment["GIT_CONFIG_COUNT"] = "4";
+        environment["GIT_CONFIG_COUNT"] = ForcedConfigCount.ToString(System.Globalization.CultureInfo.InvariantCulture);
         environment["GIT_CONFIG_KEY_0"] = "core.hooksPath";
         environment["GIT_CONFIG_VALUE_0"] = NoHooksPath;
         environment["GIT_CONFIG_KEY_1"] = "core.fsmonitor";

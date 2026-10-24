@@ -15,6 +15,7 @@ public sealed partial class NewProfileWizardViewModel
     private Guid? _jobId;
     private long _revision;
     private int _milestone;
+    private bool _finishingAnnounced;
     private bool _stopRequested;
     private string? _profileId;
 
@@ -78,6 +79,7 @@ public sealed partial class NewProfileWizardViewModel
     {
         _stopRequested = false;
         _milestone = 0;
+        _finishingAnnounced = false;
         ResultCard = null;
         ProgressText = _text.Message("profiles.wizard.save.savingHint");
         CurrentFileText = string.Empty;
@@ -134,12 +136,14 @@ public sealed partial class NewProfileWizardViewModel
 
         if (bytes is { } stored)
         {
-            // The sampled figure stops a hundredth short of the total until the snapshot is done, so reaching it means git is finishing.
-            ProgressText = stored.Done >= stored.Total - stored.Total / 100
-                ? _text.Message("profiles.wizard.save.finishing")
+            ProgressText = progress.Finishing
+                ? _text.Message("common.progress.finishing")
                 : _text.Message("profiles.wizard.save.bytesProgress", ("done", _text.FileSize(stored.Done)), ("total", _text.FileSize(stored.Total)));
+
+            // While the job wraps up, git has stopped naming files, so the last count and name would look stuck.
             FilesText = (filesDone, filesTotal) switch
             {
+                _ when progress.Finishing => string.Empty,
                 ({ } done, { } total) => _text.Message("profiles.wizard.save.filesDetail", ("done", _text.Number(done)), ("total", total), ("totalText", _text.Number(total))),
                 ({ } done, null) when done > 0 => _text.Message("profiles.wizard.save.filesCopied", ("count", done), ("countText", _text.Number(done))),
                 _ => string.Empty,
@@ -155,7 +159,7 @@ public sealed partial class NewProfileWizardViewModel
             };
         }
 
-        CurrentFileText = progress.CurrentPath is { Length: > 0 } path ? _text.Message("profiles.wizard.save.currentFile", ("currentFile", path)) : string.Empty;
+        CurrentFileText = progress.CurrentPath is { Length: > 0 } path && !progress.Finishing ? _text.Message("profiles.wizard.save.currentFile", ("currentFile", path)) : string.Empty;
 
         // Each quarter is announced once, so a screen reader hears progress without a flood of updates.
         var milestone = (int)(ProgressPercent / 25) * 25;
@@ -163,6 +167,13 @@ public sealed partial class NewProfileWizardViewModel
         {
             _milestone = milestone;
             Announcement = _text.Message("profiles.wizard.save.milestone", ("percent", milestone));
+        }
+
+        // The wait at the end has no quarter of its own, so it is spoken once when it begins.
+        if (progress.Finishing && !_finishingAnnounced)
+        {
+            _finishingAnnounced = true;
+            Announcement = ProgressText;
         }
     }
 

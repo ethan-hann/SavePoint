@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
     <!-- The one version: assembly versions, the About section and the package version all read it. Pre-1.0 until the 1.0 release. -->
-    <Version>0.9.3</Version>
+    <Version>0.9.4</Version>
     <!-- The Windows setup installs into %LOCALAPPDATA%\<pack id> and removes that whole folder on uninstall (D38). -->
     <SavepointPackId>SavePointApp</SavepointPackId>
     <TargetFramework>net10.0</TargetFramework>

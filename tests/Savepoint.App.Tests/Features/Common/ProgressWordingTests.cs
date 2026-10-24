@@ -28,6 +28,15 @@ public class ProgressWordingTests
     }
 
     [Fact]
+    public void A_job_that_is_wrapping_up_says_so_instead_of_showing_a_figure_that_has_stopped()
+    {
+        var wrapping = new JobProgress(4_996, 5_068, 90_500_000_000, 91_400_000_000, null, Finishing: true);
+
+        Assert.Equal("Making sure everything is stored safely. This can take a few minutes for a big game.", _text.Describe(wrapping));
+        Assert.Equal("90.5 GB of 91.4 GB", _text.Describe(wrapping with { Finishing = false }));
+    }
+
+    [Fact]
     public void Bytes_set_the_fraction_when_both_are_known()
     {
         Assert.Equal(0.5, ProgressWording.Fraction(new JobProgress(22, 23, 35, 70)));

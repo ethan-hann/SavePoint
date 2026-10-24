@@ -296,7 +296,7 @@ public sealed partial class GitEngine
     private async Task<string> WriteCommitAsync(RepoRef repo, CaptureRequest request, string? parent, CancellationToken ct)
     {
         var tree = (await RunWriteAsync(() => Invocation(repo, readOnly: false, "write-tree"), ct).ConfigureAwait(false)).StandardOutput.Trim();
-        var message = CommitMessage.Compose(request.Message, request.CaptureId, request.CapturedAt ?? _options.Clock.GetUtcNow());
+        var message = CommitMessage.Compose(request.Message, request.CaptureId, request.CapturedAt ?? _options.Clock.GetUtcNow(), await ListEmptyFoldersAsync(repo, ct).ConfigureAwait(false));
         string[] arguments = parent is null ? ["commit-tree", tree, "-F", "-"] : ["commit-tree", tree, "-p", parent, "-F", "-"];
         var result = await RunWriteAsync(() => Invocation(repo, readOnly: false, arguments) with { Stdin = message }, ct).ConfigureAwait(false);
         return result.StandardOutput.Trim();
@@ -394,7 +394,7 @@ public sealed partial class GitEngine
             return;
         }
 
-        var reporter = progress is null ? null : new ProgressReporter(progress);
+        var reporter = progress is null ? null : new ProgressReporter(progress, time: _options.Clock);
         reporter?.SetTotal(listing.Files.Count);
         if (reporter is not null)
         {
@@ -409,11 +409,13 @@ public sealed partial class GitEngine
 
         // The names go on stdin and are literal (a file called [a].txt is not a pattern); -f is safe because the list was made with the exclude list applied.
         var staging = Invocation(repo, readOnly: false, reporter is null ? ["add", "-A", "-f"] : ["add", "-A", "-f", "--verbose"]).WithPathspecs(listing.Files);
+        var staged = false;
         try
         {
             await RunWriteAsync(
                 () => staging with { OnStdoutLine = reporter is null ? null : line => ObserveAddLine(reporter, line) },
                 ct).ConfigureAwait(false);
+            staged = true;
         }
         catch (GitOperationException e) when (FirstHeldFileNamedBy(repo, e.StandardError ?? e.Message) is { } held)
         {
@@ -424,6 +426,10 @@ public sealed partial class GitEngine
         {
             await stopWatching.CancelAsync().ConfigureAwait(false);
             await watching.ConfigureAwait(false);
+            if (!staged)
+            {
+                reporter?.Abandon();
+            }
         }
 
         reporter?.Complete();
@@ -502,13 +508,13 @@ public sealed partial class GitEngine
     private Task SetHeadAsync(RepoRef repo, string branch, CancellationToken ct) =>
         RunWriteAsync(() => Invocation(repo, readOnly: false, "symbolic-ref", "HEAD", GitDirFiles.BranchPrefix + branch), ct);
 
-    private Task CommitAsync(RepoRef repo, CaptureRequest request, bool amend, CancellationToken ct)
+    private async Task CommitAsync(RepoRef repo, CaptureRequest request, bool amend, CancellationToken ct)
     {
-        var message = CommitMessage.Compose(request.Message, request.CaptureId, request.CapturedAt ?? _options.Clock.GetUtcNow());
+        var message = CommitMessage.Compose(request.Message, request.CaptureId, request.CapturedAt ?? _options.Clock.GetUtcNow(), await ListEmptyFoldersAsync(repo, ct).ConfigureAwait(false));
         string[] arguments = amend
             ? ["commit", "--quiet", "--amend", "--reset-author", "--allow-empty", "--no-verify", "--cleanup=verbatim", "-F", "-"]
             : ["commit", "--quiet", "--no-verify", "--cleanup=verbatim", "-F", "-"];
-        return RunWriteAsync(() => Invocation(repo, readOnly: false, arguments) with { Stdin = message }, ct);
+        await RunWriteAsync(() => Invocation(repo, readOnly: false, arguments) with { Stdin = message }, ct).ConfigureAwait(false);
     }
 
     // The commit a branch points at: the loose ref file when there is one, git otherwise (the ref may be packed, or the branch may not exist).

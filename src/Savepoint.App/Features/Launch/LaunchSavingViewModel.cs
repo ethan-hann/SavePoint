@@ -64,6 +64,10 @@ public sealed partial class LaunchSavingViewModel : ObservableObject
             }
 
             ProgressText = _text.Describe(progress)!;
+            if (_milestones.StartedFinishing(progress.Finishing))
+            {
+                Announcement = ProgressText;
+            }
         }
         else if (progress.FilesDone is not null)
         {

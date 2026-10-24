@@ -95,7 +95,8 @@ public sealed class ActivityText
     /// <param name="job">The job.</param>
     public string TimeLeft(JobSnapshot job)
     {
-        if (job.Status != JobStatus.Running || job.CancelRequested || Fraction(job) is not { } share || share < _earliestShare || share >= 1)
+        // At the end the bar is held at its cap, so the guess would be a few seconds beside text that says minutes.
+        if (job.Status != JobStatus.Running || job.CancelRequested || job.Progress.Finishing || Fraction(job) is not { } share || share < _earliestShare || share >= 1)
         {
             return string.Empty;
         }

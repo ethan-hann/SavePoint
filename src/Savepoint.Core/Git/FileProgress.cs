@@ -9,4 +9,8 @@ namespace Savepoint.Core.Git;
 /// figure moves while one large file is being stored; it never decreases and stays under <paramref name="BytesTotal"/> until the last report.
 /// </param>
 /// <param name="BytesTotal">Bytes the operation expects to write in all (for a capture, the sizes of the files it stores), or null when not known.</param>
-public readonly record struct FileProgress(int FilesDone, int? FilesTotal, string? CurrentPath, long? BytesDone = null, long? BytesTotal = null);
+/// <param name="Finishing">
+/// True once a capture has stored all it is going to and git is only wrapping up (closing its last pack, writing the index), which can
+/// take minutes after a very large first capture and moves nothing else. It stays true until the last report, which clears it, whether the capture completes, fails or is stopped.
+/// </param>
+public readonly record struct FileProgress(int FilesDone, int? FilesTotal, string? CurrentPath, long? BytesDone = null, long? BytesTotal = null, bool Finishing = false);

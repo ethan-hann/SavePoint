@@ -9,7 +9,7 @@ namespace Savepoint.Core.Git;
 internal static partial class RepoConfigFile
 {
     // Bumped whenever a setting below changes, so existing repositories take the new value the next time they are touched.
-    public const string Version = "5";
+    public const string Version = "6";
 
     internal const string BlockStart = "# >>> savepoint managed (do not edit) >>>";
     internal const string BlockEnd = "# <<< savepoint managed <<<";
@@ -124,6 +124,10 @@ internal static partial class RepoConfigFile
             settings.Add(("core", "symlinks", "false"));
         }
 
+        // Files over the threshold are streamed into a pack, and nearly all are archives that are already compressed; zlib there
+        // cost several times the time for a few percent of space. After the core entries so that section opens once.
+        settings.Add(("pack", "compression", "0"));
+
         // Last, so a rewrite that stopped half way is repeated.
         settings.Add((_stampSection, _stampKey, Version));
         return settings;
@@ -133,16 +137,14 @@ internal static partial class RepoConfigFile
     {
         var block = new StringBuilder();
         block.Append(BlockStart).Append('\n');
-        string? current = null;
-        foreach (var (section, key, value) in Settings(isWindows))
+        // Grouped by section in order of first appearance, so each header is written once and the stamp stays last.
+        foreach (var section in Settings(isWindows).GroupBy(setting => setting.Section, StringComparer.Ordinal))
         {
-            if (!string.Equals(current, section, StringComparison.Ordinal))
+            block.Append('[').Append(section.Key).Append("]\n");
+            foreach (var (_, key, value) in section)
             {
-                block.Append('[').Append(section).Append("]\n");
-                current = section;
+                block.Append('\t').Append(key).Append(" = ").Append(value).Append('\n');
             }
-
-            block.Append('\t').Append(key).Append(" = ").Append(value).Append('\n');
         }
 
         block.Append(BlockEnd).Append('\n');

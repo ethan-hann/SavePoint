@@ -457,15 +457,44 @@ public class NewProfileWizardViewModelTests
     }
 
     [Fact]
-    public async Task When_the_store_holds_nearly_everything_the_text_says_it_is_being_made_safe()
+    public async Task When_the_job_is_finishing_the_text_says_it_is_being_made_safe_and_the_stopped_counts_are_hidden()
     {
         var rig = await Rig.StartAsync();
         await rig.SaveAsync();
 
-        rig.Backend.Jobs.ReportProgress(rig.JobId, new JobProgress(3, 23, 69_300_000_000, 70_000_000_000));
+        rig.Backend.Jobs.ReportProgress(rig.JobId, new JobProgress(3, 23, 69_300_000_000, 70_000_000_000, "Data/a.bin", Finishing: true));
 
-        Assert.Equal("Making sure everything is stored safely…", rig.Wizard.ProgressText);
+        Assert.Equal("Making sure everything is stored safely. This can take a few minutes for a big game.", rig.Wizard.ProgressText);
         Assert.False(rig.Wizard.IsIndeterminate);
+        Assert.False(rig.Wizard.HasFilesText);
+        Assert.False(rig.Wizard.HasCurrentFile);
+    }
+
+    [Fact]
+    public async Task A_figure_at_the_old_finishing_mark_still_shows_the_bytes_while_the_job_is_not_finishing()
+    {
+        var rig = await Rig.StartAsync();
+        await rig.SaveAsync();
+
+        rig.Backend.Jobs.ReportProgress(rig.JobId, new JobProgress(3, 23, 69_300_000_000, 70_000_000_000, null, Finishing: false));
+
+        Assert.Equal("69.3 GB of 70 GB copied", rig.Wizard.ProgressText);
+    }
+
+    [Fact]
+    public async Task The_start_of_finishing_is_announced_once()
+    {
+        var rig = await Rig.StartAsync();
+        await rig.SaveAsync();
+        var finishing = new JobProgress(3, 23, 69_300_000_000, 70_000_000_000, null, Finishing: true);
+
+        rig.Backend.Jobs.ReportProgress(rig.JobId, finishing);
+        var heard = rig.Wizard.Announcement;
+        rig.Wizard.Announcement = "someone else";
+        rig.Backend.Jobs.ReportProgress(rig.JobId, finishing with { FilesDone = 4 });
+
+        Assert.Equal("Making sure everything is stored safely. This can take a few minutes for a big game.", heard);
+        Assert.Equal("someone else", rig.Wizard.Announcement);
     }
 
     [Fact]

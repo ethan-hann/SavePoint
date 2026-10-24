@@ -58,7 +58,7 @@ public sealed partial class GitEngine
                     EnsureStorageSpace(repo);
                     using (BeginWrite(repo))
                     {
-                        await RunWriteAsync(() => GitDirOnly(repo, "repack", "-q", "-d", "--geometric=2") with { ReadOnly = false }, ct).ConfigureAwait(false);
+                        await RunWriteAsync(() => GitDirOnly(repo, "repack", "-q", "-d", "--geometric=2") with { ReadOnly = false, ExtraEnvironment = _defaultPackCompression }, ct).ConfigureAwait(false);
                     }
 
                     break;
@@ -153,7 +153,7 @@ public sealed partial class GitEngine
         try
         {
             await RunWriteAsync(() => ReclaimStep(repo, "reflog", "expire", "--expire=now", "--all"), ct).ConfigureAwait(false);
-            await RunWriteAsync(() => ReclaimStep(repo, "repack", "-q", "-a", "-d"), ct).ConfigureAwait(false);
+            await RunWriteAsync(() => ReclaimStep(repo, "repack", "-q", "-a", "-d") with { ExtraEnvironment = _defaultPackCompression }, ct).ConfigureAwait(false);
             await RunWriteAsync(() => ReclaimStep(repo, "prune", "--expire=now"), ct).ConfigureAwait(false);
         }
         finally
@@ -161,6 +161,16 @@ public sealed partial class GitEngine
             ReclaimMarker.Clear(repo.GitDir);
         }
     }
+
+    // The repository sets pack.compression = 0 for the big files a capture streams. A repack compresses what it packs anew at zlib's
+    // default level (-1) and copies data already in a pack as it is, so those big files stay as captured. Environment config keeps
+    // the argument list as it is and outranks the repository file.
+    private static readonly IReadOnlyDictionary<string, string?> _defaultPackCompression = new Dictionary<string, string?>
+    {
+        ["GIT_CONFIG_COUNT"] = (GitBinary.ForcedConfigCount + 1).ToString(System.Globalization.CultureInfo.InvariantCulture),
+        ["GIT_CONFIG_KEY_" + GitBinary.ForcedConfigCount.ToString(System.Globalization.CultureInfo.InvariantCulture)] = "pack.compression",
+        ["GIT_CONFIG_VALUE_" + GitBinary.ForcedConfigCount.ToString(System.Globalization.CultureInfo.InvariantCulture)] = "-1",
+    };
 
     private static GitInvocation ReclaimStep(RepoRef repo, params string[] arguments) =>
         GitDirOnly(repo, arguments) with { ReadOnly = false, Started = git => ReclaimMarker.Record(repo.GitDir, git) };

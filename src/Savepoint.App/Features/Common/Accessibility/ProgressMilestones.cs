@@ -9,6 +9,7 @@ public sealed class ProgressMilestones
     private static readonly int[] _quarters = [25, 50, 75];
 
     private int _last;
+    private bool _finishingSaid;
 
     /// <summary>The quarter this report newly reached, or null when it reached none; progress may only move forward.</summary>
     /// <param name="percent">How far along the job is, from 0 to 100.</param>
@@ -24,6 +25,23 @@ public sealed class ProgressMilestones
         return crossed;
     }
 
+    /// <summary>True the first time a report says the job is finishing, so the wait at the end is spoken once and not on every report.</summary>
+    /// <param name="finishing">Whether the report says the job is only wrapping up.</param>
+    public bool StartedFinishing(bool finishing)
+    {
+        if (!finishing || _finishingSaid)
+        {
+            return false;
+        }
+
+        _finishingSaid = true;
+        return true;
+    }
+
     /// <summary>Forgets what was announced, for a job that starts over.</summary>
-    public void Reset() => _last = 0;
+    public void Reset()
+    {
+        _last = 0;
+        _finishingSaid = false;
+    }
 }
