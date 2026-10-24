@@ -22,7 +22,8 @@ public sealed class RepoConfigTests : IDisposable
         { "core.autocrlf", "false" },
         { "core.bigfilethreshold", "128m" },
         { "core.logallrefupdates", "false" },
-        { "savepoint.repoconfigversion", "5" },
+        { "pack.compression", "0" },
+        { "savepoint.repoconfigversion", "6" },
     };
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -121,9 +122,25 @@ public sealed class RepoConfigTests : IDisposable
 
         await _ws.Engine.InitAsync(repo, ct: Ct);
 
-        Assert.Equal("5", await _ws.ConfigAsync(repo, "savepoint.repoConfigVersion"));
+        Assert.Equal("6", await _ws.ConfigAsync(repo, "savepoint.repoConfigVersion"));
         Assert.Equal("true", await _ws.ConfigAsync(repo, "core.untrackedCache"));
         Assert.Equal("false", await _ws.ConfigAsync(repo, "maintenance.auto"));
+    }
+
+    [Fact]
+    public async Task A_repository_stamped_5_takes_pack_compression_off_the_next_time_it_is_touched()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        var path = Path.Combine(repo.GitDir, "config");
+        var text = await File.ReadAllTextAsync(path, Ct);
+        await File.WriteAllTextAsync(path, text.Replace("\tcompression = 0\n", string.Empty, StringComparison.Ordinal).Replace("[pack]\n", string.Empty, StringComparison.Ordinal).Replace("repoConfigVersion = 6", "repoConfigVersion = 5", StringComparison.Ordinal), Ct);
+        Assert.Null(await _ws.ConfigAsync(repo, "pack.compression"));
+        Assert.Equal("5", await _ws.ConfigAsync(repo, "savepoint.repoConfigVersion"));
+
+        await _ws.Engine.InitAsync(repo, ct: Ct);
+
+        Assert.Equal("0", await _ws.ConfigAsync(repo, "pack.compression"));
+        Assert.Equal("6", await _ws.ConfigAsync(repo, "savepoint.repoConfigVersion"));
     }
 
     [Fact]
@@ -323,6 +340,6 @@ public sealed class RepoConfigTests : IDisposable
         await _ws.Engine.InitAsync(repo, ct: Ct);
 
         Assert.Equal("128m", await _ws.ConfigAsync(repo, "core.bigFileThreshold"));
-        Assert.Equal("5", await _ws.ConfigAsync(repo, "savepoint.repoConfigVersion"));
+        Assert.Equal("6", await _ws.ConfigAsync(repo, "savepoint.repoConfigVersion"));
     }
 }

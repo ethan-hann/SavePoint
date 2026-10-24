@@ -9,7 +9,7 @@ namespace Savepoint.Core.Git;
 internal static partial class RepoConfigFile
 {
     // Bumped whenever a setting below changes, so existing repositories take the new value the next time they are touched.
-    public const string Version = "5";
+    public const string Version = "6";
 
     internal const string BlockStart = "# >>> savepoint managed (do not edit) >>>";
     internal const string BlockEnd = "# <<< savepoint managed <<<";
@@ -116,6 +116,9 @@ internal static partial class RepoConfigFile
             ("core", "quotePath", "false"),
             ("core", "autocrlf", "false"),
             ("core", "bigFileThreshold", "128m"),
+            // Files over the threshold are streamed into a pack, and nearly all are archives that are already compressed; zlib there
+            // cost several times the time for a few percent of space.
+            ("pack", "compression", "0"),
             ("core", "logAllRefUpdates", "false"),
         ];
 
