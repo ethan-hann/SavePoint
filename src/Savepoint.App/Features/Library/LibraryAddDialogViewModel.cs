@@ -93,6 +93,7 @@ public sealed partial class LibraryAddDialogViewModel : DialogViewModel<LibraryA
         _text = text;
         _heading = Title;
         _progressText = text.Message("library.add.starting");
+        Description = text.Message("library.add.description");
         StopLabel = text.Message("library.add.stop");
         StoppingText = text.Message("library.add.stopping");
         CloseLabel = text.Message("library.add.close");
@@ -114,7 +115,7 @@ public sealed partial class LibraryAddDialogViewModel : DialogViewModel<LibraryA
     public override bool CanDismiss => IsFinished;
 
     /// <inheritdoc />
-    public override string Description => ProgressText;
+    public override string Description { get; }
 
     /// <inheritdoc />
     public override double DialogWidth => 640;

@@ -1,7 +1,6 @@
 {
   "library.add.close": "Done",
-  "library.add.line.added": "{name}: added.",
-  "library.add.line.alreadyAdded": "{name}: already added, so nothing was changed.",
+  "library.add.description": "SavePoint is adding the games you picked, one after another, and will list anything it couldn't add.",
   "library.add.line.notTried": "{count, plural, one {1 game was not tried because you stopped.} other {# games were not tried because you stopped.}}",
   "library.add.line.olderSnapshots": "{name}: not added. This folder has snapshots from a game you removed earlier. Use Add a game to add it on its own, and you can bring those snapshots back.",
   "library.add.line.refused": "{name}: not added. {reason}",
@@ -43,7 +42,7 @@
   "library.picker.title": "Add games from your libraries",
   "library.row.added": "Already added",
   "library.row.install": "Installed at {path}",
-  "library.row.noSaves": "SavePoint doesn't know where this game keeps its saves. You can point it at the folder after adding.",
+  "library.row.noSaves": "SavePoint doesn't know where this game keeps its saves. You can choose the folder after adding.",
   "library.row.saves": "Saves folder: {path}",
   "library.row.savesNotYet": "Saves folder: {path}. The game hasn't made it yet, so it's left out for now.",
   "library.row.store.gog": "GOG Galaxy",

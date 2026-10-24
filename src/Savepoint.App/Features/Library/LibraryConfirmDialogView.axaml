@@ -1,0 +1,38 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:dialogs="using:Savepoint.App.Features.Common.Dialogs"
+             xmlns:library="using:Savepoint.App.Features.Library"
+             x:Class="Savepoint.App.Features.Library.LibraryConfirmDialogView"
+             x:DataType="library:LibraryConfirmDialogViewModel">
+  <!-- The one confirmation before several library games are added: every game with the folders SavePoint will manage. -->
+  <dialogs:DialogFrame>
+    <dialogs:DialogFrame.Footer>
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+        <Button x:Name="CancelButton" Classes="text pill large" Content="{Binding CancelLabel}" Command="{Binding CancelCommand}" />
+        <Button x:Name="ConfirmButton" Classes="filled pill large" Content="{Binding ConfirmLabel}" Command="{Binding ConfirmCommand}" />
+      </StackPanel>
+    </dialogs:DialogFrame.Footer>
+    <StackPanel Spacing="16">
+      <TextBlock x:Name="TitleText" Classes="dialog-title" TextWrapping="Wrap" Text="{Binding Title}" />
+      <TextBlock x:Name="MessageText" Classes="body muted" TextWrapping="Wrap" Text="{Binding Message}" />
+      <ItemsControl x:Name="GameList" ItemsSource="{Binding Entries}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <StackPanel Spacing="10" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="library:LibraryConfirmEntry">
+            <Border Classes="recessed">
+              <StackPanel Spacing="4">
+                <TextBlock Classes="row-title" TextWrapping="Wrap" Text="{Binding Name}" />
+                <TextBlock Classes="mono small" TextWrapping="Wrap" Text="{Binding InstallPath}" />
+                <TextBlock Classes="mono small muted" TextWrapping="Wrap" Text="{Binding SavesLine}" />
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+  </dialogs:DialogFrame>
+</UserControl>

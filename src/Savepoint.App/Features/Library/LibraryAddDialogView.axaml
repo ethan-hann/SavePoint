@@ -1,0 +1,48 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:theme="using:Savepoint.App.Theme"
+             xmlns:a11y="using:Savepoint.App.Features.Common.Accessibility"
+             xmlns:dialogs="using:Savepoint.App.Features.Common.Dialogs"
+             xmlns:library="using:Savepoint.App.Features.Library"
+             x:Class="Savepoint.App.Features.Library.LibraryAddDialogView"
+             x:DataType="library:LibraryAddDialogViewModel">
+  <!-- Adding the games: progress with a stop between two games, then what needs attention. -->
+  <dialogs:DialogFrame>
+    <dialogs:DialogFrame.Footer>
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock x:Name="StoppingText" Classes="caption" VerticalAlignment="Center" IsVisible="{Binding IsStopping}" Text="{Binding StoppingText}" />
+        <Button x:Name="StopButton" Grid.Column="1" Classes="pill large" IsVisible="{Binding IsRunning}" IsEnabled="{Binding !IsStopping}" Command="{Binding StopCommand}" Content="{Binding StopLabel}" />
+        <Button x:Name="DoneButton" Grid.Column="1" Classes="filled pill large" IsDefault="True" IsVisible="{Binding IsFinished}" Command="{Binding CloseCommand}" Content="{Binding CloseLabel}" />
+      </Grid>
+    </dialogs:DialogFrame.Footer>
+    <StackPanel Spacing="14">
+      <a11y:AnnouncementRegion x:Name="ProgressAnnouncer" Message="{Binding Announcement}" />
+      <TextBlock x:Name="TitleText" Classes="dialog-title" TextWrapping="Wrap" Text="{Binding Heading}" />
+
+      <StackPanel x:Name="RunningPanel" Spacing="8" IsVisible="{Binding IsRunning}">
+        <ProgressBar x:Name="Bar" Minimum="0" Maximum="100" Value="{Binding PercentValue}" AutomationProperties.Name="{Binding Heading}" />
+        <TextBlock x:Name="ProgressText" Classes="caption" TextWrapping="Wrap" Text="{Binding ProgressText}" />
+      </StackPanel>
+
+      <StackPanel x:Name="ResultPanel" Spacing="10" IsVisible="{Binding IsFinished}">
+        <TextBlock x:Name="AddedText" Classes="row-title" TextWrapping="Wrap" Text="{Binding AddedSummary}" />
+        <TextBlock x:Name="AlreadyAddedText" Classes="body" TextWrapping="Wrap" IsVisible="{Binding AlreadyAddedSummary, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding AlreadyAddedSummary}" />
+        <TextBlock x:Name="NotAddedText" Classes="body error" TextWrapping="Wrap" IsVisible="{Binding NotAddedSummary, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding NotAddedSummary}" />
+        <ItemsControl x:Name="ResultList" ItemsSource="{Binding ResultLines}" AutomationProperties.Name="{Binding Heading}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Spacing="8" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="library:LibraryResultLine">
+              <Border Classes="recessed">
+                <TextBlock Classes="body" TextWrapping="Wrap" Text="{Binding Text}" />
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </StackPanel>
+  </dialogs:DialogFrame>
+</UserControl>

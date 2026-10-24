@@ -27,12 +27,14 @@ public sealed partial class FirstRunViewModel : ObservableObject
     /// <param name="text">Formats the storage note.</param>
     /// <param name="addFirstGame">Opens the game editor.</param>
     /// <param name="startFromTemplate">Offers the built-in templates and a file.</param>
+    /// <param name="addFromLibraries">Adds games found in the Steam and GOG Galaxy libraries.</param>
     /// <param name="howItWorks">Opens the "How SavePoint works" page.</param>
-    public FirstRunViewModel(UiFormatter text, ICommand addFirstGame, ICommand startFromTemplate, ICommand howItWorks)
+    public FirstRunViewModel(UiFormatter text, ICommand addFirstGame, ICommand startFromTemplate, ICommand addFromLibraries, ICommand howItWorks)
     {
         _text = text;
         AddFirstGameCommand = addFirstGame;
         StartFromTemplateCommand = startFromTemplate;
+        AddFromLibrariesCommand = addFromLibraries;
         HowItWorksCommand = howItWorks;
     }
 
@@ -41,6 +43,9 @@ public sealed partial class FirstRunViewModel : ObservableObject
 
     /// <summary>Offers the built-in templates and a file to start from.</summary>
     public ICommand StartFromTemplateCommand { get; }
+
+    /// <summary>Adds games found in the Steam and GOG Galaxy libraries.</summary>
+    public ICommand AddFromLibrariesCommand { get; }
 
     /// <summary>Opens the "How SavePoint works" page, for a player who has not added anything yet.</summary>
     public ICommand HowItWorksCommand { get; }

@@ -123,22 +123,35 @@
           </StackPanel>
         </ScrollViewer>
         <!-- Declared after the lists so Tab reaches it after them, where it is drawn. -->
-        <Button x:Name="RailAddButton"
-                Grid.Row="1"
-                Classes="pill"
-                Classes.filled="{Binding ShowFirstRun}"
-                HorizontalAlignment="Stretch"
-                Margin="0,10,0,0"
-                Padding="12,8"
-                FontSize="13.5"
-                Command="{Binding AddGameCommand}"
-                AutomationProperties.Name="{loc:Loc shell.addGame}"
-                ToolTip.Tip="{loc:Loc shell.addGame}">
-          <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
-            <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.Add}" />
-            <TextBlock Text="{loc:Loc shell.addGame}" IsVisible="{Binding !IsCompact}" />
-          </StackPanel>
-        </Button>
+        <StackPanel Grid.Row="1" Spacing="6" Margin="0,10,0,0">
+          <Button x:Name="RailLibrariesButton"
+                  Classes="pill"
+                  HorizontalAlignment="Stretch"
+                  Padding="12,8"
+                  FontSize="13.5"
+                  Command="{Binding AddFromLibrariesCommand}"
+                  AutomationProperties.Name="{loc:Loc library.entry}"
+                  ToolTip.Tip="{loc:Loc library.entry.hint}">
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+              <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.StadiaController}" />
+              <TextBlock Text="{loc:Loc library.entry}" IsVisible="{Binding !IsCompact}" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+          </Button>
+          <Button x:Name="RailAddButton"
+                  Classes="pill"
+                  Classes.filled="{Binding ShowFirstRun}"
+                  HorizontalAlignment="Stretch"
+                  Padding="12,8"
+                  FontSize="13.5"
+                  Command="{Binding AddGameCommand}"
+                  AutomationProperties.Name="{loc:Loc shell.addGame}"
+                  ToolTip.Tip="{loc:Loc shell.addGame}">
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+              <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.Add}" />
+              <TextBlock Text="{loc:Loc shell.addGame}" IsVisible="{Binding !IsCompact}" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
       </Grid>
     </Border>
 
@@ -182,7 +195,10 @@
         <StackPanel Spacing="14">
           <Grid ColumnDefinitions="*,Auto">
             <TextBlock Classes="overline" VerticalAlignment="Center" Text="{theme:Upper {loc:Loc shell.yourGames}}" />
-            <Button Grid.Column="1" Classes="text" Padding="8,4" Command="{Binding AddGameCommand}" Content="{loc:Loc shell.addGame}" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+              <Button x:Name="ShelfLibrariesButton" Classes="text" Padding="8,4" Command="{Binding AddFromLibrariesCommand}" Content="{loc:Loc library.entry}" ToolTip.Tip="{loc:Loc library.entry.hint}" />
+              <Button Classes="text" Padding="8,4" Command="{Binding AddGameCommand}" Content="{loc:Loc shell.addGame}" />
+            </StackPanel>
           </Grid>
           <Grid ColumnDefinitions="Auto,Auto,*">
             <ListBox x:Name="ShelfGames"

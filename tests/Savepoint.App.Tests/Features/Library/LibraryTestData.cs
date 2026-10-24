@@ -32,3 +32,25 @@ internal static class LibraryTestData
 
     public static LibraryScan Scan(params LibraryGame[] games) => new(games, true, true);
 }
+
+// A believable library for screens: a few real names with and without saves folders, or 200 games for a list that has to scroll.
+internal static class LibraryStates
+{
+    public static LibraryScan Scan(bool many)
+    {
+        var games = new List<LibraryGame>
+        {
+            LibraryTestData.Game("The Elder Scrolls V: Skyrim Special Edition", id: "489830", saves: @"C:\Users\you\Documents\My Games\Skyrim Special Edition\Saves"),
+            LibraryTestData.Game("Counter-Strike: Source", id: "240"),
+            LibraryTestData.Game("Cyberpunk 2077", LibrarySource.Gog, "1423049311", saves: @"C:\Users\you\Saved Games\CD Projekt Red\Cyberpunk 2077", savesExist: false),
+            LibraryTestData.Game("Deus Ex GOTY", LibrarySource.Gog, "1207658995"),
+            LibraryTestData.Game("Portal 2", id: "620", addedGameId: "portal-2-ab12"),
+        };
+        if (many)
+        {
+            games.AddRange(Enumerable.Range(1, 195).Select(n => LibraryTestData.Game($"Sample Game {n}", id: (10000 + n).ToString(System.Globalization.CultureInfo.InvariantCulture))));
+        }
+
+        return LibraryTestData.Scan([.. games]);
+    }
+}
