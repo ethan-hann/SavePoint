@@ -1,5 +1,6 @@
 using Savepoint.Core.Git;
 using Savepoint.Core.Tests.Git.Engine;
+using Savepoint.Core.Tests.Services;
 
 namespace Savepoint.Core.Tests.Git;
 
@@ -99,11 +100,12 @@ public sealed class ProgressReporterBytesTests
     public void Finishing_stays_on_once_said_and_the_last_report_clears_it()
     {
         var log = new ProgressLog();
-        var reporter = new ProgressReporter(log);
+        var clock = new ManualTimeProvider();
+        var reporter = new ProgressReporter(log, time: clock);
         reporter.SetByteTotal(1000);
         reporter.Start();
         reporter.ObserveWritten(5000);
-        reporter.ObserveWritten(5000);
+        clock.Advance(TimeSpan.FromSeconds(8));
         reporter.ObserveWritten(5000);
 
         reporter.FileHandled("a.bin");
@@ -113,6 +115,81 @@ public sealed class ProgressReporterBytesTests
         Assert.True(whileWaiting.Finishing);
         Assert.False(log.Last.Finishing);
         Assert.Equal(1000, log.Last.BytesDone);
+    }
+
+    [Fact]
+    public void A_store_that_holds_still_for_just_under_the_window_is_not_finishing_and_for_the_window_it_is()
+    {
+        var log = new ProgressLog();
+        var clock = new ManualTimeProvider();
+        var reporter = new ProgressReporter(log, time: clock);
+        reporter.SetByteTotal(1000);
+        reporter.Start();
+        reporter.ObserveWritten(5000);
+
+        clock.Advance(TimeSpan.FromSeconds(7.9));
+        reporter.ObserveWritten(5000);
+        Assert.DoesNotContain(log.Reports, report => report.Finishing);
+
+        clock.Advance(TimeSpan.FromSeconds(0.1));
+        reporter.ObserveWritten(5000);
+        Assert.True(log.Last.Finishing);
+    }
+
+    [Fact]
+    public void Growth_starts_the_window_again()
+    {
+        var log = new ProgressLog();
+        var clock = new ManualTimeProvider();
+        var reporter = new ProgressReporter(log, time: clock);
+        reporter.SetByteTotal(1000);
+        reporter.Start();
+        reporter.ObserveWritten(5000);
+        clock.Advance(TimeSpan.FromSeconds(6));
+        reporter.ObserveWritten(5001);
+
+        clock.Advance(TimeSpan.FromSeconds(6));
+        reporter.ObserveWritten(5001);
+
+        Assert.DoesNotContain(log.Reports, report => report.Finishing);
+    }
+
+    [Fact]
+    public void The_last_report_clears_finishing_even_when_nothing_else_changed()
+    {
+        // With so few bytes the cap equals the total, so the finishing report already carries every byte and only its flag is left to clear.
+        var log = new ProgressLog();
+        var clock = new ManualTimeProvider();
+        var reporter = new ProgressReporter(log, time: clock);
+        reporter.SetByteTotal(50);
+        reporter.Start();
+        reporter.ObserveWritten(50);
+        clock.Advance(TimeSpan.FromSeconds(8));
+        reporter.ObserveWritten(50);
+        Assert.True(log.Last.Finishing);
+
+        reporter.Complete();
+
+        Assert.False(log.Last.Finishing);
+    }
+
+    [Fact]
+    public void Giving_up_clears_finishing_in_a_last_report()
+    {
+        var log = new ProgressLog();
+        var clock = new ManualTimeProvider();
+        var reporter = new ProgressReporter(log, time: clock);
+        reporter.SetByteTotal(1000);
+        reporter.Start();
+        reporter.ObserveWritten(5000);
+        clock.Advance(TimeSpan.FromSeconds(8));
+        reporter.ObserveWritten(5000);
+        Assert.True(log.Last.Finishing);
+
+        reporter.Abandon();
+
+        Assert.False(log.Last.Finishing);
+        Assert.True(log.Last.BytesDone < log.Last.BytesTotal);
     }
 
     [Fact]

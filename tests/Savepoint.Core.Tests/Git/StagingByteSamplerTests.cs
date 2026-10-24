@@ -1,20 +1,21 @@
 using Savepoint.Core.Git;
 using Savepoint.Core.Tests.Git.Engine;
+using Savepoint.Core.Tests.Services;
 
 namespace Savepoint.Core.Tests.Git;
 
 // The sampler turns the object store's growth since staging began into byte reports; the clock and the measuring are injected.
 public sealed class StagingByteSamplerTests
 {
-    private static ProgressReporter ReporterOver(ProgressLog log, long total)
+    private static ProgressReporter ReporterOver(ProgressLog log, long total, TimeProvider? clock = null)
     {
-        var reporter = new ProgressReporter(log);
+        var reporter = new ProgressReporter(log, time: clock);
         reporter.SetByteTotal(total);
         return reporter;
     }
 
-    // Lets the sampler run through the given number of waits, then stops it the way the engine does.
-    private static Func<CancellationToken, Task> WaitsThenStops(int waits, CancellationTokenSource stop)
+    // Lets the sampler run through the given number of waits, then stops it the way the engine does. Each wait moves the clock on.
+    private static Func<CancellationToken, Task> WaitsThenStops(int waits, CancellationTokenSource stop, ManualTimeProvider? clock = null, TimeSpan step = default)
     {
         var count = 0;
         return _ =>
@@ -25,6 +26,7 @@ public sealed class StagingByteSamplerTests
                 throw new OperationCanceledException(stop.Token);
             }
 
+            clock?.Advance(step);
             return Task.CompletedTask;
         };
     }
@@ -82,11 +84,26 @@ public sealed class StagingByteSamplerTests
         var log = new ProgressLog();
         using var stop = new CancellationTokenSource();
 
-        await StagingByteSampler.RunAsync(Measures(0, 5000, 5000, 5000, 5000), ReporterOver(log, 1000), WaitsThenStops(4, stop), stop.Token);
+        var clock = new ManualTimeProvider();
+
+        await StagingByteSampler.RunAsync(Measures(0, 5000, 5000, 5000, 5000), ReporterOver(log, 1000, clock), WaitsThenStops(4, stop, clock, TimeSpan.FromSeconds(4)), stop.Token);
 
         Assert.Contains(log.Reports, report => report.Finishing);
         var finishing = log.Reports.First(report => report.Finishing);
         Assert.True(finishing.BytesDone < finishing.BytesTotal, "the figure must stay short of the total until the capture is done");
+    }
+
+    [Fact]
+    public async Task A_store_that_holds_still_for_less_than_the_window_is_not_finishing()
+    {
+        var log = new ProgressLog();
+        using var stop = new CancellationTokenSource();
+        var clock = new ManualTimeProvider();
+
+        // Grew at 4 s, still at 8 s: 4 s of stillness, where git may be hashing one big file before it writes it.
+        await StagingByteSampler.RunAsync(Measures(0, 5000, 5000, 5000), ReporterOver(log, 1000, clock), WaitsThenStops(2, stop, clock, TimeSpan.FromSeconds(4)), stop.Token);
+
+        Assert.DoesNotContain(log.Reports, report => report.Finishing);
     }
 
     [Fact]
@@ -95,7 +112,9 @@ public sealed class StagingByteSamplerTests
         var log = new ProgressLog();
         using var stop = new CancellationTokenSource();
 
-        await StagingByteSampler.RunAsync(Measures(0, 995, 996, 997, 998, 999), ReporterOver(log, 1000), WaitsThenStops(5, stop), stop.Token);
+        var clock = new ManualTimeProvider();
+
+        await StagingByteSampler.RunAsync(Measures(0, 995, 996, 997, 998, 999), ReporterOver(log, 1000, clock), WaitsThenStops(5, stop, clock, TimeSpan.FromSeconds(4)), stop.Token);
 
         Assert.DoesNotContain(log.Reports, report => report.Finishing);
     }
@@ -106,7 +125,9 @@ public sealed class StagingByteSamplerTests
         var log = new ProgressLog();
         using var stop = new CancellationTokenSource();
 
-        await StagingByteSampler.RunAsync(Measures(0, 400, 400, 400, 400), ReporterOver(log, 1000), WaitsThenStops(4, stop), stop.Token);
+        var clock = new ManualTimeProvider();
+
+        await StagingByteSampler.RunAsync(Measures(0, 400, 400, 400, 400), ReporterOver(log, 1000, clock), WaitsThenStops(4, stop, clock, TimeSpan.FromSeconds(4)), stop.Token);
 
         Assert.DoesNotContain(log.Reports, report => report.Finishing);
     }

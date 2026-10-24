@@ -394,7 +394,7 @@ public sealed partial class GitEngine
             return;
         }
 
-        var reporter = progress is null ? null : new ProgressReporter(progress);
+        var reporter = progress is null ? null : new ProgressReporter(progress, time: _options.Clock);
         reporter?.SetTotal(listing.Files.Count);
         if (reporter is not null)
         {
@@ -409,11 +409,13 @@ public sealed partial class GitEngine
 
         // The names go on stdin and are literal (a file called [a].txt is not a pattern); -f is safe because the list was made with the exclude list applied.
         var staging = Invocation(repo, readOnly: false, reporter is null ? ["add", "-A", "-f"] : ["add", "-A", "-f", "--verbose"]).WithPathspecs(listing.Files);
+        var staged = false;
         try
         {
             await RunWriteAsync(
                 () => staging with { OnStdoutLine = reporter is null ? null : line => ObserveAddLine(reporter, line) },
                 ct).ConfigureAwait(false);
+            staged = true;
         }
         catch (GitOperationException e) when (FirstHeldFileNamedBy(repo, e.StandardError ?? e.Message) is { } held)
         {
@@ -424,6 +426,10 @@ public sealed partial class GitEngine
         {
             await stopWatching.CancelAsync().ConfigureAwait(false);
             await watching.ConfigureAwait(false);
+            if (!staged)
+            {
+                reporter?.Abandon();
+            }
         }
 
         reporter?.Complete();
