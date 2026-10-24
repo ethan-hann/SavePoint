@@ -3,9 +3,17 @@
              xmlns:loc="using:Savepoint.App.Localization"
              xmlns:theme="using:Savepoint.App.Theme"
              xmlns:shell="using:Savepoint.App.Features.Shell"
+             xmlns:dialogs="using:Savepoint.App.Features.Common.Dialogs"
              x:Class="Savepoint.App.Features.Shell.TemplatePickerView"
              x:DataType="shell:TemplatePickerViewModel">
   <!-- The dialog behind "Start from a template". -->
+  <dialogs:DialogFrame>
+    <dialogs:DialogFrame.Footer>
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+        <Button Classes="text pill large" Command="{Binding CancelCommand}" Content="{loc:Loc common.cancel}" />
+        <Button Classes="pill large" Command="{Binding OpenFileCommand}" Content="{loc:Loc templatePicker.openFile}" />
+      </StackPanel>
+    </dialogs:DialogFrame.Footer>
   <StackPanel Spacing="14">
     <TextBlock Classes="dialog-title" TextWrapping="Wrap" Text="{loc:Loc templatePicker.title}" />
     <TextBlock Classes="body muted" TextWrapping="Wrap" Text="{loc:Loc templatePicker.body}" />
@@ -33,9 +41,6 @@
       </ItemsControl>
     </ScrollViewer>
     <TextBlock x:Name="NoMatchesText" Classes="body muted" AutomationProperties.LiveSetting="Polite" IsVisible="{Binding ShowNoMatches}" Text="{Binding NoMatchesText}" />
-    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,4,0,0">
-      <Button Classes="text pill large" Command="{Binding CancelCommand}" Content="{loc:Loc common.cancel}" />
-      <Button Classes="pill large" Command="{Binding OpenFileCommand}" Content="{loc:Loc templatePicker.openFile}" />
-    </StackPanel>
   </StackPanel>
+  </dialogs:DialogFrame>
 </UserControl>

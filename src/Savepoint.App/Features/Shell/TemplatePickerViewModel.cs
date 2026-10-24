@@ -96,6 +96,9 @@ public sealed partial class TemplatePickerViewModel : DialogViewModel<TemplateCh
     public override bool DismissesOnScrimClick => true;
 
     /// <inheritdoc />
+    public override bool PinsFooter => true;
+
+    /// <inheritdoc />
     protected override TemplateChoice? DismissResult => null;
 
     [RelayCommand]
