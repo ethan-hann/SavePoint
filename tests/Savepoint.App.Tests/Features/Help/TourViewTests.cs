@@ -362,8 +362,28 @@ public class TourViewTests
 
             Assert.True(window.Contains(card.TopLeft) && window.Contains(card.BottomRight - new Point(1, 1)), $"{what}: the card {card} is outside the {window.Width:0}x{window.Height:0} window.");
             AssertOutlines(app, Target(app, step), what);
-            Assert.False(card.Intersects(Bounds(app, Target(app, step))), $"{what}: the card covers its control.");
+            Assert.False(card.Intersects(Bounds(app, Target(app, step))), $"{what}: the card {card} covers its control {Bounds(app, Target(app, step))}.");
             Next(app);
+        }
+    }
+
+    // The first card points at the first row; the rows under it are the list the player came to use, so none of them is hidden where the
+    // window has room for the card elsewhere. A window at its smallest has none: there the card stays inside the window (see the sizes above).
+    [AvaloniaTheory]
+    [InlineData(ShellLayout.Sidebar, 1040, 660)]
+    [InlineData(ShellLayout.Library, 1040, 660)]
+    public async Task The_first_card_hides_no_other_row_of_the_profile_list(ShellLayout layout, double width, double height)
+    {
+        using var app = await StartAsync(layout, width, height);
+
+        var card = Bounds(app, Card(app)!);
+        var window = new Rect(0, 0, app.Window.ClientSize.Width, app.Window.ClientSize.Height);
+        var others = app.All<Border>().Where(border => border.Classes.Contains("table-row") && border.IsEffectivelyVisible).Skip(1).ToList();
+        Assert.NotEmpty(others);
+        foreach (var row in others)
+        {
+            var shown = Bounds(app, row).Intersect(window);
+            Assert.False(shown.Width > 0 && shown.Height > 0 && card.Intersects(shown), $"{layout} {width}x{height}: the card {card} covers a row of the list {shown}.");
         }
     }
 
