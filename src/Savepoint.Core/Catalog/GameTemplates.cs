@@ -8,10 +8,8 @@ public static class GameTemplates
 {
     private const string _resourcePrefix = "Savepoint.Core.Catalog.Templates.";
 
-    private static readonly string[] _files = ["skyrim-se.json"];
-
     /// <summary>
-    /// Every embedded template in a fixed order. The display name is the game's own name, so Core carries no UI copy. A template leaves
+    /// Every embedded template, sorted by file name so the order never depends on the build. The display name is the game's own name, so Core carries no UI copy. A template leaves
     /// the install folder empty for the player to pick, because no path works on every operating system. The lists inside each
     /// definition are read-only copies.
     /// </summary>
@@ -21,9 +19,12 @@ public static class GameTemplates
     {
         var assembly = typeof(GameTemplates).Assembly;
         var templates = new List<GameTemplate>();
-        foreach (var file in _files)
+        var files = assembly.GetManifestResourceNames()
+            .Where(name => name.StartsWith(_resourcePrefix, StringComparison.Ordinal) && name.EndsWith(".json", StringComparison.Ordinal))
+            .Order(StringComparer.Ordinal);
+        foreach (var file in files)
         {
-            using var stream = assembly.GetManifestResourceStream(_resourcePrefix + file)
+            using var stream = assembly.GetManifestResourceStream(file)
                 ?? throw new InvalidOperationException($"Embedded template '{file}' is missing from the assembly.");
             using var reader = new StreamReader(stream);
             templates.Add(Read(reader.ReadToEnd()));
