@@ -384,6 +384,139 @@ public partial class ReleaseWorkflowTests
         Assert.Equal(["A.part1 A.part2 A.part3", "A A.part3", ""], JsonSerializer.Deserialize<string[]>(output)!);
     }
 
+    private static string Sha(string text) => Convert.ToHexString(SHA256.HashData(Encoding.ASCII.GetBytes(text))).ToLowerInvariant();
+
+    // Runs the body and returns its result, or the error text when it throws, so a missing function shows up as a wrong value.
+    private static string Guarded(string body) => $"try {{ {body} }} catch {{ 'ERROR: ' + $_.Exception.Message }}";
+
+    [Fact]
+    public async Task Hashing_before_the_upload_lists_each_file_each_part_and_the_joined_file()
+    {
+        var folder = Directory.CreateTempSubdirectory("savepoint-sums-");
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(folder.FullName, "small.txt"), "tiny", TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(Path.Combine(folder.FullName, "big.bin"), "0123456789ABCDEFGHIJKLMNOPQRS", TestContext.Current.CancellationToken);
+            var scratch = Directory.CreateDirectory(Path.Combine(folder.FullName, "out")).FullName;
+
+            var output = await PwshAsync(Guarded($$"""
+                $entries = @(Get-ChildItem -LiteralPath {{Quote(folder.FullName)}} -File | Sort-Object Name | ForEach-Object { Get-SumEntries $_.FullName {{Quote(scratch)}} -SplitAbove 20 -PartSize 10 })
+                ConvertTo-Json -InputObject @($entries | ForEach-Object { "$($_.Name) $($_.Size) $($_.Hash) $([bool]$_.Path)" })
+                """));
+
+            Assert.Equal(
+                [
+                    $"big.bin.part1 10 {Sha("0123456789")} True",
+                    $"big.bin.part2 10 {Sha("ABCDEFGHIJ")} True",
+                    $"big.bin.part3 9 {Sha("KLMNOPQRS")} True",
+                    $"big.bin 29 {Sha("0123456789ABCDEFGHIJKLMNOPQRS")} False",
+                    $"small.txt 4 {Sha("tiny")} True",
+                ],
+                JsonSerializer.Deserialize<string[]>(output)!);
+        }
+        finally
+        {
+            folder.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task A_sum_list_is_read_back_into_the_entries_that_were_written()
+    {
+        var output = await PwshAsync(Guarded("""
+            $text = Format-SumList @([pscustomobject]@{ Name = 'b.zip'; Hash = 'bb'; Size = 7 }, [pscustomobject]@{ Name = 'a.exe'; Hash = 'aa'; Size = 3 })
+            $back = @(Read-SumList $text)
+            ConvertTo-Json -InputObject @(($text -split "`n" | Where-Object { $_ }), @($back | ForEach-Object { "$($_.Name) $($_.Size) $($_.Hash)" }))
+            """));
+
+        var results = JsonSerializer.Deserialize<string[][]>(output)!;
+        Assert.Equal(["aa 3 a.exe", "bb 7 b.zip"], results[0]);
+        Assert.Equal(["a.exe 3 aa", "b.zip 7 bb"], results[1]);
+    }
+
+    private const string _mergeSetup = """
+        function Asset($name, $size) { [pscustomobject]@{ name = $name; size = $size } }
+        $listA = Format-SumList @([pscustomobject]@{ Name = 'a.exe'; Hash = 'aa'; Size = 3 }, [pscustomobject]@{ Name = 'big.bin'; Hash = 'ff'; Size = 15 }, [pscustomobject]@{ Name = 'big.bin.part1'; Hash = 'f1'; Size = 10 }, [pscustomobject]@{ Name = 'big.bin.part2'; Hash = 'f2'; Size = 5 })
+        $listB = Format-SumList @([pscustomobject]@{ Name = 'b.zip'; Hash = 'bb'; Size = 7 })
+        $assets = @((Asset 'a.exe' 3), (Asset 'big.bin.part1' 10), (Asset 'big.bin.part2' 5), (Asset 'b.zip' 7))
+        function Try-Merge($lists, $assets) { try { (Merge-Sums $lists $assets) -join '|' } catch { 'ERROR: ' + $_.Exception.Message } }
+        """;
+
+    [Fact]
+    public async Task The_lists_of_both_jobs_become_one_checksum_file_when_they_match_the_release()
+    {
+        var output = await PwshAsync(Guarded(_mergeSetup + "\nTry-Merge @($listA, $listB) $assets"));
+
+        Assert.Equal("aa  a.exe|bb  b.zip|ff  big.bin|f1  big.bin.part1|f2  big.bin.part2", output.Trim());
+    }
+
+    [Fact]
+    public async Task A_release_asset_with_a_different_size_than_its_list_is_refused()
+    {
+        var output = await PwshAsync(Guarded(_mergeSetup + "\nTry-Merge @($listA, $listB) @($assets | ForEach-Object { if ($_.name -eq 'b.zip') { Asset 'b.zip' 8 } else { $_ } })"));
+
+        Assert.Equal("ERROR: b.zip is 8 bytes on the release but its list says 7.", output.Trim());
+    }
+
+    [Fact]
+    public async Task A_release_asset_no_list_mentions_is_refused()
+    {
+        var output = await PwshAsync(Guarded(_mergeSetup + "\nTry-Merge @($listA) $assets"));
+
+        Assert.Equal("ERROR: b.zip is on the release but in none of the hash lists.", output.Trim());
+    }
+
+    [Fact]
+    public async Task A_listed_file_the_release_lacks_is_refused()
+    {
+        var output = await PwshAsync(Guarded(_mergeSetup + "\nTry-Merge @($listA, $listB) @($assets | Where-Object { $_.name -ne 'big.bin.part2' })"));
+
+        Assert.Equal("ERROR: big.bin.part2 is in a hash list but not on the release.", output.Trim());
+    }
+
+    [Fact]
+    public async Task A_gap_in_the_numbering_of_the_parts_on_the_release_is_refused()
+    {
+        var output = await PwshAsync(Guarded("""
+            function Asset($name, $size) { [pscustomobject]@{ name = $name; size = $size } }
+            $list = Format-SumList @([pscustomobject]@{ Name = 'x'; Hash = 'xx'; Size = 3 }, [pscustomobject]@{ Name = 'x.part1'; Hash = 'x1'; Size = 1 }, [pscustomobject]@{ Name = 'x.part3'; Hash = 'x3'; Size = 1 }, [pscustomobject]@{ Name = 'x.part2'; Hash = 'x2'; Size = 1 })
+            try { (Merge-Sums @($list) @((Asset 'x.part1' 1), (Asset 'x.part3' 1))) -join '|' } catch { 'ERROR: ' + $_.Exception.Message }
+            """));
+
+        Assert.Equal("ERROR: x.part2 is in a hash list but not on the release.", output.Trim());
+    }
+
+    [Fact]
+    public async Task Parts_whose_list_has_no_line_for_a_missing_middle_part_are_still_refused()
+    {
+        var output = await PwshAsync(Guarded("""
+            function Asset($name, $size) { [pscustomobject]@{ name = $name; size = $size } }
+            $list = Format-SumList @([pscustomobject]@{ Name = 'x'; Hash = 'xx'; Size = 3 }, [pscustomobject]@{ Name = 'x.part1'; Hash = 'x1'; Size = 1 }, [pscustomobject]@{ Name = 'x.part3'; Hash = 'x3'; Size = 1 })
+            try { (Merge-Sums @($list) @((Asset 'x.part1' 1), (Asset 'x.part3' 1))) -join '|' } catch { 'ERROR: ' + $_.Exception.Message }
+            """));
+
+        Assert.Equal("ERROR: The parts of x are not numbered 1 to 2.", output.Trim());
+    }
+
+    [Fact]
+    public void Checksums_reads_the_job_lists_from_the_workflow_and_downloads_no_package_file()
+    {
+        var script = Script();
+        var workflow = Workflow();
+
+        var checksums = script[script.IndexOf("'Checksums' {", StringComparison.Ordinal)..];
+        Assert.DoesNotContain("browser_download_url", checksums, StringComparison.Ordinal);
+        Assert.Contains("SUMS_LINUX", Steps(Job(workflow, "checksums")).Single(step => step.Contains("-Action Checksums", StringComparison.Ordinal)), StringComparison.Ordinal);
+        Assert.Contains("needs.linux.outputs.sums", Job(workflow, "checksums"), StringComparison.Ordinal);
+        Assert.Contains("needs.windows.outputs.sums", Job(workflow, "checksums"), StringComparison.Ordinal);
+        foreach (var name in new[] { "linux", "windows" })
+        {
+            var job = Job(workflow, name);
+            Assert.Matches(@"(?m)^    outputs:\r?\n      sums: \$\{\{ steps\.upload\.outputs\.sums \}\}", job);
+            Assert.Matches(@"(?ms)id: upload\r?\n.*release-assets\.ps1 -Action Upload", job);
+        }
+    }
+
     [Fact]
     public async Task Parts_numbered_with_a_gap_are_refused()
     {

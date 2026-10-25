@@ -17,6 +17,8 @@ jobs:
   linux:
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    outputs:
+      sums: ${{ steps.upload.outputs.sums }}
     steps:
       - uses: https://data.forgejo.org/actions/checkout@v4
         with:
@@ -67,6 +69,7 @@ jobs:
           bash build/package.sh
 
       - name: Add the files to the release
+        id: upload
         env:
           RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -75,6 +78,8 @@ jobs:
   windows:
     runs-on: windows
     timeout-minutes: 120
+    outputs:
+      sums: ${{ steps.upload.outputs.sums }}
     defaults:
       run:
         shell: pwsh
@@ -118,6 +123,7 @@ jobs:
         run: ./build/package.ps1
 
       - name: Add the files to the release
+        id: upload
         env:
           RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -147,4 +153,7 @@ jobs:
         env:
           RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The workflow's token can upload to a draft but not read its files, so the hashes travel here.
+          SUMS_LINUX: ${{ needs.linux.outputs.sums }}
+          SUMS_WIN: ${{ needs.windows.outputs.sums }}
         run: pwsh -NoProfile -File build/release-assets.ps1 -Action Checksums
