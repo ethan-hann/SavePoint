@@ -112,6 +112,59 @@ public class AppIconTests
         Assert.True(GlyphShare(ico, size) > 1.5 * GlyphShare(ico, 64), $"The {size}px frame looks like the outline glyph, not the filled one.");
     }
 
+    private static byte[] Pixels(ReadOnlySpan<byte> png)
+    {
+        using var bitmap = SKBitmap.Decode(png);
+        return bitmap.Bytes;
+    }
+
+    // The committed files must be what IconGen draws now, so editing the tool without regenerating (or the reverse) fails here.
+    [Theory]
+    [InlineData(16)]
+    [InlineData(24)]
+    [InlineData(32)]
+    [InlineData(48)]
+    [InlineData(64)]
+    [InlineData(128)]
+    [InlineData(256)]
+    public void Each_committed_ico_frame_is_what_the_generator_draws(int size)
+    {
+        var fonts = Path.Combine(IconFolder, "..", "Fonts");
+        using var outline = SKTypeface.FromFile(Path.Combine(fonts, "MaterialSymbolsRounded.ttf"));
+        using var filled = SKTypeface.FromFile(Path.Combine(fonts, "MaterialSymbolsRoundedFilled.ttf"));
+        var ico = File.ReadAllBytes(IconFile("savepoint.ico"));
+        var count = BinaryPrimitives.ReadUInt16LittleEndian(ico.AsSpan(4));
+        for (var i = 0; i < count; i++)
+        {
+            var entry = ico.AsSpan(6 + (i * 16), 16);
+            if ((entry[0] == 0 ? 256 : entry[0]) != size)
+            {
+                continue;
+            }
+
+            var committed = ico.AsSpan((int)BinaryPrimitives.ReadUInt32LittleEndian(entry[12..]), (int)BinaryPrimitives.ReadUInt32LittleEndian(entry[8..]));
+            Assert.True(Pixels(committed).SequenceEqual(Pixels(IconRenderer.Render(size, outline, filled))), $"The committed {size}px ico frame differs from what IconGen draws; run it again.");
+            return;
+        }
+
+        Assert.Fail($"The ico has no {size}px frame.");
+    }
+
+    [Theory]
+    [InlineData(256)]
+    [InlineData(512)]
+    [InlineData(1024)]
+    public void Each_committed_png_is_what_the_generator_draws(int size)
+    {
+        var fonts = Path.Combine(IconFolder, "..", "Fonts");
+        using var outline = SKTypeface.FromFile(Path.Combine(fonts, "MaterialSymbolsRounded.ttf"));
+        using var filled = SKTypeface.FromFile(Path.Combine(fonts, "MaterialSymbolsRoundedFilled.ttf"));
+
+        Assert.True(
+            Pixels(File.ReadAllBytes(IconFile($"savepoint-{size}.png"))).SequenceEqual(Pixels(IconRenderer.Render(size, outline, filled))),
+            $"The committed {size}px PNG differs from what IconGen draws; run it again.");
+    }
+
     [Theory]
     [InlineData(256)]
     [InlineData(512)]

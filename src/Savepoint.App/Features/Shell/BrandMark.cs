@@ -1,5 +1,6 @@
 using System.Globalization;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Savepoint.App.Theme;
@@ -26,6 +27,9 @@ public sealed class BrandMark : Border
     {
         Size = size;
         GlyphSize = glyphSize;
+        // The mark is decoration: the app name beside it is what assistive technology reads.
+        AutomationProperties.SetAccessibilityView(this, AccessibilityView.Raw);
+        AutomationProperties.SetAccessibilityView(_glyph, AccessibilityView.Raw);
         Bind(BackgroundProperty, this.GetResourceObservable("Md3PrimaryBrush"));
         _glyph.Bind(InkCenteredGlyph.FontFamilyProperty, _glyph.GetResourceObservable("SymbolsFont"));
         _glyph.Bind(InkCenteredGlyph.ForegroundProperty, _glyph.GetResourceObservable("Md3OnPrimaryBrush"));
@@ -40,7 +44,6 @@ public sealed class BrandMark : Border
         {
             Width = value;
             Height = value;
-            CornerRadius = new CornerRadius(value / 4);
         }
     }
 
@@ -53,6 +56,17 @@ public sealed class BrandMark : Border
 
     /// <inheritdoc />
     protected override Type StyleKeyOverride => typeof(Border);
+
+    /// <inheritdoc />
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        // The corners stay a quarter of the shorter side, as in the icon, however the size is set.
+        if ((change.Property == WidthProperty || change.Property == HeightProperty) && double.IsFinite(Width) && double.IsFinite(Height))
+        {
+            CornerRadius = new CornerRadius(Math.Min(Width, Height) / 4);
+        }
+    }
 }
 
 /// <summary>Draws a text glyph centered on its ink bounds, so a glyph that sits off-center in its em box still lands in the middle.</summary>

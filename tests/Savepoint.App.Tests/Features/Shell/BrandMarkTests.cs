@@ -1,6 +1,12 @@
+using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Threading;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Tests.Theme;
+using Savepoint.App.Theme;
+using Savepoint.App.Theme.Material;
 using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Tests.Features.Shell;
@@ -71,5 +77,37 @@ public class BrandMarkTests
 
         Assert.True(Math.Abs(x - (size / 2.0)) <= 0.25, $"The glyph's ink is centered {x:0.##} px across a {size} px mark.");
         Assert.True(Math.Abs(y - (size / 2.0)) <= 0.25, $"The glyph's ink is centered {y:0.##} px down a {size} px mark.");
+    }
+
+    [AvaloniaFact]
+    public void The_mark_and_its_glyph_are_decorative_for_assistive_technology()
+    {
+        var mark = new BrandMark();
+
+        Assert.Equal(AccessibilityView.Raw, AutomationProperties.GetAccessibilityView(mark));
+        Assert.Equal(AccessibilityView.Raw, AutomationProperties.GetAccessibilityView(Assert.IsAssignableFrom<Control>(mark.Child)));
+    }
+
+    [AvaloniaFact]
+    public void The_square_follows_a_live_theme_and_accent_switch()
+    {
+        var mark = new BrandMark { HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top };
+        using var host = new ThemeHost(mark, ThemePreference.Light, AccentColorId.Blue, width: 120, height: 120);
+        var light = ThemeTestSupport.PixelAt(ThemeTestSupport.Render(host.Window), 12, 2);
+        Assert.Equal(Md3Palette.Build(AccentSeeds.For(AccentColorId.Blue), dark: false).Primary, light.ToUInt32());
+
+        ((App)Application.Current!).Theme.Apply(ThemePreference.Dark, AccentColorId.Green);
+        Dispatcher.UIThread.RunJobs();
+        var dark = ThemeTestSupport.PixelAt(ThemeTestSupport.Render(host.Window), 12, 2);
+
+        Assert.Equal(Md3Palette.Build(AccentSeeds.For(AccentColorId.Green), dark: true).Primary, dark.ToUInt32());
+    }
+
+    [AvaloniaFact]
+    public void The_corners_stay_a_quarter_of_the_side_when_the_size_changes_directly()
+    {
+        var mark = new BrandMark { Width = 40, Height = 40 };
+
+        Assert.Equal(new CornerRadius(10), mark.CornerRadius);
     }
 }
