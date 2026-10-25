@@ -28,7 +28,7 @@ public sealed class HostIntegration : IDisposable
     private readonly ThemeService _theme;
     private bool _disposed;
 
-    private HostIntegration(Window window, ThemeService theme, AppServices services, UiFormatter text, SingleInstance? single)
+    private HostIntegration(Window window, ThemeService theme, AppServices services, UiFormatter text, SingleInstance? single, INotificationService? notifications)
     {
         _window = window;
         _theme = theme;
@@ -37,7 +37,7 @@ public sealed class HostIntegration : IDisposable
         _text = text;
         _single = single;
         _activity = new WindowActivityTracker(window);
-        _notifications = NotificationServices.Create(window);
+        _notifications = notifications ?? NotificationServices.Create(window);
 
         _motion = ReducedMotionSource.CreateForCurrentOs();
         _motion.Changed += OnMotionChanged;
@@ -60,7 +60,11 @@ public sealed class HostIntegration : IDisposable
     /// <param name="text">Formats the notification text.</param>
     /// <param name="single">The single-instance guard whose activation requests bring the window forward; null when there is none.</param>
     public static HostIntegration Attach(Window window, ThemeService theme, AppServices services, UiFormatter text, SingleInstance? single) =>
-        new(window, theme, services, text, single);
+        new(window, theme, services, text, single, null);
+
+    // Lets a test see what would be shown without touching the real notification area.
+    internal static HostIntegration Attach(Window window, ThemeService theme, AppServices services, UiFormatter text, INotificationService notifications) =>
+        new(window, theme, services, text, null, notifications);
 
     /// <summary>Stops listening and gives up the notification area icon.</summary>
     public void Dispose()

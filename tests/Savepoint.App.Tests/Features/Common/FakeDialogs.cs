@@ -54,9 +54,13 @@ public sealed class FakeDialogs : IDialogs
         return this;
     }
 
+    // Runs as each ShowAsync dialog opens, for a test that answers it by pressing one of its buttons.
+    public Action<IDialogViewModel>? OnShown { get; set; }
+
     public Task<TResult> ShowAsync<TResult>(DialogViewModel<TResult> dialog)
     {
         Shown.Add(dialog);
+        OnShown?.Invoke(dialog);
         return dialog.Result;
     }
 
