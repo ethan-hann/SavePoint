@@ -94,7 +94,7 @@ Press **Play** on a profile, or **Go back to this** on a snapshot in History. Be
 SavePoint asks what to do with the session:
 
 - **Keep this session as a new snapshot** (recommended). Your earlier snapshots stay exactly as they are.
-- **Replace "<snapshot>" with this session.** That snapshot holds this session instead. Whatever it held before goes to History's **Recently removed** until the next time you free up space. The snapshot offered is always one of the profile you played; a profile that has no snapshot of its own yet, like a new duplicate, doesn't get this choice.
+- **Replace "<snapshot>" with this session.** That snapshot holds this session instead. Whatever it held before goes to History's **Recently removed** until the next time you free up space. This choice only appears for the played profile's own newest snapshot, and only when no other profile shares it, so a new duplicate or a profile you made from another doesn't get it until it has a snapshot of its own.
 - **Not now.** Nothing is lost. Your saves stay in your game folders as new changes, and SavePoint asks again before you switch profiles.
 
 If you played from an older snapshot, the session can't just go on the end of the profile, so your choices are:

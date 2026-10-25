@@ -107,6 +107,8 @@ Inventories of the v1 code listed behavior v1 got wrong or left undecided. v2 re
 
 ## D14. Playing from an older point, then saving
 
+**Replace after a normal session (decided 2026-10-24).** "Replace <snapshot> with this session" is offered only for the newest snapshot History lists under the played profile (History's capture-id grouping and first-profile-in-catalog-order ownership; newest by date across both folders), and only when, in every folder the save will write, that snapshot's commit is the profile's tip and no other profile's branch reaches it. Otherwise the dialog offers Keep this session as a new snapshot and Not now. So a profile made from another, or a duplicate, never replaces a snapshot it shares, and the profile it was made from cannot replace that shared snapshot either until it has a newer one of its own. Before this, a profile made with New profile was offered the other profile's snapshot by name.
+
 The v1 plan ("Save history within one Profile") requires two choices when the player continued from an older point and then captures: move the profile forward from that point (the newer points stop being part of the profile, recoverable until the next storage optimization) or fork a new profile from that point, with fork as the safer default. v1 never built this (it threw `detachedCaptureNotSupported`, later patched with keep-as-new in the launch dialog). v2 builds it:
 
 - The post-play dialog, when the session started from an older point, offers: **Keep this as a new profile** (default, name field prefilled), **Continue "<profile>" from here** (moves the profile forward; second confirmation that names how many newer points leave the profile), and **Not now**.
