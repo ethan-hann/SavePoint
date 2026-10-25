@@ -5,14 +5,15 @@ using System.Runtime.InteropServices;
 
 namespace Savepoint.Core.Git;
 
-// Ends a process and everything it started. .NET's own tree kill stops each process first (SIGSTOP) and ends it a moment later;
-// a host that exits in between leaves the process stopped for good, still holding its files and, for an AppImage, its mount.
-// On Linux the tree is read from /proc and every member gets SIGKILL straight away, which also ends a stopped one.
+// Ends a process and everything it started. .NET's own tree kill stops each process first (SIGSTOP) and ends it a moment later,
+// and nothing finishes it if the host exits in between. On Linux the tree is read from /proc, frozen, and then every member gets
+// SIGKILL in the same call (the exit-time registry runs it before the host goes), so nothing is left stopped.
 internal static class ProcessTree
 {
     private const int _sigkill = 9;
+    private const int _sigstop = 19;
 
-    // The root stays alive until the last pass, so a pass can pick up a new direct child of it that an earlier pass missed.
+    // Enough for a tree a few levels deep to be frozen level by level.
     private const int _linuxPasses = 5;
 
     public static void Kill(Process process)
@@ -78,21 +79,29 @@ internal static class ProcessTree
     // False when the system call cannot be bound, so the caller falls back to the .NET kill instead of failing the cancel.
     internal static bool TryKillLinuxTree(Process process, string procRoot)
     {
+        var known = new List<(int Id, int Parent)>();
         try
         {
-            // Deepest first and the root last: a parent that is still alive can be found again by the next pass if it forked
-            // while the passes ran, whereas a child of a dead parent is handed to init and cannot be traced back.
+            // A process that forks after it was read, and then dies first, hands its child to init where it can no longer be
+            // traced. So each process found is stopped (briefly: the kill follows at once), which freezes the tree while it is
+            // read again until a pass finds nothing new; only then does everything get SIGKILL, deepest first.
+            if (!process.HasExited)
+            {
+                _ = kill(process.Id, _sigstop);
+            }
+
             for (var pass = 0; pass < _linuxPasses; pass++)
             {
-                var below = DescendantsOf(process.Id, procRoot);
-                if (below.Count == 0)
+                var fresh = DescendantsOf(process.Id, procRoot).Where(item => !known.Contains(item)).ToList();
+                if (fresh.Count == 0)
                 {
                     break;
                 }
 
-                for (var i = below.Count - 1; i >= 0; i--)
+                foreach (var (id, parent) in fresh)
                 {
-                    SignalIfStillChildOf(below[i].Id, below[i].Parent, procRoot);
+                    SignalIfStillChildOf(id, parent, _sigstop, procRoot);
+                    known.Add((id, parent));
                 }
             }
         }
@@ -100,10 +109,17 @@ internal static class ProcessTree
         {
             return false;
         }
+        finally
+        {
+            for (var i = known.Count - 1; i >= 0; i--)
+            {
+                SignalIfStillChildOf(known[i].Id, known[i].Parent, _sigkill, procRoot);
+            }
+        }
 
         try
         {
-            // Without a stop signal on Linux; .NET also knows whether it already reaped the process.
+            // .NET knows whether it already reaped the process.
             process.Kill();
         }
         catch (Exception e) when (e is InvalidOperationException or Win32Exception)
@@ -115,14 +131,14 @@ internal static class ProcessTree
     }
 
     // A number can be handed to another process between the scan and the signal, so the parent is read again first.
-    private static void SignalIfStillChildOf(int id, int parent, string procRoot)
+    private static void SignalIfStillChildOf(int id, int parent, int signal, string procRoot)
     {
         try
         {
             var stat = File.ReadAllText(Path.Combine(procRoot, id.ToString(CultureInfo.InvariantCulture), "stat"));
             if (StateAndParent(stat) is { } fields && fields.State is not ('Z' or 'X' or 'x') && fields.Parent == parent)
             {
-                _ = kill(id, _sigkill);
+                _ = kill(id, signal);
             }
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)

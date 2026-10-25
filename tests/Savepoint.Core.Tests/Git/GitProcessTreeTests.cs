@@ -194,7 +194,8 @@ public sealed class GitProcessTreeTests : IDisposable
         var until = DateTime.UtcNow + _generous;
         while (DateTime.UtcNow < until && !call.IsCompleted)
         {
-            if (OperatingSystem.IsLinux() ? LinuxTreeMembers(marker).Count > 0 : Process.GetProcessesByName("ping").Length > 0)
+            // The git and the shell carry the marker too; only the sleeper itself proves the whole tree exists.
+            if (OperatingSystem.IsLinux() ? LinuxTreeMembers(marker).Any(member => member.Contains("] sleep ", StringComparison.Ordinal)) : Process.GetProcessesByName("ping").Length > 0)
             {
                 return;
             }
