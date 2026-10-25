@@ -88,12 +88,12 @@ internal sealed partial class ProfilesApi
 
                     // Each folder starts at the commit the snapshot recorded there, or at the latest one before it in the history of the profile it came from.
                     // A saves folder with none is left without a branch, as for any profile that never saved it; an install folder with none could not start.
-                    var starts = new List<(RepoRef Repo, string Commit)>();
+                    var starts = new List<(RepoRef Repo, CommitInfo Commit)>();
                     foreach (var repo in repos)
                     {
                         if (await RemovedSnapshots.CommitInAsync(storage, repo, state, group, null, CancellationToken.None).ConfigureAwait(false) is { } commit)
                         {
-                            starts.Add((repo, commit.Id));
+                            starts.Add((repo, commit));
                         }
                         else if (repo.Role == RepoRole.Install)
                         {
@@ -101,18 +101,42 @@ internal sealed partial class ProfilesApi
                         }
                     }
 
+                    // A snapshot recorded in one folder only (a replace or a continue that touched just that folder) reaches its other folder through
+                    // the profile it left, and that folder's commit can carry the same id. When a live profile still holds that commit, History
+                    // would file the recorded commit under that profile's point, so the recorded one comes back as a copy under a new id and its
+                    // record moves to the copy. A branch no profile names does not count (D45.4).
+                    var shared = false;
+                    foreach (var (repo, commit) in starts)
+                    {
+                        if (group.In(repo.Role) is null && commit.CaptureId == group.CaptureId && await HeldByAProfileAsync(storage, repo, profiles, commit.Id).ConfigureAwait(false))
+                        {
+                            shared = true;
+                        }
+                    }
+
+                    var copiedFolders = new List<RepoRole>();
                     var copy = fresh with { VersionOverride = origin?.VersionOverride };
                     var made = new List<RepoRef>();
                     try
                     {
+                        var newCaptureId = Guid.NewGuid().ToString("D");
                         foreach (var (repo, commit) in starts)
                         {
-                            await storage.Engine.CreateBranchAsync(repo, copy.BranchName, commit).ConfigureAwait(false);
+                            if (shared && group.In(repo.Role) is { } recorded)
+                            {
+                                await storage.Engine.CreateBranchAsCopyAsync(repo, copy.BranchName, commit.Id, newCaptureId, recorded).ConfigureAwait(false);
+                                copiedFolders.Add(repo.Role);
+                            }
+                            else
+                            {
+                                await storage.Engine.CreateBranchAsync(repo, copy.BranchName, commit.Id).ConfigureAwait(false);
+                            }
+
                             made.Add(repo);
                         }
 
                         var saved = await _services.Catalog.SaveProfileAsync(copy).ConfigureAwait(false);
-                        _services.Log.Information($"Snapshot brought back: '{group.Lead.Commit.Subject}' ({snapshotId.Value}) of {gameId}, removed from {(origin is null ? group.Lead.Branch : origin.Name)}, is now the history of the new profile {copy.Name} ({copy.Id}); " + string.Join(", ", starts.Select(start => $"{GameFolders.LogName(start.Repo.Role)} branch starts at {start.Commit}")) + ". The profile it came from was not touched.");
+                        _services.Log.Information($"Snapshot brought back: '{group.Lead.Commit.Subject}' ({snapshotId.Value}) of {gameId}, removed from {(origin is null ? group.Lead.Branch : origin.Name)}, is now the history of the new profile {copy.Name} ({copy.Id}); " + string.Join(", ", starts.Select(start => $"{GameFolders.LogName(start.Repo.Role)} branch starts at {start.Commit.Id}")) + (copiedFolders.Count > 0 ? $", with the {string.Join(" and ", copiedFolders.Select(GameFolders.LogName))} folder's commit copied under snapshot id {newCaptureId} because a profile still holds the other folder's commit of the same id" : string.Empty) + ". The profile it came from was not touched.");
                         return saved;
                     }
                     catch
@@ -127,6 +151,21 @@ internal sealed partial class ProfilesApi
                     }
                 }).ConfigureAwait(false);
         });
+
+    // True when the commit is in the history of some profile's branch in this folder; a branch with no profile row is not looked at.
+    private static async Task<bool> HeldByAProfileAsync(StorageSnapshot storage, RepoRef repo, IReadOnlyList<Profile> profiles, string commit)
+    {
+        var tips = new List<string>();
+        foreach (var profile in profiles)
+        {
+            if (await storage.Engine.GetBranchTipAsync(repo, profile.BranchName).ConfigureAwait(false) is { } tip)
+            {
+                tips.Add(tip);
+            }
+        }
+
+        return (await storage.Engine.ListCommitsFromAsync(repo, tips).ConfigureAwait(false)).Any(held => held.Id == commit);
+    }
 
     public Task<OperationResult<ProfileDeletePreview>> GetDeletePreviewAsync(string gameId, string profileId, CancellationToken cancellationToken = default) =>
         ApiGuard.RunAsync(

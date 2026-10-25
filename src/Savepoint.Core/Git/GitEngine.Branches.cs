@@ -35,6 +35,114 @@ public sealed partial class GitEngine
     }
 
     /// <summary>
+    /// Creates a branch whose tip is a copy of an existing point under a new capture id: the same files, parents, name, capture time and
+    /// empty folders, so the copy is a point of its own that History does not fold into the point it was copied from. Does not touch HEAD or any file.
+    /// </summary>
+    /// <param name="repo">The folder.</param>
+    /// <param name="newBranch">The new branch; it must not exist.</param>
+    /// <param name="commit">A full commit id that carries a capture id.</param>
+    /// <param name="captureId">The copy's <c>Savepoint-Capture</c> trailer.</param>
+    /// <param name="record">
+    /// The removed-snapshot record of <paramref name="commit"/>, when it has one: the record moves to the copy (same removal time, reason and
+    /// branch) in the same ref transaction that creates the branch, so the copy stays a recently removed snapshot once the branch is gone.
+    /// </param>
+    /// <param name="ct">Cancels the call.</param>
+    /// <returns>The copy's commit id.</returns>
+    /// <exception cref="ArgumentException">A branch name git would refuse, a commit id that is not a full one, or a capture id with whitespace.</exception>
+    /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
+    /// <exception cref="Savepoint.Core.Errors.ProfileAlreadyExistsException">The branch exists; nothing was changed.</exception>
+    /// <exception cref="Savepoint.Core.Errors.GitOperationException">The commit has no capture id, does not exist, or git failed.</exception>
+    public async Task<string> CreateBranchAsCopyAsync(RepoRef repo, string newBranch, string commit, string captureId, RemovedCommit? record = null, CancellationToken ct = default)
+    {
+        repo = Normalize(repo);
+        BranchNames.Require(newBranch);
+        if (!GitDirFiles.IsObjectId(commit))
+        {
+            throw new ArgumentException("The commit must be given as a full commit id.", nameof(commit));
+        }
+
+        if (string.IsNullOrEmpty(captureId) || captureId.Any(c => char.IsWhiteSpace(c) || char.IsControl(c)))
+        {
+            throw new ArgumentException("A capture id cannot be empty or contain whitespace or control characters.", nameof(captureId));
+        }
+
+        ct.ThrowIfCancellationRequested();
+        CheckWorkTree(repo);
+        RepoMarker.Verify(repo);
+        await EnsureRepositoryAsync(repo, ct).ConfigureAwait(false);
+
+        if (record is not null && !string.Equals(record.Commit.Id, commit, StringComparison.Ordinal))
+        {
+            throw new ArgumentException("The record must be the one that keeps the commit being copied.", nameof(record));
+        }
+
+        using var scope = BeginWrite(repo);
+        if (await ResolveBranchAsync(repo, newBranch, ct).ConfigureAwait(false) is not null)
+        {
+            throw new ProfileAlreadyExistsException(newBranch);
+        }
+
+        var read = await RunAsync(GitDirOnly(repo, "log", "-1", "--format=%T%x1f%P%x1f%aI%x1f%cI%x1f%B", commit, "--"), ct).ConfigureAwait(false);
+        var fields = read.StandardOutput.Split('\x1f', 5);
+        var message = fields.Length == 5 ? ReplaceCaptureId(fields[4], captureId) : null;
+        if (message is null)
+        {
+            throw new GitOperationException($"The commit {commit} carries no capture id to replace.");
+        }
+
+        List<string> arguments = ["commit-tree", fields[0].Trim()];
+        foreach (var parent in fields[1].Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            arguments.AddRange(["-p", parent]);
+        }
+
+        arguments.AddRange(["-F", "-"]);
+
+        // The dates stay the original's: History and the newest-point readers order and compare by them.
+        var dates = new Dictionary<string, string?> { ["GIT_AUTHOR_DATE"] = fields[2].Trim(), ["GIT_COMMITTER_DATE"] = fields[3].Trim() };
+        var copy = (await RunWriteAsync(() => Invocation(repo, readOnly: false, [.. arguments]) with { Stdin = message, ExtraEnvironment = dates }, ct).ConfigureAwait(false)).StandardOutput.Trim();
+
+        // The branch and the record's move are one transaction, so the copy is never a branch without its record or a record without its branch.
+        var transaction = new StringBuilder();
+        transaction.Append("create ").Append(GitDirFiles.BranchPrefix).Append(newBranch).Append(' ').Append(copy).Append('\n');
+        if (record is not null)
+        {
+            transaction.Append("create ").Append(RemovedRecords.RefName(record.RemovedAt, record.Reason, record.Branch, copy)).Append(' ').Append(copy).Append('\n');
+            transaction.Append("delete ").Append(record.RefName).Append(' ').Append(commit).Append('\n');
+        }
+
+        try
+        {
+            await RunWriteAsync(() => Invocation(repo, readOnly: false, "update-ref", "-m", "savepoint: create branch", "--stdin") with { Stdin = transaction.ToString() }, ct).ConfigureAwait(false);
+        }
+        catch (GitOperationException)
+        {
+            if (await ResolveBranchAsync(repo, newBranch, ct).ConfigureAwait(false) is not null)
+            {
+                throw new ProfileAlreadyExistsException(newBranch);
+            }
+
+            throw;
+        }
+
+        return copy;
+    }
+
+    // The message with its capture trailer's value swapped, or null when it has none.
+    private static string? ReplaceCaptureId(string message, string captureId)
+    {
+        var lines = message.TrimEnd('\r', '\n').Split('\n');
+        var at = Array.FindLastIndex(lines, line => CommitMessage.IsCaptureTrailer(line.TrimEnd('\r')));
+        if (at < 0)
+        {
+            return null;
+        }
+
+        lines[at] = "Savepoint-Capture: " + captureId;
+        return string.Join('\n', lines) + "\n";
+    }
+
+    /// <summary>
     /// Creates a branch whose only point has an empty tree (a fresh start for a duplicated profile's saves), without
     /// touching any file. HEAD is left alone unless <paramref name="attachToUnbornHead"/> asks for it. Does nothing when the branch already exists.
     /// </summary>
@@ -186,6 +294,8 @@ internal static class CommitMessage
             throw new ArgumentException("A message cannot hold a line that starts like the capture id or capture time trailer.", paramName);
         }
     }
+
+    public static bool IsCaptureTrailer(string line) => IsKeyOf(line, _captureTrailerKey);
 
     // git reads the key without regard to case and allows blanks before the colon.
     private static bool StartsLikeTrailer(string line) =>
