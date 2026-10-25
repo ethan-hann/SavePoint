@@ -8,6 +8,7 @@ How to build, run, test, and change SavePoint. What the code promises layer by l
 - **On Windows, PowerShell 7 (`pwsh`).** The build calls `build/fetch-git.ps1` through it.
 - **On Linux and macOS, `bash`, `tar`, and `curl` or `wget`.** `build/fetch-git.sh` reads `build/git-manifest.json` through `tools/PackageSources`, so it uses the same SDK and needs no JSON tool.
 - **Network access on the first build.** The build downloads SavePoint's own git (below). Later builds reuse it.
+- **For the full test run:** PowerShell 7 on every OS (the build and release scripts' tests drive them through it), `gpg` (Gpg4win, or the one Git for Windows ships in `usr\bin`, on Windows) and, on Linux, `dbus-daemon` for the notification tests. The Linux CI job installs all three; `build/gate-linux.sh` installs PowerShell as a .NET tool and stops with the `apt install` line to run if `dbus-daemon` or `gpg` is missing. A test that skips only because one of these is missing fails the gate's skip check.
 - **For packaging only:** `dotnet tool restore`, which installs the pinned `vpk`, and git on `PATH` (the package scripts read the commit they build).
 
 Nothing else is needed to build and test: SavePoint never uses a git installed on the machine. Only the package scripts call git, to read the commit they build.

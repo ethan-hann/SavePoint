@@ -329,6 +329,33 @@ function Get-SignatureVerdict {
     "signed by key $(($valid[0] -split ' ')[-1]), not the pinned $Fingerprint"
 }
 
+function ConvertTo-GpgHome {
+    <# The form of a gpg home folder that the gpg on the path accepts. #>
+    param([Parameter(Mandatory)][string]$Path, [string]$GpgPath)
+    if (-not $GpgPath) { $GpgPath = (Get-Command gpg -ErrorAction SilentlyContinue).Source }
+    # The gpg of Git for Windows (under usr\bin) is an msys program: its agent socket name cannot hold the colon of a drive letter.
+    if ($GpgPath -match '^[A-Za-z]:[\\/].*[\\/]usr[\\/]bin[\\/]gpg(\.exe)?$' -and $Path -match '^([A-Za-z]):[\\/](.*)$') {
+        return '/' + $Matches[1].ToLowerInvariant() + '/' + ($Matches[2] -replace '\\', '/')
+    }
+    $Path
+}
+
+function New-GpgHome {
+    <#
+    Makes an empty folder to use as a private gpg home and returns its path. The gpg agent's socket lives inside it and a Unix socket path
+    holds about 100 characters, so for the msys gpg of Git for Windows, when the temp folder is deeper than that (a checkout in a long
+    path), the folder goes under the machine-wide data folder instead.
+    #>
+    $name = "savepoint-gnupg-$([guid]::NewGuid().ToString('N').Substring(0, 12))"
+    $folder = Join-Path ([System.IO.Path]::GetTempPath()) $name
+    $argument = ConvertTo-GpgHome -Path $folder
+    if ($argument -ne $folder -and $argument.Length + '/S.gpg-agent'.Length -gt 100) {
+        $folder = Join-Path ([Environment]::GetFolderPath('CommonApplicationData')) $name
+    }
+    New-Item -ItemType Directory -Path $folder | Out-Null
+    $folder
+}
+
 function New-SignatureVerifier {
     <#
     A verifier over a private gpg home that holds only the pinned keys, so the person's own keyring neither helps nor is touched. Its Verify
@@ -338,14 +365,14 @@ function New-SignatureVerifier {
     if (-not (Get-Command gpg -ErrorAction SilentlyContinue)) {
         throw 'gpg is not installed (Gpg4win on Windows, gnupg elsewhere). Install it, or pass -SkipSignatures to go without the check.'
     }
-    $gnupgHome = Join-Path ([System.IO.Path]::GetTempPath()) "savepoint-gnupg-$([guid]::NewGuid().ToString('N'))"
-    New-Item -ItemType Directory -Path $gnupgHome | Out-Null
+    $gnupgHome = New-GpgHome
+    $homeArgument = ConvertTo-GpgHome -Path $gnupgHome
     try {
         foreach ($signer in $Signers) {
-            & gpg --homedir $gnupgHome --batch --quiet --import (Join-Path $KeyDirectory $signer.KeyFile) 2>$null
+            & gpg --homedir $homeArgument --batch --quiet --import (Join-Path $KeyDirectory $signer.KeyFile) 2>$null
             if ($LASTEXITCODE -ne 0) { throw "gpg could not import $($signer.KeyFile) from $KeyDirectory." }
             # The file has to hold the key the fingerprint pins, not just some key.
-            & gpg --homedir $gnupgHome --batch --quiet --list-keys $signer.Fingerprint 2>$null | Out-Null
+            & gpg --homedir $homeArgument --batch --quiet --list-keys $signer.Fingerprint 2>$null | Out-Null
             if ($LASTEXITCODE -ne 0) { throw "$($signer.KeyFile) does not hold $($signer.Name) ($($signer.Fingerprint))." }
         }
     }
@@ -353,16 +380,16 @@ function New-SignatureVerifier {
         Remove-Item -LiteralPath $gnupgHome -Recurse -Force -ErrorAction SilentlyContinue
         throw
     }
-    $verifier = [pscustomobject]@{ Home = $gnupgHome; Signers = $Signers }
+    $verifier = [pscustomobject]@{ Home = $gnupgHome; HomeArgument = $homeArgument; Signers = $Signers }
     $verifier | Add-Member -MemberType ScriptMethod -Name Verify -Value {
         param([string]$Archive, [string]$Signature, [string]$Url)
         $signer = $this.Signers | Where-Object { $prefix = $_.UrlPrefixes | Where-Object { $Url.StartsWith($_, [StringComparison]::Ordinal) }; $prefix } | Select-Object -First 1
         if (-not $signer) { return "no pinned key for archives at $Url" }
-        $status = & gpg --homedir $this.Home --batch --no-tty --status-fd 1 --trust-model always --verify $Signature $Archive 2>$null
+        $status = & gpg --homedir $this.HomeArgument --batch --no-tty --status-fd 1 --trust-model always --verify $Signature $Archive 2>$null
         Get-SignatureVerdict -Status @($status) -Fingerprint $signer.Fingerprint
     }
     $verifier | Add-Member -MemberType ScriptMethod -Name Dispose -Value {
-        if (Get-Command gpgconf -ErrorAction SilentlyContinue) { & gpgconf --homedir $this.Home --kill gpg-agent 2>$null }
+        if (Get-Command gpgconf -ErrorAction SilentlyContinue) { & gpgconf --homedir $this.HomeArgument --kill gpg-agent 2>$null }
         Remove-Item -LiteralPath $this.Home -Recurse -Force -ErrorAction SilentlyContinue
     }
     $verifier

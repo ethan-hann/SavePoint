@@ -6,10 +6,6 @@
 
 Savepoint.App.Tests.Features.EndToEnd.RealBackend.FileInUseJourneyTests.A_file_another_program_holds_fails_the_first_snapshot_by_name_and_Try_again_finishes_it_once_it_is_released
 Savepoint.App.Tests.Features.EndToEnd.RealBackend.FileInUseJourneyTests.A_file_another_program_holds_fails_the_switch_by_name_and_Try_again_finishes_it_once_it_is_released
-~Savepoint.App.Tests.Platform.DBusNotificationBusTests.A_bus_with_no_notification_service_answers_with_an_error_and_the_service_skips_the_notification
-~Savepoint.App.Tests.Platform.DBusNotificationBusTests.Every_field_arrives_in_a_real_Notify_call
-~Savepoint.App.Tests.Platform.DBusNotificationBusTests.A_second_notification_reuses_the_connection_of_the_first
-~Savepoint.App.Tests.Platform.DBusNotificationBusTests.The_sender_stays_on_the_bus_after_the_call_so_the_desktop_keeps_the_notification
 Savepoint.App.Tests.Platform.NativeShellItemSelectorTests.The_shell_gives_nothing_for_a_file_that_is_not_there
 Savepoint.App.Tests.Platform.NativeShellItemSelectorTests.The_shell_knows_a_file_whose_name_has_commas_and_spaces
 Savepoint.App.Tests.Platform.OsSmokeTests.Linux_posts_to_the_session_bus_or_quietly_skips_when_there_is_none
@@ -90,80 +86,3 @@ Savepoint.Core.Tests.Services.Exe.ExecutableScannerTests.A_folder_marked_hidden_
 Savepoint.Core.Tests.Services.Storage.StorageFolderDeleteTests.A_file_another_program_holds_open_still_fails_as_a_file_in_use
 ~Savepoint.Core.Tests.Git.Engine.InterruptedCheckoutTests.A_switch_cancelled_while_git_writes_files_is_reported_discardable_and_finishes_after_the_discard
 ~Savepoint.Core.Tests.Git.Engine.MaintenanceTests.A_repack_killed_while_it_writes_its_pack_leaves_a_sound_store
-~Savepoint.Core.Tests.Build.ReleaseWorkflowTests.A_file_is_cut_into_numbered_parts_that_join_back_into_it
-~Savepoint.Core.Tests.Build.ReleaseWorkflowTests.A_gap_in_the_numbering_of_the_parts_on_the_release_is_refused
-~Savepoint.Core.Tests.Build.ReleaseWorkflowTests.A_listed_file_the_release_lacks_is_refused
-~Savepoint.Core.Tests.Build.ReleaseWorkflowTests.A_release_asset_no_list_mentions_is_refused
-~Savepoint.Core.Tests.Build.ReleaseWorkflowTests.A_release_asset_with_a_different_size_than_its_list_is_refused
-~Savepoint.Core.Tests.Build.ReleaseWorkflowTests.A_sum_list_is_read_back_into_the_entries_that_were_written
-~Savepoint.Core.Tests.Build.ReleaseWorkflowTests.Hashing_before_the_upload_lists_each_file_each_part_and_the_joined_file
-~Savepoint.Core.Tests.Build.ReleaseWorkflowTests.Parts_whose_list_has_no_line_for_a_missing_middle_part_are_still_refused
-~Savepoint.Core.Tests.Build.ReleaseWorkflowTests.The_lists_of_both_jobs_become_one_checksum_file_when_they_match_the_release
-~Savepoint.Core.Tests.Build.ReleaseWorkflowTests.A_file_that_fills_its_parts_exactly_gets_no_empty_part
-~Savepoint.Core.Tests.Build.ReleaseWorkflowTests.The_hash_of_the_parts_in_order_is_the_lowercase_hash_of_the_whole_file
-~Savepoint.Core.Tests.Build.ReleaseWorkflowTests.A_file_is_split_only_when_it_is_over_95_million_bytes_and_into_parts_of_90_MiB
-~Savepoint.Core.Tests.Build.ReleaseWorkflowTests.Parts_that_a_run_will_not_send_again_are_stale_and_other_files_are_left_alone
-~Savepoint.Core.Tests.Build.ReleaseWorkflowTests.Parts_numbered_with_a_gap_are_refused
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.A_bad_signature_is_not_rescued_by_a_valid_one_beside_it
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.A_complete_run_writes_the_list_with_unix_line_endings_and_no_byte_order_mark
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.A_folder_without_a_package_list_is_not_a_bundle
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.A_good_signature_by_another_key_is_refused_and_names_both_keys
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.A_good_signature_by_the_pinned_key_passes
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.A_line_without_a_version_is_refused_with_its_text
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.A_mingw_package_is_looked_for_on_the_mingw_mirror_under_its_name_without_the_environment_prefix
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.A_package_built_from_another_package_is_looked_for_under_the_one_it_is_built_from(name: \"gcc-libs\", source: \"gcc\", mirror: \"msys\")
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.A_package_built_from_another_package_is_looked_for_under_the_one_it_is_built_from(name: \"heimdal-libs\", source: \"heimdal\", mirror: \"msys\")
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.A_package_built_from_another_package_is_looked_for_under_the_one_it_is_built_from(name: \"libintl\", source: \"gettext\", mirror: \"msys\")
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.A_package_built_from_another_package_is_looked_for_under_the_one_it_is_built_from(name: \"libopenssl\", source: \"openssl\", mirror: \"msys\")
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.A_package_built_from_another_package_is_looked_for_under_the_one_it_is_built_from(name: \"libpcre\", source: \"pcre\", mirror: \"msys\")
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.A_package_built_from_another_package_is_looked_for_under_the_one_it_is_built_from(name: \"libreadline\", source: \"readline\", mirror: \"msys\")
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.A_package_built_from_another_package_is_looked_for_under_the_one_it_is_built_from(name: \"libsqlite\", source: \"sqlite\", mirror: \"msys\")
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.A_package_built_from_another_package_is_looked_for_under_the_one_it_is_built_from(name: \"mingw-w64-ucrt-x86_64-cc-libs\", source: \"gcc\", mirror: \"mingw\")
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.A_package_built_from_another_package_is_looked_for_under_the_one_it_is_built_from(name: \"mingw-w64-ucrt-x86_64-gitk\", source: \"git\", mirror: \"mingw\")
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.A_package_built_from_another_package_is_looked_for_under_the_one_it_is_built_from(name: \"mingw-w64-ucrt-x86_64-libatomic\", source: \"gcc\", mirror: \"mingw\")
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.A_package_built_from_another_package_is_looked_for_under_the_one_it_is_built_from(name: \"mingw-w64-ucrt-x86_64-libstdc++\", source: \"gcc\", mirror: \"mingw\")
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.A_package_built_from_another_package_is_looked_for_under_the_one_it_is_built_from(name: \"mingw-w64-ucrt-x86_64-libwinpthread\", source: \"winpthreads\", mirror: \"mingw\")
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.A_package_in_the_git_for_windows_pacman_repo_is_tried_there_first_by_its_release_tag
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.A_package_named_after_another_with_a_suffix_falls_back_to_the_shorter_name(name: \"mingw-w64-ucrt-x86_64-curl-winssl\", source: \"curl\")
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.A_package_named_after_another_with_a_suffix_falls_back_to_the_shorter_name(name: \"mingw-w64-ucrt-x86_64-gettext-runtime\", source: \"gettext\")
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.A_package_named_after_another_with_a_suffix_falls_back_to_the_shorter_name(name: \"mingw-w64-ucrt-x86_64-git-for-windows-addons\", source: \"git\")
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.A_package_named_after_another_with_a_suffix_falls_back_to_the_shorter_name(name: \"mingw-w64-ucrt-x86_64-git-gui\", source: \"git\")
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.A_package_named_after_another_with_a_suffix_falls_back_to_the_shorter_name(name: \"mingw-w64-ucrt-x86_64-libssh2-wincng\", source: \"libssh2\")
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.A_release_tag_only_counts_for_the_exact_version
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.A_signature_made_by_a_subkey_counts_for_the_primary_key_it_belongs_to
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.An_archive_already_in_the_cache_is_hashed_without_downloading_it_again
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.An_archive_with_a_bad_signature_stops_the_run_and_is_not_kept
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.An_archive_without_a_signature_stops_the_run
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.An_msys_package_is_looked_for_on_the_msys_mirror_as_zst_then_gz
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.Anything_but_a_valid_signature_is_refused_with_a_reason(status: \"[GNUPG:] BADSIG FA11531AA0AA7F57 Someone\", reason: \"bad signature\")
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.Anything_but_a_valid_signature_is_refused_with_a_reason(status: \"[GNUPG:] ERRSIG FA11531AA0AA7F57 1 10 00 166887299\"···, reason: \"could not be checked\")
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.Anything_but_a_valid_signature_is_refused_with_a_reason(status: \"[GNUPG:] NEWSIG\", reason: \"no valid signature\")
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.Anything_but_a_valid_signature_is_refused_with_a_reason(status: \"[GNUPG:] REVKEYSIG FA11531AA0AA7F57 Someone\", reason: \"revoked\")
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.Archives_are_listed_by_file_name_and_the_json_has_the_fields_the_package_scripts_read
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.Packages_of_one_source_share_one_archive_found_after_the_first_candidate_fails
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.Packages_without_a_source_are_reported_with_the_addresses_tried_and_nothing_is_written
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.The_package_list_gives_each_name_and_version_once_in_file_order
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.The_pacman_repo_is_asked_for_each_package_once
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.The_pinned_keys_are_the_ones_the_signers_name_and_each_host_has_its_own
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.The_real_gpg_accepts_a_good_signature_refuses_a_changed_file_and_refuses_an_unpinned_host
-~Savepoint.Core.Tests.Build.Msys2SourcesScriptTests.With_a_verifier_each_archive_is_checked_against_the_signature_fetched_beside_it
-~Savepoint.Core.Tests.Build.PackageSourceScriptTests.Both_scripts_leave_a_folder_that_is_not_there_alone
-~Savepoint.Core.Tests.Build.PackageSourceScriptTests.Both_scripts_read_every_archive_of_the_real_list_as_file_url_and_hash
-~Savepoint.Core.Tests.Build.PackageSourceScriptTests.Both_scripts_read_the_three_tags_of_the_real_manifest_alike
-~Savepoint.Core.Tests.Build.PackageSourceScriptTests.The_powershell_script_given_an_empty_list_removes_nothing
-~Savepoint.Core.Tests.Build.PackageSourceScriptTests.The_powershell_script_reads_the_same_tag_sources_whatever_the_layout_of_the_manifest(layout: FourSpaces)
-~Savepoint.Core.Tests.Build.PackageSourceScriptTests.The_powershell_script_reads_the_same_tag_sources_whatever_the_layout_of_the_manifest(layout: Minified)
-~Savepoint.Core.Tests.Build.PackageSourceScriptTests.The_powershell_script_reads_the_same_tag_sources_whatever_the_layout_of_the_manifest(layout: ReorderedWithExtras)
-~Savepoint.Core.Tests.Build.PackageSourceScriptTests.The_powershell_script_reads_the_same_tag_sources_whatever_the_layout_of_the_manifest(layout: Tabs)
-~Savepoint.Core.Tests.Build.PackageSourceScriptTests.The_powershell_script_reads_the_same_archives_whatever_the_layout_of_the_list(layout: FourSpaces)
-~Savepoint.Core.Tests.Build.PackageSourceScriptTests.The_powershell_script_reads_the_same_archives_whatever_the_layout_of_the_list(layout: Minified)
-~Savepoint.Core.Tests.Build.PackageSourceScriptTests.The_powershell_script_reads_the_same_archives_whatever_the_layout_of_the_list(layout: ReorderedWithExtras)
-~Savepoint.Core.Tests.Build.PackageSourceScriptTests.The_powershell_script_reads_the_same_archives_whatever_the_layout_of_the_list(layout: Tabs)
-~Savepoint.Core.Tests.Build.PackageSourceScriptTests.The_powershell_script_removes_the_files_the_list_does_not_name_and_says_which
-~Savepoint.Core.Tests.Build.WikiSyncTests.A_guide_becomes_a_page_without_its_title_and_with_the_note_and_the_links_between_pages
-~Savepoint.Core.Tests.Build.WikiSyncTests.A_guide_saved_with_Windows_line_endings_gives_the_same_page
-~Savepoint.Core.Tests.Build.WikiSyncTests.A_relative_image_or_link_into_docs_becomes_a_raw_address_on_main_and_keeps_its_alt_text
-~Savepoint.Core.Tests.Build.WikiSyncTests.Code_blocks_code_spans_and_absolute_addresses_keep_their_image_text
-~Savepoint.Core.Tests.Build.WikiSyncTests.Every_page_in_the_map_has_a_guide_and_every_guide_has_a_page
-~Savepoint.Core.Tests.Build.WikiSyncTests.Render_writes_one_file_per_page_and_changes_nothing_else
-~Savepoint.Core.Tests.Build.WikiSyncTests.The_raw_address_follows_the_server_and_repository_the_job_sets
