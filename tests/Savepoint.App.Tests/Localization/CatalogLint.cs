@@ -67,9 +67,6 @@ internal static class CatalogLint
     public static IReadOnlyList<RetiredAllowance> AllowedRetiredTerms { get; } =
     [
         new("firstRun.body", "point", "\"Point SavePoint at a game\" is a verb."),
-        new("error.pathSafety.tier1Blocked", "point", "\"whatever you point it at\" is a verb."),
-        new("error.pathSafety.tier2Blocked", "point", "\"whatever you point it at\" is a verb."),
-        new("validation.launch.exePathEscapes", "point", "\"can't point outside it\" is a verb."),
     ];
 
     public static IReadOnlyList<string> RetiredTerms(IReadOnlyDictionary<string, string> catalog, IReadOnlyList<RetiredAllowance> allowances) =>

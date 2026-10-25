@@ -64,7 +64,7 @@ public class LaunchViewTests
         Assert.Equal("What to do with this session", AutomationProperties.GetName(list));
         var first = list.GetVisualDescendants().OfType<ListBoxItem>().First();
         Assert.Equal("Keep this session as a new snapshot", AutomationProperties.GetName(first));
-        Assert.Equal("Recommended. Your earlier snapshots stay exactly as they are.", AutomationProperties.GetHelpText(first));
+        Assert.Equal("Recommended. Your earlier snapshots stay as they are.", AutomationProperties.GetHelpText(first));
     }
 
     [AvaloniaFact]

@@ -64,7 +64,7 @@ public class OlderPointJourneyTests
         Assert.Equal([CompletionChoice.ForkNewProfile, CompletionChoice.MoveForward, CompletionChoice.Skip], afterPlay.Choices.Select(choice => choice.Kind));
         Assert.Equal(CompletionChoice.ForkNewProfile, afterPlay.SelectedChoice.Kind);
         Assert.Equal("Keep this session as a new profile", afterPlay.SelectedChoice.Title);
-        Assert.Contains("can't simply go on the end", afterPlay.OlderNote, StringComparison.Ordinal);
+        Assert.Contains("can't go on the end", afterPlay.OlderNote, StringComparison.Ordinal);
         Assert.Equal("Keep it", afterPlay.PrimaryLabel);
         rig.Render("4c-after-playing-on-from-the-older-point");
         afterPlay.SelectedChoice.Name = "Alternate chapter two";

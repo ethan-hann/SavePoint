@@ -121,7 +121,7 @@ public class ErrorCopyTests
 
         var text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), os: "windows").Message(info);
 
-        Assert.Equal("This folder has not been confirmed for SavePoint yet. Open Edit game and choose Save changes to confirm it.", text);
+        Assert.Equal("This folder isn't confirmed yet. Open Edit game and choose Save changes to confirm it.", text);
     }
 
     [Theory]

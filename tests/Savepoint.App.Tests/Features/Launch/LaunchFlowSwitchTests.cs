@@ -72,7 +72,7 @@ public class LaunchFlowSwitchTests : IDisposable
         await dialog.UnsavedBlocks[0].DiscardCommand.ExecuteAsync(null);
 
         Assert.Equal("Switch", dialog.ConfirmLabel);
-        Assert.Equal("Here's exactly what SavePoint will change. The game won't start.", dialog.Subtitle);
+        Assert.Equal("SavePoint will change this. The game won't start.", dialog.Subtitle);
         dialog.SwitchCommand.Execute(null);
         await begin;
 
@@ -89,7 +89,7 @@ public class LaunchFlowSwitchTests : IDisposable
         var dialog = new LaunchDialogViewModel(preview, "Skyrim Special Edition", "Modded", false, _ => null, _f.Rig.Deps, switchOnly: true);
 
         Assert.Equal(
-            "This is an older snapshot of \"Modded\". Your game folders hold it until you switch or play again. Changes you make there can be kept as a new profile the next time you switch or play.",
+            "This is an older snapshot of \"Modded\". You can keep later changes in your game folders as a new profile.",
             dialog.OlderPointText);
     }
 
@@ -99,7 +99,7 @@ public class LaunchFlowSwitchTests : IDisposable
         var dialog = await _f.Rig.DialogAsync();
 
         Assert.Equal("Switch and play", dialog.ConfirmLabel);
-        Assert.Equal("Here's exactly what SavePoint will change before the game starts.", dialog.Subtitle);
+        Assert.Equal("SavePoint will change this before the game starts.", dialog.Subtitle);
     }
 
     [Fact]
@@ -109,7 +109,7 @@ public class LaunchFlowSwitchTests : IDisposable
 
         var card = _f.Inline<ErrorCardViewModel>();
         Assert.Equal("Already in place", card.Title);
-        Assert.Equal("Modded playthrough - 7-2-26 is already loaded in your game folders, so nothing changed. The game was not started.", card.Body);
+        Assert.Equal("Modded playthrough - 7-2-26 is already loaded. The game was not started.", card.Body);
         Assert.Equal(["Dismiss"], card.Actions.Select(action => action.Label));
         Assert.Empty(Switches());
         Assert.Empty(_f.Starts());

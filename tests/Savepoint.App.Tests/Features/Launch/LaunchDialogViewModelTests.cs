@@ -38,7 +38,7 @@ public class LaunchDialogViewModelTests : IDisposable
         var dialog = await _rig.DialogAsync();
 
         Assert.Equal($"Switch to \"{_survivalName}\"?", dialog.Title);
-        Assert.Equal("Here's exactly what SavePoint will change before the game starts.", dialog.Subtitle);
+        Assert.Equal("SavePoint will change this before the game starts.", dialog.Subtitle);
         Assert.Equal(600, dialog.DialogWidth);
     }
 
@@ -177,7 +177,7 @@ public class LaunchDialogViewModelTests : IDisposable
                 Assert.Equal("2 save snapshots to choose from", second.Subtitle);
             });
         Assert.Same(dialog.SaveOptions[0], dialog.SelectedSave);
-        Assert.Equal("This replaces what's in your saves folder right now.", dialog.SaveCaption);
+        Assert.Equal("This replaces what's in your saves folder now.", dialog.SaveCaption);
     }
 
     [Fact]
@@ -479,7 +479,7 @@ public class LaunchDialogViewModelTests : IDisposable
         Assert.False(dialog.UnsavedBlocks[0].CanSaveFirst);
         Assert.True(dialog.ShowKeepCallout);
         Assert.Equal(
-            "These changes don't belong to any profile. They came from playing an older snapshot, or from a profile you deleted. Keep them as a new profile so nothing is lost.",
+            "These changes belong to no profile. They came from an older snapshot or a deleted profile.",
             dialog.KeepText);
     }
 
@@ -512,7 +512,7 @@ public class LaunchDialogViewModelTests : IDisposable
 
         var keep = Assert.IsType<KeepAsNewProfileDialogViewModel>(Assert.Single(_rig.Dialogs.Shown));
         Assert.Equal("Keep as a new profile", keep.Title);
-        Assert.Equal("SavePoint takes a snapshot of your game folders as they are now and makes it a new profile, so nothing is lost. You can play it any time.", keep.Body);
+        Assert.Equal("SavePoint takes a snapshot of your game folders as they are now and makes it a new profile.", keep.Body);
         Assert.Equal("Kept changes - 7-8-26", keep.Name);
         keep.CancelCommand.Execute(null);
         await open;
@@ -786,7 +786,7 @@ public class LaunchDialogViewModelTests : IDisposable
 
         Assert.True(older.IsOlderPoint);
         Assert.Equal(
-            "This is an older snapshot of \"Modded playthrough - 7-2-26\". After you play, you can keep the session as a new profile, or continue \"Modded playthrough - 7-2-26\" from it, which removes its newer snapshots from it.",
+            "This is an older snapshot of \"Modded playthrough - 7-2-26\". After you play, keep the session as a new profile, or continue \"Modded playthrough - 7-2-26\" from it, which removes its newer snapshots.",
             older.OlderPointText);
         Assert.False(current.IsOlderPoint);
     }

@@ -161,7 +161,7 @@ public class GamesScreenActionsTests
         var offer = Assert.Single(rig.Dialogs.Confirmations);
         Assert.Equal("This profile isn't loaded", offer.Title);
         Assert.Equal(
-            "A snapshot copies what your game folders hold now, and the saves folder isn't holding this profile. Switch to this profile, or play it, to load it, then take a snapshot.",
+            "The saves folder isn't holding this profile, and a snapshot copies what your game folders hold now. Switch to this profile, or play it, then take a snapshot.",
             offer.Message);
         Assert.Equal("Switch to this profile", offer.ConfirmLabel);
         Assert.Empty(rig.ToastTexts);
@@ -450,7 +450,7 @@ public class GamesScreenActionsTests
 
         var offer = Assert.Single(rig.Dialogs.Confirmations);
         Assert.Equal("This profile is loaded now", offer.Title);
-        Assert.Equal("This profile is loaded now. Switch to a different profile, or play one, then delete this one.", offer.Message);
+        Assert.Equal("Switch to another profile or play one, then delete this one.", offer.Message);
         Assert.Equal("Switch to Vanilla - latest update", offer.ConfirmLabel);
         Assert.Empty(rig.ToastTexts);
         Assert.Empty(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.DeleteAsync)));
@@ -467,7 +467,7 @@ public class GamesScreenActionsTests
         await rig.Screen.Profiles[1].DeleteCommand.ExecuteAsync(null);
 
         Assert.Empty(rig.Dialogs.Confirmations);
-        Assert.Equal(["Skyrim Special Edition is running right now, so SavePoint can't do that yet. Close the game, then try again."], rig.ToastTexts);
+        Assert.Equal(["Skyrim Special Edition is running. Close the game, then try again."], rig.ToastTexts);
     }
 
     [Fact]
@@ -551,7 +551,7 @@ public class GamesScreenActionsTests
         await rig.Screen.DeleteGameCommand.ExecuteAsync(null);
 
         Assert.Empty(rig.Dialogs.Confirmations);
-        Assert.Equal(["Skyrim Special Edition is running right now, so SavePoint can't do that yet. Close the game, then try again."], rig.ToastTexts);
+        Assert.Equal(["Skyrim Special Edition is running. Close the game, then try again."], rig.ToastTexts);
         Assert.Empty(rig.Backend.Calls.To<IGamesApi>(nameof(IGamesApi.DeleteAsync)));
     }
 
@@ -564,7 +564,7 @@ public class GamesScreenActionsTests
         await rig.Screen.DeleteGameCommand.ExecuteAsync(null);
 
         Assert.Single(rig.Dialogs.Confirmations);
-        Assert.Equal(["Skyrim Special Edition is running right now, so SavePoint can't do that yet. Close the game, then try again."], rig.ToastTexts);
+        Assert.Equal(["Skyrim Special Edition is running. Close the game, then try again."], rig.ToastTexts);
         Assert.Equal(3, rig.Shell.Games.Count);
     }
 

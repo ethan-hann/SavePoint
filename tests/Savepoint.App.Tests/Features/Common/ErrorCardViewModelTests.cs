@@ -37,7 +37,7 @@ public class ErrorCardViewModelTests
     {
         var card = new ErrorCardViewModel(ErrorInfo.From(new CompactionPreemptedException("skyrim")), _text);
 
-        Assert.Equal("Freeing up space paused so something else on this game could go first. Nothing was lost. Free up space again any time to finish the job.", card.Body);
+        Assert.Equal("Freeing up space paused so something else on this game could go first. Nothing was lost. Free up space again to finish.", card.Body);
         Assert.DoesNotContain("by itself", card.Body, StringComparison.Ordinal);
     }
 
@@ -67,7 +67,7 @@ public class ErrorCardViewModelTests
         Assert.Equal(file, card.Path);
         Assert.Contains("a file named Foo in your install folder", card.Body);
         Assert.Contains("already a folder with that name", card.Body);
-        Assert.Contains("won't delete your files", card.Body);
+        Assert.Contains("Nothing changed", card.Body);
     }
 
     [Fact]
@@ -82,7 +82,7 @@ public class ErrorCardViewModelTests
         Assert.Equal(slots, card.Path);
         Assert.Contains("a folder named Slots in your saves folder", card.Body);
         Assert.Contains("already a file with that name", card.Body);
-        Assert.Contains("won't delete your file", card.Body);
+        Assert.Contains("Nothing changed", card.Body);
     }
 
     [Fact]
@@ -99,8 +99,8 @@ public class ErrorCardViewModelTests
         Assert.Equal(folder, card.Path);
         Assert.Contains("Foo and foo", card.Body);
         Assert.Contains("install folder", card.Body);
-        Assert.Contains("changed nothing", card.Body);
-        Assert.Contains("choose a different profile", card.Body);
+        Assert.Contains("Nothing changed", card.Body);
+        Assert.Contains("choose another profile", card.Body);
     }
 
     [Fact]
