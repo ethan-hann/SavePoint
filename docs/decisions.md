@@ -519,3 +519,11 @@ SavePoint shipped one template. It now ships templates for about 320 games: the 
 3. **The template picker searches.** Each typed word must start a word of the game's name, ignoring case and punctuation.
 4. **Every template is checked against its wiki page.** Each was matched to its PCGamingWiki page through its Steam app id, and its saves folder compared with the page's save rows, including the Steam-specific row: where a Steam copy saves in Steam's userdata folder, the template leaves the folder blank. At release 152 templates carry a saves folder, each matching its page; 168 leave it to the player.
 5. **Known limit:** template notes are English text stored with the game but shown on no screen; if a screen ever shows them, they move into the catalog as note keys.
+
+## D54. Which game version SavePoint shows
+
+The version on a profile comes from the start program's version resource. Reading the product string first showed engine build ids as versions: Grounded read `++Game+release.1.4.7-CL-196638`. Checked on 2026-10-24 against 252 game programs on one PC (Steam and GOG):
+
+1. **Unreal build ids** (a string starting with `++` or holding `-CL-<digits>`) give only a dotted number of three or four parts found inside them (Grounded 1.4.7, Borderlands 4 1.11.0.0), or nothing. Two-part numbers like `Release-4.26` are the engine's.
+2. **Engine versions are not game versions.** Unity players (a "Unity Version" string, or a product version like `2022.3.62f2 (<hash>)`), a program whose product name is "Unreal Engine", and the fixed numeric version of Epic Games or Unreal executables (it carries the engine version, 4.27.2.0 or 5.6.1.0) show no version.
+3. **Placeholders** (`1.0.0.0`, `1.0.0`, `1.0`) and strings without a digit (`^VersionString^`) are no version; a rejected product string falls through to the file string. The fixed numeric version is used only when the program has no version string at all. A game that really calls itself 1.0 shows nothing; the player can type the version on the profile.
