@@ -12,42 +12,61 @@ public class PackageLocationTests
 
     private static string RepoRoot => TestEnvironment.RepoRoot ?? throw new InvalidOperationException("These tests read the repository's build files.");
 
+    // Both ids: the one the Windows setup is packed with now, and the app name it is meant to take on.
     [Fact]
-    public void Nothing_SavePoint_keeps_lives_in_the_folder_the_installer_removes_on_uninstall()
+    public void Nothing_SavePoint_keeps_lives_in_a_folder_the_installer_removes_on_install_or_uninstall()
     {
-        var installRoot = $@"{_localAppData}\{PackId()}\";
         var directories = new WindowsPlatform(FakeEnvironment.Windows().Build()).Directories;
 
-        foreach (var folder in new[] { directories.CatalogDir, directories.DefaultStorageRoot, directories.LogsDir, directories.RuntimeDir })
+        foreach (var packId in new[] { WindowsPackId(), LinuxPackId() }.Distinct(StringComparer.OrdinalIgnoreCase))
         {
-            Assert.False(
-                (folder + @"\").StartsWith(installRoot, StringComparison.OrdinalIgnoreCase),
-                $"{folder} is inside {installRoot}, which uninstalling SavePoint deletes");
+            var installRoot = $@"{_localAppData}\{packId}\";
+            foreach (var folder in new[] { directories.CatalogDir, directories.DefaultStorageRoot, directories.LogsDir, directories.RuntimeDir })
+            {
+                Assert.False(
+                    (folder + @"\").StartsWith(installRoot, StringComparison.OrdinalIgnoreCase),
+                    $"{folder} is inside {installRoot}, which installing or uninstalling SavePoint deletes");
+            }
         }
     }
 
     [Theory]
-    [InlineData("build/package.ps1")]
-    [InlineData("build/package.sh")]
-    public void Each_package_script_takes_its_pack_id_from_the_build_properties(string script)
+    [InlineData("build/package.ps1", "SavepointWindowsPackId")]
+    [InlineData("build/package.sh", "SavepointPackId")]
+    public void Each_package_script_takes_its_pack_id_from_the_build_properties(string script, string property)
     {
         var text = File.ReadAllText(Path.Combine(RepoRoot, script));
 
-        Assert.Contains("SavepointPackId", text, StringComparison.Ordinal);
-        Assert.DoesNotContain("SavepointWindowsPackId", text, StringComparison.Ordinal);
+        Assert.Contains(property, text, StringComparison.Ordinal);
         Assert.DoesNotContain("--packId SavePoint ", text, StringComparison.Ordinal);
     }
 
-    // One id names the app on every platform: the installer's folder, the AppImage, its desktop entry and the window class the shell shows.
+    // Builds packed as SavePointApp keep their data in %LOCALAPPDATA%\SavePoint. A setup packed as SavePoint renames and empties that folder
+    // before the app starts, so the data would be gone before the app could move it out.
     [Fact]
-    public void One_pack_id_serves_both_platforms_and_is_the_app_name()
+    public void The_Windows_pack_id_is_not_the_folder_old_data_is_moved_out_of_until_every_install_has_moved()
     {
-        var props = XDocument.Load(Path.Combine(RepoRoot, "Directory.Build.props"));
-
-        Assert.Equal("SavePoint", PackId());
-        Assert.Empty(props.Descendants("SavepointWindowsPackId"));
+        Assert.False(string.Equals("SavePoint", WindowsPackId(), StringComparison.OrdinalIgnoreCase), "the setup would empty the folder old data is still in");
     }
 
-    private static string PackId() =>
+    [Fact]
+    public void The_platform_names_the_installer_folder_after_the_Windows_pack_id()
+    {
+        var directories = new WindowsPlatform(FakeEnvironment.Windows().Build()).Directories;
+
+        Assert.Equal($@"{_localAppData}\{WindowsPackId()}", directories.InstallerLocalDir);
+    }
+
+    // The AppImage has no install folder that an update deletes, and its desktop entry and notifications use the pack id as the name people see.
+    [Fact]
+    public void The_pack_id_the_Linux_AppImage_carries_is_the_app_name()
+    {
+        Assert.Equal("SavePoint", LinuxPackId());
+    }
+
+    private static string WindowsPackId() =>
+        XDocument.Load(Path.Combine(RepoRoot, "Directory.Build.props")).Descendants("SavepointWindowsPackId").Single().Value.Trim();
+
+    private static string LinuxPackId() =>
         XDocument.Load(Path.Combine(RepoRoot, "Directory.Build.props")).Descendants("SavepointPackId").Single().Value.Trim();
 }

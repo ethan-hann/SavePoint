@@ -44,6 +44,7 @@ public sealed class WindowsPlatform : IPlatform
             HomeDir: home)
         {
             LegacyLocalDir = _paths.Under(_local, "SavePoint"),
+            InstallerLocalDir = _paths.Under(_local, "SavePointApp"),
         };
 
         PathTokens = new Dictionary<string, string>

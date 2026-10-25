@@ -51,8 +51,14 @@ internal static class StorageDestination
     /// <param name="services">The backend, for the platform's folders.</param>
     /// <param name="folder">The folder, absolute.</param>
     /// <param name="pathSafety">Resolves links in both paths first.</param>
-    public static bool IsInInstallerFolder(BackendServices services, string folder, PathSafety pathSafety) =>
-        services.Platform.Directories.LegacyLocalDir is { } owned && IsInside(pathSafety.ResolveRealPath(owned), pathSafety.ResolveRealPath(folder));
+    public static bool IsInInstallerFolder(BackendServices services, string folder, PathSafety pathSafety)
+    {
+        var directories = services.Platform.Directories;
+        var real = pathSafety.ResolveRealPath(folder);
+
+        // The current installer's folder, and the one a setup packed under the app's name will own.
+        return new[] { directories.InstallerLocalDir, directories.LegacyLocalDir }.OfType<string>().Any(owned => IsInside(pathSafety.ResolveRealPath(owned), real));
+    }
 
     // The installed app runs from "current" inside an install folder that also holds Update.exe, and an update or an uninstall deletes
     // that whole folder.

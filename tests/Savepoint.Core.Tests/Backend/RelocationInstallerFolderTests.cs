@@ -11,7 +11,13 @@ public class RelocationInstallerFolderTests
         var root = Path.GetDirectoryName(options.InstallDirectory)!;
         return options with
         {
-            Platform = new RelocatedPlatform(options.Platform!, options.Platform!.Directories with { LegacyLocalDir = Path.Combine(root, "Local", "SavePoint") }),
+            Platform = new RelocatedPlatform(
+                options.Platform!,
+                options.Platform!.Directories with
+                {
+                    LegacyLocalDir = Path.Combine(root, "Local", "SavePoint"),
+                    InstallerLocalDir = Path.Combine(root, "Local", "SavePointApp"),
+                }),
         };
     });
 
@@ -19,6 +25,8 @@ public class RelocationInstallerFolderTests
     [InlineData("SavePoint")]
     [InlineData("SavePoint/Storage")]
     [InlineData("SavePoint/current/data")]
+    [InlineData("SavePointApp")]
+    [InlineData("SavePointApp/Storage")]
     public async Task A_destination_in_the_installers_folder_is_refused_by_the_preview_and_the_move(string relative)
     {
         using var workspace = Workspace();
@@ -39,7 +47,7 @@ public class RelocationInstallerFolderTests
         using var workspace = Workspace();
         await workspace.AddGameAsync();
 
-        foreach (var sibling in new[] { "SavePoint Data", "SavePoint-data", "SavePointOther" })
+        foreach (var sibling in new[] { "SavePoint Data", "SavePoint-data", "SavePointOther", "SavePointAppData" })
         {
             var preview = await workspace.Settings.GetRelocationPreviewAsync(Path.Combine(workspace.Root, "Local", sibling, "Storage"), workspace.Token);
 

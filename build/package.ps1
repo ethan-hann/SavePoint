@@ -109,9 +109,9 @@ try {
     $props = Join-Path $repoRoot 'Directory.Build.props'
     $version = (Select-Xml -Path $props -XPath '//Version').Node.InnerText.Trim()
     if (-not $version) { throw 'Directory.Build.props has no <Version>.' }
-    # The setup installs into %LOCALAPPDATA%\<pack id> and clears that folder on install and uninstall, so SavePoint keeps no data there (D38). vpk names the downloads after it.
-    $packId = (Select-Xml -Path $props -XPath '//SavepointPackId').Node.InnerText.Trim()
-    if (-not $packId) { throw 'Directory.Build.props has no <SavepointPackId>.' }
+    # The setup installs into %LOCALAPPDATA%\<pack id> and clears that folder on install and uninstall, so SavePoint keeps no data there (D38). Builds packed as SavePointApp keep their data in %LOCALAPPDATA%\SavePoint, so this id must not be SavePoint until every install has moved it.
+    $packId = (Select-Xml -Path $props -XPath '//SavepointWindowsPackId').Node.InnerText.Trim()
+    if (-not $packId) { throw 'Directory.Build.props has no <SavepointWindowsPackId>.' }
     # Every build is the same version, so the commit is what tells two builds apart: it goes into the informational version, which
     # the startup log reads. A package from a tree with changes the commit does not hold cannot be tied to one.
     $commit = (git rev-parse --short=12 HEAD)
@@ -213,6 +213,10 @@ try {
     # --exclude drops the debug symbols and the XML documentation files the build writes next to the assemblies. Giving it replaces vpk's default (.pdb), so the pattern repeats that.
     Invoke-Step 'pack' {
         dotnet vpk --skip-updates pack --packId $packId --packVersion $version --packTitle SavePoint --packDir $publishDir --mainExe SavePoint.exe --icon $icon --runtime $rid --shortcuts StartMenuRoot --exclude '(?i)\.pdb$|(^|[/\\])savepoint(\.core)?\.xml$' --outputDir $releaseDir
+    }
+    # vpk names the files after the pack id; the ones people download carry the app's name.
+    foreach ($suffix in '-win-Setup.exe', '-win-Portable.zip') {
+        Move-Item -LiteralPath (Join-Path $releaseDir "$packId$suffix") -Destination (Join-Path $releaseDir "SavePoint$suffix") -Force
     }
 
     Write-Host "==> packages in $releaseDir"

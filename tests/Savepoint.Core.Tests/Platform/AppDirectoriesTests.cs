@@ -21,6 +21,7 @@ public class AppDirectoriesTests
                 @"C:\Users\Test")
             {
                 LegacyLocalDir = @"C:\Users\Test\AppData\Local\SavePoint",
+                InstallerLocalDir = @"C:\Users\Test\AppData\Local\SavePointApp",
             },
             platform.Directories);
     }
@@ -30,6 +31,8 @@ public class AppDirectoriesTests
     {
         Assert.Null(new LinuxPlatform(FakeEnvironment.Linux().Build()).Directories.LegacyLocalDir);
         Assert.Null(new MacOSPlatform(FakeEnvironment.MacOS().Build()).Directories.LegacyLocalDir);
+        Assert.Null(new LinuxPlatform(FakeEnvironment.Linux().Build()).Directories.InstallerLocalDir);
+        Assert.Null(new MacOSPlatform(FakeEnvironment.MacOS().Build()).Directories.InstallerLocalDir);
     }
 
     [Fact]

@@ -15,6 +15,7 @@ public class LegacyLocalDataTests
     {
         using var world = new World();
         var game = await world.SeedHistoryAsync();
+        var before = await world.PointCountAsync(game);
 
         world.Upgrade();
         var status = await world.Workspace.AppStatus.CheckAsync(world.Workspace.Token);
@@ -26,6 +27,85 @@ public class LegacyLocalDataTests
         Assert.False(Directory.Exists(world.OldStorage), "the old folder is still there");
         Assert.True(StorageContent.HoldsHistory(Path.Combine(world.NewStorage, game.Id)), "the history did not arrive");
         Assert.Equal(world.NewStorage, await world.SavedRootAsync());
+        Assert.True(before > 0);
+        Assert.Equal(before, await world.PointCountAsync(game));
+    }
+
+    // A crash between the rename and the settings write leaves the settings naming a folder that is gone.
+    [Fact]
+    public async Task Settings_naming_a_missing_old_folder_follow_history_that_already_sits_in_the_new_default()
+    {
+        using var world = new World();
+        var game = await world.SeedHistoryAsync();
+        var before = await world.PointCountAsync(game);
+        Directory.CreateDirectory(Path.GetDirectoryName(world.NewStorage)!);
+        BackendWorkspace.MoveFolder(world.OldStorage, world.NewStorage);
+
+        world.Upgrade();
+        var status = await world.Workspace.AppStatus.CheckAsync(world.Workspace.Token);
+
+        Assert.True(status.Ok, status.Error?.Detail);
+        Assert.True(status.Value.Storage?.Reachable, "the storage was reported lost");
+        Assert.Equal(world.NewStorage, await world.SavedRootAsync());
+        Assert.Equal(before, await world.PointCountAsync(game));
+    }
+
+    // The settings write fails after the rename, so the folder goes back and the app keeps the history where the settings point.
+    [Fact]
+    public async Task A_settings_write_that_fails_after_the_move_puts_the_storage_back()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Only Windows refuses to replace a file another program holds open.");
+        using var world = new World();
+        var game = await world.SeedHistoryAsync();
+        var before = await world.PointCountAsync(game);
+        world.Upgrade();
+
+        var settingsFile = Path.Combine(world.Workspace.CatalogDirectory, CatalogStore.SettingsFileName);
+        using (new FileStream(settingsFile, FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            var status = await world.Workspace.AppStatus.CheckAsync(world.Workspace.Token);
+
+            Assert.True(status.Ok, status.Error?.Detail);
+        }
+
+        Assert.True(StorageContent.HoldsHistory(Path.Combine(world.OldStorage, game.Id)), "the storage did not go back");
+        Assert.False(Directory.Exists(world.NewStorage));
+        Assert.Equal(world.OldStorage, await world.SavedRootAsync());
+        Assert.Equal(before, await world.PointCountAsync(game));
+    }
+
+    [Fact]
+    public async Task With_no_saved_folder_an_empty_new_default_does_not_hide_the_old_history()
+    {
+        using var world = new World();
+        var game = await world.SeedHistoryAsync();
+        File.Delete(Path.Combine(world.Workspace.CatalogDirectory, CatalogStore.SettingsFileName));
+        Directory.CreateDirectory(world.NewStorage);
+
+        world.Upgrade();
+        var status = await world.Workspace.AppStatus.CheckAsync(world.Workspace.Token);
+
+        Assert.True(status.Ok, status.Error?.Detail);
+        Assert.True(StorageContent.HoldsHistory(Path.Combine(world.NewStorage, game.Id)), "the history did not arrive");
+        Assert.False(Directory.Exists(world.OldStorage));
+    }
+
+    [Fact]
+    public async Task With_no_saved_folder_a_new_default_that_cannot_take_the_move_leaves_the_history_in_use_and_flagged()
+    {
+        using var world = new World();
+        var game = await world.SeedHistoryAsync();
+        File.Delete(Path.Combine(world.Workspace.CatalogDirectory, CatalogStore.SettingsFileName));
+        BackendWorkspace.WriteFile(Path.Combine(world.NewStorage, "unrelated", "note.txt"), "not history");
+
+        world.Upgrade();
+        var status = await world.Workspace.AppStatus.CheckAsync(world.Workspace.Token);
+
+        Assert.True(status.Ok, status.Error?.Detail);
+        Assert.True(StorageContent.HoldsHistory(Path.Combine(world.OldStorage, game.Id)));
+        Assert.Equal(world.OldStorage, await world.SavedRootAsync());
+        Assert.True(status.Value.Storage?.InInstallerFolder);
+        Assert.True(File.Exists(Path.Combine(world.NewStorage, "unrelated", "note.txt")));
     }
 
     [Fact]
@@ -183,6 +263,13 @@ public class LegacyLocalDataTests
             await Workspace.CreateProfileAsync(game);
             Assert.True(StorageContent.HoldsHistory(Path.Combine(OldStorage, game.Id)));
             return game;
+        }
+
+        public async Task<int> PointCountAsync(GameDefinition game)
+        {
+            var history = await Workspace.History.GetAsync(game.Id, null, Workspace.Token);
+            Assert.True(history.Ok, history.Error?.Detail);
+            return history.Value!.Points.Count;
         }
 
         // Settings.SaveAsync keeps the storage root, which only a move changes; the file is written as an earlier run left it.
