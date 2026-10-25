@@ -61,14 +61,15 @@ jobs:
           elif [ -z "$SITE" ]; then
             echo "publish=false" >> "$GITHUB_OUTPUT"; echo "DOCS_SITE_URL is not set, so the site was built but not published."
           else
-            echo "publish=true" >> "$GITHUB_OUTPUT"; echo "Publishing to ${SITE%/}/$DOCS_PATH/."
+            echo "publish=true" >> "$GITHUB_OUTPUT"; echo "url=${SITE%/}/$DOCS_PATH/" >> "$GITHUB_OUTPUT"
+            echo "Publishing to ${SITE%/}/$DOCS_PATH/."
           fi
 
+      # A project site of its own under the host, so the host's index and the other projects are never touched.
       - name: Publish
         if: steps.target.outputs.publish == 'true'
         uses: https://codeberg.org/git-pages/action@v2
         with:
-          site: ${{ vars.DOCS_SITE_URL }}
-          path: ${{ env.DOCS_PATH }}
+          site: ${{ steps.target.outputs.url }}
           token: ${{ forgejo.token }}
           source: artifacts/docs-site/
