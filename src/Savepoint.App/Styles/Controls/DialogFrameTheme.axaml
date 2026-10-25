@@ -8,6 +8,8 @@
     The scroll bar stays visible, so a person can tell there is more above the buttons.
   -->
   <ControlTheme x:Key="{x:Type dialogs:DialogFrame}" TargetType="dialogs:DialogFrame">
+    <!-- A content control clips to its bounds, which are the footer's own, so the ring of a button at the bottom or right edge would be cut flat at the button. -->
+    <Setter Property="ClipToBounds" Value="False" />
     <Setter Property="Template">
       <ControlTemplate TargetType="dialogs:DialogFrame">
         <Grid RowDefinitions="*,Auto">
