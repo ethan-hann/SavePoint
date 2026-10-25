@@ -9,7 +9,16 @@ public sealed class GitProcessTreeTests : IDisposable
 {
     private static readonly TimeSpan _generous = TimeSpan.FromSeconds(30);
 
-    private readonly GitWorkspace _ws = new();
+    private const string _childEnvironmentVariable = "SAVEPOINT_TEST_EXIT_CHILD_FILE";
+
+    // Its own list: ending "every git" must not reach a process another test class is running.
+    private readonly GitProcessRegistry _registry = new();
+    private readonly GitWorkspace _ws;
+
+    public GitProcessTreeTests()
+    {
+        _ws = new GitWorkspace(new GitRunnerOptions { Registry = _registry });
+    }
 
     public void Dispose() => _ws.Dispose();
 
@@ -43,7 +52,7 @@ public sealed class GitProcessTreeTests : IDisposable
         var call = _ws.Runner.RunAsync(invocation, TestContext.Current.CancellationToken);
 
         await WaitUntilSleeperRunsAsync(marker, call);
-        GitProcessRegistry.KillAll();
+        _registry.KillAll();
         await WaitForCallToEndAsync(call);
 
         if (OperatingSystem.IsLinux())
@@ -64,7 +73,92 @@ public sealed class GitProcessTreeTests : IDisposable
 
         var below = ProcessTree.DescendantsOf(10, proc);
 
-        Assert.Equal([11, 12], below.Order());
+        Assert.Equal([11, 12], below.Select(item => item.Id).Order());
+    }
+
+    [Fact]
+    public async Task Ending_every_running_git_leaves_a_process_that_took_over_a_number_alone()
+    {
+        // The stamp says the registered process started a day earlier than the one that now has the number.
+        using var bystander = Process.Start(new ProcessStartInfo(OperatingSystem.IsWindows() ? "ping" : "sleep", OperatingSystem.IsWindows() ? "-n 60 127.0.0.1" : "60") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true })!;
+        try
+        {
+            var real = ProcessStamp.Of(bystander)!.Value;
+            using var listed = _registry.Add(real with { StartedAtUtcTicks = real.StartedAtUtcTicks - TimeSpan.FromDays(1).Ticks });
+
+            _registry.KillAll();
+            await Task.Delay(500, TestContext.Current.CancellationToken);
+
+            Assert.False(bystander.HasExited, "a process that only shares the number was killed");
+        }
+        finally
+        {
+            bystander.Kill(entireProcessTree: true);
+        }
+    }
+
+    [Fact]
+    public async Task A_program_that_exits_while_git_runs_leaves_no_git_behind()
+    {
+        // A second copy of this test program starts a git through the shared registry and exits at once.
+        var file = Path.Combine(_ws.Root, "child-git-id.txt");
+        var info = new ProcessStartInfo(Environment.ProcessPath!, ["-method", $"{typeof(GitProcessTreeTests).FullName}.{nameof(Child_for_the_exit_test)}"])
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+        info.Environment[_childEnvironmentVariable] = file;
+        using var child = new Process { StartInfo = info };
+        var output = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        child.OutputDataReceived += (_, e) => output.Enqueue(e.Data ?? string.Empty);
+        child.ErrorDataReceived += (_, e) => output.Enqueue(e.Data ?? string.Empty);
+        child.Start();
+        child.BeginOutputReadLine();
+        child.BeginErrorReadLine();
+        await child.WaitForExitAsync(TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromMinutes(2), TestContext.Current.CancellationToken);
+
+        Assert.True(File.Exists(file), $"the child never started a git; it printed: {string.Join(" | ", output)}");
+        var gitId = int.Parse(await File.ReadAllTextAsync(file, TestContext.Current.CancellationToken), CultureInfo.InvariantCulture);
+        var until = DateTime.UtcNow.AddSeconds(10);
+        while (IsRunning(gitId) && DateTime.UtcNow < until)
+        {
+            await Task.Delay(100, TestContext.Current.CancellationToken);
+        }
+
+        Assert.False(IsRunning(gitId), "the git the exited program started is still running");
+    }
+
+    // Runs only inside the copy the test above starts; anywhere else it has nothing to do.
+    [Fact]
+    public async Task Child_for_the_exit_test()
+    {
+        if (Environment.GetEnvironmentVariable(_childEnvironmentVariable) is not { Length: > 0 } file)
+        {
+            return;
+        }
+
+        var started = new TaskCompletionSource<ProcessStamp>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var shared = new GitWorkspace();
+        var invocation = shared.OutsideAnyRepository(new GitInvocation(["-c", $"alias.hold=!{Sleeper(UniqueMarker())}", "hold"]) { Started = stamp => started.TrySetResult(stamp) });
+        _ = shared.Runner.RunAsync(invocation, CancellationToken.None);
+        var stamp = await started.Task.WaitAsync(_generous, TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(file, stamp.Id.ToString(CultureInfo.InvariantCulture), TestContext.Current.CancellationToken);
+        Environment.Exit(0);
+    }
+
+    private static bool IsRunning(int id)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(id);
+            return !process.HasExited && !(OperatingSystem.IsLinux() && Savepoint.Core.Platform.Linux.LinuxProcessInspector.HasExited(id));
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
     }
 
     private static void WriteStat(string proc, int id, string name, char state, int parent)

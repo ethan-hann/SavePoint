@@ -81,7 +81,7 @@ public sealed class GitRunner
             throw new GitUnavailableException(_binary.ExecutablePath, $"git could not be started: {e.Message}", e);
         }
 
-        using var registration = GitProcessRegistry.Add(process);
+        using var registration = (_options.Registry ?? GitProcessRegistry.Shared).Add(process);
         NoteStarted(invocation, process);
 
         // Cancelled by the caller, or by a callback that threw.

@@ -4,38 +4,43 @@ using System.Diagnostics;
 
 namespace Savepoint.Core.Git;
 
-// Every git the runners have started and not yet seen end. When the app exits while a call is still being cancelled, or one is
+// Every git a runner has started and not yet seen end. When the app exits while a call is still being cancelled, or one is
 // running that nobody cancelled, nothing else would end it: a git left behind keeps files open and, from an AppImage, the mount.
-internal static class GitProcessRegistry
+internal sealed class GitProcessRegistry
 {
-    private static readonly ConcurrentDictionary<int, ProcessStamp> _running = new();
+    private static readonly Lazy<GitProcessRegistry> _shared = new(CreateShared);
 
-    static GitProcessRegistry()
+    private readonly ConcurrentDictionary<int, ProcessStamp> _running = new();
+
+    /// <summary>The registry every runner uses unless it is given its own; it is emptied when the process exits.</summary>
+    public static GitProcessRegistry Shared => _shared.Value;
+
+    private static GitProcessRegistry CreateShared()
     {
-        AppDomain.CurrentDomain.ProcessExit += (_, _) => KillAll();
+        var registry = new GitProcessRegistry();
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => registry.KillAll();
+        return registry;
     }
 
     /// <summary>Notes a started process; the returned token takes it off the list again once its call is over.</summary>
-    public static IDisposable Add(Process process)
-    {
-        var stamp = ProcessStamp.Of(process);
-        if (stamp is null)
-        {
-            return Registration.None;
-        }
+    public IDisposable Add(Process process) =>
+        ProcessStamp.Of(process) is { } stamp ? Add(stamp) : Registration.None;
 
-        _running[stamp.Value.Id] = stamp.Value;
-        return new Registration(stamp.Value.Id);
+    /// <summary>Notes a process by its stamp.</summary>
+    public IDisposable Add(ProcessStamp stamp)
+    {
+        _running[stamp.Id] = stamp;
+        return new Registration(this, stamp);
     }
 
     /// <summary>Ends every registered process and what it started. A process that took over the number of one that ended is left alone.</summary>
-    public static void KillAll()
+    public void KillAll()
     {
         foreach (var (id, stamp) in _running.ToArray())
         {
             if (!stamp.IsRunning())
             {
-                _running.TryRemove(id, out _);
+                _running.TryRemove(new KeyValuePair<int, ProcessStamp>(id, stamp));
                 continue;
             }
 
@@ -51,16 +56,11 @@ internal static class GitProcessRegistry
         }
     }
 
-    private sealed class Registration(int id) : IDisposable
+    private sealed class Registration(GitProcessRegistry? owner, ProcessStamp stamp) : IDisposable
     {
-        public static readonly Registration None = new(0);
+        public static readonly Registration None = new(null, default);
 
-        public void Dispose()
-        {
-            if (id != 0)
-            {
-                _running.TryRemove(id, out _);
-            }
-        }
+        // Only this entry: a later process that was given the same number must stay listed.
+        public void Dispose() => owner?._running.TryRemove(new KeyValuePair<int, ProcessStamp>(stamp.Id, stamp));
     }
 }

@@ -11,6 +11,9 @@ public sealed record GitRunnerOptions
     /// <summary>The size of the buffer each output pipe is read with, in bytes; it must be positive.</summary>
     public int ReadBufferSize { get; init; } = 16 * 1024;
 
+    // Tests give a runner its own list so ending "every git" cannot reach another test's process.
+    internal GitProcessRegistry? Registry { get; init; }
+
     /// <summary>How long a cancelled call waits for git (and the processes it started) to exit after they were killed, before it gives up and reports the cancellation anyway.</summary>
     public TimeSpan KillWaitTimeout { get; init; } = TimeSpan.FromSeconds(5);
 

@@ -12,14 +12,13 @@ internal static class ProcessTree
 {
     private const int _sigkill = 9;
 
-    // Each pass can only miss a process forked after it looked, so a few passes settle a tree that is being torn down.
+    // The root stays alive until the last pass, so a pass can pick up a new direct child of it that an earlier pass missed.
     private const int _linuxPasses = 5;
 
     public static void Kill(Process process)
     {
-        if (OperatingSystem.IsLinux())
+        if (OperatingSystem.IsLinux() && TryKillLinuxTree(process, "/proc"))
         {
-            KillLinuxTree(process.Id, "/proc");
             return;
         }
 
@@ -42,7 +41,7 @@ internal static class ProcessTree
     }
 
     /// <summary>Every live descendant of a process, found from the parent ids in a /proc folder; the process itself is not in the list.</summary>
-    internal static List<int> DescendantsOf(int rootId, string procRoot)
+    internal static List<(int Id, int Parent)> DescendantsOf(int rootId, string procRoot)
     {
         var children = new Dictionary<int, List<int>>();
         foreach (var (id, parent) in ReadParents(procRoot))
@@ -55,19 +54,20 @@ internal static class ProcessTree
             list.Add(id);
         }
 
-        var found = new List<int>();
+        var found = new List<(int Id, int Parent)>();
         var queue = new Queue<int>();
         queue.Enqueue(rootId);
         while (queue.Count > 0)
         {
-            if (!children.TryGetValue(queue.Dequeue(), out var below))
+            var parent = queue.Dequeue();
+            if (!children.TryGetValue(parent, out var below))
             {
                 continue;
             }
 
             foreach (var child in below)
             {
-                found.Add(child);
+                found.Add((child, parent));
                 queue.Enqueue(child);
             }
         }
@@ -75,49 +75,59 @@ internal static class ProcessTree
         return found;
     }
 
-    internal static void KillLinuxTree(int rootId, string procRoot)
+    // False when the system call cannot be bound, so the caller falls back to the .NET kill instead of failing the cancel.
+    internal static bool TryKillLinuxTree(Process process, string procRoot)
     {
-        // Deepest first and the root last: a parent that is still alive can be found again by the next pass if it forked
-        // while the passes ran, whereas a child of a dead parent is handed to init and cannot be traced back.
-        for (var pass = 0; pass < _linuxPasses; pass++)
+        try
         {
-            var below = DescendantsOf(rootId, procRoot);
-            if (below.Count == 0)
+            // Deepest first and the root last: a parent that is still alive can be found again by the next pass if it forked
+            // while the passes ran, whereas a child of a dead parent is handed to init and cannot be traced back.
+            for (var pass = 0; pass < _linuxPasses; pass++)
             {
-                break;
-            }
+                var below = DescendantsOf(process.Id, procRoot);
+                if (below.Count == 0)
+                {
+                    break;
+                }
 
-            for (var i = below.Count - 1; i >= 0; i--)
-            {
-                Signal(below[i], procRoot);
+                for (var i = below.Count - 1; i >= 0; i--)
+                {
+                    SignalIfStillChildOf(below[i].Id, below[i].Parent, procRoot);
+                }
             }
         }
-
-        Signal(rootId, procRoot);
-    }
-
-    // True when the process existed and was sent the signal; a process that is already a zombie is not worth one.
-    private static bool Signal(int id, string procRoot)
-    {
-        if (LiveState(id, procRoot) is null)
+        catch (Exception e) when (e is DllNotFoundException or EntryPointNotFoundException)
         {
             return false;
         }
 
-        return kill(id, _sigkill) == 0;
+        try
+        {
+            // Without a stop signal on Linux; .NET also knows whether it already reaped the process.
+            process.Kill();
+        }
+        catch (Exception e) when (e is InvalidOperationException or Win32Exception)
+        {
+            // Already gone.
+        }
+
+        return true;
     }
 
-    private static char? LiveState(int id, string procRoot)
+    // A number can be handed to another process between the scan and the signal, so the parent is read again first.
+    private static void SignalIfStillChildOf(int id, int parent, string procRoot)
     {
         try
         {
             var stat = File.ReadAllText(Path.Combine(procRoot, id.ToString(CultureInfo.InvariantCulture), "stat"));
-            var state = StateAndParent(stat)?.State;
-            return state is 'Z' or 'X' or 'x' ? null : state;
+            if (StateAndParent(stat) is { } fields && fields.State is not ('Z' or 'X' or 'x') && fields.Parent == parent)
+            {
+                _ = kill(id, _sigkill);
+            }
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            return null;
+            // Gone already.
         }
     }
 
@@ -172,6 +182,6 @@ internal static class ProcessTree
             : null;
     }
 
-    [DllImport("libc", SetLastError = true)]
+    [DllImport("libc")]
     private static extern int kill(int pid, int signal);
 }
