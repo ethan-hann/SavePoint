@@ -22,7 +22,8 @@ namespace Savepoint.Core.Services.Profiles;
 /// onto, so such a folder is skipped instead of failing the save and reported as left alone; a folder the profile has no branch in is
 /// saved as its first history.
 /// </param>
-internal sealed record FolderCapturePlan(CaptureMode Mode, string? ExpectedStartCommit = null, bool SkipWhenClean = false, string? AmendPointId = null, bool LeftAtLaunch = false);
+/// <param name="Downgraded">True for a folder whose replacement was refused at save time because rewriting its snapshot could touch another profile's history; it is saved as a new snapshot and reported as kept as new.</param>
+internal sealed record FolderCapturePlan(CaptureMode Mode, string? ExpectedStartCommit = null, bool SkipWhenClean = false, string? AmendPointId = null, bool LeftAtLaunch = false, bool Downgraded = false);
 
 /// <summary>One capture event: the id every folder's point carries, and when it began, which every folder's point records the same way.</summary>
 /// <param name="Id">The capture id.</param>
@@ -190,6 +191,7 @@ internal sealed class CaptureRunner
         IReadOnlyDictionary<RepoRole, FolderCapturePlan>? plans)
     {
         var repos = GameFolders.Repos(_services, storage, game).Where(repo => roles.Contains(repo.Role)).ToList();
+        plans = await RefuseUnsafeReplaceAsync(storage, game, profile, repos, plans, context.CancellationToken).ConfigureAwait(false);
         var progress = new CaptureProgressCombiner(context.Progress);
         context.AddStep(JobSteps.CaptureStart, ("profile", profile.Name), ("snapshot", pointName));
 
@@ -204,6 +206,49 @@ internal sealed class CaptureRunner
 
         var recorded = saved.Any(folder => folder.Recorded);
         return new CaptureResult(profile.Id, recorded ? new HistoryPointId(capture.Id) : null, outcomes);
+    }
+
+    // A replacement is judged again now, with the game's lock held and the folders as they are: what was true when the session ended may
+    // not be (a folder changed since, another profile was made from the snapshot). When it no longer holds, every folder is saved as a new snapshot.
+    private async Task<IReadOnlyDictionary<RepoRole, FolderCapturePlan>?> RefuseUnsafeReplaceAsync(
+        StorageSnapshot storage,
+        GameDefinition game,
+        Profile profile,
+        IReadOnlyList<RepoRef> repos,
+        IReadOnlyDictionary<RepoRole, FolderCapturePlan>? plans,
+        CancellationToken cancellationToken)
+    {
+        if (plans is null || plans.Values.FirstOrDefault(plan => plan is { Mode: CaptureMode.Amend, AmendPointId: not null }) is not { AmendPointId: { } target })
+        {
+            return plans;
+        }
+
+        var others = (await _services.Catalog.ListProfilesAsync(game.Id, cancellationToken).ConfigureAwait(false))
+            .Where(listed => listed.Id != profile.Id)
+            .Select(listed => listed.BranchName)
+            .ToList();
+        var judged = new List<ReplaceFolder>();
+        foreach (var repo in repos.Where(repo => plans.GetValueOrDefault(repo.Role) is { Mode: CaptureMode.Amend }))
+        {
+            var plan = plans[repo.Role];
+            var status = await storage.Engine.GetStatusAsync(repo, cancellationToken).ConfigureAwait(false);
+            var leftAlone = plan.LeftAtLaunch && (status.IsDetached || !string.Equals(status.Branch, profile.BranchName, StringComparison.Ordinal))
+                && await storage.Engine.BranchExistsAsync(repo, profile.BranchName, cancellationToken).ConfigureAwait(false);
+            if (leftAlone || (status.IsClean && status.HeldFile is null))
+            {
+                continue;
+            }
+
+            judged.Add(await ReplaceRule.JudgeFolderAsync(storage.Engine, repo, profile.BranchName, others, target, cancellationToken).ConfigureAwait(false));
+        }
+
+        if (ReplaceRule.Allows(judged))
+        {
+            return plans;
+        }
+
+        _services.Log.Information($"Save: replacing snapshot {target} of {game.Id} was not safe any more, so the session is saved as a new snapshot.");
+        return plans.ToDictionary(pair => pair.Key, pair => pair.Value.Mode == CaptureMode.Amend ? pair.Value with { Mode = CaptureMode.Normal, Downgraded = true } : pair.Value);
     }
 
     private async Task<SavedFolder> SaveFolderAsync(
@@ -334,7 +379,7 @@ internal sealed class CaptureRunner
         if (outcome.Changed || outcome.TipCommitId is not null)
         {
             // A replacement that found the snapshot was not the newest here was written as a new point, which the save reports.
-            return new FolderSave(outcome.Changed, KeptAsNew: outcome.Changed && plan is { Mode: CaptureMode.Amend } && mode == CaptureMode.Normal);
+            return new FolderSave(outcome.Changed, KeptAsNew: outcome.Changed && plan is { Downgraded: true });
         }
 
         // An empty folder in an empty repository has nothing to record; the profile still needs a branch here, and the folder is on it, as after any first save.

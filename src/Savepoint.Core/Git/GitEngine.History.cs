@@ -161,7 +161,7 @@ public sealed partial class GitEngine
     /// <param name="ct">Cancels the call.</param>
     /// <param name="maxCount">Stop after this many points; null reads them all.</param>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxCount"/> is not positive.</exception>
-    public async Task<IReadOnlyList<CommitInfo>> ListCommitsOnlyOnAsync(RepoRef repo, string branch, IReadOnlyCollection<string> otherBranches, CancellationToken ct = default, int? maxCount = null)
+    public async Task<IReadOnlyList<CommitInfo>> ListCommitsOnlyOnAsync(RepoRef repo, string branch, IReadOnlyCollection<string> otherBranches, int? maxCount = null, CancellationToken ct = default)
     {
         repo = Normalize(repo);
         BranchNames.Require(branch);

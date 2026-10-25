@@ -94,21 +94,27 @@ internal sealed class HistoryReader
         IReadOnlyList<Profile> profiles,
         CancellationToken cancellationToken)
     {
+        using var slots = new SemaphoreSlim(_parallelism);
         var reads = repos.SelectMany(repo => profiles.Select(async profile =>
         {
-            var commits = await storage.Engine.ListCommitsAsync(repo, profile.BranchName, null, cancellationToken).ConfigureAwait(false);
-            return (Key: (repo.Role, profile.Id), Commits: commits);
+            await slots.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                var commits = await storage.Engine.ListCommitsAsync(repo, profile.BranchName, null, cancellationToken).ConfigureAwait(false);
+                return (Key: (repo.Role, profile.Id), Commits: commits);
+            }
+            finally
+            {
+                slots.Release();
+            }
         })).ToList();
         return (await Task.WhenAll(reads).ConfigureAwait(false)).ToDictionary(read => read.Key, read => read.Commits);
     }
 
-    /// <summary>A point as History reckons it for one profile: its capture id, name and time, and the commit it has in each folder that is that profile's own.</summary>
-    internal sealed record OwnedPoint(string CaptureId, string Name, DateTimeOffset At, IReadOnlyDictionary<RepoRole, string> Commits);
+    /// <summary>A point as History reckons it for one profile: its capture id, name and time.</summary>
+    internal sealed record OwnedPoint(string CaptureId, string Name, DateTimeOffset At);
 
-    /// <summary>
-    /// The newest point History lists under a profile (same grouping and ownership as <see cref="ReadAsync"/>), or null when it owns none.
-    /// A folder whose commit of the point belongs to another profile is left out of <see cref="OwnedPoint.Commits"/>.
-    /// </summary>
+    /// <summary>The newest point History lists under a profile (same grouping and ownership as <see cref="ReadAsync"/>), or null when it owns none.</summary>
     internal static async Task<OwnedPoint?> NewestOwnedAsync(
         StorageSnapshot storage,
         IReadOnlyList<RepoRef> repos,
@@ -118,21 +124,8 @@ internal sealed class HistoryReader
     {
         var lineages = await ReadLineagesAsync(storage, repos, profiles, cancellationToken).ConfigureAwait(false);
         var newest = Group(repos, profiles, lineages).Where(point => point.Owner.Id == profileId).OrderByDescending(point => point.At).FirstOrDefault();
-        if (newest is null)
-        {
-            return null;
-        }
 
-        var commits = new Dictionary<RepoRole, string>();
-        foreach (var entry in new[] { newest.Install, newest.External })
-        {
-            if (entry is not null && entry.Profile.Id == profileId)
-            {
-                commits[entry.Role] = entry.Commit.Id;
-            }
-        }
-
-        return new OwnedPoint(newest.CaptureId, newest.Name, newest.At, commits);
+        return newest is null ? null : new OwnedPoint(newest.CaptureId, newest.Name, newest.At);
     }
 
     // A commit belongs to the first profile (in catalog order) whose lineage holds it, so a duplicate shows only its own new points.

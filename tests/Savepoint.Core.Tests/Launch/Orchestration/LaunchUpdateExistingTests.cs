@@ -18,12 +18,12 @@ public class LaunchUpdateExistingTests
         return (vanilla, await rig.ProfileAsync("Heavy mods"));
     }
 
-    private static async Task<SessionState.Exited> PlayAsync(LaunchRig rig, Profile profile)
+    private static async Task<SessionState.Exited> PlayAsync(LaunchRig rig, Profile profile, string save = "played on")
     {
         File.Delete(rig.ReadyFile);
         await rig.StartAsync(Tip(profile));
         await rig.WaitForGameAsync();
-        rig.WriteSave("slot1.sav", "played on");
+        rig.WriteSave("slot1.sav", save);
         rig.KillGame();
         return Assert.IsType<SessionState.Exited>((await rig.WaitForAsync<SessionState.Exited>()).State);
     }
@@ -215,13 +215,163 @@ public class LaunchUpdateExistingTests
         rig.WriteSave("slot2.sav", "played on");
         rig.KillGame();
         var exited = Assert.IsType<SessionState.Exited>((await rig.WaitForAsync<SessionState.Exited>()).State);
+        Assert.Contains(CompletionChoice.UpdateExisting, exited.Options.Choices);
 
-        // The newest snapshot has no install commit of its own, and the install changed, so a replacement would have to split it in two.
+        Assert.True((await rig.Launch.CompleteSessionAsync(rig.Game.Id, new SessionCompletion.UpdateExisting("Updated"))).Ok);
+        var done = Assert.IsType<SessionState.Completed>((await rig.WaitForAsync<SessionState.Completed>()).State);
+
+        Assert.Null(done.Error);
+        var result = Assert.IsType<CaptureResult>(done.Result);
+        Assert.All(result.Folders, folder => Assert.True(folder.Ok && !folder.KeptAsNew, folder.Error?.Detail));
+
+        // The mod update point is still there, in the install's history and in the history list.
+        var install = await rig.CommitsAsync(RepoRole.Install, vanilla);
+        Assert.Contains(modUpdate.Id, install.Select(commit => commit.Id));
+        Assert.Equal(["Updated", "Mod update", "Vanilla"], install.Select(commit => commit.Subject));
+        var history = (await rig.History.GetAsync(rig.Game.Id, null, rig.Token)).Value!;
+        var kept = Assert.Single(history.Points, point => point.Name == "Mod update");
+        Assert.Equal(HistoryPointKind.VersionAndMods, kept.Kind);
+
+        // The update stays one point: the saves point was replaced in place and the install change joined it.
+        var saves = await rig.CommitsAsync(RepoRole.External, vanilla);
+        Assert.Equal(["Updated", "Vanilla"], saves.Select(commit => commit.Subject));
+        Assert.Equal(result.PointId?.Value, install[0].CaptureId);
+        Assert.Equal(result.PointId?.Value, saves[0].CaptureId);
+        Assert.Contains("settings.ini", await rig.WithEngineAsync((engine, repo) => engine.ListTreeFilesAsync(repo, vanilla.BranchName, rig.Token), RepoRole.Install));
+    }
+
+    private static async Task<SessionState.Exited> PlayWithoutChangesAsync(LaunchRig rig, Profile profile)
+    {
+        File.Delete(rig.ReadyFile);
+        await rig.StartAsync(Tip(profile));
+        await rig.WaitForGameAsync();
+        rig.KillGame();
+        return Assert.IsType<SessionState.Exited>((await rig.WaitForAsync<SessionState.Exited>()).State);
+    }
+
+    private static async Task<SessionState.Completed> CompleteAsync(LaunchRig rig, SessionCompletion completion)
+    {
+        Assert.True((await rig.Launch.CompleteSessionAsync(rig.Game.Id, completion)).Ok);
+        return Assert.IsType<SessionState.Completed>((await rig.WaitForAsync<SessionState.Completed>()).State);
+    }
+
+    [Fact(Timeout = 200_000)]
+    public async Task Nothing_unsaved_at_exit_offers_no_replace()
+    {
+        using var rig = await LaunchRig.CreateAsync();
+        var vanilla = await rig.ProfileAsync("Vanilla");
+
+        var exited = await PlayWithoutChangesAsync(rig, vanilla);
+
         Assert.DoesNotContain(CompletionChoice.UpdateExisting, exited.Options.Choices);
-        var refused = await rig.Launch.CompleteSessionAsync(rig.Game.Id, new SessionCompletion.UpdateExisting("Updated"));
-        Assert.Equal("error.launch.completionNotOffered", refused.Error?.MessageId);
-        Assert.Equal(["Mod update", "Vanilla"], (await rig.CommitsAsync(RepoRole.Install, vanilla)).Select(commit => commit.Subject));
-        Assert.Equal(modUpdate.Id, (await rig.CommitsAsync(RepoRole.Install, vanilla))[0].Id);
-        Assert.Equal(["Second save", "Vanilla"], (await rig.CommitsAsync(RepoRole.External, vanilla)).Select(commit => commit.Subject));
+    }
+
+    [Fact(Timeout = 200_000)]
+    public async Task A_change_only_to_files_the_game_ignores_offers_no_replace()
+    {
+        using var rig = await LaunchRig.CreateAsync();
+        Assert.True((await rig.Workspace.Games.UpdateAsync(rig.Game with { IgnorePaths = ["logs/"] })).Ok);
+        var vanilla = await rig.ProfileAsync("Vanilla");
+
+        File.Delete(rig.ReadyFile);
+        await rig.StartAsync(Tip(vanilla));
+        await rig.WaitForGameAsync();
+        rig.WriteInstall("logs/today.log", "noise");
+        rig.KillGame();
+        var exited = Assert.IsType<SessionState.Exited>((await rig.WaitForAsync<SessionState.Exited>()).State);
+
+        Assert.DoesNotContain(CompletionChoice.UpdateExisting, exited.Options.Choices);
+    }
+
+    [Fact(Timeout = 200_000)]
+    public async Task A_saves_folder_that_is_gone_at_exit_offers_no_replace()
+    {
+        using var rig = await LaunchRig.CreateAsync();
+        var vanilla = await rig.ProfileAsync("Vanilla");
+
+        File.Delete(rig.ReadyFile);
+        await rig.StartAsync(Tip(vanilla));
+        await rig.WaitForGameAsync();
+        rig.KillGame();
+        Directory.Delete(rig.SavesPath, recursive: true);
+        var exited = Assert.IsType<SessionState.Exited>((await rig.WaitForAsync<SessionState.Exited>()).State);
+
+        Assert.DoesNotContain(CompletionChoice.UpdateExisting, exited.Options.Choices);
+    }
+
+    [Fact(Timeout = 200_000)]
+    public async Task A_folder_that_changes_after_exit_and_whose_snapshot_another_profile_holds_is_saved_as_a_new_snapshot_and_says_so()
+    {
+        using var rig = await LaunchRig.CreateAsync();
+        var original = await rig.ProfileAsync("Original");
+        var copied = await rig.Profiles.DuplicateAsync(rig.Game.Id, original.Id, "Copy");
+        Assert.True(copied.Ok, copied.Error?.Detail);
+        var installBefore = (await rig.CommitsAsync(RepoRole.Install, original)).Select(commit => commit.Id).ToList();
+        var exited = await PlayAsync(rig, original);
+
+        // Only the saves were unsaved at exit, and they are the original's own; the install point is the copy's too.
+        Assert.Contains(CompletionChoice.UpdateExisting, exited.Options.Choices);
+        rig.WriteInstall("settings.ini", "written after the game closed");
+        var done = await CompleteAsync(rig, new SessionCompletion.UpdateExisting("Original"));
+
+        Assert.Null(done.Error);
+        var result = Assert.IsType<CaptureResult>(done.Result);
+        Assert.All(result.Folders, folder => Assert.True(folder.Ok && folder.KeptAsNew, folder.Error?.Detail));
+        var install = await rig.CommitsAsync(RepoRole.Install, original);
+        Assert.Equal(installBefore, install.Skip(1).Select(commit => commit.Id));
+        Assert.Equal(installBefore, (await rig.CommitsAsync(RepoRole.Install, copied.Value)).Select(commit => commit.Id));
+        Assert.Equal(2, (await rig.CommitsAsync(RepoRole.External, original)).Count);
+    }
+
+    [Fact(Timeout = 200_000)]
+    public async Task A_duplicate_s_original_replaces_its_own_snapshot_once_it_has_one_the_duplicate_does_not_hold()
+    {
+        using var rig = await LaunchRig.CreateAsync();
+        var original = await rig.ProfileAsync("Original");
+        var copied = await rig.Profiles.DuplicateAsync(rig.Game.Id, original.Id, "Copy");
+        Assert.True(copied.Ok, copied.Error?.Detail);
+        await PlayAsync(rig, original);
+        rig.WriteInstall("mods/own.bin", "own");
+        await CompleteAsync(rig, new SessionCompletion.CaptureNew("Original session"));
+
+        var exited = await PlayAsync(rig, original, "played again");
+
+        Assert.Equal("Original session", exited.Options.UpdateTarget?.Name);
+        var done = await CompleteAsync(rig, new SessionCompletion.UpdateExisting("Original session"));
+        Assert.Null(done.Error);
+        Assert.All(Assert.IsType<CaptureResult>(done.Result).Folders, folder => Assert.True(folder.Ok && !folder.KeptAsNew && !folder.LeftAlone));
+        Assert.Equal(["Original session", "Original"], (await rig.CommitsAsync(RepoRole.External, original)).Select(commit => commit.Subject));
+    }
+
+    [Fact(Timeout = 200_000)]
+    public async Task A_single_profile_can_replace_a_saves_only_snapshot_and_then_one_that_also_wrote_the_install()
+    {
+        using var rig = await LaunchRig.CreateAsync();
+        var vanilla = await rig.ProfileAsync("Vanilla");
+
+        await PlayAsync(rig, vanilla);
+        var first = await CompleteAsync(rig, new SessionCompletion.UpdateExisting("Vanilla"));
+        Assert.Null(first.Error);
+
+        File.Delete(rig.ReadyFile);
+        await rig.StartAsync(Tip(vanilla));
+        await rig.WaitForGameAsync();
+        rig.WriteSave("slot1.sav", "second session");
+        rig.WriteInstall("settings.ini", "written by the game");
+        rig.KillGame();
+        var exited = Assert.IsType<SessionState.Exited>((await rig.WaitForAsync<SessionState.Exited>()).State);
+        Assert.Contains(CompletionChoice.UpdateExisting, exited.Options.Choices);
+
+        var second = await CompleteAsync(rig, new SessionCompletion.UpdateExisting("Vanilla"));
+
+        Assert.Null(second.Error);
+        var result = Assert.IsType<CaptureResult>(second.Result);
+        Assert.All(result.Folders, folder => Assert.True(folder.Ok && !folder.KeptAsNew));
+        var install = await rig.CommitsAsync(RepoRole.Install, vanilla);
+        var saves = await rig.CommitsAsync(RepoRole.External, vanilla);
+        Assert.Equal(result.PointId?.Value, install[0].CaptureId);
+        Assert.Equal(result.PointId?.Value, saves[0].CaptureId);
+        Assert.Single(saves);
+        Assert.Equal(2, install.Count);
     }
 }

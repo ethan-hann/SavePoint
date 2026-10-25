@@ -68,7 +68,6 @@ public class BackendContractTests(ContractRuns runs) : IClassFixture<ContractRun
     {
         Assert.Equal(
             [
-                "choices after play with one save: CaptureNew,Skip",
                 "history after the first save: 0 points",
                 "row stats after the first save: active=False snapshots=0",
                 "storage used: False",
@@ -79,7 +78,6 @@ public class BackendContractTests(ContractRuns runs) : IClassFixture<ContractRun
             runs.Fake.Gaps);
         Assert.Equal(
             [
-                "choices after play with one save: CaptureNew,UpdateExisting,Skip",
                 "history after the first save: 1 points",
                 "row stats after the first save: active=True snapshots=1",
                 "storage used: True",

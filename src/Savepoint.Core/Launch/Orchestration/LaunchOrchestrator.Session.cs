@@ -5,6 +5,7 @@ using Savepoint.Core.Errors;
 using Savepoint.Core.Git;
 using Savepoint.Core.Services;
 using Savepoint.Core.Services.History;
+using Savepoint.Core.Services.Profiles;
 
 namespace Savepoint.Core.Launch.Orchestration;
 
@@ -150,7 +151,12 @@ public sealed partial class LaunchOrchestrator
         }
 
         // Replace is offered for the newest point History lists under this profile, and only when rewriting it cannot touch history another
-        // profile holds: in every folder the save will write, the point's commit is the profile's tip there and no other profile reaches it.
+        // profile holds (ReplaceRule). With nothing unsaved there is nothing to replace it with, and the cheap checks run before any grouping.
+        if (written.Count == 0)
+        {
+            return FallbackOptions(older: false, profile, starts);
+        }
+
         var owned = await HistoryReader.NewestOwnedAsync(storage, repos, profiles, profile.Id, CancellationToken.None).ConfigureAwait(false);
         if (owned is null || !await CanReplaceAsync(storage, repos, profiles, profile, owned, written).ConfigureAwait(false))
         {
@@ -173,22 +179,13 @@ public sealed partial class LaunchOrchestrator
         IReadOnlySet<RepoRole> written)
     {
         var others = profiles.Where(listed => listed.Id != profile.Id).Select(listed => listed.BranchName).ToList();
+        var judged = new List<ReplaceFolder>();
         foreach (var repo in repos.Where(repo => written.Contains(repo.Role)))
         {
-            if (!owned.Commits.TryGetValue(repo.Role, out var commit))
-            {
-                return false;
-            }
-
-            // The newest commit no other profile reaches is the profile's tip only when the tip itself is unshared.
-            var unshared = await storage.Engine.ListCommitsOnlyOnAsync(repo, profile.BranchName, others, maxCount: 1).ConfigureAwait(false);
-            if (unshared.Count == 0 || unshared[0].Id != commit)
-            {
-                return false;
-            }
+            judged.Add(await ReplaceRule.JudgeFolderAsync(storage.Engine, repo, profile.BranchName, others, owned.CaptureId, CancellationToken.None).ConfigureAwait(false));
         }
 
-        return true;
+        return ReplaceRule.Allows(judged);
     }
 
     // The choices when the folders cannot be read. "Continue" needs every folder the launch left alone to have begun on the profile's own
