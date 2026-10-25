@@ -5,22 +5,7 @@ namespace Savepoint.Core.Tests.Backend;
 // A move and a clear walk the engine's own folders, but what a player reads about them never names those folders.
 public class JobLinesHideEngineFoldersTests
 {
-    private static readonly string[] _engineNames = ["objects", "refs", "packed-refs", "HEAD", "hooks"];
-
-    // Every string a line can show: a file path as it is, or any text argument of a step.
-    private static IEnumerable<string> Texts(JobSnapshot job) =>
-        job.RecentLines.SelectMany(line => line switch
-        {
-            JobLine.FilePath file => [file.Path],
-            JobLine.Step step => step.Args.Values.OfType<string>(),
-            _ => [],
-        });
-
-    private static bool NamesEngineFolder(string text) =>
-        text.Split('/', '\\').Any(segment => segment.EndsWith(".git", StringComparison.OrdinalIgnoreCase) || _engineNames.Contains(segment, StringComparer.Ordinal));
-
-    private static void AssertNoEngineFolder(JobSnapshot job) =>
-        Assert.DoesNotContain(Texts(job), NamesEngineFolder);
+    private static void AssertNoEngineFolder(JobSnapshot job) => EngineFolderLint.AssertNoEngineFolder(job);
 
     [Fact]
     public async Task A_move_reports_no_file_path_and_no_engine_folder()
