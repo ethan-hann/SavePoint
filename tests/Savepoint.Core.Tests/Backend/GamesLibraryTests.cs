@@ -131,6 +131,20 @@ public class GamesLibraryTests : IDisposable
     }
 
     [Fact]
+    public async Task A_game_found_in_a_library_starts_out_leaving_out_logs_and_crash_dumps_with_or_without_a_template()
+    {
+        var skyrim = _steam.AddGame(_steam.SteamFolder, 489830, "The Elder Scrolls V: Skyrim Special Edition", "Skyrim Special Edition");
+        File.WriteAllText(Path.Combine(skyrim, "SkyrimSELauncher.exe"), "x");
+        _steam.AddGame(_steam.SteamFolder, 4999001, "Unlisted Test Game", "Unlisted Test Game");
+        _steam.WriteLibraryList();
+
+        var games = (await Games.ScanLibrariesAsync(_workspace.Token)).Value!.Games;
+
+        Assert.Equal(["**/*.log", "SKSE/Plugins/*.log", "**/Crash Logs/**", "**/*.dmp", "**/*.mdmp"], games.Single(game => game.TemplateId == "skyrim-se").Draft.IgnorePaths);
+        Assert.Equal(["**/*.log", "**/*.dmp", "**/*.mdmp"], games.Single(game => game.TemplateId is null).Draft.IgnorePaths);
+    }
+
+    [Fact]
     public async Task A_game_whose_folder_is_already_a_games_folder_is_marked_as_added()
     {
         var folder = _steam.AddGame(_steam.SteamFolder, 240, "Counter-Strike: Source", "Counter-Strike Source");

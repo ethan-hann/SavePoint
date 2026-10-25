@@ -40,13 +40,19 @@ public abstract record SessionState
     /// How the end was found. <see cref="SessionEndKind.NamedProcessNeverAppeared"/> means the game's process name never matched a running
     /// program: <paramref name="PlayDuration"/> is then only the wait for it, not time played, and callers should not present it as play time.
     /// </param>
+    /// <param name="LeaveOutRules">
+    /// Set when every file counted in <paramref name="ChangedInstallFileCount"/> is run-time output (logs and crash dumps, see
+    /// <see cref="Savepoint.Core.Catalog.RunTimeOutput"/>): the leave-out rules that cover those files, which the player may add to the game.
+    /// Null when no install file changed, or when any changed file, or any file that could not be read, is not run-time output.
+    /// </param>
     public sealed record Exited(
         DateTimeOffset StartedAt,
         TimeSpan PlayDuration,
         int NewFileCount,
         int ChangedInstallFileCount,
         PostPlayOptions Options,
-        SessionEndKind EndKind = SessionEndKind.ChildExited) : SessionState;
+        SessionEndKind EndKind = SessionEndKind.ChildExited,
+        IReadOnlyList<string>? LeaveOutRules = null) : SessionState;
 
     /// <summary>The chosen completion is running as a capture job.</summary>
     /// <param name="Completion">What the user chose.</param>

@@ -111,8 +111,28 @@ public class GameTemplatesTests
 
         Assert.Equal("the-elder-scrolls-v-skyrim-special-editi-aaaa", draft.Id);
         Assert.NotEqual(template.Id, draft.Id);
-        Assert.Equal(template.Definition with { Id = draft.Id }, draft);
+        Assert.Equal(template.Definition with { Id = draft.Id, IgnorePaths = [.. template.Definition.IgnorePaths, "**/*.dmp", "**/*.mdmp"] }, draft);
         Assert.Equal(["install.path"], CatalogValidator.Validate(draft).Select(issue => issue.Path));
+    }
+
+    [Fact]
+    public void A_draft_leaves_out_logs_and_crash_dumps_without_repeating_a_rule_the_template_has()
+    {
+        var plain = WithSaves(@"{documents}\Game").ToDraft(OsKind.Windows, new FixedRandom());
+        var skyrim = GameTemplates.All.Single(t => t.Id == "skyrim-se").ToDraft(OsKind.Windows, new FixedRandom());
+
+        Assert.Equal(["**/*.log", "**/*.dmp", "**/*.mdmp"], plain.IgnorePaths);
+        Assert.Equal(["**/*.log", "SKSE/Plugins/*.log", "**/Crash Logs/**", "**/*.dmp", "**/*.mdmp"], skyrim.IgnorePaths);
+    }
+
+    [Fact]
+    public void The_shipped_template_keeps_its_own_rules_only()
+    {
+        var template = GameTemplates.All.Single(t => t.Id == "skyrim-se");
+
+        _ = template.ToDraft(OsKind.Windows, new FixedRandom());
+
+        Assert.Equal(["**/*.log", "SKSE/Plugins/*.log", "**/Crash Logs/**"], template.Definition.IgnorePaths);
     }
 
     [Fact]

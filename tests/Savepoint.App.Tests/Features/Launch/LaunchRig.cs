@@ -71,11 +71,11 @@ internal sealed class LaunchRig : IDisposable
     }
 
     // Plays a session through the fake to its exit, so the options are the ones the service would offer for that start.
-    public async Task<SessionState.Exited> ExitedAsync(LaunchTarget? target = null, string gameId = SampleScenario.SkyrimId, int newFiles = SampleScenario.NewSaveFiles, int installFiles = 0)
+    public async Task<SessionState.Exited> ExitedAsync(LaunchTarget? target = null, string gameId = SampleScenario.SkyrimId, int newFiles = SampleScenario.NewSaveFiles, int installFiles = 0, IReadOnlyList<string>? leaveOutRules = null)
     {
         FakeAssert.Ok(await Backend.Launch.StartAsync(gameId, target ?? ModdedTip));
         Backend.Launch.ReportRunning(gameId, SampleScenario.RunningSince);
-        Backend.Launch.ReportExited(gameId, SampleScenario.PlayDuration, newFiles, installFiles);
+        Backend.Launch.ReportExited(gameId, SampleScenario.PlayDuration, newFiles, installFiles, leaveOutRules: leaveOutRules);
         return Assert.IsType<SessionState.Exited>(FakeAssert.Session(Backend, gameId).State);
     }
 

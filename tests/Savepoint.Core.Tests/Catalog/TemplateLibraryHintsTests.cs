@@ -96,8 +96,9 @@ public class TemplateLibraryHintsTests
 
         var draft = template.ToDraft(OsKind.Windows);
 
-        Assert.Equal(template.Definition with { Id = draft.Id }, draft);
-        Assert.Equal(template.Definition with { Id = draft.Id, External = null }, template.ToDraft(OsKind.Linux) with { Id = draft.Id });
+        var expected = template.Definition with { Id = draft.Id, IgnorePaths = RunTimeOutput.DefaultRules };
+        Assert.Equal(expected, draft);
+        Assert.Equal(expected with { External = null }, template.ToDraft(OsKind.Linux) with { Id = draft.Id });
     }
 
     [Fact]

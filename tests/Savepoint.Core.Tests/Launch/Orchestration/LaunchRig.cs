@@ -163,6 +163,14 @@ internal sealed class LaunchRig : IDisposable
         return saves;
     }
 
+    // Edits the game's saved definition, as Edit game does, and keeps the rig's copy current.
+    public async Task EditGameAsync(Func<GameDefinition, GameDefinition> change)
+    {
+        var updated = await Workspace.Games.UpdateAsync(change(Game));
+        Assert.True(updated.Ok, updated.Error?.Detail);
+        Game = updated.Value;
+    }
+
     public void WriteInstall(string relativePath, string content) => BackendWorkspace.WriteFile(Path.Combine(InstallPath, relativePath), content);
 
     public void WriteSave(string relativePath, string content) => BackendWorkspace.WriteFile(Path.Combine(SavesPath, relativePath), content);

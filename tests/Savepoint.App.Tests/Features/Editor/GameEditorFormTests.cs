@@ -17,8 +17,51 @@ public class GameEditorFormTests
         Assert.Equal(string.Empty, editor.InstallPath);
         Assert.Equal(string.Empty, editor.SavesPath);
         Assert.Equal(0, editor.LaunchChoice);
-        Assert.Empty(editor.IgnoreRules.Values);
+        Assert.Equal(["**/*.log", "**/*.dmp", "**/*.mdmp"], editor.IgnoreRules.Values);
         Assert.False(editor.CanSave);
+    }
+
+    [Fact]
+    public void A_new_game_says_in_plain_words_why_logs_and_crash_reports_are_left_out()
+    {
+        var editor = EditorRig.Create().New();
+
+        Assert.True(editor.HasDefaultRulesNote);
+        Assert.Equal("New games leave out logs and crash reports. A game rewrites them every time it runs, so without these rules SavePoint would take them for a game update. Remove a rule to keep those files in your snapshots.", editor.DefaultRulesNote);
+    }
+
+    [Fact]
+    public void An_existing_game_keeps_its_rules_as_they_are_and_has_no_note()
+    {
+        var bare = SampleScenario.Caretaker with { IgnorePaths = [] };
+        var rig = EditorRig.Create(new FakeBackend(ScenarioBuilder.Empty().WithGame(bare)));
+
+        var editor = rig.Edit(bare.Id);
+
+        Assert.Empty(editor.IgnoreRules.Values);
+        Assert.False(editor.HasDefaultRulesNote);
+        Assert.False(editor.IsDirty);
+    }
+
+    [Fact]
+    public void A_definition_file_is_not_given_rules_it_does_not_have()
+    {
+        var rig = EditorRig.Create();
+
+        var editor = rig.New(SampleScenario.Caretaker with { Id = "imported", IgnorePaths = ["Saves/*.tmp"] });
+
+        Assert.Equal(["Saves/*.tmp"], editor.IgnoreRules.Values);
+        Assert.False(editor.HasDefaultRulesNote);
+    }
+
+    [Fact]
+    public void A_template_that_already_brings_the_rules_has_the_note_too()
+    {
+        var rig = EditorRig.Create();
+
+        var editor = rig.New(rig.Backend.Games.Templates[0].ToDraft());
+
+        Assert.True(editor.HasDefaultRulesNote);
     }
 
     [Fact]

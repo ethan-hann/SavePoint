@@ -127,6 +127,26 @@ public class HistoryTests
     }
 
     [Fact]
+    public async Task Logs_and_crash_dumps_inside_a_mod_folder_are_not_counted_as_mod_files()
+    {
+        using var workspace = new BackendWorkspace();
+        var game = await workspace.AddGameAsync(workspace.NewGame(withSaves: false, modHints: ["mods"]));
+        BackendWorkspace.WriteFile(Path.Combine(game.Install.Path, "mods", "a.esp"), "a");
+        BackendWorkspace.WriteFile(Path.Combine(game.Install.Path, "mods", "a", "a.log"), "started");
+        var (profile, _) = await workspace.CreateProfileAsync(game, "Vanilla");
+        BackendWorkspace.WriteFile(Path.Combine(game.Install.Path, "mods", "a", "a.log"), "started again");
+        BackendWorkspace.WriteFile(Path.Combine(game.Install.Path, "mods", "crash.dmp"), "dump");
+        await CaptureAsync(workspace, game, profile, "Played");
+
+        var points = (await workspace.History.GetAsync(game.Id, null, workspace.Token)).Value!.Points;
+
+        Assert.Equal("Played", points[0].Name);
+        Assert.Equal(0, points[0].ModFilesChanged);
+        Assert.Equal(1, points[0].Install.ModFileCount);
+        Assert.Equal(1, points[1].Install.ModFileCount);
+    }
+
+    [Fact]
     public async Task A_games_without_mod_folders_reports_no_mod_figures()
     {
         using var workspace = new BackendWorkspace();

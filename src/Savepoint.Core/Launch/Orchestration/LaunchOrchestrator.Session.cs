@@ -83,8 +83,15 @@ public sealed partial class LaunchOrchestrator
                 var repos = GameFolders.Repos(_services, storage, game);
                 var changed = await Task.WhenAll(repos.Select(repo => ChangedFilesAsync(storage, repo, profile, older ? null : starts.GetValueOrDefault(repo.Role)))).ConfigureAwait(false);
                 var options = await OptionsAsync(storage, repos, profile, older, starts).ConfigureAwait(false);
-                var counts = repos.Zip(changed, (repo, count) => (repo.Role, count)).ToDictionary(pair => pair.Role, pair => pair.count);
-                return new SessionState.Exited(startedAt, duration, counts.GetValueOrDefault(RepoRole.External), counts.GetValueOrDefault(RepoRole.Install), options, endKind);
+                var counts = repos.Zip(changed, (repo, files) => (repo.Role, files)).ToDictionary(pair => pair.Role, pair => pair.files);
+                var install = counts.GetValueOrDefault(RepoRole.Install);
+                var external = counts.GetValueOrDefault(RepoRole.External);
+
+                // The comparison is the one git uses for this folder's ignore rules, so a rule offered here really matches the files.
+                var leaveOut = install.Paths is { Count: > 0 } && install.Unreadable == 0
+                    ? RunTimeOutput.RulesCovering(install.Paths, _services.Platform.PathComparison)
+                    : null;
+                return new SessionState.Exited(startedAt, duration, external.Count, install.Count, options, endKind, leaveOut);
             }).ConfigureAwait(false);
         }
         catch (Exception e) when (e is not (OperationCanceledException or OutOfMemoryException or StackOverflowException))
@@ -98,18 +105,21 @@ public sealed partial class LaunchOrchestrator
     // counts too: it may have changed, and the save will say so. A folder the launch left alone, which the profile has saved before and
     // which sits on another profile's history, is skipped by a new point and by an update; "skipped" is its start when those are the
     // choices, and its files are not on offer.
-    private static async Task<int> ChangedFilesAsync(StorageSnapshot storage, RepoRef repo, Profile? profile, FolderStart? skipped)
+    private static async Task<ChangedFiles> ChangedFilesAsync(StorageSnapshot storage, RepoRef repo, Profile? profile, FolderStart? skipped)
     {
         var status = await storage.Engine.GetStatusAsync(repo).ConfigureAwait(false);
         if (skipped is { Left: true } && profile is not null
             && (status.IsDetached || !string.Equals(status.Branch, profile.BranchName, StringComparison.Ordinal))
             && await storage.Engine.BranchExistsAsync(repo, profile.BranchName).ConfigureAwait(false))
         {
-            return 0;
+            return default;
         }
 
-        return status.ChangedPaths.Count + status.UntrackedPaths.Count + status.HeldFileCount;
+        return new ChangedFiles(status.ChangedPaths.Count + status.UntrackedPaths.Count + status.HeldFileCount, [.. status.ChangedPaths, .. status.UntrackedPaths], status.HeldFileCount);
     }
+
+    // The count the dialog states, the files that can be named, and how many of the counted files could not be read and so have no name.
+    private readonly record struct ChangedFiles(int Count, IReadOnlyList<string>? Paths, int Unreadable);
 
     // What the player may do with the session (D14): a session from an older point forks or moves the profile forward.
     private static async Task<PostPlayOptions> OptionsAsync(

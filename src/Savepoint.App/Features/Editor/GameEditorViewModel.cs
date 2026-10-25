@@ -135,11 +135,16 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
         _shell = shell;
         _artwork = artwork;
         _saved = saved;
-        _source = saved ?? prefill ?? new GameDefinition();
+        _source = saved ?? prefill ?? new GameDefinition { IgnorePaths = RunTimeOutput.DefaultRules };
         IgnoreRules = new ChipListViewModel(text, text.Message("gameEditor.ignorePaths.label"), text.Message("gameEditor.addRule"), text.Message("gameEditor.ignorePaths.placeholder"));
         LaunchArgs = new ChipListViewModel(text, text.Message("gameEditor.launchArgs.label"), text.Message("gameEditor.addOption"), text.Message("gameEditor.launchArgs.placeholder"));
         ModFolders = new ChipListViewModel(text, text.Message("gameEditor.modPathHints.label"), text.Message("gameEditor.addFolder"), text.Message("gameEditor.modPathHints.placeholder"));
         Title = saved is null ? text.Message("gameEditor.title.create") : text.Message("gameEditor.title.edit", ("name", saved.Name));
+
+        // Only a new game that starts with every default rule explains them; an imported file or an edited game is the player's own list.
+        DefaultRulesNote = saved is null && RunTimeOutput.DefaultRules.All(rule => _source.IgnorePaths.Contains(rule))
+            ? text.Message("gameEditor.ignorePaths.defaultNote")
+            : string.Empty;
         LocationChoices = BuildLocationChoices();
         ArtworkPreview = shell.Artwork.Preview(saved?.Id ?? string.Empty);
         LoadForm(_source);
@@ -158,6 +163,12 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
 
     /// <summary>The files to ignore.</summary>
     public ChipListViewModel IgnoreRules { get; }
+
+    /// <summary>Why a new game already leaves logs and crash reports out; empty when the game being edited or imported did not start with those rules.</summary>
+    public string DefaultRulesNote { get; }
+
+    /// <summary>True when <see cref="DefaultRulesNote"/> has text.</summary>
+    public bool HasDefaultRulesNote => DefaultRulesNote.Length > 0;
 
     /// <summary>The extra command-line options the game starts with.</summary>
     public ChipListViewModel LaunchArgs { get; }
