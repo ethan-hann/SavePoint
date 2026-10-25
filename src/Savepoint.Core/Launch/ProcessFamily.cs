@@ -25,6 +25,7 @@ internal sealed class ProcessFamily
     // Start is null for a root that was never seen in a list.
     private readonly Dictionary<int, DateTimeOffset?> _members = [];
     private readonly HashSet<int> _roots = [];
+    private readonly HashSet<int> _confirmed = [];
     private readonly DateTimeOffset _floor;
     private readonly PathSyntax _paths;
     private readonly string[] _folders;
@@ -107,7 +108,19 @@ internal sealed class ProcessFamily
         var alive = new List<(int, DateTimeOffset?)>();
         foreach (var (pid, start) in _members)
         {
-            if (!_roots.Contains(pid) && byPid.TryGetValue(pid, out var running) && running.StartedAt == start && InFolder(running.ExecutablePath))
+            if (_roots.Contains(pid) || !byPid.TryGetValue(pid, out var running))
+            {
+                continue;
+            }
+
+            // One look that cannot read a follower's start or program does not make it vanish; it was matched by both before.
+            var sameStart = running.StartedAt is null || running.StartedAt == start;
+            if (sameStart && InFolder(running.ExecutablePath))
+            {
+                _confirmed.Add(pid);
+                alive.Add((pid, start));
+            }
+            else if (sameStart && running.ExecutablePath is null && _confirmed.Contains(pid))
             {
                 alive.Add((pid, start));
             }

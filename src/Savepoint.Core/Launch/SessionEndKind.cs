@@ -13,6 +13,8 @@ public enum SessionEndKind
     /// <summary>
     /// The named process was seen running and is gone, after the program SavePoint started (or the link's handler) was done too.
     /// This covers a launcher stub that handed over to the real game: the stub's own exit only starts the wait for the game.
+    /// It is also the end of a process the started program started in the game's folder, which is followed past the grace when the
+    /// name never showed up; the name was not seen in that case.
     /// </summary>
     NamedProcessEnded,
 

@@ -64,7 +64,7 @@ public sealed class GameSessionWatcher : IDisposable
         _clock = clock;
         _processes = processes;
         StartedAt = clock.GetUtcNow();
-        _family = new ProcessFamily(StartedAt - TimeSpan.FromSeconds(2), gameFolder, PathSyntax.For(os));
+        _family = new ProcessFamily(StartedAt - TimeSpan.FromSeconds(10), gameFolder, PathSyntax.For(os));
         _loop = Task.Run(RunAsync);
     }
 
@@ -185,6 +185,9 @@ public sealed class GameSessionWatcher : IDisposable
         var selfSeen = false;
         var namedSeen = false;
         var heldPastGrace = false;
+        IReadOnlyList<(int Pid, DateTimeOffset? Start)> lastDescendants = [];
+        var lastFollowing = false;
+        DateTimeOffset? firstMiss = null;
         var graceFrom = StartedAt;
 
         while (true)
@@ -206,8 +209,20 @@ public sealed class GameSessionWatcher : IDisposable
             // A starter that quit at once and left the real game running as a process it started is followed through that process,
             // whatever it is called. A program that ran a while was quit, and once the named game has been seen it is the one to follow.
             namedSeen |= look.OtherPids.Count > 0;
-            var descendants = look.Listed is null || _child is null ? [] : _family.Update(look.Listed, _child.Pid, !childGone);
-            var following = childGone && !namedSeen && descendants.Count > 0 && graceFrom - StartedAt < _options.RelaunchWindow;
+            // A list that could not be read says nothing, so the last answer stands rather than ending a held session on a guess.
+            IReadOnlyList<(int Pid, DateTimeOffset? Start)> descendants;
+            bool following;
+            if (look.Listed is null)
+            {
+                (descendants, following) = (lastDescendants, lastFollowing);
+            }
+            else
+            {
+                descendants = _child is null ? [] : _family.Update(look.Listed, _child.Pid, !childGone);
+                following = childGone && !namedSeen && descendants.Count > 0 && graceFrom - StartedAt < _options.RelaunchWindow;
+                (lastDescendants, lastFollowing) = (descendants, following);
+            }
+
             lock (_gate)
             {
                 _followedLive = following ? descendants : [];
@@ -236,11 +251,23 @@ public sealed class GameSessionWatcher : IDisposable
                     return;
                 }
 
-                // The grace ran out with a followed child alive; the session ends when the last one does.
+                // The grace ran out with a followed child alive; the session ends when the last one does. One look that finds none may be
+                // a misread, so it takes a second, and the end is dated at the first.
                 if (heldPastGrace && !following)
                 {
-                    Settle(SessionEndKind.NamedProcessEnded);
-                    return;
+                    if (firstMiss is { } missedAt)
+                    {
+                        Settle(SessionEndKind.NamedProcessEnded, missedAt);
+                        return;
+                    }
+
+                    firstMiss = _clock.GetUtcNow();
+                    await WaitForNextLookAsync(stop, null, null);
+                    continue;
+                }
+                else
+                {
+                    firstMiss = null;
                 }
 
                 // A game that ran for a while under the named process and is gone was quit; only a quick exit may be a restart.

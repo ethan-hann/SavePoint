@@ -36,7 +36,7 @@ public class GameSessionChildTests
         Assert.False(rig.Watcher.IsSettled);
 
         rig.Processes.Set(ScriptedInspector.Bystander);
-        await rig.AdvanceAsync(Seconds(2));
+        await rig.AdvanceAsync(Seconds(4));
         var outcome = await rig.OutcomeAsync();
 
         Assert.Equal(SessionEndKind.NamedProcessEnded, outcome.Kind);
@@ -58,7 +58,7 @@ public class GameSessionChildTests
         Assert.False(rig.Watcher.IsSettled);
 
         rig.Processes.Set(ScriptedInspector.Bystander);
-        await rig.AdvanceAsync(Seconds(2));
+        await rig.AdvanceAsync(Seconds(4));
 
         Assert.Equal(SessionEndKind.NamedProcessEnded, (await rig.OutcomeAsync()).Kind);
     }
@@ -78,7 +78,7 @@ public class GameSessionChildTests
         Assert.False(rig.Watcher.IsSettled);
 
         rig.Processes.Set(ScriptedInspector.Bystander);
-        await rig.AdvanceAsync(Seconds(2));
+        await rig.AdvanceAsync(Seconds(4));
 
         Assert.Equal(SessionEndKind.NamedProcessEnded, (await rig.OutcomeAsync()).Kind);
     }
@@ -156,7 +156,7 @@ public class GameSessionChildTests
         Assert.False(rig.Watcher.IsSettled);
 
         rig.Processes.Set(Process(pid, 1, 50, "Reuser"), ScriptedInspector.Bystander);
-        await rig.AdvanceAsync(Seconds(2));
+        await rig.AdvanceAsync(Seconds(4));
 
         Assert.Equal(SessionEndKind.NamedProcessEnded, (await rig.OutcomeAsync()).Kind);
     }
@@ -292,9 +292,21 @@ public class GameSessionChildTests
         Assert.False(rig.Watcher.IsSettled);
 
         rig.Processes.Set(ScriptedInspector.Bystander);
-        await rig.AdvanceAsync(Seconds(2));
+        await rig.AdvanceAsync(Seconds(4));
 
         Assert.Equal(SessionEndKind.NamedProcessEnded, (await rig.OutcomeAsync()).Kind);
+    }
+
+    [Fact]
+    public async Task A_child_a_few_seconds_older_than_the_session_by_clock_drift_is_still_followed_when_the_starter_was_never_listed()
+    {
+        using var rig = await WatcherRig.ProgramAsync("Game.exe", gameFolder: _folder);
+        var drifted = rig.Watcher.StartedAt - Seconds(6);
+        rig.Processes.Set(new RunningProcess(700, "Real", _folder + @"\real.exe", ParentPid: rig.Child!.Pid, StartedAt: drifted), ScriptedInspector.Bystander);
+        await rig.ExitChildAsync();
+        await rig.AdvanceAsync(TimeSpan.FromMinutes(3));
+
+        Assert.False(rig.Watcher.IsSettled);
     }
 
     [Fact]
@@ -380,9 +392,77 @@ public class GameSessionChildTests
         Assert.False(rig.Watcher.IsSettled);
 
         rig.Processes.Set(ScriptedInspector.Bystander);
-        await rig.AdvanceAsync(Seconds(2));
+        await rig.AdvanceAsync(Seconds(4));
 
         Assert.Equal(SessionEndKind.NamedProcessEnded, (await rig.OutcomeAsync()).Kind);
+    }
+
+    // The starter exits at 2 s and its child in the game folder lives on past the 30 s grace; the next look is at 42 s.
+    private static async Task<WatcherRig> HeldPastGraceAsync()
+    {
+        var rig = await WatcherRig.ProgramAsync("Game.exe", gameFolder: _folder);
+        rig.Processes.Set(Stub(rig), ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(2));
+        rig.Processes.Set(Process(600, rig.Child!.Pid, 1), ScriptedInspector.Bystander);
+        await rig.ExitChildAsync();
+        await rig.AdvanceAsync(Seconds(40));
+        Assert.False(rig.Watcher.IsSettled);
+        return rig;
+    }
+
+    [Fact]
+    public async Task A_process_list_that_cannot_be_read_does_not_end_a_session_held_past_the_grace()
+    {
+        using var rig = await HeldPastGraceAsync();
+
+        rig.Processes.Unreadable();
+        await rig.AdvanceAsync(TimeSpan.FromMinutes(1));
+        Assert.False(rig.Watcher.IsSettled);
+
+        rig.Processes.Set(Process(600, rig.Child!.Pid, 1), ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(10));
+        Assert.False(rig.Watcher.IsSettled);
+    }
+
+    [Fact]
+    public async Task One_look_that_cannot_read_the_childs_details_does_not_end_a_session_held_past_the_grace()
+    {
+        using var rig = await HeldPastGraceAsync();
+
+        rig.Processes.Set(new RunningProcess(600, "Real", null, ParentPid: rig.Child!.Pid, StartedAt: null), ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(2));
+        rig.Processes.Set(Process(600, rig.Child.Pid, 1), ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(10));
+
+        Assert.False(rig.Watcher.IsSettled);
+    }
+
+    [Fact]
+    public async Task A_session_held_past_the_grace_ends_after_two_looks_without_the_child_at_the_time_of_the_first()
+    {
+        using var rig = await HeldPastGraceAsync();
+
+        rig.Processes.Set(ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(2));
+        Assert.False(rig.Watcher.IsSettled);
+        await rig.AdvanceAsync(Seconds(2));
+        var outcome = await rig.OutcomeAsync();
+
+        Assert.Equal(SessionEndKind.NamedProcessEnded, outcome.Kind);
+        Assert.Equal(Seconds(44), outcome.PlayDuration);
+    }
+
+    [Fact]
+    public async Task One_look_without_the_child_followed_by_its_return_does_not_end_a_session_held_past_the_grace()
+    {
+        using var rig = await HeldPastGraceAsync();
+
+        rig.Processes.Set(ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(2));
+        rig.Processes.Set(Process(600, rig.Child!.Pid, 1), ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(10));
+
+        Assert.False(rig.Watcher.IsSettled);
     }
 
     [Fact]
