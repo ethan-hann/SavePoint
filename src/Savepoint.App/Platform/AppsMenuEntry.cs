@@ -43,6 +43,7 @@ public sealed class AppsMenuEntry
     private const string _entryFile = "savepoint.desktop";
     private const string _iconName = "savepoint";
     private const string _marker = "X-SavePoint-Managed=true";
+    private const long _largestEntryBytes = 64 * 1024;
     private static readonly int[] _iconSizes = [256, 512];
     private static readonly TimeSpan _cacheToolTimeout = TimeSpan.FromSeconds(10);
 
@@ -64,8 +65,8 @@ public sealed class AppsMenuEntry
     private string EntryPath => Path.Combine(_applicationsFolder, _entryFile);
 
     /// <summary>
-    /// The entry for the running app: null unless this is Linux and the <c>APPIMAGE</c> variable names the AppImage file, since
-    /// only then is there a file for the entry to open.
+    /// The entry for the running app: null unless this is Linux, the <c>APPIMAGE</c> variable names the AppImage file, and this
+    /// process runs from the folder <c>APPDIR</c> names (the variables are inherited, so they can describe another program).
     /// </summary>
     public static AppsMenuEntry? ForThisApp() =>
         For(
@@ -73,7 +74,8 @@ public sealed class AppsMenuEntry
             Environment.GetEnvironmentVariable,
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             OpenBundledIcon,
-            new SystemProcessRunner());
+            new SystemProcessRunner(),
+            Environment.ProcessPath);
 
     /// <summary>Where the user's data files go: <c>XDG_DATA_HOME</c> when it is an absolute path, else <c>.local/share</c> in the home folder.</summary>
     internal static string ResolveDataHome(Func<string, string?> environment, string homeFolder)
@@ -84,7 +86,7 @@ public sealed class AppsMenuEntry
             : Path.Combine(homeFolder, ".local", "share");
     }
 
-    internal static AppsMenuEntry? For(bool isLinux, Func<string, string?> environment, string homeFolder, Func<int, Stream?> openIcon, IProcessRunner runner)
+    internal static AppsMenuEntry? For(bool isLinux, Func<string, string?> environment, string homeFolder, Func<int, Stream?> openIcon, IProcessRunner runner, string? processPath)
     {
         var appImage = environment("APPIMAGE");
         // A line break cannot be written into a desktop entry, so such a path gets no action rather than a broken entry.
@@ -93,16 +95,46 @@ public sealed class AppsMenuEntry
             return null;
         }
 
+        // The variable is inherited by child processes, so it only counts when this very process runs from the AppImage's mount.
+        if (!RunsFromMount(environment("APPDIR"), processPath))
+        {
+            return null;
+        }
+
         return new AppsMenuEntry(appImage, ResolveDataHome(environment, homeFolder), openIcon, runner);
+    }
+
+    private static bool RunsFromMount(string? appDir, string? processPath)
+    {
+        if (string.IsNullOrEmpty(appDir) || string.IsNullOrEmpty(processPath) || !Path.IsPathRooted(appDir) || !Path.IsPathRooted(processPath))
+        {
+            return false;
+        }
+
+        // The trailing separator keeps a sibling folder with the same prefix from passing.
+        var mount = Path.TrimEndingDirectorySeparator(Path.GetFullPath(appDir)) + Path.DirectorySeparatorChar;
+        return Path.GetFullPath(processPath).StartsWith(mount, StringComparison.Ordinal);
     }
 
     /// <summary>Says where the entry stands, from the files on disk.</summary>
     public AppsMenuState GetState()
     {
-        if (!File.Exists(EntryPath))
+        // Icons left behind without an entry count as not added: an add overwrites them and a remove cleans them.
+        if (Directory.Exists(EntryPath))
         {
-            // An icon with our name and no entry of ours is somebody else's.
-            return _iconSizes.Any(size => File.Exists(IconPath(size))) ? AppsMenuState.Foreign : AppsMenuState.NotAdded;
+            return AppsMenuState.Foreign;
+        }
+
+        var info = new FileInfo(EntryPath);
+        if (!info.Exists)
+        {
+            return AppsMenuState.NotAdded;
+        }
+
+        // A real entry is a small regular file; anything else is not ours and is never read.
+        if ((info.Attributes & FileAttributes.ReparsePoint) != 0 || info.Length > _largestEntryBytes)
+        {
+            return AppsMenuState.Foreign;
         }
 
         string[] lines;
@@ -124,12 +156,12 @@ public sealed class AppsMenuEntry
             return AppsMenuState.Foreign;
         }
 
-        var current = lines.Contains(ExecLine(_appImagePath)) && _iconSizes.All(size => File.Exists(IconPath(size)));
+        var current = lines.Contains(ExecLine(_appImagePath)) && lines.Contains(TryExecLine(_appImagePath)) && _iconSizes.All(size => File.Exists(IconPath(size)));
         return current ? AppsMenuState.Added : AppsMenuState.OutOfDate;
     }
 
     /// <summary>Adds the entry, or points an out-of-date one at this file. A file SavePoint did not write is never replaced.</summary>
-    public async Task<AppsMenuOutcome> AddAsync()
+    public async Task<AppsMenuOutcome> AddAsync(string comment)
     {
         var before = GetState();
         if (before == AppsMenuState.Foreign)
@@ -143,13 +175,15 @@ public sealed class AppsMenuEntry
             var icons = ReadIcons();
             try
             {
-                Directory.CreateDirectory(_applicationsFolder);
-                WriteAtomically(EntryPath, Encoding.UTF8.GetBytes(Render(_appImagePath)));
+                // The entry goes last, so a failure part way never replaces an entry that was working.
                 foreach (var (size, bytes) in icons)
                 {
                     Directory.CreateDirectory(Path.GetDirectoryName(IconPath(size))!);
                     WriteAtomically(IconPath(size), bytes);
                 }
+
+                Directory.CreateDirectory(_applicationsFolder);
+                WriteAtomically(EntryPath, Encoding.UTF8.GetBytes(Render(_appImagePath, comment)));
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
@@ -177,7 +211,7 @@ public sealed class AppsMenuEntry
         {
             case AppsMenuState.Foreign:
                 return AppsMenuOutcome.Foreign;
-            case AppsMenuState.NotAdded:
+            case AppsMenuState.NotAdded when !_iconSizes.Any(size => File.Exists(IconPath(size))):
                 return AppsMenuOutcome.Done;
         }
 
@@ -195,19 +229,24 @@ public sealed class AppsMenuEntry
     }
 
     /// <summary>The text of the desktop entry for an AppImage at the given path.</summary>
-    internal static string Render(string appImagePath) =>
+    internal static string Render(string appImagePath, string comment) =>
         string.Join(
             '\n',
             "[Desktop Entry]",
             "Type=Application",
             "Name=SavePoint",
-            "Comment=Keep a snapshot of your game before you change it",
+            $"Comment={comment}",
             ExecLine(appImagePath),
+            TryExecLine(appImagePath),
             $"Icon={_iconName}",
             "Terminal=false",
             "Categories=Utility;",
             $"StartupWMClass={DesktopIdentity.WindowClass}",
             _marker) + "\n";
+
+    // TryExec is a plain path, not a command line, so only the string-level backslash escape applies. A desktop hides the entry
+    // when this file is gone.
+    private static string TryExecLine(string path) => "TryExec=" + path.Replace(@"\", @"\\", StringComparison.Ordinal);
 
     // The path is quoted and its special characters escaped as the desktop entry rules ask, then each backslash is doubled
     // because the file format reads the value as a string first. A percent sign would otherwise start a field code.
@@ -244,9 +283,10 @@ public sealed class AppsMenuEntry
         foreach (var size in _iconSizes)
         {
             using var stream = _openIcon(size);
+            // An entry whose icon cannot be installed would never read as current, so the add fails instead.
             if (stream is null)
             {
-                continue;
+                throw new FileNotFoundException($"The app carries no {size} px icon.");
             }
 
             using var copy = new MemoryStream();
@@ -266,6 +306,10 @@ public sealed class AppsMenuEntry
             {
                 File.Delete(path);
             }
+            catch (DirectoryNotFoundException)
+            {
+                // Its folder was never made, so there is nothing to delete.
+            }
             catch (Exception ex) when (carryOn && ex is IOException or UnauthorizedAccessException)
             {
                 // The next file may still go.
@@ -273,19 +317,56 @@ public sealed class AppsMenuEntry
         }
     }
 
-    // A reader never sees half a file: the bytes go to a neighbor and the neighbor takes the real name.
+    // A reader never sees half a file: the bytes go to a neighbor with a name nobody else can have picked, and the neighbor takes
+    // the real name. A neighbor that was written but not moved is deleted again.
     private static void WriteAtomically(string path, byte[] bytes)
     {
-        var temporary = path + ".tmp";
-        File.WriteAllBytes(temporary, bytes);
-        File.Move(temporary, path, overwrite: true);
+        var temporary = $"{path}.{Guid.NewGuid():N}.tmp";
+        try
+        {
+            using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write))
+            {
+                stream.Write(bytes);
+            }
+
+            File.Move(temporary, path, overwrite: true);
+        }
+        catch
+        {
+            try
+            {
+                File.Delete(temporary);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // The original failure is the one to report.
+            }
+
+            throw;
+        }
     }
 
     // Both tools are optional helpers and only ever see the user's own folders; a missing tool or a failed run changes nothing.
+    // The icon cache tool runs only when a cache file already exists, since it would otherwise create one that then goes stale
+    // against the system theme; without one, touching the folder is what tells the desktop to look again.
     private async Task RefreshCachesAsync()
     {
         await RunQuietlyAsync(new ProcessCommand("update-desktop-database", [_applicationsFolder])).ConfigureAwait(false);
-        await RunQuietlyAsync(new ProcessCommand("gtk-update-icon-cache", ["-q", "-t", "-f", _hicolorFolder])).ConfigureAwait(false);
+        if (File.Exists(Path.Combine(_hicolorFolder, "icon-theme.cache")))
+        {
+            await RunQuietlyAsync(new ProcessCommand("gtk-update-icon-cache", ["-q", "-t", "-f", _hicolorFolder])).ConfigureAwait(false);
+        }
+        else if (Directory.Exists(_hicolorFolder))
+        {
+            try
+            {
+                Directory.SetLastWriteTimeUtc(_hicolorFolder, DateTime.UtcNow);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // The desktop notices the change on its own, only later.
+            }
+        }
     }
 
     private async Task RunQuietlyAsync(ProcessCommand command)
@@ -300,7 +381,7 @@ public sealed class AppsMenuEntry
         }
     }
 
-    private static Stream? OpenBundledIcon(int size)
+    internal static Stream? OpenBundledIcon(int size)
     {
         var uri = new Uri($"avares://SavePoint/Assets/Icon/savepoint-{size}.png");
         return AssetLoader.Exists(uri) ? AssetLoader.Open(uri) : null;

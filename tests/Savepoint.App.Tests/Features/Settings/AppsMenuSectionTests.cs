@@ -12,6 +12,7 @@ namespace Savepoint.App.Tests.Features.Settings;
 public sealed class AppsMenuSectionTests : IDisposable
 {
     private const string _appImage = "/home/sam/Apps/SavePoint.AppImage";
+    private const string _comment = "Test comment";
 
     private readonly string _dataHome = Directory.CreateTempSubdirectory("savepoint-appsmenu-section-").FullName;
 
@@ -60,10 +61,20 @@ public sealed class AppsMenuSectionTests : IDisposable
     }
 
     [Fact]
+    public async Task The_entry_comment_comes_from_the_catalog()
+    {
+        var rig = await SettingsRig.ShownAsync(appsMenu: Menu());
+
+        await rig.Screen.AppsMenu.AddCommand.ExecuteAsync(null);
+
+        Assert.Contains("Comment=Keep a snapshot of your game before you change it", File.ReadAllLines(Entry));
+    }
+
+    [Fact]
     public async Task Removing_takes_the_entry_out_and_the_section_offers_to_add_again()
     {
         var menu = Menu();
-        await menu.AddAsync();
+        await menu.AddAsync(_comment);
         var rig = await SettingsRig.ShownAsync(appsMenu: menu);
         var section = rig.Screen.AppsMenu;
         Assert.True(section.ShowRemove);
@@ -78,7 +89,7 @@ public sealed class AppsMenuSectionTests : IDisposable
     [Fact]
     public async Task An_entry_for_a_file_that_moved_shows_as_out_of_date_with_an_update_action()
     {
-        await Menu("/home/sam/Old/SavePoint.AppImage").AddAsync();
+        await Menu("/home/sam/Old/SavePoint.AppImage").AddAsync(_comment);
         var rig = await SettingsRig.ShownAsync(appsMenu: Menu());
         var section = rig.Screen.AppsMenu;
 
@@ -102,7 +113,7 @@ public sealed class AppsMenuSectionTests : IDisposable
         var rig = await SettingsRig.ShownAsync(appsMenu: Menu());
         var section = rig.Screen.AppsMenu;
 
-        Assert.Equal("Your apps menu already has a different entry named savepoint. SavePoint leaves it alone.", section.StatusText);
+        Assert.Equal("Your apps menu already has a SavePoint entry that something else added. SavePoint leaves it alone.", section.StatusText);
         Assert.False(section.ShowAdd);
         Assert.False(section.ShowUpdate);
         Assert.False(section.ShowRemove);
@@ -118,7 +129,7 @@ public sealed class AppsMenuSectionTests : IDisposable
 
         await section.AddCommand.ExecuteAsync(null);
 
-        Assert.Equal("SavePoint couldn't change your apps menu. Check that you can write to your home folder, then try again.", section.Problem);
+        Assert.Equal("SavePoint couldn't change your apps menu. Check that you can write to your own files folder, then try again.", section.Problem);
         Assert.True(section.ShowAdd);
     }
 
@@ -129,7 +140,7 @@ public sealed class AppsMenuSectionTests : IDisposable
         var rig = await SettingsRig.ShownAsync(appsMenu: menu);
         Assert.True(rig.Screen.AppsMenu.ShowAdd);
 
-        await menu.AddAsync();
+        await menu.AddAsync(_comment);
         await rig.Screen.LoadAsync();
 
         Assert.True(rig.Screen.AppsMenu.ShowRemove);
@@ -152,7 +163,7 @@ public sealed class AppsMenuSectionTests : IDisposable
     public async Task The_remove_button_says_what_it_removes()
     {
         var menu = Menu();
-        await menu.AddAsync();
+        await menu.AddAsync(_comment);
         using var harness = await StartAsync(menu);
 
         var remove = harness.Find<Button>("AppsMenuRemoveButton");

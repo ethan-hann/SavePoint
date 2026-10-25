@@ -63,10 +63,10 @@ public sealed partial class AppsMenuSectionViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private Task AddAsync() => ChangeAsync(entry => entry.AddAsync());
+    private Task AddAsync() => ChangeAsync(entry => entry.AddAsync(_text.Message("settings.appsMenu.entryComment")));
 
     [RelayCommand]
-    private Task UpdateAsync() => ChangeAsync(entry => entry.AddAsync());
+    private Task UpdateAsync() => ChangeAsync(entry => entry.AddAsync(_text.Message("settings.appsMenu.entryComment")));
 
     [RelayCommand]
     private Task RemoveAsync() => ChangeAsync(entry => entry.RemoveAsync());
