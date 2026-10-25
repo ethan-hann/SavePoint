@@ -20,7 +20,7 @@ internal static class DocScreenshotSeed
     public const string Install = @"D:\Games\Grounded";
     public const string SavesRaw = @"{localAppData}\Maine\Saved\SaveGames";
     public const string Saves = @"C:\Users\you\AppData\Local\Maine\Saved\SaveGames";
-    public const string StorageRoot = @"C:\Users\you\AppData\Local\SavePoint\Storage";
+    public const string StorageRoot = @"C:\Users\you\AppData\Local\SavePoint Data\Storage";
 
     public const long Gb = 1_000_000_000;
 

@@ -114,6 +114,17 @@ public class FakeJobsApiTests
     }
 
     [Fact]
+    public async Task A_snapshot_named_after_its_profile_opens_with_the_first_snapshot_step_like_the_real_work()
+    {
+        var backend = FakeBackend.Sample();
+        var modded = Ok(await backend.Profiles.ListAsync(SkyrimId, Ct)).Single(p => p.Id == ModdedId).Name;
+
+        var capture = Ok(await backend.Profiles.CaptureAsync(SkyrimId, ModdedId, modded)).JobId;
+
+        Assert.Equal([JobLine.ForStep(JobSteps.CaptureStartFirst, ("profile", modded))], Job(backend, capture).RecentLines);
+    }
+
+    [Fact]
     public async Task A_launch_says_it_is_starting_the_game_when_it_reaches_a_running_game()
     {
         var backend = FakeBackend.Sample();

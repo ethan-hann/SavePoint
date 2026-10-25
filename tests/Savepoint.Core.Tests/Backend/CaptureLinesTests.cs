@@ -83,7 +83,8 @@ public class CaptureLinesTests
 
         var (_, job) = await workspace.CreateProfileAsync(game, "Modded 1.6");
 
-        Assert.Equal(JobLine.ForStep(JobSteps.CaptureStart, ("profile", "Modded 1.6"), ("snapshot", "Modded 1.6")), Steps(job).FirstOrDefault());
+        // The first snapshot is named after its profile, so the line says "first snapshot" instead of repeating the name.
+        Assert.Equal(JobLine.ForStep(JobSteps.CaptureStartFirst, ("profile", "Modded 1.6")), Steps(job).FirstOrDefault());
         Assert.Equal("Modded 1.6", job.Profile?.Name);
         Assert.Contains(Steps(job), step => step.MessageId == JobSteps.CaptureFolder && Equals(step.Args["folder"], "install"));
     }

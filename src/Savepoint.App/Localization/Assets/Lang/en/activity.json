@@ -54,6 +54,7 @@
   "activity.step.capture.folderSkipped": "Nothing new in the {folder, select, install {game folder} external {saves folder} other {folder}}. Its latest snapshot stays.",
   "activity.step.capture.folderNotIncluded": "The {folder, select, install {game folder} external {saves folder} other {folder}} isn't included, because you played it from another profile's snapshot.",
   "activity.step.capture.start": "Taking snapshot \"{snapshot}\" of \"{profile}\".",
+  "activity.step.capture.startFirst": "Taking the first snapshot of \"{profile}\".",
   "activity.step.clear.artwork": "Removing the cover art.",
   "activity.step.clear.done": "{left, plural, =0 {Finished. Everything was removed.} one {Finished. # item couldn't be removed.} other {Finished. # items couldn't be removed.}}",
   "activity.step.clear.folders": "{count, plural, =0 {No folders to remove.} one {Removing # folder.} other {Removing # folders.}}",
