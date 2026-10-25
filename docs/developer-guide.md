@@ -72,20 +72,31 @@ dotnet docfx docfx.json --serve
 
 That builds into `artifacts/docs-site` and serves it at http://localhost:8080. `docfx.json` names the sources, `docs/toc.yml` orders the guides, and `docfx/` holds the home page, the API landing page and `template/public/main.css`. The stylesheet gives the site the app's look: the Material roles the app derives from the default Blue accent (light and dark), the app's Roboto files, and the app icon as logo and favicon. If the default accent changes, compute the roles again from `Md3Palette.Build` and update the stylesheet.
 
-`.forgejo/workflows/docs.yml` builds the site with warnings as errors on every pull request that touches its sources, so a broken link fails there. On a `v*` tag it builds the site and uploads it to a git-pages server, so the published pages always match the newest release; it can also be started by hand. Publishing needs the repository variable `DOCS_SITE_URL` (the site's address); without it the job builds and stops. The upload needs no secret: git-pages accepts the workflow's own token when the site's domain carries a TXT record naming this repository.
+`.forgejo/workflows/docs.yml` builds the site with warnings as errors on every pull request that touches its sources, so a broken link or a guide missing from `docs/toc.yml` fails there. On every push to `main` that changes the sources, and on every `v*` tag, it builds the site and uploads it to a git-pages server; it can also be started by hand. A change to the guides alone therefore shows on the site minutes after it merges, and needs only the gate's short documentation path (see Gates).
 
-Setting up the server, once:
+The site is shared with other projects: each one lives under its own path of one host, and SavePoint's is `SavePoint` (`DOCS_PATH` in the workflow, so `https://docs.tortal.tech/SavePoint/`). Publishing needs the repository variable `DOCS_SITE_URL`, the root of that host; without it the job builds and stops. The upload needs no secret: git-pages accepts the workflow's own token when the host carries a TXT record naming this repository. The record lets the repository write anywhere on the host, not just under its path, and an upload with no path would replace every project, so the workflow refuses an empty `DOCS_PATH`.
 
-1. Run the container on the server (Unraid, as a Docker container), with the site data on the array and the upload port reachable only by the proxy:
+Setting up the server, once (it runs as a Docker Compose stack on Unraid):
 
-   ```bash
-   docker run -d --name git-pages --restart unless-stopped -u 99:100 --mount type=bind,src=/mnt/user/appdata/git-pages/data,dst=/app/data -p 3000:3000 codeberg.org/git-pages/git-pages:latest
+1. Make the data folder, owned by the user the container runs as: `mkdir -p /mnt/user/appdata/git-pages/data && chown -R 99:100 /mnt/user/appdata/git-pages`.
+2. Add a stack with this compose file and start it. Standalone mode serves plain HTTP on the container's port 3000 and keeps the sites on the file system; TLS comes from the proxy. Host port 3090 was free on the server when this was set up.
+
+   ```yaml
+   services:
+     git-pages:
+       image: codeberg.org/git-pages/git-pages:latest
+       container_name: git-pages
+       restart: unless-stopped
+       user: "99:100"
+       ports:
+         - "3090:3000"
+       volumes:
+         - /mnt/user/appdata/git-pages/data:/app/data
    ```
 
-   Standalone mode serves plain HTTP on port 3000 and keeps sites on the file system; TLS comes from the proxy.
-2. In Nginx Proxy Manager, add a proxy host for the site's name (for example `docs.tortal.tech`) to the container's port 3000, with a certificate and Force SSL. The upload is an HTTP `PUT` of the site as an archive to the same name, so the proxy must allow bodies of 100 MB (`client_max_body_size 100m;` under Advanced).
-3. Publish two DNS records for the name: the address record (or CNAME) that reaches the proxy, and `_git-pages-forge-allowlist.<name>` of type TXT with the value `https://git.tortal.tech/ethan-hann/SavePoint.git`. That record is what lets this repository's workflow upload.
-4. Set the repository variable `DOCS_SITE_URL` to `https://<name>/` (Settings > Actions > Variables), then start the Docs workflow by hand once to publish.
+3. In Nginx Proxy Manager, add a proxy host for `docs.tortal.tech` to the server's port 3090, with the `*.tortal.tech` certificate and Force SSL. The upload is an HTTP `PUT` of the site as an archive, so the proxy must allow bodies of 100 MB (`client_max_body_size 100m;` under Advanced).
+4. Publish two DNS records: one for `docs` that reaches the proxy, and a TXT record `_git-pages-forge-allowlist.docs` with the value `https://git.tortal.tech/ethan-hann/SavePoint.git`. Another project that publishes to the host adds a TXT record of its own on the same name.
+5. Set the repository variable `DOCS_SITE_URL` to `https://docs.tortal.tech/` (Settings > Actions > Variables), then start the Docs workflow by hand once to publish.
 
 If the name is proxied by Cloudflare, the upload must get through it: Cloudflare refuses bodies over 100 MB and may block the upload tool's user agent. If the first upload is refused, add a WAF skip rule for `PUT` requests to that host. The site is about 50 MB before compression.
 
@@ -106,7 +117,7 @@ If the name is proxied by Cloudflare, the upload must get through it: Cloudflare
 | State files in a game's storage | Besides the catalog and settings, two short-lived notes: `savepoint-free-up.json` (in the game's storage folder) names every record a Free up space run is deleting, so a run cut off midway is finished at the next start; `savepoint-reclaim.json` (in the git directory) names SavePoint's process and the last git it started, so the next start waits for a git a killed SavePoint left running. Each is removed when its work ends. See `architecture.md`. |
 | `docs/` | This guide, `user-guide.md`, `testing-on-mac-and-linux.md`, `architecture.md`, `decisions.md`, and `ui-guide.md`, plus `toc.yml`, their order on the documentation site. The manual dogfood checklist is on the wiki. |
 | `docfx.json`, `docfx/` | The documentation site (see Documentation site): its sources, home page and stylesheet. |
-| `.forgejo/workflows/` | CI: `gate.yml` runs `build/gate.sh` on Linux (in a container) and `build/gate.ps1` on Windows (a self-hosted Windows 11 VM running forgejo-runner in host mode under a standard account, label `windows`) for every push to `main` and every pull request; a change to documentation only (`docs/` and root Markdown files other than `THIRD-PARTY-NOTICES.md`) passes without it. `release.yml` builds the packages on a `v*` tag (see Packaging). `wiki.yml` mirrors the guides in `docs/` to the wiki on every push to `main` that changes them (`build/wiki-sync.ps1`: drops each file's title, adds the mirror note, turns mentions of another guide into wiki links, points relative image links such as `images/first-run.png` at the file on `main`, and updates only pages whose text changed); it needs the repository secret `WIKI_TOKEN`, an access token with write access to the repository, and passes without publishing until that is set. It can also be started by hand from the Actions page. `docs.yml` builds the documentation site and publishes it on a `v*` tag (see Documentation site). |
+| `.forgejo/workflows/` | CI: `gate.yml` runs `build/gate.sh` on Linux (in a container) and `build/gate.ps1` on Windows (a self-hosted Windows 11 VM running forgejo-runner in host mode under a standard account, label `windows`) for every push to `main` and every pull request; a change to documentation only (`docs/` and root Markdown files other than `THIRD-PARTY-NOTICES.md`) passes without it. `release.yml` builds the packages on a `v*` tag (see Packaging). `wiki.yml` mirrors the guides in `docs/` to the wiki on every push to `main` that changes them (`build/wiki-sync.ps1`: drops each file's title, adds the mirror note, turns mentions of another guide into wiki links, points relative image links such as `images/first-run.png` at the file on `main`, and updates only pages whose text changed); it needs the repository secret `WIKI_TOKEN`, an access token with write access to the repository, and passes without publishing until that is set. It can also be started by hand from the Actions page. `docs.yml` builds the documentation site and publishes it from `main` and on a `v*` tag (see Documentation site). |
 
 ## Tests
 

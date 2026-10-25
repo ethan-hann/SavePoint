@@ -1,18 +1,26 @@
 # Builds the documentation site (docfx.json: the guides in docs/ plus the API reference generated from Savepoint.Core's doc
-# comments) and publishes it to the git-pages server when a release is tagged, so the published site matches that release.
-# Pull requests that touch the site's sources only build it, with warnings as errors, so a broken link fails before a release.
+# comments) and publishes it to the git-pages server on every push to main that changes its sources and on every release tag,
+# so a guide change shows without waiting for a release. Pull requests that touch the sources only build it, with warnings as
+# errors, so a broken link or a guide missing from docs/toc.yml fails before it merges.
 #
-# Publishing needs the repository variable DOCS_SITE_URL (the site's address, such as https://docs.example.org). The upload is
-# authorized by the forge: the site's domain carries a _git-pages-forge-allowlist TXT record naming this repository, and the job
-# passes its own token. Without the variable the job builds the site and says it was not published.
+# Publishing needs the repository variable DOCS_SITE_URL, the root of a git-pages site shared by several projects (such as
+# https://docs.example.org/); this one goes under DOCS_PATH. The upload is authorized by the forge: the site's domain carries a
+# _git-pages-forge-allowlist TXT record naming this repository, and the job passes its own token. Without the variable the job
+# builds the site and says it was not published.
 name: Docs
 
 on:
   push:
     tags: ['v*']
+    branches: [main]
+    paths: ['docfx.json', 'docfx/**', 'docs/**', 'src/Savepoint.Core/**']
   pull_request:
     paths: ['docfx.json', 'docfx/**', 'docs/**', 'src/Savepoint.Core/**', '.config/dotnet-tools.json', '.forgejo/workflows/docs.yml']
   workflow_dispatch:
+
+env:
+  # The other projects on the site live beside this path; an empty one would replace the whole site, theirs included.
+  DOCS_PATH: SavePoint
 
 concurrency:
   group: docs-${{ github.ref }}
@@ -45,12 +53,15 @@ jobs:
           SITE: ${{ vars.DOCS_SITE_URL }}
           PUBLISH: ${{ github.event_name != 'pull_request' }}
         run: |
+          if [ -z "$DOCS_PATH" ]; then
+            echo "DOCS_PATH is empty, which would replace every project on the site."; exit 1
+          fi
           if [ "$PUBLISH" != true ]; then
             echo "publish=false" >> "$GITHUB_OUTPUT"; echo "A pull request only builds the site."
           elif [ -z "$SITE" ]; then
             echo "publish=false" >> "$GITHUB_OUTPUT"; echo "DOCS_SITE_URL is not set, so the site was built but not published."
           else
-            echo "publish=true" >> "$GITHUB_OUTPUT"; echo "Publishing to $SITE."
+            echo "publish=true" >> "$GITHUB_OUTPUT"; echo "Publishing to ${SITE%/}/$DOCS_PATH/."
           fi
 
       - name: Publish
@@ -58,5 +69,6 @@ jobs:
         uses: https://codeberg.org/git-pages/action@v2
         with:
           site: ${{ vars.DOCS_SITE_URL }}
+          path: ${{ env.DOCS_PATH }}
           token: ${{ forgejo.token }}
           source: artifacts/docs-site/

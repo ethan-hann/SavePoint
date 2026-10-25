@@ -7,4 +7,4 @@ SavePoint keeps the setup that works. It takes snapshots of an installed game, i
 - [Architecture](../docs/architecture.md) and [Decisions](../docs/decisions.md): how the code is organized and why it behaves as it does.
 - [API reference](api/index.md): the public contract of `Savepoint.Core`, the layer the app is built on.
 
-The source, releases and issues are at [git.tortal.tech/ethan-hann/SavePoint](https://git.tortal.tech/ethan-hann/SavePoint). These pages are built from the release they name, so they match that version's code.
+The source, releases and issues are at [git.tortal.tech/ethan-hann/SavePoint](https://git.tortal.tech/ethan-hann/SavePoint). These pages are built from `main`, so the guides and the API reference describe the newest code, which may be ahead of the latest release.
