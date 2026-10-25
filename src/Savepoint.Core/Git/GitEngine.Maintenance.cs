@@ -45,7 +45,7 @@ public sealed partial class GitEngine
     /// <param name="ct">Cancels the call; every step is safe to interrupt and a repeat finishes the job.</param>
     /// <exception cref="Savepoint.Core.Errors.DiskSpaceException">The storage volume is below the free-space floor (a reclaim also needs room for a copy of the store); git was not started.</exception>
     /// <exception cref="Savepoint.Core.Errors.OperationCancelledByUserException">The token was cancelled.</exception>
-    /// <exception cref="Savepoint.Core.Errors.GitOperationException">git failed, or a reclaim was asked for while this engine is writing to the same repository (it would prune objects that are about to be referenced).</exception>
+    /// <exception cref="Savepoint.Core.Errors.GitOperationException">git failed, a pack's <c>.keep</c> file could not be written (routine) or removed (reclaim), or a reclaim was asked for while this engine is writing to the same repository (it would prune objects that are about to be referenced).</exception>
     public async Task RepackAsync(RepoRef repo, OptimizationMode mode, CancellationToken ct = default)
     {
         repo = Normalize(repo);
@@ -168,7 +168,8 @@ public sealed partial class GitEngine
     // A geometric repack weighs packs by object count, so the pack a capture streams its big files into (one or a few objects) always looks
     // lightest and would be rolled up and copied. A ".keep" beside a pack makes repack leave it alone. Only SavePoint's own keeps carry
     // this text, so a reclaim never removes one it did not write.
-    private const string _streamedPackKeepText = "SavePoint: holds files streamed at capture; routine repacks leave it alone, Free up space merges it.\n";
+    private const string _keepTextStart = "SavePoint:";
+    private const string _streamedPackKeepText = _keepTextStart + " holds files streamed at capture; routine repacks leave it alone, Free up space merges it.\n";
 
     private static string PackFolderOf(RepoRef repo) => Path.Combine(repo.GitDir, "objects", "pack");
 
@@ -177,35 +178,80 @@ public sealed partial class GitEngine
             ? [.. Directory.EnumerateFiles(PackFolderOf(repo), "*.pack")]
             : [];
 
-    private static void Keep(string pack)
+    private void Keep(string pack)
     {
         var keep = Path.ChangeExtension(pack, ".keep");
         if (!File.Exists(keep))
         {
-            File.WriteAllText(keep, _streamedPackKeepText);
+            (_options.WriteKeep ?? (path => AtomicText.Write(path, _streamedPackKeepText)))(keep);
         }
     }
 
     // Packs that appeared while an add ran hold what it streamed; small files stay loose until a repack.
-    private static void KeepPacksSince(RepoRef repo, HashSet<string> before)
+    // Best effort: this runs while a capture ends, and a failure here must not hide how the capture itself ended. A pack that misses its
+    // keep is caught by the size sweep at the next routine repack.
+    private void KeepPacksSince(RepoRef repo, HashSet<string> before)
     {
-        foreach (var pack in PackFilesOf(repo).Where(pack => !before.Contains(pack)))
+        try
         {
-            Keep(pack);
+            foreach (var pack in PackFilesOf(repo).Where(pack => !before.Contains(pack)))
+            {
+                Keep(pack);
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
         }
     }
 
-    // Stores made before captures marked their packs have no keeps. A pack as large as the big-file size holds a streamed file or
-    // is already heavier than anything a routine repack should copy, so it is protected the same way.
+    // A streamed pack holds only the files over the big-file size, a few to a few hundred in a real install (a Unity game has about 300
+    // bundles). A pack of routine-merged saves and configs that grew past that size holds thousands of objects, so it stays in geometric
+    // repacking.
+    private const int _streamedPackMaxObjects = 1024;
+
+    // Stores made before captures marked their packs have no keeps. A pack at least as large as the big-file size with few objects
+    // holds streamed files, so it is protected the same way. A keep that cannot be written is reported like any other failure of the repack.
     private void KeepLargePacks(RepoRef repo)
     {
         var big = _options.StagingLimits.BigBytes;
-        foreach (var pack in PackFilesOf(repo).Where(pack => new FileInfo(pack).Length >= big))
+        try
         {
-            Keep(pack);
+            foreach (var pack in PackFilesOf(repo).Where(pack => new FileInfo(pack).Length >= big && ObjectCountOf(pack) is > 0 and <= _streamedPackMaxObjects))
+            {
+                Keep(pack);
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            throw new GitOperationException("A pack could not be marked to stay out of the repack: " + e.Message);
         }
     }
 
+    // The index (version 2) opens with a magic number, a version and 256 cumulative counts; the last count is the number of objects.
+    // Reading it costs no git process. 0 means the index could not be understood, which the caller treats as not streamed.
+    private static long ObjectCountOf(string pack)
+    {
+        try
+        {
+            using var index = new FileStream(Path.ChangeExtension(pack, ".idx"), FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            Span<byte> header = stackalloc byte[8];
+            if (index.Read(header) != 8 || !header.SequenceEqual((ReadOnlySpan<byte>)[0xff, 0x74, 0x4f, 0x63, 0, 0, 0, 2]))
+            {
+                return 0;
+            }
+
+            index.Seek(8 + (255 * 4), SeekOrigin.Begin);
+            Span<byte> last = stackalloc byte[4];
+            return index.Read(last) == 4 ? System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(last) : 0;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return 0;
+        }
+    }
+
+    // A keep SavePoint wrote starts with its name; a zero-length one is a write a crash cut short. Nothing else here writes keeps
+    // (no fetch, no automatic gc), so an empty one is ours too. Any other text belongs to someone else and stays.
     private static void RemoveKeeps(RepoRef repo)
     {
         if (!Directory.Exists(PackFolderOf(repo)))
@@ -213,12 +259,20 @@ public sealed partial class GitEngine
             return;
         }
 
-        foreach (var keep in Directory.EnumerateFiles(PackFolderOf(repo), "*.keep"))
+        try
         {
-            if (File.ReadAllText(keep) == _streamedPackKeepText)
+            foreach (var keep in Directory.EnumerateFiles(PackFolderOf(repo), "*.keep"))
             {
-                File.Delete(keep);
+                var text = File.ReadAllText(keep);
+                if (text.Length == 0 || text.StartsWith(_keepTextStart, StringComparison.Ordinal))
+                {
+                    File.Delete(keep);
+                }
             }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            throw new GitOperationException("A pack's keep file could not be removed before the reclaim: " + e.Message);
         }
     }
 

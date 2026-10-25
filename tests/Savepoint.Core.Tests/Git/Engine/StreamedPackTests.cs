@@ -109,6 +109,86 @@ public sealed class StreamedPackTests : IDisposable
     }
 
     [Fact]
+    public async Task Free_up_space_removes_a_keep_a_crash_left_empty_and_leaves_one_it_did_not_write()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        var first = await CaptureWithBigFileAsync(repo, "profile-1", 1);
+        var second = await CaptureWithBigFileAsync(repo, "profile-1", 2);
+        var foreign = Path.Combine(PackFolder(repo), Path.ChangeExtension(second, ".keep"));
+        await File.WriteAllTextAsync(Path.Combine(PackFolder(repo), Path.ChangeExtension(first, ".keep")), string.Empty, Ct);
+        await File.WriteAllTextAsync(foreign, "kept by someone else\n", Ct);
+
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Reclaim, Ct);
+
+        Assert.Equal([Path.ChangeExtension(second, ".keep")], Keeps(repo));
+        Assert.Equal("kept by someone else\n", await File.ReadAllTextAsync(foreign, Ct));
+        Assert.DoesNotContain(first, Packs(repo));
+        Assert.Contains(second, Packs(repo));
+    }
+
+    // 1,100 files are more objects than the sweep treats as a streamed pack, so only the capture's own keep can protect this one.
+    [Fact]
+    public async Task A_pack_with_more_streamed_files_than_the_sweep_trusts_is_still_kept_by_the_capture()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        for (var i = 0; i < 1_100; i++)
+        {
+            _ws.Write(repo, $"Data/big-{i}.bin", Bulk(i));
+        }
+
+        await _ws.CaptureAsync(repo, "profile-1");
+        var streamed = Assert.Single(Packs(repo));
+        var bytes = await File.ReadAllBytesAsync(Path.Combine(PackFolder(repo), streamed), Ct);
+        for (var round = 0; round < 2; round++)
+        {
+            // Each repack packs more objects than the streamed pack holds, which makes it the lightest and the one geometric repacking rolls up.
+            for (var i = 0; i < 1_500; i++)
+            {
+                _ws.Write(repo, $"Saves{round}/slot-{i}.txt", $"save {round} number {i}");
+            }
+
+            await _ws.CaptureAsync(repo, "profile-1");
+            await _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct);
+        }
+
+        Assert.Equal(bytes, await File.ReadAllBytesAsync(Path.Combine(PackFolder(repo), streamed), Ct));
+    }
+
+    [Fact]
+    public async Task A_pack_of_many_small_files_that_grows_past_the_big_size_stays_in_geometric_repacking()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        for (var i = 0; i < 1_100; i++)
+        {
+            _ws.Write(repo, $"Saves/slot-{i}.txt", "save number " + i);
+        }
+
+        await _ws.CaptureAsync(repo, "profile-1");
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct);
+        var merged = Assert.Single(Packs(repo));
+        Assert.True(new FileInfo(Path.Combine(PackFolder(repo), merged)).Length > _bigBytes, "the scenario needs a small-file pack over the big size");
+        _ws.Write(repo, "Saves/extra.txt", "one more");
+        await _ws.CaptureAsync(repo, "profile-1");
+
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct);
+
+        Assert.Empty(Keeps(repo));
+    }
+
+    [Fact]
+    public async Task A_watched_capture_keeps_its_streamed_pack_too()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "Saves/slot.txt", "save");
+        _ws.Write(repo, "Data/big.bin", Bulk(1));
+
+        await _ws.CaptureAsync(repo, "profile-1", progress: new ProgressLog());
+
+        var streamed = Assert.Single(Packs(repo));
+        Assert.Equal([Path.ChangeExtension(streamed, ".keep")], Keeps(repo));
+    }
+
+    [Fact]
     public async Task A_store_made_before_streamed_packs_were_marked_keeps_them_through_routine_repacks()
     {
         var repo = await _ws.InitializedRepoAsync();
