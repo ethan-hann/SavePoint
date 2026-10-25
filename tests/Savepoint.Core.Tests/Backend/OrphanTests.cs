@@ -120,6 +120,59 @@ public class OrphanTests
         Assert.Equal([profile.Id], (await workspace.Profiles.ListAsync(game.Id, workspace.Token)).Value!.Select(p => p.Id));
     }
 
+    [Fact]
+    public async Task Reconnecting_leaves_off_a_default_rule_that_would_hide_a_file_in_the_saves_folder()
+    {
+        using var workspace = new BackendWorkspace();
+        var (game, profile) = await LoseTheCatalogAsync(workspace);
+        BackendWorkspace.WriteFile(Path.Combine(game.External!.Path, "profile/player.log"), "kept");
+
+        var resolved = await workspace.Games.ResolveOrphanAsync(
+            game with { Id = "alpha-again", IgnorePaths = RunTimeOutput.DefaultRules },
+            new OrphanResolution.Reconnect(game.Id, [new RecoveredProfile(profile.BranchName, "Vanilla")]));
+
+        Assert.True(resolved.Ok, resolved.Error?.Detail);
+        Assert.Equal(["**/*.dmp", "**/*.mdmp"], resolved.Value.IgnorePaths);
+        var stored = (await workspace.Games.ListAsync(workspace.Token)).Value!.Single();
+        Assert.Equal(["**/*.dmp", "**/*.mdmp"], stored.IgnorePaths);
+    }
+
+    [Fact]
+    public async Task Starting_fresh_leaves_off_a_default_rule_that_would_hide_a_file_in_the_saves_folder()
+    {
+        using var workspace = new BackendWorkspace();
+        var (game, _) = await LoseTheCatalogAsync(workspace);
+        BackendWorkspace.WriteFile(Path.Combine(game.External!.Path, "profile/player.log"), "kept");
+
+        var resolved = await workspace.Games.ResolveOrphanAsync(
+            game with { Id = "alpha-again", IgnorePaths = RunTimeOutput.DefaultRules },
+            new OrphanResolution.StartFresh());
+
+        Assert.True(resolved.Ok, resolved.Error?.Detail);
+        Assert.Equal(["**/*.dmp", "**/*.mdmp"], resolved.Value.IgnorePaths);
+        var stored = (await workspace.Games.ListAsync(workspace.Token)).Value!.Single();
+        Assert.Equal(["**/*.dmp", "**/*.mdmp"], stored.IgnorePaths);
+    }
+
+    [Fact]
+    public async Task Both_resolutions_keep_every_default_rule_when_the_saves_folder_holds_nothing_they_name()
+    {
+        using var reconnecting = new BackendWorkspace();
+        var (lost, profile) = await LoseTheCatalogAsync(reconnecting);
+        var reconnected = await reconnecting.Games.ResolveOrphanAsync(
+            lost with { Id = "alpha-again", IgnorePaths = RunTimeOutput.DefaultRules },
+            new OrphanResolution.Reconnect(lost.Id, [new RecoveredProfile(profile.BranchName, "Vanilla")]));
+
+        using var fresh = new BackendWorkspace();
+        var (other, _) = await LoseTheCatalogAsync(fresh);
+        var started = await fresh.Games.ResolveOrphanAsync(
+            other with { Id = "alpha-again", IgnorePaths = RunTimeOutput.DefaultRules },
+            new OrphanResolution.StartFresh());
+
+        Assert.Equal(RunTimeOutput.DefaultRules, reconnected.Value!.IgnorePaths);
+        Assert.Equal(RunTimeOutput.DefaultRules, started.Value!.IgnorePaths);
+    }
+
     [Theory]
     [InlineData("profile/modded-playthrough-x7k2", "Modded playthrough")]
     [InlineData("profile/vanilla-ab12", "Vanilla")]

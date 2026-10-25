@@ -128,6 +128,29 @@ public class GameEditorReconnectTests
         Assert.NotEqual(_oldGameId, definition.Id);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_default_rule_left_off_after_the_question_is_said_in_a_notice(bool reconnect)
+    {
+        var rig = RigWithHistory();
+        rig.Backend.Games.SavesLeftOutByRule["**/*.log"] = ["player.log"];
+        var editor = Filled(rig);
+        editor.IgnoreRules.SetValues(RunTimeOutput.DefaultRules);
+        var (saving, dialog) = await SaveUntilReconnectAsked(rig, editor);
+
+        (reconnect ? dialog.ReconnectCommand : dialog.StartFreshCommand).Execute(null);
+        await saving;
+
+        var call = Assert.Single(rig.Calls("ResolveOrphanAsync"));
+        Assert.Equal(RunTimeOutput.DefaultRules, Assert.IsType<GameDefinition>(call.Args[0]).IgnorePaths);
+        var stored = Assert.Single(FakeAssert.Ok(await rig.Backend.Games.ListAsync(TestContext.Current.CancellationToken)));
+        Assert.Equal(["**/*.dmp", "**/*.mdmp"], stored.IgnorePaths);
+        var toast = Assert.Single(rig.Toasts.Toasts);
+        Assert.Equal(Savepoint.App.Features.Common.Toasts.ToastKind.Info, toast.Message.Kind);
+        Assert.Equal("The rule **/*.log was left off because your saves folder holds files it would have left out. SavePoint keeps your saves in your snapshots.", toast.Text);
+    }
+
     [Fact]
     public async Task Cancelling_the_question_keeps_the_editor_open_and_the_next_save_asks_again()
     {

@@ -32,11 +32,14 @@ public sealed class FakeGamesApi : IGamesApi
                 return OperationResult.Success<AddGameOutcome>(new AddGameOutcome.HistoryFound(orphan));
             }
 
-            // Like the service, a default rule that would leave out files of the saves folder is not kept.
-            var kept = definition with { IgnorePaths = [.. definition.IgnorePaths.Where(rule => !(RunTimeOutput.DefaultRules.Contains(rule) && SavesLeftOutByRule.ContainsKey(rule)))] };
+            var kept = WithoutRulesThatHideSaves(definition);
             Add(kept);
             return OperationResult.Success<AddGameOutcome>(new AddGameOutcome.Added(kept));
         });
+
+    // Like the service, a default rule that would leave out files of the saves folder is not kept.
+    private GameDefinition WithoutRulesThatHideSaves(GameDefinition definition) =>
+        definition with { IgnorePaths = [.. definition.IgnorePaths.Where(rule => !(RunTimeOutput.DefaultRules.Contains(rule) && SavesLeftOutByRule.ContainsKey(rule)))] };
 
     // The files of the saves folder each rule would leave out, as a test sets them; a rule not listed matches nothing.
     public Dictionary<string, IReadOnlyList<string>> SavesLeftOutByRule { get; } = [];
@@ -119,7 +122,7 @@ public sealed class FakeGamesApi : IGamesApi
 
             if (resolution is OrphanResolution.Reconnect reconnect)
             {
-                var game = definition with { Id = reconnect.ExistingGameId };
+                var game = WithoutRulesThatHideSaves(definition with { Id = reconnect.ExistingGameId });
                 Add(game);
                 foreach (var recovered in reconnect.Profiles)
                 {
@@ -132,8 +135,9 @@ public sealed class FakeGamesApi : IGamesApi
                 return OperationResult.Success(game);
             }
 
-            Add(definition);
-            return OperationResult.Success(definition);
+            var fresh = WithoutRulesThatHideSaves(definition);
+            Add(fresh);
+            return OperationResult.Success(fresh);
         });
 
     public Task<OperationResult<GameDefinition>> UpdateAsync(GameDefinition definition, bool confirmFolderChange = false) =>
