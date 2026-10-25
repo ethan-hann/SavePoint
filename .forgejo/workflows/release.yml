@@ -47,6 +47,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: pwsh -NoProfile -File build/release-assets.ps1 -Action Verify
 
+      # Velopack builds the AppImage with mksquashfs, which the job image does not have.
+      - name: Install the AppImage tools
+        run: |
+          apt-get update -qq
+          apt-get install -y --no-install-recommends squashfs-tools
+
       # The packaging user is an ordinary one, as in the gate: the build and the AppImage check need no root.
       - name: Make an ordinary user
         run: |

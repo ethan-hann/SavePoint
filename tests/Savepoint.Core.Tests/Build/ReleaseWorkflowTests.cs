@@ -73,6 +73,18 @@ public partial class ReleaseWorkflowTests
         Assert.All(installs, install => Assert.Contains("echo \"/opt/dotnet\" >> \"$GITHUB_PATH\"", install.Value, StringComparison.Ordinal));
     }
 
+    // Velopack builds the AppImage with mksquashfs, which the container image does not have.
+    [Fact]
+    public void The_linux_job_installs_mksquashfs_before_it_packs()
+    {
+        var workflow = Workflow();
+
+        var install = workflow.IndexOf("apt-get install -y --no-install-recommends squashfs-tools", StringComparison.Ordinal);
+        var pack = workflow.IndexOf("bash build/package.sh", StringComparison.Ordinal);
+        Assert.True(install >= 0, "The release workflow does not install squashfs-tools.");
+        Assert.True(pack > install, "squashfs-tools is installed after the AppImage is packed.");
+    }
+
     [Fact]
     public void Every_build_file_it_names_exists()
     {
