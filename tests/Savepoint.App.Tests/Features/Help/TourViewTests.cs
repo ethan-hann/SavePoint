@@ -216,7 +216,7 @@ public class TourViewTests
 
         Next(app);
 
-        Assert.Equal(["Play puts the right files in place. Press Play and SavePoint makes your game folders match this profile, then starts the game. When you close the game, it asks whether to keep the session as a new snapshot. To load the files without starting the game, choose Switch to this profile from the profile's menu."], spoken);
+        Assert.Equal(["Play puts the right files in place. Play starts the game with this profile's files, and Switch to this profile in its menu loads them without starting it."], spoken);
     }
 
     [AvaloniaFact]

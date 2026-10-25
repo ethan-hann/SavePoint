@@ -41,7 +41,7 @@ public class TourViewModelTests
         Assert.Equal(TourStep.Profile, tour.Current.Step);
         Assert.Equal("This is a profile", tour.Current.Title);
         Assert.Equal(
-            "A profile is one way of playing Skyrim Special Edition, with its own game version, mods and saves. SavePoint keeps snapshots of each profile: copies of all three as they were at one moment.",
+            "A profile is one way of playing Skyrim Special Edition, with its own game version, mods and saves.",
             tour.Current.Body);
         Assert.Equal("Step 1 of 4", tour.Current.Position);
         Assert.Equal("Tour, step 1 of 4: This is a profile", tour.Current.AutomationName);
@@ -77,10 +77,10 @@ public class TourViewModelTests
         }
 
         Assert.Equal(
-            "Press Play and SavePoint makes your game folders match this profile, then starts the game. When you close the game, it asks whether to keep the session as a new snapshot. To load the files without starting the game, choose Switch to this profile from the profile's menu.",
+            "Play starts the game with this profile's files, and Switch to this profile in its menu loads them without starting it.",
             bodies[1]);
-        Assert.Equal("History lists every snapshot. Choose Go back to this on one to play from that moment, even after the game updates, or Switch to this snapshot to load it without starting the game.", bodies[2]);
-        Assert.Equal("Want a different mod list or game version? Make another profile. Each keeps its own snapshots, and Play switches between them.", bodies[3]);
+        Assert.Equal("History lists every snapshot, and Go back to this plays from one even after the game updates.", bodies[2]);
+        Assert.Equal("Make another profile for a different mod list or game version, and Play switches between them.", bodies[3]);
     }
 
     [Fact]
