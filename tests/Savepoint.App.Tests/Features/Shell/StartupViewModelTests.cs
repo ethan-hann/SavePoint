@@ -162,7 +162,7 @@ public class StartupViewModelTests
     [InlineData("profiles.json", "Your profile list couldn't be read", "your list of profiles", "no profiles listed")]
     [InlineData("settings.json", "Your settings couldn't be read", "your settings", "the default settings")]
     [InlineData("other.json", "SavePoint couldn't read one of its files", "some of its data", "an empty file")]
-    public async Task Each_kind_of_file_gets_its_own_title_and_a_body_that_says_what_the_buttons_do(string name, string title, string holds, string empty)
+    public async Task Each_kind_of_file_gets_its_own_title_and_a_body_that_says_what_the_file_holds_and_that_it_was_left_alone(string name, string title, string holds, string empty)
     {
         var startup = new StartupViewModel(Backend(WithCorrupt(Corrupt(name, @"C:\x\backup.bak"))).AppStatus, _text);
 
@@ -171,8 +171,9 @@ public class StartupViewModelTests
         var card = startup.CorruptFiles.Single().Card;
         Assert.Equal(title, card.Title);
         Assert.Equal(
-            $"SavePoint couldn't read the file that holds {holds}, so it left the file as it is. \"Restore the backup\" brings back the last good copy. \"Start with nothing in it\" begins again with {empty}.",
+            $"SavePoint couldn't read the file that holds {holds}, so it left the file as it is.",
             card.Body);
+        Assert.DoesNotContain(empty, card.Body);
         Assert.DoesNotContain(".bak", card.Body);
     }
 

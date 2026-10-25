@@ -79,7 +79,7 @@ public class ContextualHelpViewModelTests
 
         Assert.Equal("What's a snapshot?", help.Question);
         Assert.Equal(
-            "A snapshot is a copy SavePoint keeps of a profile's game version, mods and saves (or just some of them) at one moment. SavePoint takes one when you create a profile and each time you keep a session. Choose Go back to this on a snapshot to play from that moment, or Switch to this snapshot to load it without playing.",
+            "A snapshot is a copy of a profile's game version, mods and saves (or just some of them) at one moment. Choose Go back to this on a snapshot to play from it, or Switch to this snapshot to load it without playing.",
             help.Answer);
     }
 
@@ -90,7 +90,7 @@ public class ContextualHelpViewModelTests
 
         Assert.Equal("What are new changes?", help.Question);
         Assert.Equal(
-            "Files in this folder changed since the last snapshot, from saving in the game, a mod manager, or a game update. Take a snapshot to keep them, or discard them to put the folder back as the snapshot has it.",
+            "Files here changed since the last snapshot. Take a snapshot to keep them, or discard them to restore the snapshot's files.",
             help.Answer);
     }
 
@@ -101,7 +101,7 @@ public class ContextualHelpViewModelTests
 
         Assert.Equal("What's a save snapshot?", help.Question);
         Assert.Equal(
-            "Each choice is your whole saves folder as it was at one moment. SavePoint puts those files in place, and you still pick the save to load inside the game.",
+            "Each choice is your whole saves folder at one moment. You still load the save you want inside the game.",
             help.Answer);
     }
 
@@ -112,7 +112,7 @@ public class ContextualHelpViewModelTests
 
         Assert.Equal("Which should I pick?", help.Question);
         Assert.Equal(
-            "Pick Keep this session as a new profile if you might want the newer snapshots of \"Modded 1.6\" again. It stays as it is. Pick Continue only if you're done with them. They move to Recently removed, and you can bring them back as a new profile until you next free up space.",
+            "Keep this session as a new profile if you might want the newer snapshots of \"Modded 1.6\" again. Continue only if you're done with them. They go to Recently removed.",
             help.Answer);
     }
 
@@ -123,7 +123,7 @@ public class ContextualHelpViewModelTests
 
         Assert.Equal("When should I replace?", help.Question);
         Assert.Equal(
-            "Only when you won't want \"Before the final boss\" as it was. What it held goes to Recently removed, and you can bring it back as a new profile until you next free up space. Keeping a new snapshot is always safe. It only uses disk space.",
+            "Only when you won't want \"Before the final boss\" as it was. What it held goes to Recently removed. Otherwise keep a new snapshot.",
             help.Answer);
     }
 
@@ -134,7 +134,7 @@ public class ContextualHelpViewModelTests
 
         Assert.Equal("How much space do snapshots take?", help.Question);
         Assert.Equal(
-            "A game's first snapshot can take about as much space as the game itself, and the new-profile check shows the exact amount. Later snapshots only add files that changed, so they're usually small.",
+            "A game's first snapshot can take about as much space as the game, and the new-profile check shows the exact amount. Later ones only add what changed, so they're usually small.",
             help.Answer);
     }
 }
