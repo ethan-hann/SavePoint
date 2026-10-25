@@ -1,4 +1,5 @@
 using Savepoint.Core.Errors;
+using Savepoint.Core.Launch;
 
 namespace Savepoint.Core.Api;
 
@@ -35,12 +36,17 @@ public abstract record SessionState
     /// Files in the install folder that changed while playing, which catches an update made mid-session; counted as <paramref name="NewFileCount"/> is.
     /// </param>
     /// <param name="Options">What the user may do with the session.</param>
+    /// <param name="EndKind">
+    /// How the end was found. <see cref="SessionEndKind.NamedProcessNeverAppeared"/> means the game's process name never matched a running
+    /// program: <paramref name="PlayDuration"/> is then only the wait for it, not time played, and callers should not present it as play time.
+    /// </param>
     public sealed record Exited(
         DateTimeOffset StartedAt,
         TimeSpan PlayDuration,
         int NewFileCount,
         int ChangedInstallFileCount,
-        PostPlayOptions Options) : SessionState;
+        PostPlayOptions Options,
+        SessionEndKind EndKind = SessionEndKind.ChildExited) : SessionState;
 
     /// <summary>The chosen completion is running as a capture job.</summary>
     /// <param name="Completion">What the user chose.</param>

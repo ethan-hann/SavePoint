@@ -1,0 +1,32 @@
+using Savepoint.Core.Api;
+using Savepoint.Core.Launch;
+
+namespace Savepoint.Core.Tests.Launch.Orchestration;
+
+// The exit says why the session ended, so a wrong process name can be told apart from a game that ran (D13.10, D48.7).
+public class LaunchSessionEndKindTests
+{
+    [Fact(Timeout = 120_000)]
+    public async Task A_process_name_that_never_appears_is_recorded_on_the_exit()
+    {
+        using var rig = await LaunchRig.CreateAsync(processName: "never-running-" + Guid.NewGuid().ToString("N")[..6], gameArguments: ["--exit-after", "300"]);
+        var vanilla = await rig.ProfileAsync("Vanilla");
+
+        await rig.StartAsync(new LaunchTarget.ProfileTip(vanilla.Id));
+        var exited = Assert.IsType<SessionState.Exited>((await rig.WaitForAsync<SessionState.Exited>()).State);
+
+        Assert.Equal(SessionEndKind.NamedProcessNeverAppeared, exited.EndKind);
+    }
+
+    [Fact(Timeout = 120_000)]
+    public async Task A_game_that_quits_on_its_own_is_recorded_as_having_run()
+    {
+        using var rig = await LaunchRig.CreateAsync(gameArguments: ["--exit-after", "300"]);
+        var vanilla = await rig.ProfileAsync("Vanilla");
+
+        await rig.StartAsync(new LaunchTarget.ProfileTip(vanilla.Id));
+        var exited = Assert.IsType<SessionState.Exited>((await rig.WaitForAsync<SessionState.Exited>()).State);
+
+        Assert.Equal(SessionEndKind.ChildExited, exited.EndKind);
+    }
+}
