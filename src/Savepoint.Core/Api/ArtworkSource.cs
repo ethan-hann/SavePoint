@@ -11,4 +11,7 @@ public enum ArtworkSource
 
     /// <summary>The image the user chose for the game.</summary>
     Custom,
+
+    /// <summary>Images GOG Galaxy already downloaded to this computer, for a game installed by GOG.</summary>
+    Gog,
 }
