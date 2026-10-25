@@ -266,7 +266,7 @@ public class ActivityScreenViewTests
         var texts = harness.VisibleTexts().ToList();
 
         Assert.Contains("Nothing has run yet", texts);
-        Assert.Contains("When SavePoint takes a snapshot, switches your files, frees up space or moves its folder, the job shows up here.", texts);
+        Assert.Contains("Snapshots, switches, freeing up space and moves show up here.", texts);
         Assert.False(harness.Find<Button>("ShowAllButton").IsEffectivelyVisible);
         Assert.False(harness.Find<Grid>("Panes").IsEffectivelyVisible);
         harness.Render("empty");

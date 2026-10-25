@@ -97,7 +97,7 @@ public class HistoryRecentlyRemovedViewTests
 
         var texts = harness.VisibleTexts().ToList();
 
-        Assert.Contains(texts, text => text is not null && text.Contains("deletes them for good", StringComparison.Ordinal));
+        Assert.Contains(texts, text => text is not null && text.Contains("deleted for good", StringComparison.Ordinal));
         Assert.Contains("Before the final boss", texts);
         Assert.Contains("Cleared Blackreach", texts);
         Assert.Contains("From \"Modded playthrough - 7-2-26\". Removed when you continued it from a session.", texts);

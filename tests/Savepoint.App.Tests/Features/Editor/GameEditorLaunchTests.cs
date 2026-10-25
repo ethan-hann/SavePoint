@@ -455,7 +455,7 @@ public class GameEditorLaunchTests
 
         Assert.Equal("SkyrimSELauncher.exe", editor.ExePath);
         Assert.NotNull(editor.ExePathError);
-        Assert.StartsWith("That file isn't inside the game's install folder.", editor.ExePathError);
+        Assert.StartsWith("Pick a file inside", editor.ExePathError);
         Assert.Contains(_root, editor.ExePathError);
     }
 
@@ -479,7 +479,7 @@ public class GameEditorLaunchTests
 
         await editor.BrowseExeCommand.ExecuteAsync(null);
 
-        Assert.Equal("Choose the install folder first, so the start file can be shown relative to it.", editor.ExePathError);
+        Assert.Equal("Choose the install folder first.", editor.ExePathError);
         Assert.Empty(rig.Dialogs.OpenFilePicks);
     }
 }

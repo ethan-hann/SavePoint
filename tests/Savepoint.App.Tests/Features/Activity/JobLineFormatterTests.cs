@@ -82,7 +82,7 @@ public class JobLineFormatterTests
     [Fact]
     public void Every_byte_count_of_a_step_is_shown_as_a_size()
     {
-        Assert.Equal("Copying Data/big.pak (4.5 GB). A large file like this takes a while.", Format(_samples[JobSteps.CaptureFileStart]));
+        Assert.Equal("Copying Data/big.pak (4.5 GB).", Format(_samples[JobSteps.CaptureFileStart]));
         Assert.Equal("Still copying Data/big.pak: 1.5 GB of 4.5 GB so far.", Format(_samples[JobSteps.CaptureFileProgress]));
         Assert.Equal("Still copying the game folder: 1.5 GB of 4.5 GB so far.", Format(_samples[JobSteps.CaptureFolderProgress]));
     }

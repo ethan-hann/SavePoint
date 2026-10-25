@@ -33,7 +33,7 @@ public class LibraryPickerDialogViewModelTests
         Assert.Equal("GOG Galaxy", rows["Deus Ex"].StoreLabel);
         Assert.Equal(@"Installed at C:\Games\Skyrim", rows["Skyrim"].InstallLine);
         Assert.Equal(@"Saves folder: C:\Users\you\Documents\My Games\Skyrim\Saves", rows["Skyrim"].SavesLine);
-        Assert.StartsWith("SavePoint doesn't know where this game keeps its saves", rows["Deus Ex"].SavesLine);
+        Assert.StartsWith("Saves folder unknown", rows["Deus Ex"].SavesLine);
     }
 
     [Fact]
@@ -53,7 +53,7 @@ public class LibraryPickerDialogViewModelTests
         var game = LibraryTestData.Game("Skyrim", saves: @"C:\Docs\Skyrim\Saves", savesExist: false);
         var (picker, _) = await LoadedAsync(LibraryTestData.Scan(game));
 
-        Assert.Contains("hasn't made it yet", picker.VisibleRows.Single().SavesLine);
+        Assert.Contains("doesn't exist yet", picker.VisibleRows.Single().SavesLine);
     }
 
     [Fact]

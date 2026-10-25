@@ -235,7 +235,7 @@ public class GameEditorTransferTests
         await editor.ExportCommand.ExecuteAsync(null);
 
         var toast = OnlyToast(rig);
-        Assert.Equal("Exported the saved version of Skyrim Special Edition. Changes you haven't saved yet aren't in the file.", toast.Text);
+        Assert.Equal("Exported the saved version of Skyrim Special Edition. Changes you haven't saved aren't in the file.", toast.Text);
         Assert.Equal(@"C:\Exports\skyrim.json", toast.Details);
     }
 

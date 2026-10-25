@@ -44,7 +44,7 @@ public class HistoryRecentlyRemovedTests
         Assert.True(rig.Screen.ShowRemoved);
         Assert.False(rig.Screen.IsRemovedOpen);
         Assert.Equal("Recently removed (2)", rig.Screen.RemovedHeading);
-        Assert.Contains("deletes them for good", rig.Screen.RemovedNote, StringComparison.Ordinal);
+        Assert.Contains("deleted for good", rig.Screen.RemovedNote, StringComparison.Ordinal);
         Assert.Contains("free up space", rig.Screen.RemovedNote, StringComparison.Ordinal);
     }
 

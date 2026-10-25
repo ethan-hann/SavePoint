@@ -158,7 +158,7 @@ public class NewProfileWizardViewModelTests
             ],
             preview.Rows);
         Assert.True(preview.HasNote);
-        Assert.Equal("SavePoint reuses files it already has, so this will only add about 2.4 GB.", preview.Note);
+        Assert.Equal("Files SavePoint already has are reused, so only about 2.4 GB is added.", preview.Note);
         Assert.False(preview.HasError);
     }
 
@@ -356,7 +356,7 @@ public class NewProfileWizardViewModelTests
         Assert.Equal(SaveState.Saving, wizard.State);
         Assert.True(wizard.IsSaving);
         Assert.Equal("Taking the first snapshot\u2026", wizard.StatusText);
-        Assert.Equal("This can take a while for a large install, especially the first time.", wizard.ProgressText);
+        Assert.Equal("A large install can take a while the first time.", wizard.ProgressText);
         Assert.True(wizard.IsIndeterminate);
         Assert.False(wizard.HasCurrentFile);
         Assert.True(wizard.ShowStopSave);
@@ -655,7 +655,7 @@ public class NewProfileWizardViewModelTests
         var card = Assert.IsType<ErrorCardViewModel>(wizard.ResultCard);
         Assert.Equal("Only part of the snapshot was taken", card.Title);
         Assert.Equal(
-            "Your game version and mods are in the snapshot. Your saves aren't yet. There's not enough free disk space to take this snapshot right now. Free up about 1.2 GB on drive D: and try again. Nothing in your game folders changed. Retry just that part.",
+            "Your game version and mods are in the snapshot, your saves aren't. There's not enough free disk space to take this snapshot right now. Free up about 1.2 GB on drive D: and try again. Your game folders are unchanged.",
             card.Body);
         Assert.Equal(Icons.Warning, card.Icon);
         Assert.True(card.IsWarning);
@@ -685,7 +685,7 @@ public class NewProfileWizardViewModelTests
         rig.Backend.Jobs.Complete(rig.JobId, new CaptureResult(pid, new HistoryPointId("pt"), [new FolderOutcome(RepoRole.Install, SampleScenario.FileInUseError), new FolderOutcome(RepoRole.External)]));
 
         var card = rig.Wizard.ResultCard!;
-        Assert.StartsWith("Your saves are in the snapshot. Your game version and mods aren't yet.", card.Body);
+        Assert.StartsWith("Your saves are in the snapshot, your game version and mods aren't.", card.Body);
         Assert.Equal("Retry the game version and mods", Assert.Single(card.Actions).Label);
         Assert.Equal(
             [("Game version and mods \u00b7 not in the snapshot yet", false), ("Saves \u00b7 in the snapshot", true)],

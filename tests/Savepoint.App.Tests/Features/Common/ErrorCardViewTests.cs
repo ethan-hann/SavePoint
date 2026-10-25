@@ -109,7 +109,7 @@ public class ErrorCardViewTests
         var copied = await Avalonia.Input.Platform.ClipboardExtensions.TryGetTextAsync(clipboard);
         Assert.Equal(error.Detail, copied);
         Assert.Contains("unable to unlink", copied, StringComparison.Ordinal);
-        Assert.Equal("Copied. Paste it into your bug report.", card.CopyNote);
+        Assert.Equal("Copied.", card.CopyNote);
     }
 
     [AvaloniaFact]

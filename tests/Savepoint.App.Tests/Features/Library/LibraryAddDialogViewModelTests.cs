@@ -95,7 +95,7 @@ public class LibraryAddDialogViewModelTests
         await dialog.RunAsync();
 
         var line = Assert.Single(dialog.ResultLines, l => l.Kind == LibraryResultKind.NotAdded);
-        Assert.Contains("snapshots from a game you removed earlier", line.Text);
+        Assert.Contains("snapshots from a game you removed", line.Text);
         Assert.Contains("Add a game", line.Text);
         Assert.Equal("1 game could not be added.", dialog.NotAddedSummary);
     }
@@ -108,14 +108,14 @@ public class LibraryAddDialogViewModelTests
         await dialog.RunAsync();
 
         var line = Assert.Single(dialog.ResultLines, l => l.Kind == LibraryResultKind.Notice);
-        Assert.StartsWith("Skyrim: added without a saves folder.", line.Text);
+        Assert.StartsWith("Skyrim: added without a saves folder,", line.Text);
         Assert.Contains(@"C:\Docs\Skyrim\Saves", line.Text);
         Assert.Equal("1 game was added.", dialog.AddedSummary);
     }
 
     [Theory]
-    [InlineData(false, "Skyrim: the rule **/*.log now applies to the game's own folder only, because its saves folder holds files it would have left out. SavePoint keeps your saves in your snapshots.")]
-    [InlineData(true, "Skyrim: the rule **/*.log now applies to the game's own folder only, because SavePoint could not look in its saves folder to be sure it would keep your saves. You can see it under \"Files to leave out of the game's own folder\" in Edit game.")]
+    [InlineData(false, "Skyrim: the rule **/*.log now applies to the game's own folder only, so your saves stay in your snapshots.")]
+    [InlineData(true, "Skyrim: the rule **/*.log now applies to the game's own folder only, because SavePoint couldn't check its saves folder. It is listed under \"Files to leave out of the game's own folder\" in Edit game.")]
     public async Task A_rule_that_now_applies_to_the_games_own_folder_only_is_said_in_a_notice(bool checkFails, string expected)
     {
         var game = LibraryTestData.Game("Skyrim", id: "1");

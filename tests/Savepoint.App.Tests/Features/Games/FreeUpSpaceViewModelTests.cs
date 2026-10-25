@@ -81,7 +81,7 @@ public class FreeUpSpaceViewModelTests
 
         var question = Assert.Single(rig.Dialogs.Confirmations);
         Assert.Equal("Free up space?", question.Title);
-        Assert.Equal("Freeing up space also deletes 2 recently removed snapshots for good. They are no longer part of any profile, and you can't bring them back afterward.", question.Message);
+        Assert.Equal("This also deletes 2 recently removed snapshots for good. You can't bring them back.", question.Message);
         Assert.Equal("Delete 2 snapshots and free up space", question.ConfirmLabel);
         Assert.True(question.Destructive);
         Assert.Equal([SkyrimId], rig.Backend.Jobs.List().Where(job => job.Kind == JobKind.Compact).Select(job => job.GameId));
