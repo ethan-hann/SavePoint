@@ -696,6 +696,102 @@ public class JobRegistryTests
     }
 
     [Fact]
+    public async Task A_job_holds_far_more_lines_than_its_snapshot_shows_and_all_of_them_while_under_the_limit()
+    {
+        var registry = new JobRegistry();
+        var held = new HeldJob(registry);
+        var context = await held.Context;
+
+        for (var i = 1; i <= 5_200; i++)
+        {
+            context.AddPath($"path{i}");
+        }
+
+        var lines = registry.GetLines(held.Id);
+        Assert.Equal(5_200, lines.Count);
+        Assert.Equal(JobLine.ForPath("path1"), lines[0]);
+        Assert.Equal(JobLine.ForPath("path5200"), lines[^1]);
+        Assert.Equal(200, registry.Get(held.Id)!.RecentLines.Count);
+        held.Finish();
+        await FinishedAsync(registry, held.Id);
+    }
+
+    [Fact]
+    public async Task A_job_that_writes_more_than_the_limit_keeps_the_newest_lines()
+    {
+        var registry = new JobRegistry();
+        var held = new HeldJob(registry);
+        var context = await held.Context;
+        var written = JobHistory.MaxLines + 300;
+
+        for (var i = 1; i <= written; i++)
+        {
+            context.AddPath($"path{i}");
+        }
+
+        var lines = registry.GetLines(held.Id);
+        Assert.Equal(JobHistory.MaxLines, lines.Count);
+        Assert.Equal(JobLine.ForPath("path301"), lines[0]);
+        Assert.Equal(JobLine.ForPath($"path{written}"), lines[^1]);
+        Assert.Equal(written - 200, registry.Get(held.Id)!.LinesDropped);
+        held.Finish();
+        await FinishedAsync(registry, held.Id);
+    }
+
+    [Fact]
+    public async Task A_finished_job_still_gives_its_lines_and_an_unknown_one_gives_none()
+    {
+        var registry = new JobRegistry();
+        var held = new HeldJob(registry);
+        var context = await held.Context;
+        context.AddPath("a.bin");
+        held.Finish();
+        await FinishedAsync(registry, held.Id);
+
+        Assert.Equal([JobLine.ForPath("a.bin")], registry.GetLines(held.Id));
+        Assert.Empty(registry.GetLines(Guid.NewGuid()));
+    }
+
+    [Fact]
+    public async Task A_current_path_named_again_after_other_names_pushed_it_out_is_not_added_a_second_time()
+    {
+        var registry = new JobRegistry();
+        var held = new HeldJob(registry);
+        var context = await held.Context;
+        context.AddPath("Install/last.bin");
+        context.Progress.Report(new JobProgress(FilesDone: 1, CurrentPath: "Install/last.bin"));
+
+        // The other folder names more files than the details show, then the first folder reports its bytes with the same current path.
+        for (var i = 1; i <= 250; i++)
+        {
+            context.AddPath($"Saves/s{i}.sav");
+        }
+
+        context.Progress.Report(new JobProgress(FilesDone: 251, BytesDone: 9, CurrentPath: "Install/last.bin"));
+
+        Assert.Equal(1, registry.GetLines(held.Id).Count(line => line == JobLine.ForPath("Install/last.bin")));
+        Assert.Equal(JobLine.ForPath("Saves/s250.sav"), registry.Get(held.Id)!.RecentLines[^1]);
+        held.Finish();
+        await FinishedAsync(registry, held.Id);
+    }
+
+    [Fact]
+    public async Task A_current_path_that_is_still_shown_is_not_added_a_second_time()
+    {
+        var registry = new JobRegistry();
+        var held = new HeldJob(registry);
+        var context = await held.Context;
+        context.Progress.Report(new JobProgress(FilesDone: 1, CurrentPath: "a.bin"));
+        context.Progress.Report(new JobProgress(FilesDone: 2, CurrentPath: "b.bin"));
+
+        context.Progress.Report(new JobProgress(FilesDone: 3, CurrentPath: "a.bin"));
+
+        Assert.Equal([JobLine.ForPath("a.bin"), JobLine.ForPath("b.bin")], registry.Get(held.Id)!.RecentLines);
+        held.Finish();
+        await FinishedAsync(registry, held.Id);
+    }
+
+    [Fact]
     public async Task A_job_that_can_no_longer_be_stopped_says_so_announces_it_and_a_cancel_is_left_alone()
     {
         var registry = new JobRegistry();

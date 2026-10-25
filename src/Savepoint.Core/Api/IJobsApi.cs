@@ -28,6 +28,14 @@ public interface IJobsApi
     JobSnapshot? Get(Guid jobId);
 
     /// <summary>
+    /// The lines the job still holds for copying, oldest first: at most <see cref="JobHistory.MaxLines"/>, which is far more than
+    /// <see cref="JobSnapshot.RecentLines"/> carries, so a long job's details can be copied whole. Reads memory and cannot fail.
+    /// </summary>
+    /// <param name="jobId">The id <see cref="JobStarted"/> returned.</param>
+    /// <returns>The held lines, or an empty list when the id is unknown or the job has been pruned from the finished list.</returns>
+    IReadOnlyList<JobLine> GetLines(Guid jobId);
+
+    /// <summary>
     /// Asks a job to stop. The job ends through its own work: its snapshot shows <see cref="JobSnapshot.CancelRequested"/> at
     /// once, and the job then ends, as <see cref="JobStatus.Cancelled"/> when it stopped early. The call is idempotent: an
     /// unknown, finished, already cancelled, or non-cancellable job is left alone and the call still succeeds.

@@ -16,6 +16,12 @@ internal sealed class ProgressReporter
 
     // Names git printed that no report has carried yet.
     private readonly List<string> _pending = [];
+
+    // Names git printed while a group's add is under way. The index is written only when the add ends, so until then none of them is stored.
+    private readonly List<string> _open = [];
+    private int _openCount;
+    private string? _openCurrent;
+    private bool _inBatch;
     private int _reportedDone = -1;
     private int? _reportedTotal;
     private long _reportedAt;
@@ -150,6 +156,14 @@ internal sealed class ProgressReporter
     {
         lock (_gate)
         {
+            // What was handled before this group is final, so it goes out now rather than being mistaken for the group's own names.
+            if (_pending.Count > 0)
+            {
+                Report();
+            }
+
+            _inBatch = true;
+
             // The wait for the last add is over: a flag from it must not hide this one, and the store's stillness is counted afresh.
             var wasFinishing = _reportedFinishing;
             _finishing = false;
@@ -177,11 +191,27 @@ internal sealed class ProgressReporter
         }
     }
 
+    private void DiscardOpen()
+    {
+        _open.Clear();
+        _openCount = 0;
+        _openCurrent = null;
+    }
+
     // The group's add has ended, so git has printed its names: they are delivered now, not at the next paced report.
     public void EndBatch()
     {
         lock (_gate)
         {
+            _inBatch = false;
+            if (_openCount > 0)
+            {
+                _done += _openCount;
+                _current = _openCurrent;
+                _pending.AddRange(_open);
+                DiscardOpen();
+            }
+
             if (_pending.Count > 0)
             {
                 Report();
@@ -214,6 +244,9 @@ internal sealed class ProgressReporter
     {
         lock (_gate)
         {
+            // A group git did not finish stored nothing, so its names are not reported as copied.
+            DiscardOpen();
+            _inBatch = false;
             _finishing = false;
             if (_reportedFinishing || _pending.Count > 0)
             {
@@ -227,6 +260,18 @@ internal sealed class ProgressReporter
     {
         lock (_gate)
         {
+            if (_inBatch)
+            {
+                _openCount++;
+                _openCurrent = path;
+                if (_sink is not null && !string.IsNullOrEmpty(path))
+                {
+                    _open.Add(path);
+                }
+
+                return;
+            }
+
             _done++;
             _current = path;
             if (_sink is not null && !string.IsNullOrEmpty(path))

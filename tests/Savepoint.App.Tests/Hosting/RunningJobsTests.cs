@@ -94,6 +94,8 @@ public class RunningJobsTests
             return new JobSnapshot(_id, JobKind.Capture, "game", null, left ? JobStatus.Cancelled : JobStatus.Running, true, false, JobProgress.None, [], 0, DateTimeOffset.UnixEpoch, null, null, null, 1);
         }
 
+        public IReadOnlyList<JobLine> GetLines(Guid jobId) => [];
+
         public Task<OperationResult<Unit>> CancelAsync(Guid jobId)
         {
             Asked.Add(jobId);
@@ -118,6 +120,8 @@ public class RunningJobsTests
         public IReadOnlyList<JobSnapshot> List() => [_job];
 
         public JobSnapshot? Get(Guid jobId) => _job;
+
+        public IReadOnlyList<JobLine> GetLines(Guid jobId) => [];
 
         public Task<OperationResult<Unit>> CancelAsync(Guid jobId)
         {

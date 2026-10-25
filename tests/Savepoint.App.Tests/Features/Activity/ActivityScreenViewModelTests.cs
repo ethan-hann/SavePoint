@@ -683,6 +683,81 @@ public class ActivityScreenViewModelTests
     }
 
     [Fact]
+    public async Task Copy_with_nothing_selected_takes_every_line_the_job_holds_not_only_the_ones_shown()
+    {
+        var rig = await ActivityRig.ShownAsync();
+        var id = await rig.StartCaptureAsync();
+        for (var i = 1; i <= 250; i++)
+        {
+            rig.Backend.Jobs.ReportProgress(id, new JobProgress(FilesDone: i, CurrentPath: $"file{i}.esp"));
+        }
+
+        var details = Details(rig);
+        var copied = new List<string>();
+        details.CopyRequested += (_, text) => copied.Add(text);
+
+        details.CopyCommand.Execute(null);
+
+        var lines = copied.Single().Split('\n');
+        Assert.Equal(251, lines.Length);
+        Assert.StartsWith("Taking snapshot", lines[0], StringComparison.Ordinal);
+        Assert.Equal("file250.esp", lines[^1]);
+        Assert.Equal(200, details.Lines.Count);
+        Assert.Equal("Copied 251 lines.", rig.Screen.Announcement);
+    }
+
+    [Fact]
+    public async Task Copy_with_lines_selected_takes_only_those_even_when_the_job_holds_more()
+    {
+        var rig = await ActivityRig.ShownAsync();
+        var id = await rig.StartCaptureAsync();
+        for (var i = 1; i <= 250; i++)
+        {
+            rig.Backend.Jobs.ReportProgress(id, new JobProgress(FilesDone: i, CurrentPath: $"file{i}.esp"));
+        }
+
+        var details = Details(rig);
+        var copied = new List<string>();
+        details.CopyRequested += (_, text) => copied.Add(text);
+
+        details.SetSelection([Line(details, 199), Line(details, 198)]);
+        details.CopyCommand.Execute(null);
+
+        Assert.Equal(["file249.esp\nfile250.esp"], copied);
+    }
+
+    [Fact]
+    public async Task A_job_with_more_lines_than_are_shown_says_how_many_and_that_copy_takes_them_all()
+    {
+        var rig = await ActivityRig.ShownAsync();
+        var id = await rig.StartCaptureAsync();
+        Assert.False(Details(rig).HasLinesNote);
+        Assert.Equal(string.Empty, Details(rig).LinesNote);
+
+        for (var i = 1; i <= 5_199; i++)
+        {
+            rig.Backend.Jobs.ReportProgress(id, new JobProgress(FilesDone: i, CurrentPath: $"file{i}.esp"));
+        }
+
+        Assert.True(Details(rig).HasLinesNote);
+        Assert.Equal("Showing the newest 200 of 5,200 lines. Copy, with nothing selected, takes all of them.", Details(rig).LinesNote);
+    }
+
+    [Fact]
+    public async Task A_job_with_more_lines_than_it_holds_says_copy_takes_the_newest_ones()
+    {
+        var rig = await ActivityRig.ShownAsync();
+        var id = await rig.StartCaptureAsync();
+
+        for (var i = 1; i <= JobHistory.MaxLines + 100; i++)
+        {
+            rig.Backend.Jobs.ReportProgress(id, new JobProgress(FilesDone: i, CurrentPath: $"file{i}.esp"));
+        }
+
+        Assert.Equal("Showing the newest 200 of 20,101 lines. Copy, with nothing selected, takes the newest 20,000.", Details(rig).LinesNote);
+    }
+
+    [Fact]
     public async Task Copy_cannot_run_for_a_job_that_has_written_nothing()
     {
         var rig = await ActivityRig.ShownAsync();
