@@ -193,7 +193,8 @@ public class FakeGameTests
         var code = await second.WaitForExitAsync();
 
         Assert.Equal(3, code);
-        Assert.NotEmpty(second.Errors);
+        // The exit can come before the last error line has been read from the pipe.
+        Assert.True(await FakeGameProcess.WaitUntilAsync(() => second.Errors.Count > 0), "the second game never said why it stopped");
         Assert.False(File.Exists(temp.Combine("second-ready.txt")), "a game that failed to start must not claim to be ready");
     }
 
@@ -240,7 +241,7 @@ public class FakeGameTests
         var code = await stub.WaitForExitAsync();
 
         Assert.Equal(1, code);
-        Assert.NotEmpty(stub.Errors);
+        Assert.True(await FakeGameProcess.WaitUntilAsync(() => stub.Errors.Count > 0), "the stub never said why it stopped");
         Assert.False(File.Exists(ready));
     }
 
@@ -259,6 +260,6 @@ public class FakeGameTests
         var code = await game.WaitForExitAsync();
 
         Assert.Equal(2, code);
-        Assert.NotEmpty(game.Errors);
+        Assert.True(await FakeGameProcess.WaitUntilAsync(() => game.Errors.Count > 0), "the game never printed what was wrong");
     }
 }
