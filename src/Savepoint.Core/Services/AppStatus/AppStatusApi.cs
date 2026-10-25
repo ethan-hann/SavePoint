@@ -28,13 +28,16 @@ internal sealed class AppStatusApi : IAppStatusApi
             async () =>
             {
                 // Before anything builds the storage for the settings' folder, so the move is what the rest of the check sees.
-                await LegacyLocalData.MoveAsync(_services, cancellationToken).ConfigureAwait(false);
+                var held = await LegacyLocalData.MoveAsync(_services, _afterSettings, cancellationToken).ConfigureAwait(false);
                 var git = await CheckGitAsync(cancellationToken).ConfigureAwait(false);
                 var catalog = await CheckCatalogAsync(cancellationToken).ConfigureAwait(false);
 
                 // The storage is only touched once the screens that explain a missing tool or a corrupt file are out of the way.
+                // Old history that could not be moved or kept in use is a finding too: a new default would hide it without a word.
                 var storage = git.Available && catalog.CorruptFiles.Count == 0
-                    ? await PrepareStorageAsync(progress, cancellationToken).ConfigureAwait(false)
+                    ? held is null
+                        ? await PrepareStorageAsync(progress, cancellationToken).ConfigureAwait(false)
+                        : new StorageStatus(false, held.Args.GetValueOrDefault("path") as string ?? string.Empty, ErrorInfo.From(held))
                     : null;
 
                 return new StartupStatus(git, catalog, storage);

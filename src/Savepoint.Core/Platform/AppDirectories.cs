@@ -10,8 +10,8 @@ public sealed record AppDirectories(string CatalogDir, string DefaultStorageRoot
     public string? LegacyLocalDir { get; init; }
 
     /// <summary>
-    /// The folder the Windows installer of the current builds owns (named by the pack id) and clears on install and uninstall; null
-    /// where there is no installer folder. Nothing is stored there, and a storage destination inside it is refused.
+    /// Where installs made under the <c>SavePointApp</c> pack id keep their app files; the installer clears it on install and uninstall.
+    /// Null where there is no such folder. Nothing is stored there, and a storage destination inside it is refused.
     /// </summary>
     public string? InstallerLocalDir { get; init; }
 }

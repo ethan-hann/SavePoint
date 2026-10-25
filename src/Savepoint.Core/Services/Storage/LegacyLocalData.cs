@@ -1,3 +1,5 @@
+using System.Runtime.ExceptionServices;
+using System.Text.Json;
 using Savepoint.Core.Backend;
 using Savepoint.Core.Errors;
 
@@ -5,29 +7,37 @@ namespace Savepoint.Core.Services.Storage;
 
 /// <summary>
 /// Brings data an earlier build left in <see cref="Platform.AppDirectories.LegacyLocalDir"/> (the default storage and the logs) to the
-/// current default folders. Nothing is copied: the folders sit on one drive, so a rename moves them whole or not at all. A failure never
-/// stops the start; it leaves the data where it is and the app keeps using it there.
+/// current default folders. Nothing is copied: the folders sit on one drive, so a rename moves them whole or not at all. A failure
+/// leaves the data where it is and the app keeps using it there; the next start tries again.
 /// </summary>
 internal static class LegacyLocalData
 {
     private const string _storageFolder = "Storage";
     private const string _logsFolder = "Logs";
+    private const int _readBackAttempts = 3;
 
     /// <summary>Moves the old default storage and the old logs when there is something to move; does nothing where the platform has no old folder.</summary>
     /// <param name="services">The backend, for the platform's folders, the settings and the log.</param>
+    /// <param name="afterSettings">Runs right after a settings write for a storage root; tests use it to make the write seem to fail.</param>
     /// <param name="cancellationToken">Cancels the wait for the settings file.</param>
-    public static async Task MoveAsync(BackendServices services, CancellationToken cancellationToken)
+    /// <returns>
+    /// A finding when old history could neither be moved nor kept in use by saving its folder, so the start must not go on with a new
+    /// default that would hide it; null otherwise.
+    /// </returns>
+    /// <exception cref="Exception">A failure of an unexpected kind in the settings write, after the storage was put back.</exception>
+    public static async Task<StorageUnreachableException?> MoveAsync(BackendServices services, Action<string>? afterSettings, CancellationToken cancellationToken)
     {
         if (services.Platform.Directories.LegacyLocalDir is not { } legacy)
         {
-            return;
+            return null;
         }
 
+        StorageUnreachableException? blocked = null;
         try
         {
-            await MoveStorageAsync(services, legacy, cancellationToken).ConfigureAwait(false);
+            blocked = await MoveStorageAsync(services, legacy, afterSettings, cancellationToken).ConfigureAwait(false);
         }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException or SavepointException)
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or SavepointException or JsonException)
         {
             // An unreadable settings file is reported by the catalog check that follows.
             services.Log.Warning($"Startup check: the old storage folder in {legacy} was not looked at: {e.Message}", e);
@@ -41,50 +51,74 @@ internal static class LegacyLocalData
         {
             services.Log.Warning($"Startup check: the old log folder in {legacy} could not be moved: {e.Message}", e);
         }
+
+        return blocked;
     }
 
-    // Only when the settings name the old folder or no folder, and the new default holds nothing to cover: any other folder is the player's choice.
-    private static async Task MoveStorageAsync(BackendServices services, string legacy, CancellationToken cancellationToken)
+    // Only when the settings name the old folder, the new default or no folder, and the new default holds nothing to cover: any other
+    // folder is the player's choice.
+    private static async Task<StorageUnreachableException?> MoveStorageAsync(BackendServices services, string legacy, Action<string>? afterSettings, CancellationToken cancellationToken)
     {
         var old = Path.Combine(legacy, _storageFolder);
         var target = services.Platform.Directories.DefaultStorageRoot;
         var comparison = services.Platform.PathComparison;
         if (Same(old, target, comparison))
         {
-            return;
+            return null;
         }
 
         var settings = await services.Catalog.GetSettingsAsync(cancellationToken).ConfigureAwait(false);
         var unset = string.IsNullOrWhiteSpace(settings?.StorageRoot);
-        if (!unset && !Same(settings!.StorageRoot, old, comparison))
+        var namesTarget = !unset && Same(settings!.StorageRoot, target, comparison);
+        if (!unset && !namesTarget && !Same(settings!.StorageRoot, old, comparison))
         {
-            return;
+            return null;
         }
 
         var oldHoldsData = Directory.Exists(old) && Directory.EnumerateFileSystemEntries(old).Any();
         var targetHoldsData = Directory.Exists(target) && Directory.EnumerateFileSystemEntries(target).Any();
-        if (!oldHoldsData)
+        var oldHoldsHistory = oldHoldsData && StorageContent.Folders(old).Any(StorageContent.HoldsHistory);
+        var targetHoldsHistory = targetHoldsData && StorageContent.Folders(target).Any(StorageContent.HoldsHistory);
+
+        if (namesTarget)
+        {
+            // The settings already follow a move; only history still in the old folder and nothing in the new one is left to finish.
+            if (targetHoldsData || !oldHoldsHistory)
+            {
+                return null;
+            }
+
+            services.Log.Warning($"Startup check: the settings name {target}, which holds nothing, while the history is still in {old}; finishing the move.");
+        }
+        else if (!oldHoldsData)
         {
             // A rename that finished but whose settings write did not: the history is already in the new default.
-            if (!unset && targetHoldsData && StorageContent.Folders(target).Any(StorageContent.HoldsHistory))
+            if (!unset && targetHoldsHistory)
             {
                 services.Log.Information($"Startup check: the storage was already moved to {target}; the settings follow it.");
-                await TryCommitAsync(services, target).ConfigureAwait(false);
+                await TryCommitAsync(services, target, afterSettings).ConfigureAwait(false);
             }
 
-            return;
+            return null;
         }
-
-        if (targetHoldsData)
+        else if (targetHoldsData)
         {
-            // Nothing to move onto; with no folder saved, the first run would take the new default and hide the old history.
-            if (unset && !StorageContent.Folders(target).Any(StorageContent.HoldsHistory) && StorageContent.Folders(old).Any(StorageContent.HoldsHistory))
+            // Nothing to move onto. With no folder saved, the first run would take the new default and hide the old history, so the
+            // old folder is saved instead and the warnings about a folder the installer clears apply.
+            if (unset && oldHoldsHistory)
+            {
+                services.Log.Warning(targetHoldsHistory
+                    ? $"Startup check: {target} and {old} both hold history, so the storage in {old} stays where it is."
+                    : $"Startup check: {target} holds files of its own, so the storage in {old} stays where it is.");
+                return await KeepInUseAsync(services, old, afterSettings).ConfigureAwait(false);
+            }
+
+            if (!unset)
             {
                 services.Log.Warning($"Startup check: {target} holds files of its own, so the storage in {old} stays where it is.");
-                await TryCommitAsync(services, old).ConfigureAwait(false);
             }
 
-            return;
+            return null;
         }
 
         try
@@ -101,45 +135,103 @@ internal static class LegacyLocalData
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            // With nothing saved, the first run would make an empty default and hide the history; naming the old folder keeps it in use.
+            // With nothing saved the first run would make an empty default and hide the history, and settings naming an empty
+            // default do the same; naming the old folder keeps it in use.
             services.Log.Warning($"Startup check: the storage in {old} could not be moved to {target}, so it stays where it is: {e.Message}", e);
-            if (unset)
-            {
-                await TryCommitAsync(services, old).ConfigureAwait(false);
-            }
-
-            return;
+            return unset || namesTarget ? await KeepInUseAsync(services, old, afterSettings).ConfigureAwait(false) : null;
         }
 
         services.Log.Information($"Startup check: moved the storage from {old} to {target}.");
-        if (unset)
+        if (unset || namesTarget)
         {
+            return null;
+        }
+
+        // Whatever goes wrong with the settings write, the folder is put back before the failure is passed on.
+        Exception? unexpected = null;
+        var committed = false;
+        try
+        {
+            committed = await TryCommitAsync(services, target, afterSettings).ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException))
+        {
+            unexpected = e;
+        }
+
+        if (!committed)
+        {
+            await MoveBackAsync(services, old, target, comparison, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (unexpected is not null)
+        {
+            ExceptionDispatchInfo.Capture(unexpected).Throw();
+        }
+
+        return null;
+    }
+
+    // Saves the old folder as the storage root; when even that cannot be written, the start stops at the storage screen instead of
+    // taking a new default that hides the history.
+    private static async Task<StorageUnreachableException?> KeepInUseAsync(BackendServices services, string old, Action<string>? afterSettings) =>
+        await TryCommitAsync(services, old, afterSettings).ConfigureAwait(false) ? null : new StorageUnreachableException(old, null);
+
+    // The settings write failed to confirm, but it may have landed: the folder goes back only while the settings still name the old
+    // one (or none). If they cannot be read, nothing moves, and the next start finishes whichever half is missing.
+    private static async Task MoveBackAsync(BackendServices services, string old, string target, StringComparison comparison, CancellationToken cancellationToken)
+    {
+        string? saved = null;
+        var read = false;
+        for (var attempt = 1; attempt <= _readBackAttempts && !read; attempt++)
+        {
+            try
+            {
+                saved = (await services.Catalog.GetSettingsAsync(cancellationToken).ConfigureAwait(false))?.StorageRoot;
+                read = true;
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or SavepointException or JsonException)
+            {
+                services.Log.Warning($"Startup check: the settings could not be read back (attempt {attempt}): {e.Message}", e);
+                if (attempt < _readBackAttempts)
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken).ConfigureAwait(false);
+                }
+            }
+        }
+
+        if (!read)
+        {
+            services.Log.Warning($"Startup check: the settings could not be read, so the storage stays in {target}; the next start finishes the move.");
             return;
         }
 
-        if (!await TryCommitAsync(services, target).ConfigureAwait(false))
+        if (!string.IsNullOrWhiteSpace(saved) && !Same(saved, old, comparison))
         {
-            // The settings still name the old folder, so the folder goes back rather than leave them pointing at nothing.
-            try
-            {
-                Directory.Move(target, old);
-            }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-            {
-                services.Log.Warning($"Startup check: the storage could not be moved back to {old}; it stays in {target}.", e);
-            }
+            services.Log.Information($"Startup check: the settings name {saved}, so the storage stays in {target}.");
+            return;
+        }
+
+        // The settings still name the old folder, so the folder goes back rather than leave them pointing at nothing.
+        try
+        {
+            Directory.Move(target, old);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            services.Log.Warning($"Startup check: the storage could not be moved back to {old}; it stays in {target}, and the next start finishes the move.", e);
         }
     }
 
-    // Any failure is a "no": the caller decides what that leaves, and nothing here may stop the start.
-    private static async Task<bool> TryCommitAsync(BackendServices services, string root)
+    // A failure of a known kind is a "no": the caller decides what that leaves. Anything else is passed on.
+    private static async Task<bool> TryCommitAsync(BackendServices services, string root, Action<string>? afterSettings)
     {
         try
         {
-            await StorageRootSetting.CommitAsync(services, root, null).ConfigureAwait(false);
+            await StorageRootSetting.CommitAsync(services, root, afterSettings).ConfigureAwait(false);
             return true;
         }
-        catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException))
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or SavepointException or JsonException)
         {
             services.Log.Warning($"Startup check: the settings could not be changed to {root}: {e.Message}", e);
             return false;

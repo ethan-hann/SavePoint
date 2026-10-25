@@ -3,6 +3,7 @@ using Savepoint.Core.Catalog;
 using Savepoint.Core.Platform;
 using Savepoint.Core.Services.Storage;
 using Savepoint.Core.Tests.Platform;
+using Savepoint.Testing;
 
 namespace Savepoint.Core.Tests.Backend;
 
@@ -79,6 +80,7 @@ public class LegacyLocalDataTests
     {
         using var world = new World();
         var game = await world.SeedHistoryAsync();
+        var before = await world.PointCountAsync(game);
         File.Delete(Path.Combine(world.Workspace.CatalogDirectory, CatalogStore.SettingsFileName));
         Directory.CreateDirectory(world.NewStorage);
 
@@ -88,6 +90,149 @@ public class LegacyLocalDataTests
         Assert.True(status.Ok, status.Error?.Detail);
         Assert.True(StorageContent.HoldsHistory(Path.Combine(world.NewStorage, game.Id)), "the history did not arrive");
         Assert.False(Directory.Exists(world.OldStorage));
+        Assert.Equal(world.NewStorage, await world.SavedRootAsync());
+        Assert.Equal(before, await world.PointCountAsync(game));
+    }
+
+    // The settings write took effect, but reading the file back failed (a scanner holding it): the move must not be undone.
+    [Fact]
+    public async Task A_settings_write_that_landed_but_cannot_be_read_back_leaves_the_storage_in_the_new_default()
+    {
+        var armed = false;
+        string? settingsFile = null;
+        using var world = new World(root =>
+        {
+            if (!armed)
+            {
+                return;
+            }
+
+            armed = false;
+            var hold = new FileStream(settingsFile!, FileMode.Open, FileAccess.Read, FileShare.None);
+            // Longer than the catalog's own retries, so the read-back in the write fails, and short enough to be read after them.
+            _ = Task.Delay(1600).ContinueWith(_ => hold.Dispose(), TaskScheduler.Default);
+            throw new IOException("the settings file is held right after the write");
+        });
+        var game = await world.SeedHistoryAsync();
+        var before = await world.PointCountAsync(game);
+        settingsFile = Path.Combine(world.Workspace.CatalogDirectory, CatalogStore.SettingsFileName);
+        world.Upgrade();
+        armed = true;
+
+        var status = await world.Workspace.AppStatus.CheckAsync(world.Workspace.Token);
+
+        Assert.True(status.Ok, status.Error?.Detail);
+        Assert.True(StorageContent.HoldsHistory(Path.Combine(world.NewStorage, game.Id)), "the storage was moved back");
+        Assert.False(Directory.Exists(world.OldStorage));
+        Assert.Equal(world.NewStorage, await world.SavedRootAsync());
+        Assert.Equal(before, await world.PointCountAsync(game));
+    }
+
+    // A failure that is none of the expected kinds still takes the folder back, then surfaces as an error.
+    [Fact]
+    public async Task An_unexpected_failure_of_the_settings_write_puts_the_storage_back_and_fails_the_check()
+    {
+        var armed = false;
+        World? self = null;
+        using var world = new World(_ =>
+        {
+            if (!armed)
+            {
+                return;
+            }
+
+            armed = false;
+
+            // The write had not applied after all, and the failure is not an I/O error.
+            Task.Run(() => self!.Workspace.Backend.Services.Catalog.UpdateSettingsAsync(current => current! with { StorageRoot = self.OldStorage })).GetAwaiter().GetResult();
+            throw new InvalidOperationException("an unexpected failure");
+        });
+        self = world;
+        var game = await world.SeedHistoryAsync();
+        world.Upgrade();
+        armed = true;
+
+        var status = await world.Workspace.AppStatus.CheckAsync(world.Workspace.Token);
+
+        Assert.False(status.Ok);
+        Assert.True(StorageContent.HoldsHistory(Path.Combine(world.OldStorage, game.Id)), "the storage was not put back");
+        Assert.False(Directory.Exists(world.NewStorage));
+    }
+
+    // The settings name the new default but it is gone or empty while the history is still in the old folder.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Settings_naming_a_new_default_that_holds_nothing_finish_the_move_from_the_old_folder(bool emptyFolderThere)
+    {
+        using var world = new World();
+        var game = await world.SeedHistoryAsync();
+        var before = await world.PointCountAsync(game);
+        await world.SaveRootAsync(world.NewStorage);
+        if (emptyFolderThere)
+        {
+            Directory.CreateDirectory(world.NewStorage);
+        }
+
+        world.Upgrade();
+        var status = await world.Workspace.AppStatus.CheckAsync(world.Workspace.Token);
+
+        Assert.True(status.Ok, status.Error?.Detail);
+        Assert.True(status.Value.Storage?.Reachable, "the storage was reported lost");
+        Assert.True(StorageContent.HoldsHistory(Path.Combine(world.NewStorage, game.Id)), "the history did not arrive");
+        Assert.Equal(world.NewStorage, await world.SavedRootAsync());
+        Assert.Equal(before, await world.PointCountAsync(game));
+    }
+
+    // Nothing may take the new default as the first run's folder while it would hide the old history without a word.
+    [Fact]
+    public async Task With_no_saved_folder_a_settings_file_that_cannot_be_written_stops_the_check_at_the_storage_screen()
+    {
+        var armed = false;
+        World? self = null;
+        using var world = new World(root =>
+        {
+            if (!armed)
+            {
+                return;
+            }
+
+            // The write did not take effect: there are no settings again.
+            armed = false;
+            File.Delete(Path.Combine(self!.Workspace.CatalogDirectory, CatalogStore.SettingsFileName));
+            throw new IOException("the write failed");
+        });
+        self = world;
+        var game = await world.SeedHistoryAsync();
+        File.Delete(Path.Combine(world.Workspace.CatalogDirectory, CatalogStore.SettingsFileName));
+        BackendWorkspace.WriteFile(Path.Combine(world.NewStorage, "unrelated", "note.txt"), "not history");
+
+        world.Upgrade();
+        armed = true;
+        var status = await world.Workspace.AppStatus.CheckAsync(world.Workspace.Token);
+
+        Assert.True(status.Ok, status.Error?.Detail);
+        Assert.False(status.Value.Storage?.Reachable);
+        Assert.Equal(world.OldStorage, status.Value.Storage?.Root);
+        Assert.True(StorageContent.HoldsHistory(Path.Combine(world.OldStorage, game.Id)));
+    }
+
+    [Fact]
+    public async Task With_no_saved_folder_history_in_both_folders_keeps_the_old_one_in_use_and_flagged_and_says_so()
+    {
+        using var world = new World();
+        var game = await world.SeedHistoryAsync();
+        File.Delete(Path.Combine(world.Workspace.CatalogDirectory, CatalogStore.SettingsFileName));
+        CopyTree(world.OldStorage, world.NewStorage);
+
+        world.Upgrade();
+        var status = await world.Workspace.AppStatus.CheckAsync(world.Workspace.Token);
+
+        Assert.True(status.Ok, status.Error?.Detail);
+        Assert.Equal(world.OldStorage, await world.SavedRootAsync());
+        Assert.True(status.Value.Storage?.InInstallerFolder);
+        Assert.True(StorageContent.HoldsHistory(Path.Combine(world.NewStorage, game.Id)));
+        Assert.Contains(world.Log.Entries, entry => entry.Level == LogLevel.Warning && entry.Message.Contains("both hold history", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -154,6 +299,7 @@ public class LegacyLocalDataTests
         Assert.Equal("old", File.ReadAllText(Path.Combine(world.OldStorage, "stray", "note.txt")));
         Assert.Equal("new", File.ReadAllText(Path.Combine(world.NewStorage, "other", "note.txt")));
         Assert.Equal(world.OldStorage, await world.SavedRootAsync());
+        Assert.Contains(world.Log.Entries, entry => entry.Level == LogLevel.Warning && entry.Message.Contains("stays where it is", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -226,15 +372,32 @@ public class LegacyLocalDataTests
         Assert.True(File.Exists(Path.Combine(world.OldStorage, "stray", "note.txt")));
     }
 
+    private static void CopyTree(string from, string to)
+    {
+        Directory.CreateDirectory(to);
+        foreach (var directory in Directory.EnumerateDirectories(from, "*", SearchOption.AllDirectories))
+        {
+            Directory.CreateDirectory(Path.Combine(to, Path.GetRelativePath(from, directory)));
+        }
+
+        foreach (var file in Directory.EnumerateFiles(from, "*", SearchOption.AllDirectories))
+        {
+            File.Copy(file, Path.Combine(to, Path.GetRelativePath(from, file)));
+        }
+    }
+
     // A backend whose platform answers with the folders an earlier build used until Upgrade, then with the new ones.
     private sealed class World : IDisposable
     {
         private bool _upgraded;
 
-        public World()
+        // afterSettings runs inside every settings write the startup check makes for a storage root.
+        public World(Action<string>? afterSettings = null)
         {
-            Workspace = new BackendWorkspace(options => options with { Platform = PlatformFor(options) });
+            Workspace = new BackendWorkspace(options => options with { Platform = PlatformFor(options), Log = Log, AfterRelocationSettings = afterSettings });
         }
+
+        public RecordingDiagnosticLog Log { get; } = new();
 
         public BackendWorkspace Workspace { get; }
 
