@@ -28,16 +28,13 @@ internal sealed class AppStatusApi : IAppStatusApi
             async () =>
             {
                 // Before anything builds the storage for the settings' folder, so the move is what the rest of the check sees.
-                var held = await LegacyLocalData.MoveAsync(_services, _afterSettings, cancellationToken).ConfigureAwait(false);
+                await LegacyLocalData.MoveAsync(_services, _afterSettings, cancellationToken).ConfigureAwait(false);
                 var git = await CheckGitAsync(cancellationToken).ConfigureAwait(false);
                 var catalog = await CheckCatalogAsync(cancellationToken).ConfigureAwait(false);
 
                 // The storage is only touched once the screens that explain a missing tool or a corrupt file are out of the way.
-                // Old history that could not be moved or kept in use is a finding too: a new default would hide it without a word.
                 var storage = git.Available && catalog.CorruptFiles.Count == 0
-                    ? held is null
-                        ? await PrepareStorageAsync(progress, cancellationToken).ConfigureAwait(false)
-                        : new StorageStatus(false, held.Args.GetValueOrDefault("path") as string ?? string.Empty, ErrorInfo.From(held))
+                    ? await PrepareStorageAsync(progress, cancellationToken).ConfigureAwait(false)
                     : null;
 
                 return new StartupStatus(git, catalog, storage);
@@ -429,7 +426,8 @@ internal sealed class AppStatusApi : IAppStatusApi
         try
         {
             var settings = await _services.Catalog.GetSettingsAsync(cancellationToken).ConfigureAwait(false);
-            var firstRun = string.IsNullOrWhiteSpace(settings?.StorageRoot);
+            // A folder in use for this run alone is not a first run: its history is there, and nothing is written for it.
+            var firstRun = string.IsNullOrWhiteSpace(settings?.StorageRoot) && _services.Storage.RootOverride is null;
             var storage = await _services.Storage.GetAsync(cancellationToken).ConfigureAwait(false);
             if (firstRun)
             {
