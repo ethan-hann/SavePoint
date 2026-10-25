@@ -173,11 +173,13 @@ internal sealed class ComposedApp : IDisposable
 
     public InputElement? Focused => Window.FocusManager?.GetFocusedElement() as InputElement;
 
-    public string Render(string area, string name)
+    public string Render(string area, string name) => RenderTo(Path.Combine(RenderFolder(area), name + ".png"));
+
+    public string RenderTo(string path)
     {
         Settle();
         SettleAnimations();
-        return ThemeTestSupport.SaveFrame(Window, Path.Combine(RenderFolder(area), name + ".png"));
+        return ThemeTestSupport.SaveFrame(Window, path);
     }
 
     public void Dispose()

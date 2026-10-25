@@ -4,6 +4,7 @@
 # (the reports are in artifacts/test-results) with:
 #   dotnet run --project tools/SkipCheck -c Release --no-build -- --reports artifacts/test-results --expected build/expected-skips/linux-ci.txt --write
 
+Savepoint.App.Tests.Features.DocScreenshots.DocScreenshotTests.Redraws_every_image_in_docs_images
 Savepoint.App.Tests.Features.EndToEnd.RealBackend.FileInUseJourneyTests.A_file_another_program_holds_fails_the_first_snapshot_by_name_and_Try_again_finishes_it_once_it_is_released
 Savepoint.App.Tests.Features.EndToEnd.RealBackend.FileInUseJourneyTests.A_file_another_program_holds_fails_the_switch_by_name_and_Try_again_finishes_it_once_it_is_released
 Savepoint.App.Tests.Platform.NativeShellItemSelectorTests.The_shell_gives_nothing_for_a_file_that_is_not_there

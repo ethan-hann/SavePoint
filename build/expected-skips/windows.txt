@@ -4,6 +4,7 @@
 #   dotnet run --project tools/SkipCheck -c Release --no-build -- --reports artifacts/test-results --expected build/expected-skips/windows.txt --write
 # Machine-dependent entries: RealPathHostTests (8.3 names are off on the dev volume) and WindowsFinalPathTests (no volume is mounted in a folder).
 
+Savepoint.App.Tests.Features.DocScreenshots.DocScreenshotTests.Redraws_every_image_in_docs_images
 Savepoint.App.Tests.Platform.DBusNotificationBusTests.A_bus_with_no_notification_service_answers_with_an_error_and_the_service_skips_the_notification
 Savepoint.App.Tests.Platform.DBusNotificationBusTests.A_second_notification_reuses_the_connection_of_the_first
 Savepoint.App.Tests.Platform.DBusNotificationBusTests.Every_field_arrives_in_a_real_Notify_call
