@@ -5,6 +5,7 @@ using Savepoint.Core.Platform.Linux;
 using Savepoint.Core.Platform.MacOS;
 using Savepoint.Core.Platform.Windows;
 using Savepoint.Core.Tests.Paths;
+using Savepoint.Core.Tests.Services.Exe;
 
 namespace Savepoint.Core.Tests.Platform;
 
@@ -102,6 +103,78 @@ public class ProcessInspectorTests
         var processes = new LinuxProcessInspector(proc).List();
 
         Assert.Equal([100], processes.Select(p => p.Pid));
+    }
+
+    [Fact]
+    public void Linux_reads_the_parent_and_the_start_time_from_the_stat_line_after_the_last_bracket()
+    {
+        using var tree = new TempTree();
+        var proc = tree.Dir("proc");
+        File.WriteAllText(Path.Combine(proc, "stat"), "cpu  1 2 3\nbtime 1000\nprocesses 5\n");
+        FakeProcess(proc, "100", "a) S (b\n", "game\0", "100 (a) S (b) S 42 100 100 0 -1 4210688 0 0 0 0 0 0 0 0 20 0 1 0 250 0 0\n");
+
+        var process = Assert.Single(new LinuxProcessInspector(proc).List());
+
+        Assert.Equal(42, process.ParentPid);
+        Assert.Equal(DateTimeOffset.FromUnixTimeMilliseconds(1_002_500), process.StartedAt);
+    }
+
+    [Fact]
+    public void Linux_orders_start_times_even_when_the_boot_time_cannot_be_read()
+    {
+        using var tree = new TempTree();
+        var proc = tree.Dir("proc");
+        FakeProcess(proc, "100", "old\n", "old\0", "100 (old) S 1 100 100 0 -1 4210688 0 0 0 0 0 0 0 0 20 0 1 0 250 0 0\n");
+        FakeProcess(proc, "101", "new\n", "new\0", "101 (new) S 100 101 101 0 -1 4210688 0 0 0 0 0 0 0 0 20 0 1 0 251 0 0\n");
+
+        var processes = new LinuxProcessInspector(proc).List().ToDictionary(p => p.Pid);
+
+        Assert.True(processes[100].StartedAt < processes[101].StartedAt);
+        Assert.Equal(100, processes[101].ParentPid);
+    }
+
+    [Fact]
+    public void Linux_leaves_the_parent_and_start_time_empty_for_a_stat_line_it_cannot_read()
+    {
+        using var tree = new TempTree();
+        var proc = tree.Dir("proc");
+        FakeProcess(proc, "100", "game\n", "game\0", "100 (game) S\n");
+
+        var process = Assert.Single(new LinuxProcessInspector(proc).List());
+
+        Assert.Null(process.ParentPid);
+        Assert.Null(process.StartedAt);
+    }
+
+    [Fact]
+    public async Task A_real_child_is_listed_with_this_process_as_its_parent_and_a_start_time_after_this_process_started()
+    {
+        using var child = FakeGameProcess.Start();
+        await FakeGameProcess.WaitUntilAsync(() => Find(child.Id) is not null);
+
+        var listed = Find(child.Id);
+        using var self = Process.GetCurrentProcess();
+
+        Assert.NotNull(listed);
+        if (OperatingSystem.IsMacOS())
+        {
+            Assert.Null(listed.ParentPid);
+            Assert.Null(listed.StartedAt);
+            return;
+        }
+
+        Assert.Equal(Environment.ProcessId, listed.ParentPid);
+        Assert.NotNull(listed.StartedAt);
+        Assert.True(listed.StartedAt >= self.StartTime.ToUniversalTime().AddSeconds(-1), $"started at {listed.StartedAt:O}");
+        Assert.True(listed.StartedAt <= DateTimeOffset.UtcNow.AddSeconds(1), $"started at {listed.StartedAt:O}");
+    }
+
+    private static RunningProcess? Find(int pid)
+    {
+        IProcessInspector inspector = OperatingSystem.IsWindows() ? new WindowsProcessInspector()
+            : OperatingSystem.IsMacOS() ? new MacOSProcessInspector()
+            : new LinuxProcessInspector();
+        return inspector.List().FirstOrDefault(p => p.Pid == pid);
     }
 
     [Fact]

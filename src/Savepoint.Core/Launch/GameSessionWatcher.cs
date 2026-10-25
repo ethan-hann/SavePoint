@@ -10,7 +10,9 @@ namespace Savepoint.Core.Launch;
 /// <see cref="GameSessionOptions.Grace"/> from the stub's exit to appear. The list is read from the moment the watcher starts, so
 /// a game seen while the stub was still alive needs no grace. The started program itself never counts as that game, even under the
 /// same name: a game that exits within <see cref="GameSessionOptions.RelaunchWindow"/> of starting and asks its store to start it again
-/// has the grace to come back as a new process, while one that ran longer and is gone was quit and ends the session at once. A link has no program, so it is poll-only and best effort, and with no
+/// has the grace to come back as a new process, while one that ran longer and is gone was quit and ends the session at once. A starter
+/// whose real game is a process it started itself (directly or through others, see <see cref="ProcessFamily"/>) is followed through those
+/// processes while any of them runs, under whatever name they have; the session then ends when the last one does. A link has no program, so it is poll-only and best effort, and with no
 /// process name it can only be ended by <see cref="MarkFinished"/>.
 /// </para>
 /// <para>
@@ -29,6 +31,7 @@ public sealed class GameSessionWatcher : IDisposable
     private readonly TimeProvider _clock;
     private readonly Task _loop;
     private readonly SortedSet<int> _followed = [];
+    private readonly ProcessFamily _family = new();
     private bool _disposed;
     private bool _childReleased;
 
@@ -169,19 +172,23 @@ public sealed class GameSessionWatcher : IDisposable
             // leaves a same-named process behind only by being the one that was started.
             var look = _check.Look(name, _child?.Pid);
             var state = look.State;
-            observed |= state == NamedProcessState.Running;
+            // A starter whose real game is a process it started itself ends the session when that process does, whatever it is called.
+            var descendants = look.Listed is null ? [] : _family.Update(look.Listed, _child?.Pid, !childGone, look.Others ?? []);
+            var following = childGone && descendants.Count > 0;
+            observed |= state == NamedProcessState.Running || following;
             readable |= childGone && state != NamedProcessState.Unknown;
             selfSeen |= look.IgnoredMatched;
-            if (look.OtherPids.Count > 0)
+            if (look.OtherPids.Count > 0 || descendants.Count > 0)
             {
                 lock (_gate)
                 {
                     _followed.UnionWith(look.OtherPids);
+                    _followed.UnionWith(descendants);
                 }
             }
 
             // The program's own exit is always needed; the named process only lengthens the wait after it.
-            if (childGone && state != NamedProcessState.Running)
+            if (childGone && state != NamedProcessState.Running && !following)
             {
                 var deadline = graceFrom + _options.Grace;
                 if (observed && state == NamedProcessState.Absent)
