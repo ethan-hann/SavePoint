@@ -14,6 +14,9 @@ public sealed partial class GameEditorViewModel
     // Folders the Api said were never confirmed, which are asked about again whatever else is true of them.
     private readonly HashSet<RepoRole> _unconfirmed = [];
 
+    // What the Api said about rules it left off when it added the new game; null when it said nothing or the game came from the reconnect question.
+    private RulesLeftOff? _leftOff;
+
     [RelayCommand(CanExecute = nameof(CanSave))]
     private async Task SaveAsync()
     {
@@ -71,12 +74,15 @@ public sealed partial class GameEditorViewModel
     }
 
     // A new game is saved without a default rule that would leave out files its saves folder already holds; the player is told which.
+    // The Api says why when it added the game; after the reconnect question it only returns the game, so the default rules that are
+    // missing from it are the ones left off, and they were left off because the folder holds such files.
     private void SayWhichRulesWereLeftOff(GameDefinition asked, GameDefinition saved)
     {
-        var dropped = asked.IgnorePaths.Where(rule => !saved.IgnorePaths.Contains(rule)).ToList();
-        if (dropped.Count > 0)
+        var left = _leftOff ?? new RulesLeftOff([.. asked.IgnorePaths.Where(rule => RunTimeOutput.DefaultRules.Contains(rule) && !saved.IgnorePaths.Contains(rule))], SavesHoldFiles: true);
+        if (left.Rules.Count > 0)
         {
-            _toasts.Show(new ToastMessage(_text.Message("gameEditor.ignorePaths.savesKept", ("count", dropped.Count), ("rules", string.Join(", ", dropped))), ToastKind.Info));
+            var key = left.SavesHoldFiles ? "gameEditor.ignorePaths.savesKept" : "gameEditor.ignorePaths.savesUnchecked";
+            _toasts.Show(new ToastMessage(_text.Message(key, ("count", left.Rules.Count), ("rules", string.Join(", ", left.Rules))), ToastKind.Info));
         }
     }
 
@@ -101,6 +107,7 @@ public sealed partial class GameEditorViewModel
     // Null when the user backed out of the question that adding can raise.
     private async Task<OperationResult<GameDefinition>?> AddNewAsync(GameDefinition definition)
     {
+        _leftOff = null;
         var added = await _games.AddAsync(definition);
         if (!added.Ok)
         {
@@ -109,10 +116,16 @@ public sealed partial class GameEditorViewModel
 
         return added.Value switch
         {
-            AddGameOutcome.Added game => OperationResult.Success(game.Game),
+            AddGameOutcome.Added game => Remember(game),
             AddGameOutcome.HistoryFound found => await ResolveHistoryAsync(definition, found.History),
             _ => null,
         };
+    }
+
+    private OperationResult<GameDefinition> Remember(AddGameOutcome.Added added)
+    {
+        _leftOff = added.LeftOff;
+        return OperationResult.Success(added.Game);
     }
 
     // Old history at these folders is a question, not an error: bring its profiles back, or start without them.

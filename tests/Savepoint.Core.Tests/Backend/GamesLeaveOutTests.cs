@@ -1,28 +1,40 @@
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Git;
+using Savepoint.Core.Launch.Orchestration;
 
 namespace Savepoint.Core.Tests.Backend;
 
-// A rule that leaves out logs or crash dumps must never leave out a file of the saves folder, whether the rule is a new game's default
-// or one offered after play.
+// A game-wide rule for logs or crash dumps also reaches the saves folder, so it is never saved with a game whose saves it would hide,
+// whatever profile holds them. Rules for the game's own folder only are never asked about, since they cannot reach the saves.
 public class GamesLeaveOutTests
 {
+    private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
     private static void Write(GameDefinition game, string relativePath) =>
         BackendWorkspace.WriteFile(Path.Combine(game.External!.Path, relativePath), "kept");
 
+    private static async Task<AddGameOutcome.Added> AddAsync(BackendWorkspace workspace, GameDefinition game)
+    {
+        var added = await workspace.Games.AddAsync(game);
+        Assert.True(added.Ok, added.Error?.Detail);
+        return Assert.IsType<AddGameOutcome.Added>(added.Value);
+    }
+
     [Fact]
-    public async Task A_new_game_drops_the_default_rules_that_would_leave_out_files_in_its_saves_folder()
+    public async Task A_new_game_leaves_off_the_game_wide_default_rules_that_would_hide_files_in_its_saves_folder()
     {
         using var workspace = new BackendWorkspace();
         var game = workspace.NewGame() with { IgnorePaths = RunTimeOutput.DefaultRules };
         Write(game, "profile/player.log");
 
-        var added = await workspace.AddGameAsync(game);
+        var added = await AddAsync(workspace, game);
 
-        Assert.Equal(["**/*.dmp", "**/*.mdmp"], added.IgnorePaths);
-        var stored = (await workspace.Games.ListAsync(workspace.Token)).Value!.Single(listed => listed.Id == game.Id);
+        Assert.Equal(["**/*.dmp", "**/*.mdmp"], added.Game.IgnorePaths);
+        Assert.Equal(new RulesLeftOff(["**/*.log"], SavesHoldFiles: true), added.LeftOff);
+        var stored = (await workspace.Games.ListAsync(Ct)).Value!.Single(listed => listed.Id == game.Id);
         Assert.Equal(["**/*.dmp", "**/*.mdmp"], stored.IgnorePaths);
-        var preview = (await workspace.Games.GetCapturePreviewAsync(game.Id, workspace.Token)).Value!.Folders.Single(folder => folder.Role == RepoRole.External);
+        var preview = (await workspace.Games.GetCapturePreviewAsync(game.Id, Ct)).Value!.Folders.Single(folder => folder.Role == RepoRole.External);
         Assert.Equal(2, preview.FileCount);
     }
 
@@ -32,9 +44,10 @@ public class GamesLeaveOutTests
         using var workspace = new BackendWorkspace();
         var game = workspace.NewGame() with { IgnorePaths = [.. RunTimeOutput.DefaultRules, "Saves/*.tmp"] };
 
-        var added = await workspace.AddGameAsync(game);
+        var added = await AddAsync(workspace, game);
 
-        Assert.Equal(["**/*.log", "**/*.dmp", "**/*.mdmp", "Saves/*.tmp"], added.IgnorePaths);
+        Assert.Equal(["**/*.log", "**/*.dmp", "**/*.mdmp", "Saves/*.tmp"], added.Game.IgnorePaths);
+        Assert.Null(added.LeftOff);
     }
 
     [Fact]
@@ -44,9 +57,10 @@ public class GamesLeaveOutTests
         var game = workspace.NewGame() with { IgnorePaths = ["**/*.sav.bak"] };
         Write(game, "slot1.sav.bak");
 
-        var added = await workspace.AddGameAsync(game);
+        var added = await AddAsync(workspace, game);
 
-        Assert.Equal(["**/*.sav.bak"], added.IgnorePaths);
+        Assert.Equal(["**/*.sav.bak"], added.Game.IgnorePaths);
+        Assert.Null(added.LeftOff);
     }
 
     [Fact]
@@ -55,82 +69,87 @@ public class GamesLeaveOutTests
         using var workspace = new BackendWorkspace();
         var game = workspace.NewGame(withSaves: false) with { IgnorePaths = RunTimeOutput.DefaultRules };
 
-        var added = await workspace.AddGameAsync(game);
+        var added = await AddAsync(workspace, game);
 
-        Assert.Equal(RunTimeOutput.DefaultRules, added.IgnorePaths);
+        Assert.Equal(RunTimeOutput.DefaultRules, added.Game.IgnorePaths);
+        Assert.Null(added.LeftOff);
     }
 
     [Fact]
-    public async Task Asking_about_rules_names_the_safe_ones_and_the_files_the_others_would_leave_out()
+    public async Task Rules_for_the_games_own_folder_are_kept_and_the_saves_folder_is_not_even_looked_at()
     {
-        using var workspace = new BackendWorkspace();
-        var game = await workspace.AddGameAsync();
-        Write(game, "crash.dmp");
+        var looked = 0;
+        using var workspace = new BackendWorkspace(options => options with { Engine = new GitEngineOptions { InvocationObserver = invocation => CountWalks(invocation, ref looked) } });
+        var game = workspace.NewGame() with { InstallIgnorePaths = RunTimeOutput.DefaultRules };
         Write(game, "profile/player.log");
+        Interlocked.Exchange(ref looked, 0);
 
-        var check = (await workspace.Games.CheckLeaveOutAsync(game.Id, RunTimeOutput.DefaultRules, workspace.Token)).Value!;
+        var added = await AddAsync(workspace, game);
 
-        Assert.Equal(["**/*.mdmp"], check.Safe);
-        Assert.Equal(["**/*.log", "**/*.dmp"], check.Blocked.Select(blocked => blocked.Rule));
-        Assert.Equal(["profile/player.log"], check.Blocked[0].Files);
-        Assert.Equal(["crash.dmp"], check.Blocked[1].Files);
+        Assert.Equal(RunTimeOutput.DefaultRules, added.Game.InstallIgnorePaths);
+        Assert.Empty(added.Game.IgnorePaths);
+        Assert.Null(added.LeftOff);
+        Assert.Equal(0, Volatile.Read(ref looked));
     }
 
-    [Fact]
-    public async Task A_save_the_game_already_recorded_blocks_a_rule_too()
+    private static void CountWalks(GitInvocation invocation, ref int count)
     {
-        using var workspace = new BackendWorkspace();
-        var game = workspace.NewGame();
-        Write(game, "journal.log");
-        game = await workspace.AddGameAsync(game);
-        await workspace.CreateProfileAsync(game, "Vanilla");
-
-        var check = (await workspace.Games.CheckLeaveOutAsync(game.Id, ["**/*.log"], workspace.Token)).Value!;
-
-        Assert.Empty(check.Safe);
-        Assert.Equal(["journal.log"], Assert.Single(check.Blocked).Files);
-    }
-
-    [Fact]
-    public async Task Only_a_few_names_are_given_for_a_rule_that_matches_many_files()
-    {
-        using var workspace = new BackendWorkspace();
-        var game = await workspace.AddGameAsync();
-        for (var i = 0; i < 9; i++)
+        if (invocation.Arguments.Contains("-o") && invocation.Arguments.Contains("-i"))
         {
-            Write(game, $"logs/{i}.log");
+            Interlocked.Increment(ref count);
         }
-
-        var check = (await workspace.Games.CheckLeaveOutAsync(game.Id, ["**/*.log"], workspace.Token)).Value!;
-
-        Assert.Equal(RuleBlocked.Sample, Assert.Single(check.Blocked).Files.Count);
     }
 
     [Fact]
-    public async Task A_game_with_no_saves_folder_or_a_missing_one_blocks_nothing()
+    public async Task A_file_only_another_profile_recorded_still_keeps_the_rule_off_after_the_history_is_reconnected()
     {
-        using var workspace = new BackendWorkspace();
-        var bare = await workspace.AddGameAsync(workspace.NewGame(withSaves: false));
-        var gone = await workspace.AddGameAsync(workspace.NewGame("Beta"));
-        Directory.Delete(gone.External!.Path, recursive: true);
-
-        Assert.Equal(["**/*.log"], (await workspace.Games.CheckLeaveOutAsync(bare.Id, ["**/*.log"], workspace.Token)).Value!.Safe);
-        Assert.Equal(["**/*.log"], (await workspace.Games.CheckLeaveOutAsync(gone.Id, ["**/*.log"], workspace.Token)).Value!.Safe);
-    }
-
-    [Fact]
-    public async Task Asking_about_an_unknown_game_fails_and_asking_changes_nothing()
-    {
-        using var workspace = new BackendWorkspace();
+        using var workspace = new BackendWorkspace(options => options with { Launch = LaunchOrchestrator.Factory(new LaunchOrchestratorOptions()) });
         var game = await workspace.AddGameAsync();
-        Write(game, "a.log");
+        var (first, _) = await workspace.CreateProfileAsync(game, "A");
+        Write(game, "journal.log");
+        await workspace.CreateProfileAsync(game, "B");
 
-        var unknown = await workspace.Games.CheckLeaveOutAsync("nope", ["**/*.log"], workspace.Token);
-        await workspace.Games.CheckLeaveOutAsync(game.Id, ["**/*.log"], workspace.Token);
+        // Back on profile A, whose point has no journal.log: only profile B's newest point holds it.
+        var switched = await workspace.Backend.Launch.SwitchAsync(game.Id, new LaunchTarget.ProfileTip(first.Id));
+        Assert.True(switched.Ok, switched.Error?.Detail);
+        Assert.Equal(JobStatus.Succeeded, (await workspace.WaitForJobAsync(switched.Value.JobId)).Status);
+        Assert.False(File.Exists(Path.Combine(game.External!.Path, "journal.log")));
+        File.Delete(Path.Combine(workspace.CatalogDirectory, CatalogStore.GamesFileName));
+        File.Delete(Path.Combine(workspace.CatalogDirectory, CatalogStore.ProfilesFileName));
+        workspace.Restart();
 
-        Assert.Equal("error.game.notFound", unknown.Error?.MessageId);
-        Assert.Empty((await workspace.Games.ListAsync(workspace.Token)).Value!.Single().IgnorePaths);
-        var preview = (await workspace.Games.GetCapturePreviewAsync(game.Id, workspace.Token)).Value!.Folders.Single(folder => folder.Role == RepoRole.External);
-        Assert.Equal(2, preview.FileCount);
+        var resolved = await workspace.Games.ResolveOrphanAsync(
+            game with { Id = "alpha-again", IgnorePaths = RunTimeOutput.DefaultRules },
+            new OrphanResolution.Reconnect(game.Id, [new RecoveredProfile(first.BranchName, "A")]));
+
+        Assert.True(resolved.Ok, resolved.Error?.Detail);
+        Assert.Equal(["**/*.dmp", "**/*.mdmp"], resolved.Value.IgnorePaths);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task When_the_saves_folder_cannot_be_checked_the_game_is_still_added_without_the_rules_and_says_it_could_not_check(bool unauthorized)
+    {
+        using var workspace = new BackendWorkspace(options => options with
+        {
+            Engine = new GitEngineOptions
+            {
+                InvocationObserver = invocation =>
+                {
+                    if (invocation.Arguments.Contains("-o") && invocation.Arguments.Contains("-i"))
+                    {
+                        throw unauthorized ? new UnauthorizedAccessException("denied") : new IOException("the drive went away");
+                    }
+                },
+            },
+        });
+        var game = workspace.NewGame() with { IgnorePaths = [.. RunTimeOutput.DefaultRules, "Saves/*.tmp"] };
+
+        var added = await AddAsync(workspace, game);
+
+        Assert.Equal(["Saves/*.tmp"], added.Game.IgnorePaths);
+        Assert.Equal(new RulesLeftOff(RunTimeOutput.DefaultRules, SavesHoldFiles: false), added.LeftOff);
+        Assert.Equal(["Saves/*.tmp"], (await workspace.Games.ListAsync(Ct)).Value!.Single().IgnorePaths);
     }
 }

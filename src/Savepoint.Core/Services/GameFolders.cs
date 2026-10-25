@@ -62,11 +62,11 @@ internal static class GameFolders
     /// token cannot be resolved still gets a reference, with a work tree inside the game's storage folder that nothing reads.
     /// </summary>
     public static IReadOnlyList<RepoRef> ReposForGitDirOnly(BackendServices services, StorageSnapshot storage, GameDefinition game) =>
-        [.. ResolveLoosely(services.PathTokens, game).Select(folder => Repo(storage, game.Id, folder) with { IgnorePatterns = game.IgnorePaths })];
+        [.. ResolveLoosely(services.PathTokens, game).Select(folder => Repo(storage, game.Id, folder) with { IgnorePatterns = game.IgnorePathsFor(folder.Role) })];
 
-    /// <summary>The repository references of a game whose folders must all resolve, install first. Each carries the game's current ignore patterns.</summary>
+    /// <summary>The repository references of a game whose folders must all resolve, install first. Each carries the ignore patterns its own folder leaves out now.</summary>
     public static IReadOnlyList<RepoRef> Repos(BackendServices services, StorageSnapshot storage, GameDefinition game) =>
-        [.. ResolveStrictly(services.PathTokens, game).Select(folder => Repo(storage, game.Id, folder) with { IgnorePatterns = game.IgnorePaths })];
+        [.. ResolveStrictly(services.PathTokens, game).Select(folder => Repo(storage, game.Id, folder) with { IgnorePatterns = game.IgnorePathsFor(folder.Role) })];
 
     private static string Unresolved(StorageSnapshot storage, string gameId, RepoRole role) =>
         Path.Combine(storage.GameDirectory(gameId), role == RepoRole.Install ? "unresolved-install" : "unresolved-external");

@@ -155,14 +155,14 @@ internal static class LibraryScanner
 
     private static string KeyOf(InstalledGame game) => $"{(game.Source == LibrarySource.Steam ? "steam" : "gog")}:{game.StoreId}";
 
-    // A game with no template is added with its install folder, a way to start it, and the rules every new game leaves logs out with.
+    // A game with no template is added with its install folder, a way to start it, and the install-only rules every new game leaves logs out with.
     private static GameDefinition Plain(InstalledGame game) => new(
         Id: CatalogIds.NewGameId(game.Name),
         Name: game.Name,
         Install: new InstallLocation(game.InstallPath),
         Launch: game.Launch,
-        IgnorePaths: RunTimeOutput.DefaultRules,
-        SteamAppId: game.SteamAppId);
+        SteamAppId: game.SteamAppId,
+        InstallIgnorePaths: RunTimeOutput.DefaultRules);
 
     private static GameDefinition FromTemplate(GameTemplate template, InstalledGame game, IPlatform platform) =>
         template.ToDraft(platform.Os) with

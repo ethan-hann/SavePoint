@@ -131,7 +131,7 @@ public sealed partial class LaunchOrchestrator
             var named = await storage.Engine.NamedByAmongAsync(install, rules, paths).ConfigureAwait(false);
             return paths.All(named.Contains) ? rules : null;
         }
-        catch (SavepointException)
+        catch (Exception e) when (e is SavepointException or IOException or UnauthorizedAccessException)
         {
             // Without git's answer the files stay an ordinary change; the count and the choices are still reported.
             return null;

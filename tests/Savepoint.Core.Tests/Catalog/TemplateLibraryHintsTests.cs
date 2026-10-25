@@ -96,7 +96,7 @@ public class TemplateLibraryHintsTests
 
         var draft = template.ToDraft(OsKind.Windows);
 
-        var expected = template.Definition with { Id = draft.Id, IgnorePaths = RunTimeOutput.DefaultRules };
+        var expected = template.Definition with { Id = draft.Id, InstallIgnorePaths = RunTimeOutput.DefaultRules };
         Assert.Equal(expected, draft);
         Assert.Equal(expected with { External = null }, template.ToDraft(OsKind.Linux) with { Id = draft.Id });
     }

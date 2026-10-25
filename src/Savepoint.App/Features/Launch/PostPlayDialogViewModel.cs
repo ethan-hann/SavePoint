@@ -160,54 +160,35 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
             return;
         }
 
-        // A rule that would leave out a file of the saves folder is never added; the player is shown which files and why.
-        var check = await _games.CheckLeaveOutAsync(_gameId, _leaveOutRules);
-        if (!check.Ok)
+        var listed = await _games.ListAsync();
+        if (!listed.Ok)
         {
-            Fail(check.Error);
+            Fail(listed.Error);
             return;
         }
 
-        var said = new List<string>();
-        if (check.Value.Safe.Count > 0)
+        var game = listed.Value.FirstOrDefault(candidate => candidate.Id == _gameId);
+        if (game is null)
         {
-            var listed = await _games.ListAsync();
-            if (!listed.Ok)
-            {
-                Fail(listed.Error);
-                return;
-            }
+            Fail(ErrorInfo.From(new GameNotFoundException(_gameId)));
+            return;
+        }
 
-            var game = listed.Value.FirstOrDefault(candidate => candidate.Id == _gameId);
-            if (game is null)
-            {
-                Fail(ErrorInfo.From(new GameNotFoundException(_gameId)));
-                return;
-            }
-
-            var updated = await _games.UpdateAsync(game with { IgnorePaths = RunTimeOutput.Merge(game.IgnorePaths, check.Value.Safe) });
+        // The rules go on the game's own folder only, so they can never leave out a save. One the game already has for both folders says the same.
+        var added = RunTimeOutput.Merge(game.InstallIgnorePaths, _leaveOutRules.Where(rule => !game.IgnorePaths.Contains(rule)));
+        if (added.Count != game.InstallIgnorePaths.Count)
+        {
+            var updated = await _games.UpdateAsync(game with { InstallIgnorePaths = added });
             if (!updated.Ok)
             {
                 Fail(updated.Error);
                 return;
             }
-
-            said.Add(_text.Message("launch.postPlay.leaveOutDone"));
-        }
-
-        if (check.Value.Blocked.Count > 0)
-        {
-            var files = check.Value.Blocked.SelectMany(blocked => blocked.Files).Distinct(StringComparer.Ordinal).Take(RuleBlocked.Sample);
-            said.Add(_text.Message(
-                "launch.postPlay.leaveOutKept",
-                ("count", check.Value.Blocked.Count),
-                ("rules", string.Join(", ", check.Value.Blocked.Select(blocked => blocked.Rule))),
-                ("files", string.Join(", ", files))));
         }
 
         _leaveOutDone = true;
         OnPropertyChanged(nameof(HasLeaveOut));
-        LeaveOutResult = string.Join(' ', said);
+        LeaveOutResult = _text.Message("launch.postPlay.leaveOutDone");
     }
 
     // The dialog may be gone by the time this ends; a failure then is a message, not a line nobody will read.

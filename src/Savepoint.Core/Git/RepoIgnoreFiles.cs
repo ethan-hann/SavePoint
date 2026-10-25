@@ -26,6 +26,14 @@ internal static class RepoIgnoreFiles
     // last: in a gitignore file the last matching line wins, so no game pattern can re-include the marker.
     public static IReadOnlyList<string> ExcludeLines(IEnumerable<string> patterns)
     {
+        List<string> lines = [.. PatternLines(patterns)];
+        lines.Add("/" + ConsentMarker.ExcludePattern);
+        return lines;
+    }
+
+    // The non-empty patterns as they are, for a question that asks only about them and so carries no marker line.
+    public static IReadOnlyList<string> PatternLines(IEnumerable<string> patterns)
+    {
         var lines = new List<string>();
         foreach (var pattern in patterns)
         {
@@ -42,7 +50,6 @@ internal static class RepoIgnoreFiles
             lines.Add(pattern);
         }
 
-        lines.Add("/" + ConsentMarker.ExcludePattern);
         return lines;
     }
 

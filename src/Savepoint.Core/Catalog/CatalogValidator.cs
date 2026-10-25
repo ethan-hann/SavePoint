@@ -36,6 +36,7 @@ public static partial class CatalogValidator
                 ProcessNameForExitDetection = TrimToNull(launch.ProcessNameForExitDetection),
             },
             IgnorePaths = CleanEntries(game.IgnorePaths),
+            InstallIgnorePaths = CleanEntries(game.InstallIgnorePaths),
             ModPathHints = CleanEntries(game.ModPathHints),
         };
     }

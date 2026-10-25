@@ -2,7 +2,9 @@ namespace Savepoint.Core.Catalog;
 
 /// <summary>
 /// The kinds of file a game or its mod loader writes while it runs and that are never part of the game or a mod: logs and crash dumps.
-/// New games leave them out by default, and the after-play dialog uses the same rules to tell a changed log from a changed game.
+/// New games leave them out of the install folder by default (<see cref="GameDefinition.InstallIgnorePaths"/>), and the after-play dialog
+/// uses the same rules to tell a changed log from a changed game. They are never default rules for the saves folder: a game may write its
+/// own log file there (Unity's Player.log lives in the folder many games save to).
 /// </summary>
 public static class RunTimeOutput
 {
@@ -15,7 +17,7 @@ public static class RunTimeOutput
         (".mdmp", "**/*.mdmp"),
     ];
 
-    /// <summary>The leave-out rules a new game starts with, in the order they show.</summary>
+    /// <summary>The leave-out rules a new game starts with for its install folder, in the order they show.</summary>
     public static IReadOnlyList<string> DefaultRules { get; } = [.. _kinds.Select(kind => kind.Rule)];
 
     /// <summary>Whether a file's name is one of the run-time output kinds the default rules name.</summary>

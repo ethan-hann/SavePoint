@@ -140,8 +140,12 @@ public class GamesLibraryTests : IDisposable
 
         var games = (await Games.ScanLibrariesAsync(_workspace.Token)).Value!.Games;
 
-        Assert.Equal(["**/*.log", "SKSE/Plugins/*.log", "**/Crash Logs/**", "**/*.dmp", "**/*.mdmp"], games.Single(game => game.TemplateId == "skyrim-se").Draft.IgnorePaths);
-        Assert.Equal(["**/*.log", "**/*.dmp", "**/*.mdmp"], games.Single(game => game.TemplateId is null).Draft.IgnorePaths);
+        var templated = games.Single(game => game.TemplateId == "skyrim-se").Draft;
+        var plain = games.Single(game => game.TemplateId is null).Draft;
+        Assert.Equal(["**/*.log", "SKSE/Plugins/*.log", "**/Crash Logs/**"], templated.IgnorePaths);
+        Assert.Equal(["**/*.dmp", "**/*.mdmp"], templated.InstallIgnorePaths);
+        Assert.Empty(plain.IgnorePaths);
+        Assert.Equal(["**/*.log", "**/*.dmp", "**/*.mdmp"], plain.InstallIgnorePaths);
     }
 
     [Fact]

@@ -324,7 +324,8 @@ public class GameEditorViewTests
         }
 
         Assert.Equal("How to start the game", AutomationProperties.GetName(harness.Find<ListBox>("LaunchChoiceList")));
-        Assert.Equal("Files to leave out", AutomationProperties.GetName(harness.Find<ContentControl>("IgnoreRulesHost").GetVisualDescendants().OfType<ItemsControl>().First()));
+        Assert.Equal("Files to leave out of both folders", AutomationProperties.GetName(harness.Find<ContentControl>("IgnoreRulesHost").GetVisualDescendants().OfType<ItemsControl>().First()));
+        Assert.Equal("Files to leave out of the game's own folder", AutomationProperties.GetName(harness.Find<ContentControl>("InstallIgnoreRulesHost").GetVisualDescendants().OfType<ItemsControl>().First()));
         Assert.True(harness.All<Button>().Where(button => button.Classes.Contains("icon")).Any());
     }
 
@@ -336,8 +337,10 @@ public class GameEditorViewTests
 
         var texts = harness.All<TextBlock>().Where(block => block.IsEffectivelyVisible).Select(block => block.Text).ToList();
 
-        Assert.Contains("FILES TO LEAVE OUT", texts);
-        Assert.Contains("SavePoint never copies or replaces files that match these rules, such as logs. Use * for any name and ** for any folder. Don't add a rule that matches your saves, or profiles stop switching them.", texts);
+        Assert.Contains("FILES TO LEAVE OUT OF BOTH FOLDERS", texts);
+        Assert.Contains("SavePoint never copies or replaces files that match these rules, in the game's own folder or in your saves folder. Use * for any name and ** for any folder. Don't add a rule that matches your saves, or profiles stop switching them.", texts);
+        Assert.Contains("FILES TO LEAVE OUT OF THE GAME'S OWN FOLDER", texts);
+        Assert.Contains("SavePoint never copies or replaces files in the game's own folder that match these rules, such as logs and crash reports. They never reach your saves folder. Use * for any name and ** for any folder.", texts);
     }
 
     [AvaloniaFact]

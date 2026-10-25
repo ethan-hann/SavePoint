@@ -17,17 +17,38 @@ public class GameEditorFormTests
         Assert.Equal(string.Empty, editor.InstallPath);
         Assert.Equal(string.Empty, editor.SavesPath);
         Assert.Equal(0, editor.LaunchChoice);
-        Assert.Equal(["**/*.log", "**/*.dmp", "**/*.mdmp"], editor.IgnoreRules.Values);
+        Assert.Empty(editor.IgnoreRules.Values);
+        Assert.Equal(["**/*.log", "**/*.dmp", "**/*.mdmp"], editor.InstallIgnoreRules.Values);
         Assert.False(editor.CanSave);
     }
 
     [Fact]
-    public void A_new_game_says_in_plain_words_why_logs_and_crash_reports_are_left_out()
+    public void A_new_game_says_in_plain_words_why_logs_and_crash_reports_are_left_out_of_its_own_folder()
     {
         var editor = EditorRig.Create().New();
 
         Assert.True(editor.HasDefaultRulesNote);
-        Assert.Equal("New games leave out logs and crash reports. A game rewrites them every time it runs, so without these rules SavePoint would take them for a game update. Remove a rule to keep those files in your snapshots.", editor.DefaultRulesNote);
+        Assert.Equal("New games leave out logs and crash reports from the game's own folder. A game rewrites them while it runs, so without these rules SavePoint would take them for a game update. They never apply to your saves folder. Remove a rule to keep those files in your snapshots.", editor.DefaultRulesNote);
+    }
+
+    [Fact]
+    public void Both_lists_say_which_folders_they_reach()
+    {
+        var editor = EditorRig.Create().New();
+
+        Assert.Equal("Files to leave out of the game's own folder", editor.InstallIgnoreRules.GroupName);
+        Assert.Equal("Files to leave out of both folders", editor.IgnoreRules.GroupName);
+    }
+
+    [Fact]
+    public void Removing_a_default_install_rule_makes_the_form_dirty()
+    {
+        var editor = EditorRig.Create().New();
+        Assert.False(editor.IsDirty);
+
+        editor.InstallIgnoreRules.Items[0].Remove.Execute(null);
+
+        Assert.True(editor.IsDirty);
     }
 
     [Fact]
@@ -61,7 +82,7 @@ public class GameEditorFormTests
 
         var editor = rig.New(rig.Backend.Games.Templates[0].ToDraft());
 
-        Assert.Equal(RunTimeOutput.DefaultRules, editor.IgnoreRules.Values.Where(RunTimeOutput.DefaultRules.Contains));
+        Assert.Equal(RunTimeOutput.DefaultRules.Order(), editor.InstallIgnoreRules.Values.Concat(editor.IgnoreRules.Values).Where(RunTimeOutput.DefaultRules.Contains).Distinct().Order());
         Assert.False(editor.HasDefaultRulesNote);
     }
 

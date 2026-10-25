@@ -69,6 +69,49 @@ public class GameEditorSaveTests
     }
 
     [Fact]
+    public async Task When_the_saves_folder_could_not_be_checked_the_message_does_not_claim_it_holds_such_files()
+    {
+        var rig = EditorRig.Create();
+        rig.Backend.Games.SavesCheckFails = true;
+        var editor = Filled(rig);
+        editor.IgnoreRules.SetValues(["**/*.log", "**/*.dmp"]);
+
+        await Save(rig, editor);
+
+        var toast = Assert.Single(rig.Toasts.Toasts);
+        Assert.Equal("The rules **/*.log, **/*.dmp were left off because SavePoint could not look in your saves folder to be sure it would keep your saves. You can add them back under \"Files to leave out of both folders\" in Edit game.", toast.Text);
+        Assert.DoesNotContain("holds files", toast.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_new_game_keeps_the_game_wide_rule_the_player_wrote_even_when_the_saves_folder_holds_a_file_it_names()
+    {
+        var rig = EditorRig.Create();
+        rig.Backend.Games.SavesLeftOutByRule["Saves/*.tmp"] = ["Saves/a.tmp"];
+        var editor = Filled(rig);
+        editor.IgnoreRules.SetValues(["Saves/*.tmp"]);
+
+        await Save(rig, editor);
+
+        Assert.Equal(["Saves/*.tmp"], Assert.Single(FakeAssert.Ok(await rig.Backend.Games.ListAsync(TestContext.Current.CancellationToken)), game => game.Name == "Hollow Knight").IgnorePaths);
+        Assert.Empty(rig.Toasts.Toasts);
+    }
+
+    [Fact]
+    public async Task A_new_game_is_saved_with_the_default_rules_for_its_own_folder_only()
+    {
+        var rig = EditorRig.Create();
+        var editor = Filled(rig);
+        editor.IgnoreRules.SetValues([]);
+
+        await Save(rig, editor);
+
+        var saved = rig.Saved("AddAsync");
+        Assert.Empty(saved.IgnorePaths);
+        Assert.Equal(["**/*.log", "**/*.dmp", "**/*.mdmp"], saved.InstallIgnorePaths);
+    }
+
+    [Fact]
     public async Task A_new_game_that_keeps_every_rule_says_nothing_about_them()
     {
         var rig = EditorRig.Create();

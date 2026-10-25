@@ -326,7 +326,7 @@ internal sealed class CaptureRunner
         {
             CapturedAt = capture.At,
             Mode = mode,
-            IgnorePatterns = game.IgnorePaths,
+            IgnorePatterns = game.IgnorePathsFor(repo.Role),
             ExpectedStartCommit = plan?.ExpectedStartCommit,
             SkipAmendWhenUnchanged = plan?.SkipWhenClean ?? false,
         };

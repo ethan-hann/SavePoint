@@ -1,5 +1,6 @@
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Git;
 
 namespace Savepoint.Core.Tests.Launch.Orchestration;
 
@@ -70,7 +71,7 @@ public class LaunchRunTimeOutputTests
         var exited = await PlayAsync(rig, modded, game => game.WriteInstall("crloader.log", "loader started"));
         Assert.Equal(["**/*.log"], exited.LeaveOutRules);
 
-        await rig.EditGameAsync(game => game with { IgnorePaths = RunTimeOutput.Merge(game.IgnorePaths, exited.LeaveOutRules!) });
+        await rig.EditGameAsync(game => game with { InstallIgnorePaths = RunTimeOutput.Merge(game.InstallIgnorePaths, exited.LeaveOutRules!) });
 
         var status = await rig.StatusAsync(RepoRole.Install);
         Assert.Empty(status.UntrackedPaths);
@@ -94,7 +95,7 @@ public class LaunchRunTimeOutputTests
         Assert.Equal(1, exited.ChangedInstallFileCount);
         Assert.Equal(["**/*.log"], exited.LeaveOutRules);
 
-        await rig.EditGameAsync(game => game with { IgnorePaths = RunTimeOutput.Merge(game.IgnorePaths, exited.LeaveOutRules!) });
+        await rig.EditGameAsync(game => game with { InstallIgnorePaths = RunTimeOutput.Merge(game.InstallIgnorePaths, exited.LeaveOutRules!) });
 
         var status = await rig.StatusAsync(RepoRole.Install);
         Assert.Empty(status.ChangedPaths);
@@ -115,6 +116,40 @@ public class LaunchRunTimeOutputTests
         Assert.Empty((await rig.StatusAsync(RepoRole.Install)).ChangedPaths);
     }
 
+    [Theory(Timeout = 180_000)]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task When_git_cannot_be_asked_about_the_logs_the_exit_summary_still_counts_the_files_and_offers_no_rule(bool unauthorized)
+    {
+        var armed = 0;
+        using var rig = await LaunchRig.CreateAsync(configure: options => options with
+        {
+            Engine = new GitEngineOptions
+            {
+                InvocationObserver = invocation =>
+                {
+                    if (Volatile.Read(ref armed) == 1 && invocation.Arguments.Contains("--index-info"))
+                    {
+                        throw unauthorized ? new UnauthorizedAccessException("denied") : new IOException("the drive went away");
+                    }
+                },
+            },
+        });
+        var vanilla = await rig.ProfileAsync("Vanilla");
+        await rig.StartAsync(new LaunchTarget.ProfileTip(vanilla.Id));
+        await rig.WaitForGameAsync();
+        rig.WriteInstall("crloader.log", "loader started");
+        rig.WriteSave("slot9.sav", "a save");
+        Volatile.Write(ref armed, 1);
+        Assert.True((await rig.Launch.MarkFinishedAsync(rig.Game.Id)).Ok);
+
+        var exited = Assert.IsType<SessionState.Exited>((await rig.WaitForAsync<SessionState.Exited>()).State);
+
+        Assert.Equal(1, exited.ChangedInstallFileCount);
+        Assert.True(exited.NewFileCount >= 1);
+        Assert.Null(exited.LeaveOutRules);
+    }
+
     [Fact(Timeout = 180_000)]
     public async Task The_offered_rule_follows_the_folders_own_letter_case_setting()
     {
@@ -123,8 +158,10 @@ public class LaunchRunTimeOutputTests
 
         var exited = await PlayAsync(rig, modded, game => game.WriteInstall("LOUD.LOG", "shouting"));
 
-        // git matches by the folder's own setting: exact on Linux, ignoring case where the file system does.
-        IReadOnlyList<string>? expected = OperatingSystem.IsLinux() ? null : ["**/*.log"];
+        // git matches by the folder's own core.ignorecase, which is what the folder was given when it was made.
+        var config = await rig.WithEngineAsync((_, repo) => Task.FromResult(File.ReadAllText(Path.Combine(repo.GitDir, "config"))), RepoRole.Install);
+        var ignoresCase = System.Text.RegularExpressions.Regex.IsMatch(config, @"ignorecase\s*=\s*true", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        IReadOnlyList<string>? expected = ignoresCase ? ["**/*.log"] : null;
         Assert.Equal(expected, exited.LeaveOutRules);
     }
 }

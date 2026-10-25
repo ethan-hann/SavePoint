@@ -22,7 +22,9 @@ public interface IGamesApi
     /// game, in which case nothing is saved and <see cref="ResolveOrphanAsync"/> decides. Fails with
     /// <c>error.validation.invalidPayload</c> (every field problem at once), <c>error.pathSafety.tier1Blocked</c> or
     /// <c>error.pathSafety.tier2Blocked</c>, <c>error.consentMarker.conflict</c>, <c>error.gameService.pathOverlap</c>, or
-    /// <c>error.gameService.alreadyExists</c> when the id is taken.
+    /// <c>error.gameService.alreadyExists</c> when the id is taken. A game-wide rule from <see cref="RunTimeOutput.DefaultRules"/> that
+    /// would leave out a file of the saves folder (in the folder, the index, or any profile's newest point) is not saved with the game,
+    /// and <see cref="AddGameOutcome.Added.LeftOff"/> names it; so is every such rule when the check could not run.
     /// </summary>
     /// <param name="definition">The game to add, with an id the caller made (see <see cref="CatalogIds.NewGameId"/>).</param>
     Task<OperationResult<AddGameOutcome>> AddAsync(GameDefinition definition);
@@ -69,16 +71,6 @@ public interface IGamesApi
     /// <param name="confirmFolderChange">True when the user agreed to a folder that holds few of the recorded files.</param>
     /// <returns>The game as stored.</returns>
     Task<OperationResult<GameDefinition>> UpdateAsync(GameDefinition definition, bool confirmFolderChange = false);
-
-    /// <summary>
-    /// Asks which leave-out rules can be added to the game without leaving out any file of its saves folder, recorded or not. Matching is
-    /// git's own, the same a capture uses. A game with no saves folder, or whose saves folder is not there, blocks nothing. Changes nothing.
-    /// Fails with <c>error.game.notFound</c> for an unknown game.
-    /// </summary>
-    /// <param name="gameId">The game.</param>
-    /// <param name="rules">The rules to ask about.</param>
-    /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c> (D23).</param>
-    Task<OperationResult<LeaveOutCheck>> CheckLeaveOutAsync(string gameId, IReadOnlyList<string> rules, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Removes SavePoint's data for the game. Fails with <c>error.gameService.gameRunning</c> while the game has an open session

@@ -111,18 +111,20 @@ public class GameTemplatesTests
 
         Assert.Equal("the-elder-scrolls-v-skyrim-special-editi-aaaa", draft.Id);
         Assert.NotEqual(template.Id, draft.Id);
-        Assert.Equal(template.Definition with { Id = draft.Id, IgnorePaths = [.. template.Definition.IgnorePaths, "**/*.dmp", "**/*.mdmp"] }, draft);
+        Assert.Equal(template.Definition with { Id = draft.Id, InstallIgnorePaths = ["**/*.dmp", "**/*.mdmp"] }, draft);
         Assert.Equal(["install.path"], CatalogValidator.Validate(draft).Select(issue => issue.Path));
     }
 
     [Fact]
-    public void A_draft_leaves_out_logs_and_crash_dumps_without_repeating_a_rule_the_template_has()
+    public void A_draft_leaves_out_logs_and_crash_dumps_from_the_install_folder_only_without_repeating_a_rule_the_template_has()
     {
         var plain = WithSaves(@"{documents}\Game").ToDraft(OsKind.Windows, new FixedRandom());
         var skyrim = GameTemplates.All.Single(t => t.Id == "skyrim-se").ToDraft(OsKind.Windows, new FixedRandom());
 
-        Assert.Equal(["**/*.log", "**/*.dmp", "**/*.mdmp"], plain.IgnorePaths);
-        Assert.Equal(["**/*.log", "SKSE/Plugins/*.log", "**/Crash Logs/**", "**/*.dmp", "**/*.mdmp"], skyrim.IgnorePaths);
+        Assert.Empty(plain.IgnorePaths);
+        Assert.Equal(["**/*.log", "**/*.dmp", "**/*.mdmp"], plain.InstallIgnorePaths);
+        Assert.Equal(["**/*.log", "SKSE/Plugins/*.log", "**/Crash Logs/**"], skyrim.IgnorePaths);
+        Assert.Equal(["**/*.dmp", "**/*.mdmp"], skyrim.InstallIgnorePaths);
     }
 
     [Fact]
@@ -141,6 +143,7 @@ public class GameTemplatesTests
         var definition = GameTemplates.All.Single(t => t.Id == "skyrim-se").ToDraft();
 
         Assert.True(((ICollection<string>)definition.IgnorePaths).IsReadOnly);
+        Assert.True(((ICollection<string>)definition.InstallIgnorePaths).IsReadOnly);
         Assert.True(((ICollection<string>)definition.ModPathHints).IsReadOnly);
         Assert.True(((ICollection<string>)definition.Launch.Args).IsReadOnly);
     }

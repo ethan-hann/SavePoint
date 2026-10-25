@@ -21,8 +21,19 @@ public sealed class FakeGamesApi : IGamesApi
 
     private FakeState State => _backend.State;
 
-    public Task<OperationResult<IReadOnlyList<GameDefinition>>> ListAsync(CancellationToken cancellationToken = default) =>
-        _backend.Call(_api, nameof(ListAsync), [], () => OperationResult.Success<IReadOnlyList<GameDefinition>>([.. State.Games]));
+    // A test sets this to hold the next listing, as a slow drive would.
+    public Func<Task>? ListGate { get; set; }
+
+    public async Task<OperationResult<IReadOnlyList<GameDefinition>>> ListAsync(CancellationToken cancellationToken = default)
+    {
+        if (ListGate is { } gate)
+        {
+            ListGate = null;
+            await gate();
+        }
+
+        return await _backend.Call(_api, nameof(ListAsync), [], () => OperationResult.Success<IReadOnlyList<GameDefinition>>([.. State.Games]));
+    }
 
     public Task<OperationResult<AddGameOutcome>> AddAsync(GameDefinition definition) =>
         _backend.Call<AddGameOutcome>(_api, nameof(AddAsync), [definition], () =>
@@ -32,29 +43,26 @@ public sealed class FakeGamesApi : IGamesApi
                 return OperationResult.Success<AddGameOutcome>(new AddGameOutcome.HistoryFound(orphan));
             }
 
-            // Like the service, a default rule that would leave out files of the saves folder is not kept.
-            var kept = definition with { IgnorePaths = [.. definition.IgnorePaths.Where(rule => !(RunTimeOutput.DefaultRules.Contains(rule) && SavesLeftOutByRule.ContainsKey(rule)))] };
+            var (kept, leftOff) = WithoutRulesThatHideSaves(definition);
             Add(kept);
-            return OperationResult.Success<AddGameOutcome>(new AddGameOutcome.Added(kept));
+            return OperationResult.Success<AddGameOutcome>(new AddGameOutcome.Added(kept, leftOff));
         });
+
+    // Like the service, a default rule that would leave out files of the saves folder is not kept; when the check cannot run none is.
+    private (GameDefinition Game, RulesLeftOff? LeftOff) WithoutRulesThatHideSaves(GameDefinition definition)
+    {
+        var asked = definition.IgnorePaths.Where(rule => RunTimeOutput.DefaultRules.Contains(rule)).ToList();
+        var hiding = SavesCheckFails ? asked : asked.Where(SavesLeftOutByRule.ContainsKey).ToList();
+        return hiding.Count == 0
+            ? (definition, null)
+            : (definition with { IgnorePaths = [.. definition.IgnorePaths.Where(rule => !hiding.Contains(rule))] }, new RulesLeftOff(hiding, SavesHoldFiles: !SavesCheckFails));
+    }
 
     // The files of the saves folder each rule would leave out, as a test sets them; a rule not listed matches nothing.
     public Dictionary<string, IReadOnlyList<string>> SavesLeftOutByRule { get; } = [];
 
-    // A test sets this to hold a leave-out check, as a slow drive would.
-    public Func<Task>? LeaveOutGate { get; set; }
-
-    public async Task<OperationResult<LeaveOutCheck>> CheckLeaveOutAsync(string gameId, IReadOnlyList<string> rules, CancellationToken cancellationToken = default)
-    {
-        if (LeaveOutGate is { } gate)
-        {
-            await gate();
-        }
-
-        return await _backend.Call(_api, nameof(CheckLeaveOutAsync), [gameId, rules], () => OperationResult.Success(new LeaveOutCheck(
-            [.. rules.Where(rule => !SavesLeftOutByRule.ContainsKey(rule))],
-            [.. rules.Where(SavesLeftOutByRule.ContainsKey).Select(rule => new RuleBlocked(rule, SavesLeftOutByRule[rule]))])));
-    }
+    // A test sets this to make the saves check fail, as an unreadable drive would.
+    public bool SavesCheckFails { get; set; }
 
     // A test sets this to hold a scan, as a slow drive would; it may ignore the token.
     public Func<CancellationToken, Task>? ScanGate { get; set; }

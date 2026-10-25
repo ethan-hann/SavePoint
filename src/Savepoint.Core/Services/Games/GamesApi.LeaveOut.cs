@@ -7,77 +7,41 @@ namespace Savepoint.Core.Services.Games;
 
 internal sealed partial class GamesApi
 {
-    public Task<OperationResult<LeaveOutCheck>> CheckLeaveOutAsync(string gameId, IReadOnlyList<string> rules, CancellationToken cancellationToken = default) =>
-        ApiGuard.RunAsync(
-            _services.Log,
-            async () =>
-            {
-                ArgumentNullException.ThrowIfNull(rules);
-                var game = await RequireGameAsync(gameId, cancellationToken).ConfigureAwait(false);
-                return await _services.Storage.ReadAsync(storage => CheckSavesAsync(storage, game, rules, cancellationToken), cancellationToken).ConfigureAwait(false);
-            },
-            cancellationToken);
-
-    // Asked of the game's own repository for the saves folder, so git's matching and letter-case setting decide. A saves folder that is
-    // not there holds no saves to lose.
-    private async Task<LeaveOutCheck> CheckSavesAsync(StorageSnapshot storage, GameDefinition game, IReadOnlyList<string> rules, CancellationToken cancellationToken)
+    // A game-wide rule for logs or crash dumps reaches the saves folder too. The defaults for new games are install-only, so this
+    // guards the other way such a rule gets in (a definition file, or an older default written game-wide): a rule that would leave out
+    // a file of the saves folder, recorded or not, in any profile, is not saved with the game. Anything a player typed that is not one
+    // of the default rules is theirs and is kept; the editor says it applies to the saves folder as well.
+    private async Task<(GameDefinition Game, RulesLeftOff? LeftOff)> WithoutRulesThatHideSavesAsync(StorageSnapshot storage, GameDefinition game)
     {
+        var asked = game.IgnorePaths.Where(rule => RunTimeOutput.DefaultRules.Contains(rule)).Distinct(StringComparer.Ordinal).ToList();
         var saves = GameFolders.Repos(_services, storage, game).FirstOrDefault(repo => repo.Role == RepoRole.External);
-        var safe = new List<string>();
-        var blocked = new List<RuleBlocked>();
-        foreach (var rule in rules)
+        if (asked.Count == 0 || saves is null)
         {
-            IReadOnlyList<string> named = [];
-            if (saves is not null)
-            {
-                try
-                {
-                    named = await storage.Engine.ListNamedByAsync(saves, [rule], cancellationToken).ConfigureAwait(false);
-                }
-                catch (PathMissingException)
-                {
-                    // Nothing to lose in a folder that is not there.
-                }
-            }
-
-            if (named.Count == 0)
-            {
-                safe.Add(rule);
-            }
-            else
-            {
-                blocked.Add(new RuleBlocked(rule, [.. named.Take(RuleBlocked.Sample)]));
-            }
-        }
-
-        return new LeaveOutCheck(safe, blocked);
-    }
-
-    // A new game starts with rules for logs and crash dumps. A saves folder that already holds such files keeps them: the rule that
-    // would leave them out is not added, so a default can never drop a save.
-    private async Task<GameDefinition> WithoutRulesThatHideSavesAsync(StorageSnapshot storage, GameDefinition game)
-    {
-        var defaults = game.IgnorePaths.Where(rule => RunTimeOutput.DefaultRules.Contains(rule)).ToList();
-        if (defaults.Count == 0)
-        {
-            return game;
+            return (game, null);
         }
 
         IReadOnlyList<string> hiding;
+        var checkedSaves = true;
         try
         {
-            var check = await CheckSavesAsync(storage, game, defaults, CancellationToken.None).ConfigureAwait(false);
-            hiding = [.. check.Blocked.Select(blocked => blocked.Rule)];
+            var found = await storage.Engine.ListNamedByAsync(saves, asked, CancellationToken.None).ConfigureAwait(false);
+            hiding = [.. asked.Where(rule => found[rule].Count > 0)];
         }
-        catch (GitOperationException e)
+        catch (PathMissingException)
         {
-            // Adding a game must not fail over this, but a default that could not be checked is not worth a lost save: it is left off.
-            _services.Log.Warning($"Could not check the saves folder of {game.Id} against the default leave-out rules, so they were left off: {e.Message}", e);
-            hiding = defaults;
+            // Nothing to lose in a folder that is not there.
+            return (game, null);
+        }
+        catch (Exception e) when (e is SavepointException or IOException or UnauthorizedAccessException)
+        {
+            // Adding a game must not fail over this, but a rule that could not be checked is not worth a lost save: it is left off.
+            _services.Log.Warning($"Could not check the saves folder of {game.Id} against the leave-out rules, so they were left off: {e.Message}", e);
+            hiding = asked;
+            checkedSaves = false;
         }
 
         return hiding.Count == 0
-            ? game
-            : game with { IgnorePaths = [.. game.IgnorePaths.Where(rule => !hiding.Contains(rule))] };
+            ? (game, null)
+            : (game with { IgnorePaths = [.. game.IgnorePaths.Where(rule => !hiding.Contains(rule))] }, new RulesLeftOff(hiding, checkedSaves));
     }
 }

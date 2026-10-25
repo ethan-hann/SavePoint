@@ -168,53 +168,70 @@ public sealed partial class GitEngine
     }
 
     /// <summary>
-    /// The files in the folder, recorded or not, that these patterns would leave out, matched by git against a list of their own: the same
-    /// matching a capture uses, with the folder's own letter-case setting. The game's saved patterns are not read or changed, and nothing
-    /// is written to the work tree. The consent marker is never listed.
+    /// For each pattern, the files it would leave out of this folder: files in the work tree that are not recorded, files in the index,
+    /// and files in the newest point of every profile, so a file only another profile recorded is found too. Matching is git's own, the
+    /// same a capture uses, with the folder's own letter-case setting. The game's saved patterns are not read or changed (the saved
+    /// exclude list is left byte for byte as it was), the work tree is not written, and the consent marker is never listed.
     /// </summary>
     /// <param name="repo">The folder.</param>
-    /// <param name="patterns">The patterns to ask about.</param>
+    /// <param name="patterns">The patterns to ask about; blank ones are ignored.</param>
     /// <param name="ct">Cancels the call.</param>
-    /// <returns>Paths relative to the folder, with <c>/</c> separators, in a stable order.</returns>
+    /// <returns>One entry per distinct pattern asked about: paths relative to the folder, with <c>/</c> separators, in a stable order; empty when it names nothing.</returns>
     /// <exception cref="Savepoint.Core.Errors.PathSafetyException">The work tree is a protected location.</exception>
     /// <exception cref="Savepoint.Core.Errors.PathMissingException">The work tree does not exist.</exception>
     /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
     /// <exception cref="Savepoint.Core.Errors.GitOperationException">git failed.</exception>
-    public async Task<IReadOnlyList<string>> ListNamedByAsync(RepoRef repo, IReadOnlyList<string> patterns, CancellationToken ct = default)
+    public async Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> ListNamedByAsync(RepoRef repo, IReadOnlyList<string> patterns, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(patterns);
+        var rules = RepoIgnoreFiles.PatternLines(patterns).Distinct(StringComparer.Ordinal).ToList();
         repo = Normalize(repo);
         ct.ThrowIfCancellationRequested();
         CheckWorkTree(repo);
         RepoMarker.Verify(repo);
-        if (patterns.Count == 0)
+        var found = rules.ToDictionary(rule => rule, _ => (IReadOnlyList<string>)[], StringComparer.Ordinal);
+        if (rules.Count == 0)
         {
-            return [];
+            return found;
         }
 
-        // A short name: git refuses a long git directory plus a long argument path on Windows.
-        var exclude = Path.Combine(repo.GitDir, $"{ClassifyIndexPrefix}{Guid.NewGuid():N}"[..(ClassifyIndexPrefix.Length + 8)] + ".tmp");
+        // One walk of the work tree finds the unrecorded files any pattern names; the recorded ones come from the index and from the
+        // newest point of every profile. Which pattern names which file is then asked of git the same way a switch asks it.
+        var candidates = new HashSet<string>(StringComparer.Ordinal);
+        var exclude = ExcludeFileOf(Path.Combine(repo.GitDir, $"{ClassifyIndexPrefix}{Guid.NewGuid():N}.index"));
         _classifying[exclude] = 0;
         try
         {
-            File.WriteAllText(exclude, RepoIgnoreFiles.ExcludeText(patterns), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-            var argument = "--exclude-from=" + exclude;
-            var notRecorded = await RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z", "-o", "-i", argument), ct).ConfigureAwait(false);
-            var recorded = await RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z", "-c", "-i", argument), ct).ConfigureAwait(false);
-            return
-            [
-                .. notRecorded.SplitStandardOutputOnNul()
-                    .Concat(recorded.SplitStandardOutputOnNul())
-                    .Where(entry => !entry.EndsWith('/') && !entry.StartsWith(Paths.ConsentMarker.FileName, StringComparison.Ordinal))
-                    .Distinct(StringComparer.Ordinal)
-                    .Order(StringComparer.Ordinal),
-            ];
+            File.WriteAllText(exclude, string.Join('\n', rules) + "\n", new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            var unrecorded = await RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z", "-o", "-i", "--exclude-from=" + exclude), ct).ConfigureAwait(false);
+            candidates.UnionWith(unrecorded.SplitStandardOutputOnNul());
         }
         finally
         {
             _classifying.TryRemove(exclude, out _);
             TryDelete(exclude);
         }
+
+        var indexed = await RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z", "-c"), ct).ConfigureAwait(false);
+        candidates.UnionWith(indexed.SplitStandardOutputOnNul());
+        foreach (var branch in await ListBranchesAsync(repo, ct).ConfigureAwait(false))
+        {
+            candidates.UnionWith(await ListTreeFilesAsync(repo, branch, ct).ConfigureAwait(false));
+        }
+
+        candidates.RemoveWhere(entry => entry.EndsWith('/') || entry.StartsWith(Paths.ConsentMarker.FileName, StringComparison.Ordinal));
+        if (candidates.Count == 0)
+        {
+            return found;
+        }
+
+        foreach (var rule in rules)
+        {
+            var named = await NamedByAmongAsync(repo, [rule], candidates, ct).ConfigureAwait(false);
+            found[rule] = [.. named.Order(StringComparer.Ordinal)];
+        }
+
+        return found;
     }
 
     /// <summary>
