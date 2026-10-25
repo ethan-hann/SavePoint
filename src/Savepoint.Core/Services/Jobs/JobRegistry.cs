@@ -20,6 +20,7 @@ public sealed class JobRegistry : IJobsApi
 {
     private const int _finishedKept = 5;
     private const int _recentLinesKept = 200;
+    private const int _currentPathsKept = 8;
 
     // About twenty progress events a second per job.
     private static readonly TimeSpan _progressInterval = TimeSpan.FromMilliseconds(50);
@@ -103,6 +104,16 @@ public sealed class JobRegistry : IJobsApi
         lock (_gate)
         {
             return _byId.TryGetValue(jobId, out var job) ? Snapshot(job) : null;
+        }
+    }
+
+    /// <summary>The lines a job holds for copying, oldest first: its newest <see cref="JobHistory.MaxLines"/>.</summary>
+    /// <returns>The lines, or an empty list when the job is unknown or has been pruned.</returns>
+    public IReadOnlyList<JobLine> GetLines(Guid jobId)
+    {
+        lock (_gate)
+        {
+            return _byId.TryGetValue(jobId, out var job) ? [.. job.History] : [];
         }
     }
 
@@ -365,10 +376,21 @@ public sealed class JobRegistry : IJobsApi
             {
                 job.Progress = progress;
                 // Every byte tick of a big file names the same file again; it is one line, however many reports it takes.
+                // The details hold only the newest lines, so a path another folder's names have pushed out would look new; the paths already
+                // reported are remembered apart from them.
                 var path = progress.CurrentPath;
-                if (!string.IsNullOrEmpty(path) && !job.Lines.Any(existing => existing is JobLine.FilePath named && named.Path == path))
+                if (!string.IsNullOrEmpty(path) && !job.SeenCurrent.Contains(path))
                 {
-                    AddLine(job, JobLine.ForPath(path));
+                    job.SeenCurrent.Add(path);
+                    if (job.SeenCurrent.Count > _currentPathsKept)
+                    {
+                        job.SeenCurrent.RemoveAt(0);
+                    }
+
+                    if (!job.Lines.Any(existing => existing is JobLine.FilePath named && named.Path == path))
+                    {
+                        AddLine(job, JobLine.ForPath(path));
+                    }
                 }
             }
 
@@ -399,6 +421,12 @@ public sealed class JobRegistry : IJobsApi
         {
             job.Lines.Dequeue();
             job.LinesDropped++;
+        }
+
+        job.History.Enqueue(line);
+        while (job.History.Count > JobHistory.MaxLines)
+        {
+            job.History.Dequeue();
         }
     }
 
@@ -613,6 +641,12 @@ public sealed class JobRegistry : IJobsApi
         public JobProgress Progress { get; set; } = JobProgress.None;
 
         public Queue<JobLine> Lines { get; } = new();
+
+        // Every line the job wrote, up to JobHistory.MaxLines, for copying; Lines is the short tail the live view shows.
+        public Queue<JobLine> History { get; } = new();
+
+        // The last few current paths progress named, oldest first.
+        public List<string> SeenCurrent { get; } = [];
 
         public DateTimeOffset? FinishedAt { get; set; }
 

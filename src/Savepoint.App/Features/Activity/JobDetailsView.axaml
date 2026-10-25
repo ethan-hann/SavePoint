@@ -80,7 +80,7 @@
 
     <ContentControl x:Name="ErrorHost" Content="{Binding Error}" IsVisible="{Binding HasError}" />
 
-    <Grid x:Name="LinesSection" RowDefinitions="Auto,Auto" RowSpacing="8">
+    <Grid x:Name="LinesSection" RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
       <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
         <TextBlock x:Name="DetailsHeading"
                    Classes="overline"
@@ -106,7 +106,14 @@
         </Button>
       </Grid>
 
-      <Border x:Name="LinesHost" Grid.Row="1" Classes="recessed" Padding="6" Height="240">
+      <TextBlock x:Name="LinesNoteText"
+                 Grid.Row="1"
+                 Classes="caption"
+                 TextWrapping="Wrap"
+                 IsVisible="{Binding HasLinesNote}"
+                 Text="{Binding LinesNote}" />
+
+      <Border x:Name="LinesHost" Grid.Row="2" Classes="recessed" Padding="6" Height="240">
         <Panel>
           <ListBox x:Name="LineList"
                    Background="Transparent"

@@ -235,6 +235,34 @@ public sealed class CaptureBatchesTests : IDisposable
     }
 
     [Fact]
+    public async Task A_file_an_earlier_attempt_staged_that_the_leave_out_rules_now_name_is_not_counted_on_the_retry()
+    {
+        var repo = await ChangedFolderAsync();
+        using var stop = new CancellationTokenSource();
+        var adds = 0;
+        _ws.OnInvoke = invocation =>
+        {
+            if (invocation.Arguments[0] == "add" && Interlocked.Increment(ref adds) == 2)
+            {
+                stop.Cancel();
+            }
+        };
+        await Assert.ThrowsAsync<Savepoint.Core.Errors.OperationCancelledByUserException>(
+            () => _ws.Engine.CaptureAsync(repo, new CaptureRequest("profile-1", "A point", Guid.NewGuid().ToString()), new ProgressLog(), stop.Token));
+        _ws.OnInvoke = null;
+        var staged = (await _ws.GitOutAsync(repo, "diff-index", "--cached", "--name-only", "HEAD")).Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        Assert.NotEmpty(staged);
+        var progress = new ProgressLog();
+
+        await _ws.CaptureAsync(repo, "profile-1", ignore: [staged[0]], progress: progress);
+
+        // Ten files changed; the one the rules now name is not part of this snapshot.
+        Assert.Equal(9, progress.Last.FilesDone);
+        Assert.Equal(9, progress.Last.FilesTotal);
+        Assert.DoesNotContain(staged[0], await _ws.TreeAsync(repo, "profile-1"));
+    }
+
+    [Fact]
     public async Task A_new_file_that_vanishes_before_its_group_is_left_out_and_the_capture_goes_on()
     {
         var repo = await _ws.InitializedRepoAsync();

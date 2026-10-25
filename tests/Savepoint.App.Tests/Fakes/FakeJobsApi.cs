@@ -38,6 +38,10 @@ public sealed class FakeJobsApi : IJobsApi
                 ? job.Snapshot
                 : null);
 
+    // Not recorded as a call: it is what Copy reads, not something a screen does on its own.
+    public IReadOnlyList<JobLine> GetLines(Guid jobId) =>
+        _backend.Peek<IReadOnlyList<JobLine>>(() => _jobs.Find(j => j.Snapshot.JobId == jobId) is { } job ? [.. job.History] : []);
+
     public Task<OperationResult<Unit>> CancelAsync(Guid jobId) =>
         _backend.Call(_api, nameof(CancelAsync), [jobId], () =>
         {
@@ -105,6 +109,7 @@ public sealed class FakeJobsApi : IJobsApi
             Error: null,
             Revision: 1);
         var job = new JobRecord(snapshot, defaultResult, onFinished);
+        job.History.AddRange(snapshot.RecentLines);
         _jobs.Add(job);
         _backend.Raise(() => JobChanged?.Invoke(this, snapshot));
         return id;
@@ -118,7 +123,21 @@ public sealed class FakeJobsApi : IJobsApi
             return;
         }
 
+        if (progress.CurrentPath is { } named)
+        {
+            Remember(job, JobLine.ForPath(named));
+        }
+
         Update(job, s => (progress.CurrentPath is { } path ? WithLine(s, JobLine.ForPath(path)) : s) with { Progress = progress });
+    }
+
+    private static void Remember(JobRecord job, JobLine line)
+    {
+        job.History.Add(line);
+        if (job.History.Count > JobHistory.MaxLines)
+        {
+            job.History.RemoveAt(0);
+        }
     }
 
     internal void ApplyLine(Guid jobId, JobLine line)
@@ -129,6 +148,7 @@ public sealed class FakeJobsApi : IJobsApi
             return;
         }
 
+        Remember(job, line);
         Update(job, s => WithLine(s, line));
     }
 
@@ -228,6 +248,9 @@ public sealed class FakeJobsApi : IJobsApi
     private sealed class JobRecord(JobSnapshot snapshot, JobResult? defaultResult, Action<JobSnapshot>? onFinished)
     {
         public JobSnapshot Snapshot { get; set; } = snapshot;
+
+        // Everything the job wrote, up to the most the real registry holds.
+        public List<JobLine> History { get; } = [];
 
         public JobResult? DefaultResult { get; } = defaultResult;
 

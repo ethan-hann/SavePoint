@@ -141,6 +141,8 @@ internal sealed class IgnoringCancelJobs(IJobsApi inner) : IJobsApi
 
     public JobSnapshot? Get(Guid jobId) => inner.Get(jobId);
 
+    public IReadOnlyList<JobLine> GetLines(Guid jobId) => inner.GetLines(jobId);
+
     public Task<OperationResult<Unit>> CancelAsync(Guid jobId)
     {
         Asked.Add(jobId);

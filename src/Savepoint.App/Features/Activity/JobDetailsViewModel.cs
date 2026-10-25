@@ -57,6 +57,29 @@ public sealed partial class JobDetailsViewModel : ObservableObject
     /// <summary>The lines the job has written, oldest first, as far as the job still holds them.</summary>
     public ObservableCollection<JobLineViewModel> Lines { get; } = [];
 
+    /// <summary>Says how many of the job's lines are shown and what Copy takes when the list is shorter than the job's lines; empty otherwise.</summary>
+    public string LinesNote
+    {
+        get
+        {
+            if (_job.LinesDropped == 0)
+            {
+                return string.Empty;
+            }
+
+            var total = _job.LinesDropped + _job.RecentLines.Count;
+            return _text.Message(
+                "activity.details.moreLines",
+                ("shown", _job.RecentLines.Count),
+                ("total", total),
+                ("all", total <= JobHistory.MaxLines ? "yes" : "no"),
+                ("kept", JobHistory.MaxLines));
+        }
+    }
+
+    /// <summary>True when <see cref="LinesNote"/> has something to say.</summary>
+    public bool HasLinesNote => _job.LinesDropped > 0;
+
     /// <summary>True when there is at least one line.</summary>
     public bool HasLines => Lines.Count > 0;
 
@@ -131,6 +154,8 @@ public sealed partial class JobDetailsViewModel : ObservableObject
         }
 
         OnPropertyChanged(nameof(AllText));
+        OnPropertyChanged(nameof(LinesNote));
+        OnPropertyChanged(nameof(HasLinesNote));
         if (hadLines != HasLines)
         {
             OnPropertyChanged(nameof(HasLines));
@@ -224,8 +249,17 @@ public sealed partial class JobDetailsViewModel : ObservableObject
     private void Copy()
     {
         var chosen = _selection.Where(Lines.Contains).OrderBy(line => line.Number).ToList();
-        IReadOnlyList<JobLineViewModel> lines = chosen.Count > 0 ? chosen : [.. Lines];
-        CopyRequested?.Invoke(this, string.Join('\n', lines.Select(line => line.Text)));
+
+        // With nothing selected, the job's own longer list is copied: the list on screen holds only its newest lines.
+        IReadOnlyList<string> lines = chosen.Count > 0
+            ? [.. chosen.Select(line => line.Text)]
+            : [.. _jobs.GetLines(_row.JobId).Select(_words.Lines.Format)];
+        if (lines.Count == 0)
+        {
+            lines = [.. Lines.Select(line => line.Text)];
+        }
+
+        CopyRequested?.Invoke(this, string.Join('\n', lines));
         _announce(_text.Message("activity.details.copied", ("count", lines.Count)));
     }
 }

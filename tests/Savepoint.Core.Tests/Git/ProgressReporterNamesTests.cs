@@ -137,4 +137,79 @@ public sealed class ProgressReporterNamesTests
 
         Assert.Equal(["a.bin", "b.bin", "c.bin"], Delivered(log));
     }
+
+    [Fact]
+    public void Names_of_a_group_git_did_not_finish_are_never_delivered_when_the_capture_stops()
+    {
+        var log = new ProgressLog();
+        var reporter = new ProgressReporter(log);
+        reporter.SetTotal(6);
+        reporter.Start();
+        reporter.BeginBatch(null, null, 0);
+        reporter.FileHandled("a.bin");
+        reporter.FileHandled("b.bin");
+        reporter.FileHandled("c.bin");
+
+        reporter.Abandon();
+
+        Assert.Empty(Delivered(log));
+        Assert.Equal(0, log.Last.FilesDone);
+    }
+
+    [Fact]
+    public void A_group_that_ended_keeps_its_names_when_the_next_one_is_stopped()
+    {
+        var log = new ProgressLog();
+        var reporter = new ProgressReporter(log);
+        reporter.SetTotal(6);
+        reporter.Start();
+        reporter.BeginBatch(null, null, 0);
+        reporter.FileHandled("a.bin");
+        reporter.FileHandled("b.bin");
+        reporter.EndBatch();
+        reporter.BeginBatch(null, null, 0);
+        reporter.FileHandled("c.bin");
+
+        reporter.Abandon();
+
+        Assert.Equal(["a.bin", "b.bin"], Delivered(log));
+        Assert.Equal(2, log.Last.FilesDone);
+    }
+
+    [Fact]
+    public void A_removal_made_before_the_first_group_is_kept_when_that_group_is_stopped()
+    {
+        var log = new ProgressLog();
+        var reporter = new ProgressReporter(log);
+        reporter.SetTotal(5);
+        reporter.Start();
+        reporter.FileHandled("gone1.bin");
+        reporter.FileHandled("gone2.bin");
+        reporter.BeginBatch(null, null, 0);
+        reporter.FileHandled("a.bin");
+
+        reporter.Abandon();
+
+        Assert.Equal(["gone1.bin", "gone2.bin"], Delivered(log));
+        Assert.Equal(2, log.Last.FilesDone);
+    }
+
+    [Fact]
+    public void A_groups_names_are_delivered_once_its_add_ends_and_count_as_done_then()
+    {
+        var log = new ProgressLog();
+        var reporter = new ProgressReporter(log);
+        reporter.SetTotal(3);
+        reporter.Start();
+        reporter.BeginBatch(null, null, 0);
+        reporter.FileHandled("a.bin");
+        reporter.FileHandled("b.bin");
+        reporter.FileHandled("c.bin");
+        Assert.Empty(Delivered(log));
+
+        reporter.EndBatch();
+
+        Assert.Equal(["a.bin", "b.bin", "c.bin"], Delivered(log));
+        Assert.Equal(3, log.Last.FilesDone);
+    }
 }

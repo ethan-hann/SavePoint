@@ -82,8 +82,9 @@ public class JobLineFormatterTests
     [Fact]
     public void Every_byte_count_of_a_step_is_shown_as_a_size()
     {
-        Assert.Equal("Copying Data/big.pak (4.5 GB).", Format(_samples[JobSteps.CaptureFileStart]));
-        Assert.Equal("Copying Data/big.pak: 1.5 GB of 4.5 GB.", Format(_samples[JobSteps.CaptureFileProgress]));
+        // SavePoint works out which large file git is on from how much is stored, so both lines say it is a best guess.
+        Assert.Equal("Probably copying Data/big.pak (4.5 GB).", Format(_samples[JobSteps.CaptureFileStart]));
+        Assert.Equal("Probably still on Data/big.pak: about 1.5 GB of 4.5 GB.", Format(_samples[JobSteps.CaptureFileProgress]));
         Assert.Equal("Copying the game folder: 1.5 GB of 4.5 GB.", Format(_samples[JobSteps.CaptureFolderProgress]));
     }
 
