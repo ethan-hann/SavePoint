@@ -356,30 +356,72 @@ public sealed class LeftOutReadOnceTests : IDisposable
         Assert.Empty(await MarkedAsync(repo));
     }
 
-    // An index file of version 2 cannot hold a flag, so a write that finds one has no mark to look for. Other versions can, and are asked.
+    // A repository is created with index version 4, so the shortcut has to read the entries, not the version, to know there is no mark.
     [Fact]
-    public async Task A_version_2_index_is_not_listed_for_marks_and_a_version_3_one_is_cleared()
+    public async Task A_save_into_a_version_4_index_without_marks_does_not_list_them()
     {
         var repo = await CacheAsync();
-        await _ws.GitWriteAsync(repo, "update-index", "--index-version", "2");
+        Assert.Equal("4", (await _ws.GitAsync(repo, "config", "index.version")).StandardOutput.Trim());
         var before = _ws.Invocations.Count;
         _ws.Write(repo, "Data/more.txt", "more");
 
         await _ws.CaptureAsync(repo with { IgnorePatterns = [] }, "profile-a", "A2", ignore: []);
 
         Assert.DoesNotContain(_ws.Invocations.Skip(before), IsMarkListing);
-        await MarkAsync(repo, _cache);
-        await _ws.GitWriteAsync(repo, "update-index", "--index-version", "3");
-        Assert.NotEmpty(await MarkedAsync(repo));
+    }
 
+    [Fact]
+    public async Task A_save_into_a_version_4_index_with_a_mark_lists_and_clears_it()
+    {
+        var repo = await CacheAsync();
+        await MarkAsync(repo, _cache);
+        Assert.NotEmpty(await MarkedAsync(repo));
+        var before = _ws.Invocations.Count;
+
+        await _ws.CaptureAsync(repo with { IgnorePatterns = [] }, "profile-a", "A2", ignore: []);
+
+        Assert.Contains(_ws.Invocations.Skip(before), IsMarkListing);
+        Assert.Empty(await MarkedAsync(repo));
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    public async Task An_older_index_version_is_read_the_same_way(int version)
+    {
+        var repo = await CacheAsync();
+        await _ws.GitWriteAsync(repo, "update-index", "--index-version", version.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        var before = _ws.Invocations.Count;
+        _ws.Write(repo, "Data/more.txt", "more");
+        await _ws.CaptureAsync(repo with { IgnorePatterns = [] }, "profile-a", "A2", ignore: []);
+        Assert.DoesNotContain(_ws.Invocations.Skip(before), IsMarkListing);
+
+        await MarkAsync(repo, _cache);
+        await _ws.GitWriteAsync(repo, "update-index", "--index-version", version.ToString(System.Globalization.CultureInfo.InvariantCulture));
         await _ws.CaptureAsync(repo with { IgnorePatterns = [] }, "profile-a", "A3", ignore: []);
 
         Assert.Empty(await MarkedAsync(repo));
     }
 
+    // An index the reader cannot make sense of is handed to git, which gives the real answer (or the real error).
+    [Fact]
+    public async Task An_index_that_cannot_be_read_is_listed_by_git()
+    {
+        var repo = await CacheAsync();
+        var path = Path.Combine(repo.GitDir, "index");
+        var good = File.ReadAllBytes(path);
+        File.WriteAllBytes(path, good[..(good.Length / 2)]);
+        var before = _ws.Invocations.Count;
+
+        await Record.ExceptionAsync(() => _ws.Engine.GetStatusAsync(repo, Ct));
+        await Record.ExceptionAsync(() => _ws.CaptureAsync(repo with { IgnorePatterns = [] }, "profile-a", "A2", ignore: []));
+
+        Assert.Contains(_ws.Invocations.Skip(before), IsMarkListing);
+    }
+
     // A switch that marks nothing has no mark to look for.
     [Fact]
-    public async Task A_switch_without_left_out_files_asks_git_for_marks_only_at_the_start()
+    public async Task A_switch_without_left_out_files_never_asks_git_for_marks()
     {
         var repo = await _ws.InitializedFreshAsync();
         _ws.Write(repo, "a.txt", "a");
@@ -393,8 +435,7 @@ public sealed class LeftOutReadOnceTests : IDisposable
         await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
 
         var calls = _ws.Invocations.Skip(before).ToList();
-        Assert.Equal(1, calls.Count(IsMarkListing));
-        Assert.True(calls.FindIndex(IsMarkListing) < calls.FindIndex(call => call.Arguments[0] == "checkout"));
+        Assert.DoesNotContain(calls, IsMarkListing);
     }
 
     [Fact]
@@ -402,7 +443,6 @@ public sealed class LeftOutReadOnceTests : IDisposable
     {
         var repo = await CacheAsync();
         var before = _ws.Invocations.Count;
-        await _ws.GitWriteAsync(repo, "update-index", "--index-version", "2");
 
         await _ws.Engine.CheckoutBranchAsync(repo, "profile-b", ct: Ct);
 

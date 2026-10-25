@@ -149,10 +149,11 @@ public sealed partial class GitEngine
     }
 
     // SavePoint never wants the bit at rest, so every entry that carries it is left over from a switch that was killed (a crash or a power
-    // loss) or could not take it off. Left alone it hides the file from every later comparison and from a save. Asked of the index only.
+    // loss) or could not take it off. Left alone it hides the file from every later comparison and from a save. Asked of the index only,
+    // and of git only when the index file cannot be shown to hold none (the file is read straight, which is cheaper than a git process).
     private async Task ClearSkipWorktreeAsync(RepoRef repo, CancellationToken ct)
     {
-        if (IndexHasNoExtendedFlags(repo))
+        if (!IndexMarkScan.MayHoldMarks(Path.Combine(repo.GitDir, "index")))
         {
             return;
         }
@@ -160,24 +161,6 @@ public sealed partial class GitEngine
         var listed = await RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z", "-t"), ct).ConfigureAwait(false);
         var marked = listed.SplitStandardOutputOnNul().Where(entry => entry.StartsWith("S ", StringComparison.Ordinal)).Select(entry => entry[2..]).ToArray();
         await SetSkipWorktreeAsync(repo, on: false, marked, ct).ConfigureAwait(false);
-    }
-
-    // git writes an index as version 3 only while an entry carries an extended flag (skip-worktree among them) and as version 2 otherwise,
-    // so a version 2 header answers "no mark" without a git process. Anything unreadable gets the full question.
-    private static bool IndexHasNoExtendedFlags(RepoRef repo)
-    {
-        try
-        {
-            Span<byte> header = stackalloc byte[8];
-            using var stream = new FileStream(Path.Combine(repo.GitDir, "index"), FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-            return stream.ReadAtLeast(header, 8, throwOnEndOfStream: false) == 8
-                && header[0] == (byte)'D' && header[1] == (byte)'I' && header[2] == (byte)'R' && header[3] == (byte)'C'
-                && System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(header[4..]) == 2;
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-            return false;
-        }
     }
 
     // Which of these paths the tree holds as a file.
