@@ -136,7 +136,7 @@ public class HowItWorksViewModelTests
         Assert.Equal(
             [
                 "Replacing a snapshot and continuing a profile are not on this list, because Recently removed lets you undo them.",
-                "SavePoint asks a second time before each of these.",
+                "SavePoint asks a second time before each of these. It never sends your files anywhere.",
             ],
             last.Notes);
     }

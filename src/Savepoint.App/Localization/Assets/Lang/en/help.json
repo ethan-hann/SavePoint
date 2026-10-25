@@ -24,7 +24,7 @@
   "help.page.permanent.discard": "Discarding new changes.",
   "help.page.permanent.emptyFolder": "Starting with an empty snapshot folder when SavePoint can't reach the old one.",
   "help.page.permanent.freeUp": "Freeing up space, which deletes what is in Recently removed for good.",
-  "help.page.permanent.noteClosing": "SavePoint asks a second time before each of these.",
+  "help.page.permanent.noteClosing": "SavePoint asks a second time before each of these. It never sends your files anywhere.",
   "help.page.permanent.noteRecoverable": "Replacing a snapshot and continuing a profile are not on this list, because Recently removed lets you undo them.",
   "help.page.permanent.removeAll": "Removing all SavePoint data.",
   "help.page.permanent.title": "What can't be undone",
