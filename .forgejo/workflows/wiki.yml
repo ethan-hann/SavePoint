@@ -1,0 +1,47 @@
+# Keeps the wiki pages in step with the guides in docs/: when a push to main changes docs/, the pages whose text differs from what
+# the guides now give are updated (build/wiki-sync.ps1). It can also be run by hand from the Actions page.
+#
+# The wiki needs a token that may write to it: the repository secret WIKI_TOKEN. Without the secret the job says so and passes, so a
+# fork or a fresh clone of the settings does not show a red run.
+name: Wiki
+
+on:
+  push:
+    branches: [main]
+    paths: ['docs/**']
+  workflow_dispatch:
+
+concurrency:
+  group: wiki
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v4
+
+      # Forgejo has no setup-dotnet mirror, and the script is PowerShell, which the job image may not have; the .NET SDK installs it
+      # as a tool.
+      - name: Install PowerShell
+        run: |
+          if ! command -v pwsh >/dev/null 2>&1; then
+            curl -fsSL --retry 3 --retry-delay 2 -o "$RUNNER_TEMP/dotnet-install.sh" https://dot.net/v1/dotnet-install.sh
+            bash "$RUNNER_TEMP/dotnet-install.sh" --channel 10.0 --install-dir /opt/dotnet --no-path
+            /opt/dotnet/dotnet tool install --tool-path /opt/pwsh PowerShell --version 7.6.8
+            echo "/opt/pwsh" >> "$GITHUB_PATH"
+            # The pwsh tool's launcher starts dotnet from PATH.
+            echo "/opt/dotnet" >> "$GITHUB_PATH"
+            echo "DOTNET_ROOT=/opt/dotnet" >> "$GITHUB_ENV"
+          fi
+
+      - name: Update the wiki pages
+        env:
+          WIKI_TOKEN: ${{ secrets.WIKI_TOKEN }}
+        run: |
+          if [ -z "$WIKI_TOKEN" ]; then
+            echo "WIKI_TOKEN is not configured, so the wiki pages were not updated."
+            exit 0
+          fi
+          pwsh -NoProfile -File build/wiki-sync.ps1 -Action Publish

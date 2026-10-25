@@ -60,6 +60,19 @@ public partial class ReleaseWorkflowTests
         Assert.DoesNotContain("workflow_dispatch", on, StringComparison.Ordinal);
     }
 
+    // The pwsh dotnet tool is a launcher that starts dotnet from PATH; without it on PATH, pwsh aborts before running anything.
+    [Theory]
+    [InlineData(".forgejo/workflows/release.yml")]
+    [InlineData(".forgejo/workflows/wiki.yml")]
+    public void Installing_pwsh_as_a_tool_also_puts_dotnet_on_the_path(string workflowPath)
+    {
+        var workflow = File.ReadAllText(Path.Combine(RepoRoot, workflowPath));
+
+        var installs = Regex.Matches(workflow, @"(?ms)dotnet tool install --tool-path /opt/pwsh.*?(?=\r?\n          fi)");
+        Assert.NotEmpty(installs);
+        Assert.All(installs, install => Assert.Contains("echo \"/opt/dotnet\" >> \"$GITHUB_PATH\"", install.Value, StringComparison.Ordinal));
+    }
+
     [Fact]
     public void Every_build_file_it_names_exists()
     {

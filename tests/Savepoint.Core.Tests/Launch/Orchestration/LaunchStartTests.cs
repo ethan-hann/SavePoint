@@ -29,6 +29,7 @@ public class LaunchStartTests
         Assert.False(rig.InstallHas("mods/a.txt"));
         Assert.Equal("base content", rig.ReadInstall("data/base.pak"));
         Assert.False(rig.SavesHave("slot2.sav"));
+        await rig.WaitForEventAsync(session => session.State is SessionState.Exited, "Exited");
         Assert.Equal(["Preparing", "Switching", "Running", "Exited"], rig.Phases());
         Assert.All(rig.Events, session =>
         {
@@ -67,6 +68,7 @@ public class LaunchStartTests
         await rig.WaitForGameAsync();
 
         Assert.Equal(JobStatus.Succeeded, job.Status);
+        await rig.WaitForEventAsync(session => session.State is SessionState.Running, "Running");
         Assert.Equal(["Preparing", "Running"], rig.Phases());
 
         // The services see the session: the profile is marked running, the launch is recorded, destructive work is refused (D13.5).

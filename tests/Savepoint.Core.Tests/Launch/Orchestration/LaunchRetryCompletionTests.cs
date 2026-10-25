@@ -64,6 +64,7 @@ public class LaunchRetryCompletionTests
         var replaced = Assert.Single(saves);
         Assert.Equal("Updated", replaced.Subject);
         Assert.Equal(done.Result!.PointId?.Value, replaced.CaptureId);
+        await rig.WaitForEventAsync(session => session.State is SessionState.Completed { Error: null }, "the retried completion");
         Assert.Equal(["Preparing", "Running", "Exited", "Completing", "Completed", "Completing", "Completed"], rig.Phases());
     }
 
