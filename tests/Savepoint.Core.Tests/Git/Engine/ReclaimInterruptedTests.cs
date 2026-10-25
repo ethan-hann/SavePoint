@@ -42,9 +42,17 @@ public sealed class ReclaimInterruptedTests : IDisposable
         Assert.NotNull(atReflog);
         Assert.Equal(Environment.ProcessId, atReflog.Value.Owner.Id);
         Assert.Null(atReflog.Value.Git);
-        Assert.NotNull(atRepack?.Git);
-        Assert.NotNull(atPrune?.Git);
-        Assert.NotEqual(atRepack.Value.Git, atPrune.Value.Git);
+        // Each read comes before the next git starts, so it names the one before. A git that has already exited when its start time is
+        // read cannot be stamped (Linux reaps it at once) and is not noted, which is safe: there is nothing left to wait for.
+        Assert.NotNull(atRepack);
+        Assert.NotNull(atPrune);
+        Assert.Equal(Environment.ProcessId, atRepack.Value.Owner.Id);
+        Assert.Equal(Environment.ProcessId, atPrune.Value.Owner.Id);
+        Assert.True(atRepack.Value.Git is not null || atPrune.Value.Git is not null, "no git the reclaim started was noted");
+        if (atRepack.Value.Git is { } reflogGit && atPrune.Value.Git is { } repackGit)
+        {
+            Assert.NotEqual(reflogGit, repackGit);
+        }
         Assert.False(File.Exists(ReclaimMarker.PathIn(repo.GitDir)));
     }
 
