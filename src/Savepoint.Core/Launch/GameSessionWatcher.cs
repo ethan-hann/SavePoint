@@ -223,7 +223,7 @@ public sealed class GameSessionWatcher : IDisposable
                 }
             }
 
-            await WaitForNextLookAsync(stop, childExit, childGone && !observed ? graceFrom + _options.Grace : null);
+            await WaitForNextLookAsync(stop, childGone ? null : childExit, childGone && !observed ? graceFrom + _options.Grace : null);
         }
     }
 
@@ -238,12 +238,13 @@ public sealed class GameSessionWatcher : IDisposable
 
         using var tick = CancellationTokenSource.CreateLinkedTokenSource(stop);
         var delay = Task.Delay(wait, _clock, tick.Token);
-        if (childExit is null || childExit.IsCompleted)
+        if (childExit is null)
         {
             await delay;
             return;
         }
 
+        // A program that exited after the caller last looked is already complete here, and must cut the wait short, not sit it out.
         await Task.WhenAny(delay, childExit);
         await tick.CancelAsync();
     }
