@@ -81,7 +81,7 @@ public class PlayJourneyTests
 
     // A profile made from the one that is loaded, with a mod added first, shares that profile's saves until it saves its own.
     [AvaloniaFact(Timeout = 180_000)]
-    public async Task Playing_a_profile_made_from_another_offers_to_replace_its_own_snapshot_and_its_row_counts_the_kept_session()
+    public async Task Playing_a_profile_made_from_another_offers_no_replace_of_the_other_profile_s_snapshot_and_its_row_counts_the_kept_session()
     {
         await using var rig = await JourneyRig.StartAsync();
         var game = rig.NewGame("Play Game");
@@ -96,8 +96,7 @@ public class PlayJourneyTests
         await rig.FinishesAsync(heavy.PlayCommand.ExecuteAsync(null), "Play to hand the game over");
         var postPlay = await rig.DialogAsync<PostPlayDialogViewModel>();
 
-        Assert.Contains("Replace \"Heavy mods\" with this session", postPlay.Choices.Select(choice => choice.Title));
-        Assert.DoesNotContain("Replace \"Vanilla\" with this session", postPlay.Choices.Select(choice => choice.Title));
+        Assert.Equal([CompletionChoice.CaptureNew, CompletionChoice.Skip], postPlay.Choices.Select(choice => choice.Kind));
         rig.Main.Toasts.DismissAll();
         await rig.FinishesAsync(postPlay.SaveCommand.ExecuteAsync(null), "the after-play dialog to answer");
         await rig.WaitAsync(() => heavy.CanPlay && rig.Games.InlineContent is null && heavy.IsActive && !heavy.IsRunning, "the session to be saved");

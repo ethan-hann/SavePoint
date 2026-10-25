@@ -159,11 +159,18 @@ public sealed partial class GitEngine
     /// <param name="branch">The branch that would be deleted.</param>
     /// <param name="otherBranches">The branches that stay.</param>
     /// <param name="ct">Cancels the call.</param>
-    public async Task<IReadOnlyList<CommitInfo>> ListCommitsOnlyOnAsync(RepoRef repo, string branch, IReadOnlyCollection<string> otherBranches, CancellationToken ct = default)
+    /// <param name="maxCount">Stop after this many points; null reads them all.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxCount"/> is not positive.</exception>
+    public async Task<IReadOnlyList<CommitInfo>> ListCommitsOnlyOnAsync(RepoRef repo, string branch, IReadOnlyCollection<string> otherBranches, CancellationToken ct = default, int? maxCount = null)
     {
         repo = Normalize(repo);
         BranchNames.Require(branch);
         ArgumentNullException.ThrowIfNull(otherBranches);
+        if (maxCount is <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxCount), maxCount, "A limit must be positive.");
+        }
+
         if (!await BranchHasPointsAsync(repo, branch, ct).ConfigureAwait(false))
         {
             return [];
@@ -173,6 +180,12 @@ public sealed partial class GitEngine
         var stay = existing.Where(name => name != branch && otherBranches.Contains(name)).ToArray();
 
         List<string> arguments = ["log", "-z", _commitFormat, GitDirFiles.BranchPrefix + branch];
+        if (maxCount is { } limit)
+        {
+            arguments.Add("-n");
+            arguments.Add(limit.ToString(CultureInfo.InvariantCulture));
+        }
+
         if (stay.Length > 0)
         {
             arguments.Add("--not");
