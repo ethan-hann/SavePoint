@@ -10,7 +10,8 @@ Two actions:
   Publish  Renders the pages, reads each one from the wiki, and updates (or creates) the ones whose text differs.
 
 A page is its docs/ file with the first heading dropped (the wiki shows the page title instead), a note that the repository holds the
-source of truth, and the backticked names of the other guides turned into links between the pages. Code blocks are left as they are.
+source of truth, and the backticked names of the other guides turned into links between the pages, and relative images (images/...) pointed at the raw file on
+main. Code blocks and code spans are left as they are.
 
 The token comes from the variable named by -TokenVariable (WIKI_TOKEN). It is sent to curl on stdin, never as an argument.
 Everything else comes from the variables a Forgejo Actions job sets: GITHUB_REPOSITORY, GITHUB_SERVER_URL, GITHUB_API_URL, GITHUB_SHA.
@@ -83,6 +84,16 @@ function Convert-DocToPage {
         "[$($target.Title)]($($target.Page))"
     }
 
+    # The wiki has no docs/images, so a relative image or link into it points at the file on main instead. Code spans are matched first so
+    # they are returned as they are.
+    $rawBase = "$(Get-ServerUrl)/$(Get-Repository)/raw/branch/main/docs/"
+    $imagePattern = '(?<span>(?<ticks>`+).+?(?<!`)\k<ticks>(?!`))|\]\((?:\./)?(?<path>images/[^)\s]*)'
+    $image = [System.Text.RegularExpressions.MatchEvaluator] {
+        param($match)
+        if ($match.Groups['span'].Success) { return $match.Value }
+        "]($rawBase$($match.Groups['path'].Value)"
+    }
+
     $lines = [System.Collections.Generic.List[string]]::new(($Text -replace "`r`n", "`n" -split "`n"))
     # The first heading is the guide's title; the wiki page already has one.
     if ($lines.Count -gt 0 -and $lines[0] -match '^# ') {
@@ -95,7 +106,7 @@ function Convert-DocToPage {
         $opening = [regex]::Match($lines[$i], '^ {0,3}(`{3,}|~{3,})')
         if ($null -eq $fence) {
             if ($opening.Success) { $fence = $opening.Groups[1].Value; continue }
-            $lines[$i] = [regex]::Replace($lines[$i], $pattern, $link)
+            $lines[$i] = [regex]::Replace([regex]::Replace($lines[$i], $pattern, $link), $imagePattern, $image)
         }
         elseif ($opening.Success -and $opening.Groups[1].Value[0] -eq $fence[0] -and $opening.Groups[1].Value.Length -ge $fence.Length -and $lines[$i].Trim() -eq $opening.Groups[1].Value) {
             $fence = $null
