@@ -70,6 +70,18 @@ jobs:
       run:
         shell: pwsh
     steps:
+      # The runner may keep each job's folder; the VM's disk is small, so earlier jobs' folders go (the runner runs one job at
+      # a time). The tool cache stays so the SDK is not downloaded again.
+      - name: Remove earlier jobs' folders
+        run: |
+          $work = Split-Path -Parent (Split-Path -Parent $env:GITHUB_WORKSPACE)
+          $current = Split-Path -Leaf (Split-Path -Parent $env:GITHUB_WORKSPACE)
+          # Job folders have 16-character names; the short ones hold downloaded actions, which are small and reused.
+          Get-ChildItem -Directory $work | Where-Object { $_.Name -match '^[0-9a-f]{16}$' -and $_.Name -ne $current } | ForEach-Object {
+            "removing $($_.Name)"
+            Remove-Item -Recurse -Force -ErrorAction Continue $_.FullName
+          }
+
       - uses: https://data.forgejo.org/actions/checkout@v4
         with:
           fetch-depth: 0

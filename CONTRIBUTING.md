@@ -10,7 +10,7 @@ Open an issue and pick the template that fits. For a bug, the most useful things
 
 1. Read [AGENTS.md](AGENTS.md). It holds the rules every change follows: tests first, every user-visible string in the catalog, plain words for players, short comments that say why.
 2. Build and test as [docs/developer-guide.md](docs/developer-guide.md) describes. A change is done when the gate passes: `build/gate.ps1` on Windows, `build/gate.sh` on Linux and macOS.
-3. Work on a branch named `issue-<n>-<slug>` and open a pull request to `main`. CI runs the Linux gate on every pull request. There is no Windows runner, so run `build/gate.ps1` yourself if the change touches Windows code or the UI.
+3. Work on a branch named `issue-<n>-<slug>` and open a pull request to `main`. CI runs the Linux and Windows gates on every pull request.
 4. Design calls go in [docs/decisions.md](docs/decisions.md) as a new numbered entry, so the reason survives the change.
 
 ## License of contributions
