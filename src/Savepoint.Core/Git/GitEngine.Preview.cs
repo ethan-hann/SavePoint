@@ -256,8 +256,9 @@ public sealed partial class GitEngine
         {
             var info = new FileInfo(FullPath(repo, path));
 
-            // git stores a link as the text of its target, so that text is what it costs, however large the file it points at.
-            if (!OperatingSystem.IsWindows() && info.LinkTarget is { } target)
+            // git stores a link as the text of its target (on Windows too, where the link's own length reads as 0), so that text is what it
+            // costs, however large the file it points at.
+            if (info.LinkTarget is { } target)
             {
                 return System.Text.Encoding.UTF8.GetByteCount(target);
             }

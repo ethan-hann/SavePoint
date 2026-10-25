@@ -108,6 +108,19 @@ public sealed class ProgressReporterDetailTests
     }
 
     [Fact]
+    public void A_batch_that_could_not_read_the_store_starts_from_the_last_figure_seen()
+    {
+        var (reporter, log, clock) = Started();
+        reporter.ObserveWritten(3_000);
+        reporter.BeginBatch(_bigNames, _bigSizes, null);
+
+        clock.Advance(ProgressReporter.DetailInterval);
+        reporter.ObserveWritten(3_900);
+
+        Assert.Equal(new CopyDetail("Data/a.pak", 900, 1_000), LatestDetail(log));
+    }
+
+    [Fact]
     public void A_file_never_shows_as_done_before_its_name_arrives()
     {
         var (reporter, log, clock) = Started(byteTotal: 100_000);

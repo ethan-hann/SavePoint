@@ -17,6 +17,7 @@ internal sealed class ProgressReporter
     // Names git printed that no report has carried yet.
     private readonly List<string> _pending = [];
     private int _reportedDone = -1;
+    private int? _reportedTotal;
     private long _reportedAt;
 
     // A capture counts bytes by watching the object store; a switch counts them from its plan instead.
@@ -135,7 +136,7 @@ internal sealed class ProgressReporter
     }
 
     // A group of files is about to be handed to git. A single large file is named (and announced at once), since git says nothing about it until it is done.
-    public void BeginBatch(IReadOnlyList<string>? bigPaths, IReadOnlyList<long>? bigSizes, long storeNow)
+    public void BeginBatch(IReadOnlyList<string>? bigPaths, IReadOnlyList<long>? bigSizes, long? storeNow)
     {
         lock (_gate)
         {
@@ -143,7 +144,7 @@ internal sealed class ProgressReporter
             var wasFinishing = _reportedFinishing;
             _finishing = false;
             _lastGrowthAt = _time.GetTimestamp();
-            _batchStart = storeNow;
+            _batchStart = storeNow ?? Math.Max(_lastObserved, 0);
             _bigPaths = null;
             if (bigPaths is { Count: > 0 } && bigSizes is not null && bigSizes.Count == bigPaths.Count)
             {
@@ -249,7 +250,7 @@ internal sealed class ProgressReporter
             }
 
             _finishing = false;
-            if ((_done > 0 && _done != _reportedDone) || (_byteTotal is not null && _written != _reportedWritten) || _reportedFinishing || _pending.Count > 0)
+            if ((_done > 0 && _done != _reportedDone) || (_byteTotal is not null && _written != _reportedWritten) || _reportedFinishing || _pending.Count > 0 || (_reportedDone >= 0 && _total != _reportedTotal))
             {
                 Report();
             }
@@ -272,6 +273,7 @@ internal sealed class ProgressReporter
         }
 
         _reportedDone = _done;
+        _reportedTotal = _total;
         _reportedWritten = _written;
         _reportedFinishing = _finishing;
         _reportedAt = Stopwatch.GetTimestamp();

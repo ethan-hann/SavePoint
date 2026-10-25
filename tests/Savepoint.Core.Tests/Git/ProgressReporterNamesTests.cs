@@ -101,6 +101,28 @@ public sealed class ProgressReporterNamesTests
     }
 
     [Fact]
+    public void A_total_that_shrank_after_the_last_report_still_reaches_the_closing_report()
+    {
+        var log = new ProgressLog();
+        var reporter = new ProgressReporter(log);
+        reporter.SetTotal(10);
+        reporter.Start();
+        foreach (var name in Names(9))
+        {
+            reporter.FileHandled(name);
+        }
+
+        reporter.EndBatch();
+
+        // The tenth file was gone before its group, so the capture expects nine.
+        reporter.SetTotal(9);
+        reporter.Complete();
+
+        Assert.Equal(9, log.Last.FilesDone);
+        Assert.Equal(9, log.Last.FilesTotal);
+    }
+
+    [Fact]
     public void Names_not_yet_reported_when_the_capture_fails_are_still_delivered()
     {
         var log = new ProgressLog();

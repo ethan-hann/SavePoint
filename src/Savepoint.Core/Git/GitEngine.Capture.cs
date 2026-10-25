@@ -461,7 +461,7 @@ public sealed partial class GitEngine
                     staging = staging with { ExtraEnvironment = new Dictionary<string, string?>(staging.ExtraEnvironment!.Concat(environment)) };
                 }
 
-                reporter?.BeginBatch(batch.Big ? batch.Files : null, batch.Big ? batch.Sizes : null, meter?.Growth() ?? 0);
+                reporter?.BeginBatch(batch.Big ? batch.Files : null, batch.Big ? batch.Sizes : null, meter?.Growth());
                 await RunWriteAsync(
                     () => staging with { OnStdoutLine = reporter is null ? null : line => ObserveAddLine(reporter, line) },
                     ct).ConfigureAwait(false);
@@ -544,12 +544,13 @@ public sealed partial class GitEngine
 
     // The batch without the files that are gone from the folder and not recorded (git has nothing to add or remove for them); null when
     // nothing is left.
-    private static async Task<StagingBatch?> WithoutVanishedAsync(RepoRef repo, StagingBatch batch, Func<Task<HashSet<string>>> tracked)
+    private async Task<StagingBatch?> WithoutVanishedAsync(RepoRef repo, StagingBatch batch, Func<Task<HashSet<string>>> tracked)
     {
+        var look = _options.PresenceProbe ?? (path => PathPresence.Look(path));
         List<int>? gone = null;
         for (var i = 0; i < batch.Files.Count; i++)
         {
-            if (SizeOrMissing(repo, batch.Files[i]) < 0)
+            if (look(FullPath(repo, batch.Files[i])) == Presence.Gone)
             {
                 (gone ??= []).Add(i);
             }

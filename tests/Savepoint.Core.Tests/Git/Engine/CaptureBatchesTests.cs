@@ -309,12 +309,68 @@ public sealed class CaptureBatchesTests : IDisposable
     }
 
     [Fact]
+    public async Task A_file_that_cannot_be_looked_at_stays_in_its_group_so_git_answers_for_it()
+    {
+        _ws.Dispose();
+        _ws = new EngineWorkspace(options => options with
+        {
+            StagingLimits = new StagingLimits(BatchBytes: 100_000, BatchFiles: 3, BigBytes: 1_000),
+            PresenceProbe = path => path.EndsWith("v1.txt", StringComparison.Ordinal) ? Presence.Unknown : PathPresence.Look(path),
+        });
+        var repo = await _ws.InitializedRepoAsync();
+        foreach (var name in new[] { "n0", "n1", "n2", "v1", "v2" })
+        {
+            _ws.Write(repo, $"Data/{name}.txt", name);
+        }
+
+        var adds = 0;
+        _ws.OnInvoke = invocation =>
+        {
+            if (invocation.Arguments[0] == "add" && Interlocked.Increment(ref adds) == 1)
+            {
+                File.Delete(_ws.FileOf(repo, "Data/v1.txt"));
+                File.Delete(_ws.FileOf(repo, "Data/v2.txt"));
+            }
+        };
+
+        // v1 cannot be looked at, so the group that holds it still names it and git is left to say what is wrong; v2 is plainly gone.
+        var error = await Record.ExceptionAsync(() => _ws.CaptureAsync(repo, "profile-1", progress: new ProgressLog()));
+
+        Assert.NotNull(error);
+        var lists = Adds().Select(Listed).ToList();
+        Assert.Contains(lists, list => list.Contains("Data/v1.txt"));
+        Assert.DoesNotContain(lists, list => list.Contains("Data/v2.txt"));
+    }
+
+    [Fact]
+    public async Task The_big_files_are_given_to_git_with_the_recorded_ones_first()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "Data/big_b.bin", Noise(2_000, 1));
+        await _ws.CaptureAsync(repo, "profile-1");
+        _ws.Write(repo, "Data/big_b.bin", Noise(2_500, 2));
+        _ws.Write(repo, "Data/big_a.bin", Noise(3_000, 3));
+        _ws.Write(repo, "Data/small.txt", "small");
+
+        await _ws.CaptureAsync(repo, "profile-1", progress: new ProgressLog());
+
+        var bigAdd = Adds().Select(Listed).Last(list => list.Contains("Data/big_a.bin"));
+        Assert.Equal(["Data/big_b.bin", "Data/big_a.bin"], bigAdd);
+    }
+
+    [Fact]
     public async Task A_link_is_planned_by_its_own_size_not_the_size_of_what_it_points_to()
     {
-        Assert.SkipUnless(OperatingSystem.IsLinux() || OperatingSystem.IsMacOS(), "Windows git follows links as files.");
         var repo = await _ws.InitializedRepoAsync();
         _ws.Write(repo, "Data/real.bin", new byte[50_000]);
-        File.CreateSymbolicLink(_ws.FileOf(repo, "Data/link.bin"), "real.bin");
+        try
+        {
+            File.CreateSymbolicLink(_ws.FileOf(repo, "Data/link.bin"), "real.bin");
+        }
+        catch (Exception e) when (e is UnauthorizedAccessException or IOException)
+        {
+            Assert.Skip("This system does not let the test account make links.");
+        }
 
         var candidates = await _ws.Engine.ListCaptureCandidatesAsync(repo, [], TestContext.Current.CancellationToken);
 
@@ -396,7 +452,7 @@ public sealed class CaptureBatchesTests : IDisposable
     }
 
     [Fact]
-    public async Task A_large_file_is_announced_before_its_add_and_added_alone()
+    public async Task The_big_files_are_announced_before_their_one_add()
     {
         var repo = await _ws.InitializedRepoAsync();
         _ws.WriteMany(repo, "Data", 2);

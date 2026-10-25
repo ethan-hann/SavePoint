@@ -31,6 +31,9 @@ public sealed record GitEngineOptions
     // How a capture that reports progress splits its files into adds; tests shrink the limits to see several adds with a few files.
     internal StagingLimits StagingLimits { get; init; } = StagingLimits.Default;
 
+    // Whether a listed file is still in the folder; tests replace it to make a file that cannot be looked at.
+    internal Func<string, Presence>? PresenceProbe { get; init; }
+
     // Waits between the passes that re-sync paths a checkout left stale.
     internal IReadOnlyList<TimeSpan> ResyncDelays { get; init; } = [TimeSpan.FromMilliseconds(150), TimeSpan.FromMilliseconds(300)];
 
