@@ -53,6 +53,12 @@ if ! [ -x "$pwsh_root/pwsh" ]; then
 fi
 export PATH="$pwsh_root:$PATH"
 
+# The notification tests start a private message bus and the signature tests run gpg; they skip without them, which the skip list does not allow.
+missing=""
+[ -x /usr/bin/dbus-daemon ] || [ -x /bin/dbus-daemon ] || missing="$missing dbus"
+command -v gpg >/dev/null 2>&1 || missing="$missing gnupg"
+[ -z "$missing" ] || fail "this distro lacks packages the tests need; install them with: sudo apt install$missing"
+
 # The tests keep their temp files in <tree>/.tools/tmp/linux; this says what that folder can do.
 temp_folder="$gate_tree/.tools/tmp/linux"
 probe="$temp_folder/case-probe-$$"

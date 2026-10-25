@@ -140,4 +140,8 @@ jobs:
           DOTNET_CLI_USE_MSBUILD_SERVER: '0'
           MSBUILDDISABLENODEREUSE: '1'
           DOTNET_CLI_TELEMETRY_OPTOUT: '1'
-        run: ./build/gate.ps1
+        run: |
+          # The runner has no gpg of its own, and the test of the source-archive signatures needs one: Git for Windows ships it. It goes
+          # last on the path so its Unix tools do not shadow the Windows ones.
+          $env:PATH = $env:PATH + ';' + (Join-Path $env:ProgramFiles 'Git\usr\bin')
+          ./build/gate.ps1

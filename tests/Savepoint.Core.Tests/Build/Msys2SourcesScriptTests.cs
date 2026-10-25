@@ -471,6 +471,23 @@ public class Msys2SourcesScriptTests
             output);
     }
 
+    // The gpg that ships with Git for Windows is an msys program: it refuses a Windows-style home folder (its agent socket name cannot hold a
+    // colon) and takes /c/Users/... instead. Gpg4win and Linux gpg take the folder as it is.
+    [Fact]
+    public async Task A_gpg_home_is_given_to_the_gpg_of_git_for_windows_in_its_own_form_and_to_any_other_as_it_is()
+    {
+        var output = await PwshAsync(LoadScript()
+            + "$home1 = 'C:\\Users\\x y\\Temp\\abc'\n"
+            + "foreach ($gpg in @('C:\\Program Files\\Git\\usr\\bin\\gpg.exe', 'D:\\Git\\usr\\bin\\gpg.exe', 'C:\\Program Files (x86)\\GnuPG\\bin\\gpg.exe', '/usr/bin/gpg')) {\n"
+            + "  [Console]::Out.Write(\"$(ConvertTo-GpgHome -Path $home1 -GpgPath $gpg)`n\")\n"
+            + "}\n"
+            + "[Console]::Out.Write(\"$(ConvertTo-GpgHome -Path '/tmp/abc' -GpgPath 'C:\\Program Files\\Git\\usr\\bin\\gpg.exe')`n\")\n");
+
+        Assert.Equal(
+            "/c/Users/x y/Temp/abc\n/c/Users/x y/Temp/abc\nC:\\Users\\x y\\Temp\\abc\nC:\\Users\\x y\\Temp\\abc\n/tmp/abc\n",
+            output);
+    }
+
     [Fact]
     public async Task The_real_gpg_accepts_a_good_signature_refuses_a_changed_file_and_refuses_an_unpinned_host()
     {
@@ -480,17 +497,17 @@ public class Msys2SourcesScriptTests
             var output = await PwshAsync(LoadScript()
                 + $"$work = {Quote(folder.FullName)}\n"
                 + "if (-not (Get-Command gpg -ErrorAction SilentlyContinue)) { [Console]::Out.Write('no gpg'); return }\n"
-                + "$signingHome = Join-Path $work 'signer'\n"
-                + "New-Item -ItemType Directory -Force -Path $signingHome | Out-Null\n"
+                + "$signingHome = New-GpgHome\n"
+                + "$homeArgument = ConvertTo-GpgHome -Path $signingHome\n"
                 + "try {\n"
-                + "  & gpg --homedir $signingHome --batch --quiet --passphrase '' --quick-generate-key 'Test Signer <signer@example.test>' rsa2048 sign never 2>$null\n"
-                + "  $fingerprint = (& gpg --homedir $signingHome --batch --with-colons --list-keys | Where-Object { $_ -like 'fpr:*' } | Select-Object -First 1).Split(':')[9]\n"
+                + "  & gpg --homedir $homeArgument --batch --quiet --passphrase '' --quick-generate-key 'Test Signer <signer@example.test>' rsa2048 sign never 2>$null\n"
+                + "  $fingerprint = (& gpg --homedir $homeArgument --batch --with-colons --list-keys | Where-Object { $_ -like 'fpr:*' } | Select-Object -First 1).Split(':')[9]\n"
                 + "  $keys = Join-Path $work 'keys'\n"
                 + "  New-Item -ItemType Directory -Force -Path $keys | Out-Null\n"
-                + "  & gpg --homedir $signingHome --batch --armor --output (Join-Path $keys 'test.asc') --export $fingerprint\n"
+                + "  & gpg --homedir $homeArgument --batch --armor --output (Join-Path $keys 'test.asc') --export $fingerprint\n"
                 + "  $archive = Join-Path $work 'archive.tar.gz'\n"
                 + "  [System.IO.File]::WriteAllText($archive, 'original')\n"
-                + "  & gpg --homedir $signingHome --batch --detach-sign --output \"$archive.sig\" $archive 2>$null\n"
+                + "  & gpg --homedir $homeArgument --batch --detach-sign --output \"$archive.sig\" $archive 2>$null\n"
                 + "  $signer = [pscustomobject]@{ Name = 'test'; Fingerprint = $fingerprint; KeyFile = 'test.asc'; UrlPrefixes = @('https://example.test/') }\n"
                 + "  $verifier = New-SignatureVerifier -KeyDirectory $keys -Signers @($signer)\n"
                 + "  try {\n"
@@ -502,7 +519,7 @@ public class Msys2SourcesScriptTests
                 + "  finally { $verifier.Dispose() }\n"
                 + "  [Console]::Out.Write(\"good=[$good]`nelsewhere=[$elsewhere]`nchanged=[$changed]`n\")\n"
                 + "}\n"
-                + "finally { & gpgconf --homedir $signingHome --kill gpg-agent 2>$null }\n");
+                + "finally { & gpgconf --homedir $homeArgument --kill gpg-agent 2>$null; Remove-Item -LiteralPath $signingHome -Recurse -Force -ErrorAction SilentlyContinue }\n");
 
             Assert.SkipWhen(output == "no gpg", "gpg is not installed here.");
             var lines = output.Split('\n');

@@ -67,6 +67,22 @@ public class GateWorkflowTests
         Assert.Matches(@"apt-get install -y --no-install-recommends [^\r\n]*\bgnupg\b", steps[install]);
     }
 
+    // The runner has no gpg of its own; the one in Git for Windows serves. It goes last on the path so none of its Unix tools (find, sort,
+    // tar) shadow the Windows ones.
+    [Fact]
+    public void The_windows_gate_finds_the_gpg_of_git_for_windows_after_everything_else_on_the_path()
+    {
+        var workflow = File.ReadAllText(Path.Combine(RepoRoot, _workflowPath));
+        var job = Regex.Match(workflow, @"(?ms)^  windows:\r?\n(.*)\z").Groups[1].Value;
+        var gate = Regex.Split(job, @"\r?\n      - ").Single(step => step.Contains("name: Gate", StringComparison.Ordinal));
+
+        var append = gate.IndexOf("$env:PATH = $env:PATH + ';' + (Join-Path $env:ProgramFiles 'Git\\usr\\bin')", StringComparison.Ordinal);
+        var run = gate.IndexOf("./build/gate.ps1", StringComparison.Ordinal);
+
+        Assert.True(append >= 0, "The Windows gate step does not append Git's usr\\bin to the path.");
+        Assert.True(append < run, "Git's usr\\bin is put on the path after the gate starts.");
+    }
+
     // A test the job can now run must not stay on the list of skips the Linux gate expects.
     [Theory]
     [InlineData("Msys2SourcesScriptTests")]
