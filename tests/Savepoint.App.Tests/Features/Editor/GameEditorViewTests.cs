@@ -140,8 +140,8 @@ public class GameEditorViewTests
         Assert.True(harness.Find<Border>("SteamWarningCallout").IsEffectivelyVisible);
         Assert.True(harness.Find<Border>("GuidanceStrip").IsEffectivelyVisible);
         var texts = harness.All<TextBlock>().Select(block => block.Text).ToList();
-        Assert.Contains(texts, text => text is not null && text.StartsWith("Turn off cloud saves for this game"));
-        Assert.Contains("Don't use SavePoint with online games protected by anti-cheat. Changed game files can get your account flagged, and those games can't be modded or rolled back anyway.", texts);
+        Assert.Contains(texts, text => text is not null && text.StartsWith("Turn off this game's cloud saves"));
+        Assert.Contains("Don't use SavePoint with online games that have anti-cheat. Changed game files can get your account flagged.", texts);
     }
 
     [AvaloniaFact]
@@ -258,7 +258,7 @@ public class GameEditorViewTests
         harness.Settle();
 
         Assert.True(row.IsEffectivelyVisible);
-        Assert.Contains("can't tell when you've stopped playing", harness.Find<TextBlock>("ProcessWhyText").Text);
+        Assert.Contains("you'll have to say when you've stopped playing", harness.Find<TextBlock>("ProcessWhyText").Text);
         var button = harness.Find<Button>("UseSuggestedProcessButton");
         Assert.Equal("Use SkyrimSE.exe", button.Content);
 
@@ -338,9 +338,9 @@ public class GameEditorViewTests
         var texts = harness.All<TextBlock>().Where(block => block.IsEffectivelyVisible).Select(block => block.Text).ToList();
 
         Assert.Contains("FILES TO LEAVE OUT OF BOTH FOLDERS", texts);
-        Assert.Contains("SavePoint never copies or replaces files that match these rules, in the game's own folder or in your saves folder. Use * for any name and ** for any folder. Don't add a rule that matches your saves, or profiles stop switching them.", texts);
+        Assert.Contains("SavePoint never copies or replaces files that match. Use * for any name and ** for any folder. Don't add a rule that matches your saves, or profiles stop switching them.", texts);
         Assert.Contains("FILES TO LEAVE OUT OF THE GAME'S OWN FOLDER", texts);
-        Assert.Contains("SavePoint never copies or replaces files in the game's own folder that match these rules, such as logs and crash reports. They never reach your saves folder. Use * for any name and ** for any folder.", texts);
+        Assert.Contains("SavePoint never copies or replaces matching files, such as logs and crash reports. These rules never apply to your saves folder. Use * for any name and ** for any folder.", texts);
     }
 
     [AvaloniaFact]
@@ -371,8 +371,8 @@ public class GameEditorViewTests
 
         foreach (var (host, name, help) in new[]
         {
-            ("InstallIgnoreRulesHost", "Add a rule for the game's own folder", "never reach your saves folder"),
-            ("IgnoreRulesHost", "Add a rule for both folders", "in the game's own folder or in your saves folder"),
+            ("InstallIgnoreRulesHost", "Add a rule for the game's own folder", "never apply to your saves folder"),
+            ("IgnoreRulesHost", "Add a rule for both folders", "Don't add a rule that matches your saves"),
         })
         {
             var addChip = InHost<Button>(harness, host, "AddChip");

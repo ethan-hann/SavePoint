@@ -124,9 +124,9 @@ public class AppearanceArtworkTests
         var toggle = harness.Find<ToggleSwitch>("ArtworkSwitch");
 
         Assert.Contains("Look up game artwork online", texts);
-        Assert.Contains(texts, text => text?.Contains("already on this computer is used either way", StringComparison.Ordinal) == true);
+        Assert.Contains(texts, text => text?.Contains("when it isn't on this computer yet", StringComparison.Ordinal) == true);
         Assert.Equal("Look up game artwork online", AutomationProperties.GetName(toggle));
-        Assert.Contains("already on this computer", AutomationProperties.GetHelpText(toggle) ?? string.Empty, StringComparison.Ordinal);
+        Assert.Contains("isn't on this computer yet", AutomationProperties.GetHelpText(toggle) ?? string.Empty, StringComparison.Ordinal);
         Assert.True(toggle.IsChecked);
     }
 

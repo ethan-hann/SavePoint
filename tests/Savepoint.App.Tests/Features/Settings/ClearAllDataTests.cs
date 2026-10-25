@@ -244,7 +244,7 @@ public class ClearAllDataTests
 
         Assert.Equal("Remove all SavePoint data?", dialog.Title);
         Assert.Equal(
-            "SavePoint deletes every snapshot and setting it keeps and starts over as if new. You can't go back to any earlier version, mods or saves afterwards. This can't be undone.",
+            "Every snapshot and setting is deleted and SavePoint starts over as if new. This can't be undone.",
             dialog.Intro);
         Assert.Equal(
             [
@@ -254,7 +254,7 @@ public class ClearAllDataTests
             ],
             dialog.Items);
         Assert.Equal(
-            "Your game folders and everything in them stay exactly as they are. SavePoint only removes the small file it added to 2 game folders to recognize them.",
+            "Your game folders and their contents stay as they are. SavePoint only removes the small file it added to 2 game folders.",
             dialog.Stays);
         Assert.Equal("This frees 79.3 GB.", dialog.Freed);
         dialog.CancelCommand.Execute(null);
@@ -268,7 +268,7 @@ public class ClearAllDataTests
         var run = StartAsync(rig);
         var dialog = Dialog(rig);
 
-        Assert.Equal("Your game folders and everything in them stay exactly as they are.", dialog.Stays);
+        Assert.Equal("Your game folders and their contents stay as they are.", dialog.Stays);
         dialog.CancelCommand.Execute(null);
         await run;
     }
@@ -281,7 +281,7 @@ public class ClearAllDataTests
         var dialog = Dialog(rig);
 
         Assert.Equal("1 game and 1 profile, with all their snapshots", dialog.Items[0]);
-        Assert.EndsWith("added to 1 game folder to recognize it.", dialog.Stays);
+        Assert.EndsWith("added to 1 game folder.", dialog.Stays);
         dialog.CancelCommand.Execute(null);
         await run;
     }

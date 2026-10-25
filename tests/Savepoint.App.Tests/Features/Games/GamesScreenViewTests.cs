@@ -180,7 +180,7 @@ public class GamesScreenViewTests
 
         var confirm = Assert.IsType<ConfirmDialogViewModel>(harness.Dialogs.Current);
         Assert.Equal("Delete Vanilla - latest update?", confirm.Title);
-        Assert.StartsWith("1 snapshot is only in this profile.", confirm.Message);
+        Assert.StartsWith("1 snapshot is only in this profile", confirm.Message);
     }
 
     [AvaloniaFact]
@@ -289,7 +289,7 @@ public class GamesScreenViewTests
 
         Assert.Equal("Free up space", button.Content);
         Assert.Equal("Free up space for Skyrim Special Edition", AutomationProperties.GetName(button));
-        Assert.Equal("Clears out snapshots no profile uses anymore, such as a deleted profile's.", AutomationProperties.GetHelpText(button));
+        Assert.Equal("Clears out snapshots no profile uses.", AutomationProperties.GetHelpText(button));
         Assert.True(button.IsEffectivelyEnabled);
         Assert.False(status.IsEffectivelyVisible);
         Assert.False(bar.IsEffectivelyVisible);
@@ -362,7 +362,7 @@ public class GamesScreenViewTests
 
         var confirm = Assert.IsType<ConfirmDialogViewModel>(harness.Dialogs.Current);
         Assert.Equal("Free up space?", confirm.Title);
-        Assert.StartsWith("Freeing up space also deletes 2 recently removed snapshots for good.", confirm.Message);
+        Assert.StartsWith("This also deletes 2 recently removed snapshots for good.", confirm.Message);
         Assert.DoesNotContain(harness.Rig.Backend.Jobs.List(), job => job.Kind == JobKind.Compact);
     }
 

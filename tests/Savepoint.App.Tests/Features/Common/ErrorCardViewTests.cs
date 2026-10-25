@@ -25,7 +25,7 @@ public class ErrorCardViewTests
         using var shown = Show(new ErrorCardViewModel(SampleScenario.FileInUseError, _text, operation: ErrorOperation.Switch));
 
         Assert.Equal("A file is in use, so the switch stopped partway", shown.Text("TitleText"));
-        Assert.StartsWith("Something else on your computer", shown.Text("BodyText"));
+        Assert.StartsWith("Another program", shown.Text("BodyText"));
         Assert.True(shown.Find<Border>("PathSurface").IsEffectivelyVisible);
         Assert.Contains(@"C:\Games\SkyrimSE\Data\Skyrim.esm", shown.Card.GetVisualDescendants().OfType<SelectableTextBlock>().Select(block => block.Text));
     }
@@ -55,7 +55,7 @@ public class ErrorCardViewTests
         Assert.True(card.ShowDetails);
         Assert.Equal("Hide details", toggle.Content);
         Assert.True(shown.Find<Border>("DetailsSurface").IsEffectivelyVisible);
-        Assert.Contains("technical details for a bug report", shown.Text("DetailsExplanation"), StringComparison.Ordinal);
+        Assert.Contains("Technical details for a bug report", shown.Text("DetailsExplanation"), StringComparison.Ordinal);
         Assert.Equal("Copy details for support", shown.Find<Button>("CopyDetails").Content);
 
         toggle.IsChecked = false;
@@ -109,7 +109,7 @@ public class ErrorCardViewTests
         var copied = await Avalonia.Input.Platform.ClipboardExtensions.TryGetTextAsync(clipboard);
         Assert.Equal(error.Detail, copied);
         Assert.Contains("unable to unlink", copied, StringComparison.Ordinal);
-        Assert.Equal("Copied. Paste it into your bug report.", card.CopyNote);
+        Assert.Equal("Copied.", card.CopyNote);
     }
 
     [AvaloniaFact]

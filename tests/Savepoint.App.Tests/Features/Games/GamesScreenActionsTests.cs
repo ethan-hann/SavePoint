@@ -110,7 +110,7 @@ public class GamesScreenActionsTests
         Assert.False(other.CanOfferSnapshot);
         Assert.True(other.SnapshotBlocked);
         Assert.Equal("Take a snapshot now (load this profile first)", other.SnapshotBlockedText);
-        Assert.Equal("A snapshot copies what your game folders hold now. Switch to this profile, play it, or go back to its latest snapshot, to load it first.", other.SnapshotBlockedTip);
+        Assert.Equal("Load this profile first: switch to it, play it, or go back to its latest snapshot.", other.SnapshotBlockedTip);
         Assert.False(other.TakeSnapshotCommand.CanExecute(null));
 
         await other.TakeSnapshotCommand.ExecuteAsync(null);
@@ -131,7 +131,7 @@ public class GamesScreenActionsTests
 
         var question = Assert.Single(rig.Dialogs.Confirmations);
         Assert.Equal("Take the first snapshot of Fresh profile?", question.Title);
-        Assert.Equal("Fresh profile has no snapshot yet of at least one of your game folders. Its first snapshot of each is a copy of what the folder holds right now. If a folder holds another profile's files, that is what Fresh profile starts with there, and the folder then belongs to Fresh profile.", question.Message);
+        Assert.Equal("A first snapshot copies what the folder holds right now, even if that is another profile's files. The folder then belongs to Fresh profile.", question.Message);
         Assert.Equal("Take the snapshot", question.ConfirmLabel);
         var call = Assert.Single(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CaptureAsync)));
         Assert.Equal([SampleScenario.SkyrimId, "profile-fresh", "Snapshot - 7-8-26", null], call.Args);
@@ -402,8 +402,8 @@ public class GamesScreenActionsTests
     }
 
     [Theory]
-    [InlineData(1, "1 snapshot is only in this profile. Deleting it deletes that snapshot for good and frees the space soon after. This can't be undone.")]
-    [InlineData(4, "4 snapshots are only in this profile. Deleting it deletes those snapshots for good and frees the space soon after. This can't be undone.")]
+    [InlineData(1, "1 snapshot is only in this profile and deleted for good. This can't be undone.")]
+    [InlineData(4, "4 snapshots are only in this profile and deleted for good. This can't be undone.")]
     public async Task Deleting_a_profile_names_how_many_points_only_it_holds(int points, string message)
     {
         var rig = await GamesRig.StartAsync(WithDeletePreview(Preview(SampleScenario.VanillaId, points)));
@@ -414,10 +414,10 @@ public class GamesScreenActionsTests
     }
 
     [Theory]
-    [InlineData(2, 1, "2 snapshots are only in this profile. Deleting it deletes those snapshots for good and frees the space soon after. 1 more snapshot goes back to Recently removed until you next free up space. This can't be undone.")]
-    [InlineData(1, 3, "1 snapshot is only in this profile. Deleting it deletes that snapshot for good and frees the space soon after. 3 more snapshots go back to Recently removed until you next free up space. This can't be undone.")]
-    [InlineData(0, 1, "1 snapshot is only in this profile. Deleting the profile puts it in Recently removed until you next free up space. Nothing is deleted for good.")]
-    [InlineData(0, 4, "4 snapshots are only in this profile. Deleting the profile puts them in Recently removed until you next free up space. Nothing is deleted for good.")]
+    [InlineData(2, 1, "2 snapshots are only in this profile and deleted for good. 1 more snapshot goes to Recently removed. This can't be undone.")]
+    [InlineData(1, 3, "1 snapshot is only in this profile and deleted for good. 3 more snapshots go to Recently removed. This can't be undone.")]
+    [InlineData(0, 1, "1 snapshot is only in this profile. It goes to Recently removed until you free up space. Nothing is deleted for good.")]
+    [InlineData(0, 4, "4 snapshots are only in this profile. They go to Recently removed until you free up space. Nothing is deleted for good.")]
     public async Task Deleting_a_profile_whose_snapshots_go_back_to_Recently_removed_says_which_are_deleted_for_good_and_which_are_not(int forGood, int back, string message)
     {
         var preview = new ProfileDeletePreview(SampleScenario.VanillaId, forGood, [new FolderPointLoss(RepoRole.Install, forGood, null)], null, back);
@@ -508,7 +508,7 @@ public class GamesScreenActionsTests
         var asked = Assert.Single(rig.Dialogs.Confirmations);
         Assert.Equal("Delete Skyrim Special Edition?", asked.Title);
         Assert.Equal(
-            "This removes Skyrim Special Edition from SavePoint, along with its 3 profiles, all their snapshots, and its recently removed snapshots. This can't be undone. The files in your game folder and saves folder stay as they are now.",
+            "This removes Skyrim Special Edition, its 3 profiles, all their snapshots and its recently removed snapshots. This can't be undone. Your game and saves folders stay as they are.",
             asked.Message);
         Assert.Equal("Delete game", asked.ConfirmLabel);
         Assert.True(asked.Destructive);
@@ -526,7 +526,7 @@ public class GamesScreenActionsTests
         await rig.Screen.DeleteGameCommand.ExecuteAsync(null);
 
         Assert.Equal(
-            "The Last Caretaker has no profiles yet, but every snapshot SavePoint kept for it is deleted for good. This can't be undone. The files in your game folder and saves folder stay as they are now.",
+            "The Last Caretaker has no profiles, but every snapshot kept for it is deleted for good. This can't be undone. Your game and saves folders stay as they are.",
             Assert.Single(rig.Dialogs.Confirmations).Message);
     }
 

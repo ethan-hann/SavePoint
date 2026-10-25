@@ -129,7 +129,7 @@ public sealed class AppsMenuSectionTests : IDisposable
 
         await section.AddCommand.ExecuteAsync(null);
 
-        Assert.Equal("SavePoint couldn't change your apps menu. Check that you can write to your own files folder, then try again.", section.Problem);
+        Assert.Equal("SavePoint couldn't change your apps menu. Check that you can write to your own files folder.", section.Problem);
         Assert.True(section.ShowAdd);
     }
 
@@ -156,7 +156,7 @@ public sealed class AppsMenuSectionTests : IDisposable
         Assert.True(harness.Find<Button>("AppsMenuAddButton").IsEffectivelyVisible);
         Assert.False(harness.Find<Button>("AppsMenuRemoveButton").IsEffectivelyVisible);
         Assert.False(harness.Find<Button>("AppsMenuUpdateButton").IsEffectivelyVisible);
-        Assert.Contains("An apps menu entry lists SavePoint", harness.Find<TextBlock>("AppsMenuExplanation").Text);
+        Assert.Contains("Lists SavePoint with your other programs", harness.Find<TextBlock>("AppsMenuExplanation").Text);
     }
 
     [AvaloniaFact]

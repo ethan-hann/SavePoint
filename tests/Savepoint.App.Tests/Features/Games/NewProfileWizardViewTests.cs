@@ -45,16 +45,6 @@ public class NewProfileWizardViewTests
         var accent = (Color)Application.Current!.FindResource("Md3PrimaryColor")!;
         Assert.Equal(accent, ((ISolidColorBrush)label.Foreground!).Color);
         Assert.Equal("Modded playthrough - 7-8-26", field.Text);
-        Assert.Equal("Anything that helps you recognize it later.", harness.Find<TextBlock>("NameHelperText").Text);
-    }
-
-    [AvaloniaFact]
-    public async Task The_name_field_carries_its_helper_line_as_help_text()
-    {
-        var (harness, _) = await OpenAsync();
-        using var _ = harness;
-
-        Assert.Equal("Anything that helps you recognize it later.", AutomationProperties.GetHelpText(harness.Find<TextBox>("NameField")));
     }
 
     [AvaloniaFact]
@@ -109,7 +99,7 @@ public class NewProfileWizardViewTests
         Assert.Contains("Game version and mods", harness.VisibleTexts());
         Assert.Contains("Current saves", harness.VisibleTexts());
         Assert.Contains(@"C:\Games\SkyrimSE" + " \u00b7 212 mod files \u00b7 41.2 GB", harness.VisibleTexts());
-        Assert.Contains("SavePoint reuses files it already has, so this will only add about 2.4 GB.", harness.VisibleTexts());
+        Assert.Contains("Files SavePoint already has are reused, so only about 2.4 GB is added.", harness.VisibleTexts());
         Assert.Contains("WHAT GOES IN THE FIRST SNAPSHOT", harness.VisibleTexts());
 
         await wizard.ContinueCommand.ExecuteAsync(null);
@@ -203,7 +193,7 @@ public class NewProfileWizardViewTests
         var bar = harness.Find<ProgressBar>("SaveProgress");
 
         Assert.True(bar.IsIndeterminate);
-        Assert.Contains("This can take a while for a large install, especially the first time.", harness.VisibleTexts());
+        Assert.Contains("A large install can take a while the first time.", harness.VisibleTexts());
 
         harness.Rig.Backend.Jobs.ReportProgress(harness.Rig.Backend.Jobs.LastStarted(Capture).JobId, new JobProgress(1000, 4000, CurrentPath: @"Data\x.esm"));
         harness.Settle();
@@ -319,7 +309,7 @@ public class NewProfileWizardViewTests
         harness.Settle();
 
         Assert.True(harness.Find<Border>("SubmitErrorBox").IsEffectivelyVisible);
-        Assert.Contains("There's not enough free disk space to take this snapshot right now. Free up about 1.2 GB on drive D: and try again.", harness.VisibleTexts());
+        Assert.Contains("Not enough free disk space to take this snapshot. Free up about 1.2 GB on drive D: and try again.", harness.VisibleTexts());
         Assert.True(harness.Find<StackPanel>("CheckStep").IsEffectivelyVisible);
     }
 
@@ -342,6 +332,6 @@ public class NewProfileWizardViewTests
 
         Assert.Same(harness.Find<TextBox>("NameField"), harness.Window.FocusManager!.GetFocusedElement());
         Assert.Equal("Modded playthrough - 7-2-26 copy", harness.Find<TextBox>("NameField").Text);
-        Assert.Contains("The copy starts with the same game version and mods, and no save snapshots of its own. Modded playthrough - 7-2-26 stays as it is.", harness.VisibleTexts());
+        Assert.Contains("The copy starts with the same game version and mods, and no save snapshots of its own.", harness.VisibleTexts());
     }
 }

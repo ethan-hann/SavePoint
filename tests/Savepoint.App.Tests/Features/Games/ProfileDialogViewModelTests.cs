@@ -65,7 +65,7 @@ public class ProfileDialogViewModelTests
     {
         var dialog = Edit(detected: null);
 
-        Assert.Equal("No version could be detected. Enter one to show it in the profile list.", dialog.VersionHelper);
+        Assert.Equal("No version was detected. Enter one to show it.", dialog.VersionHelper);
         Assert.Null(dialog.VersionPlaceholder);
     }
 
@@ -240,7 +240,7 @@ public class ProfileDialogViewModelTests
     {
         var dialog = Duplicate();
 
-        Assert.Equal("The copy starts with the same game version and mods, and no save snapshots of its own. Modded playthrough stays as it is.", dialog.Body);
+        Assert.Equal("The copy starts with the same game version and mods, and no save snapshots of its own.", dialog.Body);
     }
 
     [Fact]

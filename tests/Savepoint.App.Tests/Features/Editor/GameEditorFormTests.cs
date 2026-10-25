@@ -28,7 +28,7 @@ public class GameEditorFormTests
         var editor = EditorRig.Create().New();
 
         Assert.True(editor.HasDefaultRulesNote);
-        Assert.Equal("New games leave out logs and crash reports from the game's own folder. A game rewrites them while it runs, so without these rules SavePoint would take them for a game update. They never apply to your saves folder. Remove a rule to keep those files in your snapshots.", editor.DefaultRulesNote);
+        Assert.Equal("New games leave out logs and crash reports, which a game rewrites while it runs and SavePoint would take for a game update. Remove a rule to keep them in your snapshots.", editor.DefaultRulesNote);
     }
 
     [Fact]
@@ -47,8 +47,8 @@ public class GameEditorFormTests
 
         Assert.Equal("Add a rule for the game's own folder", editor.InstallIgnoreRules.AddAutomationName);
         Assert.Equal("Add a rule for both folders", editor.IgnoreRules.AddAutomationName);
-        Assert.Equal("SavePoint never copies or replaces files in the game's own folder that match these rules, such as logs and crash reports. They never reach your saves folder. Use * for any name and ** for any folder.", editor.InstallIgnoreRules.HelpText);
-        Assert.Equal("SavePoint never copies or replaces files that match these rules, in the game's own folder or in your saves folder. Use * for any name and ** for any folder. Don't add a rule that matches your saves, or profiles stop switching them.", editor.IgnoreRules.HelpText);
+        Assert.Equal("SavePoint never copies or replaces matching files, such as logs and crash reports. These rules never apply to your saves folder. Use * for any name and ** for any folder.", editor.InstallIgnoreRules.HelpText);
+        Assert.Equal("SavePoint never copies or replaces files that match. Use * for any name and ** for any folder. Don't add a rule that matches your saves, or profiles stop switching them.", editor.IgnoreRules.HelpText);
         Assert.Equal("Remove **/*.log from Files to leave out of the game's own folder", editor.InstallIgnoreRules.Items[0].RemoveLabel);
         Assert.NotEqual(editor.LaunchArgs.AddAutomationName, editor.ModFolders.AddAutomationName);
     }

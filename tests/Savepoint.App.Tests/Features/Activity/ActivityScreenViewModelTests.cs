@@ -357,7 +357,7 @@ public class ActivityScreenViewModelTests
         var lines = Details(rig).Lines;
 
         Assert.Equal(
-            ["Taking the snapshot \"After the Blackreach run\" of the profile \"Modded playthrough - 7-2-26\".", @"Data\Textures\a.dds"],
+            ["Taking snapshot \"After the Blackreach run\" of \"Modded playthrough - 7-2-26\".", @"Data\Textures\a.dds"],
             lines.Select(line => line.Text));
         Assert.Equal([true, false], lines.Select(line => line.IsStep));
         Assert.True(Details(rig).HasLines);
@@ -413,7 +413,7 @@ public class ActivityScreenViewModelTests
 
         rig.Screen.SelectedRow = RowWhere(rig, row => row.Title.StartsWith("Taking", StringComparison.Ordinal));
 
-        Assert.StartsWith("Taking the snapshot", Line(Details(rig), 0).Text, StringComparison.Ordinal);
+        Assert.StartsWith("Taking snapshot", Line(Details(rig), 0).Text, StringComparison.Ordinal);
 
         rig.Screen.SelectedRow = RowWhere(rig, row => row.Title.StartsWith("Freeing", StringComparison.Ordinal));
 
@@ -537,7 +537,7 @@ public class ActivityScreenViewModelTests
         await Details(rig).CancelCommand.ExecuteAsync(null);
 
         Assert.Equal([id], ignoring!.Asked);
-        Assert.Equal("That job couldn't be stopped just now. It will finish on its own.", Details(rig).StopNote);
+        Assert.Equal("The job couldn't be stopped. It will finish on its own.", Details(rig).StopNote);
         Assert.True(Details(rig).HasStopNote);
         Assert.Equal("In progress", FirstRow(rig).StatusText);
 
@@ -553,7 +553,7 @@ public class ActivityScreenViewModelTests
         var clear = await rig.StartClearAsync();
 
         Assert.False(Details(rig).CanCancel);
-        Assert.Equal("Clearing SavePoint's data can't be stopped once it has started.", Details(rig).StopNote);
+        Assert.Equal("Clearing data can't be stopped once it has started.", Details(rig).StopNote);
 
         rig.Backend.Jobs.Complete(clear);
         var move = await rig.StartMoveAsync();
@@ -563,7 +563,7 @@ public class ActivityScreenViewModelTests
         rig.Backend.Jobs.ReportNoLongerCancellable(move);
 
         Assert.False(Details(rig).CanCancel);
-        Assert.Equal("The move can't be stopped any more, because SavePoint already uses the new folder.", Details(rig).StopNote);
+        Assert.Equal("The move can't be stopped now. SavePoint already uses the new folder.", Details(rig).StopNote);
     }
 
     // ---- The error
@@ -589,7 +589,7 @@ public class ActivityScreenViewModelTests
         var rig = await ActivityRig.ShownAsync();
         var snapshot = await rig.StartCaptureAsync();
         rig.Backend.Jobs.Fail(snapshot, FileInUseError);
-        Assert.Contains("earlier snapshots are untouched", Details(rig).Error?.Body, StringComparison.Ordinal);
+        Assert.Contains("arlier snapshots are untouched", Details(rig).Error?.Body, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -678,7 +678,7 @@ public class ActivityScreenViewModelTests
 
         details.CopyCommand.Execute(null);
 
-        Assert.Equal(["Taking the snapshot \"After the Blackreach run\" of the profile \"Modded playthrough - 7-2-26\".\na.esp"], copied);
+        Assert.Equal(["Taking snapshot \"After the Blackreach run\" of \"Modded playthrough - 7-2-26\".\na.esp"], copied);
         Assert.Equal(copied[0], details.AllText);
     }
 

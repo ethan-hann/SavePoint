@@ -38,7 +38,7 @@ public class GameEditorBackTests
 
         var ask = Assert.Single(rig.Dialogs.Confirmations);
         Assert.Equal("Discard your changes?", ask.Title);
-        Assert.Equal("You've changed this game without saving. Going back now throws those changes away.", ask.Message);
+        Assert.Equal("Going back now throws away the changes you haven't saved.", ask.Message);
         Assert.Equal("Discard changes", ask.ConfirmLabel);
         Assert.Equal("Keep editing", ask.CancelLabel);
         Assert.True(ask.Destructive);

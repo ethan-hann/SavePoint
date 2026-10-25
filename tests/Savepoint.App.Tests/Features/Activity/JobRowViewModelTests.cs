@@ -222,10 +222,10 @@ public class JobRowViewModelTests
     [InlineData(JobKind.Capture, true, true, true, "Stopping now.")]
     [InlineData(JobKind.Compact, true, true, true, "Stopping now.")]
     [InlineData(JobKind.Launch, true, true, true, "Stopping now.")]
-    [InlineData(JobKind.ClearData, false, false, false, "Clearing SavePoint's data can't be stopped once it has started.")]
-    [InlineData(JobKind.RelocateStorage, false, false, false, "The move can't be stopped any more, because SavePoint already uses the new folder.")]
-    [InlineData(JobKind.Compact, false, false, false, "Freeing up space can't be stopped any more, because it has already started deleting the recently removed snapshots it was asked to delete.")]
-    [InlineData(JobKind.Capture, false, false, false, "This job can't be stopped right now.")]
+    [InlineData(JobKind.ClearData, false, false, false, "Clearing data can't be stopped once it has started.")]
+    [InlineData(JobKind.RelocateStorage, false, false, false, "The move can't be stopped now. SavePoint already uses the new folder.")]
+    [InlineData(JobKind.Compact, false, false, false, "Freeing up space can't be stopped now. It has started deleting recently removed snapshots.")]
+    [InlineData(JobKind.Capture, false, false, false, "This job can't be stopped now.")]
     public void A_running_job_that_is_stopping_or_cannot_stop_says_so_instead_of_looking_stuck(JobKind kind, bool requested, bool cancellable, bool _, string expected)
     {
         var row = Row(Job(kind, kind is JobKind.ClearData or JobKind.RelocateStorage ? null : "skyrim", cancellable: cancellable, cancelRequested: requested));

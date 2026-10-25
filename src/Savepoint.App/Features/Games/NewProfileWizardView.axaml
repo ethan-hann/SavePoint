@@ -48,8 +48,7 @@
       <StackPanel x:Name="NameStep" Spacing="18" IsVisible="{Binding IsNameStep}">
         <StackPanel Classes="field" Spacing="6">
           <TextBlock Classes="caption field-label" Text="{loc:Loc profiles.wizard.name.label}" />
-          <TextBox x:Name="NameField" Text="{Binding Name}" AutomationProperties.Name="{loc:Loc profiles.wizard.name.label}" AutomationProperties.HelpText="{Binding NameHelper}" />
-          <TextBlock x:Name="NameHelperText" Classes="caption subtle" Text="{Binding NameHelper}" />
+          <TextBox x:Name="NameField" Text="{Binding Name}" AutomationProperties.Name="{loc:Loc profiles.wizard.name.label}" />
         </StackPanel>
         <StackPanel Classes="field" Spacing="6">
           <TextBlock Classes="caption field-label" Text="{loc:Loc profiles.wizard.notes.label}" />

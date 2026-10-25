@@ -60,7 +60,7 @@ public class StorageSectionViewModelTests
     {
         var rig = await SettingsRig.ShownAsync();
 
-        Assert.Equal("Clears out snapshots no profile uses anymore, such as a deleted profile's, and deletes recently removed snapshots for good. SavePoint also tidies up by itself after you delete a profile and when snapshots pile up, and that never deletes recently removed snapshots. You last freed up space on Jul 1.", Storage(rig).OptimizeDescription);
+        Assert.Equal("Clears out snapshots no profile uses and deletes recently removed ones for good. SavePoint also tidies up by itself, but never deletes recently removed snapshots. You last freed up space on Jul 1.", Storage(rig).OptimizeDescription);
     }
 
     [Fact]
@@ -73,7 +73,7 @@ public class StorageSectionViewModelTests
         {
             Assert.DoesNotContain("runs by itself", text, StringComparison.Ordinal);
             Assert.DoesNotContain("or game", text, StringComparison.Ordinal);
-            Assert.Contains("that never deletes recently removed snapshots", text, StringComparison.Ordinal);
+            Assert.Contains("but never deletes recently removed snapshots", text, StringComparison.Ordinal);
         }
     }
 
@@ -83,7 +83,7 @@ public class StorageSectionViewModelTests
         var never = SampleScenario.Settings with { LastOptimizedAt = null };
         var rig = await SettingsRig.ShownAsync(new FakeBackend(ScenarioBuilder.Sample().WithSettings(never)));
 
-        Assert.Equal("Clears out snapshots no profile uses anymore, such as a deleted profile's, and deletes recently removed snapshots for good. SavePoint also tidies up by itself after you delete a profile and when snapshots pile up, and that never deletes recently removed snapshots. You haven't freed up space yet.", Storage(rig).OptimizeDescription);
+        Assert.Equal("Clears out snapshots no profile uses and deletes recently removed ones for good. SavePoint also tidies up by itself, but never deletes recently removed snapshots. You haven't freed up space yet.", Storage(rig).OptimizeDescription);
     }
 
     // ---- Free up space
@@ -111,7 +111,7 @@ public class StorageSectionViewModelTests
 
         Assert.False(Storage(rig).IsOptimizing);
         Assert.True(Storage(rig).RunNowCommand.CanExecute(null));
-        Assert.Equal("Clears out snapshots no profile uses anymore, such as a deleted profile's, and deletes recently removed snapshots for good. SavePoint also tidies up by itself after you delete a profile and when snapshots pile up, and that never deletes recently removed snapshots. You last freed up space on Jul 8.", Storage(rig).OptimizeDescription);
+        Assert.Equal("Clears out snapshots no profile uses and deletes recently removed ones for good. SavePoint also tidies up by itself, but never deletes recently removed snapshots. You last freed up space on Jul 8.", Storage(rig).OptimizeDescription);
         Assert.True(rig.Calls<ISettingsApi>(nameof(ISettingsApi.GetStorageSummaryAsync)) > summaries);
     }
 
@@ -144,7 +144,7 @@ public class StorageSectionViewModelTests
         Assert.True(Storage(rig).IsOptimizing);
         Assert.False(Storage(rig).CancelOptimizeCommand.CanExecute(null));
         Assert.True(Storage(rig).HasStopNote);
-        Assert.Equal("Freeing up space can't be stopped any more, because it has already started deleting the recently removed snapshots it was asked to delete.", Storage(rig).StopNote);
+        Assert.Equal("Freeing up space can't be stopped now. It has started deleting recently removed snapshots.", Storage(rig).StopNote);
     }
 
     [Fact]

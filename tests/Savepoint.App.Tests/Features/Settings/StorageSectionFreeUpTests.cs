@@ -21,7 +21,7 @@ public class StorageSectionFreeUpTests
 
         var question = Assert.Single(rig.Dialogs.Confirmations);
         Assert.Equal("Free up space?", question.Title);
-        Assert.Equal("Freeing up space also deletes 3 recently removed snapshots for good. They are no longer part of any profile, and you can't bring them back afterward.", question.Message);
+        Assert.Equal("This also deletes 3 recently removed snapshots for good. You can't bring them back.", question.Message);
         Assert.Equal("Delete 3 snapshots and free up space", question.ConfirmLabel);
         Assert.True(question.Destructive);
         Assert.Equal(1, rig.Calls<ISettingsApi>(nameof(ISettingsApi.OptimizeAllStorageAsync)));
@@ -52,7 +52,7 @@ public class StorageSectionFreeUpTests
         await rig.Screen.Storage.RunNowCommand.ExecuteAsync(null);
 
         var question = Assert.Single(rig.Dialogs.Confirmations);
-        Assert.Equal("Freeing up space also deletes 1 recently removed snapshot for good. It is no longer part of any profile, and you can't bring it back afterward.", question.Message);
+        Assert.Equal("This also deletes 1 recently removed snapshot for good. You can't bring it back.", question.Message);
         Assert.Equal("Delete 1 snapshot and free up space", question.ConfirmLabel);
     }
 

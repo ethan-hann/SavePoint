@@ -406,7 +406,7 @@ public class GamesScreenViewModelTests
         await rig.Screen.FreeUp.FreeUpCommand.ExecuteAsync(null);
 
         Assert.Single(rig.ToastTexts);
-        Assert.StartsWith("Something else on your computer", rig.ToastTexts[0]);
+        Assert.StartsWith("Another program", rig.ToastTexts[0]);
     }
 
     [Fact]

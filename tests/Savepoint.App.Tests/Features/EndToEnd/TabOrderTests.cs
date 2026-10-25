@@ -121,7 +121,7 @@ public class TabOrderTests
         Assert.Equal(["Activity", "Skyrim Special Edition, 3 profiles", "Add games from your libraries", "Add a game", "This game"], stops.Take(5));
         Assert.StartsWith("Taking a snapshot of Skyrim Special Edition. In progress.", stops[5], StringComparison.Ordinal);
         Assert.Equal(["Cancel Taking a snapshot of Skyrim Special Edition", "Copy details"], stops.Skip(6).Take(2));
-        Assert.StartsWith("Taking the snapshot", stops[8], StringComparison.Ordinal);
+        Assert.StartsWith("Taking snapshot", stops[8], StringComparison.Ordinal);
         Assert.Equal("Taking a snapshot of Skyrim Special Edition… Open Activity", stops[9]);
         Assert.Equal(10, stops.Count);
     }

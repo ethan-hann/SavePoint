@@ -136,7 +136,7 @@ public class CrashWindowTests
         Assert.Contains("   at ", text, StringComparison.Ordinal);
         Assert.Contains(_logFolder, text, StringComparison.Ordinal);
         Assert.True(note.IsEffectivelyVisible);
-        Assert.Equal("Copied. Paste it into your bug report.", note.Text);
+        Assert.Equal("Copied.", note.Text);
     }
 
     // What the player sees under Show details is what they paste.

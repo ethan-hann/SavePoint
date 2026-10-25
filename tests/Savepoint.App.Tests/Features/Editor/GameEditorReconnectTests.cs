@@ -148,7 +148,7 @@ public class GameEditorReconnectTests
         Assert.Equal(["**/*.dmp", "**/*.mdmp"], stored.IgnorePaths);
         var toast = Assert.Single(rig.Toasts.Toasts);
         Assert.Equal(Savepoint.App.Features.Common.Toasts.ToastKind.Info, toast.Message.Kind);
-        Assert.Equal("The rule **/*.log now applies to the game's own folder only, because your saves folder holds files it would have left out. SavePoint keeps your saves in your snapshots.", toast.Text);
+        Assert.Equal("The rule **/*.log now applies to the game's own folder only, so your saves stay in your snapshots.", toast.Text);
     }
 
     [Theory]
@@ -166,7 +166,7 @@ public class GameEditorReconnectTests
         await saving;
 
         var toast = Assert.Single(rig.Toasts.Toasts);
-        Assert.Equal("The rule **/*.log now applies to the game's own folder only, because SavePoint could not look in your saves folder to be sure it would keep your saves. You can see it under \"Files to leave out of the game's own folder\" in Edit game.", toast.Text);
+        Assert.Equal("The rule **/*.log now applies to the game's own folder only, because SavePoint couldn't check your saves folder. It is listed under \"Files to leave out of the game's own folder\" in Edit game.", toast.Text);
         Assert.DoesNotContain("holds files", toast.Text, StringComparison.Ordinal);
     }
 

@@ -71,7 +71,7 @@ public class NotificationTextTests
         var (_, body) = NotificationText.For(Job(JobKind.Capture, JobStatus.Partial, "skyrim", result), "Skyrim", _text);
 
         Assert.StartsWith("Only part of Skyrim is in the new snapshot.", body, StringComparison.Ordinal);
-        Assert.Contains("not enough free disk space", body, StringComparison.Ordinal);
+        Assert.Contains("Not enough free disk space", body, StringComparison.Ordinal);
     }
 
     [Fact]

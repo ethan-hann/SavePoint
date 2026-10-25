@@ -64,16 +64,15 @@ public class SettingsScreenViewTests
             "79.3 GB used by 3 games",
             "131 GB free",
             "Free up space",
-            "Clears out snapshots no profile uses anymore, such as a deleted profile's, and deletes recently removed snapshots for good. SavePoint also tidies up by itself after you delete a profile and when snapshots pile up, and that never deletes recently removed snapshots. You last freed up space on Jul 1.",
+            "Clears out snapshots no profile uses and deletes recently removed ones for good. SavePoint also tidies up by itself, but never deletes recently removed snapshots. You last freed up space on Jul 1.",
             "APPEARANCE",
             "Theme",
             "Match Windows",
             "Layout",
-            "You can also switch this from the Games screen at any time.",
+            "You can also switch this on the Games screen.",
             "Every game one click away",
             "Cover art up front",
             "Accent color",
-            "SavePoint picks the other colors to match.",
             "BEFORE YOU PLAY",
             "Skip the check before playing when only your saves change",
             "A change to the game version or mods always shows the check.",
@@ -284,7 +283,7 @@ public class SettingsScreenViewTests
         var group = harness.Find<StackPanel>("SessionSection");
         var ask = harness.Find<ToggleSwitch>("AskSwitch");
         var texts = group.GetVisualDescendants().OfType<TextBlock>().Select(block => block.Text).ToList();
-        const string hint = "When this is off, SavePoint keeps nothing after you play. It asks about your new changes before the next switch instead.";
+        const string hint = "When off, nothing is kept after you play. SavePoint asks about new changes before the next switch.";
         Assert.Contains(hint, texts);
         Assert.Equal("Ask whether to keep the session", AutomationAudit.NameOf(ask));
         Assert.Equal(hint, AutomationProperties.GetHelpText(ask));
