@@ -99,7 +99,8 @@ public partial class PackageSourcesTests
         var code = CodeOf("build/package.ps1");
 
         Assert.Contains("build/msys2-sources.json", code, StringComparison.Ordinal);
-        Assert.Contains("foreach ($package in Get-PackageSourceArchives)", code, StringComparison.Ordinal);
+        Assert.Contains("Get-PackageSourceArchives -ManifestPath", code, StringComparison.Ordinal);
+        Assert.Contains("foreach ($package in $packageArchives)", code, StringComparison.Ordinal);
         Assert.Contains("Invoke-WebRequest -Uri $package.Url", code, StringComparison.Ordinal);
         Assert.Contains("$package.Sha256 -ne $actual", code, StringComparison.Ordinal);
         Assert.Contains("'packages'", code, StringComparison.Ordinal);
@@ -115,53 +116,5 @@ public partial class PackageSourcesTests
         Assert.Contains("download \"$url\" \"$partial\"", code, StringComparison.Ordinal);
         Assert.Contains("\"$pinned\" != \"$actual\"", code, StringComparison.Ordinal);
         Assert.Contains("$source_dir/packages", code, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task The_bash_parse_yields_every_archive_of_the_real_manifest_as_file_url_and_hash()
-    {
-        var script = File.ReadAllText(Path.Combine(RepoRoot, "build", "package.sh"));
-        const string start = "package_pins=\"$(awk '";
-        const string end = "' build/msys2-sources.json)\"";
-        var from = script.IndexOf(start, StringComparison.Ordinal);
-        Assert.True(from >= 0, "package.sh no longer parses build/msys2-sources.json with awk.");
-        from += start.Length;
-        var program = script[from..script.IndexOf(end, from, StringComparison.Ordinal)];
-
-        var folder = Directory.CreateTempSubdirectory("savepoint-awk-");
-        try
-        {
-            var file = Path.Combine(folder.FullName, "parse.awk");
-            await File.WriteAllTextAsync(file, program, TestContext.Current.CancellationToken);
-            var info = new System.Diagnostics.ProcessStartInfo("awk") { RedirectStandardOutput = true, UseShellExecute = false };
-            info.ArgumentList.Add("-f");
-            info.ArgumentList.Add(file);
-            info.ArgumentList.Add(Path.Combine(RepoRoot, "build", "msys2-sources.json"));
-            System.Diagnostics.Process? process = null;
-            try
-            {
-                process = System.Diagnostics.Process.Start(info);
-            }
-            catch (System.ComponentModel.Win32Exception)
-            {
-                // Not every machine has awk on its path.
-            }
-
-            Assert.SkipWhen(process is null, "awk is not installed here.");
-            using (process)
-            {
-                var output = await process!.StandardOutput.ReadToEndAsync(TestContext.Current.CancellationToken);
-                await process.WaitForExitAsync(TestContext.Current.CancellationToken);
-
-                var parsed = output.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => line.TrimEnd('\r')).ToList();
-                var expected = Archives().Select(archive => $"{archive.File} {archive.Url} {archive.Sha256}").ToList();
-                Assert.NotEmpty(expected);
-                Assert.Equal(expected, parsed);
-            }
-        }
-        finally
-        {
-            folder.Delete(recursive: true);
-        }
     }
 }

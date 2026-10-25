@@ -78,16 +78,7 @@ function Get-SourceArchives {
     }
 }
 
-function Get-PackageSourceArchives {
-    # The MSYS2 and MINGW packages inside the Windows git bundle are listed, with their hashes, in build/msys2-sources.json.
-    $listed = (Get-Content -LiteralPath (Join-Path $repoRoot 'build/msys2-sources.json') -Raw | ConvertFrom-Json -AsHashtable)['archives']
-    if (-not $listed -or $listed.Count -eq 0) {
-        throw 'build/msys2-sources.json lists no source archives in "archives".'
-    }
-    foreach ($archive in $listed) {
-        [pscustomobject]@{ File = $archive['file']; Url = $archive['url']; Sha256 = "$($archive['sha256'])".Trim().ToLowerInvariant() }
-    }
-}
+. (Join-Path $PSScriptRoot 'package-sources.ps1')
 
 function Get-PackageEntryNames {
     param([string]$Path)
@@ -167,7 +158,12 @@ try {
         # The packages of the Windows git bundle go in a folder of their own, so the three tag archives stay easy to find.
         $packageDir = Join-Path $sourceDir 'packages'
         New-Item -ItemType Directory -Force -Path $packageDir | Out-Null
-        foreach ($package in Get-PackageSourceArchives) {
+        $packageArchives = @(Get-PackageSourceArchives -ManifestPath (Join-Path $repoRoot 'build/msys2-sources.json'))
+        # An older list's archives would otherwise stay in the folder and be published with this release.
+        foreach ($name in @(Remove-StalePackageSources -Directory $packageDir -Archives $packageArchives)) {
+            Write-Host "removed stale source archive: $name"
+        }
+        foreach ($package in $packageArchives) {
             $target = Join-Path $packageDir $package.File
             $partial = "$target.part"
             Write-Host "==> $($package.File)"
