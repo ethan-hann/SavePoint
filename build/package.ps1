@@ -110,8 +110,8 @@ try {
     $version = (Select-Xml -Path $props -XPath '//Version').Node.InnerText.Trim()
     if (-not $version) { throw 'Directory.Build.props has no <Version>.' }
     # The setup installs into %LOCALAPPDATA%\<pack id> and deletes that whole folder on uninstall, so it must not be SavePoint's data folder (D38).
-    $packId = (Select-Xml -Path $props -XPath '//SavepointPackId').Node.InnerText.Trim()
-    if (-not $packId) { throw 'Directory.Build.props has no <SavepointPackId>.' }
+    $packId = (Select-Xml -Path $props -XPath '//SavepointWindowsPackId').Node.InnerText.Trim()
+    if (-not $packId) { throw 'Directory.Build.props has no <SavepointWindowsPackId>.' }
     # Every build is the same version, so the commit is what tells two builds apart: it goes into the informational version, which
     # the startup log reads. A package from a tree with changes the commit does not hold cannot be tied to one.
     $commit = (git rev-parse --short=12 HEAD)
