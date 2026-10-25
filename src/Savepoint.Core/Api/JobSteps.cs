@@ -3,7 +3,7 @@ namespace Savepoint.Core.Api;
 /// <summary>
 /// The catalog ids of the steps jobs write into their details (see <see cref="JobLine.Step"/>). Each constant's remarks list the
 /// arguments its message takes. A folder is named by its <see cref="Savepoint.Core.Catalog.RepoRole"/> as a camelCase string
-/// (<c>install</c> or <c>external</c>), a byte count is named <c>bytes</c>, and a count that a plural branches on is a number.
+/// (<c>install</c> or <c>external</c>), a byte count is named <c>bytes</c> (or starts with it, as <c>bytesTotal</c> does), and a count that a plural branches on is a number.
 /// </summary>
 public static class JobSteps
 {
@@ -27,6 +27,15 @@ public static class JobSteps
 
     /// <summary>A save asked to replace a snapshot added the session to a folder as a new snapshot instead, because the snapshot was not the newest there. Arguments: <c>folder</c>.</summary>
     public const string CaptureFolderKeptAsNew = "activity.step.capture.folderKeptAsNew";
+
+    /// <summary>A snapshot starts storing one large file, which takes a while and shows nothing else meanwhile. Arguments: <c>path</c>, <c>bytesTotal</c>, the file's size.</summary>
+    public const string CaptureFileStart = "activity.step.capture.fileStart";
+
+    /// <summary>A large file is still being stored. Arguments: <c>path</c>, <c>bytes</c>, how much is stored, and <c>bytesTotal</c>, the file's size.</summary>
+    public const string CaptureFileProgress = "activity.step.capture.fileProgress";
+
+    /// <summary>A folder is still being stored and no file name is due yet. Arguments: <c>folder</c>, <c>bytes</c>, how much of the folder is stored, and <c>bytesTotal</c>, how much it will store in all.</summary>
+    public const string CaptureFolderProgress = "activity.step.capture.folderProgress";
 
     /// <summary>
     /// A folder is switched to a profile or snapshot. Arguments: <c>folder</c>, <c>profile</c>, <c>older</c> (<c>yes</c> when the target is

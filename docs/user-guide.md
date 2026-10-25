@@ -148,7 +148,7 @@ Both go through the same check of what will change that Play does.
 **Activity** shows what SavePoint is doing, and what it just did, for the selected game: taking snapshots, switching and starting the game, and freeing up space. **All games** also shows moving the snapshot folder and removing SavePoint's data.
 
 - Each job shows which profile it was for, how far it got, and when it started and finished.
-- **Details** lists the files and steps it went through, and you can copy that into a bug report.
+- **Details** lists the files and steps it went through, and you can copy that into a bug report. While a big snapshot runs, file names arrive in groups as each one is stored. Big files are stored last, and "Still copying" names the one SavePoint thinks it is on from how much has been stored so far.
 - **Cancel** stops a job that can be stopped. If a job can't stop at that moment, it tells you.
 - SavePoint remembers the last five finished jobs of each game until you close it. A job you have open stays listed until you pick another, so you may see one more.
 

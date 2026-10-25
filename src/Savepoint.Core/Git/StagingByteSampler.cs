@@ -3,10 +3,12 @@ namespace Savepoint.Core.Git;
 // Watches the object store while git stages files and tells the reporter how many bytes it has written.
 internal static class StagingByteSampler
 {
-    // The growth since the first look is the work done. A last look is taken when the sampler is stopped, so the final bytes are never missed.
-    public static async Task RunAsync(Func<long> measure, ProgressReporter reporter, Func<CancellationToken, Task> wait, CancellationToken ct)
+    public static Task RunAsync(Func<long> measure, ProgressReporter reporter, Func<CancellationToken, Task> wait, CancellationToken ct) =>
+        RunAsync(new StoreMeter(measure), reporter, wait, ct);
+
+    // The growth since the meter was made is the work done. A last look is taken when the sampler is stopped, so the final bytes are never missed.
+    public static async Task RunAsync(StoreMeter meter, ProgressReporter reporter, Func<CancellationToken, Task> wait, CancellationToken ct)
     {
-        var baseline = Measure(measure);
         while (true)
         {
             try
@@ -18,32 +20,17 @@ internal static class StagingByteSampler
                 break;
             }
 
-            Sample(measure, baseline, reporter);
+            Sample(meter, reporter);
         }
 
-        Sample(measure, baseline, reporter);
+        Sample(meter, reporter);
     }
 
-    private static void Sample(Func<long> measure, long? baseline, ProgressReporter reporter)
+    private static void Sample(StoreMeter meter, ProgressReporter reporter)
     {
-        if (baseline is not { } start || Measure(measure) is not { } now)
+        if (meter.Growth() is { } written)
         {
-            return;
-        }
-
-        reporter.ObserveWritten(Math.Max(now - start, 0));
-    }
-
-    // Looking is best effort: a file that vanishes mid-count must not end the capture.
-    private static long? Measure(Func<long> measure)
-    {
-        try
-        {
-            return measure();
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-            return null;
+            reporter.ObserveWritten(written);
         }
     }
 }

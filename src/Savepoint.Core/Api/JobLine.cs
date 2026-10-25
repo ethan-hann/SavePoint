@@ -19,7 +19,7 @@ public abstract record JobLine
 
     /// <summary>Makes a line that says what the job is doing.</summary>
     /// <param name="messageId">The catalog key of the step's message; the ids Core writes are the constants of <see cref="JobSteps"/>.</param>
-    /// <param name="args">The values for the message's placeholders. A byte count is named <c>bytes</c>, so the App can show it as a size.</param>
+    /// <param name="args">The values for the message's placeholders. A byte count is named <c>bytes</c> (or starts with it), so the App can show it as a size.</param>
     public static JobLine ForStep(string messageId, params (string Name, object? Value)[] args) =>
         new Step(messageId, args.ToDictionary(arg => arg.Name, arg => arg.Value));
 

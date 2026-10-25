@@ -15,4 +15,26 @@ namespace Savepoint.Core.Git;
 /// engine is reading them back to check them, which takes as long as reading the written bytes and moves no count. It stays true until
 /// the last report, which clears it, whether the operation completes, fails or is stopped.
 /// </param>
-public readonly record struct FileProgress(int FilesDone, int? FilesTotal, string? CurrentPath, long? BytesDone = null, long? BytesTotal = null, bool Finishing = false);
+/// <param name="NewPaths">
+/// Every file name git printed since the previous report, oldest first, so a reader that wants each name gets it once whatever the pace of the reports;
+/// null when there are none. <paramref name="CurrentPath"/> is the last of them.
+/// </param>
+/// <param name="Copying">
+/// A plain-words detail for the stretch where git prints no name, set on at most one report in a while; null otherwise.
+/// </param>
+public readonly record struct FileProgress(
+    int FilesDone,
+    int? FilesTotal,
+    string? CurrentPath,
+    long? BytesDone = null,
+    long? BytesTotal = null,
+    bool Finishing = false,
+    IReadOnlyList<string>? NewPaths = null,
+    CopyDetail? Copying = null);
+
+/// <summary>What a capture is busy with while git prints nothing: one large file, or the folder as a whole.</summary>
+/// <param name="Path">The one large file being stored, relative to the work tree with forward slashes; null when the detail is about the folder.</param>
+/// <param name="BytesDone">Bytes of the file (or of the folder) stored so far; below <paramref name="BytesTotal"/> until the work is done.</param>
+/// <param name="BytesTotal">Size of the file, or of everything the folder's capture stores.</param>
+/// <param name="Starting">True for the first detail of one large file, sent when its storing begins.</param>
+public readonly record struct CopyDetail(string? Path, long BytesDone, long BytesTotal, bool Starting = false);

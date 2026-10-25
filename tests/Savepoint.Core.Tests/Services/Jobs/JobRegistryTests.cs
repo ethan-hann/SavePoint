@@ -415,6 +415,23 @@ public class JobRegistryTests
     }
 
     [Fact]
+    public async Task A_path_added_as_a_line_is_not_added_again_by_the_progress_that_names_it()
+    {
+        var registry = new JobRegistry();
+        var held = new HeldJob(registry);
+        var context = await held.Context;
+
+        context.AddPath("a.png");
+        context.AddPath("b.png");
+        context.Progress.Report(new JobProgress(FilesDone: 2, CurrentPath: "b.png"));
+        context.Progress.Report(new JobProgress(FilesDone: 2, BytesDone: 9, CurrentPath: "b.png"));
+
+        Assert.Equal([JobLine.ForPath("a.png"), JobLine.ForPath("b.png")], registry.Get(held.Id)!.RecentLines);
+        held.Finish();
+        await FinishedAsync(registry, held.Id);
+    }
+
+    [Fact]
     public async Task Recent_lines_keep_the_newest_200_oldest_first()
     {
         var registry = new JobRegistry();

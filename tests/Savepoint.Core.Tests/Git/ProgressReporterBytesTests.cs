@@ -79,7 +79,8 @@ public sealed class ProgressReporterBytesTests
 
         reporter.ObserveWritten(500);
 
-        Assert.Equal(new FileProgress(1, 4, "Data/a.bin", 500, 1000), log.Last);
+        Assert.Equal(new FileProgress(1, 4, "Data/a.bin", 500, 1000), log.Last with { NewPaths = null });
+        Assert.Equal(["Data/a.bin"], log.Last.NewPaths);
     }
 
     [Fact]
@@ -201,6 +202,6 @@ public sealed class ProgressReporterBytesTests
 
         reporter.FileHandled("a.txt");
 
-        Assert.Equal(new FileProgress(1, 2, "a.txt"), log.Last);
+        Assert.Equal(new FileProgress(1, 2, "a.txt"), log.Last with { NewPaths = null });
     }
 }

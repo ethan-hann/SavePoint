@@ -13,7 +13,11 @@ internal sealed class ProgressReporter
     private int _done;
     private int? _total;
     private string? _current;
+
+    // Names git printed that no report has carried yet.
+    private readonly List<string> _pending = [];
     private int _reportedDone = -1;
+    private int? _reportedTotal;
     private long _reportedAt;
 
     // A capture counts bytes by watching the object store; a switch counts them from its plan instead.
@@ -26,10 +30,25 @@ internal sealed class ProgressReporter
     // the window is longer than the slowest such read (128 MiB at about 20 MB/s). The real wait lasts minutes, so this costs little.
     internal static readonly TimeSpan FinishingWindow = TimeSpan.FromSeconds(8);
 
+    // How long a capture may go without a name or a detail before it says what it is storing.
+    internal static readonly TimeSpan DetailInterval = TimeSpan.FromSeconds(20);
+
     private long _lastObserved = -1;
     private long _lastGrowthAt;
     private bool _finishing;
     private bool _reportedFinishing;
+
+    // The big files of the add under way, in the order git takes them, with the running sum of their sizes before each, and where the
+    // store stood when the add began.
+    private IReadOnlyList<string>? _bigPaths;
+    private long[] _bigStarts = [];
+    private long[] _bigSizes = [];
+    private long _bigTotal;
+    private long _batchStart;
+
+    // A detail waiting for the next report, and when a name or a detail last went out.
+    private CopyDetail? _detail;
+    private long _lastLineAt;
 
     private readonly TimeProvider _time;
 
@@ -38,6 +57,7 @@ internal sealed class ProgressReporter
         _sink = sink;
         _bytes = bytes;
         _time = time ?? TimeProvider.System;
+        _lastLineAt = _time.GetTimestamp();
     }
 
     public void SetTotal(int? total)
@@ -45,6 +65,15 @@ internal sealed class ProgressReporter
         lock (_gate)
         {
             _total = total;
+        }
+    }
+
+    // Files an earlier, stopped attempt already staged: git will not print them again, and the closing count must still include them.
+    public void SetAlreadyDone(int count)
+    {
+        lock (_gate)
+        {
+            _done = Math.Max(_done, count);
         }
     }
 
@@ -97,6 +126,11 @@ internal sealed class ProgressReporter
 
             _finishing |= finishing;
             _written = next;
+            if (!_finishing && _time.GetElapsedTime(_lastLineAt, now) >= DetailInterval)
+            {
+                _detail = DetailNow(written);
+            }
+
             Report();
         }
     }
@@ -111,26 +145,95 @@ internal sealed class ProgressReporter
         }
     }
 
-    // The capture ended without a final report (failed or stopped): the wrap-up flag must not outlive the work.
-    public void Abandon()
+    // A group of files is about to be handed to git. A single large file is named (and announced at once), since git says nothing about it until it is done.
+    public void BeginBatch(IReadOnlyList<string>? bigPaths, IReadOnlyList<long>? bigSizes, long? storeNow)
     {
         lock (_gate)
         {
+            // The wait for the last add is over: a flag from it must not hide this one, and the store's stillness is counted afresh.
+            var wasFinishing = _reportedFinishing;
             _finishing = false;
-            if (_reportedFinishing)
+            _lastGrowthAt = _time.GetTimestamp();
+            _batchStart = storeNow ?? Math.Max(_lastObserved, 0);
+            _bigPaths = null;
+            if (bigPaths is { Count: > 0 } && bigSizes is not null && bigSizes.Count == bigPaths.Count)
+            {
+                _bigPaths = bigPaths;
+                _bigSizes = [.. bigSizes];
+                _bigStarts = new long[bigSizes.Count];
+                for (var i = 1; i < _bigStarts.Length; i++)
+                {
+                    _bigStarts[i] = _bigStarts[i - 1] + _bigSizes[i - 1];
+                }
+
+                _bigTotal = _bigSizes.Sum();
+                _detail = new CopyDetail(bigPaths[0], 0, _bigSizes[0], Starting: true);
+                Report();
+            }
+            else if (wasFinishing)
             {
                 Report();
             }
         }
     }
 
-    // One more file handled; the first file is reported at once, later ones at most ten times a second.
+    // The group's add has ended, so git has printed its names: they are delivered now, not at the next paced report.
+    public void EndBatch()
+    {
+        lock (_gate)
+        {
+            if (_pending.Count > 0)
+            {
+                Report();
+            }
+        }
+    }
+
+    // What to say about a stretch with no names. During the add of the big files, the store's growth is laid over them in the order git
+    // takes them, so the file named is an estimate (it drifts when git skips content it already holds); otherwise only the folder's figures are honest.
+    private CopyDetail? DetailNow(long written)
+    {
+        if (_bigPaths is not null)
+        {
+            var at = Math.Clamp(written - _batchStart, 0, _bigTotal - _bigTotal / 100);
+            var index = 0;
+            while (index + 1 < _bigStarts.Length && _bigStarts[index + 1] <= at)
+            {
+                index++;
+            }
+
+            var size = _bigSizes[index];
+            return new CopyDetail(_bigPaths[index], Math.Clamp(at - _bigStarts[index], 0, size - size / 100), size);
+        }
+
+        return _byteTotal is { } total ? new CopyDetail(null, _written, total) : null;
+    }
+
+    // The capture ended without a final report (failed or stopped): the wrap-up flag must not outlive the work.
+    public void Abandon()
+    {
+        lock (_gate)
+        {
+            _finishing = false;
+            if (_reportedFinishing || _pending.Count > 0)
+            {
+                Report();
+            }
+        }
+    }
+
+    // One more file handled. Its name is kept for the next report whatever the pace; the reports themselves are the first at once, later ones at most ten times a second.
     public void FileHandled(string? path)
     {
         lock (_gate)
         {
             _done++;
             _current = path;
+            if (_sink is not null && !string.IsNullOrEmpty(path))
+            {
+                _pending.Add(path);
+            }
+
             ReportIfDue();
         }
     }
@@ -157,7 +260,7 @@ internal sealed class ProgressReporter
             }
 
             _finishing = false;
-            if ((_done > 0 && _done != _reportedDone) || (_byteTotal is not null && _written != _reportedWritten) || _reportedFinishing)
+            if ((_done > 0 && _done != _reportedDone) || (_byteTotal is not null && _written != _reportedWritten) || _reportedFinishing || _pending.Count > 0 || (_reportedDone >= 0 && _total != _reportedTotal))
             {
                 Report();
             }
@@ -180,17 +283,28 @@ internal sealed class ProgressReporter
         }
 
         _reportedDone = _done;
+        _reportedTotal = _total;
         _reportedWritten = _written;
         _reportedFinishing = _finishing;
         _reportedAt = Stopwatch.GetTimestamp();
+
+        // Taken before the sink runs, so a sink that fails cannot make the next report repeat them.
+        IReadOnlyList<string>? names = _pending.Count > 0 ? [.. _pending] : null;
+        var detail = _detail;
+        _pending.Clear();
+        _detail = null;
+        if (names is not null || detail is not null)
+        {
+            _lastLineAt = _time.GetTimestamp();
+        }
 
         // Progress only decorates the work: a sink that fails must not stop git half way through a capture or a switch.
         try
         {
             var total = _total is { } counted ? Math.Max(counted, _done) : (int?)null;
             var report = _byteTotal is { } bytes
-                ? new FileProgress(_done, total, _current, _written, bytes, _finishing)
-                : new FileProgress(_done, total, _current, _bytes?.BytesAfter(_done, total ?? _bytes.Entries), _bytes?.Total, _finishing);
+                ? new FileProgress(_done, total, _current, _written, bytes, _finishing, names, detail)
+                : new FileProgress(_done, total, _current, _bytes?.BytesAfter(_done, total ?? _bytes.Entries), _bytes?.Total, _finishing, names, detail);
             _sink.Report(report);
         }
         catch (Exception)
