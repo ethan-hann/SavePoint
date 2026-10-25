@@ -27,6 +27,8 @@ internal sealed class AppStatusApi : IAppStatusApi
             _services.Log,
             async () =>
             {
+                // Before anything builds the storage for the settings' folder, so the move is what the rest of the check sees.
+                await LegacyLocalData.MoveAsync(_services, cancellationToken).ConfigureAwait(false);
                 var git = await CheckGitAsync(cancellationToken).ConfigureAwait(false);
                 var catalog = await CheckCatalogAsync(cancellationToken).ConfigureAwait(false);
 

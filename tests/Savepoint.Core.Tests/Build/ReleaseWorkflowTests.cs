@@ -166,8 +166,8 @@ public partial class ReleaseWorkflowTests
             .Split(',').Select(name => name.Trim().Trim('\'')).ToArray();
         Assert.Equal(["SavePoint.AppImage", "SavePoint-win-Setup.exe", "SavePoint-win-Portable.zip"], required);
         Assert.Contains("$pack_id.AppImage\" \"$release_dir/SavePoint.AppImage\"", packageSh, StringComparison.Ordinal);
-        Assert.Contains("foreach ($suffix in '-win-Setup.exe', '-win-Portable.zip')", packagePs1, StringComparison.Ordinal);
-        Assert.Contains("\"SavePoint$suffix\"", packagePs1, StringComparison.Ordinal);
+        // vpk names the Windows files after the pack id, which is the app name, so there is nothing to rename.
+        Assert.DoesNotContain("$suffix", packagePs1, StringComparison.Ordinal);
     }
 
     [Fact]

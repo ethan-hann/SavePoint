@@ -8,18 +8,28 @@ namespace Savepoint.Core.Tests.Platform;
 public class AppDirectoriesTests
 {
     [Fact]
-    public void Windows_keeps_the_catalog_in_roaming_and_the_rest_in_local_app_data()
+    public void Windows_keeps_the_catalog_in_roaming_and_the_rest_in_a_local_folder_the_installer_does_not_own()
     {
         var platform = new WindowsPlatform(FakeEnvironment.Windows().Build());
 
         Assert.Equal(
             new AppDirectories(
                 @"C:\Users\Test\AppData\Roaming\SavePoint",
-                @"C:\Users\Test\AppData\Local\SavePoint\Storage",
-                @"C:\Users\Test\AppData\Local\SavePoint\Logs",
-                @"C:\Users\Test\AppData\Local\SavePoint\Runtime",
-                @"C:\Users\Test"),
+                @"C:\Users\Test\AppData\Local\SavePoint Data\Storage",
+                @"C:\Users\Test\AppData\Local\SavePoint Data\Logs",
+                @"C:\Users\Test\AppData\Local\SavePoint Data\Runtime",
+                @"C:\Users\Test")
+            {
+                LegacyLocalDir = @"C:\Users\Test\AppData\Local\SavePoint",
+            },
             platform.Directories);
+    }
+
+    [Fact]
+    public void Linux_and_macOS_have_no_legacy_local_folder()
+    {
+        Assert.Null(new LinuxPlatform(FakeEnvironment.Linux().Build()).Directories.LegacyLocalDir);
+        Assert.Null(new MacOSPlatform(FakeEnvironment.MacOS().Build()).Directories.LegacyLocalDir);
     }
 
     [Fact]
@@ -33,7 +43,7 @@ public class AppDirectoriesTests
         var directories = new WindowsPlatform(env.Build()).Directories;
 
         Assert.Equal(@"D:\Redirected\Roaming\SavePoint", directories.CatalogDir);
-        Assert.Equal(@"C:\Users\Test\AppData\Local\SavePoint\Storage", directories.DefaultStorageRoot);
+        Assert.Equal(@"C:\Users\Test\AppData\Local\SavePoint Data\Storage", directories.DefaultStorageRoot);
     }
 
     [Fact]
