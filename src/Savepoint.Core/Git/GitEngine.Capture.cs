@@ -462,9 +462,19 @@ public sealed partial class GitEngine
                 }
 
                 reporter?.BeginBatch(batch.Big ? batch.Files : null, batch.Big ? batch.Sizes : null, meter?.Growth() ?? 0);
-                await RunWriteAsync(
-                    () => staging with { OnStdoutLine = reporter is null ? null : line => ObserveAddLine(reporter, line) },
-                    ct).ConfigureAwait(false);
+                var packsBefore = PackFilesOf(repo);
+                try
+                {
+                    await RunWriteAsync(
+                        () => staging with { OnStdoutLine = reporter is null ? null : line => ObserveAddLine(reporter, line) },
+                        ct).ConfigureAwait(false);
+                }
+                finally
+                {
+                    // A pack an add leaves behind holds the files it streamed; even a stopped add may have finished one.
+                    KeepPacksSince(repo, packsBefore);
+                }
+
                 reporter?.EndBatch();
             }
 

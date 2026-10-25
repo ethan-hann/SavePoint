@@ -32,9 +32,9 @@ public sealed partial class GitEngine
 
     /// <summary>
     /// Tidies the store. <see cref="OptimizationMode.Routine"/> packs the loose objects with <c>git repack -d --geometric=2</c>:
-    /// new objects go into a new pack and only small packs are merged, so the large packs written earlier are left alone;
+    /// new objects go into a new pack and only small packs are merged, so the large packs written earlier are left alone (a pack a capture streamed its big files into carries a <c>.keep</c> file, and a pack as large as the big-file size gets one here);
     /// objects no branch reaches any more (a deleted profile, points a move-forward dropped) are packed along, not removed.
-    /// <see cref="OptimizationMode.Reclaim"/> expires reflogs, packs every reachable object into one pack and prunes the
+    /// <see cref="OptimizationMode.Reclaim"/> expires reflogs, removes SavePoint's <c>.keep</c> files, packs every reachable object into one pack and prunes the
     /// rest, so those objects are gone afterwards; it rewrites the whole store. Neither mode deletes a record of a removed snapshot
     /// (see <see cref="ListRemovedAsync(RepoRef, IReadOnlyCollection{string}, CancellationToken)"/>); only <see cref="ClearRemovedAsync"/> does, so what a record reaches survives both. No mode
     /// detaches or starts garbage collection, and none needs the game folder. Nothing a branch, HEAD, the index or a record reaches is
@@ -58,6 +58,7 @@ public sealed partial class GitEngine
                     EnsureStorageSpace(repo);
                     using (BeginWrite(repo))
                     {
+                        KeepLargePacks(repo);
                         await RunWriteAsync(() => GitDirOnly(repo, "repack", "-q", "-d", "--geometric=2") with { ReadOnly = false, ExtraEnvironment = _defaultPackCompression }, ct).ConfigureAwait(false);
                     }
 
@@ -152,6 +153,8 @@ public sealed partial class GitEngine
         ReclaimMarker.Begin(repo.GitDir);
         try
         {
+            // A repack that packs everything leaves kept packs alone, so a big file nothing reaches would stay; the keeps go first.
+            RemoveKeeps(repo);
             await RunWriteAsync(() => ReclaimStep(repo, "reflog", "expire", "--expire=now", "--all"), ct).ConfigureAwait(false);
             await RunWriteAsync(() => ReclaimStep(repo, "repack", "-q", "-a", "-d") with { ExtraEnvironment = _defaultPackCompression }, ct).ConfigureAwait(false);
             await RunWriteAsync(() => ReclaimStep(repo, "prune", "--expire=now"), ct).ConfigureAwait(false);
@@ -159,6 +162,63 @@ public sealed partial class GitEngine
         finally
         {
             ReclaimMarker.Clear(repo.GitDir);
+        }
+    }
+
+    // A geometric repack weighs packs by object count, so the pack a capture streams its big files into (one or a few objects) always looks
+    // lightest and would be rolled up and copied. A ".keep" beside a pack makes repack leave it alone. Only SavePoint's own keeps carry
+    // this text, so a reclaim never removes one it did not write.
+    private const string _streamedPackKeepText = "SavePoint: holds files streamed at capture; routine repacks leave it alone, Free up space merges it.\n";
+
+    private static string PackFolderOf(RepoRef repo) => Path.Combine(repo.GitDir, "objects", "pack");
+
+    private static HashSet<string> PackFilesOf(RepoRef repo) =>
+        Directory.Exists(PackFolderOf(repo))
+            ? [.. Directory.EnumerateFiles(PackFolderOf(repo), "*.pack")]
+            : [];
+
+    private static void Keep(string pack)
+    {
+        var keep = Path.ChangeExtension(pack, ".keep");
+        if (!File.Exists(keep))
+        {
+            File.WriteAllText(keep, _streamedPackKeepText);
+        }
+    }
+
+    // Packs that appeared while an add ran hold what it streamed; small files stay loose until a repack.
+    private static void KeepPacksSince(RepoRef repo, HashSet<string> before)
+    {
+        foreach (var pack in PackFilesOf(repo).Where(pack => !before.Contains(pack)))
+        {
+            Keep(pack);
+        }
+    }
+
+    // Stores made before captures marked their packs have no keeps. A pack as large as the big-file size holds a streamed file or
+    // is already heavier than anything a routine repack should copy, so it is protected the same way.
+    private void KeepLargePacks(RepoRef repo)
+    {
+        var big = _options.StagingLimits.BigBytes;
+        foreach (var pack in PackFilesOf(repo).Where(pack => new FileInfo(pack).Length >= big))
+        {
+            Keep(pack);
+        }
+    }
+
+    private static void RemoveKeeps(RepoRef repo)
+    {
+        if (!Directory.Exists(PackFolderOf(repo)))
+        {
+            return;
+        }
+
+        foreach (var keep in Directory.EnumerateFiles(PackFolderOf(repo), "*.keep"))
+        {
+            if (File.ReadAllText(keep) == _streamedPackKeepText)
+            {
+                File.Delete(keep);
+            }
         }
     }
 
