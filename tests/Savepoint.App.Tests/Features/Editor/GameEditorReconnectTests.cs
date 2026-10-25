@@ -23,9 +23,9 @@ public class GameEditorReconnectTests
     private static EditorRig RigWithHistory() =>
         EditorRig.Create(new FakeBackend(ScenarioBuilder.Empty().WithOrphanedHistory(_install, _history)));
 
-    private static GameEditorViewModel Filled(EditorRig rig)
+    private static GameEditorViewModel Filled(EditorRig rig, params string[] templateRules)
     {
-        var editor = rig.New();
+        var editor = rig.New(templateRules.Length == 0 ? null : new GameDefinition { IgnorePaths = templateRules });
         editor.Name = "Hollow Knight";
         editor.InstallPath = _install;
         editor.ExePath = "hollow_knight.exe";
@@ -135,7 +135,7 @@ public class GameEditorReconnectTests
     {
         var rig = RigWithHistory();
         rig.Backend.Games.SavesLeftOutByRule["**/*.log"] = ["player.log"];
-        var editor = Filled(rig);
+        var editor = Filled(rig, [.. RunTimeOutput.DefaultRules]);
         editor.IgnoreRules.SetValues(RunTimeOutput.DefaultRules);
         var (saving, dialog) = await SaveUntilReconnectAsked(rig, editor);
 
@@ -158,7 +158,7 @@ public class GameEditorReconnectTests
     {
         var rig = RigWithHistory();
         rig.Backend.Games.SavesCheckFails = true;
-        var editor = Filled(rig);
+        var editor = Filled(rig, "**/*.log");
         editor.IgnoreRules.SetValues(["**/*.log"]);
         var (saving, dialog) = await SaveUntilReconnectAsked(rig, editor);
 
@@ -168,6 +168,26 @@ public class GameEditorReconnectTests
         var toast = Assert.Single(rig.Toasts.Toasts);
         Assert.Equal("The rule **/*.log now applies to the game's own folder only, because SavePoint couldn't check your saves folder. It is listed under \"Files to leave out of the game's own folder\" in Edit game.", toast.Text);
         Assert.DoesNotContain("holds files", toast.Text, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_default_looking_rule_the_player_typed_is_kept_after_the_question(bool reconnect)
+    {
+        var rig = RigWithHistory();
+        rig.Backend.Games.SavesLeftOutByRule["**/*.log"] = ["player.log"];
+        var editor = Filled(rig);
+        editor.IgnoreRules.SetValues(["**/*.log"]);
+        var (saving, dialog) = await SaveUntilReconnectAsked(rig, editor);
+
+        (reconnect ? dialog.ReconnectCommand : dialog.StartFreshCommand).Execute(null);
+        await saving;
+
+        var stored = Assert.Single(FakeAssert.Ok(await rig.Backend.Games.ListAsync(TestContext.Current.CancellationToken)));
+        Assert.Equal(["**/*.log"], stored.IgnorePaths);
+        Assert.Empty(rig.Backend.Games.LastSuppliedRules ?? []);
+        Assert.Empty(rig.Toasts.Toasts);
     }
 
     [Fact]

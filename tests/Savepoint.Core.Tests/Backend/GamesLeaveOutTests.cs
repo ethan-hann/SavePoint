@@ -14,9 +14,9 @@ public class GamesLeaveOutTests
     private static void Write(GameDefinition game, string relativePath) =>
         BackendWorkspace.WriteFile(Path.Combine(game.External!.Path, relativePath), "kept");
 
-    private static async Task<AddGameOutcome.Added> AddAsync(BackendWorkspace workspace, GameDefinition game)
+    private static async Task<AddGameOutcome.Added> AddAsync(BackendWorkspace workspace, GameDefinition game, IReadOnlyList<string>? supplied = null)
     {
-        var added = await workspace.Games.AddAsync(game);
+        var added = await workspace.Games.AddAsync(game, supplied);
         Assert.True(added.Ok, added.Error?.Detail);
         return Assert.IsType<AddGameOutcome.Added>(added.Value);
     }
@@ -28,7 +28,7 @@ public class GamesLeaveOutTests
         var game = workspace.NewGame() with { IgnorePaths = RunTimeOutput.DefaultRules };
         Write(game, "profile/player.log");
 
-        var added = await AddAsync(workspace, game);
+        var added = await AddAsync(workspace, game, RunTimeOutput.DefaultRules);
 
         Assert.Equal(["**/*.dmp", "**/*.mdmp"], added.Game.IgnorePaths);
         Assert.Equal(["**/*.log"], added.Game.InstallIgnorePaths);
@@ -48,7 +48,7 @@ public class GamesLeaveOutTests
         Write(game, "Player.log");
         BackendWorkspace.WriteFile(Path.Combine(game.Install.Path, "crloader.log"), "loader");
 
-        var added = await AddAsync(workspace, game);
+        var added = await AddAsync(workspace, game, game.IgnorePaths);
 
         Assert.Equal(["SKSE/Plugins/*.log"], added.Game.IgnorePaths);
         Assert.Equal(["**/*.log"], added.Game.InstallIgnorePaths);
@@ -79,6 +79,61 @@ public class GamesLeaveOutTests
         var added = await AddAsync(workspace, game);
 
         Assert.Equal(["**/*.sav.bak"], added.Game.IgnorePaths);
+        Assert.Null(added.LeftOff);
+    }
+
+    [Fact]
+    public async Task A_default_looking_rule_the_player_typed_stays_game_wide_even_when_it_names_a_save_file()
+    {
+        using var workspace = new BackendWorkspace();
+        var game = workspace.NewGame() with { IgnorePaths = ["**/*.log"] };
+        Write(game, "profile/player.log");
+
+        var added = await AddAsync(workspace, game);
+
+        Assert.Equal(["**/*.log"], added.Game.IgnorePaths);
+        Assert.Empty(added.Game.InstallIgnorePaths);
+        Assert.Null(added.LeftOff);
+        var stored = (await workspace.Games.ListAsync(Ct)).Value!.Single(listed => listed.Id == game.Id);
+        Assert.Equal(["**/*.log"], stored.IgnorePaths);
+    }
+
+    [Fact]
+    public async Task Only_the_rules_SavePoint_supplied_move_when_a_typed_one_has_the_same_text_as_another_default()
+    {
+        using var workspace = new BackendWorkspace();
+        var game = workspace.NewGame() with { IgnorePaths = ["**/*.log", "**/*.dmp"] };
+        Write(game, "profile/player.log");
+        Write(game, "profile/player.dmp");
+
+        var added = await AddAsync(workspace, game, ["**/*.log"]);
+
+        Assert.Equal(["**/*.dmp"], added.Game.IgnorePaths);
+        Assert.Equal(["**/*.log"], added.Game.InstallIgnorePaths);
+        Assert.Equal(new RulesLeftOff(["**/*.log"], SavesHoldFiles: true), added.LeftOff);
+    }
+
+    [Fact]
+    public async Task A_typed_default_looking_rule_is_kept_when_the_saves_folder_cannot_be_checked()
+    {
+        using var workspace = new BackendWorkspace(options => options with
+        {
+            Engine = new GitEngineOptions
+            {
+                InvocationObserver = invocation =>
+                {
+                    if (invocation.Arguments.Contains("-o") && invocation.Arguments.Contains("-i"))
+                    {
+                        throw new IOException("the drive went away");
+                    }
+                },
+            },
+        });
+        var game = workspace.NewGame() with { IgnorePaths = ["**/*.log"] };
+
+        var added = await AddAsync(workspace, game);
+
+        Assert.Equal(["**/*.log"], added.Game.IgnorePaths);
         Assert.Null(added.LeftOff);
     }
 
@@ -139,7 +194,8 @@ public class GamesLeaveOutTests
 
         var resolved = await workspace.Games.ResolveOrphanAsync(
             game with { Id = "alpha-again", IgnorePaths = RunTimeOutput.DefaultRules },
-            new OrphanResolution.Reconnect(game.Id, [new RecoveredProfile(first.BranchName, "A")]));
+            new OrphanResolution.Reconnect(game.Id, [new RecoveredProfile(first.BranchName, "A")]),
+            RunTimeOutput.DefaultRules);
 
         Assert.True(resolved.Ok, resolved.Error?.Detail);
         Assert.Equal(["**/*.dmp", "**/*.mdmp"], resolved.Value.Game.IgnorePaths);
@@ -167,7 +223,7 @@ public class GamesLeaveOutTests
         });
         var game = workspace.NewGame() with { IgnorePaths = [.. RunTimeOutput.DefaultRules, "Saves/*.tmp"] };
 
-        var added = await AddAsync(workspace, game);
+        var added = await AddAsync(workspace, game, game.IgnorePaths);
 
         Assert.Equal(["Saves/*.tmp"], added.Game.IgnorePaths);
         Assert.Equal(RunTimeOutput.DefaultRules, added.Game.InstallIgnorePaths);

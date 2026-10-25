@@ -48,7 +48,8 @@ internal sealed partial class GamesApi
                 }
 
                 draft = await WithProcessNameAsync(draft).ConfigureAwait(false);
-                var added = await AddAsync(draft).ConfigureAwait(false);
+                // Every rule of a scanned draft came from a template, none from the player.
+                var added = await AddAsync(draft, draft.IgnorePaths).ConfigureAwait(false);
                 if (!added.Ok)
                 {
                     return new LibraryAddResult(game.Key, game.Name, LibraryAddStatus.Refused, Error: added.Error);

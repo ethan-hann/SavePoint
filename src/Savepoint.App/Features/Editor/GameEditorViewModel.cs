@@ -33,6 +33,9 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
     // What the form was opened from: carries the fields the form never shows (schema version, notes).
     private GameDefinition _source;
 
+    // The game-wide rules a template or definition file gave the form; any other rule in it was typed by the player.
+    private readonly IReadOnlyList<string> _suppliedRules;
+
     // What the form built right after opening, to tell whether anything changed.
     private GameDefinition _baseline;
 
@@ -136,6 +139,7 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
         _artwork = artwork;
         _saved = saved;
         _source = saved ?? prefill ?? new GameDefinition { InstallIgnorePaths = RunTimeOutput.DefaultRules };
+        _suppliedRules = saved is null && prefill is not null ? prefill.IgnorePaths : [];
         IgnoreRules = new ChipListViewModel(
             text,
             text.Message("gameEditor.ignorePaths.label"),

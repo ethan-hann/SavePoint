@@ -22,13 +22,18 @@ public interface IGamesApi
     /// game, in which case nothing is saved and <see cref="ResolveOrphanAsync"/> decides. Fails with
     /// <c>error.validation.invalidPayload</c> (every field problem at once), <c>error.pathSafety.tier1Blocked</c> or
     /// <c>error.pathSafety.tier2Blocked</c>, <c>error.consentMarker.conflict</c>, <c>error.gameService.pathOverlap</c>, or
-    /// <c>error.gameService.alreadyExists</c> when the id is taken. A game-wide rule from <see cref="RunTimeOutput.DefaultRules"/> that
-    /// would leave out a file of the saves folder (in the folder, the index, or any profile's newest point) is saved for the game's own
-    /// folder only (<see cref="GameDefinition.InstallIgnorePaths"/>), and <see cref="AddGameOutcome.Added.LeftOff"/> names it; so is every
-    /// such rule when the check could not run.
+    /// <c>error.gameService.alreadyExists</c> when the id is taken. A game-wide rule that SavePoint supplied (it is in
+    /// <paramref name="suppliedRules"/>) and is one of <see cref="RunTimeOutput.DefaultRules"/> and would leave out a file of the saves
+    /// folder (in the folder, the index, or any profile's newest point) is saved for the game's own folder only
+    /// (<see cref="GameDefinition.InstallIgnorePaths"/>), and <see cref="AddGameOutcome.Added.LeftOff"/> names it; so is every such rule
+    /// when the check could not run. A rule the player typed is kept where they put it.
     /// </summary>
     /// <param name="definition">The game to add, with an id the caller made (see <see cref="CatalogIds.NewGameId"/>).</param>
-    Task<OperationResult<AddGameOutcome>> AddAsync(GameDefinition definition);
+    /// <param name="suppliedRules">
+    /// The game-wide rules of <paramref name="definition"/> that came from a template or a definition file rather than from the player.
+    /// Null or empty means the player wrote every rule, so none is moved.
+    /// </param>
+    Task<OperationResult<AddGameOutcome>> AddAsync(GameDefinition definition, IReadOnlyList<string>? suppliedRules = null);
 
     /// <summary>
     /// Looks through the Steam and GOG Galaxy libraries on this computer for installed games and reports each one with the template
@@ -56,11 +61,12 @@ public interface IGamesApi
     /// </summary>
     /// <param name="definition">The game being added, as it was given to <see cref="AddAsync"/>.</param>
     /// <param name="resolution">The user's answer.</param>
+    /// <param name="suppliedRules">The same list <see cref="AddAsync"/> was given.</param>
     /// <returns>
     /// The same <see cref="AddGameOutcome.Added"/> answer <see cref="AddAsync"/> gives: the game as stored, with the old id after a
     /// reconnect, and in <see cref="AddGameOutcome.Added.LeftOff"/> the default rules that moved to the game's own folder only and why.
     /// </returns>
-    Task<OperationResult<AddGameOutcome.Added>> ResolveOrphanAsync(GameDefinition definition, OrphanResolution resolution);
+    Task<OperationResult<AddGameOutcome.Added>> ResolveOrphanAsync(GameDefinition definition, OrphanResolution resolution, IReadOnlyList<string>? suppliedRules = null);
 
     /// <summary>
     /// Saves changes to a game. Also how a moved folder is re-pointed; consent is confirmed again for a new path. Fails with the

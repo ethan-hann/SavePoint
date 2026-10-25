@@ -106,7 +106,7 @@ public sealed partial class GameEditorViewModel
     private async Task<OperationResult<GameDefinition>?> AddNewAsync(GameDefinition definition)
     {
         _leftOff = null;
-        var added = await _games.AddAsync(definition);
+        var added = await _games.AddAsync(definition, SuppliedRulesIn(definition));
         if (!added.Ok)
         {
             return OperationResult.Failure<GameDefinition>(added.Error);
@@ -119,6 +119,9 @@ public sealed partial class GameEditorViewModel
             _ => null,
         };
     }
+
+    // A supplied rule the player removed and typed again is theirs now, but cannot be told apart, so it counts as supplied.
+    private IReadOnlyList<string> SuppliedRulesIn(GameDefinition definition) => [.. definition.IgnorePaths.Where(_suppliedRules.Contains)];
 
     private OperationResult<GameDefinition> Remember(AddGameOutcome.Added added)
     {
@@ -133,8 +136,8 @@ public sealed partial class GameEditorViewModel
         var choice = await _dialogs.ShowAsync(question);
         var resolved = choice switch
         {
-            ReconnectChoice.Reconnect => await _games.ResolveOrphanAsync(definition, new OrphanResolution.Reconnect(history.ExistingGameId, question.Recovered)),
-            ReconnectChoice.StartFresh => await _games.ResolveOrphanAsync(definition, new OrphanResolution.StartFresh()),
+            ReconnectChoice.Reconnect => await _games.ResolveOrphanAsync(definition, new OrphanResolution.Reconnect(history.ExistingGameId, question.Recovered), SuppliedRulesIn(definition)),
+            ReconnectChoice.StartFresh => await _games.ResolveOrphanAsync(definition, new OrphanResolution.StartFresh(), SuppliedRulesIn(definition)),
             _ => null,
         };
         return resolved is null ? null : resolved.Ok ? Remember(resolved.Value) : OperationResult.Failure<GameDefinition>(resolved.Error);

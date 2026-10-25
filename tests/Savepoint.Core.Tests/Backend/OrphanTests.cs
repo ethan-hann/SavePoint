@@ -129,7 +129,8 @@ public class OrphanTests
 
         var resolved = await workspace.Games.ResolveOrphanAsync(
             game with { Id = "alpha-again", IgnorePaths = RunTimeOutput.DefaultRules },
-            new OrphanResolution.Reconnect(game.Id, [new RecoveredProfile(profile.BranchName, "Vanilla")]));
+            new OrphanResolution.Reconnect(game.Id, [new RecoveredProfile(profile.BranchName, "Vanilla")]),
+            RunTimeOutput.DefaultRules);
 
         Assert.True(resolved.Ok, resolved.Error?.Detail);
         Assert.Equal(["**/*.dmp", "**/*.mdmp"], resolved.Value.Game.IgnorePaths);
@@ -137,6 +138,40 @@ public class OrphanTests
         var stored = (await workspace.Games.ListAsync(workspace.Token)).Value!.Single();
         Assert.Equal(["**/*.dmp", "**/*.mdmp"], stored.IgnorePaths);
         Assert.Equal(["**/*.log"], stored.InstallIgnorePaths);
+    }
+
+    [Fact]
+    public async Task Reconnecting_keeps_a_default_looking_rule_the_player_typed_game_wide_even_when_it_names_a_save_file()
+    {
+        using var workspace = new BackendWorkspace();
+        var (game, profile) = await LoseTheCatalogAsync(workspace);
+        BackendWorkspace.WriteFile(Path.Combine(game.External!.Path, "profile/player.log"), "kept");
+
+        var resolved = await workspace.Games.ResolveOrphanAsync(
+            game with { Id = "alpha-again", IgnorePaths = ["**/*.log"] },
+            new OrphanResolution.Reconnect(game.Id, [new RecoveredProfile(profile.BranchName, "Vanilla")]));
+
+        Assert.True(resolved.Ok, resolved.Error?.Detail);
+        Assert.Equal(["**/*.log"], resolved.Value.Game.IgnorePaths);
+        Assert.Null(resolved.Value.LeftOff);
+        var stored = (await workspace.Games.ListAsync(workspace.Token)).Value!.Single();
+        Assert.Equal(["**/*.log"], stored.IgnorePaths);
+    }
+
+    [Fact]
+    public async Task Starting_fresh_keeps_a_default_looking_rule_the_player_typed_game_wide_even_when_it_names_a_save_file()
+    {
+        using var workspace = new BackendWorkspace();
+        var (game, _) = await LoseTheCatalogAsync(workspace);
+        BackendWorkspace.WriteFile(Path.Combine(game.External!.Path, "profile/player.log"), "kept");
+
+        var resolved = await workspace.Games.ResolveOrphanAsync(
+            game with { Id = "alpha-again", IgnorePaths = ["**/*.log"] },
+            new OrphanResolution.StartFresh());
+
+        Assert.True(resolved.Ok, resolved.Error?.Detail);
+        Assert.Equal(["**/*.log"], resolved.Value.Game.IgnorePaths);
+        Assert.Null(resolved.Value.LeftOff);
     }
 
     [Fact]
@@ -148,7 +183,8 @@ public class OrphanTests
 
         var resolved = await workspace.Games.ResolveOrphanAsync(
             game with { Id = "alpha-again", IgnorePaths = RunTimeOutput.DefaultRules },
-            new OrphanResolution.StartFresh());
+            new OrphanResolution.StartFresh(),
+            RunTimeOutput.DefaultRules);
 
         Assert.True(resolved.Ok, resolved.Error?.Detail);
         Assert.Equal(["**/*.dmp", "**/*.mdmp"], resolved.Value.Game.IgnorePaths);

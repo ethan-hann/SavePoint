@@ -8,10 +8,10 @@ namespace Savepoint.Core.Services.Games;
 
 internal sealed partial class GamesApi
 {
-    public Task<OperationResult<AddGameOutcome.Added>> ResolveOrphanAsync(GameDefinition definition, OrphanResolution resolution) =>
-        ApiGuard.RunAsync(_services.Log, () => ResolveOrphanCoreAsync(definition, resolution));
+    public Task<OperationResult<AddGameOutcome.Added>> ResolveOrphanAsync(GameDefinition definition, OrphanResolution resolution, IReadOnlyList<string>? suppliedRules = null) =>
+        ApiGuard.RunAsync(_services.Log, () => ResolveOrphanCoreAsync(definition, resolution, suppliedRules));
 
-    private async Task<AddGameOutcome.Added> ResolveOrphanCoreAsync(GameDefinition definition, OrphanResolution resolution)
+    private async Task<AddGameOutcome.Added> ResolveOrphanCoreAsync(GameDefinition definition, OrphanResolution resolution, IReadOnlyList<string>? suppliedRules)
     {
         ArgumentNullException.ThrowIfNull(resolution);
         var reconnect = resolution as OrphanResolution.Reconnect;
@@ -31,21 +31,21 @@ internal sealed partial class GamesApi
                 var folders = GameFolders.ResolveStrictly(_services.PathTokens, game);
                 Vet(storage, game, folders, games);
                 var (saved, leftOff) = reconnect is null
-                    ? await StartFreshAsync(storage, game, folders, games).ConfigureAwait(false)
-                    : await ReconnectAsync(storage, game, folders, reconnect).ConfigureAwait(false);
+                    ? await StartFreshAsync(storage, game, folders, games, suppliedRules).ConfigureAwait(false)
+                    : await ReconnectAsync(storage, game, folders, reconnect, suppliedRules).ConfigureAwait(false);
                 return new AddGameOutcome.Added(saved, leftOff);
             }));
     }
 
     // The old history stays on disk but nothing reaches it any more; only the claim on the folders is let go.
-    private async Task<(GameDefinition Game, RulesLeftOff? LeftOff)> StartFreshAsync(StorageSnapshot storage, GameDefinition game, IReadOnlyList<GameFolder> folders, IReadOnlyList<GameDefinition> games)
+    private async Task<(GameDefinition Game, RulesLeftOff? LeftOff)> StartFreshAsync(StorageSnapshot storage, GameDefinition game, IReadOnlyList<GameFolder> folders, IReadOnlyList<GameDefinition> games, IReadOnlyList<string>? suppliedRules)
     {
         var orphans = await OrphanScanner.FindAsync(storage, game.Id, folders, [.. games.Select(g => g.Id)], CancellationToken.None).ConfigureAwait(false);
         OrphanScanner.Release(orphans);
-        return await InitAndSaveWithNoteAsync(storage, game, folders).ConfigureAwait(false);
+        return await InitAndSaveWithNoteAsync(storage, game, folders, suppliedRules).ConfigureAwait(false);
     }
 
-    private async Task<(GameDefinition Game, RulesLeftOff? LeftOff)> ReconnectAsync(StorageSnapshot storage, GameDefinition game, IReadOnlyList<GameFolder> folders, OrphanResolution.Reconnect reconnect)
+    private async Task<(GameDefinition Game, RulesLeftOff? LeftOff)> ReconnectAsync(StorageSnapshot storage, GameDefinition game, IReadOnlyList<GameFolder> folders, OrphanResolution.Reconnect reconnect, IReadOnlyList<string>? suppliedRules)
     {
         var repos = folders.Select(folder => GameFolders.Repo(storage, game.Id, folder)).ToList();
 
@@ -67,7 +67,7 @@ internal sealed partial class GamesApi
             throw new NoHistoryToReconnectException(game.Id);
         }
 
-        var saved = await InitAndSaveWithNoteAsync(storage, game, folders).ConfigureAwait(false);
+        var saved = await InitAndSaveWithNoteAsync(storage, game, folders, suppliedRules).ConfigureAwait(false);
         foreach (var recovered in reconnect.Profiles.Where(profile => branches.Contains(profile.BranchName)))
         {
             await _services.Catalog.SaveProfileAsync(await ProfileFromBranchAsync(game.Id, recovered).ConfigureAwait(false)).ConfigureAwait(false);

@@ -19,9 +19,12 @@ public class GameEditorSaveTests
         await running;
     }
 
-    private static GameEditorViewModel Filled(EditorRig rig)
+    // A template or definition file hands the form its rules; a form without a prefill has only what the player types.
+    private static GameDefinition FromTemplate(params string[] rules) => new() { IgnorePaths = rules };
+
+    private static GameEditorViewModel Filled(EditorRig rig, GameDefinition? prefill = null)
     {
-        var editor = rig.New();
+        var editor = rig.New(prefill);
         editor.Name = "  Hollow Knight  ";
         editor.InstallPath = @"  C:\Games\Hollow Knight  ";
         editor.SavesPath = @"{appData}\Hollow Knight";
@@ -56,7 +59,7 @@ public class GameEditorSaveTests
     {
         var rig = EditorRig.Create();
         rig.Backend.Games.SavesLeftOutByRule["**/*.log"] = ["player.log"];
-        var editor = Filled(rig);
+        var editor = Filled(rig, FromTemplate([.. RunTimeOutput.DefaultRules]));
         editor.IgnoreRules.SetValues(RunTimeOutput.DefaultRules);
 
         await Save(rig, editor);
@@ -70,11 +73,39 @@ public class GameEditorSaveTests
     }
 
     [Fact]
+    public async Task A_default_looking_rule_the_player_typed_is_kept_game_wide_and_the_form_sends_no_supplied_rules()
+    {
+        var rig = EditorRig.Create();
+        rig.Backend.Games.SavesLeftOutByRule["**/*.log"] = ["player.log"];
+        var editor = Filled(rig);
+        editor.IgnoreRules.SetValues(["**/*.log"]);
+
+        await Save(rig, editor);
+
+        var stored = Assert.Single(FakeAssert.Ok(await rig.Backend.Games.ListAsync(TestContext.Current.CancellationToken)), game => game.Name == "Hollow Knight");
+        Assert.Equal(["**/*.log"], stored.IgnorePaths);
+        Assert.Empty(rig.Backend.Games.LastSuppliedRules ?? []);
+        Assert.Empty(rig.Toasts.Toasts);
+    }
+
+    [Fact]
+    public async Task Only_the_rules_still_in_the_form_that_a_template_supplied_are_sent_as_supplied()
+    {
+        var rig = EditorRig.Create();
+        var editor = Filled(rig, FromTemplate("**/*.log", "**/*.dmp"));
+        editor.IgnoreRules.SetValues(["**/*.log", "**/*.mdmp"]);
+
+        await Save(rig, editor);
+
+        Assert.Equal(["**/*.log"], rig.Backend.Games.LastSuppliedRules);
+    }
+
+    [Fact]
     public async Task When_the_saves_folder_could_not_be_checked_the_message_does_not_claim_it_holds_such_files()
     {
         var rig = EditorRig.Create();
         rig.Backend.Games.SavesCheckFails = true;
-        var editor = Filled(rig);
+        var editor = Filled(rig, FromTemplate("**/*.log", "**/*.dmp"));
         editor.IgnoreRules.SetValues(["**/*.log", "**/*.dmp"]);
 
         await Save(rig, editor);

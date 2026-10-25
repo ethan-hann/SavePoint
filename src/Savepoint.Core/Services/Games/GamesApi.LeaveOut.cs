@@ -8,12 +8,15 @@ namespace Savepoint.Core.Services.Games;
 internal sealed partial class GamesApi
 {
     // A game-wide rule for logs or crash dumps reaches the saves folder too. The defaults for new games are install-only, so this
-    // guards the other way such a rule gets in (a definition file, or an older default written game-wide): a rule that would leave out
-    // a file of the saves folder, recorded or not, in any profile, is saved for the game's own folder only. Anything a player typed that is not one
-    // of the default rules is theirs and is kept; the editor says it applies to the saves folder as well.
-    private async Task<(GameDefinition Game, RulesLeftOff? LeftOff)> WithoutRulesThatHideSavesAsync(StorageSnapshot storage, GameDefinition game)
+    // guards the other way such a rule gets in (a definition file or a template): a rule that would leave out a file of the saves
+    // folder, recorded or not, in any profile, is saved for the game's own folder only. Only a rule SavePoint supplied is judged; one
+    // the player typed is theirs and is kept, and the editor says it applies to the saves folder as well.
+    private async Task<(GameDefinition Game, RulesLeftOff? LeftOff)> WithoutRulesThatHideSavesAsync(StorageSnapshot storage, GameDefinition game, IReadOnlyList<string>? suppliedRules)
     {
-        var asked = game.IgnorePaths.Where(rule => RunTimeOutput.DefaultRules.Contains(rule)).Distinct(StringComparer.Ordinal).ToList();
+        var asked = game.IgnorePaths
+            .Where(rule => RunTimeOutput.DefaultRules.Contains(rule) && suppliedRules?.Contains(rule, StringComparer.Ordinal) == true)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
         var saves = GameFolders.Repos(_services, storage, game).FirstOrDefault(repo => repo.Role == RepoRole.External);
         if (asked.Count == 0 || saves is null)
         {

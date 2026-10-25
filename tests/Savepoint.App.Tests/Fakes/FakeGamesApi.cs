@@ -35,23 +35,27 @@ public sealed class FakeGamesApi : IGamesApi
         return await _backend.Call(_api, nameof(ListAsync), [], () => OperationResult.Success<IReadOnlyList<GameDefinition>>([.. State.Games]));
     }
 
-    public Task<OperationResult<AddGameOutcome>> AddAsync(GameDefinition definition) =>
+    // The rules the editor said SavePoint supplied, for the last add or reconnect, so a test can see what the form sent.
+    public IReadOnlyList<string>? LastSuppliedRules { get; private set; }
+
+    public Task<OperationResult<AddGameOutcome>> AddAsync(GameDefinition definition, IReadOnlyList<string>? suppliedRules = null) =>
         _backend.Call<AddGameOutcome>(_api, nameof(AddAsync), [definition], () =>
         {
+            LastSuppliedRules = suppliedRules;
             if (State.Orphans.TryGetValue(definition.Install.Path, out var orphan))
             {
                 return OperationResult.Success<AddGameOutcome>(new AddGameOutcome.HistoryFound(orphan));
             }
 
-            var (kept, leftOff) = WithoutRulesThatHideSaves(definition);
+            var (kept, leftOff) = WithoutRulesThatHideSaves(definition, suppliedRules);
             Add(kept);
             return OperationResult.Success<AddGameOutcome>(new AddGameOutcome.Added(kept, leftOff));
         });
 
     // Like the service, a default rule that would leave out files of the saves folder moves to the game's own folder only; when the check cannot run every one does.
-    private (GameDefinition Game, RulesLeftOff? LeftOff) WithoutRulesThatHideSaves(GameDefinition definition)
+    private (GameDefinition Game, RulesLeftOff? LeftOff) WithoutRulesThatHideSaves(GameDefinition definition, IReadOnlyList<string>? suppliedRules)
     {
-        var asked = definition.IgnorePaths.Where(rule => RunTimeOutput.DefaultRules.Contains(rule)).ToList();
+        var asked = definition.IgnorePaths.Where(rule => RunTimeOutput.DefaultRules.Contains(rule) && suppliedRules?.Contains(rule) == true).ToList();
         var hiding = SavesCheckFails ? asked : asked.Where(SavesLeftOutByRule.ContainsKey).ToList();
         return hiding.Count == 0
             ? (definition, null)
@@ -113,7 +117,7 @@ public sealed class FakeGamesApi : IGamesApi
                 return OperationResult.Success(new LibraryAddResult(game.Key, game.Name, LibraryAddStatus.HasOlderHistory));
             }
 
-            var (draft, leftOff) = WithoutRulesThatHideSaves(game.SavesFolder is not null && !game.SavesFolderExists ? game.Draft with { External = null } : game.Draft);
+            var (draft, leftOff) = WithoutRulesThatHideSaves(game.SavesFolder is not null && !game.SavesFolderExists ? game.Draft with { External = null } : game.Draft, game.Draft.IgnorePaths);
             Add(draft);
             return OperationResult.Success(new LibraryAddResult(game.Key, game.Name, LibraryAddStatus.Added, draft.Id, SavesFolderLeftOut: draft.External is null ? game.SavesFolder : null, RulesLeftOff: leftOff));
         });
@@ -121,9 +125,10 @@ public sealed class FakeGamesApi : IGamesApi
     private static bool SameFolder(string a, string b) =>
         string.Equals(a.TrimEnd('\\', '/'), b.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase);
 
-    public Task<OperationResult<AddGameOutcome.Added>> ResolveOrphanAsync(GameDefinition definition, OrphanResolution resolution) =>
+    public Task<OperationResult<AddGameOutcome.Added>> ResolveOrphanAsync(GameDefinition definition, OrphanResolution resolution, IReadOnlyList<string>? suppliedRules = null) =>
         _backend.Call(_api, nameof(ResolveOrphanAsync), [definition, resolution], () =>
         {
+            LastSuppliedRules = suppliedRules;
             if (!State.Orphans.Remove(definition.Install.Path))
             {
                 throw new KeyNotFoundException($"No old history is scripted at '{definition.Install.Path}'.");
@@ -131,7 +136,7 @@ public sealed class FakeGamesApi : IGamesApi
 
             if (resolution is OrphanResolution.Reconnect reconnect)
             {
-                var (game, reconnectedLeftOff) = WithoutRulesThatHideSaves(definition with { Id = reconnect.ExistingGameId });
+                var (game, reconnectedLeftOff) = WithoutRulesThatHideSaves(definition with { Id = reconnect.ExistingGameId }, suppliedRules);
                 Add(game);
                 foreach (var recovered in reconnect.Profiles)
                 {
@@ -144,7 +149,7 @@ public sealed class FakeGamesApi : IGamesApi
                 return OperationResult.Success(new AddGameOutcome.Added(game, reconnectedLeftOff));
             }
 
-            var (fresh, freshLeftOff) = WithoutRulesThatHideSaves(definition);
+            var (fresh, freshLeftOff) = WithoutRulesThatHideSaves(definition, suppliedRules);
             Add(fresh);
             return OperationResult.Success(new AddGameOutcome.Added(fresh, freshLeftOff));
         });

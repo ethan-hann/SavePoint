@@ -8,10 +8,10 @@ namespace Savepoint.Core.Services.Games;
 
 internal sealed partial class GamesApi
 {
-    public Task<OperationResult<AddGameOutcome>> AddAsync(GameDefinition definition) =>
-        ApiGuard.RunAsync(_services.Log, () => AddCoreAsync(definition));
+    public Task<OperationResult<AddGameOutcome>> AddAsync(GameDefinition definition, IReadOnlyList<string>? suppliedRules = null) =>
+        ApiGuard.RunAsync(_services.Log, () => AddCoreAsync(definition, suppliedRules));
 
-    private async Task<AddGameOutcome> AddCoreAsync(GameDefinition definition)
+    private async Task<AddGameOutcome> AddCoreAsync(GameDefinition definition, IReadOnlyList<string>? suppliedRules)
     {
         var game = CatalogValidator.RequireValid(definition);
 
@@ -37,7 +37,7 @@ internal sealed partial class GamesApi
 
                 // A marker with no history behind it protects nothing; it is let go so the folder can be claimed.
                 OrphanScanner.Release(orphans);
-                var (saved, leftOff) = await InitAndSaveWithNoteAsync(storage, game, folders).ConfigureAwait(false);
+                var (saved, leftOff) = await InitAndSaveWithNoteAsync(storage, game, folders, suppliedRules).ConfigureAwait(false);
                 return new AddGameOutcome.Added(saved, leftOff);
             }));
     }
@@ -76,7 +76,7 @@ internal sealed partial class GamesApi
     }
 
     // Makes the repositories (which writes the consent markers) and then the catalog row; a failure on the way takes back what this call made.
-    private async Task<(GameDefinition Game, RulesLeftOff? LeftOff)> InitAndSaveWithNoteAsync(StorageSnapshot storage, GameDefinition game, IReadOnlyList<GameFolder> folders)
+    private async Task<(GameDefinition Game, RulesLeftOff? LeftOff)> InitAndSaveWithNoteAsync(StorageSnapshot storage, GameDefinition game, IReadOnlyList<GameFolder> folders, IReadOnlyList<string>? suppliedRules)
     {
         var made = new List<RepoRef>();
         try
@@ -92,7 +92,7 @@ internal sealed partial class GamesApi
                 await storage.Engine.InitAsync(repo).ConfigureAwait(false);
             }
 
-            var (kept, leftOff) = await WithoutRulesThatHideSavesAsync(storage, game).ConfigureAwait(false);
+            var (kept, leftOff) = await WithoutRulesThatHideSavesAsync(storage, game, suppliedRules).ConfigureAwait(false);
             return (await _services.Catalog.SaveGameAsync(kept).ConfigureAwait(false), leftOff);
         }
         catch
