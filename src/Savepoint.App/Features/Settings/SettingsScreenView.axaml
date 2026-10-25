@@ -322,38 +322,6 @@
           </Border>
         </StackPanel>
 
-        <!-- Remove all SavePoint data. -->
-        <StackPanel x:Name="ClearAllSection">
-          <TextBlock Classes="section-label" Foreground="{DynamicResource Md3ErrorBrush}" Text="{theme:Upper {loc:Loc settings.clearAll.heading}}" />
-          <Border Classes="panel" BorderBrush="{DynamicResource Md3ErrorCalloutBorderBrush}">
-            <StackPanel Spacing="14">
-              <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Classes="caption" FontSize="12.5" TextWrapping="Wrap" VerticalAlignment="Center" Text="{loc:Loc settings.clearAll.body}" />
-                <Button x:Name="RemoveButton"
-                        Grid.Column="1"
-                        Classes="error-outlined pill"
-                        Margin="20,0,0,0"
-                        Padding="18,8"
-                        VerticalAlignment="Center"
-                        Command="{Binding ClearAll.RemoveCommand}"
-                        Content="{loc:Loc settings.clearAll.button}" />
-              </Grid>
-              <StackPanel x:Name="ClearingPanel" Spacing="8" IsVisible="{Binding ClearAll.IsClearing}">
-                <ProgressBar IsIndeterminate="True" AutomationProperties.Name="{loc:Loc settings.clearAll.clearing}" />
-                <TextBlock Classes="caption" Text="{loc:Loc settings.clearAll.clearing}" />
-              </StackPanel>
-            </StackPanel>
-          </Border>
-          <ContentControl x:Name="ClearProblemHost"
-                          Margin="0,12,0,0"
-                          Content="{Binding ClearAll.Problem}"
-                          IsVisible="{Binding ClearAll.Problem, Converter={x:Static ObjectConverters.IsNotNull}}" />
-          <ContentControl x:Name="LeftBehindHost"
-                          Margin="0,12,0,0"
-                          Content="{Binding ClearAll.LeftBehind}"
-                          IsVisible="{Binding ClearAll.LeftBehind, Converter={x:Static ObjectConverters.IsNotNull}}" />
-        </StackPanel>
-
         <!-- Apps menu: only when SavePoint runs from an AppImage. -->
         <StackPanel x:Name="AppsMenuSection" IsVisible="{Binding AppsMenu.IsAvailable}">
           <TextBlock Classes="section-label" Text="{theme:Upper {loc:Loc settings.appsMenu.heading}}" />
@@ -387,6 +355,38 @@
               </WrapPanel>
             </StackPanel>
           </Border>
+        </StackPanel>
+
+        <!-- Remove all SavePoint data. -->
+        <StackPanel x:Name="ClearAllSection">
+          <TextBlock Classes="section-label" Foreground="{DynamicResource Md3ErrorBrush}" Text="{theme:Upper {loc:Loc settings.clearAll.heading}}" />
+          <Border Classes="panel" BorderBrush="{DynamicResource Md3ErrorCalloutBorderBrush}">
+            <StackPanel Spacing="14">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Classes="caption" FontSize="12.5" TextWrapping="Wrap" VerticalAlignment="Center" Text="{loc:Loc settings.clearAll.body}" />
+                <Button x:Name="RemoveButton"
+                        Grid.Column="1"
+                        Classes="error-outlined pill"
+                        Margin="20,0,0,0"
+                        Padding="18,8"
+                        VerticalAlignment="Center"
+                        Command="{Binding ClearAll.RemoveCommand}"
+                        Content="{loc:Loc settings.clearAll.button}" />
+              </Grid>
+              <StackPanel x:Name="ClearingPanel" Spacing="8" IsVisible="{Binding ClearAll.IsClearing}">
+                <ProgressBar IsIndeterminate="True" AutomationProperties.Name="{loc:Loc settings.clearAll.clearing}" />
+                <TextBlock Classes="caption" Text="{loc:Loc settings.clearAll.clearing}" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+          <ContentControl x:Name="ClearProblemHost"
+                          Margin="0,12,0,0"
+                          Content="{Binding ClearAll.Problem}"
+                          IsVisible="{Binding ClearAll.Problem, Converter={x:Static ObjectConverters.IsNotNull}}" />
+          <ContentControl x:Name="LeftBehindHost"
+                          Margin="0,12,0,0"
+                          Content="{Binding ClearAll.LeftBehind}"
+                          IsVisible="{Binding ClearAll.LeftBehind, Converter={x:Static ObjectConverters.IsNotNull}}" />
         </StackPanel>
 
         <!-- About. -->
