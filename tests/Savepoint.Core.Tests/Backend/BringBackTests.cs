@@ -282,10 +282,64 @@ public class BringBackTests
 
         var preview = (await world.Workspace.Profiles.GetDeletePreviewAsync(world.Game.Id, brought.Id, world.Workspace.Token)).Value!;
 
-        Assert.Equal(3, preview.PointsOnlyHere);
+        // The snapshot's saves came back as a point of their own, apart from the install point the profile it left still held.
+        Assert.Equal(4, preview.PointsOnlyHere);
         Assert.Equal(1, preview.PointsBackToRemoved);
         Assert.Equal(3, preview.Folders.Single(folder => folder.Role == RepoRole.Install).PointCount);
-        Assert.Equal(1, preview.Folders.Single(folder => folder.Role == RepoRole.External).PointCount);
+        Assert.Equal(2, preview.Folders.Single(folder => folder.Role == RepoRole.External).PointCount);
+    }
+
+    // A snapshot of both folders whose replace only had unsaved saves: the install folder keeps the snapshot's id, the saves folder's commit is
+    // rewritten under a new one, and the old saves commit is the only thing taken off the profile.
+    private static async Task<(string Id, string NewId)> PartlyReplacedAsync(RemovedWorld world)
+    {
+        BackendWorkspace.WriteFile(Path.Combine(world.Game.Install.Path, "mods", "b.esp"), "another mod");
+        BackendWorkspace.WriteFile(Path.Combine(world.Game.External!.Path, "slot3.sav"), "third save");
+        var both = await RemovedWorld.CaptureAsync(world.Workspace, world.Game, world.Profile, "Both again", RepoRole.Install, RepoRole.External);
+        BackendWorkspace.WriteFile(Path.Combine(world.Game.External.Path, "slot3.sav"), "third save, played on");
+        return (both.Value, await world.ReplaceLatestAsync("Both again", RepoRole.External));
+    }
+
+    [Fact(Timeout = 120_000)]
+    public async Task A_snapshot_whose_replace_changed_only_the_saves_is_listed_as_a_saves_only_snapshot_under_its_own_name()
+    {
+        using var world = await RemovedWorld.CreateAsync();
+        var (id, _) = await PartlyReplacedAsync(world);
+
+        var listed = Assert.Single(await world.ListAsync());
+
+        Assert.Equal(id, listed.Id.Value);
+        Assert.Equal(HistoryPointKind.SaveOnly, listed.Kind);
+        Assert.Equal("Both again", listed.Name);
+        Assert.Equal(RemovedSnapshotReason.ReplacedWithSession, listed.Reason);
+    }
+
+    [Fact(Timeout = 120_000)]
+    public async Task A_partly_replaced_snapshot_brought_back_is_its_own_point_with_the_old_saves_and_the_original_profiles_points_do_not_change()
+    {
+        using var world = await RemovedWorld.CreateAsync();
+        var (id, newId) = await PartlyReplacedAsync(world);
+        var oldSaves = Assert.Single(await world.RecordedCommitsAsync(RepoRole.External));
+        var pointsBefore = (await world.Workspace.History.GetAsync(world.Game.Id, world.Profile.Id, world.Workspace.Token)).Value!.Points;
+
+        var brought = await world.Workspace.Profiles.BringBackAsync(world.Game.Id, new HistoryPointId(id), "Old saves");
+
+        Assert.True(brought.Ok, brought.Error?.Detail);
+        var own = (await world.Workspace.History.GetAsync(world.Game.Id, brought.Value.Id, world.Workspace.Token)).Value!.Points;
+        var point = Assert.Single(own);
+        Assert.Equal(HistoryPointKind.SaveOnly, point.Kind);
+        Assert.Equal("Both again", point.Name);
+        Assert.Equal(brought.Value.Id, point.ProfileId);
+        Assert.NotEqual(id, point.Id.Value);
+        Assert.NotEqual(newId, point.Id.Value);
+
+        // The new profile's saves are the old ones: the rewritten commit holds the removed commit's files.
+        var tip = (await world.CommitsAsync(brought.Value.BranchName, RepoRole.External)).First();
+        Assert.Equal(point.Id.Value, tip.CaptureId);
+        Assert.Equal(await world.TreeOfAsync(RepoRole.External, oldSaves), await world.TreeOfAsync(RepoRole.External, tip.Id));
+
+        Assert.Equal(pointsBefore, (await world.Workspace.History.GetAsync(world.Game.Id, world.Profile.Id, world.Workspace.Token)).Value!.Points);
+        Assert.Empty(await world.ListAsync());
     }
 
     private static async Task<IReadOnlyList<string>> BranchesAsync(RemovedWorld world, RepoRole role)

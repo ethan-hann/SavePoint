@@ -88,12 +88,12 @@ internal sealed partial class ProfilesApi
 
                     // Each folder starts at the commit the snapshot recorded there, or at the latest one before it in the history of the profile it came from.
                     // A saves folder with none is left without a branch, as for any profile that never saved it; an install folder with none could not start.
-                    var starts = new List<(RepoRef Repo, string Commit)>();
+                    var starts = new List<(RepoRef Repo, CommitInfo Commit)>();
                     foreach (var repo in repos)
                     {
                         if (await RemovedSnapshots.CommitInAsync(storage, repo, state, group, null, CancellationToken.None).ConfigureAwait(false) is { } commit)
                         {
-                            starts.Add((repo, commit.Id));
+                            starts.Add((repo, commit));
                         }
                         else if (repo.Role == RepoRole.Install)
                         {
@@ -101,18 +101,45 @@ internal sealed partial class ProfilesApi
                         }
                     }
 
+                    // A folder the snapshot recorded while another folder only reaches it through the profile it left (a replace that changed just
+                    // the saves) shares the snapshot's id with that folder's commit, which a profile still holds. History would file the recorded
+                    // commit under that profile's point, so it comes back as a copy under a new id and its record is dropped, the copy standing in for it.
+                    var partial = starts.Count > 1 && starts.Any(start => group.In(start.Repo.Role) is null && start.Commit.CaptureId == group.CaptureId);
+                    var copied = new List<(RepoRef Repo, RemovedCommit Record)>();
                     var copy = fresh with { VersionOverride = origin?.VersionOverride };
                     var made = new List<RepoRef>();
                     try
                     {
+                        var newCaptureId = Guid.NewGuid().ToString("D");
                         foreach (var (repo, commit) in starts)
                         {
-                            await storage.Engine.CreateBranchAsync(repo, copy.BranchName, commit).ConfigureAwait(false);
+                            if (partial && group.In(repo.Role) is { } recorded)
+                            {
+                                await storage.Engine.CreateBranchAsCopyAsync(repo, copy.BranchName, commit.Id, newCaptureId).ConfigureAwait(false);
+                                copied.Add((repo, recorded));
+                            }
+                            else
+                            {
+                                await storage.Engine.CreateBranchAsync(repo, copy.BranchName, commit.Id).ConfigureAwait(false);
+                            }
+
                             made.Add(repo);
                         }
 
                         var saved = await _services.Catalog.SaveProfileAsync(copy).ConfigureAwait(false);
-                        _services.Log.Information($"Snapshot brought back: '{group.Lead.Commit.Subject}' ({snapshotId.Value}) of {gameId}, removed from {(origin is null ? group.Lead.Branch : origin.Name)}, is now the history of the new profile {copy.Name} ({copy.Id}); " + string.Join(", ", starts.Select(start => $"{GameFolders.LogName(start.Repo.Role)} branch starts at {start.Commit}")) + ". The profile it came from was not touched.");
+                        foreach (var (repo, recorded) in copied)
+                        {
+                            // Best effort: a record left behind only keeps the snapshot listed, and Free up space clears it.
+                            try
+                            {
+                                await storage.Engine.ClearRemovedAsync(repo, [recorded.RefName]).ConfigureAwait(false);
+                            }
+                            catch (GitOperationException)
+                            {
+                            }
+                        }
+
+                        _services.Log.Information($"Snapshot brought back: '{group.Lead.Commit.Subject}' ({snapshotId.Value}) of {gameId}, removed from {(origin is null ? group.Lead.Branch : origin.Name)}, is now the history of the new profile {copy.Name} ({copy.Id}); " + string.Join(", ", starts.Select(start => $"{GameFolders.LogName(start.Repo.Role)} branch starts at {start.Commit.Id}")) + (copied.Count > 0 ? ", with the saves under a new snapshot id so History lists them under the new profile" : string.Empty) + ". The profile it came from was not touched.");
                         return saved;
                     }
                     catch

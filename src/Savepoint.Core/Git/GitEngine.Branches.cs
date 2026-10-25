@@ -35,6 +35,73 @@ public sealed partial class GitEngine
     }
 
     /// <summary>
+    /// Creates a branch whose tip is a copy of an existing point under a new capture id: the same files, parents, name, capture time and
+    /// empty folders, so the copy is a point of its own that History does not fold into the point it was copied from. Does not touch HEAD or any file.
+    /// </summary>
+    /// <param name="repo">The folder.</param>
+    /// <param name="newBranch">The new branch; it must not exist.</param>
+    /// <param name="commit">A full commit id that carries a capture id.</param>
+    /// <param name="captureId">The copy's <c>Savepoint-Capture</c> trailer.</param>
+    /// <param name="ct">Cancels the call.</param>
+    /// <returns>The copy's commit id.</returns>
+    /// <exception cref="ArgumentException">A branch name git would refuse, a commit id that is not a full one, or a capture id with whitespace.</exception>
+    /// <exception cref="Savepoint.Core.Errors.ProfileAlreadyExistsException">The branch exists; nothing was changed.</exception>
+    /// <exception cref="Savepoint.Core.Errors.GitOperationException">The commit has no capture id, does not exist, or git failed.</exception>
+    public async Task<string> CreateBranchAsCopyAsync(RepoRef repo, string newBranch, string commit, string captureId, CancellationToken ct = default)
+    {
+        repo = Normalize(repo);
+        BranchNames.Require(newBranch);
+        if (!GitDirFiles.IsObjectId(commit))
+        {
+            throw new ArgumentException("The commit must be given as a full commit id.", nameof(commit));
+        }
+
+        if (string.IsNullOrEmpty(captureId) || captureId.Any(c => char.IsWhiteSpace(c) || char.IsControl(c)))
+        {
+            throw new ArgumentException("A capture id cannot be empty or contain whitespace or control characters.", nameof(captureId));
+        }
+
+        ct.ThrowIfCancellationRequested();
+        CheckWorkTree(repo);
+        RepoMarker.Verify(repo);
+        await EnsureRepositoryAsync(repo, ct).ConfigureAwait(false);
+
+        using var scope = BeginWrite(repo);
+        var read = await RunAsync(GitDirOnly(repo, "log", "-1", "--format=%T%x1f%P%x1f%B", commit, "--"), ct).ConfigureAwait(false);
+        var fields = read.StandardOutput.Split('\x1f', 3);
+        var message = fields.Length == 3 ? ReplaceCaptureId(fields[2], captureId) : null;
+        if (message is null)
+        {
+            throw new GitOperationException($"The commit {commit} carries no capture id to replace.");
+        }
+
+        List<string> arguments = ["commit-tree", fields[0].Trim()];
+        foreach (var parent in fields[1].Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            arguments.AddRange(["-p", parent]);
+        }
+
+        arguments.AddRange(["-F", "-"]);
+        var copy = (await RunWriteAsync(() => Invocation(repo, readOnly: false, [.. arguments]) with { Stdin = message }, ct).ConfigureAwait(false)).StandardOutput.Trim();
+        await CreateBranchRefAsync(repo, newBranch, copy, "savepoint: create branch", ct).ConfigureAwait(false);
+        return copy;
+    }
+
+    // The message with its capture trailer's value swapped, or null when it has none.
+    private static string? ReplaceCaptureId(string message, string captureId)
+    {
+        var lines = message.TrimEnd('\r', '\n').Split('\n');
+        var at = Array.FindLastIndex(lines, line => CommitMessage.IsCaptureTrailer(line.TrimEnd('\r')));
+        if (at < 0)
+        {
+            return null;
+        }
+
+        lines[at] = "Savepoint-Capture: " + captureId;
+        return string.Join('\n', lines) + "\n";
+    }
+
+    /// <summary>
     /// Creates a branch whose only point has an empty tree (a fresh start for a duplicated profile's saves), without
     /// touching any file. HEAD is left alone unless <paramref name="attachToUnbornHead"/> asks for it. Does nothing when the branch already exists.
     /// </summary>
@@ -186,6 +253,8 @@ internal static class CommitMessage
             throw new ArgumentException("A message cannot hold a line that starts like the capture id or capture time trailer.", paramName);
         }
     }
+
+    public static bool IsCaptureTrailer(string line) => IsKeyOf(line, _captureTrailerKey);
 
     // git reads the key without regard to case and allows blanks before the colon.
     private static bool StartsLikeTrailer(string line) =>

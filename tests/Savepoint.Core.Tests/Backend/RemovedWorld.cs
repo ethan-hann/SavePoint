@@ -188,16 +188,21 @@ internal sealed class RemovedWorld : IDisposable
     }
 
     // Replaces the latest snapshot of each folder with what the folders hold now, as "Replace with this session" does.
-    public async Task ReplaceLatestAsync(string name)
+    public Task ReplaceLatestAsync(string name) => ReplaceLatestAsync(name, RepoRole.Install, RepoRole.External);
+
+    // The same for the listed folders only, as a replace does where the other folder has nothing unsaved. The new id is returned.
+    public async Task<string> ReplaceLatestAsync(string name, params RepoRole[] folders)
     {
         var storage = await Workspace.Backend.Services.Storage.GetAsync(Token);
         var at = DateTimeOffset.UtcNow;
         var captureId = Guid.NewGuid().ToString("D");
-        foreach (var role in new[] { RepoRole.Install, RepoRole.External })
+        foreach (var role in folders)
         {
             var request = new CaptureRequest(Profile.BranchName, name, captureId) { Mode = CaptureMode.Amend, CapturedAt = at };
             await storage.Engine.CaptureAsync(RepoOf(storage, role), request, ct: Token);
         }
+
+        return captureId;
     }
 
     public async Task<IReadOnlyList<RemovedSnapshot>> ListAsync()
@@ -224,6 +229,17 @@ internal sealed class RemovedWorld : IDisposable
     {
         var storage = await Workspace.Backend.Services.Storage.GetAsync(Token);
         return [.. (await storage.Engine.ListRemovedAsync(RepoOf(storage, role), Token)).Where(removed => !removed.OnBranch).Select(removed => removed.Commit.Id)];
+    }
+
+    // The id of the tree a commit holds, which is the same for two commits that hold the same files.
+    public async Task<string> TreeOfAsync(RepoRole role, string commitId)
+    {
+        var storage = await Workspace.Backend.Services.Storage.GetAsync(Token);
+        var repo = RepoOf(storage, role);
+        var result = await Workspace.Backend.Services.Runner.RunAsync(
+            new GitInvocation(["rev-parse", commitId + "^{tree}"]) { GitDir = repo.GitDir, WorkTree = repo.WorkTree, ReadOnly = true },
+            Token);
+        return result.StandardOutput.Trim();
     }
 
     // True when the store still holds the commit, loose or packed.
