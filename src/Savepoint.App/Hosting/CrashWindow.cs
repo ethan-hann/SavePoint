@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Input.Platform;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform;
@@ -18,14 +19,20 @@ public sealed class CrashWindow : Window
     private readonly UiFormatter _text;
     private readonly Button _detailsButton;
     private readonly TextBox _detailsText;
+    private readonly Func<string, Task> _copyText;
+    private TextBlock? _copyNote;
 
     /// <summary>Creates the window.</summary>
     /// <param name="text">Formats the window's catalog messages.</param>
     /// <param name="report">The crash to show.</param>
     /// <param name="openFolder">Opens a folder in the file manager; answers false when it could not.</param>
-    public CrashWindow(UiFormatter text, CrashReport report, Func<string, bool> openFolder)
+    /// <param name="copyText">Puts text on the clipboard; the window's own clipboard when null. It may throw or fault.</param>
+    /// <param name="build">The build to state in the support text; this app's build when null.</param>
+    public CrashWindow(UiFormatter text, CrashReport report, Func<string, bool> openFolder, Func<string, Task>? copyText = null, string? build = null)
     {
         _text = text;
+        _copyText = copyText ?? CopyToOwnClipboard;
+        var supportText = CrashSupportText.Build(report, build ?? ThisBuild());
         Title = text.Message("app.name");
         TryUseAppIcon();
         CanResize = false;
@@ -42,6 +49,12 @@ public sealed class CrashWindow : Window
         _detailsButton.Click += (_, _) => ToggleDetails();
         buttons.Children.Add(_detailsButton);
 
+        var copy = NewButton("CopyDetailsButton", text.Message("errorCard.copyDetails"));
+        copy.Click += async (_, _) => await CopyAsync(supportText);
+        buttons.Children.Add(copy);
+        _copyNote = new TextBlock { Name = "CopyNoteText", TextWrapping = TextWrapping.Wrap, IsVisible = false };
+        content.Children.Add(_copyNote);
+
         if (report.LogFolder is { } folder)
         {
             content.Children.Add(new SelectableTextBlock { Text = text.Message("app.crash.logFolder", ("path", folder)), TextWrapping = TextWrapping.Wrap });
@@ -55,7 +68,7 @@ public sealed class CrashWindow : Window
         _detailsText = new TextBox
         {
             Name = "DetailsText",
-            Text = report.Exception.ToString(),
+            Text = supportText,
             IsReadOnly = true,
             AcceptsReturn = true,
             TextWrapping = TextWrapping.NoWrap,
@@ -85,6 +98,42 @@ public sealed class CrashWindow : Window
         catch (Exception)
         {
             // Left as the desktop's default.
+        }
+    }
+
+    // The build is only a line in the support text; not knowing it must not stop the crash from being shown.
+    private static string ThisBuild()
+    {
+        try
+        {
+            return Features.Settings.SettingsEnvironment.ThisAppBuild();
+        }
+        catch (Exception)
+        {
+            return "unknown build";
+        }
+    }
+
+    private Task CopyToOwnClipboard(string text) =>
+        Clipboard is { } clipboard ? clipboard.SetTextAsync(text) : throw new InvalidOperationException("This window has no clipboard.");
+
+    // A clipboard held by another program or missing from the display server must never cause a second crash.
+    private async Task CopyAsync(string supportText)
+    {
+        var message = "errorCard.copied";
+        try
+        {
+            await _copyText(supportText);
+        }
+        catch (Exception e) when (e is not OutOfMemoryException)
+        {
+            message = "errorCard.copyFailed";
+        }
+
+        if (_copyNote is { } note)
+        {
+            note.Text = _text.Message(message);
+            note.IsVisible = true;
         }
     }
 
