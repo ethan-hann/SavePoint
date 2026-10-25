@@ -102,7 +102,7 @@ public sealed partial class GitEngine
         var read = present.Except(written).Select(change => change.Path).ToArray();
 
         // The reset refreshes the whole index, and an entry written from the plan has no stamp, so it would be read there: those go in after.
-        // Removals go in first so that a name that differs only in case from one added later cannot take the new entry out with it.
+        // Removals go in before the reset so that the index it refreshes is as small as it can be.
         if (read.Length == 0)
         {
             await WriteIndexInfoAsync(repo, removals, written, environment, ct).ConfigureAwait(false);
@@ -153,7 +153,13 @@ public sealed partial class GitEngine
         }
 
         var stdin = lines.ToString();
-        await RunWriteAsync(() => Invocation(repo, readOnly: false, "update-index", "-z", "--index-info") with { Stdin = stdin, ExtraEnvironment = environment }, ct).ConfigureAwait(false);
+        var result = await RunWriteAsync(() => Invocation(repo, readOnly: false, "update-index", "-z", "--index-info") with { Stdin = stdin, ExtraEnvironment = environment }, ct).ConfigureAwait(false);
+
+        // On Windows git skips a name the system cannot hold, says so and still exits 0; the reset this replaced failed on such a name.
+        if (result.StandardError.Split('\n').FirstOrDefault(line => line.StartsWith("Ignoring path ", StringComparison.Ordinal)) is { } skipped)
+        {
+            throw new GitOperationException(skipped.Trim()) { StandardError = result.StandardError };
+        }
     }
 
     // The entries the alignment took out of the index that the patterns do not name.
