@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
 using AsmResolver;
@@ -18,12 +19,19 @@ public static class ExeVersionReader
     private const string _fileVersion = "FileVersion";
     private const string _bundleVersion = "CFBundleShortVersionString";
 
+    private static readonly Regex _unityProductVersion = new(@"^\d+\.\d+\.\d+[abfp]\d+ \([0-9a-f]{12}\)$", RegexOptions.CultureInvariant);
+    private static readonly Regex _changelistSuffix = new(@"-CL-\d+", RegexOptions.CultureInvariant);
+    private static readonly Regex _dottedNumber = new(@"(?<!\d\.?)\d+(?:\.\d+){2,3}(?![\d.])", RegexOptions.CultureInvariant);
+
     /// <summary>Reads the version from the bytes of a Windows executable (a PE file, including one run through Proton).</summary>
     /// <param name="bytes">The whole file, or at least everything up to its resource section.</param>
     /// <returns>
     /// The version text, or null when the input is not a PE file, has no version resource, only an empty or all-zero
-    /// one, or cannot be parsed. Never throws for bad input. The product version string wins, then the file version
-    /// string, then the fixed numeric file version with trailing zero parts dropped (keeping at least major.minor).
+    /// one, cannot be parsed, or only holds a number that is not the game's: a Unity player's engine version, an
+    /// Unreal build id with no game number in it (a number inside one, as in "++Game+release.1.4.7-CL-1", is
+    /// returned alone), a string with no digit, or the 1.0 placeholder. Never throws for bad input. The product version
+    /// string wins, then the file version string, then, only when the file has no version string at all and is not an
+    /// engine vendor's, the fixed numeric file version with trailing zero parts dropped (keeping at least major.minor).
     /// A string is trimmed of whitespace and NULs, and a comma-separated form such as "1, 0, 0, 1" becomes "1.0.0.1".
     /// </returns>
     public static string? FromPe(byte[]? bytes)
@@ -43,7 +51,36 @@ public static class ExeVersionReader
             }
 
             var versions = VersionInfoResource.FindAllFromDirectory(resources).OfType<VersionInfoResource>().ToList();
-            return StringValue(versions, _productVersion) ?? StringValue(versions, _fileVersion) ?? FixedValue(versions);
+            var tables = versions
+                .SelectMany(version => version.GetChildren().OfType<StringFileInfo>())
+                .SelectMany(fileInfo => fileInfo.Tables)
+                .ToList();
+            if (IsUnityPlayer(tables) || IsEngineItself(tables))
+            {
+                return null;
+            }
+
+            var rejectedAny = false;
+            foreach (var key in new[] { _productVersion, _fileVersion })
+            {
+                foreach (var table in tables)
+                {
+                    if (!table.TryGetValue(key, out var raw) || Clean(raw) is not { } text)
+                    {
+                        continue;
+                    }
+
+                    if (GameVersionIn(text) is { } found)
+                    {
+                        return found;
+                    }
+
+                    rejectedAny = true;
+                }
+            }
+
+            // With strings present the fixed numbers are the engine's, and an engine vendor's executable never has a game's.
+            return rejectedAny || IsEngineExecutable(tables) ? null : FixedValue(versions);
         }
         catch (Exception)
         {
@@ -81,24 +118,39 @@ public static class ExeVersionReader
         }
     }
 
-    private static string? StringValue(List<VersionInfoResource> versions, string key)
+    // Unity writes its own version into every player, so the numbers say nothing about the game.
+    private static bool IsUnityPlayer(List<StringTable> tables) =>
+        tables.Any(table => table.ContainsKey("Unity Version")
+            || (table.TryGetValue(_productVersion, out var product) && _unityProductVersion.IsMatch(product.Trim())));
+
+    // Unreal stamps the engine's numbers on every executable it builds, and those never name the game.
+    private static bool IsEngineExecutable(List<StringTable> tables) =>
+        tables.Any(table => table.TryGetValue("CompanyName", out var company) && company.StartsWith("Epic Games", StringComparison.Ordinal)
+            || table.TryGetValue("InternalName", out var internalName) && internalName == "UnrealEngine");
+
+    // Some Unreal games ship an executable still named after the engine, with the engine's own version.
+    private static bool IsEngineItself(List<StringTable> tables) =>
+        tables.Any(table => table.TryGetValue("ProductName", out var productName) && productName == "Unreal Engine");
+
+    // Unreal build ids ("++Game+release.1.4.7-CL-196638") carry the game's number only sometimes.
+    private static string? GameVersionIn(string text)
     {
-        foreach (var version in versions)
+        if (!text.Any(char.IsAsciiDigit))
         {
-            foreach (var fileInfo in version.GetChildren().OfType<StringFileInfo>())
-            {
-                foreach (var table in fileInfo.Tables)
-                {
-                    if (table.TryGetValue(key, out var raw) && Clean(raw) is { } text)
-                    {
-                        return text;
-                    }
-                }
-            }
+            return null;
         }
 
-        return null;
+        if (text.StartsWith("++", StringComparison.Ordinal) || _changelistSuffix.IsMatch(text))
+        {
+            var match = _dottedNumber.Match(text);
+            return match.Success ? match.Value : null;
+        }
+
+        return IsPlaceholder(text) ? null : text;
     }
+
+    // Many projects never replace the template's 1.0.0.0.
+    private static bool IsPlaceholder(string text) => text is "1.0.0.0" or "1.0.0" or "1.0";
 
     private static string? FixedValue(List<VersionInfoResource> versions)
     {
@@ -127,7 +179,8 @@ public static class ExeVersionReader
             count--;
         }
 
-        return string.Join('.', parts.Take(count));
+        var text = string.Join('.', parts.Take(count));
+        return IsPlaceholder(text) ? null : text;
     }
 
     private static string? Clean(string? raw)
