@@ -28,6 +28,28 @@ internal sealed class ScriptedInspector : IProcessInspector
     }
 }
 
+// A manual clock that runs a hook right after each timer is created, to land an event in the window between a wait being armed and
+// the waiter looking at what else it should wake for.
+internal sealed class HookedTimeProvider(ManualTimeProvider inner) : TimeProvider
+{
+    public Action? AfterTimerCreated { get; set; }
+
+    public override long TimestampFrequency => inner.TimestampFrequency;
+
+    public override DateTimeOffset GetUtcNow() => inner.GetUtcNow();
+
+    public override long GetTimestamp() => inner.GetTimestamp();
+
+    public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+    {
+        var timer = inner.CreateTimer(callback, state, dueTime, period);
+        var hook = AfterTimerCreated;
+        AfterTimerCreated = null;
+        hook?.Invoke();
+        return timer;
+    }
+}
+
 // A watcher on a manual clock, driven in steps small enough that the polling loop always gets to run between them.
 internal sealed class WatcherRig : IDisposable
 {

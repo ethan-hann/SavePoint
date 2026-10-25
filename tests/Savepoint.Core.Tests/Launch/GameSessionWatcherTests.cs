@@ -1,5 +1,6 @@
 using Savepoint.Core.Launch;
 using Savepoint.Core.Platform;
+using Savepoint.Core.Tests.Services;
 
 namespace Savepoint.Core.Tests.Launch;
 
@@ -751,6 +752,22 @@ public class GameSessionWatcherTests
         await Task.Delay(50, TestContext.Current.CancellationToken);
 
         Assert.Equal(calls, rig.Processes.Calls);
+    }
+
+    [Fact]
+    public async Task A_program_that_exits_just_after_the_wait_is_armed_is_noticed_without_the_clock_moving()
+    {
+        var clock = new HookedTimeProvider(new ManualTimeProvider());
+        var child = new ScriptedProcess();
+        var processes = new ScriptedInspector();
+        clock.AfterTimerCreated = () => child.Exit();
+        var options = new GameSessionOptions { PollInterval = WatcherRig.Interval, Grace = WatcherRig.Grace };
+
+        using var watcher = new GameSessionWatcher(child, _name, processes, OsKind.Windows, options, clock);
+        var looked = WatcherRig.UntilAsync(() => processes.Calls > 1);
+        var finished = await Task.WhenAny(looked, Task.Delay(Seconds(5), TestContext.Current.CancellationToken));
+
+        Assert.Same(looked, finished);
     }
 
     [Fact]
