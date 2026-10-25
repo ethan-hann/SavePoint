@@ -28,6 +28,9 @@ public sealed record GitEngineOptions
     // The wait between two looks at the object store while files are staged; tests replace it so no look depends on a clock.
     internal Func<CancellationToken, Task>? SampleWait { get; init; }
 
+    // Writes the keep file at a path; tests replace it to make the write fail.
+    internal Action<string>? WriteKeep { get; init; }
+
     // How a capture that reports progress splits its files into adds; tests shrink the limits to see several adds with a few files.
     internal StagingLimits StagingLimits { get; init; } = StagingLimits.Default;
 
