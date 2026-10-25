@@ -47,6 +47,21 @@ jobs:
           curl -fsSL --retry 3 --retry-delay 2 -o "$RUNNER_TEMP/dotnet-install.sh" https://dot.net/v1/dotnet-install.sh
           bash "$RUNNER_TEMP/dotnet-install.sh" --channel 10.0 --install-dir /opt/dotnet --no-path
 
+      # Tests drive the PowerShell scripts of build/, and the PowerShell the job image lacks installs as a .NET tool. Root installs
+      # it, so the folders are opened to the gate user below.
+      - name: Install PowerShell
+        if: steps.scope.outputs.needed == 'true'
+        run: |
+          /opt/dotnet/dotnet tool install --tool-path /opt/pwsh PowerShell --version 7.6.8
+          chmod -R a+rX /opt/pwsh /opt/dotnet
+
+      # gpg checks the signatures in the source-archive script tests; dbus-daemon gives the notification tests a private session bus.
+      - name: Install the tools the tests drive
+        if: steps.scope.outputs.needed == 'true'
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends dbus gnupg
+
       # The job container runs as root, and root ignores file permissions, so the tests of unreadable and undeletable files
       # would skip. An ordinary user runs them for real.
       - name: Make an ordinary user
@@ -59,7 +74,7 @@ jobs:
         if: steps.scope.outputs.needed == 'true'
         run: >-
           runuser -u gate --
-          env HOME=/home/gate PATH="/opt/dotnet:$PATH" DOTNET_ROOT=/opt/dotnet
+          env HOME=/home/gate PATH="/opt/pwsh:/opt/dotnet:$PATH" DOTNET_ROOT=/opt/dotnet POWERSHELL_TELEMETRY_OPTOUT=1
           DOTNET_CLI_USE_MSBUILD_SERVER=0 MSBUILDDISABLENODEREUSE=1
           bash build/gate.sh
 
