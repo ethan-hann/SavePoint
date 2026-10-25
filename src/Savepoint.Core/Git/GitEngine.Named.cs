@@ -136,7 +136,8 @@ public sealed partial class GitEngine
         return "--exclude-from=" + file;
     }
 
-    // A forced checkout writes every file whose stamp does not match its index entry, aligned or not; this bit tells it to leave them.
+    // A switch marks the entries of the files the patterns name skip-worktree while it runs: git then neither writes them (a forced
+    // checkout would) nor reads them in the checkout, the refresh and the verify diff. The bit means nothing at rest, so it is not left behind.
     private async Task SetSkipWorktreeAsync(RepoRef repo, bool on, IReadOnlyCollection<string> paths, CancellationToken ct, IReadOnlyDictionary<string, string?>? environment = null)
     {
         if (paths.Count > 0)
@@ -144,6 +145,65 @@ public sealed partial class GitEngine
             await RunWriteAsync(
                 () => Invocation(repo, readOnly: false, "update-index", on ? "--skip-worktree" : "--no-skip-worktree", "-z", "--stdin") with { Stdin = NulList(paths), ExtraEnvironment = environment },
                 ct).ConfigureAwait(false);
+        }
+    }
+
+    // SavePoint never wants the bit at rest, so every entry that carries it is left over from a switch that was killed (a crash or a power
+    // loss) or could not take it off. Left alone it hides the file from every later comparison and from a save. Asked of the index only.
+    private async Task ClearSkipWorktreeAsync(RepoRef repo, CancellationToken ct)
+    {
+        if (IndexHasNoExtendedFlags(repo))
+        {
+            return;
+        }
+
+        var listed = await RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z", "-t"), ct).ConfigureAwait(false);
+        var marked = listed.SplitStandardOutputOnNul().Where(entry => entry.StartsWith("S ", StringComparison.Ordinal)).Select(entry => entry[2..]).ToArray();
+        await SetSkipWorktreeAsync(repo, on: false, marked, ct).ConfigureAwait(false);
+    }
+
+    // git writes an index as version 3 only while an entry carries an extended flag (skip-worktree among them) and as version 2 otherwise,
+    // so a version 2 header answers "no mark" without a git process. Anything unreadable gets the full question.
+    private static bool IndexHasNoExtendedFlags(RepoRef repo)
+    {
+        try
+        {
+            Span<byte> header = stackalloc byte[8];
+            using var stream = new FileStream(Path.Combine(repo.GitDir, "index"), FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            return stream.ReadAtLeast(header, 8, throwOnEndOfStream: false) == 8
+                && header[0] == (byte)'D' && header[1] == (byte)'I' && header[2] == (byte)'R' && header[3] == (byte)'C'
+                && System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(header[4..]) == 2;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    // Which of these paths the tree holds as a file.
+    private async Task<HashSet<string>> InTreeAsync(RepoRef repo, string tree, IReadOnlyCollection<string> paths, CancellationToken ct)
+    {
+        // A name with a line break cannot be asked about in the line format; it is left unprotected rather than guessed at.
+        var asked = paths.Where(path => path.AsSpan().IndexOfAny('\n', '\r') < 0).ToArray();
+        if (asked.Length == 0)
+        {
+            return [];
+        }
+
+        var result = await RunAsync(Invocation(repo, readOnly: true, "cat-file", "--batch-check") with { Stdin = string.Join('\n', asked.Select(path => $"{tree}:{path}")) + "\n" }, ct).ConfigureAwait(false);
+        var lines = result.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        return [.. asked.Where((_, index) => index < lines.Length && !lines[index].TrimEnd('\r').EndsWith(" missing", StringComparison.Ordinal))];
+    }
+
+    // Best effort for a path that is already failing: the error that got it here is the one worth reporting.
+    private async Task TryClearSkipWorktreeAsync(RepoRef repo)
+    {
+        try
+        {
+            await ClearSkipWorktreeAsync(repo, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is SavepointException or IOException or UnauthorizedAccessException)
+        {
         }
     }
 
