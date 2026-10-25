@@ -1,4 +1,4 @@
-#Requires -Version 7
+#Requires -Version 7.4
 <#
 .SYNOPSIS
 Puts a tagged build's packages on the Forgejo release for that tag. Used by .forgejo/workflows/release.yml.
@@ -9,7 +9,7 @@ Three actions, each run by the workflow:
   Verify     Before anything is built: the tag has to be "v" plus the <Version> in Directory.Build.props, the release for the tag (if
              there is one) has to still be a draft, and the sources release of the bundled git has to exist.
   Upload     Adds every file of -Directory to the release for the tag. The release is created as a draft pre-release with the tag's
-             message as a placeholder body when it does not exist yet. A file over 100 MB is split into parts of 90 MiB named
+             message as a placeholder body when it does not exist yet. A file over 95 MB is split into parts of 90 MiB named
              <file>.part1, <file>.part2 and so on, because the proxy in front of Forgejo refuses bigger uploads. A file of the same
              name already on the release is replaced, so a failed run can be run again.
   Checksums  After every package job: downloads what the release holds, writes SHA256SUMS.txt (one line per file and per part, plus
@@ -23,7 +23,7 @@ Everything else comes from the variables a Forgejo Actions job sets: GITHUB_REPO
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [ValidateSet('Verify', 'Upload', 'Checksums')]
+    [ValidateSet('Verify', 'Upload', 'Checksums', 'Load')]
     [string]$Action,
 
     # The tag being released, "v0.9.6" for example. Defaults to the tag that started the job.
@@ -37,8 +37,9 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-# A file above this is split. Cloudflare refuses a request body over 100 MB, so the cut is the decimal figure, not 100 MiB.
-$splitAbove = 100000000
+# A file above this is split. Cloudflare refuses a request body over 100 MB, and the form around the file adds to the body, so the
+# cut sits a little below the decimal figure.
+$splitAbove = 95000000
 $partSize = 90MB
 $checksumName = 'SHA256SUMS.txt'
 $sourcesLinkPrefix = 'Source code of the bundled git'
@@ -75,14 +76,18 @@ function Invoke-Api {
     $token = (Get-Token).Value
     $curl = if ($IsWindows) { 'curl.exe' } else { 'curl' }
     $headers = [System.IO.Path]::GetTempFileName()
+    # The token's header is read from a file the user alone can read (the temp file is created private) and removed below. Piping it
+    # would end the line with CRLF on Windows, and the CR would become part of the header.
+    $headerFile = [System.IO.Path]::GetTempFileName()
     $body = if ($OutFile) { $OutFile } else { [System.IO.Path]::GetTempFileName() }
     try {
+        [System.IO.File]::WriteAllText($headerFile, "Authorization: token $token", [System.Text.UTF8Encoding]::new($false))
         if (-not $Url) { $Url = (Get-ApiBase) + $Path }
-        $arguments = @('--silent', '--show-error', '--request', $Method, '--dump-header', $headers, '--output', $body, '--header', '@-', '--max-time', '3600')
+        $arguments = @('--silent', '--show-error', '--request', $Method, '--dump-header', $headers, '--output', $body, '--header', "@$headerFile", '--max-time', '3600')
         if ($Follow) { $arguments += '--location' }
         $arguments += $Extra
         $arguments += $Url
-        "Authorization: token $token" | & $curl @arguments
+        & $curl @arguments
         if ($LASTEXITCODE -ne 0) { throw "curl failed with exit code $LASTEXITCODE for $Method $Url" }
         $status = 0
         foreach ($line in Get-Content -LiteralPath $headers) {
@@ -92,7 +97,7 @@ function Invoke-Api {
         @{ Status = $status; Text = "$text" }
     }
     finally {
-        Remove-Item -LiteralPath $headers -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $headers, $headerFile -Force -ErrorAction SilentlyContinue
         if (-not $OutFile) { Remove-Item -LiteralPath $body -Force -ErrorAction SilentlyContinue }
     }
 }
@@ -229,7 +234,7 @@ function Send-ReleaseAsset {
 
 function Split-Asset {
     # Cuts a file into parts of $partSize, named <name>.part1 ... in $Folder, and returns the part files in order.
-    param([string]$Path, [string]$Folder)
+    param([string]$Path, [string]$Folder, [long]$PartSize = $partSize)
     $name = Split-Path -Leaf $Path
     $buffer = [byte[]]::new(1MB)
     $parts = @()
@@ -241,8 +246,8 @@ function Split-Asset {
             $output = [System.IO.File]::Create($target)
             try {
                 $written = 0L
-                while ($written -lt $partSize) {
-                    $read = $source.Read($buffer, 0, [int][Math]::Min($buffer.Length, $partSize - $written))
+                while ($written -lt $PartSize) {
+                    $read = $source.Read($buffer, 0, [int][Math]::Min($buffer.Length, $PartSize - $written))
                     if ($read -le 0) { break }
                     $output.Write($buffer, 0, $read)
                     $written += $read
@@ -271,10 +276,34 @@ function Get-StreamHash {
             finally { $stream.Dispose() }
         }
         $sha.TransformFinalBlock([byte[]]::new(0), 0, 0) | Out-Null
-        [System.Convert]::ToHexStringLower($sha.Hash)
+        [System.Convert]::ToHexString($sha.Hash).ToLowerInvariant()
     }
     finally { $sha.Dispose() }
 }
+
+function Get-AssetNames {
+    # The names a file goes up under: its own, or <name>.part1 ... when it is over the split limit.
+    param([string]$Name, [long]$Length, [long]$SplitAbove = $splitAbove, [long]$PartSize = $partSize)
+    if ($Length -le $SplitAbove) { return @($Name) }
+    $count = [int][Math]::Ceiling($Length / $PartSize)
+    @(1..$count | ForEach-Object { "$Name.part$_" })
+}
+
+function Get-StaleAssetNames {
+    # Assets a rerun must delete before it uploads: ones of a file this run sends (whole or in parts) that this run does not send under that name.
+    param([string[]]$Existing, [string[]]$Sending)
+    $bases = @($Sending | ForEach-Object { $_ -replace '\.part\d+$', '' } | Sort-Object -Unique)
+    @($Existing | Where-Object { $_ -and ($bases -contains ($_ -replace '\.part\d+$', '')) -and ($Sending -notcontains $_) })
+}
+
+function Assert-PartsNumbered {
+    param([string]$Base, [int[]]$Numbers)
+    $sorted = @($Numbers | Sort-Object)
+    if (($sorted -join ',') -ne ((1..$sorted.Count) -join ',')) { throw "The parts of $Base are not numbered 1 to $($sorted.Count)." }
+}
+
+# Load only defines the functions above, so tests can call them.
+if ($Action -eq 'Load') { return }
 
 if (-not $Tag -or $Tag -notmatch '^v.+') { throw "The tag is '$Tag'; a release tag starts with v." }
 
@@ -303,6 +332,14 @@ switch ($Action) {
         $scratch = Join-Path ([System.IO.Path]::GetTempPath()) ("release-parts-" + [guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Path $scratch | Out-Null
         try {
+            # A rerun may send a file differently than the run before (whole instead of in parts, or in fewer parts); what the earlier
+            # run left under the old names would be taken for part of the file.
+            $sending = @($files | ForEach-Object { Get-AssetNames $_.Name $_.Length })
+            $existing = @(@(Invoke-ApiJson -Path "/repos/$(Get-Repository)/releases/$($release.id)/assets") | Where-Object { $_ } | ForEach-Object { $_.name })
+            foreach ($stale in Get-StaleAssetNames $existing $sending) {
+                Write-Host "==> removing $stale, which this run does not send"
+                Remove-ReleaseAsset $release $stale
+            }
             foreach ($file in $files) {
                 if ($file.Length -le $splitAbove) {
                     Send-ReleaseAsset $release $file.FullName $file.Name
@@ -353,7 +390,7 @@ switch ($Action) {
             # A split file also gets a line of its own, the hash of the parts joined in order.
             foreach ($base in $partFiles.Keys) {
                 $numbers = @($partFiles[$base].Keys | Sort-Object)
-                if (($numbers -join ',') -ne ((1..$numbers.Count) -join ',')) { throw "The parts of $base are not numbered 1 to $($numbers.Count)." }
+                Assert-PartsNumbered $base $numbers
                 $lines += [pscustomobject]@{ Name = $base; Hash = (Get-StreamHash @($numbers | ForEach-Object { $partFiles[$base][$_] })) }
             }
             $sums = Join-Path $scratch $checksumName

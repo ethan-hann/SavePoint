@@ -17,9 +17,6 @@ jobs:
   linux:
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    env:
-      RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: https://data.forgejo.org/actions/checkout@v4
         with:
@@ -35,7 +32,7 @@ jobs:
       - name: Install PowerShell
         run: |
           if ! command -v pwsh >/dev/null 2>&1; then
-            /opt/dotnet/dotnet tool install --tool-path /opt/pwsh PowerShell
+            /opt/dotnet/dotnet tool install --tool-path /opt/pwsh PowerShell --version 7.6.8
             echo "/opt/pwsh" >> "$GITHUB_PATH"
             echo "DOTNET_ROOT=/opt/dotnet" >> "$GITHUB_ENV"
           fi
@@ -43,6 +40,9 @@ jobs:
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Check the tag against the version
+        env:
+          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: pwsh -NoProfile -File build/release-assets.ps1 -Action Verify
 
       # The packaging user is an ordinary one, as in the gate: the build and the AppImage check need no root.
@@ -59,6 +59,9 @@ jobs:
           bash build/package.sh
 
       - name: Add the files to the release
+        env:
+          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: pwsh -NoProfile -File build/release-assets.ps1 -Action Upload -Directory artifacts/release/linux-x64
 
   windows:
@@ -67,9 +70,6 @@ jobs:
     defaults:
       run:
         shell: pwsh
-    env:
-      RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       # The runner may keep each job's folder; the VM's disk is small, so earlier jobs' folders go (the runner runs one job at
       # a time). The tool cache stays so the SDK is not downloaded again.
@@ -97,6 +97,9 @@ jobs:
           $dotnet | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
 
       - name: Check the tag against the version
+        env:
+          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./build/release-assets.ps1 -Action Verify
 
       - name: Build the setup, the portable zip and the update files
@@ -107,15 +110,15 @@ jobs:
         run: ./build/package.ps1
 
       - name: Add the files to the release
+        env:
+          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./build/release-assets.ps1 -Action Upload -Directory artifacts/release/win-x64
 
   checksums:
     needs: [linux, windows]
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    env:
-      RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: https://data.forgejo.org/actions/checkout@v4
 
@@ -125,10 +128,13 @@ jobs:
           if ! command -v pwsh >/dev/null 2>&1; then
             curl -fsSL --retry 3 --retry-delay 2 -o "$RUNNER_TEMP/dotnet-install.sh" https://dot.net/v1/dotnet-install.sh
             bash "$RUNNER_TEMP/dotnet-install.sh" --channel 10.0 --install-dir /opt/dotnet --no-path
-            /opt/dotnet/dotnet tool install --tool-path /opt/pwsh PowerShell
+            /opt/dotnet/dotnet tool install --tool-path /opt/pwsh PowerShell --version 7.6.8
             echo "/opt/pwsh" >> "$GITHUB_PATH"
             echo "DOTNET_ROOT=/opt/dotnet" >> "$GITHUB_ENV"
           fi
 
       - name: Write SHA256SUMS.txt and link the sources of the bundled git
+        env:
+          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: pwsh -NoProfile -File build/release-assets.ps1 -Action Checksums
