@@ -48,6 +48,7 @@ How to build a screen in `Savepoint.App`. The screens follow a visual design fro
 - ListBox classes: `nav (horizontal) rows segmented segmented-tray radio-cards choice swatches`.
 - Border classes: `panel card(selected) table table-header table-row(selected,last) strip recessed divider rail topbar dialog scrim callout(error|warning|success|info) input-chip chip art-tile icon-badge`.
 - Icons: `Savepoint.App.Theme.Icons` constants with the `icon` TextBlock class.
+- The app mark: `shell:BrandMark` (`Size`, `GlyphSize`), never a hand-built tile. It draws the bookmark from its outline and centers it by its ink rather than its em box, so it sits where the app icon has it; it follows theme and accent changes and is hidden from screen readers.
 - The style gallery (`tests/Savepoint.App.Tests/Theme/Gallery/`) shows every style in use.
 
 ## Rules from the accessibility review (D36)
