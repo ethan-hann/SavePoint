@@ -411,15 +411,23 @@ public sealed partial class GitEngine
         var total = listing.Files.Count + stagedBefore;
         reporter?.SetTotal(total);
         reporter?.SetAlreadyDone(stagedBefore);
-        IReadOnlyList<StagingBatch> batches = [new StagingBatch(listing.Files, [], false)];
+
+        // Asked afresh each time: adding a file that replaces a folder drops the folder's recorded files from the index.
+        async Task<HashSet<string>> TrackedAsync() =>
+            [.. (await RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z", "--cached"), ct).ConfigureAwait(false)).SplitStandardOutputOnNul()];
+
+        // A recorded file that is gone (or is now a folder) is dropped from the index by name. Handing it to add as a path would match
+        // everything under it, and -f would store the excluded files there too.
+        var (removals, additions) = SplitRemovals(repo, listing.Files, await TrackedAsync().ConfigureAwait(false));
+        IReadOnlyList<StagingBatch> batches = additions.Count == 0 ? [] : [new StagingBatch(additions, [], false)];
         if (reporter is not null)
         {
-            var sizes = await SizesOfAsync(repo, listing.Files, ct).ConfigureAwait(false);
+            var sizes = await SizesOfAsync(repo, additions, ct).ConfigureAwait(false);
             reporter.SetByteTotal(sizes.Sum());
             reporter.Start();
 
             // git holds a file's name back until its whole add ends, so a watched capture adds in groups to hear the names as it goes.
-            batches = StagingBatches.Plan(listing.Files, sizes, _options.StagingLimits);
+            batches = StagingBatches.Plan(additions, sizes, _options.StagingLimits);
         }
 
         // git prints a file's line only once it is stored, and holds the lines back while it works, so a large file shows nothing
@@ -428,13 +436,18 @@ public sealed partial class GitEngine
         var meter = reporter is null ? null : StoreMeterOf(repo);
         var watching = reporter is null ? Task.CompletedTask : WatchStoreAsync(meter!, reporter, stopWatching.Token);
 
-        // Asked afresh each time: adding a file that replaces a folder drops the folder's recorded files from the index.
-        async Task<HashSet<string>> TrackedAsync() =>
-            [.. (await RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z", "--cached"), ct).ConfigureAwait(false)).SplitStandardOutputOnNul()];
-
         var staged = false;
         try
         {
+            if (removals.Count > 0)
+            {
+                await RunWriteAsync(() => Invocation(repo, readOnly: false, "update-index", "--force-remove", "-z", "--stdin") with { Stdin = NulList(removals) }, ct).ConfigureAwait(false);
+                foreach (var removed in removals)
+                {
+                    reporter?.FileHandled(removed);
+                }
+            }
+
             foreach (var planned in batches)
             {
                 var batch = planned;
@@ -540,6 +553,20 @@ public sealed partial class GitEngine
         var listed = new HashSet<string>(listing.Files, StringComparer.Ordinal);
         var named = await RecordedNamedAsync(repo, ct).ConfigureAwait(false);
         return staged.Count(path => !listed.Contains(path) && !named.Contains(path));
+    }
+
+    // The listed files that are recorded and plainly gone from the folder (a file replaced by a folder counts as gone), apart from the rest.
+    private (List<string> Removals, List<string> Additions) SplitRemovals(RepoRef repo, IReadOnlyList<string> files, HashSet<string> tracked)
+    {
+        var look = _options.PresenceProbe ?? (path => PathPresence.Look(path));
+        var removals = new List<string>();
+        var additions = new List<string>();
+        foreach (var file in files)
+        {
+            (tracked.Contains(file) && look(FullPath(repo, file)) == Presence.Gone ? removals : additions).Add(file);
+        }
+
+        return (removals, additions);
     }
 
     // The batch without the files that are gone from the folder and not recorded (git has nothing to add or remove for them); null when

@@ -451,6 +451,68 @@ public sealed class CaptureBatchesTests : IDisposable
         Assert.Contains(packs[0], Packs(repo));
     }
 
+    private static readonly byte[] _junk = Noise(50, 9);
+
+    // A recorded file `a` that became a folder holding a/b and an excluded a/junk.tmp.
+    private async Task<RepoRef> FileBecameFolderAsync(byte[] inner)
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "a", "was a file");
+        _ws.Write(repo, "other.txt", "other");
+        await _ws.CaptureAsync(repo, "profile-1", ignore: ["*.tmp"]);
+        File.Delete(_ws.FileOf(repo, "a"));
+        _ws.Write(repo, "a/b", inner);
+        _ws.Write(repo, "a/junk.tmp", _junk);
+        return repo;
+    }
+
+    // The snapshot drops an excluded file that was staged, but the file's contents would already be in the store.
+    private async Task<bool> JunkIsStoredAsync(RepoRef repo)
+    {
+        var header = System.Text.Encoding.ASCII.GetBytes($"blob {_junk.Length}\0");
+        var id = Convert.ToHexStringLower(System.Security.Cryptography.SHA1.HashData([.. header, .. _junk]));
+        return await Record.ExceptionAsync(() => _ws.GitOutAsync(repo, "cat-file", "-e", id)) is null;
+    }
+
+    [Fact]
+    public async Task A_file_that_became_a_folder_never_stores_the_excluded_files_in_it_when_watched()
+    {
+        var repo = await FileBecameFolderAsync([1, 2, 3]);
+
+        await _ws.CaptureAsync(repo, "profile-1", ignore: ["*.tmp"], progress: new ProgressLog());
+
+        var tree = await _ws.TreeAsync(repo, "profile-1");
+        Assert.Contains("a/b", tree);
+        Assert.DoesNotContain("a/junk.tmp", tree);
+        Assert.False(await JunkIsStoredAsync(repo));
+    }
+
+    [Fact]
+    public async Task A_file_that_became_a_folder_never_stores_the_excluded_files_in_it_when_nobody_watches()
+    {
+        var repo = await FileBecameFolderAsync([1, 2, 3]);
+
+        await _ws.CaptureAsync(repo, "profile-1", ignore: ["*.tmp"]);
+
+        var tree = await _ws.TreeAsync(repo, "profile-1");
+        Assert.Contains("a/b", tree);
+        Assert.DoesNotContain("a/junk.tmp", tree);
+        Assert.False(await JunkIsStoredAsync(repo));
+        Assert.Single(Adds().Skip(1));
+    }
+
+    [Fact]
+    public async Task A_big_file_under_a_folder_that_replaced_a_file_is_stored_in_the_one_pack()
+    {
+        var repo = await FileBecameFolderAsync(Noise(4_000, 7));
+
+        await _ws.CaptureAsync(repo, "profile-1", ignore: ["*.tmp"], progress: new ProgressLog());
+
+        Assert.Single(Packs(repo));
+        Assert.False(await JunkIsStoredAsync(repo));
+        Assert.All(Adds().Skip(1).Select(Listed), list => Assert.DoesNotContain("a", list));
+    }
+
     [Fact]
     public async Task The_big_files_are_announced_before_their_one_add()
     {
