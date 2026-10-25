@@ -3,16 +3,18 @@
                     xmlns:dialogs="using:Savepoint.App.Features.Common.Dialogs">
 
   <!--
-    A scrolling body above a footer that stays put. The viewer clips to its viewport, which would cut the 4px focus ring off a
+    A scrolling body above a footer that stays put. The viewer clips to its viewport, which would cut the focus ring off a
     control at its edge, so the content's margin gives the ring room and the viewer's negative margin puts the content back.
     The scroll bar stays visible, so a person can tell there is more above the buttons.
   -->
   <ControlTheme x:Key="{x:Type dialogs:DialogFrame}" TargetType="dialogs:DialogFrame">
+    <!-- A content control clips to its bounds, which are the footer's own, so the ring of a button at the bottom or right edge would be cut flat at the button. -->
+    <Setter Property="ClipToBounds" Value="False" />
     <Setter Property="Template">
       <ControlTemplate TargetType="dialogs:DialogFrame">
         <Grid RowDefinitions="*,Auto">
-          <ScrollViewer x:Name="PART_Body" Margin="-6,-6,-6,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" AllowAutoHide="False">
-            <ContentPresenter Margin="6" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" />
+          <ScrollViewer x:Name="PART_Body" Margin="{DynamicResource Md3DialogBodyRingOutset}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" AllowAutoHide="False">
+            <ContentPresenter Margin="{DynamicResource Md3DialogRingRoom}" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" />
           </ScrollViewer>
           <ContentPresenter Grid.Row="1" Margin="0,12,0,0" Content="{TemplateBinding Footer}" />
         </Grid>

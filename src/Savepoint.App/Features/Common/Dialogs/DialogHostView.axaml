@@ -30,9 +30,9 @@
             AutomationProperties.HelpText="{Binding Current.Description}"
             AutomationProperties.ControlTypeOverride="Window"
             KeyboardNavigation.TabNavigation="Cycle">
-      <!-- The scroll viewer clips to its viewport, which would cut the 4px focus ring off buttons at the dialog's right and bottom edge; the content's margin gives the ring room inside the viewport and the viewer's negative margin puts the content back where it was. -->
-      <ScrollViewer x:Name="DialogScroll" Margin="-6" HorizontalScrollBarVisibility="Disabled" AllowAutoHide="False" Classes.pinned="{Binding Current.PinsFooter}">
-        <ContentControl x:Name="DialogContent" Margin="6" ClipToBounds="False" Content="{Binding Current}" />
+      <!-- The scroll viewer clips to its viewport, which would cut the focus ring off buttons at the dialog's edge; the content's margin gives the ring room inside the viewport and the viewer's negative margin puts the content back where it was. -->
+      <ScrollViewer x:Name="DialogScroll" Margin="{DynamicResource Md3DialogRingOutset}" HorizontalScrollBarVisibility="Disabled" AllowAutoHide="False" Classes.pinned="{Binding Current.PinsFooter}">
+        <ContentControl x:Name="DialogContent" Margin="{DynamicResource Md3DialogRingRoom}" ClipToBounds="False" Content="{Binding Current}" />
       </ScrollViewer>
     </Border>
   </Panel>

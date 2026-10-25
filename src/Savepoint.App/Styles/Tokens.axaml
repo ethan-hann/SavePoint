@@ -32,7 +32,16 @@
   <x:Double x:Key="Md3Space20">20</x:Double>
   <x:Double x:Key="Md3Space26">26</x:Double>
   <Thickness x:Key="Md3ScreenPadding">22</Thickness>
-  <Thickness x:Key="Md3DialogPadding">26</Thickness>
+  <!--
+    A dialog's edge to its content: 26 of air plus the 4px focus ring a control draws outside itself, so a ring at the edge still has
+    the air the text has. The scrolling viewers inside a dialog clip to their viewport, so they reach 8px past their content (the
+    ring and some slack for anti-aliasing at fractional scales) and the content sits 8px inside them; the outset tokens are the
+    negative twins of the room token because XAML cannot negate a resource.
+  -->
+  <Thickness x:Key="Md3DialogPadding">30</Thickness>
+  <Thickness x:Key="Md3DialogRingRoom">8</Thickness>
+  <Thickness x:Key="Md3DialogRingOutset">-8</Thickness>
+  <Thickness x:Key="Md3DialogBodyRingOutset">-8,-8,-8,0</Thickness>
   <Thickness x:Key="Md3RowPadding">14,11</Thickness>
 
   <!-- Elevation: dialogs only; every other surface separates by tone and a 1px border. -->
