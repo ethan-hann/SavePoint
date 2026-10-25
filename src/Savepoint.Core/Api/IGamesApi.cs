@@ -71,6 +71,16 @@ public interface IGamesApi
     Task<OperationResult<GameDefinition>> UpdateAsync(GameDefinition definition, bool confirmFolderChange = false);
 
     /// <summary>
+    /// Asks which leave-out rules can be added to the game without leaving out any file of its saves folder, recorded or not. Matching is
+    /// git's own, the same a capture uses. A game with no saves folder, or whose saves folder is not there, blocks nothing. Changes nothing.
+    /// Fails with <c>error.game.notFound</c> for an unknown game.
+    /// </summary>
+    /// <param name="gameId">The game.</param>
+    /// <param name="rules">The rules to ask about.</param>
+    /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c> (D23).</param>
+    Task<OperationResult<LeaveOutCheck>> CheckLeaveOutAsync(string gameId, IReadOnlyList<string> rules, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Removes SavePoint's data for the game. Fails with <c>error.gameService.gameRunning</c> while the game has an open session
     /// (D13.5), and with <c>error.storage.unreachable</c> while the storage folder is not there, so the history behind it is
     /// never forgotten by mistake (D31).

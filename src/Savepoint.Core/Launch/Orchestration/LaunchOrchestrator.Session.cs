@@ -87,9 +87,8 @@ public sealed partial class LaunchOrchestrator
                 var install = counts.GetValueOrDefault(RepoRole.Install);
                 var external = counts.GetValueOrDefault(RepoRole.External);
 
-                // The comparison is the one git uses for this folder's ignore rules, so a rule offered here really matches the files.
                 var leaveOut = install.Paths is { Count: > 0 } && install.Unreadable == 0
-                    ? RunTimeOutput.RulesCovering(install.Paths, _services.Platform.PathComparison)
+                    ? await RulesGitAgreesOnAsync(storage, repos.FirstOrDefault(repo => repo.Role == RepoRole.Install), install.Paths).ConfigureAwait(false)
                     : null;
                 return new SessionState.Exited(startedAt, duration, external.Count, install.Count, options, endKind, leaveOut);
             }).ConfigureAwait(false);
@@ -116,6 +115,27 @@ public sealed partial class LaunchOrchestrator
         }
 
         return new ChangedFiles(status.ChangedPaths.Count + status.UntrackedPaths.Count + status.HeldFileCount, [.. status.ChangedPaths, .. status.UntrackedPaths], status.HeldFileCount);
+    }
+
+    // The rules for logs and crash dumps that cover every one of the files, checked by git against this folder, so letter case follows the
+    // folder's own setting and a rule offered here really matches the files once it is added. Null when anything is left over.
+    private static async Task<IReadOnlyList<string>?> RulesGitAgreesOnAsync(StorageSnapshot storage, RepoRef? install, IReadOnlyList<string> paths)
+    {
+        if (install is null || RunTimeOutput.RulesCovering(paths, StringComparison.OrdinalIgnoreCase) is not { } rules)
+        {
+            return null;
+        }
+
+        try
+        {
+            var named = await storage.Engine.NamedByAmongAsync(install, rules, paths).ConfigureAwait(false);
+            return paths.All(named.Contains) ? rules : null;
+        }
+        catch (SavepointException)
+        {
+            // Without git's answer the files stay an ordinary change; the count and the choices are still reported.
+            return null;
+        }
     }
 
     // The count the dialog states, the files that can be named, and how many of the counted files could not be read and so have no name.

@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Dialogs;
+using Savepoint.App.Features.Common.Toasts;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 
@@ -53,6 +54,11 @@ public sealed partial class GameEditorViewModel
 
         if (result.Ok)
         {
+            if (!IsEditing)
+            {
+                SayWhichRulesWereLeftOff(definition, result.Value);
+            }
+
             if (await ApplyArtworkAsync(result.Value))
             {
                 await FinishAsync(result.Value);
@@ -61,6 +67,16 @@ public sealed partial class GameEditorViewModel
         else
         {
             ShowSaveError(result.Error, resolved);
+        }
+    }
+
+    // A new game is saved without a default rule that would leave out files its saves folder already holds; the player is told which.
+    private void SayWhichRulesWereLeftOff(GameDefinition asked, GameDefinition saved)
+    {
+        var dropped = asked.IgnorePaths.Where(rule => !saved.IgnorePaths.Contains(rule)).ToList();
+        if (dropped.Count > 0)
+        {
+            _toasts.Show(new ToastMessage(_text.Message("gameEditor.ignorePaths.savesKept", ("count", dropped.Count), ("rules", string.Join(", ", dropped))), ToastKind.Info));
         }
     }
 

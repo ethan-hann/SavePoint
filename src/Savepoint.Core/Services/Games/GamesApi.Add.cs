@@ -91,6 +91,7 @@ internal sealed partial class GamesApi
                 await storage.Engine.InitAsync(repo).ConfigureAwait(false);
             }
 
+            game = await WithoutRulesThatHideSavesAsync(storage, game).ConfigureAwait(false);
             return await _services.Catalog.SaveGameAsync(game).ConfigureAwait(false);
         }
         catch

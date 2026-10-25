@@ -1,3 +1,4 @@
+using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Launch;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Theme;
@@ -236,7 +237,7 @@ public class PostPlayDialogViewModelTests : IDisposable
         var dialog = await RunTimeOnlyAsync();
 
         Assert.True(dialog.HasInstallNote);
-        Assert.Equal("3 files in the game's own folder changed while you played. They are only logs or crash reports that the game writes every time it runs, not an update.", dialog.InstallNote);
+        Assert.Equal("3 files in the game's own folder changed while you played. They are only logs or crash reports that the game writes while it runs, not an update.", dialog.InstallNote);
         Assert.DoesNotContain("update would", dialog.InstallNote, StringComparison.Ordinal);
         Assert.True(dialog.HasLeaveOut);
         Assert.Equal("Leave these out from now on", dialog.LeaveOutLabel);
@@ -247,7 +248,7 @@ public class PostPlayDialogViewModelTests : IDisposable
     {
         var dialog = await RunTimeOnlyAsync(installFiles: 1);
 
-        Assert.Equal("1 file in the game's own folder changed while you played. It is only logs or crash reports that the game writes every time it runs, not an update.", dialog.InstallNote);
+        Assert.Equal("1 file in the game's own folder changed while you played. It is only a log or crash report that the game writes while it runs, not an update.", dialog.InstallNote);
     }
 
     [Fact]
@@ -306,6 +307,54 @@ public class PostPlayDialogViewModelTests : IDisposable
         Assert.DoesNotContain("Done.", dialog.LeaveOutResult, StringComparison.Ordinal);
         Assert.Equal(["**/*.log", "SKSE/Plugins/*.log", "**/Crash Logs/**"], await SavedRulesAsync());
         Assert.False(dialog.IsClosed);
+        Assert.Empty(_rig.Toasts.Toasts);
+    }
+
+    [Fact]
+    public async Task A_rule_that_would_leave_out_files_in_the_saves_folder_is_not_added_and_the_files_are_named()
+    {
+        var dialog = await RunTimeOnlyAsync(rule: "**/*.dmp");
+        _rig.Backend.Games.SavesLeftOutByRule["**/*.dmp"] = ["crash.dmp", "old/crash2.dmp"];
+
+        await dialog.LeaveOutCommand.ExecuteAsync(null);
+
+        Assert.Equal(["**/*.log", "SKSE/Plugins/*.log", "**/Crash Logs/**"], await SavedRulesAsync());
+        Assert.Empty(_rig.Backend.Calls.To<IGamesApi>(nameof(IGamesApi.UpdateAsync)));
+        Assert.False(dialog.HasLeaveOut);
+        Assert.Equal("SavePoint did not add **/*.dmp because your saves folder has files it would leave out, such as crash.dmp, old/crash2.dmp. Your saves stay in your snapshots.", dialog.LeaveOutResult);
+    }
+
+    [Fact]
+    public async Task Only_the_rules_that_match_nothing_in_the_saves_folder_are_added_and_the_others_are_explained()
+    {
+        var exited = await _rig.ExitedAsync(installFiles: 3, leaveOutRules: ["**/*.log", "**/*.dmp"]);
+        var dialog = new PostPlayDialogViewModel(exited, _moddedName, _rig.Deps, gameId: SampleScenario.SkyrimId);
+        _rig.Backend.Games.SavesLeftOutByRule["**/*.log"] = ["journal.log"];
+
+        await dialog.LeaveOutCommand.ExecuteAsync(null);
+
+        Assert.Equal(["**/*.log", "SKSE/Plugins/*.log", "**/Crash Logs/**", "**/*.dmp"], await SavedRulesAsync());
+        Assert.Equal("Done. SavePoint leaves these files out of snapshots from now on. You can change this under \"Files to leave out\" in Edit game. SavePoint did not add **/*.log because your saves folder has files it would leave out, such as journal.log. Your saves stay in your snapshots.", dialog.LeaveOutResult);
+    }
+
+    [Fact]
+    public async Task A_failure_that_comes_after_the_dialog_closed_is_shown_as_a_message_instead_of_being_lost()
+    {
+        var gate = new TaskCompletionSource();
+        _rig.Backend.Games.LeaveOutGate = () => gate.Task;
+        var dialog = await RunTimeOnlyAsync();
+        var running = dialog.LeaveOutCommand.ExecuteAsync(null);
+        dialog.NotNowCommand.Execute(null);
+        Assert.True(dialog.IsClosed);
+        _rig.Backend.FailNext<IGamesApi>(nameof(IGamesApi.UpdateAsync), ErrorInfo.From(new InvalidOperationException("locked")));
+
+        gate.SetResult();
+        await running;
+
+        var toast = Assert.Single(_rig.Toasts.Toasts);
+        Assert.Equal(ToastKind.Error, toast.Message.Kind);
+        Assert.StartsWith("SavePoint couldn't leave those files out", toast.Text, StringComparison.Ordinal);
+        Assert.Equal(["**/*.log", "SKSE/Plugins/*.log", "**/Crash Logs/**"], await SavedRulesAsync());
     }
 
     [Fact]

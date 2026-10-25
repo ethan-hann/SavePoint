@@ -7,6 +7,8 @@ namespace Savepoint.Core.Tests.Launch.Orchestration;
 // are not an update, and the session says so.
 public class LaunchRunTimeOutputTests
 {
+    private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
     private static async Task<SessionState.Exited> PlayAsync(LaunchRig rig, Profile profile, Action<LaunchRig> play)
     {
         await rig.StartAsync(new LaunchTarget.ProfileTip(profile.Id));
@@ -66,6 +68,7 @@ public class LaunchRunTimeOutputTests
         var (rig, _, modded) = await LaunchRig.WithTwoProfilesAsync();
         using var _ = rig;
         var exited = await PlayAsync(rig, modded, game => game.WriteInstall("crloader.log", "loader started"));
+        Assert.Equal(["**/*.log"], exited.LeaveOutRules);
 
         await rig.EditGameAsync(game => game with { IgnorePaths = RunTimeOutput.Merge(game.IgnorePaths, exited.LeaveOutRules!) });
 
@@ -74,5 +77,54 @@ public class LaunchRunTimeOutputTests
         Assert.Empty(status.ChangedPaths);
         Assert.True((await rig.Launch.CompleteSessionAsync(rig.Game.Id, new SessionCompletion.CaptureNew("After play"))).Ok);
         Assert.IsType<SessionState.Completed>((await rig.WaitForAsync<SessionState.Completed>()).State);
+        var newest = (await rig.CommitsAsync(RepoRole.Install, modded))[0];
+        var files = await rig.WithEngineAsync((engine, repo) => engine.ListTreeFilesAsync(repo, newest.Id, Ct), RepoRole.Install);
+        Assert.DoesNotContain("crloader.log", files);
+        Assert.Contains("mods/a.txt", files);
+    }
+
+    [Fact(Timeout = 180_000)]
+    public async Task A_log_that_earlier_snapshots_recorded_is_dropped_from_the_next_one_and_kept_in_the_earlier_ones()
+    {
+        using var rig = await LaunchRig.CreateAsync();
+        rig.WriteInstall("crloader.log", "loader started");
+        var vanilla = await rig.ProfileAsync("Vanilla");
+        var before = (await rig.CommitsAsync(RepoRole.Install, vanilla))[0];
+        var exited = await PlayAsync(rig, vanilla, game => game.WriteInstall("crloader.log", "loader started again"));
+        Assert.Equal(1, exited.ChangedInstallFileCount);
+        Assert.Equal(["**/*.log"], exited.LeaveOutRules);
+
+        await rig.EditGameAsync(game => game with { IgnorePaths = RunTimeOutput.Merge(game.IgnorePaths, exited.LeaveOutRules!) });
+
+        var status = await rig.StatusAsync(RepoRole.Install);
+        Assert.Empty(status.ChangedPaths);
+        Assert.Empty(status.UntrackedPaths);
+
+        // A change to a real game file, made after the rule, is what gives the next snapshot something to record.
+        rig.WriteInstall("data/patch.pak", "a real update");
+        Assert.True((await rig.Launch.CompleteSessionAsync(rig.Game.Id, new SessionCompletion.CaptureNew("After play"))).Ok);
+        Assert.IsType<SessionState.Completed>((await rig.WaitForAsync<SessionState.Completed>()).State);
+        var commits = await rig.CommitsAsync(RepoRole.Install, vanilla);
+        Assert.NotEqual(before.Id, commits[0].Id);
+        var newest = await rig.WithEngineAsync((engine, repo) => engine.ListTreeFilesAsync(repo, commits[0].Id, Ct), RepoRole.Install);
+        var earlier = await rig.WithEngineAsync((engine, repo) => engine.ListTreeFilesAsync(repo, before.Id, Ct), RepoRole.Install);
+        Assert.DoesNotContain("crloader.log", newest);
+        Assert.Contains("data/patch.pak", newest);
+        Assert.Contains("crloader.log", earlier);
+        Assert.Equal("loader started again", rig.ReadInstall("crloader.log"));
+        Assert.Empty((await rig.StatusAsync(RepoRole.Install)).ChangedPaths);
+    }
+
+    [Fact(Timeout = 180_000)]
+    public async Task The_offered_rule_follows_the_folders_own_letter_case_setting()
+    {
+        var (rig, _, modded) = await LaunchRig.WithTwoProfilesAsync();
+        using var _ = rig;
+
+        var exited = await PlayAsync(rig, modded, game => game.WriteInstall("LOUD.LOG", "shouting"));
+
+        // git matches by the folder's own setting: exact on Linux, ignoring case where the file system does.
+        IReadOnlyList<string>? expected = OperatingSystem.IsLinux() ? null : ["**/*.log"];
+        Assert.Equal(expected, exited.LeaveOutRules);
     }
 }

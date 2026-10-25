@@ -55,13 +55,24 @@ public class GameEditorFormTests
     }
 
     [Fact]
-    public void A_template_that_already_brings_the_rules_has_the_note_too()
+    public void A_prefilled_form_has_no_note_even_when_its_rules_are_the_defaults()
     {
         var rig = EditorRig.Create();
 
         var editor = rig.New(rig.Backend.Games.Templates[0].ToDraft());
 
-        Assert.True(editor.HasDefaultRulesNote);
+        Assert.Equal(RunTimeOutput.DefaultRules, editor.IgnoreRules.Values.Where(RunTimeOutput.DefaultRules.Contains));
+        Assert.False(editor.HasDefaultRulesNote);
+    }
+
+    [Fact]
+    public void A_definition_file_that_happens_to_hold_the_default_rules_gets_no_note()
+    {
+        var rig = EditorRig.Create();
+
+        var editor = rig.New(SampleScenario.Caretaker with { Id = "imported", IgnorePaths = RunTimeOutput.DefaultRules });
+
+        Assert.False(editor.HasDefaultRulesNote);
     }
 
     [Fact]

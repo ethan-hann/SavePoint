@@ -32,9 +32,29 @@ public sealed class FakeGamesApi : IGamesApi
                 return OperationResult.Success<AddGameOutcome>(new AddGameOutcome.HistoryFound(orphan));
             }
 
-            Add(definition);
-            return OperationResult.Success<AddGameOutcome>(new AddGameOutcome.Added(definition));
+            // Like the service, a default rule that would leave out files of the saves folder is not kept.
+            var kept = definition with { IgnorePaths = [.. definition.IgnorePaths.Where(rule => !(RunTimeOutput.DefaultRules.Contains(rule) && SavesLeftOutByRule.ContainsKey(rule)))] };
+            Add(kept);
+            return OperationResult.Success<AddGameOutcome>(new AddGameOutcome.Added(kept));
         });
+
+    // The files of the saves folder each rule would leave out, as a test sets them; a rule not listed matches nothing.
+    public Dictionary<string, IReadOnlyList<string>> SavesLeftOutByRule { get; } = [];
+
+    // A test sets this to hold a leave-out check, as a slow drive would.
+    public Func<Task>? LeaveOutGate { get; set; }
+
+    public async Task<OperationResult<LeaveOutCheck>> CheckLeaveOutAsync(string gameId, IReadOnlyList<string> rules, CancellationToken cancellationToken = default)
+    {
+        if (LeaveOutGate is { } gate)
+        {
+            await gate();
+        }
+
+        return await _backend.Call(_api, nameof(CheckLeaveOutAsync), [gameId, rules], () => OperationResult.Success(new LeaveOutCheck(
+            [.. rules.Where(rule => !SavesLeftOutByRule.ContainsKey(rule))],
+            [.. rules.Where(SavesLeftOutByRule.ContainsKey).Select(rule => new RuleBlocked(rule, SavesLeftOutByRule[rule]))])));
+    }
 
     // A test sets this to hold a scan, as a slow drive would; it may ignore the token.
     public Func<CancellationToken, Task>? ScanGate { get; set; }

@@ -49,6 +49,20 @@ public class GameEditorTransferTests
     }
 
     [Fact]
+    public async Task Importing_a_file_over_a_blank_form_takes_the_default_rules_note_away()
+    {
+        var rig = RigWithImport();
+        var editor = rig.New();
+        Assert.True(editor.HasDefaultRulesNote);
+        rig.Dialogs.AnswerOpenFile(_file);
+
+        await editor.ImportCommand.ExecuteAsync(null);
+
+        Assert.False(editor.HasDefaultRulesNote);
+        Assert.Equal(string.Empty, editor.DefaultRulesNote);
+    }
+
+    [Fact]
     public async Task Import_offers_definition_files_and_says_what_it_did()
     {
         var rig = RigWithImport();

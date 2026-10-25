@@ -140,14 +140,9 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
         LaunchArgs = new ChipListViewModel(text, text.Message("gameEditor.launchArgs.label"), text.Message("gameEditor.addOption"), text.Message("gameEditor.launchArgs.placeholder"));
         ModFolders = new ChipListViewModel(text, text.Message("gameEditor.modPathHints.label"), text.Message("gameEditor.addFolder"), text.Message("gameEditor.modPathHints.placeholder"));
         Title = saved is null ? text.Message("gameEditor.title.create") : text.Message("gameEditor.title.edit", ("name", saved.Name));
-
-        // Only a new game that starts with every default rule explains them; an imported file or an edited game is the player's own list.
-        DefaultRulesNote = saved is null && RunTimeOutput.DefaultRules.All(rule => _source.IgnorePaths.Contains(rule))
-            ? text.Message("gameEditor.ignorePaths.defaultNote")
-            : string.Empty;
         LocationChoices = BuildLocationChoices();
         ArtworkPreview = shell.Artwork.Preview(saved?.Id ?? string.Empty);
-        LoadForm(_source);
+        LoadForm(_source, rulesAreDefaults: saved is null && prefill is null);
         InitializeArtwork(shell, saved);
         _baseline = BuildDefinition(_source.Id);
     }
@@ -164,8 +159,10 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
     /// <summary>The files to ignore.</summary>
     public ChipListViewModel IgnoreRules { get; }
 
-    /// <summary>Why a new game already leaves logs and crash reports out; empty when the game being edited or imported did not start with those rules.</summary>
-    public string DefaultRulesNote { get; }
+    /// <summary>Why a blank new game already leaves logs and crash reports out; empty for an edited game, a template or a loaded definition file.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasDefaultRulesNote))]
+    private string _defaultRulesNote = string.Empty;
 
     /// <summary>True when <see cref="DefaultRulesNote"/> has text.</summary>
     public bool HasDefaultRulesNote => DefaultRulesNote.Length > 0;
@@ -224,8 +221,11 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
         return trimmed.Length == 0 ? null : trimmed;
     }
 
-    private void LoadForm(GameDefinition game)
+    // The note about default rules is only true while the rules are the ones SavePoint started the form with; a definition file's rules, a
+    // template's and an edited game's are someone else's list.
+    private void LoadForm(GameDefinition game, bool rulesAreDefaults = false)
     {
+        DefaultRulesNote = rulesAreDefaults ? _text.Message("gameEditor.ignorePaths.defaultNote") : string.Empty;
         Name = game.Name;
         InstallPath = game.Install.Path;
         SavesPath = game.External?.Path ?? string.Empty;

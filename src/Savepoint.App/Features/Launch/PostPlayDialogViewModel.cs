@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Common.Preferences;
+using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Help;
 using Savepoint.App.Theme;
 using Savepoint.Core.Api;
@@ -28,6 +29,7 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
     private readonly SettingsWriter _settingsWriter;
     private readonly Action? _editGame;
     private readonly IGamesApi _games;
+    private readonly ToastHostViewModel _toasts;
     private readonly string? _gameId;
     private readonly IReadOnlyList<string>? _leaveOutRules;
     private bool _explainReplace;
@@ -76,6 +78,7 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
 
         Body = _text.Message("launch.postPlay.body", ("count", exited.NewFileCount));
         _games = deps.Games;
+        _toasts = deps.Toasts;
         _gameId = gameId;
         _leaveOutRules = exited.LeaveOutRules;
         InstallNote = exited.ChangedInstallFileCount switch
@@ -157,30 +160,68 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
             return;
         }
 
-        var listed = await _games.ListAsync();
-        if (!listed.Ok)
+        // A rule that would leave out a file of the saves folder is never added; the player is shown which files and why.
+        var check = await _games.CheckLeaveOutAsync(_gameId, _leaveOutRules);
+        if (!check.Ok)
         {
-            LeaveOutResult = _text.Message(listed.Error);
+            Fail(check.Error);
             return;
         }
 
-        var game = listed.Value.FirstOrDefault(candidate => candidate.Id == _gameId);
-        if (game is null)
+        var said = new List<string>();
+        if (check.Value.Safe.Count > 0)
         {
-            LeaveOutResult = _text.Message(ErrorInfo.From(new GameNotFoundException(_gameId)));
-            return;
+            var listed = await _games.ListAsync();
+            if (!listed.Ok)
+            {
+                Fail(listed.Error);
+                return;
+            }
+
+            var game = listed.Value.FirstOrDefault(candidate => candidate.Id == _gameId);
+            if (game is null)
+            {
+                Fail(ErrorInfo.From(new GameNotFoundException(_gameId)));
+                return;
+            }
+
+            var updated = await _games.UpdateAsync(game with { IgnorePaths = RunTimeOutput.Merge(game.IgnorePaths, check.Value.Safe) });
+            if (!updated.Ok)
+            {
+                Fail(updated.Error);
+                return;
+            }
+
+            said.Add(_text.Message("launch.postPlay.leaveOutDone"));
         }
 
-        var updated = await _games.UpdateAsync(game with { IgnorePaths = RunTimeOutput.Merge(game.IgnorePaths, _leaveOutRules) });
-        if (!updated.Ok)
+        if (check.Value.Blocked.Count > 0)
         {
-            LeaveOutResult = _text.Message(updated.Error);
-            return;
+            var files = check.Value.Blocked.SelectMany(blocked => blocked.Files).Distinct(StringComparer.Ordinal).Take(RuleBlocked.Sample);
+            said.Add(_text.Message(
+                "launch.postPlay.leaveOutKept",
+                ("count", check.Value.Blocked.Count),
+                ("rules", string.Join(", ", check.Value.Blocked.Select(blocked => blocked.Rule))),
+                ("files", string.Join(", ", files))));
         }
 
         _leaveOutDone = true;
         OnPropertyChanged(nameof(HasLeaveOut));
-        LeaveOutResult = _text.Message("launch.postPlay.leaveOutDone");
+        LeaveOutResult = string.Join(' ', said);
+    }
+
+    // The dialog may be gone by the time this ends; a failure then is a message, not a line nobody will read.
+    private void Fail(ErrorInfo error)
+    {
+        var reason = _text.Message(error);
+        if (IsClosed)
+        {
+            _toasts.Show(new ToastMessage(_text.Message("launch.postPlay.leaveOutFailed", ("reason", reason)), ToastKind.Error));
+        }
+        else
+        {
+            LeaveOutResult = reason;
+        }
     }
 
     /// <summary>For a session that started from an older point, why the choices differ; empty otherwise.</summary>

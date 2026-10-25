@@ -167,6 +167,86 @@ public sealed partial class GitEngine
         }
     }
 
+    /// <summary>
+    /// The files in the folder, recorded or not, that these patterns would leave out, matched by git against a list of their own: the same
+    /// matching a capture uses, with the folder's own letter-case setting. The game's saved patterns are not read or changed, and nothing
+    /// is written to the work tree. The consent marker is never listed.
+    /// </summary>
+    /// <param name="repo">The folder.</param>
+    /// <param name="patterns">The patterns to ask about.</param>
+    /// <param name="ct">Cancels the call.</param>
+    /// <returns>Paths relative to the folder, with <c>/</c> separators, in a stable order.</returns>
+    /// <exception cref="Savepoint.Core.Errors.PathSafetyException">The work tree is a protected location.</exception>
+    /// <exception cref="Savepoint.Core.Errors.PathMissingException">The work tree does not exist.</exception>
+    /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
+    /// <exception cref="Savepoint.Core.Errors.GitOperationException">git failed.</exception>
+    public async Task<IReadOnlyList<string>> ListNamedByAsync(RepoRef repo, IReadOnlyList<string> patterns, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(patterns);
+        repo = Normalize(repo);
+        ct.ThrowIfCancellationRequested();
+        CheckWorkTree(repo);
+        RepoMarker.Verify(repo);
+        if (patterns.Count == 0)
+        {
+            return [];
+        }
+
+        // A short name: git refuses a long git directory plus a long argument path on Windows.
+        var exclude = Path.Combine(repo.GitDir, $"{ClassifyIndexPrefix}{Guid.NewGuid():N}"[..(ClassifyIndexPrefix.Length + 8)] + ".tmp");
+        _classifying[exclude] = 0;
+        try
+        {
+            File.WriteAllText(exclude, RepoIgnoreFiles.ExcludeText(patterns), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            var argument = "--exclude-from=" + exclude;
+            var notRecorded = await RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z", "-o", "-i", argument), ct).ConfigureAwait(false);
+            var recorded = await RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z", "-c", "-i", argument), ct).ConfigureAwait(false);
+            return
+            [
+                .. notRecorded.SplitStandardOutputOnNul()
+                    .Concat(recorded.SplitStandardOutputOnNul())
+                    .Where(entry => !entry.EndsWith('/') && !entry.StartsWith(Paths.ConsentMarker.FileName, StringComparison.Ordinal))
+                    .Distinct(StringComparer.Ordinal)
+                    .Order(StringComparer.Ordinal),
+            ];
+        }
+        finally
+        {
+            _classifying.TryRemove(exclude, out _);
+            TryDelete(exclude);
+        }
+    }
+
+    /// <summary>
+    /// Which of these paths the patterns name, whether or not they exist, matched by git with the folder's own letter-case setting. Used to
+    /// check that a rule offered for some files really matches them where this folder is.
+    /// </summary>
+    /// <param name="repo">The folder.</param>
+    /// <param name="patterns">The patterns to ask about.</param>
+    /// <param name="paths">Paths relative to the folder, with <c>/</c> separators.</param>
+    /// <param name="ct">Cancels the call.</param>
+    /// <exception cref="Savepoint.Core.Errors.GitOperationException">git failed.</exception>
+    public async Task<IReadOnlySet<string>> NamedByAmongAsync(RepoRef repo, IReadOnlyList<string> patterns, IReadOnlyCollection<string> paths, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(patterns);
+        ArgumentNullException.ThrowIfNull(paths);
+        repo = Normalize(repo) with { IgnorePatterns = patterns };
+        ct.ThrowIfCancellationRequested();
+        var named = new HashSet<string>(StringComparer.Ordinal);
+        if (paths.Count == 0 || patterns.Count == 0)
+        {
+            return named;
+        }
+
+        // The question carries its own patterns, so the saved list in the git directory is neither read nor rewritten.
+        foreach (var group in WithoutFileAndFolderPairs(paths))
+        {
+            named.UnionWith(await NamedInOneIndexAsync(repo, group, ct).ConfigureAwait(false));
+        }
+
+        return named;
+    }
+
     private static string NulList(IEnumerable<string> paths)
     {
         var list = new StringBuilder();
