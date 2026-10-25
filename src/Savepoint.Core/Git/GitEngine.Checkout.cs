@@ -165,7 +165,7 @@ public sealed partial class GitEngine
         return named;
     }
 
-    // A file git just wrote has a time stamp in the same second as the index, so git cannot trust the stamp and reads the whole file
+    // A file git just wrote has a time stamp at the same moment as the index (to the resolution git compares), so git cannot trust the stamp and reads the whole file
     // again on every later comparison (a status, a dirty check, the next switch) until the index is rewritten. Nothing else rewrites
     // it, because every read runs without taking git's optional locks. One pass here reads each such file once and ends that. A
     // failure only costs time: the verify pass that follows reads what this could not.
@@ -499,6 +499,7 @@ public sealed partial class GitEngine
                 .SplitStandardOutputOnNul()
                 .Where(path => (only is null || only.Contains(path)) && !skip.Contains(path))
                 .ToArray();
+
             var leftovers = expectedGone.Where(gone => IsLeftover(repo, gone)).Select(gone => gone.Path).ToArray();
             if (differing.Length == 0 && leftovers.Length == 0)
             {
@@ -513,6 +514,12 @@ public sealed partial class GitEngine
 
             await ResyncAsync(repo, to, differing, leftovers, ct).ConfigureAwait(false);
             await Task.Delay(_options.ResyncDelays[pass], ct).ConfigureAwait(false);
+
+            // The files written again are as new as the first ones were; the next look would read them in full.
+            if (differing.Length > 0)
+            {
+                await RefreshIndexAsync(repo, ct).ConfigureAwait(false);
+            }
         }
     }
 

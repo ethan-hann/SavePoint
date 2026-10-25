@@ -83,6 +83,32 @@ public sealed class IndexRefreshTests : IDisposable
         Assert.DoesNotContain(_ws.Invocations.Skip(before), IsRefresh);
     }
 
+    [Fact]
+    public async Task A_file_the_verify_pass_has_to_write_again_is_followed_by_another_refresh_before_the_next_look()
+    {
+        var repo = await TwoProfilesAsync();
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+        var stale = _ws.FileOf(repo, "Data/extra.pak");
+        var corrupted = false;
+        _ws.OnInvoke = call =>
+        {
+            if (EngineWorkspace.IsVerifyDiff(call) && !corrupted)
+            {
+                corrupted = true;
+                File.WriteAllText(stale, "garbage from a failed write");
+            }
+        };
+        var before = _ws.Invocations.Count;
+
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-b", ct: Ct);
+
+        var calls = _ws.Invocations.Skip(before).ToList();
+        var resync = calls.FindIndex(call => call.Arguments[0] == "checkout" && call.Arguments.Contains("--pathspec-from-file=-"));
+        var secondVerify = calls.FindLastIndex(EngineWorkspace.IsVerifyDiff);
+        Assert.True(resync >= 0 && secondVerify > resync, "expected the verify pass to write the file again and look again");
+        Assert.Contains(calls.Skip(resync).Take(secondVerify - resync), IsRefresh);
+    }
+
     private static bool IsRefresh(GitInvocation call) => call.Arguments[0] == "update-index" && call.Arguments.Contains("--refresh");
 
     // profile-b holds everything profile-a does plus a second file; the folder ends on profile-b.
