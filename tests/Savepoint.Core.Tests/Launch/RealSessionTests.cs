@@ -93,9 +93,11 @@ public class RealSessionTests
     public async Task A_starter_named_in_the_definition_that_hands_over_to_a_process_it_started_is_followed_until_that_process_leaves()
     {
         using var stub = new FakeGameInstall();
-        using var game = new FakeGameInstall();
-        var gameReady = game.Combine("ready.txt");
-        var config = Program(stub, stub.Name, "--spawn", game.ExecutablePath, "--ready-file", gameReady, "--exit-after", "4000");
+        var gameReady = stub.Combine("ready.txt");
+        // The real game lives in the install folder under a name the definition does not know.
+        var realGame = Path.Combine(stub.Folder, "real" + Path.GetExtension(stub.ExecutablePath));
+        File.Copy(stub.ExecutablePath, realGame);
+        var config = Program(stub, stub.Name, "--spawn", realGame, "--ready-file", gameReady, "--exit-after", "4000");
 
         using var watcher = await Starter(grace: TimeSpan.FromSeconds(1)).StartAsync(config, stub.Folder, Ct);
         var outcome = await OutcomeAsync(watcher);

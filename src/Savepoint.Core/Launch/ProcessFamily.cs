@@ -1,10 +1,11 @@
+using Savepoint.Core.Paths;
 using Savepoint.Core.Platform;
 
 namespace Savepoint.Core.Launch;
 
 /// <summary>
 /// The processes started, directly or through others, by the program SavePoint started, as far as successive process lists show them.
-/// Known helpers (stores, launchers, browsers, crash reporters) and what they start are left out.
+/// Only descendants whose program lies in the game's folder are reported, and known crash reporters are left out.
 /// </summary>
 /// <remarks>
 /// A parent id stays on a child after the parent is gone, and the OS hands the parent's id to a later process, so a parent id alone
@@ -14,27 +15,62 @@ namespace Savepoint.Core.Launch;
 /// </remarks>
 internal sealed class ProcessFamily
 {
-    // Programs that a game starts and that outlive it (stores, launchers, browsers, crash reporters). Following them would hold the
-    // session open long after the game quit, so they and what they start never count. Names are compared without extension, ignoring case.
+    // Crash reporters ship in the game's own folder and outlive the game, so the folder rule alone would follow them. Names are compared
+    // without extension, ignoring case.
     private static readonly HashSet<string> _helpers = new(StringComparer.OrdinalIgnoreCase)
     {
-        "steam", "steamwebhelper", "steamservice", "epicgameslauncher", "epicwebhelper", "galaxyclient", "galaxyclient helper",
-        "gogalaxy", "upc", "uplaywebcore", "eadesktop", "eabackgroundservice", "origin", "rockstarservice", "launcher",
-        "crashreportclient", "unitycrashhandler64", "unitycrashhandler32", "werfault", "chrome", "msedge", "firefox", "opera", "brave",
-        "conhost",
+        "crashreportclient", "unitycrashhandler64", "unitycrashhandler32", "crashpad_handler", "werfault",
     };
 
     // Start is null for a root that was never seen in a list.
     private readonly Dictionary<int, DateTimeOffset?> _members = [];
     private readonly HashSet<int> _roots = [];
     private readonly DateTimeOffset _floor;
+    private readonly PathSyntax _paths;
+    private readonly string[] _folders;
 
     /// <summary>Creates an empty family.</summary>
     /// <param name="floor">The earliest start a child of a root with no known start can have: the session's start less a little tolerance.</param>
-    public ProcessFamily(DateTimeOffset floor)
+    /// <param name="folder">The game's install folder; only a descendant whose program lies inside it is reported. Null reports none.</param>
+    /// <param name="paths">The path rules of the OS the process list came from.</param>
+    public ProcessFamily(DateTimeOffset floor, string? folder, PathSyntax paths)
     {
         _floor = floor;
+        _paths = paths;
+        _folders = folder is null ? [] : [.. Forms(folder).Select(form => form.EndsWith(paths.Separator) ? form : form + paths.Separator)];
     }
+
+    // The path as given and as the file system resolves it, so a link in either does not hide a match.
+    private IEnumerable<string> Forms(string path)
+    {
+        var forms = new List<string>();
+        try
+        {
+            forms.Add(_paths.Normalize(path));
+        }
+        catch (ArgumentException)
+        {
+            return forms;
+        }
+
+        try
+        {
+            var real = _paths.Normalize(RealPath.Resolve(path));
+            if (!forms.Contains(real, StringComparer.Ordinal))
+            {
+                forms.Add(real);
+            }
+        }
+        catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            // The path does not exist on this machine; the plain form stands.
+        }
+
+        return forms;
+    }
+
+    private bool InFolder(string? executable) =>
+        !string.IsNullOrWhiteSpace(executable) && Forms(executable).Any(form => _folders.Any(folder => form.StartsWith(folder, _paths.Comparison)));
 
     /// <summary>Reads one process list and returns the descendants of the started program that are running in it.</summary>
     /// <param name="listed">The whole process list.</param>
@@ -71,7 +107,7 @@ internal sealed class ProcessFamily
         var alive = new List<(int, DateTimeOffset?)>();
         foreach (var (pid, start) in _members)
         {
-            if (!_roots.Contains(pid) && byPid.TryGetValue(pid, out var running) && running.StartedAt == start)
+            if (!_roots.Contains(pid) && byPid.TryGetValue(pid, out var running) && running.StartedAt == start && InFolder(running.ExecutablePath))
             {
                 alive.Add((pid, start));
             }
