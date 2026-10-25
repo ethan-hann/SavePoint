@@ -96,6 +96,119 @@ public class ExeVersionReaderTests
         Assert.Equal("6.0.2", ExeVersionReader.FromPe(bytes));
     }
 
+    // Shapes below come from the version resources of real installed games.
+    [Theory]
+    [InlineData("++Game+release.1.4.7-CL-196638", "1.4.7")]
+    [InlineData("++FactoryGame+rel-main-0.3.7-xmas-CL-140083", "0.3.7")]
+    [InlineData("++oak2+release+oak2+1.11.0.0-buildmachine-nodevcontent-noaudio+Promoted-CL-4906557", "1.11.0.0")]
+    public void An_unreal_build_id_that_carries_the_game_version_shows_just_that_version(string buildId, string expected)
+    {
+        var bytes = PeFixture.WithVersion(new Version(4, 27, 2, 0), null, PeStringTable.English(("ProductVersion", buildId)));
+
+        Assert.Equal(expected, ExeVersionReader.FromPe(bytes));
+    }
+
+    [Theory]
+    [InlineData("++Project+SN2-Release-CL-131439")]
+    [InlineData("++UE4+Release-4.26-CL-0")]
+    [InlineData("++UE427+ue427_release-CL-48954")]
+    [InlineData("++FactoryGame+rel-main-anniversary-2026-CL-513885")]
+    [InlineData("Subnautica2-CL-131439")]
+    [InlineData("UE5-CL-0")]
+    [InlineData("Dev-CL-0")]
+    public void An_unreal_build_id_without_a_game_version_is_no_version_and_the_engine_version_is_not_a_fallback(string buildId)
+    {
+        var bytes = PeFixture.WithVersion(new Version(4, 27, 2, 0), null, PeStringTable.English(("ProductVersion", buildId), ("FileVersion", buildId)));
+
+        Assert.Null(ExeVersionReader.FromPe(bytes));
+    }
+
+    [Fact]
+    public void An_unreal_build_id_gives_way_to_a_real_file_version_string()
+    {
+        var bytes = PeFixture.WithVersion(null, null, PeStringTable.English(("ProductVersion", "++UE4+Release-4.26-CL-0"), ("FileVersion", "2.3.4")));
+
+        Assert.Equal("2.3.4", ExeVersionReader.FromPe(bytes));
+    }
+
+    [Fact]
+    public void A_unity_player_reports_no_version_because_its_numbers_belong_to_the_engine()
+    {
+        var modern = PeFixture.WithVersion(
+            new Version(2022, 3, 62, 28864),
+            null,
+            PeStringTable.English(("FileVersion", "2022.3.62.7762112"), ("ProductVersion", "2022.3.62f2 (7670c08855a9)")));
+        var older = PeFixture.WithVersion(
+            new Version(2019, 4, 18, 4260),
+            null,
+            PeStringTable.English(("FileVersion", "2019.4.18.3346596"), ("ProductVersion", "2019.4.18.3346596"), ("Unity Version", "2019.4.18f1_3310a4d4f880")));
+        var oldest = PeFixture.WithVersion(
+            new Version(5, 6, 5, 34324),
+            null,
+            PeStringTable.English(("FileVersion", "5.6.5.1082900"), ("ProductVersion", "5.6.5.1082900"), ("Unity Version", "5.6.5p4_10861494ddb7")));
+
+        Assert.Null(ExeVersionReader.FromPe(modern));
+        Assert.Null(ExeVersionReader.FromPe(older));
+        Assert.Null(ExeVersionReader.FromPe(oldest));
+    }
+
+    [Theory]
+    [InlineData("1.0.0.0")]
+    [InlineData("1.0")]
+    [InlineData("1, 0, 0, 0")]
+    public void The_placeholder_one_point_zero_is_no_version(string placeholder)
+    {
+        var bytes = PeFixture.WithVersion(new Version(1, 0, 0, 0), null, PeStringTable.English(("ProductVersion", placeholder), ("FileVersion", placeholder)));
+
+        Assert.Null(ExeVersionReader.FromPe(bytes));
+        Assert.Null(ExeVersionReader.FromPe(PeFixture.WithVersion(new Version(1, 0, 0, 0), null, PeStringTable.English())));
+    }
+
+    [Fact]
+    public void A_placeholder_product_version_gives_way_to_a_real_file_version_string()
+    {
+        var bytes = PeFixture.WithVersion(null, null, PeStringTable.English(("ProductVersion", "1.0.0.0"), ("FileVersion", "1.6.2.0")));
+
+        Assert.Equal("1.6.2.0", ExeVersionReader.FromPe(bytes));
+    }
+
+    [Theory]
+    [InlineData("^VersionString^")]
+    [InlineData("SanctuaryRPG")]
+    public void A_version_string_with_no_digit_is_no_version(string text)
+    {
+        var bytes = PeFixture.WithVersion(new Version(1, 0, 0, 0), null, PeStringTable.English(("ProductVersion", text), ("FileVersion", text)));
+
+        Assert.Null(ExeVersionReader.FromPe(bytes));
+    }
+
+    [Fact]
+    public void The_fixed_version_is_not_used_when_a_string_was_present_but_rejected()
+    {
+        var bytes = PeFixture.WithVersion(new Version(4, 27, 2, 0), null, PeStringTable.English(("ProductVersion", "1.0.0.0")));
+
+        Assert.Null(ExeVersionReader.FromPe(bytes));
+    }
+
+    [Fact]
+    public void The_fixed_version_of_an_engine_vendors_executable_is_the_engine_version()
+    {
+        var bytes = PeFixture.WithVersion(new Version(4, 20, 3, 0), null, PeStringTable.English(("CompanyName", "Epic Games, Inc"), ("ProductName", "Ancestors")));
+
+        Assert.Null(ExeVersionReader.FromPe(bytes));
+    }
+
+    [Fact]
+    public void An_executable_named_as_the_engine_itself_has_no_game_version()
+    {
+        var bytes = PeFixture.WithVersion(
+            new Version(4, 27, 2, 0),
+            null,
+            PeStringTable.English(("ProductName", "Unreal Engine"), ("ProductVersion", "4.27.2"), ("InternalName", "QUBE")));
+
+        Assert.Null(ExeVersionReader.FromPe(bytes));
+    }
+
     [Fact]
     public void A_pe_file_with_a_resource_directory_but_no_version_is_no_version()
     {
