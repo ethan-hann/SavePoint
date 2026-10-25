@@ -110,6 +110,17 @@ public class PostPlayDialogViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Large_file_counts_are_written_with_group_separators()
+    {
+        var exited = await _rig.ExitedAsync(newFiles: 200_000, installFiles: 12_000);
+
+        var dialog = Build(exited);
+
+        Assert.Equal("200,000 files in your saves folder are new or changed since you started.", dialog.Body);
+        Assert.StartsWith("12,000 files in the game's own folder", dialog.InstallNote, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task A_short_session_is_titled_in_minutes()
     {
         var exited = await _rig.ExitedAsync();
@@ -136,6 +147,18 @@ public class PostPlayDialogViewModelTests : IDisposable
         Assert.Equal("Not now", skip.Title);
         Assert.Equal("Your saves stay in your game folders as new changes. SavePoint asks again before you switch profiles.", skip.Subtitle);
         Assert.Equal(Icons.Schedule, skip.Icon);
+    }
+
+    [Fact]
+    public async Task A_session_that_changed_nothing_recommends_Not_now_and_does_not_recommend_keeping()
+    {
+        var played = await _rig.ExitedAsync(newFiles: 0);
+        var dialog = Build(played with { NewFileCount = 0, ChangedInstallFileCount = 0, Options = played.Options with { Default = CompletionChoice.Skip } });
+
+        Assert.Equal(CompletionChoice.Skip, dialog.SelectedChoice.Kind);
+        Assert.Equal("Not now", dialog.PrimaryLabel);
+        Assert.Equal("Your earlier snapshots stay as they are.", Card(dialog, CompletionChoice.CaptureNew).Subtitle);
+        Assert.Equal("Recommended. Nothing changed, so there is nothing new to keep.", Card(dialog, CompletionChoice.Skip).Subtitle);
     }
 
     [Fact]

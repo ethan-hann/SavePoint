@@ -233,6 +233,15 @@ public class LaunchDialogViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task A_large_count_of_changed_files_is_written_with_group_separators()
+    {
+        var dialog = await _rig.DialogAsync(change: preview => preview with { External = preview.External! with { DirtyFileCount = 200_000 } });
+
+        var block = Assert.Single(dialog.UnsavedBlocks);
+        Assert.StartsWith("200,000 files in your saves folder changed", block.Body, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task New_changes_name_the_profile_that_owns_them_when_it_is_not_the_one_being_switched_to()
     {
         var dialog = await _rig.DialogAsync(change: preview => preview with { External = preview.External! with { DirtyOwnerProfileId = SampleScenario.ModdedId } });

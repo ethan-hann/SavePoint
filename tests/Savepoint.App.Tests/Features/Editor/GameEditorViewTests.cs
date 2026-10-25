@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -548,6 +549,24 @@ public class GameEditorViewTests
 
         Assert.Equal("File that starts the game", AutomationProperties.GetName(harness.Find<TextBox>("ExeField")));
         Assert.Equal("Steam launch link", AutomationProperties.GetName(harness.Find<TextBox>("UriField")));
+    }
+
+    [AvaloniaTheory]
+    [InlineData(1040)]
+    [InlineData(760)]
+    public async Task The_missing_saves_folder_note_wraps_inside_its_column(double width)
+    {
+        using var harness = await EditorViewHarness.StartAsync(width: width, height: 900);
+        harness.New();
+        harness.Settle();
+
+        var note = harness.All<TextBlock>().Single(block => block.Text is not null && block.Text.StartsWith("No saves folder is set yet", StringComparison.Ordinal));
+        // The Browse button is the right edge of the column's controls.
+        var edge = harness.Find<Button>("BrowseSavesButton");
+        Assert.True(note.IsEffectivelyVisible);
+        var noteRight = ((Visual)note).TranslatePoint(new Point(note.Bounds.Width, 0), harness.View)!.Value.X;
+        var columnRight = ((Visual)edge).TranslatePoint(new Point(edge.Bounds.Width, 0), harness.View)!.Value.X;
+        Assert.True(noteRight <= columnRight + 0.5, $"The note ends at {noteRight:0}px but its column ends at {columnRight:0}px.");
     }
 
     [AvaloniaFact]

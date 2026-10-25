@@ -321,6 +321,9 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
     private List<PostPlayChoiceViewModel> BuildChoices(string today)
     {
         var offered = _options.Choices;
+
+        // The service suggests Not now only when neither folder changed, so keeping is no longer the recommendation.
+        var nothingChanged = _options.Default == CompletionChoice.Skip;
         var cards = new List<PostPlayChoiceViewModel>();
 
         if (offered.Contains(CompletionChoice.CaptureNew))
@@ -329,7 +332,7 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
                 CompletionChoice.CaptureNew,
                 Icons.AddCircle,
                 _text.Message("launch.postPlay.new.title"),
-                _text.Message("launch.postPlay.new.sub"),
+                _text.Message(nothingChanged ? "launch.postPlay.new.subOptional" : "launch.postPlay.new.sub"),
                 _text.Message("launch.postPlay.new.nameLabel"),
                 _defaultPointName));
         }
@@ -368,7 +371,7 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
             CompletionChoice.Skip,
             Icons.Schedule,
             _text.Message("launch.postPlay.skip.title"),
-            _text.Message("launch.postPlay.skip.sub")));
+            _text.Message(nothingChanged ? "launch.postPlay.skip.subNothingChanged" : "launch.postPlay.skip.sub")));
         return cards;
     }
 }

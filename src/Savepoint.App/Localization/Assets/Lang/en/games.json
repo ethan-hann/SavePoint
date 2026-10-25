@@ -53,6 +53,7 @@
   "games.profileTable.play": "Play",
   "games.profileTable.playAutomationName": "Play {name}",
   "games.profileTable.playBlocked": "This game is already running. Play works again after you close it.",
+  "games.profileTable.playBusy": "A switch or snapshot for this game is not finished yet. Play works again when it is.",
   "games.profileTable.rowAutomationName": "{name}. {status} Version: {version}. Mod files: {modFiles}. Last played: {lastPlayed}.",
   "games.profileTable.running": "Running",
   "games.profileTable.runningAutomationName": "Running: {name}",

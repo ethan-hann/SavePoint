@@ -50,6 +50,23 @@ public class LaunchSessionTests
     }
 
     [Fact(Timeout = 180_000)]
+    public async Task A_session_that_changed_nothing_in_either_folder_preselects_Not_now()
+    {
+        var (rig, _, modded) = await LaunchRig.WithTwoProfilesAsync();
+        using var _ = rig;
+        await rig.StartAsync(Tip(modded));
+        await rig.WaitForGameAsync();
+
+        rig.KillGame();
+        var exited = Assert.IsType<SessionState.Exited>((await rig.WaitForAsync<SessionState.Exited>()).State);
+
+        Assert.Equal(0, exited.NewFileCount);
+        Assert.Equal(0, exited.ChangedInstallFileCount);
+        Assert.Equal(CompletionChoice.Skip, exited.Options.Default);
+        Assert.Contains(exited.Options.Default, exited.Options.Choices);
+    }
+
+    [Fact(Timeout = 180_000)]
     public async Task A_closed_game_ends_the_session_and_a_settings_save_and_a_storage_move_leave_it_alone()
     {
         var (rig, _, modded) = await LaunchRig.WithTwoProfilesAsync();
