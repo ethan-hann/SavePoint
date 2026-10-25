@@ -98,14 +98,15 @@ public sealed class ReclaimTests : IDisposable
         var tips = (await _ws.TipAsync(repo, "profile-1"), await _ws.TipAsync(repo, "profile-2"));
         var size = await _ws.Engine.GetRepoSizeAsync(repo, Ct);
 
-        // It needs the floor and room for a rewrite of the store.
-        _ws.Space.Free = _floor + size - 1;
+        // Nothing is unreachable, so only the loose objects get packed: it needs the floor and room for those, not for the store.
+        _ws.Space.Free = _floor;
         var refused = await Assert.ThrowsAsync<DiskSpaceException>(() => _ws.Engine.RepackAsync(repo, OptimizationMode.Reclaim, Ct));
         Assert.Equal("error.diskSpace.low", refused.MessageId);
-        Assert.Equal(_floor + size, refused.Args["requiredBytes"]);
+        var required = (long)refused.Args["requiredBytes"]!;
+        Assert.True(required > _floor && required <= _floor + size, $"required {required} for a store of {size}");
         Assert.DoesNotContain(_ws.Invocations, invocation => invocation.Arguments[0] is "reflog" or "repack" or "prune");
 
-        _ws.Space.Free = _floor + size;
+        _ws.Space.Free = required;
         using var cancel = CancellationTokenSource.CreateLinkedTokenSource(Ct);
         _ws.OnInvoke = invocation =>
         {
@@ -129,7 +130,7 @@ public sealed class ReclaimTests : IDisposable
         var steps = _ws.Invocations.Skip(from).Where(invocation => invocation.Arguments[0] is "reflog" or "repack" or "prune").ToArray();
         Assert.Equal(["reflog", "repack", "prune"], steps.Select(step => step.Arguments[0]));
         Assert.Equal(["reflog", "expire", "--expire=now", "--all"], steps[0].Arguments);
-        Assert.Equal(["repack", "-q", "-a", "-d"], steps[1].Arguments);
+        Assert.Equal(["repack", "-q", "-d"], steps[1].Arguments);
         Assert.Equal(["prune", "--expire=now"], steps[2].Arguments);
         Assert.All(steps, step => Assert.False(step.ReadOnly));
         Assert.DoesNotContain(_ws.Invocations, invocation => invocation.Arguments.Any(argument => argument is "--auto" or "--detach" or "--no-detach"));

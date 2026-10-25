@@ -17,7 +17,8 @@ public sealed class ReclaimInterruptedTests : IDisposable
     [Fact]
     public async Task A_reclaim_notes_itself_before_git_starts_and_the_note_follows_each_git_it_starts_and_goes_when_it_ends()
     {
-        var repo = await _ws.InitializedRepoAsync();
+        // The loose objects of the three points are what make the reclaim repack.
+        var (repo, _) = await _ws.ThreePointsRepoAsync();
         (ProcessStamp Owner, ProcessStamp? Git)? atReflog = null;
         (ProcessStamp Owner, ProcessStamp? Git)? atRepack = null;
         (ProcessStamp Owner, ProcessStamp? Git)? atPrune = null;
@@ -28,7 +29,7 @@ public sealed class ReclaimInterruptedTests : IDisposable
                 case "reflog":
                     atReflog = ReclaimMarker.Read(repo.GitDir);
                     break;
-                case "repack" when invocation.Arguments.Contains("-a"):
+                case "repack":
                     atRepack = ReclaimMarker.Read(repo.GitDir);
                     break;
                 case "prune":
@@ -61,11 +62,11 @@ public sealed class ReclaimInterruptedTests : IDisposable
     [InlineData(true)]
     public async Task A_reclaim_that_fails_or_is_cancelled_still_takes_its_note_away(bool cancel)
     {
-        var repo = await _ws.InitializedRepoAsync();
+        var (repo, _) = await _ws.ThreePointsRepoAsync();
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(Ct);
         _ws.OnInvoke = invocation =>
         {
-            if (invocation.Arguments[0] != "repack" || !invocation.Arguments.Contains("-a"))
+            if (invocation.Arguments[0] != "repack")
             {
                 return;
             }
