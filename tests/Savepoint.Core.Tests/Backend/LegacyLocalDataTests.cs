@@ -2,6 +2,7 @@ using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Platform;
 using Savepoint.Core.Services.Storage;
+using Savepoint.Core.Tests.Platform;
 
 namespace Savepoint.Core.Tests.Backend;
 
@@ -20,6 +21,7 @@ public class LegacyLocalDataTests
 
         Assert.True(status.Ok, status.Error?.Detail);
         Assert.True(status.Value.Storage?.Reachable);
+        Assert.False(status.Value.Storage?.InInstallerFolder);
         Assert.Equal(world.NewStorage, status.Value.Storage?.Root);
         Assert.False(Directory.Exists(world.OldStorage), "the old folder is still there");
         Assert.True(StorageContent.HoldsHistory(Path.Combine(world.NewStorage, game.Id)), "the history did not arrive");
@@ -102,6 +104,11 @@ public class LegacyLocalDataTests
             var status = await world.Workspace.AppStatus.CheckAsync(world.Workspace.Token);
 
             Assert.True(status.Ok, status.Error?.Detail);
+
+            // Left where the installer clears it, so the startup notice and the Settings screen are told.
+            Assert.True(status.Value.Storage?.InInstallerFolder);
+            var summary = await world.Workspace.Settings.GetStorageSummaryAsync(world.Workspace.Token);
+            Assert.True(summary.Value?.InInstallerFolder);
         }
 
         Assert.True(File.Exists(Path.Combine(world.OldStorage, "stray", "held.bin")));
@@ -210,20 +217,5 @@ public class LegacyLocalDataTests
                 };
             return new RelocatedPlatform(inner, directories);
         }
-    }
-
-    private sealed class RelocatedPlatform(IPlatform inner, AppDirectories directories) : IPlatform
-    {
-        public OsKind Os => inner.Os;
-
-        public StringComparison PathComparison => inner.PathComparison;
-
-        public AppDirectories Directories => directories;
-
-        public IReadOnlyDictionary<string, string> PathTokens => inner.PathTokens;
-
-        public IProcessInspector Processes => inner.Processes;
-
-        public PathDenylist Denylist(IEnumerable<string> extraBlockedRoots) => inner.Denylist(extraBlockedRoots);
     }
 }

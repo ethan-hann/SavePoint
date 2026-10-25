@@ -33,7 +33,8 @@ public sealed class FakeSettingsApi : ISettingsApi
             GamesBytes(),
             State.VolumeTotalBytes,
             State.VolumeFreeBytes,
-            State.Settings.LastOptimizedAt)));
+            State.Settings.LastOptimizedAt,
+            State.StorageInInstallerFolder)));
 
     public Task<OperationResult<JobStarted>> OptimizeAllStorageAsync(FreeUpSpaceToken? confirmed = null) =>
         _backend.Call(_api, nameof(OptimizeAllStorageAsync), [confirmed], () =>

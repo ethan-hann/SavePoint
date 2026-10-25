@@ -97,6 +97,15 @@
                         Content="{loc:Loc settings.storage.change}" />
               </Grid>
 
+              <TextBlock x:Name="UnsafeStorageNote"
+                         Classes="caption"
+                         FontSize="12.5"
+                         Margin="0,8,0,0"
+                         TextWrapping="Wrap"
+                         Foreground="{DynamicResource Md3ErrorBrush}"
+                         Text="{Binding Storage.UnsafeNote}"
+                         IsVisible="{Binding Storage.IsStorageUnsafe}" />
+
               <Border x:Name="MovePanel" Classes="recessed" Margin="0,14,0,0" IsVisible="{Binding Storage.IsRelocating}">
                 <StackPanel Spacing="8">
                   <Grid ColumnDefinitions="*,Auto">

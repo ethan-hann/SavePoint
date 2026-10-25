@@ -71,6 +71,9 @@ internal sealed class FakeState
 
     public long VolumeFreeBytes { get; }
 
+    // Whether the storage folder lies where the Windows installer clears it.
+    public bool StorageInInstallerFolder { get; set; }
+
     public string CatalogDirectory { get; }
 
     public StartupStatus Startup { get; set; }

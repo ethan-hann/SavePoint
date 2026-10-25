@@ -31,6 +31,14 @@ public sealed partial class StorageSectionViewModel : ObservableObject
     [ObservableProperty]
     private string _storagePath = string.Empty;
 
+    /// <summary>True while the storage folder lies where installing or removing SavePoint would delete it.</summary>
+    [ObservableProperty]
+    private bool _isStorageUnsafe;
+
+    /// <summary>Tells the player why the folder is unsafe and what to do; empty while it is not.</summary>
+    [ObservableProperty]
+    private string _unsafeNote = string.Empty;
+
     /// <summary>True when the usage bar and its two captions have numbers to show.</summary>
     [ObservableProperty]
     private bool _hasSummary;
@@ -281,6 +289,8 @@ public sealed partial class StorageSectionViewModel : ObservableObject
         }
 
         var summary = read.Value;
+        IsStorageUnsafe = summary.InInstallerFolder;
+        UnsafeNote = summary.InInstallerFolder ? _deps.Text.Message("settings.storage.unsafeNote") : string.Empty;
         UsedText = _deps.Text.Message("settings.storage.used", ("size", _deps.Text.FileSize(summary.BytesUsed)), ("count", summary.Games.Count));
         FreeText = _deps.Text.Message("settings.storage.free", ("size", _deps.Text.FileSize(summary.VolumeFreeBytes)));
         UsedFraction = summary.VolumeTotalBytes > 0 ? Math.Clamp((double)summary.BytesUsed / summary.VolumeTotalBytes, 0, 1) : 0;

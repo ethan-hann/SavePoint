@@ -480,7 +480,7 @@ internal sealed class AppStatusApi : IAppStatusApi
                 }
             }
 
-            return new StorageStatus(true, storage.Root, null);
+            return new StorageStatus(true, storage.Root, null, StorageDestination.IsInInstallerFolder(_services, storage.Root, storage.PathSafety));
         }
         catch (StorageUnreachableException e)
         {

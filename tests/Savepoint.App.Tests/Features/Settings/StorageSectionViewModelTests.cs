@@ -43,6 +43,19 @@ public class StorageSectionViewModelTests
     }
 
     [Fact]
+    public async Task A_folder_the_installer_clears_is_flagged_with_a_plain_note_and_a_safe_folder_is_not()
+    {
+        var safe = await SettingsRig.ShownAsync();
+        var backend = new FakeBackend(ScenarioBuilder.Sample());
+        backend.State.StorageInInstallerFolder = true;
+        var unsafeRig = await SettingsRig.ShownAsync(backend);
+
+        Assert.False(Storage(safe).IsStorageUnsafe);
+        Assert.True(Storage(unsafeRig).IsStorageUnsafe);
+        Assert.Equal("Installing or removing SavePoint deletes this folder along with your snapshots. Choose a folder somewhere else with Change.", Storage(unsafeRig).UnsafeNote);
+    }
+
+    [Fact]
     public async Task A_summary_that_cannot_be_read_hides_the_bar_and_nothing_else()
     {
         var rig = await SettingsRig.StartAsync();

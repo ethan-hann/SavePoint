@@ -57,7 +57,8 @@ internal sealed partial class SettingsApi : ISettingsApi
                             sizes,
                             _services.Disk.GetTotalBytes(storage.Root) ?? 0,
                             _services.Disk.GetFreeBytes(storage.Root) ?? 0,
-                            settings.LastOptimizedAt);
+                            settings.LastOptimizedAt,
+                            StorageDestination.IsInInstallerFolder(_services, storage.Root, storage.PathSafety));
                     },
                     cancellationToken).ConfigureAwait(false);
             },

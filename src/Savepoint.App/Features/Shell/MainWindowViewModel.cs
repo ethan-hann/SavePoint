@@ -150,5 +150,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         Shell = shell;
+        if (Startup.StorageNotice is { } notice)
+        {
+            Toasts.Show(notice);
+        }
     }
 }
