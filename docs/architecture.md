@@ -120,8 +120,8 @@ public interface IGamesApi
 {
     IReadOnlyList<GameTemplate> Templates { get; }
     Task<OperationResult<IReadOnlyList<GameDefinition>>> ListAsync(CancellationToken cancellationToken = default);
-    Task<OperationResult<AddGameOutcome>> AddAsync(GameDefinition definition);              // Added(game) | HistoryFound(orphan)
-    Task<OperationResult<AddGameOutcome.Added>> ResolveOrphanAsync(GameDefinition definition, OrphanResolution resolution);
+    Task<OperationResult<AddGameOutcome>> AddAsync(GameDefinition definition, IReadOnlyList<string>? suppliedRules = null);  // Added(game) | HistoryFound(orphan); suppliedRules: the game-wide rules a template or definition file gave, the only ones the saves check may move (D7)
+    Task<OperationResult<AddGameOutcome.Added>> ResolveOrphanAsync(GameDefinition definition, OrphanResolution resolution, IReadOnlyList<string>? suppliedRules = null);
     Task<OperationResult<GameDefinition>> UpdateAsync(GameDefinition definition, bool confirmFolderChange = false);  // re-points a moved folder; folderMismatch until confirmed (D31.4)
     Task<OperationResult<Unit>> DeleteAsync(string gameId);
     Task<OperationResult<IReadOnlyList<FolderStatus>>> GetFolderStatusAsync(string gameId, CancellationToken cancellationToken = default);
