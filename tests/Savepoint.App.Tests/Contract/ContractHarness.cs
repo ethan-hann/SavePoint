@@ -226,6 +226,7 @@ internal sealed class RealContractHarness : ContractHarness
             Git = GitBinary.Locate(Path.Combine(Root, "gitconfig")),
             LooseObjectThreshold = int.MaxValue,
             SteamFolder = new FolderLocator(_steamFolder),
+            GogGalaxyCache = new NoGalaxyCache(),
             DiskSpace = _disk,
             Launch = LaunchOrchestrator.Factory(new LaunchOrchestratorOptions { Starter = _game.Starter(TimeProvider.System) }),
         });
@@ -379,6 +380,12 @@ internal sealed class RealContractHarness : ContractHarness
 internal sealed class FolderLocator(string folder) : ISteamFolderLocator
 {
     public string? FindSteamFolder() => Directory.Exists(folder) ? folder : null;
+}
+
+// A machine with no GOG Galaxy; the real machine's Galaxy cache is never read.
+internal sealed class NoGalaxyCache : IGogGalaxyCacheLocator
+{
+    public string? FindWebcacheFolder() => null;
 }
 
 // Real free space, except that one folder can be held at its first question until released: how the story stops a switch part way.

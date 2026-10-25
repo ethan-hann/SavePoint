@@ -16,6 +16,7 @@ public sealed class FakeArtworkApi : IArtworkApi
     private readonly Dictionary<string, string> _custom = [];
     private readonly Dictionary<string, (string? Wide, string? Square)> _finds = [];
     private readonly Dictionary<string, (string? Wide, string? Square)> _kept = [];
+    private readonly Dictionary<string, (string? Wide, string? Square)> _gog = [];
     private readonly Dictionary<string, int> _detected = [];
 
     internal FakeArtworkApi(FakeBackend backend)
@@ -97,6 +98,14 @@ public sealed class FakeArtworkApi : IArtworkApi
             RaiseChanged(gameId);
         });
 
+    // Makes images from GOG Galaxy's cache appear as a lookup finishing in the background does: kept, and announced by the change event.
+    public void ScriptGogArrives(string gameId, string? wide, string? square) =>
+        _backend.Script(() =>
+        {
+            _gog[gameId] = (wide, square);
+            RaiseChanged(gameId);
+        });
+
     // Sets the user's own image without validating it, as a restored session would have it.
     public void ScriptCustom(string gameId, string path) =>
         _backend.Script(() =>
@@ -123,6 +132,11 @@ public sealed class FakeArtworkApi : IArtworkApi
         if (_kept.TryGetValue(game.Id, out var steam) && (steam.Wide is not null || steam.Square is not null))
         {
             return new GameArtwork(game.Id, ArtworkSource.Steam, steam.Wide, steam.Square, id, detected is not null);
+        }
+
+        if (_gog.TryGetValue(game.Id, out var gog) && (gog.Wide is not null || gog.Square is not null))
+        {
+            return new GameArtwork(game.Id, ArtworkSource.Gog, gog.Wide, gog.Square, id, detected is not null);
         }
 
         return new GameArtwork(game.Id, ArtworkSource.None, null, null, id, detected is not null);

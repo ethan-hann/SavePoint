@@ -320,6 +320,7 @@ internal sealed class BackendWorkspace : IDisposable
             Git = Savepoint.Core.Git.GitBinary.Locate(Path.Combine(Root, "gitconfig")),
             // No test reads the real machine's Steam folder.
             SteamFolder = new Savepoint.Core.Tests.Artwork.FixedSteamFolder(null),
+            GogGalaxyCache = new Savepoint.Core.Tests.Artwork.FixedGogGalaxyCache(null),
             GogInstalls = new Savepoint.Core.Tests.Library.FakeGogInstalls(null),
         };
         return CoreBackend.Create(_configure is null ? options : _configure(options));

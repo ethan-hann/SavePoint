@@ -111,6 +111,7 @@ internal sealed class JourneyRig : IAsyncDisposable
                     InstallDirectory = Path.Combine(root, "app"),
                     Git = GitBinary.Locate(Path.Combine(root, "gitconfig")),
                     SteamFolder = new FolderLocator(Path.Combine(root, "steam")),
+                    GogGalaxyCache = new NoGalaxyCache(),
                     ArtworkHttp = null,
                     LooseObjectThreshold = int.MaxValue,
                 },

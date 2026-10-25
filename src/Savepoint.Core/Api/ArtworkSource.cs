@@ -1,6 +1,6 @@
 namespace Savepoint.Core.Api;
 
-/// <summary>Where a game's artwork comes from; the user's own image beats Steam's, and Steam's beats none (D30).</summary>
+/// <summary>Where a game's artwork comes from; the user's own image beats Steam's, Steam's beats GOG Galaxy's, and Galaxy's beats none (D30).</summary>
 public enum ArtworkSource
 {
     /// <summary>No artwork was found, so the game shows its name tint.</summary>
@@ -11,4 +11,7 @@ public enum ArtworkSource
 
     /// <summary>The image the user chose for the game.</summary>
     Custom,
+
+    /// <summary>Images GOG Galaxy already downloaded to this computer, for a game installed by GOG.</summary>
+    Gog,
 }

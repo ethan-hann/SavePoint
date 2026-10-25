@@ -16,6 +16,7 @@
   "gameEditor.artwork.pickTitle": "Choose a picture for this game",
   "gameEditor.artwork.remove": "Remove your image",
   "gameEditor.artwork.source.custom": "Your image",
+  "gameEditor.artwork.source.gog": "From GOG Galaxy",
   "gameEditor.artwork.source.none": "No artwork found",
   "gameEditor.artwork.source.steam": "From Steam",
   "gameEditor.back": "Back",

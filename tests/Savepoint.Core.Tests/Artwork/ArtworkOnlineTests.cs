@@ -341,9 +341,12 @@ public class ArtworkOnlineTests
         }
 
         await rig.WhenIdleAsync();
+
+        // Counted before the next read, which starts a lookup of its own that the server never answers.
+        var requests = rig.Http!.Requests.Count;
         var art = await rig.Artwork.GetAsync(game.Id, rig.Token);
 
         Assert.Equal(ArtworkSource.None, art.Value!.Source);
-        Assert.Equal(4, rig.Http!.Requests.Count);
+        Assert.Equal(4, requests);
     }
 }
