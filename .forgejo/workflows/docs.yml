@@ -3,10 +3,10 @@
 # so a guide change shows without waiting for a release. Pull requests that touch the sources only build it, with warnings as
 # errors, so a broken link or a guide missing from docs/toc.yml fails before it merges.
 #
-# Publishing needs the repository variable DOCS_SITE_URL, the root of a git-pages site shared by several projects (such as
-# https://docs.example.org/); this one goes under DOCS_PATH. The upload is authorized by the forge: the site's domain carries a
-# _git-pages-forge-allowlist TXT record naming this repository, and the job passes its own token. Without the variable the job
-# builds the site and says it was not published.
+# Publishing needs the repository variable DOCS_SITE_URL, the root of a git-pages host shared by several projects (such as
+# https://docs.example.org/); this project's site is <root>/DOCS_PATH/, a site of its own. The server's wildcard setting maps
+# each such path to the forge repository of the same name and lets the job's own token publish it, so no secret is stored.
+# Without the variable the job builds the site and says it was not published.
 name: Docs
 
 on:
@@ -19,7 +19,7 @@ on:
   workflow_dispatch:
 
 env:
-  # The other projects on the site live beside this path; an empty one would replace the whole site, theirs included.
+  # The site's path on the host, which the server matches to this repository's name. Empty would aim at the host's index.
   DOCS_PATH: SavePoint
 
 concurrency:
@@ -54,7 +54,7 @@ jobs:
           PUBLISH: ${{ github.event_name != 'pull_request' }}
         run: |
           if [ -z "$DOCS_PATH" ]; then
-            echo "DOCS_PATH is empty, which would replace every project on the site."; exit 1
+            echo "DOCS_PATH is empty, which would aim at the host's index instead of this project's site."; exit 1
           fi
           if [ "$PUBLISH" != true ]; then
             echo "publish=false" >> "$GITHUB_OUTPUT"; echo "A pull request only builds the site."

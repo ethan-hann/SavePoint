@@ -74,12 +74,29 @@ That builds into `artifacts/docs-site` and serves it at http://localhost:8080. `
 
 `.forgejo/workflows/docs.yml` builds the site with warnings as errors on every pull request that touches its sources, so a broken link or a guide missing from `docs/toc.yml` fails there. On every push to `main` that changes the sources, and on every `v*` tag, it builds the site and uploads it to a git-pages server; it can also be started by hand. A change to the guides alone therefore shows on the site minutes after it merges, and needs only the gate's short documentation path (see `.forgejo/workflows/` under Repository layout).
 
-The site is shared with other projects: each one lives under its own path of one host, and SavePoint's is `SavePoint` (`DOCS_PATH` in the workflow, so `https://docs.tortal.tech/SavePoint/`). Publishing needs the repository variable `DOCS_SITE_URL`, the root of that host; without it the job builds and stops. The upload needs no secret: git-pages accepts the workflow's own token when the host carries a TXT record naming this repository. The record lets the repository write anywhere on the host, not just under its path, and an upload with no path would replace every project, so the workflow refuses an empty `DOCS_PATH`.
+The host is shared with other projects. Each publishes a site of its own under the path named like its repository, so SavePoint's is `https://docs.tortal.tech/SavePoint/` (`DOCS_PATH` in the workflow), and the host's front page is published by the `docs-index` repository. Publishing needs the repository variable `DOCS_SITE_URL`, the root of that host; without it the job builds and stops. The upload needs no secret: the server's wildcard setting maps `docs.tortal.tech/<name>/` to `git.tortal.tech/ethan-hann/<name>.git` (and the front page to `docs-index`) and accepts a workflow token that may push to that repository. So a project can only publish its own site, and a new project needs no server change, only the workflow. The workflow refuses an empty `DOCS_PATH`, which would aim at the front page.
 
 Setting up the server, once (it runs as a Docker Compose stack on Unraid):
 
 1. Make the data folder, owned by the user the container runs as: `mkdir -p /mnt/user/appdata/git-pages/data && chown -R 99:100 /mnt/user/appdata/git-pages`.
-2. Add a stack with this compose file and start it. Standalone mode serves plain HTTP on the container's port 3000 and keeps the sites on the file system; TLS comes from the proxy. Host port 3090 was free on the server when this was set up.
+2. Write `/mnt/user/appdata/git-pages/config.toml` (also owned by `99:100`). It replaces the image's own config, so it repeats the listeners, and adds the wildcard. `docs.tortal.tech` matches it as `<user>.tortal.tech` with `<user>` = `docs`, which the clone URL ignores:
+
+   ```toml
+   [server]
+   pages = "tcp/:3000"
+   proxy = "tcp/:3001"
+   metrics = "tcp/:3002"
+
+   [[wildcard]]
+   domain = "tortal.tech"
+   clone-url = "https://git.tortal.tech/ethan-hann/<project>.git"
+   index-repo = "docs-index"
+   index-repo-branch = "main"
+   authorization = "forgejo"
+   ```
+
+   Only names the proxy sends to the container are served, so the wide `domain` reaches no other host.
+3. Add a stack with this compose file and start it. Standalone mode serves plain HTTP on the container's port 3000 and keeps the sites on the file system; TLS comes from the proxy. Host port 3090 was free on the server when this was set up.
 
    ```yaml
    services:
@@ -92,11 +109,12 @@ Setting up the server, once (it runs as a Docker Compose stack on Unraid):
          - "3090:3000"
        volumes:
          - /mnt/user/appdata/git-pages/data:/app/data
+         - /mnt/user/appdata/git-pages/config.toml:/app/config.toml:ro
    ```
 
-3. In Nginx Proxy Manager, add a proxy host for `docs.tortal.tech` to the server's port 3090, with the `*.tortal.tech` certificate and Force SSL. The upload is an HTTP `PUT` of the site as an archive, so the proxy must allow bodies of 100 MB (`client_max_body_size 100m;` under Advanced).
-4. Publish two DNS records: one for `docs` that reaches the proxy, and a TXT record `_git-pages-forge-allowlist.docs` with the value `https://git.tortal.tech/ethan-hann/SavePoint.git`. Another project that publishes to the host adds a TXT record of its own on the same name.
-5. Set the repository variable `DOCS_SITE_URL` to `https://docs.tortal.tech/` (Settings > Actions > Variables), then start the Docs workflow by hand once to publish.
+4. In Nginx Proxy Manager, add a proxy host for `docs.tortal.tech` to the server's port 3090, with the `*.tortal.tech` certificate and Force SSL. The upload is an HTTP `PUT` of the site as an archive, so the proxy must allow bodies of 100 MB (`client_max_body_size 100m;` under Advanced).
+5. Add a DNS record for `docs` that reaches the proxy (a proxied CNAME, like the other names). A DNS resolver on the network may hold a "no address" answer for a while if the name was looked up before the record existed.
+6. Set the repository variable `DOCS_SITE_URL` to `https://docs.tortal.tech/` (Settings > Actions > Variables), then start the Docs workflow by hand once to publish.
 
 If the name is proxied by Cloudflare, the upload must get through it: Cloudflare refuses bodies over 100 MB and may block the upload tool's user agent. If the first upload is refused, add a WAF skip rule for `PUT` requests to that host. The site is about 50 MB before compression.
 
