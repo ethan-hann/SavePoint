@@ -246,8 +246,8 @@ public class LaunchFlowSessionTests : IDisposable
     }
 
     [Theory]
-    [InlineData(SessionEndKind.NamedProcessNeverAppeared, "SavePoint didn't see Skyrim Special Edition running. If it did run, check the game's program name in Edit game.")]
-    [InlineData(SessionEndKind.NamedProcessNeverMatched, "The game's program name for Skyrim Special Edition never showed up as a running program. Check it in Edit game.")]
+    [InlineData(SessionEndKind.NamedProcessNeverAppeared, "SavePoint didn't see Skyrim Special Edition running. If it did run, check the program name in Edit game.")]
+    [InlineData(SessionEndKind.NamedProcessNeverMatched, "The program name for Skyrim Special Edition never showed up as running. Check it in Edit game.")]
     public async Task With_session_capture_off_a_program_that_never_appeared_is_still_mentioned_once_in_a_toast(SessionEndKind kind, string text)
     {
         FakeAssert.Ok(await _f.Backend.Settings.SaveAsync(SampleScenario.Settings with { ConfirmSessionCapture = false }));
@@ -354,15 +354,15 @@ public class LaunchFlowSessionTests : IDisposable
         var card = _f.Inline<ErrorCardViewModel>();
         Assert.Equal("Part of that session isn't in the snapshot", card.Title);
         Assert.Equal(
-            "Your saves weren't included, because you played them from another profile's snapshot. Anything that changed in them is still in your game folders, and SavePoint asks about it the next time you play.",
+            "Your saves weren't included, because you played them from another profile's snapshot. Their changes stay in your game folders, and SavePoint asks about them next time you play.",
             card.Body);
         Assert.Equal(ErrorTone.Neutral, card.Tone);
         Assert.Equal(["Dismiss"], card.Actions.Select(a => a.Label));
     }
 
     [Theory]
-    [InlineData(RepoRole.Install, "Your game version and mods didn't end with the snapshot you chose to replace, so SavePoint added this session there as a new snapshot instead. The other snapshots there are as they were.")]
-    [InlineData(RepoRole.External, "Your saves didn't end with the snapshot you chose to replace, so SavePoint added this session there as a new snapshot instead. The other snapshots there are as they were.")]
+    [InlineData(RepoRole.Install, "Your game version and mods didn't end with the snapshot you chose to replace, so this session was added as a new snapshot instead. The others are unchanged.")]
+    [InlineData(RepoRole.External, "Your saves didn't end with the snapshot you chose to replace, so this session was added as a new snapshot instead. The others are unchanged.")]
     public async Task A_replacement_that_became_a_new_snapshot_in_a_folder_says_so_instead_of_vanishing_as_a_plain_success(RepoRole kept, string body)
     {
         await _f.PlayToExitedAsync();
@@ -392,8 +392,8 @@ public class LaunchFlowSessionTests : IDisposable
         var card = _f.Inline<ErrorCardViewModel>();
         Assert.Equal("Part of that session isn't in the snapshot", card.Title);
         Assert.Equal(
-            "Your saves weren't included, because you played them from another profile's snapshot. Anything that changed in them is still in your game folders, and SavePoint asks about it the next time you play. "
-            + "Your game version and mods didn't end with the snapshot you chose to replace, so SavePoint added this session there as a new snapshot instead. The other snapshots there are as they were.",
+            "Your saves weren't included, because you played them from another profile's snapshot. Their changes stay in your game folders, and SavePoint asks about them next time you play. "
+            + "Your game version and mods didn't end with the snapshot you chose to replace, so this session was added as a new snapshot instead. The others are unchanged.",
             card.Body);
         Assert.Equal(["Dismiss"], card.Actions.Select(a => a.Label));
     }
@@ -414,7 +414,7 @@ public class LaunchFlowSessionTests : IDisposable
         var card = _f.Inline<ErrorCardViewModel>();
         Assert.Equal("SavePoint couldn't take a snapshot of that session", card.Title);
         Assert.Equal(
-            "Your game version and mods aren't in the snapshot yet. There's not enough free disk space to take this snapshot right now. Free up about 1.2 GB on drive D: and try again. Your saves weren't included, because you played them from another profile's snapshot. Nothing in your game folders changed, and SavePoint asks about any changes there the next time you play. Fix that and retry just that part.",
+            "Your game version and mods aren't in the snapshot yet. There's not enough free disk space to take this snapshot right now. Free up about 1.2 GB on drive D: and try again. Your saves weren't included, because you played them from another profile's snapshot. Your game folders are unchanged. Fix that, then retry that part.",
             card.Body);
         var rows = Assert.IsType<FolderOutcomeListViewModel>(card.Supplement).Rows;
         Assert.Equal(["Game version and mods · not in the snapshot yet", "Saves · not included"], rows.Select(r => r.Text));
@@ -461,7 +461,7 @@ public class LaunchFlowSessionTests : IDisposable
         Assert.Equal("Only part of the snapshot was taken", card.Title);
         Assert.StartsWith("Your game version and mods are in the snapshot. Your saves aren't yet.", card.Body, StringComparison.Ordinal);
         var rows = Assert.IsType<FolderOutcomeListViewModel>(card.Supplement).Rows;
-        Assert.Equal(["Game version and mods · nothing new, snapshot kept as it was", "Saves · not in the snapshot yet"], rows.Select(r => r.Text));
+        Assert.Equal(["Game version and mods · nothing new", "Saves · not in the snapshot yet"], rows.Select(r => r.Text));
         Assert.Equal([false, true], rows.Select(r => r.IsFailed));
     }
 
@@ -476,7 +476,7 @@ public class LaunchFlowSessionTests : IDisposable
         var card = _f.Inline<ErrorCardViewModel>();
         Assert.Equal("Only part of the snapshot was taken", card.Title);
         Assert.Equal(
-            "Your game version and mods are in the snapshot. Your saves aren't yet. There's not enough free disk space to take this snapshot right now. Free up about 1.2 GB on drive D: and try again. Nothing in your game folders changed. Fix that and retry just that part.",
+            "Your game version and mods are in the snapshot. Your saves aren't yet. There's not enough free disk space to take this snapshot right now. Free up about 1.2 GB on drive D: and try again. Your game folders are unchanged. Fix that, then retry that part.",
             card.Body);
         var rows = Assert.IsType<FolderOutcomeListViewModel>(card.Supplement).Rows;
         Assert.Equal(["Game version and mods · in the snapshot", "Saves · not in the snapshot yet"], rows.Select(r => r.Text));

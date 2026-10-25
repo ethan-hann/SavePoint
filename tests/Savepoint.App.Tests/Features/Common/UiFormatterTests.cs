@@ -246,7 +246,7 @@ public class UiFormatterTests
     {
         var error = ErrorInfo.From(new GameRunningException("g1", "Skyrim"));
 
-        Assert.Equal("Skyrim is running right now, so SavePoint can't do that yet. Close the game, then try again.", English().Message(error));
+        Assert.Equal("Skyrim is running. Close the game, then try again.", English().Message(error));
     }
 
     [Theory]

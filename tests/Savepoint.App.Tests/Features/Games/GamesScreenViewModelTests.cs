@@ -342,7 +342,7 @@ public class GamesScreenViewModelTests
         Assert.Equal(string.Empty, rig.Screen.Profiles[0].SecondaryText);
         Assert.Equal(_dash, rig.Screen.Profiles[0].VersionText);
         Assert.Single(rig.ToastTexts);
-        Assert.StartsWith("Something else on your computer", rig.ToastTexts[0]);
+        Assert.StartsWith("Something else is holding", rig.ToastTexts[0]);
     }
 
     // ---- The storage footer

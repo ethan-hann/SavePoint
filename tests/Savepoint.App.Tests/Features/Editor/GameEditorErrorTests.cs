@@ -53,7 +53,7 @@ public class GameEditorErrorTests
 
     [Theory]
     [InlineData(@"C:\Games\Hollow Knight\hk.exe", "Enter the start file's location relative to the game folder, not a full path.")]
-    [InlineData(@"..\hk.exe", "The start file has to be inside the game folder, so its path can't point outside it.")]
+    [InlineData(@"..\hk.exe", "The start file has to be inside the game folder.")]
     public async Task A_start_file_that_is_absolute_or_climbs_out_is_refused_on_its_field(string exePath, string message)
     {
         var rig = EditorRig.Create();
@@ -67,8 +67,8 @@ public class GameEditorErrorTests
     }
 
     [Theory]
-    [InlineData("", "Enter the launch link that starts the game, such as steam://run/123456.")]
-    [InlineData("not a link", "That doesn't look like a launch link. It should begin with a name and a colon, such as steam://.")]
+    [InlineData("", "Enter the launch link, such as steam://run/123456.")]
+    [InlineData("not a link", "That isn't a launch link. It should start with a name and a colon, such as steam://.")]
     public async Task The_Steam_choice_needs_a_launch_link_that_looks_like_one(string uri, string message)
     {
         var rig = EditorRig.Create();
@@ -92,7 +92,7 @@ public class GameEditorErrorTests
 
         await Save(rig, editor);
 
-        Assert.Equal("The game folder and the saves folder can't be inside each other. Pick two separate folders.", editor.SavesError);
+        Assert.Equal("The game folder and the saves folder can't be inside each other.", editor.SavesError);
         Assert.Empty(rig.Calls("AddAsync"));
     }
 
@@ -148,10 +148,10 @@ public class GameEditorErrorTests
 
         Assert.Equal("Give the game a name.", editor.NameError);
         Assert.Equal("Choose the folder where the game is installed.", editor.InstallError);
-        Assert.Equal("Choose the folder where the saves live, or remove the saves location.", editor.SavesError);
+        Assert.Equal("Choose the saves folder, or remove the saves location.", editor.SavesError);
         Assert.Equal("Choose how SavePoint should start the game.", editor.LaunchError);
         Assert.Equal("Choose the file that starts the game.", editor.ExePathError);
-        Assert.Equal("Enter the launch link that starts the game, such as steam://run/123456.", editor.UriError);
+        Assert.Equal("Enter the launch link, such as steam://run/123456.", editor.UriError);
         Assert.Null(editor.FormError);
     }
 
@@ -350,7 +350,7 @@ public class GameEditorErrorTests
 
         await Save(rig, editor);
 
-        Assert.Equal("SavePoint doesn't recognize a name in curly brackets in that folder location, or that place isn't on this computer.", editor.InstallError);
+        Assert.Equal("SavePoint doesn't recognize a name in curly brackets in that location, or it isn't on this computer.", editor.InstallError);
         Assert.Null(editor.SavesError);
         Assert.Empty(rig.Dialogs.Shown);
         Assert.Empty(rig.Calls("AddAsync"));

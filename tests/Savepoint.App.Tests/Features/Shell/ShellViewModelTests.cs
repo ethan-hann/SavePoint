@@ -1104,7 +1104,7 @@ public class ShellViewModelTests
         Assert.Empty(requests);
         var toast = Assert.Single(rig.Toasts.Toasts);
         Assert.Equal(ToastKind.Error, toast.Message.Kind);
-        Assert.Equal("Some of these fields aren't valid yet. Check the name and paths above.", toast.Text);
+        Assert.Equal("Some fields aren't valid yet. Check the name and paths above.", toast.Text);
     }
 
     // ---- Jobs

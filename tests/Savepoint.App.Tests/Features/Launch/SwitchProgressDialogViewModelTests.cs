@@ -53,7 +53,7 @@ public class SwitchProgressDialogViewModelTests
     {
         var dialog = Create(new InstallState(null, null));
 
-        Assert.Equal("This can take a while for a large install, especially if a lot changed.", dialog.Explanation);
+        Assert.Equal("Large installs can take a while.", dialog.Explanation);
     }
 
     [Fact]

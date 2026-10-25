@@ -32,7 +32,7 @@ public class LaunchHeldFileFlowTests : IDisposable
         var card = _f.Inline<ErrorCardViewModel>();
         Assert.Equal("A file is in use, so the switch didn't start", card.Title);
         Assert.Equal(
-            "Something else on your computer is holding one of the game's files open. Close the game, its launcher and any mod manager, then try again. Nothing has been changed.",
+            "Something else is holding one of the game's files open. Close the game, its launcher and any mod manager, then try again.",
             card.Body);
         Assert.Equal(_file, card.Path);
         Assert.Equal(["Try again", "Dismiss"], card.Actions.Select(action => action.Label));

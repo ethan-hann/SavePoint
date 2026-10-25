@@ -507,7 +507,7 @@ public class StartupViewModelTests
         await startup.Card!.Actions[1].Command.ExecuteAsync();
 
         Assert.Equal(StartupPhase.StorageUnreachable, startup.Phase);
-        Assert.Contains("doesn't hold your games' snapshots", startup.StorageActionError, StringComparison.Ordinal);
+        Assert.Contains("doesn't hold your snapshots", startup.StorageActionError, StringComparison.Ordinal);
         Assert.True(startup.HasStorageActionError);
         Assert.Equal(@"G:\Elsewhere", startup.StorageActionErrorPath);
     }
@@ -558,7 +558,7 @@ public class StartupViewModelTests
 
         Assert.Equal(StartupPhase.StorageUnreachable, startup.Phase);
         Assert.Equal(
-            "SavePoint can't start over in its default folder, shown below, because that folder already holds snapshots. To use them, choose \"Find the folder\" and pick this folder. To start over instead, move that folder somewhere else first; the snapshots go with it.",
+            "SavePoint can't start over in its default folder, shown below, because it already holds snapshots. To use them, choose \"Find the folder\" and pick it. To start over, move that folder elsewhere first; the snapshots go with it.",
             startup.StorageActionError);
         Assert.True(startup.HasStorageActionErrorPath);
         Assert.Equal(_defaultStorageRoot, startup.StorageActionErrorPath);

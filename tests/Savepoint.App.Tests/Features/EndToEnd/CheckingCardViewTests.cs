@@ -23,7 +23,7 @@ public class CheckingCardViewTests
         var card = app.All<LaunchCheckingView>().Single();
         var texts = card.GetVisualDescendants().OfType<TextBlock>().Where(block => block.IsEffectivelyVisible).Select(block => block.Text).ToList();
         Assert.Contains("Checking your files…", texts);
-        Assert.Contains("This can take a moment on a large game.", texts);
+        Assert.Contains("Large games take a moment.", texts);
         Assert.True(app.Find<ProgressBar>("Bar").IsIndeterminate);
         var cancel = app.Find<Button>("CancelButton");
         Assert.Equal("Cancel", AutomationAudit.NameOf(cancel));

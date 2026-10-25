@@ -34,7 +34,7 @@ public class PostPlayDialogViewModelTests : IDisposable
         var dialog = await NormalAsync();
 
         Assert.Equal("You played for 2 hours 14 minutes", dialog.Title);
-        Assert.Equal("3 files in your saves folder are new or changed since you started. What should SavePoint do with them?", dialog.Body);
+        Assert.Equal("3 files in your saves folder are new or changed since you started.", dialog.Body);
         Assert.Equal(580, dialog.DialogWidth);
     }
 
@@ -47,7 +47,7 @@ public class PostPlayDialogViewModelTests : IDisposable
 
         Assert.Equal("SavePoint didn't see the game running", dialog.Title);
         Assert.True(dialog.HasNotSeenHint);
-        Assert.Equal("SavePoint waited two minutes for the game's program name from Edit game to show up as a running program, and it never did, so it can't tell how long you played. If the game did run, that name may be wrong, or the game may have taken longer than two minutes to start. Your saves stay as they are until you choose what to do with them.", dialog.NotSeenHint);
+        Assert.Equal("The program name from Edit game never showed up as running in two minutes, so SavePoint can't tell how long you played. The name may be wrong, or the game started slowly.", dialog.NotSeenHint);
         Assert.Equal("Open Edit game", dialog.EditGameLabel);
         Assert.Equal($"{dialog.Body} {dialog.NotSeenHint}", dialog.Description);
         Assert.DoesNotContain("process", dialog.NotSeenHint, StringComparison.OrdinalIgnoreCase);
@@ -61,7 +61,7 @@ public class PostPlayDialogViewModelTests : IDisposable
         var dialog = Build(exited);
 
         Assert.Equal("You played for 2 hours 14 minutes", dialog.Title);
-        Assert.Equal("The game's program name in Edit game never showed up as a running program, so SavePoint went by when the program it started closed. If that isn't when you stopped playing, check the name.", dialog.NotSeenHint);
+        Assert.Equal("The program name in Edit game never showed up as running, so SavePoint went by when the program it started closed. If that's wrong, check the name.", dialog.NotSeenHint);
         Assert.Equal("Open Edit game", dialog.EditGameLabel);
     }
 
@@ -73,7 +73,7 @@ public class PostPlayDialogViewModelTests : IDisposable
         var dialog = Build(exited);
 
         Assert.Equal("SavePoint couldn't tell how long you played", dialog.Title);
-        Assert.Equal("SavePoint couldn't check which programs were running on this computer, so it doesn't know when the game closed. Your saves stay as they are until you choose what to do with them.", dialog.NotSeenHint);
+        Assert.Equal("SavePoint couldn't check which programs were running, so it doesn't know when the game closed.", dialog.NotSeenHint);
         Assert.False(dialog.HasEditGame);
     }
 
@@ -105,8 +105,8 @@ public class PostPlayDialogViewModelTests : IDisposable
     {
         var exited = await _rig.ExitedAsync(newFiles: 1);
 
-        Assert.Equal("1 file in your saves folder is new or changed since you started. What should SavePoint do with it?", Build(exited).Body);
-        Assert.Equal("SavePoint found no new or changed saves to keep. What should it do with this session?", Build(exited with { NewFileCount = 0 }).Body);
+        Assert.Equal("1 file in your saves folder is new or changed since you started.", Build(exited).Body);
+        Assert.Equal("SavePoint found no new or changed saves to keep.", Build(exited with { NewFileCount = 0 }).Body);
     }
 
     [Fact]
@@ -128,13 +128,13 @@ public class PostPlayDialogViewModelTests : IDisposable
         Assert.Equal([CompletionChoice.CaptureNew, CompletionChoice.UpdateExisting, CompletionChoice.Skip], dialog.Choices.Select(c => c.Kind));
         var (keep, update, skip) = (dialog.Choices[0], dialog.Choices[1], dialog.Choices[2]);
         Assert.Equal("Keep this session as a new snapshot", keep.Title);
-        Assert.Equal("Recommended. Your earlier snapshots stay exactly as they are.", keep.Subtitle);
+        Assert.Equal("Recommended. Your earlier snapshots stay as they are.", keep.Subtitle);
         Assert.Equal(Icons.AddCircle, keep.Icon);
         Assert.Equal("Replace \"Before the final boss\" with this session", update.Title);
-        Assert.Equal("What \"Before the final boss\" held before is removed. It stays in History under \"Recently removed\" until you next free up space, and you can bring it back as a new profile.", update.Subtitle);
+        Assert.Equal("What \"Before the final boss\" held before moves to Recently removed.", update.Subtitle);
         Assert.Equal(Icons.Edit, update.Icon);
         Assert.Equal("Not now", skip.Title);
-        Assert.Equal("Nothing is lost. Your saves stay in your game folders as new changes, and SavePoint asks again before you switch profiles.", skip.Subtitle);
+        Assert.Equal("Your saves stay in your game folders as new changes. SavePoint asks again before you switch profiles.", skip.Subtitle);
         Assert.Equal(Icons.Schedule, skip.Icon);
     }
 
@@ -183,13 +183,13 @@ public class PostPlayDialogViewModelTests : IDisposable
         Assert.Same(Card(dialog, CompletionChoice.ForkNewProfile), dialog.SelectedChoice);
         var (fork, move) = (dialog.Choices[0], dialog.Choices[1]);
         Assert.Equal("Keep this session as a new profile", fork.Title);
-        Assert.Equal("Recommended. \"Modded playthrough - 7-2-26\" stays exactly as it is, newer snapshots included, and this session starts a profile of its own.", fork.Subtitle);
+        Assert.Equal("Recommended. \"Modded playthrough - 7-2-26\" and its newer snapshots stay as they are.", fork.Subtitle);
         Assert.Equal("Profile name:", fork.NameLabel);
         Assert.Equal("New progress - 7-8-26", fork.Name);
         Assert.Equal("Continue \"Modded playthrough - 7-2-26\" from this session", move.Title);
-        Assert.Equal("This session becomes the latest snapshot of \"Modded playthrough - 7-2-26\". Its 1 newer snapshot is removed from it. It stays in History under \"Recently removed\" until you next free up space, and you can bring it back as a new profile.", move.Subtitle);
+        Assert.Equal("This session becomes the latest snapshot of \"Modded playthrough - 7-2-26\". 1 newer snapshot moves to Recently removed.", move.Subtitle);
         Assert.True(dialog.HasOlderNote);
-        Assert.Equal("You played from an older snapshot of \"Modded playthrough - 7-2-26\", so this session can't simply go on the end of it.", dialog.OlderNote);
+        Assert.Equal("You played from an older snapshot of \"Modded playthrough - 7-2-26\", so this session can't go on the end of it.", dialog.OlderNote);
     }
 
     [Fact]
@@ -223,7 +223,7 @@ public class PostPlayDialogViewModelTests : IDisposable
         var dialog = await NormalAsync(installFiles: 14);
 
         Assert.True(dialog.HasInstallNote);
-        Assert.Equal("14 files in the game's own folder also changed while you played, as an update would.", dialog.InstallNote);
+        Assert.Equal("14 files in the game's own folder also changed, as an update would.", dialog.InstallNote);
     }
 
     private async Task<PostPlayDialogViewModel> RunTimeOnlyAsync(int installFiles = 3, string rule = "**/*.dmp") =>
@@ -238,7 +238,7 @@ public class PostPlayDialogViewModelTests : IDisposable
         var dialog = await RunTimeOnlyAsync();
 
         Assert.True(dialog.HasInstallNote);
-        Assert.Equal("3 files in the game's own folder changed while you played. They are only logs or crash reports that the game writes while it runs, not an update.", dialog.InstallNote);
+        Assert.Equal("3 files in the game's own folder changed. They're logs or crash reports, not an update.", dialog.InstallNote);
         Assert.DoesNotContain("update would", dialog.InstallNote, StringComparison.Ordinal);
         Assert.True(dialog.HasLeaveOut);
         Assert.Equal("Leave these out from now on", dialog.LeaveOutLabel);
@@ -249,7 +249,7 @@ public class PostPlayDialogViewModelTests : IDisposable
     {
         var dialog = await RunTimeOnlyAsync(installFiles: 1);
 
-        Assert.Equal("1 file in the game's own folder changed while you played. It is only a log or crash report that the game writes while it runs, not an update.", dialog.InstallNote);
+        Assert.Equal("1 file in the game's own folder changed. It's a log or crash report, not an update.", dialog.InstallNote);
     }
 
     [Fact]
@@ -284,7 +284,7 @@ public class PostPlayDialogViewModelTests : IDisposable
         Assert.Equal(CompletionChoice.UpdateExisting, dialog.SelectedChoice.Kind);
         Assert.False(dialog.HasLeaveOut);
         Assert.True(dialog.HasLeaveOutResult);
-        Assert.Equal("Done. SavePoint leaves these files out of the game's own folder from now on. You can change this under \"Files to leave out of the game's own folder\" in Edit game.", dialog.LeaveOutResult);
+        Assert.Equal("Done. You can change this under \"Files to leave out of the game's own folder\" in Edit game.", dialog.LeaveOutResult);
     }
 
     [Fact]
@@ -338,7 +338,7 @@ public class PostPlayDialogViewModelTests : IDisposable
 
         // Even with a file in the saves folder that the rule would match: it never applies there.
         Assert.Equal(["**/*.dmp"], (await SavedGameAsync()).InstallIgnorePaths);
-        Assert.Equal("Done. SavePoint leaves these files out of the game's own folder from now on. You can change this under \"Files to leave out of the game's own folder\" in Edit game.", dialog.LeaveOutResult);
+        Assert.Equal("Done. You can change this under \"Files to leave out of the game's own folder\" in Edit game.", dialog.LeaveOutResult);
     }
 
     [Fact]
@@ -421,7 +421,7 @@ public class PostPlayDialogViewModelTests : IDisposable
 
         var request = Assert.Single(_rig.Dialogs.Confirmations);
         Assert.Equal("Replace this snapshot?", request.Title);
-        Assert.Equal("\"Before the final boss\" will hold this session instead. What it held before stays in History under \"Recently removed\" until you next free up space, and you can bring it back as a new profile. After that, it is deleted for good.", request.Message);
+        Assert.Equal("\"Before the final boss\" will hold this session instead. What it held before is kept in Recently removed until you next free up space. Until then you can bring it back as a new profile. After that, it is deleted for good.", request.Message);
         Assert.Equal("Replace it", request.ConfirmLabel);
         Assert.True(request.Destructive);
         Assert.False(dialog.IsClosed);
@@ -466,7 +466,7 @@ public class PostPlayDialogViewModelTests : IDisposable
 
         var request = _rig.Dialogs.Confirmations[0];
         Assert.Equal("Continue \"Modded playthrough - 7-2-26\" from this session?", request.Title);
-        Assert.Equal("1 newer snapshot is removed from \"Modded playthrough - 7-2-26\". It stays in History under \"Recently removed\" until you next free up space, and you can bring it back as a new profile until then. After that, it is deleted for good.", request.Message);
+        Assert.Equal("1 newer snapshot is removed from \"Modded playthrough - 7-2-26\" and kept in Recently removed until you next free up space. Until then you can bring it back as a new profile. After that, it is deleted for good.", request.Message);
         Assert.Equal("Remove and continue", request.ConfirmLabel);
         Assert.True(request.Destructive);
         Assert.True(dialog.IsClosed);
@@ -499,7 +499,7 @@ public class PostPlayDialogViewModelTests : IDisposable
 
         Assert.Empty(_rig.Dialogs.Confirmations);
         Assert.True(dialog.IsClosed);
-        Assert.Equal("This session becomes the latest snapshot of \"Modded playthrough - 7-2-26\". Nothing is removed from it.", dialog.Choices[1].Subtitle);
+        Assert.Equal("This session becomes the latest snapshot of \"Modded playthrough - 7-2-26\". Nothing is removed.", dialog.Choices[1].Subtitle);
     }
 
     [Fact]

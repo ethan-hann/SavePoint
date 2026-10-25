@@ -47,7 +47,7 @@ public class LaunchFlowBeginTests : IDisposable
         Assert.False(begin.IsCompleted);
         var card = _f.Inline<LaunchCheckingViewModel>();
         Assert.Equal("Checking your files…", card.Title);
-        Assert.Equal("This can take a moment on a large game.", card.Hint);
+        Assert.Equal("Large games take a moment.", card.Hint);
         Assert.True(_f.Flow.IsActive(FlowRig.Skyrim));
 
         release.SetResult();

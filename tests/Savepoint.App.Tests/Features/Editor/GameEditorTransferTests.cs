@@ -166,7 +166,7 @@ public class GameEditorTransferTests
         var toast = OnlyToast(rig);
         Assert.Equal(ToastKind.Error, toast.Message.Kind);
         Assert.Equal("SavePoint couldn't use that file.", toast.Text);
-        Assert.Equal("Give the game a name. This game's file was made for a different version of SavePoint, so it can't be used here.", toast.Details);
+        Assert.Equal("Give the game a name. This game's file is from a different version of SavePoint.", toast.Details);
         Assert.Equal("Mine", editor.Name);
     }
 

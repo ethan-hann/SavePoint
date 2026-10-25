@@ -447,7 +447,7 @@ public class GameEditorArtworkTests
         Assert.Equal("Skyrim SE", rig.Saved("UpdateAsync").Name);
         Assert.NotNull(editor.ArtworkError);
         Assert.Equal("That file isn't a picture SavePoint can use", editor.ArtworkError.Title);
-        Assert.Contains("PNG, JPEG, and WebP", editor.ArtworkError.Body, StringComparison.Ordinal);
+        Assert.Contains("PNG, JPEG, or WebP", editor.ArtworkError.Body, StringComparison.Ordinal);
         Assert.DoesNotContain("close", rig.Shell.Calls);
         Assert.Contains("refresh", rig.Shell.Calls);
         Assert.True(editor.IsDirty);
