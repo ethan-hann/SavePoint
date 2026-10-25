@@ -359,7 +359,7 @@ public class StartupViewModelTests
     public async Task The_composition_does_not_offer_a_retry_for_a_backend_that_never_started()
     {
         var failure = ErrorInfo.From(new IOException("The configuration folder cannot be created."));
-        var main = AppComposition.Create(AppBootstrap.Unavailable(failure), _text, new RecordingThemeApplier(), () => null, new ImmediateUiDispatcher(), new ManualTimeProvider(), new FakeDialogs());
+        using var main = AppComposition.Create(AppBootstrap.Unavailable(failure), _text, new RecordingThemeApplier(), () => null, new ImmediateUiDispatcher(), new ManualTimeProvider(), new FakeDialogs());
 
         await main.Startup.CheckAsync();
 

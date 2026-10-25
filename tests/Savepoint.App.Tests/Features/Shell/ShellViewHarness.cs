@@ -92,11 +92,7 @@ internal sealed class ShellViewHarness : IDisposable
 
     public void Dispose()
     {
-        if (Main.Shell is { } shell)
-        {
-            shell.Dispose();
-        }
-
+        Main.Dispose();
         _host.Dispose();
     }
 }

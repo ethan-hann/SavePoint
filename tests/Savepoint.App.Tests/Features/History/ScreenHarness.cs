@@ -127,11 +127,7 @@ internal sealed class ScreenHarness : IDisposable
 
     public void Dispose()
     {
-        if (Main.Shell is { } shell)
-        {
-            shell.Dispose();
-        }
-
+        Main.Dispose();
         _host.Dispose();
     }
 }

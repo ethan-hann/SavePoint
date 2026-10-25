@@ -183,6 +183,10 @@ public class ShellRenderTests
             return ThemeTestSupport.SaveFrame(_host.Window, Path.Combine(ShellViewHarness.OutputFolder, fileName + ".png"));
         }
 
-        public void Dispose() => _host.Dispose();
+        public void Dispose()
+        {
+            Main.Dispose();
+            _host.Dispose();
+        }
     }
 }

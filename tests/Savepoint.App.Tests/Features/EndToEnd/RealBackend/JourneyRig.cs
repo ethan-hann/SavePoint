@@ -339,7 +339,7 @@ internal sealed class JourneyRig : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         GC.SuppressFinalize(this);
-        Main.Shell?.Dispose();
+        Main.Dispose();
         _host.Dispose();
         foreach (var program in _programs)
         {

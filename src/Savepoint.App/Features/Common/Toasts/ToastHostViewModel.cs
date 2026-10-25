@@ -85,7 +85,7 @@ public sealed partial class ToastViewModel : ObservableObject
 /// pointer or keyboard focus on the toasts pauses every timer (<see cref="SetPaused"/>). Each new toast is also
 /// published in <see cref="Announcement"/>, which the view exposes as a polite live region.
 /// </summary>
-public sealed partial class ToastHostViewModel : ObservableObject
+public sealed partial class ToastHostViewModel : ObservableObject, IDisposable
 {
     /// <summary>The most timed toasts shown at once; warnings and errors are not counted.</summary>
     public const int MaxVisible = 3;
@@ -98,6 +98,7 @@ public sealed partial class ToastHostViewModel : ObservableObject
     private readonly TimeProvider _clock;
     private readonly IUiDispatcher _dispatcher;
     private readonly Dictionary<ToastViewModel, Countdown> _countdowns = [];
+    private bool _disposed;
 
     [ObservableProperty]
     private string _announcement = string.Empty;
@@ -209,11 +210,41 @@ public sealed partial class ToastHostViewModel : ObservableObject
         Toasts.Remove(toast);
     }
 
+    /// <summary>
+    /// Stops every timer and drops the toasts' countdowns. A dismissal already handed to the dispatcher does nothing when it runs,
+    /// and a toast shown afterwards stays until dismissed, since nothing times it. Safe to call more than once.
+    /// </summary>
+    public void Dispose()
+    {
+        _disposed = true;
+        foreach (var countdown in _countdowns.Values)
+        {
+            countdown.Timer?.Dispose();
+            countdown.Timer = null;
+        }
+
+        _countdowns.Clear();
+    }
+
     private void Arm(ToastViewModel toast, Countdown countdown)
     {
+        if (_disposed)
+        {
+            return;
+        }
+
         countdown.Timer?.Dispose();
         countdown.ArmedAt = _clock.GetUtcNow();
-        countdown.Timer = _clock.CreateTimer(_ => _dispatcher.Post(() => Dismiss(toast)), null, countdown.Remaining, Timeout.InfiniteTimeSpan);
+        countdown.Timer = _clock.CreateTimer(_ => _dispatcher.Post(() => DismissWhenTimedOut(toast)), null, countdown.Remaining, Timeout.InfiniteTimeSpan);
+    }
+
+    // A timer that ran out just before disposal still has its dismissal queued; it must not touch the list afterwards.
+    private void DismissWhenTimedOut(ToastViewModel toast)
+    {
+        if (!_disposed)
+        {
+            Dismiss(toast);
+        }
     }
 
     // How long a timed toast has left, and the timer that is running it down while it does.

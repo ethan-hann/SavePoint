@@ -86,7 +86,7 @@ internal sealed class GamesViewHarness : IDisposable
 
     public void Dispose()
     {
-        Rig.Shell.Dispose();
+        Main.Dispose();
         _host.Dispose();
     }
 }

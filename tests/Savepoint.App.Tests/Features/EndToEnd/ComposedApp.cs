@@ -182,7 +182,7 @@ internal sealed class ComposedApp : IDisposable
 
     public void Dispose()
     {
-        Main.Shell?.Dispose();
+        Main.Dispose();
         _themeHost?.Dispose();
     }
 

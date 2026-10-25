@@ -17,11 +17,11 @@ public class MainWindowViewModelTests
 {
     private static readonly UiFormatter _text = new(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), os: "windows", timeZone: TimeZoneInfo.Utc);
 
-    private static (MainWindowViewModel Main, FakeBackend Backend, List<ShellViewModel> Shells) Build(FakeBackend? backend = null)
+    private static (MainWindowViewModel Main, FakeBackend Backend, List<ShellViewModel> Shells) Build(FakeBackend? backend = null, ManualTimeProvider? clock = null)
     {
         backend ??= FakeBackend.Mockup();
         var shells = new List<ShellViewModel>();
-        var toasts = new ToastHostViewModel(new ManualTimeProvider(), new ImmediateUiDispatcher());
+        var toasts = new ToastHostViewModel(clock ?? new ManualTimeProvider(), new ImmediateUiDispatcher());
         var dialogs = new DialogHostViewModel();
         var main = new MainWindowViewModel(
             new StartupViewModel(backend.AppStatus, _text),
@@ -57,6 +57,43 @@ public class MainWindowViewModelTests
         Assert.Same(main.Startup, main.Content);
         Assert.Null(main.Shell);
         Assert.Empty(shells);
+    }
+
+    [Fact]
+    public void Disposing_the_window_stops_the_toast_timers()
+    {
+        var clock = new ManualTimeProvider();
+        var (main, _, _) = Build(clock: clock);
+        main.Toasts.Show(new ToastMessage("Saved.", ToastKind.Success));
+
+        main.Dispose();
+        clock.Advance(TimeSpan.FromSeconds(7));
+
+        Assert.Single(main.Toasts.Toasts);
+    }
+
+    [Fact]
+    public async Task A_disposed_window_builds_no_shell_when_the_checks_pass_late()
+    {
+        var (main, _, shells) = Build();
+        main.Dispose();
+
+        await main.InitializeAsync();
+
+        Assert.Empty(shells);
+        Assert.Null(main.Shell);
+    }
+
+    [Fact]
+    public async Task Disposing_the_window_twice_is_harmless_once_the_shell_is_up()
+    {
+        var (main, _, _) = Build();
+        await main.InitializeAsync();
+
+        main.Dispose();
+
+        var exception = Record.Exception(main.Dispose);
+        Assert.Null(exception);
     }
 
     [Fact]

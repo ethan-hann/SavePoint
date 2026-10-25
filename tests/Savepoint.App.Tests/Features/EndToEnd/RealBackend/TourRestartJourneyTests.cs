@@ -23,7 +23,7 @@ public class TourRestartJourneyTests
         await rig.WaitAsync(() => File.Exists(settingsFile) && File.ReadAllText(settingsFile).Contains("\"tourSeen\": true", StringComparison.Ordinal), "the settings file to record that the tour started");
 
         var application = (App)Application.Current!;
-        var restarted = AppComposition.Create(
+        using var restarted = AppComposition.Create(
             rig.Services,
             rig.Text,
             new ThemeServiceApplier(application.Theme),

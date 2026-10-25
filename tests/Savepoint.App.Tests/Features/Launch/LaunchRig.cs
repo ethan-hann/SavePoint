@@ -90,5 +90,9 @@ internal sealed class LaunchRig : IDisposable
 
     public async Task<AppSettings> SettingsAsync() => FakeAssert.Ok(await Backend.Settings.GetAsync());
 
-    public void Dispose() => Awaiter.Dispose();
+    public void Dispose()
+    {
+        Toasts.Dispose();
+        Awaiter.Dispose();
+    }
 }

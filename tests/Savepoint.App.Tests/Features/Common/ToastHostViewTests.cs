@@ -159,6 +159,10 @@ public class ToastHostViewTests
             Dispatcher.UIThread.RunJobs();
         }
 
-        public void Dispose() => _host.Dispose();
+        public void Dispose()
+        {
+            Host.Dispose();
+            _host.Dispose();
+        }
     }
 }

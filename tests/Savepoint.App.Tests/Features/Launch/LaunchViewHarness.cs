@@ -110,6 +110,7 @@ internal sealed class LaunchViewHarness : IDisposable
 
     public void Dispose()
     {
+        Main.Dispose();
         Flow.Dispose();
         Rig.Dispose();
         _host.Dispose();
