@@ -10,7 +10,7 @@ SavePoint is the undo button for that morning. It takes snapshots of the game's 
 
 > **Status:** pre-release. Windows and Linux builds work. macOS hasn't been tried on real hardware yet.
 
-![A game with three profiles: a modded playthrough, the vanilla latest update, and a survival test](docs/images/games.png)
+![A game with three profiles: Vanilla 1.4, a Modded playthrough with 38 mod files, and a Survival test](docs/images/games.png)
 
 ## How it plays
 
