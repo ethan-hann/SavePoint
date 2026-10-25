@@ -60,34 +60,20 @@ function Invoke-Step {
 
 function Get-SourceArchives {
     # The source archives a release publishes are the ones the manifest pins, beside the binaries they belong to.
-    $manifest = Get-Content -LiteralPath (Join-Path $repoRoot 'build/git-manifest.json') -Raw | ConvertFrom-Json -AsHashtable
-    $listed = $manifest['sources']
-    if (-not $listed -or $listed.Count -ne 3) {
-        $count = if ($listed) { $listed.Count } else { 0 }
-        throw "build/git-manifest.json has $count source entries in `"sources`"; expected 3 (git, Git for Windows, dugite-native)."
-    }
+    $listed = @(Get-TagSourcePins -ManifestPath (Join-Path $repoRoot 'build/git-manifest.json'))
     # The notices make the promise, so they have to name the same tags.
     $notices = Get-Content -LiteralPath (Join-Path $repoRoot 'THIRD-PARTY-NOTICES.md') -Raw
     $tick = [char]96
-    foreach ($key in $listed.Keys | Sort-Object) {
-        $promise = "$($listed[$key].repository), tag $tick$($listed[$key].tag)$tick"
+    foreach ($source in $listed) {
+        $promise = "$($source.Repository), tag $tick$($source.Tag)$tick"
         if (-not $notices.Contains($promise)) {
-            throw "THIRD-PARTY-NOTICES.md does not promise source for $promise, which build/git-manifest.json pins for $key."
+            throw "THIRD-PARTY-NOTICES.md does not promise source for $promise, which build/git-manifest.json pins for $($source.Key)."
         }
-        [pscustomobject]@{ Repository = $listed[$key].repository; Tag = $listed[$key].tag; Sha256 = "$($listed[$key].sha256)".Trim().ToLowerInvariant() }
+        $source
     }
 }
 
-function Get-PackageSourceArchives {
-    # The MSYS2 and MINGW packages inside the Windows git bundle are listed, with their hashes, in build/msys2-sources.json.
-    $listed = (Get-Content -LiteralPath (Join-Path $repoRoot 'build/msys2-sources.json') -Raw | ConvertFrom-Json -AsHashtable)['archives']
-    if (-not $listed -or $listed.Count -eq 0) {
-        throw 'build/msys2-sources.json lists no source archives in "archives".'
-    }
-    foreach ($archive in $listed) {
-        [pscustomobject]@{ File = $archive['file']; Url = $archive['url']; Sha256 = "$($archive['sha256'])".Trim().ToLowerInvariant() }
-    }
-}
+. (Join-Path $PSScriptRoot 'package-sources.ps1')
 
 function Get-PackageEntryNames {
     param([string]$Path)
@@ -167,7 +153,12 @@ try {
         # The packages of the Windows git bundle go in a folder of their own, so the three tag archives stay easy to find.
         $packageDir = Join-Path $sourceDir 'packages'
         New-Item -ItemType Directory -Force -Path $packageDir | Out-Null
-        foreach ($package in Get-PackageSourceArchives) {
+        $packageArchives = @(Get-PackageSourceArchives -ManifestPath (Join-Path $repoRoot 'build/msys2-sources.json'))
+        # An older list's archives would otherwise stay in the folder and be published with this release.
+        foreach ($name in @(Remove-StalePackageSources -Directory $packageDir -Archives $packageArchives)) {
+            Write-Host "removed stale source archive: $name"
+        }
+        foreach ($package in $packageArchives) {
             $target = Join-Path $packageDir $package.File
             $partial = "$target.part"
             Write-Host "==> $($package.File)"

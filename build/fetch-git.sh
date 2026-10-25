@@ -3,7 +3,7 @@
 #
 # Usage: build/fetch-git.sh [runtime-id] [--force] [--prune-only <folder>] [--manifest <file>]
 #
-# Reads build/git-manifest.json, downloads the archive to .tools/downloads/, refuses it unless its
+# Reads build/git-manifest.json (through tools/PackageSources, so the .NET SDK has to be on the path), downloads the archive to .tools/downloads/, refuses it unless its
 # SHA-256 matches the manifest, extracts it beside the final folder, deletes what the layout's
 # "prune" list names (Git Credential Manager, Git LFS, the http transport) and renames it into place.
 # A stamp file inside the bundle records version, hash, stamp format and the prune list that was applied,
@@ -65,22 +65,6 @@ host_runtime_id() {
   echo "$os-$arch"
 }
 
-# The manifest keeps one "key": "value" pair per line, which is all this parser relies on.
-manifest_value() {
-  awk -v rid="$1" -v key="$2" '
-    $0 ~ ("^  \"" rid "\": \\{") { inblock = 1; next }
-    inblock && /^  \}/ { exit }
-    inblock {
-      prefix = "^    \"" key "\": \""
-      if ($0 ~ prefix) {
-        sub(prefix, "")
-        sub(/",?[ \t\r]*$/, "")
-        print
-        exit
-      }
-    }
-  ' "$manifest"
-}
 
 sha256_of() {
   local sum
@@ -112,22 +96,6 @@ stamp_matches() {
     grep -qxF "entry=$entry" "$stamp" &&
     grep -qxF "format=$stamp_format" "$stamp" &&
     grep -qxF "prune=$prune_hash" "$stamp"
-}
-
-# One pattern per line, between the layout's "prune": [ and its closing bracket.
-manifest_prune_patterns() {
-  awk -v layout="$1" '
-    $0 ~ ("^    \"" layout "\": \\{") { inlayout = 1; next }
-    inlayout && /^    \}/ { exit }
-    inlayout && /^      "prune": \[/ { inlist = 1; next }
-    inlist && /^      \]/ { exit }
-    inlist {
-      line = $0
-      sub(/^[ \t]*"/, "", line)
-      sub(/",?[ \t\r]*$/, "", line)
-      print line
-    }
-  ' "$manifest"
 }
 
 check_prune_pattern() {
@@ -187,31 +155,65 @@ report_up_to_date() {
 }
 
 lock_dir=""
+read_lock_dir=""
 staging=""
 release_lock() {
   [ -n "$staging" ] && rm -rf "$staging"
   [ -n "$lock_dir" ] && rm -rf "$lock_dir"
+  [ -n "$read_lock_dir" ] && rm -rf "$read_lock_dir"
   return 0
 }
 
+# Takes the lock folder $1, waiting while another live process holds it.
 acquire_lock() {
-  lock_dir="$downloads_dir/$rid.lock.d"
-  local waited=0 owner
-  until mkdir "$lock_dir" 2>/dev/null; do
-    owner="$(cat "$lock_dir/pid" 2>/dev/null || true)"
+  local dir="$1" waited=0 owner
+  mkdir -p "$downloads_dir"
+  until mkdir "$dir" 2>/dev/null; do
+    owner="$(cat "$dir/pid" 2>/dev/null || true)"
     if [ -n "$owner" ] && ! kill -0 "$owner" 2>/dev/null; then
-      rm -rf "$lock_dir" # the process that held it died
+      rm -rf "$dir" # the process that held it died
       continue
     fi
-    if [ -z "$owner" ] && [ -n "$(find "$lock_dir" -maxdepth 0 -mmin +10 2>/dev/null)" ]; then
-      rm -rf "$lock_dir" # never got as far as writing its pid
+    if [ -z "$owner" ] && [ -n "$(find "$dir" -maxdepth 0 -mmin +10 2>/dev/null)" ]; then
+      rm -rf "$dir" # never got as far as writing its pid
       continue
     fi
     waited=$((waited + 1))
-    [ "$waited" -le 900 ] || fail "timed out waiting for another fetch of the git bundle ($lock_dir)"
+    [ "$waited" -le 900 ] || fail "timed out waiting for another fetch of the git bundle ($dir)"
     sleep 1
   done
-  echo $$ >"$lock_dir/pid"
+  echo $$ >"$dir/pid"
+}
+
+# Reads the bundle of $rid from the manifest into url, version, sha256, archive_type, layout, entry and prune_patterns. The
+# PackageSources tool does the reading (the build already needs the .NET SDK), so no layout of the JSON can change what is read.
+# Builds of several projects can reach this at once and each would build the tool, so the read waits its turn.
+read_manifest() {
+  local dotnet_cmd="${DOTNET_HOST_PATH:-dotnet}" output line
+  command -v "$dotnet_cmd" >/dev/null 2>&1 || fail "the .NET SDK is needed to read $manifest, and dotnet is not on the path"
+  read_lock_dir="$downloads_dir/manifest-read.lock.d"
+  acquire_lock "$read_lock_dir"
+  output="$(DOTNET_NOLOGO=1 DOTNET_CLI_TELEMETRY_OPTOUT=1 "$dotnet_cmd" run --project "$repo_root/tools/PackageSources" -c Release -v q -- bundle "$manifest" "$rid")" ||
+    fail "could not read the git bundle of '$rid' from $manifest"
+  rm -rf "$read_lock_dir"
+  read_lock_dir=""
+  url="" version="" sha256="" archive_type="" layout="" entry="" prune_patterns=""
+  while IFS= read -r line; do
+    line="${line%$'\r'}"
+    # Anything else the tool's host printed is ignored.
+    case "$line" in
+      url=*) url="${line#url=}" ;;
+      version=*) version="${line#version=}" ;;
+      sha256=*) sha256="${line#sha256=}" ;;
+      archive=*) archive_type="${line#archive=}" ;;
+      layout=*) layout="${line#layout=}" ;;
+      entry=*) entry="${line#entry=}" ;;
+      prune=*) prune_patterns="$prune_patterns${line#prune=}"$'\n' ;;
+    esac
+  done <<EOF
+$output
+EOF
+  prune_patterns="${prune_patterns%$'\n'}"
 }
 
 download() {
@@ -262,19 +264,12 @@ extract() {
 }
 
 [ -n "$rid" ] || rid="$(host_runtime_id)"
-url="$(manifest_value "$rid" url)"
-[ -n "$url" ] || fail "no bundled git for runtime id '$rid'"
-version="$(manifest_value "$rid" version)"
-sha256="$(manifest_value "$rid" sha256)"
-archive_type="$(manifest_value "$rid" archive)"
-layout="$(manifest_value "$rid" layout)"
-entry="$(manifest_value "$rid" entry)"
-for value in "$version" "$sha256" "$archive_type" "$layout" "$entry"; do
+trap release_lock EXIT
+read_manifest
+for value in "$url" "$version" "$sha256" "$archive_type" "$layout" "$entry" "$prune_patterns"; do
   [ -n "$value" ] || fail "incomplete manifest entry for '$rid'"
 done
 
-prune_patterns="$(manifest_prune_patterns "$layout")"
-[ -n "$prune_patterns" ] || fail "the manifest has no prune list for layout '$layout'"
 while IFS= read -r pattern; do
   check_prune_pattern "$pattern"
 done <<EOF
@@ -296,8 +291,8 @@ if [ "$force" -eq 0 ] && stamp_matches; then
 fi
 
 mkdir -p "$downloads_dir" "$bundles_dir"
-trap release_lock EXIT
-acquire_lock
+lock_dir="$downloads_dir/$rid.lock.d"
+acquire_lock "$lock_dir"
 staging="$bundles_dir/.$rid.staging-$$"
 
 # Another process may have finished the same fetch while this one waited.

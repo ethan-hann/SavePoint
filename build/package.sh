@@ -67,6 +67,8 @@ fail() {
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo"
+# shellcheck source=build/package-sources.sh
+. "$repo/build/package-sources.sh"
 
 # Builds, vpk and the downloads all inherit this, so packaging never starves the machine it runs on.
 renice -n 10 $$ >/dev/null 2>&1 || true
@@ -141,16 +143,8 @@ echo "==> SavePoint $version ($revision) for $rid, with .NET SDK $(dotnet --vers
 if [ "$sources" -eq 1 ]; then
   source_dir="$repo/artifacts/release/source"
   mkdir -p "$source_dir"
-  # The source archives a release publishes are the ones the manifest pins, beside the binaries they belong to. The manifest keeps
-  # one "key": "value" pair per line, which is all this reads, as build/fetch-git.sh does.
-  pins="$(awk '
-    /^  "sources": \{/ { insources = 1; next }
-    insources && /^  \}/ { exit }
-    insources && /^      "repository": "/ { repository = $0; sub(/^      "repository": "/, "", repository); sub(/",?[ \t\r]*$/, "", repository) }
-    insources && /^      "tag": "/ { tag = $0; sub(/^      "tag": "/, "", tag); sub(/",?[ \t\r]*$/, "", tag) }
-    insources && /^      "sha256": "/ { sha = $0; sub(/^      "sha256": "/, "", sha); sub(/",?[ \t\r]*$/, "", sha); sha = tolower(sha) }
-    insources && /^    \}/ { print repository " " tag " " sha; repository = tag = sha = "" }
-  ' build/git-manifest.json)"
+  # The source archives a release publishes are the ones the manifest pins, beside the binaries they belong to.
+  pins="$(tag_source_pins build/git-manifest.json)" || fail "could not read the \"sources\" of build/git-manifest.json"
   [ "$(printf '%s\n' "$pins" | grep -c .)" -eq 3 ] || fail "build/git-manifest.json does not pin exactly 3 source archives in \"sources\" (git, Git for Windows, dugite-native)"
   problems=""
   while read -r repository tag pinned; do
@@ -173,19 +167,13 @@ if [ "$sources" -eq 1 ]; then
       mv -f "$partial" "$source_dir/$name"
     fi
   done <<<"$pins"
-  # The packages of the Windows git bundle go in a folder of their own, so the three tag archives stay easy to find. Their list keeps
-  # one "key": "value" pair per line, like the manifest above.
-  package_pins="$(awk '
-    /^  "archives": \[/ { inarchives = 1; next }
-    inarchives && /^  \]/ { exit }
-    inarchives && /^      "file": "/ { file = $0; sub(/^      "file": "/, "", file); sub(/",?[ \t\r]*$/, "", file) }
-    inarchives && /^      "url": "/ { url = $0; sub(/^      "url": "/, "", url); sub(/",?[ \t\r]*$/, "", url) }
-    inarchives && /^      "sha256": "/ { sha = $0; sub(/^      "sha256": "/, "", sha); sub(/",?[ \t\r]*$/, "", sha); sha = tolower(sha) }
-    inarchives && /^    \}/ { print file " " url " " sha; file = url = sha = "" }
-  ' build/msys2-sources.json)"
+  # The packages of the Windows git bundle go in a folder of their own, so the three tag archives stay easy to find.
+  package_pins="$(package_source_pins build/msys2-sources.json)" || fail "could not read build/msys2-sources.json"
   [ "$(printf '%s\n' "$package_pins" | grep -c .)" -gt 0 ] || fail "build/msys2-sources.json lists no source archives in \"archives\""
   package_dir="$source_dir/packages"
   mkdir -p "$package_dir"
+  # An older list's archives would otherwise stay in the folder and be published with this release.
+  remove_stale_package_sources "$package_dir" "$package_pins" || fail "could not clean $package_dir"
   while read -r file url pinned; do
     echo "==> $file"
     # An archive already in the folder was checked against its pin when it took its name, so only a changed pin makes it download again.
