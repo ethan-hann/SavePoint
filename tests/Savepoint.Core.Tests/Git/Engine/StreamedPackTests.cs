@@ -72,7 +72,7 @@ public sealed class StreamedPackTests : IDisposable
     public async Task Free_up_space_removes_a_big_file_no_snapshot_reaches_keeps_the_ones_that_are_reached_and_leaves_no_stale_keep()
     {
         var repo = await _ws.InitializedRepoAsync();
-        await CaptureWithBigFileAsync(repo, "profile-1", 1);
+        var reachedPack = await CaptureWithBigFileAsync(repo, "profile-1", 1);
         await _ws.GitWriteAsync(repo, "checkout", "--quiet", "-b", "profile-2");
         await CaptureWithBigFileAsync(repo, "profile-2", 2);
         await _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct);
@@ -81,14 +81,38 @@ public sealed class StreamedPackTests : IDisposable
         await _ws.GitWriteAsync(repo, "checkout", "--quiet", "profile-1");
         await _ws.Engine.DeleteBranchAsync(repo, "profile-2", Ct);
         await _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct);
-        Assert.NotEmpty(Keeps(repo));
+        Assert.Equal(2, Keeps(repo).Length);
         Assert.Equal(new[] { true, true }, await _ws.ObjectsExistAsync(repo, reached, orphan));
 
         await _ws.Engine.RepackAsync(repo, OptimizationMode.Reclaim, Ct);
 
         Assert.Equal(new[] { true, false }, await _ws.ObjectsExistAsync(repo, reached, orphan));
-        Assert.Empty(Keeps(repo));
-        Assert.Single(Packs(repo));
+        Assert.Equal([Path.ChangeExtension(reachedPack, ".keep")], Keeps(repo));
+        Assert.Equal(2, Packs(repo).Length);
+    }
+
+    [Fact]
+    public async Task Free_up_space_removes_a_keep_a_crash_left_empty_on_a_pack_it_frees_and_leaves_one_it_did_not_write()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        var anchor = await CaptureWithBigFileAsync(repo, "profile-1", 1);
+        await _ws.GitWriteAsync(repo, "checkout", "--quiet", "-b", "profile-2");
+        var first = await CaptureWithBigFileAsync(repo, "profile-2", 2);
+        await _ws.GitWriteAsync(repo, "checkout", "--quiet", "-b", "profile-3", "profile-1");
+        var second = await CaptureWithBigFileAsync(repo, "profile-3", 3);
+        var foreign = Path.Combine(PackFolder(repo), Path.ChangeExtension(second, ".keep"));
+        await File.WriteAllTextAsync(Path.Combine(PackFolder(repo), Path.ChangeExtension(first, ".keep")), string.Empty, Ct);
+        await File.WriteAllTextAsync(foreign, "kept by someone else\n", Ct);
+        await _ws.GitWriteAsync(repo, "checkout", "--quiet", "profile-1");
+        await _ws.Engine.DeleteBranchAsync(repo, "profile-2", Ct);
+        await _ws.Engine.DeleteBranchAsync(repo, "profile-3", Ct);
+
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Reclaim, Ct);
+
+        Assert.Equal(new[] { Path.ChangeExtension(anchor, ".keep"), Path.ChangeExtension(second, ".keep") }.Order(StringComparer.Ordinal), Keeps(repo));
+        Assert.Equal("kept by someone else\n", await File.ReadAllTextAsync(foreign, Ct));
+        Assert.DoesNotContain(first, Packs(repo));
+        Assert.Contains(second, Packs(repo));
     }
 
     [Fact]
@@ -106,24 +130,6 @@ public sealed class StreamedPackTests : IDisposable
 
         Assert.Empty(Keeps(repo));
         Assert.NotEmpty(Packs(repo));
-    }
-
-    [Fact]
-    public async Task Free_up_space_removes_a_keep_a_crash_left_empty_and_leaves_one_it_did_not_write()
-    {
-        var repo = await _ws.InitializedRepoAsync();
-        var first = await CaptureWithBigFileAsync(repo, "profile-1", 1);
-        var second = await CaptureWithBigFileAsync(repo, "profile-1", 2);
-        var foreign = Path.Combine(PackFolder(repo), Path.ChangeExtension(second, ".keep"));
-        await File.WriteAllTextAsync(Path.Combine(PackFolder(repo), Path.ChangeExtension(first, ".keep")), string.Empty, Ct);
-        await File.WriteAllTextAsync(foreign, "kept by someone else\n", Ct);
-
-        await _ws.Engine.RepackAsync(repo, OptimizationMode.Reclaim, Ct);
-
-        Assert.Equal([Path.ChangeExtension(second, ".keep")], Keeps(repo));
-        Assert.Equal("kept by someone else\n", await File.ReadAllTextAsync(foreign, Ct));
-        Assert.DoesNotContain(first, Packs(repo));
-        Assert.Contains(second, Packs(repo));
     }
 
     // 1,100 files are more objects than the sweep treats as a streamed pack, so only the capture's own keep can protect this one.

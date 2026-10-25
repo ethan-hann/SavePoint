@@ -92,9 +92,16 @@ public sealed class StreamedPackFailureTests : IDisposable
         }
 
         var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "Saves/slot.txt", "save");
+        await _ws.CaptureAsync(repo, "profile-1");
+        await _ws.GitWriteAsync(repo, "checkout", "--quiet", "-b", "profile-2");
         _ws.Write(repo, "Data/big.bin", Bulk(1));
         _writeKeep = WriteKeepFile;
-        await _ws.CaptureAsync(repo, "profile-1");
+        await _ws.CaptureAsync(repo, "profile-2");
+
+        // The keep is only removed from a pack that holds something nothing reaches, which is what the deleted profile leaves.
+        await _ws.GitWriteAsync(repo, "checkout", "--quiet", "profile-1");
+        await _ws.Engine.DeleteBranchAsync(repo, "profile-2", Ct);
         var keep = Path.Combine(PackFolder(repo), Assert.Single(Keeps(repo)));
         using var held = new FileStream(keep, FileMode.Open, FileAccess.Read, FileShare.Read);
 

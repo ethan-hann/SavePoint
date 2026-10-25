@@ -34,8 +34,9 @@ public sealed partial class GitEngine
     /// Tidies the store. <see cref="OptimizationMode.Routine"/> packs the loose objects with <c>git repack -d --geometric=2</c>:
     /// new objects go into a new pack and only small packs are merged, so the large packs written earlier are left alone (a pack a capture streamed its big files into carries a <c>.keep</c> file, and a pack as large as the big-file size gets one here);
     /// objects no branch reaches any more (a deleted profile, points a move-forward dropped) are packed along, not removed.
-    /// <see cref="OptimizationMode.Reclaim"/> expires reflogs, removes SavePoint's <c>.keep</c> files, packs every reachable object into one pack and prunes the
-    /// rest, so those objects are gone afterwards; it rewrites the whole store. Neither mode deletes a record of a removed snapshot
+    /// <see cref="OptimizationMode.Reclaim"/> expires reflogs, removes the <c>.keep</c> of every SavePoint-kept pack that holds an object nothing reaches, packs every reachable object
+    /// outside the packs that stay kept into one pack and prunes the rest, so the unreachable objects are gone afterwards. It rewrites only what it frees: a kept pack whose
+    /// objects are all reachable is left byte for byte as it is, and when nothing is unreachable or loose it starts no repack. Neither mode deletes a record of a removed snapshot
     /// (see <see cref="ListRemovedAsync(RepoRef, IReadOnlyCollection{string}, CancellationToken)"/>); only <see cref="ClearRemovedAsync"/> does, so what a record reaches survives both. No mode
     /// detaches or starts garbage collection, and none needs the game folder. Nothing a branch, HEAD, the index or a record reaches is
     /// ever dropped.
@@ -140,7 +141,7 @@ public sealed partial class GitEngine
     }
 
     // Everything no branch, HEAD, the index or a removed-snapshot record reaches goes: reflogs first (they pin old points), then
-    // one pack of what is reachable, then the loose objects nothing reaches.
+    // a pack of what is reachable (none when nothing is unreachable or loose), then the loose objects nothing reaches.
     private async Task ReclaimAsync(RepoRef repo, CancellationToken ct)
     {
         // The new pack is written before the old ones are removed, so the store briefly takes twice its size.
@@ -153,10 +154,15 @@ public sealed partial class GitEngine
         ReclaimMarker.Begin(repo.GitDir);
         try
         {
-            // A repack that packs everything leaves kept packs alone, so a big file nothing reaches would stay; the keeps go first.
-            RemoveKeeps(repo);
             await RunWriteAsync(() => ReclaimStep(repo, "reflog", "expire", "--expire=now", "--all"), ct).ConfigureAwait(false);
-            await RunWriteAsync(() => ReclaimStep(repo, "repack", "-q", "-a", "-d") with { ExtraEnvironment = _defaultPackCompression }, ct).ConfigureAwait(false);
+
+            // A repack that packs everything leaves kept packs alone, so a kept pack holding an object nothing reaches loses its keep
+            // and is rewritten; every other kept pack stays as it is.
+            if (await FreeKeptPacksHoldingUnreachableAsync(repo, ct).ConfigureAwait(false))
+            {
+                await RunWriteAsync(() => ReclaimStep(repo, "repack", "-q", "-a", "-d") with { ExtraEnvironment = _defaultPackCompression }, ct).ConfigureAwait(false);
+            }
+
             await RunWriteAsync(() => ReclaimStep(repo, "prune", "--expire=now"), ct).ConfigureAwait(false);
         }
         finally
@@ -169,7 +175,7 @@ public sealed partial class GitEngine
     // lightest and would be rolled up and copied. A ".keep" beside a pack makes repack leave it alone. Only SavePoint's own keeps carry
     // this text, so a reclaim never removes one it did not write.
     private const string _keepTextStart = "SavePoint:";
-    private const string _streamedPackKeepText = _keepTextStart + " holds files streamed at capture; routine repacks leave it alone, Free up space merges it.\n";
+    private const string _streamedPackKeepText = _keepTextStart + " holds files streamed at capture; repacks leave it alone, and Free up space rewrites it only when something in it is no longer needed.\n";
 
     private static string PackFolderOf(RepoRef repo) => Path.Combine(repo.GitDir, "objects", "pack");
 
@@ -250,29 +256,91 @@ public sealed partial class GitEngine
         }
     }
 
+    // Removes the keep of every SavePoint-kept pack that holds an object no ref, index entry or removed-snapshot record reaches, and says
+    // whether a repack has anything to do: such a pack, an unreachable object elsewhere, or loose objects to pack. Kept packs hold few
+    // objects, so naming each one's objects costs little, while the pack itself is never read.
+    private async Task<bool> FreeKeptPacksHoldingUnreachableAsync(RepoRef repo, CancellationToken ct)
+    {
+        var everything = await ObjectNamesAsync(repo, ["cat-file", "--batch-all-objects", "--unordered", "--batch-check=%(objectname)"], ct).ConfigureAwait(false);
+        var reachable = await ObjectNamesAsync(repo, ["rev-list", "--objects", "--all", "--indexed-objects"], ct).ConfigureAwait(false);
+        everything.ExceptWith(reachable);
+        if (everything.Count == 0)
+        {
+            return await ObjectStoreFigureAsync(repo, "count", ct).ConfigureAwait(false) > 0;
+        }
+
+        foreach (var keep in OwnKeepsOf(repo))
+        {
+            var pack = Path.ChangeExtension(keep, ".pack");
+            if (File.Exists(pack) && !await HoldsAnyAsync(repo, pack, everything, ct).ConfigureAwait(false))
+            {
+                continue;
+            }
+
+            try
+            {
+                File.Delete(keep);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                throw new GitOperationException("A pack's keep file could not be removed before the reclaim: " + e.Message);
+            }
+        }
+
+        return true;
+    }
+
+    // The first word of each output line, which is the object name for these commands (rev-list adds a path after it).
+    private async Task<HashSet<string>> ObjectNamesAsync(RepoRef repo, string[] arguments, CancellationToken ct)
+    {
+        var output = (await RunAsync(GitDirOnly(repo, arguments), ct).ConfigureAwait(false)).StandardOutput;
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var end = line.IndexOf(' ', StringComparison.Ordinal);
+            names.Add(end < 0 ? line.TrimEnd('\r') : line[..end]);
+        }
+
+        return names;
+    }
+
+    private async Task<bool> HoldsAnyAsync(RepoRef repo, string pack, HashSet<string> names, CancellationToken ct)
+    {
+        byte[] index;
+        try
+        {
+            index = await File.ReadAllBytesAsync(Path.ChangeExtension(pack, ".idx"), ct).ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            throw new GitOperationException("A pack's index could not be read before the reclaim: " + e.Message);
+        }
+
+        // "show-index" prints "offset name checksum" for each object.
+        var listing = (await RunAsync(GitDirOnly(repo, "show-index") with { StdinBytes = index }, ct).ConfigureAwait(false)).StandardOutput;
+        return listing.Split('\n', StringSplitOptions.RemoveEmptyEntries).Any(line => line.Split(' ') is [_, var name, ..] && names.Contains(name));
+    }
+
     // A keep SavePoint wrote starts with its name; a zero-length one is a write a crash cut short. Nothing else here writes keeps
     // (no fetch, no automatic gc), so an empty one is ours too. Any other text belongs to someone else and stays.
-    private static void RemoveKeeps(RepoRef repo)
+    private static List<string> OwnKeepsOf(RepoRef repo)
     {
         if (!Directory.Exists(PackFolderOf(repo)))
         {
-            return;
+            return [];
         }
 
         try
         {
-            foreach (var keep in Directory.EnumerateFiles(PackFolderOf(repo), "*.keep"))
+            return [.. Directory.EnumerateFiles(PackFolderOf(repo), "*.keep").Where(keep =>
             {
                 var text = File.ReadAllText(keep);
-                if (text.Length == 0 || text.StartsWith(_keepTextStart, StringComparison.Ordinal))
-                {
-                    File.Delete(keep);
-                }
-            }
+                return text.Length == 0 || text.StartsWith(_keepTextStart, StringComparison.Ordinal);
+            })];
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            throw new GitOperationException("A pack's keep file could not be removed before the reclaim: " + e.Message);
+            throw new GitOperationException("A pack's keep file could not be read before the reclaim: " + e.Message);
         }
     }
 
