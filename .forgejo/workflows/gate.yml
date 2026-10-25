@@ -20,8 +20,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      # A change that touches only documentation (docs/ and Markdown files at the root) cannot change a build or a test, so the
-      # job passes without them. The notices file is shipped with the app and read by tests, so it always takes the full gate.
+      # A change that touches only documentation (docs/, the documentation site's docfx.json and docfx/, and Markdown files at the
+      # root) cannot change a build or a test, so the job passes without them; docs.yml builds the site for such a change. The notices file is shipped with the app and read by tests, so it always takes the full gate.
       - name: Decide whether the change needs the gate
         id: scope
         env:
@@ -32,7 +32,7 @@ jobs:
           fi
           changed=$(git diff --name-only "$BASE" HEAD)
           echo "$changed"
-          code=$(printf '%s\n' "$changed" | grep -v -E '^(docs/.*|[^/]+\.md)$' | grep -v '^$' || true)
+          code=$(printf '%s\n' "$changed" | grep -v -E '^(docs/.*|docfx/.*|docfx\.json|[^/]+\.md)$' | grep -v '^$' || true)
           needed=true
           if [ -z "$code" ] && ! printf '%s\n' "$changed" | grep -q -x 'THIRD-PARTY-NOTICES.md'; then
             needed=false
@@ -114,7 +114,7 @@ jobs:
           if ($hasBase) {
             $changed = @(git diff --name-only $env:BASE HEAD)
             $changed
-            $code = @($changed | Where-Object { $_ -and $_ -notmatch '^(docs/.*|[^/]+\.md)$' })
+            $code = @($changed | Where-Object { $_ -and $_ -notmatch '^(docs/.*|docfx/.*|docfx\.json|[^/]+\.md)$' })
             if ($code.Count -eq 0 -and $changed -notcontains 'THIRD-PARTY-NOTICES.md') { $needed = 'false' }
           } else {
             'No base to compare with: running the gate.'
