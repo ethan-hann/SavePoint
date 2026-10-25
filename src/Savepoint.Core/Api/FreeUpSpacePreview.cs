@@ -1,3 +1,6 @@
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using Savepoint.Core.Catalog;
 
 namespace Savepoint.Core.Api;
@@ -15,12 +18,52 @@ public sealed record FreeUpSpacePreview(int RecentlyRemovedSnapshots, FreeUpSpac
 
 /// <summary>
 /// The records a Free up space run may delete, as a preview found them. Callers keep it as it is and hand it back; they do not look inside.
+/// Only a preview can make one: it carries a seal over its records that is keyed per process, so a token built or edited by hand, or
+/// issued by another process, is refused by the run.
 /// </summary>
-/// <param name="Records">One entry per record of every snapshot the preview counted, in both folders of its game.</param>
-public sealed record FreeUpSpaceToken(IReadOnlyList<FreeUpSpaceRecord> Records)
+public sealed class FreeUpSpaceToken
 {
+    private static readonly byte[] _key = RandomNumberGenerator.GetBytes(32);
+
+    private readonly byte[] _seal;
+
+    /// <summary>Issues a token over the records, sealed for this process.</summary>
+    internal FreeUpSpaceToken(IReadOnlyList<FreeUpSpaceRecord> records)
+        : this(records, null)
+    {
+    }
+
+    /// <summary>Makes a token with the given seal, or a valid one when the seal is null; a wrong seal is how tests forge a token.</summary>
+    internal FreeUpSpaceToken(IReadOnlyList<FreeUpSpaceRecord> records, byte[]? seal)
+    {
+        Records = Array.AsReadOnly([.. records]);
+        _seal = seal ?? SealOf(Records);
+    }
+
     /// <summary>A token that allows no record to be deleted, which is what a run without a preview gets.</summary>
     public static FreeUpSpaceToken Nothing { get; } = new([]);
+
+    /// <summary>One entry per record of every snapshot the preview counted, in both folders of its game.</summary>
+    public IReadOnlyList<FreeUpSpaceRecord> Records { get; }
+
+    /// <summary>True when a preview in this process issued the token and its records are still the ones it sealed.</summary>
+    internal bool IsIssued => CryptographicOperations.FixedTimeEquals(_seal, SealOf(Records));
+
+    private static byte[] SealOf(IReadOnlyList<FreeUpSpaceRecord> records)
+    {
+        using var hmac = new HMACSHA256(_key);
+        var writer = new StringBuilder();
+        foreach (var record in records)
+        {
+            // Length prefixes keep two different record lists from reading as the same text.
+            foreach (var field in new[] { record.GameId, ((int)record.Folder).ToString(CultureInfo.InvariantCulture), record.RefName, record.Value })
+            {
+                writer.Append(field.Length.ToString(CultureInfo.InvariantCulture)).Append(':').Append(field).Append('\n');
+            }
+        }
+
+        return hmac.ComputeHash(Encoding.UTF8.GetBytes(writer.ToString()));
+    }
 }
 
 /// <summary>One record that keeps a removed snapshot's commit in a folder's repository.</summary>

@@ -26,8 +26,16 @@ internal sealed class OptimizationService
     /// <param name="preemptible">True when a launch, capture or delete on the same game may stop it to go first (D13.17).</param>
     /// <param name="confirmed">The recently removed snapshots' records the run may delete, from a preview the player agreed to; null deletes none.</param>
     /// <param name="byRequest">True for the Free up space the player asked for, the only run that moves the date Settings shows; the cleanups SavePoint starts by itself leave it alone.</param>
-    public Guid Start(string? gameId, OptimizationMode mode, bool preemptible, FreeUpSpaceToken? confirmed = null, bool byRequest = false) =>
-        _services.Jobs.Start(JobKind.Compact, gameId, cancellable: true, context => RunAsync(context, gameId, mode, preemptible, confirmed ?? FreeUpSpaceToken.Nothing, byRequest));
+    /// <exception cref="ArgumentException">The token is not one a preview issued in this process; no job starts.</exception>
+    public Guid Start(string? gameId, OptimizationMode mode, bool preemptible, FreeUpSpaceToken? confirmed = null, bool byRequest = false)
+    {
+        if (confirmed is { IsIssued: false })
+        {
+            throw new ArgumentException("The token was not issued by a Free up space preview.", nameof(confirmed));
+        }
+
+        return _services.Jobs.Start(JobKind.Compact, gameId, cancellable: true, context => RunAsync(context, gameId, mode, preemptible, confirmed ?? FreeUpSpaceToken.Nothing, byRequest));
+    }
 
     /// <summary>True when either repository of the game holds more loose objects than the threshold, which is when a save queues a routine optimization (D13.17).</summary>
     /// <param name="storage">The storage snapshot the caller holds the game's lock for.</param>

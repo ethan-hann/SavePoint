@@ -446,7 +446,7 @@ A recheck of the D45 fixes found 14 of 18 fixed, no critical findings, 3 warning
 2. **A free-up cut off between its folders is finished, not undone (RR-002),** because the player confirmed the deletion.
 3. **The delete-profile warning judges each folder's commit on its own (RR-003).**
 4. **An all-games Free up space cannot be stopped between games (RR-004).** Once it has started deleting, it runs to the end, which keeps one rule ("once it deletes, it finishes") and no "stopped after some games" state for players to make sense of.
-5. **Not done (RR-005):** an opaque preview token; tests build tokens by hand to try the run's own guards, and each token ref carries the value the preview read, which already stops a stale or edited token from deleting a moved branch.
+5. **The preview token is opaque (RR-005, done 2026-10-24).** Only the preview issues a `FreeUpSpaceToken`: its constructor is internal and it carries an HMAC-SHA256 seal over its records with a random key held for the life of the process, so the run refuses a token built by hand or edited after issue before anything is deleted. Each record still carries the value the preview read, which also stops a stale token from deleting a moved branch. Tests issue or forge tokens through `InternalsVisibleTo`. A token is only good in the process that issued it.
 6. DR-004 also removes a stray branch whose snapshots are all being deleted anyway, and DR-003 follows D45.3 (no cancel once deleting starts) rather than the review's cancel between games.
 
 ## D47. SavePoint's repositories do not trust a file's change time
