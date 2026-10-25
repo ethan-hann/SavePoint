@@ -88,7 +88,7 @@ Avalonia does not render variable fonts. Roboto, Roboto Mono (OFL 1.1), and Mate
 
 Inventories of the v1 code listed behavior v1 got wrong or left undecided. v2 resolves each on purpose:
 
-1. **Consent marker and ignore rules stay out of the game folders' history.** v2 never writes a `.gitignore` into a game's folder. `ignorePaths` and the marker file name are written to `<gitDir>/info/exclude`, which lives in SavePoint's storage. The marker is therefore never committed, so checking out an older point can never rewrite it. Previews read the same exclude file and never write into the work tree.
+1. **Consent marker and ignore rules stay out of the game folders' history.** v2 never writes a `.gitignore` into a game's folder. The folder's rules (`ignorePaths`, plus `installIgnorePaths` for the game's own folder, D7) and the marker file name are written to `<gitDir>/info/exclude`, which lives in SavePoint's storage. The marker is therefore never committed, so checking out an older point can never rewrite it. Previews read the same exclude file and never write into the work tree.
 2. **A corrupt catalog file is never overwritten.** Missing means empty; unreadable or invalid JSON raises `CatalogCorruptException`, the app shows a recovery screen naming the file, and no write happens until it is resolved. Every overwrite first copies the previous good file to `<name>.bak`.
 3. **Catalog writes are serialized** through one async lock per catalog store.
 4. **Sessions live for the process lifetime.** Settings changes and storage moves swap dependencies; they never rebuild the launch orchestrator or drop a running session.
