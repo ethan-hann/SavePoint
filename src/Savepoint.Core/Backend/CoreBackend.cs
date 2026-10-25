@@ -130,6 +130,6 @@ public sealed class CoreBackend
             new SettingsApi(services, optimization, new StorageRelocator(services, options.AfterRelocationCopy, options.AfterRelocationSettings), new DataClearer(services)),
             new HistoryApi(services),
             new AppStatusApi(services, options.AfterRelocationSettings),
-            new ArtworkApi(services, steam, options.ArtworkHttp));
+            new ArtworkApi(services, steam, options.GogGalaxyCache ?? GogGalaxyCacheLocator.ForPlatform(platform), options.ArtworkHttp));
     }
 }

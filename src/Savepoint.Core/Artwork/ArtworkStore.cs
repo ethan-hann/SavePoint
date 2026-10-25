@@ -6,8 +6,9 @@ using Savepoint.Core.Errors;
 
 namespace Savepoint.Core.Artwork;
 
-// What is remembered about the last lookup for a game: the Steam app it was for, and when a lookup learned an image does not exist.
-internal sealed record LookupState(int? AppId, DateTimeOffset? MissAt);
+// What is remembered about the last lookup for a game: the Steam app it was for, when a lookup learned an image does not exist, and the
+// GOG product the kept GOG images belong to.
+internal sealed record LookupState(int? AppId, DateTimeOffset? MissAt, string? GogProductId = null);
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(LookupState))]
@@ -71,6 +72,15 @@ internal sealed class ArtworkStore
         return File.Exists(path) ? path : null;
     }
 
+    // GOG's images keep the format they came in, so the file's extension is whatever that was.
+    public string? GogPath(string gameId, ArtworkKind kind)
+    {
+        var folder = FolderOf(gameId);
+        return Directory.Exists(folder)
+            ? Directory.EnumerateFiles(folder, GogStem(kind) + ".*").Where(file => ExtensionIsImage(Path.GetExtension(file))).OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault()
+            : null;
+    }
+
     public LookupState ReadState(string gameId)
     {
         try
@@ -105,7 +115,31 @@ internal sealed class ArtworkStore
         return true;
     }
 
-    // True when something was removed.
+    // True when the bytes are a whole image and were kept; anything else is refused. An image of the same kind kept in another format goes.
+    public bool SaveGogImage(string gameId, ArtworkKind kind, byte[] bytes)
+    {
+        ImageInfo? info;
+        using (var stream = new MemoryStream(bytes, writable: false))
+        {
+            info = ImageProbe.Read(stream);
+        }
+
+        if (info is null)
+        {
+            return false;
+        }
+
+        var target = Path.Combine(FolderOf(gameId), GogStem(kind) + ExtensionOf(info.Value.Format));
+        WriteAtomically(target, bytes);
+        foreach (var old in Directory.EnumerateFiles(FolderOf(gameId), GogStem(kind) + ".*").Where(file => ExtensionIsImage(Path.GetExtension(file)) && !string.Equals(file, target, StringComparison.Ordinal)))
+        {
+            DeleteFile(old);
+        }
+
+        return true;
+    }
+
+    // True when something was removed. What the state remembers about GOG outlives this.
     public bool DeleteSteamImages(string gameId)
     {
         var removed = false;
@@ -114,7 +148,37 @@ internal sealed class ArtworkStore
             removed |= DeleteFile(SteamFile(gameId, kind));
         }
 
-        DeleteFile(Path.Combine(FolderOf(gameId), _stateFile));
+        var state = ReadState(gameId);
+        if (state.GogProductId is null)
+        {
+            DeleteFile(Path.Combine(FolderOf(gameId), _stateFile));
+        }
+        else
+        {
+            WriteState(gameId, new LookupState(null, null, state.GogProductId));
+        }
+
+        return removed;
+    }
+
+    // True when something was removed. The state is left to the caller, which knows what else it holds.
+    public bool DeleteGogImages(string gameId)
+    {
+        var folder = FolderOf(gameId);
+        if (!Directory.Exists(folder))
+        {
+            return false;
+        }
+
+        var removed = false;
+        foreach (var kind in new[] { ArtworkKind.Wide, ArtworkKind.Square })
+        {
+            foreach (var file in Directory.EnumerateFiles(folder, GogStem(kind) + ".*").Where(file => ExtensionIsImage(Path.GetExtension(file))).ToList())
+            {
+                removed |= DeleteFile(file);
+            }
+        }
+
         return removed;
     }
 
@@ -241,6 +305,8 @@ internal sealed class ArtworkStore
 
     private string SteamFile(string gameId, ArtworkKind kind) =>
         Path.Combine(FolderOf(gameId), kind == ArtworkKind.Wide ? "steam-wide.jpg" : "steam-square.jpg");
+
+    private static string GogStem(ArtworkKind kind) => kind == ArtworkKind.Wide ? "gog-wide" : "gog-square";
 
     private static bool ExtensionIsImage(string extension) => extension is ".png" or ".jpg" or ".webp";
 

@@ -79,6 +79,20 @@ public class GameEditorArtworkTests
     }
 
     [Fact]
+    public void Gog_artwork_shows_in_the_preview_as_from_gog_galaxy_and_is_not_removable()
+    {
+        var backend = FakeBackend.Mockup();
+        backend.Artwork.ScriptGogArrives(_skyrim, "/art/wide.webp", "/art/square.webp");
+
+        var editor = Rig(backend).Edit();
+
+        Assert.Equal("From GOG Galaxy", editor.ArtworkSourceText);
+        Assert.Equal("/art/wide.webp", editor.ArtworkPreview.WidePath);
+        Assert.Equal("/art/square.webp", editor.ArtworkPreview.SquarePath);
+        Assert.False(editor.CanRemoveImage);
+    }
+
+    [Fact]
     public void The_users_own_image_shows_as_your_image_and_can_be_removed()
     {
         var backend = FakeBackend.Mockup();

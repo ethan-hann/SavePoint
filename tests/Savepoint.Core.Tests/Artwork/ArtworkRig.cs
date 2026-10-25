@@ -23,6 +23,14 @@ internal sealed class FixedSteamFolder(string? folder) : ISteamFolderLocator
     }
 }
 
+// A GOG Galaxy cache folder a test points the backend at: it holds what the test puts there, or nothing when the folder is null.
+internal sealed class FixedGogGalaxyCache(string? folder) : IGogGalaxyCacheLocator
+{
+    public string? Folder { get; set; } = folder;
+
+    public string? FindWebcacheFolder() => Folder;
+}
+
 // A whole backend whose artwork side is faked: a Steam folder in a temp folder, a handler standing in for Steam's servers, and a clock
 // the test can move. Games go straight into the catalog, which is all artwork needs and spares a git process per game.
 internal sealed class ArtworkRig : IDisposable
@@ -35,9 +43,12 @@ internal sealed class ArtworkRig : IDisposable
         SteamRoot = Path.Combine(Path.GetTempPath(), "savepoint-steam-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(SteamRoot);
         Steam = new FixedSteamFolder(SteamRoot);
+        GogRoot = Path.Combine(Path.GetTempPath(), "savepoint-galaxy-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(GogRoot);
+        Gog = new FixedGogGalaxyCache(GogRoot);
         Http = online ? new FakeHttpHandler(respond) : null;
         Time = time;
-        Workspace = new BackendWorkspace(options => options with { SteamFolder = Steam, ArtworkHttp = Http, Time = time, Log = log ?? options.Log });
+        Workspace = new BackendWorkspace(options => options with { SteamFolder = Steam, GogGalaxyCache = Gog, ArtworkHttp = Http, Time = time, Log = log ?? options.Log });
         Subscribe();
     }
 
@@ -46,6 +57,11 @@ internal sealed class ArtworkRig : IDisposable
     public FixedSteamFolder Steam { get; }
 
     public string SteamRoot { get; }
+
+    public FixedGogGalaxyCache Gog { get; }
+
+    // The fake Galaxy webcache folder.
+    public string GogRoot { get; }
 
     public FakeHttpHandler? Http { get; }
 
@@ -109,6 +125,32 @@ internal sealed class ArtworkRig : IDisposable
         }
     }
 
+    // Galaxy's own artwork for a product, laid out as Galaxy lays it out: the tall poster and the wide background as WebP files.
+    public void PutGogCache(string productId, bool wide = true, bool square = true, int squareHeight = 482)
+    {
+        var folder = Path.Combine(GogRoot, "53949204526928523", "gog", productId);
+        if (wide)
+        {
+            TestImages.Write(folder, "b6cd05d236181817eddd6cba234275eb9e7957e2e04214c3ac7a281d88521f9c_glx_bg_top_padding_7.webp", TestImages.WebPLossy(1600, 650));
+        }
+
+        if (square)
+        {
+            TestImages.Write(folder, "8b37ef624d6f8a4092c43daed92660cde499434f8c0a2078f342bc34f4e752f2_glx_vertical_cover.webp", TestImages.WebPLossy(342, squareHeight));
+        }
+    }
+
+    // The files GOG's installer leaves in an install folder: one per product, each naming the base game as rootGameId.
+    public static void PutGogInfo(string installPath, string gameId, string? rootGameId = null)
+    {
+        Directory.CreateDirectory(installPath);
+        File.WriteAllText(
+            Path.Combine(installPath, $"goggame-{gameId}.info"),
+            "{\n    \"clientId\": \"53652320436400298\",\n    \"gameId\": \"" + gameId + "\",\n    \"language\": \"English\",\n    \"name\": \"Some Game\",\n"
+            + (rootGameId is null ? string.Empty : "    \"rootGameId\": \"" + rootGameId + "\",\n")
+            + "    \"version\": 1\n}");
+    }
+
     // A lookup holds its game's lookup gate from the moment the read that starts it returns until it ends, so taking the gate waits for it.
     public async Task WhenLookupDoneAsync(string gameId)
     {
@@ -143,13 +185,16 @@ internal sealed class ArtworkRig : IDisposable
     public void Dispose()
     {
         Workspace.Dispose();
-        try
+        foreach (var root in new[] { SteamRoot, GogRoot })
         {
-            Directory.Delete(SteamRoot, recursive: true);
-        }
-        catch (DirectoryNotFoundException)
-        {
-            // Already gone.
+            try
+            {
+                Directory.Delete(root, recursive: true);
+            }
+            catch (DirectoryNotFoundException)
+            {
+                // Already gone.
+            }
         }
     }
 

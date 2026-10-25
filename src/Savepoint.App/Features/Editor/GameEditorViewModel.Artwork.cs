@@ -52,6 +52,7 @@ public sealed partial class GameEditorViewModel
     {
         ArtworkSource.Custom => _text.Message("gameEditor.artwork.source.custom"),
         ArtworkSource.Steam => _text.Message("gameEditor.artwork.source.steam"),
+        ArtworkSource.Gog => _text.Message("gameEditor.artwork.source.gog"),
         _ => _text.Message("gameEditor.artwork.source.none"),
     };
 

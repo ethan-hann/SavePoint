@@ -45,6 +45,9 @@ public sealed record BackendOptions
     /// <summary>Finds the Steam client's folder, where artwork Steam already downloaded is read from; the real one for the platform when null (D30).</summary>
     public ISteamFolderLocator? SteamFolder { get; init; }
 
+    /// <summary>Finds GOG Galaxy's image cache, where artwork Galaxy already downloaded is read from; the real one for the platform when null (D30). Tests pass a fake so none reads the real machine.</summary>
+    public IGogGalaxyCacheLocator? GogGalaxyCache { get; init; }
+
     /// <summary>
     /// Reads what GOG's installer recorded for installed games; the Windows registry reader on Windows and nothing on other systems
     /// when null. Tests pass a fake so none reads the real machine.
