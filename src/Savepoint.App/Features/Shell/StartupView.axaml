@@ -1,7 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:loc="using:Savepoint.App.Localization"
-             xmlns:theme="using:Savepoint.App.Theme"
              xmlns:shell="using:Savepoint.App.Features.Shell"
              x:Class="Savepoint.App.Features.Shell.StartupView"
              x:DataType="shell:StartupViewModel">
@@ -9,9 +8,7 @@
   <ScrollViewer VerticalScrollBarVisibility="Auto">
     <StackPanel MaxWidth="640" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="18" Margin="26">
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="11">
-        <Border Width="28" Height="28" CornerRadius="7" Background="{DynamicResource Md3PrimaryBrush}">
-          <TextBlock Classes="icon s18" HorizontalAlignment="Center" Foreground="{DynamicResource Md3OnPrimaryBrush}" Text="{x:Static theme:Icons.Bookmark}" />
-        </Border>
+        <shell:BrandMark Size="28" GlyphSize="18" />
         <TextBlock Classes="row-title" FontSize="16" VerticalAlignment="Center" Text="{loc:Loc app.name}" />
       </StackPanel>
 

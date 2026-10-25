@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Threading;
 using Savepoint.App.Features.Shell;
+using Savepoint.App.Platform;
 
 namespace Savepoint.App.Views;
 
@@ -12,6 +13,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        Icon = AppIcon.Load();
     }
 
     private MainWindowViewModel? _followed;
