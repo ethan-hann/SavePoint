@@ -79,6 +79,28 @@ public sealed class ProgressReporterNamesTests
     }
 
     [Fact]
+    public void Files_an_earlier_attempt_already_staged_count_as_done_from_the_start()
+    {
+        var log = new ProgressLog();
+        var reporter = new ProgressReporter(log);
+        reporter.SetTotal(10);
+        reporter.SetAlreadyDone(6);
+        reporter.Start();
+
+        foreach (var name in Names(4))
+        {
+            reporter.FileHandled(name);
+        }
+
+        reporter.Complete();
+
+        Assert.Equal(6, log.Reports[0].FilesDone);
+        Assert.Equal(10, log.Last.FilesDone);
+        Assert.Equal(10, log.Last.FilesTotal);
+        Assert.Equal(4, Delivered(log).Count);
+    }
+
+    [Fact]
     public void Names_not_yet_reported_when_the_capture_fails_are_still_delivered()
     {
         var log = new ProgressLog();

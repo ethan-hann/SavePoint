@@ -37,10 +37,13 @@ internal sealed class ProgressReporter
     private bool _finishing;
     private bool _reportedFinishing;
 
-    // The one large file git is storing alone, when that is the case, and where the store stood when it began.
-    private string? _soloPath;
-    private long _soloBytes;
-    private long _soloStart;
+    // The big files of the add under way, in the order git takes them, with the running sum of their sizes before each, and where the
+    // store stood when the add began.
+    private IReadOnlyList<string>? _bigPaths;
+    private long[] _bigStarts = [];
+    private long[] _bigSizes = [];
+    private long _bigTotal;
+    private long _batchStart;
 
     // A detail waiting for the next report, and when a name or a detail last went out.
     private CopyDetail? _detail;
@@ -61,6 +64,15 @@ internal sealed class ProgressReporter
         lock (_gate)
         {
             _total = total;
+        }
+    }
+
+    // Files an earlier, stopped attempt already staged: git will not print them again, and the closing count must still include them.
+    public void SetAlreadyDone(int count)
+    {
+        lock (_gate)
+        {
+            _done = Math.Max(_done, count);
         }
     }
 
@@ -123,16 +135,32 @@ internal sealed class ProgressReporter
     }
 
     // A group of files is about to be handed to git. A single large file is named (and announced at once), since git says nothing about it until it is done.
-    public void BeginBatch(string? soloPath, long soloBytes)
+    public void BeginBatch(IReadOnlyList<string>? bigPaths, IReadOnlyList<long>? bigSizes, long storeNow)
     {
         lock (_gate)
         {
-            _soloPath = soloPath;
-            _soloBytes = soloBytes;
-            _soloStart = Math.Max(_lastObserved, 0);
-            if (soloPath is not null)
+            // The wait for the last add is over: a flag from it must not hide this one, and the store's stillness is counted afresh.
+            var wasFinishing = _reportedFinishing;
+            _finishing = false;
+            _lastGrowthAt = _time.GetTimestamp();
+            _batchStart = storeNow;
+            _bigPaths = null;
+            if (bigPaths is { Count: > 0 } && bigSizes is not null && bigSizes.Count == bigPaths.Count)
             {
-                _detail = new CopyDetail(soloPath, 0, soloBytes, Starting: true);
+                _bigPaths = bigPaths;
+                _bigSizes = [.. bigSizes];
+                _bigStarts = new long[bigSizes.Count];
+                for (var i = 1; i < _bigStarts.Length; i++)
+                {
+                    _bigStarts[i] = _bigStarts[i - 1] + _bigSizes[i - 1];
+                }
+
+                _bigTotal = _bigSizes.Sum();
+                _detail = new CopyDetail(bigPaths[0], 0, _bigSizes[0], Starting: true);
+                Report();
+            }
+            else if (wasFinishing)
+            {
                 Report();
             }
         }
@@ -143,7 +171,6 @@ internal sealed class ProgressReporter
     {
         lock (_gate)
         {
-            _soloPath = null;
             if (_pending.Count > 0)
             {
                 Report();
@@ -151,13 +178,21 @@ internal sealed class ProgressReporter
         }
     }
 
-    // What to say about a stretch with no names. A single file is named only while it is the one thing git is storing: with several in
-    // one add, the order git takes them in is not known, so only the folder's figures are honest.
+    // What to say about a stretch with no names. During the add of the big files, the store's growth is laid over them in the order git
+    // takes them, so the file named is an estimate (it drifts when git skips content it already holds); otherwise only the folder's figures are honest.
     private CopyDetail? DetailNow(long written)
     {
-        if (_soloPath is { } path)
+        if (_bigPaths is not null)
         {
-            return new CopyDetail(path, Math.Clamp(written - _soloStart, 0, _soloBytes - _soloBytes / 100), _soloBytes);
+            var at = Math.Clamp(written - _batchStart, 0, _bigTotal - _bigTotal / 100);
+            var index = 0;
+            while (index + 1 < _bigStarts.Length && _bigStarts[index + 1] <= at)
+            {
+                index++;
+            }
+
+            var size = _bigSizes[index];
+            return new CopyDetail(_bigPaths[index], Math.Clamp(at - _bigStarts[index], 0, size - size / 100), size);
         }
 
         return _byteTotal is { } total ? new CopyDetail(null, _written, total) : null;

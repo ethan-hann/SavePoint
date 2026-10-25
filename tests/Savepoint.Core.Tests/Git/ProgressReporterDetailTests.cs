@@ -7,7 +7,8 @@ namespace Savepoint.Core.Tests.Git;
 // While git prints no names, the reports say what is being stored instead, rarely enough to read as a few lines and not as a stream.
 public sealed class ProgressReporterDetailTests
 {
-    private static long Big => 4_000;
+    private static readonly string[] _bigNames = ["Data/a.pak", "Data/b.pak"];
+    private static readonly long[] _bigSizes = [1_000, 3_000];
 
     private static (ProgressReporter Reporter, ProgressLog Log, ManualTimeProvider Clock) Started(long byteTotal = 10_000)
     {
@@ -30,46 +31,58 @@ public sealed class ProgressReporterDetailTests
     }
 
     [Fact]
-    public void A_large_file_is_announced_as_soon_as_its_batch_begins()
+    public void The_first_big_file_is_announced_as_soon_as_its_batch_begins()
     {
         var (reporter, log, _) = Started();
 
-        reporter.BeginBatch("Data/big.pak", Big);
+        reporter.BeginBatch(_bigNames, _bigSizes, 0);
 
-        Assert.Equal([new CopyDetail("Data/big.pak", 0, Big, Starting: true)], Details(log));
+        Assert.Equal([new CopyDetail("Data/a.pak", 0, 1_000, Starting: true)], Details(log));
     }
 
     [Fact]
-    public void A_batch_of_many_files_is_not_announced()
+    public void A_batch_of_small_files_is_not_announced()
     {
         var (reporter, log, _) = Started();
 
-        reporter.BeginBatch(null, 900);
+        reporter.BeginBatch(null, null, 0);
 
         Assert.Empty(Details(log));
     }
 
     [Fact]
-    public void How_far_a_large_file_is_comes_only_after_the_quiet_stretch()
+    public void How_far_the_big_files_are_comes_only_after_the_quiet_stretch()
     {
         var (reporter, log, clock) = Started();
-        reporter.BeginBatch("Data/big.pak", Big);
+        reporter.BeginBatch(_bigNames, _bigSizes, 0);
 
         clock.Advance(ProgressReporter.DetailInterval - TimeSpan.FromSeconds(1));
-        reporter.ObserveWritten(1_000);
+        reporter.ObserveWritten(500);
         Assert.Single(Details(log));
 
         clock.Advance(TimeSpan.FromSeconds(1));
-        reporter.ObserveWritten(2_000);
+        reporter.ObserveWritten(600);
 
-        Assert.Equal(new CopyDetail("Data/big.pak", 2_000, Big), LatestDetail(log));
+        Assert.Equal(new CopyDetail("Data/a.pak", 600, 1_000), LatestDetail(log));
+    }
+
+    [Fact]
+    public void The_file_git_is_on_is_found_by_adding_up_the_sizes_in_the_order_given()
+    {
+        var (reporter, log, clock) = Started();
+        reporter.BeginBatch(_bigNames, _bigSizes, 0);
+
+        clock.Advance(ProgressReporter.DetailInterval);
+        reporter.ObserveWritten(2_500);
+
+        Assert.Equal(new CopyDetail("Data/b.pak", 1_500, 3_000), LatestDetail(log));
     }
 
     [Fact]
     public void The_same_quiet_stretch_is_not_reported_again_on_every_tick()
     {
         var (reporter, log, clock) = Started();
-        reporter.BeginBatch("Data/big.pak", Big);
+        reporter.BeginBatch(_bigNames, _bigSizes, 0);
         clock.Advance(ProgressReporter.DetailInterval);
         reporter.ObserveWritten(1_000);
 
@@ -82,35 +95,37 @@ public sealed class ProgressReporterDetailTests
     }
 
     [Fact]
-    public void A_file_counts_only_what_was_stored_since_its_batch_began()
+    public void The_batch_counts_only_what_was_stored_since_it_began()
     {
         var (reporter, log, clock) = Started();
         reporter.ObserveWritten(3_000);
-        reporter.BeginBatch("Data/big.pak", Big);
+        reporter.BeginBatch(_bigNames, _bigSizes, 3_400);
 
         clock.Advance(ProgressReporter.DetailInterval);
-        reporter.ObserveWritten(4_500);
+        reporter.ObserveWritten(3_900);
 
-        Assert.Equal(1_500, LatestDetail(log).BytesDone);
+        Assert.Equal(new CopyDetail("Data/a.pak", 500, 1_000), LatestDetail(log));
     }
 
     [Fact]
     public void A_file_never_shows_as_done_before_its_name_arrives()
     {
         var (reporter, log, clock) = Started(byteTotal: 100_000);
-        reporter.BeginBatch("Data/big.pak", Big);
+        reporter.BeginBatch(_bigNames, _bigSizes, 0);
 
         clock.Advance(ProgressReporter.DetailInterval);
         reporter.ObserveWritten(9_000);
 
-        Assert.True(LatestDetail(log).BytesDone < Big, "the file is shown as done while git is still storing it");
+        var latest = LatestDetail(log);
+        Assert.Equal("Data/b.pak", latest.Path);
+        Assert.True(latest.BytesDone < latest.BytesTotal, "the file is shown as done while git is still storing it");
     }
 
     [Fact]
-    public void A_quiet_stretch_in_a_batch_of_many_files_names_the_folder_figures()
+    public void A_quiet_stretch_in_a_batch_of_small_files_names_the_folder_figures()
     {
         var (reporter, log, clock) = Started();
-        reporter.BeginBatch(null, 900);
+        reporter.BeginBatch(null, null, 0);
 
         clock.Advance(ProgressReporter.DetailInterval);
         reporter.ObserveWritten(3_000);
@@ -122,13 +137,13 @@ public sealed class ProgressReporterDetailTests
     public void Names_that_arrive_count_as_something_said()
     {
         var (reporter, log, clock) = Started();
-        reporter.BeginBatch(null, 900);
+        reporter.BeginBatch(null, null, 0);
         clock.Advance(ProgressReporter.DetailInterval - TimeSpan.FromSeconds(5));
         reporter.FileHandled("Data/a.bin");
         reporter.EndBatch();
 
         clock.Advance(TimeSpan.FromSeconds(10));
-        reporter.BeginBatch(null, 900);
+        reporter.BeginBatch(null, null, 0);
         reporter.ObserveWritten(3_000);
 
         Assert.Empty(Details(log));
@@ -138,7 +153,7 @@ public sealed class ProgressReporterDetailTests
     public void Nothing_is_said_while_the_capture_is_only_finishing()
     {
         var (reporter, log, clock) = Started(byteTotal: 1_000);
-        reporter.BeginBatch(null, 900);
+        reporter.BeginBatch(null, null, 0);
         reporter.ObserveWritten(5_000);
 
         // The store has held still long enough to be finishing, and the quiet stretch is long enough for a detail, in the same look.
@@ -150,10 +165,26 @@ public sealed class ProgressReporterDetailTests
     }
 
     [Fact]
+    public void A_new_batch_ends_the_wait_for_the_last_one()
+    {
+        var (reporter, log, clock) = Started(byteTotal: 1_000);
+        reporter.BeginBatch(null, null, 0);
+        reporter.ObserveWritten(5_000);
+        clock.Advance(ProgressReporter.FinishingWindow);
+        reporter.ObserveWritten(5_000);
+        Assert.True(log.Last.Finishing);
+
+        reporter.EndBatch();
+        reporter.BeginBatch(null, null, 5_000);
+
+        Assert.False(log.Last.Finishing);
+    }
+
+    [Fact]
     public void The_end_of_a_batch_delivers_its_names_at_once_whatever_the_pace()
     {
         var (reporter, log, _) = Started();
-        reporter.BeginBatch(null, 900);
+        reporter.BeginBatch(null, null, 0);
         reporter.FileHandled("Data/a.bin");
         reporter.FileHandled("Data/b.bin");
         reporter.FileHandled("Data/c.bin");
@@ -165,13 +196,14 @@ public sealed class ProgressReporterDetailTests
     }
 
     [Fact]
-    public void Once_a_large_file_is_done_the_next_quiet_stretch_is_about_the_folder()
+    public void After_the_big_files_the_next_quiet_stretch_is_about_the_folder()
     {
         var (reporter, log, clock) = Started();
-        reporter.BeginBatch("Data/big.pak", Big);
-        reporter.FileHandled("Data/big.pak");
+        reporter.BeginBatch(_bigNames, _bigSizes, 0);
+        reporter.FileHandled("Data/a.pak");
+        reporter.FileHandled("Data/b.pak");
         reporter.EndBatch();
-        reporter.BeginBatch(null, 900);
+        reporter.BeginBatch(null, null, 4_000);
 
         clock.Advance(ProgressReporter.DetailInterval);
         reporter.ObserveWritten(5_000);

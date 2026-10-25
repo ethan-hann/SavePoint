@@ -388,15 +388,30 @@ public sealed partial class GitEngine
         LinkedFolders.RefuseAny(repo.WorkTree, listing.Files, ct);
         NestedRepositories.RefuseAny(repo.WorkTree, listing, ct);
 
+        var reporter = progress is null ? null : new ProgressReporter(progress, time: _options.Clock);
+
+        // A stopped or failed attempt may have staged some of the files already; they are not listed again, but they are part of this save.
+        var stagedBefore = reporter is null ? 0 : await CountStagedBeforeAsync(repo, listing, ct).ConfigureAwait(false);
+
         // An empty list would not mean "nothing": add -A with no paths takes the whole folder, excluded files included.
         if (listing.Files.Count == 0)
         {
+            if (reporter is not null && stagedBefore > 0)
+            {
+                reporter.SetTotal(stagedBefore);
+                reporter.SetAlreadyDone(stagedBefore);
+                reporter.SetByteTotal(0);
+                reporter.Start();
+                reporter.Complete();
+            }
+
             return;
         }
 
-        var reporter = progress is null ? null : new ProgressReporter(progress, time: _options.Clock);
-        reporter?.SetTotal(listing.Files.Count);
-        IReadOnlyList<StagingBatch> batches = [new StagingBatch(listing.Files, 0, false)];
+        var total = listing.Files.Count + stagedBefore;
+        reporter?.SetTotal(total);
+        reporter?.SetAlreadyDone(stagedBefore);
+        IReadOnlyList<StagingBatch> batches = [new StagingBatch(listing.Files, [], false)];
         if (reporter is not null)
         {
             var sizes = await SizesOfAsync(repo, listing.Files, ct).ConfigureAwait(false);
@@ -410,16 +425,43 @@ public sealed partial class GitEngine
         // git prints a file's line only once it is stored, and holds the lines back while it works, so a large file shows nothing
         // there for minutes; the store's growth is what moves the bar meanwhile.
         using var stopWatching = new CancellationTokenSource();
-        var watching = reporter is null ? Task.CompletedTask : WatchStoreAsync(repo, reporter, stopWatching.Token);
+        var meter = reporter is null ? null : StoreMeterOf(repo);
+        var watching = reporter is null ? Task.CompletedTask : WatchStoreAsync(meter!, reporter, stopWatching.Token);
+
+        // Asked afresh each time: adding a file that replaces a folder drops the folder's recorded files from the index.
+        async Task<HashSet<string>> TrackedAsync() =>
+            [.. (await RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z", "--cached"), ct).ConfigureAwait(false)).SplitStandardOutputOnNul()];
 
         var staged = false;
         try
         {
-            foreach (var batch in batches)
+            foreach (var planned in batches)
             {
+                var batch = planned;
+                if (reporter is not null)
+                {
+                    // A file can vanish between the listing and its add, and git stops at a name it cannot find; one that is recorded is
+                    // still passed, because its removal is what the add records.
+                    if (await WithoutVanishedAsync(repo, batch, TrackedAsync).ConfigureAwait(false) is not { } present)
+                    {
+                        total -= batch.Files.Count;
+                        reporter.SetTotal(total);
+                        continue;
+                    }
+
+                    total -= batch.Files.Count - present.Files.Count;
+                    reporter.SetTotal(total);
+                    batch = present.Big ? StagingBatches.AsGitTakesThem(present, (await TrackedAsync().ConfigureAwait(false)).Contains) : present;
+                }
+
                 // The names go on stdin and are literal (a file called [a].txt is not a pattern); -f is safe because the list was made with the exclude list applied.
                 var staging = Invocation(repo, readOnly: false, reporter is null ? ["add", "-A", "-f"] : ["add", "-A", "-f", "--verbose"]).WithPathspecs(batch.Files);
-                reporter?.BeginBatch(batch.Solo ? batch.Files[0] : null, batch.Bytes);
+                if (BigFileEnvironment() is { } environment)
+                {
+                    staging = staging with { ExtraEnvironment = new Dictionary<string, string?>(staging.ExtraEnvironment!.Concat(environment)) };
+                }
+
+                reporter?.BeginBatch(batch.Big ? batch.Files : null, batch.Big ? batch.Sizes : null, meter?.Growth() ?? 0);
                 await RunWriteAsync(
                     () => staging with { OnStdoutLine = reporter is null ? null : line => ObserveAddLine(reporter, line) },
                     ct).ConfigureAwait(false);
@@ -446,15 +488,87 @@ public sealed partial class GitEngine
         reporter?.Complete();
     }
 
+    // The plan sorts files by the size git streams into a pack; the repository file says that size is the default. A different size (only a
+    // test makes one) is told to git the same way the engine's other forced settings are, so the two agree.
+    private IReadOnlyDictionary<string, string?>? BigFileEnvironment()
+    {
+        var bytes = _options.StagingLimits.BigBytes;
+        if (bytes == StagingLimits.Default.BigBytes)
+        {
+            return null;
+        }
+
+        var slot = GitBinary.ForcedConfigCount.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return new Dictionary<string, string?>
+        {
+            ["GIT_CONFIG_COUNT"] = (GitBinary.ForcedConfigCount + 1).ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["GIT_CONFIG_KEY_" + slot] = "core.bigFileThreshold",
+            ["GIT_CONFIG_VALUE_" + slot] = bytes.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        };
+    }
+
     // Often enough to move the bar for a large file, rarely enough that counting a big store costs little.
     private static readonly TimeSpan _sampleInterval = TimeSpan.FromMilliseconds(500);
 
-    private Task WatchStoreAsync(RepoRef repo, ProgressReporter reporter, CancellationToken stop)
+    private StoreMeter StoreMeterOf(RepoRef repo)
     {
         var objects = Path.Combine(repo.GitDir, "objects");
         var size = _options.ObjectStoreSize ?? ObjectStoreMeter.Size;
+        return new StoreMeter(() => size(objects));
+    }
+
+    private Task WatchStoreAsync(StoreMeter meter, ProgressReporter reporter, CancellationToken stop)
+    {
         var wait = _options.SampleWait ?? (ct => Task.Delay(_sampleInterval, ct));
-        return StagingByteSampler.RunAsync(() => size(objects), reporter, wait, stop);
+        return StagingByteSampler.RunAsync(meter, reporter, wait, stop);
+    }
+
+    // How many files an earlier attempt left staged that differ from the last point and are not in the listing (which holds only what
+    // still differs from the index).
+    private async Task<int> CountStagedBeforeAsync(RepoRef repo, WorkTreeListing listing, CancellationToken ct)
+    {
+        var head = await RunAsync(Invocation(repo, readOnly: true, "rev-parse", "--verify", "-q", "HEAD") with { AllowedExitCodes = [0, 1] }, ct).ConfigureAwait(false);
+        var diff = await RunAsync(
+            Invocation(repo, readOnly: true, "diff-index", "--cached", "--name-only", "-z", "--no-renames", head.ExitCode == 0 ? "HEAD" : GitDirFiles.EmptyTree, "--"),
+            ct).ConfigureAwait(false);
+        var staged = diff.SplitStandardOutputOnNul();
+        if (staged.Count == 0)
+        {
+            return 0;
+        }
+
+        var listed = new HashSet<string>(listing.Files, StringComparer.Ordinal);
+        var named = await RecordedNamedAsync(repo, ct).ConfigureAwait(false);
+        return staged.Count(path => !listed.Contains(path) && !named.Contains(path));
+    }
+
+    // The batch without the files that are gone from the folder and not recorded (git has nothing to add or remove for them); null when
+    // nothing is left.
+    private static async Task<StagingBatch?> WithoutVanishedAsync(RepoRef repo, StagingBatch batch, Func<Task<HashSet<string>>> tracked)
+    {
+        List<int>? gone = null;
+        for (var i = 0; i < batch.Files.Count; i++)
+        {
+            if (SizeOrMissing(repo, batch.Files[i]) < 0)
+            {
+                (gone ??= []).Add(i);
+            }
+        }
+
+        if (gone is null)
+        {
+            return batch;
+        }
+
+        var known = await tracked().ConfigureAwait(false);
+        var drop = gone.Where(i => !known.Contains(batch.Files[i])).ToHashSet();
+        if (drop.Count == 0)
+        {
+            return batch;
+        }
+
+        var keep = Enumerable.Range(0, batch.Files.Count).Where(i => !drop.Contains(i)).ToList();
+        return keep.Count == 0 ? null : new StagingBatch([.. keep.Select(i => batch.Files[i])], batch.Sizes.Count == 0 ? [] : [.. keep.Select(i => batch.Sizes[i])], batch.Big);
     }
 
     // The bytes each file will add to the store; a file that is gone counts for nothing.
