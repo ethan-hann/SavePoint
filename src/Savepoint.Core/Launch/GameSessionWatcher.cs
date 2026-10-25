@@ -149,6 +149,7 @@ public sealed class GameSessionWatcher : IDisposable
         var childExit = _child?.WaitForExitAsync(stop);
         var childGone = false;
         var observed = false;
+        var readable = false;
         var selfSeen = false;
         var graceFrom = StartedAt;
 
@@ -169,6 +170,7 @@ public sealed class GameSessionWatcher : IDisposable
             var look = _check.Look(name, _child?.Pid);
             var state = look.State;
             observed |= state == NamedProcessState.Running;
+            readable |= childGone && state != NamedProcessState.Unknown;
             selfSeen |= look.IgnoredMatched;
             if (look.OtherPids.Count > 0)
             {
@@ -197,10 +199,20 @@ public sealed class GameSessionWatcher : IDisposable
 
                 if (!observed && _clock.GetUtcNow() >= deadline)
                 {
-                    // No restart came, so the game ended when the program did, and the wait is not play time.
-                    if (selfSeen)
+                    // No restart came, so the game ended when the program did, and the wait is not play time. A program that ran a while
+                    // before it exited is taken at its word even when its name never matched; the run is real.
+                    var ranAWhile = _child is not null && graceFrom - StartedAt >= _options.RelaunchWindow;
+                    if (selfSeen || (!readable && ranAWhile))
                     {
                         Settle(SessionEndKind.ChildExited, graceFrom);
+                    }
+                    else if (!readable)
+                    {
+                        Settle(SessionEndKind.ProcessListUnreadable);
+                    }
+                    else if (ranAWhile)
+                    {
+                        Settle(SessionEndKind.NamedProcessNeverMatched, graceFrom);
                     }
                     else
                     {

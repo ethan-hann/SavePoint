@@ -1,5 +1,6 @@
 using Savepoint.Core.Api;
 using Savepoint.Core.Git;
+using Savepoint.Core.Launch;
 
 namespace Savepoint.Core.Tests.Launch.Orchestration;
 
@@ -36,6 +37,37 @@ public class LaunchExitSurvivalTests
         var state = Assert.IsType<SessionState.Exited>(rig.Launch.GetSession(rig.Game.Id)!.State);
         Assert.Contains(CompletionChoice.Skip, state.Options.Choices);
         Assert.Equal(0, state.NewFileCount);
+    }
+
+    [Fact(Timeout = 120_000)]
+    public async Task A_failed_folder_read_still_says_that_the_named_program_never_appeared()
+    {
+        var armed = false;
+        using var rig = await LaunchRig.CreateAsync(
+            options => options with
+            {
+                Engine = new GitEngineOptions
+                {
+                    InvocationObserver = invocation =>
+                    {
+                        if (Volatile.Read(ref armed) && invocation.Arguments[0] == "ls-files")
+                        {
+                            throw new InvalidOperationException("an error nobody planned for");
+                        }
+                    },
+                },
+            },
+            gameArguments: ["--exit-after", "300"],
+            processName: "never-running-" + Guid.NewGuid().ToString("N")[..6]);
+        var vanilla = await rig.ProfileAsync("Vanilla");
+        await rig.StartAsync(new LaunchTarget.ProfileTip(vanilla.Id));
+        Volatile.Write(ref armed, true);
+
+        var exited = await ExitedWithinAsync(rig, TimeSpan.FromSeconds(30));
+        Volatile.Write(ref armed, false);
+
+        Assert.True(exited, "the session never ended");
+        Assert.Equal(SessionEndKind.NamedProcessNeverAppeared, Assert.IsType<SessionState.Exited>(rig.Launch.GetSession(rig.Game.Id)!.State).EndKind);
     }
 
     private static async Task<bool> ExitedWithinAsync(LaunchRig rig, TimeSpan limit)

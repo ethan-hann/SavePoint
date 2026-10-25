@@ -137,8 +137,65 @@ public class GameSessionWatcherTests
         await rig.AdvanceAsync(Seconds(1));
         var outcome = await rig.OutcomeAsync();
 
-        Assert.Equal(SessionEndKind.NamedProcessNeverAppeared, outcome.Kind);
-        Assert.Equal(TimeSpan.FromMinutes(3) + Seconds(30), outcome.PlayDuration);
+        Assert.Equal(SessionEndKind.NamedProcessNeverMatched, outcome.Kind);
+        Assert.Equal(TimeSpan.FromMinutes(3), outcome.PlayDuration);
+    }
+
+    [Fact]
+    public async Task A_program_that_ran_a_while_and_exited_is_still_given_the_grace_for_a_late_handover_before_its_run_is_called_play_time()
+    {
+        using var rig = await WatcherRig.ProgramAsync(_name);
+        await rig.AdvanceAsync(Seconds(40));
+        await rig.ExitChildAsync();
+
+        await rig.AdvanceAsync(Seconds(10));
+        rig.Processes.Set(WatcherRig.Game, ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(4));
+        rig.Processes.Set(ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(2));
+
+        Assert.Equal(SessionEndKind.NamedProcessEnded, (await rig.OutcomeAsync()).Kind);
+    }
+
+    [Fact]
+    public async Task A_program_that_exited_within_the_relaunch_window_and_never_matched_is_never_seen()
+    {
+        using var rig = await WatcherRig.ProgramAsync(_name);
+        await rig.AdvanceAsync(Seconds(10));
+        await rig.ExitChildAsync();
+
+        await rig.AdvanceAsync(WatcherRig.Grace);
+
+        Assert.Equal(SessionEndKind.NamedProcessNeverAppeared, (await rig.OutcomeAsync()).Kind);
+    }
+
+    [Fact]
+    public async Task A_list_that_could_not_be_read_for_the_grace_after_a_long_run_ends_at_the_programs_exit_without_blaming_the_name()
+    {
+        using var rig = await WatcherRig.ProgramAsync(_name);
+        rig.Processes.Unreadable();
+        await rig.AdvanceAsync(TimeSpan.FromMinutes(3));
+        await rig.ExitChildAsync();
+
+        await rig.AdvanceAsync(WatcherRig.Grace);
+        var outcome = await rig.OutcomeAsync();
+
+        Assert.Equal(SessionEndKind.ChildExited, outcome.Kind);
+        Assert.Equal(TimeSpan.FromMinutes(3), outcome.PlayDuration);
+    }
+
+    [Fact]
+    public async Task A_list_that_was_readable_at_any_look_during_the_grace_counts_as_a_name_that_never_appeared()
+    {
+        using var rig = await WatcherRig.ProgramAsync(_name);
+        rig.Processes.Unreadable();
+        await rig.ExitChildAsync();
+        await rig.AdvanceAsync(Seconds(10));
+        rig.Processes.Set(ScriptedInspector.Bystander);
+
+        await rig.AdvanceAsync(Seconds(20));
+
+        Assert.Equal(SessionEndKind.NamedProcessNeverAppeared, (await rig.OutcomeAsync()).Kind);
     }
 
     [Fact]
@@ -429,7 +486,7 @@ public class GameSessionWatcherTests
     }
 
     [Fact]
-    public async Task A_list_that_stays_unreadable_for_the_whole_grace_settles_as_never_appeared()
+    public async Task A_list_that_stays_unreadable_for_the_whole_grace_settles_as_unreadable()
     {
         using var rig = await WatcherRig.ProgramAsync(_name);
         rig.Processes.Unreadable();
@@ -437,7 +494,7 @@ public class GameSessionWatcherTests
 
         await rig.AdvanceAsync(WatcherRig.Grace);
 
-        Assert.Equal(SessionEndKind.NamedProcessNeverAppeared, (await rig.OutcomeAsync()).Kind);
+        Assert.Equal(SessionEndKind.ProcessListUnreadable, (await rig.OutcomeAsync()).Kind);
     }
 
     [Fact]

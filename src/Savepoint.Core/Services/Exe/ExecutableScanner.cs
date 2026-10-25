@@ -89,7 +89,7 @@ public sealed class ExecutableScanner
     /// </returns>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     /// <remarks>Runs on the thread pool.</remarks>
-    public Task<IReadOnlyList<string>> ListAsync(string installFolder, CancellationToken cancellationToken = default, string? gameName = null) =>
+    public Task<IReadOnlyList<string>> ListAsync(string installFolder, string? gameName = null, CancellationToken cancellationToken = default) =>
         Task.Run(() => List(installFolder, cancellationToken, gameName), cancellationToken);
 
     /// <summary>Lists every launchable file found under <paramref name="installFolder"/>, with its size, for ranking.</summary>

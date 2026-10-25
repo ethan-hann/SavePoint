@@ -245,6 +245,29 @@ public class LaunchFlowSessionTests : IDisposable
         Assert.Null(_f.Flow.InlineContentFor(FlowRig.Skyrim));
     }
 
+    [Theory]
+    [InlineData(SessionEndKind.NamedProcessNeverAppeared, "SavePoint didn't see Skyrim Special Edition running. If it did run, check the game's program name in Edit game.")]
+    [InlineData(SessionEndKind.NamedProcessNeverMatched, "The game's program name for Skyrim Special Edition never showed up as a running program. Check it in Edit game.")]
+    public async Task With_session_capture_off_a_program_that_never_appeared_is_still_mentioned_once_in_a_toast(SessionEndKind kind, string text)
+    {
+        FakeAssert.Ok(await _f.Backend.Settings.SaveAsync(MockupScenario.Settings with { ConfirmSessionCapture = false }));
+        await _f.PlayToRunningAsync();
+
+        _f.Backend.Launch.ReportExited(FlowRig.Skyrim, TimeSpan.FromMinutes(2), 0, endKind: kind);
+
+        Assert.Equal(text, Assert.Single(_f.Rig.Toasts.Toasts).Text);
+    }
+
+    [Fact]
+    public async Task With_session_capture_off_a_normal_exit_shows_no_toast()
+    {
+        FakeAssert.Ok(await _f.Backend.Settings.SaveAsync(MockupScenario.Settings with { ConfirmSessionCapture = false }));
+
+        await _f.PlayToExitedAsync();
+
+        Assert.Empty(_f.Rig.Toasts.Toasts);
+    }
+
     [Fact]
     public async Task A_setting_that_cannot_be_read_means_the_player_is_asked()
     {

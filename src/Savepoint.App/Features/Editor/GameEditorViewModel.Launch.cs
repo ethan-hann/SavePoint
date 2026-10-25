@@ -18,6 +18,7 @@ public sealed partial class GameEditorViewModel
 
     // The folder the suggestions were last read for, so leaving the field unchanged does not scan a large install again.
     private string? _scannedFolder;
+    private string? _scannedName;
 
     /// <summary>The executables found in the install folder that match what is typed in the start file field.</summary>
     public ObservableCollection<SuggestionItem> ExeSuggestions { get; } = [];
@@ -106,8 +107,10 @@ public sealed partial class GameEditorViewModel
     /// </summary>
     public async Task RefreshSuggestionsAsync()
     {
+        // The game's name is a hint in the ranking, so a rename asks again; the service ranks by file sizes the editor does not hold.
         var install = InstallPath.Trim();
-        if (install == _scannedFolder)
+        var gameName = Name.Trim();
+        if (install == _scannedFolder && gameName == _scannedName)
         {
             await RefreshProcessNameSuggestionAsync();
             return;
@@ -121,11 +124,12 @@ public sealed partial class GameEditorViewModel
         {
             _executables = [];
             _scannedFolder = install;
+            _scannedName = gameName;
             UpdateSuggestions();
             return;
         }
 
-        var found = await _games.ListExecutablesAsync(install, Name.Trim(), scan.Token);
+        var found = await _games.ListExecutablesAsync(install, gameName, scan.Token);
         if (scan.IsCancellationRequested)
         {
             return;
@@ -133,6 +137,7 @@ public sealed partial class GameEditorViewModel
 
         _executables = found.Ok ? found.Value : [];
         _scannedFolder = found.Ok ? install : null;
+        _scannedName = gameName;
         UpdateSuggestions();
         await RefreshProcessNameSuggestionAsync();
     }

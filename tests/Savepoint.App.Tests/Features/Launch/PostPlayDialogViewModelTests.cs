@@ -44,9 +44,34 @@ public class PostPlayDialogViewModelTests : IDisposable
 
         Assert.Equal("SavePoint didn't see the game running", dialog.Title);
         Assert.True(dialog.HasNotSeenHint);
-        Assert.Equal("SavePoint waited for the program named in this game's process name and never saw it, so it can't tell how long you played. If the game did run, that name is probably wrong. Your saves stay as they are until you choose what to do with them.", dialog.NotSeenHint);
+        Assert.Equal("SavePoint waited two minutes for the game's program name from Edit game to show up as a running program, and it never did, so it can't tell how long you played. If the game did run, that name may be wrong, or the game may have taken longer than two minutes to start. Your saves stay as they are until you choose what to do with them.", dialog.NotSeenHint);
         Assert.Equal("Open Edit game", dialog.EditGameLabel);
         Assert.Equal($"{dialog.Body} {dialog.NotSeenHint}", dialog.Description);
+        Assert.DoesNotContain("process", dialog.NotSeenHint, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task A_program_that_ran_but_whose_name_never_matched_keeps_its_play_time_and_softly_points_at_the_program_name()
+    {
+        var exited = (await _rig.ExitedAsync()) with { EndKind = SessionEndKind.NamedProcessNeverMatched };
+
+        var dialog = Build(exited);
+
+        Assert.Equal("You played for 2 hours 14 minutes", dialog.Title);
+        Assert.Equal("The game's program name in Edit game never showed up as a running program, so SavePoint went by when the program it started closed. If that isn't when you stopped playing, check the name.", dialog.NotSeenHint);
+        Assert.Equal("Open Edit game", dialog.EditGameLabel);
+    }
+
+    [Fact]
+    public async Task A_process_list_that_could_not_be_read_does_not_blame_the_name_and_offers_no_editor()
+    {
+        var exited = (await _rig.ExitedAsync()) with { EndKind = SessionEndKind.ProcessListUnreadable };
+
+        var dialog = Build(exited);
+
+        Assert.Equal("SavePoint couldn't tell how long you played", dialog.Title);
+        Assert.Equal("SavePoint couldn't check which programs were running on this computer, so it doesn't know when the game closed. Your saves stay as they are until you choose what to do with them.", dialog.NotSeenHint);
+        Assert.False(dialog.HasEditGame);
     }
 
     [Fact]

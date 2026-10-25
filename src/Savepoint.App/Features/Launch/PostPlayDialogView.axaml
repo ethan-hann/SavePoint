@@ -34,6 +34,7 @@
           <Button x:Name="EditGameButton"
                   Classes="pill"
                   HorizontalAlignment="Left"
+                  IsVisible="{Binding HasEditGame}"
                   Command="{Binding EditGameCommand}"
                   Content="{Binding EditGameLabel}" />
         </StackPanel>

@@ -121,6 +121,25 @@ public class GameEditorLaunchTests
     }
 
     [Fact]
+    public async Task Renaming_the_game_ranks_the_programs_again_with_the_new_name_and_an_unchanged_name_does_not()
+    {
+        var rig = RigWithExecutables("SkyrimSELauncher.exe", "SkyrimSE.exe");
+        var editor = rig.Edit();
+        await editor.LoadAsync();
+
+        await editor.RefreshSuggestionsAsync();
+        Assert.Single(rig.Backend.Calls.To<IGamesApi>("ListExecutablesAsync"));
+
+        editor.Name = "Skyline Remastered";
+        await editor.RefreshSuggestionsAsync();
+        await editor.RefreshSuggestionsAsync();
+
+        var asked = rig.Backend.Calls.To<IGamesApi>("ListExecutablesAsync");
+        Assert.Equal(2, asked.Count);
+        Assert.Equal("Skyline Remastered", asked[1].Args[1]);
+    }
+
+    [Fact]
     public async Task A_program_the_player_already_chose_stays_when_the_suggestions_are_refreshed()
     {
         var rig = RigWithExecutables("SkyrimSELauncher.exe", "SkyrimSE.exe");
@@ -134,7 +153,6 @@ public class GameEditorLaunchTests
         editor.InstallPath = install;
         await editor.RefreshSuggestionsAsync();
 
-        Assert.Equal(["SkyrimSELauncher.exe", "SkyrimSE.exe"], editor.ExeSuggestions.Select(item => item.Text));
         Assert.Equal("Chosen.exe", editor.ExePath);
     }
 

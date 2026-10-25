@@ -70,7 +70,7 @@ internal sealed partial class GamesApi : IGamesApi
     public Task<OperationResult<IReadOnlyList<string>>> ListExecutablesAsync(string installPath, string gameName, CancellationToken cancellationToken = default) =>
         ApiGuard.RunAsync(
             _services.Log,
-            async () => await _services.Executables.ListAsync(_services.PathTokens.Resolve(installPath, "install.path"), cancellationToken, gameName).ConfigureAwait(false),
+            async () => await _services.Executables.ListAsync(_services.PathTokens.Resolve(installPath, "install.path"), gameName, cancellationToken).ConfigureAwait(false),
             cancellationToken);
 
     public Task<OperationResult<string>> SuggestProcessNameAsync(string installPath, string gameName, CancellationToken cancellationToken = default) =>

@@ -117,6 +117,21 @@ public class GamesQueryTests
     }
 
     [Fact]
+    public async Task The_games_name_decides_which_of_two_equal_programs_comes_first()
+    {
+        using var workspace = new BackendWorkspace();
+        var folder = Path.Combine(workspace.Home, "Games", "Plain");
+        BackendWorkspace.WriteFile(Path.Combine(folder, "alpha.exe"), "MZ");
+        BackendWorkspace.WriteFile(Path.Combine(folder, "beta.exe"), "MZ");
+
+        var named = await workspace.Games.ListExecutablesAsync(folder, "Beta", workspace.Token);
+        var unnamed = await workspace.Games.ListExecutablesAsync(folder, string.Empty, workspace.Token);
+
+        Assert.Equal(["beta.exe", "alpha.exe"], named.Value!);
+        Assert.Equal(["alpha.exe", "beta.exe"], unnamed.Value!);
+    }
+
+    [Fact]
     public async Task Executables_are_found_through_a_path_token()
     {
         using var workspace = new BackendWorkspace();

@@ -12,7 +12,7 @@ public class ExecutableScannerTests
     private static string P(params string[] parts) => Path.Combine(parts);
 
     private static Task<IReadOnlyList<string>> ScanAsync(TempFolder folder, ExecutableKinds kinds = ExecutableKinds.WindowsExe) =>
-        new ExecutableScanner(kinds).ListAsync(folder.Path, Ct);
+        new ExecutableScanner(kinds).ListAsync(folder.Path, null, Ct);
 
     [Fact]
     public async Task Programs_are_listed_with_their_sizes_and_every_one_found_is_kept()
@@ -210,11 +210,23 @@ public class ExecutableScannerTests
         temp.WriteBytes("Skyline.exe", 600_000);
         temp.WriteBytes("bin/Helper.exe", 50_000);
 
-        var found = await new ExecutableScanner(ExecutableKinds.WindowsExe).ListAsync(temp.Path, Ct, "Skyline");
+        var found = await new ExecutableScanner(ExecutableKinds.WindowsExe).ListAsync(temp.Path, "Skyline", Ct);
 
         Assert.Equal(P("Skyline.exe"), found[0]);
         Assert.Equal(4, found.Count);
         Assert.Contains(P("Launcher.exe"), found);
+    }
+
+    [Fact]
+    public async Task The_games_name_decides_which_of_two_equal_programs_comes_first()
+    {
+        using var temp = new TempFolder();
+        temp.WriteBytes("alpha.exe", 1000);
+        temp.WriteBytes("beta.exe", 1000);
+        var scanner = new ExecutableScanner(ExecutableKinds.WindowsExe);
+
+        Assert.Equal([P("beta.exe"), P("alpha.exe")], await scanner.ListAsync(temp.Path, "Beta", Ct));
+        Assert.Equal([P("alpha.exe"), P("beta.exe")], await scanner.ListAsync(temp.Path, null, Ct));
     }
 
     [Fact]
@@ -278,7 +290,7 @@ public class ExecutableScannerTests
 
         temp.WriteBytes("sub/Game.exe", 10);
 
-        Assert.Empty(await WithEntryLimit(50).ListAsync(temp.Path, Ct));
+        Assert.Empty(await WithEntryLimit(50).ListAsync(temp.Path, null, Ct));
     }
 
     [Fact]
@@ -293,7 +305,7 @@ public class ExecutableScannerTests
         var visits = 0;
         var scanner = new ExecutableScanner(ExecutableKinds.WindowsExe) { EntryLimit = 50, Visited = _ => visits++ };
 
-        await scanner.ListAsync(temp.Path, Ct);
+        await scanner.ListAsync(temp.Path, null, Ct);
 
         Assert.Equal(50, visits);
     }
@@ -309,7 +321,7 @@ public class ExecutableScannerTests
 
         temp.WriteBytes("sub/Game.exe", 10);
 
-        Assert.Equal([P("sub", "Game.exe")], await WithEntryLimit(50).ListAsync(temp.Path, Ct));
+        Assert.Equal([P("sub", "Game.exe")], await WithEntryLimit(50).ListAsync(temp.Path, null, Ct));
     }
 
     [Fact]
@@ -323,7 +335,7 @@ public class ExecutableScannerTests
 
         temp.WriteBytes("sub/Game.exe", 10);
 
-        Assert.Equal([P("sub", "Game.exe")], await WithEntryLimit(50).ListAsync(temp.Path, Ct));
+        Assert.Equal([P("sub", "Game.exe")], await WithEntryLimit(50).ListAsync(temp.Path, null, Ct));
     }
 
     [Fact]
@@ -337,7 +349,7 @@ public class ExecutableScannerTests
             File.WriteAllBytes(temp.Combine("deep", $"f{i:D3}.dat"), []);
         }
 
-        Assert.Equal([P("Game.exe")], await WithEntryLimit(50).ListAsync(temp.Path, Ct));
+        Assert.Equal([P("Game.exe")], await WithEntryLimit(50).ListAsync(temp.Path, null, Ct));
     }
 
     [Fact]
@@ -346,8 +358,8 @@ public class ExecutableScannerTests
         using var temp = new TempFolder();
         var file = temp.WriteBytes("Game.exe", 10);
 
-        Assert.Empty(await new ExecutableScanner(ExecutableKinds.WindowsExe).ListAsync(temp.Combine("missing"), Ct));
-        Assert.Empty(await new ExecutableScanner(ExecutableKinds.WindowsExe).ListAsync(file, Ct));
+        Assert.Empty(await new ExecutableScanner(ExecutableKinds.WindowsExe).ListAsync(temp.Combine("missing"), null, Ct));
+        Assert.Empty(await new ExecutableScanner(ExecutableKinds.WindowsExe).ListAsync(file, null, Ct));
     }
 
     [Fact]
@@ -358,7 +370,7 @@ public class ExecutableScannerTests
         temp.WriteBytes("outside/Elsewhere.exe", 10);
         Assert.True(temp.TryCreateDirectoryLink(temp.Combine("tree", "link"), temp.Combine("outside")), "could not create a directory link on this machine");
 
-        var found = await new ExecutableScanner(ExecutableKinds.WindowsExe).ListAsync(temp.Combine("tree"), Ct);
+        var found = await new ExecutableScanner(ExecutableKinds.WindowsExe).ListAsync(temp.Combine("tree"), null, Ct);
 
         Assert.Equal([P("Real.exe")], found);
     }
@@ -371,7 +383,7 @@ public class ExecutableScannerTests
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new ExecutableScanner(ExecutableKinds.WindowsExe).ListAsync(temp.Path, cts.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new ExecutableScanner(ExecutableKinds.WindowsExe).ListAsync(temp.Path, null, cts.Token));
     }
 
     [Fact]
@@ -458,7 +470,7 @@ public class ExecutableScannerTests
         var marked = new HashSet<string>(["native-elf", "launcher", "data-marked-executable.bin", "libengine.so", "libengine.so.2", "empty-but-executable", "short-but-executable"]);
         var scanner = new ExecutableScanner(ExecutableKinds.LinuxNative) { HasExecuteBit = path => marked.Contains(Path.GetFileName(path)) };
 
-        var found = await scanner.ListAsync(temp.Path, Ct);
+        var found = await scanner.ListAsync(temp.Path, null, Ct);
 
         Assert.Equal([P("bin", "launcher"), "native-elf"], found.Order(StringComparer.Ordinal));
     }
@@ -474,8 +486,8 @@ public class ExecutableScannerTests
         var scanner = new ExecutableScanner(ExecutableKinds.LinuxNative) { HasExecuteBit = _ => true };
         var withProton = new ExecutableScanner(ExecutableKinds.LinuxNative | ExecutableKinds.WindowsExe) { HasExecuteBit = _ => true };
 
-        Assert.Empty(await scanner.ListAsync(temp.Path, Ct));
-        Assert.Equal([P("Game.exe")], await withProton.ListAsync(temp.Path, Ct));
+        Assert.Empty(await scanner.ListAsync(temp.Path, null, Ct));
+        Assert.Equal([P("Game.exe")], await withProton.ListAsync(temp.Path, null, Ct));
     }
 
     [Fact]
@@ -534,7 +546,7 @@ public class ExecutableScannerTests
         temp.WriteBytes("run.sh", 10);
         temp.WriteBytes("Game.app/Contents/MacOS/Game", 10);
 
-        var found = await new ExecutableScanner(FakePlatforms.For(os)).ListAsync(temp.Path, Ct);
+        var found = await new ExecutableScanner(FakePlatforms.For(os)).ListAsync(temp.Path, null, Ct);
 
         Assert.Equal(expected.Select(name => P(name)), found);
     }

@@ -44,9 +44,18 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
     {
         _text = deps.Text;
         _editGame = editGame;
-        var notSeen = exited.EndKind == SessionEndKind.NamedProcessNeverAppeared;
-        NotSeenHint = notSeen ? _text.Message("launch.postPlay.notSeen.hint") : string.Empty;
-        EditGameLabel = notSeen ? _text.Message("launch.postPlay.notSeen.editGame") : string.Empty;
+        NotSeenHint = exited.EndKind switch
+        {
+            SessionEndKind.NamedProcessNeverAppeared => _text.Message("launch.postPlay.notSeen.hint"),
+            SessionEndKind.NamedProcessNeverMatched => _text.Message("launch.postPlay.neverMatched.hint"),
+            SessionEndKind.ProcessListUnreadable => _text.Message("launch.postPlay.unreadable.hint"),
+            _ => string.Empty,
+        };
+
+        // An unreadable process list is not the name's fault, so there is nothing in Edit game to point at.
+        EditGameLabel = exited.EndKind is SessionEndKind.NamedProcessNeverAppeared or SessionEndKind.NamedProcessNeverMatched
+            ? _text.Message("launch.postPlay.notSeen.editGame")
+            : string.Empty;
 
         _dialogs = deps.Dialogs;
         _profileName = profileName;
@@ -80,7 +89,7 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
     /// <summary>A line about the game's own files having changed while it ran; empty when they did not.</summary>
     public string InstallNote { get; }
 
-    /// <summary>Why no play time is shown, and where to fix it; empty when the game was seen running.</summary>
+    /// <summary>Why the end of the session is uncertain (the game was not seen, its name never matched, or the programs could not be checked); empty when it was seen running.</summary>
     public string NotSeenHint { get; }
 
     /// <summary>True when <see cref="NotSeenHint"/> has text.</summary>
@@ -88,6 +97,9 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
 
     /// <summary>The label of the button that opens Edit game.</summary>
     public string EditGameLabel { get; }
+
+    /// <summary>True when the button that opens Edit game shows.</summary>
+    public bool HasEditGame => EditGameLabel.Length > 0;
 
     // The saves are left for later (as Not now does) so the player can fix the name first; the editor opens once the dialog is gone.
     [RelayCommand]
@@ -97,11 +109,13 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
         _editGame?.Invoke();
     }
 
-    // A game that was never seen running has no play time to report; the wait for it is not time played.
-    private static string TitleFor(SessionState.Exited exited, UiFormatter text) =>
-        exited.EndKind == SessionEndKind.NamedProcessNeverAppeared
-            ? text.Message("launch.postPlay.notSeen.title")
-            : text.Message("launch.postPlay.title", ("duration", text.Duration(exited.PlayDuration)));
+    // A game that was never seen running, or whose process list could not be read, has no play time to report; the wait is not time played.
+    private static string TitleFor(SessionState.Exited exited, UiFormatter text) => exited.EndKind switch
+    {
+        SessionEndKind.NamedProcessNeverAppeared => text.Message("launch.postPlay.notSeen.title"),
+        SessionEndKind.ProcessListUnreadable => text.Message("launch.postPlay.unreadable.title"),
+        _ => text.Message("launch.postPlay.title", ("duration", text.Duration(exited.PlayDuration))),
+    };
 
     /// <summary>True when <see cref="InstallNote"/> has text.</summary>
     public bool HasInstallNote => InstallNote.Length > 0;

@@ -1,6 +1,8 @@
 using Savepoint.App.Features.Common.Errors;
+using Savepoint.App.Features.Common.Toasts;
 using Savepoint.Core.Api;
 using Savepoint.Core.Errors;
+using Savepoint.Core.Launch;
 
 namespace Savepoint.App.Features.Launch;
 
@@ -182,6 +184,18 @@ public sealed partial class LaunchFlowViewModel
         var settings = await LoadSettingsAsync();
         if (!settings.ConfirmSessionCapture)
         {
+            // The dialog that would have explained a wrong program name is off, so the player hears of it once here.
+            var name = GameName(flow.GameId);
+            switch (exited.EndKind)
+            {
+                case SessionEndKind.NamedProcessNeverAppeared:
+                    _deps.Toasts.Show(new ToastMessage(_deps.Text.Message("launch.postPlay.notSeen.toast", ("gameName", name)), ToastKind.Info));
+                    break;
+                case SessionEndKind.NamedProcessNeverMatched:
+                    _deps.Toasts.Show(new ToastMessage(_deps.Text.Message("launch.postPlay.neverMatched.toast", ("gameName", name)), ToastKind.Info));
+                    break;
+            }
+
             // Nothing is captured; the dirty check before the next switch is what protects the session.
             var skipped = await _deps.Launch.CompleteSessionAsync(flow.GameId, new SessionCompletion.Skip());
             if (!skipped.Ok)
