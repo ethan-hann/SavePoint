@@ -152,6 +152,13 @@ Other filters are `--filter-namespace` and `--filter-method`. Add `--report-xuni
 - Tests that care about logging pass a `RecordingDiagnosticLog` (`tests/Shared`); no test opens a real log file, and tests that touch a log folder check first that it lies inside their own temp home.
 - Opt-in smoke tests make the real OS calls: a notification, opening a link. Run them by hand with `SAVEPOINT_OS_SMOKE=1` (and `SAVEPOINT_SMOKE_URI` for the link opener).
 - Headless renders (Skia, 1040x660) land in `render-output/<area>/`. Open them after a UI change and compare them with the previous render of the same screen.
+- The guide images in `docs/images` are drawn by the same headless renderer from one seeded data set (`tests/Savepoint.App.Tests/Features/DocScreenshots/`: a game called Grounded, its profiles and snapshots, a fixed clock, light theme, Blue accent, 1280x800), so they come out byte for byte the same on every run. Regenerate them after every change to a screen they show, and commit them with the change:
+
+  ```bash
+  SAVEPOINT_DOC_SCREENSHOTS=1 dotnet test --project tests/Savepoint.App.Tests -c Release --filter-class Savepoint.App.Tests.Features.DocScreenshots.DocScreenshotTests --max-threads 2
+  ```
+
+  (In PowerShell, set `$env:SAVEPOINT_DOC_SCREENSHOTS = "1"` first.) Without the variable the job skips, so the gate never rewrites the docs. An always-on test fails when the user guide or the README shows an image the job does not draw, or the job draws one nothing shows; a new screen in the guide gets a generator in `DocScreenshotJob`.
 - Lint tests guard the catalog:
   - every key the code uses exists, and no key is unused;
   - keys are literal strings;
