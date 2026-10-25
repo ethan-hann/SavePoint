@@ -139,6 +139,18 @@ public class PostPlayDialogViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task A_session_that_changed_nothing_recommends_Not_now_and_does_not_recommend_keeping()
+    {
+        var played = await _rig.ExitedAsync(newFiles: 0);
+        var dialog = Build(played with { NewFileCount = 0, ChangedInstallFileCount = 0, Options = played.Options with { Default = CompletionChoice.Skip } });
+
+        Assert.Equal(CompletionChoice.Skip, dialog.SelectedChoice.Kind);
+        Assert.Equal("Not now", dialog.PrimaryLabel);
+        Assert.Equal("Your earlier snapshots stay as they are.", Card(dialog, CompletionChoice.CaptureNew).Subtitle);
+        Assert.Equal("Recommended. Nothing changed, so there is nothing new to keep.", Card(dialog, CompletionChoice.Skip).Subtitle);
+    }
+
+    [Fact]
     public async Task The_service_default_is_selected_and_only_a_selected_card_with_a_field_shows_it()
     {
         var dialog = await NormalAsync();

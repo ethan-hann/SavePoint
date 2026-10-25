@@ -94,6 +94,12 @@ public sealed partial class LaunchOrchestrator
                 var leaveOut = install.Paths is { Count: > 0 }
                     ? await RulesGitAgreesOnAsync(storage, repos.FirstOrDefault(repo => repo.Role == RepoRole.Install), install.Paths).ConfigureAwait(false)
                     : null;
+                // Keeping a session in which neither folder changed would make a copy of what is already kept, so it is not the suggestion.
+                if (!older && external.Count == 0 && install.Count == 0 && options.Choices.Contains(CompletionChoice.Skip))
+                {
+                    options = options with { Default = CompletionChoice.Skip };
+                }
+
                 return new SessionState.Exited(startedAt, duration, external.Count, install.Count, options, endKind, leaveOut);
             }).ConfigureAwait(false);
         }
