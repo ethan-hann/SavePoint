@@ -90,6 +90,26 @@ public class RealSessionTests
     }
 
     [Fact]
+    public async Task A_starter_named_in_the_definition_that_hands_over_to_a_process_it_started_is_followed_until_that_process_leaves()
+    {
+        using var stub = new FakeGameInstall();
+        var gameReady = stub.Combine("ready.txt");
+        // The real game lives in the install folder under a name the definition does not know.
+        var realGame = Path.Combine(stub.Folder, "real" + Path.GetExtension(stub.ExecutablePath));
+        File.Copy(stub.ExecutablePath, realGame);
+        var config = Program(stub, stub.Name, "--spawn", realGame, "--ready-file", gameReady, "--exit-after", "4000");
+
+        using var watcher = await Starter(grace: TimeSpan.FromSeconds(1)).StartAsync(config, stub.Folder, Ct);
+        var outcome = await OutcomeAsync(watcher);
+        var gamePid = await FakeGameProcess.WaitForReadyFileAsync(gameReady);
+
+        Assert.Equal(SessionEndKind.NamedProcessEnded, outcome.Kind);
+        Assert.Contains(gamePid, outcome.FollowedPids);
+        Assert.True(outcome.PlayDuration >= TimeSpan.FromSeconds(3), $"the session ended after only {outcome.PlayDuration}, before the started game left");
+        Assert.False(FakeGameProcess.IsRunning(gamePid), "the session ended while the game the starter started was still running");
+    }
+
+    [Fact]
     public async Task A_game_that_exits_at_once_and_is_started_again_by_another_program_is_followed_to_the_end_of_the_new_copy()
     {
         using var game = new FakeGameInstall();

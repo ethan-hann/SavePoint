@@ -54,8 +54,9 @@ public sealed class RunningGameCheck
         }
 
         var matches = running.Where(process => ProcessNameMatcher.Matches(processName, process, _os)).ToList();
-        var others = matches.Where(process => process.Pid != ignoringPid).Select(process => process.Pid).ToList();
-        return new NamedLook(others.Count > 0 ? NamedProcessState.Running : NamedProcessState.Absent, matches.Count > others.Count, others);
+        var otherMatches = matches.Where(process => process.Pid != ignoringPid).ToList();
+        var others = otherMatches.Select(process => process.Pid).ToList();
+        return new NamedLook(others.Count > 0 ? NamedProcessState.Running : NamedProcessState.Absent, matches.Count > others.Count, others, running, otherMatches);
     }
 }
 
@@ -63,7 +64,14 @@ public sealed class RunningGameCheck
 /// <param name="State">The state, not counting the ignored process.</param>
 /// <param name="IgnoredMatched">True when the ignored process was listed under the name.</param>
 /// <param name="OtherPids">The ids of the matching processes other than the ignored one.</param>
-internal readonly record struct NamedLook(NamedProcessState State, bool IgnoredMatched, IReadOnlyList<int> OtherPids);
+/// <param name="Listed">The whole list that was read; null when it could not be read.</param>
+/// <param name="Others">The matching processes other than the ignored one; null when the list could not be read.</param>
+internal readonly record struct NamedLook(
+    NamedProcessState State,
+    bool IgnoredMatched,
+    IReadOnlyList<int> OtherPids,
+    IReadOnlyList<RunningProcess>? Listed = null,
+    IReadOnlyList<RunningProcess>? Others = null);
 
 /// <summary>What one read of the process list says about a named process.</summary>
 internal enum NamedProcessState

@@ -1,3 +1,4 @@
+using Savepoint.Core.Paths;
 using Savepoint.Core.Platform;
 
 namespace Savepoint.Core.Launch;
@@ -10,7 +11,9 @@ namespace Savepoint.Core.Launch;
 /// <see cref="GameSessionOptions.Grace"/> from the stub's exit to appear. The list is read from the moment the watcher starts, so
 /// a game seen while the stub was still alive needs no grace. The started program itself never counts as that game, even under the
 /// same name: a game that exits within <see cref="GameSessionOptions.RelaunchWindow"/> of starting and asks its store to start it again
-/// has the grace to come back as a new process, while one that ran longer and is gone was quit and ends the session at once. A link has no program, so it is poll-only and best effort, and with no
+/// has the grace to come back as a new process, while one that ran longer and is gone was quit and ends the session at once. A starter
+/// whose real game is a process it started itself (directly or through others, see <see cref="ProcessFamily"/>) is followed through those
+/// processes while any of them runs, under whatever name they have; the session then ends when the last one does. A link has no program, so it is poll-only and best effort, and with no
 /// process name it can only be ended by <see cref="MarkFinished"/>.
 /// </para>
 /// <para>
@@ -29,6 +32,9 @@ public sealed class GameSessionWatcher : IDisposable
     private readonly TimeProvider _clock;
     private readonly Task _loop;
     private readonly SortedSet<int> _followed = [];
+    private readonly ProcessFamily _family;
+    private readonly IProcessInspector _processes;
+    private IReadOnlyList<(int Pid, DateTimeOffset? Start)> _followedLive = [];
     private bool _disposed;
     private bool _childReleased;
 
@@ -39,6 +45,7 @@ public sealed class GameSessionWatcher : IDisposable
     /// <param name="os">The OS the process list came from; it decides how names are compared.</param>
     /// <param name="options">Polling interval and grace.</param>
     /// <param name="clock">Time source for the start, the end, and every wait.</param>
+    /// <param name="gameFolder">The game's install folder. A process the started program starts is followed only when its program lies inside it; null follows none.</param>
     /// <exception cref="ArgumentOutOfRangeException">The polling interval is not positive, or the grace or the relaunch window is negative.</exception>
     public GameSessionWatcher(
         IGameProcess? child,
@@ -46,7 +53,8 @@ public sealed class GameSessionWatcher : IDisposable
         IProcessInspector processes,
         OsKind os,
         GameSessionOptions options,
-        TimeProvider clock)
+        TimeProvider clock,
+        string? gameFolder = null)
     {
         options.EnsureValid();
         _child = child;
@@ -54,7 +62,9 @@ public sealed class GameSessionWatcher : IDisposable
         _check = new RunningGameCheck(processes, os);
         _options = options;
         _clock = clock;
+        _processes = processes;
         StartedAt = clock.GetUtcNow();
+        _family = new ProcessFamily(StartedAt - TimeSpan.FromSeconds(10), gameFolder, PathSyntax.For(os));
         _loop = Task.Run(RunAsync);
     }
 
@@ -74,12 +84,14 @@ public sealed class GameSessionWatcher : IDisposable
     public bool IsSettled => _outcome.Task.IsCompleted;
 
     /// <summary>
-    /// True while the program SavePoint started is alive or the named process is running, whether or not the session has settled:
+    /// True while the program SavePoint started is alive, the named process is running, or a process followed from the started program
+    /// still runs, whether or not the session has settled:
     /// a player who said they were done may still have the game open. False once disposed, and false for a link with no process name,
     /// which gives nothing to look at.
     /// </summary>
     public bool IsRunning()
     {
+        IReadOnlyList<(int Pid, DateTimeOffset? Start)> followed;
         lock (_gate)
         {
             if (_disposed)
@@ -91,9 +103,29 @@ public sealed class GameSessionWatcher : IDisposable
             {
                 return true;
             }
+
+            followed = _followedLive;
         }
 
-        return _processName is not null && _check.Probe(_processName) == NamedProcessState.Running;
+        if (_processName is not null && _check.Probe(_processName) == NamedProcessState.Running)
+        {
+            return true;
+        }
+
+        return followed.Count > 0 && StillRunning(followed);
+    }
+
+    // The process list is re-read: the last look may be older than the player's click, and an id alone may belong to someone else by now.
+    private bool StillRunning(IReadOnlyList<(int Pid, DateTimeOffset? Start)> followed)
+    {
+        try
+        {
+            return _processes.List().Any(process => followed.Any(f => f.Pid == process.Pid && f.Start == process.StartedAt));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return false;
+        }
     }
 
     /// <summary>Ends the session now because the player says they are done; the game is left running.</summary>
@@ -151,6 +183,11 @@ public sealed class GameSessionWatcher : IDisposable
         var observed = false;
         var readable = false;
         var selfSeen = false;
+        var namedSeen = false;
+        var heldPastGrace = false;
+        IReadOnlyList<(int Pid, DateTimeOffset? Start)> lastDescendants = [];
+        var lastFollowing = false;
+        DateTimeOffset? firstMiss = null;
         var graceFrom = StartedAt;
 
         while (true)
@@ -169,14 +206,38 @@ public sealed class GameSessionWatcher : IDisposable
             // leaves a same-named process behind only by being the one that was started.
             var look = _check.Look(name, _child?.Pid);
             var state = look.State;
+            // A starter that quit at once and left the real game running as a process it started is followed through that process,
+            // whatever it is called. A program that ran a while was quit, and once the named game has been seen it is the one to follow.
+            namedSeen |= look.OtherPids.Count > 0;
+            // A list that could not be read says nothing, so the last answer stands rather than ending a held session on a guess.
+            IReadOnlyList<(int Pid, DateTimeOffset? Start)> descendants;
+            bool following;
+            if (look.Listed is null)
+            {
+                (descendants, following) = (lastDescendants, lastFollowing);
+            }
+            else
+            {
+                descendants = _child is null ? [] : _family.Update(look.Listed, _child.Pid, !childGone);
+                following = childGone && !namedSeen && descendants.Count > 0 && graceFrom - StartedAt < _options.RelaunchWindow;
+                (lastDescendants, lastFollowing) = (descendants, following);
+            }
+
+            lock (_gate)
+            {
+                _followedLive = following ? descendants : [];
+            }
+
+            // Only the configured name counts as having been seen; a followed child just holds the session open past the grace.
             observed |= state == NamedProcessState.Running;
             readable |= childGone && state != NamedProcessState.Unknown;
             selfSeen |= look.IgnoredMatched;
-            if (look.OtherPids.Count > 0)
+            if (look.OtherPids.Count > 0 || following)
             {
                 lock (_gate)
                 {
                     _followed.UnionWith(look.OtherPids);
+                    _followed.UnionWith(descendants.Select(d => d.Pid));
                 }
             }
 
@@ -190,6 +251,25 @@ public sealed class GameSessionWatcher : IDisposable
                     return;
                 }
 
+                // The grace ran out with a followed child alive; the session ends when the last one does. One look that finds none may be
+                // a misread, so it takes a second, and the end is dated at the first.
+                if (heldPastGrace && !following)
+                {
+                    if (firstMiss is { } missedAt)
+                    {
+                        Settle(SessionEndKind.NamedProcessEnded, missedAt);
+                        return;
+                    }
+
+                    firstMiss = _clock.GetUtcNow();
+                    await WaitForNextLookAsync(stop, null, null);
+                    continue;
+                }
+                else
+                {
+                    firstMiss = null;
+                }
+
                 // A game that ran for a while under the named process and is gone was quit; only a quick exit may be a restart.
                 if (!observed && selfSeen && state == NamedProcessState.Absent && graceFrom - StartedAt >= _options.RelaunchWindow)
                 {
@@ -197,7 +277,11 @@ public sealed class GameSessionWatcher : IDisposable
                     return;
                 }
 
-                if (!observed && _clock.GetUtcNow() >= deadline)
+                if (!observed && following && _clock.GetUtcNow() >= deadline)
+                {
+                    heldPastGrace = true;
+                }
+                else if (!observed && _clock.GetUtcNow() >= deadline)
                 {
                     // No restart came, so the game ended when the program did, and the wait is not play time. A program that ran a while
                     // before it exited is taken at its word even when its name never matched; the run is real.

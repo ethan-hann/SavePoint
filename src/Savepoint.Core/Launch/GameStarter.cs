@@ -73,7 +73,7 @@ public sealed class GameStarter
 
         var path = ResolveProgram(launch.ExePath, installFolder);
         var child = _launcher.StartExecutable(path, launch.Args, installFolder);
-        return new GameSessionWatcher(child, processName, _processes, _os, _options, _clock);
+        return new GameSessionWatcher(child, processName, _processes, _os, _options, _clock, installFolder);
     }
 
     private static string? ProcessNameOf(LaunchConfig launch) =>
