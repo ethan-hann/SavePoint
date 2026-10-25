@@ -31,7 +31,9 @@ public sealed class GameSessionWatcher : IDisposable
     private readonly TimeProvider _clock;
     private readonly Task _loop;
     private readonly SortedSet<int> _followed = [];
-    private readonly ProcessFamily _family = new();
+    private readonly ProcessFamily _family;
+    private readonly IProcessInspector _processes;
+    private IReadOnlyList<(int Pid, DateTimeOffset? Start)> _followedLive = [];
     private bool _disposed;
     private bool _childReleased;
 
@@ -57,7 +59,9 @@ public sealed class GameSessionWatcher : IDisposable
         _check = new RunningGameCheck(processes, os);
         _options = options;
         _clock = clock;
+        _processes = processes;
         StartedAt = clock.GetUtcNow();
+        _family = new ProcessFamily(StartedAt - TimeSpan.FromSeconds(2));
         _loop = Task.Run(RunAsync);
     }
 
@@ -77,12 +81,14 @@ public sealed class GameSessionWatcher : IDisposable
     public bool IsSettled => _outcome.Task.IsCompleted;
 
     /// <summary>
-    /// True while the program SavePoint started is alive or the named process is running, whether or not the session has settled:
+    /// True while the program SavePoint started is alive, the named process is running, or a process followed from the started program
+    /// still runs, whether or not the session has settled:
     /// a player who said they were done may still have the game open. False once disposed, and false for a link with no process name,
     /// which gives nothing to look at.
     /// </summary>
     public bool IsRunning()
     {
+        IReadOnlyList<(int Pid, DateTimeOffset? Start)> followed;
         lock (_gate)
         {
             if (_disposed)
@@ -94,9 +100,29 @@ public sealed class GameSessionWatcher : IDisposable
             {
                 return true;
             }
+
+            followed = _followedLive;
         }
 
-        return _processName is not null && _check.Probe(_processName) == NamedProcessState.Running;
+        if (_processName is not null && _check.Probe(_processName) == NamedProcessState.Running)
+        {
+            return true;
+        }
+
+        return followed.Count > 0 && StillRunning(followed);
+    }
+
+    // The process list is re-read: the last look may be older than the player's click, and an id alone may belong to someone else by now.
+    private bool StillRunning(IReadOnlyList<(int Pid, DateTimeOffset? Start)> followed)
+    {
+        try
+        {
+            return _processes.List().Any(process => followed.Any(f => f.Pid == process.Pid && f.Start == process.StartedAt));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return false;
+        }
     }
 
     /// <summary>Ends the session now because the player says they are done; the game is left running.</summary>
@@ -154,6 +180,7 @@ public sealed class GameSessionWatcher : IDisposable
         var observed = false;
         var readable = false;
         var selfSeen = false;
+        var namedSeen = false;
         var graceFrom = StartedAt;
 
         while (true)
@@ -172,18 +199,25 @@ public sealed class GameSessionWatcher : IDisposable
             // leaves a same-named process behind only by being the one that was started.
             var look = _check.Look(name, _child?.Pid);
             var state = look.State;
-            // A starter whose real game is a process it started itself ends the session when that process does, whatever it is called.
-            var descendants = look.Listed is null ? [] : _family.Update(look.Listed, _child?.Pid, !childGone, look.Others ?? []);
-            var following = childGone && descendants.Count > 0;
+            // A starter that quit at once and left the real game running as a process it started is followed through that process,
+            // whatever it is called. A program that ran a while was quit, and once the named game has been seen it is the one to follow.
+            namedSeen |= look.OtherPids.Count > 0;
+            var descendants = look.Listed is null || _child is null ? [] : _family.Update(look.Listed, _child.Pid, !childGone);
+            var following = childGone && !namedSeen && descendants.Count > 0 && graceFrom - StartedAt < _options.RelaunchWindow;
+            lock (_gate)
+            {
+                _followedLive = following ? descendants : [];
+            }
+
             observed |= state == NamedProcessState.Running || following;
             readable |= childGone && state != NamedProcessState.Unknown;
             selfSeen |= look.IgnoredMatched;
-            if (look.OtherPids.Count > 0 || descendants.Count > 0)
+            if (look.OtherPids.Count > 0 || following)
             {
                 lock (_gate)
                 {
                     _followed.UnionWith(look.OtherPids);
-                    _followed.UnionWith(descendants);
+                    _followed.UnionWith(descendants.Select(d => d.Pid));
                 }
             }
 
