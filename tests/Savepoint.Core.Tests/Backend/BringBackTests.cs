@@ -384,6 +384,96 @@ public class BringBackTests
     }
 
     [Fact(Timeout = 120_000)]
+    public async Task A_failure_in_the_other_folder_after_the_copy_was_made_takes_the_branches_back_and_the_snapshot_comes_back_under_its_new_id()
+    {
+        var fail = 0;
+        using var world = await RemovedWorld.CreateAsync(options => options with
+        {
+            Engine = new GitEngineOptions
+            {
+                InvocationObserver = invocation =>
+                {
+                    // The install folder is copied first; the saves folder's plain branch is the step that fails.
+                    if (Volatile.Read(ref fail) == 1 && invocation.Arguments[0] == "update-ref" && invocation.Arguments.Contains("0000000000000000000000000000000000000000") && invocation.GitDir?.Contains("external.git", StringComparison.Ordinal) == true)
+                    {
+                        throw new IOException("The disk reported an error.");
+                    }
+                },
+            },
+        });
+        var (id, _) = await PartlyReplacedAsync(world, RepoRole.Install);
+        var oldInstall = Assert.Single(await world.RecordedCommitsAsync(RepoRole.Install));
+
+        Volatile.Write(ref fail, 1);
+        var failed = await world.Workspace.Profiles.BringBackAsync(world.Game.Id, new HistoryPointId(id), "Old mods");
+        Volatile.Write(ref fail, 0);
+
+        Assert.False(failed.Ok);
+        await AssertBroughtBackUnderANewIdAsync(world, id, oldInstall);
+    }
+
+    [Fact(Timeout = 120_000)]
+    public async Task A_failure_saving_the_profile_after_the_copy_was_made_takes_the_branches_back_and_the_snapshot_comes_back_under_its_new_id()
+    {
+        var fail = 0;
+        string? catalogFile = null;
+        using var world = await RemovedWorld.CreateAsync(options => options with
+        {
+            Engine = new GitEngineOptions
+            {
+                InvocationObserver = invocation =>
+                {
+                    // The install copy's ref transaction has run by the time the profile is saved, so a catalog that cannot be read fails the save.
+                    if (Volatile.Read(ref fail) == 1 && catalogFile is not null && invocation.Arguments[0] == "update-ref" && invocation.Arguments.Contains("--stdin") && invocation.Stdin?.Contains("refs/heads/", StringComparison.Ordinal) == true)
+                    {
+                        File.WriteAllText(catalogFile, "{ not a catalog");
+                    }
+                },
+            },
+        });
+        var (id, _) = await PartlyReplacedAsync(world, RepoRole.Install);
+        var oldInstall = Assert.Single(await world.RecordedCommitsAsync(RepoRole.Install));
+        catalogFile = Path.Combine(world.Workspace.CatalogDirectory, "profiles.json");
+        var catalogBefore = await File.ReadAllTextAsync(catalogFile, world.Workspace.Token);
+
+        Volatile.Write(ref fail, 1);
+        var failed = await world.Workspace.Profiles.BringBackAsync(world.Game.Id, new HistoryPointId(id), "Old mods");
+        Volatile.Write(ref fail, 0);
+        await File.WriteAllTextAsync(catalogFile, catalogBefore, world.Workspace.Token);
+
+        Assert.False(failed.Ok);
+        await AssertBroughtBackUnderANewIdAsync(world, id, oldInstall);
+    }
+
+    // After a failure past the copy: no profile and no branch is left, the old id is gone, the snapshot is listed under the copy's id,
+    // and bringing that back gives the same profile a first-try success gives.
+    private static async Task AssertBroughtBackUnderANewIdAsync(RemovedWorld world, string oldId, string oldInstallCommit)
+    {
+        Assert.Single((await world.Workspace.Profiles.ListAsync(world.Game.Id, world.Workspace.Token)).Value!);
+        Assert.Equal([world.Profile.BranchName], await BranchesAsync(world, RepoRole.Install));
+        Assert.Equal([world.Profile.BranchName], await BranchesAsync(world, RepoRole.External));
+        var listed = Assert.Single(await world.ListAsync());
+        Assert.NotEqual(oldId, listed.Id.Value);
+        Assert.Equal(HistoryPointKind.VersionAndMods, listed.Kind);
+
+        var retried = await world.Workspace.Profiles.BringBackAsync(world.Game.Id, listed.Id, "Old mods");
+
+        Assert.True(retried.Ok, retried.Error?.Detail);
+        var point = Assert.Single((await world.Workspace.History.GetAsync(world.Game.Id, retried.Value.Id, world.Workspace.Token)).Value!.Points);
+        Assert.Equal(listed.Id, point.Id);
+        Assert.Equal(HistoryPointKind.VersionAndMods, point.Kind);
+        Assert.Equal("Both again", point.Name);
+        var tip = (await world.CommitsAsync(retried.Value.BranchName, RepoRole.Install)).First();
+        Assert.Equal(await world.TreeOfAsync(RepoRole.Install, oldInstallCommit), await world.TreeOfAsync(RepoRole.Install, tip.Id));
+        Assert.Empty(await world.ListAsync());
+
+        // The old id is no longer in the list.
+        var stale = await world.Workspace.Profiles.BringBackAsync(world.Game.Id, new HistoryPointId(oldId), "Again");
+        Assert.False(stale.Ok);
+        Assert.Equal("error.removed.notFound", stale.Error.MessageId);
+    }
+
+    [Fact(Timeout = 120_000)]
     public async Task A_branch_that_outlived_its_profile_does_not_split_the_snapshot()
     {
         using var world = await RemovedWorld.CreateAsync();

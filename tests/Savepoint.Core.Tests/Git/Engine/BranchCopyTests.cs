@@ -76,6 +76,48 @@ public sealed class BranchCopyTests : IDisposable
     }
 
     [Fact]
+    public async Task The_copy_keeps_the_utc_offsets_the_point_was_made_with()
+    {
+        var (repo, points) = await _ws.ThreePointsRepoAsync();
+        var tree = await _ws.GitOutAsync(repo, "rev-parse", points[2] + "^{tree}");
+        var made = await _ws.Runner.RunAsync(
+            new GitInvocation(["commit-tree", tree, "-F", "-"])
+            {
+                GitDir = repo.GitDir,
+                WorkTree = repo.WorkTree,
+                Stdin = "Offset point\n\nSavepoint-Capture: cap-offset\nSavepoint-Captured-At: 1\n",
+                ExtraEnvironment = new Dictionary<string, string?>
+                {
+                    ["GIT_AUTHOR_NAME"] = "Author",
+                    ["GIT_AUTHOR_EMAIL"] = "author@example.invalid",
+                    ["GIT_COMMITTER_NAME"] = "Committer",
+                    ["GIT_COMMITTER_EMAIL"] = "committer@example.invalid",
+                    ["GIT_AUTHOR_DATE"] = "2026-01-02T03:04:05+09:00",
+                    ["GIT_COMMITTER_DATE"] = "2026-01-02T03:04:05-03:30",
+                },
+            },
+            Ct);
+        var offsetPoint = made.StandardOutput.Trim();
+
+        var copy = await _ws.Engine.CreateBranchAsCopyAsync(repo, "copied", offsetPoint, "new-id", ct: Ct);
+
+        Assert.Equal("2026-01-02T03:04:05+09:00", await FieldAsync(repo, copy, "%aI"));
+        Assert.Equal("2026-01-02T03:04:05-03:30", await FieldAsync(repo, copy, "%cI"));
+    }
+
+    [Fact]
+    public async Task A_record_deleted_after_it_was_read_refuses_the_copy_and_nothing_moves()
+    {
+        var (repo, old, record) = await ReplacedTipAsync();
+        await _ws.Engine.ClearRemovedAsync(repo, [record.RefName], Ct);
+
+        await Assert.ThrowsAsync<GitOperationException>(() => _ws.Engine.CreateBranchAsCopyAsync(repo, "copied", old, "new-id", record, Ct));
+
+        Assert.Null(await _ws.TipAsync(repo, "copied"));
+        Assert.Empty(await _ws.Engine.ListRemovedAsync(repo, Ct));
+    }
+
+    [Fact]
     public async Task A_branch_that_exists_is_refused_and_no_commit_is_written()
     {
         var (repo, points) = await _ws.ThreePointsRepoAsync();
