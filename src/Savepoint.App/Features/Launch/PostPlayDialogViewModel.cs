@@ -7,6 +7,7 @@ using Savepoint.App.Features.Help;
 using Savepoint.App.Theme;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Launch;
 
 namespace Savepoint.App.Features.Launch;
 
@@ -24,6 +25,7 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
     private readonly PostPlayOptions _options;
     private readonly string _defaultPointName;
     private readonly SettingsWriter _settingsWriter;
+    private readonly Action? _editGame;
     private bool _explainReplace;
 
     /// <summary>The card the player has selected; the main button acts on it.</summary>
@@ -36,10 +38,16 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
     /// <param name="deps">The Api and formatting the dialog uses.</param>
     /// <param name="explainOlderChoice">True the first time a player meets the older-snapshot choice: "Which should I pick?" opens by itself, and the player's settings remember it was shown.</param>
     /// <param name="explainReplace">True the first time a player has not yet seen the Replace card's explanation: it opens by itself when the card is first selected, and the player's settings remember it was shown.</param>
-    public PostPlayDialogViewModel(SessionState.Exited exited, string profileName, LaunchDependencies deps, bool explainOlderChoice = false, bool explainReplace = false)
-        : base(deps.Text.Message("launch.postPlay.title", ("duration", deps.Text.Duration(exited.PlayDuration))))
+    /// <param name="editGame">Opens Edit game for the session's game; the hint about a program that was never seen offers it. Null when the host has no editor to open.</param>
+    public PostPlayDialogViewModel(SessionState.Exited exited, string profileName, LaunchDependencies deps, bool explainOlderChoice = false, bool explainReplace = false, Action? editGame = null)
+        : base(TitleFor(exited, deps.Text))
     {
         _text = deps.Text;
+        _editGame = editGame;
+        var notSeen = exited.EndKind == SessionEndKind.NamedProcessNeverAppeared;
+        NotSeenHint = notSeen ? _text.Message("launch.postPlay.notSeen.hint") : string.Empty;
+        EditGameLabel = notSeen ? _text.Message("launch.postPlay.notSeen.editGame") : string.Empty;
+
         _dialogs = deps.Dialogs;
         _profileName = profileName;
         _options = exited.Options;
@@ -72,6 +80,29 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
     /// <summary>A line about the game's own files having changed while it ran; empty when they did not.</summary>
     public string InstallNote { get; }
 
+    /// <summary>Why no play time is shown, and where to fix it; empty when the game was seen running.</summary>
+    public string NotSeenHint { get; }
+
+    /// <summary>True when <see cref="NotSeenHint"/> has text.</summary>
+    public bool HasNotSeenHint => NotSeenHint.Length > 0;
+
+    /// <summary>The label of the button that opens Edit game.</summary>
+    public string EditGameLabel { get; }
+
+    // The saves are left for later (as Not now does) so the player can fix the name first; the editor opens once the dialog is gone.
+    [RelayCommand]
+    private void EditGame()
+    {
+        Close(new SessionCompletion.Skip());
+        _editGame?.Invoke();
+    }
+
+    // A game that was never seen running has no play time to report; the wait for it is not time played.
+    private static string TitleFor(SessionState.Exited exited, UiFormatter text) =>
+        exited.EndKind == SessionEndKind.NamedProcessNeverAppeared
+            ? text.Message("launch.postPlay.notSeen.title")
+            : text.Message("launch.postPlay.title", ("duration", text.Duration(exited.PlayDuration)));
+
     /// <summary>True when <see cref="InstallNote"/> has text.</summary>
     public bool HasInstallNote => InstallNote.Length > 0;
 
@@ -103,7 +134,7 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
     public bool ShowNotNowButton => SelectedChoice.Kind != CompletionChoice.Skip;
 
     /// <inheritdoc />
-    public override string Description => HasOlderNote ? $"{Body} {OlderNote}" : Body;
+    public override string Description => string.Join(' ', new[] { Body, HasNotSeenHint ? NotSeenHint : null, HasOlderNote ? OlderNote : null }.OfType<string>());
 
     /// <inheritdoc />
     public override double DialogWidth => 580;

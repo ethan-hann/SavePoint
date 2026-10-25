@@ -4,6 +4,7 @@ using Savepoint.App.Tests.Fakes;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
+using Savepoint.Core.Launch;
 
 namespace Savepoint.App.Tests.Features.Launch;
 
@@ -201,6 +202,20 @@ public class LaunchFlowSessionTests : IDisposable
         var dialog = _f.PostPlay;
         Assert.Equal("You played for 2 hours 14 minutes", dialog.Title);
         Assert.True(_f.Flow.IsActive(FlowRig.Skyrim));
+    }
+
+    [Fact]
+    public async Task The_hint_after_a_program_that_was_never_seen_opens_Edit_game_and_keeps_the_saves_for_later()
+    {
+        await _f.PlayToRunningAsync();
+        _f.Backend.Launch.ReportExited(FlowRig.Skyrim, TimeSpan.FromMinutes(2), 0, endKind: SessionEndKind.NamedProcessNeverAppeared);
+        var dialog = _f.PostPlay;
+        Assert.True(dialog.HasNotSeenHint);
+
+        dialog.EditGameCommand.Execute(null);
+
+        Assert.Equal([FlowRig.Skyrim], _f.EditRequests);
+        Assert.Equal([FlowRig.Skyrim, new SessionCompletion.Skip()], Assert.Single(_f.Completes()).Args);
     }
 
     [Fact]

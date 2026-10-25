@@ -2,6 +2,7 @@ using Savepoint.App.Features.Launch;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Theme;
 using Savepoint.Core.Api;
+using Savepoint.Core.Launch;
 
 namespace Savepoint.App.Tests.Features.Launch;
 
@@ -32,6 +33,43 @@ public class PostPlayDialogViewModelTests : IDisposable
         Assert.Equal("You played for 2 hours 14 minutes", dialog.Title);
         Assert.Equal("3 files in your saves folder are new or changed since you started. What should SavePoint do with them?", dialog.Body);
         Assert.Equal(580, dialog.DialogWidth);
+    }
+
+    [Fact]
+    public async Task A_session_whose_program_was_never_seen_does_not_claim_any_play_time_and_points_at_the_process_name()
+    {
+        var exited = (await _rig.ExitedAsync()) with { EndKind = SessionEndKind.NamedProcessNeverAppeared };
+
+        var dialog = Build(exited);
+
+        Assert.Equal("SavePoint didn't see the game running", dialog.Title);
+        Assert.True(dialog.HasNotSeenHint);
+        Assert.Equal("SavePoint waited for the program named in this game's process name and never saw it, so it can't tell how long you played. If the game did run, that name is probably wrong. Your saves stay as they are until you choose what to do with them.", dialog.NotSeenHint);
+        Assert.Equal("Open Edit game", dialog.EditGameLabel);
+        Assert.Equal($"{dialog.Body} {dialog.NotSeenHint}", dialog.Description);
+    }
+
+    [Fact]
+    public async Task A_session_that_ran_shows_its_length_and_no_process_name_hint()
+    {
+        var dialog = await NormalAsync();
+
+        Assert.False(dialog.HasNotSeenHint);
+        Assert.Equal(string.Empty, dialog.NotSeenHint);
+    }
+
+    [Fact]
+    public async Task Opening_Edit_game_from_the_hint_leaves_the_saves_alone_and_asks_for_the_editor()
+    {
+        var exited = (await _rig.ExitedAsync()) with { EndKind = SessionEndKind.NamedProcessNeverAppeared };
+        var opened = 0;
+        var dialog = new PostPlayDialogViewModel(exited, _moddedName, _rig.Deps, editGame: () => opened++);
+
+        dialog.EditGameCommand.Execute(null);
+
+        Assert.Equal(1, opened);
+        Assert.True(dialog.IsClosed);
+        Assert.Equal(new SessionCompletion.Skip(), await dialog.Result);
     }
 
     [Fact]
