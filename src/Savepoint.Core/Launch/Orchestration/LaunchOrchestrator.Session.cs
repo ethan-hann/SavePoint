@@ -87,7 +87,7 @@ public sealed partial class LaunchOrchestrator
                 var install = counts.GetValueOrDefault(RepoRole.Install);
                 var external = counts.GetValueOrDefault(RepoRole.External);
 
-                var leaveOut = install.Paths is { Count: > 0 } && install.Unreadable == 0
+                var leaveOut = install.Paths is { Count: > 0 }
                     ? await RulesGitAgreesOnAsync(storage, repos.FirstOrDefault(repo => repo.Role == RepoRole.Install), install.Paths).ConfigureAwait(false)
                     : null;
                 return new SessionState.Exited(startedAt, duration, external.Count, install.Count, options, endKind, leaveOut);
@@ -114,7 +114,7 @@ public sealed partial class LaunchOrchestrator
             return default;
         }
 
-        return new ChangedFiles(status.ChangedPaths.Count + status.UntrackedPaths.Count + status.HeldFileCount, [.. status.ChangedPaths, .. status.UntrackedPaths], status.HeldFileCount);
+        return new ChangedFiles(status.ChangedPaths.Count + status.UntrackedPaths.Count + status.HeldFileCount, [.. status.ChangedPaths, .. status.UntrackedPaths, .. status.HeldPaths ?? []]);
     }
 
     // The rules for logs and crash dumps that cover every one of the files, checked by git against this folder, so letter case follows the
@@ -138,8 +138,8 @@ public sealed partial class LaunchOrchestrator
         }
     }
 
-    // The count the dialog states, the files that can be named, and how many of the counted files could not be read and so have no name.
-    private readonly record struct ChangedFiles(int Count, IReadOnlyList<string>? Paths, int Unreadable);
+    // The count the dialog states and the files it can name, held ones included: what a log is does not depend on whether it could be read.
+    private readonly record struct ChangedFiles(int Count, IReadOnlyList<string>? Paths);
 
     // What the player may do with the session (D14): a session from an older point forks or moves the profile forward.
     private static async Task<PostPlayOptions> OptionsAsync(

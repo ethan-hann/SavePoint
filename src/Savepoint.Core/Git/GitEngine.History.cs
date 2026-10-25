@@ -40,9 +40,11 @@ public sealed partial class GitEngine
         // A file git could not read is not a change anybody made; when it is all there is, the folder is clean and the file is named.
         var held = OnlyHeldChanges(repo, changedPaths, untrackedPaths.Count);
         var heldCount = 0;
+        IReadOnlyList<string> heldPaths = [];
         if (held is not null)
         {
             heldCount = changedPaths.Count;
+            heldPaths = changedPaths;
             changedPaths = [];
         }
 
@@ -55,7 +57,8 @@ public sealed partial class GitEngine
             untrackedPaths,
             SwitchJournal.Read(repo.GitDir),
             held,
-            heldCount);
+            heldCount,
+            heldPaths);
     }
 
     /// <summary>

@@ -171,6 +171,76 @@ public class LaunchHeldFileTests
         Assert.Equal(before.Id, Assert.Single(await rig.CommitsAsync(RepoRole.Install, vanilla)).Id);
     }
 
+    // Plays a profile whose recorded files include the given ones, with every one of them held and, optionally, a new file written.
+    private static async Task<SessionState.Exited> PlayHoldingAsync(HeldFileKind kind, string[] recorded, string[] held, params string[] written)
+    {
+        using var rig = await LaunchRig.CreateAsync();
+        foreach (var path in recorded)
+        {
+            rig.WriteInstall(path, "recorded");
+        }
+
+        var vanilla = await rig.ProfileAsync("Vanilla");
+        await rig.StartAsync(Tip(vanilla));
+        await rig.WaitForGameAsync();
+        await MakeRacyAsync(rig);
+        foreach (var path in written)
+        {
+            rig.WriteInstall(path, "written while playing");
+        }
+
+        var holds = held.Select(path => HeldFiles.Hold(Path.Combine(rig.InstallPath, path), kind)).ToList();
+        try
+        {
+            Assert.True((await rig.Launch.MarkFinishedAsync(rig.Game.Id)).Ok);
+            return Assert.IsType<SessionState.Exited>((await rig.WaitForAsync<SessionState.Exited>()).State);
+        }
+        finally
+        {
+            holds.ForEach(hold => hold.Dispose());
+        }
+    }
+
+    [Theory(Timeout = 150_000)]
+    [MemberData(nameof(Kinds))]
+    public async Task A_log_nobody_can_read_still_gets_the_offer_to_leave_logs_out(HeldFileKind kind)
+    {
+        var exited = await PlayHoldingAsync(kind, ["crloader.log"], ["crloader.log"]);
+
+        Assert.Equal(1, exited.ChangedInstallFileCount);
+        Assert.Equal(["**/*.log"], exited.LeaveOutRules);
+    }
+
+    [Theory(Timeout = 150_000)]
+    [MemberData(nameof(Kinds))]
+    public async Task A_log_nobody_can_read_beside_a_readable_new_log_gets_the_offer(HeldFileKind kind)
+    {
+        var exited = await PlayHoldingAsync(kind, ["crloader.log"], ["crloader.log"], "mods/new.log");
+
+        Assert.Equal(2, exited.ChangedInstallFileCount);
+        Assert.Equal(["**/*.log"], exited.LeaveOutRules);
+    }
+
+    [Theory(Timeout = 150_000)]
+    [MemberData(nameof(Kinds))]
+    public async Task A_file_nobody_can_read_that_no_rule_names_gets_the_update_note_and_no_offer(HeldFileKind kind)
+    {
+        var exited = await PlayHoldingAsync(kind, ["data/patch.pak"], ["data/patch.pak"]);
+
+        Assert.Equal(1, exited.ChangedInstallFileCount);
+        Assert.Null(exited.LeaveOutRules);
+    }
+
+    [Theory(Timeout = 150_000)]
+    [MemberData(nameof(Kinds))]
+    public async Task A_log_nobody_can_read_beside_another_file_nobody_can_read_that_is_no_log_gets_no_offer(HeldFileKind kind)
+    {
+        var exited = await PlayHoldingAsync(kind, ["crloader.log", "data/patch.pak"], ["crloader.log", "data/patch.pak"]);
+
+        Assert.Equal(2, exited.ChangedInstallFileCount);
+        Assert.Null(exited.LeaveOutRules);
+    }
+
     [Theory(Timeout = 150_000)]
     [MemberData(nameof(Kinds))]
     public async Task After_play_a_changed_file_nobody_can_read_is_counted_and_an_update_names_it_instead_of_reporting_success(HeldFileKind kind)
