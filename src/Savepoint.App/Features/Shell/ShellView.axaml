@@ -142,7 +142,7 @@
             <!-- A grid, not a row, so a long label wraps inside the button instead of running past it. -->
             <Grid ColumnDefinitions="Auto,*" HorizontalAlignment="Center">
               <TextBlock Classes="icon s18" VerticalAlignment="Center" Text="{x:Static theme:Icons.StadiaController}" />
-              <TextBlock Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap" IsVisible="{Binding !IsCompact}" Text="{loc:Loc library.entry}" />
+              <TextBlock Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" IsVisible="{Binding !IsCompact}" Text="{loc:Loc library.entry}" />
             </Grid>
           </Button>
           <Button x:Name="RailAddButton"
@@ -156,7 +156,7 @@
                   ToolTip.Tip="{loc:Loc shell.addGame}">
             <Grid ColumnDefinitions="Auto,*" HorizontalAlignment="Center">
               <TextBlock Classes="icon s18" VerticalAlignment="Center" Text="{x:Static theme:Icons.Add}" />
-              <TextBlock Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap" IsVisible="{Binding !IsCompact}" Text="{loc:Loc shell.addGame}" />
+              <TextBlock Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" IsVisible="{Binding !IsCompact}" Text="{loc:Loc shell.addGame}" />
             </Grid>
           </Button>
         </StackPanel>
