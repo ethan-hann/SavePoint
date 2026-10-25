@@ -258,4 +258,80 @@ public sealed class ReclaimStreamedPackTests : IDisposable
         AssertKeptAndUntouched(repo, new Dictionary<string, byte[]> { [first] = firstBytes });
         await AssertFsckCleanAsync(repo);
     }
+
+    private const string _ownKeepText = "SavePoint: holds files streamed at capture.\n";
+
+    [Fact]
+    public async Task A_pack_without_an_index_a_killed_add_left_behind_does_not_stop_a_reclaim_and_is_left_as_it_is()
+    {
+        var (repo, shared, other, _, dropped) = await OneUnreachableFileInASharedPackAsync();
+        var orphan = "pack-" + new string('1', 40) + ".pack";
+        await File.WriteAllBytesAsync(Path.Combine(PackFolder(repo), orphan), BytesOf(repo, other), Ct);
+        await File.WriteAllTextAsync(Path.Combine(PackFolder(repo), Path.ChangeExtension(orphan, ".keep")), _ownKeepText, Ct);
+        var orphanBytes = BytesOf(repo, orphan);
+
+        await _ws.Engine.CheckReclaimAsync(repo, Ct);
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Reclaim, Ct);
+
+        Assert.False((await _ws.ObjectsExistAsync(repo, dropped))[0]);
+        Assert.DoesNotContain(shared, Packs(repo));
+        Assert.Equal(orphanBytes, BytesOf(repo, orphan));
+        Assert.Contains(Path.ChangeExtension(orphan, ".keep"), Keeps(repo));
+    }
+
+    [Fact]
+    public async Task A_keep_of_ours_whose_pack_is_gone_is_removed_even_when_nothing_is_unreachable()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        var pack = await CaptureWithBigFileAsync(repo, "profile-1", 1);
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct);
+        var stale = Path.Combine(PackFolder(repo), "pack-" + new string('2', 40) + ".keep");
+        await File.WriteAllTextAsync(stale, _ownKeepText, Ct);
+        var bytes = BytesOf(repo, pack);
+
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Reclaim, Ct);
+
+        Assert.False(File.Exists(stale));
+        AssertKeptAndUntouched(repo, new Dictionary<string, byte[]> { [pack] = bytes });
+    }
+
+    [Fact]
+    public async Task A_reclaim_is_refused_while_a_switch_is_unfinished_and_changes_nothing()
+    {
+        var (repo, shared, _, _, dropped) = await OneUnreachableFileInASharedPackAsync();
+        var tip = (await _ws.TipAsync(repo, "profile-1"))!;
+        SwitchJournal.Write(repo.GitDir, null, tip);
+        var from = _ws.Invocations.Count;
+
+        await Assert.ThrowsAsync<InterruptedSwitchException>(() => _ws.Engine.CheckReclaimAsync(repo, Ct));
+        await Assert.ThrowsAsync<InterruptedSwitchException>(() => _ws.Engine.RepackAsync(repo, OptimizationMode.Reclaim, Ct));
+
+        Assert.DoesNotContain(_ws.Invocations.Skip(from), invocation => invocation.Arguments[0] is "reflog" or "repack" or "prune");
+        Assert.Contains(shared, Packs(repo));
+        Assert.True((await _ws.ObjectsExistAsync(repo, dropped))[0]);
+    }
+
+    [Fact]
+    public async Task A_big_file_added_to_a_streamed_pack_and_never_committed_keeps_its_pack_through_a_reclaim()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        await CaptureWithBigFileAsync(repo, "profile-1", 1);
+        var before = Packs(repo);
+        _ws.Write(repo, "Data/extra.bin", Bulk(9));
+
+        // What a capture killed between its add and its commit leaves: the file staged in a pack of its own.
+        await _ws.Runner.RunAsync(new GitInvocation(["-c", "core.bigFileThreshold=" + _bigBytes, "add", "-f", "Data/extra.bin"]) { GitDir = repo.GitDir, WorkTree = repo.WorkTree }, Ct);
+        var staged = Assert.Single(Packs(repo).Except(before));
+        await File.WriteAllTextAsync(Path.Combine(PackFolder(repo), Path.ChangeExtension(staged, ".keep")), _ownKeepText, Ct);
+        var bytes = BytesOf(repo, staged);
+        var blob = await _ws.GitOutAsync(repo, "rev-parse", ":Data/extra.bin");
+
+        // Something unreachable, so the reclaim looks at what each kept pack holds.
+        await _ws.Runner.RunAsync(new GitInvocation(["hash-object", "-w", "--stdin"]) { GitDir = repo.GitDir, Stdin = "nothing reaches this" }, Ct);
+
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Reclaim, Ct);
+
+        Assert.Equal(new[] { true }, await _ws.ObjectsExistAsync(repo, blob));
+        AssertKeptAndUntouched(repo, new Dictionary<string, byte[]> { [staged] = bytes });
+    }
 }
