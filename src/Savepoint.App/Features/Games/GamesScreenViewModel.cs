@@ -484,12 +484,13 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     // Play needs no session for the game and no profile already running.
     private void RefreshPlayAvailability()
     {
+        var gameRunning = Profiles.Any(row => row.IsRunning);
         var canPlay = _game is { } game
             && !_shell.LaunchFlow.IsActive(game.Id)
-            && !Profiles.Any(row => row.IsRunning);
+            && !gameRunning;
         foreach (var row in Profiles)
         {
-            row.SetCanPlay(canPlay);
+            row.SetCanPlay(canPlay, gameRunning);
         }
     }
 

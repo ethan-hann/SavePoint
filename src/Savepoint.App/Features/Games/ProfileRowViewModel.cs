@@ -15,6 +15,7 @@ public sealed partial class ProfileRowViewModel : ObservableObject
 {
     private readonly UiFormatter _text;
     private readonly IProfileRowActions _actions;
+    private bool _gameRunning = true;
 
     /// <summary>True when Play can start the game: a launch flow exists, the game has no session and no profile is running.</summary>
     [ObservableProperty]
@@ -116,7 +117,9 @@ public sealed partial class ProfileRowViewModel : ObservableObject
     public ProfileTableColumns Columns { get; }
 
     /// <summary>Why Play is off, shown as a tip on the disabled button; null while Play works.</summary>
-    public string? PlayDisabledReason => CanPlay ? null : _text.Message("games.profileTable.playBlocked");
+    public string? PlayDisabledReason => CanPlay
+        ? null
+        : _text.Message(_gameRunning ? "games.profileTable.playBlocked" : "games.profileTable.playBusy");
 
     /// <summary>Starts the game on this profile's latest points.</summary>
     public IAsyncRelayCommand PlayCommand { get; }
@@ -143,7 +146,13 @@ public sealed partial class ProfileRowViewModel : ObservableObject
         TakeSnapshotCommand.NotifyCanExecuteChanged();
     }
 
-    internal void SetCanPlay(bool canPlay) => CanPlay = canPlay;
+    // gameRunning picks the reason shown while Play is off: a running game, or a switch or snapshot that is waiting or in progress.
+    internal void SetCanPlay(bool canPlay, bool gameRunning = true)
+    {
+        _gameRunning = gameRunning;
+        CanPlay = canPlay;
+        OnPropertyChanged(nameof(PlayDisabledReason));
+    }
 
     partial void OnCanPlayChanged(bool value)
     {
