@@ -147,6 +147,18 @@ public sealed partial class GitEngine
         }
     }
 
+    // Best effort for a path that is already failing: the error that got it here is the one worth reporting.
+    private async Task TryClearSkipWorktreeAsync(RepoRef repo, IReadOnlyCollection<string> paths)
+    {
+        try
+        {
+            await SetSkipWorktreeAsync(repo, on: false, paths, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (GitOperationException)
+        {
+        }
+    }
+
     // git reads an index file that is not there as an empty one and lists nothing, which would read as "no file is named"; the answer is
     // only taken from an index that was there for the whole question.
     private static void RequireIndex(string index)

@@ -325,6 +325,9 @@ public sealed partial class GitEngine
 
         var reporter = progress is null ? null : new ProgressReporter(progress, new CheckoutBytePlan(plan.Changes, sizes));
 
+        // The alignment marked the left-out files skip-worktree, which keeps git from reading them in the checkout, the refresh and the
+        // verify diff: a file that differs from the target never matches its entry, so each of the three would read it in full.
+        var marked = aligned is not null;
         try
         {
             await RunCheckoutAsync(repo, target, to, isBranch, force, ownsNote: note is null, aligned, reporter, ct).ConfigureAwait(false);
@@ -332,15 +335,12 @@ public sealed partial class GitEngine
 
             // Reading the files back takes as long as reading them, which for a big file is long enough to look stuck.
             reporter?.BeginWrapUp();
-            if (force)
-            {
-                await SetSkipWorktreeAsync(repo, on: false, plan.NamedInTarget, ct).ConfigureAwait(false);
-            }
-
             await RefreshIndexAsync(repo, ct).ConfigureAwait(false);
 
             // A switch only re-syncs what it was meant to change; any other difference is the player's work and stays for status to report.
             await VerifyAsync(repo, to, plan.Gone, force ? null : plan.Touched, plan.Named, ct).ConfigureAwait(false);
+            await SetSkipWorktreeAsync(repo, on: false, plan.NamedInTarget, ct).ConfigureAwait(false);
+            marked = false;
 
             // git prunes a folder when its last file leaves, so the target's empty folders are made again; this runs before the note goes, so a stop here is finished by repeating the switch.
             await RestoreEmptyFoldersAsync(repo, to, ct).ConfigureAwait(false);
@@ -351,6 +351,12 @@ public sealed partial class GitEngine
         {
             // A switch that fails or is stopped while it reads the files back must not leave the screen saying it still is.
             reporter?.Abandon();
+
+            // A mark left behind would hide the file from every later comparison, including a save made after the patterns change.
+            if (marked)
+            {
+                await TryClearSkipWorktreeAsync(repo, plan.NamedInTarget).ConfigureAwait(false);
+            }
         }
     }
 

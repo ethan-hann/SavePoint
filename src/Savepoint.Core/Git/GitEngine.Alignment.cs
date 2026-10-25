@@ -54,11 +54,12 @@ public sealed partial class GitEngine
             }
 
             var environment = new Dictionary<string, string?> { ["GIT_INDEX_FILE"] = work };
+            // The refresh the reset ends with is the one read these files get: a file that already holds the target's bytes keeps a valid stamp.
             await RunWriteAsync(() => (Invocation(repo, readOnly: false, "reset", "--quiet", tree) with { ExtraEnvironment = environment }).WithPathspecs(plan.Named), ct).ConfigureAwait(false);
-            if (force)
-            {
-                await SetSkipWorktreeAsync(repo, on: true, plan.NamedInTarget, ct, environment).ConfigureAwait(false);
-            }
+
+            // A forced checkout would write these files, and every checkout starts by refreshing the index, which would read each one that
+            // differs; git does neither for an entry marked skip-worktree.
+            await SetSkipWorktreeAsync(repo, on: true, plan.NamedInTarget, ct, environment).ConfigureAwait(false);
 
             if (hadIndex)
             {
