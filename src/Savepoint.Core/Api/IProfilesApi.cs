@@ -58,7 +58,10 @@ public interface IProfilesApi
     /// this" use). The profile it came from is not touched,
     /// and no file in a game folder is. Takes the game's lock and finishes in every folder or changes nothing, like
     /// <see cref="DuplicateAsync"/>. The snapshot is part of the new profile from then on, so it leaves the recently removed list; its
-    /// record stays until the player frees up space.
+    /// record stays until the player frees up space. When the snapshot was recorded in one folder only and a profile still holds the
+    /// other folder's commit under the same snapshot id, the recorded folder's commit comes back as a copy under a new id (same files,
+    /// name, time and dates) and the record moves to the copy, so History lists the new profile's point as its own and the other profile's
+    /// point does not change; the snapshot's id in that case is the copy's, and it is the one listed if the new profile is deleted later.
     /// </summary>
     /// <remarks>
     /// Fails with <c>error.removed.notFound</c> when the snapshot is not in the list any more (the player freed up space, or it was

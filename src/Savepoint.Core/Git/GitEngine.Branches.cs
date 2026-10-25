@@ -42,12 +42,17 @@ public sealed partial class GitEngine
     /// <param name="newBranch">The new branch; it must not exist.</param>
     /// <param name="commit">A full commit id that carries a capture id.</param>
     /// <param name="captureId">The copy's <c>Savepoint-Capture</c> trailer.</param>
+    /// <param name="record">
+    /// The removed-snapshot record of <paramref name="commit"/>, when it has one: the record moves to the copy (same removal time, reason and
+    /// branch) in the same ref transaction that creates the branch, so the copy stays a recently removed snapshot once the branch is gone.
+    /// </param>
     /// <param name="ct">Cancels the call.</param>
     /// <returns>The copy's commit id.</returns>
     /// <exception cref="ArgumentException">A branch name git would refuse, a commit id that is not a full one, or a capture id with whitespace.</exception>
+    /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
     /// <exception cref="Savepoint.Core.Errors.ProfileAlreadyExistsException">The branch exists; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.GitOperationException">The commit has no capture id, does not exist, or git failed.</exception>
-    public async Task<string> CreateBranchAsCopyAsync(RepoRef repo, string newBranch, string commit, string captureId, CancellationToken ct = default)
+    public async Task<string> CreateBranchAsCopyAsync(RepoRef repo, string newBranch, string commit, string captureId, RemovedCommit? record = null, CancellationToken ct = default)
     {
         repo = Normalize(repo);
         BranchNames.Require(newBranch);
@@ -66,10 +71,20 @@ public sealed partial class GitEngine
         RepoMarker.Verify(repo);
         await EnsureRepositoryAsync(repo, ct).ConfigureAwait(false);
 
+        if (record is not null && !string.Equals(record.Commit.Id, commit, StringComparison.Ordinal))
+        {
+            throw new ArgumentException("The record must be the one that keeps the commit being copied.", nameof(record));
+        }
+
         using var scope = BeginWrite(repo);
-        var read = await RunAsync(GitDirOnly(repo, "log", "-1", "--format=%T%x1f%P%x1f%B", commit, "--"), ct).ConfigureAwait(false);
-        var fields = read.StandardOutput.Split('\x1f', 3);
-        var message = fields.Length == 3 ? ReplaceCaptureId(fields[2], captureId) : null;
+        if (await ResolveBranchAsync(repo, newBranch, ct).ConfigureAwait(false) is not null)
+        {
+            throw new ProfileAlreadyExistsException(newBranch);
+        }
+
+        var read = await RunAsync(GitDirOnly(repo, "log", "-1", "--format=%T%x1f%P%x1f%aI%x1f%cI%x1f%B", commit, "--"), ct).ConfigureAwait(false);
+        var fields = read.StandardOutput.Split('\x1f', 5);
+        var message = fields.Length == 5 ? ReplaceCaptureId(fields[4], captureId) : null;
         if (message is null)
         {
             throw new GitOperationException($"The commit {commit} carries no capture id to replace.");
@@ -82,8 +97,34 @@ public sealed partial class GitEngine
         }
 
         arguments.AddRange(["-F", "-"]);
-        var copy = (await RunWriteAsync(() => Invocation(repo, readOnly: false, [.. arguments]) with { Stdin = message }, ct).ConfigureAwait(false)).StandardOutput.Trim();
-        await CreateBranchRefAsync(repo, newBranch, copy, "savepoint: create branch", ct).ConfigureAwait(false);
+
+        // The dates stay the original's: History and the newest-point readers order and compare by them.
+        var dates = new Dictionary<string, string?> { ["GIT_AUTHOR_DATE"] = fields[2].Trim(), ["GIT_COMMITTER_DATE"] = fields[3].Trim() };
+        var copy = (await RunWriteAsync(() => Invocation(repo, readOnly: false, [.. arguments]) with { Stdin = message, ExtraEnvironment = dates }, ct).ConfigureAwait(false)).StandardOutput.Trim();
+
+        // The branch and the record's move are one transaction, so the copy is never a branch without its record or a record without its branch.
+        var transaction = new StringBuilder();
+        transaction.Append("create ").Append(GitDirFiles.BranchPrefix).Append(newBranch).Append(' ').Append(copy).Append('\n');
+        if (record is not null)
+        {
+            transaction.Append("create ").Append(RemovedRecords.RefName(record.RemovedAt, record.Reason, record.Branch, copy)).Append(' ').Append(copy).Append('\n');
+            transaction.Append("delete ").Append(record.RefName).Append(' ').Append(commit).Append('\n');
+        }
+
+        try
+        {
+            await RunWriteAsync(() => Invocation(repo, readOnly: false, "update-ref", "-m", "savepoint: create branch", "--stdin") with { Stdin = transaction.ToString() }, ct).ConfigureAwait(false);
+        }
+        catch (GitOperationException)
+        {
+            if (await ResolveBranchAsync(repo, newBranch, ct).ConfigureAwait(false) is not null)
+            {
+                throw new ProfileAlreadyExistsException(newBranch);
+            }
+
+            throw;
+        }
+
         return copy;
     }
 

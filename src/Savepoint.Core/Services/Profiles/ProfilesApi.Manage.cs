@@ -101,11 +101,20 @@ internal sealed partial class ProfilesApi
                         }
                     }
 
-                    // A folder the snapshot recorded while another folder only reaches it through the profile it left (a replace that changed just
-                    // the saves) shares the snapshot's id with that folder's commit, which a profile still holds. History would file the recorded
-                    // commit under that profile's point, so it comes back as a copy under a new id and its record is dropped, the copy standing in for it.
-                    var partial = starts.Count > 1 && starts.Any(start => group.In(start.Repo.Role) is null && start.Commit.CaptureId == group.CaptureId);
-                    var copied = new List<(RepoRef Repo, RemovedCommit Record)>();
+                    // A snapshot recorded in one folder only (a replace or a continue that touched just that folder) reaches its other folder through
+                    // the profile it left, and that folder's commit can carry the same id. When a live profile still holds that commit, History
+                    // would file the recorded commit under that profile's point, so the recorded one comes back as a copy under a new id and its
+                    // record moves to the copy. A branch no profile names does not count (D45.4).
+                    var shared = false;
+                    foreach (var (repo, commit) in starts)
+                    {
+                        if (group.In(repo.Role) is null && commit.CaptureId == group.CaptureId && await HeldByAProfileAsync(storage, repo, profiles, commit.Id).ConfigureAwait(false))
+                        {
+                            shared = true;
+                        }
+                    }
+
+                    var copiedFolders = new List<RepoRole>();
                     var copy = fresh with { VersionOverride = origin?.VersionOverride };
                     var made = new List<RepoRef>();
                     try
@@ -113,10 +122,10 @@ internal sealed partial class ProfilesApi
                         var newCaptureId = Guid.NewGuid().ToString("D");
                         foreach (var (repo, commit) in starts)
                         {
-                            if (partial && group.In(repo.Role) is { } recorded)
+                            if (shared && group.In(repo.Role) is { } recorded)
                             {
-                                await storage.Engine.CreateBranchAsCopyAsync(repo, copy.BranchName, commit.Id, newCaptureId).ConfigureAwait(false);
-                                copied.Add((repo, recorded));
+                                await storage.Engine.CreateBranchAsCopyAsync(repo, copy.BranchName, commit.Id, newCaptureId, recorded).ConfigureAwait(false);
+                                copiedFolders.Add(repo.Role);
                             }
                             else
                             {
@@ -127,19 +136,7 @@ internal sealed partial class ProfilesApi
                         }
 
                         var saved = await _services.Catalog.SaveProfileAsync(copy).ConfigureAwait(false);
-                        foreach (var (repo, recorded) in copied)
-                        {
-                            // Best effort: a record left behind only keeps the snapshot listed, and Free up space clears it.
-                            try
-                            {
-                                await storage.Engine.ClearRemovedAsync(repo, [recorded.RefName]).ConfigureAwait(false);
-                            }
-                            catch (GitOperationException)
-                            {
-                            }
-                        }
-
-                        _services.Log.Information($"Snapshot brought back: '{group.Lead.Commit.Subject}' ({snapshotId.Value}) of {gameId}, removed from {(origin is null ? group.Lead.Branch : origin.Name)}, is now the history of the new profile {copy.Name} ({copy.Id}); " + string.Join(", ", starts.Select(start => $"{GameFolders.LogName(start.Repo.Role)} branch starts at {start.Commit.Id}")) + (copied.Count > 0 ? ", with the saves under a new snapshot id so History lists them under the new profile" : string.Empty) + ". The profile it came from was not touched.");
+                        _services.Log.Information($"Snapshot brought back: '{group.Lead.Commit.Subject}' ({snapshotId.Value}) of {gameId}, removed from {(origin is null ? group.Lead.Branch : origin.Name)}, is now the history of the new profile {copy.Name} ({copy.Id}); " + string.Join(", ", starts.Select(start => $"{GameFolders.LogName(start.Repo.Role)} branch starts at {start.Commit.Id}")) + (copiedFolders.Count > 0 ? $", with the {string.Join(" and ", copiedFolders.Select(GameFolders.LogName))} folder's commit copied under snapshot id {newCaptureId} because a profile still holds the other folder's commit of the same id" : string.Empty) + ". The profile it came from was not touched.");
                         return saved;
                     }
                     catch
@@ -154,6 +151,21 @@ internal sealed partial class ProfilesApi
                     }
                 }).ConfigureAwait(false);
         });
+
+    // True when the commit is in the history of some profile's branch in this folder; a branch with no profile row is not looked at.
+    private static async Task<bool> HeldByAProfileAsync(StorageSnapshot storage, RepoRef repo, IReadOnlyList<Profile> profiles, string commit)
+    {
+        var tips = new List<string>();
+        foreach (var profile in profiles)
+        {
+            if (await storage.Engine.GetBranchTipAsync(repo, profile.BranchName).ConfigureAwait(false) is { } tip)
+            {
+                tips.Add(tip);
+            }
+        }
+
+        return (await storage.Engine.ListCommitsFromAsync(repo, tips).ConfigureAwait(false)).Any(held => held.Id == commit);
+    }
 
     public Task<OperationResult<ProfileDeletePreview>> GetDeletePreviewAsync(string gameId, string profileId, CancellationToken cancellationToken = default) =>
         ApiGuard.RunAsync(
