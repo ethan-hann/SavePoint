@@ -82,7 +82,7 @@ public sealed partial class LaunchOrchestrator
                 profile = profiles.FirstOrDefault(listed => listed.Id == info?.ProfileId);
                 var repos = GameFolders.Repos(_services, storage, game);
                 var changed = await Task.WhenAll(repos.Select(repo => ChangedFilesAsync(storage, repo, profile, older ? null : starts.GetValueOrDefault(repo.Role)))).ConfigureAwait(false);
-                var options = await OptionsAsync(storage, repos, profile, older, starts).ConfigureAwait(false);
+                var options = await OptionsAsync(storage, repos, profile, profiles, older, starts).ConfigureAwait(false);
                 var counts = repos.Zip(changed, (repo, count) => (repo.Role, count)).ToDictionary(pair => pair.Role, pair => pair.count);
                 return new SessionState.Exited(startedAt, duration, counts.GetValueOrDefault(RepoRole.External), counts.GetValueOrDefault(RepoRole.Install), options, endKind);
             }).ConfigureAwait(false);
@@ -116,6 +116,7 @@ public sealed partial class LaunchOrchestrator
         StorageSnapshot storage,
         IReadOnlyList<RepoRef> repos,
         Profile? profile,
+        IReadOnlyList<Profile> profiles,
         bool older,
         IReadOnlyDictionary<RepoRole, FolderStart> starts)
     {
@@ -144,9 +145,19 @@ public sealed partial class LaunchOrchestrator
             return new PostPlayOptions(choices, CompletionChoice.ForkNewProfile, null, newer.Count);
         }
 
-        // The save "update" would replace is the newest point of the saves folder, or of the install when the game has no saves folder.
-        var folder = repos.FirstOrDefault(repo => repo.Role == RepoRole.External) ?? repos[0];
-        var latest = (await storage.Engine.ListCommitsAsync(folder, profile.BranchName).ConfigureAwait(false)).FirstOrDefault(commit => commit.CaptureId is not null);
+        // The point "update" would replace is the profile's own newest one, in the saves folder or else in the install. A point the
+        // profile only holds because it was made from another profile (as History reckons ownership) is not its to replace.
+        var earlier = profiles.TakeWhile(listed => listed.Id != profile.Id).Select(listed => listed.BranchName).ToList();
+        CommitInfo? latest = null;
+        foreach (var folder in repos.OrderBy(repo => repo.Role == RepoRole.External ? 0 : 1))
+        {
+            latest = (await storage.Engine.ListCommitsOnlyOnAsync(folder, profile.BranchName, earlier).ConfigureAwait(false)).FirstOrDefault(commit => commit.CaptureId is not null);
+            if (latest is not null)
+            {
+                break;
+            }
+        }
+
         return latest is null
             ? FallbackOptions(older: false, profile, starts)
             : new PostPlayOptions(

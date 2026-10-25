@@ -26,6 +26,30 @@ public class LaunchSessionTests
     }
 
     [Fact(Timeout = 180_000)]
+    public async Task Save_files_a_game_rewrites_with_the_same_bytes_are_not_counted_as_changed()
+    {
+        var (rig, vanilla, modded) = await LaunchRig.WithTwoProfilesAsync();
+        using var _ = rig;
+        await rig.SwitchAsync(Tip(vanilla));
+        await rig.StartAsync(Tip(modded));
+        await rig.WaitForGameAsync();
+
+        // The saves were put in place by a switch; the game then writes both again unchanged.
+        var saves = Directory.GetFiles(rig.SavesPath, "*.sav");
+        Assert.Equal(2, saves.Length);
+        foreach (var path in saves)
+        {
+            rig.WriteSave(Path.GetFileName(path), File.ReadAllText(path));
+            File.SetLastWriteTimeUtc(path, DateTime.UtcNow.AddMinutes(30));
+        }
+
+        rig.KillGame();
+        var exited = Assert.IsType<SessionState.Exited>((await rig.WaitForAsync<SessionState.Exited>()).State);
+
+        Assert.Equal(0, exited.NewFileCount);
+    }
+
+    [Fact(Timeout = 180_000)]
     public async Task A_closed_game_ends_the_session_and_a_settings_save_and_a_storage_move_leave_it_alone()
     {
         var (rig, _, modded) = await LaunchRig.WithTwoProfilesAsync();
