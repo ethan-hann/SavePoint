@@ -111,9 +111,24 @@ public class GamesQueryTests
         using var workspace = new BackendWorkspace();
         var game = workspace.NewGame();
 
-        var listed = await workspace.Games.ListExecutablesAsync(game.Install.Path, workspace.Token);
+        var listed = await workspace.Games.ListExecutablesAsync(game.Install.Path, string.Empty, workspace.Token);
 
         Assert.Contains("game.exe", listed.Value!);
+    }
+
+    [Fact]
+    public async Task The_games_name_decides_which_of_two_equal_programs_comes_first()
+    {
+        using var workspace = new BackendWorkspace();
+        var folder = Path.Combine(workspace.Home, "Games", "Plain");
+        BackendWorkspace.WriteFile(Path.Combine(folder, "alpha.exe"), "MZ");
+        BackendWorkspace.WriteFile(Path.Combine(folder, "beta.exe"), "MZ");
+
+        var named = await workspace.Games.ListExecutablesAsync(folder, "Beta", workspace.Token);
+        var unnamed = await workspace.Games.ListExecutablesAsync(folder, string.Empty, workspace.Token);
+
+        Assert.Equal(["beta.exe", "alpha.exe"], named.Value!);
+        Assert.Equal(["alpha.exe", "beta.exe"], unnamed.Value!);
     }
 
     [Fact]
@@ -122,7 +137,7 @@ public class GamesQueryTests
         using var workspace = new BackendWorkspace();
         BackendWorkspace.WriteFile(Path.Combine(workspace.Home, "Games", "Tokened", "tokened.exe"), "MZ");
 
-        var listed = await workspace.Games.ListExecutablesAsync("{userHome}/Games/Tokened", workspace.Token);
+        var listed = await workspace.Games.ListExecutablesAsync("{userHome}/Games/Tokened", string.Empty, workspace.Token);
 
         Assert.Equal(["tokened.exe"], listed.Value!);
     }
@@ -161,7 +176,7 @@ public class GamesQueryTests
     {
         using var workspace = new BackendWorkspace();
 
-        var listed = await workspace.Games.ListExecutablesAsync(Path.Combine(workspace.Root, "nothing-here"), workspace.Token);
+        var listed = await workspace.Games.ListExecutablesAsync(Path.Combine(workspace.Root, "nothing-here"), string.Empty, workspace.Token);
 
         Assert.Empty(listed.Value!);
     }

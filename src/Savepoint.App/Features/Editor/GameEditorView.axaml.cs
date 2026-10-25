@@ -12,12 +12,13 @@ public partial class GameEditorView : UserControl
     {
         InitializeComponent();
         InstallField.LostFocus += OnInstallFieldLostFocus;
+        NameField.LostFocus += OnInstallFieldLostFocus;
 
         // The pane replaces the screen the user was on, so the focus has to be given to it rather than left behind.
         AttachedToVisualTree += (_, _) => Dispatcher.UIThread.Post(() => NameField.Focus());
     }
 
-    // The install folder is only looked at once the user has finished with the field, not on every key.
+    // The install folder and the game's name are only looked at once the user has finished with the field, not on every key.
     private void OnInstallFieldLostFocus(object? sender, RoutedEventArgs e)
     {
         if (DataContext is GameEditorViewModel editor)

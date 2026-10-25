@@ -29,6 +29,15 @@
       <StackPanel Spacing="8">
         <TextBlock x:Name="TitleText" Classes="dialog-title" TextWrapping="Wrap" Text="{Binding Title}" />
         <TextBlock x:Name="BodyText" Classes="body muted" FontSize="14" TextWrapping="Wrap" Text="{Binding Body}" />
+        <StackPanel x:Name="NotSeenHost" Spacing="8" IsVisible="{Binding HasNotSeenHint}">
+          <TextBlock x:Name="NotSeenHintText" Classes="body" TextWrapping="Wrap" Text="{Binding NotSeenHint}" />
+          <Button x:Name="EditGameButton"
+                  Classes="pill"
+                  HorizontalAlignment="Left"
+                  IsVisible="{Binding HasEditGame}"
+                  Command="{Binding EditGameCommand}"
+                  Content="{Binding EditGameLabel}" />
+        </StackPanel>
         <TextBlock x:Name="InstallNoteText" Classes="caption" TextWrapping="Wrap" IsVisible="{Binding HasInstallNote}" Text="{Binding InstallNote}" />
         <TextBlock x:Name="OlderNoteText" Classes="caption" TextWrapping="Wrap" IsVisible="{Binding HasOlderNote}" Text="{Binding OlderNote}" />
         <StackPanel x:Name="OlderChoiceHelpHost" IsVisible="{Binding HasOlderChoiceHelp}">

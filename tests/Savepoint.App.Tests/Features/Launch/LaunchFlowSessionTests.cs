@@ -4,6 +4,7 @@ using Savepoint.App.Tests.Fakes;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
+using Savepoint.Core.Launch;
 
 namespace Savepoint.App.Tests.Features.Launch;
 
@@ -204,6 +205,20 @@ public class LaunchFlowSessionTests : IDisposable
     }
 
     [Fact]
+    public async Task The_hint_after_a_program_that_was_never_seen_opens_Edit_game_and_keeps_the_saves_for_later()
+    {
+        await _f.PlayToRunningAsync();
+        _f.Backend.Launch.ReportExited(FlowRig.Skyrim, TimeSpan.FromMinutes(2), 0, endKind: SessionEndKind.NamedProcessNeverAppeared);
+        var dialog = _f.PostPlay;
+        Assert.True(dialog.HasNotSeenHint);
+
+        dialog.EditGameCommand.Execute(null);
+
+        Assert.Equal([FlowRig.Skyrim], _f.EditRequests);
+        Assert.Equal([FlowRig.Skyrim, new SessionCompletion.Skip()], Assert.Single(_f.Completes()).Args);
+    }
+
+    [Fact]
     public async Task A_finish_the_service_could_not_take_is_reported()
     {
         await _f.PlayToRunningAsync();
@@ -228,6 +243,29 @@ public class LaunchFlowSessionTests : IDisposable
         Assert.Empty(_f.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CaptureAsync)));
         Assert.False(_f.Flow.IsActive(FlowRig.Skyrim));
         Assert.Null(_f.Flow.InlineContentFor(FlowRig.Skyrim));
+    }
+
+    [Theory]
+    [InlineData(SessionEndKind.NamedProcessNeverAppeared, "SavePoint didn't see Skyrim Special Edition running. If it did run, check the game's program name in Edit game.")]
+    [InlineData(SessionEndKind.NamedProcessNeverMatched, "The game's program name for Skyrim Special Edition never showed up as a running program. Check it in Edit game.")]
+    public async Task With_session_capture_off_a_program_that_never_appeared_is_still_mentioned_once_in_a_toast(SessionEndKind kind, string text)
+    {
+        FakeAssert.Ok(await _f.Backend.Settings.SaveAsync(MockupScenario.Settings with { ConfirmSessionCapture = false }));
+        await _f.PlayToRunningAsync();
+
+        _f.Backend.Launch.ReportExited(FlowRig.Skyrim, TimeSpan.FromMinutes(2), 0, endKind: kind);
+
+        Assert.Equal(text, Assert.Single(_f.Rig.Toasts.Toasts).Text);
+    }
+
+    [Fact]
+    public async Task With_session_capture_off_a_normal_exit_shows_no_toast()
+    {
+        FakeAssert.Ok(await _f.Backend.Settings.SaveAsync(MockupScenario.Settings with { ConfirmSessionCapture = false }));
+
+        await _f.PlayToExitedAsync();
+
+        Assert.Empty(_f.Rig.Toasts.Toasts);
     }
 
     [Fact]

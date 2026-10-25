@@ -126,13 +126,15 @@ public interface IGamesApi
     Task<OperationResult<string>> ResolvePathAsync(string rawPath, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Suggests files in an install folder that could launch the game, for the editor. The scan is bounded: at most 50 paths, most
-    /// likely game executable first. A folder that is missing gives an empty list, not an error.
+    /// Suggests files in an install folder that could launch the game, for the editor. The scan is bounded: at most 50 paths, ranked
+    /// the way <see cref="SuggestProcessNameAsync"/> picks the game, so the game's own program comes before launchers, crash reporters
+    /// and tools (which still follow, for a player who needs one). A folder that is missing gives an empty list, not an error.
     /// </summary>
     /// <param name="installPath">The install folder as the user wrote it; a leading path token is expanded before the scan.</param>
+    /// <param name="gameName">The game's name as the user wrote it, used as a hint in the ranking; may be blank.</param>
     /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c> (D23).</param>
     /// <returns>Paths relative to the install folder.</returns>
-    Task<OperationResult<IReadOnlyList<string>>> ListExecutablesAsync(string installPath, CancellationToken cancellationToken = default);
+    Task<OperationResult<IReadOnlyList<string>>> ListExecutablesAsync(string installPath, string gameName, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Suggests the process name for a game started through a link: the program in the install folder that most likely is the game

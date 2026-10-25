@@ -16,6 +16,41 @@ public class ProcessNameSuggesterTests
         ProcessNameSuggester.Suggest(folder, null, Files(entries));
 
     [Fact]
+    public void The_ranking_puts_the_game_first_and_a_large_launcher_behind_the_real_candidates()
+    {
+        var ranked = ProcessNameSuggester.Rank(
+            "Game",
+            null,
+            Files("Launcher.exe|9000", "UnityCrashHandler64.exe|1000", "Game.exe|600", @"bin\Other.exe|50"));
+
+        Assert.Equal(["Game.exe", @"bin\Other.exe", "Launcher.exe", "UnityCrashHandler64.exe"], ranked);
+    }
+
+    [Fact]
+    public void The_game_name_ranks_the_matching_program_first_when_the_folder_name_does_not()
+    {
+        var ranked = ProcessNameSuggester.Rank("Steam Library 7", "Skyline", Files("Zeta.exe|900", "Skyline.exe|600"));
+
+        Assert.Equal(["Skyline.exe", "Zeta.exe"], ranked);
+    }
+
+    [Fact]
+    public void A_folder_where_nothing_scores_well_still_lists_every_program_in_depth_then_size_order()
+    {
+        var ranked = ProcessNameSuggester.Rank("Suite", null, Files(@"a\b\c\Deep.exe|10", "Launcher.exe|10", "Setup.exe|500"));
+
+        Assert.Equal(["Setup.exe", "Launcher.exe", @"a\b\c\Deep.exe"], ranked);
+    }
+
+    [Fact]
+    public void The_ranking_and_the_suggestion_agree_on_the_game()
+    {
+        var programs = Files("Launcher.exe|9000", "Game.exe|600", @"bin\Other.exe|50");
+
+        Assert.Equal(ProcessNameSuggester.Suggest("Game", null, programs), ProcessNameSuggester.Rank("Game", null, programs)[0]);
+    }
+
+    [Fact]
     public void A_folder_with_no_programs_has_no_suggestion()
     {
         Assert.Null(Suggest("Empty"));

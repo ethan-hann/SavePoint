@@ -74,6 +74,7 @@ internal sealed class LaunchRig : IDisposable
         string? exePath = null,
         bool followProcessName = false,
         bool withSaves = true,
+        string? processName = null,
         GameSessionOptions? session = null,
         GameStarter? starter = null)
     {
@@ -97,7 +98,7 @@ internal sealed class LaunchRig : IDisposable
 
             arguments.AddRange(["--ready-file", Path.Combine(workspace.Root, "ready.txt")]);
             arguments.AddRange(gameArguments ?? []);
-            var game = definition with { Launch = new LaunchConfig(LaunchMethod.Exe, exePath ?? exeFile, null, arguments, followProcessName ? exeName : null) };
+            var game = definition with { Launch = new LaunchConfig(LaunchMethod.Exe, exePath ?? exeFile, null, arguments, processName ?? (followProcessName ? exeName : null)) };
             return new LaunchRig(workspace, await workspace.AddGameAsync(game), exeName);
         }
         catch

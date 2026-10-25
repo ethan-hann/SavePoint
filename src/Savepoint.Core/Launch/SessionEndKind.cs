@@ -22,6 +22,19 @@ public enum SessionEndKind
     /// </summary>
     NamedProcessNeverAppeared,
 
+    /// <summary>
+    /// The program SavePoint started ran for longer than the relaunch window and exited, and the named process never showed up within the
+    /// grace after that. Nothing says the program was not the game, so its run is the play time and the end time is its exit; the name
+    /// is probably wrong. A launcher that handed over late still has the grace to be followed before this is decided.
+    /// </summary>
+    NamedProcessNeverMatched,
+
+    /// <summary>
+    /// The process list could not be read at any look during the whole grace, so the watcher cannot say whether the named process ran.
+    /// The name is not to blame, and the end time includes the wait.
+    /// </summary>
+    ProcessListUnreadable,
+
     /// <summary>The player said they were done; the game may still be running.</summary>
     ManuallyFinished,
 }

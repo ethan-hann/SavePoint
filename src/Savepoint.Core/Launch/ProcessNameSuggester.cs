@@ -80,6 +80,28 @@ public static class ProcessNameSuggester
                 ? BundleProgramName(Path.Combine(installFolder, best.RelativePath), best.FileName)
                 : best.FileName;
 
+    /// <summary>
+    /// Orders every program in an install folder by how likely it is the game itself, for a list the player picks from. The same pick as
+    /// <see cref="Suggest(string?, string?, IEnumerable{InstalledProgram})"/> comes first. Programs the suggester would never offer
+    /// (launchers, crash reporters, tools, and anything that scores too low) follow, shallowest and largest first, so a player who really
+    /// does need the launcher can still choose it.
+    /// </summary>
+    /// <param name="installFolderName">The install folder's own name, used as a hint.</param>
+    /// <param name="gameName">The game's name as the player wrote it, or null; used as a second hint.</param>
+    /// <param name="programs">The programs found in the install folder.</param>
+    /// <returns>The programs' <see cref="InstalledProgram.RelativePath"/> values as given, none dropped, best first.</returns>
+    public static IReadOnlyList<string> Rank(string? installFolderName, string? gameName, IEnumerable<InstalledProgram> programs)
+    {
+        var parsed = programs.Select(Parse).ToList();
+        var scored = RankCandidates(installFolderName, gameName, parsed);
+        var rest = parsed
+            .Except(scored)
+            .OrderBy(p => p.Folders.Length)
+            .ThenByDescending(p => p.Length)
+            .ThenBy(p => p.RelativePath, StringComparer.Ordinal);
+        return [.. scored.Concat(rest).Select(p => p.RelativePath)];
+    }
+
     // The running process is the bundle's program, not the bundle folder.
     private static string BundleProgramName(string bundleFolder, string bundleFileName)
     {
@@ -108,9 +130,12 @@ public static class ProcessNameSuggester
         return bundleFileName[..^4];
     }
 
-    private static ParsedProgram? SuggestProgram(string? installFolderName, string? gameName, IEnumerable<InstalledProgram> programs)
+    private static ParsedProgram? SuggestProgram(string? installFolderName, string? gameName, IEnumerable<InstalledProgram> programs) =>
+        RankCandidates(installFolderName, gameName, programs.Select(Parse).ToList()).FirstOrDefault();
+
+    // The programs worth offering as the game, best first; helpers and programs that score too low are left out.
+    private static List<ParsedProgram> RankCandidates(string? installFolderName, string? gameName, List<ParsedProgram> parsed)
     {
-        var parsed = programs.Select(Parse).ToList();
         var candidates = parsed.Where(p => !IsHelper(p)).ToList();
 
         // Many programs side by side are a tool suite; helpers beside a game do not count toward that.
@@ -125,15 +150,16 @@ public static class ProcessNameSuggester
             .Where(hint => hint.Length > 0)
             .ToArray();
 
-        var best = candidates
-            .Select(p => (Program: p, Score: Score(p, hints, crowded.Contains(string.Join('/', p.Folders).ToLowerInvariant()))))
-            .Where(entry => entry.Score >= _minimumScore)
-            .OrderByDescending(entry => entry.Score)
-            .ThenByDescending(entry => entry.Program.Length)
-            .ThenBy(entry => entry.Program.FileName, StringComparer.OrdinalIgnoreCase)
-            .FirstOrDefault();
-
-        return best.Program;
+        return
+        [
+            .. candidates
+                .Select(p => (Program: p, Score: Score(p, hints, crowded.Contains(string.Join('/', p.Folders).ToLowerInvariant()))))
+                .Where(entry => entry.Score >= _minimumScore)
+                .OrderByDescending(entry => entry.Score)
+                .ThenByDescending(entry => entry.Program.Length)
+                .ThenBy(entry => entry.Program.FileName, StringComparer.OrdinalIgnoreCase)
+                .Select(entry => entry.Program),
+        ];
     }
 
     private static ParsedProgram Parse(InstalledProgram program)
