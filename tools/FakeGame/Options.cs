@@ -6,7 +6,7 @@ namespace Savepoint.FakeGame;
 internal sealed record Options
 {
     public const string Usage =
-        "usage: FakeGame [--saves <dir>] [--save-every <ms>] [--exit-after <ms>] [--exit-code <n>] [--lock <file>] [--ready-file <path>] [--spawn <path> [args...]]";
+        "usage: FakeGame [--saves <dir>] [--save-every <ms>] [--exit-after <ms>] [--exit-code <n>] [--lock <file>] [--ready-file <path>] [--linger <ms>] [--spawn <path> [args...]]";
 
     public string? SavesDirectory { get; init; }
 
@@ -19,6 +19,9 @@ internal sealed record Options
     public string? LockFile { get; init; }
 
     public string? ReadyFile { get; init; }
+
+    // How long a launcher stub stays up after starting its child; a process list only links a child to its parent while the parent lives.
+    public int LingerMilliseconds { get; init; }
 
     public string? SpawnPath { get; init; }
 
@@ -56,7 +59,7 @@ internal sealed record Options
                     };
                     i++;
                     break;
-                case "--save-every" or "--exit-after":
+                case "--save-every" or "--exit-after" or "--linger":
                     if (!TryValue(args, i, out var milliseconds, out error))
                     {
                         return false;
@@ -68,7 +71,12 @@ internal sealed record Options
                         return false;
                     }
 
-                    options = name == "--save-every" ? options with { SaveEveryMilliseconds = parsed } : options with { ExitAfterMilliseconds = parsed };
+                    options = name switch
+                    {
+                        "--save-every" => options with { SaveEveryMilliseconds = parsed },
+                        "--linger" => options with { LingerMilliseconds = parsed },
+                        _ => options with { ExitAfterMilliseconds = parsed },
+                    };
                     i++;
                     break;
                 case "--exit-code":

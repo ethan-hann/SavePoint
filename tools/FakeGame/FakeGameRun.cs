@@ -79,6 +79,11 @@ internal sealed class FakeGameRun
         }
 
         WriteReadyFile();
+        if (_options.LingerMilliseconds > 0)
+        {
+            Thread.Sleep(_options.LingerMilliseconds);
+        }
+
         return _options.ExitCode;
     }
 
