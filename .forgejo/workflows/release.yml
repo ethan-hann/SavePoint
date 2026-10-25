@@ -1,0 +1,134 @@
+# Builds the release packages when a version tag is pushed and adds them to the Forgejo release for that tag: the AppImage on
+# Linux, the setup, the portable zip and the update files on Windows, then SHA256SUMS.txt and the link to the sources of the
+# bundled git. The release is a draft pre-release; nothing here publishes it, a person reads it and does that.
+#
+# The upload token is the repository secret RELEASE_TOKEN when it is set, and the job's own GITHUB_TOKEN otherwise.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Forgejo has no setup-dotnet mirror. global.json rolls forward to the newest feature band, so the newest 10.0 SDK fits.
+      - name: Install the .NET SDK
+        run: |
+          curl -fsSL --retry 3 --retry-delay 2 -o "$RUNNER_TEMP/dotnet-install.sh" https://dot.net/v1/dotnet-install.sh
+          bash "$RUNNER_TEMP/dotnet-install.sh" --channel 10.0 --install-dir /opt/dotnet --no-path
+
+      # The release script is PowerShell, which the job image may not have; the .NET SDK installs it as a tool.
+      - name: Install PowerShell
+        run: |
+          if ! command -v pwsh >/dev/null 2>&1; then
+            /opt/dotnet/dotnet tool install --tool-path /opt/pwsh PowerShell
+            echo "/opt/pwsh" >> "$GITHUB_PATH"
+            echo "DOTNET_ROOT=/opt/dotnet" >> "$GITHUB_ENV"
+          fi
+          # The job runs as root over a checkout the package user owns, and git refuses that without this.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Check the tag against the version
+        run: pwsh -NoProfile -File build/release-assets.ps1 -Action Verify
+
+      # The packaging user is an ordinary one, as in the gate: the build and the AppImage check need no root.
+      - name: Make an ordinary user
+        run: |
+          useradd --create-home packager
+          chown -R packager:packager "$GITHUB_WORKSPACE"
+
+      - name: Build the AppImage
+        run: >-
+          runuser -u packager --
+          env HOME=/home/packager PATH="/opt/dotnet:$PATH" DOTNET_ROOT=/opt/dotnet
+          DOTNET_CLI_USE_MSBUILD_SERVER=0 MSBUILDDISABLENODEREUSE=1
+          bash build/package.sh
+
+      - name: Add the files to the release
+        run: pwsh -NoProfile -File build/release-assets.ps1 -Action Upload -Directory artifacts/release/linux-x64
+
+  windows:
+    runs-on: windows
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      # The runner may keep each job's folder; the VM's disk is small, so earlier jobs' folders go (the runner runs one job at
+      # a time). The tool cache stays so the SDK is not downloaded again.
+      - name: Remove earlier jobs' folders
+        run: |
+          $work = Split-Path -Parent (Split-Path -Parent $env:GITHUB_WORKSPACE)
+          $current = Split-Path -Leaf (Split-Path -Parent $env:GITHUB_WORKSPACE)
+          # Job folders have 16-character names; the short ones hold downloaded actions, which are small and reused.
+          Get-ChildItem -Directory $work | Where-Object { $_.Name -match '^[0-9a-f]{16}$' -and $_.Name -ne $current } | ForEach-Object {
+            "removing $($_.Name)"
+            Remove-Item -Recurse -Force -ErrorAction Continue $_.FullName
+          }
+
+      - uses: https://data.forgejo.org/actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Kept between runs in the runner's own folder; the script only downloads when the newest 10.0 SDK is missing.
+      - name: Install the .NET SDK
+        run: |
+          $dotnet = Join-Path ($env:RUNNER_TOOL_CACHE ?? $env:USERPROFILE) 'dotnet'
+          Invoke-WebRequest -UseBasicParsing -Uri https://dot.net/v1/dotnet-install.ps1 -OutFile "$env:RUNNER_TEMP\dotnet-install.ps1"
+          & "$env:RUNNER_TEMP\dotnet-install.ps1" -Channel 10.0 -InstallDir $dotnet -NoPath
+          "DOTNET_ROOT=$dotnet" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          $dotnet | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+
+      - name: Check the tag against the version
+        run: ./build/release-assets.ps1 -Action Verify
+
+      - name: Build the setup, the portable zip and the update files
+        env:
+          DOTNET_CLI_USE_MSBUILD_SERVER: '0'
+          MSBUILDDISABLENODEREUSE: '1'
+          DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+        run: ./build/package.ps1
+
+      - name: Add the files to the release
+        run: ./build/release-assets.ps1 -Action Upload -Directory artifacts/release/win-x64
+
+  checksums:
+    needs: [linux, windows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v4
+
+      # Only needed to install PowerShell when the job image has none.
+      - name: Install PowerShell
+        run: |
+          if ! command -v pwsh >/dev/null 2>&1; then
+            curl -fsSL --retry 3 --retry-delay 2 -o "$RUNNER_TEMP/dotnet-install.sh" https://dot.net/v1/dotnet-install.sh
+            bash "$RUNNER_TEMP/dotnet-install.sh" --channel 10.0 --install-dir /opt/dotnet --no-path
+            /opt/dotnet/dotnet tool install --tool-path /opt/pwsh PowerShell
+            echo "/opt/pwsh" >> "$GITHUB_PATH"
+            echo "DOTNET_ROOT=/opt/dotnet" >> "$GITHUB_ENV"
+          fi
+
+      - name: Write SHA256SUMS.txt and link the sources of the bundled git
+        run: pwsh -NoProfile -File build/release-assets.ps1 -Action Checksums
