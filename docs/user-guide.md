@@ -22,6 +22,10 @@ SavePoint keeps its snapshots in a folder of its own, the snapshot folder. When 
 
 The first time you open SavePoint, it offers **Add your first game** or **Start from a template**. A template fills in the details for a known game, and you can also open a game settings file someone else exported. The first-run screen also tells you that SavePoint downloads cover art for Steam games from Steam. You can turn that off in Settings.
 
+The pictures in this guide come from SavePoint 0.9.7 on Linux. On Windows the screens look the same apart from the window's title bar.
+
+![The first-run screen: "Keep the setup that works", with buttons for Add your first game, Start from a template and Add games from your libraries, a How SavePoint works link, where SavePoint keeps its snapshots, and notes about cover art and anti-cheat.](images/first-run.png)
+
 ### Adding a game
 
 1. **Name** the game.
@@ -34,6 +38,8 @@ The first time you open SavePoint, it offers **Add your first game** or **Start 
    - **Files to leave out:** for example `**/*.log`. SavePoint never copies or replaces a file that matches, so logs and crash dumps never count as changes, and a switch leaves them alone. Only list files that don't matter, though. A rule that matches your saves would stop profiles from switching them. Rarely, a profile needs a file in a spot where one of these left-out files sits inside a folder with the same name. When that happens, SavePoint stops before changing anything and tells you which one, so you can move it yourself.
    - **Folders that hold mods:** these only change what History counts as a mod change.
 6. **Save changes**. SavePoint asks you to confirm each folder, because it takes snapshots of everything in it, and when you switch profiles it makes the folder match that profile. It adds a small file to each folder so it remembers you picked it.
+
+![Add a game, filled in for Grounded: the name, the install folder, the saves folder with common locations below it, Run the program set to Grounded.exe with the other programs found in the game folder, the note about starting through Steam, and the Artwork section.](images/add-game.png)
 
 Before you start:
 
@@ -59,7 +65,9 @@ On the Games screen, **New profile** walks you through three steps:
 
 1. **Name it:** a name and optional notes.
 2. **Check:** what goes into the first snapshot from each folder, and how much new space it takes. SavePoint reuses files it already has, so later profiles usually add very little.
-3. **Create:** **Create profile** takes the first snapshot. A big install takes a while the first time.
+3. **Create:** **Create profile** takes the first snapshot. A big install takes a while the first time. You can close the window and keep using SavePoint while it works; Activity shows how far it got, and you get a message when it's done.
+
+![New profile for Grounded on its last step: "Taking the first snapshot...", a progress bar at 9.3 GB of 12.1 GB copied, 60 of 128 files finished, the latest file, and the Cancel and Keep working buttons.](images/first-snapshot.png)
 
 The profile table shows, for each profile:
 
@@ -67,6 +75,8 @@ The profile table shows, for each profile:
 - how many snapshots it has;
 - its game version and mod files;
 - when you last played it.
+
+![The Games screen for Grounded with two profiles, Vanilla and Modded, each with one snapshot and a Play button. Modded is marked Loaded now. The footer says the game's snapshots use 12.1 GB on a 210.2 GB drive, next to Free up space.](images/profiles.png)
 
 Each row has **Play**, plus a menu with **Edit** (name, notes, version), **Take a snapshot now**, **Duplicate**, and **Delete**:
 
@@ -87,6 +97,8 @@ Press **Play** on a profile, or **Go back to this** on a snapshot in History. Be
   - **Keep as a new profile** is for when they don't belong to any profile, so nothing is lost.
   - **Discard them** asks you to confirm a second time, naming the folder and counting the files it deletes and puts back. This one is permanent.
 
+![The check before playing: Switch to "Vanilla"? It says the game stays on an unknown version and about 4.3 GB of files will be removed, taking less than a minute; the saves to load are Vanilla's latest save snapshot. Below are a tick box to skip this check when only saves change, Cancel and Switch and play.](images/before-playing.png)
+
 **Switch and play** puts the files in place, shows how much it's copied and roughly how long is left, and starts the game. While the game runs, SavePoint shows a running card. If SavePoint can't tell when you've stopped (some launchers hide the game), press **I'm done playing**.
 
 ### When you finish
@@ -96,6 +108,8 @@ SavePoint asks what to do with the session:
 - **Keep this session as a new snapshot** (recommended). Your earlier snapshots stay exactly as they are.
 - **Replace "<snapshot>" with this session.** That snapshot holds this session instead. Whatever it held before goes to History's **Recently removed** until the next time you free up space.
 - **Not now.** Nothing is lost. Your saves stay in your game folders as new changes, and SavePoint asks again before you switch profiles.
+
+![You played for 8 seconds: 2 files in the saves folder are new or changed. The choices are Keep this session as a new snapshot (recommended, with a name field), Replace "Vanilla" with this session, and Not now, with the Not now and Keep it buttons.](images/after-play.png)
 
 If you played from an older snapshot, the session can't just go on the end of the profile, so your choices are:
 
@@ -123,7 +137,11 @@ You can switch between the **List** and **Cards** views and filter by profile. T
 
 Both go through the same check of what will change that Play does.
 
+![History for Grounded in the Cards view: five snapshots from the last 7 days, two "Session" save snapshots, Heavy mods, Modded and Vanilla, each with its kind and time and a Go back to this button. The newest is marked Loaded now.](images/history.png)
+
 **Recently removed** lists the snapshots that "Replace" or "Continue" took off a profile. Each one stays there until the next time you free up space. **Bring back as a new profile** starts a profile from it and leaves the profile it came from as it is.
+
+![History with Recently removed open at the bottom: one session snapshot from "Vanilla", removed when it was continued from a session, with a Bring back as a new profile button and a note that SavePoint keeps these until the next time you free up space.](images/recently-removed.png)
 
 ## Activity
 
@@ -135,7 +153,11 @@ Both go through the same check of what will change that Play does.
 
 Clicking the job status indicator opens Activity too, and in the Sidebar layout the game's **Activity** tab does the same.
 
+![Activity for Grounded: a list of six finished jobs (snapshots, starting the game, switching files) and, on the right, the first snapshot of Vanilla, done, 12.1 GB of 12.1 GB, with its details listing the folders copied and the files that were new, and a Copy button.](images/activity.png)
+
 ## Settings
+
+![The top of Settings: Help with How SavePoint works and Show the tour again; where SavePoint keeps your snapshots, with the folder, 16.4 GB used by 1 game, 145.7 GB free and a Change button; Free up space with Run now; and Appearance with the theme, the Sidebar and Library layouts, the accent color and Look up game artwork online.](images/settings.png)
 
 - **Where SavePoint keeps your snapshots:** how much space your games use.
   - **Change** moves the snapshot folder to another folder or drive. SavePoint copies everything, checks every file, switches over, and then removes its old copy.
