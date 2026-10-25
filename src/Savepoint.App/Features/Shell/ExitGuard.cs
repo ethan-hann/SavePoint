@@ -9,7 +9,8 @@ namespace Savepoint.App.Features.Shell;
 /// <summary>
 /// Decides whether the main window may close while jobs run (D31). A clear-all or a storage move that is cut short leaves a
 /// half-done job behind, and so does a launch that is switching a folder (it is left with a mix of two snapshots), so closing asks
-/// first; whatever can be cancelled is cancelled, and the close waits briefly for it. A
+/// first. Closing while a snapshot is being taken asks too, because stopping it keeps nothing, and offers to minimize so it can
+/// finish. Whatever can be cancelled is cancelled, and the close waits briefly for it. A
 /// free-up that has already deleted the snapshots the player chose to lose cannot be stopped and must not be cut off either, so
 /// closing asks, offers no way to quit now, and waits for the run to finish however long that takes.
 /// </summary>
@@ -34,6 +35,13 @@ public sealed class ExitGuard
         _wait = wait ?? TimeSpan.FromSeconds(3);
         _libraryRuns = libraryRuns;
     }
+
+    /// <summary>Raised when the player chose to minimize instead of closing; the window minimizes and everything keeps running.</summary>
+    public event EventHandler? MinimizeRequested;
+
+    /// <summary>Raised just before any question is shown, so the window can come forward if it is minimized.</summary>
+    public event EventHandler? QuestionOpening;
+
 
     /// <summary>
     /// Asks about each running job that must not be cut short, cancels the jobs that can be cancelled and waits briefly for them, and
@@ -91,6 +99,7 @@ public sealed class ExitGuard
     // is on and waits for that game, which takes seconds; a run that never ends is left to the process ending after a minute.
     private async Task<bool> FinishLibraryRunAsync(LibraryRunTracker runs)
     {
+        QuestionOpening?.Invoke(this, EventArgs.Empty);
         var asked = await _dialogs.ConfirmAsync(new ConfirmRequest(
             _text.Message("shell.exit.title"),
             _text.Message("shell.exit.libraryMessage"),
@@ -115,13 +124,31 @@ public sealed class ExitGuard
     // Only these leave something half done that the user has to know about; a save, or an optimization that has not deleted anything yet, is simply stopped.
     // A launch is one of them only while it switches the folder: stopped then, the folder holds a mix of two snapshots.
     private static bool NeedsQuestion(JobSnapshot job) =>
-        job.Kind is JobKind.ClearData or JobKind.RelocateStorage || IsPastItsClear(job) || ActivityText.IsSwitching(job);
+        job.Kind is JobKind.ClearData or JobKind.RelocateStorage or JobKind.Capture || IsPastItsClear(job) || ActivityText.IsSwitching(job);
 
     // A free-up that has deleted the snapshots it was asked to cannot be stopped, and a git process left running would outlive the app.
     private static bool IsPastItsClear(JobSnapshot job) => job is { Kind: JobKind.Compact, Cancellable: false };
 
+    // A snapshot that is stopped keeps nothing, so the player may prefer to minimize and let it finish; they are told, before it is stopped.
+    private async Task<bool> AskAboutSnapshotAsync()
+    {
+        QuestionOpening?.Invoke(this, EventArgs.Empty);
+        var choice = await _dialogs.ShowAsync(new CloseDuringSnapshotDialogViewModel(_text)).ConfigureAwait(true);
+        if (choice == CloseDuringSnapshotChoice.Minimize)
+        {
+            MinimizeRequested?.Invoke(this, EventArgs.Empty);
+        }
+
+        return choice == CloseDuringSnapshotChoice.CloseAndStop;
+    }
+
     private Task<bool> AskAsync(JobSnapshot job)
     {
+        if (job.Kind == JobKind.Capture)
+        {
+            return AskAboutSnapshotAsync();
+        }
+
         var (message, confirm) = job.Kind switch
         {
             JobKind.ClearData => ("shell.exit.clearMessage", "shell.exit.confirm"),
@@ -129,6 +156,7 @@ public sealed class ExitGuard
             JobKind.Launch or JobKind.Switch => ("shell.exit.switchMessage", "shell.exit.confirm"),
             _ => ("shell.exit.moveMessage", "shell.exit.confirm"),
         };
+        QuestionOpening?.Invoke(this, EventArgs.Empty);
         return _dialogs.ConfirmAsync(new ConfirmRequest(
             _text.Message("shell.exit.title"),
             _text.Message(message),

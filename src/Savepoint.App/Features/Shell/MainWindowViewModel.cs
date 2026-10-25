@@ -27,6 +27,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     public MainWindowViewModel(StartupViewModel startup, Func<ShellViewModel> createShell, DialogHostViewModel dialogs, ToastHostViewModel toasts, ExitGuard? exit = null)
     {
         _exit = exit;
+        if (exit is not null)
+        {
+            exit.MinimizeRequested += OnMinimizeRequested;
+            exit.QuestionOpening += OnQuestionOpening;
+        }
+
         Startup = startup;
         _createShell = createShell;
         Dialogs = dialogs;
@@ -34,6 +40,16 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         startup.Ready += OnStartupReady;
         dialogs.PropertyChanged += OnDialogsChanged;
     }
+
+    /// <summary>Raised when the player chose to minimize the window instead of closing it; the window minimizes itself.</summary>
+    public event EventHandler? MinimizeRequested;
+
+    /// <summary>Raised just before a close question is shown; the window restores itself if it is minimized.</summary>
+    public event EventHandler? QuestionOpening;
+
+    private void OnQuestionOpening(object? sender, EventArgs e) => QuestionOpening?.Invoke(this, EventArgs.Empty);
+
+    private void OnMinimizeRequested(object? sender, EventArgs e) => MinimizeRequested?.Invoke(this, EventArgs.Empty);
 
     private void OnStartupReady(object? sender, EventArgs e) => _ = ShowShellAsync();
 
@@ -122,6 +138,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         _disposed = true;
+        if (_exit is not null)
+        {
+            _exit.MinimizeRequested -= OnMinimizeRequested;
+            _exit.QuestionOpening -= OnQuestionOpening;
+        }
+
         Startup.Ready -= OnStartupReady;
         Dialogs.PropertyChanged -= OnDialogsChanged;
         if (Shell is { } shell)

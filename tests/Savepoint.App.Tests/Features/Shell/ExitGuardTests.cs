@@ -1,3 +1,4 @@
+using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Localization;
@@ -79,6 +80,7 @@ public class ExitGuardTests
     {
         var (guard, backend, dialogs) = Build();
         dialogs.AnswerConfirm(true);
+        dialogs.OnShown = dialog => Press(dialog, model => model.CloseAndStopCommand);
         var move = FakeAssert.Ok(await backend.Settings.RelocateStorageAsync(@"E:\SavePoint"));
         JobStarted? late = null;
         dialogs.WhileConfirming = async _ => late = FakeAssert.Ok(await backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "A point"));
@@ -96,6 +98,7 @@ public class ExitGuardTests
     {
         var (guard, backend, dialogs) = Build();
         dialogs.AnswerConfirm(true);
+        dialogs.OnShown = dialog => Press(dialog, model => model.CloseAndStopCommand);
         var save = FakeAssert.Ok(await backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "A point"));
         var move = FakeAssert.Ok(await backend.Settings.RelocateStorageAsync(@"E:\SavePoint"));
         dialogs.WhileConfirming = _ =>
@@ -264,22 +267,116 @@ public class ExitGuardTests
     }
 
     [Fact]
-    public async Task A_save_is_cancelled_on_the_way_out_without_a_question()
+    public async Task A_snapshot_being_taken_asks_before_anything_is_cancelled()
+    {
+        var (guard, backend, dialogs) = Build();
+        FakeAssert.Ok(await backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "A point"));
+        var cancelledWhileAsking = -1;
+        dialogs.OnShown = dialog =>
+        {
+            cancelledWhileAsking = backend.Calls.To<IJobsApi>(nameof(IJobsApi.CancelAsync)).Count;
+            Press(dialog, model => model.StayCommand);
+        };
+
+        var allowed = await guard.PrepareToCloseAsync();
+
+        Assert.False(allowed);
+        var asked = Assert.IsType<CloseDuringSnapshotDialogViewModel>(Assert.Single(dialogs.Shown));
+        Assert.Equal("A snapshot is still being taken", asked.Title);
+        Assert.Contains("nothing is saved from it", asked.Message, StringComparison.Ordinal);
+        Assert.Contains("SavePoint tells you when it's done", asked.Message, StringComparison.Ordinal);
+        Assert.Equal("Minimize", asked.MinimizeLabel);
+        Assert.Equal("Close and stop the snapshot", asked.CloseLabel);
+        Assert.Equal(0, cancelledWhileAsking);
+    }
+
+    [Fact]
+    public async Task Staying_open_leaves_the_snapshot_running_and_the_window_where_it_is()
+    {
+        var (guard, backend, dialogs) = Build();
+        FakeAssert.Ok(await backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "A point"));
+        dialogs.OnShown = dialog => Press(dialog, model => model.StayCommand);
+        var minimized = 0;
+        guard.MinimizeRequested += (_, _) => minimized++;
+
+        var allowed = await guard.PrepareToCloseAsync();
+
+        Assert.False(allowed);
+        Assert.Empty(backend.Calls.To<IJobsApi>(nameof(IJobsApi.CancelAsync)));
+        Assert.Equal(0, minimized);
+    }
+
+    [Fact]
+    public async Task Dismissing_the_question_with_escape_stays_open()
+    {
+        var (guard, backend, dialogs) = Build();
+        FakeAssert.Ok(await backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "A point"));
+        dialogs.OnShown = dialog => dialog.RequestDismiss();
+
+        var allowed = await guard.PrepareToCloseAsync();
+
+        Assert.False(allowed);
+        Assert.Empty(backend.Calls.To<IJobsApi>(nameof(IJobsApi.CancelAsync)));
+    }
+
+    [Fact]
+    public async Task Minimizing_keeps_the_window_open_asks_it_to_minimize_and_leaves_the_snapshot_running()
+    {
+        var (guard, backend, dialogs) = Build();
+        FakeAssert.Ok(await backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "A point"));
+        dialogs.OnShown = dialog => Press(dialog, model => model.MinimizeCommand);
+        var minimized = 0;
+        guard.MinimizeRequested += (_, _) => minimized++;
+
+        var allowed = await guard.PrepareToCloseAsync();
+
+        Assert.False(allowed);
+        Assert.Equal(1, minimized);
+        Assert.Empty(backend.Calls.To<IJobsApi>(nameof(IJobsApi.CancelAsync)));
+    }
+
+    [Fact]
+    public async Task Closing_and_stopping_cancels_the_snapshot_and_lets_the_window_close()
     {
         var (guard, backend, dialogs) = Build();
         var save = FakeAssert.Ok(await backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "A point"));
+        dialogs.OnShown = dialog => Press(dialog, model => model.CloseAndStopCommand);
+        var minimized = 0;
+        guard.MinimizeRequested += (_, _) => minimized++;
 
         var allowed = await guard.PrepareToCloseAsync();
 
         Assert.True(allowed);
-        Assert.Empty(dialogs.Confirmations);
+        Assert.Single(dialogs.Shown);
+        Assert.Equal(0, minimized);
         Assert.Equal([save.JobId], Assert.Single(backend.Calls.To<IJobsApi>(nameof(IJobsApi.CancelAsync))).Args);
     }
 
     [Fact]
+    public async Task A_snapshot_and_a_storage_move_each_get_their_own_question()
+    {
+        var (guard, backend, dialogs) = Build();
+        dialogs.AnswerConfirm(true);
+        dialogs.OnShown = dialog => Press(dialog, model => model.CloseAndStopCommand);
+        FakeAssert.Ok(await backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "A point"));
+        FakeAssert.Ok(await backend.Settings.RelocateStorageAsync(@"E:\SavePoint"));
+
+        var allowed = await guard.PrepareToCloseAsync();
+
+        Assert.True(allowed);
+        Assert.Single(dialogs.Shown);
+        Assert.Single(dialogs.Confirmations);
+        Assert.Equal(2, backend.Calls.To<IJobsApi>(nameof(IJobsApi.CancelAsync)).Count);
+    }
+
+    private static void Press(IDialogViewModel dialog, Func<CloseDuringSnapshotDialogViewModel, System.Windows.Input.ICommand> button) =>
+        button((CloseDuringSnapshotDialogViewModel)dialog).Execute(null);
+
+    [Fact]
     public async Task The_close_waits_for_a_cancelled_job_to_end()
     {
-        var (guard, backend, _) = Build(TimeSpan.FromSeconds(20));
+        var (guard, backend, dialogs) = Build(TimeSpan.FromSeconds(20));
+        dialogs.OnShown = dialog => Press(dialog, model => model.CloseAndStopCommand);
         var save = FakeAssert.Ok(await backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "A point"));
 
         var closing = guard.PrepareToCloseAsync();
@@ -294,7 +391,8 @@ public class ExitGuardTests
     [Fact]
     public async Task A_job_that_will_not_end_does_not_hold_the_close_forever()
     {
-        var (guard, backend, _) = Build(TimeSpan.FromMilliseconds(200));
+        var (guard, backend, dialogs) = Build(TimeSpan.FromMilliseconds(200));
+        dialogs.OnShown = dialog => Press(dialog, model => model.CloseAndStopCommand);
         FakeAssert.Ok(await backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "A point"));
 
         var allowed = await guard.PrepareToCloseAsync().WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);

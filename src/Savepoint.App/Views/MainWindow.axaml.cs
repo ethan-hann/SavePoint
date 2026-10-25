@@ -14,6 +14,36 @@ public partial class MainWindow : Window
         InitializeComponent();
     }
 
+    private MainWindowViewModel? _followed;
+
+    protected override void OnDataContextChanged(EventArgs e)
+    {
+        base.OnDataContextChanged(e);
+        if (_followed is not null)
+        {
+            _followed.MinimizeRequested -= OnMinimizeRequested;
+            _followed.QuestionOpening -= OnQuestionOpening;
+        }
+
+        _followed = DataContext as MainWindowViewModel;
+        if (_followed is not null)
+        {
+            _followed.MinimizeRequested += OnMinimizeRequested;
+            _followed.QuestionOpening += OnQuestionOpening;
+        }
+    }
+
+    // A question on a minimized window would go unseen.
+    private void OnQuestionOpening(object? sender, EventArgs e)
+    {
+        if (WindowState == WindowState.Minimized)
+        {
+            WindowState = WindowState.Normal;
+        }
+    }
+
+    private void OnMinimizeRequested(object? sender, EventArgs e) => WindowState = WindowState.Minimized;
+
     // The window stays open while the exit guard asks; it closes itself again once the guard says it may. A quit from the application
     // (Cmd+Q on macOS) arrives as ApplicationShutdown and honors the cancel; only the system ending the session cannot be held up.
     protected override void OnClosing(WindowClosingEventArgs e)
