@@ -39,6 +39,9 @@ internal sealed class CaptureRunner
     // When a save reached only some of its folders, a later save of just the missing ones joins the same capture event.
     private readonly ConcurrentDictionary<(string GameId, string ProfileId), PartialSave> _partial = new();
 
+    // What each folder of a replacement was judged to do, by capture id, so a retry of a save that only half worked does as the first try did.
+    private readonly ConcurrentDictionary<string, IReadOnlyDictionary<RepoRole, FolderCapturePlan>> _judged = new(StringComparer.Ordinal);
+
     public CaptureRunner(BackendServices services, OptimizationService optimization)
     {
         _services = services;
@@ -174,6 +177,11 @@ internal sealed class CaptureRunner
         {
             _partial.TryRemove((gameId, profileId), out _);
         }
+
+        if (failed.Count == 0)
+        {
+            _judged.TryRemove(capture.Id, out _);
+        }
     }
 
     private sealed record PartialSave(CaptureEvent Capture, IReadOnlyList<RepoRole> Missing, bool ForksNewBranches);
@@ -191,7 +199,7 @@ internal sealed class CaptureRunner
         IReadOnlyDictionary<RepoRole, FolderCapturePlan>? plans)
     {
         var repos = GameFolders.Repos(_services, storage, game).Where(repo => roles.Contains(repo.Role)).ToList();
-        plans = await RefuseUnsafeReplaceAsync(storage, game, profile, repos, plans, context.CancellationToken).ConfigureAwait(false);
+        plans = await RefuseUnsafeReplaceAsync(storage, game, profile, repos, plans, capture.Id, context.CancellationToken).ConfigureAwait(false);
         var progress = new CaptureProgressCombiner(context.Progress);
         context.AddStep(JobSteps.CaptureStart, ("profile", profile.Name), ("snapshot", pointName));
 
@@ -216,6 +224,7 @@ internal sealed class CaptureRunner
         Profile profile,
         IReadOnlyList<RepoRef> repos,
         IReadOnlyDictionary<RepoRole, FolderCapturePlan>? plans,
+        string captureId,
         CancellationToken cancellationToken)
     {
         if (plans is null || plans.Values.FirstOrDefault(plan => plan is { Mode: CaptureMode.Amend, AmendPointId: not null }) is not { AmendPointId: { } target })
@@ -223,11 +232,17 @@ internal sealed class CaptureRunner
             return plans;
         }
 
+        // A retry of the same save obeys the first judgment; judging only the folders that are left could turn a rewrite into a new snapshot or the reverse.
+        if (_judged.TryGetValue(captureId, out var earlier))
+        {
+            return earlier;
+        }
+
         var others = (await _services.Catalog.ListProfilesAsync(game.Id, cancellationToken).ConfigureAwait(false))
             .Where(listed => listed.Id != profile.Id)
             .Select(listed => listed.BranchName)
             .ToList();
-        var judged = new List<ReplaceFolder>();
+        var judged = new Dictionary<RepoRole, ReplaceFolder>();
         foreach (var repo in repos.Where(repo => plans.GetValueOrDefault(repo.Role) is { Mode: CaptureMode.Amend }))
         {
             var plan = plans[repo.Role];
@@ -239,16 +254,26 @@ internal sealed class CaptureRunner
                 continue;
             }
 
-            judged.Add(await ReplaceRule.JudgeFolderAsync(storage.Engine, repo, profile.BranchName, others, target, cancellationToken).ConfigureAwait(false));
+            judged[repo.Role] = await ReplaceRule.JudgeFolderAsync(storage.Engine, repo, profile.BranchName, others, target, cancellationToken).ConfigureAwait(false);
         }
 
-        if (ReplaceRule.Allows(judged))
+        // Each folder's verdict goes into its plan: only a folder judged to be rewritten keeps its replacement, so a folder that is
+        // written after this check, or that only joins, is saved as a plain commit and never rewrites anything.
+        Dictionary<RepoRole, FolderCapturePlan> decided;
+        if (ReplaceRule.Allows([.. judged.Values]))
         {
-            return plans;
+            decided = plans.ToDictionary(
+                pair => pair.Key,
+                pair => pair.Value.Mode == CaptureMode.Amend && judged.GetValueOrDefault(pair.Key, ReplaceFolder.Join) != ReplaceFolder.Amend ? pair.Value with { Mode = CaptureMode.Normal } : pair.Value);
+        }
+        else
+        {
+            _services.Log.Information($"Save: replacing snapshot {target} of {game.Id} was not safe any more, so the session is saved as a new snapshot.");
+            decided = plans.ToDictionary(pair => pair.Key, pair => pair.Value.Mode == CaptureMode.Amend ? pair.Value with { Mode = CaptureMode.Normal, Downgraded = true } : pair.Value);
         }
 
-        _services.Log.Information($"Save: replacing snapshot {target} of {game.Id} was not safe any more, so the session is saved as a new snapshot.");
-        return plans.ToDictionary(pair => pair.Key, pair => pair.Value.Mode == CaptureMode.Amend ? pair.Value with { Mode = CaptureMode.Normal, Downgraded = true } : pair.Value);
+        _judged[captureId] = decided;
+        return decided;
     }
 
     private async Task<SavedFolder> SaveFolderAsync(

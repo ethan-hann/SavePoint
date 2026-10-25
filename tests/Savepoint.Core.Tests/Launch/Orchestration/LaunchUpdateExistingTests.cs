@@ -1,5 +1,7 @@
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Git;
+using Savepoint.Core.Tests.Git.Engine;
 
 namespace Savepoint.Core.Tests.Launch.Orchestration;
 
@@ -341,6 +343,120 @@ public class LaunchUpdateExistingTests
         Assert.Null(done.Error);
         Assert.All(Assert.IsType<CaptureResult>(done.Result).Folders, folder => Assert.True(folder.Ok && !folder.KeptAsNew && !folder.LeftAlone));
         Assert.Equal(["Original session", "Original"], (await rig.CommitsAsync(RepoRole.External, original)).Select(commit => commit.Subject));
+    }
+
+    // A tracked file edited and then made unreadable, so the folder that holds it fails to save until it is let go.
+    private static IDisposable EditAndHold(string file, string content)
+    {
+        File.WriteAllText(file, content);
+        return HeldFiles.Hold(file, HeldFileKind.Unreadable);
+    }
+
+    [Fact(Timeout = 250_000)]
+    public async Task A_retry_of_a_replacement_that_was_saved_as_new_stays_new_and_does_not_rewrite_the_folder_that_failed()
+    {
+        using var rig = await LaunchRig.CreateAsync();
+        var original = await rig.ProfileAsync("Original");
+        var copied = await rig.Profiles.DuplicateAsync(rig.Game.Id, original.Id, "Copy");
+        Assert.True(copied.Ok, copied.Error?.Detail);
+        var exited = await PlayAsync(rig, original);
+        Assert.Contains(CompletionChoice.UpdateExisting, exited.Options.Choices);
+        var savesBefore = (await rig.CommitsAsync(RepoRole.External, original)).Select(commit => commit.Id).ToList();
+
+        // The install changes after the game closed, and its snapshot is the copy's too, so the whole save becomes a new snapshot.
+        rig.WriteInstall("settings.ini", "written after the game closed");
+        var hold = EditAndHold(Path.Combine(rig.SavesPath, "slot1.sav"), "edited, then held");
+        SessionState.Completed partial;
+        try
+        {
+            partial = await CompleteAsync(rig, new SessionCompletion.UpdateExisting("Original"));
+            Assert.Contains(Assert.IsType<CaptureResult>(partial.Result).Folders, folder => folder.Role == RepoRole.External && !folder.Ok);
+        }
+        finally
+        {
+            hold.Dispose();
+        }
+
+        Assert.True((await rig.Launch.RetryCompletionAsync(rig.Game.Id)).Ok);
+        var done = Assert.IsType<SessionState.Completed>((await rig.WaitForAsync(session => session.State is SessionState.Completed { Result: { } result } && result.Folders.All(folder => folder.Ok), "all folders saved")).State);
+
+        Assert.All(Assert.IsType<CaptureResult>(done.Result).Folders, folder => Assert.True(folder.KeptAsNew));
+        var saves = await rig.CommitsAsync(RepoRole.External, original);
+        Assert.Equal(2, saves.Count);
+        Assert.Equal(savesBefore[0], saves[1].Id);
+    }
+
+    [Fact(Timeout = 250_000)]
+    public async Task A_retry_of_the_folder_that_only_joins_a_replacement_is_not_reported_as_kept_as_new()
+    {
+        using var rig = await LaunchRig.CreateAsync();
+        var vanilla = await rig.ProfileAsync("Vanilla");
+        await PlayAsync(rig, vanilla);
+        Assert.Null((await CompleteAsync(rig, new SessionCompletion.UpdateExisting("Vanilla"))).Error);
+
+        // The second session writes the saves, which the snapshot holds, and an install file, which it does not.
+        File.Delete(rig.ReadyFile);
+        await rig.StartAsync(Tip(vanilla));
+        await rig.WaitForGameAsync();
+        rig.WriteSave("slot1.sav", "second session");
+        rig.KillGame();
+        var exited = Assert.IsType<SessionState.Exited>((await rig.WaitForAsync<SessionState.Exited>()).State);
+        Assert.Contains(CompletionChoice.UpdateExisting, exited.Options.Choices);
+        var hold = EditAndHold(Path.Combine(rig.InstallPath, "data", "base.pak"), "edited, then held");
+        try
+        {
+            var partial = await CompleteAsync(rig, new SessionCompletion.UpdateExisting("Vanilla"));
+            var folders = Assert.IsType<CaptureResult>(partial.Result).Folders;
+            Assert.True(folders.Single(folder => folder.Role == RepoRole.External).Ok);
+            Assert.False(folders.Single(folder => folder.Role == RepoRole.Install).Ok);
+        }
+        finally
+        {
+            hold.Dispose();
+        }
+
+        Assert.True((await rig.Launch.RetryCompletionAsync(rig.Game.Id)).Ok);
+        var done = Assert.IsType<SessionState.Completed>((await rig.WaitForAsync(session => session.State is SessionState.Completed { Result: { } result } && result.Folders.All(folder => folder.Ok), "all folders saved")).State);
+
+        Assert.All(Assert.IsType<CaptureResult>(done.Result).Folders, folder => Assert.False(folder.KeptAsNew));
+        Assert.Equal(done.Result!.PointId?.Value, (await rig.CommitsAsync(RepoRole.Install, vanilla))[0].CaptureId);
+    }
+
+    [Fact(Timeout = 250_000)]
+    public async Task A_folder_the_check_skipped_as_clean_is_not_rewritten_if_it_is_written_before_it_is_saved()
+    {
+        var armed = 0;
+        var reads = 0;
+        using var rig = await LaunchRig.CreateAsync(
+            options => options with
+            {
+                Engine = new GitEngineOptions
+                {
+                    InvocationObserver = invocation =>
+                    {
+                        // The second listing of the install's new files while armed is the save reading it, after the check did.
+                        if (Volatile.Read(ref armed) == 1 && invocation.Arguments[0] == "ls-files" && invocation.Arguments.Contains("-o") && !invocation.Arguments.Contains("-m")
+                            && invocation.GitDir!.EndsWith("install.git", StringComparison.Ordinal) && Interlocked.Increment(ref reads) == 2)
+                        {
+                            File.WriteAllText(Path.Combine(invocation.WorkTree!, "settings.ini"), "written between the check and the save");
+                        }
+                    },
+                },
+            });
+        var original = await rig.ProfileAsync("Original");
+        var copied = await rig.Profiles.DuplicateAsync(rig.Game.Id, original.Id, "Copy");
+        Assert.True(copied.Ok, copied.Error?.Detail);
+        var installBefore = (await rig.CommitsAsync(RepoRole.Install, original)).Select(commit => commit.Id).ToList();
+        var exited = await PlayAsync(rig, original);
+        Assert.Contains(CompletionChoice.UpdateExisting, exited.Options.Choices);
+
+        Volatile.Write(ref armed, 1);
+        var done = await CompleteAsync(rig, new SessionCompletion.UpdateExisting("Original"));
+
+        Assert.Null(done.Error);
+        Assert.Equal(2, reads);
+        Assert.Equal(installBefore, (await rig.CommitsAsync(RepoRole.Install, copied.Value)).Select(commit => commit.Id));
+        Assert.Equal(installBefore, (await rig.CommitsAsync(RepoRole.Install, original)).Skip(1).Select(commit => commit.Id));
     }
 
     [Fact(Timeout = 200_000)]
