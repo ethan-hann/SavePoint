@@ -4,6 +4,8 @@ using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Git;
 using Savepoint.Core.Services;
+using Savepoint.Core.Services.History;
+using Savepoint.Core.Services.Profiles;
 
 namespace Savepoint.Core.Launch.Orchestration;
 
@@ -82,8 +84,10 @@ public sealed partial class LaunchOrchestrator
                 profile = profiles.FirstOrDefault(listed => listed.Id == info?.ProfileId);
                 var repos = GameFolders.Repos(_services, storage, game);
                 var changed = await Task.WhenAll(repos.Select(repo => ChangedFilesAsync(storage, repo, profile, older ? null : starts.GetValueOrDefault(repo.Role)))).ConfigureAwait(false);
-                var options = await OptionsAsync(storage, repos, profile, older, starts).ConfigureAwait(false);
                 var counts = repos.Zip(changed, (repo, count) => (repo.Role, count)).ToDictionary(pair => pair.Role, pair => pair.count);
+
+                // A folder with nothing unsaved is not written by a replacement.
+                var options = await OptionsAsync(storage, repos, profile, profiles, older, starts, counts.Where(pair => pair.Value > 0).Select(pair => pair.Key).ToHashSet()).ConfigureAwait(false);
                 return new SessionState.Exited(startedAt, duration, counts.GetValueOrDefault(RepoRole.External), counts.GetValueOrDefault(RepoRole.Install), options, endKind);
             }).ConfigureAwait(false);
         }
@@ -116,8 +120,10 @@ public sealed partial class LaunchOrchestrator
         StorageSnapshot storage,
         IReadOnlyList<RepoRef> repos,
         Profile? profile,
+        IReadOnlyList<Profile> profiles,
         bool older,
-        IReadOnlyDictionary<RepoRole, FolderStart> starts)
+        IReadOnlyDictionary<RepoRole, FolderStart> starts,
+        IReadOnlySet<RepoRole> written)
     {
         if (profile is null)
         {
@@ -144,16 +150,42 @@ public sealed partial class LaunchOrchestrator
             return new PostPlayOptions(choices, CompletionChoice.ForkNewProfile, null, newer.Count);
         }
 
-        // The save "update" would replace is the newest point of the saves folder, or of the install when the game has no saves folder.
-        var folder = repos.FirstOrDefault(repo => repo.Role == RepoRole.External) ?? repos[0];
-        var latest = (await storage.Engine.ListCommitsAsync(folder, profile.BranchName).ConfigureAwait(false)).FirstOrDefault(commit => commit.CaptureId is not null);
-        return latest is null
-            ? FallbackOptions(older: false, profile, starts)
-            : new PostPlayOptions(
-                [CompletionChoice.CaptureNew, CompletionChoice.UpdateExisting, CompletionChoice.Skip],
-                CompletionChoice.CaptureNew,
-                new SaveEntry(new HistoryPointId(latest.CaptureId!), latest.Subject, latest.Date, IsMostRecent: true),
-                0);
+        // Replace is offered for the newest point History lists under this profile, and only when rewriting it cannot touch history another
+        // profile holds (ReplaceRule). With nothing unsaved there is nothing to replace it with, and the cheap checks run before any grouping.
+        if (written.Count == 0)
+        {
+            return FallbackOptions(older: false, profile, starts);
+        }
+
+        var owned = await HistoryReader.NewestOwnedAsync(storage, repos, profiles, profile.Id, CancellationToken.None).ConfigureAwait(false);
+        if (owned is null || !await CanReplaceAsync(storage, repos, profiles, profile, owned, written).ConfigureAwait(false))
+        {
+            return FallbackOptions(older: false, profile, starts);
+        }
+
+        return new PostPlayOptions(
+            [CompletionChoice.CaptureNew, CompletionChoice.UpdateExisting, CompletionChoice.Skip],
+            CompletionChoice.CaptureNew,
+            new SaveEntry(new HistoryPointId(owned.CaptureId), owned.Name, owned.At, IsMostRecent: true),
+            0);
+    }
+
+    private static async Task<bool> CanReplaceAsync(
+        StorageSnapshot storage,
+        IReadOnlyList<RepoRef> repos,
+        IReadOnlyList<Profile> profiles,
+        Profile profile,
+        HistoryReader.OwnedPoint owned,
+        IReadOnlySet<RepoRole> written)
+    {
+        var others = profiles.Where(listed => listed.Id != profile.Id).Select(listed => listed.BranchName).ToList();
+        var judged = new List<ReplaceFolder>();
+        foreach (var repo in repos.Where(repo => written.Contains(repo.Role)))
+        {
+            judged.Add(await ReplaceRule.JudgeFolderAsync(storage.Engine, repo, profile.BranchName, others, owned.CaptureId, CancellationToken.None).ConfigureAwait(false));
+        }
+
+        return ReplaceRule.Allows(judged);
     }
 
     // The choices when the folders cannot be read. "Continue" needs every folder the launch left alone to have begun on the profile's own

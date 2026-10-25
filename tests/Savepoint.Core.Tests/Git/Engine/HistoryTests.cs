@@ -157,8 +157,8 @@ public sealed class HistoryTests : IClassFixture<HistoryFixture>
     [Fact]
     public async Task Points_held_by_no_other_branch_are_the_ones_deleting_would_lose()
     {
-        var onlyProfile1 = await Engine.ListCommitsOnlyOnAsync(_fx.Repo, "profile-1", ["profile-2"], Ct);
-        var onlyProfile2 = await Engine.ListCommitsOnlyOnAsync(_fx.Repo, "profile-2", ["profile-1"], Ct);
+        var onlyProfile1 = await Engine.ListCommitsOnlyOnAsync(_fx.Repo, "profile-1", ["profile-2"], ct: Ct);
+        var onlyProfile2 = await Engine.ListCommitsOnlyOnAsync(_fx.Repo, "profile-2", ["profile-1"], ct: Ct);
 
         Assert.Equal([_fx.Profile1[2]], onlyProfile1.Select(commit => commit.Id));
         Assert.Equal(["cap-3"], onlyProfile1.Select(commit => commit.CaptureId));
@@ -168,7 +168,7 @@ public sealed class HistoryTests : IClassFixture<HistoryFixture>
     [Fact]
     public async Task With_no_other_branch_every_point_is_unique()
     {
-        var all = await Engine.ListCommitsOnlyOnAsync(_fx.Repo, "profile-1", [], Ct);
+        var all = await Engine.ListCommitsOnlyOnAsync(_fx.Repo, "profile-1", [], ct: Ct);
 
         Assert.Equal(_fx.Profile1.Reverse(), all.Select(commit => commit.Id));
     }
@@ -176,7 +176,7 @@ public sealed class HistoryTests : IClassFixture<HistoryFixture>
     [Fact]
     public async Task Other_branches_that_do_not_exist_and_the_branch_itself_are_ignored()
     {
-        var unique = await Engine.ListCommitsOnlyOnAsync(_fx.Repo, "profile-1", ["profile-1", "ghost", "profile-2"], Ct);
+        var unique = await Engine.ListCommitsOnlyOnAsync(_fx.Repo, "profile-1", ["profile-1", "ghost", "profile-2"], ct: Ct);
 
         Assert.Equal([_fx.Profile1[2]], unique.Select(commit => commit.Id));
     }
@@ -184,7 +184,7 @@ public sealed class HistoryTests : IClassFixture<HistoryFixture>
     [Fact]
     public async Task Unique_points_of_a_branch_that_does_not_exist_are_empty()
     {
-        Assert.Empty(await Engine.ListCommitsOnlyOnAsync(_fx.Repo, "ghost", ["profile-1"], Ct));
+        Assert.Empty(await Engine.ListCommitsOnlyOnAsync(_fx.Repo, "ghost", ["profile-1"], ct: Ct));
     }
 
     [Fact]
@@ -198,7 +198,7 @@ public sealed class HistoryTests : IClassFixture<HistoryFixture>
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Engine.CountCommitsAsync(_fx.Repo, "profile-1", cancelled.Token));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Engine.ListTreeFilesAsync(_fx.Repo, "profile-1", cancelled.Token));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Engine.ReadBlobAsync(_fx.Repo, "profile-1", "a.txt", cancelled.Token));
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Engine.ListCommitsOnlyOnAsync(_fx.Repo, "profile-1", ["profile-2"], cancelled.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Engine.ListCommitsOnlyOnAsync(_fx.Repo, "profile-1", ["profile-2"], ct: cancelled.Token));
     }
 
     [Fact]

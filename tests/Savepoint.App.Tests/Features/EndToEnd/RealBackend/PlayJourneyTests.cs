@@ -78,4 +78,29 @@ public class PlayJourneyTests
         Assert.Equal(installBefore, FolderSnapshot.Of(game.Install));
         Assert.Equal(written, FolderSnapshot.Of(game.Saves));
     }
+
+    // A profile made from the one that is loaded, with a mod added first, shares that profile's saves until it saves its own.
+    [AvaloniaFact(Timeout = 180_000)]
+    public async Task Playing_a_profile_made_from_another_offers_no_replace_of_the_other_profile_s_snapshot_and_its_row_counts_the_kept_session()
+    {
+        await using var rig = await JourneyRig.StartAsync();
+        var game = rig.NewGame("Play Game");
+        JourneyRig.WriteFile(Path.Combine(game.Saves, "slot1.sav"), "save one");
+        await rig.AddGameAsync(game, ["--saves", game.Saves, "--save-every", "150", "--exit-after", "3000"]);
+        var vanilla = await rig.CreateProfileAsync("Vanilla");
+        JourneyRig.WriteFile(Path.Combine(game.Install, "mods", "big.bin"), "a very large mod");
+        await Task.Delay(TimeSpan.FromMilliseconds(1100), TestContext.Current.CancellationToken);
+        var heavy = await rig.CreateProfileAsync("Heavy mods");
+        await rig.WaitAsync(() => heavy.IsActive && !vanilla.IsActive, "the rows to show the folders are on Heavy mods");
+
+        await rig.FinishesAsync(heavy.PlayCommand.ExecuteAsync(null), "Play to hand the game over");
+        var postPlay = await rig.DialogAsync<PostPlayDialogViewModel>();
+
+        Assert.Equal([CompletionChoice.CaptureNew, CompletionChoice.Skip], postPlay.Choices.Select(choice => choice.Kind));
+        rig.Main.Toasts.DismissAll();
+        await rig.FinishesAsync(postPlay.SaveCommand.ExecuteAsync(null), "the after-play dialog to answer");
+        await rig.WaitAsync(() => heavy.CanPlay && rig.Games.InlineContent is null && heavy.IsActive && !heavy.IsRunning, "the session to be saved");
+        Assert.StartsWith("Loaded now · 2 snapshots", heavy.SecondaryText, StringComparison.Ordinal);
+        Assert.StartsWith("1 snapshot", vanilla.SecondaryText, StringComparison.Ordinal);
+    }
 }

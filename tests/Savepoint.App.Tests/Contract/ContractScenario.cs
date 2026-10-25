@@ -227,14 +227,11 @@ internal static class ContractScenario
         var created = await backend.Profiles.CreateAsync(game.Id, "Vanilla", null, "Fresh install");
         var profileId = await FinishCaptureAsync(backend, new Story(), created, cancellationToken) ?? "missing";
 
-        // What the game offers after play depends on the saves the profile holds, which the fake does not track.
+        // A play with nothing unsaved offers no replacement in either backend; the rest of the story reads what the first save left.
         backend.ExpectLaunch(game, profileId);
         await backend.Launch.StartAsync(game.Id, new LaunchTarget.ProfileTip(profileId));
         await backend.GameRunningAsync(game.Id, cancellationToken);
         await backend.GameExitedAsync(game.Id, cancellationToken);
-        story.Add("choices after play with one save", backend.Launch.GetSession(game.Id)?.State is SessionState.Exited exited
-            ? string.Join(",", exited.Options.Choices)
-            : "no exit");
         await backend.Launch.CompleteSessionAsync(game.Id, new SessionCompletion.Skip());
 
         story.Add("history after the first save", Show(await backend.History.GetAsync(game.Id, null, cancellationToken), history => $"{history.Points.Count} points"));

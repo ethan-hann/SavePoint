@@ -22,7 +22,7 @@ public sealed class UniquePointsTests : IDisposable
         _ws.Write(repo, "only-x.txt", "x");
         var onlyX = (await _ws.CaptureAsync(repo, "x", "Only here", null)).TipCommitId!;
 
-        var unique = await _ws.Engine.ListCommitsOnlyOnAsync(repo, "x", ["y", "z", "w"], Ct);
+        var unique = await _ws.Engine.ListCommitsOnlyOnAsync(repo, "x", ["y", "z", "w"], ct: Ct);
 
         Assert.Equal([onlyX], unique.Select(commit => commit.Id));
     }
@@ -35,7 +35,7 @@ public sealed class UniquePointsTests : IDisposable
         await _ws.Engine.CreateBranchAsync(repo, "y", points[1], Ct);
         await _ws.Engine.CreateBranchAsync(repo, "z", points[0], Ct);
 
-        var unique = await _ws.Engine.ListCommitsOnlyOnAsync(repo, "x", ["y", "z"], Ct);
+        var unique = await _ws.Engine.ListCommitsOnlyOnAsync(repo, "x", ["y", "z"], ct: Ct);
 
         Assert.Equal([points[2]], unique.Select(commit => commit.Id));
     }

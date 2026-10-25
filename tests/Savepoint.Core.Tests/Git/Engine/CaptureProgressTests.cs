@@ -57,6 +57,25 @@ public sealed class CaptureProgressTests : IDisposable
     }
 
     [Fact]
+    public async Task Files_rewritten_with_the_same_bytes_are_not_counted()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "slot1.sav", "save one");
+        _ws.Write(repo, "slot2.sav", "save two");
+        await _ws.CaptureAsync(repo, "profile-1");
+        foreach (var (name, content) in new[] { ("slot1.sav", "save one"), ("slot2.sav", "save two") })
+        {
+            File.SetLastWriteTimeUtc(_ws.Write(repo, name, content), DateTime.UtcNow.AddMinutes(30));
+        }
+
+        var progress = new ProgressLog();
+        var outcome = await _ws.CaptureAsync(repo, "profile-1", progress: progress);
+
+        Assert.False(outcome.Changed);
+        Assert.Empty(progress.Reports);
+    }
+
+    [Fact]
     public async Task Deleted_files_count_as_done()
     {
         var repo = await _ws.InitializedRepoAsync();

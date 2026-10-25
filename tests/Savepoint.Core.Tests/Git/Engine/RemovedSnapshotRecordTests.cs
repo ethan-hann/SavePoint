@@ -47,7 +47,7 @@ public sealed class RemovedSnapshotRecordTests : IDisposable
         Assert.Equal(2, lineage.Count);
         Assert.DoesNotContain(points[1], lineage);
         Assert.DoesNotContain(points[2], lineage);
-        Assert.DoesNotContain(points[2], (await _ws.Engine.ListCommitsOnlyOnAsync(repo, "profile-1", [], Ct)).Select(commit => commit.Id));
+        Assert.DoesNotContain(points[2], (await _ws.Engine.ListCommitsOnlyOnAsync(repo, "profile-1", [], ct: Ct)).Select(commit => commit.Id));
     }
 
     [Fact]

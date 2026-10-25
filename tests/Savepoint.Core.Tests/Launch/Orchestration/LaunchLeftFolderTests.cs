@@ -218,7 +218,15 @@ public class LaunchLeftFolderTests
         var exited = await PlayAsync(rig, new LaunchTarget.Point(modUpdate.Id));
         rig.WriteInstall("settings.ini", "played");
         rig.WriteSave("played.sav", "progress");
-        var done = await CompleteAsync(rig, update ? new SessionCompletion.UpdateExisting("Updated") : new SessionCompletion.CaptureNew("Played"));
+        if (update)
+        {
+            // Nothing was unsaved when the game closed, so there was nothing to replace a snapshot with; files that appear later are a new snapshot's.
+            Assert.DoesNotContain(CompletionChoice.UpdateExisting, exited.Options.Choices);
+            Assert.Equal("error.launch.completionNotOffered", (await rig.Launch.CompleteSessionAsync(rig.Game.Id, new SessionCompletion.UpdateExisting("Updated"))).Error?.MessageId);
+            return;
+        }
+
+        var done = await CompleteAsync(rig, new SessionCompletion.CaptureNew("Played"));
 
         Assert.DoesNotContain(CompletionChoice.ForkNewProfile, exited.Options.Choices);
         Assert.Null(done.Error);

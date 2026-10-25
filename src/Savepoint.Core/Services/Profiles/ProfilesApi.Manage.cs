@@ -149,7 +149,7 @@ internal sealed partial class ProfilesApi
                         foreach (var repo in repos)
                         {
                             // A commit a record of a removed snapshot names comes back to Recently removed after the delete; the rest is lost.
-                            var onlyHere = (await storage.Engine.ListCommitsOnlyOnAsync(repo, profile.BranchName, others, cancellationToken).ConfigureAwait(false))
+                            var onlyHere = (await storage.Engine.ListCommitsOnlyOnAsync(repo, profile.BranchName, others, ct: cancellationToken).ConfigureAwait(false))
                                 .Where(commit => commit.CaptureId is not null)
                                 .ToList();
                             var recorded = (await storage.Engine.ListRemovedAsync(repo, cancellationToken).ConfigureAwait(false)).Select(removed => removed.Commit.Id).ToHashSet(StringComparer.Ordinal);

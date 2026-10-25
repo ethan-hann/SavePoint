@@ -151,9 +151,12 @@ public class LaunchHeldFileTests
         var vanilla = await rig.ProfileAsync("Vanilla");
         var before = Assert.Single(await rig.CommitsAsync(RepoRole.Install, vanilla));
         await rig.StartAsync(Tip(vanilla));
-        await rig.WaitForAsync<SessionState.Exited>();
+
+        // The file is held when the game closes, so the folder counts as having something unsaved and a replacement is offered.
         await MakeRacyAsync(rig);
         Volatile.Write(ref hold, HeldFiles.Hold(HeldFile(rig), kind));
+        var exited = Assert.IsType<SessionState.Exited>((await rig.WaitForAsync<SessionState.Exited>()).State);
+        Assert.Contains(CompletionChoice.UpdateExisting, exited.Options.Choices);
 
         SessionState.Completed done;
         try

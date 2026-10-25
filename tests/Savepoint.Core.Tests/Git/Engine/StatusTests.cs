@@ -30,6 +30,27 @@ public sealed class StatusTests : IDisposable
     }
 
     [Fact]
+    public async Task Files_rewritten_with_the_same_bytes_are_not_changes()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "slot1.sav", "save one");
+        _ws.Write(repo, "slot2.sav", "save two");
+        await _ws.CaptureAsync(repo, "profile-1");
+
+        // A new modified time with the same content, as a game rewriting its saves leaves behind.
+        foreach (var name in new[] { "slot1.sav", "slot2.sav" })
+        {
+            var path = _ws.Write(repo, name, name == "slot1.sav" ? "save one" : "save two");
+            File.SetLastWriteTimeUtc(path, DateTime.UtcNow.AddMinutes(30));
+        }
+
+        var status = await _ws.Engine.GetStatusAsync(repo, Ct);
+
+        Assert.Empty(status.ChangedPaths);
+        Assert.True(status.IsClean);
+    }
+
+    [Fact]
     public async Task Edits_deletions_and_new_files_make_it_dirty_and_are_listed()
     {
         var repo = await _ws.InitializedRepoAsync();

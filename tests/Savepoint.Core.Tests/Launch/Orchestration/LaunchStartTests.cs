@@ -45,9 +45,11 @@ public class LaunchStartTests
         Assert.True(state.NewFileCount >= 1, "the game wrote saves");
         Assert.True(state.PlayDuration > TimeSpan.Zero);
         Assert.Equal(0, state.ChangedInstallFileCount);
-        Assert.Equal([CompletionChoice.CaptureNew, CompletionChoice.UpdateExisting, CompletionChoice.Skip], state.Options.Choices);
+
+        // Modded was made from Vanilla's saves, so Vanilla's newest snapshot is Modded's too and cannot be replaced.
+        Assert.Equal([CompletionChoice.CaptureNew, CompletionChoice.Skip], state.Options.Choices);
         Assert.Equal(CompletionChoice.CaptureNew, state.Options.Default);
-        Assert.Equal("Vanilla", state.Options.UpdateTarget?.Name);
+        Assert.Null(state.Options.UpdateTarget);
         Assert.Equal(0, state.Options.NewerPointCount);
     }
 
