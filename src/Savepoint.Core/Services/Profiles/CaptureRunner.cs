@@ -201,7 +201,16 @@ internal sealed class CaptureRunner
         var repos = GameFolders.Repos(_services, storage, game).Where(repo => roles.Contains(repo.Role)).ToList();
         plans = await RefuseUnsafeReplaceAsync(storage, game, profile, repos, plans, capture.Id, context.CancellationToken).ConfigureAwait(false);
         var progress = new CaptureProgressCombiner(context.Progress, context.AddLine);
-        context.AddStep(JobSteps.CaptureStart, ("profile", profile.Name), ("snapshot", pointName));
+        // A new profile's first snapshot carries the profile's name, so saying both would repeat it.
+        if (creating && pointName == profile.Name)
+        {
+            context.AddStep(JobSteps.CaptureStartFirst, ("profile", profile.Name));
+        }
+        else
+        {
+            context.AddStep(JobSteps.CaptureStart, ("profile", profile.Name), ("snapshot", pointName));
+        }
+
 
         // The two folders are separate repositories, so they are saved side by side; one failing never stops the other.
         var saved = await Task.WhenAll(repos.Select(repo => SaveFolderAsync(context, storage, game, repo, profile.BranchName, pointName, capture, forksNewBranches, plans?.GetValueOrDefault(repo.Role), progress.For(repo.Role)))).ConfigureAwait(false);

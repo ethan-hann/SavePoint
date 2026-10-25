@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.VisualTree;
 using Savepoint.App.Features.Activity;
 using Savepoint.App.Features.Editor;
@@ -71,27 +72,36 @@ internal static class DocScreenshotJob
         return app;
     }
 
+    // A page shows no keyboard focus ring, so focus is dropped before the picture is taken.
+    private static void Draw(ComposedApp app, string path)
+    {
+        app.Settle();
+        app.Window.Focusable = true;
+        app.Window.Focus(NavigationMethod.Unspecified);
+        app.RenderTo(path);
+    }
+
     private static ProfileRowViewModel Row(ComposedApp app, string id) => app.Games.Profiles.Single(row => row.Id == id);
 
     private static async Task Games(string path)
     {
         using var app = await StartAsync(Full(withSurvivalProfile: true));
 
-        app.RenderTo(path);
+        Draw(app, path);
     }
 
     private static async Task Profiles(string path)
     {
         using var app = await StartAsync(Full());
 
-        app.RenderTo(path);
+        Draw(app, path);
     }
 
     private static async Task FirstRun(string path)
     {
         using var app = await StartAsync(NoGames());
 
-        app.RenderTo(path);
+        Draw(app, path);
     }
 
     private static async Task AddGame(string path)
@@ -106,7 +116,7 @@ internal static class DocScreenshotJob
         editor.ExePath = "Grounded.exe";
         await editor.RefreshSuggestionsAsync();
 
-        app.RenderTo(path);
+        Draw(app, path);
     }
 
     private static async Task FirstSnapshot(string path)
@@ -121,7 +131,7 @@ internal static class DocScreenshotJob
             app.Backend.Jobs.LastStarted(JobKind.Capture).JobId,
             new JobProgress(60, 128, BytesDone: 9_300_000_000, BytesTotal: 12_100_000_000, CurrentPath: @"Maine\Content\Paks\pakchunk0-WindowsNoEditor.pak"));
 
-        app.RenderTo(path);
+        Draw(app, path);
     }
 
     private static async Task BeforePlaying(string path)
@@ -129,7 +139,7 @@ internal static class DocScreenshotJob
         using var app = await StartAsync(Full());
         _ = Row(app, VanillaId).PlayCommand.ExecuteAsync(null);
 
-        app.RenderTo(path);
+        Draw(app, path);
     }
 
     private static async Task AfterPlay(string path)
@@ -139,7 +149,7 @@ internal static class DocScreenshotJob
         app.Backend.Launch.ReportRunning(GameId, Now - TimeSpan.FromMinutes(134));
         app.Backend.Launch.ReportExited(GameId, new TimeSpan(2, 14, 0), 3);
 
-        app.RenderTo(path);
+        Draw(app, path);
     }
 
     private static async Task History(string path)
@@ -147,7 +157,7 @@ internal static class DocScreenshotJob
         using var app = await StartAsync(Full());
         app.Shell.Navigate(NavDestination.History);
 
-        app.RenderTo(path);
+        Draw(app, path);
     }
 
     private static async Task RecentlyRemoved(string path)
@@ -156,7 +166,7 @@ internal static class DocScreenshotJob
         app.Shell.Navigate(NavDestination.History);
         app.History.IsRemovedOpen = true;
 
-        app.RenderTo(path);
+        Draw(app, path);
     }
 
     private static async Task SettingsScreen(string path)
@@ -164,7 +174,7 @@ internal static class DocScreenshotJob
         using var app = await StartAsync(Full());
         app.Shell.Navigate(NavDestination.Settings);
 
-        app.RenderTo(path);
+        Draw(app, path);
     }
 
     // Five finished jobs and one still running, the newest first; the newest finished one, a snapshot of Vanilla, is open with its details.
@@ -216,6 +226,6 @@ internal static class DocScreenshotJob
         app.Settle();
         app.Find<ListBox>("JobList").GetVisualDescendants().OfType<ScrollViewer>().First().ScrollToHome();
 
-        app.RenderTo(path);
+        Draw(app, path);
     }
 }

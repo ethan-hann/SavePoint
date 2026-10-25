@@ -10,6 +10,9 @@ public static class JobSteps
     /// <summary>A snapshot of a profile begins. Arguments: <c>profile</c>, <c>snapshot</c>.</summary>
     public const string CaptureStart = "activity.step.capture.start";
 
+    /// <summary>The first snapshot of a new profile begins; it is named after the profile, so only the profile is said. Arguments: <c>profile</c>.</summary>
+    public const string CaptureStartFirst = "activity.step.capture.startFirst";
+
     /// <summary>A snapshot starts copying one folder. Arguments: <c>folder</c>, <c>path</c>.</summary>
     public const string CaptureFolder = "activity.step.capture.folder";
 

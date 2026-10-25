@@ -17,6 +17,7 @@ public class JobLineFormatterTests
     private static readonly IReadOnlyDictionary<string, JobLine.Step> _samples = new[]
     {
         JobLine.ForStep(JobSteps.CaptureStart, ("profile", "Vanilla"), ("snapshot", "After the patch")),
+        JobLine.ForStep(JobSteps.CaptureStartFirst, ("profile", "Vanilla 1.4")),
         JobLine.ForStep(JobSteps.CaptureFolder, ("folder", RepoRole.Install), ("path", @"C:\Games\Skyrim")),
         JobLine.ForStep(JobSteps.CaptureFolderDone, ("folder", RepoRole.External), ("files", 3)),
         JobLine.ForStep(JobSteps.CaptureFolderNotIncluded, ("folder", RepoRole.External)),
@@ -65,6 +66,8 @@ public class JobLineFormatterTests
     [Fact]
     public void A_step_is_said_in_the_catalogs_words_with_its_arguments()
     {
+        Assert.Equal("Taking snapshot \"After the patch\" of \"Vanilla\".", Format(_samples[JobSteps.CaptureStart]));
+        Assert.Equal("Taking the first snapshot of \"Vanilla 1.4\".", Format(_samples[JobSteps.CaptureStartFirst]));
         Assert.Equal("3 files were new, changed or removed in the saves folder.", Format(_samples[JobSteps.CaptureFolderDone]));
         Assert.Equal("1 file was new, changed or removed in the game folder.", Format(JobLine.ForStep(JobSteps.CaptureFolderDone, ("folder", RepoRole.Install), ("files", 1))));
         Assert.Equal("Nothing changed in the game folder.", Format(JobLine.ForStep(JobSteps.CaptureFolderDone, ("folder", RepoRole.Install), ("files", 0))));
