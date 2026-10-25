@@ -61,6 +61,7 @@ public sealed class AppsMenuEntryTests : IDisposable
                 "Categories=Utility;",
                 "StartupWMClass=SavePointApp",
                 "X-SavePoint-Managed=true",
+                "X-SavePoint-Created-Folders=256x256;256x256/apps;512x512;512x512/apps",
             ],
             File.ReadAllLines(Entry));
     }
@@ -242,6 +243,87 @@ public sealed class AppsMenuEntryTests : IDisposable
         Assert.True(File.Exists(neighbor));
         Assert.True(File.Exists(neighborIcon));
         Assert.Equal(AppsMenuState.NotAdded, Menu().GetState());
+    }
+
+    private string SizeFolder(int size) => Path.Combine(Hicolor, $"{size}x{size}");
+
+    [Fact]
+    public async Task Removing_takes_away_the_size_folders_that_adding_made()
+    {
+        await Menu().AddAsync(_comment);
+
+        Assert.Equal(AppsMenuOutcome.Done, await Menu().RemoveAsync());
+
+        Assert.False(Directory.Exists(SizeFolder(256)));
+        Assert.False(Directory.Exists(SizeFolder(512)));
+        Assert.True(Directory.Exists(Hicolor));
+    }
+
+    [Fact]
+    public async Task Removing_keeps_folders_that_were_there_before_adding()
+    {
+        Directory.CreateDirectory(Path.Combine(SizeFolder(256), "apps"));
+        await Menu().AddAsync(_comment);
+
+        await Menu().RemoveAsync();
+
+        Assert.True(Directory.Exists(Path.Combine(SizeFolder(256), "apps")));
+        Assert.False(Directory.Exists(SizeFolder(512)));
+    }
+
+    [Fact]
+    public async Task Removing_keeps_a_folder_it_made_when_something_else_now_lives_in_it()
+    {
+        await Menu().AddAsync(_comment);
+        var other = Path.Combine(SizeFolder(256), "apps", "other.png");
+        File.WriteAllText(other, "x");
+
+        await Menu().RemoveAsync();
+
+        Assert.True(File.Exists(other));
+        Assert.False(Directory.Exists(SizeFolder(512)));
+    }
+
+    [Fact]
+    public async Task An_update_keeps_the_record_of_the_folders_the_first_add_made()
+    {
+        await Menu("/home/sam/Old/SavePoint.AppImage").AddAsync(_comment);
+        await Menu().AddAsync(_comment);
+
+        await Menu().RemoveAsync();
+
+        Assert.False(Directory.Exists(SizeFolder(256)));
+        Assert.False(Directory.Exists(SizeFolder(512)));
+    }
+
+    [Fact]
+    public async Task Removing_never_deletes_a_folder_a_hand_edited_record_names()
+    {
+        await Menu().AddAsync(_comment);
+        var victim = Path.Combine(_dataHome, "victim");
+        var elsewhere = Path.Combine(Hicolor, "48x48");
+        Directory.CreateDirectory(victim);
+        Directory.CreateDirectory(elsewhere);
+        var lines = File.ReadAllLines(Entry).Where(line => !line.StartsWith("X-SavePoint-Created-Folders=", StringComparison.Ordinal)).ToList();
+        lines.Add("X-SavePoint-Created-Folders=../../victim;48x48");
+        File.WriteAllLines(Entry, lines);
+
+        await Menu().RemoveAsync();
+
+        Assert.True(Directory.Exists(victim));
+        Assert.True(Directory.Exists(elsewhere));
+    }
+
+    [Fact]
+    public async Task A_failed_new_add_takes_away_the_folders_it_made()
+    {
+        // The larger icon cannot be written, but its folders were already there; only the smaller size's folders are new.
+        Directory.CreateDirectory(Icon(512));
+
+        Assert.Equal(AppsMenuOutcome.Failed, await Menu().AddAsync(_comment));
+
+        Assert.False(Directory.Exists(SizeFolder(256)));
+        Assert.True(Directory.Exists(Icon(512)));
     }
 
     [Fact]
