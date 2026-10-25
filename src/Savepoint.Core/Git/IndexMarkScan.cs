@@ -16,6 +16,7 @@ internal static class IndexMarkScan
     private const ushort _skipWorktree = 0x4000;
     private const ushort _intentToAdd = 0x2000;
     private const int _trailerBytes = 20;
+    private const int _nameLengthMask = 0x0FFF;
 
     /// <summary>Whether the index file at <paramref name="indexPath"/> may hold an entry marked skip-worktree.</summary>
     /// <param name="indexPath">Path of the index file.</param>
@@ -25,7 +26,7 @@ internal static class IndexMarkScan
         try
         {
             using var file = new FileStream(indexPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, bufferSize: 1);
-            if (file.Length < 12 + _trailerBytes)
+            if (file.Length < 12 + _trailerBytes || !IsSha1Repository(Path.GetDirectoryName(indexPath)))
             {
                 return true;
             }
@@ -37,6 +38,29 @@ internal static class IndexMarkScan
         {
             return true;
         }
+    }
+
+    // Entries hold 20-byte object ids here; another object format widens them, so the walk would not line up. The format is in the
+    // repository's config as extensions.objectformat, absent for SHA-1. A config that cannot be read answers "cannot tell".
+    private static bool IsSha1Repository(string? gitDir)
+    {
+        if (gitDir is null || AtomicText.ReadOrNull(RepoConfigFile.ConfigPath(gitDir)) is not { } config)
+        {
+            return false;
+        }
+
+        foreach (var line in config.Split('\n'))
+        {
+            var text = line.Trim();
+            if (text.StartsWith("objectformat", StringComparison.OrdinalIgnoreCase)
+                && text["objectformat".Length..].TrimStart().StartsWith('=')
+                && !text[(text.IndexOf('=', StringComparison.Ordinal) + 1)..].Trim().Equals("sha1", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     // True only when the file was read to its end and nothing in it is marked.
@@ -58,6 +82,7 @@ internal static class IndexMarkScan
         var count = BinaryPrimitives.ReadUInt32BigEndian(header[8..]);
         Span<byte> fixedPart = stackalloc byte[_fixedEntryBytes];
         Span<byte> extended = stackalloc byte[2];
+        long previousName = 0;
         for (uint entry = 0; entry < count; entry++)
         {
             reader.ReadExactly(fixedPart);
@@ -80,22 +105,29 @@ internal static class IndexMarkScan
                 }
             }
 
+            var nameLimit = flags & _nameLengthMask;
             if (version == 4)
             {
-                // The name is a count of bytes to cut from the last name (one to ten bytes), then the rest of it, ended by a NUL.
-                var cut = 0;
-                int b;
-                do
+                // The name is a count of bytes to cut from the last name (git's offset varint), then the rest of it, ended by a NUL.
+                var b = reader.ReadByte();
+                long strip = b & 0x7F;
+                while (b >= 0 && (b & 0x80) != 0)
                 {
                     b = reader.ReadByte();
-                    if (b < 0 || ++cut > 10)
+                    strip = ((strip + 1) << 7) + (b & 0x7F);
+                    if (strip > previousName)
                     {
                         return false;
                     }
                 }
-                while ((b & 0x80) != 0);
 
-                if (!reader.SkipToNul(out _))
+                if (b < 0 || strip > previousName || !reader.SkipToNul(out var suffix))
+                {
+                    return false;
+                }
+
+                previousName = previousName - strip + suffix;
+                if (previousName == 0 || !NameLengthAgrees(nameLimit, previousName))
                 {
                     return false;
                 }
@@ -103,7 +135,7 @@ internal static class IndexMarkScan
                 continue;
             }
 
-            if (!reader.SkipToNul(out var nameBytes))
+            if (!reader.SkipToNul(out var nameBytes) || nameBytes == 0 || !NameLengthAgrees(nameLimit, nameBytes))
             {
                 return false;
             }
@@ -123,6 +155,9 @@ internal static class IndexMarkScan
         return EndsAfterKnownExtensions(reader);
     }
 
+    // The flags hold the name's length in 12 bits, and 4095 for any name that long or longer.
+    private static bool NameLengthAgrees(int recorded, long actual) => recorded == _nameLengthMask ? actual >= _nameLengthMask : recorded == actual;
+
     // After the entries come extensions (four-byte name, four-byte size, body) and the file's checksum. A split index keeps entries in a
     // second file, and a sparse one stands in folders for entries, so neither can be answered from this file alone.
     private static bool EndsAfterKnownExtensions(Reader reader)
@@ -137,7 +172,7 @@ internal static class IndexMarkScan
 
             reader.ReadExactly(head);
             var size = BinaryPrimitives.ReadUInt32BigEndian(head[4..]);
-            if (size > reader.Remaining - _trailerBytes || head[..4].SequenceEqual("link"u8) || head[..4].SequenceEqual("sdir"u8))
+            if (size > reader.Remaining - _trailerBytes || head[0] is < (byte)'A' or > (byte)'Z')
             {
                 return false;
             }
@@ -217,8 +252,8 @@ internal static class IndexMarkScan
             Span<byte> computed = stackalloc byte[_trailerBytes];
             _hash.GetCurrentHash(computed);
 
-            // index.skipHash writes zeros instead of a checksum.
-            return stored.SequenceEqual(computed) || !stored.ContainsAnyExcept((byte)0);
+            // Zeros in place of a checksum (index.skipHash) prove nothing: a file whose tail was lost looks the same.
+            return stored.SequenceEqual(computed);
         }
 
         private bool Fill()
