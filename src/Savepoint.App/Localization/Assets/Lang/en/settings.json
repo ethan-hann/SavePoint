@@ -80,6 +80,7 @@
   "settings.storage.optimizeTitle": "Free up space",
   "settings.storage.pickTitle": "Choose a new folder for your snapshots",
   "settings.storage.runNow": "Run now",
+  "settings.storage.unsafeNote": "Installing or removing SavePoint deletes this folder along with your snapshots. Choose a folder somewhere else with Change.",
   "settings.storage.used": "{size} used by {count, plural, one {# game} other {# games}}",
   "settings.theme.dark": "Dark",
   "settings.theme.label": "Theme",

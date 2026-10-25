@@ -317,6 +317,18 @@ public class SettingsScreenViewTests
     }
 
     [AvaloniaFact]
+    public async Task The_unsafe_folder_note_shows_only_for_a_folder_the_installer_clears()
+    {
+        using var safe = await StartAsync();
+        var backend = new FakeBackend(ScenarioBuilder.Sample());
+        backend.State.StorageInInstallerFolder = true;
+        using var flagged = await StartAsync(backend);
+
+        Assert.False(safe.Find<TextBlock>("UnsafeStorageNote").IsEffectivelyVisible);
+        Assert.True(flagged.Find<TextBlock>("UnsafeStorageNote").IsEffectivelyVisible);
+    }
+
+    [AvaloniaFact]
     public async Task While_a_move_runs_its_panel_shows_with_progress_and_cancel()
     {
         using var harness = await StartAsync();

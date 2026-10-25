@@ -111,6 +111,31 @@ public class MainWindowViewModelTests
     }
 
     [Fact]
+    public async Task Storage_the_installer_clears_gets_a_warning_toast_that_stays_until_dismissed()
+    {
+        var backend = FakeBackend.Sample();
+        backend.State.Startup = backend.State.Startup with { Storage = new StorageStatus(true, @"C:\Users\you\AppData\Local\SavePoint\Storage", null, InInstallerFolder: true) };
+        var (main, _, _) = Build(backend);
+
+        await main.InitializeAsync();
+
+        var toast = Assert.Single(main.Toasts.Toasts);
+        Assert.Equal(ToastKind.Warning, toast.Message.Kind);
+        Assert.Equal("Your snapshots are in a folder that installing or removing SavePoint deletes.", toast.Text);
+        Assert.Equal("Open Settings and move your snapshot folder somewhere else to keep them.", toast.Details);
+    }
+
+    [Fact]
+    public async Task Storage_in_a_safe_place_gets_no_toast()
+    {
+        var (main, _, _) = Build();
+
+        await main.InitializeAsync();
+
+        Assert.Empty(main.Toasts.Toasts);
+    }
+
+    [Fact]
     public async Task While_a_check_fails_the_startup_screen_stays_and_no_shell_is_built()
     {
         var backend = FakeBackend.Sample();

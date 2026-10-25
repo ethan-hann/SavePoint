@@ -9,4 +9,5 @@ namespace Savepoint.Core.Api;
 /// <param name="Reachable">True when the storage folder is there, or was made because this is the first run.</param>
 /// <param name="Root">The storage folder SavePoint tried to reach, so the screen can name it.</param>
 /// <param name="Error">Why it cannot be reached, normally <c>error.storage.unreachable</c>; null when <paramref name="Reachable"/> is true.</param>
-public sealed record StorageStatus(bool Reachable, string Root, ErrorInfo? Error);
+/// <param name="InInstallerFolder">True when the storage folder lies inside the folder the Windows installer owns, which installing or removing SavePoint empties; always false elsewhere.</param>
+public sealed record StorageStatus(bool Reachable, string Root, ErrorInfo? Error, bool InInstallerFolder = false);

@@ -109,7 +109,7 @@ try {
     $props = Join-Path $repoRoot 'Directory.Build.props'
     $version = (Select-Xml -Path $props -XPath '//Version').Node.InnerText.Trim()
     if (-not $version) { throw 'Directory.Build.props has no <Version>.' }
-    # The setup installs into %LOCALAPPDATA%\<pack id> and deletes that whole folder on uninstall, so it must not be SavePoint's data folder (D38).
+    # The setup installs into %LOCALAPPDATA%\<pack id> and clears that folder on install and uninstall, so SavePoint keeps no data there (D38). Builds packed as SavePointApp keep their data in %LOCALAPPDATA%\SavePoint, so this id must not be SavePoint until every install has moved it.
     $packId = (Select-Xml -Path $props -XPath '//SavepointWindowsPackId').Node.InnerText.Trim()
     if (-not $packId) { throw 'Directory.Build.props has no <SavepointWindowsPackId>.' }
     # Every build is the same version, so the commit is what tells two builds apart: it goes into the informational version, which

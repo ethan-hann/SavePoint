@@ -35,12 +35,17 @@ public sealed class WindowsPlatform : IPlatform
         _systemDriveRoot = ReadSystemDriveRoot();
         _steam = new SteamFolders(_paths, clock);
 
+        // The installer owns %LOCALAPPDATA%\SavePoint (the pack id) and clears it on install and uninstall, so data lives in a sibling.
         Directories = new AppDirectories(
             CatalogDir: _paths.Under(_roaming, "SavePoint"),
-            DefaultStorageRoot: _paths.Under(_local, @"SavePoint\Storage"),
-            LogsDir: _paths.Under(_local, @"SavePoint\Logs"),
-            RuntimeDir: _paths.Under(_local, @"SavePoint\Runtime"),
-            HomeDir: home);
+            DefaultStorageRoot: _paths.Under(_local, @"SavePoint Data\Storage"),
+            LogsDir: _paths.Under(_local, @"SavePoint Data\Logs"),
+            RuntimeDir: _paths.Under(_local, @"SavePoint Data\Runtime"),
+            HomeDir: home)
+        {
+            LegacyLocalDir = _paths.Under(_local, "SavePoint"),
+            InstallerLocalDir = _paths.Under(_local, "SavePointApp"),
+        };
 
         PathTokens = new Dictionary<string, string>
         {

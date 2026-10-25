@@ -177,7 +177,7 @@ Default locations, until you move them:
 
 | | Settings and game list | Snapshot folder |
 | --- | --- | --- |
-| Windows | `%APPDATA%\SavePoint` | `%LOCALAPPDATA%\SavePoint\Storage` |
+| Windows | `%APPDATA%\SavePoint` | `%LOCALAPPDATA%\SavePoint Data\Storage` |
 | macOS | `~/Library/Application Support/SavePoint` | `~/Library/Application Support/SavePoint/Storage` |
 | Linux | `~/.config/savepoint` | `~/.local/share/savepoint/storage` |
 
@@ -213,7 +213,7 @@ SavePoint keeps a log of what it did and every error, one file per day, and it k
 
 | | Log folder |
 | --- | --- |
-| Windows | `%LOCALAPPDATA%\SavePoint\Logs` |
+| Windows | `%LOCALAPPDATA%\SavePoint Data\Logs` |
 | macOS | `~/Library/Logs/SavePoint` |
 | Linux | `~/.local/state/savepoint/logs` |
 

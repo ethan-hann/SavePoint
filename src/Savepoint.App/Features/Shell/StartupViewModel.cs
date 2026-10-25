@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Formatting;
+using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Settings;
 using Savepoint.App.Theme;
 using Savepoint.Core.Api;
@@ -105,6 +106,12 @@ public sealed partial class StartupViewModel : ObservableObject
     /// <summary>Raised once, when the checks pass.</summary>
     public event EventHandler? Ready;
 
+    /// <summary>
+    /// What to tell the player once the shell is up when the snapshot folder lies where installing or removing SavePoint deletes it;
+    /// null when the folder is safe or the checks have not passed.
+    /// </summary>
+    public ToastMessage? StorageNotice { get; private set; }
+
     /// <summary>The unreadable files, while <see cref="Phase"/> is <see cref="StartupPhase.CatalogCorrupt"/>.</summary>
     public ObservableCollection<CorruptFileViewModel> CorruptFiles { get; } = [];
 
@@ -187,6 +194,9 @@ public sealed partial class StartupViewModel : ObservableObject
             return;
         }
 
+        StorageNotice = status.Storage is { InInstallerFolder: true }
+            ? new ToastMessage(_text.Message("startup.storageUnsafe.title"), ToastKind.Warning, _text.Message("startup.storageUnsafe.body"))
+            : null;
         Phase = StartupPhase.Ready;
         Ready?.Invoke(this, EventArgs.Empty);
     }

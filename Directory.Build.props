@@ -2,7 +2,7 @@
   <PropertyGroup>
     <!-- The one version: assembly versions, the About section and the package version all read it. Pre-1.0 until the 1.0 release. -->
     <Version>0.9.10</Version>
-    <!-- The Windows setup installs into %LOCALAPPDATA%\<pack id> and removes that whole folder on uninstall, so this id must differ from SavePoint's data folder (D38). -->
+    <!-- Temporary: the Windows setup installs into %LOCALAPPDATA%\<pack id> and clears it on install, and builds packed as SavePointApp keep their data in %LOCALAPPDATA%\SavePoint, so the id stays SavePointApp until every install has moved its data out. Then it goes and SavepointPackId serves both platforms. -->
     <SavepointWindowsPackId>SavePointApp</SavepointWindowsPackId>
     <!-- Everywhere else the app is "SavePoint": the AppImage's name, its desktop entry, and the window class the shell shows. -->
     <SavepointPackId>SavePoint</SavepointPackId>

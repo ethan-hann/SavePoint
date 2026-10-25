@@ -7,10 +7,12 @@ namespace Savepoint.Core.Api;
 /// <param name="VolumeTotalBytes">Size, in bytes, of the drive that holds the storage folder.</param>
 /// <param name="VolumeFreeBytes">Free space, in bytes, on that drive.</param>
 /// <param name="LastOptimizedAt">When the player last freed up space, or null if they never did; the cleanups SavePoint starts by itself do not count.</param>
+/// <param name="InInstallerFolder">True when the storage folder lies inside the folder the Windows installer owns, which installing or removing SavePoint empties; always false elsewhere.</param>
 public sealed record StorageSummary(
     string StorageRoot,
     long BytesUsed,
     IReadOnlyList<GameBytesUsed> Games,
     long VolumeTotalBytes,
     long VolumeFreeBytes,
-    DateTimeOffset? LastOptimizedAt);
+    DateTimeOffset? LastOptimizedAt,
+    bool InInstallerFolder = false);

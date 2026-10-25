@@ -24,7 +24,7 @@ internal static class StorageDestination
     /// <param name="destination">The folder, absolute.</param>
     public static SavepointException? Refusal(BackendServices services, PathSafety pathSafety, IReadOnlyList<GameDefinition> games, string destination)
     {
-        if (IsInInstallFolder(services.InstallDirectory, destination, pathSafety))
+        if (IsInInstallFolder(services.InstallDirectory, destination, pathSafety) || IsInInstallerFolder(services, destination, pathSafety))
         {
             return new StorageInsideInstallFolderException(destination);
         }
@@ -44,6 +44,22 @@ internal static class StorageDestination
         return File.Exists(Path.Combine(destination, MoveMarkerFileName)) ? new StorageMoveUnfinishedException(destination) : null;
     }
 
+    /// <summary>
+    /// True when the folder is the one the Windows installer owns, or inside it. Installing or removing SavePoint empties that folder
+    /// whether or not the app runs from there; false where the platform has no such folder.
+    /// </summary>
+    /// <param name="services">The backend, for the platform's folders.</param>
+    /// <param name="folder">The folder, absolute.</param>
+    /// <param name="pathSafety">Resolves links in both paths first.</param>
+    public static bool IsInInstallerFolder(BackendServices services, string folder, PathSafety pathSafety)
+    {
+        var directories = services.Platform.Directories;
+        var real = pathSafety.ResolveRealPath(folder);
+
+        // The current installer's folder, and the one a setup packed under the app's name will own.
+        return new[] { directories.InstallerLocalDir, directories.LegacyLocalDir }.OfType<string>().Any(owned => IsInside(pathSafety.ResolveRealPath(owned), real));
+    }
+
     // The installed app runs from "current" inside an install folder that also holds Update.exe, and an update or an uninstall deletes
     // that whole folder.
     private static bool IsInInstallFolder(string installDirectory, string destination, PathSafety pathSafety)
@@ -53,7 +69,12 @@ internal static class StorageDestination
             return false;
         }
 
-        var relative = Path.GetRelativePath(pathSafety.ResolveRealPath(installFolder), pathSafety.ResolveRealPath(destination));
+        return IsInside(pathSafety.ResolveRealPath(installFolder), pathSafety.ResolveRealPath(destination));
+    }
+
+    private static bool IsInside(string folder, string path)
+    {
+        var relative = Path.GetRelativePath(folder, path);
         return relative == "." || (!Path.IsPathRooted(relative) && relative != ".." && !relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal));
     }
 }

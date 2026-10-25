@@ -12,17 +12,21 @@ public class PackageLocationTests
 
     private static string RepoRoot => TestEnvironment.RepoRoot ?? throw new InvalidOperationException("These tests read the repository's build files.");
 
+    // Both ids: the one the Windows setup is packed with now, and the app name it is meant to take on.
     [Fact]
-    public void Nothing_SavePoint_keeps_lives_in_the_folder_the_installer_removes_on_uninstall()
+    public void Nothing_SavePoint_keeps_lives_in_a_folder_the_installer_removes_on_install_or_uninstall()
     {
-        var installRoot = $@"{_localAppData}\{PackId()}\";
         var directories = new WindowsPlatform(FakeEnvironment.Windows().Build()).Directories;
 
-        foreach (var folder in new[] { directories.CatalogDir, directories.DefaultStorageRoot, directories.LogsDir, directories.RuntimeDir })
+        foreach (var packId in new[] { WindowsPackId(), LinuxPackId() }.Distinct(StringComparer.OrdinalIgnoreCase))
         {
-            Assert.False(
-                (folder + @"\").StartsWith(installRoot, StringComparison.OrdinalIgnoreCase),
-                $"{folder} is inside {installRoot}, which uninstalling SavePoint deletes");
+            var installRoot = $@"{_localAppData}\{packId}\";
+            foreach (var folder in new[] { directories.CatalogDir, directories.DefaultStorageRoot, directories.LogsDir, directories.RuntimeDir })
+            {
+                Assert.False(
+                    (folder + @"\").StartsWith(installRoot, StringComparison.OrdinalIgnoreCase),
+                    $"{folder} is inside {installRoot}, which installing or uninstalling SavePoint deletes");
+            }
         }
     }
 
@@ -37,20 +41,32 @@ public class PackageLocationTests
         Assert.DoesNotContain("--packId SavePoint ", text, StringComparison.Ordinal);
     }
 
-    // Everywhere else the app is just "SavePoint", but that name on Windows would make the setup own the data folder.
+    // Builds packed as SavePointApp keep their data in %LOCALAPPDATA%\SavePoint. A setup packed as SavePoint renames and empties that folder
+    // before the app starts, so the data would be gone before the app could move it out.
     [Fact]
-    public void The_Windows_pack_id_is_not_the_name_of_SavePoints_data_folders()
+    public void The_Windows_pack_id_is_not_the_folder_old_data_is_moved_out_of_until_every_install_has_moved()
     {
-        Assert.False(string.Equals("SavePoint", PackId(), StringComparison.OrdinalIgnoreCase), "the setup would own the folder SavePoint keeps its data in");
+        Assert.False(string.Equals("SavePoint", WindowsPackId(), StringComparison.OrdinalIgnoreCase), "the setup would empty the folder old data is still in");
+    }
+
+    [Fact]
+    public void The_platform_names_the_installer_folder_after_the_Windows_pack_id()
+    {
+        var directories = new WindowsPlatform(FakeEnvironment.Windows().Build()).Directories;
+
+        Assert.Equal($@"{_localAppData}\{WindowsPackId()}", directories.InstallerLocalDir);
     }
 
     // The AppImage has no install folder that an update deletes, and its desktop entry and notifications use the pack id as the name people see.
     [Fact]
     public void The_pack_id_the_Linux_AppImage_carries_is_the_app_name()
     {
-        Assert.Equal("SavePoint", XDocument.Load(Path.Combine(RepoRoot, "Directory.Build.props")).Descendants("SavepointPackId").Single().Value.Trim());
+        Assert.Equal("SavePoint", LinuxPackId());
     }
 
-    private static string PackId() =>
+    private static string WindowsPackId() =>
         XDocument.Load(Path.Combine(RepoRoot, "Directory.Build.props")).Descendants("SavepointWindowsPackId").Single().Value.Trim();
+
+    private static string LinuxPackId() =>
+        XDocument.Load(Path.Combine(RepoRoot, "Directory.Build.props")).Descendants("SavepointPackId").Single().Value.Trim();
 }

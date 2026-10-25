@@ -88,6 +88,8 @@
   "startup.storage.findFolder": "Find the folder",
   "startup.storage.pickTitle": "Choose the folder that holds your snapshots",
   "startup.storage.startEmpty": "Start with an empty folder",
+  "startup.storageUnsafe.body": "Open Settings and move your snapshot folder somewhere else to keep them.",
+  "startup.storageUnsafe.title": "Your snapshots are in a folder that installing or removing SavePoint deletes.",
   "startup.tryAgain": "Try again",
   "templatePicker.body": "Pick a ready-made setup to fill in the details, or open a game settings file someone shared.",
   "templatePicker.fileType": "Game settings file",
