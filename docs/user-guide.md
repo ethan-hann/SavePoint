@@ -205,6 +205,8 @@ Every error tells you what happened and what you can do about it. **Show details
 
 If you close SavePoint while it's removing all data or moving the snapshot folder, it asks first when you close the window. Quitting with Cmd+Q on macOS is meant to ask the same way, but it hasn't been checked on a Mac yet. Stopping either of those halfway would leave a mess.
 
+If you close SavePoint while it's taking a snapshot, it asks too: closing stops the snapshot and keeps nothing of it. Choose **Minimize** to let it finish in the background; SavePoint tells you when it's done.
+
 ### Reporting a problem
 
 SavePoint keeps a log of what it did and every error, one file per day, and it keeps the newest 14. **Settings > About > Open the log folder** takes you there. When you report a problem, send the log from the day it happened. It has folder paths and game names from your computer in it. SavePoint itself never sends anything anywhere.
