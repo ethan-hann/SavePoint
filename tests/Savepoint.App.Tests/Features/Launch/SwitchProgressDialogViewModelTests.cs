@@ -200,14 +200,41 @@ public class SwitchProgressDialogViewModelTests
     }
 
     [Fact]
-    public void A_report_with_nothing_in_it_shows_the_general_hint_and_stays_indeterminate()
+    public void A_report_with_nothing_in_it_says_the_files_are_being_checked_and_stays_indeterminate()
     {
         var dialog = Create();
 
         dialog.Update(JobProgress.None);
 
         Assert.True(dialog.IsIndeterminate);
-        Assert.Equal("This can take a while for a large install, especially if a lot changed.", dialog.ProgressText);
+        Assert.Equal("Checking your files…", dialog.ProgressText);
+    }
+
+    [Fact]
+    public void Once_every_file_is_written_the_dialog_names_the_check_that_follows_instead_of_standing_at_full()
+    {
+        var dialog = Create();
+        dialog.Update(new JobProgress(FilesDone: 2, FilesTotal: 2, BytesDone: 4_300_000_000, BytesTotal: 4_300_000_000));
+        Assert.Equal("100%", dialog.PercentText);
+
+        dialog.Update(new JobProgress(FilesDone: 2, FilesTotal: 2, BytesDone: 4_300_000_000, BytesTotal: 4_300_000_000, Finishing: true));
+
+        Assert.True(dialog.IsIndeterminate);
+        Assert.Equal(string.Empty, dialog.PercentText);
+        Assert.Equal("Making sure every file is in place…", dialog.ProgressText);
+        Assert.Equal("Making sure every file is in place.", dialog.Announcement);
+    }
+
+    [Fact]
+    public void The_check_is_announced_once_however_many_reports_say_it_is_running()
+    {
+        var dialog = Create();
+        dialog.Update(new JobProgress(FilesDone: 2, FilesTotal: 2, BytesDone: 10, BytesTotal: 10, Finishing: true));
+        dialog.Announcement = string.Empty;
+
+        dialog.Update(new JobProgress(FilesDone: 2, FilesTotal: 2, BytesDone: 10, BytesTotal: 10, Finishing: true));
+
+        Assert.Equal(string.Empty, dialog.Announcement);
     }
 
     [Fact]

@@ -262,6 +262,24 @@ public class JobRowViewModelTests
         Assert.Equal("Stopping now.", Row(notYet).StopNote);
     }
 
+    [Theory]
+    [InlineData(JobKind.Launch)]
+    [InlineData(JobKind.Switch)]
+    public void A_switch_that_is_reading_its_files_back_says_so_and_not_that_snapshots_are_being_stored(JobKind kind)
+    {
+        var row = Row(Job(kind, progress: new JobProgress(FilesDone: 2, FilesTotal: 2, BytesDone: 10, BytesTotal: 10, Finishing: true)));
+
+        Assert.Equal("Making sure every file is in place…", row.ProgressText);
+    }
+
+    [Fact]
+    public void A_snapshot_that_is_wrapping_up_keeps_the_storing_wording()
+    {
+        var row = Row(Job(JobKind.Capture, progress: new JobProgress(FilesDone: 2, FilesTotal: 2, BytesDone: 10, BytesTotal: 10, Finishing: true)));
+
+        Assert.Equal("Making sure everything is stored safely. This can take a few minutes for a big game.", row.ProgressText);
+    }
+
     [Fact]
     public void A_finished_job_has_nothing_to_say_about_stopping()
     {

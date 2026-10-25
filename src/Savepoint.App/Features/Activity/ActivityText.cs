@@ -76,6 +76,13 @@ public sealed class ActivityText
     public string Progress(JobSnapshot job)
     {
         var progress = job.Progress;
+
+        // A switch has stored nothing: once its files are written it reads them back.
+        if (progress.Finishing && job.Kind is JobKind.Launch or JobKind.Switch)
+        {
+            return _text.Message("launch.progress.verifying");
+        }
+
         if (_text.Describe(progress) is { } described)
         {
             return described;

@@ -124,7 +124,7 @@ public sealed partial class GitEngine
         }
     }
 
-    // git reads a file again when its timestamp is too new to trust (one stamped in the same second as the last index write), and a
+    // git reads a file again when its timestamp is too new to trust (one stamped at the same moment as the last index write), and a
     // file it cannot read (held open by another program on Windows, or not allowed to be read) comes back as "changed". When every
     // reported change is such a file the honest answer is that file, not "unsaved changes"; a change that can be read is unsaved work,
     // and that answer stays.

@@ -244,7 +244,8 @@ public sealed partial class LaunchOrchestrator
                         value.FilesTotal is { } total ? offset + total : null,
                         value.BytesDone is { } bytes ? bytesOffset + bytes : null,
                         value.BytesTotal is { } bytesTotal ? bytesOffset + bytesTotal : null,
-                        value.CurrentPath));
+                        value.CurrentPath,
+                        value.Finishing));
             });
             var target = folder.Target;
             var counts = await SwitchCountsAsync(storage, folder, context.CancellationToken).ConfigureAwait(false);

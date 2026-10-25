@@ -101,6 +101,16 @@ internal sealed class ProgressReporter
         }
     }
 
+    // The files are written and only the reading back is left, which moves no count: the report keeps the counts it ended with and says so.
+    public void BeginWrapUp()
+    {
+        lock (_gate)
+        {
+            _finishing = true;
+            Report();
+        }
+    }
+
     // The capture ended without a final report (failed or stopped): the wrap-up flag must not outlive the work.
     public void Abandon()
     {
@@ -180,7 +190,7 @@ internal sealed class ProgressReporter
             var total = _total is { } counted ? Math.Max(counted, _done) : (int?)null;
             var report = _byteTotal is { } bytes
                 ? new FileProgress(_done, total, _current, _written, bytes, _finishing)
-                : new FileProgress(_done, total, _current, _bytes?.BytesAfter(_done, total ?? _bytes.Entries), _bytes?.Total);
+                : new FileProgress(_done, total, _current, _bytes?.BytesAfter(_done, total ?? _bytes.Entries), _bytes?.Total, _finishing);
             _sink.Report(report);
         }
         catch (Exception)

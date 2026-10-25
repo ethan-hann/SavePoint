@@ -27,6 +27,24 @@ public class LaunchSwitchProgressTests
     }
 
     [Fact(Timeout = 180_000)]
+    public async Task A_switch_tells_the_screen_when_it_is_reading_the_files_back_and_stops_telling_it_when_it_is_done()
+    {
+        var (rig, vanilla, _) = await LaunchRig.WithTwoProfilesAsync();
+        using var _ = rig;
+
+        await rig.StartAsync(new LaunchTarget.ProfileTip(vanilla.Id));
+
+        var reports = rig.Events.Select(session => session.State).OfType<SessionState.Switching>().Select(state => state.Progress).ToList();
+        Assert.Contains(reports, report => report.Finishing);
+        Assert.False(reports[^1].Finishing);
+
+        // The check keeps the counts the writing ended with.
+        var wrapUp = reports.First(report => report.Finishing);
+        Assert.True(wrapUp.FilesDone > 0);
+        Assert.Equal(wrapUp.BytesTotal, wrapUp.BytesDone);
+    }
+
+    [Fact(Timeout = 180_000)]
     public async Task A_switch_that_writes_in_both_folders_adds_the_second_folders_bytes_and_files_to_the_first_ones()
     {
         using var rig = await LaunchRig.CreateAsync();
