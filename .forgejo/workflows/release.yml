@@ -34,6 +34,8 @@ jobs:
           if ! command -v pwsh >/dev/null 2>&1; then
             /opt/dotnet/dotnet tool install --tool-path /opt/pwsh PowerShell --version 7.6.8
             echo "/opt/pwsh" >> "$GITHUB_PATH"
+            # The pwsh tool's launcher starts dotnet from PATH.
+            echo "/opt/dotnet" >> "$GITHUB_PATH"
             echo "DOTNET_ROOT=/opt/dotnet" >> "$GITHUB_ENV"
           fi
           # The job runs as root over a checkout the package user owns, and git refuses that without this.
@@ -130,6 +132,8 @@ jobs:
             bash "$RUNNER_TEMP/dotnet-install.sh" --channel 10.0 --install-dir /opt/dotnet --no-path
             /opt/dotnet/dotnet tool install --tool-path /opt/pwsh PowerShell --version 7.6.8
             echo "/opt/pwsh" >> "$GITHUB_PATH"
+            # The pwsh tool's launcher starts dotnet from PATH.
+            echo "/opt/dotnet" >> "$GITHUB_PATH"
             echo "DOTNET_ROOT=/opt/dotnet" >> "$GITHUB_ENV"
           fi
 
