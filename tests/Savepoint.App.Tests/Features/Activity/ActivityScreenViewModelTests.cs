@@ -746,7 +746,7 @@ public class ActivityScreenViewModelTests
     {
         var rig = await ActivityRig.ShownAsync();
 
-        Assert.Equal("SavePoint remembers the last five finished jobs of each game until you close it.", rig.Screen.FooterText);
+        Assert.Equal("SavePoint remembers the last five finished jobs of each game until you close it. A job you have open stays listed until you pick another, so you may see one more.", rig.Screen.FooterText);
     }
 
     [Fact]

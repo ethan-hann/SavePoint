@@ -132,6 +132,7 @@ Both go through the same check of what will change that Play does.
 - Each job shows which profile it was for, how far it got, and when it started and finished.
 - **Details** lists the files and steps it went through, and you can copy that into a bug report.
 - **Cancel** stops a job that can be stopped. If a job can't stop at that moment, it tells you.
+- SavePoint remembers the last five finished jobs of each game until you close it. A job you have open stays listed until you pick another, so you may see one more.
 
 Clicking the job status indicator opens Activity too, and in the Sidebar layout the game's **Activity** tab does the same.
 

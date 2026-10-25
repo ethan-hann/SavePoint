@@ -67,6 +67,20 @@ public class DialogHostViewTests
     }
 
     [AvaloniaFact]
+    public void A_tooltip_that_is_open_closes_when_a_dialog_opens()
+    {
+        using var harness = new Harness();
+        ToolTip.SetTip(harness.Invoker, "Why this is off");
+        ToolTip.SetIsOpen(harness.Invoker, true);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(ToolTip.GetIsOpen(harness.Invoker), "The tooltip did not open to begin with.");
+
+        harness.Open(new SampleDialogViewModel());
+
+        Assert.False(ToolTip.GetIsOpen(harness.Invoker), "The tooltip stayed open behind the dialog.");
+    }
+
+    [AvaloniaFact]
     public void Tab_and_shift_tab_cycle_inside_the_dialog()
     {
         using var harness = new Harness();

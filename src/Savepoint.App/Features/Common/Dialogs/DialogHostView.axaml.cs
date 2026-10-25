@@ -71,6 +71,7 @@ public partial class DialogHostView : UserControl
         var depth = _host.Stack.Count;
         if (depth > _depth)
         {
+            CloseOpenToolTips();
             if (_depth == 0)
             {
                 _returnFocus = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
@@ -84,6 +85,20 @@ public partial class DialogHostView : UserControl
         }
 
         _depth = depth;
+    }
+
+    // A tooltip lives in the popup layer, so the scrim does not cover it; on Linux one opened by hover would stay on top of the dialog.
+    private void CloseOpenToolTips()
+    {
+        if (TopLevel.GetTopLevel(this) is not { } top)
+        {
+            return;
+        }
+
+        foreach (var control in top.GetVisualDescendants().OfType<Control>().Where(ToolTip.GetIsOpen).ToList())
+        {
+            ToolTip.SetIsOpen(control, false);
+        }
     }
 
     private void FocusFirstControl()
