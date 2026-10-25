@@ -43,6 +43,8 @@
     <Compile Include="..\Shared\TestImages.cs" Link="Shared\TestImages.cs" />
     <Compile Include="..\Shared\RecordingDiagnosticLog.cs" Link="Shared\RecordingDiagnosticLog.cs" />
     <Compile Include="..\..\tools\IconGen\IconColors.cs" Link="Shared\IconColors.cs" />
+    <Compile Include="..\..\tools\IconGen\IconFrames.cs" Link="Shared\IconFrames.cs" />
+    <Compile Include="..\..\tools\IconGen\IconRenderer.cs" Link="Shared\IconRenderer.cs" />
   </ItemGroup>
 
   <ItemGroup>

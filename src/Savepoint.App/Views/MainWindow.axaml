@@ -4,7 +4,6 @@
         xmlns:shell="using:Savepoint.App.Features.Shell"
         x:Class="Savepoint.App.Views.MainWindow"
         Title="{loc:Loc app.name}"
-        Icon="/Assets/Icon/savepoint-256.png"
         Width="1040"
         Height="660"
         MinWidth="640"

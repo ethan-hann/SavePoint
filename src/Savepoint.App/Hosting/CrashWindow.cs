@@ -4,8 +4,8 @@ using Avalonia.Controls;
 using Avalonia.Input.Platform;
 using Avalonia.Layout;
 using Avalonia.Media;
-using Avalonia.Platform;
 using Savepoint.App.Features.Common.Formatting;
+using Savepoint.App.Platform;
 
 namespace Savepoint.App.Hosting;
 
@@ -92,8 +92,7 @@ public sealed class CrashWindow : Window
     {
         try
         {
-            using var icon = AssetLoader.Open(new Uri("avares://SavePoint/Assets/Icon/savepoint-256.png"));
-            Icon = new WindowIcon(icon);
+            Icon = AppIcon.Load();
         }
         catch (Exception)
         {
