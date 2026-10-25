@@ -250,7 +250,7 @@ public class LaunchFlowSessionTests : IDisposable
     [InlineData(SessionEndKind.NamedProcessNeverMatched, "The game's program name for Skyrim Special Edition never showed up as a running program. Check it in Edit game.")]
     public async Task With_session_capture_off_a_program_that_never_appeared_is_still_mentioned_once_in_a_toast(SessionEndKind kind, string text)
     {
-        FakeAssert.Ok(await _f.Backend.Settings.SaveAsync(MockupScenario.Settings with { ConfirmSessionCapture = false }));
+        FakeAssert.Ok(await _f.Backend.Settings.SaveAsync(SampleScenario.Settings with { ConfirmSessionCapture = false }));
         await _f.PlayToRunningAsync();
 
         _f.Backend.Launch.ReportExited(FlowRig.Skyrim, TimeSpan.FromMinutes(2), 0, endKind: kind);
@@ -261,7 +261,7 @@ public class LaunchFlowSessionTests : IDisposable
     [Fact]
     public async Task With_session_capture_off_a_normal_exit_shows_no_toast()
     {
-        FakeAssert.Ok(await _f.Backend.Settings.SaveAsync(MockupScenario.Settings with { ConfirmSessionCapture = false }));
+        FakeAssert.Ok(await _f.Backend.Settings.SaveAsync(SampleScenario.Settings with { ConfirmSessionCapture = false }));
 
         await _f.PlayToExitedAsync();
 

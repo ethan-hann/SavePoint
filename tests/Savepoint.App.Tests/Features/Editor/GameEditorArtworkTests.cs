@@ -81,7 +81,7 @@ public class GameEditorArtworkTests
     [Fact]
     public void Gog_artwork_shows_in_the_preview_as_from_gog_galaxy_and_is_not_removable()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         backend.Artwork.ScriptGogArrives(_skyrim, "/art/wide.webp", "/art/square.webp");
 
         var editor = Rig(backend).Edit();

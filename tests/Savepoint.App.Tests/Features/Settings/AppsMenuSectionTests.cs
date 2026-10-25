@@ -185,7 +185,7 @@ public sealed class AppsMenuSectionTests : IDisposable
             "settings",
             context => [new SettingsScreenFactory(context, new SettingsEnvironment(new RecordingFileRevealer(), () => null, "1.2.3", AppsMenu: menu))],
             NavDestination.Settings,
-            FakeBackend.Mockup(),
+            FakeBackend.Sample(),
             Savepoint.Core.Catalog.ThemePreference.Dark,
             1040,
             900,
