@@ -128,8 +128,26 @@ public sealed class StorageHost
     {
         _rootSaved = true;
         _snapshot = snapshot;
+        RootOverride = null;
     }
 
     // Forgets the snapshot so the next call reads the settings again; the caller holds the gate exclusive.
-    internal void Reset() => _snapshot = null;
+    internal void Reset()
+    {
+        _snapshot = null;
+        RootOverride = null;
+    }
+
+    /// <summary>The folder in use for this run alone, when the settings could not be made to name it; null when the settings decide.</summary>
+    internal string? RootOverride { get; private set; }
+
+    // For the startup check, before anything has used the storage: history sits in a folder the settings cannot be made to name, and
+    // showing it beats hiding it behind an empty default. Nothing is written, so the next start tries again.
+    internal void UseForThisRun(string root)
+    {
+        var snapshot = Build(root);
+        RootOverride = snapshot.Root;
+        _rootSaved = true;
+        _snapshot = snapshot;
+    }
 }

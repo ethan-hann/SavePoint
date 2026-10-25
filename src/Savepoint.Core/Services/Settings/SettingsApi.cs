@@ -104,7 +104,11 @@ internal sealed partial class SettingsApi : ISettingsApi
     public Task<OperationResult<JobStarted>> ClearAllDataAsync() =>
         ApiGuard.RunAsync(_services.Log, async () => new JobStarted(await _clearer.StartAsync().ConfigureAwait(false)));
 
-    private async Task<AppSettings> StoredAsync(CancellationToken cancellationToken) =>
-        await _services.Catalog.GetSettingsAsync(cancellationToken).ConfigureAwait(false)
-        ?? AppSettings.Defaults(_services.Platform.Directories.DefaultStorageRoot);
+    // A folder in use for this run alone is the one shown, so the screen names where the history is.
+    private async Task<AppSettings> StoredAsync(CancellationToken cancellationToken)
+    {
+        var stored = await _services.Catalog.GetSettingsAsync(cancellationToken).ConfigureAwait(false)
+            ?? AppSettings.Defaults(_services.Platform.Directories.DefaultStorageRoot);
+        return _services.Storage.RootOverride is { } root ? stored with { StorageRoot = root } : stored;
+    }
 }
