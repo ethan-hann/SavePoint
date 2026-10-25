@@ -118,6 +118,44 @@ public class AppIconTests
         return bitmap.Bytes;
     }
 
+    // Skia anti-aliases edges a little differently per OS, so the pixels are compared by how far they are apart, not for equality.
+    // A pixel counts as different when a channel is off by more than a tenth of the range. Edge noise between operating systems
+    // stays under that, while a switched glyph or a moved shape puts whole strokes over it.
+    private const int _differentChannelStep = 24;
+    private const double _differentShareLimit = 0.0005;
+    private const double _meanStepLimit = 0.2;
+
+    private static string? Drift(ReadOnlySpan<byte> committedPng, ReadOnlySpan<byte> drawnPng, int size)
+    {
+        var committed = Pixels(committedPng);
+        var drawn = Pixels(drawnPng);
+        if (committed.Length != drawn.Length)
+        {
+            return $"the committed {size}px image is not the size IconGen draws";
+        }
+
+        long total = 0;
+        var different = 0;
+        for (var pixel = 0; pixel < committed.Length; pixel += 4)
+        {
+            var worst = 0;
+            for (var channel = 0; channel < 4; channel++)
+            {
+                var step = Math.Abs(committed[pixel + channel] - drawn[pixel + channel]);
+                total += step;
+                worst = Math.Max(worst, step);
+            }
+
+            different += worst > _differentChannelStep ? 1 : 0;
+        }
+
+        var share = different / (double)(size * size);
+        var mean = total / (double)committed.Length;
+        return share > _differentShareLimit || mean > _meanStepLimit
+            ? $"{share:P3} of the pixels differ strongly and the mean channel step is {mean:F3}"
+            : null;
+    }
+
     // The committed files must be what IconGen draws now, so editing the tool without regenerating (or the reverse) fails here.
     [Theory]
     [InlineData(16)]
@@ -143,7 +181,8 @@ public class AppIconTests
             }
 
             var committed = ico.AsSpan((int)BinaryPrimitives.ReadUInt32LittleEndian(entry[12..]), (int)BinaryPrimitives.ReadUInt32LittleEndian(entry[8..]));
-            Assert.True(Pixels(committed).SequenceEqual(Pixels(IconRenderer.Render(size, outline, filled))), $"The committed {size}px ico frame differs from what IconGen draws; run it again.");
+            var drift = Drift(committed, IconRenderer.Render(size, outline, filled), size);
+            Assert.True(drift is null, $"The committed {size}px ico frame differs from what IconGen draws ({drift}); run it again.");
             return;
         }
 
@@ -160,9 +199,8 @@ public class AppIconTests
         using var outline = SKTypeface.FromFile(Path.Combine(fonts, "MaterialSymbolsRounded.ttf"));
         using var filled = SKTypeface.FromFile(Path.Combine(fonts, "MaterialSymbolsRoundedFilled.ttf"));
 
-        Assert.True(
-            Pixels(File.ReadAllBytes(IconFile($"savepoint-{size}.png"))).SequenceEqual(Pixels(IconRenderer.Render(size, outline, filled))),
-            $"The committed {size}px PNG differs from what IconGen draws; run it again.");
+        var drift = Drift(File.ReadAllBytes(IconFile($"savepoint-{size}.png")), IconRenderer.Render(size, outline, filled), size);
+        Assert.True(drift is null, $"The committed {size}px PNG differs from what IconGen draws ({drift}); run it again.");
     }
 
     [Theory]
