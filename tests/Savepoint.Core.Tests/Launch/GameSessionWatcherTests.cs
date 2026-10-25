@@ -553,6 +553,20 @@ public class GameSessionWatcherTests
     }
 
     [Fact]
+    public async Task With_the_default_timings_a_name_that_never_appears_settles_at_two_minutes_and_not_before()
+    {
+        using var rig = await WatcherRig.LinkAsync(_name, options: new GameSessionOptions());
+
+        await rig.AdvanceAsync(TimeSpan.FromMinutes(2) - Seconds(1));
+        Assert.False(rig.Watcher.IsSettled);
+        await rig.AdvanceAsync(Seconds(1));
+        var outcome = await rig.OutcomeAsync();
+
+        Assert.Equal(SessionEndKind.NamedProcessNeverAppeared, outcome.Kind);
+        Assert.Equal(TimeSpan.FromMinutes(2), outcome.PlayDuration);
+    }
+
+    [Fact]
     public async Task A_link_with_a_named_process_ends_when_the_process_has_been_seen_and_is_gone()
     {
         using var rig = await WatcherRig.LinkAsync(_name);
