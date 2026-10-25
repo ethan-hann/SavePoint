@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Reflection;
+using Savepoint.App.Platform;
 
 namespace Savepoint.App.Features.Settings;
 
@@ -70,7 +71,8 @@ public sealed class ProcessFileRevealer : IFileRevealer
 /// <param name="AppVersion">The version the About section states.</param>
 /// <param name="LogFolder">The folder the diagnostic log is written to, or null when there is none, which hides the action that opens it.</param>
 /// <param name="FindLicense">Where <c>LICENSE</c> is, or null when it was not shipped; asked each time the screen shows. A null delegate counts as not shipped.</param>
-public sealed record SettingsEnvironment(IFileRevealer Revealer, Func<string?> FindNotices, string AppVersion, string? LogFolder = null, Func<string?>? FindLicense = null)
+/// <param name="AppsMenu">The apps menu entry for the AppImage that is running, or null when SavePoint does not run from one, which hides the section.</param>
+public sealed record SettingsEnvironment(IFileRevealer Revealer, Func<string?> FindNotices, string AppVersion, string? LogFolder = null, Func<string?>? FindLicense = null, AppsMenuEntry? AppsMenu = null)
 {
     private const string _noticesFile = "THIRD-PARTY-NOTICES.md";
     private const string _licenseFile = "LICENSE";
@@ -78,7 +80,7 @@ public sealed record SettingsEnvironment(IFileRevealer Revealer, Func<string?> F
     /// <summary>The running app: the file beside the executable and this assembly's version.</summary>
     /// <param name="revealer">Shows a file or folder in the file manager; a plain process start when null.</param>
     /// <param name="logFolder">The folder the diagnostic log is written to, or null when there is none.</param>
-    public static SettingsEnvironment ForThisApp(IFileRevealer? revealer = null, string? logFolder = null) => new(revealer ?? new ProcessFileRevealer(), NoticesBesideTheApp, ThisAppVersion(), logFolder, LicenseBesideTheApp);
+    public static SettingsEnvironment ForThisApp(IFileRevealer? revealer = null, string? logFolder = null) => new(revealer ?? new ProcessFileRevealer(), NoticesBesideTheApp, ThisAppVersion(), logFolder, LicenseBesideTheApp, AppsMenuEntry.ForThisApp());
 
     private static string? LicenseBesideTheApp()
     {

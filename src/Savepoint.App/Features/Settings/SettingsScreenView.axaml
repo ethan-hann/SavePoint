@@ -322,6 +322,41 @@
           </Border>
         </StackPanel>
 
+        <!-- Apps menu: only when SavePoint runs from an AppImage. -->
+        <StackPanel x:Name="AppsMenuSection" IsVisible="{Binding AppsMenu.IsAvailable}">
+          <TextBlock Classes="section-label" Text="{theme:Upper {loc:Loc settings.appsMenu.heading}}" />
+          <Border Classes="panel">
+            <StackPanel Spacing="12">
+              <TextBlock x:Name="AppsMenuExplanation" Classes="caption" FontSize="12.5" TextWrapping="Wrap" Text="{loc:Loc settings.appsMenu.explain}" />
+              <TextBlock x:Name="AppsMenuStatus" Classes="body" FontSize="14.5" TextWrapping="Wrap" Text="{Binding AppsMenu.StatusText}" />
+              <TextBlock x:Name="AppsMenuRemoveHint" Classes="caption" FontSize="12.5" TextWrapping="Wrap" IsVisible="{Binding AppsMenu.ShowRemove}" Text="{loc:Loc settings.appsMenu.removeHint}" />
+              <TextBlock x:Name="AppsMenuProblem" Classes="caption" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource Md3ErrorBrush}" IsVisible="{Binding AppsMenu.HasProblem}" Text="{Binding AppsMenu.Problem}" />
+              <WrapPanel Orientation="Horizontal">
+                <Button x:Name="AppsMenuAddButton"
+                        Classes="pill"
+                        Margin="0,0,8,0"
+                        Padding="18,8"
+                        IsVisible="{Binding AppsMenu.ShowAdd}"
+                        Command="{Binding AppsMenu.AddCommand}"
+                        Content="{loc:Loc settings.appsMenu.add}" />
+                <Button x:Name="AppsMenuUpdateButton"
+                        Classes="pill"
+                        Margin="0,0,8,0"
+                        Padding="18,8"
+                        IsVisible="{Binding AppsMenu.ShowUpdate}"
+                        Command="{Binding AppsMenu.UpdateCommand}"
+                        Content="{loc:Loc settings.appsMenu.update}" />
+                <Button x:Name="AppsMenuRemoveButton"
+                        Classes="pill"
+                        Padding="18,8"
+                        IsVisible="{Binding AppsMenu.ShowRemove}"
+                        Command="{Binding AppsMenu.RemoveCommand}"
+                        Content="{loc:Loc settings.appsMenu.remove}" />
+              </WrapPanel>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
         <!-- Remove all SavePoint data. -->
         <StackPanel x:Name="ClearAllSection">
           <TextBlock Classes="section-label" Foreground="{DynamicResource Md3ErrorBrush}" Text="{theme:Upper {loc:Loc settings.clearAll.heading}}" />

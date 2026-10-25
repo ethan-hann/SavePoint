@@ -55,7 +55,8 @@ On Linux the AppImage can be tried as well: download `SavePoint.AppImage` from t
 - [ ] **A launcher game:** with Steam installed, a game started through Steam (or a Proton game) is followed until it quits.
 - [ ] **A game on an NTFS or exFAT drive** (a second virtual disk formatted that way): taking and switching snapshots works, and a case-only clash is refused (the WSL gate could only check this on the 9p mount).
 - [ ] **Wayland and X11:** if the VM offers both at login, start SavePoint once under each.
-- [ ] **Uninstall:** deleting the AppImage leaves `~/.local/share/savepoint` and `~/.config/savepoint` in place, and a new AppImage picks the games up again.
+- [ ] **Apps menu:** Settings > Apps menu adds SavePoint with its icon to the GNOME apps menu, shows the entry as out of date after the AppImage is moved (Update fixes it), and Remove takes the entry and icons away again.
+- [ ] **Uninstall:** deleting the AppImage leaves `~/.local/share/savepoint` and `~/.config/savepoint` in place, and a new AppImage picks the games up again. An apps menu entry added from Settings stays until it is removed there (or deleted from `~/.local/share/applications`).
 
 ## Reporting
 
