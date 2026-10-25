@@ -17,7 +17,7 @@
   "activity.empty.filteredTitle": "Nothing has run for this game",
   "activity.empty.showAll": "Show all games",
   "activity.empty.title": "Nothing has run yet",
-  "activity.footer": "SavePoint remembers the last five finished jobs of each game until you close it.",
+  "activity.footer": "SavePoint remembers the last five finished jobs of each game until you close it. A job you have open stays listed until you pick another, so you may see one more.",
   "activity.job.capture": "Taking a snapshot of {game}",
   "activity.job.clear": "Clearing SavePoint's data",
   "activity.job.compact": "Freeing up space for {game}",
