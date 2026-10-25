@@ -259,9 +259,7 @@
 
               <Grid ColumnDefinitions="*,Auto">
                 <StackPanel Spacing="3" VerticalAlignment="Center">
-                  <TextBlock Classes="body" FontSize="14.5" Text="{loc:Loc settings.accent.label}" />
-                  <TextBlock Classes="caption" FontSize="12.5" TextWrapping="Wrap" Text="{loc:Loc settings.accent.hint}" />
-                </StackPanel>
+                  <TextBlock Classes="body" FontSize="14.5" Text="{loc:Loc settings.accent.label}" />                </StackPanel>
                 <ListBox x:Name="AccentSwatches"
                          Grid.Column="1"
                          Classes="swatches"

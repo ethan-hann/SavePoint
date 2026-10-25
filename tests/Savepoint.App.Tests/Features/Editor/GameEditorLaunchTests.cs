@@ -30,7 +30,7 @@ public class GameEditorLaunchTests
         var editor = EditorRig.Create(os: os).New();
 
         Assert.Equal(label, editor.RunExeLabel);
-        Assert.StartsWith("Starting through Steam can let Steam update the game again right after SavePoint puts your version back.", editor.SteamWarning);
+        Assert.StartsWith("Steam may update the game right after SavePoint puts your version back.", editor.SteamWarning);
         Assert.EndsWith(warningEnd, editor.SteamWarning);
     }
 

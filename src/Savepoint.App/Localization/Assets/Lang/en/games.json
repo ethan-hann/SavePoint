@@ -83,7 +83,6 @@
   "profiles.wizard.continue": "Continue",
   "profiles.wizard.defaultName": "Modded playthrough - {date}",
   "profiles.wizard.description": "Takes a snapshot of your game folders as they are now and makes it a new profile.",
-  "profiles.wizard.name.helper": "Anything that helps you recognize it later.",
   "profiles.wizard.name.label": "Profile name",
   "profiles.wizard.notes.label": "Notes (optional)",
   "profiles.wizard.notes.placeholder": "Nolvus v6, before the survival patch…",

@@ -73,7 +73,6 @@ public class SettingsScreenViewTests
             "Every game one click away",
             "Cover art up front",
             "Accent color",
-            "SavePoint picks the other colors to match.",
             "BEFORE YOU PLAY",
             "Skip the check before playing when only your saves change",
             "A change to the game version or mods always shows the check.",
@@ -284,7 +283,7 @@ public class SettingsScreenViewTests
         var group = harness.Find<StackPanel>("SessionSection");
         var ask = harness.Find<ToggleSwitch>("AskSwitch");
         var texts = group.GetVisualDescendants().OfType<TextBlock>().Select(block => block.Text).ToList();
-        const string hint = "When this is off, SavePoint keeps nothing after you play. It asks about your new changes before the next switch instead.";
+        const string hint = "When off, nothing is kept after you play. SavePoint asks about new changes before the next switch.";
         Assert.Contains(hint, texts);
         Assert.Equal("Ask whether to keep the session", AutomationAudit.NameOf(ask));
         Assert.Equal(hint, AutomationProperties.GetHelpText(ask));

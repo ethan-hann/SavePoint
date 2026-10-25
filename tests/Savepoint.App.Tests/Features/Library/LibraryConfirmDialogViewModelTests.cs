@@ -44,7 +44,7 @@ public class LibraryConfirmDialogViewModelTests
         // The same words as the confirmation for one game, so the two never promise different things.
         Assert.Contains("snapshots everything in these folders", dialog.Message);
         Assert.Contains("small file left in each folder", dialog.Message);
-        Assert.Contains("files are put back, and files the profile doesn't have are removed", dialog.Message);
+        Assert.Contains("puts files back and removes files the profile doesn't have", dialog.Message);
         Assert.Contains("No snapshot is taken now", dialog.Message);
         Assert.DoesNotContain("for now", dialog.Message);
         Assert.Equal(dialog.Message, dialog.Description);

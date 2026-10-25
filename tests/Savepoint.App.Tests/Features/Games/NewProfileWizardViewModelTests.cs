@@ -127,7 +127,6 @@ public class NewProfileWizardViewModelTests
         Assert.Equal("Modded playthrough - 7-8-26", rig.Wizard.Name);
         Assert.Equal(string.Empty, rig.Wizard.Notes);
         Assert.True(rig.Wizard.CanContinue);
-        Assert.Equal("Anything that helps you recognize it later.", rig.Wizard.NameHelper);
     }
 
     [Fact]
@@ -333,7 +332,7 @@ public class NewProfileWizardViewModelTests
 
         Assert.Equal(WizardStep.Check, rig.Wizard.Step);
         Assert.True(rig.Wizard.HasSubmitError);
-        Assert.Equal("There's not enough free disk space to take this snapshot right now. Free up about 1.2 GB on drive D: and try again.", rig.Wizard.SubmitError);
+        Assert.Equal("Not enough free disk space to take this snapshot. Free up about 1.2 GB on drive D: and try again.", rig.Wizard.SubmitError);
         Assert.Empty(rig.Backend.Jobs.Started);
 
         await rig.Wizard.ContinueCommand.ExecuteAsync(null);
@@ -655,7 +654,7 @@ public class NewProfileWizardViewModelTests
         var card = Assert.IsType<ErrorCardViewModel>(wizard.ResultCard);
         Assert.Equal("Only part of the snapshot was taken", card.Title);
         Assert.Equal(
-            "Your game version and mods are in the snapshot, your saves aren't. There's not enough free disk space to take this snapshot right now. Free up about 1.2 GB on drive D: and try again. Your game folders are unchanged.",
+            "Your game version and mods are in the snapshot, your saves aren't. Not enough free disk space to take this snapshot. Free up about 1.2 GB on drive D: and try again. Your game folders are unchanged.",
             card.Body);
         Assert.Equal(Icons.Warning, card.Icon);
         Assert.True(card.IsWarning);
@@ -761,7 +760,7 @@ public class NewProfileWizardViewModelTests
         Assert.Equal(SaveState.Failed, rig.Wizard.State);
         var card = rig.Wizard.ResultCard!;
         Assert.Equal("There isn't enough room", card.Title);
-        Assert.Equal("There's not enough free disk space to take this snapshot right now. Free up about 1.2 GB on drive D: and try again.", card.Body);
+        Assert.Equal("Not enough free disk space to take this snapshot. Free up about 1.2 GB on drive D: and try again.", card.Body);
         Assert.Equal("Try again", Assert.Single(card.Actions).Label);
         Assert.True(rig.Wizard.ShowClose);
 

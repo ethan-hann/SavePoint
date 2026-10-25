@@ -136,7 +136,6 @@ public sealed partial class NewProfileWizardViewModel : DialogViewModel<bool>
         _dispatcher = dispatcher;
         _name = text.Message("profiles.wizard.defaultName", ("date", text.NameDate(clock.GetUtcNow())));
         Description = text.Message("profiles.wizard.description");
-        NameHelper = text.Message("profiles.wizard.name.helper");
         Preview = new CapturePreviewViewModel(text);
         Steps =
         [
@@ -174,9 +173,6 @@ public sealed partial class NewProfileWizardViewModel : DialogViewModel<bool>
 
     /// <summary>True while step three shows.</summary>
     public bool IsSaveStep => Step == WizardStep.Save;
-
-    /// <summary>What to say under the name field.</summary>
-    public string NameHelper { get; }
 
     /// <summary>The name with spaces trimmed off.</summary>
     public string TrimmedName => Name.Trim();

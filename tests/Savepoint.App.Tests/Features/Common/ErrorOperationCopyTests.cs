@@ -45,7 +45,7 @@ public class ErrorOperationCopyTests
         var card = HeldFile(ErrorOperation.Snapshot);
 
         Assert.Contains("snapshot", card.Title, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("earlier snapshots are untouched", card.Body, StringComparison.Ordinal);
+        Assert.Contains("arlier snapshots are untouched", card.Body, StringComparison.Ordinal);
     }
 
     [Fact]

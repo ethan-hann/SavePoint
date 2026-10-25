@@ -414,7 +414,7 @@ public class LaunchFlowSessionTests : IDisposable
         var card = _f.Inline<ErrorCardViewModel>();
         Assert.Equal("SavePoint couldn't take a snapshot of that session", card.Title);
         Assert.Equal(
-            "Your game version and mods aren't in the snapshot yet. There's not enough free disk space to take this snapshot right now. Free up about 1.2 GB on drive D: and try again. Your saves weren't included, because you played them from another profile's snapshot. Nothing in your game folders changed, and SavePoint asks about any changes there the next time you play. Fix that and retry just that part.",
+            "Your game version and mods aren't in the snapshot yet. Not enough free disk space to take this snapshot. Free up about 1.2 GB on drive D: and try again. Your saves weren't included, because you played them from another profile's snapshot. Nothing in your game folders changed, and SavePoint asks about any changes there the next time you play. Fix that and retry just that part.",
             card.Body);
         var rows = Assert.IsType<FolderOutcomeListViewModel>(card.Supplement).Rows;
         Assert.Equal(["Game version and mods · not in the snapshot yet", "Saves · not included"], rows.Select(r => r.Text));
@@ -437,7 +437,7 @@ public class LaunchFlowSessionTests : IDisposable
                 [new FolderOutcome(RepoRole.Install, null, LeftAlone: true, LeftOnBranch: "profile/other"), new FolderOutcome(RepoRole.External, SampleScenario.SavesOutOfRoomError)]));
 
         var card = _f.Inline<ErrorCardViewModel>();
-        Assert.StartsWith("Your saves aren't in the snapshot yet. There's not enough free disk space", card.Body, StringComparison.Ordinal);
+        Assert.StartsWith("Your saves aren't in the snapshot yet. Not enough free disk space", card.Body, StringComparison.Ordinal);
         Assert.Contains("Your game version and mods weren't included, because you played them from another profile's snapshot", card.Body, StringComparison.Ordinal);
         var rows = Assert.IsType<FolderOutcomeListViewModel>(card.Supplement).Rows;
         Assert.Equal(["Game version and mods · not included", "Saves · not in the snapshot yet"], rows.Select(r => r.Text));
@@ -476,7 +476,7 @@ public class LaunchFlowSessionTests : IDisposable
         var card = _f.Inline<ErrorCardViewModel>();
         Assert.Equal("Only part of the snapshot was taken", card.Title);
         Assert.Equal(
-            "Your game version and mods are in the snapshot. Your saves aren't yet. There's not enough free disk space to take this snapshot right now. Free up about 1.2 GB on drive D: and try again. Nothing in your game folders changed. Fix that and retry just that part.",
+            "Your game version and mods are in the snapshot. Your saves aren't yet. Not enough free disk space to take this snapshot. Free up about 1.2 GB on drive D: and try again. Nothing in your game folders changed. Fix that and retry just that part.",
             card.Body);
         var rows = Assert.IsType<FolderOutcomeListViewModel>(card.Supplement).Rows;
         Assert.Equal(["Game version and mods · in the snapshot", "Saves · not in the snapshot yet"], rows.Select(r => r.Text));

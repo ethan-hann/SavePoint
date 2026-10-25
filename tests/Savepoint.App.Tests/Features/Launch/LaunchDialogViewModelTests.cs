@@ -391,7 +391,7 @@ public class LaunchDialogViewModelTests : IDisposable
         await run;
 
         Assert.Single(dialog.UnsavedBlocks);
-        Assert.Equal("SavePoint couldn't take a snapshot of these changes. There's not enough free disk space to take this snapshot right now. Free up about 1.2 GB on drive D: and try again.", block.Error);
+        Assert.Equal("SavePoint couldn't take a snapshot of these changes. Not enough free disk space to take this snapshot. Free up about 1.2 GB on drive D: and try again.", block.Error);
         Assert.True(block.HasError);
         Assert.False(block.IsBusy);
         Assert.False(dialog.CanSwitch);
@@ -572,7 +572,7 @@ public class LaunchDialogViewModelTests : IDisposable
         Assert.False(keep.IsClosed);
         Assert.False(keep.IsWorking);
         Assert.True(keep.CanDismiss);
-        Assert.Equal("SavePoint couldn't create the profile. There's not enough free disk space to take this snapshot right now. Free up about 1.2 GB on drive D: and try again.", keep.Error);
+        Assert.Equal("SavePoint couldn't create the profile. Not enough free disk space to take this snapshot. Free up about 1.2 GB on drive D: and try again.", keep.Error);
         Assert.Single(dialog.UnsavedBlocks);
 
         keep.CancelCommand.Execute(null);

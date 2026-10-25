@@ -181,7 +181,7 @@ public class ActivityScreenViewTests
         harness.Settle();
 
         Assert.False(harness.Find<Button>("CancelButton").IsEffectivelyVisible);
-        Assert.Contains("Clearing SavePoint's data can't be stopped once it has started.", harness.VisibleTexts());
+        Assert.Contains("Clearing data can't be stopped once it has started.", harness.VisibleTexts());
     }
 
     // ---- Following new lines
@@ -250,7 +250,7 @@ public class ActivityScreenViewTests
         await Task.Delay(50, TestContext.Current.CancellationToken);
 
         var text = await Avalonia.Input.Platform.ClipboardExtensions.TryGetTextAsync(clipboard);
-        Assert.StartsWith("Taking the snapshot \"Session 7-8-26\" of the profile", text, StringComparison.Ordinal);
+        Assert.StartsWith("Taking snapshot \"Session 7-8-26\" of", text, StringComparison.Ordinal);
         Assert.Equal(Screen(harness).Details!.AllText, text);
     }
 

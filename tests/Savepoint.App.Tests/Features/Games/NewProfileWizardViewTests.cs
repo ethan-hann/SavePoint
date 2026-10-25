@@ -45,16 +45,6 @@ public class NewProfileWizardViewTests
         var accent = (Color)Application.Current!.FindResource("Md3PrimaryColor")!;
         Assert.Equal(accent, ((ISolidColorBrush)label.Foreground!).Color);
         Assert.Equal("Modded playthrough - 7-8-26", field.Text);
-        Assert.Equal("Anything that helps you recognize it later.", harness.Find<TextBlock>("NameHelperText").Text);
-    }
-
-    [AvaloniaFact]
-    public async Task The_name_field_carries_its_helper_line_as_help_text()
-    {
-        var (harness, _) = await OpenAsync();
-        using var _ = harness;
-
-        Assert.Equal("Anything that helps you recognize it later.", AutomationProperties.GetHelpText(harness.Find<TextBox>("NameField")));
     }
 
     [AvaloniaFact]
@@ -319,7 +309,7 @@ public class NewProfileWizardViewTests
         harness.Settle();
 
         Assert.True(harness.Find<Border>("SubmitErrorBox").IsEffectivelyVisible);
-        Assert.Contains("There's not enough free disk space to take this snapshot right now. Free up about 1.2 GB on drive D: and try again.", harness.VisibleTexts());
+        Assert.Contains("Not enough free disk space to take this snapshot. Free up about 1.2 GB on drive D: and try again.", harness.VisibleTexts());
         Assert.True(harness.Find<StackPanel>("CheckStep").IsEffectivelyVisible);
     }
 

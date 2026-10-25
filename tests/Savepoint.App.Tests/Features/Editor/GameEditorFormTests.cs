@@ -28,7 +28,7 @@ public class GameEditorFormTests
         var editor = EditorRig.Create().New();
 
         Assert.True(editor.HasDefaultRulesNote);
-        Assert.Equal("New games leave out logs and crash reports from the game's own folder, because a game rewrites them while it runs and SavePoint would take them for a game update. Remove a rule to keep those files in your snapshots.", editor.DefaultRulesNote);
+        Assert.Equal("New games leave out logs and crash reports, which a game rewrites while it runs and SavePoint would take for a game update. Remove a rule to keep them in your snapshots.", editor.DefaultRulesNote);
     }
 
     [Fact]
