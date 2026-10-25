@@ -101,6 +101,42 @@ public class GogLocalCacheTests
     }
 
     [Fact]
+    public void A_webcache_folder_that_is_a_link_is_not_followed()
+    {
+        using var outside = new TempFolder();
+        Write(outside, _account, _product, "_glx_vertical_cover.webp");
+        using var holder = new TempFolder();
+        var link = holder.Combine("webcache");
+        Assert.True(holder.TryCreateDirectoryLink(link, outside.Path), "could not create a directory link on this machine");
+
+        Assert.Null(GogLocalCache.Find(link, _product, ArtworkKind.Square));
+    }
+
+    [Fact]
+    public void A_gog_folder_that_is_a_link_is_not_followed()
+    {
+        using var outside = new TempFolder();
+        outside.WriteBytesWith($"{_product}/{_hash}_glx_vertical_cover.webp", TestImages.WebPLossy(342, 482));
+        using var cache = new TempFolder();
+        Directory.CreateDirectory(cache.Combine(_account));
+        Assert.True(cache.TryCreateDirectoryLink(cache.Combine(_account, "gog"), outside.Path), "could not create a directory link on this machine");
+
+        Assert.Null(GogLocalCache.Find(cache.Path, _product, ArtworkKind.Square));
+    }
+
+    [Fact]
+    public void A_product_folder_that_is_a_link_is_not_followed()
+    {
+        using var outside = new TempFolder();
+        outside.WriteBytesWith($"{_hash}_glx_vertical_cover.webp", TestImages.WebPLossy(342, 482));
+        using var cache = new TempFolder();
+        Directory.CreateDirectory(cache.Combine(_account, "gog"));
+        Assert.True(cache.TryCreateDirectoryLink(cache.Combine(_account, "gog", _product), outside.Path), "could not create a directory link on this machine");
+
+        Assert.Null(GogLocalCache.Find(cache.Path, _product, ArtworkKind.Square));
+    }
+
+    [Fact]
     public void A_cache_folder_that_does_not_exist_finds_nothing()
     {
         var missing = Path.Combine(Path.GetTempPath(), "savepoint-gogcache-" + Guid.NewGuid().ToString("N"));

@@ -11,7 +11,7 @@ internal static class GogLocalCache
         ArgumentNullException.ThrowIfNull(webcacheFolder);
         ArgumentNullException.ThrowIfNull(productId);
 
-        if (productId.Length is 0 or > 20 || !productId.All(char.IsAsciiDigit) || !Directory.Exists(webcacheFolder))
+        if (productId.Length is 0 or > 20 || !productId.All(char.IsAsciiDigit) || !IsPlainFolder(new DirectoryInfo(webcacheFolder)))
         {
             return null;
         }
@@ -28,8 +28,10 @@ internal static class GogLocalCache
             return new DirectoryInfo(webcacheFolder)
                 .EnumerateDirectories("*", options)
                 .Where(account => account.Name.All(char.IsAsciiDigit))
-                .Select(account => new DirectoryInfo(Path.Combine(account.FullName, "gog", productId)))
-                .Where(folder => folder.Exists)
+                .Select(account => new DirectoryInfo(Path.Combine(account.FullName, "gog")))
+                .Where(IsPlainFolder)
+                .Select(gog => new DirectoryInfo(Path.Combine(gog.FullName, productId)))
+                .Where(IsPlainFolder)
                 .SelectMany(folder => folder.EnumerateFiles(pattern, options))
                 .OrderByDescending(file => file.LastWriteTimeUtc)
                 .Select(file => file.FullName)
@@ -40,4 +42,7 @@ internal static class GogLocalCache
             return null;
         }
     }
+
+    // Links are never followed: a link here could lead anywhere on the disk.
+    private static bool IsPlainFolder(DirectoryInfo folder) => folder.Exists && !folder.Attributes.HasFlag(FileAttributes.ReparsePoint);
 }

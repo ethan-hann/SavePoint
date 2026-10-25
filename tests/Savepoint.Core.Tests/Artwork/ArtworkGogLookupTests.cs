@@ -192,6 +192,7 @@ public class ArtworkGogLookupTests
 
         File.Delete(Path.Combine(game.Install.Path, $"goggame-{_base}.info"));
         ArtworkRig.PutGogInfo(game.Install.Path, "1207658995");
+        rig.Restart();
         var art = await rig.LookedUpAsync(game.Id);
 
         Assert.Equal(ArtworkSource.Gog, art.Source);
@@ -209,9 +210,27 @@ public class ArtworkGogLookupTests
 
         File.Delete(Path.Combine(game.Install.Path, $"goggame-{_base}.info"));
         ArtworkRig.PutGogInfo(game.Install.Path, "1228964594");
+        rig.Restart();
         var art = await rig.LookedUpAsync(game.Id);
 
         Assert.Equal(ArtworkSource.None, art.Source);
+    }
+
+    [Fact]
+    public async Task A_readable_install_folder_with_no_info_file_any_more_drops_the_images_found_before()
+    {
+        using var rig = new ArtworkRig();
+        var game = await rig.AddGameAsync();
+        ArtworkRig.PutGogInfo(game.Install.Path, _base);
+        rig.PutGogCache(_base);
+        await rig.LookedUpAsync(game.Id);
+
+        File.Delete(Path.Combine(game.Install.Path, $"goggame-{_base}.info"));
+        rig.Restart();
+        var art = await rig.LookedUpAsync(game.Id);
+
+        Assert.Equal(ArtworkSource.None, art.Source);
+        Assert.Empty(Directory.EnumerateFiles(rig.ArtworkFolder(game.Id), "gog-*"));
     }
 
     [Fact]
@@ -223,10 +242,109 @@ public class ArtworkGogLookupTests
         rig.PutGogCache(_base);
         await rig.LookedUpAsync(game.Id);
 
-        File.Delete(Path.Combine(game.Install.Path, $"goggame-{_base}.info"));
+        Directory.Delete(game.Install.Path, recursive: true);
+        rig.Restart();
         var art = await rig.LookedUpAsync(game.Id);
 
         Assert.Equal(ArtworkSource.Gog, art.Source);
+    }
+
+    [Fact]
+    public async Task Storing_a_steam_id_replaces_galaxys_images_with_steams_when_steams_cache_has_them()
+    {
+        using var rig = new ArtworkRig();
+        var game = await rig.AddGameAsync();
+        ArtworkRig.PutGogInfo(game.Install.Path, _base);
+        rig.PutGogCache(_base);
+        Assert.Equal(ArtworkSource.Gog, (await rig.LookedUpAsync(game.Id)).Source);
+
+        await rig.UpdateGameAsync(game with { SteamAppId = 489830 });
+        rig.PutSteamCache(489830);
+        var art = await rig.LookedUpAsync(game.Id);
+
+        Assert.Equal(ArtworkSource.Steam, art.Source);
+        Assert.Empty(Directory.EnumerateFiles(rig.ArtworkFolder(game.Id), "gog-*"));
+    }
+
+    [Fact]
+    public async Task A_stored_steam_id_still_asks_steams_servers_when_galaxy_has_the_art()
+    {
+        using var rig = new ArtworkRig(online: true);
+        var game = await rig.AddGameAsync(change: g => g with { SteamAppId = 489830 });
+        ArtworkRig.PutGogInfo(game.Install.Path, _base);
+        rig.PutGogCache(_base);
+
+        var art = await rig.LookedUpAsync(game.Id);
+
+        Assert.Equal(ArtworkSource.Gog, art.Source);
+        Assert.NotEmpty(rig.Http!.Requests);
+    }
+
+    [Fact]
+    public async Task Galaxys_images_replace_steam_images_kept_for_an_id_that_was_only_detected()
+    {
+        using var rig = new ArtworkRig();
+        var game = await rig.AddGameAsync();
+        File.WriteAllText(Path.Combine(game.Install.Path, "steam_appid.txt"), "489830\n");
+        rig.PutSteamCache(489830);
+        Assert.Equal(ArtworkSource.Steam, (await rig.LookedUpAsync(game.Id)).Source);
+
+        ArtworkRig.PutGogInfo(game.Install.Path, _base);
+        rig.PutGogCache(_base);
+        rig.Restart();
+        var art = await rig.LookedUpAsync(game.Id);
+
+        Assert.Equal(ArtworkSource.Gog, art.Source);
+        Assert.Empty(Directory.EnumerateFiles(rig.ArtworkFolder(game.Id), "steam-*"));
+    }
+
+    [Fact]
+    public async Task A_lookup_file_from_before_gog_support_does_not_hold_back_galaxys_images()
+    {
+        using var rig = new ArtworkRig();
+        var game = await rig.AddGameAsync();
+        ArtworkRig.PutGogInfo(game.Install.Path, _base);
+        rig.PutGogCache(_base);
+        Directory.CreateDirectory(rig.ArtworkFolder(game.Id));
+        File.WriteAllText(Path.Combine(rig.ArtworkFolder(game.Id), "lookup.json"), "{\"missAt\":\"" + DateTimeOffset.UtcNow.ToString("o") + "\"}");
+
+        var art = await rig.LookedUpAsync(game.Id);
+
+        Assert.Equal(ArtworkSource.Gog, art.Source);
+    }
+
+    [Fact]
+    public async Task The_install_folder_is_read_once_per_run_until_look_again()
+    {
+        using var rig = new ArtworkRig();
+        var game = await rig.AddGameAsync();
+        ArtworkRig.PutGogInfo(game.Install.Path, _base);
+        rig.PutGogCache(_base);
+        await rig.LookedUpAsync(game.Id);
+
+        File.Delete(Path.Combine(game.Install.Path, $"goggame-{_base}.info"));
+        var same = await rig.LookedUpAsync(game.Id);
+        var again = await rig.Artwork.LookAgainAsync(game.Id);
+
+        Assert.Equal(ArtworkSource.Gog, same.Source);
+        Assert.Equal(ArtworkSource.None, again.Value!.Source);
+    }
+
+    [Fact]
+    public async Task Looking_again_at_unchanged_images_rewrites_nothing_and_announces_nothing()
+    {
+        using var rig = new ArtworkRig();
+        var game = await rig.AddGameAsync();
+        ArtworkRig.PutGogInfo(game.Install.Path, _base);
+        rig.PutGogCache(_base);
+        var first = await rig.LookedUpAsync(game.Id);
+        var stamp = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        File.SetLastWriteTimeUtc(first.SquarePath!, stamp);
+
+        await rig.Artwork.LookAgainAsync(game.Id);
+
+        Assert.Equal([game.Id], rig.Changes);
+        Assert.Equal(stamp, File.GetLastWriteTimeUtc(first.SquarePath!));
     }
 
     [Fact]

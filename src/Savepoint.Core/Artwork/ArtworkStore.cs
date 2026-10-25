@@ -115,7 +115,8 @@ internal sealed class ArtworkStore
         return true;
     }
 
-    // True when the bytes are a whole image and were kept; anything else is refused. An image of the same kind kept in another format goes.
+    // True when the folder changed: the bytes are a whole image that differs from the one kept, or an image of the same kind in another
+    // format was removed. Anything that is not a whole image is refused, and an image already kept is left as it is.
     public bool SaveGogImage(string gameId, ArtworkKind kind, byte[] bytes)
     {
         ImageInfo? info;
@@ -130,13 +131,19 @@ internal sealed class ArtworkStore
         }
 
         var target = Path.Combine(FolderOf(gameId), GogStem(kind) + ExtensionOf(info.Value.Format));
-        WriteAtomically(target, bytes);
-        foreach (var old in Directory.EnumerateFiles(FolderOf(gameId), GogStem(kind) + ".*").Where(file => ExtensionIsImage(Path.GetExtension(file)) && !string.Equals(file, target, StringComparison.Ordinal)))
+        var changed = false;
+        if (!SameBytes(target, bytes))
         {
-            DeleteFile(old);
+            WriteAtomically(target, bytes);
+            changed = true;
         }
 
-        return true;
+        foreach (var old in Directory.EnumerateFiles(FolderOf(gameId), GogStem(kind) + ".*").Where(file => ExtensionIsImage(Path.GetExtension(file)) && !string.Equals(file, target, StringComparison.Ordinal)).ToList())
+        {
+            changed |= DeleteFile(old);
+        }
+
+        return changed;
     }
 
     // True when something was removed. What the state remembers about GOG outlives this.
@@ -305,6 +312,19 @@ internal sealed class ArtworkStore
 
     private string SteamFile(string gameId, ArtworkKind kind) =>
         Path.Combine(FolderOf(gameId), kind == ArtworkKind.Wide ? "steam-wide.jpg" : "steam-square.jpg");
+
+    private static bool SameBytes(string path, byte[] bytes)
+    {
+        try
+        {
+            var file = new FileInfo(path);
+            return file.Exists && file.Length == bytes.Length && File.ReadAllBytes(path).AsSpan().SequenceEqual(bytes);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
 
     private static string GogStem(ArtworkKind kind) => kind == ArtworkKind.Wide ? "gog-wide" : "gog-square";
 

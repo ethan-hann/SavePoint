@@ -105,6 +105,12 @@ internal sealed class ArtworkApi : IArtworkApi
             await gate.WaitAsync().ConfigureAwait(false);
             try
             {
+                // The install folder is read afresh: this is what the user presses when something changed.
+                foreach (var key in _gogDetections.Keys.Where(key => key.GameId == game.Id).ToList())
+                {
+                    _gogDetections.TryRemove(key, out _);
+                }
+
                 await LookUpAsync(game.Id, force: true).ConfigureAwait(false);
             }
             finally
@@ -120,19 +126,49 @@ internal sealed class ArtworkApi : IArtworkApi
 
     // What a game's artwork is looked up by: the Steam app id (the stored one wins; otherwise what the launch link or the folders say) and the
     // GOG product id the install folder's info files name. File reads only.
-    private readonly record struct Ids(int? AppId, bool Detected, string? GogId);
+    // Precedence: the user's image, a Steam id the user stored, the GOG product id, a Steam id only detected, then none. GOG builds and retail
+    // builds carry other apps' ids, which is why a detected id yields to GOG's own and a stored one does not. GogReadable says an empty GogId
+    // is an answer (the folder was read and names no product) rather than a folder that could not be read.
+    private readonly record struct Ids(int? AppId, bool Detected, bool Stored, string? GogId, bool GogReadable)
+    {
+        public bool GogFirst => !Stored && GogId is not null;
+    }
+
+    // Read once per run for each install folder that could be listed, so reads do not list it again; Look again reads it afresh.
+    private readonly ConcurrentDictionary<(string GameId, string Install), GogDetection> _gogDetections = new();
 
     private Ids ResolveIds(GameDefinition game)
     {
         var install = GameFolders.ResolveLoosely(_services.PathTokens, game).FirstOrDefault(folder => folder.Role == RepoRole.Install)?.Path;
-        var gog = GogProductIdDetector.Detect(install);
+        var gog = DetectGog(game.Id, install);
         if (game.SteamAppId is { } stored)
         {
-            return new Ids(stored, false, gog);
+            return new Ids(stored, false, true, gog.ProductId, gog.FolderReadable);
         }
 
         var detected = SteamAppIdDetector.Detect(game, install, _services.Platform.PathComparison);
-        return new Ids(detected, detected is not null, gog);
+        return new Ids(detected, detected is not null, false, gog.ProductId, gog.FolderReadable);
+    }
+
+    private GogDetection DetectGog(string gameId, string? install)
+    {
+        if (install is null)
+        {
+            return new GogDetection(null, false);
+        }
+
+        if (_gogDetections.TryGetValue((gameId, install), out var known))
+        {
+            return known;
+        }
+
+        var found = GogProductIdDetector.Inspect(install);
+        if (found.FolderReadable)
+        {
+            _gogDetections[(gameId, install)] = found;
+        }
+
+        return found;
     }
 
     private async Task<GameArtwork> CurrentAsync(GameDefinition game)
@@ -158,7 +194,7 @@ internal sealed class ArtworkApi : IArtworkApi
                 state = state with { AppId = null, MissAt = null };
             }
 
-            if (tidy && ids.GogId is not null && state.GogProductId != ids.GogId && _store.DeleteGogImages(game.Id))
+            if (tidy && GogImagesAreAnotherGames(ids, state) && _store.DeleteGogImages(game.Id))
             {
                 state = state with { GogProductId = null };
             }
@@ -173,16 +209,33 @@ internal sealed class ArtworkApi : IArtworkApi
                 return new Read(new GameArtwork(game.Id, ArtworkSource.Custom, custom, custom, ids.AppId, ids.Detected), state, wide is not null, square is not null);
             }
 
-            if (wide is not null || square is not null)
+            var steamHas = wide is not null || square is not null;
+            var gogHas = gogWide is not null || gogSquare is not null;
+            if (steamHas && !(ids.GogFirst && gogHas))
             {
                 return new Read(new GameArtwork(game.Id, ArtworkSource.Steam, wide, square, ids.AppId, ids.Detected), state, wide is not null, square is not null);
             }
 
-            return gogWide is not null || gogSquare is not null
+            return gogHas
                 ? new Read(new GameArtwork(game.Id, ArtworkSource.Gog, gogWide, gogSquare, ids.AppId, ids.Detected), state, gogWide is not null, gogSquare is not null)
                 : new Read(new GameArtwork(game.Id, ArtworkSource.None, null, null, ids.AppId, ids.Detected), state, false, false);
         }).ConfigureAwait(false);
     }
+
+    // GOG images kept for another product are another game's; so are they when the folder was read and names no product. A folder that
+    // could not be read says nothing, so what was found stays.
+    private static bool GogImagesAreAnotherGames(Ids ids, LookupState state) =>
+        ids.GogId is not null ? state.GogProductId != ids.GogId : ids.GogReadable;
+
+    // Whether what is on disk is all the lookup could improve on: the source the ids rank first, with both images.
+    private static bool IsComplete(Read read, Ids ids) =>
+        read.HasWide && read.HasSquare
+        && read.Art.Source switch
+        {
+            ArtworkSource.Steam => ids.AppId is not null && !ids.GogFirst,
+            ArtworkSource.Gog => ids.GogFirst,
+            _ => false,
+        };
 
     private async Task<bool> IsLookupDueAsync(Read read, Ids ids)
     {
@@ -199,7 +252,7 @@ internal sealed class ArtworkApi : IArtworkApi
             return false;
         }
 
-        if ((ids.AppId is not null || ids.GogId is not null) && read.HasWide && read.HasSquare)
+        if (IsComplete(read, ids))
         {
             return false;
         }
@@ -255,9 +308,9 @@ internal sealed class ArtworkApi : IArtworkApi
         });
     }
 
-    // Finds the app id, takes images from the Steam client's cache, then (for a game GOG installed, when Steam's cache has none) from GOG
-    // Galaxy's cache, then from Steam's servers when allowed, and keeps what it found. Without force, only the images not already kept are
-    // looked for; with it, everything is, and nothing found is thrown away.
+    // Finds the ids, then looks in the order the Ids record describes: Steam's own cache and then its servers for a stored app id (Galaxy's
+    // cache only when Steam has none), or Galaxy's cache before a detected app id. Keeps what it found. Without force, only the Steam
+    // images not already kept are looked for; with it, everything is, and nothing found is thrown away.
     private async Task LookUpAsync(string gameId, bool force)
     {
         if (await _services.Catalog.GetGameAsync(gameId).ConfigureAwait(false) is not { } game)
@@ -276,7 +329,17 @@ internal sealed class ArtworkApi : IArtworkApi
         var sawNotFound = false;
         var before = _store.ReadState(gameId);
         var pending = new List<ArtworkKind>();
-        if (id is { } appId)
+        var galaxyFolder = ids.GogId is null ? null : _gog.FindWebcacheFolder();
+
+        // A GOG game with no Steam id stored looks in Galaxy's cache first: a Steam id that was only detected can be another app's.
+        if (ids.GogFirst && galaxyFolder is not null)
+        {
+            await ReadGalaxyAsync(galaxyFolder, ids.GogId!, gogFound).ConfigureAwait(false);
+        }
+
+        var galaxyHas = ids.GogFirst && (gogFound.Count > 0
+            || (before.GogProductId == ids.GogId && (_store.GogPath(gameId, ArtworkKind.Wide) is not null || _store.GogPath(gameId, ArtworkKind.Square) is not null)));
+        if (!galaxyHas && id is { } appId)
         {
             var steamFolder = _steam.FindSteamFolder();
             foreach (var kind in new[] { ArtworkKind.Wide, ArtworkKind.Square })
@@ -294,21 +357,15 @@ internal sealed class ArtworkApi : IArtworkApi
             }
         }
 
-        // Steam's images, kept or found, are the game's art; Galaxy's are a fallback for a game with none.
+        // With a Steam id the user stored, Steam's images come first and Galaxy's are what is kept until Steam has any.
         var steamHas = found.Count > 0 || ((id is null || before.AppId == id) && (_store.SteamPath(gameId, ArtworkKind.Wide) is not null || _store.SteamPath(gameId, ArtworkKind.Square) is not null));
-        if (!steamHas && ids.GogId is { } product && _gog.FindWebcacheFolder() is { } webcache)
+        if (!ids.GogFirst && !steamHas && galaxyFolder is not null)
         {
-            foreach (var kind in new[] { ArtworkKind.Wide, ArtworkKind.Square })
-            {
-                if (await Task.Run(() => FromGalaxyCache(webcache, product, kind)).ConfigureAwait(false) is { } cached)
-                {
-                    gogFound.Add((kind, cached));
-                }
-            }
+            await ReadGalaxyAsync(galaxyFolder, ids.GogId!, gogFound).ConfigureAwait(false);
         }
 
-        // Nothing is asked of Steam's servers for a game whose art was already found on this computer.
-        if (id is { } onlineApp && online && gogFound.Count == 0)
+        // Nothing is asked of Steam's servers for a game whose art was already found on this computer by its GOG id.
+        if (id is { } onlineApp && online && !galaxyHas)
         {
             // One store answer serves both images of this lookup.
             var storeMemo = new StoreAssetsMemo();
@@ -351,6 +408,17 @@ internal sealed class ArtworkApi : IArtworkApi
         }
     }
 
+    private static async Task ReadGalaxyAsync(string webcacheFolder, string productId, List<(ArtworkKind Kind, byte[] Bytes)> into)
+    {
+        foreach (var kind in new[] { ArtworkKind.Wide, ArtworkKind.Square })
+        {
+            if (await Task.Run(() => FromGalaxyCache(webcacheFolder, productId, kind)).ConfigureAwait(false) is { } cached)
+            {
+                into.Add((kind, cached));
+            }
+        }
+    }
+
     // Nothing bigger than a user's own image is copied out of Steam's folder, whatever it is called.
     private static byte[]? FromSteamCache(string steamFolder, int appId, ArtworkKind kind) =>
         ReadSmallFile(SteamLocalCache.Find(steamFolder, appId, kind));
@@ -368,7 +436,22 @@ internal sealed class ArtworkApi : IArtworkApi
 
         try
         {
-            return new FileInfo(path).Length is > 0 and <= ArtworkStore.MaxCustomBytes ? File.ReadAllBytes(path) : null;
+            // Read through a stream and stop one byte past the limit, so a file that grows or is bigger than it claims is never held whole.
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            using var buffer = new MemoryStream();
+            var chunk = new byte[81_920];
+            int read;
+            while ((read = stream.Read(chunk, 0, chunk.Length)) > 0)
+            {
+                if (buffer.Length + read > ArtworkStore.MaxCustomBytes)
+                {
+                    return null;
+                }
+
+                buffer.Write(chunk, 0, read);
+            }
+
+            return buffer.Length > 0 ? buffer.ToArray() : null;
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
@@ -397,36 +480,55 @@ internal sealed class ArtworkApi : IArtworkApi
                 state = state with { AppId = null, MissAt = null };
             }
 
-            // Images kept for another GOG product are another game's.
-            if (ids.GogId is not null && state.GogProductId != ids.GogId && _store.DeleteGogImages(game.Id))
+            // Images kept for another GOG product, or for a folder that names none, are another game's.
+            if (GogImagesAreAnotherGames(ids, state) && _store.DeleteGogImages(game.Id))
             {
                 changed = true;
             }
 
-            foreach (var (kind, bytes) in found)
+            if (ids.GogFirst)
             {
-                // An image the store refuses is left out, as if the lookup had not found it; the next lookup looks again.
-                changed |= _store.SaveSteamImage(game.Id, kind, bytes);
-            }
-
-            // Once Steam has an image of its own, Galaxy's are not kept beside it.
-            var steamHas = _store.SteamPath(game.Id, ArtworkKind.Wide) is not null || _store.SteamPath(game.Id, ArtworkKind.Square) is not null;
-            if (steamHas)
-            {
-                changed |= _store.DeleteGogImages(game.Id);
-            }
-            else
-            {
+                // Galaxy's images rank above a Steam id that was only detected, so once there are any, the Steam ones go.
                 foreach (var (kind, bytes) in gogFound)
                 {
                     changed |= _store.SaveGogImage(game.Id, kind, bytes);
+                }
+
+                if (_store.GogPath(game.Id, ArtworkKind.Wide) is not null || _store.GogPath(game.Id, ArtworkKind.Square) is not null)
+                {
+                    if (_store.SteamPath(game.Id, ArtworkKind.Wide) is not null || _store.SteamPath(game.Id, ArtworkKind.Square) is not null)
+                    {
+                        changed |= _store.DeleteSteamImages(game.Id);
+                        state = state with { AppId = null, MissAt = null };
+                    }
+                }
+                else
+                {
+                    changed |= SaveSteamFound(game.Id, found);
+                }
+            }
+            else
+            {
+                changed |= SaveSteamFound(game.Id, found);
+
+                // Once Steam has an image of its own, Galaxy's are not kept beside it.
+                if (_store.SteamPath(game.Id, ArtworkKind.Wide) is not null || _store.SteamPath(game.Id, ArtworkKind.Square) is not null)
+                {
+                    changed |= _store.DeleteGogImages(game.Id);
+                }
+                else
+                {
+                    foreach (var (kind, bytes) in gogFound)
+                    {
+                        changed |= _store.SaveGogImage(game.Id, kind, bytes);
+                    }
                 }
             }
 
             var complete = id is not null
                 && _store.SteamPath(game.Id, ArtworkKind.Wide) is not null
                 && _store.SteamPath(game.Id, ArtworkKind.Square) is not null;
-            var gogNext = ids.GogId ?? state.GogProductId;
+            var gogNext = ids.GogId ?? (ids.GogReadable ? null : state.GogProductId);
 
             // A lookup that found no app id learned nothing about the one the stored state is for (an install drive that is unplugged
             // names none), so that state stays: a miss recorded under it would hold back the id when it returns. A game GOG installed has a
@@ -444,6 +546,18 @@ internal sealed class ArtworkApi : IArtworkApi
 
             return changed;
         }).ConfigureAwait(false);
+    }
+
+    private bool SaveSteamFound(string gameId, List<(ArtworkKind Kind, byte[] Bytes)> found)
+    {
+        var changed = false;
+        foreach (var (kind, bytes) in found)
+        {
+            // An image the store refuses is left out, as if the lookup had not found it; the next lookup looks again.
+            changed |= _store.SaveSteamImage(gameId, kind, bytes);
+        }
+
+        return changed;
     }
 
     private void Raise(string gameId) => ArtworkChanged?.Invoke(this, new ArtworkChange(gameId));
