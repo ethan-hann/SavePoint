@@ -142,6 +142,81 @@ public class WikiSyncTests
         }
     }
 
+    private const string _rawBase = "https://git.tortal.tech/ethan-hann/SavePoint/raw/branch/main/docs/";
+
+    private static async Task<string> PageOfAsync(string text) =>
+        await PwshAsync(LoadScript()
+            + $"$page = Convert-DocToPage -Text {Quote(text)} -Doc 'user-guide.md'\n"
+            + "[Console]::Out.Write($page)\n");
+
+    [Fact]
+    public async Task A_relative_image_or_link_into_docs_becomes_a_raw_address_on_main_and_keeps_its_alt_text()
+    {
+        var output = await PageOfAsync(
+            "# Guide\n\n"
+            + "![First run screen](images/first-run.png) and ![Games](./images/games.png \"The games list\").\n"
+            + "A [full-size view](images/history.png) and a [top](#top) anchor.\n");
+
+        Assert.Contains($"![First run screen]({_rawBase}images/first-run.png) and ![Games]({_rawBase}images/games.png \"The games list\").\n", output, StringComparison.Ordinal);
+        Assert.Contains($"A [full-size view]({_rawBase}images/history.png) and a [top](#top) anchor.\n", output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Code_blocks_code_spans_and_absolute_addresses_keep_their_image_text()
+    {
+        var output = await PageOfAsync(
+            "# Guide\n\n"
+            + "```markdown\n![shown](images/in-a-block.png)\n```\n\n"
+            + "~~~\n[shown](./images/in-a-tilde-block.png)\n~~~\n\n"
+            + "Write `![alt](images/in-a-span.png)` like this, see ![remote](https://example.com/images/remote.png) and [site](http://example.com/images/a.png).\n");
+
+        Assert.Contains("```markdown\n![shown](images/in-a-block.png)\n```\n", output, StringComparison.Ordinal);
+        Assert.Contains("~~~\n[shown](./images/in-a-tilde-block.png)\n~~~\n", output, StringComparison.Ordinal);
+        Assert.Contains("Write `![alt](images/in-a-span.png)` like this, see ![remote](https://example.com/images/remote.png) and [site](http://example.com/images/a.png).\n", output, StringComparison.Ordinal);
+        Assert.DoesNotContain(_rawBase, output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task The_raw_address_follows_the_server_and_repository_the_job_sets()
+    {
+        var output = await PwshAsync(LoadScript()
+            + "$env:GITHUB_SERVER_URL = 'https://forge.example/'\n$env:GITHUB_REPOSITORY = 'someone/Fork'\n"
+            + "$page = Convert-DocToPage -Text '![a](images/x.png)' -Doc 'user-guide.md'\n"
+            + "[Console]::Out.Write($page)\n");
+
+        Assert.EndsWith("![a](https://forge.example/someone/Fork/raw/branch/main/docs/images/x.png)", output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Every_relative_image_a_guide_shows_exists_under_docs()
+    {
+        var docs = Path.Combine(RepoRoot, "docs");
+        foreach (var guide in Directory.GetFiles(docs, "*.md"))
+        {
+            var inCode = false;
+            foreach (var line in File.ReadAllLines(guide))
+            {
+                if (Regex.IsMatch(line, @"^ {0,3}(`{3,}|~{3,})"))
+                {
+                    inCode = !inCode;
+                    continue;
+                }
+
+                if (inCode)
+                {
+                    continue;
+                }
+
+                var outsideSpans = Regex.Replace(line, @"(?<t>`+).+?(?<!`)\k<t>(?!`)", "");
+                foreach (Match match in Regex.Matches(outsideSpans, @"\]\((?:\./)?(?<path>images/[^)\s]*)"))
+                {
+                    var path = Path.Combine(docs, match.Groups["path"].Value.Replace('/', Path.DirectorySeparatorChar));
+                    Assert.True(File.Exists(path), $"{Path.GetFileName(guide)} shows {match.Groups["path"].Value}, which does not exist under docs/.");
+                }
+            }
+        }
+    }
+
     [Fact]
     public async Task A_guide_saved_with_Windows_line_endings_gives_the_same_page()
     {
