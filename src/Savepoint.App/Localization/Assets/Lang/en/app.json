@@ -6,7 +6,7 @@
   "app.crash.bodyNoLog": "SavePoint couldn't save the details of this problem. If you report it, Copy details for support puts them on your clipboard.",
   "app.crash.close": "Close SavePoint",
   "app.crash.logFolder": "Log folder: {path}",
-  "app.crash.noDisplay": "SavePoint couldn't connect to your desktop's display, so it has no window to show. Start it from inside your desktop session, and check that the DISPLAY and XAUTHORITY settings are right.",
+  "app.crash.noDisplay": "SavePoint couldn't connect to your desktop's display. Start it from inside your desktop session and check the DISPLAY and XAUTHORITY settings.",
   "app.crash.note": "SavePoint ran into a problem and has to close: {message}",
   "app.crash.noteLog": "The details were saved in the log folder: {path}",
   "app.crash.openFailed": "SavePoint couldn't open the log folder.",

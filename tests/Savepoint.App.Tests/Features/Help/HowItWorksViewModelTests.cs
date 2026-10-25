@@ -22,7 +22,7 @@ public class HowItWorksViewModelTests
 
         Assert.Equal("How SavePoint works", page.Title);
         Assert.Equal("Back", page.BackName);
-        Assert.Equal("SavePoint keeps the game setups that work, so you can go back to them. Here are the few ideas it uses, in the order you meet them.", page.Intro);
+        Assert.Equal("SavePoint keeps the game setups that work, so you can go back to them. These ideas come in the order you meet them.", page.Intro);
     }
 
     [Fact]
@@ -72,10 +72,10 @@ public class HowItWorksViewModelTests
         var topics = Topics();
 
         Assert.Equal(
-            "A game is the folder it is installed in, plus the folder its saves live in. A profile is one way of playing it, such as Vanilla or Modded 1.6, with its own game version, mods and saves. A snapshot is a copy of a profile as it was at one moment. SavePoint takes one when you create a profile, and again each time you keep a session.",
+            "A game is the folder it is installed in, plus the folder its saves live in. A profile is one way of playing it, such as Vanilla or Modded 1.6, with its own game version, mods and saves. A snapshot is a copy of a profile as it was at one moment. SavePoint takes one when you create a profile and each time you keep a session.",
             topics[0].Body);
         Assert.Equal(
-            "A save is the game's own file, made when you save in the game. A save snapshot holds your whole saves folder, every save in it, as it was at one moment. Going back to one puts those files in place. You still load the save you want inside the game.",
+            "A save is the game's own file, made when you save in the game. A save snapshot holds your whole saves folder as it was at one moment. Going back to one puts those files in place, and you still load the save you want inside the game.",
             topics[1].Body);
     }
 
@@ -84,10 +84,10 @@ public class HowItWorksViewModelTests
     {
         var play = Topics()[2];
 
-        Assert.Contains("shows you exactly what first", play.Body, StringComparison.Ordinal);
+        Assert.Contains("shows what first", play.Body, StringComparison.Ordinal);
         Assert.Contains("nothing changes until you press Switch and play", play.Body, StringComparison.Ordinal);
         Assert.Contains("choose Switch to this profile from the profile's menu", play.Body, StringComparison.Ordinal);
-        Assert.Contains("The game doesn't start", play.Body, StringComparison.Ordinal);
+        Assert.Contains("doesn't ask what to do with a session afterwards", play.Body, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -98,14 +98,14 @@ public class HowItWorksViewModelTests
         var older = topics.Single(topic => topic.Title == "Going back to an older snapshot");
         var removed = topics.Single(topic => topic.Title == "Recently removed");
 
-        Assert.Contains("Keep this session as a new snapshot", afterPlay.Body, StringComparison.Ordinal);
-        Assert.Contains("Replace the latest snapshot", afterPlay.Body, StringComparison.Ordinal);
+        Assert.Contains("Keep it as a new snapshot", afterPlay.Body, StringComparison.Ordinal);
+        Assert.Contains("replace the latest snapshot", afterPlay.Body, StringComparison.Ordinal);
         Assert.Contains("Not now", afterPlay.Body, StringComparison.Ordinal);
         Assert.Contains("Keep this session as a new profile", older.Body, StringComparison.Ordinal);
         Assert.Contains("continue the profile from your session", older.Body, StringComparison.Ordinal);
-        Assert.Contains("They go to Recently removed", older.Body, StringComparison.Ordinal);
-        Assert.Contains("until the next time you free up space", removed.Body, StringComparison.Ordinal);
-        Assert.Contains("bring any of them back as a new profile", removed.Body, StringComparison.Ordinal);
+        Assert.Contains("snapshots go to Recently removed", older.Body, StringComparison.Ordinal);
+        Assert.Contains("until you next free up space", removed.Body, StringComparison.Ordinal);
+        Assert.Contains("bring any back as a new profile", removed.Body, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -115,7 +115,7 @@ public class HowItWorksViewModelTests
 
         Assert.Contains("taking snapshots", activity.Body, StringComparison.Ordinal);
         Assert.Contains("Details", activity.Body, StringComparison.Ordinal);
-        Assert.Contains("Cancel stops a job that can still be stopped", activity.Body, StringComparison.Ordinal);
+        Assert.Contains("Cancel stops a job that can be stopped", activity.Body, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -135,8 +135,8 @@ public class HowItWorksViewModelTests
         Assert.DoesNotContain(last.Items, item => item.Contains("Replac", StringComparison.Ordinal) || item.Contains("Continu", StringComparison.Ordinal));
         Assert.Equal(
             [
-                "Replacing a snapshot and continuing a profile are different. What they remove waits in Recently removed until you next free up space, so you can undo them until then.",
-                "SavePoint asks a second time before each of these things. It never sends your files anywhere. Its only network request is for game artwork, and you can turn that off in Settings.",
+                "Replacing a snapshot and continuing a profile can be undone. What they remove waits in Recently removed until you next free up space.",
+                "SavePoint asks a second time before each of these. It never sends your files anywhere. Its only network request is for game artwork, which you can turn off in Settings.",
             ],
             last.Notes);
     }

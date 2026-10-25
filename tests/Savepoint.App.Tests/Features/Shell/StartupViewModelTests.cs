@@ -171,7 +171,7 @@ public class StartupViewModelTests
         var card = startup.CorruptFiles.Single().Card;
         Assert.Equal(title, card.Title);
         Assert.Equal(
-            $"SavePoint couldn't read the file that holds {holds}, so it left the file exactly as it is. \"Restore the backup\" brings back the last good copy. \"Start with nothing in it\" begins again with {empty} and keeps the unreadable file next to it.",
+            $"SavePoint couldn't read the file that holds {holds}, so it left the file as it is. \"Restore the backup\" brings back the last good copy. \"Start with nothing in it\" begins again with {empty}.",
             card.Body);
         Assert.DoesNotContain(".bak", card.Body);
     }
