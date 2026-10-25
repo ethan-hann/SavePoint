@@ -12,6 +12,21 @@ function Get-PackageSourceArchives {
     }
 }
 
+function Get-TagSourcePins {
+    # The three tags whose source archives a release publishes, pinned in the "sources" of build/git-manifest.json, sorted by key.
+    param([Parameter(Mandatory)][string]$ManifestPath)
+    $listed = (Get-Content -LiteralPath $ManifestPath -Raw | ConvertFrom-Json -AsHashtable)['sources']
+    if (-not $listed -or $listed.Count -ne 3) {
+        $count = if ($listed) { $listed.Count } else { 0 }
+        throw "build/git-manifest.json has $count source entries in `"sources`"; expected 3 (git, Git for Windows, dugite-native)."
+    }
+    [string[]]$keys = $listed.Keys
+    [Array]::Sort($keys, [System.StringComparer]::Ordinal)
+    foreach ($key in $keys) {
+        [pscustomobject]@{ Key = $key; Repository = $listed[$key].repository; Tag = $listed[$key].tag; Sha256 = "$($listed[$key].sha256)".Trim().ToLowerInvariant() }
+    }
+}
+
 function Remove-StalePackageSources {
     # Deletes the regular files directly inside the folder that the list does not name, and returns their names. Links, folders and
     # anything below a folder stay. An empty list is refused, so a list that failed to read cannot empty the folder.

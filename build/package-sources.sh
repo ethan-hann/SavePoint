@@ -5,7 +5,12 @@ _package_sources_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 package_source_pins() {
   # package_source_pins <manifest>: one "<file> <url> <sha256>" line per archive. A small .NET tool reads the JSON, since the build
   # already needs the SDK, so no layout of the file can change what is read.
-  dotnet run --project "$_package_sources_root/tools/PackageSources" -c Release -v q -- "$1"
+  dotnet run --project "$_package_sources_root/tools/PackageSources" -c Release -v q -- archives "$1"
+}
+
+tag_source_pins() {
+  # tag_source_pins <manifest>: one "<repository> <tag> <sha256>" line per entry of "sources" in build/git-manifest.json, sorted by key.
+  dotnet run --project "$_package_sources_root/tools/PackageSources" -c Release -v q -- tags "$1"
 }
 
 remove_stale_package_sources() {

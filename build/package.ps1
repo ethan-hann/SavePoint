@@ -60,21 +60,16 @@ function Invoke-Step {
 
 function Get-SourceArchives {
     # The source archives a release publishes are the ones the manifest pins, beside the binaries they belong to.
-    $manifest = Get-Content -LiteralPath (Join-Path $repoRoot 'build/git-manifest.json') -Raw | ConvertFrom-Json -AsHashtable
-    $listed = $manifest['sources']
-    if (-not $listed -or $listed.Count -ne 3) {
-        $count = if ($listed) { $listed.Count } else { 0 }
-        throw "build/git-manifest.json has $count source entries in `"sources`"; expected 3 (git, Git for Windows, dugite-native)."
-    }
+    $listed = @(Get-TagSourcePins -ManifestPath (Join-Path $repoRoot 'build/git-manifest.json'))
     # The notices make the promise, so they have to name the same tags.
     $notices = Get-Content -LiteralPath (Join-Path $repoRoot 'THIRD-PARTY-NOTICES.md') -Raw
     $tick = [char]96
-    foreach ($key in $listed.Keys | Sort-Object) {
-        $promise = "$($listed[$key].repository), tag $tick$($listed[$key].tag)$tick"
+    foreach ($source in $listed) {
+        $promise = "$($source.Repository), tag $tick$($source.Tag)$tick"
         if (-not $notices.Contains($promise)) {
-            throw "THIRD-PARTY-NOTICES.md does not promise source for $promise, which build/git-manifest.json pins for $key."
+            throw "THIRD-PARTY-NOTICES.md does not promise source for $promise, which build/git-manifest.json pins for $($source.Key)."
         }
-        [pscustomobject]@{ Repository = $listed[$key].repository; Tag = $listed[$key].tag; Sha256 = "$($listed[$key].sha256)".Trim().ToLowerInvariant() }
+        $source
     }
 }
 

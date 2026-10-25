@@ -203,6 +203,113 @@ public sealed class PackageSourceScriptTests : IDisposable
         }
     }
 
+    private static readonly string[] _expectedTagLines =
+    [
+        "https://example.invalid/dugite v2.53.0-4 6600bdf3c7e2cbb127ac63d9d38da3a91267610c6034ecb8ff73e94f89508f33",
+        "https://example.invalid/git v2.53.0 0492bcd8a9fc99bedca75dbec7c8c15b24dd1501c82d4518294ee0850f91f219",
+        "https://example.invalid/gfw v2.53.0.windows.1 ",
+    ];
+
+    // The manifest has other sections around "sources"; the three entries come in a different order than the keys sort in.
+    private string WriteTagManifest(Layout layout)
+    {
+        JsonObject Entry(string repository, string tag, string sha, bool reversed)
+        {
+            var node = new JsonObject();
+            var pairs = new List<(string, JsonNode)> { ("repository", repository), ("tag", tag), ("sha256", sha), ("hashSource", "x") };
+            if (reversed)
+            {
+                pairs.Reverse();
+            }
+
+            foreach (var (key, value) in pairs)
+            {
+                node[key] = value;
+            }
+
+            return node;
+        }
+
+        var reversed = layout == Layout.ReorderedWithExtras;
+        var sources = new JsonObject
+        {
+            ["git-for-windows"] = Entry("https://example.invalid/gfw", "v2.53.0.windows.1", "", reversed),
+            ["git"] = Entry("https://example.invalid/git", "v2.53.0", "0492BCD8A9FC99BEDCA75DBEC7C8C15B24DD1501C82D4518294EE0850F91F219", reversed),
+            ["dugite-native"] = Entry("https://example.invalid/dugite", "v2.53.0-4", "6600bdf3c7e2cbb127ac63d9d38da3a91267610c6034ecb8ff73e94f89508f33", reversed),
+        };
+        var document = new JsonObject();
+        if (reversed)
+        {
+            document["sources"] = sources;
+            document["win-x64"] = new JsonObject { ["version"] = "1" };
+        }
+        else
+        {
+            document["win-x64"] = new JsonObject { ["version"] = "1" };
+            document["sources"] = sources;
+        }
+
+        var options = layout switch
+        {
+            Layout.Minified => new JsonWriterOptions { Indented = false },
+            Layout.FourSpaces => new JsonWriterOptions { Indented = true, IndentSize = 4 },
+            Layout.Tabs => new JsonWriterOptions { Indented = true, IndentCharacter = '\t', IndentSize = 1 },
+            _ => new JsonWriterOptions { Indented = true, IndentSize = 1 },
+        };
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream, options))
+        {
+            document.WriteTo(writer);
+        }
+
+        Directory.CreateDirectory(_root);
+        var path = Path.Combine(_root, "tags-" + layout + ".json");
+        File.WriteAllBytes(path, stream.ToArray());
+        return path;
+    }
+
+    [Theory]
+    [InlineData(Layout.Minified)]
+    [InlineData(Layout.FourSpaces)]
+    [InlineData(Layout.Tabs)]
+    [InlineData(Layout.ReorderedWithExtras)]
+    public async Task The_powershell_script_reads_the_same_tag_sources_whatever_the_layout_of_the_manifest(Layout layout)
+    {
+        var output = await PwshAsync($"Get-TagSourcePins -ManifestPath {PwshQuote(WriteTagManifest(layout))} | ForEach-Object {{ '{{0}} {{1}} {{2}}' -f $_.Repository, $_.Tag, $_.Sha256 }}");
+
+        Assert.Equal(_expectedTagLines.Select(line => line.TrimEnd()), output.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => line.TrimEnd()));
+    }
+
+    [Theory]
+    [InlineData(Layout.Minified)]
+    [InlineData(Layout.FourSpaces)]
+    [InlineData(Layout.Tabs)]
+    [InlineData(Layout.ReorderedWithExtras)]
+    public async Task The_bash_script_reads_the_same_tag_sources_whatever_the_layout_of_the_manifest(Layout layout)
+    {
+        var output = await BashAsync($"tag_source_pins {BashQuote(WriteTagManifest(layout))}");
+
+        Assert.Equal(_expectedTagLines.Select(line => line.TrimEnd()), output.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => line.TrimEnd()));
+    }
+
+    [Fact]
+    public async Task Both_scripts_read_the_three_tags_of_the_real_manifest_alike()
+    {
+        var real = Path.Combine(RepoRoot, "build", "git-manifest.json");
+        using var document = JsonDocument.Parse(await File.ReadAllTextAsync(real, TestContext.Current.CancellationToken));
+        var expected = document.RootElement.GetProperty("sources").EnumerateObject().OrderBy(entry => entry.Name, StringComparer.Ordinal)
+            .Select(entry => $"{entry.Value.GetProperty("repository").GetString()} {entry.Value.GetProperty("tag").GetString()} {entry.Value.GetProperty("sha256").GetString()}")
+            .ToList();
+        Assert.Equal(3, expected.Count);
+
+        var pwsh = await PwshAsync($"Get-TagSourcePins -ManifestPath {PwshQuote(real)} | ForEach-Object {{ '{{0}} {{1}} {{2}}' -f $_.Repository, $_.Tag, $_.Sha256 }}");
+        Assert.Equal(expected, pwsh.Split('\n', StringSplitOptions.RemoveEmptyEntries));
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Equal(expected, (await BashAsync($"tag_source_pins {BashQuote(real)}")).Split('\n', StringSplitOptions.RemoveEmptyEntries));
+        }
+    }
+
     // A folder as an earlier run left it: one archive the list still names, two that an older list named (one half-downloaded), a folder
     // with a file inside, and a note.
     private string MakeFolder()
@@ -335,7 +442,8 @@ public sealed class PackageSourceScriptTests : IDisposable
         var package = CodeOf("build/package.sh");
 
         Assert.DoesNotContain("awk", CodeOf("build/package-sources.sh"), StringComparison.Ordinal);
-        Assert.DoesNotContain("' build/msys2-sources.json", package, StringComparison.Ordinal);
+        Assert.DoesNotContain("awk", package, StringComparison.Ordinal);
         Assert.Contains("package_source_pins build/msys2-sources.json", package, StringComparison.Ordinal);
+        Assert.Contains("tag_source_pins build/git-manifest.json", package, StringComparison.Ordinal);
     }
 }

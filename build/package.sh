@@ -143,16 +143,8 @@ echo "==> SavePoint $version ($revision) for $rid, with .NET SDK $(dotnet --vers
 if [ "$sources" -eq 1 ]; then
   source_dir="$repo/artifacts/release/source"
   mkdir -p "$source_dir"
-  # The source archives a release publishes are the ones the manifest pins, beside the binaries they belong to. The manifest keeps
-  # one "key": "value" pair per line, which is all this reads, as build/fetch-git.sh does.
-  pins="$(awk '
-    /^  "sources": \{/ { insources = 1; next }
-    insources && /^  \}/ { exit }
-    insources && /^      "repository": "/ { repository = $0; sub(/^      "repository": "/, "", repository); sub(/",?[ \t\r]*$/, "", repository) }
-    insources && /^      "tag": "/ { tag = $0; sub(/^      "tag": "/, "", tag); sub(/",?[ \t\r]*$/, "", tag) }
-    insources && /^      "sha256": "/ { sha = $0; sub(/^      "sha256": "/, "", sha); sub(/",?[ \t\r]*$/, "", sha); sha = tolower(sha) }
-    insources && /^    \}/ { print repository " " tag " " sha; repository = tag = sha = "" }
-  ' build/git-manifest.json)"
+  # The source archives a release publishes are the ones the manifest pins, beside the binaries they belong to.
+  pins="$(tag_source_pins build/git-manifest.json)" || fail "could not read the \"sources\" of build/git-manifest.json"
   [ "$(printf '%s\n' "$pins" | grep -c .)" -eq 3 ] || fail "build/git-manifest.json does not pin exactly 3 source archives in \"sources\" (git, Git for Windows, dugite-native)"
   problems=""
   while read -r repository tag pinned; do
