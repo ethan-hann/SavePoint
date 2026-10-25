@@ -184,6 +184,7 @@ WinRT toasts (`ToastNotificationManager`, chosen in D10) need the `net10.0-windo
 - **Single instance**: a named mutex per user plus a named pipe; a second launch asks the first to show and focus its window, then exits.
 - **Reduced motion**: read from the OS (Windows `SPI_GETCLIENTAREAANIMATION`, macOS accessibility "reduce motion", GNOME `enable-animations`), feeding `ThemeService.ReduceMotion`.
 - **Reveal in file manager**: Explorer `/select`, `open -R`, `xdg-open` on the folder.
+- **Linux apps menu entry (opt-in)**: a plain AppImage has no desktop entry, so GNOME shows a generic icon. Settings offers "Add SavePoint to your apps menu" only on Linux when `APPIMAGE` names an absolute path. It writes `$XDG_DATA_HOME/applications/savepoint.desktop` (default `~/.local/share`; `Exec` is the quoted AppImage path, `StartupWMClass=SavePointApp`, `Categories=Utility;`, marked `X-SavePoint-Managed=true`) and the 256 and 512 px icons under `icons/hicolor/<size>/apps/savepoint.png`, through a temp file and a rename. An entry without the marker is someone else's and is never changed or removed. An entry whose `Exec` names another file, or whose icon is gone, shows as out of date with Update. Remove deletes exactly what SavePoint wrote. `update-desktop-database` and `gtk-update-icon-cache` run on the user's own folders when present; failures are ignored and nothing asks for administrator rights.
 
 ## D27. The Linux gate retries failed tests up to twice, and says which
 

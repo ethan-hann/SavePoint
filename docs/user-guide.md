@@ -146,6 +146,7 @@ Clicking the job status indicator opens Activity too, and in the Sidebar layout 
   - layout: **Sidebar** keeps every game one click away, and **Library** puts the cover art up front. You can also switch layouts from the Games screen.
 - **Before you play:** whether to skip the check before playing when only your saves would change. A change to the game version or mods always shows the check.
 - **When you finish playing:** whether to ask about keeping the session.
+- **Apps menu (Linux AppImage only):** "Add SavePoint to your apps menu" lists SavePoint with its icon among your other programs, so you can open it from the desktop and pin it to the dock. It saves a few small files in your own folder, and "Remove SavePoint from your apps menu" takes them away again. If you move the AppImage, the entry says it's out of date and **Update** points it at the new place.
 - **Remove all data:** deletes every snapshot, SavePoint's settings, game list, artwork, and logs (except today's open log file), and takes its small file out of each game folder. After that, you can't go back to any earlier version, mods, or saves. Your game folders and everything in them stay exactly as they are. You confirm by typing a word.
 - **About:** the version, the third-party notices, and **Open the log folder**.
 
