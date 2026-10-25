@@ -33,7 +33,7 @@ public class SettingsScreenViewTests
         string? notices = _notices,
         string? license = _license)
     {
-        backend ??= new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { Theme = theme }));
+        backend ??= new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Theme = theme }));
         return ScreenHarness.StartAsync(
             "settings",
             context => [new SettingsScreenFactory(context, new SettingsEnvironment(new RecordingFileRevealer(), () => notices, "1.2.3", FindLicense: () => license))],
@@ -50,7 +50,7 @@ public class SettingsScreenViewTests
     // ---- What the screen shows
 
     [AvaloniaFact]
-    public async Task Every_section_shows_with_its_heading_and_the_mockups_copy()
+    public async Task Every_section_shows_with_its_heading_and_copy()
     {
         using var harness = await StartAsync();
 
@@ -89,7 +89,7 @@ public class SettingsScreenViewTests
     }
 
     [AvaloniaFact]
-    public async Task The_buttons_are_labelled_as_the_mockup_has_them()
+    public async Task The_buttons_carry_their_labels()
     {
         using var harness = await StartAsync();
 
@@ -361,8 +361,8 @@ public class SettingsScreenViewTests
     [AvaloniaFact]
     public async Task A_problem_from_a_move_shows_as_an_error_card_under_the_storage_section()
     {
-        var blocked = new StorageRelocationPreview(MockupScenario.StorageRoot, @"E:\NewData", [], 0, 0, 0, ErrorInfo.From(new StorageDestinationNotEmptyException(@"E:\NewData")));
-        using var harness = await StartAsync(new FakeBackend(ScenarioBuilder.Mockup().WithRelocationPreview(blocked)));
+        var blocked = new StorageRelocationPreview(SampleScenario.StorageRoot, @"E:\NewData", [], 0, 0, 0, ErrorInfo.From(new StorageDestinationNotEmptyException(@"E:\NewData")));
+        using var harness = await StartAsync(new FakeBackend(ScenarioBuilder.Sample().WithRelocationPreview(blocked)));
         harness.FakeDialogs.AnswerFolder(@"E:\NewData");
 
         await Screen(harness).Storage.ChangeCommand.ExecuteAsync(null);
@@ -386,7 +386,7 @@ public class SettingsScreenViewTests
     [Fact]
     public void The_composition_registers_the_screen_for_the_settings_destination()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var services = new AppServices(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus, backend.Artwork);
         var context = new FeatureContext(
             services,

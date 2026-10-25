@@ -30,8 +30,8 @@ public class GameEditorFormTests
         Assert.True(editor.IsEditing);
         Assert.False(editor.IsCreating);
         Assert.Equal("Skyrim Special Edition", editor.Name);
-        Assert.Equal(MockupScenario.SkyrimInstall, editor.InstallPath);
-        Assert.Equal(MockupScenario.SkyrimSavesRaw, editor.SavesPath);
+        Assert.Equal(SampleScenario.SkyrimInstall, editor.InstallPath);
+        Assert.Equal(SampleScenario.SkyrimSavesRaw, editor.SavesPath);
         Assert.Equal(0, editor.LaunchChoice);
         Assert.Equal("SkyrimSELauncher.exe", editor.ExePath);
         Assert.Equal("SkyrimSE.exe", editor.ProcessName);
@@ -44,7 +44,7 @@ public class GameEditorFormTests
     [Fact]
     public void A_game_started_through_Steam_opens_on_the_Steam_choice_with_its_link()
     {
-        var steam = MockupScenario.Caretaker with { Launch = new LaunchConfig(LaunchMethod.Uri, Uri: "steam://run/1105450", Args: ["-windowed"]) };
+        var steam = SampleScenario.Caretaker with { Launch = new LaunchConfig(LaunchMethod.Uri, Uri: "steam://run/1105450", Args: ["-windowed"]) };
         var rig = EditorRig.Create(new FakeBackend(ScenarioBuilder.Empty().WithGame(steam)));
 
         var editor = rig.Edit(steam.Id);

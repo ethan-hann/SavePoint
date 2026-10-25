@@ -17,7 +17,7 @@ internal sealed class LaunchRig : IDisposable
 
     public LaunchRig(FakeBackend? backend = null)
     {
-        Backend = backend ?? FakeBackend.Mockup();
+        Backend = backend ?? FakeBackend.Sample();
         Clock = new ManualTimeProvider(ScenarioBuilder.DefaultNow);
         Text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), Clock, "windows", CentralDaylight);
         Dialogs = new FakeDialogs();
@@ -38,13 +38,13 @@ internal sealed class LaunchRig : IDisposable
             Awaiter);
     }
 
-    public static LaunchTarget SurvivalTip => new LaunchTarget.ProfileTip(MockupScenario.SurvivalId);
+    public static LaunchTarget SurvivalTip => new LaunchTarget.ProfileTip(SampleScenario.SurvivalId);
 
-    public static LaunchTarget ModdedTip => new LaunchTarget.ProfileTip(MockupScenario.ModdedId);
+    public static LaunchTarget ModdedTip => new LaunchTarget.ProfileTip(SampleScenario.ModdedId);
 
-    public static LaunchTarget VanillaTip => new LaunchTarget.ProfileTip(MockupScenario.VanillaId);
+    public static LaunchTarget VanillaTip => new LaunchTarget.ProfileTip(SampleScenario.VanillaId);
 
-    public static LaunchTarget ClearedBlackreachPoint => new LaunchTarget.Point(MockupScenario.ClearedBlackreach);
+    public static LaunchTarget ClearedBlackreachPoint => new LaunchTarget.Point(SampleScenario.ClearedBlackreach);
 
     public FakeBackend Backend { get; }
 
@@ -60,7 +60,7 @@ internal sealed class LaunchRig : IDisposable
 
     public LaunchDependencies Deps { get; }
 
-    public async Task<LaunchPreview> PreviewAsync(LaunchTarget target, string gameId = MockupScenario.SkyrimId) =>
+    public async Task<LaunchPreview> PreviewAsync(LaunchTarget target, string gameId = SampleScenario.SkyrimId) =>
         FakeAssert.Ok(await Backend.Launch.GetPreviewAsync(gameId, target));
 
     public async Task<LaunchDialogViewModel> DialogAsync(LaunchTarget? target = null, bool skipConfirm = false, Func<LaunchPreview, LaunchPreview>? change = null, bool explainDiscard = false)
@@ -71,20 +71,20 @@ internal sealed class LaunchRig : IDisposable
     }
 
     // Plays a session through the fake to its exit, so the options are the ones the service would offer for that start.
-    public async Task<SessionState.Exited> ExitedAsync(LaunchTarget? target = null, string gameId = MockupScenario.SkyrimId, int newFiles = MockupScenario.NewSaveFiles, int installFiles = 0)
+    public async Task<SessionState.Exited> ExitedAsync(LaunchTarget? target = null, string gameId = SampleScenario.SkyrimId, int newFiles = SampleScenario.NewSaveFiles, int installFiles = 0)
     {
         FakeAssert.Ok(await Backend.Launch.StartAsync(gameId, target ?? ModdedTip));
-        Backend.Launch.ReportRunning(gameId, MockupScenario.RunningSince);
-        Backend.Launch.ReportExited(gameId, MockupScenario.PlayDuration, newFiles, installFiles);
+        Backend.Launch.ReportRunning(gameId, SampleScenario.RunningSince);
+        Backend.Launch.ReportExited(gameId, SampleScenario.PlayDuration, newFiles, installFiles);
         return Assert.IsType<SessionState.Exited>(FakeAssert.Session(Backend, gameId).State);
     }
 
     public string ProfileName(string profileId) =>
         profileId switch
         {
-            MockupScenario.ModdedId => "Modded playthrough - 7-2-26",
-            MockupScenario.VanillaId => "Vanilla - latest update",
-            MockupScenario.SurvivalId => "Survival test - 5-14-26",
+            SampleScenario.ModdedId => "Modded playthrough - 7-2-26",
+            SampleScenario.VanillaId => "Vanilla - latest update",
+            SampleScenario.SurvivalId => "Survival test - 5-14-26",
             _ => profileId,
         };
 

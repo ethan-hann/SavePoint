@@ -21,9 +21,9 @@ public sealed class ErrorCardGalleryViewModel
     public ErrorCardGalleryViewModel(UiFormatter text)
     {
         var noop = new RelayCommand(() => { });
-        FileInUse = new ErrorCardViewModel(MockupScenario.FileInUseError, text, [new ErrorCardAction("Try again", noop, IsPrimary: true)]);
+        FileInUse = new ErrorCardViewModel(SampleScenario.FileInUseError, text, [new ErrorCardAction("Try again", noop, IsPrimary: true)]);
         TooBroad = new ErrorCardViewModel(
-            MockupScenario.FolderTooBroadError,
+            SampleScenario.FolderTooBroadError,
             text,
             supplement: new SuggestionNoteViewModel(@"Try something like C:\Program Files (x86)\Steam\steamapps\common\Skyrim Special Edition"));
         HalfSaved = ErrorCardViewModel.Custom(
@@ -39,7 +39,7 @@ public sealed class ErrorCardGalleryViewModel
                     new SaveStatusRow(Icons.CheckCircle, true, "Game version and mods \u00b7 saved"),
                     new SaveStatusRow(Icons.Cancel, false, "Saves \u00b7 not saved"),
                 ]));
-        FolderGone = new ErrorCardViewModel(MockupScenario.FolderGoneError, text, [new ErrorCardAction("Choose the folder", noop, IsPrimary: true)]);
+        FolderGone = new ErrorCardViewModel(SampleScenario.FolderGoneError, text, [new ErrorCardAction("Choose the folder", noop, IsPrimary: true)]);
     }
 
     public ErrorCardViewModel FileInUse { get; }

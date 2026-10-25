@@ -23,7 +23,7 @@ namespace Savepoint.App.Tests.Features.Help;
 public class TourViewTests
 {
     private static Task<ComposedApp> StartAsync(ShellLayout layout = ShellLayout.Sidebar, double width = 1040, double height = 660) =>
-        ComposedApp.StartWithViewAsync(new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { TourSeen = false, Layout = layout })), width: width, height: height);
+        ComposedApp.StartWithViewAsync(new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { TourSeen = false, Layout = layout })), width: width, height: height);
 
     // A control that has to be there: the test fails on an assertion, not on a missing element, when it is not.
     private static T Named<T>(ComposedApp app, string name)

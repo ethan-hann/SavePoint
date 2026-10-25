@@ -16,10 +16,10 @@ public class GameEditorLaunchTests
     private static string Elsewhere => OperatingSystem.IsWindows() ? @"D:\Other\Game.exe" : "/other/Game.exe";
 
     private static EditorRig RigWithExecutables(params string[] executables) =>
-        EditorRig.Create(new FakeBackend(ScenarioBuilder.Mockup().WithExecutables(MockupScenario.SkyrimInstall, executables)));
+        EditorRig.Create(new FakeBackend(ScenarioBuilder.Sample().WithExecutables(SampleScenario.SkyrimInstall, executables)));
 
     private static EditorRig BrowseRig() =>
-        EditorRig.Create(new FakeBackend(ScenarioBuilder.Empty().WithGame(MockupScenario.Skyrim with { Install = new InstallLocation(_root) })));
+        EditorRig.Create(new FakeBackend(ScenarioBuilder.Empty().WithGame(SampleScenario.Skyrim with { Install = new InstallLocation(_root) })));
 
     [Theory]
     [InlineData("windows", "Run the .exe", "Running the .exe avoids that.")]
@@ -84,7 +84,7 @@ public class GameEditorLaunchTests
     public async Task Only_a_handful_of_suggestions_are_shown()
     {
         var editor = RigWithExecutables([.. Enumerable.Range(1, 12).Select(number => $"tool{number:00}.exe")]).New();
-        editor.InstallPath = MockupScenario.SkyrimInstall;
+        editor.InstallPath = SampleScenario.SkyrimInstall;
 
         await editor.RefreshSuggestionsAsync();
 
@@ -149,7 +149,7 @@ public class GameEditorLaunchTests
     private static GameEditorViewModel LinkEditor(EditorRig rig)
     {
         var editor = rig.New();
-        editor.InstallPath = MockupScenario.SkyrimInstall;
+        editor.InstallPath = SampleScenario.SkyrimInstall;
         return editor;
     }
 
@@ -287,15 +287,15 @@ public class GameEditorLaunchTests
     public async Task A_late_answer_for_an_old_folder_does_not_replace_the_newer_offer()
     {
         const string other = @"D:\Games\Other";
-        var rig = EditorRig.Create(new FakeBackend(ScenarioBuilder.Mockup()
-            .WithExecutables(MockupScenario.SkyrimInstall, "SkyrimSE.exe")
+        var rig = EditorRig.Create(new FakeBackend(ScenarioBuilder.Sample()
+            .WithExecutables(SampleScenario.SkyrimInstall, "SkyrimSE.exe")
             .WithExecutables(other, "Other.exe")));
         var editor = rig.New();
         editor.LaunchChoice = 1;
         var held = new TaskCompletionSource();
-        rig.Backend.Games.SuggestGate = (folder, _) => folder == MockupScenario.SkyrimInstall ? held.Task : Task.CompletedTask;
+        rig.Backend.Games.SuggestGate = (folder, _) => folder == SampleScenario.SkyrimInstall ? held.Task : Task.CompletedTask;
 
-        editor.InstallPath = MockupScenario.SkyrimInstall;
+        editor.InstallPath = SampleScenario.SkyrimInstall;
         var first = editor.RefreshProcessNameSuggestionAsync();
         editor.InstallPath = other;
         await editor.RefreshProcessNameSuggestionAsync();
@@ -314,7 +314,7 @@ public class GameEditorLaunchTests
         editor.LaunchChoice = 1;
         var held = new TaskCompletionSource();
         rig.Backend.Games.SuggestGate = (_, _) => held.Task;
-        editor.InstallPath = MockupScenario.SkyrimInstall;
+        editor.InstallPath = SampleScenario.SkyrimInstall;
         var first = editor.RefreshProcessNameSuggestionAsync();
         var token = Assert.Single(rig.Backend.Games.SuggestTokens);
         Assert.False(token.IsCancellationRequested);

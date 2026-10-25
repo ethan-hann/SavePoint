@@ -10,11 +10,11 @@ namespace Savepoint.App.Tests.Features.Games;
 public class GamesScreenActionsTests
 {
     private static FakeBackend WithDeletePreview(ProfileDeletePreview preview) =>
-        new(ScenarioBuilder.Mockup().WithDeletePreview(preview));
+        new(ScenarioBuilder.Sample().WithDeletePreview(preview));
 
     // A fourth profile of Skyrim that has no snapshot yet, so its first one is whatever the folders hold.
-    private static FakeBackend WithFirstSnapshotProfile() => new(ScenarioBuilder.Mockup().WithProfile(
-        new Profile("profile-fresh", MockupScenario.SkyrimId, "Fresh profile", "profile/profile-fresh"),
+    private static FakeBackend WithFirstSnapshotProfile() => new(ScenarioBuilder.Sample().WithProfile(
+        new Profile("profile-fresh", SampleScenario.SkyrimId, "Fresh profile", "profile/profile-fresh"),
         new ProfileRowStats("profile-fresh", false, [], 0, null, null, null, null, false, SnapshotNowAvailability.FirstSnapshot)));
 
     private static ProfileDeletePreview Preview(string profileId, int points) =>
@@ -30,15 +30,15 @@ public class GamesScreenActionsTests
         await rig.Screen.Profiles[1].PlayCommand.ExecuteAsync(null);
 
         var begun = Assert.Single(rig.LaunchFlow!.Begun);
-        Assert.Equal(MockupScenario.SkyrimId, begun.GameId);
-        Assert.Equal(new LaunchTarget.ProfileTip(MockupScenario.VanillaId), begun.Target);
+        Assert.Equal(SampleScenario.SkyrimId, begun.GameId);
+        Assert.Equal(new LaunchTarget.ProfileTip(SampleScenario.VanillaId), begun.Target);
     }
 
     [Fact]
     public async Task Play_does_nothing_while_the_game_has_a_session()
     {
         var rig = await GamesRig.StartAsync();
-        rig.LaunchFlow!.SetActive(MockupScenario.SkyrimId, true);
+        rig.LaunchFlow!.SetActive(SampleScenario.SkyrimId, true);
 
         await rig.Screen.Profiles[0].PlayCommand.ExecuteAsync(null);
 
@@ -55,8 +55,8 @@ public class GamesScreenActionsTests
         await rig.Screen.Profiles[1].SwitchCommand.ExecuteAsync(null);
 
         var begun = Assert.Single(rig.LaunchFlow!.BegunSwitches);
-        Assert.Equal(MockupScenario.SkyrimId, begun.GameId);
-        Assert.Equal(new LaunchTarget.ProfileTip(MockupScenario.VanillaId), begun.Target);
+        Assert.Equal(SampleScenario.SkyrimId, begun.GameId);
+        Assert.Equal(new LaunchTarget.ProfileTip(SampleScenario.VanillaId), begun.Target);
         Assert.Empty(rig.LaunchFlow.Begun);
     }
 
@@ -64,7 +64,7 @@ public class GamesScreenActionsTests
     public async Task Switch_does_nothing_while_the_game_has_a_session()
     {
         var rig = await GamesRig.StartAsync();
-        rig.LaunchFlow!.SetActive(MockupScenario.SkyrimId, true);
+        rig.LaunchFlow!.SetActive(SampleScenario.SkyrimId, true);
 
         await rig.Screen.Profiles[0].SwitchCommand.ExecuteAsync(null);
 
@@ -82,7 +82,7 @@ public class GamesScreenActionsTests
         await rig.Screen.Profiles[0].TakeSnapshotCommand.ExecuteAsync(null);
 
         var call = Assert.Single(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CaptureAsync)));
-        Assert.Equal([MockupScenario.SkyrimId, MockupScenario.ModdedId, "Snapshot - 7-8-26", null], call.Args);
+        Assert.Equal([SampleScenario.SkyrimId, SampleScenario.ModdedId, "Snapshot - 7-8-26", null], call.Args);
         Assert.Empty(rig.Dialogs.Confirmations);
     }
 
@@ -90,7 +90,7 @@ public class GamesScreenActionsTests
     public async Task A_snapshot_the_api_refuses_to_start_is_shown_as_a_toast()
     {
         var rig = await GamesRig.StartAsync();
-        rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.CaptureAsync), MockupScenario.SavesOutOfRoomError);
+        rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.CaptureAsync), SampleScenario.SavesOutOfRoomError);
 
         await rig.Screen.Profiles[0].TakeSnapshotCommand.ExecuteAsync(null);
 
@@ -134,7 +134,7 @@ public class GamesScreenActionsTests
         Assert.Equal("Fresh profile has no snapshot yet of at least one of your game folders. Its first snapshot of each is a copy of what the folder holds right now. If a folder holds another profile's files, that is what Fresh profile starts with there, and the folder then belongs to Fresh profile.", question.Message);
         Assert.Equal("Take the snapshot", question.ConfirmLabel);
         var call = Assert.Single(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CaptureAsync)));
-        Assert.Equal([MockupScenario.SkyrimId, "profile-fresh", "Snapshot - 7-8-26", null], call.Args);
+        Assert.Equal([SampleScenario.SkyrimId, "profile-fresh", "Snapshot - 7-8-26", null], call.Args);
     }
 
     [Fact]
@@ -153,7 +153,7 @@ public class GamesScreenActionsTests
     public async Task A_refusal_for_a_profile_that_is_not_loaded_offers_to_switch_to_it()
     {
         var rig = await GamesRig.StartAsync();
-        rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.CaptureAsync), ErrorInfo.From(new ProfileNotLoadedException(MockupScenario.ModdedId, RepoRole.External)));
+        rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.CaptureAsync), ErrorInfo.From(new ProfileNotLoadedException(SampleScenario.ModdedId, RepoRole.External)));
         rig.Dialogs.AnswerConfirm(true);
 
         await rig.Screen.Profiles[0].TakeSnapshotCommand.ExecuteAsync(null);
@@ -166,7 +166,7 @@ public class GamesScreenActionsTests
         Assert.Equal("Switch to this profile", offer.ConfirmLabel);
         Assert.Empty(rig.ToastTexts);
         var begun = Assert.Single(rig.LaunchFlow!.BegunSwitches);
-        Assert.Equal(new LaunchTarget.ProfileTip(MockupScenario.ModdedId), begun.Target);
+        Assert.Equal(new LaunchTarget.ProfileTip(SampleScenario.ModdedId), begun.Target);
         Assert.Empty(rig.LaunchFlow.Begun);
     }
 
@@ -174,7 +174,7 @@ public class GamesScreenActionsTests
     public async Task Declining_the_offer_to_switch_leaves_things_as_they_are()
     {
         var rig = await GamesRig.StartAsync();
-        rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.CaptureAsync), ErrorInfo.From(new ProfileNotLoadedException(MockupScenario.ModdedId, RepoRole.External)));
+        rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.CaptureAsync), ErrorInfo.From(new ProfileNotLoadedException(SampleScenario.ModdedId, RepoRole.External)));
         rig.Dialogs.AnswerConfirm(false);
 
         await rig.Screen.Profiles[0].TakeSnapshotCommand.ExecuteAsync(null);
@@ -187,7 +187,7 @@ public class GamesScreenActionsTests
     public async Task Take_a_snapshot_now_does_nothing_while_the_game_has_a_session()
     {
         var rig = await GamesRig.StartAsync();
-        rig.LaunchFlow!.SetActive(MockupScenario.SkyrimId, true);
+        rig.LaunchFlow!.SetActive(SampleScenario.SkyrimId, true);
 
         Assert.False(rig.Screen.Profiles[0].TakeSnapshotCommand.CanExecute(null));
         await rig.Screen.Profiles[0].TakeSnapshotCommand.ExecuteAsync(null);
@@ -276,7 +276,7 @@ public class GamesScreenActionsTests
         wizard.KeepWorkingCommand.Execute(null);
         await shown.Soon();
 
-        rig.Backend.Jobs.Fail(rig.Backend.Jobs.LastStarted(JobKind.Capture).JobId, MockupScenario.SavesOutOfRoomError);
+        rig.Backend.Jobs.Fail(rig.Backend.Jobs.LastStarted(JobKind.Capture).JobId, SampleScenario.SavesOutOfRoomError);
 
         Assert.Equal(["Something went wrong taking a snapshot of Skyrim Special Edition."], rig.ToastTexts);
         Assert.True(Assert.Single(rig.Toasts.Toasts).HasDetails);
@@ -310,7 +310,7 @@ public class GamesScreenActionsTests
         await shown.Soon();
 
         var call = Assert.Single(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.UpdateAsync)));
-        Assert.Equal([MockupScenario.SkyrimId, MockupScenario.VanillaId, new ProfileChanges("Vanilla, tidied", "Before the survival patch", "1.6.1170-patched")], call.Args);
+        Assert.Equal([SampleScenario.SkyrimId, SampleScenario.VanillaId, new ProfileChanges("Vanilla, tidied", "Before the survival patch", "1.6.1170-patched")], call.Args);
         Assert.Equal("Vanilla, tidied", rig.Screen.Profiles[1].Name);
         Assert.Equal("1.6.1170-patched", rig.Screen.Profiles[1].VersionText);
         Assert.Equal("Before the survival patch", rig.Screen.Profiles[1].Notes);
@@ -335,7 +335,7 @@ public class GamesScreenActionsTests
     public async Task A_refused_edit_leaves_the_dialog_open_and_the_table_alone()
     {
         var rig = await GamesRig.StartAsync();
-        rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.UpdateAsync), MockupScenario.SavesOutOfRoomError);
+        rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.UpdateAsync), SampleScenario.SavesOutOfRoomError);
 
         var shown = rig.Screen.Profiles[1].EditCommand.ExecuteAsync(null);
         var dialog = Assert.IsType<EditProfileDialogViewModel>(Assert.Single(rig.Dialogs.Shown));
@@ -365,7 +365,7 @@ public class GamesScreenActionsTests
         await shown.Soon();
 
         var call = Assert.Single(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.DuplicateAsync)));
-        Assert.Equal([MockupScenario.SkyrimId, MockupScenario.VanillaId, "Vanilla for testing"], call.Args);
+        Assert.Equal([SampleScenario.SkyrimId, SampleScenario.VanillaId, "Vanilla for testing"], call.Args);
         Assert.Equal(["Modded playthrough - 7-2-26", "Vanilla - latest update", "Survival test - 5-14-26", "Vanilla for testing"], rig.Screen.Profiles.Select(row => row.Name));
         Assert.Equal("1.6.1170", rig.Screen.Profiles[3].VersionText);
     }
@@ -388,7 +388,7 @@ public class GamesScreenActionsTests
     [Fact]
     public async Task Deleting_a_profile_with_nothing_only_it_holds_asks_a_plain_question()
     {
-        var rig = await GamesRig.StartAsync(WithDeletePreview(Preview(MockupScenario.VanillaId, 0)));
+        var rig = await GamesRig.StartAsync(WithDeletePreview(Preview(SampleScenario.VanillaId, 0)));
 
         await rig.Screen.Profiles[1].DeleteCommand.ExecuteAsync(null);
 
@@ -406,7 +406,7 @@ public class GamesScreenActionsTests
     [InlineData(4, "4 snapshots are only in this profile. Deleting it deletes those snapshots for good and frees the space soon after. This can't be undone.")]
     public async Task Deleting_a_profile_names_how_many_points_only_it_holds(int points, string message)
     {
-        var rig = await GamesRig.StartAsync(WithDeletePreview(Preview(MockupScenario.VanillaId, points)));
+        var rig = await GamesRig.StartAsync(WithDeletePreview(Preview(SampleScenario.VanillaId, points)));
 
         await rig.Screen.Profiles[1].DeleteCommand.ExecuteAsync(null);
 
@@ -420,7 +420,7 @@ public class GamesScreenActionsTests
     [InlineData(0, 4, "4 snapshots are only in this profile. Deleting the profile puts them in Recently removed until you next free up space. Nothing is deleted for good.")]
     public async Task Deleting_a_profile_whose_snapshots_go_back_to_Recently_removed_says_which_are_deleted_for_good_and_which_are_not(int forGood, int back, string message)
     {
-        var preview = new ProfileDeletePreview(MockupScenario.VanillaId, forGood, [new FolderPointLoss(RepoRole.Install, forGood, null)], null, back);
+        var preview = new ProfileDeletePreview(SampleScenario.VanillaId, forGood, [new FolderPointLoss(RepoRole.Install, forGood, null)], null, back);
         var rig = await GamesRig.StartAsync(WithDeletePreview(preview));
 
         await rig.Screen.Profiles[1].DeleteCommand.ExecuteAsync(null);
@@ -431,7 +431,7 @@ public class GamesScreenActionsTests
     [Fact]
     public async Task Declining_the_question_deletes_nothing()
     {
-        var rig = await GamesRig.StartAsync(WithDeletePreview(Preview(MockupScenario.VanillaId, 2)));
+        var rig = await GamesRig.StartAsync(WithDeletePreview(Preview(SampleScenario.VanillaId, 2)));
         rig.Dialogs.AnswerConfirm(false);
 
         await rig.Screen.Profiles[1].DeleteCommand.ExecuteAsync(null);
@@ -455,14 +455,14 @@ public class GamesScreenActionsTests
         Assert.Empty(rig.ToastTexts);
         Assert.Empty(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.DeleteAsync)));
         var begun = Assert.Single(rig.LaunchFlow!.BegunSwitches);
-        Assert.Equal(new LaunchTarget.ProfileTip(MockupScenario.VanillaId), begun.Target);
+        Assert.Equal(new LaunchTarget.ProfileTip(SampleScenario.VanillaId), begun.Target);
     }
 
     [Fact]
     public async Task A_running_game_refuses_the_delete_with_the_running_game_copy()
     {
         var rig = await GamesRig.StartAsync();
-        FakeAssert.Ok(await rig.Backend.Launch.StartAsync(MockupScenario.SkyrimId, new LaunchTarget.ProfileTip(MockupScenario.ModdedId)));
+        FakeAssert.Ok(await rig.Backend.Launch.StartAsync(SampleScenario.SkyrimId, new LaunchTarget.ProfileTip(SampleScenario.ModdedId)));
 
         await rig.Screen.Profiles[1].DeleteCommand.ExecuteAsync(null);
 
@@ -473,8 +473,8 @@ public class GamesScreenActionsTests
     [Fact]
     public async Task A_delete_the_api_refuses_after_the_question_says_why_and_keeps_the_row()
     {
-        var rig = await GamesRig.StartAsync(WithDeletePreview(Preview(MockupScenario.VanillaId, 0)));
-        rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.DeleteAsync), MockupScenario.FileInUseError);
+        var rig = await GamesRig.StartAsync(WithDeletePreview(Preview(SampleScenario.VanillaId, 0)));
+        rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.DeleteAsync), SampleScenario.FileInUseError);
 
         await rig.Screen.Profiles[1].DeleteCommand.ExecuteAsync(null);
 
@@ -487,7 +487,7 @@ public class GamesScreenActionsTests
     public async Task A_preview_that_cannot_be_read_says_so_and_asks_nothing()
     {
         var rig = await GamesRig.StartAsync();
-        rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.GetDeletePreviewAsync), MockupScenario.FileInUseError);
+        rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.GetDeletePreviewAsync), SampleScenario.FileInUseError);
 
         await rig.Screen.Profiles[1].DeleteCommand.ExecuteAsync(null);
 
@@ -521,7 +521,7 @@ public class GamesScreenActionsTests
     [Fact]
     public async Task A_game_with_no_profiles_says_so_in_the_question()
     {
-        var rig = await GamesRig.StartAsync(new FakeBackend(ScenarioBuilder.Empty().WithSettings(MockupScenario.Settings).WithGame(MockupScenario.Caretaker)));
+        var rig = await GamesRig.StartAsync(new FakeBackend(ScenarioBuilder.Empty().WithSettings(SampleScenario.Settings).WithGame(SampleScenario.Caretaker)));
 
         await rig.Screen.DeleteGameCommand.ExecuteAsync(null);
 
@@ -546,7 +546,7 @@ public class GamesScreenActionsTests
     public async Task A_game_with_an_active_session_cannot_be_deleted_and_nothing_is_asked()
     {
         var rig = await GamesRig.StartAsync();
-        rig.LaunchFlow!.SetActive(MockupScenario.SkyrimId, true);
+        rig.LaunchFlow!.SetActive(SampleScenario.SkyrimId, true);
 
         await rig.Screen.DeleteGameCommand.ExecuteAsync(null);
 
@@ -559,7 +559,7 @@ public class GamesScreenActionsTests
     public async Task A_delete_the_api_refuses_shows_its_copy_and_keeps_the_game()
     {
         var rig = await GamesRig.StartAsync();
-        FakeAssert.Ok(await rig.Backend.Launch.StartAsync(MockupScenario.SkyrimId, new LaunchTarget.ProfileTip(MockupScenario.ModdedId)));
+        FakeAssert.Ok(await rig.Backend.Launch.StartAsync(SampleScenario.SkyrimId, new LaunchTarget.ProfileTip(SampleScenario.ModdedId)));
 
         await rig.Screen.DeleteGameCommand.ExecuteAsync(null);
 
@@ -571,7 +571,7 @@ public class GamesScreenActionsTests
     [Fact]
     public async Task Deleting_the_only_game_leaves_the_screen_without_a_game()
     {
-        var rig = await GamesRig.StartAsync(new FakeBackend(ScenarioBuilder.Empty().WithSettings(MockupScenario.Settings).WithGame(MockupScenario.Caretaker, 1)));
+        var rig = await GamesRig.StartAsync(new FakeBackend(ScenarioBuilder.Empty().WithSettings(SampleScenario.Settings).WithGame(SampleScenario.Caretaker, 1)));
 
         await rig.Screen.DeleteGameCommand.ExecuteAsync(null);
 

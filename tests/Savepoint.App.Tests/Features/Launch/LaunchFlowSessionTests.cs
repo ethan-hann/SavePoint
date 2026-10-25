@@ -25,11 +25,11 @@ public class LaunchFlowSessionTests : IDisposable
         Assert.True(progress.IsIndeterminate);
         Assert.False(progress.IsClosed);
 
-        _f.Backend.Launch.ReportSwitching(FlowRig.Skyrim, MockupScenario.SwitchProgress);
+        _f.Backend.Launch.ReportSwitching(FlowRig.Skyrim, SampleScenario.SwitchProgress);
         Assert.Equal("3.8 GB of 6.1 GB · about 50 seconds left", progress.ProgressText);
         Assert.Equal("62%", progress.PercentText);
 
-        _f.Backend.Launch.ReportRunning(FlowRig.Skyrim, MockupScenario.RunningSince);
+        _f.Backend.Launch.ReportRunning(FlowRig.Skyrim, SampleScenario.RunningSince);
 
         Assert.True(progress.IsClosed);
         Assert.Single(_f.Dialogs.Shown.OfType<SwitchProgressDialogViewModel>());
@@ -64,7 +64,7 @@ public class LaunchFlowSessionTests : IDisposable
     public async Task A_cancel_the_service_refuses_puts_the_dialog_back_and_tells_the_user()
     {
         await _f.PlayWithProgressAsync();
-        _f.Backend.FailNext<IJobsApi>(nameof(IJobsApi.CancelAsync), MockupScenario.FolderGoneError);
+        _f.Backend.FailNext<IJobsApi>(nameof(IJobsApi.CancelAsync), SampleScenario.FolderGoneError);
 
         await _f.Progress.CancelCommand.ExecuteAsync(null);
 
@@ -78,7 +78,7 @@ public class LaunchFlowSessionTests : IDisposable
         await _f.PlayWithProgressAsync();
         var first = _f.Progress;
 
-        _f.Backend.Launch.FailLaunch(FlowRig.Skyrim, MockupScenario.FileInUseError);
+        _f.Backend.Launch.FailLaunch(FlowRig.Skyrim, SampleScenario.FileInUseError);
 
         Assert.True(first.IsClosed);
         var card = _f.Inline<ErrorCardViewModel>();
@@ -103,7 +103,7 @@ public class LaunchFlowSessionTests : IDisposable
     {
         await _f.PlayModdedAsync();
 
-        _f.Backend.Launch.FailLaunch(FlowRig.Skyrim, MockupScenario.FileInUseError);
+        _f.Backend.Launch.FailLaunch(FlowRig.Skyrim, SampleScenario.FileInUseError);
 
         Assert.Equal("A file is in use, so the switch stopped partway", _f.Inline<ErrorCardViewModel>().Title);
     }
@@ -130,7 +130,7 @@ public class LaunchFlowSessionTests : IDisposable
     {
         await _f.PlayModdedAsync();
 
-        _f.Backend.Launch.FailLaunch(FlowRig.Skyrim, MockupScenario.FolderGoneError);
+        _f.Backend.Launch.FailLaunch(FlowRig.Skyrim, SampleScenario.FolderGoneError);
 
         var card = _f.Inline<ErrorCardViewModel>();
         Assert.Equal("This game's folder has moved or is gone", card.Title);
@@ -142,9 +142,9 @@ public class LaunchFlowSessionTests : IDisposable
     [Fact]
     public async Task A_folder_the_game_definition_gets_wrong_offers_to_edit_the_game()
     {
-        var unconfirmed = ErrorInfo.From(new ConsentMarkerException(ConsentFailure.Missing, MockupScenario.SkyrimInstall, RepoRole.Install, null, null));
-        var foreign = ErrorInfo.From(new ConsentMarkerException(ConsentFailure.Conflict, MockupScenario.SkyrimInstall, RepoRole.Install, MockupScenario.SatisfactoryId, RepoRole.Install));
-        foreach (var error in new[] { unconfirmed, foreign, MockupScenario.FolderTooBroadError })
+        var unconfirmed = ErrorInfo.From(new ConsentMarkerException(ConsentFailure.Missing, SampleScenario.SkyrimInstall, RepoRole.Install, null, null));
+        var foreign = ErrorInfo.From(new ConsentMarkerException(ConsentFailure.Conflict, SampleScenario.SkyrimInstall, RepoRole.Install, SampleScenario.SatisfactoryId, RepoRole.Install));
+        foreach (var error in new[] { unconfirmed, foreign, SampleScenario.FolderTooBroadError })
         {
             await _f.PlayModdedAsync();
             _f.Backend.Launch.FailLaunch(FlowRig.Skyrim, error);
@@ -194,7 +194,7 @@ public class LaunchFlowSessionTests : IDisposable
         await card.DonePlayingCommand.ExecuteAsync(null);
         Assert.Single(_f.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.MarkFinishedAsync)));
 
-        _f.Backend.Launch.ReportExited(FlowRig.Skyrim, MockupScenario.PlayDuration, MockupScenario.NewSaveFiles);
+        _f.Backend.Launch.ReportExited(FlowRig.Skyrim, SampleScenario.PlayDuration, SampleScenario.NewSaveFiles);
 
         Assert.Null(_f.Flow.InlineContentFor(FlowRig.Skyrim));
         Assert.Equal(0, _f.Rig.Clock.ActiveTimers);
@@ -218,7 +218,7 @@ public class LaunchFlowSessionTests : IDisposable
     [Fact]
     public async Task With_session_capture_off_nothing_is_asked_and_nothing_is_captured()
     {
-        FakeAssert.Ok(await _f.Backend.Settings.SaveAsync(MockupScenario.Settings with { ConfirmSessionCapture = false }));
+        FakeAssert.Ok(await _f.Backend.Settings.SaveAsync(SampleScenario.Settings with { ConfirmSessionCapture = false }));
 
         await _f.PlayToExitedAsync();
 
@@ -233,10 +233,10 @@ public class LaunchFlowSessionTests : IDisposable
     [Fact]
     public async Task A_setting_that_cannot_be_read_means_the_player_is_asked()
     {
-        FakeAssert.Ok(await _f.Backend.Settings.SaveAsync(MockupScenario.Settings with { ConfirmSessionCapture = false }));
+        FakeAssert.Ok(await _f.Backend.Settings.SaveAsync(SampleScenario.Settings with { ConfirmSessionCapture = false }));
         await _f.PlayToRunningAsync();
-        _f.Backend.FailNext<ISettingsApi>(nameof(ISettingsApi.GetAsync), MockupScenario.FolderGoneError);
-        _f.Backend.Launch.ReportExited(FlowRig.Skyrim, MockupScenario.PlayDuration, 3);
+        _f.Backend.FailNext<ISettingsApi>(nameof(ISettingsApi.GetAsync), SampleScenario.FolderGoneError);
+        _f.Backend.Launch.ReportExited(FlowRig.Skyrim, SampleScenario.PlayDuration, 3);
 
         Assert.Single(_f.Dialogs.Shown.OfType<PostPlayDialogViewModel>());
     }
@@ -311,7 +311,7 @@ public class LaunchFlowSessionTests : IDisposable
 
         _f.Backend.Jobs.Complete(
             CaptureJob(),
-            new CaptureResult(MockupScenario.ModdedId, MockupScenario.BeforeFinalBoss, [new FolderOutcome(RepoRole.Install), new FolderOutcome(RepoRole.External, null, LeftAlone: true, LeftOnBranch: "profile/other")]));
+            new CaptureResult(SampleScenario.ModdedId, SampleScenario.BeforeFinalBoss, [new FolderOutcome(RepoRole.Install), new FolderOutcome(RepoRole.External, null, LeftAlone: true, LeftOnBranch: "profile/other")]));
 
         var card = _f.Inline<ErrorCardViewModel>();
         Assert.Equal("Part of that session isn't in the snapshot", card.Title);
@@ -332,7 +332,7 @@ public class LaunchFlowSessionTests : IDisposable
 
         _f.Backend.Jobs.Complete(
             CaptureJob(),
-            new CaptureResult(MockupScenario.ModdedId, MockupScenario.BeforeFinalBoss, [new FolderOutcome(RepoRole.Install, KeptAsNew: kept == RepoRole.Install), new FolderOutcome(RepoRole.External, KeptAsNew: kept == RepoRole.External)]));
+            new CaptureResult(SampleScenario.ModdedId, SampleScenario.BeforeFinalBoss, [new FolderOutcome(RepoRole.Install, KeptAsNew: kept == RepoRole.Install), new FolderOutcome(RepoRole.External, KeptAsNew: kept == RepoRole.External)]));
 
         var card = _f.Inline<ErrorCardViewModel>();
         Assert.Equal("Kept as a new snapshot", card.Title);
@@ -349,7 +349,7 @@ public class LaunchFlowSessionTests : IDisposable
 
         _f.Backend.Jobs.Complete(
             CaptureJob(),
-            new CaptureResult(MockupScenario.ModdedId, MockupScenario.BeforeFinalBoss, [new FolderOutcome(RepoRole.Install, KeptAsNew: true), new FolderOutcome(RepoRole.External, null, LeftAlone: true, LeftOnBranch: "profile/other")]));
+            new CaptureResult(SampleScenario.ModdedId, SampleScenario.BeforeFinalBoss, [new FolderOutcome(RepoRole.Install, KeptAsNew: true), new FolderOutcome(RepoRole.External, null, LeftAlone: true, LeftOnBranch: "profile/other")]));
 
         var card = _f.Inline<ErrorCardViewModel>();
         Assert.Equal("Part of that session isn't in the snapshot", card.Title);
@@ -369,9 +369,9 @@ public class LaunchFlowSessionTests : IDisposable
         _f.Backend.Jobs.Complete(
             CaptureJob(),
             new CaptureResult(
-                MockupScenario.ModdedId,
-                MockupScenario.BeforeFinalBoss,
-                [new FolderOutcome(RepoRole.Install, MockupScenario.SavesOutOfRoomError), new FolderOutcome(RepoRole.External, null, LeftAlone: true, LeftOnBranch: "profile/other")]));
+                SampleScenario.ModdedId,
+                SampleScenario.BeforeFinalBoss,
+                [new FolderOutcome(RepoRole.Install, SampleScenario.SavesOutOfRoomError), new FolderOutcome(RepoRole.External, null, LeftAlone: true, LeftOnBranch: "profile/other")]));
 
         var card = _f.Inline<ErrorCardViewModel>();
         Assert.Equal("SavePoint couldn't take a snapshot of that session", card.Title);
@@ -394,9 +394,9 @@ public class LaunchFlowSessionTests : IDisposable
         _f.Backend.Jobs.Complete(
             CaptureJob(),
             new CaptureResult(
-                MockupScenario.ModdedId,
-                MockupScenario.BeforeFinalBoss,
-                [new FolderOutcome(RepoRole.Install, null, LeftAlone: true, LeftOnBranch: "profile/other"), new FolderOutcome(RepoRole.External, MockupScenario.SavesOutOfRoomError)]));
+                SampleScenario.ModdedId,
+                SampleScenario.BeforeFinalBoss,
+                [new FolderOutcome(RepoRole.Install, null, LeftAlone: true, LeftOnBranch: "profile/other"), new FolderOutcome(RepoRole.External, SampleScenario.SavesOutOfRoomError)]));
 
         var card = _f.Inline<ErrorCardViewModel>();
         Assert.StartsWith("Your saves aren't in the snapshot yet. There's not enough free disk space", card.Body, StringComparison.Ordinal);
@@ -415,9 +415,9 @@ public class LaunchFlowSessionTests : IDisposable
         _f.Backend.Jobs.Complete(
             CaptureJob(),
             new CaptureResult(
-                MockupScenario.ModdedId,
-                MockupScenario.BeforeFinalBoss,
-                [new FolderOutcome(RepoRole.Install, null, Skipped: true), new FolderOutcome(RepoRole.External, MockupScenario.SavesOutOfRoomError)]));
+                SampleScenario.ModdedId,
+                SampleScenario.BeforeFinalBoss,
+                [new FolderOutcome(RepoRole.Install, null, Skipped: true), new FolderOutcome(RepoRole.External, SampleScenario.SavesOutOfRoomError)]));
 
         var card = _f.Inline<ErrorCardViewModel>();
         Assert.Equal("Only part of the snapshot was taken", card.Title);
@@ -433,7 +433,7 @@ public class LaunchFlowSessionTests : IDisposable
         await _f.PlayToExitedAsync();
         await _f.PostPlay.SaveCommand.ExecuteAsync(null);
 
-        _f.Backend.Jobs.Complete(CaptureJob(), MockupScenario.HalfSaved);
+        _f.Backend.Jobs.Complete(CaptureJob(), SampleScenario.HalfSaved);
 
         var card = _f.Inline<ErrorCardViewModel>();
         Assert.Equal("Only part of the snapshot was taken", card.Title);
@@ -454,7 +454,7 @@ public class LaunchFlowSessionTests : IDisposable
     {
         await _f.PlayToExitedAsync();
         await _f.PostPlay.SaveCommand.ExecuteAsync(null);
-        _f.Backend.Jobs.Complete(CaptureJob(), MockupScenario.HalfSaved);
+        _f.Backend.Jobs.Complete(CaptureJob(), SampleScenario.HalfSaved);
 
         FlowRig.Press(_f.Inline<ErrorCardViewModel>(), "Retry the saves");
 
@@ -463,7 +463,7 @@ public class LaunchFlowSessionTests : IDisposable
         Assert.IsType<LaunchSavingViewModel>(_f.Flow.InlineContentFor(FlowRig.Skyrim));
         Assert.True(_f.Flow.IsActive(FlowRig.Skyrim));
 
-        _f.Backend.Jobs.Complete(CaptureJob(), new CaptureResult(MockupScenario.ModdedId, MockupScenario.BeforeFinalBoss, [new FolderOutcome(RepoRole.External)]));
+        _f.Backend.Jobs.Complete(CaptureJob(), new CaptureResult(SampleScenario.ModdedId, SampleScenario.BeforeFinalBoss, [new FolderOutcome(RepoRole.External)]));
 
         Assert.Null(_f.Flow.InlineContentFor(FlowRig.Skyrim));
         Assert.False(_f.Flow.IsActive(FlowRig.Skyrim));
@@ -474,10 +474,10 @@ public class LaunchFlowSessionTests : IDisposable
     {
         await _f.PlayToExitedAsync();
         await _f.PostPlay.SaveCommand.ExecuteAsync(null);
-        _f.Backend.Jobs.Complete(CaptureJob(), MockupScenario.HalfSaved);
+        _f.Backend.Jobs.Complete(CaptureJob(), SampleScenario.HalfSaved);
         FlowRig.Press(_f.Inline<ErrorCardViewModel>(), "Retry the saves");
 
-        _f.Backend.Jobs.Complete(CaptureJob(), new CaptureResult(MockupScenario.ModdedId, null, [new FolderOutcome(RepoRole.External, MockupScenario.SavesOutOfRoomError)]));
+        _f.Backend.Jobs.Complete(CaptureJob(), new CaptureResult(SampleScenario.ModdedId, null, [new FolderOutcome(RepoRole.External, SampleScenario.SavesOutOfRoomError)]));
 
         Assert.Equal("There isn't enough room", _f.Inline<ErrorCardViewModel>().Title);
         Assert.False(_f.Flow.IsActive(FlowRig.Skyrim));
@@ -488,9 +488,9 @@ public class LaunchFlowSessionTests : IDisposable
     {
         await _f.PlayToExitedAsync();
         await _f.PostPlay.SaveCommand.ExecuteAsync(null);
-        _f.Backend.Jobs.Complete(CaptureJob(), MockupScenario.HalfSaved);
+        _f.Backend.Jobs.Complete(CaptureJob(), SampleScenario.HalfSaved);
         var card = _f.Inline<ErrorCardViewModel>();
-        _f.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.RetryCompletionAsync), MockupScenario.SavesOutOfRoomError);
+        _f.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.RetryCompletionAsync), SampleScenario.SavesOutOfRoomError);
 
         FlowRig.Press(card, "Retry the saves");
 
@@ -505,7 +505,7 @@ public class LaunchFlowSessionTests : IDisposable
         await _f.PlayToExitedAsync();
         await _f.PostPlay.SaveCommand.ExecuteAsync(null);
 
-        _f.Backend.Jobs.Fail(CaptureJob(), MockupScenario.SavesOutOfRoomError);
+        _f.Backend.Jobs.Fail(CaptureJob(), SampleScenario.SavesOutOfRoomError);
 
         var card = _f.Inline<ErrorCardViewModel>();
         Assert.Equal("There isn't enough room", card.Title);
@@ -547,7 +547,7 @@ public class LaunchFlowSessionTests : IDisposable
     public async Task A_post_play_choice_refused_over_a_held_file_is_worded_for_a_snapshot()
     {
         await _f.PlayToExitedAsync();
-        _f.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.CompleteSessionAsync), MockupScenario.FileInUseError);
+        _f.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.CompleteSessionAsync), SampleScenario.FileInUseError);
 
         await _f.PostPlay.SaveCommand.ExecuteAsync(null);
 
@@ -558,8 +558,8 @@ public class LaunchFlowSessionTests : IDisposable
     public async Task Playing_from_an_older_point_offers_a_new_profile_by_default_and_creates_it()
     {
         await _f.PlayWithProgressAsync();
-        _f.Backend.Launch.ReportRunning(FlowRig.Skyrim, MockupScenario.RunningSince);
-        _f.Backend.Launch.ReportExited(FlowRig.Skyrim, MockupScenario.PlayDuration, 2);
+        _f.Backend.Launch.ReportRunning(FlowRig.Skyrim, SampleScenario.RunningSince);
+        _f.Backend.Launch.ReportExited(FlowRig.Skyrim, SampleScenario.PlayDuration, 2);
         var dialog = _f.PostPlay;
         Assert.Equal(CompletionChoice.ForkNewProfile, dialog.SelectedChoice.Kind);
 
@@ -592,7 +592,7 @@ public class LaunchFlowSessionTests : IDisposable
         _f.Dialogs.AnswerConfirm(true);
         await dialog.SaveCommand.ExecuteAsync(null);
 
-        _f.Backend.Jobs.Fail(CaptureJob(), MockupScenario.SavesOutOfRoomError);
+        _f.Backend.Jobs.Fail(CaptureJob(), SampleScenario.SavesOutOfRoomError);
 
         Assert.Equal(["Try again", "Dismiss"], _f.Inline<ErrorCardViewModel>().Actions.Select(a => a.Label));
 

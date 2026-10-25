@@ -180,7 +180,7 @@ public class DecisionPointHelpTests : IDisposable
             explainDiscard: true,
             change: preview => preview with
             {
-                Install = preview.Install with { Dirty = true, DirtyOwnerProfileId = null, UnfinishedSwitch = true, UnfinishedSwitchTarget = new LaunchTarget.ProfileTip(MockupScenario.ModdedId) },
+                Install = preview.Install with { Dirty = true, DirtyOwnerProfileId = null, UnfinishedSwitch = true, UnfinishedSwitchTarget = new LaunchTarget.ProfileTip(SampleScenario.ModdedId) },
             });
 
         var message = await DiscardMessageAsync(dialog, dialog.UnsavedBlocks.Single(block => block.IsUnfinishedSwitch));
@@ -196,15 +196,15 @@ public class DecisionPointHelpTests : IDisposable
         var goBack = Assert.IsAssignableFrom<IAsyncRelayCommand>(app.History.Groups.SelectMany(group => group.Cards).Single(card => card.Name == "Cleared Blackreach").GoBackCommand).ExecuteAsync(null);
         app.Dialog<LaunchDialogViewModel>().SwitchCommand.Execute(null);
         await goBack.Soon();
-        app.Backend.Launch.ReportRunning(MockupScenario.SkyrimId, MockupScenario.RunningSince);
-        app.Backend.Launch.ReportExited(MockupScenario.SkyrimId, MockupScenario.PlayDuration, MockupScenario.NewSaveFiles);
+        app.Backend.Launch.ReportRunning(SampleScenario.SkyrimId, SampleScenario.RunningSince);
+        app.Backend.Launch.ReportExited(SampleScenario.SkyrimId, SampleScenario.PlayDuration, SampleScenario.NewSaveFiles);
         return app.Dialog<PostPlayDialogViewModel>();
     }
 
     [Fact]
     public async Task The_flow_opens_the_older_snapshot_explanation_for_a_player_who_has_not_seen_it_and_not_again_for_the_next_session()
     {
-        using var app = await ComposedApp.StartAsync(new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { OlderChoiceHelpSeen = false })));
+        using var app = await ComposedApp.StartAsync(new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { OlderChoiceHelpSeen = false })));
 
         var first = await PlayFromOlderAsync(app);
         Assert.True(first.OlderChoiceHelp!.IsOpen);
@@ -218,7 +218,7 @@ public class DecisionPointHelpTests : IDisposable
     [Fact]
     public async Task A_player_whose_settings_say_it_was_already_explained_never_sees_it_open_by_itself()
     {
-        using var app = await ComposedApp.StartAsync(new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { OlderChoiceHelpSeen = true, ReplaceHelpSeen = true })));
+        using var app = await ComposedApp.StartAsync(new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { OlderChoiceHelpSeen = true, ReplaceHelpSeen = true })));
 
         var dialog = await PlayFromOlderAsync(app);
 
@@ -232,12 +232,12 @@ public class DecisionPointHelpTests : IDisposable
         app.Dialogs.AnswerConfirm(false, false);
 
         // The play command finishes only when the dialog does, so it is awaited after the dialog is cancelled.
-        var firstPlay = app.Games.Profiles.Single(row => row.Id == MockupScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
+        var firstPlay = app.Games.Profiles.Single(row => row.Id == SampleScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
         await app.Dialog<LaunchDialogViewModel>().UnsavedBlocks[0].DiscardCommand.ExecuteAsync(null);
         var first = app.Dialogs.Confirmations[^1].Message;
         app.Dialog<LaunchDialogViewModel>().CancelCommand.Execute(null);
         await firstPlay.Soon();
-        var secondPlay = app.Games.Profiles.Single(row => row.Id == MockupScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
+        var secondPlay = app.Games.Profiles.Single(row => row.Id == SampleScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
         await app.Dialog<LaunchDialogViewModel>().UnsavedBlocks[0].DiscardCommand.ExecuteAsync(null);
         var second = app.Dialogs.Confirmations[^1].Message;
         app.Dialog<LaunchDialogViewModel>().CancelCommand.Execute(null);

@@ -72,7 +72,7 @@ public class AboutLogFolderTests
     [Fact]
     public void The_running_apps_settings_take_the_log_folder_and_the_file_manager_from_the_services()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var revealer = new RecordingFileRevealer();
         var services = new AppServices(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus, backend.Artwork)
         {
@@ -91,7 +91,7 @@ public class AboutLogFolderTests
             "settings",
             context => [new SettingsScreenFactory(context, new SettingsEnvironment(new RecordingFileRevealer(), () => @"C:\SavePoint\THIRD-PARTY-NOTICES.md", "1.2.3", logFolder))],
             NavDestination.Settings,
-            FakeBackend.Mockup(),
+            FakeBackend.Sample(),
             Savepoint.Core.Catalog.ThemePreference.Dark,
             1040,
             660,

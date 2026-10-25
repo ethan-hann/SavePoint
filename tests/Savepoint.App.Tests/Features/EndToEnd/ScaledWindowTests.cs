@@ -16,9 +16,9 @@ public class ScaledWindowTests
     public async Task A_card_that_appears_below_the_table_is_scrolled_into_view_in_a_short_window()
     {
         using var app = await ComposedApp.StartWithViewAsync(width: 910, height: 432);
-        app.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync), MockupScenario.FileInUseError);
+        app.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync), SampleScenario.FileInUseError);
 
-        _ = app.Games.Profiles.Single(row => row.Id == MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null);
+        _ = app.Games.Profiles.Single(row => row.Id == SampleScenario.ModdedId).PlayCommand.ExecuteAsync(null);
         app.Settle();
 
         var card = app.All<ErrorCardView>().Single();

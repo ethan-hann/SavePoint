@@ -19,7 +19,7 @@ public class MainWindowViewModelTests
 
     private static (MainWindowViewModel Main, FakeBackend Backend, List<ShellViewModel> Shells) Build(FakeBackend? backend = null, ManualTimeProvider? clock = null)
     {
-        backend ??= FakeBackend.Mockup();
+        backend ??= FakeBackend.Sample();
         var shells = new List<ShellViewModel>();
         var toasts = new ToastHostViewModel(clock ?? new ManualTimeProvider(), new ImmediateUiDispatcher());
         var dialogs = new DialogHostViewModel();
@@ -113,7 +113,7 @@ public class MainWindowViewModelTests
     [Fact]
     public async Task While_a_check_fails_the_startup_screen_stays_and_no_shell_is_built()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         backend.FailNext<IAppStatusApi>(nameof(IAppStatusApi.CheckAsync), ErrorInfo.From(new InvalidOperationException("boom")));
         var (main, _, shells) = Build(backend);
 
@@ -126,7 +126,7 @@ public class MainWindowViewModelTests
     [Fact]
     public async Task Getting_past_a_problem_brings_the_shell_up()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         backend.FailNext<IAppStatusApi>(nameof(IAppStatusApi.CheckAsync), ErrorInfo.From(new InvalidOperationException("boom")));
         var (main, _, shells) = Build(backend);
         await main.InitializeAsync();
@@ -172,7 +172,7 @@ public class MainWindowViewModelTests
     [Fact]
     public async Task The_tour_shows_when_the_shell_says_so_and_waits_behind_a_dialog_until_it_closes()
     {
-        var (main, _, _) = Build(new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { TourSeen = false })));
+        var (main, _, _) = Build(new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { TourSeen = false })));
         Assert.False(main.ShowTour);
         await main.InitializeAsync();
         Assert.True(main.ShowTour);

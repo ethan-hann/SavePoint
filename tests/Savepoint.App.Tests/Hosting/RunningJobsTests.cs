@@ -10,10 +10,10 @@ public class RunningJobsTests
     [Fact]
     public async Task Every_running_job_that_can_be_cancelled_is_asked_to_stop_and_the_rest_are_left_alone()
     {
-        var backend = FakeBackend.Mockup();
-        var save = FakeAssert.Ok(await backend.Profiles.CaptureAsync(MockupScenario.SkyrimId, MockupScenario.ModdedId, "A point"));
+        var backend = FakeBackend.Sample();
+        var save = FakeAssert.Ok(await backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "A point"));
         var move = FakeAssert.Ok(await backend.Settings.RelocateStorageAsync(@"E:\SavePoint"));
-        var finished = FakeAssert.Ok(await backend.Profiles.CaptureAsync(MockupScenario.SatisfactoryId, MockupScenario.MainFactoryId, "Another"));
+        var finished = FakeAssert.Ok(await backend.Profiles.CaptureAsync(SampleScenario.SatisfactoryId, SampleScenario.MainFactoryId, "Another"));
         backend.Jobs.Complete(finished.JobId, null);
 
         // The fake never ends a job on its own, so the short wait is all this call spends waiting.
@@ -26,7 +26,7 @@ public class RunningJobsTests
     [Fact]
     public async Task A_job_that_cannot_be_cancelled_is_not_asked()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         FakeAssert.Ok(await backend.Settings.ClearAllDataAsync());
 
         RunningJobs.CancelAll(backend.Jobs, TimeSpan.FromSeconds(5));

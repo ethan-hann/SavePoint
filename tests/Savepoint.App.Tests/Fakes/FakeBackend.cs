@@ -47,7 +47,7 @@ public sealed class FakeBackend
 
     internal FakeState State { get; }
 
-    public static FakeBackend Mockup() => new(ScenarioBuilder.Mockup());
+    public static FakeBackend Sample() => new(ScenarioBuilder.Sample());
 
     public static FakeBackend Empty() => new(ScenarioBuilder.Empty());
 

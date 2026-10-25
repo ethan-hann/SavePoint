@@ -17,7 +17,7 @@ public static class RemovedSnapshotSamples
         "Before the final boss",
         ScenarioBuilder.DefaultNow - TimeSpan.FromDays(2),
         new InstallState("1.6.640", 212),
-        MockupScenario.ModdedId,
+        SampleScenario.ModdedId,
         ModdedName,
         RemovedAt,
         RemovedSnapshotReason.ContinuedFromSession);
@@ -29,7 +29,7 @@ public static class RemovedSnapshotSamples
         "Cleared Blackreach",
         ScenarioBuilder.DefaultNow - TimeSpan.FromDays(3),
         new InstallState("1.6.1170", 0),
-        MockupScenario.VanillaId,
+        SampleScenario.VanillaId,
         VanillaName,
         RemovedAt - TimeSpan.FromDays(1),
         RemovedSnapshotReason.ReplacedWithSession);
@@ -47,8 +47,8 @@ public static class RemovedSnapshotSamples
         RemovedSnapshotReason.ContinuedFromSession);
 
     // The sample scenario, with the first two on Skyrim and the third on Satisfactory.
-    public static ScenarioBuilder Scenario() => ScenarioBuilder.Mockup()
-        .WithRemovedSnapshot(MockupScenario.SkyrimId, Replaced)
-        .WithRemovedSnapshot(MockupScenario.SkyrimId, Continued)
-        .WithRemovedSnapshot(MockupScenario.SatisfactoryId, FromDeletedProfile);
+    public static ScenarioBuilder Scenario() => ScenarioBuilder.Sample()
+        .WithRemovedSnapshot(SampleScenario.SkyrimId, Replaced)
+        .WithRemovedSnapshot(SampleScenario.SkyrimId, Continued)
+        .WithRemovedSnapshot(SampleScenario.SatisfactoryId, FromDeletedProfile);
 }

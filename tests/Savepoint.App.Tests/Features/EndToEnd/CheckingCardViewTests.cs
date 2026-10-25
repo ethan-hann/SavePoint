@@ -17,7 +17,7 @@ public class CheckingCardViewTests
         var release = new TaskCompletionSource();
         app.Backend.Launch.PreviewGate = token => release.Task.WaitAsync(token);
 
-        var play = app.Games.Profiles.Single(row => row.Id == MockupScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
+        var play = app.Games.Profiles.Single(row => row.Id == SampleScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
         app.Settle();
 
         var card = app.All<LaunchCheckingView>().Single();
@@ -49,6 +49,6 @@ public class CheckingCardViewTests
         var texts = app.All<TextBlock>().Where(block => block.IsEffectivelyVisible).Select(block => block.Text).ToList();
         Assert.Contains("410 of 1,000 files", texts);
         Assert.DoesNotContain(app.All<Button>(), button => button.IsEffectivelyVisible && button.Content as string is "Take a snapshot first" or "Discard them");
-        app.Render("launch", "2b-launch-dialog-saving-first");
+        app.Render("launch", "launch-dialog-saving-first");
     }
 }

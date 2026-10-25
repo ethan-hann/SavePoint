@@ -11,7 +11,7 @@ public class LaunchBannerViewModelTests
 {
     private static readonly UiFormatter _text = new(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), os: "windows", timeZone: TimeZoneInfo.Utc);
 
-    private readonly FakeBackend _backend = FakeBackend.Mockup();
+    private readonly FakeBackend _backend = FakeBackend.Sample();
     private readonly FakeDialogs _dialogs = new();
 
     private async Task<LaunchPreview> PreviewAsync(string gameId, LaunchTarget target) =>
@@ -23,7 +23,7 @@ public class LaunchBannerViewModelTests
     [Fact]
     public async Task The_banner_says_everything_was_in_place_and_names_the_profile_and_the_save_that_was_loaded()
     {
-        var banner = Banner(await PreviewAsync(MockupScenario.SkyrimId, new LaunchTarget.ProfileTip(MockupScenario.ModdedId)));
+        var banner = Banner(await PreviewAsync(SampleScenario.SkyrimId, new LaunchTarget.ProfileTip(SampleScenario.ModdedId)));
 
         Assert.Equal("Everything was already in place, so Skyrim Special Edition is starting now", banner.Title);
         Assert.Equal("Modded playthrough - 7-2-26 · saves from \"Before the final boss\"", banner.Detail);
@@ -32,7 +32,7 @@ public class LaunchBannerViewModelTests
     [Fact]
     public async Task Without_a_save_to_name_the_detail_is_just_the_profile()
     {
-        var preview = await PreviewAsync(MockupScenario.SatisfactoryId, new LaunchTarget.ProfileTip(MockupScenario.MainFactoryId));
+        var preview = await PreviewAsync(SampleScenario.SatisfactoryId, new LaunchTarget.ProfileTip(SampleScenario.MainFactoryId));
 
         var banner = Banner(preview, "Satisfactory", "Main factory - 6-1-26");
 
@@ -42,20 +42,20 @@ public class LaunchBannerViewModelTests
     [Fact]
     public async Task The_checks_list_what_was_compared_and_where()
     {
-        var banner = Banner(await PreviewAsync(MockupScenario.SkyrimId, new LaunchTarget.ProfileTip(MockupScenario.ModdedId)));
+        var banner = Banner(await PreviewAsync(SampleScenario.SkyrimId, new LaunchTarget.ProfileTip(SampleScenario.ModdedId)));
 
         Assert.Collection(
             banner.Checks,
             install =>
             {
                 Assert.Equal("Game version and mods: already on 1.6.640 with 212 mod files", install.Text);
-                Assert.Equal(MockupScenario.SkyrimInstall, install.Path);
+                Assert.Equal(SampleScenario.SkyrimInstall, install.Path);
                 Assert.Equal(Icons.CheckCircle, install.Icon);
             },
             saves =>
             {
                 Assert.Equal("Saves: already match \"Before the final boss\"", saves.Text);
-                Assert.Equal(MockupScenario.SkyrimSaves, saves.Path);
+                Assert.Equal(SampleScenario.SkyrimSaves, saves.Path);
             },
             clean =>
             {
@@ -67,7 +67,7 @@ public class LaunchBannerViewModelTests
     [Fact]
     public async Task A_game_with_no_saves_folder_checks_only_the_game_files()
     {
-        var preview = (await PreviewAsync(MockupScenario.SkyrimId, new LaunchTarget.ProfileTip(MockupScenario.ModdedId))) with { External = null, AvailableSaves = [], SelectedSaveId = null };
+        var preview = (await PreviewAsync(SampleScenario.SkyrimId, new LaunchTarget.ProfileTip(SampleScenario.ModdedId))) with { External = null, AvailableSaves = [], SelectedSaveId = null };
 
         var banner = Banner(preview);
 
@@ -80,7 +80,7 @@ public class LaunchBannerViewModelTests
     [Fact]
     public async Task An_install_with_no_known_version_checks_in_general_terms()
     {
-        var preview = (await PreviewAsync(MockupScenario.SkyrimId, new LaunchTarget.ProfileTip(MockupScenario.ModdedId))) with { TargetInstall = new InstallState(null, null) };
+        var preview = (await PreviewAsync(SampleScenario.SkyrimId, new LaunchTarget.ProfileTip(SampleScenario.ModdedId))) with { TargetInstall = new InstallState(null, null) };
 
         var banner = Banner(preview);
 
@@ -90,7 +90,7 @@ public class LaunchBannerViewModelTests
     [Fact]
     public async Task Details_opens_the_checks_in_a_dialog_with_a_close_button()
     {
-        var banner = Banner(await PreviewAsync(MockupScenario.SkyrimId, new LaunchTarget.ProfileTip(MockupScenario.ModdedId)));
+        var banner = Banner(await PreviewAsync(SampleScenario.SkyrimId, new LaunchTarget.ProfileTip(SampleScenario.ModdedId)));
 
         var open = banner.ShowDetailsCommand.ExecuteAsync(null);
 

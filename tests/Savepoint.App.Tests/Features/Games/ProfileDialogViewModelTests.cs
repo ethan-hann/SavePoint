@@ -164,7 +164,7 @@ public class ProfileDialogViewModelTests
     [Fact]
     public async Task Any_other_refusal_shows_the_errors_own_copy()
     {
-        var dialog = Edit(save: _ => Task.FromResult(OperationResult.Failure<Profile>(MockupScenario.SavesOutOfRoomError)));
+        var dialog = Edit(save: _ => Task.FromResult(OperationResult.Failure<Profile>(SampleScenario.SavesOutOfRoomError)));
 
         await dialog.SaveCommand.ExecuteAsync(null);
 

@@ -22,7 +22,7 @@ public class ErrorCardViewTests
     [AvaloniaFact]
     public void The_card_shows_the_headline_the_body_and_the_path_on_its_own_surface()
     {
-        using var shown = Show(new ErrorCardViewModel(MockupScenario.FileInUseError, _text, operation: ErrorOperation.Switch));
+        using var shown = Show(new ErrorCardViewModel(SampleScenario.FileInUseError, _text, operation: ErrorOperation.Switch));
 
         Assert.Equal("A file is in use, so the switch stopped partway", shown.Text("TitleText"));
         Assert.StartsWith("Something else on your computer", shown.Text("BodyText"));
@@ -41,7 +41,7 @@ public class ErrorCardViewTests
     [AvaloniaFact]
     public void The_details_panel_stays_hidden_until_the_toggle_is_pressed_then_explains_the_technical_text_and_offers_to_copy_it()
     {
-        var card = new ErrorCardViewModel(MockupScenario.FileInUseError, _text);
+        var card = new ErrorCardViewModel(SampleScenario.FileInUseError, _text);
         using var shown = Show(card);
         var toggle = shown.Find<ToggleButton>("DetailsToggle");
 
@@ -130,7 +130,7 @@ public class ErrorCardViewTests
             new ErrorCardAction("Try again", new RelayCommand(() => retried++), IsPrimary: true),
             new ErrorCardAction("Choose the folder", new RelayCommand(() => chosen++)),
         };
-        using var shown = Show(new ErrorCardViewModel(MockupScenario.FileInUseError, _text, actions));
+        using var shown = Show(new ErrorCardViewModel(SampleScenario.FileInUseError, _text, actions));
 
         var buttons = shown.Card.GetVisualDescendants().OfType<Button>().Where(button => button is not ToggleButton && button.Name != "CopyDetails").ToList();
 
@@ -145,9 +145,9 @@ public class ErrorCardViewTests
     [AvaloniaFact]
     public void The_icon_takes_the_color_class_of_the_tone()
     {
-        using var error = Show(new ErrorCardViewModel(MockupScenario.FileInUseError, _text));
+        using var error = Show(new ErrorCardViewModel(SampleScenario.FileInUseError, _text));
         using var warning = Show(ErrorCardViewModel.Custom(_text, Savepoint.App.Theme.Icons.Warning, ErrorTone.Warning, "t", "b"));
-        using var neutral = Show(new ErrorCardViewModel(MockupScenario.FolderGoneError, _text));
+        using var neutral = Show(new ErrorCardViewModel(SampleScenario.FolderGoneError, _text));
 
         Assert.Contains("error", error.Find<TextBlock>("IconGlyph").Classes);
         Assert.Contains("warning", warning.Find<TextBlock>("IconGlyph").Classes);
@@ -158,8 +158,8 @@ public class ErrorCardViewTests
     [AvaloniaFact]
     public void The_supplement_is_shown_through_the_view_locator_and_hidden_when_there_is_none()
     {
-        using var with = Show(new ErrorCardViewModel(MockupScenario.FolderTooBroadError, _text, supplement: new SampleDialogViewModel()));
-        using var without = Show(new ErrorCardViewModel(MockupScenario.FolderTooBroadError, _text));
+        using var with = Show(new ErrorCardViewModel(SampleScenario.FolderTooBroadError, _text, supplement: new SampleDialogViewModel()));
+        using var without = Show(new ErrorCardViewModel(SampleScenario.FolderTooBroadError, _text));
 
         Assert.True(with.Find<ContentControl>("SupplementHost").IsEffectivelyVisible);
         Assert.NotEmpty(with.Card.GetVisualDescendants().OfType<SampleDialogView>());
@@ -169,7 +169,7 @@ public class ErrorCardViewTests
     [AvaloniaFact]
     public void The_card_is_named_after_its_headline_and_announced_politely_and_its_icon_is_decorative()
     {
-        using var shown = Show(new ErrorCardViewModel(MockupScenario.FileInUseError, _text, operation: ErrorOperation.Switch));
+        using var shown = Show(new ErrorCardViewModel(SampleScenario.FileInUseError, _text, operation: ErrorOperation.Switch));
 
         Assert.Equal("A file is in use, so the switch stopped partway", AutomationProperties.GetName(shown.Find<Border>("Card")));
         Assert.Equal(AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(shown.Find<Border>("Card")));

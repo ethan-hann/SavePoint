@@ -7,7 +7,7 @@ using Savepoint.App.Tests.Features.History;
 using Savepoint.App.Tests.Features.Shell;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
-using static Savepoint.App.Tests.Fakes.MockupScenario;
+using static Savepoint.App.Tests.Fakes.SampleScenario;
 
 namespace Savepoint.App.Tests.Features.Activity;
 
@@ -42,7 +42,7 @@ internal sealed class ActivityRig
         IUiDispatcher? dispatcher = null,
         Func<IJobsApi, IJobsApi>? jobs = null)
     {
-        backend ??= FakeBackend.Mockup();
+        backend ??= FakeBackend.Sample();
         dispatcher ??= new ImmediateUiDispatcher();
         var text = HistoryRig.FormatterFor(backend);
         var dialogs = new FakeDialogs();

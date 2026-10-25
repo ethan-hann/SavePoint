@@ -1,19 +1,19 @@
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using static Savepoint.App.Tests.Fakes.FakeAssert;
-using static Savepoint.App.Tests.Fakes.MockupScenario;
+using static Savepoint.App.Tests.Fakes.SampleScenario;
 
 namespace Savepoint.App.Tests.Fakes;
 
 // The default scenario must show what the design screens show, read back through the Api the screens use.
-public class MockupScenarioTests
+public class SampleScenarioTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
     public async Task The_rail_lists_three_games_with_their_profile_counts()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
         var games = Ok(await backend.Games.ListAsync(Ct));
         var profiles = Ok(await backend.Profiles.ListAsync(cancellationToken: Ct));
@@ -25,7 +25,7 @@ public class MockupScenarioTests
     [Fact]
     public async Task The_profile_table_matches_3a()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
         var profiles = Ok(await backend.Profiles.ListAsync(SkyrimId, Ct));
         var stats = Ok(await backend.Profiles.GetRowStatsAsync(SkyrimId, Ct));
@@ -43,7 +43,7 @@ public class MockupScenarioTests
     [Fact]
     public async Task Each_row_counts_the_snapshots_History_lists_for_that_profile()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
         var stats = Ok(await backend.Profiles.GetRowStatsAsync(SkyrimId, Ct));
 
@@ -57,7 +57,7 @@ public class MockupScenarioTests
     [Fact]
     public async Task Storage_matches_the_footer_and_settings()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
         var usage = Ok(await backend.Games.GetStorageUsageAsync(SkyrimId, Ct));
         var summary = Ok(await backend.Settings.GetStorageSummaryAsync(Ct));
@@ -75,7 +75,7 @@ public class MockupScenarioTests
     [Fact]
     public async Task History_holds_the_drawn_points_newest_first()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
         var history = Ok(await backend.History.GetAsync(SkyrimId, cancellationToken: Ct));
 
@@ -94,7 +94,7 @@ public class MockupScenarioTests
     [Fact]
     public async Task History_can_be_filtered_to_one_profile()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
         var history = Ok(await backend.History.GetAsync(SkyrimId, SurvivalId, Ct));
 
@@ -105,7 +105,7 @@ public class MockupScenarioTests
     [Fact]
     public async Task Playing_the_active_profile_needs_no_dialog_as_in_2a()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
         var preview = Ok(await backend.Launch.GetPreviewAsync(SkyrimId, new LaunchTarget.ProfileTip(ModdedId), Ct));
 
@@ -116,7 +116,7 @@ public class MockupScenarioTests
     [Fact]
     public async Task Switching_to_the_survival_profile_shows_the_2b_dialog()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
         var preview = Ok(await backend.Launch.GetPreviewAsync(SkyrimId, new LaunchTarget.ProfileTip(SurvivalId), Ct));
 
@@ -135,7 +135,7 @@ public class MockupScenarioTests
     [Fact]
     public async Task The_wizard_preview_matches_2f()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
         var preview = Ok(await backend.Games.GetCapturePreviewAsync(SkyrimId, Ct));
 
@@ -149,7 +149,7 @@ public class MockupScenarioTests
     [Fact]
     public async Task The_editor_shows_confirmed_folders_as_in_2g()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
         var folders = Ok(await backend.Games.GetFolderStatusAsync(SkyrimId, Ct));
 
@@ -163,7 +163,7 @@ public class MockupScenarioTests
     [Fact]
     public async Task Settings_match_2k()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
         var settings = Ok(await backend.Settings.GetAsync(Ct));
 

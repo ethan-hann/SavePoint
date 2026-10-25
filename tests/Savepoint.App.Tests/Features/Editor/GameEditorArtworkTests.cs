@@ -11,7 +11,7 @@ namespace Savepoint.App.Tests.Features.Editor;
 // Everything is applied on Save like every other field.
 public class GameEditorArtworkTests
 {
-    private const string _skyrim = MockupScenario.SkyrimId;
+    private const string _skyrim = SampleScenario.SkyrimId;
 
     private static EditorRig Rig(FakeBackend? backend = null) => EditorRig.Create(backend);
 
@@ -67,7 +67,7 @@ public class GameEditorArtworkTests
     [Fact]
     public void Steam_artwork_shows_in_the_preview_as_from_steam()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         backend.Artwork.ScriptSteamArrives(_skyrim, "/art/wide.jpg", "/art/square.jpg");
 
         var editor = Rig(backend).Edit();
@@ -81,7 +81,7 @@ public class GameEditorArtworkTests
     [Fact]
     public void The_users_own_image_shows_as_your_image_and_can_be_removed()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         backend.Artwork.ScriptCustom(_skyrim, "/mine.png");
 
         var editor = Rig(backend).Edit();
@@ -153,7 +153,7 @@ public class GameEditorArtworkTests
     [Fact]
     public void An_app_id_found_by_the_lookup_is_the_hint_when_the_field_is_empty()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         backend.Artwork.ScriptDetectedAppId(_skyrim, 489830);
 
         var editor = Rig(backend).Edit();
@@ -173,7 +173,7 @@ public class GameEditorArtworkTests
     [Fact]
     public async Task A_stored_app_id_fills_the_field_and_is_not_called_detected()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var game = FakeAssert.Ok(await backend.Games.ListAsync(TestContext.Current.CancellationToken)).Single(g => g.Id == _skyrim);
         await backend.Games.UpdateAsync(game with { SteamAppId = 72850 });
 
@@ -199,7 +199,7 @@ public class GameEditorArtworkTests
     [Fact]
     public async Task Clearing_a_stored_app_id_saves_it_as_none()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var game = FakeAssert.Ok(await backend.Games.ListAsync(TestContext.Current.CancellationToken)).Single(g => g.Id == _skyrim);
         await backend.Games.UpdateAsync(game with { SteamAppId = 72850 });
         var rig = Rig(backend);
@@ -352,7 +352,7 @@ public class GameEditorArtworkTests
     [Fact]
     public async Task Removing_the_users_image_is_applied_on_save_not_before()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         backend.Artwork.ScriptCustom(_skyrim, "/mine.png");
         var rig = Rig(backend);
         var editor = rig.Edit();
@@ -391,7 +391,7 @@ public class GameEditorArtworkTests
     {
         using var fixtures = new ArtFixtures();
         var file = fixtures.Png("new.png", 300, 200);
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         backend.Artwork.ScriptCustom(_skyrim, "/mine.png");
         var rig = Rig(backend);
         var editor = rig.Edit();
@@ -492,7 +492,7 @@ public class GameEditorArtworkTests
     [Fact]
     public async Task Look_again_asks_the_api_and_shows_what_it_found()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         backend.Artwork.ScriptSteamFinds(_skyrim, "/art/wide.jpg", "/art/square.jpg");
         var rig = Rig(backend);
         var editor = rig.Edit();
@@ -526,7 +526,7 @@ public class GameEditorArtworkTests
     {
         using var fixtures = new ArtFixtures();
         var file = fixtures.Png("mine.png", 300, 200);
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         backend.Artwork.ScriptSteamFinds(_skyrim, "/art/wide.jpg", "/art/square.jpg");
         var rig = Rig(backend);
         var editor = await ChooseAsync(rig, rig.Edit(), file);
@@ -549,7 +549,7 @@ public class GameEditorArtworkTests
             Install: new InstallLocation(@"C:\Games\Hollow Knight"),
             Launch: new LaunchConfig(LaunchMethod.Exe, ExePath: "hollow_knight.exe"),
             SteamAppId: 367520);
-        var rig = EditorRig.Create(new FakeBackend(ScenarioBuilder.Mockup().WithImport(file, imported)));
+        var rig = EditorRig.Create(new FakeBackend(ScenarioBuilder.Sample().WithImport(file, imported)));
         var editor = rig.New();
         rig.Dialogs.AnswerOpenFile(file);
 

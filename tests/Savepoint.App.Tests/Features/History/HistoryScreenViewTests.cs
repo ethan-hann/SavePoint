@@ -19,7 +19,7 @@ public class HistoryScreenViewTests
 {
     private static Task<ScreenHarness> StartAsync(FakeBackend? backend = null, ThemePreference theme = ThemePreference.Dark, double width = 1040, double height = 660)
     {
-        backend ??= new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { Theme = theme }));
+        backend ??= new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Theme = theme }));
         var clock = backend.Clock;
         return ScreenHarness.StartAsync("history", context => [new HistoryScreenFactory(context, clock)], NavDestination.History, backend, theme, width, height);
     }
@@ -112,7 +112,7 @@ public class HistoryScreenViewTests
         ButtonNamed(harness, "Go back to this: Cleared Blackreach").Command!.Execute(null);
 
         var begun = Assert.Single(harness.Flow.Begun);
-        Assert.Equal(new LaunchTarget.Point(MockupScenario.ClearedBlackreach), begun.Target);
+        Assert.Equal(new LaunchTarget.Point(SampleScenario.ClearedBlackreach), begun.Target);
     }
 
     [AvaloniaFact]
@@ -129,7 +129,7 @@ public class HistoryScreenViewTests
         harness.All<Button>().Single(button => ReferenceEquals(button.Command, row.SwitchCommand)).Command!.Execute(null);
 
         Assert.Equal(
-            [new LaunchTarget.Point(MockupScenario.ClearedBlackreach), new LaunchTarget.Save(MockupScenario.SurvivalId, MockupScenario.DeepCaveRun)],
+            [new LaunchTarget.Point(SampleScenario.ClearedBlackreach), new LaunchTarget.Save(SampleScenario.SurvivalId, SampleScenario.DeepCaveRun)],
             harness.Flow.BegunSwitches.Select(begun => begun.Target));
         Assert.Empty(harness.Flow.Begun);
     }
@@ -166,7 +166,7 @@ public class HistoryScreenViewTests
         ButtonNamed(harness, "Go back to Deep cave run").Command!.Execute(null);
 
         var begun = Assert.Single(harness.Flow.Begun);
-        Assert.Equal(new LaunchTarget.Save(MockupScenario.SurvivalId, MockupScenario.DeepCaveRun), begun.Target);
+        Assert.Equal(new LaunchTarget.Save(SampleScenario.SurvivalId, SampleScenario.DeepCaveRun), begun.Target);
     }
 
     [AvaloniaFact]
@@ -174,7 +174,7 @@ public class HistoryScreenViewTests
     {
         using var harness = await StartAsync();
 
-        harness.Flow.SetActive(MockupScenario.SkyrimId, true);
+        harness.Flow.SetActive(SampleScenario.SkyrimId, true);
         harness.Settle();
 
         Assert.False(ButtonNamed(harness, "Go back to this: Cleared Blackreach").IsEffectivelyEnabled);
@@ -204,7 +204,7 @@ public class HistoryScreenViewTests
     {
         using var harness = await StartAsync();
 
-        harness.Shell.SelectGame(MockupScenario.SatisfactoryId);
+        harness.Shell.SelectGame(SampleScenario.SatisfactoryId);
         harness.Settle();
 
         Assert.True(harness.Find<StackPanel>("EmptyState").IsEffectivelyVisible);
@@ -216,8 +216,8 @@ public class HistoryScreenViewTests
     [AvaloniaFact]
     public async Task A_profile_without_points_keeps_the_filter_button_so_another_profile_can_be_picked()
     {
-        var backend = new FakeBackend(ScenarioBuilder.Mockup()
-            .WithProfile(new Profile("profile-empty", MockupScenario.SkyrimId, "Fresh profile", "profile/profile-empty")));
+        var backend = new FakeBackend(ScenarioBuilder.Sample()
+            .WithProfile(new Profile("profile-empty", SampleScenario.SkyrimId, "Fresh profile", "profile/profile-empty")));
         using var harness = await StartAsync(backend);
 
         Screen(harness).SelectedFilter = Screen(harness).Filters.Single(filter => filter.ProfileId == "profile-empty");
@@ -240,7 +240,7 @@ public class HistoryScreenViewTests
     [AvaloniaFact]
     public async Task A_failed_read_shows_the_error_card_with_try_again()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         backend.FailNext<IHistoryApi>(nameof(IHistoryApi.GetAsync), ErrorInfo.From(new InvalidOperationException("No history.")));
         using var harness = await StartAsync(backend);
 
@@ -252,7 +252,7 @@ public class HistoryScreenViewTests
     [Fact]
     public void The_composition_registers_the_screen_for_the_history_destination()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var services = new AppServices(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus, backend.Artwork);
         var context = new FeatureContext(
             services,

@@ -117,7 +117,7 @@ public class HowItWorksShellTests
     [Fact]
     public async Task The_page_opens_on_the_first_run_screen_and_back_returns_to_it()
     {
-        var rig = await ShellRig.StartAsync(new FakeBackend(ScenarioBuilder.Empty().WithSettings(MockupScenario.Settings)));
+        var rig = await ShellRig.StartAsync(new FakeBackend(ScenarioBuilder.Empty().WithSettings(SampleScenario.Settings)));
         Assert.Same(rig.Shell.FirstRun, rig.Shell.Content);
 
         rig.Shell.FirstRun.HowItWorksCommand.Execute(null);

@@ -24,19 +24,19 @@ public class ArtworkRenderTests
 
     private static FakeBackend BackendWithArt(ArtFixtures fixtures, ThemePreference theme, ShellLayout layout = ShellLayout.Sidebar)
     {
-        var backend = new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { Theme = theme, Layout = layout }));
+        var backend = new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Theme = theme, Layout = layout }));
         backend.Artwork.ScriptSteamArrives(
-            MockupScenario.SkyrimId,
+            SampleScenario.SkyrimId,
             fixtures.Scene("skyrim-wide.png", 460, 215, 0xFF2A4D69, 0xFF8AA2B5),
             fixtures.Scene("skyrim-square.png", 600, 900, 0xFF1B2A41, 0xFF6E8CA8));
-        backend.Artwork.ScriptCustom(MockupScenario.SatisfactoryId, fixtures.Scene("satisfactory.png", 640, 360, 0xFFE07A3F, 0xFFF2C14E));
+        backend.Artwork.ScriptCustom(SampleScenario.SatisfactoryId, fixtures.Scene("satisfactory.png", 640, 360, 0xFFE07A3F, 0xFFF2C14E));
         return backend;
     }
 
     private static async Task<ComposedApp> StartAsync(FakeBackend backend, ThemePreference theme, ShellLayout layout)
     {
         var app = await ComposedApp.StartWithViewAsync(backend, theme, layout);
-        var withArt = new[] { MockupScenario.SkyrimId, MockupScenario.SatisfactoryId };
+        var withArt = new[] { SampleScenario.SkyrimId, SampleScenario.SatisfactoryId };
         Assert.True(
             await UiWait.UntilAsync(() =>
             {
@@ -46,7 +46,7 @@ public class ArtworkRenderTests
             }),
             "the artwork never appeared on its tiles");
         Assert.Contains(app.All<ArtTile>(), tile => tile.ShowsImage);
-        Assert.Contains(app.All<ArtTile>(), tile => tile.IsEffectivelyVisible && tile.Art?.GameId == MockupScenario.CaretakerId && !tile.ShowsImage);
+        Assert.Contains(app.All<ArtTile>(), tile => tile.IsEffectivelyVisible && tile.Art?.GameId == SampleScenario.CaretakerId && !tile.ShowsImage);
         return app;
     }
 
@@ -77,7 +77,7 @@ public class ArtworkRenderTests
     {
         using var fixtures = new ArtFixtures();
         using var app = await StartAsync(BackendWithArt(fixtures, ThemePreference.Dark), ThemePreference.Dark, ShellLayout.Sidebar);
-        app.Shell.SelectGame(MockupScenario.SkyrimId);
+        app.Shell.SelectGame(SampleScenario.SkyrimId);
         app.Shell.Navigate(Savepoint.App.Features.Shell.NavDestination.History);
         Assert.True(await UiWait.UntilAsync(() => app.All<ArtTile>().Any(tile => tile.Width == 34 && tile.ShowsImage)), "the history header never showed the image");
 
@@ -89,10 +89,10 @@ public class ArtworkRenderTests
     {
         using var fixtures = new ArtFixtures();
         var backend = BackendWithArt(fixtures, ThemePreference.Dark);
-        var game = FakeAssert.Ok(await backend.Games.ListAsync(TestContext.Current.CancellationToken)).Single(g => g.Id == MockupScenario.SkyrimId);
+        var game = FakeAssert.Ok(await backend.Games.ListAsync(TestContext.Current.CancellationToken)).Single(g => g.Id == SampleScenario.SkyrimId);
         await backend.Games.UpdateAsync(game with { SteamAppId = 489830 });
         using var harness = await EditorViewHarness.StartAsync(backend, height: 1000);
-        harness.Edit(MockupScenario.SkyrimId);
+        harness.Edit(SampleScenario.SkyrimId);
         var card = harness.Find<ArtTile>("ArtworkCardPreview");
         var square = harness.Find<ArtTile>("ArtworkSquarePreview");
         Assert.True(await UiWait.UntilAsync(() => card.ShowsImage && square.ShowsImage), "the preview never showed the artwork");
@@ -109,7 +109,7 @@ public class ArtworkRenderTests
         using var fixtures = new ArtFixtures();
         var backend = BackendWithArt(fixtures, ThemePreference.Light);
         using var harness = await EditorViewHarness.StartAsync(backend, ThemePreference.Light, height: 1000);
-        harness.Edit(MockupScenario.SatisfactoryId);
+        harness.Edit(SampleScenario.SatisfactoryId);
         var card = harness.Find<ArtTile>("ArtworkCardPreview");
         Assert.True(await UiWait.UntilAsync(() => card.ShowsImage), "the preview never showed the artwork");
         harness.All<ScrollViewer>().First().ScrollToEnd();
@@ -123,7 +123,7 @@ public class ArtworkRenderTests
         using var fixtures = new ArtFixtures();
         var backend = BackendWithArt(fixtures, ThemePreference.Dark);
         using var harness = await EditorViewHarness.StartAsync(backend, height: 1000);
-        var editor = harness.Edit(MockupScenario.CaretakerId);
+        var editor = harness.Edit(SampleScenario.CaretakerId);
         var text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), backend.Clock, "windows", TimeZoneInfo.Utc);
         editor.ArtworkError = new ErrorCardViewModel(ErrorInfo.From(new ArtworkNotAnImageException("page.png")), text);
         editor.SteamAppIdText = "abc";

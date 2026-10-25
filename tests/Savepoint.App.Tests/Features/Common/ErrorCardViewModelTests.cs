@@ -20,7 +20,7 @@ public class ErrorCardViewModelTests
     [Fact]
     public void A_file_in_use_card_has_the_headline_the_lock_icon_the_body_and_the_file()
     {
-        var card = new ErrorCardViewModel(MockupScenario.FileInUseError, _text, operation: ErrorOperation.Switch);
+        var card = new ErrorCardViewModel(SampleScenario.FileInUseError, _text, operation: ErrorOperation.Switch);
 
         Assert.Equal("A file is in use, so the switch stopped partway", card.Title);
         Assert.StartsWith("Something else on your computer is holding one of the game's files open.", card.Body);
@@ -44,7 +44,7 @@ public class ErrorCardViewModelTests
     [Fact]
     public void A_folder_too_broad_card_names_the_refused_path_and_the_operating_system()
     {
-        var card = new ErrorCardViewModel(MockupScenario.FolderTooBroadError, _text);
+        var card = new ErrorCardViewModel(SampleScenario.FolderTooBroadError, _text);
 
         Assert.Equal("That folder is too broad to use", card.Title);
         Assert.Equal(Icons.Block, card.Icon);
@@ -106,7 +106,7 @@ public class ErrorCardViewModelTests
     [Fact]
     public void A_folder_gone_card_is_neutral_and_shows_the_path_of_the_missing_folder()
     {
-        var card = new ErrorCardViewModel(MockupScenario.FolderGoneError, _text);
+        var card = new ErrorCardViewModel(SampleScenario.FolderGoneError, _text);
 
         Assert.Equal("This game's folder has moved or is gone", card.Title);
         Assert.Equal(Icons.FolderOff, card.Icon);
@@ -128,7 +128,7 @@ public class ErrorCardViewModelTests
     [Fact]
     public void A_copy_that_could_not_reach_the_clipboard_says_so()
     {
-        var card = new ErrorCardViewModel(MockupScenario.FileInUseError, _text);
+        var card = new ErrorCardViewModel(SampleScenario.FileInUseError, _text);
 
         card.ConfirmCopyFailed();
 
@@ -178,7 +178,7 @@ public class ErrorCardViewModelTests
     [Fact]
     public void Details_are_hidden_until_the_toggle_is_used_and_the_label_follows()
     {
-        var card = new ErrorCardViewModel(MockupScenario.FileInUseError, _text);
+        var card = new ErrorCardViewModel(SampleScenario.FileInUseError, _text);
 
         Assert.True(card.HasSupportText);
         Assert.False(card.ShowDetails);
@@ -199,13 +199,13 @@ public class ErrorCardViewModelTests
     [Fact]
     public void Copy_details_asks_for_the_whole_technical_text_and_an_error_without_any_cannot_copy()
     {
-        var card = new ErrorCardViewModel(MockupScenario.FileInUseError, _text);
+        var card = new ErrorCardViewModel(SampleScenario.FileInUseError, _text);
         var requested = new List<string>();
         card.CopyRequested += (_, text) => requested.Add(text);
 
         card.CopyDetailsCommand.Execute(null);
 
-        Assert.Equal([MockupScenario.FileInUseError.Detail], requested);
+        Assert.Equal([SampleScenario.FileInUseError.Detail], requested);
         Assert.Contains("unable to unlink", requested[0], StringComparison.Ordinal);
         Assert.False(new ErrorCardViewModel(new ErrorInfo("error.unknown", new Dictionary<string, object?>(), " "), _text).CopyDetailsCommand.CanExecute(null));
     }
@@ -213,7 +213,7 @@ public class ErrorCardViewModelTests
     [Fact]
     public void The_toggle_label_change_is_announced_to_bindings()
     {
-        var card = new ErrorCardViewModel(MockupScenario.FileInUseError, _text);
+        var card = new ErrorCardViewModel(SampleScenario.FileInUseError, _text);
         var changed = new List<string?>();
         card.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
 
@@ -238,7 +238,7 @@ public class ErrorCardViewModelTests
         var actions = new[] { new ErrorCardAction("Try again", retry, IsPrimary: true), new ErrorCardAction("Choose another", new RelayCommand(() => { })) };
         var supplement = new object();
 
-        var card = new ErrorCardViewModel(MockupScenario.FileInUseError, _text, actions, supplement);
+        var card = new ErrorCardViewModel(SampleScenario.FileInUseError, _text, actions, supplement);
 
         Assert.Equal(["Try again", "Choose another"], card.Actions.Select(action => action.Label));
         Assert.True(card.Actions[0].IsPrimary);
@@ -330,11 +330,11 @@ public class ErrorCardViewModelTests
     }
 
     [Fact]
-    public void The_mockup_half_saved_result_uses_the_disk_space_error_for_its_unsaved_folder()
+    public void The_half_saved_result_uses_the_disk_space_error_for_its_unsaved_folder()
     {
-        var failed = MockupScenario.HalfSaved.Folders.Single(folder => !folder.Ok).Error!;
+        var failed = SampleScenario.HalfSaved.Folders.Single(folder => !folder.Ok).Error!;
 
-        Assert.Equal(RepoRole.External, MockupScenario.HalfSaved.Folders.Single(folder => !folder.Ok).Role);
+        Assert.Equal(RepoRole.External, SampleScenario.HalfSaved.Folders.Single(folder => !folder.Ok).Role);
         Assert.Equal("error.diskSpace.low", failed.MessageId);
         Assert.Equal(ErrorTone.Warning, ErrorPresentation.For(failed.MessageId).Tone);
     }

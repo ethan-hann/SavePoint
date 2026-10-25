@@ -12,8 +12,8 @@ public class StorageSectionViewModelTests
 
     private static StorageSectionViewModel Storage(SettingsRig rig) => rig.Screen.Storage;
 
-    private static FakeBackend WithBlockedMove() => new(ScenarioBuilder.Mockup().WithRelocationPreview(new StorageRelocationPreview(
-        MockupScenario.StorageRoot,
+    private static FakeBackend WithBlockedMove() => new(ScenarioBuilder.Sample().WithRelocationPreview(new StorageRelocationPreview(
+        SampleScenario.StorageRoot,
         _newRoot,
         [],
         0,
@@ -35,7 +35,7 @@ public class StorageSectionViewModelTests
     {
         var rig = await SettingsRig.ShownAsync();
 
-        Assert.Equal(MockupScenario.StorageRoot, Storage(rig).StoragePath);
+        Assert.Equal(SampleScenario.StorageRoot, Storage(rig).StoragePath);
         Assert.True(Storage(rig).HasSummary);
         Assert.Equal("79.3 GB used by 3 games", Storage(rig).UsedText);
         Assert.Equal("131 GB free", Storage(rig).FreeText);
@@ -51,7 +51,7 @@ public class StorageSectionViewModelTests
         rig.Show();
 
         Assert.False(Storage(rig).HasSummary);
-        Assert.Equal(MockupScenario.StorageRoot, Storage(rig).StoragePath);
+        Assert.Equal(SampleScenario.StorageRoot, Storage(rig).StoragePath);
         Assert.True(rig.Screen.IsLoaded);
     }
 
@@ -67,7 +67,7 @@ public class StorageSectionViewModelTests
     public async Task The_optimize_row_never_says_free_up_space_runs_by_itself_and_says_the_automatic_cleanups_keep_recently_removed()
     {
         var shown = await SettingsRig.ShownAsync();
-        var never = await SettingsRig.ShownAsync(new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { LastOptimizedAt = null })));
+        var never = await SettingsRig.ShownAsync(new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { LastOptimizedAt = null })));
 
         foreach (var text in new[] { Storage(shown).OptimizeDescription, Storage(never).OptimizeDescription })
         {
@@ -80,8 +80,8 @@ public class StorageSectionViewModelTests
     [Fact]
     public async Task The_optimize_row_says_so_when_it_has_never_run()
     {
-        var never = MockupScenario.Settings with { LastOptimizedAt = null };
-        var rig = await SettingsRig.ShownAsync(new FakeBackend(ScenarioBuilder.Mockup().WithSettings(never)));
+        var never = SampleScenario.Settings with { LastOptimizedAt = null };
+        var rig = await SettingsRig.ShownAsync(new FakeBackend(ScenarioBuilder.Sample().WithSettings(never)));
 
         Assert.Equal("Clears out snapshots no profile uses anymore, such as a deleted profile's, and deletes recently removed snapshots for good. SavePoint also tidies up by itself after you delete a profile and when snapshots pile up, and that never deletes recently removed snapshots. You haven't freed up space yet.", Storage(rig).OptimizeDescription);
     }
@@ -150,7 +150,7 @@ public class StorageSectionViewModelTests
     [Fact]
     public async Task An_optimization_already_running_before_the_screen_existed_is_picked_up_when_it_shows()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         FakeAssert.Ok(await backend.Settings.OptimizeAllStorageAsync());
         var rig = await SettingsRig.StartAsync(backend);
 
@@ -163,7 +163,7 @@ public class StorageSectionViewModelTests
     [Fact]
     public async Task A_finished_optimization_from_before_the_screen_existed_is_not_running()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var started = FakeAssert.Ok(await backend.Settings.OptimizeAllStorageAsync());
         backend.Jobs.Complete(started.JobId);
         var rig = await SettingsRig.StartAsync(backend);
@@ -202,7 +202,7 @@ public class StorageSectionViewModelTests
     {
         var rig = await SettingsRig.ShownAsync();
 
-        FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(MockupScenario.SkyrimId));
+        FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(SampleScenario.SkyrimId));
 
         Assert.False(Storage(rig).IsOptimizing);
     }
@@ -217,7 +217,7 @@ public class StorageSectionViewModelTests
         await Storage(rig).ChangeCommand.ExecuteAsync(null);
 
         var pick = Assert.Single(rig.Dialogs.FolderPicks);
-        Assert.Equal(MockupScenario.StorageRoot, pick.StartPath);
+        Assert.Equal(SampleScenario.StorageRoot, pick.StartPath);
         Assert.Equal("Choose a new folder for your snapshots", pick.Title);
     }
 
@@ -382,7 +382,7 @@ public class StorageSectionViewModelTests
         rig.Backend.Jobs.CompleteCancelled(job.JobId);
 
         Assert.False(Storage(rig).IsRelocating);
-        Assert.Equal(MockupScenario.StorageRoot, Storage(rig).StoragePath);
+        Assert.Equal(SampleScenario.StorageRoot, Storage(rig).StoragePath);
         Assert.Null(Storage(rig).Problem);
     }
 
@@ -408,7 +408,7 @@ public class StorageSectionViewModelTests
         var game = Path.Combine(Path.GetTempPath(), "Old", "game-1");
         var stayed = new ClearFailure(Path.Combine(game, "install.git"), ErrorInfo.From(new GameRunningException("game-1", "Skyrim")));
 
-        rig.Backend.Jobs.Complete(job.JobId, new StorageRelocationResult(MockupScenario.StorageRoot, _newRoot, 10, [stayed]));
+        rig.Backend.Jobs.Complete(job.JobId, new StorageRelocationResult(SampleScenario.StorageRoot, _newRoot, 10, [stayed]));
 
         Assert.False(Storage(rig).IsRelocating);
         Assert.Equal(_newRoot, Storage(rig).StoragePath);
@@ -426,7 +426,7 @@ public class StorageSectionViewModelTests
     {
         var rig = await SettingsRig.ShownAsync();
         var job = await StartedMoveAsync(rig);
-        rig.Backend.Jobs.Complete(job.JobId, new StorageRelocationResult(MockupScenario.StorageRoot, _newRoot, 10, [new ClearFailure(@"D:\Old\game-1\install.git", ErrorInfo.From(new GameRunningException("game-1", "Skyrim")))]));
+        rig.Backend.Jobs.Complete(job.JobId, new StorageRelocationResult(SampleScenario.StorageRoot, _newRoot, 10, [new ClearFailure(@"D:\Old\game-1\install.git", ErrorInfo.From(new GameRunningException("game-1", "Skyrim")))]));
         Assert.NotNull(Storage(rig).LeftBehind);
 
         rig.Dialogs.AnswerFolder(@"F:\Other");
@@ -441,13 +441,13 @@ public class StorageSectionViewModelTests
         var rig = await SettingsRig.ShownAsync();
         var job = await StartedMoveAsync(rig);
 
-        rig.Backend.Jobs.Fail(job.JobId, MockupScenario.SavesOutOfRoomError);
+        rig.Backend.Jobs.Fail(job.JobId, SampleScenario.SavesOutOfRoomError);
 
         Assert.False(Storage(rig).IsRelocating);
         var problem = Storage(rig).Problem;
         Assert.NotNull(problem);
         Assert.Equal("There isn't enough room", problem.Title);
-        Assert.Equal(MockupScenario.StorageRoot, Storage(rig).StoragePath);
+        Assert.Equal(SampleScenario.StorageRoot, Storage(rig).StoragePath);
     }
 
     [Fact]
@@ -455,7 +455,7 @@ public class StorageSectionViewModelTests
     {
         var rig = await SettingsRig.ShownAsync();
         var job = await StartedMoveAsync(rig);
-        rig.Backend.Jobs.Fail(job.JobId, MockupScenario.SavesOutOfRoomError);
+        rig.Backend.Jobs.Fail(job.JobId, SampleScenario.SavesOutOfRoomError);
         var picksBefore = rig.Dialogs.FolderPicks.Count;
         var problem = Storage(rig).Problem;
         Assert.NotNull(problem);
@@ -473,7 +473,7 @@ public class StorageSectionViewModelTests
     public async Task A_move_that_cannot_start_shows_why()
     {
         var rig = await SettingsRig.ShownAsync();
-        rig.Backend.FailNext<ISettingsApi>(nameof(ISettingsApi.RelocateStorageAsync), MockupScenario.SavesOutOfRoomError);
+        rig.Backend.FailNext<ISettingsApi>(nameof(ISettingsApi.RelocateStorageAsync), SampleScenario.SavesOutOfRoomError);
         rig.Dialogs.AnswerFolder(_newRoot).AnswerConfirm(true);
 
         await Storage(rig).ChangeCommand.ExecuteAsync(null);
@@ -485,7 +485,7 @@ public class StorageSectionViewModelTests
     [Fact]
     public async Task A_move_in_progress_when_the_screen_shows_is_picked_up_with_its_progress()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         FakeAssert.Ok(await backend.Settings.RelocateStorageAsync(_newRoot));
         backend.Jobs.ReportProgress(backend.Jobs.LastStarted(JobKind.RelocateStorage).JobId, new JobProgress(BytesDone: 1_000_000_000, BytesTotal: 4_000_000_000));
         var rig = await SettingsRig.StartAsync(backend);

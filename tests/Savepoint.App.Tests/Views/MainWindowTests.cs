@@ -157,7 +157,7 @@ public class MainWindowTests
 
     private static async Task<(QuittableWindow Window, FakeBackend Backend, FakeDialogs Dialogs)> WindowWithRunningMoveAsync(bool answer, bool startMove = true)
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var dialogs = new FakeDialogs().AnswerConfirm(answer);
         var services = new AppServices(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus, backend.Artwork);
         var main = AppComposition.Create(

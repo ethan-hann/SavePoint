@@ -14,14 +14,14 @@ public class PinnedFooterTests
 {
     private static async Task<LaunchViewHarness> StartAllSectionsAsync(double width, double height)
     {
-        var source = FakeAssert.Ok(await FakeBackend.Mockup().Launch.GetPreviewAsync(MockupScenario.SkyrimId, LaunchRig.SurvivalTip));
+        var source = FakeAssert.Ok(await FakeBackend.Sample().Launch.GetPreviewAsync(SampleScenario.SkyrimId, LaunchRig.SurvivalTip));
         var preview = source with
         {
-            Install = source.Install with { Dirty = true, DirtyFileCount = 12, DirtyOwnerProfileId = MockupScenario.SurvivalId },
+            Install = source.Install with { Dirty = true, DirtyFileCount = 12, DirtyOwnerProfileId = SampleScenario.SurvivalId },
             External = source.External! with { DirtyOwnerProfileId = null },
             TargetIsOlderPoint = true,
         };
-        var backend = new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { Theme = ThemePreference.Dark }).WithLaunchPreview(preview));
+        var backend = new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Theme = ThemePreference.Dark }).WithLaunchPreview(preview));
         return await LaunchViewHarness.StartAsync(backend, ThemePreference.Dark, width, height);
     }
 
@@ -40,9 +40,9 @@ public class PinnedFooterTests
     public async Task The_launch_dialogs_buttons_stay_in_view_while_its_body_scrolls(double width, double height)
     {
         using var harness = await StartAllSectionsAsync(width, height);
-        var begin = harness.Flow.BeginAsync(MockupScenario.SkyrimId, LaunchRig.SurvivalTip);
+        var begin = harness.Flow.BeginAsync(SampleScenario.SkyrimId, LaunchRig.SurvivalTip);
         harness.Settle();
-        harness.Render($"2b-launch-dialog-all-sections-{width}x{height}");
+        harness.Render($"launch-dialog-all-sections-{width}x{height}");
         var cancel = harness.Find<Button>("CancelButton");
         var switchButton = harness.Find<Button>("SwitchButton");
         var body = harness.Find<ItemsControl>("UnsavedList").GetVisualAncestors().OfType<ScrollViewer>().First();

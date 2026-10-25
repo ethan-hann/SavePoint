@@ -25,7 +25,7 @@ public class ArtworkEndToEndTests
 
     private static FakeBackend BackendWith(Action<FakeBackend> script, ShellLayout layout = ShellLayout.Sidebar)
     {
-        var backend = new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { Layout = layout, Theme = ThemePreference.Dark }));
+        var backend = new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Layout = layout, Theme = ThemePreference.Dark }));
         script(backend);
         return backend;
     }

@@ -12,7 +12,7 @@ namespace Savepoint.App.Tests.Theme;
 public class ThemePolishTests
 {
     // The gold the design draws the game editor's Steam callout in (#F5D488 text on an olive fill).
-    private const uint _mockupGold = 0xFFF5D488;
+    private const uint _referenceGold = 0xFFF5D488;
 
     public static TheoryData<AccentColorId, bool> EveryAccentAndMode()
     {
@@ -35,13 +35,13 @@ public class ThemePolishTests
     [InlineData(true, "WarningContainer")]
     [InlineData(true, "WarningCalloutBackground")]
     [InlineData(true, "WarningCalloutBorder")]
-    public void Warning_family_has_the_mockups_gold_hue(bool dark, string role)
+    public void Warning_family_has_the_reference_gold_hue(bool dark, string role)
     {
         var harness = new ThemeHarness();
 
         harness.Service.Apply(dark ? ThemePreference.Dark : ThemePreference.Light, AccentColorId.Blue);
 
-        var gold = Hct.FromInt(_mockupGold).Hue;
+        var gold = Hct.FromInt(_referenceGold).Hue;
         var hue = Hct.FromInt(harness.ColorOf(role).ToUInt32()).Hue;
         Assert.InRange(hue, gold - 8, gold + 8);
     }

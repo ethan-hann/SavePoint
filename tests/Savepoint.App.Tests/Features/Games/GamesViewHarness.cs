@@ -45,7 +45,7 @@ internal sealed class GamesViewHarness : IDisposable
         double width = 1040,
         double height = 660)
     {
-        backend ??= new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { Theme = theme, Layout = layout }));
+        backend ??= new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Theme = theme, Layout = layout }));
         var dialogStack = new DialogHostViewModel();
         var rig = await GamesRig.StartAsync(backend, dialogs: text => new AvaloniaDialogs(dialogStack, text, () => null));
         var main = new MainWindowViewModel(new StartupViewModel(backend.AppStatus, rig.Text), () => rig.Shell, dialogStack, rig.Toasts);

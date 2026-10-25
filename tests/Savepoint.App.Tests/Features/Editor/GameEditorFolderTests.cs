@@ -27,7 +27,7 @@ public class GameEditorFolderTests
     [Fact]
     public async Task A_confirmation_with_no_date_says_only_that_it_was_confirmed()
     {
-        var game = MockupScenario.Skyrim;
+        var game = SampleScenario.Skyrim;
         var editor = RigFor(game, Status(RepoRole.Install, game.Install.Path), Status(RepoRole.External, game.External!.Path)).Edit(game.Id);
 
         await editor.LoadAsync();
@@ -38,7 +38,7 @@ public class GameEditorFolderTests
     [Fact]
     public async Task A_folder_that_is_not_confirmed_shows_no_line()
     {
-        var game = MockupScenario.Skyrim;
+        var game = SampleScenario.Skyrim;
         var editor = RigFor(game, Status(RepoRole.Install, game.Install.Path, confirmed: false), Status(RepoRole.External, game.External!.Path)).Edit(game.Id);
 
         await editor.LoadAsync();
@@ -83,7 +83,7 @@ public class GameEditorFolderTests
         Assert.Null(editor.InstallConfirmation);
         Assert.NotNull(editor.SavesConfirmation);
 
-        editor.InstallPath = MockupScenario.SkyrimInstall;
+        editor.InstallPath = SampleScenario.SkyrimInstall;
         Assert.NotNull(editor.InstallConfirmation);
 
         editor.SavesPath = @"{documents}\Elsewhere";
@@ -93,7 +93,7 @@ public class GameEditorFolderTests
     [Fact]
     public async Task A_folder_that_is_gone_shows_the_moved_or_gone_card_with_its_path_and_a_way_to_choose_another()
     {
-        var game = MockupScenario.Caretaker;
+        var game = SampleScenario.Caretaker;
         var rig = RigFor(game, Status(RepoRole.Install, game.Install.Path, exists: false, at: ScenarioBuilder.DefaultNow), Status(RepoRole.External, game.External!.Path, resolved: @"C:\Users\you\AppData\Local\TheLastCaretaker\Saved\SaveGames"));
         var editor = rig.Edit(game.Id);
 
@@ -114,7 +114,7 @@ public class GameEditorFolderTests
     [Fact]
     public async Task Choosing_the_folder_from_the_card_sets_the_path_and_clears_the_card()
     {
-        var game = MockupScenario.Caretaker;
+        var game = SampleScenario.Caretaker;
         var rig = RigFor(game, Status(RepoRole.Install, game.Install.Path, exists: false), Status(RepoRole.External, game.External!.Path));
         var editor = rig.Edit(game.Id);
         await editor.LoadAsync();
@@ -130,7 +130,7 @@ public class GameEditorFolderTests
     [Fact]
     public async Task A_saves_folder_that_is_gone_shows_the_card_under_the_saves_field()
     {
-        var game = MockupScenario.Caretaker;
+        var game = SampleScenario.Caretaker;
         var rig = RigFor(game, Status(RepoRole.Install, game.Install.Path), Status(RepoRole.External, game.External!.Path, exists: false));
         var editor = rig.Edit(game.Id);
 
@@ -230,7 +230,7 @@ public class GameEditorFolderTests
         await editor.BrowseInstallCommand.ExecuteAsync(null);
 
         var request = Assert.Single(rig.Dialogs.FolderPicks);
-        Assert.Equal(MockupScenario.SkyrimInstall, request.StartPath);
+        Assert.Equal(SampleScenario.SkyrimInstall, request.StartPath);
         Assert.Equal("Choose the game's install folder", request.Title);
         Assert.Equal(@"D:\Games\SkyrimSE", editor.InstallPath);
     }
@@ -244,8 +244,8 @@ public class GameEditorFolderTests
         await editor.BrowseInstallCommand.ExecuteAsync(null);
         await editor.BrowseSavesCommand.ExecuteAsync(null);
 
-        Assert.Equal(MockupScenario.SkyrimInstall, editor.InstallPath);
-        Assert.Equal(MockupScenario.SkyrimSavesRaw, editor.SavesPath);
+        Assert.Equal(SampleScenario.SkyrimInstall, editor.InstallPath);
+        Assert.Equal(SampleScenario.SkyrimSavesRaw, editor.SavesPath);
         Assert.False(editor.IsDirty);
     }
 
@@ -259,7 +259,7 @@ public class GameEditorFolderTests
         await editor.BrowseSavesCommand.ExecuteAsync(null);
 
         var request = Assert.Single(rig.Dialogs.FolderPicks);
-        Assert.Equal(MockupScenario.SkyrimSaves, request.StartPath);
+        Assert.Equal(SampleScenario.SkyrimSaves, request.StartPath);
         Assert.Equal("Choose the saves folder", request.Title);
         Assert.Equal(@"C:\Users\you\Documents\My Games\Other", editor.SavesPath);
     }

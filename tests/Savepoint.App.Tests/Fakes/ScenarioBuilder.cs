@@ -57,7 +57,7 @@ public sealed class ScenarioBuilder
     public static ScenarioBuilder Empty() => new();
 
     // The sample data behind the design screens: the Games screen, launch flow, editor, History and Settings.
-    public static ScenarioBuilder Mockup() => MockupScenario.CreateBuilder();
+    public static ScenarioBuilder Sample() => SampleScenario.CreateBuilder();
 
     public ScenarioBuilder WithNow(DateTimeOffset now)
     {

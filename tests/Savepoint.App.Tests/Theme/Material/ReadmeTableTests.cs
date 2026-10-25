@@ -3,7 +3,7 @@ using Savepoint.App.Theme.Material;
 namespace Savepoint.App.Tests.Theme.Material;
 
 // The README token table was drawn from another derivation, so rows pin the library value and record which cells agree.
-public class MockupTableTests
+public class ReadmeTableTests
 {
     internal const uint BlueSeed = 0xFF2986CC;
 

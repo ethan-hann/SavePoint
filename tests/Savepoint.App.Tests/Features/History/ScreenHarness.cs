@@ -62,7 +62,7 @@ internal sealed class ScreenHarness : IDisposable
         double height = 660,
         bool realDialogs = false)
     {
-        backend ??= new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { Theme = theme }));
+        backend ??= new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Theme = theme }));
         var text = HistoryRig.FormatterFor(backend);
         var app = (App)Application.Current!;
         var services = new AppServices(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus, backend.Artwork);

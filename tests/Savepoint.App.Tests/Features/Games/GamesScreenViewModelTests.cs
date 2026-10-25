@@ -14,9 +14,9 @@ public class GamesScreenViewModelTests
     private static FakeBackend WithProfiles(params (Profile Profile, ProfileRowStats Stats)[] profiles)
     {
         var scenario = ScenarioBuilder.Empty()
-            .WithSettings(MockupScenario.Settings)
-            .WithVolume(210 * MockupScenario.Gb, 131 * MockupScenario.Gb)
-            .WithGame(MockupScenario.Caretaker, 9_400_000_000);
+            .WithSettings(SampleScenario.Settings)
+            .WithVolume(210 * SampleScenario.Gb, 131 * SampleScenario.Gb)
+            .WithGame(SampleScenario.Caretaker, 9_400_000_000);
         foreach (var (profile, stats) in profiles)
         {
             scenario.WithProfile(profile, stats);
@@ -25,7 +25,7 @@ public class GamesScreenViewModelTests
         return new FakeBackend(scenario);
     }
 
-    private static Profile Caretaker(string id, string name) => new(id, MockupScenario.CaretakerId, name, $"profile/{id}");
+    private static Profile Caretaker(string id, string name) => new(id, SampleScenario.CaretakerId, name, $"profile/{id}");
 
     // Assert.All passes on an empty list, so a test that checks every row first proves there are rows.
     private static IReadOnlyList<ProfileRowViewModel> Rows(GamesRig rig)
@@ -70,7 +70,7 @@ public class GamesScreenViewModelTests
         var rig = await GamesRig.StartAsync();
         var release = Hold(gate => rig.Backend.Profiles.ListGate = gate);
 
-        rig.Shell.SelectGame(MockupScenario.SatisfactoryId);
+        rig.Shell.SelectGame(SampleScenario.SatisfactoryId);
 
         Assert.True(rig.Screen.IsLoading);
         Assert.True(rig.Screen.ShowLoading);
@@ -91,7 +91,7 @@ public class GamesScreenViewModelTests
         var rig = await GamesRig.StartAsync();
         var release = Hold(gate => rig.Backend.Profiles.StatsGate = gate);
 
-        rig.Shell.SelectGame(MockupScenario.SatisfactoryId);
+        rig.Shell.SelectGame(SampleScenario.SatisfactoryId);
         await UntilAsync(() => rig.Screen.Profiles.Count == 2);
 
         Assert.True(rig.Screen.IsLoading);
@@ -133,7 +133,7 @@ public class GamesScreenViewModelTests
     public async Task A_version_the_user_typed_wins_over_the_detected_one()
     {
         var rig = await GamesRig.StartAsync();
-        FakeAssert.Ok(await rig.Backend.Profiles.UpdateAsync(MockupScenario.SkyrimId, MockupScenario.ModdedId, new ProfileChanges("Modded playthrough - 7-2-26", null, "1.7.0-custom")));
+        FakeAssert.Ok(await rig.Backend.Profiles.UpdateAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, new ProfileChanges("Modded playthrough - 7-2-26", null, "1.7.0-custom")));
 
         await rig.Screen.ReloadAsync();
 
@@ -205,7 +205,7 @@ public class GamesScreenViewModelTests
     {
         var rig = await GamesRig.StartAsync();
 
-        rig.Shell.SelectGame(MockupScenario.SatisfactoryId);
+        rig.Shell.SelectGame(SampleScenario.SatisfactoryId);
 
         Assert.Equal("Satisfactory", rig.Screen.GameName);
         Assert.Equal(["Main factory - 6-1-26", "Update 1.1 test - 6-20-26"], rig.Screen.Profiles.Select(row => row.Name));
@@ -214,12 +214,12 @@ public class GamesScreenViewModelTests
     [Fact]
     public async Task The_previous_games_rows_are_gone_while_the_new_game_loads()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var gated = new GatedProfilesApi(backend.Profiles);
         var rig = await GamesRig.StartAsync(backend, profiles: gated);
-        var release = gated.Hold(MockupScenario.SatisfactoryId);
+        var release = gated.Hold(SampleScenario.SatisfactoryId);
 
-        rig.Shell.SelectGame(MockupScenario.SatisfactoryId);
+        rig.Shell.SelectGame(SampleScenario.SatisfactoryId);
 
         Assert.Empty(rig.Screen.Profiles);
         Assert.True(rig.Screen.IsLoading);
@@ -234,13 +234,13 @@ public class GamesScreenViewModelTests
     [Fact]
     public async Task A_slow_read_for_a_game_that_is_no_longer_selected_never_lands()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var gated = new GatedProfilesApi(backend.Profiles);
         var rig = await GamesRig.StartAsync(backend, profiles: gated);
-        var releaseSkyrim = gated.Hold(MockupScenario.SkyrimId);
+        var releaseSkyrim = gated.Hold(SampleScenario.SkyrimId);
         var slowRead = rig.Screen.ReloadAsync();
 
-        rig.Shell.SelectGame(MockupScenario.SatisfactoryId);
+        rig.Shell.SelectGame(SampleScenario.SatisfactoryId);
         releaseSkyrim();
         await slowRead;
 
@@ -276,7 +276,7 @@ public class GamesScreenViewModelTests
     public async Task Showing_the_screen_reads_the_profiles_again()
     {
         var rig = await GamesRig.StartAsync();
-        FakeAssert.Ok(await rig.Backend.Profiles.UpdateAsync(MockupScenario.SkyrimId, MockupScenario.VanillaId, new ProfileChanges("Vanilla, renamed", null, null)));
+        FakeAssert.Ok(await rig.Backend.Profiles.UpdateAsync(SampleScenario.SkyrimId, SampleScenario.VanillaId, new ProfileChanges("Vanilla, renamed", null, null)));
 
         rig.Screen.OnShown();
 
@@ -288,7 +288,7 @@ public class GamesScreenViewModelTests
     {
         var rig = await GamesRig.StartAsync();
         var before = rig.Screen.Profiles.ToList();
-        FakeAssert.Ok(await rig.Backend.Profiles.UpdateAsync(MockupScenario.SkyrimId, MockupScenario.ModdedId, new ProfileChanges("Renamed", null, null)));
+        FakeAssert.Ok(await rig.Backend.Profiles.UpdateAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, new ProfileChanges("Renamed", null, null)));
 
         await rig.Shell.RefreshLibraryAsync();
 
@@ -301,8 +301,8 @@ public class GamesScreenViewModelTests
     public async Task A_new_profile_appears_and_a_deleted_one_goes_after_a_refresh()
     {
         var rig = await GamesRig.StartAsync();
-        FakeAssert.Ok(await rig.Backend.Profiles.DuplicateAsync(MockupScenario.SkyrimId, MockupScenario.VanillaId, "Vanilla copy"));
-        FakeAssert.Ok(await rig.Backend.Profiles.DeleteAsync(MockupScenario.SkyrimId, MockupScenario.SurvivalId));
+        FakeAssert.Ok(await rig.Backend.Profiles.DuplicateAsync(SampleScenario.SkyrimId, SampleScenario.VanillaId, "Vanilla copy"));
+        FakeAssert.Ok(await rig.Backend.Profiles.DeleteAsync(SampleScenario.SkyrimId, SampleScenario.SurvivalId));
 
         await rig.Shell.RefreshLibraryAsync();
 
@@ -315,7 +315,7 @@ public class GamesScreenViewModelTests
     public async Task A_failed_profile_list_shows_a_card_with_a_way_to_try_again()
     {
         var rig = await GamesRig.StartAsync();
-        rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.ListAsync), MockupScenario.FolderGoneError);
+        rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.ListAsync), SampleScenario.FolderGoneError);
 
         await rig.Screen.ReloadAsync();
 
@@ -334,7 +334,7 @@ public class GamesScreenViewModelTests
     public async Task Failed_row_stats_still_list_the_profiles_and_say_what_went_wrong()
     {
         var rig = await GamesRig.StartAsync();
-        rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.GetRowStatsAsync), MockupScenario.FileInUseError);
+        rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.GetRowStatsAsync), SampleScenario.FileInUseError);
 
         await rig.Screen.ReloadAsync();
 
@@ -361,7 +361,7 @@ public class GamesScreenViewModelTests
     {
         var rig = await GamesRig.StartAsync();
 
-        rig.Shell.SelectGame(MockupScenario.SatisfactoryId);
+        rig.Shell.SelectGame(SampleScenario.SatisfactoryId);
 
         Assert.Equal("This game's snapshots use 28.7 GB on a 210 GB drive", rig.Screen.StorageFooterText);
     }
@@ -374,10 +374,10 @@ public class GamesScreenViewModelTests
 
         await rig.Screen.FreeUp.FreeUpCommand.ExecuteAsync(null);
 
-        Assert.Equal([MockupScenario.SkyrimId], rig.Backend.Jobs.List().Where(job => job.Kind == JobKind.Compact).Select(job => job.GameId));
+        Assert.Equal([SampleScenario.SkyrimId], rig.Backend.Jobs.List().Where(job => job.Kind == JobKind.Compact).Select(job => job.GameId));
         Assert.True(rig.Screen.FreeUp.IsRunning);
 
-        rig.Shell.SelectGame(MockupScenario.SatisfactoryId);
+        rig.Shell.SelectGame(SampleScenario.SatisfactoryId);
 
         Assert.Equal("Free up space for Satisfactory", rig.Screen.FreeUp.Name);
         Assert.False(rig.Screen.FreeUp.IsRunning);
@@ -389,7 +389,7 @@ public class GamesScreenViewModelTests
         var rig = await GamesRig.StartAsync();
         await rig.Screen.FreeUp.FreeUpCommand.ExecuteAsync(null);
         var job = rig.Backend.Jobs.LastStarted(JobKind.Compact).JobId;
-        rig.Backend.State.GameBytes[MockupScenario.SkyrimId] = 10_000_000_000;
+        rig.Backend.State.GameBytes[SampleScenario.SkyrimId] = 10_000_000_000;
 
         rig.Backend.Jobs.Complete(job);
         await Task.Yield();
@@ -401,7 +401,7 @@ public class GamesScreenViewModelTests
     public async Task A_free_up_run_that_cannot_start_is_a_toast_like_the_screens_other_failures()
     {
         var rig = await GamesRig.StartAsync();
-        rig.Backend.FailNext<IGamesApi>(nameof(IGamesApi.OptimizeStorageAsync), MockupScenario.FileInUseError);
+        rig.Backend.FailNext<IGamesApi>(nameof(IGamesApi.OptimizeStorageAsync), SampleScenario.FileInUseError);
 
         await rig.Screen.FreeUp.FreeUpCommand.ExecuteAsync(null);
 
@@ -438,7 +438,7 @@ public class GamesScreenViewModelTests
     public async Task A_footer_that_cannot_be_read_is_left_out()
     {
         var rig = await GamesRig.StartAsync();
-        rig.Backend.FailNext<IGamesApi>(nameof(IGamesApi.GetStorageUsageAsync), MockupScenario.FileInUseError);
+        rig.Backend.FailNext<IGamesApi>(nameof(IGamesApi.GetStorageUsageAsync), SampleScenario.FileInUseError);
 
         await rig.Screen.ReloadAsync();
 
@@ -463,12 +463,12 @@ public class GamesScreenViewModelTests
     {
         var rig = await GamesRig.StartAsync();
 
-        rig.LaunchFlow!.SetActive(MockupScenario.SkyrimId, true);
+        rig.LaunchFlow!.SetActive(SampleScenario.SkyrimId, true);
 
         Assert.All(Rows(rig), row => Assert.False(row.CanPlay));
         Assert.All(Rows(rig), row => Assert.False(row.PlayCommand.CanExecute(null)));
 
-        rig.LaunchFlow.SetActive(MockupScenario.SkyrimId, false);
+        rig.LaunchFlow.SetActive(SampleScenario.SkyrimId, false);
 
         Assert.All(Rows(rig), row => Assert.True(row.CanPlay));
     }
@@ -478,7 +478,7 @@ public class GamesScreenViewModelTests
     {
         var rig = await GamesRig.StartAsync();
 
-        rig.LaunchFlow!.SetActive(MockupScenario.SatisfactoryId, true);
+        rig.LaunchFlow!.SetActive(SampleScenario.SatisfactoryId, true);
 
         Assert.All(Rows(rig), row => Assert.True(row.CanPlay));
     }
@@ -487,7 +487,7 @@ public class GamesScreenViewModelTests
     public async Task The_running_profile_says_so_and_nothing_can_be_played_meanwhile()
     {
         var rig = await GamesRig.StartAsync();
-        FakeAssert.Ok(await rig.Backend.Launch.StartAsync(MockupScenario.SkyrimId, new LaunchTarget.ProfileTip(MockupScenario.ModdedId)));
+        FakeAssert.Ok(await rig.Backend.Launch.StartAsync(SampleScenario.SkyrimId, new LaunchTarget.ProfileTip(SampleScenario.ModdedId)));
 
         await rig.Screen.ReloadAsync();
 
@@ -500,15 +500,15 @@ public class GamesScreenViewModelTests
     public async Task Play_comes_back_when_the_session_ends_without_anything_else_reloading_the_table()
     {
         var rig = await GamesRig.StartAsync();
-        var game = MockupScenario.SkyrimId;
-        FakeAssert.Ok(await rig.Backend.Launch.StartAsync(game, new LaunchTarget.ProfileTip(MockupScenario.ModdedId)));
+        var game = SampleScenario.SkyrimId;
+        FakeAssert.Ok(await rig.Backend.Launch.StartAsync(game, new LaunchTarget.ProfileTip(SampleScenario.ModdedId)));
         rig.LaunchFlow!.SetActive(game, true);
         await rig.Screen.ReloadAsync();
         Assert.All(Rows(rig), row => Assert.False(row.CanPlay));
 
         // "Not now": the session is finished and nobody saves anything, so no job runs and no library refresh follows.
-        rig.Backend.Launch.ReportRunning(game, MockupScenario.RunningSince);
-        rig.Backend.Launch.ReportExited(game, MockupScenario.PlayDuration, 0);
+        rig.Backend.Launch.ReportRunning(game, SampleScenario.RunningSince);
+        rig.Backend.Launch.ReportExited(game, SampleScenario.PlayDuration, 0);
         FakeAssert.Ok(await rig.Backend.Launch.CompleteSessionAsync(game, new SessionCompletion.Skip()));
         rig.LaunchFlow.SetActive(game, false);
 
@@ -523,7 +523,7 @@ public class GamesScreenViewModelTests
     {
         var rig = await GamesRig.StartAsync();
         var banner = new object();
-        rig.LaunchFlow!.SetInline(MockupScenario.SkyrimId, banner);
+        rig.LaunchFlow!.SetInline(SampleScenario.SkyrimId, banner);
         rig.Screen.SetPaneHeight(GamesScreenViewModel.PinnedCardMinHeight);
         Assert.Same(banner, rig.Screen.PinnedContent);
         Assert.Null(rig.Screen.ScrollingContent);
@@ -548,12 +548,12 @@ public class GamesScreenViewModelTests
         Assert.False(rig.Screen.HasInlineContent);
         var banner = new object();
 
-        rig.LaunchFlow!.SetInline(MockupScenario.SkyrimId, banner);
+        rig.LaunchFlow!.SetInline(SampleScenario.SkyrimId, banner);
 
         Assert.Same(banner, rig.Screen.InlineContent);
         Assert.True(rig.Screen.HasInlineContent);
 
-        rig.LaunchFlow.SetInline(MockupScenario.SkyrimId, null);
+        rig.LaunchFlow.SetInline(SampleScenario.SkyrimId, null);
 
         Assert.Null(rig.Screen.InlineContent);
         Assert.False(rig.Screen.HasInlineContent);
@@ -565,11 +565,11 @@ public class GamesScreenViewModelTests
         var rig = await GamesRig.StartAsync();
         var card = new object();
 
-        rig.LaunchFlow!.SetInline(MockupScenario.SatisfactoryId, card);
+        rig.LaunchFlow!.SetInline(SampleScenario.SatisfactoryId, card);
 
         Assert.Null(rig.Screen.InlineContent);
 
-        rig.Shell.SelectGame(MockupScenario.SatisfactoryId);
+        rig.Shell.SelectGame(SampleScenario.SatisfactoryId);
 
         Assert.Same(card, rig.Screen.InlineContent);
     }
@@ -582,7 +582,7 @@ public class GamesScreenViewModelTests
         dispatcher.RunAll();
         var banner = new object();
 
-        rig.LaunchFlow!.SetInline(MockupScenario.SkyrimId, banner);
+        rig.LaunchFlow!.SetInline(SampleScenario.SkyrimId, banner);
 
         Assert.Null(rig.Screen.InlineContent);
         dispatcher.RunAll();
@@ -699,7 +699,7 @@ public class GamesScreenViewModelTests
         var rig = await GamesRig.StartAsync();
         Assert.Equal("More actions for Skyrim Special Edition", rig.Screen.GameMoreActionsName);
 
-        rig.Shell.SelectGame(MockupScenario.SatisfactoryId);
+        rig.Shell.SelectGame(SampleScenario.SatisfactoryId);
 
         Assert.Equal("More actions for Satisfactory", rig.Screen.GameMoreActionsName);
     }
@@ -712,7 +712,7 @@ public class GamesScreenViewModelTests
         rig.Screen.ShowHistoryCommand.Execute(null);
 
         Assert.Equal(NavDestination.History, rig.Shell.Destination);
-        Assert.Equal(MockupScenario.SkyrimId, rig.Shell.SelectedGame?.Id);
+        Assert.Equal(SampleScenario.SkyrimId, rig.Shell.SelectedGame?.Id);
     }
 
     [Fact]
@@ -721,12 +721,12 @@ public class GamesScreenViewModelTests
         var rig = await GamesRig.StartAsync();
         var requests = new List<ActivityRequest>();
         rig.Shell.ActivityRequested += (_, request) => requests.Add(request);
-        rig.Shell.SelectGame(MockupScenario.SatisfactoryId);
+        rig.Shell.SelectGame(SampleScenario.SatisfactoryId);
 
         rig.Screen.ShowActivityCommand.Execute(null);
 
         Assert.Equal(NavDestination.Activity, rig.Shell.Destination);
-        Assert.Equal([new ActivityRequest(MockupScenario.SatisfactoryId)], requests);
+        Assert.Equal([new ActivityRequest(SampleScenario.SatisfactoryId)], requests);
     }
 
     [Fact]
@@ -737,7 +737,7 @@ public class GamesScreenViewModelTests
         rig.Screen.EditGameCommand.Execute(null);
 
         var pane = Assert.Single(rig.Editor!.Created);
-        Assert.Equal(new EditorPane("existing", MockupScenario.SkyrimId, null), pane);
+        Assert.Equal(new EditorPane("existing", SampleScenario.SkyrimId, null), pane);
         Assert.Same(pane, rig.Shell.Content);
     }
 
@@ -760,11 +760,11 @@ public class GamesScreenViewModelTests
     {
         var rig = await GamesRig.StartAsync();
 
-        rig.LaunchFlow!.RaiseEditGameRequested(MockupScenario.SatisfactoryId);
+        rig.LaunchFlow!.RaiseEditGameRequested(SampleScenario.SatisfactoryId);
 
-        Assert.Equal(MockupScenario.SatisfactoryId, rig.Shell.SelectedGame?.Id);
+        Assert.Equal(SampleScenario.SatisfactoryId, rig.Shell.SelectedGame?.Id);
         var pane = Assert.Single(rig.Editor!.Created);
-        Assert.Equal(new EditorPane("existing", MockupScenario.SatisfactoryId, null), pane);
+        Assert.Equal(new EditorPane("existing", SampleScenario.SatisfactoryId, null), pane);
         Assert.Same(pane, rig.Shell.Content);
     }
 
@@ -774,7 +774,7 @@ public class GamesScreenViewModelTests
         var rig = await GamesRig.StartAsync();
         rig.Shell.Navigate(NavDestination.History);
 
-        rig.LaunchFlow!.RaiseEditGameRequested(MockupScenario.SkyrimId);
+        rig.LaunchFlow!.RaiseEditGameRequested(SampleScenario.SkyrimId);
 
         Assert.Equal(NavDestination.Games, rig.Shell.Destination);
         Assert.Same(Assert.Single(rig.Editor!.Created), rig.Shell.Content);
@@ -797,7 +797,7 @@ public class GamesScreenViewModelTests
         var rig = await GamesRig.StartAsync();
         rig.Screen.Dispose();
 
-        rig.LaunchFlow!.RaiseEditGameRequested(MockupScenario.SkyrimId);
+        rig.LaunchFlow!.RaiseEditGameRequested(SampleScenario.SkyrimId);
 
         Assert.Empty(rig.Editor!.Created);
     }
@@ -808,8 +808,8 @@ public class GamesScreenViewModelTests
         var rig = await GamesRig.StartAsync();
         rig.Screen.Dispose();
 
-        rig.Shell.SelectGame(MockupScenario.SatisfactoryId);
-        rig.LaunchFlow!.SetInline(MockupScenario.SkyrimId, new object());
+        rig.Shell.SelectGame(SampleScenario.SatisfactoryId);
+        rig.LaunchFlow!.SetInline(SampleScenario.SkyrimId, new object());
 
         Assert.Equal("Skyrim Special Edition", rig.Screen.GameName);
         Assert.Null(rig.Screen.InlineContent);

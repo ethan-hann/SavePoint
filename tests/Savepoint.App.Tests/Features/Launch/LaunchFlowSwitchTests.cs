@@ -22,7 +22,7 @@ public class LaunchFlowSwitchTests : IDisposable
     // The progress-dialog path: only the saves differ, and the player asked not to be asked about that.
     private async Task SwitchWithProgressAsync()
     {
-        FakeAssert.Ok(await _f.Backend.Settings.SaveAsync(MockupScenario.Settings with { SkipConfirmWhenOnlySaveChanges = true }));
+        FakeAssert.Ok(await _f.Backend.Settings.SaveAsync(SampleScenario.Settings with { SkipConfirmWhenOnlySaveChanges = true }));
         await _f.Flow.BeginSwitchAsync(FlowRig.Skyrim, LaunchRig.ClearedBlackreachPoint);
     }
 
@@ -41,7 +41,7 @@ public class LaunchFlowSwitchTests : IDisposable
 
         var progress = _f.Progress;
         Assert.Equal("Switching Skyrim Special Edition's files…", progress.Title);
-        _f.Backend.Jobs.ReportProgress(job.JobId, MockupScenario.SwitchProgress);
+        _f.Backend.Jobs.ReportProgress(job.JobId, SampleScenario.SwitchProgress);
         Assert.Contains("3.8 GB of 6.1 GB", progress.ProgressText, StringComparison.Ordinal);
     }
 
@@ -133,7 +133,7 @@ public class LaunchFlowSwitchTests : IDisposable
     {
         await SwitchWithProgressAsync();
 
-        _f.Backend.Jobs.Fail(_f.Backend.Jobs.LastStarted(JobKind.Switch).JobId, MockupScenario.SavesOutOfRoomError);
+        _f.Backend.Jobs.Fail(_f.Backend.Jobs.LastStarted(JobKind.Switch).JobId, SampleScenario.SavesOutOfRoomError);
 
         var body = _f.Inline<ErrorCardViewModel>().Body;
         Assert.Contains("to switch", body, StringComparison.Ordinal);

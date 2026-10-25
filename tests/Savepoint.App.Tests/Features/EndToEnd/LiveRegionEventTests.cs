@@ -61,9 +61,9 @@ public class LiveRegionEventTests
     public async Task An_error_card_that_appears_is_announced_through_the_pages_announcer()
     {
         using var app = await ComposedApp.StartWithViewAsync();
-        app.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync), MockupScenario.FileInUseError);
+        app.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync), SampleScenario.FileInUseError);
 
-        var spoken = await SpokenAsync(app, () => Row(app, MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null));
+        var spoken = await SpokenAsync(app, () => Row(app, SampleScenario.ModdedId).PlayCommand.ExecuteAsync(null));
 
         var card = Assert.IsType<ErrorCardViewModel>(app.Games.InlineContent);
         Assert.Contains(spoken, text => text.Contains(card.Title, StringComparison.Ordinal) && text.Contains(card.Body, StringComparison.Ordinal));
@@ -74,7 +74,7 @@ public class LiveRegionEventTests
     {
         using var app = await ComposedApp.StartWithViewAsync();
 
-        var spoken = await SpokenAsync(app, () => Row(app, MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null));
+        var spoken = await SpokenAsync(app, () => Row(app, SampleScenario.ModdedId).PlayCommand.ExecuteAsync(null));
 
         var banner = Assert.IsType<LaunchBannerViewModel>(app.Games.InlineContent);
         Assert.Contains(spoken, text => text.Contains(banner.Title, StringComparison.Ordinal));
@@ -87,7 +87,7 @@ public class LiveRegionEventTests
         var announcer = app.Find<JobStatusView>("JobPill").GetVisualDescendants().OfType<AnnouncementRegion>().Single();
         var events = Listen(announcer);
 
-        FakeAssert.Ok(await app.Backend.Profiles.CaptureAsync(MockupScenario.SkyrimId, MockupScenario.ModdedId, "A snapshot"));
+        FakeAssert.Ok(await app.Backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "A snapshot"));
         app.Settle();
 
         var spoken = events.Where(e => e.Property == AutomationElementIdentifiers.NameProperty).Select(e => e.NewValue).OfType<string>();

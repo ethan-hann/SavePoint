@@ -33,8 +33,8 @@ public class ShellViewModelTests
     {
         var rig = await ShellRig.StartAsync();
 
-        Assert.Equal(MockupScenario.SkyrimId, rig.Shell.SelectedGameRow?.Id);
-        Assert.Equal(MockupScenario.SkyrimId, rig.Shell.SelectedGame?.Id);
+        Assert.Equal(SampleScenario.SkyrimId, rig.Shell.SelectedGameRow?.Id);
+        Assert.Equal(SampleScenario.SkyrimId, rig.Shell.SelectedGame?.Id);
         Assert.True(rig.Shell.Games[0].IsSelected);
         Assert.False(rig.Shell.Games[1].IsSelected);
     }
@@ -116,7 +116,7 @@ public class ShellViewModelTests
     [Fact]
     public async Task Settings_that_cannot_be_read_keep_the_defaults_and_tell_the_user()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         backend.FailNext<ISettingsApi>(nameof(ISettingsApi.GetAsync), ErrorInfo.From(new InvalidOperationException("boom")));
 
         var rig = await ShellRig.StartAsync(backend);
@@ -132,7 +132,7 @@ public class ShellViewModelTests
     [Fact]
     public async Task A_game_list_that_cannot_be_read_fills_the_page_with_the_error_and_Try_again_instead_of_a_blank_screen()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         backend.FailNext<IGamesApi>(nameof(IGamesApi.ListAsync), ErrorInfo.From(new InvalidOperationException("boom")));
 
         var rig = await ShellRig.StartAsync(backend);
@@ -149,7 +149,7 @@ public class ShellViewModelTests
     [Fact]
     public async Task Try_again_reads_the_library_and_gives_the_page_back()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         backend.FailNext<IGamesApi>(nameof(IGamesApi.ListAsync), ErrorInfo.From(new InvalidOperationException("boom")));
         var rig = await ShellRig.StartAsync(backend);
         var error = Assert.IsType<LibraryErrorViewModel>(rig.Shell.Content);
@@ -165,7 +165,7 @@ public class ShellViewModelTests
     [Fact]
     public async Task A_second_failure_shows_the_error_again_and_a_library_already_read_keeps_its_page()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         backend.FailNext<IGamesApi>(nameof(IGamesApi.ListAsync), ErrorInfo.From(new InvalidOperationException("boom")));
         var rig = await ShellRig.StartAsync(backend);
         rig.Backend.FailNext<IGamesApi>(nameof(IGamesApi.ListAsync), ErrorInfo.From(new InvalidOperationException("boom")));
@@ -229,7 +229,7 @@ public class ShellViewModelTests
         rig.Shell.SelectedGameRow = rig.Shell.Games[1];
 
         Assert.Equal(NavDestination.Settings, rig.Shell.Destination);
-        Assert.Equal(MockupScenario.SatisfactoryId, rig.Shell.SelectedGame?.Id);
+        Assert.Equal(SampleScenario.SatisfactoryId, rig.Shell.SelectedGame?.Id);
     }
 
     [Fact]
@@ -238,7 +238,7 @@ public class ShellViewModelTests
         var rig = await ShellRig.StartAsync();
         rig.Shell.Navigate(NavDestination.Settings);
 
-        rig.Shell.SelectGame(MockupScenario.SkyrimId);
+        rig.Shell.SelectGame(SampleScenario.SkyrimId);
 
         Assert.Equal(NavDestination.Games, rig.Shell.Destination);
     }
@@ -250,7 +250,7 @@ public class ShellViewModelTests
         rig.Shell.Navigate(NavDestination.Settings);
         rig.Shell.ShowHelp();
 
-        rig.Shell.SelectGame(MockupScenario.SkyrimId);
+        rig.Shell.SelectGame(SampleScenario.SkyrimId);
         rig.Shell.Navigate(NavDestination.Settings);
 
         Assert.IsNotType<HowItWorksViewModel>(rig.Shell.Content);
@@ -262,10 +262,10 @@ public class ShellViewModelTests
         var rig = await ShellRig.StartAsync();
         rig.Shell.ShowHelp();
 
-        rig.Shell.SelectGame(MockupScenario.SatisfactoryId);
+        rig.Shell.SelectGame(SampleScenario.SatisfactoryId);
 
         Assert.IsNotType<HowItWorksViewModel>(rig.Shell.Content);
-        Assert.Equal(MockupScenario.SatisfactoryId, rig.Shell.SelectedGame?.Id);
+        Assert.Equal(SampleScenario.SatisfactoryId, rig.Shell.SelectedGame?.Id);
     }
 
     [Fact]
@@ -345,7 +345,7 @@ public class ShellViewModelTests
         Assert.Equal(ShellLayout.Library, rig.Shell.Layout);
         Assert.Equal(ShellLayout.Library, rig.Shell.LayoutToggle.Selected?.Layout);
         var save = Assert.Single(rig.Backend.Calls.To<ISettingsApi>(nameof(ISettingsApi.SaveAsync)));
-        Assert.Equal(MockupScenario.Settings with { Layout = ShellLayout.Library }, save.Args[0]);
+        Assert.Equal(SampleScenario.Settings with { Layout = ShellLayout.Library }, save.Args[0]);
     }
 
     [Fact]
@@ -392,7 +392,7 @@ public class ShellViewModelTests
 
         var saves = rig.Backend.Calls.To<ISettingsApi>(nameof(ISettingsApi.SaveAsync));
         Assert.Equal([ShellLayout.Library, ShellLayout.Sidebar], saves.Select(call => ((AppSettings)call.Args[0]!).Layout));
-        Assert.Equal(MockupScenario.Settings, saves[1].Args[0]);
+        Assert.Equal(SampleScenario.Settings, saves[1].Args[0]);
     }
 
     [Fact]
@@ -414,7 +414,7 @@ public class ShellViewModelTests
     {
         var rig = await ShellRig.StartAsync();
 
-        rig.Shell.SettingsChanged(MockupScenario.Settings with { Layout = ShellLayout.Library, Theme = ThemePreference.Light, AccentColorId = AccentColorId.Crimson });
+        rig.Shell.SettingsChanged(SampleScenario.Settings with { Layout = ShellLayout.Library, Theme = ThemePreference.Light, AccentColorId = AccentColorId.Crimson });
 
         Assert.Equal(ShellLayout.Library, rig.Shell.Layout);
         Assert.Equal(ShellLayout.Library, rig.Shell.LayoutToggle.Selected?.Layout);
@@ -428,7 +428,7 @@ public class ShellViewModelTests
         var flow = new FakeLaunchFlow();
         var rig = await ShellRig.StartAsync(launchFlow: flow);
 
-        flow.RaiseSettingsSaved(MockupScenario.Settings with { Layout = ShellLayout.Library, Theme = ThemePreference.Light });
+        flow.RaiseSettingsSaved(SampleScenario.Settings with { Layout = ShellLayout.Library, Theme = ThemePreference.Light });
 
         Assert.Equal(ShellLayout.Library, rig.Shell.Layout);
         Assert.Equal((ThemePreference.Light, AccentColorId.Blue), rig.Theme.Applied[^1]);
@@ -449,7 +449,7 @@ public class ShellViewModelTests
     public async Task Choosing_a_layout_keeps_what_another_writer_saved_since_the_shell_last_looked()
     {
         var rig = await ShellRig.StartAsync();
-        FakeAssert.Ok(await rig.Backend.Settings.SaveAsync(MockupScenario.Settings with { ConfirmSessionCapture = false, SkipConfirmWhenOnlySaveChanges = true }));
+        FakeAssert.Ok(await rig.Backend.Settings.SaveAsync(SampleScenario.Settings with { ConfirmSessionCapture = false, SkipConfirmWhenOnlySaveChanges = true }));
 
         await rig.Shell.SetLayoutAsync(ShellLayout.Library);
 
@@ -482,7 +482,7 @@ public class ShellViewModelTests
     [Fact]
     public async Task The_shelf_is_hidden_when_the_library_is_empty()
     {
-        var scenario = ScenarioBuilder.Empty().WithSettings(MockupScenario.Settings with { Layout = ShellLayout.Library });
+        var scenario = ScenarioBuilder.Empty().WithSettings(SampleScenario.Settings with { Layout = ShellLayout.Library });
         var rig = await ShellRig.StartAsync(new FakeBackend(scenario));
 
         Assert.False(rig.Shell.ShowShelf);
@@ -496,9 +496,9 @@ public class ShellViewModelTests
     {
         var rig = await ShellRig.StartAsync();
 
-        rig.Shell.SelectGame(MockupScenario.SatisfactoryId);
+        rig.Shell.SelectGame(SampleScenario.SatisfactoryId);
 
-        Assert.Equal(MockupScenario.SatisfactoryId, rig.Shell.SelectedGame?.Id);
+        Assert.Equal(SampleScenario.SatisfactoryId, rig.Shell.SelectedGame?.Id);
         Assert.Equal([false, true, false], rig.Shell.Games.Select(row => row.IsSelected));
     }
 
@@ -507,7 +507,7 @@ public class ShellViewModelTests
     {
         var rig = await ShellRig.StartAsync();
 
-        var changes = rig.Changes(rig.Shell, () => rig.Shell.SelectGame(MockupScenario.CaretakerId));
+        var changes = rig.Changes(rig.Shell, () => rig.Shell.SelectGame(SampleScenario.CaretakerId));
 
         Assert.Contains("SelectedGame", changes);
     }
@@ -519,7 +519,7 @@ public class ShellViewModelTests
 
         rig.Shell.SelectGame("no-such-game");
 
-        Assert.Equal(MockupScenario.SkyrimId, rig.Shell.SelectedGame?.Id);
+        Assert.Equal(SampleScenario.SkyrimId, rig.Shell.SelectedGame?.Id);
     }
 
     [Fact]
@@ -529,7 +529,7 @@ public class ShellViewModelTests
 
         rig.Shell.SelectedGameRow = rig.Shell.Games[2];
 
-        Assert.Equal(MockupScenario.CaretakerId, rig.Shell.SelectedGame?.Id);
+        Assert.Equal(SampleScenario.CaretakerId, rig.Shell.SelectedGame?.Id);
         Assert.True(rig.Shell.Games[2].IsSelected);
         Assert.False(rig.Shell.Games[0].IsSelected);
     }
@@ -540,10 +540,10 @@ public class ShellViewModelTests
         var rig = await ShellRig.StartAsync();
         rig.Shell.Navigate(NavDestination.Activity);
 
-        rig.Shell.SelectGame(MockupScenario.CaretakerId);
+        rig.Shell.SelectGame(SampleScenario.CaretakerId);
 
         Assert.Equal(NavDestination.Activity, rig.Shell.Destination);
-        Assert.Equal(MockupScenario.CaretakerId, rig.Shell.SelectedGame?.Id);
+        Assert.Equal(SampleScenario.CaretakerId, rig.Shell.SelectedGame?.Id);
     }
 
     [Fact]
@@ -554,10 +554,10 @@ public class ShellViewModelTests
         var seen = new List<string>();
         rig.Shell.ActivityRequested += (_, request) => seen.Add($"request:{request.GameId}:shown={activity.Screen!.ShownCount}:selected={rig.Shell.SelectedGame?.Id}");
 
-        rig.Shell.ShowActivity(MockupScenario.SatisfactoryId);
+        rig.Shell.ShowActivity(SampleScenario.SatisfactoryId);
 
         // The screen hears the request before it is shown, and the game is already selected.
-        Assert.Equal([$"request:{MockupScenario.SatisfactoryId}:shown=0:selected={MockupScenario.SatisfactoryId}"], seen);
+        Assert.Equal([$"request:{SampleScenario.SatisfactoryId}:shown=0:selected={SampleScenario.SatisfactoryId}"], seen);
         Assert.Equal(NavDestination.Activity, rig.Shell.Destination);
         Assert.Equal(1, activity.Screen!.ShownCount);
     }
@@ -573,7 +573,7 @@ public class ShellViewModelTests
 
         Assert.Equal([new ActivityRequest(null)], requests);
         Assert.Equal(NavDestination.Activity, rig.Shell.Destination);
-        Assert.Equal(MockupScenario.SkyrimId, rig.Shell.SelectedGame?.Id);
+        Assert.Equal(SampleScenario.SkyrimId, rig.Shell.SelectedGame?.Id);
     }
 
     [Fact]
@@ -584,9 +584,9 @@ public class ShellViewModelTests
         var requests = new List<ActivityRequest>();
         rig.Shell.ActivityRequested += (_, request) => requests.Add(request);
 
-        rig.Shell.ShowActivity(MockupScenario.CaretakerId);
+        rig.Shell.ShowActivity(SampleScenario.CaretakerId);
 
-        Assert.Equal([new ActivityRequest(MockupScenario.CaretakerId)], requests);
+        Assert.Equal([new ActivityRequest(SampleScenario.CaretakerId)], requests);
         Assert.Equal(NavDestination.Activity, rig.Shell.Destination);
     }
 
@@ -609,15 +609,15 @@ public class ShellViewModelTests
         var rig = await ShellRig.StartAsync();
         rig.Shell.Navigate(NavDestination.Settings);
 
-        rig.Shell.SelectGame(MockupScenario.SatisfactoryId);
+        rig.Shell.SelectGame(SampleScenario.SatisfactoryId);
 
         Assert.Equal(NavDestination.Games, rig.Shell.Destination);
 
         rig.Shell.Navigate(NavDestination.History);
-        rig.Shell.SelectGame(MockupScenario.CaretakerId);
+        rig.Shell.SelectGame(SampleScenario.CaretakerId);
 
         Assert.Equal(NavDestination.History, rig.Shell.Destination);
-        Assert.Equal(MockupScenario.CaretakerId, rig.Shell.SelectedGame?.Id);
+        Assert.Equal(SampleScenario.CaretakerId, rig.Shell.SelectedGame?.Id);
     }
 
     [Fact]
@@ -627,7 +627,7 @@ public class ShellViewModelTests
 
         IShellContext context = rig.Shell;
 
-        Assert.Equal([MockupScenario.SkyrimId, MockupScenario.SatisfactoryId, MockupScenario.CaretakerId], context.Games.Select(game => game.Id));
+        Assert.Equal([SampleScenario.SkyrimId, SampleScenario.SatisfactoryId, SampleScenario.CaretakerId], context.Games.Select(game => game.Id));
     }
 
     // ---- Keeping the library current
@@ -636,7 +636,7 @@ public class ShellViewModelTests
     public async Task A_finished_capture_updates_the_counts_without_being_asked()
     {
         var rig = await ShellRig.StartAsync();
-        var created = FakeAssert.Ok(await rig.Backend.Profiles.CreateAsync(MockupScenario.SkyrimId, "A new profile", null, "First point"));
+        var created = FakeAssert.Ok(await rig.Backend.Profiles.CreateAsync(SampleScenario.SkyrimId, "A new profile", null, "First point"));
         Assert.Equal(3, rig.Shell.Games[0].ProfileCount);
 
         rig.Backend.Jobs.Complete(created.JobId);
@@ -668,8 +668,8 @@ public class ShellViewModelTests
         var caretaker = rig.Shell.Games[2];
         var collectionChanges = new List<System.Collections.Specialized.NotifyCollectionChangedAction>();
         rig.Shell.Games.CollectionChanged += (_, e) => collectionChanges.Add(e.Action);
-        FakeAssert.Ok(await rig.Backend.Profiles.CreateAsync(MockupScenario.SkyrimId, "A new profile", null, "First point"));
-        FakeAssert.Ok(await rig.Backend.Games.DeleteAsync(MockupScenario.SatisfactoryId));
+        FakeAssert.Ok(await rig.Backend.Profiles.CreateAsync(SampleScenario.SkyrimId, "A new profile", null, "First point"));
+        FakeAssert.Ok(await rig.Backend.Games.DeleteAsync(SampleScenario.SatisfactoryId));
 
         await rig.Shell.RefreshLibraryAsync();
 
@@ -687,7 +687,7 @@ public class ShellViewModelTests
         var rig = await ShellRig.StartAsync();
         var before = rig.Shell.Games.ToList();
         FakeAssert.Ok(await rig.Backend.Games.AddAsync(new GameDefinition(Id: "new-game", Name: "New Game", Install: new InstallLocation(@"D:\Games\New"))));
-        FakeAssert.Ok(await rig.Backend.Games.UpdateAsync(MockupScenario.Satisfactory with { Name = "Satisfactory 1.1" }));
+        FakeAssert.Ok(await rig.Backend.Games.UpdateAsync(SampleScenario.Satisfactory with { Name = "Satisfactory 1.1" }));
         var collectionChanges = new List<System.Collections.Specialized.NotifyCollectionChangedAction>();
         rig.Shell.Games.CollectionChanged += (_, e) => collectionChanges.Add(e.Action);
 
@@ -707,7 +707,7 @@ public class ShellViewModelTests
     public async Task A_finished_optimization_updates_the_sizes()
     {
         var rig = await ShellRig.StartAsync();
-        var job = FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(MockupScenario.SkyrimId));
+        var job = FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(SampleScenario.SkyrimId));
 
         rig.Backend.Jobs.Complete(job.JobId);
 
@@ -719,9 +719,9 @@ public class ShellViewModelTests
     {
         var rig = await ShellRig.StartAsync();
         var before = rig.Backend.Calls.To<IGamesApi>(nameof(IGamesApi.ListAsync)).Count;
-        FakeAssert.Ok(await rig.Backend.Launch.StartAsync(MockupScenario.SkyrimId, new LaunchTarget.ProfileTip(MockupScenario.ModdedId)));
+        FakeAssert.Ok(await rig.Backend.Launch.StartAsync(SampleScenario.SkyrimId, new LaunchTarget.ProfileTip(SampleScenario.ModdedId)));
 
-        rig.Backend.Launch.ReportRunning(MockupScenario.SkyrimId);
+        rig.Backend.Launch.ReportRunning(SampleScenario.SkyrimId);
 
         Assert.Equal(before, rig.Backend.Calls.To<IGamesApi>(nameof(IGamesApi.ListAsync)).Count);
     }
@@ -732,7 +732,7 @@ public class ShellViewModelTests
         var rig = await ShellRig.StartAsync();
         var before = rig.Backend.Calls.To<IGamesApi>(nameof(IGamesApi.ListAsync)).Count;
 
-        var job = FakeAssert.Ok(await rig.Backend.Profiles.CaptureAsync(MockupScenario.SkyrimId, MockupScenario.ModdedId, "p"));
+        var job = FakeAssert.Ok(await rig.Backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "p"));
         rig.Backend.Jobs.ReportProgress(job.JobId, new JobProgress(FilesDone: 1));
 
         Assert.Equal(before, rig.Backend.Calls.To<IGamesApi>(nameof(IGamesApi.ListAsync)).Count);
@@ -742,11 +742,11 @@ public class ShellViewModelTests
     public async Task Refreshing_after_the_selected_game_is_deleted_selects_the_first_remaining_game()
     {
         var rig = await ShellRig.StartAsync();
-        FakeAssert.Ok(await rig.Backend.Games.DeleteAsync(MockupScenario.SkyrimId));
+        FakeAssert.Ok(await rig.Backend.Games.DeleteAsync(SampleScenario.SkyrimId));
 
         await rig.Shell.RefreshLibraryAsync();
 
-        Assert.Equal(MockupScenario.SatisfactoryId, rig.Shell.SelectedGame?.Id);
+        Assert.Equal(SampleScenario.SatisfactoryId, rig.Shell.SelectedGame?.Id);
         Assert.Equal(2, rig.Shell.Games.Count);
         Assert.True(rig.Shell.Games[0].IsSelected);
     }
@@ -755,7 +755,7 @@ public class ShellViewModelTests
     public async Task Refreshing_after_every_game_is_gone_shows_the_first_run_state()
     {
         var rig = await ShellRig.StartAsync();
-        foreach (var id in new[] { MockupScenario.SkyrimId, MockupScenario.SatisfactoryId, MockupScenario.CaretakerId })
+        foreach (var id in new[] { SampleScenario.SkyrimId, SampleScenario.SatisfactoryId, SampleScenario.CaretakerId })
         {
             FakeAssert.Ok(await rig.Backend.Games.DeleteAsync(id));
         }
@@ -771,11 +771,11 @@ public class ShellViewModelTests
     public async Task A_reload_keeps_the_selection_when_the_game_is_still_there()
     {
         var rig = await ShellRig.StartAsync();
-        rig.Shell.SelectGame(MockupScenario.CaretakerId);
+        rig.Shell.SelectGame(SampleScenario.CaretakerId);
 
         await rig.Shell.RefreshLibraryAsync();
 
-        Assert.Equal(MockupScenario.CaretakerId, rig.Shell.SelectedGame?.Id);
+        Assert.Equal(SampleScenario.CaretakerId, rig.Shell.SelectedGame?.Id);
         Assert.True(rig.Shell.Games[2].IsSelected);
     }
 
@@ -806,7 +806,7 @@ public class ShellViewModelTests
     [Fact]
     public async Task Sizes_that_cannot_be_read_are_missing_not_zero()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         backend.FailNext<ISettingsApi>(nameof(ISettingsApi.GetStorageSummaryAsync), ErrorInfo.From(new InvalidOperationException("boom")));
 
         var rig = await ShellRig.StartAsync(backend);
@@ -1114,7 +1114,7 @@ public class ShellViewModelTests
     {
         var rig = await ShellRig.StartAsync();
 
-        var job = FakeAssert.Ok(await rig.Backend.Profiles.CaptureAsync(MockupScenario.SkyrimId, MockupScenario.ModdedId, "A point"));
+        var job = FakeAssert.Ok(await rig.Backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "A point"));
 
         Assert.True(rig.Shell.JobStatus.IsVisible);
         Assert.Equal("Taking a snapshot of Skyrim Special Edition\u2026", rig.Shell.JobStatus.PillText);
@@ -1131,13 +1131,13 @@ public class ShellViewModelTests
         var rig = await ShellRig.StartAsync();
         var requests = new List<ActivityRequest>();
         rig.Shell.ActivityRequested += (_, request) => requests.Add(request);
-        FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
+        FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(SampleScenario.SatisfactoryId));
 
         rig.Shell.JobStatus.OpenCommand.Execute(null);
 
         Assert.Equal(NavDestination.Activity, rig.Shell.Destination);
-        Assert.Equal(MockupScenario.SatisfactoryId, rig.Shell.SelectedGame?.Id);
-        Assert.Equal([new ActivityRequest(MockupScenario.SatisfactoryId)], requests);
+        Assert.Equal(SampleScenario.SatisfactoryId, rig.Shell.SelectedGame?.Id);
+        Assert.Equal([new ActivityRequest(SampleScenario.SatisfactoryId)], requests);
     }
 
     [Fact]
@@ -1151,14 +1151,14 @@ public class ShellViewModelTests
         rig.Shell.JobStatus.OpenCommand.Execute(null);
 
         Assert.Equal(NavDestination.Activity, rig.Shell.Destination);
-        Assert.Equal(MockupScenario.SkyrimId, rig.Shell.SelectedGame?.Id);
+        Assert.Equal(SampleScenario.SkyrimId, rig.Shell.SelectedGame?.Id);
         Assert.Equal([new ActivityRequest(null)], requests);
     }
 
     [Fact]
     public async Task Jobs_already_running_when_the_shell_starts_show_in_the_pill()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         FakeAssert.Ok(await backend.Settings.RelocateStorageAsync(@"E:\SavePoint"));
 
         var rig = await ShellRig.StartAsync(backend);
@@ -1170,8 +1170,8 @@ public class ShellViewModelTests
     [Fact]
     public async Task A_game_job_already_running_when_the_shell_starts_names_its_game_in_the_pill()
     {
-        var backend = FakeBackend.Mockup();
-        FakeAssert.Ok(await backend.Profiles.CaptureAsync(MockupScenario.SkyrimId, MockupScenario.ModdedId, "A point"));
+        var backend = FakeBackend.Sample();
+        FakeAssert.Ok(await backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "A point"));
 
         var rig = await ShellRig.StartAsync(backend);
 
@@ -1182,10 +1182,10 @@ public class ShellViewModelTests
     public async Task The_pill_catches_up_when_a_reload_changes_a_games_name()
     {
         var rig = await ShellRig.StartAsync();
-        FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
+        FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(SampleScenario.SatisfactoryId));
         Assert.Equal("Freeing up space for Satisfactory…", rig.Shell.JobStatus.PillText);
 
-        FakeAssert.Ok(await rig.Backend.Games.UpdateAsync(MockupScenario.Satisfactory with { Name = "Satisfactory (modded)" }));
+        FakeAssert.Ok(await rig.Backend.Games.UpdateAsync(SampleScenario.Satisfactory with { Name = "Satisfactory (modded)" }));
         await rig.Shell.RefreshLibraryAsync();
 
         Assert.Equal("Freeing up space for Satisfactory (modded)…", rig.Shell.JobStatus.PillText);
@@ -1198,7 +1198,7 @@ public class ShellViewModelTests
         var rig = await ShellRig.StartAsync(dispatcher: dispatcher);
         dispatcher.RunAll();
 
-        var job = FakeAssert.Ok(await rig.Backend.Profiles.CaptureAsync(MockupScenario.SkyrimId, MockupScenario.ModdedId, "A point"));
+        var job = FakeAssert.Ok(await rig.Backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "A point"));
 
         Assert.False(rig.Shell.JobStatus.IsVisible);
         Assert.True(dispatcher.Pending > 0);
@@ -1217,7 +1217,7 @@ public class ShellViewModelTests
         var rig = await ShellRig.StartAsync();
         rig.Shell.Dispose();
 
-        FakeAssert.Ok(await rig.Backend.Profiles.CaptureAsync(MockupScenario.SkyrimId, MockupScenario.ModdedId, "A point"));
+        FakeAssert.Ok(await rig.Backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "A point"));
 
         Assert.False(rig.Shell.JobStatus.IsVisible);
     }
@@ -1227,7 +1227,7 @@ public class ShellViewModelTests
     {
         var rig = await ShellRig.StartAsync();
 
-        FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(MockupScenario.CaretakerId));
+        FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(SampleScenario.CaretakerId));
 
         Assert.Equal("Freeing up space for The Last Caretaker\u2026", rig.Shell.JobStatus.PillText);
     }

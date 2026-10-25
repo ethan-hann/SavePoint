@@ -91,10 +91,10 @@ public class ReflowTests
     public async Task The_launch_banner_and_the_running_card_stay_pinned_above_the_storage_footer_at_narrow_widths(int width, string card)
     {
         using var app = await ComposedApp.StartWithViewAsync(width: width, height: 432);
-        await app.Games.Profiles.Single(row => row.Id == MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null).Soon();
+        await app.Games.Profiles.Single(row => row.Id == SampleScenario.ModdedId).PlayCommand.ExecuteAsync(null).Soon();
         if (card == "running")
         {
-            app.Backend.Launch.ReportRunning(MockupScenario.SkyrimId, MockupScenario.RunningSince);
+            app.Backend.Launch.ReportRunning(SampleScenario.SkyrimId, SampleScenario.RunningSince);
         }
 
         app.Settle();

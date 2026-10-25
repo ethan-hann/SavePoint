@@ -74,7 +74,7 @@ internal sealed class HeldArtworkApi : IArtworkApi
 
 public class ArtworkProviderTests
 {
-    private readonly FakeBackend _backend = FakeBackend.Mockup();
+    private readonly FakeBackend _backend = FakeBackend.Sample();
     private readonly ManualDispatcher _dispatcher = new();
 
     private ArtworkProvider NewProvider() => new(_backend.Artwork, _dispatcher, new ArtImages());

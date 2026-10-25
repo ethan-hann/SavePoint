@@ -49,17 +49,17 @@ public class Md3PaletteTests
     [Fact]
     public void Build_records_the_seed_and_mode()
     {
-        var palette = Md3Palette.Build(MockupTableTests.BlueSeed, dark: true);
+        var palette = Md3Palette.Build(ReadmeTableTests.BlueSeed, dark: true);
 
-        Assert.Equal(MockupTableTests.BlueSeed, palette.SeedArgb);
+        Assert.Equal(ReadmeTableTests.BlueSeed, palette.SeedArgb);
         Assert.True(palette.IsDark);
     }
 
     [Fact]
     public void Build_is_deterministic_and_value_equal()
     {
-        Assert.Equal(Md3Palette.Build(MockupTableTests.BlueSeed, true), Md3Palette.Build(MockupTableTests.BlueSeed, true));
-        Assert.NotEqual(Md3Palette.Build(MockupTableTests.BlueSeed, true), Md3Palette.Build(MockupTableTests.BlueSeed, false));
+        Assert.Equal(Md3Palette.Build(ReadmeTableTests.BlueSeed, true), Md3Palette.Build(ReadmeTableTests.BlueSeed, true));
+        Assert.NotEqual(Md3Palette.Build(ReadmeTableTests.BlueSeed, true), Md3Palette.Build(ReadmeTableTests.BlueSeed, false));
     }
 
     [Fact]

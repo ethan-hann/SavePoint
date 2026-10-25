@@ -15,7 +15,7 @@ public class AppearanceArtworkTests
 {
     private sealed class RecordingProvider : IArtworkProvider
     {
-        private readonly ArtworkProvider _inner = new(FakeBackend.Mockup().Artwork, new ImmediateUiDispatcher());
+        private readonly ArtworkProvider _inner = new(FakeBackend.Sample().Artwork, new ImmediateUiDispatcher());
 
         public int Refreshes { get; private set; }
 
@@ -35,7 +35,7 @@ public class AppearanceArtworkTests
     public async Task The_switch_is_on_by_default_and_follows_what_is_stored()
     {
         var rig = await SettingsRig.ShownAsync();
-        var off = FakeBackend.Mockup();
+        var off = FakeBackend.Sample();
         await off.Settings.SaveAsync((await off.Settings.GetAsync(TestContext.Current.CancellationToken)).Value! with { LookUpArtworkOnline = false });
         var offRig = await SettingsRig.ShownAsync(off);
 
@@ -102,7 +102,7 @@ public class AppearanceArtworkTests
     [Fact]
     public async Task Showing_a_stored_off_is_not_a_choice_and_saves_nothing()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         await backend.Settings.SaveAsync((await backend.Settings.GetAsync(TestContext.Current.CancellationToken)).Value! with { LookUpArtworkOnline = false });
         var provider = new RecordingProvider();
         var rig = await SettingsRig.StartAsync(backend, artwork: provider);

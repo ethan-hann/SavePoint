@@ -22,7 +22,7 @@ public class GameEditorTransferTests
         Notes: "From the community.");
 
     private static EditorRig RigWithImport() =>
-        EditorRig.Create(new FakeBackend(ScenarioBuilder.Mockup().WithImport(_file, _imported)));
+        EditorRig.Create(new FakeBackend(ScenarioBuilder.Sample().WithImport(_file, _imported)));
 
     private static ToastViewModel OnlyToast(EditorRig rig) => Assert.Single(rig.Toasts.Toasts);
 
@@ -200,10 +200,10 @@ public class GameEditorTransferTests
 
         var request = Assert.Single(rig.Dialogs.SaveFilePicks);
         Assert.Equal("Export Skyrim Special Edition", request.Title);
-        Assert.Equal($"{MockupScenario.SkyrimId}.json", request.SuggestedName);
+        Assert.Equal($"{SampleScenario.SkyrimId}.json", request.SuggestedName);
         Assert.Equal(["*.json"], Assert.Single(request.Filters!).Patterns);
         var call = Assert.Single(rig.Calls("ExportDefinitionAsync"));
-        Assert.Equal([MockupScenario.SkyrimId, @"C:\Exports\skyrim.json"], call.Args);
+        Assert.Equal([SampleScenario.SkyrimId, @"C:\Exports\skyrim.json"], call.Args);
         var toast = OnlyToast(rig);
         Assert.Equal(ToastKind.Success, toast.Message.Kind);
         Assert.Equal("Exported Skyrim Special Edition.", toast.Text);

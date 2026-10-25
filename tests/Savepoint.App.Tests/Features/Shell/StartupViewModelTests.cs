@@ -29,7 +29,7 @@ public class StartupViewModelTests
         new(new GitStatus(true, _gitPath, "2.56.0.windows.2", null), new CatalogStatus(_catalogDirectory, files));
 
     private static FakeBackend Backend(StartupStatus status, params string[] foldersWithHistory) =>
-        new(ScenarioBuilder.Mockup().WithStartupStatus(status).WithStorageHistoryIn(foldersWithHistory));
+        new(ScenarioBuilder.Sample().WithStartupStatus(status).WithStorageHistoryIn(foldersWithHistory));
 
     [Fact]
     public async Task A_healthy_start_is_ready_and_says_so_once()

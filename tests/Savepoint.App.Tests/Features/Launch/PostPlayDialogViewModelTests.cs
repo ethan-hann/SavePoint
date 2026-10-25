@@ -13,7 +13,7 @@ public class PostPlayDialogViewModelTests : IDisposable
 
     public void Dispose() => _rig.Dispose();
 
-    private async Task<PostPlayDialogViewModel> NormalAsync(int newFiles = MockupScenario.NewSaveFiles, int installFiles = 0, LaunchTarget? target = null) =>
+    private async Task<PostPlayDialogViewModel> NormalAsync(int newFiles = SampleScenario.NewSaveFiles, int installFiles = 0, LaunchTarget? target = null) =>
         new(await _rig.ExitedAsync(target ?? LaunchRig.ModdedTip, newFiles: newFiles, installFiles: installFiles), _moddedName, _rig.Deps);
 
     private async Task<PostPlayDialogViewModel> OlderAsync() =>

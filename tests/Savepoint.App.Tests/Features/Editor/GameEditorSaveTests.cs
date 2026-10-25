@@ -134,16 +134,16 @@ public class GameEditorSaveTests
         await Save(rig, editor);
 
         var saved = rig.Saved("UpdateAsync");
-        Assert.Equal(MockupScenario.SkyrimId, saved.Id);
+        Assert.Equal(SampleScenario.SkyrimId, saved.Id);
         Assert.Equal("Skyrim SE", saved.Name);
         Assert.Empty(rig.Calls("AddAsync"));
-        Assert.Equal(["refresh", $"select:{MockupScenario.SkyrimId}", "close"], rig.Shell.Calls);
+        Assert.Equal(["refresh", $"select:{SampleScenario.SkyrimId}", "close"], rig.Shell.Calls);
     }
 
     [Fact]
     public async Task Game_notes_survive_an_edit_untouched()
     {
-        var withNotes = MockupScenario.Skyrim with { Notes = "Direct-exe launch preferred." };
+        var withNotes = SampleScenario.Skyrim with { Notes = "Direct-exe launch preferred." };
         var rig = EditorRig.Create(new FakeBackend(ScenarioBuilder.Empty().WithGame(withNotes)));
         var editor = rig.Edit(withNotes.Id);
         editor.Name = "Skyrim SE";

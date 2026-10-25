@@ -13,11 +13,11 @@ public class FakeRecentlyRemovedTests
     [Fact]
     public async Task A_game_with_none_removed_lists_none()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
-        var removed = FakeAssert.Ok(await backend.History.GetRecentlyRemovedAsync(MockupScenario.SkyrimId, Ct));
+        var removed = FakeAssert.Ok(await backend.History.GetRecentlyRemovedAsync(SampleScenario.SkyrimId, Ct));
 
-        Assert.Equal(MockupScenario.SkyrimId, removed.GameId);
+        Assert.Equal(SampleScenario.SkyrimId, removed.GameId);
         Assert.Empty(removed.Snapshots);
     }
 
@@ -26,8 +26,8 @@ public class FakeRecentlyRemovedTests
     {
         var backend = Seeded();
 
-        var skyrim = FakeAssert.Ok(await backend.History.GetRecentlyRemovedAsync(MockupScenario.SkyrimId, Ct)).Snapshots;
-        var satisfactory = FakeAssert.Ok(await backend.History.GetRecentlyRemovedAsync(MockupScenario.SatisfactoryId, Ct)).Snapshots;
+        var skyrim = FakeAssert.Ok(await backend.History.GetRecentlyRemovedAsync(SampleScenario.SkyrimId, Ct)).Snapshots;
+        var satisfactory = FakeAssert.Ok(await backend.History.GetRecentlyRemovedAsync(SampleScenario.SatisfactoryId, Ct)).Snapshots;
 
         Assert.Equal([RemovedSnapshotSamples.Continued, RemovedSnapshotSamples.Replaced], skyrim);
         Assert.Equal([RemovedSnapshotSamples.FromDeletedProfile], satisfactory);
@@ -49,19 +49,19 @@ public class FakeRecentlyRemovedTests
     {
         var backend = Seeded();
 
-        var brought = FakeAssert.Ok(await backend.Profiles.BringBackAsync(MockupScenario.SkyrimId, RemovedSnapshotSamples.Continued.Id, "Boss fight again"));
+        var brought = FakeAssert.Ok(await backend.Profiles.BringBackAsync(SampleScenario.SkyrimId, RemovedSnapshotSamples.Continued.Id, "Boss fight again"));
 
         Assert.Equal("Boss fight again", brought.Name);
-        Assert.Equal(MockupScenario.SkyrimId, brought.GameId);
-        var history = FakeAssert.Ok(await backend.History.GetAsync(MockupScenario.SkyrimId, brought.Id, Ct));
+        Assert.Equal(SampleScenario.SkyrimId, brought.GameId);
+        var history = FakeAssert.Ok(await backend.History.GetAsync(SampleScenario.SkyrimId, brought.Id, Ct));
         var point = Assert.Single(history.Points);
         Assert.Equal(RemovedSnapshotSamples.Continued.Id, point.Id);
         Assert.Equal("Before the final boss", point.Name);
         Assert.Equal(RemovedSnapshotSamples.Continued.Install, point.Install);
         Assert.Equal(brought.Name, point.ProfileName);
-        var stats = FakeAssert.Ok(await backend.Profiles.GetRowStatsAsync(MockupScenario.SkyrimId, Ct)).Single(row => row.ProfileId == brought.Id);
+        var stats = FakeAssert.Ok(await backend.Profiles.GetRowStatsAsync(SampleScenario.SkyrimId, Ct)).Single(row => row.ProfileId == brought.Id);
         Assert.Equal(1, stats.SnapshotCount);
-        var listed = FakeAssert.Ok(await backend.History.GetRecentlyRemovedAsync(MockupScenario.SkyrimId, Ct)).Snapshots;
+        var listed = FakeAssert.Ok(await backend.History.GetRecentlyRemovedAsync(SampleScenario.SkyrimId, Ct)).Snapshots;
         Assert.Equal([RemovedSnapshotSamples.Replaced], listed);
     }
 
@@ -70,14 +70,14 @@ public class FakeRecentlyRemovedTests
     {
         var backend = Seeded();
 
-        var missing = await backend.Profiles.BringBackAsync(MockupScenario.SkyrimId, new HistoryPointId("no-such-snapshot"), "Name");
-        var blank = await backend.Profiles.BringBackAsync(MockupScenario.SkyrimId, RemovedSnapshotSamples.Continued.Id, "  ");
-        var otherGame = await backend.Profiles.BringBackAsync(MockupScenario.SatisfactoryId, RemovedSnapshotSamples.Continued.Id, "Name");
+        var missing = await backend.Profiles.BringBackAsync(SampleScenario.SkyrimId, new HistoryPointId("no-such-snapshot"), "Name");
+        var blank = await backend.Profiles.BringBackAsync(SampleScenario.SkyrimId, RemovedSnapshotSamples.Continued.Id, "  ");
+        var otherGame = await backend.Profiles.BringBackAsync(SampleScenario.SatisfactoryId, RemovedSnapshotSamples.Continued.Id, "Name");
 
         Assert.Equal("error.removed.notFound", missing.Error?.MessageId);
         Assert.Equal("error.validation.invalidPayload", blank.Error?.MessageId);
         Assert.Equal("error.removed.notFound", otherGame.Error?.MessageId);
-        Assert.Equal(2, FakeAssert.Ok(await backend.History.GetRecentlyRemovedAsync(MockupScenario.SkyrimId, Ct)).Snapshots.Count);
+        Assert.Equal(2, FakeAssert.Ok(await backend.History.GetRecentlyRemovedAsync(SampleScenario.SkyrimId, Ct)).Snapshots.Count);
     }
 
     [Fact]
@@ -85,8 +85,8 @@ public class FakeRecentlyRemovedTests
     {
         var backend = Seeded();
 
-        var skyrim = FakeAssert.Ok(await backend.Games.GetFreeUpSpacePreviewAsync(MockupScenario.SkyrimId, Ct));
-        var caretaker = FakeAssert.Ok(await backend.Games.GetFreeUpSpacePreviewAsync(MockupScenario.CaretakerId, Ct));
+        var skyrim = FakeAssert.Ok(await backend.Games.GetFreeUpSpacePreviewAsync(SampleScenario.SkyrimId, Ct));
+        var caretaker = FakeAssert.Ok(await backend.Games.GetFreeUpSpacePreviewAsync(SampleScenario.CaretakerId, Ct));
         var all = FakeAssert.Ok(await backend.Settings.GetFreeUpSpacePreviewAsync(Ct));
         var unknown = await backend.Games.GetFreeUpSpacePreviewAsync("no-such-game", Ct);
 
@@ -100,14 +100,14 @@ public class FakeRecentlyRemovedTests
     public async Task Freeing_up_space_for_a_game_deletes_its_removed_snapshots_when_the_job_has_run_and_only_that_games()
     {
         var backend = Seeded();
-        var preview = FakeAssert.Ok(await backend.Games.GetFreeUpSpacePreviewAsync(MockupScenario.SkyrimId, Ct));
+        var preview = FakeAssert.Ok(await backend.Games.GetFreeUpSpacePreviewAsync(SampleScenario.SkyrimId, Ct));
 
-        var started = FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(MockupScenario.SkyrimId, preview.Token));
-        Assert.Equal(2, FakeAssert.Ok(await backend.History.GetRecentlyRemovedAsync(MockupScenario.SkyrimId, Ct)).Snapshots.Count);
+        var started = FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(SampleScenario.SkyrimId, preview.Token));
+        Assert.Equal(2, FakeAssert.Ok(await backend.History.GetRecentlyRemovedAsync(SampleScenario.SkyrimId, Ct)).Snapshots.Count);
         backend.Jobs.Complete(started.JobId);
 
-        Assert.Empty(FakeAssert.Ok(await backend.History.GetRecentlyRemovedAsync(MockupScenario.SkyrimId, Ct)).Snapshots);
-        Assert.Single(FakeAssert.Ok(await backend.History.GetRecentlyRemovedAsync(MockupScenario.SatisfactoryId, Ct)).Snapshots);
+        Assert.Empty(FakeAssert.Ok(await backend.History.GetRecentlyRemovedAsync(SampleScenario.SkyrimId, Ct)).Snapshots);
+        Assert.Single(FakeAssert.Ok(await backend.History.GetRecentlyRemovedAsync(SampleScenario.SatisfactoryId, Ct)).Snapshots);
     }
 
     [Fact]
@@ -126,18 +126,18 @@ public class FakeRecentlyRemovedTests
     public async Task Freeing_up_space_deletes_only_the_snapshots_its_preview_counted_and_a_run_without_one_deletes_none()
     {
         var backend = Seeded();
-        var preview = FakeAssert.Ok(await backend.Games.GetFreeUpSpacePreviewAsync(MockupScenario.SkyrimId, Ct));
+        var preview = FakeAssert.Ok(await backend.Games.GetFreeUpSpacePreviewAsync(SampleScenario.SkyrimId, Ct));
         var later = RemovedSnapshotSamples.Continued with { Id = new HistoryPointId("pt-removed-after-the-preview") };
-        backend.Script(() => backend.State.Removed.Add((MockupScenario.SkyrimId, later)));
+        backend.Script(() => backend.State.Removed.Add((SampleScenario.SkyrimId, later)));
 
-        var blind = FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(MockupScenario.SkyrimId));
+        var blind = FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(SampleScenario.SkyrimId));
         backend.Jobs.Complete(blind.JobId);
-        Assert.Equal(3, FakeAssert.Ok(await backend.History.GetRecentlyRemovedAsync(MockupScenario.SkyrimId, Ct)).Snapshots.Count);
+        Assert.Equal(3, FakeAssert.Ok(await backend.History.GetRecentlyRemovedAsync(SampleScenario.SkyrimId, Ct)).Snapshots.Count);
 
-        var counted = FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(MockupScenario.SkyrimId, preview.Token));
+        var counted = FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(SampleScenario.SkyrimId, preview.Token));
         backend.Jobs.Complete(counted.JobId);
 
-        var left = Assert.Single(FakeAssert.Ok(await backend.History.GetRecentlyRemovedAsync(MockupScenario.SkyrimId, Ct)).Snapshots);
+        var left = Assert.Single(FakeAssert.Ok(await backend.History.GetRecentlyRemovedAsync(SampleScenario.SkyrimId, Ct)).Snapshots);
         Assert.Equal(later.Id, left.Id);
     }
 
@@ -146,13 +146,13 @@ public class FakeRecentlyRemovedTests
     {
         var backend = Seeded();
 
-        FakeAssert.Ok(await backend.Profiles.DeleteAsync(MockupScenario.SkyrimId, MockupScenario.VanillaId));
-        var listed = FakeAssert.Ok(await backend.History.GetRecentlyRemovedAsync(MockupScenario.SkyrimId, Ct)).Snapshots;
+        FakeAssert.Ok(await backend.Profiles.DeleteAsync(SampleScenario.SkyrimId, SampleScenario.VanillaId));
+        var listed = FakeAssert.Ok(await backend.History.GetRecentlyRemovedAsync(SampleScenario.SkyrimId, Ct)).Snapshots;
 
         Assert.Equal(2, listed.Count);
         var replaced = listed.Single(snapshot => snapshot.Id == RemovedSnapshotSamples.Replaced.Id);
         Assert.Null(replaced.FromProfileId);
         Assert.Null(replaced.FromProfileName);
-        Assert.Equal(MockupScenario.ModdedId, listed.Single(snapshot => snapshot.Id == RemovedSnapshotSamples.Continued.Id).FromProfileId);
+        Assert.Equal(SampleScenario.ModdedId, listed.Single(snapshot => snapshot.Id == RemovedSnapshotSamples.Continued.Id).FromProfileId);
     }
 }

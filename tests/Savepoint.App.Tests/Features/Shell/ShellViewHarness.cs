@@ -43,7 +43,7 @@ internal sealed class ShellViewHarness : IDisposable
         double height = 660,
         bool realDialogs = false)
     {
-        backend ??= FakeBackend.Mockup();
+        backend ??= FakeBackend.Sample();
         var text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), backend.Clock, "windows", TimeZoneInfo.Utc);
         var app = (App)Application.Current!;
         var main = AppComposition.Create(
@@ -64,7 +64,7 @@ internal sealed class ShellViewHarness : IDisposable
 
     public static async Task<ShellViewHarness> LibraryLayoutAsync(ThemePreference theme = ThemePreference.Dark, double width = 1040, double height = 660)
     {
-        var scenario = ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { Layout = ShellLayout.Library, Theme = theme });
+        var scenario = ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Layout = ShellLayout.Library, Theme = theme });
         return await StartAsync(new FakeBackend(scenario), theme, width, height);
     }
 

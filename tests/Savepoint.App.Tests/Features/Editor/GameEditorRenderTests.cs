@@ -12,8 +12,8 @@ public class GameEditorRenderTests
     private static void AssertRendered(string path) =>
         Assert.True(new FileInfo(path).Length > 10_000, "The render looks empty.");
 
-    private static FakeBackend Mockup(ThemePreference theme) =>
-        new(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { Theme = theme }));
+    private static FakeBackend Sample(ThemePreference theme) =>
+        new(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Theme = theme }));
 
     [AvaloniaFact]
     public async Task Edit_mode_dark_renders_to_a_png()
@@ -21,7 +21,7 @@ public class GameEditorRenderTests
         using var harness = await EditorViewHarness.StartAsync();
         harness.Edit();
 
-        AssertRendered(harness.Render("2g-game-editor-edit-dark"));
+        AssertRendered(harness.Render("game-editor-edit-dark"));
     }
 
     // The pane is taller than the 660px frame, so this one shows all of it, down to the folders that hold mods.
@@ -31,16 +31,16 @@ public class GameEditorRenderTests
         using var harness = await EditorViewHarness.StartAsync(height: 900);
         harness.Edit();
 
-        AssertRendered(harness.Render("2g-game-editor-edit-dark-tall"));
+        AssertRendered(harness.Render("game-editor-edit-dark-tall"));
     }
 
     [AvaloniaFact]
     public async Task Edit_mode_light_renders_to_a_png()
     {
-        using var harness = await EditorViewHarness.StartAsync(Mockup(ThemePreference.Light), ThemePreference.Light);
+        using var harness = await EditorViewHarness.StartAsync(Sample(ThemePreference.Light), ThemePreference.Light);
         harness.Edit();
 
-        AssertRendered(harness.Render("2g-game-editor-edit-light"));
+        AssertRendered(harness.Render("game-editor-edit-light"));
     }
 
     [AvaloniaFact]
@@ -49,7 +49,7 @@ public class GameEditorRenderTests
         using var harness = await EditorViewHarness.StartAsync();
         harness.New();
 
-        AssertRendered(harness.Render("2g-game-editor-create-dark"));
+        AssertRendered(harness.Render("game-editor-create-dark"));
     }
 
     [AvaloniaFact]
@@ -65,7 +65,7 @@ public class GameEditorRenderTests
         _ = editor.SaveCommand.ExecuteAsync(null);
         harness.Settle();
 
-        AssertRendered(harness.Render("2g-game-editor-steam-problems-dark"));
+        AssertRendered(harness.Render("game-editor-steam-problems-dark"));
     }
 
     [AvaloniaFact]
@@ -76,28 +76,28 @@ public class GameEditorRenderTests
         editor.Name = "Skyrim Special Edition";
         editor.InstallPath = @"C:\Program Files (x86)";
         editor.ExePath = "SkyrimSELauncher.exe";
-        harness.Backend.FailNext<IGamesApi>("AddAsync", MockupScenario.FolderTooBroadError);
+        harness.Backend.FailNext<IGamesApi>("AddAsync", SampleScenario.FolderTooBroadError);
 
         var saving = editor.SaveCommand.ExecuteAsync(null);
         harness.Settle();
         Assert.IsType<ConsentDialogViewModel>(harness.Dialogs.Current).ConfirmCommand.Execute(null);
         await saving;
 
-        AssertRendered(harness.Render("2l-game-editor-too-broad-dark"));
+        AssertRendered(harness.Render("game-editor-too-broad-dark"));
     }
 
     [AvaloniaFact]
     public async Task A_folder_that_is_gone_dark_renders_to_a_png()
     {
-        var caretaker = MockupScenario.Caretaker;
-        var backend = new FakeBackend(ScenarioBuilder.Mockup().WithFolderStatus(
+        var caretaker = SampleScenario.Caretaker;
+        var backend = new FakeBackend(ScenarioBuilder.Sample().WithFolderStatus(
             caretaker.Id,
             new FolderStatus(RepoRole.Install, caretaker.Install.Path, caretaker.Install.Path, false, new ConsentStatus(true, ScenarioBuilder.DefaultNow)),
             new FolderStatus(RepoRole.External, caretaker.External!.Path, @"C:\Users\you\AppData\Local\TheLastCaretaker\Saved\SaveGames", true, new ConsentStatus(true, ScenarioBuilder.DefaultNow))));
         using var harness = await EditorViewHarness.StartAsync(backend);
         harness.Edit(caretaker.Id);
 
-        AssertRendered(harness.Render("2l-game-editor-folder-gone-dark"));
+        AssertRendered(harness.Render("game-editor-folder-gone-dark"));
     }
 
     [AvaloniaFact]
@@ -117,7 +117,7 @@ public class GameEditorRenderTests
             "hollow-knight-old1",
             [RepoRole.Install, RepoRole.External],
             [new RecoverableProfile("profile/modded-run-ab12", "Modded run"), new RecoverableProfile("profile/xy99", null)]);
-        var backend = new FakeBackend(ScenarioBuilder.Mockup().WithOrphanedHistory(@"C:\Games\Hollow Knight", history));
+        var backend = new FakeBackend(ScenarioBuilder.Sample().WithOrphanedHistory(@"C:\Games\Hollow Knight", history));
         using var harness = await EditorViewHarness.StartAsync(backend);
         var editor = harness.New();
         editor.Name = "Hollow Knight";

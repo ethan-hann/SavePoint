@@ -68,7 +68,7 @@ public class ShellViewTests
         Assert.Equal(0, harness.Find<ListBox>("RailGames").SelectedIndex);
 
         harness.Shell.Navigate(NavDestination.History);
-        harness.Shell.SelectGame(MockupScenario.CaretakerId);
+        harness.Shell.SelectGame(SampleScenario.CaretakerId);
         harness.Settle();
 
         Assert.Equal(1, harness.Find<ListBox>("NavList").SelectedIndex);
@@ -85,7 +85,7 @@ public class ShellViewTests
         harness.Settle();
 
         Assert.Equal(NavDestination.Settings, harness.Shell.Destination);
-        Assert.Equal(MockupScenario.SatisfactoryId, harness.Shell.SelectedGame?.Id);
+        Assert.Equal(SampleScenario.SatisfactoryId, harness.Shell.SelectedGame?.Id);
     }
 
     private static void ClickCenter(ShellViewHarness harness, Control control)
@@ -142,7 +142,7 @@ public class ShellViewTests
         harness.Settle();
 
         Assert.Equal(NavDestination.Settings, harness.Shell.Destination);
-        Assert.Equal(MockupScenario.SatisfactoryId, harness.Shell.SelectedGame?.Id);
+        Assert.Equal(SampleScenario.SatisfactoryId, harness.Shell.SelectedGame?.Id);
 
         harness.Window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
         harness.Window.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
@@ -212,7 +212,7 @@ public class ShellViewTests
         harness.Settle();
 
         Assert.Equal(NavDestination.Games, harness.Shell.Destination);
-        Assert.Equal(MockupScenario.SatisfactoryId, harness.Shell.SelectedGame?.Id);
+        Assert.Equal(SampleScenario.SatisfactoryId, harness.Shell.SelectedGame?.Id);
     }
 
     [AvaloniaFact]
@@ -228,14 +228,14 @@ public class ShellViewTests
         harness.Window.KeyPress(Key.Down, RawInputModifiers.Control, PhysicalKey.ArrowDown, null);
         harness.Window.KeyRelease(Key.Down, RawInputModifiers.Control, PhysicalKey.ArrowDown, null);
         harness.Settle();
-        Assert.Equal(MockupScenario.SkyrimId, harness.Shell.SelectedGame?.Id);
+        Assert.Equal(SampleScenario.SkyrimId, harness.Shell.SelectedGame?.Id);
 
         harness.Window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
         harness.Window.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
         harness.Settle();
 
         Assert.Equal(NavDestination.Games, harness.Shell.Destination);
-        Assert.Equal(MockupScenario.SatisfactoryId, harness.Shell.SelectedGame?.Id);
+        Assert.Equal(SampleScenario.SatisfactoryId, harness.Shell.SelectedGame?.Id);
     }
 
     [AvaloniaFact]
@@ -245,7 +245,7 @@ public class ShellViewTests
 
         ClickCenter(harness, ItemOf(harness, "ShelfGames", 1));
 
-        Assert.Equal(MockupScenario.SatisfactoryId, harness.Shell.SelectedGame?.Id);
+        Assert.Equal(SampleScenario.SatisfactoryId, harness.Shell.SelectedGame?.Id);
         Assert.Equal(NavDestination.Games, harness.Shell.Destination);
     }
 
@@ -254,8 +254,8 @@ public class ShellViewTests
     {
         using var rail = await ShellViewHarness.StartAsync();
         using var shelf = await ShellViewHarness.LibraryLayoutAsync();
-        rail.Shell.SelectGame(MockupScenario.SatisfactoryId);
-        shelf.Shell.SelectGame(MockupScenario.CaretakerId);
+        rail.Shell.SelectGame(SampleScenario.SatisfactoryId);
+        shelf.Shell.SelectGame(SampleScenario.CaretakerId);
 
         await rail.Shell.RefreshLibraryAsync();
         await shelf.Shell.RefreshLibraryAsync();
@@ -264,7 +264,7 @@ public class ShellViewTests
 
         Assert.Equal(1, rail.Find<ListBox>("RailGames").SelectedIndex);
         Assert.Equal(2, shelf.Find<ListBox>("ShelfGames").SelectedIndex);
-        Assert.Equal(MockupScenario.SatisfactoryId, rail.Shell.SelectedGame?.Id);
+        Assert.Equal(SampleScenario.SatisfactoryId, rail.Shell.SelectedGame?.Id);
     }
 
     [AvaloniaFact]
@@ -351,7 +351,7 @@ public class ShellViewTests
         harness.Find<ListBox>("ShelfGames").SelectedIndex = 1;
         harness.Settle();
 
-        Assert.Equal(MockupScenario.SatisfactoryId, harness.Shell.SelectedGame?.Id);
+        Assert.Equal(SampleScenario.SatisfactoryId, harness.Shell.SelectedGame?.Id);
     }
 
     [AvaloniaFact]
@@ -463,10 +463,10 @@ public class ShellViewTests
     [AvaloniaFact]
     public async Task A_long_list_of_games_scrolls_inside_the_rail_and_leaves_Add_a_game_in_view()
     {
-        var scenario = ScenarioBuilder.Mockup();
+        var scenario = ScenarioBuilder.Sample();
         foreach (var number in Enumerable.Range(1, 14))
         {
-            scenario = scenario.WithGame(MockupScenario.Satisfactory with { Id = $"extra-game-{number}", Name = $"Extra game {number}" });
+            scenario = scenario.WithGame(SampleScenario.Satisfactory with { Id = $"extra-game-{number}", Name = $"Extra game {number}" });
         }
 
         using var harness = await ShellViewHarness.StartAsync(new FakeBackend(scenario), height: 432);
@@ -637,8 +637,8 @@ public class ShellViewTests
         using var library = await ShellViewHarness.LibraryLayoutAsync();
         Assert.False(sidebar.Find<UserControl>("JobPill").FindControl<Grid>("PillRoot")!.IsEffectivelyVisible);
 
-        FakeAssert.Ok(await sidebar.Backend.Profiles.CaptureAsync(MockupScenario.SkyrimId, MockupScenario.ModdedId, "A point"));
-        FakeAssert.Ok(await library.Backend.Profiles.CaptureAsync(MockupScenario.SkyrimId, MockupScenario.ModdedId, "A point"));
+        FakeAssert.Ok(await sidebar.Backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "A point"));
+        FakeAssert.Ok(await library.Backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "A point"));
         sidebar.Settle();
         library.Settle();
 
@@ -650,7 +650,7 @@ public class ShellViewTests
     public async Task The_job_pill_is_a_button_named_for_what_it_does_and_opens_activity_from_the_keyboard()
     {
         using var harness = await ShellViewHarness.StartAsync();
-        FakeAssert.Ok(await harness.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
+        FakeAssert.Ok(await harness.Backend.Games.OptimizeStorageAsync(SampleScenario.SatisfactoryId));
         harness.Settle();
         var pill = Assert.IsType<Button>(harness.Find<UserControl>("JobPill").FindControl<Control>("Pill"));
 
@@ -663,7 +663,7 @@ public class ShellViewTests
         harness.Settle();
 
         Assert.Equal(NavDestination.Activity, harness.Shell.Destination);
-        Assert.Equal(MockupScenario.SatisfactoryId, harness.Shell.SelectedGame?.Id);
+        Assert.Equal(SampleScenario.SatisfactoryId, harness.Shell.SelectedGame?.Id);
     }
 
     [AvaloniaTheory]
@@ -681,7 +681,7 @@ public class ShellViewTests
         Assert.Equal(0, room.Bounds.Height);
         Assert.False(pill.IsEffectivelyVisible);
 
-        var job = FakeAssert.Ok(await harness.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
+        var job = FakeAssert.Ok(await harness.Backend.Games.OptimizeStorageAsync(SampleScenario.SatisfactoryId));
         harness.Settle();
 
         Assert.True(pill.IsEffectivelyVisible);
@@ -706,7 +706,7 @@ public class ShellViewTests
     public async Task A_long_job_name_is_trimmed_so_the_pill_stays_short_of_the_actions_on_the_right()
     {
         using var harness = await ShellViewHarness.StartAsync(width: 640, height: 420);
-        FakeAssert.Ok(await harness.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
+        FakeAssert.Ok(await harness.Backend.Games.OptimizeStorageAsync(SampleScenario.SatisfactoryId));
         harness.Settle();
         var pill = harness.Find<Button>("Pill");
         var text = harness.Find<TextBlock>("PillText");
@@ -724,7 +724,7 @@ public class ShellViewTests
     public async Task The_job_pill_is_gone_when_the_job_ends_and_a_toast_says_how_it_went()
     {
         using var harness = await ShellViewHarness.StartAsync();
-        var job = FakeAssert.Ok(await harness.Backend.Profiles.CaptureAsync(MockupScenario.SkyrimId, MockupScenario.ModdedId, "A point"));
+        var job = FakeAssert.Ok(await harness.Backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "A point"));
 
         harness.Backend.Jobs.Complete(job.JobId);
         harness.Settle();
@@ -776,7 +776,7 @@ public class ShellViewTests
         var status = new StartupStatus(
             new GitStatus(false, path, null, ErrorInfo.From(new GitUnavailableException(path, "dev text", null))),
             new CatalogStatus(@"C:\Users\you\AppData\Roaming\SavePoint", []));
-        using var harness = await ShellViewHarness.StartAsync(new FakeBackend(ScenarioBuilder.Mockup().WithStartupStatus(status)));
+        using var harness = await ShellViewHarness.StartAsync(new FakeBackend(ScenarioBuilder.Sample().WithStartupStatus(status)));
 
         var texts = VisibleTexts(harness).ToList();
 
@@ -797,7 +797,7 @@ public class ShellViewTests
         var status = new StartupStatus(
             new GitStatus(true, @"C:\git.exe", "2.56.0", null),
             new CatalogStatus(directory, [new CorruptCatalogFile(games, games + ".bak", ErrorInfo.From(new CatalogCorruptException(games, null))), new CorruptCatalogFile(profiles, null, ErrorInfo.From(new CatalogCorruptException(profiles, null)))]));
-        using var harness = await ShellViewHarness.StartAsync(new FakeBackend(ScenarioBuilder.Mockup().WithStartupStatus(status)));
+        using var harness = await ShellViewHarness.StartAsync(new FakeBackend(ScenarioBuilder.Sample().WithStartupStatus(status)));
 
         var restore = harness.All<Button>().Where(button => "Restore the backup".Equals(button.Content)).ToList();
 
@@ -816,7 +816,7 @@ public class ShellViewTests
         var status = new StartupStatus(
             new GitStatus(true, @"C:\git.exe", "2.56.0", null),
             new CatalogStatus(directory, [new CorruptCatalogFile(games, games + ".bak", ErrorInfo.From(new CatalogCorruptException(games, null)))]));
-        using var harness = await ShellViewHarness.StartAsync(new FakeBackend(ScenarioBuilder.Mockup().WithStartupStatus(status)));
+        using var harness = await ShellViewHarness.StartAsync(new FakeBackend(ScenarioBuilder.Sample().WithStartupStatus(status)));
 
         harness.All<Button>().First(button => "Restore the backup".Equals(button.Content)).Command!.Execute(null);
         harness.Settle();

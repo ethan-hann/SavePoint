@@ -110,7 +110,7 @@ public class TabOrderTests
     [AvaloniaFact]
     public async Task Activity_goes_rail_then_the_scope_then_the_jobs_then_cancel_copy_and_the_lines_then_the_job_pill()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         await ActivityScenario.AddJobsAsync(backend);
         using var app = await ComposedApp.StartWithViewAsync(backend);
         app.Shell.Navigate(NavDestination.Activity);
@@ -193,7 +193,7 @@ public class TabOrderTests
     public async Task The_launch_dialog_goes_from_the_save_to_load_through_the_unsaved_changes_to_the_footer()
     {
         using var app = await ComposedApp.StartWithViewAsync();
-        _ = app.Games.Profiles.Single(row => row.Id == MockupScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
+        _ = app.Games.Profiles.Single(row => row.Id == SampleScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
         app.Settle();
 
         Assert.Equal(
@@ -225,9 +225,9 @@ public class TabOrderTests
     public async Task The_post_play_dialog_goes_through_the_choices_and_ends_on_its_buttons()
     {
         using var app = await ComposedApp.StartWithViewAsync();
-        _ = app.Games.Profiles.Single(row => row.Id == MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null);
-        app.Backend.Launch.ReportRunning(MockupScenario.SkyrimId, MockupScenario.RunningSince);
-        app.Backend.Launch.ReportExited(MockupScenario.SkyrimId, MockupScenario.PlayDuration, MockupScenario.NewSaveFiles);
+        _ = app.Games.Profiles.Single(row => row.Id == SampleScenario.ModdedId).PlayCommand.ExecuteAsync(null);
+        app.Backend.Launch.ReportRunning(SampleScenario.SkyrimId, SampleScenario.RunningSince);
+        app.Backend.Launch.ReportExited(SampleScenario.SkyrimId, SampleScenario.PlayDuration, SampleScenario.NewSaveFiles);
         app.Settle();
 
         var stops = TabStops(app);

@@ -78,7 +78,7 @@ internal sealed class ComposedApp : IDisposable
 
     public static async Task<ComposedApp> StartAsync(FakeBackend? backend = null, Func<ISettingsApi, ISettingsApi>? settings = null)
     {
-        backend ??= FakeBackend.Mockup();
+        backend ??= FakeBackend.Sample();
         var (services, clock, text) = Parts(backend, settings);
         var dialogs = new FakeDialogs();
         var theme = new RecordingThemeApplier();
@@ -97,7 +97,7 @@ internal sealed class ComposedApp : IDisposable
         bool visitScreens = true,
         bool noticesShipped = true)
     {
-        backend ??= new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { Theme = theme, Layout = layout }));
+        backend ??= new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Theme = theme, Layout = layout }));
         var (services, clock, text) = Parts(backend, null);
         var application = (App)Application.Current!;
         var main = AppComposition.Create(services, text, new ThemeServiceApplier(application.Theme), () => null, new ImmediateUiDispatcher(), clock, settingsEnvironment: SettingsHost(noticesShipped));
@@ -193,7 +193,7 @@ internal sealed class ComposedApp : IDisposable
     private static (AppServices Services, ManualTimeProvider Clock, UiFormatter Text) Parts(FakeBackend backend, Func<ISettingsApi, ISettingsApi>? settings)
     {
         var clock = new ManualTimeProvider(ScenarioBuilder.DefaultNow);
-        var text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), clock, "windows", HistoryRig.MockupZone);
+        var text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), clock, "windows", HistoryRig.SampleZone);
         var services = new AppServices(
             backend.Games,
             backend.Profiles,

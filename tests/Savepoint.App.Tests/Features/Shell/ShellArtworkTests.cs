@@ -9,7 +9,7 @@ public class ShellArtworkTests
 {
     private sealed class DisposableProvider : IArtworkProvider, IDisposable
     {
-        private readonly ArtworkProvider _inner = new(FakeBackend.Mockup().Artwork, new ImmediateUiDispatcher());
+        private readonly ArtworkProvider _inner = new(FakeBackend.Sample().Artwork, new ImmediateUiDispatcher());
 
         public bool Disposed { get; private set; }
 
@@ -33,7 +33,7 @@ public class ShellArtworkTests
     [Fact]
     public async Task Every_game_row_carries_the_artwork_the_provider_has_for_its_game()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         using var provider = ProviderFor(backend);
         var rig = await ShellRig.StartAsync(backend, artwork: provider);
 
@@ -45,7 +45,7 @@ public class ShellArtworkTests
     [Fact]
     public async Task Refreshing_the_rows_leaves_every_game_its_artwork_so_no_tile_goes_back_to_the_tint()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         using var provider = ProviderFor(backend);
         var rig = await ShellRig.StartAsync(backend, artwork: provider);
         var before = rig.Shell.Games.ToDictionary(row => row.Id, row => (Row: row, row.Art));
@@ -62,7 +62,7 @@ public class ShellArtworkTests
     [Fact]
     public async Task The_shell_offers_screens_the_provider_through_its_context()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         using var provider = ProviderFor(backend);
         var factory = new RecordingScreenFactory(NavDestination.Games);
         var rig = await ShellRig.StartAsync(backend, screens: [factory], artwork: provider);

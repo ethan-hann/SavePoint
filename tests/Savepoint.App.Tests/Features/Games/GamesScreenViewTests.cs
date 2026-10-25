@@ -41,7 +41,7 @@ public class GamesScreenViewTests
         (Control)harness.Window.FocusManager!.GetFocusedElement()!;
 
     private static FakeBackend NoProfiles() =>
-        new(ScenarioBuilder.Empty().WithSettings(MockupScenario.Settings).WithVolume(210 * MockupScenario.Gb, 131 * MockupScenario.Gb).WithGame(MockupScenario.Caretaker, 9_400_000_000));
+        new(ScenarioBuilder.Empty().WithSettings(SampleScenario.Settings).WithVolume(210 * SampleScenario.Gb, 131 * SampleScenario.Gb).WithGame(SampleScenario.Caretaker, 9_400_000_000));
 
     // ---- The sidebar layout
 
@@ -74,7 +74,7 @@ public class GamesScreenViewTests
     }
 
     [AvaloniaFact]
-    public async Task The_table_uses_the_mockups_columns()
+    public async Task The_table_uses_the_expected_columns()
     {
         using var harness = await GamesViewHarness.StartAsync();
         var table = harness.Find<Border>("Table");
@@ -118,7 +118,7 @@ public class GamesScreenViewTests
     {
         using var harness = await GamesViewHarness.StartAsync();
 
-        harness.Rig.LaunchFlow!.SetActive(MockupScenario.SkyrimId, true);
+        harness.Rig.LaunchFlow!.SetActive(SampleScenario.SkyrimId, true);
         harness.Settle();
 
         Assert.All(PlayButtons(harness), button => Assert.False(button.IsEffectivelyEnabled));
@@ -224,7 +224,7 @@ public class GamesScreenViewTests
     }
 
     [AvaloniaFact]
-    public async Task The_storage_footer_sits_at_the_bottom_of_the_pane_below_the_table_as_the_mockup_draws_it()
+    public async Task The_storage_footer_sits_at_the_bottom_of_the_pane_below_the_table()
     {
         using var harness = await GamesViewHarness.StartAsync();
         var root = harness.Find<Grid>("Root");
@@ -304,7 +304,7 @@ public class GamesScreenViewTests
         harness.Render("free-up-running");
 
         var job = harness.Rig.Backend.Jobs.LastStarted(JobKind.Compact).JobId;
-        harness.Rig.Backend.Jobs.Complete(job, new OptimizeResult([new GameOptimizeOutcome(MockupScenario.SkyrimId, [new FolderOutcome(RepoRole.Install)], 3_400_000_000)]));
+        harness.Rig.Backend.Jobs.Complete(job, new OptimizeResult([new GameOptimizeOutcome(SampleScenario.SkyrimId, [new FolderOutcome(RepoRole.Install)], 3_400_000_000)]));
         harness.Settle();
 
         Assert.Equal("Freed up 3.4 GB.", status.Text);
@@ -350,7 +350,7 @@ public class GamesScreenViewTests
     [AvaloniaFact]
     public async Task The_library_layouts_free_up_space_asks_first_when_snapshots_were_removed()
     {
-        var scenario = RemovedSnapshotSamples.Scenario().WithSettings(MockupScenario.Settings with { Layout = ShellLayout.Library });
+        var scenario = RemovedSnapshotSamples.Scenario().WithSettings(SampleScenario.Settings with { Layout = ShellLayout.Library });
         using var harness = await GamesViewHarness.StartAsync(new FakeBackend(scenario), layout: ShellLayout.Library);
         var button = harness.Find<Button>("LibraryGameMenuButton");
         button.Flyout!.ShowAt(button);
@@ -376,7 +376,7 @@ public class GamesScreenViewTests
         Press(harness, PlayButtons(harness)[2], Key.Enter);
 
         var begun = Assert.Single(harness.Rig.LaunchFlow!.Begun);
-        Assert.Equal(new LaunchTarget.ProfileTip(MockupScenario.SurvivalId), begun.Target);
+        Assert.Equal(new LaunchTarget.ProfileTip(SampleScenario.SurvivalId), begun.Target);
 
         var more = MoreButtons(harness)[0];
         Press(harness, more, Key.Enter);
@@ -392,7 +392,7 @@ public class GamesScreenViewTests
         Press(harness, Rows(harness)[2], Key.Enter);
 
         var begun = Assert.Single(harness.Rig.LaunchFlow!.Begun);
-        Assert.Equal(new LaunchTarget.ProfileTip(MockupScenario.SurvivalId), begun.Target);
+        Assert.Equal(new LaunchTarget.ProfileTip(SampleScenario.SurvivalId), begun.Target);
     }
 
     [AvaloniaFact]
@@ -565,7 +565,7 @@ public class GamesScreenViewTests
         var host = harness.Find<ContentControl>("InlineContentHost");
         Assert.False(host.IsEffectivelyVisible);
 
-        harness.Rig.LaunchFlow!.SetInline(MockupScenario.SkyrimId, "Everything was already in place");
+        harness.Rig.LaunchFlow!.SetInline(SampleScenario.SkyrimId, "Everything was already in place");
         harness.Settle();
 
         Assert.True(host.IsEffectivelyVisible);
@@ -575,13 +575,13 @@ public class GamesScreenViewTests
     }
 
     [AvaloniaFact]
-    public async Task The_launch_flows_content_is_pinned_above_the_storage_footer_as_the_mockup_draws_it()
+    public async Task The_launch_flows_content_is_pinned_above_the_storage_footer()
     {
         using var harness = await GamesViewHarness.StartAsync();
         var host = harness.Find<ContentControl>("InlineContentHost");
         var footer = harness.Find<Border>("StorageFooter");
 
-        harness.Rig.LaunchFlow!.SetInline(MockupScenario.SkyrimId, "Everything was already in place");
+        harness.Rig.LaunchFlow!.SetInline(SampleScenario.SkyrimId, "Everything was already in place");
         harness.Settle();
 
         Assert.Equal(12, footer.Bounds.Top - host.Bounds.Bottom, 1.0);
@@ -590,10 +590,10 @@ public class GamesScreenViewTests
     [AvaloniaFact]
     public async Task The_launch_flows_content_stays_in_view_when_the_profiles_outgrow_the_pane()
     {
-        var scenario = ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings);
+        var scenario = ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings);
         for (var i = 0; i < 12; i++)
         {
-            scenario = scenario.WithProfile(new Profile($"profile-extra-{i}", MockupScenario.SkyrimId, $"Extra profile {i}", $"profile/extra-{i}"));
+            scenario = scenario.WithProfile(new Profile($"profile-extra-{i}", SampleScenario.SkyrimId, $"Extra profile {i}", $"profile/extra-{i}"));
         }
 
         using var harness = await GamesViewHarness.StartAsync(new FakeBackend(scenario));
@@ -601,7 +601,7 @@ public class GamesScreenViewTests
         var host = harness.Find<ContentControl>("InlineContentHost");
         var scroller = harness.Find<Border>("Table").GetVisualAncestors().OfType<ScrollViewer>().First();
 
-        harness.Rig.LaunchFlow!.SetInline(MockupScenario.SkyrimId, "Everything was already in place");
+        harness.Rig.LaunchFlow!.SetInline(SampleScenario.SkyrimId, "Everything was already in place");
         harness.Settle();
 
         Assert.True(scroller.Extent.Height > scroller.Viewport.Height, "the profiles fill more than the pane");
@@ -616,7 +616,7 @@ public class GamesScreenViewTests
         var scroller = harness.Find<Border>("Table").GetVisualAncestors().OfType<ScrollViewer>().First();
         var pinned = harness.Find<ContentControl>("InlineContentHost");
 
-        harness.Rig.LaunchFlow!.SetInline(MockupScenario.SkyrimId, new ErrorCardViewModel(MockupScenario.FileInUseError, harness.Rig.Text));
+        harness.Rig.LaunchFlow!.SetInline(SampleScenario.SkyrimId, new ErrorCardViewModel(SampleScenario.FileInUseError, harness.Rig.Text));
         harness.Settle();
 
         var card = harness.All<ErrorCardView>().Single();

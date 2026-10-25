@@ -10,7 +10,7 @@ namespace Savepoint.App.Tests.Features.Settings;
 public class ClearAllDataTests
 {
     private static readonly ClearAllDataPreview _preview = new(
-        MockupScenario.StorageRoot,
+        SampleScenario.StorageRoot,
         79_300_000_000,
         3,
         6,
@@ -20,7 +20,7 @@ public class ClearAllDataTests
 
     private static ClearAllDataSectionViewModel Section(SettingsRig rig) => rig.Screen.ClearAll;
 
-    private static FakeBackend WithPreview(ClearAllDataPreview preview) => new(ScenarioBuilder.Mockup().WithClearAllDataPreview(preview));
+    private static FakeBackend WithPreview(ClearAllDataPreview preview) => new(ScenarioBuilder.Sample().WithClearAllDataPreview(preview));
 
     private static ClearAllDataDialogViewModel Dialog(SettingsRig rig) => Assert.IsType<ClearAllDataDialogViewModel>(Assert.Single(rig.Dialogs.Shown));
 
@@ -63,7 +63,7 @@ public class ClearAllDataTests
     [Fact]
     public async Task A_running_game_blocks_it_and_the_card_says_which()
     {
-        var blocked = _preview with { BlockedBy = ErrorInfo.From(new GameRunningException(MockupScenario.SkyrimId, "Skyrim Special Edition")) };
+        var blocked = _preview with { BlockedBy = ErrorInfo.From(new GameRunningException(SampleScenario.SkyrimId, "Skyrim Special Edition")) };
         var rig = await SettingsRig.ShownAsync(WithPreview(blocked));
 
         await StartAsync(rig);
@@ -106,7 +106,7 @@ public class ClearAllDataTests
     public async Task A_removal_that_cannot_start_shows_why()
     {
         var rig = await SettingsRig.ShownAsync(WithPreview(_preview));
-        rig.Backend.FailNext<ISettingsApi>(nameof(ISettingsApi.ClearAllDataAsync), ErrorInfo.From(new GameRunningException(MockupScenario.SkyrimId, "Skyrim Special Edition")));
+        rig.Backend.FailNext<ISettingsApi>(nameof(ISettingsApi.ClearAllDataAsync), ErrorInfo.From(new GameRunningException(SampleScenario.SkyrimId, "Skyrim Special Edition")));
 
         var run = StartAsync(rig);
         Confirm(Dialog(rig));

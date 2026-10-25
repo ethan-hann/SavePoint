@@ -13,7 +13,7 @@ public class FocusSurvivalTests
 {
     private static async Task RefreshLibraryAsync(ComposedApp app)
     {
-        var job = FakeAssert.Ok(await app.Backend.Games.OptimizeStorageAsync(MockupScenario.SkyrimId));
+        var job = FakeAssert.Ok(await app.Backend.Games.OptimizeStorageAsync(SampleScenario.SkyrimId));
         app.Backend.Jobs.Complete(job.JobId);
         app.Settle();
     }
@@ -33,6 +33,6 @@ public class FocusSurvivalTests
 
         var focused = Assert.IsAssignableFrom<ListBoxItem>(app.Focused);
         Assert.Contains(focused, app.Find<ListBox>(listName).GetVisualDescendants());
-        Assert.Equal(MockupScenario.SatisfactoryId, ((GameRowViewModel)focused.DataContext!).Id);
+        Assert.Equal(SampleScenario.SatisfactoryId, ((GameRowViewModel)focused.DataContext!).Id);
     }
 }

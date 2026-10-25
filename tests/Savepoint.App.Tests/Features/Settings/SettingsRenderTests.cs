@@ -14,14 +14,14 @@ public class SettingsRenderTests
         Assert.True(new FileInfo(path).Length > 10_000, "The render looks empty.");
 
     private static FakeBackend With(ThemePreference theme, ShellLayout layout = ShellLayout.Sidebar) =>
-        new(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { Theme = theme, Layout = layout }));
+        new(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Theme = theme, Layout = layout }));
 
     [AvaloniaFact]
     public async Task Light_renders_to_a_png()
     {
         using var harness = await SettingsScreenViewTests.StartAsync(With(ThemePreference.Light), ThemePreference.Light, notices: null);
 
-        AssertRendered(harness.Render("2k-settings-light"));
+        AssertRendered(harness.Render("settings-light"));
     }
 
     [AvaloniaFact]
@@ -29,7 +29,7 @@ public class SettingsRenderTests
     {
         using var harness = await SettingsScreenViewTests.StartAsync();
 
-        AssertRendered(harness.Render("2k-settings-dark"));
+        AssertRendered(harness.Render("settings-dark"));
     }
 
     [AvaloniaFact]
@@ -47,7 +47,7 @@ public class SettingsRenderTests
         using var harness = await SettingsScreenViewTests.StartAsync(height: 760);
         harness.Find<Avalonia.Controls.ScrollViewer>("PageScroll").Offset = new Avalonia.Vector(0, 190);
 
-        AssertRendered(harness.Render("3c-settings-layout-choice-dark"));
+        AssertRendered(harness.Render("settings-layout-choice-dark"));
     }
 
     [AvaloniaFact]
@@ -56,7 +56,7 @@ public class SettingsRenderTests
         using var harness = await SettingsScreenViewTests.StartAsync(With(ThemePreference.Light, ShellLayout.Library), ThemePreference.Light, height: 760);
         harness.Find<Avalonia.Controls.ScrollViewer>("PageScroll").Offset = new Avalonia.Vector(0, 190);
 
-        AssertRendered(harness.Render("3c-settings-layout-choice-light-library"));
+        AssertRendered(harness.Render("settings-layout-choice-light-library"));
     }
 
     [AvaloniaFact]
@@ -99,8 +99,8 @@ public class SettingsRenderTests
     [AvaloniaFact]
     public async Task Problems_and_left_behind_files_dark_render_to_a_png()
     {
-        var blocked = new StorageRelocationPreview(MockupScenario.StorageRoot, @"E:\NewData", [], 0, 0, 0, ErrorInfo.From(new StorageDestinationNotEmptyException(@"E:\NewData")));
-        using var harness = await SettingsScreenViewTests.StartAsync(new FakeBackend(ScenarioBuilder.Mockup().WithRelocationPreview(blocked)), height: 900);
+        var blocked = new StorageRelocationPreview(SampleScenario.StorageRoot, @"E:\NewData", [], 0, 0, 0, ErrorInfo.From(new StorageDestinationNotEmptyException(@"E:\NewData")));
+        using var harness = await SettingsScreenViewTests.StartAsync(new FakeBackend(ScenarioBuilder.Sample().WithRelocationPreview(blocked)), height: 900);
         harness.FakeDialogs.AnswerFolder(@"E:\NewData");
         var screen = (SettingsScreenViewModel)harness.Shell.CurrentScreen!;
         await screen.Storage.ChangeCommand.ExecuteAsync(null);

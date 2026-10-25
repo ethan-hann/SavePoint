@@ -17,7 +17,7 @@ public class GamesRenderTests
     {
         using var harness = await GamesViewHarness.StartAsync();
 
-        AssertRendered(harness.Render("3a-games-sidebar-dark"));
+        AssertRendered(harness.Render("games-sidebar-dark"));
     }
 
     [AvaloniaFact]
@@ -25,7 +25,7 @@ public class GamesRenderTests
     {
         using var harness = await GamesViewHarness.StartAsync(theme: ThemePreference.Light);
 
-        AssertRendered(harness.Render("3a-games-sidebar-light"));
+        AssertRendered(harness.Render("games-sidebar-light"));
     }
 
     [AvaloniaFact]
@@ -33,7 +33,7 @@ public class GamesRenderTests
     {
         using var harness = await GamesViewHarness.StartAsync(layout: ShellLayout.Library);
 
-        AssertRendered(harness.Render("3b-games-library-dark"));
+        AssertRendered(harness.Render("games-library-dark"));
     }
 
     [AvaloniaFact]
@@ -41,13 +41,13 @@ public class GamesRenderTests
     {
         using var harness = await GamesViewHarness.StartAsync(width: 900);
 
-        AssertRendered(harness.Render("3a-games-sidebar-900-dark"));
+        AssertRendered(harness.Render("games-sidebar-900-dark"));
     }
 
     [AvaloniaFact]
     public async Task A_game_without_profiles_dark_renders_to_a_png()
     {
-        var backend = new FakeBackend(ScenarioBuilder.Empty().WithSettings(MockupScenario.Settings).WithVolume(210 * MockupScenario.Gb, 131 * MockupScenario.Gb).WithGame(MockupScenario.Caretaker, 9_400_000_000));
+        var backend = new FakeBackend(ScenarioBuilder.Empty().WithSettings(SampleScenario.Settings).WithVolume(210 * SampleScenario.Gb, 131 * SampleScenario.Gb).WithGame(SampleScenario.Caretaker, 9_400_000_000));
         using var harness = await GamesViewHarness.StartAsync(backend);
 
         AssertRendered(harness.Render("games-empty-dark"));
@@ -78,7 +78,7 @@ public class GamesRenderTests
         using var harness = await GamesViewHarness.StartAsync();
         OpenWizard(harness);
 
-        AssertRendered(harness.Render("2f-wizard-1-name-dark"));
+        AssertRendered(harness.Render("wizard-1-name-dark"));
     }
 
     [AvaloniaFact]
@@ -87,7 +87,7 @@ public class GamesRenderTests
         using var harness = await GamesViewHarness.StartAsync(theme: ThemePreference.Light);
         OpenWizard(harness);
 
-        AssertRendered(harness.Render("2f-wizard-1-name-light"));
+        AssertRendered(harness.Render("wizard-1-name-light"));
     }
 
     [AvaloniaFact]
@@ -99,7 +99,7 @@ public class GamesRenderTests
         wizard.Notes = "Nolvus v6, before the survival patch";
         await wizard.ContinueCommand.ExecuteAsync(null);
 
-        AssertRendered(harness.Render("2f-wizard-2-check-dark"));
+        AssertRendered(harness.Render("wizard-2-check-dark"));
     }
 
     [AvaloniaFact]
@@ -111,7 +111,7 @@ public class GamesRenderTests
         await wizard.ContinueCommand.ExecuteAsync(null);
         harness.Rig.Backend.Jobs.ReportProgress(harness.Rig.Backend.Jobs.LastStarted(JobKind.Capture).JobId, new JobProgress(1_845, 3_430, CurrentPath: @"Data\Textures\Architecture\Whiterun\WRBuilding05.dds"));
 
-        AssertRendered(harness.Render("2f-wizard-3-saving-dark"));
+        AssertRendered(harness.Render("wizard-3-saving-dark"));
     }
 
     [AvaloniaFact]
@@ -123,7 +123,7 @@ public class GamesRenderTests
         await wizard.ContinueCommand.ExecuteAsync(null);
         harness.Rig.Backend.Jobs.Complete(harness.Rig.Backend.Jobs.LastStarted(JobKind.Capture).JobId);
 
-        AssertRendered(harness.Render("2f-wizard-3-saved-dark"));
+        AssertRendered(harness.Render("wizard-3-saved-dark"));
     }
 
     [AvaloniaFact]
@@ -133,12 +133,12 @@ public class GamesRenderTests
         var wizard = OpenWizard(harness);
         await wizard.ContinueCommand.ExecuteAsync(null);
         await wizard.ContinueCommand.ExecuteAsync(null);
-        var profileId = FakeAssert.Ok(await harness.Rig.Backend.Profiles.ListAsync(MockupScenario.SkyrimId)).Single(profile => profile.Name == wizard.TrimmedName).Id;
+        var profileId = FakeAssert.Ok(await harness.Rig.Backend.Profiles.ListAsync(SampleScenario.SkyrimId)).Single(profile => profile.Name == wizard.TrimmedName).Id;
         harness.Rig.Backend.Jobs.Complete(
             harness.Rig.Backend.Jobs.LastStarted(JobKind.Capture).JobId,
-            new CaptureResult(profileId, new HistoryPointId("pt"), [new FolderOutcome(RepoRole.Install), new FolderOutcome(RepoRole.External, MockupScenario.SavesOutOfRoomError)]));
+            new CaptureResult(profileId, new HistoryPointId("pt"), [new FolderOutcome(RepoRole.Install), new FolderOutcome(RepoRole.External, SampleScenario.SavesOutOfRoomError)]));
 
-        AssertRendered(harness.Render("2l-wizard-half-saved-dark"));
+        AssertRendered(harness.Render("wizard-half-saved-dark"));
     }
 
     // ---- Dialogs from the table
