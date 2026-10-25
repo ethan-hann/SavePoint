@@ -136,6 +136,7 @@ public sealed partial class GitEngine
         using var scope = BeginWrite(repo);
 
         var named = await ResetToPointAsync(repo, ct).ConfigureAwait(false);
+        await RefreshIndexAsync(repo, ct).ConfigureAwait(false);
         await VerifyAsync(repo, point, [], null, named, ct).ConfigureAwait(false);
         await RemoveNewFilesAsync(repo, ct).ConfigureAwait(false);
         await RestoreEmptyFoldersAsync(repo, point, ct).ConfigureAwait(false);
@@ -163,6 +164,13 @@ public sealed partial class GitEngine
 
         return named;
     }
+
+    // A file git just wrote has a time stamp in the same second as the index, so git cannot trust the stamp and reads the whole file
+    // again on every later comparison (a status, a dirty check, the next switch) until the index is rewritten. Nothing else rewrites
+    // it, because every read runs without taking git's optional locks. One pass here reads each such file once and ends that. A
+    // failure only costs time: the verify pass that follows reads what this could not.
+    private Task RefreshIndexAsync(RepoRef repo, CancellationToken ct) =>
+        RunRawAsync(Invocation(repo, readOnly: false, "update-index", "-q", "--refresh") with { AllowedExitCodes = _anyExitCode }, ct);
 
     // A file another program holds fails the command for that file only; the verify pass after it finds the file and tries again.
     private async Task RunRewriteAsync(GitInvocation invocation, string[] command, CancellationToken ct)
@@ -317,19 +325,33 @@ public sealed partial class GitEngine
 
         var reporter = progress is null ? null : new ProgressReporter(progress, new CheckoutBytePlan(plan.Changes, sizes));
 
-        await RunCheckoutAsync(repo, target, to, isBranch, force, ownsNote: note is null, aligned, reporter, ct).ConfigureAwait(false);
-        reporter?.Complete();
-        if (force)
+        try
         {
-            await SetSkipWorktreeAsync(repo, on: false, plan.NamedInTarget, ct).ConfigureAwait(false);
+            await RunCheckoutAsync(repo, target, to, isBranch, force, ownsNote: note is null, aligned, reporter, ct).ConfigureAwait(false);
+            reporter?.Complete();
+
+            // Reading the files back takes as long as reading them, which for a big file is long enough to look stuck.
+            reporter?.BeginWrapUp();
+            if (force)
+            {
+                await SetSkipWorktreeAsync(repo, on: false, plan.NamedInTarget, ct).ConfigureAwait(false);
+            }
+
+            await RefreshIndexAsync(repo, ct).ConfigureAwait(false);
+
+            // A switch only re-syncs what it was meant to change; any other difference is the player's work and stays for status to report.
+            await VerifyAsync(repo, to, plan.Gone, force ? null : plan.Touched, plan.Named, ct).ConfigureAwait(false);
+
+            // git prunes a folder when its last file leaves, so the target's empty folders are made again; this runs before the note goes, so a stop here is finished by repeating the switch.
+            await RestoreEmptyFoldersAsync(repo, to, ct).ConfigureAwait(false);
+            SwitchJournal.Clear(repo.GitDir);
+            reporter?.Complete();
         }
-
-        // A switch only re-syncs what it was meant to change; any other difference is the player's work and stays for status to report.
-        await VerifyAsync(repo, to, plan.Gone, force ? null : plan.Touched, plan.Named, ct).ConfigureAwait(false);
-
-        // git prunes a folder when its last file leaves, so the target's empty folders are made again; this runs before the note goes, so a stop here is finished by repeating the switch.
-        await RestoreEmptyFoldersAsync(repo, to, ct).ConfigureAwait(false);
-        SwitchJournal.Clear(repo.GitDir);
+        finally
+        {
+            // A switch that fails or is stopped while it reads the files back must not leave the screen saying it still is.
+            reporter?.Abandon();
+        }
     }
 
     private void EnsureCheckoutSpace(RepoRef repo, IReadOnlyList<TreeChange> changes, Dictionary<string, long> sizes)

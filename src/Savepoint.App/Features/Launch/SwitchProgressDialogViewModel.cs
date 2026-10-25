@@ -93,6 +93,20 @@ public sealed partial class SwitchProgressDialogViewModel : DialogViewModel<bool
         _firstReport ??= now;
         CurrentPath = progress.CurrentPath;
 
+        // Every file is written and SavePoint is reading them back: the counts have stopped, so a full bar would look stuck.
+        if (progress.Finishing)
+        {
+            IsIndeterminate = true;
+            PercentText = string.Empty;
+            ProgressText = _text.Message("launch.progress.verifying");
+            if (_milestones.StartedFinishing(true))
+            {
+                Announcement = _text.Message("launch.progress.announceVerifying");
+            }
+
+            return;
+        }
+
         // Git removes files before it writes any, and a removal has no bytes, so the bar and the line follow whichever of the files and
         // the bytes is further along: a switch that mostly removes files moves from the start.
         var fileShare = progress.FilesTotal is > 0 && progress.FilesDone is { } done ? (double)done / progress.FilesTotal.Value : (double?)null;
@@ -127,7 +141,7 @@ public sealed partial class SwitchProgressDialogViewModel : DialogViewModel<bool
         {
             IsIndeterminate = true;
             PercentText = string.Empty;
-            ProgressText = progress.FilesDone is not null ? _text.Counting() : _text.Message("launch.progress.hint");
+            ProgressText = progress.FilesDone is not null ? _text.Counting() : _text.Message("launch.progress.checking");
         }
     }
 

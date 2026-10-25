@@ -11,6 +11,8 @@ namespace Savepoint.Core.Git;
 /// <param name="BytesTotal">Bytes the operation expects to write in all (for a capture, the sizes of the files it stores), or null when not known.</param>
 /// <param name="Finishing">
 /// True once a capture has stored all it is going to and git is only wrapping up (closing its last pack, writing the index), which can
-/// take minutes after a very large first capture and moves nothing else. It stays true until the last report, which clears it, whether the capture completes, fails or is stopped.
+/// take minutes after a very large first capture and moves nothing else. For a switch it is true once git has written every file and the
+/// engine is reading them back to check them, which takes as long as reading the written bytes and moves no count. It stays true until
+/// the last report, which clears it, whether the operation completes, fails or is stopped.
 /// </param>
 public readonly record struct FileProgress(int FilesDone, int? FilesTotal, string? CurrentPath, long? BytesDone = null, long? BytesTotal = null, bool Finishing = false);
