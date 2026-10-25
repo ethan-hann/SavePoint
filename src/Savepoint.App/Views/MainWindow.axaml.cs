@@ -22,12 +22,23 @@ public partial class MainWindow : Window
         if (_followed is not null)
         {
             _followed.MinimizeRequested -= OnMinimizeRequested;
+            _followed.QuestionOpening -= OnQuestionOpening;
         }
 
         _followed = DataContext as MainWindowViewModel;
         if (_followed is not null)
         {
             _followed.MinimizeRequested += OnMinimizeRequested;
+            _followed.QuestionOpening += OnQuestionOpening;
+        }
+    }
+
+    // A question on a minimized window would go unseen.
+    private void OnQuestionOpening(object? sender, EventArgs e)
+    {
+        if (WindowState == WindowState.Minimized)
+        {
+            WindowState = WindowState.Normal;
         }
     }
 

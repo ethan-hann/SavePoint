@@ -39,6 +39,9 @@ public sealed class ExitGuard
     /// <summary>Raised when the player chose to minimize instead of closing; the window minimizes and everything keeps running.</summary>
     public event EventHandler? MinimizeRequested;
 
+    /// <summary>Raised just before any question is shown, so the window can come forward if it is minimized.</summary>
+    public event EventHandler? QuestionOpening;
+
 
     /// <summary>
     /// Asks about each running job that must not be cut short, cancels the jobs that can be cancelled and waits briefly for them, and
@@ -96,6 +99,7 @@ public sealed class ExitGuard
     // is on and waits for that game, which takes seconds; a run that never ends is left to the process ending after a minute.
     private async Task<bool> FinishLibraryRunAsync(LibraryRunTracker runs)
     {
+        QuestionOpening?.Invoke(this, EventArgs.Empty);
         var asked = await _dialogs.ConfirmAsync(new ConfirmRequest(
             _text.Message("shell.exit.title"),
             _text.Message("shell.exit.libraryMessage"),
@@ -128,6 +132,7 @@ public sealed class ExitGuard
     // A snapshot that is stopped keeps nothing, so the player may prefer to minimize and let it finish; they are told, before it is stopped.
     private async Task<bool> AskAboutSnapshotAsync()
     {
+        QuestionOpening?.Invoke(this, EventArgs.Empty);
         var choice = await _dialogs.ShowAsync(new CloseDuringSnapshotDialogViewModel(_text)).ConfigureAwait(true);
         if (choice == CloseDuringSnapshotChoice.Minimize)
         {
@@ -151,6 +156,7 @@ public sealed class ExitGuard
             JobKind.Launch or JobKind.Switch => ("shell.exit.switchMessage", "shell.exit.confirm"),
             _ => ("shell.exit.moveMessage", "shell.exit.confirm"),
         };
+        QuestionOpening?.Invoke(this, EventArgs.Empty);
         return _dialogs.ConfirmAsync(new ConfirmRequest(
             _text.Message("shell.exit.title"),
             _text.Message(message),

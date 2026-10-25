@@ -170,6 +170,44 @@ public class MainWindowTests
     }
 
     [AvaloniaFact]
+    public async Task A_question_asked_while_the_window_is_minimized_restores_it_and_minimizing_again_puts_it_back()
+    {
+        var (window, _, dialogs) = await WindowWithRunningSnapshotAsync();
+        window.WindowState = WindowState.Minimized;
+
+        window.Close();
+        await SettleAsync(() => dialogs.Shown.Count == 1);
+        var whileAsking = window.WindowState;
+        ((CloseDuringSnapshotDialogViewModel)dialogs.Shown[0]).MinimizeCommand.Execute(null);
+        await SettleAsync(() => window.WindowState == WindowState.Minimized);
+
+        Assert.Equal(WindowState.Normal, whileAsking);
+        Assert.Equal(WindowState.Minimized, window.WindowState);
+    }
+
+    [AvaloniaFact]
+    public async Task A_minimized_window_with_nothing_running_closes_without_being_restored()
+    {
+        var (window, _, dialogs) = await WindowWithRunningMoveAsync(answer: true, startMove: false);
+        window.WindowState = WindowState.Minimized;
+        var states = new List<WindowState>();
+        window.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == Window.WindowStateProperty)
+            {
+                states.Add(window.WindowState);
+            }
+        };
+
+        window.Close();
+        await SettleAsync(() => !window.IsVisible);
+
+        Assert.False(window.IsVisible);
+        Assert.Empty(dialogs.Shown);
+        Assert.DoesNotContain(WindowState.Normal, states);
+    }
+
+    [AvaloniaFact]
     public async Task Closing_and_stopping_from_the_question_cancels_the_snapshot_and_closes_the_window()
     {
         var (window, backend, dialogs) = await WindowWithRunningSnapshotAsync();

@@ -30,6 +30,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         if (exit is not null)
         {
             exit.MinimizeRequested += OnMinimizeRequested;
+            exit.QuestionOpening += OnQuestionOpening;
         }
 
         Startup = startup;
@@ -42,6 +43,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     /// <summary>Raised when the player chose to minimize the window instead of closing it; the window minimizes itself.</summary>
     public event EventHandler? MinimizeRequested;
+
+    /// <summary>Raised just before a close question is shown; the window restores itself if it is minimized.</summary>
+    public event EventHandler? QuestionOpening;
+
+    private void OnQuestionOpening(object? sender, EventArgs e) => QuestionOpening?.Invoke(this, EventArgs.Empty);
 
     private void OnMinimizeRequested(object? sender, EventArgs e) => MinimizeRequested?.Invoke(this, EventArgs.Empty);
 
@@ -135,6 +141,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         if (_exit is not null)
         {
             _exit.MinimizeRequested -= OnMinimizeRequested;
+            _exit.QuestionOpening -= OnQuestionOpening;
         }
 
         Startup.Ready -= OnStartupReady;
