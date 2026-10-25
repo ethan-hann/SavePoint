@@ -85,7 +85,7 @@ public interface IPlatform
     AppDirectories Directories { get; }               // CatalogDir, DefaultStorageRoot, LogsDir, HomeDir
     IReadOnlyDictionary<string, string> PathTokens { get; } // documents, appData, localAppData, userHome, savedGames (where it exists)
     PathDenylist Denylist(IEnumerable<string> extraBlockedRoots); // tier 1 (subtree) + tier 2 (exact) absolute paths
-    IProcessInspector Processes { get; }              // list running processes (pid, name, executable path)
+    IProcessInspector Processes { get; }              // list running processes (pid, name, executable path, parent pid and start time where the OS gives them)
     IGameLauncher Launcher { get; }                   // start an executable or app bundle; open a URI
 }
 ```
