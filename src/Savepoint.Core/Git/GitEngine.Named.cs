@@ -167,6 +167,103 @@ public sealed partial class GitEngine
         }
     }
 
+    /// <summary>
+    /// For each pattern, the files it would leave out of this folder: files in the work tree that are not recorded, files in the index,
+    /// and files in the newest point of every profile, so a file only another profile recorded is found too. Matching is git's own, the
+    /// same a capture uses, with the folder's own letter-case setting. The game's saved patterns are not read or changed (the saved
+    /// exclude list is left byte for byte as it was), the work tree is not written, and the consent marker is never listed.
+    /// </summary>
+    /// <param name="repo">The folder.</param>
+    /// <param name="patterns">The patterns to ask about; blank ones are ignored.</param>
+    /// <param name="ct">Cancels the call.</param>
+    /// <returns>One entry per distinct pattern asked about: paths relative to the folder, with <c>/</c> separators, in a stable order; empty when it names nothing.</returns>
+    /// <exception cref="Savepoint.Core.Errors.PathSafetyException">The work tree is a protected location.</exception>
+    /// <exception cref="Savepoint.Core.Errors.PathMissingException">The work tree does not exist.</exception>
+    /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
+    /// <exception cref="Savepoint.Core.Errors.GitOperationException">git failed.</exception>
+    public async Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> ListNamedByAsync(RepoRef repo, IReadOnlyList<string> patterns, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(patterns);
+        var rules = RepoIgnoreFiles.PatternLines(patterns).Distinct(StringComparer.Ordinal).ToList();
+        repo = Normalize(repo);
+        ct.ThrowIfCancellationRequested();
+        CheckWorkTree(repo);
+        RepoMarker.Verify(repo);
+        var found = rules.ToDictionary(rule => rule, _ => (IReadOnlyList<string>)[], StringComparer.Ordinal);
+        if (rules.Count == 0)
+        {
+            return found;
+        }
+
+        // One walk of the work tree finds the unrecorded files any pattern names; the recorded ones come from the index and from the
+        // newest point of every profile. Which pattern names which file is then asked of git the same way a switch asks it.
+        var candidates = new HashSet<string>(StringComparer.Ordinal);
+        var exclude = ExcludeFileOf(Path.Combine(repo.GitDir, $"{ClassifyIndexPrefix}{Guid.NewGuid():N}.index"));
+        _classifying[exclude] = 0;
+        try
+        {
+            File.WriteAllText(exclude, string.Join('\n', rules) + "\n", new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            var unrecorded = await RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z", "-o", "-i", "--exclude-from=" + exclude), ct).ConfigureAwait(false);
+            candidates.UnionWith(unrecorded.SplitStandardOutputOnNul());
+        }
+        finally
+        {
+            _classifying.TryRemove(exclude, out _);
+            TryDelete(exclude);
+        }
+
+        var indexed = await RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z", "-c"), ct).ConfigureAwait(false);
+        candidates.UnionWith(indexed.SplitStandardOutputOnNul());
+        foreach (var branch in await ListBranchesAsync(repo, ct).ConfigureAwait(false))
+        {
+            candidates.UnionWith(await ListTreeFilesAsync(repo, branch, ct).ConfigureAwait(false));
+        }
+
+        candidates.RemoveWhere(entry => entry.EndsWith('/') || entry.StartsWith(Paths.ConsentMarker.FileName, StringComparison.Ordinal));
+        if (candidates.Count == 0)
+        {
+            return found;
+        }
+
+        foreach (var rule in rules)
+        {
+            var named = await NamedByAmongAsync(repo, [rule], candidates, ct).ConfigureAwait(false);
+            found[rule] = [.. named.Order(StringComparer.Ordinal)];
+        }
+
+        return found;
+    }
+
+    /// <summary>
+    /// Which of these paths the patterns name, whether or not they exist, matched by git with the folder's own letter-case setting. Used to
+    /// check that a rule offered for some files really matches them where this folder is.
+    /// </summary>
+    /// <param name="repo">The folder.</param>
+    /// <param name="patterns">The patterns to ask about.</param>
+    /// <param name="paths">Paths relative to the folder, with <c>/</c> separators.</param>
+    /// <param name="ct">Cancels the call.</param>
+    /// <exception cref="Savepoint.Core.Errors.GitOperationException">git failed.</exception>
+    public async Task<IReadOnlySet<string>> NamedByAmongAsync(RepoRef repo, IReadOnlyList<string> patterns, IReadOnlyCollection<string> paths, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(patterns);
+        ArgumentNullException.ThrowIfNull(paths);
+        repo = Normalize(repo) with { IgnorePatterns = patterns };
+        ct.ThrowIfCancellationRequested();
+        var named = new HashSet<string>(StringComparer.Ordinal);
+        if (paths.Count == 0 || patterns.Count == 0)
+        {
+            return named;
+        }
+
+        // The question carries its own patterns, so the saved list in the git directory is neither read nor rewritten.
+        foreach (var group in WithoutFileAndFolderPairs(paths))
+        {
+            named.UnionWith(await NamedInOneIndexAsync(repo, group, ct).ConfigureAwait(false));
+        }
+
+        return named;
+    }
+
     private static string NulList(IEnumerable<string> paths)
     {
         var list = new StringBuilder();

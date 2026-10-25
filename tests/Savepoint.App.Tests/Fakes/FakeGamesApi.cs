@@ -21,8 +21,19 @@ public sealed class FakeGamesApi : IGamesApi
 
     private FakeState State => _backend.State;
 
-    public Task<OperationResult<IReadOnlyList<GameDefinition>>> ListAsync(CancellationToken cancellationToken = default) =>
-        _backend.Call(_api, nameof(ListAsync), [], () => OperationResult.Success<IReadOnlyList<GameDefinition>>([.. State.Games]));
+    // A test sets this to hold the next listing, as a slow drive would.
+    public Func<Task>? ListGate { get; set; }
+
+    public async Task<OperationResult<IReadOnlyList<GameDefinition>>> ListAsync(CancellationToken cancellationToken = default)
+    {
+        if (ListGate is { } gate)
+        {
+            ListGate = null;
+            await gate();
+        }
+
+        return await _backend.Call(_api, nameof(ListAsync), [], () => OperationResult.Success<IReadOnlyList<GameDefinition>>([.. State.Games]));
+    }
 
     public Task<OperationResult<AddGameOutcome>> AddAsync(GameDefinition definition) =>
         _backend.Call<AddGameOutcome>(_api, nameof(AddAsync), [definition], () =>
@@ -32,9 +43,30 @@ public sealed class FakeGamesApi : IGamesApi
                 return OperationResult.Success<AddGameOutcome>(new AddGameOutcome.HistoryFound(orphan));
             }
 
-            Add(definition);
-            return OperationResult.Success<AddGameOutcome>(new AddGameOutcome.Added(definition));
+            var (kept, leftOff) = WithoutRulesThatHideSaves(definition);
+            Add(kept);
+            return OperationResult.Success<AddGameOutcome>(new AddGameOutcome.Added(kept, leftOff));
         });
+
+    // Like the service, a default rule that would leave out files of the saves folder moves to the game's own folder only; when the check cannot run every one does.
+    private (GameDefinition Game, RulesLeftOff? LeftOff) WithoutRulesThatHideSaves(GameDefinition definition)
+    {
+        var asked = definition.IgnorePaths.Where(rule => RunTimeOutput.DefaultRules.Contains(rule)).ToList();
+        var hiding = SavesCheckFails ? asked : asked.Where(SavesLeftOutByRule.ContainsKey).ToList();
+        return hiding.Count == 0
+            ? (definition, null)
+            : (definition with
+            {
+                IgnorePaths = [.. definition.IgnorePaths.Where(rule => !hiding.Contains(rule))],
+                InstallIgnorePaths = RunTimeOutput.Merge(definition.InstallIgnorePaths, hiding),
+            }, new RulesLeftOff(hiding, SavesHoldFiles: !SavesCheckFails));
+    }
+
+    // The files of the saves folder each rule would leave out, as a test sets them; a rule not listed matches nothing.
+    public Dictionary<string, IReadOnlyList<string>> SavesLeftOutByRule { get; } = [];
+
+    // A test sets this to make the saves check fail, as an unreadable drive would.
+    public bool SavesCheckFails { get; set; }
 
     // A test sets this to hold a scan, as a slow drive would; it may ignore the token.
     public Func<CancellationToken, Task>? ScanGate { get; set; }
@@ -81,15 +113,15 @@ public sealed class FakeGamesApi : IGamesApi
                 return OperationResult.Success(new LibraryAddResult(game.Key, game.Name, LibraryAddStatus.HasOlderHistory));
             }
 
-            var draft = game.SavesFolder is not null && !game.SavesFolderExists ? game.Draft with { External = null } : game.Draft;
+            var (draft, leftOff) = WithoutRulesThatHideSaves(game.SavesFolder is not null && !game.SavesFolderExists ? game.Draft with { External = null } : game.Draft);
             Add(draft);
-            return OperationResult.Success(new LibraryAddResult(game.Key, game.Name, LibraryAddStatus.Added, draft.Id, SavesFolderLeftOut: draft.External is null ? game.SavesFolder : null));
+            return OperationResult.Success(new LibraryAddResult(game.Key, game.Name, LibraryAddStatus.Added, draft.Id, SavesFolderLeftOut: draft.External is null ? game.SavesFolder : null, RulesLeftOff: leftOff));
         });
 
     private static bool SameFolder(string a, string b) =>
         string.Equals(a.TrimEnd('\\', '/'), b.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase);
 
-    public Task<OperationResult<GameDefinition>> ResolveOrphanAsync(GameDefinition definition, OrphanResolution resolution) =>
+    public Task<OperationResult<AddGameOutcome.Added>> ResolveOrphanAsync(GameDefinition definition, OrphanResolution resolution) =>
         _backend.Call(_api, nameof(ResolveOrphanAsync), [definition, resolution], () =>
         {
             if (!State.Orphans.Remove(definition.Install.Path))
@@ -99,7 +131,7 @@ public sealed class FakeGamesApi : IGamesApi
 
             if (resolution is OrphanResolution.Reconnect reconnect)
             {
-                var game = definition with { Id = reconnect.ExistingGameId };
+                var (game, reconnectedLeftOff) = WithoutRulesThatHideSaves(definition with { Id = reconnect.ExistingGameId });
                 Add(game);
                 foreach (var recovered in reconnect.Profiles)
                 {
@@ -109,11 +141,12 @@ public sealed class FakeGamesApi : IGamesApi
                     State.Profiles.Add(new Profile(id, game.Id, recovered.Name, recovered.BranchName));
                 }
 
-                return OperationResult.Success(game);
+                return OperationResult.Success(new AddGameOutcome.Added(game, reconnectedLeftOff));
             }
 
-            Add(definition);
-            return OperationResult.Success(definition);
+            var (fresh, freshLeftOff) = WithoutRulesThatHideSaves(definition);
+            Add(fresh);
+            return OperationResult.Success(new AddGameOutcome.Added(fresh, freshLeftOff));
         });
 
     public Task<OperationResult<GameDefinition>> UpdateAsync(GameDefinition definition, bool confirmFolderChange = false) =>

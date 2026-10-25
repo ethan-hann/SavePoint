@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Dialogs;
+using Savepoint.App.Features.Common.Toasts;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 
@@ -12,6 +13,9 @@ public sealed partial class GameEditorViewModel
 
     // Folders the Api said were never confirmed, which are asked about again whatever else is true of them.
     private readonly HashSet<RepoRole> _unconfirmed = [];
+
+    // What the Api said about rules it moved to the game's own folder when it added the new game, directly or after the reconnect question; null when it said nothing.
+    private RulesLeftOff? _leftOff;
 
     [RelayCommand(CanExecute = nameof(CanSave))]
     private async Task SaveAsync()
@@ -53,6 +57,11 @@ public sealed partial class GameEditorViewModel
 
         if (result.Ok)
         {
+            if (!IsEditing)
+            {
+                SayWhichRulesWereLeftOff();
+            }
+
             if (await ApplyArtworkAsync(result.Value))
             {
                 await FinishAsync(result.Value);
@@ -61,6 +70,17 @@ public sealed partial class GameEditorViewModel
         else
         {
             ShowSaveError(result.Error, resolved);
+        }
+    }
+
+    // A default rule that would leave out files its saves folder already holds is saved for the game's own folder only; the Api says
+    // which rules and whether the folder was really looked at, and the player is told.
+    private void SayWhichRulesWereLeftOff()
+    {
+        if (_leftOff is { Rules.Count: > 0 } left)
+        {
+            var key = left.SavesHoldFiles ? "gameEditor.ignorePaths.savesKept" : "gameEditor.ignorePaths.savesUnchecked";
+            _toasts.Show(new ToastMessage(_text.Message(key, ("count", left.Rules.Count), ("rules", string.Join(", ", left.Rules))), ToastKind.Info));
         }
     }
 
@@ -85,6 +105,7 @@ public sealed partial class GameEditorViewModel
     // Null when the user backed out of the question that adding can raise.
     private async Task<OperationResult<GameDefinition>?> AddNewAsync(GameDefinition definition)
     {
+        _leftOff = null;
         var added = await _games.AddAsync(definition);
         if (!added.Ok)
         {
@@ -93,10 +114,16 @@ public sealed partial class GameEditorViewModel
 
         return added.Value switch
         {
-            AddGameOutcome.Added game => OperationResult.Success(game.Game),
+            AddGameOutcome.Added game => Remember(game),
             AddGameOutcome.HistoryFound found => await ResolveHistoryAsync(definition, found.History),
             _ => null,
         };
+    }
+
+    private OperationResult<GameDefinition> Remember(AddGameOutcome.Added added)
+    {
+        _leftOff = added.LeftOff;
+        return OperationResult.Success(added.Game);
     }
 
     // Old history at these folders is a question, not an error: bring its profiles back, or start without them.
@@ -104,12 +131,13 @@ public sealed partial class GameEditorViewModel
     {
         var question = new ReconnectDialogViewModel(history, _text);
         var choice = await _dialogs.ShowAsync(question);
-        return choice switch
+        var resolved = choice switch
         {
             ReconnectChoice.Reconnect => await _games.ResolveOrphanAsync(definition, new OrphanResolution.Reconnect(history.ExistingGameId, question.Recovered)),
             ReconnectChoice.StartFresh => await _games.ResolveOrphanAsync(definition, new OrphanResolution.StartFresh()),
             _ => null,
         };
+        return resolved is null ? null : resolved.Ok ? Remember(resolved.Value) : OperationResult.Failure<GameDefinition>(resolved.Error);
     }
 
     // Every folder is resolved to an absolute path first: a path that cannot be resolved is a mistake in its field, and the

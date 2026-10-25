@@ -36,7 +36,7 @@ internal sealed partial class GamesApi
 
                 if (!confirmFolderChange)
                 {
-                    await RequireMatchingFoldersAsync(storage, existing.Id, before, folders, edited.IgnorePaths).ConfigureAwait(false);
+                    await RequireMatchingFoldersAsync(storage, existing.Id, before, folders, edited).ConfigureAwait(false);
                 }
 
                 var claimed = new List<GameFolder>();
@@ -67,7 +67,7 @@ internal sealed partial class GamesApi
                     // The ignore list is part of the edit: each folder's exclude file says what the saved game says before anything else reads it.
                     foreach (var folder in folders)
                     {
-                        await storage.Engine.WriteExcludeAsync(GameFolders.Repo(storage, edited.Id, folder), edited.IgnorePaths, CancellationToken.None).ConfigureAwait(false);
+                        await storage.Engine.WriteExcludeAsync(GameFolders.Repo(storage, edited.Id, folder), edited.IgnorePathsFor(folder.Role), CancellationToken.None).ConfigureAwait(false);
                     }
 
                     var saved = await _services.Catalog.SaveGameAsync(edited).ConfigureAwait(false);
@@ -94,7 +94,7 @@ internal sealed partial class GamesApi
     // A folder with history that is pointed somewhere else has to look like the folder it replaces: at least half of the files its
     // newest point recorded must be there at the same relative paths, or the player has most likely picked the wrong folder.
     // A file the ignore list names is not restored by a switch, so it is not one the new folder has to hold.
-    private async Task RequireMatchingFoldersAsync(StorageSnapshot storage, string gameId, IReadOnlyList<GameFolder> before, IReadOnlyList<GameFolder> folders, IReadOnlyList<string>? ignorePatterns)
+    private async Task RequireMatchingFoldersAsync(StorageSnapshot storage, string gameId, IReadOnlyList<GameFolder> before, IReadOnlyList<GameFolder> folders, GameDefinition edited)
     {
         foreach (var folder in folders)
         {
@@ -104,7 +104,7 @@ internal sealed partial class GamesApi
                 continue;
             }
 
-            var recorded = await NewestPointFilesAsync(storage, GameFolders.Repo(storage, gameId, folder) with { IgnorePatterns = ignorePatterns }).ConfigureAwait(false);
+            var recorded = await NewestPointFilesAsync(storage, GameFolders.Repo(storage, gameId, folder) with { IgnorePatterns = edited.IgnorePathsFor(folder.Role) }).ConfigureAwait(false);
             if (recorded.Count == 0)
             {
                 continue;

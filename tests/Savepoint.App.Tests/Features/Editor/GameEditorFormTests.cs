@@ -18,7 +18,95 @@ public class GameEditorFormTests
         Assert.Equal(string.Empty, editor.SavesPath);
         Assert.Equal(0, editor.LaunchChoice);
         Assert.Empty(editor.IgnoreRules.Values);
+        Assert.Equal(["**/*.log", "**/*.dmp", "**/*.mdmp"], editor.InstallIgnoreRules.Values);
         Assert.False(editor.CanSave);
+    }
+
+    [Fact]
+    public void A_new_game_says_in_plain_words_why_logs_and_crash_reports_are_left_out_of_its_own_folder()
+    {
+        var editor = EditorRig.Create().New();
+
+        Assert.True(editor.HasDefaultRulesNote);
+        Assert.Equal("New games leave out logs and crash reports from the game's own folder. A game rewrites them while it runs, so without these rules SavePoint would take them for a game update. They never apply to your saves folder. Remove a rule to keep those files in your snapshots.", editor.DefaultRulesNote);
+    }
+
+    [Fact]
+    public void Both_lists_say_which_folders_they_reach()
+    {
+        var editor = EditorRig.Create().New();
+
+        Assert.Equal("Files to leave out of the game's own folder", editor.InstallIgnoreRules.GroupName);
+        Assert.Equal("Files to leave out of both folders", editor.IgnoreRules.GroupName);
+    }
+
+    [Fact]
+    public void Each_list_has_its_own_add_name_help_text_and_remove_names()
+    {
+        var editor = EditorRig.Create().New();
+
+        Assert.Equal("Add a rule for the game's own folder", editor.InstallIgnoreRules.AddAutomationName);
+        Assert.Equal("Add a rule for both folders", editor.IgnoreRules.AddAutomationName);
+        Assert.Equal("SavePoint never copies or replaces files in the game's own folder that match these rules, such as logs and crash reports. They never reach your saves folder. Use * for any name and ** for any folder.", editor.InstallIgnoreRules.HelpText);
+        Assert.Equal("SavePoint never copies or replaces files that match these rules, in the game's own folder or in your saves folder. Use * for any name and ** for any folder. Don't add a rule that matches your saves, or profiles stop switching them.", editor.IgnoreRules.HelpText);
+        Assert.Equal("Remove **/*.log from Files to leave out of the game's own folder", editor.InstallIgnoreRules.Items[0].RemoveLabel);
+        Assert.NotEqual(editor.LaunchArgs.AddAutomationName, editor.ModFolders.AddAutomationName);
+    }
+
+    [Fact]
+    public void Removing_a_default_install_rule_makes_the_form_dirty()
+    {
+        var editor = EditorRig.Create().New();
+        Assert.False(editor.IsDirty);
+
+        editor.InstallIgnoreRules.Items[0].Remove.Execute(null);
+
+        Assert.True(editor.IsDirty);
+    }
+
+    [Fact]
+    public void An_existing_game_keeps_its_rules_as_they_are_and_has_no_note()
+    {
+        var bare = SampleScenario.Caretaker with { IgnorePaths = [] };
+        var rig = EditorRig.Create(new FakeBackend(ScenarioBuilder.Empty().WithGame(bare)));
+
+        var editor = rig.Edit(bare.Id);
+
+        Assert.Empty(editor.IgnoreRules.Values);
+        Assert.False(editor.HasDefaultRulesNote);
+        Assert.False(editor.IsDirty);
+    }
+
+    [Fact]
+    public void A_definition_file_is_not_given_rules_it_does_not_have()
+    {
+        var rig = EditorRig.Create();
+
+        var editor = rig.New(SampleScenario.Caretaker with { Id = "imported", IgnorePaths = ["Saves/*.tmp"] });
+
+        Assert.Equal(["Saves/*.tmp"], editor.IgnoreRules.Values);
+        Assert.False(editor.HasDefaultRulesNote);
+    }
+
+    [Fact]
+    public void A_prefilled_form_has_no_note_even_when_its_rules_are_the_defaults()
+    {
+        var rig = EditorRig.Create();
+
+        var editor = rig.New(rig.Backend.Games.Templates[0].ToDraft());
+
+        Assert.Equal(RunTimeOutput.DefaultRules.Order(), editor.InstallIgnoreRules.Values.Concat(editor.IgnoreRules.Values).Where(RunTimeOutput.DefaultRules.Contains).Distinct().Order());
+        Assert.False(editor.HasDefaultRulesNote);
+    }
+
+    [Fact]
+    public void A_definition_file_that_happens_to_hold_the_default_rules_gets_no_note()
+    {
+        var rig = EditorRig.Create();
+
+        var editor = rig.New(SampleScenario.Caretaker with { Id = "imported", IgnorePaths = RunTimeOutput.DefaultRules });
+
+        Assert.False(editor.HasDefaultRulesNote);
     }
 
     [Fact]

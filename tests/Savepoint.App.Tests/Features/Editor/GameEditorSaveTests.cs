@@ -52,6 +52,78 @@ public class GameEditorSaveTests
     }
 
     [Fact]
+    public async Task A_new_game_whose_saves_folder_holds_files_a_default_rule_would_hide_says_which_rule_was_left_off()
+    {
+        var rig = EditorRig.Create();
+        rig.Backend.Games.SavesLeftOutByRule["**/*.log"] = ["player.log"];
+        var editor = Filled(rig);
+        editor.IgnoreRules.SetValues(RunTimeOutput.DefaultRules);
+
+        await Save(rig, editor);
+
+        var stored = Assert.Single(FakeAssert.Ok(await rig.Backend.Games.ListAsync(TestContext.Current.CancellationToken)), game => game.Name == "Hollow Knight");
+        Assert.Equal(["**/*.dmp", "**/*.mdmp"], stored.IgnorePaths);
+        Assert.Contains("**/*.log", stored.InstallIgnorePaths);
+        var toast = Assert.Single(rig.Toasts.Toasts);
+        Assert.Equal(Savepoint.App.Features.Common.Toasts.ToastKind.Info, toast.Message.Kind);
+        Assert.Equal("The rule **/*.log now applies to the game's own folder only, because your saves folder holds files it would have left out. SavePoint keeps your saves in your snapshots.", toast.Text);
+    }
+
+    [Fact]
+    public async Task When_the_saves_folder_could_not_be_checked_the_message_does_not_claim_it_holds_such_files()
+    {
+        var rig = EditorRig.Create();
+        rig.Backend.Games.SavesCheckFails = true;
+        var editor = Filled(rig);
+        editor.IgnoreRules.SetValues(["**/*.log", "**/*.dmp"]);
+
+        await Save(rig, editor);
+
+        var toast = Assert.Single(rig.Toasts.Toasts);
+        Assert.Equal("The rules **/*.log, **/*.dmp now apply to the game's own folder only, because SavePoint could not look in your saves folder to be sure it would keep your saves. You can see them under \"Files to leave out of the game's own folder\" in Edit game.", toast.Text);
+        Assert.DoesNotContain("holds files", toast.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_new_game_keeps_the_game_wide_rule_the_player_wrote_even_when_the_saves_folder_holds_a_file_it_names()
+    {
+        var rig = EditorRig.Create();
+        rig.Backend.Games.SavesLeftOutByRule["Saves/*.tmp"] = ["Saves/a.tmp"];
+        var editor = Filled(rig);
+        editor.IgnoreRules.SetValues(["Saves/*.tmp"]);
+
+        await Save(rig, editor);
+
+        Assert.Equal(["Saves/*.tmp"], Assert.Single(FakeAssert.Ok(await rig.Backend.Games.ListAsync(TestContext.Current.CancellationToken)), game => game.Name == "Hollow Knight").IgnorePaths);
+        Assert.Empty(rig.Toasts.Toasts);
+    }
+
+    [Fact]
+    public async Task A_new_game_is_saved_with_the_default_rules_for_its_own_folder_only()
+    {
+        var rig = EditorRig.Create();
+        var editor = Filled(rig);
+        editor.IgnoreRules.SetValues([]);
+
+        await Save(rig, editor);
+
+        var saved = rig.Saved("AddAsync");
+        Assert.Empty(saved.IgnorePaths);
+        Assert.Equal(["**/*.log", "**/*.dmp", "**/*.mdmp"], saved.InstallIgnorePaths);
+    }
+
+    [Fact]
+    public async Task A_new_game_that_keeps_every_rule_says_nothing_about_them()
+    {
+        var rig = EditorRig.Create();
+        var editor = Filled(rig);
+
+        await Save(rig, editor);
+
+        Assert.Empty(rig.Toasts.Toasts);
+    }
+
+    [Fact]
     public async Task A_saved_new_game_refreshes_the_library_selects_the_game_and_closes_the_pane_in_that_order()
     {
         var rig = EditorRig.Create();

@@ -3,10 +3,12 @@ using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Common.Preferences;
+using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Help;
 using Savepoint.App.Theme;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Errors;
 using Savepoint.Core.Launch;
 
 namespace Savepoint.App.Features.Launch;
@@ -26,7 +28,17 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
     private readonly string _defaultPointName;
     private readonly SettingsWriter _settingsWriter;
     private readonly Action? _editGame;
+    private readonly IGamesApi _games;
+    private readonly ToastHostViewModel _toasts;
+    private readonly string? _gameId;
+    private readonly IReadOnlyList<string>? _leaveOutRules;
     private bool _explainReplace;
+    private bool _leaveOutDone;
+
+    /// <summary>What happened when the player asked to leave the files out, or why it did not work; empty before that.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasLeaveOutResult))]
+    private string _leaveOutResult = string.Empty;
 
     /// <summary>The card the player has selected; the main button acts on it.</summary>
     [ObservableProperty]
@@ -39,7 +51,8 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
     /// <param name="explainOlderChoice">True the first time a player meets the older-snapshot choice: "Which should I pick?" opens by itself, and the player's settings remember it was shown.</param>
     /// <param name="explainReplace">True the first time a player has not yet seen the Replace card's explanation: it opens by itself when the card is first selected, and the player's settings remember it was shown.</param>
     /// <param name="editGame">Opens Edit game for the session's game; the hint about a program that was never seen offers it. Null when the host has no editor to open.</param>
-    public PostPlayDialogViewModel(SessionState.Exited exited, string profileName, LaunchDependencies deps, bool explainOlderChoice = false, bool explainReplace = false, Action? editGame = null)
+    /// <param name="gameId">The session's game; the offer to leave run-time files out needs it. Null offers nothing.</param>
+    public PostPlayDialogViewModel(SessionState.Exited exited, string profileName, LaunchDependencies deps, bool explainOlderChoice = false, bool explainReplace = false, Action? editGame = null, string? gameId = null)
         : base(TitleFor(exited, deps.Text))
     {
         _text = deps.Text;
@@ -64,7 +77,16 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
         _defaultPointName = _text.Message("launch.postPlay.defaultName", ("date", today));
 
         Body = _text.Message("launch.postPlay.body", ("count", exited.NewFileCount));
-        InstallNote = exited.ChangedInstallFileCount > 0 ? _text.Message("launch.postPlay.installChanged", ("count", exited.ChangedInstallFileCount)) : string.Empty;
+        _games = deps.Games;
+        _toasts = deps.Toasts;
+        _gameId = gameId;
+        _leaveOutRules = exited.LeaveOutRules;
+        InstallNote = exited.ChangedInstallFileCount switch
+        {
+            <= 0 => string.Empty,
+            var count when _leaveOutRules is not null => _text.Message("launch.postPlay.runTimeOnly", ("count", count)),
+            var count => _text.Message("launch.postPlay.installChanged", ("count", count)),
+        };
         var older = _options.Choices.Contains(CompletionChoice.ForkNewProfile) || _options.Choices.Contains(CompletionChoice.MoveForward);
         OlderNote = older ? _text.Message("launch.postPlay.olderNote", ("profileName", profileName)) : string.Empty;
         OlderChoiceHelp = older ? ContextualHelp.OlderChoice(_text, profileName) : null;
@@ -119,6 +141,69 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
 
     /// <summary>True when <see cref="InstallNote"/> has text.</summary>
     public bool HasInstallNote => InstallNote.Length > 0;
+
+    /// <summary>The label of the button that leaves the changed logs out from now on; empty when the dialog offers none.</summary>
+    public string LeaveOutLabel => _leaveOutRules is null || _gameId is null ? string.Empty : _text.Message("launch.postPlay.leaveOut");
+
+    /// <summary>True while the button that leaves the changed logs out shows: the files were all logs or crash dumps and nothing has been done about them yet.</summary>
+    public bool HasLeaveOut => LeaveOutLabel.Length > 0 && !_leaveOutDone;
+
+    /// <summary>True when <see cref="LeaveOutResult"/> has text.</summary>
+    public bool HasLeaveOutResult => LeaveOutResult.Length > 0;
+
+    // Adds the rules to the game as Edit game would. Only the game's rules change: the dialog stays open and the session's own choice is untouched.
+    [RelayCommand]
+    private async Task LeaveOutAsync()
+    {
+        if (_leaveOutRules is null || _gameId is null || _leaveOutDone)
+        {
+            return;
+        }
+
+        var listed = await _games.ListAsync();
+        if (!listed.Ok)
+        {
+            Fail(listed.Error);
+            return;
+        }
+
+        var game = listed.Value.FirstOrDefault(candidate => candidate.Id == _gameId);
+        if (game is null)
+        {
+            Fail(ErrorInfo.From(new GameNotFoundException(_gameId)));
+            return;
+        }
+
+        // The rules go on the game's own folder only, so they can never leave out a save. One the game already has for both folders says the same.
+        var added = RunTimeOutput.Merge(game.InstallIgnorePaths, _leaveOutRules.Where(rule => !game.IgnorePaths.Contains(rule)));
+        if (added.Count != game.InstallIgnorePaths.Count)
+        {
+            var updated = await _games.UpdateAsync(game with { InstallIgnorePaths = added });
+            if (!updated.Ok)
+            {
+                Fail(updated.Error);
+                return;
+            }
+        }
+
+        _leaveOutDone = true;
+        OnPropertyChanged(nameof(HasLeaveOut));
+        LeaveOutResult = _text.Message("launch.postPlay.leaveOutDone");
+    }
+
+    // The dialog may be gone by the time this ends; a failure then is a message, not a line nobody will read.
+    private void Fail(ErrorInfo error)
+    {
+        var reason = _text.Message(error);
+        if (IsClosed)
+        {
+            _toasts.Show(new ToastMessage(_text.Message("launch.postPlay.leaveOutFailed", ("reason", reason)), ToastKind.Error));
+        }
+        else
+        {
+            LeaveOutResult = reason;
+        }
+    }
 
     /// <summary>For a session that started from an older point, why the choices differ; empty otherwise.</summary>
     public string OlderNote { get; }

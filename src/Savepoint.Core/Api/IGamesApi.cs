@@ -22,7 +22,10 @@ public interface IGamesApi
     /// game, in which case nothing is saved and <see cref="ResolveOrphanAsync"/> decides. Fails with
     /// <c>error.validation.invalidPayload</c> (every field problem at once), <c>error.pathSafety.tier1Blocked</c> or
     /// <c>error.pathSafety.tier2Blocked</c>, <c>error.consentMarker.conflict</c>, <c>error.gameService.pathOverlap</c>, or
-    /// <c>error.gameService.alreadyExists</c> when the id is taken.
+    /// <c>error.gameService.alreadyExists</c> when the id is taken. A game-wide rule from <see cref="RunTimeOutput.DefaultRules"/> that
+    /// would leave out a file of the saves folder (in the folder, the index, or any profile's newest point) is saved for the game's own
+    /// folder only (<see cref="GameDefinition.InstallIgnorePaths"/>), and <see cref="AddGameOutcome.Added.LeftOff"/> names it; so is every
+    /// such rule when the check could not run.
     /// </summary>
     /// <param name="definition">The game to add, with an id the caller made (see <see cref="CatalogIds.NewGameId"/>).</param>
     Task<OperationResult<AddGameOutcome>> AddAsync(GameDefinition definition);
@@ -53,8 +56,11 @@ public interface IGamesApi
     /// </summary>
     /// <param name="definition">The game being added, as it was given to <see cref="AddAsync"/>.</param>
     /// <param name="resolution">The user's answer.</param>
-    /// <returns>The game as stored, with the old id after a reconnect.</returns>
-    Task<OperationResult<GameDefinition>> ResolveOrphanAsync(GameDefinition definition, OrphanResolution resolution);
+    /// <returns>
+    /// The same <see cref="AddGameOutcome.Added"/> answer <see cref="AddAsync"/> gives: the game as stored, with the old id after a
+    /// reconnect, and in <see cref="AddGameOutcome.Added.LeftOff"/> the default rules that moved to the game's own folder only and why.
+    /// </returns>
+    Task<OperationResult<AddGameOutcome.Added>> ResolveOrphanAsync(GameDefinition definition, OrphanResolution resolution);
 
     /// <summary>
     /// Saves changes to a game. Also how a moved folder is re-pointed; consent is confirmed again for a new path. Fails with the

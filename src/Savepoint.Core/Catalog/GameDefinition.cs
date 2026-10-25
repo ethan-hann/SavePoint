@@ -25,6 +25,10 @@ namespace Savepoint.Core.Catalog;
 /// The game's Steam app id, a positive number, or null when the user named none. A stored id always wins over one found by looking
 /// at the game's launch link or folders (D30); it only picks the artwork and has no other effect.
 /// </param>
+/// <param name="InstallIgnorePaths">
+/// Patterns for files SavePoint never saves from the install folder only. <paramref name="IgnorePaths"/> applies to both folders; these
+/// never reach the saves folder, so a log rule here cannot hide a save. Empty for none, and absent from older files, which read as empty.
+/// </param>
 public sealed record GameDefinition(
     int SchemaVersion = GameDefinition.CurrentSchemaVersion,
     string Id = "",
@@ -35,7 +39,8 @@ public sealed record GameDefinition(
     IReadOnlyList<string>? IgnorePaths = null,
     IReadOnlyList<string>? ModPathHints = null,
     string? Notes = null,
-    int? SteamAppId = null)
+    int? SteamAppId = null,
+    IReadOnlyList<string>? InstallIgnorePaths = null)
 {
     /// <summary>The only schema version this build reads and writes.</summary>
     public const int CurrentSchemaVersion = 1;
@@ -54,6 +59,18 @@ public sealed record GameDefinition(
     /// <summary>The mod path hints; empty, never null, when the JSON had none.</summary>
     public IReadOnlyList<string> ModPathHints { get; init; } = ModPathHints ?? [];
 
+    /// <summary>The install-only ignore patterns; empty, never null, when the JSON had none.</summary>
+    public IReadOnlyList<string> InstallIgnorePaths { get; init; } = InstallIgnorePaths ?? [];
+
+    /// <summary>
+    /// The patterns the folder with this role leaves out: the game-wide <see cref="IgnorePaths"/>, and for the install folder also
+    /// <see cref="InstallIgnorePaths"/>. The saves folder never gets the install-only ones. The install-only rules come first, so a
+    /// later negation in <see cref="IgnorePaths"/> (such as <c>!keep.log</c>) can override one of them; the last matching rule wins.
+    /// </summary>
+    /// <param name="role">The folder.</param>
+    public IReadOnlyList<string> IgnorePathsFor(RepoRole role) =>
+        role == RepoRole.Install && InstallIgnorePaths.Count > 0 ? RunTimeOutput.Merge(InstallIgnorePaths, IgnorePaths) : IgnorePaths;
+
     /// <summary>Compares the lists by content, not by reference, so the editor can tell whether anything changed.</summary>
     public bool Equals(GameDefinition? other) =>
         other is not null
@@ -66,7 +83,8 @@ public sealed record GameDefinition(
         && Notes == other.Notes
         && SteamAppId == other.SteamAppId
         && IgnorePaths.SequenceEqual(other.IgnorePaths)
-        && ModPathHints.SequenceEqual(other.ModPathHints);
+        && ModPathHints.SequenceEqual(other.ModPathHints)
+        && InstallIgnorePaths.SequenceEqual(other.InstallIgnorePaths);
 
     /// <summary>A hash that agrees with <see cref="Equals(GameDefinition)"/>: it covers the lists' content.</summary>
     public override int GetHashCode()
@@ -88,6 +106,11 @@ public sealed record GameDefinition(
         foreach (var hint in ModPathHints)
         {
             hash.Add(hint);
+        }
+
+        foreach (var path in InstallIgnorePaths)
+        {
+            hash.Add(path);
         }
 
         return hash.ToHashCode();

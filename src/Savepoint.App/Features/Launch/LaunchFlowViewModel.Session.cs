@@ -207,7 +207,7 @@ public sealed partial class LaunchFlowViewModel
         }
 
         // The player's choice arrives when the dialog closes, outside this queue; it is applied through the queue again, in order.
-        var dialog = new PostPlayDialogViewModel(exited, ProfileName(flow.GameId, session.ProfileId), _deps, !settings.OlderChoiceHelpSeen, !settings.ReplaceHelpSeen, () => EditGameRequested?.Invoke(this, flow.GameId));
+        var dialog = new PostPlayDialogViewModel(exited, ProfileName(flow.GameId, session.ProfileId), _deps, !settings.OlderChoiceHelpSeen, !settings.ReplaceHelpSeen, () => EditGameRequested?.Invoke(this, flow.GameId), flow.GameId);
         dialog.Closed += (_, _) => Enqueue(flow, () => CompleteAsync(flow, dialog));
         _ = _deps.Dialogs.ShowAsync(dialog);
     }

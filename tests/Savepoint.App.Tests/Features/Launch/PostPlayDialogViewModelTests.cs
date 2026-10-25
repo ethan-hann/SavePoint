@@ -1,7 +1,10 @@
+using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Launch;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Theme;
 using Savepoint.Core.Api;
+using Savepoint.Core.Catalog;
+using Savepoint.Core.Errors;
 using Savepoint.Core.Launch;
 
 namespace Savepoint.App.Tests.Features.Launch;
@@ -221,6 +224,141 @@ public class PostPlayDialogViewModelTests : IDisposable
 
         Assert.True(dialog.HasInstallNote);
         Assert.Equal("14 files in the game's own folder also changed while you played, as an update would.", dialog.InstallNote);
+    }
+
+    private async Task<PostPlayDialogViewModel> RunTimeOnlyAsync(int installFiles = 3, string rule = "**/*.dmp") =>
+        new(await _rig.ExitedAsync(installFiles: installFiles, leaveOutRules: [rule]), _moddedName, _rig.Deps, gameId: SampleScenario.SkyrimId);
+
+    private async Task<GameDefinition> SavedGameAsync() =>
+        FakeAssert.Ok(await _rig.Backend.Games.ListAsync()).Single(game => game.Id == SampleScenario.SkyrimId);
+
+    [Fact]
+    public async Task Files_that_are_only_logs_or_crash_reports_are_said_to_be_that_and_not_an_update()
+    {
+        var dialog = await RunTimeOnlyAsync();
+
+        Assert.True(dialog.HasInstallNote);
+        Assert.Equal("3 files in the game's own folder changed while you played. They are only logs or crash reports that the game writes while it runs, not an update.", dialog.InstallNote);
+        Assert.DoesNotContain("update would", dialog.InstallNote, StringComparison.Ordinal);
+        Assert.True(dialog.HasLeaveOut);
+        Assert.Equal("Leave these out from now on", dialog.LeaveOutLabel);
+    }
+
+    [Fact]
+    public async Task One_log_reads_in_the_singular()
+    {
+        var dialog = await RunTimeOnlyAsync(installFiles: 1);
+
+        Assert.Equal("1 file in the game's own folder changed while you played. It is only a log or crash report that the game writes while it runs, not an update.", dialog.InstallNote);
+    }
+
+    [Fact]
+    public async Task A_change_to_the_game_itself_keeps_the_update_note_and_offers_nothing_to_leave_out()
+    {
+        var dialog = await NormalAsync(installFiles: 14);
+
+        Assert.False(dialog.HasLeaveOut);
+        Assert.Equal(string.Empty, dialog.LeaveOutLabel);
+    }
+
+    [Fact]
+    public async Task Run_time_files_offer_nothing_when_the_dialog_does_not_know_the_game()
+    {
+        var dialog = new PostPlayDialogViewModel(await _rig.ExitedAsync(installFiles: 3, leaveOutRules: ["**/*.dmp"]), _moddedName, _rig.Deps);
+
+        Assert.False(dialog.HasLeaveOut);
+    }
+
+    [Fact]
+    public async Task Leaving_the_files_out_adds_the_rule_for_the_games_own_folder_only_and_leaves_the_sessions_choice_and_the_dialog_alone()
+    {
+        var dialog = await RunTimeOnlyAsync();
+        dialog.SelectedChoice = Card(dialog, CompletionChoice.UpdateExisting);
+
+        await dialog.LeaveOutCommand.ExecuteAsync(null);
+
+        var game = await SavedGameAsync();
+        Assert.Equal(["**/*.dmp"], game.InstallIgnorePaths);
+        Assert.Equal(["**/*.log", "SKSE/Plugins/*.log", "**/Crash Logs/**"], game.IgnorePaths);
+        Assert.False(dialog.IsClosed);
+        Assert.Equal(CompletionChoice.UpdateExisting, dialog.SelectedChoice.Kind);
+        Assert.False(dialog.HasLeaveOut);
+        Assert.True(dialog.HasLeaveOutResult);
+        Assert.Equal("Done. SavePoint leaves these files out of the game's own folder from now on. You can change this under \"Files to leave out of the game's own folder\" in Edit game.", dialog.LeaveOutResult);
+    }
+
+    [Fact]
+    public async Task A_rule_the_game_already_has_for_both_folders_is_not_added_again()
+    {
+        var dialog = await RunTimeOnlyAsync(rule: "**/*.log");
+
+        await dialog.LeaveOutCommand.ExecuteAsync(null);
+
+        var game = await SavedGameAsync();
+        Assert.Empty(game.InstallIgnorePaths);
+        Assert.Equal(["**/*.log", "SKSE/Plugins/*.log", "**/Crash Logs/**"], game.IgnorePaths);
+        Assert.False(dialog.HasLeaveOut);
+    }
+
+    [Fact]
+    public async Task A_rule_the_game_already_has_for_its_own_folder_is_not_added_twice()
+    {
+        var dialog = await RunTimeOnlyAsync();
+        var game = await SavedGameAsync();
+        FakeAssert.Ok(await _rig.Backend.Games.UpdateAsync(game with { InstallIgnorePaths = ["**/*.dmp"] }));
+
+        await dialog.LeaveOutCommand.ExecuteAsync(null);
+
+        Assert.Equal(["**/*.dmp"], (await SavedGameAsync()).InstallIgnorePaths);
+    }
+
+    [Fact]
+    public async Task When_the_game_cannot_be_changed_the_reason_shows_and_the_offer_stays()
+    {
+        var dialog = await RunTimeOnlyAsync();
+        _rig.Backend.FailNext<IGamesApi>(nameof(IGamesApi.UpdateAsync), ErrorInfo.From(new InvalidOperationException("locked")));
+
+        await dialog.LeaveOutCommand.ExecuteAsync(null);
+
+        Assert.True(dialog.HasLeaveOut);
+        Assert.True(dialog.HasLeaveOutResult);
+        Assert.DoesNotContain("Done.", dialog.LeaveOutResult, StringComparison.Ordinal);
+        Assert.Empty((await SavedGameAsync()).InstallIgnorePaths);
+        Assert.False(dialog.IsClosed);
+        Assert.Empty(_rig.Toasts.Toasts);
+    }
+
+    [Fact]
+    public async Task A_rule_for_the_games_own_folder_is_added_without_looking_in_the_saves_folder()
+    {
+        var dialog = await RunTimeOnlyAsync(rule: "**/*.dmp");
+        _rig.Backend.Games.SavesLeftOutByRule["**/*.dmp"] = ["crash.dmp"];
+
+        await dialog.LeaveOutCommand.ExecuteAsync(null);
+
+        // Even with a file in the saves folder that the rule would match: it never applies there.
+        Assert.Equal(["**/*.dmp"], (await SavedGameAsync()).InstallIgnorePaths);
+        Assert.Equal("Done. SavePoint leaves these files out of the game's own folder from now on. You can change this under \"Files to leave out of the game's own folder\" in Edit game.", dialog.LeaveOutResult);
+    }
+
+    [Fact]
+    public async Task A_failure_that_comes_after_the_dialog_closed_is_shown_as_a_message_instead_of_being_lost()
+    {
+        var gate = new TaskCompletionSource();
+        _rig.Backend.Games.ListGate = () => gate.Task;
+        var dialog = await RunTimeOnlyAsync();
+        var running = dialog.LeaveOutCommand.ExecuteAsync(null);
+        dialog.NotNowCommand.Execute(null);
+        Assert.True(dialog.IsClosed);
+        _rig.Backend.FailNext<IGamesApi>(nameof(IGamesApi.UpdateAsync), ErrorInfo.From(new InvalidOperationException("locked")));
+
+        gate.SetResult();
+        await running;
+
+        var toast = Assert.Single(_rig.Toasts.Toasts);
+        Assert.Equal(ToastKind.Error, toast.Message.Kind);
+        Assert.StartsWith("SavePoint couldn't leave those files out", toast.Text, StringComparison.Ordinal);
+        Assert.Empty((await SavedGameAsync()).InstallIgnorePaths);
     }
 
     [Fact]

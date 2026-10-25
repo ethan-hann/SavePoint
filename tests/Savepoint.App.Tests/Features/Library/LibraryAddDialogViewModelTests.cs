@@ -113,6 +113,25 @@ public class LibraryAddDialogViewModelTests
         Assert.Equal("1 game was added.", dialog.AddedSummary);
     }
 
+    [Theory]
+    [InlineData(false, "Skyrim: the rule **/*.log now applies to the game's own folder only, because its saves folder holds files it would have left out. SavePoint keeps your saves in your snapshots.")]
+    [InlineData(true, "Skyrim: the rule **/*.log now applies to the game's own folder only, because SavePoint could not look in its saves folder to be sure it would keep your saves. You can see it under \"Files to leave out of the game's own folder\" in Edit game.")]
+    public async Task A_rule_that_now_applies_to_the_games_own_folder_only_is_said_in_a_notice(bool checkFails, string expected)
+    {
+        var game = LibraryTestData.Game("Skyrim", id: "1");
+        game = game with { Draft = game.Draft with { IgnorePaths = ["**/*.log"] } };
+        var (dialog, backend) = Make(game);
+        backend.Games.SavesLeftOutByRule["**/*.log"] = ["Player.log"];
+        backend.Games.SavesCheckFails = checkFails;
+
+        await dialog.RunAsync();
+
+        Assert.Equal(expected, Assert.Single(dialog.ResultLines, l => l.Kind == LibraryResultKind.Notice).Text);
+        var stored = Assert.Single((await backend.Games.ListAsync(TestContext.Current.CancellationToken)).Value!);
+        Assert.Equal(["**/*.log"], stored.InstallIgnorePaths);
+        Assert.Empty(stored.IgnorePaths);
+    }
+
     [Fact]
     public async Task Stopping_after_a_game_leaves_the_rest_untried_and_says_how_many()
     {

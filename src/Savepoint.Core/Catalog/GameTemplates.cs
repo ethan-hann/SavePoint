@@ -57,6 +57,7 @@ public static class GameTemplates
     private static GameDefinition ReadOnlyLists(GameDefinition definition) => definition with
     {
         IgnorePaths = [.. definition.IgnorePaths],
+        InstallIgnorePaths = [.. definition.InstallIgnorePaths],
         ModPathHints = [.. definition.ModPathHints],
         Launch = definition.Launch with { Args = [.. definition.Launch.Args] },
     };

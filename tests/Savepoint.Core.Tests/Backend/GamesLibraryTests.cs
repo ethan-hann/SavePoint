@@ -131,6 +131,24 @@ public class GamesLibraryTests : IDisposable
     }
 
     [Fact]
+    public async Task A_game_found_in_a_library_starts_out_leaving_out_logs_and_crash_dumps_with_or_without_a_template()
+    {
+        var skyrim = _steam.AddGame(_steam.SteamFolder, 489830, "The Elder Scrolls V: Skyrim Special Edition", "Skyrim Special Edition");
+        File.WriteAllText(Path.Combine(skyrim, "SkyrimSELauncher.exe"), "x");
+        _steam.AddGame(_steam.SteamFolder, 4999001, "Unlisted Test Game", "Unlisted Test Game");
+        _steam.WriteLibraryList();
+
+        var games = (await Games.ScanLibrariesAsync(_workspace.Token)).Value!.Games;
+
+        var templated = games.Single(game => game.TemplateId == "skyrim-se").Draft;
+        var plain = games.Single(game => game.TemplateId is null).Draft;
+        Assert.Equal(["**/*.log", "SKSE/Plugins/*.log", "**/Crash Logs/**"], templated.IgnorePaths);
+        Assert.Equal(["**/*.dmp", "**/*.mdmp"], templated.InstallIgnorePaths);
+        Assert.Empty(plain.IgnorePaths);
+        Assert.Equal(["**/*.log", "**/*.dmp", "**/*.mdmp"], plain.InstallIgnorePaths);
+    }
+
+    [Fact]
     public async Task A_game_whose_folder_is_already_a_games_folder_is_marked_as_added()
     {
         var folder = _steam.AddGame(_steam.SteamFolder, 240, "Counter-Strike: Source", "Counter-Strike Source");
@@ -220,6 +238,26 @@ public class GamesLibraryTests : IDisposable
         var stored = (await Games.ListAsync(_workspace.Token)).Value!.Single();
         Assert.Null(stored.External);
         Assert.False(Directory.Exists(SkyrimSaves));
+    }
+
+    [Fact]
+    public async Task A_template_rule_that_would_hide_a_file_in_the_saves_folder_moves_to_the_games_own_folder_and_the_result_says_so()
+    {
+        _steam.AddGame(_steam.SteamFolder, 489830, "The Elder Scrolls V: Skyrim Special Edition", "Skyrim Special Edition");
+        _steam.WriteLibraryList();
+        Directory.CreateDirectory(SkyrimSaves);
+        File.WriteAllText(Path.Combine(SkyrimSaves, "Player.log"), "kept");
+        var game = (await Games.ScanLibrariesAsync(_workspace.Token)).Value!.Games.Single();
+
+        var added = await Games.AddLibraryGameAsync(game);
+
+        Assert.True(added.Ok, added.Error?.Detail);
+        Assert.Equal(LibraryAddStatus.Added, added.Value!.Status);
+        Assert.Equal(["**/*.log"], added.Value.RulesLeftOff?.Rules);
+        var stored = (await Games.ListAsync(_workspace.Token)).Value!.Single();
+        Assert.DoesNotContain("**/*.log", stored.IgnorePaths);
+        Assert.Contains("**/*.log", stored.InstallIgnorePaths);
+        Assert.Contains("SKSE/Plugins/*.log", stored.IgnorePaths);
     }
 
     [Fact]

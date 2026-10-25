@@ -21,9 +21,18 @@ internal sealed class GameInsights
         _services = services;
     }
 
-    /// <summary>Whether a file belongs to the mods the game's hints name: the hint itself, or anything inside it. Case-sensitive, as git is.</summary>
+    /// <summary>
+    /// Whether a file belongs to the mods the game's hints name: the hint itself, or anything inside it. Case-sensitive, as git is.
+    /// A log or crash dump a mod writes while the game runs is not a mod file, whatever its folder and whatever its letter case: this
+    /// only counts files for display, so it never needs git's case setting (unlike a leave-out rule, which does).
+    /// </summary>
     public static bool MatchesHint(string relativePath, IReadOnlyList<string> hints)
     {
+        if (RunTimeOutput.IsRunTimeOutput(relativePath, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
         foreach (var hint in hints)
         {
             var normalized = NormalizeHint(hint);

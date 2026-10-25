@@ -324,7 +324,8 @@ public class GameEditorViewTests
         }
 
         Assert.Equal("How to start the game", AutomationProperties.GetName(harness.Find<ListBox>("LaunchChoiceList")));
-        Assert.Equal("Files to leave out", AutomationProperties.GetName(harness.Find<ContentControl>("IgnoreRulesHost").GetVisualDescendants().OfType<ItemsControl>().First()));
+        Assert.Equal("Files to leave out of both folders", AutomationProperties.GetName(harness.Find<ContentControl>("IgnoreRulesHost").GetVisualDescendants().OfType<ItemsControl>().First()));
+        Assert.Equal("Files to leave out of the game's own folder", AutomationProperties.GetName(harness.Find<ContentControl>("InstallIgnoreRulesHost").GetVisualDescendants().OfType<ItemsControl>().First()));
         Assert.True(harness.All<Button>().Where(button => button.Classes.Contains("icon")).Any());
     }
 
@@ -336,8 +337,10 @@ public class GameEditorViewTests
 
         var texts = harness.All<TextBlock>().Where(block => block.IsEffectivelyVisible).Select(block => block.Text).ToList();
 
-        Assert.Contains("FILES TO LEAVE OUT", texts);
-        Assert.Contains("SavePoint never copies or replaces files that match these rules, such as logs. Use * for any name and ** for any folder. Don't add a rule that matches your saves, or profiles stop switching them.", texts);
+        Assert.Contains("FILES TO LEAVE OUT OF BOTH FOLDERS", texts);
+        Assert.Contains("SavePoint never copies or replaces files that match these rules, in the game's own folder or in your saves folder. Use * for any name and ** for any folder. Don't add a rule that matches your saves, or profiles stop switching them.", texts);
+        Assert.Contains("FILES TO LEAVE OUT OF THE GAME'S OWN FOLDER", texts);
+        Assert.Contains("SavePoint never copies or replaces files in the game's own folder that match these rules, such as logs and crash reports. They never reach your saves folder. Use * for any name and ** for any folder.", texts);
     }
 
     [AvaloniaFact]
@@ -351,7 +354,34 @@ public class GameEditorViewTests
             .Select(button => AutomationProperties.GetName(button))
             .ToList();
 
-        Assert.Equal(["Remove **/*.log", "Remove SKSE/Plugins/*.log", "Remove **/Crash Logs/**"], names);
+        Assert.Equal(
+            [
+                "Remove **/*.log from Files to leave out of both folders",
+                "Remove SKSE/Plugins/*.log from Files to leave out of both folders",
+                "Remove **/Crash Logs/** from Files to leave out of both folders",
+            ],
+            names);
+    }
+
+    [AvaloniaFact]
+    public async Task Each_rule_list_names_its_add_button_and_field_and_carries_its_help_text()
+    {
+        using var harness = await EditorViewHarness.StartAsync();
+        harness.Edit();
+
+        foreach (var (host, name, help) in new[]
+        {
+            ("InstallIgnoreRulesHost", "Add a rule for the game's own folder", "never reach your saves folder"),
+            ("IgnoreRulesHost", "Add a rule for both folders", "in the game's own folder or in your saves folder"),
+        })
+        {
+            var addChip = InHost<Button>(harness, host, "AddChip");
+            var field = InHost<ChipEntryBox>(harness, host, "AddField");
+            Assert.Equal(name, AutomationProperties.GetName(addChip));
+            Assert.Equal(name, AutomationProperties.GetName(field));
+            Assert.Contains(help, AutomationProperties.GetHelpText(field), StringComparison.Ordinal);
+            Assert.Contains(help, AutomationProperties.GetHelpText(harness.Find<ContentControl>(host).GetVisualDescendants().OfType<ItemsControl>().First()), StringComparison.Ordinal);
+        }
     }
 
     [AvaloniaFact]

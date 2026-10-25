@@ -10,6 +10,7 @@ namespace Savepoint.Core.Git;
 /// <param name="InterruptedSwitch">Set while a checkout has started and not finished; the changes listed may be half of a switch, not the player's work.</param>
 /// <param name="HeldFile">Set when every change git listed is a file it could not read; those changes are then left out of the lists, <paramref name="IsClean"/> is true, and this names the file that stands in the way of a switch. A save cannot tell such a file from a changed one, so it must not treat the folder as having nothing to save.</param>
 /// <param name="HeldFileCount">How many files git could not read when <paramref name="HeldFile"/> is set; 0 otherwise.</param>
+/// <param name="HeldPaths">The files counted in <paramref name="HeldFileCount"/>, relative to the work tree with forward slashes; empty when <paramref name="HeldFile"/> is not set.</param>
 public sealed record RepoStatus(
     bool IsClean,
     string? Branch,
@@ -19,4 +20,5 @@ public sealed record RepoStatus(
     IReadOnlyList<string> UntrackedPaths,
     InterruptedSwitch? InterruptedSwitch = null,
     HeldFile? HeldFile = null,
-    int HeldFileCount = 0);
+    int HeldFileCount = 0,
+    IReadOnlyList<string>? HeldPaths = null);

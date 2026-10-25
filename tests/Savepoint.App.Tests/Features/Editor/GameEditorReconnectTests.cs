@@ -128,6 +128,48 @@ public class GameEditorReconnectTests
         Assert.NotEqual(_oldGameId, definition.Id);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_default_rule_left_off_after_the_question_is_said_in_a_notice(bool reconnect)
+    {
+        var rig = RigWithHistory();
+        rig.Backend.Games.SavesLeftOutByRule["**/*.log"] = ["player.log"];
+        var editor = Filled(rig);
+        editor.IgnoreRules.SetValues(RunTimeOutput.DefaultRules);
+        var (saving, dialog) = await SaveUntilReconnectAsked(rig, editor);
+
+        (reconnect ? dialog.ReconnectCommand : dialog.StartFreshCommand).Execute(null);
+        await saving;
+
+        var call = Assert.Single(rig.Calls("ResolveOrphanAsync"));
+        Assert.Equal(RunTimeOutput.DefaultRules, Assert.IsType<GameDefinition>(call.Args[0]).IgnorePaths);
+        var stored = Assert.Single(FakeAssert.Ok(await rig.Backend.Games.ListAsync(TestContext.Current.CancellationToken)));
+        Assert.Equal(["**/*.dmp", "**/*.mdmp"], stored.IgnorePaths);
+        var toast = Assert.Single(rig.Toasts.Toasts);
+        Assert.Equal(Savepoint.App.Features.Common.Toasts.ToastKind.Info, toast.Message.Kind);
+        Assert.Equal("The rule **/*.log now applies to the game's own folder only, because your saves folder holds files it would have left out. SavePoint keeps your saves in your snapshots.", toast.Text);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task When_the_saves_folder_could_not_be_checked_after_the_question_the_notice_does_not_claim_it_holds_such_files(bool reconnect)
+    {
+        var rig = RigWithHistory();
+        rig.Backend.Games.SavesCheckFails = true;
+        var editor = Filled(rig);
+        editor.IgnoreRules.SetValues(["**/*.log"]);
+        var (saving, dialog) = await SaveUntilReconnectAsked(rig, editor);
+
+        (reconnect ? dialog.ReconnectCommand : dialog.StartFreshCommand).Execute(null);
+        await saving;
+
+        var toast = Assert.Single(rig.Toasts.Toasts);
+        Assert.Equal("The rule **/*.log now applies to the game's own folder only, because SavePoint could not look in your saves folder to be sure it would keep your saves. You can see it under \"Files to leave out of the game's own folder\" in Edit game.", toast.Text);
+        Assert.DoesNotContain("holds files", toast.Text, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task Cancelling_the_question_keeps_the_editor_open_and_the_next_save_asks_again()
     {

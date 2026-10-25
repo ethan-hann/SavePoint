@@ -49,7 +49,7 @@ public class OrphanTests
             new OrphanResolution.Reconnect(game.Id, [new RecoveredProfile(profile.BranchName, "Vanilla (recovered)")]));
 
         Assert.True(resolved.Ok, resolved.Error?.Detail);
-        Assert.Equal(game.Id, resolved.Value.Id);
+        Assert.Equal(game.Id, resolved.Value.Game.Id);
         Assert.Equal([game.Id], (await workspace.Games.ListAsync(workspace.Token)).Value!.Select(g => g.Id));
         var back = Assert.Single((await workspace.Profiles.ListAsync(game.Id, workspace.Token)).Value!);
         Assert.Equal(profile.Id, back.Id);
@@ -70,7 +70,7 @@ public class OrphanTests
         var resolved = await workspace.Games.ResolveOrphanAsync(game with { Id = "alpha-again" }, new OrphanResolution.StartFresh());
 
         Assert.True(resolved.Ok, resolved.Error?.Detail);
-        Assert.Equal("alpha-again", resolved.Value.Id);
+        Assert.Equal("alpha-again", resolved.Value.Game.Id);
         var marker = Assert.IsType<ConsentMarkerState.Valid>(ConsentMarker.Read(game.Install.Path));
         Assert.Equal("alpha-again", marker.Marker.GameId);
         Assert.Empty((await workspace.Profiles.ListAsync(null, workspace.Token)).Value!);
@@ -118,6 +118,65 @@ public class OrphanTests
 
         Assert.True(resolved.Ok, resolved.Error?.Detail);
         Assert.Equal([profile.Id], (await workspace.Profiles.ListAsync(game.Id, workspace.Token)).Value!.Select(p => p.Id));
+    }
+
+    [Fact]
+    public async Task Reconnecting_moves_a_default_rule_that_would_hide_a_file_in_the_saves_folder_to_the_games_own_folder_only()
+    {
+        using var workspace = new BackendWorkspace();
+        var (game, profile) = await LoseTheCatalogAsync(workspace);
+        BackendWorkspace.WriteFile(Path.Combine(game.External!.Path, "profile/player.log"), "kept");
+
+        var resolved = await workspace.Games.ResolveOrphanAsync(
+            game with { Id = "alpha-again", IgnorePaths = RunTimeOutput.DefaultRules },
+            new OrphanResolution.Reconnect(game.Id, [new RecoveredProfile(profile.BranchName, "Vanilla")]));
+
+        Assert.True(resolved.Ok, resolved.Error?.Detail);
+        Assert.Equal(["**/*.dmp", "**/*.mdmp"], resolved.Value.Game.IgnorePaths);
+        Assert.Equal(["**/*.log"], resolved.Value.Game.InstallIgnorePaths);
+        var stored = (await workspace.Games.ListAsync(workspace.Token)).Value!.Single();
+        Assert.Equal(["**/*.dmp", "**/*.mdmp"], stored.IgnorePaths);
+        Assert.Equal(["**/*.log"], stored.InstallIgnorePaths);
+    }
+
+    [Fact]
+    public async Task Starting_fresh_moves_a_default_rule_that_would_hide_a_file_in_the_saves_folder_to_the_games_own_folder_only()
+    {
+        using var workspace = new BackendWorkspace();
+        var (game, _) = await LoseTheCatalogAsync(workspace);
+        BackendWorkspace.WriteFile(Path.Combine(game.External!.Path, "profile/player.log"), "kept");
+
+        var resolved = await workspace.Games.ResolveOrphanAsync(
+            game with { Id = "alpha-again", IgnorePaths = RunTimeOutput.DefaultRules },
+            new OrphanResolution.StartFresh());
+
+        Assert.True(resolved.Ok, resolved.Error?.Detail);
+        Assert.Equal(["**/*.dmp", "**/*.mdmp"], resolved.Value.Game.IgnorePaths);
+        Assert.Equal(["**/*.log"], resolved.Value.Game.InstallIgnorePaths);
+        Assert.Equal(new RulesLeftOff(["**/*.log"], SavesHoldFiles: true), resolved.Value.LeftOff);
+        var stored = (await workspace.Games.ListAsync(workspace.Token)).Value!.Single();
+        Assert.Equal(["**/*.dmp", "**/*.mdmp"], stored.IgnorePaths);
+    }
+
+    [Fact]
+    public async Task Both_resolutions_keep_every_default_rule_when_the_saves_folder_holds_nothing_they_name()
+    {
+        using var reconnecting = new BackendWorkspace();
+        var (lost, profile) = await LoseTheCatalogAsync(reconnecting);
+        var reconnected = await reconnecting.Games.ResolveOrphanAsync(
+            lost with { Id = "alpha-again", IgnorePaths = RunTimeOutput.DefaultRules },
+            new OrphanResolution.Reconnect(lost.Id, [new RecoveredProfile(profile.BranchName, "Vanilla")]));
+
+        using var fresh = new BackendWorkspace();
+        var (other, _) = await LoseTheCatalogAsync(fresh);
+        var started = await fresh.Games.ResolveOrphanAsync(
+            other with { Id = "alpha-again", IgnorePaths = RunTimeOutput.DefaultRules },
+            new OrphanResolution.StartFresh());
+
+        Assert.Equal(RunTimeOutput.DefaultRules, reconnected.Value!.Game.IgnorePaths);
+        Assert.Equal(RunTimeOutput.DefaultRules, started.Value!.Game.IgnorePaths);
+        Assert.Null(reconnected.Value.LeftOff);
+        Assert.Null(started.Value.LeftOff);
     }
 
     [Theory]

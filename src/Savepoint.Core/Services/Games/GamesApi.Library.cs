@@ -56,7 +56,7 @@ internal sealed partial class GamesApi
 
                 return added.Value switch
                 {
-                    AddGameOutcome.Added done => new LibraryAddResult(game.Key, game.Name, LibraryAddStatus.Added, done.Game.Id, SavesFolderLeftOut: leftOut),
+                    AddGameOutcome.Added done => new LibraryAddResult(game.Key, game.Name, LibraryAddStatus.Added, done.Game.Id, SavesFolderLeftOut: leftOut, RulesLeftOff: done.LeftOff),
                     _ => new LibraryAddResult(game.Key, game.Name, LibraryAddStatus.HasOlderHistory),
                 };
             });

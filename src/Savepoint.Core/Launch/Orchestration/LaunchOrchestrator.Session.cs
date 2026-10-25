@@ -84,11 +84,17 @@ public sealed partial class LaunchOrchestrator
                 profile = profiles.FirstOrDefault(listed => listed.Id == info?.ProfileId);
                 var repos = GameFolders.Repos(_services, storage, game);
                 var changed = await Task.WhenAll(repos.Select(repo => ChangedFilesAsync(storage, repo, profile, older ? null : starts.GetValueOrDefault(repo.Role)))).ConfigureAwait(false);
-                var counts = repos.Zip(changed, (repo, count) => (repo.Role, count)).ToDictionary(pair => pair.Role, pair => pair.count);
+                var counts = repos.Zip(changed, (repo, files) => (repo.Role, files)).ToDictionary(pair => pair.Role, pair => pair.files);
 
                 // A folder with nothing unsaved is not written by a replacement.
-                var options = await OptionsAsync(storage, repos, profile, profiles, older, starts, counts.Where(pair => pair.Value > 0).Select(pair => pair.Key).ToHashSet()).ConfigureAwait(false);
-                return new SessionState.Exited(startedAt, duration, counts.GetValueOrDefault(RepoRole.External), counts.GetValueOrDefault(RepoRole.Install), options, endKind);
+                var options = await OptionsAsync(storage, repos, profile, profiles, older, starts, counts.Where(pair => pair.Value.Count > 0).Select(pair => pair.Key).ToHashSet()).ConfigureAwait(false);
+                var install = counts.GetValueOrDefault(RepoRole.Install);
+                var external = counts.GetValueOrDefault(RepoRole.External);
+
+                var leaveOut = install.Paths is { Count: > 0 }
+                    ? await RulesGitAgreesOnAsync(storage, repos.FirstOrDefault(repo => repo.Role == RepoRole.Install), install.Paths).ConfigureAwait(false)
+                    : null;
+                return new SessionState.Exited(startedAt, duration, external.Count, install.Count, options, endKind, leaveOut);
             }).ConfigureAwait(false);
         }
         catch (Exception e) when (e is not (OperationCanceledException or OutOfMemoryException or StackOverflowException))
@@ -102,18 +108,42 @@ public sealed partial class LaunchOrchestrator
     // counts too: it may have changed, and the save will say so. A folder the launch left alone, which the profile has saved before and
     // which sits on another profile's history, is skipped by a new point and by an update; "skipped" is its start when those are the
     // choices, and its files are not on offer.
-    private static async Task<int> ChangedFilesAsync(StorageSnapshot storage, RepoRef repo, Profile? profile, FolderStart? skipped)
+    private static async Task<ChangedFiles> ChangedFilesAsync(StorageSnapshot storage, RepoRef repo, Profile? profile, FolderStart? skipped)
     {
         var status = await storage.Engine.GetStatusAsync(repo).ConfigureAwait(false);
         if (skipped is { Left: true } && profile is not null
             && (status.IsDetached || !string.Equals(status.Branch, profile.BranchName, StringComparison.Ordinal))
             && await storage.Engine.BranchExistsAsync(repo, profile.BranchName).ConfigureAwait(false))
         {
-            return 0;
+            return default;
         }
 
-        return status.ChangedPaths.Count + status.UntrackedPaths.Count + status.HeldFileCount;
+        return new ChangedFiles(status.ChangedPaths.Count + status.UntrackedPaths.Count + status.HeldFileCount, [.. status.ChangedPaths, .. status.UntrackedPaths, .. status.HeldPaths ?? []]);
     }
+
+    // The rules for logs and crash dumps that cover every one of the files, checked by git against this folder, so letter case follows the
+    // folder's own setting and a rule offered here really matches the files once it is added. Null when anything is left over.
+    private static async Task<IReadOnlyList<string>?> RulesGitAgreesOnAsync(StorageSnapshot storage, RepoRef? install, IReadOnlyList<string> paths)
+    {
+        if (install is null || RunTimeOutput.RulesCovering(paths, StringComparison.OrdinalIgnoreCase) is not { } rules)
+        {
+            return null;
+        }
+
+        try
+        {
+            var named = await storage.Engine.NamedByAmongAsync(install, rules, paths).ConfigureAwait(false);
+            return paths.All(named.Contains) ? rules : null;
+        }
+        catch (Exception e) when (e is SavepointException or IOException or UnauthorizedAccessException)
+        {
+            // Without git's answer the files stay an ordinary change; the count and the choices are still reported.
+            return null;
+        }
+    }
+
+    // The count the dialog states and the files it can name, held ones included: what a log is does not depend on whether it could be read.
+    private readonly record struct ChangedFiles(int Count, IReadOnlyList<string>? Paths);
 
     // What the player may do with the session (D14): a session from an older point forks or moves the profile forward.
     private static async Task<PostPlayOptions> OptionsAsync(

@@ -135,14 +135,27 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
         _shell = shell;
         _artwork = artwork;
         _saved = saved;
-        _source = saved ?? prefill ?? new GameDefinition();
-        IgnoreRules = new ChipListViewModel(text, text.Message("gameEditor.ignorePaths.label"), text.Message("gameEditor.addRule"), text.Message("gameEditor.ignorePaths.placeholder"));
+        _source = saved ?? prefill ?? new GameDefinition { InstallIgnorePaths = RunTimeOutput.DefaultRules };
+        IgnoreRules = new ChipListViewModel(
+            text,
+            text.Message("gameEditor.ignorePaths.label"),
+            text.Message("gameEditor.addRule"),
+            text.Message("gameEditor.ignorePaths.placeholder"),
+            text.Message("gameEditor.ignorePaths.addAutomation"),
+            text.Message("gameEditor.ignorePaths.helper"));
+        InstallIgnoreRules = new ChipListViewModel(
+            text,
+            text.Message("gameEditor.installIgnorePaths.label"),
+            text.Message("gameEditor.addRule"),
+            text.Message("gameEditor.installIgnorePaths.placeholder"),
+            text.Message("gameEditor.installIgnorePaths.addAutomation"),
+            text.Message("gameEditor.installIgnorePaths.helper"));
         LaunchArgs = new ChipListViewModel(text, text.Message("gameEditor.launchArgs.label"), text.Message("gameEditor.addOption"), text.Message("gameEditor.launchArgs.placeholder"));
         ModFolders = new ChipListViewModel(text, text.Message("gameEditor.modPathHints.label"), text.Message("gameEditor.addFolder"), text.Message("gameEditor.modPathHints.placeholder"));
         Title = saved is null ? text.Message("gameEditor.title.create") : text.Message("gameEditor.title.edit", ("name", saved.Name));
         LocationChoices = BuildLocationChoices();
         ArtworkPreview = shell.Artwork.Preview(saved?.Id ?? string.Empty);
-        LoadForm(_source);
+        LoadForm(_source, rulesAreDefaults: saved is null && prefill is null);
         InitializeArtwork(shell, saved);
         _baseline = BuildDefinition(_source.Id);
     }
@@ -156,8 +169,19 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
     /// <summary>True when a new game is being added.</summary>
     public bool IsCreating => _saved is null;
 
-    /// <summary>The files to ignore.</summary>
+    /// <summary>The files to ignore in both folders, the saves folder included.</summary>
     public ChipListViewModel IgnoreRules { get; }
+
+    /// <summary>The files to ignore in the game's own folder only; a rule here never reaches the saves folder.</summary>
+    public ChipListViewModel InstallIgnoreRules { get; }
+
+    /// <summary>Why a blank new game already leaves logs and crash reports out; empty for an edited game, a template or a loaded definition file.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasDefaultRulesNote))]
+    private string _defaultRulesNote = string.Empty;
+
+    /// <summary>True when <see cref="DefaultRulesNote"/> has text.</summary>
+    public bool HasDefaultRulesNote => DefaultRulesNote.Length > 0;
 
     /// <summary>The extra command-line options the game starts with.</summary>
     public ChipListViewModel LaunchArgs { get; }
@@ -213,8 +237,11 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
         return trimmed.Length == 0 ? null : trimmed;
     }
 
-    private void LoadForm(GameDefinition game)
+    // The note about default rules is only true while the rules are the ones SavePoint started the form with; a definition file's rules, a
+    // template's and an edited game's are someone else's list.
+    private void LoadForm(GameDefinition game, bool rulesAreDefaults = false)
     {
+        DefaultRulesNote = rulesAreDefaults ? _text.Message("gameEditor.ignorePaths.defaultNote") : string.Empty;
         Name = game.Name;
         InstallPath = game.Install.Path;
         SavesPath = game.External?.Path ?? string.Empty;
@@ -225,6 +252,7 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
         SteamAppIdText = game.SteamAppId?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
         LaunchArgs.SetValues(game.Launch.Args);
         IgnoreRules.SetValues(game.IgnorePaths);
+        InstallIgnoreRules.SetValues(game.InstallIgnorePaths);
         ModFolders.SetValues(game.ModPathHints);
     }
 
@@ -245,6 +273,7 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
                 LaunchArgs.Values,
                 NullIfBlank(ProcessName)),
             IgnorePaths = IgnoreRules.Values,
+            InstallIgnorePaths = InstallIgnoreRules.Values,
             ModPathHints = ModFolders.Values,
             SteamAppId = ParseSteamAppId(),
         };

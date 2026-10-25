@@ -33,12 +33,16 @@ public sealed partial class ChipListViewModel : ObservableObject
     /// <param name="groupName">The list's accessible name, such as "Files to leave out".</param>
     /// <param name="addLabel">The text of the add chip.</param>
     /// <param name="placeholder">The example shown in the empty add field.</param>
-    public ChipListViewModel(UiFormatter text, string groupName, string addLabel, string placeholder)
+    /// <param name="addAutomationName">The accessible name of the add chip and its field when the visible text alone does not tell which list it adds to; defaults to <paramref name="addLabel"/>.</param>
+    /// <param name="helpText">The accessible help text of the list, its add chip and its field; null for none.</param>
+    public ChipListViewModel(UiFormatter text, string groupName, string addLabel, string placeholder, string? addAutomationName = null, string? helpText = null)
     {
         _text = text;
         GroupName = groupName;
         AddLabel = addLabel;
         Placeholder = placeholder;
+        AddAutomationName = addAutomationName ?? addLabel;
+        HelpText = helpText;
         Items.CollectionChanged += (_, _) => RebuildEntries();
         RebuildEntries();
     }
@@ -51,6 +55,12 @@ public sealed partial class ChipListViewModel : ObservableObject
 
     /// <summary>The text of the add chip.</summary>
     public string AddLabel { get; }
+
+    /// <summary>The accessible name of the add chip and its field.</summary>
+    public string AddAutomationName { get; }
+
+    /// <summary>The accessible help text of the list, its add chip and its field; null for none.</summary>
+    public string? HelpText { get; }
 
     /// <summary>The example shown in the empty add field.</summary>
     public string Placeholder { get; }
@@ -125,7 +135,7 @@ public sealed partial class ChipListViewModel : ObservableObject
             return false;
         }
 
-        Items.Add(new ChipItem(trimmed, _text.Message("gameEditor.chip.remove", ("value", trimmed)), new RelayCommand(() => Remove(trimmed))));
+        Items.Add(new ChipItem(trimmed, _text.Message("gameEditor.chip.remove", ("value", trimmed), ("list", GroupName)), new RelayCommand(() => Remove(trimmed))));
         return true;
     }
 

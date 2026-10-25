@@ -20,7 +20,9 @@ public sealed record GameTemplate(string Id, string DisplayName, GameDefinition 
 
     /// <summary>
     /// Returns a copy of the definition with a fresh game id. A template's fixed id would collide on a second use, so a draft
-    /// always gets a new one. On Windows the saves folder is the template's own default unless it names one for Windows. On Linux
+    /// always gets a new one. The draft also leaves out logs and crash dumps (<see cref="RunTimeOutput.DefaultRules"/>) from the install folder
+    /// only, beside the template's own rules, so a new game does not mistake a log the game rewrites for an update and a saves folder
+    /// is never touched by them. On Windows the saves folder is the template's own default unless it names one for Windows. On Linux
     /// and macOS it is only the folder the template names for that system, and null (left for the player to pick) otherwise,
     /// because the Windows default is not where the game saves there. Nothing is saved.
     /// </summary>
@@ -28,7 +30,11 @@ public sealed record GameTemplate(string Id, string DisplayName, GameDefinition 
     /// <param name="random">The source of the id's random suffix; defaults to a shared instance, and tests pass a seeded one.</param>
     public GameDefinition ToDraft(OsKind os, Random? random = null)
     {
-        var draft = Definition with { Id = CatalogIds.NewGameId(Definition.Name, random) };
+        var draft = Definition with
+        {
+            Id = CatalogIds.NewGameId(Definition.Name, random),
+            InstallIgnorePaths = [.. RunTimeOutput.Merge(Definition.InstallIgnorePaths, RunTimeOutput.DefaultRules.Where(rule => !Definition.IgnorePaths.Contains(rule)))],
+        };
         var key = os switch { OsKind.Windows => "windows", OsKind.MacOS => "macos", _ => "linux" };
         if (Hints.SavesByOs.TryGetValue(key, out var saves))
         {

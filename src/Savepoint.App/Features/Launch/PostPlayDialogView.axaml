@@ -39,6 +39,13 @@
                   Content="{Binding EditGameLabel}" />
         </StackPanel>
         <TextBlock x:Name="InstallNoteText" Classes="caption" TextWrapping="Wrap" IsVisible="{Binding HasInstallNote}" Text="{Binding InstallNote}" />
+        <Button x:Name="LeaveOutButton"
+                Classes="pill"
+                HorizontalAlignment="Left"
+                IsVisible="{Binding HasLeaveOut}"
+                Command="{Binding LeaveOutCommand}"
+                Content="{Binding LeaveOutLabel}" />
+        <TextBlock x:Name="LeaveOutResultText" Classes="caption" TextWrapping="Wrap" IsVisible="{Binding HasLeaveOutResult}" Text="{Binding LeaveOutResult}" />
         <TextBlock x:Name="OlderNoteText" Classes="caption" TextWrapping="Wrap" IsVisible="{Binding HasOlderNote}" Text="{Binding OlderNote}" />
         <StackPanel x:Name="OlderChoiceHelpHost" IsVisible="{Binding HasOlderChoiceHelp}">
           <help:ContextualHelpView DataContext="{Binding OlderChoiceHelp}" />

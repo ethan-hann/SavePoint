@@ -32,8 +32,9 @@ internal sealed partial class GamesApi
         RepoRef repo,
         CancellationToken cancellationToken)
     {
-        var candidates = await storage.Engine.ListCaptureCandidatesAsync(repo, game.IgnorePaths, cancellationToken).ConfigureAwait(false);
-        var newBytes = await storage.Engine.EstimateNewBytesAsync(repo, candidates, game.IgnorePaths, cancellationToken).ConfigureAwait(false);
+        var rules = game.IgnorePathsFor(repo.Role);
+        var candidates = await storage.Engine.ListCaptureCandidatesAsync(repo, rules, cancellationToken).ConfigureAwait(false);
+        var newBytes = await storage.Engine.EstimateNewBytesAsync(repo, candidates, rules, cancellationToken).ConfigureAwait(false);
         var mods = repo.Role == RepoRole.Install
             ? candidates.Count(candidate => GameInsights.MatchesHint(candidate.Path, game.ModPathHints))
             : 0;

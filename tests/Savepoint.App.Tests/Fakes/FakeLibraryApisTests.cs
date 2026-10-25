@@ -52,7 +52,7 @@ public class FakeLibraryApisTests
 
         var result = await backend.Games.ResolveOrphanAsync(Skyrim, reconnect);
 
-        Assert.Equal("skyrim-old-a1a1", Ok(result).Id);
+        Assert.Equal("skyrim-old-a1a1", Ok(result).Game.Id);
         var profiles = Ok(await backend.Profiles.ListAsync("skyrim-old-a1a1", Ct));
         Assert.Equal<string>(["modded-run-c4c4", "x9x9"], profiles.Select(p => p.Id));
         Assert.Equal<string>(["Modded Run", "Recovered profile"], profiles.Select(p => p.Name));
@@ -68,7 +68,7 @@ public class FakeLibraryApisTests
         await backend.Games.DeleteAsync(SkyrimId);
         var again = await backend.Games.AddAsync(Skyrim);
 
-        Assert.Equal(SkyrimId, Ok(result).Id);
+        Assert.Equal(SkyrimId, Ok(result).Game.Id);
         Assert.IsType<AddGameOutcome.Added>(again.Value);
     }
 
