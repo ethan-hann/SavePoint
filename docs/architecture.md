@@ -129,6 +129,7 @@ public interface IGamesApi
     Task<OperationResult<CapturePreview>> GetCapturePreviewAsync(string gameId, CancellationToken cancellationToken = default);
     Task<OperationResult<JobStarted>> OptimizeStorageAsync(string gameId);
     Task<OperationResult<string>> ResolvePathAsync(string rawPath, CancellationToken cancellationToken = default);
+    Task<OperationResult<LeaveOutCheck>> CheckLeaveOutAsync(string gameId, IReadOnlyList<string> rules, CancellationToken cancellationToken = default);  // Safe rules, and Blocked rules with up to 5 saves-folder files each, matched by git itself (D7)
     Task<OperationResult<IReadOnlyList<string>>> ListExecutablesAsync(string installPath, string gameName, CancellationToken cancellationToken = default);  // ranked like SuggestProcessNameAsync, at most 50
     Task<OperationResult<string>> SuggestProcessNameAsync(string installPath, string gameName, CancellationToken cancellationToken = default);  // the likely game program for a link start, "" when none (ProcessNameSuggester)
     Task<OperationResult<LibraryScan>> ScanLibrariesAsync(CancellationToken cancellationToken = default);   // installed Steam and GOG games, matched to templates, with "already added" (D52)
