@@ -5,7 +5,7 @@ How to build a screen in `Savepoint.App`. The screens follow a visual design fro
 ## Where things go
 
 - A feature lives in `src/Savepoint.App/Features/<Area>/` (view models, views, dialogs) with tests in `tests/Savepoint.App.Tests/Features/<Area>/`.
-- Its copy lives in `src/Savepoint.App/Localization/Assets/Lang/en/<area>.json`. Every user-visible string goes through the catalog; keys are literal strings (never built at run time); a key enters the catalog with the code that uses it. Lint tests enforce all of this.
+- Its copy lives in `src/Savepoint.App/Localization/Assets/Lang/en/<area>.json`. Every user-visible string goes through the catalog; keys are literal strings (never built at run time); a key enters the catalog with the code that uses it. Lint tests enforce all of this. Copy says each fact once, in the place it belongs (the full Recently removed rule lives in the help page's Recently removed section; dialogs only name it), never restates the title, label or button beside it, and leaves out a helper line that only repeats its label.
 - It is wired in exactly one file: `src/Savepoint.App/Composition/FeatureComposition.<Feature>.cs`. Nothing else in the composition changes.
 - Views are found by name: `FooViewModel` is shown by `FooView` (same folder), dialogs `FooDialogViewModel` by `FooDialogView`.
 
