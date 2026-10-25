@@ -327,8 +327,27 @@ public sealed partial class GitEngine
         // marked too: the player's copy of it differs from the entry and would be overwritten. Those entries already say what the target says.
         var alike = force ? await RecordedNamedAsync(repo, ct).ConfigureAwait(false) : [];
         alike.ExceptWith(plan.Named);
+
+        // An entry the target lacks (one an unfinished switch aligned to its own target) has nothing to be protected from, and marking it
+        // makes git refuse the merge.
+        alike.IntersectWith(await InTreeAsync(repo, to, alike, ct).ConfigureAwait(false));
         var marks = plan.NamedInTarget.Concat(alike).ToArray();
         var skip = alike.Count == 0 ? plan.Named : new HashSet<string>(plan.Named.Concat(alike), StringComparer.Ordinal);
+
+        // With nothing to align the marks go on the real index. That happens before the note is written, so a failure leaves no note.
+        var markedDirectly = plan.Named.Count == 0 && marks.Length > 0;
+        if (markedDirectly)
+        {
+            try
+            {
+                await SetSkipWorktreeAsync(repo, on: true, marks, ct).ConfigureAwait(false);
+            }
+            catch
+            {
+                await TryClearSkipWorktreeAsync(repo).ConfigureAwait(false);
+                throw;
+            }
+        }
 
         SwitchJournal.Write(repo.GitDir, note?.FromCommit ?? from, to, isBranch ? target : null);
 
@@ -344,11 +363,6 @@ public sealed partial class GitEngine
         var marked = marks.Length > 0;
         try
         {
-            if (aligned is null)
-            {
-                await SetSkipWorktreeAsync(repo, on: true, marks, ct).ConfigureAwait(false);
-            }
-
             await RunCheckoutAsync(repo, target, to, isBranch, force, ownsNote: note is null, aligned, reporter, ct).ConfigureAwait(false);
             reporter?.Complete();
 
@@ -358,7 +372,11 @@ public sealed partial class GitEngine
 
             // A switch only re-syncs what it was meant to change; any other difference is the player's work and stays for status to report.
             await VerifyAsync(repo, to, plan.Gone, force ? null : plan.Touched, skip, ct).ConfigureAwait(false);
-            await ClearSkipWorktreeAsync(repo, ct).ConfigureAwait(false);
+            if (marks.Length > 0)
+            {
+                await ClearSkipWorktreeAsync(repo, ct).ConfigureAwait(false);
+            }
+
             marked = false;
 
             // git prunes a folder when its last file leaves, so the target's empty folders are made again; this runs before the note goes, so a stop here is finished by repeating the switch.

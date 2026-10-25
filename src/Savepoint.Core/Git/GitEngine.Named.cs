@@ -152,9 +152,47 @@ public sealed partial class GitEngine
     // loss) or could not take it off. Left alone it hides the file from every later comparison and from a save. Asked of the index only.
     private async Task ClearSkipWorktreeAsync(RepoRef repo, CancellationToken ct)
     {
+        if (IndexHasNoExtendedFlags(repo))
+        {
+            return;
+        }
+
         var listed = await RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z", "-t"), ct).ConfigureAwait(false);
         var marked = listed.SplitStandardOutputOnNul().Where(entry => entry.StartsWith("S ", StringComparison.Ordinal)).Select(entry => entry[2..]).ToArray();
         await SetSkipWorktreeAsync(repo, on: false, marked, ct).ConfigureAwait(false);
+    }
+
+    // git writes an index as version 3 only while an entry carries an extended flag (skip-worktree among them) and as version 2 otherwise,
+    // so a version 2 header answers "no mark" without a git process. Anything unreadable gets the full question.
+    private static bool IndexHasNoExtendedFlags(RepoRef repo)
+    {
+        try
+        {
+            Span<byte> header = stackalloc byte[8];
+            using var stream = new FileStream(Path.Combine(repo.GitDir, "index"), FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            return stream.ReadAtLeast(header, 8, throwOnEndOfStream: false) == 8
+                && header[0] == (byte)'D' && header[1] == (byte)'I' && header[2] == (byte)'R' && header[3] == (byte)'C'
+                && System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(header[4..]) == 2;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    // Which of these paths the tree holds as a file.
+    private async Task<HashSet<string>> InTreeAsync(RepoRef repo, string tree, IReadOnlyCollection<string> paths, CancellationToken ct)
+    {
+        // A name with a line break cannot be asked about in the line format; it is left unprotected rather than guessed at.
+        var asked = paths.Where(path => path.AsSpan().IndexOfAny('\n', '\r') < 0).ToArray();
+        if (asked.Length == 0)
+        {
+            return [];
+        }
+
+        var result = await RunAsync(Invocation(repo, readOnly: true, "cat-file", "--batch-check") with { Stdin = string.Join('\n', asked.Select(path => $"{tree}:{path}")) + "\n" }, ct).ConfigureAwait(false);
+        var lines = result.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        return [.. asked.Where((_, index) => index < lines.Length && !lines[index].TrimEnd('\r').EndsWith(" missing", StringComparison.Ordinal))];
     }
 
     // Best effort for a path that is already failing: the error that got it here is the one worth reporting.

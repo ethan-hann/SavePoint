@@ -277,6 +277,142 @@ public sealed class LeftOutReadOnceTests : IDisposable
         Assert.Empty(await MarkedAsync(repo));
     }
 
+    // profile-a and profile-b record the left-out file alike; the only change between them is a file the patterns do not name.
+    private async Task<RepoRef> AlikeOnlyAsync()
+    {
+        var repo = await _ws.InitializedFreshAsync();
+        _ws.Write(repo, _static, "recorded the same in both");
+        await _ws.CaptureAsync(repo, "profile-a", "A");
+        await _ws.Engine.CreateBranchAsync(repo, "profile-b", "profile-a", Ct);
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-b", ct: Ct);
+        _ws.Write(repo, "Data/extra.pak", "an addition");
+        await _ws.CaptureAsync(repo, "profile-b", "B");
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+        return repo with { IgnorePatterns = ["Cache/"] };
+    }
+
+    [Fact]
+    public async Task A_forced_switch_that_changes_no_left_out_file_keeps_the_players_copy_of_an_alike_one()
+    {
+        var repo = await AlikeOnlyAsync();
+        _ws.Write(repo, _static, "the player's own bytes");
+
+        await _ws.Engine.ForceCheckoutBranchAsync(repo, "profile-b", Ct);
+
+        Assert.Equal("the player's own bytes", File.ReadAllText(_ws.FileOf(repo, _static)));
+        Assert.True(File.Exists(_ws.FileOf(repo, "Data/extra.pak")));
+        Assert.Empty(await MarkedAsync(repo));
+    }
+
+    [Fact]
+    public async Task A_failure_to_mark_the_alike_file_leaves_no_note_of_an_unfinished_switch()
+    {
+        var repo = await AlikeOnlyAsync();
+        _ws.OnInvoke = call =>
+        {
+            if (call.Arguments.Contains("--skip-worktree"))
+            {
+                throw new GitOperationException("cannot mark");
+            }
+        };
+
+        await Assert.ThrowsAsync<GitOperationException>(() => _ws.Engine.ForceCheckoutBranchAsync(repo, "profile-b", Ct));
+
+        Assert.False(File.Exists(SwitchJournal.PathIn(repo.GitDir)), "the note of an unfinished switch was left");
+        _ws.OnInvoke = null;
+        Assert.Null((await _ws.Engine.GetStatusAsync(repo, Ct)).InterruptedSwitch);
+    }
+
+    // An unfinished switch to profile-d aligned the index to profile-d, which holds Cache/p.txt; neither the point the folder is on nor
+    // profile-c holds it, and marking that entry makes git refuse the merge.
+    [Fact]
+    public async Task A_forced_switch_to_another_target_after_an_unfinished_one_ignores_entries_the_target_lacks()
+    {
+        var repo = await CacheAsync();
+        var plain = repo with { IgnorePatterns = [] };
+        await _ws.Engine.CreateBranchAsync(plain, "profile-c", "profile-a", Ct);
+        await _ws.Engine.CreateBranchAsync(plain, "profile-d", "profile-a", Ct);
+        await _ws.Engine.CheckoutBranchAsync(plain, "profile-d", ct: Ct);
+        _ws.Write(repo, "Cache/p.txt", "only profile d holds this");
+        await _ws.CaptureAsync(plain, "profile-d", "D", ignore: []);
+        await _ws.Engine.CheckoutBranchAsync(plain, "profile-c", ct: Ct);
+        _ws.Write(repo, "Data/c.txt", "profile c");
+        await _ws.CaptureAsync(plain, "profile-c", "C", ignore: []);
+        await _ws.Engine.CheckoutBranchAsync(plain, "profile-a", ct: Ct);
+        _ws.OnInvoke = call =>
+        {
+            if (call.Arguments[0] == "checkout" && call.Arguments.Contains("profile-d"))
+            {
+                throw new InvalidOperationException("killed");
+            }
+        };
+        await Assert.ThrowsAsync<InvalidOperationException>(() => SwitchAsync(repo, "profile-d", force: false));
+        _ws.OnInvoke = null;
+        _ws.Write(repo, "Cache/p.txt", "the player's copy");
+
+        await _ws.Engine.ForceCheckoutBranchAsync(repo, "profile-c", Ct);
+
+        Assert.Equal("refs/heads/profile-c", await _ws.HeadRefAsync(repo));
+        Assert.Empty(await MarkedAsync(repo));
+    }
+
+    // An index file of version 2 cannot hold a flag, so a write that finds one has no mark to look for. Other versions can, and are asked.
+    [Fact]
+    public async Task A_version_2_index_is_not_listed_for_marks_and_a_version_3_one_is_cleared()
+    {
+        var repo = await CacheAsync();
+        await _ws.GitWriteAsync(repo, "update-index", "--index-version", "2");
+        var before = _ws.Invocations.Count;
+        _ws.Write(repo, "Data/more.txt", "more");
+
+        await _ws.CaptureAsync(repo with { IgnorePatterns = [] }, "profile-a", "A2", ignore: []);
+
+        Assert.DoesNotContain(_ws.Invocations.Skip(before), IsMarkListing);
+        await MarkAsync(repo, _cache);
+        await _ws.GitWriteAsync(repo, "update-index", "--index-version", "3");
+        Assert.NotEmpty(await MarkedAsync(repo));
+
+        await _ws.CaptureAsync(repo with { IgnorePatterns = [] }, "profile-a", "A3", ignore: []);
+
+        Assert.Empty(await MarkedAsync(repo));
+    }
+
+    // A switch that marks nothing has no mark to look for.
+    [Fact]
+    public async Task A_switch_without_left_out_files_asks_git_for_marks_only_at_the_start()
+    {
+        var repo = await _ws.InitializedFreshAsync();
+        _ws.Write(repo, "a.txt", "a");
+        await _ws.CaptureAsync(repo, "profile-a", "A");
+        await _ws.Engine.CreateBranchAsync(repo, "profile-b", "profile-a", Ct);
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-b", ct: Ct);
+        _ws.Write(repo, "b.txt", "b");
+        await _ws.CaptureAsync(repo, "profile-b", "B");
+        var before = _ws.Invocations.Count;
+
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+
+        var calls = _ws.Invocations.Skip(before).ToList();
+        Assert.Equal(1, calls.Count(IsMarkListing));
+        Assert.True(calls.FindIndex(IsMarkListing) < calls.FindIndex(call => call.Arguments[0] == "checkout"));
+    }
+
+    [Fact]
+    public async Task A_switch_that_marks_files_asks_git_once_for_marks_after_it_verified()
+    {
+        var repo = await CacheAsync();
+        var before = _ws.Invocations.Count;
+        await _ws.GitWriteAsync(repo, "update-index", "--index-version", "2");
+
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-b", ct: Ct);
+
+        var calls = _ws.Invocations.Skip(before).ToList();
+        Assert.Equal(1, calls.Count(IsMarkListing));
+        Assert.True(calls.FindLastIndex(IsMarkListing) > calls.FindLastIndex(EngineWorkspace.IsVerifyDiff));
+    }
+
+    private static bool IsMarkListing(GitInvocation call) => call.Arguments[0] == "ls-files" && call.Arguments.Contains("-t");
+
     // The one read a left-out file gets is the alignment's: it finds out whether the bytes on disk are the target's, and if they are, the
     // entry keeps the file's stamp so that no later comparison has to read the file again.
     [Theory]
