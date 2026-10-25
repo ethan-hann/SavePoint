@@ -63,6 +63,7 @@ public sealed partial class SettingsScreenViewModel : ObservableObject, IScreen
         Session = new SessionSectionViewModel(_store);
         ClearAll = new ClearAllDataSectionViewModel(dependencies, _store, shell);
         About = new AboutSectionViewModel(dependencies.Environment, dependencies.Text, dependencies.Toasts);
+        AppsMenu = new AppsMenuSectionViewModel(dependencies.Environment.AppsMenu, dependencies.Text);
         RetryCommand = new AsyncRelayCommand(LoadAsync);
 
         // Subscribed for good, so a job that runs while another screen shows is still known when this one comes back.
@@ -97,6 +98,9 @@ public sealed partial class SettingsScreenViewModel : ObservableObject, IScreen
     /// <summary>The About section.</summary>
     public AboutSectionViewModel About { get; }
 
+    /// <summary>The "Apps menu" section, shown only when SavePoint runs from an AppImage.</summary>
+    public AppsMenuSectionViewModel AppsMenu { get; }
+
     /// <summary>True when <see cref="LoadError"/> shows.</summary>
     public bool HasLoadError => LoadError is not null;
 
@@ -119,6 +123,7 @@ public sealed partial class SettingsScreenViewModel : ObservableObject, IScreen
 
         LoadError = null;
         About.Refresh();
+        AppsMenu.Refresh();
         Help.Refresh();
         IsLoaded = true;
 

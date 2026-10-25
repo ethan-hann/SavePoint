@@ -34,6 +34,7 @@
   <ItemGroup>
     <AvaloniaResource Include="Assets\Fonts\**" />
     <AvaloniaResource Include="Assets\Icon\savepoint-256.png" />
+    <AvaloniaResource Include="Assets\Icon\savepoint-512.png" />
   </ItemGroup>
 
   <ItemGroup>
