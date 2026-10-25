@@ -24,12 +24,14 @@ public class CrashWindowTests
         }
     }
 
-    private static CrashWindow Open(string? folder, Func<string, bool>? openFolder = null, Exception? crash = null)
+    private static CrashWindow Open(string? folder, Func<string, bool>? openFolder = null, Exception? crash = null, Func<string, Task>? copyText = null)
     {
         var window = new CrashWindow(
             new UiFormatter(LocalizationCatalog.Current),
             new CrashReport(crash ?? Thrown("the library is gone"), "the UI thread", folder),
-            openFolder ?? (_ => true));
+            openFolder ?? (_ => true),
+            copyText,
+            "9.9.9+abc1234");
         window.Show();
         return window;
     }
@@ -91,6 +93,98 @@ public class CrashWindowTests
 
         Assert.False(details.IsEffectivelyVisible);
         Assert.Equal("Show details", toggle.Content);
+    }
+
+    // The raw text is for support only: the default view says what happened in plain words.
+    [AvaloniaFact]
+    public void Before_Show_details_nothing_on_screen_carries_exception_text()
+    {
+        var window = Open(_logFolder, crash: Thrown("the library is gone"));
+
+        var visible = window.GetVisualDescendants().OfType<Control>().Where(control => control.IsEffectivelyVisible).ToList();
+        var shown = string.Join('\n', visible.OfType<TextBlock>().Select(block => block.Text)
+            .Concat(visible.OfType<TextBox>().Select(box => box.Text)));
+
+        Assert.DoesNotContain("the library is gone", shown, StringComparison.Ordinal);
+        Assert.DoesNotContain("InvalidOperationException", shown, StringComparison.Ordinal);
+        Assert.DoesNotContain("   at ", shown, StringComparison.Ordinal);
+        Assert.DoesNotContain(visible.OfType<TextBox>(), box => !string.IsNullOrEmpty(box.Text));
+    }
+
+    [AvaloniaFact]
+    public void Copy_details_for_support_puts_the_support_text_on_the_clipboard_and_says_so()
+    {
+        var copied = new List<string>();
+        var window = Open(_logFolder, copyText: text =>
+        {
+            copied.Add(text);
+            return Task.CompletedTask;
+        });
+        var button = Named<Button>(window, "CopyDetailsButton");
+        var note = Named<TextBlock>(window, "CopyNoteText");
+
+        Assert.Equal("Copy details for support", button.Content);
+        Assert.False(note.IsEffectivelyVisible);
+
+        Click(button);
+
+        var text = Assert.Single(copied);
+        Assert.Contains("9.9.9+abc1234", text, StringComparison.Ordinal);
+        Assert.Contains(System.Runtime.InteropServices.RuntimeInformation.OSDescription, text, StringComparison.Ordinal);
+        Assert.Contains("the UI thread", text, StringComparison.Ordinal);
+        Assert.Contains("System.InvalidOperationException: the library is gone", text, StringComparison.Ordinal);
+        Assert.Contains("   at ", text, StringComparison.Ordinal);
+        Assert.Contains(_logFolder, text, StringComparison.Ordinal);
+        Assert.True(note.IsEffectivelyVisible);
+        Assert.Equal("Copied. Paste it into your bug report.", note.Text);
+    }
+
+    // What the player sees under Show details is what they paste.
+    [AvaloniaFact]
+    public void The_details_box_holds_exactly_the_text_that_is_copied()
+    {
+        var copied = new List<string>();
+        var window = Open(_logFolder, copyText: text =>
+        {
+            copied.Add(text);
+            return Task.CompletedTask;
+        });
+
+        Click(Named<Button>(window, "CopyDetailsButton"));
+
+        Assert.Equal(Assert.Single(copied), Named<TextBox>(window, "DetailsText").Text);
+    }
+
+    [AvaloniaFact]
+    public void A_clipboard_that_fails_shows_a_short_message_and_does_not_crash()
+    {
+        var thrown = Open(_logFolder, copyText: _ => throw new InvalidOperationException("no clipboard"));
+        var faulted = Open(_logFolder, copyText: _ => Task.FromException(new InvalidOperationException("no clipboard")));
+
+        foreach (var window in new[] { thrown, faulted })
+        {
+            Click(Named<Button>(window, "CopyDetailsButton"));
+
+            var note = Named<TextBlock>(window, "CopyNoteText");
+            Assert.True(note.IsEffectivelyVisible);
+            Assert.Equal("SavePoint couldn't reach the clipboard. Try again.", note.Text);
+            Assert.True(window.IsVisible);
+        }
+    }
+
+    [AvaloniaFact]
+    public void Without_a_log_folder_the_support_text_has_no_log_folder_line()
+    {
+        var copied = new List<string>();
+        var window = Open(null, copyText: text =>
+        {
+            copied.Add(text);
+            return Task.CompletedTask;
+        });
+
+        Click(Named<Button>(window, "CopyDetailsButton"));
+
+        Assert.DoesNotContain("Log folder", Assert.Single(copied), StringComparison.Ordinal);
     }
 
     [AvaloniaFact]
