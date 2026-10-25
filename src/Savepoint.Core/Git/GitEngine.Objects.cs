@@ -7,8 +7,9 @@ public sealed partial class GitEngine
 {
     private const string _zeroId = "0000000000000000000000000000000000000000";
 
-    // One path that differs between two trees: its status letter (A, M, D, T) and the blob it held on each side.
-    internal readonly record struct TreeChange(char Status, string OldId, string NewId, string Path);
+    // One path that differs between two trees: its status letter (A, M, D, T), the blob it held on each side, and its mode in the second
+    // tree (six zeros when the path is gone).
+    internal readonly record struct TreeChange(char Status, string OldId, string NewId, string Path, string NewMode = "");
 
     // Compares two trees without a work tree, so nothing depends on what is on disk.
     private async Task<IReadOnlyList<TreeChange>> DiffTreesAsync(RepoRef repo, string from, string to, CancellationToken ct)
@@ -30,7 +31,7 @@ public sealed partial class GitEngine
                 throw new GitOperationException($"Unexpected output from git diff-tree: '{meta}'.");
             }
 
-            changes.Add(new TreeChange(fields[4][0], fields[2], fields[3], records[i + 1]));
+            changes.Add(new TreeChange(fields[4][0], fields[2], fields[3], records[i + 1], fields[1]));
         }
 
         return changes;

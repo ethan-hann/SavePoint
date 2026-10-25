@@ -310,6 +310,12 @@ internal sealed class EngineWorkspace : IDisposable
     public static bool IsVerifyDiff(GitInvocation invocation) =>
         invocation.Arguments[0] == "diff" && !invocation.Arguments.Contains("HEAD");
 
+    // The git calls that write a switch's aligned index: entries written from the plan (update-index --index-info) and the reset of
+    // the named paths to the target (it takes the target as an argument, which a discard's own reset does not).
+    public static bool IsIndexAlignment(GitInvocation invocation) =>
+        (invocation.Arguments[0] == "update-index" && invocation.Arguments.Contains("--index-info"))
+        || (invocation.Arguments[0] == "reset" && invocation.Arguments.Count > 2 && !invocation.Arguments.Contains("--hard"));
+
     // Brings the index's file stamps up to date, as the game's last switch or capture would have left them; a copied folder has new stamps.
     public Task RefreshIndexAsync(RepoRef repo) => GitWriteAsync(repo, "update-index", "-q", "--refresh");
 

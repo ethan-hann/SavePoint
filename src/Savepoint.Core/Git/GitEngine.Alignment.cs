@@ -1,3 +1,4 @@
+using System.Text;
 using Savepoint.Core.Errors;
 
 namespace Savepoint.Core.Git;
@@ -54,8 +55,7 @@ public sealed partial class GitEngine
             }
 
             var environment = new Dictionary<string, string?> { ["GIT_INDEX_FILE"] = work };
-            // The refresh the reset ends with is the one read these files get: a file that already holds the target's bytes keeps a valid stamp.
-            await RunWriteAsync(() => (Invocation(repo, readOnly: false, "reset", "--quiet", tree) with { ExtraEnvironment = environment }).WithPathspecs(plan.Named), ct).ConfigureAwait(false);
+            await WriteTargetEntriesAsync(repo, tree, plan, environment, ct).ConfigureAwait(false);
 
             // A forced checkout would write these files, and every checkout starts by refreshing the index, which would read each one that
             // differs; git does neither for an entry marked skip-worktree.
@@ -88,6 +88,72 @@ public sealed partial class GitEngine
                 TryDelete(saved);
             }
         }
+    }
+
+    // Makes the entry of every named path say what the target says. A file whose size is not the size of the target's blob cannot hold the
+    // target's bytes, so its entry is written from the plan and git never reads the file (a reset would read each one). A file of the right
+    // size might hold them, and a reset reads it once so that, if it does, the entry keeps the file's stamp.
+    private async Task WriteTargetEntriesAsync(RepoRef repo, string tree, SwitchPlan plan, Dictionary<string, string?> environment, CancellationToken ct)
+    {
+        var present = plan.NamedChanges.Where(change => change.Status != 'D').ToArray();
+        var sizes = await ObjectSizesAsync(repo, present.Select(change => change.NewId), ct).ConfigureAwait(false);
+        var removals = plan.NamedChanges.Where(change => change.Status == 'D').Select(change => change.Path).ToArray();
+        var written = present.Where(change => !MayHoldTargetBytes(repo, change, sizes)).ToArray();
+        var read = present.Except(written).Select(change => change.Path).ToArray();
+
+        // The reset refreshes the whole index, and an entry written from the plan has no stamp, so it would be read there: those go in after.
+        // Removals go in first so that a name that differs only in case from one added later cannot take the new entry out with it.
+        if (read.Length == 0)
+        {
+            await WriteIndexInfoAsync(repo, removals, written, environment, ct).ConfigureAwait(false);
+            return;
+        }
+
+        await WriteIndexInfoAsync(repo, removals, [], environment, ct).ConfigureAwait(false);
+        await RunWriteAsync(() => (Invocation(repo, readOnly: false, "reset", "--quiet", tree) with { ExtraEnvironment = environment }).WithPathspecs(read), ct).ConfigureAwait(false);
+        await WriteIndexInfoAsync(repo, [], written, environment, ct).ConfigureAwait(false);
+    }
+
+    // False only when the work tree holds an ordinary file of another size than the target's blob (or holds none): then nothing needs reading.
+    private bool MayHoldTargetBytes(RepoRef repo, TreeChange change, Dictionary<string, long> sizes)
+    {
+        if (change.NewMode is not ("100644" or "100755") || !sizes.TryGetValue(change.NewId, out var size))
+        {
+            return true;
+        }
+
+        try
+        {
+            var file = new FileInfo(FullPath(repo, change.Path));
+            return file.Exists && ((file.Attributes & FileAttributes.ReparsePoint) != 0 || file.Length == size);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return true;
+        }
+    }
+
+    // update-index --index-info takes "mode id TAB path" lines; mode 0 removes the path. Nothing to write runs nothing.
+    private async Task WriteIndexInfoAsync(RepoRef repo, IReadOnlyList<string> removals, IReadOnlyList<TreeChange> additions, Dictionary<string, string?> environment, CancellationToken ct)
+    {
+        if (removals.Count == 0 && additions.Count == 0)
+        {
+            return;
+        }
+
+        var lines = new StringBuilder();
+        foreach (var path in removals)
+        {
+            lines.Append("0 ").Append(_zeroId).Append('\t').Append(path).Append('\0');
+        }
+
+        foreach (var change in additions)
+        {
+            lines.Append(change.NewMode).Append(' ').Append(change.NewId).Append('\t').Append(change.Path).Append('\0');
+        }
+
+        var stdin = lines.ToString();
+        await RunWriteAsync(() => Invocation(repo, readOnly: false, "update-index", "-z", "--index-info") with { Stdin = stdin, ExtraEnvironment = environment }, ct).ConfigureAwait(false);
     }
 
     // The entries the alignment took out of the index that the patterns do not name.
