@@ -41,6 +41,19 @@ public class GameEditorFormTests
     }
 
     [Fact]
+    public void Each_list_has_its_own_add_name_help_text_and_remove_names()
+    {
+        var editor = EditorRig.Create().New();
+
+        Assert.Equal("Add a rule for the game's own folder", editor.InstallIgnoreRules.AddAutomationName);
+        Assert.Equal("Add a rule for both folders", editor.IgnoreRules.AddAutomationName);
+        Assert.Equal("SavePoint never copies or replaces files in the game's own folder that match these rules, such as logs and crash reports. They never reach your saves folder. Use * for any name and ** for any folder.", editor.InstallIgnoreRules.HelpText);
+        Assert.Equal("SavePoint never copies or replaces files that match these rules, in the game's own folder or in your saves folder. Use * for any name and ** for any folder. Don't add a rule that matches your saves, or profiles stop switching them.", editor.IgnoreRules.HelpText);
+        Assert.Equal("Remove **/*.log from Files to leave out of the game's own folder", editor.InstallIgnoreRules.Items[0].RemoveLabel);
+        Assert.NotEqual(editor.LaunchArgs.AddAutomationName, editor.ModFolders.AddAutomationName);
+    }
+
+    [Fact]
     public void Removing_a_default_install_rule_makes_the_form_dirty()
     {
         var editor = EditorRig.Create().New();

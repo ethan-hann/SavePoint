@@ -31,10 +31,15 @@ public enum LibraryAddStatus
 /// For an added game: the saves folder its template names, when it was left out because that folder does not exist yet (a game
 /// makes it the first time it is played), so the game was added with its install folder only. Null otherwise.
 /// </param>
+/// <param name="RulesLeftOff">
+/// For an added game: the leave-out rules that now apply to the game's own folder only because they could hide files in its saves
+/// folder (or because that folder could not be checked); null when every rule was kept as asked.
+/// </param>
 public sealed record LibraryAddResult(
     string Key,
     string Name,
     LibraryAddStatus Status,
     string? GameId = null,
     ErrorInfo? Error = null,
-    string? SavesFolderLeftOut = null);
+    string? SavesFolderLeftOut = null,
+    RulesLeftOff? RulesLeftOff = null);

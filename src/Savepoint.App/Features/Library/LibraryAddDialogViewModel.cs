@@ -219,8 +219,18 @@ public sealed partial class LibraryAddDialogViewModel : DialogViewModel<LibraryA
                 case LibraryAddStatus.HasOlderHistory:
                     lines.Add(new LibraryResultLine(LibraryResultKind.NotAdded, _text.Message("library.add.line.olderSnapshots", ("name", result.Name))));
                     break;
-                case LibraryAddStatus.Added when result.SavesFolderLeftOut is { } path:
-                    lines.Add(new LibraryResultLine(LibraryResultKind.Notice, _text.Message("library.add.line.savesLeftOut", ("name", result.Name), ("path", path))));
+                case LibraryAddStatus.Added:
+                    if (result.SavesFolderLeftOut is { } path)
+                    {
+                        lines.Add(new LibraryResultLine(LibraryResultKind.Notice, _text.Message("library.add.line.savesLeftOut", ("name", result.Name), ("path", path))));
+                    }
+
+                    if (result.RulesLeftOff is { Rules.Count: > 0 } moved)
+                    {
+                        var key = moved.SavesHoldFiles ? "library.add.line.rulesMoved" : "library.add.line.rulesMovedUnchecked";
+                        lines.Add(new LibraryResultLine(LibraryResultKind.Notice, _text.Message(key, ("name", result.Name), ("count", moved.Rules.Count), ("rules", string.Join(", ", moved.Rules)))));
+                    }
+
                     break;
             }
         }

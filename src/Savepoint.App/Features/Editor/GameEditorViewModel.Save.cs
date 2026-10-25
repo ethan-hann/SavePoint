@@ -14,7 +14,7 @@ public sealed partial class GameEditorViewModel
     // Folders the Api said were never confirmed, which are asked about again whatever else is true of them.
     private readonly HashSet<RepoRole> _unconfirmed = [];
 
-    // What the Api said about rules it left off when it added the new game; null when it said nothing or the game came from the reconnect question.
+    // What the Api said about rules it moved to the game's own folder when it added the new game, directly or after the reconnect question; null when it said nothing.
     private RulesLeftOff? _leftOff;
 
     [RelayCommand(CanExecute = nameof(CanSave))]
@@ -59,7 +59,7 @@ public sealed partial class GameEditorViewModel
         {
             if (!IsEditing)
             {
-                SayWhichRulesWereLeftOff(definition, result.Value);
+                SayWhichRulesWereLeftOff();
             }
 
             if (await ApplyArtworkAsync(result.Value))
@@ -73,13 +73,11 @@ public sealed partial class GameEditorViewModel
         }
     }
 
-    // A new game is saved without a default rule that would leave out files its saves folder already holds; the player is told which.
-    // The Api says why when it added the game; after the reconnect question it only returns the game, so the default rules that are
-    // missing from it are the ones left off, and they were left off because the folder holds such files.
-    private void SayWhichRulesWereLeftOff(GameDefinition asked, GameDefinition saved)
+    // A default rule that would leave out files its saves folder already holds is saved for the game's own folder only; the Api says
+    // which rules and whether the folder was really looked at, and the player is told.
+    private void SayWhichRulesWereLeftOff()
     {
-        var left = _leftOff ?? new RulesLeftOff([.. asked.IgnorePaths.Where(rule => RunTimeOutput.DefaultRules.Contains(rule) && !saved.IgnorePaths.Contains(rule))], SavesHoldFiles: true);
-        if (left.Rules.Count > 0)
+        if (_leftOff is { Rules.Count: > 0 } left)
         {
             var key = left.SavesHoldFiles ? "gameEditor.ignorePaths.savesKept" : "gameEditor.ignorePaths.savesUnchecked";
             _toasts.Show(new ToastMessage(_text.Message(key, ("count", left.Rules.Count), ("rules", string.Join(", ", left.Rules))), ToastKind.Info));
@@ -133,12 +131,13 @@ public sealed partial class GameEditorViewModel
     {
         var question = new ReconnectDialogViewModel(history, _text);
         var choice = await _dialogs.ShowAsync(question);
-        return choice switch
+        var resolved = choice switch
         {
             ReconnectChoice.Reconnect => await _games.ResolveOrphanAsync(definition, new OrphanResolution.Reconnect(history.ExistingGameId, question.Recovered)),
             ReconnectChoice.StartFresh => await _games.ResolveOrphanAsync(definition, new OrphanResolution.StartFresh()),
             _ => null,
         };
+        return resolved is null ? null : resolved.Ok ? Remember(resolved.Value) : OperationResult.Failure<GameDefinition>(resolved.Error);
     }
 
     // Every folder is resolved to an absolute path first: a path that cannot be resolved is a mistake in its field, and the

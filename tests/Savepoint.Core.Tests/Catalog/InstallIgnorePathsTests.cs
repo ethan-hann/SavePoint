@@ -53,7 +53,15 @@ public class InstallIgnorePathsTests
     {
         var game = new GameDefinition(Id: "g", IgnorePaths: ["**/*.tmp"], InstallIgnorePaths: ["**/*.log", "**/*.tmp"]);
 
-        Assert.Equal(["**/*.tmp", "**/*.log"], game.IgnorePathsFor(RepoRole.Install));
+        Assert.Equal(["**/*.log", "**/*.tmp"], game.IgnorePathsFor(RepoRole.Install));
         Assert.Equal(["**/*.tmp"], game.IgnorePathsFor(RepoRole.External));
+    }
+
+    [Fact]
+    public void The_install_only_rules_come_first_so_a_negation_in_the_game_wide_list_can_override_one()
+    {
+        var game = new GameDefinition(Id: "g", IgnorePaths: ["!keep.log"], InstallIgnorePaths: ["**/*.log"]);
+
+        Assert.Equal(["**/*.log", "!keep.log"], game.IgnorePathsFor(RepoRole.Install));
     }
 }

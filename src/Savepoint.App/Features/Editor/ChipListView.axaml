@@ -8,7 +8,7 @@
     Removable monospace chips in one wrapping row, ending with the dashed add chip, which turns into a text field.
     The list lays out its entries: each chip, then the list itself as the add chip.
   -->
-  <ItemsControl x:Name="Chips" ItemsSource="{Binding Entries}" AutomationProperties.Name="{Binding GroupName}">
+  <ItemsControl x:Name="Chips" ItemsSource="{Binding Entries}" AutomationProperties.Name="{Binding GroupName}" AutomationProperties.HelpText="{Binding HelpText}">
     <ItemsControl.ItemsPanel>
       <ItemsPanelTemplate>
         <WrapPanel />
@@ -33,7 +33,7 @@
       </DataTemplate>
       <DataTemplate x:DataType="editor:ChipListViewModel">
         <Panel Margin="0,0,8,8">
-          <Button x:Name="AddChip" Classes="dashed pill" Padding="10,5" IsVisible="{Binding !IsAdding}" Command="{Binding BeginAddCommand}" AutomationProperties.Name="{Binding AddLabel}">
+          <Button x:Name="AddChip" Classes="dashed pill" Padding="10,5" IsVisible="{Binding !IsAdding}" Command="{Binding BeginAddCommand}" AutomationProperties.Name="{Binding AddAutomationName}" AutomationProperties.HelpText="{Binding HelpText}">
             <StackPanel Orientation="Horizontal" Spacing="6">
               <TextBlock Classes="icon s14" Text="{x:Static theme:Icons.Add}" />
               <TextBlock Text="{Binding AddLabel}" />
@@ -47,7 +47,8 @@
                                Text="{Binding NewText, Mode=TwoWay}"
                                PlaceholderText="{Binding Placeholder}"
                                CommitCommand="{Binding CommitAddCommand}"
-                               AutomationProperties.Name="{Binding AddLabel}">
+                               AutomationProperties.Name="{Binding AddAutomationName}"
+                               AutomationProperties.HelpText="{Binding HelpText}">
             <editor:ChipEntryBox.KeyBindings>
               <KeyBinding Gesture="Enter" Command="{Binding CommitAddCommand}" />
               <KeyBinding Gesture="Escape" Command="{Binding CancelAddCommand}" />

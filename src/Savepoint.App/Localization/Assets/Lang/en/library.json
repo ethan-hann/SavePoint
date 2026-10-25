@@ -4,6 +4,8 @@
   "library.add.line.notTried": "{count, plural, one {1 game was not tried because you stopped.} other {# games were not tried because you stopped.}}",
   "library.add.line.olderSnapshots": "{name}: not added. This folder has snapshots from a game you removed earlier. Use Add a game to add it on its own, and you can bring those snapshots back.",
   "library.add.line.refused": "{name}: not added. {reason}",
+  "library.add.line.rulesMoved": "{name}: {count, plural, one {the rule {rules} now applies} other {the rules {rules} now apply}} to the game's own folder only, because its saves folder holds files {count, plural, one {it} other {they}} would have left out. SavePoint keeps your saves in your snapshots.",
+  "library.add.line.rulesMovedUnchecked": "{name}: {count, plural, one {the rule {rules} now applies} other {the rules {rules} now apply}} to the game's own folder only, because SavePoint could not look in its saves folder to be sure it would keep your saves. You can see {count, plural, one {it} other {them}} under \"Files to leave out of the game's own folder\" in Edit game.",
   "library.add.line.savesLeftOut": "{name}: added without a saves folder. The game hasn't made {path} yet. Once you've played it, open the game's settings and add that folder.",
   "library.add.progress": "Adding {done} of {total}: {name}",
   "library.add.progressAnnounce": "Adding your games: {done} of {total} done.",

@@ -354,7 +354,34 @@ public class GameEditorViewTests
             .Select(button => AutomationProperties.GetName(button))
             .ToList();
 
-        Assert.Equal(["Remove **/*.log", "Remove SKSE/Plugins/*.log", "Remove **/Crash Logs/**"], names);
+        Assert.Equal(
+            [
+                "Remove **/*.log from Files to leave out of both folders",
+                "Remove SKSE/Plugins/*.log from Files to leave out of both folders",
+                "Remove **/Crash Logs/** from Files to leave out of both folders",
+            ],
+            names);
+    }
+
+    [AvaloniaFact]
+    public async Task Each_rule_list_names_its_add_button_and_field_and_carries_its_help_text()
+    {
+        using var harness = await EditorViewHarness.StartAsync();
+        harness.Edit();
+
+        foreach (var (host, name, help) in new[]
+        {
+            ("InstallIgnoreRulesHost", "Add a rule for the game's own folder", "never reach your saves folder"),
+            ("IgnoreRulesHost", "Add a rule for both folders", "in the game's own folder or in your saves folder"),
+        })
+        {
+            var addChip = InHost<Button>(harness, host, "AddChip");
+            var field = InHost<ChipEntryBox>(harness, host, "AddField");
+            Assert.Equal(name, AutomationProperties.GetName(addChip));
+            Assert.Equal(name, AutomationProperties.GetName(field));
+            Assert.Contains(help, AutomationProperties.GetHelpText(field), StringComparison.Ordinal);
+            Assert.Contains(help, AutomationProperties.GetHelpText(harness.Find<ContentControl>(host).GetVisualDescendants().OfType<ItemsControl>().First()), StringComparison.Ordinal);
+        }
     }
 
     [AvaloniaFact]

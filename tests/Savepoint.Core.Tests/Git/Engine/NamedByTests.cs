@@ -38,6 +38,9 @@ public sealed class NamedByTests : IDisposable
         var repo = await _ws.InitializedRepoAsync();
         _ws.Write(repo, "journal.log", "recorded");
         await _ws.CaptureAsync(repo, "profile-1");
+        _ws.Delete(repo, "journal.log");
+        await _ws.GitWriteAsync(repo, "update-index", "--force-remove", "--", "journal.log");
+        Assert.Equal(string.Empty, await _ws.GitOutAsync(repo, "ls-files", "-z"));
 
         var found = await _ws.Engine.ListNamedByAsync(repo, ["**/*.log"], Ct);
 

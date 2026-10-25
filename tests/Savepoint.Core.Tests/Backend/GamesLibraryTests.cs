@@ -241,6 +241,26 @@ public class GamesLibraryTests : IDisposable
     }
 
     [Fact]
+    public async Task A_template_rule_that_would_hide_a_file_in_the_saves_folder_moves_to_the_games_own_folder_and_the_result_says_so()
+    {
+        _steam.AddGame(_steam.SteamFolder, 489830, "The Elder Scrolls V: Skyrim Special Edition", "Skyrim Special Edition");
+        _steam.WriteLibraryList();
+        Directory.CreateDirectory(SkyrimSaves);
+        File.WriteAllText(Path.Combine(SkyrimSaves, "Player.log"), "kept");
+        var game = (await Games.ScanLibrariesAsync(_workspace.Token)).Value!.Games.Single();
+
+        var added = await Games.AddLibraryGameAsync(game);
+
+        Assert.True(added.Ok, added.Error?.Detail);
+        Assert.Equal(LibraryAddStatus.Added, added.Value!.Status);
+        Assert.Equal(["**/*.log"], added.Value.RulesLeftOff?.Rules);
+        var stored = (await Games.ListAsync(_workspace.Token)).Value!.Single();
+        Assert.DoesNotContain("**/*.log", stored.IgnorePaths);
+        Assert.Contains("**/*.log", stored.InstallIgnorePaths);
+        Assert.Contains("SKSE/Plugins/*.log", stored.IgnorePaths);
+    }
+
+    [Fact]
     public async Task A_saves_folder_that_exists_is_kept_and_nothing_is_reported_left_out()
     {
         _steam.AddGame(_steam.SteamFolder, 489830, "The Elder Scrolls V: Skyrim Special Edition", "Skyrim Special Edition");

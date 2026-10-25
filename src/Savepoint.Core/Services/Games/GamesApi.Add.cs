@@ -76,9 +76,6 @@ internal sealed partial class GamesApi
     }
 
     // Makes the repositories (which writes the consent markers) and then the catalog row; a failure on the way takes back what this call made.
-    private async Task<GameDefinition> InitAndSaveAsync(StorageSnapshot storage, GameDefinition game, IReadOnlyList<GameFolder> folders) =>
-        (await InitAndSaveWithNoteAsync(storage, game, folders).ConfigureAwait(false)).Game;
-
     private async Task<(GameDefinition Game, RulesLeftOff? LeftOff)> InitAndSaveWithNoteAsync(StorageSnapshot storage, GameDefinition game, IReadOnlyList<GameFolder> folders)
     {
         var made = new List<RepoRef>();

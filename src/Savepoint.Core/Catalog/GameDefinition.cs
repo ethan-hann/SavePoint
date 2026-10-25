@@ -64,11 +64,12 @@ public sealed record GameDefinition(
 
     /// <summary>
     /// The patterns the folder with this role leaves out: the game-wide <see cref="IgnorePaths"/>, and for the install folder also
-    /// <see cref="InstallIgnorePaths"/>. The saves folder never gets the install-only ones.
+    /// <see cref="InstallIgnorePaths"/>. The saves folder never gets the install-only ones. The install-only rules come first, so a
+    /// later negation in <see cref="IgnorePaths"/> (such as <c>!keep.log</c>) can override one of them; the last matching rule wins.
     /// </summary>
     /// <param name="role">The folder.</param>
     public IReadOnlyList<string> IgnorePathsFor(RepoRole role) =>
-        role == RepoRole.Install && InstallIgnorePaths.Count > 0 ? RunTimeOutput.Merge(IgnorePaths, InstallIgnorePaths) : IgnorePaths;
+        role == RepoRole.Install && InstallIgnorePaths.Count > 0 ? RunTimeOutput.Merge(InstallIgnorePaths, IgnorePaths) : IgnorePaths;
 
     /// <summary>Compares the lists by content, not by reference, so the editor can tell whether anything changed.</summary>
     public bool Equals(GameDefinition? other) =>

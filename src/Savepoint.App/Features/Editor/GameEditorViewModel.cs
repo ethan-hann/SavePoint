@@ -136,8 +136,20 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
         _artwork = artwork;
         _saved = saved;
         _source = saved ?? prefill ?? new GameDefinition { InstallIgnorePaths = RunTimeOutput.DefaultRules };
-        IgnoreRules = new ChipListViewModel(text, text.Message("gameEditor.ignorePaths.label"), text.Message("gameEditor.addRule"), text.Message("gameEditor.ignorePaths.placeholder"));
-        InstallIgnoreRules = new ChipListViewModel(text, text.Message("gameEditor.installIgnorePaths.label"), text.Message("gameEditor.addRule"), text.Message("gameEditor.installIgnorePaths.placeholder"));
+        IgnoreRules = new ChipListViewModel(
+            text,
+            text.Message("gameEditor.ignorePaths.label"),
+            text.Message("gameEditor.addRule"),
+            text.Message("gameEditor.ignorePaths.placeholder"),
+            text.Message("gameEditor.ignorePaths.addAutomation"),
+            text.Message("gameEditor.ignorePaths.helper"));
+        InstallIgnoreRules = new ChipListViewModel(
+            text,
+            text.Message("gameEditor.installIgnorePaths.label"),
+            text.Message("gameEditor.addRule"),
+            text.Message("gameEditor.installIgnorePaths.placeholder"),
+            text.Message("gameEditor.installIgnorePaths.addAutomation"),
+            text.Message("gameEditor.installIgnorePaths.helper"));
         LaunchArgs = new ChipListViewModel(text, text.Message("gameEditor.launchArgs.label"), text.Message("gameEditor.addOption"), text.Message("gameEditor.launchArgs.placeholder"));
         ModFolders = new ChipListViewModel(text, text.Message("gameEditor.modPathHints.label"), text.Message("gameEditor.addFolder"), text.Message("gameEditor.modPathHints.placeholder"));
         Title = saved is null ? text.Message("gameEditor.title.create") : text.Message("gameEditor.title.edit", ("name", saved.Name));

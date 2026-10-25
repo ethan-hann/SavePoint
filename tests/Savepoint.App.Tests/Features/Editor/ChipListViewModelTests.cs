@@ -46,11 +46,24 @@ public class ChipListViewModelTests
     }
 
     [Fact]
-    public void Each_remove_button_is_named_after_its_value()
+    public void Each_remove_button_is_named_after_its_value_and_its_list()
     {
         var list = List("**/*.log");
 
-        Assert.Equal("Remove **/*.log", list.Items[0].RemoveLabel);
+        Assert.Equal("Remove **/*.log from Files to leave out", list.Items[0].RemoveLabel);
+    }
+
+    [Fact]
+    public void The_add_chip_and_field_take_their_own_accessible_name_and_the_list_its_help_text()
+    {
+        var plain = List();
+        var named = new ChipListViewModel(_text, "Files to leave out", "Add a rule", "**/*.log", "Add a rule for the game's own folder", "Only logs.");
+
+        Assert.Equal("Add a rule", plain.AddAutomationName);
+        Assert.Null(plain.HelpText);
+        Assert.Equal("Add a rule for the game's own folder", named.AddAutomationName);
+        Assert.Equal("Add a rule", named.AddLabel);
+        Assert.Equal("Only logs.", named.HelpText);
     }
 
     [Fact]

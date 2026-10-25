@@ -22,7 +22,7 @@ public class GamesLeaveOutTests
     }
 
     [Fact]
-    public async Task A_new_game_leaves_off_the_game_wide_default_rules_that_would_hide_files_in_its_saves_folder()
+    public async Task A_new_game_moves_the_game_wide_default_rules_that_would_hide_files_in_its_saves_folder_to_its_own_folder_only()
     {
         using var workspace = new BackendWorkspace();
         var game = workspace.NewGame() with { IgnorePaths = RunTimeOutput.DefaultRules };
@@ -31,11 +31,30 @@ public class GamesLeaveOutTests
         var added = await AddAsync(workspace, game);
 
         Assert.Equal(["**/*.dmp", "**/*.mdmp"], added.Game.IgnorePaths);
+        Assert.Equal(["**/*.log"], added.Game.InstallIgnorePaths);
         Assert.Equal(new RulesLeftOff(["**/*.log"], SavesHoldFiles: true), added.LeftOff);
         var stored = (await workspace.Games.ListAsync(Ct)).Value!.Single(listed => listed.Id == game.Id);
         Assert.Equal(["**/*.dmp", "**/*.mdmp"], stored.IgnorePaths);
+        Assert.Equal(["**/*.log"], stored.InstallIgnorePaths);
         var preview = (await workspace.Games.GetCapturePreviewAsync(game.Id, Ct)).Value!.Folders.Single(folder => folder.Role == RepoRole.External);
         Assert.Equal(2, preview.FileCount);
+    }
+
+    [Fact]
+    public async Task A_rule_moved_to_the_games_own_folder_still_keeps_its_logs_from_looking_like_an_update_there_and_keeps_the_save()
+    {
+        using var workspace = new BackendWorkspace();
+        var game = workspace.NewGame() with { IgnorePaths = ["**/*.log", "SKSE/Plugins/*.log"] };
+        Write(game, "Player.log");
+        BackendWorkspace.WriteFile(Path.Combine(game.Install.Path, "crloader.log"), "loader");
+
+        var added = await AddAsync(workspace, game);
+
+        Assert.Equal(["SKSE/Plugins/*.log"], added.Game.IgnorePaths);
+        Assert.Equal(["**/*.log"], added.Game.InstallIgnorePaths);
+        var folders = (await workspace.Games.GetCapturePreviewAsync(game.Id, Ct)).Value!.Folders;
+        Assert.Equal(2, folders.Single(folder => folder.Role == RepoRole.Install).FileCount);
+        Assert.Equal(2, folders.Single(folder => folder.Role == RepoRole.External).FileCount);
     }
 
     [Fact]
@@ -123,13 +142,15 @@ public class GamesLeaveOutTests
             new OrphanResolution.Reconnect(game.Id, [new RecoveredProfile(first.BranchName, "A")]));
 
         Assert.True(resolved.Ok, resolved.Error?.Detail);
-        Assert.Equal(["**/*.dmp", "**/*.mdmp"], resolved.Value.IgnorePaths);
+        Assert.Equal(["**/*.dmp", "**/*.mdmp"], resolved.Value.Game.IgnorePaths);
+        Assert.Equal(["**/*.log"], resolved.Value.Game.InstallIgnorePaths);
+        Assert.Equal(new RulesLeftOff(["**/*.log"], SavesHoldFiles: true), resolved.Value.LeftOff);
     }
 
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task When_the_saves_folder_cannot_be_checked_the_game_is_still_added_without_the_rules_and_says_it_could_not_check(bool unauthorized)
+    public async Task When_the_saves_folder_cannot_be_checked_the_game_is_still_added_with_the_rules_for_its_own_folder_only_and_says_it_could_not_check(bool unauthorized)
     {
         using var workspace = new BackendWorkspace(options => options with
         {
@@ -149,7 +170,10 @@ public class GamesLeaveOutTests
         var added = await AddAsync(workspace, game);
 
         Assert.Equal(["Saves/*.tmp"], added.Game.IgnorePaths);
+        Assert.Equal(RunTimeOutput.DefaultRules, added.Game.InstallIgnorePaths);
         Assert.Equal(new RulesLeftOff(RunTimeOutput.DefaultRules, SavesHoldFiles: false), added.LeftOff);
-        Assert.Equal(["Saves/*.tmp"], (await workspace.Games.ListAsync(Ct)).Value!.Single().IgnorePaths);
+        var stored = (await workspace.Games.ListAsync(Ct)).Value!.Single();
+        Assert.Equal(["Saves/*.tmp"], stored.IgnorePaths);
+        Assert.Equal(RunTimeOutput.DefaultRules, stored.InstallIgnorePaths);
     }
 }
