@@ -26,9 +26,7 @@ jobs:
 
       # Forgejo has no setup-dotnet mirror. global.json rolls forward to the newest feature band, so the newest 10.0 SDK fits.
       - name: Install the .NET SDK
-        run: |
-          curl -fsSL --retry 3 --retry-delay 2 -o "$RUNNER_TEMP/dotnet-install.sh" https://dot.net/v1/dotnet-install.sh
-          bash "$RUNNER_TEMP/dotnet-install.sh" --channel 10.0 --install-dir /opt/dotnet --no-path
+        run: bash build/install-dotnet.sh /opt/dotnet
 
       # The release script is PowerShell, which the job image may not have; the .NET SDK installs it as a tool.
       - name: Install PowerShell
@@ -104,8 +102,7 @@ jobs:
       - name: Install the .NET SDK
         run: |
           $dotnet = Join-Path ($env:RUNNER_TOOL_CACHE ?? $env:USERPROFILE) 'dotnet'
-          Invoke-WebRequest -UseBasicParsing -Uri https://dot.net/v1/dotnet-install.ps1 -OutFile "$env:RUNNER_TEMP\dotnet-install.ps1"
-          & "$env:RUNNER_TEMP\dotnet-install.ps1" -Channel 10.0 -InstallDir $dotnet -NoPath
+          ./build/install-dotnet.ps1 -InstallDir $dotnet
           "DOTNET_ROOT=$dotnet" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
           $dotnet | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
 
@@ -140,8 +137,7 @@ jobs:
       - name: Install PowerShell
         run: |
           if ! command -v pwsh >/dev/null 2>&1; then
-            curl -fsSL --retry 3 --retry-delay 2 -o "$RUNNER_TEMP/dotnet-install.sh" https://dot.net/v1/dotnet-install.sh
-            bash "$RUNNER_TEMP/dotnet-install.sh" --channel 10.0 --install-dir /opt/dotnet --no-path
+            bash build/install-dotnet.sh /opt/dotnet
             /opt/dotnet/dotnet tool install --tool-path /opt/pwsh PowerShell --version 7.6.8
             echo "/opt/pwsh" >> "$GITHUB_PATH"
             # The pwsh tool's launcher starts dotnet from PATH.
