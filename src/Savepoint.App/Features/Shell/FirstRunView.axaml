@@ -28,7 +28,8 @@
                    TextWrapping="Wrap"
                    Text="{loc:Loc firstRun.body}" />
       </StackPanel>
-      <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center" ItemSpacing="12" LineSpacing="12">
+      <!-- ItemsAlignment centers a wrapped line on its own; the panel itself only shrinks to its widest line. -->
+      <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center" ItemsAlignment="Center" ItemSpacing="12" LineSpacing="12">
         <Button x:Name="AddFirstGameButton" Classes="filled pill large" Padding="24,12" Command="{Binding AddFirstGameCommand}" AutomationProperties.Name="{loc:Loc firstRun.addFirstGame}">
           <StackPanel Orientation="Horizontal" Spacing="8">
             <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.Add}" />
