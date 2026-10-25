@@ -1,0 +1,97 @@
+/* The app's look: Material 3 roles derived from the default Blue accent seed (#2986CC) by the app's own Md3Palette, and the
+   Roboto files the app ships. Recompute these if the default accent changes. */
+
+@font-face { font-family: "Roboto"; font-weight: 400; src: url("../fonts/Roboto-Regular.ttf") format("truetype"); }
+@font-face { font-family: "Roboto"; font-weight: 500; src: url("../fonts/Roboto-Medium.ttf") format("truetype"); }
+@font-face { font-family: "Roboto"; font-weight: 700; src: url("../fonts/Roboto-Bold.ttf") format("truetype"); }
+@font-face { font-family: "Roboto Mono"; font-weight: 400; src: url("../fonts/RobotoMono-Regular.ttf") format("truetype"); }
+
+:root, [data-bs-theme="light"] {
+  --sp-primary: #31628D;
+  --sp-on-primary: #FFFFFF;
+  --sp-primary-container: #CFE5FF;
+  --sp-on-primary-container: #124A73;
+  --sp-surface: #F7F9FF;
+  --sp-surface-low: #F2F3F9;
+  --sp-surface-container: #ECEEF4;
+  --sp-surface-high: #E6E8EE;
+  --sp-on-surface: #181C20;
+  --sp-on-surface-variant: #42474E;
+  --sp-outline-variant: #C2C7CF;
+  --sp-secondary-container: #D5E4F7;
+}
+
+[data-bs-theme="dark"] {
+  --sp-primary: #9DCBFB;
+  --sp-on-primary: #003355;
+  --sp-primary-container: #124A73;
+  --sp-on-primary-container: #CFE5FF;
+  --sp-surface: #101418;
+  --sp-surface-low: #181C20;
+  --sp-surface-container: #1D2024;
+  --sp-surface-high: #272A2F;
+  --sp-on-surface: #E0E2E8;
+  --sp-on-surface-variant: #C2C7CF;
+  --sp-outline-variant: #42474E;
+  --sp-secondary-container: #3A4857;
+}
+
+:root, [data-bs-theme="light"], [data-bs-theme="dark"] {
+  --bs-body-font-family: "Roboto", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --bs-font-monospace: "Roboto Mono", ui-monospace, Consolas, monospace;
+  --bs-body-bg: var(--sp-surface);
+  --bs-body-color: var(--sp-on-surface);
+  --bs-secondary-color: var(--sp-on-surface-variant);
+  --bs-tertiary-bg: var(--sp-surface-container);
+  --bs-secondary-bg: var(--sp-surface-high);
+  --bs-border-color: var(--sp-outline-variant);
+  --bs-link-color: var(--sp-primary);
+  --bs-link-color-rgb: var(--sp-primary-rgb);
+  --bs-link-hover-color: var(--sp-on-primary-container);
+  --bs-primary: var(--sp-primary);
+  --bs-code-color: var(--sp-on-primary-container);
+}
+
+[data-bs-theme="light"] { --sp-primary-rgb: 49, 98, 141; }
+[data-bs-theme="dark"] { --sp-primary-rgb: 157, 203, 251; }
+
+body { background-color: var(--sp-surface); }
+
+/* The top bar is the app's surface container, the way the app's own title bar sits on its window. */
+header .navbar {
+  background-color: var(--sp-surface-low) !important;
+  border-bottom: 1px solid var(--sp-outline-variant);
+}
+
+.navbar-brand { font-weight: 500; color: var(--sp-on-surface) !important; }
+.navbar-brand #logo { width: 32px; height: 32px; border-radius: 8px; margin-right: 0.5rem; }
+
+.navbar .nav-link.active, .navbar .nav-link:hover { color: var(--sp-primary) !important; }
+
+/* Side table of contents: the selected entry is a filled pill, like the app's navigation rail. */
+.toc .nav > li > a.active, .toc a.active {
+  background-color: var(--sp-secondary-container);
+  color: var(--sp-on-surface) !important;
+  border-radius: 999px;
+  padding-left: 0.6rem;
+  padding-right: 0.6rem;
+}
+
+article h1, article h2, article h3 { font-weight: 500; }
+article a { text-underline-offset: 2px; }
+
+pre, .hljs { background-color: var(--sp-surface-container) !important; border-radius: 12px; }
+code { font-family: var(--bs-font-monospace); }
+
+.alert-info, .NOTE { background-color: var(--sp-primary-container); color: var(--sp-on-primary-container); border-color: transparent; }
+
+.btn-primary {
+  --bs-btn-bg: var(--sp-primary);
+  --bs-btn-border-color: var(--sp-primary);
+  --bs-btn-color: var(--sp-on-primary);
+  --bs-btn-hover-bg: var(--sp-on-primary-container);
+  --bs-btn-hover-border-color: var(--sp-on-primary-container);
+  border-radius: 999px;
+}
+
+footer { border-top: 1px solid var(--sp-outline-variant); color: var(--sp-on-surface-variant); }

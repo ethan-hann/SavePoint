@@ -541,3 +541,12 @@ The version on a profile comes from the start program's version resource. Readin
 1. **Unreal build ids** (a string starting with `++` or holding `-CL-<digits>`) give only a dotted number of three or four parts found inside them (Grounded 1.4.7, Borderlands 4 1.11.0.0), or nothing. Two-part numbers like `Release-4.26` are the engine's.
 2. **Engine versions are not game versions.** Unity players (a "Unity Version" string, or a product version like `2022.3.62f2 (<hash>)`), a program whose product name is "Unreal Engine", and the fixed numeric version of Epic Games or Unreal executables (it carries the engine version, 4.27.2.0 or 5.6.1.0) show no version.
 3. **Placeholders** (`1.0.0.0`, `1.0.0`, `1.0`) and strings without a digit (`^VersionString^`) are no version; a rejected product string falls through to the file string. The fixed numeric version is used only when the program has no version string at all. A game that really calls itself 1.0 shows nothing; the player can type the version on the profile.
+
+## D55. A documentation site built from the repository
+
+The guides and an API reference are published as one static site (decided 2026-10-25), built with DocFX from this repository rather than kept in a repository of their own: the reference is generated from the doc comments `Savepoint.Core` must carry (CS1591 is an error there), so building both from the same commit keeps the site and the code in step, and a release tag publishes the pages of that release. The wiki keeps mirroring the guides for readers who stay on the forge; the site adds the reference, search, and a layout of its own.
+
+1. **Only `Savepoint.Core` is in the reference.** It is the contract the app is built on; the app's view models are not an API anyone calls.
+2. **It is hosted on a self-run git-pages server**, behind the same proxy as the forge. Forgejo has no pages feature of its own, and git-pages takes an upload from a Forgejo workflow with the workflow's own token when the site's domain names the repository in a TXT record, so no publishing secret is stored.
+3. **It looks like the app**: the Material roles the app derives from the default accent, in light and dark, the app's Roboto, and the app icon. The stylesheet holds the computed colors, so a change of the default accent means computing them again.
+4. **It is public**, like the repository.

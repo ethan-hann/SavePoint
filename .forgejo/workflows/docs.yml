@@ -1,0 +1,62 @@
+# Builds the documentation site (docfx.json: the guides in docs/ plus the API reference generated from Savepoint.Core's doc
+# comments) and publishes it to the git-pages server when a release is tagged, so the published site matches that release.
+# Pull requests that touch the site's sources only build it, with warnings as errors, so a broken link fails before a release.
+#
+# Publishing needs the repository variable DOCS_SITE_URL (the site's address, such as https://docs.example.org). The upload is
+# authorized by the forge: the site's domain carries a _git-pages-forge-allowlist TXT record naming this repository, and the job
+# passes its own token. Without the variable the job builds the site and says it was not published.
+name: Docs
+
+on:
+  push:
+    tags: ['v*']
+  pull_request:
+    paths: ['docfx.json', 'docfx/**', 'docs/**', 'src/Savepoint.Core/**', '.config/dotnet-tools.json', '.forgejo/workflows/docs.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  site:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v4
+
+      # Forgejo has no setup-dotnet mirror. global.json rolls forward to the newest feature band, so the newest 10.0 SDK fits.
+      - name: Install the .NET SDK
+        run: |
+          bash build/install-dotnet.sh /opt/dotnet
+          echo "/opt/dotnet" >> "$GITHUB_PATH"
+          echo "DOTNET_ROOT=/opt/dotnet" >> "$GITHUB_ENV"
+
+      - name: Build the site
+        env:
+          DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+        run: |
+          dotnet tool restore
+          dotnet docfx docfx.json --warningsAsErrors
+
+      - name: Say whether the site will be published
+        id: target
+        env:
+          SITE: ${{ vars.DOCS_SITE_URL }}
+          PUBLISH: ${{ github.event_name != 'pull_request' }}
+        run: |
+          if [ "$PUBLISH" != true ]; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"; echo "A pull request only builds the site."
+          elif [ -z "$SITE" ]; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"; echo "DOCS_SITE_URL is not set, so the site was built but not published."
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"; echo "Publishing to $SITE."
+          fi
+
+      - name: Publish
+        if: steps.target.outputs.publish == 'true'
+        uses: https://codeberg.org/git-pages/action@v2
+        with:
+          site: ${{ vars.DOCS_SITE_URL }}
+          token: ${{ forgejo.token }}
+          source: artifacts/docs-site/

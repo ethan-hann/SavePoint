@@ -1,0 +1,13 @@
+# The guides' order on the documentation site (docfx.json); the wiki takes its own list from build/wiki-sync.ps1.
+- name: User guide
+  href: user-guide.md
+- name: Developer guide
+  href: developer-guide.md
+- name: Architecture
+  href: architecture.md
+- name: Decisions
+  href: decisions.md
+- name: UI guide
+  href: ui-guide.md
+- name: Testing on macOS and Linux
+  href: testing-on-mac-and-linux.md

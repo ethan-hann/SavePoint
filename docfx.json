@@ -1,0 +1,40 @@
+{
+  "$schema": "https://raw.githubusercontent.com/dotnet/docfx/main/schemas/docfx.schema.json",
+  "metadata": [
+    {
+      "src": [
+        {
+          "src": "src/Savepoint.Core",
+          "files": [ "Savepoint.Core.csproj" ]
+        }
+      ],
+      "dest": "artifacts/docs-api",
+      "properties": { "Configuration": "Release" },
+      "namespaceLayout": "nested",
+      "memberLayout": "separatePages"
+    }
+  ],
+  "build": {
+    "content": [
+      { "src": "docfx", "files": [ "index.md", "toc.yml", "api/index.md" ] },
+      { "src": "artifacts/docs-api", "files": [ "**/*.yml" ], "dest": "api" },
+      { "src": "docs", "files": [ "*.md", "toc.yml" ], "dest": "guides" }
+    ],
+    "resource": [
+      { "src": "docs", "files": [ "images/**" ], "dest": "guides" },
+      { "src": "src/Savepoint.App/Assets/Icon", "files": [ "savepoint-256.png", "savepoint.ico" ] },
+      { "src": "src/Savepoint.App/Assets/Fonts", "files": [ "Roboto-*.ttf", "RobotoMono-Regular.ttf", "Roboto-OFL.txt", "RobotoMono-OFL.txt" ], "dest": "fonts" }
+    ],
+    "output": "artifacts/docs-site",
+    "template": [ "default", "modern", "docfx/template" ],
+    "globalMetadata": {
+      "_appName": "SavePoint",
+      "_appTitle": "SavePoint",
+      "_appLogoPath": "savepoint-256.png",
+      "_appFaviconPath": "savepoint.ico",
+      "_appFooter": "SavePoint is free software under the GNU GPL, version 3 or later.",
+      "_enableSearch": true,
+      "_disableContribution": true
+    }
+  }
+}

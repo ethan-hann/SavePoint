@@ -1,0 +1,6 @@
+- name: Guides
+  href: ../docs/
+  homepage: ../docs/user-guide.md
+- name: API
+  href: ../artifacts/docs-api/
+  homepage: api/index.md
