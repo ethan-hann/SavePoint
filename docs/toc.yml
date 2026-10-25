@@ -1,4 +1,5 @@
-# The guides' order on the documentation site (docfx.json); the wiki takes its own list from build/wiki-sync.ps1.
+# The guides' order on the documentation site (docfx.json). A guide left out of this list is built but not in the menu; an
+# entry whose file was renamed or removed fails the site's build.
 - name: User guide
   href: user-guide.md
 - name: Developer guide
@@ -11,3 +12,5 @@
   href: ui-guide.md
 - name: Testing on macOS and Linux
   href: testing-on-mac-and-linux.md
+- name: Dogfood checklist
+  href: dogfood-checklist.md

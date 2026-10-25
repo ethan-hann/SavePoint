@@ -1,6 +1,6 @@
 # SavePoint
 
-> **Looking at this on GitHub?** This is a read-only mirror. SavePoint lives at [git.tortal.tech/ethan-hann/SavePoint](https://git.tortal.tech/ethan-hann/SavePoint): downloads are on its [releases page](https://git.tortal.tech/ethan-hann/SavePoint/releases), and [issues](https://git.tortal.tech/ethan-hann/SavePoint/issues), [pull requests](https://git.tortal.tech/ethan-hann/SavePoint/pulls) and the [wiki](https://git.tortal.tech/ethan-hann/SavePoint/wiki) are there too. Issues and pull requests opened on GitHub are not seen.
+> **Looking at this on GitHub?** This is a read-only mirror. SavePoint lives at [git.tortal.tech/ethan-hann/SavePoint](https://git.tortal.tech/ethan-hann/SavePoint): downloads are on its [releases page](https://git.tortal.tech/ethan-hann/SavePoint/releases), and [issues](https://git.tortal.tech/ethan-hann/SavePoint/issues), [pull requests](https://git.tortal.tech/ethan-hann/SavePoint/pulls) are there too, and the documentation is at [docs.tortal.tech/SavePoint](https://docs.tortal.tech/SavePoint/). Issues and pull requests opened on GitHub are not seen.
 
 **Quicksave for your whole game folder.**
 
@@ -80,14 +80,17 @@ The first build downloads the pinned git bundle and checks its SHA-256.
 
 ## Documentation
 
+The guides and the API reference are published at [docs.tortal.tech/SavePoint](https://docs.tortal.tech/SavePoint/), built from `docs/` and the code on `main`.
+
 - [User guide](docs/user-guide.md): every screen and action, for players.
 - [Developer guide](docs/developer-guide.md): building, testing, gates, and packaging.
 - [Architecture](docs/architecture.md) and [Decisions](docs/decisions.md): how it's built and why.
 - [UI guide](docs/ui-guide.md): how to build a screen.
 - [Testing on macOS and Linux](docs/testing-on-mac-and-linux.md): the gate and the manual checks on a Mac or a Linux desktop.
+- [Dogfood checklist](docs/dogfood-checklist.md): the checks that need a person, real hardware, or a real game.
 - [AGENTS.md](AGENTS.md): the working rules for every change.
 
-Planned work is tracked in the issues and milestones, and the manual dogfood checklist is on the wiki.
+Planned work is tracked in the issues and milestones.
 
 ## License
 

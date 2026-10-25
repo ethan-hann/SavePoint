@@ -88,7 +88,6 @@ public class GateWorkflowTests
     [InlineData("Msys2SourcesScriptTests")]
     [InlineData("PackageSourceScriptTests")]
     [InlineData("ReleaseWorkflowTests")]
-    [InlineData("WikiSyncTests")]
     [InlineData("DBusNotificationBusTests")]
     public void The_linux_list_of_expected_skips_does_not_name_tests_the_job_can_run(string testClass)
     {

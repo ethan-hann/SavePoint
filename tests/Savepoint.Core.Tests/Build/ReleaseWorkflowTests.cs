@@ -63,7 +63,6 @@ public partial class ReleaseWorkflowTests
     // The pwsh dotnet tool is a launcher that starts dotnet from PATH; without it on PATH, pwsh aborts before running anything.
     [Theory]
     [InlineData(".forgejo/workflows/release.yml")]
-    [InlineData(".forgejo/workflows/wiki.yml")]
     public void Installing_pwsh_as_a_tool_also_puts_dotnet_on_the_path(string workflowPath)
     {
         var workflow = File.ReadAllText(Path.Combine(RepoRoot, workflowPath));
