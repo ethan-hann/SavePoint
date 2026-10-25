@@ -59,7 +59,7 @@ public sealed class AppsMenuEntryTests : IDisposable
                 "Icon=savepoint",
                 "Terminal=false",
                 "Categories=Utility;",
-                "StartupWMClass=SavePointApp",
+                "StartupWMClass=SavePoint",
                 "X-SavePoint-Managed=true",
                 "X-SavePoint-Created-Folders=256x256;256x256/apps;512x512;512x512/apps",
             ],

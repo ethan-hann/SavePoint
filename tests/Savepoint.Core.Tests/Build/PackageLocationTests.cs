@@ -27,16 +27,30 @@ public class PackageLocationTests
     }
 
     [Theory]
-    [InlineData("build/package.ps1")]
-    [InlineData("build/package.sh")]
-    public void Both_package_scripts_take_the_pack_id_from_the_build_properties(string script)
+    [InlineData("build/package.ps1", "SavepointWindowsPackId")]
+    [InlineData("build/package.sh", "SavepointPackId")]
+    public void Each_package_script_takes_its_pack_id_from_the_build_properties(string script, string property)
     {
         var text = File.ReadAllText(Path.Combine(RepoRoot, script));
 
-        Assert.Contains("SavepointPackId", text, StringComparison.Ordinal);
+        Assert.Contains(property, text, StringComparison.Ordinal);
         Assert.DoesNotContain("--packId SavePoint ", text, StringComparison.Ordinal);
     }
 
+    // Everywhere else the app is just "SavePoint", but that name on Windows would make the setup own the data folder.
+    [Fact]
+    public void The_Windows_pack_id_is_not_the_name_of_SavePoints_data_folders()
+    {
+        Assert.False(string.Equals("SavePoint", PackId(), StringComparison.OrdinalIgnoreCase), "the setup would own the folder SavePoint keeps its data in");
+    }
+
+    // The AppImage has no install folder that an update deletes, and its desktop entry and notifications use the pack id as the name people see.
+    [Fact]
+    public void The_pack_id_the_Linux_AppImage_carries_is_the_app_name()
+    {
+        Assert.Equal("SavePoint", XDocument.Load(Path.Combine(RepoRoot, "Directory.Build.props")).Descendants("SavepointPackId").Single().Value.Trim());
+    }
+
     private static string PackId() =>
-        XDocument.Load(Path.Combine(RepoRoot, "Directory.Build.props")).Descendants("SavepointPackId").Single().Value.Trim();
+        XDocument.Load(Path.Combine(RepoRoot, "Directory.Build.props")).Descendants("SavepointWindowsPackId").Single().Value.Trim();
 }
