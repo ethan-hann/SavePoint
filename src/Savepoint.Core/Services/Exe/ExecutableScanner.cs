@@ -81,15 +81,16 @@ public sealed class ExecutableScanner
     /// <summary>Lists launchable files under <paramref name="installFolder"/>.</summary>
     /// <param name="installFolder">The game's install folder.</param>
     /// <param name="cancellationToken">Stops the scan between entries.</param>
+    /// <param name="gameName">The game's name, used as a hint in the ranking; null or blank for none.</param>
     /// <returns>
     /// Up to <see cref="MaxResults"/> paths relative to the install folder, with the OS separator, most likely game
-    /// executable first: shallower before deeper, then larger before smaller, then by name. A macOS bundle is
+    /// executable first, in the order <see cref="ProcessNameSuggester.Rank"/> gives. A macOS bundle is
     /// returned as the bundle's own path and never entered. A missing folder, or a path that is a file, gives an empty list.
     /// </returns>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     /// <remarks>Runs on the thread pool.</remarks>
-    public Task<IReadOnlyList<string>> ListAsync(string installFolder, CancellationToken cancellationToken = default) =>
-        Task.Run(() => List(installFolder, cancellationToken), cancellationToken);
+    public Task<IReadOnlyList<string>> ListAsync(string installFolder, CancellationToken cancellationToken = default, string? gameName = null) =>
+        Task.Run(() => List(installFolder, cancellationToken, gameName), cancellationToken);
 
     /// <summary>Lists every launchable file found under <paramref name="installFolder"/>, with its size, for ranking.</summary>
     /// <param name="installFolder">The game's install folder.</param>
@@ -104,13 +105,12 @@ public sealed class ExecutableScanner
     public Task<IReadOnlyList<InstalledProgram>> ListProgramsAsync(string installFolder, CancellationToken cancellationToken = default) =>
         Task.Run(() => ListPrograms(installFolder, cancellationToken), cancellationToken);
 
-    internal IReadOnlyList<string> List(string installFolder, CancellationToken cancellationToken) =>
-        [.. Collect(installFolder, cancellationToken)
-            .OrderBy(c => c.Depth)
-            .ThenByDescending(c => c.Length)
-            .ThenBy(c => c.RelativePath, StringComparer.Ordinal)
-            .Take(MaxResults)
-            .Select(c => c.RelativePath)];
+    internal IReadOnlyList<string> List(string installFolder, CancellationToken cancellationToken, string? gameName = null)
+    {
+        var found = Collect(installFolder, cancellationToken);
+        var folderName = Path.GetFileName(Path.GetFullPath(installFolder).TrimEnd('\\', '/'));
+        return [.. ProcessNameSuggester.Rank(folderName, gameName, found.Select(c => new InstalledProgram(c.RelativePath, c.Length))).Take(MaxResults)];
+    }
 
     internal IReadOnlyList<InstalledProgram> ListPrograms(string installFolder, CancellationToken cancellationToken) =>
         [.. Collect(installFolder, cancellationToken).Select(c => new InstalledProgram(c.RelativePath, c.Length))];

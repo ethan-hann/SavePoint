@@ -111,7 +111,7 @@ public class GamesQueryTests
         using var workspace = new BackendWorkspace();
         var game = workspace.NewGame();
 
-        var listed = await workspace.Games.ListExecutablesAsync(game.Install.Path, workspace.Token);
+        var listed = await workspace.Games.ListExecutablesAsync(game.Install.Path, string.Empty, workspace.Token);
 
         Assert.Contains("game.exe", listed.Value!);
     }
@@ -122,7 +122,7 @@ public class GamesQueryTests
         using var workspace = new BackendWorkspace();
         BackendWorkspace.WriteFile(Path.Combine(workspace.Home, "Games", "Tokened", "tokened.exe"), "MZ");
 
-        var listed = await workspace.Games.ListExecutablesAsync("{userHome}/Games/Tokened", workspace.Token);
+        var listed = await workspace.Games.ListExecutablesAsync("{userHome}/Games/Tokened", string.Empty, workspace.Token);
 
         Assert.Equal(["tokened.exe"], listed.Value!);
     }
@@ -161,7 +161,7 @@ public class GamesQueryTests
     {
         using var workspace = new BackendWorkspace();
 
-        var listed = await workspace.Games.ListExecutablesAsync(Path.Combine(workspace.Root, "nothing-here"), workspace.Token);
+        var listed = await workspace.Games.ListExecutablesAsync(Path.Combine(workspace.Root, "nothing-here"), string.Empty, workspace.Token);
 
         Assert.Empty(listed.Value!);
     }

@@ -132,9 +132,9 @@ public class FakeLibraryApisTests
     {
         var backend = new FakeBackend(ScenarioBuilder.Mockup().WithExecutables(@"C:\Games\Other", @"bin\Other.exe", "Launcher.exe"));
 
-        var scripted = await backend.Games.ListExecutablesAsync(@"C:\Games\Other", Ct);
-        var fromGame = await backend.Games.ListExecutablesAsync(SkyrimInstall, Ct);
-        var unknown = await backend.Games.ListExecutablesAsync(@"C:\Nowhere", Ct);
+        var scripted = await backend.Games.ListExecutablesAsync(@"C:\Games\Other", string.Empty, Ct);
+        var fromGame = await backend.Games.ListExecutablesAsync(SkyrimInstall, string.Empty, Ct);
+        var unknown = await backend.Games.ListExecutablesAsync(@"C:\Nowhere", string.Empty, Ct);
 
         Assert.Equal<string>([@"bin\Other.exe", "Launcher.exe"], Ok(scripted));
         Assert.Equal<string>(["SkyrimSELauncher.exe"], Ok(fromGame));

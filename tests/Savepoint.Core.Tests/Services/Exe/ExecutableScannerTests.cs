@@ -1,3 +1,4 @@
+using Savepoint.Core.Launch;
 using Savepoint.Core.Platform;
 using Savepoint.Core.Services.Exe;
 using Savepoint.Core.Tests.Platform;
@@ -182,7 +183,7 @@ public class ExecutableScannerTests
     }
 
     [Fact]
-    public async Task The_most_likely_game_executable_comes_first_shallow_before_deep_then_large_before_small()
+    public async Task The_list_is_in_the_order_the_process_name_suggester_ranks_the_same_programs_and_large_comes_before_small_in_one_folder()
     {
         using var temp = new TempFolder();
         temp.WriteBytes("small.exe", 10);
@@ -192,7 +193,28 @@ public class ExecutableScannerTests
 
         var found = await ScanAsync(temp);
 
-        Assert.Equal([P("big.exe"), P("small.exe"), P("bin", "deep.exe"), P("bin", "deeper", "deepest.exe")], found);
+        var ranked = ProcessNameSuggester.Rank(
+            Path.GetFileName(temp.Path),
+            null,
+            [new(P("small.exe"), 10), new(P("big.exe"), 1000), new(P("bin", "deep.exe"), 50000), new(P("bin", "deeper", "deepest.exe"), 90000)]);
+        Assert.Equal(ranked, found);
+        Assert.True(found.ToList().IndexOf(P("big.exe")) < found.ToList().IndexOf(P("small.exe")));
+    }
+
+    [Fact]
+    public async Task The_games_own_program_comes_before_a_larger_launcher_and_a_crash_reporter_in_the_same_folder()
+    {
+        using var temp = new TempFolder();
+        temp.WriteBytes("Launcher.exe", 9_000_000);
+        temp.WriteBytes("BugReporter.exe", 1_000_000);
+        temp.WriteBytes("Skyline.exe", 600_000);
+        temp.WriteBytes("bin/Helper.exe", 50_000);
+
+        var found = await new ExecutableScanner(ExecutableKinds.WindowsExe).ListAsync(temp.Path, Ct, "Skyline");
+
+        Assert.Equal(P("Skyline.exe"), found[0]);
+        Assert.Equal(4, found.Count);
+        Assert.Contains(P("Launcher.exe"), found);
     }
 
     [Fact]
@@ -389,7 +411,9 @@ public class ExecutableScannerTests
         Assert.Equal([P("Game.exe")], await ScanAsync(temp, ExecutableKinds.WindowsExe));
         Assert.Equal([P("run.sh")], await ScanAsync(temp, ExecutableKinds.LinuxNative));
         Assert.Equal([P("Game.app")], await ScanAsync(temp, ExecutableKinds.MacApp));
-        Assert.Equal([P("Game.exe"), P("run.sh"), P("Game.app")], await ScanAsync(temp, ExecutableKinds.WindowsExe | ExecutableKinds.LinuxNative | ExecutableKinds.MacApp));
+        Assert.Equal(
+            [P("Game.app"), P("Game.exe"), P("run.sh")],
+            (await ScanAsync(temp, ExecutableKinds.WindowsExe | ExecutableKinds.LinuxNative | ExecutableKinds.MacApp)).Order(StringComparer.Ordinal));
         Assert.Empty(await ScanAsync(temp, ExecutableKinds.None));
     }
 

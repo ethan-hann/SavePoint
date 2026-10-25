@@ -125,7 +125,7 @@ public sealed partial class GameEditorViewModel
             return;
         }
 
-        var found = await _games.ListExecutablesAsync(install, scan.Token);
+        var found = await _games.ListExecutablesAsync(install, Name.Trim(), scan.Token);
         if (scan.IsCancellationRequested)
         {
             return;

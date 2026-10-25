@@ -208,8 +208,8 @@ public sealed class FakeGamesApi : IGamesApi
     public Task<OperationResult<string>> ResolvePathAsync(string rawPath, CancellationToken cancellationToken = default) =>
         _backend.Call(_api, nameof(ResolvePathAsync), [rawPath], () => OperationResult.Success(State.Resolve(rawPath)));
 
-    public Task<OperationResult<IReadOnlyList<string>>> ListExecutablesAsync(string installPath, CancellationToken cancellationToken = default) =>
-        _backend.Call(_api, nameof(ListExecutablesAsync), [installPath], () =>
+    public Task<OperationResult<IReadOnlyList<string>>> ListExecutablesAsync(string installPath, string gameName, CancellationToken cancellationToken = default) =>
+        _backend.Call(_api, nameof(ListExecutablesAsync), [installPath, gameName], () =>
         {
             if (State.Executables.TryGetValue(installPath, out var scripted))
             {

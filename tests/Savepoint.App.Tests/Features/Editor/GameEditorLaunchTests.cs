@@ -108,6 +108,37 @@ public class GameEditorLaunchTests
     }
 
     [Fact]
+    public async Task The_program_list_is_asked_for_with_the_games_name_so_the_service_can_rank_by_it()
+    {
+        var rig = RigWithExecutables("SkyrimSELauncher.exe", "SkyrimSE.exe");
+        var editor = rig.Edit();
+        await editor.LoadAsync();
+
+        var asked = Assert.Single(rig.Backend.Calls.To<IGamesApi>("ListExecutablesAsync"));
+
+        Assert.Equal(editor.Name.Trim(), asked.Args[1]);
+        Assert.NotEqual(string.Empty, asked.Args[1]);
+    }
+
+    [Fact]
+    public async Task A_program_the_player_already_chose_stays_when_the_suggestions_are_refreshed()
+    {
+        var rig = RigWithExecutables("SkyrimSELauncher.exe", "SkyrimSE.exe");
+        var editor = rig.Edit();
+        await editor.LoadAsync();
+        editor.ExePath = "Chosen.exe";
+        var install = editor.InstallPath;
+
+        editor.InstallPath = @"D:\Games\Other";
+        await editor.RefreshSuggestionsAsync();
+        editor.InstallPath = install;
+        await editor.RefreshSuggestionsAsync();
+
+        Assert.Equal(["SkyrimSELauncher.exe", "SkyrimSE.exe"], editor.ExeSuggestions.Select(item => item.Text));
+        Assert.Equal("Chosen.exe", editor.ExePath);
+    }
+
+    [Fact]
     public async Task Changing_the_install_folder_looks_again_and_an_empty_one_suggests_nothing()
     {
         var rig = RigWithExecutables("SkyrimSE.exe");
