@@ -43,6 +43,7 @@ public sealed class AppsMenuEntry
     private const string _entryFile = "savepoint.desktop";
     private const string _iconName = "savepoint";
     private const string _marker = "X-SavePoint-Managed=true";
+    private const string _createdKey = "X-SavePoint-Created-Folders=";
     private const long _largestEntryBytes = 64 * 1024;
     private static readonly int[] _iconSizes = [256, 512];
     private static readonly TimeSpan _cacheToolTimeout = TimeSpan.FromSeconds(10);
@@ -173,23 +174,33 @@ public sealed class AppsMenuEntry
         {
             // Read first, so an icon that cannot be read stops the add before anything is written.
             var icons = ReadIcons();
+            // An update keeps the folders its first add made, since they exist by now.
+            var created = before == AppsMenuState.NotAdded ? [] : ReadCreatedFolders();
             try
             {
                 // The entry goes last, so a failure part way never replaces an entry that was working.
                 foreach (var (size, bytes) in icons)
                 {
-                    Directory.CreateDirectory(Path.GetDirectoryName(IconPath(size))!);
+                    foreach (var folder in FoldersOf(size))
+                    {
+                        if (!Directory.Exists(FolderPath(folder)))
+                        {
+                            Directory.CreateDirectory(FolderPath(folder));
+                            created.Add(folder);
+                        }
+                    }
+
                     WriteAtomically(IconPath(size), bytes);
                 }
 
                 Directory.CreateDirectory(_applicationsFolder);
-                WriteAtomically(EntryPath, Encoding.UTF8.GetBytes(Render(_appImagePath, comment)));
+                WriteAtomically(EntryPath, Encoding.UTF8.GetBytes(Render(_appImagePath, comment, created)));
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 if (before == AppsMenuState.NotAdded)
                 {
-                    DeleteWhatWasWritten(carryOn: true);
+                    DeleteWhatWasWritten(created, carryOn: true);
                 }
 
                 throw;
@@ -217,7 +228,7 @@ public sealed class AppsMenuEntry
 
         try
         {
-            DeleteWhatWasWritten();
+            DeleteWhatWasWritten(ReadCreatedFolders());
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -229,20 +240,81 @@ public sealed class AppsMenuEntry
     }
 
     /// <summary>The text of the desktop entry for an AppImage at the given path.</summary>
-    internal static string Render(string appImagePath, string comment) =>
+    internal static string Render(string appImagePath, string comment, IReadOnlyList<string>? createdFolders = null) =>
         string.Join(
             '\n',
-            "[Desktop Entry]",
-            "Type=Application",
-            "Name=SavePoint",
-            $"Comment={comment}",
-            ExecLine(appImagePath),
-            TryExecLine(appImagePath),
-            $"Icon={_iconName}",
-            "Terminal=false",
-            "Categories=Utility;",
-            $"StartupWMClass={DesktopIdentity.WindowClass}",
-            _marker) + "\n";
+            new[]
+            {
+                "[Desktop Entry]",
+                "Type=Application",
+                "Name=SavePoint",
+                $"Comment={comment}",
+                ExecLine(appImagePath),
+                TryExecLine(appImagePath),
+                $"Icon={_iconName}",
+                "Terminal=false",
+                "Categories=Utility;",
+                $"StartupWMClass={DesktopIdentity.WindowClass}",
+                _marker,
+            }.Concat(createdFolders is { Count: > 0 } ? [_createdKey + string.Join(';', createdFolders)] : [])) + "\n";
+
+    // The size folders the add made, relative to the hicolor folder. Only names the add itself could have made are accepted back,
+    // so an edited entry cannot point a remove at another folder.
+    private IEnumerable<string> FoldersOf(int size)
+    {
+        yield return $"{size}x{size}";
+        yield return $"{size}x{size}/apps";
+    }
+
+    private string FolderPath(string folder) => Path.Combine(_hicolorFolder, folder.Replace('/', Path.DirectorySeparatorChar));
+
+    private List<string> ReadCreatedFolders()
+    {
+        var folders = new List<string>();
+        try
+        {
+            var line = File.ReadAllLines(EntryPath).FirstOrDefault(l => l.StartsWith(_createdKey, StringComparison.Ordinal));
+            if (line is null)
+            {
+                return folders;
+            }
+
+            var known = _iconSizes.SelectMany(FoldersOf).ToHashSet(StringComparer.Ordinal);
+            foreach (var folder in line[_createdKey.Length..].Split(';'))
+            {
+                if (known.Contains(folder) && !folders.Contains(folder))
+                {
+                    folders.Add(folder);
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Without the record, no folder counts as ours and none is deleted.
+        }
+
+        return folders;
+    }
+
+    // Deepest first, and only when nothing else has been put in the folder since.
+    private void DeleteEmptyFolders(IEnumerable<string> folders)
+    {
+        foreach (var folder in folders.OrderByDescending(f => f.Count(c => c == '/')))
+        {
+            try
+            {
+                var path = FolderPath(folder);
+                if (Directory.Exists(path) && !Directory.EnumerateFileSystemEntries(path).Any())
+                {
+                    Directory.Delete(path);
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // A folder left behind is harmless.
+            }
+        }
+    }
 
     // TryExec is a plain path, not a command line, so only the string-level backslash escape applies. A desktop hides the entry
     // when this file is gone.
@@ -298,7 +370,7 @@ public sealed class AppsMenuEntry
     }
 
     // An undo after a failed add carries on past a file it cannot delete; a remove stops and reports it.
-    private void DeleteWhatWasWritten(bool carryOn = false)
+    private void DeleteWhatWasWritten(IReadOnlyList<string> createdFolders, bool carryOn = false)
     {
         foreach (var path in _iconSizes.Select(IconPath).Append(EntryPath))
         {
@@ -315,6 +387,8 @@ public sealed class AppsMenuEntry
                 // The next file may still go.
             }
         }
+
+        DeleteEmptyFolders(createdFolders);
     }
 
     // A reader never sees half a file: the bytes go to a neighbor with a name nobody else can have picked, and the neighbor takes
