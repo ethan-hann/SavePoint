@@ -425,8 +425,8 @@ public sealed class SwitchSafetyTests : IDisposable
         var armed = true;
         _ws.OnInvoke = invocation =>
         {
-            // The first reset of the switch fails, as it does when git's lock stays held; the one that puts the index back works.
-            if (armed && invocation.Arguments[0] == "reset")
+            // The first write of the aligned index fails, as it does when git's lock stays held; what puts the index back works.
+            if (armed && EngineWorkspace.IsIndexAlignment(invocation))
             {
                 armed = false;
                 throw new GitOperationException("the index lock stayed held");

@@ -130,9 +130,9 @@ public sealed class GitOutputParsingTests
 
         Assert.Equal(
             [
-                new GitEngine.TreeChange('D', "1111111111111111111111111111111111111111", _zero, "Data/gone file.txt"),
-                new GitEngine.TreeChange('A', _zero, "2222222222222222222222222222222222222222", "new.txt"),
-                new GitEngine.TreeChange('M', "3333333333333333333333333333333333333333", "4444444444444444444444444444444444444444", "caf\u00e9.txt"),
+                new GitEngine.TreeChange('D', "1111111111111111111111111111111111111111", _zero, "Data/gone file.txt", "000000"),
+                new GitEngine.TreeChange('A', _zero, "2222222222222222222222222222222222222222", "new.txt", "100644"),
+                new GitEngine.TreeChange('M', "3333333333333333333333333333333333333333", "4444444444444444444444444444444444444444", "caf\u00e9.txt", "100644"),
             ],
             changes);
     }

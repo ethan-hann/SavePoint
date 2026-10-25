@@ -140,7 +140,7 @@ public sealed class IndexAlignmentTests : IDisposable
         var gate = Path.Combine(repo.GitDir, "index.lock");
         _ws.OnInvoke = invocation =>
         {
-            if (invocation.Arguments[0] == "reset")
+            if (EngineWorkspace.IsIndexAlignment(invocation))
             {
                 File.WriteAllText(gate, string.Empty);
             }
@@ -168,7 +168,7 @@ public sealed class IndexAlignmentTests : IDisposable
         var armed = true;
         _ws.OnInvoke = invocation =>
         {
-            if (armed && invocation.Arguments[0] == "reset")
+            if (armed && EngineWorkspace.IsIndexAlignment(invocation))
             {
                 armed = false;
                 _ws.Write(repo, "logs", "the player's edit");
@@ -185,15 +185,15 @@ public sealed class IndexAlignmentTests : IDisposable
         Assert.Equal(["logs"], (await _ws.Engine.GetStatusAsync(repo, Ct)).ChangedPaths);
     }
 
-    // Every reset fails, as it does when git's lock stays held: the switch is refused whole, with no note and a clean folder.
+    // Every write of the aligned index fails, as it does when git's lock stays held: the switch is refused whole, with no note and a clean folder.
     [Fact]
-    public async Task A_switch_whose_every_reset_fails_leaves_no_note_and_a_clean_folder()
+    public async Task A_switch_whose_every_alignment_write_fails_leaves_no_note_and_a_clean_folder()
     {
         var repo = await LogsAsync();
         var before = await IndexAsync(repo);
         _ws.OnInvoke = invocation =>
         {
-            if (invocation.Arguments[0] == "reset")
+            if (EngineWorkspace.IsIndexAlignment(invocation))
             {
                 throw new GitOperationException("the index lock stayed held");
             }

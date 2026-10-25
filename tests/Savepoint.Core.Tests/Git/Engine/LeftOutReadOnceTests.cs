@@ -428,4 +428,234 @@ public sealed class LeftOutReadOnceTests : IDisposable
         var debug = (await _ws.GitAsync(repo, "ls-files", "--debug", "--", _cache)).StandardOutput;
         Assert.DoesNotContain("size: 0", debug);
     }
+
+    // The id and mode the index holds for a path ("100644 <id>"); empty when it has no entry.
+    private async Task<string> IndexEntryAsync(RepoRef repo, string path)
+    {
+        var line = (await _ws.GitAsync(repo, "ls-files", "-s", "-z", "--", path)).SplitStandardOutputOnNul().SingleOrDefault();
+        return line is null ? string.Empty : string.Join(' ', line.Split('\t')[0].Split(' ').Take(2));
+    }
+
+    private async Task<string> TargetEntryAsync(RepoRef repo, string branch, string path)
+    {
+        var line = (await _ws.GitAsync(repo, "ls-tree", "-z", branch, "--", path)).SplitStandardOutputOnNul().Single();
+        var fields = line.Split('\t')[0].Split(' ');
+        return $"{fields[0]} {fields[2]}";
+    }
+
+    // A file whose size is not the target's blob's cannot hold the target's bytes, so there is nothing for git to find out by reading it:
+    // the entry is written from the switch plan, which is what keeps a big cache from being read on every switch.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_left_out_file_of_another_size_than_the_target_is_aligned_without_a_reset(bool force)
+    {
+        var repo = await CacheAsync();
+        var before = _ws.Invocations.Count;
+
+        await SwitchAsync(repo, "profile-b", force);
+
+        Assert.DoesNotContain(_ws.Invocations.Skip(before), call => call.Arguments[0] == "reset");
+        Assert.Equal(await TargetEntryAsync(repo, "profile-b", _cache), await IndexEntryAsync(repo, _cache));
+        Assert.Equal("profile a's cache", File.ReadAllText(_ws.FileOf(repo, _cache)));
+    }
+
+    // The size alone cannot tell the bytes apart; such a file is read, and the entry still says what the target says.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_left_out_file_the_size_of_the_target_with_other_bytes_is_aligned_to_the_targets_entry_and_kept(bool force)
+    {
+        var repo = await CacheAsync();
+        var lookalike = new string('x', "profile b's cache, a different length".Length);
+        _ws.Write(repo, _cache, lookalike);
+
+        await SwitchAsync(repo, "profile-b", force);
+
+        Assert.Equal(await TargetEntryAsync(repo, "profile-b", _cache), await IndexEntryAsync(repo, _cache));
+        Assert.Equal(lookalike, File.ReadAllText(_ws.FileOf(repo, _cache)));
+        Assert.Empty(await MarkedAsync(repo));
+        var status = await _ws.Engine.GetStatusAsync(repo, Ct);
+        Assert.True(status.IsClean, "changed: " + string.Join(", ", status.ChangedPaths) + "; new: " + string.Join(", ", status.UntrackedPaths));
+    }
+
+    // Names with spaces and non-ASCII letters reach git whole.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_left_out_file_with_spaces_and_accents_in_its_name_is_aligned(bool force)
+    {
+        const string name = "Cache/mod pack/café [draft] 1.bin";
+        var repo = await _ws.InitializedFreshAsync();
+        _ws.Write(repo, name, "profile a's bytes");
+        await _ws.CaptureAsync(repo, "profile-a", "A");
+        await _ws.Engine.CreateBranchAsync(repo, "profile-b", "profile-a", Ct);
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-b", ct: Ct);
+        _ws.Write(repo, name, "profile b's bytes, longer");
+        await _ws.CaptureAsync(repo, "profile-b", "B");
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+        repo = repo with { IgnorePatterns = ["Cache/"] };
+
+        await SwitchAsync(repo, "profile-b", force);
+
+        Assert.Equal(await TargetEntryAsync(repo, "profile-b", name), await IndexEntryAsync(repo, name));
+        Assert.Equal("profile a's bytes", File.ReadAllText(_ws.FileOf(repo, name)));
+    }
+
+    // A file the target lacks leaves the index; its file stays where the player has it.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_left_out_file_the_target_lacks_leaves_the_index_and_stays_on_disk(bool force)
+    {
+        var repo = await _ws.InitializedFreshAsync();
+        _ws.Write(repo, "Cache/only-a.bin", "only in a");
+        _ws.Write(repo, "Cache/both.bin", "in both, as a has it");
+        await _ws.CaptureAsync(repo, "profile-a", "A");
+        await _ws.Engine.CreateBranchAsync(repo, "profile-b", "profile-a", Ct);
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-b", ct: Ct);
+        _ws.Delete(repo, "Cache/only-a.bin");
+        _ws.Write(repo, "Cache/both.bin", "in both, as b has it");
+        await _ws.CaptureAsync(repo, "profile-b", "B");
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+        repo = repo with { IgnorePatterns = ["Cache/"] };
+
+        await SwitchAsync(repo, "profile-b", force);
+
+        Assert.Equal(string.Empty, await IndexEntryAsync(repo, "Cache/only-a.bin"));
+        Assert.Equal(await TargetEntryAsync(repo, "profile-b", "Cache/both.bin"), await IndexEntryAsync(repo, "Cache/both.bin"));
+        Assert.Equal("only in a", File.ReadAllText(_ws.FileOf(repo, "Cache/only-a.bin")));
+        Assert.Empty(await MarkedAsync(repo));
+    }
+
+    // A name that differs only in case is one file on Windows and macOS: after the switch one entry remains, with the target's id.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_left_out_file_renamed_only_in_case_ends_with_one_entry_that_has_the_targets_id(bool force)
+    {
+        var repo = await _ws.InitializedFreshAsync();
+        _ws.Write(repo, "Cache/Big.bin", "profile a's cache");
+        await _ws.CaptureAsync(repo, "profile-a", "A");
+        await _ws.Engine.CreateBranchAsync(repo, "profile-b", "profile-a", Ct);
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-b", ct: Ct);
+        _ws.Delete(repo, "Cache/Big.bin");
+        _ws.Write(repo, "Cache/big.bin", "profile b's cache, a different length");
+
+        // A drive that ignores case keeps the old spelling in the index, so the rename is made there on purpose.
+        await _ws.GitWriteAsync(repo, "rm", "--cached", "-q", "--", "Cache/Big.bin");
+        await _ws.CaptureAsync(repo, "profile-b", "B");
+        Assert.Equal("Cache/big.bin", (await _ws.GitAsync(repo, "ls-tree", "-r", "--name-only", "profile-b")).StandardOutput.Trim());
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+        repo = repo with { IgnorePatterns = ["Cache/"] };
+
+        await SwitchAsync(repo, "profile-b", force);
+
+        var listed = (await _ws.GitAsync(repo, "ls-files", "-s", "-z", "--", "Cache")).SplitStandardOutputOnNul();
+        var entry = Assert.Single(listed);
+        var target = await TargetEntryAsync(repo, "profile-b", "Cache/big.bin");
+        Assert.StartsWith(target, entry, StringComparison.Ordinal);
+    }
+
+    // profile-a holds three left-out files: one the same size as profile-b's (it might already hold b's bytes), one of another size, and
+    // one profile-b lacks. The folder is on profile-a.
+    private async Task<RepoRef> MixedAsync()
+    {
+        var repo = await _ws.InitializedFreshAsync();
+        _ws.Write(repo, "Cache/same-size.bin", "one");
+        _ws.Write(repo, "Cache/other-size.bin", "short");
+        _ws.Write(repo, "Cache/only-a.bin", "only in a");
+        await _ws.CaptureAsync(repo, "profile-a", "A");
+        await _ws.Engine.CreateBranchAsync(repo, "profile-b", "profile-a", Ct);
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-b", ct: Ct);
+        _ws.Write(repo, "Cache/same-size.bin", "two");
+        _ws.Write(repo, "Cache/other-size.bin", "a much longer text");
+        _ws.Delete(repo, "Cache/only-a.bin");
+        await _ws.CaptureAsync(repo, "profile-b", "B");
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+        return repo with { IgnorePatterns = ["Cache/"] };
+    }
+
+    private async Task<string> FullIndexAsync(RepoRef repo) =>
+        string.Join('\n', (await _ws.GitAsync(repo, "ls-files", "-s", "-t", "-z")).SplitStandardOutputOnNul());
+
+    // Removals go in first, the reset sees only the path that might hold the target's bytes, and the entries written from the plan follow.
+    [Fact]
+    public async Task A_switch_with_a_same_size_file_and_a_different_size_file_resets_only_the_first_and_writes_the_rest_around_it()
+    {
+        var repo = await MixedAsync();
+        var before = _ws.Invocations.Count;
+
+        await SwitchAsync(repo, "profile-b", force: false);
+
+        // The capture of an earlier snapshot also writes entries with --add; only the switch's own calls are looked at.
+        var calls = _ws.Invocations.Skip(before).Where(EngineWorkspace.IsIndexAlignment).Where(call => !call.Arguments.Contains("--add")).ToList();
+        Assert.Equal(3, calls.Count);
+        Assert.Equal("update-index", calls[0].Arguments[0]);
+        Assert.StartsWith("0 ", calls[0].Stdin, StringComparison.Ordinal);
+        Assert.Contains("Cache/only-a.bin", calls[0].Stdin, StringComparison.Ordinal);
+        Assert.DoesNotContain("other-size", calls[0].Stdin, StringComparison.Ordinal);
+        Assert.Equal("reset", calls[1].Arguments[0]);
+        Assert.Equal("Cache/same-size.bin\0", calls[1].Stdin);
+        Assert.Equal("update-index", calls[2].Arguments[0]);
+        Assert.Contains("Cache/other-size.bin", calls[2].Stdin, StringComparison.Ordinal);
+        Assert.DoesNotContain("same-size", calls[2].Stdin, StringComparison.Ordinal);
+    }
+
+    // The reset worked and the entries from the plan then fail to go in: the index is put back as it was, with no note.
+    [Fact]
+    public async Task A_failure_writing_the_entries_after_the_reset_puts_the_original_index_back()
+    {
+        var repo = await MixedAsync();
+        var before = await FullIndexAsync(repo);
+        var reset = false;
+        _ws.OnInvoke = call =>
+        {
+            if (call.Arguments[0] == "reset" && EngineWorkspace.IsIndexAlignment(call))
+            {
+                reset = true;
+            }
+            else if (reset && EngineWorkspace.IsIndexAlignment(call))
+            {
+                throw new GitOperationException("the index lock stayed held");
+            }
+        };
+
+        await Assert.ThrowsAsync<GitOperationException>(() => SwitchAsync(repo, "profile-b", force: false));
+
+        _ws.OnInvoke = null;
+        Assert.True(reset);
+        Assert.Equal(before, await FullIndexAsync(repo));
+        Assert.Null(SwitchJournal.Read(repo.GitDir));
+        Assert.Empty(Directory.EnumerateFiles(repo.GitDir, "savepoint-align-*"));
+        Assert.Equal("refs/heads/profile-a", await _ws.HeadRefAsync(repo));
+    }
+
+    // Windows cannot hold some names a snapshot can record (a colon in a name). git leaves such a name out of the named paths without
+    // failing, so the switch must still be refused, with the name.
+    [Fact]
+    public async Task A_name_the_system_cannot_hold_refuses_the_switch_and_names_it()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows refuses names with a colon");
+        var repo = await _ws.InitializedFreshAsync();
+        _ws.Write(repo, "Cache/ok.bin", "fine");
+        await _ws.CaptureAsync(repo, "profile-a", "A");
+        await _ws.Engine.CreateBranchAsync(repo, "profile-b", "profile-a", Ct);
+        var blob = (await PlumbingAsync(repo, "x", "hash-object", "-w", "--stdin")).Trim();
+        var cache = (await PlumbingAsync(repo, $"100644 blob {blob}\ta:b.bin\n100644 blob {blob}\tok.bin\n", "mktree")).Trim();
+        var root = (await PlumbingAsync(repo, $"040000 tree {cache}\tCache\n", "mktree")).Trim();
+        var parent = (await _ws.GitOutAsync(repo, "rev-parse", "profile-a")).Trim();
+        var commit = (await PlumbingAsync(repo, string.Empty, "commit-tree", root, "-p", parent, "-m", "B")).Trim();
+        await _ws.GitWriteAsync(repo, "update-ref", "refs/heads/profile-b", commit);
+        repo = repo with { IgnorePatterns = ["Cache/"] };
+
+        var thrown = await Record.ExceptionAsync(() => SwitchAsync(repo, "profile-b", force: false));
+
+        Assert.IsType<GitOperationException>(thrown);
+        Assert.Contains("a:b.bin", thrown.Message, StringComparison.Ordinal);
+        Assert.Equal("refs/heads/profile-a", await _ws.HeadRefAsync(repo));
+    }
+
+    private async Task<string> PlumbingAsync(RepoRef repo, string stdin, params string[] arguments) =>
+        (await _ws.Runner.RunAsync(new GitInvocation(arguments) { GitDir = repo.GitDir, WorkTree = repo.WorkTree, Stdin = stdin }, Ct)).StandardOutput;
 }

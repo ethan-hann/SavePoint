@@ -11,11 +11,13 @@ public sealed partial class GitEngine
     // Everything a switch is expected to change, known before git starts. Files the game's patterns name are not in it: the switch
     // leaves them alone, so they are listed apart. NamedInTarget is the part of Named that the target holds. Written is what git
     // writes as files, Removed what it removes (by the system's own idea of a name, which ignores case on Windows and macOS).
+    // NamedChanges is what the target says about each of the Named paths, one change per path.
     private sealed record SwitchPlan(
         IReadOnlyList<TreeChange> Changes,
         IReadOnlySet<string> Touched,
         IReadOnlyList<GoneFile> Gone,
         IReadOnlySet<string> Named,
+        IReadOnlyList<TreeChange> NamedChanges,
         IReadOnlySet<string> NamedInTarget,
         IReadOnlySet<string> Written,
         IReadOnlySet<string> Removed);
@@ -89,6 +91,7 @@ public sealed partial class GitEngine
             paths.Where(path => !named.Contains(path)).ToHashSet(StringComparer.Ordinal),
             gone,
             named,
+            [.. all.Where(change => named.Contains(change.Path)).DistinctBy(change => change.Path, StringComparer.Ordinal)],
             all.Where(change => change.Status != 'D' && named.Contains(change.Path)).Select(change => change.Path).ToHashSet(StringComparer.Ordinal),
             all.Where(change => change.Status != 'D' && !named.Contains(change.Path)).Select(change => change.Path).ToHashSet(StringComparer.Ordinal),
             all.Where(change => change.Status == 'D' && !named.Contains(change.Path)).Select(change => change.Path).ToHashSet(comparer));
