@@ -190,7 +190,7 @@ internal sealed class CaptureRunner
         IReadOnlyDictionary<RepoRole, FolderCapturePlan>? plans)
     {
         var repos = GameFolders.Repos(_services, storage, game).Where(repo => roles.Contains(repo.Role)).ToList();
-        var progress = new CaptureProgressCombiner(context.Progress);
+        var progress = new CaptureProgressCombiner(context.Progress, context.AddLine);
         context.AddStep(JobSteps.CaptureStart, ("profile", profile.Name), ("snapshot", pointName));
 
         // The two folders are separate repositories, so they are saved side by side; one failing never stops the other.

@@ -1,3 +1,5 @@
+using Savepoint.Core.Api;
+
 namespace Savepoint.Core.Tests.Backend;
 
 // What the job of a snapshot says about its progress once both folders have been copied.
@@ -15,6 +17,26 @@ public class CaptureJobProgressTests
         Assert.True(progress.BytesTotal > 0, "the bytes to copy were never reported");
         Assert.Equal(progress.BytesTotal, progress.BytesDone);
         Assert.Equal(progress.FilesTotal, progress.FilesDone);
+    }
+
+    [Fact]
+    public async Task Every_file_a_snapshot_copies_is_listed_in_the_details_once()
+    {
+        using var workspace = new BackendWorkspace();
+        var game = workspace.NewGame();
+        for (var i = 0; i < 150; i++)
+        {
+            File.WriteAllText(Path.Combine(game.Install.Path, "data", $"part{i:D3}.bin"), $"content {i}");
+        }
+
+        game = await workspace.AddGameAsync(game);
+
+        var (_, job) = await workspace.CreateProfileAsync(game);
+
+        var listed = job.RecentLines.OfType<JobLine.FilePath>().Select(line => line.Path).ToList();
+        var expected = Enumerable.Range(0, 150).Select(i => $"data/part{i:D3}.bin").ToList();
+        Assert.Equal(expected, listed.Where(path => path.StartsWith("data/part", StringComparison.Ordinal)).Order(StringComparer.Ordinal).ToList());
+        Assert.Equal(listed.Count, listed.Distinct().Count());
     }
 
     [Fact]

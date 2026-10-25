@@ -5,7 +5,7 @@ using Savepoint.Core.Git;
 namespace Savepoint.Core.Services.Profiles;
 
 // Both folders report into one bar: files and bytes add up, and a total stays unknown until every folder has given its own.
-internal sealed class CaptureProgressCombiner(IProgress<JobProgress> sink)
+internal sealed class CaptureProgressCombiner(IProgress<JobProgress> sink, Action<JobLine>? addLine = null)
 {
     private readonly Lock _gate = new();
     private readonly Dictionary<RepoRole, FileProgress> _parts = [];
@@ -34,6 +34,7 @@ internal sealed class CaptureProgressCombiner(IProgress<JobProgress> sink)
         lock (_gate)
         {
             _parts[role] = value;
+            AddLines(role, value);
             var parts = _parts.Values;
             var counted = parts.Count == _expected;
             var filesTotal = counted && parts.All(part => part.FilesTotal is not null) ? parts.Sum(part => part.FilesTotal!.Value) : (int?)null;
@@ -43,6 +44,33 @@ internal sealed class CaptureProgressCombiner(IProgress<JobProgress> sink)
             // Only when no folder is still storing: a folder that is wrapping up must not hide another that has bytes to go.
             var finishing = counted && parts.Any(part => part.Finishing) && parts.All(part => part.Finishing || (part.BytesTotal is { } total && part.BytesDone >= total));
             sink.Report(new JobProgress(parts.Sum(part => part.FilesDone), filesTotal, bytesDone, bytesTotal, path, finishing));
+        }
+    }
+
+    // The caller holds the gate. The names come first so the progress that follows, which shows the last of them, finds its line already there.
+    private void AddLines(RepoRole role, FileProgress value)
+    {
+        if (addLine is null)
+        {
+            return;
+        }
+
+        foreach (var name in value.NewPaths ?? [])
+        {
+            addLine(JobLine.ForPath(name));
+        }
+
+        switch (value.Copying)
+        {
+            case { Path: { } path, Starting: true } file:
+                addLine(JobLine.ForStep(JobSteps.CaptureFileStart, ("path", path), ("bytesTotal", file.BytesTotal)));
+                break;
+            case { Path: { } path } file:
+                addLine(JobLine.ForStep(JobSteps.CaptureFileProgress, ("path", path), ("bytes", file.BytesDone), ("bytesTotal", file.BytesTotal)));
+                break;
+            case { } folder:
+                addLine(JobLine.ForStep(JobSteps.CaptureFolderProgress, ("folder", role), ("bytes", folder.BytesDone), ("bytesTotal", folder.BytesTotal)));
+                break;
         }
     }
 

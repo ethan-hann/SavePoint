@@ -23,6 +23,9 @@ public class JobLineFormatterTests
         JobLine.ForStep(JobSteps.CaptureFolderSkipped, ("folder", RepoRole.Install)),
         JobLine.ForStep(JobSteps.CaptureFolderFailed, ("folder", RepoRole.Install)),
         JobLine.ForStep(JobSteps.CaptureFolderKeptAsNew, ("folder", RepoRole.Install)),
+        JobLine.ForStep(JobSteps.CaptureFileStart, ("path", "Data/big.pak"), ("bytesTotal", 4_500_000_000L)),
+        JobLine.ForStep(JobSteps.CaptureFileProgress, ("path", "Data/big.pak"), ("bytes", 1_500_000_000L), ("bytesTotal", 4_500_000_000L)),
+        JobLine.ForStep(JobSteps.CaptureFolderProgress, ("folder", RepoRole.Install), ("bytes", 1_500_000_000L), ("bytesTotal", 4_500_000_000L)),
         JobLine.ForStep(JobSteps.LaunchSwitchFolder, ("folder", RepoRole.Install), ("profile", "Modded"), ("older", "no"), ("counted", "yes"), ("written", 4), ("removed", 1)),
         JobLine.ForStep(JobSteps.LaunchFolderInPlace, ("folder", RepoRole.External), ("profile", "Modded")),
         JobLine.ForStep(JobSteps.LaunchFolderNotIncluded, ("folder", RepoRole.External)),
@@ -74,6 +77,14 @@ public class JobLineFormatterTests
     public void A_byte_count_is_shown_as_a_size()
     {
         Assert.Equal("Freed 1.5 MB for Skyrim.", Format(_samples[JobSteps.CompactFreed]));
+    }
+
+    [Fact]
+    public void Every_byte_count_of_a_step_is_shown_as_a_size()
+    {
+        Assert.Equal("Copying Data/big.pak (4.5 GB). A large file like this takes a while.", Format(_samples[JobSteps.CaptureFileStart]));
+        Assert.Equal("Still copying Data/big.pak: 1.5 GB of 4.5 GB so far.", Format(_samples[JobSteps.CaptureFileProgress]));
+        Assert.Equal("Still copying the game folder: 1.5 GB of 4.5 GB so far.", Format(_samples[JobSteps.CaptureFolderProgress]));
     }
 
     [Fact]

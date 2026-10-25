@@ -396,10 +396,15 @@ public sealed partial class GitEngine
 
         var reporter = progress is null ? null : new ProgressReporter(progress, time: _options.Clock);
         reporter?.SetTotal(listing.Files.Count);
+        IReadOnlyList<StagingBatch> batches = [new StagingBatch(listing.Files, 0, false)];
         if (reporter is not null)
         {
-            reporter.SetByteTotal(await SizeOfAsync(repo, listing.Files, ct).ConfigureAwait(false));
+            var sizes = await SizesOfAsync(repo, listing.Files, ct).ConfigureAwait(false);
+            reporter.SetByteTotal(sizes.Sum());
             reporter.Start();
+
+            // git holds a file's name back until its whole add ends, so a watched capture adds in groups to hear the names as it goes.
+            batches = StagingBatches.Plan(listing.Files, sizes, _options.StagingLimits);
         }
 
         // git prints a file's line only once it is stored, and holds the lines back while it works, so a large file shows nothing
@@ -407,14 +412,20 @@ public sealed partial class GitEngine
         using var stopWatching = new CancellationTokenSource();
         var watching = reporter is null ? Task.CompletedTask : WatchStoreAsync(repo, reporter, stopWatching.Token);
 
-        // The names go on stdin and are literal (a file called [a].txt is not a pattern); -f is safe because the list was made with the exclude list applied.
-        var staging = Invocation(repo, readOnly: false, reporter is null ? ["add", "-A", "-f"] : ["add", "-A", "-f", "--verbose"]).WithPathspecs(listing.Files);
         var staged = false;
         try
         {
-            await RunWriteAsync(
-                () => staging with { OnStdoutLine = reporter is null ? null : line => ObserveAddLine(reporter, line) },
-                ct).ConfigureAwait(false);
+            foreach (var batch in batches)
+            {
+                // The names go on stdin and are literal (a file called [a].txt is not a pattern); -f is safe because the list was made with the exclude list applied.
+                var staging = Invocation(repo, readOnly: false, reporter is null ? ["add", "-A", "-f"] : ["add", "-A", "-f", "--verbose"]).WithPathspecs(batch.Files);
+                reporter?.BeginBatch(batch.Solo ? batch.Files[0] : null, batch.Bytes);
+                await RunWriteAsync(
+                    () => staging with { OnStdoutLine = reporter is null ? null : line => ObserveAddLine(reporter, line) },
+                    ct).ConfigureAwait(false);
+                reporter?.EndBatch();
+            }
+
             staged = true;
         }
         catch (GitOperationException e) when (FirstHeldFileNamedBy(repo, e.StandardError ?? e.Message) is { } held)
@@ -446,14 +457,14 @@ public sealed partial class GitEngine
         return StagingByteSampler.RunAsync(() => size(objects), reporter, wait, stop);
     }
 
-    // The bytes the files will add to the store; a file that is gone counts for nothing.
-    private static async Task<long> SizeOfAsync(RepoRef repo, IReadOnlyList<string> paths, CancellationToken ct)
+    // The bytes each file will add to the store; a file that is gone counts for nothing.
+    private static async Task<long[]> SizesOfAsync(RepoRef repo, IReadOnlyList<string> paths, CancellationToken ct)
     {
         var sizes = new long[paths.Count];
         await Task.Run(
             () => Parallel.For(0, paths.Count, new ParallelOptions { CancellationToken = ct, MaxDegreeOfParallelism = Environment.ProcessorCount }, i => sizes[i] = Math.Max(SizeOrMissing(repo, paths[i]), 0)),
             ct).ConfigureAwait(false);
-        return sizes.Sum();
+        return sizes;
     }
 
     // Only the files git itself names are looked at: any other failure of adding the files is not a held file, whatever else is held.

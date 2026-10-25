@@ -16,7 +16,7 @@ public sealed class JobLineFormatter
 
     /// <summary>
     /// The text of one line: a path as it is, a step in the player's language. A step whose id this version does not know reads as a
-    /// plain sentence, never as the id. A <c>bytes</c> argument is shown as a size; every other value goes to the message as it is.
+    /// plain sentence, never as the id. An argument named <c>bytes</c>, or starting with it, is shown as a size; every other value goes to the message as it is.
     /// </summary>
     /// <param name="line">The line a job wrote.</param>
     public string Format(JobLine line) => line switch
@@ -31,7 +31,7 @@ public sealed class JobLineFormatter
         var arguments = new Dictionary<string, object?>();
         foreach (var (name, value) in step.Args)
         {
-            arguments[name] = name == "bytes" && value is int or long ? _text.FileSize(Convert.ToInt64(value, System.Globalization.CultureInfo.InvariantCulture)) : value;
+            arguments[name] = name.StartsWith("bytes", StringComparison.Ordinal) && value is int or long ? _text.FileSize(Convert.ToInt64(value, System.Globalization.CultureInfo.InvariantCulture)) : value;
         }
 
         return arguments;

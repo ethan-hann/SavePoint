@@ -49,6 +49,9 @@ public sealed class JobContext
         _addLine(JobLine.ForStep(messageId, args));
     }
 
+    // For work that already builds its lines.
+    internal void AddLine(JobLine line) => _addLine(line);
+
     /// <summary>
     /// Says the job has passed the point where stopping it would do harm, so its snapshot stops being cancellable and a later cancel is
     /// left alone. A job that cannot be stopped from here on calls it once, before the work that must finish.
