@@ -2,13 +2,17 @@ using System.Text.Json;
 
 // Usage: PackageSources archives <build/msys2-sources.json>
 //        PackageSources tags <build/git-manifest.json>
+//        PackageSources bundle <build/git-manifest.json> <runtime-id>
 // "archives" prints one "<file> <url> <sha256>" line per entry of "archives". "tags" prints one "<repository> <tag> <sha256>" line per
 // entry of "sources", sorted by key, and insists on exactly three. The hash is trimmed and lowercase, empty when the entry pins none.
-// build/package.sh reads both files through this, so the layout of the JSON cannot change what it reads. Exits 1 with a message when
-// the file is missing, unreadable or does not hold what it should, and 2 on a wrong command line.
-if (args.Length != 2 || args[0] is not ("archives" or "tags"))
+// "bundle" prints the git bundle of one runtime id as "key=value" lines (url, version, sha256, archive, layout, entry) followed by one
+// "prune=<pattern>" line per pattern of its layout's list, in the file's order; values with a control character are refused.
+// build/package.sh and build/fetch-git.sh read the files through this, so the layout of the JSON cannot change what they read. Exits 1
+// with a message when the file is missing, unreadable or does not hold what it should, and 2 on a wrong command line.
+var wanted = args.Length > 0 && args[0] == "bundle" ? 3 : 2;
+if (args.Length != wanted || args[0] is not ("archives" or "tags" or "bundle"))
 {
-    Console.Error.WriteLine("usage: PackageSources archives <msys2-sources.json> | PackageSources tags <git-manifest.json>");
+    Console.Error.WriteLine("usage: PackageSources archives <msys2-sources.json> | PackageSources tags <git-manifest.json> | PackageSources bundle <git-manifest.json> <runtime-id>");
     return 2;
 }
 
@@ -16,7 +20,12 @@ var path = args[1];
 try
 {
     using var document = JsonDocument.Parse(File.ReadAllText(path));
-    var lines = args[0] == "archives" ? Archives(document.RootElement) : Tags(document.RootElement);
+    var lines = args[0] switch
+    {
+        "archives" => Archives(document.RootElement),
+        "tags" => Tags(document.RootElement),
+        _ => Bundle(document.RootElement, args[2]),
+    };
     if (lines is null)
     {
         return 1;
@@ -87,6 +96,42 @@ List<string>? Tags(JsonElement root)
     }
 
     return lines;
+}
+
+List<string>? Bundle(JsonElement root, string runtimeId)
+{
+    // "layouts" and "sources" are sections of the file, not runtime ids.
+    if (root.ValueKind != JsonValueKind.Object || runtimeId is "layouts" or "sources" || !root.TryGetProperty(runtimeId, out var entry) || entry.ValueKind != JsonValueKind.Object)
+    {
+        Console.Error.WriteLine($"{path} has no bundled git for runtime id '{runtimeId}'.");
+        return null;
+    }
+
+    var fields = new[] { "url", "version", "sha256", "archive", "layout", "entry" }
+        .Select(name => (Name: name, Value: name == "sha256" ? Text(entry, name).ToLowerInvariant() : Text(entry, name))).ToList();
+    if (fields.Any(field => field.Value.Length == 0 || field.Value.Any(char.IsControl)))
+    {
+        Console.Error.WriteLine($"{path} has an incomplete manifest entry for '{runtimeId}' (each of url, version, sha256, archive, layout and entry has to be a single line of text).");
+        return null;
+    }
+
+    var layout = fields.Single(field => field.Name == "layout").Value;
+    if (!root.TryGetProperty("layouts", out var layouts) || layouts.ValueKind != JsonValueKind.Object
+        || !layouts.TryGetProperty(layout, out var definition) || definition.ValueKind != JsonValueKind.Object
+        || !definition.TryGetProperty("prune", out var prune) || prune.ValueKind != JsonValueKind.Array || prune.GetArrayLength() == 0)
+    {
+        Console.Error.WriteLine($"{path} has no prune list for layout '{layout}'.");
+        return null;
+    }
+
+    var patterns = prune.EnumerateArray().Select(pattern => pattern.ValueKind == JsonValueKind.String ? pattern.GetString()! : null).ToList();
+    if (patterns.Any(pattern => pattern is null || pattern.Any(char.IsControl)))
+    {
+        Console.Error.WriteLine($"{path} has a prune pattern for layout '{layout}' that is not a single line of text.");
+        return null;
+    }
+
+    return [.. fields.Select(field => $"{field.Name}={field.Value}"), .. patterns.Select(pattern => $"prune={pattern}")];
 }
 
 static bool Usable(string value) => value.Length > 0 && !value.Any(char.IsWhiteSpace);
