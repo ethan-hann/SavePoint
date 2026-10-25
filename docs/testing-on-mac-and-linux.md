@@ -34,7 +34,7 @@ On Linux the AppImage can be tried as well: download `SavePoint.AppImage` from t
 
 - [ ] First run shows where snapshots are stored: `~/Library/Application Support/SavePoint/Storage` on macOS, `~/.local/share/savepoint/storage` on Linux (or under `$XDG_DATA_HOME`).
 - [ ] Add a game (a real one if possible, or `tools/FakeGame`, built by the gate), create a profile, play, keep the session, switch between two profiles, and use Go back from History.
-- [ ] Notifications appear when a game is ready and when a job finishes.
+- [ ] With the window in the background (unfocused or minimized), a notification appears when a snapshot, a switch, Free up space, a snapshot-folder move or Clear all data finishes, under the name "SavePoint". Starting a game shows none.
 - [ ] Starting SavePoint a second time brings the first window forward instead of opening another.
 - [ ] Turning on the OS's reduce-motion setting (macOS: Accessibility > Display > Reduce motion; GNOME: Settings > Accessibility > Reduce animation) makes progress show a still bar.
 - [ ] The tour, F1 help, and every question button (such as "What's a snapshot?") work, and the text is sharp (Retina or HiDPI).

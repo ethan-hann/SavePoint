@@ -48,12 +48,26 @@ public sealed class UiFormatter
     /// <param name="key">The catalog key.</param>
     public bool Knows(string key) => _catalog.Contains(key);
 
-    /// <summary>Formats a catalog message; <c>os</c> is supplied unless <paramref name="args"/> already has it.</summary>
+    /// <summary>
+    /// Formats a catalog message; <c>os</c> is supplied unless <paramref name="args"/> already has it. Each whole-number argument
+    /// also arrives as <c>{name}Text</c> with the language's group separators, for a message that shows the number inside a plural.
+    /// </summary>
     /// <exception cref="KeyNotFoundException">The key is missing and the catalog is set to throw.</exception>
     public string Message(string key, IReadOnlyDictionary<string, object?>? args = null)
     {
         var all = args is null ? [] : new Dictionary<string, object?>(args);
         all.TryAdd("os", Os);
+        if (args is not null)
+        {
+            foreach (var (name, value) in args)
+            {
+                if (value is int or long)
+                {
+                    all.TryAdd(name + "Text", Number(Convert.ToInt64(value, CultureInfo.InvariantCulture)));
+                }
+            }
+        }
+
         return _catalog.Format(key, all);
     }
 

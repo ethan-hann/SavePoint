@@ -110,6 +110,17 @@ public class PostPlayDialogViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Large_file_counts_are_written_with_group_separators()
+    {
+        var exited = await _rig.ExitedAsync(newFiles: 200_000, installFiles: 12_000);
+
+        var dialog = Build(exited);
+
+        Assert.Equal("200,000 files in your saves folder are new or changed since you started.", dialog.Body);
+        Assert.StartsWith("12,000 files in the game's own folder", dialog.InstallNote, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task A_short_session_is_titled_in_minutes()
     {
         var exited = await _rig.ExitedAsync();
