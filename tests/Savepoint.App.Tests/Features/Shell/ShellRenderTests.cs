@@ -22,7 +22,7 @@ public class ShellRenderTests
         new(ScenarioBuilder.Empty().WithSettings(AppSettings.Defaults(@"D:\SavePoint") with { Theme = theme }));
 
     private static FakeBackend WithSettings(ThemePreference theme) =>
-        new(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { Theme = theme }));
+        new(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Theme = theme }));
 
     private static void AssertRendered(string path) =>
         Assert.True(new FileInfo(path).Length > 10_000, "The render looks empty.");
@@ -32,7 +32,7 @@ public class ShellRenderTests
     {
         using var harness = await ShellViewHarness.StartAsync();
 
-        AssertRendered(harness.Render("3a-shell-sidebar-dark"));
+        AssertRendered(harness.Render("shell-sidebar-dark"));
     }
 
     [AvaloniaFact]
@@ -40,7 +40,7 @@ public class ShellRenderTests
     {
         using var harness = await ShellViewHarness.StartAsync(WithSettings(ThemePreference.Light), ThemePreference.Light);
 
-        AssertRendered(harness.Render("3a-shell-sidebar-light"));
+        AssertRendered(harness.Render("shell-sidebar-light"));
     }
 
     [AvaloniaFact]
@@ -48,7 +48,7 @@ public class ShellRenderTests
     {
         using var harness = await ShellViewHarness.LibraryLayoutAsync();
 
-        AssertRendered(harness.Render("3b-shell-library-dark"));
+        AssertRendered(harness.Render("shell-library-dark"));
     }
 
     [AvaloniaFact]
@@ -56,7 +56,7 @@ public class ShellRenderTests
     {
         using var harness = await ShellViewHarness.StartAsync(EmptyLibrary(ThemePreference.Dark));
 
-        AssertRendered(harness.Render("2e-first-run-dark"));
+        AssertRendered(harness.Render("first-run-dark"));
     }
 
     [AvaloniaFact]
@@ -64,16 +64,16 @@ public class ShellRenderTests
     {
         using var harness = await ShellViewHarness.StartAsync(EmptyLibrary(ThemePreference.Light), ThemePreference.Light);
 
-        AssertRendered(harness.Render("2e-first-run-light"));
+        AssertRendered(harness.Render("first-run-light"));
     }
 
     [AvaloniaFact]
     public async Task Collapsed_rail_light_renders_to_a_png()
     {
-        var backend = new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { Theme = ThemePreference.Light }));
+        var backend = new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Theme = ThemePreference.Light }));
         using var harness = await ShellViewHarness.StartAsync(backend, ThemePreference.Light, width: 760, height: 660);
 
-        AssertRendered(harness.Render("3a-shell-sidebar-collapsed-light"));
+        AssertRendered(harness.Render("shell-sidebar-collapsed-light"));
     }
 
     [AvaloniaFact]
@@ -81,15 +81,15 @@ public class ShellRenderTests
     {
         using var harness = await ShellViewHarness.StartAsync(width: 760, height: 660);
 
-        AssertRendered(harness.Render("3a-shell-sidebar-collapsed-dark"));
+        AssertRendered(harness.Render("shell-sidebar-collapsed-dark"));
     }
 
     [AvaloniaFact]
     public async Task Job_pill_and_toasts_dark_render_to_a_png()
     {
         using var harness = await ShellViewHarness.StartAsync();
-        FakeAssert.Ok(await harness.Backend.Profiles.CaptureAsync(MockupScenario.SkyrimId, MockupScenario.ModdedId, "A point"));
-        var finished = FakeAssert.Ok(await harness.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
+        FakeAssert.Ok(await harness.Backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "A point"));
+        var finished = FakeAssert.Ok(await harness.Backend.Games.OptimizeStorageAsync(SampleScenario.SatisfactoryId));
         harness.Backend.Jobs.Complete(finished.JobId);
         harness.Main.Toasts.Show(new ToastMessage("Something went wrong saving The Last Caretaker.", ToastKind.Error, "There's not enough free disk space to take this snapshot right now."));
 
@@ -114,7 +114,7 @@ public class ShellRenderTests
         var status = new StartupStatus(
             new GitStatus(false, path, null, ErrorInfo.From(new GitUnavailableException(path, "git exited with 127: not found", null))),
             new CatalogStatus(@"C:\Users\you\AppData\Roaming\SavePoint", []));
-        using var window = StartupWindow(new FakeBackend(ScenarioBuilder.Mockup().WithStartupStatus(status)), ThemePreference.Dark);
+        using var window = StartupWindow(new FakeBackend(ScenarioBuilder.Sample().WithStartupStatus(status)), ThemePreference.Dark);
         await window.Main.InitializeAsync();
 
         AssertRendered(window.Render("startup-git-unavailable-dark"));
@@ -134,7 +134,7 @@ public class ShellRenderTests
                     new CorruptCatalogFile(games, games + ".bak", ErrorInfo.From(new CatalogCorruptException(games, null))),
                     new CorruptCatalogFile(profiles, null, ErrorInfo.From(new CatalogCorruptException(profiles, null))),
                 ]));
-        using var window = StartupWindow(new FakeBackend(ScenarioBuilder.Mockup().WithStartupStatus(status)), ThemePreference.Dark);
+        using var window = StartupWindow(new FakeBackend(ScenarioBuilder.Sample().WithStartupStatus(status)), ThemePreference.Dark);
         await window.Main.InitializeAsync();
 
         AssertRendered(window.Render("startup-corrupt-catalog-dark"));
@@ -147,7 +147,7 @@ public class ShellRenderTests
         var gallery = new ErrorCardGallery { DataContext = new ErrorCardGalleryViewModel(text) };
         using var host = new ThemeHost(gallery, ThemePreference.Dark, width: 1040, height: 660);
         Dispatcher.UIThread.RunJobs();
-        var path = ThemeTestSupport.SaveFrame(host.Window, Path.Combine(ShellViewHarness.OutputFolder, "2l-error-states-dark.png"));
+        var path = ThemeTestSupport.SaveFrame(host.Window, Path.Combine(ShellViewHarness.OutputFolder, "error-states-dark.png"));
 
         AssertRendered(path);
     }
@@ -183,6 +183,10 @@ public class ShellRenderTests
             return ThemeTestSupport.SaveFrame(_host.Window, Path.Combine(ShellViewHarness.OutputFolder, fileName + ".png"));
         }
 
-        public void Dispose() => _host.Dispose();
+        public void Dispose()
+        {
+            Main.Dispose();
+            _host.Dispose();
+        }
     }
 }

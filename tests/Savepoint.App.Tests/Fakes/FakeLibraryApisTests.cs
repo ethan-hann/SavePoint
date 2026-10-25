@@ -2,7 +2,7 @@ using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 using static Savepoint.App.Tests.Fakes.FakeAssert;
-using static Savepoint.App.Tests.Fakes.MockupScenario;
+using static Savepoint.App.Tests.Fakes.SampleScenario;
 
 namespace Savepoint.App.Tests.Fakes;
 
@@ -85,7 +85,7 @@ public class FakeLibraryApisTests
     [Fact]
     public async Task Updating_a_game_replaces_its_definition()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var moved = Skyrim with { Install = new InstallLocation(@"E:\Games\SkyrimSE") };
 
         await backend.Games.UpdateAsync(moved);
@@ -96,7 +96,7 @@ public class FakeLibraryApisTests
     [Fact]
     public async Task Deleting_a_running_game_is_refused()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         await backend.Launch.StartAsync(SkyrimId, new LaunchTarget.ProfileTip(ModdedId));
 
         var result = await backend.Games.DeleteAsync(SkyrimId);
@@ -108,7 +108,7 @@ public class FakeLibraryApisTests
     [Fact]
     public async Task Deleting_a_game_removes_its_profiles_and_history()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
         await backend.Games.DeleteAsync(SkyrimId);
 
@@ -120,7 +120,7 @@ public class FakeLibraryApisTests
     [Fact]
     public async Task Paths_resolve_their_tokens()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
         var resolved = await backend.Games.ResolvePathAsync(SkyrimSavesRaw, Ct);
 
@@ -130,7 +130,7 @@ public class FakeLibraryApisTests
     [Fact]
     public async Task Executables_come_from_the_script_or_the_game_installed_there()
     {
-        var backend = new FakeBackend(ScenarioBuilder.Mockup().WithExecutables(@"C:\Games\Other", @"bin\Other.exe", "Launcher.exe"));
+        var backend = new FakeBackend(ScenarioBuilder.Sample().WithExecutables(@"C:\Games\Other", @"bin\Other.exe", "Launcher.exe"));
 
         var scripted = await backend.Games.ListExecutablesAsync(@"C:\Games\Other", string.Empty, Ct);
         var fromGame = await backend.Games.ListExecutablesAsync(SkyrimInstall, string.Empty, Ct);
@@ -165,7 +165,7 @@ public class FakeLibraryApisTests
     [Fact]
     public async Task Creating_a_profile_adds_it_and_starts_a_capture_of_every_folder()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
         var started = await backend.Profiles.CreateAsync(SkyrimId, "Modded playthrough - 8-8-26", "Nolvus v6", "Nolvus v6");
 
@@ -184,7 +184,7 @@ public class FakeLibraryApisTests
     [Fact]
     public async Task A_new_profile_gets_empty_row_stats_until_the_service_knows_more()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         await backend.Profiles.CreateAsync(SkyrimId, "Fresh", null, "Fresh");
         var created = Ok(await backend.Profiles.ListAsync(SkyrimId, Ct)).Single(p => p.Name == "Fresh");
 
@@ -199,7 +199,7 @@ public class FakeLibraryApisTests
     [Fact]
     public async Task Capturing_one_folder_reports_only_that_folder()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var id = Ok(await backend.Profiles.CaptureAsync(SkyrimId, SurvivalId, "Before switching", [RepoRole.External])).JobId;
 
         backend.Jobs.Complete(id);
@@ -211,7 +211,7 @@ public class FakeLibraryApisTests
     [Fact]
     public async Task Capturing_for_an_unknown_profile_fails_without_a_job()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
         var result = await backend.Profiles.CaptureAsync(SkyrimId, "nobody-0000", "x");
 
@@ -223,7 +223,7 @@ public class FakeLibraryApisTests
     [Fact]
     public async Task Capturing_a_profile_that_is_not_loaded_is_refused_without_a_job()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
         var result = await backend.Profiles.CaptureAsync(SkyrimId, SurvivalId, "Not loaded");
 
@@ -237,7 +237,7 @@ public class FakeLibraryApisTests
     [Fact]
     public async Task Capturing_particular_folders_of_a_profile_that_is_not_loaded_is_let_through()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
         var result = await backend.Profiles.CaptureAsync(SkyrimId, SurvivalId, "Its own changes", [RepoRole.External]);
 
@@ -249,7 +249,7 @@ public class FakeLibraryApisTests
     public async Task A_profile_with_no_snapshot_yet_can_take_its_first_while_another_profile_is_loaded()
     {
         var fresh = new Profile("profile-fresh", SkyrimId, "Fresh profile", "profile/profile-fresh");
-        var backend = new FakeBackend(ScenarioBuilder.Mockup().WithProfile(
+        var backend = new FakeBackend(ScenarioBuilder.Sample().WithProfile(
             fresh,
             new ProfileRowStats(fresh.Id, false, [], 0, null, null, null, null, false, SnapshotNowAvailability.FirstSnapshot)));
 
@@ -262,7 +262,7 @@ public class FakeLibraryApisTests
     [Fact]
     public async Task Creating_a_profile_loads_it_and_leaves_the_one_loaded_before_not_loaded()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         Ok(await backend.Profiles.CreateAsync(SkyrimId, "Newest", null, "Newest"));
         var newest = Ok(await backend.Profiles.ListAsync(SkyrimId, Ct)).Single(p => p.Name == "Newest");
 
@@ -277,7 +277,7 @@ public class FakeLibraryApisTests
     [Fact]
     public async Task Updating_a_profile_changes_only_the_user_fields()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
         var result = await backend.Profiles.UpdateAsync(SkyrimId, VanillaId, new ProfileChanges("Vanilla", "clean install", "1.6.1179"));
 
@@ -294,7 +294,7 @@ public class FakeLibraryApisTests
     [Fact]
     public async Task Duplicating_adds_an_inactive_copy_with_the_source_stats()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
         var copy = Ok(await backend.Profiles.DuplicateAsync(SkyrimId, ModdedId, "Modded copy"));
 
@@ -308,7 +308,7 @@ public class FakeLibraryApisTests
     [Fact]
     public async Task The_delete_preview_counts_points_only_that_profile_holds()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
         var preview = Ok(await backend.Profiles.GetDeletePreviewAsync(SkyrimId, SurvivalId, Ct));
 
@@ -321,7 +321,7 @@ public class FakeLibraryApisTests
     [Fact]
     public async Task The_active_profile_cannot_be_deleted_and_its_preview_says_why()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
         var preview = Ok(await backend.Profiles.GetDeletePreviewAsync(SkyrimId, ModdedId, Ct));
         var result = await backend.Profiles.DeleteAsync(SkyrimId, ModdedId);
@@ -334,7 +334,7 @@ public class FakeLibraryApisTests
     [Fact]
     public async Task Deleting_a_profile_removes_it_with_its_points()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
         var result = await backend.Profiles.DeleteAsync(SkyrimId, SurvivalId);
 
@@ -346,7 +346,7 @@ public class FakeLibraryApisTests
     [Fact]
     public async Task Optimizing_records_the_date_once_it_finishes()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var id = Ok(await backend.Games.OptimizeStorageAsync(SkyrimId)).JobId;
         backend.Clock.Advance(TimeSpan.FromMinutes(5));
 
@@ -361,7 +361,7 @@ public class FakeLibraryApisTests
     [Fact]
     public async Task Optimizing_everything_is_one_job_across_every_game()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var id = Ok(await backend.Settings.OptimizeAllStorageAsync()).JobId;
 
         backend.Jobs.Complete(id);
@@ -374,21 +374,21 @@ public class FakeLibraryApisTests
     [Fact]
     public async Task Saving_settings_keeps_the_storage_root_and_last_optimized_date()
     {
-        var backend = FakeBackend.Mockup();
-        var changed = MockupScenario.Settings with { Layout = ShellLayout.Library, StorageRoot = @"E:\Elsewhere", LastOptimizedAt = null };
+        var backend = FakeBackend.Sample();
+        var changed = SampleScenario.Settings with { Layout = ShellLayout.Library, StorageRoot = @"E:\Elsewhere", LastOptimizedAt = null };
 
         var saved = Ok(await backend.Settings.SaveAsync(changed));
 
         Assert.Equal(ShellLayout.Library, saved.Layout);
         Assert.Equal(StorageRoot, saved.StorageRoot);
-        Assert.Equal(MockupScenario.Settings.LastOptimizedAt, saved.LastOptimizedAt);
+        Assert.Equal(SampleScenario.Settings.LastOptimizedAt, saved.LastOptimizedAt);
         Assert.Equal(saved, (await backend.Settings.GetAsync(Ct)).Value);
     }
 
     [Fact]
     public async Task The_relocation_preview_lists_what_moves()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
         var preview = Ok(await backend.Settings.GetRelocationPreviewAsync(@"E:\SavePoint", Ct));
 
@@ -402,7 +402,7 @@ public class FakeLibraryApisTests
     [Fact]
     public async Task A_running_game_blocks_relocation_and_clearing()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         await backend.Launch.StartAsync(SkyrimId, new LaunchTarget.ProfileTip(ModdedId));
 
         var preview = Ok(await backend.Settings.GetRelocationPreviewAsync(@"E:\SavePoint", Ct));
@@ -419,7 +419,7 @@ public class FakeLibraryApisTests
     [Fact]
     public async Task A_finished_relocation_points_the_settings_at_the_new_folder()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var id = Ok(await backend.Settings.RelocateStorageAsync(@"E:\SavePoint")).JobId;
 
         backend.Jobs.Complete(id);
@@ -432,7 +432,7 @@ public class FakeLibraryApisTests
     [Fact]
     public async Task A_cancelled_relocation_leaves_the_settings_alone()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var id = Ok(await backend.Settings.RelocateStorageAsync(@"E:\SavePoint")).JobId;
 
         backend.Jobs.CompleteCancelled(id);
@@ -444,7 +444,7 @@ public class FakeLibraryApisTests
     [Fact]
     public async Task The_clear_preview_names_what_goes()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
         var preview = Ok(await backend.Settings.GetClearAllDataPreviewAsync(Ct));
 
@@ -459,7 +459,7 @@ public class FakeLibraryApisTests
     [Fact]
     public async Task A_finished_clear_empties_the_library_and_resets_the_settings()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var id = Ok(await backend.Settings.ClearAllDataAsync()).JobId;
 
         backend.Jobs.Complete(id);
@@ -476,7 +476,7 @@ public class FakeLibraryApisTests
     public async Task Recovering_a_corrupt_catalog_file_moves_it_aside_and_clears_the_status()
     {
         var corrupt = new CorruptCatalogFile(@"C:\cat\profiles.json", @"C:\cat\profiles.json.bak", ErrorInfoFor(@"C:\cat\profiles.json"));
-        var backend = new FakeBackend(ScenarioBuilder.Mockup().WithStartupStatus(StartupWith(corrupt)));
+        var backend = new FakeBackend(ScenarioBuilder.Sample().WithStartupStatus(StartupWith(corrupt)));
 
         var moved = await backend.AppStatus.RecoverCatalogFileAsync(corrupt.Path, CatalogRecovery.RestoreBackup, Ct);
 
@@ -489,7 +489,7 @@ public class FakeLibraryApisTests
     public async Task Restoring_a_backup_that_does_not_exist_fails_and_keeps_the_file_listed()
     {
         var corrupt = new CorruptCatalogFile(@"C:\cat\games.json", null, ErrorInfoFor(@"C:\cat\games.json"));
-        var backend = new FakeBackend(ScenarioBuilder.Mockup().WithStartupStatus(StartupWith(corrupt)));
+        var backend = new FakeBackend(ScenarioBuilder.Sample().WithStartupStatus(StartupWith(corrupt)));
 
         var result = await backend.AppStatus.RecoverCatalogFileAsync(corrupt.Path, CatalogRecovery.RestoreBackup, Ct);
 

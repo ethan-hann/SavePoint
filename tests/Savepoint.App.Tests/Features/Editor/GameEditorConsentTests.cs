@@ -150,7 +150,7 @@ public class GameEditorConsentTests
     [Fact]
     public async Task Adding_a_saves_folder_to_a_game_that_had_none_confirms_it()
     {
-        var withoutSaves = MockupScenario.Caretaker with { External = null };
+        var withoutSaves = SampleScenario.Caretaker with { External = null };
         var rig = EditorRig.Create(new FakeBackend(ScenarioBuilder.Empty().WithGame(withoutSaves)));
         var editor = rig.Edit(withoutSaves.Id);
         await editor.LoadAsync();
@@ -166,9 +166,9 @@ public class GameEditorConsentTests
     [Fact]
     public async Task A_folder_the_Api_reports_as_not_confirmed_is_asked_about_even_when_unchanged()
     {
-        var unconfirmed = new FolderStatus(RepoRole.External, MockupScenario.SkyrimSavesRaw, MockupScenario.SkyrimSaves, true, new ConsentStatus(false, null));
-        var confirmed = new FolderStatus(RepoRole.Install, MockupScenario.SkyrimInstall, MockupScenario.SkyrimInstall, true, new ConsentStatus(true, null));
-        var rig = EditorRig.Create(new FakeBackend(ScenarioBuilder.Empty().WithGame(MockupScenario.Skyrim).WithFolderStatus(MockupScenario.SkyrimId, confirmed, unconfirmed)));
+        var unconfirmed = new FolderStatus(RepoRole.External, SampleScenario.SkyrimSavesRaw, SampleScenario.SkyrimSaves, true, new ConsentStatus(false, null));
+        var confirmed = new FolderStatus(RepoRole.Install, SampleScenario.SkyrimInstall, SampleScenario.SkyrimInstall, true, new ConsentStatus(true, null));
+        var rig = EditorRig.Create(new FakeBackend(ScenarioBuilder.Empty().WithGame(SampleScenario.Skyrim).WithFolderStatus(SampleScenario.SkyrimId, confirmed, unconfirmed)));
         var editor = rig.Edit();
         await editor.LoadAsync();
 
@@ -176,7 +176,7 @@ public class GameEditorConsentTests
         dialog.ConfirmCommand.Execute(null);
         await saving;
 
-        Assert.Equal([new ConsentFolder("Saves folder", MockupScenario.SkyrimSaves)], dialog.Folders);
+        Assert.Equal([new ConsentFolder("Saves folder", SampleScenario.SkyrimSaves)], dialog.Folders);
     }
 
     [Fact]
@@ -221,7 +221,7 @@ public class GameEditorConsentTests
         var editor = rig.Edit();
         await editor.LoadAsync();
         editor.Name = "Skyrim SE";
-        rig.Backend.FailNext<IGamesApi>("UpdateAsync", ErrorInfo.From(new ConsentMarkerException(ConsentFailure.Missing, MockupScenario.SkyrimInstall, RepoRole.Install, null, null)));
+        rig.Backend.FailNext<IGamesApi>("UpdateAsync", ErrorInfo.From(new ConsentMarkerException(ConsentFailure.Missing, SampleScenario.SkyrimInstall, RepoRole.Install, null, null)));
         var first = editor.SaveCommand.ExecuteAsync(null);
         Assert.True(first.IsCompleted, "The first save should not ask anything: the folders are confirmed and unchanged.");
         await first;
@@ -233,7 +233,7 @@ public class GameEditorConsentTests
         dialog.ConfirmCommand.Execute(null);
         await second;
 
-        Assert.Equal([new ConsentFolder("Game install folder", MockupScenario.SkyrimInstall)], dialog.Folders);
+        Assert.Equal([new ConsentFolder("Game install folder", SampleScenario.SkyrimInstall)], dialog.Folders);
         Assert.Equal(2, rig.Calls("UpdateAsync").Count);
     }
 }

@@ -20,8 +20,8 @@ public class ToastPlacementTests
     public async Task Toasts_never_cover_the_actions_of_an_error_card(double width, double height)
     {
         using var app = await ComposedApp.StartWithViewAsync(width: width, height: height);
-        app.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync), MockupScenario.FileInUseError);
-        _ = app.Games.Profiles.Single(row => row.Id == MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null);
+        app.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync), SampleScenario.FileInUseError);
+        _ = app.Games.Profiles.Single(row => row.Id == SampleScenario.ModdedId).PlayCommand.ExecuteAsync(null);
         app.Toasts.Show(new ToastMessage("Could not save Skyrim Special Edition.", ToastKind.Error, "There is not enough free disk space to save this profile right now."));
         app.Toasts.Show(new ToastMessage("Only part of Satisfactory was saved.", ToastKind.Warning, "A file is in use."));
         app.Settle();
@@ -66,7 +66,7 @@ public class ToastPlacementTests
     public async Task A_toast_floats_over_the_shell_and_leaves_its_layout_alone(string layoutName, double width, double height)
     {
         var layout = Enum.Parse<ShellLayout>(layoutName);
-        var backend = new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { Layout = layout }));
+        var backend = new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Layout = layout }));
         using var app = await ComposedApp.StartWithViewAsync(backend, layout: layout, width: width, height: height);
         app.Settle();
         var names = new[] { "ShellRoot", "Rail", "Page", "ContentRegion" };
@@ -97,7 +97,7 @@ public class ToastPlacementTests
     [InlineData(640.0, 420.0)]
     public async Task The_tour_card_stays_clear_of_the_toasts(double width, double height)
     {
-        var backend = new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { TourSeen = false }));
+        var backend = new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { TourSeen = false }));
         using var app = await ComposedApp.StartWithViewAsync(backend, width: width, height: height);
         app.Toasts.Show(new ToastMessage("Could not save Skyrim Special Edition.", ToastKind.Error, "There is not enough free disk space to save this profile right now."));
         app.Toasts.Show(new ToastMessage("Only part of Satisfactory was saved.", ToastKind.Warning, "A file is in use."));

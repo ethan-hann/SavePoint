@@ -74,6 +74,7 @@ public partial class App : Application
             window.DataContext = main;
             window.Opened += (_, _) => _ = main.InitializeAsync();
             desktop.MainWindow = window;
+            desktop.Exit += (_, _) => main.Dispose();
 
             if (Crash is not null)
             {

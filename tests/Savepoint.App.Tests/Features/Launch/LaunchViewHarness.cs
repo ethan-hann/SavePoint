@@ -53,7 +53,7 @@ internal sealed class LaunchViewHarness : IDisposable
         double width = 1040,
         double height = 660)
     {
-        var scenario = backend ?? new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { Theme = theme }));
+        var scenario = backend ?? new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Theme = theme }));
         var rig = new LaunchRig(scenario);
         var dialogs = new DialogHostViewModel();
         var real = new AvaloniaDialogs(dialogs, rig.Text, () => null);
@@ -110,6 +110,7 @@ internal sealed class LaunchViewHarness : IDisposable
 
     public void Dispose()
     {
+        Main.Dispose();
         Flow.Dispose();
         Rig.Dispose();
         _host.Dispose();

@@ -104,7 +104,7 @@ public class ThemeServiceResourceTests
     }
 
     [AvaloniaFact]
-    public void Dark_error_callout_fill_is_the_mockups_warm_dark_red()
+    public void Dark_error_callout_fill_is_the_warm_dark_red()
     {
         var harness = new ThemeHarness();
 

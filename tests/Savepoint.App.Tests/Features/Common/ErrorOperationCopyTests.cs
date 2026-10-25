@@ -11,9 +11,9 @@ public class ErrorOperationCopyTests
 {
     private static readonly UiFormatter _text = new(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), os: "windows", timeZone: TimeZoneInfo.Utc);
 
-    private static ErrorCardViewModel HeldFile(ErrorOperation operation) => new(MockupScenario.FileInUseError, _text, operation: operation);
+    private static ErrorCardViewModel HeldFile(ErrorOperation operation) => new(SampleScenario.FileInUseError, _text, operation: operation);
 
-    private static ErrorCardViewModel NoRoom(ErrorOperation operation) => new(MockupScenario.SavesOutOfRoomError, _text, operation: operation);
+    private static ErrorCardViewModel NoRoom(ErrorOperation operation) => new(SampleScenario.SavesOutOfRoomError, _text, operation: operation);
 
     public static TheoryData<ErrorOperation> Operations => new(Enum.GetValues<ErrorOperation>());
 

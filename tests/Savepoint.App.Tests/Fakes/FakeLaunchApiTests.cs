@@ -1,7 +1,7 @@
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using static Savepoint.App.Tests.Fakes.FakeAssert;
-using static Savepoint.App.Tests.Fakes.MockupScenario;
+using static Savepoint.App.Tests.Fakes.SampleScenario;
 
 namespace Savepoint.App.Tests.Fakes;
 
@@ -14,7 +14,7 @@ public class FakeLaunchApiTests
     [Fact]
     public async Task Start_opens_a_preparing_session_tied_to_a_launch_job()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var sessions = Collect(backend);
 
         var started = await backend.Launch.StartAsync(SkyrimId, _moddedTip);
@@ -32,7 +32,7 @@ public class FakeLaunchApiTests
     [Fact]
     public async Task A_second_start_while_a_session_is_open_fails_with_already_running()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         await backend.Launch.StartAsync(SkyrimId, _moddedTip);
 
         var second = await backend.Launch.StartAsync(SkyrimId, new LaunchTarget.ProfileTip(SurvivalId));
@@ -44,7 +44,7 @@ public class FakeLaunchApiTests
     [Fact]
     public async Task A_point_target_launches_the_profile_that_holds_the_point()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
         await backend.Launch.StartAsync(SkyrimId, new LaunchTarget.Point(ClearedBlackreach));
 
@@ -56,7 +56,7 @@ public class FakeLaunchApiTests
     [Fact]
     public async Task Switching_progress_reaches_both_the_session_and_its_job()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         await backend.Launch.StartAsync(SkyrimId, _moddedTip);
 
         backend.Launch.ReportSwitching(SkyrimId, SwitchProgress);
@@ -69,7 +69,7 @@ public class FakeLaunchApiTests
     [Fact]
     public async Task Running_finishes_the_launch_job_and_stamps_the_profile()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         await backend.Launch.StartAsync(SkyrimId, _moddedTip);
 
         backend.Launch.ReportRunning(SkyrimId, RunningSince);
@@ -84,7 +84,7 @@ public class FakeLaunchApiTests
     [Fact]
     public async Task Running_defaults_to_the_clock()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         await backend.Launch.StartAsync(SkyrimId, _moddedTip);
 
         backend.Launch.ReportRunning(SkyrimId);
@@ -95,7 +95,7 @@ public class FakeLaunchApiTests
     [Fact]
     public async Task Row_stats_mark_the_profile_that_is_running()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         await backend.Launch.StartAsync(SkyrimId, _moddedTip);
         backend.Launch.ReportRunning(SkyrimId, RunningSince);
 
@@ -128,7 +128,7 @@ public class FakeLaunchApiTests
     [Fact]
     public async Task Exit_after_an_older_point_offers_the_D14_choices_and_counts_newer_points()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         await backend.Launch.StartAsync(SkyrimId, new LaunchTarget.Point(ClearedBlackreach));
         backend.Launch.ReportRunning(SkyrimId, RunningSince);
 
@@ -157,7 +157,7 @@ public class FakeLaunchApiTests
     [Fact]
     public async Task Exit_before_the_game_runs_is_a_script_error()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         await backend.Launch.StartAsync(SkyrimId, _moddedTip);
 
         Assert.Throws<InvalidOperationException>(() => backend.Launch.ReportExited(SkyrimId, PlayDuration, 1));
@@ -166,7 +166,7 @@ public class FakeLaunchApiTests
     [Fact]
     public async Task Cancelling_the_switch_fails_the_session_with_the_launch_cancelled_id()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var job = Ok(await backend.Launch.StartAsync(SkyrimId, _moddedTip)).JobId;
         backend.Launch.ReportSwitching(SkyrimId, SwitchProgress);
 
@@ -180,7 +180,7 @@ public class FakeLaunchApiTests
     [Fact]
     public async Task A_failed_launch_fails_both_the_session_and_its_job()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var job = Ok(await backend.Launch.StartAsync(SkyrimId, _moddedTip)).JobId;
 
         backend.Launch.FailLaunch(SkyrimId, FileInUseError);
@@ -192,7 +192,7 @@ public class FakeLaunchApiTests
     [Fact]
     public async Task A_new_launch_is_allowed_once_the_previous_one_failed()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         await backend.Launch.StartAsync(SkyrimId, _moddedTip);
         backend.Launch.FailLaunch(SkyrimId, FileInUseError);
 
@@ -205,7 +205,7 @@ public class FakeLaunchApiTests
     [Fact]
     public async Task Mark_finished_needs_an_open_session_and_leaves_the_exit_to_the_script()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
         var none = await backend.Launch.MarkFinishedAsync(SkyrimId);
         await RunningIn(backend);
@@ -229,7 +229,7 @@ public class FakeLaunchApiTests
     [Fact]
     public async Task Completing_without_a_session_fails_with_no_active_session()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
         var result = await backend.Launch.CompleteSessionAsync(SkyrimId, new SessionCompletion.Skip());
 
@@ -287,7 +287,7 @@ public class FakeLaunchApiTests
     [Fact]
     public async Task Fork_creates_the_new_profile_and_captures_into_it()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         await backend.Launch.StartAsync(SkyrimId, new LaunchTarget.Point(ClearedBlackreach));
         backend.Launch.ReportRunning(SkyrimId, RunningSince);
         backend.Launch.ReportExited(SkyrimId, PlayDuration, NewSaveFiles);
@@ -318,7 +318,7 @@ public class FakeLaunchApiTests
     [Fact]
     public async Task Every_session_change_raises_an_event_with_a_growing_revision()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var sessions = Collect(backend);
 
         await backend.Launch.StartAsync(SkyrimId, _moddedTip);
@@ -336,7 +336,7 @@ public class FakeLaunchApiTests
     [Fact]
     public async Task Preview_returns_the_scripted_preview_and_fails_for_one_never_scripted()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
         var scripted = await backend.Launch.GetPreviewAsync(SkyrimId, new LaunchTarget.ProfileTip(SurvivalId), Ct);
         var unscripted = await backend.Launch.GetPreviewAsync(SkyrimId, new LaunchTarget.Save(SurvivalId, FirstNight), Ct);
@@ -348,7 +348,7 @@ public class FakeLaunchApiTests
     [Fact]
     public async Task Discarding_a_folder_clears_its_unsaved_changes()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var survivalTip = new LaunchTarget.ProfileTip(SurvivalId);
 
         var result = await backend.Launch.DiscardChangesAsync(SkyrimId, RepoRole.External);
@@ -363,7 +363,7 @@ public class FakeLaunchApiTests
 
     private static async Task<FakeBackend> RunningModded()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         await RunningIn(backend);
         return backend;
     }

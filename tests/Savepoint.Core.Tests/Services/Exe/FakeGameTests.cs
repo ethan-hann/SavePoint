@@ -80,14 +80,14 @@ public class FakeGameTests
         using var game = FakeGameProcess.Start("--saves", saves, "--ready-file", ready);
         await FakeGameProcess.WaitForReadyFileAsync(ready);
 
+        // The game says "saved" after the file is closed; the file can exist earlier, still open for writing.
         await game.SendAsync("save");
-        Assert.True(await FakeGameProcess.WaitUntilAsync(() => File.Exists(Path.Combine(saves, "save-0001.sav"))));
+        Assert.True(await FakeGameProcess.WaitUntilAsync(() => game.Output.Contains("saved save-0001.sav")), string.Join("|", game.Output));
         await game.SendAsync("save");
-        Assert.True(await FakeGameProcess.WaitUntilAsync(() => File.Exists(Path.Combine(saves, "save-0002.sav"))));
+        Assert.True(await FakeGameProcess.WaitUntilAsync(() => game.Output.Contains("saved save-0002.sav")), string.Join("|", game.Output));
 
         Assert.Equal(["save-0001.sav", "save-0002.sav"], Directory.GetFiles(saves).Select(Path.GetFileName).Order(StringComparer.Ordinal));
         Assert.Contains("sequence=2", File.ReadAllText(Path.Combine(saves, "save-0002.sav")));
-        Assert.True(await FakeGameProcess.WaitUntilAsync(() => game.Output.Contains("saved save-0002.sav")), string.Join("|", game.Output));
     }
 
     [Fact]

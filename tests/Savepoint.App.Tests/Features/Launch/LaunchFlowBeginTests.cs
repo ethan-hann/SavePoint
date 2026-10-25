@@ -14,8 +14,8 @@ public class LaunchFlowBeginTests : IDisposable
 
     private static async Task<FakeBackend> WithPreviewAsync(Func<LaunchPreview, LaunchPreview> change, LaunchTarget target)
     {
-        var source = FakeAssert.Ok(await FakeBackend.Mockup().Launch.GetPreviewAsync(MockupScenario.SkyrimId, target));
-        return new FakeBackend(ScenarioBuilder.Mockup().WithLaunchPreview(change(source)));
+        var source = FakeAssert.Ok(await FakeBackend.Sample().Launch.GetPreviewAsync(SampleScenario.SkyrimId, target));
+        return new FakeBackend(ScenarioBuilder.Sample().WithLaunchPreview(change(source)));
     }
 
     // Holds the scan until the test lets it go, the way a large modded install holds it for seconds.
@@ -103,7 +103,7 @@ public class LaunchFlowBeginTests : IDisposable
     public async Task A_scan_that_fails_replaces_the_checking_card_with_the_failure_card()
     {
         var release = HoldPreview();
-        _f.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync), MockupScenario.FileInUseError);
+        _f.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync), SampleScenario.FileInUseError);
         var begin = _f.Play(LaunchRig.SurvivalTip);
 
         release.SetResult();
@@ -133,7 +133,7 @@ public class LaunchFlowBeginTests : IDisposable
         await _f.PlayModdedAsync();
         var banner = _f.Inline<LaunchBannerViewModel>();
 
-        _f.Backend.Launch.ReportRunning(FlowRig.Skyrim, MockupScenario.RunningSince);
+        _f.Backend.Launch.ReportRunning(FlowRig.Skyrim, SampleScenario.RunningSince);
 
         var card = _f.Inline<RunningCardViewModel>();
         Assert.NotSame(banner, card);
@@ -197,7 +197,7 @@ public class LaunchFlowBeginTests : IDisposable
         await begin;
 
         var start = Assert.Single(_f.Starts());
-        Assert.Equal([FlowRig.Skyrim, new LaunchTarget.Save(MockupScenario.SurvivalId, MockupScenario.FirstNight)], start.Args);
+        Assert.Equal([FlowRig.Skyrim, new LaunchTarget.Save(SampleScenario.SurvivalId, SampleScenario.FirstNight)], start.Args);
         var progress = _f.Progress;
         Assert.Equal("Getting Skyrim Special Edition ready…", progress.Title);
         Assert.Equal("Putting version 1.6.640 and its 189 mod files back in place.", progress.Explanation);
@@ -230,9 +230,9 @@ public class LaunchFlowBeginTests : IDisposable
     public async Task Unsaved_changes_always_bring_the_dialog_back_even_when_the_preference_is_on()
     {
         using var rig = new FlowRig(await WithPreviewAsync(
-            preview => preview with { External = preview.External! with { Dirty = true, DirtyFileCount = 2, DirtyOwnerProfileId = MockupScenario.ModdedId } },
+            preview => preview with { External = preview.External! with { Dirty = true, DirtyFileCount = 2, DirtyOwnerProfileId = SampleScenario.ModdedId } },
             LaunchRig.ClearedBlackreachPoint));
-        FakeAssert.Ok(await rig.Backend.Settings.SaveAsync(MockupScenario.Settings with { SkipConfirmWhenOnlySaveChanges = true }));
+        FakeAssert.Ok(await rig.Backend.Settings.SaveAsync(SampleScenario.Settings with { SkipConfirmWhenOnlySaveChanges = true }));
 
         var begin = rig.Play(LaunchRig.ClearedBlackreachPoint);
 
@@ -245,7 +245,7 @@ public class LaunchFlowBeginTests : IDisposable
     [Fact]
     public async Task The_dialog_starts_from_the_saved_preference_and_reports_a_change()
     {
-        FakeAssert.Ok(await _f.Backend.Settings.SaveAsync(MockupScenario.Settings with { SkipConfirmWhenOnlySaveChanges = false }));
+        FakeAssert.Ok(await _f.Backend.Settings.SaveAsync(SampleScenario.Settings with { SkipConfirmWhenOnlySaveChanges = false }));
         var begin = _f.Play(LaunchRig.SurvivalTip);
         var dialog = _f.LaunchDialog;
         Assert.False(dialog.DontAskAgain);
@@ -283,7 +283,7 @@ public class LaunchFlowBeginTests : IDisposable
     [Fact]
     public async Task A_preview_that_fails_shows_a_card_the_user_can_dismiss()
     {
-        _f.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync), MockupScenario.FolderGoneError);
+        _f.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync), SampleScenario.FolderGoneError);
 
         await _f.Play(LaunchRig.ModdedTip);
 
@@ -299,7 +299,7 @@ public class LaunchFlowBeginTests : IDisposable
     [Fact]
     public async Task A_failed_preview_can_be_tried_again()
     {
-        _f.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync), MockupScenario.SavesOutOfRoomError);
+        _f.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync), SampleScenario.SavesOutOfRoomError);
         await _f.Play(LaunchRig.ModdedTip);
         var card = _f.Inline<ErrorCardViewModel>();
 
@@ -336,16 +336,16 @@ public class LaunchFlowBeginTests : IDisposable
     [Fact]
     public async Task Two_games_run_independently()
     {
-        var satisfactory = new LaunchTarget.ProfileTip(MockupScenario.MainFactoryId);
+        var satisfactory = new LaunchTarget.ProfileTip(SampleScenario.MainFactoryId);
 
         await _f.PlayModdedAsync();
-        await _f.Play(satisfactory, MockupScenario.SatisfactoryId);
+        await _f.Play(satisfactory, SampleScenario.SatisfactoryId);
 
-        Assert.True(_f.Flow.IsActive(MockupScenario.SkyrimId));
-        Assert.True(_f.Flow.IsActive(MockupScenario.SatisfactoryId));
-        Assert.False(_f.Flow.IsActive(MockupScenario.CaretakerId));
-        Assert.Equal([MockupScenario.SatisfactoryId, MockupScenario.SkyrimId], _f.Flow.ActiveGameIds);
-        Assert.NotSame(_f.Flow.InlineContentFor(MockupScenario.SkyrimId), _f.Flow.InlineContentFor(MockupScenario.SatisfactoryId));
+        Assert.True(_f.Flow.IsActive(SampleScenario.SkyrimId));
+        Assert.True(_f.Flow.IsActive(SampleScenario.SatisfactoryId));
+        Assert.False(_f.Flow.IsActive(SampleScenario.CaretakerId));
+        Assert.Equal([SampleScenario.SatisfactoryId, SampleScenario.SkyrimId], _f.Flow.ActiveGameIds);
+        Assert.NotSame(_f.Flow.InlineContentFor(SampleScenario.SkyrimId), _f.Flow.InlineContentFor(SampleScenario.SatisfactoryId));
         Assert.Equal(2, _f.Starts().Count);
     }
 
@@ -353,7 +353,7 @@ public class LaunchFlowBeginTests : IDisposable
     public async Task Changes_to_the_inline_content_are_reported_for_the_game_they_belong_to()
     {
         await _f.PlayModdedAsync();
-        _f.Backend.Launch.ReportRunning(FlowRig.Skyrim, MockupScenario.RunningSince);
+        _f.Backend.Launch.ReportRunning(FlowRig.Skyrim, SampleScenario.RunningSince);
 
         Assert.NotEmpty(_f.InlineChanges);
         Assert.All(_f.InlineChanges, gameId => Assert.Equal(FlowRig.Skyrim, gameId));

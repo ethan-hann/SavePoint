@@ -54,7 +54,7 @@ public class ContextualHelpPlacementTests : IDisposable
     {
         var dialog = await _rig.DialogAsync(change: preview => preview with
         {
-            Install = preview.Install with { Dirty = true, DirtyOwnerProfileId = null, UnfinishedSwitch = true, UnfinishedSwitchTarget = new LaunchTarget.ProfileTip(MockupScenario.ModdedId) },
+            Install = preview.Install with { Dirty = true, DirtyOwnerProfileId = null, UnfinishedSwitch = true, UnfinishedSwitchTarget = new LaunchTarget.ProfileTip(SampleScenario.ModdedId) },
         });
 
         var unfinished = dialog.UnsavedBlocks.Single(block => block.IsUnfinishedSwitch);

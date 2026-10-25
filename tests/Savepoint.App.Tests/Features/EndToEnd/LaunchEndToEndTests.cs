@@ -14,7 +14,7 @@ namespace Savepoint.App.Tests.Features.EndToEnd;
 // over the fake backend: what a person sees at each step, and that every screen agrees about it.
 public class LaunchEndToEndTests
 {
-    private const string _skyrim = MockupScenario.SkyrimId;
+    private const string _skyrim = SampleScenario.SkyrimId;
 
     // History hands out its buttons as plain commands; the ones that start the flow are async ones.
     private static Task Run(System.Windows.Input.ICommand command)
@@ -45,12 +45,12 @@ public class LaunchEndToEndTests
     public async Task Half_a_save_after_play_is_reported_by_its_card_alone_with_no_toast_on_top_of_it()
     {
         using var app = await ComposedApp.StartAsync();
-        await Row(app, MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null).Soon();
-        app.Backend.Launch.ReportRunning(_skyrim, MockupScenario.RunningSince);
-        app.Backend.Launch.ReportExited(_skyrim, MockupScenario.PlayDuration, MockupScenario.NewSaveFiles);
+        await Row(app, SampleScenario.ModdedId).PlayCommand.ExecuteAsync(null).Soon();
+        app.Backend.Launch.ReportRunning(_skyrim, SampleScenario.RunningSince);
+        app.Backend.Launch.ReportExited(_skyrim, SampleScenario.PlayDuration, SampleScenario.NewSaveFiles);
         await app.Dialog<PostPlayDialogViewModel>().SaveCommand.ExecuteAsync(null).Soon();
 
-        app.Backend.Jobs.Complete(app.Backend.Jobs.LastStarted(JobKind.Capture).JobId, MockupScenario.HalfSaved);
+        app.Backend.Jobs.Complete(app.Backend.Jobs.LastStarted(JobKind.Capture).JobId, SampleScenario.HalfSaved);
 
         Assert.IsType<ErrorCardViewModel>(app.Games.InlineContent);
         Assert.Empty(app.ToastTexts);
@@ -62,7 +62,7 @@ public class LaunchEndToEndTests
         using var app = await ComposedApp.StartAsync();
         AssertPlayIs(app, true);
 
-        var play = Row(app, MockupScenario.VanillaId).PlayCommand.ExecuteAsync(null);
+        var play = Row(app, SampleScenario.VanillaId).PlayCommand.ExecuteAsync(null);
         var dialog = app.Dialog<LaunchDialogViewModel>();
 
         Assert.Equal("Switch to \"Vanilla - latest update\"?", dialog.Title);
@@ -73,17 +73,17 @@ public class LaunchEndToEndTests
         await play.Soon();
 
         var start = Assert.Single(app.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.StartAsync)));
-        Assert.Equal([_skyrim, new LaunchTarget.ProfileTip(MockupScenario.VanillaId)], start.Args);
+        Assert.Equal([_skyrim, new LaunchTarget.ProfileTip(SampleScenario.VanillaId)], start.Args);
         var progress = app.Dialog<SwitchProgressDialogViewModel>();
         Assert.Equal("Getting Skyrim Special Edition ready…", progress.Title);
         Assert.Null(app.Games.InlineContent);
 
-        app.Backend.Launch.ReportSwitching(_skyrim, MockupScenario.SwitchProgress);
+        app.Backend.Launch.ReportSwitching(_skyrim, SampleScenario.SwitchProgress);
 
         Assert.Equal("62%", progress.PercentText);
         Assert.False(progress.IsClosed);
 
-        app.Backend.Launch.ReportRunning(_skyrim, MockupScenario.RunningSince);
+        app.Backend.Launch.ReportRunning(_skyrim, SampleScenario.RunningSince);
 
         Assert.True(progress.IsClosed);
         var running = Assert.IsType<RunningCardViewModel>(app.Games.InlineContent);
@@ -91,7 +91,7 @@ public class LaunchEndToEndTests
         Assert.Equal("Vanilla - latest update · started 41 minutes ago", running.Subtitle);
         AssertPlayIs(app, false);
 
-        app.Backend.Launch.ReportExited(_skyrim, MockupScenario.PlayDuration, MockupScenario.NewSaveFiles);
+        app.Backend.Launch.ReportExited(_skyrim, SampleScenario.PlayDuration, SampleScenario.NewSaveFiles);
 
         var postPlay = app.Dialog<PostPlayDialogViewModel>();
         Assert.Equal("You played for 2 hours 14 minutes", postPlay.Title);
@@ -118,7 +118,7 @@ public class LaunchEndToEndTests
     {
         using var app = await ComposedApp.StartAsync();
 
-        var switching = Row(app, MockupScenario.VanillaId).SwitchCommand.ExecuteAsync(null);
+        var switching = Row(app, SampleScenario.VanillaId).SwitchCommand.ExecuteAsync(null);
         var dialog = app.Dialog<LaunchDialogViewModel>();
 
         Assert.Equal("Switch", dialog.ConfirmLabel);
@@ -129,13 +129,13 @@ public class LaunchEndToEndTests
 
         Assert.Empty(app.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.StartAsync)));
         var call = Assert.Single(app.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.SwitchAsync)));
-        Assert.Equal([_skyrim, new LaunchTarget.ProfileTip(MockupScenario.VanillaId)], call.Args);
+        Assert.Equal([_skyrim, new LaunchTarget.ProfileTip(SampleScenario.VanillaId)], call.Args);
         var job = app.Backend.Jobs.LastStarted(JobKind.Switch);
         var progress = app.Dialog<SwitchProgressDialogViewModel>();
         Assert.Equal("Switching Skyrim Special Edition's files…", progress.Title);
         AssertPlayIs(app, false);
 
-        app.Backend.Jobs.ReportProgress(job.JobId, MockupScenario.SwitchProgress);
+        app.Backend.Jobs.ReportProgress(job.JobId, SampleScenario.SwitchProgress);
         Assert.Equal("62%", progress.PercentText);
 
         app.Backend.Jobs.Complete(job.JobId);
@@ -149,9 +149,9 @@ public class LaunchEndToEndTests
 
         // The files are in place, so the table reads the switched profile as loaded and the one it replaced as not.
         await app.Games.ReloadAsync().Soon();
-        Assert.True(Row(app, MockupScenario.VanillaId).IsActive);
-        Assert.StartsWith("Loaded now", Row(app, MockupScenario.VanillaId).SecondaryText, StringComparison.Ordinal);
-        Assert.False(Row(app, MockupScenario.ModdedId).IsActive);
+        Assert.True(Row(app, SampleScenario.VanillaId).IsActive);
+        Assert.StartsWith("Loaded now", Row(app, SampleScenario.VanillaId).SecondaryText, StringComparison.Ordinal);
+        Assert.False(Row(app, SampleScenario.ModdedId).IsActive);
     }
 
     [Fact]
@@ -159,17 +159,17 @@ public class LaunchEndToEndTests
     {
         using var app = await ComposedApp.StartAsync();
 
-        await Row(app, MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null).Soon();
+        await Row(app, SampleScenario.ModdedId).PlayCommand.ExecuteAsync(null).Soon();
 
         Assert.Empty(app.Dialogs.Shown.OfType<LaunchDialogViewModel>());
         var banner = Assert.IsType<LaunchBannerViewModel>(app.Games.InlineContent);
         Assert.Equal("Everything was already in place, so Skyrim Special Edition is starting now", banner.Title);
         Assert.Equal("Modded playthrough - 7-2-26 · saves from \"Before the final boss\"", banner.Detail);
         var start = Assert.Single(app.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.StartAsync)));
-        Assert.Equal([_skyrim, new LaunchTarget.ProfileTip(MockupScenario.ModdedId)], start.Args);
+        Assert.Equal([_skyrim, new LaunchTarget.ProfileTip(SampleScenario.ModdedId)], start.Args);
         AssertPlayIs(app, false);
 
-        app.Backend.Launch.ReportRunning(_skyrim, MockupScenario.RunningSince);
+        app.Backend.Launch.ReportRunning(_skyrim, SampleScenario.RunningSince);
 
         Assert.IsType<RunningCardViewModel>(app.Games.InlineContent);
         Assert.Empty(app.Dialogs.Shown.OfType<SwitchProgressDialogViewModel>());
@@ -182,13 +182,13 @@ public class LaunchEndToEndTests
         AssertPlayIs(app, true);
         AssertHistoryButtonsAre(app, true);
 
-        await Row(app, MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null).Soon();
+        await Row(app, SampleScenario.ModdedId).PlayCommand.ExecuteAsync(null).Soon();
 
         AssertPlayIs(app, false);
         AssertHistoryButtonsAre(app, false);
 
-        app.Backend.Launch.ReportRunning(_skyrim, MockupScenario.RunningSince);
-        app.Backend.Launch.ReportExited(_skyrim, MockupScenario.PlayDuration, MockupScenario.NewSaveFiles);
+        app.Backend.Launch.ReportRunning(_skyrim, SampleScenario.RunningSince);
+        app.Backend.Launch.ReportExited(_skyrim, SampleScenario.PlayDuration, SampleScenario.NewSaveFiles);
         AssertPlayIs(app, false);
 
         app.Dialog<PostPlayDialogViewModel>().NotNowCommand.Execute(null);
@@ -209,7 +209,7 @@ public class LaunchEndToEndTests
         var dialog = app.Dialog<LaunchDialogViewModel>();
 
         var preview = Assert.Single(app.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync)));
-        Assert.Equal([_skyrim, new LaunchTarget.Point(MockupScenario.ClearedBlackreach)], preview.Args);
+        Assert.Equal([_skyrim, new LaunchTarget.Point(SampleScenario.ClearedBlackreach)], preview.Args);
         Assert.True(dialog.IsOlderPoint);
         Assert.Equal(NavDestination.History, app.Shell.Destination);
 
@@ -217,12 +217,12 @@ public class LaunchEndToEndTests
         await goBack.Soon();
 
         var start = Assert.Single(app.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.StartAsync)));
-        Assert.Equal([_skyrim, new LaunchTarget.Point(MockupScenario.ClearedBlackreach)], start.Args);
+        Assert.Equal([_skyrim, new LaunchTarget.Point(SampleScenario.ClearedBlackreach)], start.Args);
         Assert.Equal(NavDestination.Games, app.Shell.Destination);
         Assert.NotEmpty(app.Dialogs.Shown.OfType<SwitchProgressDialogViewModel>());
         AssertPlayIs(app, false);
 
-        app.Backend.Launch.ReportRunning(_skyrim, MockupScenario.RunningSince);
+        app.Backend.Launch.ReportRunning(_skyrim, SampleScenario.RunningSince);
 
         Assert.IsType<RunningCardViewModel>(app.Games.InlineContent);
     }
@@ -246,9 +246,9 @@ public class LaunchEndToEndTests
     public async Task A_missing_folder_shows_its_card_and_choosing_the_folder_opens_the_editor_for_that_game()
     {
         using var app = await ComposedApp.StartAsync();
-        app.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync), MockupScenario.FolderGoneError);
+        app.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync), SampleScenario.FolderGoneError);
 
-        await Row(app, MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null).Soon();
+        await Row(app, SampleScenario.ModdedId).PlayCommand.ExecuteAsync(null).Soon();
 
         var card = Assert.IsType<ErrorCardViewModel>(app.Games.InlineContent);
         Assert.Equal("This game's folder has moved or is gone", card.Title);
@@ -267,7 +267,7 @@ public class LaunchEndToEndTests
     {
         using var app = await ComposedApp.StartAsync();
         app.Shell.Navigate(NavDestination.History);
-        app.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync), MockupScenario.FolderGoneError);
+        app.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync), SampleScenario.FolderGoneError);
 
         await Run(app.History.Saves.Single(row => row.Name == "Deep cave run").LoadCommand).Soon();
 
@@ -283,8 +283,8 @@ public class LaunchEndToEndTests
     public async Task The_session_survives_going_to_settings_a_layout_switch_and_coming_back_and_its_prompt_shows_wherever_the_player_is()
     {
         using var app = await ComposedApp.StartAsync();
-        await Row(app, MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null).Soon();
-        app.Backend.Launch.ReportRunning(_skyrim, MockupScenario.RunningSince);
+        await Row(app, SampleScenario.ModdedId).PlayCommand.ExecuteAsync(null).Soon();
+        app.Backend.Launch.ReportRunning(_skyrim, SampleScenario.RunningSince);
         var running = Assert.IsType<RunningCardViewModel>(app.Games.InlineContent);
 
         app.Shell.Navigate(NavDestination.Settings);
@@ -298,7 +298,7 @@ public class LaunchEndToEndTests
 
         await app.Shell.SetLayoutAsync(ShellLayout.Sidebar);
         app.Shell.Navigate(NavDestination.History);
-        app.Backend.Launch.ReportExited(_skyrim, MockupScenario.PlayDuration, MockupScenario.NewSaveFiles);
+        app.Backend.Launch.ReportExited(_skyrim, SampleScenario.PlayDuration, SampleScenario.NewSaveFiles);
 
         var postPlay = app.Dialog<PostPlayDialogViewModel>();
         Assert.False(postPlay.IsClosed);

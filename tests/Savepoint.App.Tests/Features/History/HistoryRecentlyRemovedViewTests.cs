@@ -20,7 +20,7 @@ public class HistoryRecentlyRemovedViewTests
 {
     private static Task<ScreenHarness> StartAsync(bool seeded = true, double width = 1040, double height = 660, ThemePreference theme = ThemePreference.Dark, bool realDialogs = false)
     {
-        var scenario = (seeded ? RemovedSnapshotSamples.Scenario() : ScenarioBuilder.Mockup()).WithSettings(MockupScenario.Settings with { Theme = theme });
+        var scenario = (seeded ? RemovedSnapshotSamples.Scenario() : ScenarioBuilder.Sample()).WithSettings(SampleScenario.Settings with { Theme = theme });
         var backend = new FakeBackend(scenario);
         var clock = backend.Clock;
         return ScreenHarness.StartAsync("history", context => [new HistoryScreenFactory(context, clock)], NavDestination.History, backend, theme, width, height, realDialogs);

@@ -61,7 +61,7 @@ internal sealed class ShellRig
         ILaunchFlowHost? launchFlow = null,
         IArtworkProvider? artwork = null,
         bool standIns = true) =>
-        new(backend ?? FakeBackend.Mockup(), dispatcher ?? new ImmediateUiDispatcher(), standIns ? StandInScreens.Complete(screens ?? []) : screens ?? [], launchFlow, artwork);
+        new(backend ?? FakeBackend.Sample(), dispatcher ?? new ImmediateUiDispatcher(), standIns ? StandInScreens.Complete(screens ?? []) : screens ?? [], launchFlow, artwork);
 
     public static async Task<ShellRig> StartAsync(
         FakeBackend? backend = null,
@@ -78,7 +78,7 @@ internal sealed class ShellRig
 
     public static async Task<ShellRig> LibraryLayoutAsync()
     {
-        var scenario = ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { Layout = ShellLayout.Library });
+        var scenario = ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Layout = ShellLayout.Library });
         return await StartAsync(new FakeBackend(scenario));
     }
 

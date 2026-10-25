@@ -7,7 +7,7 @@ using Savepoint.App.Tests.Fakes;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
-using static Savepoint.App.Tests.Fakes.MockupScenario;
+using static Savepoint.App.Tests.Fakes.SampleScenario;
 
 namespace Savepoint.App.Tests.Features.Games;
 
@@ -351,7 +351,7 @@ public class FreeUpSpaceViewModelTests
         // With removed, two snapshots of Skyrim and one of Satisfactory are waiting to be deleted for good.
         public Rig(bool selected = true, bool removed = false)
         {
-            Backend = removed ? new FakeBackend(RemovedSnapshotSamples.Scenario()) : FakeBackend.Mockup();
+            Backend = removed ? new FakeBackend(RemovedSnapshotSamples.Scenario()) : FakeBackend.Sample();
             Text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), Backend.Clock, "windows", TimeZoneInfo.Utc);
             FreeUp = new FreeUpSpaceViewModel(
                 Backend.Games,

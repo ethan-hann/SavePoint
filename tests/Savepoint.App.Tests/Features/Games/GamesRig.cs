@@ -83,7 +83,7 @@ internal sealed class GamesRig
         IUiDispatcher? dispatcher = null,
         Func<UiFormatter, IDialogs>? dialogs = null)
     {
-        var rig = new GamesRig(backend ?? FakeBackend.Mockup(), profiles, dispatcher, dialogs);
+        var rig = new GamesRig(backend ?? FakeBackend.Sample(), profiles, dispatcher, dialogs);
         await rig.Shell.InitializeAsync();
         await rig.Screen.ReloadAsync();
         return rig;

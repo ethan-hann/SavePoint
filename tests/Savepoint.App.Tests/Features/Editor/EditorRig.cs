@@ -136,9 +136,9 @@ internal sealed class EditorRig
 
     public GameEditorFactory Factory { get; }
 
-    public static EditorRig Create(FakeBackend? backend = null, string os = "windows") => new(backend ?? FakeBackend.Mockup(), os);
+    public static EditorRig Create(FakeBackend? backend = null, string os = "windows") => new(backend ?? FakeBackend.Sample(), os);
 
-    public GameEditorViewModel Edit(string gameId = MockupScenario.SkyrimId) =>
+    public GameEditorViewModel Edit(string gameId = SampleScenario.SkyrimId) =>
         Assert.IsType<GameEditorViewModel>(Factory.CreateForExisting(Shell, gameId));
 
     public GameEditorViewModel New(GameDefinition? prefill = null) =>

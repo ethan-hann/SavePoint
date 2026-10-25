@@ -18,7 +18,7 @@ internal static class FakeAssert
         return job;
     }
 
-    public static LaunchSessionInfo Session(FakeBackend backend, string gameId = MockupScenario.SkyrimId)
+    public static LaunchSessionInfo Session(FakeBackend backend, string gameId = SampleScenario.SkyrimId)
     {
         var session = backend.Launch.GetSession(gameId);
         Assert.NotNull(session);

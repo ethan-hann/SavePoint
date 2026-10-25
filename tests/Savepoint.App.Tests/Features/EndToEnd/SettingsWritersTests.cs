@@ -42,7 +42,7 @@ public class SettingsWritersTests
         var cancel = TestContext.Current.CancellationToken;
         using var app = await ComposedApp.StartAsync();
 
-        var play = app.Games.Profiles.Single(row => row.Id == MockupScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
+        var play = app.Games.Profiles.Single(row => row.Id == SampleScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
         var dialog = app.Dialog<LaunchDialogViewModel>();
         await app.Shell.SetLayoutAsync(ShellLayout.Library);
         await ChangeBehindTheirBacksAsync(app, stored => stored with { Theme = ThemePreference.Light }, cancel);
@@ -61,7 +61,7 @@ public class SettingsWritersTests
     {
         using var app = await ComposedApp.StartAsync();
 
-        var play = app.Games.Profiles.Single(row => row.Id == MockupScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
+        var play = app.Games.Profiles.Single(row => row.Id == SampleScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
         var dialog = app.Dialog<LaunchDialogViewModel>();
         FakeAssert.Ok(await app.Backend.Settings.SaveAsync((await StoredAsync(app, TestContext.Current.CancellationToken)) with { Theme = ThemePreference.Light }));
         dialog.DontAskAgain = true;
@@ -78,7 +78,7 @@ public class SettingsWritersTests
         GatedSettingsApi? gated = null;
         using var app = await ComposedApp.StartAsync(settings: inner => gated = new GatedSettingsApi(inner));
 
-        var play = app.Games.Profiles.Single(row => row.Id == MockupScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
+        var play = app.Games.Profiles.Single(row => row.Id == SampleScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
         var dialog = app.Dialog<LaunchDialogViewModel>();
         gated!.HoldNextSave();
         dialog.DontAskAgain = true;

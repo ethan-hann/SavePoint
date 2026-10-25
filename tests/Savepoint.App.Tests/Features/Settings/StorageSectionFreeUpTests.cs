@@ -45,7 +45,7 @@ public class StorageSectionFreeUpTests
     [Fact]
     public async Task One_removed_snapshot_reads_in_the_singular()
     {
-        var scenario = ScenarioBuilder.Mockup().WithRemovedSnapshot(MockupScenario.SkyrimId, RemovedSnapshotSamples.Continued);
+        var scenario = ScenarioBuilder.Sample().WithRemovedSnapshot(SampleScenario.SkyrimId, RemovedSnapshotSamples.Continued);
         var rig = await SettingsRig.ShownAsync(new FakeBackend(scenario));
         rig.Dialogs.AnswerConfirm(false);
 

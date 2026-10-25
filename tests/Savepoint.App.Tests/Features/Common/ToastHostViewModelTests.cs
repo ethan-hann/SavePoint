@@ -288,9 +288,79 @@ public class ToastHostViewModelTests
         Assert.Empty(host.Toasts);
     }
 
+    [Fact]
+    public void A_disposed_host_posts_nothing_when_a_timer_runs_out()
+    {
+        var dispatcher = new QueueingDispatcher();
+        var host = Host(dispatcher);
+        host.Show(new ToastMessage("Saved.", ToastKind.Success));
+
+        host.Dispose();
+        _clock.Advance(TimeSpan.FromSeconds(7));
+
+        Assert.Equal(0, dispatcher.Count);
+    }
+
+    [Fact]
+    public void A_dismissal_posted_before_disposal_does_nothing_when_it_runs_late()
+    {
+        var dispatcher = new QueueingDispatcher();
+        var host = Host(dispatcher);
+        host.Show(new ToastMessage("Saved.", ToastKind.Success));
+        _clock.Advance(TimeSpan.FromSeconds(7));
+        Assert.Equal(1, dispatcher.Count);
+
+        host.Dispose();
+        dispatcher.RunAll();
+
+        Assert.Single(host.Toasts);
+    }
+
+    [Fact]
+    public void A_toast_shown_after_disposal_starts_no_timer()
+    {
+        var dispatcher = new QueueingDispatcher();
+        var host = Host(dispatcher);
+        host.Dispose();
+
+        host.Show(new ToastMessage("Saved.", ToastKind.Success));
+        _clock.Advance(TimeSpan.FromSeconds(7));
+
+        Assert.Equal(0, dispatcher.Count);
+    }
+
+    [Fact]
+    public void Releasing_a_pause_after_disposal_starts_no_timer()
+    {
+        var dispatcher = new QueueingDispatcher();
+        var host = Host(dispatcher);
+        host.Show(new ToastMessage("Saved.", ToastKind.Success));
+        host.SetPaused(true);
+
+        host.Dispose();
+        host.SetPaused(false);
+        _clock.Advance(TimeSpan.FromSeconds(7));
+
+        Assert.Equal(0, dispatcher.Count);
+    }
+
+    [Fact]
+    public void Disposing_twice_is_harmless()
+    {
+        var host = Host();
+        host.Show(new ToastMessage("Saved.", ToastKind.Success));
+
+        host.Dispose();
+
+        var exception = Record.Exception(host.Dispose);
+        Assert.Null(exception);
+    }
+
     private sealed class QueueingDispatcher : IUiDispatcher
     {
         private readonly Queue<Action> _queued = [];
+
+        public int Count => _queued.Count;
 
         public void Post(Action action) => _queued.Enqueue(action);
 

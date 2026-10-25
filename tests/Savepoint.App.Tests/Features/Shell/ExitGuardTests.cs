@@ -14,7 +14,7 @@ public class ExitGuardTests
 
     private static (ExitGuard Guard, FakeBackend Backend, FakeDialogs Dialogs) Build(TimeSpan? wait = null)
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var dialogs = new FakeDialogs();
         return (new ExitGuard(backend.Jobs, dialogs, _text, wait ?? TimeSpan.FromMilliseconds(100)), backend, dialogs);
     }
@@ -81,7 +81,7 @@ public class ExitGuardTests
         dialogs.AnswerConfirm(true);
         var move = FakeAssert.Ok(await backend.Settings.RelocateStorageAsync(@"E:\SavePoint"));
         JobStarted? late = null;
-        dialogs.WhileConfirming = async _ => late = FakeAssert.Ok(await backend.Profiles.CaptureAsync(MockupScenario.SkyrimId, MockupScenario.ModdedId, "A point"));
+        dialogs.WhileConfirming = async _ => late = FakeAssert.Ok(await backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "A point"));
 
         var allowed = await guard.PrepareToCloseAsync();
 
@@ -96,7 +96,7 @@ public class ExitGuardTests
     {
         var (guard, backend, dialogs) = Build();
         dialogs.AnswerConfirm(true);
-        var save = FakeAssert.Ok(await backend.Profiles.CaptureAsync(MockupScenario.SkyrimId, MockupScenario.ModdedId, "A point"));
+        var save = FakeAssert.Ok(await backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "A point"));
         var move = FakeAssert.Ok(await backend.Settings.RelocateStorageAsync(@"E:\SavePoint"));
         dialogs.WhileConfirming = _ =>
         {
@@ -115,7 +115,7 @@ public class ExitGuardTests
     {
         var (guard, backend, dialogs) = Build();
         dialogs.AnswerConfirm(false);
-        var run = FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(MockupScenario.SkyrimId));
+        var run = FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(SampleScenario.SkyrimId));
         backend.Jobs.ReportNoLongerCancellable(run.JobId);
 
         var allowed = await guard.PrepareToCloseAsync();
@@ -136,7 +136,7 @@ public class ExitGuardTests
     {
         var (guard, backend, dialogs) = Build(TimeSpan.FromMilliseconds(100));
         dialogs.AnswerConfirm(true);
-        var run = FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(MockupScenario.SkyrimId));
+        var run = FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(SampleScenario.SkyrimId));
         backend.Jobs.ReportNoLongerCancellable(run.JobId);
 
         var closing = guard.PrepareToCloseAsync();
@@ -157,7 +157,7 @@ public class ExitGuardTests
         var (guard, backend, dialogs) = Build(TimeSpan.FromMilliseconds(100));
         dialogs.AnswerConfirm(true, true);
         var move = FakeAssert.Ok(await backend.Settings.RelocateStorageAsync(@"E:\SavePoint"));
-        var run = FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(MockupScenario.SkyrimId));
+        var run = FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(SampleScenario.SkyrimId));
         var passed = false;
         dialogs.WhileConfirming = _ =>
         {
@@ -205,7 +205,7 @@ public class ExitGuardTests
     {
         var (guard, backend, dialogs) = Build();
         dialogs.AnswerConfirm(false);
-        var job = FakeAssert.Ok(await backend.Launch.SwitchAsync(MockupScenario.SkyrimId, new LaunchTarget.ProfileTip(MockupScenario.ModdedId))).JobId;
+        var job = FakeAssert.Ok(await backend.Launch.SwitchAsync(SampleScenario.SkyrimId, new LaunchTarget.ProfileTip(SampleScenario.ModdedId))).JobId;
         backend.Jobs.ReportStep(job, JobSteps.LaunchSwitchFolder, ("folder", RepoRole.Install), ("profile", "Modded playthrough"), ("older", "no"), ("counted", "yes"), ("written", 12), ("removed", 2));
 
         var allowed = await guard.PrepareToCloseAsync();
@@ -234,7 +234,7 @@ public class ExitGuardTests
     public async Task A_launch_that_has_not_begun_to_switch_is_stopped_on_the_way_out_without_a_question()
     {
         var (guard, backend, dialogs) = Build();
-        var launch = FakeAssert.Ok(await backend.Launch.StartAsync(MockupScenario.SkyrimId, new LaunchTarget.ProfileTip(MockupScenario.ModdedId))).JobId;
+        var launch = FakeAssert.Ok(await backend.Launch.StartAsync(SampleScenario.SkyrimId, new LaunchTarget.ProfileTip(SampleScenario.ModdedId))).JobId;
 
         var allowed = await guard.PrepareToCloseAsync();
 
@@ -245,7 +245,7 @@ public class ExitGuardTests
 
     private static async Task<Guid> StartSwitchingAsync(FakeBackend backend)
     {
-        var launch = FakeAssert.Ok(await backend.Launch.StartAsync(MockupScenario.SkyrimId, new LaunchTarget.ProfileTip(MockupScenario.ModdedId))).JobId;
+        var launch = FakeAssert.Ok(await backend.Launch.StartAsync(SampleScenario.SkyrimId, new LaunchTarget.ProfileTip(SampleScenario.ModdedId))).JobId;
         backend.Jobs.ReportStep(launch, JobSteps.LaunchSwitchFolder, ("folder", RepoRole.Install), ("profile", "Modded playthrough"), ("older", "no"), ("counted", "yes"), ("written", 12), ("removed", 2));
         return launch;
     }
@@ -254,7 +254,7 @@ public class ExitGuardTests
     public async Task A_free_up_that_can_still_be_stopped_is_cancelled_on_the_way_out_without_a_question()
     {
         var (guard, backend, dialogs) = Build();
-        var run = FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(MockupScenario.SkyrimId));
+        var run = FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(SampleScenario.SkyrimId));
 
         var allowed = await guard.PrepareToCloseAsync();
 
@@ -267,7 +267,7 @@ public class ExitGuardTests
     public async Task A_save_is_cancelled_on_the_way_out_without_a_question()
     {
         var (guard, backend, dialogs) = Build();
-        var save = FakeAssert.Ok(await backend.Profiles.CaptureAsync(MockupScenario.SkyrimId, MockupScenario.ModdedId, "A point"));
+        var save = FakeAssert.Ok(await backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "A point"));
 
         var allowed = await guard.PrepareToCloseAsync();
 
@@ -280,7 +280,7 @@ public class ExitGuardTests
     public async Task The_close_waits_for_a_cancelled_job_to_end()
     {
         var (guard, backend, _) = Build(TimeSpan.FromSeconds(20));
-        var save = FakeAssert.Ok(await backend.Profiles.CaptureAsync(MockupScenario.SkyrimId, MockupScenario.ModdedId, "A point"));
+        var save = FakeAssert.Ok(await backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "A point"));
 
         var closing = guard.PrepareToCloseAsync();
         var early = await Task.WhenAny(closing, Task.Delay(300, TestContext.Current.CancellationToken));
@@ -295,7 +295,7 @@ public class ExitGuardTests
     public async Task A_job_that_will_not_end_does_not_hold_the_close_forever()
     {
         var (guard, backend, _) = Build(TimeSpan.FromMilliseconds(200));
-        FakeAssert.Ok(await backend.Profiles.CaptureAsync(MockupScenario.SkyrimId, MockupScenario.ModdedId, "A point"));
+        FakeAssert.Ok(await backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "A point"));
 
         var allowed = await guard.PrepareToCloseAsync().WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 

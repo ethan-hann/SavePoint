@@ -2,7 +2,7 @@ using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 using static Savepoint.App.Tests.Fakes.FakeAssert;
-using static Savepoint.App.Tests.Fakes.MockupScenario;
+using static Savepoint.App.Tests.Fakes.SampleScenario;
 
 namespace Savepoint.App.Tests.Fakes;
 
@@ -13,7 +13,7 @@ public class FakeJobsApiTests
     [Fact]
     public async Task A_started_job_is_running_with_no_progress_and_announces_itself()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var events = Collect(backend);
 
         var id = await StartCapture(backend);
@@ -32,7 +32,7 @@ public class FakeJobsApiTests
     [Fact]
     public async Task Progress_replaces_the_previous_report_and_raises_an_event()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var id = await StartCapture(backend);
         var events = Collect(backend);
 
@@ -47,7 +47,7 @@ public class FakeJobsApiTests
     [Fact]
     public async Task Progress_paths_are_kept_as_the_newest_200_recent_lines()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var id = await StartCapture(backend);
 
         for (var i = 1; i <= 201; i++)
@@ -66,7 +66,7 @@ public class FakeJobsApiTests
     [Fact]
     public async Task A_reported_step_joins_the_progress_paths_as_a_recent_line_and_raises_an_event()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var id = await StartCapture(backend);
         var events = Collect(backend);
 
@@ -82,7 +82,7 @@ public class FakeJobsApiTests
     [Fact]
     public async Task A_step_for_a_job_that_already_finished_is_dropped_without_an_event()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var id = await StartCapture(backend);
         backend.Jobs.Complete(id);
         var events = Collect(backend);
@@ -97,7 +97,7 @@ public class FakeJobsApiTests
     [Fact]
     public async Task Every_job_starts_with_the_step_the_real_work_writes_first_so_its_details_are_never_empty()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var modded = Ok(await backend.Profiles.ListAsync(SkyrimId, Ct)).Single(p => p.Id == ModdedId).Name;
 
         var capture = await StartCapture(backend);
@@ -116,7 +116,7 @@ public class FakeJobsApiTests
     [Fact]
     public async Task A_launch_says_it_is_starting_the_game_when_it_reaches_a_running_game()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         Ok(await backend.Launch.StartAsync(SkyrimId, new LaunchTarget.ProfileTip(ModdedId)));
         var launch = backend.Jobs.LastStarted(JobKind.Launch);
 
@@ -128,7 +128,7 @@ public class FakeJobsApiTests
     [Fact]
     public async Task Progress_after_the_job_finished_is_dropped_without_an_event()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var id = await StartCapture(backend);
         backend.Jobs.Complete(id);
         var events = Collect(backend);
@@ -142,7 +142,7 @@ public class FakeJobsApiTests
     [Fact]
     public async Task Completing_without_a_result_reports_every_folder_of_the_call_as_saved()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var id = await StartCapture(backend);
 
         backend.Jobs.Complete(id);
@@ -161,7 +161,7 @@ public class FakeJobsApiTests
     [Fact]
     public async Task One_failed_folder_makes_the_job_partial_never_a_success()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var id = await StartCapture(backend);
 
         backend.Jobs.Complete(id, HalfSaved);
@@ -175,7 +175,7 @@ public class FakeJobsApiTests
     [Fact]
     public async Task Every_folder_failing_fails_the_job_with_the_first_folder_error()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var id = await StartCapture(backend);
         var lockError = FileInUseError;
         var result = new CaptureResult(
@@ -193,7 +193,7 @@ public class FakeJobsApiTests
     [Fact]
     public async Task Every_folder_cancelled_reports_the_job_as_cancelled()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var id = await StartCapture(backend);
         var cancelled = ErrorInfo.From(new OperationCancelledByUserException(CancelledOperation.Capture, SkyrimId));
         var result = new CaptureResult(ModdedId, null, [new FolderOutcome(RepoRole.Install, cancelled), new FolderOutcome(RepoRole.External, cancelled)]);
@@ -206,7 +206,7 @@ public class FakeJobsApiTests
     [Fact]
     public async Task Optimize_results_are_judged_across_every_game_and_folder()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var started = await backend.Settings.OptimizeAllStorageAsync();
         var id = Ok(started).JobId;
         var result = new OptimizeResult(
@@ -223,7 +223,7 @@ public class FakeJobsApiTests
     [Fact]
     public async Task Fail_reports_the_given_error()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var id = await StartCapture(backend);
 
         backend.Jobs.Fail(id, SavesOutOfRoomError);
@@ -237,7 +237,7 @@ public class FakeJobsApiTests
     [Fact]
     public async Task Cancel_marks_the_request_and_the_test_decides_when_the_job_ends()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var id = await StartCapture(backend);
         var events = Collect(backend);
 
@@ -253,7 +253,7 @@ public class FakeJobsApiTests
     [Fact]
     public async Task CompleteCancelled_ends_the_job_with_the_cancelled_id_for_its_kind()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var capture = await StartCapture(backend);
         var optimize = Ok(await backend.Games.OptimizeStorageAsync(SkyrimId)).JobId;
 
@@ -268,7 +268,7 @@ public class FakeJobsApiTests
     [Fact]
     public async Task Cancelling_an_unknown_or_finished_job_succeeds_and_changes_nothing()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var id = await StartCapture(backend);
         backend.Jobs.Complete(id);
         var events = Collect(backend);
@@ -285,7 +285,7 @@ public class FakeJobsApiTests
     [Fact]
     public async Task Clearing_all_data_cannot_be_cancelled()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var id = Ok(await backend.Settings.ClearAllDataAsync()).JobId;
 
         await backend.Jobs.CancelAsync(id);
@@ -298,7 +298,7 @@ public class FakeJobsApiTests
     [Fact]
     public async Task A_job_finishes_once_and_scripting_a_second_finish_is_a_test_error()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var id = await StartCapture(backend);
         backend.Jobs.Complete(id);
 
@@ -309,7 +309,7 @@ public class FakeJobsApiTests
     [Fact]
     public async Task Revision_grows_with_every_change()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var id = await StartCapture(backend);
         var first = Job(backend, id).Revision;
 
@@ -324,7 +324,7 @@ public class FakeJobsApiTests
     [Fact]
     public async Task List_holds_running_jobs_then_the_five_most_recently_finished()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var running = await StartCapture(backend);
         var finished = new List<Guid>();
         for (var i = 0; i < 6; i++)
@@ -344,7 +344,7 @@ public class FakeJobsApiTests
     [Fact]
     public async Task Each_game_keeps_its_own_five_finished_jobs_as_the_real_registry_does()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var quiet = new List<Guid>();
         for (var i = 0; i < 2; i++)
         {
@@ -369,7 +369,7 @@ public class FakeJobsApiTests
     [Fact]
     public async Task Finished_jobs_that_span_every_game_are_kept_apart_from_each_games()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var spanning = new List<Guid>();
         for (var i = 0; i < 7; i++)
         {
@@ -386,7 +386,7 @@ public class FakeJobsApiTests
     [Fact]
     public async Task Lines_that_fall_off_the_front_are_counted_like_the_real_registry_counts_them()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var id = await StartCapture(backend);
 
         // The capture's opening step plus 249 paths is 250 lines; the 50 oldest are gone.
@@ -404,7 +404,7 @@ public class FakeJobsApiTests
     [Fact]
     public async Task A_snapshot_a_launch_and_the_snapshot_after_play_name_their_profile()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var modded = Ok(await backend.Profiles.ListAsync(SkyrimId, Ct)).Single(p => p.Id == ModdedId);
         var expected = new JobProfile(modded.Id, modded.Name);
 
@@ -425,7 +425,7 @@ public class FakeJobsApiTests
     [Fact]
     public async Task A_job_scripted_as_no_longer_cancellable_ignores_a_cancel_and_says_so_in_its_snapshot()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var id = Ok(await backend.Settings.RelocateStorageAsync(@"D:\SavePoint")).JobId;
         var events = Collect(backend);
 
@@ -441,7 +441,7 @@ public class FakeJobsApiTests
     [Fact]
     public async Task LastStarted_finds_the_newest_job_of_a_kind()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var capture = await StartCapture(backend);
         var optimize = Ok(await backend.Games.OptimizeStorageAsync(SkyrimId)).JobId;
 

@@ -11,7 +11,7 @@ namespace Savepoint.App.Tests.Features.Launch;
 // A launch flow over the fake backend with its events recorded, and helpers that drive a play session step by step.
 internal sealed class FlowRig : IDisposable
 {
-    public const string Skyrim = MockupScenario.SkyrimId;
+    public const string Skyrim = SampleScenario.SkyrimId;
 
     public FlowRig(FakeBackend? backend = null)
     {
@@ -73,20 +73,20 @@ internal sealed class FlowRig : IDisposable
     // The progress-dialog start: going back to a point with only the saves different, with the skip preference on.
     public async Task PlayWithProgressAsync()
     {
-        FakeAssert.Ok(await Backend.Settings.SaveAsync(MockupScenario.Settings with { SkipConfirmWhenOnlySaveChanges = true }));
+        FakeAssert.Ok(await Backend.Settings.SaveAsync(SampleScenario.Settings with { SkipConfirmWhenOnlySaveChanges = true }));
         await Play(LaunchRig.ClearedBlackreachPoint);
     }
 
     public async Task PlayToRunningAsync()
     {
         await PlayModdedAsync();
-        Backend.Launch.ReportRunning(Skyrim, MockupScenario.RunningSince);
+        Backend.Launch.ReportRunning(Skyrim, SampleScenario.RunningSince);
     }
 
-    public async Task PlayToExitedAsync(int newFiles = MockupScenario.NewSaveFiles, int installFiles = 0)
+    public async Task PlayToExitedAsync(int newFiles = SampleScenario.NewSaveFiles, int installFiles = 0)
     {
         await PlayToRunningAsync();
-        Backend.Launch.ReportExited(Skyrim, MockupScenario.PlayDuration, newFiles, installFiles);
+        Backend.Launch.ReportExited(Skyrim, SampleScenario.PlayDuration, newFiles, installFiles);
     }
 
     public LaunchSessionInfo Session() => FakeAssert.Session(Backend, Skyrim);

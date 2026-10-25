@@ -25,7 +25,7 @@ public class LaunchDialogViewModelTests : IDisposable
         preview with { External = preview.External! with { DirtyOwnerProfileId = null } };
 
     private static LaunchPreview BothDirty(LaunchPreview preview) =>
-        preview with { Install = preview.Install with { Dirty = true, DirtyFileCount = 12, DirtyOwnerProfileId = MockupScenario.SurvivalId } };
+        preview with { Install = preview.Install with { Dirty = true, DirtyFileCount = 12, DirtyOwnerProfileId = SampleScenario.SurvivalId } };
 
     private static LaunchPreview WithInstallSwitch(LaunchPreview preview, SwitchSummary? summary) =>
         preview with { Install = preview.Install with { Switch = summary } };
@@ -214,7 +214,7 @@ public class LaunchDialogViewModelTests : IDisposable
     {
         var dialog = await _rig.DialogAsync(LaunchRig.ClearedBlackreachPoint);
 
-        Assert.Equal(MockupScenario.ClearedBlackreach, dialog.SelectedSave!.Entry.Id);
+        Assert.Equal(SampleScenario.ClearedBlackreach, dialog.SelectedSave!.Entry.Id);
     }
 
     [Fact]
@@ -235,7 +235,7 @@ public class LaunchDialogViewModelTests : IDisposable
     [Fact]
     public async Task New_changes_name_the_profile_that_owns_them_when_it_is_not_the_one_being_switched_to()
     {
-        var dialog = await _rig.DialogAsync(change: preview => preview with { External = preview.External! with { DirtyOwnerProfileId = MockupScenario.ModdedId } });
+        var dialog = await _rig.DialogAsync(change: preview => preview with { External = preview.External! with { DirtyOwnerProfileId = SampleScenario.ModdedId } });
 
         var block = Assert.Single(dialog.UnsavedBlocks);
         Assert.Equal("3 files in your saves folder changed since the last snapshot of \"Modded playthrough - 7-2-26\". Take a snapshot to keep them there, or discard them.", block.Body);
@@ -280,8 +280,8 @@ public class LaunchDialogViewModelTests : IDisposable
         var run = block.SaveFirstCommand.ExecuteAsync(null);
 
         var call = Assert.Single(_rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CaptureAsync)));
-        Assert.Equal(MockupScenario.SkyrimId, call.Args[0]);
-        Assert.Equal(MockupScenario.SurvivalId, call.Args[1]);
+        Assert.Equal(SampleScenario.SkyrimId, call.Args[0]);
+        Assert.Equal(SampleScenario.SurvivalId, call.Args[1]);
         Assert.Equal($"Before switching to {_survivalName}", call.Args[2]);
         Assert.Equal([RepoRole.External], Assert.IsAssignableFrom<IEnumerable<RepoRole>>(call.Args[3]));
         Assert.True(block.IsBusy);
@@ -373,7 +373,7 @@ public class LaunchDialogViewModelTests : IDisposable
         var run = block.SaveFirstCommand.ExecuteAsync(null);
         Assert.False(block.ShowActions);
 
-        _rig.Backend.Jobs.Fail(LastCaptureJob(), MockupScenario.SavesOutOfRoomError);
+        _rig.Backend.Jobs.Fail(LastCaptureJob(), SampleScenario.SavesOutOfRoomError);
         await run;
 
         Assert.False(block.IsSaving);
@@ -387,7 +387,7 @@ public class LaunchDialogViewModelTests : IDisposable
         var block = dialog.UnsavedBlocks[0];
         var run = block.SaveFirstCommand.ExecuteAsync(null);
 
-        _rig.Backend.Jobs.Fail(LastCaptureJob(), MockupScenario.SavesOutOfRoomError);
+        _rig.Backend.Jobs.Fail(LastCaptureJob(), SampleScenario.SavesOutOfRoomError);
         await run;
 
         Assert.Single(dialog.UnsavedBlocks);
@@ -405,7 +405,7 @@ public class LaunchDialogViewModelTests : IDisposable
         var block = dialog.UnsavedBlocks[0];
         var run = block.SaveFirstCommand.ExecuteAsync(null);
 
-        var partial = new CaptureResult(MockupScenario.SurvivalId, null, [new FolderOutcome(RepoRole.External, MockupScenario.SavesOutOfRoomError), new FolderOutcome(RepoRole.Install)]);
+        var partial = new CaptureResult(SampleScenario.SurvivalId, null, [new FolderOutcome(RepoRole.External, SampleScenario.SavesOutOfRoomError), new FolderOutcome(RepoRole.Install)]);
         _rig.Backend.Jobs.Complete(LastCaptureJob(), partial);
         await run;
 
@@ -417,7 +417,7 @@ public class LaunchDialogViewModelTests : IDisposable
     public async Task A_save_that_cannot_start_shows_the_reason_in_the_block()
     {
         var dialog = await _rig.DialogAsync();
-        _rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.CaptureAsync), MockupScenario.SavesOutOfRoomError);
+        _rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.CaptureAsync), SampleScenario.SavesOutOfRoomError);
 
         await dialog.UnsavedBlocks[0].SaveFirstCommand.ExecuteAsync(null);
 
@@ -436,7 +436,7 @@ public class LaunchDialogViewModelTests : IDisposable
         var request = Assert.Single(_rig.Dialogs.Confirmations);
         Assert.Equal("Discard these changes?", request.Title);
         Assert.Equal(
-            $"The saves folder ({MockupScenario.SkyrimSaves}) goes back to its last snapshot. Progress you saved in the game since then is lost. 2 new files are deleted. 1 changed file is put back as it was. This can't be undone.",
+            $"The saves folder ({SampleScenario.SkyrimSaves}) goes back to its last snapshot. Progress you saved in the game since then is lost. 2 new files are deleted. 1 changed file is put back as it was. This can't be undone.",
             request.Message);
         Assert.Equal("Discard them, permanently", request.ConfirmLabel);
         Assert.True(request.Destructive);
@@ -453,7 +453,7 @@ public class LaunchDialogViewModelTests : IDisposable
         await dialog.UnsavedBlocks[0].DiscardCommand.ExecuteAsync(null);
 
         var call = Assert.Single(_rig.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.DiscardChangesAsync)));
-        Assert.Equal([MockupScenario.SkyrimId, RepoRole.External], call.Args);
+        Assert.Equal([SampleScenario.SkyrimId, RepoRole.External], call.Args);
         Assert.Empty(dialog.UnsavedBlocks);
         Assert.True(dialog.CanSwitch);
     }
@@ -462,7 +462,7 @@ public class LaunchDialogViewModelTests : IDisposable
     public async Task A_discard_that_fails_keeps_the_block_and_says_why()
     {
         var dialog = await _rig.DialogAsync();
-        _rig.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.DiscardChangesAsync), MockupScenario.FileInUseError);
+        _rig.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.DiscardChangesAsync), SampleScenario.FileInUseError);
 
         await dialog.UnsavedBlocks[0].DiscardCommand.ExecuteAsync(null);
 
@@ -543,7 +543,7 @@ public class LaunchDialogViewModelTests : IDisposable
         var create = keep.CreateCommand.ExecuteAsync(null);
 
         var call = Assert.Single(_rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CreateAsync)));
-        Assert.Equal([MockupScenario.SkyrimId, "Rescued session", null, "Rescued session"], call.Args);
+        Assert.Equal([SampleScenario.SkyrimId, "Rescued session", null, "Rescued session"], call.Args);
         Assert.True(keep.IsWorking);
         Assert.False(keep.CanDismiss);
         Assert.False(keep.CreateCommand.CanExecute(null));
@@ -566,7 +566,7 @@ public class LaunchDialogViewModelTests : IDisposable
         var keep = Assert.IsType<KeepAsNewProfileDialogViewModel>(Assert.Single(_rig.Dialogs.Shown));
         var create = keep.CreateCommand.ExecuteAsync(null);
 
-        _rig.Backend.Jobs.Fail(LastCaptureJob(), MockupScenario.SavesOutOfRoomError);
+        _rig.Backend.Jobs.Fail(LastCaptureJob(), SampleScenario.SavesOutOfRoomError);
         await create;
 
         Assert.False(keep.IsClosed);
@@ -588,7 +588,7 @@ public class LaunchDialogViewModelTests : IDisposable
         var keep = Assert.IsType<KeepAsNewProfileDialogViewModel>(Assert.Single(_rig.Dialogs.Shown));
         var create = keep.CreateCommand.ExecuteAsync(null);
 
-        var partial = new CaptureResult("profile", null, [new FolderOutcome(RepoRole.Install), new FolderOutcome(RepoRole.External, MockupScenario.SavesOutOfRoomError)]);
+        var partial = new CaptureResult("profile", null, [new FolderOutcome(RepoRole.Install), new FolderOutcome(RepoRole.External, SampleScenario.SavesOutOfRoomError)]);
         _rig.Backend.Jobs.Complete(LastCaptureJob(), partial);
         await create;
 
@@ -606,7 +606,7 @@ public class LaunchDialogViewModelTests : IDisposable
         var dialog = await _rig.DialogAsync(change: Unclaimed);
         var open = dialog.KeepCommand.ExecuteAsync(null);
         var keep = Assert.IsType<KeepAsNewProfileDialogViewModel>(Assert.Single(_rig.Dialogs.Shown));
-        _rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.CreateAsync), MockupScenario.FolderGoneError);
+        _rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.CreateAsync), SampleScenario.FolderGoneError);
 
         await keep.CreateCommand.ExecuteAsync(null);
 
@@ -653,7 +653,7 @@ public class LaunchDialogViewModelTests : IDisposable
 
         Assert.True(dialog.IsClosed);
 
-        Assert.Equal(new LaunchTarget.Save(MockupScenario.SurvivalId, MockupScenario.FirstNight), await dialog.Result);
+        Assert.Equal(new LaunchTarget.Save(SampleScenario.SurvivalId, SampleScenario.FirstNight), await dialog.Result);
     }
 
     [Fact]
@@ -682,7 +682,7 @@ public class LaunchDialogViewModelTests : IDisposable
         changed.SelectedSave = changed.SaveOptions[2];
         changed.SwitchCommand.Execute(null);
         Assert.True(changed.IsClosed);
-        Assert.Equal(new LaunchTarget.Save(MockupScenario.ModdedId, MockupScenario.FreshStart), await changed.Result);
+        Assert.Equal(new LaunchTarget.Save(SampleScenario.ModdedId, SampleScenario.FreshStart), await changed.Result);
     }
 
     [Fact]
@@ -742,8 +742,8 @@ public class LaunchDialogViewModelTests : IDisposable
 
         var settings = await _rig.SettingsAsync();
         Assert.True(settings.SkipConfirmWhenOnlySaveChanges);
-        Assert.Equal(MockupScenario.Settings.Theme, settings.Theme);
-        Assert.Equal(MockupScenario.Settings.StorageRoot, settings.StorageRoot);
+        Assert.Equal(SampleScenario.Settings.Theme, settings.Theme);
+        Assert.Equal(SampleScenario.Settings.StorageRoot, settings.StorageRoot);
         Assert.Equal([settings], saved);
 
         dialog.DontAskAgain = false;

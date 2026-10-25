@@ -22,7 +22,7 @@ public class RunningCardViewModelTests
         new(
             "Skyrim Special Edition",
             "Modded playthrough - 7-2-26",
-            startedAt ?? MockupScenario.RunningSince,
+            startedAt ?? SampleScenario.RunningSince,
             _text,
             _clock,
             new ImmediateUiDispatcher(),

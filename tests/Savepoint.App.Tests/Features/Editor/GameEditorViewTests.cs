@@ -99,8 +99,8 @@ public class GameEditorViewTests
         var editor = harness.Edit();
 
         Assert.Equal("Skyrim Special Edition", harness.Find<TextBox>("NameField").Text);
-        Assert.Equal(MockupScenario.SkyrimInstall, harness.Find<TextBox>("InstallField").Text);
-        Assert.Equal(MockupScenario.SkyrimSavesRaw, harness.Find<TextBox>("SavesField").Text);
+        Assert.Equal(SampleScenario.SkyrimInstall, harness.Find<TextBox>("InstallField").Text);
+        Assert.Equal(SampleScenario.SkyrimSavesRaw, harness.Find<TextBox>("SavesField").Text);
         Assert.Equal("SkyrimSELauncher.exe", harness.Find<TextBox>("ExeField").Text);
         Assert.Equal("SkyrimSE.exe", harness.Find<TextBox>("ProcessField").Text);
 
@@ -196,7 +196,7 @@ public class GameEditorViewTests
         editor.Name = "Skyrim";
         editor.InstallPath = @"C:\Program Files (x86)";
         editor.ExePath = "skyrim.exe";
-        harness.Backend.FailNext<IGamesApi>("AddAsync", MockupScenario.FolderTooBroadError);
+        harness.Backend.FailNext<IGamesApi>("AddAsync", SampleScenario.FolderTooBroadError);
         var saving = editor.SaveCommand.ExecuteAsync(null);
         harness.Settle();
         Assert.IsType<ConsentDialogViewModel>(harness.Dialogs.Current).ConfirmCommand.Execute(null);
@@ -228,7 +228,7 @@ public class GameEditorViewTests
     [AvaloniaFact]
     public async Task Suggestions_appear_as_buttons_that_fill_the_field()
     {
-        var backend = new FakeBackend(ScenarioBuilder.Mockup().WithExecutables(MockupScenario.SkyrimInstall, "SkyrimSELauncher.exe", "SkyrimSE.exe"));
+        var backend = new FakeBackend(ScenarioBuilder.Sample().WithExecutables(SampleScenario.SkyrimInstall, "SkyrimSELauncher.exe", "SkyrimSE.exe"));
         using var harness = await EditorViewHarness.StartAsync(backend);
         var editor = harness.Edit();
 
@@ -247,7 +247,7 @@ public class GameEditorViewTests
     [AvaloniaFact]
     public async Task A_link_start_explains_the_process_name_and_offers_the_games_program_as_a_button()
     {
-        var backend = new FakeBackend(ScenarioBuilder.Mockup().WithExecutables(MockupScenario.SkyrimInstall, "SkyrimSELauncher.exe", "SkyrimSE.exe"));
+        var backend = new FakeBackend(ScenarioBuilder.Sample().WithExecutables(SampleScenario.SkyrimInstall, "SkyrimSELauncher.exe", "SkyrimSE.exe"));
         using var harness = await EditorViewHarness.StartAsync(backend);
         var editor = harness.Edit();
         var row = harness.Find<StackPanel>("ProcessWhyRow");
@@ -431,7 +431,7 @@ public class GameEditorViewTests
     public async Task The_reconnect_question_lists_the_profiles_and_its_buttons_answer_it()
     {
         var history = new OrphanedHistory("old-game", [RepoRole.Install], [new RecoverableProfile("profile/a", "Modded run")]);
-        var backend = new FakeBackend(ScenarioBuilder.Mockup().WithOrphanedHistory(@"C:\Games\Hollow Knight", history));
+        var backend = new FakeBackend(ScenarioBuilder.Sample().WithOrphanedHistory(@"C:\Games\Hollow Knight", history));
         using var harness = await EditorViewHarness.StartAsync(backend);
         var editor = harness.New();
         editor.Name = "Hollow Knight";
@@ -457,7 +457,7 @@ public class GameEditorViewTests
     public async Task A_field_in_error_carries_the_error_as_its_help_text_so_tabbing_back_to_it_repeats_the_problem()
     {
         using var harness = await EditorViewHarness.StartAsync(height: 1000);
-        var editor = harness.Edit(MockupScenario.SkyrimId);
+        var editor = harness.Edit(SampleScenario.SkyrimId);
 
         editor.NameError = "Enter a name.";
         editor.InstallError = "Choose the install folder.";
@@ -484,7 +484,7 @@ public class GameEditorViewTests
     public async Task Removing_a_chip_from_the_keyboard_moves_focus_to_the_next_chip_and_after_the_last_to_the_add_chip()
     {
         using var harness = await EditorViewHarness.StartAsync(height: 1000);
-        harness.Edit(MockupScenario.SkyrimId);
+        harness.Edit(SampleScenario.SkyrimId);
         var list = harness.All<ChipListView>().First(candidate => candidate.GetVisualDescendants().OfType<Button>().Count(button => button.Classes.Contains("icon")) >= 2);
         List<Button> Removers() => [.. list.GetVisualDescendants().OfType<Button>().Where(button => button.Classes.Contains("icon"))];
         var names = Removers().Select(button => AutomationProperties.GetName(button)).ToList();
@@ -514,7 +514,7 @@ public class GameEditorViewTests
     public async Task The_start_file_and_steam_link_fields_are_spoken_by_what_they_are_not_by_their_type()
     {
         using var harness = await EditorViewHarness.StartAsync();
-        harness.Edit(MockupScenario.SkyrimId);
+        harness.Edit(SampleScenario.SkyrimId);
 
         Assert.Equal("File that starts the game", AutomationProperties.GetName(harness.Find<TextBox>("ExeField")));
         Assert.Equal("Steam launch link", AutomationProperties.GetName(harness.Find<TextBox>("UriField")));
@@ -524,7 +524,7 @@ public class GameEditorViewTests
     public async Task The_steam_app_id_field_is_a_fixed_size_target_whatever_is_typed_in_it()
     {
         using var harness = await EditorViewHarness.StartAsync(height: 1000);
-        harness.Edit(MockupScenario.SatisfactoryId);
+        harness.Edit(SampleScenario.SatisfactoryId);
 
         var field = harness.Find<TextBox>("SteamAppIdField");
         Assert.True(field.Bounds.Width >= 160, $"The empty field is {field.Bounds.Width:0}px wide.");

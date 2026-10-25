@@ -85,7 +85,7 @@ public class SwitchProgressDialogViewModelTests
     {
         var dialog = Create();
 
-        dialog.Update(MockupScenario.SwitchProgress);
+        dialog.Update(SampleScenario.SwitchProgress);
 
         Assert.False(dialog.IsIndeterminate);
         Assert.Equal(62.3, dialog.PercentValue, 1);

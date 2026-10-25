@@ -6,7 +6,7 @@ using Savepoint.App.Tests.Features.Shell;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
-using static Savepoint.App.Tests.Fakes.MockupScenario;
+using static Savepoint.App.Tests.Fakes.SampleScenario;
 
 namespace Savepoint.App.Tests.Features.Activity;
 
@@ -132,7 +132,7 @@ public class ActivityScreenViewModelTests
     [Fact]
     public async Task A_job_that_ran_before_the_screen_was_built_is_listed()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var early = FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(SkyrimId)).JobId;
         backend.Jobs.Complete(early);
 
@@ -286,7 +286,7 @@ public class ActivityScreenViewModelTests
     [Fact]
     public async Task The_newest_running_job_is_chosen_first_and_otherwise_the_newest()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var running = FakeAssert.Ok(await backend.Profiles.CaptureAsync(SkyrimId, ModdedId, "Still running")).JobId;
         backend.Clock.Advance(TimeSpan.FromMinutes(1));
         var done = FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(SkyrimId)).JobId;
@@ -296,7 +296,7 @@ public class ActivityScreenViewModelTests
 
         Assert.Equal(running, rig.Screen.SelectedRow?.JobId);
 
-        var finished = FakeBackend.Mockup();
+        var finished = FakeBackend.Sample();
         FakeAssert.Ok(await finished.Games.OptimizeStorageAsync(SkyrimId));
         finished.Jobs.Complete(finished.Jobs.LastStarted().JobId);
         finished.Clock.Advance(TimeSpan.FromMinutes(1));

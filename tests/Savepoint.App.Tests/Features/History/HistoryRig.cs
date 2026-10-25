@@ -40,17 +40,17 @@ internal sealed class HistoryRig
 
     public FakeDialogs Dialogs { get; }
 
-    public static TimeZoneInfo MockupZone { get; } = TimeZoneInfo.CreateCustomTimeZone("mockup", TimeSpan.FromHours(-5), "mockup", "mockup");
+    public static TimeZoneInfo SampleZone { get; } = TimeZoneInfo.CreateCustomTimeZone("sample", TimeSpan.FromHours(-5), "sample", "sample");
 
     public static UiFormatter FormatterFor(FakeBackend backend) =>
-        new(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), backend.Clock, "windows", MockupZone);
+        new(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), backend.Clock, "windows", SampleZone);
 
     // Starts the shell on Games and leaves History unvisited, so a test decides when the screen first shows.
     public static async Task<HistoryRig> StartAsync(
         FakeBackend? backend = null,
         Func<IHistoryApi, IHistoryApi>? history = null)
     {
-        backend ??= FakeBackend.Mockup();
+        backend ??= FakeBackend.Sample();
         var flow = new ScriptedLaunchFlow();
         var text = FormatterFor(backend);
         var services = new AppServices(

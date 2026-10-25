@@ -82,7 +82,7 @@ public class StartupLogFolderTests
     {
         var revealer = new RecordingFileRevealer();
         var services = AppBootstrap.Unavailable(Failure, _logFolder) with { FileRevealer = revealer };
-        var main = AppComposition.Create(services, _text, new RecordingThemeApplier(), () => null, new ImmediateUiDispatcher(), new ManualTimeProvider(), new FakeDialogs());
+        using var main = AppComposition.Create(services, _text, new RecordingThemeApplier(), () => null, new ImmediateUiDispatcher(), new ManualTimeProvider(), new FakeDialogs());
 
         await main.Startup.CheckAsync();
 

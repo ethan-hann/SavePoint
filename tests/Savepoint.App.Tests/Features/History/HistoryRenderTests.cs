@@ -13,7 +13,7 @@ public class HistoryRenderTests
 {
     private static async Task<ScreenHarness> StartAsync(ThemePreference theme = ThemePreference.Dark, FakeBackend? backend = null)
     {
-        backend ??= new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { Theme = theme }));
+        backend ??= new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Theme = theme }));
         var clock = backend.Clock;
         return await ScreenHarness.StartAsync("history", context => [new HistoryScreenFactory(context, clock)], NavDestination.History, backend, theme);
     }
@@ -33,7 +33,7 @@ public class HistoryRenderTests
         using var harness = await StartAsync();
         ChooseList(harness);
 
-        AssertRendered(harness.Render("2h-history-list-dark"));
+        AssertRendered(harness.Render("history-list-dark"));
     }
 
     [AvaloniaFact]
@@ -41,7 +41,7 @@ public class HistoryRenderTests
     {
         using var harness = await StartAsync();
 
-        AssertRendered(harness.Render("2j-history-cards-dark"));
+        AssertRendered(harness.Render("history-cards-dark"));
     }
 
     [AvaloniaFact]
@@ -50,7 +50,7 @@ public class HistoryRenderTests
         using var harness = await StartAsync(ThemePreference.Light);
         ChooseList(harness);
 
-        AssertRendered(harness.Render("2h-history-list-light"));
+        AssertRendered(harness.Render("history-list-light"));
     }
 
     [AvaloniaFact]
@@ -58,14 +58,14 @@ public class HistoryRenderTests
     {
         using var harness = await StartAsync(ThemePreference.Light);
 
-        AssertRendered(harness.Render("2j-history-cards-light"));
+        AssertRendered(harness.Render("history-cards-light"));
     }
 
     [AvaloniaFact]
     public async Task Empty_dark_renders_to_a_png()
     {
         using var harness = await StartAsync();
-        harness.Shell.SelectGame(MockupScenario.SatisfactoryId);
+        harness.Shell.SelectGame(SampleScenario.SatisfactoryId);
 
         AssertRendered(harness.Render("history-empty-dark"));
     }
@@ -73,7 +73,7 @@ public class HistoryRenderTests
     [AvaloniaFact]
     public async Task Failed_read_dark_renders_to_a_png()
     {
-        var backend = new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings));
+        var backend = new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings));
         backend.FailNext<IHistoryApi>(nameof(IHistoryApi.GetAsync), ErrorInfo.From(new InvalidOperationException("The history could not be read.")));
         using var harness = await StartAsync(backend: backend);
 
@@ -82,7 +82,7 @@ public class HistoryRenderTests
 
     private static async Task<ScreenHarness> RemovedAsync(ThemePreference theme, bool open, bool list = false, double width = 1040, double height = 660, bool realDialogs = false)
     {
-        var backend = new FakeBackend(RemovedSnapshotSamples.Scenario().WithSettings(MockupScenario.Settings with { Theme = theme }));
+        var backend = new FakeBackend(RemovedSnapshotSamples.Scenario().WithSettings(SampleScenario.Settings with { Theme = theme }));
         var clock = backend.Clock;
         var harness = await ScreenHarness.StartAsync("history", context => [new HistoryScreenFactory(context, clock)], NavDestination.History, backend, theme, width, height, realDialogs);
         var screen = (HistoryScreenViewModel)harness.Shell.CurrentScreen!;
@@ -151,10 +151,10 @@ public class HistoryRenderTests
     [AvaloniaFact]
     public async Task Narrow_cards_dark_render_to_a_png()
     {
-        var backend = new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings));
+        var backend = new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings));
         var clock = backend.Clock;
         using var harness = await ScreenHarness.StartAsync("history", context => [new HistoryScreenFactory(context, clock)], NavDestination.History, backend, ThemePreference.Dark, width: 760);
 
-        AssertRendered(harness.Render("2j-history-cards-narrow-dark"));
+        AssertRendered(harness.Render("history-cards-narrow-dark"));
     }
 }

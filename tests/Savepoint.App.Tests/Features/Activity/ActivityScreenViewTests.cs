@@ -14,7 +14,7 @@ using Savepoint.App.Tests.Features.History;
 using Savepoint.App.Tests.Theme;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
-using static Savepoint.App.Tests.Fakes.MockupScenario;
+using static Savepoint.App.Tests.Fakes.SampleScenario;
 
 namespace Savepoint.App.Tests.Features.Activity;
 
@@ -22,7 +22,7 @@ public class ActivityScreenViewTests
 {
     private static Task<ScreenHarness> StartAsync(FakeBackend? backend = null, ThemePreference theme = ThemePreference.Dark, double width = 1040, double height = 660)
     {
-        backend ??= new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { Theme = theme }));
+        backend ??= new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Theme = theme }));
         var clock = backend.Clock;
         return ScreenHarness.StartAsync(
             "activity",
@@ -42,7 +42,7 @@ public class ActivityScreenViewTests
     // A game's jobs in every state the screen draws: one running with files done, one done, one that failed, one partly done and one canceled.
     private static async Task<FakeBackend> BusyAsync(ThemePreference theme = ThemePreference.Dark)
     {
-        var backend = new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { Theme = theme }));
+        var backend = new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Theme = theme }));
         await ActivityScenario.AddJobsAsync(backend);
         return backend;
     }
@@ -174,7 +174,7 @@ public class ActivityScreenViewTests
     [AvaloniaFact]
     public async Task A_job_that_cannot_be_stopped_shows_why_where_the_cancel_button_would_be()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         FakeAssert.Ok(await backend.Settings.ClearAllDataAsync());
         using var harness = await StartAsync(backend);
         harness.Find<ListBox>("ScopeToggle").SelectedIndex = 1;
@@ -275,7 +275,7 @@ public class ActivityScreenViewTests
     [AvaloniaFact]
     public async Task A_game_with_no_jobs_offers_all_games()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(CaretakerId));
         using var harness = await StartAsync(backend);
 
@@ -355,7 +355,7 @@ public class ActivityScreenViewTests
     [AvaloniaFact]
     public async Task A_job_with_no_progress_yet_has_a_bar_that_sweeps_and_holds_still_under_reduced_motion()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(SkyrimId));
         using var harness = await StartAsync(backend);
         var bar = harness.Find<ListBox>("JobList").GetVisualDescendants().OfType<ProgressBar>().Single(candidate => candidate.IsEffectivelyVisible);
@@ -407,7 +407,7 @@ public class ActivityScreenViewTests
     [AvaloniaFact]
     public async Task A_change_of_state_is_spoken_by_a_polite_live_region()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         using var harness = await StartAsync(backend);
         var region = harness.Find<Avalonia.Controls.TextBlock>("Announcer");
 
@@ -425,7 +425,7 @@ public class ActivityScreenViewTests
     [AvaloniaFact]
     public async Task The_same_words_twice_in_a_row_are_spoken_twice()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         using var harness = await StartAsync(backend);
         var region = harness.Find<AnnouncementRegion>("Announcer");
         FakeAssert.Ok(await backend.Profiles.CaptureAsync(SkyrimId, ModdedId, "First"));
@@ -523,7 +523,7 @@ public class ActivityScreenViewTests
     [AvaloniaFact]
     public async Task The_library_layout_shows_the_screen_under_the_top_bar_with_Activity_in_the_navigation()
     {
-        var scenario = ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { Layout = ShellLayout.Library });
+        var scenario = ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Layout = ShellLayout.Library });
         var backend = new FakeBackend(scenario);
         FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(SkyrimId));
         using var harness = await StartAsync(backend);
@@ -532,6 +532,6 @@ public class ActivityScreenViewTests
         var path = harness.Render("library-layout");
 
         Assert.True(File.Exists(path));
-        _ = HistoryRig.MockupZone;
+        _ = HistoryRig.SampleZone;
     }
 }

@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Toasts;
@@ -8,10 +9,11 @@ namespace Savepoint.App.Features.Shell;
 /// What the main window shows: the startup screens until the checks pass, then the shell, with the dialog overlay and
 /// the toasts above both.
 /// </summary>
-public sealed partial class MainWindowViewModel : ObservableObject
+public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 {
     private readonly Func<ShellViewModel> _createShell;
     private readonly ExitGuard? _exit;
+    private bool _disposed;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Content), nameof(ShowTour))]
@@ -29,27 +31,41 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _createShell = createShell;
         Dialogs = dialogs;
         Toasts = toasts;
-        startup.Ready += (_, _) => _ = ShowShellAsync();
-        dialogs.PropertyChanged += (_, e) =>
+        startup.Ready += OnStartupReady;
+        dialogs.PropertyChanged += OnDialogsChanged;
+    }
+
+    private void OnStartupReady(object? sender, EventArgs e) => _ = ShowShellAsync();
+
+    private void OnDialogsChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(DialogHostViewModel.IsOpen))
         {
-            if (e.PropertyName == nameof(DialogHostViewModel.IsOpen))
-            {
-                OnPropertyChanged(nameof(ShowTour));
-            }
-        };
+            OnPropertyChanged(nameof(ShowTour));
+        }
+    }
+
+    private void OnShellPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ShellViewModel.ShowTour))
+        {
+            OnPropertyChanged(nameof(ShowTour));
+        }
+    }
+
+    partial void OnShellChanging(ShellViewModel? value)
+    {
+        if (Shell is not null)
+        {
+            Shell.PropertyChanged -= OnShellPropertyChanged;
+        }
     }
 
     partial void OnShellChanged(ShellViewModel? value)
     {
         if (value is not null)
         {
-            value.PropertyChanged += (_, e) =>
-            {
-                if (e.PropertyName == nameof(ShellViewModel.ShowTour))
-                {
-                    OnPropertyChanged(nameof(ShowTour));
-                }
-            };
+            value.PropertyChanged += OnShellPropertyChanged;
         }
     }
 
@@ -94,15 +110,45 @@ public sealed partial class MainWindowViewModel : ObservableObject
         return true;
     }
 
+    /// <summary>
+    /// Ends the window's view model: stops following the startup checks, the dialogs and the shell, then disposes the shell and the toasts,
+    /// which this view model owns. Safe to call more than once.
+    /// </summary>
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        Startup.Ready -= OnStartupReady;
+        Dialogs.PropertyChanged -= OnDialogsChanged;
+        if (Shell is { } shell)
+        {
+            shell.PropertyChanged -= OnShellPropertyChanged;
+            shell.Dispose();
+        }
+
+        Toasts.Dispose();
+    }
+
     private async Task ShowShellAsync()
     {
-        if (Shell is not null)
+        if (Shell is not null || _disposed)
         {
             return;
         }
 
         var shell = _createShell();
         await shell.InitializeAsync();
+        if (_disposed)
+        {
+            // The window ended while the shell loaded; nothing will show it.
+            shell.Dispose();
+            return;
+        }
+
         Shell = shell;
     }
 }

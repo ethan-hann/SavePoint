@@ -37,7 +37,7 @@ public class HelpRenderTests
     [AvaloniaFact]
     public async Task The_first_run_screen_with_its_link_renders_to_a_png()
     {
-        using var app = await ComposedApp.StartWithViewAsync(new FakeBackend(ScenarioBuilder.Empty().WithSettings(MockupScenario.Settings)));
+        using var app = await ComposedApp.StartWithViewAsync(new FakeBackend(ScenarioBuilder.Empty().WithSettings(SampleScenario.Settings)));
 
         AssertRendered(app.Render("help", "first-run-link"));
     }
@@ -74,8 +74,8 @@ public class HelpRenderTests
     [InlineData(ShellLayout.Library, ThemePreference.Dark, 640, 420)]
     public async Task Each_step_of_the_tour_renders_to_a_png(ShellLayout layout, ThemePreference theme, int width, int height)
     {
-        var settings = MockupScenario.Settings with { TourSeen = false, Layout = layout, Theme = theme };
-        using var app = await ComposedApp.StartWithViewAsync(new FakeBackend(ScenarioBuilder.Mockup().WithSettings(settings)), theme: theme, width: width, height: height);
+        var settings = SampleScenario.Settings with { TourSeen = false, Layout = layout, Theme = theme };
+        using var app = await ComposedApp.StartWithViewAsync(new FakeBackend(ScenarioBuilder.Sample().WithSettings(settings)), theme: theme, width: width, height: height);
 
         for (var step = 1; step <= 4; step++)
         {

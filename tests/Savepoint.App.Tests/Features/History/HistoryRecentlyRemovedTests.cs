@@ -22,7 +22,7 @@ public class HistoryRecentlyRemovedTests
         rig.Show();
 
         var read = Assert.Single(rig.Backend.Calls.To<IHistoryApi>(nameof(IHistoryApi.GetRecentlyRemovedAsync)));
-        Assert.Equal([MockupScenario.SkyrimId], read.Args);
+        Assert.Equal([SampleScenario.SkyrimId], read.Args);
         Assert.Equal(2, rig.Screen.Removed.Count);
     }
 
@@ -73,7 +73,7 @@ public class HistoryRecentlyRemovedTests
     [Fact]
     public async Task A_snapshot_from_a_deleted_profile_says_so()
     {
-        var scenario = ScenarioBuilder.Mockup().WithRemovedSnapshot(MockupScenario.SkyrimId, RemovedSnapshotSamples.FromDeletedProfile);
+        var scenario = ScenarioBuilder.Sample().WithRemovedSnapshot(SampleScenario.SkyrimId, RemovedSnapshotSamples.FromDeletedProfile);
         var rig = await ShownAsync(new FakeBackend(scenario));
 
         var row = Assert.Single(rig.Screen.Removed);
@@ -86,7 +86,7 @@ public class HistoryRecentlyRemovedTests
     {
         var rig = await ShownAsync();
 
-        rig.Shell.SelectGame(MockupScenario.SatisfactoryId);
+        rig.Shell.SelectGame(SampleScenario.SatisfactoryId);
         await rig.Screen.ReloadAsync();
 
         Assert.Equal(["14 mod files updated"], rig.Screen.Removed.Select(row => row.Name));
@@ -102,7 +102,7 @@ public class HistoryRecentlyRemovedTests
         await rig.Screen.ReloadAsync();
         Assert.True(rig.Screen.IsRemovedOpen);
 
-        rig.Shell.SelectGame(MockupScenario.SatisfactoryId);
+        rig.Shell.SelectGame(SampleScenario.SatisfactoryId);
         await rig.Screen.ReloadAsync();
         Assert.False(rig.Screen.IsRemovedOpen);
     }
@@ -111,8 +111,8 @@ public class HistoryRecentlyRemovedTests
     public async Task A_game_with_no_snapshots_left_still_shows_what_was_removed_from_it()
     {
         var scenario = ScenarioBuilder.Empty()
-            .WithGame(MockupScenario.Skyrim)
-            .WithRemovedSnapshot(MockupScenario.SkyrimId, RemovedSnapshotSamples.FromDeletedProfile);
+            .WithGame(SampleScenario.Skyrim)
+            .WithRemovedSnapshot(SampleScenario.SkyrimId, RemovedSnapshotSamples.FromDeletedProfile);
         var rig = await ShownAsync(new FakeBackend(scenario));
 
         Assert.Equal(HistoryState.Empty, rig.Screen.State);
@@ -124,13 +124,13 @@ public class HistoryRecentlyRemovedTests
     public async Task A_removed_snapshot_list_that_cannot_be_read_says_why_and_leaves_the_history_alone()
     {
         var backend = new FakeBackend(RemovedSnapshotSamples.Scenario());
-        backend.FailNext<IHistoryApi>(nameof(IHistoryApi.GetRecentlyRemovedAsync), MockupScenario.FolderGoneError);
+        backend.FailNext<IHistoryApi>(nameof(IHistoryApi.GetRecentlyRemovedAsync), SampleScenario.FolderGoneError);
         var rig = await HistoryRig.ShownAsync(backend);
 
         Assert.Equal(HistoryState.Loaded, rig.Screen.State);
         Assert.True(rig.Screen.ShowRemoved);
         Assert.True(rig.Screen.HasRemovedError);
-        Assert.Equal(rig.Text.Message(MockupScenario.FolderGoneError), rig.Screen.RemovedError);
+        Assert.Equal(rig.Text.Message(SampleScenario.FolderGoneError), rig.Screen.RemovedError);
         Assert.Empty(rig.Screen.Removed);
         Assert.Equal("Recently removed", rig.Screen.RemovedHeading);
     }
@@ -150,11 +150,11 @@ public class HistoryRecentlyRemovedTests
         await dialog.SaveCommand.ExecuteAsync(null);
         await finished;
 
-        Assert.Equal([MockupScenario.SkyrimId, row.Snapshot.Id, "Boss fight again"], Assert.Single(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.BringBackAsync))).Args);
+        Assert.Equal([SampleScenario.SkyrimId, row.Snapshot.Id, "Boss fight again"], Assert.Single(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.BringBackAsync))).Args);
         await UntilAsync(() => rig.Screen.Removed.Count == 1);
         Assert.Equal(["Cleared Blackreach"], rig.Screen.Removed.Select(removed => removed.Name));
         Assert.Equal("Skyrim Special Edition · 9 snapshots", rig.Screen.Subtitle);
-        Assert.Contains("Boss fight again", FakeAssert.Ok(await rig.Backend.Profiles.ListAsync(MockupScenario.SkyrimId, Ct)).Select(profile => profile.Name));
+        Assert.Contains("Boss fight again", FakeAssert.Ok(await rig.Backend.Profiles.ListAsync(SampleScenario.SkyrimId, Ct)).Select(profile => profile.Name));
     }
 
     [Fact]
@@ -192,8 +192,8 @@ public class HistoryRecentlyRemovedTests
     public async Task Freeing_up_space_empties_the_section_once_the_job_has_run()
     {
         var rig = await ShownAsync();
-        var preview = FakeAssert.Ok(await rig.Backend.Games.GetFreeUpSpacePreviewAsync(MockupScenario.SkyrimId, TestContext.Current.CancellationToken));
-        var started = FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(MockupScenario.SkyrimId, preview.Token));
+        var preview = FakeAssert.Ok(await rig.Backend.Games.GetFreeUpSpacePreviewAsync(SampleScenario.SkyrimId, TestContext.Current.CancellationToken));
+        var started = FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(SampleScenario.SkyrimId, preview.Token));
 
         rig.Backend.Jobs.Complete(started.JobId);
         await UntilAsync(() => rig.Screen.Removed.Count == 0);

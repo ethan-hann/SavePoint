@@ -23,17 +23,17 @@ public class LaunchFlowSurvivalTests
         shell.Navigate(NavDestination.Settings);
         shell.Navigate(NavDestination.History);
         await shell.SetLayoutAsync(ShellLayout.Library);
-        shell.SelectGame(MockupScenario.SatisfactoryId);
+        shell.SelectGame(SampleScenario.SatisfactoryId);
         shell.Navigate(NavDestination.Games);
         await shell.SetLayoutAsync(ShellLayout.Sidebar);
 
-        Assert.Same(card, f.Flow.InlineContentFor(MockupScenario.SkyrimId));
-        Assert.True(f.Flow.IsActive(MockupScenario.SkyrimId));
-        Assert.Null(f.Flow.InlineContentFor(MockupScenario.SatisfactoryId));
-        Assert.False(f.Flow.IsActive(MockupScenario.SatisfactoryId));
+        Assert.Same(card, f.Flow.InlineContentFor(SampleScenario.SkyrimId));
+        Assert.True(f.Flow.IsActive(SampleScenario.SkyrimId));
+        Assert.Null(f.Flow.InlineContentFor(SampleScenario.SatisfactoryId));
+        Assert.False(f.Flow.IsActive(SampleScenario.SatisfactoryId));
 
-        shell.SelectGame(MockupScenario.SkyrimId);
-        Assert.Same(card, f.Flow.InlineContentFor(MockupScenario.SkyrimId));
+        shell.SelectGame(SampleScenario.SkyrimId);
+        Assert.Same(card, f.Flow.InlineContentFor(SampleScenario.SkyrimId));
     }
 
     [Fact]
@@ -61,11 +61,11 @@ public class LaunchFlowSurvivalTests
 
         shell.Navigate(NavDestination.Settings);
         await shell.SetLayoutAsync(ShellLayout.Library);
-        shell.SelectGame(MockupScenario.CaretakerId);
+        shell.SelectGame(SampleScenario.CaretakerId);
         shell.Navigate(NavDestination.Games);
 
         Assert.False(dialog.IsClosed);
-        Assert.True(f.Flow.IsActive(MockupScenario.SkyrimId));
+        Assert.True(f.Flow.IsActive(SampleScenario.SkyrimId));
         Assert.Same(dialog, f.PostPlay);
 
         await dialog.SaveCommand.ExecuteAsync(null);
@@ -76,15 +76,15 @@ public class LaunchFlowSurvivalTests
     public async Task A_running_session_found_when_the_flow_is_built_shows_its_card()
     {
         using var rig = new LaunchRig();
-        FakeAssert.Ok(await rig.Backend.Launch.StartAsync(MockupScenario.SkyrimId, LaunchRig.ModdedTip));
-        rig.Backend.Launch.ReportRunning(MockupScenario.SkyrimId, MockupScenario.RunningSince);
+        FakeAssert.Ok(await rig.Backend.Launch.StartAsync(SampleScenario.SkyrimId, LaunchRig.ModdedTip));
+        rig.Backend.Launch.ReportRunning(SampleScenario.SkyrimId, SampleScenario.RunningSince);
 
         using var flow = new LaunchFlowViewModel(rig.Deps);
 
-        var card = Assert.IsType<RunningCardViewModel>(flow.InlineContentFor(MockupScenario.SkyrimId));
+        var card = Assert.IsType<RunningCardViewModel>(flow.InlineContentFor(SampleScenario.SkyrimId));
         Assert.Equal("Skyrim Special Edition is running", card.Title);
         Assert.Equal("Modded playthrough - 7-2-26 · started 41 minutes ago", card.Subtitle);
-        Assert.True(flow.IsActive(MockupScenario.SkyrimId));
+        Assert.True(flow.IsActive(SampleScenario.SkyrimId));
     }
 
     [Fact]
@@ -96,24 +96,24 @@ public class LaunchFlowSurvivalTests
         using var flow = new LaunchFlowViewModel(rig.Deps);
 
         Assert.Single(rig.Dialogs.Shown.OfType<PostPlayDialogViewModel>());
-        Assert.True(flow.IsActive(MockupScenario.SkyrimId));
+        Assert.True(flow.IsActive(SampleScenario.SkyrimId));
     }
 
     [Fact]
     public async Task Sessions_that_already_ended_are_not_shown_again()
     {
         using var rig = new LaunchRig();
-        FakeAssert.Ok(await rig.Backend.Launch.StartAsync(MockupScenario.SkyrimId, LaunchRig.ModdedTip));
-        rig.Backend.Launch.FailLaunch(MockupScenario.SkyrimId, MockupScenario.FileInUseError);
-        FakeAssert.Ok(await rig.Backend.Launch.StartAsync(MockupScenario.SatisfactoryId, new LaunchTarget.ProfileTip(MockupScenario.MainFactoryId)));
-        rig.Backend.Launch.ReportRunning(MockupScenario.SatisfactoryId, MockupScenario.RunningSince);
-        rig.Backend.Launch.ReportExited(MockupScenario.SatisfactoryId, TimeSpan.FromMinutes(5), 0);
-        FakeAssert.Ok(await rig.Backend.Launch.CompleteSessionAsync(MockupScenario.SatisfactoryId, new SessionCompletion.Skip()));
+        FakeAssert.Ok(await rig.Backend.Launch.StartAsync(SampleScenario.SkyrimId, LaunchRig.ModdedTip));
+        rig.Backend.Launch.FailLaunch(SampleScenario.SkyrimId, SampleScenario.FileInUseError);
+        FakeAssert.Ok(await rig.Backend.Launch.StartAsync(SampleScenario.SatisfactoryId, new LaunchTarget.ProfileTip(SampleScenario.MainFactoryId)));
+        rig.Backend.Launch.ReportRunning(SampleScenario.SatisfactoryId, SampleScenario.RunningSince);
+        rig.Backend.Launch.ReportExited(SampleScenario.SatisfactoryId, TimeSpan.FromMinutes(5), 0);
+        FakeAssert.Ok(await rig.Backend.Launch.CompleteSessionAsync(SampleScenario.SatisfactoryId, new SessionCompletion.Skip()));
 
         using var flow = new LaunchFlowViewModel(rig.Deps);
 
-        Assert.Null(flow.InlineContentFor(MockupScenario.SkyrimId));
-        Assert.Null(flow.InlineContentFor(MockupScenario.SatisfactoryId));
+        Assert.Null(flow.InlineContentFor(SampleScenario.SkyrimId));
+        Assert.Null(flow.InlineContentFor(SampleScenario.SatisfactoryId));
         Assert.Empty(flow.ActiveGameIds);
         Assert.Empty(rig.Dialogs.Shown);
     }
@@ -122,14 +122,14 @@ public class LaunchFlowSurvivalTests
     public async Task A_session_found_when_the_flow_is_built_can_be_tried_again_after_it_is_canceled()
     {
         using var rig = new LaunchRig();
-        var started = FakeAssert.Ok(await rig.Backend.Launch.StartAsync(MockupScenario.SkyrimId, LaunchRig.ModdedTip));
-        rig.Backend.Launch.ReportSwitching(MockupScenario.SkyrimId, MockupScenario.SwitchProgress);
+        var started = FakeAssert.Ok(await rig.Backend.Launch.StartAsync(SampleScenario.SkyrimId, LaunchRig.ModdedTip));
+        rig.Backend.Launch.ReportSwitching(SampleScenario.SkyrimId, SampleScenario.SwitchProgress);
         using var flow = new LaunchFlowViewModel(rig.Deps);
         Assert.Single(rig.Dialogs.Shown.OfType<SwitchProgressDialogViewModel>());
         var previews = rig.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync)).Count;
 
         rig.Backend.Jobs.CompleteCancelled(started.JobId);
-        var card = Assert.IsType<ErrorCardViewModel>(flow.InlineContentFor(MockupScenario.SkyrimId));
+        var card = Assert.IsType<ErrorCardViewModel>(flow.InlineContentFor(SampleScenario.SkyrimId));
         FlowRig.Press(card, "Try again");
 
         Assert.Equal(previews + 1, rig.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync)).Count);

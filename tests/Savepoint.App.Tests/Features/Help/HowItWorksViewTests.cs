@@ -136,7 +136,7 @@ public class HowItWorksViewTests
     [AvaloniaFact]
     public async Task The_first_run_screen_links_to_the_page()
     {
-        using var app = await ComposedApp.StartWithViewAsync(new FakeBackend(ScenarioBuilder.Empty().WithSettings(MockupScenario.Settings)));
+        using var app = await ComposedApp.StartWithViewAsync(new FakeBackend(ScenarioBuilder.Empty().WithSettings(SampleScenario.Settings)));
 
         var link = ButtonNamed(app, "HowItWorksLink");
 

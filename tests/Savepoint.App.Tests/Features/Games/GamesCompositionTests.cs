@@ -15,7 +15,7 @@ public class GamesCompositionTests
     [Fact]
     public async Task The_composition_builds_a_games_screen_from_the_apps_services()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var rig = await GamesRig.StartAsync(backend);
         var services = new AppServices(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus, backend.Artwork);
         var context = new FeatureContext(services, rig.Dialogs, rig.Text, new ToastHostViewModel(TimeProvider.System, new ImmediateUiDispatcher()), new ImmediateUiDispatcher());

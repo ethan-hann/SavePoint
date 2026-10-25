@@ -11,7 +11,7 @@ namespace Savepoint.App.Tests.Features.EndToEnd;
 // A person who cannot see a progress bar still hears the milestones: the start and each quarter, through the live region beside the bar.
 public class ProgressAnnouncementTests
 {
-    private const string _skyrim = MockupScenario.SkyrimId;
+    private const string _skyrim = SampleScenario.SkyrimId;
 
     // Several screens name their live region "Announcer", so what a person could hear is every region of that name.
     private static IEnumerable<string> Spoken(ComposedApp app, string regionName) =>
@@ -21,19 +21,19 @@ public class ProgressAnnouncementTests
     public async Task The_switch_dialog_says_it_has_started_and_then_each_quarter()
     {
         using var app = await ComposedApp.StartWithViewAsync();
-        var play = app.Games.Profiles.Single(row => row.Id == MockupScenario.VanillaId).PlayCommand.ExecuteAsync(null);
+        var play = app.Games.Profiles.Single(row => row.Id == SampleScenario.VanillaId).PlayCommand.ExecuteAsync(null);
         app.Dialog<LaunchDialogViewModel>().SwitchCommand.Execute(null);
         await play.Soon();
         app.Settle();
 
         Assert.Equal(["Getting Skyrim Special Edition ready."], Spoken(app, "ProgressAnnouncer"));
 
-        app.Backend.Launch.ReportSwitching(_skyrim, MockupScenario.SwitchProgress);
+        app.Backend.Launch.ReportSwitching(_skyrim, SampleScenario.SwitchProgress);
         app.Settle();
 
         Assert.Equal(["50% done."], Spoken(app, "ProgressAnnouncer"));
 
-        app.Backend.Launch.ReportSwitching(_skyrim, MockupScenario.SwitchProgress with { BytesDone = 5_000_000_000 });
+        app.Backend.Launch.ReportSwitching(_skyrim, SampleScenario.SwitchProgress with { BytesDone = 5_000_000_000 });
         app.Settle();
 
         Assert.Equal(["75% done."], Spoken(app, "ProgressAnnouncer"));
@@ -43,9 +43,9 @@ public class ProgressAnnouncementTests
     public async Task The_save_after_a_session_says_each_quarter()
     {
         using var app = await ComposedApp.StartWithViewAsync();
-        await app.Games.Profiles.Single(row => row.Id == MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null).Soon();
-        app.Backend.Launch.ReportRunning(_skyrim, MockupScenario.RunningSince);
-        app.Backend.Launch.ReportExited(_skyrim, MockupScenario.PlayDuration, MockupScenario.NewSaveFiles);
+        await app.Games.Profiles.Single(row => row.Id == SampleScenario.ModdedId).PlayCommand.ExecuteAsync(null).Soon();
+        app.Backend.Launch.ReportRunning(_skyrim, SampleScenario.RunningSince);
+        app.Backend.Launch.ReportExited(_skyrim, SampleScenario.PlayDuration, SampleScenario.NewSaveFiles);
         await app.Dialog<PostPlayDialogViewModel>().SaveCommand.ExecuteAsync(null).Soon();
         app.Settle();
         var capture = app.Backend.Jobs.LastStarted(JobKind.Capture);

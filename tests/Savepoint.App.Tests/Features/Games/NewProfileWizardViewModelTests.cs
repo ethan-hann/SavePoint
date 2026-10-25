@@ -26,12 +26,12 @@ public class NewProfileWizardViewModelTests
 
         public static async Task<Rig> StartAsync(
             FakeBackend? backend = null,
-            string gameId = MockupScenario.SkyrimId,
+            string gameId = SampleScenario.SkyrimId,
             IUiDispatcher? dispatcher = null,
             bool loadPreview = true,
             Func<FakeBackend, IProfilesApi>? profiles = null)
         {
-            backend ??= FakeBackend.Mockup();
+            backend ??= FakeBackend.Sample();
             var text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), backend.Clock, "windows", TimeZoneInfo.Utc);
             var game = FakeAssert.Ok(await backend.Games.ListAsync()).Single(candidate => candidate.Id == gameId);
             var wizard = new NewProfileWizardViewModel(game, backend.Games, profiles?.Invoke(backend) ?? backend.Profiles, backend.Jobs, text, dispatcher ?? new ImmediateUiDispatcher(), backend.Clock);
@@ -53,7 +53,7 @@ public class NewProfileWizardViewModelTests
         }
 
         public string CreatedProfileId(string name) =>
-            FakeAssert.Ok(Backend.Profiles.ListAsync(MockupScenario.SkyrimId).Result).Single(profile => profile.Name == name).Id;
+            FakeAssert.Ok(Backend.Profiles.ListAsync(SampleScenario.SkyrimId).Result).Single(profile => profile.Name == name).Id;
     }
 
     // An error card's buttons are async commands; running one waits for the work it starts.
@@ -99,7 +99,7 @@ public class NewProfileWizardViewModelTests
     }
 
     private static CaptureResult Half(string profileId) =>
-        new(profileId, new HistoryPointId("pt"), [new FolderOutcome(RepoRole.Install), new FolderOutcome(RepoRole.External, MockupScenario.SavesOutOfRoomError)]);
+        new(profileId, new HistoryPointId("pt"), [new FolderOutcome(RepoRole.Install), new FolderOutcome(RepoRole.External, SampleScenario.SavesOutOfRoomError)]);
 
     // ---- Step one
 
@@ -154,7 +154,7 @@ public class NewProfileWizardViewModelTests
         Assert.Equal(
             [
                 new CaptureRowViewModel(Icons.Folder, "Game version and mods", @"C:\Games\SkyrimSE" + _dot + "212 mod files" + _dot + "41.2 GB"),
-                new CaptureRowViewModel(Icons.Save, "Current saves", MockupScenario.SkyrimSaves + _dot + "18 files"),
+                new CaptureRowViewModel(Icons.Save, "Current saves", SampleScenario.SkyrimSaves + _dot + "18 files"),
             ],
             preview.Rows);
         Assert.True(preview.HasNote);
@@ -180,13 +180,13 @@ public class NewProfileWizardViewModelTests
     public async Task One_file_and_no_mods_read_naturally()
     {
         var preview = new CapturePreview(
-            MockupScenario.CaretakerId,
+            SampleScenario.CaretakerId,
             [
                 new FolderCapturePreview(RepoRole.Install, @"C:\Games\The Last Caretaker", 1, 0, 9_400_000_000),
                 new FolderCapturePreview(RepoRole.External, @"C:\Saves", 1, 0, 2_000),
             ],
             0);
-        var rig = await Rig.StartAsync(new FakeBackend(ScenarioBuilder.Mockup().WithCapturePreview(preview)), MockupScenario.CaretakerId);
+        var rig = await Rig.StartAsync(new FakeBackend(ScenarioBuilder.Sample().WithCapturePreview(preview)), SampleScenario.CaretakerId);
 
         Assert.Equal(@"C:\Games\The Last Caretaker" + _dot + "9.4 GB", rig.Wizard.Preview.Rows[0].Subtitle);
         Assert.Equal(@"C:\Saves" + _dot + "1 file", rig.Wizard.Preview.Rows[1].Subtitle);
@@ -196,8 +196,8 @@ public class NewProfileWizardViewModelTests
     [Fact]
     public async Task A_game_without_a_saves_folder_lists_only_the_install()
     {
-        var game = MockupScenario.Caretaker with { External = null };
-        var rig = await Rig.StartAsync(new FakeBackend(ScenarioBuilder.Empty().WithSettings(MockupScenario.Settings).WithGame(game, 1)), MockupScenario.CaretakerId);
+        var game = SampleScenario.Caretaker with { External = null };
+        var rig = await Rig.StartAsync(new FakeBackend(ScenarioBuilder.Empty().WithSettings(SampleScenario.Settings).WithGame(game, 1)), SampleScenario.CaretakerId);
 
         Assert.Single(rig.Wizard.Preview.Rows);
     }
@@ -205,8 +205,8 @@ public class NewProfileWizardViewModelTests
     [Fact]
     public async Task A_preview_that_cannot_be_read_says_so_and_does_not_stop_the_user()
     {
-        var backend = FakeBackend.Mockup();
-        backend.FailNext<IGamesApi>(nameof(IGamesApi.GetCapturePreviewAsync), MockupScenario.FileInUseError);
+        var backend = FakeBackend.Sample();
+        backend.FailNext<IGamesApi>(nameof(IGamesApi.GetCapturePreviewAsync), SampleScenario.FileInUseError);
         var rig = await Rig.StartAsync(backend);
 
         Assert.False(rig.Wizard.Preview.IsLoading);
@@ -307,7 +307,7 @@ public class NewProfileWizardViewModelTests
         await rig.SaveAsync("  Nolvus  ", " before the patch ");
 
         var call = Assert.Single(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CreateAsync)));
-        Assert.Equal([MockupScenario.SkyrimId, "Nolvus", "before the patch", "Nolvus"], call.Args);
+        Assert.Equal([SampleScenario.SkyrimId, "Nolvus", "before the patch", "Nolvus"], call.Args);
         Assert.Equal(WizardStep.Save, rig.Wizard.Step);
     }
 
@@ -325,7 +325,7 @@ public class NewProfileWizardViewModelTests
     public async Task A_refused_create_stays_on_the_check_step_and_says_why()
     {
         var rig = await Rig.StartAsync();
-        rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.CreateAsync), MockupScenario.SavesOutOfRoomError);
+        rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.CreateAsync), SampleScenario.SavesOutOfRoomError);
         rig.Wizard.Name = "Nolvus";
         await rig.Wizard.ContinueCommand.ExecuteAsync(null);
 
@@ -559,7 +559,7 @@ public class NewProfileWizardViewModelTests
         var dispatcher = new QueueingDispatcher();
         var rig = await Rig.StartAsync(dispatcher: dispatcher);
         await rig.SaveAsync();
-        var other = FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
+        var other = FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(SampleScenario.SatisfactoryId));
         dispatcher.RunAll();
 
         rig.Backend.Jobs.ReportProgress(rig.JobId, new JobProgress(5, 10));
@@ -682,7 +682,7 @@ public class NewProfileWizardViewModelTests
         await rig.SaveAsync("My new profile");
         var pid = rig.CreatedProfileId("My new profile");
 
-        rig.Backend.Jobs.Complete(rig.JobId, new CaptureResult(pid, new HistoryPointId("pt"), [new FolderOutcome(RepoRole.Install, MockupScenario.FileInUseError), new FolderOutcome(RepoRole.External)]));
+        rig.Backend.Jobs.Complete(rig.JobId, new CaptureResult(pid, new HistoryPointId("pt"), [new FolderOutcome(RepoRole.Install, SampleScenario.FileInUseError), new FolderOutcome(RepoRole.External)]));
 
         var card = rig.Wizard.ResultCard!;
         Assert.StartsWith("Your saves are in the snapshot. Your game version and mods aren't yet.", card.Body);
@@ -706,7 +706,7 @@ public class NewProfileWizardViewModelTests
         await Run(rig.Wizard.ResultCard!.Actions.Single());
 
         var call = Assert.Single(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CaptureAsync)));
-        Assert.Equal([MockupScenario.SkyrimId, pid, "My new profile"], call.Args.Take(3));
+        Assert.Equal([SampleScenario.SkyrimId, pid, "My new profile"], call.Args.Take(3));
         Assert.Equal([RepoRole.External], Assert.IsAssignableFrom<IEnumerable<RepoRole>>(call.Args[3]));
         Assert.Equal(SaveState.Saving, rig.Wizard.State);
         Assert.Null(rig.Wizard.ResultCard);
@@ -728,7 +728,7 @@ public class NewProfileWizardViewModelTests
         rig.Backend.Jobs.Complete(rig.JobId, Half(pid));
         await Run(rig.Wizard.ResultCard!.Actions.Single());
 
-        rig.Backend.Jobs.Complete(rig.JobId, new CaptureResult(pid, null, [new FolderOutcome(RepoRole.External, MockupScenario.SavesOutOfRoomError)]));
+        rig.Backend.Jobs.Complete(rig.JobId, new CaptureResult(pid, null, [new FolderOutcome(RepoRole.External, SampleScenario.SavesOutOfRoomError)]));
 
         Assert.Equal(SaveState.Partial, rig.Wizard.State);
         Assert.Equal("Only part of the snapshot was taken", rig.Wizard.ResultCard!.Title);
@@ -741,7 +741,7 @@ public class NewProfileWizardViewModelTests
         var rig = await Rig.StartAsync();
         await rig.SaveAsync("My new profile");
         rig.Backend.Jobs.Complete(rig.JobId, Half(rig.CreatedProfileId("My new profile")));
-        rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.CaptureAsync), MockupScenario.FileInUseError);
+        rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.CaptureAsync), SampleScenario.FileInUseError);
 
         await Run(rig.Wizard.ResultCard!.Actions.Single());
 
@@ -756,7 +756,7 @@ public class NewProfileWizardViewModelTests
         var rig = await Rig.StartAsync();
         await rig.SaveAsync("My new profile");
 
-        rig.Backend.Jobs.Fail(rig.JobId, MockupScenario.SavesOutOfRoomError);
+        rig.Backend.Jobs.Fail(rig.JobId, SampleScenario.SavesOutOfRoomError);
 
         Assert.Equal(SaveState.Failed, rig.Wizard.State);
         var card = rig.Wizard.ResultCard!;
@@ -831,7 +831,7 @@ public class NewProfileWizardViewModelTests
     {
         var rig = await Rig.StartAsync();
         await rig.SaveAsync("My new profile");
-        rig.Backend.Jobs.Fail(rig.JobId, MockupScenario.SavesOutOfRoomError);
+        rig.Backend.Jobs.Fail(rig.JobId, SampleScenario.SavesOutOfRoomError);
 
         rig.Wizard.CloseCommand.Execute(null);
 

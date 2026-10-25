@@ -19,9 +19,9 @@ public class LaunchViewTests
 {
     private static async Task PlayToExitedAsync(LaunchViewHarness harness, LaunchTarget? target = null)
     {
-        await harness.Flow.BeginAsync(MockupScenario.SkyrimId, target ?? LaunchRig.ModdedTip);
-        harness.Backend.Launch.ReportRunning(MockupScenario.SkyrimId, MockupScenario.RunningSince);
-        harness.Backend.Launch.ReportExited(MockupScenario.SkyrimId, MockupScenario.PlayDuration, MockupScenario.NewSaveFiles);
+        await harness.Flow.BeginAsync(SampleScenario.SkyrimId, target ?? LaunchRig.ModdedTip);
+        harness.Backend.Launch.ReportRunning(SampleScenario.SkyrimId, SampleScenario.RunningSince);
+        harness.Backend.Launch.ReportExited(SampleScenario.SkyrimId, SampleScenario.PlayDuration, SampleScenario.NewSaveFiles);
         harness.Settle();
     }
 
@@ -112,7 +112,7 @@ public class LaunchViewTests
     public async Task Switch_and_play_stays_off_until_the_unsaved_changes_are_resolved()
     {
         using var harness = await LaunchViewHarness.StartAsync();
-        var begin = harness.Flow.BeginAsync(MockupScenario.SkyrimId, LaunchRig.SurvivalTip);
+        var begin = harness.Flow.BeginAsync(SampleScenario.SkyrimId, LaunchRig.SurvivalTip);
         harness.Settle();
         var dialog = harness.Dialogs.Stack.OfType<LaunchDialogViewModel>().Single();
         var button = harness.Find<Button>("SwitchButton");
@@ -134,7 +134,7 @@ public class LaunchViewTests
     public async Task The_launch_dialog_shows_a_block_per_dirty_folder_and_the_picker_for_several_saves()
     {
         using var harness = await LaunchViewHarness.StartAsync();
-        var begin = harness.Flow.BeginAsync(MockupScenario.SkyrimId, LaunchRig.SurvivalTip);
+        var begin = harness.Flow.BeginAsync(SampleScenario.SkyrimId, LaunchRig.SurvivalTip);
         harness.Settle();
 
         Assert.True(harness.Find<ComboBox>("SavePicker").IsEffectivelyVisible);
@@ -152,7 +152,7 @@ public class LaunchViewTests
     public async Task Escape_on_the_launch_dialog_cancels_it_and_starts_nothing()
     {
         using var harness = await LaunchViewHarness.StartAsync();
-        var begin = harness.Flow.BeginAsync(MockupScenario.SkyrimId, LaunchRig.SurvivalTip);
+        var begin = harness.Flow.BeginAsync(SampleScenario.SkyrimId, LaunchRig.SurvivalTip);
         harness.Settle();
 
         Press(harness, PhysicalKey.Escape);
@@ -160,14 +160,14 @@ public class LaunchViewTests
 
         Assert.Empty(harness.Dialogs.Stack);
         Assert.Empty(harness.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.StartAsync)));
-        Assert.False(harness.Flow.IsActive(MockupScenario.SkyrimId));
+        Assert.False(harness.Flow.IsActive(SampleScenario.SkyrimId));
     }
 
     [AvaloniaFact]
     public async Task The_banner_is_a_polite_live_region_and_details_shows_what_was_checked()
     {
         using var harness = await LaunchViewHarness.StartAsync();
-        await harness.Flow.BeginAsync(MockupScenario.SkyrimId, LaunchRig.ModdedTip);
+        await harness.Flow.BeginAsync(SampleScenario.SkyrimId, LaunchRig.ModdedTip);
         harness.Settle();
         var banner = harness.Find<Border>("Banner");
 
@@ -188,13 +188,13 @@ public class LaunchViewTests
     public async Task The_progress_dialog_speaks_its_progress_and_ignores_escape()
     {
         using var harness = await LaunchViewHarness.StartAsync();
-        FakeAssert.Ok(await harness.Backend.Settings.SaveAsync(MockupScenario.Settings with { SkipConfirmWhenOnlySaveChanges = true }));
-        await harness.Flow.BeginAsync(MockupScenario.SkyrimId, LaunchRig.ClearedBlackreachPoint);
+        FakeAssert.Ok(await harness.Backend.Settings.SaveAsync(SampleScenario.Settings with { SkipConfirmWhenOnlySaveChanges = true }));
+        await harness.Flow.BeginAsync(SampleScenario.SkyrimId, LaunchRig.ClearedBlackreachPoint);
         harness.Settle();
         var announcer = harness.Find<AnnouncementRegion>("ProgressAnnouncer");
         Assert.Equal("Getting Skyrim Special Edition ready.", announcer.Message);
 
-        harness.Backend.Launch.ReportSwitching(MockupScenario.SkyrimId, MockupScenario.SwitchProgress);
+        harness.Backend.Launch.ReportSwitching(SampleScenario.SkyrimId, SampleScenario.SwitchProgress);
         harness.Settle();
         Assert.Equal("50% done.", announcer.Message);
         Assert.False(harness.Find<ProgressBar>("Bar").IsIndeterminate);
@@ -208,8 +208,8 @@ public class LaunchViewTests
     public async Task The_progress_dialogs_cancel_button_asks_the_service_to_cancel()
     {
         using var harness = await LaunchViewHarness.StartAsync();
-        FakeAssert.Ok(await harness.Backend.Settings.SaveAsync(MockupScenario.Settings with { SkipConfirmWhenOnlySaveChanges = true }));
-        await harness.Flow.BeginAsync(MockupScenario.SkyrimId, LaunchRig.ClearedBlackreachPoint);
+        FakeAssert.Ok(await harness.Backend.Settings.SaveAsync(SampleScenario.Settings with { SkipConfirmWhenOnlySaveChanges = true }));
+        await harness.Flow.BeginAsync(SampleScenario.SkyrimId, LaunchRig.ClearedBlackreachPoint);
         harness.Settle();
 
         harness.Find<Button>("CancelButton").Command!.Execute(null);
@@ -224,8 +224,8 @@ public class LaunchViewTests
     public async Task The_running_card_is_on_screen_with_a_working_done_playing_button()
     {
         using var harness = await LaunchViewHarness.StartAsync();
-        await harness.Flow.BeginAsync(MockupScenario.SkyrimId, LaunchRig.ModdedTip);
-        harness.Backend.Launch.ReportRunning(MockupScenario.SkyrimId, MockupScenario.RunningSince);
+        await harness.Flow.BeginAsync(SampleScenario.SkyrimId, LaunchRig.ModdedTip);
+        harness.Backend.Launch.ReportRunning(SampleScenario.SkyrimId, SampleScenario.RunningSince);
         harness.Settle();
 
         Assert.Equal("Skyrim Special Edition is running", harness.Find<TextBlock>("TitleText").Text);
@@ -241,7 +241,7 @@ public class LaunchViewTests
         using var harness = await LaunchViewHarness.StartAsync();
         await PlayToExitedAsync(harness);
         await PostPlay(harness).SaveCommand.ExecuteAsync(null);
-        harness.Backend.Jobs.Complete(harness.Backend.Jobs.LastStarted(JobKind.Capture).JobId, MockupScenario.HalfSaved);
+        harness.Backend.Jobs.Complete(harness.Backend.Jobs.LastStarted(JobKind.Capture).JobId, SampleScenario.HalfSaved);
         harness.Settle();
 
         var rows = harness.Find<ItemsControl>("Rows");
@@ -257,12 +257,12 @@ public class LaunchViewTests
         using var harness = await LaunchViewHarness.StartAsync();
         await PlayToExitedAsync(harness);
         await PostPlay(harness).SaveCommand.ExecuteAsync(null);
-        Assert.IsType<LaunchSavingViewModel>(harness.Flow.InlineContentFor(MockupScenario.SkyrimId));
+        Assert.IsType<LaunchSavingViewModel>(harness.Flow.InlineContentFor(SampleScenario.SkyrimId));
 
         harness.Backend.Jobs.Complete(harness.Backend.Jobs.LastStarted(JobKind.Capture).JobId);
         harness.Settle();
 
-        Assert.Null(harness.Flow.InlineContentFor(MockupScenario.SkyrimId));
+        Assert.Null(harness.Flow.InlineContentFor(SampleScenario.SkyrimId));
         var toast = Assert.Single(harness.Rig.Toasts.Toasts);
         Assert.Equal("Took a snapshot of Skyrim Special Edition.", toast.Text);
         Assert.True(toast.IsSuccess);
@@ -272,32 +272,32 @@ public class LaunchViewTests
     public async Task The_failure_card_over_the_games_table_has_its_actions_wired()
     {
         using var harness = await LaunchViewHarness.StartAsync();
-        await harness.Flow.BeginAsync(MockupScenario.SkyrimId, LaunchRig.ModdedTip);
-        harness.Backend.Launch.FailLaunch(MockupScenario.SkyrimId, MockupScenario.FileInUseError);
+        await harness.Flow.BeginAsync(SampleScenario.SkyrimId, LaunchRig.ModdedTip);
+        harness.Backend.Launch.FailLaunch(SampleScenario.SkyrimId, SampleScenario.FileInUseError);
         harness.Settle();
-        var card = (ErrorCardViewModel)harness.Flow.InlineContentFor(MockupScenario.SkyrimId)!;
+        var card = (ErrorCardViewModel)harness.Flow.InlineContentFor(SampleScenario.SkyrimId)!;
 
         var tryAgain = harness.All<Button>().Single(button => Equals(button.Content, "Try again"));
         tryAgain.Command!.Execute(null);
         harness.Settle();
 
         Assert.Equal(2, harness.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.StartAsync)).Count);
-        Assert.NotSame(card, harness.Flow.InlineContentFor(MockupScenario.SkyrimId));
+        Assert.NotSame(card, harness.Flow.InlineContentFor(SampleScenario.SkyrimId));
     }
 
     [AvaloniaFact]
     public async Task No_launch_view_has_an_unnamed_icon_button()
     {
         using var harness = await LaunchViewHarness.StartAsync();
-        var begin = harness.Flow.BeginAsync(MockupScenario.SkyrimId, LaunchRig.SurvivalTip);
+        var begin = harness.Flow.BeginAsync(SampleScenario.SkyrimId, LaunchRig.SurvivalTip);
         harness.Settle();
         Assert.Empty(AutomationAudit.IconButtonsWithoutNames(harness.View));
         harness.Dialogs.RequestDismissCurrent();
         await begin;
 
-        await harness.Flow.BeginAsync(MockupScenario.SkyrimId, LaunchRig.ModdedTip);
-        harness.Backend.Launch.ReportRunning(MockupScenario.SkyrimId, MockupScenario.RunningSince);
-        harness.Backend.Launch.ReportExited(MockupScenario.SkyrimId, MockupScenario.PlayDuration, 3);
+        await harness.Flow.BeginAsync(SampleScenario.SkyrimId, LaunchRig.ModdedTip);
+        harness.Backend.Launch.ReportRunning(SampleScenario.SkyrimId, SampleScenario.RunningSince);
+        harness.Backend.Launch.ReportExited(SampleScenario.SkyrimId, SampleScenario.PlayDuration, 3);
         harness.Settle();
         Assert.Empty(AutomationAudit.IconButtonsWithoutNames(harness.View));
     }

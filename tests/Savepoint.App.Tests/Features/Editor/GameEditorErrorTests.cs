@@ -175,7 +175,7 @@ public class GameEditorErrorTests
         var rig = EditorRig.Create();
         var editor = Filled(rig);
         editor.InstallPath = @"C:\Program Files (x86)";
-        rig.Backend.FailNext<IGamesApi>("AddAsync", MockupScenario.FolderTooBroadError);
+        rig.Backend.FailNext<IGamesApi>("AddAsync", SampleScenario.FolderTooBroadError);
 
         await Save(rig, editor);
 
@@ -221,7 +221,7 @@ public class GameEditorErrorTests
         var editor = rig.Edit();
         await editor.LoadAsync();
         editor.Name = "Skyrim SE";
-        rig.Backend.FailNext<IGamesApi>("UpdateAsync", ErrorInfo.From(new PathMissingException(MockupScenario.SkyrimInstall, RepoRole.Install)));
+        rig.Backend.FailNext<IGamesApi>("UpdateAsync", ErrorInfo.From(new PathMissingException(SampleScenario.SkyrimInstall, RepoRole.Install)));
         await Save(rig, editor);
 
         Assert.NotNull(editor.InstallCard);
@@ -241,7 +241,7 @@ public class GameEditorErrorTests
     {
         var rig = EditorRig.Create();
         var editor = Filled(rig);
-        rig.Backend.FailNext<IGamesApi>("AddAsync", OnFolder(ErrorInfo.From(new GameOverlapException(MockupScenario.SatisfactoryId, "Satisfactory")), RepoRole.Install));
+        rig.Backend.FailNext<IGamesApi>("AddAsync", OnFolder(ErrorInfo.From(new GameOverlapException(SampleScenario.SatisfactoryId, "Satisfactory")), RepoRole.Install));
 
         await Save(rig, editor);
 
@@ -256,7 +256,7 @@ public class GameEditorErrorTests
     {
         var rig = EditorRig.Create();
         var editor = Filled(rig);
-        rig.Backend.FailNext<IGamesApi>("AddAsync", OnFolder(ErrorInfo.From(new GameOverlapException(MockupScenario.SatisfactoryId, "Satisfactory")), RepoRole.External));
+        rig.Backend.FailNext<IGamesApi>("AddAsync", OnFolder(ErrorInfo.From(new GameOverlapException(SampleScenario.SatisfactoryId, "Satisfactory")), RepoRole.External));
 
         await Save(rig, editor);
 
@@ -271,7 +271,7 @@ public class GameEditorErrorTests
         var rig = EditorRig.Create();
         var editor = rig.Edit();
         editor.SavesPath = @"{localAppData}\FactoryGame";
-        rig.Backend.FailNext<IGamesApi>("UpdateAsync", OnFolder(ErrorInfo.From(new GameOverlapException(MockupScenario.SatisfactoryId, "Satisfactory")), RepoRole.External));
+        rig.Backend.FailNext<IGamesApi>("UpdateAsync", OnFolder(ErrorInfo.From(new GameOverlapException(SampleScenario.SatisfactoryId, "Satisfactory")), RepoRole.External));
 
         await Save(rig, editor);
 
@@ -284,7 +284,7 @@ public class GameEditorErrorTests
     {
         var rig = EditorRig.Create();
         var editor = Filled(rig);
-        rig.Backend.FailNext<IGamesApi>("AddAsync", ErrorInfo.From(new GameOverlapException(MockupScenario.SatisfactoryId, "Satisfactory")));
+        rig.Backend.FailNext<IGamesApi>("AddAsync", ErrorInfo.From(new GameOverlapException(SampleScenario.SatisfactoryId, "Satisfactory")));
 
         await Save(rig, editor);
 

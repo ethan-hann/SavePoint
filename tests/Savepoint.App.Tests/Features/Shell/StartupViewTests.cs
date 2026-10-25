@@ -114,7 +114,7 @@ public class StartupViewTests
             new GitStatus(true, @"C:\Program Files\SavePoint\git\cmd\git.exe", "2.56.0.windows.2", null),
             new CatalogStatus(@"C:\Users\you\AppData\Roaming\SavePoint", []),
             new StorageStatus(false, gone, ErrorInfo.From(new StorageUnreachableException(gone, null))));
-        var backend = new FakeBackend(ScenarioBuilder.Mockup().WithDefaultStorageRoot(defaultRoot).WithStartupStatus(status).WithStorageHistoryIn(defaultRoot));
+        var backend = new FakeBackend(ScenarioBuilder.Sample().WithDefaultStorageRoot(defaultRoot).WithStartupStatus(status).WithStorageHistoryIn(defaultRoot));
         var startup = new StartupViewModel(backend.AppStatus, text, dialogs: new FakeDialogs().AnswerConfirm(true));
         var view = new StartupView { DataContext = startup };
         using var host = new ThemeHost(view, width: 700, height: 900);

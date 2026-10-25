@@ -14,11 +14,11 @@ public class TourStartTests
     private sealed class Pane;
 
     // The sample library for a player who has not seen the tour.
-    private static FakeBackend Unseen() => new(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { TourSeen = false }));
+    private static FakeBackend Unseen() => new(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { TourSeen = false }));
 
     // A game with no profile yet: the Games screen shows its empty state, which has nothing for the tour to point at.
     private static FakeBackend GameWithoutProfiles() =>
-        new(ScenarioBuilder.Empty().WithSettings(MockupScenario.Settings with { TourSeen = false }).WithGame(MockupScenario.Skyrim));
+        new(ScenarioBuilder.Empty().WithSettings(SampleScenario.Settings with { TourSeen = false }).WithGame(SampleScenario.Skyrim));
 
     private static AppSettings Stored(FakeBackend backend) => FakeAssert.Ok(backend.Settings.GetAsync().GetAwaiter().GetResult());
 
@@ -49,7 +49,7 @@ public class TourStartTests
     [Fact]
     public async Task A_player_who_has_seen_the_tour_is_not_shown_it_and_nothing_is_written()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
         var rig = await ShellRig.StartAsync(backend);
 
@@ -66,7 +66,7 @@ public class TourStartTests
         Assert.False(rig.Shell.Tour.IsActive);
         Assert.False(Stored(backend).TourSeen);
 
-        backend.State.Profiles.Add(new Profile("first", MockupScenario.SkyrimId, "First profile", "profile/first"));
+        backend.State.Profiles.Add(new Profile("first", SampleScenario.SkyrimId, "First profile", "profile/first"));
         await rig.Shell.RefreshLibraryAsync();
 
         Assert.True(rig.Shell.Tour.IsActive);
@@ -76,7 +76,7 @@ public class TourStartTests
     [Fact]
     public async Task The_first_run_screen_has_no_tour_because_there_is_nothing_to_point_at()
     {
-        var backend = new FakeBackend(ScenarioBuilder.Empty().WithSettings(MockupScenario.Settings with { TourSeen = false }));
+        var backend = new FakeBackend(ScenarioBuilder.Empty().WithSettings(SampleScenario.Settings with { TourSeen = false }));
 
         var rig = await ShellRig.StartAsync(backend);
 
@@ -132,8 +132,8 @@ public class TourStartTests
         var rig = ShellRig.Create(backend);
         await rig.Shell.InitializeAsync();
 
-        rig.Shell.SettingsChanged(MockupScenario.Settings with { TourSeen = true });
-        backend.State.Profiles.Add(new Profile("first", MockupScenario.SkyrimId, "First profile", "profile/first"));
+        rig.Shell.SettingsChanged(SampleScenario.Settings with { TourSeen = true });
+        backend.State.Profiles.Add(new Profile("first", SampleScenario.SkyrimId, "First profile", "profile/first"));
         await rig.Shell.RefreshLibraryAsync();
 
         Assert.False(rig.Shell.Tour.IsActive);
@@ -147,7 +147,7 @@ public class TourStartTests
         rig.Shell.Tour.SkipCommand.Execute(null);
 
         // What the Settings screen tells the shell once the settings file is gone and the defaults are back.
-        rig.Shell.SettingsChanged(MockupScenario.Settings with { TourSeen = false });
+        rig.Shell.SettingsChanged(SampleScenario.Settings with { TourSeen = false });
 
         Assert.True(rig.Shell.Tour.IsActive);
     }
@@ -191,7 +191,7 @@ public class TourStartTests
     [Fact]
     public async Task Showing_the_tour_again_starts_it_from_the_first_step_on_the_Games_screen_from_anywhere()
     {
-        var rig = await ShellRig.StartAsync(FakeBackend.Mockup());
+        var rig = await ShellRig.StartAsync(FakeBackend.Sample());
         rig.Shell.Navigate(NavDestination.Settings);
         Assert.False(rig.Shell.Tour.IsActive);
 
@@ -206,7 +206,7 @@ public class TourStartTests
     [Fact]
     public async Task Showing_the_tour_again_closes_the_help_page_that_was_open()
     {
-        var rig = await ShellRig.StartAsync(FakeBackend.Mockup());
+        var rig = await ShellRig.StartAsync(FakeBackend.Sample());
         rig.Shell.ShowHelp();
 
         rig.Shell.StartTour();
@@ -218,7 +218,7 @@ public class TourStartTests
     [Fact]
     public async Task The_tour_can_be_shown_again_only_for_a_game_that_has_a_profile()
     {
-        var withProfile = await ShellRig.StartAsync(FakeBackend.Mockup());
+        var withProfile = await ShellRig.StartAsync(FakeBackend.Sample());
         var without = await ShellRig.StartAsync(GameWithoutProfiles());
 
         Assert.True(withProfile.Shell.CanShowTour);
@@ -230,7 +230,7 @@ public class TourStartTests
     [Fact]
     public async Task Showing_it_again_does_not_touch_the_settings()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var rig = await ShellRig.StartAsync(backend);
 
         rig.Shell.StartTour();
@@ -257,7 +257,7 @@ public class TourStartTests
     [Fact]
     public async Task The_end_of_the_page_shows_the_tour_again_and_closes_the_page()
     {
-        var rig = await ShellRig.StartAsync(FakeBackend.Mockup());
+        var rig = await ShellRig.StartAsync(FakeBackend.Sample());
         rig.Shell.ShowHelp();
         var page = Assert.IsType<HowItWorksViewModel>(rig.Shell.Content);
 

@@ -5,7 +5,7 @@ using Savepoint.Core.Errors;
 namespace Savepoint.App.Tests.Fakes;
 
 // The design screens disagree with each other in places; each seed follows the screen named beside it.
-public static class MockupScenario
+public static class SampleScenario
 {
     public const string SkyrimId = "skyrim-special-edition-k2v9";
     public const string SatisfactoryId = "satisfactory-p4m1";

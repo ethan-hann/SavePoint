@@ -162,11 +162,11 @@ public class NewProfileWizardViewTests
         using var _ = harness;
         await wizard.ContinueCommand.ExecuteAsync(null);
         await wizard.ContinueCommand.ExecuteAsync(null);
-        var profileId = FakeAssert.Ok(await harness.Rig.Backend.Profiles.ListAsync(MockupScenario.SkyrimId)).Single(profile => profile.Name == wizard.TrimmedName).Id;
+        var profileId = FakeAssert.Ok(await harness.Rig.Backend.Profiles.ListAsync(SampleScenario.SkyrimId)).Single(profile => profile.Name == wizard.TrimmedName).Id;
 
         harness.Rig.Backend.Jobs.Complete(
             harness.Rig.Backend.Jobs.LastStarted(Capture).JobId,
-            new CaptureResult(profileId, new HistoryPointId("pt"), [new FolderOutcome(RepoRole.Install), new FolderOutcome(RepoRole.External, MockupScenario.SavesOutOfRoomError)]));
+            new CaptureResult(profileId, new HistoryPointId("pt"), [new FolderOutcome(RepoRole.Install), new FolderOutcome(RepoRole.External, SampleScenario.SavesOutOfRoomError)]));
         harness.Settle();
 
         var focused = Assert.IsType<Button>(harness.Window.FocusManager!.GetFocusedElement());
@@ -289,10 +289,10 @@ public class NewProfileWizardViewTests
         using var _ = harness;
         await wizard.ContinueCommand.ExecuteAsync(null);
         await wizard.ContinueCommand.ExecuteAsync(null);
-        var profileId = FakeAssert.Ok(await harness.Rig.Backend.Profiles.ListAsync(MockupScenario.SkyrimId)).Single(profile => profile.Name == wizard.TrimmedName).Id;
+        var profileId = FakeAssert.Ok(await harness.Rig.Backend.Profiles.ListAsync(SampleScenario.SkyrimId)).Single(profile => profile.Name == wizard.TrimmedName).Id;
         harness.Rig.Backend.Jobs.Complete(
             harness.Rig.Backend.Jobs.LastStarted(Capture).JobId,
-            new CaptureResult(profileId, new HistoryPointId("pt"), [new FolderOutcome(RepoRole.Install), new FolderOutcome(RepoRole.External, MockupScenario.SavesOutOfRoomError)]));
+            new CaptureResult(profileId, new HistoryPointId("pt"), [new FolderOutcome(RepoRole.Install), new FolderOutcome(RepoRole.External, SampleScenario.SavesOutOfRoomError)]));
         harness.Settle();
 
         var texts = harness.VisibleTexts().ToList();
@@ -312,7 +312,7 @@ public class NewProfileWizardViewTests
     {
         var (harness, wizard) = await OpenAsync();
         using var _ = harness;
-        harness.Rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.CreateAsync), MockupScenario.SavesOutOfRoomError);
+        harness.Rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.CreateAsync), SampleScenario.SavesOutOfRoomError);
         await wizard.ContinueCommand.ExecuteAsync(null);
 
         await wizard.ContinueCommand.ExecuteAsync(null);

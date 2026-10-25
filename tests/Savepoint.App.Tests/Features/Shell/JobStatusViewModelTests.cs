@@ -42,7 +42,7 @@ public class JobStatusViewModelTests
         var rig = new Rig();
 
         await rig.StartCapture();
-        FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
+        FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(SampleScenario.SatisfactoryId));
 
         Assert.Equal("Working on 2 jobs\u2026", rig.Status.PillText);
     }
@@ -57,7 +57,7 @@ public class JobStatusViewModelTests
 
         rig.Status.OpenCommand.Execute(null);
 
-        Assert.Equal([MockupScenario.SkyrimId], rig.Opened);
+        Assert.Equal([SampleScenario.SkyrimId], rig.Opened);
     }
 
     [Fact]
@@ -76,7 +76,7 @@ public class JobStatusViewModelTests
     {
         var rig = new Rig();
         await rig.StartCapture();
-        FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(MockupScenario.SkyrimId));
+        FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(SampleScenario.SkyrimId));
 
         rig.Status.OpenCommand.Execute(null);
 
@@ -92,7 +92,7 @@ public class JobStatusViewModelTests
 
         rig.Status.OpenCommand.Execute(null);
 
-        Assert.Equal([MockupScenario.SkyrimId], rig.Opened);
+        Assert.Equal([SampleScenario.SkyrimId], rig.Opened);
     }
 
     [Fact]
@@ -105,7 +105,7 @@ public class JobStatusViewModelTests
 
         Assert.Equal("Taking a snapshot of Skyrim Special Edition… Open Activity", rig.Status.OpenName);
 
-        FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
+        FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(SampleScenario.SatisfactoryId));
 
         Assert.Equal("Working on 2 jobs… Open Activity", rig.Status.OpenName);
     }
@@ -119,7 +119,7 @@ public class JobStatusViewModelTests
         Assert.Equal("Moving your snapshots\u2026", rig.Status.PillText);
         rig.Backend.Jobs.Complete(relocate.JobId);
 
-        var compact = FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
+        var compact = FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(SampleScenario.SatisfactoryId));
         Assert.Equal("Freeing up space for Satisfactory\u2026", rig.Status.PillText);
         rig.Backend.Jobs.Complete(compact.JobId);
 
@@ -148,10 +148,10 @@ public class JobStatusViewModelTests
     {
         var rig = new Rig();
 
-        FakeAssert.Ok(await rig.Backend.Launch.StartAsync(MockupScenario.SkyrimId, new LaunchTarget.ProfileTip(MockupScenario.ModdedId)));
+        FakeAssert.Ok(await rig.Backend.Launch.StartAsync(SampleScenario.SkyrimId, new LaunchTarget.ProfileTip(SampleScenario.ModdedId)));
         Assert.False(rig.Status.IsVisible);
 
-        rig.Backend.Launch.ReportRunning(MockupScenario.SkyrimId);
+        rig.Backend.Launch.ReportRunning(SampleScenario.SkyrimId);
 
         Assert.False(rig.Status.IsVisible);
         Assert.Empty(rig.Toasts.Toasts);
@@ -162,7 +162,7 @@ public class JobStatusViewModelTests
     {
         var rig = new Rig();
 
-        var started = FakeAssert.Ok(await rig.Backend.Launch.SwitchAsync(MockupScenario.SkyrimId, new LaunchTarget.ProfileTip(MockupScenario.ModdedId)));
+        var started = FakeAssert.Ok(await rig.Backend.Launch.SwitchAsync(SampleScenario.SkyrimId, new LaunchTarget.ProfileTip(SampleScenario.ModdedId)));
         Assert.False(rig.Status.IsVisible);
 
         rig.Backend.Jobs.Complete(started.JobId);
@@ -191,12 +191,12 @@ public class JobStatusViewModelTests
         var rig = new Rig();
         var job = await rig.StartCapture();
 
-        rig.Backend.Jobs.Fail(job.JobId, MockupScenario.SavesOutOfRoomError);
+        rig.Backend.Jobs.Fail(job.JobId, SampleScenario.SavesOutOfRoomError);
 
         var toast = Assert.Single(rig.Toasts.Toasts);
         Assert.Equal("Something went wrong taking a snapshot of Skyrim Special Edition.", toast.Text);
         Assert.Equal(ToastKind.Error, toast.Message.Kind);
-        Assert.Equal(rig.Text.Message(MockupScenario.SavesOutOfRoomError, ErrorOperation.Snapshot), toast.Details);
+        Assert.Equal(rig.Text.Message(SampleScenario.SavesOutOfRoomError, ErrorOperation.Snapshot), toast.Details);
     }
 
     [Fact]
@@ -208,8 +208,8 @@ public class JobStatusViewModelTests
         rig.ShownElsewhere.Add(failed.JobId);
         rig.ShownElsewhere.Add(partial.JobId);
 
-        rig.Backend.Jobs.Fail(failed.JobId, MockupScenario.SavesOutOfRoomError);
-        rig.Backend.Jobs.Complete(partial.JobId, MockupScenario.HalfSaved);
+        rig.Backend.Jobs.Fail(failed.JobId, SampleScenario.SavesOutOfRoomError);
+        rig.Backend.Jobs.Complete(partial.JobId, SampleScenario.HalfSaved);
 
         Assert.Empty(rig.Toasts.Toasts);
     }
@@ -223,7 +223,7 @@ public class JobStatusViewModelTests
         rig.ShownElsewhere.Add(followed.JobId);
 
         rig.Backend.Jobs.Complete(followed.JobId);
-        rig.Backend.Jobs.Fail(other.JobId, MockupScenario.SavesOutOfRoomError);
+        rig.Backend.Jobs.Fail(other.JobId, SampleScenario.SavesOutOfRoomError);
 
         Assert.Equal(["Took a snapshot of Skyrim Special Edition.", "Something went wrong taking a snapshot of Skyrim Special Edition."], rig.Toasts.Toasts.Select(toast => toast.Text));
     }
@@ -249,19 +249,19 @@ public class JobStatusViewModelTests
         var rig = new Rig();
         var job = await rig.StartCapture();
 
-        rig.Backend.Jobs.Complete(job.JobId, MockupScenario.HalfSaved);
+        rig.Backend.Jobs.Complete(job.JobId, SampleScenario.HalfSaved);
 
         var toast = Assert.Single(rig.Toasts.Toasts);
         Assert.Equal("Only part of Skyrim Special Edition is in the new snapshot.", toast.Text);
         Assert.Equal(ToastKind.Warning, toast.Message.Kind);
-        Assert.Equal(rig.Text.Message(MockupScenario.SavesOutOfRoomError, ErrorOperation.Snapshot), toast.Details);
+        Assert.Equal(rig.Text.Message(SampleScenario.SavesOutOfRoomError, ErrorOperation.Snapshot), toast.Details);
     }
 
     [Fact]
     public async Task Optimization_of_one_game_has_its_own_toast_copy()
     {
         var rig = new Rig();
-        var job = FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
+        var job = FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(SampleScenario.SatisfactoryId));
 
         rig.Backend.Jobs.Complete(job.JobId);
 
@@ -309,7 +309,7 @@ public class JobStatusViewModelTests
         var job = FakeAssert.Ok(await rig.Backend.Settings.RelocateStorageAsync(@"E:\SavePoint"));
         var stayed = new ClearFailure(@"D:\Old\game-1\install.git", ErrorInfo.From(new GameRunningException("game-1", "Skyrim")));
 
-        rig.Backend.Jobs.Complete(job.JobId, new StorageRelocationResult(MockupScenario.StorageRoot, @"E:\SavePoint", 10, [stayed]));
+        rig.Backend.Jobs.Complete(job.JobId, new StorageRelocationResult(SampleScenario.StorageRoot, @"E:\SavePoint", 10, [stayed]));
 
         var toast = Assert.Single(rig.Toasts.Toasts);
         Assert.StartsWith("Snapshots moved, but some old files are still in the old folder.", toast.Text, StringComparison.Ordinal);
@@ -336,7 +336,7 @@ public class JobStatusViewModelTests
         var clean = FakeAssert.Ok(await rig.Backend.Settings.ClearAllDataAsync());
         rig.Backend.Jobs.Complete(clean.JobId);
         var leftovers = FakeAssert.Ok(await rig.Backend.Settings.ClearAllDataAsync());
-        rig.Backend.Jobs.Complete(leftovers.JobId, new ClearAllDataResult(0, [new ClearFailure(@"D:\SavePoint\locked.pack", MockupScenario.FileInUseError)]));
+        rig.Backend.Jobs.Complete(leftovers.JobId, new ClearAllDataResult(0, [new ClearFailure(@"D:\SavePoint\locked.pack", SampleScenario.FileInUseError)]));
 
         Assert.Equal(["SavePoint's data was cleared.", "Some of SavePoint's data couldn't be removed."], rig.Toasts.Toasts.Select(toast => toast.Text));
         Assert.Equal(ToastKind.Warning, rig.Toasts.Toasts[1].Message.Kind);
@@ -347,7 +347,7 @@ public class JobStatusViewModelTests
     {
         var rig = new Rig();
         var job = await rig.StartCapture();
-        rig.KnownGames.Remove(MockupScenario.SkyrimId);
+        rig.KnownGames.Remove(SampleScenario.SkyrimId);
 
         rig.Backend.Jobs.Complete(job.JobId);
 
@@ -359,7 +359,7 @@ public class JobStatusViewModelTests
     {
         var rig = new Rig(wireEvents: false);
         var running = await rig.StartCapture();
-        var finished = FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
+        var finished = FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(SampleScenario.SatisfactoryId));
         rig.Backend.Jobs.Complete(finished.JobId);
 
         rig.Status.Seed(rig.Backend.Jobs.List());
@@ -419,7 +419,7 @@ public class JobStatusViewModelTests
 
         Assert.Equal("Taking a snapshot of Skyrim Special Edition\u2026", rig.Status.Announcement);
 
-        FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(MockupScenario.SatisfactoryId));
+        FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(SampleScenario.SatisfactoryId));
 
         Assert.Equal("Working on 2 jobs\u2026", rig.Status.Announcement);
 
@@ -452,14 +452,14 @@ public class JobStatusViewModelTests
     {
         public Rig(bool wireEvents = true)
         {
-            Backend = FakeBackend.Mockup();
+            Backend = FakeBackend.Sample();
             Text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), Backend.Clock, "windows", TimeZoneInfo.Utc);
             Toasts = new ToastHostViewModel(new ManualTimeProvider(), new ImmediateUiDispatcher());
             KnownGames = new Dictionary<string, string>
             {
-                [MockupScenario.SkyrimId] = _skyrim,
-                [MockupScenario.SatisfactoryId] = "Satisfactory",
-                [MockupScenario.CaretakerId] = "The Last Caretaker",
+                [SampleScenario.SkyrimId] = _skyrim,
+                [SampleScenario.SatisfactoryId] = "Satisfactory",
+                [SampleScenario.CaretakerId] = "The Last Caretaker",
             };
             Status = new JobStatusViewModel(Text, Toasts, id => KnownGames.GetValueOrDefault(id), ShownElsewhere.Contains, Opened.Add);
             if (wireEvents)
@@ -485,6 +485,6 @@ public class JobStatusViewModelTests
         public JobStatusViewModel Status { get; }
 
         public async Task<JobStarted> StartCapture() =>
-            FakeAssert.Ok(await Backend.Profiles.CaptureAsync(MockupScenario.SkyrimId, MockupScenario.ModdedId, "A point"));
+            FakeAssert.Ok(await Backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "A point"));
     }
 }

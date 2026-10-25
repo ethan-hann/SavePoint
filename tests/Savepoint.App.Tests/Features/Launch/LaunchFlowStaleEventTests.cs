@@ -28,8 +28,8 @@ public class LaunchFlowStaleEventTests : IDisposable
 
     private async Task PlayWithProgressAsync()
     {
-        FakeAssert.Ok(await _rig.Backend.Settings.SaveAsync(MockupScenario.Settings with { SkipConfirmWhenOnlySaveChanges = true }));
-        await _flow.BeginAsync(MockupScenario.SkyrimId, LaunchRig.ClearedBlackreachPoint);
+        FakeAssert.Ok(await _rig.Backend.Settings.SaveAsync(SampleScenario.Settings with { SkipConfirmWhenOnlySaveChanges = true }));
+        await _flow.BeginAsync(SampleScenario.SkyrimId, LaunchRig.ClearedBlackreachPoint);
     }
 
     [Fact]
@@ -37,83 +37,83 @@ public class LaunchFlowStaleEventTests : IDisposable
     {
         await PlayWithProgressAsync();
         var progress = _rig.Dialogs.Shown.OfType<SwitchProgressDialogViewModel>().Single();
-        _rig.Backend.Launch.ReportRunning(MockupScenario.SkyrimId, MockupScenario.RunningSince);
-        var card = Assert.IsType<RunningCardViewModel>(_flow.InlineContentFor(MockupScenario.SkyrimId));
+        _rig.Backend.Launch.ReportRunning(SampleScenario.SkyrimId, SampleScenario.RunningSince);
+        var card = Assert.IsType<RunningCardViewModel>(_flow.InlineContentFor(SampleScenario.SkyrimId));
         Assert.True(progress.IsClosed);
 
         _launch.Raise(_seen[0]);
 
         Assert.Single(_rig.Dialogs.Shown.OfType<SwitchProgressDialogViewModel>());
-        Assert.Same(card, _flow.InlineContentFor(MockupScenario.SkyrimId));
+        Assert.Same(card, _flow.InlineContentFor(SampleScenario.SkyrimId));
     }
 
     [Fact]
     public async Task The_same_state_arriving_twice_is_applied_once()
     {
         await PlayWithProgressAsync();
-        _rig.Backend.Launch.ReportRunning(MockupScenario.SkyrimId, MockupScenario.RunningSince);
-        var card = _flow.InlineContentFor(MockupScenario.SkyrimId);
+        _rig.Backend.Launch.ReportRunning(SampleScenario.SkyrimId, SampleScenario.RunningSince);
+        var card = _flow.InlineContentFor(SampleScenario.SkyrimId);
 
         _launch.Raise(_seen[^1]);
 
-        Assert.Same(card, _flow.InlineContentFor(MockupScenario.SkyrimId));
+        Assert.Same(card, _flow.InlineContentFor(SampleScenario.SkyrimId));
     }
 
     [Fact]
     public async Task An_old_sessions_ending_arriving_late_does_not_touch_the_new_session()
     {
-        await _flow.BeginAsync(MockupScenario.SkyrimId, LaunchRig.ModdedTip);
-        _rig.Backend.Launch.FailLaunch(MockupScenario.SkyrimId, MockupScenario.FileInUseError);
+        await _flow.BeginAsync(SampleScenario.SkyrimId, LaunchRig.ModdedTip);
+        _rig.Backend.Launch.FailLaunch(SampleScenario.SkyrimId, SampleScenario.FileInUseError);
         var failed = _seen[^1];
-        await _flow.BeginAsync(MockupScenario.SkyrimId, LaunchRig.ModdedTip);
-        _rig.Backend.Launch.ReportRunning(MockupScenario.SkyrimId, MockupScenario.RunningSince);
-        var card = _flow.InlineContentFor(MockupScenario.SkyrimId);
+        await _flow.BeginAsync(SampleScenario.SkyrimId, LaunchRig.ModdedTip);
+        _rig.Backend.Launch.ReportRunning(SampleScenario.SkyrimId, SampleScenario.RunningSince);
+        var card = _flow.InlineContentFor(SampleScenario.SkyrimId);
 
         _launch.Raise(failed);
 
-        Assert.Same(card, _flow.InlineContentFor(MockupScenario.SkyrimId));
-        Assert.True(_flow.IsActive(MockupScenario.SkyrimId));
+        Assert.Same(card, _flow.InlineContentFor(SampleScenario.SkyrimId));
+        Assert.True(_flow.IsActive(SampleScenario.SkyrimId));
     }
 
     [Fact]
     public async Task A_new_session_is_accepted_even_when_its_revision_is_lower_than_the_last_ones()
     {
-        await _flow.BeginAsync(MockupScenario.SkyrimId, LaunchRig.ModdedTip);
-        _rig.Backend.Launch.ReportRunning(MockupScenario.SkyrimId, MockupScenario.RunningSince);
-        _rig.Backend.Launch.ReportExited(MockupScenario.SkyrimId, MockupScenario.PlayDuration, 1);
+        await _flow.BeginAsync(SampleScenario.SkyrimId, LaunchRig.ModdedTip);
+        _rig.Backend.Launch.ReportRunning(SampleScenario.SkyrimId, SampleScenario.RunningSince);
+        _rig.Backend.Launch.ReportExited(SampleScenario.SkyrimId, SampleScenario.PlayDuration, 1);
         var exited = _seen[^1];
         Assert.True(exited.Revision > 0);
         var fresh = new LaunchSessionInfo(
-            MockupScenario.SatisfactoryId,
-            MockupScenario.MainFactoryId,
-            new LaunchTarget.ProfileTip(MockupScenario.MainFactoryId),
+            SampleScenario.SatisfactoryId,
+            SampleScenario.MainFactoryId,
+            new LaunchTarget.ProfileTip(SampleScenario.MainFactoryId),
             false,
             Guid.NewGuid(),
-            new SessionState.Running(MockupScenario.RunningSince),
+            new SessionState.Running(SampleScenario.RunningSince),
             0);
 
         _launch.Raise(fresh);
 
-        Assert.IsType<RunningCardViewModel>(_flow.InlineContentFor(MockupScenario.SatisfactoryId));
+        Assert.IsType<RunningCardViewModel>(_flow.InlineContentFor(SampleScenario.SatisfactoryId));
     }
 
     [Fact]
     public async Task A_session_that_is_already_over_and_was_never_started_here_is_ignored()
     {
         var finished = new LaunchSessionInfo(
-            MockupScenario.SatisfactoryId,
-            MockupScenario.MainFactoryId,
-            new LaunchTarget.ProfileTip(MockupScenario.MainFactoryId),
+            SampleScenario.SatisfactoryId,
+            SampleScenario.MainFactoryId,
+            new LaunchTarget.ProfileTip(SampleScenario.MainFactoryId),
             false,
             Guid.NewGuid(),
-            new SessionState.Failed(MockupScenario.FileInUseError),
+            new SessionState.Failed(SampleScenario.FileInUseError),
             9);
 
         _launch.Raise(finished);
         await Task.CompletedTask;
 
-        Assert.Null(_flow.InlineContentFor(MockupScenario.SatisfactoryId));
-        Assert.False(_flow.IsActive(MockupScenario.SatisfactoryId));
+        Assert.Null(_flow.InlineContentFor(SampleScenario.SatisfactoryId));
+        Assert.False(_flow.IsActive(SampleScenario.SatisfactoryId));
     }
 }
 

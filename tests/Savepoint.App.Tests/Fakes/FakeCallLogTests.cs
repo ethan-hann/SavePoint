@@ -2,7 +2,7 @@ using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 using static Savepoint.App.Tests.Fakes.FakeAssert;
-using static Savepoint.App.Tests.Fakes.MockupScenario;
+using static Savepoint.App.Tests.Fakes.SampleScenario;
 
 namespace Savepoint.App.Tests.Fakes;
 
@@ -15,7 +15,7 @@ public class FakeCallLogTests
     [Fact]
     public async Task A_call_is_recorded_with_its_arguments()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
         await backend.Profiles.CaptureAsync(SkyrimId, SurvivalId, "Before switching", [RepoRole.External]);
 
@@ -29,7 +29,7 @@ public class FakeCallLogTests
     [Fact]
     public async Task Calls_across_apis_are_kept_in_the_order_they_were_made()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
         await backend.Settings.GetAsync(Ct);
         await backend.Games.ListAsync(Ct);
@@ -43,7 +43,7 @@ public class FakeCallLogTests
     [Fact]
     public async Task Cancellation_tokens_are_left_out_of_the_recorded_arguments()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
 
         await backend.Profiles.GetRowStatsAsync(SkyrimId, Ct);
 
@@ -54,7 +54,7 @@ public class FakeCallLogTests
     [Fact]
     public async Task FailNext_fails_only_the_next_call_to_that_member()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         backend.FailNext<IGamesApi>(nameof(IGamesApi.ListAsync), _diskFull);
 
         var first = await backend.Games.ListAsync(Ct);
@@ -67,7 +67,7 @@ public class FakeCallLogTests
     [Fact]
     public async Task FailNext_leaves_other_members_alone()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         backend.FailNext<IGamesApi>(nameof(IGamesApi.ListAsync), _diskFull);
 
         var profiles = await backend.Profiles.ListAsync(cancellationToken: Ct);
@@ -78,7 +78,7 @@ public class FakeCallLogTests
     [Fact]
     public async Task FailNext_queues_one_failure_per_call()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         var other = ErrorInfo.From(new GitUnavailableException(@"C:\git", "missing", null));
         backend.FailNext<IGamesApi>(nameof(IGamesApi.ListAsync), _diskFull);
         backend.FailNext<IGamesApi>(nameof(IGamesApi.ListAsync), other);
@@ -103,7 +103,7 @@ public class FakeCallLogTests
     [Fact]
     public async Task Clear_forgets_earlier_calls()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         await backend.Games.ListAsync(Ct);
 
         backend.Calls.Clear();

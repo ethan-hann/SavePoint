@@ -29,7 +29,7 @@ public class StartupViewModelTests
         new(new GitStatus(true, _gitPath, "2.56.0.windows.2", null), new CatalogStatus(_catalogDirectory, files));
 
     private static FakeBackend Backend(StartupStatus status, params string[] foldersWithHistory) =>
-        new(ScenarioBuilder.Mockup().WithStartupStatus(status).WithStorageHistoryIn(foldersWithHistory));
+        new(ScenarioBuilder.Sample().WithStartupStatus(status).WithStorageHistoryIn(foldersWithHistory));
 
     [Fact]
     public async Task A_healthy_start_is_ready_and_says_so_once()
@@ -359,7 +359,7 @@ public class StartupViewModelTests
     public async Task The_composition_does_not_offer_a_retry_for_a_backend_that_never_started()
     {
         var failure = ErrorInfo.From(new IOException("The configuration folder cannot be created."));
-        var main = AppComposition.Create(AppBootstrap.Unavailable(failure), _text, new RecordingThemeApplier(), () => null, new ImmediateUiDispatcher(), new ManualTimeProvider(), new FakeDialogs());
+        using var main = AppComposition.Create(AppBootstrap.Unavailable(failure), _text, new RecordingThemeApplier(), () => null, new ImmediateUiDispatcher(), new ManualTimeProvider(), new FakeDialogs());
 
         await main.Startup.CheckAsync();
 

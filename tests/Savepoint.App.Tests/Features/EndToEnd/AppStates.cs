@@ -20,7 +20,7 @@ namespace Savepoint.App.Tests.Features.EndToEnd;
 // Every screen and dialog of the app in the states a person meets them, reached by using the real app.
 internal static class AppStates
 {
-    private const string _skyrim = MockupScenario.SkyrimId;
+    private const string _skyrim = SampleScenario.SkyrimId;
 
     public static TheoryData<string> All =>
     [
@@ -118,7 +118,7 @@ internal static class AppStates
     // The first read of the game list fails, as a catalog that cannot be reached would.
     private static FakeBackend LibraryUnreadable()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         backend.FailNext<IGamesApi>(nameof(IGamesApi.ListAsync), ErrorInfo.From(new CatalogCorruptException(_catalogDirectory + @"\games.json", null)));
         return backend;
     }
@@ -126,15 +126,15 @@ internal static class AppStates
     // Jobs that ran before the app started are history: no toast for each, so the Activity screen is audited with the room it really has.
     private static async Task<FakeBackend> BackendWithJobsAsync()
     {
-        var backend = FakeBackend.Mockup();
+        var backend = FakeBackend.Sample();
         await ActivityScenario.AddJobsAsync(backend);
         return backend;
     }
 
     private static FakeBackend UnseenTour(ShellLayout layout) =>
-        new(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { TourSeen = false, Layout = layout }));
+        new(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { TourSeen = false, Layout = layout }));
 
-    private static FakeBackend StartupBackend(StartupStatus status) => new(ScenarioBuilder.Mockup().WithStartupStatus(status));
+    private static FakeBackend StartupBackend(StartupStatus status) => new(ScenarioBuilder.Sample().WithStartupStatus(status));
 
     private static ProfileRowViewModel Row(ComposedApp app, string id) => app.Games.Profiles.Single(row => row.Id == id);
 
@@ -145,8 +145,8 @@ internal static class AppStates
         var goBack = Assert.IsAssignableFrom<IAsyncRelayCommand>(app.History.Groups.SelectMany(group => group.Cards).Single(card => card.Name == "Cleared Blackreach").GoBackCommand).ExecuteAsync(null);
         app.Dialog<LaunchDialogViewModel>().SwitchCommand.Execute(null);
         await goBack.WaitAsync(TimeSpan.FromSeconds(5));
-        app.Backend.Launch.ReportRunning(_skyrim, MockupScenario.RunningSince);
-        app.Backend.Launch.ReportExited(_skyrim, MockupScenario.PlayDuration, MockupScenario.NewSaveFiles);
+        app.Backend.Launch.ReportRunning(_skyrim, SampleScenario.RunningSince);
+        app.Backend.Launch.ReportExited(_skyrim, SampleScenario.PlayDuration, SampleScenario.NewSaveFiles);
     }
 
     // Opens a state the way a person gets there.
@@ -155,16 +155,16 @@ internal static class AppStates
         var app = state switch
         {
             "games-library" => await ComposedApp.StartWithViewAsync(layout: ShellLayout.Library),
-            "history-filtered-empty" => await ComposedApp.StartWithViewAsync(new FakeBackend(ScenarioBuilder.Mockup()
-                .WithSettings(MockupScenario.Settings)
+            "history-filtered-empty" => await ComposedApp.StartWithViewAsync(new FakeBackend(ScenarioBuilder.Sample()
+                .WithSettings(SampleScenario.Settings)
                 .WithProfile(new Profile("profile-empty", _skyrim, "Fresh profile", "profile/profile-empty")))),
             "activity-jobs" or "activity-failed" => await ComposedApp.StartWithViewAsync(await BackendWithJobsAsync()),
             // The tour starts by itself for a player who has not seen it; the steps are reached with its own Next button.
             "tour-step-1" or "tour-step-2" or "tour-step-3" or "tour-step-4" => await ComposedApp.StartWithViewAsync(UnseenTour(ShellLayout.Sidebar)),
             "tour-library-step-3" or "tour-library-step-4" => await ComposedApp.StartWithViewAsync(UnseenTour(ShellLayout.Library)),
             // A player who has met the older-snapshot choice before: its explanation starts collapsed, so Escape goes to the dialog.
-            "post-play-from-older-snapshot-again" => await ComposedApp.StartWithViewAsync(new FakeBackend(ScenarioBuilder.Mockup().WithSettings(MockupScenario.Settings with { OlderChoiceHelpSeen = true }))),
-            "first-run" or "first-run-templates" => await ComposedApp.StartWithViewAsync(new FakeBackend(ScenarioBuilder.Empty().WithSettings(MockupScenario.Settings))),
+            "post-play-from-older-snapshot-again" => await ComposedApp.StartWithViewAsync(new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { OlderChoiceHelpSeen = true }))),
+            "first-run" or "first-run-templates" => await ComposedApp.StartWithViewAsync(new FakeBackend(ScenarioBuilder.Empty().WithSettings(SampleScenario.Settings))),
             "library-error" => await ComposedApp.StartWithViewAsync(LibraryUnreadable(), visitScreens: false),
             "startup-git-unavailable" => await ComposedApp.StartWithViewAsync(StartupBackend(new StartupStatus(
                 new GitStatus(false, _gitPath, null, ErrorInfo.From(new GitUnavailableException(_gitPath, "git exited with 127: not found", null))),
@@ -185,75 +185,75 @@ internal static class AppStates
         switch (state)
         {
             case "games-banner":
-                _ = Row(app, MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null);
+                _ = Row(app, SampleScenario.ModdedId).PlayCommand.ExecuteAsync(null);
                 break;
             case "games-banner-details":
-                _ = Row(app, MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null);
+                _ = Row(app, SampleScenario.ModdedId).PlayCommand.ExecuteAsync(null);
                 _ = Assert.IsType<LaunchBannerViewModel>(app.Games.InlineContent).ShowDetailsCommand.ExecuteAsync(null);
                 break;
             case "games-running":
-                _ = Row(app, MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null);
-                app.Backend.Launch.ReportRunning(_skyrim, MockupScenario.RunningSince);
+                _ = Row(app, SampleScenario.ModdedId).PlayCommand.ExecuteAsync(null);
+                app.Backend.Launch.ReportRunning(_skyrim, SampleScenario.RunningSince);
                 break;
             case "games-checking":
                 // The scan never returns, so the card that says it is checking stays on screen.
                 app.Backend.Launch.PreviewGate = token => new TaskCompletionSource().Task.WaitAsync(token);
-                _ = Row(app, MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null);
+                _ = Row(app, SampleScenario.ModdedId).PlayCommand.ExecuteAsync(null);
                 break;
             case "games-loading":
                 // The first read of another game never returns, so the loading panel stays on screen.
                 app.Backend.Profiles.ListGate = token => new TaskCompletionSource().Task.WaitAsync(token);
-                app.Shell.SelectGame(MockupScenario.SatisfactoryId);
+                app.Shell.SelectGame(SampleScenario.SatisfactoryId);
                 break;
             case "games-failure-card":
-                app.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync), MockupScenario.FileInUseError);
-                _ = Row(app, MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null);
+                app.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync), SampleScenario.FileInUseError);
+                _ = Row(app, SampleScenario.ModdedId).PlayCommand.ExecuteAsync(null);
                 break;
             case "games-delete-game":
                 _ = app.Games.DeleteGameCommand.ExecuteAsync(null);
                 break;
             case "games-delete-profile":
-                _ = Row(app, MockupScenario.VanillaId).DeleteCommand.ExecuteAsync(null);
+                _ = Row(app, SampleScenario.VanillaId).DeleteCommand.ExecuteAsync(null);
                 break;
             case "games-edit-profile":
-                _ = Row(app, MockupScenario.VanillaId).EditCommand.ExecuteAsync(null);
+                _ = Row(app, SampleScenario.VanillaId).EditCommand.ExecuteAsync(null);
                 break;
             case "games-duplicate-profile":
-                _ = Row(app, MockupScenario.VanillaId).DuplicateCommand.ExecuteAsync(null);
+                _ = Row(app, SampleScenario.VanillaId).DuplicateCommand.ExecuteAsync(null);
                 break;
             case "games-new-profile-wizard":
                 _ = app.Games.NewProfileCommand.ExecuteAsync(null);
                 break;
             case "launch-dialog":
-                _ = Row(app, MockupScenario.VanillaId).PlayCommand.ExecuteAsync(null);
+                _ = Row(app, SampleScenario.VanillaId).PlayCommand.ExecuteAsync(null);
                 break;
             case "launch-dialog-unsaved":
-                _ = Row(app, MockupScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
+                _ = Row(app, SampleScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
                 break;
             case "launch-discard-first-time":
                 // The first discard confirmation a player is asked: it carries one more line of advice.
-                _ = Row(app, MockupScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
+                _ = Row(app, SampleScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
                 _ = app.Dialog<LaunchDialogViewModel>().UnsavedBlocks[0].DiscardCommand.ExecuteAsync(null);
                 break;
             case "launch-dialog-saving":
-                _ = Row(app, MockupScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
+                _ = Row(app, SampleScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
                 _ = app.Dialog<LaunchDialogViewModel>().UnsavedBlocks[0].SaveFirstCommand.ExecuteAsync(null);
                 app.Backend.Jobs.ReportProgress(app.Backend.Jobs.LastStarted(JobKind.Capture).JobId, new JobProgress(FilesDone: 410, FilesTotal: 1000));
                 break;
             case "launch-dialog-keep-as-new":
-                _ = Row(app, MockupScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
+                _ = Row(app, SampleScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
                 _ = app.Dialog<LaunchDialogViewModel>().KeepCommand.ExecuteAsync(null);
                 break;
             case "launch-progress":
-                var play = Row(app, MockupScenario.VanillaId).PlayCommand.ExecuteAsync(null);
+                var play = Row(app, SampleScenario.VanillaId).PlayCommand.ExecuteAsync(null);
                 app.Dialog<LaunchDialogViewModel>().SwitchCommand.Execute(null);
                 await play.WaitAsync(TimeSpan.FromSeconds(5));
-                app.Backend.Launch.ReportSwitching(_skyrim, MockupScenario.SwitchProgress);
+                app.Backend.Launch.ReportSwitching(_skyrim, SampleScenario.SwitchProgress);
                 break;
             case "launch-post-play":
-                _ = Row(app, MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null);
-                app.Backend.Launch.ReportRunning(_skyrim, MockupScenario.RunningSince);
-                app.Backend.Launch.ReportExited(_skyrim, MockupScenario.PlayDuration, MockupScenario.NewSaveFiles);
+                _ = Row(app, SampleScenario.ModdedId).PlayCommand.ExecuteAsync(null);
+                app.Backend.Launch.ReportRunning(_skyrim, SampleScenario.RunningSince);
+                app.Backend.Launch.ReportExited(_skyrim, SampleScenario.PlayDuration, SampleScenario.NewSaveFiles);
                 break;
             case "launch-post-play-older-point":
                 app.History.Groups.SelectMany(group => group.Cards).Single(card => card.Name == "Cleared Blackreach").GoBackCommand.Execute(null);
@@ -272,7 +272,7 @@ internal static class AppStates
                     app.History.Filters.Single(filter => filter.ProfileId == "profile-empty");
                 break;
             case "history-empty":
-                app.Shell.SelectGame(MockupScenario.SatisfactoryId);
+                app.Shell.SelectGame(SampleScenario.SatisfactoryId);
                 app.Show<HistoryScreenViewModel>(NavDestination.History);
                 break;
             case "activity-jobs":
@@ -309,15 +309,15 @@ internal static class AppStates
                 app.Show<SettingsScreenViewModel>(NavDestination.Settings).SpaceHelp.IsOpen = true;
                 break;
             case "launch-dialog-help-open":
-                _ = Row(app, MockupScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
+                _ = Row(app, SampleScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
                 var checks = app.Dialog<LaunchDialogViewModel>();
                 checks.SaveSnapshotHelp.IsOpen = true;
                 checks.UnsavedBlocks[0].Help!.IsOpen = true;
                 break;
             case "post-play-replace-help-open":
-                _ = Row(app, MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null);
-                app.Backend.Launch.ReportRunning(_skyrim, MockupScenario.RunningSince);
-                app.Backend.Launch.ReportExited(_skyrim, MockupScenario.PlayDuration, MockupScenario.NewSaveFiles);
+                _ = Row(app, SampleScenario.ModdedId).PlayCommand.ExecuteAsync(null);
+                app.Backend.Launch.ReportRunning(_skyrim, SampleScenario.RunningSince);
+                app.Backend.Launch.ReportExited(_skyrim, SampleScenario.PlayDuration, SampleScenario.NewSaveFiles);
                 var afterPlay = app.Dialog<PostPlayDialogViewModel>();
                 afterPlay.SelectedChoice = afterPlay.Choices.Single(choice => choice.Kind == CompletionChoice.UpdateExisting);
                 afterPlay.SelectedChoice.Help!.IsOpen = true;
@@ -338,7 +338,7 @@ internal static class AppStates
                 app.Shell.RequestAddGame();
                 break;
             case "editor-consent":
-                _ = app.Main.Dialogs.ShowAsync(new ConsentDialogViewModel([new ConsentFolder("Game folder", MockupScenario.SkyrimInstall), new ConsentFolder("Saves folder", MockupScenario.SkyrimSaves)], app.Text));
+                _ = app.Main.Dialogs.ShowAsync(new ConsentDialogViewModel([new ConsentFolder("Game folder", SampleScenario.SkyrimInstall), new ConsentFolder("Saves folder", SampleScenario.SkyrimSaves)], app.Text));
                 break;
             case "editor-reconnect":
                 _ = app.Main.Dialogs.ShowAsync(new ReconnectDialogViewModel(

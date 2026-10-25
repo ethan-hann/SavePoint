@@ -57,8 +57,8 @@ internal sealed class SettingsRig
         string? license = null,
         AppsMenuEntry? appsMenu = null)
     {
-        backend ??= FakeBackend.Mockup();
-        var text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), backend.Clock, os, HistoryRig.MockupZone);
+        backend ??= FakeBackend.Sample();
+        var text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), backend.Clock, os, HistoryRig.SampleZone);
         var services = new AppServices(
             backend.Games,
             backend.Profiles,

@@ -12,8 +12,8 @@ public class HistoryScreenViewModelTests
 {
     private const string _modded = "Modded playthrough - 7-2-26";
 
-    private static FakeBackend WithEmptyProfile() => new(ScenarioBuilder.Mockup()
-        .WithProfile(new Profile("profile-empty", MockupScenario.SkyrimId, "Fresh profile", "profile/profile-empty")));
+    private static FakeBackend WithEmptyProfile() => new(ScenarioBuilder.Sample()
+        .WithProfile(new Profile("profile-empty", SampleScenario.SkyrimId, "Fresh profile", "profile/profile-empty")));
 
     [Fact]
     public async Task Showing_the_screen_reads_the_selected_games_history()
@@ -23,7 +23,7 @@ public class HistoryScreenViewModelTests
         rig.Show();
 
         var read = Assert.Single(rig.Backend.Calls.To<IHistoryApi>(nameof(IHistoryApi.GetAsync)));
-        Assert.Equal([MockupScenario.SkyrimId, null], read.Args);
+        Assert.Equal([SampleScenario.SkyrimId, null], read.Args);
         Assert.Equal(HistoryState.Loaded, rig.Screen.State);
     }
 
@@ -182,8 +182,8 @@ public class HistoryScreenViewModelTests
         card.GoBackCommand.Execute(null);
 
         var begun = Assert.Single(rig.Flow!.Begun);
-        Assert.Equal(MockupScenario.SkyrimId, begun.GameId);
-        Assert.Equal(new LaunchTarget.Point(MockupScenario.ClearedBlackreach), begun.Target);
+        Assert.Equal(SampleScenario.SkyrimId, begun.GameId);
+        Assert.Equal(new LaunchTarget.Point(SampleScenario.ClearedBlackreach), begun.Target);
     }
 
     [Fact]
@@ -195,8 +195,8 @@ public class HistoryScreenViewModelTests
         card.SwitchCommand.Execute(null);
 
         var begun = Assert.Single(rig.Flow!.BegunSwitches);
-        Assert.Equal(MockupScenario.SkyrimId, begun.GameId);
-        Assert.Equal(new LaunchTarget.Point(MockupScenario.ClearedBlackreach), begun.Target);
+        Assert.Equal(SampleScenario.SkyrimId, begun.GameId);
+        Assert.Equal(new LaunchTarget.Point(SampleScenario.ClearedBlackreach), begun.Target);
         Assert.Empty(rig.Flow.Begun);
         Assert.Equal("Switch to this snapshot: Cleared Blackreach", card.SwitchAutomationName);
     }
@@ -214,7 +214,7 @@ public class HistoryScreenViewModelTests
 
         Assert.Equal(2, rig.Flow!.BegunSwitches.Count);
         Assert.Contains(rig.Flow.BegunSwitches[0].Target, points);
-        Assert.Equal(new LaunchTarget.Save(MockupScenario.SurvivalId, MockupScenario.DeepCaveRun), rig.Flow.BegunSwitches[1].Target);
+        Assert.Equal(new LaunchTarget.Save(SampleScenario.SurvivalId, SampleScenario.DeepCaveRun), rig.Flow.BegunSwitches[1].Target);
         Assert.Empty(rig.Flow.Begun);
         Assert.StartsWith("Switch to this snapshot: ", entry.SwitchAutomationName, StringComparison.Ordinal);
         Assert.Equal("Switch to this snapshot: Deep cave run", row.SwitchAutomationName);
@@ -239,7 +239,7 @@ public class HistoryScreenViewModelTests
         var save = rig.Screen.Saves[1].SwitchCommand;
         Assert.True(card.CanExecute(null));
 
-        rig.Flow!.SetActive(MockupScenario.SkyrimId, true);
+        rig.Flow!.SetActive(SampleScenario.SkyrimId, true);
 
         Assert.False(card.CanExecute(null));
         Assert.False(save.CanExecute(null));
@@ -255,7 +255,7 @@ public class HistoryScreenViewModelTests
         entry.GoBackCommand.Execute(null);
 
         var begun = Assert.Single(rig.Flow!.Begun);
-        Assert.Equal(MockupScenario.SkyrimId, begun.GameId);
+        Assert.Equal(SampleScenario.SkyrimId, begun.GameId);
         Assert.Contains(begun.Target, points);
         Assert.True(entry.CanGoBack);
         Assert.StartsWith("Go back to this: ", entry.GoBackAutomationName, StringComparison.Ordinal);
@@ -304,8 +304,8 @@ public class HistoryScreenViewModelTests
         row.LoadCommand.Execute(null);
 
         var begun = Assert.Single(rig.Flow!.Begun);
-        Assert.Equal(MockupScenario.SkyrimId, begun.GameId);
-        Assert.Equal(new LaunchTarget.Save(MockupScenario.SurvivalId, MockupScenario.DeepCaveRun), begun.Target);
+        Assert.Equal(SampleScenario.SkyrimId, begun.GameId);
+        Assert.Equal(new LaunchTarget.Save(SampleScenario.SurvivalId, SampleScenario.DeepCaveRun), begun.Target);
     }
 
     [Fact]
@@ -330,13 +330,13 @@ public class HistoryScreenViewModelTests
         var changes = 0;
         load.CanExecuteChanged += (_, _) => changes++;
 
-        rig.Flow!.SetActive(MockupScenario.SkyrimId, true);
+        rig.Flow!.SetActive(SampleScenario.SkyrimId, true);
 
         Assert.False(load.CanExecute(null));
         Assert.False(goBack.CanExecute(null));
         Assert.True(changes > 0);
 
-        rig.Flow.SetActive(MockupScenario.SkyrimId, false);
+        rig.Flow.SetActive(SampleScenario.SkyrimId, false);
 
         Assert.True(load.CanExecute(null));
         Assert.True(goBack.CanExecute(null));
@@ -347,7 +347,7 @@ public class HistoryScreenViewModelTests
     {
         var rig = await HistoryRig.ShownAsync();
 
-        rig.Flow!.SetActive(MockupScenario.SatisfactoryId, true);
+        rig.Flow!.SetActive(SampleScenario.SatisfactoryId, true);
 
         Assert.True(rig.Screen.Saves[1].LoadCommand.CanExecute(null));
     }
@@ -386,10 +386,10 @@ public class HistoryScreenViewModelTests
     {
         var rig = await HistoryRig.ShownAsync();
 
-        rig.Screen.SelectedFilter = rig.Screen.Filters.Single(filter => filter.ProfileId == MockupScenario.ModdedId);
+        rig.Screen.SelectedFilter = rig.Screen.Filters.Single(filter => filter.ProfileId == SampleScenario.ModdedId);
 
         var read = rig.Backend.Calls.To<IHistoryApi>(nameof(IHistoryApi.GetAsync)).Last();
-        Assert.Equal([MockupScenario.SkyrimId, MockupScenario.ModdedId], read.Args);
+        Assert.Equal([SampleScenario.SkyrimId, SampleScenario.ModdedId], read.Args);
         Assert.Equal("Skyrim Special Edition · 4 snapshots", rig.Screen.Subtitle);
         Assert.Equal(["14 mod files updated", "Snapshot of 1.6.640 with 198 mod files"], rig.Screen.Timeline.Select(entry => entry.Headline));
     }
@@ -399,7 +399,7 @@ public class HistoryScreenViewModelTests
     {
         var rig = await HistoryRig.ShownAsync();
 
-        rig.Screen.SelectedFilter = rig.Screen.Filters.Single(filter => filter.ProfileId == MockupScenario.VanillaId);
+        rig.Screen.SelectedFilter = rig.Screen.Filters.Single(filter => filter.ProfileId == SampleScenario.VanillaId);
 
         Assert.Equal("Skyrim Special Edition · 1 snapshot", rig.Screen.Subtitle);
     }
@@ -460,7 +460,7 @@ public class HistoryScreenViewModelTests
     public async Task A_game_with_no_points_at_all_offers_no_filter()
     {
         var rig = await HistoryRig.StartAsync();
-        rig.Shell.SelectGame(MockupScenario.SatisfactoryId);
+        rig.Shell.SelectGame(SampleScenario.SatisfactoryId);
 
         rig.Show();
 
@@ -471,7 +471,7 @@ public class HistoryScreenViewModelTests
     public async Task A_game_with_no_points_at_all_shows_the_plain_empty_state()
     {
         var rig = await HistoryRig.StartAsync();
-        rig.Shell.SelectGame(MockupScenario.SatisfactoryId);
+        rig.Shell.SelectGame(SampleScenario.SatisfactoryId);
 
         rig.Show();
 
@@ -502,7 +502,7 @@ public class HistoryScreenViewModelTests
 
         rig.Screen.SelectedViewOption = rig.Screen.ViewOptions.Single(option => option.Mode == HistoryViewMode.List);
         rig.Shell.Navigate(NavDestination.Games);
-        rig.Shell.SelectGame(MockupScenario.SatisfactoryId);
+        rig.Shell.SelectGame(SampleScenario.SatisfactoryId);
         rig.Show();
 
         Assert.Equal(HistoryViewMode.List, rig.Screen.ViewMode);
@@ -597,8 +597,8 @@ public class HistoryScreenViewModelTests
         rig.Show();
         gate!.Hold = true;
 
-        rig.Screen.SelectedFilter = rig.Screen.Filters.Single(filter => filter.ProfileId == MockupScenario.ModdedId);
-        rig.Screen.SelectedFilter = rig.Screen.Filters.Single(filter => filter.ProfileId == MockupScenario.VanillaId);
+        rig.Screen.SelectedFilter = rig.Screen.Filters.Single(filter => filter.ProfileId == SampleScenario.ModdedId);
+        rig.Screen.SelectedFilter = rig.Screen.Filters.Single(filter => filter.ProfileId == SampleScenario.VanillaId);
         Assert.Equal(2, gate.Pending.Count);
 
         gate.Pending[1].Release();
@@ -636,10 +636,10 @@ public class HistoryScreenViewModelTests
         var rig = await HistoryRig.ShownAsync();
         rig.Screen.SelectedFilter = rig.Screen.Filters[1];
 
-        rig.Shell.SelectGame(MockupScenario.SatisfactoryId);
+        rig.Shell.SelectGame(SampleScenario.SatisfactoryId);
 
         var read = rig.Backend.Calls.To<IHistoryApi>(nameof(IHistoryApi.GetAsync)).Last();
-        Assert.Equal([MockupScenario.SatisfactoryId, null], read.Args);
+        Assert.Equal([SampleScenario.SatisfactoryId, null], read.Args);
         Assert.Equal("Satisfactory", rig.Screen.GameName);
         Assert.Null(rig.Screen.SelectedFilter!.ProfileId);
     }
@@ -659,7 +659,7 @@ public class HistoryScreenViewModelTests
     public async Task A_finished_capture_while_the_screen_shows_reads_again_so_the_markers_stay_current()
     {
         var rig = await HistoryRig.ShownAsync();
-        var capture = FakeAssert.Ok(await rig.Backend.Profiles.CaptureAsync(MockupScenario.SkyrimId, MockupScenario.ModdedId, "A point"));
+        var capture = FakeAssert.Ok(await rig.Backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "A point"));
         var reads = rig.HistoryReads;
 
         rig.Backend.Jobs.Complete(capture.JobId);
@@ -673,7 +673,7 @@ public class HistoryScreenViewModelTests
         var rig = await HistoryRig.ShownAsync();
         var reads = rig.HistoryReads;
 
-        FakeAssert.Ok(await rig.Backend.Profiles.CaptureAsync(MockupScenario.SkyrimId, MockupScenario.ModdedId, "A point"));
+        FakeAssert.Ok(await rig.Backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "A point"));
 
         Assert.Equal(reads, rig.HistoryReads);
     }
@@ -685,7 +685,7 @@ public class HistoryScreenViewModelTests
         rig.Shell.Navigate(NavDestination.Games);
         var reads = rig.HistoryReads;
 
-        rig.Shell.SelectGame(MockupScenario.SatisfactoryId);
+        rig.Shell.SelectGame(SampleScenario.SatisfactoryId);
         await rig.Shell.RefreshLibraryAsync();
 
         Assert.Equal(reads, rig.HistoryReads);

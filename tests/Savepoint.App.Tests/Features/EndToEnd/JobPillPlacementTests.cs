@@ -90,8 +90,8 @@ public class JobPillPlacementTests
     // The screen the way a person gets there, with a job running: the pill is up and the screen has settled.
     private static async Task<ComposedApp> OpenAsync(string screen, ShellLayout layout, double width, double height, bool widestPill = true, bool withJob = true)
     {
-        var scenario = screen.StartsWith("history-removed", StringComparison.Ordinal) ? RemovedSnapshotSamples.Scenario() : ScenarioBuilder.Mockup();
-        var backend = new FakeBackend(scenario.WithSettings(MockupScenario.Settings with { Layout = layout }));
+        var scenario = screen.StartsWith("history-removed", StringComparison.Ordinal) ? RemovedSnapshotSamples.Scenario() : ScenarioBuilder.Sample();
+        var backend = new FakeBackend(scenario.WithSettings(SampleScenario.Settings with { Layout = layout }));
         if (screen == "activity")
         {
             await ActivityScenario.AddJobsAsync(backend);
@@ -101,19 +101,19 @@ public class JobPillPlacementTests
         switch (screen)
         {
             case "games-banner":
-                _ = Row(app, MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null);
+                _ = Row(app, SampleScenario.ModdedId).PlayCommand.ExecuteAsync(null);
                 break;
             case "games-running":
-                _ = Row(app, MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null);
-                app.Backend.Launch.ReportRunning(MockupScenario.SkyrimId, MockupScenario.RunningSince);
+                _ = Row(app, SampleScenario.ModdedId).PlayCommand.ExecuteAsync(null);
+                app.Backend.Launch.ReportRunning(SampleScenario.SkyrimId, SampleScenario.RunningSince);
                 break;
             case "games-checking":
                 app.Backend.Launch.PreviewGate = token => new TaskCompletionSource().Task.WaitAsync(token);
-                _ = Row(app, MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null);
+                _ = Row(app, SampleScenario.ModdedId).PlayCommand.ExecuteAsync(null);
                 break;
             case "games-failure-card":
-                app.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync), MockupScenario.FileInUseError);
-                _ = Row(app, MockupScenario.ModdedId).PlayCommand.ExecuteAsync(null);
+                app.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync), SampleScenario.FileInUseError);
+                _ = Row(app, SampleScenario.ModdedId).PlayCommand.ExecuteAsync(null);
                 break;
             case "history":
                 app.Show<HistoryScreenViewModel>(NavDestination.History);
@@ -154,7 +154,7 @@ public class JobPillPlacementTests
         else if (!app.Find<Button>("Pill").IsEffectivelyVisible)
         {
             // A snapshot, not a free-up: the Games footer's button is turned off while its own game frees up space, and this one leaves it on.
-            FakeAssert.Ok(await app.Backend.Profiles.CaptureAsync(MockupScenario.SkyrimId, MockupScenario.ModdedId, "A snapshot"));
+            FakeAssert.Ok(await app.Backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "A snapshot"));
         }
 
         // A long game name makes the widest pill there can be, so that is the one the controls are tried against.
