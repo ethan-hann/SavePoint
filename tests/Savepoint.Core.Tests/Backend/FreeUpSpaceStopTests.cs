@@ -22,7 +22,7 @@ public class FreeUpSpaceStopTests
         var outcome = JobCancelOutcome.Unknown;
         hooks.OnGit = invocation =>
         {
-            if (invocation.Arguments[0] == "repack" && invocation.Arguments.Contains("-a") && IsFolder(invocation, "install.git"))
+            if (invocation.Arguments[0] == "repack" && IsFolder(invocation, "install.git"))
             {
                 outcome = world.Workspace.Backend.Services.Jobs.Cancel(RunningFreeUp(world));
             }

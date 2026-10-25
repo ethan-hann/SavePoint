@@ -79,23 +79,33 @@ public sealed partial class GitEngine
 
     /// <summary>
     /// Runs every check that can make a <see cref="OptimizationMode.Reclaim"/> refuse, and changes nothing: the storage volume has room for
-    /// a copy of the store, and no other operation of this engine is writing to the repository. A caller that is about to delete records
+    /// a copy of what the reclaim would rewrite (the loose objects, and the packs that hold something nothing reaches; a pack whose objects
+    /// are all reachable is never copied), and no other operation of this engine is writing to the repository. A caller that is about to delete records
     /// before reclaiming asks first, so a refusal leaves them alone.
     /// </summary>
     /// <param name="repo">The folder whose history would be reclaimed.</param>
     /// <param name="ct">Cancels the call.</param>
-    /// <exception cref="Savepoint.Core.Errors.DiskSpaceException">The storage volume is below the free-space floor plus the store's size.</exception>
+    /// <exception cref="Savepoint.Core.Errors.DiskSpaceException">The storage volume is below the free-space floor plus the bytes to rewrite.</exception>
     /// <exception cref="Savepoint.Core.Errors.OperationCancelledByUserException">The token was cancelled.</exception>
     /// <exception cref="Savepoint.Core.Errors.GitOperationException">Another operation of this engine is writing to the repository.</exception>
-    public async Task CheckReclaimAsync(RepoRef repo, CancellationToken ct = default)
+    public Task CheckReclaimAsync(RepoRef repo, CancellationToken ct = default) => CheckReclaimAsync(repo, [], ct);
+
+    /// <param name="repo">The folder whose history would be reclaimed.</param>
+    /// <summary>The same check, counting the refs the caller is about to delete (removed-snapshot records, stray branches) as already gone.</summary>
+    /// <param name="clearing">The full names of those refs.</param>
+    /// <param name="ct">Cancels the call.</param>
+    public async Task CheckReclaimAsync(RepoRef repo, IReadOnlyCollection<string> clearing, CancellationToken ct = default)
     {
         repo = Normalize(repo);
         try
         {
             ct.ThrowIfCancellationRequested();
-            EnsureStorageSpace(repo, await GetRepoSizeAsync(repo, ct).ConfigureAwait(false));
             using var scope = BeginWrite(repo);
             RequireAlone(scope);
+
+            // Counted as if the named refs were already gone, which can only make the figure larger than the run will need.
+            var plan = await PlanReclaimAsync(repo, clearing, ct).ConfigureAwait(false);
+            EnsureStorageSpace(repo, plan.RewriteBytes);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -144,11 +154,13 @@ public sealed partial class GitEngine
     // a pack of what is reachable (none when nothing is unreachable or loose), then the loose objects nothing reaches.
     private async Task ReclaimAsync(RepoRef repo, CancellationToken ct)
     {
-        // The new pack is written before the old ones are removed, so the store briefly takes twice its size.
-        EnsureStorageSpace(repo, await GetRepoSizeAsync(repo, ct).ConfigureAwait(false));
-
         using var scope = BeginWrite(repo);
         RequireAlone(scope);
+
+        // The new pack is written before the old ones are removed, so the store briefly takes the size of what it rewrites twice.
+        // Reflogs do not change what is reachable, so the plan can be made before they are expired.
+        var plan = await PlanReclaimAsync(repo, [], ct).ConfigureAwait(false);
+        EnsureStorageSpace(repo, plan.RewriteBytes);
 
         // Noted before git starts and again for each git that does, so a SavePoint that is killed in the middle leaves the next start the process to wait for.
         ReclaimMarker.Begin(repo.GitDir);
@@ -158,9 +170,11 @@ public sealed partial class GitEngine
 
             // A repack that packs everything leaves kept packs alone, so a kept pack holding an object nothing reaches loses its keep
             // and is rewritten; every other kept pack stays as it is.
-            if (await FreeKeptPacksHoldingUnreachableAsync(repo, ct).ConfigureAwait(false))
+            DeleteKeeps(plan.KeepsToDrop);
+            if (plan.Repack != ReclaimRepack.None)
             {
-                await RunWriteAsync(() => ReclaimStep(repo, "repack", "-q", "-a", "-d") with { ExtraEnvironment = _defaultPackCompression }, ct).ConfigureAwait(false);
+                var arguments = plan.Repack == ReclaimRepack.Everything ? new[] { "repack", "-q", "-a", "-d" } : ["repack", "-q", "-d"];
+                await RunWriteAsync(() => ReclaimStep(repo, arguments) with { ExtraEnvironment = _defaultPackCompression }, ct).ConfigureAwait(false);
             }
 
             await RunWriteAsync(() => ReclaimStep(repo, "prune", "--expire=now"), ct).ConfigureAwait(false);
@@ -256,27 +270,103 @@ public sealed partial class GitEngine
         }
     }
 
-    // Removes the keep of every SavePoint-kept pack that holds an object no ref, index entry or removed-snapshot record reaches, and says
-    // whether a repack has anything to do: such a pack, an unreachable object elsewhere, or loose objects to pack. Kept packs hold few
-    // objects, so naming each one's objects costs little, while the pack itself is never read.
-    private async Task<bool> FreeKeptPacksHoldingUnreachableAsync(RepoRef repo, CancellationToken ct)
+    private enum ReclaimRepack
     {
-        var everything = await ObjectNamesAsync(repo, ["cat-file", "--batch-all-objects", "--unordered", "--batch-check=%(objectname)"], ct).ConfigureAwait(false);
-        var reachable = await ObjectNamesAsync(repo, ["rev-list", "--objects", "--all", "--indexed-objects"], ct).ConfigureAwait(false);
-        everything.ExceptWith(reachable);
-        if (everything.Count == 0)
-        {
-            return await ObjectStoreFigureAsync(repo, "count", ct).ConfigureAwait(false) > 0;
-        }
+        /// <summary>Nothing to pack or drop.</summary>
+        None,
 
-        foreach (var keep in OwnKeepsOf(repo))
+        /// <summary>Only the loose objects go into a new pack; no existing pack is touched.</summary>
+        LooseOnly,
+
+        /// <summary>Every pack without a keep is rewritten, which is what drops an unreachable packed object.</summary>
+        Everything,
+    }
+
+    private sealed record ReclaimPlan(ReclaimRepack Repack, IReadOnlyList<string> KeepsToDrop, long RewriteBytes);
+
+    // Works out what a reclaim must rewrite, from the objects alone (no pack is read): the objects no ref, index entry or removed-snapshot
+    // record reaches, which packs hold them, and the loose objects. A kept pack is rewritten only when it holds an unreachable object,
+    // an unkept pack only when a repack of everything is needed anyway. Kept packs hold few objects and an index is small, so naming
+    // each pack's objects costs little. "clearing" names refs to count as already deleted.
+    private async Task<ReclaimPlan> PlanReclaimAsync(RepoRef repo, IReadOnlyCollection<string> clearing, CancellationToken ct)
+    {
+        var unreachable = await ObjectNamesAsync(repo, ["cat-file", "--batch-all-objects", "--unordered", "--batch-check=%(objectname)"], ct).ConfigureAwait(false);
+        unreachable.ExceptWith(await ReachableObjectsAsync(repo, clearing, ct).ConfigureAwait(false));
+
+        var figures = await CountObjectsAsync(repo, ct).ConfigureAwait(false);
+        var looseCount = Figure(figures, "count");
+        var looseBytes = Figure(figures, "size") * 1024;
+
+        var drop = new List<string>();
+        long packBytes = 0;
+        var everything = false;
+        if (unreachable.Count > 0)
         {
-            var pack = Path.ChangeExtension(keep, ".pack");
-            if (File.Exists(pack) && !await HoldsAnyAsync(repo, pack, everything, ct).ConfigureAwait(false))
+            var own = OwnKeepsOf(repo).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var pack in PackFilesOf(repo))
             {
-                continue;
+                var keep = Path.ChangeExtension(pack, ".keep");
+                if (File.Exists(keep) && !own.Contains(keep))
+                {
+                    continue;
+                }
+
+                var holds = await HoldsAnyAsync(repo, pack, unreachable, ct).ConfigureAwait(false);
+                if (File.Exists(keep))
+                {
+                    if (holds)
+                    {
+                        drop.Add(keep);
+                        everything = true;
+                        packBytes += SizeOfPack(pack);
+                    }
+
+                    continue;
+                }
+
+                everything |= holds;
+                packBytes += SizeOfPack(pack);
             }
 
+            drop.AddRange(own.Where(keep => !File.Exists(Path.ChangeExtension(keep, ".pack"))));
+        }
+
+        // The unkept packs were counted while looking; they only matter when they are rewritten.
+        if (everything)
+        {
+            return new ReclaimPlan(ReclaimRepack.Everything, drop, packBytes + looseBytes);
+        }
+
+        return looseCount > 0 ? new ReclaimPlan(ReclaimRepack.LooseOnly, drop, looseBytes) : new ReclaimPlan(ReclaimRepack.None, drop, 0);
+    }
+
+    private static long SizeOfPack(string pack) =>
+        new FileInfo(pack).Length + (File.Exists(Path.ChangeExtension(pack, ".idx")) ? new FileInfo(Path.ChangeExtension(pack, ".idx")).Length : 0);
+
+    // --all covers every ref (so the removed-snapshot records) and HEAD. With refs to leave out, the rest are named one by one.
+    private async Task<HashSet<string>> ReachableObjectsAsync(RepoRef repo, IReadOnlyCollection<string> without, CancellationToken ct)
+    {
+        if (without.Count == 0)
+        {
+            return await ObjectNamesAsync(repo, ["rev-list", "--objects", "--all", "--indexed-objects"], ct).ConfigureAwait(false);
+        }
+
+        var roots = (await RunAsync(GitDirOnly(repo, "for-each-ref", "--format=%(refname)"), ct).ConfigureAwait(false)).StandardOutput
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(name => !without.Contains(name))
+            .ToList();
+        if ((await RunAsync(GitDirOnly(repo, "rev-parse", "--verify", "-q", "HEAD") with { AllowedExitCodes = [0, 1] }, ct).ConfigureAwait(false)).ExitCode == 0)
+        {
+            roots.Add("HEAD");
+        }
+
+        return await ObjectNamesAsync(repo, ["rev-list", "--objects", "--indexed-objects", "--stdin"], ct, string.Concat(roots.Select(root => root + "\n"))).ConfigureAwait(false);
+    }
+
+    private static void DeleteKeeps(IReadOnlyList<string> keeps)
+    {
+        foreach (var keep in keeps)
+        {
             try
             {
                 File.Delete(keep);
@@ -286,14 +376,12 @@ public sealed partial class GitEngine
                 throw new GitOperationException("A pack's keep file could not be removed before the reclaim: " + e.Message);
             }
         }
-
-        return true;
     }
 
     // The first word of each output line, which is the object name for these commands (rev-list adds a path after it).
-    private async Task<HashSet<string>> ObjectNamesAsync(RepoRef repo, string[] arguments, CancellationToken ct)
+    private async Task<HashSet<string>> ObjectNamesAsync(RepoRef repo, string[] arguments, CancellationToken ct, string? stdin = null)
     {
-        var output = (await RunAsync(GitDirOnly(repo, arguments), ct).ConfigureAwait(false)).StandardOutput;
+        var output = (await RunAsync(GitDirOnly(repo, arguments) with { Stdin = stdin }, ct).ConfigureAwait(false)).StandardOutput;
         var names = new HashSet<string>(StringComparer.Ordinal);
         foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {

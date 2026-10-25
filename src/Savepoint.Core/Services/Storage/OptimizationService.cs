@@ -257,7 +257,7 @@ internal sealed class OptimizationService
         {
             try
             {
-                await storage.Engine.CheckReclaimAsync(repo, context.CancellationToken).ConfigureAwait(false);
+                await storage.Engine.CheckReclaimAsync(repo, [.. records[repo.Role].Select(record => record.RefName)], context.CancellationToken).ConfigureAwait(false);
             }
             catch (Exception e) when (e is SavepointException and not OperationCancelledByUserException)
             {

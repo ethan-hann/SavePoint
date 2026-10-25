@@ -1,3 +1,4 @@
+using Savepoint.Core.Errors;
 using Savepoint.Core.Git;
 
 namespace Savepoint.Core.Tests.Git.Engine;
@@ -8,6 +9,7 @@ namespace Savepoint.Core.Tests.Git.Engine;
 public sealed class ReclaimStreamedPackTests : IDisposable
 {
     private const int _bigBytes = 5_000;
+    private const long _floor = 100L * 1024 * 1024;
 
     private readonly EngineWorkspace _ws = new(options => options with { StagingLimits = new StagingLimits(BatchBytes: 100_000, BatchFiles: 50, BigBytes: _bigBytes) });
 
@@ -108,6 +110,19 @@ public sealed class ReclaimStreamedPackTests : IDisposable
     [Fact]
     public async Task A_streamed_pack_with_one_unreachable_file_is_rewritten_without_it_and_the_other_streamed_pack_is_left_alone()
     {
+        var (repo, shared, other, kept, dropped) = await OneUnreachableFileInASharedPackAsync();
+        var untouched = new Dictionary<string, byte[]> { [other] = BytesOf(repo, other) };
+
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Reclaim, Ct);
+
+        Assert.Equal(new[] { true, false }, await _ws.ObjectsExistAsync(repo, kept, dropped));
+        Assert.DoesNotContain(shared, Packs(repo));
+        AssertKeptAndUntouched(repo, untouched);
+        await AssertFsckCleanAsync(repo);
+    }
+
+    private async Task<(RepoRef Repo, string Shared, string Other, string Kept, string Dropped)> OneUnreachableFileInASharedPackAsync()
+    {
         var repo = await _ws.InitializedRepoAsync();
 
         // One add streams both files into one pack; profile-1 then points at a point that holds only the first of them.
@@ -126,14 +141,91 @@ public sealed class ReclaimStreamedPackTests : IDisposable
         await _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct);
         var kept = await _ws.GitOutAsync(repo, "rev-parse", "profile-1:a.bin");
         var dropped = await _ws.GitOutAsync(repo, "rev-parse", "profile-2:b.bin");
-        var untouched = new Dictionary<string, byte[]> { [other] = BytesOf(repo, other) };
         await _ws.Engine.DeleteBranchAsync(repo, "profile-2", Ct);
+        return (repo, shared, other, kept, dropped);
+    }
+
+    [Fact]
+    public async Task A_reclaim_with_nothing_to_free_needs_only_the_free_space_floor_however_large_the_streamed_packs_are()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        var packs = new Dictionary<string, byte[]>();
+        for (var round = 1; round <= 3; round++)
+        {
+            var pack = await CaptureWithBigFileAsync(repo, "profile-1", round);
+            packs[pack] = BytesOf(repo, pack);
+        }
+
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct);
+        Assert.True(await _ws.Engine.GetRepoSizeAsync(repo, Ct) > 2 * _bigBytes, "the scenario needs a store larger than the space it is given");
+        _ws.Space.Free = _floor;
+
+        await _ws.Engine.CheckReclaimAsync(repo, Ct);
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Reclaim, Ct);
+
+        AssertKeptAndUntouched(repo, packs);
+    }
+
+    [Fact]
+    public async Task A_reclaim_that_must_rewrite_a_streamed_pack_needs_room_for_that_pack_and_not_for_the_whole_store()
+    {
+        var (repo, shared, _, _, dropped) = await OneUnreachableFileInASharedPackAsync();
+        var sharedBytes = new FileInfo(Path.Combine(PackFolder(repo), shared)).Length;
+        var store = await _ws.Engine.GetRepoSizeAsync(repo, Ct);
+        _ws.Space.Free = _floor;
+        var from = _ws.Invocations.Count;
+
+        var refused = await Assert.ThrowsAsync<DiskSpaceException>(() => _ws.Engine.RepackAsync(repo, OptimizationMode.Reclaim, Ct));
+        var needed = (long)refused.Args["requiredBytes"]! - _floor;
+
+        Assert.InRange(needed, sharedBytes, store - 1);
+        Assert.DoesNotContain(_ws.Invocations.Skip(from), invocation => invocation.Arguments[0] is "reflog" or "repack" or "prune");
+        _ws.Space.Free = _floor + needed;
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Reclaim, Ct);
+        Assert.False((await _ws.ObjectsExistAsync(repo, dropped))[0]);
+    }
+
+    [Fact]
+    public async Task The_check_before_records_are_cleared_counts_a_kept_pack_only_when_clearing_them_makes_it_rewritable()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        await CaptureWithBigFileAsync(repo, "profile-1", 1);
+        var older = (await _ws.TipAsync(repo, "profile-1"))!;
+        await CaptureWithBigFileAsync(repo, "profile-1", 2);
+        await _ws.Engine.CheckoutCommitAsync(repo, older, ct: Ct);
+        _ws.Write(repo, "played.txt", "progress made while playing");
+        await _ws.Engine.CaptureAsync(repo, new CaptureRequest("profile-1", "Continued", "cap-move") { Mode = CaptureMode.MoveForward, ExpectedStartCommit = older }, ct: Ct);
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct);
+        var records = (await _ws.GitOutAsync(repo, "for-each-ref", "--format=%(refname)", "refs/savepoint/removed/")).Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        _ws.Space.Free = _floor;
+
+        await _ws.Engine.CheckReclaimAsync(repo, [], Ct);
+        var refused = await Assert.ThrowsAsync<DiskSpaceException>(() => _ws.Engine.CheckReclaimAsync(repo, records, Ct));
+
+        Assert.True((long)refused.Args["requiredBytes"]! > _floor);
+        Assert.NotEmpty(records);
+    }
+
+    [Fact]
+    public async Task A_reclaim_with_only_loose_objects_to_pack_leaves_the_unkept_packs_alone()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.WriteMany(repo, "Saves", 20);
+        await _ws.CaptureAsync(repo, "profile-1");
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct);
+        var packed = Assert.Single(Packs(repo));
+        var bytes = BytesOf(repo, packed);
+        _ws.Write(repo, "Saves/new.txt", "newer");
+        await _ws.CaptureAsync(repo, "profile-1");
+        Assert.True(await _ws.Engine.CountLooseObjectsAsync(repo, Ct) > 0);
+        var from = _ws.Invocations.Count;
 
         await _ws.Engine.RepackAsync(repo, OptimizationMode.Reclaim, Ct);
 
-        Assert.Equal(new[] { true, false }, await _ws.ObjectsExistAsync(repo, kept, dropped));
-        Assert.DoesNotContain(shared, Packs(repo));
-        AssertKeptAndUntouched(repo, untouched);
+        var repack = Assert.Single(_ws.Invocations.Skip(from), invocation => invocation.Arguments[0] == "repack");
+        Assert.Equal(["repack", "-q", "-d"], repack.Arguments);
+        Assert.Equal(bytes, BytesOf(repo, packed));
+        Assert.Equal(0, await _ws.Engine.CountLooseObjectsAsync(repo, Ct));
         await AssertFsckCleanAsync(repo);
     }
 

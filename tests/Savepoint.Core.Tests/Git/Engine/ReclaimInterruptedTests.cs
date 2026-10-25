@@ -29,7 +29,7 @@ public sealed class ReclaimInterruptedTests : IDisposable
                 case "reflog":
                     atReflog = ReclaimMarker.Read(repo.GitDir);
                     break;
-                case "repack" when invocation.Arguments.Contains("-a"):
+                case "repack":
                     atRepack = ReclaimMarker.Read(repo.GitDir);
                     break;
                 case "prune":
@@ -66,7 +66,7 @@ public sealed class ReclaimInterruptedTests : IDisposable
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(Ct);
         _ws.OnInvoke = invocation =>
         {
-            if (invocation.Arguments[0] != "repack" || !invocation.Arguments.Contains("-a"))
+            if (invocation.Arguments[0] != "repack")
             {
                 return;
             }
