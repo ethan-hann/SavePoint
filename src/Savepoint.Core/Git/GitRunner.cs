@@ -81,6 +81,7 @@ public sealed class GitRunner
             throw new GitUnavailableException(_binary.ExecutablePath, $"git could not be started: {e.Message}", e);
         }
 
+        using var registration = GitProcessRegistry.Add(process);
         NoteStarted(invocation, process);
 
         // Cancelled by the caller, or by a callback that threw.
@@ -156,15 +157,7 @@ public sealed class GitRunner
         }
         catch
         {
-            try
-            {
-                process.Kill(entireProcessTree: true);
-            }
-            catch (Exception e) when (e is InvalidOperationException or Win32Exception)
-            {
-                // Already gone.
-            }
-
+            ProcessTree.Kill(process);
             throw;
         }
     }
@@ -352,22 +345,7 @@ public sealed class GitRunner
 
     private async Task KillTreeAsync(Process process, Task readers, CancellationTokenSource pumpStop)
     {
-        try
-        {
-            process.Kill(entireProcessTree: true);
-        }
-        catch (Exception)
-        {
-            // Already exited, or part of the tree could not be reached; take at least the process itself.
-            try
-            {
-                process.Kill();
-            }
-            catch (Exception)
-            {
-                // Nothing more can be done from here.
-            }
-        }
+        ProcessTree.Kill(process);
 
         // Bounded: a process that survives the kill must not hold the caller's cancellation hostage.
         using var gaveUp = new CancellationTokenSource(_options.KillWaitTimeout);
