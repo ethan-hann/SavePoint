@@ -85,6 +85,9 @@ public sealed partial class GitEngine
         using var scope = BeginWrite(repo, request.IgnorePatterns);
         ct.ThrowIfCancellationRequested();
 
+        // A mark a killed switch left behind would keep the file out of this point.
+        await ClearSkipWorktreeAsync(repo, ct).ConfigureAwait(false);
+
         var head = GitDirFiles.ReadHead(repo.GitDir);
         var tip = head.IsDetached ? head.DetachedCommit : await ResolveBranchAsync(repo, head.Branch!, ct).ConfigureAwait(false);
 

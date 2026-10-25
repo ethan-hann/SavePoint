@@ -31,7 +31,7 @@ public sealed partial class GitEngine
 
     // Null when the patterns name nothing the switch touches. A failure before the new index is in place is a refusal: the index and the
     // files are as they were and a note this call wrote goes. If the files cannot be put back the note stays.
-    private async Task<AlignedIndex?> AlignIndexAsync(RepoRef repo, string tree, SwitchPlan plan, bool force, bool ownsNote, CancellationToken ct)
+    private async Task<AlignedIndex?> AlignIndexAsync(RepoRef repo, string tree, SwitchPlan plan, IReadOnlyCollection<string> marks, bool force, bool ownsNote, CancellationToken ct)
     {
         if (plan.Named.Count == 0)
         {
@@ -59,7 +59,7 @@ public sealed partial class GitEngine
 
             // A forced checkout would write these files, and every checkout starts by refreshing the index, which would read each one that
             // differs; git does neither for an entry marked skip-worktree.
-            await SetSkipWorktreeAsync(repo, on: true, plan.NamedInTarget, ct, environment).ConfigureAwait(false);
+            await SetSkipWorktreeAsync(repo, on: true, marks, ct, environment).ConfigureAwait(false);
 
             if (hadIndex)
             {

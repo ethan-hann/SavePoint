@@ -136,7 +136,8 @@ public sealed partial class GitEngine
         return "--exclude-from=" + file;
     }
 
-    // A forced checkout writes every file whose stamp does not match its index entry, aligned or not; this bit tells it to leave them.
+    // A switch marks the entries of the files the patterns name skip-worktree while it runs: git then neither writes them (a forced
+    // checkout would) nor reads them in the checkout, the refresh and the verify diff. The bit means nothing at rest, so it is not left behind.
     private async Task SetSkipWorktreeAsync(RepoRef repo, bool on, IReadOnlyCollection<string> paths, CancellationToken ct, IReadOnlyDictionary<string, string?>? environment = null)
     {
         if (paths.Count > 0)
@@ -147,14 +148,23 @@ public sealed partial class GitEngine
         }
     }
 
+    // SavePoint never wants the bit at rest, so every entry that carries it is left over from a switch that was killed (a crash or a power
+    // loss) or could not take it off. Left alone it hides the file from every later comparison and from a save. Asked of the index only.
+    private async Task ClearSkipWorktreeAsync(RepoRef repo, CancellationToken ct)
+    {
+        var listed = await RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z", "-t"), ct).ConfigureAwait(false);
+        var marked = listed.SplitStandardOutputOnNul().Where(entry => entry.StartsWith("S ", StringComparison.Ordinal)).Select(entry => entry[2..]).ToArray();
+        await SetSkipWorktreeAsync(repo, on: false, marked, ct).ConfigureAwait(false);
+    }
+
     // Best effort for a path that is already failing: the error that got it here is the one worth reporting.
-    private async Task TryClearSkipWorktreeAsync(RepoRef repo, IReadOnlyCollection<string> paths)
+    private async Task TryClearSkipWorktreeAsync(RepoRef repo)
     {
         try
         {
-            await SetSkipWorktreeAsync(repo, on: false, paths, CancellationToken.None).ConfigureAwait(false);
+            await ClearSkipWorktreeAsync(repo, CancellationToken.None).ConfigureAwait(false);
         }
-        catch (GitOperationException)
+        catch (Exception e) when (e is SavepointException or IOException or UnauthorizedAccessException)
         {
         }
     }

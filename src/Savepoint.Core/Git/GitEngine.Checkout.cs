@@ -128,12 +128,15 @@ public sealed partial class GitEngine
             throw new GitOperationException($"The repository at '{repo.GitDir}' does not exist.");
         }
 
+        using var scope = BeginWrite(repo);
+
+        // A mark a killed switch left behind would keep the discard from seeing, and restoring, the file.
+        await ClearSkipWorktreeAsync(repo, ct).ConfigureAwait(false);
+
         var point = await RequireSavedPointAsync(repo, ct).ConfigureAwait(false);
         await RefuseLinkedFoldersInChangesAsync(repo, includeChanged: true, ct).ConfigureAwait(false);
         await RefuseCaseClashAsync(repo, point, ct).ConfigureAwait(false);
         await RefuseDiscardClashAsync(repo, ct).ConfigureAwait(false);
-
-        using var scope = BeginWrite(repo);
 
         var named = await ResetToPointAsync(repo, ct).ConfigureAwait(false);
         await RefreshIndexAsync(repo, ct).ConfigureAwait(false);
@@ -304,6 +307,11 @@ public sealed partial class GitEngine
                 : new GitOperationException($"The point '{target}' is not in the repository.");
         }
 
+        using var scope = BeginWrite(repo);
+
+        // A mark an earlier switch could not take off would hide a file from the checks below.
+        await ClearSkipWorktreeAsync(repo, ct).ConfigureAwait(false);
+
         // Which files the switch will write and remove is known before it starts: nothing unsaved may be in the way, and a
         // file that cannot be removed is found afterwards.
         var note = SwitchJournal.Read(repo.GitDir);
@@ -315,21 +323,32 @@ public sealed partial class GitEngine
         var sizes = await ObjectSizesAsync(repo, plan.Changes.SelectMany(change => new[] { change.OldId, change.NewId }), ct).ConfigureAwait(false);
         EnsureCheckoutSpace(repo, plan.Changes, sizes);
 
-        using var scope = BeginWrite(repo);
+        // A forced checkout writes every file whose stamp differs from its entry, so a recorded left-out file that both points hold alike is
+        // marked too: the player's copy of it differs from the entry and would be overwritten. Those entries already say what the target says.
+        var alike = force ? await RecordedNamedAsync(repo, ct).ConfigureAwait(false) : [];
+        alike.ExceptWith(plan.Named);
+        var marks = plan.NamedInTarget.Concat(alike).ToArray();
+        var skip = alike.Count == 0 ? plan.Named : new HashSet<string>(plan.Named.Concat(alike), StringComparer.Ordinal);
+
         SwitchJournal.Write(repo.GitDir, note?.FromCommit ?? from, to, isBranch ? target : null);
 
         // git must see nothing to do for the files the patterns name: their index entries are made to say what the target says, which
         // changes no file. The note is already written, so a stop from here on is a stopped switch like any other; a refusal puts back
         // the index it started from, and the note this call wrote goes.
-        using var aligned = await AlignIndexAsync(repo, to, plan, force, ownsNote: note is null, ct).ConfigureAwait(false);
+        using var aligned = await AlignIndexAsync(repo, to, plan, marks, force, ownsNote: note is null, ct).ConfigureAwait(false);
 
         var reporter = progress is null ? null : new ProgressReporter(progress, new CheckoutBytePlan(plan.Changes, sizes));
 
         // The alignment marked the left-out files skip-worktree, which keeps git from reading them in the checkout, the refresh and the
         // verify diff: a file that differs from the target never matches its entry, so each of the three would read it in full.
-        var marked = aligned is not null;
+        var marked = marks.Length > 0;
         try
         {
+            if (aligned is null)
+            {
+                await SetSkipWorktreeAsync(repo, on: true, marks, ct).ConfigureAwait(false);
+            }
+
             await RunCheckoutAsync(repo, target, to, isBranch, force, ownsNote: note is null, aligned, reporter, ct).ConfigureAwait(false);
             reporter?.Complete();
 
@@ -338,8 +357,8 @@ public sealed partial class GitEngine
             await RefreshIndexAsync(repo, ct).ConfigureAwait(false);
 
             // A switch only re-syncs what it was meant to change; any other difference is the player's work and stays for status to report.
-            await VerifyAsync(repo, to, plan.Gone, force ? null : plan.Touched, plan.Named, ct).ConfigureAwait(false);
-            await SetSkipWorktreeAsync(repo, on: false, plan.NamedInTarget, ct).ConfigureAwait(false);
+            await VerifyAsync(repo, to, plan.Gone, force ? null : plan.Touched, skip, ct).ConfigureAwait(false);
+            await ClearSkipWorktreeAsync(repo, ct).ConfigureAwait(false);
             marked = false;
 
             // git prunes a folder when its last file leaves, so the target's empty folders are made again; this runs before the note goes, so a stop here is finished by repeating the switch.
@@ -355,7 +374,7 @@ public sealed partial class GitEngine
             // A mark left behind would hide the file from every later comparison, including a save made after the patterns change.
             if (marked)
             {
-                await TryClearSkipWorktreeAsync(repo, plan.NamedInTarget).ConfigureAwait(false);
+                await TryClearSkipWorktreeAsync(repo).ConfigureAwait(false);
             }
         }
     }
