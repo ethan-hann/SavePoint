@@ -232,6 +232,29 @@ public class FakeGameTests
     }
 
     [Fact]
+    public async Task Spawn_with_linger_stays_up_beside_the_child_before_it_leaves()
+    {
+        using var temp = new TempFolder();
+        var childReady = temp.Combine("child-ready.txt");
+        using var stub = FakeGameProcess.Start("--linger", "2500", "--spawn", FakeGameProcess.ExecutablePath, "--ready-file", childReady, "--exit-after", "300");
+        var childId = 0;
+        try
+        {
+            childId = await FakeGameProcess.WaitForReadyFileAsync(childReady);
+
+            Assert.False(stub.HasExited, "the stub left before its linger was over");
+            Assert.Equal(0, await stub.WaitForExitAsync());
+        }
+        finally
+        {
+            if (childId != 0)
+            {
+                FakeGameProcess.Kill(childId);
+            }
+        }
+    }
+
+    [Fact]
     public async Task Spawn_of_a_missing_program_fails_with_a_message_instead_of_pretending_to_work()
     {
         using var temp = new TempFolder();
