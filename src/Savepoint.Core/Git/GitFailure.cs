@@ -15,6 +15,14 @@ internal static class GitFailure
         || standardError.Contains("There is not enough space on the disk", StringComparison.Ordinal)
         || standardError.Contains("Disk quota exceeded", StringComparison.Ordinal);
 
+    // git's index file (the list of what the last snapshot held) is empty, short or unreadable, which is what a power loss right after a
+    // write leaves behind. The phrases are the whole sentence git prints for the index itself; a pack index says "is too small".
+    public static bool IsIndexDamage(string standardError) =>
+        standardError.Contains("index file smaller than expected", StringComparison.Ordinal)
+        || standardError.Contains("index file corrupt", StringComparison.Ordinal)
+        || standardError.Contains("bad index file sha1 signature", StringComparison.Ordinal)
+        || standardError.Contains("unknown index entry format", StringComparison.Ordinal);
+
     // The files git lists when it refuses a checkout because they would be overwritten: indented lines under the heading.
     public static IReadOnlyList<string> OverwrittenPaths(string standardError)
     {

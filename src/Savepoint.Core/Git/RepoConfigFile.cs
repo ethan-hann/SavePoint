@@ -9,7 +9,7 @@ namespace Savepoint.Core.Git;
 internal static partial class RepoConfigFile
 {
     // Bumped whenever a setting below changes, so existing repositories take the new value the next time they are touched.
-    public const string Version = "6";
+    public const string Version = "7";
 
     internal const string BlockStart = "# >>> savepoint managed (do not edit) >>>";
     internal const string BlockEnd = "# <<< savepoint managed <<<";
@@ -117,6 +117,10 @@ internal static partial class RepoConfigFile
             ("core", "autocrlf", "false"),
             ("core", "bigFileThreshold", "128m"),
             ("core", "logAllRefUpdates", "false"),
+            // A power loss seconds after a snapshot or switch left an empty index file behind. Objects and the index are flushed to disk
+            // before git reports success; batch flushes the many small loose objects of one add together instead of one by one.
+            ("core", "fsync", "committed,index"),
+            ("core", "fsyncMethod", "batch"),
         ];
 
         if (isWindows)

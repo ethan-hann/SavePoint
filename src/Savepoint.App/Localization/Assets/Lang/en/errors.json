@@ -23,6 +23,7 @@
   "error.gitOperation.amendNotAvailable": "SavePoint can't replace that snapshot right now. Keep the session as a new snapshot or a new profile instead.",
   "error.gitOperation.checkoutFailed": "Something else is holding one of the files open. Close the game, its launcher and any mod manager, then try again.",
   "error.gitOperation.failed": "SavePoint couldn't finish that. Try again. If it keeps happening, include \"Copy details for support\" in a bug report.",
+  "error.gitOperation.recordDamaged": "SavePoint's record of this game's folder is damaged, most likely by a power outage or a crash. Your game files weren't changed. If this keeps happening, include \"Copy details for support\" in a bug report.",
   "error.gitOperation.unreadableFile": "SavePoint can't read the file shown below. Check that your account is allowed to read it, then try again.",
   "error.history.pointNotFound": "That snapshot isn't in this game's history anymore. Open History again and pick another one.",
   "error.launch.alreadyRunning": "This game is already running.",

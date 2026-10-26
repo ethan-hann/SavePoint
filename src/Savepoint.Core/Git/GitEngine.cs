@@ -160,8 +160,8 @@ public sealed partial class GitEngine
         }
     }
 
-    // Runs git; a non-zero exit that the invocation does not allow surfaces as the internal GitCommandException so the caller can read stderr.
-    private Task<GitResult> RunRawAsync(GitInvocation invocation, CancellationToken ct)
+    // Runs git once; a non-zero exit that the invocation does not allow surfaces as the internal GitCommandException so the caller can read stderr.
+    private Task<GitResult> RunOnceAsync(GitInvocation invocation, CancellationToken ct)
     {
         _options.InvocationObserver?.Invoke(invocation);
         RefuseRedirect(invocation);
