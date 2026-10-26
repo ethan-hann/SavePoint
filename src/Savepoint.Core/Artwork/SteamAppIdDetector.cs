@@ -45,10 +45,11 @@ internal static partial class SteamAppIdDetector
     private static partial Regex InstallDirLine();
 
     // Only a game that starts through a link has a launch link; a stale one left on a program game is ignored.
-    private static int? FromLaunchLink(LaunchConfig launch) =>
-        launch.Method == LaunchMethod.Uri && launch.Uri is { } uri && LaunchLink().Match(uri.Trim()) is { Success: true } match
-            ? ParseId(match.Groups[1].Value)
-            : null;
+    private static int? FromLaunchLink(LaunchConfig launch) => launch.Method == LaunchMethod.Uri ? AppIdOfLink(launch.Uri) : null;
+
+    // The app id a steam://run/ or steam://rungameid/ link names; null for any other text.
+    public static int? AppIdOfLink(string? uri) =>
+        uri is not null && LaunchLink().Match(uri.Trim()) is { Success: true } match ? ParseId(match.Groups[1].Value) : null;
 
     // The install folder's own file first, then a bounded look through its subfolders (many games keep it beside the executable).
     private static int? FromAppIdFile(string installPath) => ReadAppIdFile(installPath) ?? FromSubfolders(installPath);

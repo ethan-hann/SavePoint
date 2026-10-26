@@ -22,6 +22,12 @@ internal sealed class ProcessFamily
         "crashreportclient", "unitycrashhandler64", "unitycrashhandler32", "crashpad_handler", "werfault",
     };
 
+    /// <summary>How much earlier than the session's start a process may still be one the session started, for clocks that differ a little.</summary>
+    public static readonly TimeSpan SessionTolerance = TimeSpan.FromSeconds(10);
+
+    // The longest process name Linux reports (comm).
+    private const int _kernelNameLength = 15;
+
     // Start is null for a root that was never seen in a list.
     private readonly Dictionary<int, DateTimeOffset?> _members = [];
     private readonly HashSet<int> _roots = [];
@@ -29,15 +35,25 @@ internal sealed class ProcessFamily
     private readonly DateTimeOffset _floor;
     private readonly PathSyntax _paths;
     private readonly string[] _folders;
+    private readonly bool _linkOrphans;
+    private readonly TimeSpan _window;
+    private bool _orphanDecided;
 
     /// <summary>Creates an empty family.</summary>
     /// <param name="floor">The earliest start a child of a root with no known start can have: the session's start less a little tolerance.</param>
     /// <param name="folder">The game's install folder; only a descendant whose program lies inside it is reported. Null reports none.</param>
     /// <param name="paths">The path rules of the OS the process list came from.</param>
-    public ProcessFamily(DateTimeOffset floor, string? folder, PathSyntax paths)
+    /// <param name="linkOrphans">
+    /// True where a process whose parent exits is handed to another parent (Linux): a starter that is gone then has its game linked
+    /// by when the game started and where its program lies, since the game no longer names the starter.
+    /// </param>
+    /// <param name="window">How long after the starter started a process may start and still be taken for what the starter handed over to.</param>
+    public ProcessFamily(DateTimeOffset floor, string? folder, PathSyntax paths, bool linkOrphans = false, TimeSpan window = default)
     {
         _floor = floor;
         _paths = paths;
+        _linkOrphans = linkOrphans;
+        _window = window;
         _folders = folder is null ? [] : [.. Forms(folder).Select(form => form.EndsWith(paths.Separator) ? form : form + paths.Separator)];
     }
 
@@ -91,6 +107,11 @@ internal sealed class ProcessFamily
             AddRoot(started, startedAlive ? self?.StartedAt : null);
         }
 
+        if (_linkOrphans && !startedAlive && startedPid is { } gone)
+        {
+            LinkOrphan(listed, byPid, gone);
+        }
+
         var grew = true;
         while (grew)
         {
@@ -129,6 +150,43 @@ internal sealed class ProcessFamily
         return alive;
     }
 
+    /// <summary>
+    /// The ids of the processes that each looked like what a gone starter handed over to when more than one did, so none was followed;
+    /// empty when the match was clear or nothing matched.
+    /// </summary>
+    public IReadOnlyList<int> AmbiguousHandover { get; private set; } = [];
+
+    // The starter is gone, so no parent id names it. Exactly one process in the game's folder that started inside the window after the
+    // starter did, and was not started by a process of this session, is taken for the game; two or more could be a second copy or a
+    // server the player started, so none is. The first answer stands for the rest of the session.
+    private void LinkOrphan(IReadOnlyList<RunningProcess> listed, Dictionary<int, RunningProcess> byPid, int root)
+    {
+        if (_orphanDecided)
+        {
+            return;
+        }
+
+        var begun = _members.TryGetValue(root, out var rootStart) ? rootStart : null;
+        // Without the starter's start, the session's start is the earliest a process of its can have, so one begun just before is not it.
+        var from = begun ?? _floor + SessionTolerance;
+        var until = from + _window;
+        var candidates = listed.Where(process => process.Pid != root && !_members.ContainsKey(process.Pid)
+            && process.StartedAt is { } started && started >= from && started <= until
+            && !IsHelper(process) && InFolder(process.ExecutablePath)
+            && !(process.ParentPid is { } parent && byPid.TryGetValue(parent, out var holder) && holder.StartedAt is { } parentStart && parentStart >= from))
+            .ToList();
+        if (candidates.Count == 1)
+        {
+            _members[candidates[0].Pid] = candidates[0].StartedAt;
+            _orphanDecided = true;
+        }
+        else if (candidates.Count > 1)
+        {
+            AmbiguousHandover = [.. candidates.Select(process => process.Pid).Order()];
+            _orphanDecided = true;
+        }
+    }
+
     private void AddRoot(int pid, DateTimeOffset? start)
     {
         _roots.Add(pid);
@@ -141,7 +199,7 @@ internal sealed class ProcessFamily
     private bool IsChildOfMember(RunningProcess process, Dictionary<int, RunningProcess> byPid)
     {
         if (process.ParentPid is not { } parent || process.StartedAt is not { } started || !_members.TryGetValue(parent, out var parentStart)
-            || _helpers.Contains(NameWithoutExtension(process.Name)))
+            || IsHelper(process))
         {
             return false;
         }
@@ -159,4 +217,18 @@ internal sealed class ProcessFamily
 
     private static string NameWithoutExtension(string name) =>
         name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? name[..^4] : name;
+
+    // The program's file name is the truth when known. The Linux kernel name is cut to 15 characters, so without a path a name of
+    // that length stands for any helper it begins.
+    private static bool IsHelper(RunningProcess process)
+    {
+        if (!string.IsNullOrWhiteSpace(process.ExecutablePath))
+        {
+            var path = process.ExecutablePath;
+            return _helpers.Contains(NameWithoutExtension(path[(path.LastIndexOfAny(['/', '\\']) + 1)..]));
+        }
+
+        var name = NameWithoutExtension(process.Name);
+        return _helpers.Contains(name) || (name.Length == _kernelNameLength && _helpers.Any(helper => helper.StartsWith(name, StringComparison.OrdinalIgnoreCase)));
+    }
 }

@@ -14,7 +14,8 @@ namespace Savepoint.Core.Launch;
 /// has the grace to come back as a new process, while one that ran longer and is gone was quit and ends the session at once. A starter
 /// whose real game is a process it started itself (directly or through others, see <see cref="ProcessFamily"/>) is followed through those
 /// processes while any of them runs, under whatever name they have; the session then ends when the last one does. A link has no program, so it is poll-only and best effort, and with no
-/// process name it can only be ended by <see cref="MarkFinished"/>.
+/// process name it can only be ended by <see cref="MarkFinished"/>. A link's grace does not run while the store's own helper for the
+/// game's start is listed: it counts from the last look that found the helper.
 /// </para>
 /// <para>
 /// Everything runs on the thread pool; <see cref="Outcome"/> completes on a pool thread. The members are safe to call from any thread.
@@ -34,10 +35,12 @@ public sealed class GameSessionWatcher : IDisposable
     private readonly SortedSet<int> _followed = [];
     private readonly ProcessFamily _family;
     private readonly IProcessInspector _processes;
+    private readonly Func<RunningProcess, bool>? _launcherBusy;
     private IReadOnlyList<(int Pid, DateTimeOffset? Start)> _followedLive = [];
     private bool _disposed;
     private bool _childReleased;
     private int? _earlyExit;
+    private IReadOnlyList<int> _ambiguous = [];
 
     /// <summary>Starts following a session that began now.</summary>
     /// <param name="child">The program SavePoint started, or null for a link; the watcher takes ownership of the handle and releases it on <see cref="Dispose"/>.</param>
@@ -47,6 +50,10 @@ public sealed class GameSessionWatcher : IDisposable
     /// <param name="options">Polling interval and grace.</param>
     /// <param name="clock">Time source for the start, the end, and every wait.</param>
     /// <param name="gameFolder">The game's install folder. A process the started program starts is followed only when its program lies inside it; null follows none.</param>
+    /// <param name="launcherBusy">
+    /// Says whether a listed process is the store's own helper for this game's start. For a link start, the grace does not run while any
+    /// such process is listed: it counts from the last look that found one. Null for none.
+    /// </param>
     /// <exception cref="ArgumentOutOfRangeException">The polling interval is not positive, or the grace or the relaunch window is negative.</exception>
     public GameSessionWatcher(
         IGameProcess? child,
@@ -55,9 +62,11 @@ public sealed class GameSessionWatcher : IDisposable
         OsKind os,
         GameSessionOptions options,
         TimeProvider clock,
-        string? gameFolder = null)
+        string? gameFolder = null,
+        Func<RunningProcess, bool>? launcherBusy = null)
     {
         options.EnsureValid();
+        _launcherBusy = launcherBusy;
         _child = child;
         _processName = string.IsNullOrWhiteSpace(processName) ? null : processName.Trim();
         _check = new RunningGameCheck(processes, os);
@@ -65,7 +74,7 @@ public sealed class GameSessionWatcher : IDisposable
         _clock = clock;
         _processes = processes;
         StartedAt = clock.GetUtcNow();
-        _family = new ProcessFamily(StartedAt - TimeSpan.FromSeconds(10), gameFolder, PathSyntax.For(os));
+        _family = new ProcessFamily(StartedAt - ProcessFamily.SessionTolerance, gameFolder, PathSyntax.For(os), os == OsKind.Linux, options.RelaunchWindow);
         _loop = Task.Run(RunAsync);
     }
 
@@ -238,6 +247,11 @@ public sealed class GameSessionWatcher : IDisposable
             else
             {
                 descendants = _child is null ? [] : _family.Update(look.Listed, _child.Pid, !childGone);
+                lock (_gate)
+                {
+                    _ambiguous = _family.AmbiguousHandover;
+                }
+
                 following = childGone && !namedSeen && descendants.Count > 0 && graceFrom - StartedAt < _options.RelaunchWindow;
                 (lastDescendants, lastFollowing) = (descendants, following);
             }
@@ -249,6 +263,12 @@ public sealed class GameSessionWatcher : IDisposable
 
             // Only the configured name counts as having been seen; a followed child just holds the session open past the grace.
             observed |= state == NamedProcessState.Running;
+            // The store is still starting a link's game, so the game is not late yet: the grace counts from the last look that found its helper.
+            if (_child is null && _launcherBusy is { } busy && look.Listed is { } listed && listed.Any(busy))
+            {
+                graceFrom = _clock.GetUtcNow();
+            }
+
             readable |= childGone && state != NamedProcessState.Unknown;
             selfSeen |= look.IgnoredMatched;
             if (look.OtherPids.Count > 0 || following)
@@ -384,12 +404,19 @@ public sealed class GameSessionWatcher : IDisposable
     private bool Settle(SessionEndKind kind, DateTimeOffset? endedAt = null)
     {
         int[] followed;
+        IReadOnlyList<int> ambiguous;
         lock (_gate)
         {
             followed = [.. _followed];
+            ambiguous = _ambiguous;
         }
 
-        var outcome = new SessionOutcome(kind, StartedAt, endedAt ?? _clock.GetUtcNow(), ChildExitCode()) { StartedPid = _child?.Pid, FollowedPids = followed };
+        var outcome = new SessionOutcome(kind, StartedAt, endedAt ?? _clock.GetUtcNow(), ChildExitCode())
+        {
+            StartedPid = _child?.Pid,
+            FollowedPids = followed,
+            AmbiguousHandoverPids = ambiguous,
+        };
         if (!_outcome.TrySetResult(outcome))
         {
             return false;

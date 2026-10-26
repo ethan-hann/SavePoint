@@ -68,13 +68,17 @@ public sealed class GameStarter
 
             // The watcher starts only once the OS has the link, so a failed open leaves no session behind.
             await _launcher.OpenUriAsync(launch.Uri, cancellationToken);
-            return new GameSessionWatcher(null, processName, _processes, _os, _options, _clock);
+            return new GameSessionWatcher(null, processName, _processes, _os, _options, _clock, launcherBusy: LauncherHelperFor(launch.Uri));
         }
 
         var path = ResolveProgram(launch.ExePath, installFolder);
         var child = _launcher.StartExecutable(path, launch.Args, installFolder);
         return new GameSessionWatcher(child, processName, _processes, _os, _options, _clock, installFolder);
     }
+
+    // Steam on Linux keeps a helper process per game from the start of its launch to the game's end; no other store or OS is known to.
+    private Func<RunningProcess, bool>? LauncherHelperFor(string uri) =>
+        _os == OsKind.Linux && SteamLaunch.AppIdOf(uri) is { } appId ? process => SteamLaunch.IsLaunchHelper(process, appId) : null;
 
     private static string? ProcessNameOf(LaunchConfig launch) =>
         string.IsNullOrWhiteSpace(launch.ProcessNameForExitDetection) ? null : launch.ProcessNameForExitDetection.Trim();

@@ -3,10 +3,13 @@ using System.Text;
 
 namespace Savepoint.Core.Platform.Linux;
 
-/// <summary>Reads /proc: comm (the kernel's name), the exe link, and argv0 from cmdline.</summary>
+/// <summary>Reads /proc: comm (the kernel's name), the exe link, and argv0 from cmdline, plus the whole command line of Steam's launch helper.</summary>
 public sealed class LinuxProcessInspector : IProcessInspector
 {
     private const string _deletedSuffix = " (deleted)";
+
+    // Steam keeps this helper alive for a game from the start of its launch to the game's end, and names the game on its command line.
+    private const string _steamHelper = "reaper";
 
     // The kernel counts a process's start in clock ticks after boot; the tick rate is 100 a second on every Linux that matters.
     private const long _ticksPerSecond = 100;
@@ -97,7 +100,8 @@ public sealed class LinuxProcessInspector : IProcessInspector
 
             var (parent, ticks) = stat is null ? (null, null) : ParseParentAndStart(stat);
             DateTimeOffset? started = ticks is { } t ? boot.AddTicks(t * (TimeSpan.TicksPerSecond / _ticksPerSecond)) : null;
-            return new RunningProcess(pid, name, ReadExecutable(dir), ReadFirstArgument(dir), parent, started);
+            var (argv0, line) = ReadCommandLine(dir, name == _steamHelper);
+            return new RunningProcess(pid, name, ReadExecutable(dir), argv0, parent, started, line);
         }
         catch (Exception ex) when (IsReadFailure(ex))
         {
@@ -153,18 +157,20 @@ public sealed class LinuxProcessInspector : IProcessInspector
         }
     }
 
-    private static string? ReadFirstArgument(string dir)
+    // The whole line is kept only when asked for: most command lines are long and nothing looks at them.
+    private static (string? FirstArgument, string? Line) ReadCommandLine(string dir, bool keepLine)
     {
         try
         {
             var bytes = File.ReadAllBytes(Path.Combine(dir, "cmdline"));
             var length = Array.IndexOf(bytes, (byte)0);
             var argv0 = Encoding.UTF8.GetString(bytes, 0, length < 0 ? bytes.Length : length);
-            return argv0.Length == 0 ? null : argv0;
+            var line = keepLine ? Encoding.UTF8.GetString(bytes).TrimEnd('\0').Replace('\0', ' ') : null;
+            return (argv0.Length == 0 ? null : argv0, string.IsNullOrEmpty(line) ? null : line);
         }
         catch (Exception ex) when (IsReadFailure(ex))
         {
-            return null;
+            return (null, null);
         }
     }
 

@@ -60,7 +60,10 @@ public sealed partial class LaunchOrchestrator
         {
             var started = outcome.StartedPid is { } pid ? $"started pid {pid}" : "started no program";
             var followed = outcome.FollowedPids.Count > 0 ? string.Join(", ", outcome.FollowedPids) : "none";
-            _services.Log.Information($"Launch session for {gameId} (job {launchJobId}): ended as {outcome.Kind}; {started}, followed pids {followed}.");
+            var ambiguous = outcome.AmbiguousHandoverPids.Count > 0
+                ? $"; followed none of the game-folder processes {string.Join(", ", outcome.AmbiguousHandoverPids)} that started right after the starter, since more than one could be the game"
+                : "";
+            _services.Log.Information($"Launch session for {gameId} (job {launchJobId}): ended as {outcome.Kind}; {started}, followed pids {followed}{ambiguous}.");
         }
 
         var endedAt = outcome?.EndedAt ?? _services.Time.GetUtcNow();
