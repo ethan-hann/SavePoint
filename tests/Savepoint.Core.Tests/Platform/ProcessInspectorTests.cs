@@ -47,6 +47,21 @@ public class ProcessInspectorTests
     }
 
     [Fact]
+    public void Linux_reads_the_whole_command_line_of_Steams_reaper_and_of_no_other_process()
+    {
+        using var tree = new TempTree();
+        var proc = tree.Dir("proc");
+        FakeProcess(proc, "100", "reaper\n", "/home/u/.steam/ubuntu12_32/reaper\0SteamLaunch\0AppId=240\0--\0/home/u/entry-point\0--verb=run\0");
+        FakeProcess(proc, "200", "factorio\n", "/opt/factorio/bin/x64/factorio\0--mod-directory\0/home/u/mods\0");
+
+        var processes = new LinuxProcessInspector(proc).List().ToDictionary(p => p.Pid);
+
+        Assert.Equal("/home/u/.steam/ubuntu12_32/reaper SteamLaunch AppId=240 -- /home/u/entry-point --verb=run", processes[100].CommandLine);
+        Assert.Equal("/home/u/.steam/ubuntu12_32/reaper", processes[100].CommandName);
+        Assert.Null(processes[200].CommandLine);
+    }
+
+    [Fact]
     public void Linux_reads_the_executable_from_the_exe_link_and_drops_the_deleted_marker()
     {
         using var tree = new TempTree();
