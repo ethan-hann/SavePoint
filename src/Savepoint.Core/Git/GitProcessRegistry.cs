@@ -33,6 +33,9 @@ internal sealed class GitProcessRegistry
         return new Registration(this, stamp);
     }
 
+    /// <summary>Whether a process with this id is on the list; one that has ended may still be listed until its call returns.</summary>
+    public bool Contains(int id) => _running.ContainsKey(id);
+
     /// <summary>Ends every registered process and what it started. A process that took over the number of one that ended is left alone.</summary>
     public void KillAll()
     {

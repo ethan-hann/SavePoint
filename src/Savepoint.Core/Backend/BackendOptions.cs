@@ -97,6 +97,9 @@ public sealed record BackendOptions
     // The templates a library scan matches games against; the embedded ones when null. Tests use it to match without the shipped files.
     internal IReadOnlyList<GameTemplate>? Templates { get; init; }
 
+    // What the startup check does about a git a stopped SavePoint left running; tests give one that looks in a stand-in bundle with short waits.
+    internal BundledGitLeftovers? Leftovers { get; init; }
+
     // Called with the source and the destination after each file of a storage move is copied and before it is verified; tests use it to inject faults.
     internal Action<string, string>? AfterRelocationCopy { get; init; }
 

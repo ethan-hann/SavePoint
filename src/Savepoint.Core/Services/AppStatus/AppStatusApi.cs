@@ -14,12 +14,14 @@ internal sealed class AppStatusApi : IAppStatusApi
 
     private readonly BackendServices _services;
     private readonly Action<string>? _afterSettings;
+    private readonly BundledGitLeftovers _leftovers;
     private int _swept;
 
-    public AppStatusApi(BackendServices services, Action<string>? afterSettings = null)
+    public AppStatusApi(BackendServices services, Action<string>? afterSettings = null, BundledGitLeftovers? leftovers = null)
     {
         _services = services;
         _afterSettings = afterSettings;
+        _leftovers = leftovers ?? new BundledGitLeftovers(services.Platform.Processes, services.Git.Root, services.Platform.PathComparison, services.Log, GitProcessRegistry.Shared.Contains);
     }
 
     public Task<OperationResult<StartupStatus>> CheckAsync(CancellationToken cancellationToken = default, IProgress<StartupProgress>? progress = null) =>
@@ -450,22 +452,30 @@ internal sealed class AppStatusApi : IAppStatusApi
             if (Interlocked.Exchange(ref _swept, 1) == 0)
             {
                 var told = false;
-                foreach (var folder in StorageContent.Folders(storage.Root))
+                void Tell()
                 {
-                    foreach (var gitDir in new[] { "install.git", "external.git" }.Select(name => Path.Combine(folder, name)).Where(Directory.Exists))
+                    // Said once, however many games or leftover programs wait.
+                    if (!told)
                     {
-                        await storage.Engine.SettleReclaimAsync(
-                            gitDir,
-                            cancellationToken,
-                            () =>
-                            {
-                                // Said once, however many games wait.
-                                if (!told)
-                                {
-                                    told = true;
-                                    progress?.Report(StartupProgress.FinishingEarlierCleanup);
-                                }
-                            }).ConfigureAwait(false);
+                        told = true;
+                        progress?.Report(StartupProgress.FinishingEarlierCleanup);
+                    }
+                }
+
+                var gitDirs = StorageContent.Folders(storage.Root)
+                    .SelectMany(folder => new[] { "install.git", "external.git" }.Select(name => Path.Combine(folder, name)))
+                    .Where(Directory.Exists)
+                    .ToList();
+                foreach (var gitDir in gitDirs)
+                {
+                    await storage.Engine.SettleReclaimAsync(gitDir, cancellationToken, Tell).ConfigureAwait(false);
+                }
+
+                // A git a stopped SavePoint left running still uses these files, so they stay unless it is gone.
+                if (await _leftovers.EndAsync(Tell, cancellationToken).ConfigureAwait(false))
+                {
+                    foreach (var gitDir in gitDirs)
+                    {
                         var removed = storage.Engine.RemoveStaleLocks(gitDir);
                         if (removed > 0)
                         {
