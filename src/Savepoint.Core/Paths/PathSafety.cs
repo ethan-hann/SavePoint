@@ -81,6 +81,49 @@ public sealed class PathSafety
     public string ResolveRealPath(string path) => RealPath.Resolve(path, _syntax, _probe);
 
     /// <summary>
+    /// Records where the path leads right now and, where the OS reports one, which folder that is. Nothing is judged: pair it with
+    /// <see cref="Check"/>, and later ask <see cref="IsStillPinned"/> before a step that cannot be undone.
+    /// </summary>
+    /// <param name="path">An absolute path.</param>
+    /// <returns>The pin.</returns>
+    /// <exception cref="ArgumentException">The path is not absolute.</exception>
+    /// <exception cref="IOException">The path runs into a link loop.</exception>
+    public FolderPin Pin(string path)
+    {
+        var real = ResolveRealPath(path);
+        return new FolderPin(real, _probe.ReadIdentity(real));
+    }
+
+    /// <summary>
+    /// True when the path still leads to the folder the pin was taken of: the same real path once links are followed and, where the pin
+    /// holds an identity, the same folder under it. A folder renamed away and replaced, a link pointed elsewhere, and a path that now
+    /// runs into a link loop all answer false (a folder that merely vanished does too where identities are reported). The check never writes to the file system.
+    /// </summary>
+    /// <param name="path">The path the pin was taken from.</param>
+    /// <param name="pin">What <see cref="Pin"/> returned for it.</param>
+    /// <returns>False when anything differs.</returns>
+    public bool IsStillPinned(string path, FolderPin pin)
+    {
+        ArgumentNullException.ThrowIfNull(pin);
+        string real;
+        try
+        {
+            real = ResolveRealPath(path);
+        }
+        catch (Exception e) when (e is IOException or ArgumentException)
+        {
+            return false;
+        }
+
+        if (!_syntax.IsSame(_syntax.Split(real, collapseDots: true), _syntax.Split(pin.RealPath, collapseDots: true)))
+        {
+            return false;
+        }
+
+        return pin.Identity is not { } expected || _probe.ReadIdentity(real) == expected;
+    }
+
+    /// <summary>
     /// Returns when the folder may be tracked. Throws <see cref="PathSafetyException"/> with tier 1 for a protected folder, a folder
     /// inside one, a folder that contains one, a Windows stream spelling, or a network path to this computer or an administrative
     /// share; and with tier 2 for a protected folder itself, a whole mounted drive, or a Steam library folder. Each rule applies to

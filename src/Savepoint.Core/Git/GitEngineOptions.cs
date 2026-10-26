@@ -19,6 +19,10 @@ public sealed record GitEngineOptions
     // Sees every git call just before it runs; tests use it to assert argument lists and to inject faults.
     internal Action<GitInvocation>? InvocationObserver { get; init; }
 
+    // Whether a switch, discard or clean keeps the game folder from being renamed or deleted while it runs (Windows); tests that swap the
+    // folder to see the later check refuse it turn this off.
+    internal bool HoldFolderOpen { get; init; } = true;
+
     // Called with a git directory just before its files are deleted, on the thread that deletes them; tests block in it to see who is kept waiting.
     internal Action<string>? BeforeGitDirDelete { get; init; }
 

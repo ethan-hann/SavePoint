@@ -33,6 +33,7 @@ public sealed partial class GitEngine
         }
 
         var excluded = await ExcludedAmongAsync(repo, missing, ct).ConfigureAwait(false);
+        repo.Guard?.Recheck();
         foreach (var folder in missing.Where(folder => !excluded.Contains(folder) && !LinkedFolders.IsInsideLink(repo.WorkTree, folder)))
         {
             ct.ThrowIfCancellationRequested();

@@ -28,6 +28,7 @@ public sealed partial class GitEngine
     /// <param name="ct">Cancels the switch. git and its children are stopped and the switch is reported as unfinished until repeated or discarded.</param>
     /// <exception cref="Savepoint.Core.Errors.PathSafetyException">The work tree is a protected location.</exception>
     /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
+    /// <exception cref="Savepoint.Core.Errors.FolderChangedException">The folder was replaced, moved, re-linked or lost its marker after it was approved; the step that would have changed files was not run (steps that finished before it are not undone).</exception>
     /// <exception cref="Savepoint.Core.Errors.PathMissingException">The work tree does not exist.</exception>
     /// <exception cref="Savepoint.Core.Errors.DiskSpaceException">The work tree's volume cannot take the files the switch adds (nothing was written), or the disk filled during the switch (it is then left unfinished; see <see cref="RepoStatus.InterruptedSwitch"/>).</exception>
     /// <exception cref="Savepoint.Core.Errors.DirtyWorkingTreeException">Unsaved changes, or a file the game's patterns name, are in the way; nothing was changed.</exception>
@@ -110,6 +111,7 @@ public sealed partial class GitEngine
     /// <exception cref="Savepoint.Core.Errors.PathSafetyException">The work tree is a protected location.</exception>
     /// <exception cref="Savepoint.Core.Errors.PathMissingException">The work tree does not exist.</exception>
     /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
+    /// <exception cref="Savepoint.Core.Errors.FolderChangedException">The folder was replaced, moved, re-linked or lost its marker after it was approved; the step that would have changed files was not run (steps that finished before it are not undone).</exception>
     /// <exception cref="Savepoint.Core.Errors.ProfileHasNoPointsException">The folder has no saved point to return to; without one a discard would delete the whole folder, so nothing is touched.</exception>
     /// <exception cref="Savepoint.Core.Errors.LinkedFolderException">On Windows, a folder link lies in the way; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.FileFolderClashException">Restoring a file would delete a folder holding files of the player's that the discard does not remove, or restoring a folder would delete a file of the player's that the patterns name; nothing was changed.</exception>
@@ -121,8 +123,8 @@ public sealed partial class GitEngine
     {
         repo = Normalize(repo);
         ct.ThrowIfCancellationRequested();
-        CheckWorkTree(repo);
-        RepoMarker.Verify(repo);
+        using var guard = Approve(repo);
+        repo = repo with { Guard = guard };
         if (!IsInitialized(repo.GitDir))
         {
             throw new GitOperationException($"The repository at '{repo.GitDir}' does not exist.");
@@ -205,6 +207,7 @@ public sealed partial class GitEngine
     /// <exception cref="Savepoint.Core.Errors.PathSafetyException">The work tree is a protected location.</exception>
     /// <exception cref="Savepoint.Core.Errors.PathMissingException">The work tree does not exist.</exception>
     /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
+    /// <exception cref="Savepoint.Core.Errors.FolderChangedException">The folder was replaced, moved, re-linked or lost its marker after it was approved; the step that would have changed files was not run.</exception>
     /// <exception cref="Savepoint.Core.Errors.ProfileHasNoPointsException">The folder has no saved point, so every file in it would count as new and be removed; nothing is touched.</exception>
     /// <exception cref="Savepoint.Core.Errors.LinkedFolderException">On Windows, a folder link lies in the way; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.GitOperationException">A file stayed in use through every attempt, or git failed.</exception>
@@ -212,8 +215,8 @@ public sealed partial class GitEngine
     {
         repo = Normalize(repo);
         ct.ThrowIfCancellationRequested();
-        CheckWorkTree(repo);
-        RepoMarker.Verify(repo);
+        using var guard = Approve(repo);
+        repo = repo with { Guard = guard };
         if (!IsInitialized(repo.GitDir))
         {
             throw new GitOperationException($"The repository at '{repo.GitDir}' does not exist.");
@@ -277,6 +280,7 @@ public sealed partial class GitEngine
                 throw new GitOperationException(FullPath(repo, left[0]), NotUpdatedMessage(left));
             }
 
+            repo.Guard?.Recheck();
             foreach (var path in left)
             {
                 TryDelete(FullPath(repo, path));
@@ -290,8 +294,8 @@ public sealed partial class GitEngine
     {
         repo = Normalize(repo);
         ct.ThrowIfCancellationRequested();
-        CheckWorkTree(repo);
-        RepoMarker.Verify(repo);
+        using var guard = Approve(repo);
+        repo = repo with { Guard = guard };
         if (!IsInitialized(repo.GitDir))
         {
             throw new GitOperationException($"The repository at '{repo.GitDir}' does not exist.");
@@ -597,6 +601,11 @@ public sealed partial class GitEngine
     // The paths go to git on stdin: a long list does not fit on a Windows command line. A failure here shows up as the next pass finding the path again.
     private async Task ResyncAsync(RepoRef repo, string to, IReadOnlyList<string> differing, IReadOnlyList<string> leftovers, CancellationToken ct)
     {
+        if (leftovers.Count > 0)
+        {
+            repo.Guard?.Recheck();
+        }
+
         foreach (var path in leftovers)
         {
             TryDelete(FullPath(repo, path));

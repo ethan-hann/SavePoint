@@ -90,6 +90,26 @@ public sealed partial class GitEngine
         }
     }
 
+    // Judges the work tree, verifies the marker, and pins the folder (and holds it on Windows) for a destructive operation. The caller
+    // disposes the guard when the operation ends and passes the repo on with it set as Guard. The pin is taken before the folder is
+    // judged, so a swap between the two shows up at the first recheck.
+    private FolderGuard Approve(RepoRef repo)
+    {
+        var guard = FolderGuard.Pin(_pathSafety, repo);
+        try
+        {
+            CheckWorkTree(repo);
+            RepoMarker.Verify(repo);
+            guard.Hold(_options.HoldFolderOpen);
+            return guard;
+        }
+        catch
+        {
+            guard.Dispose();
+            throw;
+        }
+    }
+
     // Throws when the storage volume cannot take another capture or repack (the floor, plus any bytes the operation is known
     // to need on top); checked before anything is written.
     private void EnsureStorageSpace(RepoRef repo, long extraBytes = 0)
@@ -144,8 +164,16 @@ public sealed partial class GitEngine
         }
     }
 
+    // Inside an operation that approved the folder (see Approve) git works on the folder the path led to then, and every step that may
+    // write looks at the folder again first.
     private GitInvocation Invocation(RepoRef repo, bool readOnly, params string[] arguments) =>
-        new(arguments) { GitDir = repo.GitDir, WorkTree = repo.WorkTree, ReadOnly = readOnly };
+        new(arguments)
+        {
+            GitDir = repo.GitDir,
+            WorkTree = repo.Guard?.RealPath ?? repo.WorkTree,
+            ReadOnly = readOnly,
+            BeforeStart = readOnly || repo.Guard is null ? null : repo.Guard.Recheck,
+        };
 
     // Runs git and translates a failure into a typed exception.
     private async Task<GitResult> RunAsync(GitInvocation invocation, CancellationToken ct)
@@ -165,6 +193,9 @@ public sealed partial class GitEngine
     {
         _options.InvocationObserver?.Invoke(invocation);
         RefuseRedirect(invocation);
+
+        // Last of all, so nothing can change the folder between this look and the start of git.
+        invocation.BeforeStart?.Invoke();
         return _runner.RunAsync(invocation, ct);
     }
 

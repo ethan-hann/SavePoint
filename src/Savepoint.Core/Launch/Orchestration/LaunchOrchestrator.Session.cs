@@ -108,7 +108,8 @@ public sealed partial class LaunchOrchestrator
         }
         catch (Exception e) when (e is not (OperationCanceledException or OutOfMemoryException or StackOverflowException))
         {
-            // Whatever went wrong reading the folders, the game has ended and the session must say so.
+            // Whatever went wrong reading the folders, the game has ended and the session must say so; the log keeps why the counts are zero.
+            _services.Log.Warning($"Launch session for {gameId}: the folders could not be read after play, so the file counts are zero and the basic choices are offered: {e.Message}", e);
             return new SessionState.Exited(startedAt, duration, 0, 0, FallbackOptions(older, profile, starts), endKind, ProgramExitCode: programExitCode);
         }
     }

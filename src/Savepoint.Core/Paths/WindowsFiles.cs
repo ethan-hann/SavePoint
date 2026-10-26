@@ -17,6 +17,8 @@ internal static class WindowsFiles
 
     private const uint _noAccess = 0;
     private const uint _readAttributes = 0x80;
+    private const uint _listDirectory = 0x1;
+    private const uint _shareReadWrite = 0x3;
     private const uint _shareAll = 0x7;
     private const uint _openExisting = 3;
     private const uint _backupSemantics = 0x02000000;
@@ -53,6 +55,21 @@ internal static class WindowsFiles
         GetFileInformationByHandle(handle, out var legacy)
             ? new FileIdentity(legacy.VolumeSerialNumber, new UInt128(0, ((ulong)legacy.FileIndexHigh << 32) | legacy.FileIndexLow))
             : null;
+
+    // A handle that keeps the folder from being renamed, moved or deleted for as long as it is open. Reading the folder's list counts in
+    // sharing checks (attribute-only access does not), and leaving delete out of the share mode is what refuses a rename. Everything
+    // else, git working inside the folder included, is unaffected. Null when the folder cannot be opened.
+    public static SafeFileHandle? HoldFolder(string path)
+    {
+        var handle = CreateFile(ExtendedLength(path), _listDirectory, _shareReadWrite, IntPtr.Zero, _openExisting, _backupSemantics, IntPtr.Zero);
+        if (handle.IsInvalid)
+        {
+            handle.Dispose();
+            return null;
+        }
+
+        return handle;
+    }
 
     public static IReadOnlyList<string> ReadFinalPaths(string path)
     {
