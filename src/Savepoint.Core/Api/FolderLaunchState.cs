@@ -20,7 +20,8 @@ namespace Savepoint.Core.Api;
 /// </param>
 /// <param name="UnfinishedSwitch">
 /// True when an earlier switch of this folder stopped part way, so it holds files from two saves. Such a folder counts as
-/// <paramref name="Dirty"/> unless the launch is the very switch that finishes it, is never offered "Keep as a new profile", and
+/// <paramref name="Dirty"/> unless the launch is the very switch that finishes it and no unsaved change stands in its way
+/// (<paramref name="ChangesOutsideSwitchCount"/>), is never offered "Keep as a new profile", and
 /// can always be discarded back to the save the switch started from (D31).
 /// </param>
 /// <param name="UnfinishedSwitchTarget">
@@ -38,6 +39,21 @@ namespace Savepoint.Core.Api;
 /// comes first, since it must be resolved whatever happens to the file. A half-switched folder that the launch itself finishes is not
 /// unsaved work, so it does not come first: its held file is what the launch asks about. Null when no file stands in the way.
 /// </param>
+/// <param name="ChangesOutsideSwitchCount">
+/// For a folder whose stopped switch is the very switch this launch would finish: how many files have unsaved changes that the finish would
+/// run over (files outside the ones the switch was changing, and files it removes that were edited since). Above 0 the folder counts as
+/// <paramref name="Dirty"/>, <paramref name="UnfinishedSwitchTarget"/> is null (finishing is refused until they are discarded), and discarding
+/// puts the folder back to the point the switch started from. 0 otherwise.
+/// </param>
+/// <param name="ReplacedFileCount">
+/// For a folder whose stopped switch this launch would finish: how many of the files the switch was changing hold content found in neither
+/// snapshot, which the finish replaces with the target's copy. A file the stopped switch left half written is counted as well as one the
+/// player changed since, because the two cannot be told apart. 0 otherwise.
+/// </param>
+/// <param name="ReplacedFileNames">
+/// The first of those files by name, in path order, for the saves folder (a player knows their save files by name); null for the game's folder, which can
+/// hold thousands. At most <see cref="MaxNamedReplacedFiles"/> are named; <paramref name="ReplacedFileCount"/> says how many there are in all.
+/// </param>
 public sealed record FolderLaunchState(
     RepoRole Role,
     string Path,
@@ -49,4 +65,11 @@ public sealed record FolderLaunchState(
     int DirtyNewFileCount = 0,
     bool UnfinishedSwitch = false,
     LaunchTarget? UnfinishedSwitchTarget = null,
-    ErrorInfo? HeldBy = null);
+    ErrorInfo? HeldBy = null,
+    int ChangesOutsideSwitchCount = 0,
+    int ReplacedFileCount = 0,
+    IReadOnlyList<string>? ReplacedFileNames = null)
+{
+    /// <summary>The most file names <see cref="ReplacedFileNames"/> carries.</summary>
+    public const int MaxNamedReplacedFiles = 5;
+}

@@ -11,7 +11,8 @@ public sealed partial class GitEngine
     // Everything a switch is expected to change, known before git starts. Files the game's patterns name are not in it: the switch
     // leaves them alone, so they are listed apart. NamedInTarget is the part of Named that the target holds. Written is what git
     // writes as files, Removed what it removes (by the system's own idea of a name, which ignores case on Windows and macOS).
-    // NamedChanges is what the target says about each of the Named paths, one change per path.
+    // NamedChanges is what the target says about each of the Named paths, one change per path. WrittenChanges is what the target says about
+    // each of the Written paths (in target spelling), one change per path.
     private sealed record SwitchPlan(
         IReadOnlyList<TreeChange> Changes,
         IReadOnlySet<string> Touched,
@@ -20,7 +21,8 @@ public sealed partial class GitEngine
         IReadOnlyList<TreeChange> NamedChanges,
         IReadOnlySet<string> NamedInTarget,
         IReadOnlySet<string> Written,
-        IReadOnlySet<string> Removed);
+        IReadOnlySet<string> Removed,
+        IReadOnlyList<TreeChange> WrittenChanges);
 
     // How the work tree's system compares two spellings of a path. Windows and macOS treat names that differ only in case as one file; so
     // does a drive mounted on Linux that ignores case (NTFS, exFAT), which only the drive can say.
@@ -94,18 +96,19 @@ public sealed partial class GitEngine
             [.. all.Where(change => named.Contains(change.Path)).DistinctBy(change => change.Path, StringComparer.Ordinal)],
             all.Where(change => change.Status != 'D' && named.Contains(change.Path)).Select(change => change.Path).ToHashSet(StringComparer.Ordinal),
             all.Where(change => change.Status != 'D' && !named.Contains(change.Path)).Select(change => change.Path).ToHashSet(StringComparer.Ordinal),
-            all.Where(change => change.Status == 'D' && !named.Contains(change.Path)).Select(change => change.Path).ToHashSet(comparer));
+            all.Where(change => change.Status == 'D' && !named.Contains(change.Path)).Select(change => change.Path).ToHashSet(comparer),
+            [.. all.Where(change => change.Status != 'D' && !named.Contains(change.Path)).DistinctBy(change => change.Path, StringComparer.Ordinal)]);
     }
 
     // Refuses, before anything is written, a switch that would run over work that is not saved: unsaved changes in the folder, or
     // a half-switched folder that is not being finished. Files the game's patterns name are never in the way: the switch leaves them.
-    // A switch that finishes a stopped one may find files the stopped switch was writing: those are returned (git would refuse them as
-    // local changes), and a change anywhere else is unsaved work as in any switch.
-    private async Task<IReadOnlyList<string>> RequireNothingInTheWayAsync(RepoRef repo, string? from, string to, bool force, SwitchPlan plan, InterruptedSwitch? note, CancellationToken ct)
+    // A switch that finishes a stopped one is looked at by ScanStoppedSwitchAsync: a change anywhere but in the files the stopped switch was
+    // writing or removing is unsaved work as in any switch, and what it was writing is returned for the finish to write.
+    private async Task<FinishScan> RequireNothingInTheWayAsync(RepoRef repo, string? from, string to, bool force, SwitchPlan plan, InterruptedSwitch? note, CancellationToken ct)
     {
         if (force)
         {
-            return [];
+            return FinishScan.Nothing;
         }
 
         // Only the switch that was started may finish a half-switched folder; what else is in it cannot be told apart.
@@ -114,30 +117,27 @@ public sealed partial class GitEngine
             throw new InterruptedSwitchException(repo.Role, note.ToCommit);
         }
 
+        if (note is not null)
+        {
+            var scan = await ScanStoppedSwitchAsync(repo, from, plan, ct).ConfigureAwait(false);
+            if (scan.BlockingChanged.Count > 0 || scan.BlockingNew.Count > 0)
+            {
+                throw OnlyHeldChanges(repo, scan.BlockingChanged, scan.BlockingNew.Count)?.ToException(HeldFileOperation.Switch) ?? new DirtyWorkingTreeException(repo.Role);
+            }
+
+            return scan;
+        }
+
         var changed = ListChangedAsync(repo, hasCommits: from is not null, ct);
         var untracked = ListNewAsync(repo, ct);
         var changedPaths = await changed.ConfigureAwait(false);
         var newFiles = (await untracked.ConfigureAwait(false)).Files;
-        if (note is null)
+        if (changedPaths.Count > 0 || newFiles.Count > 0)
         {
-            if (changedPaths.Count > 0 || newFiles.Count > 0)
-            {
-                throw OnlyHeldChanges(repo, changedPaths, newFiles.Count)?.ToException(HeldFileOperation.Switch) ?? new DirtyWorkingTreeException(repo.Role);
-            }
-
-            return [];
+            throw OnlyHeldChanges(repo, changedPaths, newFiles.Count)?.ToException(HeldFileOperation.Switch) ?? new DirtyWorkingTreeException(repo.Role);
         }
 
-        // A stopped switch may have aligned the index for the files the patterns name, which makes those differ from HEAD; they are never in the way.
-        var inSwitch = plan.Touched.Concat(plan.Named).ToHashSet(PathComparerFor(repo));
-        var changedElsewhere = changedPaths.Where(path => !inSwitch.Contains(path)).ToArray();
-        var newElsewhere = newFiles.Where(path => !inSwitch.Contains(path)).ToArray();
-        if (changedElsewhere.Length > 0 || newElsewhere.Length > 0)
-        {
-            throw OnlyHeldChanges(repo, changedElsewhere, newElsewhere.Length)?.ToException(HeldFileOperation.Switch) ?? new DirtyWorkingTreeException(repo.Role);
-        }
-
-        return [.. changedPaths.Concat(newFiles).Where(plan.Written.Contains).Distinct(StringComparer.Ordinal)];
+        return FinishScan.Nothing;
     }
 
     // git reads a file again when its timestamp is too new to trust (one stamped at the same moment as the last index write), and a

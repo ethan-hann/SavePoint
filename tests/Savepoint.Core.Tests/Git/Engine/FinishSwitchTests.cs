@@ -38,14 +38,205 @@ public sealed class FinishSwitchTests : IDisposable
         });
 
     // What a switch to profile-a leaves when it is killed part way: shared.dat is rewritten, Data/mod.pak is cut short, a-only.txt is
-    // there already, b-only.txt is gone and logs/b.log is not yet. HEAD and the index still say profile-b.
+    // there already, b-only.txt is gone and logs/b.log is not yet. HEAD and the index still say profile-b. Git removes a file it
+    // changes before it writes the new copy, so each rewritten file goes the same way.
     private void KillTheSwitchPartWay(RepoRef repo, string a, string b)
     {
         SwitchJournal.Write(repo.GitDir, b, a, "profile-a");
-        _ws.Write(repo, "shared.dat", "a's data");
-        _ws.Write(repo, "Data/mod.pak", "a's mo");
+        RemoveThenWrite(repo, "shared.dat", "a's data");
+        RemoveThenWrite(repo, "Data/mod.pak", "a's mo");
         _ws.Write(repo, "a-only.txt", "a");
         _ws.Delete(repo, "b-only.txt");
+    }
+
+    private void RemoveThenWrite(RepoRef repo, string path, string content)
+    {
+        _ws.Delete(repo, path);
+        _ws.Write(repo, path, content);
+    }
+
+    private static readonly DateTime _longAgo = new(2020, 1, 1, 12, 0, 0, DateTimeKind.Utc);
+
+    [Fact]
+    public async Task A_file_the_killed_switch_removed_before_it_wrote_the_new_copy_is_written_by_the_finish()
+    {
+        var (repo, data) = await ProfilesAsync();
+        KillTheSwitchPartWay(repo, data.A, data.B);
+        _ws.Delete(repo, "shared.dat");
+        _ws.Delete(repo, "Data/mod.pak");
+
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+
+        Assert.Equal(data.ASnapshot, TreeSnapshot.Take(repo.WorkTree));
+        Assert.Null(SwitchJournal.Read(repo.GitDir));
+        Assert.True((await _ws.Engine.GetStatusAsync(repo, Ct)).IsClean);
+    }
+
+    [Fact]
+    public async Task A_switch_killed_after_the_index_reached_the_target_but_before_head_moved_is_finished_and_leaves_the_right_files_alone()
+    {
+        var (repo, data) = await ProfilesAsync();
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+        await _ws.GitWriteAsync(repo, "symbolic-ref", "HEAD", "refs/heads/profile-b");
+        SwitchJournal.Write(repo.GitDir, data.B, data.A, "profile-a");
+        File.SetLastWriteTimeUtc(_ws.FileOf(repo, "shared.dat"), _longAgo);
+
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+
+        Assert.Equal("refs/heads/profile-a", await _ws.HeadRefAsync(repo));
+        Assert.Equal(data.ASnapshot, TreeSnapshot.Take(repo.WorkTree));
+        Assert.Null(SwitchJournal.Read(repo.GitDir));
+        Assert.True((await _ws.Engine.GetStatusAsync(repo, Ct)).IsClean);
+        Assert.Equal(_longAgo, File.GetLastWriteTimeUtc(_ws.FileOf(repo, "shared.dat")));
+    }
+
+    [Fact]
+    public async Task A_file_that_already_holds_the_targets_bytes_is_not_written_again()
+    {
+        var (repo, data) = await ProfilesAsync();
+        KillTheSwitchPartWay(repo, data.A, data.B);
+        File.SetLastWriteTimeUtc(_ws.FileOf(repo, "shared.dat"), _longAgo);
+
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+
+        Assert.Equal(data.ASnapshot, TreeSnapshot.Take(repo.WorkTree));
+        Assert.Equal(_longAgo, File.GetLastWriteTimeUtc(_ws.FileOf(repo, "shared.dat")));
+        Assert.True((await _ws.Engine.GetStatusAsync(repo, Ct)).IsClean);
+    }
+
+    [Fact]
+    public async Task A_file_of_the_targets_size_with_other_bytes_is_written_again()
+    {
+        var (repo, data) = await ProfilesAsync();
+        KillTheSwitchPartWay(repo, data.A, data.B);
+        RemoveThenWrite(repo, "shared.dat", "x's data");
+
+        // Of the same size as the target's copy, it still is not the target's copy.
+        Assert.Contains("shared.dat", (await _ws.Engine.ReviewStoppedSwitchAsync(repo, Ct)).ReplacedPaths);
+
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+
+        Assert.Equal(data.ASnapshot, TreeSnapshot.Take(repo.WorkTree));
+        Assert.True((await _ws.Engine.GetStatusAsync(repo, Ct)).IsClean);
+    }
+
+    [Fact]
+    public async Task A_change_the_player_made_to_a_file_the_switch_was_writing_is_replaced_by_the_finish()
+    {
+        var (repo, data) = await ProfilesAsync();
+        KillTheSwitchPartWay(repo, data.A, data.B);
+        _ws.Write(repo, "shared.dat", "the player's own edit, made after the switch stopped");
+
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+
+        Assert.Equal("a's data", File.ReadAllText(_ws.FileOf(repo, "shared.dat")));
+        Assert.Equal(data.ASnapshot, TreeSnapshot.Take(repo.WorkTree));
+    }
+
+    [Fact]
+    public async Task An_edited_file_the_switch_would_remove_refuses_before_anything_is_written()
+    {
+        var (repo, data) = await ProfilesAsync();
+        KillTheSwitchPartWay(repo, data.A, data.B);
+        _ws.Write(repo, "logs/b.log", "the player's edit to a file the switch removes");
+        var before = TreeSnapshot.Take(repo.WorkTree);
+
+        await Assert.ThrowsAsync<DirtyWorkingTreeException>(() => _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct));
+
+        Assert.Equal(before, TreeSnapshot.Take(repo.WorkTree));
+        Assert.Equal(new InterruptedSwitch(data.B, data.A, "profile-a"), SwitchJournal.Read(repo.GitDir));
+        Assert.Equal("refs/heads/profile-b", await _ws.HeadRefAsync(repo));
+    }
+
+    [Fact]
+    public async Task The_switch_check_refuses_an_edited_file_the_switch_would_remove()
+    {
+        var (repo, data) = await ProfilesAsync();
+        KillTheSwitchPartWay(repo, data.A, data.B);
+        _ws.Write(repo, "logs/b.log", "the player's edit to a file the switch removes");
+
+        await Assert.ThrowsAsync<DirtyWorkingTreeException>(() => _ws.Engine.CheckSwitchAsync(repo, "profile-a", isBranch: true, Ct));
+    }
+
+    private const int _manyFiles = 450;
+
+    [Fact]
+    public async Task Finishing_reports_the_files_it_writes_though_git_prints_no_meter_for_them()
+    {
+        var (repo, data) = await RepoTemplates.CopyAsync("finish-switch-many", _ws, async ws =>
+        {
+            var repo = await ws.InitializedFreshAsync();
+            ws.WriteMany(repo, "Data", _manyFiles, content: "a");
+            var a = (await ws.CaptureAsync(repo, "profile-a", "A")).TipCommitId!;
+            await ws.Engine.CreateBranchAsync(repo, "profile-b", "profile-a", TestContext.Current.CancellationToken);
+            await ws.Engine.CheckoutBranchAsync(repo, "profile-b", ct: TestContext.Current.CancellationToken);
+            ws.WriteMany(repo, "Data", _manyFiles, content: "b");
+            var b = (await ws.CaptureAsync(repo, "profile-b", "B")).TipCommitId!;
+            return (repo, (a, b));
+        });
+
+        // Every file was removed and its new copy cut short when the switch was killed.
+        SwitchJournal.Write(repo.GitDir, data.b, data.a, "profile-a");
+        _ws.WriteMany(repo, "Data", _manyFiles, content: "cut");
+        var log = new ProgressLog();
+
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", log, Ct);
+
+        Assert.Contains(log.Reports, report => report.FilesDone >= _manyFiles);
+        Assert.All(log.Reports, report => Assert.True(report.FilesTotal is null || report.FilesTotal >= report.FilesDone));
+        Assert.Equal("a 0", File.ReadAllText(_ws.FileOf(repo, "Data/f0.txt")));
+    }
+
+    [Fact]
+    public async Task The_review_names_the_files_the_finish_would_replace_and_nothing_that_blocks_it()
+    {
+        var (repo, data) = await ProfilesAsync();
+        KillTheSwitchPartWay(repo, data.A, data.B);
+        var before = TreeSnapshot.Take(repo.WorkTree);
+
+        var review = await _ws.Engine.ReviewStoppedSwitchAsync(repo, Ct);
+
+        Assert.Equal(["Data/mod.pak"], review.ReplacedPaths);
+        Assert.Empty(review.BlockingPaths);
+        Assert.Equal(before, TreeSnapshot.Take(repo.WorkTree));
+    }
+
+    [Fact]
+    public async Task The_review_lists_a_change_the_player_made_to_a_file_the_switch_was_writing_as_replaced()
+    {
+        var (repo, data) = await ProfilesAsync();
+        KillTheSwitchPartWay(repo, data.A, data.B);
+        _ws.Write(repo, "shared.dat", "the player's own edit, made after the switch stopped");
+
+        var review = await _ws.Engine.ReviewStoppedSwitchAsync(repo, Ct);
+
+        Assert.Equal(["Data/mod.pak", "shared.dat"], review.ReplacedPaths.Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public async Task The_review_names_the_changes_that_block_the_finish()
+    {
+        var (repo, data) = await ProfilesAsync();
+        KillTheSwitchPartWay(repo, data.A, data.B);
+        _ws.Write(repo, "common.cfg", "the player's edit");
+        _ws.Write(repo, "notes.txt", "the player's note");
+        _ws.Write(repo, "logs/b.log", "the player's edit to a file the switch removes");
+
+        var review = await _ws.Engine.ReviewStoppedSwitchAsync(repo, Ct);
+
+        Assert.Equal(["common.cfg", "logs/b.log", "notes.txt"], review.BlockingPaths.Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public async Task The_review_of_a_folder_with_no_stopped_switch_is_empty()
+    {
+        var (repo, _) = await ProfilesAsync();
+        _ws.Write(repo, "common.cfg", "unsaved, but no switch stopped");
+
+        var review = await _ws.Engine.ReviewStoppedSwitchAsync(repo, Ct);
+
+        Assert.Empty(review.BlockingPaths);
+        Assert.Empty(review.ReplacedPaths);
     }
 
     [Theory]

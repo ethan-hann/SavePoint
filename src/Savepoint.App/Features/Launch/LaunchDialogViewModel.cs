@@ -92,6 +92,10 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
             AddBlock(folder);
         }
 
+        // A switch the launch finishes writes the snapshot's copy over the files it was changing, whatever they hold now; the player is told
+        // before it starts. A folder the finish is refused for (its block says why) is not finished, so it has nothing to say here.
+        ReplacedNote = string.Join('\n', new[] { preview.Install, preview.External }.OfType<FolderLaunchState>().Where(folder => folder.UnfinishedSwitch && !folder.Dirty && folder.ReplacedFileCount > 0).Select(ReplacedLine));
+
         UnsavedBlocks.CollectionChanged += (_, _) => OnBlocksChanged();
         ShowKeepCallout = KeepOffered();
         KeepText = text.Message("launch.dialog.keepExplain");
@@ -126,6 +130,15 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
 
     /// <summary>What playing from an older point means for the next save.</summary>
     public string OlderPointText { get; }
+
+    /// <summary>True when <see cref="ReplacedNote"/> shows.</summary>
+    public bool HasReplacedNote => ReplacedNote.Length > 0;
+
+    /// <summary>
+    /// For a stopped switch the launch would finish: how many files it replaces that hold neither snapshot's copy, one line for each folder.
+    /// Empty when there is none.
+    /// </summary>
+    public string ReplacedNote { get; }
 
     /// <summary>True when the install folder has to change; the version-and-mods card is omitted otherwise.</summary>
     public bool HasVersionSection { get; }
@@ -276,6 +289,28 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
         ];
     }
 
+    // How many files the finish replaces, and for the saves folder which ones (a player knows their saves by name).
+    private string ReplacedLine(FolderLaunchState folder)
+    {
+        var text = _deps.Text;
+        var line = text.Message("launch.dialog.replacedNote", ("count", folder.ReplacedFileCount), ("role", folder.Role == RepoRole.Install ? "install" : "external"));
+        return folder.ReplacedFileNames is { Count: > 0 } names
+            ? $"{line} {text.Message("launch.dialog.replacedNames", ("count", folder.ReplacedFileCount), ("more", Math.Max(0, folder.ReplacedFileCount - names.Count)), ("names", string.Join(", ", names)))}"
+            : line;
+    }
+
+    // The mix of two snapshots is finished or discarded; when unsaved changes stand in the way of finishing, only discarding is left, and the words say why.
+    private string UnfinishedBody(FolderLaunchState folder, string role)
+    {
+        var text = _deps.Text;
+        if (folder.ChangesOutsideSwitchCount > 0)
+        {
+            return text.Message("launch.dialog.unfinishedBodyChanges", ("role", role), ("count", folder.ChangesOutsideSwitchCount));
+        }
+
+        return text.Message(folder.UnfinishedSwitchTarget is null ? "launch.dialog.unfinishedBodyUnknown" : "launch.dialog.unfinishedBody", ("role", role));
+    }
+
     private void AddBlock(FolderLaunchState folder)
     {
         var text = _deps.Text;
@@ -287,7 +322,7 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
             folder.Role,
             text.Message(unfinished ? "launch.dialog.unfinishedTitle" : "launch.dialog.unsavedTitle"),
             unfinished
-                ? text.Message(folder.UnfinishedSwitchTarget is null ? "launch.dialog.unfinishedBodyUnknown" : "launch.dialog.unfinishedBody", ("role", role))
+                ? UnfinishedBody(folder, role)
                 : ChangesBody(folder, role),
             !unfinished && folder.DirtyOwnerProfileId is not null,
             SaveFirstAsync,
