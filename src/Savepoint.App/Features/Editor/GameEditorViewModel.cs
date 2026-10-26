@@ -161,6 +161,7 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
         ArtworkPreview = shell.Artwork.Preview(saved?.Id ?? string.Empty);
         LoadForm(_source, rulesAreDefaults: saved is null && prefill is null);
         InitializeArtwork(shell, saved);
+        InitializeCloudSaves();
         _baseline = BuildDefinition(_source.Id);
     }
 
@@ -227,8 +228,11 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
             }
         }
 
+        // The store check reads files off the UI thread; it runs beside the artwork and suggestion reads.
+        var cloud = LoadCloudSavesAsync();
         await LoadArtworkAsync();
         await RefreshSuggestionsAsync();
+        await cloud;
     }
 
     partial void OnNameChanged(string value) => NameError = null;

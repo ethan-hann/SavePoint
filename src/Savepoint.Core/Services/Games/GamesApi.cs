@@ -2,6 +2,7 @@ using System.Text.Json;
 using Savepoint.Core.Api;
 using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.CloudSaves;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Launch;
 using Savepoint.Core.Library;
@@ -16,13 +17,28 @@ internal sealed partial class GamesApi : IGamesApi
     private readonly OptimizationService _optimization;
 
     private readonly LibrarySources _library;
+    private readonly CloudSaveLookup _cloudSaves;
 
-    public GamesApi(BackendServices services, OptimizationService optimization, LibrarySources library)
+    public GamesApi(BackendServices services, OptimizationService optimization, LibrarySources library, CloudSaveLookup cloudSaves)
     {
         _services = services;
         _optimization = optimization;
         _library = library;
+        _cloudSaves = cloudSaves;
     }
+
+    public Task<OperationResult<CloudSaveState>> GetCloudSavesAsync(string gameId, CancellationToken cancellationToken = default) =>
+        ApiGuard.RunAsync(
+            _services.Log,
+            async () =>
+            {
+                var game = await RequireGameAsync(gameId, cancellationToken).ConfigureAwait(false);
+                var install = GameFolders.ResolveLoosely(_services.PathTokens, game).FirstOrDefault(folder => folder.Role == RepoRole.Install)?.Path;
+
+                // File reads, so they run off the caller's thread.
+                return await Task.Run(() => _cloudSaves.Read(game, install, _services.Platform.PathComparison), cancellationToken).ConfigureAwait(false);
+            },
+            cancellationToken);
 
     public IReadOnlyList<GameTemplate> Templates => _library.Templates;
 

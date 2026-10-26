@@ -20,6 +20,9 @@ SavePoint bundles the components below. Each keeps its own license. The longer l
 | Serilog.Sinks.File | 7.0.0 | Apache-2.0 | Copyright Serilog Contributors |
 | Tmds.DBus.Protocol | 0.94.1 | MIT | Copyright Tom Deseyn |
 | AsmResolver, AsmResolver.PE, AsmResolver.PE.File, AsmResolver.PE.Win32Resources | 6.0.1 | MIT | Copyright 2016-2026 Washi |
+| Microsoft.Data.Sqlite (Microsoft.Data.Sqlite, Microsoft.Data.Sqlite.Core) | 10.0.14 | MIT | Copyright Microsoft Corporation |
+| SQLitePCLRaw (bundle_e_sqlite3, core, lib.e_sqlite3, provider.e_sqlite3) | 2.1.13 | Apache-2.0 | Copyright 2014-2024 SourceGear, LLC |
+| SQLite, inside SQLitePCLRaw's native library | | Public domain | The SQLite authors |
 | .NET runtime and libraries, in self-contained builds | 10.0 | MIT | Copyright .NET Foundation and Contributors |
 
 ## Fonts

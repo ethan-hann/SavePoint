@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="AsmResolver.PE.Win32Resources" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
   </ItemGroup>
 
   <ItemGroup>

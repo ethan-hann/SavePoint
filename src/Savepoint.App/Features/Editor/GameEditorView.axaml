@@ -241,9 +241,9 @@
 
               <Border x:Name="GuidanceStrip" Classes="strip">
                 <StackPanel Spacing="8">
-                  <Grid ColumnDefinitions="Auto,*">
+                  <Grid x:Name="CloudSavesNoteRow" ColumnDefinitions="Auto,*" IsVisible="{Binding HasCloudSavesNote}">
                     <TextBlock Classes="icon s16 muted" VerticalAlignment="Top" Margin="0,2,10,0" Text="{x:Static theme:Icons.Info}" />
-                    <TextBlock Grid.Column="1" Classes="caption" TextWrapping="Wrap" Text="{loc:Loc gameEditor.cloudSaves}" />
+                    <TextBlock Grid.Column="1" Classes="caption" TextWrapping="Wrap" Text="{Binding CloudSavesNote}" />
                   </Grid>
                   <Grid ColumnDefinitions="Auto,*">
                     <TextBlock Classes="icon s16 muted" VerticalAlignment="Top" Margin="0,2,10,0" Text="{x:Static theme:Icons.Info}" />

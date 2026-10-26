@@ -62,6 +62,15 @@ public sealed record BackendOptions
     public HttpMessageHandler? ArtworkHttp { get; init; }
 
     /// <summary>
+    /// Where GOG Galaxy's database folder is looked for (the machine-wide application data folder, <c>C:\ProgramData</c>); the real one
+    /// when null. Tests pass a folder of their own so none reads the real machine.
+    /// </summary>
+    public string? GalaxyProgramData { get; init; }
+
+    /// <summary>Where Galaxy's <c>config.json</c> is looked for (the local application data folder); the real one when null. Tests pass a folder of their own.</summary>
+    public string? GalaxyLocalAppData { get; init; }
+
+    /// <summary>
     /// Where the backend records startup checks, failed calls, jobs, launch sessions, storage moves and failed git commands (D34);
     /// nothing is written when null. The backend shields itself from a log that throws.
     /// </summary>

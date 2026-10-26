@@ -133,16 +133,33 @@ public class GameEditorViewTests
     }
 
     [AvaloniaFact]
-    public async Task The_warning_and_the_cloud_save_guidance_are_always_shown()
+    public async Task The_warning_and_the_cloud_save_guidance_are_shown_when_the_store_keeps_saves()
     {
         using var harness = await EditorViewHarness.StartAsync();
-        harness.Edit();
+        Assert.IsType<FakeGamesApi>(harness.Backend.Games).CloudSaves[SampleScenario.SkyrimId] = CloudSaveState.On;
+        var editor = harness.Edit();
+        await editor.LoadAsync();
+        harness.Settle();
 
         Assert.True(harness.Find<Border>("SteamWarningCallout").IsEffectivelyVisible);
         Assert.True(harness.Find<Border>("GuidanceStrip").IsEffectivelyVisible);
+        Assert.True(harness.Find<Grid>("CloudSavesNoteRow").IsEffectivelyVisible);
         var texts = harness.All<TextBlock>().Select(block => block.Text).ToList();
-        Assert.Contains(texts, text => text is not null && text.StartsWith("Turn off this game's cloud saves"));
+        Assert.Contains(texts, text => text is not null && text.StartsWith("The store keeps the saves SavePoint puts back"));
         Assert.Contains("Don't use SavePoint with online games that have anti-cheat. Changed game files can get your account flagged.", texts);
+    }
+
+    [AvaloniaFact]
+    public async Task The_cloud_save_note_is_hidden_when_the_store_has_cloud_saves_off()
+    {
+        using var harness = await EditorViewHarness.StartAsync();
+        Assert.IsType<FakeGamesApi>(harness.Backend.Games).CloudSaves[SampleScenario.SkyrimId] = CloudSaveState.Off;
+        var editor = harness.Edit();
+        await editor.LoadAsync();
+        harness.Settle();
+
+        Assert.False(harness.Find<Grid>("CloudSavesNoteRow").IsEffectivelyVisible);
+        Assert.True(harness.Find<Border>("GuidanceStrip").IsEffectivelyVisible);
     }
 
     [AvaloniaFact]

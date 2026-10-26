@@ -199,6 +199,27 @@ public sealed class FakeGamesApi : IGamesApi
             return OperationResult.Success(State.FolderStatuses.GetValueOrDefault(gameId) ?? Statuses(game, new ConsentStatus(true, null)));
         });
 
+    // What a test says each game's store reports; a game not listed is unknown, as the real Api answers for a store it cannot read.
+    public Dictionary<string, CloudSaveState> CloudSaves { get; } = [];
+
+    // A test sets this to hold the answer, as a slow disk would.
+    public Func<Task>? CloudSavesGate { get; set; }
+
+    public async Task<OperationResult<CloudSaveState>> GetCloudSavesAsync(string gameId, CancellationToken cancellationToken = default)
+    {
+        var answer = await _backend.Call(_api, nameof(GetCloudSavesAsync), [gameId], () =>
+        {
+            State.Game(gameId);
+            return OperationResult.Success(CloudSaves.GetValueOrDefault(gameId));
+        });
+        if (CloudSavesGate is { } gate)
+        {
+            await gate();
+        }
+
+        return answer;
+    }
+
     public Task<OperationResult<GameStorageUsage>> GetStorageUsageAsync(string gameId, CancellationToken cancellationToken = default) =>
         _backend.Call(_api, nameof(GetStorageUsageAsync), [gameId], () =>
         {
