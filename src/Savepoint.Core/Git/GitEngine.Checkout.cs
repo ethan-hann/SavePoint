@@ -350,7 +350,7 @@ public sealed partial class GitEngine
         }
 
         var (from, to, note) = await ReadSwitchEndsAsync(repo, target, isBranch, ct).ConfigureAwait(false);
-        await RequireSwitchPossibleAsync(repo, from, to, force: false, note, ct).ConfigureAwait(false);
+        await RequireSwitchPossibleAsync(repo, from, to, force: false, note, readFiles: false, ct).ConfigureAwait(false);
     }
 
     private async Task CheckoutAsync(RepoRef repo, string target, bool isBranch, bool force, IProgress<FileProgress>? progress, CancellationToken ct)
@@ -371,7 +371,7 @@ public sealed partial class GitEngine
         // A mark an earlier switch could not take off would hide a file from the checks below.
         await ClearSkipWorktreeAsync(repo, ct).ConfigureAwait(false);
 
-        var (plan, sizes, finishing) = await RequireSwitchPossibleAsync(repo, from, to, force, note, ct).ConfigureAwait(false);
+        var (plan, sizes, finishing) = await RequireSwitchPossibleAsync(repo, from, to, force, note, readFiles: true, ct).ConfigureAwait(false);
 
         // From here the switch writes the index itself (the marks, the alignment, the checkout, the re-syncs), and a rebuild from the last
         // snapshot would undo that. Damage found from now on ends the switch with an error and leaves the note; the next operation repairs.
@@ -478,13 +478,15 @@ public sealed partial class GitEngine
 
     // Which files the switch will write and remove is known before it starts: nothing unsaved may be in the way, and a
     // file that cannot be removed is found afterwards. Reads only, so it also answers for a switch that is not made yet.
-    // Finishing is what a stopped switch left, which git alone would refuse as local changes (see WriteFinishingPathsAsync).
-    private async Task<(SwitchPlan Plan, Dictionary<string, long> Sizes, FinishScan Finishing)> RequireSwitchPossibleAsync(RepoRef repo, string? from, string to, bool force, InterruptedSwitch? note, CancellationToken ct)
+    // Finishing is what a stopped switch left, which git alone would refuse as local changes (see WriteFinishingPathsAsync). Only the switch
+    // itself needs to know which of those files already hold the target's bytes, which takes reading them: a question that asks whether the
+    // switch could be made passes readFiles false.
+    private async Task<(SwitchPlan Plan, Dictionary<string, long> Sizes, FinishScan Finishing)> RequireSwitchPossibleAsync(RepoRef repo, string? from, string to, bool force, InterruptedSwitch? note, bool readFiles, CancellationToken ct)
     {
         var plan = await PlanSwitchAsync(repo, from, to, note, ct).ConfigureAwait(false);
         LinkedFolders.RefuseAny(repo.WorkTree, plan.Touched, ct);
         await RefuseCaseClashAsync(repo, to, ct).ConfigureAwait(false);
-        var finishing = await RequireNothingInTheWayAsync(repo, from, to, force, plan, note, ct).ConfigureAwait(false);
+        var finishing = await RequireNothingInTheWayAsync(repo, from, to, force, plan, note, readFiles, ct).ConfigureAwait(false);
         await RefuseFileFolderClashAsync(repo, plan, force, ct).ConfigureAwait(false);
         var sizes = await ObjectSizesAsync(repo, plan.Changes.SelectMany(change => new[] { change.OldId, change.NewId }), ct).ConfigureAwait(false);
         EnsureCheckoutSpace(repo, plan.Changes, sizes);

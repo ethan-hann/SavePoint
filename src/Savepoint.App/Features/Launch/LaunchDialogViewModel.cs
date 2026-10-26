@@ -293,16 +293,21 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
     private string ReplacedLine(FolderLaunchState folder)
     {
         var text = _deps.Text;
-        var line = text.Message("launch.dialog.replacedNote", ("count", folder.ReplacedFileCount), ("role", folder.Role == RepoRole.Install ? "install" : "external"));
-        return folder.ReplacedFileNames is { Count: > 0 } names
-            ? $"{line} {text.Message("launch.dialog.replacedNames", ("count", folder.ReplacedFileCount), ("more", Math.Max(0, folder.ReplacedFileCount - names.Count)), ("names", string.Join(", ", names)))}"
-            : line;
+        var named = folder.ReplacedFileNames is { Count: > 0 } names
+            ? " " + text.Message("launch.dialog.replacedNames", ("more", Math.Max(0, folder.ReplacedFileCount - names.Count)), ("names", string.Join(", ", names)))
+            : string.Empty;
+        return text.Message("launch.dialog.replacedNote", ("count", folder.ReplacedFileCount), ("role", folder.Role == RepoRole.Install ? "install" : "external"), ("named", named));
     }
 
     // The mix of two snapshots is finished or discarded; when unsaved changes stand in the way of finishing, only discarding is left, and the words say why.
     private string UnfinishedBody(FolderLaunchState folder, string role)
     {
         var text = _deps.Text;
+        if (folder.StoppedSwitchUnchecked)
+        {
+            return text.Message("launch.dialog.unfinishedBodyUnchecked", ("role", role));
+        }
+
         if (folder.ChangesOutsideSwitchCount > 0)
         {
             return text.Message("launch.dialog.unfinishedBodyChanges", ("role", role), ("count", folder.ChangesOutsideSwitchCount));

@@ -104,7 +104,7 @@ public sealed partial class GitEngine
     // a half-switched folder that is not being finished. Files the game's patterns name are never in the way: the switch leaves them.
     // A switch that finishes a stopped one is looked at by ScanStoppedSwitchAsync: a change anywhere but in the files the stopped switch was
     // writing or removing is unsaved work as in any switch, and what it was writing is returned for the finish to write.
-    private async Task<FinishScan> RequireNothingInTheWayAsync(RepoRef repo, string? from, string to, bool force, SwitchPlan plan, InterruptedSwitch? note, CancellationToken ct)
+    private async Task<FinishScan> RequireNothingInTheWayAsync(RepoRef repo, string? from, string to, bool force, SwitchPlan plan, InterruptedSwitch? note, bool readFiles, CancellationToken ct)
     {
         if (force)
         {
@@ -119,7 +119,7 @@ public sealed partial class GitEngine
 
         if (note is not null)
         {
-            var scan = await ScanStoppedSwitchAsync(repo, from, plan, ct).ConfigureAwait(false);
+            var scan = await ScanStoppedSwitchAsync(repo, from, plan, readFiles, ct).ConfigureAwait(false);
             if (scan.BlockingChanged.Count > 0 || scan.BlockingNew.Count > 0)
             {
                 throw OnlyHeldChanges(repo, scan.BlockingChanged, scan.BlockingNew.Count)?.ToException(HeldFileOperation.Switch) ?? new DirtyWorkingTreeException(repo.Role);

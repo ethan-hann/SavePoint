@@ -50,6 +50,10 @@ namespace Savepoint.Core.Api;
 /// snapshot, which the finish replaces with the target's copy. A file the stopped switch left half written is counted as well as one the
 /// player changed since, because the two cannot be told apart. 0 otherwise.
 /// </param>
+/// <param name="StoppedSwitchUnchecked">
+/// True when this launch would finish the folder's stopped switch but SavePoint could not check the folder for changes that stand in its way.
+/// The folder then counts as <paramref name="Dirty"/> with no <paramref name="UnfinishedSwitchTarget"/>, so discarding is the way out.
+/// </param>
 /// <param name="ReplacedFileNames">
 /// The first of those files by name, in path order, for the saves folder (a player knows their save files by name); null for the game's folder, which can
 /// hold thousands. At most <see cref="MaxNamedReplacedFiles"/> are named; <paramref name="ReplacedFileCount"/> says how many there are in all.
@@ -68,7 +72,8 @@ public sealed record FolderLaunchState(
     ErrorInfo? HeldBy = null,
     int ChangesOutsideSwitchCount = 0,
     int ReplacedFileCount = 0,
-    IReadOnlyList<string>? ReplacedFileNames = null)
+    IReadOnlyList<string>? ReplacedFileNames = null,
+    bool StoppedSwitchUnchecked = false)
 {
     /// <summary>The most file names <see cref="ReplacedFileNames"/> carries.</summary>
     public const int MaxNamedReplacedFiles = 5;

@@ -59,7 +59,7 @@ public sealed partial class LaunchOrchestrator
     {
         var repos = GameFolders.Repos(_services, storage, game);
         var resolved = await TargetResolver.ResolveAsync(storage, repos, profiles, target, cancellationToken).ConfigureAwait(false);
-        var readings = await Task.WhenAll(resolved.Folders.Select(folder => FolderReading.ReadAsync(storage.Engine, folder, profiles, cancellationToken))).ConfigureAwait(false);
+        var readings = await Task.WhenAll(resolved.Folders.Select(folder => FolderReading.ReadAsync(storage.Engine, folder, profiles, countReplaced: true, cancellationToken))).ConfigureAwait(false);
         var install = readings.Single(reading => reading.Target.Role == RepoRole.Install);
         var external = readings.FirstOrDefault(reading => reading.Target.Role == RepoRole.External);
 
@@ -112,7 +112,8 @@ public sealed partial class LaunchOrchestrator
             // A player knows their saves by name; the game's folder can replace thousands of files.
             reading.Target.Role == RepoRole.External && reading.Review is { ReplacedPaths.Count: > 0 } review
                 ? [.. review.ReplacedPaths.Order(StringComparer.Ordinal).Take(FolderLaunchState.MaxNamedReplacedFiles)]
-                : null);
+                : null,
+            reading.Pending && reading.ReviewFailed);
 
     // Starting the previewed target finishes a switch that was heading there; one that was heading elsewhere is finished by that point's own target.
     private static async Task<LaunchTarget?> UnfinishedTargetAsync(

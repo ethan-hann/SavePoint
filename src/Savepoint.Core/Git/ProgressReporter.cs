@@ -283,11 +283,29 @@ internal sealed class ProgressReporter
         }
     }
 
+    // Files and bytes written before git's own count starts (a switch that finishes a stopped one writes some files itself); git's counts
+    // are added to them, so a count that starts below them does not take the bar back.
+    private int _writtenFiles;
+    private long _writtenBytes;
+
     // For output that carries its own counts.
     public void Observe(int done, int total)
     {
         lock (_gate)
         {
+            _done = Math.Max(_done, _writtenFiles + done);
+            _total = _writtenFiles + total;
+            ReportIfDue();
+        }
+    }
+
+    // The files written so far before git's count starts, for which git prints no meter: how many of how many, and how many bytes.
+    public void ObserveFinishing(int done, int total, long bytes)
+    {
+        lock (_gate)
+        {
+            _writtenFiles = done;
+            _writtenBytes = bytes;
             _done = Math.Max(_done, done);
             _total = total;
             ReportIfDue();
@@ -320,6 +338,24 @@ internal sealed class ProgressReporter
         }
     }
 
+    // The bytes the plan puts after this many files. With files written before git's count, those bytes are theirs and git's count covers
+    // the rest of the plan.
+    private long? BytesDone(int done, int? total)
+    {
+        if (_bytes is null)
+        {
+            return null;
+        }
+
+        if (_writtenFiles == 0)
+        {
+            return _bytes.BytesAfter(done, total ?? _bytes.Entries);
+        }
+
+        var remaining = Math.Max(0, _bytes.Total - _writtenBytes);
+        return _writtenBytes + _bytes.BytesAfter(Math.Max(0, done - _writtenFiles), Math.Max(0, (total ?? _bytes.Entries) - _writtenFiles), remaining);
+    }
+
     private void Report()
     {
         if (_sink is null)
@@ -349,7 +385,7 @@ internal sealed class ProgressReporter
             var total = _total is { } counted ? Math.Max(counted, _done) : (int?)null;
             var report = _byteTotal is { } bytes
                 ? new FileProgress(_done, total, _current, _written, bytes, _finishing, names, detail)
-                : new FileProgress(_done, total, _current, _bytes?.BytesAfter(_done, total ?? _bytes.Entries), _bytes?.Total, _finishing, names, detail);
+                : new FileProgress(_done, total, _current, BytesDone(_done, total), _bytes?.Total, _finishing, names, detail);
             _sink.Report(report);
         }
         catch (Exception)
