@@ -161,6 +161,7 @@ public sealed partial class GitEngine
     // a pack of what is reachable (none when nothing is unreachable or loose), then the loose objects nothing reaches.
     private async Task ReclaimAsync(RepoRef repo, CancellationToken ct)
     {
+        RequireNoLeftoverGit();
         using var scope = BeginWrite(repo);
         RequireAlone(scope, repo);
 
@@ -478,7 +479,7 @@ public sealed partial class GitEngine
     };
 
     private static GitInvocation ReclaimStep(RepoRef repo, params string[] arguments) =>
-        GitDirOnly(repo, arguments) with { ReadOnly = false, Started = git => ReclaimMarker.Record(repo.GitDir, git) };
+        GitDirOnly(repo, arguments) with { ReadOnly = false, Started = git => ReclaimMarker.Record(repo.GitDir, git), SurvivesExit = true };
 
     private async Task<long> ObjectStoreFigureAsync(RepoRef repo, string name, CancellationToken ct) =>
         Figure(await CountObjectsAsync(repo, ct).ConfigureAwait(false), name);

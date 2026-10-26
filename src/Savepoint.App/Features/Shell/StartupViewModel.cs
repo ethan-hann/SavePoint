@@ -59,6 +59,7 @@ public sealed partial class StartupViewModel : ObservableObject
     private StartupPhase _phase = StartupPhase.Checking;
 
     private bool _isFinishingEarlierCleanup;
+    private bool _isWaitingForEarlierTask;
     private int _checkRun;
 
     [ObservableProperty]
@@ -127,6 +128,9 @@ public sealed partial class StartupViewModel : ObservableObject
     /// <summary>True while the checks wait for a cleanup an earlier run of SavePoint began and did not finish; the screen then says why it is slow.</summary>
     public bool IsFinishingEarlierCleanup => _isFinishingEarlierCleanup;
 
+    /// <summary>True while the checks wait for a task an earlier run of SavePoint started, and that was left running when it was stopped.</summary>
+    public bool IsWaitingForEarlierTask => _isWaitingForEarlierTask;
+
     /// <summary>True when <see cref="Card"/> is the screen.</summary>
     public bool HasCard => Card is not null;
 
@@ -158,9 +162,11 @@ public sealed partial class StartupViewModel : ObservableObject
 
         Phase = StartupPhase.Checking;
         SetFinishingEarlierCleanup(false);
+        SetWaitingForEarlierTask(false);
         var run = ++_checkRun;
         var checkedStatus = await _status.CheckAsync(progress: new UiProgress(SynchronizationContext.Current, step => ShowProgress(run, step)));
         SetFinishingEarlierCleanup(false);
+        SetWaitingForEarlierTask(false);
         if (!checkedStatus.Ok)
         {
             Phase = StartupPhase.Failed;
@@ -204,9 +210,28 @@ public sealed partial class StartupViewModel : ObservableObject
     private void ShowProgress(int run, StartupProgress progress)
     {
         // A report still queued when its check ended must not show a note for a wait that is over.
-        if (run == _checkRun && Phase == StartupPhase.Checking && progress == StartupProgress.FinishingEarlierCleanup)
+        if (run != _checkRun || Phase != StartupPhase.Checking)
         {
-            SetFinishingEarlierCleanup(true);
+            return;
+        }
+
+        switch (progress)
+        {
+            case StartupProgress.FinishingEarlierCleanup:
+                SetFinishingEarlierCleanup(true);
+                break;
+            case StartupProgress.WaitingForEarlierTask:
+                SetWaitingForEarlierTask(true);
+                break;
+        }
+    }
+
+    private void SetWaitingForEarlierTask(bool value)
+    {
+        if (_isWaitingForEarlierTask != value)
+        {
+            _isWaitingForEarlierTask = value;
+            OnPropertyChanged(nameof(IsWaitingForEarlierTask));
         }
     }
 

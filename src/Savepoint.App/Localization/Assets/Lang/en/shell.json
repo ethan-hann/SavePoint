@@ -67,6 +67,7 @@
   "shell.yourGames": "Your games",
   "startup.checking": "Checking your files…",
   "startup.finishingCleanup": "SavePoint is finishing a cleanup it started earlier. This can take a few minutes, and your games are not touched meanwhile.",
+  "startup.waitingForTask": "SavePoint is waiting for a task it started before it closed. This can take a few seconds, and your games are not touched meanwhile.",
   "startup.corrupt.backupAt": "Last good copy: {path}",
   "startup.corrupt.body": "SavePoint couldn't read the file that holds {kind, select, games {your list of games} profiles {your list of profiles} settings {your settings} other {some of its data}}, so it left the file as it is.",
   "startup.corrupt.confirm.message": "SavePoint will move the unreadable file aside, never delete it, and start with {kind, select, games {no games listed} profiles {no profiles listed} settings {the default settings} other {an empty file}}.",

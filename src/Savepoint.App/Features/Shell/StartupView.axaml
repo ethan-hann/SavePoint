@@ -16,6 +16,8 @@
 
       <TextBlock x:Name="FinishingCleanupText" Classes="caption muted" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" IsVisible="{Binding IsFinishingEarlierCleanup}" Text="{loc:Loc startup.finishingCleanup}" AutomationProperties.LiveSetting="Polite" />
 
+      <TextBlock x:Name="WaitingForTaskText" Classes="caption muted" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" IsVisible="{Binding IsWaitingForEarlierTask}" Text="{loc:Loc startup.waitingForTask}" AutomationProperties.LiveSetting="Polite" />
+
       <ContentControl x:Name="StartupCard" IsVisible="{Binding HasCard}" Content="{Binding Card}" />
       <TextBlock x:Name="LogFolderError" Classes="caption error" TextWrapping="Wrap" IsVisible="{Binding HasLogFolderError}" Text="{Binding LogFolderError}" />
       <StackPanel Spacing="8" IsVisible="{Binding HasStorageActionError}">

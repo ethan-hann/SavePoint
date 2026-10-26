@@ -71,6 +71,22 @@ public class StartupViewTests
     }
 
     [AvaloniaFact]
+    public void While_a_task_started_before_SavePoint_closed_is_waited_for_the_screen_says_so_in_plain_words()
+    {
+        var text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), os: "windows", timeZone: TimeZoneInfo.Utc);
+        var startup = new StartupViewModel(new NeverAnswers(StartupProgress.WaitingForEarlierTask), text);
+        var view = new StartupView { DataContext = startup };
+        using var host = new ThemeHost(view);
+
+        _ = startup.CheckAsync();
+        Dispatcher.UIThread.RunJobs();
+
+        var texts = view.GetVisualDescendants().OfType<TextBlock>().Where(block => block.IsEffectivelyVisible).Select(block => block.Text).ToList();
+        Assert.Contains("SavePoint is waiting for a task it started before it closed. This can take a few seconds, and your games are not touched meanwhile.", texts);
+        Assert.DoesNotContain(texts, line => line?.Contains("finishing a cleanup", StringComparison.Ordinal) == true);
+    }
+
+    [AvaloniaFact]
     public async Task The_recovery_error_is_a_live_region_so_a_failed_choice_is_heard()
     {
         using var app = await AppStates.OpenAsync("startup-corrupt-catalog");

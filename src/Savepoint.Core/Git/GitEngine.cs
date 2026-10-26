@@ -186,7 +186,7 @@ public sealed partial class GitEngine
             throw new GitOperationException($"The repository at '{repo.GitDir}' does not exist.");
         }
 
-        if (scope.IsAlone)
+        if (scope.IsAlone && !LeftoverGitRunning())
         {
             StaleLocks.RemoveAll(repo.GitDir, _classifying.ContainsKey);
         }
@@ -195,6 +195,17 @@ public sealed partial class GitEngine
         if (ignorePatterns is not null)
         {
             RepoIgnoreFiles.WriteExclude(repo.GitDir, ignorePatterns);
+        }
+    }
+
+    // A git an earlier, stopped SavePoint left running and the startup check could not end may still hold locks and rewrite packs here.
+    private bool LeftoverGitRunning() => _options.LeftoverGitRunning?.Invoke() == true;
+
+    private void RequireNoLeftoverGit()
+    {
+        if (LeftoverGitRunning())
+        {
+            throw new GitOperationException("A git that an earlier run of SavePoint left running is still going, so this cannot be done safely yet.");
         }
     }
 

@@ -81,7 +81,14 @@ public sealed class GitRunner
             throw new GitUnavailableException(_binary.ExecutablePath, $"git could not be started: {e.Message}", e);
         }
 
-        using var registration = (_options.Registry ?? GitProcessRegistry.Shared).Add(process);
+        // A helper git starts before this runs is not in the job. It still ends with git when git is ended, and the next start ends git by the
+        // note of running git, so only a helper that outlives its git on purpose would be missed.
+        if (!invocation.SurvivesExit)
+        {
+            GitProcessJob.Protect(process, _log);
+        }
+
+        using var registration = (_options.Registry ?? GitProcessRegistry.Shared).Add(process, persist: !invocation.SurvivesExit);
         NoteStarted(invocation, process);
 
         // Cancelled by the caller, or by a callback that threw.

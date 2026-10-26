@@ -450,34 +450,56 @@ internal sealed class AppStatusApi : IAppStatusApi
             if (Interlocked.Exchange(ref _swept, 1) == 0)
             {
                 var told = false;
-                foreach (var folder in StorageContent.Folders(storage.Root))
+                void Tell()
                 {
-                    foreach (var gitDir in new[] { "install.git", "external.git" }.Select(name => Path.Combine(folder, name)).Where(Directory.Exists))
+                    // Said once, however many games or leftover programs wait.
+                    if (!told)
                     {
-                        await storage.Engine.SettleReclaimAsync(
-                            gitDir,
-                            cancellationToken,
-                            () =>
-                            {
-                                // Said once, however many games wait.
-                                if (!told)
-                                {
-                                    told = true;
-                                    progress?.Report(StartupProgress.FinishingEarlierCleanup);
-                                }
-                            }).ConfigureAwait(false);
+                        told = true;
+                        progress?.Report(StartupProgress.FinishingEarlierCleanup);
+                    }
+                }
+
+                var toldAboutTask = false;
+                void TellAboutTask()
+                {
+                    if (!toldAboutTask)
+                    {
+                        toldAboutTask = true;
+                        progress?.Report(StartupProgress.WaitingForEarlierTask);
+                    }
+                }
+
+                var gitDirs = StorageContent.Folders(storage.Root)
+                    .SelectMany(folder => new[] { "install.git", "external.git" }.Select(name => Path.Combine(folder, name)))
+                    .Where(Directory.Exists)
+                    .ToList();
+                foreach (var gitDir in gitDirs)
+                {
+                    await storage.Engine.SettleReclaimAsync(gitDir, cancellationToken, Tell).ConfigureAwait(false);
+                }
+
+                // A git a stopped SavePoint left running still uses these files, so they stay unless it is gone. A reclaim's git was waited for above, not ended.
+                if (await _services.Leftovers.EndAsync(TellAboutTask, cancellationToken).ConfigureAwait(false))
+                {
+                    foreach (var gitDir in gitDirs)
+                    {
                         var removed = storage.Engine.RemoveStaleLocks(gitDir);
                         if (removed > 0)
                         {
                             _services.Log.Information($"Startup check: removed {removed} leftover lock or temporary files from {gitDir}.");
                         }
                     }
-                }
 
-                // A free-up that was cut off between its two folders is finished now, so no snapshot is listed in half.
-                foreach (var folder in StorageContent.Folders(storage.Root))
+                    // A free-up that was cut off between its two folders is finished now, so no snapshot is listed in half.
+                    foreach (var folder in StorageContent.Folders(storage.Root))
+                    {
+                        await FinishFreeUpAsync(storage, Path.GetFileName(folder), cancellationToken).ConfigureAwait(false);
+                    }
+                }
+                else if (StorageContent.Folders(storage.Root).Any(folder => File.Exists(FreeUpIntent.PathIn(folder))))
                 {
-                    await FinishFreeUpAsync(storage, Path.GetFileName(folder), cancellationToken).ConfigureAwait(false);
+                    _services.Log.Warning("Startup check: a cut-off free-up is not finished this time because a git left running could not be ended; it is tried again at the next start.");
                 }
             }
 

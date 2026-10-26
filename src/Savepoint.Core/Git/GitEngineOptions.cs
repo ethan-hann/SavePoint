@@ -36,6 +36,9 @@ public sealed record GitEngineOptions
     // the step still works on the folder that was looked at.
     internal Action<string>? AfterFileRecheck { get; init; }
 
+    // True while a git that an earlier, stopped SavePoint left running could not be ended: nothing it may be using is cleaned up, cleared or reclaimed.
+    internal Func<bool>? LeftoverGitRunning { get; init; }
+
     // Called with a git directory just before its files are deleted, on the thread that deletes them; tests block in it to see who is kept waiting.
     internal Action<string>? BeforeGitDirDelete { get; init; }
 
