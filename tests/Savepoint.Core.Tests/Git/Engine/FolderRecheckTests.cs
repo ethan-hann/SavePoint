@@ -190,6 +190,32 @@ public sealed class FolderRecheckTests : IDisposable
         Assert.Equal(before, Contents(decoy));
     }
 
+    [Fact]
+    public async Task A_folder_swapped_for_a_link_before_the_files_of_a_stopped_switch_are_written_is_refused_and_nothing_outside_is_touched()
+    {
+        RequireLinks(_ws.Root);
+        var repo = (await TwoProfilesAsync(_ws)).Repo;
+        var a = (await _ws.TipAsync(repo, "profile-a"))!;
+        var b = (await _ws.TipAsync(repo, "profile-b"))!;
+
+        // The stopped switch wrote a-only.txt and removed b-only.txt, so git alone sees changes and the finish has to write them.
+        SwitchJournal.Write(repo.GitDir, b, a, "profile-a");
+        _ws.Write(repo, "a-only.txt", "a");
+        _ws.Delete(repo, "b-only.txt");
+        var decoy = CopyAsDecoy(repo);
+
+        // The finish would overwrite this file with the target's copy.
+        File.WriteAllText(Path.Combine(decoy, "a-only.txt"), "not part of this game either");
+        var before = Contents(decoy);
+        SwapBeforeFirstDestructiveStep(() => ReplaceWithLinkTo(repo, decoy));
+
+        var error = await Assert.ThrowsAsync<FolderChangedException>(() => _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct));
+
+        Assert.Equal("error.path.changed", error.MessageId);
+        Assert.Equal(before, Contents(decoy));
+        Assert.Equal(new InterruptedSwitch(b, a, "profile-a"), SwitchJournal.Read(repo.GitDir));
+    }
+
     [Theory]
     [InlineData(Operation.Discard)]
     [InlineData(Operation.Clean)]

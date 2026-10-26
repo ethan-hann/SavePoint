@@ -99,32 +99,45 @@ public sealed partial class GitEngine
 
     // Refuses, before anything is written, a switch that would run over work that is not saved: unsaved changes in the folder, or
     // a half-switched folder that is not being finished. Files the game's patterns name are never in the way: the switch leaves them.
-    private async Task RequireNothingInTheWayAsync(RepoRef repo, string? from, string to, bool force, InterruptedSwitch? note, CancellationToken ct)
+    // A switch that finishes a stopped one may find files the stopped switch was writing: those are returned (git would refuse them as
+    // local changes), and a change anywhere else is unsaved work as in any switch.
+    private async Task<IReadOnlyList<string>> RequireNothingInTheWayAsync(RepoRef repo, string? from, string to, bool force, SwitchPlan plan, InterruptedSwitch? note, CancellationToken ct)
     {
         if (force)
         {
-            return;
+            return [];
         }
 
-        if (note is not null)
+        // Only the switch that was started may finish a half-switched folder; what else is in it cannot be told apart.
+        if (note is not null && !string.Equals(note.ToCommit, to, StringComparison.Ordinal))
         {
-            // Only the switch that was started may finish a half-switched folder; what else is in it cannot be told apart.
-            if (!string.Equals(note.ToCommit, to, StringComparison.Ordinal))
-            {
-                throw new InterruptedSwitchException(repo.Role, note.ToCommit);
-            }
-
-            return;
+            throw new InterruptedSwitchException(repo.Role, note.ToCommit);
         }
 
         var changed = ListChangedAsync(repo, hasCommits: from is not null, ct);
         var untracked = ListNewAsync(repo, ct);
         var changedPaths = await changed.ConfigureAwait(false);
         var newFiles = (await untracked.ConfigureAwait(false)).Files;
-        if (changedPaths.Count > 0 || newFiles.Count > 0)
+        if (note is null)
         {
-            throw OnlyHeldChanges(repo, changedPaths, newFiles.Count)?.ToException(HeldFileOperation.Switch) ?? new DirtyWorkingTreeException(repo.Role);
+            if (changedPaths.Count > 0 || newFiles.Count > 0)
+            {
+                throw OnlyHeldChanges(repo, changedPaths, newFiles.Count)?.ToException(HeldFileOperation.Switch) ?? new DirtyWorkingTreeException(repo.Role);
+            }
+
+            return [];
         }
+
+        // A stopped switch may have aligned the index for the files the patterns name, which makes those differ from HEAD; they are never in the way.
+        var inSwitch = plan.Touched.Concat(plan.Named).ToHashSet(PathComparerFor(repo));
+        var changedElsewhere = changedPaths.Where(path => !inSwitch.Contains(path)).ToArray();
+        var newElsewhere = newFiles.Where(path => !inSwitch.Contains(path)).ToArray();
+        if (changedElsewhere.Length > 0 || newElsewhere.Length > 0)
+        {
+            throw OnlyHeldChanges(repo, changedElsewhere, newElsewhere.Length)?.ToException(HeldFileOperation.Switch) ?? new DirtyWorkingTreeException(repo.Role);
+        }
+
+        return [.. changedPaths.Concat(newFiles).Where(plan.Written.Contains).Distinct(StringComparer.Ordinal)];
     }
 
     // git reads a file again when its timestamp is too new to trust (one stamped at the same moment as the last index write), and a

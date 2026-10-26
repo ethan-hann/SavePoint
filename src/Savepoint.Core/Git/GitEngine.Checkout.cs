@@ -18,6 +18,8 @@ public sealed partial class GitEngine
     /// does not write it, remove it or restore it, whether or not either point holds it. A path that is a file in one place and a
     /// folder in the other cannot be switched while the folder holds a file the switch does not remove itself (one the patterns
     /// name, say), or while a file of the player's stands where a folder is needed: the switch stops before it writes anything.
+    /// A switch that finishes a stopped one (the same target) writes the target's copy of the files the stopped switch was writing, whatever
+    /// they hold now, because a stopped switch leaves some of them half written; an unsaved change in any other file still refuses it.
     /// When the switch is done it creates the empty folders the target point was taken with (git does not track them) that are missing.
     /// It only creates: no folder is removed or filled, and one the game's patterns name, one below a folder link and one a file of the
     /// player's stands on are left out. An empty folder the target does not hold is left as it is. This holds for the other switch methods too.
@@ -367,7 +369,7 @@ public sealed partial class GitEngine
         // A mark an earlier switch could not take off would hide a file from the checks below.
         await ClearSkipWorktreeAsync(repo, ct).ConfigureAwait(false);
 
-        var (plan, sizes) = await RequireSwitchPossibleAsync(repo, from, to, force, note, ct).ConfigureAwait(false);
+        var (plan, sizes, finishing) = await RequireSwitchPossibleAsync(repo, from, to, force, note, ct).ConfigureAwait(false);
 
         // From here the switch writes the index itself (the marks, the alignment, the checkout, the re-syncs), and a rebuild from the last
         // snapshot would undo that. Damage found from now on ends the switch with an error and leaves the note; the next operation repairs.
@@ -413,6 +415,7 @@ public sealed partial class GitEngine
         var marked = marks.Length > 0;
         try
         {
+            await WriteFinishingPathsAsync(repo, to, finishing, aligned, ct).ConfigureAwait(false);
             await RunCheckoutAsync(repo, target, to, isBranch, force, ownsNote: note is null, aligned, reporter, ct).ConfigureAwait(false);
             reporter?.Complete();
 
@@ -473,16 +476,17 @@ public sealed partial class GitEngine
 
     // Which files the switch will write and remove is known before it starts: nothing unsaved may be in the way, and a
     // file that cannot be removed is found afterwards. Reads only, so it also answers for a switch that is not made yet.
-    private async Task<(SwitchPlan Plan, Dictionary<string, long> Sizes)> RequireSwitchPossibleAsync(RepoRef repo, string? from, string to, bool force, InterruptedSwitch? note, CancellationToken ct)
+    // Finishing is the files a stopped switch was writing, which git alone would refuse as local changes (see RunCheckoutAsync).
+    private async Task<(SwitchPlan Plan, Dictionary<string, long> Sizes, IReadOnlyList<string> Finishing)> RequireSwitchPossibleAsync(RepoRef repo, string? from, string to, bool force, InterruptedSwitch? note, CancellationToken ct)
     {
         var plan = await PlanSwitchAsync(repo, from, to, note, ct).ConfigureAwait(false);
         LinkedFolders.RefuseAny(repo.WorkTree, plan.Touched, ct);
         await RefuseCaseClashAsync(repo, to, ct).ConfigureAwait(false);
-        await RequireNothingInTheWayAsync(repo, from, to, force, note, ct).ConfigureAwait(false);
+        var finishing = await RequireNothingInTheWayAsync(repo, from, to, force, plan, note, ct).ConfigureAwait(false);
         await RefuseFileFolderClashAsync(repo, plan, force, ct).ConfigureAwait(false);
         var sizes = await ObjectSizesAsync(repo, plan.Changes.SelectMany(change => new[] { change.OldId, change.NewId }), ct).ConfigureAwait(false);
         EnsureCheckoutSpace(repo, plan.Changes, sizes);
-        return (plan, sizes);
+        return (plan, sizes, finishing);
     }
 
     private void EnsureCheckoutSpace(RepoRef repo, IReadOnlyList<TreeChange> changes, Dictionary<string, long> sizes)
@@ -494,6 +498,60 @@ public sealed partial class GitEngine
         if (free < required)
         {
             throw new DiskSpaceException(repo.WorkTree, required, free);
+        }
+    }
+
+    // A switch that was killed while git wrote files leaves HEAD and the index at the old point and some files already at the new one, so a
+    // plain checkout reads them as local changes and refuses, and the switch could never be finished. Checking out just those paths from the
+    // target does not look at what is in the files: it writes the target's copy and its index entry, which is what the stopped switch was
+    // doing. Nothing else is forced, so the checkout that follows still refuses a change anywhere else. The note is the proof that this
+    // switch is the one that was running; it is never cleared here, and a failure leaves it.
+    private async Task WriteFinishingPathsAsync(RepoRef repo, string to, IReadOnlyList<string> paths, AlignedIndex? aligned, CancellationToken ct)
+    {
+        for (var attempt = 0; paths.Count > 0; attempt++)
+        {
+            GitResult result;
+            try
+            {
+                result = await RunRawAsync(Invocation(repo, readOnly: false, "checkout", to).WithPathspecs(paths) with { AllowedExitCodes = _anyExitCode }, ct).ConfigureAwait(false);
+            }
+            catch (Exception e) when (e is FolderChangedException or ConsentMarkerException or GitOperationException)
+            {
+                // Raised before git started, so nothing was written; the index goes back as the alignment found it.
+                await TryRestoreAsync(repo, aligned).ConfigureAwait(false);
+                throw;
+            }
+
+            if (result.ExitCode == 0)
+            {
+                return;
+            }
+
+            var stderr = result.StandardError;
+            if (GitFailure.IsLockContention(stderr))
+            {
+                if (attempt < _options.LockRetryDelays.Count)
+                {
+                    await Task.Delay(_options.LockRetryDelays[attempt], ct).ConfigureAwait(false);
+                    continue;
+                }
+
+                await TryRestoreAsync(repo, aligned).ConfigureAwait(false);
+                throw new GitOperationException(GitFailure.LockFilePath(stderr), $"git could not take its lock: {stderr.Trim()}");
+            }
+
+            if (GitFailure.IsDiskFull(stderr))
+            {
+                throw new DiskSpaceException(repo.WorkTree, _options.MinFreeBytesForCheckout, _freeSpace(repo.WorkTree));
+            }
+
+            // A file another program holds stays as it is; the checkout that follows names it.
+            if (!GitFailure.FileCouldNotBeReplaced(stderr))
+            {
+                throw GitFailure.ToException(new GitCommandException(["checkout", to], result.ExitCode, stderr));
+            }
+
+            return;
         }
     }
 
