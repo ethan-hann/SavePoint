@@ -99,7 +99,7 @@ Press **Play** on a profile, or **Go back to this** on a snapshot in History. Be
 
 ![The check before playing: Switch to "Vanilla 1.4"? It says the game goes from 38 mod files to no mods and about 4.3 GB of files will be removed, taking less than a minute; the saves to load are Vanilla 1.4's latest save snapshot, with a What's a save snapshot? button. Below are a tick box to skip this check when only saves change, Cancel and Switch and play.](images/before-playing.png)
 
-**Switch and play** puts the files in place, shows how much it's copied and roughly how long is left, and starts the game. While the game runs, SavePoint shows a running card. If SavePoint can't tell when you've stopped (some launchers hide the game), press **I'm done playing**.
+**Switch and play** puts the files in place, shows how much it's copied and roughly how long is left, and starts the game. While the game runs, SavePoint shows a running card. If SavePoint can't tell when you've stopped (some launchers hide the game), press **I'm done playing**. If the program SavePoint started closes right away with an error, the running card says so and keeps watching for the game for up to two minutes, since some games restart themselves through Steam. On Linux, games installed by Steam usually need Steam to start them, so set them to start **Through Steam** in Edit game.
 
 ### When you finish
 
