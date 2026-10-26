@@ -3,6 +3,7 @@ using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Common.Preferences;
 using Savepoint.App.Features.Common.Toasts;
+using Savepoint.App.Platform;
 using Savepoint.Core.Api;
 
 namespace Savepoint.App.Features.Launch;
@@ -20,6 +21,7 @@ namespace Savepoint.App.Features.Launch;
 /// <param name="Dispatcher">Brings Api events to the UI thread.</param>
 /// <param name="Clock">Says what time it is and times the running card's refresh.</param>
 /// <param name="Awaiter">Lets a dialog wait for a job it started.</param>
+/// <param name="Attention">Calls the player back when the after-play dialog opens behind another window.</param>
 public sealed record LaunchDependencies(
     ILaunchApi Launch,
     IProfilesApi Profiles,
@@ -32,4 +34,5 @@ public sealed record LaunchDependencies(
     ToastHostViewModel Toasts,
     IUiDispatcher Dispatcher,
     TimeProvider Clock,
-    JobAwaiter Awaiter);
+    JobAwaiter Awaiter,
+    ISessionAttention Attention);

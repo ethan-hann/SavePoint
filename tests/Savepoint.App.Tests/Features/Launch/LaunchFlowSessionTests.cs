@@ -289,6 +289,25 @@ public class LaunchFlowSessionTests : IDisposable
     }
 
     [Fact]
+    public async Task The_player_is_called_back_as_the_after_play_dialog_opens()
+    {
+        await _f.PlayToExitedAsync();
+
+        Assert.Single(_f.Dialogs.Shown.OfType<PostPlayDialogViewModel>());
+        Assert.Equal(["Skyrim Special Edition"], _f.Rig.Attention.Ended);
+    }
+
+    [Fact]
+    public async Task With_session_capture_off_nobody_is_called_back_because_no_dialog_opens()
+    {
+        FakeAssert.Ok(await _f.Backend.Settings.SaveAsync(SampleScenario.Settings with { ConfirmSessionCapture = false }));
+
+        await _f.PlayToExitedAsync();
+
+        Assert.Empty(_f.Rig.Attention.Ended);
+    }
+
+    [Fact]
     public async Task A_setting_that_cannot_be_read_means_the_player_is_asked()
     {
         FakeAssert.Ok(await _f.Backend.Settings.SaveAsync(SampleScenario.Settings with { ConfirmSessionCapture = false }));

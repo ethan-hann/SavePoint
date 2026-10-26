@@ -35,8 +35,11 @@ internal sealed class LaunchRig : IDisposable
             Toasts,
             new ImmediateUiDispatcher(),
             Clock,
-            Awaiter);
+            Awaiter,
+            Attention);
     }
+
+    public RecordingAttention Attention { get; } = new();
 
     public static LaunchTarget SurvivalTip => new LaunchTarget.ProfileTip(SampleScenario.SurvivalId);
 
