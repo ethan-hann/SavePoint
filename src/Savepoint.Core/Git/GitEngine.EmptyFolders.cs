@@ -33,13 +33,13 @@ public sealed partial class GitEngine
         }
 
         var excluded = await ExcludedAmongAsync(repo, missing, ct).ConfigureAwait(false);
-        repo.Guard?.Recheck();
+        RecheckBeforeFileChanges(repo, "make-folders");
         foreach (var folder in missing.Where(folder => !excluded.Contains(folder) && !LinkedFolders.IsInsideLink(repo.WorkTree, folder)))
         {
             ct.ThrowIfCancellationRequested();
             try
             {
-                Directory.CreateDirectory(FullPath(repo, folder));
+                Directory.CreateDirectory(RealFullPath(repo, folder));
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
             {

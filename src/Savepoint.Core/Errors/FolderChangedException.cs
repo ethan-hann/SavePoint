@@ -3,9 +3,10 @@ using Savepoint.Core.Catalog;
 namespace Savepoint.Core.Errors;
 
 /// <summary>
-/// A game folder was replaced, moved, or re-linked, or lost its consent marker, between the moment SavePoint approved it and a step
-/// that would delete or overwrite files in it (<c>error.path.changed</c>). The step was not run, so nothing outside the folder
-/// SavePoint approved was touched; steps that finished before the change are not undone. Args: <c>path</c> and <c>role</c>.
+/// A game folder was replaced, moved, or re-linked between the moment SavePoint approved it and a step that would delete or overwrite
+/// files in it (<c>error.path.changed</c>). The step was not run, so nothing outside the folder SavePoint approved was touched; steps that
+/// finished before the change are not undone. A consent marker that goes missing in that time is <see cref="ConsentMarkerException"/>
+/// instead. Args: <c>path</c> and <c>role</c>.
 /// </summary>
 public sealed class FolderChangedException : SavepointException
 {

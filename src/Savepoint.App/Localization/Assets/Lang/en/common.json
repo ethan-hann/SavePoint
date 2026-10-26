@@ -70,6 +70,7 @@
   "errorCard.title.storageUnreachable": "SavePoint can't reach your snapshots",
   "errorCard.title.storageUnreadable": "SavePoint couldn't read part of its snapshot folder",
   "errorCard.title.storageUnwritable": "SavePoint couldn't write to its snapshot folder",
+  "errorCard.title.switchNoteStuck": "SavePoint couldn't clear its switch note",
   "errorCard.title.switchUnfinished": "The last switch didn't finish",
   "errorCard.title.toolMissing": "SavePoint's built-in tool is missing",
   "errorCard.title.unsavedChanges": "New changes are in the way",

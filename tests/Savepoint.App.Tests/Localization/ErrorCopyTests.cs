@@ -86,6 +86,8 @@ public class ErrorCopyTests
             new NamesDifferOnlyInCaseException(RepoRole.External, "/saves/alpha/Slot", "/saves/alpha/slot"),
             new FolderChangedException("/games/alpha", RepoRole.Install),
             new FolderChangedException("/saves/alpha", RepoRole.External),
+            new SwitchNoteStuckException(RepoRole.Install, "/storage/alpha.git/savepoint-switch.json"),
+            new SwitchNoteStuckException(RepoRole.External, "/storage/alpha.git/savepoint-switch.json"),
             new SessionMovedException(RepoRole.Install, "dev text"),
             new ProfileAlreadyExistsException("profile-1"),
             new ProfileHasNoPointsException("profile-1"),

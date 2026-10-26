@@ -10,7 +10,22 @@ namespace Savepoint.Core.Tests.Git.Engine;
 [Collection(EngineCollections.E)]
 public sealed class FolderRecheckTests : IDisposable
 {
-    private readonly EngineWorkspace _ws = new(options => options with { HoldFolderOpen = false });
+    private readonly EngineWorkspace _ws;
+
+    // Set by a test to act at a step the engine takes on the folder itself: before it looks at the folder again, or right after.
+    private Action<string>? _beforeStep;
+    private Action<string>? _afterRecheck;
+
+    public FolderRecheckTests()
+    {
+        _ws = new(options => options with
+        {
+            HoldFolderOpen = false,
+            ResyncDelays = [TimeSpan.FromMilliseconds(20), TimeSpan.FromMilliseconds(20)],
+            BeforeFileChanges = step => _beforeStep?.Invoke(step),
+            AfterFileRecheck = step => _afterRecheck?.Invoke(step),
+        });
+    }
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -227,9 +242,9 @@ public sealed class FolderRecheckTests : IDisposable
         Directory.Delete(_ws.FileOf(repo, "archive"), recursive: true);
         var decoy = CopyAsDecoy(repo);
         var swapped = false;
-        _ws.OnInvoke = invocation =>
+        _beforeStep = step =>
         {
-            if (!swapped && invocation.Arguments[0] == "check-ignore")
+            if (!swapped && step == "make-folders")
             {
                 swapped = true;
                 ReplaceWithLinkTo(repo, decoy);
@@ -240,6 +255,280 @@ public sealed class FolderRecheckTests : IDisposable
 
         Assert.True(swapped, "the empty folders were never looked at, so the test did not reach the step it is about");
         Assert.False(Directory.Exists(Path.Combine(decoy, "archive")));
+    }
+
+    // profile-a holds a file named logs, profile-b holds logs/run.txt; the patterns name the folder, so the switch to profile-b removes the
+    // player's old file itself, without git. The folder is on profile-a.
+    private async Task<RepoRef> LogsAsync()
+    {
+        var (repo, _) = await RepoTemplates.CopyAsync<string?>("folder-recheck-logs", _ws, async ws =>
+        {
+            var repo = await ws.InitializedFreshAsync();
+            ws.Write(repo, "logs", "a's logs file");
+            ws.Write(repo, "a-only.txt", "a");
+            await ws.CaptureAsync(repo, "profile-a", "A");
+            await ws.Engine.CreateBranchAsync(repo, "profile-b", "profile-a", TestContext.Current.CancellationToken);
+            await ws.Engine.CheckoutBranchAsync(repo, "profile-b", ct: TestContext.Current.CancellationToken);
+            ws.Delete(repo, "logs");
+            ws.Delete(repo, "a-only.txt");
+            ws.Write(repo, "logs/run.txt", "b's run log");
+            ws.Write(repo, "b-only.txt", "b");
+            await ws.CaptureAsync(repo, "profile-b", "B");
+            await ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: TestContext.Current.CancellationToken);
+            return (repo, null);
+        });
+        return repo with { IgnorePatterns = ["logs/"] };
+    }
+
+    // The first call to git after a clean looks for what is left; a file the folder gets just then is what the retry removes.
+    private void MakeFileAfterTheFirstClean(RepoRef repo, string name, string content)
+    {
+        var cleaned = false;
+        var made = false;
+        _ws.OnInvoke = invocation =>
+        {
+            if (invocation.Arguments[0] == "clean")
+            {
+                cleaned = true;
+            }
+            else if (cleaned && !made && invocation.ReadOnly)
+            {
+                made = true;
+                File.WriteAllText(_ws.FileOf(repo, name), content);
+            }
+        };
+    }
+
+    [Fact]
+    public async Task A_folder_swapped_before_the_files_a_switch_displaces_are_removed_is_refused_and_nothing_outside_is_touched()
+    {
+        RequireLinks(_ws.Root);
+        var repo = await LogsAsync();
+        var decoy = CopyAsDecoy(repo);
+        var before = Contents(decoy);
+        var reached = false;
+        _beforeStep = step =>
+        {
+            if (step == "remove-displaced")
+            {
+                reached = true;
+                ReplaceWithLinkTo(repo, decoy);
+            }
+        };
+
+        await Assert.ThrowsAsync<FolderChangedException>(() => _ws.Engine.CheckoutBranchAsync(repo, "profile-b", ct: Ct));
+
+        Assert.True(reached, "the switch never removed the displaced file, so the test did not reach the step it is about");
+        Assert.Equal(before, Contents(decoy));
+    }
+
+    [Theory]
+    [InlineData(Operation.Clean)]
+    [InlineData(Operation.Discard)]
+    public async Task A_folder_swapped_before_the_clean_is_retried_is_refused_and_nothing_outside_is_touched(Operation operation)
+    {
+        RequireLinks(_ws.Root);
+        var repo = await PrepareAsync(_ws, operation);
+        var decoy = CopyAsDecoy(repo);
+        var before = Contents(decoy);
+        MakeFileAfterTheFirstClean(repo, "late.txt", "made as the clean ended");
+        var reached = false;
+        _beforeStep = step =>
+        {
+            if (!reached && step == "remove-new")
+            {
+                reached = true;
+                ReplaceWithLinkTo(repo, decoy);
+            }
+        };
+
+        await Assert.ThrowsAsync<FolderChangedException>(() => RunAsync(_ws, operation, repo));
+
+        Assert.True(reached, "the clean was never retried, so the test did not reach the step it is about");
+        Assert.Equal(before, Contents(decoy));
+    }
+
+    // The switch from profile-b to profile-a removes b-only.txt; the file comes back (same bytes) as the verify begins, as a program
+    // that was still writing it would leave it, so the switch removes it again itself.
+    private void RemakeLeftoverWhenTheSwitchIsVerified(RepoRef repo)
+    {
+        var made = false;
+        _ws.OnInvoke = invocation =>
+        {
+            if (!made && EngineWorkspace.IsVerifyDiff(invocation))
+            {
+                made = true;
+                File.WriteAllText(_ws.FileOf(repo, "b-only.txt"), "b");
+            }
+        };
+    }
+
+    [Fact]
+    public async Task A_switch_removes_a_file_that_came_back_while_it_was_verified()
+    {
+        var repo = (await TwoProfilesAsync(_ws)).Repo;
+        RemakeLeftoverWhenTheSwitchIsVerified(repo);
+
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+
+        Assert.False(File.Exists(_ws.FileOf(repo, "b-only.txt")));
+        Assert.True(File.Exists(_ws.FileOf(repo, "a-only.txt")));
+    }
+
+    [Fact]
+    public async Task A_folder_swapped_before_a_leftover_file_is_removed_is_refused_and_nothing_outside_is_touched()
+    {
+        RequireLinks(_ws.Root);
+        var repo = (await TwoProfilesAsync(_ws)).Repo;
+        var decoy = CopyAsDecoy(repo);
+        var before = Contents(decoy);
+        RemakeLeftoverWhenTheSwitchIsVerified(repo);
+        var reached = false;
+        _beforeStep = step =>
+        {
+            if (!reached && step == "remove-leftover")
+            {
+                reached = true;
+                ReplaceWithLinkTo(repo, decoy);
+            }
+        };
+
+        await Assert.ThrowsAsync<FolderChangedException>(() => _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct));
+
+        Assert.True(reached, "no leftover file was found, so the test did not reach the step it is about");
+        Assert.Equal(before, Contents(decoy));
+    }
+
+    [Fact]
+    public async Task Files_are_removed_from_the_folder_a_link_led_to_when_it_is_pointed_elsewhere_after_the_last_look()
+    {
+        RequireLinks(_ws.Root);
+        var real = await PrepareAsync(_ws, Operation.Clean);
+        var decoy = CopyAsDecoy(real);
+        var before = Contents(decoy);
+        var linked = real with { WorkTree = Path.Combine(_ws.Root, "linked") };
+        Assert.True(TestLinks.TryCreateFolderLink(linked.WorkTree, real.WorkTree), "this system cannot make folder links");
+        MakeFileAfterTheFirstClean(real, "late.txt", "made as the clean ended");
+        var reached = false;
+        _afterRecheck = step =>
+        {
+            if (!reached && step == "remove-new")
+            {
+                reached = true;
+                TestLinks.RemoveFolderLink(linked.WorkTree);
+                Assert.True(TestLinks.TryCreateFolderLink(linked.WorkTree, decoy), "this system cannot make folder links");
+            }
+        };
+
+        var error = await Record.ExceptionAsync(() => _ws.Engine.CleanAsync(linked, Ct));
+
+        Assert.True(reached, "the clean was never retried, so the test did not reach the step it is about");
+        Assert.Null(error);
+        Assert.False(File.Exists(_ws.FileOf(real, "late.txt")), "the file was not removed from the folder the link led to when it was approved");
+        Assert.Equal(before, Contents(decoy));
+    }
+
+    [Fact]
+    public async Task A_switch_refused_because_the_marker_cannot_be_read_leaves_no_note_of_an_unfinished_switch()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows lets one program keep another from reading a file");
+        var repo = await PrepareAsync(_ws, Operation.Switch);
+        var head = await _ws.HeadRefAsync(repo);
+        FileStream? held = null;
+        SwapBeforeFirstDestructiveStep(() => held = new FileStream(EngineWorkspace.MarkerPath(repo), FileMode.Open, FileAccess.Read, FileShare.None));
+
+        try
+        {
+            await Assert.ThrowsAsync<GitOperationException>(() => RunAsync(_ws, Operation.Switch, repo));
+        }
+        finally
+        {
+            held?.Dispose();
+        }
+
+        Assert.NotNull(held);
+        Assert.False(File.Exists(SwitchJournal.PathIn(repo.GitDir)), "a note says a switch is unfinished although nothing was written");
+        Assert.Equal(head, await _ws.HeadRefAsync(repo));
+    }
+
+    [Fact]
+    public async Task On_Windows_a_folder_pointed_elsewhere_just_before_it_is_held_is_refused_and_nothing_outside_is_touched()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows holds a folder open");
+        Action<string>? before = null;
+        using var holding = new EngineWorkspace(options => options with { BeforeFileChanges = step => before?.Invoke(step) });
+        var repo = await PrepareAsync(holding, Operation.Discard);
+        var decoy = Path.Combine(holding.Root, "outside");
+        CopyFolder(repo.WorkTree, decoy);
+        var contents = Contents(decoy);
+        before = step =>
+        {
+            if (step == "hold")
+            {
+                Directory.Move(repo.WorkTree, repo.WorkTree + "-moved");
+                Assert.True(TestLinks.TryCreateFolderLink(repo.WorkTree, decoy), "this system cannot make folder links");
+            }
+        };
+
+        await Assert.ThrowsAsync<FolderChangedException>(() => RunAsync(holding, Operation.Discard, repo));
+
+        Assert.Equal(contents, Contents(decoy));
+    }
+
+    [Fact]
+    public async Task On_Windows_the_folder_a_link_leads_to_cannot_be_renamed_while_the_step_runs()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows lets a program keep a folder from being renamed");
+        using var holding = new EngineWorkspace();
+        var real = await PrepareAsync(holding, Operation.Discard);
+        var linked = real with { WorkTree = Path.Combine(holding.Root, "linked") };
+        Assert.True(TestLinks.TryCreateFolderLink(linked.WorkTree, real.WorkTree), "this system cannot make folder links");
+        Exception? renameFailure = null;
+        var tried = false;
+        holding.OnInvoke = invocation =>
+        {
+            if (tried || !IsDestructive(invocation))
+            {
+                return;
+            }
+
+            tried = true;
+            try
+            {
+                Directory.Move(real.WorkTree, real.WorkTree + "-moved");
+                Directory.Move(real.WorkTree + "-moved", real.WorkTree);
+            }
+            catch (IOException e)
+            {
+                renameFailure = e;
+            }
+        };
+
+        await holding.Engine.DiscardChangesAsync(linked, Ct);
+
+        Assert.IsAssignableFrom<IOException>(renameFailure);
+        AssertDone(holding, Operation.Discard, real);
+    }
+
+    [Fact]
+    public async Task On_Windows_a_cancelled_operation_lets_go_of_the_folder()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows lets a program keep a folder from being renamed");
+        using var holding = new EngineWorkspace();
+        var repo = await PrepareAsync(holding, Operation.Discard);
+        using var cancel = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+        holding.OnInvoke = invocation =>
+        {
+            if (IsDestructive(invocation))
+            {
+                cancel.Cancel();
+            }
+        };
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => holding.Engine.DiscardChangesAsync(repo, cancel.Token));
+
+        Directory.Move(repo.WorkTree, repo.WorkTree + "-after");
+        Assert.True(Directory.Exists(repo.WorkTree + "-after"));
     }
 
     [Theory]

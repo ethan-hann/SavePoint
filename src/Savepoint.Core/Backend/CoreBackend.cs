@@ -101,7 +101,7 @@ public sealed class CoreBackend
         var runner = new GitRunner(git, new GitRunnerOptions { Log = log });
         var disk = options.DiskSpace ?? new DiskSpace();
         var installDirectory = Path.TrimEndingDirectorySeparator(Path.GetFullPath(options.InstallDirectory ?? AppContext.BaseDirectory));
-        var engineOptions = (options.Engine ?? new GitEngineOptions()) with { Clock = time };
+        var engineOptions = (options.Engine ?? new GitEngineOptions()) with { Clock = time, Log = log };
 
         var sessions = new ForwardingGameSessions();
         if (options.Sessions is { } given)

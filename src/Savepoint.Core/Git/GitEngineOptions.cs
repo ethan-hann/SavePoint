@@ -1,3 +1,5 @@
+using Savepoint.Core.Diagnostics;
+
 namespace Savepoint.Core.Git;
 
 /// <summary>Tuning for <see cref="GitEngine"/>. The defaults are the ones the app uses.</summary>
@@ -22,6 +24,17 @@ public sealed record GitEngineOptions
     // Whether a switch, discard or clean keeps the game folder from being renamed or deleted while it runs (Windows); tests that swap the
     // folder to see the later check refuse it turn this off.
     internal bool HoldFolderOpen { get; init; } = true;
+
+    /// <summary>Where the engine records what it could not do for a folder, such as holding it open; null writes nothing.</summary>
+    public IDiagnosticLog? Log { get; init; }
+
+    // Called with the name of a step ("hold", "remove-displaced", "remove-new", "remove-leftover", "make-folders") just before the engine
+    // looks at the guarded folder again for it; tests swap the folder here to see the look refuse it.
+    internal Action<string>? BeforeFileChanges { get; init; }
+
+    // Called with the same names right after that look passed and before the step changes any file; tests change a link here to see that
+    // the step still works on the folder that was looked at.
+    internal Action<string>? AfterFileRecheck { get; init; }
 
     // Called with a git directory just before its files are deleted, on the thread that deletes them; tests block in it to see who is kept waiting.
     internal Action<string>? BeforeGitDirDelete { get; init; }

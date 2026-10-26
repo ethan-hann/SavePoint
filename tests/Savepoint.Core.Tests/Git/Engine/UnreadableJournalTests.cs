@@ -146,6 +146,52 @@ public sealed class UnreadableJournalTests : IDisposable
     }
 
     [Fact]
+    public async Task A_note_another_program_holds_for_a_moment_is_read_once_it_lets_go()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows lets one program keep another from reading a file");
+        var (repo, points) = await _ws.TwoPointsRepoAsync();
+        SwitchJournal.Write(repo.GitDir, points[0], points[1]);
+        var held = new FileStream(SwitchJournal.PathIn(repo.GitDir), FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(40, Ct);
+            held.Dispose();
+        }, Ct);
+
+        var note = SwitchJournal.Read(repo.GitDir);
+
+        Assert.Equal(new InterruptedSwitch(points[0], points[1]), note);
+    }
+
+    [Fact]
+    public async Task A_discard_that_cannot_remove_the_note_says_so_and_the_next_discard_removes_it()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows lets one program keep another from deleting a file");
+        var (repo, _) = await _ws.TwoPointsRepoAsync();
+        var note = SwitchJournal.PathIn(repo.GitDir);
+        File.WriteAllText(note, "{ this is not a note");
+        _ws.Write(repo, "a.txt", "edited");
+        var held = new FileStream(note, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+        try
+        {
+            var error = await Assert.ThrowsAsync<SwitchNoteStuckException>(() => _ws.Engine.DiscardChangesAsync(repo, Ct));
+
+            Assert.Equal("error.launch.switchNoteStuck", error.MessageId);
+            Assert.Equal(RepoRole.Install, error.Args["role"]);
+            Assert.Equal(note, error.Args["path"]);
+            Assert.Equal("one", File.ReadAllText(_ws.FileOf(repo, "a.txt")));
+        }
+        finally
+        {
+            held.Dispose();
+        }
+
+        await _ws.Engine.DiscardChangesAsync(repo, Ct);
+
+        Assert.False(File.Exists(note));
+    }
+
+    [Fact]
     public async Task A_capture_still_works_when_there_is_no_note()
     {
         var (repo, points) = await _ws.TwoPointsRepoAsync();

@@ -90,16 +90,22 @@ public sealed partial class GitEngine
         }
     }
 
-    // Judges the work tree, verifies the marker, and pins the folder (and holds it on Windows) for a destructive operation. The caller
-    // disposes the guard when the operation ends and passes the repo on with it set as Guard. The pin is taken before the folder is
-    // judged, so a swap between the two shows up at the first recheck.
+    // Judges the work tree, pins the folder, verifies the marker, and holds the folder (on Windows) for a destructive operation. The caller
+    // disposes the guard when the operation ends and passes the repo on with it set as Guard. A spelling that is refused is never pinned;
+    // where the pin shows the path leads elsewhere than its spelling does, that folder is judged too.
     private FolderGuard Approve(RepoRef repo)
     {
-        var guard = FolderGuard.Pin(_pathSafety, repo);
+        CheckWorkTree(repo);
+        var guard = FolderGuard.Pin(_pathSafety, repo, _options.Log);
         try
         {
-            CheckWorkTree(repo);
+            if (!string.Equals(guard.RealPath, repo.WorkTree, StringComparison.Ordinal))
+            {
+                _pathSafety.Check(guard.RealPath);
+            }
+
             RepoMarker.Verify(repo);
+            _options.BeforeFileChanges?.Invoke("hold");
             guard.Hold(_options.HoldFolderOpen);
             return guard;
         }
@@ -109,6 +115,19 @@ public sealed partial class GitEngine
             throw;
         }
     }
+
+    // Right before the engine deletes files or makes folders itself (git is not involved), the guarded folder is looked at again. The step
+    // then works on the folder as it was approved (see RealFullPath), so a link changed after this look cannot redirect it.
+    private void RecheckBeforeFileChanges(RepoRef repo, string step)
+    {
+        _options.BeforeFileChanges?.Invoke(step);
+        repo.Guard?.Recheck();
+        _options.AfterFileRecheck?.Invoke(step);
+    }
+
+    // The path of a file in the folder for a step that changes it: under the guard, the folder the path led to when it was approved.
+    private static string RealFullPath(RepoRef repo, string relative) =>
+        Path.Combine(repo.Guard?.RealPath ?? repo.WorkTree, relative.Replace('/', Path.DirectorySeparatorChar));
 
     // Throws when the storage volume cannot take another capture or repack (the floor, plus any bytes the operation is known
     // to need on top); checked before anything is written.

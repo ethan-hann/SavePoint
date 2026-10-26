@@ -46,7 +46,24 @@ public class ErrorCardViewModelTests
         Assert.Equal(ErrorTone.Warning, card.Tone);
         Assert.Contains($"The {name} was replaced or moved while SavePoint was working on it", card.Body);
         Assert.Contains("stopped before changing more files", card.Body);
+        Assert.Contains("Some files may already be changed.", card.Body);
         Assert.Equal(folder, card.Path);
+    }
+
+    [Theory]
+    [InlineData(RepoRole.Install, "install folder")]
+    [InlineData(RepoRole.External, "saves folder")]
+    public void A_note_that_could_not_be_removed_says_the_files_are_back_and_the_note_is_what_is_left(RepoRole role, string name)
+    {
+        var note = PathOnThisSystem("Storage", "alpha.git", "savepoint-switch.json");
+
+        var card = new ErrorCardViewModel(ErrorInfo.From(new SwitchNoteStuckException(role, note)), _text);
+
+        Assert.Equal("SavePoint couldn't clear its switch note", card.Title);
+        Assert.Equal(ErrorTone.Warning, card.Tone);
+        Assert.Contains($"The files in your {name} are back as they were", card.Body);
+        Assert.Contains("discard again", card.Body);
+        Assert.Equal(note, card.Path);
     }
 
     [Fact]

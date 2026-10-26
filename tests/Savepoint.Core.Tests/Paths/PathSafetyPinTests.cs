@@ -3,23 +3,23 @@ using Savepoint.Core.Tests.Platform;
 
 namespace Savepoint.Core.Tests.Paths;
 
+// The real links, but no identities, as on Linux and macOS.
+internal sealed class WithoutIdentities : IPathProbe
+{
+    public string? ReadLinkTarget(string path) => PathProbes.Host.ReadLinkTarget(path);
+
+    public string? ExpandShortName(string path) => PathProbes.Host.ExpandShortName(path);
+
+    public FileIdentity? ReadIdentity(string path) => null;
+
+    public IReadOnlyList<string> ReadFinalPaths(string path) => PathProbes.Host.ReadFinalPaths(path);
+}
+
 // A pin says which folder a path led to when it was approved, so a step that cannot be undone can tell whether it is still that folder.
 public class PathSafetyPinTests
 {
     private static PathSafety Safety(TempTree tree) =>
         new(FakePlatforms.ForHost(tree.Dir("home")), Path.Combine(tree.Root, "own-storage"));
-
-    // The real links, but no identities, as on Linux and macOS.
-    private sealed class WithoutIdentities : IPathProbe
-    {
-        public string? ReadLinkTarget(string path) => PathProbes.Host.ReadLinkTarget(path);
-
-        public string? ExpandShortName(string path) => PathProbes.Host.ExpandShortName(path);
-
-        public FileIdentity? ReadIdentity(string path) => null;
-
-        public IReadOnlyList<string> ReadFinalPaths(string path) => PathProbes.Host.ReadFinalPaths(path);
-    }
 
     [Fact]
     public void Where_no_identities_are_reported_a_link_pointed_at_another_folder_is_still_caught_by_the_real_path()

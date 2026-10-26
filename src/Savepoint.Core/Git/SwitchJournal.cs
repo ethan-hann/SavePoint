@@ -9,6 +9,9 @@ internal static class SwitchJournal
 {
     public const string FileName = "savepoint-switch.json";
 
+    private const int _attempts = 4;
+    private static readonly UTF8Encoding _utf8 = new(encoderShouldEmitUTF8Identifier: false);
+
     public static string PathIn(string gitDir) => Path.Combine(gitDir, FileName);
 
     public static void Write(string gitDir, string? from, string to, string? branch = null)
@@ -40,7 +43,17 @@ internal static class SwitchJournal
         }
 
         var unknown = new InterruptedSwitch(null, null);
-        if (AtomicText.ReadOrNull(PathIn(gitDir)) is not { } text)
+        string text;
+        try
+        {
+            text = ReadText(PathIn(gitDir));
+        }
+        catch (FileNotFoundException)
+        {
+            // Cleared while it was being read.
+            return null;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
             return unknown;
         }
@@ -60,20 +73,39 @@ internal static class SwitchJournal
         }
     }
 
-    // A scanner can hold the file for a moment, so a few tries are made; a note that stays makes captures refuse until a switch or a discard clears it.
-    public static void Clear(string gitDir)
+    // A scanner can hold the file for a moment, so a few tries are made, with the same waits as Clear before the note is called unreadable.
+    private static string ReadText(string path)
     {
-        for (var attempt = 1; attempt <= 4; attempt++)
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return File.ReadAllText(path, _utf8);
+            }
+            catch (Exception e) when (attempt < _attempts && e is IOException and not FileNotFoundException and not DirectoryNotFoundException)
+            {
+                Thread.Sleep(30 * attempt);
+            }
+        }
+    }
+
+    // A scanner can hold the file for a moment, so a few tries are made. False when the note is still there afterwards: it makes captures
+    // refuse until a switch or a discard clears it.
+    public static bool Clear(string gitDir)
+    {
+        for (var attempt = 1; attempt <= _attempts; attempt++)
         {
             try
             {
                 File.Delete(PathIn(gitDir));
-                return;
+                return true;
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException)
             {
                 Thread.Sleep(30 * attempt);
             }
         }
+
+        return false;
     }
 }
