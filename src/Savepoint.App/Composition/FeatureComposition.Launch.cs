@@ -1,5 +1,6 @@
 using Savepoint.App.Features.Launch;
 using Savepoint.App.Features.Shell;
+using Savepoint.App.Platform;
 
 namespace Savepoint.App.Composition;
 
@@ -22,6 +23,7 @@ public static partial class FeatureComposition
             context.Toasts,
             context.Dispatcher,
             context.Clock,
-            new JobAwaiter(api.Jobs)));
+            new JobAwaiter(api.Jobs),
+            context.Attention ?? NullSessionAttention.Instance));
     }
 }

@@ -219,6 +219,9 @@ public sealed partial class LaunchFlowViewModel
             return;
         }
 
+        // Steam or a launcher may have taken the focus as the game quit, which would hide the dialog.
+        _deps.Attention.SessionEnded(GameName(flow.GameId));
+
         // The player's choice arrives when the dialog closes, outside this queue; it is applied through the queue again, in order.
         var dialog = new PostPlayDialogViewModel(exited, ProfileName(flow.GameId, session.ProfileId), _deps, !settings.OlderChoiceHelpSeen, !settings.ReplaceHelpSeen, () => EditGameRequested?.Invoke(this, flow.GameId), flow.GameId);
         dialog.Closed += (_, _) => Enqueue(flow, () => CompleteAsync(flow, dialog));

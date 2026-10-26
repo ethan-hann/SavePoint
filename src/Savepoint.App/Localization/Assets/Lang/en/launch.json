@@ -82,6 +82,7 @@
   "launch.partial.rowSkipped": "{folder} · nothing new",
   "launch.partial.title": "Only part of the snapshot was taken",
   "launch.partial.titleNothingSaved": "SavePoint couldn't take a snapshot of that session",
+  "launch.postPlay.attention.body": "{gameName} closed. Open SavePoint to choose what to keep from this session.",
   "launch.postPlay.body": "{count, plural, =0 {SavePoint found no new or changed saves to keep.} one {{countText} file in your saves folder is new or changed since you started.} other {{countText} files in your saves folder are new or changed since you started.}}",
   "launch.postPlay.choicesLabel": "What to do with this session",
   "launch.postPlay.continueIt": "Continue",

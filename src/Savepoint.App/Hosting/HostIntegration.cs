@@ -26,10 +26,12 @@ public sealed class HostIntegration : IDisposable
     private readonly IDisposable _motionRefresh;
     private readonly SingleInstance? _single;
     private readonly ThemeService _theme;
+    private readonly SessionAttentionRelay? _attention;
     private bool _disposed;
 
-    private HostIntegration(Window window, ThemeService theme, AppServices services, UiFormatter text, SingleInstance? single, INotificationService? notifications)
+    private HostIntegration(Window window, ThemeService theme, AppServices services, UiFormatter text, SingleInstance? single, INotificationService? notifications, SessionAttentionRelay? attention)
     {
+        _attention = attention;
         _window = window;
         _theme = theme;
         _games = services.Games;
@@ -38,6 +40,10 @@ public sealed class HostIntegration : IDisposable
         _single = single;
         _activity = new WindowActivityTracker(window);
         _notifications = notifications ?? NotificationServices.Create(window);
+        if (attention is not null)
+        {
+            attention.Target = new SessionAttention(_activity, _notifications, WindowFlashers.For(window), text);
+        }
 
         _motion = ReducedMotionSource.CreateForCurrentOs();
         _motion.Changed += OnMotionChanged;
@@ -59,12 +65,13 @@ public sealed class HostIntegration : IDisposable
     /// <param name="services">The Api whose finished jobs raise notifications.</param>
     /// <param name="text">Formats the notification text.</param>
     /// <param name="single">The single-instance guard whose activation requests bring the window forward; null when there is none.</param>
-    public static HostIntegration Attach(Window window, ThemeService theme, AppServices services, UiFormatter text, SingleInstance? single) =>
-        new(window, theme, services, text, single, null);
+    /// <param name="attention">Receives the real session-end handler (taskbar flash and notification) while the integration lives; null for none.</param>
+    public static HostIntegration Attach(Window window, ThemeService theme, AppServices services, UiFormatter text, SingleInstance? single, SessionAttentionRelay? attention = null) =>
+        new(window, theme, services, text, single, null, attention);
 
     // Lets a test see what would be shown without touching the real notification area.
     internal static HostIntegration Attach(Window window, ThemeService theme, AppServices services, UiFormatter text, INotificationService notifications) =>
-        new(window, theme, services, text, null, notifications);
+        new(window, theme, services, text, null, notifications, null);
 
     /// <summary>Stops listening and gives up the notification area icon.</summary>
     public void Dispose()
@@ -75,6 +82,11 @@ public sealed class HostIntegration : IDisposable
         }
 
         _disposed = true;
+        if (_attention is not null)
+        {
+            _attention.Target = NullSessionAttention.Instance;
+        }
+
         _jobs.JobChanged -= OnJobChanged;
         if (_single is not null)
         {

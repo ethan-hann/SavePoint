@@ -7,6 +7,7 @@ using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Library;
 using Savepoint.App.Features.Settings;
 using Savepoint.App.Features.Shell;
+using Savepoint.App.Platform;
 
 namespace Savepoint.App;
 
@@ -26,6 +27,7 @@ public static class AppComposition
     /// <param name="dialogs">Replaces the dialogs and pickers, for tests; the real ones over the window's dialog overlay when null.</param>
     /// <param name="settingsEnvironment">Replaces what Settings reads from the machine, for tests; the running app's when null.</param>
     /// <param name="exitWait">How long closing waits for cancelled jobs to end, for tests; the exit guard's default when null.</param>
+    /// <param name="attention">Calls the player back when a session ends behind another window; does nothing when null.</param>
     public static MainWindowViewModel Create(
         AppServices services,
         UiFormatter text,
@@ -35,7 +37,8 @@ public static class AppComposition
         TimeProvider? clock = null,
         IDialogs? dialogs = null,
         SettingsEnvironment? settingsEnvironment = null,
-        TimeSpan? exitWait = null)
+        TimeSpan? exitWait = null,
+        ISessionAttention? attention = null)
     {
         var ui = dispatcher ?? new AvaloniaUiDispatcher();
         var toasts = new ToastHostViewModel(clock ?? TimeProvider.System, ui);
@@ -47,7 +50,7 @@ public static class AppComposition
 
         ShellViewModel CreateShell()
         {
-            var feature = new FeatureContext(services, pickers, text, toasts, ui, clock);
+            var feature = new FeatureContext(services, pickers, text, toasts, ui, clock, attention);
             return new(new ShellDependencies(
                 services.Games,
                 services.Profiles,

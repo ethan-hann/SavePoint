@@ -66,11 +66,13 @@ public partial class App : Application
 
             var services = Services ?? throw new InvalidOperationException("App.Services must be set before the main window is built.");
             var window = new MainWindow();
+            var attention = new SessionAttentionRelay();
             var main = AppComposition.Create(
                 services,
                 text,
                 new ThemeServiceApplier(Theme),
-                () => window.StorageProvider);
+                () => window.StorageProvider,
+                attention: attention);
             window.DataContext = main;
             window.Opened += (_, _) => _ = main.InitializeAsync();
             desktop.MainWindow = window;
@@ -84,7 +86,7 @@ public partial class App : Application
 
             if (IntegrateWithSystem)
             {
-                var integration = HostIntegration.Attach(window, Theme, services, text, SingleInstance);
+                var integration = HostIntegration.Attach(window, Theme, services, text, SingleInstance, attention);
                 desktop.Exit += (_, _) => integration.Dispose();
             }
         }
