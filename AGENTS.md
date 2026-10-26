@@ -30,7 +30,8 @@ SavePoint is licensed GPL-3.0-or-later (`LICENSE`). Bundled components keep thei
 - Run `build/gate.ps1` (Windows) or `build/gate.sh` (Linux, macOS). It builds with warnings as errors, runs every test, and checks formatting. A change is done when the gate passes.
 - CI runs the Linux gate and the Windows gate on every pull request, and by hand (`.forgejo/workflows/gate.yml`). Pushes to `main` do not run it, because `main` takes fast-forward merges of commits that already passed. The Windows job runs on a self-hosted Windows VM.
 - A change that touches only documentation or agent instructions passes without building or testing, and needs no local gate. That means `docs/`, the documentation site's `docfx.json` and `docfx/`, Markdown files at the root except `THIRD-PARTY-NOTICES.md`, and `.agents/`, `.claude/rules/`, and `.han/`. `.forgejo/workflows/docs.yml` builds the site for a documentation change instead.
-- If the Windows job cannot run (the runner is offline), run `build/gate.ps1` locally before merging anything that touches Windows code or the UI.
+- Run `build/gate.ps1` locally on the branch, and see it pass, before opening a pull request or pushing more commits to one. The CI gate on the Windows VM costs far more than a local run, so a failure must show up locally first. Only a change that skips the gate in CI (above) skips this run.
+- Both CI gates are required checks on `main`, which takes fast-forward merges only. A pull request cannot merge while the Windows runner is offline; it waits for the runner.
 - `SAVEPOINT_TEST_ARGS` takes only a report (`--report-*`) and retries (`--retry-failed-tests*`). A filter is refused unless `-AllowNarrowedTests` / `--allow-narrowed-tests` says it is on purpose. A narrowed run is not a gate.
 
 ## Code
@@ -71,11 +72,13 @@ SavePoint is licensed GPL-3.0-or-later (`LICENSE`). Bundled components keep thei
 
 ## Coordinating several agents on one machine
 
-These rules apply when one session dispatches implementer agents on a single workstation.
+These rules apply when one session (the coordinator) dispatches implementer agents on a single workstation, for example to work through several issues at once.
 
-- Run at most two implementer agents at a time. Implementers work in isolated worktrees. Remove each worktree and its branch right after it merges.
-- Builds and test runs never overlap. Every gate takes one machine-wide lock (`<main checkout>/.tools/locks/gate.lock`) and runs at below-normal priority with capped parallelism.
-- Agents never run the full gate. They run one test class at a time, in the foreground, with `--max-threads 2` and a 5-minute timeout, and never two test processes at once.
-- Only the coordinating session runs the full Windows and Linux gates, on `main`, one at a time.
+- The coordinator keeps one branch for the whole batch, and the batch reaches `main` through that branch's single pull request.
+- Implementers work in isolated worktrees on branches of their own. When an implementer finishes, the coordinator merges its branch into the batch branch, then removes the implementer's worktree and branch.
+- The coordinator decides how many implementers run side by side, from the work itself and the resources it touches (files, test fixtures, CPU and memory). There is no fixed cap.
+- Implementers never run the full gate. Each runs only the test classes for the files it changed, one class at a time, in the foreground, with `--max-threads 2` and a 5-minute timeout, and never two test processes at once.
+- The full gate runs once per batch: when every implementer has finished and its work is merged, the coordinator runs `build/gate.ps1` on the batch branch, then opens the pull request. It never runs the gate on an implementer's branch.
+- Every gate takes one machine-wide lock (`<main checkout>/.tools/locks/gate.lock`) and runs at below-normal priority with capped parallelism, so gates never overlap.
 - Before a gate on the main checkout, make sure that no SavePoint is running from `src/Savepoint.App/bin`. A build overwrites it.
 - Stop every background shell or process you started before you report.
