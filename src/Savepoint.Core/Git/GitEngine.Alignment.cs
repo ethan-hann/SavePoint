@@ -177,6 +177,13 @@ public sealed partial class GitEngine
     private void RemoveDisplaced(RepoRef repo, SwitchPlan plan, IReadOnlyList<string> displaced, bool force, List<string> removed)
     {
         var comparer = PathComparerFor(repo);
+        if (displaced.Count > 0)
+        {
+            RecheckBeforeFileChanges(repo, "remove-displaced");
+        }
+
+        // Every file is looked at and removed in the folder that was approved, not wherever a link leads by now.
+        var approved = repo.Guard is { } guard ? repo with { WorkTree = guard.RealPath } : repo;
         foreach (var path in displaced)
         {
             if (plan.Gone.Where(entry => comparer.Equals(entry.Path, path)).Select(entry => (GoneFile?)entry).FirstOrDefault() is not { } gone)
@@ -184,13 +191,13 @@ public sealed partial class GitEngine
                 throw new DirtyWorkingTreeException(repo.Role);
             }
 
-            var full = FullPath(repo, path);
+            var full = FullPath(approved, path);
             if (!File.Exists(full))
             {
                 continue;
             }
 
-            var ours = force ? !LinkedFolders.IsInsideLink(repo.WorkTree, path) && HasExactName(full) : IsLeftover(repo, gone);
+            var ours = force ? !LinkedFolders.IsInsideLink(approved.WorkTree, path) && HasExactName(full) : IsLeftover(approved, gone);
             if (!ours)
             {
                 throw new DirtyWorkingTreeException(repo.Role);
@@ -200,8 +207,8 @@ public sealed partial class GitEngine
             if (File.Exists(full))
             {
                 throw FileLockProbe.Probe(full) is { } kind
-                    ? new HeldFile(full, kind).ToException(HeldFileOperation.Switch)
-                    : new GitOperationException(full, NotUpdatedMessage([path]));
+                    ? new HeldFile(FullPath(repo, path), kind).ToException(HeldFileOperation.Switch)
+                    : new GitOperationException(FullPath(repo, path), NotUpdatedMessage([path]));
             }
 
             removed.Add(path);

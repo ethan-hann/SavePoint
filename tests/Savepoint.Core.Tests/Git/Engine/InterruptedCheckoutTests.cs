@@ -106,14 +106,14 @@ public sealed class InterruptedCheckoutTests : IDisposable
     }
 
     [Fact]
-    public async Task A_note_that_cannot_be_read_is_ignored()
+    public async Task A_note_that_cannot_be_read_still_says_a_switch_started_with_no_known_target()
     {
         var (repo, _) = await _ws.ThreePointsRepoAsync();
         await File.WriteAllTextAsync(Path.Combine(repo.GitDir, "savepoint-switch.json"), "not json", Ct);
 
         var status = await _ws.Engine.GetStatusAsync(repo, Ct);
 
-        Assert.Null(status.InterruptedSwitch);
+        Assert.Equal(new InterruptedSwitch(null, null), status.InterruptedSwitch);
         Assert.True(status.IsClean);
     }
 }

@@ -91,7 +91,9 @@ public sealed partial class LaunchOrchestrator
         CancellationToken cancellationToken) =>
         reading.Pending
             ? previewed
-            : await TargetResolver.TargetOfCommitAsync(storage, reading.Target.Repo, profiles, reading.Note!.ToCommit, reading.Note.ToBranch, cancellationToken).ConfigureAwait(false);
+            : reading.Note!.ToCommit is null
+                ? null
+                : await TargetResolver.TargetOfCommitAsync(storage, reading.Target.Repo, profiles, reading.Note!.ToCommit, reading.Note.ToBranch, cancellationToken).ConfigureAwait(false);
 
     // After a stopped switch HEAD may already be at the target, so the point the switch started from is the better "before".
     private static string? SwitchOrigin(FolderReading reading) =>

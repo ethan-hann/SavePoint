@@ -19,4 +19,7 @@ public sealed record RepoRef(string GitDir, string WorkTree, string GameId, Repo
     /// answer depends on an earlier call having written the file. When null, the patterns the repository already holds apply.
     /// </summary>
     public IReadOnlyList<string>? IgnorePatterns { get; init; }
+
+    // Set by the engine for the length of a switch, discard or clean; carries the folder that was approved.
+    internal FolderGuard? Guard { get; init; }
 }

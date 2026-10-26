@@ -28,6 +28,7 @@ public sealed partial class GitEngine
     /// <param name="ct">Cancels the switch. git and its children are stopped and the switch is reported as unfinished until repeated or discarded.</param>
     /// <exception cref="Savepoint.Core.Errors.PathSafetyException">The work tree is a protected location.</exception>
     /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
+    /// <exception cref="Savepoint.Core.Errors.FolderChangedException">The folder was replaced, moved or re-linked after it was approved; the step that would have changed files was not run (steps that finished before it are not undone). A marker that goes missing or changes in that time raises <see cref="Savepoint.Core.Errors.ConsentMarkerException"/> instead, and one that cannot be read, <see cref="Savepoint.Core.Errors.GitOperationException"/>.</exception>
     /// <exception cref="Savepoint.Core.Errors.PathMissingException">The work tree does not exist.</exception>
     /// <exception cref="Savepoint.Core.Errors.DiskSpaceException">The work tree's volume cannot take the files the switch adds (nothing was written), or the disk filled during the switch (it is then left unfinished; see <see cref="RepoStatus.InterruptedSwitch"/>).</exception>
     /// <exception cref="Savepoint.Core.Errors.DirtyWorkingTreeException">Unsaved changes, or a file the game's patterns name, are in the way; nothing was changed.</exception>
@@ -110,19 +111,21 @@ public sealed partial class GitEngine
     /// <exception cref="Savepoint.Core.Errors.PathSafetyException">The work tree is a protected location.</exception>
     /// <exception cref="Savepoint.Core.Errors.PathMissingException">The work tree does not exist.</exception>
     /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
+    /// <exception cref="Savepoint.Core.Errors.FolderChangedException">The folder was replaced, moved or re-linked after it was approved; the step that would have changed files was not run (steps that finished before it are not undone). A marker that goes missing or changes in that time raises <see cref="Savepoint.Core.Errors.ConsentMarkerException"/> instead, and one that cannot be read, <see cref="Savepoint.Core.Errors.GitOperationException"/>.</exception>
     /// <exception cref="Savepoint.Core.Errors.ProfileHasNoPointsException">The folder has no saved point to return to; without one a discard would delete the whole folder, so nothing is touched.</exception>
     /// <exception cref="Savepoint.Core.Errors.LinkedFolderException">On Windows, a folder link lies in the way; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.FileFolderClashException">Restoring a file would delete a folder holding files of the player's that the discard does not remove, or restoring a folder would delete a file of the player's that the patterns name; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.NamesDifferOnlyInCaseException">The folder is on a drive that ignores case and the point holds two names that differ only in case; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.DiskSpaceException">The disk filled while files were restored.</exception>
+    /// <exception cref="Savepoint.Core.Errors.SwitchNoteStuckException">The folder was put back but the note of an unfinished switch could not be removed (another program holds it open); discarding again removes it.</exception>
     /// <exception cref="Savepoint.Core.Errors.GitOperationException">A file stayed in use through every attempt, or git failed.</exception>
     /// <remarks>A point taken since empty folders were recorded holds its own, and a discard makes them again (git does not track them). A discard removes the empty folders the point does not hold along with the new files, and every empty folder of a point taken before that.</remarks>
     public async Task DiscardChangesAsync(RepoRef repo, CancellationToken ct = default)
     {
         repo = Normalize(repo);
         ct.ThrowIfCancellationRequested();
-        CheckWorkTree(repo);
-        RepoMarker.Verify(repo);
+        using var guard = Approve(repo);
+        repo = repo with { Guard = guard };
         if (!IsInitialized(repo.GitDir))
         {
             throw new GitOperationException($"The repository at '{repo.GitDir}' does not exist.");
@@ -143,7 +146,12 @@ public sealed partial class GitEngine
         await VerifyAsync(repo, point, [], null, named, ct).ConfigureAwait(false);
         await RemoveNewFilesAsync(repo, ct).ConfigureAwait(false);
         await RestoreEmptyFoldersAsync(repo, point, ct).ConfigureAwait(false);
-        SwitchJournal.Clear(repo.GitDir);
+
+        // The files are back; a note that stays would keep the folder looking half switched, and the player would be sent round again.
+        if (!SwitchJournal.Clear(repo.GitDir))
+        {
+            throw new SwitchNoteStuckException(repo.Role, SwitchJournal.PathIn(repo.GitDir));
+        }
     }
 
     // Writes the point's copy of every file that differs and returns the files the patterns name, which are left as they are. With no
@@ -153,7 +161,7 @@ public sealed partial class GitEngine
     {
         if (!HasPatterns(repo))
         {
-            await RunRewriteAsync(Invocation(repo, readOnly: false, "reset", "--hard", "--quiet"), ["reset", "--hard"], ct).ConfigureAwait(false);
+            await RunRewriteAsync(repo, Invocation(repo, readOnly: false, "reset", "--hard", "--quiet"), ["reset", "--hard"], ct).ConfigureAwait(false);
             return new HashSet<string>();
         }
 
@@ -162,7 +170,7 @@ public sealed partial class GitEngine
         var differing = (await DiffNamesAsync(repo, "HEAD", ct).ConfigureAwait(false)).Where(path => !named.Contains(path)).ToArray();
         if (differing.Length > 0)
         {
-            await RunRewriteAsync(Invocation(repo, readOnly: false, "checkout", "HEAD").WithPathspecs(differing), ["checkout", "HEAD"], ct).ConfigureAwait(false);
+            await RunRewriteAsync(repo, Invocation(repo, readOnly: false, "checkout", "HEAD").WithPathspecs(differing), ["checkout", "HEAD"], ct).ConfigureAwait(false);
         }
 
         return named;
@@ -176,7 +184,7 @@ public sealed partial class GitEngine
         RunRawAsync(Invocation(repo, readOnly: false, "update-index", "-q", "--refresh") with { AllowedExitCodes = _anyExitCode }, ct);
 
     // A file another program holds fails the command for that file only; the verify pass after it finds the file and tries again.
-    private async Task RunRewriteAsync(GitInvocation invocation, string[] command, CancellationToken ct)
+    private async Task RunRewriteAsync(RepoRef repo, GitInvocation invocation, string[] command, CancellationToken ct)
     {
         var result = await RunRawAsync(invocation with { AllowedExitCodes = _anyExitCode }, ct).ConfigureAwait(false);
         if (result.ExitCode == 0)
@@ -186,7 +194,7 @@ public sealed partial class GitEngine
 
         if (GitFailure.IsDiskFull(result.StandardError))
         {
-            throw new DiskSpaceException(invocation.WorkTree ?? string.Empty, _options.MinFreeBytesForCheckout, _freeSpace(invocation.WorkTree ?? string.Empty));
+            throw new DiskSpaceException(repo.WorkTree, _options.MinFreeBytesForCheckout, _freeSpace(repo.WorkTree));
         }
 
         if (!GitFailure.FileCouldNotBeReplaced(result.StandardError))
@@ -205,6 +213,7 @@ public sealed partial class GitEngine
     /// <exception cref="Savepoint.Core.Errors.PathSafetyException">The work tree is a protected location.</exception>
     /// <exception cref="Savepoint.Core.Errors.PathMissingException">The work tree does not exist.</exception>
     /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
+    /// <exception cref="Savepoint.Core.Errors.FolderChangedException">The folder was replaced, moved or re-linked after it was approved; the step that would have changed files was not run. A marker that goes missing or changes in that time raises <see cref="Savepoint.Core.Errors.ConsentMarkerException"/> instead, and one that cannot be read, <see cref="Savepoint.Core.Errors.GitOperationException"/>.</exception>
     /// <exception cref="Savepoint.Core.Errors.ProfileHasNoPointsException">The folder has no saved point, so every file in it would count as new and be removed; nothing is touched.</exception>
     /// <exception cref="Savepoint.Core.Errors.LinkedFolderException">On Windows, a folder link lies in the way; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.GitOperationException">A file stayed in use through every attempt, or git failed.</exception>
@@ -212,8 +221,8 @@ public sealed partial class GitEngine
     {
         repo = Normalize(repo);
         ct.ThrowIfCancellationRequested();
-        CheckWorkTree(repo);
-        RepoMarker.Verify(repo);
+        using var guard = Approve(repo);
+        repo = repo with { Guard = guard };
         if (!IsInitialized(repo.GitDir))
         {
             throw new GitOperationException($"The repository at '{repo.GitDir}' does not exist.");
@@ -277,9 +286,10 @@ public sealed partial class GitEngine
                 throw new GitOperationException(FullPath(repo, left[0]), NotUpdatedMessage(left));
             }
 
+            RecheckBeforeFileChanges(repo, "remove-new");
             foreach (var path in left)
             {
-                TryDelete(FullPath(repo, path));
+                TryDelete(RealFullPath(repo, path));
             }
 
             await Task.Delay(_options.ResyncDelays[pass], ct).ConfigureAwait(false);
@@ -290,8 +300,8 @@ public sealed partial class GitEngine
     {
         repo = Normalize(repo);
         ct.ThrowIfCancellationRequested();
-        CheckWorkTree(repo);
-        RepoMarker.Verify(repo);
+        using var guard = Approve(repo);
+        repo = repo with { Guard = guard };
         if (!IsInitialized(repo.GitDir))
         {
             throw new GitOperationException($"The repository at '{repo.GitDir}' does not exist.");
@@ -307,6 +317,14 @@ public sealed partial class GitEngine
                 : new GitOperationException($"The point '{target}' is not in the repository.");
         }
 
+        // A note whose switch is not known cannot be told apart from the one this would finish, and writing a new note would erase the
+        // evidence. A discard clears such a note.
+        var note = SwitchJournal.Read(repo.GitDir);
+        if (note is { ToCommit: null })
+        {
+            throw new InterruptedSwitchException(repo.Role);
+        }
+
         using var scope = BeginWrite(repo);
 
         // A mark an earlier switch could not take off would hide a file from the checks below.
@@ -314,7 +332,6 @@ public sealed partial class GitEngine
 
         // Which files the switch will write and remove is known before it starts: nothing unsaved may be in the way, and a
         // file that cannot be removed is found afterwards.
-        var note = SwitchJournal.Read(repo.GitDir);
         var plan = await PlanSwitchAsync(repo, from, to, note, ct).ConfigureAwait(false);
         LinkedFolders.RefuseAny(repo.WorkTree, plan.Touched, ct);
         await RefuseCaseClashAsync(repo, to, ct).ConfigureAwait(false);
@@ -414,7 +431,23 @@ public sealed partial class GitEngine
     {
         for (var attempt = 0; ; attempt++)
         {
-            var result = await RunRawAsync(CheckoutInvocation(repo, target, isBranch, force, reporter), ct).ConfigureAwait(false);
+            GitResult result;
+            try
+            {
+                result = await RunRawAsync(CheckoutInvocation(repo, target, isBranch, force, reporter), ct).ConfigureAwait(false);
+            }
+            catch (Exception e) when (e is FolderChangedException or ConsentMarkerException or GitOperationException)
+            {
+                // Only the checks before git starts can raise these (the folder changed, the marker is gone or unreadable, the git directory
+                // was redirected). Nothing was written, so the note this call wrote goes, as for a refusal by git.
+                if (await TryRestoreAsync(repo, aligned).ConfigureAwait(false))
+                {
+                    ClearNoteIf(ownsNote, repo);
+                }
+
+                throw;
+            }
+
             if (result.ExitCode == 0)
             {
                 return;
@@ -597,9 +630,14 @@ public sealed partial class GitEngine
     // The paths go to git on stdin: a long list does not fit on a Windows command line. A failure here shows up as the next pass finding the path again.
     private async Task ResyncAsync(RepoRef repo, string to, IReadOnlyList<string> differing, IReadOnlyList<string> leftovers, CancellationToken ct)
     {
+        if (leftovers.Count > 0)
+        {
+            RecheckBeforeFileChanges(repo, "remove-leftover");
+        }
+
         foreach (var path in leftovers)
         {
-            TryDelete(FullPath(repo, path));
+            TryDelete(RealFullPath(repo, path));
         }
 
         if (differing.Count > 0)

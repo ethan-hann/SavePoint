@@ -17,9 +17,13 @@ internal static class WindowsFiles
 
     private const uint _noAccess = 0;
     private const uint _readAttributes = 0x80;
+    private const uint _listDirectory = 0x1;
+    private const uint _shareReadWrite = 0x3;
     private const uint _shareAll = 0x7;
     private const uint _openExisting = 3;
     private const uint _backupSemantics = 0x02000000;
+    private const uint _openReparsePoint = 0x00200000;
+    private const uint _reparsePointAttribute = 0x400;
     private const int _fileIdInfoClass = 18;
     private const uint _volumeNameDos = 0;
     private const uint _volumeNameGuid = 1;
@@ -29,11 +33,11 @@ internal static class WindowsFiles
     public static FileIdentity? ReadIdentity(string path)
     {
         using var handle = Open(path, _readAttributes);
-        if (handle.IsInvalid)
-        {
-            return null;
-        }
+        return handle.IsInvalid ? null : ReadIdentity(handle);
+    }
 
+    private static FileIdentity? ReadIdentity(SafeFileHandle handle)
+    {
         if (GetFileInformationByHandleEx(handle, _fileIdInfoClass, out var info, (uint)Marshal.SizeOf<FileIdInfo>()))
         {
             return new FileIdentity(info.VolumeSerialNumber, new UInt128(info.FileIdHigh, info.FileIdLow));
@@ -53,6 +57,25 @@ internal static class WindowsFiles
         GetFileInformationByHandle(handle, out var legacy)
             ? new FileIdentity(legacy.VolumeSerialNumber, new UInt128(0, ((ulong)legacy.FileIndexHigh << 32) | legacy.FileIndexLow))
             : null;
+
+    // A handle that keeps the folder from being renamed, moved or deleted for as long as it is open. Reading the folder's list counts in
+    // sharing checks (attribute-only access does not), and leaving delete out of the share mode is what refuses a rename. Everything
+    // else, git working inside the folder included, is unaffected. Null when the folder cannot be opened.
+    // With followLinks false the folder itself is opened, not what a link at that path leads to. Its identity is read from the handle that
+    // holds it, and IsLink says whether what was opened is a link (a swapped folder, or a volume mounted in a folder).
+    public static (SafeFileHandle Handle, FileIdentity? Identity, bool IsLink)? HoldFolder(string path, bool followLinks)
+    {
+        var flags = followLinks ? _backupSemantics : _backupSemantics | _openReparsePoint;
+        var handle = CreateFile(ExtendedLength(path), _listDirectory | _readAttributes, _shareReadWrite, IntPtr.Zero, _openExisting, flags, IntPtr.Zero);
+        if (handle.IsInvalid)
+        {
+            handle.Dispose();
+            return null;
+        }
+
+        var isLink = GetFileInformationByHandle(handle, out var information) && (information.FileAttributes & _reparsePointAttribute) != 0;
+        return (handle, ReadIdentity(handle), isLink);
+    }
 
     public static IReadOnlyList<string> ReadFinalPaths(string path)
     {

@@ -90,6 +90,45 @@ public sealed partial class GitEngine
         }
     }
 
+    // Judges the work tree, pins the folder, verifies the marker, and holds the folder (on Windows) for a destructive operation. The caller
+    // disposes the guard when the operation ends and passes the repo on with it set as Guard. A spelling that is refused is never pinned;
+    // where the pin shows the path leads elsewhere than its spelling does, that folder is judged too.
+    private FolderGuard Approve(RepoRef repo)
+    {
+        CheckWorkTree(repo);
+        var guard = FolderGuard.Pin(_pathSafety, repo, _options.Log);
+        try
+        {
+            if (!string.Equals(guard.RealPath, repo.WorkTree, StringComparison.Ordinal))
+            {
+                _pathSafety.Check(guard.RealPath);
+            }
+
+            RepoMarker.Verify(repo);
+            _options.BeforeFileChanges?.Invoke("hold");
+            guard.Hold(_options.HoldFolderOpen);
+            return guard;
+        }
+        catch
+        {
+            guard.Dispose();
+            throw;
+        }
+    }
+
+    // Right before the engine deletes files or makes folders itself (git is not involved), the guarded folder is looked at again. The step
+    // then works on the folder as it was approved (see RealFullPath), so a link changed after this look cannot redirect it.
+    private void RecheckBeforeFileChanges(RepoRef repo, string step)
+    {
+        _options.BeforeFileChanges?.Invoke(step);
+        repo.Guard?.Recheck();
+        _options.AfterFileRecheck?.Invoke(step);
+    }
+
+    // The path of a file in the folder for a step that changes it: under the guard, the folder the path led to when it was approved.
+    private static string RealFullPath(RepoRef repo, string relative) =>
+        Path.Combine(repo.Guard?.RealPath ?? repo.WorkTree, relative.Replace('/', Path.DirectorySeparatorChar));
+
     // Throws when the storage volume cannot take another capture or repack (the floor, plus any bytes the operation is known
     // to need on top); checked before anything is written.
     private void EnsureStorageSpace(RepoRef repo, long extraBytes = 0)
@@ -144,8 +183,16 @@ public sealed partial class GitEngine
         }
     }
 
+    // Inside an operation that approved the folder (see Approve) git works on the folder the path led to then, and every step that may
+    // write looks at the folder again first.
     private GitInvocation Invocation(RepoRef repo, bool readOnly, params string[] arguments) =>
-        new(arguments) { GitDir = repo.GitDir, WorkTree = repo.WorkTree, ReadOnly = readOnly };
+        new(arguments)
+        {
+            GitDir = repo.GitDir,
+            WorkTree = repo.Guard?.RealPath ?? repo.WorkTree,
+            ReadOnly = readOnly,
+            BeforeStart = readOnly || repo.Guard is null ? null : repo.Guard.Recheck,
+        };
 
     // Runs git and translates a failure into a typed exception.
     private async Task<GitResult> RunAsync(GitInvocation invocation, CancellationToken ct)
@@ -165,6 +212,9 @@ public sealed partial class GitEngine
     {
         _options.InvocationObserver?.Invoke(invocation);
         RefuseRedirect(invocation);
+
+        // Last of all, so nothing can change the folder between this look and the start of git.
+        invocation.BeforeStart?.Invoke();
         return _runner.RunAsync(invocation, ct);
     }
 

@@ -59,6 +59,10 @@ public sealed record GitInvocation
     /// <summary>The exit codes that count as success; the call fails for any other. Defaults to 0 only.</summary>
     public IReadOnlyCollection<int> AllowedExitCodes { get; init; } = [0];
 
+    // Called by the engine right before the process is started, after the engine's own observer; a throw stops the call. A step that
+    // deletes or overwrites files uses it to look at the folder once more.
+    internal Action? BeforeStart { get; init; }
+
     // Called with the new process as soon as it has started, before anything is read from it. A reclaim notes it so a later start can find it.
     internal Action<ProcessStamp>? Started { get; init; }
 
