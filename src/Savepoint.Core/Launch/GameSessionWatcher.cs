@@ -37,6 +37,7 @@ public sealed class GameSessionWatcher : IDisposable
     private IReadOnlyList<(int Pid, DateTimeOffset? Start)> _followedLive = [];
     private bool _disposed;
     private bool _childReleased;
+    private int? _earlyExit;
 
     /// <summary>Starts following a session that began now.</summary>
     /// <param name="child">The program SavePoint started, or null for a link; the watcher takes ownership of the handle and releases it on <see cref="Dispose"/>.</param>
@@ -79,6 +80,24 @@ public sealed class GameSessionWatcher : IDisposable
     /// the program's state fails in a way the OS does not normally allow.
     /// </summary>
     public Task<SessionOutcome> Outcome => _outcome.Task;
+
+    /// <summary>
+    /// The nonzero exit code of the program SavePoint started while the watcher is still waiting for the game after a quick exit;
+    /// null when there is no such wait (the program exited with 0, ran a while, or the game has since shown up).
+    /// </summary>
+    public int? EarlyExitCode
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _earlyExit;
+            }
+        }
+    }
+
+    /// <summary>Raised when <see cref="EarlyExitCode"/> changes, on a pool thread.</summary>
+    public event EventHandler? EarlyExitChanged;
 
     /// <summary>True once <see cref="Outcome"/> has completed.</summary>
     public bool IsSettled => _outcome.Task.IsCompleted;
@@ -241,6 +260,15 @@ public sealed class GameSessionWatcher : IDisposable
                 }
             }
 
+            // A store may start the game again after it exits with an error (Steam's restart check does), so the wait is kept; the
+            // player is only told meanwhile. A list that could not be read leaves what was said before.
+            if (look.Listed is not null)
+            {
+                var quickError = childGone && !observed && !following && !namedSeen && !selfSeen && graceFrom - StartedAt < _options.RelaunchWindow
+                    ? ChildExitCode() : null;
+                SetEarlyExit(quickError is 0 ? null : quickError);
+            }
+
             // The program's own exit is always needed; the named process only lengthens the wait after it.
             if (childGone && state != NamedProcessState.Running)
             {
@@ -298,6 +326,11 @@ public sealed class GameSessionWatcher : IDisposable
                     {
                         Settle(SessionEndKind.NamedProcessNeverMatched, graceFrom);
                     }
+                    else if (ChildExitCode() is not (null or 0))
+                    {
+                        // Nothing took over after the program failed, so it was the program, not the name, that did not work.
+                        Settle(SessionEndKind.ProgramFailedAtStart, graceFrom);
+                    }
                     else
                     {
                         Settle(SessionEndKind.NamedProcessNeverAppeared);
@@ -331,6 +364,21 @@ public sealed class GameSessionWatcher : IDisposable
         // A program that exited after the caller last looked is already complete here, and must cut the wait short, not sit it out.
         await Task.WhenAny(delay, childExit);
         await tick.CancelAsync();
+    }
+
+    private void SetEarlyExit(int? code)
+    {
+        lock (_gate)
+        {
+            if (_earlyExit == code)
+            {
+                return;
+            }
+
+            _earlyExit = code;
+        }
+
+        EarlyExitChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private bool Settle(SessionEndKind kind, DateTimeOffset? endedAt = null)

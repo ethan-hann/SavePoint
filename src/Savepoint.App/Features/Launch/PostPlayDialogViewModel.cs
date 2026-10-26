@@ -62,11 +62,12 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
             SessionEndKind.NamedProcessNeverAppeared => _text.Message("launch.postPlay.notSeen.hint"),
             SessionEndKind.NamedProcessNeverMatched => _text.Message("launch.postPlay.neverMatched.hint"),
             SessionEndKind.ProcessListUnreadable => _text.Message("launch.postPlay.unreadable.hint"),
+            SessionEndKind.ProgramFailedAtStart => _text.Message("launch.postPlay.failedAtStart.hint", ("code", ExitCodeText(exited))),
             _ => string.Empty,
         };
 
         // An unreadable process list is not the name's fault, so there is nothing in Edit game to point at.
-        EditGameLabel = exited.EndKind is SessionEndKind.NamedProcessNeverAppeared or SessionEndKind.NamedProcessNeverMatched
+        EditGameLabel = exited.EndKind is SessionEndKind.NamedProcessNeverAppeared or SessionEndKind.NamedProcessNeverMatched or SessionEndKind.ProgramFailedAtStart
             ? _text.Message("launch.postPlay.notSeen.editGame")
             : string.Empty;
 
@@ -136,8 +137,14 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
     {
         SessionEndKind.NamedProcessNeverAppeared => text.Message("launch.postPlay.notSeen.title"),
         SessionEndKind.ProcessListUnreadable => text.Message("launch.postPlay.unreadable.title"),
+        SessionEndKind.ProgramFailedAtStart => text.Message("launch.postPlay.failedAtStart.title"),
         _ => text.Message("launch.postPlay.title", ("duration", text.Duration(exited.PlayDuration))),
     };
+
+    /// <summary>The exit code as the hint and toast print it, with no digit grouping.</summary>
+    /// <param name="exited">The session's exit.</param>
+    internal static string ExitCodeText(SessionState.Exited exited) =>
+        (exited.ProgramExitCode ?? 0).ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>True when <see cref="InstallNote"/> has text.</summary>
     public bool HasInstallNote => InstallNote.Length > 0;

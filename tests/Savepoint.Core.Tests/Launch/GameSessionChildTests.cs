@@ -46,6 +46,20 @@ public class GameSessionChildTests
     }
 
     [Fact]
+    public async Task A_started_program_that_fails_while_its_child_still_runs_keeps_the_session_open()
+    {
+        using var rig = await WatcherRig.ProgramAsync("Game.exe", gameFolder: _folder);
+        rig.Processes.Set(Stub(rig), Process(600, rig.Child!.Pid, 1), ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(2));
+
+        rig.Processes.Set(Process(600, rig.Child.Pid, 1), ScriptedInspector.Bystander);
+        await rig.ExitChildAsync(1);
+        await rig.AdvanceAsync(Seconds(10));
+
+        Assert.False(rig.Watcher.IsSettled);
+    }
+
+    [Fact]
     public async Task A_child_seen_while_the_started_program_was_alive_is_still_followed_after_it_leaves()
     {
         using var rig = await WatcherRig.ProgramAsync(_name, gameFolder: _folder);

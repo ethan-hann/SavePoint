@@ -196,6 +196,7 @@
                           Content="{loc:Loc gameEditor.browse}"
                           AutomationProperties.Name="{loc:Loc gameEditor.launch.exeBrowseAutomation}" />
                 </Grid>
+                <TextBlock x:Name="SteamStartNoteText" Classes="caption" TextWrapping="Wrap" IsVisible="{Binding ShowSteamStartNote}" Text="{Binding SteamStartNote}" />
                 <TextBlock x:Name="ExeErrorText" Classes="body error" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" IsVisible="{Binding ExePathError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding ExePathError}" />
                 <StackPanel x:Name="ExeSuggestionRow" Spacing="6" IsVisible="{Binding HasExeSuggestions}">
                   <TextBlock Classes="caption" Text="{loc:Loc gameEditor.suggestions.found}" />

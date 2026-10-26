@@ -37,6 +37,15 @@ public enum SessionEndKind
     /// </summary>
     ProcessListUnreadable,
 
+    /// <summary>
+    /// The program SavePoint started exited with a nonzero exit code within the relaunch window, no configured process name ever
+    /// appeared, and nothing it started was left running. The grace is still given, since a store may start the game again after such an
+    /// exit; when it runs out the session ends as this kind rather than <see cref="NamedProcessNeverAppeared"/>, dated at the
+    /// program's exit so the wait is not play time, and the exit code is on the outcome. A starter that exits with code 0 ends as
+    /// <see cref="NamedProcessNeverAppeared"/>.
+    /// </summary>
+    ProgramFailedAtStart,
+
     /// <summary>The player said they were done; the game may still be running.</summary>
     ManuallyFinished,
 }

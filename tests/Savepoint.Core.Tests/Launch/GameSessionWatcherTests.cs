@@ -125,6 +125,117 @@ public class GameSessionWatcherTests
         Assert.Equal(Seconds(30), outcome.PlayDuration);
     }
 
+    // ---- a program that fails right away ----
+
+    [Fact]
+    public async Task A_program_that_exits_with_an_error_at_once_and_is_never_followed_by_the_game_ends_as_a_failed_start_when_the_grace_runs_out()
+    {
+        using var rig = await WatcherRig.ProgramAsync(_name);
+        await rig.AdvanceAsync(Seconds(1));
+
+        await rig.ExitChildAsync(127);
+        await rig.AdvanceAsync(Seconds(29));
+        Assert.False(rig.Watcher.IsSettled);
+        await rig.AdvanceAsync(Seconds(1));
+
+        var outcome = await rig.OutcomeAsync();
+        Assert.Equal(SessionEndKind.ProgramFailedAtStart, outcome.Kind);
+        Assert.Equal(127, outcome.ChildExitCode);
+        Assert.Equal(Seconds(1), outcome.PlayDuration);
+    }
+
+    [Fact]
+    public async Task A_program_that_asks_Steam_to_start_it_again_and_exits_with_one_is_followed_to_the_new_copy()
+    {
+        using var rig = await WatcherRig.ProgramAsync(_name, options: new GameSessionOptions { PollInterval = WatcherRig.Interval, Grace = TimeSpan.FromMinutes(2) });
+        await rig.AdvanceAsync(Seconds(1));
+
+        await rig.ExitChildAsync(1);
+        await rig.AdvanceAsync(Seconds(45));
+        Assert.False(rig.Watcher.IsSettled);
+        rig.Processes.Set(WatcherRig.Game, ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(10));
+        Assert.False(rig.Watcher.IsSettled);
+
+        rig.Processes.Set(ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(2));
+
+        var outcome = await rig.OutcomeAsync();
+        Assert.Equal(SessionEndKind.NamedProcessEnded, outcome.Kind);
+    }
+
+    [Fact]
+    public async Task The_early_exit_code_shows_during_the_wait_and_clears_when_the_game_appears()
+    {
+        using var rig = await WatcherRig.ProgramAsync(_name);
+        Assert.Null(rig.Watcher.EarlyExitCode);
+        var changes = 0;
+        rig.Watcher.EarlyExitChanged += (_, _) => Interlocked.Increment(ref changes);
+
+        await rig.ExitChildAsync(127);
+        await rig.AdvanceAsync(Seconds(4));
+        Assert.Equal(127, rig.Watcher.EarlyExitCode);
+        Assert.Equal(1, changes);
+
+        rig.Processes.Set(WatcherRig.Game, ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(4));
+
+        Assert.Null(rig.Watcher.EarlyExitCode);
+        Assert.Equal(2, changes);
+    }
+
+    [Fact]
+    public async Task A_program_that_exits_with_code_zero_has_no_early_exit_code()
+    {
+        using var rig = await WatcherRig.ProgramAsync(_name);
+
+        await rig.ExitChildAsync(0);
+        await rig.AdvanceAsync(Seconds(4));
+
+        Assert.Null(rig.Watcher.EarlyExitCode);
+    }
+
+    [Fact]
+    public async Task A_program_that_exits_with_code_zero_at_once_still_has_the_grace()
+    {
+        using var rig = await WatcherRig.ProgramAsync(_name);
+        await rig.AdvanceAsync(Seconds(1));
+
+        await rig.ExitChildAsync(0);
+        await rig.AdvanceAsync(Seconds(10));
+
+        Assert.False(rig.Watcher.IsSettled);
+    }
+
+    [Fact]
+    public async Task A_program_that_ran_past_the_relaunch_window_before_exiting_with_an_error_is_not_a_failed_start()
+    {
+        using var rig = await WatcherRig.ProgramAsync(_name);
+        await rig.AdvanceAsync(Seconds(40));
+
+        await rig.ExitChildAsync(1);
+        await rig.AdvanceAsync(WatcherRig.Grace);
+
+        Assert.Equal(SessionEndKind.NamedProcessNeverMatched, (await rig.OutcomeAsync()).Kind);
+    }
+
+    [Fact]
+    public async Task A_program_that_exits_with_an_error_while_the_named_process_runs_is_followed_to_its_end()
+    {
+        using var rig = await WatcherRig.ProgramAsync(_name);
+        rig.Processes.Set(WatcherRig.Game, ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(2));
+
+        await rig.ExitChildAsync(1);
+        await rig.AdvanceAsync(Seconds(10));
+        Assert.False(rig.Watcher.IsSettled);
+
+        rig.Processes.Set(ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(2));
+
+        Assert.Equal(SessionEndKind.NamedProcessEnded, (await rig.OutcomeAsync()).Kind);
+    }
+
     [Fact]
     public async Task The_grace_is_counted_from_the_stubs_exit_and_not_while_the_program_is_alive()
     {

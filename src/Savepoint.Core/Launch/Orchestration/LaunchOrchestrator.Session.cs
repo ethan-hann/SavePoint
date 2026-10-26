@@ -64,12 +64,12 @@ public sealed partial class LaunchOrchestrator
         }
 
         var endedAt = outcome?.EndedAt ?? _services.Time.GetUtcNow();
-        var exited = await DescribeExitAsync(gameId, watcher.StartedAt, endedAt - watcher.StartedAt, outcome?.Kind ?? SessionEndKind.ChildExited).ConfigureAwait(false);
+        var exited = await DescribeExitAsync(gameId, watcher.StartedAt, endedAt - watcher.StartedAt, outcome?.Kind ?? SessionEndKind.ChildExited, outcome is { Kind: SessionEndKind.ProgramFailedAtStart } ? outcome.ChildExitCode : null).ConfigureAwait(false);
         _book.TryChange(gameId, launchJobId, record => record.Info.State is SessionState.Running ? exited : null);
     }
 
     // Counting never stops a session from ending: whatever cannot be read is left at nothing.
-    private async Task<SessionState.Exited> DescribeExitAsync(string gameId, DateTimeOffset startedAt, TimeSpan duration, SessionEndKind endKind)
+    private async Task<SessionState.Exited> DescribeExitAsync(string gameId, DateTimeOffset startedAt, TimeSpan duration, SessionEndKind endKind, int? programExitCode)
     {
         var info = _book.Get(gameId);
         var starts = _book.Record(gameId)?.Starts ?? new Dictionary<RepoRole, FolderStart>();
@@ -100,13 +100,13 @@ public sealed partial class LaunchOrchestrator
                     options = options with { Default = CompletionChoice.Skip };
                 }
 
-                return new SessionState.Exited(startedAt, duration, external.Count, install.Count, options, endKind, leaveOut);
+                return new SessionState.Exited(startedAt, duration, external.Count, install.Count, options, endKind, leaveOut, programExitCode);
             }).ConfigureAwait(false);
         }
         catch (Exception e) when (e is not (OperationCanceledException or OutOfMemoryException or StackOverflowException))
         {
             // Whatever went wrong reading the folders, the game has ended and the session must say so.
-            return new SessionState.Exited(startedAt, duration, 0, 0, FallbackOptions(older, profile, starts), endKind);
+            return new SessionState.Exited(startedAt, duration, 0, 0, FallbackOptions(older, profile, starts), endKind, ProgramExitCode: programExitCode);
         }
     }
 

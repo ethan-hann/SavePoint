@@ -206,6 +206,14 @@ public sealed class FakeLaunchApi : ILaunchApi
             _backend.Jobs.Finish(session.LaunchJobId, null);
         });
 
+    // The started program closed with an error while the session still waits for the game (or the game showed up, with null).
+    public void ReportProgramExit(string gameId, int? exitCode) =>
+        _backend.Script(() =>
+        {
+            var session = Require(gameId, nameof(ReportProgramExit), s => s is SessionState.Running);
+            Publish(session with { State = (SessionState.Running)session.State with { ProgramExitCode = exitCode } });
+        });
+
     public void FailLaunch(string gameId, ErrorInfo error) =>
         _backend.Script(() =>
         {
@@ -214,12 +222,12 @@ public sealed class FakeLaunchApi : ILaunchApi
         });
 
     // Without options, the choices follow D14: an older start forks by default, otherwise a new point is the default.
-    public void ReportExited(string gameId, TimeSpan playDuration, int newFileCount, int changedInstallFileCount = 0, PostPlayOptions? options = null, SessionEndKind endKind = SessionEndKind.ChildExited, IReadOnlyList<string>? leaveOutRules = null) =>
+    public void ReportExited(string gameId, TimeSpan playDuration, int newFileCount, int changedInstallFileCount = 0, PostPlayOptions? options = null, SessionEndKind endKind = SessionEndKind.ChildExited, IReadOnlyList<string>? leaveOutRules = null, int? programExitCode = null) =>
         _backend.Script(() =>
         {
             var session = Require(gameId, nameof(ReportExited), s => s is SessionState.Running);
             var running = (SessionState.Running)session.State;
-            var exited = new SessionState.Exited(running.StartedAt, playDuration, newFileCount, changedInstallFileCount, options ?? DefaultOptions(session), endKind, leaveOutRules);
+            var exited = new SessionState.Exited(running.StartedAt, playDuration, newFileCount, changedInstallFileCount, options ?? DefaultOptions(session), endKind, leaveOutRules, programExitCode);
             Publish(session with { State = exited });
         });
 

@@ -79,6 +79,7 @@
   "gameEditor.launch.label": "How to start the game",
   "gameEditor.launch.steam": "Through Steam",
   "gameEditor.launch.steamHelper": "The number is in the address of the game's Steam store page.",
+  "gameEditor.launch.steamStartNote": "Games installed by Steam on Linux usually need Steam to start them. Through Steam is the safer choice.",
   "gameEditor.launch.steamWarning": "Steam may update the game right after SavePoint puts your version back. {os, select, windows {Running the .exe} macos {Running the app} other {Running the program}} avoids that.",
   "gameEditor.launch.uri.ariaLabel": "Steam launch link",
   "gameEditor.launch.uriPlaceholder": "steam://run/123456",

@@ -142,10 +142,15 @@ public sealed partial class LaunchOrchestrator
         var watcher = await _starter.StartAsync(prepared.Game.Launch, prepared.InstallPath, context.CancellationToken).ConfigureAwait(false);
 
         // The game is running, so it is tracked before anything else is attempted: nothing after this may lose it.
+        // Subscribed before the state is set and read inside the change, so a quick exit is never missed in between.
+        watcher.EarlyExitChanged += (_, _) => _book.TryChange(gameId, context.JobId, record =>
+            record.Info.State is SessionState.Running current && current.ProgramExitCode != watcher.EarlyExitCode
+                ? current with { ProgramExitCode = watcher.EarlyExitCode }
+                : null);
         var running = _book.TryChange(gameId, context.JobId, record =>
         {
             record.Watcher = watcher;
-            return new SessionState.Running(watcher.StartedAt);
+            return new SessionState.Running(watcher.StartedAt, watcher.EarlyExitCode);
         });
         if (!running)
         {
