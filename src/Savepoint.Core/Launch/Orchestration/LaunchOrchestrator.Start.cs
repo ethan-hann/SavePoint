@@ -228,6 +228,14 @@ public sealed partial class LaunchOrchestrator
 
     private async Task SwitchAsync(StorageSnapshot storage, JobContext context, string gameId, string profileName, IReadOnlyList<FolderReading> folders)
     {
+        // Every folder is asked before the first is switched: a refusal in the saves folder (room, case clashes, folder links) must not
+        // come after the install folder is already on the new profile.
+        foreach (var folder in folders)
+        {
+            var target = folder.Target;
+            await storage.Engine.CheckSwitchAsync(target.Repo, target.Branch ?? target.Commit, isBranch: target.Branch is not null, context.CancellationToken).ConfigureAwait(false);
+        }
+
         Report(context, gameId, JobProgress.None);
         var done = 0;
         var doneBytes = 0L;

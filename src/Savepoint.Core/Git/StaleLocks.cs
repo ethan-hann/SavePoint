@@ -13,7 +13,8 @@ internal static class StaleLocks
     // A file that inUse says is being read is left.
     public static int RemoveAll(string gitDir, Func<string, bool>? inUse = null) => RemoveLocks(gitDir, inUse) + RemoveTemporaryFiles(gitDir);
 
-    private static int RemoveTemporaryFiles(string gitDir)
+    // Only the temporary pack and object files, for a caller that must free their space without touching a lock.
+    public static int RemoveTemporaryFiles(string gitDir)
     {
         // A link in the git directory leads out of it, and nothing there is ours to delete.
         var objects = Path.Combine(gitDir, "objects");

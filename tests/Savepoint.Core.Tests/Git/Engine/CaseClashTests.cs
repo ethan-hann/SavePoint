@@ -24,6 +24,7 @@ public sealed class CaseClashTests : IDisposable
         Switch,
         ForcedSwitch,
         Discard,
+        Check,
     }
 
     // ---- finding the clash in a list of paths ----------------------------------------------------------------------------------
@@ -97,6 +98,7 @@ public sealed class CaseClashTests : IDisposable
         {
             Operation.Switch => await Record.ExceptionAsync(() => _ws.Engine.CheckoutBranchAsync(repo, "profile-clash", ct: Ct)),
             Operation.ForcedSwitch => await Record.ExceptionAsync(() => _ws.Engine.ForceCheckoutBranchAsync(repo, "profile-clash", Ct)),
+            Operation.Check => await Record.ExceptionAsync(() => _ws.Engine.CheckSwitchAsync(repo, "profile-clash", isBranch: true, Ct)),
             _ => await Record.ExceptionAsync(() => _ws.Engine.DiscardChangesAsync(repo, Ct)),
         };
 
@@ -104,6 +106,7 @@ public sealed class CaseClashTests : IDisposable
     [InlineData(Operation.Switch)]
     [InlineData(Operation.ForcedSwitch)]
     [InlineData(Operation.Discard)]
+    [InlineData(Operation.Check)]
     public async Task A_point_holding_two_names_that_differ_only_in_case_is_refused_before_anything_is_written(Operation operation)
     {
         var (repo, clash) = await PairAsync(_ws);

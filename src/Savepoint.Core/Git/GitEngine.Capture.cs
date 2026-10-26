@@ -23,7 +23,7 @@ public sealed partial class GitEngine
     /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
     /// <exception cref="Savepoint.Core.Errors.InterruptedSwitchException">A stopped switch left the folder half done; finish it or discard first, so the mixture is never recorded.</exception>
     /// <exception cref="Savepoint.Core.Errors.LinkedFolderException">On Windows, a folder link holds files the capture would read; nothing was staged.</exception>
-    /// <exception cref="Savepoint.Core.Errors.DiskSpaceException">The storage volume is below the free-space floor; nothing was written.</exception>
+    /// <exception cref="Savepoint.Core.Errors.DiskSpaceException">The storage volume has less free than the floor plus the size of the files the point would add (the exception reports both figures); no file was stored. Temporary packs a stopped capture left are removed first when they are what fills the volume.</exception>
     /// <exception cref="Savepoint.Core.Errors.DetachedCaptureNotSupportedException">The folder is on an older point and the mode does not allow capturing there.</exception>
     /// <exception cref="Savepoint.Core.Errors.ProfileNotLoadedException">A plain capture was asked for onto a branch while the folder is on another one; nothing was staged.</exception>
     /// <exception cref="Savepoint.Core.Errors.AmendNotAvailableException">An amend was asked for where the branch is not checked out or has no point.</exception>
@@ -81,7 +81,7 @@ public sealed partial class GitEngine
             throw new InterruptedSwitchException(repo.Role, unfinished.ToCommit);
         }
 
-        EnsureStorageSpace(repo);
+        EnsureStorageSpaceAfterLeftovers(repo);
 
         using var scope = BeginWrite(repo, request.IgnorePatterns);
         ct.ThrowIfCancellationRequested();
@@ -101,6 +101,25 @@ public sealed partial class GitEngine
             CaptureMode.MoveForward => await CaptureMoveForwardAsync(repo, request, head, tip, progress, ct).ConfigureAwait(false),
             _ => throw new ArgumentOutOfRangeException(nameof(request), request.Mode, "Unknown capture mode."),
         };
+    }
+
+    // The temporary packs a stopped write left can be most of what a full volume holds, and the write about to start would remove them anyway.
+    // They go before the volume is judged, and only when nothing of this engine's is working on the repository.
+    private void EnsureStorageSpaceAfterLeftovers(RepoRef repo)
+    {
+        try
+        {
+            EnsureStorageSpace(repo);
+        }
+        catch (DiskSpaceException)
+        {
+            if (!IsInitialized(repo.GitDir) || _inFlight.IsBusy(repo.GitDir) || StaleLocks.RemoveTemporaryFiles(repo.GitDir) == 0)
+            {
+                throw;
+            }
+
+            EnsureStorageSpace(repo);
+        }
     }
 
     private async Task<CaptureOutcome> CaptureAmendAsync(
@@ -424,9 +443,13 @@ public sealed partial class GitEngine
         // everything under it, and -f would store the excluded files there too.
         var (removals, additions) = SplitRemovals(repo, listing.Files, await TrackedAsync().ConfigureAwait(false));
         IReadOnlyList<StagingBatch> batches = additions.Count == 0 ? [] : [new StagingBatch(additions, [], false)];
+
+        // Packs are written without compression, so the store grows by about the files' own size; refuse before git writes any of it.
+        // The floor stays on top, for the repack that follows.
+        var sizes = additions.Count == 0 ? [] : await SizesOfAsync(repo, additions, ct).ConfigureAwait(false);
+        EnsureStorageSpace(repo, sizes.Sum());
         if (reporter is not null)
         {
-            var sizes = await SizesOfAsync(repo, additions, ct).ConfigureAwait(false);
             reporter.SetByteTotal(sizes.Sum());
             reporter.Start();
 
