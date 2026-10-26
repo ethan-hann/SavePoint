@@ -132,6 +132,32 @@ public class GameSessionHandoverTests
     }
 
     [Fact]
+    public async Task A_crash_reporter_listed_by_its_truncated_kernel_name_does_not_make_the_match_ambiguous()
+    {
+        using var rig = await GoneStarterAsync();
+        rig.Processes.Set(Orphan(rig, 600, 1), Orphan(rig, 601, 1, "crashpad_handle", _folder + "/bin/crashpad_handler"), ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(TimeSpan.FromMinutes(3));
+        Assert.False(rig.Watcher.IsSettled);
+
+        rig.Processes.Set(ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(4));
+        var outcome = await rig.OutcomeAsync();
+
+        Assert.Equal([600], outcome.FollowedPids);
+        Assert.Empty(outcome.AmbiguousHandoverPids);
+    }
+
+    [Fact]
+    public async Task A_process_that_started_just_before_the_session_is_not_taken_when_the_starter_was_never_listed()
+    {
+        using var rig = await GoneStarterAsync();
+        rig.Processes.Set(Orphan(rig, 600, -5), ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(WatcherRig.Grace);
+
+        Assert.Equal(SessionEndKind.NamedProcessNeverAppeared, (await rig.OutcomeAsync()).Kind);
+    }
+
+    [Fact]
     public async Task A_child_of_a_process_that_started_during_the_session_is_not_an_orphan()
     {
         using var rig = await GoneStarterAsync();

@@ -25,6 +25,9 @@ internal sealed class ProcessFamily
     /// <summary>How much earlier than the session's start a process may still be one the session started, for clocks that differ a little.</summary>
     public static readonly TimeSpan SessionTolerance = TimeSpan.FromSeconds(10);
 
+    // The longest process name Linux reports (comm).
+    private const int _kernelNameLength = 15;
+
     // Start is null for a root that was never seen in a list.
     private readonly Dictionary<int, DateTimeOffset?> _members = [];
     private readonly HashSet<int> _roots = [];
@@ -164,11 +167,12 @@ internal sealed class ProcessFamily
         }
 
         var begun = _members.TryGetValue(root, out var rootStart) ? rootStart : null;
-        var from = begun ?? _floor;
-        var until = (begun ?? _floor + SessionTolerance) + _window;
+        // Without the starter's start, the session's start is the earliest a process of its can have, so one begun just before is not it.
+        var from = begun ?? _floor + SessionTolerance;
+        var until = from + _window;
         var candidates = listed.Where(process => process.Pid != root && !_members.ContainsKey(process.Pid)
             && process.StartedAt is { } started && started >= from && started <= until
-            && !_helpers.Contains(NameWithoutExtension(process.Name)) && InFolder(process.ExecutablePath)
+            && !IsHelper(process) && InFolder(process.ExecutablePath)
             && !(process.ParentPid is { } parent && byPid.TryGetValue(parent, out var holder) && holder.StartedAt is { } parentStart && parentStart >= from))
             .ToList();
         if (candidates.Count == 1)
@@ -195,7 +199,7 @@ internal sealed class ProcessFamily
     private bool IsChildOfMember(RunningProcess process, Dictionary<int, RunningProcess> byPid)
     {
         if (process.ParentPid is not { } parent || process.StartedAt is not { } started || !_members.TryGetValue(parent, out var parentStart)
-            || _helpers.Contains(NameWithoutExtension(process.Name)))
+            || IsHelper(process))
         {
             return false;
         }
@@ -213,4 +217,18 @@ internal sealed class ProcessFamily
 
     private static string NameWithoutExtension(string name) =>
         name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? name[..^4] : name;
+
+    // The program's file name is the truth when known. The Linux kernel name is cut to 15 characters, so without a path a name of
+    // that length stands for any helper it begins.
+    private static bool IsHelper(RunningProcess process)
+    {
+        if (!string.IsNullOrWhiteSpace(process.ExecutablePath))
+        {
+            var path = process.ExecutablePath;
+            return _helpers.Contains(NameWithoutExtension(path[(path.LastIndexOfAny(['/', '\\']) + 1)..]));
+        }
+
+        var name = NameWithoutExtension(process.Name);
+        return _helpers.Contains(name) || (name.Length == _kernelNameLength && _helpers.Any(helper => helper.StartsWith(name, StringComparison.OrdinalIgnoreCase)));
+    }
 }
