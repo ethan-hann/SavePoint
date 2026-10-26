@@ -46,6 +46,12 @@ public class SqlitePackagingTests
     // The restore keeps packages in the workspace folder nuget.config names; its default is used when the file does not say.
     private static string PackagesFolder()
     {
+        // NuGet takes NUGET_PACKAGES over nuget.config, and the Linux gate sets it.
+        if (Environment.GetEnvironmentVariable("NUGET_PACKAGES") is { Length: > 0 } fromEnvironment)
+        {
+            return Path.GetFullPath(fromEnvironment);
+        }
+
         var configured = XDocument.Load(Path.Combine(RepoRoot, "nuget.config")).Descendants("add")
             .FirstOrDefault(add => (string?)add.Attribute("key") == "globalPackagesFolder");
         var folder = (string?)configured?.Attribute("value") ?? ".tools/nuget-packages";
