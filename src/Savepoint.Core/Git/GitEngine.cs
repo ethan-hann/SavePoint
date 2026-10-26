@@ -56,6 +56,21 @@ public sealed partial class GitEngine
         _options = options ?? new GitEngineOptions();
     }
 
+    // A view of another engine that shares everything with it.
+    private GitEngine(GitEngine other, bool repairsIndex)
+    {
+        _runner = other._runner;
+        _pathSafety = other._pathSafety;
+        _freeSpace = other._freeSpace;
+        _storageRoot = other._storageRoot;
+        _options = other._options;
+        _inFlight = other._inFlight;
+        _classifying = other._classifying;
+        _repairGate = other._repairGate;
+        _indexWritten = other._indexWritten;
+        _repairsIndex = repairsIndex;
+    }
+
     // Absolute, separator-trimmed paths; a git directory that overlaps the work tree is a caller bug, not a runtime condition.
     private RepoRef Normalize(RepoRef repo)
     {
@@ -207,8 +222,8 @@ public sealed partial class GitEngine
         }
     }
 
-    // Runs git; a non-zero exit that the invocation does not allow surfaces as the internal GitCommandException so the caller can read stderr.
-    private Task<GitResult> RunRawAsync(GitInvocation invocation, CancellationToken ct)
+    // Runs git once; a non-zero exit that the invocation does not allow surfaces as the internal GitCommandException so the caller can read stderr.
+    private Task<GitResult> RunOnceAsync(GitInvocation invocation, CancellationToken ct)
     {
         _options.InvocationObserver?.Invoke(invocation);
         RefuseRedirect(invocation);

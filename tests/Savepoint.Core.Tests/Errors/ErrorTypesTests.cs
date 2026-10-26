@@ -208,6 +208,7 @@ public class ErrorTypesTests
             ("path", "/elsewhere"));
         Add("FileUnreadable", new FileUnreadableException("/games/alpha/data.pak"), "error.gitOperation.unreadableFile",
             ("path", "/games/alpha/data.pak"));
+        Add("RepositoryDamaged", new RepositoryDamagedException("the index could not be rebuilt"), "error.gitOperation.recordDamaged");
         Add("StorageRemoveFailed", new StorageRemoveFailedException("/storage/alpha", "dev text"), "error.storage.removeFailed",
             ("path", "/storage/alpha"));
         Add("StorageMoveUnfinished", new StorageMoveUnfinishedException("/storage"), "error.storageRelocation.moveUnfinished",

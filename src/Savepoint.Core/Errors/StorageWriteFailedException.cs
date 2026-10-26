@@ -1,8 +1,9 @@
 namespace Savepoint.Core.Errors;
 
 /// <summary>
-/// SavePoint could not write to a folder in its storage while it was making the repositories of a startup choice: the drive is full or
-/// read-only, or the account may not write there (<c>error.storage.writeFailed</c>). The choice was not made, and it can be made again.
+/// SavePoint could not write to a folder in its storage while it was making the repositories of a startup choice or rebuilding a damaged
+/// index: the drive is full or read-only, or the account may not write there (<c>error.storage.writeFailed</c>). The choice was not made
+/// (or the index was left as it was), and it can be made again.
 /// Args: <c>path</c>.
 /// </summary>
 public sealed class StorageWriteFailedException : SavepointException

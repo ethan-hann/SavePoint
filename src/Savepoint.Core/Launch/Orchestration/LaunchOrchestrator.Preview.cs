@@ -20,7 +20,30 @@ public sealed partial class LaunchOrchestrator
                 var profiles = await _services.Catalog.ListProfilesAsync(gameId, cancellationToken).ConfigureAwait(false);
 
                 // A read: it holds the storage gate shared and takes no game lock, so a capture or a switch is never held up by it.
-                return await _services.Storage.ReadAsync(storage => PreviewAsync(storage, game, profiles, target, cancellationToken), cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    return await _services.Storage.ReadAsync(storage => PreviewAsync(storage, game, profiles, target, cancellationToken), cancellationToken).ConfigureAwait(false);
+                }
+                catch (GitOperationException e) when (GitFailure.IsIndexDamage(e.StandardError ?? string.Empty))
+                {
+                    // A read never sets a damaged index aside, but the launch cannot go on until it is. Under the lock it can be, and the read is made again.
+                    await RepairIndexesAsync(game, cancellationToken).ConfigureAwait(false);
+                    return await _services.Storage.ReadAsync(storage => PreviewAsync(storage, game, profiles, target, cancellationToken), cancellationToken).ConfigureAwait(false);
+                }
+            },
+            cancellationToken);
+
+    private Task<Unit> RepairIndexesAsync(GameDefinition game, CancellationToken cancellationToken) =>
+        _services.RunForGameAsync(
+            game.Id,
+            async (storage, _) =>
+            {
+                foreach (var repo in GameFolders.Repos(_services, storage, game))
+                {
+                    await storage.Engine.RepairIndexIfDamagedAsync(repo, cancellationToken).ConfigureAwait(false);
+                }
+
+                return Unit.Value;
             },
             cancellationToken);
 

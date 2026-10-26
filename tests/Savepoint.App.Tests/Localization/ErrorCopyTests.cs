@@ -29,6 +29,7 @@ public class ErrorCopyTests
             new GitOperationException("/games/alpha/data.pak", "dev text"),
             new GitOperationException(null, "dev text"),
             new GitOperationException("dev text"),
+            new RepositoryDamagedException("dev text"),
             new GameAlreadyExistsException("alpha"),
             new NoHistoryToReconnectException("alpha"),
             new AmendNotAvailableException(),
