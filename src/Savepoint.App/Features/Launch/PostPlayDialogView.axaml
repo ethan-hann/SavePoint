@@ -4,6 +4,7 @@
              xmlns:launch="using:Savepoint.App.Features.Launch"
              xmlns:dialogs="using:Savepoint.App.Features.Common.Dialogs"
              xmlns:help="using:Savepoint.App.Features.Help"
+             xmlns:a11y="using:Savepoint.App.Features.Common.Accessibility"
              x:Class="Savepoint.App.Features.Launch.PostPlayDialogView"
              x:DataType="launch:PostPlayDialogViewModel">
   <!--
@@ -51,18 +52,18 @@
           <help:ContextualHelpView DataContext="{Binding OlderChoiceHelp}" />
         </StackPanel>
       </StackPanel>
-      <ListBox x:Name="ChoiceList"
+      <a11y:ChoiceListBox x:Name="ChoiceList"
                Classes="radio-cards"
                ItemsSource="{Binding Choices}"
                SelectedItem="{Binding SelectedChoice, Mode=TwoWay}"
                AutomationProperties.Name="{loc:Loc launch.postPlay.choicesLabel}">
-        <ListBox.Styles>
+        <a11y:ChoiceListBox.Styles>
           <Style Selector="ListBoxItem" x:DataType="launch:PostPlayChoiceViewModel">
             <Setter Property="AutomationProperties.Name" Value="{Binding Title}" />
             <Setter Property="AutomationProperties.HelpText" Value="{Binding Subtitle}" />
           </Style>
-        </ListBox.Styles>
-        <ListBox.ItemTemplate>
+        </a11y:ChoiceListBox.Styles>
+        <a11y:ChoiceListBox.ItemTemplate>
           <DataTemplate x:DataType="launch:PostPlayChoiceViewModel">
             <Grid ColumnDefinitions="Auto,*">
               <TextBlock Classes="icon"
@@ -88,8 +89,8 @@
               </StackPanel>
             </Grid>
           </DataTemplate>
-        </ListBox.ItemTemplate>
-      </ListBox>
+        </a11y:ChoiceListBox.ItemTemplate>
+      </a11y:ChoiceListBox>
     </StackPanel>
   </dialogs:DialogFrame>
 </UserControl>
