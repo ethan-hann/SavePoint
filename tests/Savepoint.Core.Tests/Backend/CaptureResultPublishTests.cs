@@ -27,7 +27,7 @@ public class CaptureResultPublishTests
                 return null;
             }
 
-            if (new System.Diagnostics.StackTrace().ToString().Contains("CaptureCoreAsync", StringComparison.Ordinal))
+            if (IsAskedByTheCapture())
             {
                 reachedCapture.Set();
                 releaseCapture.Wait(_held);
@@ -67,6 +67,14 @@ public class CaptureResultPublishTests
         Assert.Equal(JobStatus.Succeeded, capture.Status);
         Assert.Equal(JobStatus.Running, workspace.Jobs.Get(optimization)?.Status);
         await workspace.WaitForIdleAsync(TimeSpan.FromSeconds(60));
+    }
+
+    // The capture asks again, from its staging step, after an await. By then the stack no longer holds the method that started it,
+    // so every engine method of the capture counts, or the later question would be taken for the optimization's.
+    private static bool IsAskedByTheCapture()
+    {
+        var stack = new System.Diagnostics.StackTrace().ToString();
+        return stack.Contains("GitEngine.Capture", StringComparison.Ordinal) || stack.Contains("GitEngine.StageAsync", StringComparison.Ordinal);
     }
 
     // Null as a job when it is still running after a generous wait, which fails the assertion that follows with a clear message.
