@@ -22,7 +22,8 @@ jobs:
           fetch-depth: 0
 
       # A change that touches only documentation (docs/, the documentation site's docfx.json and docfx/, and Markdown files at the
-      # root) cannot change a build or a test, so the job passes without them; docs.yml builds the site for such a change. The notices file is shipped with the app and read by tests, so it always takes the full gate.
+      # root) or agent instructions (.agents/, .claude/rules/, .han/) cannot change a build or a test, so the job passes without them;
+      # docs.yml builds the site for such a change. The notices file is shipped with the app and read by tests, so it always takes the full gate.
       - name: Decide whether the change needs the gate
         id: scope
         env:
@@ -33,13 +34,13 @@ jobs:
           fi
           changed=$(git diff --name-only "$BASE" HEAD)
           echo "$changed"
-          code=$(printf '%s\n' "$changed" | grep -v -E '^(docs/.*|docfx/.*|docfx\.json|[^/]+\.md)$' | grep -v '^$' || true)
+          code=$(printf '%s\n' "$changed" | grep -v -E '^(docs/.*|docfx/.*|docfx\.json|[^/]+\.md|\.agents/.*|\.claude/rules/.*|\.han/.*)$' | grep -v '^$' || true)
           needed=true
           if [ -z "$code" ] && ! printf '%s\n' "$changed" | grep -q -x 'THIRD-PARTY-NOTICES.md'; then
             needed=false
           fi
           echo "needed=$needed" >> "$GITHUB_OUTPUT"
-          [ "$needed" = false ] && echo "Only documentation changed: the gate is not needed." || echo "Code changed: running the gate."
+          [ "$needed" = false ] && echo "Only documentation or agent instructions changed: the gate is not needed." || echo "Code changed: running the gate."
 
       # Forgejo has no setup-dotnet mirror. global.json rolls forward to the newest feature band, so the newest 10.0 SDK fits.
       - name: Install the .NET SDK
@@ -115,13 +116,13 @@ jobs:
           if ($hasBase) {
             $changed = @(git diff --name-only $env:BASE HEAD)
             $changed
-            $code = @($changed | Where-Object { $_ -and $_ -notmatch '^(docs/.*|docfx/.*|docfx\.json|[^/]+\.md)$' })
+            $code = @($changed | Where-Object { $_ -and $_ -notmatch '^(docs/.*|docfx/.*|docfx\.json|[^/]+\.md|\.agents/.*|\.claude/rules/.*|\.han/.*)$' })
             if ($code.Count -eq 0 -and $changed -notcontains 'THIRD-PARTY-NOTICES.md') { $needed = 'false' }
           } else {
             'No base to compare with: running the gate.'
           }
           "needed=$needed" | Out-File -Append -Encoding utf8 $env:GITHUB_OUTPUT
-          if ($needed -eq 'false') { 'Only documentation changed: the gate is not needed.' } else { 'Code changed: running the gate.' }
+          if ($needed -eq 'false') { 'Only documentation or agent instructions changed: the gate is not needed.' } else { 'Code changed: running the gate.' }
 
       # Kept between runs in the runner's own folder; the script only downloads when the newest 10.0 SDK is missing.
       - name: Install the .NET SDK

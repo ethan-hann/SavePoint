@@ -1,14 +1,35 @@
 # Working on SavePoint
 
-Rules for anyone changing this repository, human or agent. Product docs are in `docs/`: start with `docs/developer-guide.md` (build, test, package), then `docs/architecture.md`, `docs/decisions.md` (every design call, D1 onward), and `docs/ui-guide.md` for screens. Planned work is tracked as issues and milestones on https://git.tortal.tech/ethan-hann/SavePoint.
+Rules for anyone changing this repository, human or agent. Claude Code reads this file through `CLAUDE.md`, and other agents read it directly. Product docs are in `docs/`: start with `docs/developer-guide.md` (build, test, package), then `docs/architecture.md`, `docs/decisions.md` (every design call, D1 onward), and `docs/ui-guide.md` for screens. Planned work is tracked as issues and milestones on https://git.tortal.tech/ethan-hann/SavePoint.
 
 SavePoint is licensed GPL-3.0-or-later (`LICENSE`). Bundled components keep their own licenses (`THIRD-PARTY-NOTICES.md`, `licenses/`). A new dependency needs a license compatible with GPL-3.0 and an entry in the notices.
+
+## Project Discovery
+
+- Default branch: `main`
+- Docs: `docs/`, user and developer guides only, published to https://docs.tortal.tech/SavePoint by `docfx.json`. Agent material never goes here.
+- Agent docs: `.agents/` (instructions for people and agents changing the code; not published)
+- ADRs: none. Decisions are numbered entries in `docs/decisions.md` (see Decisions and planned work)
+- Coding standards: `.agents/coding-standards/`, indexed for Claude Code by file type in `.claude/rules/coding-standards/`
+- Layout: `src/Savepoint.Core/` (UI-free library: `Git/` snapshot storage, `Catalog/`, `Backend/`, `Launch/`); `src/Savepoint.App/` (Avalonia app: screens in `Features/<Area>/`, each `*View.axaml` beside its `*ViewModel.cs`, DI wiring in `Composition/`); `tests/Savepoint.Core.Tests/` and `tests/Savepoint.App.Tests/` mirror their projects, with shared helpers in `tests/Shared/`; `tools/` (`FakeGame` and `SkipCheck` serve the tests, plus `IconGen` and `PackageSources`); `build/` (gate, packaging, and bundled-git scripts, `expected-skips/`). The full table is under Repository layout in `docs/developer-guide.md`.
+- Language: C# (`LangVersion` latest) on `net10.0`, .NET SDK 10.0.100 (`global.json`)
+- Package manager: NuGet with central package management (`Directory.Packages.props`); one solution, `Savepoint.slnx`
+- Frameworks: Avalonia 12, CommunityToolkit.Mvvm, Microsoft.Data.Sqlite (no ORM), xunit.v3 on Microsoft.Testing.Platform, Avalonia.Headless, Velopack, Serilog
+- Install: the .NET 10 SDK, then `dotnet tool restore` (vpk, docfx) for packaging and the docs site
+- Build: `dotnet build Savepoint.slnx -c Release`
+- Test one class: `dotnet test --project tests/Savepoint.Core.Tests -c Release --filter-class <Full.Class.Name> --max-threads 2`
+- Full check: `build/gate.ps1` (Windows) or `build/gate.sh` (Linux, macOS); see Gates
+- Lint: `dotnet format Savepoint.slnx --verify-no-changes`
+- Dev: `dotnet run --project src/Savepoint.App -c Release`
+- Package: `build/package.ps1` (Windows), `build/package.sh` (Linux)
+- Docs site: `dotnet docfx docfx.json --serve`
+- Han output: `.han/out/` (ignored by `.han/.gitignore`; set in `.han/config.md`)
 
 ## Gates
 
 - Run `build/gate.ps1` (Windows) or `build/gate.sh` (Linux, macOS). It builds with warnings as errors, runs every test, and checks formatting. A change is done when the gate passes.
 - CI runs the Linux gate and the Windows gate on every pull request, and by hand (`.forgejo/workflows/gate.yml`). Pushes to `main` do not run it, because `main` takes fast-forward merges of commits that already passed. The Windows job runs on a self-hosted Windows VM.
-- A change that touches only documentation passes without building or testing, and needs no local gate. Documentation means `docs/`, the documentation site's `docfx.json` and `docfx/`, and Markdown files at the root, except `THIRD-PARTY-NOTICES.md`. `.forgejo/workflows/docs.yml` builds the site for it instead.
+- A change that touches only documentation or agent instructions passes without building or testing, and needs no local gate. That means `docs/`, the documentation site's `docfx.json` and `docfx/`, Markdown files at the root except `THIRD-PARTY-NOTICES.md`, and `.agents/`, `.claude/rules/`, and `.han/`. `.forgejo/workflows/docs.yml` builds the site for a documentation change instead.
 - If the Windows job cannot run (the runner is offline), run `build/gate.ps1` locally before merging anything that touches Windows code or the UI.
 - `SAVEPOINT_TEST_ARGS` takes only a report (`--report-*`) and retries (`--retry-failed-tests*`). A filter is refused unless `-AllowNarrowedTests` / `--allow-narrowed-tests` says it is on purpose. A narrowed run is not a gate.
 
@@ -21,6 +42,20 @@ SavePoint is licensed GPL-3.0-or-later (`LICENSE`). Bundled components keep thei
 - Give public APIs XML doc comments that state their contract. CS1591 is an error in Core.
 - Tests never touch real user folders. Each test uses a fresh temp directory and injected app-data and storage paths.
 - Stay cross-platform: Windows, Linux, and macOS run from one target framework. Guard OS-specific code with `OperatingSystem.Is*()` (D9, D26).
+- Before writing code, open the standards in `.agents/coding-standards/` that apply to the files you are changing (Claude Code gets an index of them by file type). Do not read all of them.
+
+## Decisions and planned work
+
+- The repository's tracked work lives in issues on the tracker, never in a document. Nobody picks up work from a spec, plan, or note in the repository or in `.han/out/`. When a plan is ready, turn it into issues; the issue says what to build.
+- Every issue carries labels from the repository's Forgejo label set (the Advanced set, scoped as `Scope/Name`):
+  - at least one `Kind/` label (Bug, Feature, Enhancement, Documentation, Security, Testing);
+  - exactly one `Priority/` label (Critical, High, Medium, Low);
+  - a `Status/`, `Reviewed/`, or `Compat/Breaking` label when it applies.
+
+  Use only labels that exist in the repository; do not create new ones. Add a milestone only when the issue belongs to one.
+- Han skills write their documents to `.han/out/`, which git ignores. Treat them as working notes for the session that made them. Never put a spec, plan, standard, or other agent material in `docs/`, which holds only the published guides.
+- A design call, or a change that departs from the spec, gets the next numbered entry in `docs/decisions.md` (`## D<n>. <title>`, the decision, then the reason). Do not create one file per decision (`docs/adr/`), and do not use the ADR skill here. Code comments and docs cite decisions by number, so the numbers never change.
+- New coding standards come from the `han-coding:coding-standard` skill, which writes them to `.agents/coding-standards/` and indexes them in `.claude/rules/coding-standards/`. Do not list them in this file.
 
 ## Changing files
 
