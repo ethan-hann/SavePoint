@@ -151,7 +151,7 @@ public class GameEditorGuidanceViewTests
     {
         using var harness = await EditorViewHarness.StartAsync();
         harness.Edit();
-        var buttons = harness.All<ToggleButton>().Where(button => AutomationProperties.GetName(button) == "When do I need this?").ToList();
+        var buttons = harness.All<ToggleButton>().Where(button => AutomationProperties.GetName(button)?.StartsWith("When do I need this?", StringComparison.Ordinal) == true).ToList();
 
         Assert.Equal(3, buttons.Count);
         Assert.False(Shows(harness, text => text == "Used when the launcher closes itself before the game opens."));
@@ -166,6 +166,47 @@ public class GameEditorGuidanceViewTests
         Assert.True(Shows(harness, text => text == "Used when the launcher closes itself before the game opens."));
         Assert.True(Shows(harness, text => text == "This only changes what History counts as a mod change."));
         Assert.True(Shows(harness, text => text.StartsWith("Only used to find artwork.", StringComparison.Ordinal)));
+    }
+
+    [AvaloniaFact]
+    public async Task The_process_name_nudge_shows_under_how_to_start_while_More_settings_is_closed_and_its_button_fills_the_field()
+    {
+        var game = SampleScenario.Caretaker;
+        var backend = new FakeBackend(ScenarioBuilder.Empty().WithGame(game).WithExecutables(game.Install.Path, "TheLastCaretaker.exe"));
+        using var harness = await EditorViewHarness.StartAsync(backend, height: 1400);
+        var editor = harness.Edit(game.Id);
+        var toggle = Question(harness, "More settings");
+        Assert.NotNull(toggle);
+        Assert.False(toggle.IsChecked);
+
+        editor.LaunchChoice = 1;
+        harness.Settle();
+
+        var row = harness.Find<StackPanel>("ProcessWhyRow");
+        Assert.True(row.IsEffectivelyVisible);
+        Assert.True(row.TranslatePoint(new Point(0, 0), harness.View)!.Value.Y < toggle.TranslatePoint(new Point(0, 0), harness.View)!.Value.Y);
+        var button = harness.Find<Button>("UseSuggestedProcessButton");
+        Assert.Equal("Use TheLastCaretaker.exe", button.Content);
+
+        button.Command!.Execute(null);
+        harness.Settle();
+
+        Assert.Equal("TheLastCaretaker.exe", editor.ProcessName);
+        Assert.Equal("TheLastCaretaker.exe", harness.Find<TextBox>("ProcessField").Text);
+        Assert.False(row.IsEffectivelyVisible);
+        Assert.False(toggle.IsChecked);
+    }
+
+    [AvaloniaFact]
+    public async Task The_When_do_I_need_this_buttons_carry_their_own_automation_names()
+    {
+        using var harness = await EditorViewHarness.StartAsync();
+        harness.Edit();
+
+        var names = harness.All<ToggleButton>().Select(button => AutomationProperties.GetName(button)).Where(name => name is not null && name.StartsWith("When do I need this?", StringComparison.Ordinal)).ToList();
+
+        Assert.Equal(3, names.Count);
+        Assert.Equal(3, names.Distinct().Count());
     }
 
     [AvaloniaFact]

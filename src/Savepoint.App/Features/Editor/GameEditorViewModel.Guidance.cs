@@ -70,9 +70,9 @@ public sealed partial class GameEditorViewModel
         IsMoreSettingsOpen = IsEditing && HasMoreSettingsSet();
         AntiCheatHelp = new ContextualHelpViewModel(_text.Message("gameEditor.antiCheat.question"), _text.Message("gameEditor.antiCheat"));
         RulesHelp = new ContextualHelpViewModel(_text.Message("gameEditor.rules.question"), _text.Message("gameEditor.rules.answer"));
-        ProcessHelp = new ContextualHelpViewModel(_text.Message("gameEditor.whenNeeded.question"), _text.Message("gameEditor.processName.helper"));
-        ModFoldersHelp = new ContextualHelpViewModel(_text.Message("gameEditor.whenNeeded.question"), _text.Message("gameEditor.modPathHints.helper"));
-        SteamAppIdHelp = new ContextualHelpViewModel(_text.Message("gameEditor.whenNeeded.question"), _text.Message("gameEditor.artwork.appId.helper"));
+        ProcessHelp = new ContextualHelpViewModel(_text.Message("gameEditor.whenNeeded.question"), _text.Message("gameEditor.processName.helper"), automationName: _text.Message("gameEditor.processName.whenNeededName"));
+        ModFoldersHelp = new ContextualHelpViewModel(_text.Message("gameEditor.whenNeeded.question"), _text.Message("gameEditor.modPathHints.helper"), automationName: _text.Message("gameEditor.modPathHints.whenNeededName"));
+        SteamAppIdHelp = new ContextualHelpViewModel(_text.Message("gameEditor.whenNeeded.question"), _text.Message("gameEditor.artwork.appId.helper"), automationName: _text.Message("gameEditor.artwork.appId.whenNeededName"));
         CloudSavesHelp = new ContextualHelpViewModel(_text.Message("gameEditor.cloudSaves.unknown.question"), _text.Message("gameEditor.cloudSaves.unknown"));
     }
 }

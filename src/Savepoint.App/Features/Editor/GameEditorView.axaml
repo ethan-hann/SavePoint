@@ -249,6 +249,12 @@
                 <TextBlock Classes="caption" TextWrapping="Wrap" Text="{loc:Loc gameEditor.launch.steamHelper}" />
               </StackPanel>
 
+              <!-- Stays out of More settings: a link-started game needs the program name, and the player must see why. -->
+              <StackPanel x:Name="ProcessWhyRow" Spacing="6" IsVisible="{Binding ShowProcessNameWhy}">
+                <TextBlock x:Name="ProcessWhyText" Classes="body" TextWrapping="Wrap" Text="{loc:Loc gameEditor.processName.linkWhy}" />
+                <Button x:Name="UseSuggestedProcessButton" Classes="pill" HorizontalAlignment="Left" Padding="10,3" FontFamily="{DynamicResource RobotoMonoFont}" FontSize="11.5" FontWeight="Normal" IsVisible="{Binding HasProcessNameSuggestion}" Content="{Binding UseSuggestedProcessNameLabel}" Command="{Binding UseSuggestedProcessNameCommand}" />
+              </StackPanel>
+
               <Border x:Name="SteamWarningCallout" Classes="callout warning" IsVisible="{Binding IsSteamMethod}">
                 <Grid ColumnDefinitions="Auto,*">
                   <TextBlock Classes="icon s18 warning" VerticalAlignment="Top" Margin="0,1,12,0" Text="{x:Static theme:Icons.Warning}" />
@@ -316,10 +322,6 @@
                        Classes="field mono"
                        Text="{Binding ProcessName, Mode=TwoWay}"
                        AutomationProperties.Name="{loc:Loc gameEditor.processName.label}" />
-              <StackPanel x:Name="ProcessWhyRow" Spacing="6" IsVisible="{Binding ShowProcessNameWhy}">
-                <TextBlock x:Name="ProcessWhyText" Classes="body" TextWrapping="Wrap" Text="{loc:Loc gameEditor.processName.linkWhy}" />
-                <Button x:Name="UseSuggestedProcessButton" Classes="pill" HorizontalAlignment="Left" Padding="10,3" FontFamily="{DynamicResource RobotoMonoFont}" FontSize="11.5" FontWeight="Normal" IsVisible="{Binding HasProcessNameSuggestion}" Content="{Binding UseSuggestedProcessNameLabel}" Command="{Binding UseSuggestedProcessNameCommand}" />
-              </StackPanel>
               <StackPanel x:Name="ProcessSuggestionRow" Spacing="6" IsVisible="{Binding HasProcessSuggestions}">
                 <TextBlock Classes="caption" Text="{loc:Loc gameEditor.suggestions.found}" />
                 <ItemsControl ItemsSource="{Binding ProcessSuggestions}">

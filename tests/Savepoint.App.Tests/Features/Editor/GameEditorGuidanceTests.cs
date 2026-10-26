@@ -122,6 +122,18 @@ public class GameEditorGuidanceTests
     }
 
     [Fact]
+    public void The_three_When_do_I_need_this_buttons_have_different_accessible_names_and_the_same_text()
+    {
+        var editor = EditorRig.Create().New();
+
+        Assert.Equal("When do I need this? Knowing when you've stopped playing", editor.ProcessHelp.AutomationName);
+        Assert.Equal("When do I need this? Folders that hold mods", editor.ModFoldersHelp.AutomationName);
+        Assert.Equal("When do I need this? Steam app ID (optional)", editor.SteamAppIdHelp.AutomationName);
+        Assert.All([editor.ProcessHelp, editor.ModFoldersHelp, editor.SteamAppIdHelp], help => Assert.Equal("When do I need this?", help.Question));
+        Assert.Equal("Can I use this with online games?", editor.AntiCheatHelp.AutomationName);
+    }
+
+    [Fact]
     public void More_settings_is_closed_on_Add_a_game()
     {
         var editor = EditorRig.Create().New();
