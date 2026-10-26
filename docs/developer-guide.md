@@ -161,7 +161,7 @@ That builds into `artifacts/docs-site` and serves it at http://localhost:8080. `
 
 ### Publishing
 
-`.forgejo/workflows/docs.yml` builds the site with warnings as errors on every pull request that touches its sources, so a broken link or a `docs/toc.yml` entry for a renamed or removed guide fails there. On every push to `main` that changes the sources, and on every `v*` tag, it builds the site and uploads it to a git-pages server. It can also be started by hand. A change to the guides alone shows on the site minutes after it merges, and needs only the gate's short documentation path (see `.forgejo/workflows/` under Repository layout).
+`.forgejo/workflows/docs.yml` builds the site with warnings as errors on every pull request that touches its sources, so a broken link or a `docs/toc.yml` entry for a renamed or removed guide fails there. On every push to `main` that changes the sources, it builds the site and uploads it to a git-pages server. Tags do not publish: a tag points at a commit already on `main`, which published it. It can also be started by hand. A change to the guides alone shows on the site minutes after it merges, and needs only the gate's short documentation path (see `.forgejo/workflows/` under Repository layout).
 
 The host is shared with other projects. Each publishes under the path named like its repository, so SavePoint's site is `https://docs.tortal.tech/SavePoint/` (`DOCS_PATH` in the workflow), and the `docs-index` repository publishes the front page. The workflow refuses an empty `DOCS_PATH`, which would aim at the front page. Publishing needs the repository variable `DOCS_SITE_URL`, the root of that host. Without it the job builds and stops.
 
@@ -185,7 +185,7 @@ The server's one-time setup (the git-pages container, its wildcard config, the p
 | `tools/SkipCheck` | The gate's skip check: compares the skipped tests in the xunit reports with a list in `build/expected-skips/`. Tested in `tests/Savepoint.Core.Tests/Build`. |
 | `docs/` | This guide, `user-guide.md`, `testing-on-mac-and-linux.md`, `architecture.md`, `decisions.md`, `ui-guide.md`, `dogfood-checklist.md` (the manual checks), and `toc.yml` (their order on the documentation site). |
 | `docfx.json`, `docfx/` | The documentation site (see Documentation site): its sources, home page and stylesheet. |
-| `.forgejo/workflows/` | CI. `gate.yml` runs `build/gate.sh` on Linux (in a container) and `build/gate.ps1` on the self-hosted Windows runner (label `windows`) for every push to `main` and every pull request. A change to documentation only (`docs/`, `docfx.json`, `docfx/`, and root Markdown files other than `THIRD-PARTY-NOTICES.md`) passes without them. `release.yml` builds the packages on a `v*` tag (see Releases). `docs.yml` builds the documentation site and publishes it from `main` and on a `v*` tag (see Documentation site). |
+| `.forgejo/workflows/` | CI. `gate.yml` runs `build/gate.sh` on Linux (in a container) and `build/gate.ps1` on the self-hosted Windows runner (label `windows`) for every pull request, and can be started by hand. Pushes to `main` do not run it: `main` takes fast-forward merges only, so what lands is the commit its pull request already passed. A change to documentation only (`docs/`, `docfx.json`, `docfx/`, and root Markdown files other than `THIRD-PARTY-NOTICES.md`) passes without them. `release.yml` builds the packages on a `v*` tag (see Releases). `docs.yml` builds the documentation site and publishes it from `main` (see Documentation site). |
 
 ## Where to start reading
 

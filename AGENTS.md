@@ -7,7 +7,7 @@ SavePoint is licensed GPL-3.0-or-later (`LICENSE`). Bundled components keep thei
 ## Gates
 
 - Run `build/gate.ps1` (Windows) or `build/gate.sh` (Linux, macOS). It builds with warnings as errors, runs every test, and checks formatting. A change is done when the gate passes.
-- CI runs the Linux gate and the Windows gate on every push to `main` and every pull request (`.forgejo/workflows/gate.yml`). The Windows job runs on a self-hosted Windows VM.
+- CI runs the Linux gate and the Windows gate on every pull request, and by hand (`.forgejo/workflows/gate.yml`). Pushes to `main` do not run it, because `main` takes fast-forward merges of commits that already passed. The Windows job runs on a self-hosted Windows VM.
 - A change that touches only documentation passes without building or testing, and needs no local gate. Documentation means `docs/`, the documentation site's `docfx.json` and `docfx/`, and Markdown files at the root, except `THIRD-PARTY-NOTICES.md`. `.forgejo/workflows/docs.yml` builds the site for it instead.
 - If the Windows job cannot run (the runner is offline), run `build/gate.ps1` locally before merging anything that touches Windows code or the UI.
 - `SAVEPOINT_TEST_ARGS` takes only a report (`--report-*`) and retries (`--retry-failed-tests*`). A filter is refused unless `-AllowNarrowedTests` / `--allow-narrowed-tests` says it is on purpose. A narrowed run is not a gate.
