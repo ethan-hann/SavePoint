@@ -75,10 +75,10 @@ public sealed partial class GitEngine
         await EnsureRepositoryAsync(repo, ct).ConfigureAwait(false);
 
         // A folder a stopped switch left half done holds files of two points; recording it would save a mixture that never existed.
-        // A note that cannot be read or understood still says a switch started, so its presence alone refuses.
-        if (File.Exists(SwitchJournal.PathIn(repo.GitDir)))
+        // A note that cannot be read or understood still says a switch started (it is read as one with no target).
+        if (SwitchJournal.Read(repo.GitDir) is { } unfinished)
         {
-            throw new InterruptedSwitchException(repo.Role, SwitchJournal.Read(repo.GitDir)?.ToCommit);
+            throw new InterruptedSwitchException(repo.Role, unfinished.ToCommit);
         }
 
         EnsureStorageSpace(repo);

@@ -118,6 +118,34 @@ public sealed class UnreadableJournalTests : IDisposable
     }
 
     [Fact]
+    public async Task The_status_of_a_folder_with_a_switch_note_that_cannot_be_understood_says_a_switch_is_unfinished_with_no_known_target()
+    {
+        var (repo, _) = await _ws.TwoPointsRepoAsync();
+        File.WriteAllText(SwitchJournal.PathIn(repo.GitDir), "{ this is not a note");
+
+        var status = await _ws.Engine.GetStatusAsync(repo, Ct);
+
+        var note = Assert.IsType<InterruptedSwitch>(status.InterruptedSwitch);
+        Assert.Null(note.ToCommit);
+        Assert.Null(note.FromCommit);
+        Assert.Null(note.ToBranch);
+        Assert.True(status.IsClean);
+    }
+
+    [Fact]
+    public async Task The_status_of_a_folder_whose_switch_note_another_program_holds_open_says_a_switch_is_unfinished()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows lets one program keep another from reading a file");
+        var (repo, points) = await _ws.TwoPointsRepoAsync();
+        SwitchJournal.Write(repo.GitDir, points[0], points[1]);
+        using var held = new FileStream(SwitchJournal.PathIn(repo.GitDir), FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+
+        var status = await _ws.Engine.GetStatusAsync(repo, Ct);
+
+        Assert.Null(Assert.IsType<InterruptedSwitch>(status.InterruptedSwitch).ToCommit);
+    }
+
+    [Fact]
     public async Task A_capture_still_works_when_there_is_no_note()
     {
         var (repo, points) = await _ws.TwoPointsRepoAsync();

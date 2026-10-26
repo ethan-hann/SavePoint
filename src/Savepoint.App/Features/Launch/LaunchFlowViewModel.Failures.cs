@@ -74,8 +74,14 @@ public sealed partial class LaunchFlowViewModel
             case "error.launch.switchInterrupted":
                 // The unfinished switch is finished by starting the target the folder was heading for, which the folder's state records;
                 // reviewing the changes is the way out when that is not known, since discarding is always offered there.
-                actions.Add(new ErrorCardAction(text.Message("launch.failure.switchAgain"), new AsyncRelayCommand(() => SwitchAgainAsync(flow)), IsPrimary: true));
-                actions.Add(new ErrorCardAction(text.Message("launch.failure.reviewChanges"), new AsyncRelayCommand(() => ReenterAsync(flow)), IsPrimary: false));
+                // An error that names no target is a note SavePoint could not read: nothing can finish that switch, so only the review (and its discard) is offered.
+                var targetKnown = error.Args.TryGetValue("targetPoint", out var target) && target is not null;
+                if (targetKnown)
+                {
+                    actions.Add(new ErrorCardAction(text.Message("launch.failure.switchAgain"), new AsyncRelayCommand(() => SwitchAgainAsync(flow)), IsPrimary: true));
+                }
+
+                actions.Add(new ErrorCardAction(text.Message("launch.failure.reviewChanges"), new AsyncRelayCommand(() => ReenterAsync(flow)), IsPrimary: !targetKnown));
                 break;
             case "error.launch.dirtyWorkingTree":
                 actions.Add(new ErrorCardAction(text.Message("launch.failure.reviewChanges"), new AsyncRelayCommand(() => ReenterAsync(flow)), IsPrimary: true));

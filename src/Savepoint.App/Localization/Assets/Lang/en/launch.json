@@ -42,6 +42,7 @@
   "launch.dialog.switchOnly": "Switch",
   "launch.dialog.title": "Switch to \"{profileName}\"?",
   "launch.dialog.unfinishedBody": "{role, select, install {The game install folder} external {The saves folder} other {A folder}} has files from two snapshots. Finish the switch, or discard the mix to go back to where it started.",
+  "launch.dialog.unfinishedBodyUnknown": "{role, select, install {The game install folder} external {The saves folder} other {A folder}} has files from two snapshots, and SavePoint can't finish the switch that left them. Discard the mix to put the folder back as its current snapshot has it.",
   "launch.dialog.unfinishedTitle": "The last switch didn't finish",
   "launch.dialog.unsavedBody": "{count, plural, one {{countText} file} other {{countText} files}} in {role, select, install {the game's folder} external {your saves folder} other {this folder}} changed since the last snapshot of \"{ownerName}\". Take a snapshot to keep them there, or discard them.",
   "launch.dialog.unsavedBodyUnowned": "{count, plural, one {{countText} file} other {{countText} files}} in {role, select, install {the game's folder} external {your saves folder} other {this folder}} changed since the last snapshot. Keep them as a new profile, or discard them.",

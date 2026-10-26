@@ -25,7 +25,8 @@ namespace Savepoint.Core.Api;
 /// </param>
 /// <param name="UnfinishedSwitchTarget">
 /// A target that completes the unfinished switch when it is started; null when the folder has no unfinished switch, or when the
-/// point it was heading for is not in any profile's history any more, which leaves discarding as the way out.
+/// point it was heading for is not in any profile's history any more, or not known because the note that records the switch cannot be
+/// read, which leaves discarding as the way out.
 /// </param>
 /// <param name="HeldBy">
 /// Set when switching the folder would stop on a file that cannot be read, which is the only thing wrong with it: the error the launch

@@ -30,12 +30,19 @@ internal static class SwitchJournal
         AtomicText.Write(PathIn(gitDir), Encoding.UTF8.GetString(buffer.ToArray()));
     }
 
-    // Null when no switch is unfinished, or the note cannot be understood (a note that cannot be read must not block anything).
+    // Null when no note exists. A note that exists but cannot be read or understood still says a switch started, so it is returned
+    // with no target: the folder may hold files of two points and nothing can say which.
     public static InterruptedSwitch? Read(string gitDir)
     {
-        if (AtomicText.ReadOrNull(PathIn(gitDir)) is not { } text)
+        if (!File.Exists(PathIn(gitDir)))
         {
             return null;
+        }
+
+        var unknown = new InterruptedSwitch(null, null);
+        if (AtomicText.ReadOrNull(PathIn(gitDir)) is not { } text)
+        {
+            return unknown;
         }
 
         try
@@ -45,11 +52,11 @@ internal static class SwitchJournal
             var to = root.GetProperty("to").GetString();
             var from = root.TryGetProperty("from", out var fromElement) ? fromElement.GetString() : null;
             var branch = root.TryGetProperty("branch", out var branchElement) ? branchElement.GetString() : null;
-            return to is null ? null : new InterruptedSwitch(from, to, branch);
+            return to is null ? unknown : new InterruptedSwitch(from, to, branch);
         }
         catch (Exception e) when (e is JsonException or KeyNotFoundException or InvalidOperationException)
         {
-            return null;
+            return unknown;
         }
     }
 

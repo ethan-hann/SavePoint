@@ -311,9 +311,9 @@ public sealed partial class GitEngine
                 : new GitOperationException($"The point '{target}' is not in the repository.");
         }
 
-        // A note that exists but cannot be read or understood still says a switch started, and which one is not known: a switch cannot
-        // be told apart from the one it would finish, and writing a new note would erase the evidence. A discard clears such a note.
-        if (File.Exists(SwitchJournal.PathIn(repo.GitDir)) && SwitchJournal.Read(repo.GitDir) is null)
+        // A note whose switch is not known cannot be told apart from the one this would finish, and writing a new note would erase the
+        // evidence. A discard clears such a note.
+        if (SwitchJournal.Read(repo.GitDir) is { ToCommit: null })
         {
             throw new InterruptedSwitchException(repo.Role);
         }

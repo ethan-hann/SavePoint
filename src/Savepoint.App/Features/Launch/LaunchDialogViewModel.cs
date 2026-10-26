@@ -286,7 +286,9 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
         var block = new UnsavedChangesBlockViewModel(
             folder.Role,
             text.Message(unfinished ? "launch.dialog.unfinishedTitle" : "launch.dialog.unsavedTitle"),
-            unfinished ? text.Message("launch.dialog.unfinishedBody", ("role", role)) : ChangesBody(folder, role),
+            unfinished
+                ? text.Message(folder.UnfinishedSwitchTarget is null ? "launch.dialog.unfinishedBodyUnknown" : "launch.dialog.unfinishedBody", ("role", role))
+                : ChangesBody(folder, role),
             !unfinished && folder.DirtyOwnerProfileId is not null,
             SaveFirstAsync,
             DiscardAsync,

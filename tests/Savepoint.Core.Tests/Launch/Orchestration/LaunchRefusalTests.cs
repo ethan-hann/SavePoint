@@ -23,6 +23,39 @@ public class LaunchRefusalTests
     }
 
     [Fact(Timeout = 240_000)]
+    public async Task A_switch_note_that_cannot_be_understood_blocks_a_clean_folder_with_no_target_and_a_discard_is_the_way_out()
+    {
+        var (rig, vanilla, _) = await LaunchRig.WithTwoProfilesAsync();
+        using var _ = rig;
+        var gitDir = await rig.WithEngineAsync((_, repo) => Task.FromResult(repo.GitDir), RepoRole.Install);
+        File.WriteAllText(SwitchJournal.PathIn(gitDir), "{ this is not a note");
+        var installBefore = rig.SnapshotOf(RepoRole.Install);
+
+        // The folder is clean, yet it is shown as a half-switched one that no target can finish.
+        var preview = await rig.PreviewAsync(Tip(vanilla));
+        Assert.True(preview.Install.UnfinishedSwitch);
+        Assert.True(preview.Install.Dirty);
+        Assert.Null(preview.Install.UnfinishedSwitchTarget);
+        Assert.Equal(0, preview.Install.DirtyFileCount);
+        Assert.False(preview.External?.UnfinishedSwitch);
+
+        // The launch is refused with the unfinished-switch error, which names no target, and nothing is switched.
+        var refused = await rig.StartAsync(Tip(vanilla));
+        Assert.Equal("error.launch.switchInterrupted", refused.Error?.MessageId);
+        Assert.Null(refused.Error!.Args["targetPoint"]);
+        Assert.Equal(installBefore, rig.SnapshotOf(RepoRole.Install));
+
+        // Discarding is offered and clears the note, so the next launch goes ahead.
+        var discarded = await rig.Launch.DiscardChangesAsync(rig.Game.Id, RepoRole.Install);
+        Assert.True(discarded.Ok, discarded.Error?.Detail);
+        Assert.False(File.Exists(SwitchJournal.PathIn(gitDir)));
+        var after = await rig.PreviewAsync(Tip(vanilla));
+        Assert.False(after.Install.UnfinishedSwitch);
+        var job = await rig.StartAsync(Tip(vanilla));
+        Assert.True(job.Status == JobStatus.Succeeded, $"{job.Status}: {job.Error?.MessageId} {job.Error?.Detail}");
+    }
+
+    [Fact(Timeout = 240_000)]
     public async Task Unsaved_work_or_an_unfinished_switch_elsewhere_refuses_the_launch_and_nothing_is_switched()
     {
         var (rig, vanilla, modded) = await LaunchRig.WithTwoProfilesAsync();

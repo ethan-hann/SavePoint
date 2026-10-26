@@ -93,8 +93,17 @@ public sealed class UiFormatter
     {
         var id = _catalog.Contains(error.MessageId) ? error.MessageId : "error.unknown";
         var key = ErrorCopy.BodyKey(id, operation);
-        return Message(_catalog.Contains(key) ? key : id, id == "error.diskSpace.low" ? WithDiskSpaceArguments(error.Args) : error.Args);
+        return Message(_catalog.Contains(key) ? key : id, id switch
+        {
+            "error.diskSpace.low" => WithDiskSpaceArguments(error.Args),
+            "error.launch.switchInterrupted" => WithTargetKnown(error.Args),
+            _ => error.Args,
+        });
     }
+
+    // Starting the target finishes an unfinished switch only when the error knows which switch it was.
+    private static Dictionary<string, object?> WithTargetKnown(IReadOnlyDictionary<string, object?> args) =>
+        new(args) { ["targetKnown"] = args.TryGetValue("targetPoint", out var target) && target is not null ? "yes" : "no" };
 
     /// <summary>The drive a path is on: "D:" for a Windows drive letter, the "\\server\share" of a network path, the path itself otherwise; null for an empty path.</summary>
     public static string? Drive(string path)
