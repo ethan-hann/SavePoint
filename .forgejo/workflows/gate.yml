@@ -1,11 +1,12 @@
-# Runs the Linux and Windows gates (build with warnings as errors, every test, skip check, format check) on pushes to main
-# and on pull requests. The Windows job runs on a self-hosted Windows VM in host mode, as a standard (non-admin) account.
+# Runs the Linux and Windows gates (build with warnings as errors, every test, skip check, format check) on pull requests,
+# and by hand from the Actions page. Not on pushes to main: main is protected and takes fast-forward merges only, so the
+# commit that lands is the one its pull request already passed, and running it again only loads the shared runners.
+# The Windows job runs on a self-hosted Windows VM in host mode, as a standard (non-admin) account.
 name: Gate
 
 on:
-  push:
-    branches: [main]
   pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: gate-${{ github.ref }}
