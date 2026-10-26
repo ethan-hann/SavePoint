@@ -19,8 +19,10 @@ public sealed partial class ContextualHelpViewModel : ObservableObject
     /// <param name="moreLabel">The text of the link to the "How SavePoint works" page; empty when the answer has no link.</param>
     /// <param name="openHowItWorks">Opens the page; null for an answer that sits in a dialog, where a page opened behind it could not be used.</param>
     /// <param name="picture">A picture drawn small inside the answer; <see cref="HelpPicture.None"/> for none.</param>
-    public ContextualHelpViewModel(string question, string answer, string moreLabel = "", Action? openHowItWorks = null, HelpPicture picture = HelpPicture.None)
+    /// <param name="automationName">The button's accessible name when it must differ from <paramref name="question"/>; empty uses the question.</param>
+    public ContextualHelpViewModel(string question, string answer, string moreLabel = "", Action? openHowItWorks = null, HelpPicture picture = HelpPicture.None, string automationName = "")
     {
+        AutomationName = automationName.Length > 0 ? automationName : question;
         Picture = picture;
         Question = question;
         Answer = answer;
@@ -38,6 +40,9 @@ public sealed partial class ContextualHelpViewModel : ObservableObject
 
     /// <summary>The button's text, such as "What's a snapshot?"; it is also the button's accessible name.</summary>
     public string Question { get; }
+
+    /// <summary>The button's accessible name; it is <see cref="Question"/> unless the same question is asked in several places and each needs its own name.</summary>
+    public string AutomationName { get; }
 
     /// <summary>The text that opens below the button.</summary>
     public string Answer { get; }

@@ -22,7 +22,7 @@
                 Classes="text pill help-link"
                 Padding="10,5"
                 IsChecked="{Binding IsOpen, Mode=TwoWay}"
-                AutomationProperties.Name="{Binding Question}">
+                AutomationProperties.Name="{Binding AutomationName}">
     <StackPanel Orientation="Horizontal" Spacing="6">
       <TextBlock Classes="icon s16 accent" VerticalAlignment="Center" Text="{x:Static theme:Icons.Help}" />
       <TextBlock VerticalAlignment="Center" Text="{Binding Question}" />

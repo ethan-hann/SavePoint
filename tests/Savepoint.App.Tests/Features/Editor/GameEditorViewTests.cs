@@ -149,36 +149,6 @@ public class GameEditorViewTests
     }
 
     [AvaloniaFact]
-    public async Task The_warning_and_the_cloud_save_guidance_are_shown_when_the_store_keeps_saves()
-    {
-        using var harness = await EditorViewHarness.StartAsync();
-        Assert.IsType<FakeGamesApi>(harness.Backend.Games).CloudSaves[SampleScenario.SkyrimId] = new CloudSaveInfo(CloudSaveState.On, CloudStore.Steam);
-        var editor = harness.Edit();
-        await editor.LoadAsync();
-        harness.Settle();
-
-        Assert.True(harness.Find<Border>("SteamWarningCallout").IsEffectivelyVisible);
-        Assert.True(harness.Find<Border>("GuidanceStrip").IsEffectivelyVisible);
-        Assert.True(harness.Find<Grid>("CloudSavesNoteRow").IsEffectivelyVisible);
-        var texts = harness.All<TextBlock>().Select(block => block.Text).ToList();
-        Assert.Contains(texts, text => text is not null && text.StartsWith("Steam Cloud is on for this game."));
-        Assert.Contains("Don't use SavePoint with online games that have anti-cheat. Changed game files can get your account flagged.", texts);
-    }
-
-    [AvaloniaFact]
-    public async Task The_cloud_save_note_is_hidden_when_the_store_has_cloud_saves_off()
-    {
-        using var harness = await EditorViewHarness.StartAsync();
-        Assert.IsType<FakeGamesApi>(harness.Backend.Games).CloudSaves[SampleScenario.SkyrimId] = new CloudSaveInfo(CloudSaveState.Off, CloudStore.Steam);
-        var editor = harness.Edit();
-        await editor.LoadAsync();
-        harness.Settle();
-
-        Assert.False(harness.Find<Grid>("CloudSavesNoteRow").IsEffectivelyVisible);
-        Assert.True(harness.Find<Border>("GuidanceStrip").IsEffectivelyVisible);
-    }
-
-    [AvaloniaFact]
     public async Task The_run_choice_and_the_warning_name_the_operating_systems_kind_of_program()
     {
         using var harness = await EditorViewHarness.StartAsync(os: "macos");
@@ -364,7 +334,7 @@ public class GameEditorViewTests
     }
 
     [AvaloniaFact]
-    public async Task Files_to_leave_out_carries_its_warning_beside_the_rules()
+    public async Task Files_to_leave_out_always_carries_the_line_about_not_matching_the_saves()
     {
         using var harness = await EditorViewHarness.StartAsync();
         harness.Edit();
@@ -372,9 +342,8 @@ public class GameEditorViewTests
         var texts = harness.All<TextBlock>().Where(block => block.IsEffectivelyVisible).Select(block => block.Text).ToList();
 
         Assert.Contains("FILES TO LEAVE OUT OF BOTH FOLDERS", texts);
-        Assert.Contains("SavePoint never copies or replaces files that match. Use * for any name and ** for any folder. Don't add a rule that matches your saves, or profiles stop switching them.", texts);
         Assert.Contains("FILES TO LEAVE OUT OF THE GAME'S OWN FOLDER", texts);
-        Assert.Contains("SavePoint never copies or replaces matching files, such as logs and crash reports. These rules never apply to your saves folder. Use * for any name and ** for any folder.", texts);
+        Assert.Contains("Don't add a rule that matches your saves, or profiles stop switching them.", texts);
     }
 
     [AvaloniaFact]

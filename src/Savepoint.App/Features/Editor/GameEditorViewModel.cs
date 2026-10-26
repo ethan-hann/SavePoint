@@ -161,6 +161,7 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
         ArtworkPreview = shell.Artwork.Preview(saved?.Id ?? string.Empty);
         LoadForm(_source, rulesAreDefaults: saved is null && prefill is null);
         InitializeArtwork(shell, saved);
+        InitializeGuidance();
         InitializeCloudSaves();
         _baseline = BuildDefinition(_source.Id);
     }
