@@ -9,7 +9,6 @@ namespace Savepoint.App.Tests.Features.Editor;
 public class GameEditorCloudSavesFollowTests
 {
     private const string _steamOnStart = "Steam Cloud is on for this game.";
-    private const string _unknownStart = "If this game's store syncs cloud saves";
 
     private static FakeGamesApi Games(EditorRig rig) => Assert.IsType<FakeGamesApi>(rig.Backend.Games);
 
@@ -18,6 +17,9 @@ public class GameEditorCloudSavesFollowTests
 
     private static Task<string> NoteStartingAsync(GameEditorViewModel editor, string start) =>
         EditorRig.Eventually(() => editor.CloudSavesNote.StartsWith(start, StringComparison.Ordinal) ? editor.CloudSavesNote : null);
+
+    private static Task<string> UnknownAsync(GameEditorViewModel editor) =>
+        EditorRig.Eventually(() => editor.HasCloudSavesUnknown ? "unknown" : null);
 
     private static async Task<GameEditorViewModel> OpenAsync(EditorRig rig)
     {
@@ -114,12 +116,13 @@ public class GameEditorCloudSavesFollowTests
         editor.InstallPath = @"D:\Games\First";
         await EditorRig.Eventually(() => Queries(rig).Count == 1 ? Queries(rig) : null);
         editor.InstallPath = @"D:\Games\Second";
-        await NoteStartingAsync(editor, _unknownStart);
+        await UnknownAsync(editor);
         release.SetResult();
         await Games(rig).FormChecks[0];
         await Task.Yield();
 
-        Assert.StartsWith(_unknownStart, editor.CloudSavesNote, StringComparison.Ordinal);
+        Assert.True(editor.HasCloudSavesUnknown);
+        Assert.False(editor.HasCloudSavesNote);
     }
 
     [Fact]
@@ -157,11 +160,12 @@ public class GameEditorCloudSavesFollowTests
         var loading = editor.LoadAsync();
 
         editor.InstallPath = @"D:\Games\Elsewhere";
-        await NoteStartingAsync(editor, _unknownStart);
+        await UnknownAsync(editor);
         release.SetResult();
         await loading;
 
-        Assert.StartsWith(_unknownStart, editor.CloudSavesNote, StringComparison.Ordinal);
+        Assert.True(editor.HasCloudSavesUnknown);
+        Assert.False(editor.HasCloudSavesNote);
     }
 
     [Fact]
@@ -205,10 +209,11 @@ public class GameEditorCloudSavesFollowTests
         var loading = editor.LoadAsync();
 
         editor.InstallPath = @"D:\Games\Elsewhere";
-        await NoteStartingAsync(editor, _unknownStart);
+        await UnknownAsync(editor);
         release.SetResult();
         await loading;
 
-        Assert.StartsWith(_unknownStart, editor.CloudSavesNote, StringComparison.Ordinal);
+        Assert.True(editor.HasCloudSavesUnknown);
+        Assert.False(editor.HasCloudSavesNote);
     }
 }

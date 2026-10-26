@@ -5,7 +5,7 @@ namespace Savepoint.App.Features.Editor;
 
 public sealed partial class GameEditorViewModel
 {
-    /// <summary>What the cloud-save note says; empty when there is nothing to warn about, or the store has not been asked yet.</summary>
+    /// <summary>The warning shown when the store keeps this game's saves in the cloud; empty when it does not, when it cannot be told, or when the store has not been asked yet.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasCloudSavesNote))]
     private string _cloudSavesNote = string.Empty;
@@ -104,12 +104,20 @@ public sealed partial class GameEditorViewModel
         _cloudCheck = null;
     }
 
-    private void ShowCloudSaves(CloudSaveInfo info) =>
+    // On gets the warning; Off gets nothing; anything else gets only the question button, so the editor does not scold about what it cannot see.
+    private void ShowCloudSaves(CloudSaveInfo info)
+    {
         CloudSavesNote = (info.State, info.Store) switch
         {
             (CloudSaveState.On, CloudStore.Steam) => _text.Message("gameEditor.cloudSaves.on.steam"),
             (CloudSaveState.On, CloudStore.Gog) => _text.Message("gameEditor.cloudSaves.on.gog"),
-            (CloudSaveState.Off, _) => string.Empty,
-            _ => _text.Message("gameEditor.cloudSaves.unknown"),
+            _ => string.Empty,
         };
+        HasCloudSavesUnknown = CloudSavesNote.Length == 0 && info.State != CloudSaveState.Off;
+        OnPropertyChanged(nameof(HasCloudSavesUnknown));
+        if (!HasCloudSavesUnknown)
+        {
+            CloudSavesHelp.IsOpen = false;
+        }
+    }
 }
