@@ -42,7 +42,7 @@ SavePoint touches only the folders you give it. It refuses a whole drive or a sy
 Two things to know before you add a game:
 
 - **Online games with anti-cheat.** Anti-cheat checks the game's own files, and changed or rolled-back files can get your account flagged. Games you can play offline, with anti-cheat turned off for mods, are fine.
-- **Cloud saves.** Turn off Steam Cloud or GOG Galaxy sync for any game SavePoint manages, or the two will overwrite each other.
+- **Cloud saves.** Steam Cloud and GOG Galaxy keep the saves SavePoint switches to, but bring back saves it removed. Turn cloud saves off for a game if you go back to before a save. The editor says when they are on.
 
 ## Install
 

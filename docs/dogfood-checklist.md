@@ -16,7 +16,7 @@ Build from `main` (`dotnet run --project src/Savepoint.App -c Release`), or inst
 - [ ] Read every screen as someone who does not know version control. Note any word or sentence that needs explaining.
 - [ ] Activity: start a snapshot of a large profile, open Activity from the status indicator, watch Details, copy them, and cancel the snapshot.
 - [ ] Close SavePoint while a snapshot runs. It asks first, and Minimize keeps the snapshot going and tells you when it is done.
-- [ ] Turn off the store's cloud saves for that game first (Steam Cloud, GOG Galaxy), as the editor recommends.
+- [ ] Open the editor for a game with the store's cloud saves on, then off. The cloud note shows only while they are on, and names the store.
 
 ## Accessibility
 

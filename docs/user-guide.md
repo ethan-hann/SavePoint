@@ -46,7 +46,7 @@ If a folder you add still has snapshots from a game you removed earlier, SavePoi
 ### Anti-cheat and cloud saves
 
 - **Online games with anti-cheat:** SavePoint never touches a game while it is running, but anti-cheat checks the game's own files. Changed or rolled-back files can get your account flagged, and these games cannot be modded or rolled back anyway. Games you can play offline with anti-cheat turned off for mods are fine.
-- **Cloud saves:** turn them off for the game in its store (Steam Cloud, GOG Galaxy). Otherwise the store can sync older saves over the ones SavePoint puts back.
+- **Cloud saves:** Steam and GOG Galaxy keep the saves SavePoint changes and upload them when you quit. But they bring back any save SavePoint removed, the next time the game starts, so going back to before a save may not stick. If that matters for a game, turn off its cloud saves in the store. The editor tells you when a game's cloud saves are on. If you play on two PCs and Steam asks which saves to keep, choose **Local Save** to keep the ones SavePoint put back.
 
 ### Artwork
 
