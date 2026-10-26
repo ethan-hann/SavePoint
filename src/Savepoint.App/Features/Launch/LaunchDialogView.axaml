@@ -56,6 +56,13 @@
         </StackPanel>
       </Border>
 
+      <Border x:Name="ReplacedNote" Classes="strip" IsVisible="{Binding HasReplacedNote}">
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <TextBlock Classes="icon accent" VerticalAlignment="Top" Text="{x:Static theme:Icons.SwapHoriz}" />
+          <TextBlock x:Name="ReplacedNoteText" Classes="caption" FontSize="13" MaxWidth="470" TextWrapping="Wrap" VerticalAlignment="Center" Text="{Binding ReplacedNote}" />
+        </StackPanel>
+      </Border>
+
       <Border x:Name="VersionSection" Classes="section" IsVisible="{Binding HasVersionSection}">
         <Grid ColumnDefinitions="Auto,*">
           <TextBlock Classes="icon accent" VerticalAlignment="Top" Margin="0,1,16,0" Text="{x:Static theme:Icons.SwapHoriz}" />

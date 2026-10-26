@@ -102,8 +102,17 @@ public sealed partial class LaunchOrchestrator
             reading.Matches || reading.Target.Leave ? null : await SwitchSummaryAsync(storage, game, reading, cancellationToken).ConfigureAwait(false),
             reading.DirtyNewFileCount,
             reading.UnfinishedSwitch,
-            reading.UnfinishedSwitch ? await UnfinishedTargetAsync(storage, profiles, previewed, reading, cancellationToken).ConfigureAwait(false) : null,
-            reading.Held ? ErrorInfo.From(reading.Status.HeldFile!.ToException(HeldFileOperation.Switch)) : null);
+
+            // Finishing is refused while unsaved changes are in its way, so no target is offered until they are discarded.
+            reading.UnfinishedSwitch && !reading.BlockedByChanges ? await UnfinishedTargetAsync(storage, profiles, previewed, reading, cancellationToken).ConfigureAwait(false) : null,
+            reading.Held ? ErrorInfo.From(reading.Status.HeldFile!.ToException(HeldFileOperation.Switch)) : null,
+            reading.ChangesOutsideSwitchCount,
+            reading.Review?.ReplacedPaths.Count ?? 0,
+
+            // A player knows their saves by name; the game's folder can replace thousands of files.
+            reading.Target.Role == RepoRole.External && reading.Review is { ReplacedPaths.Count: > 0 } review
+                ? [.. review.ReplacedPaths.Order(StringComparer.Ordinal).Take(FolderLaunchState.MaxNamedReplacedFiles)]
+                : null);
 
     // Starting the previewed target finishes a switch that was heading there; one that was heading elsewhere is finished by that point's own target.
     private static async Task<LaunchTarget?> UnfinishedTargetAsync(
