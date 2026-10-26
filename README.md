@@ -25,13 +25,13 @@ That is the whole loop. Everything else comes from having more than one checkpoi
 ## What you can do with it
 
 - **Run vanilla and modded side by side.** Each profile is its own line of play, like "Vanilla 1.5" and "Survival Overhaul 1.6". A switch swaps the files, so you never reinstall anything.
-- **Go back after a bad patch.** Pick the snapshot from before the update in History, press **Go back to this**, and play.
+- **Go back after a bad patch.** Pick the snapshot from before the update in History, and press **Go back and play**.
 - **Try things without worry.** Take a snapshot, install the risky mod, and play. If it goes badly, go back.
 - **Split your playthrough.** Sided with the wrong faction? Go back to before the choice and keep the new session as its own profile. Both stories stay playable.
 - **Keep the disk in check.** SavePoint stores each file once, so a snapshot that changes a few saves takes very little space. **Free up space** shows what it will delete before it deletes anything.
 - **Make it yours.** Light and dark themes, five accent colors, a sidebar or a library layout, and cover art for Steam games. It works fully from the keyboard, with screen readers, and with reduced motion.
 
-![History shows every snapshot as a card, each with Go back to this](docs/images/history.png)
+![History shows every snapshot as a card, each with Go back and play](docs/images/history.png)
 
 You do not need to know anything about version control. Press **F1** for a short illustrated guide, or click a question button like "What's a snapshot?" next to anything new.
 

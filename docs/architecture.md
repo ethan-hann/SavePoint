@@ -254,7 +254,7 @@ Folder work reports one `FolderOutcome(Role, Error?)` per folder it touched. All
 
 ### Launch
 
-`LaunchTarget` is closed: `ProfileTip(ProfileId)`, `Save(ProfileId, SaveId)` for the dialog's save picker, and `Point(PointId)` for "Go back to this" (D15).
+`LaunchTarget` is closed: `ProfileTip(ProfileId)`, `Save(ProfileId, SaveId)` for the dialog's save picker, and `Point(PointId)` for "Go back and play" (D15).
 
 `LaunchPreview` holds:
 - the resolved profile.
@@ -288,7 +288,7 @@ Folder work reports one `FolderOutcome(Role, Error?)` per folder it touched. All
 ### Profiles
 
 - `ProfileRowStats` holds the active marker, the folders with unsaved changes, the snapshot count (D44.3), the mod-file count, the detected version and override, last played, and running.
-- `ProfileRowStats.SnapshotNow` (`Available`, `FirstSnapshot`, `NotLoaded`) says whether "Take a snapshot now" applies. A capture of a profile that is not loaded fails with `error.profile.notLoaded`.
+- `ProfileRowStats.SnapshotNow` (`Available`, `FirstSnapshot`, `NotLoaded`) says whether "Take a snapshot" applies. A capture of a profile that is not loaded fails with `error.profile.notLoaded`.
 - `ProfileChanges` carries only the fields a user edits.
 - `ProfileDeletePreview` counts the points only that profile holds, in total and per folder (D17). `BlockedBy` is the error the delete would fail with. `ProfileDeletePreview.PointsBackToRemoved` counts what goes back to Recently removed (D46.3).
 

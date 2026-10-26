@@ -552,6 +552,7 @@ Play was the only way to load a profile's files, so a player who wanted only the
 5. **Try again and the recovery buttons stay a switch.** "Try again", "Finish the switch" and "Review the changes" after a failed switch start another switch, never the game.
 6. **A switch notifies when it finishes,** like the other long jobs: a toast says the files are in place and the game was not started. A launch does not, since the game opening is the signal.
 7. **The errors that said "Play this profile first" offer the switch.** `error.profile.notLoaded` opens a confirmation with "Switch to this profile", and `error.gameService.profileActive` offers a switch to the first other profile in the table.
+8. **Labels say whether the game starts (2026-10-26).** A review found "Go back to this" and "Switch to this snapshot" did not say which one starts the game, and "Switch" is profile wording. History now offers "Go back and play" and "Go back without playing" on cards, timeline entries and save rows. A profile that is not loaded shows "Switch and play" instead of Play, so the player knows files change first; while the row's state is not known yet it shows Play. "Take a snapshot" also sits beside the Profiles tab and is off while a snapshot of that game runs, so a second press cannot queue a second one.
 
 ## D50. Packs are written without zlib
 

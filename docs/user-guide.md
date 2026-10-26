@@ -72,7 +72,7 @@ Your first snapshot comes with your first profile. On the Games screen, **New pr
 
 ## Play
 
-Press **Play** on a profile, or **Go back to this** on a snapshot in History. Before anything happens, SavePoint shows what it will change:
+Press **Play** or **Switch and play** on a profile, or **Go back and play** on a snapshot in History. Before anything happens, SavePoint shows what it will change:
 
 - **Game version and mods:** what it switches from and to, how much gets replaced or removed, and roughly how long that takes.
 - **Saves to load:** the save snapshots you can choose from, newest first. A profile made from another one also offers the saves it started with.
@@ -112,12 +112,12 @@ To never be asked, turn off **Ask whether to keep the session** in Settings. Sav
 
 **History** shows the snapshots you can go back to, newest first, grouped into the last 7 days and earlier. Each snapshot holds **Version, mods and saves**, **Version and mods**, or **Saves only**. Switch between the **List** and **Cards** views, and filter by profile. The snapshot your game folders hold right now is marked **Loaded now**.
 
-- **Go back to this** on a card, or on a version in the list, starts the game from that whole snapshot.
-- **Go back** next to a save snapshot in the list starts the game with those saves, in the profile they belong to.
+- **Go back and play** on a card, or on a version in the list, puts that whole snapshot back and starts the game. Next to a save snapshot, it puts those saves back in the profile they belong to.
+- **Go back without playing** puts the snapshot back and stops there.
 
 Both show the same check as Play.
 
-![History for Grounded in the Cards view: five snapshots from the last 7 days, two "Session" save snapshots, "9 mod files updated", Modded and Vanilla 1.4, each with what it holds, its game version and mods, its time, a Go back to this button and Switch to this snapshot. The newest is marked Loaded now, and Recently removed (1) is folded at the bottom.](images/history.png)
+![History for Grounded in the Cards view: five snapshots from the last 7 days, two "Session" save snapshots, "9 mod files updated", Modded and Vanilla 1.4, each with what it holds, its game version and mods, its time, a Go back and play button and Go back without playing. The newest is marked Loaded now, and Recently removed (1) is folded at the bottom.](images/history.png)
 
 ### Recently removed
 
@@ -127,13 +127,13 @@ Both show the same check as Play.
 
 ## Manage profiles
 
-The profile table on the Games screen shows each profile's snapshot count, game version, mod files, and when you last played it. **Loaded now** means its files are in your game folders. **New changes** means files changed since its last snapshot.
+The profile table on the Games screen shows each profile's snapshot count, notes, game version, mod files, and when you last played it. **Loaded now** means its files are in your game folders. **New changes** means files changed since its last snapshot.
 
-![The Games screen for Grounded with two profiles: Vanilla 1.4 with one snapshot, and Modded, marked Loaded now, with four snapshots and 38 mod files, each with its version, when it was last played and a Play button. The footer says the game's snapshots use 16.4 GB on a 210.2 GB drive, next to Free up space.](images/profiles.png)
+![The Games screen for Grounded with two profiles: Vanilla 1.4 with one snapshot and a Switch and play button, and Modded, marked Loaded now, with four snapshots, its notes, 38 mod files and a Play button. Take a snapshot sits right of the Profiles, History and Activity tabs. The footer says the game's snapshots use 16.4 GB on a 210.2 GB drive, next to Free up space.](images/profiles.png)
 
-Each row has **Play**, and with a row selected, Enter starts Play. The row's menu has **Edit** (name, notes, version), **Take a snapshot now**, **Duplicate**, and **Delete**:
+The loaded profile has **Play**. Every other profile has **Switch and play**, which loads it first. With a row selected, Enter does the same. **Take a snapshot**, next to the tabs, keeps what your game folders hold right now as a new snapshot of the loaded profile. A profile with no snapshot yet gets its first one this way.
 
-- **Take a snapshot now** keeps what your game folders hold right now as a new snapshot of the loaded profile. A profile with no snapshot yet gets its first one this way.
+The row's menu has **Edit** (name, notes, version), **Take a snapshot**, **Duplicate**, and **Delete**:
 - **Duplicate** starts a new profile with the same game version and mods, but no save snapshots of its own.
 - **Delete** warns you when the profile has snapshots no other profile has, and says what happens to them. Usually they are deleted for good. Snapshots that came from Recently removed, as in a profile you brought back from there, go back to Recently removed instead.
 
