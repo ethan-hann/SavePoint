@@ -106,6 +106,7 @@ public sealed partial class GitEngine
         }
 
         var sizes = await ObjectSizesAsync(repo, candidates.Values.Select(change => change.NewId), ct).ConfigureAwait(false);
+        var trustMode = TrustsExecutableBit(repo);
         List<string> rewrite = [];
         List<long> rewriteBytes = [];
         List<string> keep = [];
@@ -113,7 +114,7 @@ public sealed partial class GitEngine
         foreach (var change in candidates.Values.OrderBy(change => change.Path, StringComparer.Ordinal))
         {
             ct.ThrowIfCancellationRequested();
-            switch (HoldsTarget(repo, change, sizes, ct))
+            switch (HoldsTarget(repo, change, sizes, trustMode, ct))
             {
                 case Holding.Target:
                     keep.Add(change.Path);
@@ -156,9 +157,23 @@ public sealed partial class GitEngine
         Other,
     }
 
+    // Whether a file's executable bit is part of what git compares. git decides when the repository is made: a drive that keeps no
+    // permissions (a Windows drive under WSL) shows every file as executable, so git is told to ignore the bit (core.filemode false), and
+    // then a file with the right bytes is the right file whatever its bit says. Windows has no bit.
+    private static bool TrustsExecutableBit(RepoRef repo)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return false;
+        }
+
+        var text = AtomicText.ReadOrNull(RepoConfigFile.ConfigPath(repo.GitDir));
+        return !string.Equals(text is null ? null : RepoConfigFile.ReadValue(text, "core", "filemode"), "false", StringComparison.OrdinalIgnoreCase);
+    }
+
     // Whether the file the target wants at this path already holds the target's bytes. A file of another size cannot, so only files of the
     // right size are read.
-    private Holding HoldsTarget(RepoRef repo, TreeChange change, Dictionary<string, long> sizes, CancellationToken ct)
+    private Holding HoldsTarget(RepoRef repo, TreeChange change, Dictionary<string, long> sizes, bool trustMode, CancellationToken ct)
     {
         if (change.NewMode is not ("100644" or "100755") || !sizes.TryGetValue(change.NewId, out var size))
         {
@@ -180,7 +195,7 @@ public sealed partial class GitEngine
             }
 
             // The mode is part of what the target says, so a file with the right bytes and the wrong mode is written again, though it is not another content.
-            if (!OperatingSystem.IsWindows() && ((File.GetUnixFileMode(full) & UnixFileMode.UserExecute) != 0) != (change.NewMode == "100755"))
+            if (trustMode && !OperatingSystem.IsWindows() && ((File.GetUnixFileMode(full) & UnixFileMode.UserExecute) != 0) != (change.NewMode == "100755"))
             {
                 return Holding.Nothing;
             }
