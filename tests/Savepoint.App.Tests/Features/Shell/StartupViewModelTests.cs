@@ -78,6 +78,25 @@ public class StartupViewModelTests
     }
 
     [Fact]
+    public async Task While_a_task_started_before_SavePoint_closed_is_waited_for_the_screen_says_so_and_not_the_cleanup_note()
+    {
+        var backend = Backend(Healthy());
+        var release = new TaskCompletionSource();
+        backend.State.StartupSteps.Add(StartupProgress.WaitingForEarlierTask);
+        backend.State.StartupGate = release.Task;
+        var startup = new StartupViewModel(backend.AppStatus, _text);
+
+        var check = startup.CheckAsync();
+        var duringWait = (startup.Phase, startup.IsWaitingForEarlierTask, startup.IsFinishingEarlierCleanup);
+        release.SetResult();
+        await check;
+
+        Assert.Equal((StartupPhase.Checking, true, false), duringWait);
+        Assert.Equal(StartupPhase.Ready, startup.Phase);
+        Assert.False(startup.IsWaitingForEarlierTask);
+    }
+
+    [Fact]
     public async Task A_check_with_nothing_left_behind_never_shows_the_cleanup_note()
     {
         var startup = new StartupViewModel(Backend(Healthy()).AppStatus, _text);

@@ -55,12 +55,12 @@ public sealed partial class GitEngine
     /// write when it has no operation of its own in flight on the repository.
     /// </summary>
     /// <param name="gitDir">The git directory.</param>
-    /// <returns>How many files were removed; 0 when the folder is not a git directory or this engine is working on it.</returns>
+    /// <returns>How many files were removed; 0 when the folder is not a git directory, this engine is working on it, or a git an earlier SavePoint left running could not be ended.</returns>
     public int RemoveStaleLocks(string gitDir)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(gitDir);
         gitDir = Path.TrimEndingDirectorySeparator(Path.GetFullPath(gitDir));
-        if (!IsInitialized(gitDir) || _inFlight.IsBusy(gitDir))
+        if (!IsInitialized(gitDir) || _inFlight.IsBusy(gitDir) || LeftoverGitRunning())
         {
             return 0;
         }

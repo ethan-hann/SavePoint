@@ -1,0 +1,112 @@
+using System.Diagnostics;
+using Savepoint.Core.Git;
+using Savepoint.Core.Tests.Services;
+using Savepoint.Core.Tests.Services.Exe;
+
+namespace Savepoint.Core.Tests.Git;
+
+// The registry writes the gits it is running to a small note, so a start after SavePoint was stopped from outside can find what was left.
+// A git that ends within the delay is never written, so the many short calls cost no disk writes.
+public sealed class GitProcessRegistryNoteTests : IDisposable
+{
+    private static readonly TimeSpan _delay = TimeSpan.FromMilliseconds(150);
+
+    private readonly TempFolder _temp = new("savepoint-registry-note-");
+
+    public void Dispose() => _temp.Dispose();
+
+    private string NotePath => RunningGitNote.PathIn(_temp.Path);
+
+    [Fact(Timeout = 60_000)]
+    public async Task A_git_that_keeps_running_is_written_to_the_note_with_this_program_as_its_owner()
+    {
+        using var game = FakeGameProcess.Start();
+        var registry = new GitProcessRegistry(NotePath, _delay);
+        var stamp = StampOf(game.Id);
+
+        using var listed = registry.Add(stamp);
+        var written = await FakeGameProcess.WaitUntilAsync(() => RunningGitNote.Read(NotePath) is not null, TimeSpan.FromSeconds(10));
+
+        Assert.True(written, "the note was never written");
+        var note = RunningGitNote.Read(NotePath)!.Value;
+        Assert.Equal(ProcessStamp.Current(), note.Owner);
+        Assert.Equal([stamp], note.Gits);
+    }
+
+    [Fact(Timeout = 60_000)]
+    public async Task A_git_that_ends_within_the_delay_is_never_written()
+    {
+        using var game = FakeGameProcess.Start();
+        var registry = new GitProcessRegistry(NotePath, TimeSpan.FromMilliseconds(800));
+
+        registry.Add(StampOf(game.Id)).Dispose();
+        await Task.Delay(1800, TestContext.Current.CancellationToken);
+
+        Assert.False(File.Exists(NotePath), "a git that had ended was written to the note");
+    }
+
+    [Fact(Timeout = 60_000)]
+    public async Task A_git_that_is_left_to_finish_is_not_written()
+    {
+        using var game = FakeGameProcess.Start();
+        var registry = new GitProcessRegistry(NotePath, _delay);
+
+        using var listed = registry.Add(StampOf(game.Id), persist: false);
+        await Task.Delay(1000, TestContext.Current.CancellationToken);
+
+        Assert.False(File.Exists(NotePath), "a git that survives SavePoint on purpose was written to the note of gits to end");
+        Assert.True(registry.Contains(game.Id));
+    }
+
+    [Fact(Timeout = 60_000)]
+    public async Task The_note_goes_when_the_last_git_ends()
+    {
+        using var game = FakeGameProcess.Start();
+        var registry = new GitProcessRegistry(NotePath, _delay);
+        var listed = registry.Add(StampOf(game.Id));
+        Assert.True(await FakeGameProcess.WaitUntilAsync(() => RunningGitNote.Read(NotePath) is not null, TimeSpan.FromSeconds(10)));
+
+        listed.Dispose();
+
+        Assert.True(await FakeGameProcess.WaitUntilAsync(() => !File.Exists(NotePath), TimeSpan.FromSeconds(10)), "the note stayed after the git ended");
+    }
+
+    [Fact(Timeout = 60_000)]
+    public async Task A_git_carried_over_from_an_earlier_run_stays_in_the_note_while_it_runs_and_drops_out_when_it_ends()
+    {
+        using var game = FakeGameProcess.Start();
+        var registry = new GitProcessRegistry(NotePath, _delay);
+        var stamp = StampOf(game.Id);
+
+        registry.Carry([stamp]);
+        Assert.True(await FakeGameProcess.WaitUntilAsync(() => RunningGitNote.Read(NotePath)?.Gits.Contains(stamp) == true, TimeSpan.FromSeconds(10)), "a carried git was not written");
+
+        FakeGameProcess.Kill(game.Id);
+        using var other = FakeGameProcess.Start();
+
+        // Any change makes the registry look again.
+        registry.Add(StampOf(other.Id)).Dispose();
+
+        Assert.True(await FakeGameProcess.WaitUntilAsync(() => !File.Exists(NotePath), TimeSpan.FromSeconds(10)), "a carried git that had ended stayed in the note");
+    }
+
+    [Fact(Timeout = 60_000)]
+    public async Task Closing_ends_what_runs_and_removes_the_note()
+    {
+        using var game = FakeGameProcess.Start();
+        var registry = new GitProcessRegistry(NotePath, _delay);
+        using var listed = registry.Add(StampOf(game.Id));
+        Assert.True(await FakeGameProcess.WaitUntilAsync(() => RunningGitNote.Read(NotePath) is not null, TimeSpan.FromSeconds(10)));
+
+        registry.Close();
+
+        Assert.False(File.Exists(NotePath), "the note stayed after SavePoint closed");
+        Assert.True(await FakeGameProcess.WaitUntilAsync(() => !FakeGameProcess.IsRunning(game.Id), TimeSpan.FromSeconds(10)));
+    }
+
+    private static ProcessStamp StampOf(int id)
+    {
+        using var process = Process.GetProcessById(id);
+        return ProcessStamp.Of(process)!.Value;
+    }
+}

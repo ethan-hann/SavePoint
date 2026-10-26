@@ -1,10 +1,9 @@
+using System.Diagnostics;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Git;
-using Savepoint.Core.Platform;
 using Savepoint.Core.Services.Storage;
 using Savepoint.Core.Tests.Git;
-using Savepoint.Core.Tests.Launch;
 using Savepoint.Core.Tests.Services;
 using Savepoint.Core.Tests.Services.Exe;
 using Savepoint.Testing;
@@ -12,25 +11,34 @@ using Savepoint.Testing;
 namespace Savepoint.Core.Tests.Backend;
 
 // The startup check removes the lock files a stopped SavePoint left, on the grounds that nothing of SavePoint's is running (D18). A git that
-// outlived that SavePoint still uses them, so it is ended first, and when it cannot be the locks stay.
+// outlived that SavePoint still uses them, so the gits its note names are ended first, and when one cannot be the locks stay.
 public sealed class StartupLeftoverGitTests : IDisposable
 {
+    private static readonly TimeSpan _short = TimeSpan.FromMilliseconds(400);
+
+    // A program that does not exist: the SavePoint that wrote the note is gone.
+    private static readonly ProcessStamp _deadOwner = new(int.MaxValue - 7, 1);
+
     private readonly TempFolder _temp = new("savepoint-startup-leftover-");
     private readonly RecordingDiagnosticLog _log = new();
-    private StandInGitBundle? _bundle;
+    private readonly List<FakeGameProcess> _games = [];
 
     public void Dispose()
     {
-        _bundle?.Dispose();
+        foreach (var game in _games)
+        {
+            game.Dispose();
+        }
+
         _temp.Dispose();
     }
 
     [Fact(Timeout = 120_000)]
-    public async Task A_git_a_stopped_SavePoint_left_running_is_ended_before_its_locks_are_removed()
+    public async Task A_git_the_note_of_a_stopped_SavePoint_names_is_ended_before_its_locks_are_removed()
     {
-        var (workspace, gitDir) = await WorldAsync(kill: null);
-        using var _ = workspace;
-        var leftover = await _bundle!.StartLeftoverAsync();
+        using var workspace = new BackendWorkspace(options => options with { LeftoverWait = _short });
+        var gitDir = await GitDirAsync(workspace);
+        var leftover = StartLeftover(workspace);
         var lockFile = Path.Combine(gitDir, "index.lock");
         await File.WriteAllTextAsync(lockFile, "held by a git that is still running", workspace.Token);
         workspace.Restart();
@@ -38,16 +46,16 @@ public sealed class StartupLeftoverGitTests : IDisposable
         var status = await workspace.AppStatus.CheckAsync(workspace.Token);
 
         Assert.True(status.Ok, status.Error?.Detail);
-        Assert.False(FakeGameProcess.IsRunning(leftover), "the leftover git is still running");
+        Assert.False(FakeGameProcess.IsRunning(leftover.Id), "the leftover git is still running");
         Assert.False(File.Exists(lockFile), "the lock it held was not removed once it was gone");
     }
 
     [Fact(Timeout = 120_000)]
-    public async Task Locks_stay_while_a_leftover_git_is_still_running()
+    public async Task Locks_and_temporary_files_stay_while_a_leftover_git_could_not_be_ended()
     {
-        var (workspace, gitDir) = await WorldAsync(kill: _ => { });
-        using var _ = workspace;
-        var leftover = await _bundle!.StartLeftoverAsync();
+        using var workspace = new BackendWorkspace(options => options with { Leftovers = Unendable() });
+        var gitDir = await GitDirAsync(workspace);
+        var leftover = StartLeftover(UnendableNote);
         var lockFile = Path.Combine(gitDir, "index.lock");
         var temporaryPack = Path.Combine(gitDir, "objects", "pack", "tmp_pack_left_behind");
         Directory.CreateDirectory(Path.GetDirectoryName(temporaryPack)!);
@@ -58,31 +66,31 @@ public sealed class StartupLeftoverGitTests : IDisposable
         var status = await workspace.AppStatus.CheckAsync(workspace.Token);
 
         Assert.True(status.Ok, status.Error?.Detail);
-        Assert.True(FakeGameProcess.IsRunning(leftover));
+        Assert.True(FakeGameProcess.IsRunning(leftover.Id));
         Assert.True(File.Exists(lockFile), "a lock was removed under a git that is still running");
         Assert.True(File.Exists(temporaryPack), "a temporary pack was removed under a git that is still running");
         Assert.NotEmpty(_log.Containing("could not be ended"));
     }
 
     [Fact(Timeout = 120_000)]
-    public async Task The_screen_is_told_an_earlier_cleanup_is_being_finished_while_a_leftover_is_waited_for()
+    public async Task The_screen_is_told_a_task_started_before_SavePoint_closed_is_being_waited_for()
     {
-        var (workspace, _) = await WorldAsync(kill: null);
-        using var _ = workspace;
-        await _bundle!.StartLeftoverAsync();
+        using var workspace = new BackendWorkspace(options => options with { LeftoverWait = _short });
+        await GitDirAsync(workspace);
+        StartLeftover(workspace);
         workspace.Restart();
         var steps = new List<StartupProgress>();
 
         await workspace.AppStatus.CheckAsync(workspace.Token, new SyncProgress(steps.Add));
 
-        Assert.Equal([StartupProgress.FinishingEarlierCleanup], steps);
+        Assert.Equal([StartupProgress.WaitingForEarlierTask], steps);
     }
 
     [Fact(Timeout = 120_000)]
     public async Task Locks_are_removed_as_before_when_no_git_was_left()
     {
-        var (workspace, gitDir) = await WorldAsync(kill: null);
-        using var _ = workspace;
+        using var workspace = new BackendWorkspace();
+        var gitDir = await GitDirAsync(workspace);
         var lockFile = Path.Combine(gitDir, "index.lock");
         await File.WriteAllTextAsync(lockFile, "left by a killed git", workspace.Token);
         workspace.Restart();
@@ -94,64 +102,126 @@ public sealed class StartupLeftoverGitTests : IDisposable
     }
 
     [Fact(Timeout = 240_000)]
-    public async Task A_clear_that_was_cut_off_is_not_finished_while_a_leftover_git_is_still_running()
+    public async Task A_clear_that_was_cut_off_is_not_finished_while_a_leftover_git_could_not_be_ended_and_the_log_says_so()
     {
-        var leftovers = NewLeftovers(kill: _ => { });
-        using var world = await RemovedWorld.CreateAsync(options => options with { Leftovers = leftovers, Log = _log });
-        var preview = (await world.Workspace.Games.GetFreeUpSpacePreviewAsync(world.Game.Id, world.Workspace.Token)).Value!;
-        var storage = await world.Workspace.Backend.Services.Storage.GetAsync(world.Workspace.Token);
-        var plans = new Dictionary<RepoRole, IReadOnlyList<ClearedRef>>();
-        foreach (var role in new[] { RepoRole.Install, RepoRole.External })
-        {
-            var names = preview.Token.Records.Where(record => record.Folder == role).Select(record => record.RefName).ToList();
-            plans[role] = await storage.Engine.FindClearableAsync(world.RepoOf(storage, role), names, world.Workspace.Token);
-        }
-
-        var gameDirectory = storage.GameDirectory(world.Game.Id);
-        FreeUpIntent.Write(gameDirectory, plans);
-        var leftover = await _bundle!.StartLeftoverAsync();
+        using var world = await RemovedWorld.CreateAsync(options => options with { Leftovers = Unendable(), Log = _log });
+        var gameDirectory = await WriteFreeUpNoteAsync(world);
+        StartLeftover(UnendableNote);
         world.Workspace.Restart();
 
         var status = await world.Workspace.AppStatus.CheckAsync(world.Workspace.Token);
 
         Assert.True(status.Ok, status.Error?.Detail);
-        Assert.True(FakeGameProcess.IsRunning(leftover));
         Assert.True(File.Exists(FreeUpIntent.PathIn(gameDirectory)), "a clear was finished under a git that is still running");
-        Assert.NotEmpty(_log.Containing("free-up", "left running"));
+        Assert.NotEmpty(_log.Containing("free-up", "could not be ended"));
     }
 
-    private BundledGitLeftovers NewLeftovers(Action<RunningProcess>? kill)
+    [Fact(Timeout = 240_000)]
+    public async Task Nothing_is_logged_about_a_free_up_when_none_was_cut_off()
     {
-        _bundle = new StandInGitBundle(_temp, "bundle");
-        var short_ = TimeSpan.FromMilliseconds(400);
-        return new BundledGitLeftovers(
-            FakeGameInstall.Inspector(),
-            _bundle.Root,
-            OperatingSystem.IsLinux() ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase,
-            _log,
-            GitProcessRegistry.Shared.Contains,
-            short_,
-            short_,
-            TimeSpan.FromMilliseconds(50),
-            kill);
+        using var world = await RemovedWorld.CreateAsync(options => options with { Leftovers = Unendable(), Log = _log });
+        StartLeftover(UnendableNote);
+        world.Workspace.Restart();
+
+        await world.Workspace.AppStatus.CheckAsync(world.Workspace.Token);
+
+        Assert.Empty(_log.Containing("free-up"));
     }
 
-    private async Task<(BackendWorkspace Workspace, string GitDir)> WorldAsync(Action<RunningProcess>? kill)
+    [Fact(Timeout = 240_000)]
+    public async Task The_start_waits_for_a_noted_reclaim_first_then_ends_the_leftovers_then_removes_the_locks()
     {
-        var leftovers = NewLeftovers(kill);
-        var workspace = new BackendWorkspace(options => options with { Leftovers = leftovers });
-        try
+        using var workspace = new BackendWorkspace(options => options with { LeftoverWait = _short });
+        var gitDir = await GitDirAsync(workspace);
+        var runner = workspace.Backend.Services.Runner;
+
+        // A reclaim git the note of a killed reclaim names, still running, and a leftover the note of running git names.
+        var gone = await LiveOrphan.EndedAsync(runner, gitDir);
+        var reclaim = await LiveOrphan.StartAsync(runner, gitDir);
+        ReclaimMarker.Write(gitDir, gone, reclaim.Stamp);
+        var leftover = StartLeftover(workspace);
+        var lockFile = Path.Combine(gitDir, "index.lock");
+        await File.WriteAllTextAsync(lockFile, "left by a killed git", workspace.Token);
+        workspace.Restart();
+
+        var check = workspace.AppStatus.CheckAsync(workspace.Token);
+        await Task.Delay(TimeSpan.FromSeconds(2), workspace.Token);
+
+        // Longer than the leftovers' wait: the reclaim is waited for, not ended, and nothing after it has begun.
+        var reclaimStillRunning = FakeGameProcess.IsRunning(reclaim.Stamp.Id);
+        var leftoverBeforeReclaimEnded = FakeGameProcess.IsRunning(leftover.Id);
+        var lockBeforeReclaimEnded = File.Exists(lockFile);
+        var checkBeforeReclaimEnded = check.IsCompleted;
+        await reclaim.EndAsync();
+        var status = await check.WaitAsync(TimeSpan.FromSeconds(60), workspace.Token);
+
+        Assert.True(reclaimStillRunning, "the git of a noted reclaim was ended instead of waited for");
+        Assert.True(leftoverBeforeReclaimEnded, "the leftovers were dealt with before the reclaim was settled");
+        Assert.True(lockBeforeReclaimEnded, "the locks were removed before the reclaim was settled");
+        Assert.False(checkBeforeReclaimEnded);
+        Assert.True(status.Ok, status.Error?.Detail);
+        Assert.False(FakeGameProcess.IsRunning(leftover.Id));
+        Assert.False(File.Exists(lockFile));
+    }
+
+    [Fact(Timeout = 120_000)]
+    public async Task A_git_the_backend_runs_is_written_to_the_note_in_the_runtime_folder_and_the_note_goes_when_it_ends()
+    {
+        using var workspace = new BackendWorkspace(options => options with { RunningGitNoteDelay = TimeSpan.FromMilliseconds(100) });
+        var gitDir = await GitDirAsync(workspace);
+        var notePath = RunningGitNote.PathIn(workspace.Platform.Directories.RuntimeDir);
+
+        var orphan = await LiveOrphan.StartAsync(workspace.Backend.Services.Runner, gitDir);
+        var written = await FakeGameProcess.WaitUntilAsync(() => RunningGitNote.Read(notePath)?.Gits.Contains(orphan.Stamp) == true, TimeSpan.FromSeconds(10));
+        var owner = RunningGitNote.Read(notePath)?.Owner;
+        await orphan.EndAsync();
+        var cleared = await FakeGameProcess.WaitUntilAsync(() => !File.Exists(notePath), TimeSpan.FromSeconds(10));
+
+        Assert.True(written, "the running git was never written to the note");
+        Assert.Equal(ProcessStamp.Current(), owner);
+        Assert.True(cleared, "the note stayed after the git ended");
+    }
+
+    private static async Task<string> GitDirAsync(BackendWorkspace workspace)
+    {
+        var game = await workspace.AddGameAsync();
+        await workspace.CreateProfileAsync(game);
+        var storage = await workspace.Backend.Services.Storage.GetAsync(workspace.Token);
+        return storage.GitDirectory(game.Id, RepoRole.Install);
+    }
+
+    private string UnendableNote => RunningGitNote.PathIn(_temp.Path);
+
+    // A running program written into a note as the git of a SavePoint that is gone.
+    private FakeGameProcess StartLeftover(string notePath)
+    {
+        var game = FakeGameProcess.Start();
+        _games.Add(game);
+        using var process = Process.GetProcessById(game.Id);
+        RunningGitNote.Write(notePath, _deadOwner, [ProcessStamp.Of(process)!.Value]);
+        return game;
+    }
+
+    private FakeGameProcess StartLeftover(BackendWorkspace workspace) => StartLeftover(RunningGitNote.PathIn(workspace.Platform.Directories.RuntimeDir));
+
+    // Built again by every build of the backend, so it reads the note as it is then; its kill does nothing.
+    private LeftoverGits Unendable() => new(UnendableNote, _log, null, _short, _short, TimeSpan.FromMilliseconds(50), _ => { });
+
+    private static async Task<string> WriteFreeUpNoteAsync(RemovedWorld world)
+    {
+        var token = world.Workspace.Token;
+        var preview = (await world.Workspace.Games.GetFreeUpSpacePreviewAsync(world.Game.Id, token)).Value!;
+        var storage = await world.Workspace.Backend.Services.Storage.GetAsync(token);
+        var plans = new Dictionary<RepoRole, IReadOnlyList<ClearedRef>>();
+        foreach (var role in new[] { RepoRole.Install, RepoRole.External })
         {
-            var game = await workspace.AddGameAsync();
-            await workspace.CreateProfileAsync(game);
-            var storage = await workspace.Backend.Services.Storage.GetAsync(workspace.Token);
-            return (workspace, storage.GitDirectory(game.Id, RepoRole.Install));
+            var names = preview.Token.Records.Where(record => record.Folder == role).Select(record => record.RefName).ToList();
+            plans[role] = await storage.Engine.FindClearableAsync(world.RepoOf(storage, role), names, token);
         }
-        catch
-        {
-            workspace.Dispose();
-            throw;
-        }
+
+        var gameDirectory = storage.GameDirectory(world.Game.Id);
+        FreeUpIntent.Write(gameDirectory, plans);
+        return gameDirectory;
     }
 
     private sealed class SyncProgress(Action<StartupProgress> report) : IProgress<StartupProgress>

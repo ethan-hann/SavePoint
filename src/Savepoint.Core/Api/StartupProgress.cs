@@ -8,4 +8,10 @@ public enum StartupProgress
     /// waits for it to finish before it touches the games. Reported once per stretch of waiting, before the wait begins.
     /// </summary>
     FinishingEarlierCleanup,
+
+    /// <summary>
+    /// A task (such as a snapshot) that an earlier run of SavePoint started is still going on after that run was stopped from outside, and the
+    /// check gives it a short time to end before it stops it. Reported once, before the wait begins.
+    /// </summary>
+    WaitingForEarlierTask,
 }

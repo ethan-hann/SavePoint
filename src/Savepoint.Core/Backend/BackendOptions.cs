@@ -97,8 +97,14 @@ public sealed record BackendOptions
     // The templates a library scan matches games against; the embedded ones when null. Tests use it to match without the shipped files.
     internal IReadOnlyList<GameTemplate>? Templates { get; init; }
 
-    // What the startup check does about a git a stopped SavePoint left running; tests give one that looks in a stand-in bundle with short waits.
-    internal BundledGitLeftovers? Leftovers { get; init; }
+    // What the startup check does about a git a stopped SavePoint left running; tests give one with their own note and short waits.
+    internal LeftoverGits? Leftovers { get; init; }
+
+    // How long the startup check lets a leftover git end by itself before it is stopped; 10 seconds when null. Tests shorten it.
+    internal TimeSpan? LeftoverWait { get; init; }
+
+    // How long a git must run before it is written to the note of running git; half a second when null. Tests shorten it.
+    internal TimeSpan? RunningGitNoteDelay { get; init; }
 
     // Called with the source and the destination after each file of a storage move is copied and before it is verified; tests use it to inject faults.
     internal Action<string, string>? AfterRelocationCopy { get; init; }

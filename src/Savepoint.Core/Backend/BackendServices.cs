@@ -39,9 +39,11 @@ public sealed class BackendServices
         TimeProvider time,
         string installDirectory,
         int looseObjectThreshold,
-        IDiagnosticLog log)
+        IDiagnosticLog log,
+        LeftoverGits leftovers)
     {
         Log = log;
+        Leftovers = leftovers;
         Platform = platform;
         Catalog = catalog;
         Git = git;
@@ -105,6 +107,9 @@ public sealed class BackendServices
 
     /// <summary>Finds the files in an install folder that could launch the game.</summary>
     public ExecutableScanner Executables { get; }
+
+    // The gits an earlier, stopped SavePoint left running, which the startup check ends or reports.
+    internal LeftoverGits Leftovers { get; }
 
     internal GameInsights Insights { get; }
 

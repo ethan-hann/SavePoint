@@ -42,13 +42,17 @@ internal readonly record struct ProcessStamp(int Id, long StartedAtUtcTicks)
             using var process = Process.GetProcessById(Id);
             return !process.HasExited
                 && (procRoot is null || !LinuxProcessInspector.HasExited(Id, procRoot))
-                && Of(process) is { } now && Math.Abs(now.StartedAtUtcTicks - StartedAtUtcTicks) <= _toleranceTicks;
+                && Matches(process);
         }
         catch (Exception e) when (e is ArgumentException or InvalidOperationException or Win32Exception)
         {
             return false;
         }
     }
+
+    // True when this process started at the moment the stamp says: the same clock reads both, so a process that took over the number differs.
+    public bool Matches(Process process) =>
+        Of(process) is { } now && Math.Abs(now.StartedAtUtcTicks - StartedAtUtcTicks) <= _toleranceTicks;
 
     public Task WaitForExitAsync(CancellationToken ct) => WaitForExitAsync(OperatingSystem.IsLinux() ? "/proc" : null, TimeSpan.FromMilliseconds(100), ct);
 

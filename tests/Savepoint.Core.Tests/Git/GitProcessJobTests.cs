@@ -11,11 +11,30 @@ public sealed class GitProcessJobTests
 {
     private const string _bundleVariable = "SAVEPOINT_TEST_JOB_CHILD_BUNDLE";
     private const string _fileVariable = "SAVEPOINT_TEST_JOB_CHILD_FILE";
+    private const string _survivesVariable = "SAVEPOINT_TEST_JOB_CHILD_SURVIVES";
 
     [Fact(Timeout = 180_000)]
     public async Task A_git_ends_with_the_program_that_started_it_even_when_that_program_is_killed_outright()
     {
         Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows has a job that ends its members with the program that made it");
+
+        var stillRunning = await GitStillRunningAfterItsProgramIsKilledAsync(survives: false);
+
+        Assert.False(stillRunning, "the git is still running after its program was killed");
+    }
+
+    [Fact(Timeout = 180_000)]
+    public async Task A_git_that_is_left_to_finish_is_not_put_in_the_job_and_runs_on_when_its_program_is_killed()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows has a job that ends its members with the program that made it");
+
+        var stillRunning = await GitStillRunningAfterItsProgramIsKilledAsync(survives: true);
+
+        Assert.True(stillRunning, "a git that is meant to finish a reclaim after SavePoint is stopped was ended with it");
+    }
+
+    private static async Task<bool> GitStillRunningAfterItsProgramIsKilledAsync(bool survives)
+    {
         using var temp = new TempFolder("savepoint-job-");
         using var bundle = new StandInGitBundle(temp, "bundle");
         var file = temp.Combine("child-git-id.txt");
@@ -28,6 +47,7 @@ public sealed class GitProcessJobTests
         };
         info.Environment[_bundleVariable] = bundle.Root;
         info.Environment[_fileVariable] = file;
+        info.Environment[_survivesVariable] = survives ? "1" : "0";
         using var child = new Process { StartInfo = info };
         var output = new System.Collections.Concurrent.ConcurrentQueue<string>();
         child.OutputDataReceived += (_, e) => output.Enqueue(e.Data ?? string.Empty);
@@ -48,7 +68,7 @@ public sealed class GitProcessJobTests
             child.Kill();
             child.WaitForExit(30_000);
 
-            Assert.True(await FakeGameProcess.WaitUntilAsync(() => !FakeGameProcess.IsRunning(gitId), TimeSpan.FromSeconds(15)), "the git is still running after its program was killed");
+            return !await FakeGameProcess.WaitUntilAsync(() => !FakeGameProcess.IsRunning(gitId), TimeSpan.FromSeconds(survives ? 4 : 15));
         }
         finally
         {
@@ -75,7 +95,8 @@ public sealed class GitProcessJobTests
 
         var binary = GitBinary.At(root, Path.Combine(Path.GetDirectoryName(root)!, "config"));
         var started = new TaskCompletionSource<ProcessStamp>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _ = new GitRunner(binary).RunAsync(new GitInvocation([]) { Started = stamp => started.TrySetResult(stamp) }, CancellationToken.None);
+        var survives = Environment.GetEnvironmentVariable(_survivesVariable) == "1";
+        _ = new GitRunner(binary).RunAsync(new GitInvocation([]) { Started = stamp => started.TrySetResult(stamp), SurvivesExit = survives }, CancellationToken.None);
         var stamp = await started.Task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
         await File.WriteAllTextAsync(file, stamp.Id.ToString(CultureInfo.InvariantCulture), TestContext.Current.CancellationToken);
 
@@ -95,6 +116,22 @@ public sealed class GitProcessJobTests
         var problem = GitProcessJob.TryAssign(process);
 
         Assert.NotNull(problem);
+    }
+
+    [Fact(Timeout = 120_000)]
+    public async Task A_process_that_had_already_ended_is_not_worth_a_line_in_the_log()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows has the job");
+        using var temp = new TempFolder("savepoint-job-");
+        using var bundle = new StandInGitBundle(temp, "bundle");
+        using var process = Process.Start(new ProcessStartInfo(bundle.ExecutablePath, ["--exit-after", "1"]) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true })!;
+        await process.WaitForExitAsync(TestContext.Current.CancellationToken);
+        var log = new Savepoint.Testing.RecordingDiagnosticLog();
+        GitProcessJob.ForgetReported();
+
+        GitProcessJob.Protect(process, log);
+
+        Assert.Empty(log.Entries);
     }
 
     [Fact(Timeout = 120_000)]

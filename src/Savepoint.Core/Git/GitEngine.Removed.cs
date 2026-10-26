@@ -270,6 +270,7 @@ public sealed partial class GitEngine
     {
         repo = Normalize(repo);
         ArgumentNullException.ThrowIfNull(expected);
+        RequireNoLeftoverGit();
         if (expected.Count == 0 || !HasRepository(repo))
         {
             return [];

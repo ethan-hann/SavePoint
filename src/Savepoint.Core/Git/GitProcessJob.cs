@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Savepoint.Core.Diagnostics;
 
 namespace Savepoint.Core.Git;
 
@@ -14,6 +15,38 @@ internal static class GitProcessJob
 
     // Created on first use and never closed; closing it is what would end the processes in it.
     private static readonly Lazy<(IntPtr Handle, string? Problem)> _job = new(Create, LazyThreadSafetyMode.ExecutionAndPublication);
+
+    // The same problem would repeat for every git call, so it is written once.
+    private static int _reported;
+
+    /// <summary>
+    /// Puts a started git in the job. A failure never stops the launch: it is written to the log once, unless the process had already ended,
+    /// which is the usual reason a process cannot be put in.
+    /// </summary>
+    /// <param name="process">The process just started.</param>
+    /// <param name="log">Where the one line goes.</param>
+    public static void Protect(Process process, IDiagnosticLog log)
+    {
+        if (TryAssign(process) is { } problem && !Ended(process) && Interlocked.Exchange(ref _reported, 1) == 0)
+        {
+            log.Warning($"git could not be tied to SavePoint's lifetime ({problem}); one left running when SavePoint is stopped is ended at the next start instead.");
+        }
+    }
+
+    private static bool Ended(Process process)
+    {
+        try
+        {
+            return process.HasExited;
+        }
+        catch (Exception e) when (e is InvalidOperationException or Win32Exception)
+        {
+            return true;
+        }
+    }
+
+    // Lets a test see the line again.
+    internal static void ForgetReported() => Interlocked.Exchange(ref _reported, 0);
 
     /// <summary>
     /// Puts a started process in the job. A process that is already in another job (SavePoint itself may have been started in one) is

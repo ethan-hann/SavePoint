@@ -23,9 +23,6 @@ public sealed class GitRunner
 
     private static readonly UTF8Encoding _utf8 = new(encoderShouldEmitUTF8Identifier: false);
 
-    // The same problem with the job would repeat for every git call, so it is written once.
-    private static int _jobProblemLogged;
-
     private readonly GitBinary _binary;
     private readonly GitRunnerOptions _options;
     private readonly IDiagnosticLog _log;
@@ -84,13 +81,14 @@ public sealed class GitRunner
             throw new GitUnavailableException(_binary.ExecutablePath, $"git could not be started: {e.Message}", e);
         }
 
-        // Git can start its helpers before this runs; those few milliseconds are the one gap the next start's leftover check covers.
-        if (OperatingSystem.IsWindows() && GitProcessJob.TryAssign(process) is { } jobProblem && Interlocked.Exchange(ref _jobProblemLogged, 1) == 0)
+        // A helper git starts before this runs is not in the job. It still ends with git when git is ended, and the next start ends git by the
+        // note of running git, so only a helper that outlives its git on purpose would be missed.
+        if (!invocation.SurvivesExit)
         {
-            _log.Warning($"git could not be tied to SavePoint's lifetime ({jobProblem}); one left running when SavePoint is stopped is ended at the next start instead.");
+            GitProcessJob.Protect(process, _log);
         }
 
-        using var registration = (_options.Registry ?? GitProcessRegistry.Shared).Add(process);
+        using var registration = (_options.Registry ?? GitProcessRegistry.Shared).Add(process, persist: !invocation.SurvivesExit);
         NoteStarted(invocation, process);
 
         // Cancelled by the caller, or by a callback that threw.

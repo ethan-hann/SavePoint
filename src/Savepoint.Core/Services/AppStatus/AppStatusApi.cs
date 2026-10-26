@@ -14,14 +14,12 @@ internal sealed class AppStatusApi : IAppStatusApi
 
     private readonly BackendServices _services;
     private readonly Action<string>? _afterSettings;
-    private readonly BundledGitLeftovers _leftovers;
     private int _swept;
 
-    public AppStatusApi(BackendServices services, Action<string>? afterSettings = null, BundledGitLeftovers? leftovers = null)
+    public AppStatusApi(BackendServices services, Action<string>? afterSettings = null)
     {
         _services = services;
         _afterSettings = afterSettings;
-        _leftovers = leftovers ?? new BundledGitLeftovers(services.Platform.Processes, services.Git.Root, services.Platform.PathComparison, services.Log, GitProcessRegistry.Shared.Contains);
     }
 
     public Task<OperationResult<StartupStatus>> CheckAsync(CancellationToken cancellationToken = default, IProgress<StartupProgress>? progress = null) =>
@@ -462,6 +460,16 @@ internal sealed class AppStatusApi : IAppStatusApi
                     }
                 }
 
+                var toldAboutTask = false;
+                void TellAboutTask()
+                {
+                    if (!toldAboutTask)
+                    {
+                        toldAboutTask = true;
+                        progress?.Report(StartupProgress.WaitingForEarlierTask);
+                    }
+                }
+
                 var gitDirs = StorageContent.Folders(storage.Root)
                     .SelectMany(folder => new[] { "install.git", "external.git" }.Select(name => Path.Combine(folder, name)))
                     .Where(Directory.Exists)
@@ -471,8 +479,8 @@ internal sealed class AppStatusApi : IAppStatusApi
                     await storage.Engine.SettleReclaimAsync(gitDir, cancellationToken, Tell).ConfigureAwait(false);
                 }
 
-                // A git a stopped SavePoint left running still uses these files, so they stay unless it is gone.
-                if (await _leftovers.EndAsync(Tell, cancellationToken).ConfigureAwait(false))
+                // A git a stopped SavePoint left running still uses these files, so they stay unless it is gone. A reclaim's git was waited for above, not ended.
+                if (await _services.Leftovers.EndAsync(TellAboutTask, cancellationToken).ConfigureAwait(false))
                 {
                     foreach (var gitDir in gitDirs)
                     {
@@ -489,7 +497,7 @@ internal sealed class AppStatusApi : IAppStatusApi
                         await FinishFreeUpAsync(storage, Path.GetFileName(folder), cancellationToken).ConfigureAwait(false);
                     }
                 }
-                else
+                else if (StorageContent.Folders(storage.Root).Any(folder => File.Exists(FreeUpIntent.PathIn(folder))))
                 {
                     _services.Log.Warning("Startup check: a cut-off free-up is not finished this time because a git left running could not be ended; it is tried again at the next start.");
                 }

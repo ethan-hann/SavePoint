@@ -98,10 +98,13 @@ public sealed class CoreBackend
         var log = new GuardedDiagnosticLog(options.Log ?? DiagnosticLog.None);
         var catalog = new CatalogStore(options.CatalogDirectory ?? platform.Directories.CatalogDir, time);
         var git = options.Git ?? GitBinary.Locate(Path.Combine(platform.Directories.RuntimeDir, "git"));
-        var runner = new GitRunner(git, new GitRunnerOptions { Log = log });
+        var noteFile = RunningGitNote.PathIn(platform.Directories.RuntimeDir);
+        var registry = GitProcessRegistry.ForApp(noteFile, options.RunningGitNoteDelay, log);
+        var leftovers = options.Leftovers ?? new LeftoverGits(noteFile, log, registry, options.LeftoverWait);
+        var runner = new GitRunner(git, new GitRunnerOptions { Log = log, Registry = registry });
         var disk = options.DiskSpace ?? new DiskSpace();
         var installDirectory = Path.TrimEndingDirectorySeparator(Path.GetFullPath(options.InstallDirectory ?? AppContext.BaseDirectory));
-        var engineOptions = (options.Engine ?? new GitEngineOptions()) with { Clock = time };
+        var engineOptions = (options.Engine ?? new GitEngineOptions()) with { Clock = time, LeftoverGitRunning = leftovers.AnyRunning };
 
         var sessions = new ForwardingGameSessions();
         if (options.Sessions is { } given)
@@ -122,7 +125,8 @@ public sealed class CoreBackend
             time,
             installDirectory,
             options.LooseObjectThreshold,
-            log);
+            log,
+            leftovers);
 
         var optimization = new OptimizationService(services);
         var launch = options.Launch(services);
@@ -140,7 +144,7 @@ public sealed class CoreBackend
             launch.Api,
             new SettingsApi(services, optimization, new StorageRelocator(services, options.AfterRelocationCopy, options.AfterRelocationSettings), new DataClearer(services)),
             new HistoryApi(services),
-            new AppStatusApi(services, options.AfterRelocationSettings, options.Leftovers),
+            new AppStatusApi(services, options.AfterRelocationSettings),
             new ArtworkApi(services, steam, options.GogGalaxyCache ?? GogGalaxyCacheLocator.ForPlatform(platform), options.ArtworkHttp));
     }
 }
