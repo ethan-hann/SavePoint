@@ -5,7 +5,7 @@ using Savepoint.Core.Git;
 namespace Savepoint.Core.Launch.Orchestration;
 
 // One folder as a launch finds it: where git says it is, set against where the launch wants it.
-internal sealed record FolderReading(FolderTarget Target, RepoStatus Status, IReadOnlyList<Profile> Profiles, StoppedSwitchReview? Review = null)
+internal sealed record FolderReading(FolderTarget Target, RepoStatus Status, IReadOnlyList<Profile> Profiles, StoppedSwitchReview? Review = null, bool ReviewFailed = false)
 {
     public InterruptedSwitch? Note => Status.InterruptedSwitch;
 
@@ -19,13 +19,14 @@ internal sealed record FolderReading(FolderTarget Target, RepoStatus Status, IRe
     public bool UnfinishedSwitch => Note is not null;
 
     // The switch to finish would run over changes the player has not saved (outside the files it was changing), so it is refused until they
-    // are discarded. Only a switch to this very target is looked at; Review is null for any other.
-    public bool BlockedByChanges => Pending && Review is { BlockingPaths.Count: > 0 };
+    // are discarded. Only a switch to this very target is looked at; Review is null for any other. A folder that could not be looked at is
+    // treated the same way, since nothing says it is free of them.
+    public bool BlockedByChanges => Pending && (ReviewFailed || Review is { BlockingPaths.Count: > 0 });
 
     public bool Dirty => Blocked || BlockedByChanges || (Note is null && !Status.IsClean);
 
     // The files unsaved changes would stop the finish from running over.
-    public int ChangesOutsideSwitchCount => BlockedByChanges ? Review!.BlockingPaths.Count : 0;
+    public int ChangesOutsideSwitchCount => BlockedByChanges ? Review?.BlockingPaths.Count ?? 0 : 0;
 
     // The files a discard would delete; the rest of the unsaved files are put back.
     public int DirtyNewFileCount => Dirty ? Status.UntrackedPaths.Count : 0;
@@ -52,7 +53,9 @@ internal sealed record FolderReading(FolderTarget Target, RepoStatus Status, IRe
     // place needs none.
     public bool NeedsSwitch => !InPlace || Note is not null;
 
-    public static async Task<FolderReading> ReadAsync(GitEngine engine, FolderTarget target, IReadOnlyList<Profile> profiles, CancellationToken cancellationToken)
+    // countReplaced asks the review to compare the files the stopped switch was writing with the snapshots, which reads them; only the
+    // preview has a use for that, so a start does not.
+    public static async Task<FolderReading> ReadAsync(GitEngine engine, FolderTarget target, IReadOnlyList<Profile> profiles, bool countReplaced, CancellationToken cancellationToken)
     {
         var status = await engine.GetStatusAsync(target.Repo, cancellationToken).ConfigureAwait(false);
 
@@ -63,20 +66,22 @@ internal sealed record FolderReading(FolderTarget Target, RepoStatus Status, IRe
         }
 
         // A stopped switch to the very target of this launch is the one the launch finishes: what that would run into is read now, so the
-        // preview can say it. A review that cannot be made is left out; the switch itself reports what is wrong when it starts.
+        // preview can say it. A folder that cannot be checked is not offered a finish: the unchecked folder counts as blocked, which leaves
+        // discarding as the way out.
         StoppedSwitchReview? review = null;
+        var failed = false;
         if (!target.Leave && status.InterruptedSwitch is { ToCommit: { } to } && string.Equals(to, target.Commit, StringComparison.Ordinal))
         {
             try
             {
-                review = await engine.ReviewStoppedSwitchAsync(target.Repo, cancellationToken).ConfigureAwait(false);
+                review = await engine.ReviewStoppedSwitchAsync(target.Repo, cancellationToken, countReplaced).ConfigureAwait(false);
             }
             catch (SavepointException)
             {
-                review = null;
+                failed = true;
             }
         }
 
-        return new FolderReading(target, status, profiles, review);
+        return new FolderReading(target, status, profiles, review, failed);
     }
 }

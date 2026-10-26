@@ -1,5 +1,7 @@
 using Savepoint.Core.Api;
+using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Errors;
 using Savepoint.Core.Git;
 
 namespace Savepoint.Core.Tests.Launch.Orchestration;
@@ -118,6 +120,116 @@ public class LaunchStoppedSwitchReviewTests
         Assert.Equal(vanilla.BranchName, install.Branch);
         Assert.False(rig.InstallHas("my-notes.txt"));
         Assert.False(rig.InstallHas("mods/a.txt"));
+    }
+
+    // The rig's engine tells the test about every file it reads in full to compare it with a snapshot's copy; it can also be made to fail on one.
+    private sealed class HashWatch
+    {
+        private readonly List<string> _paths = [];
+
+        public bool Fail { get; set; }
+
+        public IReadOnlyList<string> Paths
+        {
+            get
+            {
+                lock (_paths)
+                {
+                    return [.. _paths];
+                }
+            }
+        }
+
+        public void Clear()
+        {
+            lock (_paths)
+            {
+                _paths.Clear();
+            }
+        }
+
+        public Func<BackendOptions, BackendOptions> Options => options => options with
+        {
+            Engine = new GitEngineOptions
+            {
+                FileHashed = path =>
+                {
+                    lock (_paths)
+                    {
+                        _paths.Add(path);
+                    }
+
+                    if (Fail)
+                    {
+                        throw new GitOperationException(path, "the file could not be read");
+                    }
+                },
+            },
+        };
+    }
+
+    // The vanilla copy of data/base.pak is "base content"; this has the same size and other bytes, so only reading it tells them apart.
+    private const string _sameSizeOtherBytes = "base conteNt";
+
+    [Fact(Timeout = 150_000)]
+    public async Task Starting_that_is_refused_for_a_change_in_the_way_reads_no_file()
+    {
+        var watch = new HashWatch();
+        var (rig, vanilla, _) = await LaunchRig.WithTwoProfilesAsync(watch.Options);
+        using var _ = rig;
+        await CancelSwitchToAsync(rig, vanilla);
+        rig.WriteInstall("data/base.pak", _sameSizeOtherBytes);
+        rig.WriteInstall("my-notes.txt", "written after the switch stopped");
+        watch.Clear();
+
+        var job = await rig.StartAsync(Tip(vanilla));
+
+        Assert.Equal(JobStatus.Failed, job.Status);
+        Assert.Equal("error.launch.dirtyWorkingTree", job.Error?.MessageId);
+        Assert.Empty(watch.Paths);
+    }
+
+    [Fact(Timeout = 150_000)]
+    public async Task Starting_the_switch_reads_each_file_of_the_targets_size_once_for_the_switch_itself()
+    {
+        var watch = new HashWatch();
+        var (rig, vanilla, _) = await LaunchRig.WithTwoProfilesAsync(watch.Options);
+        using var _ = rig;
+        await CancelSwitchToAsync(rig, vanilla);
+        rig.WriteInstall("data/base.pak", _sameSizeOtherBytes);
+        watch.Clear();
+
+        var job = await rig.StartAsync(Tip(vanilla));
+
+        Assert.Equal(JobStatus.Succeeded, job.Status);
+        Assert.Equal("base content", rig.ReadInstall("data/base.pak"));
+        Assert.Single(watch.Paths, path => path.EndsWith("base.pak", StringComparison.Ordinal));
+    }
+
+    [Fact(Timeout = 150_000)]
+    public async Task A_preview_that_cannot_check_the_folder_treats_it_as_blocked_so_that_discarding_is_offered()
+    {
+        var watch = new HashWatch();
+        var (rig, vanilla, _) = await LaunchRig.WithTwoProfilesAsync(watch.Options);
+        using var _ = rig;
+        await CancelSwitchToAsync(rig, vanilla);
+        rig.WriteInstall("data/base.pak", _sameSizeOtherBytes);
+        watch.Fail = true;
+
+        var preview = await rig.PreviewAsync(Tip(vanilla));
+
+        Assert.True(preview.Install.UnfinishedSwitch);
+        Assert.True(preview.Install.Dirty);
+        Assert.True(preview.Install.StoppedSwitchUnchecked);
+        Assert.Null(preview.Install.UnfinishedSwitchTarget);
+        Assert.Equal(0, preview.Install.ChangesOutsideSwitchCount);
+
+        // Once the folder can be read again the preview offers the finish as before.
+        watch.Fail = false;
+        var again = await rig.PreviewAsync(Tip(vanilla));
+        Assert.False(again.Install.Dirty);
+        Assert.False(again.Install.StoppedSwitchUnchecked);
+        Assert.Equal(Tip(vanilla), again.Install.UnfinishedSwitchTarget);
     }
 
     [Fact(Timeout = 150_000)]

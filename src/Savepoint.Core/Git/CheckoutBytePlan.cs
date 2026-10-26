@@ -27,7 +27,8 @@ internal sealed class CheckoutBytePlan
     public long Total => _after[^1];
 
     // When git counts a different number of files than the plan expected (a half-finished earlier switch), the bytes are spread evenly over git's count.
-    public long BytesAfter(int done, int gitTotal)
+    // A switch that wrote some files itself leaves git the rest of the plan: remaining is the bytes of that rest, spread over git's count.
+    public long BytesAfter(int done, int gitTotal, long? remaining = null)
     {
         if (gitTotal <= 0)
         {
@@ -35,6 +36,6 @@ internal sealed class CheckoutBytePlan
         }
 
         done = Math.Clamp(done, 0, gitTotal);
-        return gitTotal == Entries ? _after[done] : (long)((decimal)Total * done / gitTotal);
+        return remaining is null && gitTotal == Entries ? _after[done] : (long)((decimal)(remaining ?? Total) * done / gitTotal);
     }
 }

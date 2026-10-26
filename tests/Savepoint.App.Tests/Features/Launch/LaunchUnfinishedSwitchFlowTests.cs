@@ -159,7 +159,7 @@ public class LaunchUnfinishedSwitchFlowTests : IDisposable
         var block = Assert.Single(dialog.UnsavedBlocks);
         Assert.True(block.IsUnfinishedSwitch);
         Assert.False(block.CanFinishSwitch);
-        Assert.Contains("2 files have changes that aren't saved", block.Body, StringComparison.Ordinal);
+        Assert.Contains("2 files that are new or changed and not saved", block.Body, StringComparison.Ordinal);
         Assert.False(dialog.CanSwitch);
 
         _f.Dialogs.AnswerConfirm(true);

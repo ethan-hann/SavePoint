@@ -822,9 +822,29 @@ public class LaunchDialogViewModelTests : IDisposable
         Assert.True(block.DiscardCommand.CanExecute(null));
         Assert.Equal("The last switch didn't finish", block.Title);
         Assert.Equal(
-            "The game install folder has files from two snapshots, and 3 files have changes that aren't saved. Finishing the switch would run over them. Discard the changes to put the folder back to where the switch started, then switch again.",
+            "The game install folder has files from two snapshots, and 3 files that are new or changed and not saved. SavePoint can't tell them apart from the last switch's own files, so it won't finish the switch until they're gone. Discard puts the folder back to where the switch started, and removes new files too.",
             block.Body);
         Assert.False(dialog.ShowKeepCallout);
+    }
+
+    [Fact]
+    public async Task A_stopped_switch_whose_folder_could_not_be_checked_says_so_and_offers_only_discarding()
+    {
+        var dialog = await _rig.DialogAsync(change: preview => StoppedSwitchInInstall(preview, install => install with
+        {
+            Dirty = true,
+            DirtyFileCount = 0,
+            UnfinishedSwitchTarget = null,
+            StoppedSwitchUnchecked = true,
+        }));
+
+        var block = Assert.Single(dialog.UnsavedBlocks);
+        Assert.True(block.IsUnfinishedSwitch);
+        Assert.False(block.CanFinishSwitch);
+        Assert.True(block.DiscardCommand.CanExecute(null));
+        Assert.Equal(
+            "The game install folder has files from two snapshots, and SavePoint couldn't check it for changes that aren't saved, so it won't finish the last switch. Discard puts the folder back to where the switch started, and removes new files too.",
+            block.Body);
     }
 
     [Fact]
@@ -839,7 +859,7 @@ public class LaunchDialogViewModelTests : IDisposable
         }));
 
         Assert.Equal(
-            "The game install folder has files from two snapshots, and 1 file has changes that aren't saved. Finishing the switch would run over it. Discard the changes to put the folder back to where the switch started, then switch again.",
+            "The game install folder has files from two snapshots, and 1 file that's new or changed and not saved. SavePoint can't tell it apart from the last switch's own files, so it won't finish the switch until it's gone. Discard puts the folder back to where the switch started, and removes new files too.",
             Assert.Single(dialog.UnsavedBlocks).Body);
     }
 
@@ -851,7 +871,7 @@ public class LaunchDialogViewModelTests : IDisposable
         Assert.Empty(dialog.UnsavedBlocks);
         Assert.True(dialog.HasReplacedNote);
         Assert.Equal(
-            "12 files in the game's folder that the stopped switch was changing hold something that's in neither snapshot. Finishing the switch replaces them with the snapshot's copies, including any change you made since it stopped.",
+            "12 files in the game's folder that the last switch was changing hold something that's in neither snapshot. Finishing the last switch replaces them with the copies from the snapshot it was heading to, including any change you made since.",
             dialog.ReplacedNote);
     }
 
@@ -861,7 +881,7 @@ public class LaunchDialogViewModelTests : IDisposable
         var dialog = await _rig.DialogAsync(change: preview => StoppedSwitchInInstall(preview, install => install with { ReplacedFileCount = 1 }));
 
         Assert.Equal(
-            "1 file in the game's folder that the stopped switch was changing holds something that's in neither snapshot. Finishing the switch replaces it with the snapshot's copy, including any change you made since it stopped.",
+            "1 file in the game's folder that the last switch was changing holds something that's in neither snapshot. Finishing the last switch replaces it with the copy from the snapshot it was heading to, including any change you made since.",
             dialog.ReplacedNote);
     }
 
@@ -881,7 +901,7 @@ public class LaunchDialogViewModelTests : IDisposable
         });
 
         Assert.Equal(
-            "7 files in your saves folder that the stopped switch was changing hold something that's in neither snapshot. Finishing the switch replaces them with the snapshot's copies, including any change you made since it stopped. They include slot1.sav, slot2.sav, slot3.sav, slot4.sav, slot5.sav and 2 more.",
+            "7 files in your saves folder that the last switch was changing (slot1.sav, slot2.sav, slot3.sav, slot4.sav, slot5.sav and 2 more) hold something that's in neither snapshot. Finishing the last switch replaces them with the copies from the snapshot it was heading to, including any change you made since.",
             dialog.ReplacedNote);
     }
 
@@ -900,7 +920,7 @@ public class LaunchDialogViewModelTests : IDisposable
             },
         });
 
-        Assert.EndsWith(" They are slot1.sav, slot2.sav.", dialog.ReplacedNote, StringComparison.Ordinal);
+        Assert.Contains("that the last switch was changing (slot1.sav, slot2.sav) hold something", dialog.ReplacedNote, StringComparison.Ordinal);
     }
 
     [Fact]

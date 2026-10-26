@@ -7,16 +7,18 @@ public sealed partial class GitEngine
     // What a switch that finishes a stopped one finds in the folder. The BlockingChanged and BlockingNew lists are unsaved work the finish
     // must not run over. Rewrite lists the files (in the target's spelling) the finish writes from the target, Keep those that already hold
     // the target's bytes and only need their index entry, and StaleSpellings the index entries under an old spelling of a name the target
-    // spells another way (a drive that ignores case). Replaced is the part of Rewrite that holds content found in neither snapshot.
+    // spells another way (a drive that ignores case). Replaced is the part of Rewrite that holds content found in neither snapshot, and
+    // RewriteBytes the size of the target's copy of each Rewrite file, in the same order.
     private sealed record FinishScan(
         IReadOnlyList<string> BlockingChanged,
         IReadOnlyList<string> BlockingNew,
         IReadOnlyList<string> Rewrite,
+        IReadOnlyList<long> RewriteBytes,
         IReadOnlyList<string> Keep,
         IReadOnlyList<string> StaleSpellings,
         IReadOnlyList<string> Replaced)
     {
-        public static FinishScan Nothing { get; } = new([], [], [], [], [], []);
+        public static FinishScan Nothing { get; } = new([], [], [], [], [], [], []);
     }
 
     /// <summary>
@@ -26,13 +28,17 @@ public sealed partial class GitEngine
     /// </summary>
     /// <param name="repo">The folder.</param>
     /// <param name="ct">Cancels the call.</param>
+    /// <param name="listReplaced">
+    /// True to compare the files the switch was writing with the snapshots (a file of the target's size is read in full) and list the ones that
+    /// hold neither; false to skip that, which leaves <see cref="StoppedSwitchReview.ReplacedPaths"/> empty and reads no file.
+    /// </param>
     /// <returns>The review; empty when the folder has no stopped switch or the note does not say where it was heading.</returns>
     /// <exception cref="Savepoint.Core.Errors.PathSafetyException">The work tree is a protected location.</exception>
     /// <exception cref="Savepoint.Core.Errors.PathMissingException">The work tree does not exist.</exception>
     /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
     /// <exception cref="Savepoint.Core.Errors.GitOperationException">The repository does not exist, the point the note names is not in it, or git failed.</exception>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
-    public async Task<StoppedSwitchReview> ReviewStoppedSwitchAsync(RepoRef repo, CancellationToken ct = default)
+    public async Task<StoppedSwitchReview> ReviewStoppedSwitchAsync(RepoRef repo, CancellationToken ct = default, bool listReplaced = true)
     {
         repo = Normalize(repo);
         ct.ThrowIfCancellationRequested();
@@ -53,7 +59,7 @@ public sealed partial class GitEngine
         var head = GitDirFiles.ReadHead(repo.GitDir);
         var from = head.IsDetached ? head.DetachedCommit : await ResolveBranchAsync(repo, head.Branch!, ct).ConfigureAwait(false);
         var plan = await PlanSwitchAsync(repo, from, to, note, ct).ConfigureAwait(false);
-        var scan = await ScanStoppedSwitchAsync(repo, from, plan, ct).ConfigureAwait(false);
+        var scan = await ScanStoppedSwitchAsync(repo, from, plan, readFiles: listReplaced, ct).ConfigureAwait(false);
         return new StoppedSwitchReview(
             [.. scan.BlockingChanged.Concat(scan.BlockingNew).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)],
             [.. scan.Replaced.Order(StringComparer.Ordinal)]);
@@ -61,9 +67,10 @@ public sealed partial class GitEngine
 
     // Sorts what the folder holds against the stopped switch, reading and writing nothing in git. A change in a file the switch neither writes
     // nor removes is unsaved work, and so is an edit to a file the switch removes (it is the player's, and the finish would have to run over
-    // it after writing the others). The files the switch was writing that differ are the ones git would refuse as local changes: they are
-    // sorted by whether they already hold the target's bytes, and size decides before any file is read.
-    private async Task<FinishScan> ScanStoppedSwitchAsync(RepoRef repo, string? from, SwitchPlan plan, CancellationToken ct)
+    // it after writing the others). The files the switch was writing that differ are the ones git would refuse as local changes: with
+    // readFiles they are sorted by whether they already hold the target's bytes, and size decides before any file is read. Without it only
+    // the blocking changes are found, which takes no file read, and Rewrite, Keep and Replaced stay empty.
+    private async Task<FinishScan> ScanStoppedSwitchAsync(RepoRef repo, string? from, SwitchPlan plan, bool readFiles, CancellationToken ct)
     {
         var changedTask = ListChangedAsync(repo, hasCommits: from is not null, ct);
         var untrackedTask = ListNewAsync(repo, ct);
@@ -93,24 +100,32 @@ public sealed partial class GitEngine
             }
         }
 
+        if (!readFiles)
+        {
+            return new FinishScan(blockingChanged, blockingNew, [], [], [], [], []);
+        }
+
         var sizes = await ObjectSizesAsync(repo, candidates.Values.Select(change => change.NewId), ct).ConfigureAwait(false);
         List<string> rewrite = [];
+        List<long> rewriteBytes = [];
         List<string> keep = [];
         List<string> replaced = [];
         foreach (var change in candidates.Values.OrderBy(change => change.Path, StringComparer.Ordinal))
         {
             ct.ThrowIfCancellationRequested();
-            switch (HoldsTarget(repo, change, sizes))
+            switch (HoldsTarget(repo, change, sizes, ct))
             {
                 case Holding.Target:
                     keep.Add(change.Path);
                     break;
                 case Holding.Other:
                     rewrite.Add(change.Path);
+                    rewriteBytes.Add(sizes.GetValueOrDefault(change.NewId));
                     replaced.Add(change.Path);
                     break;
                 default:
                     rewrite.Add(change.Path);
+                    rewriteBytes.Add(sizes.GetValueOrDefault(change.NewId));
                     break;
             }
         }
@@ -126,7 +141,7 @@ public sealed partial class GitEngine
             .OfType<string>()
             .Distinct(StringComparer.Ordinal)
             .ToArray();
-        return new FinishScan(blockingChanged, blockingNew, rewrite, keep, stale, replaced);
+        return new FinishScan(blockingChanged, blockingNew, rewrite, rewriteBytes, keep, stale, replaced);
     }
 
     private enum Holding
@@ -143,7 +158,7 @@ public sealed partial class GitEngine
 
     // Whether the file the target wants at this path already holds the target's bytes. A file of another size cannot, so only files of the
     // right size are read.
-    private static Holding HoldsTarget(RepoRef repo, TreeChange change, Dictionary<string, long> sizes)
+    private Holding HoldsTarget(RepoRef repo, TreeChange change, Dictionary<string, long> sizes, CancellationToken ct)
     {
         if (change.NewMode is not ("100644" or "100755") || !sizes.TryGetValue(change.NewId, out var size))
         {
@@ -175,7 +190,8 @@ public sealed partial class GitEngine
             return Holding.Nothing;
         }
 
-        return BlobHasher.TryHash(full, out var id) switch
+        _options.FileHashed?.Invoke(full);
+        return BlobHasher.TryHash(full, out var id, ct) switch
         {
             HashOutcome.Hashed => string.Equals(id, change.NewId, StringComparison.Ordinal) ? Holding.Target : Holding.Other,
             _ => Holding.Nothing,
@@ -195,7 +211,7 @@ public sealed partial class GitEngine
         {
             if (scan.Rewrite.Count > 0)
             {
-                await WriteTargetCopiesAsync(repo, to, scan.Rewrite, aligned, reporter, ct).ConfigureAwait(false);
+                await WriteTargetCopiesAsync(repo, to, scan, reporter, ct).ConfigureAwait(false);
             }
 
             if (scan.Keep.Count > 0)
@@ -207,8 +223,9 @@ public sealed partial class GitEngine
         }
         catch (Exception e) when (e is FolderChangedException or ConsentMarkerException or GitOperationException)
         {
-            // Nothing is half done by these: they come before git starts or from a step that only touches the index. The index goes back
-            // as the alignment found it.
+            // Some batches of files may be written and the next one not, and a step may fail after the files before it were written. That is
+            // safe: the note stays, so repeating the switch finds those files as a kill would have left them and finishes the job. The index
+            // goes back as the alignment found it.
             await TryRestoreAsync(repo, aligned).ConfigureAwait(false);
             throw;
         }
@@ -217,23 +234,28 @@ public sealed partial class GitEngine
     // git prints no meter when it checks out paths, so a switch that reports progress gets its counts from the batches the paths go in.
     private const int _finishBatch = 200;
 
-    private async Task WriteTargetCopiesAsync(RepoRef repo, string to, IReadOnlyList<string> paths, AlignedIndex? aligned, ProgressReporter? reporter, CancellationToken ct)
+    private async Task WriteTargetCopiesAsync(RepoRef repo, string to, FinishScan scan, ProgressReporter? reporter, CancellationToken ct)
     {
+        var paths = scan.Rewrite;
         if (reporter is null)
         {
-            await WriteTargetBatchAsync(repo, to, paths, aligned, ct).ConfigureAwait(false);
+            await WriteTargetBatchAsync(repo, to, paths, ct).ConfigureAwait(false);
             return;
         }
 
+        long bytes = 0;
         for (var done = 0; done < paths.Count; done += _finishBatch)
         {
             ct.ThrowIfCancellationRequested();
-            await WriteTargetBatchAsync(repo, to, [.. paths.Skip(done).Take(_finishBatch)], aligned, ct).ConfigureAwait(false);
-            reporter.Observe(Math.Min(done + _finishBatch, paths.Count), paths.Count);
+            var batch = Math.Min(_finishBatch, paths.Count - done);
+            await WriteTargetBatchAsync(repo, to, [.. paths.Skip(done).Take(batch)], ct).ConfigureAwait(false);
+            bytes += scan.RewriteBytes.Skip(done).Take(batch).Sum();
+            reporter.ObserveFinishing(done + batch, paths.Count, bytes);
         }
     }
 
-    private async Task WriteTargetBatchAsync(RepoRef repo, string to, IReadOnlyList<string> paths, AlignedIndex? aligned, CancellationToken ct)
+    // The caller puts the index back when this throws.
+    private async Task WriteTargetBatchAsync(RepoRef repo, string to, IReadOnlyList<string> paths, CancellationToken ct)
     {
         for (var attempt = 0; ; attempt++)
         {
@@ -252,7 +274,6 @@ public sealed partial class GitEngine
                     continue;
                 }
 
-                await TryRestoreAsync(repo, aligned).ConfigureAwait(false);
                 throw new GitOperationException(GitFailure.LockFilePath(stderr), $"git could not take its lock: {stderr.Trim()}");
             }
 
@@ -261,7 +282,8 @@ public sealed partial class GitEngine
                 throw new DiskSpaceException(repo.WorkTree, _options.MinFreeBytesForCheckout, _freeSpace(repo.WorkTree));
             }
 
-            // A file another program holds stays as it is; the checkout that follows names it.
+            // A file another program holds could not be replaced, but git has already moved its index entry to the target's, so the checkout
+            // that follows sees nothing to do for it. The verify pass after that finds the file differing, tries again, and names it if it stays.
             if (!GitFailure.FileCouldNotBeReplaced(stderr))
             {
                 throw GitFailure.ToException(new GitCommandException(["checkout", to], result.ExitCode, stderr));

@@ -8,7 +8,22 @@ namespace Savepoint.Core.Tests.Git.Engine;
 [Collection(EngineCollections.F)]
 public sealed class FinishSwitchTests : IDisposable
 {
-    private readonly EngineWorkspace _ws = new();
+    private readonly List<string> _hashed = [];
+    private readonly EngineWorkspace _ws;
+
+    public FinishSwitchTests()
+    {
+        _ws = new(options => options with
+        {
+            FileHashed = path =>
+            {
+                lock (_hashed)
+                {
+                    _hashed.Add(path);
+                }
+            },
+        });
+    }
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -160,23 +175,28 @@ public sealed class FinishSwitchTests : IDisposable
 
     private const int _manyFiles = 450;
 
-    [Fact]
-    public async Task Finishing_reports_the_files_it_writes_though_git_prints_no_meter_for_them()
-    {
-        var (repo, data) = await RepoTemplates.CopyAsync("finish-switch-many", _ws, async ws =>
+    // Profile-a holds 450 small files and profile-b other content in the same files; the folder ends on profile-b. The third value is profile-a's folder.
+    private async Task<(RepoRef Repo, (string A, string B, SortedDictionary<string, string> ASnapshot) Data)> ManyFilesAsync() =>
+        await RepoTemplates.CopyAsync("finish-switch-many", _ws, async ws =>
         {
             var repo = await ws.InitializedFreshAsync();
             ws.WriteMany(repo, "Data", _manyFiles, content: "a");
             var a = (await ws.CaptureAsync(repo, "profile-a", "A")).TipCommitId!;
+            var snapshot = TreeSnapshot.Take(repo.WorkTree);
             await ws.Engine.CreateBranchAsync(repo, "profile-b", "profile-a", TestContext.Current.CancellationToken);
             await ws.Engine.CheckoutBranchAsync(repo, "profile-b", ct: TestContext.Current.CancellationToken);
             ws.WriteMany(repo, "Data", _manyFiles, content: "b");
             var b = (await ws.CaptureAsync(repo, "profile-b", "B")).TipCommitId!;
-            return (repo, (a, b));
+            return (repo, (a, b, snapshot));
         });
 
+    [Fact]
+    public async Task Finishing_reports_the_files_it_writes_though_git_prints_no_meter_for_them()
+    {
+        var (repo, data) = await ManyFilesAsync();
+
         // Every file was removed and its new copy cut short when the switch was killed.
-        SwitchJournal.Write(repo.GitDir, data.b, data.a, "profile-a");
+        SwitchJournal.Write(repo.GitDir, data.B, data.A, "profile-a");
         _ws.WriteMany(repo, "Data", _manyFiles, content: "cut");
         var log = new ProgressLog();
 
@@ -185,6 +205,105 @@ public sealed class FinishSwitchTests : IDisposable
         Assert.Contains(log.Reports, report => report.FilesDone >= _manyFiles);
         Assert.All(log.Reports, report => Assert.True(report.FilesTotal is null || report.FilesTotal >= report.FilesDone));
         Assert.Equal("a 0", File.ReadAllText(_ws.FileOf(repo, "Data/f0.txt")));
+
+        // The bar never goes back: git's own count for what is left starts below the files already written.
+        Assert.Equal(log.Reports.Select(report => report.FilesDone).Order(), log.Reports.Select(report => report.FilesDone));
+        Assert.Equal(log.Reports.Select(report => report.BytesDone ?? 0).Order(), log.Reports.Select(report => report.BytesDone ?? 0));
+    }
+
+    [Fact]
+    public async Task A_batch_of_the_finish_that_fails_part_way_leaves_the_note_and_the_repeat_finishes()
+    {
+        var (repo, data) = await ManyFilesAsync();
+        SwitchJournal.Write(repo.GitDir, data.B, data.A, "profile-a");
+        _ws.WriteMany(repo, "Data", _manyFiles, content: "cut");
+        var batches = 0;
+        _ws.OnInvoke = invocation =>
+        {
+            if (invocation.Arguments[0] == "checkout" && invocation.Arguments.Contains("--pathspec-from-file=-") && ++batches == 2)
+            {
+                throw new GitOperationException("the second batch could not be written");
+            }
+        };
+
+        await Assert.ThrowsAsync<GitOperationException>(() => _ws.Engine.CheckoutBranchAsync(repo, "profile-a", new ProgressLog(), Ct));
+
+        // The first batch is written and the rest is not: the folder is as a kill leaves it, and the note says which switch it is.
+        _ws.OnInvoke = null;
+        Assert.Equal(new InterruptedSwitch(data.B, data.A, "profile-a"), SwitchJournal.Read(repo.GitDir));
+        Assert.Equal("refs/heads/profile-b", await _ws.HeadRefAsync(repo));
+        var contents = Directory.EnumerateFiles(_ws.FileOf(repo, "Data")).Select(File.ReadAllText).ToArray();
+        Assert.Equal(200, contents.Count(content => content.StartsWith("a ", StringComparison.Ordinal)));
+        Assert.Equal(_manyFiles - 200, contents.Count(content => content.StartsWith("cut", StringComparison.Ordinal)));
+
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+
+        Assert.Equal(data.ASnapshot, TreeSnapshot.Take(repo.WorkTree));
+        Assert.Null(SwitchJournal.Read(repo.GitDir));
+        Assert.True((await _ws.Engine.GetStatusAsync(repo, Ct)).IsClean);
+    }
+
+    [Fact]
+    public async Task A_file_held_open_during_the_finish_is_named_and_a_repeat_after_release_finishes()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows refuses to replace a file another program holds open");
+        var (repo, data) = await ProfilesAsync();
+        KillTheSwitchPartWay(repo, data.A, data.B);
+        var locked = _ws.FileOf(repo, "Data/mod.pak");
+
+        var held = new FileStream(locked, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+        try
+        {
+            var error = await Assert.ThrowsAsync<GitOperationException>(() => _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct));
+
+            Assert.Equal(locked, error.Args["path"]);
+        }
+        finally
+        {
+            await held.DisposeAsync();
+        }
+
+        Assert.Equal(new InterruptedSwitch(data.B, data.A, "profile-a"), SwitchJournal.Read(repo.GitDir));
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+        Assert.Equal(data.ASnapshot, TreeSnapshot.Take(repo.WorkTree));
+        Assert.Null(SwitchJournal.Read(repo.GitDir));
+    }
+
+    [Fact]
+    public async Task The_switch_check_reads_no_file_to_compare_it()
+    {
+        var (repo, data) = await ProfilesAsync();
+        KillTheSwitchPartWay(repo, data.A, data.B);
+
+        await _ws.Engine.CheckSwitchAsync(repo, "profile-a", isBranch: true, Ct);
+
+        Assert.Empty(_hashed);
+    }
+
+    [Fact]
+    public async Task A_review_that_does_not_list_the_replaced_files_reads_no_file_and_still_names_what_blocks()
+    {
+        var (repo, data) = await ProfilesAsync();
+        KillTheSwitchPartWay(repo, data.A, data.B);
+        _ws.Write(repo, "common.cfg", "the player's edit");
+
+        var review = await _ws.Engine.ReviewStoppedSwitchAsync(repo, Ct, listReplaced: false);
+
+        Assert.Equal(["common.cfg"], review.BlockingPaths);
+        Assert.Empty(review.ReplacedPaths);
+        Assert.Empty(_hashed);
+    }
+
+    [Fact]
+    public async Task The_switch_reads_each_file_of_the_targets_size_once()
+    {
+        var (repo, data) = await ProfilesAsync();
+        KillTheSwitchPartWay(repo, data.A, data.B);
+
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+
+        Assert.NotEmpty(_hashed);
+        Assert.Equal(_hashed.Distinct().Count(), _hashed.Count);
     }
 
     [Fact]

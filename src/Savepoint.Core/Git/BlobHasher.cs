@@ -15,7 +15,8 @@ internal static class BlobHasher
 {
     private const int _bufferSize = 128 * 1024;
 
-    public static HashOutcome TryHash(string path, out string id)
+    // The token is looked at between reads, so a big file does not keep a cancelled call waiting for the rest of it.
+    public static HashOutcome TryHash(string path, out string id, CancellationToken ct = default)
     {
         id = string.Empty;
         try
@@ -30,6 +31,7 @@ internal static class BlobHasher
             var remaining = length;
             while (remaining > 0)
             {
+                ct.ThrowIfCancellationRequested();
                 var read = stream.Read(buffer, 0, (int)Math.Min(buffer.Length, remaining));
                 if (read == 0)
                 {
