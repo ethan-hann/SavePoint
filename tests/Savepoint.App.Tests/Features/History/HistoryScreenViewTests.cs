@@ -74,6 +74,8 @@ public class HistoryScreenViewTests
         Assert.Contains("SAVES", texts);
         Assert.Contains("14 mod files updated", texts);
         Assert.Contains("LOADED NOW", texts);
+        // Three version entries and four saves can be gone back to; the loaded save has none.
+        Assert.Equal(7, harness.All<Button>().Count(button => button.IsEffectivelyVisible && (button.Content as string) == "Go back and play"));
         var visibleNames = harness.All<Button>().Where(button => button.IsEffectivelyVisible).Select(AutomationProperties.GetName).ToList();
         var loadable = Screen(harness).Saves.Where(save => save.CanLoad).ToList();
         Assert.Equal(4, loadable.Count);
@@ -168,7 +170,7 @@ public class HistoryScreenViewTests
         Screen(harness).SelectedViewOption = Screen(harness).ViewOptions[1];
         harness.Settle();
 
-        ButtonNamed(harness, "Go back and play from Deep cave run").Command!.Execute(null);
+        ButtonNamed(harness, "Go back and play: Deep cave run (saves)").Command!.Execute(null);
 
         var begun = Assert.Single(harness.Flow.Begun);
         Assert.Equal(new LaunchTarget.Save(SampleScenario.SurvivalId, SampleScenario.DeepCaveRun), begun.Target);

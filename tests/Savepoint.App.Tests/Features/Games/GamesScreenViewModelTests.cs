@@ -468,7 +468,69 @@ public class GamesScreenViewModelTests
         Assert.Equal("Switch and play Vanilla - latest update", rig.Screen.Profiles[1].PlayAutomationName);
     }
 
+    [Fact]
+    public async Task Play_says_just_Play_on_every_row_until_the_row_stats_have_arrived()
+    {
+        var backend = FakeBackend.Sample();
+        var gated = new GatedProfilesApi(backend.Profiles);
+        var rig = await GamesRig.StartAsync(backend, profiles: gated);
+        var release = gated.HoldStats(SampleScenario.SatisfactoryId);
+
+        rig.Shell.SelectGame(SampleScenario.SatisfactoryId);
+        await Task.Yield();
+
+        Assert.Equal(2, rig.Screen.Profiles.Count);
+        Assert.All(Rows(rig), row => Assert.Equal("Play", row.PlayLabel));
+        Assert.All(Rows(rig), row => Assert.StartsWith("Play ", row.PlayAutomationName, StringComparison.Ordinal));
+        release();
+        await rig.Screen.ReloadAsync();
+
+        Assert.Equal(["Play", "Switch and play"], rig.Screen.Profiles.Select(row => row.PlayLabel));
+    }
+
+    [Fact]
+    public async Task Play_says_just_Play_on_every_row_when_the_row_stats_could_not_be_read()
+    {
+        var rig = await GamesRig.StartAsync();
+        rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.GetRowStatsAsync), SampleScenario.FileInUseError);
+
+        await rig.Screen.ReloadAsync();
+
+        Assert.All(Rows(rig), row => Assert.Equal("Play", row.PlayLabel));
+        Assert.All(Rows(rig), row => Assert.StartsWith("Play ", row.PlayAutomationName, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task A_profile_with_no_snapshot_yet_says_Play_because_there_is_nothing_to_switch_to()
+    {
+        var fresh = new Profile("profile-fresh", SampleScenario.SkyrimId, "Fresh profile", "profile/profile-fresh");
+        var backend = new FakeBackend(ScenarioBuilder.Sample().WithProfile(
+            fresh,
+            new ProfileRowStats(fresh.Id, false, [], 0, null, null, null, null, false, SnapshotNowAvailability.FirstSnapshot)));
+        var rig = await GamesRig.StartAsync(backend);
+
+        var row = rig.Screen.Profiles.Single(r => r.Id == fresh.Id);
+
+        Assert.Equal("Play", row.PlayLabel);
+        Assert.Equal("Play Fresh profile", row.PlayAutomationName);
+    }
+
     // ---- Notes under the name
+
+    [Fact]
+    public async Task Notes_run_together_on_the_row_line_and_stay_whole_in_the_tip_and_the_row_name()
+    {
+        var rig = await GamesRig.StartAsync();
+        FakeAssert.Ok(await rig.Backend.Profiles.UpdateAsync(SampleScenario.SkyrimId, SampleScenario.VanillaId, new ProfileChanges("Vanilla - latest update", "Line one\r\n\r\n  line   two\n", null)));
+
+        await rig.Screen.ReloadAsync();
+
+        var row = rig.Screen.Profiles[1];
+        Assert.Equal("Line one line two", row.NotesText);
+        Assert.Equal("Line one\r\n\r\n  line   two", row.NotesTip);
+        Assert.Contains("Notes: Line one line two", row.AutomationName, StringComparison.Ordinal);
+        Assert.DoesNotContain("Notes:", rig.Screen.Profiles[0].AutomationName, StringComparison.Ordinal);
+    }
 
     [Fact]
     public async Task A_profile_without_notes_shows_no_notes_line()
@@ -628,10 +690,11 @@ public class GamesScreenViewModelTests
     // ---- Narrow windows
 
     [Theory]
-    [InlineData(760, true, true)]
+    [InlineData(1000, true, true)]
     [InlineData(ProfileTableColumns.ModFilesMinWidth, true, true)]
-    [InlineData(620, true, false)]
+    [InlineData(ProfileTableColumns.ModFilesMinWidth - 1, true, false)]
     [InlineData(ProfileTableColumns.VersionMinWidth, true, false)]
+    [InlineData(ProfileTableColumns.VersionMinWidth - 1, false, false)]
     [InlineData(400, false, false)]
     public async Task A_narrow_table_drops_the_mod_files_column_before_the_version_column(double width, bool showVersion, bool showModFiles)
     {
@@ -670,17 +733,15 @@ public class GamesScreenViewModelTests
         Assert.Equal(compact, rig.Screen.Header.IsCompact);
     }
 
-    // The Take a snapshot button is the longest, so it gives up its words before the other buttons do.
+    // The Take a snapshot button sits on the tab row, which has room for its words until the pane gets quite narrow.
     [Theory]
-    [InlineData(1000, true, false)]
-    [InlineData(850, true, true)]
-    [InlineData(760, true, true)]
-    [InlineData(700, false, false)]
-    [InlineData(600, false, true)]
-    public async Task The_snapshot_button_drops_its_words_before_the_other_header_buttons(double width, bool sidebar, bool iconOnly)
+    [InlineData(1000, false)]
+    [InlineData(GameHeaderLayout.SnapshotWordsMinWidth, false)]
+    [InlineData(GameHeaderLayout.SnapshotWordsMinWidth - 1, true)]
+    [InlineData(300, true)]
+    public async Task The_snapshot_button_on_the_tab_row_drops_its_words_only_when_the_row_is_narrow(double width, bool iconOnly)
     {
         var rig = await GamesRig.StartAsync();
-        await rig.Shell.SetLayoutAsync(sidebar ? ShellLayout.Sidebar : ShellLayout.Library);
 
         rig.Screen.SetHeaderWidth(width);
 

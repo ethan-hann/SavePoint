@@ -7,6 +7,7 @@ namespace Savepoint.App.Tests.Features.Games;
 internal sealed class GatedProfilesApi(IProfilesApi inner) : IProfilesApi
 {
     private readonly Dictionary<string, TaskCompletionSource> _held = [];
+    private readonly Dictionary<string, TaskCompletionSource> _heldStats = [];
 
     // Reads of this game's profiles wait until the returned action is called.
     public Action Hold(string gameId)
@@ -26,8 +27,23 @@ internal sealed class GatedProfilesApi(IProfilesApi inner) : IProfilesApi
         return await inner.ListAsync(gameId, cancellationToken);
     }
 
-    public Task<OperationResult<IReadOnlyList<ProfileRowStats>>> GetRowStatsAsync(string gameId, CancellationToken cancellationToken = default) =>
-        inner.GetRowStatsAsync(gameId, cancellationToken);
+    // Row stats of this game wait until the returned action is called; the profile list is not held.
+    public Action HoldStats(string gameId)
+    {
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _heldStats[gameId] = gate;
+        return () => gate.TrySetResult();
+    }
+
+    public async Task<OperationResult<IReadOnlyList<ProfileRowStats>>> GetRowStatsAsync(string gameId, CancellationToken cancellationToken = default)
+    {
+        if (_heldStats.TryGetValue(gameId, out var gate))
+        {
+            await gate.Task;
+        }
+
+        return await inner.GetRowStatsAsync(gameId, cancellationToken);
+    }
 
     public Task<OperationResult<JobStarted>> CreateAsync(string gameId, string name, string? notes, string pointName) =>
         inner.CreateAsync(gameId, name, notes, pointName);

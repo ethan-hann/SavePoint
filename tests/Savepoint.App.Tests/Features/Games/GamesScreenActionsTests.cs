@@ -72,7 +72,7 @@ public class GamesScreenActionsTests
         Assert.Empty(rig.LaunchFlow.BegunSwitches);
     }
 
-    // ---- Take a snapshot now
+    // ---- Take a snapshot
 
     [Fact]
     public async Task Take_a_snapshot_now_asks_the_api_to_capture_the_loaded_profile_under_a_dated_name()
@@ -109,7 +109,7 @@ public class GamesScreenActionsTests
         Assert.False(loaded.SnapshotBlocked);
         Assert.False(other.CanOfferSnapshot);
         Assert.True(other.SnapshotBlocked);
-        Assert.Equal("Take a snapshot now (load this profile first)", other.SnapshotBlockedText);
+        Assert.Equal("Take a snapshot (load this profile first)", other.SnapshotBlockedText);
         Assert.Equal("Load this profile first: switch to it, play it, or go back to its latest snapshot.", other.SnapshotBlockedTip);
         Assert.False(other.TakeSnapshotCommand.CanExecute(null));
 
@@ -235,6 +235,110 @@ public class GamesScreenActionsTests
 
         Assert.False(rig.Screen.HasLoadedProfile);
         Assert.False(rig.Screen.TakeSnapshotCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task The_header_snapshot_button_follows_the_loaded_profile_even_when_it_is_not_the_first_row()
+    {
+        var rig = await GamesRig.StartAsync();
+        rig.Backend.State.RowStats[SampleScenario.ModdedId] = rig.Backend.State.RowStats[SampleScenario.ModdedId] with { SnapshotNow = SnapshotNowAvailability.NotLoaded };
+        rig.Backend.State.RowStats[SampleScenario.VanillaId] = rig.Backend.State.RowStats[SampleScenario.VanillaId] with { SnapshotNow = SnapshotNowAvailability.Available };
+        await rig.Screen.ReloadAsync();
+
+        await rig.Screen.TakeSnapshotCommand.ExecuteAsync(null);
+
+        var call = Assert.Single(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CaptureAsync)));
+        Assert.Equal(SampleScenario.VanillaId, call.Args[1]);
+    }
+
+    [Fact]
+    public async Task The_header_snapshot_button_on_a_profile_with_no_snapshot_yet_asks_first_as_the_menu_entry_does()
+    {
+        var rig = await GamesRig.StartAsync(WithFirstSnapshotProfile());
+        rig.Backend.State.RowStats[SampleScenario.ModdedId] = rig.Backend.State.RowStats[SampleScenario.ModdedId] with { SnapshotNow = SnapshotNowAvailability.NotLoaded };
+        await rig.Screen.ReloadAsync();
+        rig.Dialogs.AnswerConfirm(false);
+
+        Assert.True(rig.Screen.HasLoadedProfile);
+        await rig.Screen.TakeSnapshotCommand.ExecuteAsync(null);
+
+        var asked = Assert.Single(rig.Dialogs.Confirmations);
+        Assert.Equal("Take the first snapshot of Fresh profile?", asked.Title);
+        Assert.Empty(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CaptureAsync)));
+
+        rig.Dialogs.AnswerConfirm(true);
+        await rig.Screen.TakeSnapshotCommand.ExecuteAsync(null);
+
+        var call = Assert.Single(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CaptureAsync)));
+        Assert.Equal("profile-fresh", call.Args[1]);
+    }
+
+    [Fact]
+    public async Task The_header_snapshot_button_stays_hidden_when_two_profiles_have_no_snapshot_yet_and_none_is_loaded()
+    {
+        var other = new Profile("profile-other", SampleScenario.SkyrimId, "Other profile", "profile/profile-other");
+        var backend = new FakeBackend(ScenarioBuilder.Sample().WithProfile(
+            other,
+            new ProfileRowStats(other.Id, false, [], 0, null, null, null, null, false, SnapshotNowAvailability.FirstSnapshot)));
+        var rig = await GamesRig.StartAsync(backend);
+        rig.Backend.State.RowStats[SampleScenario.ModdedId] = rig.Backend.State.RowStats[SampleScenario.ModdedId] with { SnapshotNow = SnapshotNowAvailability.FirstSnapshot };
+
+        await rig.Screen.ReloadAsync();
+
+        Assert.False(rig.Screen.HasLoadedProfile);
+    }
+
+    [Fact]
+    public async Task A_snapshot_still_running_for_the_game_turns_off_the_header_button_and_the_menu_entry_until_it_ends()
+    {
+        var rig = await GamesRig.StartAsync();
+
+        await rig.Screen.TakeSnapshotCommand.ExecuteAsync(null);
+
+        Assert.False(rig.Screen.TakeSnapshotCommand.CanExecute(null));
+        Assert.False(rig.Screen.Profiles[0].TakeSnapshotCommand.CanExecute(null));
+        await rig.Screen.TakeSnapshotCommand.ExecuteAsync(null);
+        await rig.Screen.Profiles[0].TakeSnapshotCommand.ExecuteAsync(null);
+        Assert.Single(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CaptureAsync)));
+
+        rig.Backend.Jobs.Complete(rig.Backend.Jobs.LastStarted(JobKind.Capture).JobId);
+
+        Assert.True(rig.Screen.TakeSnapshotCommand.CanExecute(null));
+        Assert.True(rig.Screen.Profiles[0].TakeSnapshotCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task A_snapshot_running_for_another_game_leaves_this_games_snapshot_button_on()
+    {
+        var rig = await GamesRig.StartAsync();
+        rig.Backend.Jobs.Start(JobKind.Capture, SampleScenario.SatisfactoryId, null);
+
+        Assert.True(rig.Screen.TakeSnapshotCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task The_header_button_tells_the_screen_when_it_turns_on_or_off()
+    {
+        var rig = await GamesRig.StartAsync();
+        var changed = 0;
+        rig.Screen.TakeSnapshotCommand.CanExecuteChanged += (_, _) => changed++;
+
+        rig.LaunchFlow!.SetActive(SampleScenario.SkyrimId, true);
+
+        Assert.True(changed > 0);
+    }
+
+    [Fact]
+    public async Task The_screen_says_when_a_profile_becomes_loaded_or_stops_being()
+    {
+        var rig = await GamesRig.StartAsync();
+        var raised = new List<string?>();
+        rig.Screen.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+        rig.Backend.State.RowStats[SampleScenario.ModdedId] = rig.Backend.State.RowStats[SampleScenario.ModdedId] with { SnapshotNow = SnapshotNowAvailability.NotLoaded };
+
+        await rig.Screen.ReloadAsync();
+
+        Assert.Contains(nameof(GamesScreenViewModel.HasLoadedProfile), raised);
     }
 
     // ---- New profile

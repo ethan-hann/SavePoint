@@ -97,6 +97,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         _shell.LaunchFlow.PropertyChanged += OnFlowChanged;
         _shell.LaunchFlow.InlineContentChanged += OnInlineContentChanged;
         _shell.LaunchFlow.EditGameRequested += OnEditGameRequested;
+        _deps.Jobs.JobChanged += OnJobChanged;
 
         ShowGame(_shell.SelectedGame);
     }
@@ -172,16 +173,26 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     /// <summary>The storage footer's Free up space for the selected game.</summary>
     public FreeUpSpaceViewModel FreeUp { get; }
 
-    /// <summary>True when a profile is loaded in the game's folders, so the header offers a snapshot of it.</summary>
+    /// <summary>True when the tab row offers a snapshot: a profile is loaded in the game's folders, or exactly one profile has no snapshot yet.</summary>
     public bool HasLoadedProfile => LoadedProfile is not null;
 
-    /// <summary>The header button's label.</summary>
+    /// <summary>The Take a snapshot button's label.</summary>
     public string TakeSnapshotText => _deps.Text.Message("games.header.takeSnapshot");
 
-    /// <summary>Takes a snapshot of the loaded profile; off exactly when that row's own menu entry is.</summary>
+    /// <summary>
+    /// Takes a snapshot for <see cref="LoadedProfile"/> through that row's own command, so it is off, and asks first, exactly when
+    /// the row's menu entry is and does: off while the game has a session or a snapshot is being taken, and a confirmation for a
+    /// profile whose first snapshot this would be.
+    /// </summary>
     public IAsyncRelayCommand TakeSnapshotCommand { get; }
 
-    private ProfileRowViewModel? LoadedProfile => Profiles.FirstOrDefault(row => row.SnapshotNow == SnapshotNowAvailability.Available);
+    // The loaded profile, or else the one profile that has no snapshot yet (its first one is whatever the folders hold, which the
+    // row confirms). With several such profiles there is no telling which the player means, so none is offered.
+    private ProfileRowViewModel? LoadedProfile =>
+        Profiles.FirstOrDefault(row => row.SnapshotNow == SnapshotNowAvailability.Available)
+        ?? (Profiles.Count(row => row.SnapshotNow == SnapshotNowAvailability.FirstSnapshot) == 1
+            ? Profiles.Single(row => row.SnapshotNow == SnapshotNowAvailability.FirstSnapshot)
+            : null);
 
     /// <summary>Opens the game editor pane for the selected game.</summary>
     public IRelayCommand EditGameCommand { get; }
@@ -330,7 +341,21 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         _shell.LaunchFlow.PropertyChanged -= OnFlowChanged;
         _shell.LaunchFlow.InlineContentChanged -= OnInlineContentChanged;
         _shell.LaunchFlow.EditGameRequested -= OnEditGameRequested;
+        _deps.Jobs.JobChanged -= OnJobChanged;
     }
+
+    // Jobs raise their events from any thread. Only a snapshot of this game matters here: while one runs, no second one starts.
+    private void OnJobChanged(object? sender, JobSnapshot job) =>
+        _deps.Dispatcher.Post(() =>
+        {
+            if (!_disposed && job.Kind == JobKind.Capture && job.GameId == _game?.Id)
+            {
+                RefreshPlayAvailability();
+            }
+        });
+
+    private bool SnapshotRunning(GameDefinition? game) =>
+        game is not null && _deps.Jobs.List().Any(job => job.Kind == JobKind.Capture && job.GameId == game.Id && job.Status == JobStatus.Running);
 
     private void OnShellChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -481,13 +506,14 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
             var current = statsById.TryGetValue(profile.Id, out var found)
                 ? found
                 : new ProfileRowStats(profile.Id, false, [], null, null, null, profile.VersionOverride, profile.LastLaunchedAt, false);
+            var known = statsById.ContainsKey(profile.Id);
             if (existing.TryGetValue(profile.Id, out var row))
             {
-                row.Apply(profile, current);
+                row.Apply(profile, current, known);
             }
             else
             {
-                row = new ProfileRowViewModel(profile, current, _deps.Text, Columns, this);
+                row = new ProfileRowViewModel(profile, current, _deps.Text, Columns, this, known);
             }
 
             rows.Add(row);
@@ -512,9 +538,11 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         var canPlay = _game is { } game
             && !_shell.LaunchFlow.IsActive(game.Id)
             && !gameRunning;
+        var snapshotRunning = SnapshotRunning(_game);
         foreach (var row in Profiles)
         {
             row.SetCanPlay(canPlay, gameRunning);
+            row.SetSnapshotBusy(snapshotRunning);
         }
 
         RefreshSnapshotHeader();

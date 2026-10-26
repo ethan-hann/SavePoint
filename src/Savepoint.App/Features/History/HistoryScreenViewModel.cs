@@ -517,7 +517,7 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
                     _deps.Text.Message("history.save.loadAutomation", ("name", point.Name)),
                     _words.ItemName(point.Name, _words.SaveDetail(point), point.LoadedNow ? _deps.Text.Message("history.save.loaded") : string.Empty),
                     BeginCommand(game.Id, new LaunchTarget.Save(point.ProfileId, point.Id)),
-                    _deps.Text.Message("history.card.switchAutomation", ("name", point.Name)),
+                    _deps.Text.Message("history.save.switchAutomation", ("name", point.Name)),
                     BeginCommand(game.Id, new LaunchTarget.Save(point.ProfileId, point.Id), switchOnly: true))),
         ];
 

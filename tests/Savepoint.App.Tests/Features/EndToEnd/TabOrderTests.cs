@@ -62,8 +62,8 @@ public class TabOrderTests
         Assert.Equal(
             [
                 "Games", "Skyrim Special Edition, 3 profiles", "Add games from your libraries", "Add a game",
-                "Take a snapshot", "Edit game", "New profile", "More actions for Skyrim Special Edition", "Sidebar",
-                "Profiles", "History", "Activity",
+                "Edit game", "New profile", "More actions for Skyrim Special Edition", "Sidebar",
+                "Profiles", "History", "Activity", "Take a snapshot",
                 .. ProfileRows(_modded), .. ProfileRows(_vanilla, "Switch and play"), .. ProfileRows(_survival, "Switch and play"),
                 "Free up space for Skyrim Special Edition",
             ],
@@ -79,7 +79,7 @@ public class TabOrderTests
             [
                 "Games", "Library",
                 "Add games from your libraries", "Add a game", "Skyrim Special Edition, 3 profiles", "Add a game",
-                "Take a snapshot", "Edit game", "New profile", "More actions for Skyrim Special Edition",
+                "Edit game", "New profile", "More actions for Skyrim Special Edition", "Take a snapshot",
                 .. ProfileRows(_modded), .. ProfileRows(_vanilla, "Switch and play"), .. ProfileRows(_survival, "Switch and play"),
             ],
             TabStops(app));
@@ -139,10 +139,10 @@ public class TabOrderTests
                 "History", "Skyrim Special Edition, 3 profiles", "Add games from your libraries", "Add a game",
                 "What's a snapshot?", "Filter by profile: All profiles", "List",
                 .. app.History.Timeline.Where(entry => entry.CanGoBack).SelectMany(entry => new[] { entry.GoBackAutomationName, entry.SwitchAutomationName }),
-                "Go back and play from Cleared Blackreach", "Go back without playing: Cleared Blackreach",
-                "Go back and play from Fresh start with Nolvus", "Go back without playing: Fresh start with Nolvus",
-                "Go back and play from Deep cave run", "Go back without playing: Deep cave run",
-                "Go back and play from First night", "Go back without playing: First night",
+                "Go back and play: Cleared Blackreach (saves)", "Go back without playing: Cleared Blackreach (saves)",
+                "Go back and play: Fresh start with Nolvus (saves)", "Go back without playing: Fresh start with Nolvus (saves)",
+                "Go back and play: Deep cave run (saves)", "Go back without playing: Deep cave run (saves)",
+                "Go back and play: First night (saves)", "Go back without playing: First night (saves)",
             ],
             TabStops(app));
     }

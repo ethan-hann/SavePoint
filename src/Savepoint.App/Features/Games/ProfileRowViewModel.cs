@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Formatting;
@@ -22,7 +23,8 @@ public sealed partial class ProfileRowViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(PlayDisabledReason))]
     private bool _canPlay;
 
-    internal ProfileRowViewModel(Profile profile, ProfileRowStats stats, UiFormatter text, ProfileTableColumns columns, IProfileRowActions actions)
+    // statsKnown is false while the row is drawn from the profile list alone, or when the stats could not be read.
+    internal ProfileRowViewModel(Profile profile, ProfileRowStats stats, UiFormatter text, ProfileTableColumns columns, IProfileRowActions actions, bool statsKnown = true)
     {
         _text = text;
         _actions = actions;
@@ -33,21 +35,24 @@ public sealed partial class ProfileRowViewModel : ObservableObject
         SwitchCommand = new AsyncRelayCommand(() => _actions.SwitchAsync(this), () => CanPlay);
         EditCommand = new AsyncRelayCommand(() => _actions.EditAsync(this));
         DuplicateCommand = new AsyncRelayCommand(() => _actions.DuplicateAsync(this));
-        TakeSnapshotCommand = new AsyncRelayCommand(() => _actions.TakeSnapshotAsync(this), () => CanPlay && CanOfferSnapshot);
+        TakeSnapshotCommand = new AsyncRelayCommand(() => _actions.TakeSnapshotAsync(this), () => CanPlay && CanOfferSnapshot && !SnapshotBusy);
         DeleteCommand = new AsyncRelayCommand(() => _actions.DeleteAsync(this));
-        Fill(profile, stats);
+        Fill(profile, stats, statsKnown);
     }
+
+    /// <summary>True while a snapshot of this game is being taken; a second one is not started on top of it.</summary>
+    public bool SnapshotBusy { get; private set; }
 
     /// <summary>Whether a snapshot of what the folders hold now can be added to this profile: the loaded profile, or one with no snapshot yet.</summary>
     public SnapshotNowAvailability SnapshotNow { get; private set; } = SnapshotNowAvailability.NotLoaded;
 
-    /// <summary>True when "Take a snapshot now" is offered on this row; false for a profile the folders do not hold, which shows the reason instead.</summary>
+    /// <summary>True when "Take a snapshot" is offered on this row; false for a profile the folders do not hold, which shows the reason instead.</summary>
     public bool CanOfferSnapshot => SnapshotNow != SnapshotNowAvailability.NotLoaded;
 
     /// <summary>True when the row's menu shows why a snapshot cannot be taken instead of the action.</summary>
     public bool SnapshotBlocked => SnapshotNow == SnapshotNowAvailability.NotLoaded;
 
-    /// <summary>The menu entry that stands in for "Take a snapshot now" on a profile that is not loaded, with the reason in it.</summary>
+    /// <summary>The menu entry that stands in for "Take a snapshot" on a profile that is not loaded, with the reason in it.</summary>
     public string SnapshotBlockedText => _text.Message("games.profileTable.takeSnapshot.blocked");
 
     /// <summary>The longer reason, for the entry's tip.</summary>
@@ -65,8 +70,11 @@ public sealed partial class ProfileRowViewModel : ObservableObject
     /// <summary>The notes the user wrote, or null.</summary>
     public string? Notes { get; private set; }
 
-    /// <summary>The notes with surrounding blanks removed, or null when there are none.</summary>
+    /// <summary>The notes as one line, with every run of blanks and line breaks made a single space, or null when there are none.</summary>
     public string? NotesText { get; private set; }
+
+    /// <summary>The notes as the player wrote them, trimmed, for the tooltip; null when there are none.</summary>
+    public string? NotesTip { get; private set; }
 
     /// <summary>True when there are notes to show under the name.</summary>
     public bool HasNotes => NotesText is not null;
@@ -145,10 +153,22 @@ public sealed partial class ProfileRowViewModel : ObservableObject
     /// <summary>Starts deleting the profile, which asks first.</summary>
     public IAsyncRelayCommand DeleteCommand { get; }
 
-    internal void Apply(Profile profile, ProfileRowStats stats)
+    internal void Apply(Profile profile, ProfileRowStats stats, bool statsKnown = true)
     {
-        Fill(profile, stats);
+        Fill(profile, stats, statsKnown);
         OnPropertyChanged(string.Empty);
+        TakeSnapshotCommand.NotifyCanExecuteChanged();
+    }
+
+    internal void SetSnapshotBusy(bool busy)
+    {
+        if (SnapshotBusy == busy)
+        {
+            return;
+        }
+
+        SnapshotBusy = busy;
+        OnPropertyChanged(nameof(SnapshotBusy));
         TakeSnapshotCommand.NotifyCanExecuteChanged();
     }
 
@@ -167,13 +187,15 @@ public sealed partial class ProfileRowViewModel : ObservableObject
         TakeSnapshotCommand.NotifyCanExecuteChanged();
     }
 
-    private void Fill(Profile profile, ProfileRowStats stats)
+    private void Fill(Profile profile, ProfileRowStats stats, bool statsKnown)
     {
         var noValue = _text.Message("games.profileTable.noValue");
 
         Name = profile.Name;
         Notes = profile.Notes;
-        NotesText = Blank(profile.Notes);
+        NotesTip = Blank(profile.Notes);
+        // One run of text, so the row's two-line limit ends it with an ellipsis instead of stopping at a line break.
+        NotesText = NotesTip is null ? null : WhiteSpace().Replace(NotesTip, " ");
         SnapshotNow = stats.SnapshotNow;
         IsActive = stats.IsActive;
         IsRunning = stats.IsRunning;
@@ -189,8 +211,9 @@ public sealed partial class ProfileRowViewModel : ObservableObject
         VersionText = VersionOverride ?? DetectedVersion ?? noValue;
         ModFilesText = stats.ModFileCount is > 0 and var modFiles ? _text.Number(modFiles) : noValue;
         LastPlayedText = (stats.LastPlayedAt ?? profile.LastLaunchedAt) is { } lastPlayed ? _text.RelativeTime(lastPlayed) : noValue;
-        // Play on a profile the folders do not hold loads it first, and the label says so.
-        var switchesFirst = !IsRunning && SnapshotNow == SnapshotNowAvailability.NotLoaded;
+        // Play on a profile the folders do not hold loads it first, and the label says so. Until the stats are known nothing is known
+        // about what the folders hold, so the label stays "Play".
+        var switchesFirst = statsKnown && !IsRunning && SnapshotNow == SnapshotNowAvailability.NotLoaded;
         PlayLabel = _text.Message(IsRunning ? "games.profileTable.running" : switchesFirst ? "games.profileTable.switchAndPlay" : "games.profileTable.play");
 
         PlayAutomationName = _text.Message(
@@ -205,7 +228,14 @@ public sealed partial class ProfileRowViewModel : ObservableObject
             ("version", VersionText == noValue ? none : VersionText),
             ("modFiles", ModFilesText == noValue ? none : ModFilesText),
             ("lastPlayed", LastPlayedText == noValue ? none : LastPlayedText));
+        if (NotesText is not null)
+        {
+            AutomationName += " " + _text.Message("games.profileTable.rowNotesAutomationName", ("notes", NotesText));
+        }
     }
+
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex WhiteSpace();
 
     // The first rule that matches wins: new changes, then the loaded profile, then the plain count.
     private string SecondaryLine(ProfileRowStats stats) => (IsUnsavedLine, IsActiveLine, stats.SnapshotCount) switch

@@ -81,10 +81,11 @@ public class GamesScreenViewTests
 
         double X(string name) => harness.Find<TextBlock>(name).TranslatePoint(new Point(0, 0), table)!.Value.X;
 
-        // 1fr 108 92 118 184 with 14px gaps inside a 14px padding; the last column is wide enough for "Switch and play".
-        Assert.InRange(X("VersionHeader"), 197, 205);
-        Assert.InRange(X("ModFilesHeader"), X("VersionHeader") + 108 + 14 - 1, X("VersionHeader") + 108 + 14 + 1);
-        Assert.InRange(X("LastPlayedHeader"), X("ModFilesHeader") + 92 + 14 - 1, X("ModFilesHeader") + 92 + 14 + 1);
+        // 1fr 84 76 86 and an actions column as wide as "Switch and play", with 14px gaps inside a 14px padding. The name keeps the
+        // room it had before that label existed.
+        Assert.InRange(X("VersionHeader"), 253, 280);
+        Assert.InRange(X("ModFilesHeader"), X("VersionHeader") + 84 + 14 - 1, X("VersionHeader") + 84 + 14 + 1);
+        Assert.InRange(X("LastPlayedHeader"), X("ModFilesHeader") + 76 + 14 - 1, X("ModFilesHeader") + 76 + 14 + 1);
         Assert.InRange(harness.Find<Border>("TableHeader").Bounds.Height, 30, 34);
         Assert.InRange(table.Bounds.Width, 750, 765);
     }
@@ -127,13 +128,14 @@ public class GamesScreenViewTests
     [AvaloniaFact]
     public async Task The_header_has_a_take_a_snapshot_button_that_follows_the_launch_flow()
     {
-        using var harness = await GamesViewHarness.StartAsync(width: 1280);
+        using var harness = await GamesViewHarness.StartAsync();
         var button = harness.Find<Button>("TakeSnapshotButton");
 
         Assert.True(button.IsEffectivelyVisible);
         Assert.True(button.IsEffectivelyEnabled);
         Assert.Equal("Take a snapshot", AutomationProperties.GetName(button));
         Assert.Contains("Take a snapshot", harness.VisibleTexts());
+        Assert.Null(Avalonia.Controls.ToolTip.GetTip(button));
 
         harness.Rig.LaunchFlow!.SetActive(SampleScenario.SkyrimId, true);
         harness.Settle();
@@ -142,18 +144,50 @@ public class GamesScreenViewTests
     }
 
     [AvaloniaFact]
+    public async Task The_snapshot_button_sits_on_the_tab_row_and_not_in_the_game_header()
+    {
+        using var harness = await GamesViewHarness.StartAsync();
+        var button = harness.Find<Button>("TakeSnapshotButton");
+
+        Assert.DoesNotContain(button.GetVisualAncestors().OfType<Grid>(), grid => grid.Name is "SidebarHeader" or "LibraryHeader");
+        Assert.Same(harness.Find<StackPanel>("Tabs").GetVisualParent(), button.GetVisualParent());
+    }
+
+    [AvaloniaFact]
+    public async Task A_narrow_tab_row_shows_the_snapshot_button_as_an_icon_with_its_name_in_a_tip()
+    {
+        using var harness = await GamesViewHarness.StartAsync(width: 560);
+        var button = harness.Find<Button>("TakeSnapshotButton");
+
+        Assert.True(button.IsEffectivelyVisible);
+        Assert.DoesNotContain("Take a snapshot", harness.VisibleTexts());
+        Assert.Equal("Take a snapshot", Avalonia.Controls.ToolTip.GetTip(button));
+        Assert.Equal("Take a snapshot", AutomationProperties.GetName(button));
+    }
+
+    [AvaloniaFact]
+    public async Task The_snapshot_button_is_not_shown_when_no_profile_is_loaded()
+    {
+        var backend = FakeBackend.Sample();
+        backend.State.RowStats[SampleScenario.ModdedId] = backend.State.RowStats[SampleScenario.ModdedId] with { SnapshotNow = SnapshotNowAvailability.NotLoaded };
+        using var harness = await GamesViewHarness.StartAsync(backend);
+
+        Assert.False(harness.Find<Button>("TakeSnapshotButton").IsEffectivelyVisible);
+    }
+
+    [AvaloniaFact]
     public async Task A_profiles_notes_show_under_its_name_with_the_whole_text_in_a_tip_and_no_line_without_notes()
     {
         var backend = FakeBackend.Sample();
-        FakeAssert.Ok(await backend.Profiles.UpdateAsync(SampleScenario.SkyrimId, SampleScenario.VanillaId, new ProfileChanges("Vanilla - latest update", "Before the survival patch", null)));
+        FakeAssert.Ok(await backend.Profiles.UpdateAsync(SampleScenario.SkyrimId, SampleScenario.VanillaId, new ProfileChanges("Vanilla - latest update", "Before the survival patch\nand the mod update", null)));
         using var harness = await GamesViewHarness.StartAsync(backend);
 
         var notes = harness.All<TextBlock>().Where(text => text.Name == "NotesText").ToList();
 
         Assert.Equal(3, notes.Count);
         Assert.Equal([false, true, false], notes.Select(text => text.IsEffectivelyVisible));
-        Assert.Equal("Before the survival patch", notes[1].Text);
-        Assert.Equal("Before the survival patch", Avalonia.Controls.ToolTip.GetTip(notes[1]));
+        Assert.Equal("Before the survival patch and the mod update", notes[1].Text);
+        Assert.Equal("Before the survival patch\nand the mod update", Avalonia.Controls.ToolTip.GetTip(notes[1]));
         Assert.Equal(2, notes[1].MaxLines);
     }
 
@@ -168,7 +202,7 @@ public class GamesScreenViewTests
         harness.Settle();
 
         var items = ((MenuFlyout)more.Flyout).Items.OfType<MenuItem>().ToList();
-        Assert.Equal(["Switch to this profile", "Take a snapshot now", "Take a snapshot now (load this profile first)", "Edit", "Duplicate", "Delete"], items.Select(item => item.Header));
+        Assert.Equal(["Switch to this profile", "Take a snapshot", "Take a snapshot (load this profile first)", "Edit", "Duplicate", "Delete"], items.Select(item => item.Header));
         Assert.Same(row.SwitchCommand, items[0].Command);
         Assert.Same(row.TakeSnapshotCommand, items[1].Command);
         Assert.True(items[1].IsVisible);
@@ -194,7 +228,7 @@ public class GamesScreenViewTests
         var blocked = items[2];
         Assert.True(blocked.IsVisible);
         Assert.False(blocked.IsEnabled);
-        Assert.Equal("Take a snapshot now (load this profile first)", blocked.Header);
+        Assert.Equal("Take a snapshot (load this profile first)", blocked.Header);
         Assert.Equal(row.SnapshotBlockedTip, Avalonia.Controls.ToolTip.GetTip(blocked));
         Assert.Same(row.EditCommand, items[3].Command);
         Assert.Same(row.DeleteCommand, items[5].Command);

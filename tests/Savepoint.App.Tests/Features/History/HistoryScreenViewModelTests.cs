@@ -217,7 +217,7 @@ public class HistoryScreenViewModelTests
         Assert.Equal(new LaunchTarget.Save(SampleScenario.SurvivalId, SampleScenario.DeepCaveRun), rig.Flow.BegunSwitches[1].Target);
         Assert.Empty(rig.Flow.Begun);
         Assert.StartsWith("Go back without playing: ", entry.SwitchAutomationName, StringComparison.Ordinal);
-        Assert.Equal("Go back without playing: Deep cave run", row.SwitchAutomationName);
+        Assert.Equal("Go back without playing: Deep cave run (saves)", row.SwitchAutomationName);
     }
 
     [Fact]
@@ -313,7 +313,7 @@ public class HistoryScreenViewModelTests
     {
         var rig = await HistoryRig.ShownAsync();
 
-        Assert.Equal("Go back and play from Cleared Blackreach", rig.Screen.Saves.Single(r => r.Name == "Cleared Blackreach").LoadAutomationName);
+        Assert.Equal("Go back and play: Cleared Blackreach (saves)", rig.Screen.Saves.Single(r => r.Name == "Cleared Blackreach").LoadAutomationName);
         Assert.Equal(
             "Go back and play: Cleared Blackreach",
             rig.Screen.Groups.SelectMany(group => group.Cards).Single(c => c.Name == "Cleared Blackreach").GoBackAutomationName);

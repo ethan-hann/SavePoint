@@ -65,7 +65,7 @@ public sealed class SaveRowViewModel
         SwitchCommand = switchOnly;
     }
 
-    /// <summary>The switch button's accessible name ("Go back without playing: Before the final boss").</summary>
+    /// <summary>The switch button's accessible name ("Go back without playing: Before the final boss (saves)").</summary>
     public string SwitchAutomationName { get; }
 
     /// <summary>Starts the launch flow with this save loaded, but only loads the files: the game does not start.</summary>
@@ -83,10 +83,10 @@ public sealed class SaveRowViewModel
     /// <summary>True when the saves folder holds this save now; the row shows a "Loaded" chip instead of the button.</summary>
     public bool IsLoaded => Point.LoadedNow;
 
-    /// <summary>True when the row offers the Load button.</summary>
+    /// <summary>True when the row offers the "Go back and play" button.</summary>
     public bool CanLoad => !IsLoaded;
 
-    /// <summary>The Load button's accessible name ("Load Before the final boss").</summary>
+    /// <summary>The "Go back and play" button's accessible name ("Go back and play: Before the final boss (saves)").</summary>
     public string LoadAutomationName { get; }
 
     /// <summary>The row's accessible name in the list ("Before the final boss, Jul 5, 11:42 PM · Modded playthrough, Loaded").</summary>
@@ -142,7 +142,7 @@ public sealed class PointCardViewModel
     /// <summary>True when the card offers the "Go back and play" button.</summary>
     public bool CanGoBack => !IsLoaded;
 
-    /// <summary>The button's accessible name ("Go back to Cleared Blackreach").</summary>
+    /// <summary>The button's accessible name ("Go back and play: Cleared Blackreach").</summary>
     public string GoBackAutomationName { get; }
 
     /// <summary>The card's accessible name in its list ("Cleared Blackreach, Save only · same version and mods, Sat Jul 4, 8:15 PM").</summary>

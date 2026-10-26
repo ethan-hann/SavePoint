@@ -14,17 +14,14 @@ public sealed partial class GameHeaderLayout : ObservableObject
     /// <summary>The library header's width below which its buttons show icons only.</summary>
     public const double LibraryWordsMinWidth = 560;
 
-    /// <summary>The sidebar header's width below which the Take a snapshot button shows its icon only.</summary>
-    public const double SidebarSnapshotWordsMinWidth = 900;
-
-    /// <summary>The library header's width below which the Take a snapshot button shows its icon only.</summary>
-    public const double LibrarySnapshotWordsMinWidth = 700;
+    /// <summary>The width below which the Take a snapshot button, which sits on the tab row under the header, shows its icon only.</summary>
+    public const double SnapshotWordsMinWidth = 480;
 
     /// <summary>Whether the header shows its words beside the icons.</summary>
     [ObservableProperty]
     private bool _isCompact;
 
-    /// <summary>Whether the Take a snapshot button shows only its icon; it is the longest button, so it gives up its words first.</summary>
+    /// <summary>Whether the Take a snapshot button on the tab row shows only its icon.</summary>
     [ObservableProperty]
     private bool _isSnapshotCompact;
 
@@ -34,6 +31,6 @@ public sealed partial class GameHeaderLayout : ObservableObject
     public void Update(double width, bool sidebarLayout)
     {
         IsCompact = width < (sidebarLayout ? SidebarWordsMinWidth : LibraryWordsMinWidth);
-        IsSnapshotCompact = width < (sidebarLayout ? SidebarSnapshotWordsMinWidth : LibrarySnapshotWordsMinWidth);
+        IsSnapshotCompact = width < SnapshotWordsMinWidth;
     }
 }

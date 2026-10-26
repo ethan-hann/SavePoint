@@ -91,6 +91,21 @@ public class GamesHeaderTests
     private static TextBlock Words(Button button) =>
         button.GetLogicalDescendants().OfType<TextBlock>().Single(text => !text.Classes.Contains("icon"));
 
+    // The room the names had when the action button was the shorter "Play"; the wider "Switch and play" must not take it away.
+    [AvaloniaTheory]
+    [InlineData(1040, 215)]
+    [InlineData(900, 180)]
+    public async Task Profile_names_keep_the_room_they_had_before_the_longer_play_label(int width, double room)
+    {
+        using var app = await ComposedApp.StartWithViewAsync(width: width, height: 660);
+        app.Settle();
+
+        var titles = app.Find<ItemsControl>("Rows").GetLogicalDescendants().OfType<TextBlock>().Where(text => text.Classes.Contains("row-title")).ToList();
+
+        Assert.NotEmpty(titles);
+        Assert.All(titles, title => Assert.True(title.Bounds.Width >= room, $"At {width}px the profile name has {title.Bounds.Width:0}px, and needs {room}px."));
+    }
+
     [AvaloniaTheory]
     [InlineData(640)]
     [InlineData(700)]

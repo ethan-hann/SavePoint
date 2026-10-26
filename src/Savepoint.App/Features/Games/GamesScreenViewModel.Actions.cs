@@ -49,7 +49,7 @@ public sealed partial class GamesScreenViewModel
     async Task IProfileRowActions.TakeSnapshotAsync(ProfileRowViewModel row)
     {
         // A command's Execute runs even when CanExecute is false, so the gate is checked again here.
-        if (!row.CanPlay || !row.CanOfferSnapshot)
+        if (!row.CanPlay || !row.CanOfferSnapshot || row.SnapshotBusy)
         {
             return;
         }
