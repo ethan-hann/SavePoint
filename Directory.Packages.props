@@ -24,6 +24,12 @@
     <PackageVersion Include="AsmResolver.PE.Win32Resources" Version="6.0.1" />
     <!-- Reads a copy of GOG Galaxy's database; brings SQLitePCLRaw.bundle_e_sqlite3 2.1.13, whose native library ships per runtime identifier. -->
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.14" />
+    <!-- The packages Microsoft.Data.Sqlite brings in, pinned to its versions so the App can drop their runtime files outside Windows. -->
+    <PackageVersion Include="Microsoft.Data.Sqlite.Core" Version="10.0.14" />
+    <PackageVersion Include="SQLitePCLRaw.core" Version="2.1.13" />
+    <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.13" />
+    <PackageVersion Include="SQLitePCLRaw.provider.e_sqlite3" Version="2.1.13" />
+    <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.13" />
     <!-- Avalonia.Headless.XUnit 12.1.4 is built against xunit.v3 3.2.x; 4.0.x breaks test discovery (MissingMethodException). -->
     <PackageVersion Include="xunit.v3" Version="3.2.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />

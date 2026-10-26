@@ -23,6 +23,20 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!--
+      Only the Windows GOG Galaxy reader opens SQLite. A direct reference overrides how the same package arrives
+      through Core, so a Linux or macOS publish leaves out its managed and native files. Windows publishes and
+      builds with no runtime identifier keep them.
+    -->
+    <PackageReference Include="Microsoft.Data.Sqlite" ExcludeAssets="runtime;native" Condition="$(RuntimeIdentifier.StartsWith('linux')) or $(RuntimeIdentifier.StartsWith('osx'))" />
+    <PackageReference Include="Microsoft.Data.Sqlite.Core" ExcludeAssets="runtime;native" Condition="$(RuntimeIdentifier.StartsWith('linux')) or $(RuntimeIdentifier.StartsWith('osx'))" />
+    <PackageReference Include="SQLitePCLRaw.core" ExcludeAssets="runtime;native" Condition="$(RuntimeIdentifier.StartsWith('linux')) or $(RuntimeIdentifier.StartsWith('osx'))" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" ExcludeAssets="runtime;native" Condition="$(RuntimeIdentifier.StartsWith('linux')) or $(RuntimeIdentifier.StartsWith('osx'))" />
+    <PackageReference Include="SQLitePCLRaw.provider.e_sqlite3" ExcludeAssets="runtime;native" Condition="$(RuntimeIdentifier.StartsWith('linux')) or $(RuntimeIdentifier.StartsWith('osx'))" />
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" ExcludeAssets="runtime;native" Condition="$(RuntimeIdentifier.StartsWith('linux')) or $(RuntimeIdentifier.StartsWith('osx'))" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Savepoint.Core\Savepoint.Core.csproj" />
   </ItemGroup>
 
