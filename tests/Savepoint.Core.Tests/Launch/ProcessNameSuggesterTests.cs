@@ -277,6 +277,123 @@ public class ProcessNameSuggesterTests
         Assert.Null(Suggest("Game", "Launcher.exe|900", "unins000.exe|100", "CrashReporter.exe|50"));
     }
 
+    // Linux installs: sizes in KB, names as the real native builds ship them.
+    [Fact]
+    public void A_source_game_on_linux_is_the_binary_beside_its_launcher_script_not_a_tool_in_bin()
+    {
+        var suggestion = Suggest(
+            "Counter-Strike Source",
+            "cstrike.sh|2",
+            "cstrike_linux64|90",
+            "bin/vpk|3400",
+            "bin/linux64/studiomdl|5200");
+
+        Assert.Equal("cstrike_linux64", suggestion);
+    }
+
+    [Fact]
+    public void A_source_game_on_linux_beats_an_unrecognized_tool_in_bin_that_is_bigger()
+    {
+        var suggestion = Suggest("app_620", "portal2.sh|2", "portal2_linux|110", "bin/mapcompiletool|20000");
+
+        Assert.Equal("portal2_linux", suggestion);
+    }
+
+    [Theory]
+    [InlineData("Half-Life 2", "hl2.sh", "hl2_linux")]
+    [InlineData("Counter-Strike Global Offensive", "csgo.sh", "csgo_linux64")]
+    public void The_binary_named_after_the_launcher_script_is_the_game(string folder, string script, string binary)
+    {
+        var suggestion = Suggest(folder, script + "|2", binary + "|120", "bin/vpk|3400", "bin/vtex_linux|900");
+
+        Assert.Equal(binary, suggestion);
+    }
+
+    [Fact]
+    public void A_binary_is_the_process_name_not_the_script_that_starts_it()
+    {
+        var suggestion = Suggest("Folder", "zork.sh|2", "zork_linux|400");
+
+        Assert.Equal("zork_linux", suggestion);
+    }
+
+    [Fact]
+    public void A_game_that_is_only_a_script_still_gets_that_script()
+    {
+        Assert.Equal("zork.sh", Suggest("Folder", "zork.sh|2"));
+    }
+
+    [Fact]
+    public void Linux_tool_binaries_are_never_the_suggestion()
+    {
+        Assert.Null(Suggest("Tools", "bin/vpk|3400", "srcds_linux|900", "bin/steamclient64|5000"));
+    }
+
+    [Fact]
+    public void A_unity_linux_build_is_its_x86_64_program()
+    {
+        var suggestion = Suggest("Hollow Thing", "HollowThing.x86_64|30", "UnityCrashHandler64|1200", "start.sh|1");
+
+        Assert.Equal("HollowThing.x86_64", suggestion);
+    }
+
+    [Fact]
+    public void An_unreal_linux_build_is_the_shipping_program_not_the_starter_beside_it()
+    {
+        var suggestion = Suggest(
+            "Deep Rock",
+            "FSD.sh|2",
+            "FSD|900",
+            "Engine/Binaries/Linux/CrashReportClient|9000",
+            "FSD/Binaries/Linux/FSD-Linux-Shipping|250000");
+
+        Assert.Equal("FSD-Linux-Shipping", suggestion);
+    }
+
+    [Fact]
+    public void The_ranking_of_a_linux_source_game_lists_the_binary_before_the_script_and_the_tool()
+    {
+        var ranked = ProcessNameSuggester.Rank("Counter-Strike Source", null, Files("cstrike.sh|2", "cstrike_linux64|90", "bin/vpk|3400"));
+
+        Assert.Equal("cstrike_linux64", ranked[0]);
+        Assert.Equal("bin/vpk", ranked[^1]);
+    }
+
+    private static InstalledProgram[] CounterStrikeSourceOnLinux(bool withScript) =>
+    [
+        new("cstrike_linux64", 16712),
+        new("srcds_linux64", 17144),
+        new("srcds_linux", 15880),
+        .. withScript ? [new InstalledProgram("cstrike.sh", 2679)] : Array.Empty<InstalledProgram>(),
+        new("bin/vpk", 2440588),
+        new("bin/linux64/vpk", 2509224),
+        new("bin/linux64/bspzip", 703528),
+        new("bin/linux64/simdtest", 243168),
+        new("bin/linux64/vtf2tga", 450856),
+    ];
+
+    [Fact]
+    public void The_real_counter_strike_source_install_on_linux_suggests_its_own_stub()
+    {
+        var programs = CounterStrikeSourceOnLinux(withScript: true);
+
+        Assert.Equal("cstrike_linux64", ProcessNameSuggester.Suggest("Counter-Strike Source", "Counter-Strike: Source", programs));
+        var ranked = ProcessNameSuggester.Rank("Counter-Strike Source", "Counter-Strike: Source", programs);
+        Assert.Equal("cstrike_linux64", ranked[0]);
+        foreach (var tool in new[] { "bin/linux64/bspzip", "bin/linux64/vtf2tga", "bin/linux64/simdtest" })
+        {
+            Assert.True(ranked.ToList().IndexOf(tool) > ranked.ToList().IndexOf("cstrike_linux64"), tool);
+        }
+    }
+
+    [Fact]
+    public void Valve_map_and_texture_utilities_are_tools_even_without_a_launcher_script()
+    {
+        var suggestion = ProcessNameSuggester.Suggest("Counter-Strike Source", null, CounterStrikeSourceOnLinux(withScript: false));
+
+        Assert.Equal("cstrike_linux64", suggestion);
+    }
+
     [Fact]
     public void The_same_input_always_gives_the_same_answer()
     {
