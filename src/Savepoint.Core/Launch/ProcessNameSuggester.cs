@@ -45,7 +45,7 @@ public static class ProcessNameSuggester
     private static readonly string[] _helperNameEndings = ["_be", "_eac", "_uc", "_zk"];
 
     // Too short to match as a part of a longer name, or too common as one.
-    private static readonly string[] _helperExactNames = ["dxc", "fxc", "ucc", "scc", "play", "start", "run", "cleaner", "codcleaner", "vpk"];
+    private static readonly string[] _helperExactNames = ["dxc", "fxc", "ucc", "scc", "play", "start", "run", "cleaner", "codcleaner", "vpk", "bspzip", "vtf2tga", "simdtest"];
 
     private static readonly string[] _helperFolders =
     [

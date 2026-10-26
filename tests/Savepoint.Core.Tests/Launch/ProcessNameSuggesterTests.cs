@@ -359,6 +359,41 @@ public class ProcessNameSuggesterTests
         Assert.Equal("bin/vpk", ranked[^1]);
     }
 
+    private static InstalledProgram[] CounterStrikeSourceOnLinux(bool withScript) =>
+    [
+        new("cstrike_linux64", 16712),
+        new("srcds_linux64", 17144),
+        new("srcds_linux", 15880),
+        .. withScript ? [new InstalledProgram("cstrike.sh", 2679)] : Array.Empty<InstalledProgram>(),
+        new("bin/vpk", 2440588),
+        new("bin/linux64/vpk", 2509224),
+        new("bin/linux64/bspzip", 703528),
+        new("bin/linux64/simdtest", 243168),
+        new("bin/linux64/vtf2tga", 450856),
+    ];
+
+    [Fact]
+    public void The_real_counter_strike_source_install_on_linux_suggests_its_own_stub()
+    {
+        var programs = CounterStrikeSourceOnLinux(withScript: true);
+
+        Assert.Equal("cstrike_linux64", ProcessNameSuggester.Suggest("Counter-Strike Source", "Counter-Strike: Source", programs));
+        var ranked = ProcessNameSuggester.Rank("Counter-Strike Source", "Counter-Strike: Source", programs);
+        Assert.Equal("cstrike_linux64", ranked[0]);
+        foreach (var tool in new[] { "bin/linux64/bspzip", "bin/linux64/vtf2tga", "bin/linux64/simdtest" })
+        {
+            Assert.True(ranked.ToList().IndexOf(tool) > ranked.ToList().IndexOf("cstrike_linux64"), tool);
+        }
+    }
+
+    [Fact]
+    public void Valve_map_and_texture_utilities_are_tools_even_without_a_launcher_script()
+    {
+        var suggestion = ProcessNameSuggester.Suggest("Counter-Strike Source", null, CounterStrikeSourceOnLinux(withScript: false));
+
+        Assert.Equal("cstrike_linux64", suggestion);
+    }
+
     [Fact]
     public void The_same_input_always_gives_the_same_answer()
     {
