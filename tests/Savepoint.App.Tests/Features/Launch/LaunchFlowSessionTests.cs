@@ -197,7 +197,7 @@ public class LaunchFlowSessionTests : IDisposable
 
         Assert.Same(card, _f.Inline<RunningCardViewModel>());
         Assert.True(card.HasNotice);
-        Assert.Equal("The program closed right away with exit code 127. SavePoint is still watching for the game, for up to two minutes.", card.Notice);
+        Assert.Equal("The program closed right away with an error (code 127). SavePoint is still watching for the game for a little while.", card.Notice);
         Assert.True(card.DonePlayingCommand.CanExecute(null));
 
         _f.Backend.Launch.ReportProgramExit(FlowRig.Skyrim, null);

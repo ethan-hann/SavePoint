@@ -57,6 +57,25 @@ public class GameEditorLaunchTests
     }
 
     [Fact]
+    public void Changing_the_install_folder_or_the_start_method_refreshes_the_Steam_note()
+    {
+        var editor = EditorRig.Create(os: "linux").New();
+        var changed = new List<string?>();
+        editor.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        editor.InstallPath = "/home/p/.local/share/Steam/steamapps/common/Half-Life 2";
+
+        Assert.Contains(nameof(GameEditorViewModel.ShowSteamStartNote), changed);
+        Assert.Contains(nameof(GameEditorViewModel.SteamStartNote), changed);
+
+        changed.Clear();
+        editor.LaunchChoice = 1;
+
+        Assert.Contains(nameof(GameEditorViewModel.ShowSteamStartNote), changed);
+        Assert.Contains(nameof(GameEditorViewModel.SteamStartNote), changed);
+    }
+
+    [Fact]
     public void The_method_flags_follow_the_choice()
     {
         var editor = EditorRig.Create().New();

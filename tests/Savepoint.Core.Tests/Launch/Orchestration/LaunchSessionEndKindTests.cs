@@ -19,6 +19,29 @@ public class LaunchSessionEndKindTests
     }
 
     [Fact(Timeout = 120_000)]
+    public async Task A_program_that_exits_with_an_error_at_once_shows_its_code_while_waiting_and_ends_as_a_failed_start()
+    {
+        using var rig = await LaunchRig.CreateAsync(
+            processName: "never-running-" + Guid.NewGuid().ToString("N")[..6],
+            gameArguments: ["--exit-after", "300", "--exit-code", "127"]);
+        var vanilla = await rig.ProfileAsync("Vanilla");
+
+        await rig.StartAsync(new LaunchTarget.ProfileTip(vanilla.Id));
+        var sawCode = false;
+        var until = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+        while (DateTime.UtcNow < until && rig.Launch.GetSession(rig.Game.Id)?.State is not SessionState.Exited)
+        {
+            sawCode |= rig.Launch.GetSession(rig.Game.Id)?.State is SessionState.Running { ProgramExitCode: 127 };
+            await Task.Delay(25, rig.Token);
+        }
+
+        var exited = Assert.IsType<SessionState.Exited>(rig.Launch.GetSession(rig.Game.Id)!.State);
+        Assert.True(sawCode, "the running state never carried the exit code");
+        Assert.Equal(SessionEndKind.ProgramFailedAtStart, exited.EndKind);
+        Assert.Equal(127, exited.ProgramExitCode);
+    }
+
+    [Fact(Timeout = 120_000)]
     public async Task A_game_that_quits_on_its_own_is_recorded_as_having_run()
     {
         using var rig = await LaunchRig.CreateAsync(gameArguments: ["--exit-after", "300"]);

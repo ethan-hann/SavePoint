@@ -329,7 +329,7 @@ public sealed class GameSessionWatcher : IDisposable
                     else if (ChildExitCode() is not (null or 0))
                     {
                         // Nothing took over after the program failed, so it was the program, not the name, that did not work.
-                        Settle(SessionEndKind.ProgramFailedAtStart);
+                        Settle(SessionEndKind.ProgramFailedAtStart, graceFrom);
                     }
                     else
                     {

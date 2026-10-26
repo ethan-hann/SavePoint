@@ -141,6 +141,7 @@ public class GameSessionWatcherTests
         var outcome = await rig.OutcomeAsync();
         Assert.Equal(SessionEndKind.ProgramFailedAtStart, outcome.Kind);
         Assert.Equal(127, outcome.ChildExitCode);
+        Assert.Equal(Seconds(1), outcome.PlayDuration);
     }
 
     [Fact]
