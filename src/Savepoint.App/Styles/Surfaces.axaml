@@ -52,8 +52,13 @@
   <Style Selector="Border.table-row.selected">
     <Setter Property="Background" Value="{DynamicResource Md3SelectedRowBrush}" />
   </Style>
-  <Style Selector="Border.table-row.last">
+  <!-- The table clips its children to its outer curve, but the stroke sits inside that curve: the header and the last row round off to the inner one. -->
+  <Style Selector="Border.table-header">
+    <Setter Property="CornerRadius" Value="{DynamicResource Md3RadiusRowInsetTop}" />
+  </Style>
+  <Style Selector="Border.table-row.last, Border.table-row:nth-last-child(1), ContentPresenter:nth-last-child(1) > Border.table-row">
     <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Md3RadiusRowInsetBottom}" />
   </Style>
 
   <!-- Footer strips such as the storage line. -->

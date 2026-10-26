@@ -15,6 +15,9 @@
   <CornerRadius x:Key="Md3RadiusDialog">16</CornerRadius>
   <!-- Tables and list rows. -->
   <CornerRadius x:Key="Md3RadiusRow">10</CornerRadius>
+  <!-- A table's first and last rows: the table's radius less its 1px border, so their fills stop at the stroke instead of covering it. -->
+  <CornerRadius x:Key="Md3RadiusRowInsetTop">9,9,0,0</CornerRadius>
+  <CornerRadius x:Key="Md3RadiusRowInsetBottom">0,0,9,9</CornerRadius>
   <!-- Inputs, secondary buttons, art tiles. -->
   <CornerRadius x:Key="Md3RadiusControl">8</CornerRadius>
   <!-- Table-row buttons and toggle segments. -->
