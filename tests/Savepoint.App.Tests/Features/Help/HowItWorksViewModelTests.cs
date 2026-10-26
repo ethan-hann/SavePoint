@@ -96,6 +96,19 @@ public class HowItWorksViewModelTests
         var advice = Assert.Single(cloud.Notes);
         Assert.Contains("Turn off cloud saves for the game in Steam or GOG Galaxy", advice, StringComparison.Ordinal);
         Assert.Contains("go back to a snapshot from before a save, or switch to a profile with fewer saves", advice, StringComparison.Ordinal);
+        Assert.Contains("before you next start the game", advice, StringComparison.Ordinal);
+        Assert.Contains("a save the store brings back becomes part of that profile's next snapshot", advice, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void On_Linux_cloud_saves_name_only_Steam_because_GOG_Galaxy_does_not_run_there()
+    {
+        var cloud = Assert.Single(new HowItWorksViewModel(HelpText.Formatter("linux"), () => { }).Topics, topic => topic.Section == HowItWorksSection.CloudSaves);
+
+        Assert.DoesNotContain("GOG", cloud.Body, StringComparison.Ordinal);
+        Assert.DoesNotContain("GOG", Assert.Single(cloud.Notes), StringComparison.Ordinal);
+        Assert.StartsWith("Steam can keep your saves in the cloud.", cloud.Body, StringComparison.Ordinal);
+        Assert.StartsWith("Turn off cloud saves for the game in Steam if", Assert.Single(cloud.Notes), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -107,9 +120,11 @@ public class HowItWorksViewModelTests
         Assert.Equal(
             [
                 "Files to leave out of both folders: rules that cover the game's own folder and your saves folder.",
-                "Files to leave out of the game's own folder: rules that never cover your saves folder. New games start with rules for logs and crash reports.",
+                "Files to leave out of the game's own folder: rules that never cover your saves folder. New games start with rules for logs and crash reports, which a game rewrites while it runs and SavePoint would take for a game update.",
             ],
             files.Items);
+        Assert.DoesNotContain("logs", files.Body, StringComparison.Ordinal);
+        Assert.Contains("A rule tells SavePoint to skip the files that match it", files.Body, StringComparison.Ordinal);
         Assert.Contains("* stands for any name", files.Body, StringComparison.Ordinal);
         Assert.Contains("** stands for any folder", files.Body, StringComparison.Ordinal);
         Assert.Equal(["Don't add a rule that matches your saves, or profiles stop switching them."], files.Notes);
@@ -124,7 +139,18 @@ public class HowItWorksViewModelTests
         Assert.Contains("Run the .exe", starts.Body, StringComparison.Ordinal);
         Assert.Contains("Through Steam", starts.Body, StringComparison.Ordinal);
         Assert.Contains("Steam may update the game right after SavePoint puts your version back", starts.Body, StringComparison.Ordinal);
-        Assert.Contains("running the .exe is the safer choice", starts.Body, StringComparison.Ordinal);
+        Assert.Contains("Running the .exe avoids that.", starts.Body, StringComparison.Ordinal);
+        Assert.DoesNotContain("Linux", starts.Body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void On_Linux_how_the_game_starts_says_Steam_games_usually_need_Steam_instead_of_calling_the_program_safer()
+    {
+        var starts = Assert.Single(new HowItWorksViewModel(HelpText.Formatter("linux"), () => { }).Topics, topic => topic.Section == HowItWorksSection.HowTheGameStarts);
+
+        Assert.Contains("\"Run the program\" starts the game's own program.", starts.Body, StringComparison.Ordinal);
+        Assert.Contains("Games installed by Steam on Linux usually need Steam to start them, so Through Steam is the safer choice for those.", starts.Body, StringComparison.Ordinal);
+        Assert.DoesNotContain("avoids that", starts.Body, StringComparison.Ordinal);
     }
 
     [Fact]

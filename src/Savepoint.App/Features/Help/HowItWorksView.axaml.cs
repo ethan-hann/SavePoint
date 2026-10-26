@@ -18,13 +18,15 @@ public partial class HowItWorksView : UserControl
 
         // The page replaces the screen the player was on, so focus is given to it rather than left behind: to the topic a link
         // pointed at, otherwise to Back.
-        AttachedToVisualTree += (_, _) => Dispatcher.UIThread.Post(() =>
-        {
-            if (!ShowRequestedSection())
+        AttachedToVisualTree += (_, _) => Dispatcher.UIThread.Post(
+            () =>
             {
-                BackButton.Focus();
-            }
-        });
+                if (!ShowRequestedSection())
+                {
+                    BackButton.Focus();
+                }
+            },
+            DispatcherPriority.Background);
     }
 
     /// <inheritdoc />

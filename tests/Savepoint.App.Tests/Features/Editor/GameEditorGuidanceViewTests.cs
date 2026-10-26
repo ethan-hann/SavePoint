@@ -194,8 +194,12 @@ public class GameEditorGuidanceViewTests
         editor.Name = "Half typed";
         Click(harness, Question(harness, "How do these rules work?"));
         var more = harness.All<Button>().FirstOrDefault(button => button.Name == "MoreButton" && button.IsEffectivelyVisible);
-
         Assert.NotNull(more);
+        more.BringIntoView();
+        harness.Settle();
+        var offset = harness.Find<ScrollViewer>("FormScroll").Offset.Y;
+        Assert.True(offset > 0, "The form did not need scrolling to reach the link.");
+
         more.Command!.Execute(null);
         harness.Settle();
 
@@ -205,6 +209,36 @@ public class GameEditorGuidanceViewTests
         harness.Settle();
         Assert.Same(editor, harness.Shell.Content);
         Assert.Equal("Half typed", editor.Name);
+        Assert.Equal(offset, harness.Find<ScrollViewer>("FormScroll").Offset.Y, 1);
+        var focused = Assert.IsType<ToggleButton>(harness.Window.FocusManager!.GetFocusedElement());
+        Assert.Equal("How do these rules work?", AutomationProperties.GetName(focused));
+    }
+
+    [AvaloniaFact]
+    public async Task Back_from_the_page_opened_by_a_cloud_saves_link_puts_focus_on_that_question_and_not_on_the_name_field()
+    {
+        using var harness = await OpenWithAsync(new CloudSaveInfo(CloudSaveState.Unknown, CloudStore.None));
+        Click(harness, Question(harness, "Does my store sync saves?"));
+        var more = harness.All<Button>().FirstOrDefault(button => button.Name == "MoreButton" && button.IsEffectivelyVisible);
+        Assert.NotNull(more);
+
+        more.Command!.Execute(null);
+        harness.Settle();
+        Assert.IsType<Savepoint.App.Features.Help.HowItWorksViewModel>(harness.Shell.Content).BackCommand.Execute(null);
+        harness.Settle();
+
+        var focused = Assert.IsType<ToggleButton>(harness.Window.FocusManager!.GetFocusedElement());
+        Assert.Equal("Does my store sync saves?", AutomationProperties.GetName(focused));
+    }
+
+    [AvaloniaFact]
+    public async Task A_freshly_opened_editor_still_puts_focus_on_the_name_field()
+    {
+        using var harness = await EditorViewHarness.StartAsync();
+        harness.Edit();
+        harness.Settle();
+
+        Assert.Same(harness.Find<TextBox>("NameField"), harness.Window.FocusManager!.GetFocusedElement());
     }
 
     [AvaloniaFact]

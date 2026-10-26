@@ -73,7 +73,7 @@
       </Grid>
     </Border>
 
-    <ScrollViewer Classes="page-scroll" VerticalScrollBarVisibility="Auto">
+    <ScrollViewer x:Name="FormScroll" Classes="page-scroll" VerticalScrollBarVisibility="Auto">
       <StackPanel Margin="22" Spacing="16">
 
         <ContentControl x:Name="FormErrorHost" Content="{Binding FormError}" IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}" />

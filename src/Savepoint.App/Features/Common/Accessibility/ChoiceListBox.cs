@@ -1,5 +1,8 @@
+using Avalonia.Automation;
 using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Media;
 
@@ -77,7 +80,7 @@ public sealed class ChoiceListBox : ListBox
 
     private sealed class ChoiceGroupPeer(ChoiceListBox owner) : ListBoxAutomationPeer(owner)
     {
-        // Windows, macOS and Linux have no radio-group role of their own; a named group of radio buttons is how each one models it.
+        // Windows and Linux have no radio-group role; macOS has one, but Avalonia maps no control type to it. A named group of radio buttons is what each gets.
         protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Group;
     }
 }
@@ -91,8 +94,31 @@ public sealed class ChoiceListBoxItem : ListBoxItem
     /// <inheritdoc />
     protected override AutomationPeer OnCreateAutomationPeer() => new ChoiceOptionPeer(this);
 
-    private sealed class ChoiceOptionPeer(ChoiceListBoxItem owner) : ListItemAutomationPeer(owner)
+    // Besides the selection pattern, the option is a toggle: the macOS and Linux bridges read a radio button's state from it only.
+    private sealed class ChoiceOptionPeer : ListItemAutomationPeer, IToggleProvider
     {
+        private readonly ChoiceListBoxItem _owner;
+
+        public ChoiceOptionPeer(ChoiceListBoxItem owner)
+            : base(owner)
+        {
+            _owner = owner;
+            owner.PropertyChanged += (_, e) =>
+            {
+                if (e.Property == SelectingItemsControl.IsSelectedProperty)
+                {
+                    RaisePropertyChangedEvent(TogglePatternIdentifiers.ToggleStateProperty, StateOf(e.OldValue is true), StateOf(e.NewValue is true));
+                }
+            };
+        }
+
+        public ToggleState ToggleState => StateOf(_owner.IsSelected);
+
+        // A radio button is chosen, never cleared: toggling the chosen one changes nothing.
+        public void Toggle() => _owner.IsSelected = true;
+
         protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.RadioButton;
+
+        private static ToggleState StateOf(bool selected) => selected ? ToggleState.On : ToggleState.Off;
     }
 }
