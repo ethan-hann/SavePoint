@@ -77,7 +77,6 @@ public class GameTemplatesTests
                 ProcessNameForExitDetection: "SkyrimSE.exe"),
             IgnorePaths = ["**/*.log", "SKSE/Plugins/*.log", "**/Crash Logs/**"],
             ModPathHints = ["Data", "plugins.txt"],
-            Notes = "Direct-exe launch preferred; steam://run/489830 works but risks Steam re-updating the install at launch.",
         };
 
         Assert.Equal(expected, GameTemplates.All.Single(t => t.Id == "skyrim-se").Definition);
