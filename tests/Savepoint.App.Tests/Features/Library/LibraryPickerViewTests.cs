@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.VisualTree;
@@ -15,6 +16,32 @@ public class LibraryPickerViewTests
 
         Assert.True(app.Find<Button>("TemplateListButton").IsEffectivelyVisible);
         Assert.Equal("Pick from the game list", app.Find<Button>("TemplateListButton").Content);
+    }
+
+    [AvaloniaFact]
+    public async Task The_first_focus_lands_in_the_search_box_or_the_list_and_not_on_the_pointer_to_the_game_list()
+    {
+        using var app = await AppStates.OpenAsync("library-picker-many");
+
+        var focused = Assert.IsAssignableFrom<Visual>(app.Window.FocusManager!.GetFocusedElement());
+
+        var search = app.Find<TextBox>("SearchField");
+        var list = app.Find<ItemsControl>("GameList");
+        Assert.True(
+            ReferenceEquals(focused, search) || focused.GetVisualAncestors().Contains(search) || focused.GetVisualAncestors().Contains(list),
+            $"The focus is on {focused.GetType().Name} {(focused as Control)?.Name}.");
+    }
+
+    [AvaloniaFact]
+    public async Task The_pointer_to_the_game_list_comes_after_the_list_in_the_tab_order()
+    {
+        using var app = await AppStates.OpenAsync("library-picker-many");
+
+        var pointer = app.Find<Button>("TemplateListButton");
+        var list = app.Find<ItemsControl>("GameList");
+        var order = app.Window.GetVisualDescendants().OfType<Control>().ToList();
+
+        Assert.True(order.IndexOf(pointer) > order.IndexOf(list));
     }
 
     [AvaloniaFact]

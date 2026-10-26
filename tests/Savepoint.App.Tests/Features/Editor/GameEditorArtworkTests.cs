@@ -489,6 +489,44 @@ public class GameEditorArtworkTests
     }
 
     [Fact]
+    public async Task A_new_game_that_stays_open_as_saved_stops_offering_templates()
+    {
+        using var fixtures = new ArtFixtures();
+        var rig = Rig();
+        var editor = FilledNew(rig);
+        editor.Name = "skyr";
+        Assert.True(editor.HasNameMatches);
+        await ChooseAsync(rig, editor, fixtures.NotAnImage("page.png"));
+
+        await SaveAsync(rig, editor);
+
+        Assert.True(editor.IsEditing);
+        Assert.False(editor.CanPickTemplate);
+        Assert.False(editor.PickTemplateCommand.CanExecute(null));
+        Assert.Empty(editor.NameMatches);
+        Assert.False(editor.HasNameMatches);
+    }
+
+    [Fact]
+    public async Task A_new_game_that_stays_open_as_saved_stops_showing_the_template_notes()
+    {
+        using var fixtures = new ArtFixtures();
+        var rig = Rig();
+        var editor = rig.New(new GameDefinition { Notes = "Uses anti-cheat; don't use SavePoint with its online mode." });
+        editor.Name = "Hollow Knight";
+        editor.InstallPath = @"C:\Games\Hollow Knight";
+        editor.ExePath = "hollow_knight.exe";
+        Assert.True(editor.HasTemplateNotes);
+        await ChooseAsync(rig, editor, fixtures.NotAnImage("page.png"));
+
+        await SaveAsync(rig, editor);
+
+        Assert.True(editor.IsEditing);
+        Assert.False(editor.HasTemplateNotes);
+        Assert.Equal(string.Empty, editor.TemplateNotes);
+    }
+
+    [Fact]
     public async Task Dismissing_the_artwork_problem_clears_its_card()
     {
         using var fixtures = new ArtFixtures();

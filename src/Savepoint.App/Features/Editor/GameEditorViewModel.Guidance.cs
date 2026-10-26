@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Savepoint.App.Features.Help;
+using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Features.Editor;
 
@@ -34,10 +35,13 @@ public sealed partial class GameEditorViewModel
     private bool _isMoreSettingsOpen;
 
     /// <summary>
-    /// The notes the game was started from (a template or a definition file) while a new game is being added; empty otherwise.
-    /// A saved game's notes are the player's own and are never shown (D13.22).
+    /// What a template's notes say, in the catalog's words, while a new game is being added from a template; empty otherwise. Notes
+    /// from a definition file and a saved game's own notes are never shown (D13.22), and text the catalog has no words for is not shown.
     /// </summary>
-    public string TemplateNotes => IsCreating && _source.Notes is { } notes ? notes.Trim() : string.Empty;
+    public string TemplateNotes =>
+        IsCreating && _notesFromTemplate
+            ? string.Join(' ', TemplateNoteCatalog.KeysIn(_source.Notes).Select(key => _text.Message(key)))
+            : string.Empty;
 
     /// <summary>True when <see cref="TemplateNotes"/> has text.</summary>
     public bool HasTemplateNotes => TemplateNotes.Length > 0;
@@ -56,10 +60,11 @@ public sealed partial class GameEditorViewModel
         OnPropertyChanged(nameof(HasTemplateNotes));
     }
 
-    // Whether the form holds anything that lives in "More settings".
+    // Whether the form holds anything that lives in "More settings". The default install rules are there for every game, so they only
+    // count once they have been changed.
     private bool HasMoreSettingsSet() =>
         IgnoreRules.Values.Count > 0
-        || InstallIgnoreRules.Values.Count > 0
+        || (InstallIgnoreRules.Values.Count > 0 && !InstallIgnoreRules.Values.SequenceEqual(RunTimeOutput.DefaultRules))
         || LaunchArgs.Values.Count > 0
         || ModFolders.Values.Count > 0
         || ProcessName.Trim().Length > 0

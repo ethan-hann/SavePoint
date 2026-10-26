@@ -255,6 +255,10 @@ public sealed partial class GameEditorViewModel
         OnPropertyChanged(nameof(IsEditing));
         OnPropertyChanged(nameof(IsCreating));
         NotifyTemplateNotes();
+        NameMatches.Clear();
+        NotifyNameMatchesChanged();
+        OnPropertyChanged(nameof(CanPickTemplate));
+        PickTemplateCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(CanImport));
         OnPropertyChanged(nameof(CanExport));
         OnPropertyChanged(nameof(CanLookAgain));

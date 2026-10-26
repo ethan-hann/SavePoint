@@ -6,6 +6,7 @@
              xmlns:art="using:Savepoint.App.Features.Common.Art"
              xmlns:shell="using:Savepoint.App.Features.Shell"
              xmlns:help="using:Savepoint.App.Features.Help"
+             xmlns:a11y="using:Savepoint.App.Features.Common.Accessibility"
              x:Class="Savepoint.App.Features.Editor.GameEditorView"
              x:DataType="editor:GameEditorViewModel">
   <!--
@@ -87,7 +88,7 @@
           <!-- Left column. -->
           <StackPanel Spacing="22">
 
-            <StackPanel Spacing="9">
+            <StackPanel x:Name="NameBlock" Spacing="9">
               <TextBlock Classes="overline" Text="{theme:Upper {loc:Loc gameEditor.name.label}}" />
               <TextBox x:Name="NameField"
                        Classes="field"
@@ -98,12 +99,14 @@
                        AutomationProperties.HelpText="{Binding NameError}">
                 <TextBox.KeyBindings>
                   <KeyBinding Gesture="Escape" Command="{Binding DismissNameMatchesCommand}" />
+                  <KeyBinding Gesture="Enter" Command="{Binding ChooseTopNameMatchCommand}" />
                 </TextBox.KeyBindings>
               </TextBox>
+              <a11y:AnnouncementRegion x:Name="NameMatchesAnnouncer" Message="{Binding NameMatchesAnnouncement}" />
               <ItemsControl x:Name="NameMatchList" ItemsSource="{Binding NameMatches}" IsVisible="{Binding HasNameMatches}" AutomationProperties.Name="{loc:Loc gameEditor.name.matches}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="shell:TemplateItem">
-                    <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="0,0,0,4" Padding="12,8" Command="{Binding Choose}" AutomationProperties.Name="{Binding Name}">
+                    <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="0,0,0,4" Padding="12,8" Command="{Binding Choose}" AutomationProperties.Name="{Binding AutomationName}">
                       <StackPanel Orientation="Horizontal" Spacing="10">
                         <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.StadiaController}" />
                         <TextBlock Classes="body" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Name}" />
@@ -276,7 +279,10 @@
               <StackPanel x:Name="ProcessWhyRow" Spacing="6" IsVisible="{Binding ShowProcessNameWhy}">
                 <TextBlock x:Name="ProcessWhyText" Classes="body" TextWrapping="Wrap" Text="{loc:Loc gameEditor.processName.linkWhy}" />
                 <Button x:Name="UseSuggestedProcessButton" Classes="pill" HorizontalAlignment="Left" Padding="10,3" FontFamily="{DynamicResource RobotoMonoFont}" FontSize="11.5" FontWeight="Normal" IsVisible="{Binding HasProcessNameSuggestion}" Content="{Binding UseSuggestedProcessNameLabel}" Command="{Binding UseSuggestedProcessNameCommand}" />
+                <TextBlock x:Name="ProcessMoreSettingsText" Classes="caption" TextWrapping="Wrap" IsVisible="{Binding CanOpenProcessNameField}" Text="{Binding ProcessNameMoreSettingsText}" />
+                <Button x:Name="OpenProcessFieldButton" Classes="pill" HorizontalAlignment="Left" Padding="10,3" IsVisible="{Binding CanOpenProcessNameField}" Content="{loc:Loc gameEditor.processName.openField}" Command="{Binding OpenProcessNameFieldCommand}" />
               </StackPanel>
+              <TextBlock x:Name="ProcessConfirmationText" Classes="body accent" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" IsVisible="{Binding HasProcessNameConfirmation}" Text="{Binding ProcessNameConfirmation}" />
 
               <Border x:Name="SteamWarningCallout" Classes="callout warning" IsVisible="{Binding IsSteamMethod}">
                 <Grid ColumnDefinitions="Auto,*">
@@ -295,7 +301,7 @@
         <!-- Settings most games never need, closed until opened; a field in it with a problem opens it. -->
         <StackPanel x:Name="MoreSettingsSection" Spacing="16">
           <Border BorderBrush="{DynamicResource Md3OutlineVariantBrush}" BorderThickness="0,1,0,0">
-            <ToggleButton x:Name="MoreSettingsToggle"
+            <a11y:DisclosureToggleButton x:Name="MoreSettingsToggle"
                           Classes="text section-toggle"
                           Padding="0,12"
                           IsChecked="{Binding IsMoreSettingsOpen, Mode=TwoWay}"
@@ -307,7 +313,7 @@
                   <TextBlock Classes="icon s20 muted" IsVisible="{Binding IsMoreSettingsOpen}" Text="{x:Static theme:Icons.ExpandLess}" />
                 </Panel>
               </Grid>
-            </ToggleButton>
+            </a11y:DisclosureToggleButton>
           </Border>
 
           <Grid x:Name="MoreSettingsContent" ColumnDefinitions="7*,22,6*" IsVisible="{Binding IsMoreSettingsOpen}">

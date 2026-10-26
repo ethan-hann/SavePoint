@@ -59,6 +59,51 @@ public class TemplatePickerViewModelTests
         Assert.Equal(["Sid Meier's Civilization VI"], Shown(picker));
     }
 
+    [Theory]
+    [InlineData("stalker", "S.T.A.L.K.E.R.: Call of Pripyat")]
+    [InlineData("spiderman", "Marvel's Spider-Man Remastered")]
+    [InlineData("halflife", "Half-Life 2")]
+    [InlineData("half life 2", "Half-Life 2")]
+    [InlineData("spider man", "Marvel's Spider-Man Remastered")]
+    public void A_word_typed_without_the_punctuation_still_finds_the_game(string typed, string expected)
+    {
+        var picker = Picker("S.T.A.L.K.E.R.: Call of Pripyat", "Marvel's Spider-Man Remastered", "Half-Life 2", "Stardew Valley");
+
+        picker.SearchText = typed;
+
+        Assert.Equal([expected], Shown(picker));
+    }
+
+    [Fact]
+    public void Typed_words_must_still_start_a_word_of_the_name()
+    {
+        var picker = Picker("Half-Life 2", "Marvel's Spider-Man Remastered");
+
+        picker.SearchText = "alflife";
+
+        Assert.Empty(picker.Templates);
+    }
+
+    [Fact]
+    public void A_search_lists_names_that_start_with_it_before_names_that_only_hold_the_words()
+    {
+        var picker = Picker("Old Sid Civ", "Sid Meier's Civilization", "Sid Civilization Rebirth");
+
+        picker.SearchText = "sid civ";
+
+        // Whole-name start, then first-word start, then the given order.
+        Assert.Equal(["Sid Civilization Rebirth", "Sid Meier's Civilization", "Old Sid Civ"], Shown(picker));
+    }
+
+    [Fact]
+    public void A_picker_opened_with_a_search_starts_filtered_by_it()
+    {
+        var picker = new TemplatePickerViewModel([.. _names.Select(Template)], LibraryTestData.Text, "witcher 3");
+
+        Assert.Equal("witcher 3", picker.SearchText);
+        Assert.Equal(["The Witcher 3: Wild Hunt"], Shown(picker));
+    }
+
     [Fact]
     public void Clearing_the_search_brings_the_whole_list_back()
     {

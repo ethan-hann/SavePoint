@@ -137,6 +137,7 @@ internal static class DocScreenshotJob
         app.Settle();
         var editor = Assert.IsType<GameEditorViewModel>(app.Shell.Content);
         editor.Name = "Grounded";
+        editor.DismissNameMatchesCommand.Execute(null);
         editor.InstallPath = Install;
         editor.SavesPath = SavesRaw;
         editor.ExePath = "Grounded.exe";

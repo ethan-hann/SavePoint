@@ -58,6 +58,46 @@ public class GameEditorGuidanceViewTests
     }
 
     [AvaloniaFact]
+    public async Task The_More_settings_toggle_tells_screen_readers_whether_it_is_expanded()
+    {
+        using var harness = await EditorViewHarness.StartAsync();
+        var editor = harness.New();
+        harness.Settle();
+        var toggle = harness.Find<ToggleButton>("MoreSettingsToggle");
+
+        var provider = Assert.IsAssignableFrom<Avalonia.Automation.Provider.IExpandCollapseProvider>(
+            Avalonia.Automation.Peers.ControlAutomationPeer.CreatePeerForElement(toggle));
+        Assert.Equal(Avalonia.Automation.ExpandCollapseState.Collapsed, provider.ExpandCollapseState);
+
+        editor.IsMoreSettingsOpen = true;
+        harness.Settle();
+
+        Assert.Equal(Avalonia.Automation.ExpandCollapseState.Expanded, provider.ExpandCollapseState);
+    }
+
+    [AvaloniaFact]
+    public async Task The_nudge_to_More_settings_shows_for_a_link_game_with_no_program_to_suggest_and_opens_the_field()
+    {
+        using var harness = await EditorViewHarness.StartAsync();
+        var editor = harness.New();
+        editor.LaunchChoice = 1;
+        harness.Settle();
+        var button = harness.Find<Button>("OpenProcessFieldButton");
+
+        Assert.True(button.IsEffectivelyVisible);
+        Assert.True(harness.Find<TextBlock>("ProcessMoreSettingsText").IsEffectivelyVisible);
+
+        button.Command!.Execute(null);
+        harness.Settle();
+
+        Assert.True(harness.Find<Control>("MoreSettingsContent").IsEffectivelyVisible);
+        Assert.Equal("Knowing when you've stopped playing", FocusedField(harness));
+    }
+
+    private static string? FocusedField(EditorViewHarness harness) =>
+        harness.Window.FocusManager!.GetFocusedElement() is Control focused ? AutomationProperties.GetName(focused) : null;
+
+    [AvaloniaFact]
     public async Task On_Linux_the_note_that_prefers_Through_Steam_and_the_Steam_warning_never_show_together()
     {
         using var harness = await EditorViewHarness.StartAsync(os: "linux");
@@ -282,9 +322,9 @@ public class GameEditorGuidanceViewTests
     public async Task A_template_game_shows_its_notes_as_an_info_line()
     {
         using var harness = await EditorViewHarness.StartAsync();
-        harness.New(SampleScenario.Caretaker with { Notes = "Turn off Steam Cloud for this game while SavePoint manages it." });
+        harness.New(SampleScenario.Caretaker with { Notes = "Saves are in Steam's userdata folder; add the saves folder by hand." });
 
-        Assert.True(Shows(harness, text => text == "Turn off Steam Cloud for this game while SavePoint manages it."));
+        Assert.True(Shows(harness, text => text == "This game's saves are in Steam's userdata folder. Choose the saves folder yourself."));
     }
 
     [AvaloniaFact]

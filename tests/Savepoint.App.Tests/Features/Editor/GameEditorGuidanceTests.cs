@@ -201,12 +201,133 @@ public class GameEditorGuidanceTests
     }
 
     [Fact]
-    public void A_game_added_from_a_template_shows_the_templates_notes()
+    public void A_game_added_from_a_template_shows_the_catalog_wording_of_the_templates_notes()
     {
-        var editor = EditorRig.Create().New(SampleScenario.Caretaker with { Notes = "Turn off Steam Cloud for this game while SavePoint manages it." });
+        var editor = EditorRig.Create().New(SampleScenario.Caretaker with { Notes = "Saves are in Steam's userdata folder; add the saves folder by hand." });
 
         Assert.True(editor.HasTemplateNotes);
-        Assert.Equal("Turn off Steam Cloud for this game while SavePoint manages it.", editor.TemplateNotes);
+        Assert.Equal("This game's saves are in Steam's userdata folder. Choose the saves folder yourself.", editor.TemplateNotes);
+    }
+
+    [Fact]
+    public void Two_known_sentences_in_one_note_show_as_two_catalog_sentences()
+    {
+        var notes = "We couldn't confirm where this game keeps its saves; add the saves folder by hand. Uses anti-cheat; don't use SavePoint with its online mode.";
+
+        var editor = EditorRig.Create().New(SampleScenario.Caretaker with { Notes = notes });
+
+        Assert.Equal(
+            "SavePoint couldn't confirm where this game keeps its saves. Choose the saves folder yourself. This game uses anti-cheat. Don't use SavePoint with its online mode.",
+            editor.TemplateNotes);
+    }
+
+    [Fact]
+    public void A_sentence_the_catalog_does_not_know_shows_nothing()
+    {
+        var editor = EditorRig.Create().New(SampleScenario.Caretaker with { Notes = "Something a file author wrote." });
+
+        Assert.False(editor.HasTemplateNotes);
+        Assert.Equal(string.Empty, editor.TemplateNotes);
+    }
+
+    [Fact]
+    public void Every_sentence_in_every_shipped_templates_note_has_catalog_wording()
+    {
+        var unknown = Savepoint.Core.Catalog.GameTemplates.All
+            .Select(template => (template.Id, Left: TemplateNoteCatalog.UnknownPart(template.Definition.Notes)))
+            .Where(entry => entry.Left.Length > 0)
+            .Select(entry => $"{entry.Id}: {entry.Left}")
+            .ToList();
+
+        Assert.True(unknown.Count == 0, $"{unknown.Count} notes hold text with no catalog wording, such as: {string.Join(" | ", unknown.Take(3))}");
+    }
+
+    [Fact]
+    public async Task Notes_from_a_definition_file_are_not_shown_as_template_notes()
+    {
+        var file = @"C:\Downloads\hollow-knight.json";
+        var imported = new Savepoint.Core.Catalog.GameDefinition(Id: "from-file", Name: "Hollow Knight", Notes: "Saves are in Steam's userdata folder; add the saves folder by hand.");
+        var rig = EditorRig.Create(new FakeBackend(ScenarioBuilder.Sample().WithImport(file, imported)));
+        var editor = rig.New();
+        rig.Dialogs.AnswerOpenFile(file);
+
+        await editor.ImportCommand.ExecuteAsync(null);
+
+        Assert.False(editor.HasTemplateNotes);
+        Assert.Equal(string.Empty, editor.TemplateNotes);
+    }
+
+    [Fact]
+    public async Task More_settings_opens_when_an_imported_file_sets_something_in_it_and_stays_closed_when_it_does_not()
+    {
+        var file = @"C:\Downloads\hollow-knight.json";
+        var plain = new Savepoint.Core.Catalog.GameDefinition(Id: "plain", Name: "Plain Game", InstallIgnorePaths: Savepoint.Core.Catalog.RunTimeOutput.DefaultRules);
+        var rig = EditorRig.Create(new FakeBackend(ScenarioBuilder.Sample().WithImport(file, plain)));
+        var editor = rig.New();
+        rig.Dialogs.AnswerOpenFile(file);
+        await editor.ImportCommand.ExecuteAsync(null);
+        Assert.False(editor.IsMoreSettingsOpen);
+
+        var modded = plain with { ModPathHints = ["Mods"] };
+        var rig2 = EditorRig.Create(new FakeBackend(ScenarioBuilder.Sample().WithImport(file, modded)));
+        var editor2 = rig2.New();
+        rig2.Dialogs.AnswerOpenFile(file);
+        await editor2.ImportCommand.ExecuteAsync(null);
+        Assert.True(editor2.IsMoreSettingsOpen);
+    }
+
+    [Fact]
+    public void More_settings_stays_closed_when_the_edited_game_only_has_the_default_install_rules()
+    {
+        var game = SampleScenario.Caretaker with { InstallIgnorePaths = Savepoint.Core.Catalog.RunTimeOutput.DefaultRules };
+        var rig = EditorRig.Create(new FakeBackend(ScenarioBuilder.Empty().WithGame(game)));
+
+        var editor = rig.Edit(game.Id);
+
+        Assert.False(editor.IsMoreSettingsOpen);
+    }
+
+    [Fact]
+    public async Task A_refused_Steam_app_id_opens_More_settings_again_on_Save_after_the_player_closed_it()
+    {
+        var rig = EditorRig.Create();
+        var editor = rig.New();
+        editor.Name = "Hollow Knight";
+        editor.InstallPath = @"C:\Games\Hollow Knight";
+        editor.ExePath = "hollow_knight.exe";
+        editor.SteamAppIdText = "abc";
+        Assert.True(editor.IsMoreSettingsOpen);
+        editor.IsMoreSettingsOpen = false;
+
+        var running = editor.SaveCommand.ExecuteAsync(null);
+        while (!running.IsCompleted && rig.Dialogs.Shown.LastOrDefault() is Savepoint.App.Features.Editor.ConsentDialogViewModel { IsClosed: false } consent)
+        {
+            consent.ConfirmCommand.Execute(null);
+        }
+
+        await running;
+
+        Assert.NotNull(editor.SteamAppIdError);
+        Assert.True(editor.IsMoreSettingsOpen);
+    }
+
+    [Fact]
+    public async Task An_open_cloud_answer_closes_when_the_store_says_Off()
+    {
+        var rig = EditorRig.Create();
+        Games(rig).CloudSaves[SampleScenario.SkyrimId] = new CloudSaveInfo(CloudSaveState.Unknown, CloudStore.None);
+        var editor = rig.Edit();
+        await editor.LoadAsync();
+        editor.CloudCheckDelay = (_, _) => Task.CompletedTask;
+        editor.CloudSavesHelp.IsOpen = true;
+        Games(rig).CloudSavesForForm = (_, _) => Task.FromResult(new CloudSaveInfo(CloudSaveState.Off, CloudStore.Steam));
+
+        editor.InstallPath = @"D:\Games\Elsewhere";
+        await EditorRig.Eventually(() => editor.HasCloudSavesUnknown ? null : editor);
+
+        Assert.False(editor.HasCloudSavesUnknown);
+        Assert.False(editor.HasCloudSavesNote);
+        Assert.False(editor.CloudSavesHelp.IsOpen);
     }
 
     [Fact]

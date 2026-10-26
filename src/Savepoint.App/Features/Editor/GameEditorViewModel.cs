@@ -140,6 +140,7 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
         _saved = saved;
         _source = saved ?? prefill ?? new GameDefinition { InstallIgnorePaths = RunTimeOutput.DefaultRules };
         _suppliedRules = saved is null && prefill is not null ? prefill.IgnorePaths : [];
+        _notesFromTemplate = saved is null && prefill is not null;
         IgnoreRules = new ChipListViewModel(
             text,
             text.Message("gameEditor.ignorePaths.label"),
