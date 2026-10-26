@@ -10,7 +10,7 @@ SavePoint is licensed GPL-3.0-or-later (`LICENSE`). Bundled components keep thei
 - Docs: `docs/`, user and developer guides only, published to https://docs.tortal.tech/SavePoint by `docfx.json`. Agent material never goes here.
 - Agent docs: `.agents/` (instructions for people and agents changing the code; not published)
 - ADRs: none. Decisions are numbered entries in `docs/decisions.md` (see Decisions and planned work)
-- Coding standards: `.agents/coding-standards/`, indexed for Claude Code by file type in `.claude/rules/coding-standards/`
+- Coding standards: `.agents/coding-standards/`, indexed for Claude Code by area (Core, App, tests, tools) in `.claude/rules/coding-standards/`
 - Layout: `src/Savepoint.Core/` (UI-free library: `Git/` snapshot storage, `Catalog/`, `Backend/`, `Launch/`); `src/Savepoint.App/` (Avalonia app: screens in `Features/<Area>/`, each `*View.axaml` beside its `*ViewModel.cs`, DI wiring in `Composition/`); `tests/Savepoint.Core.Tests/` and `tests/Savepoint.App.Tests/` mirror their projects, with shared helpers in `tests/Shared/`; `tools/` (`FakeGame` and `SkipCheck` serve the tests, plus `IconGen` and `PackageSources`); `build/` (gate, packaging, and bundled-git scripts, `expected-skips/`). The full table is under Repository layout in `docs/developer-guide.md`.
 - Language: C# (`LangVersion` latest) on `net10.0`, .NET SDK 10.0.100 (`global.json`)
 - Package manager: NuGet with central package management (`Directory.Packages.props`); one solution, `Savepoint.slnx`
@@ -39,11 +39,13 @@ SavePoint is licensed GPL-3.0-or-later (`LICENSE`). Bundled components keep thei
 - Write tests first for every behavior. A red must be an assertion failure for the expected reason, not a compile or harness error. A test that passes on its first run gets a mutation check before it counts. Record the observed red in the commit message.
 - Send every user-visible string through the catalog (`src/Savepoint.App/Localization/Assets/Lang/en/*.json`). Keys are literal. The catalog never says "commit", "branch", "checkout", "repo", or "HEAD", uses no em dashes, and states permanence in the title or the button (D44). Lint tests enforce this.
 - Use the D44 vocabulary (snapshot, profile, Go back, Recently removed, Free up space). Explain a new concept in plain words, with a question button (such as "What's a snapshot?") when it needs one.
-- Keep inline comments short and say why. Never name a milestone, slice, issue, or build step in them.
-- Give public APIs XML doc comments that state their contract. CS1591 is an error in Core.
-- Tests never touch real user folders. Each test uses a fresh temp directory and injected app-data and storage paths.
-- Stay cross-platform: Windows, Linux, and macOS run from one target framework. Guard OS-specific code with `OperatingSystem.Is*()` (D9, D26).
-- Before writing code, open the standards in `.agents/coding-standards/` that apply to the files you are changing (Claude Code gets an index of them by file type). Do not read all of them.
+- Keep inline comments short and say why. Never name a milestone, slice, issue, task, review, pull request, or build step in them.
+- Give public Core APIs XML doc comments that state their contract. CS1591 is an error in Core.
+- Tests never create, write, delete, or list anything in a real user folder. Each test uses a fresh temp directory and injected app-data and storage paths.
+- Stay cross-platform: Windows, Linux, and macOS run from one target framework (D9, D26). Per-OS data lives behind `IPlatform`, and an OS branch uses `OperatingSystem.Is*()` or the injected platform's `Os`, never `#if` or `RuntimeInformation`.
+- Before writing code, open the standards in `.agents/coding-standards/` that apply to the files you are changing (Claude Code gets an index of them by area). Do not read all of them.
+- A standard holds the full rule. When a standard and this file or a guide in `docs/` disagree, the standard is right: fix the other file in the same change.
+- Code that breaks a standard is fixed, not copied. Each known violation has an issue in the `Code Cleanup` milestone.
 
 ## Decisions and planned work
 

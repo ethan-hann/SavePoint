@@ -96,8 +96,8 @@ The gates run at below-normal priority. They cap MSBuild at 4 nodes with no node
 The rules in `../AGENTS.md` apply to every change. These add to them:
 
 - **Catalog.** Copy lives in `Localization/Assets/Lang/en/<area>.json`. A key enters the catalog with the code that uses it. Error copy is keyed by the error's message id, and every `error.*` id has an `ErrorPresentation` entry (icon, tone, title).
-- **Doc comments.** A missing XML doc comment on a public Core API fails the Core build (CS1591, D24). Inline comments never name a milestone, task, or review. A comment may cite a decision (`D29`), because decisions are lasting records in `decisions.md`.
-- **Core stays testable.** It holds no static mutable state and has no UI dependency. Side effects that tests must fake go through injected abstractions. Async methods take a `CancellationToken` all the way down.
+- **Doc comments.** A missing XML doc comment on a public Core API fails the Core build (CS1591, D24). Inline comments never name a milestone, slice, issue, task, review, pull request, or build step. A comment may cite a decision (`D29`), because decisions are lasting records in `decisions.md`.
+- **Core stays testable.** It has no UI dependency, and no static mutable state except a handle to an OS resource that must live as long as the process (D59). The clock, the environment, other processes, disk space, and the network come in through injected seams. Api reads take a `CancellationToken`. A long job is cancelled through `IJobsApi.CancelAsync`, and the job's own token flows all the way down through its work. A short mutation takes no token, because stopping it halfway is worse than finishing it.
 - **Departures are decisions.** A change that departs from the spec, or fills a gap in it, gets a decision in `decisions.md`.
 
 ## Adding a language

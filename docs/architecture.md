@@ -24,9 +24,9 @@ Savepoint.Core                       v
 
 - Views bind only to view models. View models call only the Api interfaces and `IDialogs` (folder pickers, file pickers, confirmations).
 - Nothing in `Savepoint.App` references `Git/`, `Paths/`, or `Services/` types directly. `Hosting/AppBootstrap` reaches them only through `CoreBackend.Create` and the launch orchestrator.
-- `Savepoint.Core` has no Avalonia reference and no static mutable state. Everything is constructed at startup and injected, so tests build the same graph against temp directories.
-- Every file-system or process side effect in Core that tests must fake goes through an injected abstraction (`IPlatform`, `IClock`, `IProcessInspector`, `IGameLauncher`). Plain temp-dir IO is used everywhere else.
-- Async all the way: every operation that touches disk or git is `async Task` and takes a `CancellationToken`.
+- `Savepoint.Core` has no Avalonia reference and no static mutable state, except a handle to an OS resource that must live as long as the process (the git job object, D59). Everything else is constructed at startup and injected, so tests build the same graph against temp directories.
+- Every side effect in Core that tests must fake goes through an injected abstraction (`IPlatform`, `TimeProvider`, `IProcessInspector`, `IGameLauncher`, `IDiskSpace`). Plain temp-dir IO is used everywhere else.
+- Async all the way: every operation that touches disk or git is `async Task`. Api reads take a `CancellationToken`. A long job is cancelled through `IJobsApi.CancelAsync`, and the job's own token flows all the way down through its work. A short mutation takes no token, because stopping it halfway is worse than finishing it.
 
 ## Errors
 
