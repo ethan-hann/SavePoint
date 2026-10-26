@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Text.RegularExpressions;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -49,7 +48,7 @@ public sealed partial class TemplatePickerViewModel : DialogViewModel<TemplateCh
         NoMatchesText = text.Message("templatePicker.noMatches");
         _all = [.. templates.Select(template => (
             new TemplateItem(template.DisplayName, new RelayCommand(() => Close(new TemplateChoice.Template(template)))),
-            WordsOf(template.DisplayName)))];
+            TemplateSearch.WordsOf(template.DisplayName)))];
         Templates = [.. _all.Select(entry => entry.Item)];
     }
 
@@ -64,9 +63,8 @@ public sealed partial class TemplatePickerViewModel : DialogViewModel<TemplateCh
 
     partial void OnSearchTextChanged(string value)
     {
-        // Every typed word has to start a word of the name, so "sid meiers civ" finds "Sid Meier's Civilization VI".
-        var typed = WordsOf(value);
-        var shown = _all.Where(entry => typed.All(word => entry.Words.Any(name => name.StartsWith(word, StringComparison.Ordinal))));
+        var typed = TemplateSearch.WordsOf(value);
+        var shown = _all.Where(entry => TemplateSearch.Matches(typed, entry.Words));
         Templates.Clear();
         foreach (var entry in shown)
         {
@@ -75,16 +73,6 @@ public sealed partial class TemplatePickerViewModel : DialogViewModel<TemplateCh
 
         OnPropertyChanged(nameof(ShowNoMatches));
     }
-
-    // Lowercase words with apostrophes dropped and other punctuation treated as a space.
-    private static string[] WordsOf(string text) =>
-        [.. NotALetterOrDigit().Split(Apostrophes().Replace(text.ToLowerInvariant(), string.Empty)).Where(word => word.Length > 0)];
-
-    [GeneratedRegex(@"['’]")]
-    private static partial Regex Apostrophes();
-
-    [GeneratedRegex(@"[^\p{L}\p{N}]+")]
-    private static partial Regex NotALetterOrDigit();
 
     /// <inheritdoc />
     public override string Description { get; }

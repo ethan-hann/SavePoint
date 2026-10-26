@@ -34,7 +34,7 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
     private GameDefinition _source;
 
     // The game-wide rules a template or definition file gave the form; any other rule in it was typed by the player.
-    private readonly IReadOnlyList<string> _suppliedRules;
+    private IReadOnlyList<string> _suppliedRules;
 
     // What the form built right after opening, to tell whether anything changed.
     private GameDefinition _baseline;
@@ -235,7 +235,11 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
         await cloud;
     }
 
-    partial void OnNameChanged(string value) => NameError = null;
+    partial void OnNameChanged(string value)
+    {
+        NameError = null;
+        SearchTemplates(value);
+    }
 
     partial void OnUriChanged(string value)
     {
@@ -254,7 +258,9 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
     private void LoadForm(GameDefinition game, bool rulesAreDefaults = false)
     {
         DefaultRulesNote = rulesAreDefaults ? _text.Message("gameEditor.ignorePaths.defaultNote") : string.Empty;
+        _fillingForm = true;
         Name = game.Name;
+        _fillingForm = false;
         InstallPath = game.Install.Path;
         SavesPath = game.External?.Path ?? string.Empty;
         ExePath = game.Launch.ExePath ?? string.Empty;

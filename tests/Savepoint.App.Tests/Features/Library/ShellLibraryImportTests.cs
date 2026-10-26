@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Library;
+using Savepoint.App.Features.Shell;
 using Savepoint.App.Tests.Features.Shell;
 using Savepoint.Core.Api;
 
@@ -85,6 +86,40 @@ public class ShellLibraryImportTests
 
         Assert.Empty(AddCalls(rig));
         Assert.Single(rig.Dialogs.Shown);
+    }
+
+    [Fact]
+    public async Task The_pointer_in_the_checklist_opens_the_template_list_and_hands_the_choice_to_the_editor()
+    {
+        var rig = await StartAsync(LibraryTestData.Game("Alpha", id: "1"));
+        var requests = new List<AddGameRequest>();
+        rig.Shell.AddGameRequested += (_, request) => requests.Add(request);
+
+        var pending = ((IAsyncRelayCommand)rig.Shell.AddFromLibrariesCommand).ExecuteAsync(null);
+        var picker = await NextDialogAsync<LibraryPickerDialogViewModel>(rig, 0);
+        picker.OpenTemplateListCommand.Execute(null);
+        var templates = await NextDialogAsync<TemplatePickerViewModel>(rig, 1);
+        templates.Templates[0].Choose.Execute(null);
+        await pending;
+
+        var draft = Assert.Single(requests).Prefill!;
+        Assert.Equal(rig.Backend.Games.Templates[0].Definition.Name, draft.Name);
+        Assert.Empty(AddCalls(rig));
+    }
+
+    [Fact]
+    public async Task Backing_out_of_the_template_list_after_the_pointer_opens_no_editor()
+    {
+        var rig = await StartAsync(LibraryTestData.Game("Alpha", id: "1"));
+        var requests = new List<AddGameRequest>();
+        rig.Shell.AddGameRequested += (_, request) => requests.Add(request);
+
+        var pending = ((IAsyncRelayCommand)rig.Shell.AddFromLibrariesCommand).ExecuteAsync(null);
+        (await NextDialogAsync<LibraryPickerDialogViewModel>(rig, 0)).OpenTemplateListCommand.Execute(null);
+        (await NextDialogAsync<TemplatePickerViewModel>(rig, 1)).RequestDismiss();
+        await pending;
+
+        Assert.Empty(requests);
     }
 
     [Fact]

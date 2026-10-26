@@ -16,5 +16,5 @@
   },
   "ignorePaths": [],
   "modPathHints": [],
-  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it. Uses anti-cheat; don't use SavePoint with its online mode."
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand. Uses anti-cheat; don't use SavePoint with its online mode."
 }

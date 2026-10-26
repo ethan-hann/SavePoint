@@ -27,5 +27,5 @@
   "modPathHints": [
     "mods"
   ],
-  "notes": "Saves are in Steam's userdata folder; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+  "notes": "Saves are in Steam's userdata folder; add the saves folder by hand."
 }

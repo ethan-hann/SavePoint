@@ -20,6 +20,38 @@ public class LibraryPickerDialogViewModelTests
     private static IReadOnlyList<string> Visible(LibraryPickerDialogViewModel picker) => [.. picker.VisibleRows.Select(row => row.Name)];
 
     [Fact]
+    public async Task The_pointer_to_the_game_list_closes_the_checklist_without_choosing_games()
+    {
+        var (picker, _) = await LoadedAsync(LibraryTestData.Scan(LibraryTestData.Game("Alpha", id: "1")));
+        picker.SelectAllCommand.Execute(null);
+        Assert.False(picker.TemplateListRequested);
+
+        picker.OpenTemplateListCommand.Execute(null);
+
+        Assert.True(picker.TemplateListRequested);
+        Assert.Null(await picker.Result);
+    }
+
+    [Fact]
+    public async Task The_pointer_names_the_stores_the_scan_cannot_see()
+    {
+        var (picker, _) = await LoadedAsync(LibraryTestData.Scan());
+
+        Assert.Contains("Epic", picker.TemplatePointerText);
+        Assert.Contains("Game Pass", picker.TemplatePointerText);
+    }
+
+    [Fact]
+    public async Task Backing_out_does_not_ask_for_the_game_list()
+    {
+        var (picker, _) = await LoadedAsync(LibraryTestData.Scan());
+
+        picker.CancelCommand.Execute(null);
+
+        Assert.False(picker.TemplateListRequested);
+    }
+
+    [Fact]
     public async Task Every_game_found_is_listed_with_its_store_folder_and_saves_line()
     {
         var skyrim = LibraryTestData.Game("Skyrim", saves: @"C:\Users\you\Documents\My Games\Skyrim\Saves");

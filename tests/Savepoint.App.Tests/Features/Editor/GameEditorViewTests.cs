@@ -66,6 +66,22 @@ public class GameEditorViewTests
     }
 
     [AvaloniaFact]
+    public async Task The_game_list_button_and_the_name_matches_show_only_while_adding()
+    {
+        using var harness = await EditorViewHarness.StartAsync();
+
+        harness.Edit();
+        Assert.False(harness.Find<Button>("PickTemplateButton").IsEffectivelyVisible);
+
+        var editor = harness.New();
+        Assert.True(harness.Find<Button>("PickTemplateButton").IsEffectivelyVisible);
+        Assert.False(harness.Find<ItemsControl>("NameMatchList").IsEffectivelyVisible);
+
+        editor.Name = "skyr";
+        Assert.True(harness.Find<ItemsControl>("NameMatchList").IsEffectivelyVisible);
+    }
+
+    [AvaloniaFact]
     public async Task The_name_field_has_the_focus_when_the_pane_opens()
     {
         using var harness = await EditorViewHarness.StartAsync();

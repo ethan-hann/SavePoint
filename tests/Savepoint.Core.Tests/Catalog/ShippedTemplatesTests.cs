@@ -306,6 +306,18 @@ public partial class ShippedTemplatesTests
         Assert.True(notes is null || !BannedInNotes().IsMatch(notes), $"Notes for '{id}' use a word the app never shows: {notes}");
     }
 
+    // Whether a game's cloud saves are on is the editor's call, made per game; a note cannot know it.
+    [Fact]
+    public void Notes_say_nothing_about_cloud_saves()
+    {
+        var offenders = GameTemplates.All
+            .Where(template => template.Definition.Notes is { } notes && notes.Contains("cloud", StringComparison.OrdinalIgnoreCase))
+            .Select(template => template.Id)
+            .ToList();
+
+        Assert.True(offenders.Count == 0, $"{offenders.Count} notes mention cloud saves, such as: {string.Join(", ", offenders.Take(5))}");
+    }
+
     [Theory]
     [MemberData(nameof(TemplateIds))]
     public void A_template_that_starts_through_a_link_names_a_steam_game(string id)

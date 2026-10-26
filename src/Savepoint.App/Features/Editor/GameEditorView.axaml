@@ -4,6 +4,7 @@
              xmlns:theme="using:Savepoint.App.Theme"
              xmlns:editor="using:Savepoint.App.Features.Editor"
              xmlns:art="using:Savepoint.App.Features.Common.Art"
+             xmlns:shell="using:Savepoint.App.Features.Shell"
              x:Class="Savepoint.App.Features.Editor.GameEditorView"
              x:DataType="editor:GameEditorViewModel">
   <!--
@@ -44,6 +45,12 @@
               <TextBlock Text="{loc:Loc gameEditor.import}" />
             </StackPanel>
           </Button>
+          <Button x:Name="PickTemplateButton" Padding="16,8" FontSize="13.5" IsVisible="{Binding CanPickTemplate}" Command="{Binding PickTemplateCommand}" AutomationProperties.Name="{loc:Loc gameEditor.pickTemplate}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.StadiaController}" />
+              <TextBlock Text="{loc:Loc gameEditor.pickTemplate}" />
+            </StackPanel>
+          </Button>
           <Button x:Name="SaveButton" Classes="filled" Padding="18,8" FontSize="13.5" Command="{Binding SaveCommand}" Content="{loc:Loc gameEditor.save}" />
         </StackPanel>
       </Grid>
@@ -67,7 +74,23 @@
                        Classes.error="{Binding NameError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                        Text="{Binding Name, Mode=TwoWay}"
                        AutomationProperties.Name="{loc:Loc gameEditor.name.label}"
-                       AutomationProperties.HelpText="{Binding NameError}" />
+                       AutomationProperties.HelpText="{Binding NameError}">
+                <TextBox.KeyBindings>
+                  <KeyBinding Gesture="Escape" Command="{Binding DismissNameMatchesCommand}" />
+                </TextBox.KeyBindings>
+              </TextBox>
+              <ItemsControl x:Name="NameMatchList" ItemsSource="{Binding NameMatches}" IsVisible="{Binding HasNameMatches}" AutomationProperties.Name="{loc:Loc gameEditor.name.matches}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="shell:TemplateItem">
+                    <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="0,0,0,4" Padding="12,8" Command="{Binding Choose}" AutomationProperties.Name="{Binding Name}">
+                      <StackPanel Orientation="Horizontal" Spacing="10">
+                        <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.StadiaController}" />
+                        <TextBlock Classes="body" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Name}" />
+                      </StackPanel>
+                    </Button>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
               <TextBlock x:Name="NameErrorText" Classes="body error" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" IsVisible="{Binding NameError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding NameError}" />
             </StackPanel>
 

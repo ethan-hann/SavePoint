@@ -16,5 +16,5 @@
   },
   "ignorePaths": [],
   "modPathHints": [],
-  "notes": "Saves are in a folder named after your account id; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it. Uses anti-cheat; don't use SavePoint with its online mode."
+  "notes": "Saves are in a folder named after your account id; add the saves folder by hand. Uses anti-cheat; don't use SavePoint with its online mode."
 }

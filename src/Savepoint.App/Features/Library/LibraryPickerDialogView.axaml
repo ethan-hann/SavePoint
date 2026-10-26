@@ -41,6 +41,11 @@
         </ItemsControl.ItemTemplate>
       </ItemsControl>
 
+      <StackPanel x:Name="TemplatePointer" Orientation="Horizontal" Spacing="12">
+        <TextBlock Classes="caption" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="440" Text="{Binding TemplatePointerText}" />
+        <Button x:Name="TemplateListButton" Classes="text pill" Command="{Binding OpenTemplateListCommand}" Content="{loc:Loc library.picker.templates.button}" />
+      </StackPanel>
+
       <TextBlock x:Name="EmptyText" Classes="body" TextWrapping="Wrap" IsVisible="{Binding ShowEmpty}" Text="{Binding EmptyText}" />
 
       <StackPanel x:Name="ListControls" Spacing="10" IsVisible="{Binding ShowList}">
