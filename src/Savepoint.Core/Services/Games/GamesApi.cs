@@ -27,6 +27,32 @@ internal sealed partial class GamesApi : IGamesApi
         _cloudSaves = cloudSaves;
     }
 
+    public Task<OperationResult<CloudSaveInfo>> GetCloudSavesAsync(CloudSaveQuery query, CancellationToken cancellationToken = default) =>
+        ApiGuard.RunAsync(
+            _services.Log,
+            async () =>
+            {
+                ArgumentNullException.ThrowIfNull(query);
+                if (string.IsNullOrWhiteSpace(query.InstallPath))
+                {
+                    return new CloudSaveInfo(CloudSaveState.Unknown, CloudStore.None);
+                }
+
+                var install = _services.PathTokens.Resolve(query.InstallPath.Trim(), "install.path");
+
+                // The form is not a saved game; this stands in for it so the same store detection applies.
+                var form = new GameDefinition
+                {
+                    Id = string.Empty,
+                    Name = string.Empty,
+                    Install = new InstallLocation(install),
+                    Launch = string.IsNullOrWhiteSpace(query.LaunchUri) ? new LaunchConfig(LaunchMethod.Exe, "game.exe") : new LaunchConfig(LaunchMethod.Uri, Uri: query.LaunchUri),
+                    SteamAppId = query.SteamAppId,
+                };
+                return await Task.Run(() => _cloudSaves.Read(form, install, _services.Platform.PathComparison), cancellationToken).ConfigureAwait(false);
+            },
+            cancellationToken);
+
     public Task<OperationResult<CloudSaveInfo>> GetCloudSavesAsync(string gameId, CancellationToken cancellationToken = default) =>
         ApiGuard.RunAsync(
             _services.Log,

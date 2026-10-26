@@ -107,6 +107,15 @@ public interface IGamesApi
     /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c> (D23).</param>
     Task<OperationResult<CloudSaveInfo>> GetCloudSavesAsync(string gameId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Reads the same answer as <see cref="GetCloudSavesAsync(string, CancellationToken)"/> for what a game form holds, so a check can
+    /// follow the form before the game is saved. An empty or unreadable install folder, or a game from another store, is
+    /// <see cref="CloudSaveState.Unknown"/>. It only reads.
+    /// </summary>
+    /// <param name="query">The install folder, Steam app id and launch link from the form.</param>
+    /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c> (D23).</param>
+    Task<OperationResult<CloudSaveInfo>> GetCloudSavesAsync(CloudSaveQuery query, CancellationToken cancellationToken = default);
+
     /// <summary>Reads how much of SavePoint's storage the game takes and how full the storage volume is.</summary>
     /// <param name="gameId">The game.</param>
     /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c> (D23).</param>

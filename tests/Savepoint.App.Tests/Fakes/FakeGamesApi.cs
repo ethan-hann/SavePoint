@@ -205,6 +205,15 @@ public sealed class FakeGamesApi : IGamesApi
     // A test sets this to hold the answer, as a slow disk would.
     public Func<Task>? CloudSavesGate { get; set; }
 
+    // A test sets this to answer a check made from the form's values; it may hold the answer, as a slow disk would.
+    public Func<CloudSaveQuery, CancellationToken, Task<CloudSaveInfo>>? CloudSavesForForm { get; set; }
+
+    public async Task<OperationResult<CloudSaveInfo>> GetCloudSavesAsync(CloudSaveQuery query, CancellationToken cancellationToken = default)
+    {
+        var answer = await _backend.Call(_api, nameof(GetCloudSavesAsync), [query], () => OperationResult.Success(new CloudSaveInfo(CloudSaveState.Unknown, CloudStore.None)));
+        return CloudSavesForForm is { } scripted ? OperationResult.Success(await scripted(query, cancellationToken)) : answer;
+    }
+
     public async Task<OperationResult<CloudSaveInfo>> GetCloudSavesAsync(string gameId, CancellationToken cancellationToken = default)
     {
         var answer = await _backend.Call(_api, nameof(GetCloudSavesAsync), [gameId], () =>
