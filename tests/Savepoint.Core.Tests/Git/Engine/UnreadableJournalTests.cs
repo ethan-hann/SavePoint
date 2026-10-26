@@ -58,6 +58,65 @@ public sealed class UnreadableJournalTests : IDisposable
         await AssertCaptureRefusedAsync(repo, points[1]);
     }
 
+    // The note's text is checked afterwards when the test can read it (a note another program holds open cannot be read until it lets go).
+    private async Task AssertSwitchRefusedAsync(RepoRef repo, string point, string earlier, bool force, string? noteText)
+    {
+        var error = await Assert.ThrowsAsync<InterruptedSwitchException>(
+            () => force ? _ws.Engine.ForceCheckoutCommitAsync(repo, earlier, Ct) : _ws.Engine.CheckoutCommitAsync(repo, earlier, ct: Ct));
+
+        Assert.Equal("error.launch.switchInterrupted", error.MessageId);
+        Assert.Null(error.Args["targetPoint"]);
+        Assert.DoesNotContain(_ws.Invocations, invocation => !invocation.ReadOnly && invocation.Arguments[0] is "checkout" or "reset" or "clean");
+        Assert.Equal(point, await _ws.TipAsync(repo, "profile-1"));
+        Assert.True(File.Exists(_ws.FileOf(repo, "b.txt")), "the switch changed the folder");
+        Assert.True(File.Exists(SwitchJournal.PathIn(repo.GitDir)));
+        if (noteText is not null)
+        {
+            Assert.Equal(noteText, File.ReadAllText(SwitchJournal.PathIn(repo.GitDir)));
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_switch_refuses_a_folder_whose_switch_note_is_not_valid_json_and_leaves_the_note_alone(bool force)
+    {
+        var (repo, points) = await _ws.TwoPointsRepoAsync();
+        File.WriteAllText(SwitchJournal.PathIn(repo.GitDir), "{ this is not a note");
+
+        await AssertSwitchRefusedAsync(repo, points[1], points[0], force, "{ this is not a note");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_switch_refuses_a_folder_whose_switch_note_another_program_holds_open(bool force)
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows lets one program keep another from reading a file");
+        var (repo, points) = await _ws.TwoPointsRepoAsync();
+        SwitchJournal.Write(repo.GitDir, points[0], points[1]);
+        using var held = new FileStream(SwitchJournal.PathIn(repo.GitDir), FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+
+        await AssertSwitchRefusedAsync(repo, points[1], points[0], force, null);
+    }
+
+    [Fact]
+    public async Task A_discard_clears_a_switch_note_that_cannot_be_understood_so_the_player_is_not_stuck()
+    {
+        var (repo, points) = await _ws.TwoPointsRepoAsync();
+        File.WriteAllText(SwitchJournal.PathIn(repo.GitDir), "{ this is not a note");
+        _ws.Write(repo, "a.txt", "edited");
+
+        await _ws.Engine.DiscardChangesAsync(repo, Ct);
+
+        Assert.False(File.Exists(SwitchJournal.PathIn(repo.GitDir)));
+        Assert.Equal("one", File.ReadAllText(_ws.FileOf(repo, "a.txt")));
+
+        // And with the note gone the switch goes ahead.
+        await _ws.Engine.CheckoutCommitAsync(repo, points[0], ct: Ct);
+        Assert.False(File.Exists(_ws.FileOf(repo, "b.txt")));
+    }
+
     [Fact]
     public async Task A_capture_still_works_when_there_is_no_note()
     {

@@ -243,6 +243,36 @@ public sealed class FolderRecheckTests : IDisposable
     }
 
     [Theory]
+    [InlineData(Operation.Switch, true)]
+    [InlineData(Operation.Switch, false)]
+    [InlineData(Operation.ForcedSwitch, true)]
+    [InlineData(Operation.ForcedSwitch, false)]
+    public async Task A_switch_refused_at_the_checkout_leaves_no_note_of_an_unfinished_switch(Operation operation, bool swapForLink)
+    {
+        RequireLinks(_ws.Root);
+        var repo = await PrepareAsync(_ws, operation);
+        var decoy = CopyAsDecoy(repo);
+        var head = await _ws.HeadRefAsync(repo);
+        SwapBeforeFirstDestructiveStep(() =>
+        {
+            if (swapForLink)
+            {
+                ReplaceWithLinkTo(repo, decoy);
+            }
+            else
+            {
+                File.Delete(EngineWorkspace.MarkerPath(repo));
+            }
+        });
+
+        var error = await Record.ExceptionAsync(() => RunAsync(_ws, operation, repo));
+
+        Assert.IsType(swapForLink ? typeof(FolderChangedException) : typeof(ConsentMarkerException), error);
+        Assert.False(File.Exists(SwitchJournal.PathIn(repo.GitDir)), "a note says a switch is unfinished although nothing was written");
+        Assert.Equal(head, await _ws.HeadRefAsync(repo));
+    }
+
+    [Theory]
     [InlineData(Operation.Discard)]
     [InlineData(Operation.Clean)]
     [InlineData(Operation.Switch)]

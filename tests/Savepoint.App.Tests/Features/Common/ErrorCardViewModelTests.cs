@@ -32,6 +32,23 @@ public class ErrorCardViewModelTests
         Assert.True(card.HasPath);
     }
 
+    [Theory]
+    [InlineData(RepoRole.Install, "install folder")]
+    [InlineData(RepoRole.External, "saves folder")]
+    public void A_folder_replaced_while_SavePoint_worked_says_which_folder_and_that_it_stopped(RepoRole role, string name)
+    {
+        var folder = PathOnThisSystem("Games", "Alpha");
+
+        var card = new ErrorCardViewModel(ErrorInfo.From(new FolderChangedException(folder, role)), _text);
+
+        Assert.Equal("The folder changed while SavePoint worked", card.Title);
+        Assert.Equal(Icons.Warning, card.Icon);
+        Assert.Equal(ErrorTone.Warning, card.Tone);
+        Assert.Contains($"The {name} was replaced or moved while SavePoint was working on it", card.Body);
+        Assert.Contains("stopped before changing more files", card.Body);
+        Assert.Equal(folder, card.Path);
+    }
+
     [Fact]
     public void A_paused_free_up_promises_no_rerun_that_nothing_schedules()
     {

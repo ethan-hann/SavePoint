@@ -72,6 +72,7 @@ public static class ErrorPresentation
         ["error.launch.switchInterrupted"] = new(Icons.SwapHoriz, ErrorTone.Warning, "errorCard.title.switchUnfinished"),
         ["error.launch.windowsProgram"] = new(Icons.Error, ErrorTone.Error, "errorCard.title.gameDidNotStart"),
         ["error.operation.cancelled"] = new(Icons.Cancel, ErrorTone.Neutral, "errorCard.title.canceled"),
+        ["error.path.changed"] = new(Icons.Warning, ErrorTone.Warning, "errorCard.title.folderChanged"),
         ["error.path.missing"] = new(Icons.FolderOff, ErrorTone.Neutral, "errorCard.title.folderGone"),
         ["error.pathSafety.tier1Blocked"] = new(Icons.Block, ErrorTone.Error, "errorCard.title.folderTooBroad"),
         ["error.pathSafety.tier2Blocked"] = new(Icons.Block, ErrorTone.Error, "errorCard.title.folderTooBroad"),

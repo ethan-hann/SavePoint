@@ -311,6 +311,13 @@ public sealed partial class GitEngine
                 : new GitOperationException($"The point '{target}' is not in the repository.");
         }
 
+        // A note that exists but cannot be read or understood still says a switch started, and which one is not known: a switch cannot
+        // be told apart from the one it would finish, and writing a new note would erase the evidence. A discard clears such a note.
+        if (File.Exists(SwitchJournal.PathIn(repo.GitDir)) && SwitchJournal.Read(repo.GitDir) is null)
+        {
+            throw new InterruptedSwitchException(repo.Role);
+        }
+
         using var scope = BeginWrite(repo);
 
         // A mark an earlier switch could not take off would hide a file from the checks below.
@@ -418,7 +425,22 @@ public sealed partial class GitEngine
     {
         for (var attempt = 0; ; attempt++)
         {
-            var result = await RunRawAsync(CheckoutInvocation(repo, target, isBranch, force, reporter), ct).ConfigureAwait(false);
+            GitResult result;
+            try
+            {
+                result = await RunRawAsync(CheckoutInvocation(repo, target, isBranch, force, reporter), ct).ConfigureAwait(false);
+            }
+            catch (Exception e) when (e is FolderChangedException or ConsentMarkerException)
+            {
+                // The recheck before git starts refused: nothing was written, so the note this call wrote goes, as for a refusal by git.
+                if (await TryRestoreAsync(repo, aligned).ConfigureAwait(false))
+                {
+                    ClearNoteIf(ownsNote, repo);
+                }
+
+                throw;
+            }
+
             if (result.ExitCode == 0)
             {
                 return;

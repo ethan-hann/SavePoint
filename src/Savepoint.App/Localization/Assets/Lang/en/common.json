@@ -35,6 +35,7 @@
   "errorCard.title.fileInUse.switch": "A file is in use, so the switch stopped partway",
   "errorCard.title.fileUnreadable": "SavePoint can't read a file",
   "errorCard.title.folderBelongsElsewhere": "That folder belongs to another game",
+  "errorCard.title.folderChanged": "The folder changed while SavePoint worked",
   "errorCard.title.folderGone": "This game's folder has moved or is gone",
   "errorCard.title.folderHoldsShortcut": "That folder has a shortcut in it",
   "errorCard.title.folderInsideApp": "That folder is inside SavePoint's own folder",
