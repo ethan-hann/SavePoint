@@ -27,7 +27,7 @@ internal sealed partial class GamesApi : IGamesApi
         _cloudSaves = cloudSaves;
     }
 
-    public Task<OperationResult<CloudSaveState>> GetCloudSavesAsync(string gameId, CancellationToken cancellationToken = default) =>
+    public Task<OperationResult<CloudSaveInfo>> GetCloudSavesAsync(string gameId, CancellationToken cancellationToken = default) =>
         ApiGuard.RunAsync(
             _services.Log,
             async () =>

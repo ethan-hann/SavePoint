@@ -101,11 +101,11 @@ public interface IGamesApi
     /// <summary>
     /// Reads whether the game's store (Steam or GOG Galaxy) keeps cloud saves for it, from the store's own settings on this computer.
     /// It only reads; it never changes a store's files. A game from another store, or a store whose settings cannot be read, is
-    /// <see cref="CloudSaveState.Unknown"/>.
+    /// <see cref="CloudSaveState.Unknown"/>; the answer also names the store it came from.
     /// </summary>
     /// <param name="gameId">The game.</param>
     /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c> (D23).</param>
-    Task<OperationResult<CloudSaveState>> GetCloudSavesAsync(string gameId, CancellationToken cancellationToken = default);
+    Task<OperationResult<CloudSaveInfo>> GetCloudSavesAsync(string gameId, CancellationToken cancellationToken = default);
 
     /// <summary>Reads how much of SavePoint's storage the game takes and how full the storage volume is.</summary>
     /// <param name="gameId">The game.</param>

@@ -22,7 +22,7 @@ public class GalaxyCloudReaderTests : IDisposable
         _temp.Dispose();
     }
 
-    private GalaxyCloudReader Reader() => new(_programData.Path, _localAppData.Path, _temp.Path);
+    private GalaxyCloudReader Reader(Action<string, int>? duringCopy = null) => new(_programData.Path, _localAppData.Path, _temp.Path, duringCopy);
 
     private static SqliteConnection Open(string path, bool wal)
     {
@@ -169,6 +169,129 @@ public class GalaxyCloudReaderTests : IDisposable
 
         Assert.Equal(CloudSaveState.On, state);
         Assert.Equal(before, Snapshot(Path.GetDirectoryName(DbPath)!));
+        Assert.Empty(Directory.EnumerateFileSystemEntries(_temp.Path, "*", SearchOption.AllDirectories));
+    }
+
+    [Fact]
+    public void The_shared_memory_file_is_not_copied()
+    {
+        using var live = Open(PrepareDbFolder(), wal: true);
+        FillDb(live, [("gog_1207658924", 1)], keepOpen: true);
+        Assert.True(File.Exists(DbPath + "-shm"));
+        var copied = new List<string>();
+
+        Reader((folder, _) => copied.AddRange(Directory.EnumerateFiles(folder).Select(Path.GetFileName).OfType<string>())).Read("1207658924");
+
+        Assert.Contains("galaxy-2.0.db-wal", copied);
+        Assert.DoesNotContain("galaxy-2.0.db-shm", copied);
+    }
+
+    [Fact]
+    public void A_live_file_that_changes_during_the_copy_is_copied_again_once()
+    {
+        CreateDb(false, ("gog_1207658924", 1));
+        var reader = Reader((_, attempt) =>
+        {
+            if (attempt == 0)
+            {
+                File.AppendAllText(DbPath, "\0");
+            }
+        });
+
+        Assert.Equal(CloudSaveState.On, reader.Read("1207658924"));
+        Assert.Equal(2, reader.CopiesMade);
+    }
+
+    [Fact]
+    public void A_live_file_that_keeps_changing_during_the_copy_is_unknown()
+    {
+        CreateDb(false, ("gog_1207658924", 1));
+        var reader = Reader((_, _) => File.AppendAllText(DbPath, "\0"));
+
+        Assert.Equal(CloudSaveState.Unknown, reader.Read("1207658924"));
+        Assert.Equal(2, reader.CopiesMade);
+        Assert.Empty(Directory.EnumerateFileSystemEntries(_temp.Path, "*", SearchOption.AllDirectories));
+    }
+
+    [Fact]
+    public void A_moved_change_counter_is_noticed_even_when_size_and_time_stay_the_same()
+    {
+        CreateDb(false, ("gog_1207658924", 1));
+        var reader = Reader((_, _) =>
+        {
+            var stamp = File.GetLastWriteTimeUtc(DbPath);
+            using (var stream = new FileStream(DbPath, FileMode.Open, FileAccess.Write, FileShare.ReadWrite))
+            {
+                stream.Position = 27;
+                var last = new byte[1];
+                using var read = new FileStream(DbPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                read.Position = 27;
+                _ = read.Read(last, 0, 1);
+                stream.WriteByte((byte)(last[0] + 1));
+            }
+
+            File.SetLastWriteTimeUtc(DbPath, stamp);
+        });
+
+        Assert.Equal(CloudSaveState.Unknown, reader.Read("1207658924"));
+    }
+
+    [Fact]
+    public void An_unchanged_database_is_copied_once_for_every_game_asked_about()
+    {
+        CreateDb(false, ("gog_1207658924", 1), ("gog_1207659000", 0));
+        var reader = Reader();
+
+        Assert.Equal(CloudSaveState.On, reader.Read("1207658924"));
+        Assert.Equal(CloudSaveState.Off, reader.Read("1207659000"));
+        Assert.Equal(CloudSaveState.On, reader.Read("1207658924"));
+        Assert.Equal(1, reader.CopiesMade);
+    }
+
+    [Fact]
+    public void A_changed_database_is_read_again()
+    {
+        CreateDb(false, ("gog_1207658924", 1));
+        var reader = Reader();
+        Assert.Equal(CloudSaveState.On, reader.Read("1207658924"));
+
+        using (var live = Open(DbPath, wal: false))
+        {
+            Run(live, "UPDATE ProductSettings SET cloudStorage = 0");
+        }
+
+        Assert.Equal(CloudSaveState.Off, reader.Read("1207658924"));
+        Assert.Equal(2, reader.CopiesMade);
+    }
+
+    [Fact]
+    public void A_flag_stored_as_text_is_unknown_and_does_not_throw()
+    {
+        using (var connection = Open(PrepareDbFolder(), wal: false))
+        {
+            Run(connection, "CREATE TABLE ProductSettings ('gameReleaseKey' TEXT NOT NULL PRIMARY KEY, 'cloudStorage' BOOLEAN NOT NULL)");
+            Run(connection, "INSERT INTO ProductSettings VALUES ('gog_1207658924', 'abc')");
+        }
+
+        Assert.Equal(CloudSaveState.Unknown, Reader().Read("1207658924"));
+    }
+
+    [Fact]
+    public void Old_copies_left_by_a_crash_are_removed_and_recent_ones_and_other_folders_are_kept()
+    {
+        CreateDb(false, ("gog_1207658924", 1));
+        var stale = Directory.CreateDirectory(_temp.Combine("cloud-stale")).FullName;
+        File.WriteAllText(Path.Combine(stale, "galaxy-2.0.db"), "x");
+        Directory.SetLastWriteTimeUtc(stale, DateTime.UtcNow.AddHours(-2));
+        var recent = Directory.CreateDirectory(_temp.Combine("cloud-recent")).FullName;
+        var other = Directory.CreateDirectory(_temp.Combine("not-ours")).FullName;
+        Directory.SetLastWriteTimeUtc(other, DateTime.UtcNow.AddHours(-2));
+
+        Reader().Read("1207658924");
+
+        Assert.False(Directory.Exists(stale));
+        Assert.True(Directory.Exists(recent));
+        Assert.True(Directory.Exists(other));
     }
 
     [Fact]

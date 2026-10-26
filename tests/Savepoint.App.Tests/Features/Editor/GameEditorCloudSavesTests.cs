@@ -7,47 +7,51 @@ namespace Savepoint.App.Tests.Features.Editor;
 // The note about a store's cloud saves depends on what the store reports for the game; it is asked in the background.
 public class GameEditorCloudSavesTests
 {
+    private const string _steamOn = "Steam Cloud is on for this game. Steam keeps saves that SavePoint changes, but brings back saves that SavePoint removed, so going back to before a save may not stick. If Steam asks which saves to keep, choose \"Local Save\".";
+    private const string _gogOn = "Cloud saves are on for this game in GOG Galaxy. Galaxy keeps saves that SavePoint changes, but brings back saves that SavePoint removed, so going back to before a save may not stick. To avoid that, turn off cloud saves for this game in Galaxy.";
+    private const string _unknown = "If this game's store syncs cloud saves, it can bring back saves that SavePoint removed. Turn off cloud saves for this game in its store to be safe.";
+
     private static FakeGamesApi Games(EditorRig rig) => Assert.IsType<FakeGamesApi>(rig.Backend.Games);
 
-    [Fact]
-    public async Task When_the_store_keeps_the_saves_the_note_says_what_happens_and_what_to_choose()
+    private static async Task<string> NoteAsync(CloudSaveInfo info)
     {
         var rig = EditorRig.Create();
-        Games(rig).CloudSaves[SampleScenario.SkyrimId] = CloudSaveState.On;
+        Games(rig).CloudSaves[SampleScenario.SkyrimId] = info;
 
         var editor = rig.Edit();
         await editor.LoadAsync();
 
-        Assert.True(editor.HasCloudSavesNote);
-        Assert.Equal(
-            "The store keeps the saves SavePoint puts back and uploads them when you quit. If you also play on another PC, Steam may ask which saves to keep: choose \"Local Save\" to keep these, because \"Cloud Save\" replaces them.",
-            editor.CloudSavesNote);
+        Assert.Equal(editor.CloudSavesNote.Length > 0, editor.HasCloudSavesNote);
+        return editor.CloudSavesNote;
     }
 
     [Fact]
-    public async Task When_the_store_does_not_keep_the_saves_there_is_no_note()
+    public async Task When_steam_keeps_the_saves_the_note_names_steam_and_what_to_choose()
     {
-        var rig = EditorRig.Create();
-        Games(rig).CloudSaves[SampleScenario.SkyrimId] = CloudSaveState.Off;
-
-        var editor = rig.Edit();
-        await editor.LoadAsync();
-
-        Assert.False(editor.HasCloudSavesNote);
-        Assert.Equal(string.Empty, editor.CloudSavesNote);
+        Assert.Equal(_steamOn, await NoteAsync(new CloudSaveInfo(CloudSaveState.On, CloudStore.Steam)));
     }
 
     [Fact]
-    public async Task When_the_state_is_unknown_the_note_gives_softer_advice()
+    public async Task When_gog_galaxy_keeps_the_saves_the_note_names_galaxy_and_how_to_turn_it_off()
     {
-        var rig = EditorRig.Create();
-        Games(rig).CloudSaves[SampleScenario.SkyrimId] = CloudSaveState.Unknown;
+        Assert.Equal(_gogOn, await NoteAsync(new CloudSaveInfo(CloudSaveState.On, CloudStore.Gog)));
+    }
 
-        var editor = rig.Edit();
-        await editor.LoadAsync();
+    [Theory]
+    [InlineData(CloudStore.Steam)]
+    [InlineData(CloudStore.Gog)]
+    public async Task When_the_store_does_not_keep_the_saves_there_is_no_note(CloudStore store)
+    {
+        Assert.Equal(string.Empty, await NoteAsync(new CloudSaveInfo(CloudSaveState.Off, store)));
+    }
 
-        Assert.StartsWith("SavePoint can't tell if this game's store keeps cloud saves.", editor.CloudSavesNote);
-        Assert.DoesNotContain("Local Save", editor.CloudSavesNote, StringComparison.Ordinal);
+    [Theory]
+    [InlineData(CloudStore.None)]
+    [InlineData(CloudStore.Steam)]
+    [InlineData(CloudStore.Gog)]
+    public async Task When_the_state_is_unknown_the_note_gives_softer_advice(CloudStore store)
+    {
+        Assert.Equal(_unknown, await NoteAsync(new CloudSaveInfo(CloudSaveState.Unknown, store)));
     }
 
     [Fact]
@@ -59,7 +63,7 @@ public class GameEditorCloudSavesTests
         var editor = rig.Edit();
         await editor.LoadAsync();
 
-        Assert.StartsWith("SavePoint can't tell", editor.CloudSavesNote);
+        Assert.Equal(_unknown, editor.CloudSavesNote);
     }
 
     [Fact]
@@ -69,16 +73,16 @@ public class GameEditorCloudSavesTests
 
         var editor = rig.New();
 
-        Assert.StartsWith("SavePoint can't tell", editor.CloudSavesNote);
+        Assert.Equal(_unknown, editor.CloudSavesNote);
         Assert.Empty(rig.Calls(nameof(IGamesApi.GetCloudSavesAsync)));
     }
 
     [Fact]
-    public async Task The_note_is_hidden_until_the_answer_arrives_and_the_load_does_not_wait_for_it_on_the_caller()
+    public async Task The_note_stays_hidden_while_the_check_is_pending_and_the_load_finishes_when_it_answers()
     {
         var rig = EditorRig.Create();
         var release = new TaskCompletionSource();
-        Games(rig).CloudSaves[SampleScenario.SkyrimId] = CloudSaveState.On;
+        Games(rig).CloudSaves[SampleScenario.SkyrimId] = new CloudSaveInfo(CloudSaveState.On, CloudStore.Steam);
         Games(rig).CloudSavesGate = () => release.Task;
 
         var editor = rig.Edit();

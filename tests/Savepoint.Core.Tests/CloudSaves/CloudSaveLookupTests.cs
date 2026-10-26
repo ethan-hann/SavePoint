@@ -27,7 +27,7 @@ public class CloudSaveLookupTests
         SteamAppId = steamAppId,
     };
 
-    private static CloudSaveState Read(CloudSaveLookup lookup, GameDefinition game) =>
+    private static CloudSaveInfo Read(CloudSaveLookup lookup, GameDefinition game) =>
         lookup.Read(game, game.Install.Path, StringComparison.Ordinal);
 
     [Fact]
@@ -38,7 +38,7 @@ public class CloudSaveLookupTests
 
         var state = Read(new CloudSaveLookup(steam, galaxy), Game("/games/g", 730));
 
-        Assert.Equal(CloudSaveState.On, state);
+        Assert.Equal(new CloudSaveInfo(CloudSaveState.On, CloudStore.Steam), state);
         Assert.Equal(["730"], steam.Asked);
         Assert.Empty(galaxy.Asked);
     }
@@ -53,7 +53,7 @@ public class CloudSaveLookupTests
 
         var state = Read(new CloudSaveLookup(steam, galaxy), Game(install.Path));
 
-        Assert.Equal(CloudSaveState.Off, state);
+        Assert.Equal(new CloudSaveInfo(CloudSaveState.Off, CloudStore.Gog), state);
         Assert.Equal(["1207658924"], galaxy.Asked);
         Assert.Empty(steam.Asked);
     }
@@ -64,7 +64,7 @@ public class CloudSaveLookupTests
         using var install = new TempFolder();
         install.WriteText("goggame-1207658924.info", "{ \"gameId\": \"1207658924\", \"rootGameId\": \"1207658924\", \"playTasks\": [{}] }");
 
-        Assert.Equal(CloudSaveState.Unknown, Read(new CloudSaveLookup(new Scripted(CloudSaveState.On), null), Game(install.Path)));
+        Assert.Equal(new CloudSaveInfo(CloudSaveState.Unknown, CloudStore.Gog), Read(new CloudSaveLookup(new Scripted(CloudSaveState.On), null), Game(install.Path)));
     }
 
     [Fact]
@@ -77,7 +77,7 @@ public class CloudSaveLookupTests
 
         var state = Read(new CloudSaveLookup(steam, null), Game(install));
 
-        Assert.Equal(CloudSaveState.On, state);
+        Assert.Equal(new CloudSaveInfo(CloudSaveState.On, CloudStore.Steam), state);
         Assert.Equal(["220"], steam.Asked);
     }
 
@@ -87,7 +87,7 @@ public class CloudSaveLookupTests
         using var install = new TempFolder();
         var steam = new Scripted(CloudSaveState.On);
 
-        Assert.Equal(CloudSaveState.Unknown, Read(new CloudSaveLookup(steam, new Scripted(CloudSaveState.On)), Game(install.Path)));
+        Assert.Equal(new CloudSaveInfo(CloudSaveState.Unknown, CloudStore.None), Read(new CloudSaveLookup(steam, new Scripted(CloudSaveState.On)), Game(install.Path)));
         Assert.Empty(steam.Asked);
     }
 
@@ -98,6 +98,6 @@ public class CloudSaveLookupTests
         install.WriteText("goggame-1207658924.info", "{ \"gameId\": \"1207658924\", \"rootGameId\": \"1207658924\", \"playTasks\": [{}] }");
         var steam = new Scripted(CloudSaveState.Off);
 
-        Assert.Equal(CloudSaveState.Off, Read(new CloudSaveLookup(steam, new Scripted(CloudSaveState.On)), Game(install.Path, 730)));
+        Assert.Equal(new CloudSaveInfo(CloudSaveState.Off, CloudStore.Steam), Read(new CloudSaveLookup(steam, new Scripted(CloudSaveState.On)), Game(install.Path, 730)));
     }
 }

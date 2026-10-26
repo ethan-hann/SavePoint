@@ -18,7 +18,7 @@ public sealed partial class GameEditorViewModel
     {
         if (_saved is null)
         {
-            ShowCloudSaves(CloudSaveState.Unknown);
+            ShowCloudSaves(new CloudSaveInfo(CloudSaveState.Unknown, CloudStore.None));
         }
     }
 
@@ -31,14 +31,15 @@ public sealed partial class GameEditorViewModel
         }
 
         var read = await _games.GetCloudSavesAsync(_saved.Id);
-        ShowCloudSaves(read.Ok ? read.Value : CloudSaveState.Unknown);
+        ShowCloudSaves(read.Ok ? read.Value : new CloudSaveInfo(CloudSaveState.Unknown, CloudStore.None));
     }
 
-    private void ShowCloudSaves(CloudSaveState state) =>
-        CloudSavesNote = state switch
+    private void ShowCloudSaves(CloudSaveInfo info) =>
+        CloudSavesNote = (info.State, info.Store) switch
         {
-            CloudSaveState.On => _text.Message("gameEditor.cloudSaves.on"),
-            CloudSaveState.Unknown => _text.Message("gameEditor.cloudSaves.unknown"),
-            _ => string.Empty,
+            (CloudSaveState.On, CloudStore.Steam) => _text.Message("gameEditor.cloudSaves.on.steam"),
+            (CloudSaveState.On, CloudStore.Gog) => _text.Message("gameEditor.cloudSaves.on.gog"),
+            (CloudSaveState.Off, _) => string.Empty,
+            _ => _text.Message("gameEditor.cloudSaves.unknown"),
         };
 }

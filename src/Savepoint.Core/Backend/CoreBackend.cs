@@ -83,7 +83,7 @@ public sealed class CoreBackend
             ? new GalaxyCloudReader(
                 options.GalaxyProgramData ?? Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
                 options.GalaxyLocalAppData ?? Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                Path.GetTempPath())
+                options.GalaxyTempFolder ?? Path.Combine(Path.GetTempPath(), "savepoint-galaxy-copies"))
             : null;
 
     /// <summary>Builds the backend.</summary>
@@ -131,7 +131,7 @@ public sealed class CoreBackend
         var steam = options.SteamFolder ?? SteamFolderLocator.ForPlatform(platform);
         var gog = options.GogInstalls ?? (OperatingSystem.IsWindows() ? new WindowsGogRegistry() : null);
         var sources = new LibrarySources(steam, gog, options.Templates ?? GameTemplates.All);
-        var cloudSaves = new CloudSaveLookup(new SteamCloudReader(steam), GalaxyReader(options));
+        var cloudSaves = new CloudSaveLookup(new SteamCloudReader(steam, options.SteamActiveUser ?? (OperatingSystem.IsWindows() ? WindowsSteamRegistry.ReadActiveUser : null)), GalaxyReader(options));
 
         return new CoreBackend(
             services,

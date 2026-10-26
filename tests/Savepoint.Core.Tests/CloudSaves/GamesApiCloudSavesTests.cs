@@ -46,7 +46,7 @@ public class GamesApiCloudSavesTests : IDisposable
 
         var state = await workspace.Games.GetCloudSavesAsync(game.Id, workspace.Token);
 
-        Assert.Equal(CloudSaveState.On, state.Value);
+        Assert.Equal(new CloudSaveInfo(CloudSaveState.On, CloudStore.Steam), state.Value);
     }
 
     [Fact]
@@ -62,7 +62,7 @@ public class GamesApiCloudSavesTests : IDisposable
 
         var state = await workspace.Games.GetCloudSavesAsync(game.Id, workspace.Token);
 
-        Assert.Equal(OperatingSystem.IsWindows() ? CloudSaveState.Off : CloudSaveState.Unknown, state.Value);
+        Assert.Equal(new CloudSaveInfo(OperatingSystem.IsWindows() ? CloudSaveState.Off : CloudSaveState.Unknown, CloudStore.Gog), state.Value);
     }
 
     [Fact]

@@ -15,25 +15,26 @@ internal sealed class CloudSaveLookup(IStoreCloudReader? steam, IStoreCloudReade
     /// <param name="game">The game.</param>
     /// <param name="installPath">The game's install folder with tokens resolved, or null when it has none.</param>
     /// <param name="pathComparison">How this system compares paths.</param>
-    public CloudSaveState Read(GameDefinition game, string? installPath, StringComparison pathComparison)
+    public CloudSaveInfo Read(GameDefinition game, string? installPath, StringComparison pathComparison)
     {
         ArgumentNullException.ThrowIfNull(game);
 
         // The same order the artwork lookup uses: an id the user stored, then the GOG product the installer left, then a Steam id only detected.
         if (game.SteamAppId is { } stored)
         {
-            return Ask(steam, stored.ToString(CultureInfo.InvariantCulture));
+            return Ask(steam, stored.ToString(CultureInfo.InvariantCulture), CloudStore.Steam);
         }
 
         if (GogProductIdDetector.Detect(installPath) is { } product)
         {
-            return Ask(galaxy, product);
+            return Ask(galaxy, product, CloudStore.Gog);
         }
 
         return SteamAppIdDetector.Detect(game, installPath, pathComparison) is { } detected
-            ? Ask(steam, detected.ToString(CultureInfo.InvariantCulture))
-            : CloudSaveState.Unknown;
+            ? Ask(steam, detected.ToString(CultureInfo.InvariantCulture), CloudStore.Steam)
+            : new CloudSaveInfo(CloudSaveState.Unknown, CloudStore.None);
     }
 
-    private static CloudSaveState Ask(IStoreCloudReader? reader, string id) => reader?.Read(id) ?? CloudSaveState.Unknown;
+    private static CloudSaveInfo Ask(IStoreCloudReader? reader, string id, CloudStore store) =>
+        new(reader?.Read(id) ?? CloudSaveState.Unknown, store);
 }

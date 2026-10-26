@@ -6,13 +6,27 @@ namespace Savepoint.Core.CloudSaves;
 
 /// <summary>
 /// Reads GOG Galaxy's cloud-save settings: the global switch in <c>config.json</c> and the per-game flag in <c>galaxy-2.0.db</c>. Galaxy
-/// keeps its database open, so the database (with its <c>-wal</c> and <c>-shm</c> files) is copied to a private folder, the copy is
-/// opened read-only and deleted, and the live files are only ever read.
+/// keeps its database open, so the database and its <c>-wal</c> file are copied to a private folder, the copy is opened read-only and
+/// deleted, and the live files are only ever read. The copy is trusted only if the live files did not change while it was made. The
+/// flags of all games are kept for the session and reused while the live files keep the same size and time.
 /// </summary>
-internal sealed class GalaxyCloudReader(string? programData, string? localAppData, string tempRoot) : IStoreCloudReader
+/// <param name="programData">The machine-wide application data folder (<c>C:\ProgramData</c>); null when there is none.</param>
+/// <param name="localAppData">The local application data folder; null when there is none.</param>
+/// <param name="tempRoot">A folder SavePoint owns, where copies are made. Copies left behind by a crash are removed from it.</param>
+/// <param name="duringCopy">Called after each copy is made, with the copy's folder and the attempt number; tests use it to change the live files at that moment.</param>
+internal sealed class GalaxyCloudReader(string? programData, string? localAppData, string tempRoot, Action<string, int>? duringCopy = null) : IStoreCloudReader
 {
     private const string _databaseName = "galaxy-2.0.db";
     private const long _configLimit = 1024 * 1024;
+
+    // A crashed run leaves a copy; one this old cannot belong to a copy still being made, here or in another running SavePoint.
+    private static readonly TimeSpan _leftoverAge = TimeSpan.FromMinutes(10);
+
+    private readonly object _gate = new();
+    private (Fingerprint Files, Dictionary<string, CloudSaveState> Flags)? _cache;
+
+    /// <summary>How many times the database was copied; a read answered from the session's memory makes none.</summary>
+    public int CopiesMade { get; private set; }
 
     public CloudSaveState Read(string storeGameId)
     {
@@ -34,9 +48,22 @@ internal sealed class GalaxyCloudReader(string? programData, string? localAppDat
             }
 
             var database = Path.Combine(programData, "GOG.com", "Galaxy", "storage", _databaseName);
-            return File.Exists(database) ? ReadFromCopy(database, storeGameId) : CloudSaveState.Unknown;
+            if (!File.Exists(database))
+            {
+                return CloudSaveState.Unknown;
+            }
+
+            Dictionary<string, CloudSaveState>? flags;
+            lock (_gate)
+            {
+                flags = Snapshot(database);
+            }
+
+            // A fresh install creates a game's row with cloud on, so no row means Galaxy does not manage this game's saves.
+            return flags is null ? CloudSaveState.Unknown : flags.GetValueOrDefault("gog_" + storeGameId, CloudSaveState.Off);
         }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException or SqliteException)
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException or SqliteException
+            or InvalidCastException or DllNotFoundException or TypeInitializationException or BadImageFormatException or InvalidOperationException)
         {
             return CloudSaveState.Unknown;
         }
@@ -52,13 +79,12 @@ internal sealed class GalaxyCloudReader(string? programData, string? localAppDat
 
         try
         {
-            var file = new FileInfo(Path.Combine(localAppData, "GOG.com", "Galaxy", "Configuration", "config.json"));
-            if (!file.Exists || file.Length > _configLimit)
+            if (SharedFile.ReadText(Path.Combine(localAppData, "GOG.com", "Galaxy", "Configuration", "config.json"), _configLimit) is not { } text)
             {
                 return false;
             }
 
-            using var document = JsonDocument.Parse(File.ReadAllBytes(file.FullName), new JsonDocumentOptions { AllowTrailingCommas = true });
+            using var document = JsonDocument.Parse(text, new JsonDocumentOptions { AllowTrailingCommas = true });
             return document.RootElement.ValueKind == JsonValueKind.Object
                 && document.RootElement.TryGetProperty("featureCloudSaves", out var feature)
                 && feature.ValueKind == JsonValueKind.False;
@@ -69,38 +95,60 @@ internal sealed class GalaxyCloudReader(string? programData, string? localAppDat
         }
     }
 
-    private CloudSaveState ReadFromCopy(string database, string productId)
+    // Called with the gate held. Null when the live files would not hold still long enough to copy.
+    private Dictionary<string, CloudSaveState>? Snapshot(string database)
     {
-        var folder = Path.Combine(tempRoot, "cloud-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(folder);
-        try
+        SweepLeftovers();
+        for (var attempt = 0; attempt < 2; attempt++)
         {
-            var copy = Path.Combine(folder, _databaseName);
-            foreach (var suffix in new[] { string.Empty, "-wal", "-shm" })
+            var before = Fingerprint.Of(database);
+            if (attempt == 0 && _cache is { } known && known.Files.SameFiles(before))
             {
-                if (File.Exists(database + suffix))
-                {
-                    CopyShared(database + suffix, copy + suffix);
-                }
+                return known.Flags;
             }
 
-            return Query(copy, productId);
+            var folder = Path.Combine(tempRoot, "cloud-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(folder);
+            try
+            {
+                var copy = Path.Combine(folder, _databaseName);
+                CopyShared(database, copy);
+                if (File.Exists(database + "-wal"))
+                {
+                    CopyShared(database + "-wal", copy + "-wal");
+                }
+
+                CopiesMade++;
+                duringCopy?.Invoke(folder, attempt);
+
+                // Size and time can match after a write; the header's change counter cannot.
+                if (Fingerprint.Of(database) != before)
+                {
+                    continue;
+                }
+
+                var flags = Query(copy);
+                _cache = (before, flags);
+                return flags;
+            }
+            finally
+            {
+                DeleteFolder(folder);
+            }
         }
-        finally
-        {
-            DeleteFolder(folder);
-        }
+
+        return null;
     }
 
     // Galaxy has the files open; share-friendly reading lets the copy succeed while it runs.
     private static void CopyShared(string from, string to)
     {
-        using var source = new FileStream(from, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var source = SharedFile.OpenRead(from);
         using var target = new FileStream(to, FileMode.CreateNew, FileAccess.Write, FileShare.None);
         source.CopyTo(target);
     }
 
-    private static CloudSaveState Query(string copy, string productId)
+    private static Dictionary<string, CloudSaveState> Query(string copy)
     {
         using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
         {
@@ -110,27 +158,46 @@ internal sealed class GalaxyCloudReader(string? programData, string? localAppDat
         }.ToString());
         connection.Open();
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT cloudStorage FROM ProductSettings WHERE gameReleaseKey = $key";
-        command.Parameters.AddWithValue("$key", "gog_" + productId);
+        command.CommandText = "SELECT gameReleaseKey, cloudStorage FROM ProductSettings WHERE gameReleaseKey LIKE 'gog\\_%' ESCAPE '\\'";
         using var reader = command.ExecuteReader();
-
-        // A game Galaxy keeps no settings row for has cloud saves off.
-        if (!reader.Read())
+        var flags = new Dictionary<string, CloudSaveState>(StringComparer.Ordinal);
+        while (reader.Read())
         {
-            return CloudSaveState.Off;
+            if (reader.GetValue(0) is string key)
+            {
+                flags[key] = reader.GetValue(1) switch
+                {
+                    1L => CloudSaveState.On,
+                    0L => CloudSaveState.Off,
+                    _ => CloudSaveState.Unknown,
+                };
+            }
         }
 
-        if (reader.IsDBNull(0))
-        {
-            return CloudSaveState.Unknown;
-        }
+        return flags;
+    }
 
-        return reader.GetInt64(0) switch
+    private void SweepLeftovers()
+    {
+        try
         {
-            1 => CloudSaveState.On,
-            0 => CloudSaveState.Off,
-            _ => CloudSaveState.Unknown,
-        };
+            if (!Directory.Exists(tempRoot))
+            {
+                return;
+            }
+
+            foreach (var folder in Directory.EnumerateDirectories(tempRoot, "cloud-*"))
+            {
+                if (DateTime.UtcNow - Directory.GetLastWriteTimeUtc(folder) > _leftoverAge)
+                {
+                    DeleteFolder(folder);
+                }
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // A folder that cannot be listed now is looked at on a later read.
+        }
     }
 
     private static void DeleteFolder(string folder)
@@ -141,7 +208,33 @@ internal sealed class GalaxyCloudReader(string? programData, string? localAppDat
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            // A copy that cannot be removed now is left in the temp folder; it holds only settings.
+            // A copy that cannot be removed now is Galaxy's whole database; the next read sweeps it once it is old enough.
         }
+    }
+
+    // What identifies the live files at one moment: size and time of the database and its log, and the database header's change counter.
+    private readonly record struct Fingerprint(long DbLength, long DbTicks, long WalLength, long WalTicks, uint Counter)
+    {
+        public static Fingerprint Of(string database)
+        {
+            var db = new FileInfo(database);
+            var wal = new FileInfo(database + "-wal");
+            var counter = new byte[4];
+            using (var stream = SharedFile.OpenRead(database))
+            {
+                stream.Position = 24;
+                stream.ReadExactly(counter);
+            }
+
+            return new Fingerprint(
+                db.Length,
+                db.LastWriteTimeUtc.Ticks,
+                wal.Exists ? wal.Length : 0,
+                wal.Exists ? wal.LastWriteTimeUtc.Ticks : 0,
+                System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(counter));
+        }
+
+        public bool SameFiles(Fingerprint other) =>
+            DbLength == other.DbLength && DbTicks == other.DbTicks && WalLength == other.WalLength && WalTicks == other.WalTicks;
     }
 }

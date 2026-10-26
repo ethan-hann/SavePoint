@@ -71,6 +71,18 @@ public sealed record BackendOptions
     public string? GalaxyLocalAppData { get; init; }
 
     /// <summary>
+    /// Reads the account id of the signed-in Steam user, which names the account's <c>userdata</c> folder; the Windows registry reader on
+    /// Windows and nothing elsewhere when null. Tests pass a function of their own so none reads the real machine.
+    /// </summary>
+    public Func<uint?>? SteamActiveUser { get; init; }
+
+    /// <summary>
+    /// The folder copies of Galaxy's database are made in while it is read. A <c>savepoint-galaxy-copies</c> folder in the system's temp
+    /// folder when null. Tests pass a folder of their own.
+    /// </summary>
+    public string? GalaxyTempFolder { get; init; }
+
+    /// <summary>
     /// Where the backend records startup checks, failed calls, jobs, launch sessions, storage moves and failed git commands (D34);
     /// nothing is written when null. The backend shields itself from a log that throws.
     /// </summary>

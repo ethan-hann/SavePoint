@@ -200,17 +200,17 @@ public sealed class FakeGamesApi : IGamesApi
         });
 
     // What a test says each game's store reports; a game not listed is unknown, as the real Api answers for a store it cannot read.
-    public Dictionary<string, CloudSaveState> CloudSaves { get; } = [];
+    public Dictionary<string, CloudSaveInfo> CloudSaves { get; } = [];
 
     // A test sets this to hold the answer, as a slow disk would.
     public Func<Task>? CloudSavesGate { get; set; }
 
-    public async Task<OperationResult<CloudSaveState>> GetCloudSavesAsync(string gameId, CancellationToken cancellationToken = default)
+    public async Task<OperationResult<CloudSaveInfo>> GetCloudSavesAsync(string gameId, CancellationToken cancellationToken = default)
     {
         var answer = await _backend.Call(_api, nameof(GetCloudSavesAsync), [gameId], () =>
         {
             State.Game(gameId);
-            return OperationResult.Success(CloudSaves.GetValueOrDefault(gameId));
+            return OperationResult.Success(CloudSaves.GetValueOrDefault(gameId) ?? new CloudSaveInfo(CloudSaveState.Unknown, CloudStore.None));
         });
         if (CloudSavesGate is { } gate)
         {

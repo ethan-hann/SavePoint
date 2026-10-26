@@ -34,6 +34,8 @@ internal static class ContractScenario
         story.Add("folder status", Show(await backend.Games.GetFolderStatusAsync(game.Id, cancellationToken), statuses =>
             string.Join("; ", statuses.Select(s => $"{s.Role} exists={s.Exists} confirmed={s.Consent.Confirmed}"))));
 
+        story.Add("cloud saves", Show(await backend.Games.GetCloudSavesAsync(game.Id, cancellationToken), info => $"{info.State} from {info.Store}"));
+
         var created = await backend.Profiles.CreateAsync(game.Id, "Vanilla", "no mods", "Fresh install");
         story.Add("create profile", Show(created, _ => "capture started"));
         var vanilla = await FinishCaptureAsync(backend, story, created, cancellationToken);
@@ -63,6 +65,7 @@ internal static class ContractScenario
         story.Add("profiles after delete", Show(await backend.Profiles.ListAsync(game.Id, cancellationToken), profiles => string.Join(", ", profiles.Select(p => p.Name))));
 
         story.Add("unknown game", Show(await backend.Games.GetFolderStatusAsync("no-such-game", cancellationToken), _ => "unexpected success"));
+        story.Add("cloud saves of an unknown game", Show(await backend.Games.GetCloudSavesAsync("no-such-game", cancellationToken), _ => "unexpected success"));
         story.Add("unknown game for history", Show(await backend.History.GetAsync("no-such-game", null, cancellationToken), _ => "unexpected success"));
         story.Add("unknown profile", Show(await backend.Profiles.UpdateAsync(game.Id, "no-such-profile", new ProfileChanges("x", null, null)), _ => "unexpected success"));
         story.Add("unknown profile on delete", Show(await backend.Profiles.DeleteAsync(game.Id, "no-such-profile"), _ => "unexpected success"));

@@ -322,6 +322,11 @@ internal sealed class BackendWorkspace : IDisposable
             SteamFolder = new Savepoint.Core.Tests.Artwork.FixedSteamFolder(null),
             GogGalaxyCache = new Savepoint.Core.Tests.Artwork.FixedGogGalaxyCache(null),
             GogInstalls = new Savepoint.Core.Tests.Library.FakeGogInstalls(null),
+            // Nor Steam's registry or Galaxy's folders; these stay empty unless a test fills them.
+            SteamActiveUser = () => null,
+            GalaxyProgramData = Path.Combine(Root, "galaxy", "program-data"),
+            GalaxyLocalAppData = Path.Combine(Root, "galaxy", "local-app-data"),
+            GalaxyTempFolder = Path.Combine(Root, "galaxy", "copies"),
         };
         return CoreBackend.Create(_configure is null ? options : _configure(options));
     }
