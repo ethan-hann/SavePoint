@@ -56,6 +56,20 @@ public sealed partial class GitEngine
         _options = options ?? new GitEngineOptions();
     }
 
+    // A view of another engine that shares everything with it.
+    private GitEngine(GitEngine other, bool repairsIndex)
+    {
+        _runner = other._runner;
+        _pathSafety = other._pathSafety;
+        _freeSpace = other._freeSpace;
+        _storageRoot = other._storageRoot;
+        _options = other._options;
+        _inFlight = other._inFlight;
+        _classifying = other._classifying;
+        _repairGate = other._repairGate;
+        _repairsIndex = repairsIndex;
+    }
+
     // Absolute, separator-trimmed paths; a git directory that overlaps the work tree is a caller bug, not a runtime condition.
     private RepoRef Normalize(RepoRef repo)
     {

@@ -27,6 +27,11 @@ public sealed class StorageSnapshot
     /// <summary>The git engine whose writes are judged by <see cref="PathSafety"/>.</summary>
     public GitEngine Engine { get; }
 
+    // The same storage for work that holds a game's lock, whose engine may repair a damaged index.
+    internal StorageSnapshot ForGameLockHolder() => _lockHolder ??= new StorageSnapshot(Root, PathSafety, Engine.ForGameLockHolder());
+
+    private StorageSnapshot? _lockHolder;
+
     /// <summary>The folder that holds both git directories of a game: <c>&lt;root&gt;/&lt;gameId&gt;</c>.</summary>
     /// <param name="gameId">The game's id.</param>
     /// <exception cref="ArgumentException">The id is not one the catalog accepts, so it could name a place outside the root: a rooted path, a separator, a dot segment.</exception>

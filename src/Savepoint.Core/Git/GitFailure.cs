@@ -15,6 +15,10 @@ internal static class GitFailure
         || standardError.Contains("There is not enough space on the disk", StringComparison.Ordinal)
         || standardError.Contains("Disk quota exceeded", StringComparison.Ordinal);
 
+    public static bool IsAccessDenied(string standardError) =>
+        standardError.Contains("Permission denied", StringComparison.Ordinal)
+        || standardError.Contains("Access is denied", StringComparison.Ordinal);
+
     // git's index file (the list of what the last snapshot held) is empty, short or unreadable, which is what a power loss right after a
     // write leaves behind. The phrases are the whole sentence git prints for the index itself; a pack index says "is too small".
     public static bool IsIndexDamage(string standardError) =>

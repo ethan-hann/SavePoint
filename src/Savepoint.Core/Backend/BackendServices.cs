@@ -134,7 +134,7 @@ public sealed class BackendServices
             async handle =>
             {
                 using var lease = await Storage.Gate.EnterSharedAsync(cancellationToken).ConfigureAwait(false);
-                var storage = await Storage.GetAsync(cancellationToken).ConfigureAwait(false);
+                var storage = (await Storage.GetAsync(cancellationToken).ConfigureAwait(false)).ForGameLockHolder();
 
                 // A reclaim that outlived a SavePoint that was killed would delete packs a write relies on.
                 await storage.SettleReclaimsAsync(gameId, cancellationToken).ConfigureAwait(false);

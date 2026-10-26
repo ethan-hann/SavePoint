@@ -12,10 +12,17 @@ public sealed class IndexRepairTests : IDisposable
     private const string _damagedId = "error.gitOperation.recordDamaged";
 
     private readonly EngineWorkspace _ws = new();
+    private readonly GitEngine _locked;
+
+    public IndexRepairTests() => _locked = _ws.Engine.ForGameLockHolder();
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     public void Dispose() => _ws.Dispose();
+
+    // The work that holds the game's lock is the only work that repairs.
+    private Task<CaptureOutcome> CaptureAsync(RepoRef repo, string message) =>
+        _locked.CaptureAsync(repo, new CaptureRequest("profile-1", message, Guid.NewGuid().ToString()) { IgnorePatterns = [] }, null, Ct);
 
     private static string IndexOf(RepoRef repo) => Path.Combine(repo.GitDir, "index");
 
@@ -54,7 +61,7 @@ public sealed class IndexRepairTests : IDisposable
         };
         damageIndex();
 
-        var failure = await Record.ExceptionAsync(() => _ws.CaptureAsync(repo, "profile-1", "After the power cut"));
+        var failure = await Record.ExceptionAsync(() => CaptureAsync(repo, "After the power cut"));
 
         Assert.Null(failure);
         Assert.Equal(["a.txt", "b.txt", "c.txt"], (await _ws.TreeAsync(repo, "profile-1")).Order());
@@ -69,7 +76,7 @@ public sealed class IndexRepairTests : IDisposable
         var damaged = File.ReadAllBytes(IndexOf(repo))[..20];
         File.WriteAllBytes(IndexOf(repo), damaged);
 
-        var failure = await Record.ExceptionAsync(() => _ws.CaptureAsync(repo, "profile-1", "After the power cut"));
+        var failure = await Record.ExceptionAsync(() => CaptureAsync(repo, "After the power cut"));
 
         Assert.Null(failure);
         var backup = Assert.Single(Backups(repo));
@@ -83,7 +90,7 @@ public sealed class IndexRepairTests : IDisposable
         var (repo, points) = await _ws.ThreePointsRepoAsync();
         Empty(repo);
 
-        var failure = await Record.ExceptionAsync(() => _ws.Engine.CheckoutCommitAsync(repo, points[0], ct: Ct));
+        var failure = await Record.ExceptionAsync(() => _locked.CheckoutCommitAsync(repo, points[0], ct: Ct));
 
         Assert.Null(failure);
         Assert.Equal("one", await File.ReadAllTextAsync(_ws.FileOf(repo, "a.txt"), Ct));
@@ -98,7 +105,7 @@ public sealed class IndexRepairTests : IDisposable
         Empty(repo);
         var before = TreeSnapshot.Take(repo.WorkTree);
 
-        var failure = await Record.ExceptionAsync(() => _ws.CaptureAsync(repo, "profile-1", "First"));
+        var failure = await Record.ExceptionAsync(() => CaptureAsync(repo, "First"));
 
         Assert.Null(failure);
         Assert.Equal(["a.txt"], await _ws.TreeAsync(repo, "profile-1"));
@@ -114,7 +121,7 @@ public sealed class IndexRepairTests : IDisposable
         Empty(repo);
 
         RepoStatus? status = null;
-        var failure = await Record.ExceptionAsync(async () => status = await _ws.Engine.GetStatusAsync(repo, Ct));
+        var failure = await Record.ExceptionAsync(async () => status = await _locked.GetStatusAsync(repo, Ct));
 
         Assert.Null(failure);
         Assert.NotNull(status);
@@ -131,7 +138,7 @@ public sealed class IndexRepairTests : IDisposable
         Empty(repo);
         var before = TreeSnapshot.Take(repo.WorkTree);
 
-        var error = await Assert.ThrowsAsync<RepositoryDamagedException>(() => _ws.Engine.ListCaptureCandidatesAsync(repo, [], Ct));
+        var error = await Assert.ThrowsAsync<RepositoryDamagedException>(() => _locked.ListCaptureCandidatesAsync(repo, [], Ct));
 
         Assert.Equal(_damagedId, error.MessageId);
         Assert.Equal(before, TreeSnapshot.Take(repo.WorkTree));
@@ -146,7 +153,7 @@ public sealed class IndexRepairTests : IDisposable
         File.WriteAllBytes(Path.Combine(repo.GitDir, "refs", "heads", "profile-1"), []);
         Empty(repo);
 
-        await Assert.ThrowsAsync<RepositoryDamagedException>(() => _ws.Engine.ListCaptureCandidatesAsync(repo, [], Ct));
+        await Assert.ThrowsAsync<RepositoryDamagedException>(() => _locked.ListCaptureCandidatesAsync(repo, [], Ct));
 
         Assert.Empty(Backups(repo));
         Assert.Equal(0, new FileInfo(IndexOf(repo)).Length);
@@ -160,7 +167,7 @@ public sealed class IndexRepairTests : IDisposable
         Assert.False(File.Exists(Path.Combine(repo.GitDir, "refs", "heads", "profile-1")), "the ref should now be packed");
         Empty(repo);
 
-        await _ws.Engine.ListCaptureCandidatesAsync(repo, [], Ct);
+        await _locked.ListCaptureCandidatesAsync(repo, [], Ct);
 
         Assert.Equal(["a.txt", "b.txt"], (await _ws.GitOutAsync(repo, "ls-files")).Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Order());
     }
@@ -174,7 +181,7 @@ public sealed class IndexRepairTests : IDisposable
         Empty(repo);
         var before = TreeSnapshot.Take(repo.WorkTree);
 
-        var error = await Record.ExceptionAsync(() => _ws.CaptureAsync(repo, "profile-1", "After the power cut"));
+        var error = await Record.ExceptionAsync(() => CaptureAsync(repo, "After the power cut"));
 
         var damaged = Assert.IsType<RepositoryDamagedException>(error);
         Assert.Equal(_damagedId, damaged.MessageId);
@@ -199,7 +206,7 @@ public sealed class IndexRepairTests : IDisposable
             }
         };
 
-        var error = await Assert.ThrowsAsync<RepositoryDamagedException>(() => _ws.Engine.GetStatusAsync(repo, Ct));
+        var error = await Assert.ThrowsAsync<RepositoryDamagedException>(() => _locked.GetStatusAsync(repo, Ct));
 
         Assert.Equal(_damagedId, error.MessageId);
 
@@ -213,12 +220,117 @@ public sealed class IndexRepairTests : IDisposable
         var (repo, _) = await _ws.ThreePointsRepoAsync();
         Empty(repo);
         var log = new RecordingDiagnosticLog();
-        var engine = new GitEngine(new GitRunner(_ws.Binary, new GitRunnerOptions { Log = log }), _ws.PathSafety, _ws.Space.Probe, _ws.StorageRoot);
+        var engine = new GitEngine(new GitRunner(_ws.Binary, new GitRunnerOptions { Log = log }), _ws.PathSafety, _ws.Space.Probe, _ws.StorageRoot).ForGameLockHolder();
 
         await engine.GetStatusAsync(repo, Ct);
 
         var entry = Assert.Single(log.Entries, e => e.Message.Contains("index", StringComparison.OrdinalIgnoreCase) && e.Level != LogLevel.Error && e.Message.Contains("rebuilt", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(Path.GetFileName(Assert.Single(Backups(repo))), entry.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_read_made_without_the_game_lock_leaves_a_damaged_index_alone()
+    {
+        var (repo, _) = await _ws.ThreePointsRepoAsync();
+        Empty(repo);
+
+        var error = await Assert.ThrowsAsync<GitOperationException>(() => _ws.Engine.GetStatusAsync(repo, Ct));
+
+        Assert.Equal("error.gitOperation.failed", error.MessageId);
+        Assert.Empty(Backups(repo));
+        Assert.Equal(0, new FileInfo(IndexOf(repo)).Length);
+    }
+
+    [Fact]
+    public async Task The_next_operation_that_holds_the_lock_repairs_what_a_read_without_it_left()
+    {
+        var (repo, _) = await _ws.ThreePointsRepoAsync();
+        Empty(repo);
+        await Assert.ThrowsAsync<GitOperationException>(() => _ws.Engine.GetStatusAsync(repo, Ct));
+
+        var failure = await Record.ExceptionAsync(() => _locked.GetStatusAsync(repo, Ct));
+
+        Assert.Null(failure);
+        Assert.Single(Backups(repo));
+    }
+
+    [Fact]
+    public async Task Repairing_an_index_that_is_not_damaged_does_nothing()
+    {
+        var (repo, _) = await _ws.ThreePointsRepoAsync();
+        var before = File.ReadAllBytes(IndexOf(repo));
+
+        await _locked.RepairIndexIfDamagedAsync(repo, Ct);
+
+        Assert.Empty(Backups(repo));
+        Assert.Equal(before, File.ReadAllBytes(IndexOf(repo)));
+    }
+
+    [Fact]
+    public async Task Repairing_on_request_sets_a_damaged_index_right()
+    {
+        var (repo, _) = await _ws.ThreePointsRepoAsync();
+        Empty(repo);
+
+        await _locked.RepairIndexIfDamagedAsync(repo, Ct);
+
+        Assert.Single(Backups(repo));
+        Assert.Equal(["a.txt", "b.txt"], (await _ws.GitOutAsync(repo, "ls-files")).Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Order());
+    }
+
+    [Fact]
+    public async Task Only_the_three_newest_set_aside_indexes_are_kept()
+    {
+        var (repo, _) = await _ws.ThreePointsRepoAsync();
+        string[] old = ["index.damaged-20200101T000000000", "index.damaged-20200102T000000000", "index.damaged-20200103T000000000", "index.damaged-20200104T000000000", "index.damaged-20200105T000000000"];
+        foreach (var name in old)
+        {
+            File.WriteAllBytes(Path.Combine(repo.GitDir, name), [1]);
+        }
+
+        Empty(repo);
+
+        await _locked.GetStatusAsync(repo, Ct);
+
+        var kept = Backups(repo).Select(Path.GetFileName).Order().ToArray();
+        Assert.Equal(3, kept.Length);
+        Assert.Equal(old[3], kept[0]);
+        Assert.Equal(old[4], kept[1]);
+        Assert.DoesNotContain(kept[2]!, old);
+    }
+
+    [Fact]
+    public async Task A_repair_that_met_a_held_lock_reports_that_and_puts_the_damaged_index_back()
+    {
+        var (repo, _) = await _ws.ThreePointsRepoAsync();
+        Empty(repo);
+        await File.WriteAllTextAsync(Path.Combine(repo.GitDir, "index.lock"), string.Empty, Ct);
+
+        var error = await Assert.ThrowsAsync<GitOperationException>(() => _locked.GetStatusAsync(repo, Ct));
+
+        Assert.Equal("error.gitOperation.failed", error.MessageId);
+        Assert.Empty(Backups(repo));
+        Assert.Equal(0, new FileInfo(IndexOf(repo)).Length);
+    }
+
+    public static TheoryData<string, string> RebuildFailures => new()
+    {
+        { "error: No space left on device\nfatal: unable to write new index file\n", "error.diskSpace.low" },
+        { "error: There is not enough space on the disk.\nfatal: unable to write new index file\n", "error.diskSpace.low" },
+        { "fatal: Unable to create 'C:/Store/game/install.git/index.lock': File exists.\n", "error.gitOperation.failed" },
+        { "fatal: Unable to create 'C:/Store/game/install.git/index.lock': Permission denied\n", "error.storage.writeFailed" },
+        { "error: unable to create temporary file: Access is denied.\nfatal: unable to write new index file\n", "error.storage.writeFailed" },
+        { "fatal: failed to unpack tree object HEAD\n", "error.gitOperation.recordDamaged" },
+        { "fatal: Not a valid object name HEAD\n", "error.gitOperation.recordDamaged" },
+    };
+
+    [Theory]
+    [MemberData(nameof(RebuildFailures))]
+    public void A_failure_to_rebuild_is_reported_as_what_it_was_and_only_damage_is_called_damage(string standardError, string messageId)
+    {
+        var failure = _locked.RepairFailureFor(new GitCommandException(["read-tree", "HEAD"], 128, standardError), Path.Combine(_ws.StorageRoot, "game-1", "install.git"));
+
+        Assert.Equal(messageId, Assert.IsAssignableFrom<SavepointException>(failure).MessageId);
     }
 
     [Fact]
@@ -228,7 +340,7 @@ public sealed class IndexRepairTests : IDisposable
         await RemoveObjectAsync(repo, (await _ws.ResolveAsync(repo, "profile-1"))!);
         Empty(repo);
         var log = new RecordingDiagnosticLog();
-        var engine = new GitEngine(new GitRunner(_ws.Binary, new GitRunnerOptions { Log = log }), _ws.PathSafety, _ws.Space.Probe, _ws.StorageRoot);
+        var engine = new GitEngine(new GitRunner(_ws.Binary, new GitRunnerOptions { Log = log }), _ws.PathSafety, _ws.Space.Probe, _ws.StorageRoot).ForGameLockHolder();
 
         await Assert.ThrowsAsync<RepositoryDamagedException>(() => engine.ListCaptureCandidatesAsync(repo, [], Ct));
 

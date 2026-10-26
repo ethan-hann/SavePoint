@@ -117,9 +117,9 @@ internal static partial class RepoConfigFile
             ("core", "autocrlf", "false"),
             ("core", "bigFileThreshold", "128m"),
             ("core", "logAllRefUpdates", "false"),
-            // A power loss seconds after a snapshot or switch left an empty index file behind. Objects and the index are flushed to disk
-            // before git reports success; batch flushes the many small loose objects of one add together instead of one by one.
-            ("core", "fsync", "committed,index"),
+            // A power loss seconds after a snapshot or switch left an empty index file behind. Objects, the index and refs are flushed to
+            // disk before git reports success; batch flushes the many small loose objects of one add together instead of one by one.
+            ("core", "fsync", "committed,index,reference"),
             ("core", "fsyncMethod", "batch"),
         ];
 

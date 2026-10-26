@@ -10,6 +10,57 @@ public sealed partial class GitEngine
     // One repair at a time: two git calls of one operation can fail on the same damaged file together.
     private readonly SemaphoreSlim _repairGate = new(1, 1);
 
+    // Only a view handed to work that holds the game's lock repairs; every other caller leaves a damaged file for the next locked operation.
+    private readonly bool _repairsIndex;
+
+    // How many set-aside indexes stay in a git directory; older ones are deleted by the next repair.
+    private const int _asideIndexesKept = 3;
+
+    // The same engine for work that holds the game's lock, which is the only work that may set the index aside.
+    internal GitEngine ForGameLockHolder() => _repairsIndex ? this : new(this, repairsIndex: true);
+
+    // Sets a damaged index right, when there is one, so a read made without the lock that failed on it can be run again. Needs an
+    // engine from ForGameLockHolder. The check reads the whole index, so it is made only after such a read has failed.
+    internal async Task RepairIndexIfDamagedAsync(RepoRef repo, CancellationToken ct)
+    {
+        repo = Normalize(repo);
+        if (!IsInitialized(repo.GitDir))
+        {
+            return;
+        }
+
+        var check = new GitInvocation(["ls-files", "--cached", "--error-unmatch", "--", "savepoint-index-check"])
+        {
+            GitDir = repo.GitDir,
+            WorkTree = repo.WorkTree,
+            ReadOnly = true,
+            AllowedExitCodes = [0, 1],
+        };
+        await RunAsync(check, ct).ConfigureAwait(false);
+    }
+
+    // Why the index could not be rebuilt. Only a latest snapshot that cannot be read is damage; a full disk, a lock another program
+    // holds or a folder the account may not write are what they say, and a later try can succeed.
+    internal Exception RepairFailureFor(GitCommandException e, string gitDir)
+    {
+        if (GitFailure.IsDiskFull(e.StandardError))
+        {
+            return new DiskSpaceException(gitDir, _options.MinFreeBytesForStorageWrites, _freeSpace(gitDir));
+        }
+
+        if (GitFailure.IsLockContention(e.StandardError))
+        {
+            return GitFailure.ToException(e);
+        }
+
+        if (GitFailure.IsAccessDenied(e.StandardError))
+        {
+            return new StorageWriteFailedException(gitDir, $"The index of '{gitDir}' could not be rebuilt because the folder cannot be written to: {e.Message}", e);
+        }
+
+        return new RepositoryDamagedException($"The index of '{gitDir}' is damaged and could not be rebuilt from the latest snapshot: {e.Message}", e);
+    }
+
     private IDiagnosticLog Log => _runner.Options.Log ?? DiagnosticLog.None;
 
     // How the index file looked just before git ran, so a repair can tell that another caller has already replaced it.
@@ -33,7 +84,7 @@ public sealed partial class GitEngine
     // call that failed is run once more. The caller holds the game's lock, as for every other operation.
     private async Task<GitResult> RunRawAsync(GitInvocation invocation, CancellationToken ct)
     {
-        var stamp = CanRepairIndexFor(invocation) ? IndexStamp.Of(invocation.GitDir!) : (IndexStamp?)null;
+        var stamp = _repairsIndex && CanRepairIndexFor(invocation) ? IndexStamp.Of(invocation.GitDir!) : (IndexStamp?)null;
         try
         {
             var result = await RunOnceAsync(invocation, ct).ConfigureAwait(false);
@@ -99,12 +150,21 @@ public sealed partial class GitEngine
                 }
 
                 rebuilt = true;
+                PruneAsideIndexes(gitDir);
             }
             catch (GitCommandException e)
             {
-                var message = $"The index of '{gitDir}' is damaged and could not be rebuilt from the latest snapshot: {e.Message}";
-                Log.Error(message);
-                throw new RepositoryDamagedException(message, e);
+                var failure = RepairFailureFor(e, gitDir);
+                if (failure is RepositoryDamagedException)
+                {
+                    Log.Error(failure.Message);
+                }
+                else
+                {
+                    Log.Warning(failure.Message);
+                }
+
+                throw failure;
             }
             finally
             {
@@ -159,6 +219,22 @@ public sealed partial class GitEngine
         }
 
         return name;
+    }
+
+    // Set-aside indexes are kept for a support request, not for ever: the newest few stay (the names sort by time).
+    private void PruneAsideIndexes(string gitDir)
+    {
+        foreach (var old in Directory.GetFiles(gitDir, _damagedIndexPrefix + "*").Order(StringComparer.Ordinal).SkipLast(_asideIndexesKept))
+        {
+            try
+            {
+                File.Delete(old);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                Log.Warning($"The old damaged index '{old}' could not be deleted.", e);
+            }
+        }
     }
 
     // A repair that could not finish leaves the repository as it was found.

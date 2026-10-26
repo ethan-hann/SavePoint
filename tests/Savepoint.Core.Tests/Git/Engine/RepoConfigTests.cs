@@ -23,7 +23,7 @@ public sealed class RepoConfigTests : IDisposable
         { "core.bigfilethreshold", "128m" },
         { "core.logallrefupdates", "false" },
         { "pack.compression", "0" },
-        { "core.fsync", "committed,index" },
+        { "core.fsync", "committed,index,reference" },
         { "core.fsyncmethod", "batch" },
         { "savepoint.repoconfigversion", "7" },
     };
@@ -165,7 +165,7 @@ public sealed class RepoConfigTests : IDisposable
         var repo = await _ws.InitializedRepoAsync();
         var path = Path.Combine(repo.GitDir, "config");
         var text = await File.ReadAllTextAsync(path, Ct);
-        await File.WriteAllTextAsync(path, text.Replace("\tfsync = committed,index\n", string.Empty, StringComparison.Ordinal).Replace("\tfsyncMethod = batch\n", string.Empty, StringComparison.Ordinal).Replace("repoConfigVersion = 7", "repoConfigVersion = 6", StringComparison.Ordinal), Ct);
+        await File.WriteAllTextAsync(path, text.Replace("\tfsync = committed,index,reference\n", string.Empty, StringComparison.Ordinal).Replace("\tfsyncMethod = batch\n", string.Empty, StringComparison.Ordinal).Replace("repoConfigVersion = 7", "repoConfigVersion = 6", StringComparison.Ordinal), Ct);
         Assert.Null(await _ws.ConfigAsync(repo, "core.fsync"));
         Assert.Null(await _ws.ConfigAsync(repo, "core.fsyncMethod"));
         Assert.Equal("6", await _ws.ConfigAsync(repo, "savepoint.repoConfigVersion"));
@@ -173,7 +173,7 @@ public sealed class RepoConfigTests : IDisposable
         _ws.Write(repo, "a.txt", "a");
         await _ws.CaptureAsync(repo, "profile-1");
 
-        Assert.Equal("committed,index", await _ws.ConfigAsync(repo, "core.fsync"));
+        Assert.Equal("committed,index,reference", await _ws.ConfigAsync(repo, "core.fsync"));
         Assert.Equal("batch", await _ws.ConfigAsync(repo, "core.fsyncMethod"));
         Assert.Equal("7", await _ws.ConfigAsync(repo, "savepoint.repoConfigVersion"));
     }
