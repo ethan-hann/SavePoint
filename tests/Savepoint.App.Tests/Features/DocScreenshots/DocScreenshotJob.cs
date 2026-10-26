@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Layout;
 using Avalonia.VisualTree;
 using Savepoint.App.Features.Activity;
 using Savepoint.App.Features.Editor;
@@ -48,16 +49,34 @@ internal static class DocScreenshotJob
     public static async Task RunAsync()
     {
         Directory.CreateDirectory(ImageFolder);
+        var again = Path.Combine(Path.GetTempPath(), "savepoint-doc-shots-" + Guid.NewGuid().ToString("N"));
         try
         {
             foreach (var (name, generate) in _generators)
             {
                 await generate(Path.Combine(ImageFolder, name));
             }
+
+            // A second, independent pass must give the same bytes, or the files would change on every rerun.
+            var unstable = new List<string>();
+            foreach (var (name, generate) in _generators)
+            {
+                await generate(Path.Combine(again, name));
+                if (!File.ReadAllBytes(Path.Combine(ImageFolder, name)).AsSpan().SequenceEqual(File.ReadAllBytes(Path.Combine(again, name))))
+                {
+                    unstable.Add(name);
+                }
+            }
+
+            Assert.True(unstable.Count == 0, "These images differ between two passes in one run: " + string.Join(", ", unstable));
         }
         finally
         {
             ThemeTestSupport.ResetApplicationTheme();
+            if (Directory.Exists(again))
+            {
+                Directory.Delete(again, recursive: true);
+            }
         }
     }
 
@@ -78,6 +97,13 @@ internal static class DocScreenshotJob
         app.Settle();
         app.Window.Focusable = true;
         app.Window.Focus(NavigationMethod.Unspecified);
+        // Corner anti-aliasing shifts by one level with the order layout passes happened to run in; a fresh pass from the root makes it canonical.
+        foreach (var layoutable in app.Window.GetVisualDescendants().OfType<Layoutable>())
+        {
+            layoutable.InvalidateMeasure();
+        }
+
+        app.Window.UpdateLayout();
         app.RenderTo(path);
     }
 
