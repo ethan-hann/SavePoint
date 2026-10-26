@@ -24,7 +24,7 @@ public sealed class RepoConfigTests : IDisposable
         { "core.logallrefupdates", "false" },
         { "pack.compression", "0" },
         { "core.fsync", "committed,index,reference" },
-        { "core.fsyncmethod", OperatingSystem.IsLinux() ? "fsync" : "batch" },
+        { "core.fsyncmethod", "fsync" },
         { "savepoint.repoconfigversion", "7" },
     };
 
@@ -159,17 +159,17 @@ public sealed class RepoConfigTests : IDisposable
         Assert.Equal("7", await _ws.ConfigAsync(repo, "savepoint.repoConfigVersion"));
     }
 
-    // git documents batch as safe on Windows and macOS only; on Linux each file is flushed by itself. One stamp covers both: the value
-    // is picked by the system that writes the file.
+    // batch makes git stage objects in a temporary object directory and move them at the end; that fails on Windows when an add also
+    // streams a big file into a pack, so every system flushes file by file.
     [Theory]
-    [InlineData(true, false, "batch")]
-    [InlineData(false, false, "batch")]
-    [InlineData(false, true, "fsync")]
-    public void The_flush_method_is_picked_by_the_system_that_writes_the_config(bool isWindows, bool isLinux, string expected)
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Every_system_flushes_file_by_file(bool isWindows)
     {
-        var text = RepoConfigFile.Rewrite(string.Empty, isWindows, isLinux);
+        var text = RepoConfigFile.Rewrite(string.Empty, isWindows);
 
-        Assert.Contains($"\tfsyncMethod = {expected}\n", text, StringComparison.Ordinal);
+        Assert.Contains("\tfsyncMethod = fsync\n", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("batch", text, StringComparison.Ordinal);
         Assert.Contains("\tfsync = committed,index,reference\n", text, StringComparison.Ordinal);
     }
 
@@ -195,7 +195,7 @@ public sealed class RepoConfigTests : IDisposable
         var repo = await _ws.InitializedRepoAsync();
         var path = Path.Combine(repo.GitDir, "config");
         var text = await File.ReadAllTextAsync(path, Ct);
-        await File.WriteAllTextAsync(path, text.Replace("\tfsync = committed,index,reference\n", string.Empty, StringComparison.Ordinal).Replace("\tfsyncMethod = batch\n", string.Empty, StringComparison.Ordinal).Replace("repoConfigVersion = 7", "repoConfigVersion = 6", StringComparison.Ordinal), Ct);
+        await File.WriteAllTextAsync(path, text.Replace("\tfsync = committed,index,reference\n", string.Empty, StringComparison.Ordinal).Replace("\tfsyncMethod = fsync\n", string.Empty, StringComparison.Ordinal).Replace("repoConfigVersion = 7", "repoConfigVersion = 6", StringComparison.Ordinal), Ct);
         Assert.Null(await _ws.ConfigAsync(repo, "core.fsync"));
         Assert.Null(await _ws.ConfigAsync(repo, "core.fsyncMethod"));
         Assert.Equal("6", await _ws.ConfigAsync(repo, "savepoint.repoConfigVersion"));
@@ -204,7 +204,7 @@ public sealed class RepoConfigTests : IDisposable
         await _ws.CaptureAsync(repo, "profile-1");
 
         Assert.Equal("committed,index,reference", await _ws.ConfigAsync(repo, "core.fsync"));
-        Assert.Equal(OperatingSystem.IsLinux() ? "fsync" : "batch", await _ws.ConfigAsync(repo, "core.fsyncMethod"));
+        Assert.Equal("fsync", await _ws.ConfigAsync(repo, "core.fsyncMethod"));
         Assert.Equal("7", await _ws.ConfigAsync(repo, "savepoint.repoConfigVersion"));
     }
 
