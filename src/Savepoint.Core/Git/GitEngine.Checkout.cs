@@ -296,6 +296,55 @@ public sealed partial class GitEngine
         }
     }
 
+    /// <summary>
+    /// Asks, without writing anything, whether a switch of the folder to a branch or an older point would be turned away before it writes
+    /// a file: free space on the folder's volume, names that differ only in case, a folder link on Windows, a file and a folder that cannot
+    /// share a path, unsaved changes and a half-switched folder. The folder, the repository and its note are only read. A launch that
+    /// switches several folders asks each of them first, so a refusal in a later folder leaves the earlier ones as they were.
+    /// </summary>
+    /// <param name="repo">The folder that would be switched.</param>
+    /// <param name="target">The branch name, or the full id of an older point.</param>
+    /// <param name="isBranch">Whether <paramref name="target"/> is a branch.</param>
+    /// <param name="ct">Cancels the call.</param>
+    /// <remarks>A switch that passes can still fail later: a file another program holds open, or a disk that fills meanwhile.</remarks>
+    /// <exception cref="Savepoint.Core.Errors.PathSafetyException">The work tree is a protected location.</exception>
+    /// <exception cref="Savepoint.Core.Errors.PathMissingException">The work tree does not exist.</exception>
+    /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
+    /// <exception cref="Savepoint.Core.Errors.DiskSpaceException">The work tree's volume cannot take the files the switch adds.</exception>
+    /// <exception cref="Savepoint.Core.Errors.DirtyWorkingTreeException">Unsaved changes, or a file the game's patterns name, are in the way.</exception>
+    /// <exception cref="Savepoint.Core.Errors.InterruptedSwitchException">A stopped switch left the folder half done and this is not the switch to finish it.</exception>
+    /// <exception cref="Savepoint.Core.Errors.LinkedFolderException">On Windows, a folder link lies in the way.</exception>
+    /// <exception cref="Savepoint.Core.Errors.FileFolderClashException">Writing a file would delete a folder holding files of the player's, or making a folder would delete a file of the player's.</exception>
+    /// <exception cref="Savepoint.Core.Errors.NamesDifferOnlyInCaseException">The folder is on a drive that ignores case and the target holds two names that differ only in case.</exception>
+    /// <exception cref="Savepoint.Core.Errors.ProfileHasNoPointsException">The branch has no point to switch to.</exception>
+    /// <exception cref="ArgumentException"><paramref name="target"/> is not a valid branch name, or not a full commit id.</exception>
+    public async Task CheckSwitchAsync(RepoRef repo, string target, bool isBranch, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(target);
+        if (isBranch)
+        {
+            BranchNames.Require(target);
+        }
+        else
+        {
+            RequireCommitId(target);
+        }
+
+        repo = Normalize(repo);
+        ct.ThrowIfCancellationRequested();
+
+        // The folder is not pinned or held: nothing is written to it here, and the switch itself looks again.
+        CheckWorkTree(repo);
+        RepoMarker.Verify(repo);
+        if (!IsInitialized(repo.GitDir))
+        {
+            throw new GitOperationException($"The repository at '{repo.GitDir}' does not exist.");
+        }
+
+        var (from, to, note) = await ReadSwitchEndsAsync(repo, target, isBranch, ct).ConfigureAwait(false);
+        await RequireSwitchPossibleAsync(repo, from, to, force: false, note, ct).ConfigureAwait(false);
+    }
+
     private async Task CheckoutAsync(RepoRef repo, string target, bool isBranch, bool force, IProgress<FileProgress>? progress, CancellationToken ct)
     {
         repo = Normalize(repo);
@@ -307,38 +356,14 @@ public sealed partial class GitEngine
             throw new GitOperationException($"The repository at '{repo.GitDir}' does not exist.");
         }
 
-        var head = GitDirFiles.ReadHead(repo.GitDir);
-        var from = head.IsDetached ? head.DetachedCommit : await ResolveBranchAsync(repo, head.Branch!, ct).ConfigureAwait(false);
-        var to = isBranch ? await ResolveBranchAsync(repo, target, ct).ConfigureAwait(false) : await ResolveCommitAsync(repo, target, ct).ConfigureAwait(false);
-        if (to is null)
-        {
-            throw isBranch
-                ? new ProfileHasNoPointsException(target)
-                : new GitOperationException($"The point '{target}' is not in the repository.");
-        }
-
-        // A note whose switch is not known cannot be told apart from the one this would finish, and writing a new note would erase the
-        // evidence. A discard clears such a note.
-        var note = SwitchJournal.Read(repo.GitDir);
-        if (note is { ToCommit: null })
-        {
-            throw new InterruptedSwitchException(repo.Role);
-        }
+        var (from, to, note) = await ReadSwitchEndsAsync(repo, target, isBranch, ct).ConfigureAwait(false);
 
         using var scope = BeginWrite(repo);
 
         // A mark an earlier switch could not take off would hide a file from the checks below.
         await ClearSkipWorktreeAsync(repo, ct).ConfigureAwait(false);
 
-        // Which files the switch will write and remove is known before it starts: nothing unsaved may be in the way, and a
-        // file that cannot be removed is found afterwards.
-        var plan = await PlanSwitchAsync(repo, from, to, note, ct).ConfigureAwait(false);
-        LinkedFolders.RefuseAny(repo.WorkTree, plan.Touched, ct);
-        await RefuseCaseClashAsync(repo, to, ct).ConfigureAwait(false);
-        await RequireNothingInTheWayAsync(repo, from, to, force, note, ct).ConfigureAwait(false);
-        await RefuseFileFolderClashAsync(repo, plan, force, ct).ConfigureAwait(false);
-        var sizes = await ObjectSizesAsync(repo, plan.Changes.SelectMany(change => new[] { change.OldId, change.NewId }), ct).ConfigureAwait(false);
-        EnsureCheckoutSpace(repo, plan.Changes, sizes);
+        var (plan, sizes) = await RequireSwitchPossibleAsync(repo, from, to, force, note, ct).ConfigureAwait(false);
 
         // From here the switch writes the index itself (the marks, the alignment, the checkout, the re-syncs), and a rebuild from the last
         // snapshot would undo that. Damage found from now on ends the switch with an error and leaves the note; the next operation repairs.
@@ -416,6 +441,44 @@ public sealed partial class GitEngine
                 await TryClearSkipWorktreeAsync(repo).ConfigureAwait(false);
             }
         }
+    }
+
+    // Where the folder is, the point it is to be switched to and the note of an unfinished switch, if any.
+    private async Task<(string? From, string To, InterruptedSwitch? Note)> ReadSwitchEndsAsync(RepoRef repo, string target, bool isBranch, CancellationToken ct)
+    {
+        var head = GitDirFiles.ReadHead(repo.GitDir);
+        var from = head.IsDetached ? head.DetachedCommit : await ResolveBranchAsync(repo, head.Branch!, ct).ConfigureAwait(false);
+        var to = isBranch ? await ResolveBranchAsync(repo, target, ct).ConfigureAwait(false) : await ResolveCommitAsync(repo, target, ct).ConfigureAwait(false);
+        if (to is null)
+        {
+            throw isBranch
+                ? new ProfileHasNoPointsException(target)
+                : new GitOperationException($"The point '{target}' is not in the repository.");
+        }
+
+        // A note whose switch is not known cannot be told apart from the one this would finish, and writing a new note would erase the
+        // evidence. A discard clears such a note.
+        var note = SwitchJournal.Read(repo.GitDir);
+        if (note is { ToCommit: null })
+        {
+            throw new InterruptedSwitchException(repo.Role);
+        }
+
+        return (from, to, note);
+    }
+
+    // Which files the switch will write and remove is known before it starts: nothing unsaved may be in the way, and a
+    // file that cannot be removed is found afterwards. Reads only, so it also answers for a switch that is not made yet.
+    private async Task<(SwitchPlan Plan, Dictionary<string, long> Sizes)> RequireSwitchPossibleAsync(RepoRef repo, string? from, string to, bool force, InterruptedSwitch? note, CancellationToken ct)
+    {
+        var plan = await PlanSwitchAsync(repo, from, to, note, ct).ConfigureAwait(false);
+        LinkedFolders.RefuseAny(repo.WorkTree, plan.Touched, ct);
+        await RefuseCaseClashAsync(repo, to, ct).ConfigureAwait(false);
+        await RequireNothingInTheWayAsync(repo, from, to, force, note, ct).ConfigureAwait(false);
+        await RefuseFileFolderClashAsync(repo, plan, force, ct).ConfigureAwait(false);
+        var sizes = await ObjectSizesAsync(repo, plan.Changes.SelectMany(change => new[] { change.OldId, change.NewId }), ct).ConfigureAwait(false);
+        EnsureCheckoutSpace(repo, plan.Changes, sizes);
+        return (plan, sizes);
     }
 
     private void EnsureCheckoutSpace(RepoRef repo, IReadOnlyList<TreeChange> changes, Dictionary<string, long> sizes)

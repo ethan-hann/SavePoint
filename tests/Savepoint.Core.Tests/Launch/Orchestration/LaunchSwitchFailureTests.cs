@@ -78,9 +78,11 @@ public class LaunchSwitchFailureTests
         using var release = new ManualResetEventSlim();
 
         // The engine asks for the install folder's free space just before it starts the switch; holding that answer holds the switch.
+        // The first question is the check made before any folder is switched, so the second is the one held.
+        var installQuestions = 0;
         rig.Workspace.Disk.FreePerPath = path =>
         {
-            if (path.StartsWith(rig.InstallPath, StringComparison.OrdinalIgnoreCase) && !release.IsSet)
+            if (path.StartsWith(rig.InstallPath, StringComparison.OrdinalIgnoreCase) && Interlocked.Increment(ref installQuestions) == 2 && !release.IsSet)
             {
                 reached.Set();
                 release.Wait(_held);
