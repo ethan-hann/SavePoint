@@ -37,7 +37,8 @@
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="help:HowItWorksTopic">
               <StackPanel Spacing="10">
-                <TextBlock Classes="section-title" TextWrapping="Wrap" AutomationProperties.HeadingLevel="2" Text="{Binding Title}" />
+                <!-- Focusable by code only, so a link into the page can put a screen reader's cursor on the topic without adding tab stops. -->
+                <TextBlock Classes="section-title" TextWrapping="Wrap" Focusable="True" IsTabStop="False" AutomationProperties.HeadingLevel="2" Text="{Binding Title}" />
                 <TextBlock Classes="body" FontSize="14" LineHeight="22" TextWrapping="Wrap" Text="{Binding Body}" />
                 <help:HelpPictureView HorizontalAlignment="Left" Margin="0,6,0,0" Picture="{Binding Picture}" IsVisible="{Binding HasPicture}" />
                 <ItemsControl ItemsSource="{Binding Items}" IsVisible="{Binding HasItems}">

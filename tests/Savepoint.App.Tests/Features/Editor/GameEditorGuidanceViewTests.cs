@@ -187,6 +187,27 @@ public class GameEditorGuidanceViewTests
     }
 
     [AvaloniaFact]
+    public async Task The_link_under_the_rules_answer_opens_the_page_at_Files_to_leave_out_and_back_gives_the_editor_back()
+    {
+        using var harness = await EditorViewHarness.StartAsync();
+        var editor = harness.Edit();
+        editor.Name = "Half typed";
+        Click(harness, Question(harness, "How do these rules work?"));
+        var more = harness.All<Button>().FirstOrDefault(button => button.Name == "MoreButton" && button.IsEffectivelyVisible);
+
+        Assert.NotNull(more);
+        more.Command!.Execute(null);
+        harness.Settle();
+
+        var page = Assert.IsType<Savepoint.App.Features.Help.HowItWorksViewModel>(harness.Shell.Content);
+        Assert.Equal(Savepoint.App.Features.Help.HowItWorksSection.FilesToLeaveOut, page.Section);
+        page.BackCommand.Execute(null);
+        harness.Settle();
+        Assert.Same(editor, harness.Shell.Content);
+        Assert.Equal("Half typed", editor.Name);
+    }
+
+    [AvaloniaFact]
     public async Task The_stop_detection_mod_folder_and_app_id_helpers_sit_behind_When_do_I_need_this()
     {
         using var harness = await EditorViewHarness.StartAsync();

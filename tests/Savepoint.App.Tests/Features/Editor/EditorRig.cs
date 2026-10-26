@@ -4,6 +4,7 @@ using Savepoint.App.Features.Common.Art;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Editor;
+using Savepoint.App.Features.Help;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Localization;
 using Savepoint.App.Tests.Fakes;
@@ -104,6 +105,8 @@ internal sealed class FakeShellContext : IShellContext
     }
 
     public void ShowHelp() => Calls.Add("help");
+
+    public void ShowHelp(HowItWorksSection section) => Calls.Add($"help:{section}");
 
     public bool CanShowTour => true;
 

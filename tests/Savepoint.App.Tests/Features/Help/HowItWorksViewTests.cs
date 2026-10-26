@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
@@ -18,6 +19,9 @@ public class HowItWorksViewTests
 
     private static List<string> VisibleTexts(ComposedApp app) =>
         [.. app.All<TextBlock>().Where(block => block.IsEffectivelyVisible && !string.IsNullOrWhiteSpace(block.Text)).Select(block => block.Text!)];
+
+    private static TextBlock? HeadingNamed(ComposedApp app, string title) =>
+        app.All<TextBlock>().FirstOrDefault(block => block.IsEffectivelyVisible && block.Text == title && AutomationProperties.GetHeadingLevel(block) == 2);
 
     [Fact]
     public void F1_and_Cmd_question_mark_ask_for_help_and_nothing_else_does()
@@ -118,6 +122,62 @@ public class HowItWorksViewTests
         Assert.Same(back, app.Focused);
         back.Command!.Execute(null);
         Assert.Same(screen, app.Shell.Content);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(HowItWorksSection.CloudSaves, "Cloud saves")]
+    [InlineData(HowItWorksSection.FilesToLeaveOut, "Files to leave out")]
+    [InlineData(HowItWorksSection.HowTheGameStarts, "How the game starts")]
+    public async Task A_page_opened_at_a_section_scrolls_to_its_heading_and_gives_it_focus(HowItWorksSection section, string title)
+    {
+        using var app = await ComposedApp.StartWithViewAsync();
+
+        app.Shell.ShowHelp(section);
+        app.Settle();
+
+        var heading = HeadingNamed(app, title);
+        Assert.NotNull(heading);
+        var scroll = app.Find<ScrollViewer>("PageScroll");
+        var top = heading.TranslatePoint(new Point(0, 0), scroll)!.Value.Y;
+        Assert.Same(heading, app.Focused);
+        Assert.True(scroll.Offset.Y > 0);
+        Assert.InRange(top, 0, scroll.Viewport.Height - heading.Bounds.Height);
+    }
+
+    [AvaloniaFact]
+    public async Task A_page_that_is_already_open_moves_to_the_section_it_is_asked_for()
+    {
+        using var app = await ComposedApp.StartWithViewAsync();
+        app.Shell.ShowHelp();
+        app.Settle();
+        var scroll = app.Find<ScrollViewer>("PageScroll");
+        Assert.Equal(0, scroll.Offset.Y);
+
+        app.Shell.ShowHelp(HowItWorksSection.CloudSaves);
+        app.Settle();
+
+        var heading = HeadingNamed(app, "Cloud saves");
+        Assert.NotNull(heading);
+        Assert.Same(heading, app.Focused);
+        Assert.True(scroll.Offset.Y > 0);
+    }
+
+    [AvaloniaFact]
+    public async Task The_new_topics_show_their_text_lists_and_notes_in_the_window()
+    {
+        using var app = await ComposedApp.StartWithViewAsync();
+
+        app.Shell.ShowHelp();
+        app.Settle();
+        var page = Assert.IsType<HowItWorksViewModel>(app.Shell.Content);
+        var texts = VisibleTexts(app);
+
+        foreach (var topic in page.Topics.Where(topic => topic.Section is not null))
+        {
+            Assert.Contains(topic.Body, texts);
+            Assert.All(topic.Items, item => Assert.Contains(item, texts));
+            Assert.All(topic.Notes, note => Assert.Contains(note, texts));
+        }
     }
 
     [AvaloniaFact]
