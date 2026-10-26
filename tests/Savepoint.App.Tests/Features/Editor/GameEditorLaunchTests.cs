@@ -34,6 +34,28 @@ public class GameEditorLaunchTests
         Assert.EndsWith(warningEnd, editor.SteamWarning);
     }
 
+    [Theory]
+    [InlineData("linux", "/home/p/.local/share/Steam/steamapps/common/Counter-Strike Source", 0, true)]
+    [InlineData("linux", "/mnt/games/SteamLibrary/SteamApps/Common/Half-Life 2", 0, true)]
+    [InlineData("linux", @"D:\SteamLibrary\steamapps\common\Half-Life 2", 0, true)]
+    [InlineData("linux", "/home/p/Games/Hollow Knight", 0, false)]
+    [InlineData("linux", "/home/p/steamapps/commonly/Game", 0, false)]
+    [InlineData("linux", "/home/p/.local/share/Steam/steamapps/common/Counter-Strike Source", 1, false)]
+    [InlineData("windows", @"C:\Program Files (x86)\Steam\steamapps\common\Half-Life 2", 0, false)]
+    [InlineData("macos", "/Users/p/Library/Application Support/Steam/steamapps/common/Half-Life 2", 0, false)]
+    public void On_Linux_a_Steam_library_game_run_as_a_program_gets_a_note_to_prefer_Through_Steam(string os, string install, int choice, bool shown)
+    {
+        var editor = EditorRig.Create(os: os).New();
+
+        editor.InstallPath = install;
+        editor.LaunchChoice = choice;
+
+        Assert.Equal(shown, editor.ShowSteamStartNote);
+        Assert.Equal(
+            shown ? "Games installed by Steam on Linux usually need Steam to start them. Through Steam is the safer choice." : string.Empty,
+            editor.SteamStartNote);
+    }
+
     [Fact]
     public void The_method_flags_follow_the_choice()
     {

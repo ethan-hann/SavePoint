@@ -66,6 +66,19 @@ public class PostPlayDialogViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task A_program_that_closed_right_away_with_an_error_says_so_with_its_code_and_does_not_blame_the_name()
+    {
+        var exited = (await _rig.ExitedAsync()) with { EndKind = SessionEndKind.ProgramFailedAtStart, ProgramExitCode = 127 };
+
+        var dialog = Build(exited);
+
+        Assert.Equal("The program closed right away", dialog.Title);
+        Assert.Equal("The program you chose closed right away with an error (code 127), so the game didn't start. If the game is in your Steam library, set it to start Through Steam in Edit game instead.", dialog.NotSeenHint);
+        Assert.Equal("Open Edit game", dialog.EditGameLabel);
+        Assert.DoesNotContain("name", dialog.NotSeenHint, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task A_process_list_that_could_not_be_read_does_not_blame_the_name_and_offers_no_editor()
     {
         var exited = (await _rig.ExitedAsync()) with { EndKind = SessionEndKind.ProcessListUnreadable };

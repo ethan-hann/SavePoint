@@ -95,6 +95,36 @@ public sealed partial class GameEditorViewModel
     /// <summary>The warning about starting through Steam.</summary>
     public string SteamWarning => _text.Message("gameEditor.launch.steamWarning");
 
+    /// <summary>
+    /// True when the start method runs a file on Linux and the install folder is inside a Steam library: Steam's own start scripts
+    /// there usually need Steam to run them, so <see cref="SteamStartNote"/> points at the link method instead.
+    /// </summary>
+    public bool ShowSteamStartNote => _text.Os == "linux" && IsExeMethod && IsInSteamLibrary(InstallPath);
+
+    /// <summary>The note shown when <see cref="ShowSteamStartNote"/> is true; empty otherwise.</summary>
+    public string SteamStartNote => ShowSteamStartNote ? _text.Message("gameEditor.launch.steamStartNote") : string.Empty;
+
+    // Steam keeps every library's games under steamapps/common, however the library folder is named.
+    private static bool IsInSteamLibrary(string installPath)
+    {
+        var parts = installPath.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries);
+        for (var i = 0; i + 1 < parts.Length; i++)
+        {
+            if (parts[i].Equals("steamapps", StringComparison.OrdinalIgnoreCase) && parts[i + 1].Equals("common", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void NotifySteamStartNote()
+    {
+        OnPropertyChanged(nameof(ShowSteamStartNote));
+        OnPropertyChanged(nameof(SteamStartNote));
+    }
+
     /// <summary>True while the start method is running a file.</summary>
     public bool IsExeMethod => LaunchChoice == 0;
 
@@ -147,6 +177,7 @@ public sealed partial class GameEditorViewModel
         LaunchError = null;
         OnPropertyChanged(nameof(IsExeMethod));
         OnPropertyChanged(nameof(IsSteamMethod));
+        NotifySteamStartNote();
         NotifyProcessNameOffer();
         _ = RefreshProcessNameSuggestionAsync();
     }

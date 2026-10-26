@@ -37,6 +37,13 @@ public enum SessionEndKind
     /// </summary>
     ProcessListUnreadable,
 
+    /// <summary>
+    /// The program SavePoint started exited with a nonzero exit code within the relaunch window, no configured process name ever
+    /// appeared, and nothing it started was left running. Nothing hands over after a failure like that, so the session ends at once
+    /// instead of waiting out the grace; the exit code is on the outcome. A starter that exits with code 0 keeps the grace.
+    /// </summary>
+    ProgramFailedAtStart,
+
     /// <summary>The player said they were done; the game may still be running.</summary>
     ManuallyFinished,
 }

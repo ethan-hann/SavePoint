@@ -194,6 +194,9 @@ public sealed partial class LaunchFlowViewModel
                 case SessionEndKind.NamedProcessNeverMatched:
                     _deps.Toasts.Show(new ToastMessage(_deps.Text.Message("launch.postPlay.neverMatched.toast", ("gameName", name)), ToastKind.Info));
                     break;
+                case SessionEndKind.ProgramFailedAtStart:
+                    _deps.Toasts.Show(new ToastMessage(_deps.Text.Message("launch.postPlay.failedAtStart.toast", ("gameName", name), ("code", PostPlayDialogViewModel.ExitCodeText(exited))), ToastKind.Info));
+                    break;
             }
 
             // Nothing is captured; the dirty check before the next switch is what protects the session.

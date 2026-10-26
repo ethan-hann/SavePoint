@@ -125,6 +125,64 @@ public class GameSessionWatcherTests
         Assert.Equal(Seconds(30), outcome.PlayDuration);
     }
 
+    // ---- a program that fails right away ----
+
+    [Fact]
+    public async Task A_program_that_exits_with_an_error_at_once_ends_the_session_without_the_grace()
+    {
+        using var rig = await WatcherRig.ProgramAsync(_name);
+        await rig.AdvanceAsync(Seconds(1));
+
+        await rig.ExitChildAsync(127);
+        await rig.AdvanceAsync(Seconds(2));
+
+        Assert.True(rig.Watcher.IsSettled);
+        var outcome = await rig.OutcomeAsync();
+        Assert.Equal(SessionEndKind.ProgramFailedAtStart, outcome.Kind);
+        Assert.Equal(127, outcome.ChildExitCode);
+    }
+
+    [Fact]
+    public async Task A_program_that_exits_with_code_zero_at_once_still_has_the_grace()
+    {
+        using var rig = await WatcherRig.ProgramAsync(_name);
+        await rig.AdvanceAsync(Seconds(1));
+
+        await rig.ExitChildAsync(0);
+        await rig.AdvanceAsync(Seconds(10));
+
+        Assert.False(rig.Watcher.IsSettled);
+    }
+
+    [Fact]
+    public async Task A_program_that_ran_past_the_relaunch_window_before_exiting_with_an_error_is_not_a_failed_start()
+    {
+        using var rig = await WatcherRig.ProgramAsync(_name);
+        await rig.AdvanceAsync(Seconds(40));
+
+        await rig.ExitChildAsync(1);
+        await rig.AdvanceAsync(WatcherRig.Grace);
+
+        Assert.Equal(SessionEndKind.NamedProcessNeverMatched, (await rig.OutcomeAsync()).Kind);
+    }
+
+    [Fact]
+    public async Task A_program_that_exits_with_an_error_while_the_named_process_runs_is_followed_to_its_end()
+    {
+        using var rig = await WatcherRig.ProgramAsync(_name);
+        rig.Processes.Set(WatcherRig.Game, ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(2));
+
+        await rig.ExitChildAsync(1);
+        await rig.AdvanceAsync(Seconds(10));
+        Assert.False(rig.Watcher.IsSettled);
+
+        rig.Processes.Set(ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(2));
+
+        Assert.Equal(SessionEndKind.NamedProcessEnded, (await rig.OutcomeAsync()).Kind);
+    }
+
     [Fact]
     public async Task The_grace_is_counted_from_the_stubs_exit_and_not_while_the_program_is_alive()
     {
@@ -636,7 +694,7 @@ public class GameSessionWatcherTests
     public async Task Marking_finished_while_the_stub_is_being_followed_ends_the_wait_without_the_grace()
     {
         using var rig = await WatcherRig.ProgramAsync(_name);
-        await rig.ExitChildAsync(4);
+        await rig.ExitChildAsync(0);
         await rig.AdvanceAsync(Seconds(3));
 
         Assert.True(await rig.FinishAsync());
@@ -644,7 +702,7 @@ public class GameSessionWatcherTests
 
         Assert.Equal(SessionEndKind.ManuallyFinished, outcome.Kind);
         Assert.Equal(Seconds(3), outcome.PlayDuration);
-        Assert.Equal(4, outcome.ChildExitCode);
+        Assert.Equal(0, outcome.ChildExitCode);
     }
 
     [Fact]

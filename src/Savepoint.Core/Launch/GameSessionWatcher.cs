@@ -251,6 +251,15 @@ public sealed class GameSessionWatcher : IDisposable
                     return;
                 }
 
+                // A program that fails within moments of starting hands nothing over (a store relaunch or a launcher stub exits 0 or
+                // leaves the game running), so the grace would only make the player wait for something that is not coming.
+                if (!observed && !following && !namedSeen && !selfSeen && look.Listed is not null
+                    && graceFrom - StartedAt < _options.RelaunchWindow && ChildExitCode() is not (null or 0))
+                {
+                    Settle(SessionEndKind.ProgramFailedAtStart, graceFrom);
+                    return;
+                }
+
                 // The grace ran out with a followed child alive; the session ends when the last one does. One look that finds none may be
                 // a misread, so it takes a second, and the end is dated at the first.
                 if (heldPastGrace && !following)
