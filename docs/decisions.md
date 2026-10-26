@@ -169,7 +169,7 @@ The plan says Delete "warns if it's the only place holding some history". v2 com
 
 ## D18. Startup checks and recovery
 
-Before any screen, SavePoint verifies the bundled git (`git --version`); a failure shows an error screen naming the path and what to reinstall. Stale `index.lock` files under the storage root are removed once, by the first startup check and before any git work, because each one then predates the process (SavePoint is single-instance and owns every git process on its repos, D31). During a run, a lock is removed only under the game's lock with no SavePoint git process in flight for that repo. A corrupt catalog file shows D13.2's recovery screen.
+Before any screen, SavePoint verifies the bundled git (`git --version`); a failure shows an error screen naming the path and what to reinstall. Stale `index.lock` files under the storage root are removed once, by the first startup check and before any git work, because each one then predates the process (SavePoint is single-instance and owns every git process on its repos, D31), once the gits a stopped SavePoint left running have been ended (D59); while one cannot be ended, no lock is removed. During a run, a lock is removed only under the game's lock with no SavePoint git process in flight for that repo. A corrupt catalog file shows D13.2's recovery screen.
 
 ## D19. Onboarding and editor guidance from the plan's risk table
 
