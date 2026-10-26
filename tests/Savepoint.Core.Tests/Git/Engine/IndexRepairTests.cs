@@ -383,6 +383,39 @@ public sealed class IndexRepairTests : IDisposable
     }
 
     [Fact]
+    public async Task A_repair_started_by_a_question_asked_of_an_empty_folder_still_stamps_the_files_of_the_real_one()
+    {
+        var (repo, _) = await _ws.ThreePointsRepoAsync();
+        _ws.AgeFiles(repo);
+        _ws.Write(repo, "a.txt", "edited and not saved");
+
+        // The question about which recorded files the patterns name is asked of a work tree that holds nothing. The file is zero-filled
+        // with its old time stamp, so the call it spoils is the first to find it damaged.
+        var damaged = false;
+        _ws.OnInvoke = invocation =>
+        {
+            if (!damaged && invocation.Arguments.Contains("-i"))
+            {
+                damaged = true;
+                var written = File.GetLastWriteTimeUtc(IndexOf(repo));
+                ZeroFill(repo);
+                File.SetLastWriteTimeUtc(IndexOf(repo), written);
+            }
+            else if (damaged && invocation.Arguments[0] == "add")
+            {
+                // Stops the save once the index is rebuilt, before any later step can stamp the files itself.
+                throw new InvalidOperationException("stopped for the test");
+            }
+        };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _locked.CaptureAsync(repo, new CaptureRequest("profile-1", "Edited", Guid.NewGuid().ToString()) { IgnorePatterns = ["*.log"] }, null, Ct));
+
+        Assert.True(damaged, "the question was never asked");
+        var stamps = await _ws.GitOutAsync(repo, "ls-files", "--debug", "b.txt");
+        Assert.Contains($"size: {"two".Length}", stamps, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task The_set_aside_index_is_left_by_the_sweep_of_stale_files()
     {
         var (repo, _) = await _ws.ThreePointsRepoAsync();

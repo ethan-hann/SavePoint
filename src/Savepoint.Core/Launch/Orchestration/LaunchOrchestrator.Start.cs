@@ -228,15 +228,16 @@ public sealed partial class LaunchOrchestrator
 
     private async Task SwitchAsync(StorageSnapshot storage, JobContext context, string gameId, string profileName, IReadOnlyList<FolderReading> folders)
     {
-        // Every folder is asked before the first is switched: a refusal in the saves folder (room, case clashes, folder links) must not
-        // come after the install folder is already on the new profile.
-        foreach (var folder in folders)
+        Report(context, gameId, JobProgress.None);
+
+        // The folders after the first are asked before the first is switched: a refusal in the saves folder (room, case clashes, folder
+        // links) must not come after the install folder is already on the new profile. The first folder's own switch refuses before it writes.
+        foreach (var folder in folders.Skip(1))
         {
             var target = folder.Target;
             await storage.Engine.CheckSwitchAsync(target.Repo, target.Branch ?? target.Commit, isBranch: target.Branch is not null, context.CancellationToken).ConfigureAwait(false);
         }
 
-        Report(context, gameId, JobProgress.None);
         var done = 0;
         var doneBytes = 0L;
         foreach (var folder in folders)

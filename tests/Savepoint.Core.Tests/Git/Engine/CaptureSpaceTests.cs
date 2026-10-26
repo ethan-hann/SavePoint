@@ -101,6 +101,7 @@ public sealed class CaptureSpaceTests : IDisposable
         var error = await Assert.ThrowsAsync<DiskSpaceException>(() => _ws.CaptureAsync(repo));
 
         Assert.Equal(_floor, error.Args["requiredBytes"]);
+        Assert.False(File.Exists(leftover), "the leftover was meant to be cleared before the volume was judged again");
         Assert.Null(await _ws.ResolveAsync(repo, "HEAD"));
     }
 }

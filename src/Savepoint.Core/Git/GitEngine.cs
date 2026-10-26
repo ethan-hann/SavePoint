@@ -216,6 +216,7 @@ public sealed partial class GitEngine
         {
             GitDir = repo.GitDir,
             WorkTree = repo.Guard?.RealPath ?? repo.WorkTree,
+            TrackedFolder = repo.Guard?.RealPath ?? repo.WorkTree,
             ReadOnly = readOnly,
             BeforeStart = readOnly || repo.Guard is null ? null : repo.Guard.Recheck,
         };

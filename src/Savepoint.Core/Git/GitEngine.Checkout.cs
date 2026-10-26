@@ -299,8 +299,10 @@ public sealed partial class GitEngine
     /// <summary>
     /// Asks, without writing anything, whether a switch of the folder to a branch or an older point would be turned away before it writes
     /// a file: free space on the folder's volume, names that differ only in case, a folder link on Windows, a file and a folder that cannot
-    /// share a path, unsaved changes and a half-switched folder. The folder, the repository and its note are only read. A launch that
-    /// switches several folders asks each of them first, so a refusal in a later folder leaves the earlier ones as they were.
+    /// share a path, unsaved changes and a half-switched folder. The folder, the repository's index and config, its refs and the note of an
+    /// unfinished switch are only read. When the game's patterns name files, git is also given a throwaway <c>savepoint-classify-*</c> index
+    /// in the git directory, which is deleted when the question is answered. A launch that switches several folders asks the later ones
+    /// first, so a refusal in a later folder leaves the earlier ones as they were.
     /// </summary>
     /// <param name="repo">The folder that would be switched.</param>
     /// <param name="target">The branch name, or the full id of an older point.</param>
@@ -318,6 +320,8 @@ public sealed partial class GitEngine
     /// <exception cref="Savepoint.Core.Errors.NamesDifferOnlyInCaseException">The folder is on a drive that ignores case and the target holds two names that differ only in case.</exception>
     /// <exception cref="Savepoint.Core.Errors.ProfileHasNoPointsException">The branch has no point to switch to.</exception>
     /// <exception cref="ArgumentException"><paramref name="target"/> is not a valid branch name, or not a full commit id.</exception>
+    /// <exception cref="Savepoint.Core.Errors.GitOperationException">The repository does not exist, the point is not in it, or git failed.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     public async Task CheckSwitchAsync(RepoRef repo, string target, bool isBranch, CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(target);

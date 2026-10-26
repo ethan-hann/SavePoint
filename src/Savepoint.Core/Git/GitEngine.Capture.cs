@@ -104,7 +104,7 @@ public sealed partial class GitEngine
     }
 
     // The temporary packs a stopped write left can be most of what a full volume holds, and the write about to start would remove them anyway.
-    // They go before the volume is judged, and only when nothing of this engine's is working on the repository.
+    // They go before the volume is judged, and only when nothing of this engine's, and no git an earlier run left going, is working on the repository.
     private void EnsureStorageSpaceAfterLeftovers(RepoRef repo)
     {
         try
@@ -113,7 +113,7 @@ public sealed partial class GitEngine
         }
         catch (DiskSpaceException)
         {
-            if (!IsInitialized(repo.GitDir) || _inFlight.IsBusy(repo.GitDir) || StaleLocks.RemoveTemporaryFiles(repo.GitDir) == 0)
+            if (!IsInitialized(repo.GitDir) || _inFlight.IsBusy(repo.GitDir) || LeftoverGitRunning() || StaleLocks.RemoveTemporaryFiles(repo.GitDir) == 0)
             {
                 throw;
             }

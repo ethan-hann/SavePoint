@@ -42,6 +42,29 @@ public sealed class LeftoverGitGuardTests : IDisposable
     }
 
     [Fact]
+    public async Task A_temporary_pack_is_not_cleared_to_make_room_while_the_leftover_runs_and_is_once_it_is_gone()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "a.txt", "a");
+        var temporaryPack = Path.Combine(repo.GitDir, "objects", "pack", "tmp_pack_x");
+        Directory.CreateDirectory(Path.GetDirectoryName(temporaryPack)!);
+        await File.WriteAllTextAsync(temporaryPack, "half a pack", Ct);
+
+        // The volume has room only once the temporary pack is gone.
+        _ws.Space.PerPath = _ => File.Exists(temporaryPack) ? 10 : null;
+
+        await Assert.ThrowsAsync<DiskSpaceException>(() => _ws.CaptureAsync(repo));
+
+        Assert.True(File.Exists(temporaryPack), "a temporary pack was removed under a git that is still running");
+
+        _running[0] = false;
+        var outcome = await _ws.CaptureAsync(repo);
+
+        Assert.True(outcome.Changed);
+        Assert.False(File.Exists(temporaryPack));
+    }
+
+    [Fact]
     public async Task The_startup_cleanup_removes_nothing_while_the_leftover_runs()
     {
         var repo = await _ws.InitializedRepoAsync();

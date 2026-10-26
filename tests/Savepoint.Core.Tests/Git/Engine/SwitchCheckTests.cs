@@ -51,12 +51,31 @@ public sealed class SwitchCheckTests : IDisposable
     {
         var repo = await TwoProfilesAsync();
         var before = TreeSnapshot.Take(repo.WorkTree);
+        var index = await File.ReadAllBytesAsync(Path.Combine(repo.GitDir, "index"), Ct);
+        var config = await File.ReadAllBytesAsync(Path.Combine(repo.GitDir, "config"), Ct);
 
         await _ws.Engine.CheckSwitchAsync(repo, "profile-b", isBranch: true, Ct);
 
         Assert.Equal(before, TreeSnapshot.Take(repo.WorkTree));
         Assert.Equal("refs/heads/profile-a", await _ws.HeadRefAsync(repo));
         Assert.Null(SwitchJournal.Read(repo.GitDir));
+        Assert.Equal(index, await File.ReadAllBytesAsync(Path.Combine(repo.GitDir, "index"), Ct));
+        Assert.Equal(config, await File.ReadAllBytesAsync(Path.Combine(repo.GitDir, "config"), Ct));
+    }
+
+    [Fact]
+    public async Task A_half_switched_folder_is_refused_for_another_target_and_passes_for_the_one_it_was_heading_to()
+    {
+        var repo = await TwoProfilesAsync();
+        var a = (await _ws.ResolveAsync(repo, "refs/heads/profile-a"))!;
+        var b = (await _ws.ResolveAsync(repo, "refs/heads/profile-b"))!;
+        SwitchJournal.Write(repo.GitDir, a, b, "profile-b");
+
+        var error = await Assert.ThrowsAsync<InterruptedSwitchException>(() => _ws.Engine.CheckSwitchAsync(repo, "profile-a", isBranch: true, Ct));
+
+        Assert.Equal(b, error.Args["targetPoint"]);
+        await _ws.Engine.CheckSwitchAsync(repo, "profile-b", isBranch: true, Ct);
+        Assert.NotNull(SwitchJournal.Read(repo.GitDir));
     }
 
     [Fact]

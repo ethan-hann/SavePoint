@@ -63,6 +63,10 @@ public sealed record GitInvocation
     // deletes or overwrites files uses it to look at the folder once more.
     internal Action? BeforeStart { get; init; }
 
+    // The folder the repository really tracks, when WorkTree was pointed elsewhere for a question that must not see the files. An index rebuilt
+    // after a call that failed on a damaged one is stamped against this folder, not against that one.
+    internal string? TrackedFolder { get; init; }
+
     // Called with the new process as soon as it has started, before anything is read from it. A reclaim notes it so a later start can find it.
     internal Action<ProcessStamp>? Started { get; init; }
 

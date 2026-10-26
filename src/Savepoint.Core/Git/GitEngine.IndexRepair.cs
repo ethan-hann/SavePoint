@@ -189,10 +189,13 @@ public sealed partial class GitEngine
         var environment = new Dictionary<string, string?> { ["GIT_INDEX_FILE"] = target };
         var unborn = IsUnborn(gitDir);
         string[] read = unborn ? ["read-tree", "--empty"] : ["read-tree", "HEAD"];
-        await RunOnceAsync(new GitInvocation(read) { GitDir = gitDir, WorkTree = invocation.WorkTree, ExtraEnvironment = environment }, ct).ConfigureAwait(false);
+
+        // A question asked of an empty folder (see Classify) must not leave the rebuilt index stamped against that folder.
+        var folder = invocation.TrackedFolder ?? invocation.WorkTree;
+        await RunOnceAsync(new GitInvocation(read) { GitDir = gitDir, WorkTree = folder, ExtraEnvironment = environment }, ct).ConfigureAwait(false);
         if (!unborn)
         {
-            await RunOnceAsync(new GitInvocation(["update-index", "-q", "--refresh"]) { GitDir = gitDir, WorkTree = invocation.WorkTree, ExtraEnvironment = environment, AllowedExitCodes = _anyExitCode }, ct).ConfigureAwait(false);
+            await RunOnceAsync(new GitInvocation(["update-index", "-q", "--refresh"]) { GitDir = gitDir, WorkTree = folder, ExtraEnvironment = environment, AllowedExitCodes = _anyExitCode }, ct).ConfigureAwait(false);
         }
     }
 
