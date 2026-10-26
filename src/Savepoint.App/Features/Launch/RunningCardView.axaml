@@ -19,6 +19,7 @@
       <StackPanel Grid.Column="1" Margin="16,0" VerticalAlignment="Center" Spacing="3">
         <TextBlock x:Name="TitleText" Classes="card-title" TextWrapping="Wrap" Text="{Binding Title}" />
         <TextBlock x:Name="SubtitleText" Classes="body muted" TextWrapping="Wrap" Text="{Binding Subtitle}" />
+        <TextBlock x:Name="NoticeText" Classes="body" TextWrapping="Wrap" IsVisible="{Binding HasNotice}" Text="{Binding Notice}" AutomationProperties.LiveSetting="Polite" />
       </StackPanel>
       <Button x:Name="DonePlayingButton"
               Grid.Column="2"

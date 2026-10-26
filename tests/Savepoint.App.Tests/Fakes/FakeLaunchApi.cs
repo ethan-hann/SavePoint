@@ -206,6 +206,14 @@ public sealed class FakeLaunchApi : ILaunchApi
             _backend.Jobs.Finish(session.LaunchJobId, null);
         });
 
+    // The started program closed with an error while the session still waits for the game (or the game showed up, with null).
+    public void ReportProgramExit(string gameId, int? exitCode) =>
+        _backend.Script(() =>
+        {
+            var session = Require(gameId, nameof(ReportProgramExit), s => s is SessionState.Running);
+            Publish(session with { State = (SessionState.Running)session.State with { ProgramExitCode = exitCode } });
+        });
+
     public void FailLaunch(string gameId, ErrorInfo error) =>
         _backend.Script(() =>
         {

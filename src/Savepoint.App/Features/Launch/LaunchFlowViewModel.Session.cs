@@ -117,14 +117,24 @@ public sealed partial class LaunchFlowViewModel
 
             case SessionState.Running running:
                 CloseProgress(flow);
-                SetInline(flow, new RunningCardViewModel(
+
+                // A change within the same running session only updates the notice; a new card would restart its timer.
+                if (flow.Inline is RunningCardViewModel current && held?.LaunchJobId == session.LaunchJobId)
+                {
+                    current.SetProgramExit(running.ProgramExitCode);
+                    break;
+                }
+
+                var card = new RunningCardViewModel(
                     GameName(flow.GameId),
                     ProfileName(flow.GameId, session.ProfileId),
                     running.StartedAt,
                     _deps.Text,
                     _deps.Clock,
                     _deps.Dispatcher,
-                    () => DonePlayingAsync(flow.GameId)));
+                    () => DonePlayingAsync(flow.GameId));
+                card.SetProgramExit(running.ProgramExitCode);
+                SetInline(flow, card);
                 break;
 
             case SessionState.Exited exited:

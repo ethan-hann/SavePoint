@@ -22,7 +22,11 @@ public abstract record SessionState
 
     /// <summary>The game is running.</summary>
     /// <param name="StartedAt">When the game started, as an absolute instant.</param>
-    public sealed record Running(DateTimeOffset StartedAt) : SessionState;
+    /// <param name="ProgramExitCode">
+    /// Set while the program SavePoint started has exited with a nonzero code right after starting and the session is still waiting
+    /// for the game to show up (a store may start it again); null otherwise.
+    /// </param>
+    public sealed record Running(DateTimeOffset StartedAt, int? ProgramExitCode = null) : SessionState;
 
     /// <summary>The game has stopped, or the user said they are done playing. The post-play choice is pending.</summary>
     /// <param name="StartedAt">When the game started, as an absolute instant.</param>

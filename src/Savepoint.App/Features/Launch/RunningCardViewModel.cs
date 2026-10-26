@@ -65,6 +65,21 @@ public sealed partial class RunningCardViewModel : ObservableObject, IDisposable
     /// <summary>"Skyrim is running".</summary>
     public string Title { get; }
 
+    /// <summary>What to tell the player about a program that closed right away while SavePoint keeps watching for the game; empty when there is nothing to say.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasNotice))]
+    private string _notice = string.Empty;
+
+    /// <summary>True when <see cref="Notice"/> has text.</summary>
+    public bool HasNotice => Notice.Length > 0;
+
+    /// <summary>Sets or clears the notice about the started program having closed with an error.</summary>
+    /// <param name="exitCode">The program's nonzero exit code, or null when there is nothing to say.</param>
+    public void SetProgramExit(int? exitCode) =>
+        Notice = exitCode is { } code
+            ? _text.Message("launch.running.programClosed", ("code", code.ToString(System.Globalization.CultureInfo.InvariantCulture)))
+            : string.Empty;
+
     /// <summary>Stops the minute refresh.</summary>
     public void Dispose() => _timer.Dispose();
 

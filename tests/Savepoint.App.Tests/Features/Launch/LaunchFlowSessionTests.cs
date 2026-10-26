@@ -187,6 +187,25 @@ public class LaunchFlowSessionTests : IDisposable
     }
 
     [Fact]
+    public async Task A_program_that_closed_right_away_is_said_on_the_running_card_and_cleared_when_the_game_shows_up()
+    {
+        await _f.PlayToRunningAsync();
+        var card = _f.Inline<RunningCardViewModel>();
+        Assert.False(card.HasNotice);
+
+        _f.Backend.Launch.ReportProgramExit(FlowRig.Skyrim, 127);
+
+        Assert.Same(card, _f.Inline<RunningCardViewModel>());
+        Assert.True(card.HasNotice);
+        Assert.Equal("The program closed right away with exit code 127. SavePoint is still watching for the game, for up to two minutes.", card.Notice);
+        Assert.True(card.DonePlayingCommand.CanExecute(null));
+
+        _f.Backend.Launch.ReportProgramExit(FlowRig.Skyrim, null);
+
+        Assert.False(card.HasNotice);
+    }
+
+    [Fact]
     public async Task Im_done_playing_tells_the_service_and_the_exit_replaces_the_card_with_the_post_play_dialog()
     {
         await _f.PlayToRunningAsync();

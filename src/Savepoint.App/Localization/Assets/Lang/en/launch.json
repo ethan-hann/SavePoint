@@ -149,6 +149,7 @@
   "launch.progress.titleSwitch": "Switching {gameName}'s files…",
   "launch.progress.verifying": "Making sure every file is in place…",
   "launch.running.donePlaying": "I'm done playing",
+  "launch.running.programClosed": "The program closed right away with exit code {code}. SavePoint is still watching for the game, for up to two minutes.",
   "launch.running.startedAgo": "{profileName} · started {duration} ago",
   "launch.running.startedJustNow": "{profileName} · started just now",
   "launch.running.title": "{gameName} is running",
