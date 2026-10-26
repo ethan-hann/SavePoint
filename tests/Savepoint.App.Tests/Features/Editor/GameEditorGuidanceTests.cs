@@ -121,6 +121,38 @@ public class GameEditorGuidanceTests
         Assert.StartsWith("Only used to find artwork.", editor.SteamAppIdHelp.Answer);
     }
 
+    [Theory]
+    [InlineData("rules", "help:FilesToLeaveOut")]
+    [InlineData("cloud", "help:CloudSaves")]
+    [InlineData("process", "help:HowTheGameStarts")]
+    public void The_answers_that_have_a_page_topic_end_with_a_link_that_opens_the_page_at_it(string which, string expectedCall)
+    {
+        var rig = EditorRig.Create();
+        var editor = rig.New();
+        var help = which switch
+        {
+            "rules" => editor.RulesHelp,
+            "cloud" => editor.CloudSavesHelp,
+            _ => editor.ProcessHelp,
+        };
+        help.IsOpen = true;
+
+        Assert.True(help.HasLink);
+        Assert.Equal("More in How SavePoint works", help.MoreLabel);
+        help.OpenHowItWorksCommand.Execute(null);
+
+        Assert.False(help.IsOpen);
+        Assert.Equal([expectedCall], rig.Shell.Calls.Where(call => call.StartsWith("help", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void The_answers_with_no_page_topic_have_no_link()
+    {
+        var editor = EditorRig.Create().New();
+
+        Assert.All([editor.AntiCheatHelp, editor.ModFoldersHelp, editor.SteamAppIdHelp], help => Assert.False(help.HasLink));
+    }
+
     [Fact]
     public void The_three_When_do_I_need_this_buttons_have_different_accessible_names_and_the_same_text()
     {

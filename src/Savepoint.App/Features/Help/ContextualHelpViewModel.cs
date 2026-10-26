@@ -71,6 +71,9 @@ public sealed partial class ContextualHelpViewModel : ObservableObject
         }
 
         IsOpen = false;
-        FocusQuestionRequested?.Invoke(this, EventArgs.Empty);
+        FocusQuestion();
     }
+
+    /// <summary>Asks the question button to take focus, for a player who comes back to the screen from the page this answer linked to.</summary>
+    public void FocusQuestion() => FocusQuestionRequested?.Invoke(this, EventArgs.Empty);
 }

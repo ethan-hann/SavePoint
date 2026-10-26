@@ -87,6 +87,13 @@ public interface IShellContext : INotifyPropertyChanged
     /// </summary>
     void ShowHelp();
 
+    /// <summary>
+    /// Opens the "How SavePoint works" page at one topic, the same way <see cref="ShowHelp()"/> opens it: a pane that is open is kept
+    /// underneath. While the page is already open it moves to the topic instead.
+    /// </summary>
+    /// <param name="section">The topic to show.</param>
+    void ShowHelp(Help.HowItWorksSection section);
+
     /// <summary>True when the first-run tour can run now: the selected game has a profile for it to point at.</summary>
     bool CanShowTour { get; }
 

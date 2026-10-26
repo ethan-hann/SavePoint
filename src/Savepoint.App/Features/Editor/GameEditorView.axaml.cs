@@ -25,8 +25,43 @@ public partial class GameEditorView : UserControl
         NameBlock.AddHandler(LostFocusEvent, OnNameBlockLostFocus);
 
         // The pane replaces the screen the user was on, so the focus has to be given to it rather than left behind.
-        AttachedToVisualTree += (_, _) => Dispatcher.UIThread.Post(() => NameField.Focus());
+        AttachedToVisualTree += (_, _) => Dispatcher.UIThread.Post(TakeFocus);
+        DetachedFromVisualTree += (_, _) =>
+        {
+            if (_editor is not null)
+            {
+                _editor.FormScrollOffset = FormScroll.Offset.Y;
+            }
+        };
         DataContextChanged += OnDataContextChanged;
+    }
+
+    // A form that comes back from the help page one of its explanations linked to is put as it was: scrolled to the same place, with
+    // focus on that explanation's question. Any other form starts at its name.
+    private void TakeFocus()
+    {
+        if (_editor?.TakeHelpToReturnTo() is not { } help)
+        {
+            NameField.Focus();
+            return;
+        }
+
+        RestoreScroll();
+
+        // The form settles to its final height only after the first layout, so the offset and the focus are set again once it has.
+        Dispatcher.UIThread.Post(
+            () =>
+            {
+                RestoreScroll();
+                help.FocusQuestion();
+            },
+            DispatcherPriority.Background);
+    }
+
+    private void RestoreScroll()
+    {
+        UpdateLayout();
+        FormScroll.Offset = new Vector(FormScroll.Offset.X, _editor?.FormScrollOffset ?? 0);
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)

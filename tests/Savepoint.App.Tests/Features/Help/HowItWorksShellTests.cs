@@ -72,6 +72,38 @@ public class HowItWorksShellTests
     }
 
     [Fact]
+    public async Task Showing_the_help_at_a_section_opens_the_page_there_and_keeps_the_pane_under_it()
+    {
+        var rig = await ShellRig.StartAsync();
+        var editor = new Pane();
+        rig.Shell.ShowPane(editor);
+
+        rig.Shell.ShowHelp(HowItWorksSection.FilesToLeaveOut);
+        var page = PageOf(rig.Shell);
+        Assert.Equal(HowItWorksSection.FilesToLeaveOut, page.Section);
+        page.BackCommand.Execute(null);
+
+        Assert.Same(editor, rig.Shell.Content);
+        Assert.False(editor.Disposed);
+    }
+
+    [Fact]
+    public async Task Showing_the_help_at_a_section_while_the_page_is_open_moves_that_page_instead_of_stacking_another()
+    {
+        var rig = await ShellRig.StartAsync();
+        rig.Shell.ShowHelp();
+        var page = PageOf(rig.Shell);
+        var requests = 0;
+        page.SectionRequested += (_, _) => requests++;
+
+        rig.Shell.ShowHelp(HowItWorksSection.CloudSaves);
+
+        Assert.Same(page, rig.Shell.Content);
+        Assert.Equal(HowItWorksSection.CloudSaves, page.Section);
+        Assert.Equal(1, requests);
+    }
+
+    [Fact]
     public async Task Opening_another_pane_over_the_page_ends_both_the_page_and_the_pane_under_it()
     {
         var rig = await ShellRig.StartAsync();
