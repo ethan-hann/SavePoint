@@ -58,6 +58,7 @@ Savepoint.Core                       v
 | PathMissingException | `error.path.missing` | `path`, `role` |
 | FolderChangedException | `error.path.changed` | `path`, `role` |
 | SwitchNoteStuckException | `error.launch.switchNoteStuck` | `path` |
+| RepositoryDamagedException | `error.gitOperation.recordDamaged` | |
 | StorageDestinationNotEmptyException | `error.storageRelocation.destinationNotEmpty` | `path` |
 | ValidationException | `error.validation.invalidPayload` | `issues` (list of `{ path, messageId }`) |
 | CatalogCorruptException | `error.catalog.corrupt` | `path` |
@@ -117,6 +118,7 @@ One implementation per OS under `Platform/Windows`, `Platform/Linux`, `Platform/
 `GitRunner` runs one git process with an argument list (never a shell string), `GIT_DIR`/`GIT_WORK_TREE`, the pinned identity and config isolation (D13.24), and `GIT_OPTIONAL_LOCKS=0` for read-only calls. It also takes optional stdin, line-streamed stdout/stderr callbacks, or binary stdout. A non-zero exit throws `GitCommandException` (internal). The engine maps it to a typed error.
 
 - **Cancel.** Cancellation kills the whole process tree (`ProcessTree.Kill`). Windows and macOS use the .NET call. On Linux, one call does the kill, and the exit-time kill runs it too. It stops the root, then reads `/proc` and stops each new descendant, pass after pass, until none appear. Then it sends SIGKILL to every member, deepest first and the root last.
+- **Index repair.** `GitEngine.RunRawAsync` wraps each git call (`RunOnceAsync`): a call that fails with index damage, made by the game-lock holder (`GitEngine.ForGameLockHolder()`, handed out by `BackendServices.RunForGameAsync`), rebuilds the index beside the real one and runs once more (`GitEngine.IndexRepair.cs`, D58). Calls with their own `GIT_INDEX_FILE` or a streamed input are left alone.
 - **Exit.** Every git the runner starts is listed in a `GitProcessRegistry`. A `ProcessExit` hook kills whatever is still running when SavePoint exits. A process stamp leaves a reused pid alone.
 
 `GitEngine` holds v1's engine operations on a `RepoRef(string GitDir, string WorkTree, string GameId, RepoRole Role)`. Every operation that writes checks path safety and the consent marker first. A discard, clean or switch also pins the folder (`PathSafety.Pin`: real path, plus file identity on Windows) through a `FolderGuard`: git runs on the pinned real path, every step that deletes, overwrites or creates files rechecks the pin and the marker right before it starts (`GitInvocation.BeforeStart` for git, the guard for .NET file steps, which also use the real path), and on Windows the folder is held open without delete sharing so it cannot be renamed or replaced (D57).
