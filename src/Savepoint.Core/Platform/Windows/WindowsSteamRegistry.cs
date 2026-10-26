@@ -20,4 +20,22 @@ internal static class WindowsSteamRegistry
             return null;
         }
     }
+
+    /// <summary>
+    /// The account id of the signed-in Steam user (<c>ActiveProcess\ActiveUser</c>), which is the name of its <c>userdata</c> folder.
+    /// Null when the value is missing, unreadable or 0, which is what it holds while Steam is closed.
+    /// </summary>
+    [SupportedOSPlatform("windows")]
+    public static uint? ReadActiveUser()
+    {
+        try
+        {
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Valve\Steam\ActiveProcess");
+            return key?.GetValue("ActiveUser") is int value and not 0 ? unchecked((uint)value) : null;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or SecurityException)
+        {
+            return null;
+        }
+    }
 }

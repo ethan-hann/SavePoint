@@ -73,6 +73,7 @@ public sealed partial class GameEditorViewModel
         ClearProcessNameOffer();
         NotifySteamStartNote();
         UpdateConfirmations();
+        ScheduleCloudCheck();
     }
 
     private async Task UpdateSavesResolvesAsync()

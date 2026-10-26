@@ -1,6 +1,7 @@
 using Savepoint.Core.Api;
 using Savepoint.Core.Artwork;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.CloudSaves;
 using Savepoint.Core.Diagnostics;
 using Savepoint.Core.Git;
 using Savepoint.Core.Library;
@@ -76,6 +77,15 @@ public sealed class CoreBackend
     /// <summary>The artwork Api: the user's own image, Steam's images, or none for each game (D30).</summary>
     public IArtworkApi Artwork { get; }
 
+    // Galaxy exists on Windows only here; elsewhere its games read as unknown.
+    private static GalaxyCloudReader? GalaxyReader(BackendOptions options) =>
+        OperatingSystem.IsWindows()
+            ? new GalaxyCloudReader(
+                options.GalaxyProgramData ?? Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+                options.GalaxyLocalAppData ?? Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                options.GalaxyTempFolder ?? Path.Combine(Path.GetTempPath(), "savepoint-galaxy-copies"))
+            : null;
+
     /// <summary>Builds the backend.</summary>
     /// <param name="options">What to build it from; every member but the launch component defaults to the real machine.</param>
     /// <exception cref="InvalidOperationException">The account has no home folder.</exception>
@@ -121,10 +131,11 @@ public sealed class CoreBackend
         var steam = options.SteamFolder ?? SteamFolderLocator.ForPlatform(platform);
         var gog = options.GogInstalls ?? (OperatingSystem.IsWindows() ? new WindowsGogRegistry() : null);
         var sources = new LibrarySources(steam, gog, options.Templates ?? GameTemplates.All);
+        var cloudSaves = new CloudSaveLookup(new SteamCloudReader(steam, options.SteamActiveUser ?? (OperatingSystem.IsWindows() ? WindowsSteamRegistry.ReadActiveUser : null)), GalaxyReader(options));
 
         return new CoreBackend(
             services,
-            new GamesApi(services, optimization, sources),
+            new GamesApi(services, optimization, sources, cloudSaves),
             new ProfilesApi(services, optimization),
             launch.Api,
             new SettingsApi(services, optimization, new StorageRelocator(services, options.AfterRelocationCopy, options.AfterRelocationSettings), new DataClearer(services)),

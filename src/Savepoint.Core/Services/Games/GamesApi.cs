@@ -2,6 +2,7 @@ using System.Text.Json;
 using Savepoint.Core.Api;
 using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.CloudSaves;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Launch;
 using Savepoint.Core.Library;
@@ -16,13 +17,54 @@ internal sealed partial class GamesApi : IGamesApi
     private readonly OptimizationService _optimization;
 
     private readonly LibrarySources _library;
+    private readonly CloudSaveLookup _cloudSaves;
 
-    public GamesApi(BackendServices services, OptimizationService optimization, LibrarySources library)
+    public GamesApi(BackendServices services, OptimizationService optimization, LibrarySources library, CloudSaveLookup cloudSaves)
     {
         _services = services;
         _optimization = optimization;
         _library = library;
+        _cloudSaves = cloudSaves;
     }
+
+    public Task<OperationResult<CloudSaveInfo>> GetCloudSavesAsync(CloudSaveQuery query, CancellationToken cancellationToken = default) =>
+        ApiGuard.RunAsync(
+            _services.Log,
+            async () =>
+            {
+                ArgumentNullException.ThrowIfNull(query);
+                if (string.IsNullOrWhiteSpace(query.InstallPath))
+                {
+                    return new CloudSaveInfo(CloudSaveState.Unknown, CloudStore.None);
+                }
+
+                var install = _services.PathTokens.Resolve(query.InstallPath.Trim(), "install.path");
+
+                // The form is not a saved game; this stands in for it so the same store detection applies.
+                var form = new GameDefinition
+                {
+                    Id = string.Empty,
+                    Name = string.Empty,
+                    Install = new InstallLocation(install),
+                    Launch = string.IsNullOrWhiteSpace(query.LaunchUri) ? new LaunchConfig(LaunchMethod.Exe, "game.exe") : new LaunchConfig(LaunchMethod.Uri, Uri: query.LaunchUri),
+                    SteamAppId = query.SteamAppId,
+                };
+                return await Task.Run(() => _cloudSaves.Read(form, install, _services.Platform.PathComparison), cancellationToken).ConfigureAwait(false);
+            },
+            cancellationToken);
+
+    public Task<OperationResult<CloudSaveInfo>> GetCloudSavesAsync(string gameId, CancellationToken cancellationToken = default) =>
+        ApiGuard.RunAsync(
+            _services.Log,
+            async () =>
+            {
+                var game = await RequireGameAsync(gameId, cancellationToken).ConfigureAwait(false);
+                var install = GameFolders.ResolveLoosely(_services.PathTokens, game).FirstOrDefault(folder => folder.Role == RepoRole.Install)?.Path;
+
+                // File reads, so they run off the caller's thread.
+                return await Task.Run(() => _cloudSaves.Read(game, install, _services.Platform.PathComparison), cancellationToken).ConfigureAwait(false);
+            },
+            cancellationToken);
 
     public IReadOnlyList<GameTemplate> Templates => _library.Templates;
 

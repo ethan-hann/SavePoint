@@ -80,8 +80,11 @@ public sealed partial class GameEditorViewModel
     private ArtworkSource EffectiveSource => _pendingImage is not null ? ArtworkSource.Custom : _removeImage ? ArtworkSource.None : _knownArtwork.Source;
 
     // Said while the id is typed, with the words Save uses, so a letter does not wait for Save to be refused.
-    partial void OnSteamAppIdTextChanged(string value) =>
+    partial void OnSteamAppIdTextChanged(string value)
+    {
         SteamAppIdError = ParseSteamAppId() == 0 ? _text.Message("validation.game.steamAppIdInvalid") : null;
+        ScheduleCloudCheck();
+    }
 
     // Blank is none; anything that is not a positive whole number is 0, which the catalog check refuses with one message.
     private int? ParseSteamAppId()
@@ -111,6 +114,7 @@ public sealed partial class GameEditorViewModel
     /// <summary>Stops following the game's artwork. The shell calls it when the editor's pane is closed or replaced.</summary>
     public void Dispose()
     {
+        StopCloudChecks();
         if (_followedArt is { } followed)
         {
             followed.PropertyChanged -= OnFollowedArtChanged;

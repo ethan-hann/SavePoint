@@ -227,6 +227,10 @@ internal sealed class RealContractHarness : ContractHarness
             LooseObjectThreshold = int.MaxValue,
             SteamFolder = new FolderLocator(_steamFolder),
             GogGalaxyCache = new NoGalaxyCache(),
+            SteamActiveUser = () => null,
+            GalaxyProgramData = Path.Combine(Root, "galaxy", "program-data"),
+            GalaxyLocalAppData = Path.Combine(Root, "galaxy", "local-app-data"),
+            GalaxyTempFolder = Path.Combine(Root, "galaxy", "copies"),
             DiskSpace = _disk,
             Launch = LaunchOrchestrator.Factory(new LaunchOrchestratorOptions { Starter = _game.Starter(TimeProvider.System) }),
         });
