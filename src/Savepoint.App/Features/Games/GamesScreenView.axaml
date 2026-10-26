@@ -157,8 +157,7 @@
                 <Border Grid.Column="4" Width="128" Margin="14,0,0,0" />
               </Grid>
             </Border>
-            <!-- Every row ends in a line; the last one is pushed out of the clipped table. -->
-            <ItemsControl x:Name="Rows" ItemsSource="{Binding Profiles}" Margin="0,0,0,-1">
+            <ItemsControl x:Name="Rows" ItemsSource="{Binding Profiles}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="games:ProfileRowViewModel">
                   <Border Classes="table-row"
