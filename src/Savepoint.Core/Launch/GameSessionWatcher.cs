@@ -38,6 +38,7 @@ public sealed class GameSessionWatcher : IDisposable
     private bool _disposed;
     private bool _childReleased;
     private int? _earlyExit;
+    private IReadOnlyList<int> _ambiguous = [];
 
     /// <summary>Starts following a session that began now.</summary>
     /// <param name="child">The program SavePoint started, or null for a link; the watcher takes ownership of the handle and releases it on <see cref="Dispose"/>.</param>
@@ -65,7 +66,7 @@ public sealed class GameSessionWatcher : IDisposable
         _clock = clock;
         _processes = processes;
         StartedAt = clock.GetUtcNow();
-        _family = new ProcessFamily(StartedAt - TimeSpan.FromSeconds(10), gameFolder, PathSyntax.For(os));
+        _family = new ProcessFamily(StartedAt - ProcessFamily.SessionTolerance, gameFolder, PathSyntax.For(os), os == OsKind.Linux, options.RelaunchWindow);
         _loop = Task.Run(RunAsync);
     }
 
@@ -238,6 +239,11 @@ public sealed class GameSessionWatcher : IDisposable
             else
             {
                 descendants = _child is null ? [] : _family.Update(look.Listed, _child.Pid, !childGone);
+                lock (_gate)
+                {
+                    _ambiguous = _family.AmbiguousHandover;
+                }
+
                 following = childGone && !namedSeen && descendants.Count > 0 && graceFrom - StartedAt < _options.RelaunchWindow;
                 (lastDescendants, lastFollowing) = (descendants, following);
             }
@@ -384,12 +390,19 @@ public sealed class GameSessionWatcher : IDisposable
     private bool Settle(SessionEndKind kind, DateTimeOffset? endedAt = null)
     {
         int[] followed;
+        IReadOnlyList<int> ambiguous;
         lock (_gate)
         {
             followed = [.. _followed];
+            ambiguous = _ambiguous;
         }
 
-        var outcome = new SessionOutcome(kind, StartedAt, endedAt ?? _clock.GetUtcNow(), ChildExitCode()) { StartedPid = _child?.Pid, FollowedPids = followed };
+        var outcome = new SessionOutcome(kind, StartedAt, endedAt ?? _clock.GetUtcNow(), ChildExitCode())
+        {
+            StartedPid = _child?.Pid,
+            FollowedPids = followed,
+            AmbiguousHandoverPids = ambiguous,
+        };
         if (!_outcome.TrySetResult(outcome))
         {
             return false;
