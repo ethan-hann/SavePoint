@@ -455,7 +455,43 @@ public class GamesScreenViewModelTests
         var rig = await GamesRig.StartAsync();
 
         Assert.All(Rows(rig), row => Assert.True(row.CanPlay));
-        Assert.All(Rows(rig), row => Assert.Equal("Play", row.PlayLabel));
+    }
+
+    [Fact]
+    public async Task Play_says_it_switches_first_on_a_profile_that_is_not_loaded()
+    {
+        var rig = await GamesRig.StartAsync();
+
+        Assert.Equal("Play", rig.Screen.Profiles[0].PlayLabel);
+        Assert.Equal("Play Modded playthrough - 7-2-26", rig.Screen.Profiles[0].PlayAutomationName);
+        Assert.Equal("Switch and play", rig.Screen.Profiles[1].PlayLabel);
+        Assert.Equal("Switch and play Vanilla - latest update", rig.Screen.Profiles[1].PlayAutomationName);
+    }
+
+    // ---- Notes under the name
+
+    [Fact]
+    public async Task A_profile_without_notes_shows_no_notes_line()
+    {
+        var rig = await GamesRig.StartAsync();
+
+        Assert.All(Rows(rig), row => Assert.False(row.HasNotes));
+        Assert.All(Rows(rig), row => Assert.Null(row.NotesText));
+    }
+
+    [Fact]
+    public async Task A_profiles_notes_show_trimmed_and_blank_notes_show_nothing()
+    {
+        var rig = await GamesRig.StartAsync();
+        FakeAssert.Ok(await rig.Backend.Profiles.UpdateAsync(SampleScenario.SkyrimId, SampleScenario.VanillaId, new ProfileChanges("Vanilla - latest update", "  Before the survival patch\n", null)));
+        FakeAssert.Ok(await rig.Backend.Profiles.UpdateAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, new ProfileChanges("Modded playthrough - 7-2-26", "   ", null)));
+
+        await rig.Screen.ReloadAsync();
+
+        Assert.True(rig.Screen.Profiles[1].HasNotes);
+        Assert.Equal("Before the survival patch", rig.Screen.Profiles[1].NotesText);
+        Assert.False(rig.Screen.Profiles[0].HasNotes);
+        Assert.Null(rig.Screen.Profiles[0].NotesText);
     }
 
     [Fact]
@@ -491,7 +527,7 @@ public class GamesScreenViewModelTests
 
         await rig.Screen.ReloadAsync();
 
-        Assert.Equal(["Running", "Play", "Play"], rig.Screen.Profiles.Select(row => row.PlayLabel));
+        Assert.Equal(["Running", "Switch and play", "Switch and play"], rig.Screen.Profiles.Select(row => row.PlayLabel));
         Assert.Equal([true, false, false], rig.Screen.Profiles.Select(row => row.IsRunning));
         Assert.All(Rows(rig), row => Assert.False(row.CanPlay));
     }
@@ -632,6 +668,23 @@ public class GamesScreenViewModelTests
         rig.Screen.SetHeaderWidth(width);
 
         Assert.Equal(compact, rig.Screen.Header.IsCompact);
+    }
+
+    // The Take a snapshot button is the longest, so it gives up its words before the other buttons do.
+    [Theory]
+    [InlineData(1000, true, false)]
+    [InlineData(850, true, true)]
+    [InlineData(760, true, true)]
+    [InlineData(700, false, false)]
+    [InlineData(600, false, true)]
+    public async Task The_snapshot_button_drops_its_words_before_the_other_header_buttons(double width, bool sidebar, bool iconOnly)
+    {
+        var rig = await GamesRig.StartAsync();
+        await rig.Shell.SetLayoutAsync(sidebar ? ShellLayout.Sidebar : ShellLayout.Library);
+
+        rig.Screen.SetHeaderWidth(width);
+
+        Assert.Equal(iconOnly, rig.Screen.Header.IsSnapshotCompact);
     }
 
     [Fact]

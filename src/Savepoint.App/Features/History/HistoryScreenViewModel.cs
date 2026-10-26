@@ -55,7 +55,7 @@ public sealed record HistoryDependencies(
 
 /// <summary>
 /// The History screen: the points the selected game can go back to, as a timeline and a list of
-/// saves or as cards, with a profile filter and a Cards / List choice that lasts for the session. "Go back to this" and
+/// saves or as cards, with a profile filter and a Cards / List choice that lasts for the session. "Go back and play" and
 /// "Load" hand a target to the shell's launch flow. The screen follows the selected game, library refreshes and
 /// finished jobs while it is shown, and reads again each time it comes into view.
 /// </summary>

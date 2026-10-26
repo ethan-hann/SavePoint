@@ -14,13 +14,26 @@ public sealed partial class GameHeaderLayout : ObservableObject
     /// <summary>The library header's width below which its buttons show icons only.</summary>
     public const double LibraryWordsMinWidth = 560;
 
+    /// <summary>The sidebar header's width below which the Take a snapshot button shows its icon only.</summary>
+    public const double SidebarSnapshotWordsMinWidth = 900;
+
+    /// <summary>The library header's width below which the Take a snapshot button shows its icon only.</summary>
+    public const double LibrarySnapshotWordsMinWidth = 700;
+
     /// <summary>Whether the header shows its words beside the icons.</summary>
     [ObservableProperty]
     private bool _isCompact;
 
+    /// <summary>Whether the Take a snapshot button shows only its icon; it is the longest button, so it gives up its words first.</summary>
+    [ObservableProperty]
+    private bool _isSnapshotCompact;
+
     /// <summary>Chooses the header that fits a screen of this width.</summary>
     /// <param name="width">The header's width in device-independent pixels.</param>
     /// <param name="sidebarLayout">True for the sidebar layout, whose header also holds the game's art and the layout toggle.</param>
-    public void Update(double width, bool sidebarLayout) =>
+    public void Update(double width, bool sidebarLayout)
+    {
         IsCompact = width < (sidebarLayout ? SidebarWordsMinWidth : LibraryWordsMinWidth);
+        IsSnapshotCompact = width < (sidebarLayout ? SidebarSnapshotWordsMinWidth : LibrarySnapshotWordsMinWidth);
+    }
 }

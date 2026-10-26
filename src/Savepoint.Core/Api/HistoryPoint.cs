@@ -1,6 +1,6 @@
 namespace Savepoint.Core.Api;
 
-/// <summary>One capture event in a game's history: the unit the History screen lists and "Go back to this" restores.</summary>
+/// <summary>One capture event in a game's history: the unit the History screen lists and "Go back and play" restores.</summary>
 /// <param name="Id">Names this point; the same id goes into <see cref="LaunchTarget.Point"/> to go back to it.</param>
 /// <param name="Kind">Which folders this capture changed.</param>
 /// <param name="Name">The point's name, as the user typed it when saving.</param>

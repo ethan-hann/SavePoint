@@ -50,7 +50,7 @@ public class OlderPointJourneyTests
         Assert.Empty(dialog.UnsavedBlocks);
         rig.Render("4b-going-back-to-the-older-point");
         dialog.SwitchCommand.Execute(null);
-        await rig.FinishesAsync(goBack, "Go back to this to hand the game over");
+        await rig.FinishesAsync(goBack, "Go back and play to hand the game over");
 
         // The launch ends on the Games screen, and the saves folder holds the older point's saves, not the later chapter.
         await rig.WaitForRunningAsync();

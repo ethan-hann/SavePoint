@@ -198,7 +198,7 @@ public class HistoryScreenViewModelTests
         Assert.Equal(SampleScenario.SkyrimId, begun.GameId);
         Assert.Equal(new LaunchTarget.Point(SampleScenario.ClearedBlackreach), begun.Target);
         Assert.Empty(rig.Flow.Begun);
-        Assert.Equal("Switch to this snapshot: Cleared Blackreach", card.SwitchAutomationName);
+        Assert.Equal("Go back without playing: Cleared Blackreach", card.SwitchAutomationName);
     }
 
     [Fact]
@@ -216,8 +216,8 @@ public class HistoryScreenViewModelTests
         Assert.Contains(rig.Flow.BegunSwitches[0].Target, points);
         Assert.Equal(new LaunchTarget.Save(SampleScenario.SurvivalId, SampleScenario.DeepCaveRun), rig.Flow.BegunSwitches[1].Target);
         Assert.Empty(rig.Flow.Begun);
-        Assert.StartsWith("Switch to this snapshot: ", entry.SwitchAutomationName, StringComparison.Ordinal);
-        Assert.Equal("Switch to this snapshot: Deep cave run", row.SwitchAutomationName);
+        Assert.StartsWith("Go back without playing: ", entry.SwitchAutomationName, StringComparison.Ordinal);
+        Assert.Equal("Go back without playing: Deep cave run", row.SwitchAutomationName);
     }
 
     [Fact]
@@ -258,7 +258,7 @@ public class HistoryScreenViewModelTests
         Assert.Equal(SampleScenario.SkyrimId, begun.GameId);
         Assert.Contains(begun.Target, points);
         Assert.True(entry.CanGoBack);
-        Assert.StartsWith("Go back to this: ", entry.GoBackAutomationName, StringComparison.Ordinal);
+        Assert.StartsWith("Go back and play: ", entry.GoBackAutomationName, StringComparison.Ordinal);
         Assert.All(rig.Screen.Timeline.Where(e => e.IsInUse), e => Assert.False(e.CanGoBack));
     }
 
@@ -313,9 +313,9 @@ public class HistoryScreenViewModelTests
     {
         var rig = await HistoryRig.ShownAsync();
 
-        Assert.Equal("Go back to Cleared Blackreach", rig.Screen.Saves.Single(r => r.Name == "Cleared Blackreach").LoadAutomationName);
+        Assert.Equal("Go back and play from Cleared Blackreach", rig.Screen.Saves.Single(r => r.Name == "Cleared Blackreach").LoadAutomationName);
         Assert.Equal(
-            "Go back to this: Cleared Blackreach",
+            "Go back and play: Cleared Blackreach",
             rig.Screen.Groups.SelectMany(group => group.Cards).Single(c => c.Name == "Cleared Blackreach").GoBackAutomationName);
     }
 

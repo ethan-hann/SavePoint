@@ -1,7 +1,7 @@
 namespace Savepoint.Core.Api;
 
 /// <summary>
-/// Reads a game's history. "Go back to this" is a launch with <see cref="LaunchTarget.Point"/>, so it gets the same preview and
+/// Reads a game's history. "Go back and play" is a launch with <see cref="LaunchTarget.Point"/>, so it gets the same preview and
 /// dirty checks as Play.
 /// </summary>
 /// <remarks>See <see cref="OperationResult{T}"/> for the rules every member follows.</remarks>

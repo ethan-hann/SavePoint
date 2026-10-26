@@ -56,7 +56,7 @@ public class HistoryScreenViewTests
         Assert.Contains("EARLIER", texts);
         Assert.Contains("LOADED NOW", texts);
         Assert.Contains("Saves only · 1.6.640 with 212 mod files", texts);
-        Assert.Equal(7, harness.All<Button>().Count(button => button.IsEffectivelyVisible && (button.Content as string) == "Go back to this"));
+        Assert.Equal(7, harness.All<Button>().Count(button => button.IsEffectivelyVisible && (button.Content as string) == "Go back and play"));
     }
 
     [AvaloniaFact]
@@ -74,7 +74,10 @@ public class HistoryScreenViewTests
         Assert.Contains("SAVES", texts);
         Assert.Contains("14 mod files updated", texts);
         Assert.Contains("LOADED NOW", texts);
-        Assert.Equal(4, harness.All<Button>().Count(button => button.IsEffectivelyVisible && (button.Content as string) == "Go back"));
+        var visibleNames = harness.All<Button>().Where(button => button.IsEffectivelyVisible).Select(AutomationProperties.GetName).ToList();
+        var loadable = Screen(harness).Saves.Where(save => save.CanLoad).ToList();
+        Assert.Equal(4, loadable.Count);
+        Assert.All(loadable, save => Assert.Contains(save.LoadAutomationName, visibleNames));
     }
 
     [AvaloniaFact]
@@ -85,12 +88,14 @@ public class HistoryScreenViewTests
         harness.Settle();
 
         var buttons = harness.Find<Grid>("ListRegion").GetVisualDescendants().OfType<Button>()
-            .Where(button => button.IsEffectivelyVisible && (button.Content as string) == "Go back to this").ToList();
+            .Where(button => button.IsEffectivelyVisible && (button.Content as string) == "Go back and play").ToList();
 
+        // The saves column's buttons carry the same label, so the entries are matched by their names.
         var entries = Screen(harness).Timeline.Where(entry => !entry.IsInUse).ToList();
+        var names = buttons.Select(AutomationProperties.GetName).ToList();
         Assert.NotEmpty(entries);
-        Assert.Equal(entries.Count, buttons.Count);
-        Assert.All(buttons, button => Assert.StartsWith("Go back to this: ", AutomationProperties.GetName(button), StringComparison.Ordinal));
+        Assert.All(entries, entry => Assert.Contains(entry.GoBackAutomationName, names));
+        Assert.StartsWith("Go back and play: ", entries[0].GoBackAutomationName, StringComparison.Ordinal);
     }
 
     [AvaloniaFact]
@@ -109,7 +114,7 @@ public class HistoryScreenViewTests
     {
         using var harness = await StartAsync();
 
-        ButtonNamed(harness, "Go back to this: Cleared Blackreach").Command!.Execute(null);
+        ButtonNamed(harness, "Go back and play: Cleared Blackreach").Command!.Execute(null);
 
         var begun = Assert.Single(harness.Flow.Begun);
         Assert.Equal(new LaunchTarget.Point(SampleScenario.ClearedBlackreach), begun.Target);
@@ -163,7 +168,7 @@ public class HistoryScreenViewTests
         Screen(harness).SelectedViewOption = Screen(harness).ViewOptions[1];
         harness.Settle();
 
-        ButtonNamed(harness, "Go back to Deep cave run").Command!.Execute(null);
+        ButtonNamed(harness, "Go back and play from Deep cave run").Command!.Execute(null);
 
         var begun = Assert.Single(harness.Flow.Begun);
         Assert.Equal(new LaunchTarget.Save(SampleScenario.SurvivalId, SampleScenario.DeepCaveRun), begun.Target);
@@ -177,7 +182,7 @@ public class HistoryScreenViewTests
         harness.Flow.SetActive(SampleScenario.SkyrimId, true);
         harness.Settle();
 
-        Assert.False(ButtonNamed(harness, "Go back to this: Cleared Blackreach").IsEffectivelyEnabled);
+        Assert.False(ButtonNamed(harness, "Go back and play: Cleared Blackreach").IsEffectivelyEnabled);
     }
 
     [AvaloniaFact]

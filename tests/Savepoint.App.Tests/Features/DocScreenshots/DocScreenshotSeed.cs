@@ -69,7 +69,7 @@ internal static class DocScreenshotSeed
                 Profile(VanillaId, VanillaName, At(2026, 7, 3, 21, 12)),
                 Stats(VanillaId, active: false, snapshots: 1, mods: 0, At(2026, 7, 3, 21, 12)))
             .WithProfile(
-                Profile(ModdedId, ModdedName, At(2026, 7, 7, 22, 40)),
+                Profile(ModdedId, ModdedName, At(2026, 7, 7, 22, 40), "Full mod list, tested on patch 1.4. Take a snapshot before adding more."),
                 Stats(ModdedId, active: true, snapshots: 4, mods: 38, At(2026, 7, 7, 22, 40)));
         if (withSurvivalProfile)
         {
@@ -170,8 +170,8 @@ internal static class DocScreenshotSeed
 
     private static FolderLaunchState InPlace(RepoRole role, string path) => new(role, path, true, false, 0, null, null);
 
-    private static Profile Profile(string id, string name, DateTimeOffset lastLaunched) =>
-        new(id, GameId, name, $"profile/{id}", LastLaunchedAt: lastLaunched);
+    private static Profile Profile(string id, string name, DateTimeOffset lastLaunched, string? notes = null) =>
+        new(id, GameId, name, $"profile/{id}", Notes: notes, LastLaunchedAt: lastLaunched);
 
     private static ProfileRowStats Stats(string id, bool active, int snapshots, int? mods, DateTimeOffset lastPlayed) =>
         new(id, active, [], snapshots, mods, "1.4.0", null, lastPlayed, false, active ? SnapshotNowAvailability.Available : SnapshotNowAvailability.NotLoaded);

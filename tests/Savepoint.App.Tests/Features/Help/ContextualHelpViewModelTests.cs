@@ -79,7 +79,7 @@ public class ContextualHelpViewModelTests
 
         Assert.Equal("What's a snapshot?", help.Question);
         Assert.Equal(
-            "A snapshot is a copy of a profile's game version, mods and saves (or just some of them) at one moment. Choose Go back to this on a snapshot to play from it, or Switch to this snapshot to load it without playing.",
+            "A snapshot is a copy of a profile's game version, mods and saves (or just some of them) at one moment. Choose Go back and play on a snapshot to play from it, or Go back without playing to load it without starting the game.",
             help.Answer);
     }
 

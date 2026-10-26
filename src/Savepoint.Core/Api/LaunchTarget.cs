@@ -16,7 +16,7 @@ public abstract record LaunchTarget
     /// <param name="SaveId">The chosen save, one of the preview's <see cref="LaunchPreview.AvailableSaves"/>.</param>
     public sealed record Save(string ProfileId, HistoryPointId SaveId) : LaunchTarget;
 
-    /// <summary>Both folders as they were at one history point, for "Go back to this" (D15). The profile is the point's own.</summary>
+    /// <summary>Both folders as they were at one history point, for "Go back and play" (D15). The profile is the point's own.</summary>
     /// <param name="PointId">The history point to restore.</param>
     public sealed record Point(HistoryPointId PointId) : LaunchTarget;
 }

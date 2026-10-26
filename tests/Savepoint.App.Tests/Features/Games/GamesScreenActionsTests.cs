@@ -195,6 +195,48 @@ public class GamesScreenActionsTests
         Assert.Empty(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CaptureAsync)));
     }
 
+    // ---- Take a snapshot from the header
+
+    [Fact]
+    public async Task The_header_snapshot_button_captures_the_loaded_profile()
+    {
+        var rig = await GamesRig.StartAsync();
+
+        Assert.True(rig.Screen.HasLoadedProfile);
+        Assert.Equal("Take a snapshot", rig.Screen.TakeSnapshotText);
+        await rig.Screen.TakeSnapshotCommand.ExecuteAsync(null);
+
+        var call = Assert.Single(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CaptureAsync)));
+        Assert.Equal([SampleScenario.SkyrimId, SampleScenario.ModdedId, "Snapshot - 7-8-26", null], call.Args);
+    }
+
+    [Fact]
+    public async Task The_header_snapshot_button_is_off_while_the_game_has_a_session_as_the_menu_entry_is()
+    {
+        var rig = await GamesRig.StartAsync();
+        rig.LaunchFlow!.SetActive(SampleScenario.SkyrimId, true);
+
+        Assert.False(rig.Screen.TakeSnapshotCommand.CanExecute(null));
+        await rig.Screen.TakeSnapshotCommand.ExecuteAsync(null);
+        Assert.Empty(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CaptureAsync)));
+
+        rig.LaunchFlow.SetActive(SampleScenario.SkyrimId, false);
+
+        Assert.True(rig.Screen.TakeSnapshotCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task The_header_snapshot_button_is_hidden_when_no_profile_is_loaded()
+    {
+        var rig = await GamesRig.StartAsync();
+        rig.Backend.State.RowStats[SampleScenario.ModdedId] = rig.Backend.State.RowStats[SampleScenario.ModdedId] with { SnapshotNow = SnapshotNowAvailability.NotLoaded };
+
+        await rig.Screen.ReloadAsync();
+
+        Assert.False(rig.Screen.HasLoadedProfile);
+        Assert.False(rig.Screen.TakeSnapshotCommand.CanExecute(null));
+    }
+
     // ---- New profile
 
     [Fact]

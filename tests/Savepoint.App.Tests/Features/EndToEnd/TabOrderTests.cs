@@ -52,7 +52,7 @@ public class TabOrderTests
         throw new InvalidOperationException($"Tab never came back round: {string.Join(" > ", stops)}");
     }
 
-    private static string[] ProfileRows(string name) => [$"Row: {name}", $"Play {name}", $"More actions for {name}"];
+    private static string[] ProfileRows(string name, string play = "Play") => [$"Row: {name}", $"{play} {name}", $"More actions for {name}"];
 
     [AvaloniaFact]
     public async Task The_sidebar_layout_goes_rail_then_header_then_chips_then_the_profile_rows_then_the_footer()
@@ -62,9 +62,9 @@ public class TabOrderTests
         Assert.Equal(
             [
                 "Games", "Skyrim Special Edition, 3 profiles", "Add games from your libraries", "Add a game",
-                "Edit game", "New profile", "More actions for Skyrim Special Edition", "Sidebar",
+                "Take a snapshot", "Edit game", "New profile", "More actions for Skyrim Special Edition", "Sidebar",
                 "Profiles", "History", "Activity",
-                .. ProfileRows(_modded), .. ProfileRows(_vanilla), .. ProfileRows(_survival),
+                .. ProfileRows(_modded), .. ProfileRows(_vanilla, "Switch and play"), .. ProfileRows(_survival, "Switch and play"),
                 "Free up space for Skyrim Special Edition",
             ],
             TabStops(app));
@@ -79,8 +79,8 @@ public class TabOrderTests
             [
                 "Games", "Library",
                 "Add games from your libraries", "Add a game", "Skyrim Special Edition, 3 profiles", "Add a game",
-                "Edit game", "New profile", "More actions for Skyrim Special Edition",
-                .. ProfileRows(_modded), .. ProfileRows(_vanilla), .. ProfileRows(_survival),
+                "Take a snapshot", "Edit game", "New profile", "More actions for Skyrim Special Edition",
+                .. ProfileRows(_modded), .. ProfileRows(_vanilla, "Switch and play"), .. ProfileRows(_survival, "Switch and play"),
             ],
             TabStops(app));
     }
@@ -96,13 +96,13 @@ public class TabOrderTests
             [
                 "History", "Skyrim Special Edition, 3 profiles", "Add games from your libraries", "Add a game",
                 "What's a snapshot?", "Filter by profile: All profiles", "Cards",
-                "Go back to this: Cleared Blackreach", "Switch to this snapshot: Cleared Blackreach",
-                "Go back to this: 14 mod files updated", "Switch to this snapshot: 14 mod files updated",
-                "Go back to this: Fresh start with Nolvus", "Switch to this snapshot: Fresh start with Nolvus",
-                "Go back to this: Vanilla 1.6.1170", "Switch to this snapshot: Vanilla 1.6.1170",
-                "Go back to this: Deep cave run", "Switch to this snapshot: Deep cave run",
-                "Go back to this: First night", "Switch to this snapshot: First night",
-                "Go back to this: Survival test - 5-14-26", "Switch to this snapshot: Survival test - 5-14-26",
+                "Go back and play: Cleared Blackreach", "Go back without playing: Cleared Blackreach",
+                "Go back and play: 14 mod files updated", "Go back without playing: 14 mod files updated",
+                "Go back and play: Fresh start with Nolvus", "Go back without playing: Fresh start with Nolvus",
+                "Go back and play: Vanilla 1.6.1170", "Go back without playing: Vanilla 1.6.1170",
+                "Go back and play: Deep cave run", "Go back without playing: Deep cave run",
+                "Go back and play: First night", "Go back without playing: First night",
+                "Go back and play: Survival test - 5-14-26", "Go back without playing: Survival test - 5-14-26",
             ],
             TabStops(app));
     }
@@ -139,10 +139,10 @@ public class TabOrderTests
                 "History", "Skyrim Special Edition, 3 profiles", "Add games from your libraries", "Add a game",
                 "What's a snapshot?", "Filter by profile: All profiles", "List",
                 .. app.History.Timeline.Where(entry => entry.CanGoBack).SelectMany(entry => new[] { entry.GoBackAutomationName, entry.SwitchAutomationName }),
-                "Go back to Cleared Blackreach", "Switch to this snapshot: Cleared Blackreach",
-                "Go back to Fresh start with Nolvus", "Switch to this snapshot: Fresh start with Nolvus",
-                "Go back to Deep cave run", "Switch to this snapshot: Deep cave run",
-                "Go back to First night", "Switch to this snapshot: First night",
+                "Go back and play from Cleared Blackreach", "Go back without playing: Cleared Blackreach",
+                "Go back and play from Fresh start with Nolvus", "Go back without playing: Fresh start with Nolvus",
+                "Go back and play from Deep cave run", "Go back without playing: Deep cave run",
+                "Go back and play from First night", "Go back without playing: First night",
             ],
             TabStops(app));
     }

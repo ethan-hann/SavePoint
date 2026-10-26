@@ -81,8 +81,8 @@ public class GamesScreenViewTests
 
         double X(string name) => harness.Find<TextBlock>(name).TranslatePoint(new Point(0, 0), table)!.Value.X;
 
-        // 1fr 108 92 118 128 with 14px gaps inside a 14px padding.
-        Assert.InRange(X("VersionHeader"), 253, 259);
+        // 1fr 108 92 118 184 with 14px gaps inside a 14px padding; the last column is wide enough for "Switch and play".
+        Assert.InRange(X("VersionHeader"), 197, 205);
         Assert.InRange(X("ModFilesHeader"), X("VersionHeader") + 108 + 14 - 1, X("VersionHeader") + 108 + 14 + 1);
         Assert.InRange(X("LastPlayedHeader"), X("ModFilesHeader") + 92 + 14 - 1, X("ModFilesHeader") + 92 + 14 + 1);
         Assert.InRange(harness.Find<Border>("TableHeader").Bounds.Height, 30, 34);
@@ -122,6 +122,39 @@ public class GamesScreenViewTests
         harness.Settle();
 
         Assert.All(PlayButtons(harness), button => Assert.False(button.IsEffectivelyEnabled));
+    }
+
+    [AvaloniaFact]
+    public async Task The_header_has_a_take_a_snapshot_button_that_follows_the_launch_flow()
+    {
+        using var harness = await GamesViewHarness.StartAsync(width: 1280);
+        var button = harness.Find<Button>("TakeSnapshotButton");
+
+        Assert.True(button.IsEffectivelyVisible);
+        Assert.True(button.IsEffectivelyEnabled);
+        Assert.Equal("Take a snapshot", AutomationProperties.GetName(button));
+        Assert.Contains("Take a snapshot", harness.VisibleTexts());
+
+        harness.Rig.LaunchFlow!.SetActive(SampleScenario.SkyrimId, true);
+        harness.Settle();
+
+        Assert.False(button.IsEffectivelyEnabled);
+    }
+
+    [AvaloniaFact]
+    public async Task A_profiles_notes_show_under_its_name_with_the_whole_text_in_a_tip_and_no_line_without_notes()
+    {
+        var backend = FakeBackend.Sample();
+        FakeAssert.Ok(await backend.Profiles.UpdateAsync(SampleScenario.SkyrimId, SampleScenario.VanillaId, new ProfileChanges("Vanilla - latest update", "Before the survival patch", null)));
+        using var harness = await GamesViewHarness.StartAsync(backend);
+
+        var notes = harness.All<TextBlock>().Where(text => text.Name == "NotesText").ToList();
+
+        Assert.Equal(3, notes.Count);
+        Assert.Equal([false, true, false], notes.Select(text => text.IsEffectivelyVisible));
+        Assert.Equal("Before the survival patch", notes[1].Text);
+        Assert.Equal("Before the survival patch", Avalonia.Controls.ToolTip.GetTip(notes[1]));
+        Assert.Equal(2, notes[1].MaxLines);
     }
 
     [AvaloniaFact]
@@ -427,7 +460,7 @@ public class GamesScreenViewTests
                 "Play Modded playthrough - 7-2-26",
                 "More actions for Modded playthrough - 7-2-26",
                 harness.Rig.Screen.Profiles[1].AutomationName,
-                "Play Vanilla - latest update",
+                "Switch and play Vanilla - latest update",
                 "More actions for Vanilla - latest update",
             ],
             reached);
@@ -520,7 +553,7 @@ public class GamesScreenViewTests
             ["More actions for Modded playthrough - 7-2-26", "More actions for Vanilla - latest update", "More actions for Survival test - 5-14-26"],
             MoreButtons(harness).Select(AutomationProperties.GetName));
         Assert.Equal(
-            ["Play Modded playthrough - 7-2-26", "Play Vanilla - latest update", "Play Survival test - 5-14-26"],
+            ["Play Modded playthrough - 7-2-26", "Switch and play Vanilla - latest update", "Switch and play Survival test - 5-14-26"],
             PlayButtons(harness).Select(AutomationProperties.GetName));
     }
 

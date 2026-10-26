@@ -87,6 +87,9 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         EditGameCommand = new RelayCommand(OpenEditor);
         NewProfileCommand = new AsyncRelayCommand(NewProfileAsync);
         DeleteGameCommand = new AsyncRelayCommand(DeleteGameAsync);
+        TakeSnapshotCommand = new AsyncRelayCommand(
+            () => LoadedProfile?.TakeSnapshotCommand.ExecuteAsync(null) ?? Task.CompletedTask,
+            () => LoadedProfile?.TakeSnapshotCommand.CanExecute(null) == true);
 
         _shell.PropertyChanged += OnShellChanged;
         _shell.LibraryRefreshed += OnLibraryRefreshed;
@@ -168,6 +171,17 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
 
     /// <summary>The storage footer's Free up space for the selected game.</summary>
     public FreeUpSpaceViewModel FreeUp { get; }
+
+    /// <summary>True when a profile is loaded in the game's folders, so the header offers a snapshot of it.</summary>
+    public bool HasLoadedProfile => LoadedProfile is not null;
+
+    /// <summary>The header button's label.</summary>
+    public string TakeSnapshotText => _deps.Text.Message("games.header.takeSnapshot");
+
+    /// <summary>Takes a snapshot of the loaded profile; off exactly when that row's own menu entry is.</summary>
+    public IAsyncRelayCommand TakeSnapshotCommand { get; }
+
+    private ProfileRowViewModel? LoadedProfile => Profiles.FirstOrDefault(row => row.SnapshotNow == SnapshotNowAvailability.Available);
 
     /// <summary>Opens the game editor pane for the selected game.</summary>
     public IRelayCommand EditGameCommand { get; }
@@ -441,6 +455,14 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     {
         Profiles.Clear();
         RaiseTableState();
+        RefreshSnapshotHeader();
+    }
+
+    // The header button follows whichever row is loaded and that row's own availability.
+    private void RefreshSnapshotHeader()
+    {
+        OnPropertyChanged(nameof(HasLoadedProfile));
+        TakeSnapshotCommand.NotifyCanExecuteChanged();
     }
 
     // Rows are matched by profile id and updated in place; the collection only changes when the profiles themselves do.
@@ -479,6 +501,8 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
                 Profiles.Add(row);
             }
         }
+
+        RefreshSnapshotHeader();
     }
 
     // Play needs no session for the game and no profile already running.
@@ -492,6 +516,8 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         {
             row.SetCanPlay(canPlay, gameRunning);
         }
+
+        RefreshSnapshotHeader();
     }
 
     private ErrorCardViewModel LoadFailure(ErrorInfo error) =>

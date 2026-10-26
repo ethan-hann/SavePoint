@@ -12,14 +12,14 @@ namespace Savepoint.App.Features.Shell;
 public interface ILaunchFlowHost : INotifyPropertyChanged
 {
     /// <summary>
-    /// Starts the flow for a game: Play on a profile row, or "Go back to this" on a history point. The flow opens its own
+    /// Starts the flow for a game: Play on a profile row, or "Go back and play" on a history point. The flow opens its own
     /// dialogs through <see cref="Common.Dialogs.IDialogs"/> and reports through its own properties.
     /// </summary>
     Task BeginAsync(string gameId, LaunchTarget target);
 
     /// <summary>
     /// Starts the flow for a game the way <see cref="BeginAsync"/> does, but only loads the target's files into the game's folders:
-    /// "Switch to this profile" on a profile row, or "Switch to this snapshot" on a history point. The same check, the same
+    /// "Switch to this profile" on a profile row, or "Go back without playing" on a history point. The same check, the same
     /// dialog and the same guards apply; the game does not start, and no after-play prompt follows.
     /// </summary>
     Task BeginSwitchAsync(string gameId, LaunchTarget target);

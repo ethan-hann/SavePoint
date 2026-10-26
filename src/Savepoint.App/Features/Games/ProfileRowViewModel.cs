@@ -65,6 +65,12 @@ public sealed partial class ProfileRowViewModel : ObservableObject
     /// <summary>The notes the user wrote, or null.</summary>
     public string? Notes { get; private set; }
 
+    /// <summary>The notes with surrounding blanks removed, or null when there are none.</summary>
+    public string? NotesText { get; private set; }
+
+    /// <summary>True when there are notes to show under the name.</summary>
+    public bool HasNotes => NotesText is not null;
+
     /// <summary>True when both folders hold this profile's latest points with nothing unsaved; the row shows a dot and a filled Play button.</summary>
     public bool IsActive { get; private set; }
 
@@ -101,7 +107,7 @@ public sealed partial class ProfileRowViewModel : ObservableObject
     /// <summary>When the profile was last played, as "3 days ago", or an em dash.</summary>
     public string LastPlayedText { get; private set; } = string.Empty;
 
-    /// <summary>"Play", or "Running" for the profile whose game is running.</summary>
+    /// <summary>"Play", "Switch and play" on a profile that is not loaded, or "Running" for the profile whose game is running.</summary>
     public string PlayLabel { get; private set; } = string.Empty;
 
     /// <summary>The whole row read as one phrase for assistive technology.</summary>
@@ -167,6 +173,7 @@ public sealed partial class ProfileRowViewModel : ObservableObject
 
         Name = profile.Name;
         Notes = profile.Notes;
+        NotesText = Blank(profile.Notes);
         SnapshotNow = stats.SnapshotNow;
         IsActive = stats.IsActive;
         IsRunning = stats.IsRunning;
@@ -182,9 +189,13 @@ public sealed partial class ProfileRowViewModel : ObservableObject
         VersionText = VersionOverride ?? DetectedVersion ?? noValue;
         ModFilesText = stats.ModFileCount is > 0 and var modFiles ? _text.Number(modFiles) : noValue;
         LastPlayedText = (stats.LastPlayedAt ?? profile.LastLaunchedAt) is { } lastPlayed ? _text.RelativeTime(lastPlayed) : noValue;
-        PlayLabel = IsRunning ? _text.Message("games.profileTable.running") : _text.Message("games.profileTable.play");
+        // Play on a profile the folders do not hold loads it first, and the label says so.
+        var switchesFirst = !IsRunning && SnapshotNow == SnapshotNowAvailability.NotLoaded;
+        PlayLabel = _text.Message(IsRunning ? "games.profileTable.running" : switchesFirst ? "games.profileTable.switchAndPlay" : "games.profileTable.play");
 
-        PlayAutomationName = _text.Message(IsRunning ? "games.profileTable.runningAutomationName" : "games.profileTable.playAutomationName", ("name", Name));
+        PlayAutomationName = _text.Message(
+            IsRunning ? "games.profileTable.runningAutomationName" : switchesFirst ? "games.profileTable.switchAndPlayAutomationName" : "games.profileTable.playAutomationName",
+            ("name", Name));
         MoreActionsAutomationName = _text.Message("games.profileTable.moreActions", ("name", Name));
         var none = _text.Message("games.profileTable.noneAutomation");
         AutomationName = _text.Message(

@@ -2,7 +2,7 @@ using Savepoint.Core.Git;
 
 namespace Savepoint.Core.Services;
 
-// Which commit of a folder stands for a history point. History describes a point with it and "Go back to this" restores with it, so the two can never disagree.
+// Which commit of a folder stands for a history point. History describes a point with it and "Go back and play" restores with it, so the two can never disagree.
 internal static class PointCommits
 {
     /// <summary>

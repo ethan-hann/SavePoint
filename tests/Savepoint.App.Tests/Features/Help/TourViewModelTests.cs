@@ -79,7 +79,7 @@ public class TourViewModelTests
         Assert.Equal(
             "Play starts the game with this profile's files, and Switch to this profile in its menu loads them without starting it.",
             bodies[1]);
-        Assert.Equal("History lists every snapshot, and Go back to this plays from one even after the game updates.", bodies[2]);
+        Assert.Equal("History lists every snapshot, and Go back and play starts the game from one even after the game updates.", bodies[2]);
         Assert.Equal("Make another profile for a different mod list or game version, and Play switches between them.", bodies[3]);
     }
 

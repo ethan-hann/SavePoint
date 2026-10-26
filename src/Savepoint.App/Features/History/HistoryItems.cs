@@ -31,13 +31,13 @@ public sealed record ViewModeOption(HistoryViewMode Mode, string Label);
 /// <param name="IsInUse">True for the point the install folder holds now; its dot is filled.</param>
 /// <param name="IsLast">True for the oldest entry; the rail ends at its dot.</param>
 /// <param name="AutomationName">What assistive technology calls the entry: the headline, the detail and the stamp as one line.</param>
-/// <param name="GoBackAutomationName">The button's accessible name ("Go back to this: 14 mod files updated").</param>
+/// <param name="GoBackAutomationName">The button's accessible name ("Go back and play: 14 mod files updated").</param>
 /// <param name="GoBackCommand">Starts the launch flow with both folders restored to this point.</param>
-/// <param name="SwitchAutomationName">The switch button's accessible name ("Switch to this snapshot: 14 mod files updated").</param>
+/// <param name="SwitchAutomationName">The switch button's accessible name ("Go back without playing: 14 mod files updated").</param>
 /// <param name="SwitchCommand">Restores both folders to this point without starting the game.</param>
 public sealed record TimelineEntryViewModel(string Headline, string Detail, string Stamp, bool IsInUse, bool IsLast, string AutomationName, string GoBackAutomationName, ICommand GoBackCommand, string SwitchAutomationName, ICommand SwitchCommand)
 {
-    /// <summary>True when the entry offers "Go back to this": it is not the point the install folder holds now.</summary>
+    /// <summary>True when the entry offers "Go back and play": it is not the point the install folder holds now.</summary>
     public bool CanGoBack => !IsInUse;
 
     /// <summary>True while the rail continues below this entry.</summary>
@@ -65,7 +65,7 @@ public sealed class SaveRowViewModel
         SwitchCommand = switchOnly;
     }
 
-    /// <summary>The switch button's accessible name ("Switch to this snapshot: Before the final boss").</summary>
+    /// <summary>The switch button's accessible name ("Go back without playing: Before the final boss").</summary>
     public string SwitchAutomationName { get; }
 
     /// <summary>Starts the launch flow with this save loaded, but only loads the files: the game does not start.</summary>
@@ -139,7 +139,7 @@ public sealed class PointCardViewModel
     /// <summary>True when the saves folder holds this point now; the card shows "Loaded now" and no button.</summary>
     public bool IsLoaded => Point.LoadedNow;
 
-    /// <summary>True when the card offers the "Go back to this" button.</summary>
+    /// <summary>True when the card offers the "Go back and play" button.</summary>
     public bool CanGoBack => !IsLoaded;
 
     /// <summary>The button's accessible name ("Go back to Cleared Blackreach").</summary>
@@ -151,7 +151,7 @@ public sealed class PointCardViewModel
     /// <summary>Starts the launch flow with both folders restored to this point.</summary>
     public ICommand GoBackCommand { get; }
 
-    /// <summary>The switch button's accessible name ("Switch to this snapshot: Cleared Blackreach").</summary>
+    /// <summary>The switch button's accessible name ("Go back without playing: Cleared Blackreach").</summary>
     public string SwitchAutomationName { get; }
 
     /// <summary>Restores both folders to this point without starting the game.</summary>
