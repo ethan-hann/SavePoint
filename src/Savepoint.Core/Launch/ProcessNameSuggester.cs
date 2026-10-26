@@ -12,7 +12,8 @@ public readonly record struct InstalledProgram(string RelativePath, long Length)
 /// <remarks>
 /// Programs that are never the game (launchers, crash reporters, anti-cheat bootstraps, redistributables, uninstallers, tools) are
 /// dropped by name and by folder. The rest are scored: shallow beats deep, large beats small, a name that resembles the game's
-/// beats one that does not, and Unreal's shipping program beats the small starter beside it. A folder where nothing scores well
+/// beats one that does not, and Unreal's shipping program beats the small starter beside it. On Linux a program that shares the start of a
+/// launcher script's name beats everything else ("cstrike_linux64" beside "cstrike.sh"), and the script itself ranks below real programs. A folder where nothing scores well
 /// (a runtime, a tool suite) gets no suggestion rather than a bad one.
 /// </remarks>
 public static class ProcessNameSuggester
@@ -23,6 +24,9 @@ public static class ProcessNameSuggester
     private const double _binariesFolderBonus = 10;
     private const double _variantPenalty = 30;
     private const double _namePenalty32 = 10;
+    private const double _besideLauncherBonus = 40;
+    private const double _scriptPenalty = 8;
+    private const double _unityLinuxBonus = 15;
     private const int _crowdedFolder = 6;
     private const double _minimumScore = -25;
 
@@ -34,13 +38,14 @@ public static class ProcessNameSuggester
         "beservice", "easyanticheat", "start_protected_game", "bootstrap", "watchdog", "uploader", "sender", "converter", "editor",
         "creationkit", "benchmark", "dedicated", "srcds", "hlds", "hltv", "vconsole", "overlay", "startapp", "settings",
         "shadercompile", "ffmpeg", "python", "java", "checker", "dotnet", "restarter", "modtest",
+        "steamclient", "steamcmd",
     ];
 
     // Anti-cheat launchers add these to the game's own name, so they count only at its end.
     private static readonly string[] _helperNameEndings = ["_be", "_eac", "_uc", "_zk"];
 
     // Too short to match as a part of a longer name, or too common as one.
-    private static readonly string[] _helperExactNames = ["dxc", "fxc", "ucc", "scc", "play", "start", "run", "cleaner", "codcleaner"];
+    private static readonly string[] _helperExactNames = ["dxc", "fxc", "ucc", "scc", "play", "start", "run", "cleaner", "codcleaner", "vpk"];
 
     private static readonly string[] _helperFolders =
     [
@@ -52,7 +57,7 @@ public static class ProcessNameSuggester
 
     private static readonly string[] _variantWords = ["original", "modtest", "demo", "old", "test", "backup", "debug"];
 
-    private static readonly string[] _binaryFolders = ["bin", "bin64", "binaries", "win64", "win32", "x64", "x86", "retail", "game", "system"];
+    private static readonly string[] _binaryFolders = ["bin", "bin64", "binaries", "win64", "win32", "x64", "x86", "retail", "game", "system", "linux", "linux64", "x86_64"];
 
     /// <summary>Names the program in an install folder that most likely is the game itself.</summary>
     /// <param name="installFolderName">The install folder's own name, used as a hint.</param>
@@ -150,16 +155,39 @@ public static class ProcessNameSuggester
             .Where(hint => hint.Length > 0)
             .ToArray();
 
+        // A launcher script starts the program that shares its name's start ("cstrike.sh" starts "cstrike_linux64").
+        var launcherStems = candidates
+            .Where(IsScript)
+            .Select(p => (Folder: FolderKey(p), Stem: Normalize(Path.GetFileNameWithoutExtension(p.FileName))))
+            .Where(launcher => launcher.Stem.Length >= 3)
+            .ToList();
+
         return
         [
             .. candidates
-                .Select(p => (Program: p, Score: Score(p, hints, crowded.Contains(string.Join('/', p.Folders).ToLowerInvariant()))))
+                .Select(p => (Program: p, Score: Score(p, hints, crowded.Contains(FolderKey(p)), IsBesideLauncher(p, launcherStems))))
                 .Where(entry => entry.Score >= _minimumScore)
                 .OrderByDescending(entry => entry.Score)
                 .ThenByDescending(entry => entry.Program.Length)
                 .ThenBy(entry => entry.Program.FileName, StringComparer.OrdinalIgnoreCase)
                 .Select(entry => entry.Program),
         ];
+    }
+
+    private static string FolderKey(ParsedProgram program) => string.Join('/', program.Folders).ToLowerInvariant();
+
+    private static bool IsScript(ParsedProgram program) => program.FileName.EndsWith(".sh", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsBesideLauncher(ParsedProgram program, List<(string Folder, string Stem)> launchers)
+    {
+        if (IsScript(program))
+        {
+            return false;
+        }
+
+        var name = Normalize(Path.GetFileNameWithoutExtension(program.FileName));
+        var folder = FolderKey(program);
+        return launchers.Any(launcher => launcher.Folder == folder && name.StartsWith(launcher.Stem, StringComparison.Ordinal));
     }
 
     private static ParsedProgram Parse(InstalledProgram program)
@@ -193,11 +221,27 @@ public static class ProcessNameSuggester
     // "PlayGTAV.exe" starts a game; "PlayaVR.exe" is one.
     private static bool IsPlayWrapper(string fileName) => fileName.Length > 4 && fileName.StartsWith("Play", StringComparison.Ordinal) && !char.IsLower(fileName[4]);
 
-    private static double Score(ParsedProgram program, string[] hints, bool inCrowdedFolder)
+    private static double Score(ParsedProgram program, string[] hints, bool inCrowdedFolder, bool besideLauncher)
     {
         var stem = Path.GetFileNameWithoutExtension(program.FileName);
         var lower = stem.ToLowerInvariant();
         var score = -_depthPenalty * program.Folders.Length;
+
+        if (besideLauncher)
+        {
+            score += _besideLauncherBonus;
+        }
+
+        // The script is only the starter; the process that runs is the program it starts.
+        if (IsScript(program))
+        {
+            score -= _scriptPenalty;
+        }
+
+        if (program.FileName.EndsWith(".x86_64", StringComparison.OrdinalIgnoreCase))
+        {
+            score += _unityLinuxBonus;
+        }
 
         if (lower.EndsWith("-shipping", StringComparison.Ordinal) || lower.StartsWith("shippingpc", StringComparison.Ordinal))
         {
@@ -234,7 +278,7 @@ public static class ProcessNameSuggester
     private static string Core(string stem)
     {
         var lower = stem.ToLowerInvariant();
-        foreach (var suffix in new[] { "-win64-shipping", "-win32-shipping", "_dx11", "_dx12", "_dx9", "_x64", ".x64", "x64", "64" })
+        foreach (var suffix in new[] { "-win64-shipping", "-win32-shipping", "-linux-shipping", "_linux64", "_linux32", "_linux", ".x86_64", "_dx11", "_dx12", "_dx9", "_x64", ".x64", "x64", "64" })
         {
             if (lower.EndsWith(suffix, StringComparison.Ordinal) && lower.Length > suffix.Length)
             {

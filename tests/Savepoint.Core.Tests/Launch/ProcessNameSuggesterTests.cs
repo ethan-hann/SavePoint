@@ -277,6 +277,88 @@ public class ProcessNameSuggesterTests
         Assert.Null(Suggest("Game", "Launcher.exe|900", "unins000.exe|100", "CrashReporter.exe|50"));
     }
 
+    // Linux installs: sizes in KB, names as the real native builds ship them.
+    [Fact]
+    public void A_source_game_on_linux_is_the_binary_beside_its_launcher_script_not_a_tool_in_bin()
+    {
+        var suggestion = Suggest(
+            "Counter-Strike Source",
+            "cstrike.sh|2",
+            "cstrike_linux64|90",
+            "bin/vpk|3400",
+            "bin/linux64/studiomdl|5200");
+
+        Assert.Equal("cstrike_linux64", suggestion);
+    }
+
+    [Fact]
+    public void A_source_game_on_linux_beats_an_unrecognized_tool_in_bin_that_is_bigger()
+    {
+        var suggestion = Suggest("app_620", "portal2.sh|2", "portal2_linux|110", "bin/mapcompiletool|20000");
+
+        Assert.Equal("portal2_linux", suggestion);
+    }
+
+    [Theory]
+    [InlineData("Half-Life 2", "hl2.sh", "hl2_linux")]
+    [InlineData("Counter-Strike Global Offensive", "csgo.sh", "csgo_linux64")]
+    public void The_binary_named_after_the_launcher_script_is_the_game(string folder, string script, string binary)
+    {
+        var suggestion = Suggest(folder, script + "|2", binary + "|120", "bin/vpk|3400", "bin/vtex_linux|900");
+
+        Assert.Equal(binary, suggestion);
+    }
+
+    [Fact]
+    public void A_binary_is_the_process_name_not_the_script_that_starts_it()
+    {
+        var suggestion = Suggest("Folder", "zork.sh|2", "zork_linux|400");
+
+        Assert.Equal("zork_linux", suggestion);
+    }
+
+    [Fact]
+    public void A_game_that_is_only_a_script_still_gets_that_script()
+    {
+        Assert.Equal("zork.sh", Suggest("Folder", "zork.sh|2"));
+    }
+
+    [Fact]
+    public void Linux_tool_binaries_are_never_the_suggestion()
+    {
+        Assert.Null(Suggest("Tools", "bin/vpk|3400", "srcds_linux|900", "bin/steamclient64|5000"));
+    }
+
+    [Fact]
+    public void A_unity_linux_build_is_its_x86_64_program()
+    {
+        var suggestion = Suggest("Hollow Thing", "HollowThing.x86_64|30", "UnityCrashHandler64|1200", "start.sh|1");
+
+        Assert.Equal("HollowThing.x86_64", suggestion);
+    }
+
+    [Fact]
+    public void An_unreal_linux_build_is_the_shipping_program_not_the_starter_beside_it()
+    {
+        var suggestion = Suggest(
+            "Deep Rock",
+            "FSD.sh|2",
+            "FSD|900",
+            "Engine/Binaries/Linux/CrashReportClient|9000",
+            "FSD/Binaries/Linux/FSD-Linux-Shipping|250000");
+
+        Assert.Equal("FSD-Linux-Shipping", suggestion);
+    }
+
+    [Fact]
+    public void The_ranking_of_a_linux_source_game_lists_the_binary_before_the_script_and_the_tool()
+    {
+        var ranked = ProcessNameSuggester.Rank("Counter-Strike Source", null, Files("cstrike.sh|2", "cstrike_linux64|90", "bin/vpk|3400"));
+
+        Assert.Equal("cstrike_linux64", ranked[0]);
+        Assert.Equal("bin/vpk", ranked[^1]);
+    }
+
     [Fact]
     public void The_same_input_always_gives_the_same_answer()
     {
