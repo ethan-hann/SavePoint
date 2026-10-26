@@ -39,7 +39,7 @@ Savepoint.Core                       v
 |---|---|---|
 | PathSafetyException | `error.pathSafety.tier1Blocked` / `tier2Blocked` | `path`, `tier` |
 | ConsentMarkerException | `error.consentMarker.missing` / `conflict` | `reason`, `path`, `role`, `existingGameId?`, `existingRole?` |
-| DiskSpaceException | `error.diskSpace.low` | `path`, `requiredBytes`, `freeBytes` |
+| DiskSpaceException | `error.diskSpace.low` | `path`, `requiredBytes` (for a snapshot: the floor plus its new and changed bytes), `freeBytes` |
 | GitOperationException | `error.gitOperation.checkoutFailed` | `path?` (the file that stayed locked) |
 | AmendNotAvailableException | `error.gitOperation.amendNotAvailable` | |
 | OperationCancelledByUserException | `error.capture.cancelled` / `error.compaction.cancelled` / `error.launch.canceled` / `error.storageRelocation.cancelled` | `op`, `gameId?` |
