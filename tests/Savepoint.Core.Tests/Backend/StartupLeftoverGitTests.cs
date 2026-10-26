@@ -16,6 +16,10 @@ public sealed class StartupLeftoverGitTests : IDisposable
 {
     private static readonly TimeSpan _short = TimeSpan.FromMilliseconds(400);
 
+    // The backend a test replaces keeps its own note of running git in the same folder, from a timer after each git starts or ends. On a slow
+    // machine that timer fires after the test wrote the note of a stopped SavePoint and replaces or removes it, so the test stops it.
+    private static readonly TimeSpan _noNoteMeanwhile = TimeSpan.FromHours(1);
+
     // A program that does not exist: the SavePoint that wrote the note is gone.
     private static readonly ProcessStamp _deadOwner = new(int.MaxValue - 7, 1);
 
@@ -36,7 +40,7 @@ public sealed class StartupLeftoverGitTests : IDisposable
     [Fact(Timeout = 120_000)]
     public async Task A_git_the_note_of_a_stopped_SavePoint_names_is_ended_before_its_locks_are_removed()
     {
-        using var workspace = new BackendWorkspace(options => options with { LeftoverWait = _short });
+        using var workspace = new BackendWorkspace(options => options with { LeftoverWait = _short, RunningGitNoteDelay = _noNoteMeanwhile });
         var gitDir = await GitDirAsync(workspace);
         var leftover = StartLeftover(workspace);
         var lockFile = Path.Combine(gitDir, "index.lock");
@@ -75,7 +79,7 @@ public sealed class StartupLeftoverGitTests : IDisposable
     [Fact(Timeout = 120_000)]
     public async Task The_screen_is_told_a_task_started_before_SavePoint_closed_is_being_waited_for()
     {
-        using var workspace = new BackendWorkspace(options => options with { LeftoverWait = _short });
+        using var workspace = new BackendWorkspace(options => options with { LeftoverWait = _short, RunningGitNoteDelay = _noNoteMeanwhile });
         await GitDirAsync(workspace);
         StartLeftover(workspace);
         workspace.Restart();
@@ -131,7 +135,7 @@ public sealed class StartupLeftoverGitTests : IDisposable
     [Fact(Timeout = 240_000)]
     public async Task The_start_waits_for_a_noted_reclaim_first_then_ends_the_leftovers_then_removes_the_locks()
     {
-        using var workspace = new BackendWorkspace(options => options with { LeftoverWait = _short });
+        using var workspace = new BackendWorkspace(options => options with { LeftoverWait = _short, RunningGitNoteDelay = _noNoteMeanwhile });
         var gitDir = await GitDirAsync(workspace);
         var runner = workspace.Backend.Services.Runner;
 
@@ -142,6 +146,9 @@ public sealed class StartupLeftoverGitTests : IDisposable
         var leftover = StartLeftover(workspace);
         var lockFile = Path.Combine(gitDir, "index.lock");
         await File.WriteAllTextAsync(lockFile, "left by a killed git", workspace.Token);
+
+        // A slow machine: the run that is about to be replaced still has its own note to write.
+        await Task.Delay(TimeSpan.FromMilliseconds(600), workspace.Token);
         workspace.Restart();
 
         var check = workspace.AppStatus.CheckAsync(workspace.Token);

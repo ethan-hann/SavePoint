@@ -37,6 +37,7 @@ public sealed class GitProcessJobTests
     {
         using var temp = new TempFolder("savepoint-job-");
         using var bundle = new StandInGitBundle(temp, "bundle");
+        await SkipWhenJobsCannotBeNestedAsync(bundle);
         var file = temp.Combine("child-git-id.txt");
         var info = new ProcessStartInfo(Environment.ProcessPath!, ["-method", $"{typeof(GitProcessJobTests).FullName}.{nameof(Child_for_the_kill_test)}"])
         {
@@ -61,7 +62,7 @@ public sealed class GitProcessJobTests
         {
             Assert.True(await FakeGameProcess.WaitUntilAsync(() => File.Exists(file) || child.HasExited, TimeSpan.FromSeconds(90)), "the child never started a git");
             Assert.True(File.Exists(file), $"the child ended before it started a git; it printed: {string.Join(" | ", output)}");
-            gitId = int.Parse(await File.ReadAllTextAsync(file, TestContext.Current.CancellationToken), CultureInfo.InvariantCulture);
+            gitId = int.Parse(await ReadWhenReadableAsync(file), CultureInfo.InvariantCulture);
             Assert.True(FakeGameProcess.IsRunning(gitId), "the git was not running while its program lived");
 
             // No exit handler runs for this: it is what Task Manager's End task does.
@@ -84,6 +85,37 @@ public sealed class GitProcessJobTests
         }
     }
 
+    // A scanner or indexer can still hold a file that was just renamed into place, so a read that is refused is tried again for a while.
+    private static async Task<string> ReadWhenReadableAsync(string path)
+    {
+        var deadline = Stopwatch.StartNew();
+        while (true)
+        {
+            try
+            {
+                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                using var reader = new StreamReader(stream);
+                return await reader.ReadToEndAsync(TestContext.Current.CancellationToken);
+            }
+            catch (IOException) when (deadline.Elapsed < TimeSpan.FromSeconds(10))
+            {
+                await Task.Delay(50, TestContext.Current.CancellationToken);
+            }
+        }
+    }
+
+    // The job the runner puts a test program in does not always let a process be nested in a job of its own. That is the system's rule, not
+    // SavePoint's, and the tests that need the nesting cannot say anything then.
+    private static async Task SkipWhenJobsCannotBeNestedAsync(StandInGitBundle bundle)
+    {
+        var id = await bundle.StartLeftoverAsync();
+        using var probe = Process.GetProcessById(id);
+
+        var problem = GitProcessJob.TryAssign(probe);
+
+        Assert.SkipWhen(problem is not null, $"this program runs in a job that does not allow another job inside it: {problem}");
+    }
+
     // Runs only inside the copy the test above starts; anywhere else it has nothing to do.
     [Fact]
     public async Task Child_for_the_kill_test()
@@ -98,7 +130,11 @@ public sealed class GitProcessJobTests
         var survives = Environment.GetEnvironmentVariable(_survivesVariable) == "1";
         _ = new GitRunner(binary).RunAsync(new GitInvocation([]) { Started = stamp => started.TrySetResult(stamp), SurvivesExit = survives }, CancellationToken.None);
         var stamp = await started.Task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
-        await File.WriteAllTextAsync(file, stamp.Id.ToString(CultureInfo.InvariantCulture), TestContext.Current.CancellationToken);
+
+        // Written under another name and renamed, so the parent never finds the file while it is still being written.
+        var partial = file + ".partial";
+        await File.WriteAllTextAsync(partial, stamp.Id.ToString(CultureInfo.InvariantCulture), TestContext.Current.CancellationToken);
+        File.Move(partial, file, overwrite: true);
 
         // The parent kills this copy; the delay only keeps a forgotten copy from running for ever.
         await Task.Delay(TimeSpan.FromMinutes(2), TestContext.Current.CancellationToken);
