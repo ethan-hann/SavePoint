@@ -2,6 +2,7 @@ using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Git;
 using Savepoint.Core.Platform;
+using Savepoint.Core.Services.Storage;
 using Savepoint.Core.Tests.Git;
 using Savepoint.Core.Tests.Launch;
 using Savepoint.Core.Tests.Services;
@@ -92,11 +93,38 @@ public sealed class StartupLeftoverGitTests : IDisposable
         Assert.False(File.Exists(lockFile));
     }
 
-    private async Task<(BackendWorkspace Workspace, string GitDir)> WorldAsync(Action<RunningProcess>? kill)
+    [Fact(Timeout = 240_000)]
+    public async Task A_clear_that_was_cut_off_is_not_finished_while_a_leftover_git_is_still_running()
+    {
+        var leftovers = NewLeftovers(kill: _ => { });
+        using var world = await RemovedWorld.CreateAsync(options => options with { Leftovers = leftovers, Log = _log });
+        var preview = (await world.Workspace.Games.GetFreeUpSpacePreviewAsync(world.Game.Id, world.Workspace.Token)).Value!;
+        var storage = await world.Workspace.Backend.Services.Storage.GetAsync(world.Workspace.Token);
+        var plans = new Dictionary<RepoRole, IReadOnlyList<ClearedRef>>();
+        foreach (var role in new[] { RepoRole.Install, RepoRole.External })
+        {
+            var names = preview.Token.Records.Where(record => record.Folder == role).Select(record => record.RefName).ToList();
+            plans[role] = await storage.Engine.FindClearableAsync(world.RepoOf(storage, role), names, world.Workspace.Token);
+        }
+
+        var gameDirectory = storage.GameDirectory(world.Game.Id);
+        FreeUpIntent.Write(gameDirectory, plans);
+        var leftover = await _bundle!.StartLeftoverAsync();
+        world.Workspace.Restart();
+
+        var status = await world.Workspace.AppStatus.CheckAsync(world.Workspace.Token);
+
+        Assert.True(status.Ok, status.Error?.Detail);
+        Assert.True(FakeGameProcess.IsRunning(leftover));
+        Assert.True(File.Exists(FreeUpIntent.PathIn(gameDirectory)), "a clear was finished under a git that is still running");
+        Assert.NotEmpty(_log.Containing("free-up", "left running"));
+    }
+
+    private BundledGitLeftovers NewLeftovers(Action<RunningProcess>? kill)
     {
         _bundle = new StandInGitBundle(_temp, "bundle");
         var short_ = TimeSpan.FromMilliseconds(400);
-        var leftovers = new BundledGitLeftovers(
+        return new BundledGitLeftovers(
             FakeGameInstall.Inspector(),
             _bundle.Root,
             OperatingSystem.IsLinux() ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase,
@@ -106,6 +134,11 @@ public sealed class StartupLeftoverGitTests : IDisposable
             short_,
             TimeSpan.FromMilliseconds(50),
             kill);
+    }
+
+    private async Task<(BackendWorkspace Workspace, string GitDir)> WorldAsync(Action<RunningProcess>? kill)
+    {
+        var leftovers = NewLeftovers(kill);
         var workspace = new BackendWorkspace(options => options with { Leftovers = leftovers });
         try
         {

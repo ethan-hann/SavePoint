@@ -482,12 +482,16 @@ internal sealed class AppStatusApi : IAppStatusApi
                             _services.Log.Information($"Startup check: removed {removed} leftover lock or temporary files from {gitDir}.");
                         }
                     }
-                }
 
-                // A free-up that was cut off between its two folders is finished now, so no snapshot is listed in half.
-                foreach (var folder in StorageContent.Folders(storage.Root))
+                    // A free-up that was cut off between its two folders is finished now, so no snapshot is listed in half.
+                    foreach (var folder in StorageContent.Folders(storage.Root))
+                    {
+                        await FinishFreeUpAsync(storage, Path.GetFileName(folder), cancellationToken).ConfigureAwait(false);
+                    }
+                }
+                else
                 {
-                    await FinishFreeUpAsync(storage, Path.GetFileName(folder), cancellationToken).ConfigureAwait(false);
+                    _services.Log.Warning("Startup check: a cut-off free-up is not finished this time because a git left running could not be ended; it is tried again at the next start.");
                 }
             }
 
