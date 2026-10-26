@@ -72,7 +72,9 @@ internal static partial class RepoConfigFile
 
     // Keeps only the settings git init writes (apart from the ones the block sets, and the work tree path, which always comes from the
     // environment), then appends a fresh block. Each kept setting is written again as one plain line.
-    internal static string Rewrite(string configText, bool isWindows)
+    internal static string Rewrite(string configText, bool isWindows) => Rewrite(configText, isWindows, OperatingSystem.IsLinux());
+
+    internal static string Rewrite(string configText, bool isWindows, bool isLinux)
     {
         var lines = configText.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n').ToList();
         if (lines.Count > 0 && lines[^1].Length == 0)
@@ -84,7 +86,7 @@ internal static partial class RepoConfigFile
 
         var result = new StringBuilder();
         string? current = null;
-        foreach (var (section, key, value) in KeptSettings(lines, isWindows))
+        foreach (var (section, key, value) in KeptSettings(lines, isWindows, isLinux))
         {
             if (!string.Equals(current, section, StringComparison.Ordinal))
             {
@@ -95,11 +97,11 @@ internal static partial class RepoConfigFile
             result.Append('\t').Append(key).Append(" = ").Append(value).Append('\n');
         }
 
-        result.Append(Block(isWindows));
+        result.Append(Block(isWindows, isLinux));
         return result.ToString();
     }
 
-    internal static IReadOnlyList<(string Section, string Key, string Value)> Settings(bool isWindows)
+    internal static IReadOnlyList<(string Section, string Key, string Value)> Settings(bool isWindows, bool isLinux)
     {
         List<(string, string, string)> settings =
         [
@@ -120,7 +122,9 @@ internal static partial class RepoConfigFile
             // A power loss seconds after a snapshot or switch left an empty index file behind. Objects, the index and refs are flushed to
             // disk before git reports success; batch flushes the many small loose objects of one add together instead of one by one.
             ("core", "fsync", "committed,index,reference"),
-            ("core", "fsyncMethod", "batch"),
+            // git documents batch as safe where it can flush a batch of files at once (Windows, macOS); on Linux each file is flushed by itself.
+            // The system that writes the file picks the value, so one config stamp serves every system.
+            ("core", "fsyncMethod", isLinux ? "fsync" : "batch"),
         ];
 
         if (isWindows)
@@ -137,12 +141,12 @@ internal static partial class RepoConfigFile
         return settings;
     }
 
-    private static string Block(bool isWindows)
+    private static string Block(bool isWindows, bool isLinux)
     {
         var block = new StringBuilder();
         block.Append(BlockStart).Append('\n');
         // Grouped by section in order of first appearance, so each header is written once and the stamp stays last.
-        foreach (var section in Settings(isWindows).GroupBy(setting => setting.Section, StringComparer.Ordinal))
+        foreach (var section in Settings(isWindows, isLinux).GroupBy(setting => setting.Section, StringComparer.Ordinal))
         {
             block.Append('[').Append(section.Key).Append("]\n");
             foreach (var (_, key, value) in section)
@@ -173,9 +177,9 @@ internal static partial class RepoConfigFile
     // The settings git init wrote that stay. A setting defined twice cannot be changed with git config (it refuses to overwrite two
     // values), so the block is the only place ours live and a definition of one outside it goes. A section with a name of its own
     // ([core "x"]) is a different section and never matches.
-    private static List<(string Section, string Key, string Value)> KeptSettings(List<string> lines, bool isWindows)
+    private static List<(string Section, string Key, string Value)> KeptSettings(List<string> lines, bool isWindows, bool isLinux)
     {
-        var ours = Settings(isWindows).Select(setting => (setting.Section, setting.Key)).ToList();
+        var ours = Settings(isWindows, isLinux).Select(setting => (setting.Section, setting.Key)).ToList();
         var kept = new List<(string, string, string)>();
         var section = string.Empty;
         foreach (var line in lines)

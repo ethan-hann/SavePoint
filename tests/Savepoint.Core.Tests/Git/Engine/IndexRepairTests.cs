@@ -26,7 +26,8 @@ public sealed class IndexRepairTests : IDisposable
 
     private static string IndexOf(RepoRef repo) => Path.Combine(repo.GitDir, "index");
 
-    private static string[] Backups(RepoRef repo) => Directory.GetFiles(repo.GitDir, "index.damaged-*");
+    // The name ends in .tmp so that deleting the repository accepts it, and has no prefix the sweep of stale files knows.
+    private static string[] Backups(RepoRef repo) => Directory.GetFiles(repo.GitDir, "savepoint-damaged-index-*.tmp");
 
     private static void Empty(RepoRef repo) => File.WriteAllBytes(IndexOf(repo), []);
 
@@ -282,7 +283,7 @@ public sealed class IndexRepairTests : IDisposable
     public async Task Only_the_three_newest_set_aside_indexes_are_kept()
     {
         var (repo, _) = await _ws.ThreePointsRepoAsync();
-        string[] old = ["index.damaged-20200101T000000000", "index.damaged-20200102T000000000", "index.damaged-20200103T000000000", "index.damaged-20200104T000000000", "index.damaged-20200105T000000000"];
+        string[] old = [.. Enumerable.Range(1, 5).Select(day => $"savepoint-damaged-index-2020010{day}T000000000.tmp")];
         foreach (var name in old)
         {
             File.WriteAllBytes(Path.Combine(repo.GitDir, name), [1]);
@@ -300,7 +301,7 @@ public sealed class IndexRepairTests : IDisposable
     }
 
     [Fact]
-    public async Task A_repair_that_met_a_held_lock_reports_that_and_puts_the_damaged_index_back()
+    public async Task A_repair_that_met_a_held_lock_reports_that_and_leaves_the_damaged_index_where_it_was()
     {
         var (repo, _) = await _ws.ThreePointsRepoAsync();
         Empty(repo);
@@ -308,9 +309,181 @@ public sealed class IndexRepairTests : IDisposable
 
         var error = await Assert.ThrowsAsync<GitOperationException>(() => _locked.GetStatusAsync(repo, Ct));
 
-        Assert.Equal("error.gitOperation.failed", error.MessageId);
+        Assert.Equal("error.gitOperation.checkoutFailed", error.MessageId);
         Assert.Empty(Backups(repo));
         Assert.Equal(0, new FileInfo(IndexOf(repo)).Length);
+        Assert.Empty(Directory.GetFiles(repo.GitDir, "*.tmp"));
+    }
+
+    [Fact]
+    public async Task The_index_file_is_never_missing_while_the_new_one_is_built()
+    {
+        var (repo, _) = await _ws.ThreePointsRepoAsync();
+        Empty(repo);
+        using var building = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        _ws.OnInvoke = invocation =>
+        {
+            if (invocation.Arguments[0] == "read-tree")
+            {
+                building.Set();
+                release.Wait(TimeSpan.FromSeconds(60));
+            }
+        };
+
+        var repair = Task.Run(() => _locked.RepairIndexIfDamagedAsync(repo, Ct), Ct);
+        Assert.True(building.Wait(TimeSpan.FromSeconds(60), Ct), "the rebuild never started");
+
+        var missing = !File.Exists(IndexOf(repo));
+        var setAside = Backups(repo).Length;
+        release.Set();
+        await repair;
+
+        Assert.False(missing, "the index file was gone while the new one was built");
+        Assert.Equal(0, setAside);
+        Assert.Single(Backups(repo));
+        Assert.True(new FileInfo(IndexOf(repo)).Length > 20);
+    }
+
+    [Fact]
+    public async Task A_repair_that_cannot_swap_the_index_in_because_another_program_holds_it_says_so_and_changes_nothing()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "another program can hold a file open against being replaced only on Windows");
+        using var ws = new EngineWorkspace(options => options with { LockRetryDelays = [TimeSpan.FromMilliseconds(10), TimeSpan.FromMilliseconds(10)] });
+        var (repo, _) = await ws.ThreePointsRepoAsync();
+        Empty(repo);
+        var engine = ws.Engine.ForGameLockHolder();
+
+        GitOperationException error;
+        using (new FileStream(IndexOf(repo), FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            error = await Assert.ThrowsAsync<GitOperationException>(() => engine.GetStatusAsync(repo, Ct));
+        }
+
+        Assert.Equal("error.gitOperation.checkoutFailed", error.MessageId);
+        Assert.Equal(IndexOf(repo), error.Args["path"]);
+        Assert.Empty(Backups(repo));
+        Assert.Equal(0, new FileInfo(IndexOf(repo)).Length);
+        Assert.Empty(Directory.GetFiles(repo.GitDir, "*.tmp"));
+        Assert.False(File.Exists(Path.Combine(repo.GitDir, "index.lock")));
+    }
+
+    [Fact]
+    public async Task The_rebuilt_index_knows_the_files_so_the_next_status_does_not_read_them()
+    {
+        var (repo, _) = await _ws.ThreePointsRepoAsync();
+        _ws.AgeFiles(repo);
+        Empty(repo);
+
+        await _locked.RepairIndexIfDamagedAsync(repo, Ct);
+
+        // git's own listing of the stamps it keeps per file: an entry git has not looked at shows size 0 and is read in full by every status.
+        var stamps = await _ws.GitOutAsync(repo, "ls-files", "--debug", "a.txt");
+        Assert.Contains($"size: {"three".Length}", stamps, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task The_set_aside_index_is_left_by_the_sweep_of_stale_files()
+    {
+        var (repo, _) = await _ws.ThreePointsRepoAsync();
+        Empty(repo);
+        await _locked.RepairIndexIfDamagedAsync(repo, Ct);
+        var kept = Assert.Single(Backups(repo));
+
+        _ws.Engine.RemoveStaleLocks(repo.GitDir);
+        _ws.Write(repo, "c.txt", "new");
+        await CaptureAsync(repo, "Another");
+
+        Assert.True(File.Exists(kept));
+    }
+
+    [Fact]
+    public async Task A_switch_that_git_finished_but_did_not_verify_finishes_after_the_index_was_repaired()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "a.txt", "a");
+        await _ws.CaptureAsync(repo, "profile-a");
+        var a = TreeSnapshot.Take(repo.WorkTree);
+        await _ws.GitWriteAsync(repo, "checkout", "--quiet", "-b", "profile-b");
+        _ws.Write(repo, "a.txt", "b");
+        await _ws.CaptureAsync(repo, "profile-b");
+        using var cancel = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+        _ws.OnInvoke = invocation =>
+        {
+            if (EngineWorkspace.IsVerifyDiff(invocation))
+            {
+                cancel.Cancel();
+            }
+        };
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => _locked.CheckoutBranchAsync(repo, "profile-a", ct: cancel.Token));
+        _ws.OnInvoke = null;
+        Assert.NotNull((await _locked.GetStatusAsync(repo, Ct)).InterruptedSwitch);
+        Empty(repo);
+
+        await _locked.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+
+        Assert.Equal(a, TreeSnapshot.Take(repo.WorkTree));
+        Assert.Null((await _locked.GetStatusAsync(repo, Ct)).InterruptedSwitch);
+    }
+
+    [Fact]
+    public async Task Discarding_the_mix_of_an_unfinished_switch_works_when_the_index_is_damaged()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "a.txt", "a");
+        await _ws.CaptureAsync(repo, "profile-a");
+        await _ws.GitWriteAsync(repo, "checkout", "--quiet", "-b", "profile-b");
+        _ws.Write(repo, "a.txt", "b");
+        await _ws.CaptureAsync(repo, "profile-b");
+        var b = TreeSnapshot.Take(repo.WorkTree);
+        SwitchJournal.Write(repo.GitDir, await _ws.TipAsync(repo, "profile-b"), (await _ws.TipAsync(repo, "profile-a"))!, "profile-a");
+        _ws.Write(repo, "a.txt", "half written");
+        Empty(repo);
+
+        await _locked.DiscardChangesAsync(repo, Ct);
+
+        Assert.Equal(b, TreeSnapshot.Take(repo.WorkTree));
+        Assert.Null((await _locked.GetStatusAsync(repo, Ct)).InterruptedSwitch);
+    }
+
+    [Theory]
+    [InlineData("checkout")]
+    [InlineData("verify")]
+    public async Task Once_a_switch_has_written_the_index_itself_damage_is_reported_and_not_repaired(string where)
+    {
+        var (repo, points) = await _ws.ThreePointsRepoAsync();
+        _ws.OnInvoke = invocation =>
+        {
+            if (where == "checkout" ? invocation.Arguments[0] == "checkout" : EngineWorkspace.IsVerifyDiff(invocation))
+            {
+                Empty(repo);
+            }
+        };
+
+        var error = await Record.ExceptionAsync(() => _locked.CheckoutCommitAsync(repo, points[0], ct: Ct));
+
+        Assert.IsType<GitOperationException>(error);
+        Assert.Empty(Backups(repo));
+    }
+
+    [Fact]
+    public async Task The_next_operation_repairs_again_after_a_switch_refused_to()
+    {
+        var (repo, points) = await _ws.ThreePointsRepoAsync();
+        _ws.OnInvoke = invocation =>
+        {
+            if (invocation.Arguments[0] == "checkout")
+            {
+                Empty(repo);
+            }
+        };
+        await Record.ExceptionAsync(() => _locked.CheckoutCommitAsync(repo, points[0], ct: Ct));
+        _ws.OnInvoke = null;
+
+        var failure = await Record.ExceptionAsync(() => _locked.GetStatusAsync(repo, Ct));
+
+        Assert.Null(failure);
+        Assert.Single(Backups(repo));
     }
 
     public static TheoryData<string, string> RebuildFailures => new()

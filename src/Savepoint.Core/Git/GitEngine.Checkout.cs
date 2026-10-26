@@ -323,6 +323,10 @@ public sealed partial class GitEngine
         var sizes = await ObjectSizesAsync(repo, plan.Changes.SelectMany(change => new[] { change.OldId, change.NewId }), ct).ConfigureAwait(false);
         EnsureCheckoutSpace(repo, plan.Changes, sizes);
 
+        // From here the switch writes the index itself (the marks, the alignment, the checkout, the re-syncs), and a rebuild from the last
+        // snapshot would undo that. Damage found from now on ends the switch with an error and leaves the note; the next operation repairs.
+        using var writing = NoRepairWhileWriting(repo.GitDir);
+
         // A forced checkout writes every file whose stamp differs from its entry, so a recorded left-out file that both points hold alike is
         // marked too: the player's copy of it differs from the entry and would be overwritten. Those entries already say what the target says.
         var alike = force ? await RecordedNamedAsync(repo, ct).ConfigureAwait(false) : [];
@@ -410,6 +414,7 @@ public sealed partial class GitEngine
     }
 
     // Runs the switch itself. git refusing (local changes, a lock) leaves nothing changed; any other failure leaves the note that the switch is unfinished.
+    // A damaged index is such a failure and is not repaired here (see NoRepairWhileWriting): a repair that threw would also leave the note.
     private async Task RunCheckoutAsync(RepoRef repo, string target, string to, bool isBranch, bool force, bool ownsNote, AlignedIndex? aligned, ProgressReporter? reporter, CancellationToken ct)
     {
         for (var attempt = 0; ; attempt++)

@@ -24,7 +24,7 @@ public sealed class RepoConfigTests : IDisposable
         { "core.logallrefupdates", "false" },
         { "pack.compression", "0" },
         { "core.fsync", "committed,index,reference" },
-        { "core.fsyncmethod", "batch" },
+        { "core.fsyncmethod", OperatingSystem.IsLinux() ? "fsync" : "batch" },
         { "savepoint.repoconfigversion", "7" },
     };
 
@@ -159,6 +159,36 @@ public sealed class RepoConfigTests : IDisposable
         Assert.Equal("7", await _ws.ConfigAsync(repo, "savepoint.repoConfigVersion"));
     }
 
+    // git documents batch as safe on Windows and macOS only; on Linux each file is flushed by itself. One stamp covers both: the value
+    // is picked by the system that writes the file.
+    [Theory]
+    [InlineData(true, false, "batch")]
+    [InlineData(false, false, "batch")]
+    [InlineData(false, true, "fsync")]
+    public void The_flush_method_is_picked_by_the_system_that_writes_the_config(bool isWindows, bool isLinux, string expected)
+    {
+        var text = RepoConfigFile.Rewrite(string.Empty, isWindows, isLinux);
+
+        Assert.Contains($"\tfsyncMethod = {expected}\n", text, StringComparison.Ordinal);
+        Assert.Contains("\tfsync = committed,index,reference\n", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task The_bundled_git_knows_every_component_of_the_flush_setting()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "a.txt", "a");
+        var capture = await _ws.CaptureAsync(repo, "profile-1");
+
+        var status = await _ws.GitAsync(repo, "status");
+        var added = await _ws.GitWriteAsync(repo, "add", "-A");
+
+        Assert.True(capture.Changed);
+        Assert.DoesNotContain("unknown core.fsync", status.StandardError, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("fsync", status.StandardError, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("fsync", added.StandardError, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public async Task A_repository_stamped_6_takes_the_flush_settings_the_next_time_it_is_touched()
     {
@@ -174,7 +204,7 @@ public sealed class RepoConfigTests : IDisposable
         await _ws.CaptureAsync(repo, "profile-1");
 
         Assert.Equal("committed,index,reference", await _ws.ConfigAsync(repo, "core.fsync"));
-        Assert.Equal("batch", await _ws.ConfigAsync(repo, "core.fsyncMethod"));
+        Assert.Equal(OperatingSystem.IsLinux() ? "fsync" : "batch", await _ws.ConfigAsync(repo, "core.fsyncMethod"));
         Assert.Equal("7", await _ws.ConfigAsync(repo, "savepoint.repoConfigVersion"));
     }
 

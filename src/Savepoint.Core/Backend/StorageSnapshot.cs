@@ -28,7 +28,8 @@ public sealed class StorageSnapshot
     public GitEngine Engine { get; }
 
     // The same storage for work that holds a game's lock, whose engine may repair a damaged index.
-    internal StorageSnapshot ForGameLockHolder() => _lockHolder ??= new StorageSnapshot(Root, PathSafety, Engine.ForGameLockHolder());
+    internal StorageSnapshot ForGameLockHolder() =>
+        _lockHolder ?? (Interlocked.CompareExchange(ref _lockHolder, new StorageSnapshot(Root, PathSafety, Engine.ForGameLockHolder()), null) ?? _lockHolder);
 
     private StorageSnapshot? _lockHolder;
 

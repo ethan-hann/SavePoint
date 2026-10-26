@@ -20,12 +20,30 @@ internal static class GitFailure
         || standardError.Contains("Access is denied", StringComparison.Ordinal);
 
     // git's index file (the list of what the last snapshot held) is empty, short or unreadable, which is what a power loss right after a
-    // write leaves behind. The phrases are the whole sentence git prints for the index itself; a pack index says "is too small".
-    public static bool IsIndexDamage(string standardError) =>
-        standardError.Contains("index file smaller than expected", StringComparison.Ordinal)
-        || standardError.Contains("index file corrupt", StringComparison.Ordinal)
-        || standardError.Contains("bad index file sha1 signature", StringComparison.Ordinal)
-        || standardError.Contains("unknown index entry format", StringComparison.Ordinal);
+    // write leaves behind. Only git's own "fatal:" and "error:" lines count, and the phrase must be the message itself (git names the file
+    // first for the short-file case), so a game file whose name holds the phrase, listed in a refusal, is never taken for damage.
+    // A pack index says "is too small".
+    public static bool IsIndexDamage(string standardError)
+    {
+        foreach (var line in standardError.Split('\n'))
+        {
+            var message = line.TrimEnd('\r');
+            if (message.StartsWith("fatal: ", StringComparison.Ordinal) || message.StartsWith("error: ", StringComparison.Ordinal))
+            {
+                message = message[7..];
+                if (message.StartsWith("index file corrupt", StringComparison.Ordinal)
+                    || message.StartsWith("index file smaller than expected", StringComparison.Ordinal)
+                    || message.EndsWith(": index file smaller than expected", StringComparison.Ordinal)
+                    || message.StartsWith("bad index file sha1 signature", StringComparison.Ordinal)
+                    || message.StartsWith("unknown index entry format", StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
 
     // The files git lists when it refuses a checkout because they would be overwritten: indented lines under the heading.
     public static IReadOnlyList<string> OverwrittenPaths(string standardError)

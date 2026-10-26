@@ -67,6 +67,7 @@ public sealed partial class GitEngine
         _inFlight = other._inFlight;
         _classifying = other._classifying;
         _repairGate = other._repairGate;
+        _indexWritten = other._indexWritten;
         _repairsIndex = repairsIndex;
     }
 

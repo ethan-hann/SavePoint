@@ -8,7 +8,7 @@ namespace Savepoint.Core.Tests.Backend;
 // that way show a soft answer, and the next operation that holds the lock repairs the file.
 public class IndexDamageInReadsTests
 {
-    private static string[] Backups(string gitDir) => Directory.GetFiles(gitDir, "index.damaged-*");
+    private static string[] Backups(string gitDir) => Directory.GetFiles(gitDir, "savepoint-damaged-index-*");
 
     private static async Task<string> InstallGitDirAsync(BackendWorkspace workspace, GameDefinition game) =>
         await workspace.Backend.Services.Storage.ReadAsync(storage => Task.FromResult(storage.GitDirectory(game.Id, RepoRole.Install)));
