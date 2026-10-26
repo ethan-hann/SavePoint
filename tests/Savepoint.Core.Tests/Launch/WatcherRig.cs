@@ -62,11 +62,11 @@ internal sealed class WatcherRig : IDisposable
 
     private readonly bool _polls;
 
-    private WatcherRig(ScriptedProcess? child, string? name, OsKind os, GameSessionOptions? options = null, string? gameFolder = null)
+    private WatcherRig(ScriptedProcess? child, string? name, OsKind os, GameSessionOptions? options = null, string? gameFolder = null, Func<RunningProcess, bool>? launcherBusy = null)
     {
         Child = child;
         _polls = name is not null;
-        Watcher = new GameSessionWatcher(child, name, Processes, os, options ?? new GameSessionOptions { PollInterval = Interval, Grace = Grace }, Clock, gameFolder);
+        Watcher = new GameSessionWatcher(child, name, Processes, os, options ?? new GameSessionOptions { PollInterval = Interval, Grace = Grace }, Clock, gameFolder, launcherBusy);
     }
 
     public ManualTimeProvider Clock { get; } = new();
@@ -80,17 +80,17 @@ internal sealed class WatcherRig : IDisposable
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     // A program SavePoint started, with an optional process name to follow once it is gone.
-    public static async Task<WatcherRig> ProgramAsync(string? name = null, OsKind os = OsKind.Windows, string? gameFolder = null, GameSessionOptions? options = null)
+    public static async Task<WatcherRig> ProgramAsync(string? name = null, OsKind os = OsKind.Windows, string? gameFolder = null, GameSessionOptions? options = null, Func<RunningProcess, bool>? launcherBusy = null)
     {
-        var rig = new WatcherRig(new ScriptedProcess(), name, os, options, gameFolder);
+        var rig = new WatcherRig(new ScriptedProcess(), name, os, options, gameFolder, launcherBusy);
         await rig.ParkedAsync();
         return rig;
     }
 
     // A link handed to the OS: there is no program, only the process name to look for.
-    public static async Task<WatcherRig> LinkAsync(string? name = null, OsKind os = OsKind.Windows, GameSessionOptions? options = null)
+    public static async Task<WatcherRig> LinkAsync(string? name = null, OsKind os = OsKind.Windows, GameSessionOptions? options = null, Func<RunningProcess, bool>? launcherBusy = null)
     {
-        var rig = new WatcherRig(null, name, os, options);
+        var rig = new WatcherRig(null, name, os, options, launcherBusy: launcherBusy);
         await rig.ParkedAsync();
         return rig;
     }

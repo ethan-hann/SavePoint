@@ -13,6 +13,12 @@ public sealed record SessionOutcome(SessionEndKind Kind, DateTimeOffset StartedA
     /// <summary>The ids of the processes with the configured name, other than the started program, that the watcher saw; empty when it saw none.</summary>
     public IReadOnlyList<int> FollowedPids { get; init; } = [];
 
+    /// <summary>
+    /// The ids of the processes in the game's folder that could each have been what a starter that exited before the first look handed
+    /// over to, when there was more than one and so none was followed; empty otherwise.
+    /// </summary>
+    public IReadOnlyList<int> AmbiguousHandoverPids { get; init; } = [];
+
     /// <summary>The time from the start to the end; for <see cref="SessionEndKind.NamedProcessNeverAppeared"/> it includes the grace period that found nothing.</summary>
     public TimeSpan PlayDuration => EndedAt - StartedAt;
 }

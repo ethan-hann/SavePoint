@@ -156,6 +156,51 @@ public class GameStarterTests
         Assert.Equal(SessionEndKind.NamedProcessEnded, outcome.Kind);
     }
 
+    private static RunningProcess SteamReaper(int appId) =>
+        new(800, "reaper", null, CommandLine: $"/x/reaper SteamLaunch AppId={appId} -- /x/entry-point --verb=waitforexitandrun");
+
+    [Fact]
+    public async Task On_Linux_a_Steam_link_waits_while_Steams_launch_helper_for_that_app_is_running()
+    {
+        var processes = new ScriptedInspector();
+        processes.Set(SteamReaper(489830), ScriptedInspector.Bystander);
+        using var watcher = await Build(new RecordingLauncher(), processes, OsKind.Linux).StartAsync(Link("steam://run/489830", "Game.exe"), _install, Ct);
+
+        await Task.Delay(600, Ct);
+        Assert.False(watcher.IsSettled);
+
+        processes.Set(ScriptedInspector.Bystander);
+        var outcome = await watcher.Outcome.WaitAsync(TimeSpan.FromSeconds(10), Ct);
+        Assert.Equal(SessionEndKind.NamedProcessNeverAppeared, outcome.Kind);
+    }
+
+    [Fact]
+    public async Task On_Linux_a_Steam_launch_helper_of_another_app_does_not_hold_a_Steam_link()
+    {
+        var processes = new ScriptedInspector();
+        processes.Set(SteamReaper(4898300), ScriptedInspector.Bystander);
+        using var watcher = await Build(new RecordingLauncher(), processes, OsKind.Linux).StartAsync(Link("steam://run/489830", "Game.exe"), _install, Ct);
+
+        var outcome = await watcher.Outcome.WaitAsync(TimeSpan.FromSeconds(10), Ct);
+
+        Assert.Equal(SessionEndKind.NamedProcessNeverAppeared, outcome.Kind);
+    }
+
+    [Theory]
+    [InlineData(OsKind.Windows, "steam://run/489830")]
+    [InlineData(OsKind.MacOS, "steam://run/489830")]
+    [InlineData(OsKind.Linux, "heroic://launch/legendary/Sugar")]
+    public async Task Only_a_Steam_link_on_Linux_waits_for_a_launch_helper(OsKind os, string uri)
+    {
+        var processes = new ScriptedInspector();
+        processes.Set(SteamReaper(489830), ScriptedInspector.Bystander);
+        using var watcher = await Build(new RecordingLauncher(), processes, os).StartAsync(Link(uri, "Game.exe"), _install, Ct);
+
+        var outcome = await watcher.Outcome.WaitAsync(TimeSpan.FromSeconds(10), Ct);
+
+        Assert.Equal(SessionEndKind.NamedProcessNeverAppeared, outcome.Kind);
+    }
+
     [Fact]
     public async Task The_cancellation_token_reaches_the_link_opener()
     {

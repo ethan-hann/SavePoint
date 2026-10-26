@@ -25,7 +25,8 @@ public sealed record GameSessionOptions
 
     /// <summary>
     /// How long the named process may stay unseen. It counts from the moment the program SavePoint started exits (a launcher stub
-    /// that has handed over), or from the link being opened when there is no program; it never runs while that program is alive.
+    /// that has handed over), or from the link being opened when there is no program; it never runs while that program is alive. For a
+    /// link the store's own launch helper can hold it too (see <see cref="GameSessionWatcher"/>).
     /// </summary>
     public TimeSpan Grace { get; init; } = DefaultGrace;
 

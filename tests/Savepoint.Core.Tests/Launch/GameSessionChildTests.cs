@@ -263,6 +263,23 @@ public class GameSessionChildTests
         Assert.Equal(SessionEndKind.NamedProcessNeverAppeared, (await rig.OutcomeAsync()).Kind);
     }
 
+    [Theory]
+    [InlineData("CrashReportClie", "")]
+    [InlineData("UnityCrashHandl", "")]
+    [InlineData("crashpad_handle", @"C:\Games\Foo\bin\crashpad_handler")]
+    public async Task A_crash_reporter_listed_by_its_truncated_kernel_name_is_not_followed(string comm, string path)
+    {
+        using var rig = await WatcherRig.ProgramAsync("Game.exe", gameFolder: _folder);
+        rig.Processes.Set(Stub(rig), ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(2));
+
+        rig.Processes.Set(Process(600, rig.Child!.Pid, 1, comm, path), Process(601, 600, 2, "Real"), ScriptedInspector.Bystander);
+        await rig.ExitChildAsync();
+        await rig.AdvanceAsync(WatcherRig.Grace);
+
+        Assert.Equal(SessionEndKind.NamedProcessNeverAppeared, (await rig.OutcomeAsync()).Kind);
+    }
+
     [Fact]
     public async Task A_followed_child_still_counts_as_running_after_the_player_says_they_are_done()
     {

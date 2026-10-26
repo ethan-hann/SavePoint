@@ -97,8 +97,8 @@ public class RealSessionTests
         // The real game lives in the install folder under a name the definition does not know.
         var realGame = Path.Combine(stub.Folder, "real" + Path.GetExtension(stub.ExecutablePath));
         File.Copy(stub.ExecutablePath, realGame);
-        // Linux hands an orphan to another parent, so the starter stays up long enough for a look to link the game to it.
-        var config = Program(stub, stub.Name, "--linger", "1500", "--spawn", realGame, "--ready-file", gameReady, "--exit-after", "4000");
+        // The starter exits at once, so on Linux the game is handed to another parent before any look and is linked by when and where it started.
+        var config = Program(stub, stub.Name, "--spawn", realGame, "--ready-file", gameReady, "--exit-after", "4000");
 
         using var watcher = await Starter(grace: TimeSpan.FromSeconds(1)).StartAsync(config, stub.Folder, Ct);
         var outcome = await OutcomeAsync(watcher);
