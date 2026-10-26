@@ -28,6 +28,5 @@
     "processNameForExitDetection": "Cyberpunk2077"
   },
   "ignorePaths": [],
-  "modPathHints": [],
-  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+  "modPathHints": []
 }

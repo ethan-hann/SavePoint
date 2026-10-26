@@ -98,6 +98,12 @@
         </Border>
         <TextBlock x:Name="NoMatchesText" Classes="body muted" IsVisible="{Binding ShowNoMatches}" Text="{Binding NoMatchesText}" />
       </StackPanel>
+
+      <!-- After the list, so the first focus lands in the search box and the pointer is the last stop before the footer. -->
+      <StackPanel x:Name="TemplatePointer" Orientation="Horizontal" Spacing="12">
+        <TextBlock Classes="caption" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="440" Text="{Binding TemplatePointerText}" />
+        <Button x:Name="TemplateListButton" Classes="text pill" Command="{Binding OpenTemplateListCommand}" Content="{loc:Loc library.picker.templates.button}" />
+      </StackPanel>
     </StackPanel>
   </dialogs:DialogFrame>
 </UserControl>

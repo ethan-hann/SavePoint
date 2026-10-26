@@ -4,16 +4,34 @@
              xmlns:theme="using:Savepoint.App.Theme"
              xmlns:editor="using:Savepoint.App.Features.Editor"
              xmlns:art="using:Savepoint.App.Features.Common.Art"
+             xmlns:shell="using:Savepoint.App.Features.Shell"
+             xmlns:help="using:Savepoint.App.Features.Help"
+             xmlns:a11y="using:Savepoint.App.Features.Common.Accessibility"
              x:Class="Savepoint.App.Features.Editor.GameEditorView"
              x:DataType="editor:GameEditorViewModel">
   <!--
     The game editor, a full pane: a header with back, title, Export or Import and Save, then two columns.
-    Left: name, install folder, saves folder, files to ignore. Right: how to start the game, how SavePoint knows the
-    game stopped, and the folders that hold mods. A problem with a field shows under that field.
+    Left: name, install folder, saves folder. Right: how to start the game. Below them, a "More settings" section holds the
+    files to ignore, how SavePoint knows the game stopped, the folders that hold mods, extra options and the Steam app id.
+    A warning shows only when it applies and an explanation sits behind a question button. A problem with a field shows
+    under that field.
   -->
   <UserControl.Styles>
     <Style Selector="TextBox.field">
       <Setter Property="Padding" Value="12,10" />
+    </Style>
+
+    <!-- The More settings header is a toggle that reads as a plain row: opening it must not fill it like a chosen chip. -->
+    <Style Selector="ToggleButton.section-toggle">
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Foreground" Value="{DynamicResource Md3OnSurfaceBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.section-toggle:checked">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource Md3OnSurfaceBrush}" />
     </Style>
   </UserControl.Styles>
 
@@ -44,6 +62,12 @@
               <TextBlock Text="{loc:Loc gameEditor.import}" />
             </StackPanel>
           </Button>
+          <Button x:Name="PickTemplateButton" Padding="16,8" FontSize="13.5" IsVisible="{Binding CanPickTemplate}" Command="{Binding PickTemplateCommand}" AutomationProperties.Name="{loc:Loc gameEditor.pickTemplate}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.StadiaController}" />
+              <TextBlock Text="{loc:Loc gameEditor.pickTemplate}" />
+            </StackPanel>
+          </Button>
           <Button x:Name="SaveButton" Classes="filled" Padding="18,8" FontSize="13.5" Command="{Binding SaveCommand}" Content="{loc:Loc gameEditor.save}" />
         </StackPanel>
       </Grid>
@@ -54,12 +78,17 @@
 
         <ContentControl x:Name="FormErrorHost" Content="{Binding FormError}" IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}" />
 
+        <Grid x:Name="TemplateNotesLine" ColumnDefinitions="Auto,*" IsVisible="{Binding HasTemplateNotes}">
+          <TextBlock Classes="icon s18 muted" VerticalAlignment="Top" Margin="0,1,8,0" Text="{x:Static theme:Icons.Info}" />
+          <TextBlock Grid.Column="1" Classes="body" TextWrapping="Wrap" Text="{Binding TemplateNotes}" />
+        </Grid>
+
         <Grid ColumnDefinitions="7*,22,6*">
 
           <!-- Left column. -->
           <StackPanel Spacing="22">
 
-            <StackPanel Spacing="9">
+            <StackPanel x:Name="NameBlock" Spacing="9">
               <TextBlock Classes="overline" Text="{theme:Upper {loc:Loc gameEditor.name.label}}" />
               <TextBox x:Name="NameField"
                        Classes="field"
@@ -67,7 +96,25 @@
                        Classes.error="{Binding NameError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                        Text="{Binding Name, Mode=TwoWay}"
                        AutomationProperties.Name="{loc:Loc gameEditor.name.label}"
-                       AutomationProperties.HelpText="{Binding NameError}" />
+                       AutomationProperties.HelpText="{Binding NameError}">
+                <TextBox.KeyBindings>
+                  <KeyBinding Gesture="Escape" Command="{Binding DismissNameMatchesCommand}" />
+                  <KeyBinding Gesture="Enter" Command="{Binding ChooseTopNameMatchCommand}" />
+                </TextBox.KeyBindings>
+              </TextBox>
+              <a11y:AnnouncementRegion x:Name="NameMatchesAnnouncer" Message="{Binding NameMatchesAnnouncement}" />
+              <ItemsControl x:Name="NameMatchList" ItemsSource="{Binding NameMatches}" IsVisible="{Binding HasNameMatches}" AutomationProperties.Name="{loc:Loc gameEditor.name.matches}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="shell:TemplateItem">
+                    <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="0,0,0,4" Padding="12,8" Command="{Binding Choose}" AutomationProperties.Name="{Binding AutomationName}">
+                      <StackPanel Orientation="Horizontal" Spacing="10">
+                        <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.StadiaController}" />
+                        <TextBlock Classes="body" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Name}" />
+                      </StackPanel>
+                    </Button>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
               <TextBlock x:Name="NameErrorText" Classes="body error" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" IsVisible="{Binding NameError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding NameError}" />
             </StackPanel>
 
@@ -97,7 +144,12 @@
             </StackPanel>
 
             <StackPanel Spacing="9">
-              <TextBlock Classes="overline" Text="{theme:Upper {loc:Loc gameEditor.external.label}}" />
+              <WrapPanel Orientation="Horizontal">
+                <TextBlock Classes="overline" VerticalAlignment="Center" Margin="0,0,12,0" Text="{theme:Upper {loc:Loc gameEditor.external.label}}" />
+                <Panel VerticalAlignment="Center" IsVisible="{Binding HasCloudSavesUnknown}">
+                  <help:HelpQuestionView x:Name="CloudSavesQuestion" DataContext="{Binding CloudSavesHelp}" />
+                </Panel>
+              </WrapPanel>
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                 <TextBox x:Name="SavesField"
                          Classes="field mono"
@@ -123,6 +175,15 @@
               </Grid>
               <TextBlock x:Name="SavesErrorText" Classes="body error" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" IsVisible="{Binding SavesError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding SavesError}" />
               <ContentControl x:Name="SavesCardHost" Content="{Binding SavesCard}" IsVisible="{Binding SavesCard, Converter={x:Static ObjectConverters.IsNotNull}}" />
+              <Panel IsVisible="{Binding HasCloudSavesUnknown}">
+                <help:HelpAnswerView x:Name="CloudSavesAnswer" DataContext="{Binding CloudSavesHelp}" />
+              </Panel>
+              <Border x:Name="CloudSavesCallout" Classes="callout warning" IsVisible="{Binding HasCloudSavesNote}">
+                <Grid ColumnDefinitions="Auto,*">
+                  <TextBlock Classes="icon s18 warning" VerticalAlignment="Top" Margin="0,1,12,0" Text="{x:Static theme:Icons.Warning}" />
+                  <TextBlock Grid.Column="1" Classes="body" TextWrapping="Wrap" Text="{Binding CloudSavesNote}" />
+                </Grid>
+              </Border>
               <Border x:Name="SavesMissingNote" Classes="strip" IsVisible="{Binding HasNoSavesFolder}">
                 <!-- A star column, not a horizontal stack, so the text wraps at the column's edge. -->
                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
@@ -145,19 +206,6 @@
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
               </Grid>
-            </StackPanel>
-
-            <StackPanel Spacing="9">
-              <TextBlock Classes="overline" Text="{theme:Upper {loc:Loc gameEditor.installIgnorePaths.label}}" />
-              <ContentControl x:Name="InstallIgnoreRulesHost" Content="{Binding InstallIgnoreRules}" />
-              <TextBlock x:Name="DefaultRulesNoteText" Classes="body muted" TextWrapping="Wrap" IsVisible="{Binding HasDefaultRulesNote}" Text="{Binding DefaultRulesNote}" />
-              <TextBlock Classes="body muted" TextWrapping="Wrap" Text="{loc:Loc gameEditor.installIgnorePaths.helper}" />
-            </StackPanel>
-
-            <StackPanel Spacing="9">
-              <TextBlock Classes="overline" Text="{theme:Upper {loc:Loc gameEditor.ignorePaths.label}}" />
-              <ContentControl x:Name="IgnoreRulesHost" Content="{Binding IgnoreRules}" />
-              <TextBlock Classes="body muted" TextWrapping="Wrap" Text="{loc:Loc gameEditor.ignorePaths.helper}" />
             </StackPanel>
 
           </StackPanel>
@@ -227,30 +275,74 @@
                 <TextBlock Classes="caption" TextWrapping="Wrap" Text="{loc:Loc gameEditor.launch.steamHelper}" />
               </StackPanel>
 
-              <StackPanel Spacing="6">
-                <TextBlock Classes="caption" Text="{loc:Loc gameEditor.launchArgs.label}" />
-                <ContentControl x:Name="LaunchArgsHost" Content="{Binding LaunchArgs}" />
+              <!-- Stays out of More settings: a link-started game needs the program name, and the player must see why. -->
+              <StackPanel x:Name="ProcessWhyRow" Spacing="6" IsVisible="{Binding ShowProcessNameWhy}">
+                <TextBlock x:Name="ProcessWhyText" Classes="body" TextWrapping="Wrap" Text="{loc:Loc gameEditor.processName.linkWhy}" />
+                <Button x:Name="UseSuggestedProcessButton" Classes="pill" HorizontalAlignment="Left" Padding="10,3" FontFamily="{DynamicResource RobotoMonoFont}" FontSize="11.5" FontWeight="Normal" IsVisible="{Binding HasProcessNameSuggestion}" Content="{Binding UseSuggestedProcessNameLabel}" Command="{Binding UseSuggestedProcessNameCommand}" />
+                <TextBlock x:Name="ProcessMoreSettingsText" Classes="caption" TextWrapping="Wrap" IsVisible="{Binding CanOpenProcessNameField}" Text="{Binding ProcessNameMoreSettingsText}" />
+                <Button x:Name="OpenProcessFieldButton" Classes="pill" HorizontalAlignment="Left" Padding="10,3" IsVisible="{Binding CanOpenProcessNameField}" Content="{loc:Loc gameEditor.processName.openField}" Command="{Binding OpenProcessNameFieldCommand}" />
               </StackPanel>
+              <TextBlock x:Name="ProcessConfirmationText" Classes="body accent" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" IsVisible="{Binding HasProcessNameConfirmation}" Text="{Binding ProcessNameConfirmation}" />
 
-              <Border x:Name="SteamWarningCallout" Classes="callout warning">
+              <Border x:Name="SteamWarningCallout" Classes="callout warning" IsVisible="{Binding IsSteamMethod}">
                 <Grid ColumnDefinitions="Auto,*">
                   <TextBlock Classes="icon s18 warning" VerticalAlignment="Top" Margin="0,1,12,0" Text="{x:Static theme:Icons.Warning}" />
                   <TextBlock Grid.Column="1" Classes="body" TextWrapping="Wrap" Text="{Binding SteamWarning}" />
                 </Grid>
               </Border>
 
-              <Border x:Name="GuidanceStrip" Classes="strip">
-                <StackPanel Spacing="8">
-                  <Grid x:Name="CloudSavesNoteRow" ColumnDefinitions="Auto,*" IsVisible="{Binding HasCloudSavesNote}">
-                    <TextBlock Classes="icon s16 muted" VerticalAlignment="Top" Margin="0,2,10,0" Text="{x:Static theme:Icons.Info}" />
-                    <TextBlock Grid.Column="1" Classes="caption" TextWrapping="Wrap" Text="{Binding CloudSavesNote}" />
-                  </Grid>
-                  <Grid ColumnDefinitions="Auto,*">
-                    <TextBlock Classes="icon s16 muted" VerticalAlignment="Top" Margin="0,2,10,0" Text="{x:Static theme:Icons.Info}" />
-                    <TextBlock Grid.Column="1" Classes="caption" TextWrapping="Wrap" Text="{loc:Loc gameEditor.antiCheat}" />
-                  </Grid>
-                </StackPanel>
-              </Border>
+              <help:HelpQuestionView x:Name="AntiCheatQuestion" HorizontalAlignment="Left" DataContext="{Binding AntiCheatHelp}" />
+              <help:HelpAnswerView x:Name="AntiCheatAnswer" DataContext="{Binding AntiCheatHelp}" />
+            </StackPanel>
+
+          </StackPanel>
+        </Grid>
+
+        <!-- Settings most games never need, closed until opened; a field in it with a problem opens it. -->
+        <StackPanel x:Name="MoreSettingsSection" Spacing="16">
+          <Border BorderBrush="{DynamicResource Md3OutlineVariantBrush}" BorderThickness="0,1,0,0">
+            <a11y:DisclosureToggleButton x:Name="MoreSettingsToggle"
+                          Classes="text section-toggle"
+                          Padding="0,12"
+                          IsChecked="{Binding IsMoreSettingsOpen, Mode=TwoWay}"
+                          AutomationProperties.Name="{loc:Loc gameEditor.moreSettings.label}">
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <TextBlock Classes="row-title" FontSize="14" VerticalAlignment="Center" Text="{loc:Loc gameEditor.moreSettings.label}" />
+                <Panel Grid.Column="1">
+                  <TextBlock Classes="icon s20 muted" IsVisible="{Binding !IsMoreSettingsOpen}" Text="{x:Static theme:Icons.ExpandMore}" />
+                  <TextBlock Classes="icon s20 muted" IsVisible="{Binding IsMoreSettingsOpen}" Text="{x:Static theme:Icons.ExpandLess}" />
+                </Panel>
+              </Grid>
+            </a11y:DisclosureToggleButton>
+          </Border>
+
+          <Grid x:Name="MoreSettingsContent" ColumnDefinitions="7*,22,6*" IsVisible="{Binding IsMoreSettingsOpen}">
+
+          <!-- Left column: files to leave out. -->
+          <StackPanel Spacing="22">
+
+            <StackPanel Spacing="9">
+              <TextBlock Classes="overline" Text="{theme:Upper {loc:Loc gameEditor.installIgnorePaths.label}}" />
+              <ContentControl x:Name="InstallIgnoreRulesHost" Content="{Binding InstallIgnoreRules}" />
+              <TextBlock x:Name="DefaultRulesNoteText" Classes="body muted" TextWrapping="Wrap" IsVisible="{Binding HasDefaultRulesNote}" Text="{Binding DefaultRulesNote}" />
+            </StackPanel>
+
+            <StackPanel Spacing="9">
+              <TextBlock Classes="overline" Text="{theme:Upper {loc:Loc gameEditor.ignorePaths.label}}" />
+              <ContentControl x:Name="IgnoreRulesHost" Content="{Binding IgnoreRules}" />
+              <TextBlock x:Name="SavesRuleText" Classes="body muted" TextWrapping="Wrap" Text="{loc:Loc gameEditor.ignorePaths.savesRule}" />
+              <help:HelpQuestionView x:Name="RulesQuestion" HorizontalAlignment="Left" DataContext="{Binding RulesHelp}" />
+              <help:HelpAnswerView x:Name="RulesAnswer" DataContext="{Binding RulesHelp}" />
+            </StackPanel>
+
+          </StackPanel>
+
+          <!-- Right column. -->
+          <StackPanel Grid.Column="2" Spacing="22">
+
+            <StackPanel Spacing="6">
+              <TextBlock Classes="overline" Text="{theme:Upper {loc:Loc gameEditor.launchArgs.label}}" />
+              <ContentControl x:Name="LaunchArgsHost" Content="{Binding LaunchArgs}" />
             </StackPanel>
 
             <StackPanel Spacing="9">
@@ -259,10 +351,6 @@
                        Classes="field mono"
                        Text="{Binding ProcessName, Mode=TwoWay}"
                        AutomationProperties.Name="{loc:Loc gameEditor.processName.label}" />
-              <StackPanel x:Name="ProcessWhyRow" Spacing="6" IsVisible="{Binding ShowProcessNameWhy}">
-                <TextBlock x:Name="ProcessWhyText" Classes="body" TextWrapping="Wrap" Text="{loc:Loc gameEditor.processName.linkWhy}" />
-                <Button x:Name="UseSuggestedProcessButton" Classes="pill" HorizontalAlignment="Left" Padding="10,3" FontFamily="{DynamicResource RobotoMonoFont}" FontSize="11.5" FontWeight="Normal" IsVisible="{Binding HasProcessNameSuggestion}" Content="{Binding UseSuggestedProcessNameLabel}" Command="{Binding UseSuggestedProcessNameCommand}" />
-              </StackPanel>
               <StackPanel x:Name="ProcessSuggestionRow" Spacing="6" IsVisible="{Binding HasProcessSuggestions}">
                 <TextBlock Classes="caption" Text="{loc:Loc gameEditor.suggestions.found}" />
                 <ItemsControl ItemsSource="{Binding ProcessSuggestions}">
@@ -278,19 +366,38 @@
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
               </StackPanel>
-              <TextBlock Classes="body muted" TextWrapping="Wrap" Text="{loc:Loc gameEditor.processName.helper}" />
+              <help:HelpQuestionView x:Name="ProcessQuestion" HorizontalAlignment="Left" DataContext="{Binding ProcessHelp}" />
+              <help:HelpAnswerView x:Name="ProcessAnswer" DataContext="{Binding ProcessHelp}" />
             </StackPanel>
 
             <StackPanel Spacing="9">
               <TextBlock Classes="overline" Text="{theme:Upper {loc:Loc gameEditor.modPathHints.label}}" />
               <ContentControl x:Name="ModFoldersHost" Content="{Binding ModFolders}" />
-              <TextBlock Classes="body muted" TextWrapping="Wrap" Text="{loc:Loc gameEditor.modPathHints.helper}" />
+              <help:HelpQuestionView x:Name="ModFoldersQuestion" HorizontalAlignment="Left" DataContext="{Binding ModFoldersHelp}" />
+              <help:HelpAnswerView x:Name="ModFoldersAnswer" DataContext="{Binding ModFoldersHelp}" />
+            </StackPanel>
+
+            <StackPanel Spacing="9">
+              <TextBlock Classes="overline" Text="{theme:Upper {loc:Loc gameEditor.artwork.appId.label}}" />
+              <TextBox x:Name="SteamAppIdField"
+                       Classes="field mono"
+                       Width="200"
+                       HorizontalAlignment="Left"
+                       Classes.error="{Binding SteamAppIdError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                       Text="{Binding SteamAppIdText, Mode=TwoWay}"
+                       PlaceholderText="{Binding SteamAppIdHint}"
+                       AutomationProperties.Name="{loc:Loc gameEditor.artwork.appId.label}"
+                       AutomationProperties.HelpText="{Binding SteamAppIdError}" />
+              <TextBlock x:Name="SteamAppIdErrorText" Classes="body error" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" IsVisible="{Binding SteamAppIdError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding SteamAppIdError}" />
+              <help:HelpQuestionView x:Name="SteamAppIdQuestion" HorizontalAlignment="Left" DataContext="{Binding SteamAppIdHelp}" />
+              <help:HelpAnswerView x:Name="SteamAppIdAnswer" DataContext="{Binding SteamAppIdHelp}" />
             </StackPanel>
 
           </StackPanel>
-        </Grid>
+          </Grid>
+        </StackPanel>
 
-        <!-- Artwork: how the game looks in the library, where that comes from, and the Steam app id the lookup uses. -->
+        <!-- Artwork: how the game looks in the library, and where that comes from. The Steam app id its lookup uses is under More settings. -->
         <StackPanel x:Name="ArtworkSection" Spacing="9">
           <TextBlock Classes="overline" Text="{theme:Upper {loc:Loc gameEditor.artwork.label}}" />
           <Border Classes="panel">
@@ -310,20 +417,6 @@
                   <TextBlock x:Name="LookingText" Classes="caption" IsVisible="{Binding IsLookingAgain}" Text="{loc:Loc gameEditor.artwork.looking}" AutomationProperties.LiveSetting="Polite" />
                   <TextBlock x:Name="LookAgainWaitsText" Classes="caption" IsVisible="{Binding LookAgainWaitsForSave}" Text="{loc:Loc gameEditor.artwork.appId.saveFirst}" />
                   <ContentControl x:Name="ArtworkErrorHost" Content="{Binding ArtworkError}" IsVisible="{Binding ArtworkError, Converter={x:Static ObjectConverters.IsNotNull}}" />
-                </StackPanel>
-                <StackPanel Spacing="9">
-                  <TextBlock Classes="overline" Text="{theme:Upper {loc:Loc gameEditor.artwork.appId.label}}" />
-                  <TextBox x:Name="SteamAppIdField"
-                           Classes="field mono"
-                           Width="200"
-                           HorizontalAlignment="Left"
-                           Classes.error="{Binding SteamAppIdError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                           Text="{Binding SteamAppIdText, Mode=TwoWay}"
-                           PlaceholderText="{Binding SteamAppIdHint}"
-                           AutomationProperties.Name="{loc:Loc gameEditor.artwork.appId.label}"
-                           AutomationProperties.HelpText="{Binding SteamAppIdError}" />
-                  <TextBlock x:Name="SteamAppIdErrorText" Classes="body error" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" IsVisible="{Binding SteamAppIdError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding SteamAppIdError}" />
-                  <TextBlock Classes="body muted" TextWrapping="Wrap" Text="{loc:Loc gameEditor.artwork.appId.helper}" />
                 </StackPanel>
               </StackPanel>
             </Grid>

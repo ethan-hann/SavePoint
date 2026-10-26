@@ -30,6 +30,5 @@
   "ignorePaths": [],
   "modPathHints": [
     "Modules"
-  ],
-  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+  ]
 }

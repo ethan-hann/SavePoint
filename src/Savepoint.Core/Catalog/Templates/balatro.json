@@ -25,6 +25,5 @@
     "processNameForExitDetection": "Balatro"
   },
   "ignorePaths": [],
-  "modPathHints": [],
-  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+  "modPathHints": []
 }

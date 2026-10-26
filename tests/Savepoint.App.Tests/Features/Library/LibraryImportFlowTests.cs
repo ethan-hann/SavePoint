@@ -6,6 +6,38 @@ namespace Savepoint.App.Tests.Features.Library;
 public class LibraryImportFlowTests
 {
     [Fact]
+    public async Task Taking_the_pointer_to_the_game_list_ends_the_flow_and_says_so()
+    {
+        var backend = FakeBackend.Empty();
+        backend.State.Library = LibraryTestData.Scan(LibraryTestData.Game("Alpha", id: "1"));
+        var dialogs = new FakeDialogs();
+        var flow = new LibraryImportFlow(backend.Games, dialogs, LibraryTestData.Text);
+
+        var running = flow.RunAsync();
+        Assert.IsType<LibraryPickerDialogViewModel>(Assert.Single(dialogs.Shown)).OpenTemplateListCommand.Execute(null);
+        var summary = await running.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        Assert.Null(summary);
+        Assert.True(flow.TemplateListRequested);
+        Assert.Single(dialogs.Shown);
+    }
+
+    [Fact]
+    public async Task Backing_out_does_not_ask_for_the_game_list()
+    {
+        var backend = FakeBackend.Empty();
+        backend.State.Library = LibraryTestData.Scan();
+        var dialogs = new FakeDialogs();
+        var flow = new LibraryImportFlow(backend.Games, dialogs, LibraryTestData.Text);
+
+        var running = flow.RunAsync();
+        Assert.IsType<LibraryPickerDialogViewModel>(Assert.Single(dialogs.Shown)).CancelCommand.Execute(null);
+        await running.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        Assert.False(flow.TemplateListRequested);
+    }
+
+    [Fact]
     public async Task Backing_out_while_the_scan_is_still_running_ends_the_flow_at_once()
     {
         var backend = FakeBackend.Empty();

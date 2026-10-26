@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Dialogs;
 
@@ -19,6 +20,9 @@ public sealed partial class GameEditorViewModel
     // The folder the suggestions were last read for, so leaving the field unchanged does not scan a large install again.
     private string? _scannedFolder;
     private string? _scannedName;
+
+    // The program name the player let SavePoint fill in; the confirmation about it stays until the field holds something else.
+    private string _confirmedProcessName = string.Empty;
 
     /// <summary>The executables found in the install folder that match what is typed in the start file field.</summary>
     public ObservableCollection<SuggestionItem> ExeSuggestions { get; } = [];
@@ -84,10 +88,42 @@ public sealed partial class GameEditorViewModel
         OnPropertyChanged(nameof(HasProcessNameSuggestion));
         OnPropertyChanged(nameof(ShowProcessNameWhy));
         OnPropertyChanged(nameof(UseSuggestedProcessNameLabel));
+        OnPropertyChanged(nameof(CanOpenProcessNameField));
     }
 
+    // The field is under More settings, so filling it from here says so; the confirmation goes when the player changes the field.
     [RelayCommand]
-    private void UseSuggestedProcessName() => ProcessName = SuggestedProcessName;
+    private void UseSuggestedProcessName()
+    {
+        var name = SuggestedProcessName;
+        ProcessName = name;
+        _confirmedProcessName = name;
+        ProcessNameConfirmation = _text.Message("gameEditor.processName.used", ("name", name));
+    }
+
+    /// <summary>What the program name is for and where to enter it, shown when no program could be suggested.</summary>
+    public string ProcessNameMoreSettingsText => _text.Message("gameEditor.processName.moreSettings");
+
+    /// <summary>True when a link-started game has no program name and none was found to suggest, so the pointer to More settings shows.</summary>
+    public bool CanOpenProcessNameField => ShowProcessNameWhy && !HasProcessNameSuggestion;
+
+    /// <summary>Raised when the program name field, newly opened under More settings, should take the focus.</summary>
+    public event EventHandler? ProcessNameFieldFocusRequested;
+
+    [RelayCommand]
+    private void OpenProcessNameField()
+    {
+        IsMoreSettingsOpen = true;
+        ProcessNameFieldFocusRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>Says which program name was filled in for the player and where to change it; empty when the player has not used the suggestion.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasProcessNameConfirmation))]
+    private string _processNameConfirmation = string.Empty;
+
+    /// <summary>True when <see cref="ProcessNameConfirmation"/> has text.</summary>
+    public bool HasProcessNameConfirmation => ProcessNameConfirmation.Length > 0;
 
     /// <summary>The "Run the .exe" segment's text, named for the operating system's kind of program.</summary>
     public string RunExeLabel => _text.Message("gameEditor.launch.exe");
@@ -193,6 +229,10 @@ public sealed partial class GameEditorViewModel
     {
         UpdateSuggestions();
         NotifyProcessNameOffer();
+        if (ProcessNameConfirmation.Length > 0 && value != _confirmedProcessName)
+        {
+            ProcessNameConfirmation = string.Empty;
+        }
     }
 
     private void UpdateSuggestions()

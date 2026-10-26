@@ -118,6 +118,12 @@ public sealed partial class LibraryPickerDialogViewModel : DialogViewModel<IRead
     /// <summary>"2 of 14 selected".</summary>
     public string CountText { get; private set; }
 
+    /// <summary>True when the player left through "Pick from the game list" instead of choosing games.</summary>
+    public bool TemplateListRequested { get; private set; }
+
+    /// <summary>Says which games the scan cannot see, above the button that leads to the template list.</summary>
+    public string TemplatePointerText => _text.Message("library.picker.templates.note");
+
     /// <inheritdoc />
     public override string Description { get; }
 
@@ -256,6 +262,13 @@ public sealed partial class LibraryPickerDialogViewModel : DialogViewModel<IRead
     }
 
     private bool CanAdd() => _rows.Any(row => row.IsSelected);
+
+    [RelayCommand]
+    private void OpenTemplateList()
+    {
+        TemplateListRequested = true;
+        Close(null);
+    }
 
     [RelayCommand]
     private void Cancel() => Close(null);

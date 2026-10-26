@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Text.RegularExpressions;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -26,7 +25,12 @@ public abstract record TemplateChoice
 /// <summary>One built-in template in the picker.</summary>
 /// <param name="Name">The game's name.</param>
 /// <param name="Choose">Answers the picker with this template.</param>
-public sealed record TemplateItem(string Name, ICommand Choose);
+/// <param name="Label">What a screen reader says for the item when that differs from the name; null says the name.</param>
+public sealed record TemplateItem(string Name, ICommand Choose, string? Label = null)
+{
+    /// <summary>What a screen reader says for the item.</summary>
+    public string AutomationName => Label ?? Name;
+}
 
 /// <summary>
 /// The dialog behind "Start from a template": the built-in templates, or a game definition file. It answers with the
@@ -38,19 +42,21 @@ public sealed partial class TemplatePickerViewModel : DialogViewModel<TemplateCh
     [ObservableProperty]
     private string _searchText = string.Empty;
 
-    private readonly List<(TemplateItem Item, string[] Words)> _all;
+    private readonly List<(TemplateItem Item, SearchKey Key)> _all;
 
     /// <param name="templates">The built-in templates, in the order shown.</param>
     /// <param name="text">Supplies the title.</param>
-    public TemplatePickerViewModel(IReadOnlyList<GameTemplate> templates, UiFormatter text)
+    /// <param name="search">Words to narrow the list with from the start; empty lists every template.</param>
+    public TemplatePickerViewModel(IReadOnlyList<GameTemplate> templates, UiFormatter text, string search = "")
         : base(text.Message("templatePicker.title"))
     {
         Description = text.Message("templatePicker.body");
         NoMatchesText = text.Message("templatePicker.noMatches");
         _all = [.. templates.Select(template => (
             new TemplateItem(template.DisplayName, new RelayCommand(() => Close(new TemplateChoice.Template(template)))),
-            WordsOf(template.DisplayName)))];
+            TemplateSearch.KeyOf(template.DisplayName)))];
         Templates = [.. _all.Select(entry => entry.Item)];
+        SearchText = search;
     }
 
     /// <summary>The built-in templates that match the search; all of them when it is empty.</summary>
@@ -64,27 +70,15 @@ public sealed partial class TemplatePickerViewModel : DialogViewModel<TemplateCh
 
     partial void OnSearchTextChanged(string value)
     {
-        // Every typed word has to start a word of the name, so "sid meiers civ" finds "Sid Meier's Civilization VI".
-        var typed = WordsOf(value);
-        var shown = _all.Where(entry => typed.All(word => entry.Words.Any(name => name.StartsWith(word, StringComparison.Ordinal))));
+        var shown = TemplateSearch.Find(_all, value);
         Templates.Clear();
-        foreach (var entry in shown)
+        foreach (var item in shown)
         {
-            Templates.Add(entry.Item);
+            Templates.Add(item);
         }
 
         OnPropertyChanged(nameof(ShowNoMatches));
     }
-
-    // Lowercase words with apostrophes dropped and other punctuation treated as a space.
-    private static string[] WordsOf(string text) =>
-        [.. NotALetterOrDigit().Split(Apostrophes().Replace(text.ToLowerInvariant(), string.Empty)).Where(word => word.Length > 0)];
-
-    [GeneratedRegex(@"['’]")]
-    private static partial Regex Apostrophes();
-
-    [GeneratedRegex(@"[^\p{L}\p{N}]+")]
-    private static partial Regex NotALetterOrDigit();
 
     /// <inheritdoc />
     public override string Description { get; }

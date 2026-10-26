@@ -254,6 +254,11 @@ public sealed partial class GameEditorViewModel
         _baseline = BuildDefinition(game.Id);
         OnPropertyChanged(nameof(IsEditing));
         OnPropertyChanged(nameof(IsCreating));
+        NotifyTemplateNotes();
+        NameMatches.Clear();
+        NotifyNameMatchesChanged();
+        OnPropertyChanged(nameof(CanPickTemplate));
+        PickTemplateCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(CanImport));
         OnPropertyChanged(nameof(CanExport));
         OnPropertyChanged(nameof(CanLookAgain));

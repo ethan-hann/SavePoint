@@ -29,6 +29,5 @@
     "processNameForExitDetection": "XCom2.exe"
   },
   "ignorePaths": [],
-  "modPathHints": [],
-  "notes": "Turn off Steam Cloud for this game while SavePoint manages it."
+  "modPathHints": []
 }

@@ -1,6 +1,5 @@
 using Savepoint.App.Tests.Fakes;
 using Savepoint.Core.Api;
-using Savepoint.Core.Errors;
 
 namespace Savepoint.App.Tests.Features.Editor;
 
@@ -9,7 +8,6 @@ public class GameEditorCloudSavesTests
 {
     private const string _steamOn = "Steam Cloud is on for this game. Steam keeps saves that SavePoint changes, but brings back saves that SavePoint removed, so going back to before a save may not stick. If Steam asks which saves to keep, choose \"Local Save\".";
     private const string _gogOn = "Cloud saves are on for this game in GOG Galaxy. Galaxy keeps saves that SavePoint changes, but brings back saves that SavePoint removed, so going back to before a save may not stick. To avoid that, turn off cloud saves for this game in Galaxy.";
-    private const string _unknown = "If this game's store syncs cloud saves, it can bring back saves that SavePoint removed. Turn off cloud saves for this game in its store to be safe.";
 
     private static FakeGamesApi Games(EditorRig rig) => Assert.IsType<FakeGamesApi>(rig.Backend.Games);
 
@@ -49,32 +47,9 @@ public class GameEditorCloudSavesTests
     [InlineData(CloudStore.None)]
     [InlineData(CloudStore.Steam)]
     [InlineData(CloudStore.Gog)]
-    public async Task When_the_state_is_unknown_the_note_gives_softer_advice(CloudStore store)
+    public async Task When_the_state_is_unknown_there_is_no_warning(CloudStore store)
     {
-        Assert.Equal(_unknown, await NoteAsync(new CloudSaveInfo(CloudSaveState.Unknown, store)));
-    }
-
-    [Fact]
-    public async Task A_failed_check_gives_the_unknown_note()
-    {
-        var rig = EditorRig.Create();
-        rig.Backend.FailNext<IGamesApi>(nameof(IGamesApi.GetCloudSavesAsync), ErrorInfo.From(new GameNotFoundException(SampleScenario.SkyrimId)));
-
-        var editor = rig.Edit();
-        await editor.LoadAsync();
-
-        Assert.Equal(_unknown, editor.CloudSavesNote);
-    }
-
-    [Fact]
-    public void A_game_that_is_not_saved_yet_gets_the_unknown_note_without_asking()
-    {
-        var rig = EditorRig.Create();
-
-        var editor = rig.New();
-
-        Assert.Equal(_unknown, editor.CloudSavesNote);
-        Assert.Empty(rig.Calls(nameof(IGamesApi.GetCloudSavesAsync)));
+        Assert.Equal(string.Empty, await NoteAsync(new CloudSaveInfo(CloudSaveState.Unknown, store)));
     }
 
     [Fact]

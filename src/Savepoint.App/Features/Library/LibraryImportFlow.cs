@@ -27,6 +27,9 @@ public sealed class LibraryImportFlow
         _tracker = tracker;
     }
 
+    /// <summary>True when the last run ended because the player asked for the template list instead of choosing games.</summary>
+    public bool TemplateListRequested { get; private set; }
+
     /// <summary>Runs the flow to the end.</summary>
     /// <returns>How the run ended, or null when the player backed out before anything was added.</returns>
     public async Task<LibraryAddSummary?> RunAsync()
@@ -34,6 +37,7 @@ public sealed class LibraryImportFlow
         var picker = new LibraryPickerDialogViewModel(_games, _text);
         var loading = picker.LoadAsync();
         var chosen = await _dialogs.ShowAsync(picker).ConfigureAwait(true);
+        TemplateListRequested = picker.TemplateListRequested;
         if (chosen is not { Count: > 0 })
         {
             // A scan the player gave up on may still be blocked on a slow drive; it is not waited for.

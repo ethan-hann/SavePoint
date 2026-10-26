@@ -22,5 +22,5 @@
   },
   "ignorePaths": [],
   "modPathHints": [],
-  "notes": "Saves are kept inside the game's install folder, so there is no separate saves folder to add. Turn off Steam Cloud for this game while SavePoint manages it."
+  "notes": "Saves are kept inside the game's install folder, so there is no separate saves folder to add."
 }

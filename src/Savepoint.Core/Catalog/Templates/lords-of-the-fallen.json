@@ -15,5 +15,5 @@
   },
   "ignorePaths": [],
   "modPathHints": [],
-  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand. Turn off Steam Cloud for this game while SavePoint manages it."
+  "notes": "We couldn't confirm where this game keeps its saves; add the saves folder by hand."
 }

@@ -17,7 +17,10 @@ public sealed class FakeGamesApi : IGamesApi
         _backend = backend;
     }
 
-    public IReadOnlyList<GameTemplate> Templates => GameTemplates.All;
+    // A test sets this to offer its own templates in place of the shipped ones.
+    public IReadOnlyList<GameTemplate>? TemplatesOverride { get; set; }
+
+    public IReadOnlyList<GameTemplate> Templates => TemplatesOverride ?? GameTemplates.All;
 
     private FakeState State => _backend.State;
 

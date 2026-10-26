@@ -42,6 +42,8 @@
   "library.picker.sort.name": "Name",
   "library.picker.sort.savesKnown": "Saves folder known first",
   "library.picker.sort.store": "Store",
+  "library.picker.templates.button": "Pick from the game list",
+  "library.picker.templates.note": "Games from Epic, Game Pass or a manual install won't show up here.",
   "library.picker.title": "Add games from your libraries",
   "library.row.added": "Already added",
   "library.row.automation": "{name}, {store}, installed at {path}",

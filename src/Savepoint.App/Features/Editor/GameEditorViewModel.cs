@@ -34,7 +34,7 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
     private GameDefinition _source;
 
     // The game-wide rules a template or definition file gave the form; any other rule in it was typed by the player.
-    private readonly IReadOnlyList<string> _suppliedRules;
+    private IReadOnlyList<string> _suppliedRules;
 
     // What the form built right after opening, to tell whether anything changed.
     private GameDefinition _baseline;
@@ -140,6 +140,7 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
         _saved = saved;
         _source = saved ?? prefill ?? new GameDefinition { InstallIgnorePaths = RunTimeOutput.DefaultRules };
         _suppliedRules = saved is null && prefill is not null ? prefill.IgnorePaths : [];
+        _notesFromTemplate = saved is null && prefill is not null;
         IgnoreRules = new ChipListViewModel(
             text,
             text.Message("gameEditor.ignorePaths.label"),
@@ -161,6 +162,7 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
         ArtworkPreview = shell.Artwork.Preview(saved?.Id ?? string.Empty);
         LoadForm(_source, rulesAreDefaults: saved is null && prefill is null);
         InitializeArtwork(shell, saved);
+        InitializeGuidance();
         InitializeCloudSaves();
         _baseline = BuildDefinition(_source.Id);
     }
@@ -235,7 +237,11 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
         await cloud;
     }
 
-    partial void OnNameChanged(string value) => NameError = null;
+    partial void OnNameChanged(string value)
+    {
+        NameError = null;
+        SearchTemplates(value);
+    }
 
     partial void OnUriChanged(string value)
     {
@@ -254,7 +260,9 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
     private void LoadForm(GameDefinition game, bool rulesAreDefaults = false)
     {
         DefaultRulesNote = rulesAreDefaults ? _text.Message("gameEditor.ignorePaths.defaultNote") : string.Empty;
+        _fillingForm = true;
         Name = game.Name;
+        _fillingForm = false;
         InstallPath = game.Install.Path;
         SavesPath = game.External?.Path ?? string.Empty;
         ExePath = game.Launch.ExePath ?? string.Empty;

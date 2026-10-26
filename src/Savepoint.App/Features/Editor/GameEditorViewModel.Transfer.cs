@@ -35,6 +35,11 @@ public sealed partial class GameEditorViewModel
         _pendingId = null;
         ClearErrors();
         LoadForm(_source);
+        _applied = null;
+        _appliedInstallRules = null;
+        _notesFromTemplate = false;
+        NotifyTemplateNotes();
+        IsMoreSettingsOpen |= HasMoreSettingsSet();
         _toasts.Show(new ToastMessage(_text.Message("gameEditor.import.success", ("name", imported.Value.Name)), ToastKind.Success));
         await RefreshSuggestionsAsync();
     }

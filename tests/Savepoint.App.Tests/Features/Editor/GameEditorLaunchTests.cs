@@ -274,6 +274,58 @@ public class GameEditorLaunchTests
     }
 
     [Fact]
+    public async Task A_link_game_with_no_program_to_suggest_points_to_More_settings_and_opens_it_on_request()
+    {
+        var rig = RigWithExecutables();
+        var editor = LinkEditor(rig);
+        editor.LaunchChoice = 1;
+        await editor.RefreshProcessNameSuggestionAsync();
+        var focusAsked = 0;
+        editor.ProcessNameFieldFocusRequested += (_, _) => focusAsked++;
+
+        Assert.True(editor.ShowProcessNameWhy);
+        Assert.False(editor.HasProcessNameSuggestion);
+        Assert.True(editor.CanOpenProcessNameField);
+        Assert.Equal("You can enter it under More settings.", editor.ProcessNameMoreSettingsText);
+        Assert.False(editor.IsMoreSettingsOpen);
+
+        editor.OpenProcessNameFieldCommand.Execute(null);
+
+        Assert.True(editor.IsMoreSettingsOpen);
+        Assert.Equal(1, focusAsked);
+    }
+
+    [Fact]
+    public async Task While_a_program_is_suggested_the_Use_button_stands_in_for_the_pointer_to_More_settings()
+    {
+        var rig = RigWithExecutables("SkyrimSE.exe");
+        var editor = LinkEditor(rig);
+        editor.LaunchChoice = 1;
+        await editor.RefreshProcessNameSuggestionAsync();
+
+        Assert.True(editor.HasProcessNameSuggestion);
+        Assert.False(editor.CanOpenProcessNameField);
+    }
+
+    [Fact]
+    public async Task Using_the_suggestion_says_it_was_used_and_where_to_change_it()
+    {
+        var rig = RigWithExecutables("SkyrimSE.exe");
+        var editor = LinkEditor(rig);
+        editor.LaunchChoice = 1;
+        await editor.RefreshProcessNameSuggestionAsync();
+
+        editor.UseSuggestedProcessNameCommand.Execute(null);
+
+        Assert.True(editor.HasProcessNameConfirmation);
+        Assert.Equal("Using SkyrimSE.exe to know when you've stopped playing. You can change it under More settings.", editor.ProcessNameConfirmation);
+
+        editor.ProcessName = "Other.exe";
+
+        Assert.False(editor.HasProcessNameConfirmation);
+    }
+
+    [Fact]
     public async Task Nothing_is_offered_while_the_game_starts_from_a_file_and_the_folder_is_not_asked()
     {
         var rig = RigWithExecutables("SkyrimSE.exe");
