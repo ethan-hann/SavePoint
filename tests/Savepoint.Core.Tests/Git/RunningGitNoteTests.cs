@@ -47,4 +47,17 @@ public sealed class RunningGitNoteTests : IDisposable
 
         Assert.False(File.Exists(path));
     }
+
+    // The exit hook clears the note of every backend this process built; one whose folder is long gone must cost nothing, or the process
+    // is slow to end (a test run built thousands, and a host that does not end in time is stopped as if a thread were left running).
+    [Fact]
+    public void Clearing_a_note_in_a_folder_that_is_gone_does_not_wait()
+    {
+        var path = RunningGitNote.PathIn(Path.Combine(_temp.Path, "removed", "runtime"));
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+
+        RunningGitNote.Clear(path);
+
+        Assert.True(watch.Elapsed < TimeSpan.FromMilliseconds(250), $"clearing took {watch.ElapsedMilliseconds} ms for a note that cannot exist");
+    }
 }

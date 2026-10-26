@@ -53,9 +53,15 @@ internal static class RunningGitNote
         }
     }
 
-    // A scanner can hold the file for a moment, so a few tries are made.
+    // A scanner can hold the file for a moment, so a few tries are made. No note means nothing to retry: a folder that is gone makes the
+    // delete throw, and the exit hook clears the note of every backend the process built.
     public static void Clear(string path)
     {
+        if (!File.Exists(path))
+        {
+            return;
+        }
+
         for (var attempt = 1; attempt <= 4; attempt++)
         {
             try
