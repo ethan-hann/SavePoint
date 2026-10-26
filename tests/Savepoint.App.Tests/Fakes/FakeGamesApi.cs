@@ -192,12 +192,23 @@ public sealed class FakeGamesApi : IGamesApi
             return OperationResult.Success();
         });
 
-    public Task<OperationResult<IReadOnlyList<FolderStatus>>> GetFolderStatusAsync(string gameId, CancellationToken cancellationToken = default) =>
-        _backend.Call(_api, nameof(GetFolderStatusAsync), [gameId], () =>
+    // A test sets this to hold the answer of a folder status read, as a slow drive would.
+    public Func<Task>? FolderStatusGate { get; set; }
+
+    public async Task<OperationResult<IReadOnlyList<FolderStatus>>> GetFolderStatusAsync(string gameId, CancellationToken cancellationToken = default)
+    {
+        var answer = await _backend.Call(_api, nameof(GetFolderStatusAsync), [gameId], () =>
         {
             var game = State.Game(gameId);
             return OperationResult.Success(State.FolderStatuses.GetValueOrDefault(gameId) ?? Statuses(game, new ConsentStatus(true, null)));
         });
+        if (FolderStatusGate is { } gate)
+        {
+            await gate();
+        }
+
+        return answer;
+    }
 
     // What a test says each game's store reports; a game not listed is unknown, as the real Api answers for a store it cannot read.
     public Dictionary<string, CloudSaveInfo> CloudSaves { get; } = [];
@@ -208,10 +219,38 @@ public sealed class FakeGamesApi : IGamesApi
     // A test sets this to answer a check made from the form's values; it may hold the answer, as a slow disk would.
     public Func<CloudSaveQuery, CancellationToken, Task<CloudSaveInfo>>? CloudSavesForForm { get; set; }
 
-    public async Task<OperationResult<CloudSaveInfo>> GetCloudSavesAsync(CloudSaveQuery query, CancellationToken cancellationToken = default)
+    // Every check made from the form, in call order, so a test can wait for one to finish.
+    public List<Task<OperationResult<CloudSaveInfo>>> FormChecks { get; } = [];
+
+    public Task<OperationResult<CloudSaveInfo>> GetCloudSavesAsync(CloudSaveQuery query, CancellationToken cancellationToken = default)
     {
+        var check = CheckFormAsync(query, cancellationToken);
+        FormChecks.Add(check);
+        return check;
+    }
+
+    private async Task<OperationResult<CloudSaveInfo>> CheckFormAsync(CloudSaveQuery query, CancellationToken cancellationToken)
+    {
+        // Like the real Api, a token that is already cancelled fails the call before anything is read.
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return OperationResult.Failure<CloudSaveInfo>(new RequestCancelledException());
+        }
+
         var answer = await _backend.Call(_api, nameof(GetCloudSavesAsync), [query], () => OperationResult.Success(new CloudSaveInfo(CloudSaveState.Unknown, CloudStore.None)));
-        return CloudSavesForForm is { } scripted ? OperationResult.Success(await scripted(query, cancellationToken)) : answer;
+        if (!answer.Ok || CloudSavesForForm is not { } scripted)
+        {
+            return answer;
+        }
+
+        try
+        {
+            return OperationResult.Success(await scripted(query, cancellationToken));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return OperationResult.Failure<CloudSaveInfo>(new RequestCancelledException());
+        }
     }
 
     public async Task<OperationResult<CloudSaveInfo>> GetCloudSavesAsync(string gameId, CancellationToken cancellationToken = default)

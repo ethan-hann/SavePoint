@@ -109,8 +109,8 @@ public interface IGamesApi
 
     /// <summary>
     /// Reads the same answer as <see cref="GetCloudSavesAsync(string, CancellationToken)"/> for what a game form holds, so a check can
-    /// follow the form before the game is saved. An empty or unreadable install folder, or a game from another store, is
-    /// <see cref="CloudSaveState.Unknown"/>. It only reads.
+    /// follow the form before the game is saved. An empty, half-typed or unresolvable install folder, or a game from another store,
+    /// is <see cref="CloudSaveState.Unknown"/> rather than an error, because the form is checked as it is typed. It only reads.
     /// </summary>
     /// <param name="query">The install folder, Steam app id and launch link from the form.</param>
     /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c> (D23).</param>

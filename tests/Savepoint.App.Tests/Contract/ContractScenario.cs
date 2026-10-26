@@ -36,6 +36,11 @@ internal static class ContractScenario
 
         story.Add("cloud saves", Show(await backend.Games.GetCloudSavesAsync(game.Id, cancellationToken), info => $"{info.State} from {info.Store}"));
 
+        var form = new CloudSaveQuery(game.Install.Path, null, null);
+        story.Add("cloud saves from the form", Show(await backend.Games.GetCloudSavesAsync(form, cancellationToken), info => $"{info.State} from {info.Store}"));
+        story.Add("cloud saves from a half-typed folder", Show(await backend.Games.GetCloudSavesAsync(new CloudSaveQuery("{nonsense}/g", 730, null), cancellationToken), info => $"{info.State} from {info.Store}"));
+        story.Add("cloud saves from the form, cancelled", Show(await backend.Games.GetCloudSavesAsync(form, new CancellationToken(canceled: true)), _ => "unexpected success"));
+
         var created = await backend.Profiles.CreateAsync(game.Id, "Vanilla", "no mods", "Fresh install");
         story.Add("create profile", Show(created, _ => "capture started"));
         var vanilla = await FinishCaptureAsync(backend, story, created, cancellationToken);

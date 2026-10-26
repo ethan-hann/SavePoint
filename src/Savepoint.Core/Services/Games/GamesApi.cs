@@ -38,7 +38,16 @@ internal sealed partial class GamesApi : IGamesApi
                     return new CloudSaveInfo(CloudSaveState.Unknown, CloudStore.None);
                 }
 
-                var install = _services.PathTokens.Resolve(query.InstallPath.Trim(), "install.path");
+                // A folder that is half typed, or names a token that does not exist, has no store yet; that is an answer, not a failure.
+                string install;
+                try
+                {
+                    install = _services.PathTokens.Resolve(query.InstallPath.Trim(), "install.path");
+                }
+                catch (ValidationException)
+                {
+                    return new CloudSaveInfo(CloudSaveState.Unknown, CloudStore.None);
+                }
 
                 // The form is not a saved game; this stands in for it so the same store detection applies.
                 var form = new GameDefinition

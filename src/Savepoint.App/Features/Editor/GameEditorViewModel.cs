@@ -237,7 +237,11 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
 
     partial void OnNameChanged(string value) => NameError = null;
 
-    partial void OnUriChanged(string value) => UriError = null;
+    partial void OnUriChanged(string value)
+    {
+        UriError = null;
+        ScheduleCloudCheck();
+    }
 
     private static string? NullIfBlank(string value)
     {

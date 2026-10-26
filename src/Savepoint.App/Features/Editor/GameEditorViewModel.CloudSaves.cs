@@ -21,16 +21,22 @@ public sealed partial class GameEditorViewModel
     // Whether edits to the form start a new check; false while the form is being filled in.
     private bool _cloudWatching;
 
-    // Counts the questions asked; only the latest one's answer is shown.
+    // Counts the questions asked; only the latest one's answer is shown. Closing the editor counts as a newer question.
     private int _cloudVersion;
+    private int _firstLoadVersion;
     private CancellationTokenSource? _cloudCheck;
 
-    // A game that is not saved yet has no store to ask, so it gets the softer advice at once.
+    // A game that is not saved yet has no store to ask, so it gets the softer advice at once. A saved game's first question is numbered
+    // here, before any edit, so an edit made while the folder status loads is a newer question than the load's.
     private void InitializeCloudSaves()
     {
         if (_saved is null)
         {
             ShowCloudSaves(new CloudSaveInfo(CloudSaveState.Unknown, CloudStore.None));
+        }
+        else
+        {
+            _firstLoadVersion = ++_cloudVersion;
         }
 
         _cloudWatching = true;
@@ -44,7 +50,7 @@ public sealed partial class GameEditorViewModel
             return;
         }
 
-        var version = ++_cloudVersion;
+        var version = _firstLoadVersion;
         var read = await _games.GetCloudSavesAsync(_saved.Id);
         if (version == _cloudVersion)
         {
@@ -77,8 +83,8 @@ public sealed partial class GameEditorViewModel
                 LaunchChoice == 1 && Uri.Trim().Length > 0 ? Uri.Trim() : null);
             var read = await _games.GetCloudSavesAsync(query, token);
 
-            // A cancelled or older question can still answer; its answer is dropped.
-            if (version == _cloudVersion && !token.IsCancellationRequested)
+            // An older question can still answer; its answer is dropped.
+            if (version == _cloudVersion)
             {
                 ShowCloudSaves(read.Ok ? read.Value : new CloudSaveInfo(CloudSaveState.Unknown, CloudStore.None));
             }
@@ -92,6 +98,7 @@ public sealed partial class GameEditorViewModel
     private void StopCloudChecks()
     {
         _cloudWatching = false;
+        _cloudVersion++;
         _cloudCheck?.Cancel();
         _cloudCheck?.Dispose();
         _cloudCheck = null;

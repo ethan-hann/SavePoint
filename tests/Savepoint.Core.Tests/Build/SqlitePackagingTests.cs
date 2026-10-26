@@ -43,6 +43,44 @@ public class SqlitePackagingTests
         Assert.DoesNotContain("win", condition, StringComparison.Ordinal);
     }
 
+    // The restore keeps packages in the workspace folder nuget.config names; its default is used when the file does not say.
+    private static string PackagesFolder()
+    {
+        var configured = XDocument.Load(Path.Combine(RepoRoot, "nuget.config")).Descendants("add")
+            .FirstOrDefault(add => (string?)add.Attribute("key") == "globalPackagesFolder");
+        var folder = (string?)configured?.Attribute("value") ?? ".tools/nuget-packages";
+        return Path.GetFullPath(Path.Combine(RepoRoot, folder));
+    }
+
+    private static Dictionary<string, string> Pins() =>
+        XDocument.Load(Path.Combine(RepoRoot, "Directory.Packages.props")).Descendants("PackageVersion")
+            .ToDictionary(v => (string)v.Attribute("Include")!, v => (string)v.Attribute("Version")!, StringComparer.OrdinalIgnoreCase);
+
+    // A dependency range such as "[2.1.13, )" or "2.1.13" stands for its lower bound.
+    private static string LowerBound(string range) => range.Trim('[', '(', ']', ')', ' ').Split(',')[0].Trim();
+
+    [Fact]
+    public void The_pins_equal_the_versions_the_pinned_packages_depend_on()
+    {
+        var pins = Pins();
+        var folder = PackagesFolder();
+        foreach (var package in _sqlitePackages)
+        {
+            var id = package.ToLowerInvariant();
+            var nuspec = Path.Combine(folder, id, pins[package], id + ".nuspec");
+            Assert.True(File.Exists(nuspec), $"{nuspec} is missing; restore the solution first.");
+
+            var dependencies = XDocument.Load(nuspec).Descendants().Where(e => e.Name.LocalName == "dependency")
+                .Select(e => (Id: (string)e.Attribute("id")!, Range: (string)e.Attribute("version")!))
+                .Where(d => pins.ContainsKey(d.Id) && _sqlitePackages.Contains(d.Id, StringComparer.OrdinalIgnoreCase))
+                .Distinct();
+            foreach (var (dependency, range) in dependencies)
+            {
+                Assert.True(LowerBound(range) == pins[dependency], $"{package} {pins[package]} depends on {dependency} {range}, but the pin is {pins[dependency]}.");
+            }
+        }
+    }
+
     [Fact]
     public void Every_pinned_SQLite_package_has_a_central_version()
     {

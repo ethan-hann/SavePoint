@@ -26,7 +26,8 @@
     <!--
       Only the Windows GOG Galaxy reader opens SQLite. A direct reference overrides how the same package arrives
       through Core, so a Linux or macOS publish leaves out its managed and native files. Windows publishes and
-      builds with no runtime identifier keep them.
+      builds with no runtime identifier keep them. The condition reads the singular RuntimeIdentifier, so a separate
+      "dotnet restore" with a runtime followed by a publish that skips restore would not apply it.
     -->
     <PackageReference Include="Microsoft.Data.Sqlite" ExcludeAssets="runtime;native" Condition="$(RuntimeIdentifier.StartsWith('linux')) or $(RuntimeIdentifier.StartsWith('osx'))" />
     <PackageReference Include="Microsoft.Data.Sqlite.Core" ExcludeAssets="runtime;native" Condition="$(RuntimeIdentifier.StartsWith('linux')) or $(RuntimeIdentifier.StartsWith('osx'))" />

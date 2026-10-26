@@ -180,6 +180,7 @@ public sealed partial class GameEditorViewModel
         NotifySteamStartNote();
         NotifyProcessNameOffer();
         _ = RefreshProcessNameSuggestionAsync();
+        ScheduleCloudCheck();
     }
 
     partial void OnExePathChanged(string value)

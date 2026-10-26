@@ -116,9 +116,81 @@ public class GameEditorCloudSavesFollowTests
         editor.InstallPath = @"D:\Games\Second";
         await NoteStartingAsync(editor, _unknownStart);
         release.SetResult();
-        await Task.Delay(150, TestContext.Current.CancellationToken);
+        await Games(rig).FormChecks[0];
+        await Task.Yield();
 
         Assert.StartsWith(_unknownStart, editor.CloudSavesNote, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task An_answer_that_arrives_after_the_editor_is_closed_changes_nothing()
+    {
+        var rig = EditorRig.Create();
+        var release = new TaskCompletionSource();
+        Games(rig).CloudSavesForForm = async (_, _) =>
+        {
+            await release.Task;
+            return new CloudSaveInfo(CloudSaveState.On, CloudStore.Steam);
+        };
+        var editor = await OpenAsync(rig);
+        var before = editor.CloudSavesNote;
+
+        editor.InstallPath = @"D:\Games\Elsewhere";
+        await EditorRig.Eventually(() => Queries(rig).Count == 1 ? Queries(rig) : null);
+        editor.Dispose();
+        release.SetResult();
+        await Games(rig).FormChecks[0];
+        await Task.Yield();
+
+        Assert.Equal(before, editor.CloudSavesNote);
+    }
+
+    [Fact]
+    public async Task An_edit_made_while_the_folder_status_is_still_loading_keeps_its_own_answer()
+    {
+        var rig = EditorRig.Create();
+        var release = new TaskCompletionSource();
+        Games(rig).CloudSaves[SampleScenario.SkyrimId] = new CloudSaveInfo(CloudSaveState.On, CloudStore.Steam);
+        Games(rig).FolderStatusGate = () => release.Task;
+        var editor = rig.Edit();
+        editor.CloudCheckDelay = (_, _) => Task.CompletedTask;
+        var loading = editor.LoadAsync();
+
+        editor.InstallPath = @"D:\Games\Elsewhere";
+        await NoteStartingAsync(editor, _unknownStart);
+        release.SetResult();
+        await loading;
+
+        Assert.StartsWith(_unknownStart, editor.CloudSavesNote, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Changing_the_launch_link_asks_the_store_with_the_link()
+    {
+        var rig = EditorRig.Create();
+        var editor = await OpenAsync(rig);
+
+        editor.LaunchChoice = 1;
+        editor.Uri = "steam://rungameid/730";
+        await EditorRig.Eventually(() => Queries(rig).Any(query => query.LaunchUri == "steam://rungameid/730") ? Queries(rig) : null);
+
+        Assert.Equal("steam://rungameid/730", Queries(rig)[^1].LaunchUri);
+    }
+
+    [Fact]
+    public async Task Switching_the_start_method_back_to_a_program_drops_the_link_from_the_question()
+    {
+        var rig = EditorRig.Create();
+        var editor = await OpenAsync(rig);
+        editor.LaunchChoice = 1;
+        editor.Uri = "steam://rungameid/730";
+        await EditorRig.Eventually(() => Queries(rig).Any(query => query.LaunchUri is not null) ? Queries(rig) : null);
+        var asked = Queries(rig).Count;
+
+        editor.LaunchChoice = 0;
+        await EditorRig.Eventually(() => Queries(rig).Count > asked ? Queries(rig) : null);
+
+        Assert.Null(Queries(rig)[^1].LaunchUri);
     }
 
     [Fact]

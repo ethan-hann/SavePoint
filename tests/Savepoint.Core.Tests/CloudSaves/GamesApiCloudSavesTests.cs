@@ -113,7 +113,8 @@ public class GamesApiCloudSavesTests : IDisposable
         var bad = await workspace.Games.GetCloudSavesAsync(new CloudSaveQuery("{nonsense}/game", 730, null), workspace.Token);
 
         Assert.Equal(CloudSaveState.Unknown, empty.Value!.State);
-        Assert.False(bad.Ok);
+        Assert.True(bad.Ok);
+        Assert.Equal(new CloudSaveInfo(CloudSaveState.Unknown, CloudStore.None), bad.Value);
     }
 
     [Fact]
