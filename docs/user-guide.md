@@ -13,7 +13,7 @@ SavePoint keeps snapshots in a folder of its own, the snapshot folder. When you 
 
 ### Help inside the app
 
-- Press **F1** anywhere, or open **Settings > Help**, for **How SavePoint works**, a short illustrated page.
+- Press **F1** anywhere, or open **Settings > Help**, for **How SavePoint works**, a short illustrated page. It also explains how a game starts, the files to leave out, and cloud saves, and the editor's question buttons link to those parts.
 - Question buttons such as **What's a snapshot?** and **What are new changes?** explain an idea where you meet it. Escape closes them.
 - After you create your first profile, a four-step tour points out the main controls. Skip it at any step, or press Escape. **Settings > Help > Show the tour again** plays it again.
 - The first time you play from an older snapshot, discard changes, or replace a snapshot, SavePoint explains the choice.
