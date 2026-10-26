@@ -265,6 +265,20 @@ public class GalaxyCloudReaderTests : IDisposable
     }
 
     [Fact]
+    public void A_change_that_only_reached_the_write_ahead_log_is_read_again()
+    {
+        using var live = Open(PrepareDbFolder(), wal: true);
+        FillDb(live, [("gog_1207658924", 1)], keepOpen: true);
+        var reader = Reader();
+        Assert.Equal(CloudSaveState.On, reader.Read("1207658924"));
+
+        Run(live, "UPDATE ProductSettings SET cloudStorage = 0");
+
+        Assert.Equal(CloudSaveState.Off, reader.Read("1207658924"));
+        Assert.Equal(2, reader.CopiesMade);
+    }
+
+    [Fact]
     public void A_flag_stored_as_text_is_unknown_and_does_not_throw()
     {
         using (var connection = Open(PrepareDbFolder(), wal: false))

@@ -102,7 +102,7 @@ internal sealed class GalaxyCloudReader(string? programData, string? localAppDat
         for (var attempt = 0; attempt < 2; attempt++)
         {
             var before = Fingerprint.Of(database);
-            if (attempt == 0 && _cache is { } known && known.Files.SameFiles(before))
+            if (attempt == 0 && _cache is { } known && known.Files == before)
             {
                 return known.Flags;
             }
@@ -121,7 +121,8 @@ internal sealed class GalaxyCloudReader(string? programData, string? localAppDat
                 CopiesMade++;
                 duringCopy?.Invoke(folder, attempt);
 
-                // Size and time can match after a write; the header's change counter cannot.
+                // In WAL mode the header's change counter moves only at a checkpoint, so the log's size and time are what show a write;
+                // the counter catches a checkpoint that leaves the sizes and times alone.
                 if (Fingerprint.Of(database) != before)
                 {
                     continue;
@@ -233,8 +234,5 @@ internal sealed class GalaxyCloudReader(string? programData, string? localAppDat
                 wal.Exists ? wal.LastWriteTimeUtc.Ticks : 0,
                 System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(counter));
         }
-
-        public bool SameFiles(Fingerprint other) =>
-            DbLength == other.DbLength && DbTicks == other.DbTicks && WalLength == other.WalLength && WalTicks == other.WalTicks;
     }
 }
