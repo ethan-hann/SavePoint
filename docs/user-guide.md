@@ -20,30 +20,35 @@ SavePoint keeps snapshots in a folder of its own, the snapshot folder. When you 
 
 ## Set up a game
 
-The first time you open SavePoint, it offers **Add your first game** or **Start from a template**. A template fills in the details for a known game. You can also open a game settings file someone else exported. (The pictures in this guide come from Linux. On Windows, only the title bar differs.)
+The first time you open SavePoint, it offers **Add your first game** or **Start from a template**. A template fills in the details for a known game, and Add a game offers the same list later. You can also open a game settings file someone else exported. (The pictures in this guide come from Linux. On Windows, only the title bar differs.)
 
 ![The first-run screen: "Keep the setup that works", with buttons for Add your first game, Start from a template and Add games from your libraries, a How SavePoint works link, where SavePoint keeps its snapshots (a folder under AppData\Local\SavePoint Data), and notes about cover art and anti-cheat.](images/first-run.png)
 
 ### Add a game
 
-1. **Name** the game.
+1. **Name** the game. As you type, SavePoint lists matching games it knows. Pick one (or press Down, then Enter) to fill in the details you have not typed yet. **Pick from the game list** at the top opens the whole list. Any detail you typed stays as you typed it.
 2. **Where the game is installed**: pick the game's own folder, for example `C:\Games\SkyrimSE`. SavePoint makes this folder match a profile, which replaces what is inside, so it refuses a whole drive or a system folder.
 3. **Where the saves live** (optional): many games keep saves outside the install folder, for example under `Documents\My Games`. SavePoint suggests the common spots.
-4. **How to start the game**: run the game's program, or go **Through Steam** with a launch link like `steam://run/489830`. The number is in the address of the game's Steam store page. Steam can update the game right after SavePoint puts your version back, so running the program directly is safer.
-5. Optional settings:
+4. **How to start the game**: run the game's program, or go **Through Steam** with a launch link like `steam://run/489830`. The number is in the address of the game's Steam store page. Steam can update the game right after SavePoint puts your version back, so running the program directly is safer. That warning shows only when you pick Through Steam.
+5. **More settings** opens the optional settings. Each has a **When do I need this?** button:
    - **Extra command-line options.**
-   - **Knowing when you've stopped playing:** the name of the game's own process, for launchers that close themselves before the game opens.
+   - **Knowing when you've stopped playing:** the name of the game's own process, for launchers that close themselves before the game opens. When a game starts through a link, a note under How to start the game suggests the program to use.
    - **Files to leave out:** SavePoint never copies or replaces a file that matches these rules. Those files never count as changes, and a switch leaves them alone. List only files that do not matter: a rule that matches your saves stops profiles from switching them. There are two lists:
      - **Files to leave out of the game's own folder.** A new game starts with `**/*.log`, `**/*.dmp` and `**/*.mdmp`, so the logs and crash reports a game writes as it runs are left out. These rules never touch your saves folder, and you can remove them like any rule.
      - **Files to leave out of both folders** applies to your saves folder too.
    - **Folders that hold mods:** these only change what History counts as a mod change.
+   - **Steam app ID:** see Artwork below.
 6. **Save changes**. SavePoint asks you to confirm each folder, because it takes snapshots of everything in it and makes it match the profile when you switch. It adds a small file to each folder so it remembers you picked it.
 
-![Add a game, filled in for Grounded: the name, the install folder, the saves folder with common locations below it, the logs and crash reports left out of the game's own folder, Run the .exe set to Grounded.exe, the notes about Steam updates, cloud saves and anti-cheat, the programs found in the game folder for knowing when you've stopped playing, and the start of the Artwork section.](images/add-game.png)
+![Add a game, filled in for Grounded: the name, the install folder, the saves folder with common locations below it and a Does my store sync saves? button, Run the .exe set to Grounded.exe with a Can I use this with online games? button, More settings folded, and the Artwork section. Import and Pick from the game list are at the top.](images/add-game.png)
+
+A game picked from the list may show a short note, such as where its saves are kept.
 
 If a folder you add still has snapshots from a game you removed earlier, SavePoint offers **Reconnect** to bring back its profiles and snapshots, or **Start fresh**.
 
 ### Anti-cheat and cloud saves
+
+The editor keeps these behind its question buttons, except a warning when a game's cloud saves are on.
 
 - **Online games with anti-cheat:** SavePoint never touches a game while it is running, but anti-cheat checks the game's own files. Changed or rolled-back files can get your account flagged, and these games cannot be modded or rolled back anyway. Games you can play offline with anti-cheat turned off for mods are fine.
 - **Cloud saves:** Steam and GOG Galaxy keep the saves SavePoint changes and upload them when you quit. But they bring back any save SavePoint removed, the next time the game starts, so going back to before a save may not stick. If that matters for a game, turn off its cloud saves in the store. The editor tells you when a game's cloud saves are on. If you play on two PCs and Steam asks which saves to keep, choose **Local Save** to keep the ones SavePoint put back.
@@ -52,7 +57,7 @@ If a folder you add still has snapshots from a game you removed earlier, SavePoi
 
 Steam games show their cover art. SavePoint looks first in the Steam client's cache on your computer, then on Steam's image servers if **Look up game artwork online** is on in Settings > Appearance. That download is the only network request SavePoint makes. It sends the game's Steam app id and SavePoint's name and version, and nothing that identifies you.
 
-- **Which game it is:** SavePoint reads the Steam app id from a `steam://run/<id>` launch link, a `steam_appid.txt` file in the game folder, or Steam's library files. You can also type it into **Steam app ID** in the editor's Artwork section. It is the number after `/app/` in the game's Steam store address.
+- **Which game it is:** SavePoint reads the Steam app id from a `steam://run/<id>` launch link, a `steam_appid.txt` file in the game folder, or Steam's library files. You can also type it into **Steam app ID** under the editor's More settings. It is the number after `/app/` in the game's Steam store address.
 - **Your own image:** **Choose image...** picks one (PNG, JPEG, or WebP, up to 25 MB). Your image always wins, and SavePoint keeps its own copy, so you can move the original. **Remove your image** goes back to the Steam art.
 - **When nothing is found:** the game shows a color tint based on its name. **Look again** tries again.
 

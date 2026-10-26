@@ -38,7 +38,8 @@ How to build a screen in `Savepoint.App`. The headless renders in `render-output
 - **Free up space:** in the sidebar layout's storage footer, with its progress and result. The library layout puts it in the game's menu.
 - **Switch without playing (D49):** the Games row menu starts with "Switch to this profile". History's cards, timeline entries and save rows offer "Go back without playing" beside "Go back and play". Both run the launch flow, worded for a switch, and stop before the game starts. A toast says that the files are in place, or "Already in place" shows when nothing needs loading.
 - **Add games from your libraries (D52):** drawn first in the rail, on the library-layout shelf and on the first-run screen, before "Add a game". It opens a checklist of installed Steam and GOG games, one confirmation that names every game's folders, and a run dialog with progress, "Stop after this game" and a result list.
-- **Templates:** the template picker in "Add a game" has a search box over a scrolling list (D53).
+- **Templates:** the template picker has a search box over a scrolling list (D53). It opens from first run, from "Pick from the game list" in Add a game's header, and from the library picker's pointer below its list. Add a game's Name field also lists up to 8 matches as the player types: Down moves into the list, Enter takes the top match, Escape closes it, and a pick returns focus to Name (D53.6).
+- **Game editor:** core fields first (name, folders, how to start), then a "More settings" disclosure for the optional fields. Explanations are question buttons ("Does my store sync saves?", "Can I use this with online games?", "How do these rules work?", and "When do I need this?" with a distinct accessible name per field). Only the cloud-saves-on warning, the Steam update warning (Through Steam only) and the process-name nudge show unasked (D19).
 
 ## Shared components (`Savepoint.App.Features.Common`)
 
