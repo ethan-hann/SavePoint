@@ -99,6 +99,8 @@ public class CatalogStoreWriteTests : CatalogStoreTestBase
         try
         {
             var save = Store.SaveGameAsync(ExeGame("b-2"), Ct);
+
+            // The store retries on its own clock, so the file is held across a retry or two before it is let go, as a scanner holds it.
             await Task.Delay(100, Ct);
             holder.Dispose();
 

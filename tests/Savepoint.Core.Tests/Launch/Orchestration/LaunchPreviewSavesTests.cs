@@ -16,7 +16,7 @@ public class LaunchPreviewSavesTests
     {
         var (rig, _, modded) = await TwoProfilesAsync();
         using var _ = rig;
-        await Task.Delay(1100, Ct);
+        await GitClock.NextSecondAsync(Ct);
         rig.WriteSave("slot3.sav", "third save");
         var third = await rig.CaptureAsync(modded, "Third save");
         var thirdId = ((CaptureResult)third.Result!).PointId!.Value;
@@ -64,7 +64,7 @@ public class LaunchPreviewSavesTests
     {
         var (rig, _, modded) = await TwoProfilesAsync();
         using var _ = rig;
-        await Task.Delay(1100, Ct);
+        await GitClock.NextSecondAsync(Ct);
         rig.WriteSave("slot3.sav", "third save");
         await rig.CaptureAsync(modded, "Third save");
         var older = (await rig.PreviewAsync(new LaunchTarget.ProfileTip(modded.Id))).AvailableSaves[1];
@@ -86,12 +86,12 @@ public class LaunchPreviewSavesTests
         using var rig = await LaunchRig.CreateAsync();
         var profile = await rig.ProfileAsync("Vanilla");
         var first = (await rig.CommitsAsync(RepoRole.Install, profile))[0].CaptureId!;
-        await Task.Delay(1100, Ct);
+        await GitClock.NextSecondAsync(Ct);
 
         // A version-only point: the install changes, the saves are not part of it.
         rig.WriteInstall("mods/a.txt", "mod a");
         var versionOnly = ((CaptureResult)(await rig.CaptureAsync(profile, "Added a mod", RepoRole.Install)).Result!).PointId!.Value;
-        await Task.Delay(1100, Ct);
+        await GitClock.NextSecondAsync(Ct);
 
         // A save-only point after it.
         rig.WriteSave("slot2.sav", "second save");

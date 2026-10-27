@@ -9,6 +9,9 @@ public sealed class GitProcessTreeTests : IDisposable
 {
     private static readonly TimeSpan _generous = TimeSpan.FromSeconds(30);
 
+    // A kill that reached the bystander would end it within moments, and only waiting shows that it does not.
+    private static readonly TimeSpan _bystanderWindow = TimeSpan.FromMilliseconds(500);
+
     private const string _childEnvironmentVariable = "SAVEPOINT_TEST_EXIT_CHILD_FILE";
 
     // Its own list: ending "every git" must not reach a process another test class is running.
@@ -87,7 +90,7 @@ public sealed class GitProcessTreeTests : IDisposable
             using var listed = _registry.Add(real with { StartedAtUtcTicks = real.StartedAtUtcTicks - TimeSpan.FromDays(1).Ticks });
 
             _registry.KillAll();
-            await Task.Delay(500, TestContext.Current.CancellationToken);
+            await Task.Delay(_bystanderWindow, TestContext.Current.CancellationToken);
 
             Assert.False(bystander.HasExited, "a process that only shares the number was killed");
         }

@@ -13,6 +13,10 @@ public class ExitGuardTests
 {
     private static readonly UiFormatter _text = new(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), os: "windows", timeZone: TimeZoneInfo.Utc);
 
+    // A close that did not wait for the run or the cancelled job would finish within moments, and only waiting shows that it does not.
+    private static readonly TimeSpan _closeHeldWindow = TimeSpan.FromMilliseconds(500);
+    private static readonly TimeSpan _cancelledJobWindow = TimeSpan.FromMilliseconds(300);
+
     private static (ExitGuard Guard, FakeBackend Backend, FakeDialogs Dialogs) Build(TimeSpan? wait = null)
     {
         var backend = FakeBackend.Sample();
@@ -158,7 +162,7 @@ public class ExitGuardTests
         var closing = guard.PrepareToCloseAsync();
 
         // Five times the bound a cancelled job gets: only a wait for the run itself can hold the close this long.
-        var early = await Task.WhenAny(closing, Task.Delay(500, TestContext.Current.CancellationToken));
+        var early = await Task.WhenAny(closing, Task.Delay(_closeHeldWindow, TestContext.Current.CancellationToken));
         backend.Jobs.Complete(run.JobId);
         var allowed = await closing.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
@@ -187,7 +191,7 @@ public class ExitGuardTests
         };
 
         var closing = guard.PrepareToCloseAsync();
-        var early = await Task.WhenAny(closing, Task.Delay(500, TestContext.Current.CancellationToken));
+        var early = await Task.WhenAny(closing, Task.Delay(_closeHeldWindow, TestContext.Current.CancellationToken));
         backend.Jobs.Complete(run.JobId);
         var allowed = await closing.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
@@ -393,7 +397,7 @@ public class ExitGuardTests
         var save = FakeAssert.Ok(await backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "A point"));
 
         var closing = guard.PrepareToCloseAsync();
-        var early = await Task.WhenAny(closing, Task.Delay(300, TestContext.Current.CancellationToken));
+        var early = await Task.WhenAny(closing, Task.Delay(_cancelledJobWindow, TestContext.Current.CancellationToken));
         backend.Jobs.CompleteCancelled(save.JobId);
         var allowed = await closing.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 

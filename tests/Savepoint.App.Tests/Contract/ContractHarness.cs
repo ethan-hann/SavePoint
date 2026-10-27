@@ -364,6 +364,7 @@ internal sealed class RealContractHarness : ContractHarness
             await Task.Delay(25).ConfigureAwait(false);
         }
 
+        _backend.Dispose();
         await base.DisposeAsync().ConfigureAwait(false);
     }
 

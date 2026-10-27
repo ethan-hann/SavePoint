@@ -11,6 +11,10 @@ public sealed class GitProcessRegistryNoteTests : IDisposable
 {
     private static readonly TimeSpan _delay = TimeSpan.FromMilliseconds(150);
 
+    // A note that would be written appears after the registry's delay, so waiting well past it shows that none does. Only waiting can.
+    private static readonly TimeSpan _noNoteWindow = TimeSpan.FromMilliseconds(1000);
+    private static readonly TimeSpan _noNoteWindowForShortDelay = TimeSpan.FromMilliseconds(1800);
+
     private readonly TempFolder _temp = new("savepoint-registry-note-");
 
     public void Dispose() => _temp.Dispose();
@@ -40,7 +44,7 @@ public sealed class GitProcessRegistryNoteTests : IDisposable
         var registry = new GitProcessRegistry(NotePath, TimeSpan.FromMilliseconds(800));
 
         registry.Add(StampOf(game.Id)).Dispose();
-        await Task.Delay(1800, TestContext.Current.CancellationToken);
+        await Task.Delay(_noNoteWindowForShortDelay, TestContext.Current.CancellationToken);
 
         Assert.False(File.Exists(NotePath), "a git that had ended was written to the note");
     }
@@ -52,7 +56,7 @@ public sealed class GitProcessRegistryNoteTests : IDisposable
         var registry = new GitProcessRegistry(NotePath, _delay);
 
         using var listed = registry.Add(StampOf(game.Id), persist: false);
-        await Task.Delay(1000, TestContext.Current.CancellationToken);
+        await Task.Delay(_noNoteWindow, TestContext.Current.CancellationToken);
 
         Assert.False(File.Exists(NotePath), "a git that survives SavePoint on purpose was written to the note of gits to end");
         Assert.True(registry.Contains(game.Id));
@@ -124,7 +128,7 @@ public sealed class GitProcessRegistryNoteTests : IDisposable
         using var listed = registry.Add(StampOf(game.Id), persist: false);
 
         registry.Close();
-        await Task.Delay(1000, TestContext.Current.CancellationToken);
+        await Task.Delay(_noNoteWindow, TestContext.Current.CancellationToken);
 
         Assert.True(FakeGameProcess.IsRunning(game.Id), "a git that finishes after SavePoint exits was ended when the registry closed");
         Assert.False(File.Exists(NotePath));

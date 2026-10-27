@@ -10,6 +10,9 @@ public class RealSessionTests
 {
     private static readonly TimeSpan _patience = TimeSpan.FromSeconds(30);
 
+    // A watcher that settled on its own would do so within a few of its polls, and only waiting shows that it does not.
+    private static readonly TimeSpan _stillWatching = TimeSpan.FromMilliseconds(500);
+
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     // The real process list, counting how often the watcher reads it so a test can wait for the watcher's looks instead of for a time.
@@ -233,7 +236,7 @@ public class RealSessionTests
         var launcher = new RecordingLauncher();
         using var watcher = await Starter(launcher: launcher).StartAsync(new LaunchConfig(LaunchMethod.Uri, null, "steam://run/1"), Path.GetTempPath(), Ct);
 
-        await Task.Delay(500, Ct);
+        await Task.Delay(_stillWatching, Ct);
         Assert.False(watcher.IsSettled);
 
         Assert.True(watcher.MarkFinished());

@@ -7,6 +7,10 @@ namespace Savepoint.Core.Tests.Artwork;
 // there before when it fails.
 public class ArtworkStoreEdgeTests : IDisposable
 {
+    // A choice that queues behind a held lease, and a delete that waits on one, show their state within moments; only waiting shows they stay put.
+    private static readonly TimeSpan _queuedWindow = TimeSpan.FromMilliseconds(300);
+    private static readonly TimeSpan _blockedWindow = TimeSpan.FromMilliseconds(500);
+
     private readonly string _root = Path.Combine(Path.GetTempPath(), "savepoint-artstore-" + Guid.NewGuid().ToString("N"));
 
     public ArtworkStoreEdgeTests()
@@ -133,7 +137,7 @@ public class ArtworkStoreEdgeTests : IDisposable
         // Another change to the game holds its lease; the choice waits behind it, and the game is deleted meanwhile.
         var lease = await store.EnterAsync(game.Id);
         var choosing = rig.Artwork.SetCustomImageAsync(game.Id, source);
-        await Task.Delay(300, rig.Token);
+        await Task.Delay(_queuedWindow, rig.Token);
         await rig.Workspace.Backend.Services.Catalog.DeleteGameAsync(game.Id, rig.Token);
         lease.Dispose();
         var result = await choosing;
@@ -158,7 +162,7 @@ public class ArtworkStoreEdgeTests : IDisposable
             store.DeleteAll();
         }, TestContext.Current.CancellationToken);
         Assert.True(started.Wait(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
-        var finishedEarly = await Task.WhenAny(removing, Task.Delay(500, TestContext.Current.CancellationToken)) == removing;
+        var finishedEarly = await Task.WhenAny(removing, Task.Delay(_blockedWindow, TestContext.Current.CancellationToken)) == removing;
         lease.Dispose();
         await removing.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 

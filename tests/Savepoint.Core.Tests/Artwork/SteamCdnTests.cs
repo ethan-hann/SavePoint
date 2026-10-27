@@ -14,6 +14,10 @@ public class SteamCdnTests
 
     private static readonly string[] _allowedHosts = ["shared.akamai.steamstatic.com", "cdn.cloudflare.steamstatic.com"];
 
+    // Giving up early or sending a third request would show within moments, and only waiting shows that neither happens.
+    private static readonly TimeSpan _noEarlyGiveUp = TimeSpan.FromMilliseconds(50);
+    private static readonly TimeSpan _noThirdRequest = TimeSpan.FromMilliseconds(150);
+
     private static CancellationToken Token => TestContext.Current.CancellationToken;
 
     private static Task<CdnResult> Fetch(FakeHttpHandler handler, ArtworkKind kind = ArtworkKind.Wide, TimeProvider? time = null) =>
@@ -276,7 +280,7 @@ public class SteamCdnTests
         var fetching = Fetch(handler, time: time);
         Assert.True(await handler.WaitForRequestsAsync(1, Token), "the request never reached the server");
         time.Advance(TimeSpan.FromSeconds(9.5));
-        await Task.Delay(50, Token);
+        await Task.Delay(_noEarlyGiveUp, Token);
         Assert.False(fetching.IsCompleted);
         Assert.Single(handler.Requests);
 
@@ -303,7 +307,7 @@ public class SteamCdnTests
 
         var all = Enumerable.Range(1, 6).Select(id => cdn.FetchAsync(id, ArtworkKind.Wide, Token)).ToList();
         Assert.True(await handler.WaitForRequestsAsync(2, Token), "the request never reached the server");
-        await Task.Delay(150, Token);
+        await Task.Delay(_noThirdRequest, Token);
 
         Assert.Equal(2, handler.Requests.Count);
         gate.SetResult();

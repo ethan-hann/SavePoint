@@ -15,6 +15,9 @@ public class ArtworkOnlineTests
     private const int _app = 489830;
     private static readonly TimeSpan _week = TimeSpan.FromDays(7);
 
+    // A third request would follow the second within moments, and only waiting shows that none does.
+    private static readonly TimeSpan _noThirdRequest = TimeSpan.FromMilliseconds(150);
+
     private static readonly byte[] _wide = TestImages.Jpeg(460, 215);
     private static readonly byte[] _square = TestImages.Jpeg(600, 900);
 
@@ -287,7 +290,7 @@ public class ArtworkOnlineTests
         }
 
         Assert.True(await rig.Http!.WaitForRequestsAsync(2, rig.Token), "the request never reached the server");
-        await Task.Delay(150, rig.Token);
+        await Task.Delay(_noThirdRequest, rig.Token);
         Assert.Equal(2, rig.Http.Requests.Count);
         gate.SetResult();
         await rig.WhenIdleAsync();

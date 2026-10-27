@@ -247,9 +247,16 @@ public class ActivityScreenViewTests
         Assert.NotNull(clipboard);
 
         Screen(harness).Details!.CopyCommand.Execute(null);
-        await Task.Delay(50, TestContext.Current.CancellationToken);
 
+        // The command copies on its own continuation, so the text lands on the clipboard a moment later.
+        var until = DateTime.UtcNow.AddSeconds(8);
         var text = await Avalonia.Input.Platform.ClipboardExtensions.TryGetTextAsync(clipboard);
+        while (text is null && DateTime.UtcNow < until)
+        {
+            await Task.Delay(10, TestContext.Current.CancellationToken);
+            text = await Avalonia.Input.Platform.ClipboardExtensions.TryGetTextAsync(clipboard);
+        }
+
         Assert.StartsWith("Taking snapshot \"Session 7-8-26\" of", text, StringComparison.Ordinal);
         Assert.Equal(Screen(harness).Details!.AllText, text);
     }

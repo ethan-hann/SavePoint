@@ -8,6 +8,12 @@ namespace Savepoint.Core.Tests.Git.Engine;
 [Collection(EngineCollections.E)]
 public sealed class ReclaimInterruptedTests : IDisposable
 {
+    // A settle that did not wait for the live git would finish within moments, and only waiting shows that it does not.
+    private static readonly TimeSpan _waitWindow = TimeSpan.FromMilliseconds(750);
+
+    // The settle has to be waiting on the git before it is abandoned. It shows no sign of that, so a pause is the only way to order the two.
+    private static readonly TimeSpan _reachWait = TimeSpan.FromMilliseconds(300);
+
     private readonly EngineWorkspace _ws = new();
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -96,7 +102,7 @@ public sealed class ReclaimInterruptedTests : IDisposable
         ReclaimMarker.Write(repo.GitDir, gone, orphan.Stamp);
 
         var settling = _ws.Engine.SettleReclaimAsync(repo.GitDir, Ct);
-        var early = await Task.WhenAny(settling, Task.Delay(750, Ct));
+        var early = await Task.WhenAny(settling, Task.Delay(_waitWindow, Ct));
         var markerWhileWaiting = File.Exists(ReclaimMarker.PathIn(repo.GitDir));
         await orphan.EndAsync();
         await settling.WaitAsync(TimeSpan.FromSeconds(30), Ct);
@@ -179,7 +185,7 @@ public sealed class ReclaimInterruptedTests : IDisposable
             ReclaimMarker.Write(repo.GitDir, gone, orphan.Stamp);
             using var abandon = CancellationTokenSource.CreateLinkedTokenSource(Ct);
             var settling = _ws.Engine.SettleReclaimAsync(repo.GitDir, abandon.Token);
-            await Task.Delay(300, Ct);
+            await Task.Delay(_reachWait, Ct);
 
             await abandon.CancelAsync();
 

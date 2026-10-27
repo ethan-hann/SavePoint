@@ -18,6 +18,7 @@ public sealed class AppBootstrapLogTests : IDisposable
 
     public void Dispose()
     {
+        _started?.Backend?.Dispose();
         (_started?.Log as IDisposable)?.Dispose();
         if (Directory.Exists(_root))
         {

@@ -25,6 +25,8 @@ public class OsSmokeTests
             var service = new WindowsNotificationService(() => window, shell, WindowIcons.For, "SavePoint", TimeSpan.FromSeconds(8), TimeProvider.System);
 
             service.Show("SavePoint smoke test", "This notification comes from the opt-in OS smoke test.");
+
+            // The shell shows the balloon on its own clock, inside the service's 8 s lifetime, so it is given time to appear before the service ends.
             await Task.Delay(TimeSpan.FromSeconds(6), Ct);
             service.Dispose();
         }

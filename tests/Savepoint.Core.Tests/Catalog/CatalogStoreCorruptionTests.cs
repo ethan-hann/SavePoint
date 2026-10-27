@@ -109,6 +109,8 @@ public class CatalogStoreCorruptionTests : CatalogStoreTestBase
             }
 
             var read = Store.ListGamesAsync(Ct);
+
+            // The store retries on its own clock, so the file is held across a retry or two before it is let go, as a scanner holds it.
             await Task.Delay(100, Ct);
             lockHandle?.Dispose();
             lockHandle = null;

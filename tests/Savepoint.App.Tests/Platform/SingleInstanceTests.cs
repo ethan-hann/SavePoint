@@ -11,6 +11,13 @@ public sealed class SingleInstanceTests : IDisposable
 {
     private const string _user = "test-user";
 
+    // A second activation, or one from a stranger, would arrive within moments, and only waiting shows that none does.
+    private static readonly TimeSpan _noMoreActivations = TimeSpan.FromMilliseconds(200);
+    private static readonly TimeSpan _noActivationFromAStranger = TimeSpan.FromMilliseconds(300);
+
+    // The request reaches the pipe before anyone listens. The sender shows no sign of the request having landed, so a pause is the only way to order the two.
+    private static readonly TimeSpan _requestArrives = TimeSpan.FromMilliseconds(300);
+
     private readonly List<IDisposable> _disposables = [];
     private readonly string _appId = "test-" + Guid.NewGuid().ToString("N");
 
@@ -152,7 +159,7 @@ public sealed class SingleInstanceTests : IDisposable
             Assert.True(await activations.WaitAsync(TimeSpan.FromSeconds(10), Ct));
         }
 
-        await Task.Delay(200, Ct);
+        await Task.Delay(_noMoreActivations, Ct);
         Assert.Equal(0, activations.CurrentCount);
     }
 
@@ -163,12 +170,12 @@ public sealed class SingleInstanceTests : IDisposable
         Assert.True(first.TryAcquire());
         var second = Create();
         Assert.True(second.SignalFirstInstance());
-        await Task.Delay(300, Ct);
+        await Task.Delay(_requestArrives, Ct);
 
         var activations = Count(first);
 
         Assert.True(await activations.WaitAsync(TimeSpan.FromSeconds(10), Ct));
-        await Task.Delay(200, Ct);
+        await Task.Delay(_noMoreActivations, Ct);
         Assert.Equal(0, activations.CurrentCount);
     }
 
@@ -217,7 +224,7 @@ public sealed class SingleInstanceTests : IDisposable
             rogue.Connect(10_000);
             rogue.Write(Encoding.UTF8.GetBytes("hello there\n"));
             rogue.Flush();
-            await Task.Delay(300, Ct);
+            await Task.Delay(_noActivationFromAStranger, Ct);
         }
 
         Assert.Equal(0, activations.CurrentCount);

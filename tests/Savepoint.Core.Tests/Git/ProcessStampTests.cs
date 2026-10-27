@@ -6,6 +6,9 @@ namespace Savepoint.Core.Tests.Git;
 // A git that finished but was never reaped still has a process entry; the stamp must not wait on it.
 public sealed class ProcessStampTests : IDisposable
 {
+    // A wait that returned early, before the process turned zombie, would show within several polls of 10 ms, and only waiting shows that it does not.
+    private static readonly TimeSpan _stillWaiting = TimeSpan.FromMilliseconds(100);
+
     private readonly string _proc = Path.Combine(Path.GetTempPath(), "savepoint-procstamp-" + Guid.NewGuid().ToString("N"));
 
     public void Dispose()
@@ -48,7 +51,7 @@ public sealed class ProcessStampTests : IDisposable
         WriteStat(stamp.Id, $"{stamp.Id} (git) S 1 1 1 0 -1");
 
         var wait = stamp.WaitForExitAsync(_proc, TimeSpan.FromMilliseconds(10), TestContext.Current.CancellationToken);
-        await Task.Delay(100, TestContext.Current.CancellationToken);
+        await Task.Delay(_stillWaiting, TestContext.Current.CancellationToken);
         Assert.False(wait.IsCompleted);
 
         WriteStat(stamp.Id, $"{stamp.Id} (git) Z 1 1 1 0 -1");

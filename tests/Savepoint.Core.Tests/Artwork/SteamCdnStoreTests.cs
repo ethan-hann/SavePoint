@@ -25,6 +25,9 @@ public class SteamCdnStoreTests
 
     private static readonly string[] _allowedHosts = ["shared.akamai.steamstatic.com", "cdn.cloudflare.steamstatic.com", "api.steampowered.com"];
 
+    // Giving up early would show within moments, and only waiting shows that it does not happen.
+    private static readonly TimeSpan _noEarlyGiveUp = TimeSpan.FromMilliseconds(50);
+
     private static CancellationToken Token => TestContext.Current.CancellationToken;
 
     private static string Assets(string? format = _format, string? header = $"{_headerHash}/header.jpg", string? capsule = $"{_capsuleHash}/library_capsule.jpg", string? capsule2x = null)
@@ -453,7 +456,7 @@ public class SteamCdnStoreTests
         var fetching = Fetch(handler, ArtworkKind.Wide, time: time);
         Assert.True(await handler.WaitForRequestsAsync(3, Token), "the store request never reached the server");
         time.Advance(TimeSpan.FromSeconds(9.5));
-        await Task.Delay(50, Token);
+        await Task.Delay(_noEarlyGiveUp, Token);
         Assert.False(fetching.IsCompleted);
         time.Advance(TimeSpan.FromSeconds(0.6));
 
@@ -465,6 +468,7 @@ public class SteamCdnStoreTests
     {
         var handler = new FakeHttpHandler(async (request, token) =>
         {
+            // The server takes a moment to answer, so the requests that queue behind it overlap with it.
             await Task.Delay(20, token);
             if (FakeHttpHandler.IsStoreApi(request))
             {

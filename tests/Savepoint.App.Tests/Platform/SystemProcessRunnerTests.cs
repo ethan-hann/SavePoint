@@ -8,6 +8,9 @@ public class SystemProcessRunnerTests
 {
     private static readonly TimeSpan _generous = TimeSpan.FromSeconds(30);
 
+    // The killed script would write its marker about three seconds after it starts, so waiting past that shows it never gets there. Only waiting can.
+    private static readonly TimeSpan _pastTheScriptsNextStep = TimeSpan.FromSeconds(5);
+
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     private static ProcessCommand Shell(string script) =>
@@ -74,7 +77,7 @@ public class SystemProcessRunnerTests
             Assert.True(File.Exists(controlPath), "the script cannot write a marker into the test's folder");
 
             var output = await runner.RunAsync(script, TimeSpan.FromMilliseconds(300), Ct);
-            await Task.Delay(TimeSpan.FromSeconds(5), Ct);
+            await Task.Delay(_pastTheScriptsNextStep, Ct);
 
             Assert.Null(output);
             Assert.False(File.Exists(markerPath), "the program kept running after the timeout");

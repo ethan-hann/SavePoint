@@ -14,12 +14,13 @@ namespace Savepoint.App.Tests.Hosting;
 public class AppBootstrapTests : IDisposable
 {
     private readonly RecordingDiagnosticLog _log = new();
+    private readonly List<CoreBackend> _backends = [];
     private readonly string _root = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "savepoint-bootstrap-" + Guid.NewGuid().ToString("N")));
 
     [Fact]
     public async Task A_started_backend_gives_the_view_models_the_real_apis_and_a_file_revealer()
     {
-        var started = AppBootstrap.Start(options => options with { Platform = HostPlatform(), Git = GitBinary.Locate(Path.Combine(_root, "gitconfig")), ArtworkHttp = null }, _log);
+        var started = StartOnHost();
 
         Assert.NotNull(started.Backend);
         Assert.Null(started.Failure);
@@ -34,7 +35,7 @@ public class AppBootstrapTests : IDisposable
     [Fact]
     public async Task The_started_backend_runs_the_real_launch_orchestrator()
     {
-        var started = AppBootstrap.Start(options => options with { Platform = HostPlatform(), Git = GitBinary.Locate(Path.Combine(_root, "gitconfig")), ArtworkHttp = null }, _log);
+        var started = StartOnHost();
 
         var finished = await started.Services.Launch.MarkFinishedAsync("any");
         var preview = await started.Services.Launch.GetPreviewAsync("any", new LaunchTarget.ProfileTip("any"), TestContext.Current.CancellationToken);
@@ -48,11 +49,7 @@ public class AppBootstrapTests : IDisposable
     {
         BackendOptions? seen = null;
 
-        var started = AppBootstrap.Start(options =>
-        {
-            seen = options;
-            return options with { Platform = HostPlatform(), Git = GitBinary.Locate(Path.Combine(_root, "gitconfig")), ArtworkHttp = null };
-        }, _log);
+        var started = StartOnHost(options => seen = options);
 
         Assert.IsType<ArtworkHttpHandler>(seen!.ArtworkHttp);
         Assert.Same(started.Backend!.Artwork, started.Services.Artwork);
@@ -103,7 +100,7 @@ public class AppBootstrapTests : IDisposable
     public void Only_an_api_that_failed_to_start_says_a_retry_cannot_help()
     {
         var failed = AppBootstrap.Start(_ => throw new IOException("no"));
-        var started = AppBootstrap.Start(options => options with { Platform = HostPlatform(), Git = GitBinary.Locate(Path.Combine(_root, "gitconfig")), ArtworkHttp = null }, _log);
+        var started = StartOnHost();
 
         Assert.False(failed.Services.BackendStarted);
         Assert.True(started.Services.BackendStarted);
@@ -111,10 +108,31 @@ public class AppBootstrapTests : IDisposable
 
     public void Dispose()
     {
+        foreach (var backend in _backends)
+        {
+            backend.Dispose();
+        }
+
         if (Directory.Exists(_root))
         {
             Directory.Delete(_root, recursive: true);
         }
+    }
+
+    // Starts the backend over the throwaway folder; the test's dispose ends the backend before the folder goes.
+    private BootstrapResult StartOnHost(Action<BackendOptions>? seen = null)
+    {
+        var started = AppBootstrap.Start(options =>
+        {
+            seen?.Invoke(options);
+            return options with { Platform = HostPlatform(), Git = GitBinary.Locate(Path.Combine(_root, "gitconfig")), ArtworkHttp = null };
+        }, _log);
+        if (started.Backend is not null)
+        {
+            _backends.Add(started.Backend);
+        }
+
+        return started;
     }
 
     // The running OS's platform over a home inside the throwaway folder, so nothing real is touched.

@@ -9,6 +9,9 @@ public class CrashHandlerTests
 {
     private const string _logFolder = @"C:\Users\Sam\AppData\Local\SavePoint\Logs";
 
+    // A second crash that did not wait for the first one's window would finish within moments, and only waiting shows that it does not.
+    private static readonly TimeSpan _secondCrashWindow = TimeSpan.FromMilliseconds(300);
+
     private readonly RecordingDiagnosticLog _log = new();
     private readonly FakePresenter _presenter;
     private readonly List<int> _exits = [];
@@ -162,7 +165,7 @@ public class CrashHandlerTests
         Assert.True(inWindow.Wait(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
 
         var second = Task.Run(() => handler.HandleFatal(Thrown("second"), "a background thread"), TestContext.Current.CancellationToken);
-        await Task.Delay(300, TestContext.Current.CancellationToken);
+        await Task.Delay(_secondCrashWindow, TestContext.Current.CancellationToken);
         var finishedEarly = second.IsCompleted;
         release.Set();
         await Task.WhenAll(first, second);

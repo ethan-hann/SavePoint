@@ -68,7 +68,7 @@ public sealed class BranchCopyTests : IDisposable
         var (repo, points) = await _ws.ThreePointsRepoAsync();
 
         // Dates are whole seconds, so a pause is what makes a copy that took the clock show.
-        await Task.Delay(TimeSpan.FromSeconds(1.2), Ct);
+        await GitClock.NextSecondAsync(Ct);
         var copy = await _ws.Engine.CreateBranchAsCopyAsync(repo, "copied", points[2], "new-id", ct: Ct);
 
         Assert.Equal(await FieldAsync(repo, points[2], "%aI"), await FieldAsync(repo, copy, "%aI"));

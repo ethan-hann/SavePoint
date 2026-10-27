@@ -183,8 +183,8 @@ public sealed class RemovedSnapshotRecordTests : IDisposable
         var movedTo = await _ws.TipAsync(repo, "profile-1");
         var listedBefore = (await _ws.Engine.ListRemovedAsync(repo, Ct)).Select(entry => entry.Commit.Id).ToList();
 
-        // A second later a repeat would write a different commit for the same tree, so the pickup is what keeps it from doing so.
-        await Task.Delay(1100, Ct);
+        // Git dates points to the second, so a repeat a second later would write a different one for the same tree; the pickup is what keeps it from doing so.
+        await GitClock.NextSecondAsync(Ct);
         _ws.OnInvoke = null;
         var outcome = await _ws.Engine.CaptureAsync(repo, request, ct: Ct);
 

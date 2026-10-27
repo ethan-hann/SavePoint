@@ -9,6 +9,15 @@ public sealed class GitCancellationTests : IDisposable
 {
     private static readonly TimeSpan _generous = TimeSpan.FromSeconds(30);
 
+    // A call that gave up on its own would return within moments, and only waiting shows that it does not.
+    private static readonly TimeSpan _stillWaiting = TimeSpan.FromMilliseconds(500);
+
+    // The leftover process keeps printing for seconds after git exits; output delivered after the call returned would show inside this window.
+    private static readonly TimeSpan _leftoverOutput = TimeSpan.FromSeconds(2.5);
+
+    // The drain gives up after 200 ms; the callback is held well past that and released on this timer, so the call has to return without it.
+    private static readonly TimeSpan _callbackHeld = TimeSpan.FromMilliseconds(700);
+
     private readonly GitWorkspace _ws = new();
 
     public void Dispose() => _ws.Dispose();
@@ -32,7 +41,7 @@ public sealed class GitCancellationTests : IDisposable
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var invocation = new GitInvocation(["cat-file", "--batch"]) { GitDir = _ws.GitDir, WorkTree = _ws.WorkTree, StdinStream = new NeverEndingStream() };
         var call = _ws.Runner.RunAsync(invocation, cts.Token);
-        await Task.Delay(500, TestContext.Current.CancellationToken);
+        await Task.Delay(_stillWaiting, TestContext.Current.CancellationToken);
         Assert.False(call.IsCompleted, "git should still be waiting for input");
 
         var clock = Stopwatch.StartNew();
@@ -115,7 +124,7 @@ public sealed class GitCancellationTests : IDisposable
 
         await impatient.RunPlainAsync(invocation);
         var atReturn = Volatile.Read(ref delivered);
-        await Task.Delay(TimeSpan.FromSeconds(2.5), TestContext.Current.CancellationToken);
+        await Task.Delay(_leftoverOutput, TestContext.Current.CancellationToken);
 
         Assert.Equal(atReturn, Volatile.Read(ref delivered));
     }
@@ -134,7 +143,7 @@ public sealed class GitCancellationTests : IDisposable
                 Interlocked.Decrement(ref running);
             },
         };
-        var releaseLater = Task.Delay(700, TestContext.Current.CancellationToken).ContinueWith(_ => release.Set(), TaskScheduler.Default);
+        var releaseLater = Task.Delay(_callbackHeld, TestContext.Current.CancellationToken).ContinueWith(_ => release.Set(), TaskScheduler.Default);
 
         await impatient.RunPlainAsync(invocation);
 

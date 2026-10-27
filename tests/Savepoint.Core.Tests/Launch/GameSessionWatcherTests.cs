@@ -8,6 +8,9 @@ public class GameSessionWatcherTests
 {
     private const string _name = "Game.exe";
 
+    // A watcher that kept polling after the advance would look again within moments, and only waiting shows that it does not.
+    private static readonly TimeSpan _noMoreLooks = TimeSpan.FromMilliseconds(50);
+
     private static TimeSpan Seconds(double seconds) => TimeSpan.FromSeconds(seconds);
 
     // ---- a program started by SavePoint, no process name ----
@@ -768,7 +771,7 @@ public class GameSessionWatcherTests
         await WatcherRig.UntilAsync(() => rig.Clock.PendingTimers == 0);
         var calls = rig.Processes.Calls;
         rig.Clock.Advance(TimeSpan.FromMinutes(1));
-        await Task.Delay(50, TestContext.Current.CancellationToken);
+        await Task.Delay(_noMoreLooks, TestContext.Current.CancellationToken);
 
         Assert.Equal(calls, rig.Processes.Calls);
     }
@@ -874,7 +877,7 @@ public class GameSessionWatcherTests
         await WatcherRig.UntilAsync(() => rig.Clock.PendingTimers == 0);
         var calls = rig.Processes.Calls;
         rig.Clock.Advance(TimeSpan.FromMinutes(1));
-        await Task.Delay(50, TestContext.Current.CancellationToken);
+        await Task.Delay(_noMoreLooks, TestContext.Current.CancellationToken);
 
         Assert.Equal(calls, rig.Processes.Calls);
     }
