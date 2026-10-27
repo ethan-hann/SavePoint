@@ -42,9 +42,30 @@ public partial class ShellView : UserControl
         return screenBoxes.Concat([this.FindControl<SearchBoxView>("RailSearch")!, this.FindControl<SearchBoxView>("ShelfSearch")!]).Any(box => box.FocusSearch());
     }
 
-    /// <summary>Puts the cursor in the games' search box, in the rail or on the shelf, whichever shows, whatever screen is in front.</summary>
+    /// <summary>
+    /// Puts the cursor in the games' search box, in the rail or on the shelf, whichever shows, whatever screen is in front. In the
+    /// library layout the shelf shows only on the Games screen, so another screen gives way to it first.
+    /// </summary>
     /// <returns>True when a search box took focus; false in the icon rail, which has none.</returns>
-    public bool FocusGameSearch() => this.FindControl<SearchBoxView>("RailSearch")!.FocusSearch() || this.FindControl<SearchBoxView>("ShelfSearch")!.FocusSearch();
+    public bool FocusGameSearch()
+    {
+        if (FocusShownGameSearch())
+        {
+            return true;
+        }
+
+        // Only the library layout hides its box by screen; the icon rail has none on any screen, so it stays where it is.
+        if (DataContext is not ShellViewModel { IsLibraryLayout: true, Destination: not NavDestination.Games } shell)
+        {
+            return false;
+        }
+
+        shell.Navigate(NavDestination.Games);
+        UpdateLayout();
+        return FocusShownGameSearch();
+    }
+
+    private bool FocusShownGameSearch() => this.FindControl<SearchBoxView>("RailSearch")!.FocusSearch() || this.FindControl<SearchBoxView>("ShelfSearch")!.FocusSearch();
 
     private void OnGameTapped(object? sender, TappedEventArgs e)
     {
