@@ -23,6 +23,7 @@ internal sealed class GamesRig
     private GamesRig(FakeBackend backend, IProfilesApi? profiles, IUiDispatcher? dispatcher, Func<UiFormatter, IDialogs>? dialogs, TimeProvider? clock)
     {
         Backend = backend;
+        Watcher = new FakeFolderWatcher();
         Text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), backend.Clock, "windows", TimeZoneInfo.Utc);
         Dialogs = new FakeDialogs();
         UiDialogs = dialogs?.Invoke(Text) ?? Dialogs;
@@ -41,7 +42,8 @@ internal sealed class GamesRig
             ui,
             clock ?? backend.Clock,
             Editor,
-            Revealer)));
+            Revealer,
+            Watcher)));
         Factory = factory;
         Shell = new ShellViewModel(new ShellDependencies(
             backend.Games,
@@ -76,6 +78,8 @@ internal sealed class GamesRig
     public RecordingEditorFactory Editor { get; }
 
     public RecordingFileRevealer Revealer { get; }
+
+    public FakeFolderWatcher Watcher { get; }
 
     public CapturingScreenFactory Factory { get; }
 

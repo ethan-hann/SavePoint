@@ -4,6 +4,7 @@ using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Common.Navigation;
 using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Settings;
+using Savepoint.App.Platform.FolderWatching;
 using Savepoint.Core.Api;
 
 namespace Savepoint.App.Features.Games;
@@ -19,6 +20,7 @@ namespace Savepoint.App.Features.Games;
 /// <param name="Clock">What "now" means for the wizard's default profile name.</param>
 /// <param name="Editor">Builds the game editor pane.</param>
 /// <param name="Revealer">Opens a game folder in the operating system's file manager.</param>
+/// <param name="Watcher">Tells the screen when files change in the folders of the game it shows.</param>
 public sealed record GamesDependencies(
     IGamesApi Games,
     IProfilesApi Profiles,
@@ -29,4 +31,5 @@ public sealed record GamesDependencies(
     IUiDispatcher Dispatcher,
     TimeProvider Clock,
     IGameEditorFactory Editor,
-    IFileRevealer Revealer);
+    IFileRevealer Revealer,
+    IFolderWatcher Watcher);

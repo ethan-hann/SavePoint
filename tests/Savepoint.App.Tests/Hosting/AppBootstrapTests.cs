@@ -1,4 +1,5 @@
 using Savepoint.App.Hosting;
+using Savepoint.App.Platform.FolderWatching;
 using Savepoint.Core.Api;
 using Savepoint.Core.Backend;
 using Savepoint.Core.Errors;
@@ -30,6 +31,19 @@ public class AppBootstrapTests : IDisposable
         var status = await started.Services.AppStatus.CheckAsync(TestContext.Current.CancellationToken);
         Assert.True(status.Ok, status.Error?.Detail);
         Assert.True(status.Value.Git.Available);
+    }
+
+    [Fact]
+    public void A_started_backend_gives_the_games_screen_a_folder_watcher_that_logs_to_the_apps_log()
+    {
+        var started = StartOnHost();
+
+        var watcher = Assert.IsType<FileSystemFolderWatcher>(started.Services.FolderWatcher);
+        using (watcher.Watch([Path.Combine(_root, "not-there")]))
+        {
+        }
+
+        Assert.NotEmpty(_log.Containing("not-there"));
     }
 
     [Fact]

@@ -84,6 +84,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     {
         _shell = shell;
         _deps = dependencies;
+        _statusReads = new StatusReadScheduler(dependencies.Clock, dependencies.Dispatcher, StatusReadsBlocked, ReadStatusAsync, ChangeSettleTime, ChangeLongestWait);
         LayoutToggle = shell.LayoutToggle;
         FreeUp = new FreeUpSpaceViewModel(dependencies.Games, dependencies.Jobs, dependencies.Dialogs, dependencies.Text, dependencies.Dispatcher, ShowError, RefreshStorageUsageAsync, dependencies.Clock);
         InitializeProfileSearch();
@@ -98,6 +99,12 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
 
         ShowGame(_shell.SelectedGame);
     }
+
+    /// <summary>How long a game's folders must stay quiet before the profile table reads their status again.</summary>
+    public static readonly TimeSpan ChangeSettleTime = TimeSpan.FromMilliseconds(750);
+
+    /// <summary>The longest a read waits for the folders to go quiet, so a program that never stops writing (a log file) cannot hold the table back.</summary>
+    public static readonly TimeSpan ChangeLongestWait = TimeSpan.FromSeconds(5);
 
     /// <summary>The shortest pane that keeps a launch card pinned; the toast stack and the pill can take a third of a shorter one.</summary>
     public const double PinnedCardMinHeight = 300;
@@ -199,6 +206,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     /// <inheritdoc />
     public void OnShown()
     {
+        _shown = true;
         FreeUp.ClearResult();
         _ = ReloadAsync();
     }
@@ -223,6 +231,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         ShowGame(game);
         if (game is null)
         {
+            StopWatching();
             ClearRows();
             IsLoading = false;
             return;
@@ -230,6 +239,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
 
         if (switched)
         {
+            StopWatching();
             ClearProfileSearch();
             ClearRows();
             StorageFooterText = string.Empty;
@@ -274,6 +284,10 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         if (folders.Ok)
         {
             _folderRoles = [.. folders.Value.Select(folder => folder.Role)];
+            if (_shown)
+            {
+                UpdateWatch(game.Id, folders.Value);
+            }
         }
 
         IsLoading = false;
@@ -373,6 +387,8 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     {
         _disposed = true;
         _loadCts?.Cancel();
+        StopWatching();
+        _statusReads.Dispose();
         ProfileSearch.Dispose();
         FreeUp.Dispose();
         _shell.PropertyChanged -= OnShellChanged;

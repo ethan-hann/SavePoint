@@ -44,11 +44,12 @@ internal sealed class GamesViewHarness : IDisposable
         ThemePreference theme = ThemePreference.Dark,
         ShellLayout layout = ShellLayout.Sidebar,
         double width = 1040,
-        double height = 660)
+        double height = 660,
+        TimeProvider? clock = null)
     {
         backend ??= new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Theme = theme, Layout = layout }));
         var dialogStack = new DialogHostViewModel();
-        var rig = await GamesRig.StartAsync(backend, dialogs: text => new AvaloniaDialogs(dialogStack, text, () => null));
+        var rig = await GamesRig.StartAsync(backend, dialogs: text => new AvaloniaDialogs(dialogStack, text, () => null), clock: clock);
         var main = new MainWindowViewModel(new StartupViewModel(backend.AppStatus, rig.Text, new ImmediateUiDispatcher()), () => rig.Shell, dialogStack, rig.Toasts);
         var view = new MainView { DataContext = main };
         var host = new ThemeHost(view, theme, width: width, height: height);

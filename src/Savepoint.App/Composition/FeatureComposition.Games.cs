@@ -3,6 +3,7 @@ using Savepoint.App.Features.Games;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Hosting;
 using Savepoint.App.Platform;
+using Savepoint.App.Platform.FolderWatching;
 
 namespace Savepoint.App.Composition;
 
@@ -22,5 +23,6 @@ public static partial class FeatureComposition
             context.Dispatcher,
             context.Clock,
             editor,
-            context.Services.FileRevealer ?? new FileManagerRevealer(FileManager.CreateForCurrentOs())));
+            context.Services.FileRevealer ?? new FileManagerRevealer(FileManager.CreateForCurrentOs()),
+            context.Services.FolderWatcher ?? NullFolderWatcher.Instance));
 }

@@ -304,6 +304,7 @@ public sealed partial class ShellViewModel : ObservableObject, IShellContext, ID
             return;
         }
 
+        CurrentScreen?.OnHidden();
         _destination = destination;
         _selectedNav = Nav.First(item => item.Destination == destination);
         OnPropertyChanged(nameof(SelectedNav));
