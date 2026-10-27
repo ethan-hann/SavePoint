@@ -95,7 +95,7 @@ public class ListSemanticsTests
         Assert.Equal("Snapshots you can go back to", PeerOf(cards).GetName());
         var items = Items(cards, AutomationControlType.ListItem);
         Assert.Equal(app.History.Groups.Sum(group => group.Cards.Count), items.Count);
-        Assert.Equal("Before the final boss, Saves only · 1.6.640 with 212 mod files, Sun Jul 5, 11:42 PM, Loaded now", items[0].GetName());
-        Assert.Equal("Cleared Blackreach, Saves only · 1.6.640 with 212 mod files, Sat Jul 4, 8:15 PM", items[1].GetName());
+        Assert.Equal("Last 7 days: Before the final boss, Saves only · 1.6.640 with 212 mod files, Sun Jul 5, 11:42 PM, Loaded now", items[0].GetName());
+        Assert.Equal("Last 7 days: Cleared Blackreach, Saves only · 1.6.640 with 212 mod files, Sat Jul 4, 8:15 PM", items[1].GetName());
     }
 }
