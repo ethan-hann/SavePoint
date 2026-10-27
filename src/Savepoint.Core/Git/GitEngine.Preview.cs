@@ -15,6 +15,8 @@ public sealed partial class GitEngine
     /// <exception cref="Savepoint.Core.Errors.PathSafetyException">The work tree is a protected location.</exception>
     /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
     /// <exception cref="Savepoint.Core.Errors.NestedRepositoryException">A folder in the game keeps its own history, so a capture would refuse.</exception>
+    /// <exception cref="Savepoint.Core.Errors.LinkedFolderException">On Windows, a folder link holds files the capture would read, so a capture would refuse.</exception>
+    /// <exception cref="Savepoint.Core.Errors.LinkedFileException">On Windows, a file the capture would record is a symbolic link, so a capture would refuse.</exception>
     public async Task<IReadOnlyList<CaptureCandidate>> ListCaptureCandidatesAsync(RepoRef repo, IReadOnlyList<string> ignorePatterns, CancellationToken ct = default)
     {
         repo = PreparePreview(repo, ignorePatterns, ct);

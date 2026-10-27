@@ -35,6 +35,7 @@ public static class ErrorPresentation
         ["error.artwork.notAnImage"] = new(Icons.Warning, ErrorTone.Warning, "errorCard.title.notAnImage"),
         ["error.artwork.tooLarge"] = new(Icons.Warning, ErrorTone.Warning, "errorCard.title.imageTooLarge"),
         ["error.capture.cancelled"] = new(Icons.Cancel, ErrorTone.Neutral, "errorCard.title.canceled"),
+        ["error.capture.linkedFile"] = new(Icons.Warning, ErrorTone.Warning, "errorCard.title.fileIsLink"),
         ["error.capture.linkedFolder"] = new(Icons.Folder, ErrorTone.Warning, "errorCard.title.folderIsShortcut"),
         ["error.capture.nestedRepository"] = new(Icons.Folder, ErrorTone.Warning, "errorCard.title.folderKeepsHistory"),
         ["error.catalog.corrupt"] = new(Icons.Report, ErrorTone.Error, "errorCard.title.dataUnreadable"),

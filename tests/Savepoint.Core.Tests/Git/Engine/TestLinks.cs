@@ -34,6 +34,36 @@ internal static class TestLinks
         }
     }
 
+    // A symbolic link to a folder (a junction is a different kind of link; Windows needs Developer Mode or an elevated account for this one).
+    public static bool TryCreateFolderSymbolicLink(string link, string target)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(link)!);
+        try
+        {
+            Directory.CreateSymbolicLink(link, target);
+            return new DirectoryInfo(link).LinkTarget is not null;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+        {
+            return false;
+        }
+    }
+
+    // A symbolic link to a file. Windows needs Developer Mode or an elevated account for it, so callers skip when this says no.
+    public static bool TryCreateFileLink(string link, string target)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(link)!);
+        try
+        {
+            File.CreateSymbolicLink(link, target);
+            return new FileInfo(link).LinkTarget is not null;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+        {
+            return false;
+        }
+    }
+
     // Removes only the link, never what it points at.
     public static void RemoveFolderLink(string link)
     {
