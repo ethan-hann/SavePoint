@@ -125,7 +125,7 @@ One implementation per OS under `Platform/Windows`, `Platform/Linux`, `Platform/
 
 ## Catalog
 
-Models are immutable records with `System.Text.Json` source-generated serialization: `GameDefinition`, `ExternalLocation`, `LaunchConfig`, `Profile`, `AppSettings`. The JSON is camelCase and matches v1's shapes. Enums serialize as their v1 strings (`"exe"`, `"uri"`, `"saves"`, `"system"`, `"sidebar"`, `"blue"`, ...).
+Models are immutable records with `System.Text.Json` source-generated serialization: `GameDefinition`, `ExternalLocation` (the saves folder), `ModsLocation` (a mods folder outside the install, D61), `LaunchConfig`, `Profile`, `AppSettings`. The JSON is camelCase and matches v1's shapes. Enums serialize as their v1 strings (`"exe"`, `"uri"`, `"saves"`, `"system"`, `"sidebar"`, `"blue"`, ...).
 
 `CatalogStore` owns `games.json`, `profiles.json`, `settings.json` in `IPlatform.Directories.CatalogDir`. It has one async lock, an atomic write (temp file in the same directory, flush, `File.Move(overwrite: true)`), a `.bak` of the previous file, and `CatalogCorruptException` on unreadable content (D13.2).
 
@@ -231,7 +231,7 @@ public interface IArtworkApi
 }
 ```
 
-Catalog models (`GameDefinition`, `Profile`, `AppSettings`, `GameTemplate`, `RepoRole`) are reused as they are. The Api adds only what the catalog does not hold.
+Catalog models (`GameDefinition`, `Profile`, `AppSettings`, `GameTemplate`, `RepoRole`) are reused as they are. `RepoRole` is `Install`, `External` (the saves folder) or `Mods`; each has its own store (`install.git`, `external.git`, `mods.git`). The Api adds only what the catalog does not hold.
 
 ### Jobs
 
@@ -262,7 +262,7 @@ Folder work reports one `FolderOutcome(Role, Error?)` per folder it touched. All
 
 `LaunchPreview` holds:
 - the resolved profile.
-- a `FolderLaunchState` per folder. It reports:
+- a `FolderLaunchState` per folder (`Install`, `External`, and `Mods` when the game has one). It reports:
   - whether the folder matches the target, whether it is dirty, how many files, and `DirtyNewFileCount` (D31.4).
   - the owning profile, or null when nothing can claim the changes.
   - a `SwitchSummary` of files, mod files, bytes written, bytes removed, and an estimated duration, sized from the stored snapshot.
@@ -300,7 +300,7 @@ Folder work reports one `FolderOutcome(Role, Error?)` per folder it touched. All
 
 - `AddGameOutcome` is `Added(game)` or `HistoryFound(OrphanedHistory)`.
 - `Added.LeftOff` is `RulesLeftOff(Rules, SavesHoldFiles)` when the saves check moved game-wide default rules to the install-only list. `SavesHoldFiles` is false when the check could not run (D7). `ResolveOrphanAsync` returns the same `Added`, and `LibraryAddResult.RulesLeftOff` carries it for a library add.
-- `GameDefinition` has `IgnorePaths` (both folders) and `InstallIgnorePaths` (the game's own folder only). Code that needs one folder's rules calls `IgnorePathsFor(role)`.
+- `GameDefinition` has `IgnorePaths` (every folder) and `InstallIgnorePaths` (the game's own folder only). Code that needs one folder's rules calls `IgnorePathsFor(role)`.
 - `OrphanedHistory` names the old game id, the folders, and each old profile with a suggested name or null (the UI supplies fallback copy). `OrphanResolution` is `StartFresh` or `Reconnect(existingGameId, profiles)`, with the names the user will see.
 - `FolderStatus` gives each folder's stored and resolved path, whether it exists (the "moved or is gone" card), and its `ConsentStatus(Confirmed, ConfirmedAt)`.
 - `CapturePreview` lists each folder's path, file count, mod-file count, and bytes, plus the bytes a capture would add after reuse.
