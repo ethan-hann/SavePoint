@@ -7,7 +7,7 @@ paths:
 
 - **Status:** proposed
 - **Date Created:** 2026-10-27 18:21
-- **Last Updated:** 2026-10-27 19:05
+- **Last Updated:** 2026-10-27 19:20
 - **Applies To:**
   - Any test case, theory, fake, rig, or test helper in `tests/`.
 
@@ -50,7 +50,7 @@ Walk every question. A "yes" adds rules, and the walk goes on to the next questi
 
 **Exception - the call is the outcome:** some calls are what the screen or class is for: the definition the editor sends, the confirmation text the player reads, the program a launcher starts. Then the call is the behavior. Assert the whole call. When the call also changes something the player sees, such as a toast or a list row, assert that too.
 
-**Exception - a picture for a person:** a test that writes a PNG for someone to look at is not coverage, and it never counts as the check that a screen works. It skips unless an environment variable turns it on, as `DocScreenshotTests` does with `SAVEPOINT_DOC_SCREENSHOTS`. Its skip goes in the expected-skip lists, as [Platform-specific code](csharp-platform-specific-code.md) says.
+**Exception - a picture for a person:** a test that writes a PNG for someone to look at is not coverage, and it never counts as the check that a screen works. It skips unless an environment variable turns it on, as `DocScreenshotTests` does with `SAVEPOINT_DOC_SCREENSHOTS`. The gate fails on any skip its list does not name, so the test's full name goes in each list under `build/expected-skips/`. [Platform-specific code](csharp-platform-specific-code.md), section "Skip a test on an OS, and list the skip", describes the lists.
 
 **Exception - a child process entry point:** some test methods exist only to be started as a child copy of the test host, such as `GitProcessJobTests.Child_for_the_kill_test`. In a normal run they return at once. They are plumbing for the test that starts them, not cases to fix.
 
@@ -248,7 +248,7 @@ App tests run against `FakeBackend`, so a fake that behaves unlike the real back
 
 1. **Compare what the tests rely on.** When App tests depend on a fake member's ordering, errors, events, threading, or cancellation, a contract story in `tests/Savepoint.App.Tests/Contract/` runs that behavior on the fake and the real backend. The story compares the two. The story also names the steps that prove it ran, so two runs that failed the same way cannot match. A fake's own test that claims it works "like the real" code proves nothing about the real code.
 2. **Honor the cancellation token.** A fake member that takes a `CancellationToken` fails as canceled when the token is canceled, as the real Api does in `ApiGuard.RunAsync`. A fake that ignores the token hands a screen success where the app gets `error.operation.cancelled`.
-3. **Hold deferred work back in at least one test.** Code that reacts to an event, a timer, or a `Post` or `PostWhenIdle` call gets at least one test where that work waits. The test runs the work itself. Use `ManualDispatcher` with `PostsImmediately = false`, or `AvaloniaUiDispatcher` in a view test. `ImmediateUiDispatcher` runs every post inside the caller's stack, which the app never does, so it cannot catch the #246 kind of crash. A shared rig takes a `dispatcher` parameter and hands it to everything it builds that posts, toasts included.
+3. **Hold deferred work back in at least one test.** Code that reacts to an event, a timer, or a `Post` or `PostWhenIdle` call gets at least one test where that work waits. The test runs the work itself. Use `ManualDispatcher` with `PostsImmediately = false`, or `AvaloniaUiDispatcher` in a view test. `ImmediateUiDispatcher` runs every post at once, inside the caller's stack. The app runs `Post` at once only when the caller is already on the UI thread. It queues `Post` from any other thread, and it always queues `PostWhenIdle`. So the instant dispatcher alone cannot catch the #246 kind of crash. A shared rig takes a `dispatcher` parameter and hands it to everything it builds that posts, toasts included.
 
 **Correct usage:**
 
