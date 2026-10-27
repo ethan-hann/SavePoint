@@ -6,10 +6,12 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.VisualTree;
 using Savepoint.App.Features.Common.Search;
+using Savepoint.App.Features.History;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Tests.Features.EndToEnd;
 using Savepoint.App.Tests.Theme;
+using Savepoint.Core.Api;
 
 namespace Savepoint.App.Tests.Features.History;
 
@@ -150,6 +152,68 @@ public class HistorySearchViewTests
         }
 
         return false;
+    }
+
+    // A game with one snapshot of the given kind and one recently removed snapshot that holds the game's version and mods, so the
+    // Saves choice alone empties the removed section, and empties the list too when the snapshot holds no save.
+    private static async Task<ComposedApp> StartWithKindOnlyEmptyAsync(HistoryPointKind pointKind)
+    {
+        var scenario = ScenarioBuilder.Sample()
+            .WithGame(new Savepoint.Core.Catalog.GameDefinition(Id: "bare", Name: "Bare", Install: new Savepoint.Core.Catalog.InstallLocation(@"D:\Bare")))
+            .WithHistoryPoint("bare", new HistoryPoint(new HistoryPointId("pt-only"), pointKind, "Only one", ScenarioBuilder.DefaultNow, SampleScenario.ModdedId, "Modded playthrough - 7-2-26", new InstallState("1.6.640", 212), null, null, false, false))
+            .WithRemovedSnapshot("bare", RemovedSnapshotSamples.FromDeletedProfile);
+        var app = await StartAsync(new FakeBackend(scenario));
+        app.Shell.SelectGame("bare");
+        await app.History.ReloadAsync();
+        app.Settle();
+        return app;
+    }
+
+    [AvaloniaFact]
+    public async Task When_only_the_kind_choice_empties_the_list_the_clear_button_is_on_and_Tab_reaches_it_and_Enter_lists_everything()
+    {
+        using var app = await StartWithKindOnlyEmptyAsync(HistoryPointKind.VersionAndMods);
+        app.History.SelectedKindOption = app.History.KindOptions[1];
+        app.Settle();
+        var button = app.Find<Button>("SearchEmptyClearButton");
+        Assert.True(button.IsEffectivelyVisible);
+        Field(app).Focus();
+
+        Assert.True(button.IsEnabled);
+        Assert.True(button.Focusable && button.IsTabStop);
+        Assert.True(TabReaches(app, button));
+
+        app.Press(Key.Enter, PhysicalKey.Enter);
+        app.Settle();
+
+        Assert.Equal(HistoryKindFilter.All, app.History.SelectedKindOption?.Filter);
+        Assert.False(app.Find<StackPanel>("SearchEmptyState").IsEffectivelyVisible);
+        Assert.Single(CardNames(app));
+        Assert.Same(Field(app), app.Focused);
+    }
+
+    [AvaloniaFact]
+    public async Task When_only_the_kind_choice_empties_the_removed_section_its_clear_button_is_on_and_Tab_reaches_it_and_Enter_lists_everything()
+    {
+        using var app = await StartWithKindOnlyEmptyAsync(HistoryPointKind.SaveOnly);
+        app.History.IsRemovedOpen = true;
+        app.History.SelectedKindOption = app.History.KindOptions[1];
+        app.Settle();
+        var button = app.Find<Button>("RemovedClearSearchButton");
+        Assert.True(button.IsEffectivelyVisible);
+        Field(app).Focus();
+
+        Assert.True(button.IsEnabled);
+        Assert.True(button.Focusable && button.IsTabStop);
+        Assert.True(TabReaches(app, button));
+
+        app.Press(Key.Enter, PhysicalKey.Enter);
+        app.Settle();
+
+        Assert.Equal(HistoryKindFilter.All, app.History.SelectedKindOption?.Filter);
+        Assert.False(app.Find<StackPanel>("RemovedNoMatches").IsEffectivelyVisible);
+        Assert.Single(app.History.Removed);
+        Assert.Same(Field(app), app.Focused);
     }
 
     [AvaloniaFact]

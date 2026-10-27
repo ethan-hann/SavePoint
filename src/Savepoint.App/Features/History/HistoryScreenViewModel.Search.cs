@@ -71,6 +71,7 @@ public sealed partial class HistoryScreenViewModel
 
     /// <summary>The kind chosen; the choice lasts for the session and goes back to All when another game opens.</summary>
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ClearSearchCommand))]
     private KindOption? _selectedKindOption;
 
     /// <summary>The search box under the header.</summary>
@@ -111,6 +112,23 @@ public sealed partial class HistoryScreenViewModel
 
     /// <summary>"No removed snapshots match.", inside the Recently removed section.</summary>
     public string RemovedNoMatchesText { get; private set; } = string.Empty;
+
+    /// <summary>True while the typed words or the kind choice narrow the list, which is when there is something to clear.</summary>
+    public bool CanClearSearch => Search.HasText || SelectedKindOption is { Filter: not HistoryKindFilter.All };
+
+    /// <summary>
+    /// Empties the search box and puts the kind back on All, so every snapshot is listed again. The "no matches" buttons run it, not
+    /// the box's own Clear, because the kind choice can leave nothing without any words typed.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanClearSearch))]
+    private void ClearSearch()
+    {
+        // Both go back before the list is narrowed once, so the count is said once.
+        ResetSearch();
+        StopTypingPause();
+        ApplySearch();
+        Search.ReturnFocus();
+    }
 
     private void InitializeSearch()
     {
@@ -164,6 +182,7 @@ public sealed partial class HistoryScreenViewModel
     // narrowing waits for a pause in the typing and a word is one pass, not one per letter.
     private void OnSearchChanged(object? sender, EventArgs e)
     {
+        ClearSearchCommand.NotifyCanExecuteChanged();
         StopTypingPause();
         var generation = _typingGeneration;
         if (_searchSilent || _entries.Count + _removedEntries.Count <= InstantRows)

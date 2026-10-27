@@ -80,6 +80,12 @@ public sealed partial class SearchBoxViewModel : ObservableObject, IDisposable
         _pause = _clock.CreateTimer(_ => _dispatcher.Post(() => Say(generation, message)), null, AnnouncePause, Timeout.InfiniteTimeSpan);
     }
 
+    /// <summary>
+    /// Asks the view to put the cursor back in the box, for an owner whose own clear action ran from a button that goes away with the
+    /// search (the box's <see cref="ClearCommand"/> does this itself).
+    /// </summary>
+    public void ReturnFocus() => Cleared?.Invoke(this, EventArgs.Empty);
+
     /// <summary>Stops a pending announcement.</summary>
     public void Dispose()
     {

@@ -247,7 +247,7 @@
                        Text="{Binding RemovedError}" />
             <StackPanel x:Name="RemovedNoMatches" Spacing="8" IsVisible="{Binding ShowRemovedNoMatches}">
               <TextBlock x:Name="RemovedNoMatchesLine" Classes="body" TextWrapping="Wrap" Text="{Binding RemovedNoMatchesText}" />
-              <Button x:Name="RemovedClearSearchButton" Classes="text pill" HorizontalAlignment="Left" Padding="10,4" Command="{Binding Search.ClearCommand}" Content="{loc:Loc search.clear}" />
+              <Button x:Name="RemovedClearSearchButton" Classes="text pill" HorizontalAlignment="Left" Padding="10,4" Command="{Binding ClearSearchCommand}" Content="{loc:Loc search.clear}" />
             </StackPanel>
             <!-- A long list scrolls inside its section and draws only the rows in view; a short one takes the room it needs. -->
             <ScrollViewer x:Name="RemovedScroll" Classes.long="{Binding IsRemovedLong}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -496,7 +496,7 @@
       <!-- A search and kind choice that leave no snapshot. -->
       <StackPanel x:Name="SearchEmptyState" IsVisible="{Binding IsSearchEmpty}" MaxWidth="440" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12" Margin="26">
         <TextBlock Classes="card-title" TextAlignment="Center" TextWrapping="Wrap" Text="{Binding SearchNoMatchesText}" />
-        <Button x:Name="SearchEmptyClearButton" Classes="pill" Padding="18,8" HorizontalAlignment="Center" Command="{Binding Search.ClearCommand}" Content="{loc:Loc search.clear}" />
+        <Button x:Name="SearchEmptyClearButton" Classes="pill" Padding="18,8" HorizontalAlignment="Center" Command="{Binding ClearSearchCommand}" Content="{loc:Loc search.clear}" />
       </StackPanel>
 
       <StackPanel x:Name="LoadingState" IsVisible="{Binding IsLoading}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="14">

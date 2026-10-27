@@ -372,6 +372,98 @@ public class HistorySearchTests
         Assert.Equal(8, Cards(rig).Count);
     }
 
+    // A game whose only snapshot holds the game's version and mods, so the Saves choice alone leaves nothing.
+    private async Task<HistoryRig> ShownGameAndModsOnlyAsync()
+    {
+        var scenario = ScenarioBuilder.Sample()
+            .WithGame(new Savepoint.Core.Catalog.GameDefinition(Id: "bare", Name: "Bare", Install: new Savepoint.Core.Catalog.InstallLocation(@"D:\Bare")))
+            .WithHistoryPoint("bare", new HistoryPoint(new HistoryPointId("pt-only-mods"), HistoryPointKind.VersionAndMods, "Mods only", ScenarioBuilder.DefaultNow, SampleScenario.ModdedId, "Modded playthrough - 7-2-26", new InstallState("1.6.640", 212), null, null, false, false))
+            .WithRemovedSnapshot("bare", RemovedSnapshotSamples.FromDeletedProfile);
+        var rig = await ShownAsync(new FakeBackend(scenario));
+        rig.Shell.SelectGame("bare");
+        await rig.Screen.ReloadAsync();
+        return rig;
+    }
+
+    [Fact]
+    public async Task Clear_search_is_on_only_while_the_words_or_the_kind_narrow_the_list()
+    {
+        var rig = await ShownAsync();
+        Assert.False(rig.Screen.ClearSearchCommand.CanExecute(null));
+
+        Choose(rig, HistoryKindFilter.Saves);
+        Assert.True(rig.Screen.ClearSearchCommand.CanExecute(null));
+
+        Choose(rig, HistoryKindFilter.All);
+        Assert.False(rig.Screen.ClearSearchCommand.CanExecute(null));
+
+        rig.Screen.Search.Text = "zzz";
+        Assert.True(rig.Screen.ClearSearchCommand.CanExecute(null));
+
+        rig.Screen.Search.Text = string.Empty;
+        Assert.False(rig.Screen.ClearSearchCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task A_kind_that_leaves_nothing_on_its_own_can_be_cleared_back_to_every_snapshot()
+    {
+        var rig = await ShownGameAndModsOnlyAsync();
+        Choose(rig, HistoryKindFilter.Saves);
+        Assert.True(rig.Screen.IsSearchEmpty);
+        Assert.True(rig.Screen.ClearSearchCommand.CanExecute(null));
+
+        rig.Screen.ClearSearchCommand.Execute(null);
+
+        Assert.Equal(HistoryKindFilter.All, rig.Screen.SelectedKindOption?.Filter);
+        Assert.False(rig.Screen.IsSearchEmpty);
+        Assert.Equal(["Mods only"], Cards(rig));
+        Assert.False(rig.Screen.ClearSearchCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task Clearing_empties_the_words_and_puts_the_kind_back_on_All_and_says_the_new_count()
+    {
+        var rig = await ShownAsync();
+        Choose(rig, HistoryKindFilter.Saves);
+        rig.Screen.Search.Text = "zzz";
+        _clock.Advance(SearchBoxViewModel.AnnouncePause);
+        Assert.Equal("0 of 8 snapshots", rig.Screen.Search.Announcement);
+
+        rig.Screen.ClearSearchCommand.Execute(null);
+        _clock.Advance(SearchBoxViewModel.AnnouncePause);
+
+        Assert.Equal(string.Empty, rig.Screen.Search.Text);
+        Assert.Equal(HistoryKindFilter.All, rig.Screen.SelectedKindOption?.Filter);
+        Assert.Equal(8, Cards(rig).Count);
+        Assert.Equal("8 of 8 snapshots", rig.Screen.Search.Announcement);
+    }
+
+    [Fact]
+    public async Task Clearing_asks_the_search_box_to_take_focus_back()
+    {
+        var rig = await ShownGameAndModsOnlyAsync();
+        Choose(rig, HistoryKindFilter.Saves);
+        var asked = 0;
+        rig.Screen.Search.Cleared += (_, _) => asked++;
+
+        rig.Screen.ClearSearchCommand.Execute(null);
+
+        Assert.Equal(1, asked);
+    }
+
+    [Fact]
+    public async Task A_kind_that_leaves_no_removed_snapshots_on_its_own_can_be_cleared_back_to_them()
+    {
+        var rig = await ShownGameAndModsOnlyAsync();
+        Choose(rig, HistoryKindFilter.Saves);
+        Assert.True(rig.Screen.ShowRemovedNoMatches);
+
+        rig.Screen.ClearSearchCommand.Execute(null);
+
+        Assert.False(rig.Screen.ShowRemovedNoMatches);
+        Assert.Single(rig.Screen.Removed);
+    }
+
     [Fact]
     public async Task The_search_row_is_not_there_while_loading_or_without_snapshots()
     {
