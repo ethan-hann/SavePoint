@@ -53,9 +53,11 @@ public sealed class AppsMenuEntry
     private readonly string _hicolorFolder;
     private readonly Func<int, Stream?> _openIcon;
     private readonly IProcessRunner _runner;
+    private readonly TimeProvider _clock;
 
-    internal AppsMenuEntry(string appImagePath, string dataHome, Func<int, Stream?> openIcon, IProcessRunner runner)
+    internal AppsMenuEntry(string appImagePath, string dataHome, Func<int, Stream?> openIcon, IProcessRunner runner, TimeProvider? clock = null)
     {
+        _clock = clock ?? TimeProvider.System;
         _appImagePath = appImagePath;
         _applicationsFolder = Path.Combine(dataHome, "applications");
         _hicolorFolder = Path.Combine(dataHome, "icons", "hicolor");
@@ -69,14 +71,16 @@ public sealed class AppsMenuEntry
     /// The entry for the running app: null unless this is Linux, the <c>APPIMAGE</c> variable names the AppImage file, and this
     /// process runs from the folder <c>APPDIR</c> names (the variables are inherited, so they can describe another program).
     /// </summary>
-    public static AppsMenuEntry? ForThisApp() =>
+    /// <param name="clock">The clock that stamps the icon folder; the system clock when null.</param>
+    public static AppsMenuEntry? ForThisApp(TimeProvider? clock = null) =>
         For(
             OperatingSystem.IsLinux(),
             Environment.GetEnvironmentVariable,
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             OpenBundledIcon,
             new SystemProcessRunner(),
-            Environment.ProcessPath);
+            Environment.ProcessPath,
+            clock);
 
     /// <summary>Where the user's data files go: <c>XDG_DATA_HOME</c> when it is an absolute path, else <c>.local/share</c> in the home folder.</summary>
     internal static string ResolveDataHome(Func<string, string?> environment, string homeFolder)
@@ -87,7 +91,7 @@ public sealed class AppsMenuEntry
             : Path.Combine(homeFolder, ".local", "share");
     }
 
-    internal static AppsMenuEntry? For(bool isLinux, Func<string, string?> environment, string homeFolder, Func<int, Stream?> openIcon, IProcessRunner runner, string? processPath)
+    internal static AppsMenuEntry? For(bool isLinux, Func<string, string?> environment, string homeFolder, Func<int, Stream?> openIcon, IProcessRunner runner, string? processPath, TimeProvider? clock = null)
     {
         var appImage = environment("APPIMAGE");
         // A line break cannot be written into a desktop entry, so such a path gets no action rather than a broken entry.
@@ -102,7 +106,7 @@ public sealed class AppsMenuEntry
             return null;
         }
 
-        return new AppsMenuEntry(appImage, ResolveDataHome(environment, homeFolder), openIcon, runner);
+        return new AppsMenuEntry(appImage, ResolveDataHome(environment, homeFolder), openIcon, runner, clock);
     }
 
     private static bool RunsFromMount(string? appDir, string? processPath)
@@ -434,7 +438,7 @@ public sealed class AppsMenuEntry
         {
             try
             {
-                Directory.SetLastWriteTimeUtc(_hicolorFolder, DateTime.UtcNow);
+                Directory.SetLastWriteTimeUtc(_hicolorFolder, _clock.GetUtcNow().UtcDateTime);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {

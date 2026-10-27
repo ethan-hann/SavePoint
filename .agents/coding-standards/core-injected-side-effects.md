@@ -89,10 +89,6 @@ if (DateTime.UtcNow - Directory.GetLastWriteTimeUtc(folder) > _leftoverAge)
 - `src/Savepoint.Core/Services/Jobs/JobRegistry.cs`, `JobRegistry` constructor: the clock defaults to the system clock.
 - `src/Savepoint.Core/Backend/BackendOptions.cs`, `BackendOptions.Time`: where a test sets the clock for the whole backend.
 
-**Known violations:**
-
-- `src/Savepoint.Core/CloudSaves/GalaxyCloudReader.cs`, `GalaxyCloudReader.SweepLeftovers`: reads `DateTime.UtcNow`.
-
 ### Reach the machine through its seam
 
 Use the seam that exists for each effect. Add a new seam only for an effect that has none, and wire it through `BackendOptions` or `IPlatform`.
@@ -153,10 +149,6 @@ private static readonly Lazy<(IntPtr Handle, string? Problem)> _job = new(Create
 **Examples:**
 
 - `src/Savepoint.Core/Git/GitProcessJob.cs`, `GitProcessJob._job`: a process-lifetime OS handle with the comment that justifies it.
-
-**Known violations:**
-
-- `src/Savepoint.Core/Git/GitProcessRegistry.cs`, `GitProcessRegistry._shared` and `GitProcessRegistry._forApp`: statics under the exception, but with no comment on the fields that says why they are static.
 
 ## Additional Resources
 

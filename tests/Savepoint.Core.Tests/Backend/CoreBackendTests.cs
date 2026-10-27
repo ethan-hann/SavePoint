@@ -2,6 +2,7 @@ using Savepoint.Core.Api;
 using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
+using Savepoint.Core.Git;
 
 namespace Savepoint.Core.Tests.Backend;
 
@@ -14,6 +15,43 @@ public class CoreBackendTests
 
         Assert.False(Directory.Exists(workspace.CatalogDirectory));
         Assert.False(Directory.Exists(workspace.DefaultStorageRoot));
+    }
+
+    [Fact]
+    public void Disposing_the_backend_takes_its_git_registry_off_the_exit_list()
+    {
+        using var workspace = new BackendWorkspace();
+        var registry = workspace.Backend.GitRegistry;
+        var listedBefore = GitProcessRegistry.IsClosedAtExit(registry);
+
+        workspace.Backend.Dispose();
+        workspace.Backend.Dispose();
+
+        Assert.True(listedBefore);
+        Assert.False(GitProcessRegistry.IsClosedAtExit(registry));
+    }
+
+    [Fact]
+    public void A_backend_that_fails_to_build_leaves_no_git_registry_on_the_exit_list()
+    {
+        var failing = false;
+        GitProcessRegistry? made = null;
+        using var workspace = new BackendWorkspace(options => failing
+            ? options with
+            {
+                Launch = services =>
+                {
+                    made = services.Runner.Options.Registry;
+                    throw new InvalidOperationException("the launch component could not be built");
+                },
+            }
+            : options);
+        failing = true;
+
+        Assert.Throws<InvalidOperationException>(workspace.Restart);
+
+        Assert.NotNull(made);
+        Assert.False(GitProcessRegistry.IsClosedAtExit(made));
     }
 
     [Fact]

@@ -309,6 +309,24 @@ public class GalaxyCloudReaderTests : IDisposable
     }
 
     [Fact]
+    public void A_copy_becomes_a_leftover_when_the_injected_clock_moves_past_its_age()
+    {
+        CreateDb(false, ("gog_1207658924", 1));
+        var time = new ManualTimeProvider();
+        var copy = Directory.CreateDirectory(_temp.Combine("cloud-from-another-run")).FullName;
+        Directory.SetLastWriteTimeUtc(copy, time.GetUtcNow().UtcDateTime.AddMinutes(-1));
+        var reader = new GalaxyCloudReader(_programData.Path, _localAppData.Path, _temp.Path, timeProvider: time);
+
+        reader.Read("1207658924");
+        var keptWhileRecent = Directory.Exists(copy);
+        time.Advance(TimeSpan.FromMinutes(30));
+        reader.Read("1207658924");
+
+        Assert.True(keptWhileRecent);
+        Assert.False(Directory.Exists(copy));
+    }
+
+    [Fact]
     public void The_copy_is_deleted_after_a_read()
     {
         CreateDb(false, ("gog_1207658924", 1));

@@ -75,14 +75,21 @@ internal sealed class TempFolder : IDisposable
                 return true;
             }
 
-            using var mklink = Process.Start(new ProcessStartInfo("cmd.exe", $"/c mklink /J \"{linkPath}\" \"{targetPath}\"")
+            var start = new ProcessStartInfo("cmd.exe")
             {
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
-            })!;
+            };
+            foreach (var argument in new[] { "/c", "mklink", "/J", linkPath, targetPath })
+            {
+                start.ArgumentList.Add(argument);
+            }
+
+            using var mklink = Process.Start(start)!;
             mklink.StandardOutput.ReadToEnd();
+            mklink.StandardError.ReadToEnd();
             mklink.WaitForExit();
             return mklink.ExitCode == 0 && Directory.Exists(linkPath);
         }

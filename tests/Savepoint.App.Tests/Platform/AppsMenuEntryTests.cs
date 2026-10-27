@@ -390,6 +390,19 @@ public sealed class AppsMenuEntryTests : IDisposable
     }
 
     [Fact]
+    public async Task The_icon_folder_is_touched_with_the_time_of_the_injected_clock()
+    {
+        var clock = new ManualTimeProvider();
+        clock.Advance(TimeSpan.FromDays(365 * 31));
+        Directory.CreateDirectory(Hicolor);
+        Directory.SetLastWriteTimeUtc(Hicolor, new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+
+        await new AppsMenuEntry(_appImage, _dataHome, OpenIcon, _runner, clock).AddAsync(_comment);
+
+        Assert.Equal(clock.GetUtcNow().UtcDateTime, Directory.GetLastWriteTimeUtc(Hicolor), TimeSpan.FromSeconds(2));
+    }
+
+    [Fact]
     public async Task Cache_tools_that_are_missing_or_fail_do_not_fail_the_add()
     {
         Directory.CreateDirectory(Hicolor);

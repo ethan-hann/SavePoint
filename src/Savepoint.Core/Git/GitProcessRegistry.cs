@@ -16,8 +16,13 @@ namespace Savepoint.Core.Git;
 internal sealed class GitProcessRegistry
 {
     private static readonly TimeSpan _defaultNoteDelay = TimeSpan.FromMilliseconds(500);
+    // Static because a runner built without its own registry must still have its gits ended at exit, and only one exit hook may reach them (D59).
     private static readonly Lazy<GitProcessRegistry> _shared = new(CreateShared);
-    private static readonly ConcurrentQueue<GitProcessRegistry> _forApp = new();
+
+    // Static because the exit handler is process-wide and must reach the registry of every backend still alive when the process ends (D59).
+    private static readonly ConcurrentDictionary<GitProcessRegistry, byte> _forApp = new();
+
+    // Static because the process has one exit event; hooking it once per registry would close each registry once per hook.
     private static int _exitHooked;
 
     private readonly ConcurrentDictionary<int, Entry> _running = new();
@@ -51,12 +56,12 @@ internal sealed class GitProcessRegistry
     public static GitProcessRegistry ForApp(string notePath, TimeSpan? noteDelay, IDiagnosticLog log)
     {
         var registry = new GitProcessRegistry(notePath, noteDelay, log);
-        _forApp.Enqueue(registry);
+        _forApp[registry] = 0;
         if (Interlocked.Exchange(ref _exitHooked, 1) == 0)
         {
             AppDomain.CurrentDomain.ProcessExit += (_, _) =>
             {
-                foreach (var each in _forApp)
+                foreach (var each in _forApp.Keys)
                 {
                     each.Close();
                 }
@@ -64,6 +69,17 @@ internal sealed class GitProcessRegistry
         }
 
         return registry;
+    }
+
+    /// <summary>Whether the registry is still on the list the process-exit handler closes.</summary>
+    /// <param name="registry">A registry made by <see cref="ForApp"/>.</param>
+    internal static bool IsClosedAtExit(GitProcessRegistry registry) => _forApp.ContainsKey(registry);
+
+    /// <summary>Ends the registry's gits, removes its note, and takes it off the list the process-exit handler closes. Safe to call twice.</summary>
+    public void Release()
+    {
+        Close();
+        _forApp.TryRemove(this, out _);
     }
 
     private static GitProcessRegistry CreateShared()

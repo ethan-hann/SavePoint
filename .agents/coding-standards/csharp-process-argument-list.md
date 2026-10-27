@@ -152,10 +152,6 @@ using var mklink = Process.Start(new ProcessStartInfo("cmd.exe", $"/c mklink /J 
 
 - `tests/Savepoint.Core.Tests/Paths/TempTree.cs`, `TempTree.MakeJunction`: `mklink` through the argument list.
 
-**Known violations:**
-
-- `tests/Savepoint.Core.Tests/Services/TempFolder.cs`, `TempFolder.TryCreateDirectoryLink`: joins the command into one string.
-
 ## Additional Resources
 
 ### Project Documentation
