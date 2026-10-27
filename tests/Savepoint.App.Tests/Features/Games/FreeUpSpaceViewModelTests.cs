@@ -141,7 +141,7 @@ public class FreeUpSpaceViewModelTests
         await rig.FreeUp.FreeUpCommand.ExecuteAsync(null);
 
         var question = Assert.Single(rig.Dialogs.Confirmations);
-        Assert.Equal("This also deletes 2 recently removed snapshots for good and frees up about 1.2 GB. You can't bring them back.", question.Message);
+        Assert.Equal("This also deletes 2 recently removed snapshots for good. Deleting them frees up about 1.2 GB. You can't bring them back.", question.Message);
         Assert.Equal("Delete 2 snapshots and free up space", question.ConfirmLabel);
     }
 
@@ -171,6 +171,73 @@ public class FreeUpSpaceViewModelTests
 
         Assert.Equal("This also deletes 2 recently removed snapshots for good. You can't bring them back.", Assert.Single(rig.Dialogs.Confirmations).Message);
         Assert.True(rig.FreeUp.IsRunning);
+    }
+
+    // The estimate reads the store the run is about to repack and prune, so it must be over before the run starts.
+    [Fact]
+    public async Task A_yes_stops_the_size_that_is_still_being_worked_out_before_the_run_starts()
+    {
+        var rig = new Rig(removed: true);
+        rig.Backend.Games.EstimateHold = new TaskCompletionSource();
+        rig.Dialogs.AnswerConfirm(true);
+
+        await rig.FreeUp.FreeUpCommand.ExecuteAsync(null);
+
+        Assert.Single(rig.Backend.Games.EstimateTokens);
+        Assert.True(rig.Backend.Games.EstimatesStoppedAtRunStart);
+    }
+
+    // ---- Leaving the game while the question is being prepared
+
+    // The question names a count but not the game, and a yes deletes that game's recently removed snapshots for good.
+    [Fact]
+    public async Task Picking_another_game_while_the_count_is_read_asks_nothing_and_starts_nothing()
+    {
+        var rig = new Rig(removed: true);
+        var hold = rig.Backend.Games.PreviewHold = new TaskCompletionSource();
+        rig.Dialogs.AnswerConfirm(true);
+        var pressed = rig.FreeUp.FreeUpCommand.ExecuteAsync(null);
+
+        rig.FreeUp.SetGame(SatisfactoryId, "Satisfactory");
+        hold.SetResult();
+        await pressed;
+
+        Assert.Empty(rig.Dialogs.Confirmations);
+        Assert.Empty(rig.Backend.Calls.To<IGamesApi>(nameof(IGamesApi.OptimizeStorageAsync)));
+        Assert.Empty(rig.Backend.Jobs.List());
+    }
+
+    [Fact]
+    public async Task Picking_another_game_while_the_size_is_worked_out_asks_nothing_and_starts_nothing()
+    {
+        var rig = new Rig(removed: true);
+        rig.Backend.Games.EstimateHold = new TaskCompletionSource();
+        rig.Dialogs.AnswerConfirm(true);
+        var pressed = rig.FreeUp.FreeUpCommand.ExecuteAsync(null);
+
+        rig.FreeUp.SetGame(SatisfactoryId, "Satisfactory");
+        await pressed;
+
+        Assert.Empty(rig.Dialogs.Confirmations);
+        Assert.Empty(rig.Backend.Calls.To<IGamesApi>(nameof(IGamesApi.OptimizeStorageAsync)));
+        Assert.Empty(rig.Backend.Jobs.List());
+    }
+
+    [Fact]
+    public async Task Picking_another_game_while_the_question_is_open_starts_nothing_even_after_a_yes()
+    {
+        var rig = new Rig(removed: true);
+        rig.Dialogs.WhileConfirming = _ =>
+        {
+            rig.FreeUp.SetGame(SatisfactoryId, "Satisfactory");
+            return Task.CompletedTask;
+        };
+        rig.Dialogs.AnswerConfirm(true);
+
+        await rig.FreeUp.FreeUpCommand.ExecuteAsync(null);
+
+        Assert.Empty(rig.Backend.Calls.To<IGamesApi>(nameof(IGamesApi.OptimizeStorageAsync)));
+        Assert.Empty(rig.Backend.Jobs.List());
     }
 
     [Fact]

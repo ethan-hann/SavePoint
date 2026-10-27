@@ -435,6 +435,9 @@ public sealed partial class StorageSectionViewModel : ObservableObject
             }
         }
 
+        // The estimate reads the store the run is about to repack and prune, so it ends first; a late answer then says nothing.
+        _size.Cancel();
+
         // The run deletes the records the player was told about and none written since.
         var started = await _deps.Settings.OptimizeAllStorageAsync(preview.Value.Token);
         if (!started.Ok)

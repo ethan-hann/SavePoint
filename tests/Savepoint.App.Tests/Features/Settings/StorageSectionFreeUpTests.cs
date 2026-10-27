@@ -31,7 +31,7 @@ public class StorageSectionFreeUpTests
 
         var rig = await SettingsRig.ShownAsync(backend);
 
-        Assert.Equal("Free up space would delete 3 recently removed snapshots for good and free up about 1.2 GB. You can't bring them back.", rig.Screen.Storage.OptimizePreview);
+        Assert.Equal("Free up space would delete 3 recently removed snapshots for good. Deleting them frees up about 1.2 GB. You can't bring them back.", rig.Screen.Storage.OptimizePreview);
     }
 
     [Fact]
@@ -85,7 +85,7 @@ public class StorageSectionFreeUpTests
 
         await rig.Screen.Storage.RunNowCommand.ExecuteAsync(null);
 
-        Assert.Equal("This also deletes 3 recently removed snapshots for good and frees up about 1.2 GB. You can't bring them back.", Assert.Single(rig.Dialogs.Confirmations).Message);
+        Assert.Equal("This also deletes 3 recently removed snapshots for good. Deleting them frees up about 1.2 GB. You can't bring them back.", Assert.Single(rig.Dialogs.Confirmations).Message);
     }
 
     [Fact]
@@ -101,6 +101,21 @@ public class StorageSectionFreeUpTests
 
         Assert.Equal("This also deletes 3 recently removed snapshots for good. You can't bring them back.", Assert.Single(rig.Dialogs.Confirmations).Message);
         Assert.True(rig.Screen.Storage.IsOptimizing);
+    }
+
+    // The estimate reads the store the run is about to repack and prune, so it must be over before the run starts.
+    [Fact]
+    public async Task A_yes_stops_the_size_that_is_still_being_worked_out_before_the_run_starts()
+    {
+        var backend = new FakeBackend(RemovedSnapshotSamples.Scenario());
+        backend.Settings.EstimateHold = new TaskCompletionSource();
+        var rig = await SettingsRig.ShownAsync(backend);
+        rig.Dialogs.AnswerConfirm(true);
+
+        await rig.Screen.Storage.RunNowCommand.ExecuteAsync(null);
+
+        Assert.Single(backend.Settings.EstimateTokens);
+        Assert.True(backend.Settings.EstimatesStoppedAtRunStart);
     }
 
     [Fact]

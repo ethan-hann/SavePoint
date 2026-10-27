@@ -130,6 +130,13 @@ public sealed partial class FreeUpSpaceViewModel : ObservableObject, IDisposable
 
         // Freeing up space deletes the game's recently removed snapshots for good, so when there are some the player is told how many and asked first.
         var preview = await _games.GetFreeUpSpacePreviewAsync(gameId);
+
+        // The question names a count, not the game, and a yes deletes for good: it must not outlive the player's choice of game.
+        if (_gameId != gameId)
+        {
+            return;
+        }
+
         if (!preview.Ok)
         {
             _showError(preview.Error, ErrorOperation.FreeUpSpace);
@@ -140,6 +147,11 @@ public sealed partial class FreeUpSpaceViewModel : ObservableObject, IDisposable
         {
             // The size is in the question when it comes within a moment; otherwise the question does not wait for it.
             var size = await _size.WaitAsync(_size.Start(preview.Value.Token, (token, cancellationToken) => _games.EstimateFreeUpSpaceAsync(gameId, token, cancellationToken)));
+            if (_gameId != gameId)
+            {
+                return;
+            }
+
             var message = size is { } bytes
                 ? _text.Message("settings.storage.optimizeConfirm.messageWithSize", ("count", removed), ("size", _text.FileSize(bytes)))
                 : _text.Message("settings.storage.optimizeConfirm.message", ("count", removed));
@@ -147,11 +159,14 @@ public sealed partial class FreeUpSpaceViewModel : ObservableObject, IDisposable
                 _text.Message("settings.storage.optimizeConfirm.title"),
                 message,
                 _text.Message("settings.storage.optimizeConfirm.confirm", ("count", removed)),
-                Destructive: true)))
+                Destructive: true)) || _gameId != gameId)
             {
                 return;
             }
         }
+
+        // The estimate reads the store the run is about to repack and prune, so it ends first.
+        _size.Cancel();
 
         // The run deletes the records the player was told about and none written since.
         var started = await _games.OptimizeStorageAsync(gameId, preview.Value.Token);
