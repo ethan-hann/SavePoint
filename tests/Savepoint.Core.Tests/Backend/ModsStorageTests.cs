@@ -31,7 +31,7 @@ public class ModsStorageTests
         GitWorkspace.DeleteDirectory(Path.Combine(away, game.Id, "external.git"));
         workspace.Restart();
 
-        var found = await workspace.AppStatus.UseStorageFolderAsync(away, workspace.Token);
+        var found = await workspace.AppStatus.UseStorageFolderAsync(away);
 
         Assert.True(found.Ok, found.Error?.Detail);
         Assert.Equal(away, (await workspace.Settings.GetAsync(workspace.Token)).Value!.StorageRoot);
@@ -53,7 +53,7 @@ public class ModsStorageTests
         File.AppendAllText(Path.Combine(gitDir, "config"), "[alias]\n\tst = !echo ran\n");
         workspace.Restart();
 
-        var found = await workspace.AppStatus.UseStorageFolderAsync(away, workspace.Token);
+        var found = await workspace.AppStatus.UseStorageFolderAsync(away);
 
         Assert.True(found.Ok, found.Error?.Detail);
         Assert.DoesNotContain("[alias]", File.ReadAllText(Path.Combine(gitDir, "config")), StringComparison.OrdinalIgnoreCase);
