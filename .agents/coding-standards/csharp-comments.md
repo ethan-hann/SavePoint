@@ -120,11 +120,6 @@ public class ThemePolishTests
 public class ThemePolishTests
 ```
 
-**Known violations:**
-
-- `tests/Savepoint.App.Tests/Theme/ThemePolishTests.cs`, `ThemePolishTests`: names a review.
-- The render tests, such as `GamesRenderTests` and `HistoryRenderTests`: their headers say the images are "for review". Say what a person compares them with instead.
-
 ### State the contract of public Core APIs
 
 A public type or member in `Savepoint.Core` has an XML doc comment that states its contract: what it returns, which error ids it fails with, and what a parameter means when that is not obvious. The build fails without one (D24, CS1591).

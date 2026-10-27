@@ -148,6 +148,7 @@ for (var i = 0; i < 10; i++)
 **Examples:**
 
 - `tests/Savepoint.Core.Tests/Git/Engine/RepoTemplates.cs`, `RepoTemplates.CopyAsync`: builds a named template once and copies it. `CheckoutTests` uses it.
+- `tests/Savepoint.Core.Tests/Launch/Orchestration/TwoProfileTemplates.cs`: builds the two-profile launch world once per free game program name and hands each `LaunchRig.WithTwoProfilesAsync` a copy, so tests running at once never share one.
 
 ### Wait on a condition, not a fixed time
 
@@ -181,7 +182,7 @@ await Task.Delay(TimeSpan.FromMilliseconds(1100), TestContext.Current.Cancellati
 
 **Known violations:**
 
-- `tests/Savepoint.Core.Tests/Git/Engine/CaptureBytesTests.cs` and `tests/Savepoint.Core.Tests/Backend/ProfilesCaptureTests.cs`: fixed sleeps with no stated clock.
+- About 30 `Task.Delay(<milliseconds>, ...)` waits in tests have no stated clock: 1100 ms waits for git's whole-second file times (for example `AmendTests`, `RemovedSnapshotRecordTests`, `BranchCopyTests`) and 150 to 750 ms absence waits (for example `StorageGateTests`, `CaptureQueuedTests`, `ReclaimInterruptedTests`). Find them with `grep -rn --include=*.cs "Task.Delay(" tests`.
 
 ### Skip a test the OS cannot run
 
