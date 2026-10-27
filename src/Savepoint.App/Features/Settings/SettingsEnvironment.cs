@@ -26,7 +26,8 @@ public sealed record SettingsEnvironment(IFileRevealer Revealer, Func<string?> F
     /// <summary>The running app: the file beside the executable and this assembly's version.</summary>
     /// <param name="revealer">Shows a file or folder in the file manager; the running system's file manager when null.</param>
     /// <param name="logFolder">The folder the diagnostic log is written to, or null when there is none.</param>
-    public static SettingsEnvironment ForThisApp(IFileRevealer? revealer = null, string? logFolder = null) => new(revealer ?? new FileManagerRevealer(FileManager.CreateForCurrentOs()), NoticesBesideTheApp, ThisAppVersion(), logFolder, LicenseBesideTheApp, AppsMenuEntry.ForThisApp());
+    /// <param name="clock">The clock the apps menu entry reads; the system clock when null.</param>
+    public static SettingsEnvironment ForThisApp(IFileRevealer? revealer = null, string? logFolder = null, TimeProvider? clock = null) => new(revealer ?? new FileManagerRevealer(FileManager.CreateForCurrentOs()), NoticesBesideTheApp, ThisAppVersion(), logFolder, LicenseBesideTheApp, AppsMenuEntry.ForThisApp(clock));
 
     private static string? LicenseBesideTheApp()
     {
