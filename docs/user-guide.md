@@ -64,7 +64,7 @@ Steam games show their cover art. SavePoint looks first in the Steam client's ca
 
 ### Change or remove a game
 
-**Edit game** changes any of these settings later. **Export** writes the game's settings to a file you can share, and **Import** loads one. **Delete game** removes the game, its profiles, and all its snapshots from SavePoint, after you type the game's name to confirm. Your game folder and saves folder are not touched.
+**Edit game** changes any of these settings later. **Export** writes the game's settings to a file you can share, and **Import** loads one. **Delete game** removes the game, its profiles, and all its snapshots from SavePoint, after you type the game's name to confirm. Your game folder, mods folder and saves folder are not touched.
 
 ## Take your first snapshot
 
