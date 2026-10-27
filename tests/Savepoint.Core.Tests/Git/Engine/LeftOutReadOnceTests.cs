@@ -23,23 +23,31 @@ public sealed class LeftOutReadOnceTests : IDisposable
 
     public void Dispose() => _ws.Dispose();
 
+    // Each world below is built once per test run and copied for every test that starts from it; the patterns are not part of a copy, so
+    // they are put on after it.
+    private async Task<RepoRef> CopiedAsync(string name, Func<EngineWorkspace, Task<RepoRef>> build, bool leftOut = true)
+    {
+        var (repo, _) = await RepoTemplates.CopyAsync<string?>("left-out-read-once-" + name, _ws, async ws => (await build(ws), null));
+        return leftOut ? repo with { IgnorePatterns = ["Cache/"] } : repo;
+    }
+
     // Both profiles record the cache, with different bytes, from before the pattern existed; the folder is on profile-a and the patterns
     // name the cache folder.
-    private async Task<RepoRef> CacheAsync()
+    private Task<RepoRef> CacheAsync() => CopiedAsync("cache", async ws =>
     {
-        var repo = await _ws.InitializedFreshAsync();
-        _ws.Write(repo, _cache, "profile a's cache");
-        _ws.Write(repo, "Data/keep.txt", "kept");
-        _ws.Write(repo, _static, "recorded the same in both");
-        await _ws.CaptureAsync(repo, "profile-a", "A");
-        await _ws.Engine.CreateBranchAsync(repo, "profile-b", "profile-a", Ct);
-        await _ws.Engine.CheckoutBranchAsync(repo, "profile-b", ct: Ct);
-        _ws.Write(repo, _cache, "profile b's cache, a different length");
-        _ws.Write(repo, "Data/extra.pak", "an addition");
-        await _ws.CaptureAsync(repo, "profile-b", "B");
-        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
-        return repo with { IgnorePatterns = ["Cache/"] };
-    }
+        var repo = await ws.InitializedFreshAsync();
+        ws.Write(repo, _cache, "profile a's cache");
+        ws.Write(repo, "Data/keep.txt", "kept");
+        ws.Write(repo, _static, "recorded the same in both");
+        await ws.CaptureAsync(repo, "profile-a", "A");
+        await ws.Engine.CreateBranchAsync(repo, "profile-b", "profile-a", Ct);
+        await ws.Engine.CheckoutBranchAsync(repo, "profile-b", ct: Ct);
+        ws.Write(repo, _cache, "profile b's cache, a different length");
+        ws.Write(repo, "Data/extra.pak", "an addition");
+        await ws.CaptureAsync(repo, "profile-b", "B");
+        await ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+        return repo;
+    });
 
     private static bool IsRefresh(GitInvocation call) => call.Arguments[0] == "update-index" && call.Arguments.Contains("--refresh");
 
@@ -278,18 +286,18 @@ public sealed class LeftOutReadOnceTests : IDisposable
     }
 
     // profile-a and profile-b record the left-out file alike; the only change between them is a file the patterns do not name.
-    private async Task<RepoRef> AlikeOnlyAsync()
+    private Task<RepoRef> AlikeOnlyAsync() => CopiedAsync("alike-only", async ws =>
     {
-        var repo = await _ws.InitializedFreshAsync();
-        _ws.Write(repo, _static, "recorded the same in both");
-        await _ws.CaptureAsync(repo, "profile-a", "A");
-        await _ws.Engine.CreateBranchAsync(repo, "profile-b", "profile-a", Ct);
-        await _ws.Engine.CheckoutBranchAsync(repo, "profile-b", ct: Ct);
-        _ws.Write(repo, "Data/extra.pak", "an addition");
-        await _ws.CaptureAsync(repo, "profile-b", "B");
-        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
-        return repo with { IgnorePatterns = ["Cache/"] };
-    }
+        var repo = await ws.InitializedFreshAsync();
+        ws.Write(repo, _static, "recorded the same in both");
+        await ws.CaptureAsync(repo, "profile-a", "A");
+        await ws.Engine.CreateBranchAsync(repo, "profile-b", "profile-a", Ct);
+        await ws.Engine.CheckoutBranchAsync(repo, "profile-b", ct: Ct);
+        ws.Write(repo, "Data/extra.pak", "an addition");
+        await ws.CaptureAsync(repo, "profile-b", "B");
+        await ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+        return repo;
+    });
 
     [Fact]
     public async Task A_forced_switch_that_changes_no_left_out_file_keeps_the_players_copy_of_an_alike_one()
@@ -423,13 +431,17 @@ public sealed class LeftOutReadOnceTests : IDisposable
     [Fact]
     public async Task A_switch_without_left_out_files_never_asks_git_for_marks()
     {
-        var repo = await _ws.InitializedFreshAsync();
-        _ws.Write(repo, "a.txt", "a");
-        await _ws.CaptureAsync(repo, "profile-a", "A");
-        await _ws.Engine.CreateBranchAsync(repo, "profile-b", "profile-a", Ct);
-        await _ws.Engine.CheckoutBranchAsync(repo, "profile-b", ct: Ct);
-        _ws.Write(repo, "b.txt", "b");
-        await _ws.CaptureAsync(repo, "profile-b", "B");
+        var repo = await CopiedAsync("no-left-out-files", async ws =>
+        {
+            var made = await ws.InitializedFreshAsync();
+            ws.Write(made, "a.txt", "a");
+            await ws.CaptureAsync(made, "profile-a", "A");
+            await ws.Engine.CreateBranchAsync(made, "profile-b", "profile-a", Ct);
+            await ws.Engine.CheckoutBranchAsync(made, "profile-b", ct: Ct);
+            ws.Write(made, "b.txt", "b");
+            await ws.CaptureAsync(made, "profile-b", "B");
+            return made;
+        }, leftOut: false);
         var before = _ws.Invocations.Count;
 
         await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
@@ -526,15 +538,18 @@ public sealed class LeftOutReadOnceTests : IDisposable
     public async Task A_left_out_file_with_spaces_and_accents_in_its_name_is_aligned(bool force)
     {
         const string name = "Cache/mod pack/café [draft] 1.bin";
-        var repo = await _ws.InitializedFreshAsync();
-        _ws.Write(repo, name, "profile a's bytes");
-        await _ws.CaptureAsync(repo, "profile-a", "A");
-        await _ws.Engine.CreateBranchAsync(repo, "profile-b", "profile-a", Ct);
-        await _ws.Engine.CheckoutBranchAsync(repo, "profile-b", ct: Ct);
-        _ws.Write(repo, name, "profile b's bytes, longer");
-        await _ws.CaptureAsync(repo, "profile-b", "B");
-        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
-        repo = repo with { IgnorePatterns = ["Cache/"] };
+        var repo = await CopiedAsync("accents", async ws =>
+        {
+            var made = await ws.InitializedFreshAsync();
+            ws.Write(made, name, "profile a's bytes");
+            await ws.CaptureAsync(made, "profile-a", "A");
+            await ws.Engine.CreateBranchAsync(made, "profile-b", "profile-a", Ct);
+            await ws.Engine.CheckoutBranchAsync(made, "profile-b", ct: Ct);
+            ws.Write(made, name, "profile b's bytes, longer");
+            await ws.CaptureAsync(made, "profile-b", "B");
+            await ws.Engine.CheckoutBranchAsync(made, "profile-a", ct: Ct);
+            return made;
+        });
 
         await SwitchAsync(repo, "profile-b", force);
 
@@ -548,17 +563,20 @@ public sealed class LeftOutReadOnceTests : IDisposable
     [InlineData(true)]
     public async Task A_left_out_file_the_target_lacks_leaves_the_index_and_stays_on_disk(bool force)
     {
-        var repo = await _ws.InitializedFreshAsync();
-        _ws.Write(repo, "Cache/only-a.bin", "only in a");
-        _ws.Write(repo, "Cache/both.bin", "in both, as a has it");
-        await _ws.CaptureAsync(repo, "profile-a", "A");
-        await _ws.Engine.CreateBranchAsync(repo, "profile-b", "profile-a", Ct);
-        await _ws.Engine.CheckoutBranchAsync(repo, "profile-b", ct: Ct);
-        _ws.Delete(repo, "Cache/only-a.bin");
-        _ws.Write(repo, "Cache/both.bin", "in both, as b has it");
-        await _ws.CaptureAsync(repo, "profile-b", "B");
-        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
-        repo = repo with { IgnorePatterns = ["Cache/"] };
+        var repo = await CopiedAsync("target-lacks", async ws =>
+        {
+            var made = await ws.InitializedFreshAsync();
+            ws.Write(made, "Cache/only-a.bin", "only in a");
+            ws.Write(made, "Cache/both.bin", "in both, as a has it");
+            await ws.CaptureAsync(made, "profile-a", "A");
+            await ws.Engine.CreateBranchAsync(made, "profile-b", "profile-a", Ct);
+            await ws.Engine.CheckoutBranchAsync(made, "profile-b", ct: Ct);
+            ws.Delete(made, "Cache/only-a.bin");
+            ws.Write(made, "Cache/both.bin", "in both, as b has it");
+            await ws.CaptureAsync(made, "profile-b", "B");
+            await ws.Engine.CheckoutBranchAsync(made, "profile-a", ct: Ct);
+            return made;
+        });
 
         await SwitchAsync(repo, "profile-b", force);
 
@@ -574,20 +592,23 @@ public sealed class LeftOutReadOnceTests : IDisposable
     [InlineData(true)]
     public async Task A_left_out_file_renamed_only_in_case_ends_with_one_entry_that_has_the_targets_id(bool force)
     {
-        var repo = await _ws.InitializedFreshAsync();
-        _ws.Write(repo, "Cache/Big.bin", "profile a's cache");
-        await _ws.CaptureAsync(repo, "profile-a", "A");
-        await _ws.Engine.CreateBranchAsync(repo, "profile-b", "profile-a", Ct);
-        await _ws.Engine.CheckoutBranchAsync(repo, "profile-b", ct: Ct);
-        _ws.Delete(repo, "Cache/Big.bin");
-        _ws.Write(repo, "Cache/big.bin", "profile b's cache, a different length");
+        var repo = await CopiedAsync("case-rename", async ws =>
+        {
+            var made = await ws.InitializedFreshAsync();
+            ws.Write(made, "Cache/Big.bin", "profile a's cache");
+            await ws.CaptureAsync(made, "profile-a", "A");
+            await ws.Engine.CreateBranchAsync(made, "profile-b", "profile-a", Ct);
+            await ws.Engine.CheckoutBranchAsync(made, "profile-b", ct: Ct);
+            ws.Delete(made, "Cache/Big.bin");
+            ws.Write(made, "Cache/big.bin", "profile b's cache, a different length");
 
-        // A drive that ignores case keeps the old spelling in the index, so the rename is made there on purpose.
-        await _ws.GitWriteAsync(repo, "rm", "--cached", "-q", "--", "Cache/Big.bin");
-        await _ws.CaptureAsync(repo, "profile-b", "B");
-        Assert.Equal("Cache/big.bin", (await _ws.GitAsync(repo, "ls-tree", "-r", "--name-only", "profile-b")).StandardOutput.Trim());
-        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
-        repo = repo with { IgnorePatterns = ["Cache/"] };
+            // A drive that ignores case keeps the old spelling in the index, so the rename is made there on purpose.
+            await ws.GitWriteAsync(made, "rm", "--cached", "-q", "--", "Cache/Big.bin");
+            await ws.CaptureAsync(made, "profile-b", "B");
+            Assert.Equal("Cache/big.bin", (await ws.GitAsync(made, "ls-tree", "-r", "--name-only", "profile-b")).StandardOutput.Trim());
+            await ws.Engine.CheckoutBranchAsync(made, "profile-a", ct: Ct);
+            return made;
+        });
 
         await SwitchAsync(repo, "profile-b", force);
 
@@ -599,22 +620,22 @@ public sealed class LeftOutReadOnceTests : IDisposable
 
     // profile-a holds three left-out files: one the same size as profile-b's (it might already hold b's bytes), one of another size, and
     // one profile-b lacks. The folder is on profile-a.
-    private async Task<RepoRef> MixedAsync()
+    private Task<RepoRef> MixedAsync() => CopiedAsync("mixed", async ws =>
     {
-        var repo = await _ws.InitializedFreshAsync();
-        _ws.Write(repo, "Cache/same-size.bin", "one");
-        _ws.Write(repo, "Cache/other-size.bin", "short");
-        _ws.Write(repo, "Cache/only-a.bin", "only in a");
-        await _ws.CaptureAsync(repo, "profile-a", "A");
-        await _ws.Engine.CreateBranchAsync(repo, "profile-b", "profile-a", Ct);
-        await _ws.Engine.CheckoutBranchAsync(repo, "profile-b", ct: Ct);
-        _ws.Write(repo, "Cache/same-size.bin", "two");
-        _ws.Write(repo, "Cache/other-size.bin", "a much longer text");
-        _ws.Delete(repo, "Cache/only-a.bin");
-        await _ws.CaptureAsync(repo, "profile-b", "B");
-        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
-        return repo with { IgnorePatterns = ["Cache/"] };
-    }
+        var repo = await ws.InitializedFreshAsync();
+        ws.Write(repo, "Cache/same-size.bin", "one");
+        ws.Write(repo, "Cache/other-size.bin", "short");
+        ws.Write(repo, "Cache/only-a.bin", "only in a");
+        await ws.CaptureAsync(repo, "profile-a", "A");
+        await ws.Engine.CreateBranchAsync(repo, "profile-b", "profile-a", Ct);
+        await ws.Engine.CheckoutBranchAsync(repo, "profile-b", ct: Ct);
+        ws.Write(repo, "Cache/same-size.bin", "two");
+        ws.Write(repo, "Cache/other-size.bin", "a much longer text");
+        ws.Delete(repo, "Cache/only-a.bin");
+        await ws.CaptureAsync(repo, "profile-b", "B");
+        await ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+        return repo;
+    });
 
     private async Task<string> FullIndexAsync(RepoRef repo) =>
         string.Join('\n', (await _ws.GitAsync(repo, "ls-files", "-s", "-t", "-z")).SplitStandardOutputOnNul());
