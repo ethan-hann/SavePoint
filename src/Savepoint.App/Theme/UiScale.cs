@@ -15,7 +15,7 @@ public static class UiScale
     public static Size BaseMinimum { get; } = new(640, 420);
 
     // The title bar and frame are not part of the client size the window's minimum applies to.
-    private const double FrameAllowance = 40;
+    private const double _frameAllowance = 40;
 
     /// <summary>The room a window's client area can have on a screen, in the window's own units.</summary>
     /// <param name="workArea">The screen's working area in device pixels: the screen less the taskbar or dock.</param>
@@ -23,7 +23,7 @@ public static class UiScale
     public static Size RoomOf(PixelRect workArea, double screenScaling)
     {
         var scaling = screenScaling > 0 ? screenScaling : 1;
-        return new Size(Math.Max(0, (workArea.Width / scaling) - FrameAllowance), Math.Max(0, (workArea.Height / scaling) - FrameAllowance));
+        return new Size(Math.Max(0, (workArea.Width / scaling) - _frameAllowance), Math.Max(0, (workArea.Height / scaling) - _frameAllowance));
     }
 
     /// <summary>Whether the screens keep the size they were built for at a step: <see cref="BaseMinimum"/> times the step fits the room.</summary>
