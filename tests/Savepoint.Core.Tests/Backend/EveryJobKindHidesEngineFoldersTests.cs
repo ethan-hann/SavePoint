@@ -1,4 +1,5 @@
 using Savepoint.Core.Api;
+using Savepoint.Core.Catalog;
 using Savepoint.Core.Tests.Launch.Orchestration;
 
 namespace Savepoint.Core.Tests.Backend;
@@ -12,6 +13,22 @@ public class EveryJobKindHidesEngineFoldersTests
         // A threshold of zero makes every snapshot queue the routine packing of the game's files.
         var (rig, vanilla, modded) = await LaunchRig.WithTwoProfilesAsync(options => options with { LooseObjectThreshold = 0 }, gameArguments: ["--exit-after", "800"]);
         using var _ = rig;
+
+        await AssertNoJobShowsAGitFolderAsync(rig, vanilla, modded);
+    }
+
+    [Fact(Timeout = 240_000)]
+    public async Task No_kind_of_job_shows_a_git_folder_for_a_game_with_a_mods_folder_either()
+    {
+        var (rig, vanilla, modded) = await ThreeFolderRig.WithTwoProfilesAndModsAsync(options => options with { LooseObjectThreshold = 0 }, gameArguments: ["--exit-after", "800"]);
+        using var _ = rig;
+        rig.WriteMods("modC/info.xml", "mod c");
+
+        await AssertNoJobShowsAGitFolderAsync(rig, vanilla, modded);
+    }
+
+    private static async Task AssertNoJobShowsAGitFolderAsync(LaunchRig rig, Profile vanilla, Profile modded)
+    {
         var workspace = rig.Workspace;
         var seen = new Dictionary<JobKind, List<JobSnapshot>>();
 
