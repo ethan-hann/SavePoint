@@ -98,6 +98,47 @@ public sealed class GameEditorModFilePickTests : IDisposable
     }
 
     [Fact]
+    public async Task A_pick_in_a_folder_whose_name_only_begins_with_the_game_folders_name_is_outside_it()
+    {
+        // The game folder's text is a prefix of this path, but the folder is a different one.
+        var sibling = _install + "Bar";
+        _rig.Dialogs.AnswerFiles(Inside("version.dll"), Path.Combine(sibling, "x.dll"));
+
+        await _editor.ChooseModFilesCommand.ExecuteAsync(null);
+
+        Assert.Equal(["version.dll"], _editor.ModFolders.Values);
+        Assert.Equal("1 item was left out because it isn't inside the game folder.", _editor.ModFilesPickNote);
+    }
+
+    [Fact]
+    public async Task A_pick_on_another_drive_is_outside_the_game_folder()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows has drive letters");
+        var installDrive = char.ToUpperInvariant(_install[0]);
+        var otherDrive = installDrive == 'Z' ? 'Y' : 'Z';
+        _rig.Dialogs.AnswerFiles(Inside("version.dll"), $@"{otherDrive}:\Data\x.dll");
+
+        await _editor.ChooseModFilesCommand.ExecuteAsync(null);
+
+        Assert.Equal(["version.dll"], _editor.ModFolders.Values);
+        Assert.Equal("1 item was left out because it isn't inside the game folder.", _editor.ModFilesPickNote);
+    }
+
+    [Fact]
+    public async Task A_pick_whose_game_folder_part_differs_only_in_case_is_inside_it_on_Windows_and_the_entry_keeps_the_picked_casing()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows treats paths that differ in case as the same folder");
+        var shouted = _install.ToUpperInvariant();
+        Assert.NotEqual(_install, shouted);
+        _rig.Dialogs.AnswerFiles(Path.Combine(shouted, "Data", "Version.dll"));
+
+        await _editor.ChooseModFilesCommand.ExecuteAsync(null);
+
+        Assert.Equal(["Data/Version.dll"], _editor.ModFolders.Values);
+        Assert.Equal(string.Empty, _editor.ModFilesPickNote);
+    }
+
+    [Fact]
     public async Task A_cancelled_pick_adds_nothing_and_clears_the_line_from_the_pick_before()
     {
         _editor.ModFolders.SetValues(["Data"]);
