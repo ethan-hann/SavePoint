@@ -179,7 +179,7 @@ public class ProfileStartEmptyTests
     [Fact(Timeout = 240_000)]
     public async Task Switching_to_a_profile_with_no_saves_empties_the_saves_folder_through_the_launch()
     {
-        var (rig, _) = await WithVanillaAsync();
+        var (rig, vanilla) = await WithVanillaAsync();
         using var _ = rig;
         var (made, _) = await CreateAsync(rig, "Fresh saves", RepoRole.External);
 
@@ -188,6 +188,7 @@ public class ProfileStartEmptyTests
         Assert.False(saves.MatchesTarget);
         Assert.Equal(1, saves.Switch!.FilesChanged);
         Assert.Equal(1, saves.Switch.FilesRemoved);
+        Assert.True(saves.Switch.LeavesFolderEmpty);
         Assert.NotEmpty(preview.AvailableSaves);
         Assert.True(rig.SavesHave("slot1.sav"));
 
@@ -196,6 +197,9 @@ public class ProfileStartEmptyTests
         Assert.Equal(JobStatus.Succeeded, job.Status);
         Assert.Empty(WithoutMarker(rig.SnapshotOf(RepoRole.External)));
         Assert.NotEmpty(WithoutMarker(rig.ModsSnapshot()));
+
+        var back = await rig.PreviewAsync(new LaunchTarget.ProfileTip(vanilla.Id));
+        Assert.False(Assert.IsType<FolderLaunchState>(back.External).Switch!.LeavesFolderEmpty);
     }
 
     [Fact(Timeout = 240_000)]

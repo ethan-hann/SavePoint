@@ -158,6 +158,21 @@ public class AppearanceUiScaleTests
     }
 
     [Fact]
+    public async Task The_group_help_names_every_size_that_is_off_and_why_so_a_screen_reader_hears_them_without_reaching_them()
+    {
+        var rig = await SettingsRig.ShownAsync();
+        Assert.Equal(string.Empty, rig.Screen.Appearance.UnavailableScalesHelp);
+
+        rig.Theme.ChangeLargestFittingScale(150);
+
+        Assert.Equal("Not available on this screen: 175%, 200%. Your screen is too small for this size.", rig.Screen.Appearance.UnavailableScalesHelp);
+
+        rig.Theme.ChangeLargestFittingScale(200);
+
+        Assert.Equal(string.Empty, rig.Screen.Appearance.UnavailableScalesHelp);
+    }
+
+    [Fact]
     public async Task A_saved_size_the_screen_cannot_hold_shows_the_largest_that_fits_and_the_saved_choice_stays()
     {
         var rig = await ShownOnScreenHoldingAsync(125, BackendWithScale(200));

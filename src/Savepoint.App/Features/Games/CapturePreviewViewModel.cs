@@ -73,6 +73,11 @@ public sealed partial class CapturePreviewViewModel : ObservableObject
     /// <param name="role">The saves or mods folder.</param>
     internal bool IsHeld(RepoRole role) => _preview?.Folders.Any(folder => folder.Role == role && folder.HeldInSnapshot) == true;
 
+    /// <summary>Why the folder cannot start empty; a preview that says nothing reads as new changes, since a snapshot is the usual way out.</summary>
+    /// <param name="role">The saves or mods folder.</param>
+    internal StartEmptyBlock BlockOf(RepoRole role) =>
+        _preview?.Folders.FirstOrDefault(folder => folder.Role == role)?.StartEmptyBlocked is { } block and not StartEmptyBlock.None ? block : StartEmptyBlock.NewChanges;
+
     internal void Fail()
     {
         _preview = null;

@@ -328,7 +328,7 @@ public class GameEditorViewTests
         }
 
         Assert.Equal("How to start the game", AutomationProperties.GetName(harness.Find<ListBox>("LaunchChoiceList")));
-        Assert.Equal("Files to leave out of both folders", AutomationProperties.GetName(harness.Find<ContentControl>("IgnoreRulesHost").GetVisualDescendants().OfType<ItemsControl>().First()));
+        Assert.Equal("Files to leave out of every folder", AutomationProperties.GetName(harness.Find<ContentControl>("IgnoreRulesHost").GetVisualDescendants().OfType<ItemsControl>().First()));
         Assert.Equal("Files to leave out of the game's own folder", AutomationProperties.GetName(harness.Find<ContentControl>("InstallIgnoreRulesHost").GetVisualDescendants().OfType<ItemsControl>().First()));
         Assert.True(harness.All<Button>().Where(button => button.Classes.Contains("icon")).Any());
     }
@@ -341,7 +341,7 @@ public class GameEditorViewTests
 
         var texts = harness.All<TextBlock>().Where(block => block.IsEffectivelyVisible).Select(block => block.Text).ToList();
 
-        Assert.Contains("FILES TO LEAVE OUT OF BOTH FOLDERS", texts);
+        Assert.Contains("FILES TO LEAVE OUT OF EVERY FOLDER", texts);
         Assert.Contains("FILES TO LEAVE OUT OF THE GAME'S OWN FOLDER", texts);
         Assert.Contains("Don't add a rule that matches your saves, or profiles stop switching them.", texts);
     }
@@ -359,9 +359,9 @@ public class GameEditorViewTests
 
         Assert.Equal(
             [
-                "Remove **/*.log from Files to leave out of both folders",
-                "Remove SKSE/Plugins/*.log from Files to leave out of both folders",
-                "Remove **/Crash Logs/** from Files to leave out of both folders",
+                "Remove **/*.log from Files to leave out of every folder",
+                "Remove SKSE/Plugins/*.log from Files to leave out of every folder",
+                "Remove **/Crash Logs/** from Files to leave out of every folder",
             ],
             names);
     }
@@ -375,7 +375,7 @@ public class GameEditorViewTests
         foreach (var (host, name, help) in new[]
         {
             ("InstallIgnoreRulesHost", "Add a rule for the game's own folder", "never apply to your saves folder"),
-            ("IgnoreRulesHost", "Add a rule for both folders", "Don't add a rule that matches your saves"),
+            ("IgnoreRulesHost", "Add a rule for every folder", "Don't add a rule that matches your saves"),
         })
         {
             var addChip = InHost<Button>(harness, host, "AddChip");

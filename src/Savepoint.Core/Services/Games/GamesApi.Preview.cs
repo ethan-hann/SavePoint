@@ -46,8 +46,10 @@ internal sealed partial class GamesApi
         };
 
         // Only a folder a new profile could start empty is asked, and only when some profile exists to hold its files.
-        var held = repo.Role != RepoRole.Install && profileBranches.Count > 0
-            && await StartEmptyRule.IsSafeAsync(storage.Engine, repo, profileBranches, cancellationToken).ConfigureAwait(false);
-        return (new FolderCapturePreview(repo.Role, repo.WorkTree, candidates.Count, mods, candidates.Sum(candidate => candidate.Bytes), held), newBytes);
+        var blocked = repo.Role == RepoRole.Install ? StartEmptyBlock.None
+            : profileBranches.Count == 0 ? StartEmptyBlock.FirstProfile
+            : await StartEmptyRule.WhyNotAsync(storage.Engine, repo, profileBranches, cancellationToken).ConfigureAwait(false);
+        var held = repo.Role != RepoRole.Install && blocked == StartEmptyBlock.None;
+        return (new FolderCapturePreview(repo.Role, repo.WorkTree, candidates.Count, mods, candidates.Sum(candidate => candidate.Bytes), held, blocked), newBytes);
     }
 }

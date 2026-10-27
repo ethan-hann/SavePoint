@@ -1,6 +1,7 @@
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
+using Savepoint.Core.Git;
 using Savepoint.Core.Tests.Backend;
 
 namespace Savepoint.Core.Tests.Launch.Orchestration;
@@ -88,6 +89,37 @@ public class ProfileStartEmptySafetyTests
         Assert.True(clean.Folders.Single(folder => folder.Role == RepoRole.External).HeldInSnapshot);
         Assert.False(clean.Folders.Single(folder => folder.Role == RepoRole.Install).HeldInSnapshot);
         Assert.False(changed.Folders.Single(folder => folder.Role == RepoRole.External).HeldInSnapshot);
+    }
+
+    [Fact(Timeout = 240_000)]
+    public async Task The_preview_names_why_a_folder_cannot_start_empty()
+    {
+        using var rig = await LaunchRig.CreateAsync();
+
+        var first = (await rig.Workspace.Games.GetCapturePreviewAsync(rig.Game.Id, Ct)).Value!;
+        await rig.ProfileAsync("Vanilla");
+        var clean = (await rig.Workspace.Games.GetCapturePreviewAsync(rig.Game.Id, Ct)).Value!;
+        rig.WriteSave("slot9.sav", "new");
+        var changed = (await rig.Workspace.Games.GetCapturePreviewAsync(rig.Game.Id, Ct)).Value!;
+
+        Assert.Equal(StartEmptyBlock.FirstProfile, first.Folders.Single(folder => folder.Role == RepoRole.External).StartEmptyBlocked);
+        Assert.Equal(StartEmptyBlock.None, clean.Folders.Single(folder => folder.Role == RepoRole.External).StartEmptyBlocked);
+        Assert.Equal(StartEmptyBlock.NewChanges, changed.Folders.Single(folder => folder.Role == RepoRole.External).StartEmptyBlocked);
+    }
+
+    [Fact(Timeout = 240_000)]
+    public async Task The_preview_blames_a_stopped_switch_when_the_note_of_one_cannot_be_read()
+    {
+        using var rig = await LaunchRig.CreateAsync();
+        await rig.ProfileAsync("Vanilla");
+        var gitDir = await rig.WithEngineAsync((_, repo) => Task.FromResult(repo.GitDir), RepoRole.External);
+        File.WriteAllText(SwitchJournal.PathIn(gitDir), "{ this is not a note");
+
+        var preview = (await rig.Workspace.Games.GetCapturePreviewAsync(rig.Game.Id, Ct)).Value!;
+
+        var saves = preview.Folders.Single(folder => folder.Role == RepoRole.External);
+        Assert.False(saves.HeldInSnapshot);
+        Assert.Equal(StartEmptyBlock.StoppedSwitch, saves.StartEmptyBlocked);
     }
 
     [Fact(Timeout = 240_000)]

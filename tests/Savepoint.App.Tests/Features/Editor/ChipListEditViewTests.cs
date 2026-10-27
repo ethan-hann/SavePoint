@@ -14,7 +14,7 @@ namespace Savepoint.App.Tests.Features.Editor;
 // Editing a chip in place, driven through the real editor pane.
 public class ChipListEditViewTests
 {
-    private const string _rulesList = "Files to leave out of both folders";
+    private const string _rulesList = "Files to leave out of every folder";
 
     private static readonly string[] _sampleRules = ["**/*.log", "SKSE/Plugins/*.log", "**/Crash Logs/**"];
 

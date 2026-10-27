@@ -227,6 +227,37 @@ public class LaunchFlowBeginTests : IDisposable
     }
 
     [Fact]
+    public async Task A_switch_that_leaves_the_saves_folder_empty_asks_even_when_the_preference_is_on()
+    {
+        using var rig = new FlowRig(await WithPreviewAsync(
+            preview => preview with { External = preview.External! with { Switch = new SwitchSummary(3, 0, 0, null, 400_000, 3, LeavesFolderEmpty: true) } },
+            LaunchRig.ClearedBlackreachPoint));
+        FakeAssert.Ok(await rig.Backend.Settings.SaveAsync(SampleScenario.Settings with { SkipConfirmWhenOnlySaveChanges = true }));
+
+        var begin = rig.Play(LaunchRig.ClearedBlackreachPoint);
+
+        var dialog = Assert.Single(rig.Dialogs.Shown.OfType<LaunchDialogViewModel>());
+        Assert.Equal("3 files will be removed from your saves folder.", dialog.SavesRemovedText);
+        Assert.Empty(rig.Starts());
+        rig.LaunchDialog.CancelCommand.Execute(null);
+        await begin;
+    }
+
+    [Fact]
+    public async Task A_switch_that_removes_some_saves_but_leaves_others_still_skips_the_dialog_when_the_preference_is_on()
+    {
+        using var rig = new FlowRig(await WithPreviewAsync(
+            preview => preview with { External = preview.External! with { Switch = new SwitchSummary(3, 0, 0, null, 400_000, 1) } },
+            LaunchRig.ClearedBlackreachPoint));
+        FakeAssert.Ok(await rig.Backend.Settings.SaveAsync(SampleScenario.Settings with { SkipConfirmWhenOnlySaveChanges = true }));
+
+        await rig.Play(LaunchRig.ClearedBlackreachPoint);
+
+        Assert.Empty(rig.Dialogs.Shown.OfType<LaunchDialogViewModel>());
+        Assert.Single(rig.Starts());
+    }
+
+    [Fact]
     public async Task Unsaved_changes_always_bring_the_dialog_back_even_when_the_preference_is_on()
     {
         using var rig = new FlowRig(await WithPreviewAsync(

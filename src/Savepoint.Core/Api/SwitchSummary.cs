@@ -7,4 +7,5 @@ namespace Savepoint.Core.Api;
 /// <param name="EstimatedDuration">How long the switch is expected to take, or null when the service has no basis for a guess yet.</param>
 /// <param name="BytesRemoved">Bytes the files that would be removed have at the point the folder is on; 0 when none are removed.</param>
 /// <param name="FilesRemoved">How many of <paramref name="FilesChanged"/> are files the target does not have, so the switch removes them; 0 when none are.</param>
-public sealed record SwitchSummary(int FilesChanged, int ModFilesChanged, long BytesChanged, TimeSpan? EstimatedDuration, long BytesRemoved = 0, int FilesRemoved = 0);
+/// <param name="LeavesFolderEmpty">True when the switch removes files and the target holds none of the folder's files, so the folder is left empty. The launch always asks first then, whatever "don't ask again" says.</param>
+public sealed record SwitchSummary(int FilesChanged, int ModFilesChanged, long BytesChanged, TimeSpan? EstimatedDuration, long BytesRemoved = 0, int FilesRemoved = 0, bool LeavesFolderEmpty = false);

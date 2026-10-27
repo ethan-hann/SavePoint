@@ -13,4 +13,8 @@ namespace Savepoint.Core.Api;
 /// new changes. Only then may a new profile start the folder empty (<see cref="IProfilesApi.CreateAsync"/>), since a switch to it would
 /// otherwise remove files no snapshot has. False when that cannot be told, and always false for the install folder, which never starts empty.
 /// </param>
-public sealed record FolderCapturePreview(RepoRole Role, string Path, int FileCount, int ModFileCount, long Bytes, bool HeldInSnapshot = false);
+/// <param name="StartEmptyBlocked">
+/// Why <paramref name="HeldInSnapshot"/> is false, so the wizard can tell the player the one step that helps. <see cref="StartEmptyBlock.None"/> when
+/// the folder is held, for the install folder, and for a preview that does not say.
+/// </param>
+public sealed record FolderCapturePreview(RepoRole Role, string Path, int FileCount, int ModFileCount, long Bytes, bool HeldInSnapshot = false, StartEmptyBlock StartEmptyBlocked = StartEmptyBlock.None);

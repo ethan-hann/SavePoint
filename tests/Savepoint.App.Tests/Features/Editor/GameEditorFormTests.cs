@@ -37,7 +37,7 @@ public class GameEditorFormTests
         var editor = EditorRig.Create().New();
 
         Assert.Equal("Files to leave out of the game's own folder", editor.InstallIgnoreRules.GroupName);
-        Assert.Equal("Files to leave out of both folders", editor.IgnoreRules.GroupName);
+        Assert.Equal("Files to leave out of every folder", editor.IgnoreRules.GroupName);
     }
 
     [Fact]
@@ -46,7 +46,7 @@ public class GameEditorFormTests
         var editor = EditorRig.Create().New();
 
         Assert.Equal("Add a rule for the game's own folder", editor.InstallIgnoreRules.AddAutomationName);
-        Assert.Equal("Add a rule for both folders", editor.IgnoreRules.AddAutomationName);
+        Assert.Equal("Add a rule for every folder", editor.IgnoreRules.AddAutomationName);
         Assert.Equal("SavePoint never copies or replaces matching files, such as logs and crash reports. These rules never apply to your saves folder. Use * for any name and ** for any folder.", editor.InstallIgnoreRules.HelpText);
         Assert.Equal("SavePoint never copies or replaces files that match. Use * for any name and ** for any folder. Don't add a rule that matches your saves, or profiles stop switching them.", editor.IgnoreRules.HelpText);
         Assert.Equal("Remove **/*.log from Files to leave out of the game's own folder", editor.InstallIgnoreRules.Items[0].RemoveLabel);

@@ -119,7 +119,7 @@ public class HowItWorksViewModelTests
         Assert.Equal("Files to leave out", files.Title);
         Assert.Equal(
             [
-                "Files to leave out of both folders: rules that cover the game's own folder and your saves folder.",
+                "Files to leave out of every folder: rules that cover the game's own folder, your saves folder and your mods folder.",
                 "Files to leave out of the game's own folder: rules that never cover your saves folder. New games start with rules for logs and crash reports, which a game rewrites while it runs and SavePoint would take for a game update.",
             ],
             files.Items);

@@ -97,18 +97,50 @@ public sealed class SnapshotWithLinksTests : IDisposable
     }
 
     [Fact]
-    public async Task A_discard_that_would_restore_a_link_as_a_text_file_is_refused_and_writes_nothing()
+    public async Task A_discard_restores_the_other_files_and_does_not_write_a_text_file_where_the_point_holds_a_link()
     {
         Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows writes a link back as a text file");
         var repo = await OnTheLinkProfileAsync();
         _ws.Delete(repo, "Mods/linked.esp");
         _ws.Write(repo, "Mods/a.esp", "edited");
+        _ws.Write(repo, "game.cfg", "edited cfg");
+        _ws.Write(repo, "new.txt", "new");
 
-        var error = await Assert.ThrowsAsync<SnapshotHasLinksException>(() => _ws.Engine.DiscardChangesAsync(repo, Ct));
+        await _ws.Engine.DiscardChangesAsync(repo, Ct);
 
-        Assert.Equal(_ws.FileOf(repo, "Mods/linked.esp"), error.Args["path"]);
+        Assert.Equal("plugin a", File.ReadAllText(_ws.FileOf(repo, "Mods/a.esp")));
+        Assert.Equal("cfg", File.ReadAllText(_ws.FileOf(repo, "game.cfg")));
+        Assert.False(File.Exists(_ws.FileOf(repo, "new.txt")));
         Assert.False(File.Exists(_ws.FileOf(repo, "Mods/linked.esp")));
-        Assert.Equal("edited", File.ReadAllText(_ws.FileOf(repo, "Mods/a.esp")));
+    }
+
+    [Fact]
+    public async Task A_discard_leaves_a_changed_file_standing_where_the_point_holds_a_link()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows writes a link back as a text file");
+        var repo = await OnTheLinkProfileAsync();
+        _ws.Write(repo, "Mods/linked.esp", "the player's own bytes");
+        _ws.Write(repo, "Mods/a.esp", "edited");
+
+        await _ws.Engine.DiscardChangesAsync(repo, Ct);
+
+        Assert.Equal("the player's own bytes", File.ReadAllText(_ws.FileOf(repo, "Mods/linked.esp")));
+        Assert.Equal("plugin a", File.ReadAllText(_ws.FileOf(repo, "Mods/a.esp")));
+    }
+
+    [Fact]
+    public async Task A_discard_of_a_stopped_switch_with_an_unreadable_note_gets_past_a_link_and_clears_the_note()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows writes a link back as a text file");
+        var repo = await OnTheLinkProfileAsync();
+        _ws.Delete(repo, "Mods/linked.esp");
+        _ws.Write(repo, "Mods/a.esp", "edited");
+        File.WriteAllText(SwitchJournal.PathIn(repo.GitDir), "{ this is not a note");
+
+        await _ws.Engine.DiscardChangesAsync(repo, Ct);
+
+        Assert.Equal("plugin a", File.ReadAllText(_ws.FileOf(repo, "Mods/a.esp")));
+        Assert.False(File.Exists(SwitchJournal.PathIn(repo.GitDir)));
     }
 
     [Fact]

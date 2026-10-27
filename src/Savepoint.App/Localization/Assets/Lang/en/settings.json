@@ -65,6 +65,7 @@
   "settings.scale.p150": "150%",
   "settings.scale.p175": "175%",
   "settings.scale.p200": "200%",
+  "settings.scale.unavailableHelp": "Not available on this screen: {sizes}. {reason}",
   "settings.scale.unavailableName": "{size}. {reason}",
   "settings.session.ask": "Ask whether to keep the session",
   "settings.session.askHint": "When off, nothing is kept after you play. SavePoint asks about new changes before the next switch.",

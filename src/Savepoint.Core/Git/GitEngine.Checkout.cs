@@ -120,13 +120,12 @@ public sealed partial class GitEngine
     /// <exception cref="Savepoint.Core.Errors.FolderChangedException">The folder was replaced, moved or re-linked after it was approved; the step that would have changed files was not run (steps that finished before it are not undone). A marker that goes missing or changes in that time raises <see cref="Savepoint.Core.Errors.ConsentMarkerException"/> instead, and one that cannot be read, <see cref="Savepoint.Core.Errors.GitOperationException"/>.</exception>
     /// <exception cref="Savepoint.Core.Errors.ProfileHasNoPointsException">The folder has no saved point to return to; without one a discard would delete the whole folder, so nothing is touched.</exception>
     /// <exception cref="Savepoint.Core.Errors.LinkedFolderException">On Windows, a folder link lies in the way; nothing was changed.</exception>
-    /// <exception cref="Savepoint.Core.Errors.SnapshotHasLinksException">On Windows, the point holds a file the discard would write as a symbolic link, which git would write as a text file; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.FileFolderClashException">Restoring a file would delete a folder holding files of the player's that the discard does not remove, or restoring a folder would delete a file of the player's that the patterns name; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.NamesDifferOnlyInCaseException">The folder is on a drive that ignores case and the point holds two names that differ only in case; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.DiskSpaceException">The disk filled while files were restored.</exception>
     /// <exception cref="Savepoint.Core.Errors.SwitchNoteStuckException">The folder was put back but the note of an unfinished switch could not be removed (another program holds it open); discarding again removes it.</exception>
     /// <exception cref="Savepoint.Core.Errors.GitOperationException">A file stayed in use through every attempt, or git failed.</exception>
-    /// <remarks>A point taken since empty folders were recorded holds its own, and a discard makes them again (git does not track them). A discard removes the empty folders the point does not hold along with the new files, and every empty folder of a point taken before that.</remarks>
+    /// <remarks>A point taken since empty folders were recorded holds its own, and a discard makes them again (git does not track them). A discard removes the empty folders the point does not hold along with the new files, and every empty folder of a point taken before that. On Windows, git cannot write a symbolic link, so a discard restores every entry of the point except the ones stored as links, and leaves whatever stands at a link's path as it is; a discard is never refused because of a link.</remarks>
     public async Task DiscardChangesAsync(RepoRef repo, CancellationToken ct = default)
     {
         repo = Normalize(repo);
@@ -144,11 +143,12 @@ public sealed partial class GitEngine
         await ClearSkipWorktreeAsync(repo, ct).ConfigureAwait(false);
 
         var point = await RequireSavedPointAsync(repo, ct).ConfigureAwait(false);
-        await RefuseLinkedFoldersInChangesAsync(repo, point, ct).ConfigureAwait(false);
+        await RefuseLinkedFoldersInChangesAsync(repo, discard: true, ct).ConfigureAwait(false);
         await RefuseCaseClashAsync(repo, point, ct).ConfigureAwait(false);
         await RefuseDiscardClashAsync(repo, ct).ConfigureAwait(false);
 
-        var named = await ResetToPointAsync(repo, ct).ConfigureAwait(false);
+        var links = await LinkPathsToLeaveAsync(repo, point, ct).ConfigureAwait(false);
+        var named = await ResetToPointAsync(repo, links, ct).ConfigureAwait(false);
         await RefreshIndexAsync(repo, ct).ConfigureAwait(false);
         await VerifyAsync(repo, point, [], null, named, ct).ConfigureAwait(false);
         await RemoveNewFilesAsync(repo, ct).ConfigureAwait(false);
@@ -161,12 +161,12 @@ public sealed partial class GitEngine
         }
     }
 
-    // Writes the point's copy of every file that differs and returns the files the patterns name, which are left as they are. With no
-    // patterns that is one hard reset. With patterns the index goes back to the point first, which changes no file, and only the
-    // differing files they do not name are written: a hard reset would write the point's copy of a named file as well.
-    private async Task<IReadOnlySet<string>> ResetToPointAsync(RepoRef repo, CancellationToken ct)
+    // Writes the point's copy of every file that differs and returns the files left as they are: the ones the patterns name and the
+    // link entries to leave. With none of either that is one hard reset. Otherwise the index goes back to the point first, which changes
+    // no file, and only the other differing files are written: a hard reset would write the point's copy of those as well.
+    private async Task<IReadOnlySet<string>> ResetToPointAsync(RepoRef repo, IReadOnlySet<string> links, CancellationToken ct)
     {
-        if (!HasPatterns(repo))
+        if (!HasPatterns(repo) && links.Count == 0)
         {
             await RunRewriteAsync(repo, Invocation(repo, readOnly: false, "reset", "--hard", "--quiet"), ["reset", "--hard"], ct).ConfigureAwait(false);
             return new HashSet<string>();
@@ -174,6 +174,7 @@ public sealed partial class GitEngine
 
         await RunWriteAsync(() => Invocation(repo, readOnly: false, "reset", "--quiet"), ct).ConfigureAwait(false);
         var named = await RecordedNamedAsync(repo, ct).ConfigureAwait(false);
+        named.UnionWith(links);
         var differing = (await DiffNamesAsync(repo, "HEAD", ct).ConfigureAwait(false)).Where(path => !named.Contains(path)).ToArray();
         if (differing.Length > 0)
         {
@@ -237,7 +238,7 @@ public sealed partial class GitEngine
 
         // Before the first point every file in the folder is "new"; cleaning would delete the player's whole folder.
         var point = await RequireSavedPointAsync(repo, ct).ConfigureAwait(false);
-        await RefuseLinkedFoldersInChangesAsync(repo, restoredPoint: null, ct).ConfigureAwait(false);
+        await RefuseLinkedFoldersInChangesAsync(repo, discard: false, ct).ConfigureAwait(false);
 
         using var scope = BeginWrite(repo);
         await RemoveNewFilesAsync(repo, ct).ConfigureAwait(false);
@@ -245,9 +246,8 @@ public sealed partial class GitEngine
     }
 
     // A discard rewrites the changed files and a clean removes the new ones: neither may go through a folder link (Windows). A file link is
-    // no obstacle, because both replace or delete the link itself. A discard (restoredPoint set) also refuses to write a file the point holds
-    // as a link, which git would write as a text file.
-    private async Task RefuseLinkedFoldersInChangesAsync(RepoRef repo, string? restoredPoint, CancellationToken ct)
+    // no obstacle, because both replace or delete the link itself. Only a discard rewrites changed files.
+    private async Task RefuseLinkedFoldersInChangesAsync(RepoRef repo, bool discard, CancellationToken ct)
     {
         if (!LinkedFolders.Enabled)
         {
@@ -255,34 +255,25 @@ public sealed partial class GitEngine
         }
 
         var untracked = ListNewAsync(repo, ct);
-        var changed = restoredPoint is null ? [] : await ListChangedAsync(repo, hasCommits: true, ct).ConfigureAwait(false);
+        var changed = !discard ? [] : await ListChangedAsync(repo, hasCommits: true, ct).ConfigureAwait(false);
         LinkedFolders.RefuseAny(repo.WorkTree, changed.Concat((await untracked.ConfigureAwait(false)).Files), ct, includeFileLinks: false);
-        if (restoredPoint is not null && changed.Count > 0)
-        {
-            await RefuseLinksInPointAsync(repo, restoredPoint, changed, ct).ConfigureAwait(false);
-        }
     }
 
-    // Git for Windows writes an entry stored as a symbolic link (mode 120000) as a text file holding the link's path, so the
-    // point cannot be put back there; named before anything is written. Files the game's patterns name are never written by a discard.
-    private async Task RefuseLinksInPointAsync(RepoRef repo, string point, IReadOnlyList<string> toWrite, CancellationToken ct)
+    // Git for Windows would write an entry stored as a symbolic link (mode 120000) as a text file holding the link's path. A discard
+    // never writes one and never touches what stands at its path, so a player who must throw a folder's changes away is not stopped by a
+    // link. Empty everywhere else, where git restores links.
+    private async Task<IReadOnlySet<string>> LinkPathsToLeaveAsync(RepoRef repo, string point, CancellationToken ct)
     {
+        if (!LinkedFolders.Enabled)
+        {
+            return new HashSet<string>();
+        }
+
         var listing = await RunAsync(GitDirOnly(repo, "ls-tree", "-r", "-z", point), ct).ConfigureAwait(false);
-        var links = listing.SplitStandardOutputOnNul()
+        return listing.SplitStandardOutputOnNul()
             .Where(entry => entry.StartsWith(_linkMode + " ", StringComparison.Ordinal))
             .Select(entry => entry[(entry.IndexOf('\t', StringComparison.Ordinal) + 1)..])
             .ToHashSet(StringComparer.Ordinal);
-        var hits = toWrite.Where(links.Contains).Order(StringComparer.Ordinal).ToArray();
-        if (hits.Length > 0 && HasPatterns(repo))
-        {
-            var named = await RecordedNamedAsync(repo, ct).ConfigureAwait(false);
-            hits = [.. hits.Where(path => !named.Contains(path))];
-        }
-
-        if (hits.Length > 0)
-        {
-            throw new SnapshotHasLinksException(FullPath(repo, hits[0]));
-        }
     }
 
     // The mode git gives an entry stored as a symbolic link.

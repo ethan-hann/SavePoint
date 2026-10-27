@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Automation.Provider;
@@ -16,6 +17,19 @@ namespace Savepoint.App.Features.Common.Accessibility;
 /// </summary>
 public sealed class ChoiceListBox : ListBox
 {
+    /// <summary>Whether an arrow key pressed on the last option goes to the first and the other way round. True by default.</summary>
+    public static readonly StyledProperty<bool> WrapsAtEndsProperty = AvaloniaProperty.Register<ChoiceListBox, bool>(nameof(WrapsAtEnds), defaultValue: true);
+
+    /// <summary>
+    /// Whether an arrow key pressed on the last option goes to the first and the other way round. A size scale turns it off, so one
+    /// key at the largest size can never drop the choice to the smallest.
+    /// </summary>
+    public bool WrapsAtEnds
+    {
+        get => GetValue(WrapsAtEndsProperty);
+        set => SetValue(WrapsAtEndsProperty, value);
+    }
+
     /// <inheritdoc />
     protected override Type StyleKeyOverride => typeof(ListBox);
 
@@ -60,12 +74,19 @@ public sealed class ChoiceListBox : ListBox
         };
     }
 
-    // Selects the next option that can be chosen and puts focus on it.
+    // Selects the next option that can be chosen and puts focus on it. Without wrapping, a key past the last option that can be
+    // chosen does nothing (and is still taken, so the list's own handling cannot wrap).
     private bool MoveFrom(int from, int step)
     {
         for (var tried = 1; tried < ItemCount; tried++)
         {
-            var index = (((from + (step * tried)) % ItemCount) + ItemCount) % ItemCount;
+            var raw = from + (step * tried);
+            if (!WrapsAtEnds && (raw < 0 || raw >= ItemCount))
+            {
+                return true;
+            }
+
+            var index = ((raw % ItemCount) + ItemCount) % ItemCount;
             ScrollIntoView(index);
             if (ContainerFromIndex(index) is { IsEnabled: true } container)
             {

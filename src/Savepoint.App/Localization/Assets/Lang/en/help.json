@@ -18,7 +18,7 @@
   "help.page.cloud.title": "Cloud saves",
   "help.page.cloud.turnOff": "Turn off cloud saves for the game in {os, select, windows {Steam or GOG Galaxy} macos {Steam or GOG Galaxy} other {Steam}} if you go back to a snapshot from before a save, or switch to a profile with fewer saves, and want that to stick. Do it before you next start the game: a save the store brings back becomes part of that profile's next snapshot. Otherwise you can leave them on.",
   "help.page.files.body": "A rule tells SavePoint to skip the files that match it: it never copies or replaces them. In a rule, * stands for any name and ** stands for any folder, so **/*.log matches every .log file.",
-  "help.page.files.both": "Files to leave out of both folders: rules that cover the game's own folder and your saves folder.",
+  "help.page.files.both": "Files to leave out of every folder: rules that cover the game's own folder, your saves folder and your mods folder.",
   "help.page.files.install": "Files to leave out of the game's own folder: rules that never cover your saves folder. New games start with rules for logs and crash reports, which a game rewrites while it runs and SavePoint would take for a game update.",
   "help.page.files.savesRule": "Don't add a rule that matches your saves, or profiles stop switching them.",
   "help.page.files.title": "Files to leave out",
