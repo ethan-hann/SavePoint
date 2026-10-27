@@ -298,7 +298,7 @@
         <!-- A search that matches no profile. -->
         <StackPanel x:Name="NoProfileMatches" Orientation="Horizontal" Spacing="8" IsVisible="{Binding ShowNoProfileMatches}">
           <TextBlock Classes="body subtle" VerticalAlignment="Center" Text="{Binding NoProfileMatchesText}" />
-          <Button Classes="text pill" Padding="10,4" Command="{Binding ProfileSearch.ClearCommand}" Content="{loc:Loc search.clear}" />
+          <Button x:Name="ProfileClearSearchButton" Classes="text pill" Padding="10,4" Command="{Binding ProfileSearch.ClearCommand}" Content="{loc:Loc search.clear}" />
         </StackPanel>
 
         <!-- A game with no profiles yet. -->

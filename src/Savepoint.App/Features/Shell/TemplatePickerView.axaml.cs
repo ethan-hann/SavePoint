@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Input;
 
 namespace Savepoint.App.Features.Shell;
 
@@ -9,5 +10,6 @@ public partial class TemplatePickerView : UserControl
     public TemplatePickerView()
     {
         InitializeComponent();
+        ClearSearchButton.Click += (_, _) => SearchField.Focus(NavigationMethod.Tab);
     }
 }

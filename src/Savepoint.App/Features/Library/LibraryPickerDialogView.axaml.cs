@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Input;
 
 namespace Savepoint.App.Features.Library;
 
@@ -9,5 +10,6 @@ public partial class LibraryPickerDialogView : UserControl
     public LibraryPickerDialogView()
     {
         InitializeComponent();
+        ClearSearchButton.Click += (_, _) => SearchField.Focus(NavigationMethod.Tab);
     }
 }
