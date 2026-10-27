@@ -98,12 +98,22 @@ public class ErrorCardViewModelTests
     }
 
     [Fact]
+    public void A_snapshot_with_a_link_card_tells_a_mod_manager_player_to_deploy_the_mods_again_after_switching_away()
+    {
+        var card = new ErrorCardViewModel(ErrorInfo.From(new SnapshotHasLinksException(PathOnThisSystem("Games", "Alpha", "Mods", "Cool Mod.esp"))), _text);
+
+        Assert.Equal(
+            "This snapshot was taken while Cool Mod.esp was a link a program made (shown below), and Windows can't put a linked file back. Nothing changed. Choose a different snapshot or profile. If a mod manager made the link, switch to another profile and deploy the mods again in the mod manager.",
+            card.Body);
+    }
+
+    [Fact]
     public void A_file_link_card_reads_right_for_a_link_made_by_hand_and_offers_the_leave_out_list()
     {
         var card = new ErrorCardViewModel(ErrorInfo.From(new LinkedFileException(PathOnThisSystem("Games", "Alpha", "Mods", "Cool Mod.esp"))), _text);
 
         Assert.Contains("made it yourself", card.Body, StringComparison.Ordinal);
-        Assert.Contains("Files to leave out", card.Body, StringComparison.Ordinal);
+        Assert.Contains("\"Files to leave out of every folder\"", card.Body, StringComparison.Ordinal);
     }
 
     [Fact]
