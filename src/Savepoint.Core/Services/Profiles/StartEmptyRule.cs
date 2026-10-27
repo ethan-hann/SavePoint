@@ -22,10 +22,10 @@ internal static class StartEmptyRule
     /// never count as changes: no snapshot holds them, but a switch never removes them either.
     /// </item>
     /// </list>
-    /// Anything else is a block. <see cref="StartEmptyBlock.StoppedSwitch"/> is a switch that stopped part way, or a check that failed;
+    /// Anything else is a block. <see cref="StartEmptyBlock.StoppedSwitch"/> is a switch that stopped part way;
     /// <see cref="StartEmptyBlock.NewChanges"/> is a new or changed file, or a folder without SavePoint's marker (its files are in no
-    /// snapshot); <see cref="StartEmptyBlock.Other"/> is a file that is held or unreadable, or a folder on an older point or on no profile
-    /// of the game. A snapshot is the way out of <see cref="StartEmptyBlock.NewChanges"/> only.
+    /// snapshot); <see cref="StartEmptyBlock.Other"/> is a file that is held or unreadable, any other failure reading the folder, or a
+    /// folder on an older point or on no profile of the game. A snapshot is the way out of <see cref="StartEmptyBlock.NewChanges"/> only.
     /// </summary>
     /// <param name="engine">The storage engine.</param>
     /// <param name="repo">The folder, carrying the ignore patterns it leaves out now.</param>
@@ -61,7 +61,8 @@ internal static class StartEmptyRule
         }
         catch (Exception e) when (e is SavepointException or IOException)
         {
-            return StartEmptyBlock.StoppedSwitch;
+            // Not a stopped switch: finishing one would not help, and the folder could not be read at all.
+            return StartEmptyBlock.Other;
         }
     }
 

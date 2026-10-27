@@ -106,6 +106,58 @@ public class ProfileStartEmptyUnusualFolderTests
         Assert.Equal(ValidationMessageIds.ProfileStartEmptyUnchecked, RefusalOf(refused));
     }
 
+    // Fails the read of new files that the check makes through the engine's status, once armed. The preview lists new files once to
+    // size the capture before it asks the check, so that many reads are let through first.
+    private static async Task<(LaunchRig Rig, Action<int> Arm)> RigWhoseFolderReadFailsAsync()
+    {
+        var letThrough = -1;
+        var rig = await LaunchRig.CreateAsync(options => options with
+        {
+            Engine = new GitEngineOptions
+            {
+                InvocationObserver = invocation =>
+                {
+                    if (invocation is { Arguments: ["ls-files", "-z", "-o", not "-m", ..], GitDir: { } gitDir } && gitDir.EndsWith("external.git", StringComparison.Ordinal) && Volatile.Read(ref letThrough) >= 0 && Interlocked.Decrement(ref letThrough) < 0)
+                    {
+                        throw new IOException("The folder could not be read.");
+                    }
+                },
+            },
+        });
+        await rig.ProfileAsync("Vanilla");
+        return (rig, count => Volatile.Write(ref letThrough, count));
+    }
+
+    [Fact(Timeout = 240_000)]
+    public async Task A_failure_reading_the_saves_folder_is_not_blamed_on_a_stopped_switch_in_the_preview()
+    {
+        var (rig, arm) = await RigWhoseFolderReadFailsAsync();
+        using (rig)
+        {
+            arm(1);
+
+            var preview = await SavesPreviewAsync(rig);
+
+            Assert.False(preview.HeldInSnapshot);
+            Assert.Equal(StartEmptyBlock.Other, preview.StartEmptyBlocked);
+        }
+    }
+
+    [Fact(Timeout = 240_000)]
+    public async Task A_failure_reading_the_saves_folder_refuses_the_empty_start_with_the_cannot_check_reason()
+    {
+        var (rig, arm) = await RigWhoseFolderReadFailsAsync();
+        using (rig)
+        {
+            arm(0);
+
+            var refused = await rig.Profiles.CreateAsync(rig.Game.Id, "Bare", null, "Bare", [RepoRole.External]);
+
+            Assert.Equal(ValidationMessageIds.ProfileStartEmptyUnchecked, RefusalOf(refused));
+            Assert.Equal(["Vanilla"], (await rig.Profiles.ListAsync(rig.Game.Id, Ct)).Value!.Select(profile => profile.Name));
+        }
+    }
+
     [Fact(Timeout = 240_000)]
     public async Task A_saves_folder_that_is_missing_loses_nothing_and_the_start_reports_the_folder_as_not_made()
     {

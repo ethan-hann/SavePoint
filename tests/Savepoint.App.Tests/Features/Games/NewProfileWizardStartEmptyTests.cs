@@ -163,7 +163,7 @@ public class NewProfileWizardStartEmptyTests
     }
 
     [Fact]
-    public async Task While_a_switch_is_stopped_or_the_folder_cannot_be_checked_the_hint_says_to_finish_or_discard_it()
+    public async Task While_a_switch_is_stopped_the_hint_says_to_finish_or_discard_it()
     {
         var (wizard, _) = await StartAsync(held: false, block: StartEmptyBlock.StoppedSwitch);
 
