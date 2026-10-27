@@ -30,13 +30,13 @@ public class StartupViewTests
             return new TaskCompletionSource<OperationResult<StartupStatus>>().Task.WaitAsync(cancellationToken);
         }
 
-        public Task<OperationResult<string>> RecoverCatalogFileAsync(string path, CatalogRecovery recovery, CancellationToken cancellationToken = default) =>
+        public Task<OperationResult<string>> RecoverCatalogFileAsync(string path, CatalogRecovery recovery) =>
             throw new NotSupportedException();
 
-        public Task<OperationResult<string>> UseStorageFolderAsync(string folder, CancellationToken cancellationToken = default) =>
+        public Task<OperationResult<string>> UseStorageFolderAsync(string folder) =>
             throw new NotSupportedException();
 
-        public Task<OperationResult<string>> StartWithEmptyStorageAsync(CancellationToken cancellationToken = default) =>
+        public Task<OperationResult<string>> StartWithEmptyStorageAsync() =>
             throw new NotSupportedException();
     }
 

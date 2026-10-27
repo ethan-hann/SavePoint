@@ -23,9 +23,8 @@ public interface IAppStatusApi
     /// </summary>
     /// <param name="path">A path from <see cref="CatalogStatus.CorruptFiles"/>.</param>
     /// <param name="recovery">Which fix to apply.</param>
-    /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c> (D23).</param>
     /// <returns>Where the corrupt file was moved, so the recovery screen can say so. Check again afterwards.</returns>
-    Task<OperationResult<string>> RecoverCatalogFileAsync(string path, CatalogRecovery recovery, CancellationToken cancellationToken = default);
+    Task<OperationResult<string>> RecoverCatalogFileAsync(string path, CatalogRecovery recovery);
 
     /// <summary>
     /// "Find the folder": points SavePoint at the folder that holds its saved history now, after the startup check found the storage
@@ -57,12 +56,11 @@ public interface IAppStatusApi
     /// <item><c>error.storage.writeFailed</c>: a repository cannot be written because the drive is full or read-only. The call can be made again.</item>
     /// <item><c>error.catalog.corrupt</c>: a catalog file the call reads or writes cannot be read.</item>
     /// </list>
-    /// A cancelled call fails with <c>error.operation.cancelled</c> (D23).
+    /// The call cannot be cancelled: it finishes quickly, and stopping it halfway would leave some of the repositories made and others not.
     /// </remarks>
     /// <param name="folder">The folder to use as the storage folder.</param>
-    /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c> (D23).</param>
     /// <returns>The storage folder now in use.</returns>
-    Task<OperationResult<string>> UseStorageFolderAsync(string folder, CancellationToken cancellationToken = default);
+    Task<OperationResult<string>> UseStorageFolderAsync(string folder);
 
     /// <summary>
     /// "Start with an empty folder": gives up on the storage folder that cannot be reached and starts SavePoint's history over in the
@@ -82,9 +80,8 @@ public interface IAppStatusApi
     /// <item><c>error.storage.writeFailed</c>: a repository cannot be written because the drive is full or read-only. The call can be made again, and finishes what the failed one left.</item>
     /// <item><c>error.catalog.corrupt</c>: a catalog file the call reads or writes cannot be read.</item>
     /// </list>
-    /// A cancelled call fails with <c>error.operation.cancelled</c> (D23).
+    /// The call cannot be cancelled, for the same reason as <see cref="UseStorageFolderAsync"/>.
     /// </remarks>
-    /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c> (D23).</param>
     /// <returns>The storage folder now in use.</returns>
-    Task<OperationResult<string>> StartWithEmptyStorageAsync(CancellationToken cancellationToken = default);
+    Task<OperationResult<string>> StartWithEmptyStorageAsync();
 }

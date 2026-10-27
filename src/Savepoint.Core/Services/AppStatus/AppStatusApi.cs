@@ -41,7 +41,7 @@ internal sealed class AppStatusApi : IAppStatusApi
             },
             cancellationToken);
 
-    public Task<OperationResult<string>> RecoverCatalogFileAsync(string path, CatalogRecovery recovery, CancellationToken cancellationToken = default) =>
+    public Task<OperationResult<string>> RecoverCatalogFileAsync(string path, CatalogRecovery recovery) =>
         ApiGuard.RunAsync(
             _services.Log,
             async () =>
@@ -56,7 +56,7 @@ internal sealed class AppStatusApi : IAppStatusApi
                         throw new InvalidOperationException($"'{path}' has no backup to restore.");
                     }
 
-                    await RequireReadableAsync(backup, cancellationToken).ConfigureAwait(false);
+                    await RequireReadableAsync(backup, CancellationToken.None).ConfigureAwait(false);
 
                     // Made next to the target before the corrupt file moves, so a copy that fails never leaves the catalog missing.
                     restored = $"{path}.{Guid.NewGuid():N}.tmp";
@@ -65,7 +65,7 @@ internal sealed class AppStatusApi : IAppStatusApi
 
                 try
                 {
-                    var moved = await _services.Catalog.ReplaceCorruptFileAsync(path, cancellationToken).ConfigureAwait(false)
+                    var moved = await _services.Catalog.ReplaceCorruptFileAsync(path, CancellationToken.None).ConfigureAwait(false)
                         ?? throw new InvalidOperationException($"'{path}' is not corrupt.");
                     if (restored is not null)
                     {
@@ -82,17 +82,16 @@ internal sealed class AppStatusApi : IAppStatusApi
                         TryDelete(restored);
                     }
                 }
-            },
-            cancellationToken);
+            });
 
-    public Task<OperationResult<string>> UseStorageFolderAsync(string folder, CancellationToken cancellationToken = default) =>
+    public Task<OperationResult<string>> UseStorageFolderAsync(string folder) =>
         ApiGuard.RunAsync(
             _services.Log,
             async () =>
             {
                 var root = _services.PathTokens.Resolve(folder, "storageRoot");
-                await RequireStorageLostAsync(cancellationToken).ConfigureAwait(false);
-                var games = await _services.Catalog.ListGamesAsync(cancellationToken).ConfigureAwait(false);
+                await RequireStorageLostAsync(CancellationToken.None).ConfigureAwait(false);
+                var games = await _services.Catalog.ListGamesAsync(CancellationToken.None).ConfigureAwait(false);
 
                 // Judged before anything changes: a folder with no history of these games is the wrong one, or a drive that came back empty.
                 // With no games listed, any game folder SavePoint made counts.
@@ -123,16 +122,15 @@ internal sealed class AppStatusApi : IAppStatusApi
                     AdoptedGitDirectory.MakeSafe(gitDir);
                 }
 
-                return await SwitchStorageAsync(root, create: false, cancellationToken).ConfigureAwait(false);
-            },
-            cancellationToken);
+                return await SwitchStorageAsync(root, create: false, CancellationToken.None).ConfigureAwait(false);
+            });
 
-    public Task<OperationResult<string>> StartWithEmptyStorageAsync(CancellationToken cancellationToken = default) =>
+    public Task<OperationResult<string>> StartWithEmptyStorageAsync() =>
         ApiGuard.RunAsync(
             _services.Log,
             async () =>
             {
-                await RequireStorageLostAsync(cancellationToken).ConfigureAwait(false);
+                await RequireStorageLostAsync(CancellationToken.None).ConfigureAwait(false);
                 var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(_services.Platform.Directories.DefaultStorageRoot));
 
                 // History already in the default folder is not an empty start; "Find the folder" is how to use it. Empty repositories, and
@@ -142,9 +140,8 @@ internal sealed class AppStatusApi : IAppStatusApi
                     throw new StorageDefaultFolderHasHistoryException(root);
                 }
 
-                return await SwitchStorageAsync(root, create: true, cancellationToken).ConfigureAwait(false);
-            },
-            cancellationToken);
+                return await SwitchStorageAsync(root, create: true, CancellationToken.None).ConfigureAwait(false);
+            });
 
     // Both choices are for a folder that is gone; with the saved folder in reach there is nothing to find or start over from.
     private async Task RequireStorageLostAsync(CancellationToken cancellationToken)

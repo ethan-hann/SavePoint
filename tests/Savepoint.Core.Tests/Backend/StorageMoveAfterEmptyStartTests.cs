@@ -28,7 +28,7 @@ public class StorageMoveAfterEmptyStartTests
             }
 
             workspace.Restart();
-            var started = await workspace.AppStatus.StartWithEmptyStorageAsync(workspace.Token);
+            var started = await workspace.AppStatus.StartWithEmptyStorageAsync();
             Assert.True(started.Ok, started.Error?.Detail);
             return (workspace, game);
         }

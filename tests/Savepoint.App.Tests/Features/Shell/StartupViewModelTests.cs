@@ -412,13 +412,13 @@ public class StartupViewModelTests
         public Task<OperationResult<StartupStatus>> CheckAsync(CancellationToken cancellationToken = default, IProgress<StartupProgress>? progress = null) =>
             Task.FromResult(OperationResult.Success(status));
 
-        public Task<OperationResult<string>> RecoverCatalogFileAsync(string path, CatalogRecovery recovery, CancellationToken cancellationToken = default) =>
+        public Task<OperationResult<string>> RecoverCatalogFileAsync(string path, CatalogRecovery recovery) =>
             throw new NotSupportedException();
 
-        public Task<OperationResult<string>> UseStorageFolderAsync(string folder, CancellationToken cancellationToken = default) =>
+        public Task<OperationResult<string>> UseStorageFolderAsync(string folder) =>
             Task.FromResult(OperationResult.Failure<string>(refusal));
 
-        public Task<OperationResult<string>> StartWithEmptyStorageAsync(CancellationToken cancellationToken = default) =>
+        public Task<OperationResult<string>> StartWithEmptyStorageAsync() =>
             Task.FromResult(OperationResult.Failure<string>(refusal));
     }
 

@@ -157,12 +157,12 @@ internal sealed partial class GamesApi : IGamesApi
             },
             cancellationToken);
 
-    public Task<OperationResult<Unit>> ExportDefinitionAsync(string gameId, string filePath, CancellationToken cancellationToken = default) =>
+    public Task<OperationResult<Unit>> ExportDefinitionAsync(string gameId, string filePath) =>
         ApiGuard.RunAsync(
             _services.Log,
             async () =>
             {
-                var game = await RequireGameAsync(gameId, cancellationToken).ConfigureAwait(false);
+                var game = await RequireGameAsync(gameId, CancellationToken.None).ConfigureAwait(false);
                 var text = JsonSerializer.Serialize(game, CatalogJsonContext.Default.GameDefinition) + "\n";
                 var folder = Path.GetDirectoryName(Path.GetFullPath(filePath));
                 if (!string.IsNullOrEmpty(folder))
@@ -170,10 +170,9 @@ internal sealed partial class GamesApi : IGamesApi
                     Directory.CreateDirectory(folder);
                 }
 
-                await File.WriteAllTextAsync(filePath, text, new System.Text.UTF8Encoding(false), cancellationToken).ConfigureAwait(false);
+                await File.WriteAllTextAsync(filePath, text, new System.Text.UTF8Encoding(false), CancellationToken.None).ConfigureAwait(false);
                 return Unit.Value;
-            },
-            cancellationToken);
+            });
 
 
 

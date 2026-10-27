@@ -101,7 +101,7 @@ public class StorageFolderLinkTests
             var before = BackendWorkspace.Snapshot(somebodys);
             var preparedBefore = BackendWorkspace.Snapshot(prepared);
 
-            var found = await workspace.AppStatus.UseStorageFolderAsync(prepared, workspace.Token);
+            var found = await workspace.AppStatus.UseStorageFolderAsync(prepared);
 
             await AssertRefusedUntouchedAsync(workspace, found, hooks, prepared, preparedBefore);
             Assert.Equal(before, BackendWorkspace.Snapshot(somebodys));
@@ -130,7 +130,7 @@ public class StorageFolderLinkTests
             var before = BackendWorkspace.Snapshot(linked);
             var preparedBefore = BackendWorkspace.Snapshot(prepared);
 
-            var found = await workspace.AppStatus.UseStorageFolderAsync(prepared, workspace.Token);
+            var found = await workspace.AppStatus.UseStorageFolderAsync(prepared);
 
             await AssertRefusedUntouchedAsync(workspace, found, gitDir, prepared, preparedBefore);
             Assert.Equal(before, BackendWorkspace.Snapshot(linked));
@@ -154,7 +154,7 @@ public class StorageFolderLinkTests
         {
             var preparedBefore = BackendWorkspace.Snapshot(prepared);
 
-            var found = await workspace.AppStatus.UseStorageFolderAsync(prepared, workspace.Token);
+            var found = await workspace.AppStatus.UseStorageFolderAsync(prepared);
 
             await AssertRefusedUntouchedAsync(workspace, found, gameFolder, prepared, preparedBefore);
         }
@@ -187,7 +187,7 @@ public class StorageFolderLinkTests
             var before = BackendWorkspace.Snapshot(somebodys);
             var preparedBefore = BackendWorkspace.Snapshot(prepared);
 
-            var found = await workspace.AppStatus.UseStorageFolderAsync(prepared, workspace.Token);
+            var found = await workspace.AppStatus.UseStorageFolderAsync(prepared);
 
             await AssertRefusedUntouchedAsync(workspace, found, secondFolder, prepared, preparedBefore);
             Assert.Equal(before, BackendWorkspace.Snapshot(somebodys));
@@ -225,7 +225,7 @@ public class StorageFolderLinkTests
             var before = BackendWorkspace.Snapshot(somebodys);
             var preparedBefore = BackendWorkspace.Snapshot(prepared);
 
-            var found = await workspace.AppStatus.UseStorageFolderAsync(prepared, workspace.Token);
+            var found = await workspace.AppStatus.UseStorageFolderAsync(prepared);
 
             await AssertRefusedUntouchedAsync(workspace, found, link, prepared, preparedBefore);
             Assert.Equal(before, BackendWorkspace.Snapshot(somebodys));
@@ -251,7 +251,7 @@ public class StorageFolderLinkTests
         File.WriteAllText(pointer, content);
         var preparedBefore = BackendWorkspace.Snapshot(prepared);
 
-        var found = await workspace.AppStatus.UseStorageFolderAsync(prepared, workspace.Token);
+        var found = await workspace.AppStatus.UseStorageFolderAsync(prepared);
 
         await AssertRefusedUntouchedAsync(workspace, found, pointer, prepared, preparedBefore);
     }
@@ -267,7 +267,7 @@ public class StorageFolderLinkTests
         Directory.CreateDirectory(Path.GetDirectoryName(alternates)!);
         File.WriteAllText(alternates, "# nothing here\n\n   \n");
 
-        var found = await workspace.AppStatus.UseStorageFolderAsync(prepared, workspace.Token);
+        var found = await workspace.AppStatus.UseStorageFolderAsync(prepared);
 
         Assert.True(found.Ok, found.Error?.Detail);
         Assert.Equal(prepared, found.Value);
@@ -294,7 +294,7 @@ public class StorageFolderLinkTests
         var before = File.ReadAllText(target);
         var preparedBefore = BackendWorkspace.Snapshot(prepared);
 
-        var found = await workspace.AppStatus.UseStorageFolderAsync(prepared, workspace.Token);
+        var found = await workspace.AppStatus.UseStorageFolderAsync(prepared);
 
         await AssertRefusedUntouchedAsync(workspace, found, config, prepared, preparedBefore);
         Assert.Equal(before, File.ReadAllText(target));
@@ -307,7 +307,7 @@ public class StorageFolderLinkTests
         using var _ = workspace;
         var prepared = PreparedWithExtraCopy(workspace, game, away);
 
-        var found = await workspace.AppStatus.UseStorageFolderAsync(prepared, workspace.Token);
+        var found = await workspace.AppStatus.UseStorageFolderAsync(prepared);
 
         Assert.True(found.Ok, found.Error?.Detail);
         Assert.Equal(prepared, found.Value);
