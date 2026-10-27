@@ -8,6 +8,10 @@ public sealed class InterruptedCheckoutTests : IDisposable
 {
     private const int _files = 2500;
 
+    // The cancel has to land while git is still writing files. The checkout shows no sign of how far it is, so it is cancelled on a timer and the
+    // test skips when the switch won the race.
+    private static readonly TimeSpan _cancelAfter = TimeSpan.FromMilliseconds(450);
+
     private readonly EngineWorkspace _ws = new();
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -33,7 +37,7 @@ public sealed class InterruptedCheckoutTests : IDisposable
         {
             if (invocation.Arguments[0] == "checkout")
             {
-                _ = Task.Delay(450, Ct).ContinueWith(_ => cancel.Cancel(), TaskScheduler.Default);
+                _ = Task.Delay(_cancelAfter, Ct).ContinueWith(_ => cancel.Cancel(), TaskScheduler.Default);
             }
         };
 

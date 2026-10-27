@@ -14,6 +14,7 @@ namespace Savepoint.Core.Tests.Backend;
 // outlived that SavePoint still uses them, so the gits its note names are ended first, and when one cannot be the locks stay.
 public sealed class StartupLeftoverGitTests : IDisposable
 {
+    // How long the leftovers wait for an owned git before they give up. The tests that must outlast it wait several times as long.
     private static readonly TimeSpan _short = TimeSpan.FromMilliseconds(400);
 
     // The backend a test replaces keeps its own note of running git in the same folder, from a timer after each git starts or ends. On a slow

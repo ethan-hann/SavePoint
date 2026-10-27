@@ -4,6 +4,9 @@ namespace Savepoint.Core.Tests.Git;
 
 public sealed class GitOutputSinkTests
 {
+    // A detach that did not wait for the running callback would return within moments, and only waiting shows that it does not.
+    private static readonly TimeSpan _detachWindow = TimeSpan.FromMilliseconds(300);
+
     [Fact]
     public void Everything_is_kept_while_it_fits_the_limit()
     {
@@ -105,7 +108,7 @@ public sealed class GitOutputSinkTests
         entered.Wait(TestContext.Current.CancellationToken);
 
         var detach = Task.Run(sink.Detach, TestContext.Current.CancellationToken);
-        await Task.Delay(300, TestContext.Current.CancellationToken);
+        await Task.Delay(_detachWindow, TestContext.Current.CancellationToken);
         Assert.False(detach.IsCompleted, "Detach returned while a callback was still running");
         release.Set();
 

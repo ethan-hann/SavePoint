@@ -8,6 +8,9 @@ namespace Savepoint.Core.Tests.Backend;
 // next and reported when they stay, and a destination an unfinished move wrote into is refused (D31).
 public class RelocationLeftoversTests
 {
+    // The move has reached its wait for the reader before it is cancelled. The job shows no sign of that wait, so a pause is the only way to order the two.
+    private static readonly TimeSpan _reachSwitchWait = TimeSpan.FromMilliseconds(300);
+
     [Fact(Timeout = 120_000)]
     public async Task Cancelling_once_the_move_has_switched_does_not_stop_the_removal_of_the_other_old_copies()
     {
@@ -56,7 +59,7 @@ public class RelocationLeftoversTests
         {
             var started = await workspace.Settings.RelocateStorageAsync(destination);
             await WaitForEveryFileAsync(workspace, started.Value!.JobId);
-            await Task.Delay(300, workspace.Token);
+            await Task.Delay(_reachSwitchWait, workspace.Token);
             await workspace.Jobs.CancelAsync(started.Value.JobId);
 
             // The cancel has to end the wait by itself; the reader is let go only when it has not.

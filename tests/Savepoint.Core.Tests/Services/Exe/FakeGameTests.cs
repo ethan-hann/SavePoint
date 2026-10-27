@@ -4,6 +4,10 @@ namespace Savepoint.Core.Tests.Services.Exe;
 
 public class FakeGameTests
 {
+    // A stand-in game that quit on a closed stdin, or wrote a save unasked, would do so within moments, and only waiting shows that it does not.
+    private static readonly TimeSpan _stillRunningWindow = TimeSpan.FromMilliseconds(700);
+    private static readonly TimeSpan _noSavesWindow = TimeSpan.FromMilliseconds(500);
+
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
@@ -66,7 +70,7 @@ public class FakeGameTests
         await FakeGameProcess.WaitForReadyFileAsync(ready);
 
         game.CloseInput();
-        await Task.Delay(700, Ct);
+        await Task.Delay(_stillRunningWindow, Ct);
 
         Assert.False(game.HasExited, "closing stdin must not count as quitting");
     }
@@ -130,7 +134,7 @@ public class FakeGameTests
         using var game = FakeGameProcess.Start("--saves", saves, "--ready-file", ready);
         await FakeGameProcess.WaitForReadyFileAsync(ready);
 
-        await Task.Delay(500, Ct);
+        await Task.Delay(_noSavesWindow, Ct);
 
         Assert.Empty(Directory.GetFiles(saves));
     }

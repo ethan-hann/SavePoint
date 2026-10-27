@@ -141,10 +141,10 @@ public class LaunchUpdateExistingTests
     {
         using var rig = await LaunchRig.CreateAsync();
         var vanilla = await rig.ProfileAsync("Vanilla");
-        await Task.Delay(1100, Ct);
+        await GitClock.NextSecondAsync(Ct);
         rig.WriteSave("slot2.sav", "second save");
         await rig.CaptureAsync(vanilla, "Second save", RepoRole.External);
-        await Task.Delay(1100, Ct);
+        await GitClock.NextSecondAsync(Ct);
         rig.WriteInstall("mods/update.txt", "a mod update");
         await rig.CaptureAsync(vanilla, "Mod update", RepoRole.Install);
 
@@ -160,7 +160,7 @@ public class LaunchUpdateExistingTests
     {
         using var rig = await LaunchRig.CreateAsync();
         var vanilla = await rig.ProfileAsync("Vanilla");
-        await Task.Delay(1100, Ct);
+        await GitClock.NextSecondAsync(Ct);
         rig.WriteSave("slot2.sav", "second save");
         await rig.CaptureAsync(vanilla, "Second save", RepoRole.External);
 
@@ -203,10 +203,10 @@ public class LaunchUpdateExistingTests
         var vanilla = await rig.ProfileAsync("Vanilla");
 
         // The install's newest point (a mod update) belongs to another capture than the saves' newest point.
-        await Task.Delay(1100, Ct);
+        await GitClock.NextSecondAsync(Ct);
         rig.WriteInstall("mods/update.txt", "a mod update");
         await rig.CaptureAsync(vanilla, "Mod update", RepoRole.Install);
-        await Task.Delay(1100, Ct);
+        await GitClock.NextSecondAsync(Ct);
         rig.WriteSave("slot2.sav", "second save");
         await rig.CaptureAsync(vanilla, "Second save", RepoRole.External);
         var modUpdate = (await rig.CommitsAsync(RepoRole.Install, vanilla))[0];

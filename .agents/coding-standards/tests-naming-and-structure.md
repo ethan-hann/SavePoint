@@ -42,13 +42,23 @@ C# in `tests/Savepoint.Core.Tests`, `tests/Savepoint.App.Tests`, and `tests/Shar
 
 **Exception - waits for an outside clock:** A fixed delay is allowed when the thing being waited for is a clock outside the process, such as git comparing file times to the second, or the headless render timer that only moves when ticked. A comment on the delay names the clock.
 
-**Verification step:** list fixed sleeps in tests, then read the lines above each one for the comment that justifies it:
+**Exception - proving nothing happens:** a test that shows something did not happen (a call is still waiting, a file was not written) can only wait a fixed time and look. The wait is a named constant, and a comment on the constant's declaration says what would show inside the window if the behavior were wrong. A test that asserts something did happen polls for it instead.
+
+**Exception - an act on a timer:** a test that releases a hold or cancels a call after a delay says in a comment on that line why that timing matters.
+
+**Verification step:** list fixed sleeps in tests, then read each one:
 
 ```bash
-grep -rn -B2 --include=*.cs "Thread.Sleep\|Task.Delay(TimeSpan.FromMilliseconds" tests
+grep -rn -B2 --include=*.cs "Thread\.Sleep\|Task\.Delay(" tests
 ```
 
-Every hit has a comment that names an outside clock, or sits inside a loop that checks a condition against a deadline.
+Every hit is one of these:
+
+- It sits inside a loop that checks a condition against a deadline or a limit on tries, or races a condition against a deadline in `Task.WhenAny`.
+- It is `Task.Delay(Timeout.Infinite, ...)`, a fake that stays put until it is cancelled.
+- A comment names an outside clock, or `GitClock.NextSecondAsync` stands in for git's whole-second file times and point dates.
+- Its time is a named constant whose declaration comment says what the window proves.
+- A comment on the line says why a timer acts at that time.
 
 ## When NOT to Apply
 
@@ -179,10 +189,8 @@ await Task.Delay(TimeSpan.FromMilliseconds(1100), TestContext.Current.Cancellati
 
 - `tests/Savepoint.App.Tests/Features/Common/UiWait.cs`, `UiWait.UntilAsync`: polls with a deadline.
 - `tests/Savepoint.App.Tests/Features/EndToEnd/RealBackend/JourneyRig.cs`, `JourneyRig`: a fixed delay that names git's clock.
-
-**Known violations:**
-
-- About 30 `Task.Delay(<milliseconds>, ...)` waits in tests have no stated clock: 1100 ms waits for git's whole-second file times (for example `AmendTests`, `RemovedSnapshotRecordTests`, `BranchCopyTests`) and 150 to 750 ms absence waits (for example `StorageGateTests`, `CaptureQueuedTests`, `ReclaimInterruptedTests`). Find them with `grep -rn --include=*.cs "Task.Delay(" tests`.
+- `tests/Savepoint.Core.Tests/GitClock.cs`, `GitClock.NextSecondAsync`: the one delay Core tests use to get past git's whole second.
+- `tests/Savepoint.Core.Tests/Backend/StorageGateTests.cs`, `StorageGateTests`: a named absence window with the comment on its declaration.
 
 ### Skip a test the OS cannot run
 

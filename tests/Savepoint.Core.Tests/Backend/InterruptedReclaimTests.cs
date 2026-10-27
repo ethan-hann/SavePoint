@@ -9,6 +9,9 @@ namespace Savepoint.Core.Tests.Backend;
 // SavePoint that starts next waits for it before it writes to the game, so the packs it deletes are never under a new write.
 public class InterruptedReclaimTests
 {
+    // A write or check that did not wait for the live git would finish within moments, and only waiting shows that it does not.
+    private static readonly TimeSpan _waitWindow = TimeSpan.FromMilliseconds(750);
+
     private static async Task<(BackendWorkspace Workspace, GameDefinition Game, string GitDir)> WorldAsync()
     {
         var workspace = new BackendWorkspace();
@@ -37,7 +40,7 @@ public class InterruptedReclaimTests
         ReclaimMarker.Write(gitDir, gone, orphan.Stamp);
 
         var write = workspace.Backend.Services.RunForGameAsync(game.Id, (_, _) => Task.FromResult(7), workspace.Token);
-        var early = await Task.WhenAny(write, Task.Delay(750, workspace.Token));
+        var early = await Task.WhenAny(write, Task.Delay(_waitWindow, workspace.Token));
         var markerWhileWaiting = File.Exists(ReclaimMarker.PathIn(gitDir));
         await orphan.EndAsync();
         var result = await write.WaitAsync(TimeSpan.FromSeconds(30), workspace.Token);
@@ -62,7 +65,7 @@ public class InterruptedReclaimTests
         workspace.Restart();
 
         var check = workspace.AppStatus.CheckAsync(workspace.Token);
-        var early = await Task.WhenAny(check, Task.Delay(750, workspace.Token));
+        var early = await Task.WhenAny(check, Task.Delay(_waitWindow, workspace.Token));
         var leftoverWhileWaiting = File.Exists(leftover);
         await orphan.EndAsync();
         var status = await check.WaitAsync(TimeSpan.FromSeconds(30), workspace.Token);

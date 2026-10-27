@@ -19,6 +19,10 @@ public class ArtTileImageTests
     private const uint _green = 0xFF00AA00;
     private const uint _red = 0xFFCC0000;
 
+    // A tile that showed a broken file, or decoded for a tile that was already gone, would do so within moments of the decode, and only waiting shows that it does not.
+    private static readonly TimeSpan _afterTheBrokenDecode = TimeSpan.FromMilliseconds(50);
+    private static readonly TimeSpan _noDecodeForRemovedTile = TimeSpan.FromMilliseconds(100);
+
     private static async Task<bool> UntilAsync(Func<bool> condition, int milliseconds = 8000)
     {
         var until = DateTime.UtcNow.AddMilliseconds(milliseconds);
@@ -299,7 +303,7 @@ public class ArtTileImageTests
         using var host = Host(tile);
 
         Assert.True(await UntilAsync(() => images.DecodeCount == 1), "the file was never tried");
-        await Task.Delay(50, TestContext.Current.CancellationToken);
+        await Task.Delay(_afterTheBrokenDecode, TestContext.Current.CancellationToken);
         Dispatcher.UIThread.RunJobs();
 
         Assert.False(tile.ShowsImage);
@@ -334,7 +338,7 @@ public class ArtTileImageTests
         grid.Children.Remove(tile);
         Dispatcher.UIThread.RunJobs();
         art.Show(new GameArtwork("g", ArtworkSource.Custom, fixtures.Png("a.png", 300, 300), fixtures.Png("a.png", 300, 300)));
-        await Task.Delay(100, TestContext.Current.CancellationToken);
+        await Task.Delay(_noDecodeForRemovedTile, TestContext.Current.CancellationToken);
         Dispatcher.UIThread.RunJobs();
 
         Assert.Equal(0, images.DecodeCount);

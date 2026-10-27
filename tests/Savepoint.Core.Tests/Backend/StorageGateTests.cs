@@ -4,6 +4,7 @@ namespace Savepoint.Core.Tests.Backend;
 
 public class StorageGateTests
 {
+    // A holder that should stay out would get in within moments, and only waiting shows that it does not. The same pause lets a queued holder reach the gate.
     private static readonly TimeSpan _settle = TimeSpan.FromMilliseconds(150);
 
     [Fact]

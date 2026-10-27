@@ -71,7 +71,7 @@ public class LaunchLinesTests
     {
         var (rig, _, modded) = await LaunchRig.WithTwoProfilesAsync();
         using var _ = rig;
-        await Task.Delay(1100, Ct);
+        await GitClock.NextSecondAsync(Ct);
         rig.WriteSave("slot3.sav", "third save");
         await rig.CaptureAsync(modded, "Third save");
         var older = (await rig.PreviewAsync(new LaunchTarget.ProfileTip(modded.Id))).AvailableSaves[1];

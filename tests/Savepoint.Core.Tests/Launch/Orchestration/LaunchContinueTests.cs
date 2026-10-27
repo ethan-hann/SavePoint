@@ -18,10 +18,10 @@ public class LaunchContinueTests
     {
         using var rig = await LaunchRig.CreateAsync(gameArguments: ["--save-every", "150", "--exit-after", "1200"]);
         var vanilla = await rig.ProfileAsync("Vanilla");
-        await Task.Delay(1100, Ct);
+        await GitClock.NextSecondAsync(Ct);
         rig.WriteSave("slot2.sav", "two");
         await rig.CaptureAsync(vanilla, "Second");
-        await Task.Delay(1100, Ct);
+        await GitClock.NextSecondAsync(Ct);
         rig.WriteSave("slot3.sav", "three");
         await rig.CaptureAsync(vanilla, "Third");
         var second = (await rig.PreviewAsync(Tip(vanilla))).AvailableSaves[1];

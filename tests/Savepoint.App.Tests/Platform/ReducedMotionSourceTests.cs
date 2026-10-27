@@ -7,6 +7,9 @@ namespace Savepoint.App.Tests.Platform;
 
 public class ReducedMotionSourceTests
 {
+    // A read caused by a window change would start within moments, and only waiting shows that none does.
+    private static readonly TimeSpan _noReadWindow = TimeSpan.FromMilliseconds(200);
+
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
@@ -165,7 +168,7 @@ public class ReducedMotionSourceTests
 
         window.Become(new WindowActivity(false, false));
         window.Become(new WindowActivity(false, true));
-        await Task.Delay(200, Ct);
+        await Task.Delay(_noReadWindow, Ct);
 
         Assert.Equal(0, reader.Reads);
     }
@@ -180,7 +183,7 @@ public class ReducedMotionSourceTests
         watch.Dispose();
 
         window.Become(new WindowActivity(true, false));
-        await Task.Delay(200, Ct);
+        await Task.Delay(_noReadWindow, Ct);
 
         Assert.Equal(0, reader.Reads);
     }
@@ -193,7 +196,7 @@ public class ReducedMotionSourceTests
         using var watch = source.RefreshOnActivation(window);
 
         var error = Record.Exception(() => window.Become(new WindowActivity(true, false)));
-        await Task.Delay(200, Ct);
+        await Task.Delay(_noReadWindow, Ct);
 
         Assert.Null(error);
         Assert.False(source.IsReduced);

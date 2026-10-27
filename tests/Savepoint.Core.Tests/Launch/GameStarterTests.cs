@@ -46,6 +46,9 @@ public class GameStarterTests
 {
     private const string _install = @"C:\Games\Alpha";
 
+    // A watcher that settled early would do so within a few of its 20 ms polls and its 100 ms grace, and only waiting shows that it does not.
+    private static readonly TimeSpan _stillWatching = TimeSpan.FromMilliseconds(600);
+
     private static GameStarter Build(RecordingLauncher launcher, ScriptedInspector? processes = null, OsKind os = OsKind.Windows) =>
         new(launcher, processes ?? new ScriptedInspector(), os, new GameSessionOptions { PollInterval = TimeSpan.FromMilliseconds(20), Grace = TimeSpan.FromMilliseconds(100) }, TimeProvider.System);
 
@@ -148,7 +151,7 @@ public class GameStarterTests
         processes.Set(WatcherRig.Game, ScriptedInspector.Bystander);
         using var watcher = await Build(launcher, processes).StartAsync(Link("steam://run/489830", " Game.exe "), _install, Ct);
 
-        await Task.Delay(100, Ct);
+        await Task.Delay(_stillWatching, Ct);
         Assert.False(watcher.IsSettled);
         processes.Set(ScriptedInspector.Bystander);
         var outcome = await watcher.Outcome.WaitAsync(TimeSpan.FromSeconds(10), Ct);
@@ -166,7 +169,7 @@ public class GameStarterTests
         processes.Set(SteamReaper(489830), ScriptedInspector.Bystander);
         using var watcher = await Build(new RecordingLauncher(), processes, OsKind.Linux).StartAsync(Link("steam://run/489830", "Game.exe"), _install, Ct);
 
-        await Task.Delay(600, Ct);
+        await Task.Delay(_stillWatching, Ct);
         Assert.False(watcher.IsSettled);
 
         processes.Set(ScriptedInspector.Bystander);

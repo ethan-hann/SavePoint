@@ -147,6 +147,8 @@ public sealed class CaptureBytesTests : IDisposable
                 SampleWait = ct =>
                 {
                     clock.Advance(TimeSpan.FromSeconds(5));
+
+                    // Only paces the sampling loop between the clock's jumps; the time the capture measures is the manual clock's.
                     return Task.Delay(20, ct);
                 },
             };

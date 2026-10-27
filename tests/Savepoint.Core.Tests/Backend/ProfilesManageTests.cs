@@ -7,6 +7,9 @@ namespace Savepoint.Core.Tests.Backend;
 
 public class ProfilesManageTests
 {
+    // A copy that did not wait for the busy capture would finish within moments, and only waiting shows that it does not.
+    private static readonly TimeSpan _waitWindow = TimeSpan.FromMilliseconds(300);
+
     [Fact]
     public async Task Editing_a_profile_changes_only_what_the_user_edits()
     {
@@ -138,7 +141,7 @@ public class ProfilesManageTests
         Assert.True(reached.Wait(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
 
         var duplicating = workspace.Profiles.DuplicateAsync(game.Id, source.Id, "Copy");
-        await Task.Delay(300, workspace.Token);
+        await Task.Delay(_waitWindow, workspace.Token);
         var waiting = !duplicating.IsCompleted;
         release.Set();
         await workspace.WaitForJobAsync(capture.Value!.JobId);

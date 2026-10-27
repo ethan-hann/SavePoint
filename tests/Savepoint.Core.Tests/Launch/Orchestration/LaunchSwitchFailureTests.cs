@@ -11,6 +11,9 @@ public class LaunchSwitchFailureTests
 {
     private static readonly TimeSpan _held = TimeSpan.FromSeconds(20);
 
+    // The switch has to join the game's queue behind the held optimization. The queue shows no sign of a waiter, so a pause is the only way to order the two.
+    private static readonly TimeSpan _queueSettle = TimeSpan.FromMilliseconds(200);
+
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     private static LaunchTarget Tip(Profile profile) => new LaunchTarget.ProfileTip(profile.Id);
@@ -152,7 +155,7 @@ public class LaunchSwitchFailureTests
 
             var started = await rig.Launch.StartAsync(rig.Game.Id, Tip(modded));
             Assert.True(started.Ok, started.Error?.Detail);
-            await Task.Delay(200, Ct);
+            await Task.Delay(_queueSettle, Ct);
             release.Set();
             optimization = await rig.WaitForJobAsync(optimizing);
             launch = await rig.WaitForJobAsync(started.Value.JobId);

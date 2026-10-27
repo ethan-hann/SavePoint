@@ -10,6 +10,9 @@ public class LaunchGameLockTests
 {
     private static readonly TimeSpan _held = TimeSpan.FromSeconds(20);
 
+    // A discard that did not wait for the capture would finish within moments, and only waiting shows that it does not.
+    private static readonly TimeSpan _discardWaitWindow = TimeSpan.FromMilliseconds(500);
+
     // Holds the next capture at its first free-space question, with the game's lock, until released.
     private sealed class HeldCapture : IDisposable
     {
@@ -58,7 +61,7 @@ public class LaunchGameLockTests
         Assert.True(held.Reached(rig.Token), "the capture never reached the engine");
 
         var discard = rig.Launch.DiscardChangesAsync(rig.Game.Id, RepoRole.Install);
-        var early = await Task.WhenAny(discard, Task.Delay(500, rig.Token));
+        var early = await Task.WhenAny(discard, Task.Delay(_discardWaitWindow, rig.Token));
 
         Assert.NotSame(discard, early);
         Assert.True(rig.InstallHas("mods/c.txt"), "the discard must not run while the capture holds the game");

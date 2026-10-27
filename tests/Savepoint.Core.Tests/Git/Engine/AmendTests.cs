@@ -35,7 +35,7 @@ public sealed class AmendTests : IDisposable
     {
         var (repo, _) = await _ws.ThreePointsRepoAsync();
         var before = DateTimeOffset.UtcNow.AddSeconds(-1);
-        await Task.Delay(1100, Ct);
+        await GitClock.NextSecondAsync(Ct);
 
         await _ws.Engine.CaptureAsync(repo, Amend("profile-1", "Updated", "cap-new"), ct: Ct);
 

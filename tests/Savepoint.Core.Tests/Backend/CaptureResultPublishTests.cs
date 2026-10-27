@@ -7,6 +7,9 @@ public class CaptureResultPublishTests
 {
     private static readonly TimeSpan _held = TimeSpan.FromSeconds(20);
 
+    // The optimization has to join the game's queue behind the capture. The queue shows no sign of a waiter, so a pause is the only way to order the two.
+    private static readonly TimeSpan _queueSettle = TimeSpan.FromMilliseconds(300);
+
     [Fact(Timeout = 120_000)]
     public async Task A_capture_ends_as_soon_as_its_points_are_written_even_while_an_optimization_waits_on_the_same_game()
     {
@@ -51,7 +54,7 @@ public class CaptureResultPublishTests
             var queued = await workspace.Games.OptimizeStorageAsync(game.Id);
             Assert.True(queued.Ok, queued.Error?.Detail);
             optimization = queued.Value.JobId;
-            await Task.Delay(300, workspace.Token);
+            await Task.Delay(_queueSettle, workspace.Token);
 
             releaseCapture.Set();
             Assert.True(reachedOptimization.Wait(_held, workspace.Token), "the optimization never got the game");

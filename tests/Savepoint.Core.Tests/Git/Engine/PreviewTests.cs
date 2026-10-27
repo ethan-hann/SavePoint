@@ -165,7 +165,7 @@ public sealed class PreviewTests : IDisposable
             return;
         }
 
-        await Task.Delay(TimeSpan.FromMilliseconds(1100), Ct);
+        await GitClock.NextSecondAsync(Ct);
         File.SetLastWriteTimeUtc(path, File.GetLastWriteTimeUtc(path));
     }
 

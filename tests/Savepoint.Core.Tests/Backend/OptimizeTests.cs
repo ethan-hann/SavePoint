@@ -6,6 +6,9 @@ namespace Savepoint.Core.Tests.Backend;
 
 public class OptimizeTests
 {
+    // The save has to join the game's queue before the held optimization is released. The queue shows no sign of a waiter, so a pause is the only way to order the two.
+    private static readonly TimeSpan _queueSettle = TimeSpan.FromMilliseconds(200);
+
     [Fact]
     public async Task Optimizing_one_game_runs_a_job_for_it_and_reports_each_folder()
     {
@@ -159,7 +162,7 @@ public class OptimizeTests
         Assert.True(reached.Wait(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
 
         var capture = await workspace.Profiles.CaptureAsync(game.Id, profile.Id, "Cut in line");
-        await Task.Delay(200, workspace.Token);
+        await Task.Delay(_queueSettle, workspace.Token);
         release.Set();
         var optimization = await workspace.WaitForJobAsync(optimizing);
         var captured = await workspace.WaitForJobAsync(capture.Value!.JobId);
@@ -192,7 +195,7 @@ public class OptimizeTests
         Assert.True(reached.Wait(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
 
         var capture = await workspace.Profiles.CaptureAsync(game.Id, profile.Id, "Waits its turn");
-        await Task.Delay(200, workspace.Token);
+        await Task.Delay(_queueSettle, workspace.Token);
         release.Set();
         var optimization = await workspace.WaitForJobAsync(optimizing.Value!.JobId);
         var captured = await workspace.WaitForJobAsync(capture.Value!.JobId);

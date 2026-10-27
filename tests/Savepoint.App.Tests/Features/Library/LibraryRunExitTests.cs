@@ -7,6 +7,9 @@ namespace Savepoint.App.Tests.Features.Library;
 // Closing the window while games are being added asks first, like a running job does (D31).
 public class LibraryRunExitTests
 {
+    // A close that did not wait for the run would finish within moments, and only waiting shows that it does not.
+    private static readonly TimeSpan _closeHeldWindow = TimeSpan.FromMilliseconds(300);
+
     private static (ExitGuard Guard, FakeDialogs Dialogs, LibraryRunTracker Tracker) Build()
     {
         var backend = FakeBackend.Empty();
@@ -52,7 +55,7 @@ public class LibraryRunExitTests
         dialogs.AnswerConfirm(true);
 
         var closing = guard.PrepareToCloseAsync();
-        await Task.Delay(300, TestContext.Current.CancellationToken);
+        await Task.Delay(_closeHeldWindow, TestContext.Current.CancellationToken);
         var waitedWhileRunning = !closing.IsCompleted;
         run.Dispose();
         var allowed = await closing.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);

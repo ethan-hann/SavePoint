@@ -5,6 +5,7 @@ namespace Savepoint.Core.Tests.Services.Locking;
 public class GameLockTests
 {
     private static readonly TimeSpan _generous = TimeSpan.FromSeconds(30);
+    // A request that should stay behind a holder would get in within moments, and only waiting shows that it does not. The same pause lets a queued request reach the lock.
     private static readonly TimeSpan _grace = TimeSpan.FromMilliseconds(150);
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;

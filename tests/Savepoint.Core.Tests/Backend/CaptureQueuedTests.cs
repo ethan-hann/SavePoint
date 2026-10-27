@@ -11,6 +11,9 @@ public class CaptureQueuedTests
 {
     private static readonly TimeSpan _held = TimeSpan.FromSeconds(20);
 
+    // The edit has to join the game's queue before the save is asked for. The queue shows no sign of a waiter, so a pause is the only way to order the two.
+    private static readonly TimeSpan _queueSettle = TimeSpan.FromMilliseconds(300);
+
     // Holds the next storage optimization at its first free-space question, with the game's lock, until released.
     private sealed class HeldOptimization : IDisposable
     {
@@ -58,7 +61,7 @@ public class CaptureQueuedTests
 
         // The edit queues for the game before the save is asked for, so the save is asked for with the old patterns.
         var edit = workspace.Games.UpdateAsync(game with { IgnorePaths = ["*.log"] });
-        await Task.Delay(300, workspace.Token);
+        await Task.Delay(_queueSettle, workspace.Token);
         BackendWorkspace.WriteFile(Path.Combine(game.External!.Path, "debug.log"), "noise");
         BackendWorkspace.WriteFile(Path.Combine(game.External.Path, "slot3.sav"), "a third save");
         var second = await workspace.Profiles.CaptureAsync(game.Id, profile.Id, "Third");
