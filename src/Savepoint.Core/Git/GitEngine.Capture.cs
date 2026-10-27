@@ -476,8 +476,9 @@ public sealed partial class GitEngine
         // Packs are written without compression, so the store grows by about the files' own size; refuse before git writes any of it.
         // The floor stays on top, for the repack that follows.
         var sizes = additions.Count == 0 ? [] : await SizesOfAsync(repo, additions, ct).ConfigureAwait(false);
-        EnsureStorageSpace(repo, sizes.Sum());
-        await BeforeWritingAsync(request, sizes.Sum(), ct).ConfigureAwait(false);
+        var newBytes = additions.Count == 0 ? 0 : await BytesNotAlreadyStoredAsync(repo, additions, sizes, ct).ConfigureAwait(false);
+        EnsureStorageSpace(repo, newBytes);
+        await BeforeWritingAsync(request, newBytes, ct).ConfigureAwait(false);
         if (reporter is not null)
         {
             reporter.SetByteTotal(sizes.Sum());

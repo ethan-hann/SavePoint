@@ -48,6 +48,10 @@ public sealed record GitEngineOptions
     // How many bytes the object store at a path holds; tests replace it to fake the growth of a large file being stored.
     internal Func<string, long>? ObjectStoreSize { get; init; }
 
+    // The most bytes a snapshot's space check reads from files to find content the store already holds (64 MiB, under the free-space floor
+    // that is kept on top, so a wrong answer for every file read still leaves the floor's room); 0 reads nothing. Tests shrink or zero it.
+    internal long StoredContentReadBytes { get; init; } = 64L * 1024 * 1024;
+
     // The wait between two looks at the object store while files are staged; tests replace it so no look depends on a clock.
     internal Func<CancellationToken, Task>? SampleWait { get; init; }
 
