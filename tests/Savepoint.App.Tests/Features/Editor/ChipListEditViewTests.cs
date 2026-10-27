@@ -83,6 +83,19 @@ public class ChipListEditViewTests
     }
 
     [AvaloniaFact]
+    public async Task Space_on_a_focused_chip_opens_it_like_any_other_button()
+    {
+        using var harness = await EditorViewHarness.StartAsync();
+        harness.Edit();
+        FocusChip(harness, 0);
+
+        Press(harness, Key.Space, PhysicalKey.Space);
+
+        Assert.True(OpenField(harness).IsFocused);
+        Assert.Equal("**/*.log", OpenField(harness).Text);
+    }
+
+    [AvaloniaFact]
     public async Task Enter_on_a_focused_chip_opens_it_and_Escape_drops_the_change_and_returns_to_the_chip()
     {
         using var harness = await EditorViewHarness.StartAsync();

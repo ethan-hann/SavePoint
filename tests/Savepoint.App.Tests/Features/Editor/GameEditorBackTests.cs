@@ -51,7 +51,7 @@ public class GameEditorBackTests
     {
         var rig = EditorRig.Create();
         var editor = rig.Edit();
-        editor.IgnoreRules.Items[0].Remove.Execute(null);
+        editor.IgnoreRules.Items[0].RemoveCommand.Execute(null);
         rig.Dialogs.AnswerConfirm(true);
 
         await editor.BackCommand.ExecuteAsync(null);

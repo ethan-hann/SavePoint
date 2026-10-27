@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Formatting;
@@ -19,7 +18,6 @@ public sealed partial class ChipItem : ObservableObject
         _formatter = formatter;
         _text = text;
         EditHint = formatter.Message("gameEditor.chip.editHint");
-        Remove = new RelayCommand(() => list.Remove(this));
     }
 
     /// <summary>True while the chip is a text field.</summary>
@@ -57,12 +55,13 @@ public sealed partial class ChipItem : ObservableObject
     /// <summary>The accessible help text of the chip, which says how to edit it.</summary>
     public string EditHint { get; }
 
-    /// <summary>Takes the value out of the list.</summary>
-    public ICommand Remove { get; }
-
     internal void SetText(string text) => Text = text;
 
     private string Label(string key) => _formatter.Message(key, ("value", _text), ("list", _list.GroupName));
+
+    // Takes the value out of the list.
+    [RelayCommand]
+    private void Remove() => _list.Remove(this);
 
     [RelayCommand]
     private void BeginEdit()

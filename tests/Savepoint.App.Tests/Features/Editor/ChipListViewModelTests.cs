@@ -39,7 +39,7 @@ public class ChipListViewModelTests
         var changes = 0;
         list.Changed += (_, _) => changes++;
 
-        list.Items[1].Remove.Execute(null);
+        list.Items[1].RemoveCommand.Execute(null);
 
         Assert.Equal(["a", "c"], list.Values);
         Assert.Equal(1, changes);
@@ -142,7 +142,7 @@ public class ChipListViewModelTests
         list.CommitAddCommand.Execute(null);
         Assert.Equal([list.Items[0], list.Items[1], list.Items[2], list], list.Entries);
 
-        list.Items[0].Remove.Execute(null);
+        list.Items[0].RemoveCommand.Execute(null);
         Assert.Equal([list.Items[0], list.Items[1], list], list.Entries);
 
         list.SetValues(["x"]);
@@ -196,7 +196,7 @@ public class ChipListViewModelTests
         list.Items[1].EditText = "b2";
         list.Items[1].CommitEditCommand.Execute(null);
 
-        list.Items[1].Remove.Execute(null);
+        list.Items[1].RemoveCommand.Execute(null);
 
         Assert.Equal(["a"], list.Values);
     }
