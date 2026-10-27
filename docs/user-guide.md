@@ -43,7 +43,7 @@ The editor is a column of cards, top to bottom:
      - **Files to leave out of every folder** applies to your saves and mods folders too.
    - **Extra command-line options.**
    - **Knowing when you've stopped playing:** the name of the game's own program, for launchers that close themselves before the game opens. When a game starts through a link, a note under How to start the game suggests the program to use.
-   - **Steam app ID:** see Artwork below.
+   - **Steam app ID:** SavePoint uses it to find artwork (see Artwork below). It doesn't make SavePoint start the game through Steam or wait for Steam.
 6. **Save changes**. SavePoint names every folder it will look after and asks you to confirm each one, because it takes snapshots of everything in it and makes it match the profile when you switch. It adds a small file to each folder so it remembers you picked it. A game's folders can't be the same folder or inside one another.
 
 ![Add a game, filled in for Grounded: Import and Pick from the game list at the top, a Game card with the name, the install folder, and Run the .exe set to Grounded.exe with a Can I use this with online games? button, a Saves card with the saves folder, common locations below it and a Does my store sync saves? button, a Mods card, an Artwork card, and More settings folded.](images/add-game.png)
@@ -100,7 +100,7 @@ To skip this check when only your saves would change, tick **Skip this check whe
 
 **Switch and play** puts the files in place and starts the game. While the game runs, SavePoint shows a running card. If SavePoint cannot tell when you have stopped (some launchers hide the game), press **I'm done playing**. If another window is in front when you quit, SavePoint sends a notification so you know it is waiting.
 
-When a Steam game is set to run its program and Steam isn't running, SavePoint asks first, before it changes anything. **Start Steam** starts only Steam itself, then SavePoint starts the game's program once Steam is ready, and you can stop waiting. SavePoint doesn't start the game through Steam here, because Steam may update the game first and replace the version you picked. **Not now** leaves everything as it was.
+When a game installed in a Steam library (its folder is under `steamapps/common`) is set to run its program and Steam isn't running, SavePoint asks first, before it changes anything. A GOG or other store copy that only has a Steam app ID doesn't count. **Start Steam** starts only Steam, then the game's program once Steam is signed in, and you can stop waiting. **Play without Steam** starts the program as it is, for a game that doesn't need Steam. **Not now** leaves everything as it was. SavePoint doesn't start the game through Steam, because Steam may update the game first and replace the version you picked. If Steam starts updating the game while SavePoint waits, SavePoint doesn't start it and says whether your version was kept.
 
 If the program SavePoint started closes right away with an error, the running card says so and keeps watching for up to two minutes, because some games restart themselves through Steam. On Linux, games installed by Steam usually need Steam to start them, so start Steam first.
 
