@@ -12,6 +12,7 @@ namespace Savepoint.Core.Tests.Backend;
 internal sealed class BackendWorkspace : IDisposable
 {
     private readonly Func<BackendOptions, BackendOptions>? _configure;
+    private readonly List<CoreBackend> _built = [];
     private int _games;
 
     // steamFolder is where the platform says Steam is, which decides what the path judge protects.
@@ -230,7 +231,16 @@ internal sealed class BackendWorkspace : IDisposable
                     file => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(file))))
             : new Dictionary<string, string>();
 
-    public void Dispose() => Savepoint.Core.Tests.Git.GitWorkspace.DeleteDirectory(Root);
+    public void Dispose()
+    {
+        // Every backend this workspace built, so none stays on the list the process-exit handler closes.
+        foreach (var backend in _built)
+        {
+            backend.Dispose();
+        }
+
+        Savepoint.Core.Tests.Git.GitWorkspace.DeleteDirectory(Root);
+    }
 
     private static void CopyTree(string from, string to)
     {
@@ -328,7 +338,9 @@ internal sealed class BackendWorkspace : IDisposable
             GalaxyLocalAppData = Path.Combine(Root, "galaxy", "local-app-data"),
             GalaxyTempFolder = Path.Combine(Root, "galaxy", "copies"),
         };
-        return CoreBackend.Create(_configure is null ? options : _configure(options));
+        var backend = CoreBackend.Create(_configure is null ? options : _configure(options));
+        _built.Add(backend);
+        return backend;
     }
 }
 

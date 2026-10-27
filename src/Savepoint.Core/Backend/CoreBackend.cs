@@ -28,9 +28,12 @@ namespace Savepoint.Core.Backend;
 /// instead of a crash. A move of the storage root rebuilds only the path judge and the engine (D13.4); the job registry, the
 /// game lock and the session state are untouched.
 /// </remarks>
-public sealed class CoreBackend
+public sealed class CoreBackend : IDisposable
 {
+    private readonly GitProcessRegistry _registry;
+
     private CoreBackend(
+        GitProcessRegistry registry,
         BackendServices services,
         IGamesApi games,
         IProfilesApi profiles,
@@ -40,6 +43,7 @@ public sealed class CoreBackend
         IAppStatusApi appStatus,
         IArtworkApi artwork)
     {
+        _registry = registry;
         Services = services;
         Games = games;
         Profiles = profiles;
@@ -76,6 +80,15 @@ public sealed class CoreBackend
 
     /// <summary>The artwork Api: the user's own image, Steam's images, or none for each game (D30).</summary>
     public IArtworkApi Artwork { get; }
+
+    internal GitProcessRegistry GitRegistry => _registry;
+
+    /// <summary>
+    /// Ends the gits this backend still has running, removes the note of running git, and stops the process-exit handler from
+    /// tracking it. The app creates one backend for the life of the process and does not need this; a test that builds many does.
+    /// Calling it again does nothing.
+    /// </summary>
+    public void Dispose() => _registry.Release();
 
     // Galaxy exists on Windows only here; elsewhere its games read as unknown.
     private static GalaxyCloudReader? GalaxyReader(BackendOptions options) =>
@@ -139,6 +152,7 @@ public sealed class CoreBackend
         var cloudSaves = new CloudSaveLookup(new SteamCloudReader(steam, options.SteamActiveUser ?? (OperatingSystem.IsWindows() ? WindowsSteamRegistry.ReadActiveUser : null)), GalaxyReader(options));
 
         return new CoreBackend(
+            registry,
             services,
             new GamesApi(services, optimization, sources, cloudSaves),
             new ProfilesApi(services, optimization),
