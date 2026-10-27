@@ -13,7 +13,7 @@ namespace Savepoint.App.Tests.Features.Editor;
 // Editing a chip in place, driven through the real editor pane.
 public class ChipListEditViewTests
 {
-    private const string RulesList = "Files to leave out of both folders";
+    private const string _rulesList = "Files to leave out of both folders";
 
     private static readonly string[] _sampleRules = ["**/*.log", "SKSE/Plugins/*.log", "**/Crash Logs/**"];
 
@@ -50,12 +50,12 @@ public class ChipListEditViewTests
 
         Assert.Equal(3, chips.Count);
         Assert.All(chips, chip => Assert.True(chip.Focusable));
-        Assert.Equal($"Edit **/*.log in {RulesList}", AutomationProperties.GetName(chips[0]));
+        Assert.Equal($"Edit **/*.log in {_rulesList}", AutomationProperties.GetName(chips[0]));
         Assert.Contains("F2", AutomationProperties.GetHelpText(chips[0]), StringComparison.Ordinal);
 
         // What a screen reader is handed: a named button that can take focus.
         var peer = ControlAutomationPeer.CreatePeerForElement(chips[0]);
-        Assert.Equal($"Edit **/*.log in {RulesList}", peer.GetName());
+        Assert.Equal($"Edit **/*.log in {_rulesList}", peer.GetName());
         Assert.Equal(AutomationControlType.Button, peer.GetAutomationControlType());
         Assert.True(peer.IsKeyboardFocusable());
     }
@@ -72,14 +72,14 @@ public class ChipListEditViewTests
 
         Assert.True(field.IsFocused);
         Assert.Equal("SKSE/Plugins/*.log", field.Text);
-        Assert.Equal($"Change SKSE/Plugins/*.log in {RulesList}", AutomationProperties.GetName(field));
+        Assert.Equal($"Change SKSE/Plugins/*.log in {_rulesList}", AutomationProperties.GetName(field));
         Assert.False(Chips(harness)[1].IsEffectivelyVisible);
 
         harness.Window.KeyTextInput("**/*.tmp");
         Press(harness, Key.Enter, PhysicalKey.Enter);
 
         Assert.Equal(["**/*.log", "**/*.tmp", "**/Crash Logs/**"], editor.IgnoreRules.Values);
-        Assert.Equal($"Edit **/*.tmp in {RulesList}", FocusedName(harness));
+        Assert.Equal($"Edit **/*.tmp in {_rulesList}", FocusedName(harness));
     }
 
     [AvaloniaFact]
@@ -95,7 +95,7 @@ public class ChipListEditViewTests
         Press(harness, Key.Escape, PhysicalKey.Escape);
 
         Assert.Equal(_sampleRules, editor.IgnoreRules.Values);
-        Assert.Equal($"Edit **/Crash Logs/** in {RulesList}", FocusedName(harness));
+        Assert.Equal($"Edit **/Crash Logs/** in {_rulesList}", FocusedName(harness));
         Assert.All(editor.IgnoreRules.Items, chip => Assert.False(chip.IsEditing));
     }
 

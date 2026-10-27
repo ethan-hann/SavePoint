@@ -58,6 +58,15 @@ public class ErrorOperationCopyTests
     }
 
     [Fact]
+    public void A_held_file_while_packing_storage_does_not_claim_a_free_up_was_asked_for()
+    {
+        var card = HeldFile(ErrorOperations.Of(JobKind.PackStorage));
+
+        Assert.DoesNotContain("freeing up space", card.Title, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("freeing up space", card.Body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void A_held_leftover_after_a_move_says_the_snapshots_moved_and_an_old_copy_stayed()
     {
         var card = HeldFile(ErrorOperation.MoveSnapshots);

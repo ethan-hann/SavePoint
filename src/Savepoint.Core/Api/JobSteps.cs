@@ -77,6 +77,18 @@ public static class JobSteps
     /// <summary>Space could not be freed in one folder of a game. Arguments: <c>game</c>, <c>folder</c>.</summary>
     public const string CompactFolderFailed = "activity.step.compact.folderFailed";
 
+    /// <summary>Packing a game's snapshot files tighter begins, in the <see cref="JobKind.PackStorage"/> job. Arguments: <c>game</c>.</summary>
+    public const string PackGame = "activity.step.pack.game";
+
+    /// <summary>A game's snapshot files now take less room. Arguments: <c>game</c>, <c>bytes</c>.</summary>
+    public const string PackFreed = "activity.step.pack.freed";
+
+    /// <summary>A game's snapshot files could not be packed tighter. Arguments: <c>game</c>.</summary>
+    public const string PackNothingFreed = "activity.step.pack.nothingFreed";
+
+    /// <summary>A folder of a game could not be packed. Arguments: <c>game</c>, <c>folder</c>.</summary>
+    public const string PackFolderFailed = "activity.step.pack.folderFailed";
+
     /// <summary>Moving the snapshot folder begins. Arguments: <c>from</c>, <c>to</c>, <c>files</c>, <c>bytes</c>.</summary>
     public const string RelocateStart = "activity.step.relocate.start";
 

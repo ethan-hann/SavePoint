@@ -151,6 +151,7 @@ public class JobOutcomeTests
     [InlineData(JobKind.Switch, "error.launch.canceled")]
     [InlineData(JobKind.Capture, "error.capture.cancelled")]
     [InlineData(JobKind.Compact, "error.compaction.cancelled")]
+    [InlineData(JobKind.PackStorage, "error.compaction.cancelled")]
     [InlineData(JobKind.RelocateStorage, "error.storageRelocation.cancelled")]
     public void A_cancelled_job_reports_the_cancelled_message_for_its_kind(JobKind kind, string messageId)
     {

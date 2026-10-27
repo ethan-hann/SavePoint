@@ -21,6 +21,31 @@ public class JobPreemptionTests
         Assert.Equal("game-1", error.Args["gameId"]);
     }
 
+    [Fact]
+    public void A_preempted_routine_optimization_reports_the_same_message()
+    {
+        var error = JobOutcome.PreemptedError(JobKind.PackStorage, "game-1");
+
+        Assert.Equal("error.compaction.preempted", error.MessageId);
+        Assert.Equal("game-1", error.Args["gameId"]);
+    }
+
+    [Fact]
+    public async Task A_running_routine_optimization_can_be_preempted_and_ends_cancelled_with_the_preempted_message()
+    {
+        var registry = new JobRegistry();
+        var held = new HeldJob(registry, JobKind.PackStorage);
+        await held.Context;
+
+        var outcome = registry.Preempt(held.Id);
+        held.Throw(new OperationCanceledException());
+        var done = await FinishedAsync(registry, held.Id);
+
+        Assert.Equal(JobCancelOutcome.Requested, outcome);
+        Assert.Equal(JobStatus.Cancelled, done.Status);
+        Assert.Equal("error.compaction.preempted", done.Error!.MessageId);
+    }
+
     [Theory]
     [InlineData(JobKind.Launch)]
     [InlineData(JobKind.Capture)]

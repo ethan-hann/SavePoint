@@ -19,7 +19,8 @@ internal sealed class OptimizationService
     }
 
     /// <summary>
-    /// Starts an optimization job.
+    /// Starts an optimization job: a <see cref="JobKind.PackStorage"/> job for <see cref="OptimizationMode.Routine"/>, which deletes
+    /// nothing, and a <see cref="JobKind.Compact"/> job for <see cref="OptimizationMode.Reclaim"/>.
     /// </summary>
     /// <param name="gameId">The game to optimize, or null for every game, one after the other.</param>
     /// <param name="mode">How hard to work.</param>
@@ -34,7 +35,9 @@ internal sealed class OptimizationService
             throw new ArgumentException("The token was not issued by a Free up space preview.", nameof(confirmed));
         }
 
-        return _services.Jobs.Start(JobKind.Compact, gameId, cancellable: true, context => RunAsync(context, gameId, mode, preemptible, confirmed ?? FreeUpSpaceToken.Nothing, byRequest));
+        // A routine run deletes nothing a player can see, so it is not the job a player's Free up space is.
+        var kind = mode == OptimizationMode.Routine ? JobKind.PackStorage : JobKind.Compact;
+        return _services.Jobs.Start(kind, gameId, cancellable: true, context => RunAsync(context, gameId, mode, preemptible, confirmed ?? FreeUpSpaceToken.Nothing, byRequest));
     }
 
     /// <summary>True when either repository of the game holds more loose objects than the threshold, which is when a save queues a routine optimization (D13.17).</summary>
@@ -128,7 +131,7 @@ internal sealed class OptimizationService
             var roles = GameFolders.RolesOf(game);
             foreach (var role in roles)
             {
-                context.AddStep(JobSteps.CompactFolderFailed, ("game", game.Name), ("folder", role));
+                context.AddStep(StepIds.For(mode).FolderFailed, ("game", game.Name), ("folder", role));
             }
 
             return new GameOptimizeOutcome(game.Id, [.. roles.Select(role => new FolderOutcome(role, error))], null);
@@ -148,7 +151,7 @@ internal sealed class OptimizationService
                     })
                     : null;
 
-                context.AddStep(JobSteps.CompactGame, ("game", game.Name));
+                context.AddStep(StepIds.For(mode).Game, ("game", game.Name));
 
                 // A free-up that was cut off earlier has deleted some of its records and not others; it is finished before anything else is judged.
                 await FreeUpIntent.FinishAsync(storage, game.Id, context.CancellationToken).ConfigureAwait(false);
@@ -184,7 +187,8 @@ internal sealed class OptimizationService
                 var freed = folders.Any(folder => folder.Ok) ? Math.Max(0, before - after) : (long?)null;
                 if (freed is { } bytes)
                 {
-                    context.AddStep(bytes > 0 ? JobSteps.CompactFreed : JobSteps.CompactNothingFreed, bytes > 0 ? [("game", game.Name), ("bytes", bytes)] : [("game", game.Name)]);
+                    var steps = StepIds.For(mode);
+                    context.AddStep(bytes > 0 ? steps.Freed : steps.NothingFreed, bytes > 0 ? [("game", game.Name), ("bytes", bytes)] : [("game", game.Name)]);
                 }
 
                 return new GameOptimizeOutcome(game.Id, folders, freed);
@@ -231,7 +235,7 @@ internal sealed class OptimizationService
             }
             catch (Exception e) when (e is SavepointException and not OperationCancelledByUserException)
             {
-                context.AddStep(JobSteps.CompactFolderFailed, ("game", game.Name), ("folder", repo.Role));
+                context.AddStep(StepIds.For(mode).FolderFailed, ("game", game.Name), ("folder", repo.Role));
                 folders.Add(new FolderOutcome(repo.Role, ErrorInfo.From(e)));
             }
         }
@@ -375,5 +379,14 @@ internal sealed class OptimizationService
         {
             // The date is a courtesy; an unreadable settings file is reported by the startup check, not by this job.
         }
+    }
+
+    // The details of a routine run are worded as packing files; only the other mode frees up space.
+    private readonly record struct StepIds(string Game, string Freed, string NothingFreed, string FolderFailed)
+    {
+        private static readonly StepIds _pack = new(JobSteps.PackGame, JobSteps.PackFreed, JobSteps.PackNothingFreed, JobSteps.PackFolderFailed);
+        private static readonly StepIds _freeUp = new(JobSteps.CompactGame, JobSteps.CompactFreed, JobSteps.CompactNothingFreed, JobSteps.CompactFolderFailed);
+
+        public static StepIds For(OptimizationMode mode) => mode == OptimizationMode.Routine ? _pack : _freeUp;
     }
 }

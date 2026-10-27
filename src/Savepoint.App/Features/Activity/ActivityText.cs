@@ -43,6 +43,7 @@ public sealed class ActivityText
             JobKind.Capture => _text.Message("activity.job.capture", game),
             JobKind.Compact when job.GameId is null => _text.Message("activity.job.compactAll"),
             JobKind.Compact => _text.Message("activity.job.compact", game),
+            JobKind.PackStorage => _text.Message("activity.job.pack", game),
             JobKind.RelocateStorage => _text.Message("activity.job.relocate"),
             _ => _text.Message("activity.job.clear"),
         };

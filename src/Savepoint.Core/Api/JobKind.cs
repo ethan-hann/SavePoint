@@ -12,7 +12,7 @@ public enum JobKind
     /// <summary>Taking a snapshot of the folders. Its result is a <see cref="CaptureResult"/>.</summary>
     Capture,
 
-    /// <summary>Freeing up space, for one game or all of them. Its result is an <see cref="OptimizeResult"/>.</summary>
+    /// <summary>Freeing up space, for one game or all of them, which the player asks for or which follows deleting a profile. Its result is an <see cref="OptimizeResult"/>.</summary>
     Compact,
 
     /// <summary>Moving the snapshot folder. Its result is a <see cref="StorageRelocationResult"/>.</summary>
@@ -20,4 +20,11 @@ public enum JobKind
 
     /// <summary>Removing all of SavePoint's data. Not cancellable. Its result is a <see cref="ClearAllDataResult"/>.</summary>
     ClearData,
+
+    /// <summary>
+    /// Packing a game's snapshot files tighter on disk, which SavePoint starts by itself after a snapshot. It deletes nothing a player can
+    /// see, so it is not <see cref="Compact"/>: the player's Free up space is the one that deletes Recently removed. Always for one
+    /// game and always cancellable. Its result is an <see cref="OptimizeResult"/>.
+    /// </summary>
+    PackStorage,
 }

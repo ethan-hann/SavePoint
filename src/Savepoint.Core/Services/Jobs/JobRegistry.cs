@@ -157,7 +157,7 @@ public sealed class JobRegistry : IJobsApi
                 return JobCancelOutcome.Finished;
             }
 
-            if (!job.Cancellable || (preempt && job.Kind != JobKind.Compact))
+            if (!job.Cancellable || (preempt && job.Kind is not (JobKind.Compact or JobKind.PackStorage)))
             {
                 return JobCancelOutcome.NotCancellable;
             }

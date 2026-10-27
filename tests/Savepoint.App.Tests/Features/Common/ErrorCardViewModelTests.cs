@@ -5,6 +5,7 @@ using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Localization;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Theme;
+using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 
@@ -73,6 +74,32 @@ public class ErrorCardViewModelTests
 
         Assert.Equal("Freeing up space paused so something else on this game could go first. Nothing was lost. Free up space again to finish.", card.Body);
         Assert.DoesNotContain("by itself", card.Body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_paused_routine_packing_is_not_called_freeing_up_space_and_does_not_tell_the_player_to_free_up_space()
+    {
+        var card = new ErrorCardViewModel(ErrorInfo.From(new CompactionPreemptedException("skyrim")), _text, operation: ErrorOperations.Of(JobKind.PackStorage));
+
+        Assert.Equal("Compacting snapshot files paused", card.Title);
+        Assert.Equal("Compacting snapshot files paused so something else on this game could go first. Nothing was lost.", card.Body);
+    }
+
+    [Fact]
+    public void A_canceled_routine_packing_says_so_in_its_own_words()
+    {
+        var card = new ErrorCardViewModel(ErrorInfo.From(new OperationCancelledByUserException(CancelledOperation.Compaction, "skyrim")), _text, operation: ErrorOperations.Of(JobKind.PackStorage));
+
+        Assert.Equal("Compacting snapshot files was canceled. Nothing was lost.", card.Body);
+    }
+
+    [Fact]
+    public void A_free_ups_pause_and_cancel_keep_their_words()
+    {
+        var operation = ErrorOperations.Of(JobKind.Compact);
+
+        Assert.Equal("Freeing up space paused", new ErrorCardViewModel(ErrorInfo.From(new CompactionPreemptedException("skyrim")), _text, operation: operation).Title);
+        Assert.Equal("Freeing up space was canceled. Nothing was lost.", new ErrorCardViewModel(ErrorInfo.From(new OperationCancelledByUserException(CancelledOperation.Compaction, "skyrim")), _text, operation: operation).Body);
     }
 
     [Fact]

@@ -130,7 +130,7 @@ public class LaunchCompleteTests
         var compactions = 0;
         EventHandler<JobSnapshot> count = (_, job) =>
         {
-            if (job.Kind == JobKind.Compact && job.Status == JobStatus.Running && job.Revision == 1)
+            if (job.Kind == JobKind.PackStorage && job.Status == JobStatus.Running && job.Revision == 1)
             {
                 Interlocked.Increment(ref compactions);
             }

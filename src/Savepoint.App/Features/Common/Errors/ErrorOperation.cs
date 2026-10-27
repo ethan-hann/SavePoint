@@ -20,6 +20,9 @@ public enum ErrorOperation
     /// <summary>Freeing up space in the snapshot folder.</summary>
     FreeUpSpace,
 
+    /// <summary>Packing a game's snapshot files tighter, which SavePoint starts by itself after a snapshot and which deletes nothing.</summary>
+    PackStorage,
+
     /// <summary>Moving the snapshot folder to a new place.</summary>
     MoveSnapshots,
 
@@ -38,6 +41,7 @@ public static class ErrorOperations
         JobKind.Switch => ErrorOperation.Switch,
         JobKind.Capture => ErrorOperation.Snapshot,
         JobKind.Compact => ErrorOperation.FreeUpSpace,
+        JobKind.PackStorage => ErrorOperation.PackStorage,
         JobKind.RelocateStorage => ErrorOperation.MoveSnapshots,
         JobKind.ClearData => ErrorOperation.ClearData,
         _ => ErrorOperation.Unspecified,

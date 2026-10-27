@@ -9,7 +9,8 @@ public class EveryJobKindHidesEngineFoldersTests
     [Fact(Timeout = 240_000)]
     public async Task No_kind_of_job_shows_a_git_folder_in_any_line_it_writes()
     {
-        var (rig, vanilla, modded) = await LaunchRig.WithTwoProfilesAsync(gameArguments: ["--exit-after", "800"]);
+        // A threshold of zero makes every snapshot queue the routine packing of the game's files.
+        var (rig, vanilla, modded) = await LaunchRig.WithTwoProfilesAsync(options => options with { LooseObjectThreshold = 0 }, gameArguments: ["--exit-after", "800"]);
         using var _ = rig;
         var workspace = rig.Workspace;
         var seen = new Dictionary<JobKind, List<JobSnapshot>>();
@@ -29,6 +30,7 @@ public class EveryJobKindHidesEngineFoldersTests
         rig.WriteInstall("mods/c.txt", "mod c");
         rig.WriteSave("slot3.sav", "third save");
         See(await rig.CaptureAsync(modded, "More changes"));
+        await workspace.WaitForIdleAsync();
 
         // Freeing up space, for one game and for all of them.
         var oneGame = await workspace.Games.OptimizeStorageAsync(rig.Game.Id);
