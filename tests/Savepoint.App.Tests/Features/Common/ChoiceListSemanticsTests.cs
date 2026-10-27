@@ -16,17 +16,23 @@ namespace Savepoint.App.Tests.Features.Common;
 // a named group, each option a radio button that says whether it is selected, and the arrow keys move between the options.
 public class ChoiceListSemanticsTests
 {
-    public static TheoryData<string, string> Choices => new()
-    {
-        { "editor-new", "LaunchChoiceList" },
-        { "settings", "ThemeSelector" },
-        { "settings", "LayoutCards" },
-        { "settings", "AccentSwatches" },
-        { "games-library", "Toggle" },
-        { "history-cards", "ViewToggle" },
-        { "activity-jobs", "ScopeToggle" },
-        { "post-play-from-older-snapshot", "ChoiceList" },
-    };
+    private static readonly (string State, string Name)[] _choices =
+    [
+        ("editor-new", "LaunchChoiceList"),
+        ("settings", "ThemeSelector"),
+        ("settings", "LayoutCards"),
+        ("settings", "AccentSwatches"),
+        ("games-library", "Toggle"),
+        ("history-cards", "ViewToggle"),
+        ("activity-jobs", "ScopeToggle"),
+        ("post-play-from-older-snapshot", "ChoiceList"),
+    ];
+
+    public static TheoryData<string, string> Choices => [.. _choices.Select(choice => (choice.State, choice.Name))];
+
+    // Every choice except the layout switch, which rebuilds the screen's chrome when its choice changes and so drops focus.
+    public static TheoryData<string, string> FocusKeepingChoices =>
+        [.. _choices.Where(choice => choice.Name != "Toggle").Select(choice => (choice.State, choice.Name))];
 
     // The Sidebar/Library switch exists once in each layout's chrome; the one on screen is the one a key press reaches.
     private static ListBox Shown(Features.EndToEnd.ComposedApp app, string name) =>
@@ -253,19 +259,29 @@ public class ChoiceListSemanticsTests
             return Shown(app, name);
         }
 
-        var list = Press(Key.Right, PhysicalKey.ArrowRight);
-        Assert.Equal(1, list.SelectedIndex);
-        // Choosing a layout rebuilds the screen's chrome, which drops focus; that is a separate matter from the arrow keys.
-        if (name != "Toggle")
-        {
-            Assert.Same(list.ContainerFromIndex(1), app.Focused);
-        }
-
+        Assert.Equal(1, Press(Key.Right, PhysicalKey.ArrowRight).SelectedIndex);
         Assert.Equal(0, Press(Key.Left, PhysicalKey.ArrowLeft).SelectedIndex);
         Assert.Equal(1, Press(Key.Down, PhysicalKey.ArrowDown).SelectedIndex);
         Assert.Equal(0, Press(Key.Up, PhysicalKey.ArrowUp).SelectedIndex);
         Assert.Equal(last, Press(Key.Left, PhysicalKey.ArrowLeft).SelectedIndex);
         Assert.Equal(0, Press(Key.Right, PhysicalKey.ArrowRight).SelectedIndex);
+    }
+
+    [AvaloniaTheory]
+    [MemberData(nameof(FocusKeepingChoices))]
+    public async Task An_arrow_key_leaves_focus_on_the_option_it_chose(string state, string name)
+    {
+        using var app = await AppStates.OpenAsync(state);
+        var shown = Shown(app, name);
+        shown.SelectedIndex = 0;
+        app.Settle();
+        ((Control)shown.ContainerFromIndex(0)!).Focus(NavigationMethod.Tab);
+        app.Settle();
+
+        app.Press(Key.Right, PhysicalKey.ArrowRight);
+
+        var list = Shown(app, name);
+        Assert.Same(list.ContainerFromIndex(1), app.Focused);
     }
 
     private static readonly Regex _plainChoiceList = new(@"<ListBox\b[^>]*\bClasses=""[^""]*\b(choice|segmented|segmented-tray|radio-cards|swatches)\b", RegexOptions.CultureInvariant);

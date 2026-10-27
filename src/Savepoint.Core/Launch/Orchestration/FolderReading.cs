@@ -5,8 +5,11 @@ using Savepoint.Core.Git;
 namespace Savepoint.Core.Launch.Orchestration;
 
 // One folder as a launch finds it: where git says it is, set against where the launch wants it.
-internal sealed record FolderReading(FolderTarget Target, RepoStatus Status, IReadOnlyList<Profile> Profiles, StoppedSwitchReview? Review = null, bool ReviewFailed = false)
+internal sealed record FolderReading(FolderTarget Target, RepoStatus Status, IReadOnlyList<Profile> Profiles, StoppedSwitchReview? Review = null, SavepointException? ReviewFailure = null)
 {
+    // The folder could not be looked at; ReviewFailure says why, for the log.
+    public bool ReviewFailed => ReviewFailure is not null;
+
     public InterruptedSwitch? Note => Status.InterruptedSwitch;
 
     // A half-finished switch to this very target is what the launch carries on with; it is not the player's work.
@@ -69,19 +72,19 @@ internal sealed record FolderReading(FolderTarget Target, RepoStatus Status, IRe
         // preview can say it. A folder that cannot be checked is not offered a finish: the unchecked folder counts as blocked, which leaves
         // discarding as the way out.
         StoppedSwitchReview? review = null;
-        var failed = false;
+        SavepointException? failure = null;
         if (!target.Leave && status.InterruptedSwitch is { ToCommit: { } to } && string.Equals(to, target.Commit, StringComparison.Ordinal))
         {
             try
             {
                 review = await engine.ReviewStoppedSwitchAsync(target.Repo, cancellationToken, countReplaced).ConfigureAwait(false);
             }
-            catch (SavepointException)
+            catch (SavepointException e)
             {
-                failed = true;
+                failure = e;
             }
         }
 
-        return new FolderReading(target, status, profiles, review, failed);
+        return new FolderReading(target, status, profiles, review, failure);
     }
 }

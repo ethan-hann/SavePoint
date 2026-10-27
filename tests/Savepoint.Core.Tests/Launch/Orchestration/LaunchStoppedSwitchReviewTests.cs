@@ -3,6 +3,7 @@ using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Git;
+using Savepoint.Testing;
 
 namespace Savepoint.Core.Tests.Launch.Orchestration;
 
@@ -230,6 +231,24 @@ public class LaunchStoppedSwitchReviewTests
         Assert.False(again.Install.Dirty);
         Assert.False(again.Install.StoppedSwitchUnchecked);
         Assert.Equal(Tip(vanilla), again.Install.UnfinishedSwitchTarget);
+    }
+
+    [Fact(Timeout = 150_000)]
+    public async Task A_preview_that_cannot_check_the_folder_logs_why_as_a_warning()
+    {
+        var watch = new HashWatch();
+        var log = new RecordingDiagnosticLog();
+        var (rig, vanilla, _) = await LaunchRig.WithTwoProfilesAsync(options => watch.Options(options) with { Log = log });
+        using var _ = rig;
+        await CancelSwitchToAsync(rig, vanilla);
+        rig.WriteInstall("data/base.pak", _sameSizeOtherBytes);
+        watch.Fail = true;
+
+        await rig.PreviewAsync(Tip(vanilla));
+
+        var line = Assert.Single(log.Containing("could not be checked", rig.InstallPath));
+        Assert.Equal(LogLevel.Warning, line.Level);
+        Assert.IsAssignableFrom<SavepointException>(line.Exception);
     }
 
     [Fact(Timeout = 150_000)]

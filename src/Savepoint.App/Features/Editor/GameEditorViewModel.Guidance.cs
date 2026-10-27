@@ -88,6 +88,7 @@ public sealed partial class GameEditorViewModel
     /// Where the form was scrolled to, in pixels. The view keeps it while it is on screen, so the form comes back to the same place
     /// after the "How SavePoint works" page covers it.
     /// </summary>
+    // A pixel offset is view state, but the editor view is rebuilt when the player comes back from a help page, so only the view model outlives it.
     internal double FormScrollOffset { get; set; }
 
     /// <summary>

@@ -5,9 +5,7 @@ namespace Savepoint.Core.Tests.Git;
 // A big file is read in pieces, and a cancelled call must not wait for the rest of it.
 public sealed class BlobHasherCancellationTests : IDisposable
 {
-    private readonly string _folder = Path.Combine(Path.GetTempPath(), "savepoint-hasher-" + Guid.NewGuid().ToString("N"));
-
-    public BlobHasherCancellationTests() => Directory.CreateDirectory(_folder);
+    private readonly string _folder = Directory.CreateTempSubdirectory("savepoint-hasher-").FullName;
 
     public void Dispose() => Directory.Delete(_folder, recursive: true);
 

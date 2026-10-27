@@ -63,6 +63,13 @@ public sealed partial class LaunchOrchestrator
         var install = readings.Single(reading => reading.Target.Role == RepoRole.Install);
         var external = readings.FirstOrDefault(reading => reading.Target.Role == RepoRole.External);
 
+        foreach (var reading in readings.Where(reading => reading.Pending && reading.ReviewFailure is not null))
+        {
+            _services.Log.Warning(
+                $"Preview for {game.Id}: the {GameFolders.LogName(reading.Target.Role)} folder ({reading.Target.Repo.WorkTree}) has a stopped switch that could not be checked for unsaved changes: {reading.ReviewFailure!.Message}",
+                reading.ReviewFailure);
+        }
+
         var states = await Task.WhenAll(readings.Select(reading => FolderStateAsync(storage, game, profiles, target, reading, cancellationToken))).ConfigureAwait(false);
         var currentOverride = install.Status.IsDetached ? null : profiles.FirstOrDefault(profile => profile.BranchName == install.Status.Branch)?.VersionOverride;
         var current = await InstallStateAsync(storage, game, install.Target.Repo, install.Status.HeadCommit, currentOverride, cancellationToken).ConfigureAwait(false);

@@ -293,10 +293,18 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
     private string ReplacedLine(FolderLaunchState folder)
     {
         var text = _deps.Text;
-        var named = folder.ReplacedFileNames is { Count: > 0 } names
-            ? " " + text.Message("launch.dialog.replacedNames", ("more", Math.Max(0, folder.ReplacedFileCount - names.Count)), ("names", string.Join(", ", names)))
-            : string.Empty;
-        return text.Message("launch.dialog.replacedNote", ("count", folder.ReplacedFileCount), ("role", folder.Role == RepoRole.Install ? "install" : "external"), ("named", named));
+        var role = folder.Role == RepoRole.Install ? "install" : "external";
+        if (folder.ReplacedFileNames is not { Count: > 0 } names)
+        {
+            return text.Message("launch.dialog.replacedNote", ("count", folder.ReplacedFileCount), ("role", role));
+        }
+
+        return text.Message(
+            "launch.dialog.replacedNoteNamed",
+            ("count", folder.ReplacedFileCount),
+            ("role", role),
+            ("more", Math.Max(0, folder.ReplacedFileCount - names.Count)),
+            ("names", string.Join(text.Message("common.listSeparator"), names)));
     }
 
     // The mix of two snapshots is finished or discarded; when unsaved changes stand in the way of finishing, only discarding is left, and the words say why.
