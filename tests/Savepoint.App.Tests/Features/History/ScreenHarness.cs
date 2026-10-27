@@ -60,13 +60,16 @@ internal sealed class ScreenHarness : IDisposable
         ThemePreference theme = ThemePreference.Dark,
         double width = 1040,
         double height = 660,
-        bool realDialogs = false)
+        bool realDialogs = false,
+        IUiDispatcher? dispatcher = null)
     {
         backend ??= new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Theme = theme }));
         var text = HistoryRig.FormatterFor(backend);
         var app = (App)Application.Current!;
         var services = new AppServices(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus, backend.Artwork);
-        var dispatcher = new ImmediateUiDispatcher();
+
+        // The immediate one runs idle work inline; a test that needs work to wait for the current input to finish passes the real one.
+        dispatcher ??= new ImmediateUiDispatcher();
         var toasts = new ToastHostViewModel(new ManualTimeProvider(), dispatcher);
         var dialogStack = new DialogHostViewModel();
         var fakeDialogs = new FakeDialogs();
