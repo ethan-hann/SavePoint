@@ -1,9 +1,9 @@
 namespace Savepoint.Core.Errors;
 
 /// <summary>
-/// Steam is updating the game, or changed its install while the launch ran (<c>error.launch.steamUpdatingGame</c>), so the program
-/// was not started: the update may have written over the version the launch had just loaded. The folders were switched; the game was
-/// not started. Args: <c>gameId</c>.
+/// Steam began updating the game, or changed its install, after the launch switched the folders (<c>error.launch.steamUpdatingGame</c>),
+/// so the program was not started: the update may have written over the version the launch had just loaded. The folders were switched
+/// and may have changed; the game was not started. Args: <c>gameId</c>.
 /// </summary>
 public sealed class SteamUpdatingGameException : SavepointException
 {

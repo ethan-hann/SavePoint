@@ -147,6 +147,7 @@ public sealed partial class LaunchOrchestrator
         if (!withoutSteam)
         {
             await EnsureSteamAsync(context, steamGame, startSteam).ConfigureAwait(false);
+            await RefuseBeforeSwitchWhenSteamUpdatesAsync(steamGame, steamBefore).ConfigureAwait(false);
         }
 
         // Preparing and switching hold the game's lock, which a running optimization yields to (D13.17); the lock is let go before the game starts.

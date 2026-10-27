@@ -186,7 +186,9 @@ public class ErrorTypesTests
             ("gameId", "game-1"));
         Add("SteamDidNotStart", new SteamDidNotStartException("game-1"), "error.launch.steamDidNotStart",
             ("gameId", "game-1"));
-        Add("SteamUpdatingGame", new SteamUpdatingGameException("game-1"), "error.launch.steamUpdatingGame",
+        Add("SteamUpdatingBeforeSwitch", new SteamUpdatingBeforeSwitchException("game-1"), "error.launch.steamUpdatingBeforeSwitch",
+            ("gameId", "game-1"));
+        Add("SteamUpdatingGame",new SteamUpdatingGameException("game-1"), "error.launch.steamUpdatingGame",
             ("gameId", "game-1"));
         Add("DirtyWorkingTree", new DirtyWorkingTreeException(RepoRole.Install), "error.launch.dirtyWorkingTree",
             ("role", RepoRole.Install));

@@ -24,10 +24,23 @@ public sealed partial class LaunchOrchestrator
         return await Task.Run(() => SteamGames.NeedsClient(game, installPath, _services.Platform.Os, comparison) ? SteamInstallState.Read(installPath, comparison) : null).ConfigureAwait(false);
     }
 
-    // Runs right before the program starts, after the folders hold the player's version. Waiting for Steam to sign in does not stop an update:
-    // one can start later, or already have written over the switched files. So the manifest is read again, and the program does not start
-    // when Steam is working on the game or changed its build or update time since the launch began. This only reads the manifest; it
-    // cannot tell whether the files themselves changed, so a refusal says they may have.
+    // Runs once Steam is up and before any folder is switched. An update Steam is already running would write over the version about to be
+    // loaded, so the manifest is read with the client running and the launch stops, with nothing changed, when it shows work on the game
+    // or a new build since the launch began. The reading taken before Steam started cannot decide this: with Steam closed, a flag left by
+    // an update that crashed can sit in the manifest, and starting the client clears it.
+    private async Task RefuseBeforeSwitchWhenSteamUpdatesAsync(GameDefinition game, SteamInstallState? before)
+    {
+        if (await ReadSteamInstallAsync(game).ConfigureAwait(false) is { } now && (now.IsUpdating || now.ChangedSince(before)))
+        {
+            _services.Log.Information($"Launch of {game.Id} stopped before the switch: Steam's manifest shows an update (flags {now.StateFlags}, build {now.BuildId ?? "none"}, was {before?.BuildId ?? "none"}).");
+            throw new SteamUpdatingBeforeSwitchException(game.Id);
+        }
+    }
+
+    // Runs right before the program starts, after the folders hold the player's version. An update can begin while the folders are switched,
+    // so the manifest is read once more, and the program does not start when Steam is working on the game or changed its build or update
+    // time since the launch began. This only reads the manifest; it cannot tell whether the files themselves changed, so a refusal says
+    // they may have.
     private async Task RefuseWhenSteamUpdatesAsync(GameDefinition game, SteamInstallState? before, string installPath)
     {
         if (await ReadSteamInstallAsync(game, installPath).ConfigureAwait(false) is { } now && (now.IsUpdating || now.ChangedSince(before)))
@@ -38,8 +51,8 @@ public sealed partial class LaunchOrchestrator
     }
 
     // Runs at the start of the launch job, before the game's folders are touched. When it returns, Steam is running and signed in, and no
-    // folder has been read or switched. It does not stop an update that starts or lands later; RefuseWhenSteamUpdatesAsync refuses the start
-    // when the manifest shows one.
+    // folder has been read or switched. It does not look for an update; RefuseBeforeSwitchWhenSteamUpdatesAsync does that next, and
+    // RefuseWhenSteamUpdatesAsync again once the folders are switched.
     private async Task EnsureSteamAsync(JobContext context, GameDefinition game, bool startSteam)
     {
         if (!await SteamIsMissingAsync(game).ConfigureAwait(false))

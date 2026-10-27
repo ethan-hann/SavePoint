@@ -1,6 +1,8 @@
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Launch;
+using Savepoint.Core.Launch.Orchestration;
+using Savepoint.Core.Platform;
 
 namespace Savepoint.Core.Tests.Launch.Orchestration;
 
@@ -122,10 +124,11 @@ public class LaunchSteamTests
         var job = await rig.WaitForJobAsync(started.Value!.JobId);
 
         Assert.Equal(JobStatus.Failed, job.Status);
-        Assert.Equal("error.launch.steamUpdatingGame", job.Error?.MessageId);
+        Assert.Equal("error.launch.steamUpdatingBeforeSwitch", job.Error?.MessageId);
         Assert.Empty(rig.GameProcessIds());
+        Assert.False(Switched(rig));
         var session = await rig.WaitForAsync<SessionState.Failed>();
-        Assert.Equal("error.launch.steamUpdatingGame", Assert.IsType<SessionState.Failed>(session.State).Error.MessageId);
+        Assert.Equal("error.launch.steamUpdatingBeforeSwitch", Assert.IsType<SessionState.Failed>(session.State).Error.MessageId);
     }
 
     [Fact(Timeout = 240_000)]
@@ -142,23 +145,89 @@ public class LaunchSteamTests
         var job = await rig.WaitForJobAsync(started.Value!.JobId);
 
         Assert.Equal(JobStatus.Failed, job.Status);
-        Assert.Equal("error.launch.steamUpdatingGame", job.Error?.MessageId);
+        Assert.Equal("error.launch.steamUpdatingBeforeSwitch", job.Error?.MessageId);
         Assert.Empty(rig.GameProcessIds());
+        Assert.False(Switched(rig));
     }
 
     [Fact(Timeout = 240_000)]
-    public async Task A_Steam_update_already_running_when_Steam_is_up_stops_the_launch_before_the_program_starts()
+    public async Task A_Steam_update_already_running_when_Steam_is_up_stops_the_launch_before_any_folder_is_switched()
     {
         var steam = new FakeSteamClient(ready: true);
         var (rig, vanilla, _) = await SteamRigAsync(steam);
         using var _ = rig;
         Manifest(rig, _updating);
+        var installBefore = rig.SnapshotOf(RepoRole.Install);
+        var savesBefore = rig.SnapshotOf(RepoRole.External);
+
+        var job = await StartAndWaitAsync(rig, Tip(vanilla));
+
+        Assert.Equal(JobStatus.Failed, job.Status);
+        Assert.Equal("error.launch.steamUpdatingBeforeSwitch", job.Error?.MessageId);
+        Assert.Empty(rig.GameProcessIds());
+        Assert.False(Switched(rig));
+        Assert.Equal(installBefore, rig.SnapshotOf(RepoRole.Install));
+        Assert.Equal(savesBefore, rig.SnapshotOf(RepoRole.External));
+    }
+
+    [Fact(Timeout = 240_000)]
+    public async Task A_stale_update_flag_left_by_a_crashed_update_does_not_block_a_launch_that_starts_Steam()
+    {
+        // With Steam closed the flag may be left over from an update that never finished; starting the client clears it.
+        LaunchRig? rig = null;
+        var steam = new FakeSteamClient { ReadyAfterLooks = 1, OnStart = () => Manifest(rig!, _installed) };
+        var (made, vanilla, _) = await SteamRigAsync(steam);
+        rig = made;
+        using var _ = rig;
+        Manifest(rig, _updating);
+
+        var started = await rig.Launch.StartAsync(rig.Game.Id, Tip(vanilla), startSteam: true);
+        var job = await rig.WaitForJobAsync(started.Value!.JobId);
+        await rig.WaitForGameAsync();
+
+        Assert.Equal(JobStatus.Succeeded, job.Status);
+        Assert.NotEmpty(rig.GameProcessIds());
+    }
+
+    [Fact(Timeout = 240_000)]
+    public async Task A_Steam_update_that_starts_while_the_folders_are_switched_stops_the_program_and_says_the_files_may_have_changed()
+    {
+        // The second look at the process list is the launch's own check inside the job, after Steam was found ready and before the switch.
+        LaunchRig? rig = null;
+        var inspector = new TriggeredInspector(onSecondLook: () => rig!.Workspace.WriteSteamManifest(_appId, "100", _updating, "1"));
+        var starter = new GameStarter(GameLaunchers.ForCurrentOs(), inspector, PlatformFactory.CurrentOs, new GameSessionOptions { PollInterval = TimeSpan.FromMilliseconds(100), Grace = TimeSpan.FromSeconds(3) }, TimeProvider.System);
+        var steam = new FakeSteamClient(ready: true);
+        var (made, vanilla, _) = await LaunchRig.WithTwoProfilesAsync(
+            configure: options => options with { Launch = LaunchOrchestrator.Factory(new LaunchOrchestratorOptions { Starter = starter, Steam = steam }) },
+            followProcessName: true,
+            steam: steam,
+            steamLibrary: true);
+        rig = made;
+        using var _ = rig;
+        Manifest(rig);
 
         var job = await StartAndWaitAsync(rig, Tip(vanilla));
 
         Assert.Equal(JobStatus.Failed, job.Status);
         Assert.Equal("error.launch.steamUpdatingGame", job.Error?.MessageId);
+        Assert.True(Switched(rig), "the update began after the first folder was read, so the switch had already happened");
         Assert.Empty(rig.GameProcessIds());
+    }
+
+    // A process list that is empty and runs a test's action at its second look.
+    private sealed class TriggeredInspector(Action onSecondLook) : IProcessInspector
+    {
+        private int _looks;
+
+        public IReadOnlyList<RunningProcess> List()
+        {
+            if (Interlocked.Increment(ref _looks) == 2)
+            {
+                onSecondLook();
+            }
+
+            return [];
+        }
     }
 
     [Fact(Timeout = 240_000)]
