@@ -130,8 +130,7 @@ A test that cannot run on an OS calls `Assert.SkipUnless` or `Assert.SkipWhen` w
 | Gate | List |
 | --- | --- |
 | Windows (`build/gate.ps1`, the Windows CI job) | `build/expected-skips/windows.txt` |
-| Linux CI (`build/gate.sh` in the CI container) | `build/expected-skips/linux-ci.txt` |
-| Linux under WSL (`build/gate-linux.ps1`) | `build/expected-skips/linux-wsl.txt`, which includes `linux-ci.txt` and adds only its own extras |
+| Linux CI (`build/gate.sh` in the CI container) and the Linux VM (`build/gate-linux.ps1`) | `build/expected-skips/linux-ci.txt` |
 
 A line that starts with `~` marks a skip that depends on timing. The gate fails on a skip that its list does not name. After a full gate run, `tools/SkipCheck` with `--write` rewrites a list from the run's reports (see `docs/developer-guide.md`, section "Gates").
 

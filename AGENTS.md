@@ -32,7 +32,7 @@ SavePoint is licensed GPL-3.0-or-later (`LICENSE`). Bundled components keep thei
 - A change that touches only documentation or agent instructions passes without building or testing, and needs no local gate. That means `docs/`, the documentation site's `docfx.json` and `docfx/`, Markdown files at the root except `THIRD-PARTY-NOTICES.md`, and `.agents/`, `.claude/rules/`, and `.han/`. `.forgejo/workflows/docs.yml` builds the site for a documentation change instead.
 - Run `build/gate.ps1` locally on the branch, and see it pass, before opening a pull request or pushing more commits to one. The CI gate on the Windows VM costs far more than a local run, so a failure must show up locally first. Only a change that skips the gate in CI (above) skips this run.
 - Both CI gates are required checks on `main`, which takes fast-forward merges only. A pull request cannot merge while the Windows runner is offline; it waits for the runner.
-- `SAVEPOINT_TEST_ARGS` takes only a report (`--report-*`) and retries (`--retry-failed-tests*`). A filter is refused unless `-AllowNarrowedTests` / `--allow-narrowed-tests` says it is on purpose. A narrowed run is not a gate.
+- `SAVEPOINT_TEST_ARGS` takes only a report (`--report-*`); test retries are not available. A filter is refused unless `-AllowNarrowedTests` / `--allow-narrowed-tests` says it is on purpose. A narrowed run is not a gate.
 
 ## Code
 

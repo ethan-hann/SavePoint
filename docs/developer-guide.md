@@ -8,7 +8,7 @@ How to build, run, test, package, and release SavePoint. The working rules for e
 - **On Windows, PowerShell 7 (`pwsh`).** The build calls `build/fetch-git.ps1` through it.
 - **On Linux and macOS, `bash`, `tar`, and `curl` or `wget`.** No JSON tool is necessary.
 - **Network access on the first build**, to download SavePoint's own git. Later builds reuse it.
-- **For the full test run:** PowerShell 7 on every OS, `gpg`, and on Linux `dbus-daemon`. On Windows, `gpg` comes from Gpg4win or from Git for Windows' `usr\bin`. `build/gate-linux.sh` installs PowerShell as a .NET tool, and stops with the `apt install` line to run if `dbus-daemon` or `gpg` is missing. A test that skips because one of these is missing fails the gate.
+- **For the full test run:** PowerShell 7 on every OS, `gpg`, and on Linux `dbus-daemon`. On Windows, `gpg` comes from Gpg4win or from Git for Windows' `usr\bin`. On the Linux VM, `build/gate-linux.sh` installs the .NET SDK and PowerShell into its own folder, and stops with the `apt install` line to run if `rsync`, `flock`, `dbus-daemon`, or `gpg` is missing. A test that skips because one of these is missing fails the gate.
 - **For packaging only:** `dotnet tool restore`, which installs the pinned `vpk`, and git on `PATH`.
 
 SavePoint never uses a git installed on the machine. Only the package scripts call git, to read the commit they build.
@@ -83,12 +83,14 @@ A change is done when the gate passes. `build/gate.ps1` (Windows) and `build/gat
 
 The gates run at below-normal priority. They cap MSBuild at 4 nodes with no node reuse, and tests at 4 threads per module, with the App and Core test modules side by side (D48). Override the caps with `SAVEPOINT_GATE_BUILD_NODES` and `SAVEPOINT_GATE_TEST_THREADS`.
 
-`SAVEPOINT_TEST_ARGS` takes a report (`--report-*`) or retries (`--retry-failed-tests*`), and the gate prints them. The gate refuses anything else there, because it could run only some tests, unless `-AllowNarrowedTests` (`--allow-narrowed-tests`) says it is on purpose. The pass is then reported as narrowed.
+`SAVEPOINT_TEST_ARGS` takes only a report (`--report-*`), and the gate prints it. The gate refuses anything else there: a filter could run only some tests, and test retries are not available (D60). A narrowed run is allowed when `-AllowNarrowedTests` (`--allow-narrowed-tests`) says it is on purpose, and its pass is reported as narrowed.
 
-- **`build/gate-linux.ps1`** runs the Linux gate from Windows under WSL (the `Ubuntu` distribution by default). It works from its own worktree, `.linux-gate`, so Linux and Windows build outputs never mix, and keeps a Linux .NET SDK and NuGet caches under `.tools/`. The distribution needs nothing installed.
-  - The worktree is on the Windows drive, which WSL mounts over 9p. The Linux gate retries a failed test up to twice and lists every retry (D27). The Windows gate never retries.
-  - Tests of what the 9p mount cannot do (Unix sockets, permission changes, case-sensitive names) probe for it and skip. The gate warns at the start when permissions do not hold. The WSL gate checks its skips against its own list (`linux-wsl.txt`).
-- **One gate at a time.** Every gate takes a machine-wide lock (`<main checkout>/.tools/locks/gate.lock`), so gates started from different worktrees run one after another.
+- **`build/gate-linux.ps1 -Commit <branch or commit>`** runs the Linux gate from Windows on the Linux test VM over SSH, with a key only (D60). It sends the committed tree of that commit (default `HEAD`), so a local branch that was never pushed works; uncommitted changes are not gated, and it says so.
+  - On the VM it works in `~/gate`, with its own .NET SDK, PowerShell and NuGet caches, and keeps build outputs between runs. The VM's skips are checked against `linux-ci.txt`, the same list as CI.
+  - The exit code is the gate's. Exit 75 means another gate holds the VM's lock (`~/gate/gate.lock`). The log comes back to `.tools/gate-linux-last.log`.
+  - The VM's address, user, key and folder default to the test VM's and can be changed with `-VmHost`, `-VmUser`, `-VmKey`, `-VmDir`, or `SAVEPOINT_VM_HOST`, `SAVEPOINT_VM_USER`, `SAVEPOINT_VM_KEY`, `SAVEPOINT_VM_DIR`.
+  - A full run takes about 16 minutes on the 4-core VM.
+- **One gate at a time.** Every Windows gate takes a machine-wide lock (`<main checkout>/.tools/locks/gate.lock`), so gates started from different worktrees run one after another. The VM gate has its own lock on the VM, so it can run beside a Windows gate.
 - **macOS** is built and unit-tested only through the shared code paths. It has not run on hardware (D9).
 
 ## Rules for changes
@@ -119,7 +121,7 @@ pwsh -NoProfile -File build/package.ps1
 
 - **Windows:** `build/package.ps1` publishes a self-contained `win-x64` build to `artifacts/publish/win-x64` and packs `SavePoint-win-Setup.exe` and `SavePoint-win-Portable.zip` into `artifacts/release/win-x64`. Before and after the pack it checks that `git/`, `THIRD-PARTY-NOTICES.md`, and `licenses/` are there, and it writes each package's listing to `artifacts/release/contents-win-x64/`.
 - **Linux:** `build/package.sh` does the same for `linux-x64` and gives `SavePoint.AppImage`. Run it from a clone on a Linux machine. Without a matching `dotnet`, it installs a .NET SDK into its tools folder.
-- **Linux package from Windows:** run `build/package-linux.ps1` (`-Commit`, default `HEAD`). Like the Linux gate, it takes the gate lock and checks the commit out into `.linux-gate`. It then runs `package.sh --revision <commit> --tools-dir <main checkout>/.tools` under WSL. The package goes to `.linux-gate/artifacts/release/linux-x64`.
+- **Linux package from Windows:** run `build/package-linux.ps1` (`-Commit`, default `HEAD`). Like the Linux gate, it sends the committed tree to the Linux VM and runs `package.sh` there, in its own folder (`~/package`) under its own lock. The package comes back to `artifacts/release/linux-x64`, with its listing beside it.
 - **Which build this is:** the scripts put the commit into the informational version, and the startup log names it. A tree with uncommitted changes is refused. `-AllowDirty` (`--allow-dirty`) packs it anyway, marked `-dirty`, for a trial package.
 - **macOS:** no package is built (D33).
 - **No update checks:** the packages do not check for updates (D33). Running a newer release's setup installs it over an older one.
@@ -180,7 +182,7 @@ The server's one-time setup (the git-pages container, its wildcard config, the p
 | `tests/Shared` | Code linked into both test projects, for example `TestEnvironment`, which confines temp files to the workspace. |
 | `tools/FakeGame` | A stand-in game for the launch tests and manual runs. It writes save files on a timer (`--saves <dir> --save-every <ms>`), can hold a file open (`--lock`), starts a child the way a launcher does (`--spawn`, last on the line, with `--linger <ms>` before it to keep the starter running that long after the child starts), and exits on cue (`--exit-after <ms> --exit-code <n>`). |
 | `tools/IconGen` | Generates the app icon files from the app mark. |
-| `build/` | Gate scripts, package scripts, the git fetch scripts and manifest, the test-retry targets the Linux gate uses, and `expected-skips/` (the tests each OS may skip). |
+| `build/` | Gate scripts, package scripts, the git fetch scripts and manifest, and `expected-skips/` (the tests each OS may skip). |
 | `tools/PackageSources` | Reads `build/msys2-sources.json` (`archives`) and the sources of `build/git-manifest.json` (`tags`) for the packaging scripts, and one runtime's bundle (`bundle <manifest> <rid>`) for `build/fetch-git.sh`. The layout of either file does not matter. The bash fetch takes a short lock (`.tools/downloads/manifest-read.lock.d`) around the read. Tested in `tests/Savepoint.Core.Tests/Build`. |
 | `tools/SkipCheck` | The gate's skip check: compares the skipped tests in the xunit reports with a list in `build/expected-skips/`. Tested in `tests/Savepoint.Core.Tests/Build`. |
 | `docs/` | This guide, `user-guide.md`, `testing-on-mac-and-linux.md`, `architecture.md`, `decisions.md`, `ui-guide.md`, `dogfood-checklist.md` (the manual checks), and `toc.yml` (their order on the documentation site). |

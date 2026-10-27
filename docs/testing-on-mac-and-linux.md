@@ -1,6 +1,6 @@
 # Testing SavePoint on a Mac and a Linux VM
 
-The automated runs on Windows, WSL and CI do not check desktop behavior such as notifications, launchers and single instance. SavePoint has never run on macOS (D9). This guide covers both gaps (issues #2 and #3). Run the gate, then the manual checks, then report (see "Reporting").
+The automated runs on Windows, the Linux VM and CI do not check desktop behavior such as notifications, launchers and single instance. SavePoint has never run on macOS (D9). This guide covers both gaps (issues #2 and #3). Run the gate, then the manual checks, then report (see "Reporting").
 
 ## Getting the code
 
