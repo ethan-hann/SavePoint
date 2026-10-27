@@ -85,6 +85,44 @@ public class ModsHistoryTests
     }
 
     [Fact]
+    public async Task An_install_only_point_is_not_in_use_once_a_later_mods_change_leaves_the_mods_folder_ahead_of_it()
+    {
+        var (workspace, game, vanilla) = await WorldAsync();
+        using var _ = workspace;
+        await GitClock.NextSecondAsync(workspace.Token);
+        BackendWorkspace.WriteFile(Path.Combine(game.Install.Path, "data", "patch.bin"), "patched");
+        await CaptureAsync(workspace, game, vanilla, "Patched", RepoRole.Install);
+        await GitClock.NextSecondAsync(workspace.Token);
+        BackendWorkspace.WriteFile(Path.Combine(game.Mods!.Path, "modC", "info.xml"), "mod c");
+        await CaptureAsync(workspace, game, vanilla, "Added a mod", RepoRole.Mods);
+
+        var points = await PointsAsync(workspace, game);
+
+        // Going back to the install-only point would restore the first point's mods, so it is not what the folders hold.
+        Assert.False(points.Single(point => point.Name == "Patched").InUse);
+        Assert.False(points.Single(point => point.Name == "Vanilla").InUse);
+        Assert.True(points.Single(point => point.Name == "Added a mod").InUse);
+    }
+
+    [Fact]
+    public async Task A_mods_only_point_is_not_in_use_once_a_later_install_change_leaves_the_install_folder_ahead_of_it()
+    {
+        var (workspace, game, vanilla) = await WorldAsync();
+        using var _ = workspace;
+        await GitClock.NextSecondAsync(workspace.Token);
+        BackendWorkspace.WriteFile(Path.Combine(game.Mods!.Path, "modC", "info.xml"), "mod c");
+        await CaptureAsync(workspace, game, vanilla, "Added a mod", RepoRole.Mods);
+        await GitClock.NextSecondAsync(workspace.Token);
+        BackendWorkspace.WriteFile(Path.Combine(game.Install.Path, "data", "patch.bin"), "patched");
+        await CaptureAsync(workspace, game, vanilla, "Patched", RepoRole.Install);
+
+        var points = await PointsAsync(workspace, game);
+
+        Assert.False(points.Single(point => point.Name == "Added a mod").InUse);
+        Assert.True(points.Single(point => point.Name == "Patched").InUse);
+    }
+
+    [Fact]
     public async Task A_point_with_every_folder_at_its_commits_is_in_use_and_its_saves_are_loaded()
     {
         var (workspace, _, _) = await WorldAsync();

@@ -257,7 +257,8 @@ internal sealed class HistoryReader
         // A save-only point recorded no install of its own, so it has no size to show beside a version.
         var bytes = point.Install is { } recorded ? await InstallBytesAsync(install, recorded.Commit.Id, cancellationToken).ConfigureAwait(false) : null;
 
-        // A folder the point did not record does not decide whether it is in use, but a point of the game's own folders needs one that did.
+        // Going back restores each folder to its commit at or before the point, so a folder the point did not record is compared by that
+        // commit too. A save-only point restores no game folder, so it is never in use.
         var recordsGame = point.Install is not null || point.Mods is not null;
         return new HistoryPoint(
             new HistoryPointId(point.CaptureId),
@@ -270,8 +271,8 @@ internal sealed class HistoryReader
             modsChanged,
             bytes,
             InUse: recordsGame
-                && (point.Install is not { } heldInstall || heads.GetValueOrDefault(RepoRole.Install) == heldInstall.Commit.Id)
-                && (point.Mods is not { } heldMods || heads.GetValueOrDefault(RepoRole.Mods) == heldMods.Commit.Id),
+                && heads.GetValueOrDefault(RepoRole.Install) == installCommit
+                && (mods is null || modsCommit is null || heads.GetValueOrDefault(RepoRole.Mods) == modsCommit),
             LoadedNow: point.External is { } loaded && heads.GetValueOrDefault(RepoRole.External) == loaded.Commit.Id);
     }
 

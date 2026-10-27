@@ -41,7 +41,8 @@ internal sealed class RemovedSnapshots
         {
             RepoRole.Install => Install,
             RepoRole.Mods => Mods,
-            _ => External,
+            RepoRole.External => External,
+            _ => throw new ArgumentOutOfRangeException(nameof(role), role, "Not one of a game's folders."),
         };
     }
 
