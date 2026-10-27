@@ -1,3 +1,4 @@
+using Savepoint.App.Features.Common.Search;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Tests.Features.Library;
 using Savepoint.Core.Catalog;
@@ -75,13 +76,93 @@ public class TemplatePickerViewModelTests
     }
 
     [Fact]
-    public void Typed_words_must_still_start_a_word_of_the_name()
+    public void A_typed_word_is_found_anywhere_in_the_name_like_in_the_games_search()
     {
         var picker = Picker("Half-Life 2", "Marvel's Spider-Man Remastered");
 
         picker.SearchText = "alflife";
 
-        Assert.Empty(picker.Templates);
+        Assert.Equal(["Half-Life 2"], Shown(picker));
+    }
+
+    [Theory]
+    [InlineData("pokemon")]
+    [InlineData("POKÉMON")]
+    [InlineData("pokémon legends")]
+    public void Accents_make_no_difference_in_the_picker(string typed)
+    {
+        var picker = Picker("Pokémon Legends: Arceus", "Stardew Valley");
+
+        picker.SearchText = typed;
+
+        Assert.Equal(["Pokémon Legends: Arceus"], Shown(picker));
+    }
+
+    [Fact]
+    public void A_typed_accent_finds_a_name_without_it()
+    {
+        var picker = Picker("Pokemon Legends: Arceus", "Stardew Valley");
+
+        picker.SearchText = "pokémon";
+
+        Assert.Equal(["Pokemon Legends: Arceus"], Shown(picker));
+    }
+
+    [Fact]
+    public void The_initials_of_a_name_count_in_the_picker()
+    {
+        var picker = Picker("The Elder Scrolls V: Skyrim Special Edition", "Skyrim", "Stardew Valley");
+
+        picker.SearchText = "skyrim se";
+
+        Assert.Equal(["The Elder Scrolls V: Skyrim Special Edition"], Shown(picker));
+    }
+
+    [Fact]
+    public void Initials_alone_find_the_name_they_spell()
+    {
+        var picker = Picker("Hollow Knight", "Stardew Valley", "Half-Life 2");
+
+        picker.SearchText = "sv";
+
+        Assert.Equal(["Stardew Valley"], Shown(picker));
+    }
+
+    [Fact]
+    public void A_search_that_matches_only_through_initials_ranks_after_names_that_start_with_it()
+    {
+        var picker = Picker("Super Vampire Hunter", "Sv Racing", "Stardew Valley");
+
+        picker.SearchText = "sv";
+
+        Assert.Equal(["Sv Racing", "Super Vampire Hunter", "Stardew Valley"], Shown(picker));
+    }
+
+    [Fact]
+    public void The_games_search_and_the_picker_find_the_same_games_for_the_same_text()
+    {
+        var picker = new TemplatePickerViewModel(GameTemplates.All, LibraryTestData.Text);
+        string[] searches = ["skyrim se", "witcher", "half life", "halflife", "spiderman", "pokemon", "sv", "2077", "of the", "x-com", "fallout new", "dsp", "  Cyber  punk "];
+
+        foreach (var typed in searches)
+        {
+            picker.SearchText = typed;
+            var query = SearchQuery.Parse(typed);
+            var expected = GameTemplates.All.Where(template => query.Matches(SearchTarget.ForName(template.DisplayName))).Select(template => template.DisplayName);
+
+            Assert.Equal([.. expected.Order(StringComparer.Ordinal)], [.. Shown(picker).Order(StringComparer.Ordinal)]);
+        }
+    }
+
+    [Fact]
+    public void Matches_keep_the_given_order_among_equally_good_fits()
+    {
+        var picker = Picker("Zed Game Alpha", "Alpha Game Zed", "Game Zed Alpha");
+
+        picker.SearchText = "zed alpha";
+
+        // Only the first holds both words with the first word leading; the others rank by their start, ties keep list order.
+        Assert.Equal(["Zed Game Alpha", "Alpha Game Zed", "Game Zed Alpha"], Shown(picker));
     }
 
     [Fact]

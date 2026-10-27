@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Formatting;
+using Savepoint.App.Features.Common.Search;
 using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Features.Shell;
@@ -42,7 +43,7 @@ public sealed partial class TemplatePickerViewModel : DialogViewModel<TemplateCh
     [ObservableProperty]
     private string _searchText = string.Empty;
 
-    private readonly List<(TemplateItem Item, SearchKey Key)> _all;
+    private readonly List<(TemplateItem Item, SearchTarget Key)> _all;
 
     /// <param name="templates">The built-in templates, in the order shown.</param>
     /// <param name="text">Supplies the title.</param>
@@ -54,7 +55,7 @@ public sealed partial class TemplatePickerViewModel : DialogViewModel<TemplateCh
         NoMatchesText = text.Message("templatePicker.noMatches");
         _all = [.. templates.Select(template => (
             new TemplateItem(template.DisplayName, new RelayCommand(() => Close(new TemplateChoice.Template(template)))),
-            TemplateSearch.KeyOf(template.DisplayName)))];
+            SearchTarget.ForName(template.DisplayName)))];
         Templates = [.. _all.Select(entry => entry.Item)];
         SearchText = search;
     }

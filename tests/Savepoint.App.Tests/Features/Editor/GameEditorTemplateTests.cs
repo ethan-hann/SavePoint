@@ -554,7 +554,7 @@ public class GameEditorTemplateTests
         editor.Name = "alp";
         Assert.Equal("2 games found. Choose one to fill in the details.", editor.NameMatchesAnnouncement);
 
-        editor.Name = "alpha o";
+        editor.Name = "alpha one";
         Assert.Equal("1 game found. Choose one to fill in the details.", editor.NameMatchesAnnouncement);
 
         editor.Name = "zzz";
@@ -618,6 +618,29 @@ public class GameEditorTemplateTests
         editor.Name = "sid civ";
 
         Assert.Equal(["Sid Civilization Rebirth", "Sid Meier's Civilization", "Old Sid Civ"], editor.NameMatches.Select(item => item.Name));
+    }
+
+    [Theory]
+    [InlineData("skyrim se")]
+    [InlineData("SKYRIM Special")]
+    public void The_name_field_finds_a_game_by_initials_like_the_games_search_does(string typed)
+    {
+        var editor = EditorRig.Create().New();
+
+        editor.Name = typed;
+
+        Assert.Equal(_skyrim.DisplayName, editor.NameMatches.FirstOrDefault()?.Name);
+    }
+
+    [Fact]
+    public void An_accent_typed_in_the_name_field_finds_a_game_without_it()
+    {
+        var rig = RigWith(Custom("Pokemon Legends: Arceus", "a", "a", 1, _userdataNote));
+        var editor = rig.New();
+
+        editor.Name = "pokémon";
+
+        Assert.Equal("Pokemon Legends: Arceus", Assert.Single(editor.NameMatches).Name);
     }
 
     [Fact]

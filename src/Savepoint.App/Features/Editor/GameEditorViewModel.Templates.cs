@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using CommunityToolkit.Mvvm.Input;
+using Savepoint.App.Features.Common.Search;
 using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Shell;
 using Savepoint.Core.Catalog;
@@ -14,7 +15,7 @@ public sealed partial class GameEditorViewModel
     private const int _maxNameMatches = 8;
 
     // Each template's name prepared for searching, built on the first search.
-    private List<(GameTemplate Template, SearchKey Key)>? _templateKeys;
+    private List<(GameTemplate Template, SearchTarget Key)>? _templateKeys;
 
     // True while the form is being filled from a definition or a template, so those names are not searched for.
     private bool _fillingForm;
@@ -52,9 +53,9 @@ public sealed partial class GameEditorViewModel
     private void SearchTemplates(string typed)
     {
         NameMatches.Clear();
-        if (IsCreating && !_fillingForm && typed.Trim().Length >= _minSearchLength && TemplateSearch.WordsOf(typed).Length > 0)
+        if (IsCreating && !_fillingForm && typed.Trim().Length >= _minSearchLength && !SearchQuery.Parse(typed).IsEmpty)
         {
-            _templateKeys ??= [.. _games.Templates.Select(template => (template, TemplateSearch.KeyOf(template.DisplayName)))];
+            _templateKeys ??= [.. _games.Templates.Select(template => (template, SearchTarget.ForName(template.DisplayName)))];
             foreach (var template in TemplateSearch.Find(_templateKeys, typed).Take(_maxNameMatches))
             {
                 var name = template.DisplayName;
