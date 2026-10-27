@@ -303,6 +303,53 @@ public class GamesScreenViewTests
         Assert.Equal("Switch to this profile", harness.OpenMenuItems().FirstOrDefault()?.Header);
     }
 
+    [AvaloniaTheory]
+    [InlineData(Key.Apps, KeyModifiers.None)]
+    [InlineData(Key.F10, KeyModifiers.Shift)]
+    public async Task A_menu_opened_from_the_keyboard_sits_at_the_row_not_at_the_mouse_pointer(Key key, KeyModifiers modifiers)
+    {
+        using var harness = await GamesViewHarness.StartAsync();
+        var row = Rows(harness)[1];
+        // The pointer rests far from the row, in the window's top-left corner.
+        harness.Window.MouseMove(new Point(4, 4));
+        row.Focus(NavigationMethod.Tab);
+        harness.Settle();
+
+        harness.Window.KeyPress(key, (RawInputModifiers)modifiers, PhysicalKey.None, null);
+        harness.Window.KeyRelease(key, (RawInputModifiers)modifiers, PhysicalKey.None, null);
+        harness.Settle();
+
+        var first = Assert.Single(harness.OpenMenuItems(), item => item.Header as string == "Switch to this profile");
+        var menuTop = first.TranslatePoint(default, harness.Window)!.Value;
+        var rowTop = row.TranslatePoint(default, harness.Window)!.Value;
+        Assert.InRange(menuTop.X, rowTop.X - 1, rowTop.X + row.Bounds.Width);
+        Assert.InRange(menuTop.Y, rowTop.Y - 1, rowTop.Y + row.Bounds.Height + 40);
+    }
+
+    [AvaloniaFact]
+    public async Task A_right_click_still_opens_the_menu_at_the_pointer_after_a_keyboard_open()
+    {
+        using var harness = await GamesViewHarness.StartAsync();
+        var row = Rows(harness)[1];
+        row.Focus(NavigationMethod.Tab);
+        harness.Settle();
+        harness.Window.KeyPress(Key.Apps, RawInputModifiers.None, PhysicalKey.None, null);
+        harness.Window.KeyRelease(Key.Apps, RawInputModifiers.None, PhysicalKey.None, null);
+        harness.Settle();
+        harness.Window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.None, null);
+        harness.Window.KeyRelease(Key.Escape, RawInputModifiers.None, PhysicalKey.None, null);
+        harness.Settle();
+        Assert.Empty(harness.OpenMenuItems());
+
+        RightClick(harness, row);
+
+        var clickedAt = row.TranslatePoint(new Point(40, row.Bounds.Height / 2), harness.Window)!.Value;
+        var first = Assert.Single(harness.OpenMenuItems(), item => item.Header as string == "Switch to this profile");
+        var menuTop = first.TranslatePoint(default, harness.Window)!.Value;
+        Assert.InRange(menuTop.X, clickedAt.X - 2, clickedAt.X + 20);
+        Assert.InRange(menuTop.Y, clickedAt.Y - 2, clickedAt.Y + 20);
+    }
+
     [AvaloniaFact]
     public async Task A_row_with_a_right_click_menu_keeps_its_spoken_summary()
     {
