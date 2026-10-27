@@ -1,5 +1,7 @@
 using Savepoint.App.Features.Common.Search;
+using Savepoint.App.Features.Games;
 using Savepoint.App.Tests.Fakes;
+using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Tests.Features.Games;
@@ -127,6 +129,68 @@ public class GamesProfileSearchTests
 
         Assert.Equal("vanilla", rig.Screen.ProfileSearch.Text);
         Assert.Same(before, rig.Screen.VisibleProfiles.Single());
+    }
+
+    [Fact]
+    public async Task A_duplicate_the_search_would_hide_clears_the_search_so_it_shows()
+    {
+        var rig = await StartAsync();
+        rig.Screen.ProfileSearch.Text = "modded";
+
+        var shown = rig.Screen.VisibleProfiles.Single().DuplicateCommand.ExecuteAsync(null);
+        var dialog = Assert.IsType<DuplicateProfileDialogViewModel>(Assert.Single(rig.Dialogs.Shown));
+        dialog.Name = "Tidy copy";
+        await dialog.SaveCommand.ExecuteAsync(null);
+        await shown.Soon();
+
+        Assert.Equal(string.Empty, rig.Screen.ProfileSearch.Text);
+        Assert.Contains("Tidy copy", Shown(rig));
+        Assert.Equal(6, rig.Screen.VisibleProfiles.Count);
+    }
+
+    [Fact]
+    public async Task A_profile_made_with_the_wizard_that_the_search_would_hide_clears_the_search_so_it_shows()
+    {
+        var rig = await StartAsync();
+        rig.Screen.ProfileSearch.Text = "modded";
+
+        var shown = rig.Screen.NewProfileCommand.ExecuteAsync(null);
+        var wizard = Assert.IsType<NewProfileWizardViewModel>(Assert.Single(rig.Dialogs.Shown));
+        wizard.Name = "Vanilla";
+        await wizard.ContinueCommand.ExecuteAsync(null);
+        await wizard.ContinueCommand.ExecuteAsync(null);
+        rig.Backend.Jobs.Complete(rig.Backend.Jobs.LastStarted(JobKind.Capture).JobId);
+        wizard.CloseCommand.Execute(null);
+        await shown.Soon();
+
+        Assert.Equal(string.Empty, rig.Screen.ProfileSearch.Text);
+        Assert.Contains("Vanilla", Shown(rig));
+    }
+
+    [Fact]
+    public async Task A_profile_brought_back_from_history_that_the_search_would_hide_clears_the_search_so_it_shows()
+    {
+        var scenario = ScenarioBuilder.Sample().WithRemovedSnapshot(SampleScenario.SkyrimId, RemovedSnapshotSamples.Continued);
+        var rig = await GamesRig.StartAsync(new FakeBackend(scenario), clock: _clock);
+        rig.Screen.ProfileSearch.Text = "modded";
+
+        await rig.Backend.Profiles.BringBackAsync(SampleScenario.SkyrimId, RemovedSnapshotSamples.Continued.Id, "Boss fight again");
+        await rig.Screen.ReloadAsync();
+
+        Assert.Equal(string.Empty, rig.Screen.ProfileSearch.Text);
+        Assert.Contains("Boss fight again", Shown(rig));
+    }
+
+    [Fact]
+    public async Task A_reload_that_adds_nothing_keeps_the_search()
+    {
+        var rig = await StartAsync();
+        rig.Screen.ProfileSearch.Text = "modded";
+
+        await rig.Screen.ReloadAsync();
+
+        Assert.Equal("modded", rig.Screen.ProfileSearch.Text);
+        Assert.Equal([_modded], Shown(rig));
     }
 
     [Fact]
