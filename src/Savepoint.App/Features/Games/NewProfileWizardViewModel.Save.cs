@@ -224,8 +224,8 @@ public sealed partial class NewProfileWizardViewModel
         _failedRoles = [.. failures.Select(failure => failure.Role)];
         var first = failures[0].Error!;
         var reason = _text.Message(first, ErrorOperation.Snapshot);
-        var body = _text.Message("profiles.wizard.partial.body", ("state", PartialSnapshotText.State(_text, _savedRoles, _failedRoles)), ("reason", reason));
-        var retryLabel = PartialSnapshotText.RetryLabel(_text, _failedRoles);
+        var body = _text.Message("profiles.wizard.partial.body", ("state", PartialSnapshotText.State(_text, _savedRoles, _failedRoles, HasModsFolder)), ("reason", reason));
+        var retryLabel = PartialSnapshotText.RetryLabel(_text, _failedRoles, HasModsFolder);
         var rows = new[] { RepoRole.Install, RepoRole.Mods, RepoRole.External }
             .Where(role => _savedRoles.Contains(role) || _failedRoles.Contains(role))
             .Select(role => OutcomeRow(role, _savedRoles.Contains(role)))
@@ -250,7 +250,7 @@ public sealed partial class NewProfileWizardViewModel
             RepoRole.Install => "profiles.wizard.preview.installTitle",
             RepoRole.Mods => "profiles.wizard.partial.folderMods",
             _ => "profiles.wizard.partial.folderSaves",
-        });
+        }, ("hasMods", FolderRoles.HasMods(HasModsFolder)));
         return saved
             ? new SaveOutcomeRow(Icons.CheckCircle, true, _text.Message("profiles.wizard.partial.rowSaved", ("folder", folder)))
             : new SaveOutcomeRow(Icons.Cancel, false, _text.Message("profiles.wizard.partial.rowNotSaved", ("folder", folder)));

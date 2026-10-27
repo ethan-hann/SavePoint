@@ -118,14 +118,14 @@ public class NewProfileWizardStartEmptyTests
         wizard.StartWithoutMods = true;
         wizard.StartWithoutSaves = true;
 
-        Assert.Equal(["Game version and mods", "Mods", "Saves"], wizard.Preview.Rows.Select(row => row.Title));
+        Assert.Equal(["Game version", "Mods", "Saves"], wizard.Preview.Rows.Select(row => row.Title));
         Assert.Equal(ModsSamples.ModsResolved + _dot + "starts with no mods", wizard.Preview.Rows[1].Subtitle);
         Assert.Equal(ModsSamples.SavesResolved + _dot + "starts with no saves", wizard.Preview.Rows[2].Subtitle);
 
         wizard.StartWithoutMods = false;
         wizard.StartWithoutSaves = false;
 
-        Assert.Equal(["Game version and mods", "Mods", "Current saves"], wizard.Preview.Rows.Select(row => row.Title));
+        Assert.Equal(["Game version", "Mods", "Current saves"], wizard.Preview.Rows.Select(row => row.Title));
         Assert.Equal(ModsSamples.ModsResolved + _dot + "40 files" + _dot + "3.1 GB", wizard.Preview.Rows[1].Subtitle);
     }
 

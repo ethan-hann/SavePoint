@@ -106,7 +106,7 @@
   "profiles.wizard.preview.failed": "SavePoint couldn't check how much will be copied. You can still continue.",
   "profiles.wizard.preview.installSubtitle": "{path} · {modFileCount, plural, one {# mod file} other {# mod files}} · {size}",
   "profiles.wizard.preview.installSubtitleNoMods": "{path} · {size}",
-  "profiles.wizard.preview.installTitle": "Game version and mods",
+  "profiles.wizard.preview.installTitle": "{hasMods, select, yes {Game version} other {Game version and mods}}",
   "profiles.wizard.preview.loading": "Checking your files…",
   "profiles.wizard.preview.modsEmptySubtitle": "{path} · starts with no mods",
   "profiles.wizard.preview.modsSubtitle": "{path} · {fileCount, plural, one {# file} other {# files}} · {size}",

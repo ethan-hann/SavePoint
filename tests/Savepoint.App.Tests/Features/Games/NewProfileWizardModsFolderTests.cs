@@ -45,7 +45,7 @@ public class NewProfileWizardModsFolderTests
     {
         var (wizard, _) = await StartAsync();
 
-        Assert.Equal(["Game version and mods", "Mods", "Current saves"], wizard.Preview.Rows.Select(row => row.Title));
+        Assert.Equal(["Game version", "Mods", "Current saves"], wizard.Preview.Rows.Select(row => row.Title));
         Assert.Equal(ModsSamples.ModsResolved + _dot + "40 files" + _dot + "3.1 GB", wizard.Preview.Rows[1].Subtitle);
     }
 
@@ -59,10 +59,10 @@ public class NewProfileWizardModsFolderTests
         backend.Jobs.Complete(job, new CaptureResult(profileId, new HistoryPointId("pt"), [new FolderOutcome(RepoRole.Install), new FolderOutcome(RepoRole.Mods, SampleScenario.SavesOutOfRoomError), new FolderOutcome(RepoRole.External)]));
 
         var card = Assert.IsType<ErrorCardViewModel>(wizard.ResultCard);
-        Assert.StartsWith("Your game version and mods are in the snapshot. Your saves are in the snapshot. Your mods aren't yet. Not enough free disk space", card.Body, StringComparison.Ordinal);
+        Assert.StartsWith("Your game version is in the snapshot. Your saves are in the snapshot. Your mods aren't yet. Not enough free disk space", card.Body, StringComparison.Ordinal);
         Assert.Equal("Retry the mods", Assert.Single(card.Actions).Label);
         Assert.Equal(
-            [("Game version and mods" + _dot + "in the snapshot", true), ("Mods" + _dot + "not in the snapshot yet", false), ("Saves" + _dot + "in the snapshot", true)],
+            [("Game version" + _dot + "in the snapshot", true), ("Mods" + _dot + "not in the snapshot yet", false), ("Saves" + _dot + "in the snapshot", true)],
             ((SaveOutcomeListViewModel)card.Supplement!).Rows.Select(row => (row.Text, row.Succeeded)));
 
         await ((IAsyncRelayCommand)card.Actions[0].Command).ExecuteAsync(null);
@@ -82,6 +82,23 @@ public class NewProfileWizardModsFolderTests
 
         var card = Assert.IsType<ErrorCardViewModel>(wizard.ResultCard);
         Assert.Equal("Retry what's missing", Assert.Single(card.Actions).Label);
-        Assert.StartsWith("Your game version and mods are in the snapshot. Your mods aren't yet. Your saves aren't yet.", card.Body, StringComparison.Ordinal);
+        Assert.StartsWith("Your game version is in the snapshot. Your mods aren't yet. Your saves aren't yet.", card.Body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_snapshot_that_missed_the_game_folder_of_a_three_folder_game_says_game_version_not_game_version_and_mods()
+    {
+        var (wizard, backend) = await StartAsync();
+        var job = await SaveAsync(wizard, backend);
+        var profileId = FakeAssert.Ok(await backend.Profiles.ListAsync(ModsSamples.Id, TestContext.Current.CancellationToken)).Single().Id;
+
+        backend.Jobs.Complete(job, new CaptureResult(profileId, new HistoryPointId("pt"), [new FolderOutcome(RepoRole.Install, SampleScenario.SavesOutOfRoomError), new FolderOutcome(RepoRole.Mods), new FolderOutcome(RepoRole.External)]));
+
+        var card = Assert.IsType<ErrorCardViewModel>(wizard.ResultCard);
+        Assert.StartsWith("Your mods are in the snapshot. Your saves are in the snapshot. Your game version isn't yet.", card.Body, StringComparison.Ordinal);
+        Assert.Equal("Retry the game version", Assert.Single(card.Actions).Label);
+        Assert.Equal(
+            [("Game version" + _dot + "not in the snapshot yet", false), ("Mods" + _dot + "in the snapshot", true), ("Saves" + _dot + "in the snapshot", true)],
+            ((SaveOutcomeListViewModel)card.Supplement!).Rows.Select(row => (row.Text, row.Succeeded)));
     }
 }

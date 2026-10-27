@@ -95,7 +95,7 @@ public sealed partial class CapturePreviewViewModel : ObservableObject
 
     private CaptureRowViewModel Row(FolderCapturePreview folder) => folder.Role switch
     {
-        RepoRole.Install => new CaptureRowViewModel(Icons.Folder, _text.Message("profiles.wizard.preview.installTitle"), InstallSubtitle(folder)),
+        RepoRole.Install => new CaptureRowViewModel(Icons.Folder, _text.Message("profiles.wizard.preview.installTitle", ("hasMods", FolderRoles.HasMods(HasModsRow))), InstallSubtitle(folder)),
         RepoRole.Mods when _empty.Contains(RepoRole.Mods) => new CaptureRowViewModel(
             Icons.Folder,
             _text.Message("profiles.wizard.preview.modsTitle"),
@@ -113,6 +113,9 @@ public sealed partial class CapturePreviewViewModel : ObservableObject
             _text.Message("profiles.wizard.preview.externalTitle"),
             _text.Message("profiles.wizard.preview.externalSubtitle", ("path", folder.Path), ("fileCount", folder.FileCount))),
     };
+
+    // With a mods folder of its own, the game folder holds only the game version.
+    private bool HasModsRow => _preview?.Folders.Any(folder => folder.Role == RepoRole.Mods) == true;
 
     private string InstallSubtitle(FolderCapturePreview folder) => folder.ModFileCount > 0
         ? _text.Message("profiles.wizard.preview.installSubtitle", ("path", folder.Path), ("modFileCount", folder.ModFileCount), ("size", _text.FileSize(folder.Bytes)))
