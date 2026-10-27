@@ -4,7 +4,7 @@ SavePoint keeps the setup that works. It takes snapshots of a game's version, mo
 
 ## The idea
 
-- **A game** in SavePoint is the game's install folder, plus the folder its saves live in if you want.
+- **A game** in SavePoint is the game's install folder, plus the folder its saves live in if you want, and the folder its mods live in for the few games that keep mods somewhere else.
 - **A profile** is one way of playing it, like "Vanilla" or "Modded 1.6, survival". Each profile has its own game version, mods, and saves.
 - **A snapshot** is a copy of a profile's game version, mods, and saves as they were at one moment. SavePoint takes one when you create a profile and, if you want, every time you finish playing.
 - **Saves** are only the files the game writes when you save in the game.
@@ -29,8 +29,9 @@ The first time you open SavePoint, it offers **Add your first game** or **Start 
 1. **Name** the game. As you type, SavePoint lists matching games it knows. Pick one (or press Down, then Enter) to fill in the details you have not typed yet. **Pick from the game list** at the top opens the whole list. Any detail you typed stays as you typed it.
 2. **Where the game is installed**: pick the game's own folder, for example `C:\Games\SkyrimSE`. SavePoint makes this folder match a profile, which replaces what is inside, so it refuses a whole drive or a system folder.
 3. **Where the saves live** (optional): many games keep saves outside the install folder, for example under `Documents\My Games`. SavePoint suggests the common spots.
-4. **How to start the game**: run the game's program, or go **Through Steam** with a launch link like `steam://run/489830`. The number is in the address of the game's Steam store page. Steam can update the game right after SavePoint puts your version back, so running the program directly is safer. That warning shows only when you pick Through Steam.
-5. **More settings** opens the optional settings. To change an entry in one of its lists, select it and press Enter, Space, or F2, or double-click it. Enter keeps the change and Escape drops it. Each setting has a **When do I need this?** button:
+4. **Where the mods live** (optional): a separate folder for games that keep their mods outside the game folder, such as 7 Days to Die, which keeps them in AppData. Most games keep mods inside the game folder, which SavePoint already takes snapshots of, so leave this empty unless your game keeps them somewhere else. **Where do my mods live?** explains. The 7 Days to Die template fills it in when that folder exists.
+5. **How to start the game**: run the game's program, or go **Through Steam** with a launch link like `steam://run/489830`. The number is in the address of the game's Steam store page. Steam can update the game right after SavePoint puts your version back, so running the program directly is safer. That warning shows only when you pick Through Steam.
+6. **More settings** opens the optional settings. To change an entry in one of its lists, select it and press Enter, Space, or F2, or double-click it. Enter keeps the change and Escape drops it. Each setting has a **When do I need this?** button:
    - **Extra command-line options.**
    - **Knowing when you've stopped playing:** the name of the game's own process, for launchers that close themselves before the game opens. When a game starts through a link, a note under How to start the game suggests the program to use.
    - **Files to leave out:** SavePoint never copies or replaces a file that matches these rules. Those files never count as changes, and a switch leaves them alone. List only files that do not matter: a rule that matches your saves stops profiles from switching them. There are two lists:
@@ -38,7 +39,7 @@ The first time you open SavePoint, it offers **Add your first game** or **Start 
      - **Files to leave out of both folders** applies to your saves folder too.
    - **Folders that hold mods:** these only change what History counts as a mod change.
    - **Steam app ID:** see Artwork below.
-6. **Save changes**. SavePoint asks you to confirm each folder, because it takes snapshots of everything in it and makes it match the profile when you switch. It adds a small file to each folder so it remembers you picked it.
+7. **Save changes**. SavePoint names every folder it will look after and asks you to confirm each one, because it takes snapshots of everything in it and makes it match the profile when you switch. It adds a small file to each folder so it remembers you picked it. A game's folders can't be the same folder or inside one another.
 
 ![Add a game, filled in for Grounded: the name, the install folder, the saves folder with common locations below it and a Does my store sync saves? button, Run the .exe set to Grounded.exe with a Can I use this with online games? button, More settings folded, and the Artwork section. Import and Pick from the game list are at the top.](images/add-game.png)
 
@@ -80,13 +81,15 @@ Your first snapshot comes with your first profile. On the Games screen, **New pr
 Press **Play** or **Switch and play** on a profile, or **Go back and play** on a snapshot in History. Before anything happens, SavePoint shows what it will change:
 
 - **Game version and mods:** what it switches from and to, how much gets replaced or removed, and roughly how long that takes.
-- **Saves to load:** the save snapshots you can choose from, newest first. A profile made from another one also offers the saves it started with.
+- **Saves to load:** the save snapshots you can choose from, newest first. A profile made from another one also offers the saves it started with. The check also says how many files the switch removes from your saves folder.
 - **New changes since the last snapshot:** files that changed since the profile's last snapshot. Pick what happens to them before anything switches:
   - **Take a snapshot first** keeps them in the profile they belong to (the dialog names it).
   - **Keep as a new profile** is for changes that belong to no profile, so nothing is lost.
   - **Discard them** asks you to confirm a second time, naming the folder and counting the files it deletes and puts back. This one is permanent.
 
 ![The check before playing: Switch to "Vanilla 1.4"? It says the game goes from 38 mod files to no mods and about 4.3 GB of files will be removed, taking less than a minute; the saves to load are Vanilla 1.4's latest save snapshot, with a What's a save snapshot? button. Below are a tick box to skip this check when only saves change, Cancel and Switch and play.](images/before-playing.png)
+
+When a game has a mods folder, SavePoint takes snapshots of it and switches it along with the game folder and saves folder, so each profile keeps its own mods. A mod manager's own files in the mods folder go with the snapshot too. A profile that has never taken a snapshot of the mods folder leaves it as it is when you play.
 
 To skip this check when only your saves would change, tick **Skip this check when only your saves change**. A change to the game version or mods always shows the check.
 
@@ -109,13 +112,13 @@ If you played from an older snapshot, the session cannot go on the end of the pr
 - **Keep this session as a new profile** (recommended). The original profile stays as it is, newer snapshots and all. Use this to split a playthrough, for example to replay a choice and keep both stories.
 - **Continue "&lt;profile&gt;" from this session**, offered when every folder started the session from that profile's own snapshots. The session becomes the profile's latest snapshot, and its newer snapshots go to History's **Recently removed**.
 
-If files in the game's own folder changed while you played, the way an update changes them, SavePoint tells you. If the only changes are logs or crash reports, it says so and offers **Leave these out from now on**. That adds a rule for the game's own folder, so those files stop counting as changes there.
+If files in the game's own folder changed while you played, the way an update changes them, SavePoint tells you. It also says when your mods changed. If the only changes are logs or crash reports, it says so and offers **Leave these out from now on**. That adds a rule for the game's own folder, so those files stop counting as changes there.
 
 To never be asked, turn off **Ask whether to keep the session** in Settings. SavePoint then keeps nothing after you play. Your progress stays in your game folders, and SavePoint asks about it before the next switch.
 
 ## Go back to an earlier snapshot
 
-**History** shows the snapshots you can go back to, newest first, grouped into the last 7 days and earlier. Each snapshot holds **Version, mods and saves**, **Version and mods**, or **Saves only**. Switch between the **List** and **Cards** views, and filter by profile. The snapshot your game folders hold right now is marked **Loaded now**.
+**History** shows the snapshots you can go back to, newest first, grouped into the last 7 days and earlier. Each snapshot holds **Version, mods and saves**, **Version and mods**, or **Saves only**. Switch between the **List** and **Cards** views, and filter by profile. History's search also finds a snapshot by its profile, what it holds, or a date such as `2026-09` or a month name, and you can show only **Saves** or only **Game and mods**. The snapshot your game folders hold right now is marked **Loaded now**.
 
 - **Go back and play** on a card, or on a version in the list, puts that whole snapshot back and starts the game. Next to a save snapshot, it puts those saves back in the profile they belong to.
 - **Go back without playing** puts the snapshot back and stops there.
@@ -143,6 +146,10 @@ The row's menu has **Edit** (name, notes, version), **Take a snapshot**, **Dupli
 - **Open game folder** and **Open saves folder** open that folder in your file manager. Open saves folder appears only when the game has a saves folder. If the folder moved or is gone, SavePoint says so instead.
 - **Delete** warns you when the profile has snapshots no other profile has, and says what happens to them. Usually they are deleted for good. Snapshots that came from Recently removed, as in a profile you brought back from there, go back to Recently removed instead.
 
+**New profile** works the same way as your first one (see Take your first snapshot). On its first step you can tick **Start with no saves** and, when the game has a mods folder, **Start with no mods**, to try a fresh setup. A box is off, with the reason, until that folder's current files are in a snapshot of one of the game's profiles, so nothing is lost. Nothing on disk changes when the profile is made. The next time you switch to it, SavePoint asks before it empties that folder and says how many files it will remove. The game folder can't start empty.
+
+The games list, a game's profile table, and its History each have a search box. Type any words from a name or a profile's notes. Initials work too, as in "skyrim se". Ctrl+F (Cmd+F on a Mac) jumps to the search on the screen in front, and Escape clears it. While a search narrows the profile table, its header says how many profiles show. The narrow icon list of games has no search box.
+
 ## Activity
 
 **Activity** lists the selected game's running and recent tasks: snapshots, switches, and freeing up space. **All games** adds snapshot folder moves and data removal. Open it from the task status indicator, or from the game's **Activity** tab in the Sidebar layout.
@@ -157,7 +164,7 @@ Right after a snapshot, SavePoint may run "Compacting snapshot files for &lt;gam
 
 ## Free up space
 
-Snapshots no profile uses anymore, like a deleted profile's, still take up space, and so do the ones in Recently removed. **Free up space** deletes them. When it would delete snapshots from Recently removed, it asks first and tells you how many. When it starts to delete, it cannot be stopped, and quitting waits for it to finish.
+Snapshots no profile uses anymore, like a deleted profile's, still take up space, and so do the ones in Recently removed. **Free up space** deletes them, the mods folder's snapshots included. When it would delete snapshots from Recently removed, it asks first and tells you how many. When it starts to delete, it cannot be stopped, and quitting waits for it to finish.
 
 You find **Free up space** in three places:
 
@@ -184,7 +191,7 @@ Help, the snapshot folder, and Free up space are covered above. The other settin
 - **Before you play:** **Skip the check before playing when only your saves change**.
 - **When you finish playing:** **Ask whether to keep the session**.
 - **Apps menu (Linux AppImage only):** "Add SavePoint to your apps menu" puts SavePoint and its icon in your apps menu, so you can pin it to the dock. "Remove SavePoint from your apps menu" takes it away. If you move the AppImage, the entry says it is out of date, and **Update** points it at the new place.
-- **Remove all data:** deletes every snapshot, SavePoint's settings, game list, artwork, and logs (except today's open log file), and its small file in each game folder. You cannot go back to any earlier version, mods, or saves after that. Your game folders and everything in them stay as they are. You confirm by typing a word.
+- **Remove all data:** deletes every snapshot (the mods folder's too), SavePoint's settings, game list, artwork, and logs (except today's open log file), and its small file in each game folder. You cannot go back to any earlier version, mods, or saves after that. Your game folders and everything in them stay as they are. You confirm by typing a word.
 - **About:** the version, the third-party notices, and **Open the log folder**.
 
 Apart from the game folders you pick, SavePoint writes only to its own folders. These are the default locations, until you move them:
