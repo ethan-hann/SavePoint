@@ -208,7 +208,8 @@ public class TabOrderTests
         _ = app.Games.NewProfileCommand.ExecuteAsync(null);
         app.Settle();
 
-        Assert.Equal(["Profile name", "Notes (optional)", "Cancel", "Continue"], TabStops(app));
+        // The sample game's saves are not safe in a snapshot yet, so the off box's reason is a stop of its own (D65.2).
+        Assert.Equal(["Profile name", "Notes (optional)", "Row: Start with no saves", "Cancel", "Continue"], TabStops(app));
     }
 
     [AvaloniaFact]
