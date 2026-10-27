@@ -6,9 +6,12 @@ namespace Savepoint.FakeGame;
 internal sealed record Options
 {
     public const string Usage =
-        "usage: FakeGame [--saves <dir>] [--save-every <ms>] [--exit-after <ms>] [--exit-code <n>] [--lock <file>] [--ready-file <path>] [--linger <ms>] [--spawn <path> [args...]]";
+        "usage: FakeGame [--saves <dir>] [--save-every <ms>] [--exit-after <ms>] [--exit-code <n>] [--lock <file>] [--ready-file <path>] [--linger <ms>] [--exit-unless-env <name>] [--spawn <path> [args...]]";
 
     public string? SavesDirectory { get; init; }
+
+    // A game that needs its store: it quits at once, with the exit code (1 when none was given), unless this environment variable is set.
+    public string? ExitUnlessEnvironmentVariable { get; init; }
 
     public int SaveEveryMilliseconds { get; init; }
 
@@ -45,7 +48,7 @@ internal sealed record Options
 
                     options = options with { SpawnPath = path, SpawnArguments = [.. args.Skip(i + 2)] };
                     return true;
-                case "--saves" or "--lock" or "--ready-file":
+                case "--saves" or "--lock" or "--ready-file" or "--exit-unless-env":
                     if (!TryValue(args, i, out var text, out error))
                     {
                         return false;
@@ -55,6 +58,7 @@ internal sealed record Options
                     {
                         "--saves" => options with { SavesDirectory = text },
                         "--lock" => options with { LockFile = text },
+                        "--exit-unless-env" => options with { ExitUnlessEnvironmentVariable = text },
                         _ => options with { ReadyFile = text },
                     };
                     i++;

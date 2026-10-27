@@ -17,6 +17,9 @@ internal sealed class FakeSteamClient : ISteamClient
     // After a start, the client is ready once it has been looked at this many times; null for a client that never comes up.
     public int? ReadyAfterLooks { get; init; }
 
+    // What starting the client does to the machine, for a stand-in game that looks at it.
+    public Action? OnStart { get; init; }
+
     // False for a client that cannot be found or started.
     public bool CanStart { get; init; } = true;
 
@@ -35,6 +38,7 @@ internal sealed class FakeSteamClient : ISteamClient
     public bool TryStart()
     {
         Interlocked.Increment(ref _starts);
+        OnStart?.Invoke();
         return CanStart;
     }
 }

@@ -9,6 +9,7 @@ internal sealed class FakeGameRun
 {
     private const int _failedToSpawn = 1;
     private const int _lockHeld = 3;
+    private const int _needsItsStore = 1;
 
     private readonly Options _options;
     private readonly TextReader _input;
@@ -27,6 +28,12 @@ internal sealed class FakeGameRun
 
     public async Task<int> RunAsync()
     {
+        if (_options.ExitUnlessEnvironmentVariable is { } required && string.IsNullOrEmpty(Environment.GetEnvironmentVariable(required)))
+        {
+            await _error.WriteLineAsync($"FakeGame: {required} is not set, so the store this game needs is not running.");
+            return _options.ExitCode != 0 ? _options.ExitCode : _needsItsStore;
+        }
+
         if (_options.SpawnPath is not null)
         {
             return Spawn();

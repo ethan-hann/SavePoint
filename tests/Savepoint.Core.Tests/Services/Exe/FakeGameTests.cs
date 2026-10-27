@@ -62,6 +62,49 @@ public class FakeGameTests
     }
 
     [Fact]
+    public async Task Exit_unless_env_quits_at_once_with_failure_when_the_variable_is_not_set()
+    {
+        using var temp = new TempFolder();
+        var ready = temp.Combine("ready.txt");
+        using var game = FakeGameProcess.Start("--ready-file", ready, "--exit-unless-env", "SAVEPOINT_FG_UNSET_" + Guid.NewGuid().ToString("N"));
+
+        var code = await game.WaitForExitAsync();
+
+        Assert.Equal(1, code);
+        Assert.False(File.Exists(ready), "a game that quit for want of the variable must not report itself ready");
+    }
+
+    [Fact]
+    public async Task Exit_unless_env_quits_with_the_exit_code_given()
+    {
+        using var game = FakeGameProcess.Start("--exit-unless-env", "SAVEPOINT_FG_UNSET_" + Guid.NewGuid().ToString("N"), "--exit-code", "7");
+
+        Assert.Equal(7, await game.WaitForExitAsync());
+    }
+
+    [Fact]
+    public async Task Exit_unless_env_plays_on_when_the_variable_is_set()
+    {
+        var name = "SAVEPOINT_FG_SET_" + Guid.NewGuid().ToString("N");
+        Environment.SetEnvironmentVariable(name, "1");
+        try
+        {
+            using var temp = new TempFolder();
+            var ready = temp.Combine("ready.txt");
+            using var game = FakeGameProcess.Start("--ready-file", ready, "--exit-unless-env", name);
+
+            var pid = await FakeGameProcess.WaitForReadyFileAsync(ready);
+
+            Assert.Equal(game.Id, pid);
+            Assert.False(game.HasExited);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(name, null);
+        }
+    }
+
+    [Fact]
     public async Task A_game_with_no_exit_after_keeps_running_and_closing_stdin_does_not_end_it()
     {
         using var temp = new TempFolder();

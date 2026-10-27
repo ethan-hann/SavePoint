@@ -98,6 +98,33 @@ public class LaunchSteamTests
     }
 
     [Fact(Timeout = 240_000)]
+    public async Task A_game_that_quits_without_its_store_plays_once_the_launch_has_started_the_store_first()
+    {
+        // The stand-in game quits at once unless the variable is set, as a Steamworks game quits when its Steam library cannot start;
+        // starting the client sets the variable, so the game only runs if it was started after Steam was up.
+        var variable = "SAVEPOINT_FG_STEAM_" + Guid.NewGuid().ToString("N");
+        var steam = new FakeSteamClient { ReadyAfterLooks = 2, OnStart = () => Environment.SetEnvironmentVariable(variable, "1") };
+        var (rig, vanilla, _) = await LaunchRig.WithTwoProfilesAsync(gameArguments: ["--exit-unless-env", variable], steam: steam);
+        try
+        {
+            using var _ = rig;
+            await rig.EditGameAsync(game => game with { SteamAppId = _appId });
+
+            var started = await rig.Launch.StartAsync(rig.Game.Id, Tip(vanilla), startSteam: true);
+            var job = await rig.WaitForJobAsync(started.Value!.JobId);
+            await rig.WaitForGameAsync();
+
+            Assert.Equal(JobStatus.Succeeded, job.Status);
+            Assert.NotEmpty(rig.GameProcessIds());
+            Assert.IsType<SessionState.Running>(rig.Launch.GetSession(rig.Game.Id)?.State);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(variable, null);
+        }
+    }
+
+    [Fact(Timeout = 240_000)]
     public async Task Start_Steam_with_the_client_already_up_starts_nothing()
     {
         var steam = new FakeSteamClient(ready: true);
