@@ -21,6 +21,7 @@ public sealed class ThemeService : IDisposable
     // One brush per role for the life of the service, so a switch repaints bound controls without replacing anything.
     private readonly Dictionary<string, SolidColorBrush> _brushes = [];
     private bool _applied;
+    private int _wantedUiScale = UiScale.Default;
     private bool _reduceMotion;
 
     /// <summary>Publishes the motion resources straight away; the colors appear on the first <see cref="Apply"/>.</summary>
@@ -79,13 +80,52 @@ public sealed class ThemeService : IDisposable
     /// <summary>Raised when <see cref="UiScalePercent"/> changes, after the scale resource holds its new value.</summary>
     public event EventHandler? UiScaleChanged;
 
-    /// <summary>How large the interface is drawn on top of the operating system's own scaling, as one of the <see cref="UiScale.Steps"/>.</summary>
+    /// <summary>Raised when <see cref="LargestFittingUiScale"/> changes, after <see cref="UiScalePercent"/> has followed it.</summary>
+    public event EventHandler? UiScaleRoomChanged;
+
+    /// <summary>
+    /// The largest step the main window's screen has room for (see <see cref="UiScale.LargestFitting"/>); the largest step until
+    /// <see cref="SetUiScaleRoom"/> says what the screen is.
+    /// </summary>
+    public int LargestFittingUiScale { get; private set; } = UiScale.Steps[^1];
+
+    /// <summary>
+    /// Tells the service how much room the window's screen leaves, so the interface is never drawn larger than the screens
+    /// can hold. The wanted size is kept, and comes back when there is room again.
+    /// </summary>
+    /// <param name="room">The room from <see cref="UiScale.RoomOf"/>; null when the screen is not known.</param>
+    public void SetUiScaleRoom(Size? room)
+    {
+        var largest = UiScale.LargestFitting(room);
+        if (largest == LargestFittingUiScale)
+        {
+            return;
+        }
+
+        LargestFittingUiScale = largest;
+        ShowScale();
+        UiScaleRoomChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// How large the interface is drawn on top of the operating system's own scaling, as one of the <see cref="UiScale.Steps"/>:
+    /// the wanted size, or the largest that fits the screen when the wanted one does not.
+    /// </summary>
     public int UiScalePercent { get; private set; } = UiScale.Default;
 
-    /// <summary>Draws every window and popup at a scale; a number that is not a step becomes the nearest step. Takes effect at once.</summary>
+    /// <summary>
+    /// Draws the main window and what it opens at a scale; a number that is not a step becomes the nearest step, and a step the
+    /// screen has no room for is drawn at the largest that fits. Takes effect at once.
+    /// </summary>
     public void SetUiScale(int percent)
     {
-        var step = UiScale.Nearest(percent);
+        _wantedUiScale = UiScale.Nearest(percent);
+        ShowScale();
+    }
+
+    private void ShowScale()
+    {
+        var step = UiScale.Limit(_wantedUiScale, LargestFittingUiScale);
         if (step == UiScalePercent)
         {
             return;
