@@ -93,21 +93,21 @@ internal sealed class GitProcessRegistry
 
     /// <summary>Notes a started process; the returned token takes it off the list again once its call is over.</summary>
     /// <param name="process">The process just started.</param>
-    /// <param name="persist">False for a git that is left to finish when SavePoint is stopped, which the note of running git must not name.</param>
-    public IDisposable Add(Process process, bool persist = true) =>
-        ProcessStamp.Of(process) is { } stamp ? Add(stamp, persist) : Registration.None;
+    /// <param name="survivesExit">True for a git that is left to finish when SavePoint is stopped; the note of running git does not name it and a close does not end it.</param>
+    public IDisposable Add(Process process, bool survivesExit = false) =>
+        ProcessStamp.Of(process) is { } stamp ? Add(stamp, survivesExit) : Registration.None;
 
     /// <summary>Notes a process by its stamp. On a registry that is already closed, a process that would be ended at close is ended at once.</summary>
     /// <param name="stamp">The process.</param>
-    /// <param name="persist">False for a git that is left to finish when SavePoint is stopped, which the note of running git must not name.</param>
-    public IDisposable Add(ProcessStamp stamp, bool persist = true)
+    /// <param name="survivesExit">True for a git that is left to finish when SavePoint is stopped; the note of running git does not name it and a close does not end it.</param>
+    public IDisposable Add(ProcessStamp stamp, bool survivesExit = false)
     {
-        _running[stamp.Id] = new Entry(stamp, persist);
+        _running[stamp.Id] = new Entry(stamp, survivesExit);
         Touch();
 
         // Listed first, then looked at: a close that began meanwhile either sees the entry or is seen here. The process is ended, not refused,
         // because the caller has already started it and a refusal would leave it running with nobody to end it.
-        if (persist && IsClosed())
+        if (!survivesExit && IsClosed())
         {
             KillAll();
         }
@@ -175,7 +175,7 @@ internal sealed class GitProcessRegistry
             }
 
             // A git left to finish (a reclaim, D46.1) is out of the kill-on-close job too; the next start waits for it by its own marker.
-            if (!entry.Persist)
+            if (entry.SurvivesExit)
             {
                 continue;
             }
@@ -266,7 +266,7 @@ internal sealed class GitProcessRegistry
                 return;
             }
 
-            var current = _running.Values.Where(entry => entry.Persist).Select(entry => entry.Stamp).ToHashSet();
+            var current = _running.Values.Where(entry => !entry.SurvivesExit).Select(entry => entry.Stamp).ToHashSet();
             foreach (var carried in _carried.ToList())
             {
                 if (carried.IsRunning())
@@ -311,7 +311,7 @@ internal sealed class GitProcessRegistry
         }
     }
 
-    private readonly record struct Entry(ProcessStamp Stamp, bool Persist);
+    private readonly record struct Entry(ProcessStamp Stamp, bool SurvivesExit);
 
     private sealed class Registration(GitProcessRegistry? owner, ProcessStamp stamp) : IDisposable
     {

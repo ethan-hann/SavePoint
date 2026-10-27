@@ -88,7 +88,7 @@ public sealed class GitRunner
             GitProcessJob.Protect(process, _log);
         }
 
-        using var registration = (_options.Registry ?? GitProcessRegistry.Shared).Add(process, persist: !invocation.SurvivesExit);
+        using var registration = (_options.Registry ?? GitProcessRegistry.Shared).Add(process, survivesExit: invocation.SurvivesExit);
         NoteStarted(invocation, process);
 
         // Cancelled by the caller, or by a callback that threw.

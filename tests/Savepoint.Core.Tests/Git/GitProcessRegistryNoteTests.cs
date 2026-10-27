@@ -55,7 +55,7 @@ public sealed class GitProcessRegistryNoteTests : IDisposable
         using var game = FakeGameProcess.Start();
         var registry = new GitProcessRegistry(NotePath, _delay);
 
-        using var listed = registry.Add(StampOf(game.Id), persist: false);
+        using var listed = registry.Add(StampOf(game.Id), survivesExit: true);
         await Task.Delay(_noNoteWindow, TestContext.Current.CancellationToken);
 
         Assert.False(File.Exists(NotePath), "a git that survives SavePoint on purpose was written to the note of gits to end");
@@ -125,7 +125,7 @@ public sealed class GitProcessRegistryNoteTests : IDisposable
     {
         using var game = FakeGameProcess.Start();
         var registry = new GitProcessRegistry(NotePath, _delay);
-        using var listed = registry.Add(StampOf(game.Id), persist: false);
+        using var listed = registry.Add(StampOf(game.Id), survivesExit: true);
 
         registry.Close();
         await Task.Delay(_noNoteWindow, TestContext.Current.CancellationToken);
