@@ -237,6 +237,24 @@ public sealed class UiFormatter
     public string ShortDate(DateTimeOffset when) =>
         Local(when).ToString(_catalog.Format(InCurrentYear(when) ? "format.pattern.dateNoYear" : "format.pattern.date"), _culture);
 
+    /// <summary>
+    /// The words a search finds a date by, in the formatter's time zone and the catalog's language: the year, month and day with the time
+    /// ("2026-09-05 23:42"), then the full and short names of the month and of the weekday ("September Sep Saturday Sat").
+    /// </summary>
+    /// <param name="when">The instant.</param>
+    public string DateSearchText(DateTimeOffset when)
+    {
+        var local = Local(when);
+        var names = _culture.DateTimeFormat;
+        return string.Join(
+            ' ',
+            local.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture),
+            names.GetMonthName(local.Month),
+            names.GetAbbreviatedMonthName(local.Month),
+            names.GetDayName(local.DayOfWeek),
+            names.GetAbbreviatedDayName(local.DayOfWeek));
+    }
+
     /// <summary>The date as month, day and two-digit year with no padding ("7-2-26"), for the default names of profiles and points.</summary>
     public string NameDate(DateTimeOffset when)
     {

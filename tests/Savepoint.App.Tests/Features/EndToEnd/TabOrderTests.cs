@@ -61,9 +61,9 @@ public class TabOrderTests
 
         Assert.Equal(
             [
-                "Games", "Skyrim Special Edition, 3 profiles", "Add games from your libraries", "Add a game",
+                "Games", "Search games", "Skyrim Special Edition, 3 profiles", "Add games from your libraries", "Add a game",
                 "Edit game", "New profile", "More actions for Skyrim Special Edition", "Sidebar",
-                "Profiles", "History", "Activity", "Take a snapshot",
+                "Profiles", "History", "Activity", "Take a snapshot", "Search profiles",
                 .. ProfileRows(_modded), .. ProfileRows(_vanilla, "Switch and play"), .. ProfileRows(_survival, "Switch and play"),
                 "Free up space for Skyrim Special Edition",
             ],
@@ -77,9 +77,9 @@ public class TabOrderTests
 
         Assert.Equal(
             [
-                "Games", "Library",
+                "Games", "Library", "Search games",
                 "Add games from your libraries", "Add a game", "Skyrim Special Edition, 3 profiles", "Add a game",
-                "Edit game", "New profile", "More actions for Skyrim Special Edition", "Take a snapshot",
+                "Edit game", "New profile", "More actions for Skyrim Special Edition", "Take a snapshot", "Search profiles",
                 .. ProfileRows(_modded), .. ProfileRows(_vanilla, "Switch and play"), .. ProfileRows(_survival, "Switch and play"),
             ],
             TabStops(app));
@@ -94,8 +94,8 @@ public class TabOrderTests
 
         Assert.Equal(
             [
-                "History", "Skyrim Special Edition, 3 profiles", "Add games from your libraries", "Add a game",
-                "What's a snapshot?", "Filter by profile: All profiles", "Cards",
+                "History", "Search games", "Skyrim Special Edition, 3 profiles", "Add games from your libraries", "Add a game",
+                "What's a snapshot?", "Filter by profile: All profiles", "Cards", "Search snapshots", "All",
                 "Go back and play: Cleared Blackreach", "Go back without playing: Cleared Blackreach",
                 "Go back and play: 14 mod files updated", "Go back without playing: 14 mod files updated",
                 "Go back and play: Fresh start with Nolvus", "Go back without playing: Fresh start with Nolvus",
@@ -118,12 +118,12 @@ public class TabOrderTests
 
         var stops = TabStops(app);
 
-        Assert.Equal(["Activity", "Skyrim Special Edition, 3 profiles", "Add games from your libraries", "Add a game", "This game"], stops.Take(5));
-        Assert.StartsWith("Taking a snapshot of Skyrim Special Edition. In progress.", stops[5], StringComparison.Ordinal);
-        Assert.Equal(["Cancel Taking a snapshot of Skyrim Special Edition", "Copy details"], stops.Skip(6).Take(2));
-        Assert.StartsWith("Taking snapshot", stops[8], StringComparison.Ordinal);
-        Assert.Equal("Taking a snapshot of Skyrim Special Edition… Open Activity", stops[9]);
-        Assert.Equal(10, stops.Count);
+        Assert.Equal(["Activity", "Search games", "Skyrim Special Edition, 3 profiles", "Add games from your libraries", "Add a game", "This game"], stops.Take(6));
+        Assert.StartsWith("Taking a snapshot of Skyrim Special Edition. In progress.", stops[6], StringComparison.Ordinal);
+        Assert.Equal(["Cancel Taking a snapshot of Skyrim Special Edition", "Copy details"], stops.Skip(7).Take(2));
+        Assert.StartsWith("Taking snapshot", stops[9], StringComparison.Ordinal);
+        Assert.Equal("Taking a snapshot of Skyrim Special Edition… Open Activity", stops[10]);
+        Assert.Equal(11, stops.Count);
     }
 
     [AvaloniaFact]
@@ -136,8 +136,8 @@ public class TabOrderTests
 
         Assert.Equal(
             [
-                "History", "Skyrim Special Edition, 3 profiles", "Add games from your libraries", "Add a game",
-                "What's a snapshot?", "Filter by profile: All profiles", "List",
+                "History", "Search games", "Skyrim Special Edition, 3 profiles", "Add games from your libraries", "Add a game",
+                "What's a snapshot?", "Filter by profile: All profiles", "List", "Search snapshots", "All",
                 .. app.History.Timeline.Where(entry => entry.CanGoBack).SelectMany(entry => new[] { entry.GoBackAutomationName, entry.SwitchAutomationName }),
                 "Go back and play: Cleared Blackreach (saves)", "Go back without playing: Cleared Blackreach (saves)",
                 "Go back and play: Fresh start with Nolvus (saves)", "Go back without playing: Fresh start with Nolvus (saves)",
@@ -156,7 +156,7 @@ public class TabOrderTests
 
         Assert.Equal(
             [
-                "Settings", "Skyrim Special Edition, 3 profiles", "Add games from your libraries", "Add a game",
+                "Settings", "Search games", "Skyrim Special Edition, 3 profiles", "Add games from your libraries", "Add a game",
                 "How SavePoint works", "Show the tour again",
                 "Change", "Run now", "How much space do snapshots take?",
                 "Dark", "100%", "Sidebar", "Blue", "Look up game artwork online",

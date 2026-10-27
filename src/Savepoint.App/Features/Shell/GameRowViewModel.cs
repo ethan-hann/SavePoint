@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Savepoint.App.Features.Common.Art;
 using Savepoint.App.Features.Common.Formatting;
+using Savepoint.App.Features.Common.Search;
 using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Features.Shell;
@@ -35,6 +36,9 @@ public sealed partial class GameRowViewModel : ObservableObject
 
     /// <summary>The game's artwork for its tiles, shared by every tile of the game; null when the row was made without any.</summary>
     public GameArt? Art { get; }
+
+    /// <summary>What the game list's search looks the game up by.</summary>
+    internal SearchTarget SearchTarget { get; private set; } = null!;
 
     /// <summary>The game's id.</summary>
     public string Id => Game.Id;
@@ -73,6 +77,7 @@ public sealed partial class GameRowViewModel : ObservableObject
 
     private void Fill(GameDefinition game, int? profileCount, long? bytes, UiFormatter text)
     {
+        SearchTarget = SearchTarget.ForName(game.Name);
         ProfileCount = profileCount;
         Bytes = bytes;
         ProfileCountText = profileCount is { } count ? text.Message("shell.profileCount", ("count", count)) : string.Empty;

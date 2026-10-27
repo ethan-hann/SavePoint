@@ -4,6 +4,7 @@
              xmlns:theme="using:Savepoint.App.Theme"
              xmlns:art="using:Savepoint.App.Features.Common.Art"
              xmlns:shell="using:Savepoint.App.Features.Shell"
+             xmlns:search="using:Savepoint.App.Features.Common.Search"
              x:Class="Savepoint.App.Features.Shell.ShellView"
              x:DataType="shell:ShellViewModel">
   <!--
@@ -40,6 +41,11 @@
     <!-- A short window has no room for the shelf's art: the cards keep their names and counts. -->
     <Style Selector="Grid.short ListBox.shelf Border.art-tile">
       <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <!-- The shelf's header row is as tall as its text buttons, so its search box is a slimmer field, and a short window keeps its room for the page. -->
+    <Style Selector="search|SearchBoxView#ShelfSearch TextBox">
+      <Setter Property="Padding" Value="12,4" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
     <!-- The wide rail gives the label room from the button's edge; the icon rail has none to spare. -->
     <Style Selector="Button.rail-library">
@@ -92,11 +98,19 @@
             <Border Classes="divider" Margin="8,6,8,4" />
             <TextBlock x:Name="YourGamesLabel" Classes="overline-small" Margin="8,6,8,2" IsVisible="{Binding !IsCompact}" Text="{theme:Upper {loc:Loc shell.yourGames}}" />
             <TextBlock x:Name="NoGamesLabel" Classes="body subtle" Margin="8,2" IsVisible="{Binding ShowFirstRun}" Text="{loc:Loc shell.noGamesYet}" />
+            <!-- The search box has no room in the icon rail, so it hides there. -->
+            <Panel IsVisible="{Binding ShowRailSearch}" Margin="0,2,0,4">
+              <search:SearchBoxView x:Name="RailSearch" DataContext="{Binding GameSearch}" />
+            </Panel>
+            <StackPanel x:Name="RailNoMatches" Margin="8,2" Spacing="4" IsVisible="{Binding ShowNoGameMatches}">
+              <TextBlock Classes="body subtle" TextWrapping="Wrap" Text="{Binding NoGameMatchesText}" />
+              <Button Classes="text pill" HorizontalAlignment="Left" Padding="10,4" Command="{Binding GameSearch.ClearCommand}" Content="{loc:Loc search.clear}" />
+            </StackPanel>
             <shell:GameListBox x:Name="RailGames"
                      Classes="rows"
                      ScrollViewer.VerticalScrollBarVisibility="Disabled"
                      AutomationProperties.Name="{loc:Loc shell.yourGames}"
-                     ItemsSource="{Binding Games}"
+                     ItemsSource="{Binding VisibleGames}"
                      SelectedItem="{Binding SelectedGameRow, Mode=TwoWay}">
               <shell:GameListBox.Styles>
                 <Style Selector="ListBoxItem" x:DataType="shell:GameRowViewModel">
@@ -188,18 +202,23 @@
       <!-- Library layout: the shelf of games. Games screen only, and only while there are games. -->
       <Border x:Name="Shelf" DockPanel.Dock="Top" IsVisible="{Binding ShowShelf}" Padding="22,16,22,0">
         <StackPanel Spacing="14">
-          <Grid ColumnDefinitions="*,Auto">
+          <Grid ColumnDefinitions="Auto,*,Auto">
             <TextBlock Classes="overline" VerticalAlignment="Center" Text="{theme:Upper {loc:Loc shell.yourGames}}" />
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+            <search:SearchBoxView x:Name="ShelfSearch" Grid.Column="1" MinWidth="140" Margin="20,0" VerticalAlignment="Center" DataContext="{Binding GameSearch}" />
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4">
               <Button x:Name="ShelfLibrariesButton" Classes="text" Padding="8,4" Command="{Binding AddFromLibrariesCommand}" Content="{loc:Loc library.entry}" ToolTip.Tip="{loc:Loc library.entry.hint}" />
               <Button Classes="text" Padding="8,4" Command="{Binding AddGameCommand}" Content="{loc:Loc shell.addGame}" />
             </StackPanel>
           </Grid>
+          <StackPanel x:Name="ShelfNoMatches" Orientation="Horizontal" Spacing="8" IsVisible="{Binding ShowNoGameMatches}">
+            <TextBlock Classes="body subtle" VerticalAlignment="Center" Text="{Binding NoGameMatchesText}" />
+            <Button Classes="text pill" Padding="10,4" Command="{Binding GameSearch.ClearCommand}" Content="{loc:Loc search.clear}" />
+          </StackPanel>
           <Grid ColumnDefinitions="Auto,Auto,*">
             <shell:GameListBox x:Name="ShelfGames"
                      Classes="shelf"
                      AutomationProperties.Name="{loc:Loc shell.yourGames}"
-                     ItemsSource="{Binding Games}"
+                     ItemsSource="{Binding VisibleGames}"
                      SelectedItem="{Binding SelectedGameRow, Mode=TwoWay}">
               <shell:GameListBox.Styles>
                 <Style Selector="ListBoxItem" x:DataType="shell:GameRowViewModel">

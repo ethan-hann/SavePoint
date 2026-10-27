@@ -1,0 +1,35 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:theme="using:Savepoint.App.Theme"
+             xmlns:a11y="using:Savepoint.App.Features.Common.Accessibility"
+             xmlns:search="using:Savepoint.App.Features.Common.Search"
+             x:Class="Savepoint.App.Features.Common.Search.SearchBoxView"
+             x:DataType="search:SearchBoxViewModel">
+  <!--
+    The shared search box: the standard text field with a search icon, a Clear button that shows while there is text, and a hidden
+    live region that says how many entries are left once typing pauses. Escape clears it, and the screens focus it on Ctrl+F.
+  -->
+  <Panel>
+    <TextBox x:Name="Field"
+             Text="{Binding Text, Mode=TwoWay}"
+             PlaceholderText="{Binding Label}"
+             AutomationProperties.Name="{Binding Label}">
+      <TextBox.InnerLeftContent>
+        <TextBlock Classes="icon s18 muted" Margin="12,0,0,0" VerticalAlignment="Center" Text="{x:Static theme:Icons.Search}" />
+      </TextBox.InnerLeftContent>
+      <TextBox.InnerRightContent>
+        <Button x:Name="ClearButton"
+                Classes="icon"
+                Margin="0,0,4,0"
+                VerticalAlignment="Center"
+                IsVisible="{Binding HasText}"
+                Command="{Binding ClearCommand}"
+                AutomationProperties.Name="{Binding ClearName}"
+                ToolTip.Tip="{Binding ClearName}">
+          <TextBlock Classes="icon s16" Text="{x:Static theme:Icons.Close}" />
+        </Button>
+      </TextBox.InnerRightContent>
+    </TextBox>
+    <a11y:AnnouncementRegion x:Name="CountAnnouncer" HorizontalAlignment="Left" Message="{Binding Announcement}" />
+  </Panel>
+</UserControl>

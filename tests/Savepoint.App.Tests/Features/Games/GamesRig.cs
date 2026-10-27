@@ -20,7 +20,7 @@ namespace Savepoint.App.Tests.Features.Games;
 // A shell wired to the fake backend with the real Games screen in its place, plus the launch flow and the editor as recordings.
 internal sealed class GamesRig
 {
-    private GamesRig(FakeBackend backend, IProfilesApi? profiles, IUiDispatcher? dispatcher, Func<UiFormatter, IDialogs>? dialogs)
+    private GamesRig(FakeBackend backend, IProfilesApi? profiles, IUiDispatcher? dispatcher, Func<UiFormatter, IDialogs>? dialogs, TimeProvider? clock)
     {
         Backend = backend;
         Text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), backend.Clock, "windows", TimeZoneInfo.Utc);
@@ -39,7 +39,7 @@ internal sealed class GamesRig
             Text,
             Toasts,
             ui,
-            backend.Clock,
+            clock ?? backend.Clock,
             Editor,
             Revealer)));
         Factory = factory;
@@ -56,7 +56,8 @@ internal sealed class GamesRig
             new RecordingThemeApplier(),
             StandInScreens.Complete([factory]),
             new ArtworkProvider(backend.Artwork, ui),
-            LaunchFlow));
+            LaunchFlow,
+            Clock: clock));
     }
 
     public FakeBackend Backend { get; }
@@ -86,9 +87,10 @@ internal sealed class GamesRig
         FakeBackend? backend = null,
         IProfilesApi? profiles = null,
         IUiDispatcher? dispatcher = null,
-        Func<UiFormatter, IDialogs>? dialogs = null)
+        Func<UiFormatter, IDialogs>? dialogs = null,
+        TimeProvider? clock = null)
     {
-        var rig = new GamesRig(backend ?? FakeBackend.Sample(), profiles, dispatcher, dialogs);
+        var rig = new GamesRig(backend ?? FakeBackend.Sample(), profiles, dispatcher, dialogs, clock);
         await rig.Shell.InitializeAsync();
         await rig.Screen.ReloadAsync();
         return rig;
