@@ -397,6 +397,15 @@ public class HistorySearchTests
     }
 
     [Fact]
+    public async Task The_search_box_names_Ctrl_F_in_its_tooltip_and_as_its_accelerator_key()
+    {
+        var rig = await ShownAsync();
+
+        Assert.Equal("Search snapshots (Ctrl+F)", rig.Screen.Search.Tip);
+        Assert.Equal("Ctrl+F", rig.Screen.Search.Shortcut);
+    }
+
+    [Fact]
     public async Task The_search_survives_a_profile_choice_and_a_new_read()
     {
         var rig = await ShownAsync();
@@ -468,18 +477,48 @@ public class HistorySearchTests
     }
 
     [Fact]
-    public async Task A_game_with_only_recently_removed_snapshots_counts_them_even_while_the_section_is_closed()
+    public async Task A_game_with_only_recently_removed_snapshots_names_them_as_hidden_matches_while_the_section_is_closed()
+    {
+        var rig = await ShownOnlyRemovedAsync();
+
+        rig.Screen.Search.Text = "blackreach";
+        _clock.Advance(SearchBoxViewModel.AnnouncePause);
+
+        Assert.Equal("1 of 1 snapshot in Recently removed", rig.Screen.Search.Announcement);
+    }
+
+    [Fact]
+    public async Task A_game_with_only_recently_removed_snapshots_counts_them_in_the_list_once_the_section_is_open()
+    {
+        var rig = await ShownOnlyRemovedAsync();
+        rig.Screen.IsRemovedOpen = true;
+
+        rig.Screen.Search.Text = "blackreach";
+        _clock.Advance(SearchBoxViewModel.AnnouncePause);
+
+        Assert.Equal("1 of 1 snapshot", rig.Screen.Search.Announcement);
+    }
+
+    [Fact]
+    public async Task A_closed_section_whose_snapshots_all_miss_the_search_adds_nothing_to_the_count()
+    {
+        var rig = await ShownAsync(WithRemoved());
+
+        rig.Screen.Search.Text = "nolvus";
+        _clock.Advance(SearchBoxViewModel.AnnouncePause);
+
+        Assert.Empty(rig.Screen.Removed);
+        Assert.Equal("1 of 8 snapshots", rig.Screen.Search.Announcement);
+    }
+
+    private async Task<HistoryRig> ShownOnlyRemovedAsync()
     {
         var scenario = ScenarioBuilder.Sample().WithGame(new Savepoint.Core.Catalog.GameDefinition(Id: "bare", Name: "Bare", Install: new Savepoint.Core.Catalog.InstallLocation(@"D:\Bare")))
             .WithRemovedSnapshot("bare", RemovedSnapshotSamples.Replaced);
         var rig = await ShownAsync(new FakeBackend(scenario));
         rig.Shell.SelectGame("bare");
         await rig.Screen.ReloadAsync();
-
-        rig.Screen.Search.Text = "blackreach";
-        _clock.Advance(SearchBoxViewModel.AnnouncePause);
-
-        Assert.Equal("1 of 1 snapshot", rig.Screen.Search.Announcement);
+        return rig;
     }
 
     [Fact]

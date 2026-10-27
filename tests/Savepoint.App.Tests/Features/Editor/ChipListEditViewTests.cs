@@ -176,7 +176,7 @@ public class ChipListEditViewTests
     }
 
     [AvaloniaFact]
-    public async Task Double_clicking_a_chip_opens_it_for_editing()
+    public async Task A_double_tap_on_a_chip_opens_it_for_editing()
     {
         using var harness = await EditorViewHarness.StartAsync(height: 1600);
         harness.Edit();
@@ -186,8 +186,10 @@ public class ChipListEditViewTests
         DoubleTap(harness, chip, point);
 
         PumpUntil(() => OpenFieldOrNull(harness)?.IsFocused == true);
-        Assert.True(OpenField(harness).IsFocused);
-        Assert.Equal("**/*.log", OpenField(harness).Text);
+        var field = OpenFieldOrNull(harness);
+        Assert.NotNull(field);
+        Assert.True(field.IsFocused);
+        Assert.Equal("**/*.log", field.Text);
     }
 
     [AvaloniaFact]

@@ -647,7 +647,7 @@ public class LegacyLocalDataTests
 
         // The settings file can be held for a moment by a program the test does not control (a virus scanner or the search indexer
         // on Windows). The catalog's own retries give up after about a second, so a step the test depends on keeps trying until the
-        // file is free instead of leaving the scene half set up.
+        // file is free instead of leaving the scene half set up. Only a held file is retried: any other failure in the step shows at once.
         private static async Task WhileHeldAsync(Func<Task> step)
         {
             var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
@@ -658,12 +658,17 @@ public class LegacyLocalDataTests
                     await step().ConfigureAwait(false);
                     return;
                 }
-                catch (Exception e) when (e is (IOException or UnauthorizedAccessException or SavepointException) && DateTime.UtcNow < deadline)
+                catch (Exception e) when (IsHeldFile(e) && DateTime.UtcNow < deadline)
                 {
                     await Task.Delay(20).ConfigureAwait(false);
                 }
             }
         }
+
+        // A read of a held catalog file comes back as the catalog's corrupt error with the IO error inside; a bad payload has no IO error inside.
+        private static bool IsHeldFile(Exception e) =>
+            e is IOException or UnauthorizedAccessException
+            || e is CatalogCorruptException { InnerException: IOException or UnauthorizedAccessException };
 
         public async Task<int> PointCountAsync(GameDefinition game)
         {

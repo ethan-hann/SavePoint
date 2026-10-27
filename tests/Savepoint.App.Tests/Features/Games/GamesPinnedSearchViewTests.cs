@@ -170,6 +170,38 @@ public class GamesPinnedSearchViewTests
         Assert.Equal("extra", box.GetVisualDescendants().OfType<TextBox>().Single().Text);
     }
 
+    [AvaloniaFact]
+    public async Task Focus_in_the_pinned_search_moves_to_the_scrolling_one_when_the_pane_shrinks_and_back_when_it_grows()
+    {
+        using var app = await StartAsync(height: 660);
+        app.Press(Key.F, PhysicalKey.F, RawInputModifiers.Control);
+        Assert.Same(FieldOf(app, "ProfileSearchBox"), app.Focused);
+
+        app.Games.SetBodyHeight(150);
+        app.Settle();
+
+        Assert.Same(FieldOf(app, "ScrollingProfileSearchBox"), app.Focused);
+
+        app.Games.SetBodyHeight(500);
+        app.Settle();
+
+        Assert.Same(FieldOf(app, "ProfileSearchBox"), app.Focused);
+    }
+
+    [AvaloniaFact]
+    public async Task A_pane_that_changes_size_leaves_focus_alone_when_the_search_did_not_have_it()
+    {
+        using var app = await StartAsync(height: 660);
+        Assert.NotSame(FieldOf(app, "ProfileSearchBox"), app.Focused);
+
+        app.Games.SetBodyHeight(150);
+        app.Settle();
+
+        Assert.NotSame(FieldOf(app, "ScrollingProfileSearchBox"), app.Focused);
+    }
+
+    private static TextBox FieldOf(ComposedApp app, string box) => app.Find<SearchBoxView>(box).GetVisualDescendants().OfType<TextBox>().Single();
+
     [AvaloniaTheory]
     [InlineData(100)]
     [InlineData(125)]

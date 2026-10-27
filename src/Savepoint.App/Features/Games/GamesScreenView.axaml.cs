@@ -13,6 +13,10 @@ public partial class GamesScreenView : UserControl
 {
     private GamesScreenViewModel? _screen;
 
+    // True while the cursor is in whichever profile search shows. Hiding the box that has focus drops focus, so this is what tells the
+    // other box to take it.
+    private bool _searchHadFocus;
+
     /// <summary>Creates the view.</summary>
     public GamesScreenView()
     {
@@ -20,6 +24,12 @@ public partial class GamesScreenView : UserControl
         Table.SizeChanged += OnTableSizeChanged;
         Root.SizeChanged += OnRootSizeChanged;
         ProfilesBody.SizeChanged += OnBodySizeChanged;
+        foreach (var host in new[] { PinnedSearchHost, ScrollingSearchHost })
+        {
+            host.AddHandler(GotFocusEvent, OnSearchGotFocus);
+            host.AddHandler(LostFocusEvent, OnSearchLostFocus);
+        }
+
         AddHandler(KeyDownEvent, OnKeyDown);
         AddHandler(ContextRequestedEvent, OnContextRequested, RoutingStrategies.Tunnel);
     }
@@ -105,10 +115,39 @@ public partial class GamesScreenView : UserControl
     // A card below the table sits inside the scrolling body, so one that arrives in a short window is brought into view.
     private void OnScreenChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName is nameof(GamesScreenViewModel.ShowPinnedSearch) or nameof(GamesScreenViewModel.ShowScrollingSearch) && _searchHadFocus)
+        {
+            Dispatcher.UIThread.Post(MoveSearchFocus, DispatcherPriority.Loaded);
+        }
+
         if (e.PropertyName == nameof(GamesScreenViewModel.InlineContent) && _screen?.HasScrollingContent == true)
         {
             Dispatcher.UIThread.Post(ScrollingContentHost.BringIntoView, DispatcherPriority.Loaded);
         }
+    }
+
+    private void OnSearchGotFocus(object? sender, RoutedEventArgs e) => _searchHadFocus = true;
+
+    // Focus that went to another control means the player moved on; focus that went nowhere is a box that was hidden as the pane changed size.
+    private void OnSearchLostFocus(object? sender, RoutedEventArgs e)
+    {
+        if (TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is Visual target
+            && !PinnedSearchHost.IsVisualAncestorOf(target)
+            && !ScrollingSearchHost.IsVisualAncestorOf(target))
+        {
+            _searchHadFocus = false;
+        }
+    }
+
+    private void MoveSearchFocus()
+    {
+        if (!_searchHadFocus || _screen is null)
+        {
+            return;
+        }
+
+        // A second move for the same change finds the box already focused, which raises no focus event, so the flag is set here.
+        _searchHadFocus = (_screen.ShowPinnedSearch ? ProfileSearchBox : ScrollingProfileSearchBox).FocusSearch();
     }
 
     // The table is hidden when there is nothing to list, and a hidden table measures nothing worth reacting to.
