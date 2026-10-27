@@ -30,8 +30,9 @@ internal static class LinkedFolders
     }
 
     // Throws for the first linked folder (in path order) that holds one of the files, else for the first of the files that is itself a
-    // link; nothing is read or written.
-    public static void RefuseAny(string workTree, IEnumerable<string> files, CancellationToken ct)
+    // link; nothing is read or written. With includeFileLinks off only folder links count: a discard writes the snapshot's own bytes over a
+    // file link and a clean deletes it, and neither goes through the link, so refusing there would block the player's way out.
+    public static void RefuseAny(string workTree, IEnumerable<string> files, CancellationToken ct, bool includeFileLinks = true)
     {
         if (!Enabled)
         {
@@ -55,14 +56,14 @@ internal static class LinkedFolders
             }
         }
 
-        RefuseLinkedFiles(workTree, listed, folders, ct);
+        RefuseLinkedFiles(workTree, listed, folders, includeFileLinks, ct);
     }
 
     // Git for Windows stores a file link as the text of its target and writes that text back as an ordinary file, so a mod manager's link
     // deployment would stop working after a switch. Each folder is listed once and the attributes that come with the listing say which
     // entries are reparse points, so no file is opened or asked about on its own (a folder of 100,000 files takes tens of milliseconds, where
     // a query per file takes seconds). Only entries among the given files count: one the ignore list names is left alone.
-    private static void RefuseLinkedFiles(string workTree, IReadOnlyCollection<string> files, IReadOnlyList<string> folders, CancellationToken ct)
+    private static void RefuseLinkedFiles(string workTree, IReadOnlyCollection<string> files, IReadOnlyList<string> folders, bool includeFileLinks, CancellationToken ct)
     {
         // Windows drives ignore case, so a link named A.ESP is in the way of a file the switch spells a.esp.
         var listed = new HashSet<string>(files, StringComparer.OrdinalIgnoreCase);
@@ -86,7 +87,7 @@ internal static class LinkedFolders
                     foreach (var (name, isFolder) in entries)
                     {
                         var relative = folder.Length == 0 ? name : folder + "/" + name;
-                        if (listed.Contains(relative) && LinkTargetOf(Path.Combine(directory, name), isFolder) is not null)
+                        if ((isFolder || includeFileLinks) && listed.Contains(relative) && LinkTargetOf(Path.Combine(directory, name), isFolder) is not null)
                         {
                             found.Add((relative, isFolder));
                         }

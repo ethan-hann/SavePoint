@@ -181,21 +181,31 @@ public sealed class LinkedFileTests : IDisposable
     }
 
     [Fact]
-    public async Task Discard_that_would_overwrite_and_clean_that_would_delete_a_file_link_are_refused()
+    public async Task A_discard_replaces_a_file_link_with_the_snapshots_file_and_leaves_what_the_link_led_to()
     {
         var repo = await ModsProfilesAsync();
         await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
-        var changed = Link(repo, "Mods/a.esp");
+        var target = Link(repo, "Mods/a.esp");
+
+        await _ws.Engine.DiscardChangesAsync(repo, Ct);
+
+        Assert.False(IsLink(_ws.FileOf(repo, "Mods/a.esp")));
+        Assert.Equal("plugin a", File.ReadAllText(_ws.FileOf(repo, "Mods/a.esp")));
+        Assert.Equal("the mod manager's copy", File.ReadAllText(target));
+    }
+
+    [Fact]
+    public async Task A_clean_removes_a_new_file_link_and_leaves_what_the_link_led_to()
+    {
+        var repo = await ModsProfilesAsync();
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
         _ws.Write(repo, "Mods/new.esp", "placeholder");
-        var added = Link(repo, "Mods/new.esp");
+        var target = Link(repo, "Mods/new.esp");
 
-        await Assert.ThrowsAsync<LinkedFileException>(() => _ws.Engine.DiscardChangesAsync(repo, Ct));
-        await Assert.ThrowsAsync<LinkedFileException>(() => _ws.Engine.CleanAsync(repo, Ct));
+        await _ws.Engine.CleanAsync(repo, Ct);
 
-        Assert.True(IsLink(_ws.FileOf(repo, "Mods/a.esp")));
-        Assert.True(IsLink(_ws.FileOf(repo, "Mods/new.esp")));
-        Assert.Equal("the mod manager's copy", File.ReadAllText(changed));
-        Assert.Equal("the mod manager's copy", File.ReadAllText(added));
+        Assert.False(File.Exists(_ws.FileOf(repo, "Mods/new.esp")));
+        Assert.Equal("the mod manager's copy", File.ReadAllText(target));
     }
 
     [Fact]
