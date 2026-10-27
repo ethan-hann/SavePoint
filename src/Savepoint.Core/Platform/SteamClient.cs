@@ -8,7 +8,10 @@ namespace Savepoint.Core.Platform;
 /// <param name="User">The signed-in account id (<c>ActiveProcess\ActiveUser</c>); 0 while nobody is signed in.</param>
 internal readonly record struct SteamSignIn(int Pid, uint User);
 
-/// <summary>The Steam client of one OS, read from the process list (and, on Windows, Steam's registry key) and started as a program.</summary>
+/// <summary>
+/// The Steam client of one OS, read from the process list (and, on Windows, Steam's registry key) and started as a program. Ready means
+/// running and signed in on Windows, and running on Linux and macOS.
+/// </summary>
 internal sealed class SteamClient : ISteamClient
 {
     private readonly OsKind _os;
@@ -38,6 +41,8 @@ internal sealed class SteamClient : ISteamClient
         try
         {
             var running = _processes.List();
+            // Outside Windows no file says whether an account is signed in (Linux's registry.vdf keeps only Steam's pid and the account
+            // that signs in automatically), so a running client is all that can be told.
             if (_os != OsKind.Windows)
             {
                 return running.Any(IsClientProcess);
@@ -86,7 +91,7 @@ internal sealed class SteamClient : ISteamClient
         }
     }
 
-    // The client's process name per OS; Linux and Windows list it as steam, macOS as steam_osx. Check on a Mac before relying on it.
+    // The client's process name per OS: Linux and Windows list it as steam, macOS as steam_osx.
     private bool IsClientProcess(RunningProcess process) =>
         string.Equals(process.Name, _os == OsKind.MacOS ? "steam_osx" : "steam", _os == OsKind.Linux ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase);
 }

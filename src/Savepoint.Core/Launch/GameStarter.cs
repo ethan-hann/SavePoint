@@ -43,9 +43,9 @@ public sealed class GameStarter
         new(GameLaunchers.ForOs(platform.Os), platform.Processes, platform.Os, options ?? new GameSessionOptions(), clock ?? TimeProvider.System);
 
     /// <summary>
-    /// How long after a game has quit a new copy of it may still show up unseen: two looks at the process list. A store that starts the
-    /// game again does it within seconds, and a copy that has just started is listed at the next look, so a save made sooner than this
-    /// could run just before the game is back.
+    /// How long after a game has quit a new copy of it may still show up unseen: two looks at the process list. A copy that has just
+    /// started is listed at the next look, so a save made sooner than this could run just before a quick relaunch. This covers a
+    /// quick relaunch only; a store that starts the game again later is covered by the grace after the start (D13.10).
     /// </summary>
     public TimeSpan RelaunchGuard => _options.PollInterval * 2;
 
