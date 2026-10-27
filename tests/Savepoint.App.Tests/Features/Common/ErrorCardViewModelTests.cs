@@ -83,7 +83,7 @@ public class ErrorCardViewModelTests
     }
 
     [Fact]
-    public void A_snapshot_with_a_link_card_names_the_file_and_says_the_other_profiles_still_work()
+    public void A_snapshot_with_a_link_card_names_the_file_and_points_to_a_different_snapshot_or_profile()
     {
         var file = PathOnThisSystem("Games", "Alpha", "Mods", "Cool Mod.esp");
 
@@ -93,7 +93,7 @@ public class ErrorCardViewModelTests
         Assert.Equal(ErrorTone.Warning, card.Tone);
         Assert.Contains("Cool Mod.esp", card.Body);
         Assert.Contains("Nothing changed", card.Body);
-        Assert.Contains("other profiles still work", card.Body);
+        Assert.Contains("Choose a different snapshot or profile.", card.Body);
         Assert.Equal(file, card.Path);
     }
 
@@ -121,7 +121,7 @@ public class ErrorCardViewModelTests
         var card = new ErrorCardViewModel(ErrorInfo.From(new CompactionPreemptedException("skyrim")), _text, operation: ErrorOperations.Of(JobKind.PackStorage));
 
         Assert.Equal("Compacting snapshot files paused", card.Title);
-        Assert.Equal("Compacting snapshot files paused so something else on this game could go first. Nothing was lost.", card.Body);
+        Assert.Equal("Compacting snapshot files paused so another task for this game could go first. Nothing was lost.", card.Body);
     }
 
     [Fact]

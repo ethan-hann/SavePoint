@@ -459,7 +459,7 @@ public class LaunchFlowSessionTests : IDisposable
         Assert.Equal(["Game version and mods · not in the snapshot yet", "Saves · not included"], rows.Select(r => r.Text));
         Assert.Equal([false, false], rows.Select(r => r.IsOk));
         Assert.Equal([true, false], rows.Select(r => r.IsFailed));
-        Assert.Equal(["Retry the version and mods", "Dismiss"], card.Actions.Select(a => a.Label));
+        Assert.Equal(["Retry the game version and mods", "Dismiss"], card.Actions.Select(a => a.Label));
     }
 
     [Fact]

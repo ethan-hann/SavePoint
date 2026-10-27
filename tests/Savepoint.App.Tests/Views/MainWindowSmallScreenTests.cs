@@ -125,7 +125,7 @@ public class MainWindowSmallScreenTests
             Assert.Equal(4, switchedOff.Count);
             Assert.All(switchedOff, item => Assert.Equal("Your screen is too small for this size.", ToolTip.GetTip(item)));
             Assert.Equal(
-                ["100%", "125%, Your screen is too small for this size.", "150%, Your screen is too small for this size.", "175%, Your screen is too small for this size.", "200%, Your screen is too small for this size."],
+                ["100%", "125%. Your screen is too small for this size.", "150%. Your screen is too small for this size.", "175%. Your screen is too small for this size.", "200%. Your screen is too small for this size."],
                 ScaleSelector(window).GetVisualDescendants().OfType<ListBoxItem>().Select(Avalonia.Automation.AutomationProperties.GetName));
             ScrollRowForRender(window);
             ThemeTestSupport.SaveFrame(window, Path.Combine(OutputFolder, "settings-interface-size-limited-on-1080p-at-200.png"));

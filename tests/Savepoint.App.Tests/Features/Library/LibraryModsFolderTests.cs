@@ -75,6 +75,6 @@ public class LibraryModsFolderTests
         var stored = Assert.Single((await backend.Games.ListAsync(TestContext.Current.CancellationToken)).Value!);
         Assert.Null(stored.Mods);
         var line = Assert.Single(dialog.ResultLines, l => l.Kind == LibraryResultKind.Notice);
-        Assert.Equal($"7 Days: added without a mods folder, because {_mods} doesn't exist yet. Add it in the game's settings once your mods are installed.", line.Text);
+        Assert.Equal($"7 Days: added without a mods folder, because {_mods} doesn't exist yet. Once you have mods there, add it in Edit game.", line.Text);
     }
 }

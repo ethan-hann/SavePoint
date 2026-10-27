@@ -685,7 +685,7 @@ public class NewProfileWizardViewModelTests
 
         var card = rig.Wizard.ResultCard!;
         Assert.StartsWith("Your saves are in the snapshot. Your game version and mods aren't yet.", card.Body);
-        Assert.Equal("Retry the version and mods", Assert.Single(card.Actions).Label);
+        Assert.Equal("Retry the game version and mods", Assert.Single(card.Actions).Label);
         Assert.Equal(
             [("Game version and mods \u00b7 not in the snapshot yet", false), ("Saves \u00b7 in the snapshot", true)],
             ((SaveOutcomeListViewModel)card.Supplement!).Rows.Select(row => (row.Text, row.Succeeded)));

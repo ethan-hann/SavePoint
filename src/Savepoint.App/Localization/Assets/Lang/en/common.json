@@ -17,7 +17,7 @@
   "errorCard.body.noRoom.snapshot": "Not enough free disk space to take this snapshot. {os, select, windows {Free up {hasShortfall, select, yes {about {shortfall}} other {some space}} on drive {drive} and try again.} other {Free up {hasShortfall, select, yes {about {shortfall}} other {some space}} on the disk that holds the folder below and try again.}}",
   "errorCard.body.noRoom.switch": "Not enough free disk space to switch. {os, select, windows {Free up {hasShortfall, select, yes {about {shortfall}} other {some space}} on drive {drive} and try again.} other {Free up {hasShortfall, select, yes {about {shortfall}} other {some space}} on the disk that holds the folder below and try again.}}",
   "errorCard.body.packCancelled": "Compacting snapshot files was canceled. Nothing was lost.",
-  "errorCard.body.packPaused": "Compacting snapshot files paused so something else on this game could go first. Nothing was lost.",
+  "errorCard.body.packPaused": "Compacting snapshot files paused so another task for this game could go first. Nothing was lost.",
   "errorCard.copied": "Copied.",
   "errorCard.copyDetails": "Copy details for support",
   "errorCard.copyFailed": "SavePoint couldn't reach the clipboard. Try again.",

@@ -7,7 +7,7 @@
   "help.newChanges.question": "What are new changes?",
   "help.olderChoice.answer": "Keep this session as a new profile if you might want the newer snapshots of \"{profileName}\" again. Continue only if you're done with them. They go to Recently removed.",
   "help.olderChoice.question": "Which should I pick?",
-  "help.page.activity.body": "Activity lists what SavePoint is doing and has done for a game. Finished tasks stay listed after SavePoint closes. Details shows each step of a task, which you can copy into a bug report, except for tasks from before SavePoint closed. Cancel stops a task that can be stopped.",
+  "help.page.activity.body": "Activity lists what SavePoint is doing and has done for a game. Finished tasks stay listed after SavePoint closes. Details shows each step of a task so you can copy it into a bug report, but tasks from before SavePoint closed don't keep their steps. Cancel stops a task that can be stopped.",
   "help.page.activity.title": "Activity",
   "help.page.afterPlay.body": "When you close the game, SavePoint asks what to do with the session. Keep it as a new snapshot (the safe choice) or replace the latest snapshot with it. Not now asks again before your next switch.",
   "help.page.afterPlay.title": "After you play",

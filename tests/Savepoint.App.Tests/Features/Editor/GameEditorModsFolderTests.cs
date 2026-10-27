@@ -68,7 +68,7 @@ public class GameEditorModsFolderTests
 
         Assert.Equal("Where do my mods live?", editor.ModsHelp.Question);
         Assert.False(editor.ModsHelp.IsOpen);
-        Assert.StartsWith("Most games keep mods inside the game folder, and SavePoint already snapshots those.", editor.ModsHelp.Answer, StringComparison.Ordinal);
+        Assert.StartsWith("Most games keep mods inside the game folder, and SavePoint's snapshots already include those.", editor.ModsHelp.Answer, StringComparison.Ordinal);
     }
 
     [Fact]

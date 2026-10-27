@@ -161,7 +161,7 @@ public class GamesScreenActionsTests
         var offer = Assert.Single(rig.Dialogs.Confirmations);
         Assert.Equal("This profile isn't loaded", offer.Title);
         Assert.Equal(
-            "The saves folder isn't holding this profile, and a snapshot copies what your game folders hold now. Switch to this profile, or play it, then take a snapshot.",
+            "The saves folder doesn't have this profile's files in it, and a snapshot copies whatever is there now. Switch to this profile, or play it, then take a snapshot.",
             offer.Message);
         Assert.Equal("Switch to this profile", offer.ConfirmLabel);
         Assert.Empty(rig.ToastTexts);
