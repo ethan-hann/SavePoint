@@ -56,6 +56,7 @@ public sealed class ActivityText
     {
         var id = job.Status switch
         {
+            JobStatus.Cancelled when JobErrors.WasStoppedForAnotherTask(job) => "activity.job.packStopped",
             JobStatus.Running => running,
             JobStatus.Succeeded or JobStatus.Partial => done,
             JobStatus.Failed => failed,
@@ -68,6 +69,7 @@ public sealed class ActivityText
     /// <param name="job">The job.</param>
     public string Status(JobSnapshot job) => job.Status switch
     {
+        JobStatus.Cancelled when JobErrors.WasStoppedForAnotherTask(job) => _text.Message("activity.status.stopped"),
         JobStatus.Running when job.CancelRequested => _text.Message("activity.status.stopping"),
         JobStatus.Running => _text.Message("activity.status.running"),
         JobStatus.Succeeded => _text.Message("activity.status.done"),

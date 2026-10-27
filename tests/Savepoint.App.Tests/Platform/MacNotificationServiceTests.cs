@@ -96,6 +96,9 @@ public class MacNotificationServiceTests
     {
         public bool TryStart(ProcessCommand command) => throw new InvalidOperationException("boom");
 
+        public Task<bool> TryStartAndConfirmAsync(ProcessCommand command, TimeSpan grace, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("boom");
+
         public Task<ProcessOutput?> RunAsync(ProcessCommand command, TimeSpan timeout, CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("boom");
     }

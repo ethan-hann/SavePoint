@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Dialogs;
+using Savepoint.Core.Platform;
 
 namespace Savepoint.App.Features.Editor;
 
@@ -135,7 +136,7 @@ public sealed partial class GameEditorViewModel
     /// True when the start method runs a file on Linux and the install folder is inside a Steam library: Steam's own start scripts
     /// there usually need Steam to run them, so <see cref="SteamStartNote"/> points at the link method instead.
     /// </summary>
-    public bool ShowSteamStartNote => _text.Os == "linux" && IsExeMethod && IsInSteamLibrary(InstallPath);
+    public bool ShowSteamStartNote => _text.OsKind == OsKind.Linux && IsExeMethod && IsInSteamLibrary(InstallPath);
 
     /// <summary>The note shown when <see cref="ShowSteamStartNote"/> is true; empty otherwise.</summary>
     public string SteamStartNote => ShowSteamStartNote ? _text.Message("gameEditor.launch.steamStartNote") : string.Empty;

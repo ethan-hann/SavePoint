@@ -2,6 +2,7 @@ using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Localization;
 using Savepoint.Core.Errors;
+using Savepoint.Core.Platform;
 
 namespace Savepoint.App.Tests.Features.Common;
 
@@ -303,6 +304,25 @@ public class UiFormatterTests
         var error = ErrorInfo.From(new PathSafetyException("/x", 1));
 
         Assert.Contains(expected, English(os).Message(error));
+    }
+
+    [Theory]
+    [InlineData("windows", OsKind.Windows)]
+    [InlineData("macos", OsKind.MacOS)]
+    [InlineData("linux", OsKind.Linux)]
+    public void Code_tells_the_operating_system_apart_by_kind_not_by_the_catalogs_text(string os, OsKind expected)
+    {
+        var formatter = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), os: os);
+
+        Assert.Equal(expected, formatter.OsKind);
+    }
+
+    [Fact]
+    public void The_kind_defaults_to_the_system_the_app_runs_on()
+    {
+        var formatter = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true));
+
+        Assert.Equal(PlatformFactory.CurrentOs, formatter.OsKind);
     }
 
     [Fact]

@@ -303,6 +303,20 @@ public class JobStatusViewModelTests
     }
 
     [Fact]
+    public void Routine_packing_that_a_launch_stopped_is_a_stopped_toast_not_a_canceled_one()
+    {
+        var rig = new Rig();
+        var id = Guid.Empty;
+        rig.Backend.Script(() => id = rig.Backend.Jobs.Start(JobKind.PackStorage, SampleScenario.SatisfactoryId, defaultResult: null));
+
+        rig.Backend.Script(() => rig.Backend.Jobs.FinishWith(id, JobStatus.Cancelled, null, ErrorInfo.From(new CompactionPreemptedException(SampleScenario.SatisfactoryId))));
+
+        var toast = Assert.Single(rig.Toasts.Toasts);
+        Assert.Equal("Stopped compacting snapshot files for Satisfactory so another task could go first.", toast.Text);
+        Assert.Equal(ToastKind.Info, toast.Message.Kind);
+    }
+
+    [Fact]
     public async Task Optimization_of_every_game_does_not_name_a_game()
     {
         var rig = new Rig();

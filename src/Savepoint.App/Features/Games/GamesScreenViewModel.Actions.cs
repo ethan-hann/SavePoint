@@ -128,7 +128,7 @@ public sealed partial class GamesScreenViewModel
             return;
         }
 
-        if (folder?.ResolvedPath is not { } path || !_deps.Revealer.Reveal(path))
+        if (folder?.ResolvedPath is not { } path || !await _deps.Revealer.RevealAsync(path))
         {
             var message = _deps.Text.Message("games.profileTable.openFolder.failed", ("role", ProfileRowViewModel.RoleName(role)));
             _deps.Toasts.Show(new ToastMessage(message, ToastKind.Error));

@@ -43,6 +43,7 @@
   "shell.jobStatus.packCancelled": "Canceled compacting snapshot files for {gameName}.",
   "shell.jobStatus.packFailure": "Something went wrong compacting snapshot files for {gameName}.",
   "shell.jobStatus.packPartial": "Compacted only some of the snapshot files for {gameName}.",
+  "shell.jobStatus.packStopped": "Stopped compacting snapshot files for {gameName} so another task could go first.",
   "shell.jobStatus.packSuccess": "Compacted snapshot files for {gameName}.",
   "shell.jobStatus.packing": "Compacting snapshot files for {gameName}…",
   "shell.jobStatus.partial": "Only part of {gameName} is in the new snapshot.",

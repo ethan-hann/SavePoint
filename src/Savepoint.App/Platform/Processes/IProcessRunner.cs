@@ -17,6 +17,16 @@ internal interface IProcessRunner
     /// <returns>False when the program cannot be started.</returns>
     bool TryStart(ProcessCommand command);
 
+    /// <summary>
+    /// Starts the program and waits up to <paramref name="grace"/> to see whether it fails at once. A program still running when the
+    /// grace ends is left running (it may be the file manager itself) and counts as started.
+    /// </summary>
+    /// <param name="command">What to start.</param>
+    /// <param name="grace">How long to watch for an early exit.</param>
+    /// <param name="cancellationToken">Stops the watching; the program is left running.</param>
+    /// <returns>False when the program cannot be started or ends within the grace with a non-zero exit code.</returns>
+    Task<bool> TryStartAndConfirmAsync(ProcessCommand command, TimeSpan grace, CancellationToken cancellationToken = default);
+
     /// <summary>Runs the program to its end and captures what it printed.</summary>
     /// <param name="command">What to run.</param>
     /// <param name="timeout">How long to wait before the process tree is killed.</param>

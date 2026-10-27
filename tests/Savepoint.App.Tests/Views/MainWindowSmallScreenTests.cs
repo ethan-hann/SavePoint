@@ -108,6 +108,49 @@ public class MainWindowSmallScreenTests
         }
     }
 
+    [AvaloniaTheory]
+    [InlineData(125)]
+    [InlineData(200)]
+    public async Task Choosing_a_larger_size_keeps_the_size_choice_in_view(int percent)
+    {
+        var screen = new MainWindow.ScreenRoom(new PixelRect(0, 0, 3840, 2160), 1.0);
+        var (window, main) = await OpenSettingsAsync(screen, 100);
+        try
+        {
+            // Roomy enough that a larger size does not have to grow the window, so the viewport really shrinks.
+            window.Width = 1400;
+            window.Height = 900;
+            Dispatcher.UIThread.RunJobs();
+            var selector = ScaleSelector(window);
+            var page = selector.FindAncestorOfType<ScrollViewer>()!;
+
+            // The choice sits at the bottom edge of the page's viewport, as it does after scrolling to it with the keyboard.
+            var top = new Rect(selector.Bounds.Size).TransformToAABB(selector.TransformToVisual(page)!.Value).Top;
+            page.Offset = new Vector(0, page.Offset.Y + top - (page.Viewport.Height - selector.Bounds.Height - 8));
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(InView(selector, page), "the setup must start with the size choice in view");
+
+            var appearance = Assert.IsType<SettingsScreenViewModel>(main.Shell!.CurrentScreen).Appearance;
+            appearance.SelectedScale = appearance.ScaleOptions.Single(option => option.Percent == percent);
+            Dispatcher.UIThread.RunJobs();
+            await Task.Delay(100, TestContext.Current.CancellationToken);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(percent, Theme.UiScalePercent);
+            Assert.True(InView(selector, page), $"the size choice scrolled out of view: offset {page.Offset}, viewport {page.Viewport}");
+        }
+        finally
+        {
+            Finish(window, main);
+        }
+    }
+
+    private static bool InView(Control selector, ScrollViewer page)
+    {
+        var inPage = new Rect(selector.Bounds.Size).TransformToAABB(selector.TransformToVisual(page)!.Value);
+        return inPage.Top >= -0.5 && inPage.Bottom <= page.Viewport.Height + 0.5;
+    }
+
     [AvaloniaFact]
     public async Task Settings_on_a_1080p_screen_at_the_systems_200_percent_stays_at_100_percent_with_the_larger_sizes_switched_off()
     {

@@ -120,6 +120,59 @@ public class SystemProcessRunnerTests
     }
 
     [Fact]
+    public async Task A_watched_start_is_false_when_the_program_exits_with_an_error_at_once()
+    {
+        var runner = new SystemProcessRunner();
+
+        Assert.False(await runner.TryStartAndConfirmAsync(Shell("exit 3"), _generous, Ct));
+    }
+
+    [Fact]
+    public async Task A_watched_start_is_true_when_the_program_exits_cleanly_at_once()
+    {
+        var runner = new SystemProcessRunner();
+
+        Assert.True(await runner.TryStartAndConfirmAsync(Shell("exit 0"), _generous, Ct));
+    }
+
+    [Fact]
+    public async Task A_watched_start_is_false_when_the_program_does_not_exist()
+    {
+        var runner = new SystemProcessRunner();
+
+        Assert.False(await runner.TryStartAndConfirmAsync(new ProcessCommand("savepoint-no-such-program", []), _generous, Ct));
+    }
+
+    [Fact]
+    public async Task A_watched_start_gives_up_waiting_for_a_program_that_keeps_running_and_leaves_it_alone()
+    {
+        var runner = new SystemProcessRunner();
+        var folder = Path.Combine(Path.GetTempPath(), "savepoint-watch-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        var markerPath = Path.Combine(folder, "marker.tmp");
+        var script = OperatingSystem.IsWindows()
+            ? new ProcessCommand("cmd.exe", ["/c", "ping", "-n", "4", "127.0.0.1", ">nul", "&", "echo", "x", ">", markerPath])
+            : new ProcessCommand("/bin/sh", ["-c", "sleep 3; touch \"$1\"", "sh", markerPath]);
+
+        try
+        {
+            var watch = Stopwatch.StartNew();
+            var started = await runner.TryStartAndConfirmAsync(script, TimeSpan.FromMilliseconds(300), Ct);
+
+            Assert.True(started);
+            Assert.True(watch.Elapsed < TimeSpan.FromSeconds(2.5), $"the wait lasted {watch.Elapsed}");
+
+            // The program is the file manager itself in real use, so closing it behind the player's back would undo the open.
+            await Task.Delay(_pastTheScriptsNextStep, Ct);
+            Assert.True(File.Exists(markerPath), "the program was killed when the watching ended");
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task Each_argument_arrives_as_one_item_whatever_it_contains()
     {
         Assert.SkipWhen(OperatingSystem.IsWindows(), "sh is the program that prints its arguments back; Windows has no equivalent that skips command-line re-parsing.");

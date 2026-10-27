@@ -17,4 +17,7 @@ public sealed class FileManagerRevealer : IFileRevealer
 
     /// <inheritdoc />
     public bool Reveal(string path) => _fileManager.Reveal(path);
+
+    /// <inheritdoc />
+    public Task<bool> RevealAsync(string path) => _fileManager.RevealAsync(path);
 }

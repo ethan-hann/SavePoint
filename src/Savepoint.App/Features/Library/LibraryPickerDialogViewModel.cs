@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.Core.Api;
+using Savepoint.Core.Platform;
 
 namespace Savepoint.App.Features.Library;
 
@@ -185,7 +186,7 @@ public sealed partial class LibraryPickerDialogViewModel : DialogViewModel<IRead
         }
 
         // GOG Galaxy only exists on Windows here, so its absence elsewhere is not news.
-        if (!scan.GogFound && _text.Os == "windows")
+        if (!scan.GogFound && _text.OsKind == OsKind.Windows)
         {
             notes.Add(_text.Message("library.picker.noGog"));
         }

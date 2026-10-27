@@ -21,6 +21,42 @@ internal sealed class SystemProcessRunner : IProcessRunner
     }
 
     /// <inheritdoc />
+    public async Task<bool> TryStartAndConfirmAsync(ProcessCommand command, TimeSpan grace, CancellationToken cancellationToken = default)
+    {
+        Process? process;
+        try
+        {
+            process = Process.Start(CreateStartInfo(command, captureOutput: false));
+        }
+        catch (Exception ex) when (IsStartFailure(ex))
+        {
+            return false;
+        }
+
+        if (process is null)
+        {
+            return false;
+        }
+
+        // Disposing the handle leaves the program running, which is what a file manager that took longer than the grace needs.
+        using (process)
+        using (var limit = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+        {
+            limit.CancelAfter(grace);
+            try
+            {
+                await process.WaitForExitAsync(limit.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                return true;
+            }
+
+            return process.ExitCode == 0;
+        }
+    }
+
+    /// <inheritdoc />
     public async Task<ProcessOutput?> RunAsync(ProcessCommand command, TimeSpan timeout, CancellationToken cancellationToken = default)
     {
         Process? process;

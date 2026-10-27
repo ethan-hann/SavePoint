@@ -59,6 +59,16 @@ public class NotificationTextTests
     }
 
     [Fact]
+    public void Routine_packing_that_a_launch_stopped_says_it_was_stopped_not_canceled()
+    {
+        var preempted = ErrorInfo.From(new CompactionPreemptedException("skyrim"));
+
+        var (_, body) = NotificationText.For(Job(JobKind.PackStorage, JobStatus.Cancelled, "skyrim", error: preempted), "Skyrim", _text);
+
+        Assert.Equal("Stopped compacting snapshot files for Skyrim so another task could go first.", body);
+    }
+
+    [Fact]
     public void Optimizing_every_game_does_not_name_one()
     {
         var (_, body) = NotificationText.For(Job(JobKind.Compact, JobStatus.Succeeded), "Skyrim", _text);
