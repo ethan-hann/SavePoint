@@ -287,7 +287,7 @@ public sealed partial class GitEngine
 
             if (pass >= _options.ResyncDelays.Count)
             {
-                throw new GitOperationException(FullPath(repo, left[0]), NotUpdatedMessage(left));
+                throw new GitOperationException(FullPath(repo, left[0]), NotUpdatedMessage(FileStep.RemoveNew, left));
             }
 
             RecheckBeforeFileChanges(repo, "remove-new");
@@ -665,7 +665,7 @@ public sealed partial class GitEngine
             if (pass >= _options.ResyncDelays.Count)
             {
                 var first = FullPath(repo, differing.Length > 0 ? differing[0] : leftovers[0]);
-                throw new GitOperationException(first, NotUpdatedMessage([.. differing, .. leftovers]));
+                throw new GitOperationException(first, NotUpdatedMessage(FileStep.BringToPoint, [.. differing, .. leftovers]));
             }
 
             await ResyncAsync(repo, to, differing, leftovers, ct).ConfigureAwait(false);
@@ -729,12 +729,44 @@ public sealed partial class GitEngine
 
     private static string FullPath(RepoRef repo, string relative) => Path.Combine(repo.WorkTree, relative.Replace('/', Path.DirectorySeparatorChar));
 
-    private static string NotUpdatedMessage(IReadOnlyList<string> paths)
+    // The log text for a file step that left files unchanged: what was being done, then the files.
+    internal static string NotUpdatedMessage(FileStep step, IReadOnlyList<string> paths)
     {
+        var what = step switch
+        {
+            FileStep.BringToPoint => "Could not write the point's copy of these files",
+            FileStep.RemoveNew => "Could not remove these new files",
+            FileStep.RemoveDisplaced => "Could not remove these files the point being left held",
+            FileStep.RemoveStanding => "Could not remove these files standing where the point being left had a folder",
+            _ => throw new ArgumentOutOfRangeException(nameof(step), step, null),
+        };
         var named = string.Join(", ", paths.Take(_namedPathsInMessage));
         return paths.Count > _namedPathsInMessage
-            ? $"Checkout could not update: {named} and {paths.Count - _namedPathsInMessage} more."
-            : $"Checkout could not update: {named}";
+            ? $"{what}: {named} and {paths.Count - _namedPathsInMessage} more."
+            : $"{what}: {named}";
+    }
+
+    // Windows refuses to delete a read-only file, where git's own replacing of a path clears the attribute and goes on. Only for a
+    // file the caller has already decided is its to remove. A link is left as it is: its attributes are not the file's.
+    private static void TryDeleteReadOnly(string path)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            try
+            {
+                var attributes = File.GetAttributes(path);
+                if ((attributes & FileAttributes.ReadOnly) != 0 && (attributes & FileAttributes.ReparsePoint) == 0)
+                {
+                    File.SetAttributes(path, attributes & ~FileAttributes.ReadOnly);
+                }
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                // The delete below fails the same way and is reported there.
+            }
+        }
+
+        TryDelete(path);
     }
 
     private static void TryDelete(string path)

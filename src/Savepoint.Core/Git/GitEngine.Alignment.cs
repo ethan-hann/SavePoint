@@ -208,7 +208,7 @@ public sealed partial class GitEngine
             {
                 throw FileLockProbe.Probe(full) is { } kind
                     ? new HeldFile(FullPath(repo, path), kind).ToException(HeldFileOperation.Switch)
-                    : new GitOperationException(FullPath(repo, path), NotUpdatedMessage([path]));
+                    : new GitOperationException(FullPath(repo, path), NotUpdatedMessage(FileStep.RemoveDisplaced, [path]));
             }
 
             removed.Add(path);

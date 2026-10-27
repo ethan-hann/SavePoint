@@ -308,12 +308,12 @@ public sealed partial class GitEngine
                 throw new DirtyWorkingTreeException(repo.Role);
             }
 
-            TryDelete(full);
+            TryDeleteReadOnly(full);
             if (File.Exists(full))
             {
                 throw FileLockProbe.Probe(full) is { } kind
                     ? new HeldFile(FullPath(repo, path), kind).ToException(HeldFileOperation.Switch)
-                    : new GitOperationException(FullPath(repo, path), NotUpdatedMessage([path]));
+                    : new GitOperationException(FullPath(repo, path), NotUpdatedMessage(FileStep.RemoveStanding, [path]));
             }
         }
     }
