@@ -39,6 +39,8 @@ public sealed class JobRegistryHistoryTests : IDisposable
         Assert.Equal(JobStatus.Succeeded, restored.Status);
         Assert.Equal(finished.StartedAt, restored.StartedAt);
         Assert.Equal(finished.FinishedAt, restored.FinishedAt);
+        Assert.False(finished.Restored);
+        Assert.True(restored.Restored);
         Assert.False(restored.Cancellable);
         Assert.False(restored.CancelRequested);
         Assert.Empty(restored.RecentLines);
@@ -227,6 +229,40 @@ public sealed class JobRegistryHistoryTests : IDisposable
     }
 
     [Fact]
+    public async Task A_running_registry_lists_no_more_than_the_newest_100_finished_jobs_as_the_next_start_does()
+    {
+        var registry = new JobRegistry(_clock);
+        var ids = new List<Guid>();
+        for (var game = 0; game < 21; game++)
+        {
+            for (var i = 0; i < 5; i++)
+            {
+                var id = registry.Start(JobKind.Capture, $"game{game}", cancellable: true, _ => Task.FromResult<JobResult?>(null));
+                ids.Add((await FinishedAsync(registry, id)).JobId);
+                _clock.Advance(TimeSpan.FromSeconds(1));
+            }
+        }
+
+        var listed = registry.List().Select(job => job.JobId).ToList();
+
+        Assert.Equal(ids.Skip(5), listed);
+        Assert.All(ids.Take(5), id => Assert.Null(registry.Get(id)));
+    }
+
+    [Fact]
+    public async Task A_running_registry_drops_a_job_that_finished_over_30_days_ago_when_the_next_job_ends()
+    {
+        var registry = new JobRegistry(_clock);
+        var old = await StartAndFinishAsync(registry);
+        _clock.Advance(TimeSpan.FromDays(31));
+
+        var recent = await StartAndFinishAsync(registry);
+
+        Assert.Equal([recent.JobId], registry.List().Select(job => job.JobId));
+        Assert.Null(registry.Get(old.JobId));
+    }
+
+    [Fact]
     public async Task A_job_that_finished_more_than_30_days_ago_is_not_listed_after_a_restart()
     {
         var first = NewRegistry(null);
@@ -286,6 +322,21 @@ public sealed class JobRegistryHistoryTests : IDisposable
         await FinishedAsync(registry, id);
 
         Assert.Empty(NewRegistry(null).List());
+    }
+
+    [Fact]
+    public async Task A_job_that_clears_the_data_is_not_written_by_the_next_job_either()
+    {
+        var registry = NewRegistry(null);
+        var clearing = new HeldJob(registry, JobKind.ClearData, gameId: null, cancellable: false);
+        await clearing.Context;
+        registry.ClearSavedHistory();
+        clearing.Finish();
+        await FinishedAsync(registry, clearing.Id);
+
+        var next = await StartAndFinishAsync(registry);
+
+        Assert.Equal([next.JobId], NewRegistry(null).List().Select(job => job.JobId));
     }
 
     [Fact]

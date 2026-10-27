@@ -219,7 +219,8 @@ internal static class JobHistoryFile
                 entry.GetProperty("finishedAt").GetDateTimeOffset(),
                 Result: null,
                 error,
-                Revision: 1);
+                Revision: 1,
+                Restored: true);
         }
         catch (Exception e) when (e is InvalidOperationException or KeyNotFoundException or FormatException or ArgumentException)
         {

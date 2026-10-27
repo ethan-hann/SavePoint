@@ -31,6 +31,9 @@ namespace Savepoint.Core.Api;
 /// result. Otherwise the error that failed or cancelled the job; for per-folder work it is the first folder's error.
 /// </param>
 /// <param name="Revision">Grows with every change, so a view model can drop an event older than the snapshot it holds.</param>
+/// <param name="Restored">
+/// True for a finished job listed from an earlier run, which keeps its summary but not its lines or result; false for every job of this run.
+/// </param>
 public sealed record JobSnapshot(
     Guid JobId,
     JobKind Kind,
@@ -46,4 +49,5 @@ public sealed record JobSnapshot(
     DateTimeOffset? FinishedAt,
     JobResult? Result,
     ErrorInfo? Error,
-    long Revision);
+    long Revision,
+    bool Restored = false);

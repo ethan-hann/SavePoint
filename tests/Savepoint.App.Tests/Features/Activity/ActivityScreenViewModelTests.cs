@@ -862,7 +862,7 @@ public class ActivityScreenViewModelTests
     public async Task A_finished_task_from_an_earlier_run_is_listed_in_the_past_tense_and_says_its_steps_were_not_kept()
     {
         var finished = new DateTimeOffset(2026, 10, 20, 11, 30, 0, TimeSpan.Zero);
-        var earlier = new JobSnapshot(Guid.NewGuid(), JobKind.Capture, SkyrimId, null, JobStatus.Succeeded, false, false, JobProgress.None, [], 0, finished.AddMinutes(-3), finished, null, null, 1);
+        var earlier = new JobSnapshot(Guid.NewGuid(), JobKind.Capture, SkyrimId, null, JobStatus.Succeeded, false, false, JobProgress.None, [], 0, finished.AddMinutes(-3), finished, null, null, 1, Restored: true);
         var rig = await ActivityRig.ShownAsync(jobs: inner => new EarlierRunJobs(inner, earlier));
 
         var row = RowWhere(rig, listed => listed.JobId == earlier.JobId);
@@ -873,6 +873,18 @@ public class ActivityScreenViewModelTests
         Assert.False(row.IsRunning);
         Assert.Empty(Details(rig).Lines);
         Assert.Equal("The steps of this task weren't kept when SavePoint closed.", Details(rig).EmptyText);
+    }
+
+    [Fact]
+    public async Task A_finished_task_of_this_run_with_no_steps_does_not_say_its_steps_were_lost_when_SavePoint_closed()
+    {
+        var finished = new DateTimeOffset(2026, 10, 20, 11, 30, 0, TimeSpan.Zero);
+        var canceled = new JobSnapshot(Guid.NewGuid(), JobKind.Capture, SkyrimId, null, JobStatus.Cancelled, false, false, JobProgress.None, [], 0, finished.AddSeconds(-2), finished, null, null, 1);
+        var rig = await ActivityRig.ShownAsync(jobs: inner => new EarlierRunJobs(inner, canceled));
+
+        rig.Screen.SelectedRow = RowWhere(rig, listed => listed.JobId == canceled.JobId);
+
+        Assert.Equal("This task didn't have any steps to show.", Details(rig).EmptyText);
     }
 
     [Fact]
