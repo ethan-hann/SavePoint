@@ -8,7 +8,10 @@ namespace Savepoint.Core.Tests.Build;
 // another machine. The checks are also run on made-up scripts in a temp folder, which shows a slip is reported by file and line.
 public sealed class BuildScriptSyntaxTests : IDisposable
 {
-    private readonly string _root = Directory.CreateTempSubdirectory("savepoint-buildsyntax-").FullName;
+    // A cold PowerShell start on a loaded Windows machine takes tens of seconds; a program that takes longer than this has hung.
+    private static readonly TimeSpan _processTimeout = TimeSpan.FromMinutes(2);
+
+    private readonly string _root =Directory.CreateTempSubdirectory("savepoint-buildsyntax-").FullName;
 
     public void Dispose() => Directory.Delete(_root, recursive: true);
 
@@ -94,7 +97,18 @@ public sealed class BuildScriptSyntaxTests : IDisposable
 
         var output = process.StandardOutput.ReadToEndAsync(TestContext.Current.CancellationToken);
         var error = process.StandardError.ReadToEndAsync(TestContext.Current.CancellationToken);
-        await process.WaitForExitAsync(TestContext.Current.CancellationToken);
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        timeout.CancelAfter(_processTimeout);
+        try
+        {
+            await process.WaitForExitAsync(timeout.Token);
+        }
+        catch (OperationCanceledException) when (!TestContext.Current.CancellationToken.IsCancellationRequested)
+        {
+            process.Kill(entireProcessTree: true);
+            Assert.Fail($"The PowerShell parse check did not finish within {_processTimeout.TotalSeconds:0} s.");
+        }
+
         var text = await output;
         Assert.True(process.ExitCode == 0, $"The PowerShell parse check itself failed ({process.ExitCode}): {await error}\n{text}");
         var prefix = folder + Path.DirectorySeparatorChar;
@@ -102,25 +116,55 @@ public sealed class BuildScriptSyntaxTests : IDisposable
     }
 
     // One line per script bash refuses to parse, "<path relative to the folder>: <what bash said>". Null when bash is not installed here.
-    private static async Task<IReadOnlyList<string>?> BashErrorsAsync(string folder)
+    private static async Task<IReadOnlyList<string>?> BashErrorsAsync(string folder, string? program = null, TimeSpan? limit = null)
     {
+        program ??= BashProgram();
+        var wait = limit ?? _processTimeout;
+
+        // On Windows without Git for Windows, "bash" can be the stub for a missing Linux distribution: it starts, then fails for any
+        // input. A bash that cannot parse nothing is not a bash, so the check is skipped rather than blaming every script.
+        var probe = await RunBashAsync(program, [], wait);
+        if (probe is not { ExitCode: 0 })
+        {
+            return null;
+        }
+
         var errors = new List<string>();
         foreach (var script in ScriptsUnder(folder, ".sh"))
         {
-            // The script goes in on standard input, so no path has to be understood by a bash that may be another system's.
-            var info = new ProcessStartInfo(BashProgram()) { RedirectStandardInput = true };
-            info.ArgumentList.Add("-n");
-            using var process = TryStart(info);
-            if (process is null)
+            var run = await RunBashAsync(program, await File.ReadAllBytesAsync(script, TestContext.Current.CancellationToken), wait);
+            if (run is not { ExitCode: 0 })
             {
-                return null;
+                errors.Add($"{Path.GetRelativePath(folder, script)}: {run?.Error}");
             }
+        }
 
-            var output = process.StandardOutput.ReadToEndAsync(TestContext.Current.CancellationToken);
-            var error = process.StandardError.ReadToEndAsync(TestContext.Current.CancellationToken);
+        return errors;
+    }
+
+    private sealed record BashRun(int ExitCode, string Error);
+
+    // Parses a script with "bash -n". The script goes in on standard input, so no path has to be understood by a bash that may be
+    // another system's. Null when the program is not on this machine; a run past the limit is stopped and reported as a failure.
+    private static async Task<BashRun?> RunBashAsync(string program, byte[] script, TimeSpan limit)
+    {
+        var info = new ProcessStartInfo(program) { RedirectStandardInput = true };
+        info.ArgumentList.Add("-n");
+        using var process = TryStart(info);
+        if (process is null)
+        {
+            return null;
+        }
+
+        var output = process.StandardOutput.ReadToEndAsync(TestContext.Current.CancellationToken);
+        var error = process.StandardError.ReadToEndAsync(TestContext.Current.CancellationToken);
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        timeout.CancelAfter(limit);
+        try
+        {
             try
             {
-                await process.StandardInput.BaseStream.WriteAsync(await File.ReadAllBytesAsync(script, TestContext.Current.CancellationToken), TestContext.Current.CancellationToken);
+                await process.StandardInput.BaseStream.WriteAsync(script, timeout.Token);
                 process.StandardInput.Close();
             }
             catch (IOException)
@@ -128,15 +172,17 @@ public sealed class BuildScriptSyntaxTests : IDisposable
                 // Bash stops reading at the first syntax error, which closes the pipe; its report is what counts.
             }
 
+            await process.WaitForExitAsync(timeout.Token);
+        }
+        catch (OperationCanceledException) when (!TestContext.Current.CancellationToken.IsCancellationRequested)
+        {
+            process.Kill(entireProcessTree: true);
             await process.WaitForExitAsync(TestContext.Current.CancellationToken);
-            await output;
-            if (process.ExitCode != 0)
-            {
-                errors.Add($"{Path.GetRelativePath(folder, script)}: {(await error).Trim()}");
-            }
+            return new BashRun(-1, $"bash did not finish within {limit.TotalSeconds:0} s.");
         }
 
-        return errors;
+        await output;
+        return new BashRun(process.ExitCode, (await error).Trim());
     }
 
     [Fact]
@@ -184,6 +230,43 @@ public sealed class BuildScriptSyntaxTests : IDisposable
         Assert.SkipUnless(errors is not null, "pwsh is not installed here.");
         Assert.NotEmpty(errors!);
         Assert.StartsWith(Path.Combine("sub", "inner.ps1") + ":1: ", errors![0], StringComparison.Ordinal);
+    }
+
+    // A stand-in for "bash" that behaves like Windows' stub for a missing Linux distribution: it starts, then fails for any input.
+    private string StubBash(string body)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return MakeScript(Path.Combine("stub", "bash.cmd"), "@echo off\r\n" + body + "\r\n");
+        }
+
+        var path = MakeScript(Path.Combine("stub", "bash.sh"), "#!/bin/sh\n" + body + "\n");
+        File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        return path;
+    }
+
+    [Fact]
+    public async Task A_bash_that_cannot_parse_an_empty_script_counts_as_not_installed()
+    {
+        MakeScript(Path.Combine("scripts", "fine.sh"), "echo 'all well'\n");
+        var stub = StubBash("exit 1");
+
+        var errors = await BashErrorsAsync(Path.Combine(_root, "scripts"), stub);
+
+        Assert.Null(errors);
+    }
+
+    [Fact]
+    public async Task A_bash_that_never_finishes_is_stopped_and_counts_as_not_installed()
+    {
+        MakeScript(Path.Combine("scripts", "fine.sh"), "echo 'all well'\n");
+        var stub = StubBash(OperatingSystem.IsWindows() ? "ping -n 60 127.0.0.1" : "sleep 60");
+
+        var watch = Stopwatch.StartNew();
+        var errors = await BashErrorsAsync(Path.Combine(_root, "scripts"), stub, TimeSpan.FromSeconds(1));
+
+        Assert.Null(errors);
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(30), $"The check waited {watch.Elapsed.TotalSeconds:0} s for a bash that hangs.");
     }
 
     [Fact]
