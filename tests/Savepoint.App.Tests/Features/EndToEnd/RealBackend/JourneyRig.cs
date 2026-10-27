@@ -354,6 +354,7 @@ internal sealed class JourneyRig : IAsyncDisposable
             await Task.Delay(25);
         }
 
+        Started.Backend?.Dispose();
         await Task.Run(() => DeleteFolder(Root));
     }
 
