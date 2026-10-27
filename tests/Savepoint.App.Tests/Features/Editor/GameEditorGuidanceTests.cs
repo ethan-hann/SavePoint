@@ -111,7 +111,6 @@ public class GameEditorGuidanceTests
         Assert.Equal("How do these rules work?", editor.RulesHelp.Question);
         foreach (var help in new[] { editor.ProcessHelp, editor.ModFoldersHelp, editor.SteamAppIdHelp })
         {
-            Assert.Equal("When do I need this?", help.Question);
             Assert.False(help.IsOpen);
         }
 
@@ -148,7 +147,7 @@ public class GameEditorGuidanceTests
         Assert.Equal("Does my game keep mods outside its folder?", editor.ModsHelp.Question);
         Assert.StartsWith("Most games load mods from inside their own folder", editor.ModsHelp.Answer, StringComparison.Ordinal);
         Assert.Contains("7 Days to Die", editor.ModsHelp.Answer, StringComparison.Ordinal);
-        Assert.Equal("When do I need this?", editor.ModFoldersHelp.Question);
+        Assert.Equal("When do I list mod files?", editor.ModFoldersHelp.Question);
         Assert.StartsWith("Only to make the mod file counts", editor.ModFoldersHelp.Answer, StringComparison.Ordinal);
         Assert.Contains("never changes what SavePoint saves", editor.ModFoldersHelp.Answer, StringComparison.Ordinal);
     }
@@ -199,14 +198,14 @@ public class GameEditorGuidanceTests
     }
 
     [Fact]
-    public void The_three_When_do_I_need_this_buttons_have_different_accessible_names_and_the_same_text()
+    public void The_stop_detection_mod_file_and_app_id_questions_each_name_their_field_and_read_the_same_to_a_screen_reader()
     {
         var editor = EditorRig.Create().New();
 
-        Assert.Equal("When do I need this? Knowing when you've stopped playing", editor.ProcessHelp.AutomationName);
-        Assert.Equal("When do I need this? Mod files inside the game folder", editor.ModFoldersHelp.AutomationName);
-        Assert.Equal("When do I need this? Steam app ID (optional)", editor.SteamAppIdHelp.AutomationName);
-        Assert.All([editor.ProcessHelp, editor.ModFoldersHelp, editor.SteamAppIdHelp], help => Assert.Equal("When do I need this?", help.Question));
+        Assert.Equal("When do I need the program name?", editor.ProcessHelp.Question);
+        Assert.Equal("When do I list mod files?", editor.ModFoldersHelp.Question);
+        Assert.Equal("When do I need the Steam app ID?", editor.SteamAppIdHelp.Question);
+        Assert.All([editor.ProcessHelp, editor.ModFoldersHelp, editor.SteamAppIdHelp], help => Assert.Equal(help.Question, help.AutomationName));
         Assert.Equal("Can I use this with online games?", editor.AntiCheatHelp.AutomationName);
     }
 

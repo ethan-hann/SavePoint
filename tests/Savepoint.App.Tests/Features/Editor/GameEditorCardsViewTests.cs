@@ -39,7 +39,7 @@ public class GameEditorCardsViewTests
         using var harness = await EditorViewHarness.StartAsync();
         harness.Edit();
 
-        Assert.Equal("The game", TextOf(harness, "GameCardHeading"));
+        Assert.Equal("Game",TextOf(harness, "GameCardHeading"));
         Assert.Equal("Required", TextOf(harness, "GameCardTag"));
         Assert.Equal("Saves", TextOf(harness, "SavesCardHeading"));
         Assert.Equal("Recommended", TextOf(harness, "SavesCardTag"));

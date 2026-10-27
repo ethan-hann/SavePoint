@@ -11,7 +11,7 @@
              x:DataType="editor:GameEditorViewModel">
   <!--
     The game editor, a full pane: a header with back, title, Export or Import and Save, then one column of cards in the order a
-    player fills them in. "The game" holds what a game cannot work without (name, install folder, how to start it), "Saves" and
+    player fills them in. "Game" holds what a game cannot work without (name, install folder, how to start it), "Saves" and
     "Mods" the folders outside the game folder, then Artwork, and last "More settings", closed until opened, with the rules for files
     to leave out and the rest. Each card says whether it is required, recommended or optional. A warning shows only when it applies
     and an explanation sits behind a question button. A problem with a field shows under that field.
@@ -29,6 +29,11 @@
       <Setter Property="BorderThickness" Value="0" />
       <Setter Property="Foreground" Value="{DynamicResource Md3OnSurfaceBrush}" />
     </Style>
+    <!-- A question button under a field starts at the field's edge: its text sits inside the button's own 10px of padding, so the button steps back by that much. -->
+    <Style Selector="help|HelpQuestionView.under-field">
+      <Setter Property="Margin" Value="-10,0,0,0" />
+    </Style>
+
     <Style Selector="ToggleButton.section-toggle:checked">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="Foreground" Value="{DynamicResource Md3OnSurfaceBrush}" />
@@ -224,7 +229,7 @@
                 </Grid>
               </Border>
 
-              <help:HelpQuestionView x:Name="AntiCheatQuestion" HorizontalAlignment="Left" DataContext="{Binding AntiCheatHelp}" />
+              <help:HelpQuestionView x:Name="AntiCheatQuestion" Classes="under-field" HorizontalAlignment="Left" DataContext="{Binding AntiCheatHelp}" />
               <help:HelpAnswerView x:Name="AntiCheatAnswer" DataContext="{Binding AntiCheatHelp}" />
             </StackPanel>
           </StackPanel>
@@ -357,14 +362,14 @@
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
               </Grid>
-              <help:HelpQuestionView x:Name="ModsQuestion" HorizontalAlignment="Left" DataContext="{Binding ModsHelp}" />
+              <help:HelpQuestionView x:Name="ModsQuestion" Classes="under-field" HorizontalAlignment="Left" DataContext="{Binding ModsHelp}" />
               <help:HelpAnswerView x:Name="ModsAnswer" DataContext="{Binding ModsHelp}" />
             </StackPanel>
 
             <StackPanel Spacing="9">
               <TextBlock Classes="overline" Text="{theme:Upper {loc:Loc gameEditor.modPathHints.label}}" />
               <ContentControl x:Name="ModFoldersHost" Content="{Binding ModFolders}" />
-              <help:HelpQuestionView x:Name="ModFoldersQuestion" HorizontalAlignment="Left" DataContext="{Binding ModFoldersHelp}" />
+              <help:HelpQuestionView x:Name="ModFoldersQuestion" Classes="under-field" HorizontalAlignment="Left" DataContext="{Binding ModFoldersHelp}" />
               <help:HelpAnswerView x:Name="ModFoldersAnswer" DataContext="{Binding ModFoldersHelp}" />
             </StackPanel>
           </StackPanel>
@@ -430,7 +435,7 @@
                 <ContentControl x:Name="IgnoreRulesHost" Content="{Binding IgnoreRules}" />
                 <TextBlock x:Name="RulesSyntaxText" Classes="body muted" TextWrapping="Wrap" Text="{loc:Loc gameEditor.rules.syntax}" />
                 <TextBlock x:Name="SavesRuleText" Classes="body muted" TextWrapping="Wrap" Text="{loc:Loc gameEditor.ignorePaths.savesRule}" />
-                <help:HelpQuestionView x:Name="RulesQuestion" HorizontalAlignment="Left" DataContext="{Binding RulesHelp}" />
+                <help:HelpQuestionView x:Name="RulesQuestion" Classes="under-field" HorizontalAlignment="Left" DataContext="{Binding RulesHelp}" />
                 <help:HelpAnswerView x:Name="RulesAnswer" DataContext="{Binding RulesHelp}" />
               </StackPanel>
 
@@ -460,7 +465,7 @@
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
                 </StackPanel>
-                <help:HelpQuestionView x:Name="ProcessQuestion" HorizontalAlignment="Left" DataContext="{Binding ProcessHelp}" />
+                <help:HelpQuestionView x:Name="ProcessQuestion" Classes="under-field" HorizontalAlignment="Left" DataContext="{Binding ProcessHelp}" />
                 <help:HelpAnswerView x:Name="ProcessAnswer" DataContext="{Binding ProcessHelp}" />
               </StackPanel>
 
@@ -476,7 +481,7 @@
                          AutomationProperties.Name="{loc:Loc gameEditor.artwork.appId.label}"
                          AutomationProperties.HelpText="{Binding SteamAppIdError}" />
                 <TextBlock x:Name="SteamAppIdErrorText" Classes="body error" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" IsVisible="{Binding SteamAppIdError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding SteamAppIdError}" />
-                <help:HelpQuestionView x:Name="SteamAppIdQuestion" HorizontalAlignment="Left" DataContext="{Binding SteamAppIdHelp}" />
+                <help:HelpQuestionView x:Name="SteamAppIdQuestion" Classes="under-field" HorizontalAlignment="Left" DataContext="{Binding SteamAppIdHelp}" />
                 <help:HelpAnswerView x:Name="SteamAppIdAnswer" DataContext="{Binding SteamAppIdHelp}" />
               </StackPanel>
 

@@ -278,7 +278,7 @@ public class TabOrderTests
             "AppData, for the mods folder",
             "Local AppData, for the mods folder",
             "Does my game keep mods outside its folder?",
-            "When do I need this? Mod files inside the game folder",
+            "When do I list mod files?",
             "Choose image…",
             "More settings",
         ];

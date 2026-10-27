@@ -243,11 +243,11 @@ public class GameEditorGuidanceViewTests
     }
 
     [AvaloniaFact]
-    public async Task The_stop_detection_mod_folder_and_app_id_helpers_sit_behind_When_do_I_need_this()
+    public async Task The_stop_detection_mod_file_and_app_id_helpers_sit_behind_their_own_question_buttons()
     {
         using var harness = await EditorViewHarness.StartAsync();
         harness.Edit();
-        var buttons = harness.All<ToggleButton>().Where(button => AutomationProperties.GetName(button)?.StartsWith("When do I need this?", StringComparison.Ordinal) == true).ToList();
+        var buttons = harness.All<ToggleButton>().Where(button => AutomationProperties.GetName(button) is "When do I need the program name?" or "When do I list mod files?" or "When do I need the Steam app ID?").ToList();
 
         Assert.Equal(3, buttons.Count);
         Assert.False(Shows(harness, text => text == "Used when the launcher closes itself before the game opens."));
@@ -266,7 +266,7 @@ public class GameEditorGuidanceViewTests
 
     // Explanations of an idea the "How SavePoint works" page covers end with its link. The online-games warning and the Steam app ID are
     // not on the page, so they have nothing to link to.
-    private static readonly string[] _questionsWithNoPageTopic = ["Can I use this with online games?", "When do I need this? Steam app ID (optional)"];
+    private static readonly string[] _questionsWithNoPageTopic = ["Can I use this with online games?", "When do I need the Steam app ID?"];
 
     [AvaloniaFact]
     public async Task Every_question_button_in_the_editor_opens_an_answer_that_ends_with_the_page_link_unless_the_page_has_no_topic_for_it()
@@ -338,15 +338,48 @@ public class GameEditorGuidanceViewTests
     }
 
     [AvaloniaFact]
-    public async Task The_When_do_I_need_this_buttons_carry_their_own_automation_names()
+    public async Task No_two_question_buttons_in_the_editor_show_the_same_text()
     {
         using var harness = await EditorViewHarness.StartAsync();
         harness.Edit();
 
-        var names = harness.All<ToggleButton>().Select(button => AutomationProperties.GetName(button)).Where(name => name is not null && name.StartsWith("When do I need this?", StringComparison.Ordinal)).ToList();
+        var questions = harness.All<Savepoint.App.Features.Help.HelpQuestionView>().Select(view => Assert.IsType<Savepoint.App.Features.Help.ContextualHelpViewModel>(view.DataContext).Question).ToList();
 
-        Assert.Equal(3, names.Count);
-        Assert.Equal(3, names.Distinct().Count());
+        Assert.Contains("When do I list mod files?", questions);
+        Assert.Equal(questions.Count, questions.Distinct().Count());
+    }
+
+    [AvaloniaFact]
+    public async Task The_Steam_app_ID_label_does_not_say_optional_because_everything_in_More_settings_is()
+    {
+        using var harness = await EditorViewHarness.StartAsync();
+        harness.Edit();
+
+        Assert.Equal("Steam app ID", AutomationProperties.GetName(harness.Find<TextBox>("SteamAppIdField")));
+    }
+
+    // Each question button sits under its field with its icon on the field's left edge, not indented by the button's own padding.
+    [AvaloniaTheory]
+    [InlineData("ModsQuestion")]
+    [InlineData("ModFoldersQuestion")]
+    [InlineData("AntiCheatQuestion")]
+    [InlineData("RulesQuestion")]
+    [InlineData("ProcessQuestion")]
+    [InlineData("SteamAppIdQuestion")]
+    public async Task A_question_button_starts_at_the_left_edge_of_the_fields_above_it(string name)
+    {
+        using var harness = await EditorViewHarness.StartAsync();
+        var editor = harness.Edit();
+        editor.IsMoreSettingsOpen = true;
+        harness.Settle();
+
+        var question = harness.Find<Savepoint.App.Features.Help.HelpQuestionView>(name);
+        var icon = question.GetVisualDescendants().OfType<TextBlock>().First(block => block.Classes.Contains("icon"));
+        var group = Assert.IsAssignableFrom<Control>(question.GetVisualParent());
+
+        var iconLeft = icon.TranslatePoint(new Point(0, 0), group)!.Value.X;
+
+        Assert.InRange(iconLeft, -0.5, 0.5);
     }
 
     [AvaloniaFact]

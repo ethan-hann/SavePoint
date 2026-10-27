@@ -12,13 +12,13 @@ public sealed partial class GameEditorViewModel
     /// <summary>"How do these rules work?", under the lists of files to leave out.</summary>
     public ContextualHelpViewModel RulesHelp { get; private set; } = null!;
 
-    /// <summary>"When do I need this?" for the program name SavePoint waits for.</summary>
+    /// <summary>"When do I need the program name?", for the program SavePoint waits for.</summary>
     public ContextualHelpViewModel ProcessHelp { get; private set; } = null!;
 
-    /// <summary>"When do I need this?" for the mod files inside the game folder.</summary>
+    /// <summary>"When do I list mod files?", for the mod files inside the game folder.</summary>
     public ContextualHelpViewModel ModFoldersHelp { get; private set; } = null!;
 
-    /// <summary>"When do I need this?" for the Steam app id.</summary>
+    /// <summary>"When do I need the Steam app ID?"</summary>
     public ContextualHelpViewModel SteamAppIdHelp { get; private set; } = null!;
 
     /// <summary>"Does my store sync saves?", beside the saves folder; shown only while the store's answer is unknown.</summary>
@@ -78,9 +78,9 @@ public sealed partial class GameEditorViewModel
         AntiCheatHelp = new ContextualHelpViewModel(_text.Message("gameEditor.antiCheat.question"), _text.Message("gameEditor.antiCheat"));
         var more = _text.Message("help.moreInPage");
         RulesHelp = new ContextualHelpViewModel(_text.Message("gameEditor.rules.question"), _text.Message("gameEditor.rules.answer"), more, () => OpenHelpPage(RulesHelp, HowItWorksSection.FilesToLeaveOut));
-        ProcessHelp = new ContextualHelpViewModel(_text.Message("gameEditor.whenNeeded.question"), _text.Message("gameEditor.processName.helper"), more, () => OpenHelpPage(ProcessHelp, HowItWorksSection.HowTheGameStarts), automationName: _text.Message("gameEditor.processName.whenNeededName"));
-        ModFoldersHelp = new ContextualHelpViewModel(_text.Message("gameEditor.whenNeeded.question"), _text.Message("gameEditor.modPathHints.helper"), more, () => OpenHelpPage(ModFoldersHelp, HowItWorksSection.ModsFolders), automationName: _text.Message("gameEditor.modPathHints.whenNeededName"));
-        SteamAppIdHelp = new ContextualHelpViewModel(_text.Message("gameEditor.whenNeeded.question"), _text.Message("gameEditor.artwork.appId.helper"), automationName: _text.Message("gameEditor.artwork.appId.whenNeededName"));
+        ProcessHelp = new ContextualHelpViewModel(_text.Message("gameEditor.processName.question"), _text.Message("gameEditor.processName.helper"), more, () => OpenHelpPage(ProcessHelp, HowItWorksSection.HowTheGameStarts));
+        ModFoldersHelp = new ContextualHelpViewModel(_text.Message("gameEditor.modPathHints.question"), _text.Message("gameEditor.modPathHints.helper"), more, () => OpenHelpPage(ModFoldersHelp, HowItWorksSection.ModsFolders));
+        SteamAppIdHelp = new ContextualHelpViewModel(_text.Message("gameEditor.artwork.appId.question"), _text.Message("gameEditor.artwork.appId.helper"));
         ModsHelp = new ContextualHelpViewModel(_text.Message("gameEditor.mods.question"), _text.Message("gameEditor.mods.answer"), more, () => OpenHelpPage(ModsHelp, HowItWorksSection.ModsFolders));
         CloudSavesHelp = new ContextualHelpViewModel(_text.Message("gameEditor.cloudSaves.unknown.question"), _text.Message("gameEditor.cloudSaves.unknown"), more, () => OpenHelpPage(CloudSavesHelp, HowItWorksSection.CloudSaves));
     }
