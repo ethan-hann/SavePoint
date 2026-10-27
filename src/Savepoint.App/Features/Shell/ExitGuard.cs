@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Savepoint.App.Features.Activity;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Formatting;
@@ -112,8 +113,9 @@ public sealed class ExitGuard
         }
 
         runs.RequestStop();
-        var until = DateTime.UtcNow + TimeSpan.FromMinutes(1);
-        while (runs.IsRunning && DateTime.UtcNow < until)
+        // Elapsed time, not the wall clock, so a clock change cannot cut the wait short or stretch it.
+        var waited = Stopwatch.StartNew();
+        while (runs.IsRunning && waited.Elapsed < TimeSpan.FromMinutes(1))
         {
             await Task.Delay(25).ConfigureAwait(true);
         }
@@ -170,8 +172,8 @@ public sealed class ExitGuard
     // Bounded: a job that does not end in time is left to the process ending.
     private async Task WaitForAsync(IReadOnlyList<Guid> jobIds)
     {
-        var until = DateTime.UtcNow + _wait;
-        while (DateTime.UtcNow < until && jobIds.Any(id => _jobs!.Get(id) is { Status: JobStatus.Running }))
+        var waited = Stopwatch.StartNew();
+        while (waited.Elapsed < _wait && jobIds.Any(id => _jobs!.Get(id) is { Status: JobStatus.Running }))
         {
             await Task.Delay(25).ConfigureAwait(true);
         }
