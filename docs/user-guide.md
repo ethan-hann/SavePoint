@@ -30,7 +30,7 @@ The first time you open SavePoint, it offers **Add your first game** or **Start 
 2. **Where the game is installed**: pick the game's own folder, for example `C:\Games\SkyrimSE`. SavePoint makes this folder match a profile, which replaces what is inside, so it refuses a whole drive or a system folder.
 3. **Where the saves live** (optional): many games keep saves outside the install folder, for example under `Documents\My Games`. SavePoint suggests the common spots.
 4. **How to start the game**: run the game's program, or go **Through Steam** with a launch link like `steam://run/489830`. The number is in the address of the game's Steam store page. Steam can update the game right after SavePoint puts your version back, so running the program directly is safer. That warning shows only when you pick Through Steam.
-5. **More settings** opens the optional settings. Each has a **When do I need this?** button:
+5. **More settings** opens the optional settings. To change an entry in one of its lists, select it and press Enter, Space, or F2, or double-click it. Enter keeps the change and Escape drops it. Each setting has a **When do I need this?** button:
    - **Extra command-line options.**
    - **Knowing when you've stopped playing:** the name of the game's own process, for launchers that close themselves before the game opens. When a game starts through a link, a note under How to start the game suggests the program to use.
    - **Files to leave out:** SavePoint never copies or replaces a file that matches these rules. Those files never count as changes, and a switch leaves them alone. List only files that do not matter: a rule that matches your saves stops profiles from switching them. There are two lists:
@@ -99,7 +99,7 @@ If the program SavePoint started closes right away with an error, the running ca
 SavePoint asks what to do with the session:
 
 - **Keep this session as a new snapshot** (recommended). Your earlier snapshots stay as they are.
-- **Replace "<snapshot>" with this session.** That snapshot holds this session instead, and what it held before goes to History's **Recently removed**. This choice appears only when the session changed something and started from the profile's own newest snapshot.
+- **Replace "&lt;snapshot&gt;" with this session.** That snapshot holds this session instead, and what it held before goes to History's **Recently removed**. This choice appears only when the session changed something and started from the profile's own newest snapshot.
 - **Not now.** Nothing is lost. Your saves stay in your game folders as new changes, and SavePoint asks again before you switch profiles.
 
 ![You played for 2 hours 14 minutes: 3 files in the saves folder are new or changed. The choices are Keep this session as a new snapshot (recommended, named "Session - 7-8-26"), Replace "Session - 7-7-26" with this session, and Not now, with the Not now and Keep it buttons.](images/after-play.png)
@@ -107,7 +107,7 @@ SavePoint asks what to do with the session:
 If you played from an older snapshot, the session cannot go on the end of the profile, so your choices are:
 
 - **Keep this session as a new profile** (recommended). The original profile stays as it is, newer snapshots and all. Use this to split a playthrough, for example to replay a choice and keep both stories.
-- **Continue "<profile>" from this session**, offered when every folder started the session from that profile's own snapshots. The session becomes the profile's latest snapshot, and its newer snapshots go to History's **Recently removed**.
+- **Continue "&lt;profile&gt;" from this session**, offered when every folder started the session from that profile's own snapshots. The session becomes the profile's latest snapshot, and its newer snapshots go to History's **Recently removed**.
 
 If files in the game's own folder changed while you played, the way an update changes them, SavePoint tells you. If the only changes are logs or crash reports, it says so and offers **Leave these out from now on**. That adds a rule for the game's own folder, so those files stop counting as changes there.
 
@@ -138,15 +138,20 @@ The profile table on the Games screen shows each profile's snapshot count, notes
 
 The loaded profile has **Play**. Every other profile has **Switch and play**, which loads it first. With a row selected, Enter does the same. **Take a snapshot**, next to the tabs, keeps what your game folders hold right now as a new snapshot of the loaded profile. A profile with no snapshot yet gets its first one this way.
 
-The row's menu has **Edit** (name, notes, version), **Take a snapshot**, **Duplicate**, and **Delete**:
+The row's menu has **Edit** (name, notes, version), **Take a snapshot**, **Duplicate**, **Open game folder**, **Open saves folder**, and **Delete**. Open it with the row's More actions button, by right-clicking the row, or with the Menu key or Shift+F10 on a selected row:
 - **Duplicate** starts a new profile with the same game version and mods, but no save snapshots of its own.
+- **Open game folder** and **Open saves folder** open that folder in your file manager. Open saves folder appears only when the game has a saves folder. If the folder moved or is gone, SavePoint says so instead.
 - **Delete** warns you when the profile has snapshots no other profile has, and says what happens to them. Usually they are deleted for good. Snapshots that came from Recently removed, as in a profile you brought back from there, go back to Recently removed instead.
 
 ## Activity
 
-**Activity** lists the selected game's running and recent jobs: snapshots, switches, and freeing up space. **All games** adds snapshot folder moves and data removal. Open it from the job status indicator, or from the game's **Activity** tab in the Sidebar layout.
+**Activity** lists the selected game's running and recent tasks: snapshots, switches, and freeing up space. **All games** adds snapshot folder moves and data removal. Open it from the task status indicator, or from the game's **Activity** tab in the Sidebar layout.
 
-Each job shows its profile, its progress, and when it started and finished. **Details** lists the files and steps, which you can copy into a bug report. While a big snapshot runs, "Probably copying" names the file SavePoint thinks it is on. **Cancel** stops a job that can be stopped, or tells you it cannot stop now. Finished jobs stay listed until you close SavePoint.
+Each task shows its profile, its progress, and when it started and finished. A finished task reads in the past tense, such as "Took a snapshot of ...". **Details** lists the files and steps, which you can copy into a bug report. While a big snapshot runs, "Probably copying" names the file SavePoint thinks it is on. **Cancel** stops a task that can be stopped, or tells you it cannot stop now.
+
+Finished tasks stay listed after you close SavePoint: the newest 100, for up to 30 days, and up to five per game. A task from before SavePoint last closed keeps its title and result, but not its steps. **Remove all data** also clears the list.
+
+Right after a snapshot, SavePoint may run "Compacting snapshot files for &lt;game&gt;". It packs the stored snapshot files tighter on disk and deletes nothing, so it is not Free up space.
 
 ![Activity for Grounded: a snapshot of Modded in progress at 2.7 GB of 10.8 GB with about 5 minutes left, above five finished snapshots, and, on the right, the first snapshot of Vanilla 1.4, done, 12.1 GB of 12.1 GB, with its details listing the folders copied and the files that were new, and a Copy button.](images/activity.png)
 
@@ -174,6 +179,7 @@ Help, the snapshot folder, and Free up space are covered above. The other settin
   - theme: light, dark, or match the system;
   - accent color: blue, violet, green, amber, or crimson;
   - layout: **Sidebar** keeps every game one click away, and **Library** puts the cover art up front. You can also switch layouts from the Games screen;
+  - interface size: 100%, 125%, 150%, 175%, or 200%, which makes everything in SavePoint larger on top of your screen's own scaling. Sizes that do not fit on the current screen are switched off, with the reason. A size you picked on a big screen shows smaller on a screen that cannot fit it, and comes back on the big screen;
   - **Look up game artwork online**.
 - **Before you play:** **Skip the check before playing when only your saves change**.
 - **When you finish playing:** **Ask whether to keep the session**.
@@ -196,6 +202,8 @@ Every error says what happened and what you can do about it. **Show details** gi
 - **A file is in use.** Another program has a file open, so a switch or a snapshot stopped or did not start. Close that program (usually the game, its launcher, or a mod manager) and try again. A retry picks up where it stopped. "Replace" also needs every file closed, even unchanged ones.
 - **SavePoint can't read a file.** A file in a game folder cannot be opened, usually because it belongs to another account or is marked private. Closing programs does not help. Make the file readable for your account, or remove it, then try again.
 - **A file and a folder share a name.** A profile needs a file where your game folder has a folder with that name (or the other way around), and that folder holds files SavePoint must not touch, such as files you left out. SavePoint stops before changing anything and tells you which one. Move it yourself, then try again.
+- **A file in the game is a link.** On Windows, a game folder holds a file that is a link to a file kept somewhere else, like the ones a mod manager makes when it deploys mods as links. SavePoint cannot take a snapshot of that file or switch it, because Windows would put a plain file back and the mod would stop loading. Switch the mod manager to hardlink or move deployment, replace a link you made yourself with the real file, or leave that file out of snapshots in Edit game. Discarding changes and removing new files still work.
+- **This snapshot can't be put back on Windows.** You chose a snapshot that was taken while a program linked files into the game folder. Nothing changes, and your other profiles still work. Linux and macOS are not affected by either of these.
 - **Only part of the snapshot was taken.** One folder made it into the snapshot and the other did not. Fix the reason shown and retry just that part. Nothing already kept is affected.
 - **The last switch didn't finish.** The folder has a mix of files from two snapshots. Finish the switch to carry on, or discard the changes to put the folder back to its last snapshot. Finishing replaces the files the switch was changing, including any change you made since it stopped, and SavePoint says how many (and which saves) first. If other files changed meanwhile, or SavePoint can't tell which switch it was, only discarding is offered.
 - **SavePoint's record of this game's folder is damaged.** This usually follows a power cut or a crash. SavePoint repairs its record by itself when it can, and your game files are not changed either way. If this message keeps coming back, include **Copy details for support** in a bug report.
