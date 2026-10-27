@@ -347,7 +347,7 @@ public sealed partial class GitEngine
             RecheckBeforeFileChanges(repo, "remove-new");
             foreach (var path in left)
             {
-                TryDelete(RealFullPath(repo, path));
+                TryDeleteReadOnly(RealFullPath(repo, path));
             }
 
             await Task.Delay(_options.ResyncDelays[pass], ct).ConfigureAwait(false);
@@ -704,6 +704,10 @@ public sealed partial class GitEngine
     private Task<InterruptedSwitch?> ReadNoteAsync(RepoRef repo, CancellationToken ct) =>
         SwitchJournal.ReadAsync(repo.GitDir, _options.SwitchNoteDelay, ct);
 
+    // For a caller that only reports: a note held at this moment shows as unfinished with no known target, and nothing waits for it.
+    private Task<InterruptedSwitch?> ReadNoteWithoutWaitingAsync(RepoRef repo, CancellationToken ct) =>
+        SwitchJournal.ReadAsync(repo.GitDir, static (_, _) => Task.CompletedTask, ct);
+
     private Task<bool> ClearNoteAsync(RepoRef repo) =>
         SwitchJournal.ClearAsync(repo.GitDir, _options.SwitchNoteDelay);
 
@@ -781,7 +785,7 @@ public sealed partial class GitEngine
 
         foreach (var path in leftovers)
         {
-            TryDelete(RealFullPath(repo, path));
+            TryDeleteReadOnly(RealFullPath(repo, path));
         }
 
         if (differing.Count > 0)
@@ -811,9 +815,11 @@ public sealed partial class GitEngine
     }
 
     // Windows refuses to delete a read-only file, where git's own replacing of a path clears the attribute and goes on. Only for a
-    // file the caller has already decided is its to remove. A link is left as it is: its attributes are not the file's.
+    // file the caller has already decided is its to remove. A link is left as it is: its attributes are not the file's. A file that is
+    // still there afterwards (a program holds it) gets its mark back, since nothing was removed.
     private static void TryDeleteReadOnly(string path)
     {
+        FileAttributes? original = null;
         if (OperatingSystem.IsWindows())
         {
             try
@@ -822,6 +828,7 @@ public sealed partial class GitEngine
                 if ((attributes & FileAttributes.ReadOnly) != 0 && (attributes & FileAttributes.ReparsePoint) == 0)
                 {
                     File.SetAttributes(path, attributes & ~FileAttributes.ReadOnly);
+                    original = attributes;
                 }
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException)
@@ -831,6 +838,17 @@ public sealed partial class GitEngine
         }
 
         TryDelete(path);
+        if (original is { } mark && File.Exists(path))
+        {
+            try
+            {
+                File.SetAttributes(path, mark);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                // The file is held in a way that stops even this; it is reported as not removed either way.
+            }
+        }
     }
 
     private static void TryDelete(string path)

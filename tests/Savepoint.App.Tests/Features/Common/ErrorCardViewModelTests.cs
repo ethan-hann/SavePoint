@@ -24,7 +24,7 @@ public class ErrorCardViewModelTests
         var card = new ErrorCardViewModel(SampleScenario.FileInUseError, _text, operation: ErrorOperation.Switch);
 
         Assert.Equal("A file is in use, so the switch stopped partway", card.Title);
-        Assert.StartsWith("Another program is holding one of the game's files open.", card.Body);
+        Assert.StartsWith("SavePoint couldn't change one of the game's files.", card.Body);
         Assert.Equal(Icons.Lock, card.Icon);
         Assert.Equal(ErrorTone.Error, card.Tone);
         Assert.True(card.IsError);

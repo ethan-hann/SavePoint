@@ -9,10 +9,7 @@ internal static class SwitchJournal
 {
     public const string FileName = "savepoint-switch.json";
 
-    // The waits between tries when another program holds the note (a virus scan, a backup tool), for Read and Clear alike: 2.55 seconds
-    // in all. Programs that retry on a file held by a scanner give it about a second or more (SQLite 1.4, graceful-fs up to a minute),
-    // so the total outlasts a normal scan of a small file; the first retries are quick so a short hold costs little. Only a held note
-    // waits at all: a note that opens at once is read on the first try.
+    // The waits between tries when another program holds the note, for Read and Clear alike (D31.6).
     internal static readonly TimeSpan[] Waits =
     [
         TimeSpan.FromMilliseconds(50),

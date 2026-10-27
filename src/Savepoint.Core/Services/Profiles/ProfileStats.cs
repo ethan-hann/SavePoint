@@ -124,7 +124,7 @@ internal static class ProfileStats
     {
         try
         {
-            var status = await storage.Engine.GetStatusAsync(repo, cancellationToken).ConfigureAwait(false);
+            var status = await storage.Engine.GetStatusAsync(repo, cancellationToken, waitForNote: false).ConfigureAwait(false);
             return new FolderState(true, status.Branch, status.IsDetached, status.IsClean);
         }
         catch (Exception e) when (e is SavepointException or IOException)

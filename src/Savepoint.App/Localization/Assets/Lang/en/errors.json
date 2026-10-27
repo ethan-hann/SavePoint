@@ -22,7 +22,7 @@
   "error.gameService.reconnectable": "That folder has snapshots from a game you removed. Add it as a new game to reconnect them, or choose another folder.",
   "error.git.unavailable": "SavePoint can't run the built-in tool it uses for snapshots. Reinstall SavePoint, then open it again.",
   "error.gitOperation.amendNotAvailable": "SavePoint can't replace that snapshot right now. Keep the session as a new snapshot or a new profile instead.",
-  "error.gitOperation.checkoutFailed": "Something else is holding one of the files open. Close the game, its launcher and any mod manager, then try again.",
+  "error.gitOperation.checkoutFailed": "SavePoint couldn't change one of the files. Another program may have it open, or it may be read-only. Close the game, its launcher and any mod manager, then try again.",
   "error.gitOperation.failed": "SavePoint couldn't finish that. Try again. If it keeps happening, include \"Copy details for support\" in a bug report.",
   "error.gitOperation.recordDamaged": "SavePoint's record of this game's folder is damaged, most likely by a power outage or a crash. Your game files weren't changed. If this keeps happening, include \"Copy details for support\" in a bug report.",
   "error.gitOperation.unreadableFile": "SavePoint can't read the file shown below. Check that your account is allowed to read it, then try again.",

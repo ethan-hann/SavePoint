@@ -33,6 +33,24 @@ public sealed class HeldFileStatusTests : IDisposable
         }
     }
 
+    [Fact]
+    public async Task A_file_replaced_by_a_link_to_a_folder_is_an_unsaved_change_and_not_a_file_that_cannot_be_read()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Git for Windows lists what a junction leads to, not the junction");
+        var (repo, _) = await _ws.ThreePointsRepoAsync();
+        HeldFiles.MakeRacy(repo);
+        var target = Path.Combine(_ws.Root, "outside", "real-folder");
+        Directory.CreateDirectory(target);
+        _ws.Delete(repo, "a.txt");
+        Assert.SkipUnless(TestLinks.TryCreateFolderLink(_ws.FileOf(repo, "a.txt"), target), "this system cannot make folder links");
+
+        var status = await _ws.Engine.GetStatusAsync(repo, Ct);
+
+        Assert.False(status.IsClean);
+        Assert.Null(status.HeldFile);
+        Assert.Contains("a.txt", status.ChangedPaths);
+    }
+
     [Theory]
     [MemberData(nameof(Kinds))]
     public async Task Unsaved_work_beside_a_file_git_cannot_read_is_still_unsaved_changes(HeldFileKind kind)

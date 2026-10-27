@@ -162,6 +162,31 @@ public sealed class UnreadableJournalTests : IDisposable
     }
 
     [Fact]
+    public async Task A_status_that_only_reports_does_not_wait_for_a_note_another_program_holds_open()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows lets one program keep another from reading a file");
+        var (repo, points) = await _ws.TwoPointsRepoAsync();
+        SwitchJournal.Write(repo.GitDir, points[0], points[1]);
+        using var held = new FileStream(SwitchJournal.PathIn(repo.GitDir), FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+
+        var status = await _ws.Engine.GetStatusAsync(repo, Ct, waitForNote: false);
+
+        Assert.Equal(TimeSpan.Zero, _waitedForNote);
+        Assert.Null(Assert.IsType<InterruptedSwitch>(status.InterruptedSwitch).ToCommit);
+    }
+
+    [Fact]
+    public async Task A_status_that_does_not_wait_still_reads_a_note_nobody_holds()
+    {
+        var (repo, points) = await _ws.TwoPointsRepoAsync();
+        SwitchJournal.Write(repo.GitDir, points[0], points[1]);
+
+        var status = await _ws.Engine.GetStatusAsync(repo, Ct, waitForNote: false);
+
+        Assert.Equal(new InterruptedSwitch(points[0], points[1]), status.InterruptedSwitch);
+    }
+
+    [Fact]
     public async Task A_note_another_program_holds_for_a_moment_is_read_once_it_lets_go()
     {
         Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows lets one program keep another from reading a file");

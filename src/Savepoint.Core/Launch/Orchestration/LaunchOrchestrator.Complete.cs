@@ -159,7 +159,7 @@ public sealed partial class LaunchOrchestrator
                         RepoStatus? before = null;
                         try
                         {
-                            before = await storage.Engine.GetStatusAsync(repo).ConfigureAwait(false);
+                            before = await storage.Engine.GetStatusAsync(repo, waitForNote: false).ConfigureAwait(false);
                         }
                         catch (SavepointException)
                         {

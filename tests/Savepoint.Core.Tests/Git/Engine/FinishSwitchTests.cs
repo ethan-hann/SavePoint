@@ -11,10 +11,14 @@ public sealed class FinishSwitchTests : IDisposable
     private readonly List<string> _hashed = [];
     private readonly EngineWorkspace _ws;
 
+    // Set by a test to act at a step the engine takes on the folder.
+    private Action<string>? _beforeStep;
+
     public FinishSwitchTests()
     {
         _ws = new(options => options with
         {
+            BeforeFileChanges = step => _beforeStep?.Invoke(step),
             FileHashed = path =>
             {
                 lock (_hashed)
@@ -645,6 +649,89 @@ public sealed class FinishSwitchTests : IDisposable
         Assert.Equal(new InterruptedSwitch(data.B, data.A, "profile-a"), SwitchJournal.Read(repo.GitDir));
         await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
         Assert.Equal("a's file", File.ReadAllText(locked));
+        Assert.Null(SwitchJournal.Read(repo.GitDir));
+    }
+
+    // A junction on Windows, a symbolic link elsewhere; neither is a file as far as FileInfo.Exists is concerned.
+    private async Task<(RepoRef Repo, string Outside)> LinkWhereTheFolderWasAsync()
+    {
+        var (repo, data) = await FileAndFolderProfilesAsync();
+        SwitchJournal.Write(repo.GitDir, data.B, data.A, "profile-a");
+        var outside = Path.Combine(_ws.Root, "outside", "foo-target");
+        Directory.CreateDirectory(outside);
+        File.WriteAllText(Path.Combine(outside, "precious.txt"), "not part of this game");
+        _ws.Delete(repo, "Mods/Foo/x.txt");
+        Directory.Delete(_ws.FileOf(repo, "Mods/Foo"));
+        Assert.SkipUnless(TestLinks.TryCreateFolderLink(_ws.FileOf(repo, "Mods/Foo"), outside), "this system cannot make folder links");
+        return (repo, outside);
+    }
+
+    [Fact]
+    public async Task The_review_lists_a_folder_link_standing_where_a_folder_was_as_replaced()
+    {
+        var (repo, _) = await LinkWhereTheFolderWasAsync();
+
+        var review = await _ws.Engine.ReviewStoppedSwitchAsync(repo, Ct);
+
+        Assert.Equal(["Mods/Foo"], review.ReplacedPaths);
+    }
+
+    [Fact]
+    public async Task A_folder_link_standing_where_a_folder_was_is_removed_as_the_link_and_what_it_led_to_stays()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Windows refuses a folder link in the way of a switch before it changes anything");
+        var (repo, outside) = await LinkWhereTheFolderWasAsync();
+
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+
+        Assert.Equal("a's file", File.ReadAllText(_ws.FileOf(repo, "Mods/Foo")));
+        Assert.Null(new FileInfo(_ws.FileOf(repo, "Mods/Foo")).LinkTarget);
+        Assert.Equal(["precious.txt"], Directory.EnumerateFileSystemEntries(outside).Select(Path.GetFileName));
+        Assert.Equal("not part of this game", File.ReadAllText(Path.Combine(outside, "precious.txt")));
+        Assert.Null(SwitchJournal.Read(repo.GitDir));
+        Assert.True((await _ws.Engine.GetStatusAsync(repo, Ct)).IsClean);
+    }
+
+    [Fact]
+    public async Task On_Windows_a_junction_standing_where_a_folder_was_refuses_the_finish_and_what_it_leads_to_stays()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows refuses a folder link in the way of a switch");
+        var (repo, outside) = await LinkWhereTheFolderWasAsync();
+
+        await Assert.ThrowsAsync<LinkedFolderException>(() => _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct));
+
+        Assert.NotNull(new FileInfo(_ws.FileOf(repo, "Mods/Foo")).LinkTarget);
+        Assert.Equal("not part of this game", File.ReadAllText(Path.Combine(outside, "precious.txt")));
+        Assert.NotNull(SwitchJournal.Read(repo.GitDir));
+    }
+
+    [Fact]
+    public async Task A_folder_link_put_where_the_file_stood_after_it_was_looked_at_is_removed_as_the_link_and_what_it_led_to_stays()
+    {
+        var (repo, data) = await FileAndFolderProfilesAsync();
+        SwitchJournal.Write(repo.GitDir, data.B, data.A, "profile-a");
+        _ws.Delete(repo, "Mods/Foo/x.txt");
+        Directory.Delete(_ws.FileOf(repo, "Mods/Foo"));
+        _ws.Write(repo, "Mods/Foo", "a's file, cut sh");
+        var outside = Path.Combine(_ws.Root, "outside", "foo-target");
+        Directory.CreateDirectory(outside);
+        File.WriteAllText(Path.Combine(outside, "precious.txt"), "not part of this game");
+
+        // The switch refuses a link it finds up front (Windows), so a link that appears after that look is what reaches the removal.
+        _beforeStep = step =>
+        {
+            if (step == "remove-standing")
+            {
+                File.Delete(_ws.FileOf(repo, "Mods/Foo"));
+                Assert.True(TestLinks.TryCreateFolderLink(_ws.FileOf(repo, "Mods/Foo"), outside), "this system cannot make folder links");
+            }
+        };
+
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+
+        Assert.Equal("a's file", File.ReadAllText(_ws.FileOf(repo, "Mods/Foo")));
+        Assert.Null(new FileInfo(_ws.FileOf(repo, "Mods/Foo")).LinkTarget);
+        Assert.Equal(["precious.txt"], Directory.EnumerateFileSystemEntries(outside).Select(Path.GetFileName));
         Assert.Null(SwitchJournal.Read(repo.GitDir));
     }
 

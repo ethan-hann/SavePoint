@@ -15,6 +15,15 @@ internal static class BlobHasher
 {
     private const int _bufferSize = 128 * 1024;
 
+    // The id of bytes already in memory, such as the text of a link.
+    public static string IdOf(ReadOnlySpan<byte> content)
+    {
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA1);
+        hash.AppendData(Encoding.ASCII.GetBytes($"blob {content.Length}\0"));
+        hash.AppendData(content);
+        return Convert.ToHexStringLower(hash.GetHashAndReset());
+    }
+
     // The token is looked at between reads, so a big file does not keep a cancelled call waiting for the rest of it.
     public static HashOutcome TryHash(string path, out string id, CancellationToken ct = default)
     {
