@@ -81,7 +81,7 @@ public class NewProfileWizardModsFolderTests
         backend.Jobs.Complete(job, new CaptureResult(profileId, new HistoryPointId("pt"), [new FolderOutcome(RepoRole.Install), new FolderOutcome(RepoRole.Mods, SampleScenario.SavesOutOfRoomError), new FolderOutcome(RepoRole.External, SampleScenario.SavesOutOfRoomError)]));
 
         var card = Assert.IsType<ErrorCardViewModel>(wizard.ResultCard);
-        Assert.Equal("Retry what didn't save", Assert.Single(card.Actions).Label);
+        Assert.Equal("Retry what's missing", Assert.Single(card.Actions).Label);
         Assert.StartsWith("Your game version and mods are in the snapshot. Your mods aren't yet. Your saves aren't yet.", card.Body, StringComparison.Ordinal);
     }
 }

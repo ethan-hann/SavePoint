@@ -52,7 +52,7 @@ public class LaunchFlowModsFolderTests : IDisposable
 
         var card = _f.Inline<ErrorCardViewModel>();
         Assert.StartsWith("Your game version is in the snapshot. Your mods aren't yet. Your saves aren't yet.", card.Body, StringComparison.Ordinal);
-        Assert.Equal(["Retry what didn't save", "Dismiss"], card.Actions.Select(a => a.Label));
+        Assert.Equal(["Retry what's missing", "Dismiss"], card.Actions.Select(a => a.Label));
     }
 
     [Fact]

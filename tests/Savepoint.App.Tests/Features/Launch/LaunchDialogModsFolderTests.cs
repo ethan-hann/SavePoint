@@ -138,7 +138,7 @@ public class LaunchDialogModsFolderTests : IDisposable
         Assert.True(dialog.HasVersionSection);
         Assert.Equal("Staying on ", dialog.VersionBefore);
         Assert.Equal("1.6.640 with 212 mod files", dialog.VersionTarget);
-        Assert.StartsWith(". The files in your mods folder change.", dialog.VersionAfter, StringComparison.Ordinal);
+        Assert.StartsWith(", but your mods folder changes.", dialog.VersionAfter, StringComparison.Ordinal);
         Assert.Contains("About 3.1 GB of files will be replaced.", dialog.VersionAfter, StringComparison.Ordinal);
     }
 

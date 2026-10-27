@@ -822,7 +822,7 @@ public class LaunchDialogViewModelTests : IDisposable
         Assert.True(block.DiscardCommand.CanExecute(null));
         Assert.Equal("The last switch didn't finish", block.Title);
         Assert.Equal(
-            "The game install folder has files from two snapshots, and 3 files that are new or changed and not saved. SavePoint can't tell them apart from the last switch's own files, so it won't finish the switch until they're gone. Discard puts the folder back to where the switch started, and removes new files too.",
+            "The game install folder has files from two snapshots, and 3 files that are new or changed and not in any snapshot. SavePoint can't tell them apart from the last switch's own files, so it won't finish the switch until they're gone. Discard puts the folder back to where the switch started, and removes new files too.",
             block.Body);
         Assert.False(dialog.ShowKeepCallout);
     }
@@ -843,7 +843,7 @@ public class LaunchDialogViewModelTests : IDisposable
         Assert.False(block.CanFinishSwitch);
         Assert.True(block.DiscardCommand.CanExecute(null));
         Assert.Equal(
-            "The game install folder has files from two snapshots, and SavePoint couldn't check it for changes that aren't saved, so it won't finish the last switch. Discard puts the folder back to where the switch started, and removes new files too.",
+            "The game install folder has files from two snapshots, and SavePoint couldn't check it for changes that aren't in a snapshot, so it won't finish the last switch. Discard puts the folder back to where the switch started, and removes new files too.",
             block.Body);
     }
 
@@ -859,7 +859,7 @@ public class LaunchDialogViewModelTests : IDisposable
         }));
 
         Assert.Equal(
-            "The game install folder has files from two snapshots, and 1 file that's new or changed and not saved. SavePoint can't tell it apart from the last switch's own files, so it won't finish the switch until it's gone. Discard puts the folder back to where the switch started, and removes new files too.",
+            "The game install folder has files from two snapshots, and 1 file that's new or changed and not in any snapshot. SavePoint can't tell it apart from the last switch's own files, so it won't finish the switch until it's gone. Discard puts the folder back to where the switch started, and removes new files too.",
             Assert.Single(dialog.UnsavedBlocks).Body);
     }
 

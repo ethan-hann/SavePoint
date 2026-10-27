@@ -100,7 +100,7 @@
   "gameEditor.modPathHints.label": "Folders that hold mods",
   "gameEditor.modPathHints.placeholder": "Data",
   "gameEditor.modPathHints.whenNeededName": "When do I need this? Folders that hold mods",
-  "gameEditor.mods.answer": "Most games keep mods inside the game folder, and SavePoint already snapshots those. Add a mods folder only if your game keeps mods somewhere else, like AppData.",
+  "gameEditor.mods.answer": "Most games keep mods inside the game folder, and SavePoint's snapshots already include those. Add a mods folder only if your game keeps mods somewhere else, like AppData on Windows.",
   "gameEditor.mods.browseAutomation": "Browse for the mods folder",
   "gameEditor.mods.label": "Where the mods live",
   "gameEditor.mods.leftOutNote": "{path} doesn't exist yet, so SavePoint left the mods folder out. Once you have mods there, add it in Edit game.",
@@ -146,6 +146,6 @@
   "gameEditor.title.edit": "Edit {name}",
   "gameEditor.whenNeeded.question": "When do I need this?",
   "gameEditor.folderMismatch.title": "Is this the right folder?",
-  "gameEditor.folderMismatch.message": "The {role, select, install {game install folder} mods {mods folder} external {saves folder} other {folder}} you picked, {path}, holds only {presentCount} of the {recordedCount} files in its latest snapshot. If it is the wrong folder, switching profiles or discarding changes could delete files that belong to something else there.",
+  "gameEditor.folderMismatch.message": "The {role, select, install {game install folder} mods {mods folder} external {saves folder} other {folder}} you picked, {path}, holds only {presentCount} of the {recordedCount} files in its latest snapshot. If it's the wrong folder, switching profiles or discarding changes could delete files that belong to something else there.",
   "gameEditor.folderMismatch.confirm": "Use this folder anyway"
 }

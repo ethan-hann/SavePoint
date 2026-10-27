@@ -821,7 +821,7 @@ public class ActivityScreenViewModelTests
     {
         var rig = await ActivityRig.ShownAsync();
 
-        Assert.Equal("SavePoint remembers the last five finished tasks of each game for up to 30 days, even after you close it.", rig.Screen.FooterText);
+        Assert.Equal("Each game's last five finished tasks stay up to 30 days, even after closing.", rig.Screen.FooterText);
     }
 
     [Fact]
