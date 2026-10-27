@@ -64,8 +64,9 @@ commit_link="$(html_escape "$base/commit/$full")"
 version="$(html_escape "$version")"
 short="$(html_escape "$short")"
 
+# Three columns: the build (version above the update), the copyright, and the license.
 printf '%s' '<span class="sp-footer">'
-printf '<span class="sp-footer-item">Written for SavePoint <a href="%s">%s</a></span> ' "$release_link" "$version"
-printf '<span class="sp-footer-item">Updated <time datetime="%sZ">%s</time> from <a href="%s">%s</a></span> ' "$moment" "$shown" "$commit_link" "$short"
-printf '<span class="sp-footer-item">Copyright &copy; %s Ethan Hann</span> ' "$year"
-printf '%s\n' '<span class="sp-footer-item">SavePoint is free software under the GNU GPL, version 3 or later.</span></span>'
+printf '<span class="sp-footer-col"><span>Written for SavePoint <a href="%s">%s</a></span> ' "$release_link" "$version"
+printf '<span>Updated <time datetime="%sZ">%s</time> from <a href="%s">%s</a></span></span> ' "$moment" "$shown" "$commit_link" "$short"
+printf '<span class="sp-footer-col">Copyright &copy; %s Ethan Hann</span> ' "$year"
+printf '%s\n' '<span class="sp-footer-col">SavePoint is free software under the GNU GPL, version 3 or later.</span></span>'

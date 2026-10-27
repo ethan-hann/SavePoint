@@ -32,7 +32,7 @@
       "_appTitle": "SavePoint",
       "_appLogoPath": "savepoint-256.png",
       "_appFaviconPath": "savepoint.ico",
-      "_appFooter": "Copyright &copy; Ethan Hann. SavePoint is free software under the GNU GPL, version 3 or later.",
+      "_appFooter": "<span class='sp-footer'><span class='sp-footer-col'>Built locally</span> <span class='sp-footer-col'>Copyright &copy; Ethan Hann</span> <span class='sp-footer-col'>SavePoint is free software under the GNU GPL, version 3 or later.</span></span>",
       "_enableSearch": true,
       "_disableContribution": true
     }

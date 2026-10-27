@@ -96,7 +96,12 @@ code { font-family: var(--bs-font-monospace); }
 
 footer { border-top: 1px solid var(--sp-outline-variant); color: var(--sp-on-surface-variant); }
 
-/* The build footer: small and muted (set here because Bootstrap's text-secondary on the footer wins over the rule above), one wrapping row. Its links take the theme's link color and underline on hover or focus. */
-.sp-footer { display: flex; flex-wrap: wrap; gap: 0.25rem 1.5rem; font-size: 0.8125rem; padding: 0.75rem 0; color: var(--sp-on-surface-variant); }
-.sp-footer a { color: var(--sp-primary); text-decoration: none; }
-.sp-footer a:hover, .sp-footer a:focus-visible { text-decoration: underline; text-underline-offset: 2px; }
+/* The build footer: small and muted (set here because Bootstrap's text-secondary on the footer wins over the rule above), in three
+   centered columns that stack on a narrow screen. Its links are underlined like every other link on the site. */
+/* The theme fixes the footer at 60px, which the stacked first column overflows; let it fit its content instead. */
+body > footer { height: auto; padding: 0.5rem 0; }
+footer .flex-fill { width: 100%; }
+.sp-footer { display: grid; grid-template-columns: repeat(3, 1fr); align-items: center; gap: 0.25rem 1.5rem; font-size: 0.8125rem; line-height: 1.4; color: var(--sp-on-surface-variant); text-align: center; }
+.sp-footer-col { display: flex; flex-direction: column; align-items: center; }
+.sp-footer a { color: var(--sp-primary); text-decoration: underline; text-underline-offset: 2px; }
+@media (max-width: 767.98px) { .sp-footer { grid-template-columns: 1fr; } }
