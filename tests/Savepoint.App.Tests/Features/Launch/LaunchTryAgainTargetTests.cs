@@ -1,6 +1,7 @@
 using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.Core.Api;
+using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 
 namespace Savepoint.App.Tests.Features.Launch;
@@ -22,7 +23,7 @@ public class LaunchTryAgainTargetTests : IDisposable
         Assert.False(_f.Flow.IsActive(FlowRig.Skyrim));
 
         var source = FakeAssert.Ok(await _f.Backend.Launch.GetPreviewAsync(FlowRig.Skyrim, LaunchRig.VanillaTip, TestContext.Current.CancellationToken));
-        _f.Backend.State.LaunchPreviews[(FlowRig.Skyrim, LaunchRig.VanillaTip)] = source with { Install = source.Install with { HeldBy = held } };
+        _f.Backend.State.LaunchPreviews[(FlowRig.Skyrim, LaunchRig.VanillaTip)] = source.WithFolder(RepoRole.Install, install => install with { HeldBy = held });
     }
 
     private int Previews(LaunchTarget target) =>

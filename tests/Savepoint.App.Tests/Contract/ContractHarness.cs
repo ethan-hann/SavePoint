@@ -169,8 +169,10 @@ internal sealed class FakeContractHarness : ContractHarness
             game.Id,
             profileId,
             target,
-            new FolderLaunchState(RepoRole.Install, game.Install.Path, true, false, 0, null, null),
-            new FolderLaunchState(RepoRole.External, game.External!.Path, true, false, 0, null, null),
+            [
+                new FolderLaunchState(RepoRole.Install, game.Install.Path, true, false, 0, null, null),
+                new FolderLaunchState(RepoRole.External, game.External!.Path, true, false, 0, null, null),
+            ],
             state,
             state,
             [save],
@@ -214,7 +216,7 @@ internal sealed class FakeContractHarness : ContractHarness
         var preview = _backend.State.LaunchPreviews[key];
         _backend.State.LaunchPreviews[key] = preview with
         {
-            Install = preview.Install with { Dirty = true, DirtyOwnerProfileId = null, UnfinishedSwitch = true, UnfinishedSwitchTarget = new LaunchTarget.ProfileTip(toProfileId) },
+            Folders = [.. preview.Folders.Select(folder => folder.Role != RepoRole.Install ? folder : folder with { Dirty = true, DirtyOwnerProfileId = null, UnfinishedSwitch = true, UnfinishedSwitchTarget = new LaunchTarget.ProfileTip(toProfileId) })],
         };
     }
 

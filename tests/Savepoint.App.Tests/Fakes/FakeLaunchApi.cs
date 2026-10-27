@@ -110,7 +110,7 @@ public sealed class FakeLaunchApi : ILaunchApi
             foreach (var key in State.LaunchPreviews.Keys.Where(k => k.GameId == gameId).ToList())
             {
                 var preview = State.LaunchPreviews[key];
-                State.LaunchPreviews[key] = preview with { Install = Clean(preview.Install, folder)!, External = Clean(preview.External, folder), Mods = Clean(preview.Mods, folder) };
+                State.LaunchPreviews[key] = preview with { Folders = [.. preview.Folders.Select(state => Clean(state, folder))] };
             }
 
             return OperationResult.Success();
@@ -237,8 +237,8 @@ public sealed class FakeLaunchApi : ILaunchApi
         : State.IsOpen(gameId) ? new LaunchAlreadyRunningException(gameId)
         : null;
 
-    private static FolderLaunchState? Clean(FolderLaunchState? state, RepoRole folder) =>
-        state is not null && state.Role == folder ? state with { Dirty = false, DirtyFileCount = 0, DirtyOwnerProfileId = null } : state;
+    private static FolderLaunchState Clean(FolderLaunchState state, RepoRole folder) =>
+        state.Role == folder ? state with { Dirty = false, DirtyFileCount = 0, DirtyOwnerProfileId = null } : state;
 
     private string ProfileOf(string gameId, LaunchTarget target) => target switch
     {

@@ -20,7 +20,7 @@ public class LaunchDialogModsFolderTests : IDisposable
     private static FolderLaunchState CleanMods(SwitchSummary? summary = null) =>
         new(RepoRole.Mods, _modsPath, summary is null, false, 0, null, summary);
 
-    private static LaunchPreview WithMods(LaunchPreview preview, FolderLaunchState mods) => preview with { Mods = mods };
+    private static LaunchPreview WithMods(LaunchPreview preview, FolderLaunchState mods) => preview.WithFolder(mods);
 
     [Fact]
     public async Task A_dirty_mods_folder_gets_a_block_that_names_the_mods_folder_and_offers_both_choices()
@@ -39,7 +39,7 @@ public class LaunchDialogModsFolderTests : IDisposable
     [Fact]
     public async Task Dirty_folders_get_their_blocks_in_the_order_the_switch_writes_them()
     {
-        var dialog = await _rig.DialogAsync(change: p => WithMods(p with { Install = p.Install with { Dirty = true, DirtyFileCount = 12, DirtyOwnerProfileId = SampleScenario.SurvivalId } }, DirtyMods()));
+        var dialog = await _rig.DialogAsync(change: p => WithMods(p.WithFolder(RepoRole.Install, install => install with { Dirty = true, DirtyFileCount = 12, DirtyOwnerProfileId = SampleScenario.SurvivalId }), DirtyMods()));
 
         Assert.Equal([RepoRole.Install, RepoRole.Mods, RepoRole.External], dialog.UnsavedBlocks.Select(b => b.Role));
     }
@@ -90,7 +90,7 @@ public class LaunchDialogModsFolderTests : IDisposable
     public async Task A_mods_folder_left_half_switched_says_so_and_offers_to_finish_or_discard()
     {
         var unfinished = DirtyMods() with { DirtyFileCount = 0, UnfinishedSwitch = true, UnfinishedSwitchTarget = LaunchRig.ModdedTip };
-        var dialog = await _rig.DialogAsync(change: p => WithMods(p with { External = p.External! with { Dirty = false, DirtyFileCount = 0 } }, unfinished));
+        var dialog = await _rig.DialogAsync(change: p => WithMods(p.WithFolder(RepoRole.External, saves => saves with { Dirty = false, DirtyFileCount = 0 }), unfinished));
 
         var block = Assert.Single(dialog.UnsavedBlocks);
         Assert.Equal(RepoRole.Mods, block.Role);
@@ -104,7 +104,7 @@ public class LaunchDialogModsFolderTests : IDisposable
     public async Task A_stopped_switch_in_the_mods_folder_says_how_many_files_the_finish_replaces()
     {
         var replaced = CleanMods() with { UnfinishedSwitch = true, ReplacedFileCount = 4 };
-        var dialog = await _rig.DialogAsync(change: p => WithMods(p with { External = p.External! with { Dirty = false, DirtyFileCount = 0 } }, replaced));
+        var dialog = await _rig.DialogAsync(change: p => WithMods(p.WithFolder(RepoRole.External, saves => saves with { Dirty = false, DirtyFileCount = 0 }), replaced));
 
         Assert.Equal(
             "4 files in your mods folder that the last switch was changing hold something that's in neither snapshot. Finishing the last switch replaces them with the copies from the snapshot it was heading to, including any change you made since.",
@@ -148,7 +148,8 @@ public class LaunchDialogModsFolderTests : IDisposable
         var dialog = await _rig.DialogAsync(
             LaunchRig.ClearedBlackreachPoint,
             change: p => WithMods(
-                p with { CurrentInstall = new InstallState("1.6.640", 212), TargetInstall = new InstallState("1.6.640", 212), Install = p.Install with { MatchesTarget = false, Switch = new SwitchSummary(3, 0, 1_000_000, null) } },
+                (p with { CurrentInstall = new InstallState("1.6.640", 212), TargetInstall = new InstallState("1.6.640", 212) })
+                    .WithFolder(RepoRole.Install, install => install with { MatchesTarget = false, Switch = new SwitchSummary(3, 0, 1_000_000, null) }),
                 CleanMods()));
 
         Assert.DoesNotContain("mods folder change", dialog.VersionAfter, StringComparison.Ordinal);

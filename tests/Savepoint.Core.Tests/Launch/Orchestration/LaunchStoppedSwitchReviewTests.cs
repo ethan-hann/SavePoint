@@ -288,9 +288,9 @@ public class LaunchStoppedSwitchReviewTests
 
         var preview = await rig.PreviewAsync(Tip(vanilla));
 
-        Assert.False(preview.External!.Dirty);
-        Assert.Equal(7, preview.External.ReplacedFileCount);
-        Assert.Equal(["slot1.sav", "slot2.sav", "slot3.sav", "slot4.sav", "slot5.sav"], preview.External.ReplacedFileNames);
+        Assert.False(preview.Folder(RepoRole.External)!.Dirty);
+        Assert.Equal(7, preview.Folder(RepoRole.External)!.ReplacedFileCount);
+        Assert.Equal(["slot1.sav", "slot2.sav", "slot3.sav", "slot4.sav", "slot5.sav"], preview.Folder(RepoRole.External)!.ReplacedFileNames);
         Assert.Equal(modded.BranchName, (await rig.StatusAsync(RepoRole.External)).Branch);
     }
 
@@ -307,7 +307,7 @@ public class LaunchStoppedSwitchReviewTests
 
         var preview = await rig.PreviewAsync(Tip(vanilla));
 
-        Assert.Equal(1, preview.External!.ReplacedFileCount);
-        Assert.Equal(["slot1.sav"], preview.External.ReplacedFileNames);
+        Assert.Equal(1, preview.Folder(RepoRole.External)!.ReplacedFileCount);
+        Assert.Equal(["slot1.sav"], preview.Folder(RepoRole.External)!.ReplacedFileNames);
     }
 }

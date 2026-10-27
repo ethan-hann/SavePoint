@@ -140,7 +140,7 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
         {
             await StartAsync(flow, target, plan, viaBanner: true);
         }
-        else if (plan.OnlySaveDiffers && settings.SkipConfirmWhenOnlySaveChanges && !HasUnsaved(plan) && plan.External?.Switch is not { LeavesFolderEmpty: true })
+        else if (plan.OnlySaveDiffers && settings.SkipConfirmWhenOnlySaveChanges && !HasUnsaved(plan) && plan.Folder(RepoRole.External)?.Switch is not { LeavesFolderEmpty: true })
         {
             await StartAsync(flow, target, plan, viaBanner: false);
         }
@@ -168,16 +168,15 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
         flow.Stage is FlowStage.Previewing or FlowStage.Dialog or FlowStage.Starting or FlowStage.Switching
         || (flow.Session is { } session && !IsEnded(session.State));
 
-    private static bool HasUnsaved(LaunchPreview preview) => LaunchPreviewFolders.Of(preview).Any(folder => folder.Dirty);
+    private static bool HasUnsaved(LaunchPreview preview) => preview.Folders.Any(folder => folder.Dirty);
 
     // The held file the check stops on. Unsaved work comes first: the dialog settles it, and the file is met when the switch starts.
     // A half switch that this launch finishes is not unsaved work, so it does not wait behind the dialog.
     private static ErrorInfo? HeldFileIn(LaunchPreview plan)
     {
-        var folders = LaunchPreviewFolders.Of(plan);
-        return folders.Any(folder => folder.Dirty)
+        return plan.Folders.Any(folder => folder.Dirty)
             ? null
-            : folders.Select(folder => folder.HeldBy).FirstOrDefault(held => held is not null);
+            : plan.Folders.Select(folder => folder.HeldBy).FirstOrDefault(held => held is not null);
     }
 
     private GameFlow FlowFor(string gameId)

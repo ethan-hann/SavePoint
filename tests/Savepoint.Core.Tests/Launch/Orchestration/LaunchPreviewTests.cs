@@ -23,7 +23,7 @@ public class LaunchPreviewTests(TwoProfiles shared) : IClassFixture<TwoProfiles>
         Assert.True(preview.ShowBanner);
         Assert.False(preview.OnlySaveDiffers);
         Assert.False(preview.TargetIsOlderPoint);
-        foreach (var folder in new[] { preview.Install, preview.External! })
+        foreach (var folder in preview.Folders)
         {
             Assert.True(folder.MatchesTarget);
             Assert.False(folder.Dirty);
@@ -33,7 +33,7 @@ public class LaunchPreviewTests(TwoProfiles shared) : IClassFixture<TwoProfiles>
         }
 
         Assert.Equal(rig.InstallPath, preview.Install.Path);
-        Assert.Equal(rig.SavesPath, preview.External!.Path);
+        Assert.Equal(rig.SavesPath, preview.Folder(RepoRole.External)!.Path);
         Assert.Equal(2, preview.CurrentInstall.ModFileCount);
         Assert.Equal(preview.CurrentInstall, preview.TargetInstall);
     }
@@ -49,14 +49,15 @@ public class LaunchPreviewTests(TwoProfiles shared) : IClassFixture<TwoProfiles>
         Assert.False(preview.ShowBanner);
         Assert.False(preview.OnlySaveDiffers);
         Assert.False(preview.Install.MatchesTarget);
-        Assert.False(preview.External!.MatchesTarget);
+        var savesFolder = preview.Folder(RepoRole.External)!;
+        Assert.False(savesFolder.MatchesTarget);
 
         // Two mod files go away and the game file is put back to what it held.
         var install = Assert.IsType<SwitchSummary>(preview.Install.Switch);
         Assert.Equal(3, install.FilesChanged);
         Assert.Equal(2, install.ModFilesChanged);
         Assert.Equal("base content".Length, install.BytesChanged);
-        var saves = Assert.IsType<SwitchSummary>(preview.External.Switch);
+        var saves = Assert.IsType<SwitchSummary>(savesFolder.Switch);
         Assert.Equal(1, saves.FilesChanged);
         Assert.Equal(0, saves.ModFilesChanged);
 

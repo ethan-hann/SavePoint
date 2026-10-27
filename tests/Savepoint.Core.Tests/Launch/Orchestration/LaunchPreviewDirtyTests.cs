@@ -26,9 +26,9 @@ public class LaunchPreviewDirtyTests
         Assert.True(preview.Install.Dirty);
         Assert.Equal(1, preview.Install.DirtyFileCount);
         Assert.Equal(modded.Id, preview.Install.DirtyOwnerProfileId);
-        Assert.True(preview.External!.Dirty);
-        Assert.Equal(2, preview.External.DirtyFileCount);
-        Assert.Equal(modded.Id, preview.External.DirtyOwnerProfileId);
+        Assert.True(preview.Folder(RepoRole.External)!.Dirty);
+        Assert.Equal(2, preview.Folder(RepoRole.External)!.DirtyFileCount);
+        Assert.Equal(modded.Id, preview.Folder(RepoRole.External)!.DirtyOwnerProfileId);
         Assert.False(preview.ShowBanner);
         Assert.False(preview.Install.MatchesTarget);
     }
@@ -43,10 +43,10 @@ public class LaunchPreviewDirtyTests
         var preview = await rig.PreviewAsync(new LaunchTarget.ProfileTip(modded.Id));
 
         Assert.True(preview.Install.MatchesTarget);
-        Assert.False(preview.External!.MatchesTarget);
-        Assert.True(preview.External.Dirty);
-        Assert.Equal(1, preview.External.DirtyFileCount);
-        Assert.Equal(modded.Id, preview.External.DirtyOwnerProfileId);
+        Assert.False(preview.Folder(RepoRole.External)!.MatchesTarget);
+        Assert.True(preview.Folder(RepoRole.External)!.Dirty);
+        Assert.Equal(1, preview.Folder(RepoRole.External)!.DirtyFileCount);
+        Assert.Equal(modded.Id, preview.Folder(RepoRole.External)!.DirtyOwnerProfileId);
         Assert.False(preview.ShowBanner);
         Assert.False(preview.OnlySaveDiffers);
     }
@@ -63,9 +63,9 @@ public class LaunchPreviewDirtyTests
 
         var preview = await rig.PreviewAsync(new LaunchTarget.ProfileTip(modded.Id));
 
-        Assert.True(preview.External!.Dirty);
-        Assert.Equal(1, preview.External.DirtyFileCount);
-        Assert.Null(preview.External.DirtyOwnerProfileId);
+        Assert.True(preview.Folder(RepoRole.External)!.Dirty);
+        Assert.Equal(1, preview.Folder(RepoRole.External)!.DirtyFileCount);
+        Assert.Null(preview.Folder(RepoRole.External)!.DirtyOwnerProfileId);
     }
 
     [Fact]

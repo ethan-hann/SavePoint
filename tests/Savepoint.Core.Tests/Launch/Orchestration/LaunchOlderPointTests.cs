@@ -54,7 +54,7 @@ public class LaunchOlderPointTests
         var preview = await rig.PreviewAsync(Tip(modded));
 
         Assert.Equal("error.launch.dirtyWorkingTree", refused.Error?.MessageId);
-        Assert.Null(preview.External!.DirtyOwnerProfileId);
+        Assert.Null(preview.Folder(RepoRole.External)!.DirtyOwnerProfileId);
 
         // "Keep as a new profile": the whole folder as it is now becomes a profile of its own.
         var kept = await rig.Workspace.CreateProfileAsync(rig.Game, "Kept");

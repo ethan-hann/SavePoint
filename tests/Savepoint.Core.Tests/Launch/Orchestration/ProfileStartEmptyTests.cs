@@ -158,7 +158,7 @@ public class ProfileStartEmptyTests
 
         var preview = await rig.PreviewAsync(new LaunchTarget.ProfileTip(made.Id));
 
-        var folder = Assert.IsType<FolderLaunchState>(preview.Mods);
+        var folder = Assert.IsType<FolderLaunchState>(preview.Folder(RepoRole.Mods));
         Assert.False(folder.MatchesTarget);
         Assert.False(folder.Dirty);
         Assert.Equal(1, folder.Switch!.FilesChanged);
@@ -184,7 +184,7 @@ public class ProfileStartEmptyTests
         var (made, _) = await CreateAsync(rig, "Fresh saves", RepoRole.External);
 
         var preview = await rig.PreviewAsync(new LaunchTarget.ProfileTip(made.Id));
-        var saves = Assert.IsType<FolderLaunchState>(preview.External);
+        var saves = Assert.IsType<FolderLaunchState>(preview.Folder(RepoRole.External));
         Assert.False(saves.MatchesTarget);
         Assert.Equal(1, saves.Switch!.FilesChanged);
         Assert.Equal(1, saves.Switch.FilesRemoved);
@@ -199,7 +199,7 @@ public class ProfileStartEmptyTests
         Assert.NotEmpty(WithoutMarker(rig.ModsSnapshot()));
 
         var back = await rig.PreviewAsync(new LaunchTarget.ProfileTip(vanilla.Id));
-        Assert.False(Assert.IsType<FolderLaunchState>(back.External).Switch!.LeavesFolderEmpty);
+        Assert.False(Assert.IsType<FolderLaunchState>(back.Folder(RepoRole.External)).Switch!.LeavesFolderEmpty);
     }
 
     [Fact(Timeout = 240_000)]

@@ -44,7 +44,7 @@ public class LaunchHeldFileTests
             Assert.False(toVanilla.Install.MatchesTarget);
             Assert.Equal(HeldFiles.ErrorIdOf(kind), toVanilla.Install.HeldBy?.MessageId);
             Assert.Equal(HeldFile(rig), toVanilla.Install.HeldBy!.Args["path"]);
-            Assert.Null(toVanilla.External!.HeldBy);
+            Assert.Null(toVanilla.Folder(RepoRole.External)!.HeldBy);
 
             // A folder that needs no switch has nothing to read: it is clean, and the launch carries on with it.
             Assert.True(staying.Install.MatchesTarget);

@@ -41,8 +41,8 @@ public class LaunchUnfinishedSwitchTests
         Assert.True(preview.Install.Dirty);
         Assert.Null(preview.Install.DirtyOwnerProfileId);
         Assert.Equal(Tip(vanilla), preview.Install.UnfinishedSwitchTarget);
-        Assert.False(preview.External!.UnfinishedSwitch);
-        Assert.Null(preview.External.UnfinishedSwitchTarget);
+        Assert.False(preview.Folder(RepoRole.External)!.UnfinishedSwitch);
+        Assert.Null(preview.Folder(RepoRole.External)!.UnfinishedSwitchTarget);
     }
 
     [Fact(Timeout = 150_000)]

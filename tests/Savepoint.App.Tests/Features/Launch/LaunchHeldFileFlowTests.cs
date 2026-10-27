@@ -2,6 +2,7 @@ using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Launch;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.Core.Api;
+using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 
 namespace Savepoint.App.Tests.Features.Launch;
@@ -19,7 +20,7 @@ public class LaunchHeldFileFlowTests : IDisposable
     private async Task HoldAsync(ErrorInfo held)
     {
         var source = FakeAssert.Ok(await _f.Backend.Launch.GetPreviewAsync(FlowRig.Skyrim, LaunchRig.ModdedTip, TestContext.Current.CancellationToken));
-        _f.Backend.State.LaunchPreviews[(FlowRig.Skyrim, LaunchRig.ModdedTip)] = source with { ShowBanner = false, Install = source.Install with { MatchesTarget = false, HeldBy = held } };
+        _f.Backend.State.LaunchPreviews[(FlowRig.Skyrim, LaunchRig.ModdedTip)] = (source with { ShowBanner = false }).WithFolder(RepoRole.Install, install => install with { MatchesTarget = false, HeldBy = held });
     }
 
     [Fact]
@@ -63,7 +64,7 @@ public class LaunchHeldFileFlowTests : IDisposable
         await _f.Play(LaunchRig.ModdedTip);
         var before = _f.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync)).Count;
         var source = FakeAssert.Ok(await _f.Backend.Launch.GetPreviewAsync(FlowRig.Skyrim, LaunchRig.ModdedTip, TestContext.Current.CancellationToken));
-        _f.Backend.State.LaunchPreviews[(FlowRig.Skyrim, LaunchRig.ModdedTip)] = source with { Install = source.Install with { HeldBy = null } };
+        _f.Backend.State.LaunchPreviews[(FlowRig.Skyrim, LaunchRig.ModdedTip)] = source.WithFolder(RepoRole.Install, install => install with { HeldBy = null });
 
         FlowRig.Press(_f.Inline<ErrorCardViewModel>(), "Try again");
 
@@ -76,8 +77,8 @@ public class LaunchHeldFileFlowTests : IDisposable
     public async Task A_file_in_use_beside_unsaved_changes_opens_the_dialog_and_not_the_card()
     {
         var source = FakeAssert.Ok(await _f.Backend.Launch.GetPreviewAsync(FlowRig.Skyrim, LaunchRig.SurvivalTip, TestContext.Current.CancellationToken));
-        Assert.True(source.External!.Dirty);
-        _f.Backend.State.LaunchPreviews[(FlowRig.Skyrim, LaunchRig.SurvivalTip)] = source with { Install = source.Install with { HeldBy = ErrorInfo.From(new GitOperationException(_file, "in use")) } };
+        Assert.True(source.Folder(RepoRole.External)!.Dirty);
+        _f.Backend.State.LaunchPreviews[(FlowRig.Skyrim, LaunchRig.SurvivalTip)] = source.WithFolder(RepoRole.Install, install => install with { HeldBy = ErrorInfo.From(new GitOperationException(_file, "in use")) });
 
         var begin = _f.Play(LaunchRig.SurvivalTip);
 
@@ -94,7 +95,7 @@ public class LaunchHeldFileFlowTests : IDisposable
     {
         var source = FakeAssert.Ok(await _f.Backend.Launch.GetPreviewAsync(FlowRig.Skyrim, LaunchRig.VanillaTip, TestContext.Current.CancellationToken));
         var held = source.Install with { Dirty = false, UnfinishedSwitch = true, HeldBy = ErrorInfo.From(new GitOperationException(_file, "in use")) };
-        _f.Backend.State.LaunchPreviews[(FlowRig.Skyrim, LaunchRig.VanillaTip)] = source with { Install = held };
+        _f.Backend.State.LaunchPreviews[(FlowRig.Skyrim, LaunchRig.VanillaTip)] = source.WithFolder(held);
 
         var begin = _f.Play(LaunchRig.VanillaTip);
 
@@ -112,7 +113,7 @@ public class LaunchHeldFileFlowTests : IDisposable
     {
         var source = FakeAssert.Ok(await _f.Backend.Launch.GetPreviewAsync(FlowRig.Skyrim, LaunchRig.VanillaTip, TestContext.Current.CancellationToken));
         var held = source.Install with { Dirty = true, UnfinishedSwitch = true, HeldBy = ErrorInfo.From(new GitOperationException(_file, "in use")) };
-        _f.Backend.State.LaunchPreviews[(FlowRig.Skyrim, LaunchRig.VanillaTip)] = source with { Install = held };
+        _f.Backend.State.LaunchPreviews[(FlowRig.Skyrim, LaunchRig.VanillaTip)] = source.WithFolder(held);
 
         var begin = _f.Play(LaunchRig.VanillaTip);
 
