@@ -22,8 +22,9 @@ public enum JobKind
     ClearData,
 
     /// <summary>
-    /// Packing a game's snapshot files tighter on disk, which SavePoint starts by itself after a snapshot. It deletes nothing a player can
-    /// see, so it is not <see cref="Compact"/>: the player's Free up space is the one that deletes Recently removed. Always for one
+    /// Packing a game's snapshot files tighter on disk, which SavePoint starts by itself after a snapshot. It starts no new deletion of
+    /// anything a player can see, so it is not <see cref="Compact"/>: the player's Free up space is the one that deletes Recently removed.
+    /// It does finish a Free up space the player already confirmed that was cut off before it was done, as every run does. Always for one
     /// game and always cancellable. Its result is an <see cref="OptimizeResult"/>.
     /// </summary>
     PackStorage,
