@@ -69,7 +69,7 @@ namespace Savepoint.Tools.SkipCheck
             {
                 list = SkipList.Load(listPath);
             }
-            catch (Exception e) when (e is IOException or InvalidDataException)
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
             {
                 error.WriteLine($"skip check: the skip list {listPath} could not be read: {e.Message}");
                 return 2;
@@ -142,18 +142,17 @@ namespace Savepoint.Tools.SkipCheck
             }
         }
 
-        // Keeps the header, the includes and the timing entries, and replaces the names the list itself holds.
+        // Keeps the header and the timing entries, and replaces the expected names.
         private static void Rewrite(string listPath, SkipList list, XunitReport report)
         {
             var existing = File.ReadAllLines(listPath);
             var header = existing.TakeWhile(line => line.Trim().Length == 0 || line.TrimStart().StartsWith('#')).ToList();
-            var includes = existing.Where(line => line.TrimStart().StartsWith("@include ", StringComparison.Ordinal));
             var timing = existing.Where(line => line.TrimStart().StartsWith('~')).Select(line => line.Trim()).Distinct().Order(StringComparer.Ordinal);
             var own = report.Skipped.Keys
-                .Where(name => !list.Included.Contains(name) && !list.Intermittent.Contains(name))
+                .Where(name => !list.Intermittent.Contains(name))
                 .Order(StringComparer.Ordinal);
 
-            File.WriteAllLines(listPath, header.Concat(includes).Concat(own).Concat(timing));
+            File.WriteAllLines(listPath, header.Concat(own).Concat(timing));
         }
     }
 }

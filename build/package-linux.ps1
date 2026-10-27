@@ -14,7 +14,9 @@ The package (the AppImage and the files vpk writes beside it) lands in <repo>/ar
 contents in <repo>/artifacts/release/contents-linux-x64.txt, and with -Sources the source archives in
 <repo>/artifacts/release/source. The run's log is copied to .tools/package-linux-last.log (or -LogPath), also when it fails.
 
-One package run happens on the VM at a time. A second run is refused at once, with exit code 75, and changes nothing there.
+One package run happens on the VM at a time, and none while a gate (build/gate-linux.ps1) runs there, because the two together
+starve tests that depend on timing. Such a run is refused at once, with exit code 75, and changes nothing there. When a run ends, the
+VM's old SDKs and runtimes and the NuGet packages unread for 30 days are removed from the package folder.
 Key authentication only: BatchMode is on, so a missing key fails instead of asking for a password.
 
 .PARAMETER Commit
@@ -101,6 +103,7 @@ try {
     Write-Host "==> exporting $Commit ($($sha.Substring(0, 12)))"
     Invoke-Git -c core.autocrlf=false archive --format=tar.gz -o (Join-Path $upload 'commit.tar.gz') $sha | Out-Null
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'package-linux.sh') -Destination (Join-Path $upload 'package-linux.sh')
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'vm-common.sh') -Destination (Join-Path $upload 'vm-common.sh')
 
     $settings = [ordered]@{
         PACKAGE_ID      = $id
@@ -130,7 +133,7 @@ try {
     }
 
     if ($code -eq 75) {
-        Write-Host 'linux package refused: another package run is on the VM.' -ForegroundColor Red
+        Write-Host 'linux package refused: the VM is busy with another package build or a gate (the VM's message names it).' -ForegroundColor Red
     }
     else {
         $logDir = Split-Path -Parent $LogPath

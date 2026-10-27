@@ -9,7 +9,9 @@ WSL does not. The commit is exported with git archive, uploaded with build/gate-
 on the VM (default ~/gate), where bin and obj survive between runs. Nothing is pushed to Forgejo, so a local branch can be gated.
 Only committed files are gated; uncommitted changes in this checkout are not sent.
 
-One gate runs on the VM at a time. A second run is refused at once, with exit code 75, and changes nothing there.
+One gate runs on the VM at a time, and none while a package build (build/package-linux.ps1) runs there, because the two together
+starve tests that depend on timing. Such a run is refused at once, with exit code 75, and changes nothing there. When a run ends, the
+VM's old SDKs and runtimes and the NuGet packages unread for 30 days are removed from the gate's folder.
 The run's log is copied back to .tools/gate-linux-last.log (or -LogPath), also when the gate fails.
 Key authentication only: BatchMode is on, so a missing key fails instead of asking for a password.
 
@@ -65,6 +67,11 @@ function ConvertTo-ShellWord([string]$Value) {
     return "'" + $Value.Replace("'", "'\''") + "'"
 }
 
+# True when the gate's log says the run was narrowed: the last line build/gate.sh prints, which the VM script copies as it is.
+function Test-GateNarrowed([string]$Log) {
+    return [bool](Select-String -LiteralPath $Log -Pattern '^gate passed, NARROWED' -Quiet)
+}
+
 if (-not (Test-Path -LiteralPath $VmKey)) { throw "The SSH key $VmKey does not exist. Set SAVEPOINT_VM_KEY or pass -VmKey." }
 if ($VmDir -notmatch '^[A-Za-z0-9_./-]+$' -or $VmDir.Contains('..')) { throw "VmDir may hold only letters, digits and . _ / - : $VmDir" }
 
@@ -91,11 +98,13 @@ $upload = Join-Path $work $id
 New-Item -ItemType Directory -Force -Path $upload | Out-Null
 $remoteUpload = "$VmDir/incoming/$id"
 $started = $false
+$logCopied = $false
 $code = 1
 try {
     Write-Host "==> exporting $Commit ($($sha.Substring(0, 12)))"
     Invoke-Git -c core.autocrlf=false archive --format=tar.gz -o (Join-Path $upload 'commit.tar.gz') $sha | Out-Null
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'gate-linux.sh') -Destination (Join-Path $upload 'gate-linux.sh')
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'vm-common.sh') -Destination (Join-Path $upload 'vm-common.sh')
 
     $settings = [ordered]@{
         GATE_ID             = $id
@@ -131,13 +140,13 @@ try {
     }
 
     if ($code -eq 75) {
-        Write-Host 'linux gate refused: another gate is running on the VM.' -ForegroundColor Red
+        Write-Host 'linux gate refused: the VM is busy with another gate or a package build (the VM's message names it).' -ForegroundColor Red
     }
     else {
         $logDir = Split-Path -Parent $LogPath
         if ($logDir) { New-Item -ItemType Directory -Force -Path $logDir | Out-Null }
         & scp @sshOptions -q "${target}:$VmDir/logs/$id.log" $LogPath
-        if ($LASTEXITCODE -eq 0) { Write-Host "==> log: $LogPath" } else { Write-Host "==> the log could not be copied back from $VmDir/logs/$id.log" -ForegroundColor Yellow }
+        if ($LASTEXITCODE -eq 0) { $logCopied = $true; Write-Host "==> log: $LogPath" } else { Write-Host "==> the log could not be copied back from $VmDir/logs/$id.log" -ForegroundColor Yellow }
     }
     $started = $false
 }
@@ -159,7 +168,16 @@ if ($code -ne 0) {
     exit $code
 }
 
-if ($AllowNarrowedTests -and $TestArgs) {
+# build/gate.sh decides whether the run was narrowed (a report option alone does not narrow it) and says so on its last line.
+if ($logCopied) {
+    $narrowed = Test-GateNarrowed $LogPath
+}
+else {
+    # Without the log the safe reading is the wider one.
+    $narrowed = [bool]($AllowNarrowedTests -and $TestArgs)
+}
+
+if ($narrowed) {
     Write-Host 'linux gate passed, NARROWED: not a full gate' -ForegroundColor Yellow
 }
 else {

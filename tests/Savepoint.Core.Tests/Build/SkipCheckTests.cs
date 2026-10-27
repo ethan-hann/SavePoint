@@ -32,7 +32,7 @@ public sealed class SkipCheckTests : IDisposable
         return path;
     }
 
-    private static SkipList ParseList(params string[] lines) => SkipList.Parse(lines, _ => throw new InvalidOperationException("no include expected"));
+    private static SkipList ParseList(params string[] lines) => SkipList.Parse(lines);
 
     [Fact]
     public void A_list_holds_its_names_and_ignores_blank_lines_and_comments()
@@ -53,32 +53,14 @@ public sealed class SkipCheckTests : IDisposable
     }
 
     [Fact]
-    public void An_included_list_adds_its_names_and_marks_them_as_included()
+    public void A_list_file_is_read_from_disk()
     {
-        var list = SkipList.Parse(["@include base.txt", "A.B.Own"], name => name == "base.txt" ? ["A.B.Base", "~A.B.Timing"] : throw new InvalidOperationException(name));
-
-        Assert.Equal(["A.B.Base", "A.B.Own"], list.Expected.Order());
-        Assert.Equal(["A.B.Base"], list.Included);
-        Assert.Equal(["A.B.Timing"], list.Intermittent);
-    }
-
-    [Fact]
-    public void A_list_file_finds_an_included_list_in_its_own_folder()
-    {
-        WriteFile("lists/base.txt", "A.B.Base\n");
-        var path = WriteFile("lists/derived.txt", "@include base.txt\nA.B.Own\n");
+        var path = WriteFile("lists/own.txt", "A.B.Own\n~A.B.Timing\n");
 
         var list = SkipList.Load(path);
 
-        Assert.Equal(["A.B.Base", "A.B.Own"], list.Expected.Order());
-    }
-
-    [Fact]
-    public void A_list_that_includes_itself_is_refused()
-    {
-        var path = WriteFile("loop.txt", "@include loop.txt\n");
-
-        Assert.Throws<InvalidDataException>(() => SkipList.Load(path));
+        Assert.Equal(["A.B.Own"], list.Expected);
+        Assert.Equal(["A.B.Timing"], list.Intermittent);
     }
 
     [Fact]
@@ -255,7 +237,7 @@ public sealed class SkipCheckTests : IDisposable
         }
 
         var path = Path.Combine(root, "build", "expected-skips", name + ".txt");
-        var names = File.ReadAllLines(path).Select(line => line.Trim().TrimStart('~')).Where(line => line.Length > 0 && line[0] != '#' && line[0] != '@').ToList();
+        var names = File.ReadAllLines(path).Select(line => line.Trim().TrimStart('~')).Where(line => line.Length > 0 && line[0] != '#').ToList();
         var list = SkipList.Load(path);
 
         Assert.All(names, entry => Assert.StartsWith("Savepoint.", entry));
@@ -264,17 +246,16 @@ public sealed class SkipCheckTests : IDisposable
     }
 
     [Fact]
-    public void Write_rewrites_the_list_from_the_run_keeping_its_header_timing_entries_and_includes()
+    public void Write_rewrites_the_list_from_the_run_keeping_its_header_and_timing_entries()
     {
-        WriteFile("base.txt", "N.C.Base\n");
-        var path = WriteFile("derived.txt", "# header line\n# second header line\n\n@include base.txt\nN.C.Stale\n~N.C.Timing\n");
-        var reports = ReportsFolder(Report(("N.C.Base", "Skip", "r"), ("N.C.Zed", "Skip", "r"), ("N.C.Apple", "Skip", "r"), ("N.C.Timing", "Skip", "r")));
+        var path = WriteFile("derived.txt", "# header line\n# second header line\n\nN.C.Stale\n~N.C.Timing\n");
+        var reports = ReportsFolder(Report(("N.C.Zed", "Skip", "r"), ("N.C.Apple", "Skip", "r"), ("N.C.Timing", "Skip", "r")));
 
         var (code, _, _) = RunProgram("--reports", reports, "--expected", path, "--write");
 
         Assert.Equal(0, code);
         Assert.Equal(
-            ["# header line", "# second header line", "", "@include base.txt", "N.C.Apple", "N.C.Zed", "~N.C.Timing"],
+            ["# header line", "# second header line", "", "N.C.Apple", "N.C.Zed", "~N.C.Timing"],
             File.ReadAllLines(path));
     }
 }
