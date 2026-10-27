@@ -31,22 +31,37 @@ public sealed class ActivityText
     /// <summary>Formats the lines of a job's details.</summary>
     public JobLineFormatter Lines { get; }
 
-    /// <summary>What the job is, in a short phrase that names its game.</summary>
+    /// <summary>
+    /// What the job is, in a short phrase that names its game: in the present while it runs ("Taking a snapshot of ..."), in the past once it
+    /// is done or partly done ("Took a snapshot of ..."), and plainly "Couldn't ..." or "Canceled ..." when it failed or was stopped.
+    /// </summary>
     /// <param name="job">The job.</param>
     public string Title(JobSnapshot job)
     {
         var game = ("game", (object?)GameName(job));
         return job.Kind switch
         {
-            JobKind.Launch => _text.Message("activity.job.launch", game),
-            JobKind.Switch => _text.Message("activity.job.switch", game),
-            JobKind.Capture => _text.Message("activity.job.capture", game),
-            JobKind.Compact when job.GameId is null => _text.Message("activity.job.compactAll"),
-            JobKind.Compact => _text.Message("activity.job.compact", game),
-            JobKind.PackStorage => _text.Message("activity.job.pack", game),
-            JobKind.RelocateStorage => _text.Message("activity.job.relocate"),
-            _ => _text.Message("activity.job.clear"),
+            JobKind.Launch => Worded(job, "activity.job.launch", "activity.job.launchDone", "activity.job.launchFailed", "activity.job.launchCanceled", game),
+            JobKind.Switch => Worded(job, "activity.job.switch", "activity.job.switchDone", "activity.job.switchFailed", "activity.job.switchCanceled", game),
+            JobKind.Capture => Worded(job, "activity.job.capture", "activity.job.captureDone", "activity.job.captureFailed", "activity.job.captureCanceled", game),
+            JobKind.Compact when job.GameId is null => Worded(job, "activity.job.compactAll", "activity.job.compactAllDone", "activity.job.compactAllFailed", "activity.job.compactAllCanceled"),
+            JobKind.Compact => Worded(job, "activity.job.compact", "activity.job.compactDone", "activity.job.compactFailed", "activity.job.compactCanceled", game),
+            JobKind.PackStorage => Worded(job, "activity.job.pack", "activity.job.packDone", "activity.job.packFailed", "activity.job.packCanceled", game),
+            JobKind.RelocateStorage => Worded(job, "activity.job.relocate", "activity.job.relocateDone", "activity.job.relocateFailed", "activity.job.relocateCanceled"),
+            _ => Worded(job, "activity.job.clear", "activity.job.clearDone", "activity.job.clearFailed", "activity.job.clearCanceled"),
         };
+    }
+
+    private string Worded(JobSnapshot job, string running, string done, string failed, string canceled, params (string Name, object? Value)[] arguments)
+    {
+        var id = job.Status switch
+        {
+            JobStatus.Running => running,
+            JobStatus.Succeeded or JobStatus.Partial => done,
+            JobStatus.Failed => failed,
+            _ => canceled,
+        };
+        return _text.Message(id, arguments);
     }
 
     /// <summary>Where the job stands: in progress, stopping, done, partly done, failed, or canceled.</summary>

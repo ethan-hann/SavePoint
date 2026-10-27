@@ -38,7 +38,7 @@ public class ActivityScreenViewModelTests
 
         Assert.Equal([$"Freeing up space for {_skyrim}", $"Taking a snapshot of {_skyrim}"], rig.RowTitles());
         Assert.Equal("Activity", rig.Screen.Title);
-        Assert.Equal($"{_skyrim} · 2 jobs", rig.Screen.Subtitle);
+        Assert.Equal($"{_skyrim} · 2 tasks", rig.Screen.Subtitle);
         Assert.False(rig.Screen.IsAllGames);
     }
 
@@ -59,7 +59,7 @@ public class ActivityScreenViewModelTests
         Assert.Equal(
             ["Clearing SavePoint's data", "Moving the snapshot folder", "Freeing up space for The Last Caretaker", $"Taking a snapshot of {_skyrim}"],
             rig.RowTitles());
-        Assert.Equal("All games · 4 jobs", rig.Screen.Subtitle);
+        Assert.Equal("All games · 4 tasks", rig.Screen.Subtitle);
         Assert.True(rig.Screen.IsAllGames);
     }
 
@@ -70,7 +70,7 @@ public class ActivityScreenViewModelTests
 
         Assert.Equal(["This game", "All games"], rig.Screen.ScopeOptions.Select(option => option.Label));
         Assert.Equal([ActivityScope.ThisGame, ActivityScope.AllGames], rig.Screen.ScopeOptions.Select(option => option.Scope));
-        Assert.Equal("Show jobs for", rig.Screen.ScopeLabel);
+        Assert.Equal("Show tasks for", rig.Screen.ScopeLabel);
         Assert.True(rig.Screen.ShowScope);
         Assert.Same(Scope(rig, 0), rig.Screen.SelectedScope);
     }
@@ -103,7 +103,7 @@ public class ActivityScreenViewModelTests
 
         Assert.False(rig.Screen.IsAllGames);
         Assert.Equal(["Freeing up space for The Last Caretaker"], rig.RowTitles());
-        Assert.Equal("The Last Caretaker · 1 job", rig.Screen.Subtitle);
+        Assert.Equal("The Last Caretaker · 1 task", rig.Screen.Subtitle);
     }
 
     [Fact]
@@ -115,7 +115,7 @@ public class ActivityScreenViewModelTests
         Assert.False(rig.Screen.ShowScope);
         Assert.True(rig.Screen.IsAllGames);
         Assert.Equal(["Clearing SavePoint's data"], rig.RowTitles());
-        Assert.Equal("All games · 1 job", rig.Screen.Subtitle);
+        Assert.Equal("All games · 1 task", rig.Screen.Subtitle);
     }
 
     [Fact]
@@ -138,7 +138,7 @@ public class ActivityScreenViewModelTests
 
         var rig = await ActivityRig.ShownAsync(backend);
 
-        Assert.Equal([$"Freeing up space for {_skyrim}"], rig.RowTitles());
+        Assert.Equal([$"Freed up space for {_skyrim}"], rig.RowTitles());
         Assert.Equal("Done", FirstRow(rig).StatusText);
     }
 
@@ -185,7 +185,7 @@ public class ActivityScreenViewModelTests
         Assert.Equal(6, rig.Screen.Rows.Count);
         Assert.Equal(first, Details(rig).Row.JobId);
         Assert.True(Details(rig).IsNoLongerKept);
-        Assert.Equal("SavePoint no longer keeps this job. It leaves the list when you choose another.", Details(rig).KeptNote);
+        Assert.Equal("SavePoint no longer keeps this task. It leaves the list when you choose another.", Details(rig).KeptNote);
 
         rig.Screen.SelectedRow = RowWhere(rig, row => row.JobId == newer[^1]);
 
@@ -537,7 +537,7 @@ public class ActivityScreenViewModelTests
         await Details(rig).CancelCommand.ExecuteAsync(null);
 
         Assert.Equal([id], ignoring!.Asked);
-        Assert.Equal("The job couldn't be stopped. It will finish on its own.", Details(rig).StopNote);
+        Assert.Equal("The task couldn't be stopped. It will finish on its own.", Details(rig).StopNote);
         Assert.True(Details(rig).HasStopNote);
         Assert.Equal("In progress", FirstRow(rig).StatusText);
 
@@ -797,7 +797,7 @@ public class ActivityScreenViewModelTests
         Assert.False(rig.Screen.IsFilteredEmpty);
         Assert.False(rig.Screen.HasRows);
         Assert.False(rig.Screen.ShowDetails);
-        Assert.Equal($"{_skyrim} · 0 jobs", rig.Screen.Subtitle);
+        Assert.Equal($"{_skyrim} · 0 tasks", rig.Screen.Subtitle);
     }
 
     [Fact]
@@ -817,11 +817,11 @@ public class ActivityScreenViewModelTests
     }
 
     [Fact]
-    public async Task The_footer_says_how_many_finished_jobs_are_kept()
+    public async Task The_footer_says_how_many_finished_tasks_are_kept_and_for_how_long()
     {
         var rig = await ActivityRig.ShownAsync();
 
-        Assert.Equal("SavePoint remembers the last five finished jobs of each game until you close it.", rig.Screen.FooterText);
+        Assert.Equal("SavePoint remembers the last five finished tasks of each game for up to 30 days, even after you close it.", rig.Screen.FooterText);
     }
 
     [Fact]
@@ -842,7 +842,7 @@ public class ActivityScreenViewModelTests
         rig.Backend.Jobs.ReportProgress(id, new JobProgress(FilesDone: 2, FilesTotal: 10));
         rig.Backend.Jobs.Complete(id);
 
-        Assert.Equal([$"Taking a snapshot of {_skyrim}: In progress.", $"Taking a snapshot of {_skyrim}: Done."], spoken);
+        Assert.Equal([$"Taking a snapshot of {_skyrim}: In progress.", $"Took a snapshot of {_skyrim}: Done."], spoken);
     }
 
     [Fact]
@@ -854,5 +854,54 @@ public class ActivityScreenViewModelTests
         await Details(rig).CancelCommand.ExecuteAsync(null);
 
         Assert.Equal($"Taking a snapshot of {_skyrim}: Stopping.", rig.Screen.Announcement);
+    }
+
+    // ---- Tasks from an earlier run
+
+    [Fact]
+    public async Task A_finished_task_from_an_earlier_run_is_listed_in_the_past_tense_and_says_its_steps_were_not_kept()
+    {
+        var finished = new DateTimeOffset(2026, 10, 20, 11, 30, 0, TimeSpan.Zero);
+        var earlier = new JobSnapshot(Guid.NewGuid(), JobKind.Capture, SkyrimId, null, JobStatus.Succeeded, false, false, JobProgress.None, [], 0, finished.AddMinutes(-3), finished, null, null, 1);
+        var rig = await ActivityRig.ShownAsync(jobs: inner => new EarlierRunJobs(inner, earlier));
+
+        var row = RowWhere(rig, listed => listed.JobId == earlier.JobId);
+        rig.Screen.SelectedRow = row;
+
+        Assert.Equal($"Took a snapshot of {_skyrim}", row.Title);
+        Assert.Equal("Done", row.StatusText);
+        Assert.False(row.IsRunning);
+        Assert.Empty(Details(rig).Lines);
+        Assert.Equal("The steps of this task weren't kept when SavePoint closed.", Details(rig).EmptyText);
+    }
+
+    [Fact]
+    public async Task A_task_that_is_running_with_no_steps_yet_still_says_there_is_nothing_to_show_yet()
+    {
+        var started = new DateTimeOffset(2026, 10, 20, 11, 30, 0, TimeSpan.Zero);
+        var running = new JobSnapshot(Guid.NewGuid(), JobKind.Capture, SkyrimId, null, JobStatus.Running, true, false, JobProgress.None, [], 0, started, null, null, null, 1);
+        var rig = await ActivityRig.ShownAsync(jobs: inner => new EarlierRunJobs(inner, running));
+
+        rig.Screen.SelectedRow = RowWhere(rig, listed => listed.JobId == running.JobId);
+
+        Assert.Equal("Nothing to show yet.", Details(rig).EmptyText);
+    }
+
+    // Jobs the way a new run lists them: ones that finished before this run began stand beside what the run starts.
+    private sealed class EarlierRunJobs(IJobsApi inner, params JobSnapshot[] earlier) : IJobsApi
+    {
+        public event EventHandler<JobSnapshot>? JobChanged
+        {
+            add => inner.JobChanged += value;
+            remove => inner.JobChanged -= value;
+        }
+
+        public IReadOnlyList<JobSnapshot> List() => [.. earlier, .. inner.List()];
+
+        public JobSnapshot? Get(Guid jobId) => earlier.FirstOrDefault(job => job.JobId == jobId) ?? inner.Get(jobId);
+
+        public IReadOnlyList<JobLine> GetLines(Guid jobId) => earlier.Any(job => job.JobId == jobId) ? [] : inner.GetLines(jobId);
+
+        public Task<OperationResult<Unit>> CancelAsync(Guid jobId) => inner.CancelAsync(jobId);
     }
 }

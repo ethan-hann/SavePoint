@@ -45,7 +45,7 @@ public class JobStatusViewModelTests
         await rig.StartCapture();
         FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(SampleScenario.SatisfactoryId));
 
-        Assert.Equal("Working on 2 jobs\u2026", rig.Status.PillText);
+        Assert.Equal("Working on 2 tasks\u2026", rig.Status.PillText);
     }
 
     // ---- Opening Activity from the pill
@@ -108,7 +108,7 @@ public class JobStatusViewModelTests
 
         FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(SampleScenario.SatisfactoryId));
 
-        Assert.Equal("Working on 2 jobs… Open Activity", rig.Status.OpenName);
+        Assert.Equal("Working on 2 tasks… Open Activity", rig.Status.OpenName);
     }
 
     [Fact]
@@ -455,7 +455,7 @@ public class JobStatusViewModelTests
 
         FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(SampleScenario.SatisfactoryId));
 
-        Assert.Equal("Working on 2 jobs\u2026", rig.Status.Announcement);
+        Assert.Equal("Working on 2 tasks\u2026", rig.Status.Announcement);
 
         rig.Backend.Jobs.Complete(job.JobId);
 

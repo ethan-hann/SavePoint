@@ -81,6 +81,12 @@ public sealed partial class JobDetailsViewModel : ObservableObject
     /// <summary>True when there is at least one line.</summary>
     public bool HasLines => Lines.Count > 0;
 
+    /// <summary>
+    /// What the list of lines says while it is empty: that nothing has been written yet, or, for a finished task, that its steps were not
+    /// kept (a task listed from an earlier run keeps only its summary).
+    /// </summary>
+    public string EmptyText => _text.Message(_job.Status == JobStatus.Running ? "activity.details.empty" : "activity.details.notKept");
+
     /// <summary>The error card for a job that failed, finished only in part, or was canceled; null otherwise.</summary>
     public ErrorCardViewModel? Error => _error;
 
@@ -146,6 +152,7 @@ public sealed partial class JobDetailsViewModel : ObservableObject
         }
 
         OnPropertyChanged(nameof(AllText));
+        OnPropertyChanged(nameof(EmptyText));
         OnPropertyChanged(nameof(LinesNote));
         OnPropertyChanged(nameof(HasLinesNote));
         if (hadLines != HasLines)

@@ -144,7 +144,7 @@
                      Classes="body muted"
                      Margin="10,8"
                      IsVisible="{Binding !HasLines}"
-                     Text="{loc:Loc activity.details.empty}" />
+                     Text="{Binding EmptyText}" />
         </Panel>
       </Border>
     </Grid>
