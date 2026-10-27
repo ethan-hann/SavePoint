@@ -41,7 +41,8 @@ internal static class GameFolders
     {
         RepoRole.Install => "install",
         RepoRole.Mods => "mods",
-        _ => "saves",
+        RepoRole.External => "saves",
+        _ => throw new ArgumentOutOfRangeException(nameof(role), role, "Not one of a game's folders."),
     };
 
     /// <summary>The roles a definition has folders for, in the order of <see cref="Named"/>.</summary>

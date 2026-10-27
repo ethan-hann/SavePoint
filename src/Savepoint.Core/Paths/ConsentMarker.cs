@@ -223,7 +223,8 @@ public static class ConsentMarker
     {
         RepoRole.Install => "install",
         RepoRole.Mods => "mods",
-        _ => "external",
+        RepoRole.External => "external",
+        _ => throw new ArgumentOutOfRangeException(nameof(role), role, "Not one of a game's folders."),
     };
 
     // Absent when the file or its folder is missing; a locked file is retried before the error is passed on.
