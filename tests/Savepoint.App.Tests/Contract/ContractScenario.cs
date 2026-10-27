@@ -83,6 +83,9 @@ internal static class ContractScenario
         story.Add("free up space preview of a game with nothing removed", Show(await backend.Games.GetFreeUpSpacePreviewAsync(game.Id, cancellationToken), preview => $"{preview.RecentlyRemovedSnapshots} snapshots"));
         story.Add("free up space preview of an unknown game", Show(await backend.Games.GetFreeUpSpacePreviewAsync("no-such-game", cancellationToken), _ => "unexpected success"));
         story.Add("free up space preview of every game with nothing removed", Show(await backend.Settings.GetFreeUpSpacePreviewAsync(cancellationToken), preview => $"{preview.RecentlyRemovedSnapshots} snapshots"));
+        story.Add("free up space size of a game with nothing removed", Show(await backend.Games.EstimateFreeUpSpaceAsync(game.Id, FreeUpSpaceToken.Nothing, cancellationToken), size => $"{size} bytes"));
+        story.Add("free up space size of an unknown game", Show(await backend.Games.EstimateFreeUpSpaceAsync("no-such-game", FreeUpSpaceToken.Nothing, cancellationToken), _ => "unexpected success"));
+        story.Add("free up space size of every game with nothing removed", Show(await backend.Settings.EstimateFreeUpSpaceAsync(FreeUpSpaceToken.Nothing, cancellationToken), size => $"{size} bytes"));
 
         var settings = await backend.Settings.GetAsync(cancellationToken);
         story.Add("settings read", Show(settings, current => $"{current.Theme} {current.Layout} {current.Locale}"));

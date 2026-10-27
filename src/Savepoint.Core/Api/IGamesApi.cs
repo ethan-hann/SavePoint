@@ -146,6 +146,19 @@ public interface IGamesApi
     Task<OperationResult<FreeUpSpacePreview>> GetFreeUpSpacePreviewAsync(string gameId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Says about how much space <see cref="OptimizeStorageAsync"/> would free by deleting the snapshots a preview counted: the size of
+    /// the stored data that only those snapshots reach. Data a snapshot that stays also holds is never counted. The figure is
+    /// approximate, since stored data is compressed and packed; it never reads a file's content. It can take seconds on a large store,
+    /// so call it off the UI thread and cancel it when the answer is no longer wanted. The answer is kept until the game's snapshots
+    /// change, so asking again for the same preview is quick. Only the records of <paramref name="gameId"/> in the token count.
+    /// </summary>
+    /// <param name="gameId">The game.</param>
+    /// <param name="token">The token of <see cref="GetFreeUpSpacePreviewAsync"/>; one that no preview issued fails the call.</param>
+    /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c> (D23) and stops the git work it started.</param>
+    /// <returns>The estimate in bytes; zero when the token names nothing to delete.</returns>
+    Task<OperationResult<long>> EstimateFreeUpSpaceAsync(string gameId, FreeUpSpaceToken token, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Expands a leading path token such as <c>{documents}</c> for the editor's "Resolves to ..." hint. Fails with
     /// <c>error.validation.invalidPayload</c> whose issue is <c>validation.path.unknownToken</c>, <c>validation.path.notAbsolute</c>,
     /// or <c>validation.path.invalidCharacter</c>.

@@ -73,6 +73,26 @@ public sealed class FakeSettingsApi : ISettingsApi
     public Task<OperationResult<FreeUpSpacePreview>> GetFreeUpSpacePreviewAsync(CancellationToken cancellationToken = default) =>
         _backend.Call(_api, nameof(GetFreeUpSpacePreviewAsync), [], () => OperationResult.Success(State.FreeUpPreview(null)));
 
+    // A test sets this to keep every estimate waiting until it completes it, as a big store would; a cancelled wait fails as cancelled.
+    public TaskCompletionSource? EstimateHold { get; set; }
+
+    public async Task<OperationResult<long>> EstimateFreeUpSpaceAsync(FreeUpSpaceToken token, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (EstimateHold is { } hold)
+            {
+                await hold.Task.WaitAsync(cancellationToken);
+            }
+        }
+        catch (OperationCanceledException cancelled)
+        {
+            return OperationResult.Failure<long>(cancelled);
+        }
+
+        return await _backend.Call(_api, nameof(EstimateFreeUpSpaceAsync), [token], () => OperationResult.Success(State.FreeUpEstimate));
+    }
+
     public Task<OperationResult<StorageRelocationPreview>> GetRelocationPreviewAsync(string newRoot, CancellationToken cancellationToken = default) =>
         _backend.Call(_api, nameof(GetRelocationPreviewAsync), [newRoot], () => OperationResult.Success(State.RelocationPreview ?? new StorageRelocationPreview(
             State.Settings.StorageRoot,

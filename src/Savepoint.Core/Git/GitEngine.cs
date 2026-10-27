@@ -29,6 +29,9 @@ public sealed partial class GitEngine
     private readonly GitEngineOptions _options;
     private readonly InFlightTable _inFlight = new();
 
+    // Shared by the views of this engine, so a view built for index repair does not forget an answer the original worked out.
+    private readonly ConcurrentDictionary<string, CachedEstimate> _estimates = new(OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+
     // The per-question index files that are being read right now; the sweep of stale files leaves them.
     private readonly ConcurrentDictionary<string, byte> _classifying = new(OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
 
@@ -66,6 +69,7 @@ public sealed partial class GitEngine
         _options = other._options;
         _inFlight = other._inFlight;
         _classifying = other._classifying;
+        _estimates = other._estimates;
         _repairGate = other._repairGate;
         _indexWritten = other._indexWritten;
         _repairsIndex = repairsIndex;

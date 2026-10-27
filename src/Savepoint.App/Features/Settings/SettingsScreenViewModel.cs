@@ -20,6 +20,7 @@ namespace Savepoint.App.Features.Settings;
 /// <param name="Text">Formats the copy.</param>
 /// <param name="Toasts">Reports a save that failed.</param>
 /// <param name="Dispatcher">Brings Api events to the UI thread.</param>
+/// <param name="Clock">Times how long a confirmation waits for the size Free up space would free.</param>
 /// <param name="Environment">The machine: the notices file, the file manager and the version.</param>
 public sealed record SettingsDependencies(
     ISettingsApi Settings,
@@ -29,6 +30,7 @@ public sealed record SettingsDependencies(
     UiFormatter Text,
     ToastHostViewModel Toasts,
     IUiDispatcher Dispatcher,
+    TimeProvider Clock,
     SettingsEnvironment Environment);
 
 /// <summary>

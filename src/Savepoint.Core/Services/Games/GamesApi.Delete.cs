@@ -34,6 +34,24 @@ internal sealed partial class GamesApi
             },
             cancellationToken);
 
+    public Task<OperationResult<long>> EstimateFreeUpSpaceAsync(string gameId, FreeUpSpaceToken token, CancellationToken cancellationToken = default) =>
+        ApiGuard.RunAsync(
+            _services.Log,
+            async () =>
+            {
+                ArgumentNullException.ThrowIfNull(token);
+                if (!token.IsIssued)
+                {
+                    throw new ArgumentException("The token was not issued by a Free up space preview.", nameof(token));
+                }
+
+                var game = await RequireGameAsync(gameId, cancellationToken).ConfigureAwait(false);
+                return await _services.Storage.ReadAsync(
+                    storage => RemovedSnapshots.EstimateAsync(storage, GameFolders.ReposForGitDirOnly(_services, storage, game), token, cancellationToken),
+                    cancellationToken).ConfigureAwait(false);
+            },
+            cancellationToken);
+
     private async Task<Unit> DeleteCoreAsync(string gameId)
     {
         return await _services.RunWithLocksAsync(

@@ -24,6 +24,7 @@ public sealed partial class FreeUpSpaceViewModel : ObservableObject, IDisposable
     private readonly Action<ErrorInfo, ErrorOperation> _showError;
     private readonly Func<Task> _afterRun;
     private readonly Dictionary<Guid, long> _revisions = [];
+    private readonly FreeUpSizeEstimate _size;
 
     private string? _gameId;
     private string _gameName = string.Empty;
@@ -51,8 +52,10 @@ public sealed partial class FreeUpSpaceViewModel : ObservableObject, IDisposable
     /// <param name="dispatcher">Brings job events back to the UI thread.</param>
     /// <param name="showError">Shows a failure to count what the compaction deletes or to start it.</param>
     /// <param name="afterRun">Runs after a compaction ends, so the footer can read the game's storage use again.</param>
-    public FreeUpSpaceViewModel(IGamesApi games, IJobsApi jobs, IDialogs dialogs, UiFormatter text, IUiDispatcher dispatcher, Action<ErrorInfo, ErrorOperation> showError, Func<Task> afterRun)
+    /// <param name="clock">Times how long the question waits for the size the compaction would free.</param>
+    public FreeUpSpaceViewModel(IGamesApi games, IJobsApi jobs, IDialogs dialogs, UiFormatter text, IUiDispatcher dispatcher, Action<ErrorInfo, ErrorOperation> showError, Func<Task> afterRun, TimeProvider clock)
     {
+        _size = new FreeUpSizeEstimate(clock);
         _games = games;
         _jobs = jobs;
         _dialogs = dialogs;
@@ -84,6 +87,7 @@ public sealed partial class FreeUpSpaceViewModel : ObservableObject, IDisposable
         }
 
         _gameId = gameId;
+        _size.Cancel();
         _job = null;
         _revisions.Clear();
         IsRunning = false;
@@ -111,6 +115,7 @@ public sealed partial class FreeUpSpaceViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         _disposed = true;
+        _size.Dispose();
         _jobs.JobChanged -= OnJobChanged;
     }
 
@@ -131,14 +136,21 @@ public sealed partial class FreeUpSpaceViewModel : ObservableObject, IDisposable
             return;
         }
 
-        if (preview.Value.RecentlyRemovedSnapshots is > 0 and var removed
-            && !await _dialogs.ConfirmAsync(new ConfirmRequest(
+        if (preview.Value.RecentlyRemovedSnapshots is > 0 and var removed)
+        {
+            // The size is in the question when it comes within a moment; otherwise the question does not wait for it.
+            var size = await _size.WaitAsync(_size.Start(preview.Value.Token, (token, cancellationToken) => _games.EstimateFreeUpSpaceAsync(gameId, token, cancellationToken)));
+            var message = size is { } bytes
+                ? _text.Message("settings.storage.optimizeConfirm.messageWithSize", ("count", removed), ("size", _text.FileSize(bytes)))
+                : _text.Message("settings.storage.optimizeConfirm.message", ("count", removed));
+            if (!await _dialogs.ConfirmAsync(new ConfirmRequest(
                 _text.Message("settings.storage.optimizeConfirm.title"),
-                _text.Message("settings.storage.optimizeConfirm.message", ("count", removed)),
+                message,
                 _text.Message("settings.storage.optimizeConfirm.confirm", ("count", removed)),
                 Destructive: true)))
-        {
-            return;
+            {
+                return;
+            }
         }
 
         // The run deletes the records the player was told about and none written since.

@@ -41,6 +41,18 @@ public interface ISettingsApi
     Task<OperationResult<FreeUpSpacePreview>> GetFreeUpSpacePreviewAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Says about how much space <see cref="OptimizeAllStorageAsync"/> would free by deleting the snapshots a preview counted, across
+    /// every game: the size of the stored data that only those snapshots reach. Data a snapshot that stays also holds is never counted.
+    /// The figure is approximate, since stored data is compressed and packed; it never reads a file's content. It can take seconds on
+    /// a large store, so call it off the UI thread and cancel it when the answer is no longer wanted. The answer is kept until a
+    /// game's snapshots change, so asking again for the same preview is quick.
+    /// </summary>
+    /// <param name="token">The token of <see cref="GetFreeUpSpacePreviewAsync"/>; one that no preview issued fails the call.</param>
+    /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c> (D23) and stops the git work it started.</param>
+    /// <returns>The estimate in bytes; zero when the token names nothing to delete.</returns>
+    Task<OperationResult<long>> EstimateFreeUpSpaceAsync(FreeUpSpaceToken token, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Sizes a move of the storage folder without doing it. A move that cannot go ahead is still a successful answer, with the
     /// reason in <see cref="StorageRelocationPreview.BlockedBy"/>: a folder that is not empty
     /// (<c>error.storageRelocation.destinationNotEmpty</c>), one that holds the partial copy of an earlier move that never finished

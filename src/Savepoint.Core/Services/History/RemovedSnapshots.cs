@@ -85,6 +85,28 @@ internal sealed class RemovedSnapshots
     }
 
     /// <summary>
+    /// About how many bytes deleting the token's records for the game would free: the stored size of what only they reach, summed over the
+    /// game's folders. Records of other games, and of folders the game no longer has, count nothing. Needs only the git directories.
+    /// </summary>
+    public static async Task<long> EstimateAsync(StorageSnapshot storage, IReadOnlyList<RepoRef> repos, FreeUpSpaceToken token, CancellationToken cancellationToken)
+    {
+        long total = 0;
+        foreach (var repo in repos)
+        {
+            var refs = token.Records
+                .Where(record => record.GameId == repo.GameId && record.Folder == repo.Role)
+                .Select(record => new ClearedRef(record.RefName, record.Value))
+                .ToList();
+            if (refs.Count > 0)
+            {
+                total += await storage.Engine.EstimateFreedBytesAsync(repo, refs, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        return total;
+    }
+
+    /// <summary>
     /// Reads every folder's records and groups them into snapshots by capture event. A snapshot is listed while any of its recorded
     /// commits is on no profile's branch (a branch no profile names does not count); each folder's commit comes from that folder's own
     /// record. Needs only the git directories.

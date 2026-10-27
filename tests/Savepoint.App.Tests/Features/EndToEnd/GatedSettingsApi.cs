@@ -46,6 +46,9 @@ internal sealed class GatedSettingsApi(ISettingsApi inner) : ISettingsApi
     public Task<OperationResult<FreeUpSpacePreview>> GetFreeUpSpacePreviewAsync(CancellationToken cancellationToken = default) =>
         inner.GetFreeUpSpacePreviewAsync(cancellationToken);
 
+    public Task<OperationResult<long>> EstimateFreeUpSpaceAsync(FreeUpSpaceToken token, CancellationToken cancellationToken = default) =>
+        inner.EstimateFreeUpSpaceAsync(token, cancellationToken);
+
     public Task<OperationResult<StorageRelocationPreview>> GetRelocationPreviewAsync(string newRoot, CancellationToken cancellationToken = default) =>
         inner.GetRelocationPreviewAsync(newRoot, cancellationToken);
 

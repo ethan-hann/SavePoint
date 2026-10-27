@@ -195,6 +195,9 @@ internal sealed class FakeState
 
     public long TotalBytes => GameBytes.Values.Sum();
 
+    // What the estimate of a free-up says, for one game or every game; zero is "nothing to say".
+    public long FreeUpEstimate { get; set; }
+
     public void RemoveGame(string gameId)
     {
         foreach (var profile in Profiles.Where(p => p.GameId == gameId).ToList())

@@ -92,6 +92,33 @@ internal sealed partial class SettingsApi : ISettingsApi
             },
             cancellationToken);
 
+    public Task<OperationResult<long>> EstimateFreeUpSpaceAsync(FreeUpSpaceToken token, CancellationToken cancellationToken = default) =>
+        ApiGuard.RunAsync(
+            _services.Log,
+            async () =>
+            {
+                ArgumentNullException.ThrowIfNull(token);
+                if (!token.IsIssued)
+                {
+                    throw new ArgumentException("The token was not issued by a Free up space preview.", nameof(token));
+                }
+
+                var games = await _services.Catalog.ListGamesAsync(cancellationToken).ConfigureAwait(false);
+                return await _services.Storage.ReadAsync(
+                    async storage =>
+                    {
+                        long total = 0;
+                        foreach (var game in games.Where(game => token.Records.Any(record => record.GameId == game.Id)))
+                        {
+                            total += await RemovedSnapshots.EstimateAsync(storage, GameFolders.ReposForGitDirOnly(_services, storage, game), token, cancellationToken).ConfigureAwait(false);
+                        }
+
+                        return total;
+                    },
+                    cancellationToken).ConfigureAwait(false);
+            },
+            cancellationToken);
+
     public Task<OperationResult<StorageRelocationPreview>> GetRelocationPreviewAsync(string newRoot, CancellationToken cancellationToken = default) =>
         ApiGuard.RunAsync(_services.Log, () => _relocator.PreviewAsync(newRoot, cancellationToken), cancellationToken);
 
