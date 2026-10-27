@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Automation;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
@@ -51,6 +52,12 @@ public class ChipListEditViewTests
         Assert.All(chips, chip => Assert.True(chip.Focusable));
         Assert.Equal($"Edit **/*.log in {RulesList}", AutomationProperties.GetName(chips[0]));
         Assert.Contains("F2", AutomationProperties.GetHelpText(chips[0]), StringComparison.Ordinal);
+
+        // What a screen reader is handed: a named button that can take focus.
+        var peer = ControlAutomationPeer.CreatePeerForElement(chips[0]);
+        Assert.Equal($"Edit **/*.log in {RulesList}", peer.GetName());
+        Assert.Equal(AutomationControlType.Button, peer.GetAutomationControlType());
+        Assert.True(peer.IsKeyboardFocusable());
     }
 
     [AvaloniaFact]
