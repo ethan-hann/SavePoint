@@ -389,6 +389,7 @@ public sealed class CaptureBatchesTests : IDisposable
     [Fact]
     public async Task A_link_is_planned_by_its_own_size_not_the_size_of_what_it_points_to()
     {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Windows refuses file links instead (LinkedFileTests)");
         var repo = await _ws.InitializedRepoAsync();
         _ws.Write(repo, "Data/real.bin", new byte[50_000]);
         try

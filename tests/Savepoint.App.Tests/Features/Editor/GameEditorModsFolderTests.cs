@@ -12,6 +12,25 @@ public class GameEditorModsFolderTests
     private static EditorRig RigWith(GameDefinition game) =>
         EditorRig.Create(new FakeBackend(ScenarioBuilder.Empty().WithGame(game)));
 
+    // A template draft takes the folders named for the running system, so the sample names the same ones for all three and the
+    // test reads the same on every system.
+    private static GameTemplate SevenDaysTemplate() => new("seven", "Seven Days", ModsSamples.SevenDays with { Id = "seven" })
+    {
+        Hints = new TemplateLibraryHints(
+            SavesByOs: new Dictionary<string, ExternalLocation>
+            {
+                ["windows"] = ModsSamples.SevenDays.External!,
+                ["linux"] = ModsSamples.SevenDays.External!,
+                ["macos"] = ModsSamples.SevenDays.External!,
+            },
+            ModsByOs: new Dictionary<string, ModsLocation>
+            {
+                ["windows"] = ModsSamples.SevenDays.Mods!,
+                ["linux"] = ModsSamples.SevenDays.Mods!,
+                ["macos"] = ModsSamples.SevenDays.Mods!,
+            }),
+    };
+
     private static FolderStatus Status(RepoRole role, string raw, string resolved, bool exists = true, bool confirmed = true) =>
         new(role, raw, resolved, exists, new ConsentStatus(confirmed, ScenarioBuilder.DefaultNow));
 
@@ -157,7 +176,7 @@ public class GameEditorModsFolderTests
     [Fact]
     public async Task Choosing_a_template_fills_the_mods_field_and_choosing_another_without_one_clears_what_the_first_put_there()
     {
-        var withMods = new GameTemplate("seven", "Seven Days", ModsSamples.SevenDays with { Id = "seven" });
+        var withMods = SevenDaysTemplate();
         var without = new GameTemplate("plain", "Plain Game", new GameDefinition(Id: "plain", Name: "Plain Game", Launch: new LaunchConfig(LaunchMethod.Exe, ExePath: "plain.exe")));
         var rig = EditorRig.Create();
         ((FakeGamesApi)rig.Backend.Games).TemplatesOverride = [withMods, without];
@@ -179,7 +198,7 @@ public class GameEditorModsFolderTests
     public async Task Choosing_a_template_whose_mods_folder_does_not_exist_yet_leaves_the_mods_field_empty_and_says_why()
     {
         var rig = RigWithoutModsFolder();
-        ((FakeGamesApi)rig.Backend.Games).TemplatesOverride = [new GameTemplate("seven", "Seven Days", ModsSamples.SevenDays with { Id = "seven" })];
+        ((FakeGamesApi)rig.Backend.Games).TemplatesOverride = [SevenDaysTemplate()];
         var editor = rig.New();
 
         await PickAsync(editor, "seven", "Seven Days");
@@ -233,7 +252,7 @@ public class GameEditorModsFolderTests
     public async Task A_mods_folder_the_player_typed_stays_when_a_template_is_chosen_even_if_it_does_not_exist_yet()
     {
         var rig = EditorRig.Create(new FakeBackend(ScenarioBuilder.Empty().WithMissingFolder(ModsSamples.ModsRaw).WithMissingFolder(@"{appData}\Mine")));
-        ((FakeGamesApi)rig.Backend.Games).TemplatesOverride = [new GameTemplate("seven", "Seven Days", ModsSamples.SevenDays with { Id = "seven" })];
+        ((FakeGamesApi)rig.Backend.Games).TemplatesOverride = [SevenDaysTemplate()];
         var editor = rig.New();
         editor.ModsPath = @"{appData}\Mine";
 
