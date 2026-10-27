@@ -145,7 +145,7 @@ public sealed class CoreBackend : IDisposable
             catalog,
             git,
             runner,
-            new JobRegistry(time, log),
+            new JobRegistry(time, log, Path.Combine(catalog.DirectoryPath, JobHistoryFile.FileName)),
             new GameLock(),
             sessions,
             new StorageHost(catalog, platform, runner, disk, installDirectory, engineOptions),
