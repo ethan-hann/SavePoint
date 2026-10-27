@@ -5,19 +5,19 @@ namespace Savepoint.App.Features.Common.Dialogs;
 /// <summary>Turns picker requests into the option objects of Avalonia's storage provider.</summary>
 public static class StoragePickerOptions
 {
-    /// <summary>Options for a single-folder pick that opens at <paramref name="start"/> when it is not null.</summary>
-    public static FolderPickerOpenOptions Folder(FolderPickRequest request, IStorageFolder? start) => new()
+    /// <summary>Options for a folder pick that opens at <paramref name="start"/> when it is not null; one folder unless <paramref name="allowMultiple"/>.</summary>
+    public static FolderPickerOpenOptions Folder(FolderPickRequest request, IStorageFolder? start, bool allowMultiple = false) => new()
     {
         Title = request.Title,
-        AllowMultiple = false,
+        AllowMultiple = allowMultiple,
         SuggestedStartLocation = start,
     };
 
-    /// <summary>Options for a single-file open pick; no filter list means any file.</summary>
-    public static FilePickerOpenOptions OpenFile(OpenFilePickRequest request, IStorageFolder? start) => new()
+    /// <summary>Options for a file open pick; no filter list means any file, and one file unless <paramref name="allowMultiple"/>.</summary>
+    public static FilePickerOpenOptions OpenFile(OpenFilePickRequest request, IStorageFolder? start, bool allowMultiple = false) => new()
     {
         Title = request.Title,
-        AllowMultiple = false,
+        AllowMultiple = allowMultiple,
         SuggestedStartLocation = start,
         FileTypeFilter = Types(request.Filters),
     };

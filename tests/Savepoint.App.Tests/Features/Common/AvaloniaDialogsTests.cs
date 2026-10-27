@@ -151,6 +151,15 @@ public class AvaloniaDialogsTests
     }
 
     [AvaloniaFact]
+    public async Task Multi_picks_answer_nothing_while_no_window_offers_a_storage_provider()
+    {
+        using var harness = new Harness();
+
+        Assert.Empty(await harness.Dialogs.PickFoldersAsync(new FolderPickRequest("Pick")));
+        Assert.Empty(await harness.Dialogs.PickFilesAsync(new OpenFilePickRequest("Pick")));
+    }
+
+    [AvaloniaFact]
     public async Task A_custom_dialog_is_shown_on_the_same_stack()
     {
         using var harness = new Harness();

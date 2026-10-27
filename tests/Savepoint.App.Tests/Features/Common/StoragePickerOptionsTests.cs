@@ -18,6 +18,22 @@ public class StoragePickerOptionsTests
     }
 
     [Fact]
+    public void A_folder_pick_can_ask_for_several_folders()
+    {
+        var options = StoragePickerOptions.Folder(new FolderPickRequest("Choose the mod folders"), null, allowMultiple: true);
+
+        Assert.True(options.AllowMultiple);
+    }
+
+    [Fact]
+    public void An_open_pick_can_ask_for_several_files()
+    {
+        var options = StoragePickerOptions.OpenFile(new OpenFilePickRequest("Choose the mod files"), null, allowMultiple: true);
+
+        Assert.True(options.AllowMultiple);
+    }
+
+    [Fact]
     public void An_open_pick_offers_each_filter_with_its_patterns()
     {
         var options = StoragePickerOptions.OpenFile(new OpenFilePickRequest("Open a definition", [_json, _any]), null);

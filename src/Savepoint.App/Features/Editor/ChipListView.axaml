@@ -61,6 +61,11 @@
           </editor:ChipEntryBox>
         </Panel>
       </DataTemplate>
+      <DataTemplate x:DataType="editor:ChipListAction">
+        <Button Classes="dashed pill" Margin="0,0,8,8" Padding="10,5" Command="{Binding Command}" AutomationProperties.Name="{Binding AutomationName}" AutomationProperties.HelpText="{Binding HelpText}">
+          <TextBlock Text="{Binding Label}" />
+        </Button>
+      </DataTemplate>
       <DataTemplate x:DataType="editor:ChipListViewModel">
         <Panel Margin="0,0,8,8">
           <Button x:Name="AddChip" Classes="dashed pill" Padding="10,5" IsVisible="{Binding !IsAdding}" Command="{Binding BeginAddCommand}" AutomationProperties.Name="{Binding AddAutomationName}" AutomationProperties.HelpText="{Binding HelpText}">

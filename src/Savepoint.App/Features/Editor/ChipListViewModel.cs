@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Formatting;
@@ -115,15 +116,17 @@ public sealed partial class ChipListViewModel : ObservableObject
     /// <param name="placeholder">The example shown in the empty add field.</param>
     /// <param name="addAutomationName">The accessible name of the add chip and its field when the visible text alone does not tell which list it adds to; defaults to <paramref name="addLabel"/>.</param>
     /// <param name="helpText">The accessible help text of the list, its add chip and its field; null for none.</param>
-    public ChipListViewModel(UiFormatter text, string groupName, string addLabel, string placeholder, string? addAutomationName = null, string? helpText = null)
+    /// <param name="actions">Extra buttons drawn after the add chip; none by default.</param>
+    public ChipListViewModel(UiFormatter text, string groupName, string addLabel, string placeholder, string? addAutomationName = null, string? helpText = null, IReadOnlyList<ChipListAction>? actions = null)
     {
         _text = text;
+        Actions = actions ?? [];
         GroupName = groupName;
         AddLabel = addLabel;
         Placeholder = placeholder;
         AddAutomationName = addAutomationName ?? addLabel;
         HelpText = helpText;
-        Items.CollectionChanged += (_, _) => RebuildEntries();
+        Items.CollectionChanged += (_, e) => SyncEntries(e);
         RebuildEntries();
     }
 
@@ -144,6 +147,24 @@ public sealed partial class ChipListViewModel : ObservableObject
 
     /// <summary>The example shown in the empty add field.</summary>
     public string Placeholder { get; }
+
+    /// <summary>The extra buttons drawn after the add chip.</summary>
+    public IReadOnlyList<ChipListAction> Actions { get; }
+
+    /// <summary>
+    /// Adds each value that is not blank and not already in the list, in order, and raises <see cref="Changed"/> once when any was added.
+    /// Returns how many were added.
+    /// </summary>
+    public int AddValues(IEnumerable<string> values)
+    {
+        var added = values.Count(TryAdd);
+        if (added > 0)
+        {
+            Changed?.Invoke(this, EventArgs.Empty);
+        }
+
+        return added;
+    }
 
     /// <summary>The chips, in order.</summary>
     public ObservableCollection<ChipItem> Items { get; } = [];
@@ -196,6 +217,24 @@ public sealed partial class ChipListViewModel : ObservableObject
         NewText = string.Empty;
     }
 
+    // A chip added or removed changes only its own entry, so the add chip and the extra buttons stay in the row and keep keyboard
+    // focus; any other change draws the row again.
+    private void SyncEntries(NotifyCollectionChangedEventArgs e)
+    {
+        switch (e)
+        {
+            case { Action: NotifyCollectionChangedAction.Add, NewItems: [ChipItem chip], NewStartingIndex: >= 0 and var at }:
+                Entries.Insert(at, chip);
+                break;
+            case { Action: NotifyCollectionChangedAction.Remove, OldStartingIndex: >= 0 and var at }:
+                Entries.RemoveAt(at);
+                break;
+            default:
+                RebuildEntries();
+                break;
+        }
+    }
+
     private void RebuildEntries()
     {
         Entries.Clear();
@@ -205,6 +244,10 @@ public sealed partial class ChipListViewModel : ObservableObject
         }
 
         Entries.Add(this);
+        foreach (var action in Actions)
+        {
+            Entries.Add(action);
+        }
     }
 
     private bool TryAdd(string value)

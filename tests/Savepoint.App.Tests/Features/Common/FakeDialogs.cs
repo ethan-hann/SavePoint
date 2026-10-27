@@ -9,12 +9,19 @@ public sealed class FakeDialogs : IDialogs
     private readonly Queue<string?> _folderAnswers = [];
     private readonly Queue<string?> _openFileAnswers = [];
     private readonly Queue<string?> _saveFileAnswers = [];
+    private readonly Queue<string[]> _foldersAnswers = [];
+    private readonly Queue<string[]> _filesAnswers = [];
 
     public List<ConfirmRequest> Confirmations { get; } = [];
 
     public List<FolderPickRequest> FolderPicks { get; } = [];
 
     public List<OpenFilePickRequest> OpenFilePicks { get; } = [];
+
+    // The several-folder and several-file picks, kept apart from the single ones above.
+    public List<FolderPickRequest> FoldersPicks { get; } = [];
+
+    public List<OpenFilePickRequest> FilesPicks { get; } = [];
 
     public List<SaveFilePickRequest> SaveFilePicks { get; } = [];
 
@@ -45,6 +52,20 @@ public sealed class FakeDialogs : IDialogs
     public FakeDialogs AnswerOpenFile(string? path)
     {
         _openFileAnswers.Enqueue(path);
+        return this;
+    }
+
+    // The next several-folder pick answers with these folders; with none queued, it is cancelled.
+    public FakeDialogs AnswerFolders(params string[] paths)
+    {
+        _foldersAnswers.Enqueue(paths);
+        return this;
+    }
+
+    // The next several-file pick answers with these files; with none queued, it is cancelled.
+    public FakeDialogs AnswerFiles(params string[] paths)
+    {
+        _filesAnswers.Enqueue(paths);
         return this;
     }
 
@@ -85,6 +106,18 @@ public sealed class FakeDialogs : IDialogs
     {
         OpenFilePicks.Add(request);
         return Task.FromResult(_openFileAnswers.TryDequeue(out var answer) ? answer : null);
+    }
+
+    public Task<IReadOnlyList<string>> PickFoldersAsync(FolderPickRequest request)
+    {
+        FoldersPicks.Add(request);
+        return Task.FromResult<IReadOnlyList<string>>(_foldersAnswers.TryDequeue(out var answer) ? answer : []);
+    }
+
+    public Task<IReadOnlyList<string>> PickFilesAsync(OpenFilePickRequest request)
+    {
+        FilesPicks.Add(request);
+        return Task.FromResult<IReadOnlyList<string>>(_filesAnswers.TryDequeue(out var answer) ? answer : []);
     }
 
     public Task<string?> PickSaveFileAsync(SaveFilePickRequest request)

@@ -57,6 +57,32 @@ public sealed class AvaloniaDialogs : IDialogs
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<string>> PickFoldersAsync(FolderPickRequest request)
+    {
+        if (_storage() is not { CanPickFolder: true } provider)
+        {
+            return [];
+        }
+
+        var start = await StartFolderAsync(provider, request.StartPath);
+        var picked = await provider.OpenFolderPickerAsync(StoragePickerOptions.Folder(request, start, allowMultiple: true));
+        return LocalPaths(picked);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<string>> PickFilesAsync(OpenFilePickRequest request)
+    {
+        if (_storage() is not { CanOpen: true } provider)
+        {
+            return [];
+        }
+
+        var start = await StartFolderAsync(provider, request.StartPath);
+        var picked = await provider.OpenFilePickerAsync(StoragePickerOptions.OpenFile(request, start, allowMultiple: true));
+        return LocalPaths(picked);
+    }
+
+    /// <inheritdoc />
     public async Task<string?> PickSaveFileAsync(SaveFilePickRequest request)
     {
         if (_storage() is not { CanSave: true } provider)
@@ -68,6 +94,9 @@ public sealed class AvaloniaDialogs : IDialogs
         var picked = await provider.SaveFilePickerAsync(StoragePickerOptions.SaveFile(request, start));
         return picked?.TryGetLocalPath();
     }
+
+    // An item with no local path (a cloud location, say) cannot be a path in the game folder, so it is dropped.
+    private static List<string> LocalPaths(IEnumerable<IStorageItem> items) => [.. items.Select(item => item.TryGetLocalPath()).OfType<string>()];
 
     private static async Task<IStorageFolder?> StartFolderAsync(IStorageProvider provider, string? path) =>
         string.IsNullOrWhiteSpace(path) ? null : await provider.TryGetFolderFromPathAsync(path);

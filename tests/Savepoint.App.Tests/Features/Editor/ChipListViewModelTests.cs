@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Editor;
 using Savepoint.App.Localization;
@@ -276,5 +277,63 @@ public class ChipListViewModelTests
 
         Assert.Equal(["x", "y"], list.Values);
         Assert.Equal(0, changes);
+    }
+
+    [Fact]
+    public void Adding_values_appends_new_ones_in_order_skips_blank_and_repeated_ones_and_says_changed_once()
+    {
+        var list = List("a");
+        var changes = 0;
+        list.Changed += (_, _) => changes++;
+
+        var added = list.AddValues(["b", " a ", "", "c", "b"]);
+
+        Assert.Equal(["a", "b", "c"], list.Values);
+        Assert.Equal(2, added);
+        Assert.Equal(1, changes);
+    }
+
+    [Fact]
+    public void Adding_only_values_already_there_says_nothing_changed()
+    {
+        var list = List("a");
+        var changes = 0;
+        list.Changed += (_, _) => changes++;
+
+        var added = list.AddValues(["a"]);
+
+        Assert.Equal(0, added);
+        Assert.Equal(0, changes);
+    }
+
+    [Fact]
+    public void Extra_actions_come_after_the_add_chip_in_the_same_row()
+    {
+        var action = new ChipListAction("Choose files…", "Choose files", new RelayCommand(() => { }));
+        var list = new ChipListViewModel(_text, "Mod files", "Add a folder or file", "Data", actions: [action]);
+        list.SetValues(["a", "b"]);
+
+        Assert.Equal(["a", "b"], list.Entries.OfType<ChipItem>().Select(chip => chip.Text));
+        Assert.Equal(2, list.Entries.IndexOf(list));
+        Assert.Same(action, list.Entries[^1]);
+        Assert.Equal(4, list.Entries.Count);
+    }
+
+    // A view keeps focus on a button only while that button stays in the row, so adding a chip must not rebuild the row.
+    [Fact]
+    public void Adding_values_slots_the_new_chips_in_before_the_add_chip_without_rebuilding_the_row()
+    {
+        var action = new ChipListAction("Choose files…", "Choose files", new RelayCommand(() => { }));
+        var list = new ChipListViewModel(_text, "Mod files", "Add a folder or file", "Data", actions: [action]);
+        list.SetValues(["a"]);
+        var actions = new List<System.Collections.Specialized.NotifyCollectionChangedAction>();
+        list.Entries.CollectionChanged += (_, e) => actions.Add(e.Action);
+
+        list.AddValues(["b", "c"]);
+
+        Assert.DoesNotContain(System.Collections.Specialized.NotifyCollectionChangedAction.Reset, actions);
+        Assert.Equal(["a", "b", "c"], list.Entries.OfType<ChipItem>().Select(chip => chip.Text));
+        Assert.Same(list, list.Entries[3]);
+        Assert.Same(action, list.Entries[4]);
     }
 }
