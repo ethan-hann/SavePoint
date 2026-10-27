@@ -26,22 +26,27 @@ The first time you open SavePoint, it offers **Add your first game** or **Start 
 
 ### Add a game
 
-1. **Name** the game. As you type, SavePoint lists matching games it knows. Pick one (or press Down, then Enter) to fill in the details you have not typed yet. **Pick from the game list** at the top opens the whole list. Any detail you typed stays as you typed it.
-2. **Where the game is installed**: pick the game's own folder, for example `C:\Games\SkyrimSE`. SavePoint makes this folder match a profile, which replaces what is inside, so it refuses a whole drive or a system folder.
-3. **Where the saves live** (optional): many games keep saves outside the install folder, for example under `Documents\My Games`. SavePoint suggests the common spots.
-4. **Where the mods live** (optional): a separate folder for games that keep their mods outside the game folder, such as 7 Days to Die, which keeps them in AppData. Most games keep mods inside the game folder, which SavePoint already takes snapshots of, so leave this empty unless your game keeps them somewhere else. **Where do my mods live?** explains. The 7 Days to Die template fills it in when that folder exists.
-5. **How to start the game**: run the game's program, or go **Through Steam** with a launch link like `steam://run/489830`. The number is in the address of the game's Steam store page. Steam can update the game right after SavePoint puts your version back, so running the program directly is safer. That warning shows only when you pick Through Steam.
-6. **More settings** opens the optional settings. To change an entry in one of its lists, select it and press Enter, Space, or F2, or double-click it. Enter keeps the change and Escape drops it. Each setting has a **When do I need this?** button:
-   - **Extra command-line options.**
-   - **Knowing when you've stopped playing:** the name of the game's own process, for launchers that close themselves before the game opens. When a game starts through a link, a note under How to start the game suggests the program to use.
-   - **Files to leave out:** SavePoint never copies or replaces a file that matches these rules. Those files never count as changes, and a switch leaves them alone. List only files that do not matter: a rule that matches your saves stops profiles from switching them. There are two lists:
+The editor is a column of cards, top to bottom:
+
+1. **Game** (Required):
+   - **Name** the game. As you type, SavePoint lists matching games it knows. Pick one (or press Down, then Enter) to fill in the details you have not typed yet. **Pick from the game list** at the top opens the whole list. Any detail you typed stays as you typed it.
+   - **Where the game is installed**: pick the game's own folder, for example `C:\Games\SkyrimSE`. SavePoint makes this folder match a profile, which replaces what is inside, so it refuses a whole drive or a system folder.
+   - **How to start the game**: run the game's program, or go **Through Steam** with a launch link like `steam://run/489830`. The number is in the address of the game's Steam store page. Steam can update the game right after SavePoint puts your version back, so running the program directly is safer. That warning shows only when you pick Through Steam.
+2. **Saves** (Recommended): where the saves live. Many games keep saves outside the install folder, for example under `Documents\My Games`. SavePoint suggests the common spots.
+3. **Mods** (Optional):
+   - **Mods outside the game folder** is for games that load mods from another folder, such as 7 Days to Die, which keeps them in AppData. Most games keep mods inside the game folder, which SavePoint already takes snapshots of, so leave this empty unless your game keeps them somewhere else. **Does my game keep mods outside its folder?** explains. The 7 Days to Die template fills it in when that folder exists.
+   - **Mod files inside the game folder** tells SavePoint which files in the game folder are mods, for the mod counts. **When do I list mod files?** explains. **Choose files...** and **Choose folders...** pick many at once, which is handy for loaders like `version.dll` that sit in the game's main folder. Anything outside the game's folder is left out, and SavePoint says how many.
+4. **Artwork** (Optional): see Artwork below.
+5. **More settings** starts closed. To change an entry in one of its lists, select it and press Enter, Space, or F2, or double-click it. Enter keeps the change and Escape drops it.
+   - **Files to leave out:** SavePoint never copies or replaces a file that matches these rules. Those files never count as changes, and a switch leaves them alone. List only files that do not matter: a rule that matches your saves stops profiles from switching them. The rules are patterns such as `**/*.log`, not regular expressions, and **How do these rules work?** lists what they support. There are two lists:
      - **Files to leave out of the game's own folder.** A new game starts with `**/*.log`, `**/*.dmp` and `**/*.mdmp`, so the logs and crash reports a game writes as it runs are left out. These rules never touch your saves folder, and you can remove them like any rule.
      - **Files to leave out of every folder** applies to your saves and mods folders too.
-   - **Folders that hold mods:** these only change what History counts as a mod change.
+   - **Extra command-line options.**
+   - **Knowing when you've stopped playing:** the name of the game's own program, for launchers that close themselves before the game opens. When a game starts through a link, a note under How to start the game suggests the program to use.
    - **Steam app ID:** see Artwork below.
-7. **Save changes**. SavePoint names every folder it will look after and asks you to confirm each one, because it takes snapshots of everything in it and makes it match the profile when you switch. It adds a small file to each folder so it remembers you picked it. A game's folders can't be the same folder or inside one another.
+6. **Save changes**. SavePoint names every folder it will look after and asks you to confirm each one, because it takes snapshots of everything in it and makes it match the profile when you switch. It adds a small file to each folder so it remembers you picked it. A game's folders can't be the same folder or inside one another.
 
-![Add a game, filled in for Grounded: the name, the install folder, the saves folder with common locations below it and a Does my store sync saves? button, Run the .exe set to Grounded.exe with a Can I use this with online games? button, More settings folded, and the Artwork section. Import and Pick from the game list are at the top.](images/add-game.png)
+![Add a game, filled in for Grounded: Import and Pick from the game list at the top, a Game card with the name, the install folder, and Run the .exe set to Grounded.exe with a Can I use this with online games? button, a Saves card with the saves folder, common locations below it and a Does my store sync saves? button, a Mods card, an Artwork card, and More settings folded.](images/add-game.png)
 
 A game picked from the list may show a short note, such as where its saves are kept.
 
@@ -95,11 +100,13 @@ To skip this check when only your saves would change, tick **Skip this check whe
 
 **Switch and play** puts the files in place and starts the game. While the game runs, SavePoint shows a running card. If SavePoint cannot tell when you have stopped (some launchers hide the game), press **I'm done playing**. If another window is in front when you quit, SavePoint sends a notification so you know it is waiting.
 
-If the program SavePoint started closes right away with an error, the running card says so and keeps watching for up to two minutes, because some games restart themselves through Steam. On Linux, games installed by Steam usually need Steam to start them, so set them to start **Through Steam** in Edit game.
+When a Steam game is set to run its program and Steam isn't running, SavePoint asks first, before it changes anything. **Start Steam** starts only Steam itself, then SavePoint starts the game's program once Steam is ready, and you can stop waiting. SavePoint doesn't start the game through Steam here, because Steam may update the game first and replace the version you picked. **Not now** leaves everything as it was.
+
+If the program SavePoint started closes right away with an error, the running card says so and keeps watching for up to two minutes, because some games restart themselves through Steam. On Linux, games installed by Steam usually need Steam to start them, so start Steam first.
 
 ### When you finish
 
-SavePoint asks what to do with the session. Each choice is a card: pick one, and the one button at the bottom does what that card says. Escape closes the dialog, the same as Not now.
+SavePoint asks what to do with the session. Each choice is a card: pick one, and the one button at the bottom does what that card says. Escape closes the dialog, the same as Not now. If you pick a choice that keeps the session while the game is still running (or it restarted itself), SavePoint says so and offers **Choose again**. Not now always works.
 
 - **Keep this session as a new snapshot** (recommended). Your earlier snapshots stay as they are.
 - **Replace "&lt;snapshot&gt;" with this session.** That snapshot holds this session instead, and what it held before goes to History's **Recently removed**. This choice appears only when the session changed something and started from the profile's own newest snapshot.
@@ -136,7 +143,7 @@ Both show the same check as Play.
 
 ## Manage profiles
 
-The profile table on the Games screen shows each profile's snapshot count, notes, game version, mod files, and when you last played it. **Loaded now** means its files are in your game folders. **New changes** means files changed since its last snapshot.
+The profile table on the Games screen shows each profile's snapshot count, notes, game version, mod files, and when you last played it. **Loaded now** means its files are in your game folders. **New changes** means files changed since its last snapshot. It shows up within a second or so of a change in the game's folders, without leaving the screen, and waits while a snapshot, switch, or game session runs.
 
 ![The Games screen for Grounded with two profiles: Vanilla 1.4 with one snapshot and a Switch and play button, and Modded, marked Loaded now, with four snapshots, its notes, 38 mod files and a Play button. Take a snapshot sits right of the Profiles, History and Activity tabs. The footer says the game's snapshots use 16.4 GB on a 210.2 GB drive, next to Free up space.](images/profiles.png)
 
@@ -186,7 +193,7 @@ Help, the snapshot folder, and Free up space are covered above. The other settin
 - **Appearance:**
   - theme: light, dark, or match the system;
   - accent color: blue, violet, green, amber, or crimson;
-  - layout: **Sidebar** keeps every game one click away, and **Library** puts the cover art up front. You can also switch layouts from the Games screen;
+  - layout: **Sidebar** keeps every game one click away, and **Library** puts the cover art up front. In Sidebar, only the list of games scrolls. In Library, the game cards wrap to fit the window. You can also switch layouts from the Games screen;
   - interface size: 100%, 125%, 150%, 175%, or 200%, which makes everything in SavePoint larger on top of your screen's own scaling. Sizes that do not fit on the current screen are switched off, with the reason. A size you picked on a big screen shows smaller on a screen that cannot fit it, and comes back on the big screen;
   - **Look up game artwork online**.
 - **Before you play:** **Skip the check before playing when only your saves change**. A switch that would empty a folder always asks.
