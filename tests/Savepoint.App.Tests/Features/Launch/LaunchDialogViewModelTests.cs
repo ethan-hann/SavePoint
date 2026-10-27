@@ -552,7 +552,9 @@ public class LaunchDialogViewModelTests : IDisposable
         var create = keep.CreateCommand.ExecuteAsync(null);
 
         var call = Assert.Single(_rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CreateAsync)));
-        Assert.Equal([SampleScenario.SkyrimId, "Rescued session", null, "Rescued session"], call.Args);
+        Assert.Equal([SampleScenario.SkyrimId, "Rescued session", null, "Rescued session"], call.Args.Take(4));
+        // A profile kept from a session starts no folder empty.
+        Assert.Empty((IEnumerable<RepoRole>?)call.Args[4] ?? []);
         Assert.True(keep.IsWorking);
         Assert.False(keep.CanDismiss);
         Assert.False(keep.CreateCommand.CanExecute(null));
