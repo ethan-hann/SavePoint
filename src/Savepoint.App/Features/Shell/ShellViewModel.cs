@@ -20,7 +20,7 @@ namespace Savepoint.App.Features.Shell;
 /// counts and sizes, the selected game, and the job status that is visible in both layouts. Screens plug in through
 /// <see cref="IScreenFactory"/> and talk to the shell through <see cref="IShellContext"/>.
 /// </summary>
-public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposable
+public sealed partial class ShellViewModel : ObservableObject, IShellContext, IDisposable
 {
     /// <summary>Below this window width the sidebar collapses to an icon rail.</summary>
     public const double CompactBelowWidth = 900;
@@ -73,7 +73,6 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
         ];
         _selectedNav = Nav[0];
         NavLabel = text.Message("shell.nav.label");
-        AddGameCommand = new RelayCommand(() => RequestAddGame());
         _tour = new TourViewModel(text);
         _tour.PropertyChanged += (_, e) =>
         {
@@ -82,7 +81,6 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
                 OnPropertyChanged(nameof(ShowTour));
             }
         };
-        AddFromLibrariesCommand = new AsyncRelayCommand(AddFromLibrariesAsync);
         FirstRun = new FirstRunViewModel(text, AddGameCommand, new AsyncRelayCommand(StartFromTemplateAsync), AddFromLibrariesCommand, new RelayCommand(ShowHelp));
         LayoutToggle = new LayoutToggleViewModel(text, SetLayoutAsync, _layout);
         JobStatus = new JobStatusViewModel(text, dependencies.Toasts, id => Games.FirstOrDefault(row => row.Id == id)?.Name, jobId => dependencies.LaunchFlow.ShowsOutcomeOf(jobId), ShowActivity);
@@ -207,10 +205,8 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
     public IArtworkProvider Artwork => _deps.Artwork;
 
     /// <summary>Opens the game editor in create mode.</summary>
-    public IRelayCommand AddGameCommand { get; }
-
-    /// <summary>Looks through the Steam and GOG Galaxy libraries and adds the games the player checks, after one confirmation.</summary>
-    public IAsyncRelayCommand AddFromLibrariesCommand { get; }
+    [RelayCommand]
+    private void AddGame() => RequestAddGame();
 
     private bool PaneVisible => _pane is not null && _paneDestination == Destination;
 
@@ -721,6 +717,8 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
         OnPropertyChanged(nameof(SelectedGame));
     }
 
+    /// <summary>Looks through the Steam and GOG Galaxy libraries and adds the games the player checks, after one confirmation.</summary>
+    [RelayCommand]
     private async Task AddFromLibrariesAsync()
     {
         var flow = new LibraryImportFlow(_deps.Games, _deps.Dialogs, _deps.Text, _deps.LibraryRuns);

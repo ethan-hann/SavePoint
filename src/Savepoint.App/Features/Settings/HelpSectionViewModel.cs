@@ -12,27 +12,26 @@ public sealed partial class HelpSectionViewModel : ObservableObject
     /// <summary>True when the tour can be shown now: the selected game has a profile for it to point at.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowTourHint))]
+    [NotifyCanExecuteChangedFor(nameof(ShowTourCommand))]
     private bool _canShowTour;
 
     internal HelpSectionViewModel(IShellContext shell)
     {
         _shell = shell;
-        ShowHowItWorksCommand = new RelayCommand(shell.ShowHelp);
-        ShowTourCommand = new RelayCommand(shell.StartTour, () => CanShowTour);
         Refresh();
     }
 
     /// <summary>Opens the "How SavePoint works" page.</summary>
-    public IRelayCommand ShowHowItWorksCommand { get; }
+    [RelayCommand]
+    private void ShowHowItWorks() => _shell.ShowHelp();
 
     /// <summary>Shows the first-run tour again, from its first step.</summary>
-    public IRelayCommand ShowTourCommand { get; }
+    [RelayCommand(CanExecute = nameof(CanShowTour))]
+    private void ShowTour() => _shell.StartTour();
 
     /// <summary>True while the tour cannot be shown, which is when the screen says why.</summary>
     public bool ShowTourHint => !CanShowTour;
 
     /// <summary>Asks the shell again whether the tour can run, as the screen is shown, because a game or profile may have appeared or gone.</summary>
     internal void Refresh() => CanShowTour = _shell.CanShowTour;
-
-    partial void OnCanShowTourChanged(bool value) => ShowTourCommand.NotifyCanExecuteChanged();
 }
