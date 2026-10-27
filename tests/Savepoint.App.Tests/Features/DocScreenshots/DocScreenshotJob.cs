@@ -6,8 +6,10 @@ using Avalonia.VisualTree;
 using Savepoint.App.Features.Activity;
 using Savepoint.App.Features.Editor;
 using Savepoint.App.Features.Games;
+using Savepoint.App.Features.Settings;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Tests.Fakes;
+using Savepoint.App.Tests.Features.Common;
 using Savepoint.App.Tests.Features.EndToEnd;
 using Savepoint.App.Tests.Features.Games;
 using Savepoint.App.Tests.Theme;
@@ -199,7 +201,11 @@ internal static class DocScreenshotJob
     private static async Task SettingsScreen(string path)
     {
         using var app = await StartAsync(Full());
-        app.Shell.Navigate(NavDestination.Settings);
+
+        // The size arrives after the count, so the picture waits for it.
+        app.Backend.State.FreeUpEstimate = 1_200_000_000;
+        var settings = app.Show<SettingsScreenViewModel>(NavDestination.Settings);
+        Assert.True(await UiWait.UntilAsync(() => settings.Storage.OptimizePreview.Contains("about 1.2 GB", StringComparison.Ordinal)), "Settings never showed how much space Free up space frees.");
 
         Draw(app, path);
     }

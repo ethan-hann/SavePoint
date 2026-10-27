@@ -9,8 +9,8 @@ namespace Savepoint.Core.Api;
 /// <param name="ModFileCount">How many of those are mod files; always 0 for the saves folder.</param>
 /// <param name="Bytes">Total size of those files, in bytes.</param>
 /// <param name="HeldInSnapshot">
-/// True when every file the folder holds now is already in a snapshot of a profile of the game: the folder sits on that profile with no
-/// new changes. Only then may a new profile start the folder empty (<see cref="IProfilesApi.CreateAsync"/>), since a switch to it would
+/// True when every file the folder holds now is already in a snapshot of a profile of the game, or is one the game leaves out: the folder
+/// sits on that profile with no new changes, and a file only a leave-out rule covers is not a change. Only then may a new profile start the folder empty (<see cref="IProfilesApi.CreateAsync"/>), since a switch to it would
 /// otherwise remove files no snapshot has. False when that cannot be told, and always false for the install folder, which never starts empty.
 /// </param>
 /// <param name="StartEmptyBlocked">

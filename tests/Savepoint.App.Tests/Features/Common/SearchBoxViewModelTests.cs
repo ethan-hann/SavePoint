@@ -96,6 +96,18 @@ public class SearchBoxViewModelTests
     }
 
     [Fact]
+    public void An_owner_whose_own_clear_ran_can_ask_the_view_to_take_focus_back()
+    {
+        var box = Box();
+        var told = 0;
+        box.Cleared += (_, _) => told++;
+
+        box.ReturnFocus();
+
+        Assert.Equal(1, told);
+    }
+
+    [Fact]
     public void A_count_is_not_announced_until_typing_pauses()
     {
         var box = Box();
