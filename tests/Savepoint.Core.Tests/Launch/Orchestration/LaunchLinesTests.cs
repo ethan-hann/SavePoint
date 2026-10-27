@@ -21,7 +21,7 @@ public class LaunchLinesTests
             ("removed", removed)));
 
     [Fact(Timeout = 180_000)]
-    public async Task A_switch_names_the_profile_each_folder_and_the_files_it_writes_and_removes_then_the_start()
+    public async Task A_switch_names_the_profile_each_folder_and_the_files_it_writes_and_removes_then_the_start_and_the_job_names_the_profile()
     {
         var (rig, vanilla, _) = await LaunchRig.WithTwoProfilesAsync();
         using var _ = rig;
@@ -36,16 +36,6 @@ public class LaunchLinesTests
                 JobLine.ForStep(JobSteps.LaunchStarting, ("game", "Play")),
             ],
             Steps(job));
-    }
-
-    [Fact(Timeout = 180_000)]
-    public async Task A_launch_job_names_the_profile_it_starts()
-    {
-        var (rig, vanilla, _) = await LaunchRig.WithTwoProfilesAsync();
-        using var _ = rig;
-
-        var job = await rig.StartAsync(new LaunchTarget.ProfileTip(vanilla.Id));
-
         Assert.Equal(new JobProfile(vanilla.Id, "Vanilla"), job.Profile);
     }
 
