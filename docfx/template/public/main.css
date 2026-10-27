@@ -95,3 +95,8 @@ code { font-family: var(--bs-font-monospace); }
 }
 
 footer { border-top: 1px solid var(--sp-outline-variant); color: var(--sp-on-surface-variant); }
+
+/* The build footer: small and muted (set here because Bootstrap's text-secondary on the footer wins over the rule above), one wrapping row. Its links take the theme's link color and underline on hover or focus. */
+.sp-footer { display: flex; flex-wrap: wrap; gap: 0.25rem 1.5rem; font-size: 0.8125rem; padding: 0.75rem 0; color: var(--sp-on-surface-variant); }
+.sp-footer a { color: var(--sp-primary); text-decoration: none; }
+.sp-footer a:hover, .sp-footer a:focus-visible { text-decoration: underline; text-underline-offset: 2px; }

@@ -12,9 +12,9 @@ name: Docs
 on:
   push:
     branches: [main]
-    paths: ['docfx.json', 'docfx/**', 'docs/**', 'src/Savepoint.Core/**']
+    paths: ['docfx.json', 'docfx/**', 'docs/**', 'src/Savepoint.Core/**', 'Directory.Build.props']
   pull_request:
-    paths: ['docfx.json', 'docfx/**', 'docs/**', 'src/Savepoint.Core/**', '.config/dotnet-tools.json', '.forgejo/workflows/docs.yml']
+    paths: ['docfx.json', 'docfx/**', 'docs/**', 'src/Savepoint.Core/**', 'Directory.Build.props', 'build/docs-footer.sh', '.config/dotnet-tools.json', '.forgejo/workflows/docs.yml']
   workflow_dispatch:
 
 env:
@@ -30,7 +30,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      # The footer names the commit being built and takes its date, which the one commit of a shallow checkout holds.
       - uses: https://data.forgejo.org/actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       # Forgejo has no setup-dotnet mirror. global.json rolls forward to the newest feature band, so the newest 10.0 SDK fits.
       - name: Install the .NET SDK
@@ -39,12 +42,15 @@ jobs:
           echo "/opt/dotnet" >> "$GITHUB_PATH"
           echo "DOTNET_ROOT=/opt/dotnet" >> "$GITHUB_ENV"
 
+      # The footer (version, build commit and time, copyright, license) replaces the fallback in docfx.json. It holds quotes and HTML, so
+      # it travels in a variable and reaches docfx as one quoted argument.
       - name: Build the site
         env:
           DOTNET_CLI_TELEMETRY_OPTOUT: '1'
         run: |
           dotnet tool restore
-          dotnet docfx docfx.json --warningsAsErrors
+          footer="$(bash build/docs-footer.sh . "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY")"
+          dotnet docfx docfx.json --warningsAsErrors --metadata "_appFooter=$footer"
 
       - name: Say whether the site will be published
         id: target
