@@ -5,6 +5,7 @@ using Savepoint.Core.Platform.Linux;
 using Savepoint.Core.Platform.MacOS;
 using Savepoint.Core.Platform.Windows;
 using Savepoint.Core.Tests.Paths;
+using Savepoint.Core.Tests.Services;
 using Savepoint.Core.Tests.Services.Exe;
 
 namespace Savepoint.Core.Tests.Platform;
@@ -131,6 +132,59 @@ public class ProcessInspectorTests
         var process = Assert.Single(new LinuxProcessInspector(proc).List());
 
         Assert.Equal(42, process.ParentPid);
+        Assert.Equal(DateTimeOffset.FromUnixTimeMilliseconds(1_002_500), process.StartedAt);
+    }
+
+    [Fact]
+    public void Linux_dates_a_start_from_the_boot_instant_to_the_hundredth_of_a_second_not_from_the_whole_second_boot_time()
+    {
+        using var tree = new TempTree();
+        var proc = tree.Dir("proc");
+        // The machine booted at 1000.93 (1002.93 now, up 2.00 s); btime holds only the 1000.
+        File.WriteAllText(Path.Combine(proc, "stat"), "cpu  1 2 3\nbtime 1000\nprocesses 5\n");
+        File.WriteAllText(Path.Combine(proc, "uptime"), "2.00 7.50\n");
+        FakeProcess(proc, "100", "game\n", "game\0", "100 (game) S 1 100 100 0 -1 4210688 0 0 0 0 0 0 0 0 20 0 1 0 250 0 0\n");
+        var clock = new ManualTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1_002_930));
+
+        var process = Assert.Single(new LinuxProcessInspector(proc, clock).List());
+
+        Assert.Equal(DateTimeOffset.FromUnixTimeMilliseconds(1_003_430), process.StartedAt);
+    }
+
+    [Fact]
+    public void Linux_gives_a_process_the_same_start_in_every_look_while_the_clock_and_the_uptime_are_read_a_few_milliseconds_apart()
+    {
+        using var tree = new TempTree();
+        var proc = tree.Dir("proc");
+        File.WriteAllText(Path.Combine(proc, "stat"), "cpu  1 2 3\nbtime 1000\nprocesses 5\n");
+        File.WriteAllText(Path.Combine(proc, "uptime"), "2.00 7.50\n");
+        FakeProcess(proc, "100", "game\n", "game\0", "100 (game) S 1 100 100 0 -1 4210688 0 0 0 0 0 0 0 0 20 0 1 0 250 0 0\n");
+        var clock = new ManualTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1_002_930));
+        var inspector = new LinuxProcessInspector(proc, clock);
+
+        var first = Assert.Single(inspector.List());
+        // The uptime file counts in hundredths and is read an instant after the clock, so it lags a little behind it.
+        File.WriteAllText(Path.Combine(proc, "uptime"), "2.01 7.50\n");
+        clock.Advance(TimeSpan.FromMilliseconds(7));
+        var second = Assert.Single(inspector.List());
+
+        Assert.NotNull(first.StartedAt);
+        Assert.Equal(first.StartedAt, second.StartedAt);
+    }
+
+    [Fact]
+    public void Linux_keeps_the_whole_second_boot_time_when_the_uptime_belongs_to_another_clock()
+    {
+        using var tree = new TempTree();
+        var proc = tree.Dir("proc");
+        // A container can show its own uptime beside the host's boot time; an uptime that far from it is not trusted.
+        File.WriteAllText(Path.Combine(proc, "stat"), "cpu  1 2 3\nbtime 1000\nprocesses 5\n");
+        File.WriteAllText(Path.Combine(proc, "uptime"), "3.00 7.50\n");
+        FakeProcess(proc, "100", "game\n", "game\0", "100 (game) S 1 100 100 0 -1 4210688 0 0 0 0 0 0 0 0 20 0 1 0 250 0 0\n");
+        var clock = new ManualTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1_900_000));
+
+        var process = Assert.Single(new LinuxProcessInspector(proc, clock).List());
+
         Assert.Equal(DateTimeOffset.FromUnixTimeMilliseconds(1_002_500), process.StartedAt);
     }
 

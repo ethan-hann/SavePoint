@@ -72,8 +72,10 @@ public sealed class GameStarter
         }
 
         var path = ResolveProgram(launch.ExePath, installFolder);
+        // Taken before the start: the program and what it starts can begin before the launcher returns, and none may be dated before the session.
+        var startedAt = _clock.GetUtcNow();
         var child = _launcher.StartExecutable(path, launch.Args, installFolder);
-        return new GameSessionWatcher(child, processName, _processes, _os, _options, _clock, installFolder);
+        return new GameSessionWatcher(child, processName, _processes, _os, _options, _clock, installFolder, startedAt: startedAt);
     }
 
     // Steam on Linux keeps a helper process per game from the start of its launch to the game's end; no other store or OS is known to.

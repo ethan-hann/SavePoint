@@ -54,6 +54,10 @@ public sealed class GameSessionWatcher : IDisposable
     /// Says whether a listed process is the store's own helper for this game's start. For a link start, the grace does not run while any
     /// such process is listed: it counts from the last look that found one. Null for none.
     /// </param>
+    /// <param name="startedAt">
+    /// When the session began, taken from <paramref name="clock"/> before the program was started so that nothing the program starts
+    /// can be dated before it; the time of this call when null.
+    /// </param>
     /// <exception cref="ArgumentOutOfRangeException">The polling interval is not positive, or the grace or the relaunch window is negative.</exception>
     public GameSessionWatcher(
         IGameProcess? child,
@@ -63,7 +67,8 @@ public sealed class GameSessionWatcher : IDisposable
         GameSessionOptions options,
         TimeProvider clock,
         string? gameFolder = null,
-        Func<RunningProcess, bool>? launcherBusy = null)
+        Func<RunningProcess, bool>? launcherBusy = null,
+        DateTimeOffset? startedAt = null)
     {
         options.EnsureValid();
         _launcherBusy = launcherBusy;
@@ -73,7 +78,7 @@ public sealed class GameSessionWatcher : IDisposable
         _options = options;
         _clock = clock;
         _processes = processes;
-        StartedAt = clock.GetUtcNow();
+        StartedAt = startedAt ?? clock.GetUtcNow();
         _family = new ProcessFamily(StartedAt - ProcessFamily.SessionTolerance, gameFolder, PathSyntax.For(os), os == OsKind.Linux, options.RelaunchWindow);
         _loop = Task.Run(RunAsync);
     }

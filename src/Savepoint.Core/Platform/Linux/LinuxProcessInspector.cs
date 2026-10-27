@@ -14,12 +14,20 @@ public sealed class LinuxProcessInspector : IProcessInspector
     // The kernel counts a process's start in clock ticks after boot; the tick rate is 100 a second on every Linux that matters.
     private const long _ticksPerSecond = 100;
 
+    // The clock and the uptime are read an instant apart and the uptime counts in hundredths, so two readings of the same boot differ by a few milliseconds.
+    private static readonly TimeSpan _anchorJitter = TimeSpan.FromMilliseconds(200);
+
     private readonly string _procRoot;
+    private readonly TimeProvider _clock;
+    private readonly object _bootGate = new();
+    private DateTimeOffset? _bootAnchor;
 
     /// <param name="procRoot">Injectable so the parsing can be tested against a made-up /proc on any OS.</param>
-    public LinuxProcessInspector(string procRoot = "/proc")
+    /// <param name="clock">The wall clock the start times are dated against; the system clock when null.</param>
+    public LinuxProcessInspector(string procRoot = "/proc", TimeProvider? clock = null)
     {
         _procRoot = procRoot;
+        _clock = clock ?? TimeProvider.System;
     }
 
     /// <inheritdoc />
@@ -46,8 +54,32 @@ public sealed class LinuxProcessInspector : IProcessInspector
         return result;
     }
 
-    // The boot time anchors start times to the clock. Without it they still order processes against each other, which is all that matters.
+    // The boot time anchors start times to the clock, so a start can be compared with a moment SavePoint took itself. Without it
+    // starts still order processes against each other.
     private DateTimeOffset ReadBootTime()
+    {
+        var whole = ReadWholeSecondBootTime();
+        if (ReadExactBootTime(whole) is not { } exact)
+        {
+            return whole ?? DateTimeOffset.UnixEpoch;
+        }
+
+        // A follower is recognized by an equal start in every look, so the same anchor serves until the clock really moved.
+        lock (_bootGate)
+        {
+            if (_bootAnchor is { } kept && (exact - kept).Duration() <= _anchorJitter)
+            {
+                return kept;
+            }
+
+            _bootAnchor = exact;
+            return exact;
+        }
+    }
+
+    // btime counts whole seconds and drops the fraction, which dates every start up to a second early. A start so dated can fall
+    // before a moment taken just before the process began.
+    private DateTimeOffset? ReadWholeSecondBootTime()
     {
         try
         {
@@ -62,10 +94,33 @@ public sealed class LinuxProcessInspector : IProcessInspector
         }
         catch (Exception ex) when (IsReadFailure(ex))
         {
-            // Fall through to the epoch.
+            // No boot time to report.
         }
 
-        return DateTimeOffset.UnixEpoch;
+        return null;
+    }
+
+    // The boot instant to the hundredth of a second: now less the time the machine has been up. A container can show an uptime of its
+    // own beside the host's boot time, so one that does not agree with btime to within about a second is not used.
+    private DateTimeOffset? ReadExactBootTime(DateTimeOffset? whole)
+    {
+        try
+        {
+            var now = _clock.GetUtcNow();
+            var text = File.ReadAllText(Path.Combine(_procRoot, "uptime"));
+            var end = text.IndexOf(' ');
+            if (!double.TryParse(end < 0 ? text : text[..end], NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var seconds) || seconds < 0)
+            {
+                return null;
+            }
+
+            var exact = now - TimeSpan.FromSeconds(seconds);
+            return whole is { } floor && (exact < floor - _anchorJitter || exact >= floor + TimeSpan.FromSeconds(1) + _anchorJitter) ? null : exact;
+        }
+        catch (Exception ex) when (IsReadFailure(ex) || ex is OverflowException)
+        {
+            return null;
+        }
     }
 
     /// <summary>Reads the parent id (field 4) and the start in ticks after boot (field 22) from a <c>/proc/&lt;pid&gt;/stat</c> line.</summary>
