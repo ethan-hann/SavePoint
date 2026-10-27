@@ -12,6 +12,7 @@ How code is written in SavePoint where a tool cannot decide it. Each standard is
 | [Platform-specific code](csharp-platform-specific-code.md) | Code or a test behaves differently on Windows, Linux, or macOS. |
 | [View models, views, and screen wiring](app-mvvm-view-models.md) | Adding or changing a screen, dialog, view model, or view. |
 | [Test names and structure](tests-naming-and-structure.md) | Adding a test, a test helper, or a wait in a test. |
+| [Tests that can fail and run fast](tests-meaningful-and-fast.md) | Adding or changing a test, a theory, a fake, or a rig, or a test that builds git state or opens a window. |
 | [Comments that say why](csharp-comments.md) | Writing or changing a comment or a doc comment. |
 
 Code that breaks a standard is fixed, not copied. A standard that still has violations lists them under "Known violations", and each has an issue in the `Code Cleanup` milestone on the tracker; a standard with none has no such list.

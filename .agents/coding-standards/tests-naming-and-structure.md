@@ -7,7 +7,7 @@ paths:
 
 - **Status:** accepted
 - **Date Created:** 2026-10-26 17:55
-- **Last Updated:** 2026-10-26 18:10
+- **Last Updated:** 2026-10-27 18:21
 - **Applies To:**
   - Any test class or test helper in `tests/`.
 
@@ -137,7 +137,7 @@ File.WriteAllText(settings, "{}");
 
 ### Build expensive state once and copy it
 
-A repository state that many tests start from is built once per test run by `RepoTemplates.CopyAsync`, then copied into each test's workspace. Do not rebuild it with git in every test.
+A repository state that many tests start from is built once per test run by `RepoTemplates.CopyAsync`, then copied into each test's workspace. A backend workspace that many tests start from is built once the same way and copied with `BackendWorkspace.CopyOf`, and a two-profile launch world comes from `TwoProfileTemplates`. Do not rebuild it with git in every test, and never hand two tests the same copy.
 
 **Correct usage:**
 
@@ -158,6 +158,7 @@ for (var i = 0; i < 10; i++)
 **Examples:**
 
 - `tests/Savepoint.Core.Tests/Git/Engine/RepoTemplates.cs`, `RepoTemplates.CopyAsync`: builds a named template once and copies it. `CheckoutTests` uses it.
+- `tests/Savepoint.Core.Tests/Backend/RemovedWorld.cs`, `RemovedWorld.CreateAsync`: builds the plain world once per run and gives each caller its own `BackendWorkspace.CopyOf`.
 - `tests/Savepoint.Core.Tests/Launch/Orchestration/TwoProfileTemplates.cs`: builds the two-profile launch world once per free game program name and hands each `LaunchRig.WithTwoProfilesAsync` a copy, so tests running at once never share one.
 
 ### Wait on a condition, not a fixed time
@@ -228,6 +229,7 @@ var backend = CoreBackend.Create(new BackendOptions { CatalogDirectory = folder 
 - `docs/ui-guide.md`, section "Testing".
 - [Platform-specific code](csharp-platform-specific-code.md): OS skips and the expected-skip lists.
 - [Comments that say why](csharp-comments.md): what a test comment says.
+- [Tests that can fail and run fast](tests-meaningful-and-fast.md): what a test asserts, honest fakes, and what a test costs.
 
 ### External Resources
 
