@@ -48,7 +48,7 @@ grep -rL "x:DataType" --include=*.axaml src/Savepoint.App/Features | xargs grep 
 grep -rnE --include=*.cs "using Savepoint\.Core\.(Services|Git|Paths)" src/Savepoint.App
 ```
 
-Both searches print nothing after the known violations below are fixed.
+Both searches print nothing.
 
 ## When NOT to Apply
 

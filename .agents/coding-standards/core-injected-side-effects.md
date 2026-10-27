@@ -47,7 +47,7 @@ C# in `src/Savepoint.Core/`. App code gets its clock from `FeatureContext.Clock`
 grep -rnE --include=*.cs "DateTime(Offset)?\.(Now|UtcNow)" src/Savepoint.Core
 ```
 
-The search prints nothing after the known violations below are fixed.
+The search prints nothing.
 
 ## When NOT to Apply
 

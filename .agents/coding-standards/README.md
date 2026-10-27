@@ -14,7 +14,7 @@ How code is written in SavePoint where a tool cannot decide it. Each standard is
 | [Test names and structure](tests-naming-and-structure.md) | Adding a test, a test helper, or a wait in a test. |
 | [Comments that say why](csharp-comments.md) | Writing or changing a comment or a doc comment. |
 
-Code that breaks a standard is fixed, not copied. Each standard lists its known violations under "Known violations", and each has an issue in the `Code Cleanup` milestone on the tracker.
+Code that breaks a standard is fixed, not copied. A standard that still has violations lists them under "Known violations", and each has an issue in the `Code Cleanup` milestone on the tracker; a standard with none has no such list.
 
 ## How the standards relate to the other rules
 

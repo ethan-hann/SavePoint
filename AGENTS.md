@@ -81,6 +81,6 @@ These rules apply when one session (the coordinator) dispatches implementer agen
 - The coordinator decides how many implementers run side by side, from the work itself and the resources it touches (files, test fixtures, CPU and memory). There is no fixed cap.
 - Implementers never run the full gate. Each runs only the test classes for the files it changed, one class at a time, in the foreground, with `--max-threads 2` and a 5-minute timeout, and never two test processes at once.
 - The full gate runs once per batch: when every implementer has finished and its work is merged, the coordinator runs `build/gate.ps1` on the batch branch, then opens the pull request. It never runs the gate on an implementer's branch.
-- Every gate takes one machine-wide lock (`<main checkout>/.tools/locks/gate.lock`) and runs at below-normal priority with capped parallelism, so gates never overlap.
+- Every Windows gate takes one machine-wide lock (`<main checkout>/.tools/locks/gate.lock`) and runs at below-normal priority with capped parallelism, so Windows gates never overlap. The Linux gate runs on the Linux VM under its own lock there (D60), so one Windows gate and one VM gate can run at the same time.
 - Before a gate on the main checkout, make sure that no SavePoint is running from `src/Savepoint.App/bin`. A build overwrites it.
 - Stop every background shell or process you started before you report.

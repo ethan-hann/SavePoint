@@ -122,7 +122,7 @@ pwsh -NoProfile -File build/package.ps1
 - **Windows:** `build/package.ps1` publishes a self-contained `win-x64` build to `artifacts/publish/win-x64` and packs `SavePoint-win-Setup.exe` and `SavePoint-win-Portable.zip` into `artifacts/release/win-x64`. Before and after the pack it checks that `git/`, `THIRD-PARTY-NOTICES.md`, and `licenses/` are there, and it writes each package's listing to `artifacts/release/contents-win-x64/`.
 - **Linux:** `build/package.sh` does the same for `linux-x64` and gives `SavePoint.AppImage`. Run it from a clone on a Linux machine. Without a matching `dotnet`, it installs a .NET SDK into its tools folder.
 - **Linux package from Windows:** run `build/package-linux.ps1` (`-Commit`, default `HEAD`). Like the Linux gate, it sends the committed tree to the Linux VM and runs `package.sh` there, in its own folder (`~/package`) under its own lock. The package comes back to `artifacts/release/linux-x64`, with its listing beside it.
-- **Which build this is:** the scripts put the commit into the informational version, and the startup log names it. A tree with uncommitted changes is refused. `-AllowDirty` (`--allow-dirty`) packs it anyway, marked `-dirty`, for a trial package.
+- **Which build this is:** the scripts put the commit into the informational version, and the startup log names it. `build/package.ps1` and `build/package.sh` refuse a tree with uncommitted changes; `-AllowDirty` (`--allow-dirty`) packs it anyway, marked `-dirty`, for a trial package. `build/package-linux.ps1` always packs the committed tree of the commit it is given.
 - **macOS:** no package is built (D33).
 - **No update checks:** the packages do not check for updates (D33). Running a newer release's setup installs it over an older one.
 

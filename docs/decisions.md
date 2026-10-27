@@ -230,7 +230,7 @@ WinRT toasts (`ToastNotificationManager`, D10) need the `net10.0-windows10.0.x` 
   - Remove deletes the entry and SavePoint's icons (also icons left by an entry deleted by hand), then the icon size folders Add created (recorded as `X-SavePoint-Created-Folders`) when empty. A folder it did not create, or one with anything else in it, stays.
   - `update-desktop-database` runs on the user's applications folder when present. `gtk-update-icon-cache` runs only when the user already has an icon cache (otherwise the folder's time is touched), so SavePoint never leaves a cache file of its own. Failures are ignored; nothing asks for administrator rights.
 
-## D27. The Linux gate retries failed tests up to twice, and says which
+## D27. The Linux gate retried failed tests up to twice, and said which (retired by D60)
 
 The local Linux gate runs under WSL on the repository's `/mnt/f` drvfs (9p) mount, where the sources live. That mount shows rename/visibility races ordinary Linux file systems do not (a file just renamed into place is briefly "not found"), so file-heavy tests fail at random, a different one each run. The Linux gate re-runs failed tests up to twice and prints every test that needed a retry; three failures fail the gate. The Windows gate never retries, so real races in SavePoint's logic are still caught. Product code does not treat "file not found" as transient, since on a real file system that would hide genuine losses. Retired by D60: the local Linux gate now runs on ext4 on the Linux VM, and no gate retries.
 

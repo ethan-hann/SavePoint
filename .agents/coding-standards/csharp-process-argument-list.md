@@ -49,7 +49,7 @@ C# under `src/`, `tests/`, and `tools/`.
 grep -rnE --include=*.cs 'ProcessStartInfo\([^)]*\) *\{.*\bArguments *=|new ProcessStartInfo\("[^"]+", *\$?"' src tools tests
 ```
 
-The search prints nothing after the known violations below are fixed.
+The search prints nothing.
 
 ## When NOT to Apply
 
