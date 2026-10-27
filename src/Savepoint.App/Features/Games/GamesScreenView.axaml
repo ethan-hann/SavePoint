@@ -10,7 +10,8 @@
              x:Class="Savepoint.App.Features.Games.GamesScreenView"
              x:DataType="games:GamesScreenViewModel">
   <!--
-    The Games screen (sidebar and library layouts): the game's header, the Profiles / History chips, the profile table, the launch flow's banner or
+    The Games screen (sidebar and library layouts): the game's header, the Profiles / History chips, the profile search (pinned above the table
+    when the profiles' area has room, first in the scrolling profiles when it has not), the profile table, the launch flow's banner or
     running card and the storage footer. The banner or card and the footer are pinned to the bottom of the pane, outside the
     table's scroll area, so a launch's progress is in view however many profiles there are. A failure card is taller, so it
     stays below the table in the scroll area, and so does any card while the pane is too short to pin it. The library layout has no art tile, path, chips or toggle (the shell's shelf
@@ -160,11 +161,16 @@
       </Button>
     </Grid>
 
-    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Margin="0,12,0,0">
+    <Grid x:Name="ProfilesBody" Grid.Row="2" RowDefinitions="Auto,*">
+    <!-- Pinned above the table while the pane is tall enough, so a long list of profiles scrolls under it. -->
+    <Panel x:Name="PinnedSearchHost" Margin="0,12,0,0" IsVisible="{Binding ShowPinnedSearch}">
+      <search:SearchBoxView x:Name="ProfileSearchBox" DataContext="{Binding ProfileSearch}" />
+    </Panel>
+    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,12,0,0">
       <StackPanel VerticalAlignment="Top" Spacing="12">
-        <!-- Above the table and scrolling with it: a short window keeps all its room for the profiles. Ctrl+F brings it into view. -->
-        <Panel x:Name="ProfileSearchHost" IsVisible="{Binding ShowSearch}">
-          <search:SearchBoxView x:Name="ProfileSearchBox" DataContext="{Binding ProfileSearch}" />
+        <!-- In a short pane the same search goes first in the scrolling profiles, so the table keeps all the room. Focusing it brings it into view. -->
+        <Panel x:Name="ScrollingSearchHost" IsVisible="{Binding ShowScrollingSearch}">
+          <search:SearchBoxView x:Name="ScrollingProfileSearchBox" DataContext="{Binding ProfileSearch}" />
         </Panel>
         <ContentControl x:Name="LoadErrorHost" Content="{Binding LoadError}" IsVisible="{Binding LoadError, Converter={x:Static ObjectConverters.IsNotNull}}" />
 
@@ -322,6 +328,7 @@
         <ContentControl x:Name="ScrollingContentHost" IsVisible="{Binding HasScrollingContent}" Content="{Binding ScrollingContent}" />
       </StackPanel>
     </ScrollViewer>
+    </Grid>
 
     <!-- The launch flow's banner or running card for this game, pinned above the storage footer while the pane has room. -->
     <ContentControl x:Name="InlineContentHost" Grid.Row="3" Margin="0,12,0,0" IsVisible="{Binding HasPinnedContent}" Content="{Binding PinnedContent}" />

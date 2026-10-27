@@ -25,7 +25,7 @@ public sealed partial class ShellViewModel
     private void InitializeGameSearch()
     {
         NoGameMatchesText = _deps.Text.Message("search.games.noMatch");
-        GameSearch = new SearchBoxViewModel(_deps.Text, _deps.Dispatcher, _deps.Clock ?? TimeProvider.System, _deps.Text.Message("search.games.label"));
+        GameSearch = new SearchBoxViewModel(_deps.Text, _deps.Dispatcher, _deps.Clock ?? TimeProvider.System, _deps.Text.Message("search.games.label"), _deps.Text.Message("search.shortcut.findGames"));
         GameSearch.Changed += OnGameSearchChanged;
     }
 

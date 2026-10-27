@@ -19,6 +19,7 @@ public partial class GamesScreenView : UserControl
         InitializeComponent();
         Table.SizeChanged += OnTableSizeChanged;
         Root.SizeChanged += OnRootSizeChanged;
+        ProfilesBody.SizeChanged += OnBodySizeChanged;
         AddHandler(KeyDownEvent, OnKeyDown);
         AddHandler(ContextRequestedEvent, OnContextRequested, RoutingStrategies.Tunnel);
     }
@@ -40,6 +41,7 @@ public partial class GamesScreenView : UserControl
 
         Feed(Table.Bounds.Width);
         FeedHeader(Root.Bounds.Size);
+        FeedBody();
     }
 
     // A row is a Tab stop that carries the row's spoken summary, so Enter on it plays the row; a button inside the row handles its own Enter first.
@@ -79,6 +81,17 @@ public partial class GamesScreenView : UserControl
     private void OnTableSizeChanged(object? sender, SizeChangedEventArgs e) => Feed(e.NewSize.Width);
 
     private void OnRootSizeChanged(object? sender, SizeChangedEventArgs e) => FeedHeader(e.NewSize);
+
+    private void OnBodySizeChanged(object? sender, SizeChangedEventArgs e) => FeedBody();
+
+    // A pinned launch card takes its room from this area, so the search folds into the scrolling profiles while a card leaves the table too little.
+    private void FeedBody()
+    {
+        if (DataContext is GamesScreenViewModel screen && ProfilesBody.Bounds.Height > 0)
+        {
+            screen.SetBodyHeight(ProfilesBody.Bounds.Height);
+        }
+    }
 
     private void FeedHeader(Size size)
     {

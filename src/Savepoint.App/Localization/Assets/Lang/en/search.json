@@ -15,5 +15,8 @@
   "search.kind.saves": "Saves",
   "search.profiles.count": "{shownText} of {total, plural, one {{totalText} profile} other {{totalText} profiles}}",
   "search.profiles.label": "Search profiles",
-  "search.profiles.noMatch": "No profiles match."
+  "search.profiles.noMatch": "No profiles match.",
+  "search.shortcut.find": "{os, select, macos {Cmd+F} other {Ctrl+F}}",
+  "search.shortcut.findGames": "{os, select, macos {Cmd+Shift+F} other {Ctrl+Shift+F}}",
+  "search.tip": "{label} ({shortcut})"
 }
