@@ -91,13 +91,13 @@ BackCommand = new RelayCommand(Back, () => IsActive && _index > 0);
 **Correct usage (the handed-off exception):**
 
 ```csharp
-Items.Add(new ChipItem(trimmed, _text.Message("gameEditor.chip.remove", ("value", trimmed), ("list", GroupName)), new RelayCommand(() => Remove(trimmed))));
+new ErrorCardAction(_deps.Text.Message("games.loadError.tryAgain"), new AsyncRelayCommand(ReloadAsync), IsPrimary: true)
 ```
 
 **Examples:**
 
 - `src/Savepoint.App/Features/Common/Dialogs/ConfirmDialogViewModel.cs`, `ConfirmDialogViewModel.Confirm`: a generated command with a named gate.
-- `src/Savepoint.App/Features/Editor/ChipListViewModel.cs`, `ChipItem`: a command built for each chip.
+- `src/Savepoint.App/Features/Games/GamesScreenViewModel.cs`, the load error card: a Try again command built for the card it is handed to.
 
 ### Put the view beside its view model, with `x:DataType`
 
