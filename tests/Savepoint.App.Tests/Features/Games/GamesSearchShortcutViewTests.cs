@@ -87,6 +87,35 @@ public class GamesSearchShortcutViewTests
         Assert.Same(FieldOf(app, "RailSearch"), app.Focused);
     }
 
+    [AvaloniaTheory]
+    [InlineData(NavDestination.Settings)]
+    [InlineData(NavDestination.History)]
+    [InlineData(NavDestination.Activity)]
+    public async Task Ctrl_Shift_F_in_the_library_layout_from_another_screen_brings_up_the_Games_screen_and_its_search(NavDestination from)
+    {
+        using var app = await ComposedApp.StartWithViewAsync(layout: ShellLayout.Library);
+        app.Shell.Navigate(from);
+        app.Settle();
+
+        PressGamesSearchKey(app);
+
+        Assert.Equal(NavDestination.Games, app.Shell.Destination);
+        Assert.Same(FieldOf(app, "ShelfSearch"), app.Focused);
+    }
+
+    [AvaloniaFact]
+    public async Task Ctrl_Shift_F_in_the_library_layout_does_nothing_while_a_dialog_is_open()
+    {
+        using var app = await ComposedApp.StartWithViewAsync(layout: ShellLayout.Library);
+        app.Shell.Navigate(NavDestination.Settings);
+        _ = app.Games.DeleteGameCommand.ExecuteAsync(null);
+        app.Settle();
+
+        PressGamesSearchKey(app);
+
+        Assert.Equal(NavDestination.Settings, app.Shell.Destination);
+    }
+
     [AvaloniaFact]
     public async Task Ctrl_Shift_F_leaves_the_icon_rail_alone_because_it_has_no_search_box()
     {

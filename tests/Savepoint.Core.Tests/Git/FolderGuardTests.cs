@@ -27,9 +27,8 @@ public class FolderGuardTests
     }
 
     [Fact]
-    public void On_Windows_a_folder_that_reports_no_identity_is_logged_as_one_whose_swap_only_the_path_can_tell()
+    public void A_folder_that_reports_no_identity_is_logged_as_one_whose_swap_only_the_path_can_tell()
     {
-        Assert.SkipUnless(OperatingSystem.IsWindows(), "the guard holds and identifies folders on Windows only");
         using var tree = new TempTree();
         var (repo, safety) = Folder(tree, new WithoutIdentities());
         using var guard = FolderGuard.Pin(safety, repo, _log);

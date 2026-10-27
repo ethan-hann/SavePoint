@@ -22,9 +22,6 @@ internal static class UnixFiles
     private const int _macStatDev = 0;
     private const int _macStatIno = 8;
 
-    // Set once the suffixed name proves missing, so later reads skip the failing lookup.
-    private static volatile bool _plainStatIs64Bit;
-
     [SupportedOSPlatform("linux")]
     public static FileIdentity? ReadLinuxIdentity(string path)
     {
@@ -60,14 +57,10 @@ internal static class UnixFiles
         try
         {
             // Intel Macs keep a 32-bit-inode stat under the plain name; Apple Silicon has only the plain name, and it is the 64-bit one.
-            result = _plainStatIs64Bit ? MacStatPlain(path, buffer) : MacStat(path, buffer);
+            // Each read tries the suffixed name first and the plain one once, so no state outlives the call and nothing recurses.
+            result = StatMac(path, buffer);
         }
-        catch (EntryPointNotFoundException)
-        {
-            _plainStatIs64Bit = true;
-            return ReadMacIdentity(path);
-        }
-        catch (DllNotFoundException)
+        catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException)
         {
             return null;
         }
@@ -75,6 +68,19 @@ internal static class UnixFiles
         return result != 0
             ? null
             : new FileIdentity(BitConverter.ToUInt32(buffer, _macStatDev), BitConverter.ToUInt64(buffer, _macStatIno));
+    }
+
+    [SupportedOSPlatform("macos")]
+    private static int StatMac(string path, byte[] buffer)
+    {
+        try
+        {
+            return MacStat(path, buffer);
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return MacStatPlain(path, buffer);
+        }
     }
 
     [DllImport("libc.so.6", EntryPoint = "statx", SetLastError = true)]

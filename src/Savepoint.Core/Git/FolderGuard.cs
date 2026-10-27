@@ -32,7 +32,8 @@ internal sealed class FolderGuard : IDisposable
         new(safety, repo, safety.Pin(repo.WorkTree), log ?? DiagnosticLog.None);
 
     // Holds the folder where the OS allows it and checks that the folder held is the one pinned, then looks at the path once more.
-    // What cannot be done is logged on Windows, the one system that can do it, so a report of a swapped folder can be read against it.
+    // What cannot be done is logged, so a report of a swapped folder can be read against it: a hold that failed (only Windows holds)
+    // and a folder that gave no identity (any OS).
     public void Hold(bool hold)
     {
         if (hold)
@@ -43,17 +44,15 @@ internal sealed class FolderGuard : IDisposable
                 throw new FolderChangedException(_repo.WorkTree, _repo.Role);
             }
 
-            if (OperatingSystem.IsWindows())
+            if (OperatingSystem.IsWindows() && !_hold.IsHeld)
             {
-                if (!_hold.IsHeld)
-                {
-                    _log.Warning($"The {ErrorArgs.NameOf(_repo.Role)} folder '{_repo.WorkTree}' could not be held open, so it can be renamed while SavePoint works on it.");
-                }
+                _log.Warning($"The {ErrorArgs.NameOf(_repo.Role)} folder '{_repo.WorkTree}' could not be held open, so it can be renamed while SavePoint works on it.");
+            }
 
-                if (_pin.Identity is null)
-                {
-                    _log.Warning($"The {ErrorArgs.NameOf(_repo.Role)} folder '{_repo.WorkTree}' reports no identity, so a swap of the folder can be told only by its path.");
-                }
+            // Every OS reads an identity, so a missing one also shows a read that failed on that OS.
+            if (_pin.Identity is null)
+            {
+                _log.Warning($"The {ErrorArgs.NameOf(_repo.Role)} folder '{_repo.WorkTree}' reports no identity, so a swap of the folder can be told only by its path.");
             }
         }
 
