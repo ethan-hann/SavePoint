@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.Core.Api;
 using Savepoint.Core.Errors;
+using Savepoint.Core.Platform;
 
 namespace Savepoint.App.Features.Common.Errors;
 
@@ -79,7 +80,7 @@ public sealed partial class ErrorCardViewModel : ObservableObject
 
         // A file inside a game's snapshot folder reads as the game's folder, so the engine's folder name never reaches the player.
         path = SnapshotFolderNames.Describe(path).Path;
-        return error.MessageId == "error.diskSpace.low" && text.Os == "windows" ? UiFormatter.Drive(path) ?? path : path;
+        return error.MessageId == "error.diskSpace.low" && text.OsKind == OsKind.Windows ? UiFormatter.Drive(path) ?? path : path;
     }
 
     /// <summary>The Material Symbols glyph.</summary>

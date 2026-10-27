@@ -2,6 +2,7 @@ using System.Globalization;
 using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Localization;
 using Savepoint.Core.Errors;
+using Savepoint.Core.Platform;
 
 namespace Savepoint.App.Features.Common.Formatting;
 
@@ -38,11 +39,15 @@ public sealed class UiFormatter
         _clock = clock ?? TimeProvider.System;
         _timeZone = timeZone ?? TimeZoneInfo.Local;
         _culture = CultureInfo.GetCultureInfo(catalog.Locale);
-        Os = os ?? CurrentOs();
+        OsKind = os is null ? PlatformFactory.CurrentOs : KindOf(os);
+        Os = os ?? OsName(OsKind);
     }
 
     /// <summary>The value messages receive as <c>os</c>: <c>windows</c>, <c>macos</c> or <c>linux</c>.</summary>
     public string Os { get; }
+
+    /// <summary>The operating system the messages are for, which code decides on; <see cref="Os"/> is only the text the catalog selects on.</summary>
+    public OsKind OsKind { get; }
 
     /// <summary>Whether the catalog has a message for the key, so a caller can tell a message it knows from one a newer Core wrote.</summary>
     /// <param name="key">The catalog key.</param>
@@ -284,8 +289,20 @@ public sealed class UiFormatter
             : Message("format.duration.seconds", ("count", total));
     }
 
-    private static string CurrentOs() =>
-        OperatingSystem.IsWindows() ? "windows" : OperatingSystem.IsMacOS() ? "macos" : "linux";
+    // The only place the catalog's text names meet OsKind; every other branch on the system uses OsKind.
+    private static OsKind KindOf(string os) => os switch
+    {
+        "windows" => OsKind.Windows,
+        "macos" => OsKind.MacOS,
+        _ => OsKind.Linux,
+    };
+
+    private static string OsName(OsKind os) => os switch
+    {
+        OsKind.Windows => "windows",
+        OsKind.MacOS => "macos",
+        _ => "linux",
+    };
 
     private DateTimeOffset Local(DateTimeOffset when) => TimeZoneInfo.ConvertTime(when, _timeZone);
 

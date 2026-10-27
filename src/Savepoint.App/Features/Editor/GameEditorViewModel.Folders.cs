@@ -5,6 +5,7 @@ using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
+using Savepoint.Core.Platform;
 
 namespace Savepoint.App.Features.Editor;
 
@@ -55,7 +56,7 @@ public sealed partial class GameEditorViewModel
     private IReadOnlyList<SuggestionItem> BuildLocationChoices(Action<string> apply, string automationKey)
     {
         // Saved Games is a Windows folder; every other system has the home folder as a starting point instead.
-        string[] tokens = _text.Os == "windows"
+        string[] tokens = _text.OsKind == OsKind.Windows
             ? ["{documents}", "{savedGames}", "{appData}", "{localAppData}"]
             : ["{documents}", "{userHome}", "{appData}", "{localAppData}"];
         return [.. tokens.Select(token => new SuggestionItem(token, new RelayCommand(() => apply(token)), LocationName(token), _text.Message(automationKey, ("location", LocationName(token)))))];
