@@ -34,6 +34,12 @@ public sealed partial class LaunchOrchestrator
                     throw new LaunchAlreadyRunningException(gameId);
                 }
 
+                // Asked here as well as in the job: a refusal now has no job and no session, and nothing was read.
+                if (!startSteam && await SteamIsMissingAsync(game).ConfigureAwait(false))
+                {
+                    throw new SteamNotRunningException(gameId);
+                }
+
                 var (profile, older) = await ResolveForSessionAsync(game, target).ConfigureAwait(false);
                 var profileId = profile.Id;
 
@@ -133,6 +139,9 @@ public sealed partial class LaunchOrchestrator
     private async Task<JobResult?> RunLaunchAsync(JobContext context, string gameId, LaunchTarget target, bool startSteam, Task sessionOpen)
     {
         await sessionOpen.ConfigureAwait(false);
+
+        // Before the first folder is read: a Steam game needs the client, and a client started later would update over the switched version.
+        await EnsureSteamAsync(context, await RequireGameAsync(gameId, context.CancellationToken).ConfigureAwait(false), startSteam).ConfigureAwait(false);
 
         // Preparing and switching hold the game's lock, which a running optimization yields to (D13.17); the lock is let go before the game starts.
         var prepared = await _services.RunForGameAsync(gameId, (storage, _) => PrepareAsync(storage, context, gameId, target), context.CancellationToken).ConfigureAwait(false);

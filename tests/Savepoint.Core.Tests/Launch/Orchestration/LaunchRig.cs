@@ -5,6 +5,7 @@ using Savepoint.Core.Catalog;
 using Savepoint.Core.Git;
 using Savepoint.Core.Launch;
 using Savepoint.Core.Launch.Orchestration;
+using Savepoint.Core.Platform;
 using Savepoint.Core.Services;
 using Savepoint.Core.Tests.Backend;
 using Savepoint.Core.Tests.Services.Exe;
@@ -80,11 +81,13 @@ internal sealed class LaunchRig : IDisposable
         bool withSaves = true,
         string? processName = null,
         GameSessionOptions? session = null,
-        GameStarter? starter = null)
+        GameStarter? starter = null,
+        ISteamClient? steam = null,
+        SteamWaitOptions? steamWait = null)
     {
         var exeName = "fg" + Guid.NewGuid().ToString("N")[..6];
         var exeFile = exeName + (OperatingSystem.IsWindows() ? ".exe" : string.Empty);
-        var workspace = new BackendWorkspace(WithOrchestrator(configure, session, starter));
+        var workspace = new BackendWorkspace(WithOrchestrator(configure, session, starter, steam, steamWait));
         try
         {
             var definition = workspace.NewGame("Play", withSaves, modHints ?? ["mods"]);
@@ -108,12 +111,19 @@ internal sealed class LaunchRig : IDisposable
     }
 
     // The backend options every rig builds: the real orchestrator, polling fast so a test does not wait on the production interval.
-    private static Func<BackendOptions, BackendOptions> WithOrchestrator(Func<BackendOptions, BackendOptions>? configure, GameSessionOptions? session, GameStarter? starter)
+    // The Steam client is never the machine's own: a rig that does not script one gets a closed client.
+    private static Func<BackendOptions, BackendOptions> WithOrchestrator(
+        Func<BackendOptions, BackendOptions>? configure,
+        GameSessionOptions? session,
+        GameStarter? starter,
+        ISteamClient? steam = null,
+        SteamWaitOptions? steamWait = null)
     {
         var rigSession = session ?? new GameSessionOptions { PollInterval = TimeSpan.FromMilliseconds(100), Grace = TimeSpan.FromSeconds(3) };
+        var rigSteamWait = steamWait ?? new SteamWaitOptions { Timeout = TimeSpan.FromSeconds(2), PollInterval = TimeSpan.FromMilliseconds(20) };
         return options =>
         {
-            var launching = options with { Launch = LaunchOrchestrator.Factory(new LaunchOrchestratorOptions { Session = rigSession, Starter = starter }) };
+            var launching = options with { Launch = LaunchOrchestrator.Factory(new LaunchOrchestratorOptions { Session = rigSession, Starter = starter, Steam = steam ?? new FakeSteamClient(), SteamWait = rigSteamWait }) };
             return configure is null ? launching : configure(launching);
         };
     }
@@ -136,13 +146,15 @@ internal sealed class LaunchRig : IDisposable
     public static async Task<(LaunchRig Rig, Profile Vanilla, Profile Modded)> WithTwoProfilesAsync(
         Func<BackendOptions, BackendOptions>? configure = null,
         IReadOnlyList<string>? gameArguments = null,
-        bool followProcessName = false)
+        bool followProcessName = false,
+        ISteamClient? steam = null,
+        SteamWaitOptions? steamWait = null)
     {
         var slot = await TwoProfileTemplates.RentAsync();
         BackendWorkspace? workspace = null;
         try
         {
-            workspace = BackendWorkspace.CopyOf(slot.Workspace, WithOrchestrator(configure, null, null));
+            workspace = BackendWorkspace.CopyOf(slot.Workspace, WithOrchestrator(configure, null, null, steam, steamWait));
             var game = Assert.Single((await workspace.Games.ListAsync(workspace.Token)).Value!);
             var profiles = (await workspace.Profiles.ListAsync(game.Id, workspace.Token)).Value!;
             var rig = new LaunchRig(workspace, game, slot.ExeName, slot);

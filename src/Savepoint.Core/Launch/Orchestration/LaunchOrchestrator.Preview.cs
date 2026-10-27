@@ -99,7 +99,8 @@ public sealed partial class LaunchOrchestrator
             resolved.SelectedSave,
             ShowBanner: readings.All(reading => reading.Matches),
             OnlySaveDiffers: install.Matches && (mods?.Matches ?? true) && external is { Matches: false, Dirty: false },
-            TargetIsOlderPoint: resolved.IsOlderPoint);
+            TargetIsOlderPoint: resolved.IsOlderPoint,
+            SteamNeeded: await SteamIsMissingAsync(game).ConfigureAwait(false) ? ErrorInfo.From(new SteamNotRunningException(game.Id)) : null);
     }
 
     private async Task<FolderLaunchState> FolderStateAsync(
