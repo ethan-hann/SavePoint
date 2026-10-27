@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Paths;
@@ -10,7 +11,7 @@ using Savepoint.Core.Tests.Platform;
 namespace Savepoint.Core.Tests.Catalog;
 
 // A template can name the mods folder a game keeps outside its install, the same way it names the saves folder.
-public class ModsFolderTemplateTests
+public partial class ModsFolderTemplateTests
 {
     private const string _withMods = """
         {
@@ -50,6 +51,54 @@ public class ModsFolderTemplateTests
         foreach (var (os, location) in template.Hints.ModsByOs)
         {
             yield return (os, location.Path);
+        }
+    }
+
+    private static string[] Segments(string path) => path.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries);
+
+    // Letters and digits only, so "7DaysToDie" and "7 Days to Die" compare equal.
+    private static string Squash(string text) => NotAlphanumeric().Replace(Years().Replace(text, string.Empty), string.Empty).ToLowerInvariant();
+
+    [GeneratedRegex(@"[^A-Za-z0-9]+", RegexOptions.CultureInvariant)]
+    private static partial Regex NotAlphanumeric();
+
+    [GeneratedRegex(@"\(\d{4}\)", RegexOptions.CultureInvariant)]
+    private static partial Regex Years();
+
+    // The name of another game whose folder the path names, or null.
+    private static string? OtherGameNamedBy(GameTemplate template, string path)
+    {
+        var own = Squash(template.DisplayName);
+        var named = Segments(path).Select(Squash).ToHashSet();
+        return GameTemplates.All
+            .Where(other => other.Id != template.Id)
+            .Select(other => (other.DisplayName, Squashed: Squash(other.DisplayName)))
+            .Where(other => other.Squashed.Length > 0 && !own.Contains(other.Squashed, StringComparison.Ordinal))
+            .FirstOrDefault(other => named.Contains(other.Squashed)).DisplayName;
+    }
+
+    [Fact]
+    public void A_mods_path_with_another_games_name_in_it_is_found_out()
+    {
+        var template = Template("7-days-to-die");
+        var other = GameTemplates.All.First(candidate => candidate.Id != template.Id && Squash(candidate.DisplayName).Length > 0
+            && !Squash(template.DisplayName).Contains(Squash(candidate.DisplayName), StringComparison.Ordinal));
+
+        Assert.Equal(other.DisplayName, OtherGameNamedBy(template, $"{{appData}}\\{other.DisplayName}\\Mods"));
+        Assert.Null(OtherGameNamedBy(template, @"{appData}\7DaysToDie\Mods"));
+    }
+
+    [Theory]
+    [MemberData(nameof(TemplateIds))]
+    public void No_mods_folder_is_another_games_folder(string id)
+    {
+        var template = Template(id);
+
+        foreach (var (os, path) in ModsPaths(template))
+        {
+            var clash = OtherGameNamedBy(template, path);
+
+            Assert.True(clash is null, $"'{path}' ({os}) is a folder of '{clash}', not of '{template.DisplayName}'.");
         }
     }
 
