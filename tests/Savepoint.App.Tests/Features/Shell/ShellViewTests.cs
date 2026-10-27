@@ -535,6 +535,51 @@ public class ShellViewTests
         Assert.Contains("No games yet.", texts);
     }
 
+    [AvaloniaFact]
+    public async Task The_icon_rail_tells_a_screen_reader_there_are_no_games_yet_though_the_note_is_hidden_there()
+    {
+        using var harness = await ShellViewHarness.StartAsync(Empty(), width: 800);
+
+        var add = ControlAutomationPeer.CreatePeerForElement(harness.Find<Button>("RailAddButton"));
+
+        Assert.True(harness.Shell.IsCompact);
+        Assert.False(harness.Find<TextBlock>("NoGamesLabel").IsEffectivelyVisible);
+        Assert.Equal("Add a game", add.GetName());
+        Assert.Equal("No games yet.", add.GetHelpText());
+    }
+
+    [AvaloniaFact]
+    public async Task The_wide_rail_does_not_repeat_its_visible_no_games_note_to_a_screen_reader()
+    {
+        using var harness = await ShellViewHarness.StartAsync(Empty());
+
+        Assert.True(harness.Find<TextBlock>("NoGamesLabel").IsEffectivelyVisible);
+        Assert.True(string.IsNullOrEmpty(AutomationProperties.GetHelpText(harness.Find<Button>("RailAddButton"))));
+    }
+
+    [AvaloniaFact]
+    public async Task The_icon_rail_says_nothing_about_no_games_once_there_are_games()
+    {
+        using var harness = await ShellViewHarness.StartAsync(width: 800);
+
+        Assert.True(harness.Shell.IsCompact);
+        Assert.True(string.IsNullOrEmpty(AutomationProperties.GetHelpText(harness.Find<Button>("RailAddButton"))));
+    }
+
+    [AvaloniaFact]
+    public async Task Widening_the_window_takes_the_no_games_help_off_the_rail_button()
+    {
+        using var harness = await ShellViewHarness.StartAsync(Empty(), width: 800);
+        var add = harness.Find<Button>("RailAddButton");
+        Assert.Equal("No games yet.", AutomationProperties.GetHelpText(add));
+
+        harness.Window.Width = 1040;
+        harness.Settle();
+
+        Assert.False(harness.Shell.IsCompact);
+        Assert.True(string.IsNullOrEmpty(AutomationProperties.GetHelpText(add)));
+    }
+
     private const string _artworkNote = "SavePoint downloads cover art for Steam games from Steam. You can turn this off in Settings.";
 
     [AvaloniaFact]

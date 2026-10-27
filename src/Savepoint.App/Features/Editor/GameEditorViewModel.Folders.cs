@@ -122,7 +122,7 @@ public sealed partial class GameEditorViewModel
     {
         InstallError = null;
         InstallCard = null;
-        NotifyModFilesPick();
+        SetModFilesLeftOut(0);
         ClearProcessNameOffer();
         NotifySteamStartNote();
         UpdateConfirmations();

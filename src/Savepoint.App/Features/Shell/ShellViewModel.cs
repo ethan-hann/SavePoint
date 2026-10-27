@@ -280,6 +280,7 @@ public sealed partial class ShellViewModel : ObservableObject, IShellContext, ID
 
         OnPropertyChanged(nameof(IsCompact));
         OnPropertyChanged(nameof(RailWidth));
+        OnPropertyChanged(nameof(RailAddHelpText));
         RefilterGames();
     }
 
@@ -598,6 +599,7 @@ public sealed partial class ShellViewModel : ObservableObject, IShellContext, ID
     {
         OnPropertyChanged(nameof(CurrentScreen));
         OnPropertyChanged(nameof(ShowFirstRun));
+        OnPropertyChanged(nameof(RailAddHelpText));
         OnPropertyChanged(nameof(ShowShelf));
         OnPropertyChanged(nameof(LibraryError));
         OnPropertyChanged(nameof(Content));

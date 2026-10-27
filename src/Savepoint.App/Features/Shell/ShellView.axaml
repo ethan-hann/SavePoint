@@ -126,7 +126,7 @@
               <Border Classes="divider" Margin="8,6,8,0" />
               <TextBlock x:Name="YourGamesLabel" Classes="overline-small" Margin="8,6,8,2" IsVisible="{Binding !IsCompact}" Text="{theme:Upper {loc:Loc shell.yourGames}}" />
             </StackPanel>
-            <!-- The icon rail has no room to say it; its highlighted Add a game button does. -->
+            <!-- The icon rail has no room to say it: its highlighted Add a game button does for the eye, and carries the note as its help text for a screen reader. -->
             <Panel x:Name="NoGamesNote">
               <TextBlock x:Name="NoGamesLabel" Classes="body subtle" Margin="8,2" TextWrapping="Wrap" IsVisible="{Binding ShowFirstRun}" Text="{loc:Loc shell.noGamesYet}" />
             </Panel>
@@ -191,6 +191,7 @@
                   FontSize="13.5"
                   Command="{Binding AddGameCommand}"
                   AutomationProperties.Name="{loc:Loc shell.addGame}"
+                  AutomationProperties.HelpText="{Binding RailAddHelpText}"
                   ToolTip.Tip="{loc:Loc shell.addGame}">
             <Grid ColumnDefinitions="Auto,*" HorizontalAlignment="Center">
               <TextBlock Classes="icon s18" VerticalAlignment="Center" Text="{x:Static theme:Icons.Add}" />

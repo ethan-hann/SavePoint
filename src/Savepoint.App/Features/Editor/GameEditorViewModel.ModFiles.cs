@@ -43,11 +43,16 @@ public sealed partial class GameEditorViewModel
 
         var entries = new List<string>();
         var leftOut = 0;
+        // A typed entry may use backslashes; it names the same path as the picked one, so it is not listed twice.
+        var typed = ModFolders.Values.Select(value => value.Replace('\\', '/')).ToHashSet(StringComparer.Ordinal);
         foreach (var path in picked)
         {
             if (EntryInside(installFolder, path) is { } entry)
             {
-                entries.Add(entry);
+                if (!typed.Contains(entry))
+                {
+                    entries.Add(entry);
+                }
             }
             else
             {

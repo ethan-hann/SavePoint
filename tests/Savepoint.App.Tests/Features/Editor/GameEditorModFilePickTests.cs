@@ -154,6 +154,30 @@ public sealed class GameEditorModFilePickTests : IDisposable
     }
 
     [Fact]
+    public async Task Naming_another_game_folder_clears_the_left_out_line_of_the_pick_before()
+    {
+        _rig.Dialogs.AnswerFiles(Outside("other.dll"));
+        await _editor.ChooseModFilesCommand.ExecuteAsync(null);
+        Assert.True(_editor.HasModFilesPickNote);
+
+        _editor.InstallPath = Outside("AnotherGame");
+
+        Assert.Equal(string.Empty, _editor.ModFilesPickNote);
+        Assert.False(_editor.HasModFilesPickNote);
+    }
+
+    [Fact]
+    public async Task A_folder_already_typed_with_backslashes_is_not_added_again_when_picked()
+    {
+        _editor.ModFolders.SetValues([@"Data\Mods"]);
+        _rig.Dialogs.AnswerFolders(Inside("Data", "Mods"), Inside("BepInEx"));
+
+        await _editor.ChooseModFoldersCommand.ExecuteAsync(null);
+
+        Assert.Equal([@"Data\Mods", "BepInEx"], _editor.ModFolders.Values);
+    }
+
+    [Fact]
     public async Task Both_pickers_open_in_the_game_folder_with_their_own_titles()
     {
         await _editor.ChooseModFilesCommand.ExecuteAsync(null);

@@ -1,6 +1,7 @@
 {
   "gameEditor.card.game": "Game",
   "gameEditor.card.mods": "Mods",
+  "gameEditor.card.named": "{card}, {tag}",
   "gameEditor.card.saves": "Saves",
   "gameEditor.tag.optional": "Optional",
   "gameEditor.tag.recommended": "Recommended",
