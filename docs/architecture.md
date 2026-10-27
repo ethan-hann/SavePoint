@@ -246,7 +246,7 @@ Catalog models (`GameDefinition`, `Profile`, `AppSettings`, `GameTemplate`, `Rep
 
 A `JobLine` is a `FilePath` or a `Step` (a catalog message id and its arguments, from the constants of `JobSteps`). Text from git is never a line (D44.5).
 
-`List()` keeps running jobs in start order, then each game's five most recently finished jobs, then the five most recently finished jobs that span every game.
+`List()` keeps running jobs in start order, then each game's five most recently finished jobs, then the five most recently finished jobs that span every game. `JobRegistry` saves the finished ones to `activity-history.json` in the catalog folder as each ends and reads them back at start, without their steps (D44.5).
 
 `StagingBatches` stages a watched capture in groups, and `ProgressReporter` estimates the big file git is on from the store's growth (`StoreMeter`) (D50).
 
