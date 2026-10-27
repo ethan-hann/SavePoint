@@ -31,7 +31,9 @@ internal sealed class GitProcessRegistry
     private readonly IDiagnosticLog? _log;
     private readonly Lock _noteGate = new();
     private readonly List<ProcessStamp> _carried = [];
-    private HashSet<ProcessStamp>? _written = [];
+    // Names this registry's part of the note, so a write replaces only its own gits and another registry on the same folder keeps its own.
+    private readonly Guid _key = Guid.NewGuid();
+    private HashSet<ProcessStamp> _written = [];
     private Timer? _timer;
     private bool _closed;
     // Whether the file on disk is this registry's own writing; only that is this registry's to remove.
@@ -93,21 +95,21 @@ internal sealed class GitProcessRegistry
 
     /// <summary>Notes a started process; the returned token takes it off the list again once its call is over.</summary>
     /// <param name="process">The process just started.</param>
-    /// <param name="persist">False for a git that is left to finish when SavePoint is stopped, which the note of running git must not name.</param>
-    public IDisposable Add(Process process, bool persist = true) =>
-        ProcessStamp.Of(process) is { } stamp ? Add(stamp, persist) : Registration.None;
+    /// <param name="survivesExit">True for a git that is left to finish when SavePoint is stopped; the note of running git does not name it and a close does not end it.</param>
+    public IDisposable Add(Process process, bool survivesExit = false) =>
+        ProcessStamp.Of(process) is { } stamp ? Add(stamp, survivesExit) : Registration.None;
 
     /// <summary>Notes a process by its stamp. On a registry that is already closed, a process that would be ended at close is ended at once.</summary>
     /// <param name="stamp">The process.</param>
-    /// <param name="persist">False for a git that is left to finish when SavePoint is stopped, which the note of running git must not name.</param>
-    public IDisposable Add(ProcessStamp stamp, bool persist = true)
+    /// <param name="survivesExit">True for a git that is left to finish when SavePoint is stopped; the note of running git does not name it and a close does not end it.</param>
+    public IDisposable Add(ProcessStamp stamp, bool survivesExit = false)
     {
-        _running[stamp.Id] = new Entry(stamp, persist);
+        _running[stamp.Id] = new Entry(stamp, survivesExit);
         Touch();
 
         // Listed first, then looked at: a close that began meanwhile either sees the entry or is seen here. The process is ended, not refused,
         // because the caller has already started it and a refusal would leave it running with nobody to end it.
-        if (persist && IsClosed())
+        if (!survivesExit && IsClosed())
         {
             KillAll();
         }
@@ -134,9 +136,9 @@ internal sealed class GitProcessRegistry
     }
 
     /// <summary>
-    /// Ends every registered process except those left to finish, and writes no more of the note. Done as the process exits. A note this registry
-    /// wrote is taken back to the gits of an earlier run that still run, and another registry on the same note has its gits written again; a note
-    /// this registry never wrote is left alone, because it is another run's or another registry's.
+    /// Ends every registered process except those left to finish, and writes no more of the note. Done as the process exits. What this registry
+    /// wrote on the note is taken back to the gits of an earlier run that still run; what another registry on the same note wrote stays, and a
+    /// note this registry never wrote is left alone, because it is another run's.
     /// </summary>
     public void Close()
     {
@@ -156,10 +158,6 @@ internal sealed class GitProcessRegistry
         }
 
         SettleNote();
-        foreach (var other in _forApp.Keys.Where(other => !ReferenceEquals(other, this) && SameNote(other)))
-        {
-            other.WriteAgain();
-        }
     }
 
     /// <summary>Ends every registered process, except those left to finish, and what it started. A process that took over the number of one that ended is left alone.</summary>
@@ -175,7 +173,7 @@ internal sealed class GitProcessRegistry
             }
 
             // A git left to finish (a reclaim, D46.1) is out of the kill-on-close job too; the next start waits for it by its own marker.
-            if (!entry.Persist)
+            if (entry.SurvivesExit)
             {
                 continue;
             }
@@ -216,21 +214,7 @@ internal sealed class GitProcessRegistry
         }
     }
 
-    private bool SameNote(GitProcessRegistry other) =>
-        _notePath is not null && other._notePath is not null
-        && string.Equals(Path.GetFullPath(_notePath), Path.GetFullPath(other._notePath), OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
-
-    // Writes the note at once, even if it already holds what this registry last wrote: another registry's close may have removed it.
-    private void WriteAgain()
-    {
-        lock (_noteGate)
-        {
-            _written = null;
-            WriteNote();
-        }
-    }
-
-    // Leaves the note holding only the gits of an earlier run that still run, which no registry of this run can end.
+    // Leaves this registry's part of the note holding only the gits of an earlier run that still run, which no registry of this run can end.
     private void SettleNote()
     {
         lock (_noteGate)
@@ -239,14 +223,7 @@ internal sealed class GitProcessRegistry
             _wroteNote = false;
             try
             {
-                if (carried.Count == 0)
-                {
-                    RunningGitNote.Clear(_notePath!);
-                }
-                else
-                {
-                    RunningGitNote.Write(_notePath!, ProcessStamp.Current(), carried);
-                }
+                RunningGitNote.Update(_notePath!, ProcessStamp.Current(), _key, carried);
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException)
             {
@@ -266,7 +243,7 @@ internal sealed class GitProcessRegistry
                 return;
             }
 
-            var current = _running.Values.Where(entry => entry.Persist).Select(entry => entry.Stamp).ToHashSet();
+            var current = _running.Values.Where(entry => !entry.SurvivesExit).Select(entry => entry.Stamp).ToHashSet();
             foreach (var carried in _carried.ToList())
             {
                 if (carried.IsRunning())
@@ -279,24 +256,15 @@ internal sealed class GitProcessRegistry
                 }
             }
 
-            if (_written is not null && current.SetEquals(_written))
+            if (current.SetEquals(_written))
             {
                 return;
             }
 
             try
             {
-                if (current.Count == 0)
-                {
-                    RunningGitNote.Clear(_notePath);
-                    _wroteNote = false;
-                }
-                else
-                {
-                    RunningGitNote.Write(_notePath, ProcessStamp.Current(), current);
-                    _wroteNote = true;
-                }
-
+                RunningGitNote.Update(_notePath, ProcessStamp.Current(), _key, current);
+                _wroteNote = current.Count > 0;
                 _written = current;
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException)
@@ -311,7 +279,7 @@ internal sealed class GitProcessRegistry
         }
     }
 
-    private readonly record struct Entry(ProcessStamp Stamp, bool Persist);
+    private readonly record struct Entry(ProcessStamp Stamp, bool SurvivesExit);
 
     private sealed class Registration(GitProcessRegistry? owner, ProcessStamp stamp) : IDisposable
     {

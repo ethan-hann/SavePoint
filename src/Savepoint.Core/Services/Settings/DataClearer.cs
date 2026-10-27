@@ -138,6 +138,10 @@ internal sealed class DataClearer
             await Attempt(context, left, file, () => Task.Run(() => DeleteFile(file))).ConfigureAwait(false);
         }
 
+        // The list Activity keeps across runs sits beside them and goes with them.
+        Log("removing the Activity history.");
+        await Attempt(context, left, JobHistoryPath(), () => Task.Run(_services.Jobs.ClearSavedHistory)).ConfigureAwait(false);
+
         // Artwork sits beside the catalog files, in the configuration folder, so it goes with them.
         Log("removing the artwork.");
         context.AddStep(JobSteps.ClearArtwork);
@@ -169,6 +173,8 @@ internal sealed class DataClearer
             .Where(file => names.Any(name => Path.GetFileName(file).StartsWith(name, StringComparison.Ordinal)))
             .ToList();
     }
+
+    private string JobHistoryPath() => Path.Combine(_services.Catalog.DirectoryPath, JobHistoryFile.FileName);
 
     private void Log(string step) => _services.Log.Information($"Clear all data: {step}");
 

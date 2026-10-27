@@ -67,6 +67,54 @@ public class JobRowViewModelTests
     }
 
     [Theory]
+    [InlineData(JobKind.Capture, "skyrim", JobStatus.Succeeded, "Took a snapshot of Skyrim Special Edition")]
+    [InlineData(JobKind.Capture, "skyrim", JobStatus.Partial, "Took a snapshot of Skyrim Special Edition")]
+    [InlineData(JobKind.Capture, "skyrim", JobStatus.Failed, "Couldn't take a snapshot of Skyrim Special Edition")]
+    [InlineData(JobKind.Capture, "skyrim", JobStatus.Cancelled, "Canceled the snapshot of Skyrim Special Edition")]
+    [InlineData(JobKind.Launch, "skyrim", JobStatus.Succeeded, "Started Skyrim Special Edition")]
+    [InlineData(JobKind.Launch, "skyrim", JobStatus.Failed, "Couldn't start Skyrim Special Edition")]
+    [InlineData(JobKind.Launch, "skyrim", JobStatus.Cancelled, "Canceled starting Skyrim Special Edition")]
+    [InlineData(JobKind.Switch, "skyrim", JobStatus.Succeeded, "Switched Skyrim Special Edition's files")]
+    [InlineData(JobKind.Switch, "skyrim", JobStatus.Failed, "Couldn't switch Skyrim Special Edition's files")]
+    [InlineData(JobKind.Switch, "skyrim", JobStatus.Cancelled, "Canceled switching Skyrim Special Edition's files")]
+    [InlineData(JobKind.Compact, "skyrim", JobStatus.Succeeded, "Freed up space for Skyrim Special Edition")]
+    [InlineData(JobKind.Compact, "skyrim", JobStatus.Failed, "Couldn't free up space for Skyrim Special Edition")]
+    [InlineData(JobKind.Compact, "skyrim", JobStatus.Cancelled, "Canceled freeing up space for Skyrim Special Edition")]
+    [InlineData(JobKind.Compact, null, JobStatus.Succeeded, "Freed up space for all games")]
+    [InlineData(JobKind.Compact, null, JobStatus.Failed, "Couldn't free up space for all games")]
+    [InlineData(JobKind.Compact, null, JobStatus.Cancelled, "Canceled freeing up space for all games")]
+    [InlineData(JobKind.PackStorage, "skyrim", JobStatus.Succeeded, "Compacted snapshot files for Skyrim Special Edition")]
+    [InlineData(JobKind.PackStorage, "skyrim", JobStatus.Failed, "Couldn't compact snapshot files for Skyrim Special Edition")]
+    [InlineData(JobKind.PackStorage, "skyrim", JobStatus.Cancelled, "Canceled compacting snapshot files for Skyrim Special Edition")]
+    [InlineData(JobKind.RelocateStorage, null, JobStatus.Succeeded, "Moved the snapshot folder")]
+    [InlineData(JobKind.RelocateStorage, null, JobStatus.Partial, "Moved the snapshot folder")]
+    [InlineData(JobKind.RelocateStorage, null, JobStatus.Failed, "Couldn't move the snapshot folder")]
+    [InlineData(JobKind.RelocateStorage, null, JobStatus.Cancelled, "Canceled moving the snapshot folder")]
+    [InlineData(JobKind.ClearData, null, JobStatus.Succeeded, "Cleared SavePoint's data")]
+    [InlineData(JobKind.ClearData, null, JobStatus.Partial, "Cleared SavePoint's data")]
+    [InlineData(JobKind.ClearData, null, JobStatus.Failed, "Couldn't clear SavePoint's data")]
+    [InlineData(JobKind.ClearData, null, JobStatus.Cancelled, "Canceled clearing SavePoint's data")]
+    [InlineData(JobKind.Capture, "gone", JobStatus.Succeeded, "Took a snapshot of a game that was removed")]
+    public void A_finished_job_is_named_in_the_past_tense_and_a_failed_or_canceled_one_says_so(JobKind kind, string? gameId, JobStatus status, string expected)
+    {
+        Assert.Equal(expected, Row(Job(kind, gameId, status)).Title);
+    }
+
+    [Fact]
+    public void A_job_that_ends_changes_its_row_from_the_present_tense_to_the_past()
+    {
+        var running = Job();
+        var row = Row(running);
+        var changed = new List<string?>();
+        row.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        row.Apply(running with { Status = JobStatus.Succeeded, FinishedAt = _now, Revision = 2 });
+
+        Assert.Equal("Took a snapshot of Skyrim Special Edition", row.Title);
+        Assert.Contains(nameof(JobRowViewModel.Title), changed);
+    }
+
+    [Theory]
     [InlineData(JobStatus.Running, false, "In progress", JobTone.Running)]
     [InlineData(JobStatus.Running, true, "Stopping…", JobTone.Running)]
     [InlineData(JobStatus.Succeeded, false, "Done", JobTone.Success)]
@@ -228,7 +276,7 @@ public class JobRowViewModelTests
     [InlineData(JobKind.ClearData, false, false, false, "Clearing data can't be stopped once it has started.")]
     [InlineData(JobKind.RelocateStorage, false, false, false, "The move can't be stopped now. SavePoint already uses the new folder.")]
     [InlineData(JobKind.Compact, false, false, false, "Freeing up space can't be stopped now. It has started deleting recently removed snapshots.")]
-    [InlineData(JobKind.Capture, false, false, false, "This job can't be stopped now.")]
+    [InlineData(JobKind.Capture, false, false, false, "This task can't be stopped now.")]
     public void A_running_job_that_is_stopping_or_cannot_stop_says_so_instead_of_looking_stuck(JobKind kind, bool requested, bool cancellable, bool _, string expected)
     {
         var row = Row(Job(kind, kind is JobKind.ClearData or JobKind.RelocateStorage ? null : "skyrim", cancellable: cancellable, cancelRequested: requested));
@@ -307,7 +355,7 @@ public class JobRowViewModelTests
     {
         var row = Row(Job(JobKind.ClearData, null, JobStatus.Failed, startedAgo: TimeSpan.FromHours(1)));
 
-        Assert.Equal("Clearing SavePoint's data. Failed. Started Jul 8, 4:00 PM.", row.AutomationName);
+        Assert.Equal("Couldn't clear SavePoint's data. Failed. Started Jul 8, 4:00 PM.", row.AutomationName);
     }
 
     [Fact]

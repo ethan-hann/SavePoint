@@ -12,8 +12,9 @@ namespace Savepoint.Core.Services.Jobs;
 /// announces every change through <see cref="JobChanged"/>.
 /// </summary>
 /// <remarks>
-/// Keeps the running jobs and, for each game, its five most recently finished ones in memory (the jobs that span every game are one more
-/// group); nothing is persisted. The registry takes
+/// Keeps the running jobs and, for each game, its five most recently finished ones (the jobs that span every game are one more
+/// group). Given a history file it also writes the finished ones to it as each job ends, and lists those from an earlier run: no more than
+/// the newest 100, none that finished over 30 days ago, and without their lines or result. A running job is never written. The registry takes
 /// no per-game lock, so jobs for one game run side by side and order their git work with <c>GameLock</c>. Thread-safe.
 /// </remarks>
 public sealed class JobRegistry : IJobsApi
@@ -26,6 +27,13 @@ public sealed class JobRegistry : IJobsApi
     private static readonly TimeSpan _progressInterval = TimeSpan.FromMilliseconds(50);
 
     private readonly Lock _gate = new();
+
+    // Taken before the gate, never after: held while the history file is written or removed.
+    private readonly Lock _saveGate = new();
+    private readonly string? _historyPath;
+
+    // Finished jobs that are no longer written to the history file because the saved history was cleared.
+    private readonly HashSet<Guid> _unsaved = [];
     private readonly TimeProvider _time;
     private readonly IDiagnosticLog _log;
     private readonly Dictionary<Guid, Job> _byId = [];
@@ -41,10 +49,87 @@ public sealed class JobRegistry : IJobsApi
     /// <summary>Creates an empty registry.</summary>
     /// <param name="timeProvider">The clock for start and finish times and for the progress throttle; defaults to the system clock.</param>
     /// <param name="log">Where job starts and ends are written (D34); nothing is written when null.</param>
-    public JobRegistry(TimeProvider? timeProvider = null, IDiagnosticLog? log = null)
+    /// <param name="historyPath">
+    /// The file that keeps the finished jobs across runs; none are kept when null. The jobs in it are listed at once as finished, a file that cannot be
+    /// read is skipped with a warning, and a write that fails is logged and never fails the job.
+    /// </param>
+    public JobRegistry(TimeProvider? timeProvider = null, IDiagnosticLog? log = null, string? historyPath = null)
     {
         _time = timeProvider ?? TimeProvider.System;
         _log = log ?? DiagnosticLog.None;
+        _historyPath = historyPath;
+        if (historyPath is not null)
+        {
+            Restore(historyPath);
+        }
+    }
+
+    /// <summary>
+    /// Deletes the saved history, and stops saving the jobs that are finished now, so the next run starts with an empty list. A job that finishes
+    /// later is saved as usual, except one that clears the data, which is never saved.
+    /// </summary>
+    /// <exception cref="IOException">The file could not be removed.</exception>
+    /// <exception cref="UnauthorizedAccessException">The file could not be removed.</exception>
+    public void ClearSavedHistory()
+    {
+        if (_historyPath is null)
+        {
+            return;
+        }
+
+        lock (_saveGate)
+        {
+            lock (_gate)
+            {
+                _unsaved.UnionWith(_finished.Select(job => job.Id));
+            }
+
+            JobHistoryFile.Delete(_historyPath);
+        }
+    }
+
+    // Finished jobs from an earlier run stand in the list as the newest finished ones are: oldest first, five to a game.
+    private void Restore(string path)
+    {
+        var kept = JobHistoryFile.Retain(JobHistoryFile.Read(path, _log), _time.GetUtcNow(), _finishedKept);
+        foreach (var saved in kept)
+        {
+            var job = new Job(saved.JobId, saved.Kind, saved.GameId, saved.Profile, cancellable: false, saved.StartedAt)
+            {
+                Status = saved.Status,
+                FinishedAt = saved.FinishedAt,
+                Error = saved.Error,
+            };
+            job.Cancellation.Dispose();
+            _byId.Add(job.Id, job);
+            _finished.Add(job);
+        }
+    }
+
+    // Written before the job reads as finished, as the log line is, and outside the gate so a slow disk never holds it. Holding the save gate
+    // makes two jobs that end together write one after the other, each with the other's job in the list.
+    private void SaveHistory(Job job, JobStatus status, JobResult? result, ErrorInfo? error, DateTimeOffset finishedAt)
+    {
+        if (_historyPath is null || job.Kind == JobKind.ClearData)
+        {
+            return;
+        }
+
+        List<JobSnapshot> kept;
+        lock (_gate)
+        {
+            kept = [.. _finished.Where(finished => !_unsaved.Contains(finished.Id)).Select(Snapshot)];
+            kept.Add(Snapshot(job) with { Status = status, Cancellable = false, CancelRequested = false, FinishedAt = finishedAt, Result = result, Error = error });
+        }
+
+        try
+        {
+            JobHistoryFile.Write(_historyPath, JobHistoryFile.Retain(kept, finishedAt, _finishedKept));
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            _log.Warning($"The Activity history at {_historyPath} could not be saved, so the next run may not list the jobs that finished.", e);
+        }
     }
 
     /// <summary>
@@ -304,17 +389,21 @@ public sealed class JobRegistry : IJobsApi
         // Written before the state flips, so a reader that sees the job finished finds its line in the log, and outside the gate, so the file is never waited on while holding it.
         var finishedAt = _time.GetUtcNow();
         LogEnd(job, status, result, error, failure, finishedAt - job.StartedAt);
-        lock (_gate)
+        lock (_saveGate)
         {
-            job.Status = status;
-            job.Result = result;
-            job.Error = error;
-            job.FinishedAt = finishedAt;
-            job.Revision++;
-            Publish(job);
-            _running.Remove(job);
-            _finished.Add(job);
-            PruneFinished(job.GameId);
+            SaveHistory(job, status, result, error, finishedAt);
+            lock (_gate)
+            {
+                job.Status = status;
+                job.Result = result;
+                job.Error = error;
+                job.FinishedAt = finishedAt;
+                job.Revision++;
+                Publish(job);
+                _running.Remove(job);
+                _finished.Add(job);
+                PruneFinished(job.GameId);
+            }
         }
 
         job.Cancellation.Dispose();

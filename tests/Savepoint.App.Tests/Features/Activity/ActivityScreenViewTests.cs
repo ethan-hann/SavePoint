@@ -57,10 +57,10 @@ public class ActivityScreenViewTests
         var texts = harness.VisibleTexts().ToList();
 
         Assert.Contains("Activity", texts);
-        Assert.Contains("Skyrim Special Edition · 5 jobs", texts);
+        Assert.Contains("Skyrim Special Edition · 5 tasks", texts);
         Assert.Contains("This game", texts);
         Assert.Contains("All games", texts);
-        Assert.Equal("Show jobs for", AutomationProperties.GetName(harness.Find<ListBox>("ScopeToggle")));
+        Assert.Equal("Show tasks for", AutomationProperties.GetName(harness.Find<ListBox>("ScopeToggle")));
     }
 
     [AvaloniaFact]
@@ -105,7 +105,7 @@ public class ActivityScreenViewTests
         harness.Find<ListBox>("ScopeToggle").SelectedIndex = 1;
         harness.Settle();
 
-        Assert.Contains("All games · 6 jobs", harness.VisibleTexts());
+        Assert.Contains("All games · 6 tasks", harness.VisibleTexts());
         Assert.Contains("Freeing up space for The Last Caretaker", harness.VisibleTexts());
     }
 
@@ -406,7 +406,7 @@ public class ActivityScreenViewTests
 
         var rows = harness.Find<ListBox>("JobList").GetVisualDescendants().OfType<ListBoxItem>().ToList();
 
-        Assert.Equal("Jobs", AutomationProperties.GetName(harness.Find<ListBox>("JobList")));
+        Assert.Equal("Tasks", AutomationProperties.GetName(harness.Find<ListBox>("JobList")));
         Assert.All(rows, row => Assert.Equal(((JobRowViewModel)row.DataContext!).AutomationName, AutomationProperties.GetName(row)));
         Assert.Contains(rows, row => AutomationProperties.GetName(row)?.StartsWith("Taking a snapshot of Skyrim Special Edition. In progress. Profile: Modded playthrough - 7-2-26. 30 of 120 files.", StringComparison.Ordinal) == true);
     }
@@ -425,7 +425,7 @@ public class ActivityScreenViewTests
         backend.Jobs.Complete(id);
         harness.Settle();
 
-        Assert.Equal("Taking a snapshot of Skyrim Special Edition: Done.", region.Text);
+        Assert.Equal("Took a snapshot of Skyrim Special Edition: Done.", region.Text);
         Assert.Equal(AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(region));
     }
 

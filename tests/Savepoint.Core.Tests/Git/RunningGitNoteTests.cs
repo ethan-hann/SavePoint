@@ -25,6 +25,20 @@ public sealed class RunningGitNoteTests : IDisposable
         Assert.Equal([first, second], note.Value.Gits);
     }
 
+    // The exact shape 0.9.16 wrote: an owner and one list of gits, no per-registry parts.
+    [Fact]
+    public void A_note_in_the_form_0_9_16_wrote_is_read()
+    {
+        var path = RunningGitNote.PathIn(_temp.Path);
+        File.WriteAllText(path, """{"owner":{"id":41,"startedAtUtcTicks":1234567890},"gits":[{"id":77,"startedAtUtcTicks":99}]}""");
+
+        var note = RunningGitNote.Read(path);
+
+        Assert.NotNull(note);
+        Assert.Equal(new ProcessStamp(41, 1234567890), note.Value.Owner);
+        Assert.Equal([new ProcessStamp(77, 99)], note.Value.Gits);
+    }
+
     [Fact]
     public void A_missing_or_unreadable_note_reads_as_nothing()
     {
