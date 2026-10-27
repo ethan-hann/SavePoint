@@ -7,6 +7,7 @@ Build from `main` (`dotnet run --project src/Savepoint.App -c Release`), or inst
 ## With a real game
 
 - [ ] Add a game you play, with its real install and saves folders. The confirmation names both folders. Steam games show cover art, and others show a name tint.
+- [ ] Add a game that keeps its mods outside its install folder (7 Days to Die from its template). The confirmation names all three folders. Make a profile with different mods, switch between the two, and check the game loads each profile's mods. A mod manager that deploys by file link is refused on Windows with a card that says why.
 - [ ] Create a first profile. The size estimate is plausible, and the window does not freeze during the save.
 - [ ] Play through SavePoint, quit the game, and keep the session as a new snapshot. History lists it. During the switch, the dialog shows the amount copied and the time left.
 - [ ] Change something (install a mod, or let the game update), save a second profile, and switch back and forth. The game starts in the right state each time.
