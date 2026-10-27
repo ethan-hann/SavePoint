@@ -42,6 +42,7 @@ public static class NotificationText
 
             (JobKind.PackStorage, JobStatus.Succeeded) => "shell.jobStatus.packSuccess",
             (JobKind.PackStorage, JobStatus.Partial) => "shell.jobStatus.packPartial",
+            (JobKind.PackStorage, JobStatus.Cancelled) when JobErrors.WasStoppedForAnotherTask(job) => "shell.jobStatus.packStopped",
             (JobKind.PackStorage, JobStatus.Cancelled) => "shell.jobStatus.packCancelled",
             (JobKind.PackStorage, _) => "shell.jobStatus.packFailure",
 

@@ -101,6 +101,28 @@ public class JobRowViewModelTests
     }
 
     [Fact]
+    public void Routine_packing_that_a_launch_stopped_is_called_stopped_not_canceled()
+    {
+        var preempted = ErrorInfo.From(new CompactionPreemptedException("skyrim"));
+
+        var row = Row(Job(JobKind.PackStorage, "skyrim", JobStatus.Cancelled, error: preempted));
+
+        Assert.Equal("Stopped compacting snapshot files for Skyrim Special Edition so another task could go first", row.Title);
+        Assert.Equal("Stopped", row.StatusText);
+    }
+
+    [Fact]
+    public void A_job_that_was_canceled_by_the_player_still_says_canceled()
+    {
+        var byPlayer = ErrorInfo.From(new OperationCancelledByUserException(CancelledOperation.Compaction, "skyrim"));
+
+        var row = Row(Job(JobKind.PackStorage, "skyrim", JobStatus.Cancelled, error: byPlayer));
+
+        Assert.Equal("Canceled compacting snapshot files for Skyrim Special Edition", row.Title);
+        Assert.Equal("Canceled", row.StatusText);
+    }
+
+    [Fact]
     public void A_job_that_ends_changes_its_row_from_the_present_tense_to_the_past()
     {
         var running = Job();

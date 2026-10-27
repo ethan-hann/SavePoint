@@ -176,6 +176,7 @@ public sealed partial class JobStatusViewModel : ObservableObject
 
             (JobKind.PackStorage, JobStatus.Succeeded) => ("shell.jobStatus.packSuccess", ToastKind.Success),
             (JobKind.PackStorage, JobStatus.Partial) => ("shell.jobStatus.packPartial", ToastKind.Warning),
+            (JobKind.PackStorage, JobStatus.Cancelled) when JobErrors.WasStoppedForAnotherTask(job) => ("shell.jobStatus.packStopped", ToastKind.Info),
             (JobKind.PackStorage, JobStatus.Cancelled) => ("shell.jobStatus.packCancelled", ToastKind.Info),
             (JobKind.PackStorage, _) => ("shell.jobStatus.packFailure", ToastKind.Error),
 
