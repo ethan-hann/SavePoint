@@ -39,7 +39,13 @@ public sealed partial class GitEngine
                 var full = FullPath(repo, paths[chosen[n]]);
 
                 // A link is stored as the text of its target, not as the file it points at.
-                if ((new FileInfo(full).Attributes & FileAttributes.ReparsePoint) == 0 && BlobHasher.TryHash(full, out var id) == HashOutcome.Hashed)
+                if ((new FileInfo(full).Attributes & FileAttributes.ReparsePoint) != 0)
+                {
+                    return;
+                }
+
+                _options.FileHashed?.Invoke(full);
+                if (BlobHasher.TryHash(full, out var id) == HashOutcome.Hashed)
                 {
                     ids[n] = id;
                 }

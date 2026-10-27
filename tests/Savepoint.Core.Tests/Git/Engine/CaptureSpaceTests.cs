@@ -121,6 +121,9 @@ public sealed class CaptureSpaceTests : IDisposable
         await _ws.CaptureAsync(repo, "profile-1", "Second");
         _ws.Write(repo, "big.bin", Ramp(300_000, 1));
 
+        // Files are only read for stored content when the raw size does not fit.
+        _ws.Space.Free = _floor + 100_000;
+
         Assert.Equal(0, await ReportedBytesAsync(repo, "profile-1"));
     }
 
@@ -131,6 +134,7 @@ public sealed class CaptureSpaceTests : IDisposable
         _ws.Write(repo, "big.bin", Ramp(300_000, 1));
         await _ws.CaptureAsync(repo, "profile-1", "First");
         _ws.Write(repo, "copy.bin", Ramp(300_000, 1));
+        _ws.Space.Free = _floor + 100_000;
 
         Assert.Equal(0, await ReportedBytesAsync(repo, "profile-1"));
     }
@@ -166,6 +170,40 @@ public sealed class CaptureSpaceTests : IDisposable
         };
         await ws.Engine.CaptureAsync(repo, request, null, Ct);
         return reported;
+    }
+
+    // Counts the files the space check reads in full while putting a stored file back over a newer one.
+    private async Task<int> ReadsWithFreeSpaceAsync(long? freeAboveFloor)
+    {
+        var reads = 0;
+        using var counting = new EngineWorkspace(options => options with { MinFreeBytesForStorageWrites = _floor, FileHashed = _ => Interlocked.Increment(ref reads) });
+        var repo = await counting.InitializedRepoAsync();
+        counting.Write(repo, "big.bin", Ramp(300_000, 1));
+        await counting.CaptureAsync(repo, "profile-1", "First");
+        counting.Write(repo, "big.bin", Ramp(310_000, 2));
+        await counting.CaptureAsync(repo, "profile-1", "Second");
+        counting.Write(repo, "big.bin", Ramp(300_000, 1));
+        if (freeAboveFloor is { } room)
+        {
+            counting.Space.Free = _floor + room;
+        }
+
+        var before = Volatile.Read(ref reads);
+        await counting.CaptureAsync(repo);
+        return Volatile.Read(ref reads) - before;
+    }
+
+    [Fact]
+    public async Task A_snapshot_that_fits_without_looking_at_what_is_stored_reads_no_file_content()
+    {
+        Assert.Equal(0, await ReadsWithFreeSpaceAsync(freeAboveFloor: null));
+        Assert.Equal(0, await ReadsWithFreeSpaceAsync(freeAboveFloor: 1_000_000));
+    }
+
+    [Fact]
+    public async Task A_snapshot_that_does_not_fit_by_its_raw_size_reads_files_to_find_what_is_stored()
+    {
+        Assert.Equal(1, await ReadsWithFreeSpaceAsync(freeAboveFloor: 100_000));
     }
 
     [Fact]
