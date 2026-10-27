@@ -27,7 +27,7 @@ public class LegacyLocalDataTests
         Assert.False(status.Value.Storage?.InInstallerFolder);
         Assert.Equal(world.NewStorage, status.Value.Storage?.Root);
         Assert.False(Directory.Exists(world.OldStorage), "the old folder is still there");
-        Assert.True(StorageContent.HoldsHistory(Path.Combine(world.NewStorage, game.Id)), "the history did not arrive");
+        Assert.True(StorageContent.HoldsHistory(Path.Combine(world.NewStorage, game.Id)), "the history did not arrive: " + world.Warnings());
         Assert.Equal(world.NewStorage, await world.SavedRootAsync());
         Assert.True(before > 0);
         Assert.Equal(before, await world.PointCountAsync(game));
@@ -89,7 +89,7 @@ public class LegacyLocalDataTests
         var status = await world.Workspace.AppStatus.CheckAsync(world.Workspace.Token);
 
         Assert.True(status.Ok, status.Error?.Detail);
-        Assert.True(StorageContent.HoldsHistory(Path.Combine(world.NewStorage, game.Id)), "the history did not arrive");
+        Assert.True(StorageContent.HoldsHistory(Path.Combine(world.NewStorage, game.Id)), "the history did not arrive: " + world.Warnings());
         Assert.False(Directory.Exists(world.OldStorage));
         Assert.Equal(world.NewStorage, await world.SavedRootAsync());
         Assert.Equal(before, await world.PointCountAsync(game));
@@ -185,7 +185,7 @@ public class LegacyLocalDataTests
 
         Assert.True(status.Ok, status.Error?.Detail);
         Assert.True(status.Value.Storage?.Reachable, "the storage was reported lost");
-        Assert.True(StorageContent.HoldsHistory(Path.Combine(world.NewStorage, game.Id)), "the history did not arrive");
+        Assert.True(StorageContent.HoldsHistory(Path.Combine(world.NewStorage, game.Id)), "the history did not arrive: " + world.Warnings());
         Assert.Equal(world.NewStorage, await world.SavedRootAsync());
         Assert.Equal(before, await world.PointCountAsync(game));
     }
@@ -276,7 +276,7 @@ public class LegacyLocalDataTests
         var status = await world.Workspace.AppStatus.CheckAsync(world.Workspace.Token);
 
         Assert.True(status.Ok, status.Error?.Detail);
-        Assert.True(StorageContent.HoldsHistory(Path.Combine(world.NewStorage, game.Id)), "the history did not arrive");
+        Assert.True(StorageContent.HoldsHistory(Path.Combine(world.NewStorage, game.Id)), "the history did not arrive: " + world.Warnings());
         Assert.False(Directory.Exists(world.OldStorage));
         Assert.Equal(world.NewStorage, await world.SavedRootAsync());
     }
@@ -450,7 +450,7 @@ public class LegacyLocalDataTests
         var status = await world.Workspace.AppStatus.CheckAsync(world.Workspace.Token);
 
         Assert.True(status.Ok, status.Error?.Detail);
-        Assert.True(StorageContent.HoldsHistory(Path.Combine(world.NewStorage, game.Id)), "the history did not arrive");
+        Assert.True(StorageContent.HoldsHistory(Path.Combine(world.NewStorage, game.Id)), "the history did not arrive: " + world.Warnings());
         Assert.False(Directory.Exists(world.OldStorage));
     }
 
@@ -618,8 +618,45 @@ public class LegacyLocalDataTests
 
         public void Upgrade()
         {
+            WaitUntilRenamable(OldStorage);
+            WaitUntilRenamable(NewStorage);
             _upgraded = true;
             Workspace.Restart();
+        }
+
+        // What the startup check logged as going wrong, so a failed assertion says why.
+        public string Warnings() =>
+            string.Join(" | ", Log.Entries.Where(entry => entry.Level == LogLevel.Warning).Select(entry => entry.Message));
+
+        // Windows keeps a folder git just worked in busy for a moment after its processes have ended and refuses to rename it. The
+        // startup check renames once and, by design, leaves the data where it is when that fails, so the scene waits until a rename
+        // takes before the build starts. A folder that never frees fails here with the I/O error instead of as a missing move.
+        private static void WaitUntilRenamable(string folder)
+        {
+            if (!Directory.Exists(folder))
+            {
+                return;
+            }
+
+            var probe = folder + ".probe";
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+            while (true)
+            {
+                try
+                {
+                    if (!Directory.Exists(probe))
+                    {
+                        Directory.Move(folder, probe);
+                    }
+
+                    Directory.Move(probe, folder);
+                    return;
+                }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException && DateTime.UtcNow < deadline)
+                {
+                    Thread.Sleep(20);
+                }
+            }
         }
 
         // A game with one captured profile, saved while the old folders were the defaults.

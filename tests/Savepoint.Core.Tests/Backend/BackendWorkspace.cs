@@ -210,14 +210,15 @@ internal sealed class BackendWorkspace : IDisposable
     // Windows can still hold a folder git processes just worked in for a moment after the jobs that used them have ended, and refuses to move it then.
     public static void MoveFolder(string from, string to)
     {
-        for (var attempt = 1; ; attempt++)
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+        while (true)
         {
             try
             {
                 Directory.Move(from, to);
                 return;
             }
-            catch (Exception e) when (attempt < 20 && e is IOException or UnauthorizedAccessException)
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException && DateTime.UtcNow < deadline)
             {
                 Thread.Sleep(100);
             }
