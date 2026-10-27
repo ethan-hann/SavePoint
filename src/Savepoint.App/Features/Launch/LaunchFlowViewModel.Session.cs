@@ -1,5 +1,7 @@
+using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Toasts;
+using Savepoint.App.Theme;
 using Savepoint.Core.Api;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Launch;
@@ -28,6 +30,7 @@ public sealed partial class LaunchFlowViewModel
 
             foreach (var flow in _flows.Values)
             {
+                SyncSteamWait(flow, job);
                 if (flow.SavingJobId == job.JobId && flow.Saving is { } saving && job.Revision > flow.SavingRevision)
                 {
                     flow.SavingRevision = job.Revision;
@@ -88,6 +91,7 @@ public sealed partial class LaunchFlowViewModel
             }
 
             CloseProgress(flow);
+            flow.SteamWait = null;
         }
         else if (session.Revision <= held.Revision)
         {
@@ -109,9 +113,11 @@ public sealed partial class LaunchFlowViewModel
                     ShowProgress(flow);
                 }
 
+                SyncSteamWait(flow, _deps.Jobs.Get(session.LaunchJobId));
                 break;
 
             case SessionState.Switching switching:
+                EndSteamWait(flow);
                 ShowProgress(flow).Update(switching.Progress);
                 break;
 
@@ -181,6 +187,44 @@ public sealed partial class LaunchFlowViewModel
         // The dialog ends when the flow closes it, so nothing waits for its result.
         _ = _deps.Dialogs.ShowAsync(dialog);
         return dialog;
+    }
+
+    // While the service waits for the Steam client it started, nothing is being switched, so the switching dialog (and the banner that says
+    // the game is starting now) would both be wrong. A card says what is happening and offers to stop waiting.
+    private void SyncSteamWait(GameFlow flow, JobSnapshot? job)
+    {
+        if (flow.Session is not { State: SessionState.Preparing } session
+            || job is not { Status: JobStatus.Running }
+            || job.JobId != session.LaunchJobId
+            || flow.SteamWait is not null
+            || !job.RecentLines.OfType<JobLine.Step>().Any(step => step.MessageId == JobSteps.LaunchWaitingForSteam))
+        {
+            return;
+        }
+
+        CloseProgress(flow);
+        var text = _deps.Text;
+        var card = ErrorCardViewModel.Custom(
+            text,
+            Icons.SportsEsports,
+            ErrorTone.Neutral,
+            text.Message("launch.steam.waitingTitle"),
+            text.Message("launch.steam.waitingBody", ("gameName", GameName(flow.GameId))),
+            actions: [new ErrorCardAction(text.Message("launch.steam.stopWaiting"), new AsyncRelayCommand(async () => await CancelJobAsync(job.JobId)), IsPrimary: false)]);
+        flow.SteamWait = card;
+        SetInline(flow, card);
+    }
+
+    private void EndSteamWait(GameFlow flow)
+    {
+        if (flow.SteamWait is { } card)
+        {
+            flow.SteamWait = null;
+            if (ReferenceEquals(flow.Inline, card))
+            {
+                SetInline(flow, null);
+            }
+        }
     }
 
     private static void CloseProgress(GameFlow flow)

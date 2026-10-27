@@ -49,6 +49,8 @@ public class ErrorCopyTests
             new LaunchAlreadyRunningException("game-1"),
             new NoActiveSessionException("game-1"),
             new SessionStillRunningException("game-1"),
+            new SteamNotRunningException("game-1"),
+            new SteamDidNotStartException("game-1"),
             new DirtyWorkingTreeException(RepoRole.Install),
             new InterruptedSwitchException(RepoRole.Install, "0123456789abcdef0123456789abcdef01234567"),
             new InterruptedSwitchException(RepoRole.External),

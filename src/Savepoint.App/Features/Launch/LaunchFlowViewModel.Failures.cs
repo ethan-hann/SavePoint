@@ -87,6 +87,18 @@ public sealed partial class LaunchFlowViewModel
             case "error.launch.dirtyWorkingTree":
                 actions.Add(new ErrorCardAction(text.Message("launch.failure.reviewChanges"), new AsyncRelayCommand(() => ReenterAsync(flow)), IsPrimary: true));
                 break;
+            case "error.launch.steamNotRunning":
+                // Starting the client is the only thing agreed to: the game itself is never started through Steam, which could update it first.
+                actions.Add(new ErrorCardAction(
+                    text.Message("launch.steam.start"),
+                    new AsyncRelayCommand(() =>
+                    {
+                        flow.StartSteam = true;
+                        return beforeStart ? ReenterAsync(flow) : RestartAsync(flow);
+                    }),
+                    IsPrimary: true));
+                actions.Add(new ErrorCardAction(text.Message("launch.steam.notNow"), new RelayCommand(() => SetInline(flow, null))));
+                return actions;
             case "error.launch.alreadyRunning":
             case "error.gameService.gameRunning":
                 break;

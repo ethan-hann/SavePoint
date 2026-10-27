@@ -31,6 +31,7 @@ public class JobLineFormatterTests
         JobLine.ForStep(JobSteps.LaunchFolderInPlace, ("folder", RepoRole.External), ("profile", "Modded")),
         JobLine.ForStep(JobSteps.LaunchFolderNotIncluded, ("folder", RepoRole.External)),
         JobLine.ForStep(JobSteps.LaunchStarting, ("game", "Skyrim")),
+        JobLine.ForStep(JobSteps.LaunchWaitingForSteam, ("game", "Skyrim")),
         JobLine.ForStep(JobSteps.CompactGame, ("game", "Skyrim")),
         JobLine.ForStep(JobSteps.CompactFreed, ("game", "Skyrim"), ("bytes", 1_500_000L)),
         JobLine.ForStep(JobSteps.CompactNothingFreed, ("game", "Skyrim")),
@@ -76,6 +77,7 @@ public class JobLineFormatterTests
         Assert.Equal("1 file was new, changed or removed in the game folder.", Format(JobLine.ForStep(JobSteps.CaptureFolderDone, ("folder", RepoRole.Install), ("files", 1))));
         Assert.Equal("Nothing changed in the game folder.", Format(JobLine.ForStep(JobSteps.CaptureFolderDone, ("folder", RepoRole.Install), ("files", 0))));
         Assert.Equal("Starting Skyrim.", Format(_samples[JobSteps.LaunchStarting]));
+        Assert.Equal("Waiting for Steam to start and sign in before Skyrim starts.", Format(_samples[JobSteps.LaunchWaitingForSteam]));
         Assert.Equal("Kept 2 recently removed snapshots of Skyrim, because they were changed after you agreed to delete them.", Format(_samples[JobSteps.CompactRemovedKept]));
         Assert.Equal("Kept 1 recently removed snapshot of Skyrim, because it was changed after you agreed to delete it.", Format(JobLine.ForStep(JobSteps.CompactRemovedKept, ("game", "Skyrim"), ("count", 1))));
     }
