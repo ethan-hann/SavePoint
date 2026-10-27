@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Savepoint.App.Features.Common;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Common.Formatting;
@@ -48,6 +49,7 @@ public sealed partial class StartupViewModel : ObservableObject
 {
     private readonly IAppStatusApi _status;
     private readonly UiFormatter _text;
+    private readonly IUiDispatcher _dispatcher;
     private readonly bool _canTryAgain;
     private readonly string? _logFolder;
     private readonly IFileRevealer? _revealer;
@@ -84,6 +86,7 @@ public sealed partial class StartupViewModel : ObservableObject
 
     /// <param name="status">The startup Api the checks run against.</param>
     /// <param name="text">Formats the screens' copy.</param>
+    /// <param name="dispatcher">Brings the check's progress reports, which the backend raises on its own thread, to the UI thread.</param>
     /// <param name="canTryAgain">False when a failed check cannot succeed on a second try, as when the backend never started.</param>
     /// <param name="logFolder">The folder the diagnostic log is written to; the screen for a backend that never started shows it and offers to open it. Null when there is none.</param>
     /// <param name="revealer">Opens the log folder in the file manager.</param>
@@ -91,6 +94,7 @@ public sealed partial class StartupViewModel : ObservableObject
     public StartupViewModel(
         IAppStatusApi status,
         UiFormatter text,
+        IUiDispatcher dispatcher,
         bool canTryAgain = true,
         string? logFolder = null,
         IFileRevealer? revealer = null,
@@ -101,6 +105,7 @@ public sealed partial class StartupViewModel : ObservableObject
         _dialogs = dialogs;
         _status = status;
         _text = text;
+        _dispatcher = dispatcher;
         _canTryAgain = canTryAgain;
     }
 
@@ -146,11 +151,9 @@ public sealed partial class StartupViewModel : ObservableObject
     /// <summary>True when <see cref="StorageActionErrorPath"/> has a folder to show under the error.</summary>
     public bool HasStorageActionErrorPath => StorageActionErrorPath is not null;
 
-    /// <summary>Opens the log folder; says so in <see cref="LogFolderError"/> when the file manager cannot be started.</summary>
-    public IRelayCommand OpenLogFolderCommand => field ??= new RelayCommand(OpenLogFolder);
-
-    /// <summary>Runs the checks again.</summary>
-    public IAsyncRelayCommand CheckAgainCommand => field ??= new AsyncRelayCommand(CheckAsync);
+    // The generated CheckAgainCommand runs the checks again.
+    [RelayCommand]
+    private Task CheckAgain() => CheckAsync();
 
     /// <summary>Runs the checks and moves to the matching phase.</summary>
     public async Task CheckAsync()
@@ -164,7 +167,7 @@ public sealed partial class StartupViewModel : ObservableObject
         SetFinishingEarlierCleanup(false);
         SetWaitingForEarlierTask(false);
         var run = ++_checkRun;
-        var checkedStatus = await _status.CheckAsync(progress: new UiProgress(SynchronizationContext.Current, step => ShowProgress(run, step)));
+        var checkedStatus = await _status.CheckAsync(progress: new UiProgress(_dispatcher, step => ShowProgress(run, step)));
         SetFinishingEarlierCleanup(false);
         SetWaitingForEarlierTask(false);
         if (!checkedStatus.Ok)
@@ -245,19 +248,9 @@ public sealed partial class StartupViewModel : ObservableObject
     }
 
     // The backend reports from its own thread; the screen's state changes where the screen runs.
-    private sealed class UiProgress(SynchronizationContext? context, Action<StartupProgress> show) : IProgress<StartupProgress>
+    private sealed class UiProgress(IUiDispatcher dispatcher, Action<StartupProgress> show) : IProgress<StartupProgress>
     {
-        public void Report(StartupProgress value)
-        {
-            if (context is null)
-            {
-                show(value);
-            }
-            else
-            {
-                context.Post(_ => show(value), null);
-            }
-        }
+        public void Report(StartupProgress value) => dispatcher.Post(() => show(value));
     }
 
     // The log folder is named here because this is the one screen a person can only leave by closing the app, and what they report from it is the log.
@@ -353,6 +346,8 @@ public sealed partial class StartupViewModel : ObservableObject
         StorageActionErrorPath = null;
     }
 
+    // The generated OpenLogFolderCommand opens the log folder; it says so in LogFolderError when the file manager cannot be started.
+    [RelayCommand]
     private void OpenLogFolder() =>
         LogFolderError = _logFolder is { } folder && (_revealer?.Reveal(folder) ?? false) ? null : _text.Message("startup.logFolderFailed");
 

@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Savepoint.App.Features.Common;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Localization;
@@ -29,13 +30,13 @@ public class StartupViewTests
             return new TaskCompletionSource<OperationResult<StartupStatus>>().Task.WaitAsync(cancellationToken);
         }
 
-        public Task<OperationResult<string>> RecoverCatalogFileAsync(string path, CatalogRecovery recovery, CancellationToken cancellationToken = default) =>
+        public Task<OperationResult<string>> RecoverCatalogFileAsync(string path, CatalogRecovery recovery) =>
             throw new NotSupportedException();
 
-        public Task<OperationResult<string>> UseStorageFolderAsync(string folder, CancellationToken cancellationToken = default) =>
+        public Task<OperationResult<string>> UseStorageFolderAsync(string folder) =>
             throw new NotSupportedException();
 
-        public Task<OperationResult<string>> StartWithEmptyStorageAsync(CancellationToken cancellationToken = default) =>
+        public Task<OperationResult<string>> StartWithEmptyStorageAsync() =>
             throw new NotSupportedException();
     }
 
@@ -43,7 +44,7 @@ public class StartupViewTests
     public void While_the_checks_run_the_screen_says_so_in_words()
     {
         var text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), os: "windows", timeZone: TimeZoneInfo.Utc);
-        var startup = new StartupViewModel(new NeverAnswers(), text);
+        var startup = new StartupViewModel(new NeverAnswers(), text, new ImmediateUiDispatcher());
         var view = new StartupView { DataContext = startup };
         using var host = new ThemeHost(view);
 
@@ -58,7 +59,7 @@ public class StartupViewTests
     public void While_an_earlier_cleanup_is_finished_the_screen_says_so_in_plain_words()
     {
         var text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), os: "windows", timeZone: TimeZoneInfo.Utc);
-        var startup = new StartupViewModel(new NeverAnswers(StartupProgress.FinishingEarlierCleanup), text);
+        var startup = new StartupViewModel(new NeverAnswers(StartupProgress.FinishingEarlierCleanup), text, new ImmediateUiDispatcher());
         var view = new StartupView { DataContext = startup };
         using var host = new ThemeHost(view);
 
@@ -74,7 +75,7 @@ public class StartupViewTests
     public void While_a_task_started_before_SavePoint_closed_is_waited_for_the_screen_says_so_in_plain_words()
     {
         var text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), os: "windows", timeZone: TimeZoneInfo.Utc);
-        var startup = new StartupViewModel(new NeverAnswers(StartupProgress.WaitingForEarlierTask), text);
+        var startup = new StartupViewModel(new NeverAnswers(StartupProgress.WaitingForEarlierTask), text, new ImmediateUiDispatcher());
         var view = new StartupView { DataContext = startup };
         using var host = new ThemeHost(view);
 
@@ -131,7 +132,7 @@ public class StartupViewTests
             new CatalogStatus(@"C:\Users\you\AppData\Roaming\SavePoint", []),
             new StorageStatus(false, gone, ErrorInfo.From(new StorageUnreachableException(gone, null))));
         var backend = new FakeBackend(ScenarioBuilder.Sample().WithDefaultStorageRoot(defaultRoot).WithStartupStatus(status).WithStorageHistoryIn(defaultRoot));
-        var startup = new StartupViewModel(backend.AppStatus, text, dialogs: new FakeDialogs().AnswerConfirm(true));
+        var startup = new StartupViewModel(backend.AppStatus, text, new ImmediateUiDispatcher(), dialogs: new FakeDialogs().AnswerConfirm(true));
         var view = new StartupView { DataContext = startup };
         using var host = new ThemeHost(view, width: 700, height: 900);
         await startup.CheckAsync();

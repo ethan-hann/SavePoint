@@ -31,7 +31,7 @@ public sealed class FakeAppStatusApi : IAppStatusApi
         return await _backend.Call(_api, nameof(CheckAsync), [], () => OperationResult.Success(State.Startup));
     }
 
-    public Task<OperationResult<string>> RecoverCatalogFileAsync(string path, CatalogRecovery recovery, CancellationToken cancellationToken = default) =>
+    public Task<OperationResult<string>> RecoverCatalogFileAsync(string path, CatalogRecovery recovery) =>
         _backend.Call(_api, nameof(RecoverCatalogFileAsync), [path, recovery], () =>
         {
             var catalog = State.Startup.Catalog;
@@ -47,14 +47,14 @@ public sealed class FakeAppStatusApi : IAppStatusApi
         });
 
     // As the real one: only a folder that holds the history of the games is taken, and nothing changes for any other.
-    public Task<OperationResult<string>> UseStorageFolderAsync(string folder, CancellationToken cancellationToken = default) =>
+    public Task<OperationResult<string>> UseStorageFolderAsync(string folder) =>
         _backend.Call(_api, nameof(UseStorageFolderAsync), [folder], () =>
             State.StorageFoldersWithHistory.Contains(folder)
                 ? Reachable(folder)
                 : OperationResult.Failure<string>(new StorageHistoryNotFoundException(folder)));
 
     // As the real one: history already in the default folder is not an empty start.
-    public Task<OperationResult<string>> StartWithEmptyStorageAsync(CancellationToken cancellationToken = default) =>
+    public Task<OperationResult<string>> StartWithEmptyStorageAsync() =>
         _backend.Call(_api, nameof(StartWithEmptyStorageAsync), [], () =>
             State.StorageFoldersWithHistory.Contains(State.DefaultStorageRoot)
                 ? OperationResult.Failure<string>(new StorageDefaultFolderHasHistoryException(State.DefaultStorageRoot))

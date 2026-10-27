@@ -94,7 +94,7 @@ public class AppStatusTests
         var games = Path.Combine(workspace.CatalogDirectory, CatalogStore.GamesFileName);
         await File.WriteAllTextAsync(games, "{ broken", workspace.Token);
 
-        var recovered = await workspace.AppStatus.RecoverCatalogFileAsync(games, CatalogRecovery.RestoreBackup, workspace.Token);
+        var recovered = await workspace.AppStatus.RecoverCatalogFileAsync(games, CatalogRecovery.RestoreBackup);
 
         Assert.True(recovered.Ok, recovered.Error?.Detail);
         Assert.Equal("{ broken", await File.ReadAllTextAsync(recovered.Value, workspace.Token));
@@ -129,7 +129,7 @@ public class AppStatusTests
             await File.WriteAllTextAsync(games, "{ broken", workspace.Token);
             Volatile.Write(ref backup, games + ".bak");
 
-            var recovered = await workspace.AppStatus.RecoverCatalogFileAsync(games, CatalogRecovery.RestoreBackup, workspace.Token);
+            var recovered = await workspace.AppStatus.RecoverCatalogFileAsync(games, CatalogRecovery.RestoreBackup);
 
             Assert.True(recovered.Ok, recovered.Error?.Detail);
             Assert.True(File.Exists(games), "the catalog file must exist whatever happens to the backup");
@@ -149,7 +149,7 @@ public class AppStatusTests
         var games = Path.Combine(workspace.CatalogDirectory, CatalogStore.GamesFileName);
         await File.WriteAllTextAsync(games, "{ broken", workspace.Token);
 
-        var recovered = await workspace.AppStatus.RecoverCatalogFileAsync(games, CatalogRecovery.StartEmpty, workspace.Token);
+        var recovered = await workspace.AppStatus.RecoverCatalogFileAsync(games, CatalogRecovery.StartEmpty);
 
         Assert.True(recovered.Ok, recovered.Error?.Detail);
         Assert.Equal("{ broken", await File.ReadAllTextAsync(recovered.Value, workspace.Token));
@@ -167,9 +167,9 @@ public class AppStatusTests
         await File.WriteAllTextAsync(games, "{ broken", workspace.Token);
         File.Delete(games + ".bak");
 
-        var none = await workspace.AppStatus.RecoverCatalogFileAsync(games, CatalogRecovery.RestoreBackup, workspace.Token);
+        var none = await workspace.AppStatus.RecoverCatalogFileAsync(games, CatalogRecovery.RestoreBackup);
         await File.WriteAllTextAsync(games + ".bak", "also { broken", workspace.Token);
-        var broken = await workspace.AppStatus.RecoverCatalogFileAsync(games, CatalogRecovery.RestoreBackup, workspace.Token);
+        var broken = await workspace.AppStatus.RecoverCatalogFileAsync(games, CatalogRecovery.RestoreBackup);
 
         Assert.False(none.Ok);
         Assert.False(broken.Ok);
@@ -185,8 +185,8 @@ public class AppStatusTests
         var stray = Path.Combine(workspace.Root, "games.json");
         await File.WriteAllTextAsync(stray, "{ broken", workspace.Token);
 
-        var elsewhere = await workspace.AppStatus.RecoverCatalogFileAsync(stray, CatalogRecovery.StartEmpty, workspace.Token);
-        var notCatalog = await workspace.AppStatus.RecoverCatalogFileAsync(Path.Combine(workspace.CatalogDirectory, "other.json"), CatalogRecovery.StartEmpty, workspace.Token);
+        var elsewhere = await workspace.AppStatus.RecoverCatalogFileAsync(stray, CatalogRecovery.StartEmpty);
+        var notCatalog = await workspace.AppStatus.RecoverCatalogFileAsync(Path.Combine(workspace.CatalogDirectory, "other.json"), CatalogRecovery.StartEmpty);
 
         Assert.False(elsewhere.Ok);
         Assert.False(notCatalog.Ok);
@@ -200,7 +200,7 @@ public class AppStatusTests
         await workspace.AddGameAsync();
         var games = Path.Combine(workspace.CatalogDirectory, CatalogStore.GamesFileName);
 
-        var recovered = await workspace.AppStatus.RecoverCatalogFileAsync(games, CatalogRecovery.StartEmpty, workspace.Token);
+        var recovered = await workspace.AppStatus.RecoverCatalogFileAsync(games, CatalogRecovery.StartEmpty);
 
         Assert.False(recovered.Ok);
         Assert.Single((await workspace.Games.ListAsync(workspace.Token)).Value!);

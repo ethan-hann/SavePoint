@@ -16,6 +16,8 @@ public class StartupViewModelTests
 
     private static readonly UiFormatter _text = new(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), os: "windows", timeZone: TimeZoneInfo.Utc);
 
+    private static readonly ImmediateUiDispatcher _ui = new();
+
     private static StartupStatus Healthy() => new(new GitStatus(true, _gitPath, "2.56.0.windows.2", null), new CatalogStatus(_catalogDirectory, []));
 
     private static StartupStatus NoGit(bool withError = true) => new(
@@ -35,7 +37,7 @@ public class StartupViewModelTests
     public async Task A_healthy_start_is_ready_and_says_so_once()
     {
         var backend = Backend(Healthy());
-        var startup = new StartupViewModel(backend.AppStatus, _text);
+        var startup = new StartupViewModel(backend.AppStatus, _text, _ui);
         var ready = 0;
         startup.Ready += (_, _) => ready++;
 
@@ -50,7 +52,7 @@ public class StartupViewModelTests
     [Fact]
     public void A_new_view_model_is_still_checking()
     {
-        var startup = new StartupViewModel(Backend(Healthy()).AppStatus, _text);
+        var startup = new StartupViewModel(Backend(Healthy()).AppStatus, _text, _ui);
 
         Assert.Equal(StartupPhase.Checking, startup.Phase);
     }
@@ -62,7 +64,7 @@ public class StartupViewModelTests
         var release = new TaskCompletionSource();
         backend.State.StartupSteps.Add(StartupProgress.FinishingEarlierCleanup);
         backend.State.StartupGate = release.Task;
-        var startup = new StartupViewModel(backend.AppStatus, _text);
+        var startup = new StartupViewModel(backend.AppStatus, _text, _ui);
         var ready = 0;
         startup.Ready += (_, _) => ready++;
 
@@ -84,7 +86,7 @@ public class StartupViewModelTests
         var release = new TaskCompletionSource();
         backend.State.StartupSteps.Add(StartupProgress.WaitingForEarlierTask);
         backend.State.StartupGate = release.Task;
-        var startup = new StartupViewModel(backend.AppStatus, _text);
+        var startup = new StartupViewModel(backend.AppStatus, _text, _ui);
 
         var check = startup.CheckAsync();
         var duringWait = (startup.Phase, startup.IsWaitingForEarlierTask, startup.IsFinishingEarlierCleanup);
@@ -99,7 +101,7 @@ public class StartupViewModelTests
     [Fact]
     public async Task A_check_with_nothing_left_behind_never_shows_the_cleanup_note()
     {
-        var startup = new StartupViewModel(Backend(Healthy()).AppStatus, _text);
+        var startup = new StartupViewModel(Backend(Healthy()).AppStatus, _text, _ui);
         var shown = false;
         startup.PropertyChanged += (_, e) => shown |= e.PropertyName == nameof(StartupViewModel.IsFinishingEarlierCleanup) && startup.IsFinishingEarlierCleanup;
 
@@ -112,7 +114,7 @@ public class StartupViewModelTests
     [Fact]
     public async Task Without_the_bundled_tool_the_screen_names_the_path_and_says_to_reinstall()
     {
-        var startup = new StartupViewModel(Backend(NoGit()).AppStatus, _text);
+        var startup = new StartupViewModel(Backend(NoGit()).AppStatus, _text, _ui);
         var ready = 0;
         startup.Ready += (_, _) => ready++;
 
@@ -132,7 +134,7 @@ public class StartupViewModelTests
     [Fact]
     public async Task A_missing_tool_without_an_error_still_shows_the_path_it_tried()
     {
-        var startup = new StartupViewModel(Backend(NoGit(withError: false)).AppStatus, _text);
+        var startup = new StartupViewModel(Backend(NoGit(withError: false)).AppStatus, _text, _ui);
 
         await startup.CheckAsync();
 
@@ -145,7 +147,7 @@ public class StartupViewModelTests
     public async Task Trying_again_after_a_fix_gets_past_the_screen()
     {
         var backend = Backend(NoGit());
-        var startup = new StartupViewModel(backend.AppStatus, _text);
+        var startup = new StartupViewModel(backend.AppStatus, _text, _ui);
         var ready = 0;
         startup.Ready += (_, _) => ready++;
         await startup.CheckAsync();
@@ -163,7 +165,7 @@ public class StartupViewModelTests
     {
         var withBackup = Corrupt("games.json", @"C:\Users\you\AppData\Roaming\SavePoint\games.json.bak");
         var without = Corrupt("profiles.json", null);
-        var startup = new StartupViewModel(Backend(WithCorrupt(withBackup, without)).AppStatus, _text);
+        var startup = new StartupViewModel(Backend(WithCorrupt(withBackup, without)).AppStatus, _text, _ui);
 
         await startup.CheckAsync();
 
@@ -183,7 +185,7 @@ public class StartupViewModelTests
     [InlineData("other.json", "SavePoint couldn't read one of its files", "some of its data", "an empty file")]
     public async Task Each_kind_of_file_gets_its_own_title_and_a_body_that_says_what_the_file_holds_and_that_it_was_left_alone(string name, string title, string holds, string empty)
     {
-        var startup = new StartupViewModel(Backend(WithCorrupt(Corrupt(name, @"C:\x\backup.bak"))).AppStatus, _text);
+        var startup = new StartupViewModel(Backend(WithCorrupt(Corrupt(name, @"C:\x\backup.bak"))).AppStatus, _text, _ui);
 
         await startup.CheckAsync();
 
@@ -202,7 +204,7 @@ public class StartupViewModelTests
         var file = Corrupt("games.json", null);
         var backend = Backend(WithCorrupt(file));
         var dialogs = new FakeDialogs().AnswerConfirm(false);
-        var startup = new StartupViewModel(backend.AppStatus, _text, dialogs: dialogs);
+        var startup = new StartupViewModel(backend.AppStatus, _text, _ui, dialogs: dialogs);
         await startup.CheckAsync();
 
         await startup.CorruptFiles[0].Card.Actions[1].Command.ExecuteAsync();
@@ -223,7 +225,7 @@ public class StartupViewModelTests
         var without = Corrupt("profiles.json", null);
         var backend = Backend(WithCorrupt(withBackup, without));
         var dialogs = new FakeDialogs();
-        var startup = new StartupViewModel(backend.AppStatus, _text, dialogs: dialogs);
+        var startup = new StartupViewModel(backend.AppStatus, _text, _ui, dialogs: dialogs);
         await startup.CheckAsync();
 
         await startup.CorruptFiles[0].Card.Actions[0].Command.ExecuteAsync();
@@ -242,7 +244,7 @@ public class StartupViewModelTests
     {
         var withBackup = Corrupt("games.json", @"C:\x\games.json.bak");
         var without = Corrupt("profiles.json", null);
-        var startup = new StartupViewModel(Backend(WithCorrupt(withBackup, without)).AppStatus, _text);
+        var startup = new StartupViewModel(Backend(WithCorrupt(withBackup, without)).AppStatus, _text, _ui);
         await startup.CheckAsync();
 
         Assert.True(startup.CorruptFiles[0].Card.Actions[0].Command.CanExecute(null));
@@ -255,7 +257,7 @@ public class StartupViewModelTests
     {
         var file = Corrupt("games.json", @"C:\x\games.json.bak");
         var backend = Backend(WithCorrupt(file));
-        var startup = new StartupViewModel(backend.AppStatus, _text);
+        var startup = new StartupViewModel(backend.AppStatus, _text, _ui);
         var ready = 0;
         startup.Ready += (_, _) => ready++;
         await startup.CheckAsync();
@@ -274,7 +276,7 @@ public class StartupViewModelTests
     {
         var file = Corrupt("games.json", null);
         var backend = Backend(WithCorrupt(file));
-        var startup = new StartupViewModel(backend.AppStatus, _text);
+        var startup = new StartupViewModel(backend.AppStatus, _text, _ui);
         await startup.CheckAsync();
 
         await startup.CorruptFiles[0].Card.Actions[1].Command.ExecuteAsync();
@@ -289,7 +291,7 @@ public class StartupViewModelTests
     {
         var first = Corrupt("games.json", @"C:\x\games.json.bak");
         var second = Corrupt("profiles.json", @"C:\x\profiles.json.bak");
-        var startup = new StartupViewModel(Backend(WithCorrupt(first, second)).AppStatus, _text);
+        var startup = new StartupViewModel(Backend(WithCorrupt(first, second)).AppStatus, _text, _ui);
         await startup.CheckAsync();
 
         await startup.CorruptFiles[0].Card.Actions[0].Command.ExecuteAsync();
@@ -304,7 +306,7 @@ public class StartupViewModelTests
     {
         var file = Corrupt("games.json", @"C:\x\games.json.bak");
         var backend = Backend(WithCorrupt(file));
-        var startup = new StartupViewModel(backend.AppStatus, _text);
+        var startup = new StartupViewModel(backend.AppStatus, _text, _ui);
         await startup.CheckAsync();
         backend.FailNext<IAppStatusApi>(nameof(IAppStatusApi.RecoverCatalogFileAsync), ErrorInfo.From(new InvalidOperationException("locked")));
 
@@ -321,7 +323,7 @@ public class StartupViewModelTests
     {
         var file = Corrupt("games.json", @"C:\x\games.json.bak");
         var backend = Backend(WithCorrupt(file));
-        var startup = new StartupViewModel(backend.AppStatus, _text);
+        var startup = new StartupViewModel(backend.AppStatus, _text, _ui);
         await startup.CheckAsync();
         backend.FailNext<IAppStatusApi>(nameof(IAppStatusApi.RecoverCatalogFileAsync), ErrorInfo.From(new InvalidOperationException("locked")));
         await startup.CorruptFiles[0].Card.Actions[0].Command.ExecuteAsync();
@@ -335,7 +337,7 @@ public class StartupViewModelTests
     public async Task The_tool_is_reported_before_the_catalog_when_both_are_wrong()
     {
         var status = new StartupStatus(NoGit().Git, new CatalogStatus(_catalogDirectory, [Corrupt("games.json", null)]));
-        var startup = new StartupViewModel(Backend(status).AppStatus, _text);
+        var startup = new StartupViewModel(Backend(status).AppStatus, _text, _ui);
 
         await startup.CheckAsync();
 
@@ -348,7 +350,7 @@ public class StartupViewModelTests
     {
         var backend = Backend(Healthy());
         backend.FailNext<IAppStatusApi>(nameof(IAppStatusApi.CheckAsync), ErrorInfo.From(new InvalidOperationException("boom")));
-        var startup = new StartupViewModel(backend.AppStatus, _text);
+        var startup = new StartupViewModel(backend.AppStatus, _text, _ui);
 
         await startup.CheckAsync();
 
@@ -365,7 +367,7 @@ public class StartupViewModelTests
     public async Task A_check_that_cannot_succeed_on_a_second_try_asks_for_a_restart_instead_of_offering_one()
     {
         var failure = ErrorInfo.From(new IOException("The configuration folder cannot be created."));
-        var startup = new StartupViewModel(AppBootstrap.Unavailable(failure).AppStatus, _text, canTryAgain: false);
+        var startup = new StartupViewModel(AppBootstrap.Unavailable(failure).AppStatus, _text, _ui, canTryAgain: false);
 
         await startup.CheckAsync();
 
@@ -390,7 +392,7 @@ public class StartupViewModelTests
     public async Task Checking_again_clears_what_the_last_check_showed()
     {
         var backend = Backend(WithCorrupt(Corrupt("games.json", null)));
-        var startup = new StartupViewModel(backend.AppStatus, _text);
+        var startup = new StartupViewModel(backend.AppStatus, _text, _ui);
         await startup.CheckAsync();
         backend.State.Startup = Healthy();
 
@@ -410,13 +412,13 @@ public class StartupViewModelTests
         public Task<OperationResult<StartupStatus>> CheckAsync(CancellationToken cancellationToken = default, IProgress<StartupProgress>? progress = null) =>
             Task.FromResult(OperationResult.Success(status));
 
-        public Task<OperationResult<string>> RecoverCatalogFileAsync(string path, CatalogRecovery recovery, CancellationToken cancellationToken = default) =>
+        public Task<OperationResult<string>> RecoverCatalogFileAsync(string path, CatalogRecovery recovery) =>
             throw new NotSupportedException();
 
-        public Task<OperationResult<string>> UseStorageFolderAsync(string folder, CancellationToken cancellationToken = default) =>
+        public Task<OperationResult<string>> UseStorageFolderAsync(string folder) =>
             Task.FromResult(OperationResult.Failure<string>(refusal));
 
-        public Task<OperationResult<string>> StartWithEmptyStorageAsync(CancellationToken cancellationToken = default) =>
+        public Task<OperationResult<string>> StartWithEmptyStorageAsync() =>
             Task.FromResult(OperationResult.Failure<string>(refusal));
     }
 
@@ -441,7 +443,7 @@ public class StartupViewModelTests
     [Fact]
     public async Task A_storage_folder_that_cannot_be_reached_names_it_and_offers_three_ways_on()
     {
-        var startup = new StartupViewModel(Backend(StorageGone()).AppStatus, _text, dialogs: new FakeDialogs());
+        var startup = new StartupViewModel(Backend(StorageGone()).AppStatus, _text, _ui, dialogs: new FakeDialogs());
         var ready = 0;
         startup.Ready += (_, _) => ready++;
 
@@ -460,7 +462,7 @@ public class StartupViewModelTests
     [Fact]
     public async Task A_reachable_storage_folder_is_ready_and_one_that_was_not_checked_changes_nothing()
     {
-        var startup = new StartupViewModel(Backend(Healthy() with { Storage = new StorageStatus(true, _storageRoot, null) }).AppStatus, _text);
+        var startup = new StartupViewModel(Backend(Healthy() with { Storage = new StorageStatus(true, _storageRoot, null) }).AppStatus, _text, _ui);
 
         await startup.CheckAsync();
 
@@ -471,7 +473,7 @@ public class StartupViewModelTests
     public async Task Trying_again_gets_past_the_screen_once_the_drive_is_back()
     {
         var backend = Backend(StorageGone());
-        var startup = new StartupViewModel(backend.AppStatus, _text, dialogs: new FakeDialogs());
+        var startup = new StartupViewModel(backend.AppStatus, _text, _ui, dialogs: new FakeDialogs());
         await startup.CheckAsync();
         Assert.Equal(StartupPhase.StorageUnreachable, startup.Phase);
 
@@ -486,7 +488,7 @@ public class StartupViewModelTests
     {
         var backend = Backend(StorageGone(), @"G:\SavePoint");
         var dialogs = new FakeDialogs().AnswerFolder(@"G:\SavePoint");
-        var startup = new StartupViewModel(backend.AppStatus, _text, dialogs: dialogs);
+        var startup = new StartupViewModel(backend.AppStatus, _text, _ui, dialogs: dialogs);
         await startup.CheckAsync();
         Assert.Equal(StartupPhase.StorageUnreachable, startup.Phase);
 
@@ -504,7 +506,7 @@ public class StartupViewModelTests
     public async Task Cancelling_the_folder_picker_changes_nothing()
     {
         var backend = Backend(StorageGone());
-        var startup = new StartupViewModel(backend.AppStatus, _text, dialogs: new FakeDialogs().AnswerFolder(null));
+        var startup = new StartupViewModel(backend.AppStatus, _text, _ui, dialogs: new FakeDialogs().AnswerFolder(null));
         await startup.CheckAsync();
         Assert.Equal(StartupPhase.StorageUnreachable, startup.Phase);
 
@@ -519,7 +521,7 @@ public class StartupViewModelTests
     public async Task A_folder_with_no_saved_history_says_so_and_stays_on_the_screen()
     {
         var backend = Backend(StorageGone());
-        var startup = new StartupViewModel(backend.AppStatus, _text, dialogs: new FakeDialogs().AnswerFolder(@"G:\Elsewhere"));
+        var startup = new StartupViewModel(backend.AppStatus, _text, _ui, dialogs: new FakeDialogs().AnswerFolder(@"G:\Elsewhere"));
         await startup.CheckAsync();
         Assert.Equal(StartupPhase.StorageUnreachable, startup.Phase);
 
@@ -536,7 +538,7 @@ public class StartupViewModelTests
     {
         var backend = Backend(StorageGone());
         var dialogs = new FakeDialogs().AnswerConfirm(false);
-        var startup = new StartupViewModel(backend.AppStatus, _text, dialogs: dialogs);
+        var startup = new StartupViewModel(backend.AppStatus, _text, _ui, dialogs: dialogs);
         await startup.CheckAsync();
         Assert.Equal(StartupPhase.StorageUnreachable, startup.Phase);
 
@@ -555,7 +557,7 @@ public class StartupViewModelTests
     public async Task Confirming_starts_with_an_empty_folder_and_gets_past_the_screen()
     {
         var backend = Backend(StorageGone());
-        var startup = new StartupViewModel(backend.AppStatus, _text, dialogs: new FakeDialogs().AnswerConfirm(true));
+        var startup = new StartupViewModel(backend.AppStatus, _text, _ui, dialogs: new FakeDialogs().AnswerConfirm(true));
         await startup.CheckAsync();
         Assert.Equal(StartupPhase.StorageUnreachable, startup.Phase);
 
@@ -569,7 +571,7 @@ public class StartupViewModelTests
     public async Task A_start_with_an_empty_folder_that_fails_says_why_and_stays_on_the_screen()
     {
         var backend = Backend(StorageGone(), _defaultStorageRoot);
-        var startup = new StartupViewModel(backend.AppStatus, _text, dialogs: new FakeDialogs().AnswerConfirm(true));
+        var startup = new StartupViewModel(backend.AppStatus, _text, _ui, dialogs: new FakeDialogs().AnswerConfirm(true));
         await startup.CheckAsync();
         Assert.Equal(StartupPhase.StorageUnreachable, startup.Phase);
 
@@ -591,7 +593,7 @@ public class StartupViewModelTests
     public async Task Either_choice_that_is_refused_with_a_folder_in_the_error_shows_that_folder(string id)
     {
         var dialogs = new FakeDialogs().AnswerFolder(@"G:\Anywhere").AnswerConfirm(true);
-        var startup = new StartupViewModel(new RefusingStatus(StorageGone(), Refusal(id)), _text, dialogs: dialogs);
+        var startup = new StartupViewModel(new RefusingStatus(StorageGone(), Refusal(id)), _text, _ui, dialogs: dialogs);
         await startup.CheckAsync();
 
         await startup.Card!.Actions[1].Command.ExecuteAsync();
@@ -607,7 +609,7 @@ public class StartupViewModelTests
     public async Task A_refusal_that_names_no_folder_shows_no_folder()
     {
         var unknown = new ErrorInfo("error.unknown", new Dictionary<string, object?>(), "boom");
-        var startup = new StartupViewModel(new RefusingStatus(StorageGone(), unknown), _text, dialogs: new FakeDialogs().AnswerFolder(@"G:\Anywhere"));
+        var startup = new StartupViewModel(new RefusingStatus(StorageGone(), unknown), _text, _ui, dialogs: new FakeDialogs().AnswerFolder(@"G:\Anywhere"));
         await startup.CheckAsync();
 
         await startup.Card!.Actions[1].Command.ExecuteAsync();
@@ -621,7 +623,7 @@ public class StartupViewModelTests
     public async Task The_folder_of_a_refusal_goes_away_when_the_next_choice_starts()
     {
         var dialogs = new FakeDialogs().AnswerFolder(@"G:\Anywhere").AnswerFolder(null);
-        var startup = new StartupViewModel(new RefusingStatus(StorageGone(), Refusal("error.storage.noHistoryHere")), _text, dialogs: dialogs);
+        var startup = new StartupViewModel(new RefusingStatus(StorageGone(), Refusal("error.storage.noHistoryHere")), _text, _ui, dialogs: dialogs);
         await startup.CheckAsync();
         await startup.Card!.Actions[1].Command.ExecuteAsync();
         Assert.Equal(_refusedFolder, startup.StorageActionErrorPath);
@@ -636,7 +638,7 @@ public class StartupViewModelTests
     public async Task Trying_again_clears_the_folder_of_an_earlier_refusal()
     {
         var dialogs = new FakeDialogs().AnswerFolder(@"G:\Anywhere");
-        var startup = new StartupViewModel(new RefusingStatus(StorageGone(), Refusal("error.storage.noHistoryHere")), _text, dialogs: dialogs);
+        var startup = new StartupViewModel(new RefusingStatus(StorageGone(), Refusal("error.storage.noHistoryHere")), _text, _ui, dialogs: dialogs);
         await startup.CheckAsync();
         await startup.Card!.Actions[1].Command.ExecuteAsync();
         Assert.Equal(_refusedFolder, startup.StorageActionErrorPath);
@@ -650,7 +652,7 @@ public class StartupViewModelTests
     [Fact]
     public async Task Without_dialogs_only_trying_again_is_offered_because_the_other_two_need_them()
     {
-        var startup = new StartupViewModel(Backend(StorageGone()).AppStatus, _text);
+        var startup = new StartupViewModel(Backend(StorageGone()).AppStatus, _text, _ui);
 
         await startup.CheckAsync();
         Assert.Equal(StartupPhase.StorageUnreachable, startup.Phase);

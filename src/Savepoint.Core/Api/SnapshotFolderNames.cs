@@ -1,4 +1,4 @@
-namespace Savepoint.Core.Services.Storage;
+namespace Savepoint.Core.Api;
 
 /// <summary>
 /// Turns the engine's own folder names into the plain parts a player reads: <c>install</c> for a game's files, <c>saves</c> for its

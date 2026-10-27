@@ -188,7 +188,7 @@ public class GamesQueryTests
         var game = await workspace.AddGameAsync(workspace.NewGame(modHints: ["mods", "plugins.txt"], ignore: ["cache/"]));
         var file = Path.Combine(workspace.Root, "export", "alpha.json");
 
-        var exported = await workspace.Games.ExportDefinitionAsync(game.Id, file, workspace.Token);
+        var exported = await workspace.Games.ExportDefinitionAsync(game.Id, file);
         var imported = await workspace.Games.ImportDefinitionAsync(file, workspace.Token);
 
         Assert.True(exported.Ok, exported.Error?.Detail);
@@ -251,7 +251,7 @@ public class GamesQueryTests
         using var workspace = new BackendWorkspace();
         var file = Path.Combine(workspace.Root, "ghost.json");
 
-        var exported = await workspace.Games.ExportDefinitionAsync("ghost", file, workspace.Token);
+        var exported = await workspace.Games.ExportDefinitionAsync("ghost", file);
 
         Assert.False(exported.Ok);
         Assert.False(File.Exists(file));

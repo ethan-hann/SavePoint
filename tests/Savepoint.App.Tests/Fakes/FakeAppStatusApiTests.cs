@@ -18,7 +18,7 @@ public class FakeAppStatusApiTests
         var backend = Backend(_history);
         var before = Ok(await backend.AppStatus.CheckAsync(TestContext.Current.CancellationToken)).Storage;
 
-        var result = await backend.AppStatus.UseStorageFolderAsync(@"G:\Elsewhere", TestContext.Current.CancellationToken);
+        var result = await backend.AppStatus.UseStorageFolderAsync(@"G:\Elsewhere");
 
         Assert.Equal("error.storage.noHistoryHere", result.Error?.MessageId);
         Assert.Equal(@"G:\Elsewhere", result.Error!.Args["path"]);
@@ -30,7 +30,7 @@ public class FakeAppStatusApiTests
     {
         var backend = Backend(_history);
 
-        var result = await backend.AppStatus.UseStorageFolderAsync(_history, TestContext.Current.CancellationToken);
+        var result = await backend.AppStatus.UseStorageFolderAsync(_history);
 
         Assert.Equal(_history, Ok(result));
         var storage = Ok(await backend.AppStatus.CheckAsync(TestContext.Current.CancellationToken)).Storage!;
@@ -43,7 +43,7 @@ public class FakeAppStatusApiTests
     {
         var backend = Backend(_defaultRoot);
 
-        var result = await backend.AppStatus.StartWithEmptyStorageAsync(TestContext.Current.CancellationToken);
+        var result = await backend.AppStatus.StartWithEmptyStorageAsync();
 
         Assert.Equal("error.storage.defaultFolderHasHistory", result.Error?.MessageId);
         Assert.Equal(_defaultRoot, result.Error!.Args["path"]);
@@ -54,7 +54,7 @@ public class FakeAppStatusApiTests
     {
         var backend = Backend(_history);
 
-        var result = await backend.AppStatus.StartWithEmptyStorageAsync(TestContext.Current.CancellationToken);
+        var result = await backend.AppStatus.StartWithEmptyStorageAsync();
 
         Assert.Equal(_defaultRoot, Ok(result));
         Assert.Equal(_defaultRoot, Ok(await backend.AppStatus.CheckAsync(TestContext.Current.CancellationToken)).Storage!.Root);

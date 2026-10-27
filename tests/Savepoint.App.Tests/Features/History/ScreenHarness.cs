@@ -74,7 +74,7 @@ internal sealed class ScreenHarness : IDisposable
         var context = new FeatureContext(services, dialogs, text, toasts, dispatcher);
         var flow = new ScriptedLaunchFlow();
         var main = new MainWindowViewModel(
-            new StartupViewModel(services.AppStatus, text),
+            new StartupViewModel(services.AppStatus, text, new ImmediateUiDispatcher()),
             () => new ShellViewModel(new ShellDependencies(
                 backend.Games,
                 backend.Profiles,

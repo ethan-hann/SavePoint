@@ -62,7 +62,7 @@ internal sealed class LaunchViewHarness : IDisposable
         var flow = new LaunchFlowViewModel(deps);
         var app = (App)Application.Current!;
         var main = new MainWindowViewModel(
-            new StartupViewModel(scenario.AppStatus, rig.Text),
+            new StartupViewModel(scenario.AppStatus, rig.Text, new ImmediateUiDispatcher()),
             () => new ShellViewModel(new ShellDependencies(
                 scenario.Games,
                 scenario.Profiles,

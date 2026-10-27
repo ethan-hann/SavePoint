@@ -7,6 +7,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.VisualTree;
+using Savepoint.App.Composition;
 using Savepoint.App.Features.History;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Tests.Fakes;
@@ -23,7 +24,7 @@ public class HistoryRecentlyRemovedViewTests
         var scenario = (seeded ? RemovedSnapshotSamples.Scenario() : ScenarioBuilder.Sample()).WithSettings(SampleScenario.Settings with { Theme = theme });
         var backend = new FakeBackend(scenario);
         var clock = backend.Clock;
-        return ScreenHarness.StartAsync("history", context => [new HistoryScreenFactory(context, clock)], NavDestination.History, backend, theme, width, height, realDialogs);
+        return ScreenHarness.StartAsync("history", context => [new HistoryScreenFactory(FeatureComposition.HistoryDependenciesOf(context, clock))], NavDestination.History, backend, theme, width, height, realDialogs);
     }
 
     private static HistoryScreenViewModel Screen(ScreenHarness harness) => (HistoryScreenViewModel)harness.Shell.CurrentScreen!;

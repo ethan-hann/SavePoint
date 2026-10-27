@@ -361,7 +361,7 @@ public sealed class FakeGamesApi : IGamesApi
                 ? OperationResult.Success(definition)
                 : throw new KeyNotFoundException($"No import is scripted for '{filePath}'."));
 
-    public Task<OperationResult<Unit>> ExportDefinitionAsync(string gameId, string filePath, CancellationToken cancellationToken = default) =>
+    public Task<OperationResult<Unit>> ExportDefinitionAsync(string gameId, string filePath) =>
         _backend.Call(_api, nameof(ExportDefinitionAsync), [gameId, filePath], () =>
         {
             State.Game(gameId);

@@ -4,6 +4,7 @@ using Savepoint.App.Composition;
 using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Settings;
 using Savepoint.App.Features.Shell;
+using Savepoint.App.Hosting;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Tests.Features.History;
 
@@ -86,10 +87,18 @@ public class AboutLogFolderTests
         Assert.Same(revealer, environment.Revealer);
     }
 
+    [Fact]
+    public void Without_a_revealer_the_running_apps_settings_reveal_files_through_the_platform_file_manager()
+    {
+        var environment = SettingsEnvironment.ForThisApp();
+
+        Assert.IsType<FileManagerRevealer>(environment.Revealer);
+    }
+
     private static Task<ScreenHarness> StartAsync(string? logFolder) =>
         ScreenHarness.StartAsync(
             "settings",
-            context => [new SettingsScreenFactory(context, new SettingsEnvironment(new RecordingFileRevealer(), () => @"C:\SavePoint\THIRD-PARTY-NOTICES.md", "1.2.3", logFolder))],
+            context => [new SettingsScreenFactory(FeatureComposition.SettingsDependenciesOf(context, new SettingsEnvironment(new RecordingFileRevealer(), () => @"C:\SavePoint\THIRD-PARTY-NOTICES.md", "1.2.3", logFolder)))],
             NavDestination.Settings,
             FakeBackend.Sample(),
             Savepoint.Core.Catalog.ThemePreference.Dark,

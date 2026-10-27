@@ -478,7 +478,7 @@ public class FakeLibraryApisTests
         var corrupt = new CorruptCatalogFile(@"C:\cat\profiles.json", @"C:\cat\profiles.json.bak", ErrorInfoFor(@"C:\cat\profiles.json"));
         var backend = new FakeBackend(ScenarioBuilder.Sample().WithStartupStatus(StartupWith(corrupt)));
 
-        var moved = await backend.AppStatus.RecoverCatalogFileAsync(corrupt.Path, CatalogRecovery.RestoreBackup, Ct);
+        var moved = await backend.AppStatus.RecoverCatalogFileAsync(corrupt.Path, CatalogRecovery.RestoreBackup);
 
         Assert.StartsWith(corrupt.Path, Ok(moved), StringComparison.Ordinal);
         Assert.NotEqual(corrupt.Path, moved.Value);
@@ -491,7 +491,7 @@ public class FakeLibraryApisTests
         var corrupt = new CorruptCatalogFile(@"C:\cat\games.json", null, ErrorInfoFor(@"C:\cat\games.json"));
         var backend = new FakeBackend(ScenarioBuilder.Sample().WithStartupStatus(StartupWith(corrupt)));
 
-        var result = await backend.AppStatus.RecoverCatalogFileAsync(corrupt.Path, CatalogRecovery.RestoreBackup, Ct);
+        var result = await backend.AppStatus.RecoverCatalogFileAsync(corrupt.Path, CatalogRecovery.RestoreBackup);
 
         Assert.False(result.Ok);
         Assert.Single(Ok(await backend.AppStatus.CheckAsync(Ct)).Catalog.CorruptFiles);

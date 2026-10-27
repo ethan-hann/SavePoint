@@ -21,7 +21,7 @@ public class StartupLogFolderTests
 
     private static async Task<StartupViewModel> FailedAsync(string? logFolder, RecordingFileRevealer? revealer = null)
     {
-        var startup = new StartupViewModel(AppBootstrap.Unavailable(Failure, logFolder).AppStatus, _text, canTryAgain: false, logFolder, revealer);
+        var startup = new StartupViewModel(AppBootstrap.Unavailable(Failure, logFolder).AppStatus, _text, new ImmediateUiDispatcher(), canTryAgain: false, logFolder, revealer);
         await startup.CheckAsync();
         return startup;
     }
@@ -69,7 +69,7 @@ public class StartupLogFolderTests
     [Fact]
     public async Task A_check_that_can_be_tried_again_does_not_talk_about_the_log()
     {
-        var startup = new StartupViewModel(AppBootstrap.Unavailable(Failure, _logFolder).AppStatus, _text, canTryAgain: true, _logFolder, new RecordingFileRevealer());
+        var startup = new StartupViewModel(AppBootstrap.Unavailable(Failure, _logFolder).AppStatus, _text, new ImmediateUiDispatcher(), canTryAgain: true, _logFolder, new RecordingFileRevealer());
 
         await startup.CheckAsync();
 

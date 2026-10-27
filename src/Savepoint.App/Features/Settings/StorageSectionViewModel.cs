@@ -8,7 +8,6 @@ using Savepoint.App.Theme;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
-using Savepoint.Core.Services.Storage;
 
 namespace Savepoint.App.Features.Settings;
 
@@ -106,10 +105,6 @@ public sealed partial class StorageSectionViewModel : ObservableObject
     {
         _deps = dependencies;
         _store = store;
-        ChangeCommand = new AsyncRelayCommand(ChangeAsync, () => !IsRelocating);
-        RunNowCommand = new AsyncRelayCommand(RunNowAsync, () => !IsOptimizing);
-        CancelOptimizeCommand = new AsyncRelayCommand(() => CancelAsync(_optimizeJob), () => IsOptimizing && !HasStopNote);
-        CancelRelocationCommand = new AsyncRelayCommand(() => CancelAsync(_relocationJob), () => IsRelocating);
         store.Changed += (_, settings) => Show(settings);
     }
 
@@ -119,17 +114,13 @@ public sealed partial class StorageSectionViewModel : ObservableObject
     /// <summary>True while the move's size is not known yet, so the bar sweeps instead of filling.</summary>
     public bool IsRelocationIndeterminate => RelocationFraction is null;
 
-    /// <summary>Picks a new folder, shows what the move would do, asks, and starts it.</summary>
-    public IAsyncRelayCommand ChangeCommand { get; }
+    private bool CanChange => !IsRelocating;
 
-    /// <summary>Optimizes the storage of every game.</summary>
-    public IAsyncRelayCommand RunNowCommand { get; }
+    private bool CanRunNow => !IsOptimizing;
 
-    /// <summary>Cancels the optimization that is running.</summary>
-    public IAsyncRelayCommand CancelOptimizeCommand { get; }
+    private bool CanCancelOptimize => IsOptimizing && !HasStopNote;
 
-    /// <summary>Cancels the move that is running.</summary>
-    public IAsyncRelayCommand CancelRelocationCommand { get; }
+    private bool CanCancelRelocation => IsRelocating;
 
     // Reads the numbers and takes up any long job that is already running, once the settings are in.
     internal async Task LoadAsync(IReadOnlyList<JobSnapshot> jobs)
@@ -304,6 +295,8 @@ public sealed partial class StorageSectionViewModel : ObservableObject
             : _deps.Text.Message("settings.storage.optimizeNeverRun");
     }
 
+    // The generated ChangeCommand picks a new folder, shows what the move would do, asks, and starts it.
+    [RelayCommand(CanExecute = nameof(CanChange))]
     private async Task ChangeAsync()
     {
         var picked = await _deps.Dialogs.PickFolderAsync(new FolderPickRequest(_deps.Text.Message("settings.storage.pickTitle"), StoragePath));
@@ -356,6 +349,8 @@ public sealed partial class StorageSectionViewModel : ObservableObject
         }
     }
 
+    // The generated RunNowCommand optimizes the storage of every game.
+    [RelayCommand(CanExecute = nameof(CanRunNow))]
     private async Task RunNowAsync()
     {
         Problem = null;
@@ -391,6 +386,14 @@ public sealed partial class StorageSectionViewModel : ObservableObject
             Handle(job);
         }
     }
+
+    // The generated CancelOptimizeCommand cancels the optimization that is running.
+    [RelayCommand(CanExecute = nameof(CanCancelOptimize))]
+    private Task CancelOptimize() => CancelAsync(_optimizeJob);
+
+    // The generated CancelRelocationCommand cancels the move that is running.
+    [RelayCommand(CanExecute = nameof(CanCancelRelocation))]
+    private Task CancelRelocation() => CancelAsync(_relocationJob);
 
     private async Task CancelAsync(Guid? jobId)
     {

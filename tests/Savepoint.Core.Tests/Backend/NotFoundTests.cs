@@ -33,7 +33,7 @@ public class NotFoundTests
                 ("Update", async () => (await workspace.Games.UpdateAsync(ghost)).Error),
                 ("Delete", async () => (await workspace.Games.DeleteAsync(_unknownId)).Error),
                 ("OptimizeStorage", async () => (await workspace.Games.OptimizeStorageAsync(_unknownId)).Error),
-                ("ExportDefinition", async () => (await workspace.Games.ExportDefinitionAsync(_unknownId, export, workspace.Token)).Error),
+                ("ExportDefinition", async () => (await workspace.Games.ExportDefinitionAsync(_unknownId, export)).Error),
             ]);
     }
 

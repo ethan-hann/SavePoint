@@ -188,6 +188,5 @@ public interface IGamesApi
     /// <summary>Writes the game's saved definition to a file, replacing any file already there. Unsaved edits are not included.</summary>
     /// <param name="gameId">The game to export.</param>
     /// <param name="filePath">The file to write.</param>
-    /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c> (D23).</param>
-    Task<OperationResult<Unit>> ExportDefinitionAsync(string gameId, string filePath, CancellationToken cancellationToken = default);
+    Task<OperationResult<Unit>> ExportDefinitionAsync(string gameId, string filePath);
 }

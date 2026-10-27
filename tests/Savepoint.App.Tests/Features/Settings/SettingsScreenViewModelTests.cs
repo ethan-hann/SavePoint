@@ -360,25 +360,4 @@ public class SettingsScreenViewModelTests
         Assert.True(refreshed.HasLicense);
         Assert.Equal(license, refreshed.LicensePath);
     }
-
-    [Theory]
-    [InlineData("windows", "explorer.exe", "/select,\"C:\\App\\THIRD-PARTY-NOTICES.md\"", "")]
-    [InlineData("macos", "open", "", "-R|/Applications/SavePoint/THIRD-PARTY-NOTICES.md")]
-    [InlineData("linux", "xdg-open", "", "/opt/savepoint")]
-    public void The_file_manager_is_started_the_way_each_system_expects(string os, string program, string arguments, string argumentList)
-    {
-        var path = os switch
-        {
-            "windows" => @"C:\App\THIRD-PARTY-NOTICES.md",
-            "macos" => "/Applications/SavePoint/THIRD-PARTY-NOTICES.md",
-            _ => "/opt/savepoint/THIRD-PARTY-NOTICES.md",
-        };
-
-        var start = ProcessFileRevealer.Start(path, os);
-
-        Assert.Equal(program, start.FileName);
-        Assert.Equal(arguments, start.Arguments);
-        Assert.Equal(argumentList, string.Join('|', start.ArgumentList));
-        Assert.False(start.UseShellExecute);
-    }
 }

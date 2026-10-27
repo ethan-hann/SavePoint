@@ -72,7 +72,7 @@ internal sealed class SettingsRig
         var toasts = new ToastHostViewModel(new ManualTimeProvider(), new ImmediateUiDispatcher());
         var revealer = new RecordingFileRevealer();
         var context = new FeatureContext(services, dialogs, text, toasts, new ImmediateUiDispatcher());
-        var factory = new CapturingFactory(new SettingsScreenFactory(context, new SettingsEnvironment(revealer, () => notices, version, logFolder, () => license, appsMenu)));
+        var factory = new CapturingFactory(new SettingsScreenFactory(FeatureComposition.SettingsDependenciesOf(context, new SettingsEnvironment(revealer, () => notices, version, logFolder, () => license, appsMenu))));
         var shell = await ShellRig.StartAsync(backend, screens: [factory], artwork: artwork);
         return new SettingsRig(shell, (SettingsScreenViewModel)factory.Created!, backend, dialogs, toasts, revealer, text);
     }

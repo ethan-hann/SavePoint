@@ -64,7 +64,6 @@ public sealed partial class SettingsScreenViewModel : ObservableObject, IScreen
         ClearAll = new ClearAllDataSectionViewModel(dependencies, _store, shell);
         About = new AboutSectionViewModel(dependencies.Environment, dependencies.Text, dependencies.Toasts);
         AppsMenu = new AppsMenuSectionViewModel(dependencies.Environment.AppsMenu, dependencies.Text);
-        RetryCommand = new AsyncRelayCommand(LoadAsync);
 
         // Subscribed for good, so a job that runs while another screen shows is still known when this one comes back.
         dependencies.Jobs.JobChanged += (_, job) => dependencies.Dispatcher.Post(() =>
@@ -104,11 +103,12 @@ public sealed partial class SettingsScreenViewModel : ObservableObject, IScreen
     /// <summary>True when <see cref="LoadError"/> shows.</summary>
     public bool HasLoadError => LoadError is not null;
 
-    /// <summary>Reads the settings again after a failure.</summary>
-    public IAsyncRelayCommand RetryCommand { get; }
-
     /// <inheritdoc />
     public void OnShown() => _ = LoadAsync();
+
+    // The generated RetryCommand reads the settings again after a failure.
+    [RelayCommand]
+    private Task Retry() => LoadAsync();
 
     /// <summary>Reads the stored settings and shows them; a read that fails shows an error card instead of the sections.</summary>
     public async Task LoadAsync()

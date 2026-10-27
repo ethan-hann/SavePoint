@@ -85,7 +85,7 @@ public class StorageUnreachableChoicesTests
         using var _ = workspace;
         var before = BackendWorkspace.Snapshot(away);
 
-        var found = await workspace.AppStatus.UseStorageFolderAsync(away, workspace.Token);
+        var found = await workspace.AppStatus.UseStorageFolderAsync(away);
         var check = await workspace.AppStatus.CheckAsync(workspace.Token);
 
         Assert.True(found.Ok, found.Error?.Detail);
@@ -129,7 +129,7 @@ public class StorageUnreachableChoicesTests
             File.AppendAllText(Path.Combine(gitDir, "config"), $"[core]\n\tfsmonitor = echo ran >> '{monitorRan.Replace('\\', '/')}' #\n[alias]\n\tst = !echo ran\n");
         }
 
-        var found = await workspace.AppStatus.UseStorageFolderAsync(prepared, workspace.Token);
+        var found = await workspace.AppStatus.UseStorageFolderAsync(prepared);
         var profile = (await workspace.Profiles.ListAsync(game.Id, workspace.Token)).Value!.Single();
         File.WriteAllText(Path.Combine(game.Install.Path, "data", "base.pak"), "what the game wrote after the history was found");
         File.WriteAllText(Path.Combine(game.External!.Path, "slot2.sav"), "a second save");
@@ -163,9 +163,9 @@ public class StorageUnreachableChoicesTests
 
         var results = new[]
         {
-            await workspace.AppStatus.UseStorageFolderAsync(empty, workspace.Token),
-            await workspace.AppStatus.UseStorageFolderAsync(plain, workspace.Token),
-            await workspace.AppStatus.UseStorageFolderAsync(Path.Combine(workspace.Root, "nowhere"), workspace.Token),
+            await workspace.AppStatus.UseStorageFolderAsync(empty),
+            await workspace.AppStatus.UseStorageFolderAsync(plain),
+            await workspace.AppStatus.UseStorageFolderAsync(Path.Combine(workspace.Root, "nowhere")),
         };
 
         Assert.All(results, result => Assert.Equal("error.storage.noHistoryHere", result.Error?.MessageId));
@@ -181,7 +181,7 @@ public class StorageUnreachableChoicesTests
         using var _ = workspace;
         var before = BackendWorkspace.Snapshot(away);
 
-        var started = await workspace.AppStatus.StartWithEmptyStorageAsync(workspace.Token);
+        var started = await workspace.AppStatus.StartWithEmptyStorageAsync();
         var check = await workspace.AppStatus.CheckAsync(workspace.Token);
 
         Assert.True(started.Ok, started.Error?.Detail);
@@ -208,7 +208,7 @@ public class StorageUnreachableChoicesTests
         var (workspace, game, _, _) = await WithCustomStorageGoneAsync();
         using var _ = workspace;
         var profile = Assert.Single((await workspace.Profiles.ListAsync(game.Id, workspace.Token)).Value!);
-        var started = await workspace.AppStatus.StartWithEmptyStorageAsync(workspace.Token);
+        var started = await workspace.AppStatus.StartWithEmptyStorageAsync();
         Assert.True(started.Ok, started.Error?.Detail);
         File.WriteAllText(Path.Combine(game.Install.Path, "data", "base.pak"), "what the game wrote after the fresh start");
 
@@ -241,7 +241,7 @@ public class StorageUnreachableChoicesTests
         var partial = Path.Combine(workspace.Root, "partial");
         CopyFolder(Path.Combine(away, first.Id), Path.Combine(partial, first.Id));
 
-        var found = await workspace.AppStatus.UseStorageFolderAsync(partial, workspace.Token);
+        var found = await workspace.AppStatus.UseStorageFolderAsync(partial);
         File.WriteAllText(Path.Combine(second.Install.Path, "data", "base.pak"), "what the second game wrote since");
         var saved = await workspace.Profiles.CaptureAsync(second.Id, secondProfile.Id, "Second game again");
         var job = await workspace.WaitForJobAsync(saved.Value!.JobId, TimeSpan.FromSeconds(120));
@@ -260,7 +260,7 @@ public class StorageUnreachableChoicesTests
         using var _ = workspace;
         CopyFolder(Path.Combine(away, game.Id), Path.Combine(workspace.DefaultStorageRoot, game.Id));
 
-        var started = await workspace.AppStatus.StartWithEmptyStorageAsync(workspace.Token);
+        var started = await workspace.AppStatus.StartWithEmptyStorageAsync();
 
         Assert.Equal("error.storage.defaultFolderHasHistory", started.Error?.MessageId);
         Assert.Equal(workspace.DefaultStorageRoot, started.Error!.Args["path"]);
@@ -279,7 +279,7 @@ public class StorageUnreachableChoicesTests
         Directory.CreateDirectory(Path.Combine(gitDir, "objects"));
         Directory.CreateDirectory(Path.Combine(gitDir, "refs", "heads"));
 
-        var started = await workspace.AppStatus.StartWithEmptyStorageAsync(workspace.Token);
+        var started = await workspace.AppStatus.StartWithEmptyStorageAsync();
 
         Assert.True(started.Ok, started.Error?.Detail);
         Assert.True(RepoConfigFile.IsCurrent(gitDir), "the half-made repository was left as it was");
@@ -316,11 +316,11 @@ public class StorageUnreachableChoicesTests
         workspace.Restart();
 
         fault = true;
-        var failed = await workspace.AppStatus.StartWithEmptyStorageAsync(workspace.Token);
+        var failed = await workspace.AppStatus.StartWithEmptyStorageAsync();
         fault = false;
         var gameFolder = Path.Combine(workspace.DefaultStorageRoot, game.Id);
         Directory.Delete(Path.Combine(gameFolder, "install.git", "info", "attributes"));
-        var again = await workspace.AppStatus.StartWithEmptyStorageAsync(workspace.Token);
+        var again = await workspace.AppStatus.StartWithEmptyStorageAsync();
 
         Assert.Equal("error.storage.writeFailed", failed.Error?.MessageId);
         Assert.Equal(gameFolder, failed.Error!.Args["path"]);
@@ -338,7 +338,7 @@ public class StorageUnreachableChoicesTests
         var before = BackendWorkspace.Snapshot(away);
         Assert.False(Directory.Exists(workspace.DefaultStorageRoot));
 
-        var started = await workspace.AppStatus.StartWithEmptyStorageAsync(workspace.Token);
+        var started = await workspace.AppStatus.StartWithEmptyStorageAsync();
         var check = await workspace.AppStatus.CheckAsync(workspace.Token);
 
         Assert.True(started.Ok, started.Error?.Detail);
@@ -359,7 +359,7 @@ public class StorageUnreachableChoicesTests
         Directory.Delete(workspace.DefaultStorageRoot, recursive: true);
         workspace.Restart();
 
-        var started = await workspace.AppStatus.StartWithEmptyStorageAsync(workspace.Token);
+        var started = await workspace.AppStatus.StartWithEmptyStorageAsync();
         var check = await workspace.AppStatus.CheckAsync(workspace.Token);
 
         Assert.True(started.Ok, started.Error?.Detail);
@@ -385,8 +385,8 @@ public class StorageUnreachableChoicesTests
         workspace.Restart();
         Assert.Empty((await workspace.Games.ListAsync(workspace.Token)).Value!);
 
-        var refused = await workspace.AppStatus.UseStorageFolderAsync(empty, workspace.Token);
-        var found = await workspace.AppStatus.UseStorageFolderAsync(carried, workspace.Token);
+        var refused = await workspace.AppStatus.UseStorageFolderAsync(empty);
+        var found = await workspace.AppStatus.UseStorageFolderAsync(carried);
         var check = await workspace.AppStatus.CheckAsync(workspace.Token);
 
         Assert.Equal("error.storage.noHistoryHere", refused.Error?.MessageId);
@@ -403,7 +403,7 @@ public class StorageUnreachableChoicesTests
         using var _ = workspace;
         BackendWorkspace.WriteFile(Path.Combine(Path.GetDirectoryName(workspace.InstallDirectory)!, "Update.exe"), "not a real updater");
 
-        var found = await workspace.AppStatus.UseStorageFolderAsync(away, workspace.Token);
+        var found = await workspace.AppStatus.UseStorageFolderAsync(away);
 
         Assert.Equal("error.storageRelocation.insideInstallFolder", found.Error?.MessageId);
         Assert.Equal(away, found.Error!.Args["path"]);
@@ -417,7 +417,7 @@ public class StorageUnreachableChoicesTests
         using var _ = workspace;
         BackendWorkspace.WriteFile(Path.Combine(away, StorageRelocator.MarkerFileName), "an earlier move was here");
 
-        var found = await workspace.AppStatus.UseStorageFolderAsync(away, workspace.Token);
+        var found = await workspace.AppStatus.UseStorageFolderAsync(away);
 
         Assert.Equal("error.storageRelocation.moveUnfinished", found.Error?.MessageId);
         Assert.Equal(workspace.DefaultStorageRoot, (await workspace.Settings.GetAsync(workspace.Token)).Value!.StorageRoot);
@@ -433,7 +433,7 @@ public class StorageUnreachableChoicesTests
         var overlapping = workspace.GamesRoot;
         CopyFolder(Path.Combine(away, game.Id), Path.Combine(overlapping, game.Id));
 
-        var found = await workspace.AppStatus.UseStorageFolderAsync(overlapping, workspace.Token);
+        var found = await workspace.AppStatus.UseStorageFolderAsync(overlapping);
 
         Assert.Equal("error.gameService.pathOverlap", found.Error?.MessageId);
         Assert.Equal(workspace.DefaultStorageRoot, (await workspace.Settings.GetAsync(workspace.Token)).Value!.StorageRoot);
@@ -451,8 +451,8 @@ public class StorageUnreachableChoicesTests
         var copy = Path.Combine(workspace.Root, "copy-of-storage");
         CopyFolder(workspace.DefaultStorageRoot, copy);
 
-        var found = await workspace.AppStatus.UseStorageFolderAsync(copy, workspace.Token);
-        var started = await workspace.AppStatus.StartWithEmptyStorageAsync(workspace.Token);
+        var found = await workspace.AppStatus.UseStorageFolderAsync(copy);
+        var started = await workspace.AppStatus.StartWithEmptyStorageAsync();
 
         Assert.Equal("error.storage.stillReachable", found.Error?.MessageId);
         Assert.Equal("error.storage.stillReachable", started.Error?.MessageId);
@@ -472,7 +472,7 @@ public class StorageUnreachableChoicesTests
         BackendWorkspace.MoveFolder(workspace.DefaultStorageRoot, away);
         workspace.Restart();
 
-        var found = await workspace.AppStatus.UseStorageFolderAsync(away, workspace.Token);
+        var found = await workspace.AppStatus.UseStorageFolderAsync(away);
         var check = await workspace.AppStatus.CheckAsync(workspace.Token);
 
         Assert.True(found.Ok, found.Error?.Detail);
@@ -497,8 +497,8 @@ public class StorageUnreachableChoicesTests
         try
         {
             started = choice == "find"
-                ? workspace.AppStatus.UseStorageFolderAsync(copy, workspace.Token)
-                : workspace.AppStatus.StartWithEmptyStorageAsync(workspace.Token);
+                ? workspace.AppStatus.UseStorageFolderAsync(copy)
+                : workspace.AppStatus.StartWithEmptyStorageAsync();
             await WaitUntilAnExclusiveRequestIsWaitingAsync(gate, workspace.Token);
             BackendWorkspace.MoveFolder(away, workspace.DefaultStorageRoot);
         }
@@ -555,7 +555,7 @@ public class StorageUnreachableChoicesTests
         var unplugged = second.Install.Path + "-unplugged";
         BackendWorkspace.MoveFolder(second.Install.Path, unplugged);
 
-        var started = await workspace.AppStatus.StartWithEmptyStorageAsync(workspace.Token);
+        var started = await workspace.AppStatus.StartWithEmptyStorageAsync();
         var gitDir = Path.Combine(workspace.DefaultStorageRoot, second.Id, "install.git");
         var existedThen = Directory.Exists(gitDir);
         BackendWorkspace.MoveFolder(unplugged, second.Install.Path);
@@ -582,7 +582,7 @@ public class StorageUnreachableChoicesTests
         await workspace.WaitForIdleAsync(TimeSpan.FromSeconds(60));
         BackendWorkspace.MoveFolder(workspace.DefaultStorageRoot, workspace.DefaultStorageRoot + "-away");
         workspace.Restart();
-        var started = await workspace.AppStatus.StartWithEmptyStorageAsync(workspace.Token);
+        var started = await workspace.AppStatus.StartWithEmptyStorageAsync();
         var gitDir = Path.Combine(workspace.DefaultStorageRoot, game.Id, "install.git");
         Directory.Delete(gitDir, recursive: true);
         File.Delete(Path.Combine(game.Install.Path, ".savepoint-managed.json"));
@@ -626,7 +626,7 @@ public class StorageUnreachableChoicesTests
         workspace.Restart();
         failFor = second.Id;
 
-        var started = await workspace.AppStatus.StartWithEmptyStorageAsync(workspace.Token);
+        var started = await workspace.AppStatus.StartWithEmptyStorageAsync();
 
         Assert.True(started.Ok, started.Error?.Detail);
         Assert.True(Directory.Exists(Path.Combine(workspace.DefaultStorageRoot, first.Id, "install.git")));
