@@ -1,4 +1,6 @@
+using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Library;
+using Savepoint.App.Localization;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
@@ -130,6 +132,26 @@ public class LibraryAddDialogViewModelTests
         var stored = Assert.Single((await backend.Games.ListAsync(TestContext.Current.CancellationToken)).Value!);
         Assert.Equal(["**/*.log"], stored.InstallIgnorePaths);
         Assert.Empty(stored.IgnorePaths);
+    }
+
+    [Fact]
+    public async Task The_rules_that_now_apply_to_the_games_own_folder_only_are_joined_with_the_catalog_separator()
+    {
+        var catalog = LocalizationCatalog.FromJson(
+            """{ "common.listSeparator": " / ", "library.add.line.rulesMoved": "{rules}" }""",
+            "en",
+            throwOnMissingKey: false);
+        var game = LibraryTestData.Game("Skyrim", id: "1");
+        game = game with { Draft = game.Draft with { IgnorePaths = ["**/*.log", "**/*.dmp"] } };
+        var backend = FakeBackend.Empty();
+        backend.State.Library = LibraryTestData.Scan(game);
+        backend.Games.SavesLeftOutByRule["**/*.log"] = ["Player.log"];
+        backend.Games.SavesLeftOutByRule["**/*.dmp"] = ["Player.dmp"];
+        var dialog = new LibraryAddDialogViewModel(backend.Games, [game], new UiFormatter(catalog, os: "windows", timeZone: TimeZoneInfo.Utc));
+
+        await dialog.RunAsync();
+
+        Assert.Equal("**/*.log / **/*.dmp", Assert.Single(dialog.ResultLines, l => l.Kind == LibraryResultKind.Notice).Text);
     }
 
     [Fact]

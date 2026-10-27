@@ -1,4 +1,5 @@
 using Savepoint.App.Features.Editor;
+using Savepoint.App.Localization;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
@@ -113,6 +114,23 @@ public class GameEditorSaveTests
         var toast = Assert.Single(rig.Toasts.Toasts);
         Assert.Equal("The rules **/*.log, **/*.dmp now apply to the game's own folder only, because SavePoint couldn't check your saves folder. They are listed under \"Files to leave out of the game's own folder\" in Edit game.", toast.Text);
         Assert.DoesNotContain("holds files", toast.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task The_rules_that_were_left_off_are_joined_with_the_catalog_separator()
+    {
+        var catalog = LocalizationCatalog.FromJson(
+            """{ "common.listSeparator": " / ", "gameEditor.ignorePaths.savesUnchecked": "{rules}" }""",
+            "en",
+            throwOnMissingKey: false);
+        var rig = EditorRig.Create(catalog: catalog);
+        rig.Backend.Games.SavesCheckFails = true;
+        var editor = Filled(rig, FromTemplate("**/*.log", "**/*.dmp"));
+        editor.IgnoreRules.SetValues(["**/*.log", "**/*.dmp"]);
+
+        await Save(rig, editor);
+
+        Assert.Equal("**/*.log / **/*.dmp", Assert.Single(rig.Toasts.Toasts).Text);
     }
 
     [Fact]
