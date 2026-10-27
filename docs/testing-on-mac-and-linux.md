@@ -49,12 +49,14 @@ On Linux, also try the AppImage: download `SavePoint.AppImage` from the latest r
 - [ ] **Case:** APFS ignores case by default. Taking and switching snapshots of a folder holding `Mods/Foo` and `Mods/foo` refuses with a clear message instead of losing a file.
 - [ ] **Safety:** choosing `/System`, `/Applications`, or `~/Library` itself as a game folder is refused.
 - [ ] **VoiceOver** (Cmd+F5): the Games screen, the launch dialog, and Settings read their buttons and rows.
+- [ ] **A mods folder outside the game folder:** if 7 Days to Die runs on this Mac, add it from its template, install a mod the way the game expects, and check the game loads it from the mods folder the template filled in (D61.5). Run the folder identity tests (`HostIdentityTests`, `PathSafetyPinTests`, `FolderRecheckTests`) and note whether the Mac is Intel or Apple Silicon, since each takes a different `stat` path (D57).
 
 ## 5. Linux VM only
 
 - [ ] **A launcher game:** with Steam installed, a game started through Steam (or a Proton game) is followed until it quits.
 - [ ] **A game on an NTFS or exFAT drive** (a second virtual disk formatted that way): taking and switching snapshots works, and a case-only clash is refused.
 - [ ] **Wayland and X11:** if the VM offers both at login, start SavePoint once under each.
+- [ ] **A mods folder outside the game folder:** if 7 Days to Die runs on the VM, add it from its template, install a mod the way the game expects, and check the game loads it from the mods folder the template filled in (D61.5).
 - [ ] **Apps menu:** Settings > Apps menu adds SavePoint with its icon to the GNOME apps menu, shows the entry as out of date after the AppImage is moved (Update fixes it), and Remove takes the entry and icons away again.
 - [ ] **Uninstall:** deleting the AppImage leaves `~/.local/share/savepoint` and `~/.config/savepoint` in place, and a new AppImage picks the games up again. An apps menu entry added from Settings stays until you remove it there (or delete it from `~/.local/share/applications`).
 
