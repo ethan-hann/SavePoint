@@ -45,6 +45,11 @@ namespace Savepoint.Core.Catalog;
 /// the player asks for it. Removing all of SavePoint's data resets it with everything else. A settings file from before this setting
 /// existed reads as false.
 /// </param>
+/// <param name="UiScalePercent">
+/// How much larger than the operating system's own display scaling the whole interface is drawn, as a percent: 100 draws it as is. It
+/// is stored as written; the app offers 100 to 200 in steps and treats any other number as the nearest step. A settings file from
+/// before this setting existed reads as 100.
+/// </param>
 public sealed record AppSettings(
     string StorageRoot = "",
     ThemePreference Theme = ThemePreference.System,
@@ -58,7 +63,8 @@ public sealed record AppSettings(
     bool OlderChoiceHelpSeen = false,
     bool DiscardHelpSeen = false,
     bool ReplaceHelpSeen = false,
-    bool TourSeen = false)
+    bool TourSeen = false,
+    int UiScalePercent = 100)
 {
     /// <summary>
     /// The settings for a first run. They are written only once the user changes something, so every setting but the storage

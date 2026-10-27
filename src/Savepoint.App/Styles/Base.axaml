@@ -18,6 +18,11 @@
     <Setter Property="FontSize" Value="13" />
   </Style>
 
+  <!-- A popup is laid out outside its window's content; taking its anchor's transform gives it the player's UI scale too. -->
+  <Style Selector="Popup">
+    <Setter Property="InheritsTransform" Value="True" />
+  </Style>
+
   <!-- Tooltip: inverse-surface chip, 12px text, faded by the shared opacity bundle (Fluent colors come from FluentBridge). -->
   <Style Selector="ToolTip">
     <Setter Property="FontSize" Value="12" />

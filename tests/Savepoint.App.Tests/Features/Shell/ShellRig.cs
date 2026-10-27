@@ -97,7 +97,11 @@ internal sealed class RecordingThemeApplier : IThemeApplier
 {
     public List<(ThemePreference Preference, AccentColorId Accent)> Applied { get; } = [];
 
+    public List<int> Scales { get; } = [];
+
     public void Apply(ThemePreference preference, AccentColorId accent) => Applied.Add((preference, accent));
+
+    public void ApplyScale(int percent) => Scales.Add(percent);
 }
 
 internal sealed class RecordingScreen(NavDestination destination) : IScreen

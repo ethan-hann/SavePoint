@@ -8,6 +8,9 @@ public interface IThemeApplier
 {
     /// <summary>Switches the mode and accent.</summary>
     void Apply(ThemePreference preference, AccentColorId accent);
+
+    /// <summary>Draws every window and popup at a UI scale, in percent on top of the operating system's own scaling.</summary>
+    void ApplyScale(int percent);
 }
 
 /// <summary>The real applier, backed by the application's <see cref="ThemeService"/>.</summary>
@@ -23,4 +26,7 @@ public sealed class ThemeServiceApplier : IThemeApplier
 
     /// <inheritdoc />
     public void Apply(ThemePreference preference, AccentColorId accent) => _service.Apply(preference, accent);
+
+    /// <inheritdoc />
+    public void ApplyScale(int percent) => _service.SetUiScale(percent);
 }

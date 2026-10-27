@@ -119,6 +119,7 @@ internal static class ThemeTestSupport
     {
         var app = (App)Application.Current!;
         app.Theme.ReduceMotion = false;
+        app.Theme.SetUiScale(100);
         app.Theme.Apply(ThemePreference.System, AccentColorId.Blue);
     }
 

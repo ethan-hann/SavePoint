@@ -9,5 +9,8 @@
         MinWidth="640"
         MinHeight="420"
         WindowStartupLocation="CenterScreen">
-  <shell:MainView />
+  <!-- The player's UI scale: everything in the window is laid out at that size, so nothing clips or blurs. -->
+  <LayoutTransformControl LayoutTransform="{DynamicResource Md3UiScaleTransform}">
+    <shell:MainView />
+  </LayoutTransformControl>
 </Window>

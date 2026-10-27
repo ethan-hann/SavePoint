@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Savepoint.App.Features.Common;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Shell;
@@ -18,8 +19,9 @@ public class MainWindowTests
     public void The_window_hosts_the_main_view()
     {
         var window = new MainWindow();
+        window.Show();
 
-        Assert.IsType<MainView>(window.Content);
+        Assert.Single(window.GetVisualDescendants().OfType<MainView>());
     }
 
     [AvaloniaFact]

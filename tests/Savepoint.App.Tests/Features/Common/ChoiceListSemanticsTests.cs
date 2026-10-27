@@ -20,6 +20,7 @@ public class ChoiceListSemanticsTests
     [
         ("editor-new", "LaunchChoiceList"),
         ("settings", "ThemeSelector"),
+        ("settings", "ScaleSelector"),
         ("settings", "LayoutCards"),
         ("settings", "AccentSwatches"),
         ("games-library", "Toggle"),

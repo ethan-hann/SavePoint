@@ -206,6 +206,34 @@
 
               <Border Classes="divider" Margin="0,14" />
 
+              <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="3" VerticalAlignment="Center" Margin="0,0,16,0">
+                  <TextBlock Classes="body" FontSize="14.5" Text="{loc:Loc settings.scale.label}" />
+                  <TextBlock Classes="caption" FontSize="12.5" TextWrapping="Wrap" Text="{loc:Loc settings.scale.hint}" />
+                </StackPanel>
+                <a11y:ChoiceListBox x:Name="ScaleSelector"
+                         Grid.Column="1"
+                         Classes="segmented"
+                         VerticalAlignment="Center"
+                         AutoScrollToSelectedItem="False"
+                         ItemsSource="{Binding Appearance.ScaleOptions}"
+                         SelectedItem="{Binding Appearance.SelectedScale, Mode=TwoWay}"
+                         AutomationProperties.Name="{loc:Loc settings.scale.label}">
+                  <a11y:ChoiceListBox.Styles>
+                    <Style Selector="ListBoxItem" x:DataType="settings:ScaleOption">
+                      <Setter Property="AutomationProperties.Name" Value="{Binding Label}" />
+                    </Style>
+                  </a11y:ChoiceListBox.Styles>
+                  <a11y:ChoiceListBox.ItemTemplate>
+                    <DataTemplate x:DataType="settings:ScaleOption">
+                      <TextBlock Text="{Binding Label}" />
+                    </DataTemplate>
+                  </a11y:ChoiceListBox.ItemTemplate>
+                </a11y:ChoiceListBox>
+              </Grid>
+
+              <Border Classes="divider" Margin="0,14" />
+
               <StackPanel Spacing="12">
                 <StackPanel Spacing="3">
                   <TextBlock Classes="body" FontSize="14.5" Text="{loc:Loc settings.layout.label}" />

@@ -834,7 +834,9 @@ public class ShellViewTests
     {
         var window = new Savepoint.App.Views.MainWindow();
 
-        Assert.IsType<MainView>(window.Content);
+        window.Show();
+
+        Assert.Single(Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(window).OfType<MainView>());
         Assert.Equal(1040, window.Width);
     }
 
