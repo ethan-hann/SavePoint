@@ -30,8 +30,9 @@ internal sealed class BackendWorkspace : IDisposable
 
     // A workspace that starts as a copy of another's folders, so a world built once can be handed to many tests. Files that store absolute
     // paths (the catalog, the git config) are pointed at the copy's own root; one that cannot be rewritten is an error, not a stale path.
-    private BackendWorkspace(string templateRoot)
+    private BackendWorkspace(string templateRoot, Func<BackendOptions, BackendOptions>? configure)
     {
+        _configure = configure;
         Root = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "savepoint-backend-" + Guid.NewGuid().ToString("N")));
         Home = Path.Combine(Root, "home");
         GamesRoot = Path.Combine(Root, "games");
@@ -89,7 +90,8 @@ internal sealed class BackendWorkspace : IDisposable
     public CancellationToken Token => TestContext.Current.CancellationToken;
 
     // A new workspace, over its own folders, that holds what the template holds now. The template must be idle and stay unchanged.
-    public static BackendWorkspace CopyOf(BackendWorkspace template) => new(template.Root);
+    // The copy's backend is built with the given options, which the template's own backend need not share.
+    public static BackendWorkspace CopyOf(BackendWorkspace template, Func<BackendOptions, BackendOptions>? configure = null) => new(template.Root, configure);
 
     // A second backend over the same folders, as the app has after a restart: nothing in memory carries over.
     public CoreBackend Restart() => Backend = Build();
