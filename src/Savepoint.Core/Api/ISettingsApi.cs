@@ -24,7 +24,7 @@ public interface ISettingsApi
     Task<OperationResult<StorageSummary>> GetStorageSummaryAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Settings' "Run now" for Free up space: starts one <see cref="JobKind.Compact"/> job across every game, so its snapshot has no game
+    /// Settings' "Free up space" button: starts one <see cref="JobKind.Compact"/> job across every game, so its snapshot has no game
     /// id. For each game it first deletes the recently removed snapshots the player agreed to lose (see <see cref="IHistoryApi.GetRecentlyRemovedAsync"/>),
     /// then optimizes the storage and reclaims space nothing reaches any more. Only the records in <paramref name="confirmed"/> are deleted:
     /// a snapshot removed after the preview that made it stays, and a run without it deletes none. Answers at once; the result is an
