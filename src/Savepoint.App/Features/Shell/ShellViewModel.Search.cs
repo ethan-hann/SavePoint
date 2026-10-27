@@ -39,11 +39,15 @@ public sealed partial class ShellViewModel
     }
 
     // A collapsed icon rail has no search box, so it lists every game rather than filter by text nobody can see.
-    private void RefilterGames()
+    private List<GameRowViewModel> ListedBySearch(IEnumerable<GameRowViewModel> rows)
     {
         var query = IsSidebarLayout && IsCompact ? SearchQuery.Empty : GameSearch.Query;
-        ListSync.To(VisibleGames, [.. Games.Where(row => query.IsEmpty || query.Matches(row.SearchTarget))]);
+        return [.. rows.Where(row => query.IsEmpty || query.Matches(row.SearchTarget))];
+    }
 
+    private void RefilterGames()
+    {
+        ListSync.To(VisibleGames, ListedBySearch(Games));
         OnPropertyChanged(nameof(ShowNoGameMatches));
         OnPropertyChanged(nameof(ShowRailSearch));
 

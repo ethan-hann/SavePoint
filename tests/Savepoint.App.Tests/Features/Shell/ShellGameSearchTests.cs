@@ -243,6 +243,30 @@ public class ShellGameSearchTests
     }
 
     [Fact]
+    public async Task Removing_the_selected_game_selects_the_first_game_the_search_lists()
+    {
+        var rig = await ShellRig.StartAsync();
+        rig.Shell.GameSearch.Text = "last";
+
+        rig.Backend.State.Games.RemoveAll(game => game.Id == SampleScenario.SkyrimId);
+        await rig.Shell.RefreshLibraryAsync();
+
+        Assert.Equal(["The Last Caretaker"], Shown(rig));
+        Assert.Equal(rig.Shell.VisibleGames[0], rig.Shell.SelectedGameRow);
+    }
+
+    [Fact]
+    public async Task Removing_the_selected_game_with_nothing_typed_selects_the_first_game()
+    {
+        var rig = await ShellRig.StartAsync();
+
+        rig.Backend.State.Games.RemoveAll(game => game.Id == SampleScenario.SkyrimId);
+        await rig.Shell.RefreshLibraryAsync();
+
+        Assert.Equal(SampleScenario.SatisfactoryId, rig.Shell.SelectedGame?.Id);
+    }
+
+    [Fact]
     public async Task A_refresh_alone_announces_nothing()
     {
         var clock = new ManualTimeProvider();
