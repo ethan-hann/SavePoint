@@ -260,6 +260,50 @@ public sealed class FolderRecheckTests : IDisposable
         Assert.Equal(before, Contents(decoy));
     }
 
+    [Fact]
+    public async Task A_folder_inside_the_game_folder_swapped_for_a_link_after_the_last_look_does_not_send_the_removal_of_a_standing_file_outside()
+    {
+        RequireLinks(_ws.Root);
+        var repo = (await RepoTemplates.CopyAsync("folder-recheck-file-and-folder", _ws, async ws =>
+        {
+            var made = await ws.InitializedFreshAsync();
+            ws.Write(made, "Mods/Foo", "a's file");
+            await ws.CaptureAsync(made, "profile-a", "A");
+            await ws.Engine.CreateBranchAsync(made, "profile-b", "profile-a", TestContext.Current.CancellationToken);
+            await ws.Engine.CheckoutBranchAsync(made, "profile-b", ct: TestContext.Current.CancellationToken);
+            ws.Delete(made, "Mods/Foo");
+            ws.Write(made, "Mods/Foo/x.txt", "b's x");
+            await ws.CaptureAsync(made, "profile-b", "B");
+            return (made, string.Empty);
+        })).Repo;
+        var a = (await _ws.TipAsync(repo, "profile-a"))!;
+        var b = (await _ws.TipAsync(repo, "profile-b"))!;
+        SwitchJournal.Write(repo.GitDir, b, a, "profile-a");
+        _ws.Delete(repo, "Mods/Foo/x.txt");
+        Directory.Delete(_ws.FileOf(repo, "Mods/Foo"));
+        _ws.Write(repo, "Mods/Foo", "a's file");
+
+        // A folder outside the game folder holds a file of the same name, and Mods becomes a link to it right after the last look.
+        var outside = Path.Combine(_ws.Root, "outside-mods");
+        Directory.CreateDirectory(outside);
+        File.WriteAllText(Path.Combine(outside, "Foo"), "not part of this game");
+        var reached = false;
+        _afterRecheck = step =>
+        {
+            if (!reached && step == "remove-standing")
+            {
+                reached = true;
+                Directory.Move(Path.Combine(repo.WorkTree, "Mods"), Path.Combine(repo.WorkTree, "Mods-moved"));
+                Assert.True(TestLinks.TryCreateFolderLink(Path.Combine(repo.WorkTree, "Mods"), outside), "this system cannot make folder links");
+            }
+        };
+
+        await Assert.ThrowsAsync<DirtyWorkingTreeException>(() => _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct));
+
+        Assert.True(reached, "no standing file was found, so the test did not reach the step it is about");
+        Assert.Equal("not part of this game", File.ReadAllText(Path.Combine(outside, "Foo")));
+    }
+
     [Theory]
     [InlineData(Operation.Discard)]
     [InlineData(Operation.Clean)]
