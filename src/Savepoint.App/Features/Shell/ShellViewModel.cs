@@ -86,7 +86,10 @@ public sealed partial class ShellViewModel : ObservableObject, IShellContext, ID
         JobStatus = new JobStatusViewModel(text, dependencies.Toasts, id => Games.FirstOrDefault(row => row.Id == id)?.Name, jobId => dependencies.LaunchFlow.ShowsOutcomeOf(jobId), ShowActivity);
 
         dependencies.LaunchFlow.SettingsSaved += OnFlowSettingsSaved;
+        dependencies.Theme.LargestFittingScaleChanged += OnLargestFittingScaleChanged;
     }
+
+    private void OnLargestFittingScaleChanged(object? sender, EventArgs e) => OnPropertyChanged(nameof(LargestFittingUiScale));
 
     /// <inheritdoc />
     public event EventHandler? LibraryRefreshed;
@@ -194,6 +197,9 @@ public sealed partial class ShellViewModel : ObservableObject, IShellContext, ID
 
     /// <inheritdoc />
     public ShellLayout Layout => _layout;
+
+    /// <inheritdoc />
+    public int LargestFittingUiScale => _deps.Theme.LargestFittingScale;
 
     /// <inheritdoc />
     public NavDestination Destination => _destination;
@@ -507,6 +513,7 @@ public sealed partial class ShellViewModel : ObservableObject, IShellContext, ID
         EndPane(except: null);
         (_deps.Artwork as IDisposable)?.Dispose();
         _deps.LaunchFlow.SettingsSaved -= OnFlowSettingsSaved;
+        _deps.Theme.LargestFittingScaleChanged -= OnLargestFittingScaleChanged;
     }
 
     // Runs as each save lands, in the order they were stored, so a layout another change briefly undid is put back.

@@ -14,6 +14,12 @@ public interface IThemeApplier
     /// system's own scaling. The crash window and the already-running notice are minimal on purpose and stay at the system's size.
     /// </summary>
     void ApplyScale(int percent);
+
+    /// <summary>The largest interface size, in percent, that the window's screen has room for. The size applied is never larger.</summary>
+    int LargestFittingScale { get; }
+
+    /// <summary>Raised when <see cref="LargestFittingScale"/> changes, such as when the window moves to another screen.</summary>
+    event EventHandler? LargestFittingScaleChanged;
 }
 
 /// <summary>The real applier, backed by the application's <see cref="ThemeService"/>.</summary>
@@ -25,7 +31,14 @@ public sealed class ThemeServiceApplier : IThemeApplier
     public ThemeServiceApplier(ThemeService service)
     {
         _service = service;
+        service.UiScaleRoomChanged += (_, e) => LargestFittingScaleChanged?.Invoke(this, e);
     }
+
+    /// <inheritdoc />
+    public event EventHandler? LargestFittingScaleChanged;
+
+    /// <inheritdoc />
+    public int LargestFittingScale => _service.LargestFittingUiScale;
 
     /// <inheritdoc />
     public void Apply(ThemePreference preference, AccentColorId accent) => _service.Apply(preference, accent);

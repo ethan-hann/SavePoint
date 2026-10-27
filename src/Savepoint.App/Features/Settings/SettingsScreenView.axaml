@@ -210,6 +210,9 @@
                 <StackPanel Spacing="3" VerticalAlignment="Center" Margin="0,0,16,0">
                   <TextBlock Classes="body" FontSize="14.5" Text="{loc:Loc settings.scale.label}" />
                   <TextBlock Classes="caption" FontSize="12.5" TextWrapping="Wrap" Text="{loc:Loc settings.scale.hint}" />
+                  <TextBlock Classes="caption" FontSize="12.5" TextWrapping="Wrap"
+                             IsVisible="{Binding Appearance.HasUnavailableScales}"
+                             Text="{Binding Appearance.ScaleLimitNote}" />
                 </StackPanel>
                 <a11y:ChoiceListBox x:Name="ScaleSelector"
                          Grid.Column="1"
@@ -221,7 +224,10 @@
                          AutomationProperties.Name="{loc:Loc settings.scale.label}">
                   <a11y:ChoiceListBox.Styles>
                     <Style Selector="ListBoxItem" x:DataType="settings:ScaleOption">
-                      <Setter Property="AutomationProperties.Name" Value="{Binding Label}" />
+                      <Setter Property="AutomationProperties.Name" Value="{Binding AccessibleName}" />
+                      <Setter Property="IsEnabled" Value="{Binding IsAvailable}" />
+                      <Setter Property="ToolTip.Tip" Value="{Binding Reason}" />
+                      <Setter Property="ToolTip.ShowOnDisabled" Value="True" />
                     </Style>
                   </a11y:ChoiceListBox.Styles>
                   <a11y:ChoiceListBox.ItemTemplate>
