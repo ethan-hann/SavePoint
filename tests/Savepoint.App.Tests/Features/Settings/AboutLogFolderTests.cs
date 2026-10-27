@@ -4,6 +4,7 @@ using Savepoint.App.Composition;
 using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Settings;
 using Savepoint.App.Features.Shell;
+using Savepoint.App.Hosting;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Tests.Features.History;
 
@@ -84,6 +85,14 @@ public class AboutLogFolderTests
 
         Assert.Equal(_logFolder, environment.LogFolder);
         Assert.Same(revealer, environment.Revealer);
+    }
+
+    [Fact]
+    public void Without_a_revealer_the_running_apps_settings_reveal_files_through_the_platform_file_manager()
+    {
+        var environment = SettingsEnvironment.ForThisApp();
+
+        Assert.IsType<FileManagerRevealer>(environment.Revealer);
     }
 
     private static Task<ScreenHarness> StartAsync(string? logFolder) =>

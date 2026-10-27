@@ -1,5 +1,5 @@
-using System.Diagnostics;
 using System.Reflection;
+using Savepoint.App.Hosting;
 using Savepoint.App.Platform;
 
 namespace Savepoint.App.Features.Settings;
@@ -9,60 +9,6 @@ public interface IFileRevealer
 {
     /// <summary>Opens the file manager on the file; false when it could not be started.</summary>
     bool Reveal(string path);
-}
-
-/// <summary>The real revealer: Explorer with the file selected, Finder's reveal, or the folder through xdg-open.</summary>
-public sealed class ProcessFileRevealer : IFileRevealer
-{
-    /// <inheritdoc />
-    public bool Reveal(string path)
-    {
-        try
-        {
-            using var process = Process.Start(Start(path));
-            return process is not null;
-        }
-        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or FileNotFoundException)
-        {
-            return false;
-        }
-    }
-
-    /// <summary>The process that reveals a file on the running system.</summary>
-    public static ProcessStartInfo Start(string path) => Start(path, OperatingSystem.IsWindows() ? "windows" : OperatingSystem.IsMacOS() ? "macos" : "linux");
-
-    /// <summary>The process that reveals a file on the named system (windows, macos or linux).</summary>
-    public static ProcessStartInfo Start(string path, string os)
-    {
-        switch (os)
-        {
-            case "windows":
-                // Explorer takes its one argument as a single string, quoting included.
-                return new ProcessStartInfo("explorer.exe") { Arguments = $"/select,\"{path}\"", UseShellExecute = false };
-            case "macos":
-                return WithArguments(new ProcessStartInfo("open"), "-R", path);
-            default:
-                return WithArguments(new ProcessStartInfo("xdg-open"), FolderOf(path));
-        }
-    }
-
-    // Cut at the last separator of either kind, so the answer does not depend on the system the code runs on.
-    private static string FolderOf(string path)
-    {
-        var cut = path.LastIndexOfAny(['/', '\\']);
-        return cut > 0 ? path[..cut] : path;
-    }
-
-    private static ProcessStartInfo WithArguments(ProcessStartInfo start, params string[] arguments)
-    {
-        start.UseShellExecute = false;
-        foreach (var argument in arguments)
-        {
-            start.ArgumentList.Add(argument);
-        }
-
-        return start;
-    }
 }
 
 /// <summary>What Settings needs from the machine it runs on.</summary>
@@ -78,9 +24,9 @@ public sealed record SettingsEnvironment(IFileRevealer Revealer, Func<string?> F
     private const string _licenseFile = "LICENSE";
 
     /// <summary>The running app: the file beside the executable and this assembly's version.</summary>
-    /// <param name="revealer">Shows a file or folder in the file manager; a plain process start when null.</param>
+    /// <param name="revealer">Shows a file or folder in the file manager; the running system's file manager when null.</param>
     /// <param name="logFolder">The folder the diagnostic log is written to, or null when there is none.</param>
-    public static SettingsEnvironment ForThisApp(IFileRevealer? revealer = null, string? logFolder = null) => new(revealer ?? new ProcessFileRevealer(), NoticesBesideTheApp, ThisAppVersion(), logFolder, LicenseBesideTheApp, AppsMenuEntry.ForThisApp());
+    public static SettingsEnvironment ForThisApp(IFileRevealer? revealer = null, string? logFolder = null) => new(revealer ?? new FileManagerRevealer(FileManager.CreateForCurrentOs()), NoticesBesideTheApp, ThisAppVersion(), logFolder, LicenseBesideTheApp, AppsMenuEntry.ForThisApp());
 
     private static string? LicenseBesideTheApp()
     {
