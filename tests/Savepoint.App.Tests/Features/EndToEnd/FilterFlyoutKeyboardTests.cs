@@ -1,4 +1,6 @@
 using Avalonia;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
@@ -19,7 +21,7 @@ public class FilterFlyoutKeyboardTests
         var button = app.Find<Button>("FilterButton");
         button.Flyout!.ShowAt(button);
         app.Settle();
-        var list = Assert.IsType<ListBox>(Assert.IsType<Flyout>(button.Flyout).Content);
+        var list = Assert.IsAssignableFrom<ListBox>(Assert.IsType<Flyout>(button.Flyout).Content);
         list.ContainerFromIndex(0)!.Focus(NavigationMethod.Tab);
         app.Settle();
 
@@ -36,6 +38,28 @@ public class FilterFlyoutKeyboardTests
     }
 
     [AvaloniaFact]
+    public async Task The_list_is_a_named_group_of_radio_buttons_for_screen_readers()
+    {
+        using var app = await ComposedApp.StartWithViewAsync();
+        app.Shell.Navigate(NavDestination.History);
+        app.Settle();
+        var button = app.Find<Button>("FilterButton");
+        button.Flyout!.ShowAt(button);
+        app.Settle();
+        var list = Assert.IsAssignableFrom<ListBox>(Assert.IsType<Flyout>(button.Flyout).Content);
+
+        var group = ControlAutomationPeer.CreatePeerForElement(list)!;
+
+        Assert.Equal(AutomationControlType.Group, group.GetAutomationControlType());
+        Assert.False(string.IsNullOrWhiteSpace(group.GetName()), "The list has no accessible name.");
+        var options = group.GetChildren().SelectMany(Flatten).Where(peer => peer is ISelectionItemProvider).ToList();
+        Assert.Equal(list.ItemCount, options.Count);
+        Assert.All(options, option => Assert.Equal(AutomationControlType.RadioButton, option.GetAutomationControlType()));
+    }
+
+    private static IEnumerable<AutomationPeer> Flatten(AutomationPeer peer) => new[] { peer }.Concat(peer.GetChildren().SelectMany(Flatten));
+
+    [AvaloniaFact]
     public async Task Escape_after_arrowing_closes_the_list_and_keeps_the_filter_that_was_in_force()
     {
         using var app = await ComposedApp.StartWithViewAsync();
@@ -44,7 +68,7 @@ public class FilterFlyoutKeyboardTests
         var button = app.Find<Button>("FilterButton");
         button.Flyout!.ShowAt(button);
         app.Settle();
-        var list = Assert.IsType<ListBox>(Assert.IsType<Flyout>(button.Flyout).Content);
+        var list = Assert.IsAssignableFrom<ListBox>(Assert.IsType<Flyout>(button.Flyout).Content);
         list.ContainerFromIndex(0)!.Focus(NavigationMethod.Tab);
         app.Settle();
         app.Press(Key.Down, PhysicalKey.ArrowDown);
@@ -64,7 +88,7 @@ public class FilterFlyoutKeyboardTests
         var button = app.Find<Button>("FilterButton");
         button.Flyout!.ShowAt(button);
         app.Settle();
-        var list = Assert.IsType<ListBox>(Assert.IsType<Flyout>(button.Flyout).Content);
+        var list = Assert.IsAssignableFrom<ListBox>(Assert.IsType<Flyout>(button.Flyout).Content);
         var third = list.ContainerFromIndex(2)!;
         var point = third.TranslatePoint(new Point(20, 10), app.Window)!.Value;
 

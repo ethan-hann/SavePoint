@@ -287,8 +287,12 @@ public class ChoiceListSemanticsTests
 
     private static readonly Regex _plainChoiceList = new(@"<ListBox\b[^>]*\bClasses=""[^""]*\b(choice|segmented|segmented-tray|radio-cards|swatches)\b", RegexOptions.CultureInvariant);
 
-    // True when a view declares a choice of one the plain way: a ListBox styled as a choice, or a plain ListBoxItem inside a ChoiceListBox.
-    private static bool DeclaresPlainChoice(string axaml) => _plainChoiceList.IsMatch(axaml) || _plainOption.IsMatch(axaml);
+    // True when a view declares a choice of one the plain way: a ListBox styled as a choice, a plain ListBoxItem inside a ChoiceListBox,
+    // or a plain ListBox inside a flyout (a flyout that holds a list is a choice of one; a list of commands is a MenuFlyout).
+    private static bool DeclaresPlainChoice(string axaml) => _plainChoiceList.IsMatch(axaml) || _plainOption.IsMatch(axaml) || _plainListInFlyout.IsMatch(axaml);
+
+    // A <ListBox declared between a Flyout's start tag and its end tag.
+    private static readonly Regex _plainListInFlyout = new(@"<(?:\w+:)?Flyout\b[^>]*(?<!/)>(?:(?!</(?:\w+:)?Flyout>)[\s\S])*?<ListBox\b", RegexOptions.CultureInvariant);
 
     // A <ListBoxItem declared between a ChoiceListBox's start tag and its end tag.
     private static readonly Regex _plainOption = new(@"<(?:\w+:)?ChoiceListBox\b[^>]*(?<!/)>(?:(?!</(?:\w+:)?ChoiceListBox>)[\s\S])*?<ListBoxItem\b", RegexOptions.CultureInvariant);
@@ -299,6 +303,11 @@ public class ChoiceListSemanticsTests
     [InlineData("<a11y:ChoiceListBox Classes=\"choice\"><ListBoxItem x:Name=\"A\" /></a11y:ChoiceListBox>", true)]
     [InlineData("<a11y:ChoiceListBox Classes=\"choice\"><a11y:ChoiceListBox.Styles><Style Selector=\"ListBoxItem\" /></a11y:ChoiceListBox.Styles><a11y:ChoiceListBoxItem /></a11y:ChoiceListBox>", false)]
     [InlineData("<a11y:ChoiceListBox Classes=\"segmented\" /><ListBox Classes=\"rows\"><ListBoxItem /></ListBox>", false)]
+    [InlineData("<Button.Flyout><Flyout Placement=\"Bottom\"><ListBox x:Name=\"FilterList\" Classes=\"rows\" /></Flyout></Button.Flyout>", true)]
+    [InlineData("<Flyout>\n  <!-- text -->\n  <ListBox>\n    <ListBoxItem />\n  </ListBox>\n</Flyout>", true)]
+    [InlineData("<Flyout><a11y:ChoiceListBox Classes=\"rows\" /></Flyout>", false)]
+    [InlineData("<Flyout><StackPanel /></Flyout><ListBox Classes=\"rows\" />", false)]
+    [InlineData("<MenuFlyout><MenuItem Header=\"Edit\" /></MenuFlyout><ListBox Classes=\"rows\" />", false)]
     public void The_lint_finds_a_plain_choice_list_or_a_plain_option_in_a_choice_list(string axaml, bool expected)
     {
         Assert.Equal(expected, DeclaresPlainChoice(axaml));
