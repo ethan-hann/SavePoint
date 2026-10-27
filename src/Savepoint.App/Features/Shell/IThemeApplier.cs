@@ -9,7 +9,10 @@ public interface IThemeApplier
     /// <summary>Switches the mode and accent.</summary>
     void Apply(ThemePreference preference, AccentColorId accent);
 
-    /// <summary>Draws every window and popup at a UI scale, in percent on top of the operating system's own scaling.</summary>
+    /// <summary>
+    /// Draws the main window, and the dialogs, popups, menus and tooltips it opens, at a UI scale in percent on top of the operating
+    /// system's own scaling. The crash window and the already-running notice are minimal on purpose and stay at the system's size.
+    /// </summary>
     void ApplyScale(int percent);
 }
 

@@ -201,6 +201,67 @@ public class UiScaleTests
         window.Close();
     }
 
+    [AvaloniaFact]
+    public void A_scaled_popup_opened_at_the_windows_bottom_right_corner_stays_inside_the_window()
+    {
+        using var scaled = Scaled(200);
+        var (window, view) = ShownMainWindow();
+        var anchor = CornerAnchor(view);
+        var bubble = new Border { Width = 160, Height = 80 };
+
+        OpenFlyout(anchor, bubble);
+
+        var box = new Rect(bubble.Bounds.Size).TransformToAABB(bubble.TransformToVisual(window)!.Value);
+        Assert.True(box.Width > 0, "The popup did not open.");
+        Assert.Equal(2.0, ScaleOf(bubble, window), 3);
+        Assert.InRange(box.Left, -0.5, window.ClientSize.Width + 0.5);
+        Assert.InRange(box.Right, -0.5, window.ClientSize.Width + 0.5);
+        Assert.InRange(box.Top, -0.5, window.ClientSize.Height + 0.5);
+        Assert.InRange(box.Bottom, -0.5, window.ClientSize.Height + 0.5);
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void A_context_menu_opened_after_a_scale_change_is_drawn_at_that_scale()
+    {
+        using var scaled = Scaled(150);
+        var (window, view) = ShownMainWindow();
+        var anchor = CornerAnchor(view);
+        var item = new MenuItem { Header = "Rename" };
+        anchor.ContextMenu = new ContextMenu { Items = { item } };
+
+        anchor.ContextMenu.Open(anchor);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(1.5, ScaleOf(item, TopLevel.GetTopLevel(item)!), 3);
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void A_tooltip_shown_after_a_scale_change_is_drawn_at_that_scale()
+    {
+        using var scaled = Scaled(150);
+        var (window, view) = ShownMainWindow();
+        var anchor = CornerAnchor(view);
+        var tip = new Border { Width = 80, Height = 20 };
+        ToolTip.SetTip(anchor, tip);
+
+        ToolTip.SetIsOpen(anchor, true);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(1.5, ScaleOf(tip, TopLevel.GetTopLevel(tip)!), 3);
+        window.Close();
+    }
+
+    // A small control in the window's bottom right corner, inside the scaled content, to anchor popups to.
+    private static Button CornerAnchor(MainView view)
+    {
+        var anchor = new Button { Width = 40, Height = 24, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Bottom };
+        view.FindControl<Panel>("Root")!.Children.Add(anchor);
+        Dispatcher.UIThread.RunJobs();
+        return anchor;
+    }
+
     private static (MainWindow Window, MainView View) ShownMainWindow()
     {
         var window = new MainWindow();
