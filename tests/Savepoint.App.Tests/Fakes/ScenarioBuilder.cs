@@ -47,6 +47,8 @@ public sealed class ScenarioBuilder
 
     internal Dictionary<string, IReadOnlyList<string>> Executables { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+    internal HashSet<string> MissingFolders { get; } = new(StringComparer.OrdinalIgnoreCase);
+
     internal Dictionary<string, GameDefinition> Imports { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     internal StorageRelocationPreview? RelocationPreview { get; private set; }
@@ -164,6 +166,12 @@ public sealed class ScenarioBuilder
     public ScenarioBuilder WithExecutables(string installPath, params string[] executables)
     {
         Executables[installPath] = executables;
+        return this;
+    }
+
+    public ScenarioBuilder WithMissingFolder(string path)
+    {
+        MissingFolders.Add(path);
         return this;
     }
 

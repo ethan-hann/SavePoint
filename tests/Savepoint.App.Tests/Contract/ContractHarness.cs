@@ -99,6 +99,21 @@ internal abstract class ContractHarness : IAsyncDisposable
             Launch: new LaunchConfig(LaunchMethod.Exe, "game.exe"));
     }
 
+    // A game that keeps its mods outside the install folder, as 7 Days to Die does: the same game as <see cref="NewGame"/> plus a mods folder holding one mod.
+    public GameDefinition NewGameWithMods(string name)
+    {
+        var game = NewGame(name);
+        var mods = Path.Combine(Root, "games", game.Id, "mods");
+        Directory.CreateDirectory(Path.Combine(mods, "CoolMod"));
+        File.WriteAllText(Path.Combine(mods, "CoolMod", "ModInfo.xml"), "<xml />");
+        return game with { Mods = new ModsLocation(mods) };
+    }
+
+    // Tells the backend a folder is not there yet, so a fake can be scripted with what the real one finds by looking at the disk.
+    public virtual void FolderIsMissing(string path)
+    {
+    }
+
     public virtual async ValueTask DisposeAsync()
     {
         GC.SuppressFinalize(this);
@@ -142,6 +157,8 @@ internal sealed class FakeContractHarness : ContractHarness
         var square = TestImages.Write(Path.Combine(Root, "fake-steam"), "library_600x900.jpg", TestImages.Jpeg(600, 900));
         _backend.Artwork.ScriptSteamFinds(game.Id, wide, square);
     }
+
+    public override void FolderIsMissing(string path) => _backend.State.MissingFolders.Add(path);
 
     public override void ExpectLaunch(GameDefinition game, string profileId)
     {

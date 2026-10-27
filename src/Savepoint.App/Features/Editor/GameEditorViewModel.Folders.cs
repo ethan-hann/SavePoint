@@ -34,6 +34,14 @@ public sealed partial class GameEditorViewModel
     [ObservableProperty]
     private string? _modsResolves;
 
+    /// <summary>Why a template's mods folder was left out of a new game, because it does not exist yet; empty when nothing was left out.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasModsLeftOutNote))]
+    private string _modsLeftOutNote = string.Empty;
+
+    /// <summary>True when <see cref="ModsLeftOutNote"/> has text.</summary>
+    public bool HasModsLeftOutNote => ModsLeftOutNote.Length > 0;
+
     /// <summary>The path shortcuts offered under the mods field; the same ones as for the saves field.</summary>
     public IReadOnlyList<SuggestionItem> ModsLocationChoices { get; private set; } = [];
 
@@ -80,8 +88,29 @@ public sealed partial class GameEditorViewModel
         _ = UpdateSavesResolvesAsync();
     }
 
+    // A template can name a mods folder the game has not made yet (a player with no mods never has). A new game cannot be added with a
+    // folder that is not there, so it starts without it, as adding from the library does, and the note says the folder can be added later.
+    private async Task LeaveOutMissingTemplateModsAsync()
+    {
+        var raw = ModsPath.Trim();
+        if (raw.Length == 0 || await _games.FolderExistsAsync(raw) is not { Ok: true, Value: false })
+        {
+            return;
+        }
+
+        var resolved = await _games.ResolvePathAsync(raw);
+        if (ModsPath.Trim() != raw)
+        {
+            return;
+        }
+
+        ModsPath = string.Empty;
+        ModsLeftOutNote = _text.Message("gameEditor.mods.leftOutNote", ("path", resolved.Ok ? resolved.Value : raw));
+    }
+
     partial void OnModsPathChanged(string value)
     {
+        ModsLeftOutNote = string.Empty;
         ModsError = null;
         ModsCard = null;
         UpdateConfirmations();

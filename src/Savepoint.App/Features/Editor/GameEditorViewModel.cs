@@ -243,6 +243,17 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
             }
         }
 
+        if (_saved is null && _source.Mods is not null)
+        {
+            // Leaving the missing folder out is not a change the player made.
+            var clean = !IsDirty;
+            await LeaveOutMissingTemplateModsAsync();
+            if (clean)
+            {
+                _baseline = BuildDefinition(_baseline.Id);
+            }
+        }
+
         // The store check reads files off the UI thread; it runs beside the artwork and suggestion reads.
         var cloud = LoadCloudSavesAsync();
         await LoadArtworkAsync();

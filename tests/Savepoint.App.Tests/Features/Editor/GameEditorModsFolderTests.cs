@@ -170,6 +170,90 @@ public class GameEditorModsFolderTests
         Assert.Equal(string.Empty, editor.ModsPath);
     }
 
+    private static EditorRig RigWithoutModsFolder() =>
+        EditorRig.Create(new FakeBackend(ScenarioBuilder.Empty().WithMissingFolder(ModsSamples.ModsRaw)));
+
+    private const string _leftOut = @"C:\Users\you\AppData\Roaming\7DaysToDie\Mods doesn't exist yet, so SavePoint left the mods folder out. Once you have mods there, add it in Edit game.";
+
+    [Fact]
+    public async Task Choosing_a_template_whose_mods_folder_does_not_exist_yet_leaves_the_mods_field_empty_and_says_why()
+    {
+        var rig = RigWithoutModsFolder();
+        ((FakeGamesApi)rig.Backend.Games).TemplatesOverride = [new GameTemplate("seven", "Seven Days", ModsSamples.SevenDays with { Id = "seven" })];
+        var editor = rig.New();
+
+        await PickAsync(editor, "seven", "Seven Days");
+
+        Assert.Equal(string.Empty, editor.ModsPath);
+        Assert.Equal(ModsSamples.SavesRaw, editor.SavesPath);
+        Assert.Equal(_leftOut, editor.ModsLeftOutNote);
+        Assert.True(editor.HasModsLeftOutNote);
+    }
+
+    [Fact]
+    public async Task A_new_game_started_from_a_template_whose_mods_folder_does_not_exist_yet_opens_without_the_mods_folder()
+    {
+        var editor = RigWithoutModsFolder().New(ModsSamples.SevenDays);
+
+        await editor.LoadAsync();
+
+        Assert.Equal(string.Empty, editor.ModsPath);
+        Assert.Equal(_leftOut, editor.ModsLeftOutNote);
+        Assert.False(editor.IsDirty);
+    }
+
+    [Fact]
+    public async Task A_template_game_without_its_mods_folder_saves_without_asking_about_the_mods_folder()
+    {
+        var rig = RigWithoutModsFolder();
+        var editor = rig.New(ModsSamples.SevenDays);
+        await editor.LoadAsync();
+
+        var (saving, dialog) = SaveUntilAsked(rig, editor);
+        dialog.ConfirmCommand.Execute(null);
+        await saving;
+
+        Assert.DoesNotContain(dialog.Folders, folder => folder.Label == "Mods folder");
+        Assert.Null(rig.Saved("AddAsync").Mods);
+    }
+
+    [Fact]
+    public async Task Typing_a_mods_folder_takes_the_left_out_note_away()
+    {
+        var editor = RigWithoutModsFolder().New(ModsSamples.SevenDays);
+        await editor.LoadAsync();
+
+        editor.ModsPath = @"{appData}\Elsewhere";
+
+        Assert.False(editor.HasModsLeftOutNote);
+        Assert.Equal(string.Empty, editor.ModsLeftOutNote);
+    }
+
+    [Fact]
+    public async Task A_mods_folder_the_player_typed_stays_when_a_template_is_chosen_even_if_it_does_not_exist_yet()
+    {
+        var rig = EditorRig.Create(new FakeBackend(ScenarioBuilder.Empty().WithMissingFolder(ModsSamples.ModsRaw).WithMissingFolder(@"{appData}\Mine")));
+        ((FakeGamesApi)rig.Backend.Games).TemplatesOverride = [new GameTemplate("seven", "Seven Days", ModsSamples.SevenDays with { Id = "seven" })];
+        var editor = rig.New();
+        editor.ModsPath = @"{appData}\Mine";
+
+        await PickAsync(editor, "seven", "Seven Days");
+
+        Assert.Equal(@"{appData}\Mine", editor.ModsPath);
+        Assert.False(editor.HasModsLeftOutNote);
+    }
+
+    [Fact]
+    public async Task A_template_whose_mods_folder_exists_keeps_it_and_says_nothing()
+    {
+        var editor = EditorRig.Create().New(ModsSamples.SevenDays);
+
+        await editor.LoadAsync();
+
+        Assert.Equal(ModsSamples.ModsRaw, editor.ModsPath);
+        Assert.False(editor.HasModsLeftOutNote);
+    }
+
     private static async Task PickAsync(GameEditorViewModel editor, string typed, string name)
     {
         editor.Name = typed;

@@ -114,6 +114,7 @@ public sealed partial class GameEditorViewModel
     {
         var draft = template.ToDraft();
         var last = _applied;
+        var modsFromTemplate = false;
         _fillingForm = true;
         try
         {
@@ -123,6 +124,7 @@ public sealed partial class GameEditorViewModel
             }
 
             FillStartingPoint(draft, last);
+            modsFromTemplate = draft.Mods is not null && ModsPath.Trim() == draft.Mods.Path.Trim();
             FillRules(template, draft, last);
             FillIdentifiers(draft, last);
             if (IsEmptyList(ModFolders.Values, last?.ModPathHints))
@@ -142,6 +144,11 @@ public sealed partial class GameEditorViewModel
         finally
         {
             _fillingForm = false;
+        }
+
+        if (modsFromTemplate)
+        {
+            await LeaveOutMissingTemplateModsAsync();
         }
 
         NameMatches.Clear();

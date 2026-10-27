@@ -103,6 +103,7 @@
   "gameEditor.mods.answer": "Most games keep mods inside the game folder, and SavePoint already snapshots those. Add a mods folder only if your game keeps mods somewhere else, like AppData.",
   "gameEditor.mods.browseAutomation": "Browse for the mods folder",
   "gameEditor.mods.label": "Where the mods live",
+  "gameEditor.mods.leftOutNote": "{path} doesn't exist yet, so SavePoint left the mods folder out. Once you have mods there, add it in Edit game.",
   "gameEditor.mods.locationAutomation": "{location}, for the mods folder",
   "gameEditor.mods.pickTitle": "Choose the mods folder",
   "gameEditor.mods.question": "Where do my mods live?",

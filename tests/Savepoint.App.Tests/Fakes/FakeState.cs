@@ -57,6 +57,7 @@ internal sealed class FakeState
         Copy(scenario.DeletePreviews, DeletePreviews);
         Copy(scenario.Orphans, Orphans);
         Copy(scenario.Executables, Executables);
+        MissingFolders.UnionWith(scenario.MissingFolders);
         Copy(scenario.Imports, Imports);
         RelocationPreview = scenario.RelocationPreview;
         StorageFoldersWithHistory.UnionWith(scenario.StorageFoldersWithHistory);
@@ -110,6 +111,9 @@ internal sealed class FakeState
     public Dictionary<string, OrphanedHistory> Orphans { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     public Dictionary<string, IReadOnlyList<string>> Executables { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    // Folders (as written or as resolved) that do not exist yet; every other folder exists, as the sample paths are not on any disk.
+    public HashSet<string> MissingFolders { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     public Dictionary<string, GameDefinition> Imports { get; } = new(StringComparer.OrdinalIgnoreCase);
 

@@ -86,6 +86,20 @@ public class GameEditorModsFolderViewTests
     }
 
     [AvaloniaFact]
+    public async Task A_template_mods_folder_that_is_not_there_yet_shows_the_note_under_the_empty_mods_field()
+    {
+        using var harness = await EditorViewHarness.StartAsync(new FakeBackend(ScenarioBuilder.Sample().WithMissingFolder(ModsSamples.ModsRaw)));
+        var editor = harness.New(ModsSamples.SevenDays);
+        await editor.LoadAsync();
+        harness.Settle();
+
+        Assert.Equal(string.Empty, harness.Find<TextBox>("ModsField").Text);
+        var line = harness.Find<Grid>("ModsLeftOutLine");
+        Assert.True(line.IsEffectivelyVisible);
+        Assert.Contains(line.GetVisualDescendants().OfType<TextBlock>(), text => text.Text is { } shown && shown.EndsWith("so SavePoint left the mods folder out. Once you have mods there, add it in Edit game.", StringComparison.Ordinal));
+    }
+
+    [AvaloniaFact]
     public async Task Each_set_of_common_locations_names_its_own_field_so_a_screen_reader_can_tell_the_two_rows_apart()
     {
         using var harness = await StartAsync();
