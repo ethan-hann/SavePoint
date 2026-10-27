@@ -1,6 +1,8 @@
+using System.Diagnostics;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Launch;
+using Savepoint.Core.Platform;
 
 namespace Savepoint.Core.Tests.Launch.Orchestration;
 
@@ -69,9 +71,13 @@ public class LaunchCompletionGuardTests
     [Fact(Timeout = 240_000)]
     public async Task A_game_started_again_right_after_it_quit_is_not_saved_over()
     {
-        // A relaunch shows up at the next look at the process list, so the save waits that long after the game quit before it trusts the list.
-        var session = new GameSessionOptions { PollInterval = TimeSpan.FromSeconds(1), Grace = TimeSpan.FromSeconds(3), RelaunchWindow = TimeSpan.Zero };
-        using var rig = await LaunchRig.CreateAsync(session: session, followProcessName: true);
+        // The guard is two polls, so a save asked soon after the quit waits out the rest of it. Two seconds apart is far more than the
+        // few milliseconds one check takes between its own looks, and the test can tell the checks apart.
+        var session = new GameSessionOptions { PollInterval = TimeSpan.FromSeconds(2), Grace = TimeSpan.FromSeconds(3), RelaunchWindow = TimeSpan.Zero };
+        var processes = new RelaunchingInspector(FakeGameInstall.Inspector());
+        var starter = new GameStarter(GameLaunchers.ForCurrentOs(), processes, PlatformFactory.CurrentOs, session, TimeProvider.System);
+        using var rig = await LaunchRig.CreateAsync(starter: starter, followProcessName: true);
+        processes.GameName = rig.ExeName;
         var vanilla = await rig.ProfileAsync("Vanilla");
         await rig.StartAsync(Tip(vanilla));
         await rig.WaitForGameAsync();
@@ -79,12 +85,65 @@ public class LaunchCompletionGuardTests
 
         rig.KillGame();
         await rig.WaitForAsync<SessionState.Exited>();
-        var saving = rig.Launch.CompleteSessionAsync(rig.Game.Id, new SessionCompletion.CaptureNew("Between runs"));
-        rig.StartAnotherCopyOfTheGame();
-        var refused = await saving;
+        processes.Arm();
+        var refused = await rig.Launch.CompleteSessionAsync(rig.Game.Id, new SessionCompletion.CaptureNew("Between runs"));
 
         Assert.False(refused.Ok);
         Assert.Equal("error.launch.sessionStillRunning", refused.Error?.MessageId);
+        Assert.True(processes.Checks >= 2, "the save looked only once and trusted a list that had no game in it");
         Assert.Equal(capturesBefore, CaptureJobs(rig));
+    }
+
+    // The process list as a store's relaunch looks to the save: no game at the first check, a game at every check after it. The looks of
+    // one check come within milliseconds of each other, so a look after a pause belongs to the next check.
+    private sealed class RelaunchingInspector(IProcessInspector real) : IProcessInspector
+    {
+        private static readonly TimeSpan _sameCheck = TimeSpan.FromMilliseconds(500);
+        private readonly object _gate = new();
+        private long _lastLook;
+        private int _checks;
+        private bool _armed;
+
+        public string GameName { get; set; } = string.Empty;
+
+        public int Checks
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _checks;
+                }
+            }
+        }
+
+        public void Arm()
+        {
+            lock (_gate)
+            {
+                _armed = true;
+            }
+        }
+
+        public IReadOnlyList<RunningProcess> List()
+        {
+            var listed = real.List();
+            lock (_gate)
+            {
+                if (!_armed)
+                {
+                    return listed;
+                }
+
+                var now = Stopwatch.GetTimestamp();
+                if (_checks == 0 || Stopwatch.GetElapsedTime(_lastLook, now) > _sameCheck)
+                {
+                    _checks++;
+                }
+
+                _lastLook = now;
+                return _checks < 2 ? [.. listed.Where(process => !ProcessNameMatcher.Matches(GameName, process, PlatformFactory.CurrentOs))] : [.. listed, new RunningProcess(4242, GameName, null)];
+            }
+        }
     }
 }

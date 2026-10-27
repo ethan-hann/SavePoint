@@ -97,6 +97,15 @@ public sealed partial class LaunchFlowViewModel
                         return beforeStart ? ReenterAsync(flow) : RestartAsync(flow);
                     }),
                     IsPrimary: true));
+
+                // For a game that does not need Steam, or when the player knows better. The program starts as it is; Steam is not started.
+                actions.Add(new ErrorCardAction(
+                    text.Message("launch.steam.playWithout"),
+                    new AsyncRelayCommand(() =>
+                    {
+                        flow.WithoutSteam = true;
+                        return beforeStart ? ReenterAsync(flow) : RestartAsync(flow);
+                    })));
                 actions.Add(new ErrorCardAction(text.Message("launch.steam.notNow"), new RelayCommand(() => SetInline(flow, null))));
                 return actions;
             case "error.launch.alreadyRunning":

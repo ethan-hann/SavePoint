@@ -23,8 +23,9 @@ namespace Savepoint.Core.Catalog;
 /// <param name="Notes">Free text the user keeps about the game, or null. It survives editing (D13.22).</param>
 /// <param name="SteamAppId">
 /// The game's Steam app id, a positive number, or null when the user named none. A stored id always wins over one found by looking
-/// at the game's launch link or folders (D30). It picks the artwork, and it marks a game started from its program as one that needs the
-/// Steam client running, which a launch checks before it changes any folder.
+/// at the game's launch link or folders (D30). It picks the artwork and the Steam Cloud saves to look for. It does not say whether the
+/// game needs the Steam client running: copies from GOG or a disc carry the app id of the Steam game they matched, so a launch asks for
+/// Steam only when the install folder is in a Steam library (D67).
 /// </param>
 /// <param name="InstallIgnorePaths">
 /// Patterns for files SavePoint never saves from the install folder only. <paramref name="IgnorePaths"/> applies to every folder; these

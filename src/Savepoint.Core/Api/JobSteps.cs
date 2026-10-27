@@ -56,6 +56,9 @@ public static class JobSteps
     /// <summary>The Steam client was started at the player's request and the launch waits for it to sign in, before anything is switched. Arguments: <c>game</c>.</summary>
     public const string LaunchWaitingForSteam = "activity.step.launch.waitingForSteam";
 
+    /// <summary>The Steam client the launch waited for is signed in; the folders are read and switched next. Arguments: <c>game</c>.</summary>
+    public const string LaunchSteamReady = "activity.step.launch.steamReady";
+
     /// <summary>The game is about to start. Arguments: <c>game</c>.</summary>
     public const string LaunchStarting = "activity.step.launch.starting";
 

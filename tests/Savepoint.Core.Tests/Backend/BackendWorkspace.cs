@@ -13,6 +13,7 @@ internal sealed class BackendWorkspace : IDisposable
 {
     private readonly Func<BackendOptions, BackendOptions>? _configure;
     private readonly List<CoreBackend> _built = [];
+    private readonly string? _library;
     private int _games;
 
     // steamFolder is where the platform says Steam is, which decides what the path judge protects.
@@ -31,10 +32,21 @@ internal sealed class BackendWorkspace : IDisposable
 
     // A workspace that starts as a copy of another's folders, so a world built once can be handed to many tests. Files that store absolute
     // paths (the catalog, the git config) are pointed at the copy's own root; one that cannot be rewritten is an error, not a stale path.
-    private BackendWorkspace(string templateRoot, Func<BackendOptions, BackendOptions>? configure)
+    // With steamLibrary the copy sits inside a Steam library (steamapps/common/<root>), so every game in it is installed where Steam installs its own.
+    private BackendWorkspace(string templateRoot, Func<BackendOptions, BackendOptions>? configure, bool steamLibrary)
     {
         _configure = configure;
-        Root = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "savepoint-backend-" + Guid.NewGuid().ToString("N")));
+        if (steamLibrary)
+        {
+            // Short names: the games' git folders sit deep inside, and a Windows path over 260 characters cannot be used.
+            _library = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "sp-lib-" + Guid.NewGuid().ToString("N")[..8]));
+            Root = Path.Combine(_library, "steamapps", "common", "sp-" + Guid.NewGuid().ToString("N")[..8]);
+        }
+        else
+        {
+            Root = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "savepoint-backend-" + Guid.NewGuid().ToString("N")));
+        }
+
         Home = Path.Combine(Root, "home");
         GamesRoot = Path.Combine(Root, "games");
         InstallDirectory = Path.Combine(Root, "app");
@@ -51,12 +63,22 @@ internal sealed class BackendWorkspace : IDisposable
         }
         catch
         {
-            Savepoint.Core.Tests.Git.GitWorkspace.DeleteDirectory(Root);
+            Savepoint.Core.Tests.Git.GitWorkspace.DeleteDirectory(_library ?? Root);
             throw;
         }
     }
 
     public string Root { get; }
+
+    // The library's steamapps folder when the workspace sits in a Steam library, otherwise null.
+    public string? SteamAppsFolder => _library is null ? null : Path.Combine(_library, "steamapps");
+
+    // Writes the manifest Steam keeps for the workspace's folder, as Steam leaves it: the build, the state flags and when it last changed.
+    public void WriteSteamManifest(int appId, string buildId, long stateFlags, string lastUpdated = "1")
+    {
+        var manifest = Path.Combine(SteamAppsFolder ?? throw new InvalidOperationException("The workspace is not in a Steam library."), $"appmanifest_{appId}.acf");
+        File.WriteAllText(manifest, $"\"AppState\"\n{{\n\t\"appid\"\t\t\"{appId}\"\n\t\"installdir\"\t\t\"{Path.GetFileName(Root)}\"\n\t\"StateFlags\"\t\t\"{stateFlags}\"\n\t\"buildid\"\t\t\"{buildId}\"\n\t\"LastUpdated\"\t\t\"{lastUpdated}\"\n}}\n");
+    }
 
     public string Home { get; }
 
@@ -92,7 +114,7 @@ internal sealed class BackendWorkspace : IDisposable
 
     // A new workspace, over its own folders, that holds what the template holds now. The template must be idle and stay unchanged.
     // The copy's backend is built with the given options, which the template's own backend need not share.
-    public static BackendWorkspace CopyOf(BackendWorkspace template, Func<BackendOptions, BackendOptions>? configure = null) => new(template.Root, configure);
+    public static BackendWorkspace CopyOf(BackendWorkspace template, Func<BackendOptions, BackendOptions>? configure = null, bool steamLibrary = false) => new(template.Root, configure, steamLibrary);
 
     // A second backend over the same folders, as the app has after a restart: nothing in memory carries over.
     public CoreBackend Restart() => Backend = Build();
@@ -242,7 +264,7 @@ internal sealed class BackendWorkspace : IDisposable
             backend.Dispose();
         }
 
-        Savepoint.Core.Tests.Git.GitWorkspace.DeleteDirectory(Root);
+        Savepoint.Core.Tests.Git.GitWorkspace.DeleteDirectory(_library ?? Root);
     }
 
     private static void CopyTree(string from, string to)

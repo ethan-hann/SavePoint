@@ -148,13 +148,14 @@ internal sealed class LaunchRig : IDisposable
         IReadOnlyList<string>? gameArguments = null,
         bool followProcessName = false,
         ISteamClient? steam = null,
-        SteamWaitOptions? steamWait = null)
+        SteamWaitOptions? steamWait = null,
+        bool steamLibrary = false)
     {
         var slot = await TwoProfileTemplates.RentAsync();
         BackendWorkspace? workspace = null;
         try
         {
-            workspace = BackendWorkspace.CopyOf(slot.Workspace, WithOrchestrator(configure, null, null, steam, steamWait));
+            workspace = BackendWorkspace.CopyOf(slot.Workspace, WithOrchestrator(configure, null, null, steam, steamWait), steamLibrary);
             var game = Assert.Single((await workspace.Games.ListAsync(workspace.Token)).Value!);
             var profiles = (await workspace.Profiles.ListAsync(game.Id, workspace.Token)).Value!;
             var rig = new LaunchRig(workspace, game, slot.ExeName, slot);

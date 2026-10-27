@@ -16,8 +16,30 @@ public sealed partial class LaunchOrchestrator
         return await Task.Run(() => SteamGames.NeedsClient(game, install, _services.Platform.Os, _services.Platform.PathComparison) && !_steam.IsReady()).ConfigureAwait(false);
     }
 
+    // Steam's manifest for a Steam game, read only; null for any other game and for one Steam keeps no manifest for.
+    private async Task<SteamInstallState?> ReadSteamInstallAsync(GameDefinition game, string? installPath = null)
+    {
+        installPath ??= GameFolders.ResolveLoosely(_services.PathTokens, game).FirstOrDefault(folder => folder.Role == RepoRole.Install)?.Path;
+        var comparison = _services.Platform.PathComparison;
+        return await Task.Run(() => SteamGames.NeedsClient(game, installPath, _services.Platform.Os, comparison) ? SteamInstallState.Read(installPath, comparison) : null).ConfigureAwait(false);
+    }
+
+    // Runs right before the program starts, after the folders hold the player's version. Waiting for Steam to sign in does not stop an update:
+    // one can start later, or already have written over the switched files. So the manifest is read again, and the program does not start
+    // when Steam is working on the game or changed its build or update time since the launch began. This only reads the manifest; it
+    // cannot tell whether the files themselves changed, so a refusal says they may have.
+    private async Task RefuseWhenSteamUpdatesAsync(GameDefinition game, SteamInstallState? before, string installPath)
+    {
+        if (await ReadSteamInstallAsync(game, installPath).ConfigureAwait(false) is { } now && (now.IsUpdating || now.ChangedSince(before)))
+        {
+            _services.Log.Information($"Launch of {game.Id} stopped: Steam's manifest shows an update (flags {now.StateFlags}, build {now.BuildId ?? "none"}, was {before?.BuildId ?? "none"}).");
+            throw new SteamUpdatingGameException(game.Id);
+        }
+    }
+
     // Runs at the start of the launch job, before the game's folders are touched. Steam started here is up before the install is switched,
-    // so any update it applies at its own start lands on the version the folder holds now and not on the one about to be loaded.
+    // so an update it applies at its own start usually lands before the switch and not on the version about to be loaded. That is not a
+    // guarantee: RefuseWhenSteamUpdatesAsync is the check that an update did not land later.
     private async Task EnsureSteamAsync(JobContext context, GameDefinition game, bool startSteam)
     {
         if (!await SteamIsMissingAsync(game).ConfigureAwait(false))
@@ -49,5 +71,8 @@ public sealed partial class LaunchOrchestrator
 
             await Task.Delay(_steamWait.PollInterval, _services.Time, token).ConfigureAwait(false);
         }
+
+        // Ends the screen's "waiting for Steam" card before the folders are read, which can take a while.
+        context.AddStep(JobSteps.LaunchSteamReady, ("game", game.Name));
     }
 }

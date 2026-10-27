@@ -139,7 +139,7 @@ internal sealed class ReplayableLaunchApi : ILaunchApi
     public Task<OperationResult<LaunchPreview>> GetPreviewAsync(string gameId, LaunchTarget target, CancellationToken cancellationToken = default) =>
         _inner.GetPreviewAsync(gameId, target, cancellationToken);
 
-    public Task<OperationResult<JobStarted>> StartAsync(string gameId, LaunchTarget target, bool startSteam = false) => _inner.StartAsync(gameId, target, startSteam);
+    public Task<OperationResult<JobStarted>> StartAsync(string gameId, LaunchTarget target, bool startSteam = false, bool withoutSteam = false) => _inner.StartAsync(gameId, target, startSteam, withoutSteam);
 
     public Task<OperationResult<JobStarted>> SwitchAsync(string gameId, LaunchTarget target) => _inner.SwitchAsync(gameId, target);
 

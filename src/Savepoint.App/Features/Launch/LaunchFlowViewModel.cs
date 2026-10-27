@@ -87,6 +87,7 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
         if (freshStart)
         {
             flow.StartSteam = false;
+            flow.WithoutSteam = false;
         }
 
         flow.SwitchOnly = switchOnly;
@@ -127,7 +128,7 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
 
         // Asked before any dialog: a dialog can discard unsaved work, and a player who says "Not now" must find everything as it was.
         // Loading the files without playing never needs Steam.
-        if (plan.SteamNeeded is { } steamNeeded && !switchOnly && !flow.StartSteam)
+        if (plan.SteamNeeded is { } steamNeeded && !switchOnly && !flow.StartSteam && !flow.WithoutSteam)
         {
             flow.Stage = FlowStage.Idle;
             ShowLaunchFailure(flow, steamNeeded, beforeStart: true);
@@ -241,8 +242,10 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
         }
 
         var startSteam = flow.StartSteam;
+        var withoutSteam = flow.WithoutSteam;
         flow.StartSteam = false;
-        var started = await _deps.Launch.StartAsync(flow.GameId, target, startSteam);
+        flow.WithoutSteam = false;
+        var started = await _deps.Launch.StartAsync(flow.GameId, target, startSteam, withoutSteam);
         if (!started.Ok)
         {
             CloseProgress(flow);
@@ -361,6 +364,9 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
 
         // True once the player agreed to have SavePoint start the Steam client for this launch. The start that follows uses it up.
         public bool StartSteam { get; set; }
+
+        // True once the player chose to play without Steam for this launch: the start that follows skips the Steam check, and uses it up.
+        public bool WithoutSteam { get; set; }
 
         // The card shown while the service waits for Steam to sign in, so it can be taken away when the wait ends.
         public object? SteamWait { get; set; }

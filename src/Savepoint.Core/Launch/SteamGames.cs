@@ -8,10 +8,11 @@ namespace Savepoint.Core.Launch;
 internal static class SteamGames
 {
     /// <summary>
-    /// True for a Steam game that the launch starts from its program: it has a Steam app id, or its install folder sits in a Steam
-    /// library or holds a <c>steam_appid.txt</c>. Such a game quits at once when the client is closed. A game started from a link
-    /// is Steam's own to start, and a Windows program on an OS that cannot run one is refused later with its own message, so
-    /// neither counts.
+    /// True for a Steam game that the launch starts from its program: its install folder sits in a Steam library
+    /// (<c>steamapps/common/&lt;game&gt;</c>, which is where its manifest is kept too). A Steam app id alone does not count, because a
+    /// copy from GOG or a retail disc carries the app id of the Steam game it matched, or a stray <c>steam_appid.txt</c>, and starts
+    /// without the client. Such a Steam game quits at once when the client is closed. A game started from a link is Steam's own to
+    /// start, and a Windows program on an OS that cannot run one is refused later with its own message, so neither counts.
     /// </summary>
     /// <param name="game">The game's definition.</param>
     /// <param name="installPath">The install folder as an absolute path, or null when it cannot be resolved.</param>
@@ -31,6 +32,6 @@ internal static class SteamGames
             return false;
         }
 
-        return game.SteamAppId is not null || SteamAppIdDetector.Detect(game, installPath, pathComparison) is not null;
+        return SteamAppIdDetector.IsInSteamLibrary(installPath, pathComparison);
     }
 }
