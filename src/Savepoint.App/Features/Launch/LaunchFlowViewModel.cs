@@ -168,13 +168,13 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
         flow.Stage is FlowStage.Previewing or FlowStage.Dialog or FlowStage.Starting or FlowStage.Switching
         || (flow.Session is { } session && !IsEnded(session.State));
 
-    private static bool HasUnsaved(LaunchPreview preview) => preview.Install.Dirty || preview.External is { Dirty: true };
+    private static bool HasUnsaved(LaunchPreview preview) => LaunchPreviewFolders.Of(preview).Any(folder => folder.Dirty);
 
     // The held file the check stops on. Unsaved work comes first: the dialog settles it, and the file is met when the switch starts.
     // A half switch that this launch finishes is not unsaved work, so it does not wait behind the dialog.
     private static ErrorInfo? HeldFileIn(LaunchPreview plan)
     {
-        var folders = new[] { plan.Install, plan.External }.OfType<FolderLaunchState>().ToList();
+        var folders = LaunchPreviewFolders.Of(plan);
         return folders.Any(folder => folder.Dirty)
             ? null
             : folders.Select(folder => folder.HeldBy).FirstOrDefault(held => held is not null);

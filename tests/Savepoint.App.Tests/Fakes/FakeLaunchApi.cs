@@ -110,7 +110,7 @@ public sealed class FakeLaunchApi : ILaunchApi
             foreach (var key in State.LaunchPreviews.Keys.Where(k => k.GameId == gameId).ToList())
             {
                 var preview = State.LaunchPreviews[key];
-                State.LaunchPreviews[key] = preview with { Install = Clean(preview.Install, folder)!, External = Clean(preview.External, folder) };
+                State.LaunchPreviews[key] = preview with { Install = Clean(preview.Install, folder)!, External = Clean(preview.External, folder), Mods = Clean(preview.Mods, folder) };
             }
 
             return OperationResult.Success();
@@ -222,12 +222,12 @@ public sealed class FakeLaunchApi : ILaunchApi
         });
 
     // Without options, the choices follow D14: an older start forks by default, otherwise a new point is the default.
-    public void ReportExited(string gameId, TimeSpan playDuration, int newFileCount, int changedInstallFileCount = 0, PostPlayOptions? options = null, SessionEndKind endKind = SessionEndKind.ChildExited, IReadOnlyList<string>? leaveOutRules = null, int? programExitCode = null) =>
+    public void ReportExited(string gameId, TimeSpan playDuration, int newFileCount, int changedInstallFileCount = 0, PostPlayOptions? options = null, SessionEndKind endKind = SessionEndKind.ChildExited, IReadOnlyList<string>? leaveOutRules = null, int? programExitCode = null, int changedModsFileCount = 0) =>
         _backend.Script(() =>
         {
             var session = Require(gameId, nameof(ReportExited), s => s is SessionState.Running);
             var running = (SessionState.Running)session.State;
-            var exited = new SessionState.Exited(running.StartedAt, playDuration, newFileCount, changedInstallFileCount, options ?? DefaultOptions(session), endKind, leaveOutRules, programExitCode);
+            var exited = new SessionState.Exited(running.StartedAt, playDuration, newFileCount, changedInstallFileCount, options ?? DefaultOptions(session), endKind, leaveOutRules, programExitCode, changedModsFileCount);
             Publish(session with { State = exited });
         });
 

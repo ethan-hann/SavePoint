@@ -14,6 +14,15 @@ public static class FolderRoles
         _ => "external",
     };
 
+    /// <summary>Where a folder sits in lists: the game folder, the mods folder, then the saves folder, the order a switch writes them and the editor shows them.</summary>
+    /// <param name="role">The folder.</param>
+    public static int Order(RepoRole role) => role switch
+    {
+        RepoRole.Install => 0,
+        RepoRole.Mods => 1,
+        _ => 2,
+    };
+
     /// <summary>The folder a name stands for, as the Api writes it in error arguments; null for any other text.</summary>
     /// <param name="name">The text, or a <see cref="RepoRole"/> already.</param>
     public static RepoRole? Parse(object? name) => name switch
