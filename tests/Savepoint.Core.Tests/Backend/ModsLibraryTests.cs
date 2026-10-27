@@ -27,29 +27,37 @@ public sealed class ModsLibraryTests : IDisposable
         _steam.Dispose();
     }
 
-    private async Task<(LibraryGame Game, string Mods)> ScanSevenDaysAsync()
+    private async Task<LibraryGame> ScanSevenDaysAsync()
     {
         _steam.AddGame(_steam.SteamFolder, _appId, "7 Days to Die", "7 Days To Die");
         _steam.WriteLibraryList();
-        var game = (await Games.ScanLibrariesAsync(_workspace.Token)).Value!.Games.Single();
-        var mods = (await Games.ResolvePathAsync(game.Draft.Mods!.Path, _workspace.Token)).Value!;
-        return (game, mods);
+        return (await Games.ScanLibrariesAsync(_workspace.Token)).Value!.Games.Single();
     }
 
-    [Fact]
-    public async Task The_draft_of_a_scanned_game_carries_the_templates_mods_folder()
-    {
-        var (game, _) = await ScanSevenDaysAsync();
-
-        Assert.Equal("7-days-to-die", game.TemplateId);
-        Assert.EndsWith("Mods", game.Draft.Mods!.Path, StringComparison.Ordinal);
-    }
+    private async Task<string> ModsOfAsync(LibraryGame game) => (await Games.ResolvePathAsync(game.Draft.Mods!.Path, _workspace.Token)).Value!;
 
     [Fact]
-    public async Task A_mods_folder_that_exists_is_tracked_with_the_game()
+    public async Task The_draft_of_a_scanned_game_carries_the_templates_mods_folder_and_the_scan_says_whether_it_is_there()
     {
-        var (game, mods) = await ScanSevenDaysAsync();
+        var before = await ScanSevenDaysAsync();
+        var mods = await ModsOfAsync(before);
         BackendWorkspace.WriteFile(Path.Combine(mods, "ModA", "ModInfo.xml"), "a mod");
+        var after = (await Games.ScanLibrariesAsync(_workspace.Token)).Value!.Games.Single();
+
+        Assert.Equal("7-days-to-die", before.TemplateId);
+        Assert.EndsWith("Mods", before.Draft.Mods!.Path, StringComparison.Ordinal);
+        Assert.Equal(mods, before.ModsFolder);
+        Assert.False(before.ModsFolderExists);
+        Assert.True(after.ModsFolderExists);
+    }
+
+    [Fact]
+    public async Task A_mods_folder_the_scan_showed_as_there_is_tracked_with_the_game()
+    {
+        var first = await ScanSevenDaysAsync();
+        var mods = await ModsOfAsync(first);
+        BackendWorkspace.WriteFile(Path.Combine(mods, "ModA", "ModInfo.xml"), "a mod");
+        var game = (await Games.ScanLibrariesAsync(_workspace.Token)).Value!.Games.Single();
 
         var added = await Games.AddLibraryGameAsync(game);
 
@@ -66,7 +74,8 @@ public sealed class ModsLibraryTests : IDisposable
     [Fact]
     public async Task A_mods_folder_the_game_has_not_made_yet_is_left_out_and_the_result_says_so()
     {
-        var (game, mods) = await ScanSevenDaysAsync();
+        var game = await ScanSevenDaysAsync();
+        var mods = await ModsOfAsync(game);
 
         var added = await Games.AddLibraryGameAsync(game);
 
@@ -75,5 +84,20 @@ public sealed class ModsLibraryTests : IDisposable
         Assert.Equal(mods, added.Value.ModsFolderLeftOut);
         Assert.Null((await Games.ListAsync(_workspace.Token)).Value!.Single().Mods);
         Assert.False(Directory.Exists(mods), "SavePoint must not make the game's folder");
+    }
+
+    [Fact]
+    public async Task A_mods_folder_that_appeared_after_the_scan_is_left_out_because_the_player_was_not_shown_it()
+    {
+        var game = await ScanSevenDaysAsync();
+        var mods = await ModsOfAsync(game);
+        BackendWorkspace.WriteFile(Path.Combine(mods, "ModA", "ModInfo.xml"), "a mod");
+
+        var added = await Games.AddLibraryGameAsync(game);
+
+        Assert.True(added.Ok, added.Error?.Detail);
+        Assert.Equal(mods, added.Value!.ModsFolderLeftOut);
+        Assert.Null((await Games.ListAsync(_workspace.Token)).Value!.Single().Mods);
+        Assert.IsType<ConsentMarkerState.Missing>(ConsentMarker.Read(mods));
     }
 }

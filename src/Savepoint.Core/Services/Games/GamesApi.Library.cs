@@ -37,23 +37,21 @@ internal sealed partial class GamesApi
                     return new LibraryAddResult(game.Key, game.Name, LibraryAddStatus.AlreadyAdded, already);
                 }
 
-                // Only the folders the player was shown are added: the install folder, and the saves folder when the scan found it there
-                // and it still is. A folder that appeared since, or a draft that names another one, is left out.
+                // Only the folders the player was shown are added: the install folder, and the saves and mods folders when the scan found
+                // them there and they still are. A folder that appeared since, or a draft that names another one, is left out.
                 var draft = game.Draft with { Install = new InstallLocation(game.InstallPath) };
                 string? leftOut = null;
-                if (draft.External is { } saves && !SavesFolderWasShownAndIsThere(game, saves.Path))
+                if (draft.External is { } saves && !FolderWasShownAndIsThere(game.SavesFolderExists, game.SavesFolder, saves.Path, "external.path"))
                 {
                     draft = draft with { External = null };
-                    leftOut = game.SavesFolder ?? SavesFolderPath(saves.Path);
+                    leftOut = game.SavesFolder ?? FolderPath(saves.Path, "external.path");
                 }
 
-
-                // The mods folder was not shown with the scan, so it is kept only if it is there now; SavePoint never makes a folder of the game's.
                 string? modsLeftOut = null;
-                if (draft.Mods is { } mods && !FolderIsThere(mods.Path, "mods.path", out var resolvedMods))
+                if (draft.Mods is { } mods && !FolderWasShownAndIsThere(game.ModsFolderExists, game.ModsFolder, mods.Path, "mods.path"))
                 {
                     draft = draft with { Mods = null };
-                    modsLeftOut = resolvedMods;
+                    modsLeftOut = game.ModsFolder ?? FolderPath(mods.Path, "mods.path");
                 }
 
                 draft = await WithProcessNameAsync(draft).ConfigureAwait(false);
@@ -86,35 +84,19 @@ internal sealed partial class GamesApi
         return name is null ? draft : draft with { Launch = draft.Launch with { ProcessNameForExitDetection = name } };
     }
 
-    // True when the folder resolves on this machine and exists; the resolved path is returned when it resolves, else the text as written.
-    private bool FolderIsThere(string raw, string field, out string shown)
-    {
-        try
-        {
-            shown = _services.PathTokens.Resolve(raw, field);
-        }
-        catch (ValidationException)
-        {
-            shown = raw;
-            return false;
-        }
-
-        return Directory.Exists(shown);
-    }
-
-    // True when the scan showed this very saves folder as being there and it still is.
-    private bool SavesFolderWasShownAndIsThere(LibraryGame game, string raw) =>
-        game.SavesFolderExists
-        && game.SavesFolder is { } shown
-        && SavesFolderPath(raw) is { } now
+    // True when the scan showed this very folder (saves or mods) as being there and it still is.
+    private bool FolderWasShownAndIsThere(bool shownAsThere, string? shown, string raw, string field) =>
+        shownAsThere
+        && shown is not null
+        && FolderPath(raw, field) is { } now
         && string.Equals(now, shown, _services.Platform.PathComparison)
         && Directory.Exists(now);
 
-    private string? SavesFolderPath(string raw)
+    private string? FolderPath(string raw, string field)
     {
         try
         {
-            return _services.PathTokens.Resolve(raw, "external.path");
+            return _services.PathTokens.Resolve(raw, field);
         }
         catch (ValidationException)
         {

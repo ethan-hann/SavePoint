@@ -23,6 +23,8 @@ public enum LibrarySource
 /// <param name="SavesFolderExists">True when <paramref name="SavesFolder"/> is a folder that exists now; false when it is missing or there is none.</param>
 /// <param name="Draft">The definition <see cref="IGamesApi.AddLibraryGameAsync"/> would add, with a fresh id and the install folder filled in.</param>
 /// <param name="AddedGameId">The id of the game already in the library that this one is, or null when it is not added yet.</param>
+/// <param name="ModsFolder">The mods folder the matched template names, resolved to an absolute path; null when there is no template or it names none.</param>
+/// <param name="ModsFolderExists">True when <paramref name="ModsFolder"/> is a folder that exists now; false when it is missing or there is none.</param>
 public sealed record LibraryGame(
     string Key,
     LibrarySource Source,
@@ -33,7 +35,9 @@ public sealed record LibraryGame(
     string? SavesFolder,
     bool SavesFolderExists,
     GameDefinition Draft,
-    string? AddedGameId)
+    string? AddedGameId,
+    string? ModsFolder = null,
+    bool ModsFolderExists = false)
 {
     /// <summary>True when the game is already in the library.</summary>
     public bool AlreadyAdded => AddedGameId is not null;
