@@ -17,6 +17,7 @@ public sealed partial class AppearanceSectionViewModel : ObservableObject
 {
     private readonly SettingsStore _store;
     private readonly IShellContext _shell;
+    private readonly UiFormatter _text;
     private ThemeOption _currentTheme;
     private LayoutChoice _currentLayout;
     private AccentOption _currentAccent;
@@ -49,6 +50,7 @@ public sealed partial class AppearanceSectionViewModel : ObservableObject
     {
         _store = store;
         _shell = shell;
+        _text = text;
         ThemeOptions =
         [
             new ThemeOption(ThemePreference.System, text.Message("settings.theme.system")),
@@ -111,6 +113,10 @@ public sealed partial class AppearanceSectionViewModel : ObservableObject
     /// <summary>True while the window's screen has no room for some of the interface sizes.</summary>
     [ObservableProperty]
     private bool _hasUnavailableScales;
+
+    /// <summary>What a screen reader says for the whole size choice when some sizes are off: which ones and why. Empty while all can be chosen.</summary>
+    [ObservableProperty]
+    private string _unavailableScalesHelp = string.Empty;
 
     /// <summary>The five accent presets, in the order the spec draws them.</summary>
     public IReadOnlyList<AccentOption> AccentOptions { get; }
@@ -283,6 +289,14 @@ public sealed partial class AppearanceSectionViewModel : ObservableObject
         }
 
         HasUnavailableScales = ScaleOptions.Any(option => !option.IsAvailable);
+
+        // A switched-off size takes no focus, so the group says which sizes are off and why when a screen reader reaches it.
+        UnavailableScalesHelp = HasUnavailableScales
+            ? _text.Message(
+                "settings.scale.unavailableHelp",
+                ("sizes", string.Join(", ", ScaleOptions.Where(option => !option.IsAvailable).Select(option => option.Label))),
+                ("reason", _text.Message("settings.scale.noRoom")))
+            : string.Empty;
     }
 
     private static ScaleOption ScaleOptionFor(UiFormatter text, int percent, string label, string noRoom) =>

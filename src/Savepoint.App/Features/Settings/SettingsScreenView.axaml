@@ -221,7 +221,9 @@
                          AutoScrollToSelectedItem="False"
                          ItemsSource="{Binding Appearance.ScaleOptions}"
                          SelectedItem="{Binding Appearance.SelectedScale, Mode=TwoWay}"
-                         AutomationProperties.Name="{loc:Loc settings.scale.label}">
+                         WrapsAtEnds="False"
+                         AutomationProperties.Name="{loc:Loc settings.scale.label}"
+                         AutomationProperties.HelpText="{Binding Appearance.UnavailableScalesHelp}">
                   <a11y:ChoiceListBox.Styles>
                     <Style Selector="ListBoxItem" x:DataType="settings:ScaleOption">
                       <Setter Property="AutomationProperties.Name" Value="{Binding AccessibleName}" />

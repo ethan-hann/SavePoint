@@ -31,6 +31,9 @@ public class ChoiceListSemanticsTests
 
     public static TheoryData<string, string> Choices => [.. _choices.Select(choice => (choice.State, choice.Name))];
 
+    // The interface size stops at its ends: one key at 200% must not drop the window to 100%.
+    public static TheoryData<string, string> WrappingChoices => [.. _choices.Where(choice => choice.Name != "ScaleSelector").Select(choice => (choice.State, choice.Name))];
+
     // The Sidebar/Library switch exists once in each layout's chrome; the one on screen is the one a key press reaches. After a key
     // switches the layout, the other copy is the one on screen, and it holds focus.
     private static ListBox Shown(Features.EndToEnd.ComposedApp app, string name) =>
@@ -237,8 +240,45 @@ public class ChoiceListSemanticsTests
         Assert.Same(field, app.Focused);
     }
 
+    [AvaloniaFact]
+    public async Task The_size_choice_stays_on_the_last_size_it_can_reach_instead_of_wrapping_to_the_first()
+    {
+        using var app = await AppStates.OpenAsync("settings");
+        var list = app.Find<ListBox>("ScaleSelector");
+        list.SelectedIndex = 2;
+        app.Settle();
+        ((Control)list.ContainerFromIndex(3)!).IsEnabled = false;
+        ((Control)list.ContainerFromIndex(4)!).IsEnabled = false;
+        ((Control)list.ContainerFromIndex(2)!).Focus(NavigationMethod.Tab);
+        app.Settle();
+
+        app.Press(Key.Right, PhysicalKey.ArrowRight);
+        app.Press(Key.Down, PhysicalKey.ArrowDown);
+
+        Assert.Equal(2, list.SelectedIndex);
+        Assert.Same(list.ContainerFromIndex(2), app.Focused);
+    }
+
+    [AvaloniaFact]
+    public async Task The_size_choice_stays_on_the_smallest_size_when_Left_is_pressed_there_and_still_steps_forward()
+    {
+        using var app = await AppStates.OpenAsync("settings");
+        var list = app.Find<ListBox>("ScaleSelector");
+        list.SelectedIndex = 0;
+        app.Settle();
+        ((Control)list.ContainerFromIndex(0)!).Focus(NavigationMethod.Tab);
+        app.Settle();
+
+        app.Press(Key.Left, PhysicalKey.ArrowLeft);
+        Assert.Equal(0, list.SelectedIndex);
+        Assert.Same(list.ContainerFromIndex(0), app.Focused);
+
+        app.Press(Key.Right, PhysicalKey.ArrowRight);
+        Assert.Equal(1, list.SelectedIndex);
+    }
+
     [AvaloniaTheory]
-    [MemberData(nameof(Choices))]
+    [MemberData(nameof(WrappingChoices))]
     public async Task Every_arrow_key_moves_the_choice_forward_or_back_and_the_ends_wrap_around(string state, string name)
     {
         using var app = await AppStates.OpenAsync(state);
