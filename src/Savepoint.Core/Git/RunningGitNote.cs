@@ -38,11 +38,17 @@ internal static class RunningGitNote
     // Sets what one registry (its key) has running, keeping what other registries of this process wrote to the same note. The note still holds
     // the owner and one list of every git at the top level, which is all an older start reads; each registry's own list is kept beside it so a
     // later write can replace only its own. An empty list takes the registry's part away, and the note goes when no part is left. Parts
-    // written by another owner are dropped: that run is over, and the start that found them carries the ones that still run.
+    // written by another owner are dropped: that run is over, and the start that found them carries the ones that still run. A note whose
+    // other owner is still running is left as it is: a newer SavePoint wrote it, and this one is only on its way out.
     public static void Update(string path, ProcessStamp owner, Guid key, IReadOnlyCollection<ProcessStamp> gits)
     {
         lock (_gate)
         {
+            if (Read(path) is { } existing && existing.Owner != owner && existing.Owner.IsRunning())
+            {
+                return;
+            }
+
             var parts = ReadParts(path, owner);
             parts.Remove(key);
             if (gits.Count > 0)
@@ -124,10 +130,16 @@ internal static class RunningGitNote
 
             foreach (var part in registries.EnumerateArray())
             {
+                // A part whose key is missing, null or not an id has no registry to belong to, so only it is dropped.
+                if (!part.TryGetProperty("key", out var name) || name.ValueKind != JsonValueKind.String || !Guid.TryParse(name.GetString(), out var key))
+                {
+                    continue;
+                }
+
                 var running = part.GetProperty("gits").EnumerateArray().Select(ReadStamp).Where(git => git.IsRunning()).ToList();
                 if (running.Count > 0)
                 {
-                    parts[Guid.Parse(part.GetProperty("key").GetString()!)] = running;
+                    parts[key] = running;
                 }
             }
         }

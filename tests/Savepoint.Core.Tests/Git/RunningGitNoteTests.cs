@@ -62,6 +62,65 @@ public sealed class RunningGitNoteTests : IDisposable
         Assert.False(File.Exists(path));
     }
 
+    // A run that is ending can reach the note after a newer SavePoint has started and written its own; that note is not the ending run's to touch.
+    // This test's own process stands for the newer SavePoint, which is running.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void An_update_leaves_a_note_alone_when_another_process_that_still_runs_owns_it(bool withGits)
+    {
+        var path = RunningGitNote.PathIn(_temp.Path);
+        var live = ProcessStamp.Current();
+        var key = Guid.NewGuid();
+        RunningGitNote.Update(path, live, key, [new ProcessStamp(77, 99)]);
+        var before = File.ReadAllText(path);
+        var ending = new ProcessStamp(41, 1234567890);
+
+        RunningGitNote.Update(path, ending, Guid.NewGuid(), withGits ? [new ProcessStamp(78, 100)] : []);
+        RunningGitNote.Update(path, ending, key, []);
+
+        Assert.True(File.Exists(path), "the live run's note was deleted");
+        Assert.Equal(before, File.ReadAllText(path));
+    }
+
+    [Fact]
+    public void An_update_replaces_a_note_whose_owner_has_ended()
+    {
+        var path = RunningGitNote.PathIn(_temp.Path);
+        var gone = new ProcessStamp(41, 1234567890);
+        RunningGitNote.Update(path, gone, Guid.NewGuid(), [new ProcessStamp(77, 99)]);
+
+        RunningGitNote.Update(path, ProcessStamp.Current(), Guid.NewGuid(), [new ProcessStamp(78, 100)]);
+
+        var note = RunningGitNote.Read(path);
+        Assert.NotNull(note);
+        Assert.Equal(ProcessStamp.Current(), note.Value.Owner);
+        Assert.Equal([new ProcessStamp(78, 100)], note.Value.Gits);
+    }
+
+    // The note is read on a timer thread, where an exception ends the process; a part that cannot be understood costs only itself.
+    [Theory]
+    [InlineData("null")]
+    [InlineData("\"not-a-guid\"")]
+    [InlineData("42")]
+    public void A_part_with_a_key_that_is_not_an_id_is_skipped_and_the_others_stay(string badKey)
+    {
+        var path = RunningGitNote.PathIn(_temp.Path);
+        var owner = ProcessStamp.Current();
+        var keptGit = ProcessStamp.Current();
+        File.WriteAllText(
+            path,
+            $$"""{"owner":{"id":{{owner.Id}},"startedAtUtcTicks":{{owner.StartedAtUtcTicks}}},"gits":[],"registries":[{"key":{{badKey}},"gits":[{"id":{{keptGit.Id}},"startedAtUtcTicks":{{keptGit.StartedAtUtcTicks}}}]},{"key":"{{Guid.NewGuid()}}","gits":[{"id":{{keptGit.Id}},"startedAtUtcTicks":{{keptGit.StartedAtUtcTicks}}}]}]}""");
+
+        var thrown = Record.Exception(() => RunningGitNote.Update(path, owner, Guid.NewGuid(), [new ProcessStamp(78, 100)]));
+
+        Assert.Null(thrown);
+        var note = RunningGitNote.Read(path);
+        Assert.NotNull(note);
+        Assert.Contains(keptGit, note.Value.Gits);
+        Assert.Contains(new ProcessStamp(78, 100), note.Value.Gits);
+    }
+
     // The exit hook clears the note of every backend this process built; one whose folder is long gone must cost nothing, or the process
     // is slow to end (a test run built thousands, and a host that does not end in time is stopped as if a thread were left running).
     [Fact]

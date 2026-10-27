@@ -172,6 +172,24 @@ public sealed class GitProcessRegistryNoteTests : IDisposable
         other.Close();
     }
 
+    [Fact(Timeout = 60_000)]
+    public async Task Closing_one_registry_leaves_the_gits_of_the_other_registry_on_the_note()
+    {
+        using var first = FakeGameProcess.Start();
+        using var second = FakeGameProcess.Start();
+        var one = new GitProcessRegistry(NotePath, _delay);
+        var other = new GitProcessRegistry(NotePath, _delay);
+        using var firstListed = one.Add(StampOf(first.Id));
+        using var secondListed = other.Add(StampOf(second.Id));
+        Assert.True(await FakeGameProcess.WaitUntilAsync(() => NoteNames(first.Id) && NoteNames(second.Id), TimeSpan.FromSeconds(10)));
+
+        one.Close();
+
+        Assert.False(NoteNames(first.Id), "the closed registry's git stayed on the note");
+        Assert.True(NoteNames(second.Id), "closing one registry dropped the other registry's git");
+        other.Close();
+    }
+
     // A start of 0.9.16 reads only the owner and one list of gits, so the merged note keeps both at the top level.
     [Fact(Timeout = 60_000)]
     public async Task The_note_of_two_registries_keeps_the_owner_and_one_list_of_every_git_for_an_older_start()
