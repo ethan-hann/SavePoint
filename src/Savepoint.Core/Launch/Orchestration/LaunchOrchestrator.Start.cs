@@ -178,7 +178,7 @@ public sealed partial class LaunchOrchestrator
         var profiles = await _services.Catalog.ListProfilesAsync(gameId, token).ConfigureAwait(false);
         var repos = GameFolders.Repos(_services, storage, game);
         var resolved = await TargetResolver.ResolveAsync(storage, repos, profiles, target, token).ConfigureAwait(false);
-        var readings = await Task.WhenAll(resolved.Folders.Select(folder => FolderReading.ReadAsync(storage.Engine, folder, profiles, token))).ConfigureAwait(false);
+        var readings = await Task.WhenAll(resolved.Folders.Select(folder => FolderReading.ReadAsync(storage.Engine, folder, profiles, countReplaced: false, token))).ConfigureAwait(false);
 
         // A half-switched folder is refused with its own error unless it is the very switch this launch would finish.
         if (readings.FirstOrDefault(reading => reading.Dirty) is { } blocked)

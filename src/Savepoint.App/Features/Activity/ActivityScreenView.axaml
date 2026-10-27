@@ -40,7 +40,7 @@
           <TextBlock x:Name="TitleText" Classes="section-title" Text="{Binding Title}" />
           <TextBlock x:Name="SubtitleText" Classes="timestamp" FontSize="12" TextTrimming="CharacterEllipsis" Text="{Binding Subtitle}" />
         </StackPanel>
-        <ListBox x:Name="ScopeToggle"
+        <a11y:ChoiceListBox x:Name="ScopeToggle"
                  Grid.Column="2"
                  Classes="segmented-tray"
                  VerticalAlignment="Center"
@@ -48,18 +48,18 @@
                  ItemsSource="{Binding ScopeOptions}"
                  SelectedItem="{Binding SelectedScope, Mode=TwoWay}"
                  AutomationProperties.Name="{Binding ScopeLabel}">
-          <ListBox.Styles>
+          <a11y:ChoiceListBox.Styles>
             <Style Selector="ListBoxItem" x:DataType="activity:ScopeOption">
               <Setter Property="AutomationProperties.Name" Value="{Binding Label}" />
               <Setter Property="Padding" Value="14,7" />
             </Style>
-          </ListBox.Styles>
-          <ListBox.ItemTemplate>
+          </a11y:ChoiceListBox.Styles>
+          <a11y:ChoiceListBox.ItemTemplate>
             <DataTemplate x:DataType="activity:ScopeOption">
               <TextBlock Text="{Binding Label}" />
             </DataTemplate>
-          </ListBox.ItemTemplate>
-        </ListBox>
+          </a11y:ChoiceListBox.ItemTemplate>
+        </a11y:ChoiceListBox>
       </Grid>
     </Border>
 

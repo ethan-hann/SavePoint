@@ -34,9 +34,12 @@ internal static partial class RepoConfigFile
         AtomicText.Write(path, Rewrite(text, isWindows));
     }
 
-    internal static string? ReadStamp(string configText)
+    internal static string? ReadStamp(string configText) => ReadValue(configText, _stampSection, _stampKey);
+
+    // The last value the file gives the key in the section, or null; no git process is started.
+    internal static string? ReadValue(string configText, string wantedSection, string wantedKey)
     {
-        string? stamp = null;
+        string? value = null;
         var section = string.Empty;
         foreach (var line in configText.Split('\n'))
         {
@@ -45,14 +48,14 @@ internal static partial class RepoConfigFile
                 section = header.Groups["name"].Value;
             }
             else if (KeyLine().Match(line) is { Success: true } entry
-                && section.Equals(_stampSection, StringComparison.OrdinalIgnoreCase)
-                && entry.Groups["key"].Value.Equals(_stampKey, StringComparison.OrdinalIgnoreCase))
+                && section.Equals(wantedSection, StringComparison.OrdinalIgnoreCase)
+                && entry.Groups["key"].Value.Equals(wantedKey, StringComparison.OrdinalIgnoreCase))
             {
-                stamp = entry.Groups["value"].Value;
+                value = entry.Groups["value"].Value;
             }
         }
 
-        return stamp;
+        return value;
     }
 
     // The settings git init writes, which a repository needs and which name no program. Every other setting in a config file is

@@ -6,6 +6,7 @@
              xmlns:art="using:Savepoint.App.Features.Common.Art"
              xmlns:history="using:Savepoint.App.Features.History"
              xmlns:help="using:Savepoint.App.Features.Help"
+             xmlns:a11y="using:Savepoint.App.Features.Common.Accessibility"
              x:Class="Savepoint.App.Features.History.HistoryScreenView"
              x:DataType="history:HistoryScreenViewModel">
   <!-- The History screen: the list view and the cards view. -->
@@ -126,7 +127,7 @@
             <TextBlock Text="{Binding FilterLabel}" />
           </StackPanel>
         </Button>
-        <ListBox x:Name="ViewToggle"
+        <a11y:ChoiceListBox x:Name="ViewToggle"
                  Grid.Column="3"
                  Classes="segmented-tray"
                  VerticalAlignment="Center"
@@ -134,18 +135,18 @@
                  ItemsSource="{Binding ViewOptions}"
                  SelectedItem="{Binding SelectedViewOption, Mode=TwoWay}"
                  AutomationProperties.Name="{Binding ViewLabel}">
-          <ListBox.Styles>
+          <a11y:ChoiceListBox.Styles>
             <Style Selector="ListBoxItem" x:DataType="history:ViewModeOption">
               <Setter Property="AutomationProperties.Name" Value="{Binding Label}" />
               <Setter Property="Padding" Value="14,7" />
             </Style>
-          </ListBox.Styles>
-          <ListBox.ItemTemplate>
+          </a11y:ChoiceListBox.Styles>
+          <a11y:ChoiceListBox.ItemTemplate>
             <DataTemplate x:DataType="history:ViewModeOption">
               <TextBlock Text="{Binding Label}" />
             </DataTemplate>
-          </ListBox.ItemTemplate>
-        </ListBox>
+          </a11y:ChoiceListBox.ItemTemplate>
+        </a11y:ChoiceListBox>
       </Grid>
     </Border>
 

@@ -21,6 +21,9 @@ public sealed record GitEngineOptions
     // Sees every git call just before it runs; tests use it to assert argument lists and to inject faults.
     internal Action<GitInvocation>? InvocationObserver { get; init; }
 
+    // Called with the path of each file the engine reads in full to compare it with a snapshot's copy; tests count the reads or make one fail.
+    internal Action<string>? FileHashed { get; init; }
+
     // Whether a switch, discard or clean keeps the game folder from being renamed or deleted while it runs (Windows); tests that swap the
     // folder to see the later check refuse it turn this off.
     internal bool HoldFolderOpen { get; init; } = true;
@@ -28,7 +31,7 @@ public sealed record GitEngineOptions
     /// <summary>Where the engine records what it could not do for a folder, such as holding it open; null writes nothing.</summary>
     public IDiagnosticLog? Log { get; init; }
 
-    // Called with the name of a step ("hold", "remove-displaced", "remove-new", "remove-leftover", "make-folders") just before the engine
+    // Called with the name of a step ("hold", "remove-displaced", "remove-new", "remove-leftover", "remove-standing", "make-folders") just before the engine
     // looks at the guarded folder again for it; tests swap the folder here to see the look refuse it.
     internal Action<string>? BeforeFileChanges { get; init; }
 

@@ -1,11 +1,15 @@
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Errors;
 using Savepoint.Core.Git;
 
 namespace Savepoint.Core.Launch.Orchestration;
 
 // One folder as a launch finds it: where git says it is, set against where the launch wants it.
-internal sealed record FolderReading(FolderTarget Target, RepoStatus Status, IReadOnlyList<Profile> Profiles)
+internal sealed record FolderReading(FolderTarget Target, RepoStatus Status, IReadOnlyList<Profile> Profiles, StoppedSwitchReview? Review = null, SavepointException? ReviewFailure = null)
 {
+    // The folder could not be looked at; ReviewFailure says why, for the log.
+    public bool ReviewFailed => ReviewFailure is not null;
+
     public InterruptedSwitch? Note => Status.InterruptedSwitch;
 
     // A half-finished switch to this very target is what the launch carries on with; it is not the player's work.
@@ -17,7 +21,15 @@ internal sealed record FolderReading(FolderTarget Target, RepoStatus Status, IRe
     // The folder holds files from two points, whether this launch finishes the switch or not.
     public bool UnfinishedSwitch => Note is not null;
 
-    public bool Dirty => Blocked || (Note is null && !Status.IsClean);
+    // The switch to finish would run over changes the player has not saved (outside the files it was changing), so it is refused until they
+    // are discarded. Only a switch to this very target is looked at; Review is null for any other. A folder that could not be looked at is
+    // treated the same way, since nothing says it is free of them.
+    public bool BlockedByChanges => Pending && (ReviewFailed || Review is { BlockingPaths.Count: > 0 });
+
+    public bool Dirty => Blocked || BlockedByChanges || (Note is null && !Status.IsClean);
+
+    // The files unsaved changes would stop the finish from running over.
+    public int ChangesOutsideSwitchCount => BlockedByChanges ? Review?.BlockingPaths.Count ?? 0 : 0;
 
     // The files a discard would delete; the rest of the unsaved files are put back.
     public int DirtyNewFileCount => Dirty ? Status.UntrackedPaths.Count : 0;
@@ -27,7 +39,7 @@ internal sealed record FolderReading(FolderTarget Target, RepoStatus Status, IRe
 
     // Changes on a folder left on an older point, or on the branch of a profile that is gone, belong to nobody.
     public string? DirtyOwnerProfileId =>
-        Dirty && !Blocked && !Status.IsDetached ? Profiles.FirstOrDefault(profile => profile.BranchName == Status.Branch)?.Id : null;
+        Dirty && !Blocked && !BlockedByChanges && !Status.IsDetached ? Profiles.FirstOrDefault(profile => profile.BranchName == Status.Branch)?.Id : null;
 
     // The folder is on the commit the launch wants, attached the way it wants (to the branch for a tip, detached for an older point).
     public bool InPlace => Target.Leave || (Target.Branch is { } branch
@@ -44,7 +56,9 @@ internal sealed record FolderReading(FolderTarget Target, RepoStatus Status, IRe
     // place needs none.
     public bool NeedsSwitch => !InPlace || Note is not null;
 
-    public static async Task<FolderReading> ReadAsync(GitEngine engine, FolderTarget target, IReadOnlyList<Profile> profiles, CancellationToken cancellationToken)
+    // countReplaced asks the review to compare the files the stopped switch was writing with the snapshots, which reads them; only the
+    // preview has a use for that, so a start does not.
+    public static async Task<FolderReading> ReadAsync(GitEngine engine, FolderTarget target, IReadOnlyList<Profile> profiles, bool countReplaced, CancellationToken cancellationToken)
     {
         var status = await engine.GetStatusAsync(target.Repo, cancellationToken).ConfigureAwait(false);
 
@@ -54,6 +68,23 @@ internal sealed record FolderReading(FolderTarget Target, RepoStatus Status, IRe
             status = status with { IsClean = true, ChangedPaths = [], UntrackedPaths = [] };
         }
 
-        return new FolderReading(target, status, profiles);
+        // A stopped switch to the very target of this launch is the one the launch finishes: what that would run into is read now, so the
+        // preview can say it. A folder that cannot be checked is not offered a finish: the unchecked folder counts as blocked, which leaves
+        // discarding as the way out.
+        StoppedSwitchReview? review = null;
+        SavepointException? failure = null;
+        if (!target.Leave && status.InterruptedSwitch is { ToCommit: { } to } && string.Equals(to, target.Commit, StringComparison.Ordinal))
+        {
+            try
+            {
+                review = await engine.ReviewStoppedSwitchAsync(target.Repo, cancellationToken, countReplaced).ConfigureAwait(false);
+            }
+            catch (SavepointException e)
+            {
+                failure = e;
+            }
+        }
+
+        return new FolderReading(target, status, profiles, review, failure);
     }
 }

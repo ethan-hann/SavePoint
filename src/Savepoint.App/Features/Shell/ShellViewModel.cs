@@ -417,16 +417,26 @@ public sealed class ShellViewModel : ObservableObject, IShellContext, IDisposabl
     }
 
     /// <inheritdoc />
-    public void ShowHelp()
+    public void ShowHelp() => OpenHelp(null);
+
+    /// <inheritdoc />
+    public void ShowHelp(HowItWorksSection section) => OpenHelp(section);
+
+    private void OpenHelp(HowItWorksSection? section)
     {
-        if (_pane is HowItWorksViewModel)
+        if (_pane is HowItWorksViewModel open)
         {
+            if (section is { } requested)
+            {
+                open.ShowSection(requested);
+            }
+
             return;
         }
 
         // A pane that is open (the game editor with a form half filled in) is kept, not replaced: ShowPane would end it.
         _underHelp = _pane is null ? null : (_pane, _paneDestination);
-        _pane = new HowItWorksViewModel(_deps.Text, ClosePane, StartTour, () => CanShowTour);
+        _pane = new HowItWorksViewModel(_deps.Text, ClosePane, StartTour, () => CanShowTour, section);
         _paneDestination = Destination;
         RaiseShellState();
     }

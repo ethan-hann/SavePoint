@@ -89,7 +89,9 @@ public class LaunchPreviewDirtyTests
         var (rig, vanilla, _) = await TwoProfilesAsync();
         using var _ = rig;
         await WriteSwitchNoteAsync(rig, RepoRole.Install, toBranchOf: vanilla);
-        rig.WriteInstall("mods/a.txt", "half way");
+
+        // Half way: git removes a file the target lacks whole, so the stopped switch left it gone. Content in it would be the player's.
+        File.Delete(Path.Combine(rig.InstallPath, "mods", "a.txt"));
 
         var preview = await rig.PreviewAsync(new LaunchTarget.ProfileTip(vanilla.Id));
 
@@ -97,6 +99,21 @@ public class LaunchPreviewDirtyTests
         Assert.False(preview.Install.MatchesTarget);
         Assert.NotNull(preview.Install.Switch);
         Assert.False(preview.ShowBanner);
+    }
+
+    [Fact]
+    public async Task A_file_the_half_finished_switch_would_remove_that_holds_other_content_is_unsaved_work()
+    {
+        var (rig, vanilla, _) = await TwoProfilesAsync();
+        using var _ = rig;
+        await WriteSwitchNoteAsync(rig, RepoRole.Install, toBranchOf: vanilla);
+        rig.WriteInstall("mods/a.txt", "the player's edit");
+
+        var preview = await rig.PreviewAsync(new LaunchTarget.ProfileTip(vanilla.Id));
+
+        Assert.True(preview.Install.Dirty);
+        Assert.Equal(1, preview.Install.ChangesOutsideSwitchCount);
+        Assert.Null(preview.Install.UnfinishedSwitchTarget);
     }
 
     [Fact]

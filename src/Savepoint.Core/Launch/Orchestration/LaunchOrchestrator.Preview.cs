@@ -59,9 +59,16 @@ public sealed partial class LaunchOrchestrator
     {
         var repos = GameFolders.Repos(_services, storage, game);
         var resolved = await TargetResolver.ResolveAsync(storage, repos, profiles, target, cancellationToken).ConfigureAwait(false);
-        var readings = await Task.WhenAll(resolved.Folders.Select(folder => FolderReading.ReadAsync(storage.Engine, folder, profiles, cancellationToken))).ConfigureAwait(false);
+        var readings = await Task.WhenAll(resolved.Folders.Select(folder => FolderReading.ReadAsync(storage.Engine, folder, profiles, countReplaced: true, cancellationToken))).ConfigureAwait(false);
         var install = readings.Single(reading => reading.Target.Role == RepoRole.Install);
         var external = readings.FirstOrDefault(reading => reading.Target.Role == RepoRole.External);
+
+        foreach (var reading in readings.Where(reading => reading.Pending && reading.ReviewFailure is not null))
+        {
+            _services.Log.Warning(
+                $"Preview for {game.Id}: the {GameFolders.LogName(reading.Target.Role)} folder ({reading.Target.Repo.WorkTree}) has a stopped switch that could not be checked for unsaved changes: {reading.ReviewFailure!.Message}",
+                reading.ReviewFailure);
+        }
 
         var states = await Task.WhenAll(readings.Select(reading => FolderStateAsync(storage, game, profiles, target, reading, cancellationToken))).ConfigureAwait(false);
         var currentOverride = install.Status.IsDetached ? null : profiles.FirstOrDefault(profile => profile.BranchName == install.Status.Branch)?.VersionOverride;
@@ -102,8 +109,18 @@ public sealed partial class LaunchOrchestrator
             reading.Matches || reading.Target.Leave ? null : await SwitchSummaryAsync(storage, game, reading, cancellationToken).ConfigureAwait(false),
             reading.DirtyNewFileCount,
             reading.UnfinishedSwitch,
-            reading.UnfinishedSwitch ? await UnfinishedTargetAsync(storage, profiles, previewed, reading, cancellationToken).ConfigureAwait(false) : null,
-            reading.Held ? ErrorInfo.From(reading.Status.HeldFile!.ToException(HeldFileOperation.Switch)) : null);
+
+            // Finishing is refused while unsaved changes are in its way, so no target is offered until they are discarded.
+            reading.UnfinishedSwitch && !reading.BlockedByChanges ? await UnfinishedTargetAsync(storage, profiles, previewed, reading, cancellationToken).ConfigureAwait(false) : null,
+            reading.Held ? ErrorInfo.From(reading.Status.HeldFile!.ToException(HeldFileOperation.Switch)) : null,
+            reading.ChangesOutsideSwitchCount,
+            reading.Review?.ReplacedPaths.Count ?? 0,
+
+            // A player knows their saves by name; the game's folder can replace thousands of files.
+            reading.Target.Role == RepoRole.External && reading.Review is { ReplacedPaths.Count: > 0 } review
+                ? [.. review.ReplacedPaths.Order(StringComparer.Ordinal).Take(FolderLaunchState.MaxNamedReplacedFiles)]
+                : null,
+            reading.Pending && reading.ReviewFailed);
 
     // Starting the previewed target finishes a switch that was heading there; one that was heading elsewhere is finished by that point's own target.
     private static async Task<LaunchTarget?> UnfinishedTargetAsync(

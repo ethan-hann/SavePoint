@@ -31,6 +31,24 @@ public sealed class IndexRepairTests : IDisposable
 
     private static void Empty(RepoRef repo) => File.WriteAllBytes(IndexOf(repo), []);
 
+    // Damages the index the way a power cut would, from a hook that runs while a git beside it may still have the file open (Windows does not
+    // let a file be written then); the damage waits for it to let go.
+    private static void EmptyWhenFree(RepoRef repo)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                Empty(repo);
+                return;
+            }
+            catch (IOException) when (attempt < 100)
+            {
+                Thread.Sleep(20);
+            }
+        }
+    }
+
     private static void ZeroFill(RepoRef repo) => File.WriteAllBytes(IndexOf(repo), new byte[new FileInfo(IndexOf(repo)).Length]);
 
     private static void Truncate(RepoRef repo) => File.WriteAllBytes(IndexOf(repo), File.ReadAllBytes(IndexOf(repo))[..20]);
@@ -203,7 +221,7 @@ public sealed class IndexRepairTests : IDisposable
             }
             else if (repaired)
             {
-                Empty(repo);
+                EmptyWhenFree(repo);
             }
         };
 

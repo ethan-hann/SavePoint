@@ -14,8 +14,10 @@ public sealed class HowItWorksViewModel : ObservableObject
     /// <param name="close">Closes the page and shows the screen it was opened from.</param>
     /// <param name="showTour">Closes the page and shows the first-run tour; null leaves the page without its closing button.</param>
     /// <param name="canShowTour">Says whether the tour can run now; it needs a game with a profile to point at. A tour with nothing to show leaves the button off.</param>
-    public HowItWorksViewModel(UiFormatter text, Action close, Action? showTour = null, Func<bool>? canShowTour = null)
+    /// <param name="section">The topic the page opens at; null opens it at the top.</param>
+    public HowItWorksViewModel(UiFormatter text, Action close, Action? showTour = null, Func<bool>? canShowTour = null, HowItWorksSection? section = null)
     {
+        Section = section;
         TourLabel = text.Message("help.page.tour");
         HasTour = showTour is not null;
         CanShowTour = canShowTour?.Invoke() ?? HasTour;
@@ -34,9 +36,44 @@ public sealed class HowItWorksViewModel : ObservableObject
             new(text.Message("help.page.removed.title"), text.Message("help.page.removed.body"), HelpPicture.Removed, [], []),
             new(text.Message("help.page.activity.title"), text.Message("help.page.activity.body"), HelpPicture.Activity, [], []),
             new(text.Message("help.page.space.title"), text.Message("help.page.space.body"), HelpPicture.Space, [], []),
+            new(
+                text.Message("help.page.starts.title"),
+                text.Message("help.page.starts.body"),
+                HelpPicture.None,
+                [],
+                [text.Message("help.page.starts.stopped")],
+                HowItWorksSection.HowTheGameStarts),
+            new(
+                text.Message("help.page.files.title"),
+                text.Message("help.page.files.body"),
+                HelpPicture.None,
+                [text.Message("help.page.files.both"), text.Message("help.page.files.install")],
+                [text.Message("help.page.files.savesRule")],
+                HowItWorksSection.FilesToLeaveOut),
+            new(
+                text.Message("help.page.cloud.title"),
+                text.Message("help.page.cloud.body"),
+                HelpPicture.None,
+                [],
+                [text.Message("help.page.cloud.turnOff")],
+                HowItWorksSection.CloudSaves),
             PermanentTopic(text),
         ];
         BackCommand = new RelayCommand(close);
+    }
+
+    /// <summary>Raised when the page should move to <see cref="Section"/> while it is already open.</summary>
+    public event EventHandler? SectionRequested;
+
+    /// <summary>The topic the page opens at, or null for the top.</summary>
+    public HowItWorksSection? Section { get; private set; }
+
+    /// <summary>Moves the open page to a topic.</summary>
+    /// <param name="section">The topic to show.</param>
+    public void ShowSection(HowItWorksSection section)
+    {
+        Section = section;
+        SectionRequested?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>The page's heading.</summary>

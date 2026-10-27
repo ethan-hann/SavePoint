@@ -1,3 +1,4 @@
+using Savepoint.Core.Errors;
 using Savepoint.Core.Git;
 
 namespace Savepoint.Core.Tests.Git.Engine;
@@ -362,10 +363,20 @@ public sealed class EmptyFolderTests : IDisposable
         var outside = Path.Combine(_ws.Root, "outside-link-target");
         Directory.CreateDirectory(outside);
         Assert.SkipUnless(TestLinks.TryCreateFolderLink(_ws.FileOf(repo, "Sub"), outside), "this system cannot make folder links");
-        // The link is not saved work git can see on every system, so the switch is the finish of a stopped one, which does not look for it.
+        // The link is not saved work git can see on every system, so the switch is the finish of a stopped one.
         SwitchJournal.Write(repo.GitDir, (await _ws.TipAsync(repo, "profile-b"))!, (await _ws.TipAsync(repo, "profile-a"))!, "profile-a");
 
-        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+        // Where git lists the link as a new file (a symbolic link on Linux and macOS), it is a change outside the switch's files and
+        // the finish is refused before it writes anything; where git does not see it (a junction on Windows) the finish runs.
+        // Neither makes a folder through the link.
+        try
+        {
+            await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+        }
+        catch (DirtyWorkingTreeException) when (!OperatingSystem.IsWindows())
+        {
+            Assert.NotNull(SwitchJournal.Read(repo.GitDir));
+        }
 
         Assert.Empty(Directory.GetFileSystemEntries(outside));
     }

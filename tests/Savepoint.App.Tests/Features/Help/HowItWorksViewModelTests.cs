@@ -7,13 +7,16 @@ public class HowItWorksViewModelTests
 {
     private static HowItWorksViewModel Page(Action? close = null) => new(HelpText.Formatter(), close ?? (() => { }));
 
-    // The ten topics the page has; a test that reads one of them says so first, so a missing topic is a plain failure.
+    // The thirteen topics the page has; a test that reads one of them says so first, so a missing topic is a plain failure.
     private static IReadOnlyList<HowItWorksTopic> Topics()
     {
         var topics = Page().Topics;
-        Assert.Equal(10, topics.Count);
+        Assert.Equal(13, topics.Count);
         return topics;
     }
+
+    private static HowItWorksTopic TopicFor(HowItWorksSection section) =>
+        Assert.Single(Page().Topics, topic => topic.Section == section);
 
     [Fact]
     public void The_page_is_named_for_what_it_is_and_opens_with_a_sentence_about_why()
@@ -39,13 +42,16 @@ public class HowItWorksViewModelTests
                 "Recently removed",
                 "Activity",
                 "The snapshot folder and freeing up space",
+                "How the game starts",
+                "Files to leave out",
+                "Cloud saves",
                 "What can't be undone",
             ],
             Page().Topics.Select(topic => topic.Title));
     }
 
     [Fact]
-    public void Every_topic_has_a_text_and_all_but_the_last_have_a_picture()
+    public void Every_topic_has_a_text_and_the_first_nine_have_a_picture()
     {
         var topics = Topics();
 
@@ -62,8 +68,130 @@ public class HowItWorksViewModelTests
                 HelpPicture.Activity,
                 HelpPicture.Space,
                 HelpPicture.None,
+                HelpPicture.None,
+                HelpPicture.None,
+                HelpPicture.None,
             ],
             topics.Select(topic => topic.Picture));
+    }
+
+    [Fact]
+    public void Cloud_saves_says_changed_saves_are_kept_removed_saves_come_back_and_a_second_PC_asks_which_to_keep()
+    {
+        var cloud = TopicFor(HowItWorksSection.CloudSaves);
+
+        Assert.Equal("Cloud saves", cloud.Title);
+        Assert.Contains("Steam and GOG Galaxy", cloud.Body, StringComparison.Ordinal);
+        Assert.Contains("Saves that SavePoint changes are kept and uploaded", cloud.Body, StringComparison.Ordinal);
+        Assert.Contains("Saves that SavePoint removes come back at the next launch", cloud.Body, StringComparison.Ordinal);
+        Assert.Contains("Cloud Conflict", cloud.Body, StringComparison.Ordinal);
+        Assert.Contains("choose Local Save", cloud.Body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Cloud_saves_says_when_to_turn_them_off_in_the_store()
+    {
+        var cloud = TopicFor(HowItWorksSection.CloudSaves);
+
+        var advice = Assert.Single(cloud.Notes);
+        Assert.Contains("Turn off cloud saves for the game in Steam or GOG Galaxy", advice, StringComparison.Ordinal);
+        Assert.Contains("go back to a snapshot from before a save, or switch to a profile with fewer saves", advice, StringComparison.Ordinal);
+        Assert.Contains("before you next start the game", advice, StringComparison.Ordinal);
+        Assert.Contains("a save the store brings back becomes part of that profile's next snapshot", advice, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void On_Linux_cloud_saves_name_only_Steam_because_GOG_Galaxy_does_not_run_there()
+    {
+        var cloud = Assert.Single(new HowItWorksViewModel(HelpText.Formatter("linux"), () => { }).Topics, topic => topic.Section == HowItWorksSection.CloudSaves);
+
+        Assert.DoesNotContain("GOG", cloud.Body, StringComparison.Ordinal);
+        Assert.DoesNotContain("GOG", Assert.Single(cloud.Notes), StringComparison.Ordinal);
+        Assert.StartsWith("Steam can keep your saves in the cloud.", cloud.Body, StringComparison.Ordinal);
+        Assert.StartsWith("Turn off cloud saves for the game in Steam if", Assert.Single(cloud.Notes), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Files_to_leave_out_names_both_lists_what_star_and_double_star_mean_and_warns_against_matching_saves()
+    {
+        var files = TopicFor(HowItWorksSection.FilesToLeaveOut);
+
+        Assert.Equal("Files to leave out", files.Title);
+        Assert.Equal(
+            [
+                "Files to leave out of both folders: rules that cover the game's own folder and your saves folder.",
+                "Files to leave out of the game's own folder: rules that never cover your saves folder. New games start with rules for logs and crash reports, which a game rewrites while it runs and SavePoint would take for a game update.",
+            ],
+            files.Items);
+        Assert.DoesNotContain("logs", files.Body, StringComparison.Ordinal);
+        Assert.Contains("A rule tells SavePoint to skip the files that match it", files.Body, StringComparison.Ordinal);
+        Assert.Contains("* stands for any name", files.Body, StringComparison.Ordinal);
+        Assert.Contains("** stands for any folder", files.Body, StringComparison.Ordinal);
+        Assert.Equal(["Don't add a rule that matches your saves, or profiles stop switching them."], files.Notes);
+    }
+
+    [Fact]
+    public void How_the_game_starts_says_running_the_program_is_safer_than_Through_Steam_because_Steam_may_update_the_game()
+    {
+        var starts = TopicFor(HowItWorksSection.HowTheGameStarts);
+
+        Assert.Equal("How the game starts", starts.Title);
+        Assert.Contains("Run the .exe", starts.Body, StringComparison.Ordinal);
+        Assert.Contains("Through Steam", starts.Body, StringComparison.Ordinal);
+        Assert.Contains("Steam may update the game right after SavePoint puts your version back", starts.Body, StringComparison.Ordinal);
+        Assert.Contains("Running the .exe avoids that.", starts.Body, StringComparison.Ordinal);
+        Assert.DoesNotContain("Linux", starts.Body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void On_Linux_how_the_game_starts_says_Steam_games_usually_need_Steam_instead_of_calling_the_program_safer()
+    {
+        var starts = Assert.Single(new HowItWorksViewModel(HelpText.Formatter("linux"), () => { }).Topics, topic => topic.Section == HowItWorksSection.HowTheGameStarts);
+
+        Assert.Contains("\"Run the program\" starts the game's own program.", starts.Body, StringComparison.Ordinal);
+        Assert.Contains("Games installed by Steam on Linux usually need Steam to start them, so Through Steam is the safer choice for those.", starts.Body, StringComparison.Ordinal);
+        Assert.DoesNotContain("avoids that", starts.Body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void How_the_game_starts_explains_what_knowing_when_you_have_stopped_playing_is_for()
+    {
+        var starts = TopicFor(HowItWorksSection.HowTheGameStarts);
+
+        var note = Assert.Single(starts.Notes);
+        Assert.StartsWith("Knowing when you've stopped playing", note, StringComparison.Ordinal);
+        Assert.Contains("asks what to do with your session", note, StringComparison.Ordinal);
+        Assert.Contains("More settings", note, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Only_the_three_linked_topics_have_a_section_name()
+    {
+        Assert.Equal(
+            [HowItWorksSection.HowTheGameStarts, HowItWorksSection.FilesToLeaveOut, HowItWorksSection.CloudSaves],
+            Page().Topics.Where(topic => topic.Section is not null).Select(topic => topic.Section!.Value));
+    }
+
+    [Fact]
+    public void A_page_opened_at_a_section_remembers_it_and_a_plain_page_does_not()
+    {
+        var text = HelpText.Formatter();
+
+        Assert.Null(Page().Section);
+        Assert.Equal(HowItWorksSection.FilesToLeaveOut, new HowItWorksViewModel(text, () => { }, section: HowItWorksSection.FilesToLeaveOut).Section);
+    }
+
+    [Fact]
+    public void Asking_an_open_page_for_a_section_moves_it_there_and_says_so()
+    {
+        var page = Page();
+        var requests = 0;
+        page.SectionRequested += (_, _) => requests++;
+
+        page.ShowSection(HowItWorksSection.CloudSaves);
+
+        Assert.Equal(HowItWorksSection.CloudSaves, page.Section);
+        Assert.Equal(1, requests);
     }
 
     [Fact]

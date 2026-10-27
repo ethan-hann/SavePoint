@@ -3,9 +3,11 @@
                     xmlns:theme="using:Savepoint.App.Theme">
 
   <!--
-    ListBox is the one selection control: ListBox.nav, ListBox.rows, ListBox.segmented, ListBox.segmented-tray
-    and ListBox.radio-cards (see ListBoxVariants.axaml) differ only in item chrome, so arrow-key selection and
-    focus behave the same everywhere. A bare ListBox is a transparent, borderless list.
+    ListBox is the one selection control: ListBox.nav, ListBox.rows, ListBox.segmented, ListBox.segmented-tray,
+    ListBox.radio-cards, ListBox.choice and ListBox.swatches (see ListBoxVariants.axaml) differ only in item chrome.
+    The last five are choices of one, which views declare as a ChoiceListBox (a ListBox that is a radio group to
+    assistive technology and takes every arrow key); nav and rows are lists. A bare ListBox is a transparent,
+    borderless list.
   -->
   <ControlTheme x:Key="{x:Type ListBox}" TargetType="ListBox">
     <Setter Property="Background" Value="Transparent" />

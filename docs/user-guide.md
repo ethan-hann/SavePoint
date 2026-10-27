@@ -13,7 +13,7 @@ SavePoint keeps snapshots in a folder of its own, the snapshot folder. When you 
 
 ### Help inside the app
 
-- Press **F1** anywhere, or open **Settings > Help**, for **How SavePoint works**, a short illustrated page.
+- Press **F1** anywhere, or open **Settings > Help**, for **How SavePoint works**, a short illustrated page. It also explains how a game starts, the files to leave out, and cloud saves, and the editor's question buttons link to those parts.
 - Question buttons such as **What's a snapshot?** and **What are new changes?** explain an idea where you meet it. Escape closes them.
 - After you create your first profile, a four-step tour points out the main controls. Skip it at any step, or press Escape. **Settings > Help > Show the tour again** plays it again.
 - The first time you play from an older snapshot, discard changes, or replace a snapshot, SavePoint explains the choice.
@@ -51,7 +51,7 @@ If a folder you add still has snapshots from a game you removed earlier, SavePoi
 The editor keeps these behind its question buttons, except a warning when a game's cloud saves are on.
 
 - **Online games with anti-cheat:** SavePoint never touches a game while it is running, but anti-cheat checks the game's own files. Changed or rolled-back files can get your account flagged, and these games cannot be modded or rolled back anyway. Games you can play offline with anti-cheat turned off for mods are fine.
-- **Cloud saves:** Steam and GOG Galaxy keep the saves SavePoint changes and upload them when you quit. But they bring back any save SavePoint removed, the next time the game starts, so going back to before a save may not stick. If that matters for a game, turn off its cloud saves in the store. The editor tells you when a game's cloud saves are on. If you play on two PCs and Steam asks which saves to keep, choose **Local Save** to keep the ones SavePoint put back.
+- **Cloud saves:** Steam and GOG Galaxy keep the saves SavePoint changes and upload them when you quit. But they bring back any save SavePoint removed, the next time the game starts, so going back to before a save, or switching to a profile with fewer saves, may not stick. If that matters for a game, turn off its cloud saves in the store. The editor tells you when a game's cloud saves are on. If you play on two PCs and Steam asks which saves to keep, choose **Local Save** to keep the ones SavePoint put back.
 
 ### Artwork
 
@@ -197,7 +197,7 @@ Every error says what happened and what you can do about it. **Show details** gi
 - **SavePoint can't read a file.** A file in a game folder cannot be opened, usually because it belongs to another account or is marked private. Closing programs does not help. Make the file readable for your account, or remove it, then try again.
 - **A file and a folder share a name.** A profile needs a file where your game folder has a folder with that name (or the other way around), and that folder holds files SavePoint must not touch, such as files you left out. SavePoint stops before changing anything and tells you which one. Move it yourself, then try again.
 - **Only part of the snapshot was taken.** One folder made it into the snapshot and the other did not. Fix the reason shown and retry just that part. Nothing already kept is affected.
-- **The last switch didn't finish.** The folder has a mix of files from two snapshots. Finish the switch to carry on, or discard the changes to put the folder back to its last snapshot. If SavePoint can't tell which switch it was, only discarding is offered.
+- **The last switch didn't finish.** The folder has a mix of files from two snapshots. Finish the switch to carry on, or discard the changes to put the folder back to its last snapshot. Finishing replaces the files the switch was changing, including any change you made since it stopped, and SavePoint says how many (and which saves) first. If other files changed meanwhile, or SavePoint can't tell which switch it was, only discarding is offered.
 - **SavePoint's record of this game's folder is damaged.** This usually follows a power cut or a crash. SavePoint repairs its record by itself when it can, and your game files are not changed either way. If this message keeps coming back, include **Copy details for support** in a bug report.
 - **The folder changed while SavePoint worked.** Something replaced or moved the game folder during a switch or discard, so SavePoint stopped before changing more files. Make sure nothing else is moving the folder, then try again.
 - **A folder moved or is gone.** SavePoint still has every snapshot. Point it at the new location to carry on.

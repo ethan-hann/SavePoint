@@ -73,7 +73,7 @@
       </Grid>
     </Border>
 
-    <ScrollViewer Classes="page-scroll" VerticalScrollBarVisibility="Auto">
+    <ScrollViewer x:Name="FormScroll" Classes="page-scroll" VerticalScrollBarVisibility="Auto">
       <StackPanel Margin="22" Spacing="16">
 
         <ContentControl x:Name="FormErrorHost" Content="{Binding FormError}" IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}" />
@@ -215,17 +215,17 @@
 
             <StackPanel Spacing="12">
               <TextBlock Classes="overline" Text="{theme:Upper {loc:Loc gameEditor.launch.label}}" />
-              <ListBox x:Name="LaunchChoiceList"
+              <a11y:ChoiceListBox x:Name="LaunchChoiceList"
                        Classes="choice"
                        SelectedIndex="{Binding LaunchChoice, Mode=TwoWay}"
                        AutomationProperties.Name="{loc:Loc gameEditor.launch.label}">
-                <ListBoxItem x:Name="RunExeChoice" Padding="8,10">
+                <a11y:ChoiceListBoxItem x:Name="RunExeChoice" Padding="8,10">
                   <TextBlock Text="{Binding RunExeLabel}" />
-                </ListBoxItem>
-                <ListBoxItem x:Name="SteamChoice" Padding="8,10">
+                </a11y:ChoiceListBoxItem>
+                <a11y:ChoiceListBoxItem x:Name="SteamChoice" Padding="8,10">
                   <TextBlock Text="{loc:Loc gameEditor.launch.steam}" />
-                </ListBoxItem>
-              </ListBox>
+                </a11y:ChoiceListBoxItem>
+              </a11y:ChoiceListBox>
               <TextBlock x:Name="LaunchErrorText" Classes="body error" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" IsVisible="{Binding LaunchError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding LaunchError}" />
 
               <StackPanel x:Name="ExePanel" Spacing="9" IsVisible="{Binding IsExeMethod}">

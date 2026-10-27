@@ -74,10 +74,37 @@ public sealed partial class GameEditorViewModel
     {
         IsMoreSettingsOpen = IsEditing && HasMoreSettingsSet();
         AntiCheatHelp = new ContextualHelpViewModel(_text.Message("gameEditor.antiCheat.question"), _text.Message("gameEditor.antiCheat"));
-        RulesHelp = new ContextualHelpViewModel(_text.Message("gameEditor.rules.question"), _text.Message("gameEditor.rules.answer"));
-        ProcessHelp = new ContextualHelpViewModel(_text.Message("gameEditor.whenNeeded.question"), _text.Message("gameEditor.processName.helper"), automationName: _text.Message("gameEditor.processName.whenNeededName"));
+        var more = _text.Message("help.moreInPage");
+        RulesHelp = new ContextualHelpViewModel(_text.Message("gameEditor.rules.question"), _text.Message("gameEditor.rules.answer"), more, () => OpenHelpPage(RulesHelp, HowItWorksSection.FilesToLeaveOut));
+        ProcessHelp = new ContextualHelpViewModel(_text.Message("gameEditor.whenNeeded.question"), _text.Message("gameEditor.processName.helper"), more, () => OpenHelpPage(ProcessHelp, HowItWorksSection.HowTheGameStarts), automationName: _text.Message("gameEditor.processName.whenNeededName"));
         ModFoldersHelp = new ContextualHelpViewModel(_text.Message("gameEditor.whenNeeded.question"), _text.Message("gameEditor.modPathHints.helper"), automationName: _text.Message("gameEditor.modPathHints.whenNeededName"));
         SteamAppIdHelp = new ContextualHelpViewModel(_text.Message("gameEditor.whenNeeded.question"), _text.Message("gameEditor.artwork.appId.helper"), automationName: _text.Message("gameEditor.artwork.appId.whenNeededName"));
-        CloudSavesHelp = new ContextualHelpViewModel(_text.Message("gameEditor.cloudSaves.unknown.question"), _text.Message("gameEditor.cloudSaves.unknown"));
+        CloudSavesHelp = new ContextualHelpViewModel(_text.Message("gameEditor.cloudSaves.unknown.question"), _text.Message("gameEditor.cloudSaves.unknown"), more, () => OpenHelpPage(CloudSavesHelp, HowItWorksSection.CloudSaves));
+    }
+
+    private ContextualHelpViewModel? _helpToReturnTo;
+
+    /// <summary>
+    /// Where the form was scrolled to, in pixels. The view keeps it while it is on screen, so the form comes back to the same place
+    /// after the "How SavePoint works" page covers it.
+    /// </summary>
+    // A pixel offset is view state, but the editor view is rebuilt when the player comes back from a help page, so only the view model outlives it.
+    internal double FormScrollOffset { get; set; }
+
+    /// <summary>
+    /// The explanation whose link opened the help page, if the editor is coming back from that page; it is given once. The view puts
+    /// focus on that explanation's question instead of on the name field.
+    /// </summary>
+    internal ContextualHelpViewModel? TakeHelpToReturnTo()
+    {
+        var help = _helpToReturnTo;
+        _helpToReturnTo = null;
+        return help;
+    }
+
+    private void OpenHelpPage(ContextualHelpViewModel from, HowItWorksSection section)
+    {
+        _helpToReturnTo = from;
+        _shell.ShowHelp(section);
     }
 }

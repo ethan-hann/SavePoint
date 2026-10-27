@@ -128,6 +128,49 @@ public class LaunchUnfinishedSwitchFlowTests : IDisposable
         Assert.True(block.DiscardCommand.CanExecute(null));
     }
 
+    // Switch again is refused because the player changed files outside the switch: the review that follows has to offer the way out, or the
+    // player is sent round the same card for ever.
+    [Fact]
+    public async Task A_switch_again_refused_for_changes_in_its_way_is_reviewed_with_discarding_as_the_only_way_out()
+    {
+        await _f.PlayWithProgressAsync();
+        var key = (FlowRig.Skyrim, LaunchRig.ClearedBlackreachPoint);
+        var preview = _f.Backend.State.LaunchPreviews[key];
+        _f.Backend.State.LaunchPreviews[key] = preview with
+        {
+            Install = preview.Install with
+            {
+                Dirty = true,
+                DirtyFileCount = 2,
+                DirtyNewFileCount = 2,
+                DirtyOwnerProfileId = null,
+                UnfinishedSwitch = true,
+                UnfinishedSwitchTarget = null,
+                ChangesOutsideSwitchCount = 2,
+            },
+        };
+        _f.Backend.Launch.FailLaunch(FlowRig.Skyrim, ErrorInfo.From(new DirtyWorkingTreeException(RepoRole.Install)));
+        var card = _f.Inline<ErrorCardViewModel>();
+        Assert.True(FlowRig.Action(card, "Review the changes").IsPrimary);
+
+        FlowRig.Press(card, "Review the changes");
+
+        var dialog = _f.LaunchDialog;
+        var block = Assert.Single(dialog.UnsavedBlocks);
+        Assert.True(block.IsUnfinishedSwitch);
+        Assert.False(block.CanFinishSwitch);
+        Assert.Contains("2 files that are new or changed and not saved", block.Body, StringComparison.Ordinal);
+        Assert.False(dialog.CanSwitch);
+
+        _f.Dialogs.AnswerConfirm(true);
+        await block.DiscardCommand.ExecuteAsync(null);
+
+        var call = Assert.Single(_f.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.DiscardChangesAsync)));
+        Assert.Equal([FlowRig.Skyrim, RepoRole.Install], call.Args);
+        Assert.Empty(dialog.UnsavedBlocks);
+        Assert.True(dialog.CanSwitch);
+    }
+
     [Fact]
     public async Task Finishing_the_last_switch_from_the_dialog_starts_the_recorded_target()
     {

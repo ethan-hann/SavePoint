@@ -799,4 +799,150 @@ public class LaunchDialogViewModelTests : IDisposable
             older.OlderPointText);
         Assert.False(current.IsOlderPoint);
     }
+
+    private static LaunchPreview StoppedSwitchInInstall(LaunchPreview preview, Func<FolderLaunchState, FolderLaunchState> change) =>
+        Clean(preview) with { Install = change(preview.Install with { Dirty = false, UnfinishedSwitch = true, UnfinishedSwitchTarget = LaunchRig.ModdedTip }) };
+
+    [Fact]
+    public async Task A_stopped_switch_that_unsaved_changes_stand_in_the_way_of_says_why_and_offers_only_discarding()
+    {
+        var dialog = await _rig.DialogAsync(change: preview => StoppedSwitchInInstall(preview, install => install with
+        {
+            Dirty = true,
+            DirtyFileCount = 3,
+            DirtyNewFileCount = 3,
+            UnfinishedSwitchTarget = null,
+            ChangesOutsideSwitchCount = 3,
+        }));
+
+        var block = Assert.Single(dialog.UnsavedBlocks);
+        Assert.True(block.IsUnfinishedSwitch);
+        Assert.False(block.CanSaveFirst);
+        Assert.False(block.CanFinishSwitch);
+        Assert.True(block.DiscardCommand.CanExecute(null));
+        Assert.Equal("The last switch didn't finish", block.Title);
+        Assert.Equal(
+            "The game install folder has files from two snapshots, and 3 files that are new or changed and not saved. SavePoint can't tell them apart from the last switch's own files, so it won't finish the switch until they're gone. Discard puts the folder back to where the switch started, and removes new files too.",
+            block.Body);
+        Assert.False(dialog.ShowKeepCallout);
+    }
+
+    [Fact]
+    public async Task A_stopped_switch_whose_folder_could_not_be_checked_says_so_and_offers_only_discarding()
+    {
+        var dialog = await _rig.DialogAsync(change: preview => StoppedSwitchInInstall(preview, install => install with
+        {
+            Dirty = true,
+            DirtyFileCount = 0,
+            UnfinishedSwitchTarget = null,
+            StoppedSwitchUnchecked = true,
+        }));
+
+        var block = Assert.Single(dialog.UnsavedBlocks);
+        Assert.True(block.IsUnfinishedSwitch);
+        Assert.False(block.CanFinishSwitch);
+        Assert.True(block.DiscardCommand.CanExecute(null));
+        Assert.Equal(
+            "The game install folder has files from two snapshots, and SavePoint couldn't check it for changes that aren't saved, so it won't finish the last switch. Discard puts the folder back to where the switch started, and removes new files too.",
+            block.Body);
+    }
+
+    [Fact]
+    public async Task One_change_in_the_way_of_a_stopped_switch_is_said_in_the_singular()
+    {
+        var dialog = await _rig.DialogAsync(change: preview => StoppedSwitchInInstall(preview, install => install with
+        {
+            Dirty = true,
+            DirtyFileCount = 1,
+            UnfinishedSwitchTarget = null,
+            ChangesOutsideSwitchCount = 1,
+        }));
+
+        Assert.Equal(
+            "The game install folder has files from two snapshots, and 1 file that's new or changed and not saved. SavePoint can't tell it apart from the last switch's own files, so it won't finish the switch until it's gone. Discard puts the folder back to where the switch started, and removes new files too.",
+            Assert.Single(dialog.UnsavedBlocks).Body);
+    }
+
+    [Fact]
+    public async Task A_stopped_switch_that_replaces_files_says_how_many_and_that_it_includes_changes_made_since()
+    {
+        var dialog = await _rig.DialogAsync(change: preview => StoppedSwitchInInstall(preview, install => install with { ReplacedFileCount = 12 }));
+
+        Assert.Empty(dialog.UnsavedBlocks);
+        Assert.True(dialog.HasReplacedNote);
+        Assert.Equal(
+            "12 files in the game's folder that the last switch was changing hold something that's in neither snapshot. Finishing the last switch replaces them with the copies from the snapshot it was heading to, including any change you made since.",
+            dialog.ReplacedNote);
+    }
+
+    [Fact]
+    public async Task One_replaced_file_is_said_in_the_singular()
+    {
+        var dialog = await _rig.DialogAsync(change: preview => StoppedSwitchInInstall(preview, install => install with { ReplacedFileCount = 1 }));
+
+        Assert.Equal(
+            "1 file in the game's folder that the last switch was changing holds something that's in neither snapshot. Finishing the last switch replaces it with the copy from the snapshot it was heading to, including any change you made since.",
+            dialog.ReplacedNote);
+    }
+
+    [Fact]
+    public async Task The_saves_folder_names_the_files_it_replaces_and_counts_the_rest()
+    {
+        var dialog = await _rig.DialogAsync(change: preview => Clean(preview) with
+        {
+            External = preview.External! with
+            {
+                Dirty = false,
+                UnfinishedSwitch = true,
+                UnfinishedSwitchTarget = LaunchRig.ModdedTip,
+                ReplacedFileCount = 7,
+                ReplacedFileNames = ["slot1.sav", "slot2.sav", "slot3.sav", "slot4.sav", "slot5.sav"],
+            },
+        });
+
+        Assert.Equal(
+            "7 files in your saves folder that the last switch was changing (slot1.sav, slot2.sav, slot3.sav, slot4.sav, slot5.sav and 2 more) hold something that's in neither snapshot. Finishing the last switch replaces them with the copies from the snapshot it was heading to, including any change you made since.",
+            dialog.ReplacedNote);
+    }
+
+    [Fact]
+    public async Task Every_replaced_save_is_named_when_there_are_no_more_than_the_names_carried()
+    {
+        var dialog = await _rig.DialogAsync(change: preview => Clean(preview) with
+        {
+            External = preview.External! with
+            {
+                Dirty = false,
+                UnfinishedSwitch = true,
+                UnfinishedSwitchTarget = LaunchRig.ModdedTip,
+                ReplacedFileCount = 2,
+                ReplacedFileNames = ["slot1.sav", "slot2.sav"],
+            },
+        });
+
+        Assert.Contains("that the last switch was changing (slot1.sav, slot2.sav) hold something", dialog.ReplacedNote, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Both_folders_replacing_files_get_a_line_each_and_nothing_replaced_leaves_no_note()
+    {
+        var both = await _rig.DialogAsync(change: preview => Clean(preview) with
+        {
+            Install = preview.Install with { Dirty = false, UnfinishedSwitch = true, UnfinishedSwitchTarget = LaunchRig.ModdedTip, ReplacedFileCount = 2 },
+            External = preview.External! with { Dirty = false, UnfinishedSwitch = true, UnfinishedSwitchTarget = LaunchRig.ModdedTip, ReplacedFileCount = 1, ReplacedFileNames = ["slot1.sav"] },
+        });
+        var none = await _rig.DialogAsync(change: preview => StoppedSwitchInInstall(preview, install => install));
+
+        Assert.Equal(2, both.ReplacedNote.Split('\n').Length);
+        Assert.False(none.HasReplacedNote);
+        Assert.Empty(none.ReplacedNote);
+    }
+
+    [Fact]
+    public async Task A_folder_with_no_stopped_switch_gets_no_replacement_note()
+    {
+        var dialog = await _rig.DialogAsync(change: preview => Clean(preview) with { Install = preview.Install with { ReplacedFileCount = 4 } });
+
+        Assert.False(dialog.HasReplacedNote);
+    }
 }

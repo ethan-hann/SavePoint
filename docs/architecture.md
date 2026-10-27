@@ -267,7 +267,7 @@ Folder work reports one `FolderOutcome(Role, Error?)` per folder it touched. All
   - the owning profile, or null when nothing can claim the changes.
   - a `SwitchSummary` of files, mod files, bytes written, bytes removed, and an estimated duration, sized from the stored snapshot.
   - `HeldBy`, the held file that stands in the way of a switch (D37.5).
-  - `UnfinishedSwitch` and its `UnfinishedSwitchTarget`, a `LaunchTarget` that "Switch again" starts (D31.6).
+  - `UnfinishedSwitch` and its `UnfinishedSwitchTarget`, a `LaunchTarget` that "Switch again" starts (D31.6). For a stopped switch to the same target, `GitEngine.ReviewStoppedSwitchAsync` fills `ChangesOutsideSwitchCount` (changes that hold the finish back and withhold the target), `ReplacedFileCount` and `ReplacedFileNames` (saves folder, up to 5), and `StoppedSwitchUnchecked` when the review failed. The preview hashes candidate files to count them; Start and `CheckSwitchAsync` run only the cheap scan.
 - the current and target `InstallState`: version and mod-file count, for "going from 1.6.1170 with no mods back to 1.6.640 with 189".
 - the target profile's saves, newest first, with a most-recent marker and the selected one.
 - the `ShowBanner`, `OnlySaveDiffers`, and `TargetIsOlderPoint` flags.
