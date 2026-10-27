@@ -77,6 +77,21 @@ public sealed class FreedBytesEstimateTests : IDisposable
     }
 
     [Fact]
+    public async Task A_change_of_the_folders_index_with_no_ref_moving_is_noticed_on_the_next_ask()
+    {
+        var (repo, points) = await TwoPointsAsync(indexFollowsKept: false);
+        var doomed = new[] { new ClearedRef("refs/heads/doomed", points[1]) };
+        var before = await _ws.Engine.EstimateFreedBytesAsync(repo, doomed, Ct);
+
+        // A switch finishing later brings the index to the kept snapshot; no branch moves.
+        await _ws.GitWriteAsync(repo, "read-tree", points[0]);
+        var after = await _ws.Engine.EstimateFreedBytesAsync(repo, doomed, Ct);
+
+        Assert.InRange(before, 0, _slack);
+        Assert.InRange(after, _onlyBytes, _onlyBytes + _slack);
+    }
+
+    [Fact]
     public async Task Nothing_is_counted_for_no_refs_a_ref_that_moved_since_it_was_found_or_the_branch_the_folder_is_on()
     {
         var (repo, points) = await TwoPointsAsync();

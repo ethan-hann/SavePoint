@@ -16,7 +16,7 @@ public sealed partial class GitEngine
     /// figure is the data's size as stored (compressed, and as a delta where it is one), so it is close to the space that comes back
     /// but not exact. Only refs that <see cref="ClearExactAsync"/> would delete count: a ref that is gone, or holds another value than
     /// the one given, stays and holds its data. Reads only the git directory and never reads an object's content. The answer is kept
-    /// until a ref of the repository changes, so asking again for the same refs costs one listing of the refs.
+    /// until a ref, HEAD or the index of the repository changes, so asking again for the same refs costs one listing of the refs.
     /// </summary>
     /// <param name="repo">The folder whose repository holds the refs.</param>
     /// <param name="doomed">The refs and the values they held when they were found, as <see cref="FindClearableAsync"/> returns them.</param>
@@ -46,7 +46,7 @@ public sealed partial class GitEngine
         }
 
         var headId = await ResolveHeadAsync(repo, ct).ConfigureAwait(false);
-        var digest = DigestOf(present, headId, going);
+        var digest = DigestOf(repo, present, headId, going);
         if (_estimates.TryGetValue(repo.GitDir, out var cached) && cached.Digest == digest)
         {
             return cached.Bytes;
@@ -119,9 +119,13 @@ public sealed partial class GitEngine
         return result.ExitCode == 0 ? result.StandardOutput.Trim() : null;
     }
 
-    private static string DigestOf(Dictionary<string, string> refs, string? headId, IReadOnlyList<ClearedRef> going)
+    // The refs, HEAD and the doomed set, plus the index file's size and time: what the index names is kept too, and a switch that finishes
+    // later changes it with no ref moving.
+    private static string DigestOf(RepoRef repo, Dictionary<string, string> refs, string? headId, IReadOnlyList<ClearedRef> going)
     {
         var text = new StringBuilder();
+        var index = new FileInfo(Path.Combine(repo.GitDir, "index"));
+        text.Append("index ").Append(index.Exists ? index.Length : -1).Append(' ').Append(index.Exists ? index.LastWriteTimeUtc.Ticks : 0).Append('\n');
         foreach (var entry in refs.OrderBy(entry => entry.Key, StringComparer.Ordinal))
         {
             text.Append(entry.Key).Append(' ').Append(entry.Value).Append('\n');
