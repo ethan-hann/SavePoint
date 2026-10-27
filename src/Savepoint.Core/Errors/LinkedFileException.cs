@@ -14,7 +14,7 @@ public sealed class LinkedFileException : SavepointException
         : base(
             "error.capture.linkedFile",
             $"'{path}' is a link to another file, which a capture or a switch cannot store or restore as a link.",
-            new Dictionary<string, object?> { ["path"] = path, ["name"] = Path.GetFileName(path) })
+            new Dictionary<string, object?> { ["path"] = path, ["name"] = ErrorPathName.LastSegment(path) })
     {
     }
 }

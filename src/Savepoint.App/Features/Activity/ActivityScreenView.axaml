@@ -87,7 +87,7 @@
         <Border x:Name="ListPane">
           <ListBox x:Name="JobList"
                    Classes="rows"
-                   Margin="14,14,14,14"
+                   Margin="14,10"
                    ItemsSource="{Binding Rows}"
                    SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
                    AutomationProperties.Name="{loc:Loc activity.list.name}">
