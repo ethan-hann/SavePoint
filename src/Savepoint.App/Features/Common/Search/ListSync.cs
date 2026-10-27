@@ -6,8 +6,9 @@ namespace Savepoint.App.Features.Common.Search;
 internal static class ListSync
 {
     /// <summary>
-    /// Makes <paramref name="shown"/> hold exactly <paramref name="wanted"/>, in that order, by removing, moving and inserting. An entry that stays
-    /// is the same object throughout, so a control showing it keeps its focus.
+    /// Makes <paramref name="shown"/> hold exactly <paramref name="wanted"/>, in that order, by removing, moving and inserting. An entry that
+    /// stays is the object already shown, even where <paramref name="wanted"/> holds an equal new one, and one that is already in its place
+    /// is not touched at all, so a control showing it keeps its focus and its state.
     /// </summary>
     /// <typeparam name="T">The kind of entry.</typeparam>
     /// <param name="shown">The collection a view lists.</param>
@@ -26,7 +27,8 @@ internal static class ListSync
 
         for (var index = 0; index < wanted.Count; index++)
         {
-            if (index < shown.Count && ReferenceEquals(shown[index], wanted[index]))
+            // Equal, not the same object: callers rebuild lightweight entries each pass and expect the shown ones to stay.
+            if (index < shown.Count && EqualityComparer<T>.Default.Equals(shown[index], wanted[index]))
             {
                 continue;
             }

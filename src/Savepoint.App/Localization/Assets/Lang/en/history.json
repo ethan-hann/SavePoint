@@ -2,6 +2,7 @@
   "history.automation.join": "{first}, {second}",
   "history.card.goBack": "Go back and play",
   "history.card.goBackAutomation": "Go back and play: {name}",
+  "history.card.inGroup": "{group}: {item}",
   "history.card.loadedNow": "Loaded now",
   "history.card.switch": "Go back without playing",
   "history.card.switchAutomation": "Go back without playing: {name}",

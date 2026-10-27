@@ -285,8 +285,8 @@ public sealed partial class HistoryScreenViewModel
             return;
         }
 
-        var thisWeek = visible.Where(entry => _groupsNow - entry.Point.CapturedAt < _thisWeek).Select(entry => entry.Card).ToList();
-        var earlier = visible.Where(entry => _groupsNow - entry.Point.CapturedAt >= _thisWeek).Select(entry => entry.Card).ToList();
+        var thisWeek = visible.Where(entry => IsThisWeek(entry.Point)).Select(entry => entry.Card).ToList();
+        var earlier = visible.Where(entry => !IsThisWeek(entry.Point)).Select(entry => entry.Card).ToList();
         ListSync.To(_thisWeekGroup.Cards, thisWeek);
         ListSync.To(_earlierGroup.Cards, earlier);
 
@@ -303,10 +303,12 @@ public sealed partial class HistoryScreenViewModel
         }
 
         ListSync.To(Groups, groups);
-        ListedItemViewModel.Number(_thisWeekGroup.Cards);
-        ListedItemViewModel.Number(_earlierGroup.Cards);
+        // One list to a screen reader, so the count runs through both groups.
+        ListedItemViewModel.Number<PointCardViewModel>([.. thisWeek, .. earlier]);
         ShowCardEntries();
     }
+
+    private bool IsThisWeek(HistoryPoint point) => _groupsNow - point.CapturedAt < _thisWeek;
 
     // The groups' cards laid out in rows for the one list the view scrolls. A row the search leaves as it was is kept as it was.
     private void ShowCardEntries()
@@ -398,13 +400,16 @@ public sealed partial class HistoryScreenViewModel
 
             var contains = _words.Contains(point);
             var date = _words.Date(point.CapturedAt);
+
+            // The card sits in one list under its group's heading, which a screen reader does not pair with it, so the name says the group.
+            var group = text.Message(IsThisWeek(point) ? "history.group.thisWeek" : "history.group.earlier");
             var card = new PointCardViewModel(
                 point,
                 HistoryText.Icon(point.Kind),
                 contains,
                 date,
                 text.Message("history.card.goBackAutomation", ("name", point.Name)),
-                _words.ItemName(point.Name, contains, date, point.LoadedNow ? text.Message("history.card.loadedNow") : string.Empty),
+                text.Message("history.card.inGroup", ("group", group), ("item", _words.ItemName(point.Name, contains, date, point.LoadedNow ? text.Message("history.card.loadedNow") : string.Empty))),
                 BeginCommand(game.Id, new LaunchTarget.Point(point.Id)),
                 text.Message("history.card.switchAutomation", ("name", point.Name)),
                 BeginCommand(game.Id, new LaunchTarget.Point(point.Id), switchOnly: true))
