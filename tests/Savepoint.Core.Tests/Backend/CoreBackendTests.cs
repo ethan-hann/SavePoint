@@ -55,21 +55,6 @@ public class CoreBackendTests
     }
 
     [Fact]
-    public void Every_api_is_present()
-    {
-        using var workspace = new BackendWorkspace();
-        var backend = workspace.Backend;
-
-        Assert.NotNull(backend.Games);
-        Assert.NotNull(backend.Profiles);
-        Assert.NotNull(backend.Launch);
-        Assert.NotNull(backend.Settings);
-        Assert.NotNull(backend.History);
-        Assert.NotNull(backend.Jobs);
-        Assert.NotNull(backend.AppStatus);
-    }
-
-    [Fact]
     public void The_jobs_api_is_the_job_registry_the_services_share()
     {
         using var workspace = new BackendWorkspace();

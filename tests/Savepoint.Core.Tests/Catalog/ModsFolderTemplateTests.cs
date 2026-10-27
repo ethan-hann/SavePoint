@@ -1,17 +1,12 @@
-using System.Text.RegularExpressions;
 using Savepoint.Core.Catalog;
-using Savepoint.Core.Errors;
 using Savepoint.Core.Paths;
 using Savepoint.Core.Platform;
-using Savepoint.Core.Platform.Linux;
-using Savepoint.Core.Platform.MacOS;
-using Savepoint.Core.Platform.Windows;
-using Savepoint.Core.Tests.Platform;
+using static Savepoint.Core.Tests.Catalog.TemplateRules;
 
 namespace Savepoint.Core.Tests.Catalog;
 
 // A template can name the mods folder a game keeps outside its install, the same way it names the saves folder.
-public partial class ModsFolderTemplateTests
+public class ModsFolderTemplateTests
 {
     private const string _withMods = """
         {
@@ -28,79 +23,7 @@ public partial class ModsFolderTemplateTests
         }
         """;
 
-    public static TheoryData<string> TemplateIds => new(GameTemplates.All.Select(template => template.Id));
-
     private static GameTemplate Template(string id) => GameTemplates.All.Single(template => template.Id == id);
-
-    private static IPlatform PlatformFor(string os) => os switch
-    {
-        "windows" => new WindowsPlatform(FakeEnvironment.Windows().Build()),
-        "linux" => new LinuxPlatform(FakeEnvironment.Linux().Build()),
-        "macos" => new MacOSPlatform(FakeEnvironment.MacOS().Build()),
-        _ => throw new ArgumentOutOfRangeException(nameof(os), os, "Not one of the three systems."),
-    };
-
-    // Every mods folder a template names, with the system it is for.
-    private static IEnumerable<(string Os, string Path)> ModsPaths(GameTemplate template)
-    {
-        if (template.Definition.Mods is { } mods)
-        {
-            yield return ("windows", mods.Path);
-        }
-
-        foreach (var (os, location) in template.Hints.ModsByOs)
-        {
-            yield return (os, location.Path);
-        }
-    }
-
-    private static string[] Segments(string path) => path.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries);
-
-    // Letters and digits only, so "7DaysToDie" and "7 Days to Die" compare equal.
-    private static string Squash(string text) => NotAlphanumeric().Replace(Years().Replace(text, string.Empty), string.Empty).ToLowerInvariant();
-
-    [GeneratedRegex(@"[^A-Za-z0-9]+", RegexOptions.CultureInvariant)]
-    private static partial Regex NotAlphanumeric();
-
-    [GeneratedRegex(@"\(\d{4}\)", RegexOptions.CultureInvariant)]
-    private static partial Regex Years();
-
-    // The name of another game whose folder the path names, or null.
-    private static string? OtherGameNamedBy(GameTemplate template, string path)
-    {
-        var own = Squash(template.DisplayName);
-        var named = Segments(path).Select(Squash).ToHashSet();
-        return GameTemplates.All
-            .Where(other => other.Id != template.Id)
-            .Select(other => (other.DisplayName, Squashed: Squash(other.DisplayName)))
-            .Where(other => other.Squashed.Length > 0 && !own.Contains(other.Squashed, StringComparison.Ordinal))
-            .FirstOrDefault(other => named.Contains(other.Squashed)).DisplayName;
-    }
-
-    [Fact]
-    public void A_mods_path_with_another_games_name_in_it_is_found_out()
-    {
-        var template = Template("7-days-to-die");
-        var other = GameTemplates.All.First(candidate => candidate.Id != template.Id && Squash(candidate.DisplayName).Length > 0
-            && !Squash(template.DisplayName).Contains(Squash(candidate.DisplayName), StringComparison.Ordinal));
-
-        Assert.Equal(other.DisplayName, OtherGameNamedBy(template, $"{{appData}}\\{other.DisplayName}\\Mods"));
-        Assert.Null(OtherGameNamedBy(template, @"{appData}\7DaysToDie\Mods"));
-    }
-
-    [Theory]
-    [MemberData(nameof(TemplateIds))]
-    public void No_mods_folder_is_another_games_folder(string id)
-    {
-        var template = Template(id);
-
-        foreach (var (os, path) in ModsPaths(template))
-        {
-            var clash = OtherGameNamedBy(template, path);
-
-            Assert.True(clash is null, $"'{path}' ({os}) is a folder of '{clash}', not of '{template.DisplayName}'.");
-        }
-    }
 
     [Fact]
     public void A_draft_has_the_mods_folder_of_the_template_on_windows()
@@ -184,62 +107,24 @@ public partial class ModsFolderTemplateTests
         }
     }
 
-    [Theory]
-    [MemberData(nameof(TemplateIds))]
-    public void Mods_folders_resolve_on_the_system_they_are_written_for(string id)
-    {
-        foreach (var (os, path) in ModsPaths(Template(id)))
-        {
-            Assert.Matches(@"^\{[A-Za-z]+\}", path);
-            Assert.DoesNotContain("..", path);
-            var resolved = Record.Exception(() => new PathTokenResolver(PlatformFor(os)).Resolve(path, "mods.path"));
-            var issues = (resolved as ValidationException)?.Args["issues"] as IReadOnlyList<ValidationIssue>;
+    // Only one template names a mods folder today, so the rules below see its three paths. Its facts above pin that it has them.
+    [Fact]
+    public void Mods_folders_resolve_on_the_system_they_are_written_for() =>
+        AssertShippedTemplatesKeep(template => ResolveProblems(ModsPaths(template), "mods.path"));
 
-            Assert.True(resolved is null, $"'{path}' does not resolve on {os}: {issues?.FirstOrDefault()?.MessageId ?? resolved?.Message}");
-        }
-    }
+    [Fact]
+    public void A_mods_folder_does_not_end_in_a_file_name_or_a_wildcard() =>
+        AssertShippedTemplatesKeep(template => FileNameProblems(ModsPaths(template), anyExtensionIsAFile: true));
 
-    [Theory]
-    [MemberData(nameof(TemplateIds))]
-    public void A_mods_folder_does_not_end_in_a_file_name_or_a_wildcard(string id)
-    {
-        foreach (var (os, path) in ModsPaths(Template(id)))
-        {
-            var last = path.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries)[^1];
+    [Fact]
+    public void No_mods_folder_is_another_games_folder() =>
+        AssertShippedTemplatesKeep(template => OtherGameProblems(template, ModsPaths(template)));
 
-            Assert.DoesNotContain('*', path);
-            Assert.DoesNotContain('?', path);
-            Assert.True(Path.GetExtension(last).Length == 0, $"'{path}' ({os}) ends in a file name, not a folder.");
-        }
-    }
+    [Fact]
+    public void A_mods_folder_is_not_one_of_the_platforms_broad_folders() =>
+        AssertShippedTemplatesKeep(template => BroadFolderProblems(ModsPaths(template), "mods.path"));
 
-    [Theory]
-    [MemberData(nameof(TemplateIds))]
-    public void A_mods_folder_is_not_one_of_the_platforms_broad_folders(string id)
-    {
-        foreach (var (os, path) in ModsPaths(Template(id)))
-        {
-            var platform = PlatformFor(os);
-            var resolved = new PathTokenResolver(platform).Resolve(path, "mods.path");
-            var separators = new[] { '/', '\\' };
-            foreach (var entry in platform.Denylist([]).Entries)
-            {
-                var blocked = entry.Path.TrimEnd(separators);
-                var here = resolved.TrimEnd(separators);
-                var inside = entry.Tier == DenylistTier.Subtree
-                    && here.StartsWith(blocked + (os == "windows" ? '\\' : '/'), platform.PathComparison)
-                    && !(entry.AllowedSubRoots ?? []).Any(root => here.StartsWith(root.TrimEnd(separators), platform.PathComparison));
-                var equal = !entry.ChildrenOnly && string.Equals(here, blocked, platform.PathComparison);
-
-                Assert.False(equal || inside, $"'{path}' ({os}) is {resolved}, which SavePoint will not track: {entry.Reason}");
-            }
-        }
-    }
-
-    [Theory]
-    [MemberData(nameof(TemplateIds))]
-    public void Per_system_mods_use_only_the_three_system_names(string id)
-    {
-        Assert.All(Template(id).Hints.ModsByOs.Keys, key => Assert.Contains(key, new[] { "windows", "linux", "macos" }));
-    }
+    [Fact]
+    public void Per_system_mods_use_only_the_three_system_names() =>
+        AssertShippedTemplatesKeep(template => SystemNameProblems(template.Hints.ModsByOs.Keys));
 }

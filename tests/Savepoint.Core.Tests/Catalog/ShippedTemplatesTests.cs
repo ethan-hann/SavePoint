@@ -1,38 +1,16 @@
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using Savepoint.Core.Catalog;
-using Savepoint.Core.Errors;
-using Savepoint.Core.Paths;
-using Savepoint.Core.Platform;
-using Savepoint.Core.Platform.Linux;
-using Savepoint.Core.Platform.MacOS;
-using Savepoint.Core.Platform.Windows;
-using Savepoint.Core.Tests.Platform;
+using static Savepoint.Core.Tests.Catalog.TemplateRules;
 
 namespace Savepoint.Core.Tests.Catalog;
 
-// Checks every template that ships, so a new file with a wrong token, id, or note fails here and not in a player's hands.
-public partial class ShippedTemplatesTests
+// Checks every template that ships, so a new file with a wrong token, id, or note fails here and not in a player's hands. Each rule that
+// covers every template is one test over all of them, and its failure lists every template that breaks it and why.
+public class ShippedTemplatesTests
 {
     private const string _resourcePrefix = "Savepoint.Core.Catalog.Templates.";
 
-    public static TheoryData<string> TemplateIds => new(GameTemplates.All.Select(t => t.Id));
-
     private static GameTemplate Template(string id) => GameTemplates.All.Single(t => t.Id == id);
-
-    private static IPlatform PlatformFor(string os) => os switch
-    {
-        "windows" => new WindowsPlatform(FakeEnvironment.Windows().Build()),
-        "linux" => new LinuxPlatform(FakeEnvironment.Linux().Build()),
-        "macos" => new MacOSPlatform(FakeEnvironment.MacOS().Build()),
-        _ => throw new ArgumentOutOfRangeException(nameof(os), os, "Not one of the three systems."),
-    };
-
-    [GeneratedRegex(@"^[a-z0-9]+(-[a-z0-9]+)*\z", RegexOptions.CultureInvariant)]
-    private static partial Regex KebabCase();
-
-    [GeneratedRegex(@"\b(commits?|branch(es)?|checkout|repos?|repositor(y|ies))\b|\bHEAD\b|—", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
-    private static partial Regex BannedInNotes();
 
     [Fact]
     public void Every_embedded_template_file_is_loaded()
@@ -114,197 +92,44 @@ public partial class ShippedTemplatesTests
         Assert.Equal(gog.Count, gog.Distinct().Count());
     }
 
-    [Theory]
-    [MemberData(nameof(TemplateIds))]
-    public void Id_is_lowercase_kebab_case_and_names_the_file(string id)
+    [Fact]
+    public void Every_id_is_lowercase_kebab_case_and_at_most_64_characters() => AssertShippedTemplatesKeep(IdProblems);
+
+    [Fact]
+    public void Every_steam_id_is_positive() => AssertShippedTemplatesKeep(SteamIdProblems);
+
+    [Fact]
+    public void Store_ids_and_folder_names_are_single_safe_names() => AssertShippedTemplatesKeep(StoreNameProblems);
+
+    [Fact]
+    public void Enough_templates_name_a_saves_folder_for_the_saves_rules_to_mean_something()
     {
-        Assert.Matches(KebabCase(), id);
-        Assert.True(id.Length <= 64);
+        // The saves rules below loop over these paths, so an enumeration that came back empty would let them all pass.
+        Assert.True(GameTemplates.All.SelectMany(SavesPaths).Count() >= 100);
     }
 
-    [Theory]
-    [MemberData(nameof(TemplateIds))]
-    public void Steam_ids_are_positive(string id)
-    {
-        var template = Template(id);
+    [Fact]
+    public void Saves_folders_resolve_on_the_system_they_are_written_for() =>
+        AssertShippedTemplatesKeep(template => SavesRoleProblems(template).Concat(ResolveProblems(SavesPaths(template), "external.path")));
 
-        Assert.True(template.Definition.SteamAppId is null or > 0);
-        Assert.All(template.Hints.SteamAppIds, appId => Assert.True(appId > 0));
-    }
+    [Fact]
+    public void A_saves_folder_does_not_end_in_a_file_name_or_a_wildcard() =>
+        AssertShippedTemplatesKeep(template => FileNameProblems(SavesPaths(template), anyExtensionIsAFile: false));
 
-    [Theory]
-    [MemberData(nameof(TemplateIds))]
-    public void Store_ids_and_folder_names_are_single_safe_names(string id)
-    {
-        var hints = Template(id).Hints;
+    [Fact]
+    public void No_saves_folder_is_another_games_folder() =>
+        AssertShippedTemplatesKeep(template => OtherGameProblems(template, SavesPaths(template)));
 
-        Assert.All(hints.GogIds, gog => Assert.Matches(@"^[0-9]+\z", gog));
-        Assert.All(
-            hints.SteamInstallDirs.Concat(hints.GogFolders),
-            folder =>
-            {
-                Assert.False(string.IsNullOrWhiteSpace(folder));
-                Assert.DoesNotContain('/', folder);
-                Assert.DoesNotContain('\\', folder);
-                Assert.DoesNotContain("..", folder);
-                Assert.Equal(folder.Trim(), folder);
-            });
-    }
+    [Fact]
+    public void A_saves_folder_is_not_one_of_the_platforms_broad_folders() =>
+        AssertShippedTemplatesKeep(template => BroadFolderProblems(SavesPaths(template), "external.path"));
 
-    [Theory]
-    [MemberData(nameof(TemplateIds))]
-    public void Saves_folders_resolve_on_the_system_they_are_written_for(string id)
-    {
-        var template = Template(id);
+    [Fact]
+    public void Per_system_saves_use_only_the_three_system_names() =>
+        AssertShippedTemplatesKeep(template => SystemNameProblems(template.Hints.SavesByOs.Keys));
 
-        if (template.Definition.External is { } external)
-        {
-            AssertResolves("windows", external);
-        }
-
-        foreach (var (os, location) in template.Hints.SavesByOs)
-        {
-            AssertResolves(os, location);
-        }
-    }
-
-    private static void AssertResolves(string os, ExternalLocation location)
-    {
-        Assert.Equal(ExternalRole.Saves, location.Role);
-        Assert.Matches(@"^\{[A-Za-z]+\}", location.Path);
-        Assert.DoesNotContain("..", location.Path);
-        var resolver = new PathTokenResolver(PlatformFor(os));
-        var resolved = Record.Exception(() => resolver.Resolve(location.Path, "external.path"));
-        var issues = (resolved as ValidationException)?.Args["issues"] as IReadOnlyList<ValidationIssue>;
-
-        Assert.True(resolved is null, $"'{location.Path}' does not resolve on {os}: {issues?.FirstOrDefault()?.MessageId ?? resolved?.Message}");
-    }
-
-    // Every saves folder a template names, with the system it is for.
-    private static IEnumerable<(string Os, string Path)> SavesPaths(GameTemplate template)
-    {
-        if (template.Definition.External is { } external)
-        {
-            yield return ("windows", external.Path);
-        }
-
-        foreach (var (os, location) in template.Hints.SavesByOs)
-        {
-            yield return (os, location.Path);
-        }
-    }
-
-    private static string[] Segments(string path) => path.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries);
-
-    // Letters and digits only, so "Crysis2Remastered" and "Crysis 2 Remastered" compare equal.
-    private static string Squash(string text) => NotAlphanumeric().Replace(Years().Replace(text, string.Empty), string.Empty).ToLowerInvariant();
-
-    [GeneratedRegex(@"[^A-Za-z0-9]+", RegexOptions.CultureInvariant)]
-    private static partial Regex NotAlphanumeric();
-
-    [GeneratedRegex(@"\(\d{4}\)", RegexOptions.CultureInvariant)]
-    private static partial Regex Years();
-
-    private static readonly HashSet<string> _fileExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "sav", "save", "dat", "bin", "json", "xml", "ini", "cfg", "conf", "lua", "db", "sl2", "txt", "log", "bak", "data", "fsav",
-        "b", "yml", "yaml", "plist", "sdt", "ess", "es3", "sqlite", "png", "jpg",
-    };
-
-    [Theory]
-    [MemberData(nameof(TemplateIds))]
-    public void A_saves_folder_does_not_end_in_a_file_name_or_a_wildcard(string id)
-    {
-        foreach (var (os, path) in SavesPaths(Template(id)))
-        {
-            var last = Segments(path)[^1];
-            var extension = Path.GetExtension(last).TrimStart('.');
-
-            Assert.DoesNotContain('*', path);
-            Assert.DoesNotContain('?', path);
-            Assert.False(extension.Length > 0 && _fileExtensions.Contains(extension), $"'{path}' ({os}) ends in a file name, not a folder.");
-        }
-    }
-
-    [Theory]
-    [MemberData(nameof(TemplateIds))]
-    public void No_saves_folder_is_another_games_folder(string id)
-    {
-        var template = Template(id);
-        var own = Squash(template.DisplayName);
-        var others = GameTemplates.All.Where(other => other.Id != id).Select(other => (other.DisplayName, Squashed: Squash(other.DisplayName)))
-            .Where(other => other.Squashed.Length > 0 && !own.Contains(other.Squashed, StringComparison.Ordinal))
-            .ToList();
-
-        foreach (var (os, path) in SavesPaths(template))
-        {
-            var named = Segments(path).Select(Squash).ToHashSet();
-            var clash = others.FirstOrDefault(other => named.Contains(other.Squashed));
-
-            Assert.True(clash.DisplayName is null, $"'{path}' ({os}) is a folder of '{clash.DisplayName}', not of '{template.DisplayName}'.");
-        }
-    }
-
-    [Theory]
-    [MemberData(nameof(TemplateIds))]
-    public void Linux_and_macos_drafts_use_only_their_own_entry(string id)
-    {
-        var template = Template(id);
-
-        foreach (var (os, key) in new[] { (OsKind.Linux, "linux"), (OsKind.MacOS, "macos") })
-        {
-            var expected = template.Hints.SavesByOs.TryGetValue(key, out var entry) ? entry : null;
-
-            Assert.Equal(expected, template.ToDraft(os).External);
-        }
-    }
-
-    [Theory]
-    [MemberData(nameof(TemplateIds))]
-    public void A_saves_folder_is_not_one_of_the_platforms_broad_folders(string id)
-    {
-        foreach (var (os, path) in SavesPaths(Template(id)))
-        {
-            AssertNotBroad(os, path);
-        }
-    }
-
-    private static void AssertNotBroad(string os, string path)
-    {
-        var platform = PlatformFor(os);
-        var resolved = new PathTokenResolver(platform).Resolve(path, "external.path");
-        var comparison = platform.PathComparison;
-        var separators = new[] { '/', '\\' };
-        foreach (var entry in platform.Denylist([]).Entries)
-        {
-            var blocked = entry.Path.TrimEnd(separators);
-            var here = resolved.TrimEnd(separators);
-            var inside = entry.Tier == DenylistTier.Subtree
-                && here.StartsWith(blocked + PlatformSeparator(os), comparison)
-                && !(entry.AllowedSubRoots ?? []).Any(root => here.StartsWith(root.TrimEnd(separators), comparison));
-            var equal = !entry.ChildrenOnly && string.Equals(here, blocked, comparison);
-
-            Assert.False(equal || inside, $"'{path}' ({os}) is {resolved}, which SavePoint will not track: {entry.Reason}");
-        }
-    }
-
-    private static char PlatformSeparator(string os) => os == "windows" ? '\\' : '/';
-
-    [Theory]
-    [MemberData(nameof(TemplateIds))]
-    public void Per_system_saves_use_only_the_three_system_names(string id)
-    {
-        Assert.All(Template(id).Hints.SavesByOs.Keys, key => Assert.Contains(key, new[] { "windows", "linux", "macos" }));
-    }
-
-    [Theory]
-    [MemberData(nameof(TemplateIds))]
-    public void Notes_use_plain_words(string id)
-    {
-        var notes = Template(id).Definition.Notes;
-
-        Assert.True(notes is null || !BannedInNotes().IsMatch(notes), $"Notes for '{id}' use a word the app never shows: {notes}");
-    }
+    [Fact]
+    public void Notes_use_plain_words() => AssertShippedTemplatesKeep(NoteProblems);
 
     // Whether a game's cloud saves are on is the editor's call, made per game; a note cannot know it.
     [Fact]
@@ -318,15 +143,6 @@ public partial class ShippedTemplatesTests
         Assert.True(offenders.Count == 0, $"{offenders.Count} notes mention cloud saves, such as: {string.Join(", ", offenders.Take(5))}");
     }
 
-    [Theory]
-    [MemberData(nameof(TemplateIds))]
-    public void A_template_that_starts_through_a_link_names_a_steam_game(string id)
-    {
-        var definition = Template(id).Definition;
-
-        if (definition.Launch.Method == LaunchMethod.Uri)
-        {
-            Assert.Equal($"steam://rungameid/{definition.SteamAppId}", definition.Launch.Uri);
-        }
-    }
+    [Fact]
+    public void A_template_that_starts_through_a_link_names_a_steam_game() => AssertShippedTemplatesKeep(LinkProblems);
 }
