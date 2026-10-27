@@ -86,6 +86,7 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
         _defaultSave = SaveOptions.FirstOrDefault(option => preview.SelectedSaveId is { } id && option.Entry.Id == id) ?? SaveOptions.FirstOrDefault();
         _selectedSave = _defaultSave;
         SaveCaption = text.Message("launch.dialog.saveCaption");
+        SavesRemovedText = preview.External?.Switch is { FilesRemoved: > 0 } saves ? text.Message("launch.dialog.savesRemoved", ("count", saves.FilesRemoved)) : string.Empty;
         SaveSnapshotHelp = ContextualHelp.SaveSnapshot(text);
 
         foreach (var folder in LaunchPreviewFolders.Of(preview).Where(state => state.Dirty))
@@ -164,6 +165,12 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
 
     /// <summary>"This replaces what's in your saves folder right now."</summary>
     public string SaveCaption { get; }
+
+    /// <summary>True when <see cref="SavesRemovedText"/> has something to say.</summary>
+    public bool HasSavesRemoved => SavesRemovedText.Length > 0;
+
+    /// <summary>How many files the switch removes from the saves folder ("3 files will be removed from your saves folder."); empty when it removes none.</summary>
+    public string SavesRemovedText { get; }
 
     /// <summary>"What's a save snapshot?", under the choice of saves.</summary>
     public ContextualHelpViewModel SaveSnapshotHelp { get; }

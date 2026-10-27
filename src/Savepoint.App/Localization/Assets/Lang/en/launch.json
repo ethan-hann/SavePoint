@@ -41,6 +41,7 @@
   "launch.dialog.saveSubtitleRecent": "Latest · {count, plural, one {# save snapshot} other {# save snapshots}} to choose from",
   "launch.dialog.saveThemFirst": "Take a snapshot first",
   "launch.dialog.saveTitle": "Saves to load",
+  "launch.dialog.savesRemoved": "{count, plural, one {# file} other {# files}} will be removed from your saves folder.",
   "launch.dialog.subtitle": "SavePoint will change this before the game starts.",
   "launch.dialog.subtitleSwitch": "SavePoint will change this. The game won't start.",
   "launch.dialog.switchAndPlay": "Switch and play",

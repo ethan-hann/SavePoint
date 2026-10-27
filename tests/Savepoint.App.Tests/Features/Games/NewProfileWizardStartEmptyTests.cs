@@ -5,6 +5,7 @@ using Savepoint.App.Localization;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Errors;
 
 namespace Savepoint.App.Tests.Features.Games;
 
@@ -13,15 +14,16 @@ public class NewProfileWizardStartEmptyTests
 {
     private const string _dot = " · ";
 
-    private static async Task<(NewProfileWizardViewModel Wizard, FakeBackend Backend)> StartAsync(GameDefinition? game = null)
+    // A folder is "held" when its files are already in a snapshot of a profile, which is what lets a new profile start it empty.
+    private static async Task<(NewProfileWizardViewModel Wizard, FakeBackend Backend)> StartAsync(GameDefinition? game = null, bool held = true)
     {
         game ??= ModsSamples.SevenDays;
         var preview = new CapturePreview(
             game.Id,
             [
                 new FolderCapturePreview(RepoRole.Install, ModsSamples.InstallPath, 900, 0, 9_400_000_000),
-                .. game.Mods is null ? Array.Empty<FolderCapturePreview>() : [new FolderCapturePreview(RepoRole.Mods, ModsSamples.ModsResolved, 40, 40, 3_100_000_000)],
-                .. game.External is null ? Array.Empty<FolderCapturePreview>() : [new FolderCapturePreview(RepoRole.External, ModsSamples.SavesResolved, 1, 0, 2_000)],
+                .. game.Mods is null ? Array.Empty<FolderCapturePreview>() : [new FolderCapturePreview(RepoRole.Mods, ModsSamples.ModsResolved, 40, 40, 3_100_000_000, held)],
+                .. game.External is null ? Array.Empty<FolderCapturePreview>() : [new FolderCapturePreview(RepoRole.External, ModsSamples.SavesResolved, 1, 0, 2_000, held)],
             ],
             0);
         var backend = new FakeBackend(ScenarioBuilder.Empty().WithSettings(SampleScenario.Settings).WithGame(game, 1).WithCapturePreview(preview));
@@ -128,18 +130,79 @@ public class NewProfileWizardStartEmptyTests
     }
 
     [Fact]
-    public async Task A_choice_made_before_the_preview_loads_is_shown_once_it_does()
+    public async Task Both_boxes_can_be_ticked_when_the_current_files_are_in_a_snapshot_and_say_what_they_do()
+    {
+        var (wizard, _) = await StartAsync();
+
+        Assert.True(wizard.CanStartWithoutSaves);
+        Assert.True(wizard.CanStartWithoutMods);
+        Assert.Contains("Nothing is removed now", wizard.StartWithoutSavesHint, StringComparison.Ordinal);
+        Assert.Contains("Nothing is removed now", wizard.StartWithoutModsHint, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_folder_no_snapshot_holds_cannot_start_empty_and_the_hint_says_to_take_a_snapshot_first()
+    {
+        var (wizard, _) = await StartAsync(held: false);
+
+        Assert.False(wizard.CanStartWithoutSaves);
+        Assert.False(wizard.CanStartWithoutMods);
+        Assert.Equal("Take a snapshot first, so your current saves are kept.", wizard.StartWithoutSavesHint);
+        Assert.Equal("Take a snapshot first, so your current mods are kept.", wizard.StartWithoutModsHint);
+    }
+
+    [Fact]
+    public async Task A_box_that_is_off_never_asks_for_an_empty_start_even_when_set()
+    {
+        var (wizard, backend) = await StartAsync(held: false);
+        wizard.StartWithoutSaves = true;
+        wizard.StartWithoutMods = true;
+
+        Assert.Empty(await SavedWithAsync(wizard, backend));
+    }
+
+    [Fact]
+    public async Task Before_the_preview_is_read_neither_box_can_be_ticked_and_no_reason_is_given_yet()
+    {
+        var game = ModsSamples.SevenDays;
+        var backend = new FakeBackend(ScenarioBuilder.Empty().WithSettings(SampleScenario.Settings).WithGame(game, 1));
+        var text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), backend.Clock, "windows", TimeZoneInfo.Utc);
+        var wizard = new NewProfileWizardViewModel(game, backend.Games, backend.Profiles, backend.Jobs, text, new ImmediateUiDispatcher(), backend.Clock);
+
+        Assert.False(wizard.CanStartWithoutSaves);
+        Assert.False(wizard.CanStartWithoutMods);
+        Assert.Contains("Nothing is removed now", wizard.StartWithoutSavesHint, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Reading_the_preview_raises_the_boxes_state_so_the_view_updates()
     {
         var game = ModsSamples.SevenDays;
         var backend = new FakeBackend(ScenarioBuilder.Empty().WithSettings(SampleScenario.Settings).WithGame(game, 1).WithCapturePreview(
-            new CapturePreview(game.Id, [new FolderCapturePreview(RepoRole.Install, ModsSamples.InstallPath, 900, 0, 9_400_000_000), new FolderCapturePreview(RepoRole.Mods, ModsSamples.ModsResolved, 40, 40, 3_100_000_000)], 0)));
+            new CapturePreview(game.Id, [new FolderCapturePreview(RepoRole.Mods, ModsSamples.ModsResolved, 40, 40, 3_100_000_000, true)], 0)));
         var text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), backend.Clock, "windows", TimeZoneInfo.Utc);
         var wizard = new NewProfileWizardViewModel(game, backend.Games, backend.Profiles, backend.Jobs, text, new ImmediateUiDispatcher(), backend.Clock);
-        wizard.StartWithoutMods = true;
+        var raised = new List<string?>();
+        wizard.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
 
         await wizard.LoadPreviewAsync();
 
-        Assert.Equal(ModsSamples.ModsResolved + _dot + "starts with no mods", wizard.Preview.Rows.Single(row => row.Title == "Mods").Subtitle);
+        Assert.Contains(nameof(NewProfileWizardViewModel.CanStartWithoutMods), raised);
+        Assert.Contains(nameof(NewProfileWizardViewModel.StartWithoutModsHint), raised);
+        Assert.True(wizard.CanStartWithoutMods);
+        Assert.False(wizard.CanStartWithoutSaves);
+    }
+
+    [Fact]
+    public async Task The_fake_refuses_what_the_real_backend_refuses_for_a_folder_no_snapshot_holds()
+    {
+        var (_, backend) = await StartAsync(held: false);
+
+        var refused = await backend.Profiles.CreateAsync(ModsSamples.Id, "A", null, "A", [RepoRole.Mods]);
+
+        Assert.False(refused.Ok);
+        var issue = Assert.Single(Assert.IsAssignableFrom<IEnumerable<ValidationIssue>>(refused.Error!.Args["issues"]));
+        Assert.Equal(ValidationMessageIds.ProfileStartEmptyUnsaved, issue.MessageId);
     }
 
     [Fact]

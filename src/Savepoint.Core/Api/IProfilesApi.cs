@@ -32,6 +32,12 @@ public interface IProfilesApi
     /// files, as a duplicate's saves do. No file on disk is touched: the folder keeps its files until the player switches to the
     /// profile, which the launch check announces and asks about. A retry of a folder that failed to start empty starts it empty again.
     /// </para>
+    /// <para>
+    /// A folder may start empty only when its files are already in a snapshot of one of the game's profiles: it sits on that profile's
+    /// branch with no new changes. Otherwise the files would stay behind as the new profile's new changes, and discarding them at launch
+    /// would delete the only copy. A game's first profile therefore cannot start a folder empty. The check runs before a job is queued and
+    /// again under the game's lock, which fails a retry for that folder.
+    /// </para>
     /// </remarks>
     /// <param name="gameId">The game.</param>
     /// <param name="name">The profile's name. Required.</param>
@@ -41,7 +47,8 @@ public interface IProfilesApi
     /// The folders that start with nothing; null or empty for none. Only <see cref="RepoRole.External"/> (saves) and
     /// <see cref="RepoRole.Mods"/> may be named, and only when the game has that folder: anything else fails with
     /// <c>error.validation.invalidPayload</c> (issue <see cref="ValidationMessageIds.ProfileStartEmptyInvalid"/> at <c>startEmpty</c>) before a job is queued,
-    /// since the game's own files are what a profile is for (D29.3).
+    /// since the game's own files are what a profile is for (D29.3). A folder whose files no snapshot holds fails the same way with
+    /// <see cref="ValidationMessageIds.ProfileStartEmptyUnsaved"/>.
     /// </param>
     Task<OperationResult<JobStarted>> CreateAsync(string gameId, string name, string? notes, string pointName, IReadOnlyCollection<RepoRole>? startEmpty = null);
 

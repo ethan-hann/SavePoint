@@ -154,6 +154,32 @@ internal sealed class CaptureRunner
         }
     }
 
+    /// <summary>
+    /// Refuses a new profile that would start a folder empty while the folder holds files that no snapshot of any profile of the game has,
+    /// before anything is written (see <see cref="StartEmptyRule"/>).
+    /// </summary>
+    /// <param name="storage">The storage snapshot the caller holds.</param>
+    /// <param name="game">The game.</param>
+    /// <param name="startEmpty">The folders that are to start empty.</param>
+    /// <param name="cancellationToken">Cancels the check.</param>
+    /// <exception cref="ValidationException">A folder in <paramref name="startEmpty"/> holds files no snapshot has.</exception>
+    public async Task RequireStartEmptySafeAsync(StorageSnapshot storage, GameDefinition game, IReadOnlyCollection<RepoRole> startEmpty, CancellationToken cancellationToken)
+    {
+        if (startEmpty.Count == 0)
+        {
+            return;
+        }
+
+        var branches = (await _services.Catalog.ListProfilesAsync(game.Id, cancellationToken).ConfigureAwait(false)).Select(listed => listed.BranchName).ToList();
+        foreach (var repo in GameFolders.Repos(_services, storage, game).Where(repo => startEmpty.Contains(repo.Role)))
+        {
+            if (!await StartEmptyRule.IsSafeAsync(storage.Engine, repo, branches, cancellationToken).ConfigureAwait(false))
+            {
+                throw StartEmptyRule.Refusal();
+            }
+        }
+    }
+
     /// <summary>The capture id of an earlier save of this profile that reached only some folders and could still be joined by a retry; null when there is none. Reads, takes nothing.</summary>
     /// <param name="gameId">The game.</param>
     /// <param name="profileId">The profile.</param>
@@ -229,7 +255,11 @@ internal sealed class CaptureRunner
         // The folders are separate repositories, so they are saved side by side; one failing never stops the others. They write into one
         // storage volume, so each capture judges its own room first and then the volume is asked about the folders that fit alone, together.
         var room = repos.Count > 1 ? new CaptureRoomGate(storage.Engine, repos) : null;
-        var saved = await Task.WhenAll(repos.Select(repo => SaveFolderAsync(context, storage, game, repo, profile.BranchName, pointName, capture, forksNewBranches, plans?.GetValueOrDefault(repo.Role), room, progress.For(repo.Role)))).ConfigureAwait(false);
+        // Judged again now that the lock is held: whatever waited for it, or a retry long after the first try, may have changed what a folder holds.
+        var profileBranches = startEmpty is { Count: > 0 }
+            ? (IReadOnlyCollection<string>)[.. (await _services.Catalog.ListProfilesAsync(game.Id, context.CancellationToken).ConfigureAwait(false)).Select(listed => listed.BranchName)]
+            : [];
+        var saved = await Task.WhenAll(repos.Select(repo => SaveFolderAsync(context, storage, game, repo, profile.BranchName, pointName, capture, forksNewBranches, plans?.GetValueOrDefault(repo.Role), room, progress.For(repo.Role), profileBranches))).ConfigureAwait(false);
 
         var outcomes = saved.Select(folder => folder.Outcome).ToList();
         if (creating)
@@ -328,7 +358,8 @@ internal sealed class CaptureRunner
         bool forksNewBranches,
         FolderCapturePlan? plan,
         CaptureRoomGate? room,
-        CaptureProgressCombiner.Part progress)
+        CaptureProgressCombiner.Part progress,
+        IReadOnlyCollection<string> profileBranches)
     {
         if (context.CancellationToken.IsCancellationRequested)
         {
@@ -340,6 +371,11 @@ internal sealed class CaptureRunner
         try
         {
             context.AddStep(JobSteps.CaptureFolder, ("folder", repo.Role), ("path", repo.WorkTree));
+            if (plan is { StartEmpty: true } && !await StartEmptyRule.IsSafeAsync(storage.Engine, repo, profileBranches, context.CancellationToken).ConfigureAwait(false))
+            {
+                throw StartEmptyRule.Refusal();
+            }
+
             var existed = await storage.Engine.BranchExistsAsync(repo, branch, context.CancellationToken).ConfigureAwait(false);
             startedBranch = !existed;
             var saved = await CaptureFolderAsync(storage, game, repo, branch, existed, pointName, capture, forksNewBranches, plan, room, progress, context.CancellationToken).ConfigureAwait(false);

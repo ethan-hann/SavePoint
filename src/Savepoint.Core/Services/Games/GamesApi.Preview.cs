@@ -2,6 +2,7 @@ using Savepoint.Core.Api;
 using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Git;
+using Savepoint.Core.Services.Profiles;
 
 namespace Savepoint.Core.Services.Games;
 
@@ -17,9 +18,10 @@ internal sealed partial class GamesApi
                     async storage =>
                     {
                         var repos = GameFolders.Repos(_services, storage, game);
+                        var branches = (await _services.Catalog.ListProfilesAsync(game.Id, cancellationToken).ConfigureAwait(false)).Select(profile => profile.BranchName).ToList();
 
                         // The folders are separate repositories, so they are listed side by side.
-                        var previews = await Task.WhenAll(repos.Select(repo => PreviewFolderAsync(storage, game, repo, cancellationToken))).ConfigureAwait(false);
+                        var previews = await Task.WhenAll(repos.Select(repo => PreviewFolderAsync(storage, game, repo, branches, cancellationToken))).ConfigureAwait(false);
                         return new CapturePreview(game.Id, [.. previews.Select(preview => preview.Folder)], previews.Sum(preview => preview.NewBytes));
                     },
                     cancellationToken).ConfigureAwait(false);
@@ -30,6 +32,7 @@ internal sealed partial class GamesApi
         StorageSnapshot storage,
         GameDefinition game,
         RepoRef repo,
+        IReadOnlyCollection<string> profileBranches,
         CancellationToken cancellationToken)
     {
         var rules = game.IgnorePathsFor(repo.Role);
@@ -41,6 +44,10 @@ internal sealed partial class GamesApi
             RepoRole.Mods => candidates.Count,
             _ => 0,
         };
-        return (new FolderCapturePreview(repo.Role, repo.WorkTree, candidates.Count, mods, candidates.Sum(candidate => candidate.Bytes)), newBytes);
+
+        // Only a folder a new profile could start empty is asked, and only when some profile exists to hold its files.
+        var held = repo.Role != RepoRole.Install && profileBranches.Count > 0
+            && await StartEmptyRule.IsSafeAsync(storage.Engine, repo, profileBranches, cancellationToken).ConfigureAwait(false);
+        return (new FolderCapturePreview(repo.Role, repo.WorkTree, candidates.Count, mods, candidates.Sum(candidate => candidate.Bytes), held), newBytes);
     }
 }

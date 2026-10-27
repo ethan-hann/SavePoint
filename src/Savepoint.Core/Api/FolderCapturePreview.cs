@@ -8,4 +8,9 @@ namespace Savepoint.Core.Api;
 /// <param name="FileCount">Files a capture would save from the folder, ignored files left out.</param>
 /// <param name="ModFileCount">How many of those are mod files; always 0 for the saves folder.</param>
 /// <param name="Bytes">Total size of those files, in bytes.</param>
-public sealed record FolderCapturePreview(RepoRole Role, string Path, int FileCount, int ModFileCount, long Bytes);
+/// <param name="HeldInSnapshot">
+/// True when every file the folder holds now is already in a snapshot of a profile of the game: the folder sits on that profile with no
+/// new changes. Only then may a new profile start the folder empty (<see cref="IProfilesApi.CreateAsync"/>), since a switch to it would
+/// otherwise remove files no snapshot has. False when that cannot be told, and always false for the install folder, which never starts empty.
+/// </param>
+public sealed record FolderCapturePreview(RepoRole Role, string Path, int FileCount, int ModFileCount, long Bytes, bool HeldInSnapshot = false);

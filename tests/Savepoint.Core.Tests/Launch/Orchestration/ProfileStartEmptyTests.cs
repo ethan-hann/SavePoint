@@ -162,6 +162,7 @@ public class ProfileStartEmptyTests
         Assert.False(folder.MatchesTarget);
         Assert.False(folder.Dirty);
         Assert.Equal(1, folder.Switch!.FilesChanged);
+        Assert.Equal(1, folder.Switch.FilesRemoved);
         Assert.True(folder.Switch.BytesRemoved > 0);
         Assert.Equal(0, preview.TargetInstall.ModFileCount);
         Assert.Equal(1, preview.CurrentInstall.ModFileCount);
@@ -186,6 +187,8 @@ public class ProfileStartEmptyTests
         var saves = Assert.IsType<FolderLaunchState>(preview.External);
         Assert.False(saves.MatchesTarget);
         Assert.Equal(1, saves.Switch!.FilesChanged);
+        Assert.Equal(1, saves.Switch.FilesRemoved);
+        Assert.NotEmpty(preview.AvailableSaves);
         Assert.True(rig.SavesHave("slot1.sav"));
 
         var job = await rig.SwitchAsync(new LaunchTarget.ProfileTip(made.Id));
@@ -193,21 +196,6 @@ public class ProfileStartEmptyTests
         Assert.Equal(JobStatus.Succeeded, job.Status);
         Assert.Empty(WithoutMarker(rig.SnapshotOf(RepoRole.External)));
         Assert.NotEmpty(WithoutMarker(rig.ModsSnapshot()));
-    }
-
-    [Fact(Timeout = 240_000)]
-    public async Task The_first_profile_of_a_game_with_no_saves_reads_the_files_still_in_the_folder_as_new_changes_the_launch_asks_about()
-    {
-        using var rig = await LaunchRig.CreateAsync();
-
-        var (made, _) = await CreateAsync(rig, "Bare", RepoRole.External);
-
-        var preview = await rig.PreviewAsync(new LaunchTarget.ProfileTip(made.Id));
-        var saves = Assert.IsType<FolderLaunchState>(preview.External);
-        Assert.True(saves.Dirty);
-        Assert.Equal(1, saves.DirtyFileCount);
-        Assert.True(rig.SavesHave("slot1.sav"));
-        Assert.Contains(RepoRole.External, (await rig.Profiles.GetRowStatsAsync(rig.Game.Id, Ct)).Value!.Single().UnsavedChanges);
     }
 
     [Fact(Timeout = 240_000)]

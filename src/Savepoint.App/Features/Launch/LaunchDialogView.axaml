@@ -91,6 +91,7 @@
                             ContentTemplate="{StaticResource SaveOptionTemplate}"
                             IsVisible="{Binding !HasSaveChoice}" />
             <TextBlock x:Name="SaveCaptionText" Classes="body muted" TextWrapping="Wrap" Text="{Binding SaveCaption}" />
+            <TextBlock x:Name="SavesRemovedNote" Classes="body muted" TextWrapping="Wrap" IsVisible="{Binding HasSavesRemoved}" Text="{Binding SavesRemovedText}" />
             <help:ContextualHelpView x:Name="SaveSnapshotHelpHost" DataContext="{Binding SaveSnapshotHelp}" />
           </StackPanel>
         </Grid>

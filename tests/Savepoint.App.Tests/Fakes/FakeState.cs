@@ -160,6 +160,13 @@ internal sealed class FakeState
         .. game.External is null ? Array.Empty<RepoRole>() : [RepoRole.External],
     ];
 
+    // As the real backend answers: a scenario's own preview says so; otherwise a saves or mods folder is held once the game has a profile to hold it.
+    public bool FolderHeld(string gameId, RepoRole role) =>
+        role != RepoRole.Install
+        && (CapturePreviews.TryGetValue(gameId, out var preview)
+            ? preview.Folders.Any(folder => folder.Role == role && folder.HeldInSnapshot)
+            : Profiles.Any(profile => profile.GameId == gameId));
+
     public HistoryPointId NewPointId() => new($"point-{++_pointSequence}");
 
     public string Resolve(string rawPath)
