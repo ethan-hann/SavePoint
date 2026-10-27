@@ -75,12 +75,9 @@ public class LaunchRenderTests
     {
         var backend = await WithPreviewAsync(
             ThemePreference.Dark,
-            preview => preview with
-            {
-                Install = preview.Install with { Dirty = true, DirtyFileCount = 12, DirtyOwnerProfileId = SampleScenario.SurvivalId },
-                External = preview.External! with { DirtyOwnerProfileId = null },
-                TargetIsOlderPoint = true,
-            },
+            preview => (preview with { TargetIsOlderPoint = true })
+                .WithFolder(RepoRole.Install, install => install with { Dirty = true, DirtyFileCount = 12, DirtyOwnerProfileId = SampleScenario.SurvivalId })
+                .WithFolder(RepoRole.External, saves => saves with { DirtyOwnerProfileId = null }),
             LaunchRig.SurvivalTip);
         using var harness = await LaunchViewHarness.StartAsync(backend, ThemePreference.Dark, height: 1060);
 
@@ -93,7 +90,7 @@ public class LaunchRenderTests
     [AvaloniaFact]
     public async Task The_keep_prompt_dark_renders_to_a_png()
     {
-        var backend = await WithPreviewAsync(ThemePreference.Dark, preview => preview with { External = preview.External! with { DirtyOwnerProfileId = null } }, LaunchRig.SurvivalTip);
+        var backend = await WithPreviewAsync(ThemePreference.Dark, preview => preview.WithFolder(RepoRole.External, saves => saves with { DirtyOwnerProfileId = null }), LaunchRig.SurvivalTip);
         using var harness = await LaunchViewHarness.StartAsync(backend);
         var begin = harness.Flow.BeginAsync(SampleScenario.SkyrimId, LaunchRig.SurvivalTip);
         var launchDialog = harness.Dialogs.Stack.OfType<LaunchDialogViewModel>().Single();

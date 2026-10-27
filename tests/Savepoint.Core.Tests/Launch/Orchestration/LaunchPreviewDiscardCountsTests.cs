@@ -1,4 +1,5 @@
 using Savepoint.Core.Api;
+using Savepoint.Core.Catalog;
 
 namespace Savepoint.Core.Tests.Launch.Orchestration;
 
@@ -16,9 +17,10 @@ public class LaunchPreviewDiscardCountsTests
 
         var preview = await rig.PreviewAsync(new LaunchTarget.ProfileTip(vanilla.Id));
 
-        Assert.True(preview.External!.Dirty);
-        Assert.Equal(3, preview.External.DirtyFileCount);
-        Assert.Equal(2, preview.External.DirtyNewFileCount);
+        var saves = Assert.IsType<FolderLaunchState>(preview.Folder(RepoRole.External));
+        Assert.True(saves.Dirty);
+        Assert.Equal(3, saves.DirtyFileCount);
+        Assert.Equal(2, saves.DirtyNewFileCount);
         Assert.Equal(0, preview.Install.DirtyNewFileCount);
     }
 }

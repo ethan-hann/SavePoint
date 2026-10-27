@@ -40,7 +40,7 @@ public class LaunchSavesOfOtherProfilesTests
 
         var preview = await rig.PreviewAsync(new LaunchTarget.ProfileTip(unsaved.Id));
 
-        var saves = Assert.IsType<FolderLaunchState>(preview.External);
+        var saves = Assert.IsType<FolderLaunchState>(preview.Folder(RepoRole.External));
         Assert.True(saves.Dirty);
         Assert.Equal(saved.Id, saves.DirtyOwnerProfileId);
         var started = await rig.Launch.StartAsync(rig.Game.Id, new LaunchTarget.ProfileTip(unsaved.Id));
@@ -59,7 +59,7 @@ public class LaunchSavesOfOtherProfilesTests
 
         var preview = await rig.PreviewAsync(new LaunchTarget.ProfileTip(unsaved.Id));
 
-        var saves = Assert.IsType<FolderLaunchState>(preview.External);
+        var saves = Assert.IsType<FolderLaunchState>(preview.Folder(RepoRole.External));
         Assert.True(saves.MatchesTarget);
         Assert.False(saves.Dirty);
         Assert.Equal("the player's own save", rig.ReadSave("slot1.sav"));
@@ -103,7 +103,7 @@ public class LaunchSavesOfOtherProfilesTests
         Assert.All(Assert.IsType<CaptureResult>(retried.Result).Folders, folder => Assert.True(folder.Ok, folder.Error?.Detail));
         Assert.Equal(written.Id, Assert.Single(await rig.CommitsAsync(RepoRole.External, unsaved)).Id);
         Assert.Equal(unsaved.BranchName, (await rig.StatusAsync(RepoRole.External)).Branch);
-        Assert.False((await rig.Launch.GetPreviewAsync(rig.Game.Id, new LaunchTarget.ProfileTip(unsaved.Id), rig.Token)).Value!.External!.Dirty);
+        Assert.False((await rig.Launch.GetPreviewAsync(rig.Game.Id, new LaunchTarget.ProfileTip(unsaved.Id), rig.Token)).Value!.Folder(RepoRole.External)!.Dirty);
     }
 
     [Fact(Timeout = 150_000)]

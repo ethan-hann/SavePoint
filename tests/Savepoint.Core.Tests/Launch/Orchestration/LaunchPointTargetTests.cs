@@ -47,7 +47,7 @@ public class LaunchPointTargetTests
 
         Assert.True(preview.Install.MatchesTarget);
         Assert.Null(preview.Install.Switch);
-        Assert.False(preview.External!.MatchesTarget);
+        Assert.False(preview.Folder(RepoRole.External)!.MatchesTarget);
     }
 
     // Every read of the clock is a millisecond later than the one before.

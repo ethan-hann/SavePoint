@@ -17,18 +17,17 @@ public class LaunchDialogViewModelTests : IDisposable
 
     private static LaunchPreview Clean(LaunchPreview preview) => preview with
     {
-        Install = preview.Install with { Dirty = false, DirtyFileCount = 0, DirtyOwnerProfileId = null },
-        External = preview.External is null ? null : preview.External with { Dirty = false, DirtyFileCount = 0, DirtyOwnerProfileId = null },
+        Folders = [.. preview.Folders.Select(folder => folder with { Dirty = false, DirtyFileCount = 0, DirtyOwnerProfileId = null })],
     };
 
     private static LaunchPreview Unclaimed(LaunchPreview preview) =>
-        preview with { External = preview.External! with { DirtyOwnerProfileId = null } };
+        preview.WithFolder(RepoRole.External, saves => saves with { DirtyOwnerProfileId = null });
 
     private static LaunchPreview BothDirty(LaunchPreview preview) =>
-        preview with { Install = preview.Install with { Dirty = true, DirtyFileCount = 12, DirtyOwnerProfileId = SampleScenario.SurvivalId } };
+        preview.WithFolder(RepoRole.Install, install => install with { Dirty = true, DirtyFileCount = 12, DirtyOwnerProfileId = SampleScenario.SurvivalId });
 
     private static LaunchPreview WithInstallSwitch(LaunchPreview preview, SwitchSummary? summary) =>
-        preview with { Install = preview.Install with { Switch = summary } };
+        preview.WithFolder(RepoRole.Install, install => install with { Switch = summary });
 
     private Guid LastCaptureJob() => _rig.Backend.Jobs.LastStarted(JobKind.Capture).JobId;
 
@@ -204,7 +203,7 @@ public class LaunchDialogViewModelTests : IDisposable
     [Fact]
     public async Task A_game_with_no_saves_folder_has_no_save_card()
     {
-        var dialog = await _rig.DialogAsync(change: p => p with { External = null });
+        var dialog = await _rig.DialogAsync(change: p => p.WithoutFolder(RepoRole.External));
 
         Assert.False(dialog.HasSaveSection);
     }
@@ -235,7 +234,7 @@ public class LaunchDialogViewModelTests : IDisposable
     [Fact]
     public async Task A_large_count_of_changed_files_is_written_with_group_separators()
     {
-        var dialog = await _rig.DialogAsync(change: preview => preview with { External = preview.External! with { DirtyFileCount = 200_000 } });
+        var dialog = await _rig.DialogAsync(change: preview => preview.WithFolder(RepoRole.External, saves => saves with { DirtyFileCount = 200_000 }));
 
         var block = Assert.Single(dialog.UnsavedBlocks);
         Assert.StartsWith("200,000 files in your saves folder changed", block.Body, StringComparison.Ordinal);
@@ -244,7 +243,7 @@ public class LaunchDialogViewModelTests : IDisposable
     [Fact]
     public async Task New_changes_name_the_profile_that_owns_them_when_it_is_not_the_one_being_switched_to()
     {
-        var dialog = await _rig.DialogAsync(change: preview => preview with { External = preview.External! with { DirtyOwnerProfileId = SampleScenario.ModdedId } });
+        var dialog = await _rig.DialogAsync(change: preview => preview.WithFolder(RepoRole.External, saves => saves with { DirtyOwnerProfileId = SampleScenario.ModdedId }));
 
         var block = Assert.Single(dialog.UnsavedBlocks);
         Assert.Equal("3 files in your saves folder changed since the last snapshot of \"Modded playthrough - 7-2-26\". Take a snapshot to keep them there, or discard them.", block.Body);
@@ -495,7 +494,7 @@ public class LaunchDialogViewModelTests : IDisposable
     [Fact]
     public async Task One_callout_serves_several_unclaimed_folders()
     {
-        var dialog = await _rig.DialogAsync(change: p => Unclaimed(BothDirty(p)) with { Install = p.Install with { Dirty = true, DirtyFileCount = 4, DirtyOwnerProfileId = null } });
+        var dialog = await _rig.DialogAsync(change: p => Unclaimed(BothDirty(p)).WithFolder(p.Install with { Dirty = true, DirtyFileCount = 4, DirtyOwnerProfileId = null }));
 
         Assert.Equal(2, dialog.UnsavedBlocks.Count);
         Assert.True(dialog.ShowKeepCallout);
@@ -803,7 +802,7 @@ public class LaunchDialogViewModelTests : IDisposable
     }
 
     private static LaunchPreview StoppedSwitchInInstall(LaunchPreview preview, Func<FolderLaunchState, FolderLaunchState> change) =>
-        Clean(preview) with { Install = change(preview.Install with { Dirty = false, UnfinishedSwitch = true, UnfinishedSwitchTarget = LaunchRig.ModdedTip }) };
+        Clean(preview).WithFolder(change(preview.Install with { Dirty = false, UnfinishedSwitch = true, UnfinishedSwitchTarget = LaunchRig.ModdedTip }));
 
     [Fact]
     public async Task A_stopped_switch_that_unsaved_changes_stand_in_the_way_of_says_why_and_offers_only_discarding()
@@ -890,17 +889,14 @@ public class LaunchDialogViewModelTests : IDisposable
     [Fact]
     public async Task The_saves_folder_names_the_files_it_replaces_and_counts_the_rest()
     {
-        var dialog = await _rig.DialogAsync(change: preview => Clean(preview) with
+        var dialog = await _rig.DialogAsync(change: preview => Clean(preview).WithFolder(preview.Folder(RepoRole.External)! with
         {
-            External = preview.External! with
-            {
-                Dirty = false,
-                UnfinishedSwitch = true,
-                UnfinishedSwitchTarget = LaunchRig.ModdedTip,
-                ReplacedFileCount = 7,
-                ReplacedFileNames = ["slot1.sav", "slot2.sav", "slot3.sav", "slot4.sav", "slot5.sav"],
-            },
-        });
+            Dirty = false,
+            UnfinishedSwitch = true,
+            UnfinishedSwitchTarget = LaunchRig.ModdedTip,
+            ReplacedFileCount = 7,
+            ReplacedFileNames = ["slot1.sav", "slot2.sav", "slot3.sav", "slot4.sav", "slot5.sav"],
+        }));
 
         Assert.Equal(
             "7 files in your saves folder that the last switch was changing (slot1.sav, slot2.sav, slot3.sav, slot4.sav, slot5.sav and 2 more) hold something that's in neither snapshot. Finishing the last switch replaces them with the copies from the snapshot it was heading to, including any change you made since.",
@@ -910,17 +906,14 @@ public class LaunchDialogViewModelTests : IDisposable
     [Fact]
     public async Task Every_replaced_save_is_named_when_there_are_no_more_than_the_names_carried()
     {
-        var dialog = await _rig.DialogAsync(change: preview => Clean(preview) with
+        var dialog = await _rig.DialogAsync(change: preview => Clean(preview).WithFolder(preview.Folder(RepoRole.External)! with
         {
-            External = preview.External! with
-            {
-                Dirty = false,
-                UnfinishedSwitch = true,
-                UnfinishedSwitchTarget = LaunchRig.ModdedTip,
-                ReplacedFileCount = 2,
-                ReplacedFileNames = ["slot1.sav", "slot2.sav"],
-            },
-        });
+            Dirty = false,
+            UnfinishedSwitch = true,
+            UnfinishedSwitchTarget = LaunchRig.ModdedTip,
+            ReplacedFileCount = 2,
+            ReplacedFileNames = ["slot1.sav", "slot2.sav"],
+        }));
 
         Assert.Contains("that the last switch was changing (slot1.sav, slot2.sav) hold something", dialog.ReplacedNote, StringComparison.Ordinal);
     }
@@ -928,11 +921,9 @@ public class LaunchDialogViewModelTests : IDisposable
     [Fact]
     public async Task Both_folders_replacing_files_get_a_line_each_and_nothing_replaced_leaves_no_note()
     {
-        var both = await _rig.DialogAsync(change: preview => Clean(preview) with
-        {
-            Install = preview.Install with { Dirty = false, UnfinishedSwitch = true, UnfinishedSwitchTarget = LaunchRig.ModdedTip, ReplacedFileCount = 2 },
-            External = preview.External! with { Dirty = false, UnfinishedSwitch = true, UnfinishedSwitchTarget = LaunchRig.ModdedTip, ReplacedFileCount = 1, ReplacedFileNames = ["slot1.sav"] },
-        });
+        var both = await _rig.DialogAsync(change: preview => Clean(preview)
+            .WithFolder(preview.Install with { Dirty = false, UnfinishedSwitch = true, UnfinishedSwitchTarget = LaunchRig.ModdedTip, ReplacedFileCount = 2 })
+            .WithFolder(preview.Folder(RepoRole.External)! with { Dirty = false, UnfinishedSwitch = true, UnfinishedSwitchTarget = LaunchRig.ModdedTip, ReplacedFileCount = 1, ReplacedFileNames = ["slot1.sav"] }));
         var none = await _rig.DialogAsync(change: preview => StoppedSwitchInInstall(preview, install => install));
 
         Assert.Equal(2, both.ReplacedNote.Split('\n').Length);
@@ -943,7 +934,7 @@ public class LaunchDialogViewModelTests : IDisposable
     [Fact]
     public async Task A_folder_with_no_stopped_switch_gets_no_replacement_note()
     {
-        var dialog = await _rig.DialogAsync(change: preview => Clean(preview) with { Install = preview.Install with { ReplacedFileCount = 4 } });
+        var dialog = await _rig.DialogAsync(change: preview => Clean(preview).WithFolder(preview.Install with { ReplacedFileCount = 4 }));
 
         Assert.False(dialog.HasReplacedNote);
     }

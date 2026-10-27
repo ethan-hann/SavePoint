@@ -37,7 +37,7 @@ public class LaunchRefusalTests
         Assert.True(preview.Install.Dirty);
         Assert.Null(preview.Install.UnfinishedSwitchTarget);
         Assert.Equal(0, preview.Install.DirtyFileCount);
-        Assert.False(preview.External?.UnfinishedSwitch);
+        Assert.False(preview.Folder(RepoRole.External)?.UnfinishedSwitch);
 
         // The launch is refused with the unfinished-switch error, which names no target, and nothing is switched.
         var refused = await rig.StartAsync(Tip(vanilla));

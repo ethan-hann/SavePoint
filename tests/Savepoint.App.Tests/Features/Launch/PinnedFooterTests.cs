@@ -15,12 +15,9 @@ public class PinnedFooterTests
     private static async Task<LaunchViewHarness> StartAllSectionsAsync(double width, double height)
     {
         var source = FakeAssert.Ok(await FakeBackend.Sample().Launch.GetPreviewAsync(SampleScenario.SkyrimId, LaunchRig.SurvivalTip));
-        var preview = source with
-        {
-            Install = source.Install with { Dirty = true, DirtyFileCount = 12, DirtyOwnerProfileId = SampleScenario.SurvivalId },
-            External = source.External! with { DirtyOwnerProfileId = null },
-            TargetIsOlderPoint = true,
-        };
+        var preview = (source with { TargetIsOlderPoint = true })
+            .WithFolder(RepoRole.Install, install => install with { Dirty = true, DirtyFileCount = 12, DirtyOwnerProfileId = SampleScenario.SurvivalId })
+            .WithFolder(RepoRole.External, saves => saves with { DirtyOwnerProfileId = null });
         var backend = new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Theme = ThemePreference.Dark }).WithLaunchPreview(preview));
         return await LaunchViewHarness.StartAsync(backend, ThemePreference.Dark, width, height);
     }

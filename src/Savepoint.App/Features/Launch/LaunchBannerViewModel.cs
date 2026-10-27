@@ -3,6 +3,7 @@ using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Theme;
 using Savepoint.Core.Api;
+using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Features.Launch;
 
@@ -32,7 +33,7 @@ public sealed partial class LaunchBannerViewModel
         _dialogs = dialogs;
         Title = text.Message("launch.banner.headline", ("gameName", gameName));
 
-        var saveName = preview.External is null ? null : preview.AvailableSaves.FirstOrDefault(save => preview.SelectedSaveId is { } id && save.Id == id)?.Name;
+        var saveName = preview.Folder(RepoRole.External) is null ? null : preview.AvailableSaves.FirstOrDefault(save => preview.SelectedSaveId is { } id && save.Id == id)?.Name;
         Detail = saveName is null
             ? profileName
             : text.Message("launch.banner.detailWithSave", ("profileName", profileName), ("saveName", saveName));
@@ -53,18 +54,20 @@ public sealed partial class LaunchBannerViewModel
 
     private List<LaunchCheckLine> ChecksFor(LaunchPreview preview, string? saveName)
     {
-        var hasMods = ("hasMods", FolderRoles.HasMods(preview.Mods is not null));
+        var mods = preview.Folder(RepoRole.Mods);
+        var external = preview.Folder(RepoRole.External);
+        var hasMods = ("hasMods", FolderRoles.HasMods(mods is not null));
         var install = LaunchText.IsUnknown(preview.TargetInstall)
             ? _text.Message("launch.checks.installPlain", hasMods)
             : _text.Message("launch.checks.install", ("state", LaunchText.InstallState(_text, preview.TargetInstall)), hasMods);
         var checks = new List<LaunchCheckLine> { new(Icons.CheckCircle, install, preview.Install.Path) };
 
-        if (preview.Mods is { } mods)
+        if (mods is not null)
         {
             checks.Add(new LaunchCheckLine(Icons.CheckCircle, _text.Message("launch.checks.mods"), mods.Path));
         }
 
-        if (preview.External is { } external)
+        if (external is not null)
         {
             var saves = saveName is null
                 ? _text.Message("launch.checks.savesPlain")
@@ -72,7 +75,7 @@ public sealed partial class LaunchBannerViewModel
             checks.Add(new LaunchCheckLine(Icons.CheckCircle, saves, external.Path));
         }
 
-        var clean = _text.Message((preview.Mods is not null, preview.External is not null) switch
+        var clean = _text.Message((mods is not null, external is not null) switch
         {
             (true, true) => "launch.checks.cleanAll",
             (true, false) => "launch.checks.cleanMods",

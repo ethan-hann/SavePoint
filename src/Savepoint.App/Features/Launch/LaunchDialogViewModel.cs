@@ -77,7 +77,7 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
         IsOlderPoint = preview.TargetIsOlderPoint;
         OlderPointText = IsOlderPoint ? text.Message(switchOnly ? "launch.dialog.olderPointSwitch" : "launch.dialog.olderPoint", ("profileName", profileName)) : string.Empty;
 
-        HasVersionSection = !preview.Install.MatchesTarget || preview.Mods is { MatchesTarget: false };
+        HasVersionSection = !preview.Install.MatchesTarget || preview.Folder(RepoRole.Mods) is { MatchesTarget: false };
         (VersionBefore, VersionTarget, VersionAfter) = HasVersionSection ? VersionSentence() : (string.Empty, string.Empty, string.Empty);
 
         SaveOptions = SaveOptionsFor(preview);
@@ -86,17 +86,17 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
         _defaultSave = SaveOptions.FirstOrDefault(option => preview.SelectedSaveId is { } id && option.Entry.Id == id) ?? SaveOptions.FirstOrDefault();
         _selectedSave = _defaultSave;
         SaveCaption = text.Message("launch.dialog.saveCaption");
-        SavesRemovedText = preview.External?.Switch is { FilesRemoved: > 0 } saves ? text.Message("launch.dialog.savesRemoved", ("count", saves.FilesRemoved)) : string.Empty;
+        SavesRemovedText = preview.Folder(RepoRole.External)?.Switch is { FilesRemoved: > 0 } saves ? text.Message("launch.dialog.savesRemoved", ("count", saves.FilesRemoved)) : string.Empty;
         SaveSnapshotHelp = ContextualHelp.SaveSnapshot(text);
 
-        foreach (var folder in LaunchPreviewFolders.Of(preview).Where(state => state.Dirty))
+        foreach (var folder in preview.Folders.Where(state => state.Dirty))
         {
             AddBlock(folder);
         }
 
         // A switch the launch finishes writes the snapshot's copy over the files it was changing, whatever they hold now; the player is told
         // before it starts. A folder the finish is refused for (its block says why) is not finished, so it has nothing to say here.
-        ReplacedNote = string.Join('\n', LaunchPreviewFolders.Of(preview).Where(folder => folder.UnfinishedSwitch && !folder.Dirty && folder.ReplacedFileCount > 0).Select(ReplacedLine));
+        ReplacedNote = string.Join('\n', preview.Folders.Where(folder => folder.UnfinishedSwitch && !folder.Dirty && folder.ReplacedFileCount > 0).Select(ReplacedLine));
 
         UnsavedBlocks.CollectionChanged += (_, _) => OnBlocksChanged();
         ShowKeepCallout = KeepOffered();
@@ -248,7 +248,7 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
         var sameVersion = string.Equals(from.Version ?? string.Empty, to.Version ?? string.Empty, StringComparison.Ordinal);
         var sameMods = from.ModFileCount == to.ModFileCount;
         // The mods folder can change without the count moving (an updated mod), and the game folder's counts say nothing about it.
-        var modsChange = _preview.Mods is { MatchesTarget: false };
+        var modsChange = _preview.Folder(RepoRole.Mods) is { MatchesTarget: false };
         var (sentence, target) = (sameVersion, sameMods) switch
         {
             (true, true) when modsChange => (text.Message("launch.dialog.versionStaysModsChange", ("target", _targetMarker)), LaunchText.InstallState(text, to)),
@@ -291,7 +291,7 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
     // The game folder's switch and the mods folder's added together; the time is a sum only when both have an estimate of their own.
     private SwitchSummary? SwitchTotal()
     {
-        var summaries = new[] { _preview.Install.Switch, _preview.Mods?.Switch }.OfType<SwitchSummary>().ToList();
+        var summaries = new[] { _preview.Install.Switch, _preview.Folder(RepoRole.Mods)?.Switch }.OfType<SwitchSummary>().ToList();
         if (summaries.Count == 0)
         {
             return null;
@@ -308,7 +308,7 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
     private List<SaveOptionViewModel> SaveOptionsFor(LaunchPreview preview)
     {
         var text = _deps.Text;
-        var saves = preview.External is null ? [] : preview.AvailableSaves;
+        var saves = preview.Folder(RepoRole.External) is null ? [] : preview.AvailableSaves;
         return
         [
             .. saves.Select(save => new SaveOptionViewModel(
@@ -418,7 +418,7 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
         IsBusy = UnsavedBlocks.Any(other => other.IsBusy);
     }
 
-    private FolderLaunchState FolderState(RepoRole role) => LaunchPreviewFolders.State(_preview, role);
+    private FolderLaunchState FolderState(RepoRole role) => _preview.Folder(role)!;
 
     private async Task SaveFirstAsync(UnsavedChangesBlockViewModel block)
     {

@@ -1,4 +1,5 @@
 using Savepoint.App.Features.Common.Errors;
+using Savepoint.App.Tests.Fakes;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
@@ -18,10 +19,7 @@ public class LaunchUnfinishedSwitchFlowTests : IDisposable
         await _f.PlayWithProgressAsync();
         var key = (FlowRig.Skyrim, LaunchRig.ClearedBlackreachPoint);
         var preview = _f.Backend.State.LaunchPreviews[key];
-        _f.Backend.State.LaunchPreviews[key] = preview with
-        {
-            Install = preview.Install with { Dirty = true, DirtyFileCount = 4, DirtyOwnerProfileId = null, UnfinishedSwitch = true, UnfinishedSwitchTarget = recorded },
-        };
+        _f.Backend.State.LaunchPreviews[key] = preview.WithFolder(RepoRole.Install, install => install with { Dirty = true, DirtyFileCount = 4, DirtyOwnerProfileId = null, UnfinishedSwitch = true, UnfinishedSwitchTarget = recorded });
         _f.Backend.Launch.FailLaunch(FlowRig.Skyrim, ErrorInfo.From(new InterruptedSwitchException(RepoRole.Install, errorTarget)));
     }
 
@@ -136,19 +134,16 @@ public class LaunchUnfinishedSwitchFlowTests : IDisposable
         await _f.PlayWithProgressAsync();
         var key = (FlowRig.Skyrim, LaunchRig.ClearedBlackreachPoint);
         var preview = _f.Backend.State.LaunchPreviews[key];
-        _f.Backend.State.LaunchPreviews[key] = preview with
+        _f.Backend.State.LaunchPreviews[key] = preview.WithFolder(RepoRole.Install, install => install with
         {
-            Install = preview.Install with
-            {
-                Dirty = true,
-                DirtyFileCount = 2,
-                DirtyNewFileCount = 2,
-                DirtyOwnerProfileId = null,
-                UnfinishedSwitch = true,
-                UnfinishedSwitchTarget = null,
-                ChangesOutsideSwitchCount = 2,
-            },
-        };
+            Dirty = true,
+            DirtyFileCount = 2,
+            DirtyNewFileCount = 2,
+            DirtyOwnerProfileId = null,
+            UnfinishedSwitch = true,
+            UnfinishedSwitchTarget = null,
+            ChangesOutsideSwitchCount = 2,
+        });
         _f.Backend.Launch.FailLaunch(FlowRig.Skyrim, ErrorInfo.From(new DirtyWorkingTreeException(RepoRole.Install)));
         var card = _f.Inline<ErrorCardViewModel>();
         Assert.True(FlowRig.Action(card, "Review the changes").IsPrimary);

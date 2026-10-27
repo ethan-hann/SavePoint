@@ -1,3 +1,4 @@
+using Savepoint.App.Tests.Fakes;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 
@@ -14,12 +15,13 @@ public class LaunchDialogEmptyFolderTests : IDisposable
     public void Dispose() => _rig.Dispose();
 
     // A target that holds no mods, switched to from a folder with 40 mod files.
-    private static LaunchPreview ToNoMods(LaunchPreview preview) => preview with
+    private static LaunchPreview ToNoMods(LaunchPreview preview) => (preview with
     {
         CurrentInstall = new InstallState("1.6.640", 40),
         TargetInstall = new InstallState("1.6.640", 0),
-        Mods = new FolderLaunchState(RepoRole.Mods, _modsPath, false, false, 0, null, new SwitchSummary(40, 40, 0, null, 3_100_000_000)),
-    };
+    }).WithFolder(new FolderLaunchState(RepoRole.Mods, _modsPath, false, false, 0, null, new SwitchSummary(40, 40, 0, null, 3_100_000_000)));
+
+    private static LaunchPreview WithSavesSwitch(LaunchPreview preview, SwitchSummary summary) => preview.WithFolder(RepoRole.External, saves => saves with { Switch = summary });
 
     [Fact]
     public async Task Switching_to_a_profile_with_no_mods_says_the_mods_go_and_how_much_is_removed_before_anything_happens()
@@ -45,7 +47,7 @@ public class LaunchDialogEmptyFolderTests : IDisposable
     [Fact]
     public async Task Switching_to_a_profile_with_no_saves_says_the_saves_folder_is_replaced()
     {
-        var dialog = await _rig.DialogAsync(change: preview => preview with { External = preview.External! with { Switch = new SwitchSummary(3, 0, 0, null, 400_000) } });
+        var dialog = await _rig.DialogAsync(change: preview => WithSavesSwitch(preview, new SwitchSummary(3, 0, 0, null, 400_000)));
 
         Assert.True(dialog.HasSaveSection);
         Assert.Equal("This replaces what's in your saves folder now.", dialog.SaveCaption);
@@ -54,7 +56,7 @@ public class LaunchDialogEmptyFolderTests : IDisposable
     [Fact]
     public async Task Switching_to_a_profile_with_no_saves_counts_the_files_removed_from_the_saves_folder()
     {
-        var dialog = await _rig.DialogAsync(change: preview => preview with { External = preview.External! with { Switch = new SwitchSummary(3, 0, 0, null, 400_000, 3) } });
+        var dialog = await _rig.DialogAsync(change: preview => WithSavesSwitch(preview, new SwitchSummary(3, 0, 0, null, 400_000, 3)));
 
         Assert.True(dialog.HasSavesRemoved);
         Assert.Equal("3 files will be removed from your saves folder.", dialog.SavesRemovedText);
@@ -63,7 +65,7 @@ public class LaunchDialogEmptyFolderTests : IDisposable
     [Fact]
     public async Task One_removed_save_file_reads_in_the_singular()
     {
-        var dialog = await _rig.DialogAsync(change: preview => preview with { External = preview.External! with { Switch = new SwitchSummary(1, 0, 0, null, 400_000, 1) } });
+        var dialog = await _rig.DialogAsync(change: preview => WithSavesSwitch(preview, new SwitchSummary(1, 0, 0, null, 400_000, 1)));
 
         Assert.Equal("1 file will be removed from your saves folder.", dialog.SavesRemovedText);
     }
@@ -71,7 +73,7 @@ public class LaunchDialogEmptyFolderTests : IDisposable
     [Fact]
     public async Task A_switch_that_removes_no_save_file_says_nothing_about_removal()
     {
-        var dialog = await _rig.DialogAsync(change: preview => preview with { External = preview.External! with { Switch = new SwitchSummary(2, 0, 100, null) } });
+        var dialog = await _rig.DialogAsync(change: preview => WithSavesSwitch(preview, new SwitchSummary(2, 0, 100, null)));
 
         Assert.False(dialog.HasSavesRemoved);
         Assert.Equal(string.Empty, dialog.SavesRemovedText);

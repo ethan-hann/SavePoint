@@ -6,6 +6,7 @@ using Savepoint.App.Tests.Features.History;
 using Savepoint.App.Tests.Features.Launch;
 using Savepoint.App.Tests.Features.Settings;
 using Savepoint.Core.Api;
+using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Tests.Features.Help;
 
@@ -52,10 +53,7 @@ public class ContextualHelpPlacementTests : IDisposable
     [Fact]
     public async Task A_folder_a_switch_left_half_done_holds_a_mix_of_two_snapshots_so_it_gets_no_new_changes_explanation()
     {
-        var dialog = await _rig.DialogAsync(change: preview => preview with
-        {
-            Install = preview.Install with { Dirty = true, DirtyOwnerProfileId = null, UnfinishedSwitch = true, UnfinishedSwitchTarget = new LaunchTarget.ProfileTip(SampleScenario.ModdedId) },
-        });
+        var dialog = await _rig.DialogAsync(change: preview => preview.WithFolder(RepoRole.Install, install => install with { Dirty = true, DirtyOwnerProfileId = null, UnfinishedSwitch = true, UnfinishedSwitchTarget = new LaunchTarget.ProfileTip(SampleScenario.ModdedId) }));
 
         var unfinished = dialog.UnsavedBlocks.Single(block => block.IsUnfinishedSwitch);
         var ordinary = dialog.UnsavedBlocks.Single(block => !block.IsUnfinishedSwitch);

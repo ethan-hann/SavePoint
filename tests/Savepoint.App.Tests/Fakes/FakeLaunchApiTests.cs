@@ -356,7 +356,7 @@ public class FakeLaunchApiTests
         Assert.True(result.Ok);
         var stats = Ok(await backend.Profiles.GetRowStatsAsync(SkyrimId, Ct));
         Assert.Empty(stats.Single(s => s.ProfileId == SurvivalId).UnsavedChanges);
-        var external = Ok(await backend.Launch.GetPreviewAsync(SkyrimId, survivalTip, Ct)).External!;
+        var external = Ok(await backend.Launch.GetPreviewAsync(SkyrimId, survivalTip, Ct)).Folder(RepoRole.External)!;
         Assert.False(external.Dirty);
         Assert.Equal(0, external.DirtyFileCount);
     }

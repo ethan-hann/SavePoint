@@ -107,7 +107,7 @@ public sealed partial class LaunchFlowViewModel
     {
         var preview = await _deps.Launch.GetPreviewAsync(flow.GameId, flow.Target!);
         var recorded = preview.Ok
-            ? LaunchPreviewFolders.Of(preview.Value).Select(folder => folder.UnfinishedSwitchTarget).FirstOrDefault(target => target is not null)
+            ? preview.Value.Folders.Select(folder => folder.UnfinishedSwitchTarget).FirstOrDefault(target => target is not null)
             : null;
         await ReenterAsync(flow, recorded);
     }

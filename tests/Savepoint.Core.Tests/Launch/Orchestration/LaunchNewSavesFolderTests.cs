@@ -36,7 +36,7 @@ public class LaunchNewSavesFolderTests
         var preview = await rig.Launch.GetPreviewAsync(rig.Game.Id, new LaunchTarget.ProfileTip(vanilla.Id), rig.Token);
 
         Assert.True(preview.Ok, preview.Error?.Detail);
-        var folder = Assert.IsType<FolderLaunchState>(preview.Value.External);
+        var folder = Assert.IsType<FolderLaunchState>(preview.Value.Folder(RepoRole.External));
         Assert.True(folder.MatchesTarget);
         Assert.False(folder.Dirty);
         Assert.Equal("the player's own save", await File.ReadAllTextAsync(Path.Combine(saves, "slot1.sav"), rig.Token));

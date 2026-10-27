@@ -2,6 +2,7 @@ using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Launch;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.Core.Api;
+using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 
 namespace Savepoint.App.Tests.Features.Launch;
@@ -230,7 +231,7 @@ public class LaunchFlowBeginTests : IDisposable
     public async Task A_switch_that_leaves_the_saves_folder_empty_asks_even_when_the_preference_is_on()
     {
         using var rig = new FlowRig(await WithPreviewAsync(
-            preview => preview with { External = preview.External! with { Switch = new SwitchSummary(3, 0, 0, null, 400_000, 3, LeavesFolderEmpty: true) } },
+            preview => preview.WithFolder(RepoRole.External, saves => saves with { Switch = new SwitchSummary(3, 0, 0, null, 400_000, 3, LeavesFolderEmpty: true) }),
             LaunchRig.ClearedBlackreachPoint));
         FakeAssert.Ok(await rig.Backend.Settings.SaveAsync(SampleScenario.Settings with { SkipConfirmWhenOnlySaveChanges = true }));
 
@@ -247,7 +248,7 @@ public class LaunchFlowBeginTests : IDisposable
     public async Task A_switch_that_removes_some_saves_but_leaves_others_still_skips_the_dialog_when_the_preference_is_on()
     {
         using var rig = new FlowRig(await WithPreviewAsync(
-            preview => preview with { External = preview.External! with { Switch = new SwitchSummary(3, 0, 0, null, 400_000, 1) } },
+            preview => preview.WithFolder(RepoRole.External, saves => saves with { Switch = new SwitchSummary(3, 0, 0, null, 400_000, 1) }),
             LaunchRig.ClearedBlackreachPoint));
         FakeAssert.Ok(await rig.Backend.Settings.SaveAsync(SampleScenario.Settings with { SkipConfirmWhenOnlySaveChanges = true }));
 
@@ -261,7 +262,7 @@ public class LaunchFlowBeginTests : IDisposable
     public async Task Unsaved_changes_always_bring_the_dialog_back_even_when_the_preference_is_on()
     {
         using var rig = new FlowRig(await WithPreviewAsync(
-            preview => preview with { External = preview.External! with { Dirty = true, DirtyFileCount = 2, DirtyOwnerProfileId = SampleScenario.ModdedId } },
+            preview => preview.WithFolder(RepoRole.External, saves => saves with { Dirty = true, DirtyFileCount = 2, DirtyOwnerProfileId = SampleScenario.ModdedId }),
             LaunchRig.ClearedBlackreachPoint));
         FakeAssert.Ok(await rig.Backend.Settings.SaveAsync(SampleScenario.Settings with { SkipConfirmWhenOnlySaveChanges = true }));
 

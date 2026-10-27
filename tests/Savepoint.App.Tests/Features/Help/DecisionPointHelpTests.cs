@@ -166,7 +166,7 @@ public class DecisionPointHelpTests : IDisposable
     {
         var dialog = await _rig.DialogAsync(
             explainDiscard: true,
-            change: preview => preview with { External = preview.External! with { DirtyOwnerProfileId = null } });
+            change: preview => preview.WithFolder(RepoRole.External, saves => saves with { DirtyOwnerProfileId = null }));
 
         var message = await DiscardMessageAsync(dialog, dialog.UnsavedBlocks[0]);
 
@@ -178,10 +178,7 @@ public class DecisionPointHelpTests : IDisposable
     {
         var dialog = await _rig.DialogAsync(
             explainDiscard: true,
-            change: preview => preview with
-            {
-                Install = preview.Install with { Dirty = true, DirtyOwnerProfileId = null, UnfinishedSwitch = true, UnfinishedSwitchTarget = new LaunchTarget.ProfileTip(SampleScenario.ModdedId) },
-            });
+            change: preview => preview.WithFolder(RepoRole.Install, install => install with { Dirty = true, DirtyOwnerProfileId = null, UnfinishedSwitch = true, UnfinishedSwitchTarget = new LaunchTarget.ProfileTip(SampleScenario.ModdedId) }));
 
         var message = await DiscardMessageAsync(dialog, dialog.UnsavedBlocks.Single(block => block.IsUnfinishedSwitch));
 

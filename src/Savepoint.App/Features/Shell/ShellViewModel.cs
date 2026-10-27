@@ -510,13 +510,18 @@ public sealed partial class ShellViewModel : ObservableObject, IShellContext, ID
         }
     }
 
-    /// <summary>Stops following the Api's events.</summary>
+    /// <summary>Stops following the Api's events and lets go of the screens it built, which stops their timers and reads.</summary>
     public void Dispose()
     {
         _disposed = true;
         GameSearch.Dispose();
         _deps.Jobs.JobChanged -= OnJobChanged;
         EndPane(except: null);
+        foreach (var screen in _screens.Values)
+        {
+            (screen as IDisposable)?.Dispose();
+        }
+
         (_deps.Artwork as IDisposable)?.Dispose();
         _deps.LaunchFlow.SettingsSaved -= OnFlowSettingsSaved;
         _deps.Theme.LargestFittingScaleChanged -= OnLargestFittingScaleChanged;

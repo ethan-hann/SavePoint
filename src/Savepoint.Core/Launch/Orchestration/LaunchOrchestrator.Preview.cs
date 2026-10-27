@@ -92,16 +92,14 @@ public sealed partial class LaunchOrchestrator
             game.Id,
             resolved.Profile.Id,
             target,
-            states.Single(state => state.Role == RepoRole.Install),
-            states.FirstOrDefault(state => state.Role == RepoRole.External),
+            states,
             current,
             after,
             resolved.Saves,
             resolved.SelectedSave,
             ShowBanner: readings.All(reading => reading.Matches),
             OnlySaveDiffers: install.Matches && (mods?.Matches ?? true) && external is { Matches: false, Dirty: false },
-            TargetIsOlderPoint: resolved.IsOlderPoint,
-            Mods: states.FirstOrDefault(state => state.Role == RepoRole.Mods));
+            TargetIsOlderPoint: resolved.IsOlderPoint);
     }
 
     private async Task<FolderLaunchState> FolderStateAsync(

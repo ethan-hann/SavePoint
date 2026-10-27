@@ -130,11 +130,8 @@ public class LaunchFlowModsFolderTests : IDisposable
     [Fact]
     public async Task A_file_in_use_in_the_mods_folder_shows_the_card_with_the_file_and_no_dialog()
     {
-        await ScriptAsync(LaunchRig.ModdedTip, p => p with
-        {
-            ShowBanner = false,
-            Mods = new FolderLaunchState(RepoRole.Mods, _modsPath, false, false, 0, null, null, HeldBy: ErrorInfo.From(new GitOperationException(_file, "in use"))),
-        });
+        await ScriptAsync(LaunchRig.ModdedTip, p => (p with { ShowBanner = false })
+            .WithFolder(new FolderLaunchState(RepoRole.Mods, _modsPath, false, false, 0, null, null, HeldBy: ErrorInfo.From(new GitOperationException(_file, "in use")))));
 
         await _f.Play(LaunchRig.ModdedTip);
 
@@ -148,10 +145,7 @@ public class LaunchFlowModsFolderTests : IDisposable
     public async Task Unsaved_changes_in_the_mods_folder_still_ask_even_when_only_the_saves_differ_and_the_player_skips_that_dialog()
     {
         FakeAssert.Ok(await _f.Backend.Settings.SaveAsync(SampleScenario.Settings with { SkipConfirmWhenOnlySaveChanges = true }));
-        await ScriptAsync(LaunchRig.ClearedBlackreachPoint, p => p with
-        {
-            Mods = new FolderLaunchState(RepoRole.Mods, _modsPath, true, true, 3, SampleScenario.ModdedId, null),
-        });
+        await ScriptAsync(LaunchRig.ClearedBlackreachPoint, p => p.WithFolder(new FolderLaunchState(RepoRole.Mods, _modsPath, true, true, 3, SampleScenario.ModdedId, null)));
 
         var begin = _f.Play(LaunchRig.ClearedBlackreachPoint);
 
@@ -168,7 +162,7 @@ public class LaunchFlowModsFolderTests : IDisposable
         await _f.PlayWithProgressAsync();
         var unfinished = new FolderLaunchState(RepoRole.Mods, _modsPath, false, true, 4, null, null, UnfinishedSwitch: true, UnfinishedSwitchTarget: LaunchRig.ModdedTip);
         var key = (FlowRig.Skyrim, LaunchRig.ClearedBlackreachPoint);
-        _f.Backend.State.LaunchPreviews[key] = _f.Backend.State.LaunchPreviews[key] with { Mods = unfinished };
+        _f.Backend.State.LaunchPreviews[key] = _f.Backend.State.LaunchPreviews[key].WithFolder(unfinished);
         _f.Backend.Launch.FailLaunch(FlowRig.Skyrim, ErrorInfo.From(new InterruptedSwitchException(RepoRole.Mods, "0123456789abcdef0123456789abcdef01234567")));
 
         var card = _f.Inline<ErrorCardViewModel>();
@@ -182,7 +176,7 @@ public class LaunchFlowModsFolderTests : IDisposable
     public async Task The_banner_checks_list_the_mods_folder_with_its_path_when_the_game_has_one()
     {
         var preview = await _f.Backend.Launch.GetPreviewAsync(FlowRig.Skyrim, LaunchRig.ModdedTip, TestContext.Current.CancellationToken);
-        var withMods = FakeAssert.Ok(preview) with { Mods = new FolderLaunchState(RepoRole.Mods, _modsPath, true, false, 0, null, null) };
+        var withMods = FakeAssert.Ok(preview).WithFolder(new FolderLaunchState(RepoRole.Mods, _modsPath, true, false, 0, null, null));
 
         var banner = new LaunchBannerViewModel(withMods, "Skyrim Special Edition", "Modded", _f.Rig.Text, _f.Dialogs);
 
@@ -196,7 +190,7 @@ public class LaunchFlowModsFolderTests : IDisposable
     public async Task The_banner_check_of_a_game_version_it_cannot_name_does_not_claim_the_mods_when_the_game_has_a_mods_folder()
     {
         var source = FakeAssert.Ok(await _f.Backend.Launch.GetPreviewAsync(FlowRig.Skyrim, LaunchRig.ModdedTip, TestContext.Current.CancellationToken));
-        var preview = source with { TargetInstall = new InstallState(null, null), Mods = new FolderLaunchState(RepoRole.Mods, _modsPath, true, false, 0, null, null) };
+        var preview = (source with { TargetInstall = new InstallState(null, null) }).WithFolder(new FolderLaunchState(RepoRole.Mods, _modsPath, true, false, 0, null, null));
 
         var banner = new LaunchBannerViewModel(preview, "Skyrim Special Edition", "Modded", _f.Rig.Text, _f.Dialogs);
 
@@ -207,7 +201,9 @@ public class LaunchFlowModsFolderTests : IDisposable
     public async Task A_game_with_a_mods_folder_and_no_saves_folder_says_game_files_and_mods_in_its_last_check()
     {
         var source = FakeAssert.Ok(await _f.Backend.Launch.GetPreviewAsync(FlowRig.Skyrim, LaunchRig.ModdedTip, TestContext.Current.CancellationToken));
-        var preview = source with { External = null, AvailableSaves = [], SelectedSaveId = null, Mods = new FolderLaunchState(RepoRole.Mods, _modsPath, true, false, 0, null, null) };
+        var preview = (source with { AvailableSaves = [], SelectedSaveId = null })
+            .WithoutFolder(RepoRole.External)
+            .WithFolder(new FolderLaunchState(RepoRole.Mods, _modsPath, true, false, 0, null, null));
 
         var banner = new LaunchBannerViewModel(preview, "Skyrim Special Edition", "Modded", _f.Rig.Text, _f.Dialogs);
 

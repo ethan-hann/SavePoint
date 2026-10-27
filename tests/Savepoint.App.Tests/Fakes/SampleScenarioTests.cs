@@ -124,9 +124,10 @@ public class SampleScenarioTests
         Assert.Equal(new InstallState("1.6.1170", 0), preview.CurrentInstall);
         Assert.Equal(new InstallState("1.6.640", 189), preview.TargetInstall);
         Assert.Equal(new SwitchSummary(1_311, 189, 6_100_000_000, TimeSpan.FromMinutes(2)), preview.Install.Switch);
-        Assert.True(preview.External!.Dirty);
-        Assert.Equal(3, preview.External.DirtyFileCount);
-        Assert.Equal(SurvivalId, preview.External.DirtyOwnerProfileId);
+        var saves = preview.Folder(RepoRole.External)!;
+        Assert.True(saves.Dirty);
+        Assert.Equal(3, saves.DirtyFileCount);
+        Assert.Equal(SurvivalId, saves.DirtyOwnerProfileId);
         Assert.Equal(2, preview.AvailableSaves.Count);
         Assert.True(preview.AvailableSaves[0].IsMostRecent);
         Assert.Equal(DeepCaveRun, preview.SelectedSaveId);

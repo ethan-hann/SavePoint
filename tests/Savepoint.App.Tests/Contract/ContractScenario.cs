@@ -103,7 +103,7 @@ internal static class ContractScenario
         backend.ExpectLaunch(game, profileId);
         var tip = new LaunchTarget.ProfileTip(profileId);
         story.Add("launch preview", Show(await backend.Launch.GetPreviewAsync(game.Id, tip, cancellationToken), preview =>
-            $"banner={preview.ShowBanner} older={preview.TargetIsOlderPoint} install matches={preview.Install.MatchesTarget} dirty={preview.Install.Dirty} saves matches={preview.External?.MatchesTarget} saves={preview.AvailableSaves.Count}"));
+            $"banner={preview.ShowBanner} older={preview.TargetIsOlderPoint} install matches={preview.Install.MatchesTarget} dirty={preview.Install.Dirty} saves matches={preview.Folder(RepoRole.External)?.MatchesTarget} saves={preview.AvailableSaves.Count}"));
 
         var started = await backend.Launch.StartAsync(game.Id, tip);
         story.Add("start launch", Show(started, _ => "job started"));
@@ -231,7 +231,7 @@ internal static class ContractScenario
 
     private static string DescribeFolders(LaunchPreview preview, Story story) =>
         $"install unfinished={preview.Install.UnfinishedSwitch} dirty={preview.Install.Dirty} heading for {DescribeTarget(preview.Install.UnfinishedSwitchTarget, story)}; "
-        + $"saves unfinished={preview.External?.UnfinishedSwitch} dirty={preview.External?.Dirty}";
+        + $"saves unfinished={preview.Folder(RepoRole.External)?.UnfinishedSwitch} dirty={preview.Folder(RepoRole.External)?.Dirty}";
 
     private static string DescribeTarget(LaunchTarget? target, Story story) => target switch
     {

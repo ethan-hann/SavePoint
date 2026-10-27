@@ -39,7 +39,7 @@ public class LaunchPreviewSavesTests
 
         var preview = await rig.PreviewAsync(new LaunchTarget.ProfileTip(only.Id));
 
-        Assert.Null(preview.External);
+        Assert.Null(preview.Folder(RepoRole.External));
         Assert.Empty(preview.AvailableSaves);
         Assert.Null(preview.SelectedSaveId);
         Assert.True(preview.ShowBanner);
@@ -75,7 +75,7 @@ public class LaunchPreviewSavesTests
         Assert.True(preview.OnlySaveDiffers);
         Assert.False(preview.ShowBanner);
         Assert.True(preview.Install.MatchesTarget);
-        Assert.False(preview.External!.MatchesTarget);
+        Assert.False(preview.Folder(RepoRole.External)!.MatchesTarget);
         Assert.Equal(older.Id, preview.SelectedSaveId);
         Assert.Equal(3, preview.AvailableSaves.Count);
     }
@@ -103,8 +103,8 @@ public class LaunchPreviewSavesTests
         Assert.True(preview.TargetIsOlderPoint);
         Assert.True(preview.Install.MatchesTarget);
         Assert.Equal(1, preview.CurrentInstall.ModFileCount);
-        Assert.False(preview.External!.MatchesTarget);
-        Assert.Equal(1, preview.External.Switch!.FilesChanged);
+        Assert.False(preview.Folder(RepoRole.External)!.MatchesTarget);
+        Assert.Equal(1, preview.Folder(RepoRole.External)!.Switch!.FilesChanged);
         Assert.Equal(new HistoryPointId(first), preview.SelectedSaveId);
     }
 }

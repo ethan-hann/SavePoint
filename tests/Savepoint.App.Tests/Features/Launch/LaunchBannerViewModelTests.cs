@@ -4,6 +4,7 @@ using Savepoint.App.Localization;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Theme;
 using Savepoint.Core.Api;
+using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Tests.Features.Launch;
 
@@ -67,7 +68,7 @@ public class LaunchBannerViewModelTests
     [Fact]
     public async Task A_game_with_no_saves_folder_checks_only_the_game_files()
     {
-        var preview = (await PreviewAsync(SampleScenario.SkyrimId, new LaunchTarget.ProfileTip(SampleScenario.ModdedId))) with { External = null, AvailableSaves = [], SelectedSaveId = null };
+        var preview = (await PreviewAsync(SampleScenario.SkyrimId, new LaunchTarget.ProfileTip(SampleScenario.ModdedId))).WithoutFolder(RepoRole.External) with { AvailableSaves = [], SelectedSaveId = null };
 
         var banner = Banner(preview);
 

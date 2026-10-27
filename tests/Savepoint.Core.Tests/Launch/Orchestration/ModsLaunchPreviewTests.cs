@@ -20,7 +20,7 @@ public class ModsLaunchPreviewTests
 
         var preview = await rig.PreviewAsync(Tip(vanilla));
 
-        var mods = Assert.IsType<FolderLaunchState>(preview.Mods);
+        var mods = Assert.IsType<FolderLaunchState>(preview.Folder(RepoRole.Mods));
         Assert.Equal(RepoRole.Mods, mods.Role);
         Assert.Equal(rig.ModsPath(), mods.Path);
         Assert.False(mods.MatchesTarget);
@@ -36,7 +36,7 @@ public class ModsLaunchPreviewTests
         var (rig, vanilla, _) = await LaunchRig.WithTwoProfilesAsync();
         using var _ = rig;
 
-        Assert.Null((await rig.PreviewAsync(Tip(vanilla))).Mods);
+        Assert.Null((await rig.PreviewAsync(Tip(vanilla))).Folder(RepoRole.Mods));
     }
 
     [Fact(Timeout = 240_000)]
@@ -78,7 +78,7 @@ public class ModsLaunchPreviewTests
         var preview = await rig.PreviewAsync(Tip(vanilla));
         var blocked = await rig.StartAsync(Tip(vanilla));
 
-        var mods = Assert.IsType<FolderLaunchState>(preview.Mods);
+        var mods = Assert.IsType<FolderLaunchState>(preview.Folder(RepoRole.Mods));
         Assert.True(mods.Dirty);
         Assert.Equal(1, mods.DirtyFileCount);
         Assert.Equal(1, mods.DirtyNewFileCount);
@@ -134,9 +134,9 @@ public class ModsLaunchPreviewTests
         await rig.CaptureAsync(modded, "More mods and saves", RepoRole.Mods, RepoRole.External);
         var modsToo = await rig.PreviewAsync(new LaunchTarget.Point(first.Id));
 
-        Assert.True(savesOnly.Mods!.MatchesTarget);
+        Assert.True(savesOnly.Folder(RepoRole.Mods)!.MatchesTarget);
         Assert.True(savesOnly.OnlySaveDiffers);
-        Assert.False(modsToo.Mods!.MatchesTarget);
+        Assert.False(modsToo.Folder(RepoRole.Mods)!.MatchesTarget);
         Assert.False(modsToo.OnlySaveDiffers);
     }
 
@@ -200,12 +200,12 @@ public class ModsLaunchPreviewTests
 
         var preview = await rig.PreviewAsync(Tip(modded));
 
-        var mods = Assert.IsType<FolderLaunchState>(preview.Mods);
+        var mods = Assert.IsType<FolderLaunchState>(preview.Folder(RepoRole.Mods));
         Assert.True(mods.UnfinishedSwitch);
         Assert.True(mods.Dirty);
         Assert.Equal(Tip(vanilla), mods.UnfinishedSwitchTarget);
         Assert.False(preview.Install.UnfinishedSwitch);
-        Assert.False(preview.External!.UnfinishedSwitch);
+        Assert.False(preview.Folder(RepoRole.External)!.UnfinishedSwitch);
     }
 
     [Fact(Timeout = 240_000)]
@@ -244,6 +244,6 @@ public class ModsLaunchPreviewTests
 
         var preview = await rig.PreviewAsync(Tip(modded));
 
-        Assert.Equal(new LaunchTarget.Point(older.Id), preview.Mods!.UnfinishedSwitchTarget);
+        Assert.Equal(new LaunchTarget.Point(older.Id), preview.Folder(RepoRole.Mods)!.UnfinishedSwitchTarget);
     }
 }
