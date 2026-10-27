@@ -39,11 +39,9 @@ public sealed partial class ClearAllDataSectionViewModel : ObservableObject
         _deps = dependencies;
         _store = store;
         _shell = shell;
-        RemoveCommand = new AsyncRelayCommand(RemoveAsync, () => !IsClearing);
     }
 
-    /// <summary>Reads what would go, asks for the typed word, and starts the removal.</summary>
-    public IAsyncRelayCommand RemoveCommand { get; }
+    private bool CanRemove => !IsClearing;
 
     // Takes up a removal that is already running when the screen is opened.
     internal void Seed(IReadOnlyList<JobSnapshot> jobs)
@@ -97,6 +95,8 @@ public sealed partial class ClearAllDataSectionViewModel : ObservableObject
         }
     }
 
+    // The generated RemoveCommand reads what would go, asks for the typed word, and starts the removal.
+    [RelayCommand(CanExecute = nameof(CanRemove))]
     private async Task RemoveAsync()
     {
         Problem = null;

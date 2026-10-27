@@ -151,11 +151,9 @@ public sealed partial class StartupViewModel : ObservableObject
     /// <summary>True when <see cref="StorageActionErrorPath"/> has a folder to show under the error.</summary>
     public bool HasStorageActionErrorPath => StorageActionErrorPath is not null;
 
-    /// <summary>Opens the log folder; says so in <see cref="LogFolderError"/> when the file manager cannot be started.</summary>
-    public IRelayCommand OpenLogFolderCommand => field ??= new RelayCommand(OpenLogFolder);
-
-    /// <summary>Runs the checks again.</summary>
-    public IAsyncRelayCommand CheckAgainCommand => field ??= new AsyncRelayCommand(CheckAsync);
+    // The generated CheckAgainCommand runs the checks again.
+    [RelayCommand]
+    private Task CheckAgain() => CheckAsync();
 
     /// <summary>Runs the checks and moves to the matching phase.</summary>
     public async Task CheckAsync()
@@ -348,6 +346,8 @@ public sealed partial class StartupViewModel : ObservableObject
         StorageActionErrorPath = null;
     }
 
+    // The generated OpenLogFolderCommand opens the log folder; it says so in LogFolderError when the file manager cannot be started.
+    [RelayCommand]
     private void OpenLogFolder() =>
         LogFolderError = _logFolder is { } folder && (_revealer?.Reveal(folder) ?? false) ? null : _text.Message("startup.logFolderFailed");
 

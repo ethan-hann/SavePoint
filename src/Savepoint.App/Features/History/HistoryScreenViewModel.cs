@@ -172,8 +172,6 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
         ViewLabel = text.Message("history.view.label");
         _currentViewOption = ViewOptions[0];
         _selectedViewOption = _currentViewOption;
-        RetryCommand = new AsyncRelayCommand(ReloadAsync);
-        ShowAllProfilesCommand = new RelayCommand(ShowAllProfiles);
         SnapshotHelp = ContextualHelp.Snapshot(text, shell.ShowHelp);
 
         shell.PropertyChanged += OnShellPropertyChanged;
@@ -250,12 +248,6 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
 
     /// <summary>What the section says about the snapshots: they belong to no profile, and are deleted for good the next time space is freed up.</summary>
     public string RemovedNote => _deps.Text.Message("history.removed.note");
-
-    /// <summary>Reads the history again after a failure.</summary>
-    public IAsyncRelayCommand RetryCommand { get; }
-
-    /// <summary>Clears the profile filter; offered on the empty state of a profile with no points.</summary>
-    public IRelayCommand ShowAllProfilesCommand { get; }
 
     /// <inheritdoc />
     public void OnShown() => _ = ReloadAsync();
@@ -395,6 +387,12 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
         }
     }
 
+    // The generated RetryCommand reads the history again after a failure.
+    [RelayCommand]
+    private Task Retry() => ReloadAsync();
+
+    // The generated ShowAllProfilesCommand clears the profile filter; offered on the empty state of a profile with no points.
+    [RelayCommand]
     private void ShowAllProfiles()
     {
         if (Filters.Count > 0)
