@@ -360,7 +360,7 @@ Behavior stays as the launch dialog defines it. Settings gives the switch its ow
 
 ## D36. Calls on the UX and accessibility review's open questions
 
-- **OS scaling (OQ1).** SavePoint works at 150% on 1366x768 and 200% on 1920x1080, about 960x490 logical pixels after the taskbar. The window's minimum size fits that, every screen scrolls vertically instead of clipping, and headless renders at those sizes prove it.
+- **OS scaling (OQ1).** SavePoint works at 150% on 1366x768 and 200% on 1920x1080, about 960x490 logical pixels after the taskbar. The window's minimum size fits that (times the Interface size, D63), every screen scrolls vertically instead of clipping, and headless renders at those sizes prove it.
 - **Slow scans (OQ2).** Play shows "Checking your files..." at once, before the preview returns; "Save them first" shows progress too. The log (D34) times the scans.
 - **Screen readers (OQ3).** Live regions raise the UI Automation live-region event when their text changes, and banners and error cards are announced when they appear; tests assert the events. A manual Narrator and NVDA pass is on the dogfood run, since it cannot be automated here.
 - **Focus after a refresh (OQ4) and the History filter's arrow keys (OQ8):** a headless test settles each.
@@ -744,3 +744,12 @@ SavePoint turns git's symlink support off on Windows (creating a link needs Deve
 3. **A switch or discard to a snapshot that already holds link entries is refused on Windows before anything is written** (`error.switch.snapshotHasLinks`): snapshots taken before this rule may hold them, and putting them back would write text files. The launch asks every later folder first (D61.4), so no folder is half-switched. The player's other profiles still work.
 4. **The check reads the attributes that come with listing each folder once:** 28 ms for 100,000 files in 1,100 folders, against 1.6 s for a file query per file on all cores. Asking git for link entries only works after staging, too late to refuse before anything is staged and unusable in the preview. Files compressed with `compact` (CompactGUI) are not reparse points and cost nothing extra.
 5. **Linux and macOS store and restore links natively** and are not affected.
+
+## D63. Interface size
+
+On large, high-resolution screens SavePoint looked small (#199). Settings > Appearance has an Interface size of 100, 125, 150, 175 or 200%, on top of the OS's own scaling, applied at once to the window, its dialogs, menus, flyouts and tooltips.
+
+1. **A layout transform at the window's root.** Avalonia's top level offers only a render transform, which blurs text and does not reflow the layout. A layout transform scales text, spacing and hit targets together; every popup takes its anchor's transform. The crash and "already running" windows stay at 100%: they are kept minimal so they work when the rest of the app does not.
+2. **Only sizes the screen can hold are offered.** The screens are built for 640x420 (D36), so a size needs that room times the size in the working area of the window's screen. A size that does not fit is switched off with the reason, read out by screen readers, so the control that undoes a size is always reachable. A saved size that no longer fits (a smaller monitor) is drawn at the largest size that fits and comes back when there is room; the saved choice is never changed.
+3. **The window follows its screen.** The minimum size is the 100% minimum times the size, capped to the working area, worked out again when the window moves to another screen, the screen's scaling changes, or the size changes; a window that grows is moved to stay on screen.
+4. **The saved size applies before the window is shown,** so the window opens centered at its final size instead of jumping after the first frame. The setting is `uiScalePercent`; an older settings file reads 100, and an out-of-range value is drawn at the nearest step.
