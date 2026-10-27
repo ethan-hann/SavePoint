@@ -12,6 +12,11 @@ public interface IScreen
 
     /// <summary>Called each time the shell switches to this screen, so it can refresh what it shows. Starts its own async work; the shell does not wait.</summary>
     void OnShown();
+
+    /// <summary>Called each time the shell switches away from this screen, so it can stop work that only matters while it is on show. Does nothing by default.</summary>
+    void OnHidden()
+    {
+    }
 }
 
 /// <summary>

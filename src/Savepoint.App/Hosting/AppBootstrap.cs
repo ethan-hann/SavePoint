@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using Savepoint.App.Features.Settings;
 using Savepoint.App.Platform;
+using Savepoint.App.Platform.FolderWatching;
 using Savepoint.Core.Api;
 using Savepoint.Core.Backend;
 using Savepoint.Core.Diagnostics;
@@ -51,7 +52,7 @@ public static class AppBootstrap
 
             diagnostics.Information($"SavePoint {build ?? SettingsEnvironment.ThisAppBuild()} started on {RuntimeInformation.OSDescription} ({RuntimeInformation.OSArchitecture}), {RuntimeInformation.FrameworkDescription}.");
             var backend = CoreBackend.Create(options with { Platform = platform, Log = diagnostics });
-            return new BootstrapResult(ServicesOf(backend, logFolder), backend, null, diagnostics);
+            return new BootstrapResult(ServicesOf(backend, logFolder, diagnostics), backend, null, diagnostics);
         }
         catch (Exception e) when (e is not OutOfMemoryException)
         {
@@ -65,10 +66,12 @@ public static class AppBootstrap
     /// <summary>The Api of a running backend, with the platform's file manager for revealing files.</summary>
     /// <param name="backend">The running backend.</param>
     /// <param name="logFolder">Where the diagnostic log is written, for the screens that offer to open it; null when there is no log folder.</param>
-    public static AppServices ServicesOf(CoreBackend backend, string? logFolder = null) =>
+    /// <param name="log">Where a game folder that cannot be watched is noted; nothing is written when null.</param>
+    public static AppServices ServicesOf(CoreBackend backend, string? logFolder = null, IDiagnosticLog? log = null) =>
         new(backend.Games, backend.Profiles, backend.Launch, backend.Settings, backend.History, backend.Jobs, backend.AppStatus, backend.Artwork)
         {
             FileRevealer = new FileManagerRevealer(FileManager.CreateForCurrentOs()),
+            FolderWatcher = new FileSystemFolderWatcher(log ?? DiagnosticLog.None),
             LogFolder = logFolder,
         };
 

@@ -1,4 +1,5 @@
 using Savepoint.App.Features.Settings;
+using Savepoint.App.Platform.FolderWatching;
 using Savepoint.Core.Api;
 
 namespace Savepoint.App;
@@ -30,6 +31,12 @@ public sealed record AppServices(
     /// the screens that need it bring their own.
     /// </summary>
     public IFileRevealer? FileRevealer { get; init; }
+
+    /// <summary>
+    /// Watches game folders for changes; the running app supplies the file-system one. Null in tests, where the Games screen then
+    /// watches nothing and refreshes only when asked.
+    /// </summary>
+    public IFolderWatcher? FolderWatcher { get; init; }
 
     /// <summary>
     /// False when the backend failed to start and every Api answers the same failure; the startup screen then asks the user to restart

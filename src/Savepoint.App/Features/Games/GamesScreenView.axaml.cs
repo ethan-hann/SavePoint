@@ -12,6 +12,7 @@ namespace Savepoint.App.Features.Games;
 public partial class GamesScreenView : UserControl
 {
     private GamesScreenViewModel? _screen;
+    private Window? _window;
 
     // True while the cursor is in whichever profile search shows. Hiding the box that has focus drops focus, so this is what tells the
     // other box to take it.
@@ -34,6 +35,31 @@ public partial class GamesScreenView : UserControl
         AddHandler(KeyDownEvent, OnKeyDown);
         AddHandler(ContextRequestedEvent, OnContextRequested, RoutingStrategies.Tunnel);
     }
+
+    /// <inheritdoc />
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        _window = TopLevel.GetTopLevel(this) as Window;
+        if (_window is not null)
+        {
+            _window.Activated += OnWindowActivated;
+        }
+    }
+
+    /// <inheritdoc />
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        if (_window is not null)
+        {
+            _window.Activated -= OnWindowActivated;
+            _window = null;
+        }
+
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    private void OnWindowActivated(object? sender, EventArgs e) => _screen?.OnWindowActivated();
 
     /// <inheritdoc />
     protected override void OnDataContextChanged(EventArgs e)
