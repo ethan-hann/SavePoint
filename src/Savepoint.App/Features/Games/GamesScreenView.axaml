@@ -162,172 +162,172 @@
     </Grid>
 
     <Grid x:Name="ProfilesBody" Grid.Row="2" RowDefinitions="Auto,*">
-    <!-- Pinned above the table while the pane is tall enough, so a long list of profiles scrolls under it. -->
-    <Panel x:Name="PinnedSearchHost" Margin="0,12,0,0" IsVisible="{Binding ShowPinnedSearch}">
-      <search:SearchBoxView x:Name="ProfileSearchBox" DataContext="{Binding ProfileSearch}" />
-    </Panel>
-    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,12,0,0">
-      <StackPanel VerticalAlignment="Top" Spacing="12">
-        <!-- In a short pane the same search goes first in the scrolling profiles, so the table keeps all the room. Focusing it brings it into view. -->
-        <Panel x:Name="ScrollingSearchHost" IsVisible="{Binding ShowScrollingSearch}">
-          <search:SearchBoxView x:Name="ScrollingProfileSearchBox" DataContext="{Binding ProfileSearch}" />
-        </Panel>
-        <ContentControl x:Name="LoadErrorHost" Content="{Binding LoadError}" IsVisible="{Binding LoadError, Converter={x:Static ObjectConverters.IsNotNull}}" />
+      <!-- Pinned above the table while the pane is tall enough, so a long list of profiles scrolls under it. -->
+      <Panel x:Name="PinnedSearchHost" Margin="0,12,0,0" IsVisible="{Binding ShowPinnedSearch}">
+        <search:SearchBoxView x:Name="ProfileSearchBox" DataContext="{Binding ProfileSearch}" />
+      </Panel>
+      <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,12,0,0">
+        <StackPanel VerticalAlignment="Top" Spacing="12">
+          <!-- In a short pane the same search goes first in the scrolling profiles, so the table keeps all the room. Focusing it brings it into view. -->
+          <Panel x:Name="ScrollingSearchHost" IsVisible="{Binding ShowScrollingSearch}">
+            <search:SearchBoxView x:Name="ScrollingProfileSearchBox" DataContext="{Binding ProfileSearch}" />
+          </Panel>
+          <ContentControl x:Name="LoadErrorHost" Content="{Binding LoadError}" IsVisible="{Binding LoadError, Converter={x:Static ObjectConverters.IsNotNull}}" />
 
-        <!-- The first read of a game's profiles: said out loud, so an empty page is never mistaken for lost profiles. -->
-        <Border x:Name="LoadingState"
-                Classes="panel"
-                Padding="24,22"
-                IsVisible="{Binding ShowLoading}"
-                AutomationProperties.Name="{loc:Loc games.profileTable.loading}"
-                AutomationProperties.LiveSetting="Polite">
-          <StackPanel Spacing="12">
-            <TextBlock Classes="card-title" Text="{loc:Loc games.profileTable.loading}" />
-            <ProgressBar IsIndeterminate="True" AutomationProperties.Name="{loc:Loc games.profileTable.loading}" />
-          </StackPanel>
-        </Border>
+          <!-- The first read of a game's profiles: said out loud, so an empty page is never mistaken for lost profiles. -->
+          <Border x:Name="LoadingState"
+                  Classes="panel"
+                  Padding="24,22"
+                  IsVisible="{Binding ShowLoading}"
+                  AutomationProperties.Name="{loc:Loc games.profileTable.loading}"
+                  AutomationProperties.LiveSetting="Polite">
+            <StackPanel Spacing="12">
+              <TextBlock Classes="card-title" Text="{loc:Loc games.profileTable.loading}" />
+              <ProgressBar IsIndeterminate="True" AutomationProperties.Name="{loc:Loc games.profileTable.loading}" />
+            </StackPanel>
+          </Border>
 
-        <!-- The profile table: grid columns 1fr 84 76 86 and an actions column as wide as its widest button, with a 14px gap; the optional columns drop out as the window narrows. -->
-        <Border x:Name="Table" Classes="table" IsVisible="{Binding ShowRows}" AutomationProperties.ControlTypeOverride="Table" AutomationProperties.Name="{loc:Loc games.profileTable.automationName}">
-          <!-- The actions column is as wide as the widest row's button ("Switch and play" in the current language), and the header follows it. -->
-          <StackPanel Grid.IsSharedSizeScope="True">
-            <Border x:Name="TableHeader" Classes="table-header" AutomationProperties.ControlTypeOverride="Header">
-              <Grid>
-                <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="*" />
-                  <ColumnDefinition Width="Auto" />
-                  <ColumnDefinition Width="Auto" />
-                  <ColumnDefinition Width="Auto" />
-                  <ColumnDefinition Width="Auto" SharedSizeGroup="ProfileActions" />
-                </Grid.ColumnDefinitions>
-                <!-- While a search narrows the table, the count sits beside the heading so a player scrolled down still sees a filter is on. -->
-                <StackPanel Orientation="Horizontal" Spacing="12">
-                  <TextBlock Classes="overline-small" Text="{theme:Upper {loc:Loc games.profileTable.column.profile}}" />
-                  <TextBlock x:Name="ProfileCountLine" Classes="caption" FontSize="11.5" VerticalAlignment="Center" IsVisible="{Binding ShowProfileCount}" Text="{Binding ProfileCountText}" />
-                </StackPanel>
-                <TextBlock x:Name="VersionHeader" Grid.Column="1" Classes="overline-small" Width="84" Margin="14,0,0,0" IsVisible="{Binding Columns.ShowVersion}" Text="{theme:Upper {loc:Loc games.profileTable.column.version}}" />
-                <TextBlock x:Name="ModFilesHeader" Grid.Column="2" Classes="overline-small" Width="76" Margin="14,0,0,0" IsVisible="{Binding Columns.ShowModFiles}" Text="{theme:Upper {loc:Loc games.profileTable.column.modFiles}}" />
-                <TextBlock x:Name="LastPlayedHeader" Grid.Column="3" Classes="overline-small" Width="86" Margin="14,0,0,0" Text="{theme:Upper {loc:Loc games.profileTable.column.lastPlayed}}" />
-                <Border Grid.Column="4" Margin="14,0,0,0" />
-              </Grid>
-            </Border>
-            <ItemsControl x:Name="Rows" ItemsSource="{Binding VisibleProfiles}">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="games:ProfileRowViewModel">
-                  <Border Classes="table-row"
-                          Classes.selected="{Binding IsActive}"
-                          AutomationProperties.ControlTypeOverride="DataItem"
-                          AutomationProperties.Name="{Binding AutomationName}"
-                          AutomationProperties.HelpText="{Binding HelpText}"
-                          ToolTip.Tip="{Binding HelpText}">
-                    <!-- Right-click, the menu key and Shift+F10 open the same list More actions shows; it is an addition, not a replacement. -->
-                    <Border.ContextFlyout>
-                      <MenuFlyout Placement="Pointer"
-                                  ItemsSource="{Binding MenuEntries}"
-                                  ItemContainerTheme="{StaticResource ProfileMenuItemTheme}" />
-                    </Border.ContextFlyout>
-                    <Grid>
-                      <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" SharedSizeGroup="ProfileActions" />
-                      </Grid.ColumnDefinitions>
-                      <!-- A grid, not a horizontal stack, so a long name is cut short at the column's edge instead of running under the next one. -->
-                      <Grid x:Name="ProfileNameCell" ColumnDefinitions="Auto,*">
-                        <Border Classes="profile-dot" Classes.active="{Binding IsActive}" Margin="0,0,10,0" />
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                          <TextBlock Classes="row-title" TextTrimming="CharacterEllipsis" Text="{Binding Name}" />
-                          <TextBlock FontSize="10.5"
-                                     TextTrimming="CharacterEllipsis"
-                                     Classes.accent="{Binding IsActiveLine}"
-                                     Classes.error="{Binding IsUnsavedLine}"
-                                     Classes.subtle="{Binding IsPlainLine}"
-                                     IsVisible="{Binding SecondaryText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                     Text="{Binding SecondaryText}" />
-                          <!-- The player's own note, cut at two lines; the whole text is in the tip. -->
-                          <TextBlock x:Name="NotesText"
-                                     Classes="subtle"
-                                     FontSize="10.5"
-                                     Margin="0,2,0,0"
-                                     TextWrapping="Wrap"
-                                     MaxLines="2"
-                                     TextTrimming="CharacterEllipsis"
-                                     IsVisible="{Binding HasNotes}"
-                                     ToolTip.Tip="{Binding NotesTip}"
-                                     Text="{Binding NotesText}" />
-                        </StackPanel>
-                      </Grid>
-                      <TextBlock Grid.Column="1" Width="84" Margin="14,0,0,0" VerticalAlignment="Center" IsVisible="{Binding Columns.ShowVersion}" Text="{Binding VersionText}" />
-                      <TextBlock Grid.Column="2" Width="76" Margin="14,0,0,0" VerticalAlignment="Center" IsVisible="{Binding Columns.ShowModFiles}" Text="{Binding ModFilesText}" />
-                      <TextBlock Grid.Column="3" Width="86" Margin="14,0,0,0" VerticalAlignment="Center" Text="{Binding LastPlayedText}" />
-                      <Grid Grid.Column="4" Margin="14,0,0,0" HorizontalAlignment="Right" ColumnDefinitions="Auto,Auto">
-                        <Button x:Name="PlayButton"
-                                Grid.Column="0"
-                                Classes="row"
-                                Classes.filled="{Binding IsActive}"
-                                Padding="14,6"
-                                Command="{Binding PlayCommand}"
-                                ToolTip.Tip="{Binding PlayDisabledReason}"
-                                ToolTip.ShowOnDisabled="True"
-                                AutomationProperties.Name="{Binding PlayAutomationName}">
-                          <StackPanel Orientation="Horizontal" Spacing="6">
-                            <TextBlock Classes="icon s16" Text="{x:Static theme:Icons.PlayArrow}" />
-                            <TextBlock Text="{Binding PlayLabel}" />
+          <!-- The profile table: grid columns 1fr 84 76 86 and an actions column as wide as its widest button, with a 14px gap; the optional columns drop out as the window narrows. -->
+          <Border x:Name="Table" Classes="table" IsVisible="{Binding ShowRows}" AutomationProperties.ControlTypeOverride="Table" AutomationProperties.Name="{loc:Loc games.profileTable.automationName}">
+            <!-- The actions column is as wide as the widest row's button ("Switch and play" in the current language), and the header follows it. -->
+            <StackPanel Grid.IsSharedSizeScope="True">
+              <Border x:Name="TableHeader" Classes="table-header" AutomationProperties.ControlTypeOverride="Header">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="ProfileActions" />
+                  </Grid.ColumnDefinitions>
+                  <!-- While a search narrows the table, the count sits beside the heading so a player scrolled down still sees a filter is on. -->
+                  <StackPanel Orientation="Horizontal" Spacing="12">
+                    <TextBlock Classes="overline-small" Text="{theme:Upper {loc:Loc games.profileTable.column.profile}}" />
+                    <TextBlock x:Name="ProfileCountLine" Classes="caption" FontSize="11.5" VerticalAlignment="Center" IsVisible="{Binding ShowProfileCount}" Text="{Binding ProfileCountText}" />
+                  </StackPanel>
+                  <TextBlock x:Name="VersionHeader" Grid.Column="1" Classes="overline-small" Width="84" Margin="14,0,0,0" IsVisible="{Binding Columns.ShowVersion}" Text="{theme:Upper {loc:Loc games.profileTable.column.version}}" />
+                  <TextBlock x:Name="ModFilesHeader" Grid.Column="2" Classes="overline-small" Width="76" Margin="14,0,0,0" IsVisible="{Binding Columns.ShowModFiles}" Text="{theme:Upper {loc:Loc games.profileTable.column.modFiles}}" />
+                  <TextBlock x:Name="LastPlayedHeader" Grid.Column="3" Classes="overline-small" Width="86" Margin="14,0,0,0" Text="{theme:Upper {loc:Loc games.profileTable.column.lastPlayed}}" />
+                  <Border Grid.Column="4" Margin="14,0,0,0" />
+                </Grid>
+              </Border>
+              <ItemsControl x:Name="Rows" ItemsSource="{Binding VisibleProfiles}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="games:ProfileRowViewModel">
+                    <Border Classes="table-row"
+                            Classes.selected="{Binding IsActive}"
+                            AutomationProperties.ControlTypeOverride="DataItem"
+                            AutomationProperties.Name="{Binding AutomationName}"
+                            AutomationProperties.HelpText="{Binding HelpText}"
+                            ToolTip.Tip="{Binding HelpText}">
+                      <!-- Right-click, the menu key and Shift+F10 open the same list More actions shows; it is an addition, not a replacement. -->
+                      <Border.ContextFlyout>
+                        <MenuFlyout Placement="Pointer"
+                                    ItemsSource="{Binding MenuEntries}"
+                                    ItemContainerTheme="{StaticResource ProfileMenuItemTheme}" />
+                      </Border.ContextFlyout>
+                      <Grid>
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="*" />
+                          <ColumnDefinition Width="Auto" />
+                          <ColumnDefinition Width="Auto" />
+                          <ColumnDefinition Width="Auto" />
+                          <ColumnDefinition Width="Auto" SharedSizeGroup="ProfileActions" />
+                        </Grid.ColumnDefinitions>
+                        <!-- A grid, not a horizontal stack, so a long name is cut short at the column's edge instead of running under the next one. -->
+                        <Grid x:Name="ProfileNameCell" ColumnDefinitions="Auto,*">
+                          <Border Classes="profile-dot" Classes.active="{Binding IsActive}" Margin="0,0,10,0" />
+                          <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Classes="row-title" TextTrimming="CharacterEllipsis" Text="{Binding Name}" />
+                            <TextBlock FontSize="10.5"
+                                       TextTrimming="CharacterEllipsis"
+                                       Classes.accent="{Binding IsActiveLine}"
+                                       Classes.error="{Binding IsUnsavedLine}"
+                                       Classes.subtle="{Binding IsPlainLine}"
+                                       IsVisible="{Binding SecondaryText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                       Text="{Binding SecondaryText}" />
+                            <!-- The player's own note, cut at two lines; the whole text is in the tip. -->
+                            <TextBlock x:Name="NotesText"
+                                       Classes="subtle"
+                                       FontSize="10.5"
+                                       Margin="0,2,0,0"
+                                       TextWrapping="Wrap"
+                                       MaxLines="2"
+                                       TextTrimming="CharacterEllipsis"
+                                       IsVisible="{Binding HasNotes}"
+                                       ToolTip.Tip="{Binding NotesTip}"
+                                       Text="{Binding NotesText}" />
                           </StackPanel>
-                        </Button>
-                        <Button x:Name="MoreButton"
-                                Grid.Column="1"
-                                Classes="icon"
-                                Margin="6,0,0,0"
-                                MinWidth="32"
-                                MinHeight="32"
-                                AutomationProperties.Name="{Binding MoreActionsAutomationName}"
-                                ToolTip.Tip="{Binding MoreActionsAutomationName}">
-                          <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.MoreVert}" />
-                          <Button.Flyout>
-                            <MenuFlyout Placement="BottomEdgeAlignedRight"
-                                        ItemsSource="{Binding MenuEntries}"
-                                        ItemContainerTheme="{StaticResource ProfileMenuItemTheme}" />
-                          </Button.Flyout>
-                        </Button>
+                        </Grid>
+                        <TextBlock Grid.Column="1" Width="84" Margin="14,0,0,0" VerticalAlignment="Center" IsVisible="{Binding Columns.ShowVersion}" Text="{Binding VersionText}" />
+                        <TextBlock Grid.Column="2" Width="76" Margin="14,0,0,0" VerticalAlignment="Center" IsVisible="{Binding Columns.ShowModFiles}" Text="{Binding ModFilesText}" />
+                        <TextBlock Grid.Column="3" Width="86" Margin="14,0,0,0" VerticalAlignment="Center" Text="{Binding LastPlayedText}" />
+                        <Grid Grid.Column="4" Margin="14,0,0,0" HorizontalAlignment="Right" ColumnDefinitions="Auto,Auto">
+                          <Button x:Name="PlayButton"
+                                  Grid.Column="0"
+                                  Classes="row"
+                                  Classes.filled="{Binding IsActive}"
+                                  Padding="14,6"
+                                  Command="{Binding PlayCommand}"
+                                  ToolTip.Tip="{Binding PlayDisabledReason}"
+                                  ToolTip.ShowOnDisabled="True"
+                                  AutomationProperties.Name="{Binding PlayAutomationName}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                              <TextBlock Classes="icon s16" Text="{x:Static theme:Icons.PlayArrow}" />
+                              <TextBlock Text="{Binding PlayLabel}" />
+                            </StackPanel>
+                          </Button>
+                          <Button x:Name="MoreButton"
+                                  Grid.Column="1"
+                                  Classes="icon"
+                                  Margin="6,0,0,0"
+                                  MinWidth="32"
+                                  MinHeight="32"
+                                  AutomationProperties.Name="{Binding MoreActionsAutomationName}"
+                                  ToolTip.Tip="{Binding MoreActionsAutomationName}">
+                            <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.MoreVert}" />
+                            <Button.Flyout>
+                              <MenuFlyout Placement="BottomEdgeAlignedRight"
+                                          ItemsSource="{Binding MenuEntries}"
+                                          ItemContainerTheme="{StaticResource ProfileMenuItemTheme}" />
+                            </Button.Flyout>
+                          </Button>
+                        </Grid>
                       </Grid>
-                    </Grid>
-                  </Border>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-          </StackPanel>
-        </Border>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
 
-        <!-- A search that matches no profile. -->
-        <StackPanel x:Name="NoProfileMatches" Orientation="Horizontal" Spacing="8" IsVisible="{Binding ShowNoProfileMatches}">
-          <TextBlock Classes="body subtle" VerticalAlignment="Center" Text="{Binding NoProfileMatchesText}" />
-          <Button x:Name="ProfileClearSearchButton" Classes="text pill" Padding="10,4" Command="{Binding ProfileSearch.ClearCommand}" Content="{loc:Loc search.clear}" />
+          <!-- A search that matches no profile. -->
+          <StackPanel x:Name="NoProfileMatches" Orientation="Horizontal" Spacing="8" IsVisible="{Binding ShowNoProfileMatches}">
+            <TextBlock Classes="body subtle" VerticalAlignment="Center" Text="{Binding NoProfileMatchesText}" />
+            <Button x:Name="ProfileClearSearchButton" Classes="text pill" Padding="10,4" Command="{Binding ProfileSearch.ClearCommand}" Content="{loc:Loc search.clear}" />
+          </StackPanel>
+
+          <!-- A game with no profiles yet. -->
+          <Border x:Name="EmptyState" Classes="panel" Padding="32,36" IsVisible="{Binding ShowEmptyState}">
+            <StackPanel Spacing="14" HorizontalAlignment="Center" MaxWidth="420">
+              <Border Width="56" Height="56" HorizontalAlignment="Center" CornerRadius="16" Background="{DynamicResource Md3SurfaceContainerBrush}">
+                <TextBlock Classes="icon s28 accent" HorizontalAlignment="Center" Text="{x:Static theme:Icons.BookmarkAdd}" />
+              </Border>
+              <TextBlock Classes="section-title" TextAlignment="Center" Text="{loc:Loc games.profileTable.emptyTitle}" />
+              <TextBlock Classes="body muted" TextAlignment="Center" TextWrapping="Wrap" Text="{loc:Loc games.profileTable.empty}" />
+              <Button x:Name="EmptyNewProfileButton" Classes="filled pill large" HorizontalAlignment="Center" Command="{Binding NewProfileCommand}" AutomationProperties.Name="{loc:Loc games.header.newProfile}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.Add}" />
+                  <TextBlock Classes="header-words" Text="{loc:Loc games.header.newProfile}" />
+                </StackPanel>
+              </Button>
+            </StackPanel>
+          </Border>
+
+          <!-- A failure or partial-result card for this game, below the table where it can use the pane's height; so is a launch card in a pane too short to pin it. -->
+          <ContentControl x:Name="ScrollingContentHost" IsVisible="{Binding HasScrollingContent}" Content="{Binding ScrollingContent}" />
         </StackPanel>
-
-        <!-- A game with no profiles yet. -->
-        <Border x:Name="EmptyState" Classes="panel" Padding="32,36" IsVisible="{Binding ShowEmptyState}">
-          <StackPanel Spacing="14" HorizontalAlignment="Center" MaxWidth="420">
-            <Border Width="56" Height="56" HorizontalAlignment="Center" CornerRadius="16" Background="{DynamicResource Md3SurfaceContainerBrush}">
-              <TextBlock Classes="icon s28 accent" HorizontalAlignment="Center" Text="{x:Static theme:Icons.BookmarkAdd}" />
-            </Border>
-            <TextBlock Classes="section-title" TextAlignment="Center" Text="{loc:Loc games.profileTable.emptyTitle}" />
-            <TextBlock Classes="body muted" TextAlignment="Center" TextWrapping="Wrap" Text="{loc:Loc games.profileTable.empty}" />
-            <Button x:Name="EmptyNewProfileButton" Classes="filled pill large" HorizontalAlignment="Center" Command="{Binding NewProfileCommand}" AutomationProperties.Name="{loc:Loc games.header.newProfile}">
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.Add}" />
-                <TextBlock Classes="header-words" Text="{loc:Loc games.header.newProfile}" />
-              </StackPanel>
-            </Button>
-          </StackPanel>
-        </Border>
-
-        <!-- A failure or partial-result card for this game, below the table where it can use the pane's height; so is a launch card in a pane too short to pin it. -->
-        <ContentControl x:Name="ScrollingContentHost" IsVisible="{Binding HasScrollingContent}" Content="{Binding ScrollingContent}" />
-      </StackPanel>
-    </ScrollViewer>
+      </ScrollViewer>
     </Grid>
 
     <!-- The launch flow's banner or running card for this game, pinned above the storage footer while the pane has room. -->
