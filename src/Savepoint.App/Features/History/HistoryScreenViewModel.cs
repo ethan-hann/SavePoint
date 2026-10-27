@@ -59,7 +59,7 @@ public sealed record HistoryDependencies(
 /// "Load" hand a target to the shell's launch flow. The screen follows the selected game, library refreshes and
 /// finished jobs while it is shown, and reads again each time it comes into view.
 /// </summary>
-public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
+public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen, IDisposable
 {
     private static readonly TimeSpan _thisWeek = TimeSpan.FromDays(7);
 
@@ -246,6 +246,15 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
 
     /// <inheritdoc />
     public void OnShown() => _ = ReloadAsync();
+
+    /// <summary>Stops the search's timers and the read in flight, so nothing fires after the screen is let go.</summary>
+    public void Dispose()
+    {
+        _generation++;
+        _reading?.Cancel();
+        StopTypingPause();
+        Search.Dispose();
+    }
 
     /// <summary>
     /// Reads the selected game's points, the profile list and the space kept for it. The first read for a game shows the

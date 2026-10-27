@@ -491,6 +491,31 @@ public class HistorySearchTests
     }
 
     [Fact]
+    public async Task A_screen_that_is_let_go_does_not_narrow_its_list_when_a_typing_pause_ends()
+    {
+        var rig = await ManySnapshotsAsync();
+        var all = Cards(rig).Count;
+        rig.Screen.Search.Text = "session 0007";
+
+        rig.Screen.Dispose();
+        _clock.Advance(HistoryScreenViewModel.TypingPause);
+
+        Assert.Equal(all, Cards(rig).Count);
+    }
+
+    [Fact]
+    public async Task A_screen_that_is_let_go_says_no_count_when_the_announcement_pause_ends()
+    {
+        var rig = await ShownAsync();
+        rig.Screen.Search.Text = "survival";
+
+        rig.Screen.Dispose();
+        _clock.Advance(SearchBoxViewModel.AnnouncePause);
+
+        Assert.Equal(string.Empty, rig.Screen.Search.Announcement);
+    }
+
+    [Fact]
     public async Task Choosing_a_kind_in_a_long_history_narrows_at_once()
     {
         var rig = await ManySnapshotsAsync();

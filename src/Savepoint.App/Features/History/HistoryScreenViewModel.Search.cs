@@ -132,8 +132,8 @@ public sealed partial class HistoryScreenViewModel
     // pause in the typing and a word is one redraw, not one per letter.
     private void OnSearchChanged(object? sender, EventArgs e)
     {
-        _typingPause?.Dispose();
-        var generation = ++_typingGeneration;
+        StopTypingPause();
+        var generation = _typingGeneration;
         if (_searchSilent || _entries.Count + _removedEntries.Count <= InstantRows)
         {
             ApplySearch();
@@ -152,6 +152,14 @@ public sealed partial class HistoryScreenViewModel
             null,
             TypingPause,
             Timeout.InfiniteTimeSpan);
+    }
+
+    // Ends a pause that is still waiting, and makes one that already fired do nothing.
+    private void StopTypingPause()
+    {
+        _typingPause?.Dispose();
+        _typingPause = null;
+        _typingGeneration++;
     }
 
     private void ApplySearch()
