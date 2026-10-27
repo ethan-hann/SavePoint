@@ -44,7 +44,7 @@ On Linux, also try the AppImage: download `SavePoint.AppImage` from the latest r
 ## 4. macOS only
 
 - [ ] **Quitting with Cmd+Q** (and SavePoint > Quit in the menu bar) while a snapshot is being taken: the same "a job is running" question appears as when the window is closed.
-- [ ] **Shortcuts:** help opens with Cmd+Shift+/ (and F1 on keyboards that have it). In Activity > Details, Cmd+C copies the details.
+- [ ] **Shortcuts:** help opens with Cmd+Shift+/ (and F1 on keyboards that have it). In Activity > Details, Cmd+C copies the details. On the Games screen, Cmd+F goes to the profile search and Cmd+Shift+F to the games search, and each box's tooltip names its key.
 - [ ] **A game that is an `.app` bundle** (any Mac game from Steam, or any app as a stand-in) starts from SavePoint, and SavePoint notices when it quits.
 - [ ] **Case:** APFS ignores case by default. Taking and switching snapshots of a folder holding `Mods/Foo` and `Mods/foo` refuses with a clear message instead of losing a file.
 - [ ] **Safety:** choosing `/System`, `/Applications`, or `~/Library` itself as a game folder is refused.
