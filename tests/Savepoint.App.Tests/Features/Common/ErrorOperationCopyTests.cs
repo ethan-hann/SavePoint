@@ -81,7 +81,7 @@ public class ErrorOperationCopyTests
         var card = HeldFile(ErrorOperation.Unspecified);
 
         Assert.Equal("A file is in use", card.Title);
-        Assert.StartsWith("Something else is holding one of the files open.", card.Body, StringComparison.Ordinal);
+        Assert.StartsWith("SavePoint couldn't change one of the files.", card.Body, StringComparison.Ordinal);
     }
 
     [Theory]
