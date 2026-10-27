@@ -45,6 +45,7 @@
     <!-- The shelf's header row is as tall as its text buttons, so its search box is a slimmer field, and a short window keeps its room for the page. -->
     <Style Selector="search|SearchBoxView#ShelfSearch TextBox">
       <Setter Property="Padding" Value="12,4" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
     <!-- The wide rail gives the label room from the button's edge; the icon rail has none to spare. -->
     <Style Selector="Button.rail-library">

@@ -583,6 +583,9 @@ public sealed partial class ShellViewModel : ObservableObject, IShellContext, ID
         OnPropertyChanged(nameof(IsSidebarLayout));
         OnPropertyChanged(nameof(IsLibraryLayout));
         OnPropertyChanged(nameof(ShowShelf));
+
+        // Whether the games' search box shows depends on the layout and the width.
+        RefilterGames();
     }
 
     private void RaiseShellState()

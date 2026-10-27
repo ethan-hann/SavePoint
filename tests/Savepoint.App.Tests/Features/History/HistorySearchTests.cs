@@ -310,10 +310,16 @@ public class HistorySearchTests
         rig.Screen.Search.Text = "survival";
 
         await rig.Screen.ReloadAsync();
-        rig.Screen.SelectedFilter = rig.Screen.Filters.Single(filter => filter.ProfileId == SampleScenario.SurvivalId);
+        rig.Screen.SelectedFilter = rig.Screen.Filters.Single(filter => filter.ProfileId == SampleScenario.VanillaId);
         await rig.Screen.ReloadAsync();
 
         Assert.Equal("survival", rig.Screen.Search.Text);
+        Assert.Empty(Cards(rig));
+        Assert.True(rig.Screen.IsSearchEmpty);
+
+        rig.Screen.SelectedFilter = rig.Screen.Filters.Single(filter => filter.ProfileId == SampleScenario.SurvivalId);
+        await rig.Screen.ReloadAsync();
+
         Assert.Equal([_deepCave, _firstNight, _survival], Cards(rig));
     }
 

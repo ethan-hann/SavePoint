@@ -201,6 +201,21 @@ public class ShellGameSearchTests
     }
 
     [Fact]
+    public async Task Switching_layout_in_a_narrow_window_applies_the_search_where_the_box_shows_and_ignores_it_where_it_does_not()
+    {
+        var rig = await ShellRig.StartAsync();
+        rig.Shell.GameSearch.Text = "sat";
+        rig.Shell.SetWindowWidth(ShellViewModel.CompactBelowWidth - 1);
+        Assert.Equal(3, rig.Shell.VisibleGames.Count);
+
+        await rig.Shell.SetLayoutAsync(ShellLayout.Library);
+        Assert.Equal(["Satisfactory"], Shown(rig));
+
+        await rig.Shell.SetLayoutAsync(ShellLayout.Sidebar);
+        Assert.Equal(3, rig.Shell.VisibleGames.Count);
+    }
+
+    [Fact]
     public async Task The_count_left_is_announced_once_typing_pauses()
     {
         var clock = new ManualTimeProvider();
