@@ -109,6 +109,13 @@ public sealed partial class GitEngine
             return new FinishScan(blockingChanged, blockingNew, [], [], [], [], [], []);
         }
 
+        // Git for Windows lists what a junction leads to, not the junction, so a link in the old folder's place is found by looking.
+        var foldersLeft = FoldersAbove(plan.Removed, comparer);
+        foreach (var change in plan.WrittenChanges.Where(change => foldersLeft.Contains(change.Path) && IsLinkEntry(FullPath(repo, change.Path))))
+        {
+            candidates[change.Path] = change;
+        }
+
         var sizes = await ObjectSizesAsync(repo, candidates.Values.Select(change => change.NewId), ct).ConfigureAwait(false);
         var trustMode = TrustsExecutableBit(repo);
         List<string> rewrite = [];
@@ -116,7 +123,6 @@ public sealed partial class GitEngine
         List<string> keep = [];
         List<string> replaced = [];
         List<string> standing = [];
-        var foldersLeft = FoldersAbove(plan.Removed, comparer);
         foreach (var change in candidates.Values.OrderBy(change => change.Path, StringComparer.Ordinal))
         {
             ct.ThrowIfCancellationRequested();
@@ -217,7 +223,7 @@ public sealed partial class GitEngine
         }
 
         // On Windows git writes a link as a plain file holding its text, which is compared like any other file below.
-        if (change.NewMode == "120000" && HoldsLink(repo, change.Path, size) is { } link)
+        if (change.NewMode == "120000" && HoldsLink(repo, change.Path, change.NewId) is { } link)
         {
             return link;
         }
@@ -226,6 +232,13 @@ public sealed partial class GitEngine
         try
         {
             var file = new FileInfo(full);
+
+            // FileInfo.Exists is false for a link to a folder, so a link is looked for first: it is never a file with the target's bytes.
+            if (file.LinkTarget is not null)
+            {
+                return Holding.Other;
+            }
+
             if (!file.Exists)
             {
                 return Holding.Nothing;
@@ -256,17 +269,20 @@ public sealed partial class GitEngine
     }
 
     // What stands where the target wants a link, or null when it is a plain file on Windows, which the caller compares. A link is stored
-    // as the text of its target, so the target's length is what is compared (a link is never read through). A link of the right length
-    // is the stopped switch's own write and a folder is the old point's, neither of which is anyone's content; the finish writes the link
-    // again either way. Anything else standing there is content the finish replaces: a file, or a link to somewhere else.
-    private static Holding? HoldsLink(RepoRef repo, string path, long size)
+    // as the text of its target and is never read through, so a link is compared by the id git would give that text. The same link is the
+    // stopped switch's own write and a folder is the old point's, neither of which is anyone's content; the finish writes the link again
+    // either way. Anything else standing there is content the finish replaces: a file, or a link to somewhere else. Windows writes a link
+    // as a text file (core.symlinks is off), so a real link or junction found there was never the switch's.
+    private static Holding? HoldsLink(RepoRef repo, string path, string expectedId)
     {
         try
         {
             var info = new FileInfo(FullPath(repo, path));
             if (info.LinkTarget is { } linked)
             {
-                return System.Text.Encoding.UTF8.GetByteCount(linked) == size ? Holding.Nothing : Holding.Other;
+                return !OperatingSystem.IsWindows() && string.Equals(BlobHasher.IdOf(System.Text.Encoding.UTF8.GetBytes(linked)), expectedId, StringComparison.Ordinal)
+                    ? Holding.Nothing
+                    : Holding.Other;
             }
 
             if (!info.Exists)

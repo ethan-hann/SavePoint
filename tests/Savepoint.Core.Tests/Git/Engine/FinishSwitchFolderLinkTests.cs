@@ -109,6 +109,57 @@ public sealed class FinishSwitchFolderLinkTests : IDisposable
     }
 
     [Fact]
+    public async Task A_link_to_another_place_whose_text_is_as_long_as_the_targets_is_listed_as_replaced()
+    {
+        SkipWhereLinksAreNotStoredAsLinks();
+        var (repo, old, made) = await ProfilesAsync("lib64");
+        KillTheSwitchAfterTheLink(repo, old, made, "lib65");
+
+        var review = await _ws.Engine.ReviewStoppedSwitchAsync(repo, Ct);
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-new", ct: Ct);
+
+        Assert.Equal(["lib"], review.ReplacedPaths);
+        Assert.Equal("lib64", new FileInfo(_ws.FileOf(repo, "lib")).LinkTarget);
+        Assert.True((await _ws.Engine.GetStatusAsync(repo, Ct)).IsClean);
+    }
+
+    // Windows writes a link as a plain file holding its text, so a junction found where the target wants a link was put there by someone
+    // else, even when the target's link text is the very path the junction leads to.
+    private async Task<RepoRef> JunctionWhereTheTargetWantsALinkAsync()
+    {
+        var repo = await _ws.InitializedFreshAsync();
+        _ws.Write(repo, "lib/x.so", "the old library");
+        var old = (await _ws.CaptureAsync(repo, "profile-old", "Old")).TipCommitId!;
+        var outside = Outside("lib64");
+        Directory.CreateDirectory(outside);
+        File.WriteAllText(Path.Combine(outside, "precious.so"), "not part of this game");
+        _ws.Delete(repo, "lib/x.so");
+        Directory.Delete(_ws.FileOf(repo, "lib"));
+        Assert.SkipUnless(TestLinks.TryCreateFolderLink(_ws.FileOf(repo, "lib"), outside), "this system cannot make folder links");
+
+        var text = new FileInfo(_ws.FileOf(repo, "lib")).LinkTarget!;
+        async Task<string> RunAsync(string? stdin, params string[] arguments) =>
+            (await _ws.Runner.RunAsync(new GitInvocation(arguments) { GitDir = repo.GitDir, WorkTree = repo.WorkTree, Stdin = stdin }, Ct)).StandardOutput.Trim();
+        var blob = await RunAsync(text, "hash-object", "-w", "--stdin");
+        var tree = await RunAsync($"120000 blob {blob}\tlib\n", "mktree");
+        var made = await RunAsync("A link\n", "commit-tree", tree, "-p", old, "-F", "-");
+        await RunAsync(null, "update-ref", "refs/heads/profile-new", made);
+        SwitchJournal.Write(repo.GitDir, old, made, "profile-new");
+        return repo;
+    }
+
+    [Fact]
+    public async Task On_Windows_a_junction_standing_where_the_target_wants_a_link_is_listed_as_replaced()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows writes a link as a text file, so a real link there is never the switch's own");
+        var repo = await JunctionWhereTheTargetWantsALinkAsync();
+
+        var review = await _ws.Engine.ReviewStoppedSwitchAsync(repo, Ct);
+
+        Assert.Equal(["lib"], review.ReplacedPaths);
+    }
+
+    [Fact]
     public async Task A_file_the_player_put_where_the_old_folder_was_is_listed_as_replaced_and_the_finish_puts_the_link_there()
     {
         SkipWhereLinksAreNotStoredAsLinks();
