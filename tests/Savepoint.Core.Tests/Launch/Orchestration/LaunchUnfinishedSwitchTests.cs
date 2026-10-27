@@ -17,36 +17,13 @@ public class LaunchUnfinishedSwitchTests
     // Starts a switch to Vanilla and cancels it before git has written anything, which leaves the install folder marked unfinished.
     private static async Task CancelSwitchToAsync(LaunchRig rig, Profile profile)
     {
-        using var reached = new ManualResetEventSlim();
-        using var release = new ManualResetEventSlim();
-        var asked = 0;
-
-        // Before the switch writes, the install folder's free space is asked three times: by the launch's check of that folder, by its check of
-        // the drive the folders share, and by the switch itself, which is the one held here.
-        rig.Workspace.Disk.FreePerPath = path =>
-        {
-            if (path.StartsWith(rig.InstallPath, StringComparison.OrdinalIgnoreCase) && !release.IsSet && Interlocked.Increment(ref asked) == 3)
-            {
-                reached.Set();
-                release.Wait(_held);
-            }
-
-            return null;
-        };
-        try
-        {
-            var started = await rig.Launch.StartAsync(rig.Game.Id, Tip(profile));
-            Assert.True(started.Ok, started.Error?.Detail);
-            Assert.True(reached.Wait(_held, Ct), "the switch never reached the engine");
-            await rig.Jobs.CancelAsync(started.Value.JobId);
-            release.Set();
-            await rig.WaitForJobAsync(started.Value.JobId);
-        }
-        finally
-        {
-            release.Set();
-            rig.Workspace.Disk.FreePerPath = null;
-        }
+        using var hold = rig.HoldInstallSwitch(_held);
+        var started = await rig.Launch.StartAsync(rig.Game.Id, Tip(profile));
+        Assert.True(started.Ok, started.Error?.Detail);
+        Assert.True(hold.WaitUntilReached(Ct), "the switch never reached the engine");
+        await rig.Jobs.CancelAsync(started.Value.JobId);
+        hold.Release();
+        await rig.WaitForJobAsync(started.Value.JobId);
 
         Assert.NotNull((await rig.StatusAsync(RepoRole.Install)).InterruptedSwitch);
     }

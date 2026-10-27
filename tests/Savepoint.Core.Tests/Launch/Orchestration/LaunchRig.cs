@@ -338,6 +338,19 @@ internal sealed class LaunchRig : IDisposable
         Workspace.Backend.Services.Storage.ReadAsync(storage =>
             storage.Engine.ListCommitsAsync(Repo(storage, role), profile.BranchName, null, Token));
 
+    // Holds the switch of the install folder at its first free-space question once the job has said it is switching that folder. The
+    // checks that come before the switch ask too, so counting the questions would tie a test to how many checks a launch makes.
+    public SwitchHold HoldInstallSwitch(TimeSpan patience)
+    {
+        var hold = new SwitchHold(patience, Workspace.Disk);
+        Workspace.Disk.FreePerPath = path => path.StartsWith(InstallPath, StringComparison.OrdinalIgnoreCase) && InstallSwitchBegun() ? hold.Arrive() : null;
+        return hold;
+    }
+
+    private bool InstallSwitchBegun() =>
+        Jobs.List().Any(job => job.GameId == Game.Id
+            && job.RecentLines.OfType<JobLine.Step>().Any(step => step.MessageId == JobSteps.LaunchSwitchFolder && Equals(step.Args["folder"], "install")));
+
     public Task<T> WithEngineAsync<T>(Func<GitEngine, RepoRef, Task<T>> work, RepoRole role) =>
         Workspace.Backend.Services.Storage.ReadAsync(storage => work(storage.Engine, Repo(storage, role)));
 
@@ -374,5 +387,46 @@ internal sealed class LaunchRig : IDisposable
         {
             TwoProfileTemplates.Return(_slot);
         }
+    }
+}
+
+// A switch held where it asks for room, so a test can stop it before it writes a file. Disposing lets it go and puts the disk figures back.
+internal sealed class SwitchHold : IDisposable
+{
+    private readonly TimeSpan _patience;
+    private readonly FakeDiskSpace _disk;
+    private readonly ManualResetEventSlim _reached = new();
+    private readonly ManualResetEventSlim _release = new();
+    private int _held;
+
+    public SwitchHold(TimeSpan patience, FakeDiskSpace disk)
+    {
+        _patience = patience;
+        _disk = disk;
+    }
+
+    // Called from the switch's own thread: the first question is held, any later one passes.
+    public long? Arrive()
+    {
+        if (!_release.IsSet && Interlocked.Exchange(ref _held, 1) == 0)
+        {
+            _reached.Set();
+            _release.Wait(_patience);
+        }
+
+        return null;
+    }
+
+    // True when the switch has reached the hold; a switch that never does fails the test within the patience.
+    public bool WaitUntilReached(CancellationToken cancellationToken) => _reached.Wait(_patience, cancellationToken);
+
+    public void Release() => _release.Set();
+
+    public void Dispose()
+    {
+        _release.Set();
+        _disk.FreePerPath = null;
+        _reached.Dispose();
+        _release.Dispose();
     }
 }

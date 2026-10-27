@@ -203,38 +203,16 @@ public class LaunchSwitchOnlyTests
         var (rig, vanilla, modded) = await LaunchRig.WithTwoProfilesAsync();
         using var _ = rig;
         var services = rig.Workspace.Backend.Services;
-        using (var reached = new ManualResetEventSlim())
-        using (var release = new ManualResetEventSlim())
+        using (var hold = rig.HoldInstallSwitch(TimeSpan.FromSeconds(20)))
         {
-            // Before the switch writes, the install folder's free space is asked three times: by the launch's check of that folder, by its
-            // check of the drive the folders share, and by the switch itself, which is the one held here.
-            var asked = 0;
-            rig.Workspace.Disk.FreePerPath = path =>
-            {
-                if (path.StartsWith(rig.InstallPath, StringComparison.OrdinalIgnoreCase) && !release.IsSet && Interlocked.Increment(ref asked) == 3)
-                {
-                    reached.Set();
-                    release.Wait(TimeSpan.FromSeconds(20));
-                }
-
-                return null;
-            };
-            try
-            {
-                var started = await rig.Launch.SwitchAsync(rig.Game.Id, Tip(vanilla));
-                Assert.True(started.Ok, started.Error?.Detail);
-                Assert.True(reached.Wait(TimeSpan.FromSeconds(20), Ct), "the switch never reached the engine");
-                await rig.Jobs.CancelAsync(started.Value.JobId);
-                release.Set();
-                var stopped = await rig.WaitForJobAsync(started.Value.JobId);
-                Assert.Equal(JobStatus.Cancelled, stopped.Status);
-                Assert.Equal("error.launch.canceled", stopped.Error?.MessageId);
-            }
-            finally
-            {
-                release.Set();
-                rig.Workspace.Disk.FreePerPath = null;
-            }
+            var started = await rig.Launch.SwitchAsync(rig.Game.Id, Tip(vanilla));
+            Assert.True(started.Ok, started.Error?.Detail);
+            Assert.True(hold.WaitUntilReached(Ct), "the switch never reached the engine");
+            await rig.Jobs.CancelAsync(started.Value.JobId);
+            hold.Release();
+            var stopped = await rig.WaitForJobAsync(started.Value.JobId);
+            Assert.Equal(JobStatus.Cancelled, stopped.Status);
+            Assert.Equal("error.launch.canceled", stopped.Error?.MessageId);
         }
 
         // Stopped part way: the folder says so, the game is free, and no session or game was ever opened.
