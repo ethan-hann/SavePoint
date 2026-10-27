@@ -70,6 +70,7 @@ public sealed class ArtworkContractRuns : IAsyncLifetime
         Add("add the game", added.Ok ? "added" : "error " + added.Error.MessageId);
 
         Add("get before anything", Describe(await backend.Artwork.GetAsync(game.Id, cancellationToken)));
+        await backend.ArtworkLookupDoneAsync(game.Id, cancellationToken);
         var png = TestImages.Write(backend.Root, "mine.png", TestImages.Png(300, 200));
         Add("choose an image", Describe(await backend.Artwork.SetCustomImageAsync(game.Id, png)));
         Add("events after choosing", changes.Count.ToString());

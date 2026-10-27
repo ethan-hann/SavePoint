@@ -100,7 +100,8 @@ internal sealed class ArtworkStore
     public void WriteState(string gameId, LookupState state) =>
         WriteAtomically(Path.Combine(FolderOf(gameId), _stateFile), JsonSerializer.SerializeToUtf8Bytes(state, ArtworkJsonContext.Default.LookupState));
 
-    // True when the bytes are a whole image and were kept; anything else is refused, whoever read it and from where.
+    // True when the folder changed: the bytes are a whole image that differs from the one kept. Anything that is not a whole image is
+    // refused, whoever read it and from where, and an image already kept is left as it is.
     public bool SaveSteamImage(string gameId, ArtworkKind kind, byte[] bytes)
     {
         using (var stream = new MemoryStream(bytes, writable: false))
@@ -111,7 +112,13 @@ internal sealed class ArtworkStore
             }
         }
 
-        WriteAtomically(SteamFile(gameId, kind), bytes);
+        var target = SteamFile(gameId, kind);
+        if (SameBytes(target, bytes))
+        {
+            return false;
+        }
+
+        WriteAtomically(target, bytes);
         return true;
     }
 

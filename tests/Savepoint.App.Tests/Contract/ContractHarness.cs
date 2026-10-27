@@ -43,6 +43,10 @@ internal abstract class ContractHarness : IAsyncDisposable
     // find for the fake. Nothing reads it until look again.
     public abstract void SteamHasArt(GameDefinition game, int appId);
 
+    // Returns once the lookup a read of the game's artwork started in the background has ended. The real backend runs it on its own thread, and
+    // one that is still running when the story puts Steam's files in place could keep half of them, so the story waits for it first.
+    public virtual Task ArtworkLookupDoneAsync(string gameId, CancellationToken cancellationToken) => Task.CompletedTask;
+
     // Tells the backend which profile is about to be launched, so a fake can be scripted with what the real one works out for itself.
     public virtual void ExpectLaunch(GameDefinition game, string profileId)
     {
@@ -275,6 +279,14 @@ internal sealed class RealContractHarness : ContractHarness
         var cache = Path.Combine(_steamFolder, "appcache", "librarycache", appId.ToString(System.Globalization.CultureInfo.InvariantCulture));
         TestImages.Write(cache, "header.jpg", TestImages.Jpeg(460, 215));
         TestImages.Write(cache, "library_600x900.jpg", TestImages.Jpeg(600, 900));
+    }
+
+    // A lookup holds its game's gate from the read that starts it until it ends, so taking the gate waits for it.
+    public override async Task ArtworkLookupDoneAsync(string gameId, CancellationToken cancellationToken)
+    {
+        var gate = ((ArtworkApi)_backend.Artwork).LookupGateOf(gameId);
+        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        gate.Release();
     }
 
     public override Task GameRunningAsync(string gameId, CancellationToken cancellationToken) =>
