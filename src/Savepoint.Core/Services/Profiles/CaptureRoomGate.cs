@@ -27,6 +27,13 @@ internal sealed class CaptureRoomGate
         _engine = engine;
         _folders = folders.ToDictionary(folder => folder.Role);
         _undecided = [.. _folders.Keys];
+
+        // A stopped save can reach the verdict with every folder already gone from the wait, so nobody would read a failure it holds.
+        _ = _verdict.Task.ContinueWith(
+            static verdict => _ = verdict.Exception,
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
     }
 
     /// <summary>Reports what a folder would add and waits for the verdict on all the folders that reported.</summary>
@@ -78,8 +85,9 @@ internal sealed class CaptureRoomGate
 
             _verdict.TrySetResult();
         }
-        catch (Exception e) when (e is SavepointException or IOException or UnauthorizedAccessException)
+        catch (Exception e)
         {
+            // Whatever went wrong, the folders waiting on the verdict must be told rather than left waiting.
             _verdict.TrySetException(e);
         }
     }

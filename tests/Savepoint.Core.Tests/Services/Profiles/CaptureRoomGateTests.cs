@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Services.Profiles;
@@ -99,4 +100,81 @@ public sealed class CaptureRoomGateTests : IDisposable
 
         await saves.WaitAsync(_limit, Ct);
     }
+
+    [Fact]
+    public async Task An_unexpected_failure_while_judging_fails_every_waiting_folder_instead_of_leaving_them_waiting()
+    {
+        var gate = await GateAsync();
+        _ws.Space.PerPath = _ => throw new FormatException("the volume answered nonsense");
+
+        var install = gate.ReportAsync(RepoRole.Install, 300_000, Ct);
+        var saves = ReportCapturingFailure(gate, RepoRole.External, 200_000);
+
+        foreach (var report in new[] { install, saves })
+        {
+            await Assert.ThrowsAsync<FormatException>(() => report.WaitAsync(TimeSpan.FromSeconds(5), Ct));
+        }
+    }
+
+    [Fact]
+    public async Task A_save_stopped_before_the_verdict_leaves_no_unobserved_failure_behind()
+    {
+        const long free = _floor + 411_111;
+        var unobserved = new List<Exception>();
+        EventHandler<UnobservedTaskExceptionEventArgs> collect = (_, e) =>
+        {
+            lock (unobserved)
+            {
+                unobserved.AddRange(e.Exception.Flatten().InnerExceptions);
+            }
+        };
+        TaskScheduler.UnobservedTaskException += collect;
+        try
+        {
+            _ws.Space.Free = free;
+            var gate = StopBothFoldersAndLetTheVolumeRefuse();
+            for (var pass = 0; pass < 3; pass++)
+            {
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+            }
+
+            Assert.False(gate.IsAlive, "the gate must be unreachable, or its tasks are never finalized and the check proves nothing");
+
+            lock (unobserved)
+            {
+                Assert.DoesNotContain(unobserved, e => e is DiskSpaceException refused && Equals(refused.Args["freeBytes"], free));
+            }
+        }
+        finally
+        {
+            TaskScheduler.UnobservedTaskException -= collect;
+        }
+    }
+
+    // Runs the whole scenario away from the test's own async frame, so the gate and every task it made are out of reach once this returns.
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private WeakReference StopBothFoldersAndLetTheVolumeRefuse() => Task.Run(StopBothFoldersAndLetTheVolumeRefuseAsync, Ct).GetAwaiter().GetResult();
+
+    private async Task<WeakReference> StopBothFoldersAndLetTheVolumeRefuseAsync()
+    {
+        var install = await _ws.InitializedRepoAsync(role: RepoRole.Install);
+        var saves = await _ws.InitializedRepoAsync(role: RepoRole.External);
+        var mods = await _ws.InitializedRepoAsync(role: RepoRole.Mods);
+        var gate = new CaptureRoomGate(_ws.Engine, [install, saves, mods]);
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+        await stop.CancelAsync();
+
+        var installWait = gate.ReportAsync(RepoRole.Install, 300_000, stop.Token);
+        var savesWait = gate.ReportAsync(RepoRole.External, 200_000, stop.Token);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => installWait.WaitAsync(_limit, Ct));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => savesWait.WaitAsync(_limit, Ct));
+
+        // The last folder to decide triggers the judgment, after nobody is waiting on it any more.
+        gate.DropOut(RepoRole.Mods);
+        return new WeakReference(gate);
+    }
+
+    // A failure thrown straight out of the call is turned into a failed task, so the test sees both outcomes the same way.
+    private static async Task ReportCapturingFailure(CaptureRoomGate gate, RepoRole role, long newBytes) => await gate.ReportAsync(role, newBytes, Ct);
 }
