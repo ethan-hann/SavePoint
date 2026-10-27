@@ -1,5 +1,6 @@
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Git;
 
 namespace Savepoint.Core.Tests.Backend;
 
@@ -171,19 +172,80 @@ public class ModsHistoryTests
         Assert.Equal([RepoRole.Mods], after.UnsavedChanges);
     }
 
-    [Fact]
-    public async Task A_mods_folder_the_profile_never_saved_keeps_the_profile_from_being_active_and_offers_the_first_snapshot()
+    // A game that gained its mods folder after its profile's last snapshot, so no profile has a snapshot of that folder yet.
+    private static async Task<(BackendWorkspace Workspace, GameDefinition Game, Profile Vanilla)> ModsAddedLaterAsync()
     {
-        using var workspace = new BackendWorkspace();
-        var game = await workspace.AddGameAsync();
-        var (vanilla, _) = await workspace.CreateProfileAsync(game, "Vanilla");
-        var withMods = workspace.NewGameWithMods("Other") with { Id = game.Id, Name = game.Name, Install = game.Install, External = game.External, Launch = game.Launch };
-        Assert.True((await workspace.Games.UpdateAsync(withMods)).Ok);
+        var workspace = new BackendWorkspace();
+        try
+        {
+            var game = await workspace.AddGameAsync();
+            var (vanilla, _) = await workspace.CreateProfileAsync(game, "Vanilla");
+            var withMods = workspace.NewGameWithMods("Other") with { Id = game.Id, Name = game.Name, Install = game.Install, External = game.External, Launch = game.Launch };
+            Assert.True((await workspace.Games.UpdateAsync(withMods)).Ok);
+            return (workspace, withMods, vanilla);
+        }
+        catch
+        {
+            workspace.Dispose();
+            throw;
+        }
+    }
+
+    [Fact]
+    public async Task A_mods_folder_added_after_the_profiles_last_snapshot_leaves_the_profile_active_and_offers_the_first_snapshot_of_it()
+    {
+        var (workspace, game, vanilla) = await ModsAddedLaterAsync();
+        using var _ = workspace;
+
+        var row = await RowAsync(workspace, game, vanilla);
+
+        Assert.True(row.IsActive);
+        Assert.Empty(row.UnsavedChanges);
+        Assert.Equal(SnapshotNowAvailability.FirstSnapshot, row.SnapshotNow);
+    }
+
+    [Fact]
+    public async Task A_mods_folder_added_later_does_not_stop_the_profiles_points_from_being_in_use()
+    {
+        var (workspace, game, _) = await ModsAddedLaterAsync();
+        using var _ = workspace;
+
+        var points = await PointsAsync(workspace, game);
+
+        Assert.True(Assert.Single(points).InUse);
+    }
+
+    [Fact]
+    public async Task A_mods_folder_added_later_is_part_of_the_profile_once_its_first_mods_snapshot_is_taken()
+    {
+        var (workspace, game, vanilla) = await ModsAddedLaterAsync();
+        using var _ = workspace;
+        await GitClock.NextSecondAsync(workspace.Token);
+        await CaptureAsync(workspace, game, vanilla, "Mods in", RepoRole.Mods);
+        BackendWorkspace.WriteFile(Path.Combine(game.Mods!.Path, "modC", "info.xml"), "mod c, not saved");
 
         var row = await RowAsync(workspace, game, vanilla);
 
         Assert.False(row.IsActive);
-        Assert.Equal(SnapshotNowAvailability.FirstSnapshot, row.SnapshotNow);
+        Assert.Equal([RepoRole.Mods], row.UnsavedChanges);
+    }
+
+    [Fact]
+    public async Task A_mods_folder_another_profile_has_taken_over_keeps_a_profile_with_no_mods_snapshot_from_being_active()
+    {
+        var (workspace, game, vanilla) = await ModsAddedLaterAsync();
+        using var _ = workspace;
+        await workspace.CreateProfileAsync(game, "Modded");
+        var storage = await workspace.Backend.Services.Storage.GetAsync(workspace.Token);
+        RepoRef Repo(RepoRole role) => new(storage.GitDirectory(game.Id, role), ModsWorld.FolderOf(game, role), game.Id, role);
+
+        // The first profile is back in the game and saves folders, while the mods folder stays on the second profile's branch.
+        await storage.Engine.CheckoutBranchAsync(Repo(RepoRole.Install), vanilla.BranchName, ct: workspace.Token);
+        await storage.Engine.CheckoutBranchAsync(Repo(RepoRole.External), vanilla.BranchName, ct: workspace.Token);
+
+        var row = await RowAsync(workspace, game, vanilla);
+
+        Assert.False(row.IsActive);
     }
 
     [Fact]

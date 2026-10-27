@@ -19,6 +19,12 @@ public class GamesScreenOpenFolderTests
     private static FolderStatus Saves(bool exists = true) =>
         new(RepoRole.External, SampleScenario.SkyrimSavesRaw, SampleScenario.SkyrimSaves, exists, _confirmed);
 
+    internal const string ModsRaw = @"{appData}\Skyrim Special Edition\Mods";
+    internal const string ModsResolved = @"C:\Users\you\AppData\Roaming\Skyrim Special Edition\Mods";
+
+    private static FolderStatus Mods(bool exists = true) =>
+        new(RepoRole.Mods, ModsRaw, ModsResolved, exists, _confirmed);
+
     private static ProfileMenuEntry Entry(ProfileRowViewModel row, string key) =>
         Assert.Single(row.MenuEntries, entry => entry.Key == key);
 
@@ -45,6 +51,62 @@ public class GamesScreenOpenFolderTests
         var opens = rig.Screen.Profiles[0].MenuEntries.Where(entry => entry.Key.StartsWith("open:", StringComparison.Ordinal));
 
         Assert.Equal(["open:install"], opens.Select(entry => entry.Key));
+    }
+
+    [Fact]
+    public async Task A_game_with_a_mods_folder_offers_it_between_the_game_folder_and_the_saves_folder_on_every_row()
+    {
+        var rig = await GamesRig.StartAsync(WithFolders(Install(), Mods(), Saves()));
+
+        foreach (var row in rig.Screen.Profiles)
+        {
+            var opens = row.MenuEntries.Where(entry => entry.Key.StartsWith("open:", StringComparison.Ordinal)).ToList();
+
+            Assert.Equal(["open:install", "open:mods", "open:external"], opens.Select(entry => entry.Key));
+            Assert.Equal(["Open game folder", "Open mods folder", "Open saves folder"], opens.Select(entry => entry.Header));
+            Assert.Equal("delete", row.MenuEntries[^1].Key);
+        }
+    }
+
+    [Fact]
+    public async Task A_game_without_a_mods_folder_does_not_offer_one()
+    {
+        var rig = await GamesRig.StartAsync();
+
+        Assert.All(rig.Screen.Profiles, row => Assert.DoesNotContain(row.MenuEntries, entry => entry.Key == "open:mods"));
+    }
+
+    [Fact]
+    public async Task Choosing_the_mods_folder_opens_that_folder_and_not_the_game_or_saves_folder()
+    {
+        var rig = await GamesRig.StartAsync(WithFolders(Install(), Mods(), Saves()));
+
+        await Choose(Entry(rig.Screen.Profiles[1], "open:mods"));
+
+        Assert.Equal([ModsResolved], rig.Revealer.Revealed);
+        Assert.Empty(rig.ToastTexts);
+    }
+
+    [Fact]
+    public async Task A_mods_folder_that_is_gone_says_so_instead_of_opening()
+    {
+        var rig = await GamesRig.StartAsync(WithFolders(Install(), Mods(exists: false), Saves()));
+
+        await Choose(Entry(rig.Screen.Profiles[0], "open:mods"));
+
+        Assert.Empty(rig.Revealer.Revealed);
+        Assert.Contains("can't find the mods folder", Assert.Single(rig.ToastTexts));
+    }
+
+    [Fact]
+    public async Task Every_open_entry_says_it_opens_the_folder_as_it_is_now_and_not_the_profiles_files()
+    {
+        var rig = await GamesRig.StartAsync(WithFolders(Install(), Mods(), Saves()));
+
+        var opens = rig.Screen.Profiles[1].MenuEntries.Where(entry => entry.Key.StartsWith("open:", StringComparison.Ordinal)).ToList();
+
+        Assert.Equal(3, opens.Count);
+        Assert.All(opens, entry => Assert.Equal("Opens the folder as it is now, which may hold a different profile's files.", entry.Tip));
     }
 
     [Fact]

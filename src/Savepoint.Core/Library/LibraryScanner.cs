@@ -50,7 +50,7 @@ internal static class LibraryScanner
         foreach (var game in scan.Games)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            games.Add(game with { AddedGameId = FindAdded(game.InstallPath, game.SavesFolder, SteamIdOf(game), resolved, safety) });
+            games.Add(game with { AddedGameId = FindAdded(game.InstallPath, game.SavesFolder, game.ModsFolder, SteamIdOf(game), resolved, safety) });
         }
 
         return scan with { Games = games };
@@ -61,17 +61,22 @@ internal static class LibraryScanner
         game.Source == LibrarySource.Steam && int.TryParse(game.StoreId, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var id) ? id : null;
 
     /// <summary>A game of the library with its folders resolved once, so each installed game is not checked against paths resolved again.</summary>
-    public sealed record ExistingGame(string Id, int? SteamAppId, string? Install, string? Saves);
+    public sealed record ExistingGame(string Id, int? SteamAppId, string? Install, string? Saves, string? Mods = null);
 
     /// <summary>Resolves every game's folders once.</summary>
     public static IReadOnlyList<ExistingGame> ResolveExisting(IReadOnlyList<GameDefinition> existing, PathTokenResolver tokens) =>
-        [.. existing.Select(game => new ExistingGame(game.Id, game.SteamAppId, TryResolve(tokens, game.Install.Path), game.External is { } saves ? TryResolve(tokens, saves.Path) : null))];
+        [.. existing.Select(game => new ExistingGame(
+            game.Id,
+            game.SteamAppId,
+            TryResolve(tokens, game.Install.Path),
+            game.External is { } saves ? TryResolve(tokens, saves.Path) : null,
+            game.Mods is { } mods ? TryResolve(tokens, mods.Path) : null))];
 
     /// <summary>
-    /// The id of the game that this install folder, saves folder or Steam app id already belongs to; null when none. A saves folder
-    /// another game tracks counts, because adding a second game over it would be refused.
+    /// The id of the game that this install folder, saves folder, mods folder or Steam app id already belongs to; null when none. A saves
+    /// or mods folder another game tracks counts, because adding a second game over it would be refused.
     /// </summary>
-    public static string? FindAdded(string installPath, string? savesFolder, int? steamAppId, IReadOnlyList<ExistingGame> existing, PathSafety safety)
+    public static string? FindAdded(string installPath, string? savesFolder, string? modsFolder, int? steamAppId, IReadOnlyList<ExistingGame> existing, PathSafety safety)
     {
         foreach (var other in existing)
         {
@@ -86,6 +91,11 @@ internal static class LibraryScanner
             }
 
             if (savesFolder is not null && other.Saves is { } theirSaves && Overlaps(safety, savesFolder, theirSaves))
+            {
+                return other.Id;
+            }
+
+            if (modsFolder is not null && other.Mods is { } theirMods && Overlaps(safety, modsFolder, theirMods))
             {
                 return other.Id;
             }

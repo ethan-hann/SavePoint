@@ -220,7 +220,7 @@ public sealed partial class ProfileRowViewModel : ObservableObject
         foreach (var role in roles)
         {
             var name = RoleName(role);
-            _menu.Insert(at++, new ProfileMenuEntry("open:" + name, _text.Message("games.profileTable.openFolder", ("role", name)), OpenFolderCommand, role));
+            _menu.Insert(at++, new ProfileMenuEntry("open:" + name, _text.Message("games.profileTable.openFolder", ("role", name)), OpenFolderCommand, role, _text.Message("games.profileTable.openFolderTip")));
         }
     }
 

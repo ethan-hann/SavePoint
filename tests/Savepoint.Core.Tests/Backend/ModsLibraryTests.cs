@@ -71,6 +71,50 @@ public sealed class ModsLibraryTests : IDisposable
         Assert.Contains(RepoRole.Mods, folders.Select(folder => folder.Role));
     }
 
+    // A game the player added by hand: its own install folder, and the mods folder at the given place.
+    private async Task<GameDefinition> AddByHandWithModsAsync(string modsFolder)
+    {
+        BackendWorkspace.WriteFile(Path.Combine(modsFolder, "ModA", "ModInfo.xml"), "a mod");
+        return await _workspace.AddGameAsync(_workspace.NewGame("Mine", withSaves: false) with { Mods = new ModsLocation(modsFolder) });
+    }
+
+    [Fact]
+    public async Task A_scanned_game_whose_mods_folder_is_a_mods_folder_of_an_added_game_is_marked_as_added()
+    {
+        var before = await ScanSevenDaysAsync();
+        var existing = await AddByHandWithModsAsync(await ModsOfAsync(before));
+
+        var game = (await Games.ScanLibrariesAsync(_workspace.Token)).Value!.Games.Single();
+
+        Assert.True(game.AlreadyAdded);
+        Assert.Equal(existing.Id, game.AddedGameId);
+    }
+
+    [Fact]
+    public async Task A_scanned_game_is_not_marked_as_added_for_a_mods_folder_somewhere_else()
+    {
+        await ScanSevenDaysAsync();
+        await AddByHandWithModsAsync(Path.Combine(_workspace.GamesRoot, "elsewhere", "mods"));
+
+        var game = (await Games.ScanLibrariesAsync(_workspace.Token)).Value!.Games.Single();
+
+        Assert.False(game.AlreadyAdded);
+        Assert.Null(game.AddedGameId);
+    }
+
+    [Fact]
+    public async Task Adding_a_scanned_game_whose_mods_folder_belongs_to_an_added_game_says_it_is_already_added()
+    {
+        var before = await ScanSevenDaysAsync();
+        var existing = await AddByHandWithModsAsync(await ModsOfAsync(before));
+        var game = (await Games.ScanLibrariesAsync(_workspace.Token)).Value!.Games.Single();
+
+        var again = await Games.AddLibraryGameAsync(game);
+
+        Assert.Equal(LibraryAddStatus.AlreadyAdded, again.Value!.Status);
+        Assert.Equal(existing.Id, again.Value.GameId);
+    }
+
     [Fact]
     public async Task A_mods_folder_the_game_has_not_made_yet_is_left_out_and_the_result_says_so()
     {

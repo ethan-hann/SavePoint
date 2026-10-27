@@ -4,7 +4,10 @@ namespace Savepoint.Core.Api;
 
 /// <summary>What one row of the profile table shows beyond the profile itself.</summary>
 /// <param name="ProfileId">The profile.</param>
-/// <param name="IsActive">True when every folder holds this profile's latest points with nothing unsaved.</param>
+/// <param name="IsActive">
+/// True when every folder holds this profile's latest points with nothing unsaved. A mods folder that no profile has a snapshot of yet
+/// (it was added to the game later) holds nobody's files, so it is left out of this until the first snapshot of it is taken.
+/// </param>
 /// <param name="UnsavedChanges">The folders on this profile that have changes not yet saved; empty for none.</param>
 /// <param name="SnapshotCount">
 /// How many snapshots the profile owns, whichever folders each took: the number History lists for the profile, so a snapshot both

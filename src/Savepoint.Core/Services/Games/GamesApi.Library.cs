@@ -31,7 +31,7 @@ internal sealed partial class GamesApi
                 var games = await _services.Catalog.ListGamesAsync().ConfigureAwait(false);
                 var resolved = LibraryScanner.ResolveExisting(games, _services.PathTokens);
                 var already = await _services.Storage.ReadAsync(
-                    storage => Task.FromResult(LibraryScanner.FindAdded(game.InstallPath, game.SavesFolder, LibraryScanner.SteamIdOf(game), resolved, storage.PathSafety))).ConfigureAwait(false);
+                    storage => Task.FromResult(LibraryScanner.FindAdded(game.InstallPath, game.SavesFolder, game.ModsFolder, LibraryScanner.SteamIdOf(game), resolved, storage.PathSafety))).ConfigureAwait(false);
                 if (already is not null)
                 {
                     return new LibraryAddResult(game.Key, game.Name, LibraryAddStatus.AlreadyAdded, already);

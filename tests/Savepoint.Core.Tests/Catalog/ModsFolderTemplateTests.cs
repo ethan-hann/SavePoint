@@ -157,6 +157,21 @@ public partial class ModsFolderTemplateTests
     }
 
     [Fact]
+    public void Seven_days_to_die_mods_folder_on_macos_is_the_mods_folder_next_to_the_saves_in_the_games_application_support_folder()
+    {
+        var draft = Template("7-days-to-die").ToDraft(OsKind.MacOS);
+        var tokens = new PathTokenResolver(PlatformFor("macos"));
+
+        var mods = tokens.Resolve(draft.Mods!.Path, "mods.path");
+        var saves = tokens.Resolve(draft.External!.Path, "external.path");
+
+        // The game's own data folder on a Mac is ~/Library/Application Support/7DaysToDie, where the saves sit too; no Mac has checked this here.
+        Assert.Equal("/Users/test/Library/Application Support/7DaysToDie/Mods", mods);
+        Assert.Equal("/Users/test/Library/Application Support/7DaysToDie", Path.GetDirectoryName(mods)?.Replace('\\', '/'));
+        Assert.Equal(Path.GetDirectoryName(saves)?.Replace('\\', '/'), Path.GetDirectoryName(mods)?.Replace('\\', '/'));
+    }
+
+    [Fact]
     public void The_mods_folder_of_a_draft_is_never_inside_or_around_its_saves_folder()
     {
         var template = Template("7-days-to-die");

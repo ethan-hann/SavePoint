@@ -37,13 +37,14 @@ internal static class ProfileStats
         var installState = await installRead.ConfigureAwait(false);
         var modsState = modsRead is null ? null : await modsRead.ConfigureAwait(false);
         var externalState = externalRead is null ? null : await externalRead.ConfigureAwait(false);
+        var modsNeverSaved = mods is not null && modsState is { Known: true } && await HoldsNoSnapshotAsync(storage, mods, cancellationToken).ConfigureAwait(false);
         var running = services.Sessions.RunningProfileId(game.Id);
         var snapshots = await HistoryReader.CountByOwnerAsync(storage, repos, profiles, cancellationToken).ConfigureAwait(false);
 
         var rows = new Task<ProfileRowStats>[profiles.Count];
         for (var i = 0; i < profiles.Count; i++)
         {
-            rows[i] = RowAsync(services, storage, game, profiles[i], new Folders(install, mods, external), new States(installState, modsState, externalState), snapshots.GetValueOrDefault(profiles[i].Id), running, cancellationToken);
+            rows[i] = RowAsync(services, storage, game, profiles[i], new Folders(install, mods, external), new States(installState, modsState, externalState, modsNeverSaved), snapshots.GetValueOrDefault(profiles[i].Id), running, cancellationToken);
         }
 
         return await Task.WhenAll(rows).ConfigureAwait(false);
@@ -52,7 +53,9 @@ internal static class ProfileStats
     // The game's folders that exist, and what each looks like now.
     private sealed record Folders(RepoRef Install, RepoRef? Mods, RepoRef? External);
 
-    private sealed record States(FolderState Install, FolderState? Mods, FolderState? External);
+    // ModsNeverSaved: the game has a mods folder but no profile has a snapshot of it yet (it was added after the profiles' last snapshots),
+    // so it holds nobody's files and does not count against a profile being loaded.
+    private sealed record States(FolderState Install, FolderState? Mods, FolderState? External, bool ModsNeverSaved = false);
 
     private static async Task<ProfileRowStats> RowAsync(
         BackendServices services,
@@ -66,10 +69,10 @@ internal static class ProfileStats
         CancellationToken cancellationToken)
     {
         var (install, mods, external) = folders;
-        var (installState, modsState, externalState) = states;
+        var (installState, modsState, externalState, modsNeverSaved) = states;
         var branch = profile.BranchName;
         var ownsInstall = installState.IsOn(branch);
-        var ownsMods = modsState is null || modsState.IsOn(branch);
+        var ownsMods = modsState is null || modsNeverSaved || modsState.IsOn(branch);
         var ownsExternal = externalState is null || externalState.IsOn(branch);
 
         // A saves folder left on an older point has no branch of its own; its owner is the profile the install folder is on.
@@ -90,7 +93,7 @@ internal static class ProfileStats
             unsaved.Add(RepoRole.External);
         }
 
-        var active = ownsInstall && installState.Clean && ownsMods && (modsState?.Clean ?? true) && ownsExternal && (externalState?.Clean ?? true);
+        var active = ownsInstall && installState.Clean && ownsMods && (modsNeverSaved || (modsState?.Clean ?? true)) && ownsExternal && (externalState?.Clean ?? true);
 
         var tip = await storage.Engine.GetBranchTipAsync(install, branch, cancellationToken).ConfigureAwait(false);
         var modsTip = mods is null ? null : await storage.Engine.GetBranchTipAsync(mods, branch, cancellationToken).ConfigureAwait(false);
@@ -127,7 +130,7 @@ internal static class ProfileStats
         CancellationToken cancellationToken)
     {
         var (_, mods, external) = folders;
-        var (_, modsState, externalState) = states;
+        var (_, modsState, externalState, _) = states;
         var modsHasBranch = mods is not null && await storage.Engine.GetBranchTipAsync(mods, branch, cancellationToken).ConfigureAwait(false) is not null;
         var externalHasBranch = external is not null && await storage.Engine.GetBranchTipAsync(external, branch, cancellationToken).ConfigureAwait(false) is not null;
         var fits = SnapshotNowRule.Fits(installHasBranch, installState.Detached, installState.Branch, branch)
@@ -137,6 +140,18 @@ internal static class ProfileStats
         // A folder with no branch of the profile takes its first snapshot, and that puts the folder on the profile, so any such folder asks first.
         var everyFolderHasBranch = installHasBranch && (mods is null || modsHasBranch) && (external is null || externalHasBranch);
         return !fits ? SnapshotNowAvailability.NotLoaded : everyFolderHasBranch ? SnapshotNowAvailability.Available : SnapshotNowAvailability.FirstSnapshot;
+    }
+
+    private static async Task<bool> HoldsNoSnapshotAsync(StorageSnapshot storage, RepoRef repo, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return (await storage.Engine.ListBranchesAsync(repo, cancellationToken).ConfigureAwait(false)).Count == 0;
+        }
+        catch (Exception e) when (e is SavepointException or IOException)
+        {
+            return false;
+        }
     }
 
     private static async Task<FolderState> StateOfAsync(StorageSnapshot storage, RepoRef repo, CancellationToken cancellationToken)
