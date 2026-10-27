@@ -42,6 +42,10 @@ public partial class ShellView : UserControl
         return screenBoxes.Concat([this.FindControl<SearchBoxView>("RailSearch")!, this.FindControl<SearchBoxView>("ShelfSearch")!]).Any(box => box.FocusSearch());
     }
 
+    /// <summary>Puts the cursor in the games' search box, in the rail or on the shelf, whichever shows, whatever screen is in front.</summary>
+    /// <returns>True when a search box took focus; false in the icon rail, which has none.</returns>
+    public bool FocusGameSearch() => this.FindControl<SearchBoxView>("RailSearch")!.FocusSearch() || this.FindControl<SearchBoxView>("ShelfSearch")!.FocusSearch();
+
     private void OnGameTapped(object? sender, TappedEventArgs e)
     {
         if (e.Source is Visual source && source.FindAncestorOfType<ListBoxItem>(includeSelf: true) is { DataContext: GameRowViewModel row })

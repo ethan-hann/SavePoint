@@ -16,4 +16,19 @@ public static class FindKey
     /// <param name="isMacOS">True for macOS, where Cmd rather than Ctrl is the shortcut key.</param>
     public static bool Matches(Key key, KeyModifiers modifiers, bool isMacOS) =>
         key == Key.F && modifiers == (isMacOS ? KeyModifiers.Meta : KeyModifiers.Control);
+
+    /// <summary>Whether a key press asks for the games search, on this machine.</summary>
+    /// <param name="key">The key.</param>
+    /// <param name="modifiers">The modifier keys held with it.</param>
+    public static bool MatchesGames(Key key, KeyModifiers modifiers) => MatchesGames(key, modifiers, OperatingSystem.IsMacOS());
+
+    /// <summary>
+    /// Whether a key press asks for the games search, on the named platform: Shift added to the find key, so it can never be taken
+    /// for the find key that goes to the search of the screen in front.
+    /// </summary>
+    /// <param name="key">The key.</param>
+    /// <param name="modifiers">The modifier keys held with it.</param>
+    /// <param name="isMacOS">True for macOS, where Cmd rather than Ctrl is the shortcut key.</param>
+    public static bool MatchesGames(Key key, KeyModifiers modifiers, bool isMacOS) =>
+        key == Key.F && modifiers == ((isMacOS ? KeyModifiers.Meta : KeyModifiers.Control) | KeyModifiers.Shift);
 }

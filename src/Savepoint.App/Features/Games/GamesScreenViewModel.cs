@@ -30,6 +30,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     // Until the view reports a width there is nothing to squeeze, so the header keeps its words.
     private double _headerWidth = double.PositiveInfinity;
     private bool _cardsScroll;
+    private bool _searchScrolls;
     private bool _flowActive;
     private IReadOnlyList<RepoRole> _folderRoles = [];
     private long _generation;
@@ -327,6 +328,24 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         OnPropertyChanged(nameof(HasPinnedContent));
         OnPropertyChanged(nameof(ScrollingContent));
         OnPropertyChanged(nameof(HasScrollingContent));
+    }
+
+    /// <summary>
+    /// Tells the screen how tall the area for the profiles is. Below <see cref="PinnedSearchMinBodyHeight"/> the profile search scrolls
+    /// with the profiles instead of staying above them, so the table keeps the room.
+    /// </summary>
+    /// <param name="height">The area's height in layout pixels, which the interface size does not change, after a pinned launch card has taken its room.</param>
+    public void SetBodyHeight(double height)
+    {
+        var scrolls = height > 0 && height < PinnedSearchMinBodyHeight;
+        if (scrolls == _searchScrolls)
+        {
+            return;
+        }
+
+        _searchScrolls = scrolls;
+        OnPropertyChanged(nameof(ShowPinnedSearch));
+        OnPropertyChanged(nameof(ShowScrollingSearch));
     }
 
     /// <summary>Stops following the shell and the launch flow.</summary>

@@ -33,13 +33,22 @@ public sealed partial class SearchBoxViewModel : ObservableObject, IDisposable
     /// <param name="dispatcher">Brings the announcement timer back to the UI thread.</param>
     /// <param name="clock">Times the pause before an announcement.</param>
     /// <param name="label">The box's accessible name and placeholder, such as "Search games".</param>
-    public SearchBoxViewModel(UiFormatter text, IUiDispatcher dispatcher, TimeProvider clock, string label)
+    /// <param name="shortcut">The key that moves to the box, as the player's system names it (such as "Ctrl+F"); null when no key does.</param>
+    public SearchBoxViewModel(UiFormatter text, IUiDispatcher dispatcher, TimeProvider clock, string label, string? shortcut = null)
     {
         _dispatcher = dispatcher;
         _clock = clock;
         Label = label;
         ClearName = text.Message("search.clear");
+        Shortcut = shortcut;
+        Tip = shortcut is null ? null : text.Message("search.tip", ("label", label), ("shortcut", shortcut));
     }
+
+    /// <summary>The key that moves to the box (such as "Ctrl+F"), for assistive technology; null when no key does.</summary>
+    public string? Shortcut { get; }
+
+    /// <summary>The box's tooltip: its name and its key, such as "Search profiles (Ctrl+F)"; null when no key moves to it.</summary>
+    public string? Tip { get; }
 
     /// <summary>Raised after <see cref="Text"/> or <see cref="Query"/> changed.</summary>
     public event EventHandler? Changed;

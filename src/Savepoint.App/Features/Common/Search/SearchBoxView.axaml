@@ -13,7 +13,9 @@
     <TextBox x:Name="Field"
              Text="{Binding Text, Mode=TwoWay}"
              PlaceholderText="{Binding Label}"
-             AutomationProperties.Name="{Binding Label}">
+             AutomationProperties.Name="{Binding Label}"
+             AutomationProperties.AcceleratorKey="{Binding Shortcut}"
+             ToolTip.Tip="{Binding Tip}">
       <TextBox.InnerLeftContent>
         <TextBlock Classes="icon s18 muted" Margin="12,0,0,0" VerticalAlignment="Center" Text="{x:Static theme:Icons.Search}" />
       </TextBox.InnerLeftContent>

@@ -16,6 +16,18 @@ public sealed partial class GamesScreenViewModel
     /// <summary>True when the search box shows: the game has profiles to narrow down.</summary>
     public bool ShowSearch => ShowTable;
 
+    /// <summary>
+    /// The shortest area for the profiles that keeps their search above the table instead of scrolling with it: the search box's row,
+    /// the table's heading and about three rows still fit.
+    /// </summary>
+    public const double PinnedSearchMinBodyHeight = 240;
+
+    /// <summary>True when the profile search stays above the table while the profiles scroll under it: it shows and there is room for both.</summary>
+    public bool ShowPinnedSearch => ShowSearch && !_searchScrolls;
+
+    /// <summary>True when the profile search shows at the top of the scrolling profiles, because the pane is too short to give it a row of its own.</summary>
+    public bool ShowScrollingSearch => ShowSearch && _searchScrolls;
+
     /// <summary>True when the table has rows to draw: there are profiles and the search leaves some.</summary>
     public bool ShowRows => ShowTable && VisibleProfiles.Count > 0;
 
@@ -34,7 +46,7 @@ public sealed partial class GamesScreenViewModel
     private void InitializeProfileSearch()
     {
         NoProfileMatchesText = _deps.Text.Message("search.profiles.noMatch");
-        ProfileSearch = new SearchBoxViewModel(_deps.Text, _deps.Dispatcher, _deps.Clock, _deps.Text.Message("search.profiles.label"));
+        ProfileSearch = new SearchBoxViewModel(_deps.Text, _deps.Dispatcher, _deps.Clock, _deps.Text.Message("search.profiles.label"), _deps.Text.Message("search.shortcut.find"));
         ProfileSearch.Changed += OnProfileSearchChanged;
     }
 
@@ -58,6 +70,8 @@ public sealed partial class GamesScreenViewModel
     private void RaiseSearchState()
     {
         OnPropertyChanged(nameof(ShowSearch));
+        OnPropertyChanged(nameof(ShowPinnedSearch));
+        OnPropertyChanged(nameof(ShowScrollingSearch));
         OnPropertyChanged(nameof(ShowRows));
         OnPropertyChanged(nameof(ShowNoProfileMatches));
         OnPropertyChanged(nameof(ShowProfileCount));
