@@ -1,6 +1,5 @@
 using Savepoint.App.Features.Settings;
 using Savepoint.App.Features.Shell;
-using Savepoint.App.Platform;
 
 namespace Savepoint.App.Composition;
 
@@ -29,5 +28,5 @@ public static partial class FeatureComposition
     // The running app's file manager and log folder, so the About section opens a folder the way the rest of the app reveals files.
     // The apps menu entry is rebuilt on the features' clock so a test that moves time reaches it.
     internal static SettingsEnvironment SettingsEnvironmentOf(AppServices services, TimeProvider? clock = null) =>
-        SettingsEnvironment.ForThisApp(services.FileRevealer, services.LogFolder) with { AppsMenu = AppsMenuEntry.ForThisApp(clock) };
+        SettingsEnvironment.ForThisApp(services.FileRevealer, services.LogFolder, clock);
 }

@@ -31,9 +31,11 @@ internal sealed class GitProcessRegistry
     private readonly IDiagnosticLog? _log;
     private readonly Lock _noteGate = new();
     private readonly List<ProcessStamp> _carried = [];
-    private HashSet<ProcessStamp> _written = [];
+    private HashSet<ProcessStamp>? _written = [];
     private Timer? _timer;
     private bool _closed;
+    // Whether the file on disk is this registry's own writing; only that is this registry's to remove.
+    private bool _wroteNote;
     private bool _warned;
 
     /// <param name="notePath">Where the note of running git is kept; none is kept when null.</param>
@@ -95,13 +97,21 @@ internal sealed class GitProcessRegistry
     public IDisposable Add(Process process, bool persist = true) =>
         ProcessStamp.Of(process) is { } stamp ? Add(stamp, persist) : Registration.None;
 
-    /// <summary>Notes a process by its stamp.</summary>
+    /// <summary>Notes a process by its stamp. On a registry that is already closed, a process that would be ended at close is ended at once.</summary>
     /// <param name="stamp">The process.</param>
     /// <param name="persist">False for a git that is left to finish when SavePoint is stopped, which the note of running git must not name.</param>
     public IDisposable Add(ProcessStamp stamp, bool persist = true)
     {
         _running[stamp.Id] = new Entry(stamp, persist);
         Touch();
+
+        // Listed first, then looked at: a close that began meanwhile either sees the entry or is seen here. The process is ended, not refused,
+        // because the caller has already started it and a refusal would leave it running with nobody to end it.
+        if (persist && IsClosed())
+        {
+            KillAll();
+        }
+
         return new Registration(this, stamp);
     }
 
@@ -123,24 +133,36 @@ internal sealed class GitProcessRegistry
         Touch();
     }
 
-    /// <summary>Ends every registered process, removes the note and writes no more of it. Done as the process exits.</summary>
+    /// <summary>
+    /// Ends every registered process except those left to finish, and writes no more of the note. Done as the process exits. A note this registry
+    /// wrote is taken back to the gits of an earlier run that still run, and another registry on the same note has its gits written again; a note
+    /// this registry never wrote is left alone, because it is another run's or another registry's.
+    /// </summary>
     public void Close()
     {
+        bool wrote;
         lock (_noteGate)
         {
             _closed = true;
             _timer?.Dispose();
             _timer = null;
+            wrote = _wroteNote;
         }
 
         KillAll();
-        if (_notePath is not null)
+        if (_notePath is null || !wrote)
         {
-            RunningGitNote.Clear(_notePath);
+            return;
+        }
+
+        SettleNote();
+        foreach (var other in _forApp.Keys.Where(other => !ReferenceEquals(other, this) && SameNote(other)))
+        {
+            other.WriteAgain();
         }
     }
 
-    /// <summary>Ends every registered process and what it started. A process that took over the number of one that ended is left alone.</summary>
+    /// <summary>Ends every registered process, except those left to finish, and what it started. A process that took over the number of one that ended is left alone.</summary>
     public void KillAll()
     {
         foreach (var (id, entry) in _running.ToArray())
@@ -149,6 +171,12 @@ internal sealed class GitProcessRegistry
             if (!stamp.IsRunning())
             {
                 _running.TryRemove(new KeyValuePair<int, Entry>(id, entry));
+                continue;
+            }
+
+            // A git left to finish (a reclaim, D46.1) is out of the kill-on-close job too; the next start waits for it by its own marker.
+            if (!entry.Persist)
+            {
                 continue;
             }
 
@@ -180,6 +208,53 @@ internal sealed class GitProcessRegistry
         }
     }
 
+    private bool IsClosed()
+    {
+        lock (_noteGate)
+        {
+            return _closed;
+        }
+    }
+
+    private bool SameNote(GitProcessRegistry other) =>
+        _notePath is not null && other._notePath is not null
+        && string.Equals(Path.GetFullPath(_notePath), Path.GetFullPath(other._notePath), OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+
+    // Writes the note at once, even if it already holds what this registry last wrote: another registry's close may have removed it.
+    private void WriteAgain()
+    {
+        lock (_noteGate)
+        {
+            _written = null;
+            WriteNote();
+        }
+    }
+
+    // Leaves the note holding only the gits of an earlier run that still run, which no registry of this run can end.
+    private void SettleNote()
+    {
+        lock (_noteGate)
+        {
+            var carried = _carried.Where(git => git.IsRunning()).ToHashSet();
+            _wroteNote = false;
+            try
+            {
+                if (carried.Count == 0)
+                {
+                    RunningGitNote.Clear(_notePath!);
+                }
+                else
+                {
+                    RunningGitNote.Write(_notePath!, ProcessStamp.Current(), carried);
+                }
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                _log?.Warning($"The note of running git at {_notePath} could not be settled.", e);
+            }
+        }
+    }
+
     private void WriteNote()
     {
         lock (_noteGate)
@@ -204,7 +279,7 @@ internal sealed class GitProcessRegistry
                 }
             }
 
-            if (current.SetEquals(_written))
+            if (_written is not null && current.SetEquals(_written))
             {
                 return;
             }
@@ -214,10 +289,12 @@ internal sealed class GitProcessRegistry
                 if (current.Count == 0)
                 {
                     RunningGitNote.Clear(_notePath);
+                    _wroteNote = false;
                 }
                 else
                 {
                     RunningGitNote.Write(_notePath, ProcessStamp.Current(), current);
+                    _wroteNote = true;
                 }
 
                 _written = current;

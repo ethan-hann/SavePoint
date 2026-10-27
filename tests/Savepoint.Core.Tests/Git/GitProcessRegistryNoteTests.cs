@@ -104,6 +104,32 @@ public sealed class GitProcessRegistryNoteTests : IDisposable
         Assert.True(await FakeGameProcess.WaitUntilAsync(() => !FakeGameProcess.IsRunning(game.Id), TimeSpan.FromSeconds(10)));
     }
 
+    [Fact(Timeout = 60_000)]
+    public async Task A_git_added_after_the_registry_closed_is_ended()
+    {
+        using var game = FakeGameProcess.Start();
+        var registry = new GitProcessRegistry(NotePath, _delay);
+        registry.Close();
+
+        using var listed = registry.Add(StampOf(game.Id));
+
+        Assert.True(await FakeGameProcess.WaitUntilAsync(() => !FakeGameProcess.IsRunning(game.Id), TimeSpan.FromSeconds(10)), "a git started after the registry closed was left running");
+    }
+
+    [Fact(Timeout = 60_000)]
+    public async Task Closing_leaves_a_git_that_is_left_to_finish_running_and_off_the_note()
+    {
+        using var game = FakeGameProcess.Start();
+        var registry = new GitProcessRegistry(NotePath, _delay);
+        using var listed = registry.Add(StampOf(game.Id), persist: false);
+
+        registry.Close();
+        await Task.Delay(1000, TestContext.Current.CancellationToken);
+
+        Assert.True(FakeGameProcess.IsRunning(game.Id), "a git that finishes after SavePoint exits was ended when the registry closed");
+        Assert.False(File.Exists(NotePath));
+    }
+
     private static ProcessStamp StampOf(int id)
     {
         using var process = Process.GetProcessById(id);
