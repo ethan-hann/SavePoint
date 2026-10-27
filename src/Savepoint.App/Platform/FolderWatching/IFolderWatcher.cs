@@ -8,11 +8,14 @@ public interface IFolderWatcher
 {
     /// <summary>
     /// Starts watching <paramref name="folders"/> and everything under them. A folder that is missing or cannot be watched is skipped
-    /// without an error, so the watch covers less and the caller's other ways to refresh still apply.
+    /// without an error, so the watch covers less (see <see cref="IFolderWatch.Unwatched"/>) and the caller's other ways to refresh
+    /// still apply. Setting up a watch can take long on a big tree, so it runs off the calling thread and the task ends once every
+    /// folder is being watched or has been given up on: a change made after that is reported.
     /// </summary>
     /// <param name="folders">Absolute folder paths.</param>
+    /// <param name="cancellationToken">Gives up setting the watch up; the task then ends cancelled and nothing keeps running.</param>
     /// <returns>The running watch; dispose it to stop watching.</returns>
-    IFolderWatch Watch(IReadOnlyList<string> folders);
+    Task<IFolderWatch> WatchAsync(IReadOnlyList<string> folders, CancellationToken cancellationToken = default);
 }
 
 /// <summary>A running watch on some folders. Disposing it stops all event delivery and releases the operating system's handles.</summary>
@@ -26,6 +29,12 @@ public interface IFolderWatch : IDisposable
     /// the caller should read everything again. The watch re-arms itself where it can. May be raised on any thread.
     /// </summary>
     event EventHandler? Faulted;
+
+    /// <summary>
+    /// The folders asked for that are not being watched: missing, refused, past the system's limit, or lost after a fault and not
+    /// started again. Empty when the watch covers everything. A caller that wants them covered sets up a new watch.
+    /// </summary>
+    IReadOnlyList<string> Unwatched { get; }
 }
 
 /// <summary>A watcher that watches nothing; the answer where no real one is supplied.</summary>
@@ -35,10 +44,13 @@ public sealed class NullFolderWatcher : IFolderWatcher
     public static NullFolderWatcher Instance { get; } = new();
 
     /// <inheritdoc />
-    public IFolderWatch Watch(IReadOnlyList<string> folders) => new NullWatch();
+    public Task<IFolderWatch> WatchAsync(IReadOnlyList<string> folders, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IFolderWatch>(new NullWatch());
 
     private sealed class NullWatch : IFolderWatch
     {
+        public IReadOnlyList<string> Unwatched => [];
+
         public event EventHandler? Changed
         {
             add { }
