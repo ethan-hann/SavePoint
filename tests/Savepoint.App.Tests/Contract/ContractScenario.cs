@@ -17,6 +17,7 @@ internal static class ContractScenario
         await RunInterruptedSwitchAsync(backend, shared, cancellationToken);
         await RunSnapshotOfAnotherProfileAsync(backend, shared, cancellationToken);
         await RunSwitchWithoutPlayingAsync(backend, shared, cancellationToken);
+        await RunModsFolderAsync(backend, shared, cancellationToken);
         var gaps = new Story();
         await RunGapsAsync(backend, gaps, cancellationToken);
         return new ScenarioTranscript(shared.Lines, gaps.Lines);
@@ -212,6 +213,22 @@ internal static class ContractScenario
         }
     }
 
+    // A game whose mods live outside its install folder has a third folder in each step: its status, its first snapshot, and the check
+    // the editor makes of the mods folder a template names.
+    private static async Task RunModsFolderAsync(ContractHarness backend, Story story, CancellationToken cancellationToken)
+    {
+        var game = backend.NewGameWithMods("Zeta");
+        story.Add("add a game with a mods folder", Show(await backend.Games.AddAsync(game), outcome => outcome is AddGameOutcome.Added a ? $"added {a.Game.Name} mods={a.Game.Mods is not null}" : outcome.GetType().Name));
+        story.Add("folder status of a game with a mods folder", Show(await backend.Games.GetFolderStatusAsync(game.Id, cancellationToken), statuses =>
+            string.Join("; ", statuses.Select(s => $"{s.Role} exists={s.Exists} confirmed={s.Consent.Confirmed}"))));
+        await FinishCaptureAsync(backend, story, await backend.Profiles.CreateAsync(game.Id, "Vanilla", null, "Fresh install"), cancellationToken);
+
+        story.Add("a mods folder that is there", Show(await backend.Games.FolderExistsAsync(game.Mods!.Path, cancellationToken), exists => $"exists={exists}"));
+        var later = Path.Combine(backend.Root, "games", game.Id, "mods-made-later");
+        backend.FolderIsMissing(later);
+        story.Add("a mods folder that is not there yet", Show(await backend.Games.FolderExistsAsync(later, cancellationToken), exists => $"exists={exists}"));
+    }
+
     private static string DescribeFolders(LaunchPreview preview, Story story) =>
         $"install unfinished={preview.Install.UnfinishedSwitch} dirty={preview.Install.Dirty} heading for {DescribeTarget(preview.Install.UnfinishedSwitchTarget, story)}; "
         + $"saves unfinished={preview.External?.UnfinishedSwitch} dirty={preview.External?.Dirty}";
@@ -249,6 +266,11 @@ internal static class ContractScenario
         story.Add("delete preview of the active profile", Show(await backend.Profiles.GetDeletePreviewAsync(game.Id, profileId, cancellationToken), preview =>
             $"points={preview.PointsOnlyHere} blocked={preview.BlockedBy?.MessageId ?? "no"}"));
         story.Add("delete of the active profile", Show(await backend.Profiles.DeleteAsync(game.Id, profileId), _ => "deleted"));
+
+        // The real backend refuses a folder that is not there; the fake takes any path, since its sample paths are on no disk.
+        var noMods = backend.NewGameWithMods("Eta");
+        Directory.Delete(noMods.Mods!.Path, recursive: true);
+        story.Add("add a game whose mods folder is not there", Show(await backend.Games.AddAsync(noMods), outcome => outcome.GetType().Name));
 
         using var cancelled = new CancellationTokenSource();
         await cancelled.CancelAsync();

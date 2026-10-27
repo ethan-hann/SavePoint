@@ -1,8 +1,10 @@
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless.XUnit;
 using Avalonia.VisualTree;
+using Savepoint.App.Features.Help;
 using Savepoint.App.Tests.Fakes;
 
 namespace Savepoint.App.Tests.Features.Editor;
@@ -40,26 +42,29 @@ public class GameEditorModsFolderViewTests
         Assert.Equal(ModsSamples.ModsRaw, harness.Find<TextBox>("ModsField").Text);
         Assert.True(harness.Find<StackPanel>("ModsConfirmedLine").IsEffectivelyVisible);
         Assert.True(harness.Find<Grid>("ModsResolvesLine").IsEffectivelyVisible);
-        Assert.False(harness.Find<Border>("ModsEmptyNote").IsEffectivelyVisible);
         Assert.Equal("Where the mods live", AutomationProperties.GetName(harness.Find<TextBox>("ModsField")));
         Assert.Equal("Browse for the mods folder", AutomationProperties.GetName(harness.Find<Button>("BrowseModsButton")));
     }
 
     [AvaloniaFact]
-    public async Task An_empty_mods_field_shows_the_strip_that_says_most_games_keep_mods_in_the_game_folder()
+    public async Task An_empty_mods_field_shows_no_strip_but_a_question_button_that_opens_the_explanation()
     {
         using var harness = await StartAsync();
-        var editor = harness.New();
+        harness.New();
         harness.Settle();
 
-        var note = harness.Find<Border>("ModsEmptyNote");
-        Assert.True(note.IsEffectivelyVisible);
-        Assert.Contains(note.GetVisualDescendants().OfType<TextBlock>(), text => text.Text is { } shown && shown.StartsWith("No mods folder is set. Most games keep mods inside the game folder", StringComparison.Ordinal));
+        Assert.DoesNotContain(harness.All<Border>(), border => border.Name == "ModsEmptyNote");
+        var toggle = harness.Find<HelpQuestionView>("ModsQuestion").GetVisualDescendants().OfType<ToggleButton>().Single();
+        Assert.True(toggle.IsEffectivelyVisible);
+        Assert.Equal("Where do my mods live?", AutomationProperties.GetName(toggle));
+        var answer = harness.Find<HelpAnswerView>("ModsAnswer").GetVisualDescendants().OfType<Border>().Single(border => border.Name == "AnswerBox");
+        Assert.False(answer.IsEffectivelyVisible);
 
-        editor.ModsPath = @"{appData}\Mods";
+        toggle.IsChecked = true;
         harness.Settle();
 
-        Assert.False(note.IsEffectivelyVisible);
+        Assert.True(answer.IsEffectivelyVisible);
+        Assert.Contains(answer.GetVisualDescendants().OfType<TextBlock>(), text => text.Text is { } shown && shown.StartsWith("Most games keep mods inside the game folder", StringComparison.Ordinal));
     }
 
     [AvaloniaFact]
@@ -78,6 +83,37 @@ public class GameEditorModsFolderViewTests
 
         Assert.Equal("{appData}", harness.Find<TextBox>("ModsField").Text);
         Assert.Equal(@"{documents}\Saves", harness.Find<TextBox>("SavesField").Text);
+    }
+
+    [AvaloniaFact]
+    public async Task A_template_mods_folder_that_is_not_there_yet_shows_the_note_under_the_empty_mods_field()
+    {
+        using var harness = await EditorViewHarness.StartAsync(new FakeBackend(ScenarioBuilder.Sample().WithMissingFolder(ModsSamples.ModsRaw)));
+        var editor = harness.New(ModsSamples.SevenDays);
+        await editor.LoadAsync();
+        harness.Settle();
+
+        Assert.Equal(string.Empty, harness.Find<TextBox>("ModsField").Text);
+        var line = harness.Find<Grid>("ModsLeftOutLine");
+        Assert.True(line.IsEffectivelyVisible);
+        Assert.Contains(line.GetVisualDescendants().OfType<TextBlock>(), text => text.Text is { } shown && shown.EndsWith("so SavePoint left the mods folder out. Once you have mods there, add it in Edit game.", StringComparison.Ordinal));
+    }
+
+    [AvaloniaFact]
+    public async Task Each_set_of_common_locations_names_its_own_field_so_a_screen_reader_can_tell_the_two_rows_apart()
+    {
+        using var harness = await StartAsync();
+        harness.New();
+        harness.Settle();
+
+        string[] NamesIn(string row) => [.. harness.Find<Grid>(row).GetVisualDescendants().OfType<Button>().Select(button => AutomationProperties.GetName(button) ?? string.Empty)];
+
+        Assert.Equal(
+            ["Documents, for the mods folder", "Saved Games, for the mods folder", "AppData, for the mods folder", "Local AppData, for the mods folder"],
+            NamesIn("ModsLocationRow"));
+        Assert.Equal(
+            ["Documents, for the saves folder", "Saved Games, for the saves folder", "AppData, for the saves folder", "Local AppData, for the saves folder"],
+            NamesIn("LocationRow"));
     }
 
     [AvaloniaFact]

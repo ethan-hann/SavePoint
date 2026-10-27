@@ -61,6 +61,20 @@ public class BackendContractTests(ContractRuns runs) : IClassFixture<ContractRun
         }
     }
 
+    // A game with a mods folder is a three-folder game in both backends, so the story that checks it cannot quietly drop the mods.
+    [Fact]
+    public void The_shared_story_adds_a_game_with_a_mods_folder_and_saves_all_three_folders()
+    {
+        foreach (var story in new[] { runs.Fake.Shared, runs.Real.Shared })
+        {
+            Assert.Contains("add a game with a mods folder: added Zeta mods=True", story);
+            Assert.Contains("folder status of a game with a mods folder: Install exists=True confirmed=True; Mods exists=True confirmed=True; External exists=True confirmed=True", story);
+            Assert.Contains(story, line => line.StartsWith("capture finished: ", StringComparison.Ordinal) && line.Contains("folders=Install:ok, Mods:ok, External:ok", StringComparison.Ordinal));
+            Assert.Contains("a mods folder that is there: exists=True", story);
+            Assert.Contains("a mods folder that is not there yet: exists=False", story);
+        }
+    }
+
     // Where the fake is simpler than the real backend. Each side is pinned, so closing a gap in the fake fails here and the step
     // moves into the shared story.
     [Fact]
@@ -73,6 +87,7 @@ public class BackendContractTests(ContractRuns runs) : IClassFixture<ContractRun
                 "storage used: False",
                 "delete preview of the active profile: points=0 blocked=no",
                 "delete of the active profile: deleted",
+                "add a game whose mods folder is not there: Added",
                 "read with a cancelled token: success",
             ],
             runs.Fake.Gaps);
@@ -83,6 +98,7 @@ public class BackendContractTests(ContractRuns runs) : IClassFixture<ContractRun
                 "storage used: True",
                 "delete preview of the active profile: points=1 blocked=error.gameService.profileActive",
                 "delete of the active profile: error error.gameService.profileActive",
+                "add a game whose mods folder is not there: error error.path.missing",
                 "read with a cancelled token: error error.operation.cancelled",
             ],
             runs.Real.Gaps);

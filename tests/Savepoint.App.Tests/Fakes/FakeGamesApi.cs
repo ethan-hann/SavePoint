@@ -329,6 +329,10 @@ public sealed class FakeGamesApi : IGamesApi
     public Task<OperationResult<string>> ResolvePathAsync(string rawPath, CancellationToken cancellationToken = default) =>
         _backend.Call(_api, nameof(ResolvePathAsync), [rawPath], () => OperationResult.Success(State.Resolve(rawPath)));
 
+    public Task<OperationResult<bool>> FolderExistsAsync(string rawPath, CancellationToken cancellationToken = default) =>
+        _backend.Call(_api, nameof(FolderExistsAsync), [rawPath], () =>
+            OperationResult.Success(!State.MissingFolders.Contains(rawPath) && !State.MissingFolders.Contains(State.Resolve(rawPath))));
+
     public Task<OperationResult<IReadOnlyList<string>>> ListExecutablesAsync(string installPath, string gameName, CancellationToken cancellationToken = default) =>
         _backend.Call(_api, nameof(ListExecutablesAsync), [installPath, gameName], () =>
         {

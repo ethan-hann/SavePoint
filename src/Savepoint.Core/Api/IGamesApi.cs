@@ -156,6 +156,16 @@ public interface IGamesApi
     Task<OperationResult<string>> ResolvePathAsync(string rawPath, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Says whether the folder a path names exists now. The editor asks it of a folder a template names, because a game cannot be added
+    /// with a folder that is not there yet (a player with no mods has never made the mods folder). Expands a leading path token first
+    /// and fails the way <see cref="ResolvePathAsync"/> does when the path cannot be resolved. A file at that path is not a folder.
+    /// </summary>
+    /// <param name="rawPath">The path as the user wrote it.</param>
+    /// <param name="cancellationToken">Cancelling fails the call with <c>error.operation.cancelled</c> (D23).</param>
+    /// <returns>True when the resolved path is a folder that exists.</returns>
+    Task<OperationResult<bool>> FolderExistsAsync(string rawPath, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Suggests files in an install folder that could launch the game, for the editor. The scan is bounded: at most 50 paths, ranked
     /// the way <see cref="SuggestProcessNameAsync"/> picks the game, so the game's own program comes before launchers, crash reporters
     /// and tools (which still follow, for a player who needs one). A folder that is missing gives an empty list, not an error.

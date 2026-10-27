@@ -6,7 +6,7 @@
   "validation.game.installPathRequired": "Choose the folder where the game is installed.",
   "validation.game.modsPathRequired": "Choose the mods folder, or clear the mods field.",
   "validation.game.nameRequired":"Give the game a name.",
-  "validation.game.pathsNested": "The game folder, the mods folder and the saves folder can't be inside each other.",
+  "validation.game.pathsNested": "A game's folders can't be the same folder or inside one another.",
   "validation.game.schemaVersionUnsupported": "This game's file is from a different version of SavePoint.",
   "validation.game.steamAppIdInvalid": "Enter the Steam app ID as a number above zero, such as 489830, or leave it empty.",
   "validation.launch.exePathAbsolute": "Enter the start file's location relative to the game folder, not a full path.",

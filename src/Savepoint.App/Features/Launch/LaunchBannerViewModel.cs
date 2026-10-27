@@ -53,9 +53,10 @@ public sealed partial class LaunchBannerViewModel
 
     private List<LaunchCheckLine> ChecksFor(LaunchPreview preview, string? saveName)
     {
+        var hasMods = ("hasMods", FolderRoles.HasMods(preview.Mods is not null));
         var install = LaunchText.IsUnknown(preview.TargetInstall)
-            ? _text.Message("launch.checks.installPlain")
-            : _text.Message("launch.checks.install", ("state", LaunchText.InstallState(_text, preview.TargetInstall)));
+            ? _text.Message("launch.checks.installPlain", hasMods)
+            : _text.Message("launch.checks.install", ("state", LaunchText.InstallState(_text, preview.TargetInstall)), hasMods);
         var checks = new List<LaunchCheckLine> { new(Icons.CheckCircle, install, preview.Install.Path) };
 
         if (preview.Mods is { } mods)
