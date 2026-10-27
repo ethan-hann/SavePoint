@@ -9,7 +9,20 @@ internal static class SwitchJournal
 {
     public const string FileName = "savepoint-switch.json";
 
-    private const int _attempts = 4;
+    // The waits between tries when another program holds the note (a virus scan, a backup tool), for Read and Clear alike: 2.55 seconds
+    // in all. Programs that retry on a file held by a scanner give it about a second or more (SQLite 1.4, graceful-fs up to a minute),
+    // so the total outlasts a normal scan of a small file; the first retries are quick so a short hold costs little. Only a held note
+    // waits at all: a note that opens at once is read on the first try.
+    internal static readonly TimeSpan[] Waits =
+    [
+        TimeSpan.FromMilliseconds(50),
+        TimeSpan.FromMilliseconds(100),
+        TimeSpan.FromMilliseconds(200),
+        TimeSpan.FromMilliseconds(400),
+        TimeSpan.FromMilliseconds(800),
+        TimeSpan.FromMilliseconds(1000),
+    ];
+
     private static readonly UTF8Encoding _utf8 = new(encoderShouldEmitUTF8Identifier: false);
 
     public static string PathIn(string gitDir) => Path.Combine(gitDir, FileName);
@@ -34,9 +47,10 @@ internal static class SwitchJournal
     }
 
     // Null when no note exists. A note that exists but cannot be read or understood still says a switch started, so it is returned
-    // with no target: the folder may hold files of two points and nothing can say which. A test passes pause to act in the waits
-    // between the tries; the default sleeps.
-    public static InterruptedSwitch? Read(string gitDir, Action<TimeSpan>? pause = null)
+    // with no target: the folder may hold files of two points and nothing can say which. The waits between tries happen in delay
+    // (Task.Delay by default), so the caller's thread is free while another program holds the note; a hold that never ends costs the
+    // whole of Waits and no thread.
+    public static async Task<InterruptedSwitch?> ReadAsync(string gitDir, Func<TimeSpan, CancellationToken, Task>? delay = null, CancellationToken ct = default)
     {
         if (!File.Exists(PathIn(gitDir)))
         {
@@ -47,7 +61,7 @@ internal static class SwitchJournal
         string text;
         try
         {
-            text = ReadText(PathIn(gitDir), pause ?? Thread.Sleep);
+            text = await ReadTextAsync(PathIn(gitDir), delay ?? Task.Delay, ct).ConfigureAwait(false);
         }
         catch (FileNotFoundException)
         {
@@ -74,27 +88,31 @@ internal static class SwitchJournal
         }
     }
 
-    // A scanner can hold the file for a moment, so a few tries are made, with the same waits as Clear before the note is called unreadable.
-    private static string ReadText(string path, Action<TimeSpan> pause)
+    // The same read for code with no async context, where the waits block the thread: a test passes pause to act in them, and a caller
+    // that cannot afford to wait passes one that returns at once.
+    public static InterruptedSwitch? Read(string gitDir, Action<TimeSpan>? pause = null) =>
+        ReadAsync(gitDir, Blocking(pause)).GetAwaiter().GetResult();
+
+    private static async Task<string> ReadTextAsync(string path, Func<TimeSpan, CancellationToken, Task> delay, CancellationToken ct)
     {
-        for (var attempt = 1; ; attempt++)
+        for (var attempt = 0; ; attempt++)
         {
             try
             {
                 return File.ReadAllText(path, _utf8);
             }
-            catch (Exception e) when (attempt < _attempts && e is IOException and not FileNotFoundException and not DirectoryNotFoundException)
+            catch (Exception e) when (attempt < Waits.Length && e is IOException and not FileNotFoundException and not DirectoryNotFoundException)
             {
-                pause(TimeSpan.FromMilliseconds(30 * attempt));
+                await delay(Waits[attempt], ct).ConfigureAwait(false);
             }
         }
     }
 
-    // A scanner can hold the file for a moment, so a few tries are made. False when the note is still there afterwards: it makes captures
-    // refuse until a switch or a discard clears it.
-    public static bool Clear(string gitDir)
+    // False when the note is still there after the last try: it makes captures refuse until a switch or a discard clears it.
+    public static async Task<bool> ClearAsync(string gitDir, Func<TimeSpan, CancellationToken, Task>? delay = null)
     {
-        for (var attempt = 1; attempt <= _attempts; attempt++)
+        delay ??= Task.Delay;
+        for (var attempt = 0; ; attempt++)
         {
             try
             {
@@ -103,10 +121,28 @@ internal static class SwitchJournal
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException)
             {
-                Thread.Sleep(30 * attempt);
+                if (attempt >= Waits.Length)
+                {
+                    return false;
+                }
+
+                await delay(Waits[attempt], CancellationToken.None).ConfigureAwait(false);
             }
         }
+    }
 
-        return false;
+    // The same clear for code with no async context; see Read.
+    public static bool Clear(string gitDir, Action<TimeSpan>? pause = null) =>
+        ClearAsync(gitDir, Blocking(pause)).GetAwaiter().GetResult();
+
+    // Every wait happens inside the call, so the task it returns is already complete and the caller never has to be woken.
+    private static Func<TimeSpan, CancellationToken, Task> Blocking(Action<TimeSpan>? pause)
+    {
+        pause ??= Thread.Sleep;
+        return (wait, _) =>
+        {
+            pause(wait);
+            return Task.CompletedTask;
+        };
     }
 }

@@ -553,6 +553,25 @@ public sealed class FinishSwitchTests : IDisposable
     }
 
     [Fact]
+    public async Task A_read_only_file_standing_where_a_folder_was_is_replaced_by_the_finish()
+    {
+        var (repo, data) = await FileAndFolderProfilesAsync();
+        SwitchJournal.Write(repo.GitDir, data.B, data.A, "profile-a");
+        _ws.Delete(repo, "Mods/Foo/x.txt");
+        Directory.Delete(_ws.FileOf(repo, "Mods/Foo"));
+        _ws.Write(repo, "Mods/Foo", "a's file, cut sh");
+
+        // Windows refuses to delete a read-only file; git's own checkout of a path would have replaced it.
+        File.SetAttributes(_ws.FileOf(repo, "Mods/Foo"), FileAttributes.ReadOnly);
+
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+
+        Assert.Equal("a's file", File.ReadAllText(_ws.FileOf(repo, "Mods/Foo")));
+        Assert.Null(SwitchJournal.Read(repo.GitDir));
+        Assert.True((await _ws.Engine.GetStatusAsync(repo, Ct)).IsClean);
+    }
+
+    [Fact]
     public async Task A_killed_switch_that_left_a_folder_where_a_file_was_is_finished_too()
     {
         var (repo, data) = await FileAndFolderProfilesAsync();

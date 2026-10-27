@@ -152,7 +152,7 @@ public sealed partial class GitEngine
         await RestoreEmptyFoldersAsync(repo, point, ct).ConfigureAwait(false);
 
         // The files are back; a note that stays would keep the folder looking half switched, and the player would be sent round again.
-        if (!SwitchJournal.Clear(repo.GitDir))
+        if (!await ClearNoteAsync(repo).ConfigureAwait(false))
         {
             throw new SwitchNoteStuckException(repo.Role, SwitchJournal.PathIn(repo.GitDir));
         }
@@ -287,7 +287,7 @@ public sealed partial class GitEngine
 
             if (pass >= _options.ResyncDelays.Count)
             {
-                throw new GitOperationException(FullPath(repo, left[0]), NotUpdatedMessage(left));
+                throw new GitOperationException(FullPath(repo, left[0]), NotUpdatedMessage(FileStep.RemoveNew, left));
             }
 
             RecheckBeforeFileChanges(repo, "remove-new");
@@ -436,7 +436,7 @@ public sealed partial class GitEngine
 
             // git prunes a folder when its last file leaves, so the target's empty folders are made again; this runs before the note goes, so a stop here is finished by repeating the switch.
             await RestoreEmptyFoldersAsync(repo, to, ct).ConfigureAwait(false);
-            SwitchJournal.Clear(repo.GitDir);
+            await ClearNoteAsync(repo).ConfigureAwait(false);
             reporter?.Complete();
         }
         finally
@@ -467,7 +467,7 @@ public sealed partial class GitEngine
 
         // A note whose switch is not known cannot be told apart from the one this would finish, and writing a new note would erase the
         // evidence. A discard clears such a note.
-        var note = SwitchJournal.Read(repo.GitDir);
+        var note = await ReadNoteAsync(repo, ct).ConfigureAwait(false);
         if (note is { ToCommit: null })
         {
             throw new InterruptedSwitchException(repo.Role);
@@ -522,7 +522,7 @@ public sealed partial class GitEngine
                 // was redirected). Nothing was written, so the note this call wrote goes, as for a refusal by git.
                 if (await TryRestoreAsync(repo, aligned).ConfigureAwait(false))
                 {
-                    ClearNoteIf(ownsNote, repo);
+                    await ClearNoteIfAsync(ownsNote, repo).ConfigureAwait(false);
                 }
 
                 throw;
@@ -544,7 +544,7 @@ public sealed partial class GitEngine
 
                 if (await TryRestoreAsync(repo, aligned).ConfigureAwait(false))
                 {
-                    ClearNoteIf(ownsNote, repo);
+                    await ClearNoteIfAsync(ownsNote, repo).ConfigureAwait(false);
                 }
 
                 throw new GitOperationException(GitFailure.LockFilePath(stderr), $"git could not take its lock: {stderr.Trim()}");
@@ -554,7 +554,7 @@ public sealed partial class GitEngine
             {
                 if (await TryRestoreAsync(repo, aligned).ConfigureAwait(false))
                 {
-                    ClearNoteIf(ownsNote, repo);
+                    await ClearNoteIfAsync(ownsNote, repo).ConfigureAwait(false);
                 }
 
                 throw RefusalFor(repo, stderr);
@@ -635,13 +635,20 @@ public sealed partial class GitEngine
     }
 
     // A note describes a switch; one this call did not start describes work that is still unfinished, and a refusal changes nothing in it.
-    private static void ClearNoteIf(bool ownsNote, RepoRef repo)
+    private async Task ClearNoteIfAsync(bool ownsNote, RepoRef repo)
     {
         if (ownsNote)
         {
-            SwitchJournal.Clear(repo.GitDir);
+            await ClearNoteAsync(repo).ConfigureAwait(false);
         }
     }
+
+    // The note is read and cleared with the engine's wait for a program that holds it, which frees the thread while it waits.
+    private Task<InterruptedSwitch?> ReadNoteAsync(RepoRef repo, CancellationToken ct) =>
+        SwitchJournal.ReadAsync(repo.GitDir, _options.SwitchNoteDelay, ct);
+
+    private Task<bool> ClearNoteAsync(RepoRef repo) =>
+        SwitchJournal.ClearAsync(repo.GitDir, _options.SwitchNoteDelay);
 
     // Up to three passes: find what does not match the point, give it to git again, wait a moment, look again. With a
     // list of paths in <paramref name="only"/> nothing else is touched, whatever differs, and the paths in <paramref name="skip"/> are
@@ -665,7 +672,7 @@ public sealed partial class GitEngine
             if (pass >= _options.ResyncDelays.Count)
             {
                 var first = FullPath(repo, differing.Length > 0 ? differing[0] : leftovers[0]);
-                throw new GitOperationException(first, NotUpdatedMessage([.. differing, .. leftovers]));
+                throw new GitOperationException(first, NotUpdatedMessage(FileStep.BringToPoint, [.. differing, .. leftovers]));
             }
 
             await ResyncAsync(repo, to, differing, leftovers, ct).ConfigureAwait(false);
@@ -729,12 +736,44 @@ public sealed partial class GitEngine
 
     private static string FullPath(RepoRef repo, string relative) => Path.Combine(repo.WorkTree, relative.Replace('/', Path.DirectorySeparatorChar));
 
-    private static string NotUpdatedMessage(IReadOnlyList<string> paths)
+    // The log text for a file step that left files unchanged: what was being done, then the files.
+    internal static string NotUpdatedMessage(FileStep step, IReadOnlyList<string> paths)
     {
+        var what = step switch
+        {
+            FileStep.BringToPoint => "Could not write the point's copy of these files",
+            FileStep.RemoveNew => "Could not remove these new files",
+            FileStep.RemoveDisplaced => "Could not remove these files the point being left held",
+            FileStep.RemoveStanding => "Could not remove these files standing where the point being left had a folder",
+            _ => throw new ArgumentOutOfRangeException(nameof(step), step, null),
+        };
         var named = string.Join(", ", paths.Take(_namedPathsInMessage));
         return paths.Count > _namedPathsInMessage
-            ? $"Checkout could not update: {named} and {paths.Count - _namedPathsInMessage} more."
-            : $"Checkout could not update: {named}";
+            ? $"{what}: {named} and {paths.Count - _namedPathsInMessage} more."
+            : $"{what}: {named}";
+    }
+
+    // Windows refuses to delete a read-only file, where git's own replacing of a path clears the attribute and goes on. Only for a
+    // file the caller has already decided is its to remove. A link is left as it is: its attributes are not the file's.
+    private static void TryDeleteReadOnly(string path)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            try
+            {
+                var attributes = File.GetAttributes(path);
+                if ((attributes & FileAttributes.ReadOnly) != 0 && (attributes & FileAttributes.ReparsePoint) == 0)
+                {
+                    File.SetAttributes(path, attributes & ~FileAttributes.ReadOnly);
+                }
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                // The delete below fails the same way and is reported there.
+            }
+        }
+
+        TryDelete(path);
     }
 
     private static void TryDelete(string path)

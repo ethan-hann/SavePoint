@@ -151,9 +151,10 @@ public sealed partial class GitEngine
             throw new GitOperationException("Another operation is writing to this repository, so it cannot be reclaimed right now.");
         }
 
+        // The refusal stands whether or not the note can be read, so a held note is not waited for here; it only costs the message its target.
         if (File.Exists(SwitchJournal.PathIn(repo.GitDir)))
         {
-            throw new InterruptedSwitchException(repo.Role, SwitchJournal.Read(repo.GitDir)?.ToCommit);
+            throw new InterruptedSwitchException(repo.Role, SwitchJournal.Read(repo.GitDir, static _ => { })?.ToCommit);
         }
     }
 
