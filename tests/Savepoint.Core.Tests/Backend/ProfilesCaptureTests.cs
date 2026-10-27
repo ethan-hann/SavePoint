@@ -31,6 +31,48 @@ public class ProfilesCaptureTests
     }
 
     [Fact]
+    public async Task Folders_saved_side_by_side_that_each_fit_but_not_together_are_refused_before_any_is_written()
+    {
+        const long floor = 1_000;
+        using var workspace = new BackendWorkspace(options => options with { Engine = new GitEngineOptions { MinFreeBytesForStorageWrites = floor } });
+        var game = await workspace.AddGameAsync();
+        var (profile, _) = await workspace.CreateProfileAsync(game);
+        BackendWorkspace.WriteFile(Path.Combine(game.Install.Path, "data", "patch.pak"), new string('a', 300_000));
+        BackendWorkspace.WriteFile(Path.Combine(game.External!.Path, "slot2.sav"), new string('b', 200_000));
+        workspace.Disk.FreePerPath = path => path.StartsWith(workspace.DefaultStorageRoot, StringComparison.OrdinalIgnoreCase) ? floor + 400_000 : null;
+
+        var started = await workspace.Profiles.CaptureAsync(game.Id, profile.Id, "Too much together");
+        var job = await workspace.WaitForJobAsync(started.Value!.JobId);
+
+        Assert.Equal(JobStatus.Failed, job.Status);
+        Assert.Equal("error.diskSpace.low", job.Error?.MessageId);
+        Assert.Equal(floor + 500_000, job.Error!.Args["requiredBytes"]);
+        Assert.Equal(floor + 400_000, job.Error.Args["freeBytes"]);
+        Assert.All(Assert.IsType<CaptureResult>(job.Result).Folders, folder => Assert.False(folder.Ok));
+        Assert.Single(await CommitsAsync(workspace, game, RepoRole.Install, profile));
+        Assert.Single(await CommitsAsync(workspace, game, RepoRole.External, profile));
+    }
+
+    [Fact]
+    public async Task Folders_saved_side_by_side_that_fit_together_are_both_saved()
+    {
+        const long floor = 1_000;
+        using var workspace = new BackendWorkspace(options => options with { Engine = new GitEngineOptions { MinFreeBytesForStorageWrites = floor } });
+        var game = await workspace.AddGameAsync();
+        var (profile, _) = await workspace.CreateProfileAsync(game);
+        BackendWorkspace.WriteFile(Path.Combine(game.Install.Path, "data", "patch.pak"), new string('a', 300_000));
+        BackendWorkspace.WriteFile(Path.Combine(game.External!.Path, "slot2.sav"), new string('b', 200_000));
+        workspace.Disk.FreePerPath = path => path.StartsWith(workspace.DefaultStorageRoot, StringComparison.OrdinalIgnoreCase) ? floor + 500_000 : null;
+
+        var started = await workspace.Profiles.CaptureAsync(game.Id, profile.Id, "Just enough room");
+        var job = await workspace.WaitForJobAsync(started.Value!.JobId);
+
+        Assert.Equal(JobStatus.Succeeded, job.Status);
+        Assert.Equal(2, (await CommitsAsync(workspace, game, RepoRole.Install, profile)).Count);
+        Assert.Equal(2, (await CommitsAsync(workspace, game, RepoRole.External, profile)).Count);
+    }
+
+    [Fact]
     public async Task A_capture_that_finds_nothing_new_succeeds_without_a_point()
     {
         using var workspace = new BackendWorkspace();

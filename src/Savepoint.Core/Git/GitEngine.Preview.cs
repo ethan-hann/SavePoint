@@ -108,6 +108,27 @@ public sealed partial class GitEngine
     }
 
     /// <summary>
+    /// The bytes a capture's own space check would count for this folder: the size of every file it would add or rewrite, without
+    /// looking at what the store already holds (packs are written uncompressed, so the store grows by about this much). Rewrites
+    /// <c>info/exclude</c> from <paramref name="ignorePatterns"/> (in the storage folder; the work tree is never written). A file that
+    /// disappears while its size is read counts for nothing.
+    /// </summary>
+    /// <param name="repo">The folder.</param>
+    /// <param name="ignorePatterns">The game's ignore patterns for the folder.</param>
+    /// <param name="ct">Cancels the call.</param>
+    /// <returns>The bytes the capture would add.</returns>
+    /// <exception cref="Savepoint.Core.Errors.PathSafetyException">The work tree is a protected location.</exception>
+    /// <exception cref="Savepoint.Core.Errors.PathMissingException">The work tree does not exist.</exception>
+    /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
+    /// <exception cref="Savepoint.Core.Errors.GitOperationException">The repository does not exist, or git failed.</exception>
+    public async Task<long> EstimateCaptureBytesAsync(RepoRef repo, IReadOnlyList<string> ignorePatterns, CancellationToken ct = default)
+    {
+        repo = PreparePreview(repo, ignorePatterns, ct);
+        var listing = await ListForStagingAsync(repo, ct).ConfigureAwait(false);
+        return (await SizesOfAsync(repo, listing.Files, ct).ConfigureAwait(false)).Sum();
+    }
+
+    /// <summary>
     /// What switching from <paramref name="fromRevision"/> to <paramref name="toRevision"/> would change. Reads only the git directory.
     /// </summary>
     /// <param name="repo">The folder.</param>
