@@ -31,6 +31,8 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     private double _headerWidth = double.PositiveInfinity;
     private bool _cardsScroll;
     private bool _searchScrolls;
+    private double _bodyHeight;
+    private double _scrollingCardHeight;
     private bool _flowActive;
     private IReadOnlyList<RepoRole> _folderRoles = [];
     private long _generation;
@@ -337,7 +339,25 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     /// <param name="height">The area's height in layout pixels, which the interface size does not change, after a pinned launch card has taken its room.</param>
     public void SetBodyHeight(double height)
     {
-        var scrolls = height > 0 && height < PinnedSearchMinBodyHeight;
+        _bodyHeight = height;
+        PlaceSearch();
+    }
+
+    /// <summary>
+    /// Tells the screen how tall the card below the table is (0 while there is none). A card the area cannot hold beside a pinned search
+    /// folds the search into the scrolling profiles, so the card keeps the whole area to scroll into view in.
+    /// </summary>
+    /// <param name="height">The card's height in layout pixels.</param>
+    public void SetScrollingCardHeight(double height)
+    {
+        _scrollingCardHeight = height;
+        PlaceSearch();
+    }
+
+    // Neither input depends on where the search sits (the area is a star row and the card's width is the same either way), so this cannot flip back and forth.
+    private void PlaceSearch()
+    {
+        var scrolls = _bodyHeight > 0 && (_bodyHeight < PinnedSearchMinBodyHeight || _bodyHeight - PinnedSearchRowHeight < _scrollingCardHeight);
         if (scrolls == _searchScrolls)
         {
             return;

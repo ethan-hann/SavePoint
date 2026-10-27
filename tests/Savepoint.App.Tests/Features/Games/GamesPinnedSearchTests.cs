@@ -66,6 +66,43 @@ public class GamesPinnedSearchTests
     }
 
     [Fact]
+    public async Task A_card_the_area_cannot_hold_beside_a_pinned_search_folds_the_search_into_the_scrolling_profiles()
+    {
+        var rig = await GamesRig.StartAsync();
+        rig.Screen.SetBodyHeight(GamesScreenViewModel.PinnedSearchMinBodyHeight + 3);
+
+        rig.Screen.SetScrollingCardHeight(GamesScreenViewModel.PinnedSearchMinBodyHeight - 21);
+
+        Assert.False(rig.Screen.ShowPinnedSearch);
+        Assert.True(rig.Screen.ShowScrollingSearch);
+    }
+
+    [Fact]
+    public async Task A_card_the_area_can_hold_beside_a_pinned_search_leaves_the_search_pinned()
+    {
+        var rig = await GamesRig.StartAsync();
+        rig.Screen.SetBodyHeight(450);
+
+        rig.Screen.SetScrollingCardHeight(300);
+
+        Assert.True(rig.Screen.ShowPinnedSearch);
+        Assert.False(rig.Screen.ShowScrollingSearch);
+    }
+
+    [Fact]
+    public async Task The_search_is_pinned_again_when_the_card_goes()
+    {
+        var rig = await GamesRig.StartAsync();
+        rig.Screen.SetBodyHeight(GamesScreenViewModel.PinnedSearchMinBodyHeight + 3);
+        rig.Screen.SetScrollingCardHeight(GamesScreenViewModel.PinnedSearchMinBodyHeight - 21);
+
+        rig.Screen.SetScrollingCardHeight(0);
+
+        Assert.True(rig.Screen.ShowPinnedSearch);
+        Assert.False(rig.Screen.ShowScrollingSearch);
+    }
+
+    [Fact]
     public async Task A_game_with_no_profiles_shows_no_search_in_either_place()
     {
         var rig = await GamesRig.StartAsync(new FakeBackend(ScenarioBuilder.Empty().WithSettings(SampleScenario.Settings).WithGame(SampleScenario.Caretaker)));
