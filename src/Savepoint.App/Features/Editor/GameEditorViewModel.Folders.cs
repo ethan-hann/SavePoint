@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Errors;
+using Savepoint.App.Features.Common.Formatting;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 
@@ -11,6 +12,7 @@ public sealed partial class GameEditorViewModel
 {
     // Bumped on every change to the saves field, so a slow answer for an earlier value never replaces a later one.
     private int _resolveVersion;
+    private int _modsResolveVersion;
 
     /// <summary>The line saying when the saved install folder was confirmed; null when there is nothing to say.</summary>
     [ObservableProperty]
@@ -24,19 +26,34 @@ public sealed partial class GameEditorViewModel
     [ObservableProperty]
     private string? _savesResolves;
 
+    /// <summary>The line saying when the saved mods folder was confirmed; null when there is nothing to say.</summary>
+    [ObservableProperty]
+    private string? _modsConfirmation;
+
+    /// <summary>The line saying which folder a shortcut in the mods field points to; null when the field has no shortcut.</summary>
+    [ObservableProperty]
+    private string? _modsResolves;
+
+    /// <summary>True while the mods field is empty, which is when the editor explains that most games keep their mods in the game folder.</summary>
+    public bool HasNoModsFolder => string.IsNullOrWhiteSpace(ModsPath);
+
+    /// <summary>The path shortcuts offered under the mods field; the same ones as for the saves field.</summary>
+    public IReadOnlyList<SuggestionItem> ModsLocationChoices { get; private set; } = [];
+
     /// <summary>True while the saves field is empty, which is when the editor explains what a game without a saves folder is missing.</summary>
     public bool HasNoSavesFolder => string.IsNullOrWhiteSpace(SavesPath);
 
     /// <summary>The path shortcuts offered under the saves field, such as <c>{documents}</c>; which ones exist depends on the operating system.</summary>
     public IReadOnlyList<SuggestionItem> LocationChoices { get; private set; } = [];
 
-    private IReadOnlyList<SuggestionItem> BuildLocationChoices()
+    // Each field offers its own buttons: a shortcut changes only the field its row sits under.
+    private IReadOnlyList<SuggestionItem> BuildLocationChoices(Action<string> apply)
     {
         // Saved Games is a Windows folder; every other system has the home folder as a starting point instead.
         string[] tokens = _text.Os == "windows"
             ? ["{documents}", "{savedGames}", "{appData}", "{localAppData}"]
             : ["{documents}", "{userHome}", "{appData}", "{localAppData}"];
-        return [.. tokens.Select(token => new SuggestionItem(token, new RelayCommand(() => ApplyLocation(token)), LocationName(token)))];
+        return [.. tokens.Select(token => new SuggestionItem(token, new RelayCommand(() => apply(token)), LocationName(token)))];
     }
 
     // What a person calls the place; the field itself keeps the shortcut, which the button's tooltip shows.
@@ -50,11 +67,11 @@ public sealed partial class GameEditorViewModel
     };
 
     // The shortcut replaces any shortcut the field starts with and keeps the rest of the path.
-    private void ApplyLocation(string token)
+    private static string WithLocation(string current, string token)
     {
-        var current = SavesPath.Trim();
+        current = current.Trim();
         var tail = current.StartsWith('{') && current.IndexOf('}') is var end and > 0 ? current[(end + 1)..] : current;
-        SavesPath = tail.Length == 0 || tail[0] is '\\' or '/' ? token + tail : $@"{token}\{tail}";
+        return tail.Length == 0 || tail[0] is '\\' or '/' ? token + tail : $@"{token}\{tail}";
     }
 
     partial void OnSavesPathChanged(string value)
@@ -64,6 +81,15 @@ public sealed partial class GameEditorViewModel
         SavesCard = null;
         UpdateConfirmations();
         _ = UpdateSavesResolvesAsync();
+    }
+
+    partial void OnModsPathChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasNoModsFolder));
+        ModsError = null;
+        ModsCard = null;
+        UpdateConfirmations();
+        _ = UpdateModsResolvesAsync();
     }
 
     partial void OnInstallPathChanged(string value)
@@ -79,25 +105,41 @@ public sealed partial class GameEditorViewModel
     private async Task UpdateSavesResolvesAsync()
     {
         var version = ++_resolveVersion;
-        var raw = SavesPath.Trim();
+        var line = await ResolvesLineAsync(SavesPath);
+        if (version == _resolveVersion)
+        {
+            SavesResolves = line;
+        }
+    }
+
+    private async Task UpdateModsResolvesAsync()
+    {
+        var version = ++_modsResolveVersion;
+        var line = await ResolvesLineAsync(ModsPath);
+        if (version == _modsResolveVersion)
+        {
+            ModsResolves = line;
+        }
+    }
+
+    // While a shortcut is still being typed it cannot resolve; the problem is reported when the user saves.
+    private async Task<string?> ResolvesLineAsync(string field)
+    {
+        var raw = field.Trim();
         if (!raw.StartsWith('{'))
         {
-            SavesResolves = null;
-            return;
+            return null;
         }
 
         var resolved = await _games.ResolvePathAsync(raw);
-        if (version == _resolveVersion)
-        {
-            // While the shortcut is still being typed it cannot resolve; the problem is reported when the user saves.
-            SavesResolves = resolved.Ok ? _text.Message("gameEditor.external.resolvesTo", ("path", resolved.Value)) : null;
-        }
+        return resolved.Ok ? _text.Message("gameEditor.external.resolvesTo", ("path", resolved.Value)) : null;
     }
 
     // The "Confirmed for SavePoint" line belongs to the folder as it was saved; once the field points elsewhere there is nothing to confirm yet.
     private void UpdateConfirmations()
     {
         InstallConfirmation = ConfirmationFor(RepoRole.Install, InstallPath);
+        ModsConfirmation = ConfirmationFor(RepoRole.Mods, ModsPath);
         SavesConfirmation = ConfirmationFor(RepoRole.External, SavesPath);
     }
 
@@ -119,8 +161,14 @@ public sealed partial class GameEditorViewModel
             : _text.Message("gameEditor.folder.confirmedNoDate");
     }
 
-    private string OriginalPath(RepoRole role) =>
-        (role == RepoRole.Install ? _saved?.Install.Path : _saved?.External?.Path)?.Trim() ?? string.Empty;
+    private string OriginalPath(RepoRole role) => PathOf(_saved, role);
+
+    private static string PathOf(GameDefinition? game, RepoRole role) => (role switch
+    {
+        RepoRole.Install => game?.Install.Path,
+        RepoRole.Mods => game?.Mods?.Path,
+        _ => game?.External?.Path,
+    })?.Trim() ?? string.Empty;
 
     // A folder that is gone gets the "moved or is gone" card with a way to choose the new place; picking one re-runs the confirmation on save.
     private void ShowMissingFolders()
@@ -130,17 +178,26 @@ public sealed partial class GameEditorViewModel
             var role = status.Role;
             var error = new ErrorInfo(
                 "error.path.missing",
-                new Dictionary<string, object?> { ["path"] = status.ResolvedPath ?? status.Path, ["role"] = role == RepoRole.Install ? "install" : "external" },
+                new Dictionary<string, object?> { ["path"] = status.ResolvedPath ?? status.Path, ["role"] = FolderRoles.Name(role) },
                 string.Empty);
-            var card = new ErrorCardViewModel(error, _text, [ChooseFolderAction(role)]);
-            if (role == RepoRole.Install)
-            {
+            ShowCard(role, new ErrorCardViewModel(error, _text, [ChooseFolderAction(role)]));
+        }
+    }
+
+    // A card about a folder is drawn under that folder's field.
+    private void ShowCard(RepoRole role, ErrorCardViewModel card)
+    {
+        switch (role)
+        {
+            case RepoRole.Install:
                 InstallCard = card;
-            }
-            else
-            {
+                break;
+            case RepoRole.Mods:
+                ModsCard = card;
+                break;
+            default:
                 SavesCard = card;
-            }
+                break;
         }
     }
 
@@ -153,24 +210,40 @@ public sealed partial class GameEditorViewModel
     [RelayCommand]
     private Task BrowseSavesAsync() => BrowseFolderAsync(RepoRole.External);
 
+    [RelayCommand]
+    private Task BrowseModsAsync() => BrowseFolderAsync(RepoRole.Mods);
+
     private async Task BrowseFolderAsync(RepoRole role)
     {
-        var install = role == RepoRole.Install;
-        var start = await StartFolderAsync(install ? InstallPath : SavesPath);
-        var title = _text.Message(install ? "gameEditor.install.pickTitle" : "gameEditor.external.pickTitle");
+        var start = await StartFolderAsync(role switch
+        {
+            RepoRole.Install => InstallPath,
+            RepoRole.Mods => ModsPath,
+            _ => SavesPath,
+        });
+        var title = _text.Message(role switch
+        {
+            RepoRole.Install => "gameEditor.install.pickTitle",
+            RepoRole.Mods => "gameEditor.mods.pickTitle",
+            _ => "gameEditor.external.pickTitle",
+        });
         if (await _dialogs.PickFolderAsync(new FolderPickRequest(title, start)) is not { } picked)
         {
             return;
         }
 
-        if (install)
+        switch (role)
         {
-            InstallPath = picked;
-            await RefreshSuggestionsAsync();
-        }
-        else
-        {
-            SavesPath = picked;
+            case RepoRole.Install:
+                InstallPath = picked;
+                await RefreshSuggestionsAsync();
+                break;
+            case RepoRole.Mods:
+                ModsPath = picked;
+                break;
+            default:
+                SavesPath = picked;
+                break;
         }
     }
 

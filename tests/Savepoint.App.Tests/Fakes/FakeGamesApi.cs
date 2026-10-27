@@ -167,7 +167,7 @@ public sealed class FakeGamesApi : IGamesApi
             }
 
             var previous = State.Games[index];
-            var foldersChanged = previous.Install != definition.Install || previous.External != definition.External;
+            var foldersChanged = previous.Install != definition.Install || previous.External != definition.External || previous.Mods != definition.Mods;
             if (foldersChanged && State.IsOpen(definition.Id))
             {
                 return OperationResult.Failure<GameDefinition>(new GameRunningException(previous.Id, previous.Name));
@@ -368,8 +368,12 @@ public sealed class FakeGamesApi : IGamesApi
             return OperationResult.Success();
         });
 
-    internal static string PathOf(GameDefinition game, RepoRole role) =>
-        role == RepoRole.Install ? game.Install.Path : game.External?.Path ?? "";
+    internal static string PathOf(GameDefinition game, RepoRole role) => role switch
+    {
+        RepoRole.Install => game.Install.Path,
+        RepoRole.Mods => game.Mods?.Path ?? "",
+        _ => game.External?.Path ?? "",
+    };
 
     private void Add(GameDefinition game)
     {

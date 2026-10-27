@@ -63,6 +63,10 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _savesPath = string.Empty;
 
+    /// <summary>Where the mods live when they are outside the game folder, as typed; it may start with a shortcut such as {appData}. Empty means the game has no mods folder.</summary>
+    [ObservableProperty]
+    private string _modsPath = string.Empty;
+
     /// <summary>Which way the game starts: 0 runs a file, 1 opens a launch link (Steam).</summary>
     [ObservableProperty]
     private int _launchChoice;
@@ -91,6 +95,10 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string? _savesError;
 
+    /// <summary>What is wrong with the mods folder, or null.</summary>
+    [ObservableProperty]
+    private string? _modsError;
+
     /// <summary>What is wrong with the way the game starts, or null.</summary>
     [ObservableProperty]
     private string? _launchError;
@@ -110,6 +118,10 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
     /// <summary>An error card about the saves folder, drawn under its field, or null.</summary>
     [ObservableProperty]
     private ErrorCardViewModel? _savesCard;
+
+    /// <summary>An error card about the mods folder, drawn under its field, or null.</summary>
+    [ObservableProperty]
+    private ErrorCardViewModel? _modsCard;
 
     /// <summary>An error card about the form as a whole, drawn above the columns, or null.</summary>
     [ObservableProperty]
@@ -158,7 +170,8 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
         LaunchArgs = new ChipListViewModel(text, text.Message("gameEditor.launchArgs.label"), text.Message("gameEditor.addOption"), text.Message("gameEditor.launchArgs.placeholder"));
         ModFolders = new ChipListViewModel(text, text.Message("gameEditor.modPathHints.label"), text.Message("gameEditor.addFolder"), text.Message("gameEditor.modPathHints.placeholder"));
         Title = saved is null ? text.Message("gameEditor.title.create") : text.Message("gameEditor.title.edit", ("name", saved.Name));
-        LocationChoices = BuildLocationChoices();
+        LocationChoices = BuildLocationChoices(token => SavesPath = WithLocation(SavesPath, token));
+        ModsLocationChoices = BuildLocationChoices(token => ModsPath = WithLocation(ModsPath, token));
         ArtworkPreview = shell.Artwork.Preview(saved?.Id ?? string.Empty);
         LoadForm(_source, rulesAreDefaults: saved is null && prefill is null);
         InitializeArtwork(shell, saved);
@@ -264,6 +277,7 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
         Name = game.Name;
         _fillingForm = false;
         InstallPath = game.Install.Path;
+        ModsPath = game.Mods?.Path ?? string.Empty;
         SavesPath = game.External?.Path ?? string.Empty;
         ExePath = game.Launch.ExePath ?? string.Empty;
         Uri = game.Launch.Uri ?? string.Empty;
@@ -285,6 +299,7 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
             Id = id,
             Name = Name.Trim(),
             Install = new InstallLocation(InstallPath.Trim()),
+            Mods = NullIfBlank(ModsPath) is { } mods ? new ModsLocation(mods) : null,
             External = NullIfBlank(SavesPath) is { } saves ? new ExternalLocation(saves, ExternalRole.Saves) : null,
             Launch = new LaunchConfig(
                 exe ? LaunchMethod.Exe : LaunchMethod.Uri,

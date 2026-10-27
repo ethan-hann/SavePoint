@@ -194,6 +194,11 @@ public sealed partial class GameEditorViewModel
     private IEnumerable<(RepoRole Role, string Raw, string Label)> FoldersOf(GameDefinition definition)
     {
         yield return (RepoRole.Install, definition.Install.Path, _text.Message("gameEditor.consent.install"));
+        if (definition.Mods is { } mods)
+        {
+            yield return (RepoRole.Mods, mods.Path, _text.Message("gameEditor.consent.mods"));
+        }
+
         if (definition.External is { } saves)
         {
             yield return (RepoRole.External, saves.Path, _text.Message("gameEditor.consent.saves"));
@@ -218,8 +223,7 @@ public sealed partial class GameEditorViewModel
             return true;
         }
 
-        var original = role == RepoRole.Install ? _saved.Install.Path : _saved.External?.Path ?? string.Empty;
-        return !string.Equals(raw.Trim(), original.Trim(), StringComparison.Ordinal)
+        return !string.Equals(raw.Trim(), PathOf(_saved, role), StringComparison.Ordinal)
             || _statuses.FirstOrDefault(status => status.Role == role) is { Consent.Confirmed: false };
     }
 
