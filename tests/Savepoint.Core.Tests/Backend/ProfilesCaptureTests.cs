@@ -124,6 +124,7 @@ public class ProfilesCaptureTests
     public async Task Two_captures_of_one_game_run_one_after_the_other()
     {
         var inside = 0;
+        var held = 0;
         var overlapped = false;
         using var workspace = new BackendWorkspace();
         var game = await workspace.AddGameAsync(workspace.NewGame(withSaves: false));
@@ -134,10 +135,15 @@ public class ProfilesCaptureTests
             {
                 if (Interlocked.Increment(ref inside) > 1)
                 {
-                    overlapped = true;
+                    Volatile.Write(ref overlapped, true);
                 }
 
-                Thread.Sleep(300);
+                // The first capture stays here until the second is queued behind it (or has got in beside it), which is when overlap would show.
+                if (Interlocked.Exchange(ref held, 1) == 0)
+                {
+                    SpinWait.SpinUntil(() => workspace.Backend.Services.Locks.WaiterCount(game.Id) > 0 || Volatile.Read(ref overlapped), TimeSpan.FromSeconds(20));
+                }
+
                 Interlocked.Decrement(ref inside);
             }
 

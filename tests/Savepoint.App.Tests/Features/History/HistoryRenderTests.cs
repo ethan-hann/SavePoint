@@ -9,7 +9,7 @@ using Savepoint.Core.Errors;
 
 namespace Savepoint.App.Tests.Features.History;
 
-// Writes PNGs to render-output/history/ (gitignored) for side-by-side review against the History list and cards designs at 1040x660.
+// Writes PNGs to render-output/history/ (gitignored) at 1040x660 to compare with the previous render of the History list and cards after a change.
 public class HistoryRenderTests
 {
     private static async Task<ScreenHarness> StartAsync(ThemePreference theme = ThemePreference.Dark, FakeBackend? backend = null)

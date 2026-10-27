@@ -6,7 +6,7 @@ using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Tests.Features.Editor;
 
-// Writes PNGs to render-output/editor/ (gitignored) for side-by-side review against the game editor and error card designs at 1040x660.
+// Writes PNGs to render-output/editor/ (gitignored) at 1040x660 to compare with the previous render of the game editor and error card after a change.
 public class GameEditorRenderTests
 {
     private static void AssertRendered(string path) =>

@@ -12,7 +12,7 @@ using Savepoint.Core.Errors;
 
 namespace Savepoint.App.Tests.Features.EndToEnd;
 
-// Writes PNGs to render-output/artwork/ (gitignored) at 1040x660 for review: the library and sidebar layouts with real artwork
+// Writes PNGs to render-output/artwork/ (gitignored) at 1040x660 to compare with the previous render after a change: the library and sidebar layouts with real artwork
 // next to a game that has none, and the editor's Artwork section in each state. A game with Steam art, one with its owner's own
 // image and one with neither stand side by side.
 public class ArtworkRenderTests

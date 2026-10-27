@@ -75,6 +75,7 @@ public class DBusNotificationBusTests
 
         await bus.NotifyAsync(_notification, Ct);
         var received = await server.Received.WaitAsync(TimeSpan.FromSeconds(20), Ct);
+        // The bus daemon is another process and drops a closed connection's name on its own time; a sender that hung up would be gone by now.
         await Task.Delay(TimeSpan.FromMilliseconds(500), Ct);
 
         Assert.True(await server.IsConnectedAsync(received.Sender), "the connection that sent the notification was already gone");

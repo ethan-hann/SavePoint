@@ -330,7 +330,8 @@ public class ConsentMarkerTests
         Assert.Null(error.Args["existingRole"]);
     }
 
-    // Another program (a scanner, a backup tool) opens the file with no sharing for a short while.
+    // Another program (a scanner, a backup tool) opens the file with no sharing for a short while. The hold is real time because the thing
+    // under test is how long Read keeps retrying (about 1.3 s): a hold shorter than that is let go in time, a longer one is not.
     private static ConsentMarkerState ReadWhileLocked(string work, TimeSpan holdFor)
     {
         var opened = new ManualResetEventSlim();

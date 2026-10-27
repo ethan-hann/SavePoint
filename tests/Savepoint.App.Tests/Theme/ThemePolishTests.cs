@@ -8,7 +8,7 @@ using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Tests.Theme;
 
-// Findings from the theme review: the warning family is gold, the accent swatches need the raw seeds, and a recessed well shows in light mode.
+// Pins three theme facts that are easy to lose: the warning family is gold, the accent swatches need the raw seeds, and a recessed well shows in light mode.
 public class ThemePolishTests
 {
     // The gold the design draws the game editor's Steam callout in (#F5D488 text on an olive fill).

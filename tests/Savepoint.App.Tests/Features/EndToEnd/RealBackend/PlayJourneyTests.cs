@@ -89,6 +89,7 @@ public class PlayJourneyTests
         await rig.AddGameAsync(game, ["--saves", game.Saves, "--save-every", "150", "--exit-after", "3000"]);
         var vanilla = await rig.CreateProfileAsync("Vanilla");
         JourneyRig.WriteFile(Path.Combine(game.Install, "mods", "big.bin"), "a very large mod");
+        // Git compares a file's time with the index's to the second on Windows, so the mod must be saved in a later second than the profile above.
         await Task.Delay(TimeSpan.FromMilliseconds(1100), TestContext.Current.CancellationToken);
         var heavy = await rig.CreateProfileAsync("Heavy mods");
         await rig.WaitAsync(() => heavy.IsActive && !vanilla.IsActive, "the rows to show the folders are on Heavy mods");

@@ -22,11 +22,15 @@ internal sealed class LaunchRig : IDisposable
     private readonly object _gate = new();
     private readonly List<LaunchSessionInfo> _events = [];
 
-    private LaunchRig(BackendWorkspace workspace, GameDefinition game, string exeName)
+    private readonly TwoProfileTemplates.Slot? _slot;
+    private int _disposed;
+
+    private LaunchRig(BackendWorkspace workspace, GameDefinition game, string exeName, TwoProfileTemplates.Slot? slot = null)
     {
         Workspace = workspace;
         Game = game;
         ExeName = exeName;
+        _slot = slot;
         Launch.SessionChanged += OnSessionChanged;
     }
 
@@ -80,12 +84,7 @@ internal sealed class LaunchRig : IDisposable
     {
         var exeName = "fg" + Guid.NewGuid().ToString("N")[..6];
         var exeFile = exeName + (OperatingSystem.IsWindows() ? ".exe" : string.Empty);
-        var rigSession = session ?? new GameSessionOptions { PollInterval = TimeSpan.FromMilliseconds(100), Grace = TimeSpan.FromSeconds(3) };
-        var workspace = new BackendWorkspace(options =>
-        {
-            var launching = options with { Launch = LaunchOrchestrator.Factory(new LaunchOrchestratorOptions { Session = rigSession, Starter = starter }) };
-            return configure is null ? launching : configure(launching);
-        });
+        var workspace = new BackendWorkspace(WithOrchestrator(configure, session, starter));
         try
         {
             var definition = workspace.NewGame("Play", withSaves, modHints ?? ["mods"]);
@@ -108,6 +107,17 @@ internal sealed class LaunchRig : IDisposable
         }
     }
 
+    // The backend options every rig builds: the real orchestrator, polling fast so a test does not wait on the production interval.
+    private static Func<BackendOptions, BackendOptions> WithOrchestrator(Func<BackendOptions, BackendOptions>? configure, GameSessionOptions? session, GameStarter? starter)
+    {
+        var rigSession = session ?? new GameSessionOptions { PollInterval = TimeSpan.FromMilliseconds(100), Grace = TimeSpan.FromSeconds(3) };
+        return options =>
+        {
+            var launching = options with { Launch = LaunchOrchestrator.Factory(new LaunchOrchestratorOptions { Session = rigSession, Starter = starter }) };
+            return configure is null ? launching : configure(launching);
+        };
+    }
+
     // The tool's own output folder holds the program and what it needs to start; the program is renamed on the way in.
     private static void InstallStandInGame(string install, string exeFile)
     {
@@ -121,20 +131,40 @@ internal sealed class LaunchRig : IDisposable
     }
 
     // Vanilla is the game as installed; Modded adds two mod files, patches a game file and has a second save. The folders end on Modded.
+    // Capturing two profiles costs dozens of git processes, so the state is built once (see TwoProfileTemplates) and each call gets a copy of
+    // it, reopened as the app is after a restart. The game's arguments and process name are then set for this test.
     public static async Task<(LaunchRig Rig, Profile Vanilla, Profile Modded)> WithTwoProfilesAsync(
         Func<BackendOptions, BackendOptions>? configure = null,
         IReadOnlyList<string>? gameArguments = null,
         bool followProcessName = false)
     {
-        var rig = await CreateAsync(configure, gameArguments, followProcessName: followProcessName);
+        var slot = await TwoProfileTemplates.RentAsync();
+        BackendWorkspace? workspace = null;
         try
         {
-            var (vanilla, modded) = await rig.BuildTwoProfilesAsync();
-            return (rig, vanilla, modded);
+            workspace = BackendWorkspace.CopyOf(slot.Workspace, WithOrchestrator(configure, null, null));
+            var game = Assert.Single((await workspace.Games.ListAsync(workspace.Token)).Value!);
+            var profiles = (await workspace.Profiles.ListAsync(game.Id, workspace.Token)).Value!;
+            var rig = new LaunchRig(workspace, game, slot.ExeName, slot);
+            if (gameArguments is not null || followProcessName)
+            {
+                var launch = game.Launch!;
+                await rig.EditGameAsync(current => current with
+                {
+                    Launch = launch with
+                    {
+                        Args = [.. launch.Args, .. gameArguments ?? []],
+                        ProcessNameForExitDetection = followProcessName ? rig.ExeName : null,
+                    },
+                });
+            }
+
+            return (rig, profiles.Single(profile => profile.Name == "Vanilla"), profiles.Single(profile => profile.Name == "Modded"));
         }
         catch
         {
-            rig.Dispose();
+            workspace?.Dispose();
+            TwoProfileTemplates.Return(slot);
             throw;
         }
     }
@@ -327,11 +357,22 @@ internal sealed class LaunchRig : IDisposable
 
     public void Dispose()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) == 1)
+        {
+            return;
+        }
+
         Launch.SessionChanged -= OnSessionChanged;
         KillGame();
 
         // A killed program lets go of its files a moment later; the folders cannot be removed until it has.
         SpinWait.SpinUntil(() => GameProcessIds().Count == 0, TimeSpan.FromSeconds(10));
         Workspace.Dispose();
+
+        // Only now may another test use the program's name.
+        if (_slot is not null)
+        {
+            TwoProfileTemplates.Return(_slot);
+        }
     }
 }

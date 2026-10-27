@@ -62,7 +62,7 @@ public class LaunchStoppedSwitchReviewTests
         }, role);
     }
 
-    [Fact(Timeout = 150_000)]
+    [Fact(Timeout = 60_000)]
     public async Task An_unsaved_change_the_finish_would_run_over_makes_the_folder_dirty_and_takes_the_finish_off_offer()
     {
         var (rig, vanilla, _) = await LaunchRig.WithTwoProfilesAsync();
@@ -81,7 +81,7 @@ public class LaunchStoppedSwitchReviewTests
         Assert.Null(preview.Install.DirtyOwnerProfileId);
     }
 
-    [Fact(Timeout = 150_000)]
+    [Fact(Timeout = 60_000)]
     public async Task Starting_is_refused_before_anything_is_written_while_such_a_change_is_there()
     {
         var (rig, vanilla, _) = await LaunchRig.WithTwoProfilesAsync();
@@ -98,7 +98,7 @@ public class LaunchStoppedSwitchReviewTests
         Assert.NotNull((await rig.StatusAsync(RepoRole.Install)).InterruptedSwitch);
     }
 
-    [Fact(Timeout = 150_000)]
+    [Fact(Timeout = 60_000)]
     public async Task Discarding_the_changes_clears_the_way_and_the_same_switch_then_finishes()
     {
         var (rig, vanilla, _) = await LaunchRig.WithTwoProfilesAsync();
@@ -172,7 +172,7 @@ public class LaunchStoppedSwitchReviewTests
     // The vanilla copy of data/base.pak is "base content"; this has the same size and other bytes, so only reading it tells them apart.
     private const string _sameSizeOtherBytes = "base conteNt";
 
-    [Fact(Timeout = 150_000)]
+    [Fact(Timeout = 60_000)]
     public async Task Starting_that_is_refused_for_a_change_in_the_way_reads_no_file()
     {
         var watch = new HashWatch();
@@ -190,7 +190,7 @@ public class LaunchStoppedSwitchReviewTests
         Assert.Empty(watch.Paths);
     }
 
-    [Fact(Timeout = 150_000)]
+    [Fact(Timeout = 60_000)]
     public async Task Starting_the_switch_reads_each_file_of_the_targets_size_once_for_the_switch_itself()
     {
         var watch = new HashWatch();
@@ -207,7 +207,7 @@ public class LaunchStoppedSwitchReviewTests
         Assert.Single(watch.Paths, path => path.EndsWith("base.pak", StringComparison.Ordinal));
     }
 
-    [Fact(Timeout = 150_000)]
+    [Fact(Timeout = 60_000)]
     public async Task A_preview_that_cannot_check_the_folder_treats_it_as_blocked_so_that_discarding_is_offered()
     {
         var watch = new HashWatch();
@@ -233,7 +233,7 @@ public class LaunchStoppedSwitchReviewTests
         Assert.Equal(Tip(vanilla), again.Install.UnfinishedSwitchTarget);
     }
 
-    [Fact(Timeout = 150_000)]
+    [Fact(Timeout = 60_000)]
     public async Task A_preview_that_cannot_check_the_folder_logs_why_as_a_warning()
     {
         var watch = new HashWatch();
@@ -251,7 +251,7 @@ public class LaunchStoppedSwitchReviewTests
         Assert.IsAssignableFrom<SavepointException>(line.Exception);
     }
 
-    [Fact(Timeout = 150_000)]
+    [Fact(Timeout = 60_000)]
     public async Task A_stopped_switch_with_nothing_in_the_way_stays_clean_and_replaces_nothing()
     {
         var (rig, vanilla, _) = await LaunchRig.WithTwoProfilesAsync();
@@ -267,7 +267,7 @@ public class LaunchStoppedSwitchReviewTests
         Assert.Null(preview.Install.ReplacedFileNames);
     }
 
-    [Fact(Timeout = 150_000)]
+    [Fact(Timeout = 60_000)]
     public async Task A_file_the_switch_was_changing_that_holds_neither_snapshot_is_counted_for_the_game_folder_without_names()
     {
         var (rig, vanilla, _) = await LaunchRig.WithTwoProfilesAsync();
@@ -283,7 +283,7 @@ public class LaunchStoppedSwitchReviewTests
         Assert.Null(preview.Install.ReplacedFileNames);
     }
 
-    [Fact(Timeout = 150_000)]
+    [Fact(Timeout = 60_000)]
     public async Task The_saves_folder_names_the_files_the_finish_replaces_up_to_five_and_counts_the_rest()
     {
         using var rig = await LaunchRig.CreateAsync();
@@ -313,7 +313,7 @@ public class LaunchStoppedSwitchReviewTests
         Assert.Equal(modded.BranchName, (await rig.StatusAsync(RepoRole.External)).Branch);
     }
 
-    [Fact(Timeout = 150_000)]
+    [Fact(Timeout = 60_000)]
     public async Task The_saves_folder_names_every_file_when_there_are_five_or_fewer()
     {
         using var rig = await LaunchRig.CreateAsync();

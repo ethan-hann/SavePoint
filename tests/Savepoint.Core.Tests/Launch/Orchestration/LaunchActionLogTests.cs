@@ -37,8 +37,8 @@ public class LaunchActionLogTests
     [Fact(Timeout = 120_000)]
     public async Task A_switch_logs_each_folder_with_the_point_it_left_and_the_point_it_went_to()
     {
-        using var rig = await RigAsync();
-        var (vanilla, modded) = await rig.BuildTwoProfilesAsync();
+        var (rig, vanilla, modded) = await LaunchRig.WithTwoProfilesAsync(options => options with { Log = _log });
+        using var _ = rig;
         var vanillaPoint = (await rig.CommitsAsync(RepoRole.Install, vanilla)).Single().Id;
         var moddedPoint = (await rig.CommitsAsync(RepoRole.Install, modded)).First().Id;
 

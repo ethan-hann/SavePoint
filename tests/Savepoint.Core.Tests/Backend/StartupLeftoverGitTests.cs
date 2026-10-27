@@ -147,14 +147,12 @@ public sealed class StartupLeftoverGitTests : IDisposable
         var lockFile = Path.Combine(gitDir, "index.lock");
         await File.WriteAllTextAsync(lockFile, "left by a killed git", workspace.Token);
 
-        // A slow machine: the run that is about to be replaced still has its own note to write.
-        await Task.Delay(TimeSpan.FromMilliseconds(600), workspace.Token);
         workspace.Restart();
 
         var check = workspace.AppStatus.CheckAsync(workspace.Token);
-        await Task.Delay(TimeSpan.FromSeconds(2), workspace.Token);
 
-        // Longer than the leftovers' wait: the reclaim is waited for, not ended, and nothing after it has begun.
+        // Five times the leftovers' wait, which the check must outlast without ending the reclaim: it is waited for, and nothing after it has begun.
+        await Task.Delay(_short * 5, workspace.Token);
         var reclaimStillRunning = FakeGameProcess.IsRunning(reclaim.Stamp.Id);
         var leftoverBeforeReclaimEnded = FakeGameProcess.IsRunning(leftover.Id);
         var lockBeforeReclaimEnded = File.Exists(lockFile);
