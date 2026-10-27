@@ -32,6 +32,10 @@ internal sealed class JourneyDialogs : IDialogs
 
     public Task<string?> PickOpenFileAsync(OpenFilePickRequest request) => Task.FromResult<string?>(null);
 
+    public Task<IReadOnlyList<string>> PickFoldersAsync(FolderPickRequest request) => Task.FromResult<IReadOnlyList<string>>([]);
+
+    public Task<IReadOnlyList<string>> PickFilesAsync(OpenFilePickRequest request) => Task.FromResult<IReadOnlyList<string>>([]);
+
     public Task<string?> PickSaveFileAsync(SaveFilePickRequest request) => Task.FromResult<string?>(null);
 
     private IDialogs Host => _host ?? throw new InvalidOperationException("The app has not been composed yet.");

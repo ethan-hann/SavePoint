@@ -41,6 +41,13 @@ public sealed partial class HowItWorksViewModel : ObservableObject
             new(text.Message("help.page.activity.title"), text.Message("help.page.activity.body"), HelpPicture.Activity, [], []),
             new(text.Message("help.page.space.title"), text.Message("help.page.space.body"), HelpPicture.Space, [], []),
             new(
+                text.Message("help.page.mods.title"),
+                text.Message("help.page.mods.body"),
+                HelpPicture.None,
+                [],
+                [text.Message("help.page.mods.files")],
+                HowItWorksSection.ModsFolders),
+            new(
                 text.Message("help.page.starts.title"),
                 text.Message("help.page.starts.body"),
                 HelpPicture.None,

@@ -168,12 +168,22 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
             text.Message("gameEditor.installIgnorePaths.addAutomation"),
             text.Message("gameEditor.installIgnorePaths.helper"));
         LaunchArgs = new ChipListViewModel(text, text.Message("gameEditor.launchArgs.label"), text.Message("gameEditor.addOption"), text.Message("gameEditor.launchArgs.placeholder"));
-        ModFolders = new ChipListViewModel(text, text.Message("gameEditor.modPathHints.label"), text.Message("gameEditor.addFolder"), text.Message("gameEditor.modPathHints.placeholder"));
+        ModFolders = new ChipListViewModel(
+            text,
+            text.Message("gameEditor.modPathHints.label"),
+            text.Message("gameEditor.addFolder"),
+            text.Message("gameEditor.modPathHints.placeholder"),
+            actions:
+            [
+                new ChipListAction(text.Message("gameEditor.modFiles.chooseFiles"), text.Message("gameEditor.modFiles.chooseFilesAutomation"), ChooseModFilesCommand),
+                new ChipListAction(text.Message("gameEditor.modFiles.chooseFolders"), text.Message("gameEditor.modFiles.chooseFoldersAutomation"), ChooseModFoldersCommand),
+            ]);
         Title = saved is null ? text.Message("gameEditor.title.create") : text.Message("gameEditor.title.edit", ("name", saved.Name));
         LocationChoices = BuildLocationChoices(token => SavesPath = WithLocation(SavesPath, token), "gameEditor.external.locationAutomation");
         ModsLocationChoices = BuildLocationChoices(token => ModsPath = WithLocation(ModsPath, token), "gameEditor.mods.locationAutomation");
         ArtworkPreview = shell.Artwork.Preview(saved?.Id ?? string.Empty);
         LoadForm(_source, rulesAreDefaults: saved is null && prefill is null);
+        NotifyModFilesPick();
         InitializeArtwork(shell, saved);
         InitializeGuidance();
         InitializeCloudSaves();

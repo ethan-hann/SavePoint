@@ -575,7 +575,8 @@ public class GameEditorViewTests
     public async Task The_steam_app_id_field_is_a_fixed_size_target_whatever_is_typed_in_it()
     {
         using var harness = await EditorViewHarness.StartAsync(height: 1000);
-        harness.Edit(SampleScenario.SatisfactoryId);
+        harness.Edit(SampleScenario.SatisfactoryId).IsMoreSettingsOpen = true;
+        harness.Settle();
 
         var field = harness.Find<TextBox>("SteamAppIdField");
         Assert.True(field.Bounds.Width >= 160, $"The empty field is {field.Bounds.Width:0}px wide.");

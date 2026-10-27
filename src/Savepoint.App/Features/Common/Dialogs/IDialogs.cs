@@ -19,6 +19,12 @@ public interface IDialogs
     /// <summary>Opens the operating system's open-file picker; answers with the local path, or null when the user cancelled.</summary>
     Task<string?> PickOpenFileAsync(OpenFilePickRequest request);
 
+    /// <summary>Opens the operating system's folder picker with several folders selectable; answers with their local paths, or an empty list when the user cancelled.</summary>
+    Task<IReadOnlyList<string>> PickFoldersAsync(FolderPickRequest request);
+
+    /// <summary>Opens the operating system's open-file picker with several files selectable; answers with their local paths, or an empty list when the user cancelled.</summary>
+    Task<IReadOnlyList<string>> PickFilesAsync(OpenFilePickRequest request);
+
     /// <summary>Opens the operating system's save-file picker; answers with the local path to write, or null when the user cancelled.</summary>
     Task<string?> PickSaveFileAsync(SaveFilePickRequest request);
 }

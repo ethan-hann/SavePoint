@@ -255,29 +255,38 @@ public class TabOrderTests
     }
 
     [AvaloniaFact]
-    public async Task The_game_editor_visits_the_mods_field_its_browse_button_and_its_locations_between_the_install_and_the_saves_fields()
+    public async Task The_game_editor_visits_its_cards_in_the_order_they_are_drawn_and_the_mods_card_keeps_its_folder_and_its_mod_files_together()
     {
         using var app = await ComposedApp.StartWithViewAsync();
         app.Games.EditGameCommand.Execute(null);
         app.Settle();
 
-        var stops = TabStops(app);
+        var stops = TabStops(app, limit: 100);
 
-        var install = stops.IndexOf("Where the game is installed");
-        Assert.True(install >= 0, "The install field is a tab stop.");
-        Assert.Equal(
-            [
-                "Where the game is installed",
-                "Browse for the game's install folder",
-                "Where the mods live",
-                "Browse for the mods folder",
-                "Documents, for the mods folder",
-                "Saved Games, for the mods folder",
-                "AppData, for the mods folder",
-                "Local AppData, for the mods folder",
-                "Where do my mods live?",
-            ],
-            Enumerable.Range(install, 9).Select(i => stops[i % stops.Count]));
-        Assert.True(stops.IndexOf("Where the saves live") > install + 8, "The saves field comes after the mods section.");
+        string[] drawn =
+        [
+            "Name",
+            "Where the game is installed",
+            "Browse for the game's install folder",
+            "File that starts the game",
+            "Where the saves live",
+            "Browse for the saves folder",
+            "Mods outside the game folder",
+            "Browse for the mods folder",
+            "Documents, for the mods folder",
+            "Saved Games, for the mods folder",
+            "AppData, for the mods folder",
+            "Local AppData, for the mods folder",
+            "Does my game keep mods outside its folder?",
+            "Add a folder or file",
+            "Choose files…, for the mod files in the game folder",
+            "Choose folders…, for the mod files in the game folder",
+            "When do I list mod files?",
+            "Choose image…",
+            "More settings",
+        ];
+        var positions = drawn.Select(stop => stops.IndexOf(stop)).ToList();
+        Assert.DoesNotContain(-1, positions);
+        Assert.Equal(positions.Order(), positions);
     }
 }

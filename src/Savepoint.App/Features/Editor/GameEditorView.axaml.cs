@@ -10,12 +10,16 @@ namespace Savepoint.App.Features.Editor;
 /// <summary>The game editor pane; its DataContext is a <see cref="GameEditorViewModel"/>.</summary>
 public partial class GameEditorView : UserControl
 {
+    // Narrower than this, the header's buttons and a readable title do not fit side by side (the new-game buttons are the widest).
+    private const double _headerButtonsBesideTitleMinWidth = 760;
+
     private GameEditorViewModel? _editor;
 
     /// <summary>Creates the view.</summary>
     public GameEditorView()
     {
         InitializeComponent();
+        Header.SizeChanged += OnHeaderSizeChanged;
         InstallField.LostFocus += OnInstallFieldLostFocus;
         NameField.LostFocus += OnInstallFieldLostFocus;
 
@@ -34,6 +38,17 @@ public partial class GameEditorView : UserControl
             }
         };
         DataContextChanged += OnDataContextChanged;
+    }
+
+    // The buttons keep their order whichever row they are on, so the Tab order is the drawn order.
+    private void OnHeaderSizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        var below = e.NewSize.Width < _headerButtonsBesideTitleMinWidth;
+        Grid.SetRow(HeaderButtons, below ? 1 : 0);
+        Grid.SetColumn(HeaderButtons, below ? 0 : 1);
+        Grid.SetColumnSpan(HeaderButtons, below ? 2 : 1);
+        HeaderButtons.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right;
+        HeaderButtons.Margin = below ? new Thickness(0, 10, 0, 0) : default;
     }
 
     // A form that comes back from the help page one of its explanations linked to is put as it was: scrolled to the same place, with

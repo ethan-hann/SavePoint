@@ -24,11 +24,11 @@ public class GameEditorRenderTests
         AssertRendered(harness.Render("game-editor-edit-dark"));
     }
 
-    // The pane is taller than the 660px frame, so this one shows all of it, down to the folders that hold mods.
+    // The pane is taller than the 660px frame, so this one shows all of it, down to More settings.
     [AvaloniaFact]
     public async Task Edit_mode_dark_with_the_whole_pane_in_view_renders_to_a_png()
     {
-        using var harness = await EditorViewHarness.StartAsync(height: 900);
+        using var harness = await EditorViewHarness.StartAsync(height: 2200);
         harness.Edit();
 
         AssertRendered(harness.Render("game-editor-edit-dark-tall"));
