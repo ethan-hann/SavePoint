@@ -19,12 +19,23 @@ public sealed class FakeSettingsApi : ISettingsApi
     public Task<OperationResult<AppSettings>> GetAsync(CancellationToken cancellationToken = default) =>
         _backend.Call(_api, nameof(GetAsync), [], () => OperationResult.Success(State.Settings));
 
-    public Task<OperationResult<AppSettings>> SaveAsync(AppSettings settings) =>
-        _backend.Call(_api, nameof(SaveAsync), [settings], () =>
+    // A test sets this to hold the next save, as a slow disk would.
+    public Func<Task>? SaveGate { get; set; }
+
+    public async Task<OperationResult<AppSettings>> SaveAsync(AppSettings settings)
+    {
+        if (SaveGate is { } gate)
+        {
+            SaveGate = null;
+            await gate();
+        }
+
+        return await _backend.Call(_api, nameof(SaveAsync), [settings], () =>
         {
             State.Settings = settings with { StorageRoot = State.Settings.StorageRoot, LastOptimizedAt = State.Settings.LastOptimizedAt };
             return OperationResult.Success(State.Settings);
         });
+    }
 
     public Task<OperationResult<StorageSummary>> GetStorageSummaryAsync(CancellationToken cancellationToken = default) =>
         _backend.Call(_api, nameof(GetStorageSummaryAsync), [], () => OperationResult.Success(new StorageSummary(

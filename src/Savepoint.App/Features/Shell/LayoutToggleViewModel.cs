@@ -63,9 +63,15 @@ public sealed partial class LayoutToggleViewModel : ObservableObject
 
     /// <summary>
     /// Raised when a layout switch that began with an arrow key has swapped in the other layout's copy of the toggle, so the copy on
-    /// screen can take focus. Raised again if the switch failed to save and the layout was put back.
+    /// screen takes focus.
     /// </summary>
     public event EventHandler? FocusRequested;
+
+    /// <summary>
+    /// Raised when the save behind a keyboard switch has finished, whether the layout stayed or was put back. The copy on screen takes
+    /// focus only if it is nowhere or on a copy that is no longer shown; a player who moved on while the save ran keeps their place.
+    /// </summary>
+    public event EventHandler? FocusRestoreRequested;
 
     /// <summary>Marks the key press in progress as an arrow key on the toggle; the view calls it before the list handles the key.</summary>
     public void BeginKeyboardChoice() => _keyboardChoice = true;
@@ -95,7 +101,7 @@ public sealed partial class LayoutToggleViewModel : ObservableObject
         await switching;
         if (viaKeyboard)
         {
-            FocusRequested?.Invoke(this, EventArgs.Empty);
+            FocusRestoreRequested?.Invoke(this, EventArgs.Empty);
         }
     }
 }
