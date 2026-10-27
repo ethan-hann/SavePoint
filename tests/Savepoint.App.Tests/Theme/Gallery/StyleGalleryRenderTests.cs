@@ -7,7 +7,7 @@ using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Tests.Theme.Gallery;
 
-// Writes PNGs to render-output/theme/ at the repo root (gitignored) for side-by-side review against the design.
+// Writes PNGs to render-output/theme/ at the repo root (gitignored) to compare with the previous render of the style gallery after a theme change.
 public class StyleGalleryRenderTests
 {
     public static string OutputFolder =>

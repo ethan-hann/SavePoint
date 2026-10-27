@@ -6,7 +6,7 @@ using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Tests.Features.Launch;
 
-// Writes PNGs to render-output/launch/ (gitignored) for side-by-side review against the launch flow designs at 1040x660.
+// Writes PNGs to render-output/launch/ (gitignored) at 1040x660 to compare with the previous render of the launch flow after a change.
 public class LaunchRenderTests
 {
     private static void AssertRendered(string path) =>

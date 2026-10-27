@@ -6,7 +6,7 @@ using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Tests.Features.Games;
 
-// Writes PNGs to render-output/games/ (gitignored) for side-by-side review against the Games screen and wizard designs at 1040x660.
+// Writes PNGs to render-output/games/ (gitignored) at 1040x660 to compare with the previous render of the Games screen and wizard after a change.
 public class GamesRenderTests
 {
     private static void AssertRendered(string path) =>

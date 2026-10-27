@@ -15,7 +15,7 @@ using Savepoint.Core.Errors;
 
 namespace Savepoint.App.Tests.Features.Shell;
 
-// Writes PNGs to render-output/shell/ (gitignored) for side-by-side review against the shell and first-run designs at 1040x660.
+// Writes PNGs to render-output/shell/ (gitignored) at 1040x660 to compare with the previous render of the shell and first-run screens after a change.
 public class ShellRenderTests
 {
     private static FakeBackend EmptyLibrary(ThemePreference theme) =>

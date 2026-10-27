@@ -7,7 +7,7 @@ using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Tests.Features.Help;
 
-// Writes PNGs to render-output/help/ (gitignored) for review: the page whole, in both themes, and the ways into it.
+// Writes PNGs to render-output/help/ (gitignored) to compare with the previous render of the page after a change: the page whole, in both themes, and the ways into it.
 public class HelpRenderTests
 {
     private static void AssertRendered(string path) =>
