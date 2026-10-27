@@ -128,6 +128,7 @@ public class HowItWorksViewTests
     [InlineData(HowItWorksSection.CloudSaves, "Cloud saves")]
     [InlineData(HowItWorksSection.FilesToLeaveOut, "Files to leave out")]
     [InlineData(HowItWorksSection.HowTheGameStarts, "How the game starts")]
+    [InlineData(HowItWorksSection.ModsFolders, "Mods inside and outside the game folder")]
     public async Task A_page_opened_at_a_section_scrolls_to_its_heading_and_gives_it_focus(HowItWorksSection section, string title)
     {
         using var app = await ComposedApp.StartWithViewAsync();

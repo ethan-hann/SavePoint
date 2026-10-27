@@ -5,6 +5,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.VisualTree;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.Core.Api;
 
@@ -250,7 +251,7 @@ public class GameEditorGuidanceViewTests
 
         Assert.Equal(3, buttons.Count);
         Assert.False(Shows(harness, text => text == "Used when the launcher closes itself before the game opens."));
-        Assert.False(Shows(harness, text => text == "This only changes what History counts as a mod change."));
+        Assert.False(Shows(harness, text => text.StartsWith("Only to make the mod file counts", StringComparison.Ordinal)));
         Assert.False(Shows(harness, text => text.StartsWith("Only used to find artwork.", StringComparison.Ordinal)));
 
         foreach (var button in buttons)
@@ -259,8 +260,52 @@ public class GameEditorGuidanceViewTests
         }
 
         Assert.True(Shows(harness, text => text == "Used when the launcher closes itself before the game opens."));
-        Assert.True(Shows(harness, text => text == "This only changes what History counts as a mod change."));
+        Assert.True(Shows(harness, text => text.StartsWith("Only to make the mod file counts", StringComparison.Ordinal)));
         Assert.True(Shows(harness, text => text.StartsWith("Only used to find artwork.", StringComparison.Ordinal)));
+    }
+
+    // Explanations of an idea the "How SavePoint works" page covers end with its link. The online-games warning and the Steam app ID are
+    // not on the page, so they have nothing to link to.
+    private static readonly string[] _questionsWithNoPageTopic = ["Can I use this with online games?", "When do I need this? Steam app ID (optional)"];
+
+    [AvaloniaFact]
+    public async Task Every_question_button_in_the_editor_opens_an_answer_that_ends_with_the_page_link_unless_the_page_has_no_topic_for_it()
+    {
+        using var harness = await OpenWithAsync(new CloudSaveInfo(CloudSaveState.Unknown, CloudStore.None));
+        var questions = harness.All<Savepoint.App.Features.Help.HelpQuestionView>().ToList();
+
+        Assert.True(questions.Count >= 7, $"Only {questions.Count} question buttons were found.");
+        foreach (var question in questions)
+        {
+            var help = Assert.IsType<Savepoint.App.Features.Help.ContextualHelpViewModel>(question.DataContext);
+            help.IsOpen = true;
+            harness.Settle();
+            var answer = harness.All<Savepoint.App.Features.Help.HelpAnswerView>().Single(view => ReferenceEquals(view.DataContext, help));
+            var more = answer.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "MoreButton");
+
+            Assert.Equal(!_questionsWithNoPageTopic.Contains(help.AutomationName), more.IsEffectivelyVisible);
+            help.IsOpen = false;
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task Back_from_the_page_opened_by_the_mods_link_puts_focus_on_that_question()
+    {
+        using var harness = await EditorViewHarness.StartAsync();
+        harness.New();
+        harness.Settle();
+        Click(harness, Question(harness, "Does my game keep mods outside its folder?"));
+        var more = harness.All<Button>().First(button => button.Name == "MoreButton" && button.IsEffectivelyVisible);
+
+        more.Command!.Execute(null);
+        harness.Settle();
+        var page = Assert.IsType<Savepoint.App.Features.Help.HowItWorksViewModel>(harness.Shell.Content);
+        Assert.Equal(Savepoint.App.Features.Help.HowItWorksSection.ModsFolders, page.Section);
+        page.BackCommand.Execute(null);
+        harness.Settle();
+
+        var focused = Assert.IsType<ToggleButton>(harness.Window.FocusManager!.GetFocusedElement());
+        Assert.Equal("Does my game keep mods outside its folder?", AutomationProperties.GetName(focused));
     }
 
     [AvaloniaFact]
@@ -314,16 +359,15 @@ public class GameEditorGuidanceViewTests
         Assert.False(harness.Find<TextBox>("ProcessField").IsEffectivelyVisible);
         Assert.False(harness.Find<ContentControl>("IgnoreRulesHost").IsEffectivelyVisible);
         Assert.False(harness.Find<ContentControl>("InstallIgnoreRulesHost").IsEffectivelyVisible);
-        Assert.False(harness.Find<ContentControl>("ModFoldersHost").IsEffectivelyVisible);
         Assert.False(harness.Find<ContentControl>("LaunchArgsHost").IsEffectivelyVisible);
         Assert.False(harness.Find<TextBox>("SteamAppIdField").IsEffectivelyVisible);
+        Assert.True(harness.Find<ContentControl>("ModFoldersHost").IsEffectivelyVisible);
 
         Click(harness, toggle);
 
         Assert.True(harness.Find<TextBox>("ProcessField").IsEffectivelyVisible);
         Assert.True(harness.Find<ContentControl>("IgnoreRulesHost").IsEffectivelyVisible);
         Assert.True(harness.Find<ContentControl>("InstallIgnoreRulesHost").IsEffectivelyVisible);
-        Assert.True(harness.Find<ContentControl>("ModFoldersHost").IsEffectivelyVisible);
         Assert.True(harness.Find<ContentControl>("LaunchArgsHost").IsEffectivelyVisible);
         Assert.True(harness.Find<TextBox>("SteamAppIdField").IsEffectivelyVisible);
     }
@@ -370,7 +414,7 @@ public class GameEditorGuidanceViewTests
         }
 
         Assert.True(Top(harness.Find<TextBox>("ProcessField")) > toggleTop);
-        Assert.True(Top(harness.Find<ContentControl>("ModFoldersHost")) > toggleTop);
+        Assert.True(Top(harness.Find<ContentControl>("ModFoldersHost")) < toggleTop);
     }
 
     [AvaloniaFact]
@@ -394,26 +438,28 @@ public class GameEditorGuidanceViewTests
     }
 
     [AvaloniaFact]
-    public async Task Tab_moves_from_the_saves_folder_through_the_start_choice_before_More_settings()
+    public async Task Tab_moves_from_the_start_choice_through_the_saves_and_mods_fields_before_More_settings()
     {
         using var harness = await EditorViewHarness.StartAsync(height: 1400);
         harness.New();
         var toggle = Question(harness, "More settings");
         Assert.NotNull(toggle);
 
-        var exeField = harness.Find<TextBox>("ExeField");
-        var visitedExe = false;
-        harness.Find<TextBox>("SavesField").Focus();
+        var visited = new List<string>();
+        harness.Find<TextBox>("ExeField").Focus();
         harness.Settle();
-        for (var i = 0; i < 20 && !toggle.IsFocused; i++)
+        for (var i = 0; i < 40 && !toggle.IsFocused; i++)
         {
             harness.Window.KeyPress(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, null);
             harness.Window.KeyRelease(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, null);
             harness.Settle();
-            visitedExe |= exeField.IsFocused;
+            if (harness.Window.FocusManager!.GetFocusedElement() is TextBox { Name: { } name })
+            {
+                visited.Add(name);
+            }
         }
 
         Assert.True(toggle.IsFocused);
-        Assert.True(visitedExe);
+        Assert.Equal(["SavesField", "ModsField"], visited);
     }
 }

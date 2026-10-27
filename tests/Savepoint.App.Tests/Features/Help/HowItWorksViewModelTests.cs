@@ -11,7 +11,7 @@ public class HowItWorksViewModelTests
     private static IReadOnlyList<HowItWorksTopic> Topics()
     {
         var topics = Page().Topics;
-        Assert.Equal(13, topics.Count);
+        Assert.Equal(14, topics.Count);
         return topics;
     }
 
@@ -42,6 +42,7 @@ public class HowItWorksViewModelTests
                 "Recently removed",
                 "Activity",
                 "The snapshot folder and freeing up space",
+                "Mods inside and outside the game folder",
                 "How the game starts",
                 "Files to leave out",
                 "Cloud saves",
@@ -67,6 +68,7 @@ public class HowItWorksViewModelTests
                 HelpPicture.Removed,
                 HelpPicture.Activity,
                 HelpPicture.Space,
+                HelpPicture.None,
                 HelpPicture.None,
                 HelpPicture.None,
                 HelpPicture.None,
@@ -109,6 +111,19 @@ public class HowItWorksViewModelTests
         Assert.DoesNotContain("GOG", Assert.Single(cloud.Notes), StringComparison.Ordinal);
         Assert.StartsWith("Steam can keep your saves in the cloud.", cloud.Body, StringComparison.Ordinal);
         Assert.StartsWith("Turn off cloud saves for the game in Steam if", Assert.Single(cloud.Notes), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_mods_topic_tells_a_mods_folder_outside_the_game_folder_from_mod_files_inside_it()
+    {
+        var mods = TopicFor(HowItWorksSection.ModsFolders);
+
+        Assert.Equal("Mods inside and outside the game folder", mods.Title);
+        Assert.StartsWith("Most games load mods from inside their own folder", mods.Body, StringComparison.Ordinal);
+        Assert.Contains("7 Days to Die", mods.Body, StringComparison.Ordinal);
+        var note = Assert.Single(mods.Notes);
+        Assert.StartsWith("Mod files inside the game folder:", note, StringComparison.Ordinal);
+        Assert.Contains("never changes what SavePoint saves", note, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -165,10 +180,10 @@ public class HowItWorksViewModelTests
     }
 
     [Fact]
-    public void Only_the_three_linked_topics_have_a_section_name()
+    public void Only_the_four_linked_topics_have_a_section_name()
     {
         Assert.Equal(
-            [HowItWorksSection.HowTheGameStarts, HowItWorksSection.FilesToLeaveOut, HowItWorksSection.CloudSaves],
+            [HowItWorksSection.ModsFolders, HowItWorksSection.HowTheGameStarts, HowItWorksSection.FilesToLeaveOut, HowItWorksSection.CloudSaves],
             Page().Topics.Where(topic => topic.Section is not null).Select(topic => topic.Section!.Value));
     }
 

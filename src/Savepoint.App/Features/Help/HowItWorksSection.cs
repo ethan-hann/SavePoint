@@ -12,6 +12,9 @@ public enum HowItWorksSection
     /// <summary>The two lists of rules for files SavePoint skips.</summary>
     FilesToLeaveOut,
 
+    /// <summary>The mods folder outside the game folder, and the mod files inside it that the mod counts include.</summary>
+    ModsFolders,
+
     /// <summary>Running the game's own program versus starting it through Steam, and how SavePoint knows the player has stopped.</summary>
     HowTheGameStarts,
 }

@@ -18,17 +18,17 @@ public class GameEditorModsFolderViewTests
         control.TranslatePoint(new Point(0, 0), harness.View)!.Value.Y;
 
     [AvaloniaFact]
-    public async Task The_mods_section_sits_between_the_install_and_the_saves_sections()
+    public async Task The_mods_section_comes_after_the_install_and_the_saves_sections()
     {
         using var harness = await StartAsync();
         harness.Edit(ModsSamples.Id);
         harness.Settle();
 
         var install = Top(harness, harness.Find<TextBox>("InstallField"));
-        var mods = Top(harness, harness.Find<TextBox>("ModsField"));
         var saves = Top(harness, harness.Find<TextBox>("SavesField"));
+        var mods = Top(harness, harness.Find<TextBox>("ModsField"));
 
-        Assert.True(install < mods && mods < saves, $"Expected install < mods < saves, got {install}, {mods}, {saves}.");
+        Assert.True(install < saves && saves < mods, $"Expected install < saves < mods, got {install}, {saves}, {mods}.");
     }
 
     [AvaloniaFact]
@@ -42,7 +42,7 @@ public class GameEditorModsFolderViewTests
         Assert.Equal(ModsSamples.ModsRaw, harness.Find<TextBox>("ModsField").Text);
         Assert.True(harness.Find<StackPanel>("ModsConfirmedLine").IsEffectivelyVisible);
         Assert.True(harness.Find<Grid>("ModsResolvesLine").IsEffectivelyVisible);
-        Assert.Equal("Where the mods live", AutomationProperties.GetName(harness.Find<TextBox>("ModsField")));
+        Assert.Equal("Mods outside the game folder", AutomationProperties.GetName(harness.Find<TextBox>("ModsField")));
         Assert.Equal("Browse for the mods folder", AutomationProperties.GetName(harness.Find<Button>("BrowseModsButton")));
     }
 
@@ -56,7 +56,7 @@ public class GameEditorModsFolderViewTests
         Assert.DoesNotContain(harness.All<Border>(), border => border.Name == "ModsEmptyNote");
         var toggle = harness.Find<HelpQuestionView>("ModsQuestion").GetVisualDescendants().OfType<ToggleButton>().Single();
         Assert.True(toggle.IsEffectivelyVisible);
-        Assert.Equal("Where do my mods live?", AutomationProperties.GetName(toggle));
+        Assert.Equal("Does my game keep mods outside its folder?", AutomationProperties.GetName(toggle));
         var answer = harness.Find<HelpAnswerView>("ModsAnswer").GetVisualDescendants().OfType<Border>().Single(border => border.Name == "AnswerBox");
         Assert.False(answer.IsEffectivelyVisible);
 
@@ -64,7 +64,7 @@ public class GameEditorModsFolderViewTests
         harness.Settle();
 
         Assert.True(answer.IsEffectivelyVisible);
-        Assert.Contains(answer.GetVisualDescendants().OfType<TextBlock>(), text => text.Text is { } shown && shown.StartsWith("Most games keep mods inside the game folder", StringComparison.Ordinal));
+        Assert.Contains(answer.GetVisualDescendants().OfType<TextBlock>(), text => text.Text is { } shown && shown.StartsWith("Most games load mods from inside their own folder", StringComparison.Ordinal));
     }
 
     [AvaloniaFact]

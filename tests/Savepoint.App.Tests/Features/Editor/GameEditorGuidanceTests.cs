@@ -109,7 +109,6 @@ public class GameEditorGuidanceTests
         Assert.Equal("Can I use this with online games?", editor.AntiCheatHelp.Question);
         Assert.StartsWith("Don't use SavePoint with online games that have anti-cheat.", editor.AntiCheatHelp.Answer);
         Assert.Equal("How do these rules work?", editor.RulesHelp.Question);
-        Assert.Contains("Use * for any name and ** for any folder.", editor.RulesHelp.Answer);
         foreach (var help in new[] { editor.ProcessHelp, editor.ModFoldersHelp, editor.SteamAppIdHelp })
         {
             Assert.Equal("When do I need this?", help.Question);
@@ -117,14 +116,57 @@ public class GameEditorGuidanceTests
         }
 
         Assert.Equal("Used when the launcher closes itself before the game opens.", editor.ProcessHelp.Answer);
-        Assert.Equal("This only changes what History counts as a mod change.", editor.ModFoldersHelp.Answer);
         Assert.StartsWith("Only used to find artwork.", editor.SteamAppIdHelp.Answer);
+    }
+
+    [Fact]
+    public void The_rules_answer_names_the_whole_pattern_syntax()
+    {
+        var answer = EditorRig.Create().New().RulesHelp.Answer;
+
+        Assert.Contains("* matches any name, ** any folders, ? one character and [abc] one of those characters", answer, StringComparison.Ordinal);
+        Assert.Contains("starts with /", answer, StringComparison.Ordinal);
+        Assert.Contains("ends with /", answer, StringComparison.Ordinal);
+        Assert.Contains("starts with !", answer, StringComparison.Ordinal);
+        Assert.Contains("last rule that matches wins", answer, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Both_rule_lists_tell_a_screen_reader_that_they_hold_patterns_and_not_regular_expressions()
+    {
+        var editor = EditorRig.Create().New();
+
+        Assert.Contains("not regular expressions", editor.IgnoreRules.HelpText, StringComparison.Ordinal);
+        Assert.Contains("not regular expressions", editor.InstallIgnoreRules.HelpText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_mods_folder_question_says_which_games_need_one_and_the_mod_file_answer_says_when_to_fill_it_in()
+    {
+        var editor = EditorRig.Create().New();
+
+        Assert.Equal("Does my game keep mods outside its folder?", editor.ModsHelp.Question);
+        Assert.StartsWith("Most games load mods from inside their own folder", editor.ModsHelp.Answer, StringComparison.Ordinal);
+        Assert.Contains("7 Days to Die", editor.ModsHelp.Answer, StringComparison.Ordinal);
+        Assert.Equal("When do I need this?", editor.ModFoldersHelp.Question);
+        Assert.StartsWith("Only to make the mod file counts", editor.ModFoldersHelp.Answer, StringComparison.Ordinal);
+        Assert.Contains("never changes what SavePoint saves", editor.ModFoldersHelp.Answer, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_list_of_mod_files_is_named_for_the_inside_of_the_game_folder()
+    {
+        var editor = EditorRig.Create().New();
+
+        Assert.Equal("Mod files inside the game folder", editor.ModFolders.GroupName);
     }
 
     [Theory]
     [InlineData("rules", "help:FilesToLeaveOut")]
     [InlineData("cloud", "help:CloudSaves")]
     [InlineData("process", "help:HowTheGameStarts")]
+    [InlineData("modsFolder", "help:ModsFolders")]
+    [InlineData("modFiles", "help:ModsFolders")]
     public void The_answers_that_have_a_page_topic_end_with_a_link_that_opens_the_page_at_it(string which, string expectedCall)
     {
         var rig = EditorRig.Create();
@@ -133,6 +175,8 @@ public class GameEditorGuidanceTests
         {
             "rules" => editor.RulesHelp,
             "cloud" => editor.CloudSavesHelp,
+            "modsFolder" => editor.ModsHelp,
+            "modFiles" => editor.ModFoldersHelp,
             _ => editor.ProcessHelp,
         };
         help.IsOpen = true;
@@ -145,12 +189,13 @@ public class GameEditorGuidanceTests
         Assert.Equal([expectedCall], rig.Shell.Calls.Where(call => call.StartsWith("help", StringComparison.Ordinal)));
     }
 
+    // The online-games warning and the Steam app ID have no topic on the page, so there is nothing to link to.
     [Fact]
     public void The_answers_with_no_page_topic_have_no_link()
     {
         var editor = EditorRig.Create().New();
 
-        Assert.All([editor.AntiCheatHelp, editor.ModFoldersHelp, editor.SteamAppIdHelp], help => Assert.False(help.HasLink));
+        Assert.All([editor.AntiCheatHelp, editor.SteamAppIdHelp], help => Assert.False(help.HasLink));
     }
 
     [Fact]
@@ -159,7 +204,7 @@ public class GameEditorGuidanceTests
         var editor = EditorRig.Create().New();
 
         Assert.Equal("When do I need this? Knowing when you've stopped playing", editor.ProcessHelp.AutomationName);
-        Assert.Equal("When do I need this? Folders that hold mods", editor.ModFoldersHelp.AutomationName);
+        Assert.Equal("When do I need this? Mod files inside the game folder", editor.ModFoldersHelp.AutomationName);
         Assert.Equal("When do I need this? Steam app ID (optional)", editor.SteamAppIdHelp.AutomationName);
         Assert.All([editor.ProcessHelp, editor.ModFoldersHelp, editor.SteamAppIdHelp], help => Assert.Equal("When do I need this?", help.Question));
         Assert.Equal("Can I use this with online games?", editor.AntiCheatHelp.AutomationName);
@@ -174,7 +219,7 @@ public class GameEditorGuidanceTests
     }
 
     [Fact]
-    public void More_settings_is_open_when_the_edited_game_has_rules_and_mod_folders_set()
+    public void More_settings_is_open_when_the_edited_game_has_rules_set()
     {
         var editor = EditorRig.Create().Edit(SampleScenario.SkyrimId);
 
@@ -194,10 +239,21 @@ public class GameEditorGuidanceTests
         "rule",
         "install rule",
         "process",
-        "mod folder",
         "option",
         "app id",
     };
+
+    // The mod files are in the Mods card, so a game that names them has nothing hidden in More settings.
+    [Fact]
+    public void More_settings_stays_closed_when_the_edited_game_only_names_mod_files()
+    {
+        var game = SampleScenario.Caretaker with { ModPathHints = ["Mods"] };
+        var rig = EditorRig.Create(new FakeBackend(ScenarioBuilder.Empty().WithGame(game)));
+
+        var editor = rig.Edit(game.Id);
+
+        Assert.False(editor.IsMoreSettingsOpen);
+    }
 
     [Theory]
     [MemberData(nameof(SettingsInsideMoreSettings))]
@@ -209,7 +265,6 @@ public class GameEditorGuidanceTests
             "rule" => plain with { IgnorePaths = ["**/*.tmp"] },
             "install rule" => plain with { InstallIgnorePaths = ["**/*.log"] },
             "process" => plain with { Launch = plain.Launch with { ProcessNameForExitDetection = "Game.exe" } },
-            "mod folder" => plain with { ModPathHints = ["Mods"] },
             "option" => plain with { Launch = plain.Launch with { Args = ["-skipintro"] } },
             _ => plain with { SteamAppId = 489830 },
         };
@@ -300,7 +355,7 @@ public class GameEditorGuidanceTests
         await editor.ImportCommand.ExecuteAsync(null);
         Assert.False(editor.IsMoreSettingsOpen);
 
-        var modded = plain with { ModPathHints = ["Mods"] };
+        var modded = plain with { IgnorePaths = ["**/*.tmp"] };
         var rig2 = EditorRig.Create(new FakeBackend(ScenarioBuilder.Sample().WithImport(file, modded)));
         var editor2 = rig2.New();
         rig2.Dialogs.AnswerOpenFile(file);
