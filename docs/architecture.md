@@ -263,7 +263,7 @@ Folder work reports one `FolderOutcome(Role, Error?)` per folder it touched. All
 
 `LaunchPreview` holds:
 - the resolved profile.
-- a `FolderLaunchState` per folder (`Install`, `External`, and `Mods` when the game has one). It reports:
+- `Folders`, one `FolderLaunchState` per folder the game has, in switch order (install, mods, saves); `Folder(role)` finds one and `Install` is always there. It reports:
   - whether the folder matches the target, whether it is dirty, how many files, and `DirtyNewFileCount` (D31.4).
   - the owning profile, or null when nothing can claim the changes.
   - a `SwitchSummary` of files, mod files, bytes written, bytes removed, files removed (`FilesRemoved`), whether the switch leaves the folder empty (`LeavesFolderEmpty`, which the skip setting never skips, D65), and an estimated duration, sized from the stored snapshot.
