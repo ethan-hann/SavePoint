@@ -100,6 +100,7 @@ public class LegacyLocalDataTests
     {
         var armed = false;
         string? settingsFile = null;
+        World? self = null;
         using var world = new World(root =>
         {
             if (!armed)
@@ -109,10 +110,10 @@ public class LegacyLocalDataTests
 
             armed = false;
             var hold = new FileStream(settingsFile!, FileMode.Open, FileAccess.Read, FileShare.None);
-            // Longer than the catalog's own retries, so the read-back in the write fails, and short enough to be read after them.
-            _ = Task.Delay(1600).ContinueWith(_ => hold.Dispose(), TaskScheduler.Default);
+            _ = ReleaseOnceTheWriteGaveUpAsync(self!.Log, hold);
             throw new IOException("the settings file is held right after the write");
         });
+        self = world;
         var game = await world.SeedHistoryAsync();
         var before = await world.PointCountAsync(game);
         settingsFile = Path.Combine(world.Workspace.CatalogDirectory, CatalogStore.SettingsFileName);
@@ -554,6 +555,25 @@ public class LegacyLocalDataTests
         await world.Workspace.AppStatus.CheckAsync(world.Workspace.Token);
 
         Assert.True(File.Exists(Path.Combine(world.OldStorage, "stray", "note.txt")));
+    }
+
+    // Frees the hold once the settings write has given up its own read-back (it logs that it could not change the settings), so the
+    // startup check's later re-read is the first read to find the file free, however slow the machine is. The deadline only frees the
+    // file when that line never comes.
+    private static async Task ReleaseOnceTheWriteGaveUpAsync(RecordingDiagnosticLog log, FileStream hold)
+    {
+        try
+        {
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+            while (DateTime.UtcNow < deadline && log.Containing("the settings could not be changed to").Count == 0)
+            {
+                await Task.Delay(10).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            await hold.DisposeAsync().ConfigureAwait(false);
+        }
     }
 
     private static void CopyTree(string from, string to)
