@@ -142,6 +142,7 @@
                 <StackPanel Spacing="3" VerticalAlignment="Center">
                   <TextBlock Classes="card-heading" Text="{loc:Loc settings.storage.optimizeTitle}" />
                   <TextBlock x:Name="OptimizeText" Classes="caption" FontSize="12.5" TextWrapping="Wrap" Text="{Binding Storage.OptimizeDescription}" />
+                  <TextBlock x:Name="OptimizePreviewText" Classes="caption" FontSize="12.5" TextWrapping="Wrap" Text="{Binding Storage.OptimizePreview}" IsVisible="{Binding Storage.HasOptimizePreview}" />
                   <ProgressBar x:Name="OptimizeBar" Margin="0,6,0,0" IsIndeterminate="True" IsVisible="{Binding Storage.IsOptimizing}" AutomationProperties.Name="{loc:Loc settings.storage.optimizeTitle}" />
                   <TextBlock x:Name="OptimizeStopNote" Classes="caption" FontSize="12.5" TextWrapping="Wrap" Text="{Binding Storage.StopNote}" IsVisible="{Binding Storage.HasStopNote}" />
                 </StackPanel>
@@ -153,7 +154,7 @@
                         VerticalAlignment="Center"
                         IsVisible="{Binding !Storage.IsOptimizing}"
                         Command="{Binding Storage.RunNowCommand}"
-                        Content="{loc:Loc settings.storage.runNow}" />
+                        Content="{loc:Loc settings.storage.optimizeTitle}" />
                 <Button x:Name="CancelOptimizeButton"
                         Grid.Column="1"
                         Classes="pill"

@@ -95,7 +95,8 @@ public class SettingsScreenViewTests
         var buttons = harness.All<Button>().Where(button => button.IsEffectivelyVisible).Select(button => button.Content as string).ToList();
 
         Assert.Contains("Change", buttons);
-        Assert.Contains("Run now", buttons);
+        Assert.Contains("Free up space", buttons);
+        Assert.DoesNotContain("Run now", buttons);
         Assert.Contains("Remove all data…", buttons);
         Assert.Contains("Third-party notices", buttons);
     }
