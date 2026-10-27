@@ -11,7 +11,7 @@ public sealed class BuildScriptSyntaxTests : IDisposable
     // A cold PowerShell start on a loaded Windows machine takes tens of seconds; a program that takes longer than this has hung.
     private static readonly TimeSpan _processTimeout = TimeSpan.FromMinutes(2);
 
-    private readonly string _root =Directory.CreateTempSubdirectory("savepoint-buildsyntax-").FullName;
+    private readonly string _root = Directory.CreateTempSubdirectory("savepoint-buildsyntax-").FullName;
 
     public void Dispose() => Directory.Delete(_root, recursive: true);
 
