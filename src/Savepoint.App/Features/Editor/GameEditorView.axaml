@@ -158,6 +158,7 @@
               <a11y:ChoiceListBox x:Name="LaunchChoiceList"
                        Classes="choice"
                        SelectedIndex="{Binding LaunchChoice, Mode=TwoWay}"
+                       AutoScrollToSelectedItem="False"
                        AutomationProperties.Name="{loc:Loc gameEditor.launch.label}">
                 <a11y:ChoiceListBoxItem x:Name="RunExeChoice" Padding="8,10">
                   <TextBlock Text="{Binding RunExeLabel}" />

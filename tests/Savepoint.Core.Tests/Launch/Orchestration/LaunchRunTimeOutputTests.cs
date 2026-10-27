@@ -15,7 +15,7 @@ public class LaunchRunTimeOutputTests
         await rig.StartAsync(new LaunchTarget.ProfileTip(profile.Id));
         await rig.WaitForGameAsync();
         play(rig);
-        Assert.True((await rig.Launch.MarkFinishedAsync(rig.Game.Id)).Ok);
+        rig.KillGame();
         return Assert.IsType<SessionState.Exited>((await rig.WaitForAsync<SessionState.Exited>()).State);
     }
 

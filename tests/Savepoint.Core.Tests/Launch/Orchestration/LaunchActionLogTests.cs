@@ -122,7 +122,7 @@ public class LaunchActionLogTests
         await rig.StartAsync(new LaunchTarget.Point(modUpdate.Id));
         await rig.WaitForGameAsync();
         rig.WriteSave("played.sav", "progress");
-        Assert.True((await rig.Launch.MarkFinishedAsync(rig.Game.Id)).Ok);
+        rig.KillGame();
         await rig.WaitForAsync<SessionState.Exited>();
 
         Assert.True((await rig.Launch.CompleteSessionAsync(rig.Game.Id, new SessionCompletion.CaptureNew("Played"))).Ok);
