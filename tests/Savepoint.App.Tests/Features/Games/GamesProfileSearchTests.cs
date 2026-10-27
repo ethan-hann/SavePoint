@@ -108,6 +108,47 @@ public class GamesProfileSearchTests
     }
 
     [Fact]
+    public async Task While_a_search_narrows_the_table_a_line_says_how_many_profiles_it_shows()
+    {
+        var rig = await StartAsync();
+        Assert.False(rig.Screen.ShowProfileCount);
+
+        rig.Screen.ProfileSearch.Text = "mod";
+
+        Assert.True(rig.Screen.ShowProfileCount);
+        Assert.Equal("2 of 5 profiles", rig.Screen.ProfileCountText);
+
+        rig.Screen.ProfileSearch.Text = "vanilla";
+        Assert.Equal("1 of 5 profiles", rig.Screen.ProfileCountText);
+
+        rig.Screen.ProfileSearch.ClearCommand.Execute(null);
+        Assert.False(rig.Screen.ShowProfileCount);
+    }
+
+    [Fact]
+    public async Task The_count_line_gives_way_to_the_no_match_line_when_nothing_matches()
+    {
+        var rig = await StartAsync();
+
+        rig.Screen.ProfileSearch.Text = "zzz";
+
+        Assert.False(rig.Screen.ShowProfileCount);
+    }
+
+    [Fact]
+    public async Task The_count_line_follows_the_search_as_it_changes()
+    {
+        var rig = await StartAsync();
+
+        List<string?> changes = [];
+        rig.Screen.PropertyChanged += (_, e) => changes.Add(e.PropertyName);
+        rig.Screen.ProfileSearch.Text = "mod";
+
+        Assert.Contains(nameof(GamesScreenViewModel.ProfileCountText), changes);
+        Assert.Contains(nameof(GamesScreenViewModel.ShowProfileCount), changes);
+    }
+
+    [Fact]
     public async Task A_game_with_no_profiles_has_no_search_box()
     {
         var scenario = ScenarioBuilder.Empty().WithSettings(SampleScenario.Settings).WithGame(SampleScenario.Caretaker);

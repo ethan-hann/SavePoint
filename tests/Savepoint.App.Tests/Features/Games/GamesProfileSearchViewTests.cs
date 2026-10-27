@@ -59,6 +59,26 @@ public class GamesProfileSearchViewTests
     }
 
     [AvaloniaFact]
+    public async Task While_a_search_narrows_the_table_its_header_says_how_many_profiles_show()
+    {
+        using var app = await ComposedApp.StartWithViewAsync();
+        var line = app.All<TextBlock>().FirstOrDefault(block => block.Name == "ProfileCountLine");
+        Assert.NotNull(line);
+        Assert.False(line.IsEffectivelyVisible);
+        Field(app).Focus();
+
+        Type(app, "survival");
+
+        Assert.True(line.IsEffectivelyVisible);
+        Assert.Equal("1 of 3 profiles", line.Text);
+        Assert.Contains(app.Find<Border>("TableHeader"), line.GetVisualAncestors());
+
+        app.Press(Key.Escape, PhysicalKey.Escape);
+
+        Assert.False(line.IsEffectivelyVisible);
+    }
+
+    [AvaloniaFact]
     public async Task Escape_clears_the_search_and_every_profile_is_back()
     {
         using var app = await ComposedApp.StartWithViewAsync();

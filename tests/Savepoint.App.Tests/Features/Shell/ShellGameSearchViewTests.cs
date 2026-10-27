@@ -182,6 +182,17 @@ public class ShellGameSearchViewTests
     }
 
     [AvaloniaFact]
+    public async Task The_shelf_search_does_not_stretch_across_a_wide_window()
+    {
+        using var app = await ComposedApp.StartWithViewAsync(layout: ShellLayout.Library, width: 1600);
+
+        var box = app.Find<SearchBoxView>("ShelfSearch");
+
+        Assert.True(box.IsEffectivelyVisible);
+        Assert.InRange(box.Bounds.Width, 140, 420);
+    }
+
+    [AvaloniaFact]
     public async Task Renders_the_rail_and_the_shelf_with_a_search_and_with_no_matches()
     {
         using var rail = await ComposedApp.StartWithViewAsync();

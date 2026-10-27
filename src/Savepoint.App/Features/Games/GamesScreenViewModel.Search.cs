@@ -22,6 +22,12 @@ public sealed partial class GamesScreenViewModel
     /// <summary>True when the game has profiles but the search matches none of them.</summary>
     public bool ShowNoProfileMatches => ShowTable && VisibleProfiles.Count == 0;
 
+    /// <summary>True when the table is narrowed by a search and shows rows, so the table header says how many.</summary>
+    public bool ShowProfileCount => ShowRows && ProfileSearch.HasText;
+
+    /// <summary>How many profiles the table shows out of how many the game has, such as "3 of 12 profiles".</summary>
+    public string ProfileCountText => _deps.Text.Message("search.profiles.count", ("shown", VisibleProfiles.Count), ("total", Profiles.Count));
+
     /// <summary>"No profiles match.", under the search box.</summary>
     public string NoProfileMatchesText { get; private set; } = string.Empty;
 
@@ -54,6 +60,8 @@ public sealed partial class GamesScreenViewModel
         OnPropertyChanged(nameof(ShowSearch));
         OnPropertyChanged(nameof(ShowRows));
         OnPropertyChanged(nameof(ShowNoProfileMatches));
+        OnPropertyChanged(nameof(ShowProfileCount));
+        OnPropertyChanged(nameof(ProfileCountText));
     }
 
     // A search belongs to the game it was typed for.
