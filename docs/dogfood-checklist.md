@@ -23,6 +23,10 @@ Build from `main` (`dotnet run --project src/Savepoint.App -c Release`), or inst
 
 - [ ] Narrator (and NVDA if you have it): walk the Games screen, the launch dialog, the after-play dialog, and Settings. Buttons, rows, and dialog messages are read, and progress and banners are announced.
 - [ ] Keyboard only: add a game, create a profile, play, and finish. Tab order follows the drawn order, focus is always visible, and Escape closes dialogs. Enter on a selected profile row starts Play. While the banner or the running card shows at the bottom of the Games screen, Tab reaches it after the profile rows.
+- [ ] Search by keyboard and with Narrator: Ctrl+F goes to the profile search on the Games screen and to History's search in History, and Ctrl+Shift+F goes to the games search. Type a few words: after a short pause Narrator reads the count ("3 of 120 games"). Type something that matches nothing, Tab to **Clear search**, press Enter, and focus is back in the box. Escape in the box clears it too.
+- [ ] Profile menu by keyboard: select a profile row and press the Menu key, then Shift+F10. The menu opens below that row, arrow keys move through it, Enter runs an item, and Escape closes it with focus back on the row.
+- [ ] Chips by keyboard: in Edit game, Tab to a chip in a list, open it with Enter, Space or F2, change the text, and press Enter to keep it or Escape to drop it. Narrator reads each chip and its new text.
+- [ ] Interface size by keyboard: in Settings > Appearance, move through the interface sizes with the arrow keys. The choice stays in view, the whole app resizes, and Narrator reads the reason a size is off when the screen cannot hold it.
 - [ ] Windows display scaling at 150% and 200%: every screen fits or scrolls, nothing is cut off, and dialogs keep their buttons visible. Test the Games screen while a profile saves, and the Library layout while the banner shows.
 - [ ] Turn off **Animation effects** (Windows Settings > Accessibility > Visual effects). Progress shows a still bar instead of a sweep.
 
