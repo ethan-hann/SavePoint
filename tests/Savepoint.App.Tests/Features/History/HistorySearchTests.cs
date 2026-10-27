@@ -397,6 +397,15 @@ public class HistorySearchTests
     }
 
     [Fact]
+    public async Task The_search_box_names_Ctrl_F_in_its_tooltip_and_as_its_accelerator_key()
+    {
+        var rig = await ShownAsync();
+
+        Assert.Equal("Search snapshots (Ctrl+F)", rig.Screen.Search.Tip);
+        Assert.Equal("Ctrl+F", rig.Screen.Search.Shortcut);
+    }
+
+    [Fact]
     public async Task The_search_survives_a_profile_choice_and_a_new_read()
     {
         var rig = await ShownAsync();

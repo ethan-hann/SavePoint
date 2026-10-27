@@ -115,7 +115,7 @@ public sealed partial class HistoryScreenViewModel
     private void InitializeSearch()
     {
         var text = _deps.Text;
-        Search = new SearchBoxViewModel(text, _deps.Dispatcher, _deps.Clock, text.Message("search.history.label"));
+        Search = new SearchBoxViewModel(text, _deps.Dispatcher, _deps.Clock, text.Message("search.history.label"), text.Message("search.shortcut.find"));
         Search.Changed += OnSearchChanged;
         KindLabel = text.Message("search.kind.label");
         KindOptions =
