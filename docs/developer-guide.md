@@ -96,8 +96,8 @@ The gates run at below-normal priority. They cap MSBuild at 4 nodes with no node
 The rules in `../AGENTS.md` apply to every change. These add to them:
 
 - **Catalog.** Copy lives in `Localization/Assets/Lang/en/<area>.json`. A key enters the catalog with the code that uses it. Error copy is keyed by the error's message id, and every `error.*` id has an `ErrorPresentation` entry (icon, tone, title).
-- **Doc comments.** A missing XML doc comment on a public Core API fails the Core build (CS1591, D24). Inline comments never name a milestone, task, or review. A comment may cite a decision (`D29`), because decisions are lasting records in `decisions.md`.
-- **Core stays testable.** It holds no static mutable state and has no UI dependency. Side effects that tests must fake go through injected abstractions. Async methods take a `CancellationToken` all the way down.
+- **Doc comments.** A missing XML doc comment on a public Core API fails the Core build (CS1591, D24). Inline comments never name a milestone, slice, issue, task, review, pull request, or build step. A comment may cite a decision (`D29`), because decisions are lasting records in `decisions.md`.
+- **Core stays testable.** It has no UI dependency, and no static mutable state except a handle to an OS resource that must live as long as the process (D59). The clock, the environment, other processes, disk space, and the network come in through injected seams. Api reads take a `CancellationToken`. A long job is cancelled through `IJobsApi.CancelAsync`, and the job's own token flows all the way down through its work. A short mutation takes no token, because stopping it halfway is worse than finishing it.
 - **Departures are decisions.** A change that departs from the spec, or fills a gap in it, gets a decision in `decisions.md`.
 
 ## Adding a language
@@ -185,7 +185,8 @@ The server's one-time setup (the git-pages container, its wildcard config, the p
 | `tools/SkipCheck` | The gate's skip check: compares the skipped tests in the xunit reports with a list in `build/expected-skips/`. Tested in `tests/Savepoint.Core.Tests/Build`. |
 | `docs/` | This guide, `user-guide.md`, `testing-on-mac-and-linux.md`, `architecture.md`, `decisions.md`, `ui-guide.md`, `dogfood-checklist.md` (the manual checks), and `toc.yml` (their order on the documentation site). |
 | `docfx.json`, `docfx/` | The documentation site (see Documentation site): its sources, home page and stylesheet. |
-| `.forgejo/workflows/` | CI. `gate.yml` runs `build/gate.sh` on Linux (in a container) and `build/gate.ps1` on the self-hosted Windows runner (label `windows`) for every pull request, and can be started by hand. Pushes to `main` do not run it: `main` takes fast-forward merges only, so what lands is the commit its pull request already passed. A change to documentation only (`docs/`, `docfx.json`, `docfx/`, and root Markdown files other than `THIRD-PARTY-NOTICES.md`) passes without them. `release.yml` builds the packages on a `v*` tag (see Releases). `docs.yml` builds the documentation site and publishes it from `main` (see Documentation site). |
+| `.agents/`, `.han/`, `.claude/rules/` | Instructions for people and agents changing the code, kept out of `docs/` and the documentation site: coding standards, the Han skills' settings, and the index files that point Claude Code at the standards. `AGENTS.md` describes them. |
+| `.forgejo/workflows/` | CI. `gate.yml` runs `build/gate.sh` on Linux (in a container) and `build/gate.ps1` on the self-hosted Windows runner (label `windows`) for every pull request, and can be started by hand. Pushes to `main` do not run it: `main` takes fast-forward merges only, so what lands is the commit its pull request already passed. A change to documentation or agent instructions only (`docs/`, `docfx.json`, `docfx/`, root Markdown files other than `THIRD-PARTY-NOTICES.md`, `.agents/`, `.claude/rules/`, and `.han/`) passes without them. `release.yml` builds the packages on a `v*` tag (see Releases). `docs.yml` builds the documentation site and publishes it from `main` (see Documentation site). |
 
 ## Where to start reading
 

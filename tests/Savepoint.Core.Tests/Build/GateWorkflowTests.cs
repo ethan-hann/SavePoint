@@ -83,6 +83,42 @@ public class GateWorkflowTests
         Assert.True(append < run, "Git's usr\\bin is put on the path after the gate starts.");
     }
 
+    // Both jobs decide alone whether a change needs the gate, so they must agree on which files cannot change a build or a test.
+    private static string SkipPattern()
+    {
+        var workflow = File.ReadAllText(Path.Combine(RepoRoot, _workflowPath));
+        var linux = Regex.Match(workflow, @"grep -v -E '(\^[^']*\$)'").Groups[1].Value;
+        var windows = Regex.Match(workflow, @"-notmatch '(\^[^']*\$)'").Groups[1].Value;
+        Assert.NotEmpty(linux);
+        Assert.Equal(linux, windows);
+        return linux;
+    }
+
+    [Theory]
+    [InlineData("AGENTS.md")]
+    [InlineData("docs/user-guide.md")]
+    [InlineData("docfx/index.md")]
+    [InlineData(".agents/coding-standards/csharp-tests.md")]
+    [InlineData(".claude/rules/coding-standards/csharp.md")]
+    [InlineData(".han/config.md")]
+    [InlineData(".han/.gitignore")]
+    public void A_change_to_documentation_or_agent_instructions_alone_skips_the_gate(string path)
+    {
+        Assert.Matches(SkipPattern(), path);
+    }
+
+    [Theory]
+    [InlineData("src/Savepoint.App/App.axaml.cs")]
+    [InlineData("build/gate.sh")]
+    [InlineData(".forgejo/workflows/gate.yml")]
+    [InlineData(".claude/settings.json")]
+    [InlineData(".gitignore")]
+    [InlineData("tools/FakeGame/README.md")]
+    public void A_change_to_anything_else_runs_the_gate(string path)
+    {
+        Assert.DoesNotMatch(SkipPattern(), path);
+    }
+
     // A test the job can now run must not stay on the list of skips the Linux gate expects.
     [Theory]
     [InlineData("Msys2SourcesScriptTests")]
