@@ -81,6 +81,7 @@
   "games.storageFooter.freeUpHelp": "Clears out snapshots no profile uses.",
   "games.storageFooter.freeUpName": "Free up space for {name}",
   "games.storageFooter.freeUpRunning": "Freeing up space…",
+  "games.storageFooter.freeUpStopped": "Stopped so another task could go first.",
   "games.storageFooter.freed": "Freed up {size}.",
   "games.storageFooter.freedNothing": "Done. There was nothing to clear out.",
   "games.storageFooter.freedPartial": "Freed up only part of the space. Activity shows what went wrong.",

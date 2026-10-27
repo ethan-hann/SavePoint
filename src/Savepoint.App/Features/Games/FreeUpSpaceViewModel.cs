@@ -209,7 +209,9 @@ public sealed partial class FreeUpSpaceViewModel : ObservableObject, IDisposable
             case JobStatus.Partial:
                 return _text.Message("games.storageFooter.freedPartial");
             case JobStatus.Cancelled:
-                return _text.Message("games.storageFooter.freeUpCanceled");
+                return JobErrors.WasStoppedForAnotherTask(job)
+                    ? _text.Message("games.storageFooter.freeUpStopped")
+                    : _text.Message("games.storageFooter.freeUpCanceled");
             default:
                 return job.Error is { } error
                     ? _text.Message("games.storageFooter.freeUpFailedBecause", ("reason", _text.Message(error, ErrorOperation.FreeUpSpace)))

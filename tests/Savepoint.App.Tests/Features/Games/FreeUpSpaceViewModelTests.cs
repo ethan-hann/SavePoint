@@ -208,6 +208,30 @@ public class FreeUpSpaceViewModelTests
     }
 
     [Fact]
+    public async Task A_run_that_a_launch_stopped_says_it_stopped_so_another_task_could_go_first()
+    {
+        var rig = new Rig();
+        var job = await rig.StartAsync();
+
+        rig.Backend.Script(() => rig.Backend.Jobs.FinishWith(job, JobStatus.Cancelled, null, ErrorInfo.From(new CompactionPreemptedException(SkyrimId))));
+
+        Assert.False(rig.FreeUp.IsRunning);
+        Assert.Equal("Stopped so another task could go first.", rig.FreeUp.StatusText);
+        Assert.Equal("Stopped so another task could go first.", rig.FreeUp.Announcement);
+    }
+
+    [Fact]
+    public async Task A_run_the_player_canceled_still_says_canceled_even_with_an_error_attached()
+    {
+        var rig = new Rig();
+        var job = await rig.StartAsync();
+
+        rig.Backend.Script(() => rig.Backend.Jobs.FinishWith(job, JobStatus.Cancelled, null, FileInUseError));
+
+        Assert.Equal("Canceled.", rig.FreeUp.StatusText);
+    }
+
+    [Fact]
     public async Task When_a_run_ends_the_footer_is_told_to_read_the_storage_use_again()
     {
         var rig = new Rig();
