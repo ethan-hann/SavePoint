@@ -317,6 +317,34 @@ public class JobStatusViewModelTests
     }
 
     [Fact]
+    public void Free_up_space_that_a_launch_stopped_is_a_stopped_toast_not_a_canceled_one()
+    {
+        var rig = new Rig();
+        var id = Guid.Empty;
+        rig.Backend.Script(() => id = rig.Backend.Jobs.Start(JobKind.Compact, SampleScenario.SatisfactoryId, defaultResult: null));
+
+        rig.Backend.Script(() => rig.Backend.Jobs.FinishWith(id, JobStatus.Cancelled, null, ErrorInfo.From(new CompactionPreemptedException(SampleScenario.SatisfactoryId))));
+
+        var toast = Assert.Single(rig.Toasts.Toasts);
+        Assert.Equal("Stopped freeing up space for Satisfactory so another task could go first.", toast.Text);
+        Assert.Equal(ToastKind.Info, toast.Message.Kind);
+    }
+
+    [Fact]
+    public void Free_up_space_for_every_game_that_a_launch_stopped_is_a_stopped_toast_not_a_canceled_one()
+    {
+        var rig = new Rig();
+        var id = Guid.Empty;
+        rig.Backend.Script(() => id = rig.Backend.Jobs.Start(JobKind.Compact, null, defaultResult: null));
+
+        rig.Backend.Script(() => rig.Backend.Jobs.FinishWith(id, JobStatus.Cancelled, null, ErrorInfo.From(new CompactionPreemptedException(null))));
+
+        var toast = Assert.Single(rig.Toasts.Toasts);
+        Assert.Equal("Stopped freeing up space for all your games so another task could go first.", toast.Text);
+        Assert.Equal(ToastKind.Info, toast.Message.Kind);
+    }
+
+    [Fact]
     public async Task Optimization_of_every_game_does_not_name_a_game()
     {
         var rig = new Rig();

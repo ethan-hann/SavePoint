@@ -33,6 +33,8 @@ public static class NotificationText
 
             (JobKind.Compact, JobStatus.Succeeded) when job.GameId is null => "shell.jobStatus.compactAllSuccess",
             (JobKind.Compact, JobStatus.Partial) when job.GameId is null => "shell.jobStatus.compactAllPartial",
+            (JobKind.Compact, JobStatus.Cancelled) when JobErrors.WasStoppedForAnotherTask(job) && job.GameId is null => "shell.jobStatus.compactAllStopped",
+            (JobKind.Compact, JobStatus.Cancelled) when JobErrors.WasStoppedForAnotherTask(job) => "shell.jobStatus.compactStopped",
             (JobKind.Compact, JobStatus.Cancelled) when job.GameId is null => "shell.jobStatus.compactAllCancelled",
             (JobKind.Compact, _) when job.GameId is null => "shell.jobStatus.compactAllFailure",
             (JobKind.Compact, JobStatus.Succeeded) => "shell.jobStatus.compactSuccess",

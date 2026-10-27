@@ -112,6 +112,39 @@ public class JobRowViewModelTests
     }
 
     [Fact]
+    public void Free_up_space_for_one_game_that_a_launch_stopped_is_called_stopped_not_canceled()
+    {
+        var preempted = ErrorInfo.From(new CompactionPreemptedException("skyrim"));
+
+        var row = Row(Job(JobKind.Compact, "skyrim", JobStatus.Cancelled, error: preempted));
+
+        Assert.Equal("Stopped freeing up space for Skyrim Special Edition so another task could go first", row.Title);
+        Assert.Equal("Stopped", row.StatusText);
+    }
+
+    [Fact]
+    public void Free_up_space_for_every_game_that_a_launch_stopped_is_called_stopped_not_canceled()
+    {
+        var preempted = ErrorInfo.From(new CompactionPreemptedException(null));
+
+        var row = Row(Job(JobKind.Compact, null, JobStatus.Cancelled, error: preempted));
+
+        Assert.Equal("Stopped freeing up space for all games so another task could go first", row.Title);
+        Assert.Equal("Stopped", row.StatusText);
+    }
+
+    [Fact]
+    public void Free_up_space_that_the_player_canceled_still_says_canceled()
+    {
+        var byPlayer = ErrorInfo.From(new OperationCancelledByUserException(CancelledOperation.Compaction, "skyrim"));
+
+        var row = Row(Job(JobKind.Compact, "skyrim", JobStatus.Cancelled, error: byPlayer));
+
+        Assert.Equal("Canceled freeing up space for Skyrim Special Edition", row.Title);
+        Assert.Equal("Canceled", row.StatusText);
+    }
+
+    [Fact]
     public void A_job_that_was_canceled_by_the_player_still_says_canceled()
     {
         var byPlayer = ErrorInfo.From(new OperationCancelledByUserException(CancelledOperation.Compaction, "skyrim"));
