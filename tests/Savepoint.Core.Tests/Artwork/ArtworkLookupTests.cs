@@ -275,6 +275,33 @@ public class ArtworkLookupTests
     }
 
     [Fact]
+    public async Task Looking_again_announces_no_change_when_steam_has_the_same_images_as_before()
+    {
+        using var rig = new ArtworkRig();
+        var game = await rig.AddGameAsync(change: g => g with { SteamAppId = _app });
+        rig.PutSteamCache(_app);
+        await rig.LookedUpAsync(game.Id);
+
+        await rig.Artwork.LookAgainAsync(game.Id);
+
+        Assert.Equal([game.Id], rig.Changes);
+    }
+
+    [Fact]
+    public async Task Looking_again_announces_a_change_when_steam_has_a_different_image_than_before()
+    {
+        using var rig = new ArtworkRig();
+        var game = await rig.AddGameAsync(change: g => g with { SteamAppId = _app });
+        rig.PutSteamCache(_app);
+        await rig.LookedUpAsync(game.Id);
+        TestImages.Write(Path.Combine(rig.SteamRoot, "appcache", "librarycache", _app.ToString()), "header.jpg", TestImages.Jpeg(920, 430));
+
+        await rig.Artwork.LookAgainAsync(game.Id);
+
+        Assert.Equal([game.Id, game.Id], rig.Changes);
+    }
+
+    [Fact]
     public async Task Looking_again_for_a_game_with_its_own_image_still_finds_steams_and_keeps_the_users_on_top()
     {
         using var rig = new ArtworkRig();
