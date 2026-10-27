@@ -721,7 +721,7 @@ The local Linux gate ran under WSL on a 9p mount of the Windows drive. That moun
 2. **The VM uses the CI skip list.** It is ext4, runs as an ordinary user, and has sockets, permissions and case-sensitive names, as the CI container does. `linux-wsl.txt` is gone.
 3. **No gate retries tests.** Retries existed only for the 9p mount. The retry targets and their package are removed, and the gates refuse `--retry-failed-tests`, so a flaky test fails and is fixed.
 4. **Local Linux packaging runs on the VM too** (`build/package-linux.ps1`, in `~/package`), and the `.linux-gate` worktree is gone.
-5. **Each folder on the VM has its own lock,** so a VM gate, a VM package run and a Windows gate can run at the same time, but never two of one kind.
+5. **One heavy run on the VM at a time.** The VM gate and a VM package run each lock their own folder and also share `~/.savepoint-vm/heavy.lock`, so they never run together on the 4-core VM (timing-sensitive tests would fail with no retries left). A Windows gate can run beside either. Each run ends by pruning SDKs and runtimes it no longer uses and caches untouched for 30 days.
 
 ## D61. A mods folder outside the game folder
 

@@ -87,10 +87,10 @@ The gates run at below-normal priority. They cap MSBuild at 4 nodes with no node
 
 - **`build/gate-linux.ps1 -Commit <branch or commit>`** runs the Linux gate from Windows on the Linux test VM over SSH, with a key only (D60). It sends the committed tree of that commit (default `HEAD`), so a local branch that was never pushed works. It does not gate uncommitted changes, and it says so.
   - On the VM it works in `~/gate`, with its own .NET SDK, PowerShell and NuGet caches, and keeps build outputs between runs. The gate checks the VM's skips against `linux-ci.txt`, the same list as CI.
-  - The exit code is the gate's. Exit 75 means another gate holds the VM's lock (`~/gate/gate.lock`). The log comes back to `.tools/gate-linux-last.log`.
+  - The exit code is the gate's. Exit 75 means the VM is busy: another gate holds `~/gate/gate.lock`, or a gate or package run holds the shared `~/.savepoint-vm/heavy.lock` (D60.5). The log comes back to `.tools/gate-linux-last.log`.
   - The VM's address, user, key and folder default to the test VM's and can be changed with `-VmHost`, `-VmUser`, `-VmKey`, `-VmDir`, or `SAVEPOINT_VM_HOST`, `SAVEPOINT_VM_USER`, `SAVEPOINT_VM_KEY`, `SAVEPOINT_VM_DIR`.
   - A full run takes about 16 minutes on the 4-core VM.
-- **One gate at a time.** Every Windows gate takes a machine-wide lock (`<main checkout>/.tools/locks/gate.lock`), so gates started from different worktrees run one after another. The VM gate has its own lock on the VM, so it can run beside a Windows gate.
+- **One gate at a time.** Every Windows gate takes a machine-wide lock (`<main checkout>/.tools/locks/gate.lock`), so gates started from different worktrees run one after another. The VM gate locks the VM, so it can run beside a Windows gate but not beside a VM package run.
 - **macOS** is built and unit-tested only through the shared code paths. It has not run on hardware (D9).
 
 ## Rules for changes
@@ -121,7 +121,7 @@ pwsh -NoProfile -File build/package.ps1
 
 - **Windows:** `build/package.ps1` publishes a self-contained `win-x64` build to `artifacts/publish/win-x64` and packs `SavePoint-win-Setup.exe` and `SavePoint-win-Portable.zip` into `artifacts/release/win-x64`. Before and after the pack it checks that `git/`, `THIRD-PARTY-NOTICES.md`, and `licenses/` are there, and it writes each package's listing to `artifacts/release/contents-win-x64/`.
 - **Linux:** `build/package.sh` does the same for `linux-x64` and gives `SavePoint.AppImage`. Run it from a clone on a Linux machine. Without a matching `dotnet`, it installs a .NET SDK into its tools folder.
-- **Linux package from Windows:** run `build/package-linux.ps1` (`-Commit`, default `HEAD`). Like the Linux gate, it sends the committed tree to the Linux VM and runs `package.sh` there, in its own folder (`~/package`) under its own lock. The package comes back to `artifacts/release/linux-x64`, with its listing beside it.
+- **Linux package from Windows:** run `build/package-linux.ps1` (`-Commit`, default `HEAD`). Like the Linux gate, it sends the committed tree to the Linux VM and runs `package.sh` there, in its own folder (`~/package`) under its own lock and the VM's shared one, so it never runs beside a VM gate. The package comes back to `artifacts/release/linux-x64`, with its listing beside it.
 - **Which build this is:** the scripts put the commit into the informational version, and the startup log names it. `build/package.ps1` and `build/package.sh` refuse a tree with uncommitted changes; `-AllowDirty` (`--allow-dirty`) packs it anyway, marked `-dirty`, for a trial package. `build/package-linux.ps1` always packs the committed tree of the commit it is given.
 - **macOS:** no package is built (D33).
 - **No update checks:** the packages do not check for updates (D33). Running a newer release's setup installs it over an older one.
