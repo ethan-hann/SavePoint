@@ -36,3 +36,7 @@ standard if needed. Loading standards that do not apply burns context and dilute
 - [Test names and structure](../../../.agents/coding-standards/tests-naming-and-structure.md) - Test names as behavior
   sentences, temp folders, shared repository templates, waits, and the fake and contract backends. Read when adding a
   test, a test helper, or a wait.
+- [Tests that can fail and run fast](../../../.agents/coding-standards/tests-meaningful-and-fast.md) - Every case able to
+  fail for a product regression, theory rows that all reach their assertion, no duplicate checks, honest fakes
+  (contract stories, cancellation, a queueing dispatcher), and cheap setups (copied worlds, shared windows). Read when
+  adding or changing a test, a theory, a fake, a rig, or a test that builds git state or opens a window.

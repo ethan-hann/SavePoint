@@ -7,7 +7,7 @@ paths:
 
 - **Status:** accepted
 - **Date Created:** 2026-10-26 17:55
-- **Last Updated:** 2026-10-26 18:10
+- **Last Updated:** 2026-10-27 18:21
 - **Applies To:**
   - Any test class or test helper in `tests/`.
 
@@ -228,6 +228,7 @@ var backend = CoreBackend.Create(new BackendOptions { CatalogDirectory = folder 
 - `docs/ui-guide.md`, section "Testing".
 - [Platform-specific code](csharp-platform-specific-code.md): OS skips and the expected-skip lists.
 - [Comments that say why](csharp-comments.md): what a test comment says.
+- [Tests that can fail and run fast](tests-meaningful-and-fast.md): what a test asserts, honest fakes, and what a test costs.
 
 ### External Resources
 
