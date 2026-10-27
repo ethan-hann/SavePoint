@@ -88,6 +88,7 @@
                         <TextBlock Classes="caption accent" VerticalAlignment="Center" Text="{Binding StatusText}" />
                       </StackPanel>
                       <TextBlock Classes="mono small muted" TextTrimming="CharacterEllipsis" Text="{Binding InstallLine}" ToolTip.Tip="{Binding InstallLine}" />
+                      <TextBlock Classes="caption" TextWrapping="Wrap" IsVisible="{Binding HasModsLine}" Text="{Binding ModsLine}" />
                       <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding SavesLine}" />
                     </StackPanel>
                   </CheckBox>

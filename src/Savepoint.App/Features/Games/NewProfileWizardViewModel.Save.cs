@@ -223,15 +223,10 @@ public sealed partial class NewProfileWizardViewModel
     {
         _failedRoles = [.. failures.Select(failure => failure.Role)];
         var first = failures[0].Error!;
-        var installFailed = _failedRoles.Contains(RepoRole.Install);
         var reason = _text.Message(first, ErrorOperation.Snapshot);
-        var body = installFailed
-            ? _text.Message("profiles.wizard.partial.bodyInstallFailed", ("reason", reason))
-            : _text.Message("profiles.wizard.partial.bodySavesFailed", ("reason", reason));
-        var retryLabel = installFailed
-            ? _text.Message("profiles.wizard.partial.retryInstall")
-            : _text.Message("profiles.wizard.partial.retrySaves");
-        var rows = new[] { RepoRole.Install, RepoRole.External }
+        var body = _text.Message("profiles.wizard.partial.body", ("state", PartialSnapshotText.State(_text, _savedRoles, _failedRoles)), ("reason", reason));
+        var retryLabel = PartialSnapshotText.RetryLabel(_text, _failedRoles);
+        var rows = new[] { RepoRole.Install, RepoRole.Mods, RepoRole.External }
             .Where(role => _savedRoles.Contains(role) || _failedRoles.Contains(role))
             .Select(role => OutcomeRow(role, _savedRoles.Contains(role)))
             .ToList();
@@ -250,9 +245,12 @@ public sealed partial class NewProfileWizardViewModel
 
     private SaveOutcomeRow OutcomeRow(RepoRole role, bool saved)
     {
-        var folder = role == RepoRole.Install
-            ? _text.Message("profiles.wizard.preview.installTitle")
-            : _text.Message("profiles.wizard.partial.folderSaves");
+        var folder = _text.Message(role switch
+        {
+            RepoRole.Install => "profiles.wizard.preview.installTitle",
+            RepoRole.Mods => "profiles.wizard.partial.folderMods",
+            _ => "profiles.wizard.partial.folderSaves",
+        });
         return saved
             ? new SaveOutcomeRow(Icons.CheckCircle, true, _text.Message("profiles.wizard.partial.rowSaved", ("folder", folder)))
             : new SaveOutcomeRow(Icons.Cancel, false, _text.Message("profiles.wizard.partial.rowNotSaved", ("folder", folder)));

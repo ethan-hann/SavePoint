@@ -27,6 +27,7 @@
               <StackPanel Spacing="4">
                 <TextBlock Classes="row-title" TextWrapping="Wrap" Text="{Binding Name}" />
                 <TextBlock Classes="mono small" TextWrapping="Wrap" Text="{Binding InstallLine}" />
+                <TextBlock Classes="mono small muted" TextWrapping="Wrap" IsVisible="{Binding ModsLine, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding ModsLine}" />
                 <TextBlock Classes="mono small muted" TextWrapping="Wrap" Text="{Binding SavesLine}" />
               </StackPanel>
             </Border>

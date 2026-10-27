@@ -225,6 +225,11 @@ public sealed partial class LibraryAddDialogViewModel : DialogViewModel<LibraryA
                         lines.Add(new LibraryResultLine(LibraryResultKind.Notice, _text.Message("library.add.line.savesLeftOut", ("name", result.Name), ("path", path))));
                     }
 
+                    if (result.ModsFolderLeftOut is { } modsPath)
+                    {
+                        lines.Add(new LibraryResultLine(LibraryResultKind.Notice, _text.Message("library.add.line.modsLeftOut", ("name", result.Name), ("path", modsPath))));
+                    }
+
                     if (result.RulesLeftOff is { Rules.Count: > 0 } moved)
                     {
                         var key = moved.SavesHoldFiles ? "library.add.line.rulesMoved" : "library.add.line.rulesMovedUnchecked";

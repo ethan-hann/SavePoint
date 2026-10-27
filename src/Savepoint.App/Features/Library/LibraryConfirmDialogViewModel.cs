@@ -10,7 +10,8 @@ namespace Savepoint.App.Features.Library;
 /// <param name="InstallPath">Its install folder, fully resolved.</param>
 /// <param name="SavesLine">Its saves folder, or the plain statement that it has none yet.</param>
 /// <param name="InstallLine">Its install folder with its label ("Game folder: ...").</param>
-public sealed record LibraryConfirmEntry(string Name, string InstallPath, string SavesLine, string InstallLine = "");
+/// <param name="ModsLine">Its mods folder with its label ("Mods folder: ..."); empty when the game has none to add.</param>
+public sealed record LibraryConfirmEntry(string Name, string InstallPath, string SavesLine, string InstallLine = "", string ModsLine = "");
 
 /// <summary>
 /// The one confirmation before several library games are added: it names every game with each folder SavePoint will manage, and says
@@ -23,7 +24,7 @@ public sealed partial class LibraryConfirmDialogViewModel : DialogViewModel<bool
     public LibraryConfirmDialogViewModel(IReadOnlyList<LibraryGame> games, UiFormatter text)
         : base(text.Message("library.confirm.title", ("count", games.Count)))
     {
-        // A saves folder the game has not made yet is left out when the game is added, so it is not named as one SavePoint will manage.
+        // A saves or mods folder that is not there yet is left out when the game is added, so it is not named as one SavePoint will manage.
         Entries =
         [
             .. games.Select(game => new LibraryConfirmEntry(
@@ -32,7 +33,8 @@ public sealed partial class LibraryConfirmDialogViewModel : DialogViewModel<bool
                 game.SavesFolder is { } saves && game.SavesFolderExists
                     ? text.Message("library.confirm.savesLine", ("path", saves))
                     : text.Message("library.confirm.noSaves"),
-                text.Message("library.confirm.installLine", ("path", game.InstallPath)))),
+                text.Message("library.confirm.installLine", ("path", game.InstallPath)),
+                game.ModsFolder is { } mods && game.ModsFolderExists ? text.Message("library.confirm.modsLine", ("path", mods)) : string.Empty)),
         ];
         Message = text.Message("library.confirm.message");
         ConfirmLabel = text.Message("library.confirm.confirm");

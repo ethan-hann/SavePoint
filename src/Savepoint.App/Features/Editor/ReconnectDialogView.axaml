@@ -8,6 +8,7 @@
   <StackPanel Spacing="16">
     <TextBlock Classes="dialog-title" TextWrapping="Wrap" Text="{Binding Title}" />
     <TextBlock Classes="body muted" TextWrapping="Wrap" Text="{Binding Message}" />
+    <TextBlock x:Name="FoundInText" Classes="caption" TextWrapping="Wrap" Text="{Binding FoundIn}" />
     <ItemsControl x:Name="ProfileList" ItemsSource="{Binding Lines}">
       <ItemsControl.ItemsPanel>
         <ItemsPanelTemplate>

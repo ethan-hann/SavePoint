@@ -71,12 +71,18 @@ public sealed partial class CapturePreviewViewModel : ObservableObject
         IsLoading = false;
     }
 
-    private CaptureRowViewModel Row(FolderCapturePreview folder) => folder.Role == RepoRole.Install
-        ? new CaptureRowViewModel(Icons.Folder, _text.Message("profiles.wizard.preview.installTitle"), InstallSubtitle(folder))
-        : new CaptureRowViewModel(
+    private CaptureRowViewModel Row(FolderCapturePreview folder) => folder.Role switch
+    {
+        RepoRole.Install => new CaptureRowViewModel(Icons.Folder, _text.Message("profiles.wizard.preview.installTitle"), InstallSubtitle(folder)),
+        RepoRole.Mods => new CaptureRowViewModel(
+            Icons.Folder,
+            _text.Message("profiles.wizard.preview.modsTitle"),
+            _text.Message("profiles.wizard.preview.modsSubtitle", ("path", folder.Path), ("fileCount", folder.FileCount), ("size", _text.FileSize(folder.Bytes)))),
+        _ => new CaptureRowViewModel(
             Icons.Save,
             _text.Message("profiles.wizard.preview.externalTitle"),
-            _text.Message("profiles.wizard.preview.externalSubtitle", ("path", folder.Path), ("fileCount", folder.FileCount)));
+            _text.Message("profiles.wizard.preview.externalSubtitle", ("path", folder.Path), ("fileCount", folder.FileCount))),
+    };
 
     private string InstallSubtitle(FolderCapturePreview folder) => folder.ModFileCount > 0
         ? _text.Message("profiles.wizard.preview.installSubtitle", ("path", folder.Path), ("modFileCount", folder.ModFileCount), ("size", _text.FileSize(folder.Bytes)))

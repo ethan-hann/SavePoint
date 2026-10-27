@@ -654,7 +654,7 @@ public class NewProfileWizardViewModelTests
         var card = Assert.IsType<ErrorCardViewModel>(wizard.ResultCard);
         Assert.Equal("Only part of the snapshot was taken", card.Title);
         Assert.Equal(
-            "Your game version and mods are in the snapshot, your saves aren't. Not enough free disk space to take this snapshot. Free up about 1.2 GB on drive D: and try again. Your game folders are unchanged.",
+            "Your game version and mods are in the snapshot. Your saves aren't yet. Not enough free disk space to take this snapshot. Free up about 1.2 GB on drive D: and try again. Your game folders are unchanged.",
             card.Body);
         Assert.Equal(Icons.Warning, card.Icon);
         Assert.True(card.IsWarning);
@@ -684,8 +684,8 @@ public class NewProfileWizardViewModelTests
         rig.Backend.Jobs.Complete(rig.JobId, new CaptureResult(pid, new HistoryPointId("pt"), [new FolderOutcome(RepoRole.Install, SampleScenario.FileInUseError), new FolderOutcome(RepoRole.External)]));
 
         var card = rig.Wizard.ResultCard!;
-        Assert.StartsWith("Your saves are in the snapshot, your game version and mods aren't.", card.Body);
-        Assert.Equal("Retry the game version and mods", Assert.Single(card.Actions).Label);
+        Assert.StartsWith("Your saves are in the snapshot. Your game version and mods aren't yet.", card.Body);
+        Assert.Equal("Retry the version and mods", Assert.Single(card.Actions).Label);
         Assert.Equal(
             [("Game version and mods \u00b7 not in the snapshot yet", false), ("Saves \u00b7 in the snapshot", true)],
             ((SaveOutcomeListViewModel)card.Supplement!).Rows.Select(row => (row.Text, row.Succeeded)));
