@@ -199,7 +199,7 @@ public class PostPlayDialogViewModelTests : IDisposable
         var keep = Card(await NormalAsync(), CompletionChoice.CaptureNew);
 
         Assert.Equal("Name it:", keep.NameLabel);
-        Assert.Equal("Session - 7-8-26", keep.Name);
+        Assert.Equal("Session - Jul 8, 2026", keep.Name);
     }
 
     [Fact]
@@ -221,7 +221,7 @@ public class PostPlayDialogViewModelTests : IDisposable
         Assert.Equal("Keep this session as a new profile", fork.Title);
         Assert.Equal("Recommended. \"Modded playthrough - 7-2-26\" and its newer snapshots stay as they are.", fork.Subtitle);
         Assert.Equal("Profile name:", fork.NameLabel);
-        Assert.Equal("New progress - 7-8-26", fork.Name);
+        Assert.Equal("New progress - Jul 8, 2026", fork.Name);
         Assert.Equal("Continue \"Modded playthrough - 7-2-26\" from this session", move.Title);
         Assert.Equal("This session becomes the latest snapshot of \"Modded playthrough - 7-2-26\". 1 newer snapshot moves to Recently removed.", move.Subtitle);
         Assert.True(dialog.HasOlderNote);
@@ -384,7 +384,7 @@ public class PostPlayDialogViewModelTests : IDisposable
         _rig.Backend.Games.ListGate = () => gate.Task;
         var dialog = await RunTimeOnlyAsync();
         var running = dialog.LeaveOutCommand.ExecuteAsync(null);
-        dialog.NotNowCommand.Execute(null);
+        dialog.ChooseNotNow();
         Assert.True(dialog.IsClosed);
         _rig.Backend.FailNext<IGamesApi>(nameof(IGamesApi.UpdateAsync), ErrorInfo.From(new InvalidOperationException("locked")));
 
@@ -398,18 +398,16 @@ public class PostPlayDialogViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task The_main_button_names_the_selected_choice_and_not_now_hides_when_it_would_repeat_it()
+    public async Task The_main_button_names_the_selected_choice()
     {
         var dialog = await NormalAsync();
         Assert.Equal("Keep it", dialog.PrimaryLabel);
-        Assert.True(dialog.ShowNotNowButton);
 
         dialog.SelectedChoice = Card(dialog, CompletionChoice.UpdateExisting);
         Assert.Equal("Replace it", dialog.PrimaryLabel);
 
         dialog.SelectedChoice = Card(dialog, CompletionChoice.Skip);
         Assert.Equal("Not now", dialog.PrimaryLabel);
-        Assert.False(dialog.ShowNotNowButton);
     }
 
     [Fact]
@@ -443,7 +441,7 @@ public class PostPlayDialogViewModelTests : IDisposable
         await dialog.SaveCommand.ExecuteAsync(null);
 
         Assert.True(dialog.IsClosed);
-        Assert.Equal(new SessionCompletion.CaptureNew("Session - 7-8-26"), await dialog.Result);
+        Assert.Equal(new SessionCompletion.CaptureNew("Session - Jul 8, 2026"), await dialog.Result);
     }
 
     [Fact]
@@ -506,7 +504,7 @@ public class PostPlayDialogViewModelTests : IDisposable
         Assert.Equal("Remove and continue", request.ConfirmLabel);
         Assert.True(request.Destructive);
         Assert.True(dialog.IsClosed);
-        Assert.Equal(new SessionCompletion.MoveForward("Session - 7-8-26"), await dialog.Result);
+        Assert.Equal(new SessionCompletion.MoveForward("Session - Jul 8, 2026"), await dialog.Result);
     }
 
     [Fact]
@@ -542,11 +540,6 @@ public class PostPlayDialogViewModelTests : IDisposable
     public async Task Not_now_answers_with_a_skip_whichever_way_it_is_chosen()
     {
         var exited = await _rig.ExitedAsync();
-        var viaButton = Build(exited);
-        viaButton.NotNowCommand.Execute(null);
-        Assert.True(viaButton.IsClosed);
-        Assert.Equal(new SessionCompletion.Skip(), await viaButton.Result);
-
         var viaCard = Build(exited);
         viaCard.SelectedChoice = Card(viaCard, CompletionChoice.Skip);
         await viaCard.SaveCommand.ExecuteAsync(null);

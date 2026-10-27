@@ -23,6 +23,9 @@ public sealed class UiFormatter
         "format.size.tb",
     ];
 
+    // The set Windows refuses in a file name, applied everywhere so a default name travels between systems.
+    private const string _unsafeNameCharacters = "/\\:*?\"<>|";
+
     private readonly LocalizationCatalog _catalog;
     private readonly TimeProvider _clock;
     private readonly TimeZoneInfo _timeZone;
@@ -255,11 +258,21 @@ public sealed class UiFormatter
             names.GetAbbreviatedDayName(local.DayOfWeek));
     }
 
-    /// <summary>The date as month, day and two-digit year with no padding ("7-2-26"), for the default names of profiles and points.</summary>
+    /// <summary>
+    /// The full date in the catalog language's date pattern ("Jul 2, 2026"), for the default names of profiles and snapshots. The year
+    /// always shows, so a name stays clear next year. A character that a name could not carry anywhere (a date separator such as
+    /// <c>/</c>, or <c>:</c>) becomes a hyphen, so the name is the same on every system.
+    /// </summary>
     public string NameDate(DateTimeOffset when)
     {
-        var local = Local(when);
-        return string.Create(CultureInfo.InvariantCulture, $"{local.Month}-{local.Day}-{local.Year % 100:00}");
+        var text = Local(when).ToString(_catalog.Format("format.pattern.date"), _culture);
+        return string.Create(text.Length, text, static (span, source) =>
+        {
+            for (var index = 0; index < source.Length; index++)
+            {
+                span[index] = char.IsControl(source[index]) || _unsafeNameCharacters.Contains(source[index]) ? '-' : source[index];
+            }
+        });
     }
 
     /// <summary>A length of time in whole units, rounded down ("2 hours 14 minutes", "41 minutes", "50 seconds").</summary>

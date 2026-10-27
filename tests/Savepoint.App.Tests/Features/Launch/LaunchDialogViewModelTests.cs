@@ -167,12 +167,12 @@ public class LaunchDialogViewModelTests : IDisposable
             dialog.SaveOptions,
             first =>
             {
-                Assert.Equal("Deep cave run \u00B7 5-30-26, 11:42 PM", first.Title);
+                Assert.Equal("Deep cave run \u00B7 May 30, 2026, 11:42 PM", first.Title);
                 Assert.Equal("Latest · 2 save snapshots to choose from", first.Subtitle);
             },
             second =>
             {
-                Assert.Equal("First night \u00B7 5-14-26, 9:04 PM", second.Title);
+                Assert.Equal("First night \u00B7 May 14, 2026, 9:04 PM", second.Title);
                 Assert.Equal("2 save snapshots to choose from", second.Subtitle);
             });
         Assert.Same(dialog.SaveOptions[0], dialog.SelectedSave);
@@ -521,7 +521,7 @@ public class LaunchDialogViewModelTests : IDisposable
         var keep = Assert.IsType<KeepAsNewProfileDialogViewModel>(Assert.Single(_rig.Dialogs.Shown));
         Assert.Equal("Keep as a new profile", keep.Title);
         Assert.Equal("SavePoint takes a snapshot of your game folders as they are now and makes it a new profile.", keep.Body);
-        Assert.Equal("Kept changes - 7-8-26", keep.Name);
+        Assert.Equal("Kept changes - Jul 8, 2026", keep.Name);
         keep.CancelCommand.Execute(null);
         await open;
     }

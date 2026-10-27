@@ -158,7 +158,7 @@ public class TabOrderTests
             [
                 "Settings", "Search games", "Skyrim Special Edition, 3 profiles", "Add games from your libraries", "Add a game",
                 "How SavePoint works", "Show the tour again",
-                "Change", "Run now", "How much space do snapshots take?",
+                "Change", "Free up space", "How much space do snapshots take?",
                 "Dark", "100%", "Sidebar", "Blue", "Look up game artwork online",
                 "Skip the check before playing when only your saves change", "Ask whether to keep the session",
                 "Remove all data…", "Third-party notices",
@@ -233,8 +233,9 @@ public class TabOrderTests
 
         var stops = TabStops(app);
 
-        Assert.Equal(["Not now", "Keep it"], stops[^2..]);
-        Assert.True(stops.Count > 2, "The choices come before the buttons.");
+        Assert.Equal("Keep it", stops[^1]);
+        Assert.True(stops.Count > 1, "The choices come before the button.");
+        Assert.DoesNotContain("Not now", stops);
     }
 
     [AvaloniaFact]

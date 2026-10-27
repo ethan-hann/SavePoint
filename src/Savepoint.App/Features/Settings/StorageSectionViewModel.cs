@@ -58,7 +58,15 @@ public sealed partial class StorageSectionViewModel : ObservableObject
     [ObservableProperty]
     private string _optimizeDescription = string.Empty;
 
-    /// <summary>True while the optimization of every game runs; Run now gives way to Cancel.</summary>
+    /// <summary>What Free up space would delete for good right now, or empty while that cannot be read.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasOptimizePreview))]
+    private string _optimizePreview = string.Empty;
+
+    /// <summary>True when <see cref="OptimizePreview"/> has something to say.</summary>
+    public bool HasOptimizePreview => OptimizePreview.Length > 0;
+
+    /// <summary>True while the optimization of every game runs; the Free up space button gives way to Cancel.</summary>
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(RunNowCommand))]
     [NotifyCanExecuteChangedFor(nameof(CancelOptimizeCommand))]
@@ -131,6 +139,18 @@ public sealed partial class StorageSectionViewModel : ObservableObject
         }
 
         await RefreshSummaryAsync();
+        await RefreshPreviewAsync();
+    }
+
+    // The line under Free up space is a nicety: when the count cannot be read it goes away and the button still works.
+    private async Task RefreshPreviewAsync()
+    {
+        var read = await _deps.Settings.GetFreeUpSpacePreviewAsync();
+        OptimizePreview = !read.Ok
+            ? string.Empty
+            : read.Value.RecentlyRemovedSnapshots is > 0 and var removed
+                ? _deps.Text.Message("settings.storage.optimizePreview.some", ("count", removed))
+                : _deps.Text.Message("settings.storage.optimizePreview.none");
     }
 
     // Takes a job change, on the UI thread. A snapshot that is not newer than the one held for the job is dropped.
@@ -266,6 +286,7 @@ public sealed partial class StorageSectionViewModel : ObservableObject
     {
         await _store.ReadAsync(tellShell);
         await RefreshSummaryAsync();
+        await RefreshPreviewAsync();
     }
 
     private async Task RefreshSummaryAsync()

@@ -124,7 +124,7 @@ public class NewProfileWizardViewModelTests
     {
         var rig = await Rig.StartAsync();
 
-        Assert.Equal("Modded playthrough - 7-8-26", rig.Wizard.Name);
+        Assert.Equal("Modded playthrough - Jul 8, 2026", rig.Wizard.Name);
         Assert.Equal(string.Empty, rig.Wizard.Notes);
         Assert.True(rig.Wizard.CanContinue);
     }

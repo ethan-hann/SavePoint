@@ -327,7 +327,7 @@ public class LaunchFlowSessionTests : IDisposable
         await dialog.SaveCommand.ExecuteAsync(null);
 
         var complete = Assert.Single(_f.Completes());
-        Assert.Equal([FlowRig.Skyrim, new SessionCompletion.CaptureNew("Session - 7-8-26")], complete.Args);
+        Assert.Equal([FlowRig.Skyrim, new SessionCompletion.CaptureNew("Session - Jul 8, 2026")], complete.Args);
         var saving = _f.Inline<LaunchSavingViewModel>();
         Assert.Equal("Taking a snapshot of your session…", saving.Title);
         Assert.True(saving.IsIndeterminate);
@@ -361,7 +361,7 @@ public class LaunchFlowSessionTests : IDisposable
     {
         await _f.PlayToExitedAsync();
 
-        _f.PostPlay.NotNowCommand.Execute(null);
+        _f.PostPlay.ChooseNotNow();
 
         Assert.Equal([FlowRig.Skyrim, new SessionCompletion.Skip()], Assert.Single(_f.Completes()).Args);
         Assert.Null(_f.Flow.InlineContentFor(FlowRig.Skyrim));
@@ -642,7 +642,7 @@ public class LaunchFlowSessionTests : IDisposable
 
         await dialog.SaveCommand.ExecuteAsync(null);
 
-        Assert.Equal([FlowRig.Skyrim, new SessionCompletion.ForkNewProfile("New progress - 7-8-26", "New progress - 7-8-26")], Assert.Single(_f.Completes()).Args);
+        Assert.Equal([FlowRig.Skyrim, new SessionCompletion.ForkNewProfile("New progress - Jul 8, 2026", "New progress - Jul 8, 2026")], Assert.Single(_f.Completes()).Args);
         _f.Backend.Jobs.Complete(CaptureJob());
         Assert.Null(_f.Flow.InlineContentFor(FlowRig.Skyrim));
     }
@@ -683,7 +683,7 @@ public class LaunchFlowSessionTests : IDisposable
     public async Task A_new_play_after_a_finished_session_starts_a_fresh_flow()
     {
         await _f.PlayToExitedAsync();
-        _f.PostPlay.NotNowCommand.Execute(null);
+        _f.PostPlay.ChooseNotNow();
 
         await _f.Play(LaunchRig.ModdedTip);
 
