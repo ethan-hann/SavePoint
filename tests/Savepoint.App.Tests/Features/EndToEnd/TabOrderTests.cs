@@ -159,7 +159,7 @@ public class TabOrderTests
                 "Settings", "Skyrim Special Edition, 3 profiles", "Add games from your libraries", "Add a game",
                 "How SavePoint works", "Show the tour again",
                 "Change", "Run now", "How much space do snapshots take?",
-                "Dark", "Sidebar", "Blue", "Look up game artwork online",
+                "Dark", "100%", "Sidebar", "Blue", "Look up game artwork online",
                 "Skip the check before playing when only your saves change", "Ask whether to keep the session",
                 "Remove all data…", "Third-party notices",
             ],

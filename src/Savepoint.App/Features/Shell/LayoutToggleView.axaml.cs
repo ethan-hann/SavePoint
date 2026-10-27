@@ -54,12 +54,14 @@ public partial class LayoutToggleView : UserControl
         if (_model is not null)
         {
             _model.FocusRequested -= OnFocusRequested;
+            _model.FocusRestoreRequested -= OnFocusRestoreRequested;
         }
 
         _model = model;
         if (_model is not null)
         {
             _model.FocusRequested += OnFocusRequested;
+            _model.FocusRestoreRequested += OnFocusRestoreRequested;
         }
     }
 
@@ -75,12 +77,22 @@ public partial class LayoutToggleView : UserControl
 
     private void OnKeyDownAfterList(object? sender, KeyEventArgs e) => _model?.EndKeyboardChoice();
 
+    private void OnFocusRequested(object? sender, EventArgs e) => FocusWhenSettled(onlyIfLost: false);
+
+    private void OnFocusRestoreRequested(object? sender, EventArgs e) => FocusWhenSettled(onlyIfLost: true);
+
     // Both layouts hold a copy of the toggle; only the one on screen takes focus, on the option that is chosen.
-    private void OnFocusRequested(object? sender, EventArgs e) =>
+    private void FocusWhenSettled(bool onlyIfLost) =>
         Dispatcher.UIThread.Post(
             () =>
             {
                 if (!IsEffectivelyVisible || this.FindControl<ListBox>("Toggle") is not { SelectedIndex: >= 0 } list)
+                {
+                    return;
+                }
+
+                // Focus on something still shown is where the player put it; only focus that is nowhere, or on a copy hidden with its layout, comes back here.
+                if (onlyIfLost && TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is Visual { IsEffectivelyVisible: true })
                 {
                     return;
                 }

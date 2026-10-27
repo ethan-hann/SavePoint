@@ -60,6 +60,8 @@ internal sealed class FakeShellContext : IShellContext
 
     public ShellLayout Layout => ShellLayout.Sidebar;
 
+    public int LargestFittingUiScale => 200;
+
     public NavDestination Destination => NavDestination.Games;
 
     public LayoutToggleViewModel LayoutToggle { get; }

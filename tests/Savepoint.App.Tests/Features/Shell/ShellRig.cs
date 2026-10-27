@@ -102,6 +102,17 @@ internal sealed class RecordingThemeApplier : IThemeApplier
     public void Apply(ThemePreference preference, AccentColorId accent) => Applied.Add((preference, accent));
 
     public void ApplyScale(int percent) => Scales.Add(percent);
+
+    public int LargestFittingScale { get; private set; } = 200;
+
+    public event EventHandler? LargestFittingScaleChanged;
+
+    // What the window's screen allows changed, as when the window is dragged to a smaller screen.
+    public void ChangeLargestFittingScale(int percent)
+    {
+        LargestFittingScale = percent;
+        LargestFittingScaleChanged?.Invoke(this, EventArgs.Empty);
+    }
 }
 
 internal sealed class RecordingScreen(NavDestination destination) : IScreen

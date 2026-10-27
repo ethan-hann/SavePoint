@@ -21,6 +21,7 @@ public sealed partial class AppearanceSectionViewModel : ObservableObject
     private LayoutChoice _currentLayout;
     private AccentOption _currentAccent;
     private ScaleOption _currentScale;
+    private int _savedScale = UiScale.Default;
     private bool _currentLookUp = true;
     private bool _restoring;
 
@@ -68,20 +69,24 @@ public sealed partial class AppearanceSectionViewModel : ObservableObject
             new AccentOption(AccentColorId.Crimson, text.Message("settings.accent.crimson")),
         ];
 
+        var noRoom = text.Message("settings.scale.noRoom");
+        ScaleLimitNote = text.Message("settings.scale.limited");
         ScaleOptions =
         [
-            new ScaleOption(100, text.Message("settings.scale.p100")),
-            new ScaleOption(125, text.Message("settings.scale.p125")),
-            new ScaleOption(150, text.Message("settings.scale.p150")),
-            new ScaleOption(175, text.Message("settings.scale.p175")),
-            new ScaleOption(200, text.Message("settings.scale.p200")),
+            ScaleOptionFor(text, 100, text.Message("settings.scale.p100"), noRoom),
+            ScaleOptionFor(text, 125, text.Message("settings.scale.p125"), noRoom),
+            ScaleOptionFor(text, 150, text.Message("settings.scale.p150"), noRoom),
+            ScaleOptionFor(text, 175, text.Message("settings.scale.p175"), noRoom),
+            ScaleOptionFor(text, 200, text.Message("settings.scale.p200"), noRoom),
         ];
 
         var defaults = AppSettings.Defaults(string.Empty);
         _currentTheme = ThemeFor(defaults.Theme);
         _currentLayout = LayoutFor(defaults.Layout);
         _currentAccent = AccentFor(defaults.AccentColorId);
-        _currentScale = ScaleFor(defaults.UiScalePercent);
+        _savedScale = defaults.UiScalePercent;
+        _currentScale = ScaleShown();
+        ShowScaleAvailability();
         _selectedScale = _currentScale;
         _selectedTheme = _currentTheme;
         _selectedLayout = _currentLayout;
@@ -99,6 +104,13 @@ public sealed partial class AppearanceSectionViewModel : ObservableObject
 
     /// <summary>The interface sizes, smallest first: 100%, 125%, 150%, 175% and 200%.</summary>
     public IReadOnlyList<ScaleOption> ScaleOptions { get; }
+
+    /// <summary>The line under the interface sizes that says why some are switched off; shown while <see cref="HasUnavailableScales"/>.</summary>
+    public string ScaleLimitNote { get; }
+
+    /// <summary>True while the window's screen has no room for some of the interface sizes.</summary>
+    [ObservableProperty]
+    private bool _hasUnavailableScales;
 
     /// <summary>The five accent presets, in the order the spec draws them.</summary>
     public IReadOnlyList<AccentOption> AccentOptions { get; }
@@ -166,9 +178,17 @@ public sealed partial class AppearanceSectionViewModel : ObservableObject
             return;
         }
 
+        // A size the screen has no room for is shown switched off; the interface never sets it.
+        if (!value.IsAvailable)
+        {
+            Restore(() => SelectedScale = _currentScale);
+            return;
+        }
+
         if (value != _currentScale)
         {
             _currentScale = value;
+            _savedScale = value.Percent;
             _ = SaveAsync(settings => settings with { UiScalePercent = value.Percent });
         }
     }
@@ -221,7 +241,8 @@ public sealed partial class AppearanceSectionViewModel : ObservableObject
             _currentTheme = ThemeFor(settings.Theme);
             _currentAccent = AccentFor(settings.AccentColorId);
             _currentLayout = LayoutFor(settings.Layout);
-            _currentScale = ScaleFor(settings.UiScalePercent);
+            _savedScale = settings.UiScalePercent;
+            _currentScale = ScaleShown();
             _currentLookUp = settings.LookUpArtworkOnline;
             LookUpArtworkOnline = _currentLookUp;
             SelectedTheme = _currentTheme;
@@ -240,7 +261,32 @@ public sealed partial class AppearanceSectionViewModel : ObservableObject
                 SelectedLayout = _currentLayout;
             });
         }
+        else if (e.PropertyName == nameof(IShellContext.LargestFittingUiScale))
+        {
+            Restore(() =>
+            {
+                ShowScaleAvailability();
+                _currentScale = ScaleShown();
+                SelectedScale = _currentScale;
+            });
+        }
     }
+
+    // The saved size, or the largest the screen has room for when the saved one does not fit; the saved choice itself is never changed by the screen.
+    private ScaleOption ScaleShown() => ScaleFor(UiScale.Limit(_savedScale, _shell.LargestFittingUiScale));
+
+    private void ShowScaleAvailability()
+    {
+        foreach (var option in ScaleOptions)
+        {
+            option.IsAvailable = option.Percent <= _shell.LargestFittingUiScale;
+        }
+
+        HasUnavailableScales = ScaleOptions.Any(option => !option.IsAvailable);
+    }
+
+    private static ScaleOption ScaleOptionFor(UiFormatter text, int percent, string label, string noRoom) =>
+        new(percent, label, noRoom, text.Message("settings.scale.unavailableName", ("size", label), ("reason", noRoom)));
 
     private ThemeOption ThemeFor(ThemePreference preference) => ThemeOptions.First(option => option.Preference == preference);
 

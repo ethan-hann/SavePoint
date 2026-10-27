@@ -11,8 +11,9 @@ public static class ThemeKeys
     public const string Prefix = "Md3";
 
     /// <summary>
-    /// Key of the <c>ScaleTransform</c> that draws a window's or popup's content at the player's UI scale. The service replaces it
-    /// with a new transform on each change, so a <c>DynamicResource</c> binding picks it up.
+    /// Key of the <c>ScaleTransform</c> that draws the main window's content, and the popups it opens, at the player's UI scale. The
+    /// crash window and the already-running notice do not use it. The service replaces it with a new transform on each change, so a
+    /// <c>DynamicResource</c> binding picks it up.
     /// </summary>
     public const string UiScale = "Md3UiScaleTransform";
 

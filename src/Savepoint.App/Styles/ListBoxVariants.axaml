@@ -74,6 +74,10 @@
     <Setter Property="Foreground" Value="{DynamicResource Md3OnPrimaryContainerBrush}" />
     <Setter Property="FontWeight" Value="Medium" />
   </Style>
+  <!-- A segment that cannot be chosen (a size the screen has no room for) reads as switched off. -->
+  <Style Selector="ListBox.segmented ListBoxItem:disabled">
+    <Setter Property="Foreground" Value="{DynamicResource Md3DisabledContentBrush}" />
+  </Style>
   <Style Selector="ListBox.segmented ListBoxItem /template/ Border#PART_Selected">
     <Setter Property="Background" Value="{DynamicResource Md3PrimaryContainerBrush}" />
   </Style>

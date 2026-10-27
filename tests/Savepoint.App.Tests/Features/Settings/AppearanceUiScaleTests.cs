@@ -1,4 +1,5 @@
 using Savepoint.App.Features.Common.Toasts;
+using Savepoint.App.Features.Shell;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Tests.Features.Shell;
 using Savepoint.Core.Api;
@@ -117,6 +118,90 @@ public class AppearanceUiScaleTests
 
         Assert.Equal(150, rig.Screen.Appearance.SelectedScale!.Percent);
         Assert.Equal(saves, rig.Calls<ISettingsApi>(nameof(ISettingsApi.SaveAsync)));
+    }
+
+    // ---- Only the sizes the window's screen has room for
+
+    private static async Task<SettingsRig> ShownOnScreenHoldingAsync(int largest, FakeBackend? backend = null)
+    {
+        var rig = await SettingsRig.StartAsync(backend);
+        rig.Theme.ChangeLargestFittingScale(largest);
+        rig.Show();
+        return rig;
+    }
+
+    [Fact]
+    public async Task A_size_the_screen_has_no_room_for_is_switched_off_with_the_reason()
+    {
+        var rig = await ShownOnScreenHoldingAsync(150);
+
+        var options = rig.Screen.Appearance.ScaleOptions;
+        Assert.All(options.Where(option => option.Percent <= 150), option => Assert.True(option.IsAvailable));
+        Assert.All(options.Where(option => option.Percent > 150), option => Assert.False(option.IsAvailable));
+        var off = options.Single(option => option.Percent == 175);
+        Assert.Equal("Your screen is too small for this size.", off.Reason);
+        Assert.Equal("175%, Your screen is too small for this size.", off.AccessibleName);
+        Assert.Null(options.Single(option => option.Percent == 150).Reason);
+        Assert.Equal("150%", options.Single(option => option.Percent == 150).AccessibleName);
+    }
+
+    [Fact]
+    public async Task The_screen_says_why_some_sizes_are_off_only_while_some_are()
+    {
+        var rig = await SettingsRig.ShownAsync();
+        Assert.False(rig.Screen.Appearance.HasUnavailableScales);
+
+        rig.Theme.ChangeLargestFittingScale(125);
+
+        Assert.True(rig.Screen.Appearance.HasUnavailableScales);
+        Assert.Equal("Larger sizes need a bigger screen.", rig.Screen.Appearance.ScaleLimitNote);
+    }
+
+    [Fact]
+    public async Task A_saved_size_the_screen_cannot_hold_shows_the_largest_that_fits_and_the_saved_choice_stays()
+    {
+        var rig = await ShownOnScreenHoldingAsync(125, BackendWithScale(200));
+        var saves = rig.Calls<ISettingsApi>(nameof(ISettingsApi.SaveAsync));
+
+        Assert.Equal(125, rig.Screen.Appearance.SelectedScale!.Percent);
+        Assert.Equal(200, (await StoredAsync(rig)).UiScalePercent);
+        Assert.Equal(saves, rig.Calls<ISettingsApi>(nameof(ISettingsApi.SaveAsync)));
+    }
+
+    [Fact]
+    public async Task The_saved_size_comes_back_when_the_screen_has_room_again()
+    {
+        var rig = await ShownOnScreenHoldingAsync(125, BackendWithScale(200));
+
+        rig.Theme.ChangeLargestFittingScale(200);
+
+        Assert.Equal(200, rig.Screen.Appearance.SelectedScale!.Percent);
+        Assert.All(rig.Screen.Appearance.ScaleOptions, option => Assert.True(option.IsAvailable));
+        Assert.Equal(200, (await StoredAsync(rig)).UiScalePercent);
+    }
+
+    [Fact]
+    public async Task A_size_that_is_switched_off_cannot_be_chosen()
+    {
+        var rig = await ShownOnScreenHoldingAsync(125);
+        var saves = rig.Calls<ISettingsApi>(nameof(ISettingsApi.SaveAsync));
+
+        rig.Screen.Appearance.SelectedScale = rig.Screen.Appearance.ScaleOptions.Single(option => option.Percent == 200);
+
+        Assert.Equal(100, rig.Screen.Appearance.SelectedScale!.Percent);
+        Assert.Equal(saves, rig.Calls<ISettingsApi>(nameof(ISettingsApi.SaveAsync)));
+    }
+
+    [Fact]
+    public async Task The_shell_reports_the_largest_size_the_screen_holds_and_says_when_it_changes()
+    {
+        var rig = await ShellRig.StartAsync();
+        Assert.Equal(200, rig.Shell.LargestFittingUiScale);
+
+        var changes = rig.Changes(rig.Shell, () => rig.Theme.ChangeLargestFittingScale(150));
+
+        Assert.Equal(150, rig.Shell.LargestFittingUiScale);
+        Assert.Contains(nameof(IShellContext.LargestFittingUiScale), changes);
     }
 
     [Fact]

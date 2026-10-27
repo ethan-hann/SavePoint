@@ -26,6 +26,12 @@ public interface IShellContext : INotifyPropertyChanged
     /// <summary>The persisted layout.</summary>
     ShellLayout Layout { get; }
 
+    /// <summary>
+    /// The largest interface size, in percent, that the window's screen has room for; the sizes above it are not offered. Changes raise
+    /// <see cref="INotifyPropertyChanged.PropertyChanged"/> with the name <c>LargestFittingUiScale</c>.
+    /// </summary>
+    int LargestFittingUiScale { get; }
+
     /// <summary>The destination being shown.</summary>
     NavDestination Destination { get; }
 

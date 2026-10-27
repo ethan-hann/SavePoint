@@ -80,6 +80,9 @@ public class UiScaleTests
     [InlineData(140, 150)]
     [InlineData(1000, 200)]
     [InlineData(-50, 100)]
+    [InlineData(-2147483548, 100)]
+    [InlineData(int.MinValue, 100)]
+    [InlineData(int.MaxValue, 200)]
     public void A_scale_that_is_not_one_of_the_steps_becomes_the_nearest_step(int asked, int expected)
     {
         Assert.Equal(expected, UiScale.Nearest(asked));
@@ -88,6 +91,73 @@ public class UiScaleTests
         harness.Service.SetUiScale(asked);
 
         Assert.Equal(expected, harness.Service.UiScalePercent);
+    }
+
+    // A screen's room is its working area in the window's units, less the frame; the screens are built for 640x420 and must keep that much at the chosen size.
+    [Theory]
+    [InlineData(1920, 1040, 1.0, 200)]
+    [InlineData(1920, 1040, 2.0, 100)]
+    [InlineData(1366, 728, 1.5, 100)]
+    [InlineData(1280, 800, 1.0, 175)]
+    [InlineData(1280, 760, 1.0, 150)]
+    [InlineData(2560, 1400, 1.0, 200)]
+    [InlineData(300, 200, 1.0, 100)]
+    public void The_largest_size_a_screen_has_room_for_leaves_the_screens_the_size_they_were_built_for(int width, int height, double screenScaling, int expected)
+    {
+        var room = UiScale.RoomOf(new PixelRect(0, 0, width, height), screenScaling);
+
+        Assert.Equal(expected, UiScale.LargestFitting(room));
+        Assert.True(UiScale.Fits(expected, room) || expected == UiScale.Default);
+    }
+
+    [Fact]
+    public void Every_size_fits_when_the_screen_is_not_known()
+    {
+        Assert.Equal(200, UiScale.LargestFitting(null));
+        Assert.True(UiScale.Fits(200, null));
+    }
+
+    [Theory]
+    [InlineData(200, 200, 200)]
+    [InlineData(200, 125, 125)]
+    [InlineData(150, 175, 150)]
+    [InlineData(137, 100, 100)]
+    [InlineData(int.MaxValue, 150, 150)]
+    public void A_wanted_size_the_screen_cannot_hold_is_lowered_to_the_largest_that_fits(int wanted, int largest, int expected) =>
+        Assert.Equal(expected, UiScale.Limit(wanted, largest));
+
+    [AvaloniaFact]
+    public void A_size_the_screen_has_no_room_for_is_drawn_at_the_largest_that_fits_and_comes_back_when_there_is_room()
+    {
+        var harness = new ThemeHarness();
+        var raised = 0;
+        harness.Service.UiScaleRoomChanged += (_, _) => raised++;
+
+        harness.Service.SetUiScaleRoom(UiScale.RoomOf(new PixelRect(0, 0, 1280, 800), 1.0));
+        harness.Service.SetUiScale(200);
+
+        Assert.Equal(175, harness.Service.LargestFittingUiScale);
+        Assert.Equal(175, harness.Service.UiScalePercent);
+        Assert.Equal(1.75, Assert.IsType<ScaleTransform>(harness.Value(ThemeKeys.UiScale)).ScaleX);
+
+        harness.Service.SetUiScaleRoom(UiScale.RoomOf(new PixelRect(0, 0, 2560, 1400), 1.0));
+
+        Assert.Equal(200, harness.Service.UiScalePercent);
+        Assert.Equal(2.0, Assert.IsType<ScaleTransform>(harness.Value(ThemeKeys.UiScale)).ScaleX);
+        Assert.Equal(2, raised);
+    }
+
+    [AvaloniaFact]
+    public void Room_that_changes_nothing_about_the_largest_size_says_nothing()
+    {
+        var harness = new ThemeHarness();
+        harness.Service.SetUiScaleRoom(UiScale.RoomOf(new PixelRect(0, 0, 1280, 800), 1.0));
+        var raised = 0;
+        harness.Service.UiScaleRoomChanged += (_, _) => raised++;
+
+        harness.Service.SetUiScaleRoom(UiScale.RoomOf(new PixelRect(0, 0, 1300, 810), 1.0));
+
+        Assert.Equal(0, raised);
     }
 
     [AvaloniaFact]
@@ -196,6 +266,67 @@ public class UiScaleTests
         }
 
         window.Close();
+    }
+
+    [AvaloniaFact]
+    public void A_scaled_popup_opened_at_the_windows_bottom_right_corner_stays_inside_the_window()
+    {
+        using var scaled = Scaled(200);
+        var (window, view) = ShownMainWindow();
+        var anchor = CornerAnchor(view);
+        var bubble = new Border { Width = 160, Height = 80 };
+
+        OpenFlyout(anchor, bubble);
+
+        var box = new Rect(bubble.Bounds.Size).TransformToAABB(bubble.TransformToVisual(window)!.Value);
+        Assert.True(box.Width > 0, "The popup did not open.");
+        Assert.Equal(2.0, ScaleOf(bubble, window), 3);
+        Assert.InRange(box.Left, -0.5, window.ClientSize.Width + 0.5);
+        Assert.InRange(box.Right, -0.5, window.ClientSize.Width + 0.5);
+        Assert.InRange(box.Top, -0.5, window.ClientSize.Height + 0.5);
+        Assert.InRange(box.Bottom, -0.5, window.ClientSize.Height + 0.5);
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void A_context_menu_opened_after_a_scale_change_is_drawn_at_that_scale()
+    {
+        using var scaled = Scaled(150);
+        var (window, view) = ShownMainWindow();
+        var anchor = CornerAnchor(view);
+        var item = new MenuItem { Header = "Rename" };
+        anchor.ContextMenu = new ContextMenu { Items = { item } };
+
+        anchor.ContextMenu.Open(anchor);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(1.5, ScaleOf(item, TopLevel.GetTopLevel(item)!), 3);
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void A_tooltip_shown_after_a_scale_change_is_drawn_at_that_scale()
+    {
+        using var scaled = Scaled(150);
+        var (window, view) = ShownMainWindow();
+        var anchor = CornerAnchor(view);
+        var tip = new Border { Width = 80, Height = 20 };
+        ToolTip.SetTip(anchor, tip);
+
+        ToolTip.SetIsOpen(anchor, true);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(1.5, ScaleOf(tip, TopLevel.GetTopLevel(tip)!), 3);
+        window.Close();
+    }
+
+    // A small control in the window's bottom right corner, inside the scaled content, to anchor popups to.
+    private static Button CornerAnchor(MainView view)
+    {
+        var anchor = new Button { Width = 40, Height = 24, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Bottom };
+        view.FindControl<Panel>("Root")!.Children.Add(anchor);
+        Dispatcher.UIThread.RunJobs();
+        return anchor;
     }
 
     private static (MainWindow Window, MainView View) ShownMainWindow()
