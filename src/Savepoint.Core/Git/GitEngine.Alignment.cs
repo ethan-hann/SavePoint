@@ -75,7 +75,7 @@ public sealed partial class GitEngine
         {
             if (await TryPutBackFilesAsync(repo, removed).ConfigureAwait(false))
             {
-                ClearNoteIf(ownsNote, repo);
+                await ClearNoteIfAsync(ownsNote, repo).ConfigureAwait(false);
             }
 
             throw;

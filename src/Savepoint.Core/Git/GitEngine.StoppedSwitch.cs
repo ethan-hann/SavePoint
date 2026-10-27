@@ -55,7 +55,7 @@ public sealed partial class GitEngine
             throw new GitOperationException($"The repository at '{repo.GitDir}' does not exist.");
         }
 
-        if (SwitchJournal.Read(repo.GitDir) is not { ToCommit: { } to } note)
+        if (await ReadNoteAsync(repo, ct).ConfigureAwait(false) is not { ToCommit: { } to } note)
         {
             return StoppedSwitchReview.None;
         }

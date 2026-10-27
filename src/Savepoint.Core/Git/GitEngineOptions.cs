@@ -67,6 +67,9 @@ public sealed record GitEngineOptions
     internal IReadOnlyList<TimeSpan> DeleteRetryDelays { get; init; } =
         [TimeSpan.FromMilliseconds(300), TimeSpan.FromMilliseconds(300), TimeSpan.FromMilliseconds(300), TimeSpan.FromMilliseconds(300)];
 
+    // How the engine waits while another program holds the switch note; tests replace it so a held note costs no real time. Null waits with Task.Delay.
+    internal Func<TimeSpan, CancellationToken, Task>? SwitchNoteDelay { get; init; }
+
     // Waits between retries of a git write that found another process holding a lock.
     internal IReadOnlyList<TimeSpan> LockRetryDelays { get; init; } =
         [TimeSpan.FromMilliseconds(100), TimeSpan.FromMilliseconds(250), TimeSpan.FromMilliseconds(500)];

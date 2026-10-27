@@ -48,6 +48,7 @@ public sealed partial class GitEngine
             changedPaths = [];
         }
 
+        var note = await ReadNoteAsync(repo, ct).ConfigureAwait(false);
         return new RepoStatus(
             changedPaths.Count == 0 && untrackedPaths.Count == 0,
             head.Branch,
@@ -55,7 +56,7 @@ public sealed partial class GitEngine
             commit,
             changedPaths,
             untrackedPaths,
-            SwitchJournal.Read(repo.GitDir),
+            note,
             held,
             heldCount,
             heldPaths);

@@ -9,7 +9,23 @@ namespace Savepoint.Core.Tests.Git.Engine;
 [Collection(EngineCollections.C)]
 public sealed class UnreadableJournalTests : IDisposable
 {
-    private readonly EngineWorkspace _ws = new();
+    private readonly EngineWorkspace _ws;
+    private TimeSpan _waitedForNote;
+    private Action<TimeSpan>? _whileWaitingForNote;
+
+    // The engine's waits for a note another program holds take no real time here; a test acts on the hold once enough time has "passed".
+    public UnreadableJournalTests()
+    {
+        _ws = new(options => options with
+        {
+            SwitchNoteDelay = (wait, _) =>
+            {
+                _waitedForNote += wait;
+                _whileWaitingForNote?.Invoke(_waitedForNote);
+                return Task.CompletedTask;
+            },
+        });
+    }
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -163,6 +179,49 @@ public sealed class UnreadableJournalTests : IDisposable
 
         Assert.Equal(new InterruptedSwitch(points[0], points[1]), note);
         Assert.Equal(1, waits);
+    }
+
+    [Fact]
+    public async Task The_status_of_a_folder_whose_switch_note_a_scan_holds_for_a_second_still_names_the_target()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows lets one program keep another from reading a file");
+        var (repo, points) = await _ws.TwoPointsRepoAsync();
+        SwitchJournal.Write(repo.GitDir, points[0], points[1]);
+        using var held = new FileStream(SwitchJournal.PathIn(repo.GitDir), FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+        _whileWaitingForNote = total =>
+        {
+            if (total >= TimeSpan.FromSeconds(1))
+            {
+                held.Dispose();
+            }
+        };
+
+        var status = await _ws.Engine.GetStatusAsync(repo, Ct);
+
+        Assert.Equal(new InterruptedSwitch(points[0], points[1]), status.InterruptedSwitch);
+    }
+
+    [Fact]
+    public async Task A_discard_finds_a_switch_note_a_scan_holds_for_a_second_removable_once_the_scan_ends()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows lets one program keep another from deleting a file");
+        var (repo, _) = await _ws.TwoPointsRepoAsync();
+        var note = SwitchJournal.PathIn(repo.GitDir);
+        File.WriteAllText(note, "{ this is not a note");
+        _ws.Write(repo, "a.txt", "edited");
+        using var held = new FileStream(note, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+        _whileWaitingForNote = total =>
+        {
+            if (total >= TimeSpan.FromSeconds(1))
+            {
+                held.Dispose();
+            }
+        };
+
+        await _ws.Engine.DiscardChangesAsync(repo, Ct);
+
+        Assert.False(File.Exists(note));
+        Assert.Equal("one", File.ReadAllText(_ws.FileOf(repo, "a.txt")));
     }
 
     [Fact]
