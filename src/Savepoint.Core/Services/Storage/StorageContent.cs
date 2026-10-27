@@ -1,3 +1,4 @@
+using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Git;
@@ -84,7 +85,7 @@ internal static class StorageContent
         [
             .. directories
                 .Where(folder => !folder.Attributes.HasFlag(FileAttributes.ReparsePoint))
-                .Where(folder => strict ? HoldsGitDirectories(folder) : Directory.Exists(Path.Combine(folder.FullName, "install.git")) || Directory.Exists(Path.Combine(folder.FullName, "external.git")))
+                .Where(folder => strict ? HoldsGitDirectories(folder) : HasGitDirectoryNamed(folder.FullName))
                 .Select(folder => folder.FullName)
                 .Order(StringComparer.Ordinal),
         ];
@@ -96,7 +97,7 @@ internal static class StorageContent
     /// </summary>
     /// <param name="gameFolder">A game's folder under the storage root.</param>
     public static bool HoldsStampedGitDirectory(string gameFolder) =>
-        new[] { "install.git", "external.git" }.Any(name => IsStamped(Path.Combine(gameFolder, name)));
+        StorageSnapshot.GitDirectoryNames.Any(name => IsStamped(Path.Combine(gameFolder, name)));
 
     /// <summary>
     /// True when the game folder holds saved history: a git directory that carries SavePoint's stamp and has at least one branch. The
@@ -105,7 +106,7 @@ internal static class StorageContent
     /// </summary>
     /// <param name="gameFolder">A game's folder under the storage root.</param>
     public static bool HoldsHistory(string gameFolder) =>
-        new[] { "install.git", "external.git" }.Select(name => Path.Combine(gameFolder, name)).Any(gitDir => IsStamped(gitDir) && HasBranch(gitDir));
+        StorageSnapshot.GitDirectoryNames.Select(name => Path.Combine(gameFolder, name)).Any(gitDir => IsStamped(gitDir) && HasBranch(gitDir));
 
     /// <summary>True when the git directory has a branch, loose or packed; true as well when that cannot be read.</summary>
     /// <param name="gitDir">A git directory.</param>
@@ -142,8 +143,10 @@ internal static class StorageContent
         }
     }
 
-    private static bool LeadsToGitDirectories(DirectoryInfo link) =>
-        Directory.Exists(Path.Combine(link.FullName, "install.git")) || Directory.Exists(Path.Combine(link.FullName, "external.git"));
+    private static bool LeadsToGitDirectories(DirectoryInfo link) => HasGitDirectoryNamed(link.FullName);
+
+    private static bool HasGitDirectoryNamed(string folder) =>
+        StorageSnapshot.GitDirectoryNames.Any(name => Directory.Exists(Path.Combine(folder, name)));
 
     // Looks inside, so a folder that cannot be opened is an error here and not a folder that "holds nothing" - when it could be one of
     // SavePoint's, which are named by a game id. A folder with any other name (lost+found, a tool's cache) is not SavePoint's to carry.
@@ -151,7 +154,7 @@ internal static class StorageContent
     {
         try
         {
-            return folder.EnumerateDirectories("*", Everything(strict: true)).Any(child => child.Name is "install.git" or "external.git");
+            return folder.EnumerateDirectories("*", Everything(strict: true)).Any(child => StorageSnapshot.GitDirectoryNames.Contains(child.Name));
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {

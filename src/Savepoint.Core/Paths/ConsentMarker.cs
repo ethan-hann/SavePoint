@@ -219,7 +219,12 @@ public static class ConsentMarker
     private static IOException Unreadable(string workTree, ConsentMarkerState.Unreadable state) =>
         new($"The consent marker in '{workTree}' could not be read.", state.Error);
 
-    private static string RoleText(RepoRole role) => role == RepoRole.Install ? "install" : "external";
+    private static string RoleText(RepoRole role) => role switch
+    {
+        RepoRole.Install => "install",
+        RepoRole.Mods => "mods",
+        _ => "external",
+    };
 
     // Absent when the file or its folder is missing; a locked file is retried before the error is passed on.
     private static bool TryReadText(string file, out string text)
@@ -324,6 +329,7 @@ public static class ConsentMarker
         {
             "install" => new ConsentMarkerData(gameId, RepoRole.Install, confirmedAt),
             "external" => new ConsentMarkerData(gameId, RepoRole.External, confirmedAt),
+            "mods" => new ConsentMarkerData(gameId, RepoRole.Mods, confirmedAt),
             _ => null,
         };
     }

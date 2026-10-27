@@ -1,3 +1,4 @@
+using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Git;
@@ -11,7 +12,7 @@ namespace Savepoint.Core.Services.Storage;
 /// </summary>
 internal static class StorageFolderLinks
 {
-    private static readonly string[] _gitDirectoryNames = ["install.git", "external.git"];
+    private static readonly IReadOnlyList<string> _gitDirectoryNames = StorageSnapshot.GitDirectoryNames;
 
     private static EnumerationOptions Everything => new() { AttributesToSkip = 0, IgnoreInaccessible = true, RecurseSubdirectories = false };
 

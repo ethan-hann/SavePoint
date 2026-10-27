@@ -27,18 +27,22 @@ internal sealed class RemovedSnapshots
     /// <param name="CaptureId">The capture event, which is the snapshot's id.</param>
     /// <param name="Install">What the install folder recorded for it, or null.</param>
     /// <param name="External">What the saves folder recorded for it, or null.</param>
-    internal sealed record Group(string CaptureId, RemovedCommit? Install, RemovedCommit? External)
+    /// <param name="Mods">What the mods folder recorded for it, or null.</param>
+    internal sealed record Group(string CaptureId, RemovedCommit? Install, RemovedCommit? External, RemovedCommit? Mods = null)
     {
-        /// <summary>The commit the snapshot is described by, as History describes a point by its install commit when it has one.</summary>
-        public RemovedCommit Lead => Install ?? External!;
+        /// <summary>The commit the snapshot is described by, as History describes a point by its install commit, then its mods commit, when it has one.</summary>
+        public RemovedCommit Lead => Install ?? Mods ?? External!;
 
         public DateTimeOffset At => Lead.Commit.PointTime;
 
-        public DateTimeOffset RemovedAt => Install is { } install && External is { } external
-            ? (install.RemovedAt > external.RemovedAt ? install.RemovedAt : external.RemovedAt)
-            : Lead.RemovedAt;
+        public DateTimeOffset RemovedAt => new[] { Install, Mods, External }.OfType<RemovedCommit>().Max(removed => removed.RemovedAt);
 
-        public RemovedCommit? In(RepoRole role) => role == RepoRole.Install ? Install : External;
+        public RemovedCommit? In(RepoRole role) => role switch
+        {
+            RepoRole.Install => Install,
+            RepoRole.Mods => Mods,
+            _ => External,
+        };
     }
 
     /// <summary>The snapshots listed, newest removal first, and every recorded commit of each folder (held by a profile again or not), which a snapshot's missing folder is resolved against.</summary>
@@ -102,7 +106,7 @@ internal sealed class RemovedSnapshots
             .SelectMany(removed => removed)
             .GroupBy(removed => removed.Commit.CaptureId!, StringComparer.Ordinal)
             .Where(records => records.Any(removed => !removed.OnBranch))
-            .Select(records => new Group(records.Key, Pick(RepoRole.Install, records.Key), Pick(RepoRole.External, records.Key)))
+            .Select(records => new Group(records.Key, Pick(RepoRole.Install, records.Key), Pick(RepoRole.External, records.Key), Pick(RepoRole.Mods, records.Key)))
             .OrderByDescending(group => group.RemovedAt)
             .ThenByDescending(group => group.At)
             .ToList();
@@ -136,7 +140,7 @@ internal sealed class RemovedSnapshots
                 var installState = await _history.InstallStateAsync(game, install, origin?.VersionOverride, commit?.Id, cancellationToken).ConfigureAwait(false);
                 snapshots[index] = new RemovedSnapshot(
                     new HistoryPointId(group.CaptureId),
-                    (group.Install, group.External) switch
+                    (group.Install ?? group.Mods, group.External) switch
                     {
                         (not null, not null) => HistoryPointKind.VersionModsAndSave,
                         (not null, null) => HistoryPointKind.VersionAndMods,

@@ -123,7 +123,7 @@ internal sealed class DataClearer
         // SavePoint made are removed, and a folder that holds anything else stays, so a folder that merely looks like a game's is safe.
         foreach (var folder in listing.Folders)
         {
-            foreach (var gitDir in new[] { Path.Combine(folder, "install.git"), Path.Combine(folder, "external.git") })
+            foreach (var gitDir in StorageSnapshot.GitDirectoryNames.Select(name => Path.Combine(folder, name)))
             {
                 await Attempt(context, left, gitDir, () => GitDirRemoval.RemoveAsync(gitDir, storage.Root, storage.PathSafety.ResolveRealPath, _removeDelays, CancellationToken.None)).ConfigureAwait(false);
             }
