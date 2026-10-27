@@ -42,6 +42,13 @@ public sealed class GameStarter
     public static GameStarter For(IPlatform platform, GameSessionOptions? options = null, TimeProvider? clock = null) =>
         new(GameLaunchers.ForOs(platform.Os), platform.Processes, platform.Os, options ?? new GameSessionOptions(), clock ?? TimeProvider.System);
 
+    /// <summary>
+    /// How long after a game has quit a new copy of it may still show up unseen: two looks at the process list. A store that starts the
+    /// game again does it within seconds, and a copy that has just started is listed at the next look, so a save made sooner than this
+    /// could run just before the game is back.
+    /// </summary>
+    public TimeSpan RelaunchGuard => _options.PollInterval * 2;
+
     /// <summary>True when the process named in <paramref name="launch"/> is running, for the check before a launch.</summary>
     /// <param name="launch">The game's launch settings; a game with no process name cannot be recognized and answers false.</param>
     public bool IsRunning(LaunchConfig launch) =>

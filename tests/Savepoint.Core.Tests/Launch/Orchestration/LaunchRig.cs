@@ -333,6 +333,14 @@ internal sealed class LaunchRig : IDisposable
         Assert.True(await FakeGameProcess.WaitUntilAsync(() => File.Exists(ReadyFile)), "the game never reported that it was running");
     }
 
+    // Starts one more copy of the stand-in game by hand, as a store would start it again after the first one quit. Disposing kills it with the rest.
+    public void StartAnotherCopyOfTheGame()
+    {
+        var file = ExeName + (OperatingSystem.IsWindows() ? ".exe" : string.Empty);
+        var info = new ProcessStartInfo(Path.Combine(InstallPath, file)) { WorkingDirectory = InstallPath, UseShellExecute = false, CreateNoWindow = true };
+        Process.Start(info)?.Dispose();
+    }
+
     public void KillGame()
     {
         foreach (var id in GameProcessIds())
