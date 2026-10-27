@@ -90,10 +90,10 @@ public sealed class CaptureBytesTests : IDisposable
     [Fact]
     public async Task A_store_that_has_all_its_bytes_and_goes_quiet_while_git_works_is_reported_as_finishing()
     {
-        UseQuietStoreWhileGitIsHeld();
+        var progress = new ProgressLog();
+        UseQuietStoreWhileGitIsHeld(progress);
         var repo = await _ws.InitializedRepoAsync();
         _ws.Write(repo, "Data/a.bin", new byte[1000]);
-        var progress = new ProgressLog();
 
         await _ws.CaptureAsync(repo, "profile-1", progress: progress);
 
@@ -107,11 +107,11 @@ public sealed class CaptureBytesTests : IDisposable
     [Fact]
     public async Task A_capture_that_is_stopped_while_finishing_ends_with_a_report_that_is_not_finishing()
     {
-        UseQuietStoreWhileGitIsHeld();
-        var repo = await _ws.InitializedRepoAsync();
-        _ws.Write(repo, "Data/a.bin", new byte[1000]);
         using var stop = new CancellationTokenSource();
         var progress = new ProgressLog { OnReport = report => { if (report.Finishing) { stop.Cancel(); } } };
+        UseQuietStoreWhileGitIsHeld(progress);
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "Data/a.bin", new byte[1000]);
 
         await Assert.ThrowsAsync<Savepoint.Core.Errors.OperationCancelledByUserException>(
             () => _ws.Engine.CaptureAsync(repo, new CaptureRequest("profile-1", "A point", Guid.NewGuid().ToString()), progress, stop.Token));
@@ -120,9 +120,10 @@ public sealed class CaptureBytesTests : IDisposable
         Assert.False(progress.Last.Finishing);
     }
 
-    // The store has all its bytes as soon as git is asked to add, and git is held for half a second, standing in for the wait at the
-    // end of a very large capture. The clock jumps 5 s per sample, so the stillness window passes within the hold.
-    private void UseQuietStoreWhileGitIsHeld()
+    // The store has all its bytes as soon as git is asked to add, and git is held until the capture reports it is finishing (or 30 s pass),
+    // standing in for the wait at the end of a very large capture. The clock jumps 5 s per sample, so the stillness window passes within
+    // the hold.
+    private void UseQuietStoreWhileGitIsHeld(ProgressLog progress)
     {
         var added = false;
         var clock = new ManualTimeProvider();
@@ -139,7 +140,7 @@ public sealed class CaptureBytesTests : IDisposable
                     if (invocation.Arguments[0] == "add")
                     {
                         Volatile.Write(ref added, true);
-                        Thread.Sleep(500);
+                        SpinWait.SpinUntil(() => progress.Reports.Any(report => report.Finishing), TimeSpan.FromSeconds(30));
                     }
                 },
                 ObjectStoreSize = _ => Volatile.Read(ref added) ? 1000 : 0,
