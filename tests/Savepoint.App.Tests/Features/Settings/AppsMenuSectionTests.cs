@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Savepoint.App.Composition;
 using Savepoint.App.Features.Settings;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Platform;
@@ -183,7 +184,7 @@ public sealed class AppsMenuSectionTests : IDisposable
     private static Task<ScreenHarness> StartAsync(AppsMenuEntry? menu) =>
         ScreenHarness.StartAsync(
             "settings",
-            context => [new SettingsScreenFactory(context, new SettingsEnvironment(new RecordingFileRevealer(), () => null, "1.2.3", AppsMenu: menu))],
+            context => [new SettingsScreenFactory(FeatureComposition.SettingsDependenciesOf(context, new SettingsEnvironment(new RecordingFileRevealer(), () => null, "1.2.3", AppsMenu: menu)))],
             NavDestination.Settings,
             FakeBackend.Sample(),
             Savepoint.Core.Catalog.ThemePreference.Dark,

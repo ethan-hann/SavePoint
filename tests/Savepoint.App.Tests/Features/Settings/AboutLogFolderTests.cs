@@ -89,7 +89,7 @@ public class AboutLogFolderTests
     private static Task<ScreenHarness> StartAsync(string? logFolder) =>
         ScreenHarness.StartAsync(
             "settings",
-            context => [new SettingsScreenFactory(context, new SettingsEnvironment(new RecordingFileRevealer(), () => @"C:\SavePoint\THIRD-PARTY-NOTICES.md", "1.2.3", logFolder))],
+            context => [new SettingsScreenFactory(FeatureComposition.SettingsDependenciesOf(context, new SettingsEnvironment(new RecordingFileRevealer(), () => @"C:\SavePoint\THIRD-PARTY-NOTICES.md", "1.2.3", logFolder)))],
             NavDestination.Settings,
             FakeBackend.Sample(),
             Savepoint.Core.Catalog.ThemePreference.Dark,

@@ -69,7 +69,7 @@ internal sealed class HistoryRig
             text,
             new ToastHostViewModel(new ManualTimeProvider(), new ImmediateUiDispatcher()),
             new ImmediateUiDispatcher());
-        var factory = new CapturingFactory(new HistoryScreenFactory(context, backend.Clock));
+        var factory = new CapturingFactory(new HistoryScreenFactory(FeatureComposition.HistoryDependenciesOf(context, backend.Clock)));
         var shell = await ShellRig.StartAsync(backend, screens: [factory], launchFlow: flow);
         return new HistoryRig(shell, (HistoryScreenViewModel)factory.Created!, flow, backend, text, dialogs);
     }

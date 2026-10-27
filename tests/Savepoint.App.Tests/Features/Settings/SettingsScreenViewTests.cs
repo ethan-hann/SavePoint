@@ -36,7 +36,7 @@ public class SettingsScreenViewTests
         backend ??= new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Theme = theme }));
         return ScreenHarness.StartAsync(
             "settings",
-            context => [new SettingsScreenFactory(context, new SettingsEnvironment(new RecordingFileRevealer(), () => notices, "1.2.3", FindLicense: () => license))],
+            context => [new SettingsScreenFactory(FeatureComposition.SettingsDependenciesOf(context, new SettingsEnvironment(new RecordingFileRevealer(), () => notices, "1.2.3", FindLicense: () => license)))],
             NavDestination.Settings,
             backend,
             theme,

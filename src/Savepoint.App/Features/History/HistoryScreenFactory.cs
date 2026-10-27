@@ -1,4 +1,3 @@
-using Savepoint.App.Composition;
 using Savepoint.App.Features.Shell;
 
 namespace Savepoint.App.Features.History;
@@ -6,26 +5,17 @@ namespace Savepoint.App.Features.History;
 /// <summary>Builds the History screen for the shell.</summary>
 public sealed class HistoryScreenFactory : IScreenFactory
 {
-    private readonly FeatureContext _context;
-    private readonly TimeProvider _clock;
+    private readonly HistoryDependencies _dependencies;
 
-    /// <param name="context">The shared App services.</param>
-    /// <param name="clock">What "this week" is measured from.</param>
-    public HistoryScreenFactory(FeatureContext context, TimeProvider clock)
+    /// <param name="dependencies">What the screen is built from.</param>
+    public HistoryScreenFactory(HistoryDependencies dependencies)
     {
-        _context = context;
-        _clock = clock;
+        _dependencies = dependencies;
     }
 
     /// <inheritdoc />
     public NavDestination Destination => NavDestination.History;
 
     /// <inheritdoc />
-    public IScreen Create(IShellContext shell)
-    {
-        var services = _context.Services;
-        return new HistoryScreenViewModel(
-            shell,
-            new HistoryDependencies(services.History, services.Profiles, services.Games, services.Jobs, _context.Dialogs, _context.Text, _context.Dispatcher, _clock));
-    }
+    public IScreen Create(IShellContext shell) => new HistoryScreenViewModel(shell, _dependencies);
 }

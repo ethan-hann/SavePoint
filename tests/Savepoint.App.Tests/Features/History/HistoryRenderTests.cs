@@ -1,4 +1,5 @@
 using Avalonia.Headless.XUnit;
+using Savepoint.App.Composition;
 using Savepoint.App.Features.History;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Tests.Fakes;
@@ -15,7 +16,7 @@ public class HistoryRenderTests
     {
         backend ??= new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Theme = theme }));
         var clock = backend.Clock;
-        return await ScreenHarness.StartAsync("history", context => [new HistoryScreenFactory(context, clock)], NavDestination.History, backend, theme);
+        return await ScreenHarness.StartAsync("history", context => [new HistoryScreenFactory(FeatureComposition.HistoryDependenciesOf(context, clock))], NavDestination.History, backend, theme);
     }
 
     private static void AssertRendered(string path) =>
@@ -84,7 +85,7 @@ public class HistoryRenderTests
     {
         var backend = new FakeBackend(RemovedSnapshotSamples.Scenario().WithSettings(SampleScenario.Settings with { Theme = theme }));
         var clock = backend.Clock;
-        var harness = await ScreenHarness.StartAsync("history", context => [new HistoryScreenFactory(context, clock)], NavDestination.History, backend, theme, width, height, realDialogs);
+        var harness = await ScreenHarness.StartAsync("history", context => [new HistoryScreenFactory(FeatureComposition.HistoryDependenciesOf(context, clock))], NavDestination.History, backend, theme, width, height, realDialogs);
         var screen = (HistoryScreenViewModel)harness.Shell.CurrentScreen!;
         if (list)
         {
@@ -153,7 +154,7 @@ public class HistoryRenderTests
     {
         var backend = new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings));
         var clock = backend.Clock;
-        using var harness = await ScreenHarness.StartAsync("history", context => [new HistoryScreenFactory(context, clock)], NavDestination.History, backend, ThemePreference.Dark, width: 760);
+        using var harness = await ScreenHarness.StartAsync("history", context => [new HistoryScreenFactory(FeatureComposition.HistoryDependenciesOf(context, clock))], NavDestination.History, backend, ThemePreference.Dark, width: 760);
 
         AssertRendered(harness.Render("history-cards-narrow-dark"));
     }
