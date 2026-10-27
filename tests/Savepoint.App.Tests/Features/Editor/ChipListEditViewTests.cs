@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
@@ -24,8 +25,8 @@ public class ChipListEditViewTests
         harness.Settle();
     }
 
-    private static List<Border> Chips(EditorViewHarness harness) =>
-        [.. harness.Find<ContentControl>("IgnoreRulesHost").GetVisualDescendants().OfType<Border>().Where(border => border.Name == "ChipText")];
+    private static List<ChipEditButton> Chips(EditorViewHarness harness) =>
+        [.. harness.Find<ContentControl>("IgnoreRulesHost").GetVisualDescendants().OfType<ChipEditButton>()];
 
     private static ChipEntryBox OpenField(EditorViewHarness harness) =>
         harness.Find<ContentControl>("IgnoreRulesHost").GetVisualDescendants().OfType<ChipEntryBox>()
@@ -58,6 +59,21 @@ public class ChipListEditViewTests
         Assert.Equal($"Edit **/*.log in {_rulesList}", peer.GetName());
         Assert.Equal(AutomationControlType.Button, peer.GetAutomationControlType());
         Assert.True(peer.IsKeyboardFocusable());
+    }
+
+    [AvaloniaFact]
+    public async Task A_screen_readers_invoke_command_on_a_chip_opens_it_for_editing()
+    {
+        using var harness = await EditorViewHarness.StartAsync();
+        harness.Edit();
+        var chip = Chips(harness)[0];
+
+        var invoke = Assert.IsAssignableFrom<IInvokeProvider>(ControlAutomationPeer.CreatePeerForElement(chip));
+        invoke.Invoke();
+        harness.Settle();
+
+        Assert.True(OpenField(harness).IsFocused);
+        Assert.Equal("**/*.log", OpenField(harness).Text);
     }
 
     [AvaloniaFact]
@@ -151,6 +167,21 @@ public class ChipListEditViewTests
 
         Assert.True(OpenField(harness).IsFocused);
         Assert.Equal("**/*.log", OpenField(harness).Text);
+    }
+
+    [AvaloniaFact]
+    public async Task A_single_click_on_a_chip_does_not_open_it()
+    {
+        using var harness = await EditorViewHarness.StartAsync(height: 1600);
+        var editor = harness.Edit();
+        var chip = Chips(harness)[0];
+        var point = chip.TranslatePoint(new Point(chip.Bounds.Width / 2, chip.Bounds.Height / 2), harness.Window)!.Value;
+
+        harness.Window.MouseDown(point, MouseButton.Left);
+        harness.Window.MouseUp(point, MouseButton.Left);
+        harness.Settle();
+
+        Assert.All(editor.IgnoreRules.Items, item => Assert.False(item.IsEditing));
     }
 
     [AvaloniaFact]

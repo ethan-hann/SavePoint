@@ -21,7 +21,7 @@ public partial class ChipListView : UserControl
 
     private void OnDoubleTapped(object? sender, TappedEventArgs e)
     {
-        if (e.Source is Visual source && source.FindAncestorOfType<Border>(includeSelf: true) is { Name: "ChipText", DataContext: ChipItem chip })
+        if (e.Source is Visual source && source.FindAncestorOfType<ChipEditButton>(includeSelf: true) is { DataContext: ChipItem chip })
         {
             chip.BeginEditCommand.Execute(null);
             e.Handled = true;
@@ -29,8 +29,8 @@ public partial class ChipListView : UserControl
     }
 
     // Enter or Escape closes the field, which drops keyboard focus out of the form; it goes back to the chip. Leaving the
-    // field some other way keeps the focus where the player put it. The key binding handles Enter and Escape first, so this
-    // also listens for handled keys.
+    // field some other way keeps the focus where the player put it. This tunnel handler sees the key before the field's key
+    // binding closes the field, and it posts the focus move so that it lands after the field has closed.
     private void OnEditKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key is not (Key.Enter or Key.Escape) || e.Source is not ChipEntryBox { DataContext: ChipItem chip } || DataContext is not ChipListViewModel list)
@@ -44,7 +44,7 @@ public partial class ChipListView : UserControl
 
     private void FocusChipText(int index)
     {
-        var chips = Chips.GetVisualDescendants().OfType<Border>().Where(border => border.Name == "ChipText").ToList();
+        var chips = Chips.GetVisualDescendants().OfType<ChipEditButton>().ToList();
         if (index >= 0 && index < chips.Count)
         {
             chips[index].Focus(NavigationMethod.Tab);
@@ -55,7 +55,7 @@ public partial class ChipListView : UserControl
     // removed one's place, or to the add chip after the last one.
     private void OnClick(object? sender, RoutedEventArgs e)
     {
-        if (e.Source is not Button { DataContext: ChipItem chip } || DataContext is not ChipListViewModel list)
+        if (e.Source is not Button { DataContext: ChipItem chip } button || button is ChipEditButton || DataContext is not ChipListViewModel list)
         {
             return;
         }
@@ -67,7 +67,7 @@ public partial class ChipListView : UserControl
     private void FocusAfterRemoval(int index)
     {
         var buttons = Chips.GetVisualDescendants().OfType<Button>().ToList();
-        var removers = buttons.Where(button => button.DataContext is ChipItem).ToList();
+        var removers = buttons.Where(button => button.DataContext is ChipItem && button is not ChipEditButton).ToList();
         var next = removers.Count > 0
             ? removers[Math.Min(index, removers.Count - 1)]
             : buttons.FirstOrDefault(button => button.Name == "AddChip");
