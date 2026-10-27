@@ -15,5 +15,7 @@ internal sealed class RelocatedPlatform(IPlatform inner, AppDirectories director
 
     public IProcessInspector Processes => inner.Processes;
 
+    public ISteamClient Steam => inner.Steam;
+
     public PathDenylist Denylist(IEnumerable<string> extraBlockedRoots) => inner.Denylist(extraBlockedRoots);
 }

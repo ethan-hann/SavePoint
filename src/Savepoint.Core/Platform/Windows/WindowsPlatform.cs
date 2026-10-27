@@ -1,3 +1,4 @@
+using Savepoint.Core.Launch;
 using Savepoint.Core.Paths;
 
 namespace Savepoint.Core.Platform.Windows;
@@ -58,6 +59,7 @@ public sealed class WindowsPlatform : IPlatform
         };
 
         Processes = processes ?? new WindowsProcessInspector();
+        Steam = new SteamClient(OsKind.Windows, Processes, static () => OperatingSystem.IsWindows() ? WindowsSteamRegistry.ReadSignIn() : null, _paths.SteamFolder, new SystemProcessStarter());
     }
 
     /// <inheritdoc />
@@ -74,6 +76,9 @@ public sealed class WindowsPlatform : IPlatform
 
     /// <inheritdoc />
     public IProcessInspector Processes { get; }
+
+    /// <inheritdoc />
+    public ISteamClient Steam { get; }
 
     /// <inheritdoc />
     public PathDenylist Denylist(IEnumerable<string> extraBlockedRoots)

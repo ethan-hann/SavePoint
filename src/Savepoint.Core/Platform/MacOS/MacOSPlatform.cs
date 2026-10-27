@@ -1,3 +1,4 @@
+using Savepoint.Core.Launch;
 using Savepoint.Core.Paths;
 
 namespace Savepoint.Core.Platform.MacOS;
@@ -53,6 +54,7 @@ public sealed class MacOSPlatform : IPlatform
 
         _steam = new SteamFolders(_paths, clock);
         Processes = processes ?? new MacOSProcessInspector();
+        Steam = new SteamClient(OsKind.MacOS, Processes, static () => null, _paths.SteamFolder, new SystemProcessStarter());
     }
 
     /// <inheritdoc />
@@ -69,6 +71,9 @@ public sealed class MacOSPlatform : IPlatform
 
     /// <inheritdoc />
     public IProcessInspector Processes { get; }
+
+    /// <inheritdoc />
+    public ISteamClient Steam { get; }
 
     /// <inheritdoc />
     public PathDenylist Denylist(IEnumerable<string> extraBlockedRoots)
