@@ -140,7 +140,7 @@ public class AppearanceUiScaleTests
         Assert.All(options.Where(option => option.Percent > 150), option => Assert.False(option.IsAvailable));
         var off = options.Single(option => option.Percent == 175);
         Assert.Equal("Your screen is too small for this size.", off.Reason);
-        Assert.Equal("175%, Your screen is too small for this size.", off.AccessibleName);
+        Assert.Equal("175%. Your screen is too small for this size.", off.AccessibleName);
         Assert.Null(options.Single(option => option.Percent == 150).Reason);
         Assert.Equal("150%", options.Single(option => option.Percent == 150).AccessibleName);
     }
