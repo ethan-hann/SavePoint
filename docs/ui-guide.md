@@ -35,7 +35,7 @@ How to build a screen in `Savepoint.App`. The headless renders in `render-output
 ### Where features sit
 
 - **Search (D64):** a search box over the games list (the rail and the library shelf, but not the narrow icon rail), above a game's profile table, and in History beside a Saves / Game and mods choice. Ctrl+F (Cmd+F on macOS) focuses the search of the screen in front and does nothing behind a dialog or the tour. Escape clears. While a search narrows the profile table, its header shows the count.
-- **Profile row menu:** More actions and a right-click menu (also the Menu key and Shift+F10 on a selected row) show the same items from one list, `ProfileRowViewModel.MenuEntries`, including "Open game folder", "Open mods folder" and "Open saves folder" for the folders the game has.
+- **Profile row menu:** More actions and a right-click menu (also the Menu key and Shift+F10 on a selected row, which open it below that row) show the same items from one list, `ProfileRowViewModel.MenuEntries`, including "Open game folder", "Open mods folder" and "Open saves folder" for the folders the game has.
 - **New profile wizard:** the first step offers "Start with no saves" and, for a game with a mods folder, "Start with no mods" (D65). A box is off, with its reason as help text, until that folder's files are in a snapshot.
 - **Interface size (D63):** in Settings > Appearance. Sizes the screen cannot hold are off, with the reason.
 - **Activity:** in the sidebar layout, a chip next to History in the Games tab strip. The library layout uses the top navigation.
